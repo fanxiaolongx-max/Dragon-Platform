@@ -136,9 +136,9 @@ function createLogoRouter(options = {}) {
                 const assets = await storeAssets(fs.readFileSync(logoPath), (req.files || []).map(file => file.buffer));
                 for (const [name, bytes] of Object.entries(assets)) { zip.file(name, Buffer.from(bytes)); includedFiles.push(name); }
             }
-            let platformName = 'Tools Platform';
+            let platformName = 'Dragon Claw';
             try {
-                platformName = (await navSettingsRepo.getSettings()).platformName || 'Tools Platform';
+                platformName = (await navSettingsRepo.getSettings()).platformName || 'Dragon Claw';
             } catch (_) {}
             const readme = buildAssetsManifest(platformName, current, includedFiles);
             zip.file('README.txt', readme);

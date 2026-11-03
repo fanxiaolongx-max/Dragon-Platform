@@ -309,6 +309,11 @@
             .slide { margin: 0; border: none; }
         }
     </style>
+<style id="platform-light-theme">
+/* 平台亮色主题：只把胶片外围的深灰底换成浅灰，胶片本身保持原样 */
+html[data-platform-theme="light"] { color-scheme: light; }
+@media screen { html[data-platform-theme="light"] body { background: #eceef2 !important; } html[data-platform-theme="light"] .slide { box-shadow: 0 12px 40px rgba(15, 23, 42, 0.12); } }
+</style>
 </head>
 <body>
 

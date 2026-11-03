@@ -977,7 +977,7 @@
     fab.setAttribute('aria-label', '打开Dragon Claw智能体');
     fab.setAttribute('aria-expanded', 'false');
     fab.setAttribute('title', 'Dragon Claw智能体');
-    fab.innerHTML = '<span class="ai-fab-orb" aria-hidden="true"><img class="ai-fab-avatar" src="/assets/dragon-claw-avatar.jpg" alt="" draggable="false"><span class="ai-fab-dot"></span></span><span class="ai-fab-label">Dragon Claw</span>';
+    fab.innerHTML = '<span class="ai-fab-orb" aria-hidden="true"><img class="ai-fab-avatar" src="/assets/logo.png" alt="" draggable="false"><span class="ai-fab-dot"></span></span><span class="ai-fab-label">Dragon Claw</span>';
     document.body.appendChild(fab);
 
     const proactiveAlert = document.createElement('div');
@@ -996,7 +996,7 @@
     panel.innerHTML = `
         <div class="ai-header">
             <div class="ai-brand">
-                <div class="ai-brand-mark" aria-hidden="true"><img src="/assets/dragon-claw-avatar.jpg?v=20260924-01" alt="Dragon Claw"></div>
+                <div class="ai-brand-mark" aria-hidden="true"><img src="/assets/logo.png" alt="Dragon Claw"></div>
                 <div class="ai-brand-copy">
                     <div class="ai-brand-title"><span class="ai-brand-title-full">Dragon Claw智能体</span><span class="ai-brand-title-compact">Dragon Claw</span></div>
                     <div class="ai-brand-subtitle"><span class="ai-brand-subtitle-full">项目知识 · 数据分析 · 运营建议</span><span class="ai-brand-subtitle-compact">知识 · 数据 · 运营</span></div>

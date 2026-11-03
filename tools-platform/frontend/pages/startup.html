@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dragon Platform 正在启动</title>
+    <title>Dragon Claw 正在启动</title>
     <!--
         绿色版两段式启动共用这一页：
         - 阶段 1（NSIS 解压）显示的 portable-splash.bmp 由 `npm run splash:generate` 以 ?snapshot=1 截取本页首帧生成；
@@ -13,14 +13,14 @@
     -->
     <style>
         :root {
-            color-scheme: dark;
-            --bg: #070c18;
-            --text: #e2e8f0;
-            --muted: #8b9ab3;
-            --faint: #5b6b84;
-            --accent: #64ffda;
-            --accent-2: #60a5fa;
-            --accent-3: #a78bfa;
+            color-scheme: light;
+            --bg: #f7f8fa;
+            --text: #20252c;
+            --muted: #586373;
+            --faint: #697484;
+            --accent: #087f62;
+            --accent-2: #3c6e9d;
+            --accent-3: #756899;
             --split: 30%;
             --p: 26%;
             font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
@@ -42,12 +42,12 @@
             inset: 0;
             overflow: hidden;
             isolation: isolate;
-            border: 1px solid rgba(148, 163, 184, .16);
+            border: 1px solid #dce2e9;
             border-radius: 16px;
             color: var(--text);
             background:
-                radial-gradient(120% 90% at 50% -10%, rgba(30, 58, 95, .62), transparent 62%),
-                linear-gradient(180deg, #0c1527, var(--bg));
+                radial-gradient(120% 90% at 50% -10%, rgba(204, 228, 220, .32), transparent 62%),
+                linear-gradient(180deg, #ffffff, var(--bg));
             transition: opacity .42s ease, transform .42s cubic-bezier(.2, .8, .2, 1), filter .42s ease;
         }
         body.is-snapshot .card { border-radius: 0; }
@@ -62,7 +62,7 @@
             width: 38%;
             height: 1px;
             z-index: 2;
-            background: linear-gradient(90deg, transparent, rgba(100, 255, 218, .85), rgba(167, 139, 250, .7), transparent);
+            background: linear-gradient(90deg, transparent, rgba(8, 127, 98, .6), rgba(60, 110, 157, .45), transparent);
             transform: translateX(-110%);
             animation: sweep 5.6s cubic-bezier(.45, 0, .2, 1) 1.2s infinite;
         }
@@ -76,14 +76,14 @@
             filter: blur(46px);
             animation: drift 18s ease-in-out infinite alternate;
         }
-        .ambient span:nth-child(1) { width: 260px; left: -70px; top: -120px; background: #0ea5a4; opacity: .34; }
-        .ambient span:nth-child(2) { width: 280px; right: -110px; top: -40px; background: #3b82f6; opacity: .30; animation-duration: 22s; }
-        .ambient span:nth-child(3) { width: 300px; left: 210px; bottom: -230px; background: #8b5cf6; opacity: .24; animation-duration: 26s; }
+        .ambient span:nth-child(1) { width: 260px; left: -70px; top: -120px; background: #0ea5a4; opacity: .09; }
+        .ambient span:nth-child(2) { width: 280px; right: -110px; top: -40px; background: #3b82f6; opacity: .06; animation-duration: 22s; }
+        .ambient span:nth-child(3) { width: 300px; left: 210px; bottom: -230px; background: #8b5cf6; opacity: .04; animation-duration: 26s; }
         .grain {
             position: absolute;
             inset: 0;
             z-index: -1;
-            opacity: .5;
+            opacity: .3;
             background-image: radial-gradient(rgba(148, 163, 184, .16) 1px, transparent 1px);
             background-size: 18px 18px;
             -webkit-mask-image: radial-gradient(80% 70% at 85% 10%, #000, transparent 70%);
@@ -105,7 +105,7 @@
             position: absolute;
             inset: 0;
             border-radius: 50%;
-            background: conic-gradient(from 210deg, #64ffda, #60a5fa, #a78bfa, #f472b6, #64ffda);
+            background: conic-gradient(from 210deg, #087f62, #86b7c8, #b0b6ce, #8fc9b6, #087f62);
             -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
             mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
             animation: spin 7s linear infinite;
@@ -114,24 +114,24 @@
             position: absolute;
             inset: -8px;
             border-radius: 50%;
-            background: conic-gradient(from 210deg, #64ffda, #60a5fa, #a78bfa, #f472b6, #64ffda);
+            background: conic-gradient(from 210deg, #087f62, #86b7c8, #b0b6ce, #8fc9b6, #087f62);
             filter: blur(16px);
-            opacity: .32;
+            opacity: .12;
             animation: breathe 3.8s ease-in-out infinite;
         }
         .crest .well {
             position: absolute;
             inset: 6px;
             border-radius: 50%;
-            background: radial-gradient(circle at 50% 30%, #15233d, #0a1222 72%);
-            box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08);
+            background: radial-gradient(circle at 50% 30%, #ffffff, #edf2f5 72%);
+            box-shadow: inset 0 0 0 1px rgba(117, 137, 155, .12);
         }
         .crest img {
             position: relative;
             width: 48px;
             height: 48px;
             object-fit: contain;
-            filter: drop-shadow(0 6px 12px rgba(0, 0, 0, .4));
+            filter: drop-shadow(0 6px 12px rgba(46, 68, 84, .12));
         }
         .brand strong {
             display: block;
@@ -139,7 +139,7 @@
             font-weight: 650;
             letter-spacing: -.02em;
             line-height: 1.15;
-            background: linear-gradient(90deg, #e6fffa, #93c5fd 55%, #c4b5fd);
+            background: linear-gradient(90deg, #20252c, #304d52);
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -147,7 +147,7 @@
         .brand span {
             display: block;
             margin-top: 6px;
-            color: rgba(100, 255, 218, .78);
+            color: var(--accent);
             font-size: 10px;
             font-weight: 700;
             letter-spacing: .24em;
@@ -156,7 +156,7 @@
         .status { align-self: center; padding-top: 4px; }
         .status h1 {
             margin: 0;
-            color: #f1f5f9;
+            color: var(--text);
             font-size: 19px;
             font-weight: 650;
             letter-spacing: .01em;
@@ -179,7 +179,7 @@
             align-items: baseline;
             justify-content: space-between;
             margin-bottom: 10px;
-            color: rgba(203, 213, 225, .72);
+            color: var(--muted);
             font-size: 11px;
         }
         #percent {
@@ -191,7 +191,7 @@
             position: relative;
             height: 6px;
             border-radius: 999px;
-            background: rgba(2, 6, 23, .55);
+            background: #e3e8ed;
             box-shadow: inset 0 0 0 1px rgba(148, 163, 184, .12);
         }
         /* 阶段分界刻度：左侧 0–30% 为解压，右侧为服务启动 */
@@ -210,8 +210,8 @@
             width: var(--p);
             overflow: hidden;
             border-radius: inherit;
-            background: linear-gradient(90deg, #2dd4bf, #60a5fa 62%, #a78bfa);
-            box-shadow: 0 0 14px rgba(45, 212, 191, .45);
+            background: linear-gradient(90deg, #087f62, #2c9983 62%, #5a8fa7);
+            box-shadow: 0 0 8px rgba(8, 127, 98, .1);
         }
         .fill::after {
             content: "";
@@ -230,8 +230,8 @@
             height: 10px;
             margin: -5px 0 0 -5px;
             border-radius: 50%;
-            background: #e0fffa;
-            box-shadow: 0 0 6px 2px rgba(100, 255, 218, .9), 0 0 18px 6px rgba(96, 165, 250, .45);
+            background: #087f62;
+            box-shadow: 0 0 0 3px rgba(8, 127, 98, .1);
             animation: pulse 1.6s ease-in-out infinite;
         }
         .steps {
@@ -245,13 +245,13 @@
         .steps span { position: absolute; top: 0; transition: color .4s ease; }
         .steps span:first-child { left: 0; }
         .steps span:last-child { left: calc(var(--split) + 8px); }
-        .steps span.is-active { color: rgba(226, 232, 240, .9); }
-        .steps span.is-done { color: rgba(100, 255, 218, .7); }
+        .steps span.is-active { color: var(--text); }
+        .steps span.is-done { color: var(--accent); }
         .steps span.is-done::before { content: "✓ "; }
 
         body.is-error .fill { background: linear-gradient(90deg, #fb923c, #f43f5e); box-shadow: 0 0 14px rgba(244, 63, 94, .4); }
         body.is-error .spark { display: none; }
-        body.is-error #percent, body.is-error .brand span { color: #fda4af; }
+        body.is-error #percent, body.is-error .brand span { color: #b42332; }
         body.is-error .crest .ring, body.is-error .crest .halo { animation-play-state: paused; filter: grayscale(.6); }
 
         /* 首帧冻结：阶段 2 显示后才开始播放，从 0% 关键帧起步，保证与阶段 1 的静态 BMP 无缝衔接 */
@@ -259,7 +259,7 @@
         body.is-snapshot *, body.is-snapshot *::before, body.is-snapshot *::after { animation: none !important; transition: none !important; }
 
         @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes breathe { 0%, 100% { opacity: .32; transform: scale(1); } 50% { opacity: .55; transform: scale(1.06); } }
+        @keyframes breathe { 0%, 100% { opacity: .12; transform: scale(1); } 50% { opacity: .2; transform: scale(1.06); } }
         @keyframes drift {
             0% { transform: translate(0, 0) rotate(0deg) scale(1); }
             50% { transform: translate(28px, 18px) rotate(40deg) scale(1.08); }
@@ -286,7 +286,7 @@
                     <img src="../assets/icon-windows-portable.png" alt="">
                 </div>
                 <div class="brand">
-                    <strong>Dragon Platform</strong>
+                    <strong>Dragon Claw</strong>
                     <span>DRAGON CLAW · AI WORKSPACE</span>
                 </div>
             </header>

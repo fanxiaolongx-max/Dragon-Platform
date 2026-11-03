@@ -3,18 +3,21 @@
  const API='/api/desktop-agents';
  let enabled=false,locked=false,modeSaving=false,root,epoch=0,currentSessionId=null,activeJob=null,tracking=null,identity='',availabilityRevision=0,availabilityRequest=null;
  let availability={available:false,reason:'checking'};
- const readiness=Object.fromEntries(['codex','claudecode','antigravity','weixin','welink'].map(id=>[id,{ready:false,reason:'checking'}]));
+ const readiness=Object.fromEntries(['codex','claudecode','antigravity','weixin','welink-cli','welink','netcare'].map(id=>[id,{ready:false,reason:'checking'}]));
 
  // 连接器勾选状态：三家桌面 Agent 可多选（1 个为单聊，2 或 3 个为多 Agent 协同讨论）；
- // 微信与 WeLink 互斥，且与桌面 Agent 互斥。
+ // 微信、两类 WeLink 和 NetCare 各自为独立场景，与桌面 Agent 互斥。
  const connectors = {
    codex: false,
    claudecode: false,
    antigravity: false,
    weixin: false,
-   welink: false
+   welink: false,
+   'welink-cli': false,
+   netcare: false
  };
 
+ const TOOL_SKILLS={'welink-cli':'welink-office',netcare:'netcare-data'};
  const L=(zh,en)=>/^en/.test(window.ToolsI18n?.getLanguage?.()||localStorage.getItem('tools_lang')||'')?en:zh;
  const who=()=>['tools_user','tools_tenant_id','tools_token'].map(k=>localStorage.getItem(k)||sessionStorage.getItem(k)||'').join('|');
  async function request(method,url,body){
@@ -39,7 +42,19 @@
   if(availabilityRequest&&!force)return availabilityRequest;
   const version=++availabilityRevision,account=who();
   const pending=(async()=>{
-   const next=Object.fromEntries(Object.keys(connectors).map(id=>[id,{ready:false,reason:'offline'}]));
+   const next=Object.fromEntries(Object.keys(connectors).filter(id=>!TOOL_SKILLS[id]).map(id=>[id,{ready:false,reason:'offline'}]));
+   // CLI authentication can be slow. It must not delay desktop agents or SDK channels.
+   const tools=Promise.allSettled(Object.keys(TOOL_SKILLS).map(async id=>{
+    let status={ready:false,reason:'error'};
+    try{
+     const token=localStorage.getItem('tools_token')||sessionStorage.getItem('tools_token');
+     const response=await fetch('/api/ai/connector-status?id='+encodeURIComponent(id),{cache:'no-store',credentials:'same-origin',headers:{Authorization:'Bearer '+token}});
+     if(!response.ok)throw Error('Connector unavailable');
+     const data=await response.json(),item=(data.items||[]).find(item=>item.id===id);
+     if(item)status={ready:item.ready===true,reason:item.reason||''};
+    }catch{/* Disabled until its status can be verified. */}
+    if(version===availabilityRevision&&account===who()){readiness[id]=status;render();}
+   }));
    const [desktop,channels]=await Promise.allSettled([
     (async()=>{const data=await request('GET','/settings');return {data,sessions:data.owned&&data.settings?.enabled?await request('GET','/sessions'):{providers:[]}};})(),
     (async()=>{const token=localStorage.getItem('tools_token')||sessionStorage.getItem('tools_token');const response=await fetch('/api/channels/available',{cache:'no-store',credentials:'same-origin',headers:{Authorization:'Bearer '+token}});if(!response.ok)throw Error('Channels unavailable');return response.json();})()
@@ -62,6 +77,7 @@
     availability={available:['codex','claudecode','antigravity'].some(id=>next[id].ready),reason:'offline'};
     render();
    }
+   await tools;
   })();
   availabilityRequest=pending;
   try{await pending;}finally{if(availabilityRequest===pending)availabilityRequest=null;}
@@ -74,6 +90,7 @@
  function getSelectedConnector(){
    if(connectors.weixin) return 'weixin';
    if(connectors.welink) return 'welink';
+   for(const id of Object.keys(TOOL_SKILLS))if(connectors[id])return id;
    const agents = getSelectedAgents();
    if(agents.length === 1) return 'desktop:' + agents[0];
    if(agents.length > 1) return 'discussion';
@@ -86,9 +103,9 @@
  }
  function updateConnectors(key,checked){
   if(locked||modeSaving||!Object.hasOwn(connectors,key)||checked&&!readiness[key].ready){render();return;}
-  if(checked&&(key==='weixin'||key==='welink'))setSelection([key]);
+  if(checked&&['weixin','welink',...Object.keys(TOOL_SKILLS)].includes(key))setSelection([key]);
   else{
-   if(checked){connectors.weixin=false;connectors.welink=false;}
+   if(checked)for(const id of ['weixin','welink',...Object.keys(TOOL_SKILLS)])connectors[id]=false;
    connectors[key]=checked;enabled=getSelectedAgents().length>1;
   }
   // Draft configuration only. Opening or creating a native session happens on Send.
@@ -102,11 +119,14 @@
  function validateSelection(){
   if(locked)return;
   const unavailable=Object.keys(connectors).find(key=>connectors[key]&&!readiness[key].ready);
-  if(unavailable)throw Error((providerNames[unavailable]||unavailable)+' · '+L('连接器尚未就绪，请检查连接或取消勾选','Connector is unavailable. Check its connection or deselect it.'));
+  if(unavailable)throw Error(connectorName(unavailable)+' · '+L('连接器尚未就绪，请检查连接或取消勾选','Connector is unavailable. Check its connection or deselect it.'));
  }
 
  const providerNames={codex:'Codex',claudecode:'Claude Code',antigravity:'Antigravity'};
 
+ const connectorName=key=>providerNames[key]||({weixin:L('微信','WeChat'),welink:L('WeLink 助手','WeLink Assistant'),'welink-cli':L('WeLink 官方','WeLink Official'),netcare:L('数字人 NetCare','NetCare Digital Human')})[key]||key;
+
+ const NETCARE_SVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="6" width="16" height="14" rx="4"/><path d="M12 3v3M8 14h.01M16 14h.01M9 17h6" stroke-linecap="round"/></svg>';
  const WX_SVG = `<svg viewBox="0 0 24 24"><path d="M9.5 4C5.36 4 2 6.91 2 10.5c0 1.93.9 3.68 2.34 4.88-.13.62-.51 2.05-.62 2.45-.16.58.26.47.53.33.45-.24 2.1-1.39 2.53-1.68.73.22 1.48.32 2.22.32h.5c-.13-.42-.2-.86-.2-1.3 0-3.31 3.13-6 7-6 .17 0 .33 0 .5.02C16.14 6.27 13.06 4 9.5 4zm-2.25 4a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5zm5 0a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5zm3.75 3.5c-3.31 0-6 2.24-6 5s2.69 5 6 5c.61 0 1.22-.08 1.8-.25.35.24 1.7 1.17 2.07 1.36.22.11.56.2.43-.27-.09-.33-.4-1.48-.5-1.98 1.18-.97 1.9-2.39 1.9-3.86 0-2.76-2.69-5-6-5zm-1.75 3a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3.75 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/></svg>`;
  const WL_SVG = `<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14.93V19h-2v-2.07c-2.83-.48-5-2.94-5-5.93 0-3.31 2.69-6 6-6s6 2.69 6 6c0 2.99-2.17 5.45-5 5.93zM12 8c-2.21 0-4 1.79-4 4 0 1.86 1.28 3.41 3 3.86V8.14C11.67 8.05 11.83 8 12 8zm1 7.86c1.72-.45 3-2 3-3.86 0-2.21-1.79-4-4-4-.17 0-.33.05-.5.09v7.72c.17.03.33.05.5.05z"/></svg>`;
  const CONNECTOR_ICON = `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="6" cy="6" r="3"/><circle cx="14" cy="6" r="3"/><circle cx="10" cy="14" r="3"/><path d="M8.5 7.5l-1 4m5-4l1 4M9 6h2"/></svg>`;
@@ -118,7 +138,9 @@
 
    if(connectors.weixin){
      avatarsEl.innerHTML = `<span class="dc-connector-avatar-stack"><span class="dc-connector-circle dc-circle-wx">${WX_SVG}</span></span>`;
-   } else if(connectors.welink){
+   } else if(connectors.netcare){
+     avatarsEl.innerHTML = `<span class="dc-connector-avatar-stack"><span class="dc-connector-circle dc-circle-netcare">${NETCARE_SVG}</span></span>`;
+   } else if(connectors.welink||connectors['welink-cli']){
      avatarsEl.innerHTML = `<span class="dc-connector-avatar-stack"><span class="dc-connector-circle dc-circle-wl">${WL_SVG}</span></span>`;
    } else if(agents.length > 0){
      avatarsEl.innerHTML = `<span class="dc-connector-avatar-stack">${agents.map(a => `<img src="/assets/desktop-agents/${a}.png" class="dc-connector-circle" alt="${providerNames[a]||a}">`).join('')}</span>`;
@@ -129,7 +151,7 @@
 
  function connectorReason(key){
   const reason=readiness[key].reason;
-  return ({checking:L('正在检查连接…','Checking connection…'),disabled:L('尚未启用，请检查连接器设置','Not enabled. Check connector settings.'),readonly:L('未获得发送权限，请检查连接器设置','Sending is not permitted. Check connector settings.'),offline:L('连接尚未就绪，请检查客户端和网络','Not connected. Check the client and network.'),error:L('无法确认连接状态，请重试','Could not verify the connection. Try again.')})[reason]||L('连接器未就绪','Connector is unavailable');
+  return ({tenant:L('仅默认工作区管理员可使用本人 WeLink','Personal WeLink is available to administrators only'),forbidden:L('仅管理员可使用此连接器','Only admins can use this connector'),'not-installed':L('请先安装 WeLink CLI','Install WeLink CLI first'),login:L('请先在设置中登录本人 WeLink','Sign in to your personal WeLink account in settings'),unconfigured:L('请先完成数字人基座配置','Configure the digital human base first'),untested:L('请先在设置中测试连接并通过','Run a successful connection test in settings first'),checking:L('正在检查连接…','Checking connection…'),disabled:L('尚未启用，请检查连接器设置','Not enabled. Check connector settings.'),readonly:L('未获得发送权限，请检查连接器设置','Sending is not permitted. Check connector settings.'),offline:L('连接尚未就绪，请检查客户端和网络','Not connected. Check the client and network.'),error:L('无法确认连接状态，请重试','Could not verify the connection. Try again.')})[reason]||L('连接器未就绪','Connector is unavailable');
  }
 
  function render(){
@@ -148,7 +170,7 @@
   const agents=getSelectedAgents();
 
   if(connectors.weixin) label.textContent = L('微信','WeChat');
-  else if(connectors.welink) label.textContent = 'WeLink';
+  else if(connectors.welink||connectors['welink-cli']||connectors.netcare) label.textContent = connectorName(getSelectedConnector());
   else if(agents.length === 1) label.textContent = providerNames[agents[0]] || agents[0];
   else if(enabled || agents.length > 1) label.textContent = L('连接器 · 讨论组','Connectors · Agent group');
   else label.textContent = L('连接器','Connectors');
@@ -159,7 +181,11 @@
     Object.keys(connectors).forEach(key => {
       const input = popover.querySelector(`input[data-connector="${key}"]`);
       if(input){
-        input.setAttribute('aria-label',providerNames[key]||(key==='weixin'?L('微信','WeChat'):'WeLink'));
+        input.setAttribute('aria-label',connectorName(key));
+        const name=input.closest('.dc-connector-item').querySelector('.dc-connector-item-name');
+        name.textContent=connectorName(key);
+        const detail=input.closest('.dc-connector-item').querySelector('[data-connector-description]');
+        if(detail)detail.textContent=key==='welink-cli'?L('本人账号 · 消息、会议与邮件','Personal account · messages, meetings and mail'):key==='welink'?L('智能助手 · 渠道会话','Assistant · channel conversations'):L('数字人基座 · NetCare 只读查询','Digital human base · read-only NetCare data');
         input.checked=Boolean(connectors[key]);input.disabled=locked||modeSaving||(!readiness[key].ready&&!connectors[key]);
         const row=input.closest('.dc-connector-item');
         row.classList.toggle('is-unavailable',!readiness[key].ready&&!locked);
@@ -170,7 +196,7 @@
 
   const note=root.querySelector('[data-connector-note]');
   if(note)note.textContent=locked?L('本对话已绑定连接器；新建对话可重新选择','Bound to this conversation. Start a new chat to change connectors.'):L('仅预选新对话 · 发送后固定','Choose for your new chat · fixed after sending');
-  const hint=root.querySelector('small');
+  const hint=root.querySelector('[data-tac-hint]');
   if(hint){
     hint.textContent=enabled&&availability.available?(locked?L('本对话固定为讨论组','Agent group for this conversation'):L('发送前可取消 · 首次发送新建桌面对话','Turn off before sending · new desktop chats on first send')):'';
   }
@@ -182,8 +208,25 @@
     resume.textContent=L('恢复查看进度','Resume viewing progress');
     resume.title=L('重新连接此轮讨论，查看最新进度和回复','Reconnect to this discussion to view the latest progress and replies');
   }
+  positionPopover();
  }
 
+ function positionPopover(){
+   const popover=root?.querySelector('.dc-connector-popover');
+   if(!popover||popover.hidden)return;
+   const button=root.querySelector('.dc-connector-btn').getBoundingClientRect();
+   const parent=popover.offsetParent;
+   if(!parent)return;
+   const origin=parent.getBoundingClientRect(),pad=12;
+   const above=button.top-pad-8,below=innerHeight-button.bottom-pad-8;
+   const down=popover.offsetHeight>above&&below>above;
+   popover.dataset.placement=down?'below':'above';
+   const x=Math.max(pad,Math.min(button.left,innerWidth-popover.offsetWidth-pad));
+   const y=Math.max(pad,Math.min(down?button.bottom+8:button.top-popover.offsetHeight-8,innerHeight-popover.offsetHeight-pad));
+   popover.style.bottom='auto';
+   popover.style.left=(x-origin.left-parent.clientLeft+parent.scrollLeft)+'px';
+   popover.style.top=(y-origin.top-parent.clientTop+parent.scrollTop)+'px';
+ }
 
  function togglePopover(force){
    const popover = root.querySelector('.dc-connector-popover');
@@ -192,18 +235,22 @@
    const show = typeof force === 'boolean' ? force : popover.hidden;
    popover.hidden = !show;
    btn.setAttribute('aria-expanded', String(show));
-   if(show)refreshAvailability(true);
+   if(show){
+    window.HomeComposer?.close?.();window.DragonClawSkills?.closeSuggestions?.();
+    document.querySelectorAll('#dcWorkspaceChip details[open]').forEach(node=>node.open=false);
+    positionPopover();refreshAvailability(true);
+   }
  }
 
  function publishGroup(){
    window.dispatchEvent(new CustomEvent('home:agent-discussion-changed',{detail:{sessionId:currentSessionId,mode:'group'}}));
  }
 
- async function activateSession(id,{group=false}={}){
+ async function activateSession(id,{group=false,connector=''}={}){
   const revision=++epoch,account=who();
-  currentSessionId=id;activeJob=null;setSelection([]);enabled=Boolean(id&&group);
+  currentSessionId=id;activeJob=null;setSelection(id&&TOOL_SKILLS[connector]?[connector]:[]);enabled=Boolean(id&&group);
   locked=Boolean(id);modeSaving=false;render();
-  if(!id||!root)return;
+  if(!id||!root||TOOL_SKILLS[connector]&&!group)return;
   try{
    const data=await request('GET','/discussions/'+encodeURIComponent(id));
    if(revision!==epoch||account!==who())return;
@@ -270,7 +317,7 @@
      row={node,avatar,heading,content,html:''};view.rows[index]=row;
    }
    row.node.dataset.provider=provider;
-   row.avatar.src=providerNames[provider]?`/assets/desktop-agents/${provider}.png`:'/assets/dragon-claw-avatar.jpg';
+   row.avatar.src=providerNames[provider]?`/assets/desktop-agents/${provider}.png`:'/assets/logo.png';
    row.avatar.alt=name;
    row.heading.textContent=name;
    const continued=index>0&&provider&&providerOf(reports[index-1])===provider;
@@ -371,16 +418,13 @@
              <span class="dc-switch-track"><span class="dc-switch-thumb"></span></span>
            </label>
          </div>
-         <div class="dc-connector-item" data-key="welink">
+         ${['welink-cli','welink','netcare'].map(key=>`<div class="dc-connector-item" data-key="${key}">
            <div class="dc-connector-item-main">
-             <span class="dc-connector-item-ico dc-circle-wl">${WL_SVG}</span>
-             <span class="dc-connector-item-name">WeLink</span>
+             <span class="dc-connector-item-ico ${key==='netcare'?'dc-circle-netcare':'dc-circle-wl'}">${key==='netcare'?NETCARE_SVG:WL_SVG}</span>
+             <span class="dc-connector-item-copy"><span class="dc-connector-item-name">${connectorName(key)}</span><small data-connector-description></small></span>
            </div>
-           <label class="dc-switch">
-             <input type="checkbox" data-connector="welink">
-             <span class="dc-switch-track"><span class="dc-switch-thumb"></span></span>
-           </label>
-         </div>
+           <label class="dc-switch"><input type="checkbox" data-connector="${key}"><span class="dc-switch-track"><span class="dc-switch-thumb"></span></span></label>
+         </div>`).join('')}
        </div>
        <div class="dc-connector-note" data-connector-note></div>
        <div class="dc-connector-divider"></div>
@@ -456,6 +500,8 @@
   const timer=setInterval(()=>{if(document.visibilityState==='visible')refreshAvailability();},30000);
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshAvailability(true);});
   window.addEventListener('pagehide',()=>clearInterval(timer),{once:true});
+  window.addEventListener('resize',positionPopover);
+  document.addEventListener('scroll',positionPopover,true);
  }
 
  window.HomeAgentDiscussion={
@@ -472,8 +518,12 @@
    validateSelection,
    refreshAvailability,
    isLocked:()=>locked,
+   openPicker: () => togglePopover(true),
+   closePicker: () => togglePopover(false),
+   isPickerOpen: () => Boolean(root && !root.querySelector('.dc-connector-popover').hidden),
    getConnectors: () => ({ ...connectors }),
    getSelectedConnector,
+   homeConnector:()=>Object.hasOwn(TOOL_SKILLS,getSelectedConnector())?getSelectedConnector():'',
    isAgentMention:id=>(enabled||getSelectedAgents().length>1)&&['codex','claude','claudecode','antigravity','connector','dragontac','tac'].includes(id.toLowerCase())
  };
 

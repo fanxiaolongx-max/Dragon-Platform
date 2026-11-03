@@ -1,5 +1,5 @@
 /**
- * Tools Platform - 主服务入口
+ * Dragon Claw - 主服务入口
  * 统一管理 UIVF12 Catcher 和 Task SLA Killer 的后端 API
  */
 const dailyFileConsole = require('./logger/daily-file-console');
@@ -157,7 +157,7 @@ app.use((req, res, next) => {
     if (req.path.startsWith('/api/')) {
         return res.status(403).json({ error: 'EXE License 已失效', reasonCode: status.reasonCode });
     }
-    return res.status(403).send(`<!doctype html><meta charset="utf-8"><title>License</title><style>body{font-family:Segoe UI,"Microsoft YaHei";background:#0f172a;color:#e2e8f0;display:grid;place-items:center;min-height:100vh;margin:0}main{max-width:560px;padding:32px;border:1px solid #334155;border-radius:18px;background:#111827;text-align:center}</style><main><h1>Tools Platform License 已失效</h1><p>请联系管理员续期或恢复授权，然后重新启动 EXE。</p><small>${String(status.reasonCode || 'LICENSE_REQUIRED')}</small></main>`);
+    return res.status(403).send(`<!doctype html><meta charset="utf-8"><title>License</title><style>body{font-family:Segoe UI,"Microsoft YaHei";background:#0f172a;color:#e2e8f0;display:grid;place-items:center;min-height:100vh;margin:0}main{max-width:560px;padding:32px;border:1px solid #334155;border-radius:18px;background:#111827;text-align:center}</style><main><h1>Dragon Claw License 已失效</h1><p>请联系管理员续期或恢复授权，然后重新启动 EXE。</p><small>${String(status.reasonCode || 'LICENSE_REQUIRED')}</small></main>`);
 });
 
 const SENSITIVE_LOG_KEYS = new Set([
@@ -355,7 +355,7 @@ app.get('/api/app-version', (req, res) => {
         ? quickStartService.getBuildMetadata()
         : null;
     res.json({
-        name: appPackage.productName || appPackage.name || 'Tools Platform',
+        name: appPackage.productName || appPackage.name || 'Dragon Claw',
         version: appPackage.version || (buildMeta && buildMeta.version) || '0.0.0',
         build: buildMeta
     });
@@ -631,11 +631,11 @@ app.get('/custom-tools/:slug/index.html', async (req, res, next) => {
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
-        res.type('html').send(assetVersioning.versionAssetUrls(customToolI18nService.injectLanguageRuntime(html, tool.slug, {
+        res.type('html').send(assetVersioning.versionAssetUrls(assetVersioning.injectPlatformTheme(customToolI18nService.injectLanguageRuntime(html, tool.slug, {
             mtime: stat ? stat.mtime : null,
             filePath,
             tool
-        }), { publicDir: FRONTEND_DIR, baseDir: path.dirname(filePath) }));
+        })), { publicDir: FRONTEND_DIR, baseDir: path.dirname(filePath) }));
     } catch (err) {
         next(err);
     }
@@ -704,7 +704,7 @@ async function startServer() {
 
     const server = app.listen(PORT, () => {
         require('./models/agent-mcp').warmup().catch(error => console.warn('[agent] MCP 预连接失败：', error.message || error));
-        console.log(`\n✅ Tools Platform 已启动`);
+        console.log(`\n✅ Dragon Claw 已启动`);
         console.log(`   🌐 访问地址: http://localhost:${PORT}`);
         console.log(`   📦 UIVF12:   http://localhost:${PORT}/uivf12`);
         console.log(`   📊 SLA:      http://localhost:${PORT}/sla\n`);

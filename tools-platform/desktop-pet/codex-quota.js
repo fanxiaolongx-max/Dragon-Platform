@@ -110,7 +110,7 @@ function readCodexQuota(options = {}) {
                 }
             }
         });
-        send({id:1,method:'initialize',params:{clientInfo:{name:'tools_platform_quota',title:'Tools Platform quota',version:'1.0.0'}}});
+        send({id:1,method:'initialize',params:{clientInfo:{name:'tools_platform_quota',title:'Dragon Claw quota',version:'1.0.0'}}});
     });
 }
 module.exports = { readCodexQuota, parseCodexQuota, codexCommand, codexCommandForFile };

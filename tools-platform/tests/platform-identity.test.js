@@ -233,8 +233,8 @@ test('saving platform name in local environment auto-syncs to defaults/platform-
 
 test('three-tier platform names and login slogan persist, normalize and flip order based on language', async () => {
     const defaultIdentity = repo.getDefaultPlatformIdentity();
-    assert.equal(defaultIdentity.platformNameZh, 'Dragon 工具平台');
-    assert.equal(defaultIdentity.platformNameEn, 'Dragon Platform');
+    assert.equal(defaultIdentity.platformNameZh, 'Dragon Claw');
+    assert.equal(defaultIdentity.platformNameEn, 'Dragon Claw');
     assert.equal(defaultIdentity.platformSubtitle, '埃及 CS 工具与知识中心');
     assert.equal(defaultIdentity.platformSlogan, '“认真做好每一个工具。”');
     assert.equal(defaultIdentity.platformSloganEn, '“Build every tool with care. Make everyday work easier.”');
@@ -288,7 +288,7 @@ test('sub-title is hidden when matching main title and auto-heals accidental Eng
         platformNameZh: 'Thoth Platform',
         platformNameEn: 'Thoth Platform'
     });
-    assert.equal(healed.platformNameZh, 'Dragon 工具平台', 'Accidental Thoth Platform in platformNameZh must heal to default Chinese name');
+    assert.equal(healed.platformNameZh, 'Dragon Claw', 'Accidental Thoth Platform in platformNameZh must heal to default Chinese name');
     assert.equal(healed.platformNameEn, 'Thoth Platform');
 
     // 2. Frontend login.html suppresses duplicate sub-title
@@ -349,7 +349,7 @@ test('sub-title is hidden when matching main title and auto-heals accidental Eng
     // In English mode:
     context.renderLoginIdentityUI();
     assert.equal(brandNode.textContent, 'Thoth Platform');
-    assert.equal(subNode.textContent, 'Dragon 工具平台');
+    assert.equal(subNode.textContent, 'Dragon Claw');
     assert.equal(subNode.style.display, '');
 
     // Test D: When user explicitly sets identical names for both Chinese and English, sub-title must be hidden

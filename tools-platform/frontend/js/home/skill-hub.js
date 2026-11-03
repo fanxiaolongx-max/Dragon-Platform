@@ -231,12 +231,14 @@
 
     function open(tab) {
         if (!root) { window.addEventListener('home:skill-hub-ready', () => open(tab), { once: true }); return; }
-        if (TABS.includes(tab)) { state.tab = tab; state.cat = 'all'; }
+        if (TABS.includes(tab)) { state.tab = tab; state.cat = 'all'; state.query = ''; state.mine = false; }
         state.open = true;
         root.hidden = false;
         document.body.classList.add('v2-hub-open');
         window.dispatchEvent(new CustomEvent('home:hub', { detail: { open: true } }));
         render();
+        const input = root.querySelector('.v2-hub-search input');
+        if (input) input.value = state.query;
         document.querySelector('.home-main')?.scrollTo?.({ top: 0 });
         window.scrollTo({ top: 0 });
         remember();
@@ -246,13 +248,23 @@
         state.open = false;
         root.hidden = true;
         document.body.classList.remove('v2-hub-open');
+        if (location.hash === '#tools' || location.hash === 'tools') {
+            try { history.replaceState(history.state, '', location.pathname + location.search); } catch { /* noop */ }
+            if (location.hash === '#tools' || location.hash === 'tools') location.hash = '';
+        }
         window.dispatchEvent(new CustomEvent('home:hub', { detail: { open: false } }));
     }
 
     function onClick(event) {
         const tab = event.target.closest('[data-hub-tab]');
         if (!event.target.closest('.v2-hub-add')) toggleMenu(false);
-        if (tab) { state.tab = tab.dataset.hubTab; state.cat = 'all'; state.query = ''; state.mine = false; remember(); render(); return; }
+        if (tab) {
+            state.tab = tab.dataset.hubTab; state.cat = 'all'; state.query = ''; state.mine = false;
+            if (state.tab !== 'tools' && (location.hash === '#tools' || location.hash === 'tools')) {
+                try { history.replaceState(history.state, '', location.pathname + location.search); } catch { /* noop */ }
+            }
+            remember(); render(); window.dispatchEvent(new CustomEvent('home:hub', { detail: { open: true } })); return;
+        }
         const cat = event.target.closest('[data-hub-cat]');
         if (cat) { state.cat = cat.dataset.hubCat; renderList(); return; }
         const sort = event.target.closest('[data-hub-sort]');
@@ -313,6 +325,13 @@
         document.addEventListener('keydown', event => { if (event.key === 'Escape' && state.open && !document.querySelector('.v2-pop:not([hidden]), dialog[open]')) close(); });
         ['skills:changed', 'home:tools-updated', 'home:capabilities'].forEach(name => window.addEventListener(name, () => { if (state.open) setTimeout(renderList, 0); }));
         window.addEventListener('tools:languagechange', () => { if (state.open) render(); });
+        const syncHash = () => {
+            const h = location.hash.replace(/^#/, '');
+            if (h === 'tools') open('tools');
+            else if (!h && state.open) close();
+        };
+        window.addEventListener('hashchange', syncHash);
+        if (location.hash === '#tools' || location.hash === 'tools') open('tools');
         window.dispatchEvent(new Event('home:skill-hub-ready'));
     }
 

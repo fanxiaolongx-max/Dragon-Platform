@@ -101,7 +101,7 @@
         elements.eosMonthlyMonth.setAttribute('aria-label', '月报月份');
         const hint = document.querySelector('.topic-monthly-edit-hint').firstChild;
         if (!state.eosEditHint) state.eosEditHint = hint.textContent;
-        hint.textContent = key === 'eos' ? state.eosEditHint : '点击月报文字或表格可修改；选中文字可加粗或改色。当前浏览器按专题、租户和月份保存编辑；跨设备可导出工程继续编辑。';
+        hint.textContent = key === 'eos' ? state.eosEditHint : '点击月报文字或表格可修改；选中文字可加粗或改色。当前浏览器按专题、数据空间和月份保存编辑；跨设备可导出工程继续编辑。';
     }
 
     async function switchMonthlyTopic(key, load = true) {

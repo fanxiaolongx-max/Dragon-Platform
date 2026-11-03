@@ -94,7 +94,7 @@
             'home.nrv.rfc.badge': 'NEW', 'home.nrv.rfc.name': 'NetCare RFC Plans and AI Audit', 'home.nrv.rfc.banner': 'New · NetCare RFC Plans and AI Audit intro',
             'home.nrv.incentive.badge': 'PAYOUT', 'home.nrv.incentive.name': 'Operation Incentive Statistics: getting every payout right', 'home.nrv.incentive.banner': 'Guide · Operation incentive statistics, accurate and verifiable',
             'home.nrv.eos.badge': 'REPORT', 'home.nrv.eos.name': 'EOS incorporation: one-click data, automatic monthly report', 'home.nrv.eos.banner': 'Guide · EOS data capture, target forecast, one-click report',
-            'home.nrv.guide.badge': 'GUIDE', 'home.nrv.guide.name': 'Dragon Platform five-step guide', 'home.nrv.guide.banner': 'Guide · From data capture to monthly reports',
+            'home.nrv.guide.badge': 'GUIDE', 'home.nrv.guide.name': 'Dragon Claw five-step guide', 'home.nrv.guide.banner': 'Guide · From data capture to monthly reports',
             'home.nrv.expand': 'Watch larger', 'home.nrv.hint': 'Click to watch in HD', 'home.nrv.close': 'Close', 'home.nrv.mute': 'Mute', 'home.nrv.unmute': 'Turn sound on', 'home.nrv.replay': 'Replay',
             'home.nrv.askTitle': 'Close the promo window?', 'home.nrv.askBody': 'Close for now: it returns next time you open the home page. Close permanently: only the promo banners stay at the top right.',
             'home.nrv.once': 'Just this time', 'home.nrv.forever': 'Close permanently', 'home.nrv.cancel': 'Cancel',

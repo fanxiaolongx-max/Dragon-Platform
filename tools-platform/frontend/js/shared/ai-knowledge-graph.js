@@ -481,7 +481,7 @@
         } catch (_error) {
             const receivedHtml = /^\s*</.test(body);
             throw new Error(receivedHtml
-                ? `${fallbackMessage}：后端尚未加载完整代码接口，请重启 Tools Platform 服务后重试`
+                ? `${fallbackMessage}：后端尚未加载完整代码接口，请重启 Dragon Claw 服务后重试`
                 : `${fallbackMessage}：服务器返回了无法识别的响应`);
         }
         if (!response.ok) throw new Error(data.error || `${fallbackMessage} (${response.status})`);
@@ -1737,7 +1737,7 @@
         }
         if (node.type === 'root') {
             const stats = state.data?.stats || {};
-            sidebar.innerHTML = `<div class="ai-kg-node-type">${kgT('rootType')}</div><div class="ai-kg-node-title">Tools Platform</div><div class="ai-kg-node-stats"><div class="ai-kg-stat-card"><b>${stats.documents || 0}</b><span>${kgT('knowledgeFile')}</span></div><div class="ai-kg-stat-card"><b>${stats.chunks || 0}</b><span>${kgT('chunks')}</span></div><div class="ai-kg-stat-card"><b>${Number(stats.builtInTools || 0) + Number(stats.customTools || 0)}</b><span>${kgT('tools')}</span></div><div class="ai-kg-stat-card"><b>${stats.tables || 0}</b><span>${kgT('tables')}</span></div></div>`;
+            sidebar.innerHTML = `<div class="ai-kg-node-type">${kgT('rootType')}</div><div class="ai-kg-node-title">Dragon Claw</div><div class="ai-kg-node-stats"><div class="ai-kg-stat-card"><b>${stats.documents || 0}</b><span>${kgT('knowledgeFile')}</span></div><div class="ai-kg-stat-card"><b>${stats.chunks || 0}</b><span>${kgT('chunks')}</span></div><div class="ai-kg-stat-card"><b>${Number(stats.builtInTools || 0) + Number(stats.customTools || 0)}</b><span>${kgT('tools')}</span></div><div class="ai-kg-stat-card"><b>${stats.tables || 0}</b><span>${kgT('tables')}</span></div></div>`;
             return;
         }
         if (['assetCategory', 'tool', 'database', 'assetFile', 'table'].includes(node.type)) {

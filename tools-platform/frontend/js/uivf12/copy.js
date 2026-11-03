@@ -575,7 +575,7 @@ function openTopicFloatingSimulator(origin) {
     overlay.innerHTML = `
         <div class="uiv-topic-simulator-dialog" role="dialog" aria-modal="true" aria-labelledby="uiv-topic-simulator-title">
             <div class="uiv-topic-simulator-header">
-                <div><h3 id="uiv-topic-simulator-title">${escapeUivHtml(config.name)} · 专题模拟浮窗</h3><p>离线模拟模式不会请求正式站点。导入后会将完整 JSON 归档到当前租户服务器。</p><a class="uiv-topic-analysis-link" href="/topic-analysis">打开专题分析 ↗</a></div>
+                <div><h3 id="uiv-topic-simulator-title">${escapeUivHtml(config.name)} · 专题模拟浮窗</h3><p>离线模拟模式不会请求正式站点。导入后会将完整 JSON 归档到当前平台服务器。</p><a class="uiv-topic-analysis-link" href="/topic-analysis">打开专题分析 ↗</a></div>
                 <button type="button" class="uiv-topic-simulator-close" aria-label="关闭">×</button>
             </div>
             <div class="uiv-topic-simulator-root">

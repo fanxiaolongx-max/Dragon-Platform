@@ -413,7 +413,7 @@
             h1.textContent = titleText;
             h1.title = isEn() ? 'Click to edit Chinese and English titles' : '点击编辑中文和英文大标题';
         }
-        document.title = `${titleText} - Tools Platform`;
+        document.title = `${titleText} - Dragon Claw`;
     }
 
     function renderContactInfo() {

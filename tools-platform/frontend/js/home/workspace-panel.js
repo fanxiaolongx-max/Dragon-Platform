@@ -703,8 +703,8 @@
                 <details class="dc-context-picker dc-directory-picker" data-wsp-picker="directory">
                     <summary title="${escapeHtml(state.root || tx('chooseDirHint'))}">${folder}<span>${escapeHtml(state.rootName || label('选择工作空间', 'Choose workspace'))}</span><span class="dc-context-caret" aria-hidden="true">⌄</span></summary>
                     <div class="dc-context-menu">
-                        <label class="dc-workspace-search">${wsIcon('search')}<input type="search" data-wsp-recent-search placeholder="${label('搜索工作空间', 'Search workspaces')}" aria-label="${label('搜索工作空间', 'Search workspaces')}" autocomplete="off"></label>
-                        <div class="dc-context-recents">${recent.map(path => `<button type="button" data-wsp-select="${escapeHtml(path)}" title="${escapeHtml(path)}" aria-current="${path === state.root}">${folder}<span>${escapeHtml(baseName(path))}</span>${path === state.root ? wsIcon('check') : ''}</button>`).join('')}</div>
+                        <label class="dc-workspace-search">${wsIcon('search')}<input type="search" data-wsp-recent-search placeholder="${label('搜索最近工作空间', 'Search recent workspaces')}" aria-label="${label('搜索最近工作空间', 'Search recent workspaces')}" autocomplete="off"></label>
+                        <div class="dc-context-recents">${recent.map((path, index) => `<button type="button"${index >= 4 ? ' hidden' : ''} data-wsp-select="${escapeHtml(path)}" title="${escapeHtml(path)}" aria-current="${path === state.root}">${folder}<span>${escapeHtml(baseName(path))}</span>${path === state.root ? wsIcon('check') : ''}</button>`).join('')}</div>
                         <p class="dc-context-empty" ${recent.length ? 'hidden' : ''}>${label('暂无最近工作空间', 'No recent workspaces')}</p>
                         <div class="dc-context-divider"></div>
                         ${!isReadOnly() ? `<button type="button" data-wsp-action="create-workspace">${wsIcon('plus')}<span>${label('新建工作空间', 'New workspace')}</span></button>` : ''}
@@ -1457,32 +1457,47 @@
     function positionContextMenu(details) {
         const menu = details.querySelector('.dc-context-menu');
         if (!menu || !details.open) return;
-        menu.style.transform = '';menu.style.left = '0';menu.style.right = 'auto';
-        const anchor = details.getBoundingClientRect(), above = anchor.top - 16, below = innerHeight - anchor.bottom - 16;
-        const down = above < 180 && below > above;
-        menu.style.top = down ? 'calc(100% + 10px)' : 'auto';
-        menu.style.bottom = down ? 'auto' : 'calc(100% + 10px)';
-        menu.style.maxHeight = `${Math.max(100, down ? below : above)}px`;
-        const rect = menu.getBoundingClientRect();
-        const offset = rect.left < 8 ? 8 - rect.left : rect.right > innerWidth - 8 ? innerWidth - 8 - rect.right : 0;
-        if (offset) menu.style.transform = `translateX(${offset}px)`;
+        const pad = 12, gap = 8, anchor = details.querySelector('summary').getBoundingClientRect();
+        // Measure the real content instead of deciding from a fixed 180px threshold.
+        menu.style.transform = 'none'; menu.style.right = menu.style.bottom = 'auto';
+        menu.style.maxHeight = `${Math.max(0, Math.min(440, innerHeight - pad * 2))}px`;
+        const above = Math.max(0, anchor.top - gap - pad), below = Math.max(0, innerHeight - anchor.bottom - gap - pad);
+        const desired = menu.offsetHeight;
+        const down = desired > above && below > above;
+        menu.dataset.placement = down ? 'below' : 'above';
+        menu.style.maxHeight = `${Math.floor(Math.min(440, down ? below : above))}px`;
+        const parent = menu.offsetParent;
+        if (!parent) return;
+        const origin = parent.getBoundingClientRect();
+        const x = Math.max(pad, Math.min(anchor.left, innerWidth - menu.offsetWidth - pad));
+        const y = Math.max(pad, Math.min(down ? anchor.bottom + gap : anchor.top - gap - menu.offsetHeight, innerHeight - menu.offsetHeight - pad));
+        menu.style.left = `${x - origin.left - parent.clientLeft + parent.scrollLeft}px`;
+        menu.style.top = `${y - origin.top - parent.clientTop + parent.scrollTop}px`;
+        menu.style.transformOrigin = down ? 'top left' : 'bottom left';
     }
 
     function bind() {
         el.chip?.addEventListener('toggle', event => {
             if (!event.target.open) return;
+            window.HomeComposer?.close?.();window.HomeAgentDiscussion?.closePicker?.();window.DragonClawSkills?.closeSuggestions?.();
             el.chip.querySelectorAll('details[open]').forEach(node => { if (node !== event.target) node.open = false; });
             positionContextMenu(event.target);
             event.target.querySelector('input[type=search]')?.focus({preventScroll:true});
         }, true);
-        window.addEventListener('resize', () => el.chip?.querySelectorAll('details[open]').forEach(positionContextMenu));
+        const positionOpenMenus = () => el.chip?.querySelectorAll('details[open]').forEach(positionContextMenu);
+        window.addEventListener('resize', positionOpenMenus);
+        document.addEventListener('scroll', event => { if (!event.target.closest?.('.dc-context-menu')) positionOpenMenus(); }, true);
         el.chip?.addEventListener('input', event => {
             if (!event.target.matches('[data-wsp-recent-search], [data-wsp-branch-search]')) return;
             const menu = event.target.closest('.dc-context-menu'), query = event.target.value.trim().toLowerCase();
-            const options = [...menu.querySelectorAll(event.target.matches('[data-wsp-branch-search]') ? '[data-wsp-branch]' : '[data-wsp-select]')];
-            options.forEach(button => { button.hidden = !button.title.toLowerCase().includes(query); });
+            const branchSearch = event.target.matches('[data-wsp-branch-search]');
+            const options = [...menu.querySelectorAll(branchSearch ? '[data-wsp-branch]' : '[data-wsp-select]')];
+            options.forEach((button, index) => { button.hidden = !button.title.toLowerCase().includes(query) || (!branchSearch && !query && index >= 4); });
             const empty = menu.querySelector('.dc-context-empty');
             empty.hidden = options.some(button => !button.hidden);
+            if (!branchSearch) empty.textContent = query ? wsLabel('未找到匹配的工作空间', 'No matching workspaces') : wsLabel('暂无最近工作空间', 'No recent workspaces');
+            positionContextMenu(event.target.closest('details'));
+
         });
         document.addEventListener('keydown', event => {
             if (event.key !== 'Escape') return;

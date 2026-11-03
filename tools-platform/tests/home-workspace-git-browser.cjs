@@ -21,6 +21,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function capture(name) { await wait(220); fs.writeFileSync(path.join(temp, name+'.png'), (await win.webContents.capturePage()).toPNG()); }
 setTimeout(() => app.exit(1), 60000).unref();
 app.whenReady().then(async () => {
+    for(let index=0;index<7;index++){const directory=path.join(workspaceRoot,'past-'+String(index).padStart(2,'0'));fs.mkdirSync(directory);await runWithTenant('default',()=>workspacePrefs.rememberDirectory('fixture',directory));}
     await runWithTenant('default',()=>workspacePrefs.rememberDirectory('fixture',project));
     const web = express(); web.use(express.json());
     web.use('/api/agent-workspace',(req,res,next)=>{req.user={username:'fixture',role:'admin'};runWithTenant('default',next);},workspaceRouter);
@@ -60,6 +61,22 @@ app.whenReady().then(async () => {
     const initialSession=await evaluate('DragonClawWorkspace.getWorkspacePayload().agentSessionId');
     await evaluate('document.querySelector(".dc-directory-picker summary").click()');
     await capture('workspace-menu-light');
+    assert.equal(await evaluate('document.querySelectorAll(".dc-context-recents [data-wsp-select]:not([hidden])").length'),4,'default recent list stays compact');
+    await evaluate('document.querySelector("[data-wsp-recent-search]").value="past-00";document.querySelector("[data-wsp-recent-search]").dispatchEvent(new Event("input",{bubbles:true}));true');
+    assert.equal(await evaluate('document.querySelectorAll(".dc-context-recents [data-wsp-select]:not([hidden])").length'),1,'search includes older recent entries');
+    assert.equal(await evaluate('getComputedStyle(document.querySelector("[data-wsp-recent-search]")).outlineStyle'),'none','focus belongs to the complete search field');
+    await evaluate('document.querySelector("[data-wsp-recent-search]").value="";document.querySelector("[data-wsp-recent-search]").dispatchEvent(new Event("input",{bubbles:true}));true');
+    assert.equal(await evaluate('document.querySelectorAll(".dc-context-recents [data-wsp-select]:not([hidden])").length'),4);
+    // Move the real anchor near the viewport top: the full menu should choose below.
+    await evaluate(`document.body.style.paddingBottom='700px';document.querySelector('.dc-directory-picker').open=false;window.scrollBy(0,document.querySelector('.dc-directory-picker summary').getBoundingClientRect().top-100);true`);await wait(100);
+    const beforeScroll=await evaluate('scrollY');
+    await evaluate('document.querySelector(".dc-directory-picker summary").click()');await wait(100);
+    assert.equal(await evaluate('document.querySelector(".dc-directory-picker .dc-context-menu").dataset.placement'),'below');
+    assert.equal(await evaluate('scrollY'),beforeScroll,'opening does not scroll the page');
+    assert.equal(await evaluate(`(()=>{const menu=document.querySelector('.dc-directory-picker .dc-context-menu'),r=menu.getBoundingClientRect(),input=document.querySelector('[data-wsp-recent-search]'),s=input.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight&&input.contains(document.elementFromPoint(s.x+20,s.y+15))})()`),true,'the search field is visible and hit-testable');
+    await capture('workspace-menu-below');
+    await evaluate(`document.querySelector('.dc-directory-picker').open=false;document.body.style.paddingBottom='';window.scrollTo(0,0);true`);
+
     await evaluate('document.querySelector(".dc-branch-picker summary").click()');
     await until('document.querySelector(".dc-branch-picker").open');
     await evaluate('document.querySelector("[data-wsp-branch-search]").value="fea";document.querySelector("[data-wsp-branch-search]").dispatchEvent(new Event("input",{bubbles:true}))');

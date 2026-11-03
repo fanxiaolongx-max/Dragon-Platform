@@ -1248,7 +1248,7 @@ async function publish(job, tenantId, settings, options = {}) {
         ].join('、');
         if (dirty) {
             await updateJob(job, 'running', '检查变更', 75, '本次变更 ' + changed.length + ' 个文件：' + changed.slice(0, 4).join('、') + (changed.length > 4 ? ' 等' : ''));
-            await runGit(job, ['-C', checkout, '-c', 'user.name=Tools Platform', '-c', 'user.email=tools-platform@localhost', 'commit', '-m', `Update readonly tools snapshot (${summaryNames})`], { timeout: 120000 }, `git commit -m "Update readonly tools snapshot (${summaryNames})"`);
+            await runGit(job, ['-C', checkout, '-c', 'user.name=Dragon Claw', '-c', 'user.email=tools-platform@localhost', 'commit', '-m', `Update readonly tools snapshot (${summaryNames})`], { timeout: 120000 }, `git commit -m "Update readonly tools snapshot (${summaryNames})"`);
             await updateJob(job, 'running', '推送远端', 86, '仅提交发生变化的发布文件；正在更新远端 ' + config.branch + ' 分支');
             const pushStart = Date.now();
             await runGitWithRetry(job, ['-C', checkout, 'push', 'origin', 'HEAD:refs/heads/' + config.branch], { ...networkOptions(remote), timeout: 300000, retries: 2, retryDelayMs: 4000 }, `git push origin HEAD:refs/heads/${config.branch}`);
@@ -1256,7 +1256,7 @@ async function publish(job, tenantId, settings, options = {}) {
             await updateJob(job, 'running', '推送远端', 96, `远端更新成功（耗时 ${pushSec}s）`);
         } else if (forceDeploy) {
             await updateJob(job, 'running', '检查变更', 75, '发布文件无变化，按强制推送模式创建空提交以触发 Pages 重新部署');
-            await runGit(job, ['-C', checkout, '-c', 'user.name=Tools Platform', '-c', 'user.email=tools-platform@localhost', 'commit', '--allow-empty', '-m', `Force redeploy readonly tools snapshot (${summaryNames})`], { timeout: 120000 }, `git commit --allow-empty -m "Force redeploy readonly tools snapshot (${summaryNames})"`);
+            await runGit(job, ['-C', checkout, '-c', 'user.name=Dragon Claw', '-c', 'user.email=tools-platform@localhost', 'commit', '--allow-empty', '-m', `Force redeploy readonly tools snapshot (${summaryNames})`], { timeout: 120000 }, `git commit --allow-empty -m "Force redeploy readonly tools snapshot (${summaryNames})"`);
             await updateJob(job, 'running', '推送远端', 86, '强制提交完成；正在更新远端 ' + config.branch + ' 分支');
             const pushStart = Date.now();
             await runGitWithRetry(job, ['-C', checkout, 'push', 'origin', 'HEAD:refs/heads/' + config.branch], { ...networkOptions(remote), timeout: 300000, retries: 2, retryDelayMs: 4000 }, `git push origin HEAD:refs/heads/${config.branch}`);

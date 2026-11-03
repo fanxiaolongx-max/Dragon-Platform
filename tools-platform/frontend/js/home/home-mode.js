@@ -206,9 +206,11 @@
     }
 
     // 新版界面不再有旧的「工具」模式（左侧分类 + 卡片网格）：所有进入工具的入口都打开「技能·插件·工具」中心的工具页（js/home/skill-hub.js）
+    let hubToolsRequest = 0;
     function openHubTools() {
-        const open = () => window.HomeSkillHub?.open?.('tools');
-        if (window.HomeSkillHub) open();
+        const version = ++hubToolsRequest;
+        const open = () => { if (version === hubToolsRequest) window.HomeSkillHub?.open?.('tools'); };
+        if (document.getElementById('v2SkillHub')) open();
         else window.addEventListener('home:skill-hub-ready', open, { once: true });
     }
 
@@ -216,6 +218,10 @@
         finishResize(false);
         if (!MODES.includes(next)) next = 'chat';
         if (!document.getElementById('dragonClaw')) next = 'tools'; // 没有智能体区域时只有工具
+        const hubTools = document.documentElement.dataset.ui === 'v2' && next === 'tools' && Boolean(document.getElementById('dragonClaw'));
+        // 工具中心复用主区，侧栏继续保留对话列表，不激活旧版工具分类。
+        if (hubTools) next = 'chat';
+        else if (document.documentElement.dataset.ui === 'v2') { ++hubToolsRequest; window.HomeSkillHub?.close?.(); }
         const changed = next !== mode || !document.body.classList.contains(`home-mode-${next}`);
         mode = next;
         document.body.classList.toggle('home-mode-chat', mode === 'chat');
@@ -227,7 +233,7 @@
         });
         el.panels.forEach(panel => { panel.hidden = panel.dataset.homePanel !== mode; });
         if (updateHash) {
-            const url = `${location.pathname}${location.search}${mode === 'tools' ? '#tools' : ''}`;
+            const url = `${location.pathname}${location.search}${hubTools || mode === 'tools' ? '#tools' : ''}`;
             if (url !== `${location.pathname}${location.search}${location.hash}`) history.replaceState(history.state, '', url);
         }
         applySidebarMode();
@@ -235,8 +241,9 @@
             window.scrollTo({ top: 0, behavior: 'auto' });
             window.dispatchEvent(new CustomEvent('home:mode', { detail: { mode } }));
         }
+        if (hubTools) openHubTools();
         if (focus) {
-            const target = mode === 'tools' ? document.getElementById('homeToolSearch') : document.getElementById('dcInput');
+            const target = hubTools ? document.querySelector('#v2SkillHub .v2-hub-search input') : mode === 'tools' ? document.getElementById('homeToolSearch') : document.getElementById('dcInput');
             target?.focus({ preventScroll: true });
         }
     }
@@ -261,6 +268,7 @@
     }
 
     function toggleLinks(open = !linksOpen(), { focus = true } = {}) {
+        if (document.documentElement.dataset.ui === 'v2') { if (open) window.HomeV2?.openLinks?.(null, focus); else if (el.linksPop) el.linksPop.hidden = true; return; }
         if (!el.linksPop) return;
         clearTimeout(hoverTimer);
         el.linksPop.hidden = !open;

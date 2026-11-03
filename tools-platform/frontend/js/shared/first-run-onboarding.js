@@ -27,7 +27,7 @@
     function strings() {
         return isEnglish() ? {
             eyebrow: 'SYSTEM READY · BUILD & DEPENDENCIES',
-            title: 'Tools Platform Workspace Ready',
+            title: 'Dragon Claw Workspace Ready',
             intro: 'Local workspace initialized. Current build version, runtime environment, and built-in third-party dependencies are detailed below. You can optionally import baseline defaults.',
             versionLabel: 'Build Version',
             buildTimeLabel: 'Build Time',
@@ -47,7 +47,7 @@
             failed: 'Setup failed: '
         } : {
             eyebrow: '环境就绪 · 构建与依赖信息',
-            title: 'Tools Platform 本地工作区已就绪',
+            title: 'Dragon Claw 本地工作区已就绪',
             intro: '本地服务已成功启动。以下为本次代码构建的版本详细信息、运行环境及内置第三方依赖，您可按需选择是否导入开箱即用的默认规则库。',
             versionLabel: '构建版本',
             buildTimeLabel: '构建时间',
@@ -115,6 +115,92 @@
                 .deps-grid,.quick-start-options{grid-template-columns:1fr}
                 .quick-start-actions{flex-direction:column-reverse}
                 .quick-start-actions button{width:100%}
+            }
+            /* 亮色主题（首页 data-theme / 工具页 data-platform-theme 不是 dark 时），由 scripts/generate-light-theme.js 生成 */
+            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .quick-start-overlay {
+                background: rgba(249, 250, 252, 0.82) !important;
+            }
+            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .quick-start-card {
+                border: 1px solid rgba(6, 171, 249, 0.28) !important;
+                background: linear-gradient(145deg,#f2f4f9 0%,#f2f4f9 58%,#e6e9f3 100%) !important;
+                color: #1d2838 !important;
+                box-shadow: 0 32px 100px rgba(15, 23, 42, 0.12) !important;
+            }
+            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .quick-start-head {
+                border-bottom: 1px solid rgba(15, 23, 42, 0.112) !important;
+            }
+            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .quick-start-eyebrow {
+                color: #07a6ba !important;
+            }
+            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .quick-start-head h2 {
+                color: #1f1f1f !important;
+            }
+            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .quick-start-head p {
+                color: #576a84 !important;
+            }
+            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .quick-start-meta-banner {
+                border: 1px solid rgba(9, 173, 246, 0.2) !important;
+                background: rgba(242, 244, 249, 0.7) !important;
+            }
+            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .meta-lbl {
+                color: #606f85 !important;
+            }
+            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .meta-val {
+                color: #121f2b !important;
+            }
+            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .meta-val.highlight {
+                color: #0784bb !important;
+            }
+            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .meta-val.mono {
+                color: #576a84 !important;
+            }
+            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .deps-heading {
+                color: #576a84 !important;
+            }
+            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .dep-pill {
+                border: 1px solid rgba(15, 23, 42, 0.112) !important;
+                background: rgba(242, 244, 249, 0.55) !important;
+            }
+            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .dep-pill:hover {
+                border-color: rgba(9, 173, 246, 0.35) !important;
+            }
+            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .dep-name {
+                color: #1d2838 !important;
+            }
+            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .dep-ver {
+                color: #0784bb !important;
+                border: 1px solid rgba(9, 173, 246, 0.22) !important;
+            }
+            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .dep-role {
+                color: #576a84 !important;
+            }
+            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .quick-start-safe-strip {
+                border: 1px solid rgba(45, 210, 150, 0.2) !important;
+                background: rgba(235, 245, 243, 0.18) !important;
+                color: #276649 !important;
+            }
+            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .quick-start-select-title {
+                color: #2d3c4e !important;
+            }
+            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .quick-start-option {
+                border: 1px solid rgba(9, 173, 246, 0.24) !important;
+                color: #142835 !important;
+            }
+            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .quick-start-option input {
+                accent-color: #05a2bc !important;
+            }
+            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .quick-start-skip {
+                border: 1px solid rgba(15, 23, 42, 0.16) !important;
+                color: #2d3c4e !important;
+            }
+            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .quick-start-import {
+                box-shadow: 0 10px 24px rgba(37, 99, 235, 0.25) !important;
+            }
+            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .quick-start-result {
+                color: #255b61 !important;
+            }
+            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .quick-start-result.error {
+                color: #61252c !important;
             }
         `;
         document.head.appendChild(style);

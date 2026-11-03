@@ -226,9 +226,9 @@ function portableSplash(image, template) {
     const { cx, cy, wellRadius, logo } = SPLASH_CREST;
     for (let y = cy - wellRadius; y <= cy + wellRadius; y++) for (let x = cx - wellRadius; x <= cx + wellRadius; x++) {
         if (Math.hypot(x - cx, y - cy) > wellRadius) continue;
-        // .well: radial-gradient(circle at 50% 30%, #15233d, #0a1222 72%)
+        // .well: radial-gradient(circle at 50% 30%, #ffffff, #edf2f5 72%)
         const t = Math.min(1, Math.hypot(x - cx, y - (cy - 12)) / 37);
-        splash.data.set([Math.round(21 - 11 * t), Math.round(35 - 17 * t), Math.round(61 - 27 * t), 255], (y * splash.width + x) * 4);
+        splash.data.set([Math.round(255 - 18 * t), Math.round(255 - 13 * t), Math.round(255 - 10 * t), 255], (y * splash.width + x) * 4);
     }
     return encodeBmp(composite(splash, resizeImage(image, logo), cx - logo / 2, cy - logo / 2));
 }

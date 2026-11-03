@@ -6,13 +6,6 @@
  * 这里只放打开设置后才会用到的代码：页面加载时执行的逻辑必须留在 navbar.js。
  */
 
-async function loadManagedTenants() {
-    const response = await fetch('/api/tenants?includeArchived=1', { headers: getAuthHeaderForNav() });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
-    navState.managedTenants = Array.isArray(data.tenants) ? data.tenants : [];
-}
-
 function moveArrayItem(arr, index, delta) {
     const next = index + delta;
     if (index < 0 || next < 0 || next >= arr.length) return arr;
@@ -319,15 +312,15 @@ async function renderLogoSettings(content) {
                 <h3>✏️ ${text('平台标识与名称设定', 'Platform identity & names')}</h3>
                 <p>${text('支持配置中英文主名称、副标题与登录页专属标语。在中文界面优先显示中文名称，英文界面自动倒置为主英辅中。保存后自动同步为平台全局默认配置。', 'Configure Chinese and English platform names, subtitle and login slogan. Display order reverses automatically based on current language. Saved values become the system defaults.')}</p>
                 <form onsubmit="event.preventDefault(); savePlatformName()">
-                    <input type="hidden" id="platformNameInput" value="${navEscape(navState.settings.platformName || 'Dragon 工具平台')}">
+                    <input type="hidden" id="platformNameInput" value="${navEscape(navState.settings.platformName || 'Dragon Claw')}">
                     <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:14px;margin-top:12px;">
                         <div>
                             <label for="platformNameZhInput" style="display:block;font-size:12.5px;font-weight:600;margin-bottom:6px;">🇨🇳 ${text('主名称 (中文)', 'Main Name (Chinese)')}</label>
-                            <input id="platformNameZhInput" class="nav-settings-input" style="width:100%;box-sizing:border-box" maxlength="80" value="${navEscape(navState.settings.platformNameZh || (/[^\x00-\x7F]/.test(navState.settings.platformName || '') ? navState.settings.platformName : 'Dragon 工具平台'))}" placeholder="Dragon 工具平台" autocomplete="off" oninput="document.getElementById('platformNameInput').value = this.value">
+                            <input id="platformNameZhInput" class="nav-settings-input" style="width:100%;box-sizing:border-box" maxlength="80" value="${navEscape(navState.settings.platformNameZh || (/[^\x00-\x7F]/.test(navState.settings.platformName || '') ? navState.settings.platformName : 'Dragon Claw'))}" placeholder="Dragon Claw" autocomplete="off" oninput="document.getElementById('platformNameInput').value = this.value">
                         </div>
                         <div>
                             <label for="platformNameEnInput" style="display:block;font-size:12.5px;font-weight:600;margin-bottom:6px;">🇬🇧 ${text('主名称 (英文)', 'Main Name (English)')}</label>
-                            <input id="platformNameEnInput" class="nav-settings-input" style="width:100%;box-sizing:border-box" maxlength="80" value="${navEscape(navState.settings.platformNameEn || (!/[^\x00-\x7F]/.test(navState.settings.platformName || '') && navState.settings.platformName ? navState.settings.platformName : 'Dragon Platform'))}" placeholder="Dragon Platform" autocomplete="off">
+                            <input id="platformNameEnInput" class="nav-settings-input" style="width:100%;box-sizing:border-box" maxlength="80" value="${navEscape(navState.settings.platformNameEn || (!/[^\x00-\x7F]/.test(navState.settings.platformName || '') && navState.settings.platformName ? navState.settings.platformName : 'Dragon Claw'))}" placeholder="Dragon Claw" autocomplete="off">
                         </div>
                         <div>
                             <label for="platformSubtitleInput" style="display:block;font-size:12.5px;font-weight:600;margin-bottom:6px;">📑 ${text('页面副标题 (中文)', 'Page Subtitle (Chinese)')}</label>
@@ -441,11 +434,11 @@ window.savePlatformName = async function () {
 
     const rawInput = clean(input.value, 80);
     const platformNameZh = zhInput
-        ? (clean(zhInput.value, 80) || rawInput || 'Dragon 工具平台')
-        : (rawInput || 'Dragon 工具平台');
+        ? (clean(zhInput.value, 80) || rawInput || 'Dragon Claw')
+        : (rawInput || 'Dragon Claw');
     const platformNameEn = enInput
-        ? (clean(enInput.value, 80) || navState.settings?.platformNameEn || 'Dragon Platform')
-        : (rawInput || 'Dragon Platform');
+        ? (clean(enInput.value, 80) || navState.settings?.platformNameEn || 'Dragon Claw')
+        : (rawInput || 'Dragon Claw');
     const platformSubtitle = (subInput ? clean(subInput.value, 120) : '') || navState.settings?.platformSubtitle || '埃及 CS 工具与知识中心';
     const platformSubtitleEn = (subEnInput ? clean(subEnInput.value, 120) : '') || navState.settings?.platformSubtitleEn || 'Egypt CS Tools & Knowledge Center';
     const platformSlogan = (sloganInput ? clean(sloganInput.value, 200) : '') || navState.settings?.platformSlogan || '“认真做好每一个工具，让日常工作更省心。”';
@@ -1648,8 +1641,8 @@ async function renderBackupSettings(content) {
         ]);
         if (data.tenantId && data.tenantId !== (navState.activeTenantId || 'default')) {
             throw new Error(navLocaleText(
-                `页面租户已发生变化（页面：${navState.activeTenantId || 'default'}，服务端：${data.tenantId}），请刷新页面后再操作备份。`,
-                `The active tenant changed (page: ${navState.activeTenantId || 'default'}, server: ${data.tenantId}). Refresh before using backup actions.`
+                `页面数据空间已发生变化（页面：${navState.activeTenantId || 'default'}，服务端：${data.tenantId}），请刷新页面后再操作备份。`,
+                `The data scope changed (page: ${navState.activeTenantId || 'default'}, server: ${data.tenantId}). Refresh before using backup actions.`
             ));
         }
         navState.remoteBackupSettings = remoteSettings;
@@ -1955,176 +1948,6 @@ function renderInitializationSettings(content) {
         <div id="navInitializationStatus" class="nav-init-status" role="status"></div>
     `;
 }
-
-async function renderTenantSettings(content) {
-    content.innerHTML = `<div class="nav-settings-empty">${navEscape(navT('nav.tenant.loading'))}</div>`;
-    try {
-        await Promise.all([loadTenantNavigation(), loadManagedTenants()]);
-    } catch (error) {
-        content.innerHTML = `<div class="nav-settings-empty">${navEscape(error.message)}</div>`;
-        return;
-    }
-    const activeTenants = navState.managedTenants.filter(tenant => tenant.status === 'active');
-    const archivedTenants = navState.managedTenants.filter(tenant => tenant.status === 'archived');
-    const tenantRow = (tenant, archived = false) => `
-        <div class="nav-tenant-admin-row ${archived ? 'archived' : ''}" data-tenant-id="${navEscape(tenant.id)}">
-            <div>
-                <strong>${navEscape(displayTenantName(tenant))}</strong><span>${navEscape(tenant.id)}</span>
-                ${archived ? `<em class="nav-tenant-status-badge">${navEscape(navT('nav.tenant.archivedBadge'))}</em>` : ''}
-                <p>${navEscape(tenant.description || '')}</p>
-            </div>
-            <div class="nav-backup-toolbar">
-                <button type="button" onclick="editTenantInfo('${navEscape(tenant.id)}')">${navEscape(navT('nav.tenant.edit'))}</button>
-                ${archived
-            ? `<button type="button" onclick="restoreArchivedTenantInfo('${navEscape(tenant.id)}')">${navEscape(navT('nav.tenant.restore'))}</button>
-                       <button type="button" class="danger" onclick="deleteTenantData('${navEscape(tenant.id)}')">${navEscape(navT('nav.tenant.delete'))}</button>`
-            : tenant.id !== 'default' ? `<button type="button" class="danger" onclick="archiveTenantInfo('${navEscape(tenant.id)}')">${navEscape(navT('nav.tenant.archive'))}</button>` : ''}
-            </div>
-        </div>`;
-    content.innerHTML = `
-        <div class="nav-settings-help">${navEscape(navT('nav.tenant.defaultHint'))}</div>
-        <form class="nav-tenant-create" novalidate onsubmit="createTenantInfo(event)">
-            <input name="name" required maxlength="80" placeholder="${navEscape(navT('nav.tenant.name'))}">
-            <input name="id" maxlength="63" pattern="[a-zA-Z0-9_-]+" placeholder="${navEscape(navT('nav.tenant.id'))}">
-            <input name="description" maxlength="240" placeholder="${navEscape(navT('nav.tenant.description'))}">
-            <button type="submit">${navEscape(navT('nav.tenant.create'))}</button>
-        </form>
-        <section class="nav-tenant-section">
-            <div class="nav-tenant-section-head">${navEscape(navT('nav.tenant.activeGroup'))}<span>${activeTenants.length}</span></div>
-            <div class="nav-tenant-admin-list">${activeTenants.map(tenant => tenantRow(tenant)).join('')}</div>
-        </section>
-        <section class="nav-tenant-section">
-            <div class="nav-tenant-section-head">${navEscape(navT('nav.tenant.archivedGroup'))}<span>${archivedTenants.length}</span></div>
-            <div class="nav-tenant-admin-list">${archivedTenants.map(tenant => tenantRow(tenant, true)).join('') || `<div class="nav-settings-empty">${navEscape(navT('nav.tenant.archivedEmpty'))}</div>`}</div>
-        </section>`;
-}
-
-window.createTenantInfo = async function (event) {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const submitButton = form.querySelector('button[type="submit"]');
-    const body = Object.fromEntries(new FormData(event.currentTarget).entries());
-    body.name = String(body.name || '').trim();
-    body.id = String(body.id || '').trim();
-    body.description = String(body.description || '').trim();
-    if (!body.name) return showNavbarNotice({ title: navT('nav.dialog.notice'), message: navT('nav.tenant.nameRequired'), tone: 'info' });
-    if (body.id && !/^[a-zA-Z0-9_-]+$/.test(body.id)) {
-        return showNavbarNotice({ title: navT('nav.dialog.notice'), message: navT('nav.tenant.idInvalid'), tone: 'info' });
-    }
-    const operationId = `tenant_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
-    startBackupOperationConsole(navLocaleText('新增租户初始化', 'New tenant initialization'), '/api/tenants/operations', operationId);
-    appendBackupConsoleEntry(navLocaleText(`正在创建租户“${body.name}”`, `Creating tenant “${body.name}”`), 'info');
-    if (submitButton) {
-        submitButton.disabled = true;
-        submitButton.textContent = navLocaleText('创建中…', 'Creating…');
-    }
-    try {
-        const response = await fetch('/api/tenants', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Tenant-Operation-Id': operationId, ...getAuthHeaderForNav() },
-            body: JSON.stringify(body)
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
-        appendBackupConsoleEntry(navLocaleText('客户端已收到创建完成响应', 'The client received the completion response'), 'success');
-        setBackupConsoleProgress(100, 'COMPLETED');
-        await renderTenantSettings(document.getElementById('navSettingsContent'));
-    } catch (error) {
-        appendBackupConsoleEntry(navLocaleText(`创建失败：${error.message}`, `Creation failed: ${error.message}`), 'error');
-        setBackupConsoleProgress(100, 'FAILED');
-        await showNavbarNotice({ title: navT('nav.dialog.error'), message: error.message, tone: 'error' });
-    } finally {
-        if (submitButton?.isConnected) {
-            submitButton.disabled = false;
-            submitButton.textContent = navT('nav.tenant.create');
-        }
-    }
-};
-
-window.editTenantInfo = async function (tenantId) {
-    const tenant = navState.managedTenants.find(item => item.id === tenantId) || navState.tenants.find(item => item.id === tenantId);
-    if (!tenant) return;
-    const values = await showNavbarFormDialog({
-        title: navLocaleText('编辑租户信息', 'Edit tenant'),
-        message: navLocaleText(`正在编辑“${displayTenantName(tenant)}”。租户标识 ${tenant.id} 不会改变。`, `Editing “${displayTenantName(tenant)}”. Tenant ID ${tenant.id} will not change.`),
-        fields: [
-            { name: 'name', label: navT('nav.tenant.name'), value: tenant.name, required: true, maxLength: 80 },
-            { name: 'description', label: navT('nav.tenant.description'), value: tenant.description || '', maxLength: 240, multiline: true }
-        ],
-        confirmText: navT('nav.dialog.save')
-    });
-    if (!values) return;
-    const response = await fetch(`/api/tenants/${encodeURIComponent(tenantId)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', ...getAuthHeaderForNav() }, body: JSON.stringify(values) });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) return showNavbarNotice({ title: navT('nav.dialog.error'), message: data.error || `HTTP ${response.status}`, tone: 'error' });
-    await renderTenantSettings(document.getElementById('navSettingsContent'));
-};
-
-window.archiveTenantInfo = async function (tenantId) {
-    const tenant = navState.managedTenants.find(item => item.id === tenantId) || navState.tenants.find(item => item.id === tenantId);
-    if (!tenant) return;
-    const confirmed = await showNavbarConfirm({
-        title: navLocaleText('归档租户', 'Archive tenant'),
-        message: navT('nav.tenant.archiveConfirm').replace('{name}', tenant.name),
-        hint: navLocaleText('租户数据目录会完整保留，但该租户将无法继续进入。', 'The tenant data directory will be retained, but users will no longer be able to enter it.'),
-        tone: 'danger',
-        confirmText: navT('nav.tenant.archive')
-    });
-    if (!confirmed) return;
-    const response = await fetch(`/api/tenants/${encodeURIComponent(tenantId)}`, { method: 'DELETE', headers: getAuthHeaderForNav() });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) return showNavbarNotice({ title: navT('nav.dialog.error'), message: data.error || `HTTP ${response.status}`, tone: 'error' });
-    if (tenantId === navState.activeTenantId) {
-        switchTenantBrowserState(tenantId, 'default');
-        localStorage.setItem('tools_tenant_id', 'default');
-        window.location.reload();
-        return;
-    }
-    await renderTenantSettings(document.getElementById('navSettingsContent'));
-};
-
-window.restoreArchivedTenantInfo = async function (tenantId) {
-    const tenant = navState.managedTenants.find(item => item.id === tenantId);
-    if (!tenant) return;
-    const confirmed = await showNavbarConfirm({
-        title: navLocaleText('恢复已归档租户', 'Restore archived tenant'),
-        message: navT('nav.tenant.restoreConfirm').replace('{name}', displayTenantName(tenant)),
-        hint: navLocaleText('恢复只会重新启用租户，不会覆盖或初始化原有数据。', 'Restore only re-enables the tenant; it does not overwrite or initialize existing data.'),
-        confirmText: navT('nav.tenant.restore')
-    });
-    if (!confirmed) return;
-    const response = await fetch(`/api/tenants/${encodeURIComponent(tenantId)}/restore`, { method: 'POST', headers: getAuthHeaderForNav() });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) return showNavbarNotice({ title: navT('nav.dialog.error'), message: data.error || `HTTP ${response.status}`, tone: 'error' });
-    await renderTenantSettings(document.getElementById('navSettingsContent'));
-};
-
-window.deleteTenantData = async function (tenantId) {
-    const tenant = navState.managedTenants.find(item => item.id === tenantId);
-    if (!tenant) return;
-    const name = displayTenantName(tenant);
-    const confirmed = await showNavbarTypedConfirm({
-        title: navT('nav.tenant.deleteTitle'),
-        message: navT('nav.tenant.deleteMessage').replace('{name}', name).replace('{id}', tenant.id),
-        hint: navT('nav.tenant.deleteHint').replace('{id}', tenant.id),
-        placeholder: navT('nav.tenant.deletePlaceholder').replace('{id}', tenant.id),
-        requiredText: tenant.id,
-        cancelText: navT('nav.set.restore.cancel'),
-        confirmText: navT('nav.tenant.delete')
-    });
-    if (!confirmed) return;
-    const response = await fetch(`/api/tenants/${encodeURIComponent(tenantId)}/permanent`, { method: 'DELETE', headers: getAuthHeaderForNav() });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) return showNavbarNotice({ title: navT('nav.dialog.error'), message: data.error || `HTTP ${response.status}`, tone: 'error' });
-    localStorage.removeItem(`${TENANT_BROWSER_STATE_PREFIX}${tenantId}`);
-    localStorage.removeItem(`${NAV_BOOTSTRAP_CACHE_KEY}:${tenantId}`);
-    await renderTenantSettings(document.getElementById('navSettingsContent'));
-    await showNavbarNotice({
-        title: navLocaleText('删除完成', 'Deletion complete'),
-        message: navT('nav.tenant.deleteDone').replace('{name}', name),
-        tone: 'success'
-    });
-};
 
 function setInitializationStatus(message, tone = '') {
     const element = document.getElementById('navInitializationStatus');
@@ -3650,7 +3473,7 @@ window.pullRemoteBackupNow = async function (force) {
     const ok = await showNavbarConfirm({
         title: force ? navLocaleText('强制恢复远端备份', 'Force remote restore') : navLocaleText('拉取并恢复远端备份', 'Pull and restore remote backup'),
         message: force ? navLocaleText('确定要强制恢复远端最新备份吗？', 'Force restore the latest remote backup?') : navLocaleText('确定要按规则拉取并恢复远端备份吗？', 'Pull and restore a remote backup using the configured rules?'),
-        hint: navLocaleText('此操作只会覆盖当前租户的本地业务数据，不影响其他租户。恢复成功后服务会自动重启，手动启动方式可能需要重新启动服务。', 'This only overwrites local business data for the current tenant and does not affect other tenants. The service restarts automatically when possible; manual deployments may need a restart.'),
+        hint: navLocaleText('此操作只会覆盖当前平台的本地业务数据，不影响其他数据空间。恢复成功后服务会自动重启，手动启动方式可能需要重新启动服务。', 'This only overwrites local business data for the current platform and does not affect other data spaces. The service restarts automatically when possible; manual deployments may need a restart.'),
         tone: 'danger',
         confirmText: navLocaleText('确认恢复', 'Restore')
     });
@@ -3714,27 +3537,9 @@ function createBackupApiError(data = {}, status = 500) {
     return error;
 }
 
-async function confirmCrossTenantRestore(error) {
-    const sourceName = error.backupTenantName || error.backupTenantId || '-';
-    const sourceId = error.backupTenantId || '-';
-    const targetName = error.currentTenantName || activeTenantName();
-    const targetId = error.currentTenantId || navState.activeTenantId || 'default';
-    return showNavbarConfirm({
-        eyebrow: navLocaleText('跨租户数据恢复', 'CROSS-TENANT RESTORE'),
-        title: navLocaleText('租户标识不一致，是否强制恢复？', 'Tenant IDs differ. Force restore?'),
-        message: navLocaleText(
-            `当前目标：${targetName}（ID: ${targetId}）\n备份来源：${sourceName}（ID: ${sourceId}）`,
-            `Target: ${targetName} (ID: ${targetId})\nBackup source: ${sourceName} (ID: ${sourceId})`
-        ),
-        hint: navLocaleText(
-            '确认后，来源租户的脚本、规则、数据库、附件和自定义工具将写入当前目标租户。目标租户现有业务数据会先生成安全备份；账号、登录会话、租户清单和其他租户不会被覆盖。',
-            'The source tenant’s scripts, rules, databases, attachments, and custom tools will be written into the current target tenant. A safety backup of the target is created first. Accounts, sessions, the tenant registry, and other tenants are not overwritten.'
-        ),
-        icon: '⇄',
-        tone: 'danger',
-        cancelText: navLocaleText('取消恢复', 'Cancel'),
-        confirmText: navLocaleText('确认强制恢复', 'Force restore')
-    });
+async function confirmCrossTenantRestore() {
+    await showNavbarNotice({ title: navLocaleText('无法恢复此备份', 'Cannot restore this backup'), message: navLocaleText('备份的数据范围与当前平台不一致，请选择本平台的备份。', 'This backup belongs to a different data scope. Select a backup from this platform.'), tone: 'error' });
+    return false;
 }
 
 function createBackupOperationId() {
@@ -3750,7 +3555,7 @@ function ensureBackupOperationConsole(title = '备份任务控制台') {
         panel.innerHTML = `
             <div class="backup-console-head">
                 <div>
-                    <div class="backup-console-kicker">TOOLS PLATFORM · DATA OPS</div>
+                    <div class="backup-console-kicker">DRAGON CLAW · DATA OPS</div>
                     <strong id="backupConsoleTitle"></strong>
                 </div>
                 <div class="backup-console-actions">
@@ -3851,7 +3656,7 @@ window.clearBackupOperationConsole = function () {
 };
 
 window.createGlobalBackup = async function (downloadAfterCreate) {
-    const operationId = startBackupOperationConsole('生成当前租户备份');
+    const operationId = startBackupOperationConsole('生成当前平台备份');
     const result = await runGlobalBackupAction('正在生成备份...', async () => {
         const res = await fetch('/api/global-backup/create', {
             method: 'POST',
@@ -3944,7 +3749,7 @@ window.deleteGlobalBackup = async function (name) {
 function getGlobalRestoreCompletionMessage(data = {}) {
     const missing = Array.isArray(data.missingTargets) ? data.missingTargets : [];
     const crossTenantText = data.forcedCrossTenant
-        ? `\n\n已强制跨租户恢复：${data.sourceTenant?.name || data.sourceTenant?.id || '-'}（${data.sourceTenant?.id || '-'}） → ${data.targetTenant?.name || data.targetTenant?.id || '-'}（${data.targetTenant?.id || '-'}）。`
+        ? `\n\n已强制跨数据空间恢复：${data.sourceTenant?.name || data.sourceTenant?.id || '-'}（${data.sourceTenant?.id || '-'}） → ${data.targetTenant?.name || data.targetTenant?.id || '-'}（${data.targetTenant?.id || '-'}）。`
         : '';
     const partialText = data.partialRestore
         ? `\n\n注意：这是旧版或不完整备份，未包含：${missing.join('、')}。对应的现有数据未被覆盖。`
@@ -3953,7 +3758,7 @@ function getGlobalRestoreCompletionMessage(data = {}) {
 }
 
 async function performServerBackupRestore(name, forceCrossTenant = false) {
-    const operationId = startBackupOperationConsole(forceCrossTenant ? '强制跨租户恢复服务器备份' : '恢复服务器备份');
+    const operationId = startBackupOperationConsole(forceCrossTenant ? '强制跨数据空间恢复服务器备份' : '恢复服务器备份');
     return runGlobalBackupAction('正在从服务器备份恢复...', async () => {
         const res = await fetch(`/api/global-backup/restore/server/${encodeURIComponent(name)}`, {
             method: 'POST',
@@ -3975,7 +3780,7 @@ window.restoreGlobalBackupFromServer = async function (name) {
     const ok = await showNavbarConfirm({
         title: navLocaleText('从服务器备份恢复', 'Restore server backup'),
         message: name,
-        hint: navLocaleText('此操作只会覆盖当前租户的业务数据，不影响其他租户。系统会先自动生成当前租户的恢复前安全备份。', 'This only overwrites business data for the current tenant and does not affect other tenants. A safety backup for the current tenant is created first.'),
+        hint: navLocaleText('此操作只会覆盖当前平台的业务数据，不影响其他数据空间。系统会先自动生成当前平台的恢复前安全备份。', 'This only overwrites business data for the current platform and does not affect other data spaces. A safety backup for the current platform is created first.'),
         tone: 'danger',
         confirmText: navLocaleText('开始恢复', 'Restore')
     });
@@ -3997,13 +3802,13 @@ window.restoreGlobalBackupFromUpload = async function (forceCrossTenant = false,
         const ok = await showNavbarConfirm({
             title: navLocaleText('上传并恢复备份', 'Upload and restore backup'),
             message: file.name,
-            hint: navLocaleText('系统会先校验备份租户 ID；如与当前租户不同，会在不修改数据的情况下暂停并要求再次确认。', 'The tenant ID is checked first. If it differs from the current tenant, the restore pauses without changing data and asks for another confirmation.'),
+            hint: navLocaleText('系统会先校验备份数据空间 ID；如与当前平台不同，会在不修改数据的情况下暂停并要求再次确认。', 'The data scope ID is checked first. If it differs from the current platform, the restore pauses without changing data and asks for another confirmation.'),
             tone: 'danger',
             confirmText: navLocaleText('上传并校验', 'Upload and validate')
         });
         if (!ok) return;
     }
-    const operationId = startBackupOperationConsole(forceCrossTenant ? '强制跨租户上传恢复' : '上传并恢复备份');
+    const operationId = startBackupOperationConsole(forceCrossTenant ? '强制跨数据空间上传恢复' : '上传并恢复备份');
     appendBackupConsoleEntry(`已选择文件：${file.name}`, 'info', { size: formatBackupSize(file.size) });
 
     const indicator = document.getElementById('navSettingsSaveState');
@@ -4200,7 +4005,7 @@ async function renderDataImportPageSettings(content) {
             <div class="nav-settings-row" style="flex-wrap:wrap;gap:12px">
                 <label class="nav-settings-check"><input id="navUploadOriginals" type="checkbox" ${settings.uploadOriginals ? 'checked' : ''}><span>${navEscape(text('原始数据上传到服务器（默认开启）', 'Upload original data to the server (on by default)'))}</span></label>
             </div>
-            <div class="nav-settings-help" style="margin-top:12px">${navEscape(text('关闭后仍正常提取指标并保存快照，只停止新增原文件及全部工作表存档。已保存的原始表不会删除。此设置作用于当前租户，自动保存。', 'When disabled, metric extraction and snapshots continue; new original files and full worksheets are not archived. Existing archives are retained. This setting is saved automatically for the current tenant.'))}</div>`;
+            <div class="nav-settings-help" style="margin-top:12px">${navEscape(text('关闭后仍正常提取指标并保存快照，只停止新增原文件及全部工作表存档。已保存的原始表不会删除。此设置作用于当前平台，自动保存。', 'When disabled, metric extraction and snapshots continue; new original files and full worksheets are not archived. Existing archives are retained. This setting is saved automatically for the current platform.'))}</div>`;
         content.querySelector('#navUploadOriginals').addEventListener('change', async event => {
             const checkbox = event.target;
             const enabled = checkbox.checked;

@@ -762,6 +762,139 @@
       .slides, .slide, .progress span, .nav button { transition: none !important; }
     }
   </style>
+<style id="platform-light-theme">
+/* 亮色覆盖：由 scripts/generate-light-theme.js 从 index.html 生成，平台亮色主题时生效；改原样式后请重新生成 */
+html[data-platform-theme="light"] { color-scheme: light; }
+html[data-platform-theme="light"] {
+    --bg: #f9fafc !important;
+    --panel: rgba(15, 23, 42, 0.045) !important;
+    --panel-strong: rgba(15, 23, 42, 0.06) !important;
+    --line: rgba(15, 23, 42, 0.112) !important;
+    --text: #111d2c !important;
+    --muted: #42526f !important;
+    --soft: #5c667a !important;
+    --violet: #382665 !important;
+    --shadow: 0 28px 80px rgba(15, 23, 42, 0.12) !important;
+}
+html[data-platform-theme="light"] .stage {
+    background: radial-gradient(circle at 12% 12%, rgba(62, 230, 194, 0.18), transparent 32%),
+        radial-gradient(circle at 82% 18%, rgba(112, 165, 255, 0.16), transparent 36%),
+        radial-gradient(circle at 72% 86%, rgba(255, 204, 102, 0.1), transparent 38%),
+        linear-gradient(145deg, #f9fafc 0%, #f5f6fa 48%, #f2f4f9 100%) !important;
+}
+html[data-platform-theme="light"] .stage::before {
+    background-image: linear-gradient(rgba(15, 23, 42, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(15, 23, 42, 0.03) 1px, transparent 1px) !important;
+}
+html[data-platform-theme="light"] .stage::after {
+    background: linear-gradient(90deg, rgba(249, 250, 252, 0.58), transparent 22%, transparent 78%, rgba(249, 250, 252, 0.56)),
+        linear-gradient(180deg, rgba(249, 250, 252, 0.2), transparent 35%, rgba(249, 250, 252, 0.46)) !important;
+}
+html[data-platform-theme="light"] .topbar {
+    color: rgba(17, 29, 44, 0.74) !important;
+}
+html[data-platform-theme="light"] .brand {
+    background: rgba(249, 250, 252, 0.44) !important;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12) !important;
+}
+html[data-platform-theme="light"] .brand-dot {
+    box-shadow: 0 0 22px rgba(62, 230, 194, 0.25) !important;
+}
+html[data-platform-theme="light"] .pager {
+    color: rgba(17, 29, 44, 0.58) !important;
+}
+html[data-platform-theme="light"] .demo-toggle {
+    background: rgba(249, 250, 252, 0.55) !important;
+    color: rgba(17, 29, 44, 0.82) !important;
+}
+html[data-platform-theme="light"] .demo-toggle:hover {
+    border-color: rgba(29, 226, 184, 0.45) !important;
+}
+html[data-platform-theme="light"] .progress {
+    background: rgba(15, 23, 42, 0.048) !important;
+}
+html[data-platform-theme="light"] .progress span {
+    box-shadow: 0 0 18px rgba(62, 230, 194, 0.25) !important;
+}
+html[data-platform-theme="light"] .eyebrow {
+    border: 1px solid rgba(29, 226, 184, 0.32) !important;
+}
+html[data-platform-theme="light"] .hero-line {
+    color: #1f1f1f !important;
+}
+html[data-platform-theme="light"] .stat {
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.06), rgba(15, 23, 42, 0.033)) !important;
+    box-shadow: 0 16px 44px rgba(15, 23, 42, 0.12) !important;
+}
+html[data-platform-theme="light"] .browser {
+    border: 1px solid rgba(15, 23, 42, 0.128) !important;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.06), rgba(15, 23, 42, 0.033)) !important;
+}
+html[data-platform-theme="light"] .browser::before {
+    background: rgba(250, 251, 253, 0.55) !important;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.08) !important;
+}
+html[data-platform-theme="light"] .window-title {
+    color: rgba(17, 29, 44, 0.66) !important;
+}
+html[data-platform-theme="light"] .mock-row {
+    background: rgba(15, 23, 42, 0.045) !important;
+}
+html[data-platform-theme="light"] .mini-card {
+    border: 1px solid rgba(15, 23, 42, 0.088) !important;
+    background: rgba(15, 23, 42, 0.039) !important;
+}
+html[data-platform-theme="light"] .flow-step {
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.06), rgba(15, 23, 42, 0.033)) !important;
+    box-shadow: 0 18px 50px rgba(15, 23, 42, 0.12) !important;
+}
+html[data-platform-theme="light"] .statement {
+    border: 1px solid rgba(29, 226, 184, 0.26) !important;
+    color: #15362f !important;
+    box-shadow: 0 22px 70px rgba(15, 23, 42, 0.08) !important;
+}
+html[data-platform-theme="light"] .screen-card {
+    background: rgba(15, 23, 42, 0.045) !important;
+    box-shadow: 0 18px 54px rgba(15, 23, 42, 0.12) !important;
+}
+html[data-platform-theme="light"] .screen-card:hover {
+    border-color: rgba(29, 226, 184, 0.4) !important;
+    background: rgba(15, 23, 42, 0.06) !important;
+}
+html[data-platform-theme="light"] .screen-card .browser {
+    background: rgba(15, 23, 42, 0.03) !important;
+}
+html[data-platform-theme="light"] .screenshot-placeholder {
+    border-bottom: 1px solid rgba(15, 23, 42, 0.08) !important;
+    background: radial-gradient(circle at 20% 20%, rgba(62, 230, 194, 0.13), transparent 34%),
+        radial-gradient(circle at 82% 24%, rgba(112, 165, 255, 0.13), transparent 38%),
+        linear-gradient(135deg, rgba(15, 23, 42, 0.048), rgba(15, 23, 42, 0.03)) !important;
+}
+html[data-platform-theme="light"] .screenshot-placeholder::before {
+    border: 1px dashed rgba(15, 23, 42, 0.16) !important;
+    background: rgba(249, 250, 252, 0.22) !important;
+}
+html[data-platform-theme="light"] .screenshot-placeholder::after {
+    border: 1px solid rgba(29, 226, 184, 0.3) !important;
+    color: rgba(21, 55, 48, 0.88) !important;
+    background: rgba(249, 250, 252, 0.52) !important;
+}
+html[data-platform-theme="light"] .action {
+    background: rgba(15, 23, 42, 0.045) !important;
+}
+html[data-platform-theme="light"] .quote {
+    border: 1px solid rgba(29, 226, 184, 0.28) !important;
+}
+html[data-platform-theme="light"] .nav button {
+    background: rgba(249, 250, 252, 0.55) !important;
+}
+html[data-platform-theme="light"] .nav button:hover {
+    border-color: rgba(29, 226, 184, 0.45) !important;
+}
+html[data-platform-theme="light"] .hint {
+    color: rgba(17, 29, 44, 0.42) !important;
+}
+</style>
 </head>
 <body>
   <div class="stage">

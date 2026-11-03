@@ -28,7 +28,7 @@ const DEFAULT_LINKS = [
     { id: 'api', icon: '⚡', name: 'API 中转', nameEn: 'API Relay', url: 'https://api.fanxiaolong.uk/' },
     { id: 'api2', icon: '🔁', name: 'API 中转二站', nameEn: 'API Relay 2', url: 'https://api2.fanxiaolong.uk/' },
     { id: 'cs2', icon: '🛟', name: '工具中台备用', nameEn: 'Backup Hub', url: 'https://cs2.fanxiaolong.uk/' },
-    { id: 'cs-main', icon: '🏠', name: '工具中台主站', nameEn: 'Tools Platform', url: 'https://cs.fanxiaolong.uk/' },
+    { id: 'cs-main', icon: '🏠', name: '工具中台主站', nameEn: 'Dragon Claw', url: 'https://cs.fanxiaolong.uk/' },
     { id: 'license', icon: '🔑', name: 'License 发放', nameEn: 'Issue Licenses', url: 'https://cs.fanxiaolong.uk/desktop-license-admin' },
     { id: 'ssh', icon: '☁️', name: '移动终端云', nameEn: 'Mobile Terminal Cloud', url: 'https://ssh.fanxiaolong.uk/' },
     { id: 'pcap', icon: '📡', name: '网络分析', nameEn: 'Network Analysis', url: 'https://pcap.fanxiaolong.uk/' },

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, session, shell, Tray, Menu, nativeImage, clipboard, net, screen } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, session, shell, Tray, Menu, nativeImage, nativeTheme, clipboard, net, screen } = require('electron');
 
 // 保证程序单实例运行，避免多开冲突导致 SQLite 锁死 (SQLITE_BUSY: database is locked)
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
@@ -53,6 +53,14 @@ if (process.env.TOOLS_DAILY_LOGS === undefined) {
     process.env.TOOLS_DAILY_LOGS = '0';
 }
 const petManager = require('./desktop-pet/pet-manager');
+// 应用自己的主窗口（无系统标题栏、左上角窗口按钮、非浏览器外观），代替调用系统浏览器打开首页
+const mainWindow = require('./desktop-main-window').createMainWindowController({
+    getBaseUrl: () => getAppBaseUrl(),
+    getIconPath: () => getAppIconPath(),
+    statePath: path.join(userDataPath, 'main-window-state.json'),
+    isQuitting: () => isQuitting,
+    preloadPath: path.join(__dirname, 'electron-preload.js')
+});
 const { resolveLogoAsset } = require('./backend/models/platform-logo-runtime');
 require('./backend/models/desktop-language').events.on('change', () => { refreshTrayMenu(); desktopPromotions.languageChanged(); });
 // 首页推广链接：点击用系统浏览器打开；设置里打开卡片堆后（默认关闭），登录后在右下角以置顶小窗卡片堆显示（desktop-promo/promo-stack.js），首页读取实时画面
@@ -163,7 +171,7 @@ process.on('uncaughtException', (err) => {
                 '数据服务忙碌 / Database Busy',
                 '检测到本地数据库正被占用或有残留进程在运行。\n\n' +
                 '建议排查方式：\n' +
-                '1. 请在任务管理器中检查并结束可能残留的 Tools Platform 进程；\n' +
+                '1. 请在任务管理器中检查并结束可能残留的 Dragon Claw 进程；\n' +
                 '2. 避免同时在网盘实时同步目录或受限磁盘中多开运行。'
             );
         } catch (_) {}
@@ -244,11 +252,11 @@ function createLicenseWindow() {
         minHeight: Math.min(480, licenseHeight),
         x: Math.round(licenseArea.x + (licenseArea.width - licenseWidth) / 2),
         y: Math.round(licenseArea.y + (licenseArea.height - licenseHeight) / 2),
-        backgroundColor: '#090e17',
+        backgroundColor: '#f6f7f9',
         show: false,
         alwaysOnTop: true,
         autoHideMenuBar: true,
-        title: 'Dragon Platform - 软件授权激活 / License Activation',
+        title: 'Dragon Claw - 软件授权激活 / License Activation',
         icon: getAppIconPath(),
         webPreferences: {
             preload: path.join(__dirname, 'desktop-license-preload.js'),
@@ -498,7 +506,7 @@ function startDesktopLicenseRefresh() {
         if (previousValid && !desktopLicenseStatus.valid) {
             dialog.showMessageBox({
                 type: 'warning',
-                title: 'Tools Platform License',
+                title: 'Dragon Claw License',
                 message: '当前 License 已失效',
                 detail: '请联系管理员续期或恢复授权，然后重新启动程序。'
             });
@@ -657,7 +665,7 @@ function stopUpdateProgressBalloons(finalTitle, finalContent) {
 function startUpdateProgressBalloons() {
     stopUpdateProgressBalloons();
     updateBalloonMilestonesShown = new Set(['start']);
-    showTrayBalloon('Tools Platform 更新', '开始下载更新。可在“查看实时日志/更新进度”窗口查看实时进度。');
+    showTrayBalloon('Dragon Claw 更新', '开始下载更新。可在“查看实时日志/更新进度”窗口查看实时进度。');
 }
 
 function maybeShowDownloadMilestoneBalloon(progress) {
@@ -665,7 +673,7 @@ function maybeShowDownloadMilestoneBalloon(progress) {
     const milestone = [25, 50, 75].find((value) => percent >= value && !updateBalloonMilestonesShown.has(value));
     if (!milestone) return;
     updateBalloonMilestonesShown.add(milestone);
-    showTrayBalloon('Tools Platform 更新下载中', buildDownloadProgressText());
+    showTrayBalloon('Dragon Claw 更新下载中', buildDownloadProgressText());
 }
 
 function broadcastUpdateStatus(patch = {}) {
@@ -736,7 +744,7 @@ function setupAutoUpdater() {
     autoUpdater.on('update-downloaded', (info) => {
         updateInfo = info;
         updateDownloaded = true;
-        stopUpdateProgressBalloons('Tools Platform 更新已下载', '更新已下载完成，可在托盘菜单中选择“重启并安装更新”。');
+        stopUpdateProgressBalloons('Dragon Claw 更新已下载', '更新已下载完成，可在托盘菜单中选择“重启并安装更新”。');
         broadcastUpdateStatus({
             state: 'downloaded',
             latestVersion: info.version,
@@ -747,7 +755,7 @@ function setupAutoUpdater() {
 
     autoUpdater.on('error', (err) => {
         const formatted = formatUpdaterError(err);
-        stopUpdateProgressBalloons('Tools Platform 更新失败', formatted.message);
+        stopUpdateProgressBalloons('Dragon Claw 更新失败', formatted.message);
         broadcastUpdateStatus({
             state: 'error',
             message: formatted.message,
@@ -842,7 +850,7 @@ function registerUpdaterIpcHandlers() {
             return updateStatus;
         } catch (err) {
             const formatted = formatUpdaterError(err);
-            stopUpdateProgressBalloons('Tools Platform 更新失败', formatted.message);
+            stopUpdateProgressBalloons('Dragon Claw 更新失败', formatted.message);
             return broadcastUpdateStatus({
                 state: 'error',
                 message: formatted.message,
@@ -956,7 +964,7 @@ function createTray() {
             ? nativeImage.createFromPath(iconPath).resize({ width: 18, height: 18 })
             : iconPath;
         tray = new Tray(icon);
-        tray.setToolTip('Tools Platform 本地服务');
+        tray.setToolTip('Dragon Claw 本地服务');
         // On macOS setContextMenu handles clicks; opening a browser here would also
         // launch a tab whenever the user only wants to operate the menu.
         if (process.platform !== 'darwin') {
@@ -979,12 +987,25 @@ function openAppPath(pathname = '/') {
         dialog.showMessageBox({
             type: 'warning',
             title: '本地服务启动中',
-            message: 'Tools Platform 本地服务还在启动，请稍后再试。'
+            message: 'Dragon Claw 本地服务还在启动，请稍后再试。'
         });
         return;
     }
-    const target = new URL(pathname, baseUrl).toString();
-    shell.openExternal(target).catch((err) => {
+    // 工具页在首页右侧内嵌打开（frontend/js/home/tool-frame.js 的 ?app=），不单独打开带旧导航的整页
+    const target = new URL(pathname, baseUrl);
+    const inApp = target.pathname === '/' ? target : new URL(`/?app=${encodeURIComponent(target.pathname + target.search + target.hash)}`, baseUrl);
+    if (!mainWindow.open(inApp.toString())) {
+        shell.openExternal(target.toString()).catch((err) => {
+            dialog.showErrorBox('打开失败', err.message || String(err));
+        });
+    }
+}
+
+// 托盘「在浏览器中打开」：需要时仍可用系统浏览器访问本机服务
+function openAppPathInBrowser(pathname = '/') {
+    const baseUrl = getAppBaseUrl();
+    if (!baseUrl) return;
+    shell.openExternal(new URL(pathname, baseUrl).toString()).catch((err) => {
         dialog.showErrorBox('打开失败', err.message || String(err));
     });
 }
@@ -1086,7 +1107,7 @@ function closeStartupWindow(success = true) {
     signalSplashHandoff();
     if (!win || win.isDestroyed()) return;
     if (success) {
-        updateStartupProgress(100, '工作空间已就绪', '正在打开 Dragon Platform 主页面…', '阶段 2/2 · 启动完成', true);
+        updateStartupProgress(100, '工作空间已就绪', '正在打开 Dragon Claw 主页面…', '阶段 2/2 · 启动完成', true);
     } else {
         win.webContents.executeJavaScript('document.body.classList.add("is-finished")').catch(() => {});
     }
@@ -1277,7 +1298,7 @@ function createLogWindow() {
             height: 720,
             minWidth: 760,
             minHeight: 520,
-            title: 'Tools Platform 运行日志',
+            title: 'Dragon Claw 运行日志',
             autoHideMenuBar: true,
             icon: getAppIconPath(),
             webPreferences: {
@@ -1295,7 +1316,7 @@ function createLogWindow() {
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<title>Tools Platform 运行日志</title>
+<title>Dragon Claw 运行日志</title>
 <style>
 body{margin:0;background:#0f172a;color:#dbeafe;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;}
 header{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 20px;background:rgba(15,23,42,.94);border-bottom:1px solid rgba(148,163,184,.25);backdrop-filter:blur(12px);}
@@ -1321,7 +1342,7 @@ pre{margin:0;padding:12px;max-height:340px;overflow:auto;white-space:pre-wrap;wo
 <body>
 <header>
 <div>
-<h1>Tools Platform 运行日志</h1>
+<h1>Dragon Claw 运行日志</h1>
 <div class="meta" id="runtimeMeta">加载中...</div>
 </div>
 <div class="actions">
@@ -1630,7 +1651,7 @@ function Load-Snapshot {
 function Write-Command([string]$Action) {
     $snapshot = Load-Snapshot
     if ($null -eq $snapshot -or -not $snapshot.commandPath) {
-        [System.Windows.Forms.MessageBox]::Show("Runtime command path is missing. Please refresh and try again.", "Tools Platform") | Out-Null
+        [System.Windows.Forms.MessageBox]::Show("Runtime command path is missing. Please refresh and try again.", "Dragon Claw") | Out-Null
         return
     }
     try {
@@ -1642,19 +1663,19 @@ function Write-Command([string]$Action) {
         Set-Content -LiteralPath ([string]$snapshot.commandPath) -Value $payload -Encoding UTF8
         Render-Snapshot
     } catch {
-        [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, "Tools Platform") | Out-Null
+        [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, "Dragon Claw") | Out-Null
     }
 }
 
 $form = New-Object System.Windows.Forms.Form
-$form.Text = "Tools Platform Runtime Monitor"
+$form.Text = "Dragon Claw Runtime Monitor"
 $form.StartPosition = "CenterScreen"
 $form.Size = New-Object System.Drawing.Size(1000, 720)
 $form.MinimumSize = New-Object System.Drawing.Size(820, 560)
 $form.BackColor = [System.Drawing.Color]::FromArgb(245, 247, 250)
 
 $title = New-Object System.Windows.Forms.Label
-$title.Text = "Tools Platform Runtime Monitor"
+$title.Text = "Dragon Claw Runtime Monitor"
 $title.Font = New-Object System.Drawing.Font("Segoe UI", 14, [System.Drawing.FontStyle]::Bold)
 $title.AutoSize = $true
 $title.Location = New-Object System.Drawing.Point(16, 14)
@@ -1897,7 +1918,7 @@ async function downloadUpdateFromTray(options = {}) {
         await autoUpdater.downloadUpdate();
     } catch (err) {
         const formatted = formatUpdaterError(err);
-        stopUpdateProgressBalloons('Tools Platform 更新失败', formatted.message);
+        stopUpdateProgressBalloons('Dragon Claw 更新失败', formatted.message);
         broadcastUpdateStatus({
             state: 'error',
             message: formatted.message,
@@ -1948,17 +1969,18 @@ function refreshTrayMenu() {
     const loginSettings = app.getLoginItemSettings();
     const petT = (zh, en) => require('./backend/models/desktop-language').getLanguage() === 'en-US' ? en : zh;
     const menuTemplate = [
-        { label: `Tools Platform v${app.getVersion()}`, enabled: false },
+        { label: `Dragon Claw v${app.getVersion()}`, enabled: false },
         { label: baseUrl || '本地服务启动中...', enabled: false },
         { label: desktopLicenseStatus.valid
             ? `License：已授权至 ${new Date(desktopLicenseStatus.expiresAt).toLocaleDateString()}`
             : `License：已失效 (${desktopLicenseStatus.reasonCode || 'UNKNOWN'})`, enabled: false },
         { label: '复制本机机器码（申请/续期 License）', enabled: Boolean(getPublicMachineInfo()), click: copyMachineCodeToClipboard },
         { type: 'separator' },
-        { label: '打开 Tools Platform', click: () => openAppPath('/') },
+        { label: '打开 Dragon Claw', click: () => openAppPath('/') },
         { label: '打开数据抓取', click: () => openAppPath('/uivf12') },
         { label: '打开数据导入', click: () => openAppPath('/sla') },
         { label: '打开报表看板', click: () => openAppPath('/report') },
+        { label: '在浏览器中打开', enabled: Boolean(baseUrl), click: () => openAppPathInBrowser('/') },
         { type: 'separator' },
         {label:petT('显示 Agent 额度侧栏','Show agent quota sidebar'),type:'checkbox',checked:petManager.isQuotaPanelEnabled(),click:item=>{petManager.setQuotaPanelEnabled(item.checked);refreshTrayMenu();}},
         {
@@ -2090,7 +2112,8 @@ async function startTrayApp() {
         await waitForLocalServer(PORT);
         updateStartupProgress(96, '本地服务已经就绪', '正在连接浏览器并打开主页面…', '阶段 2/2 · 打开主页面');
         const launchUrl = buildLaunchUrl(PORT, launchExperience);
-        if (launchExperience.shouldOpenSystemBrowser) {
+        // 在应用自己的主窗口里打开（desktop-main-window.js），不再调用系统浏览器
+        if (!mainWindow.open(launchUrl) && launchExperience.shouldOpenSystemBrowser) {
             await shell.openExternal(launchUrl);
         }
         closeStartupWindow();
@@ -2124,10 +2147,13 @@ app.on('before-quit', () => {
 });
 
 app.whenReady().then(() => {
+    // Match the desktop launch and activation pages, including native title bars and form controls.
+    nativeTheme.themeSource = 'light';
     ensureDesktopMachineIdentity().catch(error => console.warn('[Electron] Machine identity failed:', error.message || error));
     if (!isPortableWindows) setupAutoUpdater();
     registerUpdaterIpcHandlers();
     registerDesktopIpcHandlers();
+    mainWindow.registerIpc();
     registerDesktopLicenseIpcHandlers();
     startTrayApp();
 });

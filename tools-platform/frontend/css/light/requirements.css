@@ -1,0 +1,253 @@
+/* 亮色覆盖：由 scripts/generate-light-theme.js 从 requirements.css 生成，平台亮色主题时生效；改原样式后请重新生成 */
+html[data-platform-theme="light"] { color-scheme: light; }
+html[data-platform-theme="light"] body {
+    background: #f2f4f9 !important;
+    color: #1d2838 !important;
+}
+html[data-platform-theme="light"] .req-header {
+    background: rgba(234, 238, 245, 0.7) !important;
+    border: 1px solid rgba(15, 23, 42, 0.08) !important;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12) !important;
+}
+html[data-platform-theme="light"] .req-header p {
+    color: #556781 !important;
+}
+html[data-platform-theme="light"] .req-stat-card {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--stat-accent) 11%, transparent), transparent 58%),
+        rgba(238, 241, 247, 0.78) !important;
+    box-shadow: inset 0 1px rgba(15, 23, 42, 0.04), 0 12px 30px rgba(15, 23, 42, 0.12) !important;
+}
+html[data-platform-theme="light"] .stat-card-copy strong {
+    color: #121f2b !important;
+}
+html[data-platform-theme="light"] .stat-card-copy small {
+    color: #556781 !important;
+}
+html[data-platform-theme="light"] .req-stats-rail {
+    border: 1px solid rgba(8, 115, 247, 0.16) !important;
+    background: linear-gradient(155deg, rgba(226, 233, 241, 0.28), rgba(242, 244, 249, 0.88) 60%),
+        rgba(242, 244, 249, 0.78) !important;
+    box-shadow: inset 0 1px rgba(15, 23, 42, 0.04), 0 18px 44px rgba(15, 23, 42, 0.12) !important;
+}
+html[data-platform-theme="light"] .req-stats-right {
+    border-color: rgba(70, 11, 244, 0.18) !important;
+    background: linear-gradient(155deg, rgba(76, 29, 149, 0.2), rgba(242, 244, 249, 0.9) 60%) !important;
+}
+html[data-platform-theme="light"] .stat-rail-heading small {
+    color: #5a687d !important;
+}
+html[data-platform-theme="light"] .stat-rail-heading strong {
+    color: #152438 !important;
+}
+html[data-platform-theme="light"] .stat-live-dot {
+    box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.1), 0 0 14px rgba(52, 211, 153, 0.25) !important;
+}
+html[data-platform-theme="light"] .stat-orbit-icon {
+    color: #3508ba !important;
+    text-shadow: 0 0 14px rgba(167, 139, 250, 0.25) !important;
+}
+html[data-platform-theme="light"] .stat-flow-item em, html[data-platform-theme="light"] .stat-category-item b {
+    color: #556781 !important;
+}
+html[data-platform-theme="light"] .stat-flow-item b, html[data-platform-theme="light"] .stat-category-item strong {
+    color: #1d2838 !important;
+}
+html[data-platform-theme="light"] .stat-category-item em {
+    color: #5a687d !important;
+}
+html[data-platform-theme="light"] .stat-flow-item > i, html[data-platform-theme="light"] .stat-category-item > i {
+    background: rgba(218, 223, 230, 0.35) !important;
+}
+html[data-platform-theme="light"] .stat-rail-foot {
+    border-top: 1px solid rgba(15, 23, 42, 0.08) !important;
+}
+html[data-platform-theme="light"] .stat-rail-foot strong {
+    color: #239f72 !important;
+}
+html[data-platform-theme="light"] .stat-rail-foot span {
+    color: #5a687d !important;
+}
+html[data-platform-theme="light"] .stat-rail-foot-orange strong {
+    color: #be5804 !important;
+}
+html[data-platform-theme="light"] .stat-empty {
+    color: #5a687d !important;
+}
+html[data-platform-theme="light"] .req-card {
+    background: rgba(234, 238, 245, 0.5) !important;
+    border: 1px solid rgba(15, 23, 42, 0.08) !important;
+}
+html[data-platform-theme="light"] .req-card:hover {
+    background: rgba(234, 238, 245, 0.8) !important;
+    border-color: rgba(15, 23, 42, 0.12) !important;
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12) !important;
+}
+html[data-platform-theme="light"] .req-card-urgent {
+    border-color: rgba(250, 115, 5, 0.9) !important;
+    background: linear-gradient(100deg, rgba(124, 45, 18, 0.34), rgba(234, 238, 245, 0.68) 42%) !important;
+}
+html[data-platform-theme="light"] .req-card-urgent::before {
+    border: 2px solid rgba(250, 115, 5, 0.45) !important;
+}
+html[data-platform-theme="light"] .req-card-urgent:hover {
+    border-color: #fa7305 !important;
+    background: linear-gradient(100deg, rgba(154, 52, 18, 0.46), rgba(234, 238, 245, 0.88) 42%) !important;
+}
+html[data-platform-theme="light"] .urgent-badge {
+    box-shadow: 0 0 14px rgba(249, 115, 22, 0.25) !important;
+}
+html[data-platform-theme="light"] .req-title {
+    color: #121f2b !important;
+}
+html[data-platform-theme="light"] .status-提交 {
+    background: rgba(15, 23, 42, 0.06) !important;
+    color: #556781 !important;
+}
+html[data-platform-theme="light"] .status-需求接受 {
+    color: #0657bc !important;
+}
+html[data-platform-theme="light"] .status-需求实现中 {
+    color: #be8a03 !important;
+}
+html[data-platform-theme="light"] .status-需求完成 {
+    color: #239f72 !important;
+}
+html[data-platform-theme="light"] .status-验收完成 {
+    color: #3508ba !important;
+}
+html[data-platform-theme="light"] .status-需求评价 {
+    color: #b40e65 !important;
+}
+html[data-platform-theme="light"] .status-已拒绝 {
+    color: #b30f0f !important;
+}
+html[data-platform-theme="light"] .req-desc {
+    color: #556781 !important;
+}
+html[data-platform-theme="light"] .req-footer {
+    color: #5a687d !important;
+    border-top: 1px dashed rgba(15, 23, 42, 0.08) !important;
+}
+html[data-platform-theme="light"] .modal-overlay {
+    background: rgba(254, 254, 254, 0.6) !important;
+}
+html[data-platform-theme="light"] .modal-content {
+    border: 1px solid rgba(15, 23, 42, 0.128) !important;
+    background: linear-gradient(145deg, #eaeef5, #eef0f7 72%) !important;
+    box-shadow: 0 28px 80px rgba(15, 23, 42, 0.12), inset 0 1px rgba(15, 23, 42, 0.04) !important;
+}
+html[data-platform-theme="light"] .modal-header {
+    border-bottom: 1px solid rgba(15, 23, 42, 0.08) !important;
+}
+html[data-platform-theme="light"] .modal-header h2 {
+    color: #121f2b !important;
+}
+html[data-platform-theme="light"] .close-btn {
+    color: #556781 !important;
+}
+html[data-platform-theme="light"] .close-btn:hover {
+    color: #121f2b !important;
+}
+html[data-platform-theme="light"] .modal-footer {
+    border-top: 1px solid rgba(15, 23, 42, 0.08) !important;
+}
+html[data-platform-theme="light"] .form-group label {
+    color: #2d3c4e !important;
+}
+html[data-platform-theme="light"] .form-group label .required {
+    color: #b30f0f !important;
+}
+html[data-platform-theme="light"] .form-control {
+    background: rgba(242, 244, 249, 0.5) !important;
+    border: 1px solid rgba(15, 23, 42, 0.08) !important;
+    color: #121f2b !important;
+}
+html[data-platform-theme="light"] .form-control:focus {
+    border-color: #0b64f4 !important;
+}
+html[data-platform-theme="light"] .req-description-meta {
+    color: #556781 !important;
+}
+html[data-platform-theme="light"] .urgent-toggle {
+    border: 1px solid rgba(250, 115, 5, 0.25) !important;
+}
+html[data-platform-theme="light"] .urgent-toggle input {
+    accent-color: #bd5005 !important;
+}
+html[data-platform-theme="light"] .urgent-toggle strong {
+    color: #5c4123 !important;
+}
+html[data-platform-theme="light"] .urgent-toggle small {
+    color: #556781 !important;
+}
+html[data-platform-theme="light"] .urgent-toggle:has(input:checked) {
+    border-color: #f96a06 !important;
+}
+html[data-platform-theme="light"] .req-pagination {
+    border: 1px solid rgba(15, 23, 42, 0.08) !important;
+    background: rgba(234, 238, 245, 0.5) !important;
+}
+html[data-platform-theme="light"] .pagination-summary {
+    color: #556781 !important;
+}
+html[data-platform-theme="light"] .pagination-btn {
+    border: 1px solid rgba(15, 23, 42, 0.08) !important;
+    background: rgba(242, 244, 249, 0.7) !important;
+    color: #2d3c4e !important;
+}
+html[data-platform-theme="light"] .pagination-btn:hover:not(:disabled), html[data-platform-theme="light"] .pagination-btn.active {
+    border-color: #0b64f4 !important;
+    color: #1f1f1f !important;
+}
+html[data-platform-theme="light"] .pagination-btn:focus-visible {
+    outline: 2px solid #0873f7 !important;
+}
+html[data-platform-theme="light"] .pagination-ellipsis {
+    color: #5a687d !important;
+}
+@media (max-width: 860px) {
+html[data-platform-theme="light"] .req-card > div:nth-child(3) {
+    border-top: 1px dashed rgba(15, 23, 42, 0.08) !important;
+}
+}
+html[data-platform-theme="light"] .flowchart-container {
+    background: rgba(242, 244, 249, 0.5) !important;
+    border: 1px solid rgba(15, 23, 42, 0.08) !important;
+}
+html[data-platform-theme="light"] .step-circle {
+    background: #e1e6ed !important;
+    color: #556781 !important;
+    border: 2px solid #c8d0da !important;
+}
+html[data-platform-theme="light"] .flow-step.active .step-circle {
+    border-color: #0873f7 !important;
+}
+html[data-platform-theme="light"] .step-label {
+    color: #2d3c4e !important;
+}
+html[data-platform-theme="light"] .step-line {
+    background: #e1e6ed !important;
+}
+html[data-platform-theme="light"] .logs-section {
+    border-top: 1px solid rgba(15, 23, 42, 0.08) !important;
+}
+html[data-platform-theme="light"] .logs-section h3 {
+    color: #556781 !important;
+}
+html[data-platform-theme="light"] .log-item {
+    background: rgba(242, 244, 249, 0.3) !important;
+    border: 1px solid rgba(15, 23, 42, 0.08) !important;
+}
+html[data-platform-theme="light"] .log-time {
+    color: #5a687d !important;
+}
+html[data-platform-theme="light"] .log-operator {
+    color: #1d2838 !important;
+}
+html[data-platform-theme="light"] .log-action {
+    color: #556781 !important;
+}
+html[data-platform-theme="light"] .log-remark {
+    color: #2d3c4e !important;
+    border-left: 1px dashed rgba(15, 23, 42, 0.12) !important;
+}

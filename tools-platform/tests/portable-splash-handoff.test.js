@@ -61,7 +61,7 @@ test('stage-2 startup window matches the stage-1 splash and writes the handoff m
     assert.equal(bmp.readInt32LE(18), 620);
     assert.equal(bmp.readInt32LE(22), 340);
     const page = fs.readFileSync(path.join(root, 'frontend/pages/startup.html'), 'utf8');
-    assert.ok(page.includes('Dragon Platform'));
+    assert.ok(page.includes('Dragon Claw'));
     assert.match(page, /body:not\(\.is-live\)[^{]*\{ animation-play-state: paused/, 'first frame stays frozen until handoff');
     const generator = fs.readFileSync(path.join(root, 'scripts/generate-portable-splash.js'), 'utf8');
     assert.match(generator, /startup\.html'\), \{ query: \{ snapshot: '1' \} \}/, 'splash BMP is the startup page snapshot');

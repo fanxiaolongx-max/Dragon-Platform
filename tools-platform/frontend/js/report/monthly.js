@@ -357,7 +357,7 @@ function applyMonthlyReportTitles(value) {
         titleEl.title = t('title_click_hint');
         titleEl.setAttribute('aria-label', t('title_click_hint'));
     }
-    document.title = `${window.currentLang === 'en' ? monthlyReportTitles.en : monthlyReportTitles.zh} - Tools Platform`;
+    document.title = `${window.currentLang === 'en' ? monthlyReportTitles.en : monthlyReportTitles.zh} - Dragon Claw`;
     renderMonthlyFrontendVersion();
 }
 
@@ -2183,7 +2183,7 @@ function createDailyHtmlBlob(date, dailyData) {
     replaceStandaloneChartWithImage(clone, 'chart-groups');
     clone.insertAdjacentHTML(
         'beforeend',
-        `<div class="standalone-footer">${window.currentLang === 'en' ? 'Generated from the saved Tools Platform daily snapshot' : '基于 Tools Platform 当日入库快照生成'} · ${escapeHTML(date)}</div>`
+        `<div class="standalone-footer">${window.currentLang === 'en' ? 'Generated from the saved Dragon Claw daily snapshot' : '基于 Dragon Claw 当日入库快照生成'} · ${escapeHTML(date)}</div>`
     );
 
     const lang = window.currentLang === 'en' ? 'en' : 'zh-CN';

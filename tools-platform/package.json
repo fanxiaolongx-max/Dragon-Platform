@@ -1,7 +1,7 @@
 {
   "name": "tools-platform",
   "version": "1.0.536",
-  "description": "Tools Platform Desktop App",
+  "description": "Dragon Claw Desktop App",
   "repository": "github:fanxiaolongx-max/privacy-policy",
   "main": "electron-main.js",
   "scripts": {
@@ -38,7 +38,7 @@
   },
   "build": {
     "appId": "com.toolsplatform.app",
-    "productName": "Dragon Platform",
+    "productName": "Dragon Claw",
     "directories": {
       "output": "dist"
     },
@@ -57,6 +57,7 @@
       "desktop-machine-id.js",
       "desktop-license-preload.js",
       "desktop-local-port.js",
+      "desktop-main-window.js",
       "README.md",
       "!backend/{data,backups,factory-reset-archives,logs,tmp,runtime,node_modules}/**/*",
       "!backend/wal_strings.txt",
@@ -137,7 +138,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Dragon Platform"
+      "shortcutName": "Dragon Claw"
     },
     "portable": {
       "artifactName": "Dragon-Platform-Portable-${version}.${ext}",

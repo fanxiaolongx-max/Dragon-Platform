@@ -98,7 +98,7 @@
             if (payload.tenantId === state.tenantId && payload.canWrite === false) {
                 throw Object.assign(new Error('当前账号没有仓储写入权限'), { status: 403 });
             }
-            throw Object.assign(new Error('服务器数据或租户已变化，请先导出当前修改，再重新加载'), { status: 409 });
+            throw Object.assign(new Error('服务器数据或数据空间已变化，请先导出当前修改，再重新加载'), { status: 409 });
         }
         async function saveLoop() {
             let retries = 0;

@@ -3,32 +3,34 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dragon Platform - 软件授权激活</title>
+  <title>Dragon Claw - 软件授权激活</title>
   <style>
     :root {
-      --bg: #090e17;
-      --card-bg: rgba(15, 23, 42, 0.92);
-      --card-border: rgba(148, 163, 184, 0.16);
-      --card-border-glow: rgba(100, 255, 218, 0.18);
-      --text-main: #f1f5f9;
-      --text-muted: #94a3b8;
-      --text-dim: #64748b;
-      --primary: #14b8a6;
-      --primary-hover: #0d9488;
-      --primary-gradient: linear-gradient(135deg, #64ffda 0%, #60a5fa 100%);
-      --primary-glow: rgba(45, 212, 191, 0.28);
-      --input-bg: #070d18;
-      --input-border: #1e293b;
-      --input-border-focus: #64ffda;
-      --danger-bg: rgba(239, 68, 68, 0.12);
-      --danger-border: rgba(239, 68, 68, 0.35);
-      --danger-text: #fca5a5;
-      --info-bg: rgba(45, 212, 191, 0.12);
-      --info-border: rgba(45, 212, 191, 0.35);
-      --info-text: #99f6e4;
-      --success-bg: rgba(34, 197, 94, 0.12);
-      --success-border: rgba(34, 197, 94, 0.35);
-      --success-text: #86efac;
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --card-bg: #ffffff;
+      --surface-muted: #f3f5f7;
+      --card-border: #dfe3e8;
+      --card-border-glow: rgba(8, 127, 98, 0.16);
+      --text-main: #20252c;
+      --text-muted: #596371;
+      --text-dim: #687382;
+      --primary: #087f62;
+      --primary-hover: #06684f;
+      --primary-gradient: linear-gradient(135deg, #292f36, #171c22);
+      --primary-glow: rgba(8, 127, 98, 0.1);
+      --input-bg: #f8f9fb;
+      --input-border: #d5dce4;
+      --input-border-focus: #087f62;
+      --danger-bg: #fff1f2;
+      --danger-border: #fecdd3;
+      --danger-text: #b42332;
+      --info-bg: #f0f7f5;
+      --info-border: #cae8dd;
+      --info-text: #17624d;
+      --success-bg: #edf9f1;
+      --success-border: #c5e8d0;
+      --success-text: #17603b;
     }
 
     * {
@@ -47,9 +49,9 @@
       color: var(--text-main);
       background-color: var(--bg);
       background-image:
-        radial-gradient(1200px circle at 50% -20%, rgba(37, 99, 235, 0.22) 0%, transparent 60%),
-        radial-gradient(800px circle at 85% 90%, rgba(20, 184, 166, 0.14) 0%, transparent 55%),
-        radial-gradient(600px circle at 15% 95%, rgba(99, 102, 241, 0.12) 0%, transparent 50%);
+        radial-gradient(1200px circle at 50% -20%, rgba(212, 228, 236, 0.35) 0%, transparent 60%),
+        radial-gradient(800px circle at 85% 90%, rgba(220, 238, 231, 0.4) 0%, transparent 55%),
+        radial-gradient(600px circle at 15% 95%, rgba(232, 235, 243, 0.4) 0%, transparent 50%);
       padding: 16px;
       user-select: none;
     }
@@ -63,7 +65,7 @@
       border-radius: 20px;
       padding: 26px 30px 22px;
       box-shadow:
-        0 24px 60px -12px rgba(0, 0, 0, 0.8),
+        0 16px 48px -14px rgba(30, 45, 64, 0.15),
         0 0 0 1px rgba(255, 255, 255, 0.05),
         inset 0 1px 0 rgba(255, 255, 255, 0.1);
       position: relative;
@@ -78,7 +80,7 @@
       left: 10%;
       right: 10%;
       height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(100, 255, 218, 0.5), transparent);
+      background: linear-gradient(90deg, transparent, rgba(8, 127, 98, 0.5), transparent);
     }
 
     /* Top Navigation: Brand + Language Switcher */
@@ -100,7 +102,7 @@
       width: 32px;
       height: 32px;
       border-radius: 10px;
-      background: radial-gradient(circle at 50% 30%, #15233d, #0a1222 72%);
+      background: radial-gradient(circle at 50% 30%, #ffffff, #edf2f5 72%);
       border: 1.5px solid transparent;
       background-clip: padding-box;
       display: grid;
@@ -116,7 +118,7 @@
       inset: -1.5px;
       border-radius: inherit;
       padding: 1.5px;
-      background: conic-gradient(from 210deg, #64ffda, #60a5fa, #a78bfa, #f472b6, #64ffda);
+      background: conic-gradient(from 210deg, #087f62, #86b7c8, #b0b6ce, #8fc9b6, #087f62);
       -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
       -webkit-mask-composite: xor;
       mask-composite: exclude;
@@ -132,14 +134,14 @@
       width: 18px;
       height: 18px;
       fill: none;
-      stroke: #e6fffa;
+      stroke: var(--primary);
       stroke-width: 2;
       stroke-linecap: round;
       stroke-linejoin: round;
     }
 
     .brand-text > span:first-child {
-      background: linear-gradient(90deg, #e6fffa, #93c5fd 55%, #c4b5fd);
+      background: linear-gradient(90deg, #20252c, #304d52);
       -webkit-background-clip: text;
       background-clip: text;
       -webkit-text-fill-color: transparent;
@@ -149,7 +151,7 @@
       font-size: 16.5px;
       font-weight: 700;
       letter-spacing: -0.01em;
-      color: #f8fafc;
+      color: var(--text-main);
       display: flex;
       align-items: center;
       gap: 8px;
@@ -160,16 +162,16 @@
       font-weight: 600;
       padding: 2px 7px;
       border-radius: 6px;
-      background: rgba(100, 255, 218, 0.12);
-      border: 1px solid rgba(100, 255, 218, 0.28);
-      color: #64ffda;
+      background: rgba(8, 127, 98, 0.12);
+      border: 1px solid rgba(8, 127, 98, 0.28);
+      color: var(--primary);
       letter-spacing: 0;
     }
 
     /* Segmented Language Switch */
     .lang-segment {
       display: inline-flex;
-      background: rgba(15, 23, 42, 0.8);
+      background: var(--surface-muted);
       border: 1px solid rgba(148, 163, 184, 0.2);
       border-radius: 9px;
       padding: 3px;
@@ -194,10 +196,10 @@
     }
 
     .lang-btn.active {
-      background: #1e293b;
-      color: #64ffda;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
-      border: 1px solid rgba(100, 255, 218, 0.25);
+      background: var(--surface-muted);
+      color: var(--primary);
+      box-shadow: 0 1px 3px rgba(30, 45, 64, 0.06);
+      border: 1px solid rgba(8, 127, 98, 0.25);
     }
 
     /* Header Section */
@@ -209,9 +211,9 @@
       font-size: 20px;
       font-weight: 700;
       letter-spacing: -0.02em;
-      color: #ffffff;
+      color: var(--text-main);
       margin-bottom: 5px;
-      background: linear-gradient(180deg, #ffffff 40%, #cbd5e1 100%);
+      background: linear-gradient(180deg, #20252c, #30404a);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
@@ -277,13 +279,13 @@
     /* Progress Display Component */
     .progress-card {
       display: none;
-      background: rgba(11, 19, 35, 0.92);
-      border: 1px solid rgba(100, 255, 218, 0.25);
+      background: var(--surface-muted);
+      border: 1px solid rgba(8, 127, 98, 0.25);
       border-radius: 12px;
       padding: 11px 13px 9px;
       margin-bottom: 14px;
       animation: fadeIn 0.25s ease;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+      box-shadow: 0 2px 8px rgba(30, 45, 64, 0.04);
     }
 
     .progress-card.show {
@@ -314,7 +316,7 @@
       gap: 7px;
       font-size: 12px;
       font-weight: 600;
-      color: #e2e8f0;
+      color: var(--text-main);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -324,8 +326,8 @@
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: #64ffda;
-      box-shadow: 0 0 8px #64ffda;
+      background: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-glow);
       flex-shrink: 0;
       animation: pulseGlow 1.4s ease-in-out infinite;
     }
@@ -342,7 +344,7 @@
     }
 
     .progress-card.success .progress-pulse-dot {
-      background: #22c55e;
+      background: #16804b;
       box-shadow: 0 0 8px #22c55e;
       animation: none;
     }
@@ -351,22 +353,22 @@
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-size: 12px;
       font-weight: 700;
-      color: #64ffda;
+      color: var(--primary);
       letter-spacing: -0.02em;
     }
 
     .progress-card.error .progress-percent {
-      color: #f87171;
+      color: var(--danger-text);
     }
 
     .progress-card.success .progress-percent {
-      color: #4ade80;
+      color: var(--success-text);
     }
 
     .progress-track {
       width: 100%;
       height: 7px;
-      background: rgba(30, 41, 59, 0.9);
+      background: var(--surface-muted);
       border-radius: 9999px;
       overflow: hidden;
       position: relative;
@@ -377,11 +379,11 @@
     .progress-bar-fill {
       width: 0%;
       height: 100%;
-      background: linear-gradient(90deg, #2dd4bf 0%, #60a5fa 62%, #a78bfa 100%);
+      background: linear-gradient(90deg, #087f62, #2c9983);
       border-radius: 9999px;
       transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       position: relative;
-      box-shadow: 0 0 10px rgba(100, 255, 218, 0.5);
+      box-shadow: none;
     }
 
     .progress-bar-fill::after {
@@ -429,7 +431,7 @@
       width: 14px;
       height: 14px;
       border-radius: 50%;
-      background: #1e293b;
+      background: var(--surface-muted);
       border: 1px solid #475569;
       display: grid;
       place-items: center;
@@ -445,19 +447,19 @@
     }
 
     .milestone-item.active .milestone-indicator {
-      border-color: #64ffda;
-      background: rgba(100, 255, 218, 0.2);
-      box-shadow: 0 0 8px rgba(100, 255, 218, 0.6);
+      border-color: var(--primary);
+      background: rgba(8, 127, 98, 0.2);
+      box-shadow: none;
     }
 
     .milestone-item.active .milestone-dot {
-      background: #64ffda;
+      background: var(--primary);
       transform: scale(1.3);
     }
 
     .milestone-item.completed .milestone-indicator {
-      border-color: #22c55e;
-      background: #22c55e;
+      border-color: #16804b;
+      background: #16804b;
       box-shadow: 0 0 6px rgba(34, 197, 94, 0.4);
     }
 
@@ -479,22 +481,22 @@
 
     .milestone-title {
       font-size: 10.5px;
-      color: #64748b;
+      color: var(--text-muted);
       transition: color 0.2s ease;
       white-space: nowrap;
     }
 
     .milestone-item.active .milestone-title {
-      color: #64ffda;
+      color: var(--primary);
       font-weight: 600;
     }
 
     .milestone-item.completed .milestone-title {
-      color: #94a3b8;
+      color: var(--text-muted);
     }
 
     .milestone-item.failed .milestone-title {
-      color: #f87171;
+      color: var(--danger-text);
       font-weight: 600;
     }
 
@@ -513,7 +515,7 @@
 
     .input-label {
       font-weight: 600;
-      color: #cbd5e1;
+      color: var(--text-main);
       display: flex;
       align-items: center;
       gap: 6px;
@@ -522,7 +524,7 @@
     .format-hint {
       font-size: 11px;
       color: var(--text-dim);
-      background: rgba(30, 41, 59, 0.6);
+      background: var(--surface-muted);
       padding: 1px 6px;
       border-radius: 4px;
       border: 1px solid rgba(148, 163, 184, 0.1);
@@ -550,9 +552,9 @@
     }
 
     .tool-btn:hover {
-      background: rgba(30, 41, 59, 0.8);
-      color: #64ffda;
-      border-color: rgba(100, 255, 218, 0.35);
+      background: var(--surface-muted);
+      color: var(--primary);
+      border-color: rgba(8, 127, 98, 0.35);
     }
 
     .tool-btn svg {
@@ -576,24 +578,24 @@
       border-radius: 12px;
       padding: 10px 13px;
       background: var(--input-bg);
-      color: #e2e8f0;
+      color: var(--text-main);
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
       font-size: 12px;
       line-height: 1.5;
       outline: none;
       transition: all 0.2s ease;
-      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+      box-shadow: inset 0 1px 2px rgba(30, 45, 64, 0.025);
     }
 
     textarea:focus {
       border-color: var(--input-border-focus);
       box-shadow:
-        inset 0 2px 4px rgba(0, 0, 0, 0.4),
+        inset 0 1px 2px rgba(30, 45, 64, 0.025),
         0 0 0 3px var(--primary-glow);
     }
 
     textarea::placeholder {
-      color: #475569;
+      color: var(--text-muted);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 11.5px;
     }
@@ -602,12 +604,12 @@
     .machine-card {
       margin-bottom: 14px;
       padding: 12px 14px;
-      border: 1px solid rgba(100, 255, 218, 0.28);
+      border: 1px solid rgba(8, 127, 98, 0.28);
       border-radius: 12px;
-      background: linear-gradient(135deg, rgba(20, 184, 166, 0.1), rgba(96, 165, 250, 0.06));
+      background: var(--surface-muted);
     }
     .machine-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-    .machine-title { color: #e6fffa; font-size: 13px; font-weight: 800; }
+    .machine-title { color: var(--text-main); font-size: 13px; font-weight: 800; }
     .machine-device { margin-top: 3px; color: var(--text-muted); font-size: 11.5px; }
     .machine-code {
       margin-top: 9px;
@@ -615,7 +617,7 @@
       border: 1px solid rgba(148, 163, 184, 0.2);
       border-radius: 8px;
       background: var(--input-bg);
-      color: #99f6e4;
+      color: var(--primary);
       font: 600 11.5px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
       word-break: break-all;
       user-select: all;
@@ -623,10 +625,10 @@
       overflow: auto;
     }
     .machine-hint { margin-top: 7px; color: var(--text-dim); font-size: 11px; line-height: 1.5; }
-    .machine-card.is-weak .machine-hint { color: #fcd34d; }
+    .machine-card.is-weak .machine-hint { color: #865611; }
     .request-box { margin-top: 11px; padding-top: 11px; border-top: 1px dashed rgba(148, 163, 184, 0.22); }
     .request-box[hidden], .request-status[hidden], .request-form[hidden], .request-offline[hidden], .request-status-actions .tool-btn[hidden] { display: none; }
-    .request-title { color: #cbd5e1; font-size: 12px; font-weight: 700; margin-bottom: 7px; }
+    .request-title { color: var(--text-main); font-size: 12px; font-weight: 700; margin-bottom: 7px; }
     .request-fields { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr) auto; gap: 7px; }
     .request-input {
       min-width: 0; height: 32px; padding: 0 10px;
@@ -636,17 +638,17 @@
     .request-input:focus { outline: none; border-color: var(--input-border-focus); }
     .request-btn {
       height: 32px; padding: 0 14px; border: 0; border-radius: 8px;
-      background: var(--primary-gradient); color: #04121f; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; white-space: nowrap;
+      background: var(--primary-gradient); color: #ffffff; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; white-space: nowrap;
     }
     .request-btn:disabled { opacity: 0.6; cursor: wait; }
     .request-status { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; }
     .request-dot { width: 9px; height: 9px; border-radius: 50%; background: #fbbf24; box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.15); animation: request-pulse 1.6s ease-in-out infinite; }
     .request-status.is-rejected .request-dot { background: #f87171; box-shadow: 0 0 0 4px rgba(248, 113, 113, 0.15); animation: none; }
-    .request-status-text b { display: block; color: #f1f5f9; font-size: 12.5px; }
+    .request-status-text b { display: block; color: var(--text-main); font-size: 12.5px; }
     .request-status-text div { margin-top: 2px; color: var(--text-muted); font-size: 11px; line-height: 1.5; }
     .request-status-actions { display: flex; gap: 6px; }
     .request-offline { margin-top: 9px; color: var(--text-dim); font-size: 11px; line-height: 1.5; }
-    .request-retry { margin-left: 6px; padding: 0; border: 0; background: none; color: #64ffda; font: inherit; font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+    .request-retry { margin-left: 6px; padding: 0; border: 0; background: none; color: var(--primary); font: inherit; font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
     .request-retry:disabled { color: var(--text-dim); cursor: wait; text-decoration: none; }
     @keyframes request-pulse { 50% { opacity: 0.45; } }
     @media (max-width: 560px) { .request-fields { grid-template-columns: 1fr; } .request-status { grid-template-columns: auto minmax(0, 1fr); } .request-status-actions { grid-column: 1 / -1; } }
@@ -655,15 +657,15 @@
       margin-top: 8px;
       padding: 9px 12px;
       border-radius: 9px;
-      background: rgba(15, 23, 42, 0.65);
-      border: 1px dashed rgba(100, 255, 218, 0.28);
+      background: var(--surface-muted);
+      border: 1px dashed rgba(8, 127, 98, 0.28);
       font-size: 11.5px;
       line-height: 1.5;
       transition: border-color 0.2s ease;
     }
 
     .sample-box:hover {
-      border-color: rgba(100, 255, 218, 0.45);
+      border-color: rgba(8, 127, 98, 0.45);
     }
 
     .sample-header {
@@ -678,7 +680,7 @@
       display: flex;
       align-items: center;
       gap: 6px;
-      color: #94a3b8;
+      color: var(--text-muted);
       font-size: 11.5px;
       min-width: 0;
     }
@@ -689,15 +691,15 @@
       font-weight: 700;
       padding: 1px 5px;
       border-radius: 4px;
-      background: rgba(100, 255, 218, 0.15);
-      color: #64ffda;
-      border: 1px solid rgba(100, 255, 218, 0.3);
+      background: rgba(8, 127, 98, 0.15);
+      color: var(--primary);
+      border: 1px solid rgba(8, 127, 98, 0.3);
       letter-spacing: 0.5px;
       flex-shrink: 0;
     }
 
     .sample-title-text {
-      color: #cbd5e1;
+      color: var(--text-main);
       font-weight: 500;
       white-space: nowrap;
       overflow: hidden;
@@ -717,7 +719,7 @@
       border-radius: 5px;
       padding: 2px 7px;
       font-size: 11px;
-      color: #94a3b8;
+      color: var(--text-muted);
       cursor: pointer;
       display: inline-flex;
       align-items: center;
@@ -727,13 +729,13 @@
     }
 
     .sample-btn:hover {
-      background: rgba(30, 41, 59, 0.8);
-      color: #64ffda;
-      border-color: rgba(100, 255, 218, 0.4);
+      background: var(--surface-muted);
+      color: var(--primary);
+      border-color: rgba(8, 127, 98, 0.4);
     }
 
     .sample-btn.copied {
-      color: #4ade80;
+      color: var(--success-text);
       border-color: rgba(74, 222, 128, 0.5);
       background: rgba(34, 197, 94, 0.12);
     }
@@ -741,8 +743,8 @@
     .sample-code-row {
       display: flex;
       align-items: center;
-      background: rgba(8, 14, 26, 0.85);
-      border: 1px solid rgba(30, 41, 59, 0.9);
+      background: var(--surface-muted);
+      border: 1px solid var(--input-border);
       border-radius: 6px;
       padding: 4px 8px;
       cursor: pointer;
@@ -752,13 +754,13 @@
     }
 
     .sample-code-row:hover {
-      border-color: rgba(100, 255, 218, 0.4);
+      border-color: rgba(8, 127, 98, 0.4);
     }
 
     .sample-code {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       font-size: 11px;
-      color: #99f6e4;
+      color: var(--primary);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -768,13 +770,13 @@
 
     .sample-tip {
       margin-top: 5px;
-      color: #64748b;
+      color: var(--text-muted);
       font-size: 11px;
       line-height: 1.4;
     }
 
     .sample-tip b {
-      color: #94a3b8;
+      color: var(--text-muted);
     }
 
     /* Actions Section */
@@ -801,7 +803,7 @@
 
     .btn-activate {
       flex: 1;
-      color: #04121f;
+      color: #ffffff;
       font-weight: 700;
       background: var(--primary-gradient);
       box-shadow: 0 4px 16px var(--primary-glow);
@@ -810,7 +812,7 @@
     }
 
     .btn-activate:hover {
-      box-shadow: 0 6px 22px rgba(45, 212, 191, 0.42);
+      box-shadow: 0 4px 12px rgba(30, 45, 64, 0.14);
       filter: brightness(1.06);
     }
 
@@ -819,15 +821,15 @@
     }
 
     .btn-quit {
-      color: #cbd5e1;
-      background: #1e293b;
+      color: var(--text-main);
+      background: var(--surface-muted);
       border: 1px solid rgba(148, 163, 184, 0.16);
       padding: 11px 16px;
     }
 
     .btn-quit:hover {
-      background: #27354a;
-      color: #ffffff;
+      background: #e9edf1;
+      color: var(--text-main);
       border-color: rgba(148, 163, 184, 0.3);
     }
 
@@ -877,7 +879,7 @@
     .pill {
       font-size: 11px;
       color: var(--text-dim);
-      background: rgba(15, 23, 42, 0.6);
+      background: var(--surface-muted);
       border: 1px solid rgba(148, 163, 184, 0.12);
       padding: 2.5px 8.5px;
       border-radius: 9999px;
@@ -889,7 +891,7 @@
     .pill svg {
       width: 11px;
       height: 11px;
-      stroke: #64ffda;
+      stroke: var(--primary);
       fill: none;
       stroke-width: 2;
     }
@@ -903,19 +905,27 @@
 
     .shortcut-hints {
       font-size: 11px;
-      color: #475569;
+      color: var(--text-muted);
       text-align: center;
       margin-top: 4px;
     }
 
     .shortcut-hints kbd {
-      background: #1e293b;
+      background: var(--surface-muted);
       border: 1px solid rgba(148, 163, 184, 0.2);
-      color: #94a3b8;
+      color: var(--text-muted);
       font-family: inherit;
       padding: 1px 4px;
       border-radius: 3px;
       font-size: 10px;
+    }
+    button:focus-visible, .request-input:focus-visible {
+      outline: 2px solid var(--primary); outline-offset: 3px;
+    }
+    button:disabled { cursor: not-allowed; }
+    textarea, .request-input { user-select: text; }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
     }
     /* Keep both activation paths visible together on desktop-sized windows. */
     body { padding:18px; align-items:flex-start; }
@@ -979,7 +989,7 @@
           <img src="../assets/icon-windows-portable.png" alt="">
         </div>
         <div class="brand-text">
-          <span>Dragon Platform</span>
+          <span>Dragon Claw</span>
           <span id="brand-tag" class="brand-badge">桌面企业版</span>
         </div>
       </div>
@@ -1182,7 +1192,7 @@
 
       const I18N = {
         zh: {
-          docTitle: 'Dragon Platform - 软件授权激活',
+          docTitle: 'Dragon Claw - 软件授权激活',
           brandTag: '桌面企业版',
           title: '本机授权激活',
           subtitle: 'License 按设备签发：先把下方本机机器码发给管理员，再粘贴管理员签发的 License。授权受数字签名保护，无网络时也能在本地校验。',
@@ -1277,7 +1287,7 @@
           }
         },
         en: {
-          docTitle: 'Dragon Platform - License Activation',
+          docTitle: 'Dragon Claw - License Activation',
           brandTag: 'Enterprise Desktop',
           title: 'Device License Activation',
           subtitle: 'Licenses are issued per device: send the machine code below to your administrator, then paste the license they issue. Signed licenses can also be verified offline.',
@@ -1353,7 +1363,7 @@
             LICENSE_REQUIRED: 'License key is required',
             INVALID_FORMAT: 'Invalid key format. Please ensure you copied the complete key with DSKL1 prefix',
             INVALID_SIGNATURE: 'Invalid digital signature. The key may be corrupted or modified',
-            PRODUCT_MISMATCH: 'Product mismatch. This key is not issued for Dragon Platform Desktop',
+            PRODUCT_MISMATCH: 'Product mismatch. This key is not issued for Dragon Claw Desktop',
             LICENSE_NOT_FOUND: 'License record not found on the authorization server',
             REVOKED: 'This license has been revoked or deactivated by administrator',
             ARCHIVED: 'This license has been archived and is no longer valid',

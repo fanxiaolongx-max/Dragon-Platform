@@ -165,7 +165,7 @@ function detectUiVisionExtension(browserName) {
 
 function makeUiVisionEmbeddedHtml(macro, allowedOrigin) {
     const macroJson = JSON.stringify(macro);
-    const originLabel = String(allowedOrigin || '当前 Tools Platform 地址');
+    const originLabel = String(allowedOrigin || '当前 Dragon Claw 地址');
     return `<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -374,7 +374,7 @@ router.post('/run-uivision-macro', async (req, res) => {
             url: runnerUrl,
             uiVisionExtensionDetected: browser ? extensionCandidates.length > 0 : null,
             uiVisionExtensionCandidates: extensionCandidates,
-            note: '已生成 Tools Platform 托管的 UI.Vision embedded macro 启动页。'
+            note: '已生成 Dragon Claw 托管的 UI.Vision embedded macro 启动页。'
         });
     } catch (err) {
         console.error('[POST /api/uiv/run-uivision-macro] failed:', err);

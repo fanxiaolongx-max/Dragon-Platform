@@ -4,7 +4,7 @@
 (function () {
     const dictionaries = {
         'zh-CN': {
-            'uiv.title': 'UIVF12 抓取引擎 v6.6 - Tools Platform',
+            'uiv.title': 'UIVF12 抓取引擎 v6.6 - Dragon Claw',
             'uiv.description': 'UI.Vision 全能抓取引擎，自动化脚本工程中心，脚本云端仓库管理',
             'uiv.header.title': '🚀 自动化脚本工程中心',
             'uiv.version.loading': 'v加载中',
@@ -33,8 +33,8 @@
             'uiv.repo.siteConsoleTitle': '选择目标站点并复制该站点的 F12 控制台脚本',
             'uiv.repo.batchSpeedTitle': '当前 {speed} 倍速：脚本间隔约 {seconds} 秒。点击切换 1x / 2x / 4x。',
             'uiv.repo.batchSpeedToast': 'UI.Vision 批量速度已切换为 {speed}x，脚本间隔约 {seconds} 秒',
-            'uiv.repo.batchTenantWarning': '⚠️ 本批抓取和自动导入完成前请勿切换租户，否则结果可能导入到其他租户。',
-            'uiv.repo.batchTenantCompletionWarning': '抓取已完成，但自动导入尚未完成。请保持当前租户，待数据导入页完成后再切换。',
+            'uiv.repo.batchTenantWarning': '⚠️ 本批抓取和自动导入完成前请勿切换数据空间，否则结果可能导入到其他数据空间。',
+            'uiv.repo.batchTenantCompletionWarning': '抓取已完成，但自动导入尚未完成。请保持当前平台，待数据导入页完成后再切换。',
             'uiv.repo.export': '📤 导出脚本',
             'uiv.repo.import': '📥 导入脚本',
             'uiv.input.urlLabel': '1. 请求 URL 目标地址:',
@@ -490,7 +490,7 @@
             'uiv.analysis.copiedModifiedScript': '修改后脚本已复制'
         },
         'en-US': {
-            'uiv.title': 'UIVF12 Data Capture Engine v6.6 - Tools Platform',
+            'uiv.title': 'UIVF12 Data Capture Engine v6.6 - Dragon Claw',
             'uiv.description': 'UI.Vision capture engine, automation script center, and cloud script repository.',
             'uiv.header.title': '🚀 Automation Script Center',
             'uiv.version.loading': 'v loading',
@@ -520,7 +520,7 @@
             'uiv.repo.batchSpeedTitle': 'Current {speed}x speed: script interval is about {seconds}s. Click to switch 1x / 2x / 4x.',
             'uiv.repo.batchSpeedToast': 'UI.Vision batch speed switched to {speed}x, script interval about {seconds}s',
             'uiv.repo.batchTenantWarning': '⚠️ Do not switch tenants until this capture batch and its automatic import are complete, or the results may be imported into another tenant.',
-            'uiv.repo.batchTenantCompletionWarning': 'Capture is complete, but automatic import is still pending. Keep the current tenant selected until the data import page finishes.',
+            'uiv.repo.batchTenantCompletionWarning': 'Capture is complete, but automatic import is still pending. Keep the current platform selected until the data import page finishes.',
             'uiv.repo.export': '📤 Export Scripts',
             'uiv.repo.import': '📥 Import Scripts',
             'uiv.input.urlLabel': '1. Request URL target:',

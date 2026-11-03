@@ -281,7 +281,7 @@ function initToolsWelcomeExperience() {
     const version = params.get('version') || '';
     const fromVersion = params.get('from') || '';
     const isUpdated = mode === 'updated';
-    const title = isUpdated ? 'Tools Platform 已焕新' : '欢迎来到 Tools Platform';
+    const title = isUpdated ? 'Dragon Claw 已焕新' : '欢迎来到 Dragon Claw';
     const subtitle = isUpdated && fromVersion
         ? `已从 v${fromVersion.replace(/^v/i, '')} 升级到 v${version.replace(/^v/i, '')}`
         : '桌面窗口与系统浏览器已同步就绪';
@@ -586,7 +586,7 @@ function initToolsWelcomeExperience() {
         <button type="button" class="tools-welcome-skip">跳过</button>
         <section class="tools-welcome-card" role="dialog" aria-label="${title}">
             <div style="width: 100%;">
-                <div class="tools-welcome-mark"><img src="/assets/logo.png?v=20261006" alt="Tools Platform" style="width:54px;height:54px;object-fit:contain;filter:drop-shadow(0 0 14px rgba(59,130,246,0.6));"></div>
+                <div class="tools-welcome-mark"><img src="/assets/logo.png" alt="Dragon Claw" style="width:54px;height:54px;object-fit:contain;filter:drop-shadow(0 0 14px rgba(59,130,246,0.6));"></div>
                 <h1 class="tools-welcome-title">${title}</h1>
                 <p class="tools-welcome-subtitle">${subtitle}</p>
                 <div class="tools-welcome-meta-row">

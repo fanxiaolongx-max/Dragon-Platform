@@ -77,6 +77,57 @@
   body.native-overlay .badge,body.native-overlay .viewtag,body.native-overlay .hint,body.native-overlay .fsbtn,
   body.parity-test .badge,body.parity-test .viewtag,body.parity-test .hint,body.parity-test .fsbtn{display:none}
 </style>
+<style id="platform-light-theme">
+/* 亮色覆盖：由 scripts/generate-light-theme.js 从 index.html 生成，平台亮色主题时生效；改原样式后请重新生成 */
+html[data-platform-theme="light"] { color-scheme: light; }
+html[data-platform-theme="light"] {
+    --bg: #fbfbfd !important;
+    --panel: rgba(15, 23, 42, 0.03) !important;
+    --line: rgba(15, 23, 42, 0.08) !important;
+    --ink: #151d2d !important;
+    --muted: #5c647a !important;
+    --blue2: #23325c !important;
+    --accent-ink: #fafafc !important;
+    --glasshi: rgba(31, 31, 31, 0.07) !important;
+}
+html[data-platform-theme="light"] .hero {
+    box-shadow: 0 26px 60px -28px rgba(15, 23, 42, 0.12),inset 0 1px 0 var(--glasshi) !important;
+}
+html[data-platform-theme="light"] .seg button.on {
+    background: rgba(15, 23, 42, 0.06) !important;
+}
+html[data-platform-theme="light"] #style button.on, html[data-platform-theme="light"] #rotmode button.on {
+    background: rgba(15, 23, 42, 0.06) !important;
+}
+html[data-platform-theme="light"] .plate-frame {
+    background: #fcfdfd !important;
+    box-shadow: 0 26px 60px -30px rgba(15, 23, 42, 0.12) !important;
+}
+html[data-platform-theme="light"] .fsbtn {
+    background: rgba(248, 249, 251, 0.6) !important;
+}
+html[data-platform-theme="light"] .fsbtn:hover {
+    color: #1f1f1f !important;
+}
+html[data-platform-theme="light"] button.pill:hover {
+    color: #1f1f1f !important;
+}
+html[data-platform-theme="light"] .tuners .mini.on {
+    background: rgba(15, 23, 42, 0.06) !important;
+}
+html[data-platform-theme="light"] .cell:hover {
+    border-color: rgba(15, 23, 42, 0.16) !important;
+}
+html[data-platform-theme="light"] .cell canvas {
+    background: #fcfdfd !important;
+}
+html[data-platform-theme="light"] kbd {
+    background: #f2f4f6 !important;
+}
+html[data-platform-theme="light"] body.native-overlay .plate-frame, html[data-platform-theme="light"] body.parity-test .plate-frame {
+    background: #fcfdfd !important;
+}
+</style>
 </head>
 <body>
 <div class="wrap">

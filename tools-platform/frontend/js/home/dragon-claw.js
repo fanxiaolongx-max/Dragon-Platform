@@ -120,7 +120,7 @@
             workspaceDisabled: 'Workspace is available on this machine or for admins only'
         }
     };
-    const AVATAR = '/assets/dragon-claw-avatar.jpg';
+    const AVATAR = '/assets/logo.png';
     const SPOTLIGHT_SIZE = 8;
     const CONTEXT_MAX_CHARS = 11000;
     const MODEL_STORAGE_KEY = 'dragon_claw_model';
@@ -1874,6 +1874,10 @@
         if (activeConn === 'weixin' || activeConn === 'welink') {
             return window.HomeWelinkThreads?.composeNew?.(activeConn, content);
         }
+        const homeConnector = connector?.homeConnector?.() || '';
+        if (homeConnector && workspace()?.getWorkspacePayload?.()) {
+            showToast(lang() === 'en-US' ? 'This connector uses a regular chat. Deselect the local workspace first.' : '此连接器用于普通对话，请先取消本地工作区'); return;
+        }
         connector?.lock?.();
         el.thread.querySelectorAll('.dc-plan-actions').forEach(node => node.remove()); // 计划确认按钮只对最新一条计划有效
         el.thread.querySelectorAll('.dc-question:not(.is-history)').forEach(card => { card.classList.add('is-history'); card.querySelectorAll('[data-answer]').forEach(node => { node.disabled = true; }); }); // 用户自己回复后，旧问题的选项失效
@@ -1927,6 +1931,7 @@
                 uiLanguage: lang() === 'en-US' ? 'en' : 'zh',
                 sessionId: state.sessionId,
                 agent: 'dragon-claw-home',
+                ...(homeConnector ? { homeConnector } : {}),
                 // 会话内保持的 Skill（输入框上方标签）；本条消息里的 @id 由后端直接解析
                 ...(keptSkills.length ? { skills: keptSkills } : {}),
                 ...(model ? { modelId: model.id } : {}),
@@ -2217,7 +2222,8 @@
             state.messages = resume.items.map(item => ({ role: item.role === 'model' ? 'model' : 'user', content: String(item.content) }));
             state.sessionId = resume.sessionId;
             const knownGroup=resume.discussionMode==='group'||chatList.items.some(item=>item.id===resume.sessionId&&item.discussionMode==='group')||resume.items.some(item=>item.events?.some(event=>event.type==='desktop-discussion'));
-            await window.HomeAgentDiscussion?.activateSession?.(resume.sessionId,{group:knownGroup});
+            const boundConnector = resume.items.flatMap(item => item.events || []).filter(event => event.type === 'connector').at(-1)?.id || '';
+            await window.HomeAgentDiscussion?.activateSession?.(resume.sessionId,{group:knownGroup,connector:boundConnector});
             if(epoch!==resumeEpoch)return;
             state.focusedTool = null;
             resetHistoryPaging();
@@ -2569,11 +2575,10 @@
     const collapsedSections = new Set((() => { try { return JSON.parse(localStorage.getItem(SECTION_KEY) || '[]'); } catch { return []; } })());
     function toggleSection(id) {
         if (collapsedSections.has(id)) collapsedSections.delete(id);
-        else {
-            collapsedSections.add(id);
-            // 收起一级分类时清掉它下面所有「展开更多」，再展开回到默认条数（空间含每个项目文件夹）
-            window.HomeConversationList?.resetScopes?.(el.chatList, key => key === id || (id === 'spaces' && key.startsWith('project:')));
-        }
+        else collapsedSections.add(id);
+        // 两个方向都回到初始深度，避免收起期间的异步刷新保留旧展开状态。
+        window.HomeConversationList?.resetScopes?.(el.chatList, key => key === id || (id === 'spaces' && key.startsWith('project:')));
+        if (id === 'spaces') collapsedProjects.clear();
         try { localStorage.setItem(SECTION_KEY, JSON.stringify([...collapsedSections])); } catch { /* 无痕模式 */ }
         renderChatList();
     }
@@ -3165,6 +3170,13 @@
     }
 
     function autoResize() {
+        if (document.documentElement.dataset.ui === 'v2' && !document.body.classList.contains('dc-chatting')) {
+            // The welcome composer has a fixed editing area; long drafts scroll inside it.
+            el.input.style.removeProperty('height');
+            if (!el.input.value) el.input.scrollTop = 0;
+            updateSendButton();
+            return;
+        }
         el.input.style.height = 'auto';
         el.input.style.height = `${Math.min(el.input.scrollHeight, 220)}px`;
         updateSendButton();

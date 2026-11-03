@@ -14,7 +14,7 @@
     // 全局双语词典
     const I18N_DICT = {
         'zh-CN': {
-            'duty.page_title': '夜间运维值班表编辑器 - Tools Platform',
+            'duty.page_title': '夜间运维值班表编辑器 - Dragon Claw',
             'duty.toolbar_title': '🌙 夜间运维值班表',
             'duty.target_month': '目标月份',
             'duty.prev_month': '上个月',
@@ -66,7 +66,7 @@
             'duty.toast_person_copied': '已复制 "{name}"，可直接点击单元格粘贴'
         },
         'en-US': {
-            'duty.page_title': 'Night Operation Duty Roster Editor - Tools Platform',
+            'duty.page_title': 'Night Operation Duty Roster Editor - Dragon Claw',
             'duty.toolbar_title': '🌙 Night Operation Duty Roster',
             'duty.target_month': 'Target Month',
             'duty.prev_month': 'Previous Month',
@@ -425,7 +425,7 @@
             window.ToolsI18n.apply(document);
         }
         const isZh = isChinese();
-        document.title = t('duty.page_title', isZh ? '夜间运维值班表编辑器 - Tools Platform' : 'Night Operation Duty Roster Editor - Tools Platform');
+        document.title = t('duty.page_title', isZh ? '夜间运维值班表编辑器 - Dragon Claw' : 'Night Operation Duty Roster Editor - Dragon Claw');
         updateMonthTitleDisplay();
         updateStatusBadge();
     }

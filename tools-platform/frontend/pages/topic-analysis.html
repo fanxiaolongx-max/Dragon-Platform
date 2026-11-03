@@ -16,7 +16,7 @@
             <div>
                 <span class="topic-eyebrow">HISTORY WORKSPACE</span>
                 <h1>专题分析</h1>
-                <p>NetCare 与 DataFab 导入快照的租户级历史中心。完整 JSON 持久保存，可在任意业务页面按时间回顾。</p>
+                <p>NetCare 与 DataFab 导入快照的历史记录中心。完整 JSON 持久保存，可在任意业务页面按时间回顾。</p>
             </div>
             <div class="topic-hero-actions">
                 <button id="themeToggleButton" class="topic-button topic-button-secondary topic-theme-toggle" type="button" aria-label="切换主题模式" title="点击切换浅色/深色主题">
@@ -28,7 +28,7 @@
         </header>
 
         <section class="topic-stats" aria-label="历史快照概览">
-            <article><span>快照总数</span><strong id="totalCount">0</strong><small>当前租户</small></article>
+            <article><span>快照总数</span><strong id="totalCount">0</strong><small>本平台</small></article>
             <article><span>NetCare</span><strong id="netcareCount">0</strong><small>已归档批次</small></article>
             <article><span>DataFab</span><strong id="datafabCount">0</strong><small>已归档批次</small></article>
             <article><span>最新数据时间</span><strong id="latestTime" class="topic-time">--</strong><small>以 capturedAt
@@ -96,7 +96,7 @@
                     <button id="eosDownloadMsg" class="topic-monthly-btn" type="button" title="下载可在 Outlook 中继续编辑的 HTML 月报邮件">下载月报 MSG</button>
                 </div>
             </div>
-            <p class="topic-monthly-edit-hint">点击月报文字或表格可修改；选中文字可加粗或改色。当前浏览器会按租户和月份记忆动态文案与表格，按租户记忆固定文案。<span
+            <p class="topic-monthly-edit-hint">点击月报文字或表格可修改；选中文字可加粗或改色。当前浏览器会按平台和月份记忆动态文案与表格，按平台记忆固定文案。<span
                     id="eosCopyStatus" role="status"></span>
                 <span id="eosSyncCapsule" class="topic-sync-capsule" role="status" hidden title="点击快速查看或定位待同步的英文内容"></span>
             </p>
@@ -499,7 +499,7 @@
         <section class="topic-panel topic-api-panel">
             <div>
                 <h2>跨页面引用预留</h2>
-                <p>其他页面可以直接读取当前租户的已归档数据，无需重复解析本地文件。</p>
+                <p>其他页面可以直接读取本平台的已归档数据，无需重复解析本地文件。</p>
             </div>
             <div class="topic-api-grid">
                 <code>GET /api/topic-snapshots</code><code>GET /api/topic-snapshots/series</code><code>GET /api/topic-snapshots/latest?platform=netcare</code><code>GET /api/topic-snapshots/:id</code>

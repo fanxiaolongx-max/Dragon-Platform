@@ -4,9 +4,9 @@ const { readKV, writeKV } = require('./kv-store');
 const { getTenantId, DEFAULT_TENANT_ID } = require('./tenant-context');
 
 const FALLBACK_PLATFORM_IDENTITY = Object.freeze({
-    platformName: 'Dragon 工具平台',
-    platformNameZh: 'Dragon 工具平台',
-    platformNameEn: 'Dragon Platform',
+    platformName: 'Dragon Claw',
+    platformNameZh: 'Dragon Claw',
+    platformNameEn: 'Dragon Claw',
     platformSubtitle: '埃及 CS 工具与知识中心',
     platformSubtitleEn: 'Egypt CS Tools & Knowledge Center',
     platformSlogan: '“认真做好每一个工具，让日常工作更省心。”',
@@ -50,7 +50,7 @@ function getDefaultPlatformIdentity() {
 
 function getDefaultPlatformName() {
     const identity = getDefaultPlatformIdentity();
-    return identity.platformNameZh || identity.platformName || 'Dragon 工具平台';
+    return identity.platformNameZh || identity.platformName || 'Dragon Claw';
 }
 
 const DEFAULT_GUIDE_VIDEO_URL = 'https://jx.huawei.com/community/comgroup/videoShareDetail/7207b25a9c0f42a08dfb1ab9832d44fe?commentId=0cca456df675451ca2df19c08b01ab11';

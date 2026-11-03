@@ -4,7 +4,7 @@
 (function () {
     const dictionaries = {
         'zh-CN': {
-            'sla.title': 'Task SLA 风险监控台 - Tools Platform',
+            'sla.title': 'Task SLA 风险监控台 - Dragon Claw',
             'sla.dialog.notice': '提示',
             'sla.dialog.error': '操作失败',
             'sla.dialog.done': '完成',
@@ -204,7 +204,7 @@
             'sla.upload.cachedSpecific': '📊 已缓存 {title}',
             'sla.upload.batchSuccess': '📊 批量导入成功 (共解析 {count} 个文件)',
             'sla.upload.uivAutoLoading': '⏳ 正在接收 UIVF12 抓取文件并自动导入...',
-            'sla.upload.uivTenantWarning': '⚠️ 自动导入完成前请勿切换租户，也不要关闭当前页面。',
+            'sla.upload.uivTenantWarning': '⚠️ 自动导入完成前请勿切换数据空间，也不要关闭当前页面。',
             'sla.section.title.rect': '🔧 整改监控',
             'sla.section.title.risk': '⚠️ 常规风险监控',
             'sla.section.title.special': '🛠️ 专项风险监控',
@@ -413,7 +413,7 @@
             'sla.category.saveFail': '保存失败: {message}'
         },
         'en-US': {
-            'sla.title': 'Task SLA Risk Monitor - Tools Platform',
+            'sla.title': 'Task SLA Risk Monitor - Dragon Claw',
             'sla.dialog.notice': 'Notice',
             'sla.dialog.error': 'Operation failed',
             'sla.dialog.done': 'Done',

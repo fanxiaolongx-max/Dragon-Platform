@@ -896,7 +896,7 @@
     <script>
         // ================== 双语切换引擎 ==================
         const I18N_DICT = {
-            "数据探索 - DB Explorer": "DB Explorer - Tools Platform",
+            "数据探索 - DB Explorer": "DB Explorer - Dragon Claw",
             "🗄️ 数据探索 (DB Explorer)": "🗄️ DB Explorer",
             "仅超级管理员可访问": "Super admin only",
             "选择数据表:": "Select Table:",
@@ -1104,8 +1104,8 @@
             const item = databaseItems.find(item => item.id === selectedDatabase);
             if (!item) return;
             document.getElementById('database-context').textContent = item.scope === 'platform'
-                ? tText('当前数据库：', 'Current database: ') + item.name + tText(' · 平台全局账号与租户控制库', ' · Global accounts and tenant control plane')
-                : tText('当前租户：', 'Current tenant: ') + item.tenantId + tText(' · 数据库：', ' · Database: ') + item.name;
+                ? tText('当前数据库：', 'Current database: ') + item.name + tText(' · 平台全局账号与数据空间控制库', ' · Global accounts and tenant control plane')
+                : tText('当前平台：', 'Platform: ') + item.tenantId + tText(' · 数据库：', ' · Database: ') + item.name;
             document.getElementById('database-description').textContent = (currentLang === 'en' ? item.descriptionEn : item.description) || tText('此库用途尚未登记。', 'The purpose of this database is not registered yet.');
         }
 

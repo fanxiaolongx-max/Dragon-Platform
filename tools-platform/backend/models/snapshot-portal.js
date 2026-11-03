@@ -41,7 +41,7 @@ function rewrite(source) {
 }
 function bootHtml(depth = '.') {
     const hash = security.digest(read('js/static-portal/boot.js')).slice(0, 12);
-    return `<!doctype html><html lang="zh-CN" data-static-boot="1"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dragon Platform</title></head><body><p id="staticBootStatus">正在打开平台 / Opening platform…</p><script src="${depth}/tp-static/boot.js?v=${hash}"></script></body></html>`;
+    return `<!doctype html><html lang="zh-CN" data-static-boot="1"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dragon Claw</title></head><body><p id="staticBootStatus">正在打开平台 / Opening platform…</p><script src="${depth}/tp-static/boot.js?v=${hash}"></script></body></html>`;
 }
 function versionPage(html, files) {
     return html.replace(/\b(src|href)="(\.\/tp-static\/([^"?]+))(?:\?[^"\s]*)?"/g, (match, attribute, relative, name) => {
@@ -84,7 +84,7 @@ async function collectHome(items) {
     const identity = Object.fromEntries(Object.entries(settings).filter(([key]) => key.startsWith('platform')));
     const promotions = await require('./platform-promotions-repository').getConfig();
     const appPackage = require('../../package.json');
-    const appVersion = { name: appPackage.productName || appPackage.name || 'Tools Platform', version: appPackage.version || '0.0.0' };
+    const appVersion = { name: appPackage.productName || appPackage.name || 'Dragon Claw', version: appPackage.version || '0.0.0' };
     return { settings, identity, tools, summary, items, friendLinks, promotions, appVersion, tenantId: getTenantId() };
 }
 function collectPublicFiles(identity, promotions, appVersion) {

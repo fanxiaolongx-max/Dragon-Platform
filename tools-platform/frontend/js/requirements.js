@@ -1,6 +1,6 @@
 // ================== 双语切换引擎 ==================
 const REQ_I18N_DICT = {
-    "需求管理 - Tools Platform": "Requirements - Tools Platform",
+    "需求管理 - Dragon Claw": "Requirements - Dragon Claw",
     "🎯 需求管理广场": "🎯 Requirements Plaza",
     "提交、追踪和管理平台新功能与优化需求": "Submit, track, and manage new features and optimizations",
     "默认排序：按进度优先": "Default: Sort by Progress",

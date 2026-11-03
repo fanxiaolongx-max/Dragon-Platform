@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>自定义工具 - Tools Platform</title>
+    <title>自定义工具 - Dragon Claw</title>
     <link rel="stylesheet" href="/css/shared.css">
     <style>
         body {
@@ -142,6 +142,10 @@
         .custom-tool-loader.is-error .custom-tool-loader-head { color: #b33a3a; }
         .custom-tool-loader.is-error .custom-tool-progress i { background: #d45a5a; }
         .custom-tool-loader.is-error .custom-tool-retry { display: inline-flex; align-items: center; }
+        /* 首页内嵌打开时（js/shared/navbar.js NAV_EMBEDDED）：标题、刷新、新窗口由首页的工具栏提供，这里只保留只读页面操作 */
+        html.is-embedded-tool .custom-tool-title, html.is-embedded-tool .custom-tool-actions { display: none; }
+        html.is-embedded-tool .custom-tool-head:not(:has(.tool-action-wrap:not([hidden]))) { display: none; }
+        html.is-embedded-tool .custom-tool-shell:not(:has(.tool-action-wrap:not([hidden]))) { grid-template-rows: 1fr; }
         @media (prefers-color-scheme: dark) {
             body, .custom-tool-loader { background: #101827; }
             .custom-tool-head { background: #151f30; border-color: #29364a; }
@@ -226,7 +230,7 @@
         function applyCustomToolShellLanguage() {
             const displayName = getCustomToolDisplayName(currentCustomTool);
             document.documentElement.lang = isEnglishToolShell() ? 'en-US' : 'zh-CN';
-            document.title = `${displayName} - Tools Platform`;
+            document.title = `${displayName} - Dragon Claw`;
             document.getElementById('toolName').textContent = displayName;
             document.getElementById('openRawTool').textContent = shellText('新窗口打开', 'Open in New Window');
             document.getElementById('downloadReadonlyTool').textContent = shellText('下载只读页面 ▾', 'Download Snapshot ▾');

@@ -48,7 +48,7 @@ function installClaudeCodeConfig(apiRelay, options = {}) {
         ? Boolean(options.desktopRuntime)
         : process.env.TOOLS_DESKTOP_RUNTIME === '1';
     if (!desktopRuntime) {
-        const error = new Error('自动添加仅支持 Tools Platform 本地 EXE；网页版请使用一键复制');
+        const error = new Error('自动添加仅支持 Dragon Claw 本地 EXE；网页版请使用一键复制');
         error.code = 'DESKTOP_RUNTIME_REQUIRED';
         throw error;
     }

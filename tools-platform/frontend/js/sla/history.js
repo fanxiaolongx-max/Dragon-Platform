@@ -133,7 +133,7 @@ function renderHistoryLoadingState(container, activeStepKey, percent) {
                         <div class="startup-halo"></div>
                         <div class="startup-feather" data-startup-feather></div>
                     </div>
-                    <p class="startup-eyebrow">TOOLS PLATFORM · SNAPSHOTS</p>
+                    <p class="startup-eyebrow">DRAGON CLAW · SNAPSHOTS</p>
                     <h3 class="history-feather-title">${escapeHTML(SLAT('sla.history.featherLoading'))}</h3>
                     <p class="history-feather-msg" id="history-feather-msg"></p>
                     <div class="startup-track" id="history-feather-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" style="--startup-progress: 0%;">

@@ -913,7 +913,7 @@ async function getGraph({ onProgress, signal, preferCache = true } = {}) {
         groupCounts.set(group.key, { ...group, count: (groupCounts.get(group.key)?.count || 0) + 1 });
     });
 
-    const nodes = [{ id: 'root', type: 'root', label: 'Tools Platform', labelEn: 'Tools Platform', size: 28 }];
+    const nodes = [{ id: 'root', type: 'root', label: 'Dragon Claw', labelEn: 'Dragon Claw', size: 28 }];
     const edges = [];
     for (const group of groupCounts.values()) {
         const groupId = `group:${group.key}`;

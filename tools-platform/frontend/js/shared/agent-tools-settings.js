@@ -219,7 +219,7 @@
                 <h4>🔌 ${esc(L('MCP 服务', 'MCP servers'))}</h4>
                 <p class="nat-desc">${esc(view.mcp
                     ? L('服务的工具会接进首页对话（选不选目录都能用），按需加载；默认每次调用都要用户在对话里批准。连不上的服务会自动跳过，换到能连上的网络后自动恢复。', 'Server tools join home chats (with or without a folder), loaded on demand; every call needs approval by default. Unreachable servers are skipped and come back automatically.')
-                    : L('MCP 服务只在默认租户里配置和使用。', 'MCP servers are configured and used in the default tenant only.'))}</p>
+                    : L('MCP 服务只在默认工作区里配置和使用。', 'MCP servers are configured and used in the default workspace only.'))}</p>
                 ${view.mcp ? `${view.servers.map(renderServer).join('') || `<p class="nat-desc">${esc(L('还没有 MCP 服务。', 'No MCP servers yet.'))}</p>`}
                 ${view.editing && !view.editing.id ? renderForm(view.editing) : ''}
                 ${view.editing ? '' : `<div class="nat-actions" style="justify-content:flex-start;margin-top:8px"><button type="button" class="nat-btn is-primary" data-action="add">${esc(L('添加服务', 'Add server'))}</button></div>`}` : ''}

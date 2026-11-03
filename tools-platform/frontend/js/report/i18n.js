@@ -1,6 +1,6 @@
 (function () {
     const zh = {
-        'report.page.title': '专业报表看板 - Tools Platform',
+        'report.page.title': '专业报表看板 - Dragon Claw',
         'report.header.title': '📈 报表看板',
         'report.version.loading': 'v加载中',
         'report.version.unmarked': 'v未标记',
@@ -154,7 +154,7 @@
         'report.month.option': '{month}月份',
         'report.snapshot.minSources': '最少表源',
         'report.snapshot.filterHelp': '自动忽略表源数低于此值的快照；0 表示不过滤数量。仅影响报表看板，其他功能仍可使用原始快照。',
-        'report.snapshot.filterAdmin': '管理员可修改，当前租户共享此配置',
+        'report.snapshot.filterAdmin': '管理员可修改，当前平台共享此配置',
         'report.snapshot.hiddenCount': '已忽略 {count} 份小快照',
         'report.snapshot.filterInvalid': '请填写 0–10000 的整数',
         'report.snapshot.filterSaved': '快照过滤配置已保存',
@@ -446,7 +446,7 @@
     };
 
     const en = {
-        'report.page.title': 'Report Dashboard - Tools Platform',
+        'report.page.title': 'Report Dashboard - Dragon Claw',
         'report.header.title': '📈 Report Dashboard',
         'report.version.loading': 'loading',
         'report.version.unmarked': 'unversioned',
@@ -600,7 +600,7 @@
         'report.month.option': 'Month {month}',
         'report.snapshot.minSources': 'Min. sources',
         'report.snapshot.filterHelp': 'Skip snapshots below this source count; 0 disables the count filter. Only the Report Dashboard is affected; other tools can still use the original snapshots.',
-        'report.snapshot.filterAdmin': 'Administrators can edit this tenant-wide setting',
+        'report.snapshot.filterAdmin': 'Administrators can edit this platform-wide setting',
         'report.snapshot.hiddenCount': '{count} small snapshots excluded',
         'report.snapshot.filterInvalid': 'Enter an integer between 0 and 10000',
         'report.snapshot.filterSaved': 'Snapshot filter saved',

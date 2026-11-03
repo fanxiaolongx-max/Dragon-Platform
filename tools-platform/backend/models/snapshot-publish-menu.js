@@ -54,7 +54,7 @@ function renderGuide(items) {
 | --- | --- | --- | --- |
 ${rows}
 
-> 工具页面仅供查看；需要修改业务数据时，请返回 Tools Platform 联系管理员。
+> 工具页面仅供查看；需要修改业务数据时，请返回 Dragon Claw 联系管理员。
 ${GUIDE_END}`;
 }
 

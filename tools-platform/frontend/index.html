@@ -28,7 +28,7 @@
             let lang = 'zh-CN';
             try { lang = localStorage.getItem('tools_lang') === 'en-US' ? 'en-US' : 'zh-CN'; } catch { /* 默认中文 */ }
             window.ToolsFetchPrefetch([
-                '/api/app-version', '/api/tenants', '/api/migration-status', '/api/nav-settings', '/api/auth/me',
+                '/api/app-version', '/api/migration-status', '/api/nav-settings', '/api/auth/me',
                 '/api/custom-tools', '/api/alert-center/summary', '/api/builtin-promotion/status', '/api/desktop-license/status',
                 '/api/platform-promotions', '/api/platform-promotions/desktop',
                 '/api/home/capabilities?lang=' + lang, '/api/agent-skills?includeHidden=1',
@@ -46,8 +46,8 @@
     <script src="/js/shared/platform-title.js"></script>
     <meta name="description" content="统一工具平台入口：UIVF12 抓取引擎 & Task SLA 风险监控台">
     <link rel="icon" type="image/x-icon" href="/favicon.ico?v=20261006">
-    <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon.png?v=20261006">
-    <link rel="apple-touch-icon" href="/assets/icon-mac.png?v=20261006">
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon.png">
+    <link rel="apple-touch-icon" href="/assets/icon-mac.png">
     <link rel="stylesheet" href="/css/shared.css">
     <link rel="stylesheet" href="/css/home-promotions.css">
     <link rel="stylesheet" href="/css/home-promo-video.css">
@@ -107,7 +107,7 @@
                     <button type="button" class="v2-icon-btn" id="v2SortBtn" data-v2-i18n-title="sortFilter" aria-haspopup="menu" aria-expanded="false"><span class="v2-ico" data-icon="filter"></span></button>
                 </div>
                 <div class="v2-brand">
-                    <div class="v2-brand-text"><strong>DragonClaw</strong><span id="v2Version"></span></div>
+                    <div class="v2-brand-text"><strong>Dragon Claw</strong><span id="v2Version"></span></div>
                     <button type="button" class="v2-discover-btn" id="v2DiscoverBtn" aria-haspopup="dialog" aria-expanded="false"><span class="v2-ico" data-icon="compass"></span><span data-v2-i18n="discover">发现应用</span><span class="v2-ico v2-chev" data-icon="chevron"></span></button>
                 </div>
                 <nav class="v2-nav" aria-label="主导航">
@@ -277,7 +277,7 @@
             </a>
             <header class="dc-chat-head">
                 <div class="dc-chat-title">
-                    <img src="/assets/dragon-claw-avatar.jpg" alt="" class="dc-chat-avatar">
+                    <img src="/assets/logo.png" alt="" class="dc-chat-avatar">
                     <span class="dc-chat-name">Dragon Claw</span>
                     <span class="dc-chat-badge" data-dc-i18n="badge">全能智能体</span>
                 </div>
@@ -297,7 +297,7 @@
                     <h1 class="v2-hero-title" data-v2-i18n="heroTitle">Dragon Claw，让想法落地</h1>
                     <div class="v2-seg" role="tablist" data-v2-modes></div>
                 </div>
-                <div class="dc-orb" aria-hidden="true"><span class="dc-orb-ring"></span><img src="/assets/dragon-claw-avatar.jpg" alt=""></div>
+                <div class="dc-orb" aria-hidden="true"><span class="dc-orb-ring"></span><img src="/assets/logo.png" alt=""></div>
                 <h1 class="dc-greeting" id="dcGreeting">你好</h1>
                 <p class="dc-tagline" data-dc-i18n="tagline">我是 Dragon Claw，你的全能智能体。问我任何问题，或者让我带你用好平台里的工具。</p>
             </div>
@@ -808,5 +808,7 @@
     <script src="/js/home/home-page.js"></script>
     <script src="/js/home/home-v2.js"></script>
     <script src="/js/home/skill-hub.js"></script>
+    <script src="/js/home/tool-frame.js"></script>
+    <script src="/js/shared/desktop-window.js"></script>
 </body>
 </html>

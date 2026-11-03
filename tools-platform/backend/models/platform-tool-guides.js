@@ -124,7 +124,7 @@ async function status() {
     return { items, total: items.length, ready: count('ready'), stale: count('stale'), missing: count('missing'), job: publicJob(jobs.get(getTenantId())) };
 }
 
-const PROMPT = `你是 Tools Platform 工具中台的产品文档作者。下面是平台上一个工具的名称、简介和源码（页面与脚本）。
+const PROMPT = `你是 Dragon Claw 工具中台的产品文档作者。下面是平台上一个工具的名称、简介和源码（页面与脚本）。
 请写一份给普通用户看的使用说明，严格按下面的格式输出 Markdown，不要输出其他内容：
 
 摘要：<一句话，不超过 40 字，说清它能帮用户解决什么问题>

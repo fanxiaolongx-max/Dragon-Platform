@@ -780,7 +780,7 @@ function applyResponseFocus(adapter, focusPath) {
 }
 
 function buildPrompt(input) {
-    return `你是 Tools Platform 的 JSON API 抓取适配器分析器。只分析结构，不生成 JavaScript。
+    return `你是 Dragon Claw 的 JSON API 抓取适配器分析器。只分析结构，不生成 JavaScript。
 
 仅允许：
 - request.method: GET 或 POST

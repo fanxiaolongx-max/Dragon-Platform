@@ -262,7 +262,7 @@
         const emailValue = state.draftEmail ?? config.email ?? '';
         el.innerHTML = `
             <h4>🪪 ${esc(L('个人身份（welink-cli）', 'Personal identity (welink-cli)'))}</h4>
-            <p class="nch-desc">${esc(L('上面的助理以「机器人」身份收发消息；这里的 welink-cli 以你本人在本机 WeLink PC 上登录的身份工作，让 Dragon Claw 的 @welink-office 可以查询你的联系人、聊天记录、会议、云空间、邮件和日历；开启写操作后还能发消息、建会、发邮件等（每次执行前都要你在对话里确认）。凭据保存在本机系统用户目录，仅默认租户的管理员可用。', 'The assistant above acts as a bot. welink-cli works as you (the account signed in to WeLink PC on this machine), letting Dragon Claw @welink-office query your contacts, chats, meetings, cloud drive, mail and calendar; with write actions on it can also send messages, create meetings, send mail and more (you confirm each one in the chat). Credentials stay in this machine’s user profile; default-tenant admins only.'))}</p>
+            <p class="nch-desc">${esc(L('上面的助理以「机器人」身份收发消息；这里的 welink-cli 以你本人在本机 WeLink PC 上登录的身份工作，让 Dragon Claw 的 @welink-office 可以查询你的联系人、聊天记录、会议、云空间、邮件和日历；开启写操作后还能发消息、建会、发邮件等（每次执行前都要你在对话里确认）。凭据保存在本机系统用户目录，仅默认工作区的管理员可用。', 'The assistant above acts as a bot. welink-cli works as you (the account signed in to WeLink PC on this machine), letting Dragon Claw @welink-office query your contacts, chats, meetings, cloud drive, mail and calendar; with write actions on it can also send messages, create meetings, send mail and more (you confirm each one in the chat). Credentials stay in this machine’s user profile; administrators only.'))}</p>
             <div class="nch-status" style="margin-bottom:10px">
                 ${authPill()}
                 ${install.available ? `<span class="nch-muted">welink-cli ${esc(install.version || '')} · ${esc(install.entry || '')}</span>` : `<span class="nch-muted">${esc(install.hint || '')}</span>`}

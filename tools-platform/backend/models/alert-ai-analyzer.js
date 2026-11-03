@@ -267,7 +267,7 @@ async function analyzeOne(event) {
     markAiUsed(now);
 
     const client = aiProviderClient.createClient(settings);
-    const prompt = `你是 Tools Platform 告警台的值班分析助手。请基于告警负载，用中文输出一句话总结，最多 55 个汉字。
+    const prompt = `你是 Dragon Claw 告警台的值班分析助手。请基于告警负载，用中文输出一句话总结，最多 55 个汉字。
 
 要求：
 - 直接说风险/变化/来源，不要寒暄。

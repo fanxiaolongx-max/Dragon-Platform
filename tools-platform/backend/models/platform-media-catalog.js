@@ -102,14 +102,14 @@ function withEpisodeTitle(rawTitle, episodeBadge) {
 const KNOWN_PLATFORM_META = {
     'platform-guide': {
         title: 'Dragon 平台五站使用指南',
-        englishTitle: 'Dragon Platform Five-Step Guide',
+        englishTitle: 'Dragon Claw Five-Step Guide',
         description: '使用指南 · 从数据抓取、报表处理、SLA 测算到月报自动生成，全流程五站通关演示。',
         tags: ['平台指南', '官方教程', '通关攻略', '超清'],
         duration: 437
     },
     'platform-guide-en': {
-        title: 'Dragon Platform Five-Step Guide (English)',
-        englishTitle: 'Dragon Platform Five-Step Guide',
+        title: 'Dragon Claw Five-Step Guide (English)',
+        englishTitle: 'Dragon Claw Five-Step Guide',
         description: 'Platform Guide · End-to-end walkthrough from automated data capture and SLA metrics to monthly reports.',
         tags: ['Platform Guide', 'Tutorial', 'English', 'HD'],
         duration: 520

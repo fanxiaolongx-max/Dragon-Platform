@@ -20,13 +20,14 @@ function createPage({ local = {}, me = { status: 200, body: { username: 'admin',
         sessionStorage: { getItem: () => null },
         fetch: async () => ({ ok: me.status === 200, status: me.status, json: async () => me.body }),
         renderNavbar() { calls.render += 1; },
+        ensureDefaultWorkspace: async () => false,
         hasNavAuthToken: () => store.has('tools_token'),
         showNavbarConfirm: async options => { calls.prompts.push(options); return confirm; },
         navT: key => key,
         navEscape: value => String(value),
         activeTenantName: () => '默认租户',
         stopAlertCenterPolling() {},
-        document: { querySelector: () => ({ set innerHTML(value) { calls.chip = value; } }) },
+        document: { querySelector: () => ({ set innerHTML(value) { calls.chip = value; }, set textContent(value) { calls.chip = value; } }) },
         window: { location: { pathname: '/', href: '/', replace(url) { this.href = url; } } }
     };
     vm.createContext(context);

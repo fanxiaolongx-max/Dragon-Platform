@@ -272,7 +272,7 @@
                 'home.links.api': 'API Relay',
                 'home.links.api2': 'API Relay 2',
                 'home.links.cs2': 'Backup Hub',
-                'home.links.csMain': 'Tools Platform',
+                'home.links.csMain': 'Dragon Claw',
                 'home.links.license': 'Issue Licenses',
                 'home.links.ssh': 'Mobile Terminal Cloud',
                 'home.links.pcap': 'Network Analysis',
@@ -948,7 +948,7 @@
             const base = config.baseUrl.replace(/\/+$/, '');
             const examples = buildApiRelayExamples(config);
             return [
-                'Tools Platform · AI API 中转对接信息',
+                'Dragon Claw · AI API 中转对接信息',
                 '',
                 `公网地址: ${base}`,
                 `API 密钥: ${config.apiKey}`,

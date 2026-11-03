@@ -53,6 +53,62 @@
     ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
     ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.4); }
   </style>
+<style id="platform-light-theme">
+/* 亮色覆盖：由 scripts/generate-light-theme.js 从 index.html 生成，平台亮色主题时生效；改原样式后请重新生成 */
+html[data-platform-theme="light"] { color-scheme: light; }
+html[data-platform-theme="light"] body {
+    background: linear-gradient(135deg, #f2f4f9 0%, #e8e7f3 100%) !important;
+    color: #121f2b !important;
+}
+html[data-platform-theme="light"] .glass-panel {
+    background: rgba(234, 238, 245, 0.7) !important;
+    border: 1px solid rgba(15, 23, 42, 0.08) !important;
+    box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.12) !important;
+}
+html[data-platform-theme="light"] .input-field {
+    background: rgba(242, 244, 249, 0.6) !important;
+    border: 1px solid rgba(15, 23, 42, 0.08) !important;
+    color: #121f2b !important;
+}
+html[data-platform-theme="light"] .input-field:focus {
+    border-color: #151aea !important;
+}
+html[data-platform-theme="light"] ::-webkit-scrollbar-track {
+    background: rgba(254, 254, 254, 0.2) !important;
+}
+html[data-platform-theme="light"] ::-webkit-scrollbar-thumb {
+    background: rgba(15, 23, 42, 0.06) !important;
+}
+html[data-platform-theme="light"] ::-webkit-scrollbar-thumb:hover {
+    background: rgba(15, 23, 42, 0.06) !important;
+}
+html[data-platform-theme="light"] .packer-feedback {
+    border: 1px solid #c5cedd !important;
+    background: #ecf0f6 !important;
+    color: #142134 !important;
+    box-shadow: 0 24px 80px rgba(15, 23, 42, 0.12) !important;
+}
+html[data-platform-theme="light"] .packer-feedback::backdrop {
+    background: rgba(239, 242, 247, 0.4) !important;
+}
+html[data-platform-theme="light"] .packer-feedback p {
+    color: #314561 !important;
+}
+html[data-platform-theme="light"] .packer-feedback input {
+    border: 1px solid #c4cede !important;
+    background: #f1f4f8 !important;
+}
+html[data-platform-theme="light"] .packer-feedback button {
+    border: 1px solid #c4cedf !important;
+    background: #e5eaf2 !important;
+}
+html[data-platform-theme="light"] .packer-feedback button.accept {
+    border-color: #115eee !important;
+}
+html[data-platform-theme="light"] .packer-feedback button:focus-visible, html[data-platform-theme="light"] .packer-feedback input:focus-visible {
+    outline: 2px solid #005fff !important;
+}
+</style>
 </head>
 <body class="p-4 md:p-8 flex items-center justify-center min-h-screen">
 

@@ -135,7 +135,7 @@
     "你好，我是你的青绿桌面伙伴": "Hello, I'm your turquoise desktop companion",
     "「Dragon」": "“Dragon”",
     "！": "!",
-    "我已经接通了 Tools Platform 后台智能客服引擎。你可以随时向我询问：": "I'm connected to the Tools Platform assistant. Ask me about:",
+    "我已经接通了 Dragon Claw 后台智能客服引擎。你可以随时向我询问：": "I'm connected to the Dragon Claw assistant. Ask me about:",
     "• 平台系统工具使用说明与自动化技巧": "• Platform tools and automation tips",
     "• 今日任务、告警中心与数据运维状态": "• Today's tasks, alerts, and operations",
     "• 灵感探索、日常闲聊与编程协作": "• Ideas, everyday conversation, and coding together",

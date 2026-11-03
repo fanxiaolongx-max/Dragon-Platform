@@ -83,6 +83,58 @@
       color: #f1f5f9;
     }
   </style>
+<style id="platform-light-theme">
+/* 亮色覆盖：由 scripts/generate-light-theme.js 从 index.html 生成，平台亮色主题时生效；改原样式后请重新生成 */
+html[data-platform-theme="light"] { color-scheme: light; }
+html[data-platform-theme="light"] body {
+    background: linear-gradient(135deg, #f5f6fa 0%, #edeff6 50%, #f3f5f9 100%) !important;
+    color: #121f2b !important;
+}
+html[data-platform-theme="light"] .glass-card {
+    background: rgba(237, 240, 246, 0.75) !important;
+    border: 1px solid rgba(15, 23, 42, 0.08) !important;
+    box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.12) !important;
+}
+html[data-platform-theme="light"] .input-field {
+    background: rgba(242, 244, 249, 0.7) !important;
+    border: 1px solid rgba(15, 23, 42, 0.096) !important;
+    color: #121f2b !important;
+}
+html[data-platform-theme="light"] .input-field:focus {
+    border-color: #09adf6 !important;
+}
+html[data-platform-theme="light"] .diff-line-add {
+    color: #17ab4c !important;
+}
+html[data-platform-theme="light"] .diff-line-del {
+    color: #612525 !important;
+    border-left: 3px solid #eb1414 !important;
+}
+html[data-platform-theme="light"] .diff-line-same {
+    color: #556781 !important;
+}
+html[data-platform-theme="light"] ::-webkit-scrollbar-track {
+    background: rgba(242, 244, 249, 0.5) !important;
+}
+html[data-platform-theme="light"] ::-webkit-scrollbar-thumb {
+    background: rgba(15, 23, 42, 0.06) !important;
+}
+html[data-platform-theme="light"] ::-webkit-scrollbar-thumb:hover {
+    background: rgba(253, 254, 254, 0.5) !important;
+}
+html[data-platform-theme="light"] .tab-btn.active {
+    border-color: #09adf6 !important;
+}
+html[data-platform-theme="light"] .tab-btn:not(.active) {
+    background: rgba(234, 238, 245, 0.6) !important;
+    color: #556781 !important;
+    border-color: rgba(15, 23, 42, 0.08) !important;
+}
+html[data-platform-theme="light"] .tab-btn:not(.active):hover {
+    background: rgba(225, 230, 237, 0.8) !important;
+    color: #121f2b !important;
+}
+</style>
 </head>
 <body class="p-3 md:p-6 min-h-screen flex flex-col">
 

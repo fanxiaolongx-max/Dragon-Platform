@@ -1,5 +1,5 @@
 /* ============================================================
-   Tools Platform - 全局共享样式
+   Dragon Claw - 全局共享样式
    覆盖：导航栏、Toast、基础布局变量
    ============================================================ */
 
@@ -66,6 +66,10 @@ html::-webkit-scrollbar-thumb {
 html.is-page-scrolling::-webkit-scrollbar-thumb {
     background: rgba(100, 116, 139, .65);
 }
+
+/* 在新版首页右侧内嵌打开的工具页：没有顶部导航（js/shared/navbar.js NAV_EMBEDDED） */
+html.is-embedded-tool { --navbar-h: 0px; }
+html.is-embedded-tool #app-navbar { display: none !important; }
 
 /* ── 顶部导航栏 ───────────────────────────────────────── */
 #app-navbar {
@@ -3336,43 +3340,11 @@ dialog#mediaFormDialog.is-importing {
 .nav-init-status.success { color: #15803d; }
 .nav-init-status.error { color: #b91c1c; }
 
-.nav-tenant-switcher { position: relative; }
-.nav-user-chip { border: 1px solid rgba(148,163,184,.2); background: rgba(15,23,42,.5); cursor: pointer; }
-.nav-tenant-menu { display: none; position: absolute; z-index: 10020; top: calc(100% + 10px); right: 0; width: 250px; padding: 10px; border: 1px solid rgba(96,165,250,.25); border-radius: 14px; background: rgba(9,18,35,.98); box-shadow: 0 20px 55px rgba(2,8,23,.48); backdrop-filter: blur(20px); }
-.nav-tenant-menu.open { display: grid; gap: 5px; }
-.nav-tenant-menu-label { padding: 5px 8px; color: #94a3b8; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
-.nav-tenant-option,.nav-tenant-manage { display:flex; justify-content:space-between; width:100%; padding:9px 10px; border:0; border-radius:9px; color:#cbd5e1; background:transparent; cursor:pointer; text-align:left; }
-.nav-tenant-option:hover,.nav-tenant-option.active { color:#f8fafc; background:rgba(37,99,235,.22); }
-.nav-tenant-manage { margin-top:5px; border-top:1px solid rgba(148,163,184,.14); border-radius:0; color:#7dd3fc; }
-.nav-tenant-empty { padding:10px; color:#64748b; font-size:12px; }
-.nav-tenant-create { display:grid; grid-template-columns:minmax(140px,1fr) minmax(150px,1fr) minmax(180px,1.4fr) minmax(104px,auto); gap:8px; margin-top:14px; }
-.nav-tenant-create input { min-width:0; height:36px; padding:0 10px; border:1px solid #cbd5e1; border-radius:8px; }
-.nav-tenant-create button { min-width:104px; height:36px; padding:0 14px; border:1px solid #93c5fd; border-radius:8px; color:#1d4ed8; background:#eff6ff; font-weight:800; white-space:nowrap; cursor:pointer; }
-.nav-tenant-section { margin-top:18px; }
-.nav-tenant-section-head { display:flex; align-items:center; justify-content:space-between; color:#334155; font-size:12px; font-weight:900; }
-.nav-tenant-section-head span { min-width:24px; padding:2px 7px; border-radius:999px; color:#475569; background:#e2e8f0; font-size:10px; text-align:center; }
-.nav-tenant-admin-list { display:grid; gap:10px; margin-top:14px; }
-.nav-tenant-admin-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:14px; padding:14px; border:1px solid #e2e8f0; border-radius:12px; background:#fff; }
-.nav-tenant-admin-row.archived { border-style:dashed; background:#f8fafc; }
-.nav-tenant-admin-row strong { color:#0f172a; font-size:13px; }
-.nav-tenant-admin-row span { margin-left:8px; color:#64748b; font:11px ui-monospace,monospace; }
-.nav-tenant-admin-row p { margin:4px 0 0; color:#64748b; font-size:12px; }
-.nav-tenant-admin-row .nav-backup-toolbar { flex-wrap:wrap; justify-content:flex-end; }
-.nav-tenant-status-badge { display:inline-block; margin-left:8px; padding:2px 7px; border-radius:999px; color:#92400e; background:#fef3c7; font-size:10px; font-style:normal; font-weight:800; }
-
-@media (min-width: 901px) {
-    .nav-tenant-switcher .nav-user-chip { width:auto; min-width:112px; max-width:220px; }
-}
-
-@media (min-width: 901px) and (max-width: 1200px) {
-    .nav-tenant-switcher .nav-user-chip { width:auto; min-width:96px; max-width:150px; }
-}
+.nav-user-chip { cursor: default; }
 
 @media (max-width: 760px) {
     .nav-init-card { grid-template-columns: 1fr; }
     .nav-init-card button { width: 100%; }
-    .nav-tenant-create { grid-template-columns:1fr; }
-    .nav-tenant-admin-row { grid-template-columns:1fr; }
 }
 
 .nav-backup-upload {

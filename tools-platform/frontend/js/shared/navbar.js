@@ -2,6 +2,11 @@
  * shared/navbar.js - 统一导航栏组件
  * 支持固定工具、自定义工具、二级分类与全局顺序设置。
  */
+// 在新版首页右侧内嵌打开（js/home/tool-frame.js）时不显示旧的顶部导航，页面直接从顶部开始
+const NAV_EMBEDDED = (() => {
+    try { return window.top !== window && window.top.location.origin === location.origin && Boolean(window.top.HomeToolFrame); } catch { return false; }
+})();
+if (NAV_EMBEDDED) document.documentElement.classList.add('is-embedded-tool');
 const NAV_BUILTIN_LINKS = [
     { id: 'home', href: '/', icon: '🏠', label: '工具中台', labelKey: 'nav.home', defaultCategory: 'business', match: p => p === '/' },
     { id: 'uivf12', href: '/uivf12', icon: '🚀', label: '数据抓取', labelKey: 'nav.uivf12', defaultCategory: 'business', match: p => p.startsWith('/uivf12') },
@@ -128,8 +133,6 @@ let navState = {
     updaterStatus: null,
     updaterVersion: null,
     updaterUnsubscribe: null,
-    tenants: [],
-    managedTenants: [],
     activeTenantId: localStorage.getItem('tools_tenant_id') || 'default',
     alertCenter: {
         events: [],
@@ -354,7 +357,6 @@ function registerNavbarI18n() {
             'nav.set.tab.backup': '备份恢复',
             'nav.set.tab.snapshotPublish': '静态页面推送',
             'nav.set.tab.initialize': '初始化',
-            'nav.set.tab.tenants': '租户管理',
             'nav.set.tab.media': '媒体资源',
             'nav.set.tab.promotions': '平台推广',
             'nav.set.tab.customBackup': '自定义工具备份',
@@ -373,43 +375,14 @@ function registerNavbarI18n() {
             'nav.set.sub.items': '修改后会自动保存，并立即影响“更多工具”的分组与排序。',
             'nav.set.sub.ai': '修改后会自动保存，并立即影响 Dragon Claw 智能体配置。',
             'nav.set.sub.update': '检查、下载并安装桌面客户端更新。',
-            'nav.set.sub.backup': '备份与恢复仅作用于当前租户的数据库、附件和自定义工具，不会覆盖其他租户。',
-            'nav.set.sub.snapshotPublish': '配置当前租户的只读快照推送目标，并查看推送进度与历史日志。',
+            'nav.set.sub.backup': '备份与恢复仅作用于当前平台的数据库、附件和自定义工具，不会覆盖其他数据空间。',
+            'nav.set.sub.snapshotPublish': '配置当前平台的只读快照推送目标，并查看推送进度与历史日志。',
             'nav.set.sub.initialize': '补齐开箱即用内容，或在安全备份和完整归档后恢复到首次使用状态。',
-            'nav.set.sub.tenants': '管理独立业务空间。每个租户拥有自己的脚本、规则、数据库、附件和自定义工具。',
             'nav.set.sub.media': '统一管理点播媒体库、分类文件夹、本地资源批量导入与封面重绘。',
             'nav.set.sub.promotions': '配置首页右上角推广区：推广视频的显示、推广链接的增删改、首页最多显示的链接数与轮换间隔，以及桌面端右下角推广卡片堆。',
             'nav.media.categoryFilter': '媒体分类筛选',
             'nav.media.searchLabel': '搜索媒体资源',
             'nav.media.previewBack': '返回媒体设置',
-            'nav.tenant.current': '当前租户',
-            'nav.tenant.switch': '切换租户',
-            'nav.tenant.manage': '管理租户',
-            'nav.tenant.loading': '正在读取租户...',
-            'nav.tenant.empty': '暂无可用租户',
-            'nav.tenant.create': '新增租户',
-            'nav.tenant.name': '租户名称',
-            'nav.tenant.id': '租户标识（可选）',
-            'nav.tenant.description': '说明',
-            'nav.tenant.edit': '编辑',
-            'nav.tenant.archive': '归档',
-            'nav.tenant.archiveConfirm': '归档租户“{name}”？该租户将无法继续进入，但数据目录会保留。',
-            'nav.tenant.activeGroup': '启用中的租户',
-            'nav.tenant.archivedGroup': '已归档租户',
-            'nav.tenant.archivedEmpty': '暂无已归档租户',
-            'nav.tenant.archivedBadge': '已归档',
-            'nav.tenant.restore': '恢复启用',
-            'nav.tenant.restoreConfirm': '恢复租户“{name}”？恢复后用户可重新进入，原数据目录保持不变。',
-            'nav.tenant.delete': '彻底删除',
-            'nav.tenant.deleteTitle': '彻底删除租户数据',
-            'nav.tenant.deleteMessage': '将永久删除租户“{name}”（ID: {id}）的数据库、脚本、规则、附件、自定义工具和租户备份。',
-            'nav.tenant.deleteHint': '此操作不可撤销。请输入租户 ID “{id}”确认。',
-            'nav.tenant.deletePlaceholder': '输入租户 ID：{id}',
-            'nav.tenant.deleteDone': '租户“{name}”及其数据已彻底删除。',
-            'nav.tenant.defaultHint': '现有业务数据位于默认租户；新租户创建后为空白初始化状态。',
-            'nav.tenant.defaultName': '默认租户',
-            'nav.tenant.nameRequired': '请填写租户名称。',
-            'nav.tenant.idInvalid': '租户标识只能包含英文字母、数字、下划线和短横线。',
             'nav.set.sub.customBackup': '单独备份和恢复自定义工具文件、注册信息、服务端状态及可识别的浏览器本地数据。',
             'nav.set.sub.accounts': '修改后会自动保存，并立即影响账号权限。',
             'nav.set.sub.security': '配置登录失败锁定、会话过期和安全告警策略。',
@@ -441,7 +414,7 @@ function registerNavbarI18n() {
             'nav.set.default.saving': '正在设为系统默认布局...',
             'nav.set.default.success': '已成功将当前布局设为系统默认布局并写入默认配置',
             'nav.set.default.fail': '设为系统默认布局失败: ',
-            'nav.init.help': '这里的两种操作都只作用于当前租户：开箱即用只补齐缺失默认内容；彻底初始化会清空当前租户业务数据。',
+            'nav.init.help': '这里的两种操作都只作用于当前平台：开箱即用只补齐缺失默认内容；彻底初始化会清空当前平台业务数据。',
             'nav.init.quickTitle': '启动开箱即用模式',
             'nav.init.quickDesc': '重新导入仓库内置的智能调度脚本和全量指标规则。仅补齐缺失项，不覆盖同名脚本、规则或用户配置；导入前会生成配置快照。',
             'nav.init.quickButton': '启动开箱即用模式',
@@ -451,18 +424,18 @@ function registerNavbarI18n() {
             'nav.init.quickRunning': '正在导入默认内容...',
             'nav.init.quickSuccess': '导入完成：新增脚本 {scripts} 个、指标规则 {rules} 条、指标分组 {groups} 个。',
             'nav.init.dangerLabel': '危险区域',
-            'nav.init.resetTitle': '彻底初始化当前租户',
-            'nav.init.resetDesc': '先自动生成当前租户安全备份，再完整归档其数据并建立干净数据库。账号、其他租户及桌面/F12 授权不会受影响。',
-            'nav.init.resetArchive': '旧租户数据会整体保存在 factory-reset-archives 目录；初始化后会再次出现首次启动导入提示。',
-            'nav.init.resetButton': '初始化当前租户',
-            'nav.init.resetConfirmTitle': '高危操作：彻底初始化当前租户',
-            'nav.init.resetConfirmMessage': '当前租户的业务数据、配置、附件和自定义工具将从运行目录移出。系统会先创建安全备份和完整旧数据归档，其他租户不受影响。',
+            'nav.init.resetTitle': '彻底初始化当前平台',
+            'nav.init.resetDesc': '先自动生成当前平台安全备份，再完整归档其数据并建立干净数据库。账号、其他数据空间及桌面/F12 授权不会受影响。',
+            'nav.init.resetArchive': '原数据保留在出厂重置归档中，初始化后重新显示首次导入提示。',
+            'nav.init.resetButton': '初始化当前平台',
+            'nav.init.resetConfirmTitle': '高危操作：彻底初始化当前平台',
+            'nav.init.resetConfirmMessage': '当前平台的业务数据、配置、附件和自定义工具将从运行目录移出。系统会先创建安全备份和完整旧数据归档，其他数据空间不受影响。',
             'nav.init.resetConfirmHint': '请在下方完整输入 RESET，然后才能执行初始化。',
             'nav.init.resetPlaceholder': '输入：RESET',
             'nav.init.resetAction': '确认初始化',
             'nav.init.resetRunning': '正在创建安全备份并准备初始化...',
             'nav.init.resetSuccess': '安全备份 {backup} 已创建。程序即将退出；请重新启动，初始化会在退出后自动完成。',
-            'nav.init.resetSuccessNoRestart': '安全备份 {backup} 已创建，当前租户已恢复为空白状态；正在返回登录页。',
+            'nav.init.resetSuccessNoRestart': '安全备份 {backup} 已创建，当前平台已恢复为空白状态；正在返回登录页。',
             'nav.init.failed': '操作失败：',
             'nav.set.emptyItems': '暂无更多工具菜单。',
             'nav.set.placeholder.zh': '中文名称',
@@ -476,7 +449,7 @@ function registerNavbarI18n() {
             'nav.page.home.public': '允许免登录新窗口访问',
             'nav.page.home.private': '需要登录',
             'nav.page.home.empty': '暂无自定义 HTML 工具。',
-            'nav.page.report.help': '可单独备份和恢复历史快照与已入库内容，也可清理报表看板历史下拉列表中的冗余 SLA 源快照。所有操作只影响当前租户。',
+            'nav.page.report.help': '可单独备份和恢复历史快照与已入库内容，也可清理报表看板历史下拉列表中的冗余 SLA 源快照。所有操作只影响当前平台。',
             'nav.page.report.backupTitle': '报表历史数据独立备份与恢复',
             'nav.page.report.backupDesc': '导出 SLA 历史快照、已入库报表、分类得分、指标明细及人工佐证附件。报表截图和已生成 Excel 不导出。',
             'nav.page.report.exportButton': '导出独立备份',
@@ -484,12 +457,12 @@ function registerNavbarI18n() {
             'nav.page.report.modeMerge': '增量恢复（默认）',
             'nav.page.report.modeReplace': '清空恢复',
             'nav.page.report.modeMergeHint': '按“快照 ID + 月份”合并：不同日期追加，同一份数据以备份包覆盖，其他现有数据保留。',
-            'nav.page.report.modeReplaceHint': '先清空当前租户的 SLA 历史快照和报表入库内容，再完整导入备份包。',
+            'nav.page.report.modeReplaceHint': '先清空当前平台的 SLA 历史快照和报表入库内容，再完整导入备份包。',
             'nav.page.report.chooseImport': '选择备份并导入',
             'nav.page.report.noFile': '请先选择 .zip 备份包。',
             'nav.page.report.importDone': '导入完成：SLA 快照 {sla}条，入库报表 {reports}份，分类得分 {scores}条，指标明细 {metrics}条，佐证附件 {attachments}个。',
             'nav.page.report.replaceConfirmTitle': '高危操作：清空当前报表历史后恢复',
-            'nav.page.report.replaceConfirmWarning': '当前租户的 SLA 历史快照和全部已入库报表将被备份包取代。',
+            'nav.page.report.replaceConfirmWarning': '当前平台的 SLA 历史快照和全部已入库报表将被备份包取代。',
             'nav.page.report.replaceConfirmHint': '请在下方完整输入“确认清空恢复”。账号、规则和其他业务数据不受影响。',
             'nav.page.report.replaceConfirmPlaceholder': '输入：确认清空恢复',
             'nav.page.report.replaceConfirmAction': '清空并恢复',
@@ -662,7 +635,7 @@ function registerNavbarI18n() {
             'nav.up.state.dev-unavailable': '开发模式不可用',
 
             'nav.bk.empty': '正在加载备份列表...',
-            'nav.bk.help': '当前租户“{tenant}”（ID: {tenantId}）的完整备份范围：{target}。不会包含或覆盖其他租户的数据。',
+            'nav.bk.help': '平台完整备份范围：{target}。',
             'nav.ctbk.help': '独立备份不会覆盖其他业务模块。导出包包含工具全部文件、注册信息、服务端状态与快照、可识别的 localStorage 数据，以及逐文件 SHA-256 完整性清单。',
             'nav.ctbk.loading': '正在扫描自定义工具依赖...',
             'nav.ctbk.empty': '当前没有可备份的自定义工具。',
@@ -694,7 +667,7 @@ function registerNavbarI18n() {
             'nav.ctbk.dependencyWarn': '其中 {count} 个工具仍依赖公共平台 API、外部接口或 IndexedDB，请确保目标环境具备相同服务。',
             'nav.ctbk.fail': '加载自定义工具备份功能失败：',
             'nav.bk.remoteTitle': '远端主站同步',
-            'nav.bk.remoteDesc': '远端同步严格按租户 ID 执行，不比较显示名称：当前租户只会拉取远端相同 ID 的备份；远端不存在时会安全终止。',
+            'nav.bk.remoteDesc': '从远端主站同步备份，恢复前校验数据范围；连接设置只保存在本机。',
             'nav.bk.enable': '启用',
             'nav.bk.remoteDomain': '远端网站域名',
             'nav.bk.remoteUser': '账号',
@@ -703,9 +676,9 @@ function registerNavbarI18n() {
             'nav.bk.optCompare': '比较备份新旧，未更新则跳过',
             'nav.bk.optPull': '拉取前请求主站立即生成备份',
             'nav.bk.optAuto': '启动时自动恢复最新备份',
-            'nav.bk.optAutoDefaultOnly': '启动自动恢复仅用于默认租户；其他租户请手动检查和恢复。',
+            'nav.bk.optAutoDefaultOnly': '启动时可自动恢复最近一次备份。',
             'nav.bk.scheduleTitle': '定时备份',
-            'nav.bk.scheduleDesc': '当前租户独立调度；默认每天凌晨 2 点生成该租户备份，并仅清理该租户超过保留天数的自动备份。',
+            'nav.bk.scheduleDesc': '当前平台独立调度；默认每天凌晨 2 点生成本平台备份，并仅清理本平台超过保留天数的自动备份。',
             'nav.bk.scheduleEnabled': '开启定时备份',
             'nav.bk.scheduleTime': '执行时间',
             'nav.bk.scheduleRetention': '保留天数',
@@ -732,11 +705,11 @@ function registerNavbarI18n() {
             'nav.bk.btnForce': '强制恢复远端最新',
             'nav.bk.btnClearPwd': '清除密码',
             'nav.bk.svrTitle': '服务器备份',
-            'nav.bk.svrDesc': '仅备份当前租户，生成后保存在该租户自己的备份目录，也可以下载留档。',
+            'nav.bk.svrDesc': '备份平台数据并保存到服务器备份目录，也可以下载留档。',
             'nav.bk.btnCreate': '生成服务器备份',
             'nav.bk.btnCreateDL': '生成并下载',
             'nav.bk.upTitle': '上传备份包恢复',
-            'nav.bk.upDesc': '优先恢复同租户 ID 的备份；ID 不一致时会安全拦截并显示来源与目标，管理员确认后可强制恢复。',
+            'nav.bk.upDesc': '优先恢复同数据空间 ID 的备份；ID 不一致时会安全拦截并显示来源与目标，管理员确认后可强制恢复。',
             'nav.bk.btnUp': '上传并恢复',
             'nav.bk.badgeSync': '外部同步触发',
             'nav.bk.badgeSafe': '恢复前安全备份',
@@ -898,7 +871,6 @@ function registerNavbarI18n() {
             'nav.set.tab.backup': 'Backup & Restore',
             'nav.set.tab.snapshotPublish': 'Static Page Publishing',
             'nav.set.tab.initialize': 'Initialization',
-            'nav.set.tab.tenants': 'Tenants',
             'nav.set.tab.media': 'Media Library',
             'nav.set.tab.promotions': 'Promotions',
             'nav.set.tab.customBackup': 'Custom Tool Backup',
@@ -917,43 +889,14 @@ function registerNavbarI18n() {
             'nav.set.sub.items': 'Changes are saved automatically and immediately applied to the grouping and ordering in "More Tools".',
             'nav.set.sub.ai': 'Changes are saved automatically and immediately applied to the Dragon Claw Agent configuration.',
             'nav.set.sub.update': 'Check, download, and install desktop client updates.',
-            'nav.set.sub.backup': 'Backup and restore only affect the current tenant\'s databases, attachments, and custom tools, without overwriting other tenants.',
-            'nav.set.sub.snapshotPublish': 'Configure this tenant’s read-only snapshot destination and review publishing progress and history.',
+            'nav.set.sub.backup': 'Backup and restore only affect the current platform\'s databases, attachments, and custom tools, without overwriting other data spaces.',
+            'nav.set.sub.snapshotPublish': 'Configure this platform’s read-only snapshot destination and review publishing progress and history.',
             'nav.set.sub.initialize': 'Add the Quick Start defaults or return to a clean first-run state after a safety backup and full archive.',
-            'nav.set.sub.tenants': 'Manage isolated workspaces. Each tenant has separate scripts, rules, databases, attachments, and custom tools.',
             'nav.set.sub.media': 'Manage the on-demand media library, category folders, local batch imports, and poster regeneration.',
             'nav.set.sub.promotions': 'Configure the home page promo area: which videos show, promoted links, the maximum number of links and rotation interval, and the desktop promotion card stack.',
             'nav.media.categoryFilter': 'Filter media categories',
             'nav.media.searchLabel': 'Search media resources',
             'nav.media.previewBack': 'Back to media settings',
-            'nav.tenant.current': 'Current tenant',
-            'nav.tenant.switch': 'Switch tenant',
-            'nav.tenant.manage': 'Manage tenants',
-            'nav.tenant.loading': 'Loading tenants...',
-            'nav.tenant.empty': 'No tenants available',
-            'nav.tenant.create': 'Add tenant',
-            'nav.tenant.name': 'Tenant name',
-            'nav.tenant.id': 'Tenant ID (optional)',
-            'nav.tenant.description': 'Description',
-            'nav.tenant.edit': 'Edit',
-            'nav.tenant.archive': 'Archive',
-            'nav.tenant.archiveConfirm': 'Archive tenant “{name}”? It will become unavailable while its data directory is retained.',
-            'nav.tenant.activeGroup': 'Active tenants',
-            'nav.tenant.archivedGroup': 'Archived tenants',
-            'nav.tenant.archivedEmpty': 'No archived tenants',
-            'nav.tenant.archivedBadge': 'Archived',
-            'nav.tenant.restore': 'Restore',
-            'nav.tenant.restoreConfirm': 'Restore tenant “{name}”? Users can enter it again and its existing data directory will be retained.',
-            'nav.tenant.delete': 'Delete permanently',
-            'nav.tenant.deleteTitle': 'Permanently delete tenant data',
-            'nav.tenant.deleteMessage': 'This permanently deletes tenant “{name}” (ID: {id}), including its databases, scripts, rules, attachments, custom tools, and tenant backups.',
-            'nav.tenant.deleteHint': 'This cannot be undone. Enter tenant ID “{id}” to confirm.',
-            'nav.tenant.deletePlaceholder': 'Enter tenant ID: {id}',
-            'nav.tenant.deleteDone': 'Tenant “{name}” and its data were permanently deleted.',
-            'nav.tenant.defaultHint': 'Existing business data remains in the default tenant. New tenants start with a clean initialized workspace.',
-            'nav.tenant.defaultName': 'Default Tenant',
-            'nav.tenant.nameRequired': 'Enter a tenant name.',
-            'nav.tenant.idInvalid': 'Tenant ID may contain only letters, numbers, underscores, and hyphens.',
             'nav.set.sub.customBackup': 'Back up and restore custom tool files, registry data, server state, and detectable browser-local data independently.',
             'nav.set.sub.accounts': 'Changes are saved automatically and immediately applied to account permissions.',
             'nav.set.sub.security': 'Configure login lockouts, session expiry, and security alert severity.',
@@ -985,7 +928,7 @@ function registerNavbarI18n() {
             'nav.set.default.saving': 'Setting as system default...',
             'nav.set.default.success': 'Current layout successfully set as system default and saved to defaults config',
             'nav.set.default.fail': 'Failed to set system default: ',
-            'nav.init.help': 'Both actions affect only the current tenant: Quick Start adds missing defaults, while Factory Reset clears this tenant’s business data.',
+            'nav.init.help': 'Both actions affect only the current platform: Quick Start adds missing defaults, while Factory Reset clears this platform’s business data.',
             'nav.init.quickTitle': 'Enable Quick Start Mode',
             'nav.init.quickDesc': 'Re-import the bundled smart-scheduling scripts and complete metric rules. Missing items are added without overwriting same-name scripts, rules, or user settings; a configuration snapshot is created first.',
             'nav.init.quickButton': 'Enable Quick Start Mode',
@@ -995,18 +938,18 @@ function registerNavbarI18n() {
             'nav.init.quickRunning': 'Importing default content...',
             'nav.init.quickSuccess': 'Import complete: {scripts} scripts, {rules} metric rules, and {groups} metric groups added.',
             'nav.init.dangerLabel': 'Danger Zone',
-            'nav.init.resetTitle': 'Factory Reset Current Tenant',
-            'nav.init.resetDesc': 'Creates a tenant-scoped safety backup, archives this tenant, and builds a clean database. Accounts, other tenants, and desktop/F12 licenses are unaffected.',
-            'nav.init.resetArchive': 'Old tenant data remains in factory-reset-archives. The first-run import prompt appears again after initialization.',
-            'nav.init.resetButton': 'Reset Current Tenant',
-            'nav.init.resetConfirmTitle': 'DANGER: Factory reset current tenant',
-            'nav.init.resetConfirmMessage': 'This tenant’s business data, settings, attachments, and custom tools will be moved out of the live directory after a safety backup. Other tenants are unaffected.',
+            'nav.init.resetTitle': 'Factory Reset Platform',
+            'nav.init.resetDesc': 'Creates a platform-scoped safety backup, archives this platform, and builds a clean database. Accounts, other data spaces, and desktop/F12 licenses are unaffected.',
+            'nav.init.resetArchive': 'Previous data remains in factory-reset archives. The first-run import prompt appears again after initialization.',
+            'nav.init.resetButton': 'Reset Platform',
+            'nav.init.resetConfirmTitle': 'DANGER: Factory reset current platform',
+            'nav.init.resetConfirmMessage': 'This platform’s business data, settings, attachments, and custom tools will be moved out of the live directory after a safety backup. Other data spaces are unaffected.',
             'nav.init.resetConfirmHint': 'Type RESET exactly below to enable factory reset.',
             'nav.init.resetPlaceholder': 'Type: RESET',
             'nav.init.resetAction': 'Reset Tenant',
             'nav.init.resetRunning': 'Creating a safety backup and preparing reset...',
             'nav.init.resetSuccess': 'Safety backup {backup} was created. The app will exit; launch it again after the reset completes.',
-            'nav.init.resetSuccessNoRestart': 'Safety backup {backup} was created and the current tenant is clean. Returning to sign in.',
+            'nav.init.resetSuccessNoRestart': 'Safety backup {backup} was created and the current platform is clean. Returning to sign in.',
             'nav.init.failed': 'Operation failed: ',
             'nav.set.emptyItems': 'No more tools available.',
             'nav.set.placeholder.zh': 'Chinese Name',
@@ -1020,7 +963,7 @@ function registerNavbarI18n() {
             'nav.page.home.public': 'Allow public new-window access',
             'nav.page.home.private': 'Sign-in required',
             'nav.page.home.empty': 'No custom HTML tools yet.',
-            'nav.page.report.help': 'Back up and restore historical snapshots and saved report content independently, or clean redundant SLA source snapshots from the Report Dashboard history selector. Every operation is limited to the current tenant.',
+            'nav.page.report.help': 'Back up and restore historical snapshots and saved report content independently, or clean redundant SLA source snapshots from the Report Dashboard history selector. Every operation is limited to the current platform.',
             'nav.page.report.backupTitle': 'Independent Report History Backup & Restore',
             'nav.page.report.backupDesc': 'Export SLA history, saved reports, category scores, metric details, and manual evidence attachments. Report screenshots and generated Excel files are excluded.',
             'nav.page.report.exportButton': 'Export Independent Backup',
@@ -1028,12 +971,12 @@ function registerNavbarI18n() {
             'nav.page.report.modeMerge': 'Incremental restore (default)',
             'nav.page.report.modeReplace': 'Clear and restore',
             'nav.page.report.modeMergeHint': 'Merge by snapshot ID + month: add different dates, replace matching records from the package, and retain all other existing data.',
-            'nav.page.report.modeReplaceHint': 'Clear the current tenant\'s SLA history and saved report records, then import the package in full.',
+            'nav.page.report.modeReplaceHint': 'Clear the current platform\'s SLA history and saved report records, then import the package in full.',
             'nav.page.report.chooseImport': 'Choose Backup and Import',
             'nav.page.report.noFile': 'Choose a .zip backup package first.',
             'nav.page.report.importDone': 'Import complete: {sla} SLA snapshots, {reports} saved reports, {scores} category scores, {metrics} metric rows, and {attachments} evidence attachments.',
             'nav.page.report.replaceConfirmTitle': 'DANGER: Clear current report history and restore',
-            'nav.page.report.replaceConfirmWarning': 'The current tenant\'s SLA history and all saved report records will be replaced by this package.',
+            'nav.page.report.replaceConfirmWarning': 'The current platform\'s SLA history and all saved report records will be replaced by this package.',
             'nav.page.report.replaceConfirmHint': 'Type “确认清空恢复” exactly below. Accounts, rules, and other business data are not affected.',
             'nav.page.report.replaceConfirmPlaceholder': 'Type: 确认清空恢复',
             'nav.page.report.replaceConfirmAction': 'Clear and restore',
@@ -1206,7 +1149,7 @@ function registerNavbarI18n() {
             'nav.up.state.dev-unavailable': 'Unavailable in Development',
 
             'nav.bk.empty': 'Loading backup list...',
-            'nav.bk.help': 'Complete backup for the current tenant “{tenant}” (ID: {tenantId}): {target}. Other tenants are never included or overwritten.',
+            'nav.bk.help': 'Full platform backup: {target}.',
             'nav.ctbk.help': 'Independent backups do not overwrite other business modules. Packages include all tool files, registry metadata, server state and snapshots, detectable localStorage data, and per-file SHA-256 integrity records.',
             'nav.ctbk.loading': 'Scanning custom tool dependencies...',
             'nav.ctbk.empty': 'There are no custom tools to back up.',
@@ -1238,7 +1181,7 @@ function registerNavbarI18n() {
             'nav.ctbk.dependencyWarn': '{count} restored tools still depend on platform APIs, external endpoints, or IndexedDB. Ensure the target environment provides the same services.',
             'nav.ctbk.fail': 'Failed to load custom tool backup: ',
             'nav.bk.remoteTitle': 'Remote Main Site Sync',
-            'nav.bk.remoteDesc': 'Remote sync requires matching tenant IDs: the current tenant only pulls the same tenant from the remote site. Missing tenants fail safely. Connection settings stay on this machine.',
+            'nav.bk.remoteDesc': 'Synchronize backups from the remote site, validating the data scope before restore. Connection settings stay on this machine.',
             'nav.bk.enable': 'Enable',
             'nav.bk.remoteDomain': 'Remote Domain',
             'nav.bk.remoteUser': 'Username',
@@ -1247,9 +1190,9 @@ function registerNavbarI18n() {
             'nav.bk.optCompare': 'Compare before restore, skip if not updated',
             'nav.bk.optPull': 'Request immediate backup generation on main site before pulling',
             'nav.bk.optAuto': 'Auto-restore latest backup on startup',
-            'nav.bk.optAutoDefaultOnly': 'Startup auto-restore is available only for the default tenant. Restore other tenants manually.',
+            'nav.bk.optAutoDefaultOnly': 'The latest backup can be restored automatically on startup.',
             'nav.bk.scheduleTitle': 'Scheduled Backup',
-            'nav.bk.scheduleDesc': 'Scheduled independently for the current tenant; by default runs daily at 02:00 and prunes only this tenant’s expired scheduled backups.',
+            'nav.bk.scheduleDesc': 'Scheduled independently for the current platform; by default runs daily at 02:00 and prunes only this platform’s expired scheduled backups.',
             'nav.bk.scheduleEnabled': 'Enable scheduled backup',
             'nav.bk.scheduleTime': 'Run Time',
             'nav.bk.scheduleRetention': 'Retention',
@@ -1276,11 +1219,11 @@ function registerNavbarI18n() {
             'nav.bk.btnForce': 'Force Restore Remote Latest',
             'nav.bk.btnClearPwd': 'Clear Password',
             'nav.bk.svrTitle': 'Server Backup',
-            'nav.bk.svrDesc': 'Backs up only the current tenant and stores the package in that tenant’s backup directory. It can also be downloaded.',
+            'nav.bk.svrDesc': 'Back up platform data to the server backup directory, with optional download.',
             'nav.bk.btnCreate': 'Create Server Backup',
             'nav.bk.btnCreateDL': 'Create & Download',
             'nav.bk.upTitle': 'Restore from Upload',
-            'nav.bk.upDesc': 'Backups with the same tenant ID restore directly. A mismatch is safely blocked and shows source and target details before an admin can force restore.',
+            'nav.bk.upDesc': 'Backups with the same data scope ID restore directly. A mismatch is safely blocked and shows source and target details before an admin can force restore.',
             'nav.bk.btnUp': 'Upload & Restore',
             'nav.bk.badgeSync': 'Remote Sync',
             'nav.bk.badgeSafe': 'Safety Backup',
@@ -1421,11 +1364,11 @@ function normalizeNavSettings(settings = {}) {
     let platformNameEn = clean(settings.platformNameEn, 80);
 
     if (platformNameZh && platformNameEn && platformNameZh.toLowerCase() === platformNameEn.toLowerCase() && !/[^\x00-\x7F]/.test(platformNameZh) && (platformNameEn.toLowerCase() === 'thoth platform' || platformNameEn.toLowerCase() === 'tools platform' || platformNameEn.toLowerCase() === 'eg cs hub')) {
-        platformNameZh = 'Dragon 工具平台';
+        platformNameZh = 'Dragon Claw';
     }
 
-    platformNameZh = platformNameZh || (rawHasNonAscii ? rawName : 'Dragon 工具平台');
-    platformNameEn = platformNameEn || (!rawHasNonAscii && rawName ? rawName : 'Dragon Platform');
+    platformNameZh = platformNameZh || (rawHasNonAscii ? rawName : 'Dragon Claw');
+    platformNameEn = platformNameEn || (!rawHasNonAscii && rawName ? rawName : 'Dragon Claw');
     const platformSubtitle = clean(settings.platformSubtitle, 120) || '埃及 CS 工具与知识中心';
     const platformSubtitleEn = clean(settings.platformSubtitleEn, 120) || 'Egypt CS Tools & Knowledge Center';
     const platformSlogan = clean(settings.platformSlogan, 200) || '“认真做好每一个工具，让日常工作更省心。”';
@@ -1466,18 +1409,10 @@ function applyPlatformTitle() {
     const isEn = typeof window !== 'undefined' && window.ToolsI18n?.getLanguage?.() === 'en-US';
     const mainName = (isEn && navState.settings?.platformNameEn)
         ? navState.settings.platformNameEn
-        : (navState.settings?.platformNameZh || navState.settings?.platformName || 'Dragon 工具平台');
+        : (navState.settings?.platformNameZh || navState.settings?.platformName || 'Dragon Claw');
     let next = platformTitleOriginal || '';
-    if (next.includes('Tools Platform')) {
-        next = next.split('Tools Platform').join(mainName);
-    } else if (next.includes('EG CS HUB')) {
-        next = next.split('EG CS HUB').join(mainName);
-    } else if (next.includes('图特工具平台')) {
-        next = next.split('图特工具平台').join(mainName);
-    } else if (next.includes('Thoth Platform')) {
-        next = next.split('Thoth Platform').join(mainName);
-    } else if (next.includes('Dragon Platform')) {
-        next = next.split('Dragon Platform').join(mainName);
+    for (const alias of ['Dragon Claw', 'Dragon Platform', 'Tools Platform', 'Dragon 工具平台', 'EG CS HUB', '图特工具平台', 'Thoth Platform']) {
+        if (next.includes(alias)) { next = next.split(alias).join(mainName); break; }
     }
     platformTitleApplied = next;
     if (document.title !== next) document.title = next;
@@ -1492,11 +1427,11 @@ function applyPlatformIdentity() {
     let enName = navState.settings?.platformNameEn;
 
     if (zhName && enName && zhName.toLowerCase() === enName.toLowerCase() && !/[^\x00-\x7F]/.test(zhName) && (enName.toLowerCase() === 'thoth platform' || enName.toLowerCase() === 'dragon platform' || enName.toLowerCase() === 'tools platform' || enName.toLowerCase() === 'eg cs hub')) {
-        zhName = 'Dragon 工具平台';
+        zhName = 'Dragon Claw';
     }
 
-    zhName = zhName || (rawHasNonAscii ? rawName : (navState.settings?.platformName || 'Dragon 工具平台'));
-    enName = enName || (!rawHasNonAscii && rawName ? rawName : 'Dragon Platform');
+    zhName = zhName || (rawHasNonAscii ? rawName : (navState.settings?.platformName || 'Dragon Claw'));
+    enName = enName || (!rawHasNonAscii && rawName ? rawName : 'Dragon Claw');
 
     const zhSub = navState.settings?.platformSubtitle || '埃及 CS 工具与知识中心';
     const enSub = navState.settings?.platformSubtitleEn || 'Egypt CS Tools & Knowledge Center';
@@ -2199,71 +2134,21 @@ async function loadNavigationData() {
     if (document.getElementById('navSettingsModal')) renderNavSettingsContent();
 }
 
-function activeTenantName() {
-    if (navState.activeTenantId === 'default') return navT('nav.tenant.defaultName');
-    return navState.tenants.find(item => item.id === navState.activeTenantId)?.name || navState.activeTenantId || 'default';
-}
-
-function displayTenantName(tenant) {
-    const name = tenant?.name || tenant?.id || '';
-    return tenant?.id === 'default' && (!name || name === '默认租户' || name === 'Default Tenant')
-        ? navT('nav.tenant.defaultName')
-        : name;
-}
-
-async function loadTenantNavigation() {
-    if (!hasNavAuthToken()) return;
-    try {
-        const response = await fetch('/api/tenants', { headers: getAuthHeaderForNav() });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
-        navState.tenants = Array.isArray(data.tenants) ? data.tenants : [];
-        navState.activeTenantId = data.activeTenantId || 'default';
-        localStorage.setItem('tools_tenant_id', navState.activeTenantId);
-        const label = document.getElementById('navActiveTenantName');
-        if (label) label.textContent = activeTenantName();
-        renderTenantSwitchMenu();
-    } catch (error) {
-        console.warn('[Tenant] load failed:', error);
+// Backend compatibility: authenticated sessions always enter the default workspace.
+async function ensureDefaultWorkspace(user) {
+    const previous = localStorage.getItem('tools_tenant_id') || 'default';
+    if (user.tenantId && user.tenantId !== 'default') {
+        const response = await fetch('/api/tenants/switch', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaderForNav() }, body: JSON.stringify({ tenantId: 'default' }) });
+        if (!response.ok) { promptNavRelogin(); throw new Error('Unable to open the default workspace'); }
+        switchTenantBrowserState(previous, 'default');
+        localStorage.setItem('tools_tenant_id', 'default');
+        window.location.reload(); return true;
     }
+    if (previous !== 'default') switchTenantBrowserState(previous, 'default');
+    localStorage.setItem('tools_tenant_id', 'default');
+    navState.activeTenantId = 'default'; return false;
 }
-
-function renderTenantSwitchMenu() {
-    const menu = document.getElementById('navTenantMenu');
-    if (!menu) return;
-    menu.innerHTML = `
-        <div class="nav-tenant-menu-label">${navEscape(navT('nav.tenant.current'))}</div>
-        ${(navState.tenants || []).map(tenant => `<button type="button" class="nav-tenant-option ${tenant.id === navState.activeTenantId ? 'active' : ''}" onclick="switchActiveTenant('${navEscape(tenant.id)}')"><span>${navEscape(displayTenantName(tenant))}</span>${tenant.id === navState.activeTenantId ? '<span>✓</span>' : ''}</button>`).join('') || `<div class="nav-tenant-empty">${navEscape(navT('nav.tenant.empty'))}</div>`}
-        ${localStorage.getItem('tools_role') === 'admin' ? `<button type="button" class="nav-tenant-manage" onclick="openTenantSettings()">⚙ ${navEscape(navT('nav.tenant.manage'))}</button>` : ''}
-    `;
-}
-
-window.toggleTenantMenu = function (event) {
-    event?.stopPropagation();
-    document.getElementById('navTenantMenu')?.classList.toggle('open');
-};
-
-window.switchActiveTenant = async function (tenantId) {
-    if (!tenantId || tenantId === navState.activeTenantId) return;
-    const response = await fetch('/api/tenants/switch', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaderForNav() }, body: JSON.stringify({ tenantId })
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) return showNavbarNotice({
-        title: navT('nav.dialog.error'),
-        message: data.error || `HTTP ${response.status}`,
-        tone: 'error'
-    });
-    switchTenantBrowserState(navState.activeTenantId, tenantId);
-    localStorage.setItem('tools_tenant_id', tenantId);
-    window.location.reload();
-};
-
-window.openTenantSettings = function () {
-    document.getElementById('navTenantMenu')?.classList.remove('open');
-    openNavSettingsModal();
-    switchNavSettingsTab('tenants');
-};
+function activeTenantName() { return navState.settings?.platformName || 'Dragon Claw'; }
 
 function renderNavbar() {
     const role = localStorage.getItem('tools_role');
@@ -2285,8 +2170,8 @@ function renderNavbar() {
     nav.id = 'app-navbar';
     nav.innerHTML = `
         <a href="/" class="nav-brand">
-            <span class="brand-icon"><img src="/assets/logo.png?v=20261006" alt="Tools Platform" class="brand-logo-img" id="navBrandLogo"></span>
-            <span class="brand-name">Tools Platform</span>
+            <span class="brand-icon"><img src="/assets/logo.png" alt="Dragon Claw" class="brand-logo-img" id="navBrandLogo"></span>
+            <span class="brand-name">Dragon Claw</span>
         </a>
         <div class="nav-divider"></div>
         <div class="nav-links"></div>
@@ -2314,10 +2199,7 @@ function renderNavbar() {
                     <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-4v-.09A1.7 1.7 0 0 0 9 19.36a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.64 15a1.7 1.7 0 0 0-1.55-1.03H3v-4h.09A1.7 1.7 0 0 0 4.64 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.64a1.7 1.7 0 0 0 1.03-1.55V3h4v.09A1.7 1.7 0 0 0 15 4.64a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.36 9a1.7 1.7 0 0 0 1.55 1.03H21v4h-.09A1.7 1.7 0 0 0 19.4 15z"></path>
                 </svg>
             </button>` : ''}
-            <div class="nav-tenant-switcher">
-                <button type="button" class="nav-user-chip" onclick="toggleTenantMenu(event)" title="${navEscape(navT('nav.tenant.switch'))}"><span class="nav-action-icon">👤</span><span class="nav-action-text">${navEscape(user || '未登录')} · <span id="navActiveTenantName">${navEscape(activeTenantName())}</span></span><span>▾</span></button>
-                <div class="nav-tenant-menu" id="navTenantMenu"></div>
-            </div>
+            <span class="nav-user-chip"><span class="nav-action-icon">👤</span><span class="nav-action-text">${navEscape(user || '未登录')}</span></span>
             <a href="#" class="nav-logout-link" onclick="doLogout()" title="${navEscape(navT('nav.logout'))}"><span class="nav-action-icon">↩</span><span class="nav-action-text">${navEscape(navT('nav.logout'))}</span></a>
         </div>
 
@@ -2352,7 +2234,6 @@ function renderNavbar() {
     }
 
     renderNavLinksFromState();
-    loadTenantNavigation();
 }
 
 document.addEventListener('click', (event) => {
@@ -2431,7 +2312,6 @@ window.toggleNavMore = function (event) {
 
 document.addEventListener('keydown', event => {
     if (event.key !== 'Escape') return;
-    document.getElementById('navTenantMenu')?.classList.remove('open');
     const more = document.getElementById('navMore');
     if (!more?.classList.contains('open')) return;
     more.classList.remove('open');
@@ -2446,10 +2326,6 @@ document.addEventListener('pointerdown', (event) => {
     if (more && (clickedMoreBackdrop || !more.contains(event.target))) {
         more.classList.remove('open');
         document.getElementById('navMoreBtn')?.setAttribute('aria-expanded', 'false');
-    }
-    const tenantSwitcher = document.querySelector('.nav-tenant-switcher');
-    if (tenantSwitcher && !tenantSwitcher.contains(event.target)) {
-        document.getElementById('navTenantMenu')?.classList.remove('open');
     }
 }, true);
 
@@ -2508,7 +2384,6 @@ function renderNavSettingsSidebar() {
         <button class="nav-settings-tab ${t === 'backup' ? 'active' : ''}" data-tab="backup" onclick="switchNavSettingsTab('backup')">${renderNavSettingsTabLabel('💾', navT('nav.set.tab.backup'))}</button>
         <button class="nav-settings-tab ${t === 'snapshotPublish' ? 'active' : ''}" data-tab="snapshotPublish" onclick="switchNavSettingsTab('snapshotPublish')">${renderNavSettingsTabLabel('📤', navT('nav.set.tab.snapshotPublish'))}</button>
         <button class="nav-settings-tab ${t === 'initialize' ? 'active' : ''}" data-tab="initialize" onclick="switchNavSettingsTab('initialize')">${renderNavSettingsTabLabel('🌱', navT('nav.set.tab.initialize'))}</button>
-        <button class="nav-settings-tab ${t === 'tenants' ? 'active' : ''}" data-tab="tenants" onclick="switchNavSettingsTab('tenants')">${renderNavSettingsTabLabel('🏢', navT('nav.set.tab.tenants'))}</button>
         <button class="nav-settings-tab ${t === 'media' ? 'active' : ''}" data-tab="media" onclick="switchNavSettingsTab('media')">${renderNavSettingsTabLabel('🎬', navT('nav.set.tab.media'))}</button>
         <button class="nav-settings-tab ${t === 'promotions' ? 'active' : ''}" data-tab="promotions" onclick="switchNavSettingsTab('promotions')">${renderNavSettingsTabLabel('📣', navT('nav.set.tab.promotions'))}</button>
         <button class="nav-settings-tab ${t === 'customBackup' ? 'active' : ''}" data-tab="customBackup" onclick="switchNavSettingsTab('customBackup')">${renderNavSettingsTabLabel('🧰', navT('nav.set.tab.customBackup'))}</button>
@@ -2574,6 +2449,7 @@ window.openChatModelSettings = async function () {
 window.closeNavSettingsModal = closeNavSettingsModal;
 
 window.switchNavSettingsTab = function (tab) {
+    if (tab === 'tenants') tab = 'accounts';
     navState.settingsTab = tab;
     document.querySelectorAll('.nav-settings-tab').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.tab === tab);
@@ -2598,7 +2474,6 @@ function getNavSettingsTitle() {
     if (navState.settingsTab === 'backup') return navT('nav.set.tab.backup');
     if (navState.settingsTab === 'snapshotPublish') return navT('nav.set.tab.snapshotPublish');
     if (navState.settingsTab === 'initialize') return navT('nav.set.tab.initialize');
-    if (navState.settingsTab === 'tenants') return navT('nav.set.tab.tenants');
     if (navState.settingsTab === 'media') return navT('nav.set.tab.media');
     if (navState.settingsTab === 'promotions') return navT('nav.set.tab.promotions');
     if (navState.settingsTab === 'customBackup') return navT('nav.set.tab.customBackup');
@@ -2626,7 +2501,6 @@ function getNavSettingsSubtitle() {
     if (navState.settingsTab === 'backup') return navT('nav.set.sub.backup');
     if (navState.settingsTab === 'snapshotPublish') return navT('nav.set.sub.snapshotPublish');
     if (navState.settingsTab === 'initialize') return navT('nav.set.sub.initialize');
-    if (navState.settingsTab === 'tenants') return navT('nav.set.sub.tenants');
     if (navState.settingsTab === 'media') return navT('nav.set.sub.media');
     if (navState.settingsTab === 'promotions') return navT('nav.set.sub.promotions');
     if (navState.settingsTab === 'customBackup') return navT('nav.set.sub.customBackup');
@@ -2681,7 +2555,6 @@ async function renderNavSettingsContent() {
     if (navState.settingsTab === 'backup') return renderBackupSettings(content);
     if (navState.settingsTab === 'snapshotPublish') return renderSnapshotPublishSettings(content);
     if (navState.settingsTab === 'initialize') return renderInitializationSettings(content);
-    if (navState.settingsTab === 'tenants') return renderTenantSettings(content);
     if (navState.settingsTab === 'media') return renderMediaSettings(content);
     if (navState.settingsTab === 'promotions') return renderPromotionSettings(content);
     if (navState.settingsTab === 'customBackup') return renderCustomToolBackupSettings(content);
@@ -5429,14 +5302,14 @@ async function syncNavUserSession() {
                 const previousUser = localStorage.getItem('tools_user');
                 localStorage.setItem('tools_user', data.username);
                 if (data.role) localStorage.setItem('tools_role', data.role);
-                if (data.tenantId) localStorage.setItem('tools_tenant_id', data.tenantId);
+                if (await ensureDefaultWorkspace(data)) return;
                 // 导航栏按本地角色渲染管理员入口（设置、租户管理）；服务端角色与渲染时不同就整条重绘。
                 if ((data.role && data.role !== previousRole) || data.username !== previousUser) {
                     renderNavbar();
                 } else {
                     const userChipText = document.querySelector('.nav-user-chip .nav-action-text');
                     if (userChipText) {
-                        userChipText.innerHTML = `${navEscape(data.username)} · <span id="navActiveTenantName">${navEscape(activeTenantName())}</span>`;
+                        userChipText.textContent = data.username;
                     }
                 }
                 // 服务端 cookie 仍有效但浏览器本地没有 token（换了端口/清过站点数据）：依赖 token 的功能会失效，引导重新登录。
@@ -5465,7 +5338,8 @@ if (!document.querySelector('script[data-desktop-license-badge]')) {
 }
 
 // 源码启动、Windows 安装版和绿色版共用同一个服务端首次启动状态。
-if (!document.querySelector('script[data-first-run-onboarding]')) {
+// 首页内嵌打开的工具页里不再弹（首页自己会弹一次）
+if (!NAV_EMBEDDED && !document.querySelector('script[data-first-run-onboarding]')) {
     const firstRunOnboardingScript = document.createElement('script');
     firstRunOnboardingScript.src = '/js/shared/first-run-onboarding.js';
     firstRunOnboardingScript.dataset.firstRunOnboarding = '1';

@@ -118,7 +118,7 @@ router.get('/export.xlsx', requireAdmin, async (req, res) => {
             }
         }
         const workbook = new ExcelJS.Workbook();
-        workbook.creator = 'Tools Platform';
+        workbook.creator = 'Dragon Claw';
         workbook.created = new Date();
         const sheet = workbook.addWorksheet('六个一信息台账', {
             views: [{ state: 'frozen', ySplit: 1 }]

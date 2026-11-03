@@ -31,7 +31,7 @@ test('平台类视频包含中英文平台指南、功能介绍及项目演进�
 
     const titles = platformVideos.map(v => v.title);
     assert.ok(titles.some(t => t.includes('Dragon 平台五站使用指南')), '缺少 Dragon 平台五站使用指南');
-    assert.ok(titles.some(t => t.includes('Dragon Platform Five-Step Guide')), '缺少英文版 Dragon 平台指南');
+    assert.ok(titles.some(t => t.includes('Dragon Claw Five-Step Guide')), '缺少英文版 Dragon 平台指南');
     assert.ok(titles.some(t => t.includes('NetCare RFC 方案与 AI 审计')), '缺少 NetCare RFC 方案与 AI 审计');
     assert.ok(titles.some(t => t.includes('NetCare RFC Plans & AI Audit')), '缺少英文版 NetCare RFC');
     assert.ok(titles.some(t => t.includes('操作激励统计')), '缺少操作激励统计');
@@ -180,7 +180,7 @@ test('平台类与知识类视频自动附带循序渐进短序号/第几集标�
         assert.match(v.title, /^(?:第\s*\d+\s*集|EP\s*\d+)\s*·/, `标题应带有剧集序号前缀: ${v.title}`);
     }
     assert.equal(platformVideos[0].title, '第01集 · Dragon 平台五站使用指南');
-    assert.equal(platformVideos[1].title, 'EP02 · Dragon Platform Five-Step Guide (English)');
+    assert.equal(platformVideos[1].title, 'EP02 · Dragon Claw Five-Step Guide (English)');
 
     // 知识类 11 集循序渐进学习顺序校验（从身份 Router-ID 到五种报文、状态机、角色、DR/BDR、区域、LSA、FA 及新增精讲）
     assert.equal(knowledgeVideos.length, 11);

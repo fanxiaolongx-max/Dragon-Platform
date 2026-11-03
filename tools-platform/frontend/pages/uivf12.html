@@ -4,11 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UIVF12 抓取引擎 v6.6 - Tools Platform</title>
+    <title>UIVF12 抓取引擎 v6.6 - Dragon Claw</title>
     <meta name="description" content="UI.Vision 全能抓取引擎，自动化脚本工程中心，脚本云端仓库管理">
     <link rel="icon" type="image/x-icon" href="/favicon.ico?v=20261006">
-    <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon.png?v=20261006">
-    <link rel="apple-touch-icon" href="/assets/icon-mac.png?v=20261006">
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon.png">
+    <link rel="apple-touch-icon" href="/assets/icon-mac.png">
     <link rel="stylesheet" href="/css/shared.css">
     <link rel="stylesheet" href="/css/uivf12.css">
     <style>
@@ -57,6 +57,8 @@
 </head>
 
 <body id="uiv-page">
+    <!-- 平台亮色主题时启用页面自带的浅色样式（#uiv-page.uiv-light-theme，css/uivf12.css；主题由 js/shared/platform-theme.js 标在根元素上） -->
+    <script>if (document.documentElement.dataset.platformTheme !== 'dark') document.body.classList.add('uiv-light-theme');</script>
     <script src="/js/shared/startup-screen.js" data-startup-page="uivf12"></script>
     <div class="page-content">
         <div class="uiv-title">

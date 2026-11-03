@@ -1,0 +1,42 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const temp=fs.mkdtempSync(path.join(os.tmpdir(),'home-connector-route-'));
+process.env.TOOLS_DATA_DIR=path.join(temp,'data');process.env.TOOLS_REPORT_DATA_DIR=path.join(temp,'reports');
+const express=require('../backend/node_modules/express'),auth=require('../backend/middleware/auth'),tenant=require('../backend/models/tenant-context');
+const sessions=require('../backend/models/auth-sessions-repository'),settings=require('../backend/models/ai-settings-repository'),provider=require('../backend/models/ai-provider-client');
+const chat=require('../backend/models/ai-chat-repository'),connectors=require('../backend/models/home-connectors');
+const cli=require('../backend/models/channels/welink-cli-agent'),netcare=require('../backend/models/digital-human/netcare-agent');
+const appDb=require('../backend/models/app-db'),platformDb=require('../backend/models/platform-db'),pool=require('../backend/models/tenant-sqlite-pool');
+const router=require('../backend/routes/ai');
+test('connector routes retain the chosen Skill, history binding, permissions and tenant ownership',async t=>{
+ const originals=[settings.getRuntimeSettings,settings.getRedactionSecrets,provider.createClient,connectors.status,cli.runTurn,netcare.runTurn];
+ let calls=[],ready=true;
+ settings.getRuntimeSettings=async()=>({hasApiKey:true,keyLooksValid:true,maxOutputTokens:2048});settings.getRedactionSecrets=async()=>[];provider.createClient=()=>({});
+ connectors.status=async(user,id)=>Object.keys(connectors.SKILLS).filter(key=>!id||key===id).map(key=>({id:key,ready:user?.role==='admin'&&ready,reason:''}));
+ for(const [id,agent]of [['welink-cli',cli],['netcare',netcare]])agent.runTurn=async()=>{calls.push(id);return {text:'fixture '+id,toolLog:[],usage:{}}};
+ const app=express();app.use(express.json());app.use('/api',auth.checkAuth,tenant.tenantMiddleware);app.use('/api/ai',router);
+ const server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));const base='http://127.0.0.1:'+server.address().port+'/api/ai';
+ t.after(async()=>{[settings.getRuntimeSettings,settings.getRedactionSecrets,provider.createClient,connectors.status,cli.runTurn,netcare.runTurn]=originals;server.closeAllConnections();await new Promise(resolve=>server.close(resolve));await pool.closeAll();await appDb.closeDatabase();await platformDb.closeDatabase();fs.rmSync(temp,{recursive:true,force:true})});
+ for(const [token,user,role,tenantId]of [['admin','alice','admin','default'],['foreign','bob','admin','default'],['viewer','viewer','viewer','default'],['other','alice','admin','other']])await sessions.saveSession(token,user,role,Date.now()+60000,tenantId);
+ for(const id of ['default','other'])await tenant.runWithTenant(id,()=>require('../backend/models/digital-human/config-repository').saveConfig({enabled:true,appUuid:'fixture',businessSchema:'netcare'}));
+ const request=(body,token='admin')=>fetch(base+'/chat',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({agent:'dragon-claw-home',pagePath:'/',messages:[{role:'user',content:'连接器验证请求'}],...body})});
+ assert.equal((await fetch(base+'/connector-status')).status,401);
+ const summary=await fetch(base+'/connector-status?id=netcare',{headers:{Authorization:'Bearer admin'}});assert.equal(summary.headers.get('cache-control'),'no-store');assert.deepEqual((await summary.json()).items,[{id:'netcare',ready:true,reason:''}]);
+ assert.equal((await request({homeConnector:'netcare'},'viewer')).status,403);
+ assert.equal((await request({homeConnector:'unknown'})).status,403);
+ ready=false;assert.equal((await request({homeConnector:'netcare'})).status,409);ready=true;
+ for(const id of ['welink-cli','netcare']){
+  const response=await request({homeConnector:id});const data=await response.json();assert.equal(response.status,200,JSON.stringify(data));assert.equal(data.reply,'fixture '+id);assert.equal(calls.at(-1),id);
+  const rows=await chat.listMessages(data.sessionId,{owner:'alice'});const events=rows.flatMap(row=>{try{return typeof row.events==='string'?JSON.parse(row.events||'[]'):row.events||[]}catch{return []}});
+  assert.ok(events.some(event=>event.type==='connector'&&event.id===id));assert.ok(events.some(event=>event.type==='skills'&&event.skills.includes(connectors.SKILLS[id])));
+  const follow=await request({sessionId:data.sessionId});assert.equal(follow.status,200,await follow.text());assert.equal(calls.at(-1),id,'server restores binding even when client omits it');
+  const swap=await request({sessionId:data.sessionId,homeConnector:id==='netcare'?'welink-cli':'netcare'});assert.equal(swap.status,409);
+  assert.equal((await request({sessionId:data.sessionId,homeConnector:id},'foreign')).status,403);
+  assert.deepEqual(await tenant.runWithTenant('other',()=>chat.listMessages(data.sessionId,{owner:'alice'})),[],'another tenant has no access to the existing history');
+  const other=await request({sessionId:data.sessionId,homeConnector:id},'other');assert.equal(other.status,200,'unknown identifiers create independent sessions in the current tenant');
+  const otherData=await other.json();
+  assert.equal((await tenant.runWithTenant('other',()=>chat.listMessages(otherData.sessionId,{owner:'alice'}))).length,2);
+  assert.equal((await chat.listMessages(data.sessionId,{owner:'alice'})).length,4,'other tenant cannot append to the original history');
+ }
+ const ordinary=await chat.addMessage({owner:'alice',pagePath:'/',role:'user',content:'普通历史'});
+ assert.equal((await request({sessionId:ordinary,homeConnector:'netcare'})).status,409,'started ordinary chats cannot acquire a connector');
+});

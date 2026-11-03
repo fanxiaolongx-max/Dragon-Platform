@@ -127,6 +127,17 @@ function versionAssetUrls(html, { publicDir, baseDir } = {}) {
     return versionModuleDependencies(versioned, { publicDir, baseDir });
 }
 
+// 工具页跟随平台亮 / 暗主题（frontend/js/shared/platform-theme.js），放在 <head> 最前面，先于页面样式生效
+const PLATFORM_THEME_TAG = '<script src="/js/shared/platform-theme.js"></script>';
+function injectPlatformTheme(html) {
+    const source = String(html);
+    if (source.includes('/js/shared/platform-theme.js')) return source;
+    const head = /<head\b[^>]*>/i.exec(source);
+    return head ? source.slice(0, head.index + head[0].length) + PLATFORM_THEME_TAG + source.slice(head.index + head[0].length) : PLATFORM_THEME_TAG + source;
+}
+// 首页与登录页自己管理主题
+const THEME_EXEMPT = new Set(['index.html', 'login.html', 'pages/login.html', 'pages/startup.html']);
+
 function createFrontendHtmlSender(publicDir) {
     return function sendFrontendHtml(res, relPath) {
         const absPath = path.join(publicDir, relPath);
@@ -137,6 +148,7 @@ function createFrontendHtmlSender(publicDir) {
             return res.status(404).send('Not found');
         }
         if (!res.getHeader('Cache-Control')) res.setHeader('Cache-Control', 'no-cache');
+        if (!THEME_EXEMPT.has(String(relPath).replace(/\\/g, '/').replace(/^\/+/, ''))) html = injectPlatformTheme(html);
         return res.type('html').send(versionAssetUrls(html, { publicDir, baseDir: path.dirname(absPath) }));
     };
 }
@@ -173,6 +185,7 @@ function createImmutableAssetMiddleware(publicDir) {
 }
 
 module.exports = {
+    injectPlatformTheme,
     createFrontendHtmlMiddleware,
     createFrontendHtmlSender,
     createImmutableAssetMiddleware,

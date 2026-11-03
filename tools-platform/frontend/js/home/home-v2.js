@@ -126,8 +126,10 @@
     }
 
     // ── 浮层：同一时间只开一个，点外面或 Esc 关闭 ──
-    let openPop = null;
+    let openPop = null, linksPanel = null, linksAnchor = null, linksTimer = 0;
     function closePop() {
+        clearTimeout(hoverTimer);
+        closeLinks();
         if (!openPop) return;
         const shortcuts = document.getElementById('homeSidebarShortcuts');
         if (shortcuts && openPop.pop.contains(shortcuts)) shortcuts.hidden = true;
@@ -159,7 +161,7 @@
     }
     document.addEventListener('click', event => {
         if (!openPop) return;
-        if (openPop.pop.contains(event.target) || openPop.anchor.contains(event.target)) return;
+        if (openPop.pop.contains(event.target) || openPop.anchor.contains(event.target) || linksPanel?.contains(event.target)) return;
         closePop();
     });
     document.addEventListener('keydown', event => { if (event.key === 'Escape') closePop(); });
@@ -200,7 +202,7 @@
         market() { click('toolMarketBtn'); },
         importTool() { click('customToolUploadBtn'); },
         compare() { click('builtinToolsCompareBtn'); },
-        links() { click('homeLinksBtn'); },
+        links() { openLinks(); },
         alerts() { openMessages(); },
         fullAlerts() { closeMessages(); window.openAlertCenter?.(); },
         checkUpdate() { window.openNavSettingsModal?.(); window.switchNavSettingsTab?.('update'); },
@@ -216,7 +218,9 @@
     document.addEventListener('click', event => {
         const el = event.target.closest('[data-v2-action], [data-v2-do]');
         if (!el) return;
-        run(el.dataset.v2Action || el.dataset.v2Do);
+        const action = el.dataset.v2Action || el.dataset.v2Do;
+        if (action === 'links') { openLinks(el); return; }
+        run(action);
     });
 
     // ── 二级菜单：技能·插件·工具 / 更多（悬停或点击展开） ──
@@ -227,7 +231,7 @@
                 .map(a => `<a class="v2-pop-item" role="menuitem" href="${esc(a.getAttribute('href'))}"><span class="v2-ico v2-app-glyph" data-icon="${appGlyph(a.getAttribute('href'))}"></span><span>${esc((a.querySelector('.nav-text, .nav-link-text')?.textContent || a.getAttribute('title') || a.textContent || '').trim().replace(/^\S+\s+/, m => (/^[\p{Extended_Pictographic}️]+\s+$/u.test(m) ? '' : m)))}</span></a>`);
             return [
                 links.length ? `<div class="v2-pop-cap">${esc(t('discover'))}</div>${links.join('')}<div class="v2-pop-sep"></div>` : '',
-                menuItem('link', t('links'), 'links'),
+                menuItem('link', t('links'), 'links', '›').replace('role="menuitem"', 'role="menuitem" aria-haspopup="menu" aria-controls="v2LinksSubmenu" aria-expanded="false"'),
                 menuItem('target', t('requirements'), 'requirements'),
                 menuItem('compass', lang() === 'en-US' ? 'Promotions' : '平台推广', 'promotions')
             ].join('');
@@ -258,12 +262,81 @@
         if (anchor.dataset.v2Flyout === 'more' && sidebarShortcuts) sidebarShortcuts.hidden = false;
     }
     document.querySelectorAll('[data-v2-flyout]').forEach(anchor => {
-        anchor.addEventListener('click', () => (openPop?.anchor === anchor ? closePop() : openFlyout(anchor)));
+        anchor.addEventListener('click', () => { clearTimeout(hoverTimer); if (openPop?.anchor === anchor) closePop(); else openFlyout(anchor); });
         anchor.addEventListener('mouseenter', () => { clearTimeout(hoverTimer); hoverTimer = setTimeout(() => openFlyout(anchor), 120); });
-        anchor.addEventListener('mouseleave', () => { clearTimeout(hoverTimer); hoverTimer = setTimeout(() => { if (openPop?.pop === flyPop && !flyPop.matches(':hover')) closePop(); }, 220); });
+        anchor.addEventListener('mouseleave', () => { clearTimeout(hoverTimer); hoverTimer = setTimeout(() => { if (openPop?.pop === flyPop && !flyPop.matches(':hover') && !linksPanel?.matches(':hover')) closePop(); }, 220); });
     });
-    flyPop.addEventListener('mouseleave', () => { hoverTimer = setTimeout(() => { if (openPop?.pop === flyPop && !openPop.anchor.matches(':hover')) closePop(); }, 220); });
+    flyPop.addEventListener('mouseleave', () => { hoverTimer = setTimeout(() => { if (openPop?.pop === flyPop && !openPop.anchor.matches(':hover') && !linksPanel?.matches(':hover')) closePop(); }, 220); });
     flyPop.addEventListener('mouseenter', () => clearTimeout(hoverTimer));
+
+    // Keep the original live link list and its status / admin handlers inside a cascade.
+    // Moving the node avoids a second copy of the configured URLs or click behavior.
+    function closeLinks(focus = false) {
+        clearTimeout(linksTimer);
+        linksPanel?.classList.remove('is-open');
+        linksAnchor?.setAttribute('aria-expanded', 'false');
+        if (focus) linksAnchor?.focus({ preventScroll: true });
+        linksAnchor = null;
+    }
+    function positionLinksSubmenu() {
+        if (!linksAnchor || !linksPanel?.classList.contains('is-open')) return;
+        const anchor = linksAnchor.getBoundingClientRect(), parent = flyPop.getBoundingClientRect(), pad = 8, gap = 6;
+        const width = linksPanel.offsetWidth, height = linksPanel.offsetHeight;
+        let left = parent.right + gap;
+        if (left + width > innerWidth - pad) left = parent.left - width - gap;
+        const stacked = left < pad;
+        if (stacked) left = Math.max(pad, Math.min(parent.left, innerWidth - width - pad));
+        linksPanel.classList.toggle('is-stacked', stacked);
+        linksPanel.style.left = `${left}px`;
+        linksPanel.style.top = `${Math.max(pad, Math.min(anchor.top - 7, innerHeight - linksPanel.offsetHeight - pad))}px`;
+    }
+    function openLinks(anchor, focus = true) {
+        if (!openPop || openPop.pop !== flyPop || !flyPop.querySelector('[data-v2-do="links"]')) {
+            const more = document.querySelector('[data-v2-flyout="more"]');
+            if (!more) return;
+            openFlyout(more);
+        }
+        anchor = anchor?.closest('[data-v2-do="links"]') || flyPop.querySelector('[data-v2-do="links"]');
+        if (!anchor) return;
+        if (focus && linksAnchor === anchor && linksPanel?.classList.contains('is-open')) { closeLinks(true); return; }
+        if (!linksPanel) {
+            linksPanel = makePop('v2-links-submenu'); linksPanel.id = 'v2LinksSubmenu';
+            const back = document.createElement('button'); back.type = 'button'; back.className = 'v2-links-back';
+            back.onclick = () => closeLinks(true); linksPanel.append(back);
+            const live = document.querySelector('#homeLinksPop .friend-links');
+            if (live) linksPanel.append(live);
+            linksPanel.addEventListener('mouseenter', () => { clearTimeout(hoverTimer); clearTimeout(linksTimer); });
+            linksPanel.addEventListener('mouseleave', () => { linksTimer = setTimeout(() => { if (!flyPop.matches(':hover')) closeLinks(); }, 250); });
+            linksPanel.addEventListener('click', event => { if (event.target.closest('a.friend-link')) closePop(); });
+            linksPanel.addEventListener('keydown', event => {
+                if (event.key === 'ArrowLeft' || event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeLinks(true); return; }
+                if (!['ArrowDown','ArrowUp','Home','End'].includes(event.key)) return;
+                const options = [...linksPanel.querySelectorAll('a:not([hidden]),button:not([hidden])')].filter(node => node.getClientRects().length);
+                const index = options.indexOf(document.activeElement);
+                const next = event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length;
+                event.preventDefault(); options[next]?.focus({ preventScroll: true });options[next]?.scrollIntoView({block:'nearest'});
+            });
+            new MutationObserver(positionLinksSubmenu).observe(live || linksPanel, {subtree:true,childList:true,attributes:true,attributeFilter:['hidden']});
+        }
+        $('homeLinksPop').hidden = true;
+        linksPanel.querySelector('.v2-links-back').textContent = lang() === 'en-US' ? '‹ Back to More' : '‹ 返回更多';
+        linksAnchor = anchor; anchor.setAttribute('aria-expanded', 'true');
+        linksPanel.querySelectorAll('a.friend-link').forEach(node => node.setAttribute('role','menuitem'));
+        linksPanel.classList.add('is-open'); positionLinksSubmenu();
+        clearTimeout(hoverTimer);clearTimeout(linksTimer);
+        if (focus) linksPanel.querySelector('a.friend-link:not([hidden])')?.focus({ preventScroll: true });
+    }
+    flyPop.addEventListener('pointerover', event => {
+        const item = event.target.closest('[data-v2-do="links"]');
+        if (!item) { if (event.target.closest('.v2-pop-item')) closeLinks(); return; }
+        if (event.pointerType === 'touch') return;
+        clearTimeout(linksTimer); linksTimer = setTimeout(() => openLinks(item, false), 120);
+    });
+    flyPop.addEventListener('keydown', event => {
+        const item = event.target.closest('[data-v2-do="links"]');
+        if (item && event.key === 'ArrowRight') { event.preventDefault(); openLinks(item); }
+    });
+    flyPop.addEventListener('scroll', positionLinksSubmenu);
 
     // ── 发现应用 ──
     const discover = { pop: makePop('v2-discover'), cat: 'recommended', query: '', pinyin: null };
@@ -346,7 +419,7 @@
     function renderUser() {
         const name = localStorage.getItem('tools_user') || '';
         $('v2UserName').textContent = name;
-        if (!$('v2Avatar').firstChild) $('v2Avatar').innerHTML = '<img src="/assets/dragonclaw-mascot.png" alt="">';
+        if (!$('v2Avatar').firstChild) $('v2Avatar').innerHTML = '<img src="/assets/logo.png" alt="">';
         $('v2UserMeta').textContent = serviceText();
         $('v2StatusDot').classList.toggle('is-down', serviceDown());
     }
@@ -357,7 +430,7 @@
         const dark = root.getAttribute('data-theme') === 'dark';
         const mac = /Mac/i.test(navigator.platform || '');
         userPop.innerHTML = `
-            <div class="v2-account-card v2-account-head"><span class="v2-avatar v2-avatar-lg"><img src="/assets/dragonclaw-mascot.png" alt=""></span><strong>${esc(name)}</strong></div>
+            <div class="v2-account-card v2-account-head"><span class="v2-avatar v2-avatar-lg"><img src="/assets/logo.png" alt=""></span><strong>${esc(name)}</strong></div>
             <div class="v2-account-card v2-account-stats">
                 <div><small>${esc(t('version'))}</small><strong>${esc(versionText() || '—')}</strong>${admin ? `<button type="button" class="v2-account-btn is-primary" data-v2-do="checkUpdate">${esc(t('checkUpdate'))}</button>` : ''}</div>
                 <div><small>${esc(t('service'))}</small><strong class="v2-account-service"><span class="v2-status-dot${serviceDown() ? ' is-down' : ''}"></span>${esc(serviceText())}</strong><button type="button" class="v2-account-btn" data-v2-do="serviceStatus">${esc(t('serviceStatus'))}</button></div>
@@ -569,7 +642,7 @@
         navObserver.observe(nav, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['hidden', 'class'] });
         mirrorNavbar();
     }
-    // 导航栏会整体重绘（语言、租户切换后），重绘后重新挂监听
+    // 导航栏会整体重绘（语言、数据空间切换后），重绘后重新挂监听
     new MutationObserver(watchNavbar).observe(document.body, { childList: true });
 
     window.addEventListener('tools:ops-inbox-total', event => {
@@ -704,7 +777,11 @@
         }
         const active = activeGroupId();
         const list = groupList();
-        view.classList.toggle('v2-groups-collapsed', groups.visualCollapsed);
+        if (!list.length) {
+            groups.collapsed = false;
+            groups.visualCollapsed = false;
+        }
+        view.classList.toggle('v2-groups-collapsed', Boolean(list.length && groups.visualCollapsed));
         // 分组头按顺序占 order 10、30、50…；展开分组的工具栏和列表排在它后面（order +10）
         list.forEach((group, index) => {
             const isActive = group.id === active;
@@ -969,7 +1046,7 @@
             composer.after(quick.suggestEl);
             const mascot = document.createElement('img');
             mascot.className = 'v2-mascot';
-            mascot.src = '/assets/dragonclaw-mascot.png';
+            mascot.src = '/assets/logo.png';
             mascot.alt = '';
             mascot.setAttribute('aria-hidden', 'true');
             quick.scenesEl.appendChild(mascot);
@@ -1046,5 +1123,5 @@
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
     else init();
 
-    window.HomeV2 = { setTheme, closePop, fillIcons };
+    window.HomeV2 = { setTheme, closePop, fillIcons, openLinks };
 })();

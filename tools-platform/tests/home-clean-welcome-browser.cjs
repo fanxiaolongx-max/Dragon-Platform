@@ -8,6 +8,7 @@ app.setPath('userData',path.join(temp,'profile'));app.disableHardwareAcceleratio
 const clip=path.join(temp,'fixture.mp4');execFileSync('ffmpeg',['-hide_banner','-loglevel','error','-f','lavfi','-i','color=c=0x324c63:s=640x360:r=12','-t','3','-c:v','libx264','-pix_fmt','yuv420p','-movflags','+faststart',clip]);
 let win,server,downloads=0,stage='init';
 const evaluate=code=>win.webContents.executeJavaScript(`(()=>eval(${JSON.stringify(code)}))()`,true);
+const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const until=code=>evaluate(`new Promise((resolve,reject)=>{let n=0;const poll=()=>{if(${code})resolve();else if(++n>250)reject(new Error(${JSON.stringify(code)}));else setTimeout(poll,20)};poll()})`);
 async function shot(name){await evaluate(`document.getAnimations().forEach(a=>{try{a.finish()}catch{}})`);await new Promise(resolve=>setTimeout(resolve,220));fs.writeFileSync(path.join(temp,name+'.png'),(await win.webContents.capturePage()).toPNG())}
 setTimeout(()=>app.exit(1),60000).unref();
@@ -67,7 +68,7 @@ app.whenReady().then(async()=>{
  await until('document.body.classList.contains("home-mode-tools")');
  for(const [width,theme,language] of [[1600,'dark','en-US'],[390,'light','zh-CN']]){
   stage='more '+width+' '+theme;win.setContentSize(width,1000);await until(`innerWidth===${width}`);
-  await evaluate(`HomeMode.set('chat');document.documentElement.dataset.theme='${theme}';ToolsI18n.setLanguage('${language}');document.querySelector('[data-v2-flyout=more]').click()`);
+  await wait(60); await evaluate(`HomeMode.set('chat');document.documentElement.dataset.theme='${theme}';ToolsI18n.setLanguage('${language}');document.querySelector('[data-v2-flyout=more]').click()`);
   await until('!!document.querySelector(".v2-flyout.is-open #homeSidebarShortcuts:not([hidden])")');
   const menu=await evaluate('(()=>{const r=document.querySelector(".v2-flyout").getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:innerWidth,height:innerHeight}})()');
   assert.ok(menu.left>=0&&menu.right<=menu.width&&menu.top>=0&&menu.bottom<=menu.height,JSON.stringify(menu));

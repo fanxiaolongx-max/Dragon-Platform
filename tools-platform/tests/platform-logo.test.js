@@ -109,6 +109,8 @@ test('source generator writes 13 valid assets without modifying the real project
     for (const name of ['icon.ico', 'icon-windows.ico', 'icon-windows-portable.ico']) validateIco(fs.readFileSync(path.join(assets, name)));
     const bmp = image.decodeBmp(fs.readFileSync(path.join(assets, 'portable-splash.bmp')));
     assert.equal(bmp.width, 620); assert.equal(bmp.height, 340);
+    const wellPixel = (51 * 620 + 81) * 4;
+    assert.ok(bmp.data[wellPixel] > 220 && bmp.data[wellPixel + 1] > 220, 'changing the logo preserves the light splash well');
     const original = image.decodeBmp(fs.readFileSync(path.join(root, 'frontend/assets/portable-splash.bmp')));
     assert.deepEqual(bmp.data.subarray(150 * 620 * 4), original.data.subarray(150 * 620 * 4), 'localized splash typography is retained');
 });
@@ -193,7 +195,7 @@ test('upload route enforces admin rights and returns structured errors without o
     const bundleRes = await request(app).get('/api/platform-logo/download-bundle').set('x-test-admin', '1').buffer().parse(binaryParser);
     assert.equal(bundleRes.status, 200);
     assert.equal(bundleRes.headers['content-type'], 'application/zip');
-    assert.match(bundleRes.headers['content-disposition'], /(?:tools-platform|thoth-platform|dragon-platform|dragon|eg-cs-hub)-brand-assets-.*\.zip/);
+    assert.match(bundleRes.headers['content-disposition'], /(?:tools-platform|thoth-platform|dragon-platform|dragon-claw|dragon|eg-cs-hub)-brand-assets-.*\.zip/);
     const archive = await JSZip.loadAsync(bundleRes.body);
     assert.ok(archive.file('logo.png'));
     assert.ok(archive.file('icon-mac.png'));
