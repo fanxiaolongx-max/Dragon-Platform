@@ -1495,10 +1495,10 @@ html[data-ui="v2"]:not([data-theme="dark"]) :is(.dc-continue-text b, .dc-rewound
 html[data-ui="v2"]:not([data-theme="dark"]) .dc-rewind-btn { border-color: var(--v2-line); background: var(--v2-bg); color: var(--v2-ink2); }
 html[data-ui="v2"]:not([data-theme="dark"]) .dc-rewind-btn:hover { border-color: #f3c27a; color: #b45309; }
 
-/* 回答里的文件下载卡（js/shared/chat-files.js）：浅底细边，图标保留类型色 */
+/* 回答里的文件下载卡（js/shared/chat-files.js）：浅底细边，图标类型色柔和雅致 */
 html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-chip { border-color: var(--v2-line); background: var(--v2-bg); color: var(--v2-ink); box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
-html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-chip:hover { border-color: var(--v2-line-strong); }
-html[data-ui="v2"] .ai-file-chip-icon { border-radius: 8px; }
+html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-chip:hover { border-color: var(--v2-line-strong); background: var(--v2-hover); }
+html[data-ui="v2"] .ai-file-chip-icon { border-radius: 8px; background: transparent !important; }
 html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-chip a.ai-file-chip-name { color: var(--v2-ink); }
 html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-chip-meta { color: var(--v2-ink3); opacity: 1; }
 html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-chip a.ai-file-chip-download { border: 1px solid var(--v2-line-strong); background: var(--v2-bg); color: var(--v2-ink); }
@@ -1507,6 +1507,22 @@ html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-chip.is-missing { opacity: 
 html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-chip.is-missing .ai-file-chip-icon { filter: grayscale(1); opacity: .45; }
 html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-chip.is-missing a.ai-file-chip-name { color: var(--v2-ink3); }
 html[data-ui="v2"]:not([data-theme="dark"]) .ai-md-image img { border-color: var(--v2-line); background: var(--v2-side); }
+
+/* 浅色主题下的 SVG 图标微色调适配 */
+html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-svg { color: #475569; --file-paper-bg: #f1f5f9; --file-fold-bg: #e2e8f0; }
+html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-svg[data-file-cat="sheet"] { color: #059669; --file-paper-bg: #ecfdf5; --file-fold-bg: #d1fae5; }
+html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-svg[data-file-cat="doc"]   { color: #2563eb; --file-paper-bg: #eff6ff; --file-fold-bg: #dbeafe; }
+html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-svg[data-file-cat="slide"] { color: #ea580c; --file-paper-bg: #fff7ed; --file-fold-bg: #ffedd5; }
+html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-svg[data-file-cat="pdf"]   { color: #e11d48; --file-paper-bg: #fff1f2; --file-fold-bg: #ffe4e6; }
+html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-svg[data-file-cat="md"]    { color: #0891b2; --file-paper-bg: #ecfeff; --file-fold-bg: #cffafe; }
+html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-svg[data-file-cat="code"]  { color: #7c3aed; --file-paper-bg: #f5f3ff; --file-fold-bg: #ede9fe; }
+html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-svg[data-file-cat="data"]  { color: #d97706; --file-paper-bg: #fffbeb; --file-fold-bg: #fef3c7; }
+html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-svg[data-file-cat="db"]    { color: #0d9488; --file-paper-bg: #f0fdfa; --file-fold-bg: #ccfbf1; }
+html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-svg[data-file-cat="zip"]   { color: #b45309; --file-paper-bg: #fefce8; --file-fold-bg: #fef9c3; }
+html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-svg[data-file-cat="image"] { color: #059669; --file-paper-bg: #ecfdf5; --file-fold-bg: #d1fae5; }
+html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-svg[data-file-cat="media"] { color: #db2777; --file-paper-bg: #fdf2f8; --file-fold-bg: #fce7f3; }
+html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-svg[data-file-cat="text"]  { color: #64748b; --file-paper-bg: #f8fafc; --file-fold-bg: #f1f5f9; }
+html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-svg[data-file-cat="unknown"] { color: #64748b; --file-paper-bg: #f1f5f9; --file-fold-bg: #e2e8f0; }
 
 /* 文件预览面板（工作区内或浮动） */
 html[data-ui="v2"] .ai-file-preview { background: var(--v2-bg); color: var(--v2-ink); }

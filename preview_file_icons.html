@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>AI File Chip Icon Showcase</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 30px; background: #0b1120; color: #e2e8f0; }
+h2 { font-size: 18px; margin: 24px 0 14px; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+
+.section { margin-bottom: 36px; }
+
+/* The file chip styles adapted from tools-platform */
+.chips-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 14px; }
+
+.ai-file-chip {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(15, 23, 42, 0.65);
+    transition: all 0.15s ease;
+}
+.ai-file-chip:hover {
+    border-color: rgba(148, 163, 184, 0.4);
+    background: rgba(15, 23, 42, 0.85);
+}
+
+.ai-file-chip-icon {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+}
+
+.ai-file-chip-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.ai-file-chip-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #f1f5f9;
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ai-file-chip-meta {
+    font-size: 11.5px;
+    color: #64748b;
+    font-family: monospace;
+}
+.ai-file-chip-download {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #e2e8f0;
+    background: rgba(148, 163, 184, 0.15);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    text-decoration: none;
+    cursor: pointer;
+}
+.ai-file-chip-download:hover {
+    background: rgba(148, 163, 184, 0.25);
+    color: #ffffff;
+}
+
+/* Light Theme Container */
+.light-container {
+    background: #f8fafc;
+    color: #0f172a;
+    padding: 24px;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    margin-top: 30px;
+}
+.light-container h2 { color: #475569; }
+.light-container .ai-file-chip {
+    border-color: #e2e8f0;
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+}
+.light-container .ai-file-chip:hover {
+    border-color: #cbd5e1;
+    background: #fafafa;
+}
+.light-container .ai-file-chip-name {
+    color: #0f172a;
+}
+.light-container .ai-file-chip-meta {
+    color: #64748b;
+}
+.light-container .ai-file-chip-download {
+    color: #334155;
+    background: #f1f5f9;
+    border-color: #e2e8f0;
+}
+.light-container .ai-file-chip-download:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+/* Comparison banner */
+.banner {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 12px;
+    margin-bottom: 24px;
+}
+.banner-badge-old {
+    width: 36px;
+    height: 36px;
+    background: #16a34a;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: #000; /* Black text from user screenshot! */
+}
+</style>
+</head>
+<body>
+
+<div class="banner">
+    <div class="banner-badge-old">XLSX</div>
+    <div>
+        <div style="font-size: 14px; font-weight: 700; color: #f87171;">⚠️ 现状问题 (旧版粗劣实色块 + 黑色文字)：</div>
+        <div style="font-size: 12.5px; color: #94a3b8; margin-top: 2px;">实心高亮大绿块、内部黑色大写字母无衬线文本，既非真正图标，又在浅色/深色主题下反差突兀。</div>
+    </div>
+</div>
+
+<div class="section">
+    <h2>1. 深色主题效果 (Dark Mode · 雅致微色调 / 符合主题)</h2>
+    <div class="chips-grid">
+
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #34d399;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="rgba(16, 185, 129, 0.15)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(255, 255, 255, 0.25)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- 3x3 Table Grid -->
+            <rect x="11" y="14" width="10" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M11 17H21M11 20H21" stroke="currentColor" stroke-width="1.1"/>
+            <path d="M15.5 14V23" stroke="currentColor" stroke-width="1.1"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">NetCare_DataFab_数据抓取接口全景字典.xlsx</span>
+                <span class="ai-file-chip-meta">24.1 KB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #34d399;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="rgba(16, 185, 129, 0.15)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(255, 255, 255, 0.25)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- 3x3 Table Grid -->
+            <rect x="11" y="14" width="10" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M11 17H21M11 20H21" stroke="currentColor" stroke-width="1.1"/>
+            <path d="M15.5 14V23" stroke="currentColor" stroke-width="1.1"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">每月运维SLA达标统计表.csv</span>
+                <span class="ai-file-chip-meta">118.5 KB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #60a5fa;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="rgba(37, 99, 235, 0.15)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(255, 255, 255, 0.25)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- Text Lines -->
+            <path d="M11 14H17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M11 17.5H21" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            <path d="M11 20.5H21" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            <path d="M11 23.5H16" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">NetCare方案设计与AI审计规范.docx</span>
+                <span class="ai-file-chip-meta">45.2 KB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #fb923c;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="rgba(234, 88, 12, 0.15)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(255, 255, 255, 0.25)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- Presentation Screen & Bar Chart -->
+            <rect x="10.5" y="13.5" width="11" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M13 19V17" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M16 19V15.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M19 19V16.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M13.5 24.5L16 21.5L18.5 24.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">AIOps数据治理与运营交付汇报.pptx</span>
+                <span class="ai-file-chip-meta">12.8 MB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #f43f5e;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="rgba(225, 29, 72, 0.15)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(255, 255, 255, 0.25)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- PDF Emblem Badge -->
+            <rect x="10.5" y="14.5" width="11" height="8.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/>
+            <text x="16" y="21" font-family="-apple-system, sans-serif" font-size="5.5" font-weight="900" text-anchor="middle" fill="currentColor">PDF</text>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">2026网络安全维护红线管理办法.pdf</span>
+                <span class="ai-file-chip-meta">3.4 MB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #22d3ee;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="rgba(8, 145, 178, 0.15)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(255, 255, 255, 0.25)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- Markdown M and Arrow Down -->
+            <path d="M10.5 21V15L12.5 17.5L14.5 15V21" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            <path d="M18.5 15V21M16.5 19L18.5 21L20.5 19" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">README_部署与环境配置指引.md</span>
+                <span class="ai-file-chip-meta">8.9 KB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #a78bfa;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="rgba(124, 58, 237, 0.15)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(255, 255, 255, 0.25)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- Code brackets < / > -->
+            <path d="M13.5 15L11 18.5L13.5 22" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M18.5 15L21 18.5L18.5 22" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M17 14L15 23" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">datafab_crawler_pipeline.py</span>
+                <span class="ai-file-chip-meta">14.2 KB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #fbbf24;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="rgba(217, 119, 6, 0.15)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(255, 255, 255, 0.25)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- Curly Braces { } -->
+            <path d="M13.5 14.5C12.5 14.5 12 15.3 12 16.5C12 17.5 11 18 10.5 18.5C11 19 12 19.5 12 20.5C12 21.7 12.5 22.5 13.5 22.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" fill="none"/>
+            <path d="M18.5 14.5C19.5 14.5 20 15.3 20 16.5C20 17.5 21 18 21.5 18.5C21 19 20 19.5 20 20.5C20 21.7 19.5 22.5 18.5 22.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" fill="none"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">dataset_dictionary_config.json</span>
+                <span class="ai-file-chip-meta">18.6 KB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #2dd4bf;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="rgba(13, 148, 136, 0.15)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(255, 255, 255, 0.25)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- Database Cylinder Stack -->
+            <ellipse cx="16" cy="14.5" rx="5" ry="2" fill="none" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M11 14.5V18.5C11 19.6 13.2 20.5 16 20.5C18.8 20.5 21 19.6 21 18.5V14.5" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M11 18.5V22.5C11 23.6 13.2 24.5 16 24.5C18.8 24.5 21 23.6 21 22.5V18.5" stroke="currentColor" stroke-width="1.3"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">tools_platform_warehouse.sqlite</span>
+                <span class="ai-file-chip-meta">223.4 MB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #f59e0b;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="rgba(180, 83, 9, 0.15)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(255, 255, 255, 0.25)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- Zipper Teeth and Slider -->
+            <path d="M14.5 13H17.5M14.5 15H17.5M14.5 17H17.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            <rect x="14" y="18.5" width="4" height="4" rx="0.8" fill="currentColor"/>
+            <path d="M16 22.5V25" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">netcare_rfc_audit_artifacts_v1.zip</span>
+                <span class="ai-file-chip-meta">58.2 MB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #f472b6;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="rgba(219, 39, 119, 0.15)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(255, 255, 255, 0.25)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- Play Media Triangle -->
+            <circle cx="16" cy="18.5" r="4.8" fill="none" stroke="currentColor" stroke-width="1.3"/>
+            <polygon points="14.8,16.5 18.2,18.5 14.8,20.5" fill="currentColor"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">system_evolution_demo.mp4</span>
+                <span class="ai-file-chip-meta">42.1 MB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #94a3b8;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="rgba(148, 163, 184, 0.15)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(255, 255, 255, 0.25)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- Plain Text Lines -->
+            <path d="M11 15H21M11 18H21M11 21H18" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">task_execution_stdout.log</span>
+                <span class="ai-file-chip-meta">2.1 KB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #94a3b8;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="rgba(148, 163, 184, 0.1)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(255, 255, 255, 0.25)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- Question Mark / Generic Dots -->
+            <path d="M14.2 16C14.2 14.9 15 14 16 14C17 14 17.8 14.8 17.8 15.8C17.8 17 16 17.4 16 19M16 21.8H16.02" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">firmware_patch_binary.bin</span>
+                <span class="ai-file-chip-meta">1.8 MB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+    </div>
+</div>
+
+<div class="section">
+    <h2>2. 深色主题效果 (Dark Mode · 纯黑白极简风 / Pure Monochrome)</h2>
+    <div class="chips-grid">
+
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #e2e8f0;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="rgba(255, 255, 255, 0.06)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(255, 255, 255, 0.14)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- 3x3 Table Grid -->
+            <rect x="11" y="14" width="10" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M11 17H21M11 20H21" stroke="currentColor" stroke-width="1.1"/>
+            <path d="M15.5 14V23" stroke="currentColor" stroke-width="1.1"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">NetCare_DataFab_数据抓取接口全景字典.xlsx</span>
+                <span class="ai-file-chip-meta">24.1 KB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #e2e8f0;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="rgba(255, 255, 255, 0.06)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(255, 255, 255, 0.14)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- 3x3 Table Grid -->
+            <rect x="11" y="14" width="10" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M11 17H21M11 20H21" stroke="currentColor" stroke-width="1.1"/>
+            <path d="M15.5 14V23" stroke="currentColor" stroke-width="1.1"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">每月运维SLA达标统计表.csv</span>
+                <span class="ai-file-chip-meta">118.5 KB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #e2e8f0;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="rgba(255, 255, 255, 0.06)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(255, 255, 255, 0.14)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- Text Lines -->
+            <path d="M11 14H17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M11 17.5H21" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            <path d="M11 20.5H21" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            <path d="M11 23.5H16" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">NetCare方案设计与AI审计规范.docx</span>
+                <span class="ai-file-chip-meta">45.2 KB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #e2e8f0;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="rgba(255, 255, 255, 0.06)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(255, 255, 255, 0.14)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- Presentation Screen & Bar Chart -->
+            <rect x="10.5" y="13.5" width="11" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M13 19V17" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M16 19V15.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M19 19V16.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M13.5 24.5L16 21.5L18.5 24.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">AIOps数据治理与运营交付汇报.pptx</span>
+                <span class="ai-file-chip-meta">12.8 MB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #e2e8f0;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="rgba(255, 255, 255, 0.06)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(255, 255, 255, 0.14)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- PDF Emblem Badge -->
+            <rect x="10.5" y="14.5" width="11" height="8.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/>
+            <text x="16" y="21" font-family="-apple-system, sans-serif" font-size="5.5" font-weight="900" text-anchor="middle" fill="currentColor">PDF</text>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">2026网络安全维护红线管理办法.pdf</span>
+                <span class="ai-file-chip-meta">3.4 MB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #e2e8f0;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="rgba(255, 255, 255, 0.06)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(255, 255, 255, 0.14)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- Markdown M and Arrow Down -->
+            <path d="M10.5 21V15L12.5 17.5L14.5 15V21" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            <path d="M18.5 15V21M16.5 19L18.5 21L20.5 19" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">README_部署与环境配置指引.md</span>
+                <span class="ai-file-chip-meta">8.9 KB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+    </div>
+</div>
+
+<div class="light-container">
+    <h2>3. 浅色主题效果 (Light Mode · 雅致微色调 / 符合主题)</h2>
+    <div class="chips-grid">
+
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #059669;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="#ecfdf5" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(0, 0, 0, 0.08)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- 3x3 Table Grid -->
+            <rect x="11" y="14" width="10" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M11 17H21M11 20H21" stroke="currentColor" stroke-width="1.1"/>
+            <path d="M15.5 14V23" stroke="currentColor" stroke-width="1.1"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">NetCare_DataFab_数据抓取接口全景字典.xlsx</span>
+                <span class="ai-file-chip-meta">24.1 KB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #059669;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="#ecfdf5" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(0, 0, 0, 0.08)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- 3x3 Table Grid -->
+            <rect x="11" y="14" width="10" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M11 17H21M11 20H21" stroke="currentColor" stroke-width="1.1"/>
+            <path d="M15.5 14V23" stroke="currentColor" stroke-width="1.1"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">每月运维SLA达标统计表.csv</span>
+                <span class="ai-file-chip-meta">118.5 KB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #2563eb;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="#eff6ff" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(0, 0, 0, 0.08)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- Text Lines -->
+            <path d="M11 14H17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M11 17.5H21" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            <path d="M11 20.5H21" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            <path d="M11 23.5H16" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">NetCare方案设计与AI审计规范.docx</span>
+                <span class="ai-file-chip-meta">45.2 KB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #ea580c;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="#fff7ed" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(0, 0, 0, 0.08)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- Presentation Screen & Bar Chart -->
+            <rect x="10.5" y="13.5" width="11" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M13 19V17" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M16 19V15.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M19 19V16.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M13.5 24.5L16 21.5L18.5 24.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">AIOps数据治理与运营交付汇报.pptx</span>
+                <span class="ai-file-chip-meta">12.8 MB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #e11d48;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="#fff1f2" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(0, 0, 0, 0.08)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- PDF Emblem Badge -->
+            <rect x="10.5" y="14.5" width="11" height="8.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/>
+            <text x="16" y="21" font-family="-apple-system, sans-serif" font-size="5.5" font-weight="900" text-anchor="middle" fill="currentColor">PDF</text>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">2026网络安全维护红线管理办法.pdf</span>
+                <span class="ai-file-chip-meta">3.4 MB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #0891b2;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="#ecfeff" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(0, 0, 0, 0.08)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- Markdown M and Arrow Down -->
+            <path d="M10.5 21V15L12.5 17.5L14.5 15V21" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            <path d="M18.5 15V21M16.5 19L18.5 21L20.5 19" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">README_部署与环境配置指引.md</span>
+                <span class="ai-file-chip-meta">8.9 KB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #7c3aed;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="#f5f3ff" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(0, 0, 0, 0.08)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- Code brackets < / > -->
+            <path d="M13.5 15L11 18.5L13.5 22" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M18.5 15L21 18.5L18.5 22" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M17 14L15 23" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">datafab_crawler_pipeline.py</span>
+                <span class="ai-file-chip-meta">14.2 KB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #d97706;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="#fffbeb" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(0, 0, 0, 0.08)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- Curly Braces { } -->
+            <path d="M13.5 14.5C12.5 14.5 12 15.3 12 16.5C12 17.5 11 18 10.5 18.5C11 19 12 19.5 12 20.5C12 21.7 12.5 22.5 13.5 22.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" fill="none"/>
+            <path d="M18.5 14.5C19.5 14.5 20 15.3 20 16.5C20 17.5 21 18 21.5 18.5C21 19 20 19.5 20 20.5C20 21.7 19.5 22.5 18.5 22.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" fill="none"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">dataset_dictionary_config.json</span>
+                <span class="ai-file-chip-meta">18.6 KB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #0d9488;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="#f0fdfa" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(0, 0, 0, 0.08)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- Database Cylinder Stack -->
+            <ellipse cx="16" cy="14.5" rx="5" ry="2" fill="none" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M11 14.5V18.5C11 19.6 13.2 20.5 16 20.5C18.8 20.5 21 19.6 21 18.5V14.5" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M11 18.5V22.5C11 23.6 13.2 24.5 16 24.5C18.8 24.5 21 23.6 21 22.5V18.5" stroke="currentColor" stroke-width="1.3"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">tools_platform_warehouse.sqlite</span>
+                <span class="ai-file-chip-meta">223.4 MB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #b45309;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="#fefce8" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(0, 0, 0, 0.08)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- Zipper Teeth and Slider -->
+            <path d="M14.5 13H17.5M14.5 15H17.5M14.5 17H17.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            <rect x="14" y="18.5" width="4" height="4" rx="0.8" fill="currentColor"/>
+            <path d="M16 22.5V25" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">netcare_rfc_audit_artifacts_v1.zip</span>
+                <span class="ai-file-chip-meta">58.2 MB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #db2777;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="#fdf2f8" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(0, 0, 0, 0.08)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- Play Media Triangle -->
+            <circle cx="16" cy="18.5" r="4.8" fill="none" stroke="currentColor" stroke-width="1.3"/>
+            <polygon points="14.8,16.5 18.2,18.5 14.8,20.5" fill="currentColor"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">system_evolution_demo.mp4</span>
+                <span class="ai-file-chip-meta">42.1 MB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #64748b;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="#f8fafc" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(0, 0, 0, 0.08)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- Plain Text Lines -->
+            <path d="M11 15H21M11 18H21M11 21H18" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">task_execution_stdout.log</span>
+                <span class="ai-file-chip-meta">2.1 KB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #64748b;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="#f1f5f9" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(0, 0, 0, 0.08)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- Question Mark / Generic Dots -->
+            <path d="M14.2 16C14.2 14.9 15 14 16 14C17 14 17.8 14.8 17.8 15.8C17.8 17 16 17.4 16 19M16 21.8H16.02" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">firmware_patch_binary.bin</span>
+                <span class="ai-file-chip-meta">1.8 MB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+    </div>
+
+    <h2 style="margin-top: 30px;">4. 浅色主题效果 (Light Mode · 纯黑白极简风 / Pure Monochrome)</h2>
+    <div class="chips-grid">
+
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #0f172a;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="rgba(15, 23, 42, 0.04)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(15, 23, 42, 0.1)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- 3x3 Table Grid -->
+            <rect x="11" y="14" width="10" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M11 17H21M11 20H21" stroke="currentColor" stroke-width="1.1"/>
+            <path d="M15.5 14V23" stroke="currentColor" stroke-width="1.1"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">NetCare_DataFab_数据抓取接口全景字典.xlsx</span>
+                <span class="ai-file-chip-meta">24.1 KB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #0f172a;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="rgba(15, 23, 42, 0.04)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(15, 23, 42, 0.1)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- 3x3 Table Grid -->
+            <rect x="11" y="14" width="10" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M11 17H21M11 20H21" stroke="currentColor" stroke-width="1.1"/>
+            <path d="M15.5 14V23" stroke="currentColor" stroke-width="1.1"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">每月运维SLA达标统计表.csv</span>
+                <span class="ai-file-chip-meta">118.5 KB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #0f172a;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="rgba(15, 23, 42, 0.04)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(15, 23, 42, 0.1)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- Text Lines -->
+            <path d="M11 14H17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M11 17.5H21" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            <path d="M11 20.5H21" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            <path d="M11 23.5H16" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">NetCare方案设计与AI审计规范.docx</span>
+                <span class="ai-file-chip-meta">45.2 KB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #0f172a;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="rgba(15, 23, 42, 0.04)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(15, 23, 42, 0.1)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- Presentation Screen & Bar Chart -->
+            <rect x="10.5" y="13.5" width="11" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M13 19V17" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M16 19V15.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M19 19V16.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M13.5 24.5L16 21.5L18.5 24.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">AIOps数据治理与运营交付汇报.pptx</span>
+                <span class="ai-file-chip-meta">12.8 MB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #0f172a;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="rgba(15, 23, 42, 0.04)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(15, 23, 42, 0.1)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- PDF Emblem Badge -->
+            <rect x="10.5" y="14.5" width="11" height="8.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/>
+            <text x="16" y="21" font-family="-apple-system, sans-serif" font-size="5.5" font-weight="900" text-anchor="middle" fill="currentColor">PDF</text>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">2026网络安全维护红线管理办法.pdf</span>
+                <span class="ai-file-chip-meta">3.4 MB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+        <div class="ai-file-chip">
+            <span class="ai-file-chip-icon"><svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" style="color: #0f172a;">
+  <path d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" fill="rgba(15, 23, 42, 0.04)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M19.5 2.5V8.5H25.5" fill="rgba(15, 23, 42, 0.1)" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  
+            <!-- Markdown M and Arrow Down -->
+            <path d="M10.5 21V15L12.5 17.5L14.5 15V21" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            <path d="M18.5 15V21M16.5 19L18.5 21L20.5 19" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+        
+</svg></span>
+            <div class="ai-file-chip-text">
+                <span class="ai-file-chip-name">README_部署与环境配置指引.md</span>
+                <span class="ai-file-chip-meta">8.9 KB</span>
+            </div>
+            <a class="ai-file-chip-download">↓ 下载</a>
+        </div>
+    
+    </div>
+</div>
+
+</body>
+</html>

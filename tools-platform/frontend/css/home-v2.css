@@ -751,7 +751,8 @@ html[data-ui="v2"]:not([data-theme="dark"]) .home-chat-title { font-weight: 400;
 
 /* 右下角智能体抽屉（.ai-fab）与下载圆环（.desktop-dl-fab）的主题适配与避让推广卡片 */
 html[data-ui="v2"] .ai-fab {
-    bottom: 270px !important;
+    top: var(--ai-fab-top, auto);
+    bottom: var(--ai-fab-bottom, 270px);
     background: rgba(255, 255, 255, 0.96) !important;
     color: #1f2328 !important;
     border-color: rgba(16, 163, 127, 0.35) !important;

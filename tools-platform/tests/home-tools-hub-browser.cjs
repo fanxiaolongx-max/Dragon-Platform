@@ -1,4 +1,5 @@
 // Run: node_modules/.bin/electron tests/home-tools-hub-browser.cjs
+// Requirements embed audit: HOME_REQUIREMENTS_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Featured stability audit: HOME_FEATURED_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Sidebar height audit: HOME_SIDEBAR_HEIGHT_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Scan popup audit: HOME_SCAN_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
@@ -28,6 +29,8 @@ app.whenReady().then(async () => {
         window.fixtureIntervals=[];const originalInterval=window.setInterval;window.setInterval=(fn,delay,...args)=>{if(delay>=10000)fixtureIntervals.push({fn,delay});return originalInterval(fn,delay,...args)};
         window.fixtureErrors=[];window.addEventListener('error',e=>fixtureErrors.push(e.message));window.addEventListener('unhandledrejection',e=>fixtureErrors.push(String(e.reason)));
     </script>`)));
+    web.get('/requirements', (_, res) => res.sendFile(path.join(frontend,'pages/requirements.html')));
+    web.get('/api/requirements', (_, res) => res.json([]));
     web.get('/api/custom-tools', (_, res) => res.json([]));
     web.get('/api/auth/me', (_, res) => res.json({ username: 'fixture', role: 'admin', tenantId: 'default' }));
     web.get('/api/app-version', (_, res) => res.json({ version: 'fixture' }));
@@ -59,6 +62,31 @@ app.whenReady().then(async () => {
     await win.loadURL(`http://127.0.0.1:${server.address().port}/`);
 
     await until('window.HomeSkillHub&&document.querySelector("[data-v2-mode=tools]")&&document.getElementById("v2SkillHub")');
+    if (process.env.HOME_REQUIREMENTS_AUDIT) {
+        // Catalog-independent entries must embed even before asynchronous navigation loads.
+        await evaluate(`HomeWorkspace.getTools=()=>[];window.getAllNavItems=()=>[];void 0`);
+        assert.equal(await evaluate(`HomeToolFrame.isToolUrl('/requirements?from=menu')`),true);
+        assert.equal(await evaluate(`HomeToolFrame.isToolUrl('/pages/requirements.html')`),true);
+        assert.equal(await evaluate(`HomeToolFrame.isToolUrl('https://example.test/requirements')`),false);
+        await evaluate(`document.querySelector('[data-v2-flyout="more"]').click()`);
+        await until(`!!document.querySelector('.v2-flyout [data-v2-do="requirements"]')`);
+        await evaluate(`document.querySelector('.v2-flyout [data-v2-do="requirements"]').click()`);
+        const check=async()=>{
+            await until(`(()=>{const f=document.querySelector('.v2-tool-frame-view'),d=f?.contentDocument;return HomeToolFrame.isOpen() && d?.readyState==='complete' && d.documentElement.classList.contains('is-embedded-tool') && d.querySelector('#app-navbar') && d.querySelector('.req-header h1')})()`);
+            const state=await evaluate(`(()=>{const f=document.querySelector('.v2-tool-frame-view'),d=f.contentDocument;return {host:location.pathname,app:new URLSearchParams(location.search).get('app'),nav:f.contentWindow.getComputedStyle(d.querySelector('#app-navbar')).display,title:d.querySelector('.req-header h1').textContent}})()`);
+            assert.equal(state.host,'/','host remains the new homepage');
+            assert.equal(state.app,'/requirements');
+            assert.equal(state.nav,'none','old navbar hidden in real requirements page');
+            assert.ok(state.title.includes('需求管理广场'));
+        };
+        await check();
+        await new Promise(resolve=>{win.webContents.once('did-finish-load',resolve);win.reload()});await until(`!!window.HomeToolFrame`);await check();
+        await evaluate(`HomeToolFrame.close();document.body.insertAdjacentHTML('beforeend','<a id="fixtureRequirements" href="/requirements">Requirements</a>');document.getElementById('fixtureRequirements').click()`);
+        await check();
+        assert.deepEqual(await evaluate('fixtureErrors'),[]);
+        console.log('PASS: Requirements menu and anchor embed without catalog data; real page hides legacy navbar; host stays on homepage; reload restores embedded page.');
+        win.destroy();server.close();app.exit(0);return;
+    }
     if (process.env.HOME_FEATURED_AUDIT) {
         await evaluate(`window.HomeWorkspace.getTools=()=>Array.from({length:6},(_,i)=>({id:'fixture-'+i,title:'Fixture '+i,href:'/fixture/'+i,group:i<3?'A':'B'}));void 0`);
         for (const width of [1440,600]) {

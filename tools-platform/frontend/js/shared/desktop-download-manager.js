@@ -598,8 +598,27 @@
 
         document.body.appendChild(div);
         fabEl = div;
+        syncFabPlacement();
         return div;
     }
+
+    function syncFabPlacement(rect) {
+        if (!fabEl) return;
+        const targetRect = rect || document.querySelector('.ai-fab')?.getBoundingClientRect();
+        if (targetRect) {
+            const h = fabEl.offsetHeight || 48;
+            let targetTop = Math.round(targetRect.top - h - 10);
+            if (targetTop < 56) {
+                targetTop = Math.round(targetRect.bottom + 10);
+            }
+            fabEl.style.setProperty('top', `${targetTop}px`, 'important');
+            fabEl.style.setProperty('bottom', 'auto', 'important');
+        }
+    }
+
+    window.addEventListener('tools:ai-fab-position', (e) => {
+        syncFabPlacement(e?.detail?.rect);
+    });
 
     function getCurrentDl() {
         if (!state.latestId) return null;
@@ -616,6 +635,7 @@
             }, 260);
         }
         createFab();
+        syncFabPlacement();
         fabEl.hidden = false;
         fabEl.classList.remove('is-hiding');
         render();

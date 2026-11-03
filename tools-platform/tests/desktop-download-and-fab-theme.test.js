@@ -187,3 +187,41 @@ test('alert center popup replaces fullAlerts button with clearAll button and API
     assert.match(alertRepo, /DELETE FROM alert_center_events/);
     assert.match(alertRoutes, /\/events\/clear-all/);
 });
+
+test('Dragon Claw floating avatar supports vertical edge dragging, position persistence and idle opacity fade', () => {
+    const assistantJs = read('frontend/js/shared/ai-assistant.js');
+    const homeV2Css = read('frontend/css/home-v2.css');
+    const dlManager = read('frontend/js/shared/desktop-download-manager.js');
+
+    // 1. .ai-fab 样式定义：手形光标 grab、不活动淡出 .is-idle、拖动状态 .is-dragging
+    assert.match(assistantJs, /\.ai-fab\s*\{[^}]*cursor:\s*grab/);
+    assert.match(assistantJs, /\.ai-fab\.is-dragging\s*\{[^}]*cursor:\s*grabbing !important/);
+    assert.match(assistantJs, /\.ai-fab\.is-dragging\s*\{[^}]*transition:\s*none !important/);
+    assert.match(assistantJs, /\.ai-fab\.is-idle\s*\{[^}]*opacity:\s*0\.42/);
+    assert.match(assistantJs, /\.ai-fab\.is-idle\s*\{[^}]*transform:\s*translateX\(8px\)/);
+    assert.match(assistantJs, /\.ai-fab\.is-idle:hover[\s\S]*opacity:\s*1/);
+    assert.match(assistantJs, /html\[data-theme="dark"\]\s*\.ai-fab\.is-idle/);
+
+    // 2. 纵向边缘拖动与防误触点击
+    assert.match(assistantJs, /const FAB_STORAGE_KEY\s*=\s*'tools_ai_fab_top'/);
+    assert.match(assistantJs, /function clampFabTop/);
+    assert.match(assistantJs, /function applyFabTop/);
+    assert.match(assistantJs, /function restoreFabPosition/);
+    assert.match(assistantJs, /fabDrag\s*=\s*\{/);
+    assert.match(assistantJs, /suppressFabClickUntil/);
+    assert.match(assistantJs, /setPointerCapture/);
+    assert.match(assistantJs, /releasePointerCapture/);
+
+    // 3. 不活动调度与唤醒
+    assert.match(assistantJs, /function wakeFab/);
+    assert.match(assistantJs, /function scheduleFabIdle/);
+    assert.match(assistantJs, /FAB_IDLE_DELAY_MS\s*=\s*3500/);
+
+    // 4. home-v2.css 支持 CSS 变量定位与覆盖
+    assert.match(homeV2Css, /top:\s*var\(--ai-fab-top,\s*auto\)/);
+    assert.match(homeV2Css, /bottom:\s*var\(--ai-fab-bottom,\s*270px\)/);
+
+    // 5. desktop-download-manager.js 监听 tools:ai-fab-position 并跟随定位
+    assert.match(dlManager, /tools:ai-fab-position/);
+    assert.match(dlManager, /function syncFabPlacement/);
+});

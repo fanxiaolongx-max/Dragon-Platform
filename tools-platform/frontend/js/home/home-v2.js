@@ -258,7 +258,7 @@
         language() { window.toggleAppLanguage?.(); },
         theme() { setTheme(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); },
         serviceStatus() { window.openServiceStatusModal?.(); },
-        requirements() { location.href = '/requirements'; },
+        requirements() { if (!window.HomeToolFrame?.open?.('/requirements')) location.href = '/requirements'; },
         classic() { try { localStorage.setItem('tools_home_ui', 'v1'); } catch { /* 无痕模式 */ } location.reload(); },
         logout() { window.doLogout?.(); }
     };
