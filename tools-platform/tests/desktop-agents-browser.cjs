@@ -125,7 +125,24 @@ app.whenReady().then(async () => {
     await until(`dcThread.querySelectorAll('.dc-msg--ai [data-desktop-attachments] img').length===1`);
     await assertAgentAttachmentsLeft();
 
+    histories.claudecode[0].content += '\n' + 'A long user message line.\n'.repeat(14);
     await choose('claudecode');
+    await until(`!dcThread.querySelector('.dc-msg--user [data-dc-message-toggle]').hidden`);
+    const assertFoldBeforeImages = async () => {
+        assert.equal(await evaluate(`(()=>{const m=dcThread.querySelector('.dc-msg--user'),b=m.querySelector('.dc-msg-body'),t=m.querySelector('[data-dc-message-toggle]'),a=m.querySelector('[data-desktop-attachments]');
+            return b.nextElementSibling===t&&t.nextElementSibling===a&&t.getBoundingClientRect().bottom<=a.getBoundingClientRect().top;})()`),true,'text fold toggle stays between text and attachments');
+    };
+    await assertFoldBeforeImages();
+    await evaluate(`dcThread.querySelector('.dc-msg--user [data-dc-message-toggle]').click()`);
+    assert.equal(await evaluate(`dcThread.querySelector('.dc-msg--user [data-dc-message-toggle]').getAttribute('aria-expanded')`),'true');
+    await assertFoldBeforeImages();
+    await evaluate(`dcThread.querySelector('.dc-msg--user [data-dc-message-toggle]').click()`);
+    await assertFoldBeforeImages();
+    // Refresh must retain the same order, including when a message's attachments change.
+    histories.claudecode[0].attachments[0].path='/tmp/refreshed-image.png';
+    await evaluate(`document.querySelector('[data-desktop-refresh]').click()`);
+    await until(`!!dcThread.querySelector('.dc-msg--user img[data-name="refreshed-image.png"]') || dcThread.querySelector('.dc-msg--user [data-desktop-attachments]').textContent.includes('refreshed-image.png')`);
+    await assertFoldBeforeImages();
     assert.deepEqual(await evaluate('[...dcThread.querySelectorAll("[data-desktop-attachments] img")].map(i=>[Math.round(i.getBoundingClientRect().width),Math.round(i.getBoundingClientRect().height)])'), [[320,200]], 'one image uses a bounded larger preview');
     await evaluate('dcThread.querySelector("[data-desktop-attachments]").parentElement.style.width="120px"');
     assert.equal(await evaluate('dcThread.querySelector("[data-desktop-attachments] img").getBoundingClientRect().width <= 120'), true, 'single image fits narrow containers');

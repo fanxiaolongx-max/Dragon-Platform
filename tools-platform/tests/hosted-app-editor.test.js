@@ -105,6 +105,17 @@ test('hosted app editor: git status, history, commit and diff', async () => {
     assert.ok(diff.diff.includes('+print("updated fixture")'));
 });
 
+test('hosted app editor: bumpAppVersion and autoBump on commit / push', async () => {
+    const bumped = editorService.bumpAppVersion(slug);
+    assert.ok(bumped.newVersion, 'must return new version');
+
+    editorService.saveFile(slug, 'app/main.py', 'print("bumped fixture")\n');
+    const commit = editorService.commitChanges(slug, 'Feature with auto bump', 'tester', { autoBump: true });
+    assert.equal(commit.committed, true);
+    assert.ok(commit.version, 'commit must report version');
+    assert.ok(commit.message.includes(commit.version), 'commit message must include version suffix');
+});
+
 test('hosted app editor: syntax highlighter generates accurate token spans', async () => {
     // Python
     const pyCode = 'def calculate(total: int) -> bool:\n    # comment\n    return total > 0';

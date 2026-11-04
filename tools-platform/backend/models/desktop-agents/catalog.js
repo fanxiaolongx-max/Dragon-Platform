@@ -71,7 +71,7 @@ async function messageAttachments(message, raw, inlineImages = false) {
         if (['local_image', 'input_image', 'image', 'document', 'file'].includes(block.type)) {
             add(block.path || block.image_url || block.source?.path || (block.source?.type === 'file' ? block.source.file_path : null));
             if (inlineImages && block.type === 'image' && files.size < 30) {
-                try { add(await require('./claude-images').materialize(block.source)); }
+                try { add(await require('./inline-images').materialize(block.source)); }
                 catch { /* A cache failure must not hide the conversation text. */ }
             }
         }

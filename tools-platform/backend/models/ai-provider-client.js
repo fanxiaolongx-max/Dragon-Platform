@@ -756,9 +756,13 @@ class AiProviderClient {
         const data = await readProviderJson(res);
         const usage = data.usage || {};
         const choice = data.choices && data.choices[0];
+        const msg = choice && choice.message;
+        const rawContent = (msg && msg.content !== null && msg.content !== undefined && msg.content !== '')
+            ? msg.content
+            : (msg && (msg.reasoning_content || msg.reasoning || msg.thought)) || (choice && choice.text) || '';
         return {
-            text: stripReasoningText(choice && choice.message && choice.message.content),
-            toolCalls: collectOpenAiToolCalls(choice && choice.message && choice.message.tool_calls),
+            text: stripReasoningText(rawContent),
+            toolCalls: collectOpenAiToolCalls(msg && msg.tool_calls),
             usage: usageFromOpenAi(usage),
             finishReason: String(choice && choice.finish_reason || ''),
             raw: data

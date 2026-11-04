@@ -1,4 +1,4 @@
-// Claude JSONL stores pasted images inline. Materialize raster bytes for the existing
+// Desktop histories contain inline images. Materialize raster bytes for the existing
 // authenticated agent-files preview; never return Base64 or expose the history folder.
 const fs = require('node:fs/promises');
 const os = require('node:os');
@@ -20,7 +20,7 @@ async function materialize(source) {
         : /^GIF8[79]a/.test(bytes.toString('ascii', 0, 6));
     if (!valid) return null;
     const hash = crypto.createHash('sha256').update(bytes).digest('hex');
-    directory ||= fs.mkdtemp(path.join(os.tmpdir(), 'dragon-claw-claude-images-')).catch(error => { directory = null; throw error; });
+    directory ||= fs.mkdtemp(path.join(os.tmpdir(), 'dragon-claw-agent-images-')).catch(error => { directory = null; throw error; });
     const file = path.join(await directory, `${hash}.${extension}`);
     try { await fs.writeFile(file, bytes, { flag: 'wx', mode: 0o600 }); }
     catch (error) { if (error.code !== 'EEXIST') throw error; }

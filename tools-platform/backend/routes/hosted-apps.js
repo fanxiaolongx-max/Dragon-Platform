@@ -264,8 +264,8 @@ router.get('/:slug/editor/git/diff', requireAdmin, (req, res) => {
 router.post('/:slug/editor/git/commit', requireAdmin, (req, res) => {
     try {
         if (!runtime.exists(req.params.slug)) return res.status(404).json({ error: '应用不存在' });
-        const { message } = req.body || {};
-        const result = editorService.commitChanges(req.params.slug, message, req.user?.username || req.user?.email || '');
+        const { message, autoBump } = req.body || {};
+        const result = editorService.commitChanges(req.params.slug, message, req.user?.username || req.user?.email || '', { autoBump: Boolean(autoBump) });
         res.json({ success: true, ...result });
     } catch (error) { send(res, error, '提交修改失败'); }
 });
@@ -292,8 +292,12 @@ router.post('/:slug/editor/git/remote', requireAdmin, (req, res) => {
 router.post('/:slug/editor/git/push', requireAdmin, (req, res) => {
     try {
         if (!runtime.exists(req.params.slug)) return res.status(404).json({ error: '应用不存在' });
-        const { force } = req.body || {};
-        const result = editorService.pushToRemote(req.params.slug, { force: Boolean(force) });
+        const { force, autoBump } = req.body || {};
+        const result = editorService.pushToRemote(req.params.slug, {
+            force: Boolean(force),
+            autoBump: autoBump === undefined ? true : Boolean(autoBump),
+            user: req.user?.username || req.user?.email || ''
+        });
         res.json({ success: true, ...result });
     } catch (error) { send(res, error, '推送到远程仓库失败'); }
 });

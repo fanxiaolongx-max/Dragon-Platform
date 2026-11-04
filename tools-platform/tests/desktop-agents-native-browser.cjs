@@ -68,6 +68,23 @@ app.whenReady().then(async () => {
     await native.send(fresh,multiline);
     assert.equal(await win.webContents.executeJavaScript('window.submissions'),beforeMultiline+1,'trailing paragraph breaks do not make the keyboard synchronization look like edited content');
     assert.equal((await native.messages(fresh)).items.filter(m=>m.content===multiline.trim()).length,1);
+    // Mermaid is an SVG-backed IMG in the native DOM, including image-only answers.
+    const svg='<svg xmlns="http://www.w3.org/2000/svg" width="240" height="100"><rect width="240" height="100" fill="white"/><text x="10" y="40">Context window</text></svg>';
+    const src='data:image/svg+xml;base64,'+Buffer.from(svg).toString('base64');
+    await win.webContents.executeJavaScript(`document.getElementById('timeline').insertAdjacentHTML('beforeend',
+        '<div data-quotable="true"><div data-testid="planner-response-text"><p>Diagram answer</p><pre><div class="mermaid-wrapper"><img alt="Mermaid diagram" src="${src}"></div></pre></div></div>'+
+        '<div data-quotable="true"><div data-testid="planner-response-text"><img alt="Mermaid diagram" src="${src}"></div></div>'+
+        '<div data-testid="user-message-bubble"><img src="${src}"></div>');void 0`);
+    await win.webContents.executeJavaScript(`Promise.all([...document.querySelectorAll('#timeline img')].map(i=>i.decode()))`);
+    const diagrams=await native.messages(fresh);
+    assert.deepEqual(diagrams.items.slice(-3).map(i=>i.role),['assistant','assistant','user']);
+    assert.equal(diagrams.items.at(-3).content,'Diagram answer');
+    const preview=diagrams.items.at(-3).attachments[0].path;
+    assert.equal(diagrams.items.at(-2).attachments[0].path,preview,'same pixels reuse a PNG');
+    assert.equal(diagrams.items.at(-1).attachments[0].path,preview,'user image keeps its own message role');
+    assert.equal(fs.readFileSync(preview).subarray(0,8).toString('hex'),'89504e470d0a1a0a');
+    assert.equal(JSON.stringify(diagrams).includes('data:image'),false,'inline sources never go to the frontend');
+    assert.equal((await native.messages(fresh)).items.at(-3).attachments[0].path,preview,'polls retain stable attachment paths');
     console.log('PASS: native CDP titles, exact session sends, duplicate-text receipts, timestamp removal, busy sessions, draft preservation, delayed native input readiness, exact-draft retry and uncertain delivery');
     win.destroy();
     server.close();

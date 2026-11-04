@@ -96,11 +96,29 @@ async function select(c, id) {
 // tool use ("Worked for …") are plain markdown blocks beside the collapsed work log, so read
 // every assistant block outside those collapsibles and turn the rendered HTML back into Markdown.
 function readTimeline() {
+    let images = [], remainingImageBytes = 24 * 1024 * 1024;
+    const image = node => {
+        if (remainingImageBytes <= 0 || images.length >= 30 || !node.complete || !node.naturalWidth || !node.naturalHeight) return false;
+        if (node.naturalWidth > 4096 || node.naturalHeight > 4096) return false;
+        try {
+            // Read already-rendered pixels, including Mermaid SVG data images. Never
+            // transfer SVG/HTML or fetch image URLs using platform credentials.
+            const canvas = document.createElement('canvas');
+            canvas.width = node.naturalWidth; canvas.height = node.naturalHeight;
+            canvas.getContext('2d').drawImage(node, 0, 0);
+            const data = canvas.toDataURL('image/png').split(',')[1];
+            if (!data || data.length > Math.min(8 * 1024 * 1024, remainingImageBytes)) return false;
+            remainingImageBytes -= data.length;
+            images.push({ type: 'base64', media_type: 'image/png', data });
+            return true;
+        } catch { return false; } // Cross-origin/undecoded images remain a text placeholder.
+    };
     const md = (node) => {
         if (node.nodeType === 3)
             return node.textContent.trim() ? node.textContent : ' ';
         if (node.nodeType !== 1 || /^(STYLE|SCRIPT|svg)$/i.test(node.tagName))
             return '';
+        if (node.tagName === 'IMG') return image(node) ? '' : '[' + (node.alt || '图片') + ']';
         if (node.tagName === 'BUTTON') // 文件、链接以按钮形式渲染：保留文字
             return node.innerText.trim() ? '`' + node.innerText.trim() + '`' : '';
         const inner = () => Array.from(node.childNodes).map(md).join('');
@@ -117,6 +135,7 @@ function readTimeline() {
             return '*' + inner() + '*';
         if (tag === 'CODE' && node.parentElement?.tagName !== 'PRE')
             return '`' + node.textContent + '`';
+        if (tag === 'PRE' && node.querySelector('img')) return '\n\n' + inner() + '\n\n';
         if (tag === 'PRE')
             return '\n\n```\n' + node.innerText.replace(/\n$/, '') + '\n```\n\n';
         if (tag === 'A')
@@ -136,16 +155,19 @@ function readTimeline() {
     const out = [];
     for (const e of document.querySelectorAll('[data-testid="user-message-bubble"],[data-quotable="true"]')) {
         if (e.dataset.testid === 'user-message-bubble') {
-            out.push({ role: 'user', content: (e.querySelector('[data-quotable="true"]') || e).innerText.trim() });
+            images = [];
+            e.querySelectorAll('img').forEach(image);
+            out.push({ role: 'user', content: (e.querySelector('[data-quotable="true"]') || e).innerText.trim(), images });
             continue;
         }
         if (e.closest('[data-testid="user-message-bubble"]') || e.parentElement?.closest('[data-quotable="true"]'))
             continue;
         const folded = Array.from(e.querySelectorAll('[data-testid$="collapsible"],[data-testid$="collapsible-trigger"]')).map(b => b.parentElement);
         const blocks = Array.from(e.querySelectorAll('[data-testid="planner-response-text"],.leading-relaxed.select-text')).filter(b => !folded.some(f => f !== e && f.contains(b)) && !b.parentElement.closest('[data-testid="planner-response-text"],.leading-relaxed.select-text'));
+        images = [];
         const text = blocks.map(b => md(b).replace(/[ \t]+\n/g, '\n').replace(/\n[ \t]+(?=\n)/g, '\n').replace(/\n{3,}/g, '\n\n').trim()).filter(Boolean).join('\n\n');
-        if (text)
-            out.push({ role: 'assistant', content: text });
+        if (text || images.length)
+            out.push({ role: 'assistant', content: text, images });
     }
     return out.slice(-200).map((r, i) => ({ id: String(i), ...r }));
 }
@@ -155,7 +177,14 @@ async function messages(id, { passive = false } = {}) { return using(async (c) =
     return { available: true, stale: true, busy, items: null };
 } if (!passive)
     await select(c, id); const rows = await c.evaluate(`location.pathname==='/c/'+${JSON.stringify(id)}?(${readTimeline.toString()})():null`); if (!rows)
-    throw fail('DESKTOP_TARGET_UNCONFIRMED', '桌面会话已切换，请重新打开记录'); const busy=await c.evaluate(`location.pathname!=='/c/'+${JSON.stringify(id)}||!!document.querySelector('[data-testid="agent-input-box"] button[aria-label="Stop execution"]')||!!Array.from(document.querySelectorAll('[data-cascade-id]')).find(e=>e.dataset.cascadeId===${JSON.stringify(id)})?.querySelector('button[aria-label="Stop execution"]')`); return { available: true, busy, items: rows.map(r => ({ ...r, content: safe(r.content, 40000), createdAt: null })) }; }); }
+    throw fail('DESKTOP_TARGET_UNCONFIRMED', '桌面会话已切换，请重新打开记录'); const busy=await c.evaluate(`location.pathname!=='/c/'+${JSON.stringify(id)}||!!document.querySelector('[data-testid="agent-input-box"] button[aria-label="Stop execution"]')||!!Array.from(document.querySelectorAll('[data-cascade-id]')).find(e=>e.dataset.cascadeId===${JSON.stringify(id)})?.querySelector('button[aria-label="Stop execution"]')`); return { available: true, busy, items: await Promise.all(rows.map(async ({ images, ...row }) => {
+        const attachments = [];
+        for (const source of images || []) {
+            try { const file = await require('./inline-images').materialize(source); if (file) attachments.push({ path: file, name: `Antigravity-${attachments.length + 1}.png` }); }
+            catch { /* Cache failures must not hide conversation text. */ }
+        }
+        return { ...row, content: safe(row.content, 40000), ...(attachments.length ? { attachments } : {}), createdAt: null };
+    })) }; }); }
 // Lexical needs a real keyboard input sequence. CDP insertText alone can update
 // its document while the parent's isInputEmpty state stays true indefinitely.
 async function typeText(c, text) {

@@ -386,6 +386,7 @@
                                 <button type="button" class="ha-ide-btn" id="haIdeBtnPull">📥 从远端拉取 (Pull)</button>
                                 <button type="button" class="ha-ide-btn" id="haIdeBtnPush">📤 推送到远端 (Push)</button>
                                 <label class="ha-ide-checkbox-label"><input type="checkbox" id="haIdeForcePush"> 覆盖推送 (Force)</label>
+                                <label class="ha-ide-checkbox-label" style="margin-left: 10px;" title="有新变更推送到远端时自动递增 patch 版本号（如 v1.8.4 → v1.8.5）"><input type="checkbox" id="haIdeAutoBumpVersion" checked> 自动递增版本号</label>
                             </div>
                         </section>
                         <section class="ha-ide-git-section">
@@ -1375,20 +1376,22 @@
 
     async function gitCommitAndPush(push = false) {
         const msg = $('haIdeGitCommitMsg').value.trim();
+        const autoBump = $('haIdeAutoBumpVersion')?.checked ?? true;
         const consoleEl = $('haIdeGitConsole');
         consoleEl.textContent += `\n>> 正在执行提交${push ? '与推送' : ''}...`;
         try {
-            const commitRes = await api('/editor/git/commit', { method: 'POST', body: JSON.stringify({ message: msg }) });
-            consoleEl.textContent += `\n[Commit OK] ${commitRes.message || commitRes.hash}`;
-            toast('本地提交成功');
+            const commitRes = await api('/editor/git/commit', { method: 'POST', body: JSON.stringify({ message: msg, autoBump: push && autoBump }) });
+            consoleEl.textContent += `\n[Commit OK] ${commitRes.message || commitRes.hash}${commitRes.version ? ` · 版本: v${commitRes.version}` : ''}`;
+            toast(`本地提交成功${commitRes.version ? `（v${commitRes.version}）` : ''}`);
             if (push) {
                 const force = $('haIdeForcePush').checked;
-                const pushRes = await api('/editor/git/push', { method: 'POST', body: JSON.stringify({ force }) });
-                consoleEl.textContent += `\n[Push OK] ${pushRes.output || '推送成功'}`;
-                toast('推送至远端成功！');
+                const pushRes = await api('/editor/git/push', { method: 'POST', body: JSON.stringify({ force, autoBump }) });
+                consoleEl.textContent += `\n[Push OK] ${pushRes.output || '推送成功'}${pushRes.version ? ` · 版本: v${pushRes.version}` : ''}`;
+                toast(`推送至远端成功！${pushRes.version ? `（已更新至 v${pushRes.version}）` : ''}`);
             }
             $('haIdeGitCommitMsg').value = '';
             loadGitStatus();
+            loadIdeTree();
         } catch (error) {
             consoleEl.textContent += `\n[Error] ${error.message}`;
             toast(error.message, 'error');
@@ -1413,12 +1416,14 @@
     async function gitPushOnly() {
         const consoleEl = $('haIdeGitConsole');
         const force = $('haIdeForcePush').checked;
-        consoleEl.textContent += `\n>> 正在推送到远端 (force: ${force})...`;
+        const autoBump = $('haIdeAutoBumpVersion')?.checked ?? true;
+        consoleEl.textContent += `\n>> 正在推送到远端 (force: ${force}, autoBump: ${autoBump})...`;
         try {
-            const res = await api('/editor/git/push', { method: 'POST', body: JSON.stringify({ force }) });
-            consoleEl.textContent += `\n[Push OK] ${res.output || '推送完成'}`;
-            toast('推送至远端成功！');
+            const res = await api('/editor/git/push', { method: 'POST', body: JSON.stringify({ force, autoBump }) });
+            consoleEl.textContent += `\n[Push OK] ${res.output || '推送完成'}${res.version ? ` · 版本: v${res.version}` : ''}`;
+            toast(`推送至远端成功！${res.version ? `（已更新至 v${res.version}）` : ''}`);
             loadGitStatus();
+            loadIdeTree();
         } catch (error) {
             consoleEl.textContent += `\n[Push Error] ${error.message}`;
             toast(error.message, 'error');

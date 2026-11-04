@@ -367,18 +367,116 @@ function getGitHistory(slug, limit = 40) {
     }
 }
 
-function commitChanges(slug, message = '', user = '') {
+function nextVersion(rawVer) {
+    const raw = String(rawVer || '').trim();
+    if (!raw) return '1.0.1';
+    const m = raw.match(/^v?(\d+)\.(\d+)\.(\d+)(.*)$/i);
+    if (m) {
+        const major = m[1];
+        const minor = m[2];
+        const patch = parseInt(m[3], 10) + 1;
+        const extra = m[4] || '';
+        return `${major}.${minor}.${patch}${extra}`;
+    }
+    const m2 = raw.match(/^v?(\d+)\.(\d+)(.*)$/i);
+    if (m2) {
+        return `${m2[1]}.${parseInt(m2[2], 10) + 1}${m2[3] || ''}`;
+    }
+    return `${raw}.1`;
+}
+
+function bumpAppVersion(slug) {
+    const codeDir = ensureGitRepo(slug);
+    let versionFile = null;
+    let oldVersion = '';
+
+    const entries = fs.readdirSync(codeDir, { withFileTypes: true });
+    const vEntry = entries.find(e => e.isFile() && (/^[^/]+\.version$/i.test(e.name) || /^VERSION(?:\.txt)?$/i.test(e.name)));
+    if (vEntry) {
+        versionFile = path.join(codeDir, vEntry.name);
+        try {
+            oldVersion = fs.readFileSync(versionFile, 'utf8').trim();
+        } catch (_e) {}
+    }
+
+    const manifestPath = path.join(codeDir, 'platform-app.json');
+    let manifest = null;
+    if (fs.existsSync(manifestPath)) {
+        try {
+            manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+            if (!oldVersion && manifest?.version) {
+                oldVersion = String(manifest.version).trim();
+            }
+        } catch (_e) {}
+    }
+
+    if (!oldVersion) {
+        const state = runtime.readState(slug) || {};
+        oldVersion = state.version || '1.0.0';
+    }
+
+    const newVersion = nextVersion(oldVersion);
+
+    // 1. 写入版本标识文件
+    if (versionFile) {
+        fs.writeFileSync(versionFile, `${newVersion}\n`, 'utf8');
+    } else {
+        const defaultVFile = path.join(codeDir, `${slug}.version`);
+        fs.writeFileSync(defaultVFile, `${newVersion}\n`, 'utf8');
+        versionFile = defaultVFile;
+    }
+
+    // 2. 更新 platform-app.json（若存在）
+    if (manifest) {
+        manifest.version = newVersion;
+        fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n', 'utf8');
+    }
+
+    // 3. 更新 README.md 中的版本号（若存在）
+    const readmePath = path.join(codeDir, 'README.md');
+    if (fs.existsSync(readmePath)) {
+        try {
+            const readmeText = fs.readFileSync(readmePath, 'utf8');
+            const updatedReadme = readmeText.replace(
+                new RegExp(`(版本\\s*[\`'"]v?)${oldVersion.replace(/\./g, '\\.')}([\`'"])`),
+                `$1${newVersion}$2`
+            );
+            if (updatedReadme !== readmeText) {
+                fs.writeFileSync(readmePath, updatedReadme, 'utf8');
+            }
+        } catch (_e) {}
+    }
+
+    // 4. 同步运行时内存与 state 状态
+    runtime.syncStateFromCode(slug);
+
+    return { oldVersion, newVersion, versionFile: path.basename(versionFile) };
+}
+
+function commitChanges(slug, message = '', user = '', { autoBump = false } = {}) {
     const codeDir = ensureGitRepo(slug);
     runGit(codeDir, ['add', '-A']);
-    const status = runGit(codeDir, ['status', '--porcelain=v1']);
+    let status = runGit(codeDir, ['status', '--porcelain=v1']);
+    if (!status && !autoBump) {
+        return { committed: false, message: '没有检测到未提交的文件变动' };
+    }
+    let bumped = null;
+    if (autoBump && status) {
+        bumped = bumpAppVersion(slug);
+        runGit(codeDir, ['add', '-A']);
+        status = runGit(codeDir, ['status', '--porcelain=v1']);
+    }
     if (!status) {
         return { committed: false, message: '没有检测到未提交的文件变动' };
     }
-    const finalMsg = message.trim() || `update(ide): code changes by ${user || 'developer'} at ${new Date().toLocaleString('zh-CN')}`;
+    const versionSuffix = bumped ? ` (v${bumped.newVersion})` : '';
+    const finalMsg = message.trim()
+        ? `${message.trim()}${bumped && !message.includes(bumped.newVersion) ? versionSuffix : ''}`
+        : `update(ide): code changes by ${user || 'developer'} at ${new Date().toLocaleString('zh-CN')}${versionSuffix}`;
     runGit(codeDir, ['commit', '-m', finalMsg]);
     const hash = runGit(codeDir, ['rev-parse', 'HEAD']);
     const shortHash = hash.slice(0, 7);
-    return { committed: true, hash, shortHash, message: finalMsg };
+    return { committed: true, hash, shortHash, message: finalMsg, version: bumped?.newVersion };
 }
 
 function revertToCommit(slug, commitHash) {
@@ -415,7 +513,7 @@ function setGitRemote(slug, remoteUrl) {
     return { success: true, remoteUrl: cleanUrl };
 }
 
-function pushToRemote(slug, { force = false } = {}) {
+function pushToRemote(slug, { force = false, autoBump = false, user = '' } = {}) {
     const codeDir = ensureGitRepo(slug);
     const status = getGitStatus(slug);
     if (!status.remoteUrl) {
@@ -424,11 +522,47 @@ function pushToRemote(slug, { force = false } = {}) {
         throw err;
     }
     const branch = status.branch || 'main';
+
+    let bumpedVersion = null;
+    if (autoBump) {
+        const uncommitted = runGit(codeDir, ['status', '--porcelain=v1']);
+        if (uncommitted) {
+            const commitRes = commitChanges(slug, '', user, { autoBump: true });
+            if (commitRes.committed) {
+                bumpedVersion = commitRes.version;
+            }
+        } else {
+            let isAhead = false;
+            try {
+                const aheadCount = runGit(codeDir, ['rev-list', '--count', `origin/${branch}..HEAD`]);
+                isAhead = parseInt(aheadCount, 10) > 0;
+            } catch (_e) {
+                isAhead = true;
+            }
+            if (isAhead) {
+                let versionAlreadyChanged = false;
+                try {
+                    const diffFiles = runGit(codeDir, ['diff', '--name-only', `origin/${branch}...HEAD`]);
+                    versionAlreadyChanged = /(?:\.version$|platform-app\.json$)/m.test(diffFiles);
+                } catch (_e) {
+                    versionAlreadyChanged = false;
+                }
+                if (!versionAlreadyChanged) {
+                    const bumped = bumpAppVersion(slug);
+                    runGit(codeDir, ['add', '-A']);
+                    runGit(codeDir, ['commit', '-m', `chore(release): bump version to v${bumped.newVersion} before push`]);
+                    bumpedVersion = bumped.newVersion;
+                }
+            }
+        }
+    }
+
     const args = ['push'];
     if (force) args.push('-f');
     args.push('-u', 'origin', branch);
     const output = runGit(codeDir, args);
-    return { success: true, output };
+    const synced = runtime.syncStateFromCode(slug);
+    return { success: true, output, version: bumpedVersion || synced?.version || '' };
 }
 
 function pullFromRemote(slug) {
@@ -473,5 +607,6 @@ module.exports = {
     setGitRemote,
     pushToRemote,
     pullFromRemote,
-    getDiff
+    getDiff,
+    bumpAppVersion
 };

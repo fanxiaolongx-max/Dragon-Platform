@@ -83,24 +83,23 @@
     function build() {
         root = el('div', 'dqb'); root.hidden = true; root.setAttribute('role', 'region');
         root.innerHTML = `<div class="dqb-glow" aria-hidden="true"></div><button type="button" class="dqb-sensor"><span></span></button>
-            <section class="dqb-panel"><header class="dqb-head"><span class="dqb-grip" aria-hidden="true">⠿</span><span class="dqb-heading"><small>DRAGON · AGENTS</small><span class="dqb-title"></span></span><span class="dqb-live" aria-hidden="true"></span><button type="button" data-dqb-menu aria-haspopup="menu">···</button><button type="button" data-dqb-hide>×</button></header>
+            <section class="dqb-panel"><header class="dqb-head"><span class="dqb-grip" aria-hidden="true">⠿</span><span class="dqb-heading"><small>DRAGON · AGENTS</small><span class="dqb-title"></span></span><span class="dqb-live" aria-hidden="true"></span><button type="button" data-dqb-menu aria-haspopup="menu">···</button></header>
             <div class="dqb-rows"></div><footer class="dqb-foot"></footer></section>
             <aside class="dqb-peek" hidden></aside><div class="dqb-menu" role="menu" hidden></div>`;
         panel = root.querySelector('.dqb-panel'); rows = root.querySelector('.dqb-rows'); peek = root.querySelector('.dqb-peek'); menu = root.querySelector('.dqb-menu'); sensor = root.querySelector('.dqb-sensor');
         document.body.append(root);
         panel.addEventListener('pointerenter', reveal);
-        panel.addEventListener('pointerleave', () => { if (drag) return; inside = false; hidePeek(); scheduleTuck(); });
+        panel.addEventListener('pointerleave', () => { if (drag) return; inside = false; hidePeek(); if (prefs.autoHide && !prefs.expanded) scheduleTuck(); else cancelTuck(); });
         sensor.addEventListener('pointerenter', reveal); sensor.addEventListener('click', reveal);
         panel.addEventListener('pointerdown', startDrag);
         panel.querySelector('.dqb-head').addEventListener('dblclick', event => { if (!event.target.closest('button')) center(); });
         root.querySelector('[data-dqb-menu]').addEventListener('click', event => { event.stopPropagation(); menuOpen ? closeMenu() : openMenu(); });
-        root.querySelector('[data-dqb-hide]').addEventListener('click', collapse);
         peek.addEventListener('pointerenter', () => clearTimeout(peekTimer));
-        peek.addEventListener('pointerleave', () => { hidePeek(); scheduleTuck(); });
+        peek.addEventListener('pointerleave', () => { hidePeek(); if (prefs.autoHide && !prefs.expanded) scheduleTuck(); else cancelTuck(); });
         document.addEventListener('pointerdown', event => { if (menuOpen && !menu.contains(event.target) && !event.target.closest('[data-dqb-menu]')) closeMenu(); }, true);
         document.addEventListener('keydown', event => {
             if (event.key !== 'Escape' || root.hidden) return;
-            if (menuOpen) closeMenu(); else if (prefs.autoHide) tuck();
+            if (menuOpen) closeMenu(); else if (prefs.autoHide && !prefs.expanded) tuck();
         });
         window.addEventListener('resize', place);
         // 主页切换亮暗色时同步
@@ -129,7 +128,6 @@
         root.setAttribute('aria-label', t.title);
         panel.title = t.drag; sensor.setAttribute('aria-label', t.expand);
         root.querySelector('[data-dqb-menu]').setAttribute('aria-label', t.menu);
-        root.querySelector('[data-dqb-hide]').setAttribute('aria-label', t.hide);
         root.classList.toggle('expanded', prefs.expanded);
         for (const row of rows.children) {
             const id = row.dataset.provider, group = groupsOf(id)[0], source = quotas?.[id];
@@ -176,18 +174,28 @@
             dragged = drag.moved; setTimeout(() => { dragged = false; }, 0);
             drag = null; root.classList.remove('dragging');
             save({ center: (root.offsetLeft + root.offsetWidth / 2) / Math.max(1, window.innerWidth) });
-            if (!panel.matches(':hover')) { inside = false; scheduleTuck(); }
+            if (!panel.matches(':hover')) { inside = false; if (prefs.autoHide && !prefs.expanded) scheduleTuck(); else cancelTuck(); }
         };
         window.addEventListener('pointermove', move); window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end);
     }
 
     function reveal() { inside = true; cancelTuck(); root.classList.remove('tucked'); }
     function cancelTuck() { clearTimeout(tuckTimer); }
-    function tuck() { hidePeek(); closeMenu(); root.classList.add('tucked'); }
+    function tuck() {
+        cancelTuck();
+        if (!prefs.autoHide || prefs.expanded) {
+            root?.classList.remove('tucked');
+            return;
+        }
+        hidePeek(); closeMenu(); root.classList.add('tucked');
+    }
     function scheduleTuck() {
         cancelTuck();
-        if (inside || drag || menuOpen || peekProvider || !prefs.autoHide || root.classList.contains('trends-open')) return;
-        tuckTimer = setTimeout(() => { if (!panel.matches(':hover') && !peek.matches(':hover')) tuck(); }, TUCK_MS);
+        if (inside || drag || menuOpen || peekProvider || !prefs.autoHide || prefs.expanded || root.classList.contains('trends-open')) return;
+        tuckTimer = setTimeout(() => {
+            if (!prefs.autoHide || prefs.expanded) return;
+            if (!panel.matches(':hover') && !peek.matches(':hover')) tuck();
+        }, TUCK_MS);
     }
 
     function showPeek(id, row) {
@@ -220,14 +228,34 @@
 
     function openMenu() {
         const t = strings();
-        const item = (label, action, checked) => { const b = el('button', '', label); b.type = 'button'; b.setAttribute('role', checked === undefined ? 'menuitem' : 'menuitemradio'); if (checked !== undefined) b.setAttribute('aria-checked', String(checked)); b.addEventListener('click', () => { closeMenu(); action(); }); return b; };
+        const item = (label, action, checked, role = checked === undefined ? 'menuitem' : 'menuitemradio') => {
+            const b = el('button', '', label);
+            b.type = 'button';
+            b.setAttribute('role', role);
+            if (checked !== undefined) b.setAttribute('aria-checked', String(checked));
+            b.addEventListener('click', () => {
+                action();
+                closeMenu();
+            });
+            return b;
+        };
         menu.replaceChildren(
             item(t.compact, () => setExpanded(false), !prefs.expanded), item(t.detailed, () => setExpanded(true), prefs.expanded), el('hr'),
             el('small', '', t.appearance),
             ...[['auto', t.followHome], ['light', t.light], ['dark', t.dark]].map(([theme, label]) => item(label, () => { save({ theme }); applyTheme(); }, prefs.theme === theme)),
             item(t.center, center), el('hr'),
             item(t.refresh, () => refresh(true)),
-            item(t.autoHide, () => { save({ autoHide: !prefs.autoHide }); if (prefs.autoHide) { inside = false; tuck(); } else root.classList.remove('tucked'); }, prefs.autoHide),
+            item(t.autoHide, () => {
+                const next = !prefs.autoHide;
+                save({ autoHide: next });
+                if (next) {
+                    inside = false;
+                    tuck();
+                } else {
+                    cancelTuck();
+                    root.classList.remove('tucked');
+                }
+            }, prefs.autoHide, 'menuitemcheckbox'),
             el('small', '', t.hideNote)
         );
         menuOpen = true; cancelTuck(); hidePeek(); menu.hidden = false;
@@ -236,10 +264,20 @@
         menu.style.left = Math.max(8, Math.min(window.innerWidth - menu.offsetWidth - 8, button.right - menu.offsetWidth)) + 'px';
         menu.querySelector('button')?.focus({ preventScroll: true });
     }
-    function closeMenu() { if (!menuOpen) return; menuOpen = false; menu.hidden = true; scheduleTuck(); }
-    function setExpanded(expanded) { save({ expanded }); root.classList.remove('tucked'); render(); scheduleTuck(); }
-    // ×：收成顶边的小横条，悬停展开、移开后再收起（完全关闭在全局设置里）
-    function collapse() { save({ autoHide: true }); inside = false; tuck(); }
+    function closeMenu() {
+        if (!menuOpen) return;
+        menuOpen = false;
+        menu.hidden = true;
+        if (prefs.autoHide && !prefs.expanded) scheduleTuck();
+        else cancelTuck();
+    }
+    function setExpanded(expanded) {
+        save({ expanded });
+        root.classList.remove('tucked');
+        render();
+        if (prefs.autoHide && !expanded) scheduleTuck();
+        else cancelTuck();
+    }
 
     // 额度使用趋势：与桌面版趋势窗口同一数据与画法（PetQuotaChart），数据来自服务端额度历史（桌面应用与网页读取都会记录）
     const COLORS = ['#74cdb8', '#d6b479', '#a49de0', '#dc9a80', '#73b9d9', '#ca9cc0'];

@@ -42,7 +42,7 @@
             return `<div class="air-chat-failure" role="status"><strong>${t('最近一次运行失败','The last run failed')}</strong><p>${esc(error)}</p><small>${offline?t('浏览器没有连上服务器（常见于服务正在重启或网络中断），数据和提示词都没有问题；稍等后点“再试一次”或章节的 ⟳ 刷新即可。','The browser could not reach the server (often a restart or network drop). Try again shortly.'):t('可以在下面说明怎么改后重新生成；打开右上角“开发者”可以看到和 AI 来回的完整过程。','Describe the fix below, or turn on Developer mode (top right) to see every step.')}</small></div>`;
         }
         // Developer records: one group per AI request (prompts sent, replies, tools, retries) and local run steps.
-        const stepTitle=(step,index)=>step.kind==='ai'?`→ ${t('模型往返','Model call')} ${index}${step.ms?` · ${(step.ms/1000).toFixed(1)}s`:''}${step.toolCalls?` · ${t('要调用工具','calls tools')}`:''}${step.error?' · ⚠ '+esc(step.error.slice(0,60)):''}`:step.kind==='tool'?`🔧 ${t('工具','Tool')} ${esc(step.name)}${step.status==='running'?' · '+t('执行中','Running'):step.error?' · ⚠ '+t('失败','Failed'):' · '+(Trace.emptyResult(step.result)?t('成功 · 无数据','Success · no data'):t('成功','Success'))}${step.ms!==undefined?' · '+step.ms+'ms':''}`:step.kind==='retry'?`↻ ${t('要求模型重试','Asked the model to retry')}`:esc(step.kind);
+        const stepTitle=(step,index)=>step.kind==='ai'?`→ ${t('模型往返','Model call')} ${index}${step.ms?` · ${(step.ms/1000).toFixed(1)}s`:''}${step.tps?` · ${step.tps} TPS`:''}${step.toolCalls?` · ${t('要调用工具','calls tools')}`:''}${step.error?' · ⚠ '+esc(step.error.slice(0,60)):''}`:step.kind==='tool'?`🔧 ${t('工具','Tool')} ${esc(step.name)}${step.status==='running'?' · '+t('执行中','Running'):step.error?' · ⚠ '+t('失败','Failed'):' · '+(Trace.emptyResult(step.result)?t('成功 · 无数据','Success · no data'):t('成功','Success'))}${step.ms!==undefined?' · '+step.ms+'ms':''}`:step.kind==='retry'?`↻ ${t('要求模型重试','Asked the model to retry')}`:esc(step.kind);
         const preview=text=>esc(String(text??''));
         const tools=key=>`<span class="air-dev-tools"><button type="button" data-dev-copy="${key}">⧉ ${t('复制','Copy')}</button><button type="button" data-dev-full="${key}">⛶ ${t('全屏','Full screen')}</button></span>`;
         function traceEntry(entry){
@@ -87,7 +87,8 @@
         function speedTag(item){
             const summary=Trace?.speedSummary?.(item.rounds);if(!summary)return '';
             const title=t(`生成速度（每秒 token）：最低 ${fmtTps(summary.minTps)} / 平均 ${fmtTps(summary.avgTps)} / 最高 ${fmtTps(summary.maxTps)}；共 ${summary.rounds} 轮模型调用，输入 ${summary.inputTokens} / 输出 ${summary.outputTokens} token，用时 ${(summary.totalMs/1000).toFixed(1)} 秒`,`Generation speed (tokens/s): min ${fmtTps(summary.minTps)} / avg ${fmtTps(summary.avgTps)} / max ${fmtTps(summary.maxTps)}; ${summary.rounds} model calls, ${summary.inputTokens} in / ${summary.outputTokens} out tokens, ${(summary.totalMs/1000).toFixed(1)}s`);
-            return `<span class="air-msg-speed" title="${esc(title)}">${fmtTps(summary.minTps)}/${fmtTps(summary.avgTps)}/${fmtTps(summary.maxTps)} tok/s${summary.rounds>1?` · ${summary.rounds}${t(' 轮',' calls')}`:''}</span>`;
+            const brief=summary.rounds===1||summary.minTps===summary.maxTps?`${fmtTps(summary.avgTps)} TPS`:`${fmtTps(summary.minTps)}~${fmtTps(summary.maxTps)} TPS`;
+            return `<span class="air-msg-speed" title="${esc(title)}">${brief}${summary.rounds>1?` · ${summary.rounds}${t(' 轮',' calls')}`:''}</span>`;
         }
         function message(item,index,cell,busy,latestPrompt,report){
             if(item.role!=='user'&&item.rounds?.length)return messageBody(item,index,cell,busy,latestPrompt,report)+`<div class="air-msg-tail air-msg-tail-ai" data-msg-tail="${index}">${copyButton(index,item.role).replace(` data-msg-tail="${index}"`,'')}${speedTag(item)}</div>`;

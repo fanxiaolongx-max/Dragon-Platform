@@ -42,7 +42,12 @@ async function upload(file, raster, fields, clientOverride) {
     if (automatic && !fields.itemId && !manual.length) {
         const hash = require('node:crypto').createHash('sha256').update(file.buffer).digest('hex');
         const duplicate = await repo.findDuplicate(hash);
-        if (duplicate) return {item:await repo.read(duplicate.item_id),versionId:duplicate.id,duplicate:true};
+        if (duplicate) {
+            const saved = {item:await repo.read(duplicate.item_id),versionId:duplicate.id,duplicate:true};
+            const version = await repo.readVersion(duplicate.id);
+            if (version.ai_status === 'ready') return saved;
+            return organizeUpload(saved,fields,clientOverride,manual);
+        }
     }
     const processed = await compress(mime === 'image/webp' ? raster.buffer : file.buffer);
     let filename = file.originalname;
@@ -52,6 +57,9 @@ async function upload(file, raster, fields, clientOverride) {
     }
     const saved = await repo.saveUpload({ ...fields, manualFields:manual, filename, mime, original: file.buffer, processed });
     if (!automatic) return saved;
+    return organizeUpload(saved,fields,clientOverride,manual);
+}
+async function organizeUpload(saved,fields,clientOverride,manual) {
     try {
         const organized = await recognizeAndOrganize(saved.versionId,fields.aiMode,true,clientOverride,{versionLabelLocked:manual.includes('version_label')});
         return {...saved,...organized,aiOrganized:true};
@@ -60,6 +68,9 @@ async function upload(file, raster, fields, clientOverride) {
 function parseAnalysis(raw, categories) {
     let data;
     try { data = JSON.parse(String(raw || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); } catch (_) { throw repo.fail('AI 返回格式无法识别，可手动整理或稍后重试', 502); }
+    // Some vision providers wrap the single requested result in an array.
+    // Never choose arbitrarily between multiple picture results.
+    if (Array.isArray(data) && data.length === 1) data = data[0];
     if (!data || typeof data !== 'object' || Array.isArray(data) || typeof data.title !== 'string' || !data.title.trim()) throw repo.fail('AI 未返回有效的图片识别结果', 502);
     const clean = (v, max) => redactText(String(v ?? '')).trim().slice(0, max);
     const categoryId = String(data.categoryId ?? '');

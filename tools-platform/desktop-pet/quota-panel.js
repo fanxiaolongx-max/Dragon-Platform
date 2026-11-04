@@ -108,11 +108,15 @@
         body.classList.remove('tucking');
     }
     function scheduleHide() {
-        clearTimeout(hideTimer);
+        clearTimeout(hideTimer);clearTimeout(collapseTimer);
         if(peek||inside||engaged||dragging||config.collapsed||config.expanded||!config.autoHide||config.mode==='free')return;
         hideTimer=setTimeout(()=>{
+            if(!config.autoHide||config.expanded||config.collapsed)return;
             body.classList.add('tucking');
-            collapseTimer=setTimeout(()=>ipc.send('pet-quota-panel-collapse',true),window.matchMedia('(prefers-reduced-motion: reduce)').matches?0:280);
+            collapseTimer=setTimeout(()=>{
+                if(!config.autoHide||config.expanded||config.collapsed)return;
+                ipc.send('pet-quota-panel-collapse',true);
+            },window.matchMedia('(prefers-reduced-motion: reduce)').matches?0:280);
         },1400);
     }
     function reveal() {
@@ -125,6 +129,7 @@
         const wasCollapsed=config.collapsed;
         group=next?.group==='third-party'?'third-party':'gemini';
         config={...config,...next};
+        if(!config.autoHide)cancelHide();
         body.classList.toggle('expanded',config.expanded===true);body.classList.toggle('compact',!config.expanded);
         body.classList.toggle('vertical',config.orientation==='vertical');body.classList.toggle('horizontal',config.orientation!=='vertical');
         body.dataset.mode=config.mode;
@@ -184,6 +189,6 @@
     header.addEventListener('dblclick',event=>{if(!event.target.closest('button'))ipc.send('pet-quota-panel-dock');});
     document.getElementById('panelHide').addEventListener('click',()=>ipc.send('pet-quota-panel-hide'));
     document.getElementById('panelMenu').addEventListener('click',()=>{cancelHide();ipc.send('pet-quota-panel-menu');});
-    document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!config.expanded&&config.mode!=='free')ipc.send('pet-quota-panel-collapse',true);});
+    document.addEventListener('keydown',event=>{if(event.key==='Escape'&&config.autoHide&&!config.expanded&&config.mode!=='free')ipc.send('pet-quota-panel-collapse',true);});
     render();ipc.send('pet-quota-panel-ready');
 })();

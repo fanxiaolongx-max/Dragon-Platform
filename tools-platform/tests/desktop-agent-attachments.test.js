@@ -67,7 +67,7 @@ test('Claude inline images become previewable local attachments on the correct m
         assert.equal(second.items[0].attachments[0].path, cached, 'polls retain stable paths');
         assert.equal(first.items[2].attachments, undefined);
         assert.equal(JSON.stringify(first).includes(image.toString('base64')), false);
-        const { materialize } = require('../backend/models/desktop-agents/claude-images');
+        const { materialize } = require('../backend/models/desktop-agents/inline-images');
         assert.equal(await materialize({type:'base64',media_type:'image/svg+xml',data:Buffer.from('<svg/>').toString('base64')}), null);
         assert.equal(await materialize({type:'base64',media_type:'image/jpeg',data:image.toString('base64')}), null);
     } finally {

@@ -327,8 +327,10 @@
                 attachments = document.createElement('div');
                 attachments.className = 'dc-msg-attachments';
                 attachments.dataset.desktopAttachments = '1';
-                node.querySelector('.dc-msg-body').after(attachments);
             }
+            // 用户长文字的展开/收起按钮属于正文，附件始终排在按钮之后。
+            const anchor = main.querySelector('[data-dc-message-toggle]') || main.querySelector('.dc-msg-body');
+            if (attachments.previousElementSibling !== anchor) anchor.after(attachments);
             morph(attachments, files.map(file => window.ChatFiles.chipHtml(file.path, file.name)).join(''));
             window.ChatFiles.hydrate(attachments);
         } else attachments?.remove();

@@ -135,6 +135,15 @@ test('all reads and writes are tenant isolated; readers cannot mutate or invoke 
     await request(server).get('/api/gallery/items').set('x-role','anonymous').expect(401);
 });
 
+test('AI accepts a single-result array but rejects ambiguous or invalid results', () => {
+    const result = {title:'AI 实用案例分享海报',categoryId:'0',tags:['AI','工作坊'],scope:'work'};
+    const categories = [{id:'0',name:'工作海报'}];
+    assert.deepEqual(service.parseAnalysis('```json\n'+JSON.stringify([result])+'\n```',categories),service.parseAnalysis(JSON.stringify(result),categories));
+    for (const invalid of [[],[result,result],[null],['poster'],[[result]],[{title:''}]]) {
+        assert.throws(()=>service.parseAnalysis(JSON.stringify(invalid),categories),error=>error.status===502);
+    }
+});
+
 test('AI sees exactly one compressed image, caps output, reuses results and never overwrites manual metadata', async () => {
     assert.equal(service.parseAnalysis('{"title":"Menu","categoryId":0}', [{ id:'0', name:'Menu' }]).categoryId, '0');
     const saved = (await upload(png(60), { title:'Manually curated', category:'posters' }).expect(201)).body;
@@ -263,6 +272,30 @@ test('automatic upload fills metadata, creates albums and keeps filed images out
         assert.equal((await repo.list({unfiled:'1'})).total,0);assert.equal((await repo.list({q:'Island Kitchen'})).total,1);
         const duplicate=await service.upload({buffer:png(101),originalname:'scan-copy.png'},null,fields,{generateChat(){throw Error('must not call');}});
         assert.equal(duplicate.duplicate,true);assert.equal(duplicate.item.id,saved.item.id);
+    });
+});
+
+test('reupload retries failed AI with a single-result array without duplicating originals',async()=>{
+    await context.runWithTenant('retry-gallery',async()=>{
+        const file={buffer:png(113),originalname:'34B7A87D-poster.png'};
+        const fields={autoAi:'1',manualFields:'[]'};
+        const failed=await service.upload(file,null,fields,{generateChat:async()=>{throw Error('offline');}});
+        assert.ok(failed.aiWarning);
+        assert.equal((await repo.readVersion(failed.versionId)).ai_status,'failed');
+        const retried=await service.upload(file,null,fields,{generateChat:async()=>({text:JSON.stringify([{title:'AI 实用案例分享海报',categoryId:'0',tags:['工作坊'],scope:'work'}])})});
+        assert.equal(retried.duplicate,true);
+        assert.equal(retried.aiOrganized,true);
+        assert.equal(retried.versionId,failed.versionId);
+        assert.equal(retried.item.id,failed.item.id);
+        assert.equal(retried.item.title,'AI 实用案例分享海报');
+        assert.equal(retried.item.category_id,(await repo.categories())[0].id);
+        assert.equal(retried.version.ai_status,'ready');
+        assert.equal((await repo.list()).total,1);
+        assert.equal(retried.item.versions.length,1);
+        assert.deepEqual((await repo.asset(retried.versionId,'original')).bytes,file.buffer);
+        const cached=await service.upload(file,null,fields,{generateChat(){throw Error('must reuse successful analysis');}});
+        assert.equal(cached.duplicate,true);
+        assert.equal(cached.item.title,retried.item.title);
     });
 });
 

@@ -324,7 +324,17 @@ function parseReplyDetailed(text) {
 }
 const parseReply = text => parseReplyDetailed(text).value;
 
-const historyMessages = chat => model.cell({ chat }).chat.map(item => ({ role: item.role === 'ai' ? 'model' : 'user', content: (item.kind === 'prompt' ? '【最终提示词】' : '') + item.text + (item.choices ? `\n（选项：${item.choices.join(' / ')}）` : '') }));
+const historyMessages = chat => {
+    const list = model.cell({ chat }).chat;
+    return list.map((item, idx) => {
+        const isLatestTurn = idx >= list.length - 2;
+        const choiceText = (isLatestTurn && item.choices) ? `\n（选项：${item.choices.join(' / ')}）` : '';
+        return {
+            role: item.role === 'ai' ? 'model' : 'user',
+            content: (item.kind === 'prompt' ? '【最终提示词】' : '') + item.text + choiceText
+        };
+    });
+};
 // A requirement the user stated in a cell that fits the whole report, offered for the report-wide prompt.
 const reportRuleOf = reply => {
     const rule = reply?.report_rule || reply?.reportRule, item = String(rule?.item || '').trim();
@@ -351,10 +361,10 @@ const answeringConflict = (chat, message = '') => {
 };
 async function checkConflict(client, result, { message, chat, sides }) {
     if (result?.type !== 'ready' || answeringConflict(chat, message)) return result;
-    const existing = sides.filter(([, text]) => String(text || '').trim()).map(([name, text]) => `【${name}】\n${String(text).slice(0, 5000)}`).join('\n\n');
+    const existing = sides.filter(([, text]) => String(text || '').trim()).map(([name, text]) => `【${name}】\n${String(text).slice(0, 500)}`).join('\n\n').slice(0, 1500);
     if (!existing) return result;
     try {
-        const reply = parseReply((await client.generateChat({ systemInstruction: CONFLICT_CHECK, messages: [{ role: 'user', content: `用户这次的要求：${String(message).slice(0, 3000)}\n\n已有的要求：\n${existing}` }], maxOutputTokens: 800, temperature: 0 })).text);
+        const reply = parseReply((await client.generateChat({ systemInstruction: CONFLICT_CHECK, messages: [{ role: 'user', content: `用户这次的要求：${String(message).slice(0, 1000)}\n\n已有的要求：\n${existing}` }], maxOutputTokens: 600, temperature: 0 })).text);
         if (reply?.conflict === true && reply.question && Array.isArray(reply.choices) && reply.choices.length >= 2) return askResult({ question: reply.question, choices: reply.choices }, result.tools || []);
     } catch (error) { console.warn('[AI Report] conflict check skipped:', error.message); }
     return result;
@@ -402,11 +412,12 @@ async function runWithTools(client, { system, month, messages, accept, fallback,
 }
 
 // Conversation turn: answers data questions or asks; never compiles a recipe.
-const styleLine = style => style ? `月报整体风格默认要求（格子已确认的局部例外优先：【风格与配色】决定样式、配色和语气；其它分类是每个格子生成内容时的通用要求，和默认做法冲突时以这里为准）：\n${style}` : '';
+const styleLine = style => style ? `月报整体风格默认要求（格子已确认的局部例外优先）：\n${String(style).slice(0, 800)}` : '';
 
 function cellTurn(client, { month, prompt, chat, message, style = '', outline = null }) {
     const context = [`报告月份：${month}`, prompt ? `这个格子当前的最终提示词：\n${prompt}` : '这个格子还没有最终提示词', styleLine(style)].filter(Boolean).join('\n');
-    const messages = [{ role: 'user', content: context }, { role: 'model', content: '好的。' }, ...historyMessages(chat), { role: 'user', content: message }];
+    const recentChat = historyMessages(chat).slice(-6);
+    const messages = [{ role: 'user', content: context }, { role: 'model', content: '好的。' }, ...recentChat, { role: 'user', content: message }];
     return runWithTools(client, { system: CHAT_PROMPT, month, messages, context: { outline }, fallback: { type: 'answer', text: '抱歉，我这次没能整理出回答，请换个说法再试一次。' }, accept: (reply, toolLog) => {
         if (asksAboutConflict(reply)) return { retry: CONFLICT_RETRY };
         if (['answer', 'ready'].includes(reply?.type) && reply.text) return { result: { type: reply.type, text: String(reply.text).slice(0, 6000), tools: toolLog, ...reportRuleOf(reply) } };
@@ -426,8 +437,8 @@ function tidyRecipe(recipe) {
 // Compiles the confirmed prompt; an error from a previous run is passed back so the model can fix it.
 function compileTurn(client, { month, prompt, recipe, error, style = '', outline = null, previousPrompt = '' }) {
     // A working recipe from an earlier prompt is the base, so a small prompt change does not reroll the title or layout.
-    const base = recipe && !error && previousPrompt && previousPrompt !== prompt ? `之前的提示词：\n${previousPrompt}\n\n按之前提示词做出、能正常运行的配方：${JSON.stringify(recipe).slice(0, 12000)}\n在这个配方基础上按提示词的变化修改：没有被新要求替换的部分保持原样；展示形式变化时，旧 render、图表/卡片及小格子布局必须重建，旧配方只作数据与计算参考；提示词里有而这个配方还没做到的要求（例如要显示的标题）必须补上；数据来源换了时重新用工具查清新来源的准确名称。` : '';
-    const content = [`报告月份：${month}`, `最终提示词：\n${prompt}`, styleLine(style), recipe && error ? `上一次的配方：${JSON.stringify(recipe).slice(0, 12000)}\n运行出错：${error}\n请修正。` : base].filter(Boolean).join('\n\n');
+    const base = recipe && !error && previousPrompt && previousPrompt !== prompt ? `之前的提示词：\n${previousPrompt}\n\n按之前提示词做出、能正常运行的配方：${JSON.stringify(recipe).slice(0, 4000)}\n在这个配方基础上按提示词的变化修改：没有被新要求替换的部分保持原样；展示形式变化时，旧 render、图表/卡片及小格子布局必须重建，旧配方只作数据与计算参考；提示词里有而这个配方还没做到的要求（例如要显示的标题）必须补上；数据来源换了时重新用工具查清新来源的准确名称。` : '';
+    const content = [`报告月份：${month}`, `最终提示词：\n${prompt}`, styleLine(style), recipe && error ? `上一次的配方：${JSON.stringify(recipe).slice(0, 4000)}\n运行出错：${error}\n请修正。` : base].filter(Boolean).join('\n\n');
     return runWithTools(client, { system: COMPILE_PROMPT, month, messages: [{ role: 'user', content }], context: { outline }, fallback: { type: 'ask', question: '这个提示词我还没能编译成可运行的配方，能在对话里补充一下用哪张表、哪些列吗？', choices: [] }, accept: async (reply, toolLog) => {
         if (reply?.type === 'ask' && reply.question) return { result: askResult(reply, toolLog) };
         if (reply?.type === 'recipe') {
