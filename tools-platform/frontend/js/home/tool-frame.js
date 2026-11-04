@@ -145,7 +145,8 @@
         window.addEventListener('home:hub', event => { if (event.detail?.open) close(); });
         window.addEventListener('home:mode', () => close());
         document.getElementById('homeSidebar')?.addEventListener('click', event => {
-            if (!window.HomeToolFrame.isOpen() || event.target.closest('.v2-userbar, .v2-side-tools, #v2DiscoverBtn, a[href]')) return;
+            // 打开弹窗或侧栏菜单时保留 iframe 及其当前状态。
+            if (!window.HomeToolFrame.isOpen() || event.target.closest('.v2-userbar, .v2-side-tools, [aria-haspopup], #friendLinksManageBtn, a[href]')) return;
             if (event.target.closest('button, [role="button"], [data-conversation-id]')) close();
         });
     }

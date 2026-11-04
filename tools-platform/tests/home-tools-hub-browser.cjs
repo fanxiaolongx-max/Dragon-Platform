@@ -6,6 +6,8 @@
 // Collapsed sidebar peek audit: HOME_SIDE_PEEK_AUDIT=1 [HOME_SIDE_PEEK_SHOT=/path/prefix] [DESKTOP_DRAG_AUDIT=1 DRAG_PLATFORM=darwin|win32] node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Scan popup audit: HOME_SCAN_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Message navigation audit: HOME_MESSAGES_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
+// Dialog return audit: HOME_DIALOG_RETURN_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
+// Desktop right-edge audit: HOME_WINDOW_EDGE_AUDIT=1 DESKTOP_DRAG_AUDIT=1 DRAG_PLATFORM=darwin|win32 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Wheel audit: HOME_SCROLL_AUDIT=1 DESKTOP_DRAG_AUDIT=1 DRAG_PLATFORM=darwin node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Desktop drag audit: DESKTOP_DRAG_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Full home renderer, mocked APIs, isolated profile; no model calls or runtime data writes.
@@ -62,6 +64,10 @@ app.whenReady().then(async () => {
     }
     web.get('/api/alert-center/events', (_, res) => setTimeout(() => res.json({ events: [] }), process.env.HOME_MESSAGES_AUDIT ? 200 : 0));
     web.get('/scroll-fixture', (_, res) => res.send('<!doctype html><title>Scrollable tool</title><div style="height:4000px">Tool content</div>'));
+    if (process.env.HOME_MARKET_THEME_AUDIT) {
+        web.get('/api/custom-tools/market/settings', (_,res)=>res.json({githubEnabled:true,sources:[{id:'fixture',name:'Fixture',url:'https://example.test/catalog.json',enabled:true}]}));
+        web.get('/api/custom-tools/market/preview-stream', (_,res)=>res.type('application/x-ndjson').send(JSON.stringify({type:'result',data:{sources:[{enabled:true}],trust:{state:'unsigned'},tools:['update','missing','conflict','unchanged','incompatible'].map((status,i)=>({slug:'fixture-'+i,name:['在线验收表','聊天记录中心','数通协议专家','负向事件管理','版本不兼容'][i],nameEn:'Tool '+i,description:'工具说明与版本信息',icon:'🧩',status,recommended:status==='update',fingerprint:'abcdef1234567890',selectedSource:'market',minPlatformVersion:'1.0.0'}))}})+'\n'));
+    }
     web.use('/api', (_, res) => res.json({ items: [] }));
     web.use(express.static(frontend));
     server = await new Promise(resolve => { const listener = web.listen(0, '127.0.0.1', () => resolve(listener)); });
@@ -70,6 +76,144 @@ app.whenReady().then(async () => {
     await win.loadURL(`http://127.0.0.1:${server.address().port}/`);
 
     await until('window.HomeSkillHub&&document.querySelector("[data-v2-mode=tools]")&&document.getElementById("v2SkillHub")');
+    if (process.env.HOME_MARKET_THEME_AUDIT) {
+        for (const [width,theme,lang] of [[1440,'light','zh-CN'],[1440,'dark','en-US'],[390,'light','zh-CN'],[390,'dark','en-US']]) {
+            win.setContentSize(width,900);
+            await evaluate(`document.documentElement.dataset.theme='${theme}';ToolsI18n.setLanguage('${lang}');HomeSkillHub.open('tools');document.getElementById('toolMarketBtn').click();void 0`);
+            await until(`document.querySelectorAll('#toolMarketList .tool-market-card').length===5`);
+            const state=await evaluate(`(()=>{const modal=document.getElementById('toolMarketModal'),dialog=modal.querySelector('.tool-market-dialog'),r=dialog.getBoundingClientRect();
+                return {bg:getComputedStyle(dialog).backgroundColor,title:getComputedStyle(document.querySelector('#toolMarketTitle')).color,
+                    opacity:getComputedStyle(modal.querySelector('.is-dimmed')).opacity,scheme:getComputedStyle(modal.querySelector('input')).colorScheme,
+                    fits:r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight};})()`);
+            assert.equal(state.bg,'rgb(255, 255, 255)');assert.equal(state.title,'rgb(36, 36, 36)');assert.equal(state.opacity,'1');assert.equal(state.fits,true);
+            await evaluate(`document.getElementById('toolMarketSettingsBtn').click();void 0`);
+            await until(`!!document.querySelector('#toolMarketSources .source-url')`);
+            assert.equal(await evaluate(`getComputedStyle(document.querySelector('#toolMarketSources .source-url')).backgroundColor`),'rgb(255, 255, 255)');
+            await evaluate(`document.getElementById('toolMarketHelpBtn').click();void 0`);
+            await capture('market-'+width+'-'+theme);
+            await evaluate(`document.getElementById('toolMarketClose').click();void 0`);
+            assert.equal(await evaluate('HomeSkillHub.isOpen()'),true);
+        }
+        console.log('PASS: market cards/statuses/settings stay light monochrome, readable and in viewport; Chinese/English, light/dark platform, 1440/390px; source page retained. Screenshots: '+temp);
+        win.destroy();server.close();app.exit(0);return;
+    }
+    if (process.env.HOME_WINDOW_EDGE_AUDIT) {
+        await until('document.documentElement.classList.contains("is-desktop-app")');
+        for (const [width, height] of [[1440, 844], [1000, 640]]) {
+            win.setContentSize(width, height);
+            for (const theme of ['light', 'dark']) {
+                await win.loadURL(`http://127.0.0.1:${server.address().port}/?welcome=updated&version=fixture&from=previous`);
+                await until(`window.HomeSkillHub&&document.documentElement.classList.contains('is-desktop-app')&&!!document.querySelector('.tools-dialog-overlay')`);
+                await evaluate(`document.documentElement.dataset.theme='${theme}';HomeSkillHub.close();HomeToolFrame.close();HomeMode.set('chat');
+                    document.querySelector('#fixtureLongPage')?.remove();document.querySelector('.home-main').insertAdjacentHTML('beforeend','<div id="fixtureLongPage" style="height:1600px"></div>');void 0`);
+                await wait(100);
+                const geometry = await evaluate(`({viewport:innerWidth,content:document.documentElement.clientWidth,body:document.body.getBoundingClientRect().right,
+                    scrollHeight:document.documentElement.scrollHeight,viewportHeight:innerHeight,ui:document.documentElement.dataset.ui,
+                    scheme:getComputedStyle(document.documentElement).scrollbarWidth,classes:document.documentElement.className,
+                    desktopStyle:document.querySelector('#desktopWindowStyles').textContent.includes('scrollbar-width: none !important')})`);
+                assert.equal(geometry.content, geometry.viewport, 'desktop root has no reserved right gutter: '+JSON.stringify({width,height,theme,...geometry}));
+                assert.ok(Math.abs(geometry.body-geometry.viewport)<1, 'body reaches right edge');
+                await evaluate(`window.scrollTo(0,150);void 0`);
+                assert.ok(await evaluate('scrollY>0'), 'long welcome pages still scroll');
+                await evaluate(`window.scrollTo(0,0);void 0`);
+                assert.equal(await evaluate(`document.querySelector('.tools-dialog-overlay').getBoundingClientRect().right`), await evaluate('innerWidth'), 'startup dialog overlay reaches right edge');
+                await capture('edge-'+(process.env.DRAG_PLATFORM||'win32')+'-'+theme+'-'+width);
+                await evaluate(`document.querySelector('.tools-dialog-close').click();document.querySelector('#fixtureLongPage').remove();void 0`);
+            }
+        }
+        console.log('PASS: desktop '+process.env.DRAG_PLATFORM+' has no right scrollbar gutter, startup overlay reaches the edge, long pages still scroll; light/dark at 1440/1000px. Screenshots: '+temp);
+        win.destroy();server.close();app.exit(0);return;
+    }
+    if (process.env.HOME_DIALOG_RETURN_AUDIT) {
+        const pageState = () => evaluate(`({hub:HomeSkillHub.isOpen(),tab:HomeSkillHub.tab(),tool:HomeToolFrame.isOpen(),url:location.href,query:document.querySelector('.v2-hub-search input')?.value,scroll:document.querySelector('.home-main').scrollTop,frameState:document.querySelector('.v2-tool-frame-view')?.contentWindow?.fixtureValue})`);
+        const dialogs = [
+            ['market', 'toolMarketModal', '#toolMarketClose'],
+            ['importTool', 'customToolImportModal', '#customToolImportCancel'],
+            ['compare', 'builtinToolsSyncModal', '.builtin-sync-close']
+        ];
+        for (const width of [1440, 860, 600, 390]) for (const language of ['zh-CN', 'en-US']) {
+            win.setContentSize(width,900);
+            await evaluate(`document.body.classList.add('v2-side-collapsed');ToolsI18n.setLanguage('${language}');HomeSkillHub.open('tools');document.querySelector('[data-hub-do="addMenu"]').click();void 0`);
+            const menu = await evaluate(`(()=>{const item=document.querySelector('#v2SkillHub [data-v2-do="market"]'),range=document.createRange();range.selectNodeContents(item.lastElementChild);
+                const rect=item.parentElement.getBoundingClientRect();return {lines:range.getClientRects().length,left:rect.left,right:rect.right,viewport:innerWidth};})()`);
+            assert.equal(menu.lines,1,'single-line menu at '+width+'px / '+language);
+            assert.ok(menu.left>=0&&menu.right<=menu.viewport,'menu remains in view: '+JSON.stringify(menu));
+            await evaluate('HomeSkillHub.close()');
+        }
+        for (const [width, theme, language] of [[1440, 'light', 'zh-CN'], [390, 'dark', 'en-US']]) {
+            win.setContentSize(width, 900);
+            await evaluate(`document.documentElement.dataset.theme='${theme}';ToolsI18n.setLanguage('${language}');document.body.classList.add('v2-side-collapsed')`);
+            for (const source of ['home', 'tools', 'skills', 'plugins', 'frame']) {
+                await evaluate(`HomeV2.closePop();HomeToolFrame.close();HomeMode.set('chat');${source === 'frame' ? "HomeToolFrame.open('/scroll-fixture')" : source !== 'home' ? `HomeSkillHub.open('${source}')` : ''}`);
+                if (source === 'frame') {
+                    await until(`document.querySelector('.v2-tool-frame-view')?.contentDocument?.title==='Scrollable tool'`);
+                    await evaluate(`document.querySelector('.v2-tool-frame-view').contentWindow.fixtureValue='keep tool state'`);
+                }
+                // Keep filter and scroll state as well as the selected page.
+                if (['tools', 'skills', 'plugins'].includes(source)) await evaluate(`document.querySelector('.v2-hub-search input').value='fixture filter';document.querySelector('.v2-hub-search input').dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('#v2SkillHub').insertAdjacentHTML('beforeend','<div style="height:2000px"></div>');document.querySelector('.home-main').scrollTop=125`);
+                const before = await pageState();
+                for (const [action, modal, close] of dialogs) {
+                    if (source === 'tools') {
+                        await evaluate(`document.querySelector('[data-hub-do="addMenu"]').click()`);
+                        assert.equal(await evaluate(`document.querySelector('#v2SkillHub [data-v2-do="market"]').textContent.trim()`), language === 'zh-CN' ? '查找工具（工具市场）' : 'Find tools (market)');
+                        const menuGeometry = await evaluate(`(()=>{const item=document.querySelector('#v2SkillHub [data-v2-do="market"]'),range=document.createRange();
+                            range.selectNodeContents(item.lastElementChild);const menu=item.parentElement.getBoundingClientRect();
+                            return {lines:range.getClientRects().length,left:menu.left,right:menu.right,viewport:innerWidth,overflow:item.scrollWidth>item.clientWidth};})()`);
+                        assert.equal(menuGeometry.lines,1,'market label stays on one line: '+JSON.stringify(menuGeometry));
+                        assert.equal(menuGeometry.overflow,false,'market label stays inside the menu');
+                        assert.ok(menuGeometry.left>=0&&menuGeometry.right<=menuGeometry.viewport,'menu fits viewport: '+JSON.stringify(menuGeometry));
+                        await evaluate(`document.querySelector('#v2SkillHub [data-v2-do="${action}"]').click()`);
+                    } else if (action !== 'compare') {
+                        await evaluate(`document.getElementById('v2DiscoverBtn').click();document.querySelector('.v2-discover [data-v2-do="${action}"]').click()`);
+                    } else await evaluate(`document.getElementById('builtinToolsCompareBtn').click()`);
+                    await until(`!!document.getElementById('${modal}') && getComputedStyle(document.getElementById('${modal}')).display!=='none'`);
+                    assert.deepEqual(await pageState(), before, `${source}/${action} preserves the source while open (${width}px)`);
+                    if (action === 'market') await until(`!document.getElementById('toolMarketRefresh').disabled`);
+                    await evaluate(`document.querySelector('${close}').click()`);
+                    await until(`!document.getElementById('${modal}') || getComputedStyle(document.getElementById('${modal}')).display==='none'`);
+                    assert.deepEqual(await pageState(), before, `${source}/${action} returns to its source (${width}px)`);
+                }
+                // More/account menus are overlays too, including when opened over an embedded tool.
+                for (const selector of ['[data-v2-flyout="more"]', '#v2UserBtn']) {
+                    await evaluate(`document.querySelector('${selector}').click()`);
+                    assert.deepEqual(await pageState(), before, `${source}/${selector} keeps the source`);
+                    await evaluate(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`);
+                    assert.deepEqual(await pageState(), before, `${source}/${selector} Escape keeps the source`);
+                }
+            }
+        }
+        // Escape is handled before existing dialog listeners can hide/remove the overlay.
+        await evaluate(`HomeToolFrame.close();HomeMode.set('tools')`);
+        for (const closer of ['#customToolImportClose', '#customToolImportModal']) {
+            const before = await pageState();
+            await evaluate(`document.getElementById('customToolUploadBtn').click();document.querySelector('${closer}').click()`);
+            assert.equal(await evaluate(`document.getElementById('customToolImportModal').classList.contains('open')`), false);
+            assert.deepEqual(await pageState(), before, closer+' keeps the hub');
+        }
+        for (const opener of [
+            `document.getElementById('customToolUploadBtn').click()`,
+            `window.openServiceStatusModal()`,
+            `void AppDialog.confirm('Fixture confirmation')`,
+            `document.getElementById('v2AlertBtn').click()`,
+            `document.getElementById('v2DiscoverBtn').click()`,
+            `document.querySelector('[data-hub-do="addMenu"]').click()`
+        ]) {
+            const before = await pageState();
+            await evaluate(opener);
+            await wait(50);
+            await evaluate(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`);
+            assert.deepEqual(await pageState(), before, 'Escape preserves the hub behind '+opener);
+            await wait(180);
+        }
+        await evaluate(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`);
+        assert.equal(await evaluate('HomeSkillHub.isOpen()'), false, 'Escape still leaves the hub when no overlay is open');
+        // Real navigation must still leave the source page.
+        await evaluate(`HomeMode.set('tools');document.querySelector('[data-v2-action="newChat"]').click()`);
+        assert.equal(await evaluate('HomeSkillHub.isOpen()'), false);
+        assert.deepEqual(await evaluate('fixtureErrors'), []);
+        console.log('PASS: market/upload/compare preserve home, every hub tab, embedded tool, URL, filters and scroll; Escape closes overlays without leaving the hub; real navigation still works; 1440/390px, Chinese/English, light/dark.');
+        win.destroy();server.close();app.exit(0);return;
+    }
     if (process.env.HOME_REQUIREMENTS_AUDIT) {
         // Catalog-independent entries must embed even before asynchronous navigation loads.
         await evaluate(`HomeWorkspace.getTools=()=>[];window.getAllNavItems=()=>[];void 0`);

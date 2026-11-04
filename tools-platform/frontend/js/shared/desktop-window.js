@@ -14,6 +14,10 @@
     style.id = 'desktopWindowStyles';
     style.textContent = `
         html.is-desktop-app { --desktop-controls-w: 0px; }
+        /* 首页使用整窗背景，隐藏整页滚动条槽，避免启动遮罩右侧留下 8px 白边；保留页面滚动。 */
+        html.is-desktop-app[data-ui="v2"], html.is-desktop-app[data-ui="v2"] body { scrollbar-width: none !important; }
+        html.is-desktop-app[data-ui="v2"]::-webkit-scrollbar,
+        html.is-desktop-app[data-ui="v2"] body::-webkit-scrollbar { display: none; width: 0 !important; height: 0 !important; }
         html.desktop-mac { --desktop-controls-w: 76px; }
         html.desktop-win { --desktop-controls-w: 0px; }
         html.is-desktop-app .desktop-drag, html.is-desktop-app .v2-side-tools, html.is-desktop-app .v2-tool-frame-bar,
