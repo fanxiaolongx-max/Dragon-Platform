@@ -10,7 +10,9 @@ const route = fn => (req, res, next) => Promise.resolve(fn(req, res)).catch(erro
 router.get('/settings', route(async (req, res) => { res.setHeader('Cache-Control', 'no-store'); const cfg = await repo.settings(); const owned = (!cfg.owner || cfg.owner === req.user.username) && await require('../models/desktop-agents/binding').available(req.user.username); res.json({ owned, settings: owned ? cfg : null, reason: owned ? '' : '本机桌面对话已绑定其他租户或账号' }); }));
 router.put('/settings', route(async (req, res) => res.json({ settings: await service.save(req.user.username, req.body || {}) })));
 router.get('/sessions', route(async (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.json(await service.list(req.user.username, { provider: req.query.provider, q: req.query.q })); }));
-router.post('/sync', route(async (req, res) => res.json(await service.list(req.user.username, { force: true }))));
+router.get('/quota/history', route(async (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.json(await require('../models/desktop-agents/quota').trends(req.user.username, req.query.provider, Number(req.query.days || 1))); }));
+router.get('/quota', route(async (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.json(await require('../models/desktop-agents/quota').read(req.user.username, { force: req.query.refresh === '1' })); }));
+router.post('/sync',route(async (req, res) => res.json(await service.list(req.user.username, { force: true }))));
 const discussion = require('../models/desktop-agents/discussion');
 router.get('/discussions/:sessionId',route(async(req,res)=>{res.setHeader('Cache-Control','no-store');res.json({settings:await discussion.settings(req.user.username,req.params.sessionId),activeRun:await discussion.current(req.user.username,req.params.sessionId)});}));
 router.put('/discussions/:sessionId',route(async(req,res)=>res.json({settings:await discussion.saveSettings(req.user.username,req.params.sessionId,req.body)})));

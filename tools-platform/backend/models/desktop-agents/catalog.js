@@ -51,7 +51,7 @@ function userText(raw) {
 }
 // 只提取客户端明确标注的附件；不把普通消息里的任意路径当附件。
 // 文件内容继续由 agent-files 的登录、租户和敏感文件门禁校验。
-function messageAttachments(message, raw) {
+async function messageAttachments(message, raw, inlineImages = false) {
     const files = new Map();
     const add = value => {
         if (typeof value !== 'string' || value.length > 4096 || /[\0\r\n]/.test(value)) return;
@@ -70,6 +70,10 @@ function messageAttachments(message, raw) {
     for (const block of Array.isArray(message.content) ? message.content : []) {
         if (['local_image', 'input_image', 'image', 'document', 'file'].includes(block.type)) {
             add(block.path || block.image_url || block.source?.path || (block.source?.type === 'file' ? block.source.file_path : null));
+            if (inlineImages && block.type === 'image' && files.size < 30) {
+                try { add(await require('./claude-images').materialize(block.source)); }
+                catch { /* A cache failure must not hide the conversation text. */ }
+            }
         }
     }
     return [...files.values()];
@@ -273,7 +277,7 @@ async function transcript(session) {
             continue;
         const raw = typeof message.content === 'string' ? message.content : (message.content || []).filter(x => ['text', 'input_text', 'output_text'].includes(x.type)).map(x => x.text).join('\n');
         let content = message.role === 'user' ? userText(raw) : raw;
-        const attachments = messageAttachments(message, raw);
+        const attachments = await messageAttachments(message, raw, session.provider === 'claudecode');
         if (attachments.length && content) content = content.replace(/\[图片(?: #\d+)?\]/g, '').trim();
         if ((!content && !attachments.length) || (!content && raw && !userText(raw)) || /^\[Request interrupted/.test(content))
             continue;

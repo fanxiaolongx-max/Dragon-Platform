@@ -6,6 +6,7 @@
     if (root.getAttribute('data-ui') !== 'v2') return;
 
     const ICONS = {
+        wide: '<path d="M3.5 5v14M20.5 5v14"/><path d="M7 12h10M9.5 9 6.5 12l3 3m5-6 3 3-3 3"/>',
         capture: '<path d="M8 4H4v4m12-4h4v4M4 16v4h4m12-4v4h-4"/><rect x="8" y="8" width="8" height="8" rx="1.5"/><path d="M8 12h8M12 8v8"/>',
         importData: '<path d="M12 3v10m-3-3 3 3 3-3M5 12l-2 5v4h18v-4l-2-5"/><path d="M3 17h5l1.5 2h5l1.5-2h5"/>',
         chart: '<rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M8 16v-3m4 3V8m4 8v-5"/>',
@@ -86,7 +87,7 @@
             keyMove: '上下切换', keyOpen: '打开', keyTab: '切换类别', keyClose: '关闭窗口',
             filterStatus: '筛选状态', statusAll: '全部状态', statusPinned: '置顶', statusGroup: '讨论组', statusWorkspace: '带工作区',
             filterTime: '筛选时间', timeAll: '全部时间', timeToday: '今天', time7: '最近 7 天', time30: '最近 30 天', filterReset: '重置筛选条件',
-            messages: '消息中心', scan: '扫码使用', appearance: '外观', light: '浅色', dark: '深色', version: '版本', service: '服务', checkUpdate: '检查更新',
+            messages: '消息中心', scan: '扫码使用', appearance: '外观', wide: '宽屏模式', light: '浅色', dark: '深色', version: '版本', service: '服务', checkUpdate: '检查更新',
             clearAll: '全部清除', markAllRead: '全部已读', filterAll: '全部', filterUnread: '未读', filterWarn: '警告', noMessages: '暂无消息', loadFailed: '读取失败：{e}',
             view: '查看', markRead: '标为已读', today: '今天', yesterday: '昨天', scanWeixin: '微信助理', scanWelink: 'WeLink 本人',
             scanHintWeixin: '用微信扫码，接入微信助理与推送', scanHintWelink: '用 WeLink 扫码，以本人身份与 Dragon Claw 协同办公',
@@ -114,7 +115,7 @@
             keyMove: 'Move', keyOpen: 'Open', keyTab: 'Switch type', keyClose: 'Close',
             filterStatus: 'Status', statusAll: 'All', statusPinned: 'Pinned', statusGroup: 'Agent group', statusWorkspace: 'With workspace',
             filterTime: 'Time', timeAll: 'Any time', timeToday: 'Today', time7: 'Last 7 days', time30: 'Last 30 days', filterReset: 'Reset filters',
-            messages: 'Messages', scan: 'Scan to use', appearance: 'Appearance', light: 'Light', dark: 'Dark', version: 'Version', service: 'Service', checkUpdate: 'Check for updates',
+            messages: 'Messages', scan: 'Scan to use', appearance: 'Appearance', wide: 'Wide layout', light: 'Light', dark: 'Dark', version: 'Version', service: 'Service', checkUpdate: 'Check for updates',
             clearAll: 'Clear all', markAllRead: 'Mark all read', filterAll: 'All', filterUnread: 'Unread', filterWarn: 'Warnings', noMessages: 'No messages', loadFailed: 'Could not load: {e}',
             view: 'View', markRead: 'Mark read', today: 'Today', yesterday: 'Yesterday', scanWeixin: 'WeChat Bot', scanWelink: 'WeLink (Me)',
             scanHintWeixin: 'Scan with WeChat to connect the assistant and proactive push', scanHintWelink: 'Scan with WeLink to work with Dragon Claw as you',
@@ -271,6 +272,7 @@
         settings() { window.openNavSettingsModal?.(); },
         language() { window.toggleAppLanguage?.(); },
         theme() { setTheme(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); },
+        wide() { setWide(!root.classList.contains('v2-wide')); },
         serviceStatus() { window.openServiceStatusModal?.(); },
         requirements() { if (!window.HomeToolFrame?.open?.('/requirements')) location.href = '/requirements'; },
         classic() { try { localStorage.setItem('tools_home_ui', 'v1'); } catch { /* 无痕模式 */ } location.reload(); },
@@ -497,6 +499,13 @@
         $('v2StatusDot').classList.toggle('is-down', serviceDown());
     }
     const rowItem = (icon, label, action, hint = '', arrow = false) => `<button type="button" class="v2-pop-item" role="menuitem" data-v2-do="${action}"><span class="v2-ico" data-icon="${icon}"></span><span>${esc(label)}</span>${hint ? `<span class="v2-pop-hint">${esc(hint)}</span>` : ''}${arrow ? '<span class="v2-ico v2-pop-arrow" data-icon="chevronRight"></span>' : ''}</button>`;
+    const switchItem = (icon, label, action, on) => `<button type="button" class="v2-pop-item" role="menuitemcheckbox" aria-checked="${on}" data-v2-do="${action}"><span class="v2-ico" data-icon="${icon}"></span><span>${esc(label)}</span><span class="v2-pop-switch" aria-hidden="true"></span></button>`;
+    // 宽屏模式：对话正文与输入框随窗口变宽，两侧不再留大片空白；只记在本浏览器
+    function setWide(on) {
+        root.classList.toggle('v2-wide', on);
+        try { localStorage.setItem('tools_home_wide', on ? '1' : '0'); } catch { /* 无痕模式下只在本页生效 */ }
+        window.dispatchEvent(new Event('resize'));
+    }
     function renderUserMenu() {
         const name = localStorage.getItem('tools_user') || '';
         const admin = localStorage.getItem('tools_role') === 'admin';
@@ -511,6 +520,7 @@
             <div class="v2-account-card v2-account-list">
                 ${admin ? rowItem('settings', t('settings'), 'settings', mac ? '⌘,' : 'Ctrl+,') : ''}
                 ${rowItem('palette', t('appearance'), 'theme', dark ? t('dark') : t('light'), true)}
+                ${switchItem('wide', t('wide'), 'wide', root.classList.contains('v2-wide'))}
                 ${rowItem('language', t('language'), 'language')}
                 ${rowItem('target', t('requirements'), 'requirements')}
                 ${rowItem('compare', t('classic'), 'classic')}
@@ -528,7 +538,7 @@
         showPop(userPop, anchor, 'up');
     });
     // 外观切换后菜单保持打开，直接刷新文案
-    userPop.addEventListener('click', event => { if (event.target.closest('[data-v2-do="theme"]')) setTimeout(() => { renderUserMenu(); userPop.classList.add('is-open'); openPop = { pop: userPop, anchor: $('v2UserBtn') }; }, 0); });
+    userPop.addEventListener('click', event => { if (event.target.closest('[data-v2-do="theme"],[data-v2-do="wide"]')) setTimeout(() => { renderUserMenu(); userPop.classList.add('is-open'); openPop = { pop: userPop, anchor: $('v2UserBtn') }; }, 0); });
     document.addEventListener('keydown', event => {
         if ((event.metaKey || event.ctrlKey) && event.key === ',' && localStorage.getItem('tools_role') === 'admin') { event.preventDefault(); run('settings'); }
     });
@@ -538,6 +548,8 @@
     const scan = {
         pop: makePop('v2-scan'),
         tab: 'welink',
+        weixinDisabled: false,
+        weixinDisabledHint: '',
         welink: {
             checking: false,
             status: null,
@@ -578,7 +590,14 @@
     function loadScanTab() {
         if (scan.tab === 'welink') loadWelinkStatus({ autoLogin: true });
         else if (scan.tab === 'welinkbot') loadWelinkBotStatus({ autoQr: true });
-        else loadWeixinStatus({ autoQr: true });
+        else {
+            if (scan.weixinDisabled) {
+                scan.tab = 'welink';
+                loadWelinkStatus({ autoLogin: true });
+                return;
+            }
+            loadWeixinStatus({ autoQr: true });
+        }
     }
 
     function ensureQrLib() {
@@ -734,6 +753,16 @@
             if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
             scan.weixin.status = data;
             scan.weixin.checking = false;
+            if (data.disabledByIntranet) {
+                scan.weixinDisabled = true;
+                scan.weixinDisabledHint = data.disabledHint || '';
+                if (scan.tab === 'weixin') {
+                    scan.tab = 'welink';
+                    renderScan();
+                    loadWelinkStatus({ autoLogin: true });
+                    return;
+                }
+            }
             if (autoQr && !data.connected && !data.bot?.id) {
                 startWeixinQr();
                 return;
@@ -972,10 +1001,13 @@
     }
 
     function renderScan() {
+        if (scan.weixinDisabled && scan.tab === 'weixin') {
+            scan.tab = 'welink';
+        }
         const tabs = `<div class="v2-seg v2-scan-tabs" role="tablist">
             <button type="button" role="tab" aria-selected="${scan.tab === 'welink'}" data-scan-tab="welink">${esc(t('scanWelink', 'WeLink 本人'))}</button>
             <button type="button" role="tab" aria-selected="${scan.tab === 'welinkbot'}" data-scan-tab="welinkbot">${esc(t('scanWelinkBot', 'WeLink 助理'))}</button>
-            <button type="button" role="tab" aria-selected="${scan.tab === 'weixin'}" data-scan-tab="weixin">${esc(t('scanWeixin', '微信助理'))}</button>
+            ${scan.weixinDisabled ? '' : `<button type="button" role="tab" aria-selected="${scan.tab === 'weixin'}" data-scan-tab="weixin">${esc(t('scanWeixin', '微信助理'))}</button>`}
         </div>`;
 
         let body = '';
@@ -1071,7 +1103,16 @@
         } else {
             // 微信 (weixin) 标签
             const wx = scan.weixin;
-            if (wx.checking) {
+            if (scan.weixinDisabled || wx.status?.disabledByIntranet) {
+                body = `<div class="v2-scan-connected">
+                    <div class="v2-scan-connected-icon">🌐</div>
+                    <div class="v2-scan-connected-title">华为内网已自动禁用微信</div>
+                    <div class="v2-scan-connected-meta">${esc(scan.weixinDisabledHint || wx.status?.disabledHint || '当前处于华为内网环境，无法连接微信外网服务（ilinkai.weixin.qq.com）。左下角扫码仅提供 WeLink 服务。')}</div>
+                    <div class="v2-scan-actions">
+                        <button type="button" class="v2-account-btn is-primary" data-scan-action="switch-to-welink">切换至 WeLink 扫码</button>
+                    </div>
+                </div>`;
+            } else if (wx.checking) {
                 body = renderScanRing('正在检查微信连接状态…', '通过微信 ClawBot (iLink 协议) 接入');
             } else if (wx.status?.connected || wx.status?.bot?.id) {
                 body = `<div class="v2-scan-connected">
@@ -1149,6 +1190,7 @@
         const tabBtn = event.target.closest('[data-scan-tab]');
         if (tabBtn) {
             const nextTab = tabBtn.dataset.scanTab;
+            if (nextTab === 'weixin' && scan.weixinDisabled) return;
             if (nextTab !== scan.tab) {
                 scan.abortAll();
                 scan.tab = nextTab;
@@ -1161,6 +1203,13 @@
         const actionBtn = event.target.closest('[data-scan-action]');
         if (!actionBtn) return;
         const act = actionBtn.dataset.scanAction;
+        if (act === 'switch-to-welink') {
+            scan.abortAll();
+            scan.tab = 'welink';
+            renderScan();
+            loadScanTab();
+            return;
+        }
         if (act === 'relogin-welink') {
             startWelinkLogin();
         } else if (act === 'recheck-welink') {
@@ -1351,6 +1400,14 @@
     function updateChannelsNavState(data) {
         if (data) lastChannelsData = data;
         const currentData = data || lastChannelsData || { items: window.HomeWelinkThreads?.channels?.() || [], summary: window.HomeWelinkThreads?.summary?.() || {} };
+        if (currentData.network?.weixinDisabled || currentData.summary?.weixin?.disabledByIntranet) {
+            scan.weixinDisabled = true;
+            scan.weixinDisabledHint = currentData.network?.hint || currentData.summary?.weixin?.disabledHint || '';
+            if (scan.tab === 'weixin') {
+                scan.tab = 'welink';
+                if (openPop?.pop === scan.pop) renderScan();
+            }
+        }
         const navItem = document.querySelector('.v2-nav-item[data-v2-action="channels"]');
         if (!navItem) return;
         const items = Array.isArray(currentData.items) ? currentData.items : [];

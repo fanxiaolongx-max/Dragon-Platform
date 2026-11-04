@@ -1,3 +1,4 @@
+// 额度趋势曲线的分段与坐标：桌面版额度趋势窗口（desktop-pet/quota-trends.html）与网页顶部额度栏共用。
 (function(host) {
     'use strict';
     function segments(points, maxGap) {

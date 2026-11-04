@@ -130,7 +130,7 @@ function versionAssetUrls(html, { publicDir, baseDir } = {}) {
 // 工具采用固定主题，平台首页切换只影响外层。原生暗色展示页按设计保留暗色。
 const NATIVE_DARK_TOOL_PATHS = new Set([
     'pages/bigscreen.html', 'pages/project-evolution.html', 'pages/storage.html',
-    'pages/desktop-license-admin.html', 'pages/privacy.html', 'pages/terms.html',
+    'pages/privacy.html', 'pages/terms.html',
     'custom-tools/particle-effects', 'custom-tools/tool-msh8aro4'
 ]);
 function toolThemeForPath(toolPath = '', html = '') {
@@ -153,8 +153,8 @@ function injectPlatformTheme(html, { toolPath = '' } = {}) {
     const head = /<head\b[^>]*>/i.exec(source);
     return head ? source.slice(0, head.index + head[0].length) + tags + source.slice(head.index + head[0].length) : tags + source;
 }
-// 首页与登录页自己管理主题
-const THEME_EXEMPT = new Set(['index.html', 'login.html', 'pages/login.html', 'pages/startup.html']);
+// 首页、登录页及自主管理明暗主题的页面
+const THEME_EXEMPT = new Set(['index.html', 'login.html', 'pages/login.html', 'pages/startup.html', 'pages/desktop-license-admin.html', 'desktop-license-admin.html']);
 
 function createFrontendHtmlSender(publicDir) {
     return function sendFrontendHtml(res, relPath) {

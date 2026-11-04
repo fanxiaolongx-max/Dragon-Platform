@@ -59,16 +59,20 @@ router.get('/available', handle(async (_req, res) => {
     res.setHeader('Cache-Control','no-store');
     const items = [];
     const summary = {};
+    const weixinCheck = await welinkNetwork.isWeixinDisabled();
     for (const [id, { service, label }] of Object.entries(CHANNELS)) {
         try {
             const status = await service.getStatus(getTenantId());
-            summary[id] = { configured: Boolean(status.configured), enabled: Boolean(status.enabled), connected: Boolean(status.connected) };
-            if (status.enabled && status.configured) items.push({ id, label, connected: Boolean(status.connected), health: require('../models/channels/connection-health').connectionHealth(status) });
+            const disabledByIntranet = id === 'weixin' && weixinCheck.disabled;
+            summary[id] = { configured: Boolean(status.configured), enabled: Boolean(status.enabled), connected: Boolean(status.connected), disabledByIntranet, disabledHint: disabledByIntranet ? (weixinCheck.hint || '华为内网环境无法访问微信外网服务，已自动禁用') : undefined };
+            if (status.enabled && status.configured && !disabledByIntranet) {
+                items.push({ id, label, connected: Boolean(status.connected), health: require('../models/channels/connection-health').connectionHealth(status) });
+            }
         } catch {
             // 某个频道读取失败不影响其他频道
         }
     }
-    res.json({ items, summary });
+    res.json({ items, summary, network: { weixinDisabled: weixinCheck.disabled, intranet: weixinCheck.intranet, hint: weixinCheck.hint } });
 }));
 
 router.get(`/${CH}/status`, handle(async (req, res) => {
@@ -83,6 +87,12 @@ router.put(`/${CH}/config`, handle(async (req, res) => {
     const { repo, service, configKeys } = ch(req);
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     const patch = Object.fromEntries(Object.entries(body).filter(([key]) => configKeys.includes(key)));
+    if (req.params.channel === 'weixin') {
+        const weixinCheck = await welinkNetwork.isWeixinDisabled();
+        if (weixinCheck.disabled && patch.enabled) {
+            patch.enabled = false;
+        }
+    }
     const saved = await repo.saveConfig(patch);
     const status = await service.applyConfig(getTenantId());
     res.json({ config: repo.toPublic(saved), status });
@@ -239,6 +249,11 @@ router.post('/weixin/qrcode-auth', async (req, res) => {
     const tenantId = getTenantId();
     const write = ndjson(res);
     try {
+        const weixinCheck = await welinkNetwork.isWeixinDisabled({ refresh: true });
+        if (weixinCheck.disabled) {
+            write({ type: 'error', code: 'WEIXIN_DISABLED_ON_INTRANET', error: weixinCheck.hint || '华为内网环境无法连接微信外网服务，无法扫码接入。' });
+            return res.end();
+        }
         const result = await weixin.runQrAuth(tenantId, snapshot => write({ type: 'snapshot', snapshot }));
         write({ type: 'done', saved: result.saved, alreadyConnected: Boolean(result.alreadyConnected), status: result.status });
     } catch (error) {
@@ -248,11 +263,19 @@ router.post('/weixin/qrcode-auth', async (req, res) => {
 });
 
 router.post('/weixin/qrcode-auth/verify', handle(async (req, res) => {
+    const weixinCheck = await welinkNetwork.isWeixinDisabled();
+    if (weixinCheck.disabled) {
+        return res.status(400).json({ code: 'WEIXIN_DISABLED_ON_INTRANET', error: weixinCheck.hint || '华为内网环境无法使用微信服务' });
+    }
     res.json(weixin.submitQrVerifyCode(getTenantId(), req.body?.code));
 }));
 
 // 直接复用本机 OpenClaw 微信插件已登录的 bot（token、同步游标、联系人 context_token）
 router.post('/weixin/openclaw/import', handle(async (_req, res) => {
+    const weixinCheck = await welinkNetwork.isWeixinDisabled();
+    if (weixinCheck.disabled) {
+        return res.status(400).json({ code: 'WEIXIN_DISABLED_ON_INTRANET', error: weixinCheck.hint || '华为内网环境无法使用微信服务' });
+    }
     res.json(await weixin.importFromOpenClaw(getTenantId()));
 }));
 

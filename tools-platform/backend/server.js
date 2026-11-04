@@ -583,6 +583,10 @@ app.get('/frt', (req, res) => {
     sendFrontendHtml(res, 'pages/frt.html');
 });
 if (!isDesktopRuntime) app.get('/desktop-license-admin', checkHtmlAuth, (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
     sendFrontendHtml(res, 'pages/desktop-license-admin.html');
 });
 app.get('/python-updater', checkHtmlAuth, (req, res) => {

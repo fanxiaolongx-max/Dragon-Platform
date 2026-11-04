@@ -11,6 +11,7 @@ const { runWithTenant, getTenantId } = require('../tenant-context');
 const ilink = require('./weixin-ilink-client');
 const configRepo = require('./weixin-config-repository');
 const targetsRepo = require('./channel-targets-repository');
+const welinkNetwork = require('./welink-network');
 const access = require('./welink-access');
 const { WeLinkProvider } = require('./welink-provider');
 
@@ -320,6 +321,10 @@ async function startInstance(instance, config) {
 }
 
 async function connect(tenantId = getTenantId()) {
+    const weixinCheck = await welinkNetwork.isWeixinDisabled();
+    if (weixinCheck.disabled) {
+        throw serviceError('WEIXIN_DISABLED_ON_INTRANET', weixinCheck.hint || '华为内网环境无法连接微信外网服务，已自动禁用', 400);
+    }
     const instance = getInstance(tenantId);
     return withLock(instance, () => runWithTenant(tenantId, async () => {
         const config = await configRepo.getConfig();
@@ -342,6 +347,10 @@ async function disconnect(tenantId = getTenantId()) {
 }
 
 async function restart(tenantId = getTenantId()) {
+    const weixinCheck = await welinkNetwork.isWeixinDisabled();
+    if (weixinCheck.disabled) {
+        throw serviceError('WEIXIN_DISABLED_ON_INTRANET', weixinCheck.hint || '华为内网环境无法连接微信外网服务，已自动禁用', 400);
+    }
     const instance = getInstance(tenantId);
     return withLock(instance, () => runWithTenant(tenantId, async () => {
         await stopInstance(instance, 'restart');
@@ -351,9 +360,10 @@ async function restart(tenantId = getTenantId()) {
 }
 
 async function applyConfig(tenantId = getTenantId()) {
+    const weixinCheck = await welinkNetwork.isWeixinDisabled();
     const config = await runWithTenant(tenantId, () => configRepo.getConfig());
     const instance = getInstance(tenantId);
-    if (!config.enabled) {
+    if (!config.enabled || weixinCheck.disabled) {
         if (instance.controller) await disconnect(tenantId);
         return getStatus(tenantId);
     }
@@ -466,6 +476,10 @@ async function setOpenClawWeixin(enabled, tenantId = getTenantId()) {
  * 额外有 need_verifycode：手机上会显示数字，需在页面输入后通过 submitQrVerifyCode 提交。
  */
 async function runQrAuth(tenantId, onSnapshot = () => {}) {
+    const weixinCheck = await welinkNetwork.isWeixinDisabled({ refresh: true });
+    if (weixinCheck.disabled) {
+        throw serviceError('WEIXIN_DISABLED_ON_INTRANET', weixinCheck.hint || '华为内网环境无法连接微信外网服务，无法扫码接入', 400);
+    }
     const instance = getInstance(tenantId);
     if (instance.qr) instance.qr.cancel();
     const config = await runWithTenant(tenantId, () => configRepo.getConfig());
@@ -557,6 +571,7 @@ function submitQrVerifyCode(tenantId, code) {
 // ── 状态 / 诊断 / 测试 ───────────────────────────────────
 
 async function getStatus(tenantId = getTenantId()) {
+    const weixinCheck = await welinkNetwork.isWeixinDisabled();
     return runWithTenant(tenantId, async () => {
         const config = await configRepo.getConfig();
         const instance = getInstance(tenantId);
@@ -567,10 +582,14 @@ async function getStatus(tenantId = getTenantId()) {
         return {
             channel: CHANNEL,
             tenantId,
-            enabled: config.enabled,
+            enabled: weixinCheck.disabled ? false : config.enabled,
+            configEnabled: config.enabled,
+            disabledByIntranet: Boolean(weixinCheck.disabled),
+            disabledReason: weixinCheck.reason || null,
+            disabledHint: weixinCheck.hint || null,
             configured: Boolean(config.token),
-            runtime: { state, failureReason: running ? instance.failureReason : (instance.lastError?.message || null) },
-            connected: state === 'ready',
+            runtime: { state: weixinCheck.disabled ? 'idle' : state, failureReason: weixinCheck.disabled ? (weixinCheck.hint || '华为内网已自动停用') : (running ? instance.failureReason : (instance.lastError?.message || null)) },
+            connected: weixinCheck.disabled ? false : (state === 'ready'),
             startedAt: instance.startedAt,
             lastPollAt: instance.lastPollAt,
             lastError: instance.lastError,
@@ -595,6 +614,13 @@ async function getDiagnostics(tenantId = getTenantId()) {
 }
 
 async function testConnection(tenantId = getTenantId()) {
+    const weixinCheck = await welinkNetwork.isWeixinDisabled();
+    if (weixinCheck.disabled) {
+        return {
+            ok: false,
+            steps: [{ key: 'intranet', label: '网络环境检查', ok: false, detail: weixinCheck.hint || '华为内网环境无法访问微信外网服务（ilinkai.weixin.qq.com），已自动禁用' }]
+        };
+    }
     const steps = [];
     const push = (key, label, ok, detail) => steps.push({ key, label, ok, detail: detail || '' });
     const config = await runWithTenant(tenantId, () => configRepo.getConfig());
@@ -635,6 +661,10 @@ async function testConnection(tenantId = getTenantId()) {
 // ── 主动推送 ─────────────────────────────────────────────
 
 async function push(tenantId = getTenantId(), { text, targets, trigger = 'system', source = '' } = {}) {
+    const weixinCheck = await welinkNetwork.isWeixinDisabled();
+    if (weixinCheck.disabled) {
+        throw serviceError('WEIXIN_DISABLED_ON_INTRANET', weixinCheck.hint || '华为内网环境无法发送微信消息', 400);
+    }
     const content = String(text || '').trim();
     if (!content) throw serviceError('WEIXIN_PUSH_EMPTY', '推送内容不能为空');
     if (content.length > MAX_PUSH_CHARS) throw serviceError('WEIXIN_PUSH_TOO_LONG', `推送内容不能超过 ${MAX_PUSH_CHARS} 字`);
@@ -675,6 +705,11 @@ async function push(tenantId = getTenantId(), { text, targets, trigger = 'system
 }
 
 async function autoStartAll(listTenantIds) {
+    const weixinCheck = await welinkNetwork.isWeixinDisabled();
+    if (weixinCheck.disabled) {
+        console.log('[Weixin] 检测到处于华为内网环境，自动禁用微信助理的长轮询与连接。');
+        return;
+    }
     const ids = new Set(['default']);
     try {
         (await listTenantIds()).forEach(id => id && ids.add(id));

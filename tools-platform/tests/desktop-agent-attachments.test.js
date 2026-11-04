@@ -38,3 +38,42 @@ test('desktop history preserves local images/files without exposing hidden promp
         await fs.rm(root, { recursive: true, force: true });
     }
 });
+
+test('Claude inline images become previewable local attachments on the correct message', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'claude-image-history-'));
+    const previous = process.env.TOOLS_DESKTOP_AGENT_HOME;
+    process.env.TOOLS_DESKTOP_AGENT_HOME = root;
+    const image = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=', 'base64');
+    const block = { type: 'image', source: { type: 'base64', media_type: 'image/png', data: image.toString('base64') } };
+    let cached;
+    try {
+        const folder = path.join(root, '.claude/projects/fixture');
+        await fs.mkdir(folder, { recursive: true });
+        const events = [
+            { type: 'user', uuid: 'u', message: { role: 'user', content: [{ type: 'text', text: '看这张图片' }, block] } },
+            { type: 'assistant', uuid: 'a', message: { role: 'assistant', content: [block] } },
+            { type: 'user', isMeta: true, message: { role: 'user', content: [block] } },
+            { type: 'user', message: { role: 'user', content: [{ type: 'tool_result', content: [block] }] } },
+            { type: 'user', uuid: 'bad', message: { role: 'user', content: [{ type: 'text', text: '文字保留' }, { type:'image', source:{type:'base64',media_type:'image/png',data:'not-an-image'} }] } }
+        ];
+        await fs.writeFile(path.join(folder, 'images.jsonl'), events.map(e => JSON.stringify(e)).join('\n'));
+        const catalog = require('../backend/models/desktop-agents/catalog');
+        const session = { provider: 'claudecode', nativeId: 'images' };
+        const first = await catalog.transcript(session), second = await catalog.transcript(session);
+        assert.deepEqual(first.items.map(i => [i.id,i.role]), [['u','user'],['a','assistant'],['bad','user']]);
+        cached = first.items[0].attachments[0].path;
+        assert.deepEqual(await fs.readFile(cached), image);
+        assert.equal(first.items[1].attachments[0].path, cached, 'identical bytes reuse a cache file, keeping the assistant role');
+        assert.equal(second.items[0].attachments[0].path, cached, 'polls retain stable paths');
+        assert.equal(first.items[2].attachments, undefined);
+        assert.equal(JSON.stringify(first).includes(image.toString('base64')), false);
+        const { materialize } = require('../backend/models/desktop-agents/claude-images');
+        assert.equal(await materialize({type:'base64',media_type:'image/svg+xml',data:Buffer.from('<svg/>').toString('base64')}), null);
+        assert.equal(await materialize({type:'base64',media_type:'image/jpeg',data:image.toString('base64')}), null);
+    } finally {
+        if (previous === undefined) delete process.env.TOOLS_DESKTOP_AGENT_HOME;
+        else process.env.TOOLS_DESKTOP_AGENT_HOME = previous;
+        await fs.rm(root, { recursive: true, force: true });
+        if (cached) await fs.unlink(cached).catch(() => {});
+    }
+});

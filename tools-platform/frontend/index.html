@@ -58,6 +58,7 @@
     <link rel="stylesheet" href="/css/workspace-panel.css">
     <link rel="stylesheet" href="/css/welink-threads.css">
     <link rel="stylesheet" href="/css/desktop-agents.css">
+    <link rel="stylesheet" href="/css/desktop-quota-bar.css">
     <link rel="stylesheet" href="/css/home-mode.css">
     <link rel="stylesheet" href="/css/home-capabilities.css">
     <link rel="stylesheet" href="/css/home-v2.css">
@@ -70,6 +71,7 @@
         (function () {
             var body = document.body;
             try {
+                if (localStorage.getItem('tools_home_wide') === '1') document.documentElement.classList.add('v2-wide');
                 if (location.hash === '#tools') { body.classList.remove('home-mode-chat'); body.classList.add('home-mode-tools'); }
                 if (window.innerWidth > 860) {
                     var stored = localStorage.getItem('home_sidebar_mode');
@@ -804,6 +806,8 @@
     <script src="/js/home/composer-controls.js"></script>
     <script src="/js/home/welink-threads.js"></script>
     <script src="/js/home/desktop-agents.js"></script>
+    <script src="/js/shared/quota-trend-chart.js"></script>
+    <script src="/js/shared/desktop-quota-bar.js"></script>
     <script src="/js/home/agent-discussion.js"></script>
     <script src="/js/home/dragon-claw-skills.js"></script>
     <script src="/js/home/home-page.js"></script>

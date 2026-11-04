@@ -37,6 +37,12 @@ function connect(address, port = 443) {
 
 async function probe() {
     const checkedAt = new Date().toISOString();
+    if (process.env.HUAWEI_INTRANET === '1' || process.env.HUAWEI_INTRANET === 'true') {
+        return { intranet: true, host: INTRANET_HOST, checkedAt, forced: true };
+    }
+    if (process.env.HUAWEI_INTRANET === '0' || process.env.HUAWEI_INTRANET === 'false') {
+        return { intranet: false, host: INTRANET_HOST, checkedAt, reason: 'FORCED_EXTRANET', hint: EXTRANET_HINT, forced: true };
+    }
     try {
         const { address } = await (overrides.lookup || lookup)(INTRANET_HOST);
         await (overrides.connect || connect)(address, 443);
@@ -56,10 +62,37 @@ async function checkIntranet({ refresh = false } = {}) {
     return pending;
 }
 
+/**
+ * 判断当前是否由于处于华为内网环境（或显式配置）而禁用微信助理的所有功能。
+ * 华为内网下无法访问微信外网服务（https://ilinkai.weixin.qq.com），自动禁用收发消息、长轮询、扫码授权与推送。
+ * @returns {Promise<{ disabled: boolean, intranet?: boolean, reason?: string, hint?: string }>}
+ */
+async function isWeixinDisabled({ refresh = false } = {}) {
+    if (typeof overrides.isWeixinDisabled === 'function') {
+        return overrides.isWeixinDisabled({ refresh });
+    }
+    if (process.env.DISABLE_WEIXIN === '1' || process.env.DISABLE_WEIXIN === 'true') {
+        return { disabled: true, intranet: false, reason: 'ENV_DISABLED', hint: '微信助理功能已通过环境变量（DISABLE_WEIXIN）禁用。' };
+    }
+    if (process.env.DISABLE_WEIXIN_ON_INTRANET === '0' || process.env.DISABLE_WEIXIN_ON_INTRANET === 'false') {
+        return { disabled: false, intranet: false };
+    }
+    const net = await checkIntranet({ refresh });
+    if (net.intranet) {
+        return {
+            disabled: true,
+            intranet: true,
+            reason: 'INTRANET_DISABLED',
+            hint: '华为内网环境无法访问微信外网服务（ilinkai.weixin.qq.com），微信助理已自动停用。'
+        };
+    }
+    return { disabled: false, intranet: false };
+}
+
 function setOverridesForTest(next = {}) {
     overrides = next;
     cached = null;
     pending = null;
 }
 
-module.exports = { INTRANET_HOST, EXTRANET_HINT, checkIntranet, setOverridesForTest };
+module.exports = { INTRANET_HOST, EXTRANET_HINT, checkIntranet, isWeixinDisabled, setOverridesForTest };

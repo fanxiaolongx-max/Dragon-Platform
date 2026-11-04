@@ -3,7 +3,7 @@
  const API='/api/desktop-agents';
  // 桌面 Agent 成员表：新增桌面连接器只需加在这里；DragonTAC 默认全员即这里的全部成员
  const DESKTOP_AGENTS={codex:'Codex',claudecode:'Claude Code',antigravity:'Antigravity',workbuddy:'WorkBuddy'},DESKTOP_IDS=Object.keys(DESKTOP_AGENTS);
- let enabled=false,locked=false,modeSaving=false,root,epoch=0,currentSessionId=null,activeJob=null,tracking=null,identity='',availabilityRevision=0,availabilityRequest=null;
+ let enabled=false,locked=false,modeSaving=false,root,epoch=0,currentSessionId=null,activeJob=null,tracking=null,identity='',availabilityRevision=0,availabilityRequest=null,weixinDisabled=false;
  let availability={available:false,reason:'checking'};
  const readiness=Object.fromEntries([...DESKTOP_IDS,'weixin','welink-cli','welink','netcare'].map(id=>[id,{ready:false,reason:'checking'}]));
 
@@ -67,10 +67,14 @@
      next[id]={ready:!reason,reason,detail:p?.reason||''};
     }
    }else for(const id of DESKTOP_IDS)next[id]={ready:false,reason:'error'};
-   if(channels.status==='fulfilled')for(const id of ['weixin','welink']){
-    const channel=(channels.value.items||[]).find(item=>item.id===id);
-    const ready=channel?.connected===true&&channel.health?.reason!=='readonly'&&channel.health?.reason!=='disabled';
-    next[id]={ready,reason:ready?'':'offline'};
+   if(channels.status==='fulfilled'){
+    weixinDisabled=Boolean(channels.value?.network?.weixinDisabled||channels.value?.summary?.weixin?.disabledByIntranet);
+    for(const id of ['weixin','welink']){
+     const channel=(channels.value.items||[]).find(item=>item.id===id);
+     const ready=(id==='weixin'&&weixinDisabled)?false:(channel?.connected===true&&channel.health?.reason!=='readonly'&&channel.health?.reason!=='disabled');
+     next[id]={ready,reason:(id==='weixin'&&weixinDisabled)?'disabled':(ready?'':'offline')};
+    }
+    if(weixinDisabled)connectors.weixin=false;
    }
    if(version===availabilityRevision&&account===who()){
     Object.assign(readiness,next);
@@ -388,7 +392,7 @@ ${DESKTOP_IDS.map(id=>`         <div class="dc-connector-item" data-key="${id}">
              <span class="dc-switch-track"><span class="dc-switch-thumb"></span></span>
            </label>
          </div>`).join('\n')}
-         <div class="dc-connector-item" data-key="weixin">
+         ${weixinDisabled ? '' : `<div class="dc-connector-item" data-key="weixin">
            <div class="dc-connector-item-main">
              <span class="dc-connector-item-ico dc-circle-wx">${WX_SVG}</span>
              <span class="dc-connector-item-name">${L('微信','WeChat')}</span>
@@ -397,7 +401,7 @@ ${DESKTOP_IDS.map(id=>`         <div class="dc-connector-item" data-key="${id}">
              <input type="checkbox" data-connector="weixin">
              <span class="dc-switch-track"><span class="dc-switch-thumb"></span></span>
            </label>
-         </div>
+         </div>`}
          ${['welink-cli','welink','netcare'].map(key=>`<div class="dc-connector-item" data-key="${key}">
            <div class="dc-connector-item-main">
              <span class="dc-connector-item-ico ${key==='netcare'?'dc-circle-netcare':'dc-circle-wl'}">${key==='netcare'?NETCARE_SVG:WL_SVG}</span>

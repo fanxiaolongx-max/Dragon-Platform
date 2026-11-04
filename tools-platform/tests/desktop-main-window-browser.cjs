@@ -60,8 +60,8 @@ app.whenReady().then(async () => {
         win().setBounds({ x: 100, y: 100, width: 1000, height: 700 });
         win().show();win().focus();await wait(250);
         const mouse = async (command, args) => { await run('peekaboo', [command, ...args, '--pid', String(process.pid), '--json']);await wait(350); };
-        for (const [context, y] of [['home',22], ['hub',22], ['graph',22]]) {
-            await js(`document.body.classList.toggle('v2-hub-open',${context==='hub'});document.querySelector('.ai-kg-overlay')?.remove();${context==='graph' ? "document.body.insertAdjacentHTML('beforeend','<div class=\"ai-kg-overlay\" style=\"position:fixed;inset:0\"></div>')" : ''}`);
+        for (const [context, y] of [['home',22], ['chat',22], ['hub',22], ['graph',22]]) {
+            await js(`document.body.classList.toggle('v2-hub-open',${context==='hub'});document.body.classList.toggle('dc-chatting',${context==='chat'});document.querySelector('.ai-kg-overlay')?.remove();${context==='graph' ? "document.body.insertAdjacentHTML('beforeend','<div class=\"ai-kg-overlay\" style=\"position:fixed;inset:0\"></div>')" : ''}`);
             const before = win().getBounds();
             await mouse('drag', ['--from-coords', `${before.x+500},${before.y+y}`, '--to-coords', `${before.x+560},${before.y+y+40}`, '--duration', '600']);
             const moved = win().getBounds();
@@ -91,6 +91,26 @@ app.whenReady().then(async () => {
         assert.equal(region.region,'drag');
         assert.equal(region.hit,true,mode+' top strip stays above page content');
     }
+    // 对话中标题栏上方的留白（10–28px）同样可拖，与欢迎页一致；进入工具中心等页面时让给各自的拖动区
+    for (const [mode, expected] of [['', true], ['dc-chatting', true], ['dc-chatting v2-side-collapsed', true], ['v2-hub-open', false], ['v2-tool-open', false]]) {
+        const gutter = await js(`(() => { document.body.className=${JSON.stringify(mode)};
+            const strip=document.querySelector('.desktop-drag-welcome'),after=getComputedStyle(strip,'::after');
+            return {display:after.display,region:after.getPropertyValue('-webkit-app-region'),top:parseFloat(after.top),bottom:parseFloat(after.top)+parseFloat(after.height)}; })()`);
+        assert.equal(gutter.display !== 'none', expected, (mode || 'welcome') + ' title gutter drag region');
+        if (expected) { assert.equal(gutter.region, 'drag'); assert.ok(gutter.top <= 10 && gutter.bottom >= 28, (mode || 'welcome') + ' gutter reaches the chat header'); }
+    }
+    // 右侧边栏（工作区 / 桌面 Agent 会话 / 文件预览）与浮动预览：自己的按钮都在窗口三键下方，不再挨着或被盖住
+    const sideBar = await js(`(() => {
+        document.body.insertAdjacentHTML('beforeend','<aside class="home-workspace-panel" id="sidePanel" style="position:fixed;top:0;right:0;bottom:0;width:320px;box-sizing:border-box"><header style="display:flex;justify-content:space-between"><b>工作区</b><button id="panelClose">×</button></header></aside><section class="ai-file-preview ai-file-preview--floating" id="floatPreview" style="position:fixed;right:16px;width:300px;bottom:18px"><header><button id="previewClose">×</button></header></section>');
+        const controls=document.querySelector('.desktop-controls').getBoundingClientRect();
+        const below=id=>document.getElementById(id).getBoundingClientRect().top>=controls.bottom+4;
+        const caption=getComputedStyle(document.getElementById('sidePanel'),'::before').getPropertyValue('-webkit-app-region');
+        const result={panelClose:below('panelClose'),previewClose:below('previewClose'),caption};
+        document.getElementById('sidePanel').remove();document.getElementById('floatPreview').remove();
+        return result; })()`);
+    assert.equal(sideBar.panelClose, true, 'side panel close sits below the window buttons');
+    assert.equal(sideBar.previewClose, true, 'floating file preview starts below the window buttons');
+    assert.equal(sideBar.caption, 'drag', 'the reserved side panel caption row drags the window');
     await js('document.body.className=""');
     const hit = await js(`(() => { const b=document.getElementById('sideBtn'),r=b.getBoundingClientRect();return [r.top+1,r.top+r.height/2,r.bottom-1].every(y=>b.contains(document.elementFromPoint(r.x+r.width/2,y))); })()`);
     assert.equal(hit,true,'the entire sidebar button is clickable, including its top edge');

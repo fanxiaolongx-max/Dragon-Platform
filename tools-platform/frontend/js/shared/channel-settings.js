@@ -192,6 +192,12 @@
             api('GET', '/status'),
             fetch('/api/ai/models', { headers: authHeaders() }).then(res => (res.ok ? res.json() : { items: [] })).catch(() => ({ items: [] }))
         ]);
+        try {
+            const avail = await fetch('/api/channels/available', { headers: authHeaders(), cache: 'no-store' }).then(r => r.json());
+            view.networkPolicy = avail.network || { weixinDisabled: Boolean(avail?.summary?.weixin?.disabledByIntranet) };
+        } catch (_) {
+            view.networkPolicy = { weixinDisabled: false };
+        }
         view.config = config;
         view.draft = clone(config);
         view.draft.sk = '';
@@ -298,6 +304,18 @@
 
     function renderWeixinStatusHtml() {
         const status = view.status || {};
+        const isIntranetDisabled = Boolean(status.disabledByIntranet || view.networkPolicy?.weixinDisabled);
+        if (isIntranetDisabled) {
+            return `
+                <div class="nch-status">
+                    <span class="nch-pill bad"><i></i>${esc(L('华为内网已自动禁用', 'Disabled on Huawei intranet'))}</span>
+                    <span class="nch-pill"><i></i>${esc(L('长轮询：已停止', 'Polling: stopped'))}</span>
+                    <span class="nch-muted">${esc(status.disabledHint || L('华为内网无法访问微信外网服务（ilinkai.weixin.qq.com）', 'Cannot reach WeChat on Huawei intranet'))}</span>
+                </div>
+                <div class="nch-alert" style="background:#fef3c7;border-color:#fde68a;color:#92400e;margin-top:12px">
+                    🌐 <strong>${esc(L('华为内网环境提示', 'Huawei Intranet Notice'))}</strong>：${esc(status.disabledHint || L('当前系统处于华为内网环境，无法连接微信外网服务器（ilinkai.weixin.qq.com）。微信助理所有功能（长轮询、扫码登录、主动推送等）已自动禁用。如需在平台中使用频道推送与协同，请使用 WeLink 频道。', 'The system is running on the Huawei intranet and cannot reach the WeChat server (ilinkai.weixin.qq.com). All WeChat assistant features are automatically disabled. Please use WeLink instead.'))}
+                </div>`;
+        }
         const summary = status.summary || {};
         const running = Boolean(status.runtime && status.runtime.state !== 'idle');
         const busy = view.busy;
@@ -405,21 +423,23 @@
     function renderWeixinConnectionCard() {
         const d = view.draft;
         const qr = view.qr;
+        const disabled = Boolean(view.status?.disabledByIntranet || view.networkPolicy?.weixinDisabled);
         return `
             <h4>🔌 ${esc(L('连接配置', 'Connection'))}</h4>
             <p class="nch-desc">${esc(L('平台通过微信 ClawBot（iLink 协议，与 OpenClaw 微信插件同一套接口）接入个人微信：可直接导入本机 OpenClaw 已登录的 bot，或在这里扫码登录一个。配置按数据空间隔离。', 'The platform connects to personal WeChat via ClawBot (iLink, the same API as the OpenClaw WeChat plugin): import the bot already linked in local OpenClaw, or scan to link one here. Settings are for this platform.'))}</p>
-            <label class="nch-switch" style="margin-bottom:12px"><input type="checkbox" data-path="enabled" ${d.enabled ? 'checked' : ''}> ${esc(L('启用微信助理（保存后自动连接，平台重启后自动恢复）', 'Enable WeChat assistant (connects after saving and on platform start)'))}</label>
+            ${disabled ? `<div class="nch-alert" style="background:#fef3c7;border-color:#fde68a;color:#92400e;margin-bottom:12px">🌐 <strong>${esc(L('华为内网环境提示', 'Huawei Intranet Notice'))}</strong>：${esc(view.status?.disabledHint || L('当前检测到华为内网环境，无法访问微信外网服务（ilinkai.weixin.qq.com），微信配置与连接已自动锁定禁用。', 'Huawei intranet environment detected; WeChat servers unreachable, assistant configuration locked.'))}</div>` : ''}
+            <label class="nch-switch" style="margin-bottom:12px;${disabled ? 'opacity:0.6;cursor:not-allowed' : ''}"><input type="checkbox" data-path="enabled" ${d.enabled && !disabled ? 'checked' : ''} ${disabled ? 'disabled' : ''}> ${esc(disabled ? L('启用微信助理（华为内网已自动禁用）', 'Enable WeChat assistant (disabled on Huawei intranet)') : L('启用微信助理（保存后自动连接，平台重启后自动恢复）', 'Enable WeChat assistant (connects after saving and on platform start)'))}</label>
             <div class="nch-grid">
-                ${field('Bot Token', `<input type="password" data-path="token" value="" maxlength="500" autocomplete="new-password" placeholder="${esc(view.config.hasToken ? L(`已保存 ${view.config.maskedToken}，留空不修改`, `Saved ${view.config.maskedToken}; leave blank to keep`) : L('未设置，建议扫码或从 OpenClaw 导入', 'Not set; scan or import from OpenClaw'))}">`, L('只在服务端保存，界面与日志只显示掩码', 'Stored server-side only; masked in UI and logs'))}
-                ${field(L('接口地址', 'API base URL'), input('baseUrl', d.baseUrl, 'maxlength="500"'), L('扫码或导入时自动填写，一般无需修改', 'Filled by login/import; usually unchanged'))}
-                ${field('Bot Agent', input('botAgent', d.botAgent, 'maxlength="120"'), L('上报给微信的客户端标识（Name/Version）', 'Client identity reported to WeChat (Name/Version)'))}
+                ${field('Bot Token', `<input type="password" data-path="token" value="" maxlength="500" autocomplete="new-password" ${disabled ? 'disabled ' : ''}placeholder="${esc(view.config.hasToken ? L(`已保存 ${view.config.maskedToken}，留空不修改`, `Saved ${view.config.maskedToken}; leave blank to keep`) : L('未设置，建议扫码或从 OpenClaw 导入', 'Not set; scan or import from OpenClaw'))}">`, L('只在服务端保存，界面与日志只显示掩码', 'Stored server-side only; masked in UI and logs'))}
+                ${field(L('接口地址', 'API base URL'), input('baseUrl', d.baseUrl, `${disabled ? 'disabled ' : ''}maxlength="500"`), L('扫码或导入时自动填写，一般无需修改', 'Filled by login/import; usually unchanged'))}
+                ${field('Bot Agent', input('botAgent', d.botAgent, `${disabled ? 'disabled ' : ''}maxlength="120"`), L('上报给微信的客户端标识（Name/Version）', 'Client identity reported to WeChat (Name/Version)'))}
             </div>
             <div class="nch-row">
-                <button type="button" class="nch-btn primary" data-action="qr" ${qr && qr.running ? 'disabled' : ''}>📱 ${esc(qr && qr.running ? L('等待扫码…', 'Waiting for scan…') : L('扫码登录', 'Scan to link'))}</button>
-                ${view.config.hasToken ? `<button type="button" class="nch-btn danger" data-action="clear-token">${esc(L('清除已保存 Token', 'Clear saved token'))}</button>` : ''}
-                <span class="nch-muted">${esc(L('用手机微信扫码并确认，成功后自动保存凭据并连接。', 'Scan with WeChat and confirm; credentials are saved and connected automatically.'))}</span>
+                <button type="button" class="nch-btn primary" data-action="qr" ${qr && qr.running || disabled ? 'disabled' : ''}>📱 ${esc(qr && qr.running ? L('等待扫码…', 'Waiting for scan…') : L('扫码登录', 'Scan to link'))}</button>
+                ${view.config.hasToken ? `<button type="button" class="nch-btn danger" data-action="clear-token" ${disabled ? 'disabled' : ''}>${esc(L('清除已保存 Token', 'Clear saved token'))}</button>` : ''}
+                <span class="nch-muted">${esc(disabled ? L('内网环境下无法与微信服务器建立连接，扫码已停用。', 'Cannot connect to WeChat server on intranet; QR disabled.') : L('用手机微信扫码并确认，成功后自动保存凭据并连接。', 'Scan with WeChat and confirm; credentials are saved and connected automatically.'))}</span>
             </div>
-            ${qr ? renderQr(qr) : ''}`;
+            ${qr && !disabled ? renderQr(qr) : ''}`;
     }
 
     function renderConnectionCard() {
@@ -639,7 +659,11 @@ await channels.push({ channel: '${view.channel}', text: '告警：xxx', targets:
     function render() {
         const content = view.content;
         if (!content || !view.draft) return;
-        const tabs = `<div class="nch-tabs">${CHANNEL_TABS.map(tab => `<button type="button" class="nch-tab ${tab.id === view.channel ? 'active' : ''}" data-action="channel-tab" data-channel="${tab.id}">${tab.icon} ${esc(L(tab.label[0], tab.label[1]))}${tab.id === view.channel && !PANELS[tab.id] ? `<i class="${view.status?.connected ? 'ok' : ''}"></i>` : ''}</button>`).join('')}</div>`;
+        const tabs = `<div class="nch-tabs">${CHANNEL_TABS.map(tab => {
+            const isWxDisabled = tab.id === 'weixin' && (view.status?.disabledByIntranet || view.networkPolicy?.weixinDisabled);
+            const badge = isWxDisabled ? ` <span class="nch-pill warn" style="padding:1px 6px;font-size:10px;margin-left:4px">${esc(L('内网禁用', 'Disabled'))}</span>` : '';
+            return `<button type="button" class="nch-tab ${tab.id === view.channel ? 'active' : ''}" data-action="channel-tab" data-channel="${tab.id}">${tab.icon} ${esc(L(tab.label[0], tab.label[1]))}${badge}${tab.id === view.channel && !PANELS[tab.id] ? `<i class="${view.status?.connected ? 'ok' : ''}"></i>` : ''}</button>`;
+        }).join('')}</div>`;
         if (isPanel()) {
             content.innerHTML = `<div class="nch">${tabs}<div data-role="panel-root" style="display:flex;flex-direction:column;gap:14px"></div></div>`;
             window[PANELS[view.channel].global].render(content.querySelector('[data-role="panel-root"]'));

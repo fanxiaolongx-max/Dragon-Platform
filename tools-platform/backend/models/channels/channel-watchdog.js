@@ -318,6 +318,25 @@ async function inspectWeixin(tenantId) {
         }
 
         const status = await weixin.getStatus(tenantId);
+        if (status.disabledByIntranet) {
+            tracker.consecutiveFailures = 0;
+            tracker.firstFailedAt = null;
+            tracker.lastError = null;
+            return {
+                id: 'weixin',
+                name: '微信',
+                tenantId,
+                enabled: false,
+                configured: Boolean(config.token),
+                disabledByIntranet: true,
+                status: 'disabled',
+                state: 'disabled',
+                stateLabel: '内网已禁用',
+                heartbeat: { healthy: false, type: 'iLink Long-Polling', lastHeartbeatAt: null },
+                lastCheckAt: new Date().toISOString(),
+                hint: status.disabledHint || '华为内网环境无法访问微信外网服务，已自动禁用'
+            };
+        }
         let diag = null;
         try {
             diag = await weixin.getDiagnostics(tenantId);

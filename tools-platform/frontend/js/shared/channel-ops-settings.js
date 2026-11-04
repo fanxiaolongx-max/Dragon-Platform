@@ -80,7 +80,7 @@
             <p class="nch-desc">${esc(L('群画像告诉 AI 这个群是谁、关心什么；互动人设决定成员 @助手 时的语气与小活动。微信只能选联系人（不能推群），对方近期给助理发过消息才能收到推送。', 'The profile tells the AI who the group is; the persona shapes replies when members @mention the assistant. WeChat supports contacts only.'))}</p>
             <div class="nch-row" style="margin-top:0">
                 <button type="button" class="nch-btn" data-ops-action="add-group" data-channel="welink">${esc(L('添加 WeLink 群', 'Add WeLink group'))}</button>
-                <button type="button" class="nch-btn" data-ops-action="add-group" data-channel="weixin">${esc(L('添加微信联系人', 'Add WeChat contact'))}</button>
+                ${state.weixinDisabled ? '' : `<button type="button" class="nch-btn" data-ops-action="add-group" data-channel="weixin">${esc(L('添加微信联系人', 'Add WeChat contact'))}</button>`}
             </div>
             <div class="nch-table-wrap"><table class="nch-table">
                 <thead><tr><th>${esc(L('频道', 'Channel'))}</th><th>${esc(L('名称', 'Name'))}</th><th>${esc(L('群画像', 'Profile'))}</th><th>${esc(L('互动人设', 'Persona'))}</th><th></th></tr></thead>
@@ -105,7 +105,7 @@
             <div class="nch-text nch-muted" style="margin-top:6px;white-space:pre-wrap;color:#334155">${esc((plan.contentMode === 'ai' ? plan.prompt : plan.template).slice(0, 300))}</div>
             <div class="nch-row">
                 <button type="button" class="nch-btn primary" data-ops-action="run-draft" data-id="${esc(plan.id)}" ${state.busy ? 'disabled' : ''}>${esc(state.busy === `run-${plan.id}` ? L('生成中…', 'Generating…') : L('立即生成草稿', 'Generate draft'))}</button>
-                <button type="button" class="nch-btn" data-ops-action="test-send" data-channel="weixin" data-id="${esc(plan.id)}" ${state.busy ? 'disabled' : ''}>${esc(L('测试推送到微信…', 'Test to WeChat…'))}</button>
+                ${state.weixinDisabled ? '' : `<button type="button" class="nch-btn" data-ops-action="test-send" data-channel="weixin" data-id="${esc(plan.id)}" ${state.busy ? 'disabled' : ''}>${esc(L('测试推送到微信…', 'Test to WeChat…'))}</button>`}
                 <button type="button" class="nch-btn" data-ops-action="test-send" data-channel="welink" data-id="${esc(plan.id)}" ${state.busy ? 'disabled' : ''}>${esc(L('测试推送到 WeLink…', 'Test to WeLink…'))}</button>
                 <button type="button" class="nch-btn" data-ops-action="toggle-plan" data-id="${esc(plan.id)}">${esc(plan.enabled ? L('停用定时', 'Pause') : L('启用定时', 'Enable'))}</button>
                 <button type="button" class="nch-btn" data-ops-action="edit-plan" data-id="${esc(plan.id)}">${esc(L('编辑', 'Edit'))}</button>
@@ -244,6 +244,14 @@
     async function load() {
         const root = state.root;
         const requestSeq = ++state.runsRequestSeq;
+        if (state.weixinDisabled === undefined) {
+            try {
+                const nav = await fetch('/api/channels/available', { headers: authHeaders() }).then(r => r.json());
+                state.weixinDisabled = Boolean(nav?.network?.weixinDisabled || nav?.summary?.weixin?.disabledByIntranet);
+            } catch (_) {
+                state.weixinDisabled = false;
+            }
+        }
         const [data, library] = await Promise.all([request('GET', `/overview?runPage=${state.runsPage}&runPageSize=${RUN_PAGE_SIZE}`), state.library.presets.length ? state.library : request('GET', '/library').catch(() => state.library)]);
         if (requestSeq !== state.runsRequestSeq || root !== state.root || !root.isConnected) return;
         state.data = data;

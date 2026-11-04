@@ -9,7 +9,7 @@ process.env.TOOLS_DESKTOP_RUNTIME='1';
 const db=require('../backend/models/app-db');
 const repo=require('../backend/models/pet-quota-history-repository');
 const {runWithTenant,tenantMiddleware}=require('../backend/models/tenant-context');
-const chart=require('../desktop-pet/quota-trend-chart');
+const chart=require('../frontend/js/shared/quota-trend-chart');
 const DAY=86400000;
 const quota=(at,remaining=80,reset=at+DAY)=>({codex:{status:'live',updatedAt:at,
     accountEmail:'must-not-save@example.test',token:'must-not-save',groups:[{id:'codex',label:'Codex',windows:[

@@ -56,13 +56,17 @@ async function record(owner, device, quotas, now = Date.now()) {
     await db.run('DELETE FROM desktop_pet_quota_samples WHERE owner=? AND device=? AND sampled_at<?', [...keys, now - 90 * DAY]);
     return rows.length;
 }
+// device 为 ANY_DEVICE 时合并本账号所有安装的采样（同一账号的额度，网页额度栏用）；按时间桶取最后一点，重复采样自然合并
+const ANY_DEVICE = '*';
 async function history(owner, device, provider, days = 1, now = Date.now()) {
-    const keys = scope(owner, device);
+    const any = device === ANY_DEVICE, keys = any ? [String(owner ?? '')] : scope(owner, device);
+    if (any && owner == null) throw new Error('INVALID_QUOTA_SCOPE');
+    const where = any ? 'owner=?' : 'owner=? AND device=?';
     if (!PROVIDERS.includes(provider) || !Number.isFinite(days) || days < 1 || days > 90) throw new Error('INVALID_QUOTA_QUERY');
     await ensureReady();
     const from = now - days * DAY;
     const coverage = await db.get(`SELECT MIN(sampled_at) AS firstSampleAt, MAX(sampled_at) AS lastSampleAt
-        FROM desktop_pet_quota_samples WHERE owner=? AND device=? AND provider=?`, [...keys, provider]);
+        FROM desktop_pet_quota_samples WHERE ${where} AND provider=?`, [...keys, provider]);
     // Keep the last sample in each time bucket, separately for each reset period.
     // At most ~720 points per series; resets survive downsampling.
     const step = Math.max(60000, Math.ceil(days * DAY / 720));
@@ -71,7 +75,7 @@ async function history(owner, device, provider, days = 1, now = Date.now()) {
         ROW_NUMBER() OVER (PARTITION BY group_id,window_id,resets_at,CAST((sampled_at-?)/? AS INTEGER)
             ORDER BY sampled_at DESC) AS rank
         FROM desktop_pet_quota_samples
-        WHERE owner=? AND device=? AND provider=? AND sampled_at>=? AND sampled_at<=?
+        WHERE ${where} AND provider=? AND sampled_at>=? AND sampled_at<=?
     ) WHERE rank=1 ORDER BY sampled_at`, [from, step, ...keys, provider, from, now]);
     const groups = new Map();
     for (const row of rows) {
@@ -82,4 +86,4 @@ async function history(owner, device, provider, days = 1, now = Date.now()) {
     }
     return {provider, from, to:now, days, step, ...coverage, series:[...groups.values()]};
 }
-module.exports = {ensureReady, record, history, samples, identifier};
+module.exports = {ensureReady, record, history, samples, identifier, ANY_DEVICE};
