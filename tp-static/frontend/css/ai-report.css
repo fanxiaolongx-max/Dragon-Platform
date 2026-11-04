@@ -8,7 +8,8 @@ body.ai-report-page{margin:0;background:var(--air-page);color:var(--air-ink);fon
 .air-toolbar{position:sticky;top:var(--navbar-h,52px);z-index:30;margin-top:var(--navbar-h,52px);height:var(--air-toolbar-h);box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:0 18px;background:#102b47;color:#e6eef7;box-shadow:0 2px 8px #102b4718}
 .air-brand{font-size:14px;letter-spacing:.3px;margin-right:6px;white-space:nowrap}
 .air-month{display:flex;align-items:center;gap:6px;font-size:12px;color:#b9cadb}
-.air-month input{height:32px;border:1px solid #3b5d7e;border-radius:6px;background:#173a5c;color:#fff;padding:0 8px;font:inherit;color-scheme:dark}
+/* 月份输入与编辑器表单统一亮色，包括原生月份选择器。 */
+.air-month input{height:32px;border:1px solid var(--air-line);border-radius:6px;background:var(--air-card);color:var(--air-ink);padding:0 8px;font:inherit;color-scheme:light}
 .air-spacer{flex:1}
 .air-toolbar>button,.air-menu>summary{height:32px;box-sizing:border-box;display:inline-flex;align-items:center;gap:6px;padding:0 12px;border:1px solid #3b5d7e;border-radius:6px;background:transparent;color:#e6eef7;font-size:13px;white-space:nowrap;list-style:none;cursor:pointer}
 .air-menu>summary::-webkit-details-marker{display:none}

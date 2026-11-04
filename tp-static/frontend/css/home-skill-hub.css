@@ -47,16 +47,16 @@ html[data-ui="v2"] body.v2-hub-open .home-main {
 
 .v2-hub-add { position: relative; }
 .v2-hub-menu {
-    position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; min-width: 190px; padding: 6px;
+    position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; width: max-content; min-width: 220px; max-width: calc(100vw - 24px); padding: 6px;
     border: 1px solid var(--v2-line); border-radius: 12px; background: var(--v2-pop); box-shadow: var(--v2-shadow-pop);
 }
 .v2-hub-menu[hidden] { display: none; }
 .v2-hub-menu > button, .v2-hub-menu > a {
     display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px;
-    background: none; color: var(--v2-ink); font: inherit; font-size: 13.5px; text-align: left; text-decoration: none; cursor: pointer;
+    background: none; color: var(--v2-ink); font: inherit; font-size: 13.5px; text-align: left; text-decoration: none; white-space: nowrap; cursor: pointer;
 }
 .v2-hub-menu > :hover { background: var(--v2-hover); }
-.v2-hub-menu .v2-ico { width: 16px; height: 16px; color: var(--v2-ink2); }
+.v2-hub-menu .v2-ico { width: 16px; height: 16px; flex: none; color: var(--v2-ink2); }
 .v2-hub-menu-emoji { width: 16px; text-align: center; }
 
 .v2-hub-featured { margin-bottom: 26px; }

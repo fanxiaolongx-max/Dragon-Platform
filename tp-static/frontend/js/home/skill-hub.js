@@ -199,6 +199,14 @@
         if (!menu) return;
         const show = force ?? menu.hidden;
         menu.hidden = !show;
+        if (show) {
+            // 窄屏工具栏会折行；菜单仍贴近按钮，并保持在当前主区内。
+            menu.style.transform = '';
+            const rect = menu.getBoundingClientRect(), host = root.closest('.home-main')?.getBoundingClientRect();
+            const left = Math.max(12, (host?.left || 0) + 12), right = Math.min(innerWidth - 12, (host?.right || innerWidth) - 12);
+            const shift = rect.left < left ? left - rect.left : rect.right > right ? right - rect.right : 0;
+            if (shift) menu.style.transform = `translateX(${shift}px)`;
+        }
         root.querySelector('[data-hub-do="addMenu"]')?.setAttribute('aria-expanded', String(show));
     }
 
@@ -320,11 +328,22 @@
         });
         // 侧栏其他入口（新建对话、频道、会话列表……）或切换对话/工具模式时收起
         document.getElementById('homeSidebar')?.addEventListener('click', event => {
-            if (!state.open || event.target.closest('[data-v2-action="skillHub"], .v2-userbar, .v2-side-tools, #v2DiscoverBtn')) return;
+            // 弹窗/菜单入口（包括新版菜单转点的旧侧栏按钮）不属于页面导航。
+            if (!state.open || event.target.closest('[data-v2-action="skillHub"], .v2-userbar, .v2-side-tools, [aria-haspopup], #friendLinksManageBtn')) return;
             if (event.target.closest('button, a, [role="button"], [data-conversation-id]')) close();
         });
         window.addEventListener('home:mode', close);
-        document.addEventListener('keydown', event => { if (event.key === 'Escape' && state.open && !document.querySelector('.v2-pop:not([hidden]), dialog[open]')) close(); });
+        // 在捕获阶段判断顶层弹窗，避免它先处理 Escape 并消失后，同一次按键又关闭底下的工具中心。
+        document.addEventListener('keydown', event => {
+            if (event.key !== 'Escape' || event.defaultPrevented || !state.open) return;
+            const overlayOpen = [...document.querySelectorAll('.v2-pop.is-open, dialog[open], [role="dialog"], [role="alertdialog"], [aria-modal="true"], .skill-history-overlay')].some(node => {
+                if (node.matches('.v2-pop, .v2-messages')) return node.classList.contains('is-open');
+                return node.getClientRects().length > 0 && getComputedStyle(node).visibility !== 'hidden';
+            });
+            if (overlayOpen) return;
+            if (root.querySelector('.v2-hub-menu:not([hidden])')) { toggleMenu(false); return; }
+            close();
+        }, true);
         ['skills:changed', 'home:tools-updated', 'home:capabilities'].forEach(name => window.addEventListener(name, () => { if (state.open) setTimeout(renderList, 0); }));
         window.addEventListener('tools:languagechange', () => { if (state.open) render(); });
         const syncHash = () => {

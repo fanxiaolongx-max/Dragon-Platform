@@ -1613,3 +1613,50 @@ html[data-ui="v2"][data-theme="dark"] .wl-scheduled-status.is-failed { backgroun
 html[data-ui="v2"][data-theme="dark"] .wl-scheduled-status.is-cancelled { background: var(--v2-chip) !important; color: var(--v2-ink2) !important; border-color: var(--v2-line-strong) !important; }
 html[data-ui="v2"][data-theme="dark"] .wl-scheduled-copy .wl-scheduled-issue { color: #fda4af !important; }
 html[data-ui="v2"][data-theme="dark"] .wl-task { background: var(--v2-pop); border-color: var(--v2-line); }
+
+/* 工具市场固定亮色，与工具内容一样不随平台主题改变。 */
+#toolMarketModal {
+    --market-ink: #242424; --market-muted: #626262; --market-line: #e2e2e2; --market-soft: #f5f5f5;
+    color: var(--market-ink); background: rgba(24,24,24,.16); backdrop-filter: blur(5px);
+}
+#toolMarketModal, #toolMarketModal :is(input,button,select,textarea) { color-scheme: light !important; }
+#toolMarketModal .tool-market-dialog { background: #fff; background-image: none; color: var(--market-ink); border-color: var(--market-line); box-shadow: 0 24px 72px #0002; }
+#toolMarketModal .tool-import-head { border-color: var(--market-line); }
+#toolMarketModal :is(.tool-import-title,.tool-market-title) { color: var(--market-ink); font-weight: 650; }
+#toolMarketModal :is(.tool-import-subtitle,.tool-market-toolbar,.tool-market-copy p,.tool-market-meta,.tool-market-message,.tool-market-empty,.tool-market-log,.tool-market-source-note) { color: var(--market-muted); }
+#toolMarketModal .tool-market-meta { font-size: 10px; line-height: 1.6; }
+#toolMarketModal .tool-market-card { background: #fff; border-color: var(--market-line); opacity: 1; filter: none; box-shadow: none; }
+#toolMarketModal .tool-market-card.is-actionable { background: #fafafa; border-color: #969696; box-shadow: none; }
+#toolMarketModal .tool-market-card:is(.is-conflict,.is-incompatible) { border-style: dashed; border-color: #8c8c8c; }
+#toolMarketModal .tool-market-card:hover, #toolMarketModal .tool-market-card:focus-within { background: var(--market-soft); border-color: #a3a3a3; box-shadow: 0 3px 12px #00000008; transform: none; }
+#toolMarketModal .tool-market-icon { background: var(--market-soft); filter: grayscale(1); }
+#toolMarketModal :is(.tool-market-status,.tool-market-trust,.tool-market-badge,.tool-market-divider span) { background: var(--market-soft); color: #454545; border: 1px solid var(--market-line); box-shadow: none; }
+#toolMarketModal :is(.tool-market-status.conflict,.tool-market-status.incompatible,.tool-market-badge.conflict) { border-style: dashed; }
+#toolMarketModal .tool-market-warning { color: #454545 !important; font-weight: 600; }
+#toolMarketModal .tool-market-divider { color: var(--market-muted); }
+#toolMarketModal .tool-market-divider::before, #toolMarketModal .tool-market-divider::after { background: var(--market-line); }
+#toolMarketModal input { accent-color: #333; }
+#toolMarketModal .tool-market-source input:is([type=text],[type=url]) { background: #fff; color: var(--market-ink); border-color: #cecece; }
+#toolMarketModal :is(input,button,summary):focus-visible { outline: 2px solid #555; outline-offset: 2px; }
+#toolMarketModal :is(.tool-import-btn,.tool-import-close) { background: var(--market-soft); color: var(--market-ink); border-color: var(--market-line); font-weight: 550; }
+#toolMarketModal .tool-import-btn.primary { background: #292929; background-image: none; border-color: #292929; color: #fff; }
+#toolMarketModal :is(.tool-import-btn,.tool-import-close):hover:not(:disabled) { background: #e9e9e9; filter: none; }
+#toolMarketModal .tool-import-btn.primary:hover:not(:disabled) { background: #444; }
+#toolMarketModal .tool-import-btn:disabled { background: #eee; color: #888; border-color: #ddd; opacity: 1; cursor: default; }
+#toolMarketModal #toolMarketSettingsBtn { min-width: 36px; width: 36px; padding: 0; }
+#toolMarketModal :is(.tool-market-settings,.tool-market-footer,.tool-market-details,.tool-market-progress) { border-color: var(--market-line); }
+#toolMarketModal :is(.tool-market-help,.tool-market-details,.tool-market-progress) { background: #fafafa; color: var(--market-ink); }
+#toolMarketModal :is(.tool-market-details summary,.tool-market-progress-head) { color: #454545; }
+#toolMarketModal .tool-market-progress-track { background: #e5e5e5; }
+#toolMarketModal .tool-market-progress-bar { background: #555; }
+#toolMarketModal .builtin-sync-loading-card { background: #fafafa; border-color: var(--market-line); box-shadow: none; }
+#toolMarketModal .builtin-sync-loading-title { color: var(--market-ink); }
+#toolMarketModal :is(.builtin-sync-loading-percent,.builtin-sync-loading-detail) { color: var(--market-muted); }
+#toolMarketModal .builtin-sync-loading-bar { background: #e5e5e5; }
+#toolMarketModal .builtin-sync-loading-bar i { background: #555; }
+#toolMarketModal .builtin-sync-spinner { border-color: #ddd; border-top-color: #555; }
+#toolMarketModal .builtin-sync-skeleton-card { background-image: linear-gradient(90deg,#f6f6f6 25%,#e9e9e9 50%,#f6f6f6 75%); border-color: var(--market-line); }
+@media (max-width: 600px) {
+    #toolMarketModal .tool-market-source input[type=url] { flex-basis: 100%; min-width: 0; }
+    #toolMarketModal .tool-import-actions { flex-wrap: wrap; }
+}
