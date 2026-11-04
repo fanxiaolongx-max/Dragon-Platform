@@ -376,8 +376,8 @@ function netcareMatchesOrder(candidate, order) {
     async function runJob(item) {
       const { id, message, reply, controller, configPage } = item;
       const JOB_TIMEOUT_MS = 240000;
-      const ATTEMPT_TIMEOUT_MS = 90000;
-      let jobTimer, timer;
+      const ATTEMPT_TIMEOUT_MS = 120000;
+      let jobTimer;
       let diagnostics = {}, model, logScope = { order: configPage ? '' : message.order, category: 'audit' };
       const started = Date.now();
       try {
@@ -422,10 +422,16 @@ function netcareMatchesOrder(candidate, order) {
         let result;
         for (let attempt = 0; attempt <= maxRetries; attempt++) {
           if (controller.signal.aborted) throw new Error('Aborted');
-          clearTimeout(timer);
-          timer = setTimeout(() => controller.abort(), ATTEMPT_TIMEOUT_MS);
-          result = await tpFetchAi(request, controller.signal, true);
-          clearTimeout(timer);
+          const attemptController = new AbortController();
+          const onParentAbort = () => attemptController.abort();
+          controller.signal.addEventListener('abort', onParentAbort, { once: true });
+          const attemptTimer = setTimeout(() => attemptController.abort(), ATTEMPT_TIMEOUT_MS);
+          try {
+            result = await tpFetchAi(request, attemptController.signal, true);
+          } finally {
+            clearTimeout(attemptTimer);
+            controller.signal.removeEventListener('abort', onParentAbort);
+          }
           let raw = JSON.stringify(result.data ?? result.responseText ?? '');
           if (model.key) raw = raw.split(model.key).join('[REDACTED]');
           Object.assign(diagnostics, { httpStatus: result.status, elapsedMs: Date.now() - started, response: netcareRedactText(raw).slice(0, 20000) });
@@ -449,7 +455,7 @@ function netcareMatchesOrder(candidate, order) {
             ...logScope,
             level: 'warn',
             action: 'model.request.retrying',
-            message: `${isRateLimit ? '网关限流' : '接口异常'}，等待 ${Math.round(backoffMs / 1000)} 秒后重试 (${attempt + 1}/${maxRetries}) / ${isRateLimit ? 'Gateway rate-limited' : 'Model request error'}, retrying in ${Math.round(backoffMs / 1000)}s`,
+            message: `${isRateLimit ? '网关限流' : '接口超时或异常'}，等待 ${Math.round(backoffMs / 1000)} 秒后重试 (${attempt + 1}/${maxRetries}) / ${isRateLimit ? 'Gateway rate-limited' : 'Model request error'}, retrying in ${Math.round(backoffMs / 1000)}s`,
             data: { attempt: attempt + 1, maxRetries, status: result.status, backoffMs, error: result.error }
           });
 
@@ -492,7 +498,6 @@ function netcareMatchesOrder(candidate, order) {
         netcareBackgroundLog({ ...logScope, level: 'error', action: 'model.error', message: '模型请求失败 / Model request failed', data: { error: netcareRedactText(errorText), diagnostics } });
         reply({ ok: false, error: netcareRedactText(errorText), diagnostics: { ...diagnostics, elapsedMs: Date.now() - started, error: netcareRedactText(errorText) } });
       } finally {
-        clearTimeout(timer);
         clearTimeout(jobTimer);
       }
     }
@@ -540,7 +545,7 @@ function netcareMatchesOrder(candidate, order) {
         if (qIdx !== -1) queue.splice(qIdx, 1);
         jobs.delete(id);
         reply({ ok: false, error: 'AI request queued timeout' });
-      }, 120000);
+      }, 180000);
       queue.push(item);
       processQueue();
       return true;

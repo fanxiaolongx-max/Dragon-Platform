@@ -96,3 +96,39 @@ test('AI page saves the max input field with the model and backups validate it',
     backup.validate({netcareAiModels: [model], netcareAiSelectedModel: 'm'}, () => true, () => {});
     for (const maxInputChars of [10000, 900000, '400000', 50000.5]) assert.throws(() => backup.validate({netcareAiModels: [{...model, maxInputChars}]}, () => true, () => {}), /模型信息无效/);
 });
+
+test('background retries 504/timeout without aborting master job controller', async () => {
+    globalThis.__tpFastRetry = true;
+    const pkg = packer.buildPackage(options), callbacks = [], requests = [];
+    const stored = {netcareAiSelectedModel: 'm1', netcareExtractionSettings: {aiAuditEnabled: true, disableLocalRules: true, sections: [{number: '3.3', textPrompt: 'Check steps'}]}, netcareAiModels: [{id: 'm1', name: 'Model', protocol: 'openai', url: 'https://model.example/v1', model: 'glm', key: 'test-key'}]};
+    let callCount = 0;
+    const ctx = {globalThis: {__tpFastRetry: true}, URL, AbortController, TextDecoder, setTimeout, clearTimeout, console, chrome: {runtime: {id: 'test', getURL: p => 'chrome-extension://test/' + p, onInstalled: {addListener() {}}, onMessage: {addListener: fn => callbacks.push(fn)}}, storage: {local: {get: async () => stored}}}, fetch: async (url, request) => {
+        requests.push(request);
+        callCount++;
+        if (callCount === 1) {
+            return new Response('Gateway timeout', {status: 504});
+        }
+        return new Response(JSON.stringify({choices: [{message: {content: JSON.stringify({status: 'pass', summary: {zh: '符合要求', en: 'Requirements met'}, findings: []})}}]}), {status: 200});
+    }};
+    vm.runInNewContext(pkg.files['background.js'], ctx);
+    const audit = text => new Promise(reply => callbacks[1]({type: 'TP_RFC_AI_AUDIT', id: crypto.randomUUID(), order: onlineOrder, section: '3.3', kind: 'text', filename: '3.3.txt', text}, {id: 'test', url: onlineUrl, frameId: 0, tab: {id: 2}}, reply));
+    const result = await audit('Step 1: check backup');
+    assert.equal(result.ok, true, result.error);
+    assert.equal(callCount, 2);
+    assert.equal(result.report.status, 'pass');
+});
+
+test('netcareRunAudits handles confirmRetry exceptions without stalling or unhandled rejection', async () => {
+    const ctx = page(), settings = strict(ctx);
+    const brokenPromptRetry = async () => { throw new Error('Dialog DOMException: InvalidStateError'); };
+    let calls = 0;
+    const failThenPass = async () => {
+        calls++;
+        if (calls === 1) return {ok: false, error: 'AI error'};
+        return pass;
+    };
+    const items = [{section: '3.3', kind: 'attachments', filename: '3.3.txt', text: 'content'}];
+    const reports = await ctx.netcareRunAudits(items, {...settings, disableLocalRules: true}, failThenPass, new AbortController().signal, () => {}, () => {}, brokenPromptRetry);
+    assert.equal(reports[0].error, true);
+    assert.match(reports[0].summary, /AI error/);
+});

@@ -1315,7 +1315,12 @@ async function netcareRunAudits(items, settings, request, signal, progress, trac
           topLog('error', `章节 ${item.section} AI 接口请求失败: ${error.message}`);
         }
         if (settings.disableLocalRules && promptRetry) {
-          const shouldRetry = await confirmRetry(i, { section: item.section, filename: item.filename, error: error.message, attempt: auditAttempt });
+          let shouldRetry = false;
+          try {
+            shouldRetry = await confirmRetry(i, { section: item.section, filename: item.filename, error: error.message, attempt: auditAttempt });
+          } catch (_) {
+            shouldRetry = false;
+          }
           if (shouldRetry) {
             if (topLog) topLog('warn', `用户确认继续重试，正在重新请求 AI 接口...`);
             continue;
@@ -1339,7 +1344,8 @@ async function netcareRunAudits(items, settings, request, signal, progress, trac
     if (signal.aborted) throw new Error('已停止 / Stopped');
     finish(i,result,`${item.section} · ${item.filename}`);
   }
-  const width=Math.min(NETCARE_AUDIT_CONCURRENCY,auditItems.length);for(let i=0;i<width;i++)slots[i]={phase:'running'};
+  const auditConcurrency = Math.min(NETCARE_AUDIT_CONCURRENCY, Math.max(1, Number(settings?.concurrency) || 2));
+  const width=Math.min(auditConcurrency,auditItems.length);for(let i=0;i<width;i++)slots[i]={phase:'running'};
   notify('');
   const worker=async()=>{while(next<auditItems.length){if(signal.aborted)throw new Error('已停止 / Stopped');const i=next++;slots[i]={phase:'running'};await auditOne(auditItems[i],i);}};
   // allSettled first so no worker is still running when a stop or error is rethrown.
@@ -1444,19 +1450,21 @@ function mountNetcareCollector() {
   function promptAiRetry({ section, filename, error, attempt }) {
     return new Promise(resolve => {
       if (!aiRetryDialog) return resolve(false);
-      let countdownTimer = null, secondsLeft = 30;
+      let countdownTimer = null, skipTimer = null;
+      const expiresAt = Date.now() + 30000;
       const promptEl = $('aiRetryPrompt');
-      const renderPrompt = () => {
-        promptEl.innerHTML = `<div><strong>章节 / Section:</strong> ${section} (${filename || ''})</div><div style="margin-top:6px;color:#d9534f"><strong>AI 错误 / Error:</strong> ${netcareRedactText(error)}</div><div style="margin-top:10px;font-size:11px;color:#64748b">已开启【禁用本地审计规则】，未回退到本地规则（当前已尝试 ${attempt} 次）。<br>点击<strong>“继续重试”</strong>将再次向 AI 接口发起请求，并在页面顶部实时滚动日志；点击<strong>“跳过此项”</strong>将标记该项为审计异常并继续后续章节。<br><span style="color:#e67e22">（若无操作，将在 <strong>${secondsLeft}</strong> 秒后自动跳过此项，防止批次超时挂起）</span></div>`;
+      const renderPrompt = (secs) => {
+        promptEl.innerHTML = `<div><strong>章节 / Section:</strong> ${section} (${filename || ''})</div><div style="margin-top:6px;color:#d9534f"><strong>AI 错误 / Error:</strong> ${netcareRedactText(error)}</div><div style="margin-top:10px;font-size:11px;color:#64748b">已开启【禁用本地审计规则】，未回退到本地规则（当前已尝试 ${attempt} 次）。<br>点击<strong>“继续重试”</strong>将再次向 AI 接口发起请求，并在页面顶部实时滚动日志；点击<strong>“跳过此项”</strong>将标记该项为审计异常并继续后续章节。<br><span style="color:#e67e22">（若无操作，将在 <strong>${secs}</strong> 秒后自动跳过此项，防止批次超时挂起）</span></div>`;
       };
-      renderPrompt();
+      renderPrompt(30);
       const cleanup = () => {
         if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+        if (skipTimer) { clearTimeout(skipTimer); skipTimer = null; }
         $('aiRetryConfirm').onclick = null;
         $('aiRetrySkip').onclick = null;
-        $('aiRetryClose').onclick = () => aiRetryDialog.close();
+        $('aiRetryClose').onclick = () => { try { aiRetryDialog.close(); } catch {} };
         aiRetryDialog.oncancel = null;
-        aiRetryDialog.close();
+        try { aiRetryDialog.close(); } catch {}
       };
       const onConfirm = () => { cleanup(); resolve(true); };
       const onSkip = () => { cleanup(); resolve(false); };
@@ -1464,13 +1472,18 @@ function mountNetcareCollector() {
       $('aiRetrySkip').onclick = onSkip;
       $('aiRetryClose').onclick = onSkip;
       aiRetryDialog.oncancel = event => { event.preventDefault(); onSkip(); };
-      aiRetryDialog.showModal();
+      try {
+        if (!aiRetryDialog.open) aiRetryDialog.showModal();
+      } catch {
+        try { if (!aiRetryDialog.open) aiRetryDialog.show(); } catch {}
+      }
+      skipTimer = setTimeout(onSkip, 30000);
       countdownTimer = setInterval(() => {
-        secondsLeft--;
-        if (secondsLeft <= 0) {
+        const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+        if (remaining <= 0) {
           onSkip();
         } else {
-          renderPrompt();
+          renderPrompt(remaining);
         }
       }, 1000);
     });
@@ -1569,7 +1582,7 @@ function mountNetcareCollector() {
     const id=crypto.randomUUID();
     const finish=(fn,value)=>{clearTimeout(timer);aiRequests.delete(id);signal.removeEventListener('abort',abort);fn(value);};
     const abort=()=>{window.postMessage({source:'TP_RFC_AI_CANCEL',id,order},location.origin);finish(reject,new Error('已停止 / Stopped'));};
-    const timer=setTimeout(()=>finish(reject,new Error('AI审计请求超时 / Timed out')),70000);
+    const timer=setTimeout(()=>finish(reject,new Error('AI审计请求超时 / Timed out')),260000);
     aiRequests.set(id,{resolve:reply=>finish(resolve,reply)});signal.addEventListener('abort',abort,{once:true});
     if(signal.aborted)return abort(); window.postMessage({source:'TP_RFC_AI_AUDIT',id,order,section:item.section,ruleSection:item.ruleSection,kind:item.kind,filename:item.filename,text:netcareRedactText(item.text),phase:item.phase,context:item.context?netcareRedactText(item.context):undefined},location.origin);
   });
@@ -3322,7 +3335,7 @@ function mountNetcareCollector() {
         finish(reject, new Error(requiresAudit
           ? '等待提取、审计或 ZIP 超时，请检查进度后重试 / Extraction, audit or ZIP timed out; check progress and retry'
           : '等待导出响应超时，请检查连接后重试 / Word export timed out; check the connection and retry'));
-      }, (requiresAudit ? 30 : 13) * 60 * 1000);
+      }, (requiresAudit ? 45 : 13) * 60 * 1000);
       if (signal.aborted) abort();
       else post(connection, { type: 'run', job: id, order,bundleOnly:extractionSettings.attachmentsEnabled||extractionSettings.textEnabled });
     });
