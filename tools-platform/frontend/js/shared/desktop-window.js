@@ -26,9 +26,27 @@
         html.desktop-mac .v2-side-tools { min-height: 32px; padding-left: var(--desktop-controls-w); }
         html.desktop-mac .v2-side-float { left: calc(var(--desktop-controls-w) + 10px); }
         html.desktop-mac { --v2-float-end: calc(var(--desktop-controls-w) + 84px); }
-        html.desktop-win { --v2-float-end: 84px; }
+        html.desktop-win { --v2-float-end: 92px; }
         html.desktop-win .v2-side-tools { min-height: 32px; padding-left: 0; }
-        html.desktop-win .v2-side-float { left: 10px; }
+        html.desktop-win .v2-side-float {
+            top: 0;
+            height: 48px;
+            left: 12px;
+            gap: 8px;
+            align-items: center;
+            z-index: 2147482001;
+            -webkit-app-region: no-drag;
+        }
+        html.desktop-win .v2-side-float .v2-icon-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 9px;
+        }
+        html.desktop-win .v2-side-float .v2-icon-btn .v2-ico {
+            width: 22px;
+            height: 22px;
+        }
+        html.desktop-win .dc-chat-head { min-height: 48px; height: 48px; }
         /* 全局设置弹窗让出顶部窗口按钮（Mac 左上红绿灯 / Windows 右上三键）的高度，弹窗整体矮一些 */
         html.is-desktop-app .nav-settings-modal { padding-top: 44px; }
         html.is-desktop-app .nav-settings-window { height: min(900px, calc(100vh - 68px)); }
@@ -55,7 +73,7 @@
         html.desktop-mac .desktop-drag-welcome::after { right: 0; }
         /* 收起后左上角是「侧边栏 + 新建对话」两个浮动按钮，拖动区从它们右侧开始 */
         html.desktop-mac body.v2-side-collapsed .desktop-drag-welcome::after { left: calc(var(--desktop-controls-w) + 92px); }
-        html.desktop-win body.v2-side-collapsed .desktop-drag-welcome::after { left: 92px; }
+        html.desktop-win body.v2-side-collapsed .desktop-drag-welcome::after { left: calc(var(--v2-float-end) + 8px); }
         /* Hub headers are full of controls; reserve a blank title gutter for dragging. */
         .desktop-drag-hub { display: none; position: fixed; top: 8px; left: var(--v2-side-width, 240px); right: 140px; height: 28px; z-index: 2147482000; -webkit-app-region: drag; }
         html.desktop-mac .desktop-drag-hub { right: 0; }
@@ -63,7 +81,7 @@
         html.is-desktop-app[data-ui="v2"] body.v2-hub-open .home-main { padding-top: 44px; }
         html.is-desktop-app[data-ui="v2"] body.v2-side-collapsed.v2-hub-open .home-main { padding-top: 56px; }
         html.desktop-mac body.v2-side-collapsed .desktop-drag-hub { left: calc(var(--desktop-controls-w) + 92px); }
-        html.desktop-win body.v2-side-collapsed .desktop-drag-hub { left: 92px; }
+        html.desktop-win body.v2-side-collapsed .desktop-drag-hub { left: calc(var(--v2-float-end) + 8px); }
 
         /* Full-window graph overlay: reserve native caption space before loading any data.
            The blank gutter remains draggable; graph controls and canvas keep their mouse input. */

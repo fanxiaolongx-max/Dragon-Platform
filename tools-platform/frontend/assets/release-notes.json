@@ -1,12 +1,16 @@
 {
   "zh": [
-    "更新提示改为简洁弹窗，支持浅色与深色主题。",
-    "桌面版启动自动检查更新；升级完成后 24 小时内暂停自动更新提醒。",
-    "头像菜单新增检查更新和意见反馈入口。"
+    "Windows 桌面版左上角浮动操作按钮放大至 36px、图标放大至 22px，与工具栏及对话顶栏垂直居中对齐。",
+    "顶部额度栏「收起到顶边·悬停展开」即时生效，精简详细面板底部冗余关闭按钮。",
+    "NetCare RFC 任务防超时与后台标签倒计时冻结优化，保障长时间稳定运行。",
+    "内嵌工具页面与顶层平台共享统一的更新同步对比窗口，避免嵌套重复弹窗。",
+    "规范发版更新日志校验机制，每次发布必须提供真实的中英文版本更新说明。"
   ],
   "en": [
-    "Compact update dialogs with light and dark theme support.",
-    "Desktop startup checks for updates, with automatic reminders muted for 24 hours after an upgrade.",
-    "Check for updates and send feedback from the account menu."
+    "Enlarged Windows desktop top-left buttons to 36px and icons to 22px, pixel-perfect vertically centered with headers.",
+    "Quota bar auto-hide setting takes effect immediately, with redundant bottom-right close button removed from detailed panel.",
+    "Optimized NetCare RFC task stability against background tab countdown freezes and extended timeouts.",
+    "Unified built-in tools update comparison modal across embedded frames to prevent nested duplicate dialogs.",
+    "Enforced release notes validation to ensure accurate release highlights on every desktop update."
   ]
 }

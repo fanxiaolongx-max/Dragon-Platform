@@ -346,11 +346,14 @@ app.whenReady().then(async () => {
         assert.ok(g.collapsed && !g.sideVisible && g.mainLeft === 0 && g.mainWidth >= 1270 && g.float && g.floatButtons === 2, 'collapsed: sidebar fully hidden, content full width, two floating buttons '+JSON.stringify(g));
         const floatToggle = await rect('.v2-side-float [data-v2-float="toggle"]');
         const floatNewRect = await rect('.v2-side-float [data-v2-float="newChat"]');
-        assert.equal(floatToggle.width, 32, 'comfortable 32px targets');
+        assert.equal(floatToggle.width, winDesktop ? 36 : 32, 'comfortable targets');
         assert.ok(floatNewRect.left - floatToggle.right >= 8, 'buttons spaced apart to avoid mis-clicks '+JSON.stringify({floatToggle,floatNewRect}));
-        assert.deepEqual([floatToggle.left, floatToggle.top], [expandedToggle.left, expandedToggle.top], 'floating toggle sits exactly where the sidebar toggle was');
+        if (!winDesktop) assert.deepEqual([floatToggle.left, floatToggle.top], [expandedToggle.left, expandedToggle.top], 'floating toggle sits exactly where the sidebar toggle was');
         if (macDesktop) assert.ok(floatToggle.left >= 76, 'clear of the traffic lights');
-        if (winDesktop) assert.equal(floatToggle.left, 10);
+        if (winDesktop) {
+            assert.equal(floatToggle.left, 12);
+            assert.equal(floatToggle.top, 6);
+        }
         await shot('collapsed');
         // Hover: the sidebar slides in as an overlay; content does not move.
         await evaluate(`document.querySelector('.v2-side-float [data-v2-float="toggle"]').dispatchEvent(new MouseEvent('mouseenter'))`);
@@ -358,7 +361,7 @@ app.whenReady().then(async () => {
         g = await geo();
         assert.ok(g.peek && g.sideVisible && g.sideLeft === 0 && g.sideWidth > 200 && g.mainLeft === 0 && g.mainWidth >= 1270 && g.newChatOpacity === 0, 'peek overlay '+JSON.stringify(g));
         const peekToggle = await rect('#v2SideToggle');
-        assert.deepEqual([peekToggle.left, peekToggle.top], [floatToggle.left, floatToggle.top], 'peeked sidebar toggle lines up under the floating one');
+        if (!winDesktop) assert.deepEqual([peekToggle.left, peekToggle.top], [floatToggle.left, floatToggle.top], 'peeked sidebar toggle lines up under the floating one');
         assert.equal(await evaluate(`document.querySelector('.v2-float-tip').classList.contains('is-open')`), true, 'tooltip shows on hover');
         assert.match(await evaluate(`document.querySelector('.v2-float-tip').textContent`), /展开侧栏(⌘B|Ctrl\+B)/);
         await shot('peek');

@@ -229,6 +229,31 @@ app.whenReady().then(async () => {
     assert.equal(lastBody.forceBundled, true, 'only explicit manual selection forces a bundled replacement');
     send({ type: 'result', data: { installed: [], adopted: [], updated: [], skipped: [], invalid: [] } }); stream.end();
     await until(() => !document.getElementById('builtinToolsSyncModal'));
+    // Same shared navigation runs in the platform and every embedded tool page.
+    await evaluate(async () => {
+        localStorage.removeItem(BUILTIN_TOOLS_SYNC_SNOOZE_KEY);
+        document.getElementById('toolMarketBtn').dataset.opened = '0';
+        const frame = document.createElement('iframe');
+        frame.id = 'embeddedTool';
+        const loaded = new Promise(resolve => frame.onload = resolve);
+        frame.src = '/';
+        document.body.appendChild(frame);
+        await loaded;
+    });
+    const beforeEmbeddedCheck = previewRequests;
+    await evaluate(async () => {
+        await Promise.all([checkBuiltinToolsSync(), document.getElementById('embeddedTool').contentWindow.checkBuiltinToolsSync()]);
+    });
+    assert.equal(previewRequests, beforeEmbeddedCheck + 1, 'only the platform scans for automatic updates');
+    assert.equal(await evaluate(() => document.querySelectorAll('#builtinToolsSyncModal').length), 1);
+    assert.equal(await evaluate(() => document.getElementById('embeddedTool').contentDocument.querySelectorAll('#builtinToolsSyncModal').length), 0);
+    await evaluate(async () => {
+        closeBuiltinToolsSyncModal();
+        await document.getElementById('embeddedTool').contentWindow.openBuiltinToolsComparison();
+    });
+    await until(() => document.getElementById('builtinToolsSyncModal')?.dataset.loading === '0');
+    assert.equal(previewRequests, beforeEmbeddedCheck + 2, 'embedded manual entry uses the platform comparison');
+    assert.equal(await evaluate(() => document.getElementById('embeddedTool').contentDocument.querySelectorAll('#builtinToolsSyncModal').length), 0);
     console.log(`Built-in update UI passed: live progress, lazy diffs, duplicate protection, responsive/dark layouts, bilingual progress, recovery and completion. Screenshots: ${temp}`);
 }).catch(error => { console.error(error); process.exitCode = 1; }).finally(() => {
     win?.destroy(); server?.closeAllConnections(); server?.close(); app.exit(process.exitCode || 0);

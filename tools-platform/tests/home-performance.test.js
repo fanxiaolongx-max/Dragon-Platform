@@ -103,10 +103,46 @@ function syncPage(sessionStorage = storage()) {
         openBuiltinToolsSyncModal: () => { context.notices++; },
         API: { get: async () => { count++; return { pending: [] }; } }
     };
+    context.window.top = context.window;
     vm.createContext(context);
     vm.runInContext(source.slice(source.indexOf('const BUILTIN_SYNC_CHECK_TTL_MS'), source.indexOf('let pageScrollbarIdleTimer')), context);
     return { context, run: () => context.checkBuiltinToolsSync(), count: () => count, advance: ms => { now += ms; }, version: value => { version = value; } };
 }
+
+test('embedded platform pages leave automatic tool checks to the outer page', async () => {
+    const page = syncPage();
+    page.context.window.top = {};
+    await page.run();
+    assert.equal(page.count(), 0);
+    assert.equal(page.context.notices, 0);
+    assert.equal(page.context.builtinToolsSyncChecking, false);
+});
+
+test('automatic results do not replace a dialog opened while the scan was pending', async () => {
+    const page = syncPage();
+    let release, started;
+    const scanning = new Promise(resolve => { started = resolve; });
+    page.context.API.get = () => new Promise(resolve => { release = resolve; started(); });
+    const check = page.run();
+    await scanning;
+    page.context.document.getElementById = id => id === 'builtinToolsSyncModal' ? {} : null;
+    release({ pending: [{ slug: 'update' }] });
+    await check;
+    assert.equal(page.context.notices, 0);
+});
+
+test('embedded manual comparisons delegate to the platform window', async () => {
+    const source = read('js/shared/navbar.js');
+    let calls = 0;
+    const context = { window: { top: { openBuiltinToolsComparison: () => { calls++; } } } };
+    vm.createContext(context);
+    vm.runInContext(source.slice(source.indexOf('window.openBuiltinToolsComparison ='), source.indexOf("document.addEventListener('click', event =>", source.indexOf('window.openBuiltinToolsComparison ='))), context);
+    await context.window.openBuiltinToolsComparison();
+    assert.equal(calls, 1);
+    context.window.top = new Proxy({}, { get() { throw new Error('cross-origin'); } });
+    await context.window.openBuiltinToolsComparison();
+    assert.equal(calls, 1);
+});
 
 test('automatic clean checks survive navigation, expire after five minutes and isolate tenant/account/version', async () => {
     const session = storage();

@@ -26,6 +26,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -60,6 +62,7 @@ jobs:
     outputs:
       release_version: ${{ steps.version.outputs.release_version }}
       release_tag: ${{ steps.version.outputs.release_tag }}
+      release_notes: ${{ steps.version.outputs.release_notes }}
 
     steps:
       - name: Checkout code
@@ -110,6 +113,15 @@ jobs:
 
           echo "release_version=${release_version}" >> "$GITHUB_OUTPUT"
           echo "release_tag=${release_tag}" >> "$GITHUB_OUTPUT"
+
+          node -e '
+            const fs = require("fs");
+            const notes = JSON.parse(fs.readFileSync("tools-platform/frontend/assets/release-notes.json", "utf8"));
+            const zh = (notes.zh || []).map(s => `- ${s}`).join("\n");
+            const en = (notes.en || []).map(s => `- ${s}`).join("\n");
+            const md = `### What’s New / 本次更新\n\n${zh}\n\n${en}`;
+            fs.writeFileSync(process.env.GITHUB_OUTPUT, `release_notes<<EOF\n${md}\nEOF\n`, { flag: "a" });
+          '
 
   build-windows:
     needs: prepare-release
@@ -176,6 +188,7 @@ jobs:
         with:
           tag_name: ${{ needs.prepare-release.outputs.release_tag }}
           name: ${{ needs.prepare-release.outputs.release_tag }}
+          body: ${{ needs.prepare-release.outputs.release_notes }}
           files: |
             tools-platform/dist/*.exe
             tools-platform/dist/*.yml
@@ -304,6 +317,7 @@ jobs:
         with:
           tag_name: ${{ needs.prepare-release.outputs.release_tag }}
           name: ${{ needs.prepare-release.outputs.release_tag }}
+          body: ${{ needs.prepare-release.outputs.release_notes }}
           files: |
             tools-platform/dist/*.dmg
             tools-platform/dist/*.zip
