@@ -29,8 +29,9 @@ app.whenReady().then(async () => {
         }]})};</script><script src="/js/uivf12/analysis.js"></script>${assistant}</body></html>`));
     web.get('/dense', (_, res) => res.send(`<!doctype html><title>Long table</title>
         <style>body{font:12px monospace}td{padding:2px}.outside{margin-top:900px}</style>
+        <h1 contenteditable="plaintext-only" data-ai-context-readable>Visible monthly heading</h1>
         <table><thead><tr><th>Service</th><th>Details</th></tr></thead><tbody>
-        ${Array.from({ length: 26 }, (_, index) => `<tr><td>${index === 25 ? 'Zephyr' : 'Service-' + index}</td><td>${index === 25 ? 'Target details' : 'Ordinary unrelated information '.repeat(7)}</td></tr>`).join('')}
+        ${Array.from({ length: 19 }, (_, index) => `<tr><td>${index === 18 ? 'Zephyr' : 'Service-' + index}</td><td>${index === 18 ? 'Target details' : 'Ordinary unrelated information '.repeat(6)}</td></tr>`).join('')}
         </tbody></table><p class="outside">Offscreen-only marker</p>${assistant}`));
     web.get('/hosted', (_, res) => res.send(`<!doctype html><html><head><title>Host shell</title></head><body>
         <iframe class="custom-tool-frame" style="width:95vw;height:95vh" src="/launcher"></iframe>${assistant}</body></html>`));
@@ -129,6 +130,10 @@ app.whenReady().then(async () => {
         dialog.showModal();
     })()`);
     await until('document.querySelector("#nativeNested > .ai-fab") !== null');
+    assert.equal(await evaluate(`(() => {
+        const bounds = document.querySelector('#nativeNested > .ai-fab').getBoundingClientRect();
+        return !!document.elementFromPoint(bounds.left + 8, bounds.top + 8)?.closest('.ai-fab');
+    })()`), true, 'the active native dialog keeps the assistant clickable');
     await evaluate('ToolsAIAssistant.ask("Explain the dialog")');
     assert.match(chats.at(-1).context, /Native nested dialog/);
     assert.doesNotMatch(chats.at(-1).context, /Native outer dialog|Tool-specific content|private-edit-value/);
@@ -156,6 +161,7 @@ app.whenReady().then(async () => {
 
     await win.loadURL(base + '/dense');
     await evaluate('ToolsAIAssistant.ask("Explain Zephyr")');
+    assert.match(chats.at(-1).context, /Visible monthly heading/);
     assert.match(chats.at(-1).context, /Service \| Details/);
     assert.match(chats.at(-1).context, /Zephyr \| Target details/);
     assert.match(chats.at(-1).context, /Excerpt from the current view/);

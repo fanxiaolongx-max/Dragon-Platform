@@ -2011,7 +2011,7 @@
 
     const assistantChrome = '.ai-fab, .ai-panel, .ai-proactive-alert, .ai-archive-overlay, .ai-kg-overlay';
     const contextHidden = `${assistantChrome}, [hidden], [aria-hidden="true"], [inert]`;
-    const contextExcluded = `${contextHidden}, [data-ai-context-ignore], script, style, noscript, template, input, textarea, select, [contenteditable], svg, canvas`;
+    const contextExcluded = `${contextHidden}, [data-ai-context-ignore], script, style, noscript, template, input, textarea, select, [contenteditable]:not([data-ai-context-readable]), svg, canvas`;
     const contextDialog = 'dialog[open], [role="dialog"], [role="alertdialog"], [aria-modal="true"], [data-ai-context-root]';
 
     function hitsOnScreen(doc, rect) {
@@ -2046,6 +2046,10 @@
             if (node.matches(contextExcluded)) return NodeFilter.FILTER_REJECT;
             const style = doc.defaultView.getComputedStyle(node);
             if (style.display === 'none' || style.visibility !== 'visible' || Number(style.opacity) === 0) return NodeFilter.FILTER_REJECT;
+            if (node.matches('tr, [role="row"]')) {
+                const rect = node.getBoundingClientRect();
+                if (rect.bottom <= 0 || rect.top >= doc.documentElement.clientHeight) return NodeFilter.FILTER_REJECT;
+            }
             return NodeFilter.FILTER_SKIP;
         });
         const range = doc.createRange();
@@ -2075,10 +2079,10 @@
 
         const terms = [...new Set(question.toLowerCase().split(/(?:请|帮我|告诉我|看一下|这[个段张页]|如何|什么|怎么|哪些|关于|的|[\s，。？、；：“”"'!?,:;]+)/)
             .filter(term => term.length >= 2 && term.length <= 60 && !/^(?:the|and|what|how|is|are|in|for|this|explain|about|please)$/.test(term)))].slice(0, 20);
-        const ranked = entries.map((entry, index) => ({
-            ...entry, index,
-            score: terms.filter(term => entry.text.toLowerCase().includes(term)).length
-        })).sort((a, b) => Number(b.header) - Number(a.header) || b.score - a.score || a.index - b.index);
+        const ranked = entries.map((entry, index) => {
+            const normalized = entry.text.toLowerCase();
+            return { ...entry, index, score: terms.filter(term => normalized.includes(term)).length };
+        }).sort((a, b) => Number(b.header) - Number(a.header) || b.score - a.score || a.index - b.index);
         let length = 0;
         const picked = [];
         for (const entry of ranked) {
@@ -2094,16 +2098,18 @@
         let doc = document;
         let root;
         let isolatedFrame = false;
+        let omittedFrames = false;
         const pagePath = getPagePath();
         for (let depth = 0; depth < 5; depth++) {
             root = foregroundDialog(doc, 'dialog:modal') || foregroundDialog(doc) || doc.fullscreenElement || doc.body;
-            const frame = Array.from(root.querySelectorAll('iframe')).find(node => {
-                if (node.closest(contextExcluded)) return false;
+            const frames = Array.from(root.querySelectorAll('iframe'))
+                .filter(node => !node.closest(contextExcluded) && isOnScreen(doc, node.getBoundingClientRect(), node));
+            const frame = frames.find(node => {
                 const rect = node.getBoundingClientRect();
-                const mainFrame = node.matches('.v2-tool-frame-view, .custom-tool-frame')
+                return node.matches('.v2-tool-frame-view, .custom-tool-frame')
                     || rect.width * rect.height >= doc.documentElement.clientWidth * doc.documentElement.clientHeight / 2;
-                return mainFrame && isOnScreen(doc, rect, node);
             });
+            omittedFrames ||= frames.length > (frame && depth < 4 ? 1 : 0);
             if (!frame || depth === 4) break;
             if (!frame.contentDocument?.body || frame.contentDocument.URL === 'about:blank') {
                 isolatedFrame = true;
@@ -2114,10 +2120,14 @@
         let editor = '';
         try { editor = doc.defaultView.ToolsPageContext?.({ root, question }) || ''; } catch { /* The view may be navigating. */ }
         const visibleText = readVisibleText(doc, root, question);
+        const hasCanvas = Array.from(root.querySelectorAll('canvas')).some(node =>
+            !node.closest(contextHidden) && !node.closest('[data-ai-context-ignore]') && isOnScreen(doc, node.getBoundingClientRect(), node));
         const context = [
             editor,
             visibleText && `[页面可见文字 / Visible page text]\n${visibleText}`,
-            isolatedFrame && '[嵌入页面内容不可读取 / Embedded page content is unavailable]'
+            isolatedFrame && '[嵌入页面内容不可读取 / Embedded page content is unavailable]',
+            omittedFrames && '[部分嵌入内容未包含 / Some embedded content is omitted]',
+            hasCanvas && '[画布上的图表和图像未包含 / Canvas charts and images are omitted]'
         ].filter(Boolean).join('\n\n');
         return { pageTitle: doc.title || document.title, pagePath, context, currentView: true };
     }
@@ -2981,19 +2991,16 @@
 
     // A native modal makes the rest of its document inert. Keep the same assistant inside
     // the active dialog and return it to the page when the dialog closes or is removed.
-    const modalRemoval = new MutationObserver(() => {
-        if (!fab.parentElement?.isConnected) dockInNativeDialog();
-    });
     function dockInNativeDialog() {
         const target = foregroundDialog(document, 'dialog:modal') || document.body;
-        if (fab.parentElement === target) return;
-        target.append(fab, panel, archiveOverlay);
-        modalRemoval.disconnect();
-        if (target !== document.body) modalRemoval.observe(document.body, { childList: true, subtree: true });
+        if (fab.parentElement !== target) target.append(fab, panel, archiveOverlay);
     }
-    document.addEventListener('toggle', event => {
-        if (event.target.matches?.('dialog')) dockInNativeDialog();
-    }, true);
+    const nativeDialogs = new MutationObserver(records => {
+        if (!fab.parentElement?.isConnected || records.some(record => record.attributeName === 'open' && record.target.localName === 'dialog')) {
+            dockInNativeDialog();
+        }
+    });
+    nativeDialogs.observe(document.body, { attributes: true, attributeFilter: ['open'], childList: true, subtree: true });
     dockInNativeDialog();
 
     applyContextTheme();

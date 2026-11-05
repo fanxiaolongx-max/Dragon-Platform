@@ -6,7 +6,7 @@
 
     function editable(value,field,options){
         if(options.mode!=='edit')return multiline(value);
-        return `<span contenteditable="plaintext-only" spellcheck="false" data-edit="${esc(field)}" data-placeholder="${esc(options.t('点击编辑','Click to edit'))}">${multiline(value)}</span>`;
+        return `<span contenteditable="plaintext-only" spellcheck="false" data-ai-context-readable data-edit="${esc(field)}" data-placeholder="${esc(options.t('点击编辑','Click to edit'))}">${multiline(value)}</span>`;
     }
     // A header field with its prompt button: ✦ is lit when the text is generated from a prompt rather than fixed.
     function field(value,key,options,prompts={}){

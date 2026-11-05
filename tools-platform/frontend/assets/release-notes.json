@@ -3,14 +3,14 @@
     "优化智能体在 Windows 平台终端输出的字符集自动探测与解码，解决 GBK 与 UTF-8 混排导致的预览乱码问题。",
     "增强 WeLink CLI OneBox 模块能力，支持参数别名兼容与工作区相对路径自动补全，优化云空间上传与下载体验。",
     "完善智能体完全访问（Full Access）权限模式，放开跨目录安全访问限制并保留核心系统目录与危险删除审批保护。",
-    "新增 AI 助手当前页面快照智能感知与在线 IDE 上下文提取，增强中文密码与密钥等敏感凭据自动脱敏防护。",
-    "新增智能体工具使用说明每日静默后台更新机制，支持避让前台请求、慢速串行生成与 Git 预置库落盘沉淀。"
+    "新增智能体工具使用说明每日静默后台更新机制，支持避让前台请求、慢速串行生成与 Git 预置库落盘沉淀。",
+    "优化 AI 助手对当前页面原生模态框的智能跟踪、屏幕可见行范围检索与可编辑标题上下文解析。"
   ],
   "en": [
     "Enhanced Windows terminal output decoding with automatic GBK and UTF-8 charset detection to eliminate artifact preview mojibake.",
     "Upgraded WeLink CLI OneBox integration with parameter alias tolerance, relative path resolution, and seamless workspace download targeting.",
     "Refined Agent Full Access permission mode, allowing safe cross-directory operations while retaining critical path and bulk deletion safeguards.",
-    "Added smart page view snapshot and IDE context capture for AI Assistant, with enhanced redaction for sensitive credentials.",
-    "Introduced daily background auto-update for tool guides with queue pacing, front-end chat yielding, and repository pre-bundled syncing."
+    "Introduced daily background auto-update for tool guides with queue pacing, front-end chat yielding, and repository pre-bundled syncing.",
+    "Improved AI Assistant native dialog docking, visible table row filtering, and contenteditable heading extraction."
   ]
 }
