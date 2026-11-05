@@ -219,20 +219,24 @@
             const isWeb = cmd.type === 1 || cmd.type === 2;
             const typeLabel = cmd.type === 1 ? L('网页直达', 'Web Open') : (cmd.type === 2 ? L('网页卡片', 'Web Card') : L('Python 回调', 'Python Hook'));
             const scopesLabel = (cmd.scopes || []).map(s => s === 'user' ? L('单聊', 'Direct') : L('群聊', 'Group')).join(' + ') || L('全范围', 'All');
+            const targetContent = isWeb
+                ? (cmd.url
+                    ? `<a href="${esc(cmd.url)}" target="_blank" rel="noreferrer" style="color:#2563eb;text-decoration:none">${esc(cmd.url)}</a>`
+                    : `<span class="nch-muted">${esc(L('未配置 URL', 'No URL configured'))}</span>`)
+                : `<span class="nch-muted">${esc(cmd.descZh || L('本地 Python 监听回调', 'Local Python hook'))}</span>`;
+
             return `
             <tr>
-                <td style="font-weight:700;color:#2563eb;white-space:nowrap">/${esc(cmd.name)}</td>
-                <td style="white-space:nowrap">${esc(cmd.nameZh || cmd.name)}</td>
-                <td><span class="nch-pill ${isWeb ? 'ok' : 'info'}" style="font-size:11px;padding:2px 8px">${esc(typeLabel)}</span></td>
-                <td style="white-space:nowrap">${esc(scopesLabel)}</td>
-                <td class="nch-text" style="max-width:240px;font-size:11px;word-break:break-all;">
-                    ${isWeb ? `<a href="${esc(cmd.url)}" target="_blank" rel="noreferrer" style="color:#2563eb;text-decoration:none">${esc(cmd.url || '未配置 URL')}</a>` : `<span class="nch-muted">${esc(cmd.descZh || '本地 Python 监听回调')}</span>`}
-                </td>
-                <td style="white-space:nowrap">
-                    <div style="display:flex;gap:6px;">
-                        <button type="button" class="nch-btn" data-action="copy-cmd" data-name="${esc(cmd.name)}" title="${esc(L('复制触发指令', 'Copy command text'))}">📋 /${esc(cmd.name)}</button>
-                        <button type="button" class="nch-btn" data-action="view-scaffold" data-name="${esc(cmd.name)}" title="${esc(L('查看/导出 Python 脚手架', 'View Python scaffold'))}">🐍 ${esc(L('代码', 'Code'))}</button>
-                        <button type="button" class="nch-btn danger" data-action="delete-cmd" data-name="${esc(cmd.name)}" ${state.busy ? 'disabled' : ''} title="${esc(L('下架注销', 'Delete'))}">🗑️</button>
+                <td style="vertical-align:middle;font-weight:700;color:#2563eb;white-space:nowrap;font-size:12px;line-height:1.4">/${esc(cmd.name)}</td>
+                <td style="vertical-align:middle;white-space:nowrap;font-size:12px;line-height:1.4">${esc(cmd.nameZh || cmd.name)}</td>
+                <td style="vertical-align:middle;white-space:nowrap"><span class="nch-pill ${isWeb ? 'ok' : 'info'}" style="font-size:11px;padding:2px 8px;vertical-align:middle;line-height:1.2">${esc(typeLabel)}</span></td>
+                <td style="vertical-align:middle;white-space:nowrap;font-size:12px;line-height:1.4">${esc(scopesLabel)}</td>
+                <td style="vertical-align:middle;font-size:12px;line-height:1.4;max-width:240px;word-break:break-all;">${targetContent}</td>
+                <td style="vertical-align:middle;white-space:nowrap">
+                    <div style="display:flex;gap:6px;align-items:center;">
+                        <button type="button" class="nch-btn" data-action="copy-cmd" data-name="${esc(cmd.name)}" title="${esc(L('复制触发指令', 'Copy command text'))}" style="height:26px;padding:0 8px;font-size:11px;display:inline-flex;align-items:center;gap:3px">📋 /${esc(cmd.name)}</button>
+                        <button type="button" class="nch-btn" data-action="view-scaffold" data-name="${esc(cmd.name)}" title="${esc(L('查看/导出 Python 脚手架', 'View Python scaffold'))}" style="height:26px;padding:0 8px;font-size:11px;display:inline-flex;align-items:center;gap:3px">🐍 ${esc(L('代码', 'Code'))}</button>
+                        <button type="button" class="nch-btn danger" data-action="delete-cmd" data-name="${esc(cmd.name)}" ${state.busy ? 'disabled' : ''} title="${esc(L('下架注销', 'Delete'))}" style="height:26px;padding:0 8px;font-size:11px;display:inline-flex;align-items:center;justify-content:center">🗑️</button>
                     </div>
                 </td>
             </tr>`;
@@ -241,14 +245,14 @@
         const tableHtml = !state.commands.length
             ? `<div class="nch-muted" style="padding:16px 0;text-align:center">${esc(L('暂无已发布的斜杠命令，请在下方快速配置并发布。', 'No slash commands yet. Fill the form below to publish.'))}</div>`
             : `
-            <div class="nch-table-wrap" style="margin-bottom:14px;"><table class="nch-table">
+            <div class="nch-table-wrap" style="margin-bottom:14px;"><table class="nch-table wsc-table">
                 <thead><tr>
-                    <th>${esc(L('触发词', 'Trigger'))}</th>
-                    <th>${esc(L('显示名称', 'Display Name'))}</th>
-                    <th>${esc(L('类型', 'Type'))}</th>
-                    <th>${esc(L('入口范围', 'Scope'))}</th>
-                    <th>${esc(L('目标 / 说明', 'Target / Notes'))}</th>
-                    <th style="width:170px">${esc(L('操作', 'Actions'))}</th>
+                    <th style="vertical-align:middle">${esc(L('触发词', 'Trigger'))}</th>
+                    <th style="vertical-align:middle">${esc(L('显示名称', 'Display Name'))}</th>
+                    <th style="vertical-align:middle">${esc(L('类型', 'Type'))}</th>
+                    <th style="vertical-align:middle">${esc(L('入口范围', 'Scope'))}</th>
+                    <th style="vertical-align:middle">${esc(L('目标 / 说明', 'Target / Notes'))}</th>
+                    <th style="vertical-align:middle;width:170px">${esc(L('操作', 'Actions'))}</th>
                 </tr></thead>
                 <tbody>${rows}</tbody>
             </table></div>`;
@@ -257,6 +261,13 @@
         const isTypeWeb = Number(form.type) !== 3;
 
         el.innerHTML = `
+            <style>
+                .wsc-table th, .wsc-table td {
+                    vertical-align: middle !important;
+                    padding-top: 8px !important;
+                    padding-bottom: 8px !important;
+                }
+            </style>
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
                 <h4 style="margin:0;display:flex;align-items:center;gap:6px;">
                     <span>⚡ ${esc(L('WeLink 斜杠命令管理', 'WeLink Slash Commands'))}</span>
