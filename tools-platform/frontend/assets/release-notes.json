@@ -1,10 +1,12 @@
 {
   "zh": [
-    "更新内置工具使用说明：完善数通协议专家在报文分析与可视化实验场景下的说明，以及报表看板的赛马健康度与维度管理说明。",
-    "优化工具与技能文档体系，确保平台知识库指引与最新功能保持一致同步。"
+    "新增 @welink-slash-command 技能：支持管理、生成、注册与调试 WeLink 客户端斜杠命令（基于 assistant-command-executor）。",
+    "频道对接 WeLink 新增可视化斜杠命令管理卡片：支持在网页端配置、发布与下架命令，并可一键导出 Python 脚手架代码。",
+    "优化 WeLink 扫码与斜杠命令表格垂直居中对齐排版，增强内网升级环境校验提示。"
   ],
   "en": [
-    "Updated built-in tool guides for Datacom Protocol Expert and Report Dashboard with enhanced scenario-based instructions.",
-    "Refined skill documentation and platform guidance to stay in full sync with the latest feature workflows."
+    "Added @welink-slash-command skill to manage, scaffold, register and debug WeLink client slash commands with assistant-command-executor.",
+    "Added visual slash commands management card under WeLink channel settings to publish, manage and export Python scaffolds directly.",
+    "Refined vertical alignment for slash commands tables and enhanced intranet environment checks for CLI upgrades."
   ]
 }
