@@ -1,16 +1,16 @@
 {
   "zh": [
-    "Windows 桌面版左上角浮动操作按钮放大至 36px、图标放大至 22px，与工具栏及对话顶栏垂直居中对齐。",
-    "顶部额度栏「收起到顶边·悬停展开」即时生效，精简详细面板底部冗余关闭按钮。",
-    "NetCare RFC 任务防超时与后台标签倒计时冻结优化，保障长时间稳定运行。",
-    "内嵌工具页面与顶层平台共享统一的更新同步对比窗口，避免嵌套重复弹窗。",
-    "规范发版更新日志校验机制，每次发布必须提供真实的中英文版本更新说明。"
+    "AI 报表全面支持交互单元格编辑、局部微调与历史记录，优化只读模式与图表呈现。",
+    "图表指标标线与阈值标签智能靠上定位，保证关键数据与目标参考线清晰易读。",
+    "新增内置与定制工具独立纯净窗口导航机制，外链与新开标签页不再嵌套冗余平台外壳。",
+    "首页对话新增侧轨与底栏折叠组件，大幅提升多会话切换与沉浸式操作体验。",
+    "优化工具页面平台主题与滚动条注入顺序，完善多端兼容性与全量自动化校验。"
   ],
   "en": [
-    "Enlarged Windows desktop top-left buttons to 36px and icons to 22px, pixel-perfect vertically centered with headers.",
-    "Quota bar auto-hide setting takes effect immediately, with redundant bottom-right close button removed from detailed panel.",
-    "Optimized NetCare RFC task stability against background tab countdown freezes and extended timeouts.",
-    "Unified built-in tools update comparison modal across embedded frames to prevent nested duplicate dialogs.",
-    "Enforced release notes validation to ensure accurate release highlights on every desktop update."
+    "Added interactive cell editing, localized prompt adjustments, and execution history for AI reports.",
+    "Positioned chart target thresholds and reference lines for clearer data readout without overlapping.",
+    "Introduced standalone clean-window navigation for built-in and custom tools, removing redundant nested shells.",
+    "Added foldable conversation rail and bottom dock on the home screen to streamline multi-chat workflows.",
+    "Refined theme and scrollbar injection order across tools with comprehensive automated verification."
   ]
 }
