@@ -148,6 +148,7 @@ function injectPlatformTheme(html, { toolPath = '' } = {}) {
     // 已自行引用运行时的页面也要传入主题，并统一提前到 head 首部，避免旧偏好先影响首屏。
     source = source.replace(/<script\b[^>]*src=["'][^"']*\/js\/shared\/platform-theme\.js(?:\?[^"']*)?["'][^>]*>\s*<\/script>/gi, '');
     const tags = versionAssetUrls(`<script src="/js/shared/platform-theme.js" data-tool-theme="${theme}"></script>` +
+        (source.includes('/js/shared/tool-navigation.js') ? '' : '<script src="/js/shared/tool-navigation.js"></script>') +
         (source.includes('/js/shared/elegant-scrollbars.js') ? '' : '<script src="/js/shared/elegant-scrollbars.js"></script>'),
         { publicDir: path.join(__dirname, '../../frontend') });
     const head = /<head\b[^>]*>/i.exec(source);
@@ -166,6 +167,11 @@ function createFrontendHtmlSender(publicDir) {
             return res.status(404).send('Not found');
         }
         if (!res.getHeader('Cache-Control')) res.setHeader('Cache-Control', 'no-cache');
+        // Navigation applies even to theme-exempt pages (e.g. license admin).
+        if (!html.includes('/js/shared/tool-navigation.js')) {
+            const tag = '<script src="/js/shared/tool-navigation.js"></script>';
+            html = /<head\b[^>]*>/i.test(html) ? html.replace(/<head\b[^>]*>/i, match => match + tag) : tag + html;
+        }
         if (!THEME_EXEMPT.has(String(relPath).replace(/\\/g, '/').replace(/^\/+/, ''))) html = injectPlatformTheme(html, { toolPath: relPath });
         return res.type('html').send(versionAssetUrls(html, { publicDir, baseDir: path.dirname(absPath) }));
     };

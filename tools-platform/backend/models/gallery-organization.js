@@ -2,7 +2,10 @@ const crypto = require('node:crypto');
 const transaction = require('./gallery-transaction');
 
 // Metadata and version moves commit together; deleted/changed images are never resurrected by AI.
-async function apply(versionId, analysis, { versionLabelLocked = false } = {}) {
+// A re-recognition (reidentify) rewrites the descriptive fields of the same picture, but only when nobody
+// edited it while the model was running; albums, storage and version history are never moved by it.
+const REIDENTIFY_FIELDS = ['title','scope','category_id','tags','note'];
+async function apply(versionId, analysis, { versionLabelLocked = false, reidentify = false, expectedRevision } = {}) {
     const repo = require('./gallery-repository');
     await repo.init();
     const result = await transaction(async db => {
@@ -11,6 +14,8 @@ async function apply(versionId, analysis, { versionLabelLocked = false } = {}) {
         const source = await db.get('SELECT * FROM gallery_items WHERE id=?',[version.item_id]);
         if (!source || source.deleted_at || source.archived) throw repo.fail('图片已归档或删除，未应用 AI 修改',409);
         const sourceLocks = new Set(repo.manualFields(source.manual_fields_json));
+        if (reidentify) sourceLocks.add('storage');
+        const refresh = reidentify && source.revision === expectedRevision;
         let target = source, storage = 'separate', warning = '';
         if (!sourceLocks.has('storage') && analysis.storageMode === 'version' && analysis.versionOf && analysis.confidence >= .9) {
             const candidate = await db.get("SELECT * FROM gallery_items WHERE id=? AND archived=0 AND deleted_at=''",[analysis.versionOf]);
@@ -30,7 +35,9 @@ async function apply(versionId, analysis, { versionLabelLocked = false } = {}) {
                 target = candidate; storage = 'version';
             } else warning = '无法确认版本关系，已保留为独立图片';
         }
-        const locks = new Set(repo.manualFields(target.manual_fields_json));
+        const persistedLocks = repo.manualFields(target.manual_fields_json).filter(field => !refresh || !REIDENTIFY_FIELDS.includes(field));
+        const locks = new Set(persistedLocks);
+        if (reidentify) { locks.add('storage'); locks.add('album_id'); }
         let category = target.category_id, album = target.album_id;
         if (!locks.has('category_id')) {
             const existing = analysis.categoryId && await db.get('SELECT id FROM gallery_categories WHERE id=?',[analysis.categoryId]);
@@ -50,13 +57,13 @@ async function apply(versionId, analysis, { versionLabelLocked = false } = {}) {
         }
         if (album && storage !== 'version') storage = 'album';
         const value = (field,suggested) => locks.has(field) || !suggested ? target[field] : suggested;
-        await db.execute(`UPDATE gallery_items SET title=?,scope=?,category_id=?,album_id=?,tags_json=?,note=?,revision=revision+1,updated_at=? WHERE id=?`,[
+        await db.execute(`UPDATE gallery_items SET title=?,scope=?,category_id=?,album_id=?,tags_json=?,note=?,manual_fields_json=?,revision=revision+1,updated_at=? WHERE id=?`,[
             value('title',analysis.title),value('scope',analysis.scope),category,album,
-            locks.has('tags') ? target.tags_json : JSON.stringify(analysis.tags || []),value('note',analysis.note || analysis.summary),new Date().toISOString(),target.id
+            locks.has('tags') ? target.tags_json : JSON.stringify(analysis.tags || []),value('note',analysis.note || analysis.summary),JSON.stringify(persistedLocks),new Date().toISOString(),target.id
         ]);
-        if (!versionLabelLocked && !version.label && analysis.versionLabel) await db.execute('UPDATE gallery_versions SET label=? WHERE id=?',[analysis.versionLabel,version.id]);
+        if (!versionLabelLocked && (!version.label || refresh) && analysis.versionLabel) await db.execute('UPDATE gallery_versions SET label=? WHERE id=?',[analysis.versionLabel,version.id]);
         return {itemId:target.id,versionId:version.id,storageMode:storage,warning};
     });
     return { ...result,item:await repo.read(result.itemId),version:await repo.readVersion(result.versionId) };
 }
-module.exports = { apply };
+module.exports = { apply, REIDENTIFY_FIELDS };

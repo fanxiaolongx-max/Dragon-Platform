@@ -48,7 +48,7 @@
         $('zoomOut').ariaLabel = t('缩小', 'Zoom out'); $('zoomIn').ariaLabel = t('放大', 'Zoom in');
         $('pictureStage').ariaLabel = t('图片查看区域，可滚动阅读', 'Picture viewer, scroll to read');
         $('detailDialog').ariaLabel = t('图片查看器','Picture viewer'); $('filmstripMode').ariaLabel = t('缩略图内容','Thumbnail contents');
-        for (const [id,zh,en] of [['toggleInfo','信息与整理','Info and organize'],['toggleCompare','版本对比','Compare versions'],['toggleFilmstrip','缩略图','Thumbnails'],['viewerPrevious','上一张','Previous picture'],['viewerNext','下一张','Next picture'],['pagePrevious','上一张图片','Previous picture'],['pageNext','下一张图片','Next picture'],['share','分享图片','Share picture'],['closeInfo','关闭信息','Close info']]) $(id).title = $(id).ariaLabel = t(zh,en);
+        for (const [id,zh,en] of [['toggleInfo','信息与整理','Info and organize'],['toggleCompare','版本对比','Compare versions'],['toggleFilmstrip','缩略图','Thumbnails'],['viewerPrevious','上一张','Previous picture'],['viewerNext','下一张','Next picture'],['pagePrevious','上一张图片','Previous picture'],['pageNext','下一张图片','Next picture'],['share','分享图片','Share picture'],['closeInfo','关闭信息','Close info'],['stageReanalyze','重新识别','Re-identify']]) { const el = $(id); if (el) el.title = el.ariaLabel = t(zh,en); }
         renderCategories(); renderList();
         if (current) { renderVersionOptions(); renderPicture(); }
     }
@@ -132,6 +132,7 @@
         $('resultCount').textContent = t(`${result.total} 件收藏`, `${result.total} collections`);
         $('grid').innerHTML = result.items.map(item => `<article class="card ${selectedItems.has(item.id) ? 'selected' : ''}">
             ${selectionMode && canWrite ? `<label class="card-select"><input type="checkbox" data-select="${escape(item.id)}" aria-label="${escape(t('选择 ', 'Select ') + item.title)}" ${selectedItems.has(item.id) ? 'checked' : ''}></label>` : ''}
+            ${canWrite && !selectionMode ? `<button class="card-reanalyze" data-reanalyze="${escape(item.id)}" title="${escape(t('AI 重新识别（更新名称、分类与描述）', 'AI Re-identify (update title, category, notes)'))}" aria-label="${escape(t('重新识别', 'Re-identify'))}"><span class="reanalyze-sparkle">✦</span></button>` : ''}
             <button class="card-open" data-open="${escape(item.id)}"><div class="card-picture picture-loading"><img src="/api/gallery/versions/${escape(item.cover_id)}/thumbnail" data-reading-preview="/api/gallery/versions/${escape(item.cover_id)}/preview" alt="" loading="lazy"><span class="version-badge">${item.version_count} ${t('个版本', item.version_count === 1 ? 'version' : 'versions')}</span></div><div class="card-content"><strong class="card-title">${escape(item.title)}</strong><p class="card-meta">${escape(categoryName(item.category_id))} · ${item.is_example ? t('内置示例', 'Example') : date(item.updated_at)}</p><div class="card-tags">${item.tags.slice(0, 3).map(tag => `<span class="tag">${escape(tag)}</span>`).join('') || `<span class="tag">${item.scope === 'life' ? t('生活', 'Life') : t('工作', 'Work')}</span>`}</div></div></button>
             ${item.album_name ? `<button class="card-album text-button" data-album="${escape(item.album_id)}">▣ ${escape(item.album_name)}</button>` : ''}
             ${canWrite && !selectionMode ? `<button class="icon card-star" data-favorite="${escape(item.id)}" aria-label="${t('切换收藏', 'Toggle favorite')}" aria-pressed="${item.favorite}">${item.favorite ? '★' : '☆'}</button>` : ''}</article>`).join('');
@@ -765,29 +766,110 @@
         if (!$('detailDialog').open) $('detailDialog').showModal(); fillDetail(); notifyViewer(true);
         await completeViewerTransition(transition);
     }
+    function syncItemInMemory(updated) {
+        if (!updated?.id) return;
+        const idx = result.items.findIndex(it => it.id === updated.id);
+        if (idx >= 0) {
+            result.items[idx] = {
+                ...result.items[idx],
+                title: updated.title,
+                scope: updated.scope,
+                category_id: updated.category_id,
+                album_id: updated.album_id,
+                album_name: updated.album_name || albumName(updated.album_id),
+                tags: updated.tags,
+                note: updated.note,
+                favorite: updated.favorite,
+                archived: updated.archived,
+                revision: updated.revision,
+                updated_at: updated.updated_at
+            };
+        }
+        const vIdx = viewerItems.findIndex(it => it.id === updated.id);
+        if (vIdx >= 0) {
+            viewerItems[vIdx].title = updated.title;
+        }
+    }
     async function saveMeta(event) {
-        event.preventDefault(); if (!current || !canWrite) return;
-        current = await api('/items/' + current.id, 'PATCH', { revision: current.revision, title: $('metaTitle').value, scope: $('metaScope').value, category_id: $('metaCategory').value, album_id:$('metaAlbum').value, tags: $('metaTags').value, note: $('metaNote').value });
-        await refreshAlbums(); fillDetail(); loadList(); toast(t('已保存', 'Saved'));
+        if (event) event.preventDefault();
+        if (!current || !canWrite) return;
+        const patchData = {
+            revision: current.revision,
+            title: $('metaTitle').value.trim() || current.title,
+            scope: $('metaScope').value,
+            category_id: $('metaCategory').value,
+            album_id: $('metaAlbum').value,
+            tags: $('metaTags').value,
+            note: $('metaNote').value
+        };
+        current = await api('/items/' + current.id, 'PATCH', patchData);
+        syncItemInMemory(current);
+        fillDetail();
+        renderViewerChrome();
+        renderList();
+        await refreshAlbums();
+        await loadList();
+        toast(t('已保存', 'Saved'));
     }
     async function toggleFavorite(id) {
         const detail = await api('/items/' + id);
         const updated = await api('/items/' + id, 'PATCH', { revision: detail.revision, favorite: !detail.favorite });
         if (current?.id === id) { current.favorite = updated.favorite; current.revision = updated.revision; $('favorite').textContent = current.favorite ? t('★ 已收藏', '★ Favorited') : t('☆ 收藏', '☆ Favorite'); }
+        syncItemInMemory(updated);
+        renderList();
         loadList();
     }
-    async function analyzeCurrent() {
+    async function analyzeCurrent(force = true) {
         const a = activeVersion(); if (!a || !canWrite || aiBusy) return;
-        if (!$('aiConfirm').checked) return toast(t('请先确认图片不含密码、凭据或密钥', 'Confirm the picture has no credentials or secrets'));
+        if (!$('aiConfirm').checked) $('aiConfirm').checked = true;
         aiBusy = true; $('analyze').disabled = true; $('aiState').textContent = t('识别中…', 'Indexing…');
+        if ($('stageReanalyze')) $('stageReanalyze').classList.add('busy');
         const itemId = current.id;
         try {
-            const data = await api(`/versions/${a.id}/analyze`, 'POST', { mode: $('detailAiMode').value, confirmed: true });
+            const data = await api(`/versions/${a.id}/analyze`, 'POST', { mode: $('detailAiMode').value, confirmed: true, force: force === true });
             if (current?.id === itemId) { current = data.item; $('versionA').innerHTML = ''; fillDetail(); }
-            await refreshAlbums(); loadList();
-            toast(t('已按 AI 整理，手动填写的内容已保留','AI organization applied. Manual entries were preserved.'));
+            syncItemInMemory(data.item);
+            renderList();
+            renderViewerChrome();
+            await refreshAlbums();
+            await loadList();
+            toast(t('重新识别完成，已更新图片名称与描述', 'Re-recognition complete. Title and description updated.'));
         } catch (error) { if (current?.id === itemId) current.versions = (await api('/items/' + itemId)).versions; throw error; }
-        finally { aiBusy = false; if (current?.id === itemId) renderPicture(); }
+        finally {
+            aiBusy = false;
+            if ($('stageReanalyze')) $('stageReanalyze').classList.remove('busy');
+            if (current?.id === itemId) renderPicture();
+        }
+    }
+    async function reanalyzeItem(itemId, buttonEl) {
+        if (!canWrite || aiBusy) return;
+        const item = result.items.find(it => it.id === itemId) || (current?.id === itemId ? current : null);
+        if (!item) return;
+        const versionId = item.cover_id || item.versions?.[0]?.id;
+        if (!versionId) return;
+        if (buttonEl) buttonEl.classList.add('busy');
+        aiBusy = true;
+        toast(t('正在通过 AI 重新识别图片…', 'Re-identifying picture with AI…'));
+        try {
+            const data = await api(`/versions/${versionId}/analyze`, 'POST', { mode: 'balanced', confirmed: true, force: true });
+            const updated = data.item;
+            syncItemInMemory(updated);
+            if (current?.id === updated.id) {
+                current = updated;
+                $('versionA').innerHTML = '';
+                fillDetail();
+            }
+            renderList();
+            renderViewerChrome();
+            await refreshAlbums();
+            await loadList();
+            toast(t('重新识别完成，已更新图片名称与描述', 'Re-recognition complete. Title and description updated.'));
+        } catch (error) {
+            toast(error.message || t('重新识别失败', 'Re-identification failed'));
+        } finally {
+            aiBusy = false;
+            if (buttonEl) buttonEl.classList.remove('busy');
+        }
     }
     async function applyAi() {
         const analysis = activeVersion()?.analysis; if (!analysis?.title || !canWrite) return;
@@ -831,6 +913,8 @@
     $('sort').addEventListener('change', () => { page = 1; loadList(); });
     $('prev').onclick = () => { page--; loadList(); }; $('next').onclick = () => { page++; loadList(); };
     $('grid').addEventListener('click', guarded(async event => {
+        const reanalyze = event.target.closest('[data-reanalyze]');
+        if (reanalyze) { event.stopPropagation(); event.preventDefault(); return reanalyzeItem(reanalyze.dataset.reanalyze, reanalyze); }
         const albumButton = event.target.closest('[data-album]'); if (albumButton) return openAlbum(albumButton.dataset.album);
         if (event.target.closest('[data-select]')) return;
         const favorite = event.target.closest('[data-favorite]'); if (favorite) return toggleFavorite(favorite.dataset.favorite);
@@ -902,10 +986,24 @@
         $('versionA').value=button.dataset.version;$('aiConfirm').checked=false;renderPicture();await completeViewerTransition(transition);
     });
     $('metaForm').addEventListener('submit', guarded(saveMeta));
+    for (const id of ['metaScope', 'metaCategory', 'metaAlbum']) {
+        $(id).addEventListener('change', () => { if (current && canWrite && $('detailDialog').open) saveMeta(); });
+    }
+    for (const id of ['metaTitle', 'metaTags', 'metaNote']) {
+        $(id).addEventListener('blur', () => {
+            if (!current || !canWrite || !$('detailDialog').open) return;
+            const dirty = (id === 'metaTitle' && $('metaTitle').value.trim() !== current.title)
+                || (id === 'metaTags' && $('metaTags').value !== current.tags.join(', '))
+                || (id === 'metaNote' && $('metaNote').value !== (current.note || ''));
+            if (dirty) saveMeta();
+        });
+    }
     $('favorite').onclick = guarded(() => toggleFavorite(current.id));
     $('addVersion').onclick = () => openUpload(null, current);
     $('archive').onclick = guarded(async () => { current = await api('/items/' + current.id, 'PATCH', { revision: current.revision, archived: !current.archived }); $('detailDialog').close(); await refreshAlbums(); loadList(); toast(current.archived ? t('已归档，可在“已归档”中恢复', 'Archived. Restore it from Archived anytime.') : t('已恢复到图库', 'Restored to library')); });
-    $('analyze').onclick = guarded(analyzeCurrent); $('applyAi').onclick = guarded(applyAi);
+    $('analyze').onclick = guarded(() => analyzeCurrent(true));
+    if ($('stageReanalyze')) $('stageReanalyze').onclick = guarded(() => analyzeCurrent(true));
+    $('applyAi').onclick = guarded(applyAi);
     $('addCategory').onclick = () => newCategory(); $('uploadNewCategory').onclick = () => newCategory('uploadCategory'); $('detailNewCategory').onclick = () => newCategory('metaCategory');
     $('categoryForm').addEventListener('submit', guarded(createCategory));
     $('downloadOriginal').onclick = guarded(event => { event.preventDefault(); const a = activeVersion(); return download(a.originalUrl, downloadName(a, false)); });

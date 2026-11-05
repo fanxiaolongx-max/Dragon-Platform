@@ -96,6 +96,13 @@
     function widget(type,spec,fallback,height,alias){const id='w'+widgets.length;widgets.push({id,type,spec,...(alias?{alias:String(alias).slice(0,60)}:{})});return `<div class="kit-widget kit-widget-${type}" data-widget="${id}"${height?` style="height:${Math.max(160,Math.min(900,Number(height)||320))}px"`:''}>${fallback}</div>`;}
     // drill: {field, target, levels:{点击的名称:{option, drill}}} — click filters the target table by field and, where a level exists, opens it.
     function chart(option,options={}){const spec={option:option||{}};if(options.drill&&typeof options.drill==='object')spec.drill=options.drill;return title(options.title)+widget('chart',spec,'<div class="kit-empty">图表加载中…</div>',options.height||320,options.id);}
+    // Script code is data here; it runs only in the isolated interactive-cell frame.
+    function interactive(content,options={}){
+        const spec=typeof content==='string'?{html:content}:{html:String(content?.html||''),css:String(content?.css||''),script:String(content?.script||'')};
+        spec.height=Math.max(100,Math.min(1600,Number(options.height)||240));
+        if(options.axes==='preserve')spec.axes='preserve';
+        return widget('interactive',spec,'<div class="kit-empty">交互内容加载中…</div>',spec.height,options.id);
+    }
     function datatable(rows,options={}){
         const list=(Array.isArray(rows)?rows:[]).slice(0,5000),pageSize=Math.max(5,Math.min(100,Number(options.pageSize)||10));
         const columns=(options.columns||Object.keys(list[0]||{}).map(key=>({key,label:key}))).map(column=>typeof column==='string'?{key:column,label:column}:column);
@@ -147,5 +154,5 @@
     // **…** marks words or numbers to stand out (bold, theme colour), so recipes never have to build HTML for it.
     const emphasis=html=>html.replace(/\*\*([^*\n]{1,80}?)\*\*/g,'<strong class="kit-em">$1</strong>');
     function text(value){return String(value??'').split(/\n{2,}/).map(paragraph=>`<p class="kit-text">${emphasis(esc(paragraph)).replace(/\n/g,'<br>')}</p>`).join('');}
-    scope.AiReportKit={table,kpi,extremes,link,inlineLink,nav,bar,line,pie,list,text,esc,fmt,num,chart,datatable,tabs,layout,PALETTE,_resetWidgets:resetWidgets,_takeWidgets:takeWidgets};
+    scope.AiReportKit={table,kpi,extremes,link,inlineLink,nav,bar,line,pie,list,text,esc,fmt,num,chart,interactive,datatable,tabs,layout,PALETTE,_resetWidgets:resetWidgets,_takeWidgets:takeWidgets};
 })(typeof self!=='undefined'?self:this);

@@ -177,7 +177,7 @@
             <p class="nat-desc">${esc(L(`正在生成 ${job.done}/${job.total}${job.current ? `：${job.current}` : ''}`, `Generating ${job.done}/${job.total}${job.current ? `: ${job.current}` : ''}`))}</p>`
             : job?.finishedAt && job.total ? `<p class="nat-desc">${esc(L(`上次生成：${job.total - job.failed.length}/${job.total} 成功`, `Last run: ${job.total - job.failed.length}/${job.total} succeeded`))}${job.failed.length ? ` · <span style="color:#b91c1c">${esc(job.failed.map(item => `${item.title}：${item.error}`).join('；'))}</span>` : ''}</p>` : '';
         const rows = data.items.map(item => `<tr data-guide-id="${esc(item.id)}">
-            <td><a href="${esc(item.href)}" target="_blank" rel="noopener">${esc(item.title)}</a></td>
+            <td><a href="${esc(window.ToolsNavigation.toolUrl(item.href))}" target="_blank" rel="noopener">${esc(item.title)}</a></td>
             <td><span class="nat-guide-state is-${esc(item.state)}">${esc(guideStateLabel(item.state))}</span></td>
             <td>${esc(item.summary || '—')}</td>
             <td class="nat-num">${item.state !== 'missing' ? `<button type="button" class="nat-link" data-action="guide-view">${esc(L('查看', 'View'))}</button>` : ''}<button type="button" class="nat-link" data-action="guide-one" ${running ? 'disabled' : ''}>${esc(item.state === 'missing' ? L('生成', 'Generate') : L('重新生成', 'Redo'))}</button></td>

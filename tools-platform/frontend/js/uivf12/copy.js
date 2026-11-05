@@ -1664,7 +1664,7 @@ function buildUivCompletionDialogScript(summary) {
                 const normalized = parseInt(month, 10);
                 if (normalized >= 1 && normalized <= 12) url.searchParams.set('targetMonth', String(normalized));
                 else url.searchParams.delete('targetMonth');
-                return url.href;
+                return window.ToolsNavigation?.toolUrl(url.href) || url.href;
             } catch (e) {
                 return importUrl;
             }

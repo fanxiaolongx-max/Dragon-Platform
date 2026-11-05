@@ -2222,7 +2222,7 @@ function renderMediaSettingsHtml(content, overview, videos, categories) {
                     <button type="button" class="sys-btn" onclick="openImportLocalMediaModal()" style="background:#0ea5e9; color:#fff; border:none; border-radius:6px; padding:6px 12px; font-size:13px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">
                         <span>📥</span> 本地目录一键导入
                     </button>
-                    <a href="/cinema" target="_blank" style="text-decoration:none; background:#f8fafc; color:#334155; border:1px solid #cbd5e1; border-radius:6px; padding:6px 12px; font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:4px;">
+                    <a href="${navToolShellUrl('/cinema')}" target="_blank" style="text-decoration:none; background:#f8fafc; color:#334155; border:1px solid #cbd5e1; border-radius:6px; padding:6px 12px; font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:4px;">
                         <span>🎬</span> 预览点播大厅 ↗
                     </a>
                 </div>
@@ -3983,7 +3983,7 @@ function renderDutyRosterPageSettings(content) {
                 <div class="nav-page-config-title">${navEscape(text('夜间运维值班表管理', 'Night Operation Duty Roster Management'))}</div>
                 <div class="nav-page-config-desc">${navEscape(text('值班表采用专属独立编辑工作区，支持月份切换、一键引入上月人员、中英文切换及快捷保存。', 'The duty roster has a dedicated editing workspace supporting month switching, last-month import, bilingual toggles, and server sync.'))}</div>
                 <div style="margin-top: 14px;">
-                    <a href="/duty-roster" target="_blank" class="nav-settings-add" style="display:inline-flex;align-items:center;text-decoration:none;padding:6px 14px;font-size:13px;font-weight:600;border-radius:6px;background:#312e81;color:#fff;border:none;">
+                    <a href="${navToolShellUrl('/duty-roster')}" target="_blank" class="nav-settings-add" style="display:inline-flex;align-items:center;text-decoration:none;padding:6px 14px;font-size:13px;font-weight:600;border-radius:6px;background:#312e81;color:#fff;border:none;">
                         🌙 ${navEscape(text('打开夜间运维值班表编辑器 ↗', 'Open Duty Roster Editor ↗'))}
                     </a>
                 </div>

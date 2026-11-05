@@ -40,4 +40,7 @@ dist/
 !tools-platform/backend/vendor/@wecode/bridge-runtime-sdk/dist/
 .tmp/
 
+# IDE / workspace cache & temporary reports
+.workbuddy/
+AI动态速览*.md
 

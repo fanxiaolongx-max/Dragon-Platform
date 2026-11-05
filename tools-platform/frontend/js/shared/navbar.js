@@ -2,11 +2,23 @@
  * shared/navbar.js - 统一导航栏组件
  * 支持固定工具、自定义工具、二级分类与全局顺序设置。
  */
+// Tool links opened in another tab retain the current platform shell, including nested query/hash state.
+function navToolShellUrl(href) {
+    try {
+        const url = new URL(href, location.origin);
+        if (url.origin !== location.origin || url.pathname === '/' || /^\/(api|login|downloads?)\b/.test(url.pathname)) return href;
+        url.searchParams.set('standalone', '1');
+        return url.pathname + url.search + url.hash;
+    } catch { return href; }
+}
+window.ToolsNavigation = { ...window.ToolsNavigation, toolUrl: window.ToolsNavigation?.toolUrl || navToolShellUrl };
 // 在新版首页右侧内嵌打开（js/home/tool-frame.js）时不显示旧的顶部导航，页面直接从顶部开始
 const NAV_EMBEDDED = (() => {
+    if (new URLSearchParams(location.search).get('standalone') === '1') return true;
     try { return window.top !== window && window.top.location.origin === location.origin && Boolean(window.top.HomeToolFrame); } catch { return false; }
 })();
 if (NAV_EMBEDDED) document.documentElement.classList.add('is-embedded-tool');
+if (/^\/(?:pages\/)?(?:privacy|terms)(?:\.html)?$/.test(location.pathname)) document.documentElement.classList.add('is-embedded-tool');
 const NAV_BUILTIN_LINKS = [
     { id: 'home', href: '/', icon: '🏠', label: '工具中台', labelKey: 'nav.home', defaultCategory: 'business', match: p => p === '/' },
     { id: 'uivf12', href: '/uivf12', icon: '🚀', label: '数据抓取', labelKey: 'nav.uivf12', defaultCategory: 'business', match: p => p.startsWith('/uivf12') },

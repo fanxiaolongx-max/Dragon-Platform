@@ -8,7 +8,7 @@
     const L = (zh, en) => /^(en|en-US)$/.test(window.ToolsI18n?.getLanguage?.() || window.ToolsCustomI18n?.getLanguage?.() || localStorage.getItem('tools_lang') || '') ? en : zh;
     const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
     const state = { items: [], total: 0, offset: 0, hasMore: false, canManage: false, activeThread: null, threadReady: false, reviewing: false, loading: false, busy: '', edits: new Map(), open: new Set(), editing: new Set(), notice: '', tone: '', signature: '', identity: '', muted: '', epoch: 0 };
-    let banner, home, panel, timer, noticeTimer;
+    let banner, home, panel, timer, noticeTimer, refreshTask, reviewTask, refreshError = '';
 
     function setNotice(message, tone = '') {
         clearTimeout(noticeTimer);
@@ -64,7 +64,15 @@
         render();
     }
 
-    async function refresh({ force = false } = {}) {
+    function refresh(options = {}) {
+        if (refreshTask) return refreshTask;
+        // A refresh skipped during a save must not absorb the refresh after it.
+        if (state.busy || (!options.force && document.visibilityState === 'hidden')) return refreshNow(options);
+        refreshTask = refreshNow(options).finally(() => { refreshTask = null; });
+        return refreshTask;
+    }
+
+    async function refreshNow({ force = false } = {}) {
         if (identity() !== state.identity) resetIdentity();
         if (state.loading || state.busy || (!force && document.visibilityState === 'hidden')) return;
         const epoch = state.epoch;
@@ -78,6 +86,7 @@
             }
             if (epoch !== state.epoch || identity() !== state.identity) return;
             state.canManage = data.canManage === true;
+            refreshError = '';
             state.items = data.items || [];
             state.total = data.total || 0;
             state.hasMore = Boolean(data.hasMore);
@@ -98,6 +107,7 @@
                 setNotice(L('暂时无法刷新，已保留你的修改：', 'Could not refresh. Your edits are preserved: ') + error.message, 'error');
                 renderPanel();
             }
+            refreshError = error.message;
         } finally {
             if (epoch === state.epoch) state.loading = false;
         }
@@ -188,14 +198,29 @@
         window.dispatchEvent(new Event('tools:ops-inbox-state'));
     }
 
-    async function review(target) {
+    function review(target) {
+        if (reviewTask) return reviewTask;
+        reviewTask = openReview(target).finally(() => { reviewTask = null; });
+        return reviewTask;
+    }
+
+    function reviewNotice(message) {
+        const title = L('运维待办', 'Ops drafts');
+        if (window.AppDialog?.alert) return window.AppDialog.alert(message, { title });
+        window.alert(`${title}\n${message}`);
+    }
+
+    async function openReview(target) {
         if (!home) {
             location.assign('/#ops-drafts');
             return;
         }
-        if (!state.canManage || (!state.total && !state.notice)) return;
+        await refresh({ force: true });
+        if (refreshError) return reviewNotice(L('暂时无法加载运维待办，请稍后重试：', 'Could not load ops drafts. Please retry: ') + refreshError);
+        if (!state.canManage) return reviewNotice(L('当前账号没有管理运维待办的权限，请使用管理员账号。', 'Your account cannot manage ops drafts. Use an administrator account.'));
+        if (!state.total) return reviewNotice(L('当前没有待确认消息。微信 / WeLink 的运营消息草稿需要你确认时，会显示在这里。', 'No messages need review. WeChat / WeLink operations drafts appear here when they need your confirmation.'));
         const selected = pendingTargets().find(item => targetKey(item) === targetKey(target)) || state.items[0]?.targets[0];
-        if (!selected || !window.HomeWelinkThreads?.open) return;
+        if (!selected || !window.HomeWelinkThreads?.open) return reviewNotice(L('会话入口暂不可用，请刷新页面后重试。', 'Conversation access is unavailable. Refresh the page and retry.'));
         const opened = await window.HomeWelinkThreads.open({ ...selected, name: selected.name || selected.id });
         if (opened !== true) return;
         window.HomeMode?.set?.('chat', { updateHash: false });

@@ -26,6 +26,7 @@ test('factory reset archives all live data and preserves administrator and licen
     fs.mkdirSync(dataDir, { recursive: true });
     fs.mkdirSync(reportDataDir, { recursive: true });
     fs.writeFileSync(path.join(dataDir, 'business.json'), 'old business data');
+    fs.writeFileSync(path.join(dataDir, 'first-run-defaults.json'), JSON.stringify({ decision: 'skip' }));
     fs.writeFileSync(path.join(dataDir, 'f12-license-registry.json'), '{"license":true}');
     fs.writeFileSync(path.join(reportDataDir, 'report.db'), 'old report data');
     fs.writeFileSync(planPath, JSON.stringify({
@@ -39,6 +40,8 @@ test('factory reset archives all live data and preserves administrator and licen
     await worker.run(planPath);
 
     assert.equal(fs.existsSync(path.join(dataDir, 'business.json')), false);
+    assert.equal(fs.existsSync(path.join(dataDir, 'first-run-defaults.json')), false, 'reset restores the pending quick-start choice');
+    assert.equal(JSON.parse(fs.readFileSync(path.join(archiveDir, 'primary-data', 'first-run-defaults.json'), 'utf8')).decision, 'skip');
     assert.equal(fs.readFileSync(path.join(dataDir, 'f12-license-registry.json'), 'utf8'), '{"license":true}');
     assert.equal(fs.readFileSync(path.join(archiveDir, 'primary-data', 'business.json'), 'utf8'), 'old business data');
     assert.equal(fs.readFileSync(path.join(archiveDir, 'report-data', 'report.db'), 'utf8'), 'old report data');

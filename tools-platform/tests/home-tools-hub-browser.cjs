@@ -33,7 +33,7 @@ app.whenReady().then(async () => {
         window.fixtureIntervals=[];const originalInterval=window.setInterval;window.setInterval=(fn,delay,...args)=>{if(delay>=10000)fixtureIntervals.push({fn,delay});return originalInterval(fn,delay,...args)};
         window.fixtureErrors=[];window.addEventListener('error',e=>fixtureErrors.push(e.message));window.addEventListener('unhandledrejection',e=>fixtureErrors.push(String(e.reason)));
     </script>`)));
-    web.get('/requirements', (_, res) => res.sendFile(path.join(frontend,'pages/requirements.html')));
+    web.get('/requirements', (_, res) => res.type('html').send(require('../backend/models/asset-versioning').injectPlatformTheme(fs.readFileSync(path.join(frontend,'pages/requirements.html'),'utf8'),{toolPath:'pages/requirements.html'})));
     web.get('/api/requirements', (_, res) => res.json([]));
     web.get('/api/custom-tools', (_, res) => res.json([]));
     web.get('/api/auth/me', (_, res) => res.json({ username: 'fixture', role: 'admin', tenantId: 'default' }));
@@ -64,6 +64,8 @@ app.whenReady().then(async () => {
     }
     web.get('/api/alert-center/events', (_, res) => setTimeout(() => res.json({ events: [] }), process.env.HOME_MESSAGES_AUDIT ? 200 : 0));
     web.get('/scroll-fixture', (_, res) => res.send('<!doctype html><title>Scrollable tool</title><div style="height:4000px">Tool content</div>'));
+    if(process.env.HOME_TOOL_EXTERNAL_AUDIT)web.get(['/uivf12','/monthly','/report','/sla','/expedite','/bigscreen','/topic-analysis','/tools/external-fixture'],(_,res)=>res.send(require('../backend/models/asset-versioning').injectPlatformTheme('<!doctype html><head><title>Tool fixture</title><link rel="stylesheet" href="/css/shared.css"></head><body><div id="navbar-container"></div><main id="fixture-tool">Tool content</main><script src="/js/shared/navbar.js"></script></body>',{toolPath:'pages/report.html'})));
+    if(process.env.HOME_TOOL_EXTERNAL_AUDIT)web.get('/custom-tools/external-fixture/index.html',(_,res)=>res.send(require('../backend/models/asset-versioning').injectPlatformTheme('<!doctype html><head></head><a id=rawReport href="/report?month=9#row" target="_blank">Report</a>',{toolPath:'custom-tools/external-fixture/index.html'})));
     if (process.env.HOME_MARKET_THEME_AUDIT) {
         web.get('/api/custom-tools/market/settings', (_,res)=>res.json({githubEnabled:true,sources:[{id:'fixture',name:'Fixture',url:'https://example.test/catalog.json',enabled:true}]}));
         web.get('/api/custom-tools/market/preview-stream', (_,res)=>res.type('application/x-ndjson').send(JSON.stringify({type:'result',data:{sources:[{enabled:true}],trust:{state:'unsigned'},tools:['update','missing','conflict','unchanged','incompatible'].map((status,i)=>({slug:'fixture-'+i,name:['在线验收表','聊天记录中心','数通协议专家','负向事件管理','版本不兼容'][i],nameEn:'Tool '+i,description:'工具说明与版本信息',icon:'🧩',status,recommended:status==='update',fingerprint:'abcdef1234567890',selectedSource:'market',minPlatformVersion:'1.0.0'}))}})+'\n'));
@@ -76,6 +78,68 @@ app.whenReady().then(async () => {
     await win.loadURL(`http://127.0.0.1:${server.address().port}/`);
 
     await until('window.HomeSkillHub&&document.querySelector("[data-v2-mode=tools]")&&document.getElementById("v2SkillHub")');
+    if(process.env.HOME_TOOL_EXTERNAL_AUDIT){
+        let opened='';win.webContents.setWindowOpenHandler(({url})=>{opened=url;return {action:'deny'};});
+        const base=`http://127.0.0.1:${server.address().port}`;
+        for(const href of ['/uivf12','/monthly','/report?month=2026-09#detail','/sla','/expedite','/bigscreen','/topic-analysis','/tools/external-fixture?name=a%26b#chart','/requirements']){
+            await evaluate(`HomeToolFrame.open(${JSON.stringify(href)});void 0`);
+            await until(`document.querySelector('.v2-tool-frame-view').contentDocument?.readyState==='complete'&&document.querySelector('.v2-tool-frame-view').contentWindow.location.pathname===${JSON.stringify(href.split(/[?#]/)[0])}`);
+            opened='';await evaluate(`document.querySelector('[data-frame-act="external"]').click()`);
+            for(let i=0;i<100&&!opened;i++)await wait(10);
+            const expected=new URL(href,base);expected.searchParams.set('standalone','1');assert.equal(opened,expected.href);
+            const popup=new BrowserWindow({show:false,webPreferences:{backgroundThrottling:false}});
+            try{
+                await popup.loadURL(opened);
+                for(let i=0;i<200;i++){if(await popup.webContents.executeJavaScript(`document.documentElement.classList.contains('is-clean-tool')&&!!document.querySelector('#app-navbar')`))break;await wait(20);}
+                const result=await popup.webContents.executeJavaScript(`({url:location.href,nav:getComputedStyle(document.querySelector('#app-navbar')).display,sidebar:!!document.querySelector('#homeSidebar'),fab:document.querySelector('.ai-fab')?getComputedStyle(document.querySelector('.ai-fab')).display:'none'})`);
+                assert.equal(result.url,expected.href);assert.equal(result.nav,'none');assert.equal(result.sidebar,false);assert.equal(result.fab,'none');
+            }finally{popup.destroy();}
+        }
+        assert.equal(await evaluate(`ToolsNavigation.toolUrl('https://example.test/report')`),'https://example.test/report');
+        assert.equal(await evaluate(`ToolsNavigation.toolUrl('/?app=%2Fmonthly')`),'/monthly?standalone=1');
+        await win.loadURL(base+'/monthly?month=9#row');await until('HomeToolFrame?.isOpen()&&document.querySelector(".v2-tool-frame-view")?.contentWindow.location.pathname==="/monthly"');
+        assert.equal(await evaluate('new URLSearchParams(location.search).get("app")'),'/monthly?month=9#row');
+        await win.loadURL(base+'/custom-tools/external-fixture/index.html?standalone=1');await until('window.ToolsNavigation?.installed');
+        assert.equal(await evaluate('document.getElementById("rawReport").getAttribute("href")'),'/report?month=9&standalone=1#row');
+        console.log('PASS: nine clean tool windows without platform navbar/sidebar/assistant, direct old URL migration, raw custom-tool links, query and hash.');win.destroy();server.close();app.exit(0);return;
+    }
+    if (process.env.HOME_TOOL_RETURN_AUDIT) {
+        await evaluate(`HomeWorkspace.getTools=()=>Array.from({length:80},(_,i)=>({id:'return-'+i,title:'Return fixture '+i,href:'/scroll-fixture?tool='+i,group:'Fixture'}));HomeMode.set('tools');void 0`);
+        await evaluate(`document.querySelector('[data-hub-cat="Fixture"]').click();document.querySelector('[data-hub-sort="name"]').click();const input=document.querySelector('.v2-hub-search input');input.value='Return fixture';input.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('.home-main').scrollTop=450;window.returnScroll=document.querySelector('.home-main').scrollTop;`);
+        assert.ok(await evaluate('returnScroll>0'));
+        const snapshot=()=>evaluate(`({query:document.querySelector('.v2-hub-search input').value,keys:[...document.querySelectorAll('.v2-hub-grid [data-hub-key]')].map(el=>el.dataset.hubKey),scroll:document.querySelector('.home-main').scrollTop})`);
+        const before=await snapshot();
+        const openTool=async()=>{
+            await evaluate(`document.querySelector('.v2-hub-grid a').click()`);
+            await until(`HomeToolFrame.isOpen()&&document.querySelector('.v2-tool-frame-view').contentDocument?.title==='Scrollable tool'`);
+        };
+        await openTool();
+        assert.equal(await evaluate('HomeSkillHub.isOpen()'),false);
+        await evaluate(`document.querySelector('[data-frame-act="close"]').click()`);
+        assert.equal(await evaluate('HomeSkillHub.isOpen()'),true);
+        assert.equal(await evaluate('location.hash'),'#tools');
+        assert.deepEqual(await snapshot(),before,'close restores category, query, sort and scroll');
+        await openTool();
+        await evaluate(`HomeToolFrame.open('/scroll-fixture?tool=second');HomeToolFrame.close()`);
+        assert.deepEqual(await snapshot(),before,'switching tools keeps the original return destination');
+        await openTool();
+        await evaluate('history.back()');
+        await until('!HomeToolFrame.isOpen()&&HomeSkillHub.isOpen()');
+        assert.deepEqual(await snapshot(),before,'browser back restores the tool menu');
+        await evaluate('history.forward()');
+        await until('HomeToolFrame.isOpen()');
+        await evaluate('HomeToolFrame.close()');
+        assert.equal(await evaluate('HomeSkillHub.isOpen()'),true);
+        await openTool();
+        await evaluate(`document.querySelector('[data-v2-action="newChat"]').click()`);
+        assert.equal(await evaluate('HomeToolFrame.isOpen()||HomeSkillHub.isOpen()'),false,'explicit sidebar navigation does not reopen the origin');
+        await evaluate(`HomeToolFrame.open('/scroll-fixture?from=chat');HomeToolFrame.close()`);
+        assert.equal(await evaluate('HomeSkillHub.isOpen()'),false,'opening from chat returns to chat');
+        assert.deepEqual(await evaluate('fixtureErrors'),[]);
+        console.log('PASS: tool close returns to origin with filters and scroll; chained tools, browser back/forward, chat entry and explicit sidebar navigation.');
+        win.destroy();server.close();app.exit(0);return;
+    }
+    if(process.env.HOME_TOOL_EXTERNAL_AUDIT)web.get('/custom-tools/external-fixture/index.html',(_,res)=>res.send(require('../backend/models/asset-versioning').injectPlatformTheme('<!doctype html><head></head><a id=rawReport href="/report?month=9#row" target="_blank">Report</a>',{toolPath:'custom-tools/external-fixture/index.html'})));
     if (process.env.HOME_MARKET_THEME_AUDIT) {
         for (const [width,theme,lang] of [[1440,'light','zh-CN'],[1440,'dark','en-US'],[390,'light','zh-CN'],[390,'dark','en-US']]) {
             win.setContentSize(width,900);
@@ -224,6 +288,7 @@ app.whenReady().then(async () => {
         await until(`!!document.querySelector('.v2-flyout [data-v2-do="requirements"]')`);
         await evaluate(`document.querySelector('.v2-flyout [data-v2-do="requirements"]').click()`);
         const check=async()=>{
+            await wait(100); // Let a queued close/reopen navigation leave the previous document.
             await until(`(()=>{const f=document.querySelector('.v2-tool-frame-view'),d=f?.contentDocument;return HomeToolFrame.isOpen() && d?.readyState==='complete' && d.documentElement.classList.contains('is-embedded-tool') && d.querySelector('#app-navbar') && d.querySelector('.req-header h1')})()`);
             const state=await evaluate(`(()=>{const f=document.querySelector('.v2-tool-frame-view'),d=f.contentDocument;return {host:location.pathname,app:new URLSearchParams(location.search).get('app'),nav:f.contentWindow.getComputedStyle(d.querySelector('#app-navbar')).display,title:d.querySelector('.req-header h1').textContent}})()`);
             assert.equal(state.host,'/','host remains the new homepage');
@@ -630,8 +695,10 @@ app.whenReady().then(async () => {
     }
     assert.deepEqual(await evaluate('fixtureErrors'),[]);
     await win.loadURL(`http://127.0.0.1:${server.address().port}/?ui=v1#tools`);
-    await until('window.HomeMode');assert.equal(await evaluate('document.body.classList.contains("home-mode-tools")'),true,'classic layout keeps its existing tool navigation');
-    assert.equal(await evaluate('!!document.getElementById("v2SkillHub")'),false);
-    console.log('PASS: top Tools and sidebar Tools share one live hub and card list; no legacy category sidebar/grid; explicit tab reset; old Browse Tools event; direct #tools reload/hash navigation; return to chat; themes/English/390px; classic layout preserved. Previews: '+temp);
+    await until('window.HomeSkillHub?.isOpen()');
+    assert.equal(await evaluate('document.documentElement.dataset.ui'),'v2','old ui=v1 links migrate to the new layout');
+    assert.equal(await evaluate('localStorage.getItem("tools_home_ui")'),'v2');
+    assert.equal(await evaluate('!!document.querySelector("[data-v2-do=classic]")'),false);
+    console.log('PASS: shared tools hub, filters, navigation, themes/English/390px, and migration of legacy layout links. Previews: '+temp);
     win.destroy();server.close();app.exit(0);
 }).catch(error=>{console.error(error);win?.destroy();server?.close();app.exit(1)});

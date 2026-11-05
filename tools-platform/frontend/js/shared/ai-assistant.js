@@ -3,10 +3,13 @@
  * 封装在 IIFE 中，避免污染全局变量
  */
 (function () {
+    if (window.ToolsAIAssistant) return;
     // 注入 CSS 样式
     const style = document.createElement('style');
     style.innerHTML = `
         /* AI Assistant 样式定义 */
+        /* The active tool owns its contextual drawer; retain the host as fallback. */
+        body.v2-tool-has-assistant > :is(.ai-fab, .ai-panel, .ai-proactive-alert) { display: none !important; }
         /* AI Assistant 样式定义 */
         /* 右侧停靠标签：符合主页氛围的现代明亮玻璃风格（翡翠绿/青碧主题色） */
         .ai-fab {
@@ -2835,6 +2838,8 @@
     };
 
     async function openAssistant(options = {}) {
+        const toolAssistant = window.HomeToolFrame?.assistant?.();
+        if (toolAssistant?.open && toolAssistant !== window.ToolsAIAssistant) return toolAssistant.open(options);
         applyContextTheme();
         panel.classList.add('open');
         fab.setAttribute('aria-expanded', 'true');

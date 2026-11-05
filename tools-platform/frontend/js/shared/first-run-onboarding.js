@@ -4,8 +4,9 @@
  * independent of browser cache and Electron packaging mode.
  */
 (function initFirstRunOnboardingModule() {
+    // Legal/public pages must remain readable without an authenticated API request.
+    if (/^\/(?:pages\/)?(?:privacy|terms|login|cinema)(?:\.html)?\/?$/.test(window.location.pathname)) return;
     const MODAL_ID = 'defaultQuickStartModal';
-    const README_URL = 'https://github.com/fanxiaolongx-max/privacy-policy#默认快速上手包';
 
     function isEnglish() {
         const value = localStorage.getItem('tools_lang') || navigator.language || document.documentElement.lang || '';
@@ -26,9 +27,9 @@
 
     function strings() {
         return isEnglish() ? {
-            eyebrow: 'SYSTEM READY · BUILD & DEPENDENCIES',
-            title: 'Dragon Claw Workspace Ready',
-            intro: 'Local workspace initialized. Current build version, runtime environment, and built-in third-party dependencies are detailed below. You can optionally import baseline defaults.',
+            eyebrow: 'WELCOME · QUICK START',
+            title: 'Set up your workspace',
+            intro: 'Import default scripts and metric rules to get started, or skip and configure your workspace later.',
             versionLabel: 'Build Version',
             buildTimeLabel: 'Build Time',
             runtimeLabel: 'Runtime Environment',
@@ -42,27 +43,27 @@
             importing: 'Backing up configuration and initializing defaults…',
             skipping: 'Saving your preferences…',
             success: 'Workspace initialized. Reloading…',
-            skipped: 'Preferences saved. Entering workspace with clean configuration.',
+            skipped: 'Preferences saved. Opening your workspace.',
             chooseOne: 'Select at least one baseline item to import, or click "Do Not Import".',
             failed: 'Setup failed: '
         } : {
-            eyebrow: '环境就绪 · 构建与依赖信息',
-            title: 'Dragon Claw 本地工作区已就绪',
-            intro: '本地服务已成功启动。以下为本次代码构建的版本详细信息、运行环境及内置第三方依赖，您可按需选择是否导入开箱即用的默认规则库。',
+            eyebrow: '欢迎使用 · 开箱即用',
+            title: '准备好开始使用了',
+            intro: '导入默认脚本与指标规则，即可开始使用；也可以跳过，稍后在设置中导入。',
             versionLabel: '构建版本',
             buildTimeLabel: '构建时间',
             runtimeLabel: '运行环境',
             depsTitle: '内置核心组件与三方依赖',
             safeNotice: '安全保障：导入仅补充缺失项，同名脚本和同标识规则保留本地版本，操作前会自动生成安全快照备份。',
             selectHint: '可选初始化基础包：',
-            scriptsOption: '默认智能调度脚本仓库 (14个生产脚本)',
+            scriptsOption: '默认智能调度脚本仓库',
             rulesOption: '全量指标与考勤基线规则 (含目标/权重/分组)',
             import: '导入选中的默认内容',
             skip: '不导入，直接使用',
             importing: '正在备份现有配置并导入…',
             skipping: '正在保存选择…',
             success: '默认内容已导入，正在重新加载工作区…',
-            skipped: '已保存选择，以纯净环境进入工作空间。',
+            skipped: '已保存选择，开始使用工作区。',
             chooseOne: '请至少选择一项需要导入的内容，或直接点击“不导入”。',
             failed: '首次启动选择保存失败：'
         };
@@ -73,134 +74,50 @@
         const style = document.createElement('style');
         style.id = 'defaultQuickStartStyles';
         style.textContent = `
-            .quick-start-overlay{position:fixed;inset:0;z-index:2147482000;display:grid;place-items:center;padding:24px;background:rgba(2,6,23,.82);backdrop-filter:blur(14px)}
-            .quick-start-card{width:min(780px,100%);max-height:calc(100vh - 48px);overflow-y:auto;border:1px solid rgba(125,211,252,.28);border-radius:24px;background:linear-gradient(145deg,#0f172a 0%,#111827 58%,#172554 100%);color:#e2e8f0;box-shadow:0 32px 100px rgba(0,0,0,.58);font-family:Inter,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
-            .quick-start-head{padding:26px 30px 18px;border-bottom:1px solid rgba(148,163,184,.14)}
-            .quick-start-eyebrow{color:#67e8f9;font-size:11px;font-weight:900;letter-spacing:.18em}
-            .quick-start-head h2{margin:8px 0 8px;color:#fff;font-size:24px;font-weight:760;line-height:1.2}
-            .quick-start-head p{margin:0;color:#94a3b8;font-size:12px;line-height:1.6}
-            .quick-start-body{padding:20px 30px 26px}
-            .quick-start-meta-banner{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;padding:12px 16px;border:1px solid rgba(56,189,248,.2);border-radius:14px;background:rgba(15,23,42,.7);margin-bottom:16px}
-            .meta-item{display:flex;flex-direction:column;gap:3px}
-            .meta-item.full{grid-column:1/-1}
-            .meta-lbl{color:#64748b;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
-            .meta-val{color:#f1f5f9;font-size:12px;font-weight:600}
-            .meta-val.highlight{color:#38bdf8;font-weight:800;font-size:13px}
-            .meta-val.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;color:#94a3b8}
+            .quick-start-overlay{--qs-bg:#fff;--qs-panel:#f7f7f8;--qs-line:#e7e7ea;--qs-ink:#1f2328;--qs-muted:#62666d;--qs-button:#242424;--qs-button-ink:#fff;position:fixed;inset:0;z-index:2147482000;display:grid;place-items:center;padding:24px;background:rgba(0,0,0,.38);backdrop-filter:blur(6px);color-scheme:light}
+            html[data-theme="dark"] .quick-start-overlay,html[data-platform-theme="dark"] .quick-start-overlay{--qs-bg:#1a1d23;--qs-panel:#15181d;--qs-line:#353a43;--qs-ink:#e6e8eb;--qs-muted:#b3b9c2;--qs-button:#e6e8eb;--qs-button-ink:#16181c;color-scheme:dark}
+            .quick-start-overlay,.quick-start-overlay *{box-sizing:border-box}
+            .quick-start-card{width:min(660px,100%);min-width:0;max-height:calc(100dvh - 48px);overflow-y:auto;overscroll-behavior:contain;border:1px solid var(--qs-line);border-radius:18px;background:var(--qs-bg);color:var(--qs-ink);box-shadow:0 24px 80px rgba(0,0,0,.2);font-family:Inter,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;overflow-wrap:anywhere}
+            .quick-start-head{padding:28px 28px 20px;border-bottom:1px solid var(--qs-line)}
+            .quick-start-eyebrow{color:var(--qs-muted);font-size:11px;font-weight:600;letter-spacing:.1em}
+            .quick-start-head h2{margin:10px 0;color:var(--qs-ink);font-size:24px;font-weight:650;line-height:1.3}
+            .quick-start-head p{margin:0;color:var(--qs-muted);font-size:13px;line-height:1.7}
+            .quick-start-body{padding:20px 28px 24px}
+            .quick-start-meta-banner{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px;border:1px solid var(--qs-line);border-radius:10px;background:var(--qs-panel);margin-bottom:16px}
+            .quick-start-card .meta-item{display:flex;flex-direction:column;gap:4px;min-width:0}
+            .quick-start-card .meta-item.full{grid-column:1/-1}
+            .quick-start-card .meta-lbl{color:var(--qs-muted);font-size:11px}
+            .quick-start-card .meta-val{color:var(--qs-ink);font-size:12px;font-weight:500}
+            .quick-start-card .meta-val.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px}
             .quick-start-deps-section{margin-bottom:16px}
-            .deps-heading{margin-bottom:8px;color:#94a3b8;font-size:11px;font-weight:800;letter-spacing:.05em}
-            .deps-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-            .dep-pill{padding:9px 12px;border:1px solid rgba(148,163,184,.14);border-radius:10px;background:rgba(15,23,42,.55);transition:border-color .18s ease}
-            .dep-pill:hover{border-color:rgba(56,189,248,.35)}
-            .dep-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:3px}
-            .dep-name{color:#e2e8f0;font-size:11px;font-weight:700;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
-            .dep-ver{color:#38bdf8;font-size:10px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;background:rgba(56,189,248,.12);padding:1px 6px;border-radius:999px;border:1px solid rgba(56,189,248,.22)}
-            .dep-role{color:#94a3b8;font-size:10px;line-height:1.4}
-            .quick-start-safe-strip{display:flex;align-items:flex-start;gap:8px;padding:9px 12px;border:1px solid rgba(52,211,153,.2);border-radius:10px;background:rgba(6,78,59,.18);color:#a7f3d0;font-size:11px;line-height:1.5;margin-bottom:16px}
-            .safe-icon{flex-shrink:0;font-size:13px}
-            .quick-start-select-title{margin-bottom:8px;color:#cbd5e1;font-size:11px;font-weight:800}
+            .quick-start-card .deps-heading{color:var(--qs-muted);font-size:12px;cursor:pointer}
+            .quick-start-card .deps-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+            .quick-start-card .dep-pill{min-width:0;padding:10px;border:1px solid var(--qs-line);border-radius:8px;background:var(--qs-panel)}
+            .quick-start-card .dep-top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px;margin-bottom:4px}
+            .quick-start-card .dep-name,.quick-start-card .dep-ver{color:var(--qs-ink);font-size:11px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+            .quick-start-card .dep-ver,.quick-start-card .dep-role{color:var(--qs-muted);font-size:11px;line-height:1.5}
+            .quick-start-safe-strip{padding:12px;border:1px solid var(--qs-line);border-radius:10px;background:var(--qs-panel);color:var(--qs-muted);font-size:12px;line-height:1.65;margin-bottom:20px}
+            .quick-start-select-title{margin-bottom:10px;color:var(--qs-ink);font-size:12px;font-weight:600}
             .quick-start-options{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-            .quick-start-option{display:flex;align-items:center;gap:10px;padding:11px 13px;border:1px solid rgba(56,189,248,.24);border-radius:11px;background:rgba(14,116,144,.1);color:#e0f2fe;font-size:12px;font-weight:700;cursor:pointer}
-            .quick-start-option input{width:16px;height:16px;accent-color:#06b6d4}
-            .quick-start-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
-            .quick-start-actions button{min-height:38px;padding:0 16px;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer}
-            .quick-start-skip{border:1px solid rgba(148,163,184,.28);background:transparent;color:#cbd5e1}
-            .quick-start-import{border:0;background:linear-gradient(135deg,#0891b2,#2563eb);color:#fff;box-shadow:0 10px 24px rgba(37,99,235,.28)}
+            .quick-start-option{display:flex;align-items:flex-start;gap:10px;padding:12px;border:1px solid var(--qs-line);border-radius:10px;background:var(--qs-bg);color:var(--qs-ink);font-size:12px;line-height:1.6;cursor:pointer}
+            .quick-start-option:has(input:checked){border-color:var(--qs-muted);background:var(--qs-panel)}
+            .quick-start-option input{flex-shrink:0;width:16px;height:16px;margin:2px 0 0;accent-color:var(--qs-button);color-scheme:inherit}
+            .quick-start-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}
+            .quick-start-actions button{min-height:40px;padding:9px 16px;border-radius:9px;font-family:inherit;font-size:12px;font-weight:600;line-height:1.5;cursor:pointer}
+            .quick-start-skip{border:1px solid var(--qs-line);background:var(--qs-bg);color:var(--qs-ink)}
+            .quick-start-import{border:1px solid var(--qs-button);background:var(--qs-button);color:var(--qs-button-ink)}
+            .quick-start-actions button:hover{filter:brightness(.92)}
+            .quick-start-card :focus-visible{outline:2px solid var(--qs-muted);outline-offset:3px}
             .quick-start-actions button:disabled{opacity:.55;cursor:wait}
-            .quick-start-result{min-height:18px;margin-top:10px;color:#a5f3fc;font-size:11px;text-align:right}
-            .quick-start-result.error{color:#fda4af}
+            .quick-start-result{min-height:18px;margin-top:10px;color:var(--qs-muted);font-size:12px;line-height:1.5;text-align:right}
+            .quick-start-result.error{color:var(--qs-ink);font-weight:600}
             @media(max-width:650px){
                 .quick-start-overlay{padding:12px}
-                .quick-start-head,.quick-start-body{padding-left:16px;padding-right:16px}
-                .deps-grid,.quick-start-options{grid-template-columns:1fr}
+                .quick-start-card{max-height:calc(100dvh - 24px);border-radius:14px}
+                .quick-start-head,.quick-start-body{padding-left:18px;padding-right:18px}
+                .quick-start-card .deps-grid,.quick-start-options{grid-template-columns:1fr}
                 .quick-start-actions{flex-direction:column-reverse}
                 .quick-start-actions button{width:100%}
-            }
-            /* 亮色主题（首页 data-theme / 工具页 data-platform-theme 不是 dark 时），由 scripts/generate-light-theme.js 生成 */
-            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .quick-start-overlay {
-                background: rgba(249, 250, 252, 0.82) !important;
-            }
-            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .quick-start-card {
-                border: 1px solid rgba(6, 171, 249, 0.28) !important;
-                background: linear-gradient(145deg,#f2f4f9 0%,#f2f4f9 58%,#e6e9f3 100%) !important;
-                color: #1d2838 !important;
-                box-shadow: 0 32px 100px rgba(15, 23, 42, 0.12) !important;
-            }
-            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .quick-start-head {
-                border-bottom: 1px solid rgba(15, 23, 42, 0.112) !important;
-            }
-            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .quick-start-eyebrow {
-                color: #07a6ba !important;
-            }
-            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .quick-start-head h2 {
-                color: #1f1f1f !important;
-            }
-            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .quick-start-head p {
-                color: #576a84 !important;
-            }
-            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .quick-start-meta-banner {
-                border: 1px solid rgba(9, 173, 246, 0.2) !important;
-                background: rgba(242, 244, 249, 0.7) !important;
-            }
-            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .meta-lbl {
-                color: #606f85 !important;
-            }
-            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .meta-val {
-                color: #121f2b !important;
-            }
-            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .meta-val.highlight {
-                color: #0784bb !important;
-            }
-            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .meta-val.mono {
-                color: #576a84 !important;
-            }
-            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .deps-heading {
-                color: #576a84 !important;
-            }
-            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .dep-pill {
-                border: 1px solid rgba(15, 23, 42, 0.112) !important;
-                background: rgba(242, 244, 249, 0.55) !important;
-            }
-            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .dep-pill:hover {
-                border-color: rgba(9, 173, 246, 0.35) !important;
-            }
-            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .dep-name {
-                color: #1d2838 !important;
-            }
-            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .dep-ver {
-                color: #0784bb !important;
-                border: 1px solid rgba(9, 173, 246, 0.22) !important;
-            }
-            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .dep-role {
-                color: #576a84 !important;
-            }
-            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .quick-start-safe-strip {
-                border: 1px solid rgba(45, 210, 150, 0.2) !important;
-                background: rgba(235, 245, 243, 0.18) !important;
-                color: #276649 !important;
-            }
-            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .quick-start-select-title {
-                color: #2d3c4e !important;
-            }
-            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .quick-start-option {
-                border: 1px solid rgba(9, 173, 246, 0.24) !important;
-                color: #142835 !important;
-            }
-            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .quick-start-option input {
-                accent-color: #05a2bc !important;
-            }
-            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .quick-start-skip {
-                border: 1px solid rgba(15, 23, 42, 0.16) !important;
-                color: #2d3c4e !important;
-            }
-            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .quick-start-import {
-                box-shadow: 0 10px 24px rgba(37, 99, 235, 0.25) !important;
-            }
-            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .quick-start-result {
-                color: #255b61 !important;
-            }
-            html:not([data-theme="dark"]):not([data-platform-theme="dark"]) .quick-start-result.error {
-                color: #61252c !important;
             }
         `;
         document.head.appendChild(style);
@@ -256,8 +173,8 @@
                         </div>
                     </div>
 
-                    <div class="quick-start-deps-section">
-                        <div class="deps-heading">${t.depsTitle}</div>
+                    <details class="quick-start-deps-section">
+                        <summary class="deps-heading">${t.depsTitle}</summary>
                         <div class="deps-grid">
                             ${dependencies.map(dep => `
                                 <div class="dep-pill">
@@ -269,10 +186,9 @@
                                 </div>
                             `).join('')}
                         </div>
-                    </div>
+                    </details>
 
                     <div class="quick-start-safe-strip">
-                        <span class="safe-icon">🛡️</span>
                         <span class="safe-text">${t.safeNotice}</span>
                     </div>
 
@@ -288,7 +204,21 @@
                     <div class="quick-start-result" aria-live="polite"></div>
                 </div>
             </section>`;
+        const previousFocus = document.activeElement;
         document.body.appendChild(modal);
+        modal.querySelector('input').focus({ preventScroll: true });
+        modal.addEventListener('keydown', event => {
+            if (event.key !== 'Tab') return;
+            const focusable = [...modal.querySelectorAll('summary, input, button:not(:disabled)')];
+            const first = focusable[0], last = focusable[focusable.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        });
 
         const buttons = [...modal.querySelectorAll('button')];
         const result = modal.querySelector('.quick-start-result');
@@ -322,6 +252,7 @@
                 showResult(t.skipped);
                 setTimeout(() => {
                     modal.remove();
+                    if (previousFocus && previousFocus.isConnected) previousFocus.focus({ preventScroll: true });
                     if (typeof window.checkBuiltinToolsSync === 'function') window.checkBuiltinToolsSync();
                 }, 650);
             } catch (error) {
@@ -331,13 +262,22 @@
         });
     }
 
+    let checking = false;
+    let retryCount = 0;
     async function check() {
-        if (localStorage.getItem('tools_role') !== 'admin' || typeof API === 'undefined') return;
+        if (checking || document.getElementById(MODAL_ID)) return;
+        checking = true;
         try {
+            // The authenticated server role is authoritative; local role sync may still be pending.
             const status = await API.get('/api/onboarding/defaults/status');
             if (status && status.required) openModal(status);
         } catch (error) {
             console.warn('[quick-start] 读取首次启动状态失败：', error.message);
+            if (error.status !== 401 && error.status !== 403 && retryCount < 2) {
+                setTimeout(check, 1000 * ++retryCount);
+            }
+        } finally {
+            checking = false;
         }
     }
 

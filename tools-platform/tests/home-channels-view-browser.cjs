@@ -70,8 +70,8 @@ app.whenReady().then(async () => {
         segments: [],
         hasMore: false
     }));
-    web.get('/api/desktop-agents/settings', (_, res) => res.json({ owned: true, settings: { enabled: false } }));
-    web.get('/api/desktop-agents/sessions', (_, res) => res.json({ items: [] }));
+    web.get('/api/desktop-agents/settings', (_, res) => res.json({ owned: true, settings: { enabled: true, autoSync: false, syncSeconds: 20, providers: { codex: true, claudecode: false } } }));
+    web.get('/api/desktop-agents/sessions', (_, res) => res.json({ items: [{ id: 'codex-fixture', provider: 'codex', title: 'Codex 筛选验证', updatedAt: '2026-11-02T10:00:00Z' }], providers: [{ id: 'codex', enabled: true, connected: true }] }));
     web.use('/api', (_, res) => res.json({ items: [] }));
     web.use(express.static(frontend));
 
@@ -133,6 +133,45 @@ app.whenReady().then(async () => {
     const focusedInput = await evaluate('document.activeElement === document.getElementById("dcInput")');
     assert.equal(focusedInput, true, 'Input should be focused after clicking project add');
 
+    console.log('5. Verifying recommendations stay stable across archive and source filters...');
+    await until('document.querySelector(".v2-suggest-item")?.dataset.fill === "查看本月 SLA 达标情况"');
+    const suggestions = () => evaluate('[...document.querySelectorAll(".v2-suggest-item")].map(el => el.dataset.fill)');
+    const initialSuggestions = await suggestions();
+    await evaluate('document.getElementById("v2SortBtn").click()');
+    await evaluate('document.querySelector("[data-filter-archived]").click()');
+    assert.equal(await evaluate('document.querySelectorAll("#homeChatList [data-question]").length'), 0);
+    assert.deepEqual(await suggestions(), initialSuggestions, 'archived view must not replace recent questions with defaults');
+    await evaluate('document.querySelector("[data-filter-archived]").click()');
+    assert.deepEqual(await suggestions(), initialSuggestions, 'closing archived view must keep recommendations stable');
+    await evaluate('document.getElementById("v2SortBtn").click()');
+    console.log('6. Verifying dynamic source filters and combined conditions...');
+    await until('window.HomeConversationList.getSources().some(item => item.id === "codex")');
+    await evaluate('document.getElementById("v2SortBtn").click()');
+    assert.deepEqual(await evaluate('[...document.querySelectorAll("[data-filter-source]")].map(el => el.dataset.filterSource)'), ['all', 'mine', 'codex', 'welink', 'weixin']);
+    await evaluate(`document.querySelector('[data-filter-source="codex"]').click()`);
+    assert.deepEqual(await evaluate('[...document.querySelectorAll("#homeChatList .home-chat-title")].map(el => el.textContent)'), ['Codex 筛选验证']);
+    assert.deepEqual(await suggestions(), initialSuggestions, 'source filtering must not change recommendations');
+    await evaluate(`document.querySelector('[data-filter-status="workspace"]').click()`);
+    assert.equal(await evaluate('document.querySelectorAll("#homeChatList .home-chat-title").length'), 0);
+    await evaluate('document.querySelector("[data-filter-reset]").click()');
+    assert.equal(await evaluate('window.HomeConversationList.getFilter().source'), 'all');
+    await evaluate(`document.querySelector('[data-filter-source="weixin"]').click()`);
+    await until('document.querySelector("#homeWelinkList").textContent.includes("微信 运维助理")');
+    assert.equal(await evaluate('window.HomeWelinkThreads.source()'), 'weixin');
+    assert.equal(await evaluate('document.querySelector("#homeWelinkList").textContent.includes("WeLink 质量运营群")'), false);
+    await evaluate(`window.fixtureChannels = window.HomeWelinkThreads.channels;
+        window.HomeWelinkThreads.channels = () => window.fixtureChannels().filter(item => item.id !== 'weixin');
+        window.dispatchEvent(new CustomEvent('tools:channels-updated', {detail:{items:window.HomeWelinkThreads.channels()}}));`);
+    assert.equal(await evaluate(`!!document.querySelector('[data-filter-source="weixin"]')`), false);
+    assert.equal(await evaluate('window.HomeConversationList.getFilter().source'), 'all');
+    await evaluate(`localStorage.setItem('tools_lang','en-US');window.dispatchEvent(new Event('tools:languagechange'));`);
+    assert.equal(await evaluate(`document.querySelector('[data-filter-source="all"]').textContent.trim()`), 'All sources');
+    console.log('6. Verifying filter menu stays scrollable in a narrow dark window...');
+    win.setSize(420, 620);
+    await evaluate(`document.documentElement.dataset.theme = 'dark'; document.getElementById('v2SortBtn').click(); document.getElementById('v2SortBtn').click();`);
+    const menuBounds = await evaluate(`(() => { const el = document.querySelector('.v2-sort-menu'), r = el.getBoundingClientRect(); return { top:r.top, bottom:r.bottom, height:innerHeight, scrollable:getComputedStyle(el).overflowY }; })()`);
+    assert.ok(menuBounds.top >= 0 && menuBounds.bottom <= menuBounds.height);
+    assert.equal(menuBounds.scrollable, 'auto');
     console.log('All tests passed successfully!');
     win.close();
     server.close();

@@ -62,7 +62,7 @@
         return text+'\n'+PRESENTATION_MARK+'仅显示文字'+(rule.maxSentences?'，最多 '+rule.maxSentences+' 句':'')+'；不显示指标卡、图表、表格或其它可视化组件。';
     }
     function presentationRecipe(recipe,prompt){
-        const rule=presentationOf(prompt);if(rule.mode!=='text')return recipe;
+        const rule=presentationOf(prompt);if(rule.mode!=='text'||/\bkit\s*\.\s*interactive\s*\(/.test(recipe.render||''))return recipe;
         return {...recipe,render:'function render(result, kit){ return ""; }',narrative:{prompt:('只输出基于计算结果的文字总结，不添加图表、指标卡、表格或额外标题。'+(rule.maxSentences?'最多 '+rule.maxSentences+' 句。':'')+'格子要求：'+prompt).slice(0,2000)}};
     }
     function summaryConflict(text,prompt){
@@ -122,7 +122,7 @@
     }
     function normalizeOutput(output){
         let result=null;try{const text=JSON.stringify(output.result??null);result=text.length<=LIMITS.result?JSON.parse(text):null;}catch(_){result=null;}
-        let widgets=[];try{const list=(Array.isArray(output.widgets)?output.widgets:[]).filter(item=>item&&/^w\d{1,3}$/.test(item.id)&&['chart','datatable','tabs'].includes(item.type)).slice(0,40);widgets=JSON.stringify(list).length<=LIMITS.widgets?JSON.parse(JSON.stringify(list)):[];}catch(_){widgets=[];}
+        let widgets=[];try{const list=(Array.isArray(output.widgets)?output.widgets:[]).filter(item=>item&&/^w\d{1,3}$/.test(item.id)&&['chart','datatable','tabs','interactive'].includes(item.type)).slice(0,40);widgets=JSON.stringify(list).length<=LIMITS.widgets?JSON.parse(JSON.stringify(list)):[];}catch(_){widgets=[];}
         return {month:validMonth(output.month)?output.month:'',html:str(output.html,LIMITS.html),widgets,result,narrative:pair(output.narrative,4000),narrativeMonth:validMonth(output.narrativeMonth)?output.narrativeMonth:'',error:str(output.error,2000),generatedAt:str(output.generatedAt,40)};
     }
     // Report-wide style: its own conversation and prompt, compiled into a theme that only changes look and tone, never structure.

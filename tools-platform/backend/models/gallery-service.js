@@ -3,6 +3,8 @@ const path = require('node:path');
 const repo = require('./gallery-repository');
 const { getTenantId } = require('./tenant-context');
 const { redactText } = require('./ai-sensitive-data');
+// Fields a re-recognition may rewrite; albums, storage and version history stay as the user arranged them.
+const { REIDENTIFY_FIELDS } = require('./gallery-organization');
 let processing = 0;
 const analyzing = new Set();
 function originalMime(bytes) {
@@ -81,11 +83,12 @@ function parseAnalysis(raw, categories) {
         storageMode:['separate','album','version'].includes(data.storageMode) ? data.storageMode : 'separate',
         versionOf:clean(data.versionOf,64),confidence:Math.max(0,Math.min(1,Number(data.confidence)||0)) };
 }
-async function analyze(id, mode, confirmed, clientOverride, organizationContext) {
+async function analyze(id, mode, confirmed, clientOverride, organizationContext, { force = false } = {}) {
     if (!confirmed) throw repo.fail('请确认图片中不含密码、密钥等敏感信息，再发送给 AI');
     mode = mode === 'precise' ? 'precise' : 'balanced';
     const current = await repo.readVersion(id);
-    if (current.ai_status === 'ready' && current.ai_mode === mode) return { version: current, cached: true };
+    // A user-requested re-recognition always asks the model again; ordinary requests reuse saved results.
+    if (!force && current.ai_status === 'ready' && current.ai_mode === mode) return { version: current, cached: true };
     const key = `${getTenantId()}:${id}`;
     if (analyzing.has(key) || analyzing.size >= 2) throw repo.fail('AI 正在识别，请稍后重试', 429);
     analyzing.add(key);
@@ -118,22 +121,25 @@ async function analyze(id, mode, confirmed, clientOverride, organizationContext)
     } catch (error) { await repo.failedAnalysis(id); throw error; }
     finally { analyzing.delete(key); }
 }
-async function recognizeAndOrganize(id,mode,confirmed,clientOverride,options) {
+async function recognizeAndOrganize(id,mode,confirmed,clientOverride,options = {}) {
+    const reidentify = options?.reidentify === true;
     const version = await repo.readVersion(id), item = await repo.read(version.item_id);
     if (item.deleted_at || item.archived) throw repo.fail('请先恢复已归档或删除的图片',409);
     const candidates = await repo.organizationCandidates(item.id), albums = (await repo.albums()).slice(0,40);
     const tokenize = value => new Set(String(value || '').toLowerCase().match(/[a-z0-9]{2,}|[\u3400-\u9fff]/g) || []);
     const words = tokenize(version.filename+' '+item.title);
     candidates.sort((a,b) => [...tokenize(b.filename+' '+b.title)].filter(v=>words.has(v)).length - [...tokenize(a.filename+' '+a.title)].filter(v=>words.has(v)).length);
-    const mayCompareVersions = !item.manualFields.includes('storage') && item.versions.length === 1;
+    // Re-recognition refreshes the description of this picture only; it never merges it into another picture's history.
+    const mayCompareVersions = !reidentify && !item.manualFields.includes('storage') && item.versions.length === 1;
     const selected = candidates.slice(0,6).map((candidate,index)=>({...candidate,index:String(index),hasReference:mayCompareVersions && index<2}));
     const images = [];
     for (const candidate of selected.filter(candidate=>candidate.hasReference)) {
         const picture = await repo.asset(candidate.version_id,'balanced'); images.push({mimeType:'image/jpeg',data:picture.bytes.toString('base64')});
     }
-    const metadata = {filename:version.filename,manualFields:item.manualFields,albums:albums.map((a,index)=>({id:String(index),name:a.name})),
+    const manualFields = reidentify ? item.manualFields.filter(field => !REIDENTIFY_FIELDS.includes(field)) : item.manualFields;
+    const metadata = {filename:version.filename,manualFields,albums:albums.map((a,index)=>({id:String(index),name:a.name})),
         candidates:selected.map(c=>({id:c.index,title:c.title,filename:c.filename,reference:c.hasReference}))};
-    const result = await analyze(id,mode,confirmed,clientOverride,{metadata,images,albums,candidates:selected});
+    const result = await analyze(id,mode,confirmed,clientOverride,{metadata,images,albums,candidates:selected},{force:reidentify});
     const analysis = {...result.version.analysis};
     const candidate = selected.find(candidate=>candidate.id===analysis.versionOf);
     const menuPage = filename => String(filename || '').replace(/\.[^.]+$/,'').match(/(?:[_\-\s]|菜单)(上|下|中)(?:半部?|部分|页)?$/)?.[1]
@@ -144,7 +150,7 @@ async function recognizeAndOrganize(id,mode,confirmed,clientOverride,options) {
             analysis.versionOf = ''; analysis.storageMode = analysis.albumName || analysis.albumId ? 'album' : 'separate';
         }
     }
-    const organized = await require('./gallery-organization').apply(id,analysis,options);
+    const organized = await require('./gallery-organization').apply(id,analysis,{...options,reidentify,expectedRevision:item.revision});
     return {...organized,cached:result.cached};
 }
 module.exports = { compress, upload, analyze, recognizeAndOrganize, originalMime, parseAnalysis };

@@ -76,6 +76,14 @@
         // Overviews quote other cells' conclusions on purpose, so the one-summary check does not apply to them.
         const {result,html,widgets}=await AiReportTrace.local(cell.id,'sandbox',()=>AiReportSandbox.run({compute:cell.recipe.compute,render:cell.recipe.render,input,summary:!!cell.recipe.narrative&&!readsResults(cell)}));
         // A recipe without narrative must not keep the summary box of an earlier recipe (two summaries on screen).
+        // Same content in the same month can retain manual adjustments; new content/months start from the recipe.
+        if(cell.output?.month===month&&cell.recipePrompt===cell.prompt)for(const widget of widgets||[]){
+            if(widget.type!=='interactive')continue;
+            const old=cell.output.widgets?.find(item=>item.type==='interactive'&&(widget.alias?item.alias===widget.alias:item.id===widget.id));
+            if(old&&old.spec.script===widget.spec.script&&old.spec.html===widget.spec.html&&old.spec.css===widget.spec.css)
+                Object.assign(widget.spec,{state:old.spec.state,edits:old.spec.edits,history:old.spec.history,snapshot:old.spec.snapshot});
+        }
+        if(cell.output?.month===month&&cell.prompt.includes('【手工展示调整】'))AiReportInteractive.carryAdjustments(cell.output.widgets,widgets);
         const output=AiReportModel.normalizeOutput({...(cell.output||{}),...(cell.recipe.narrative?{}:{narrative:{zh:'',en:''},narrativeMonth:''}),month,result:keepResult(result),html:AiReportSanitize.clean(html),widgets:AiReportWidgets.cleanSpecs(widgets),error:'',generatedAt:new Date().toISOString()});
         return {output,missing};
     }
@@ -101,7 +109,7 @@
         if(AiReportModel.presentationOf(cell.prompt).mode==='text')return '';
         const wanted=[...String(cell.prompt||'').matchAll(/标题(?:为|是|改成|改为|写成)?[“"「]([^”"」]{1,40})[”"」]/g)].map(match=>match[1].trim()).filter(Boolean);
         if(!wanted.length||!cell.output||cell.output.error)return '';
-        const shown=unescape(String(cell.output.html||'').replace(/<[^>]*>/g,' '))+' '+unescape(String(cell.output.html||'').match(/data-slot-title="[^"]*"/g)?.join(' ')||'')+' '+JSON.stringify((cell.output.widgets||[]).map(widget=>widget.spec?.option?.title||null));
+        const shown=unescape(String(cell.output.html||'').replace(/<[^>]*>/g,' '))+' '+unescape(String(cell.output.html||'').match(/data-slot-title="[^"]*"/g)?.join(' ')||'')+' '+JSON.stringify((cell.output.widgets||[]).map(widget=>widget.type==='interactive'?(widget.spec?.snapshot||widget.spec?.html||''):widget.spec?.option?.title||null));
         const squash=text=>String(text).replace(/\s+/g,'');
         return wanted.find(title=>!squash(shown).includes(squash(title)))||'';
     }

@@ -1,20 +1,32 @@
 /* AI report editor: a template plus chapters of cells; each cell is a prompt the AI compiles into a monthly recipe. */
 (function(){
     'use strict';
-    const M=AiReportModel,esc=AiReportView.esc;
+    const M=AiReportModel,esc=AiReportView.esc;let focusEditor=null;
     const $=selector=>document.querySelector(selector);
     const state={doc:null,saved:'',lang:/^en/i.test(window.ToolsI18n?.getLanguage?.()||'')?'en':'zh',preview:false,selected:null,busy:new Map(),undo:[],reports:[],drafts:new Map()};
     const t=(zh,en)=>state.lang==='en'?en:zh;
-    // An opened but unused chapter style chat is not an unsaved change.
-    const snapshot=()=>JSON.stringify(state.doc,(key,value)=>(key==='style'||M.FIELD_KEY.test(key)||M.IMAGE_KEY.test(key))&&value&&typeof value==='object'&&'chat' in value&&!value.prompt&&!value.chat?.length&&!value.theme?undefined:value);
+    function stableEdits(edits){return Object.fromEntries(Object.entries(edits||{}).map(([id,edit])=>{if(!edit?.anchor||edit.anchor.textOnly||!['relative','chart-label','chart-mark','table-cell'].includes(edit.anchor.kind))return [id,edit];const {x,y,...record}=edit;return [id,record];}));}
+    function snapshotOf(doc,{ignoreRenderSnapshots=false}={}){
+        return JSON.stringify(doc,function(key,value){
+            // Layout/hover/selection can refresh the export snapshot without changing any editable content.
+            if(ignoreRenderSnapshots&&key==='spec'&&this.type==='interactive'&&value){
+                const {snapshot,...spec}=value;
+                const edits=stableEdits(spec.edits);
+                return {...spec,state:spec.state||{},edits,history:spec.history||[],replay:spec.replay||[]};
+            }
+            // An opened but unused chapter style chat is not an unsaved change.
+            return (key==='style'||M.FIELD_KEY.test(key)||M.IMAGE_KEY.test(key))&&value&&typeof value==='object'&&'chat' in value&&!value.prompt&&!value.chat?.length&&!value.theme?undefined:value;
+        });
+    }
+    const snapshot=()=>snapshotOf(state.doc,{ignoreRenderSnapshots:true});
     const dirty=()=>!!state.doc&&snapshot()!==state.saved;
     const previousMonth=()=>{const date=new Date();date.setUTCDate(1);date.setUTCMonth(date.getUTCMonth()-1);return date.toISOString().slice(0,7);};
     const reportRoot=$('#airReport'),chatRoot=$('#airChat');
 
-    function checkpoint(){state.undo.push(snapshot());if(state.undo.length>60)state.undo.shift();}
+    function checkpoint(){state.undo.push(snapshotOf(state.doc));if(state.undo.length>60)state.undo.shift();}
     function undo(){const previous=state.undo.pop();if(!previous)return status(t('没有可撤销的操作','Nothing to undo'));state.doc=JSON.parse(previous);render();status(t('已撤销','Undone'));}
     let statusTimer=null;
-    function status(message){const node=$('#airStatus');clearTimeout(statusTimer);if(message){node.textContent=message;statusTimer=setTimeout(()=>status(),3500);return;}node.textContent=state.busy.size?t(`AI 正在处理 ${state.busy.size} 个格子…`,`AI working on ${state.busy.size} cell(s)…`):dirty()?t('● 未保存','● Unsaved'):t('已保存','Saved');node.classList.toggle('is-dirty',dirty());}
+    function status(message){const node=$('#airStatus'),unsaved=dirty();$('[data-air=save]').disabled=!!state.saving||!unsaved;node.classList.toggle('is-dirty',unsaved);clearTimeout(statusTimer);if(message){node.textContent=message;statusTimer=setTimeout(()=>status(),3500);return;}node.textContent=state.busy.size?t(`AI 正在处理 ${state.busy.size} 个格子…`,`AI working on ${state.busy.size} cell(s)…`):unsaved?t('● 未保存','● Unsaved'):t('已保存','Saved');}
 
     // The whole report is one more conversation target: its style chat lives on doc.style and only changes the look.
     const REPORT='__report__';
@@ -39,9 +51,24 @@
         const base=state.doc.style.prompt||'',own=cell?.id&&M.findCell(state.doc,cell.id)?.chapter?.style?.prompt;
         return own?`${base}\n\n【本章节样式要求】（只管这个章节里格子的样式和风格，和上面关于样式的要求冲突时以这里为准；不改变数据来源、口径和计算；格子已确认的局部展示例外仍优先）\n${own}`:base;
     };
+    function saveInteractiveChange(widget,value){
+        const cell=M.cells(state.doc).find(cell=>cell.output?.widgets?.includes(widget));if(!cell)return;
+        const changed=JSON.stringify(stableEdits(widget.spec.edits))!==JSON.stringify(stableEdits(value.edits))||JSON.stringify(widget.spec.history||[])!==JSON.stringify(value.history||[])||JSON.stringify(widget.spec.state||{})!==JSON.stringify(value.state||{});
+        if(changed)checkpoint();
+        Object.assign(widget.spec,value);
+        if(changed){
+            const before=cell.prompt;
+            cell.prompt=AiReportInteractive.promptWithEdits(cell.prompt,cell.output.widgets);
+            if(cell.recipePrompt===before)cell.recipePrompt=cell.prompt;
+            const latest=[...cell.chat].reverse().find(item=>item.kind==='prompt');if(latest?.text===before)latest.text=cell.prompt;
+            chat.refreshPrompt(cell.id);
+            status();
+        }
+    }
     const widgetLookup=(cellId,widgetId)=>find(cellId)?.cell?.output?.widgets?.find(item=>item.id===widgetId);
     const imageLibrary=AiReportImageLibrary.create({API,t,find,render,aiStep,actions:record=>withUndo(record,IMAGE_ACTIONS())});
     const chat=AiReportChat.create({root:chatRoot,t,lang:()=>state.lang,find,send:(cellId,text)=>converse(cellId,text),retry:(cellId,index)=>retryMessage(cellId,index),makePrompt:cellId=>makePrompt(cellId),tryPrompt:cellId=>tryPrompt(cellId),revert:cellId=>revertPrompt(cellId),savePrompt:(cellId,text)=>savePromptEdit(cellId,text),close:()=>select(null),pickImage:(cellId,url,index)=>pickImage(cellId,url,index),imagePage:imageLibrary.page,removeImage:imageLibrary.remove,imageDeletion:imageLibrary.decide});
+    focusEditor=AiReportFocus.create({root:reportRoot,pane:$('#airReportPane'),chat:chatRoot,select,t});
 
     function staleCells(){return M.cells(state.doc).filter(cell=>AiReportRunner.needsNarrative(cell,state.doc.reportMonth));}
     // A cell whose finished content differs from what was last shown gets the splash transition (old → new).
@@ -59,6 +86,8 @@
         return state.preview||state.printing?[]:changed;
     }
     function render(){
+        if(state.preview||state.printing)focusEditor?.close({animate:false});
+        focusEditor?.beforeRender();
         if(!state.doc)return;
         const splash=AiReportSplash.capture(reportRoot,changedCells()),splashLayer=reportRoot.querySelector(':scope>.air-splash-layer');
         // What was typed into empty cells (and where the caret was) survives re-renders such as resizing.
@@ -68,8 +97,9 @@
         reportRoot.classList.toggle('is-preview',state.preview);document.body.classList.toggle('air-preview-mode',state.preview);
         reportRoot.style.cssText=AiReportView.themeStyle(state.doc.style.theme);Object.assign(reportRoot.dataset,AiReportView.frameOf(state.doc.style.theme));
         reportRoot.innerHTML=AiReportView.report(state.doc,{mode:state.preview?'preview':'edit',lang:state.lang,t,month:state.doc.reportMonth,busy:state.busy,busyFields,selected:state.selected,rings:progressRings()});
+        focusEditor?.sync();
         // Widgets are interactive in the page; printing freezes them so every row and chart lands on paper.
-        const widgetOptions={palette:AiReportWidgets.paletteOf(state.doc.style.theme)};
+        const widgetOptions={palette:AiReportWidgets.paletteOf(state.doc.style.theme),interactive:{editing:!state.preview,lang:state.lang,onChange:saveInteractiveChange}};
         AiReportLayout.apply(reportRoot,cellId=>find(cellId)?.cell?.layout);
         if(state.printing)AiReportWidgets.freeze(reportRoot,widgetLookup,widgetOptions);else{AiReportWidgets.hydrate(reportRoot,widgetLookup,widgetOptions);AiReportLayout.fitRows(reportRoot);fitCells();if(!state.preview){decorateSlots();paintSettling();}}
         AiReportLayout.drawDividers(reportRoot);
@@ -91,7 +121,7 @@
         narratives.hidden=!stale||state.preview;narratives.textContent=t(`更新总结（${stale}）`,`Update summaries (${stale})`);
         $('[data-air=preview]').textContent=state.preview?t('返回编辑','Edit'):t('预览','Preview');
         $('[data-air=language]').textContent=state.lang==='en'?'中文':'EN';
-        $('[data-air=save]').disabled=!dirty();
+        $('[data-air=save]').disabled=!!state.saving||!dirty();
         document.title=`${state.doc.name} - AI 月报`;
     }
     // Rings grow from where they were; a cell that just finished shows one full (or red, on error) ring that fades out.
@@ -106,6 +136,7 @@
     // Selecting only moves the highlight and swaps the chat panel; the report is not re-rendered, so focus, drill-down
     // and table state in every cell survive.
     function select(cellId){
+        if(focusEditor?.id&&cellId!==focusEditor.id){if(cellId===null)focusEditor.close().then(()=>select(null));return;}
         state.selected=cellId;
         reportRoot.querySelectorAll('.air-cell.is-selected').forEach(node=>node.classList.remove('is-selected'));
         if(cellId&&cellId!==REPORT)reportRoot.querySelector(`[data-cell="${CSS.escape(cellId)}"]`)?.classList.add('is-selected');
@@ -117,6 +148,7 @@
 
     // Chat only discusses the cell; a final prompt is made on request, and “试一下” compiles and runs it.
     async function aiStep(cellId,label,work){
+        if(focusEditor?.id&&cellId!==focusEditor.id)return;
         const found=find(cellId);if(!found||state.busy.has(cellId))return;
         checkpoint();state.busy.set(cellId,label);state.selected=cellId;
         AiReportTrace.takeRounds?.(cellId);const chatStart=found.cell.chat.length;render();
@@ -191,7 +223,14 @@
         state.busy.set(cellId,t('正在总结对话，生成最终提示词…','Summarizing into the final prompt…'));render();
         const reviseLayout=cellId!==REPORT&&!chapterOf(cellId)&&!fieldKeyOf(cellId)&&M.layoutRevision(cell.chat);
         const {prompt}=await AiReportTrace.post(cellId,t('生成最终提示词','Write the final prompt'),cellId===REPORT?'/api/ai-report/report/prompt':fieldKeyOf(cellId)?'/api/ai-report/template/field/prompt':chapterOf(cellId)?'/api/ai-report/chapter/prompt':'/api/ai-report/cell/prompt',{month:state.doc.reportMonth,prompt:cell.prompt,chat:cell.chat});
-        cell.prompt=reviseLayout?M.withoutLayout(prompt):prompt;if(reviseLayout||M.presentationOf(prompt).mode==='text')cell.layout={};cell.chat.push({role:'ai',kind:'prompt',text:cell.prompt});if(cellId!==REPORT&&!chapterOf(cellId)&&!fieldKeyOf(cellId))syncNarrowLayout(cell);
+        cell.prompt=AiReportInteractive.promptWithEdits(reviseLayout?M.withoutLayout(prompt):prompt,cell.output?.widgets);if(reviseLayout||M.presentationOf(prompt).mode==='text')cell.layout={};cell.chat.push({role:'ai',kind:'prompt',text:cell.prompt});if(cellId!==REPORT&&!chapterOf(cellId)&&!fieldKeyOf(cellId))syncNarrowLayout(cell);
+    }
+    async function validateInteractive(cellId){
+        const widgets=find(cellId)?.cell?.output?.widgets||[];
+        if(!widgets.length||widgets.some(widget=>widget.type!=='interactive'))throw new Error('本次必须用 kit.interactive 生成默认自由编辑的 HTML；所有文字、图表和表格放在其内部，图表使用 SVG，narrative:null。保留数据来源和计算，将旧 kit.layout 布局改为内部 HTML/CSS。');
+        await AiReportInteractive.settle(cellId);
+        const error=reportRoot.querySelector(`[data-cell="${CSS.escape(cellId)}"] [data-interactive-error]`)?.dataset.interactiveError;
+        if(error)throw new Error('交互脚本运行失败：'+error);
     }
     // A failed run goes back to the compiler once with the error, so most code slips fix themselves.
     async function compileAndRun(cellId,cell){
@@ -201,7 +240,7 @@
         const before={recipe:cell.recipe,recipePrompt:cell.recipePrompt,output:cell.output,missing:cell.missing};
         for(let attempt=0;attempt<3;attempt++){
             state.busy.set(cellId,t('正在把提示词变成配方…','Turning the prompt into a recipe…'));render();
-            const reply=await AiReportTrace.post(cellId,t(`编译配方（第 ${attempt+1} 次）`,`Compile recipe (attempt ${attempt+1})`),'/api/ai-report/cell/compile',{month,prompt:cell.prompt,recipe:cell.recipe,previousPrompt:attempt?'':cell.recipePrompt||'',error,style:styleOf(cell),outline:AiReportRunner.outline(cell)});
+            const reply=await AiReportTrace.post(cellId,t(`编译配方（第 ${attempt+1} 次）`,`Compile recipe (attempt ${attempt+1})`),'/api/ai-report/cell/compile',{month,interactive:true,prompt:cell.prompt,recipe:cell.recipe,previousPrompt:attempt?'':cell.recipePrompt||'',error,style:styleOf(cell),outline:AiReportRunner.outline(cell),presentation:AiReportInteractive.context(cell.output?.widgets)});
             if(reply.type==='ask'){
                 // A cell that ran before and now cannot find its data after a wording change can keep its data and rename only.
                 const keep=before.recipe&&/找不到|没有找到|未找到|不存在|找到以下|哪一个/.test(reply.question||'')?[t('数据不变，只改显示文字','Keep the data, rename the text only')]:[];
@@ -209,7 +248,7 @@
             }
             cell.recipe=reply.recipe;cell.recipePrompt=cell.prompt;
             state.busy.set(cellId,t('正在计算本月数据…','Computing this month…'));render();
-            try{await AiReportRunner.run(cell,month,{style:styleOf(cell)});AiReportTrace.note(cellId,t(`运行配方（第 ${attempt+1} 次）：成功`,`Run recipe (attempt ${attempt+1}): ok`),t('沙箱里计算和展示都完成了。','Compute and render finished in the sandbox.'));render();const crowdedRow=reportRoot.querySelector(`[data-cell="${CSS.escape(cellId)}"]`)?.dataset.layoutIssue;
+            try{await AiReportRunner.run(cell,month,{style:styleOf(cell)});AiReportTrace.note(cellId,t(`运行配方（第 ${attempt+1} 次）：成功`,`Run recipe (attempt ${attempt+1}): ok`),t('沙箱里计算和展示都完成了。','Compute and render finished in the sandbox.'));render();await validateInteractive(cellId);const crowdedRow=reportRoot.querySelector(`[data-cell="${CSS.escape(cellId)}"]`)?.dataset.layoutIssue;
                 // Explicit side-by-side layouts must pass the final check; only default layouts may keep a wrapped fallback.
                 if(crowdedRow&&(attempt<2||M.horizontalLayout(cell.prompt)))throw new Error(`${crowdedRow}。${M.horizontalLayout(cell.prompt)?'用户明确要求左右并排，必须保留同一行的图表与表格；缩短表头、减少列数、收紧图表边距，文字总结可放在单独一行，不能改成图表和表格上下排列。':'请缩短表头、减少列数或把放不下的内容块换到下一行，保证内容完整显示。'}`);const lost=AiReportRunner.missingTitle(cell);if(lost&&String(cell.output?.html||'').replace(/<[^>]*>/g,'').trim()){usable={recipe:cell.recipe,output:cell.output,missing:cell.missing};}if(lost)throw new Error(`提示词要求显示标题“${lost}”，但格子里没有这个标题。请用 kit.layout(rows,{title:'${lost}'}) 或 kit.chart(option,{title:'${lost}'}) 把它显示在最上方。`);reconcileLayout(cell);rememberResult(cell);return;}catch(problem){error=problem.message;AiReportTrace.note(cellId,t(`运行出错（第 ${attempt+1} 次），交回 AI 修正`,`Run failed (attempt ${attempt+1}), sent back to the AI`),error,{error:true});}
         }
@@ -547,7 +586,11 @@
         }
     }
     function makePrompt(cellId){return aiStep(cellId,t('正在总结对话，生成最终提示词…','Summarizing into the final prompt…'),cell=>writePrompt(cellId,cell));}
-    function tryPrompt(cellId){return aiStep(cellId,t('正在把提示词变成配方…','Turning the prompt into a recipe…'),cell=>cellId===REPORT?applyStyle(cell):imageSlotOf(cellId)?drawImage(cellId,cell):fieldKeyOf(cellId)?generateField(fieldKeyOf(cellId)):chapterOf(cellId)?applyChapterStyle(cellId,cell):compileAndRun(cellId,cell));}
+    async function tryPrompt(cellId){
+        // Collect the current iframe edits before aiStep re-renders it. No server save is needed to regenerate.
+        await AiReportInteractive.flush(cellId);
+        return aiStep(cellId,t('正在把提示词变成配方…','Turning the prompt into a recipe…'),cell=>cellId===REPORT?applyStyle(cell):imageSlotOf(cellId)?drawImage(cellId,cell):fieldKeyOf(cellId)?generateField(fieldKeyOf(cellId)):chapterOf(cellId)?applyChapterStyle(cellId,cell):compileAndRun(cellId,cell));
+    }
     async function runCell(cellId,{withNarrative=true}={}){
         const cell=find(cellId)?.cell;if(!cell?.recipe)return;
         state.busy.set(cellId,t('正在计算本月数据…','Computing this month…'));render();
@@ -968,6 +1011,7 @@
         if(data.styleChat!==undefined){select(REPORT);chatRoot.querySelector('textarea')?.focus();return;}
         if(data.cellRun)return runCell(data.cellRun);
         // Duplicate: same size, conversation, prompt, recipe and output, placed right after; its chat opens for editing.
+        if(data.cellFocus){if(focusEditor.id===data.cellFocus)await focusEditor.close();else await focusEditor.open(data.cellFocus);return;}
         if(data.cellCopy){const found=find(data.cellCopy);if(!found)return;checkpoint();const source=JSON.parse(JSON.stringify(found.cell)),latest=[...source.chat].reverse().find(message=>message.kind==='prompt');const copy=M.cell({...source,id:M.uid('cell'),chat:latest?[latest]:[]});copy.missing=found.cell.missing;found.chapter.cells.splice(found.index+1,0,copy);state.selected=copy.id;render();status(t('已复制格子，可以在右侧对话里继续修改','Cell duplicated; refine it in the chat'));return;}
         if(data.cellDelete){const found=find(data.cellDelete);if(found&&(found.cell.recipe||found.cell.chat.length)&&!await AppDialog.confirm(t('删除这个格子和它的对话、配方？','Delete this cell with its conversation and recipe?'),{tone:'danger',confirmText:t('删除','Delete')}))return;checkpoint();found.chapter.cells.splice(found.index,1);if(state.selected===data.cellDelete)state.selected=null;return render();}
         if(data.addCell){checkpoint();const cell=M.cell({span:6});state.doc.chapters.find(item=>item.id===data.addCell).cells.push(cell);state.selected=cell.id;render();reportRoot.querySelector(`[data-ask="${cell.id}"] textarea`)?.focus();return;}
@@ -1019,9 +1063,19 @@
     async function openReport(id){if(!await confirmDiscard())return;state.doc=M.normalize(await API.get('/api/ai-report/documents/'+encodeURIComponent(id)));state.saved=snapshot();state.undo=[];state.selected=null;render();}
     async function newReport(month=previousMonth()){if(!await confirmDiscard())return;state.doc=M.normalize(await API.get('/api/ai-report/template?month='+month));state.saved='';state.undo=[];state.selected=null;render();}
     async function save(){
-        if(!state.doc)return;$('[data-air=save]').disabled=true;
-        try{const saved=M.normalize(await API.post('/api/ai-report/documents',state.doc));state.doc.id=saved.id;state.doc.updatedAt=saved.updatedAt;state.saved=snapshot();await loadReports();render();status(t('已保存到服务器','Saved to server'));}
-        catch(error){status(t('保存失败：','Save failed: ')+error.message);toolbar();}
+        if(!state.doc||state.saving)return;
+        state.saving=true;status();
+        try{
+            await AiReportInteractive.flush();
+            const doc=state.doc,payload=JSON.parse(JSON.stringify(doc));
+            const saved=M.normalize(await API.post('/api/ai-report/documents',payload));
+            payload.id=saved.id;payload.updatedAt=saved.updatedAt;
+            if(state.doc===doc){doc.id=saved.id;doc.updatedAt=saved.updatedAt;state.saved=snapshotOf(payload,{ignoreRenderSnapshots:true});}
+            // Saving updates the toolbar; keep live cells, focus and unsent chat text in place.
+            await loadReports();toolbar();status(dirty()?t('已保存；还有新的修改待保存','Saved; newer changes are still unsaved'):t('已保存到服务器','Saved to server'));
+        }
+        catch(error){status(t('保存失败：','Save failed: ')+error.message);}
+        finally{state.saving=false;$('[data-air=save]').disabled=!dirty();}
     }
     async function setMonth(month){
         if(!M.validMonth(month)||month===state.doc.reportMonth)return;
@@ -1038,6 +1092,8 @@
         if(state.reports.length)await openReport(state.reports[0].id);else await newReport();
     }
     async function exportAs(kind){
+        await focusEditor?.close({animate:false});
+        await new Promise(requestAnimationFrame);
         const options={lang:state.lang,t};
         try{if(kind==='html')await AiReportExport.html(state.doc,options);else if(kind==='msg')await AiReportExport.msg(state.doc,options);else{state.preview=true;state.printing=true;render();AiReportExport.print();state.printing=false;render();}}
         catch(error){status(t('导出失败：','Export failed: ')+error.message);}

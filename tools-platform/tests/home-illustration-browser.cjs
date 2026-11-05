@@ -22,10 +22,35 @@ app.whenReady().then(async()=>{
     for(const text of ['1+1=3对吗','这个页面是啥','你可以自动创建SKILL吗 我想做一个搜索思科等通信厂商新闻的SKILL','用 Web 搜索查一下 Node.js 26 什么时候进入 LTS，附上出处链接']){
       const b=document.createElement('button');b.dataset.question=text;list.append(b);
     }
+    window.testRecentQuestions = [...list.querySelectorAll('[data-question]')].map(b=>b.dataset.question);
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = (url, options) => String(url).startsWith('/api/ai/sessions?')
+      ? Promise.resolve(new Response(JSON.stringify({items:window.testRecentQuestions.map(firstQuestion=>({firstQuestion}))}), {status:200}))
+      : originalFetch(url, options);
     const script=document.createElement('script');script.src='/js/home/home-v2.js';
     await new Promise((resolve,reject)=>{script.onload=resolve;script.onerror=reject;document.body.append(script)});
   })()`);
   await run(`document.querySelector('.v2-mascot').decode()`);
+
+  const gaze = () => run(`document.querySelector('.v2-mascot-pupil').getAttribute('transform')`);
+  const move = (x,y,type='mouse') => run(`document.dispatchEvent(new PointerEvent('pointermove',{clientX:${x},clientY:${y},pointerType:'${type}'}))`);
+  const pause = ms => new Promise(resolve=>setTimeout(resolve,ms));
+  await move(0,0);await pause(900);
+  const leftGaze=await gaze();
+  assert.ok(Number(leftGaze.match(/translate\(([-.\d]+)/)[1])<0,'pupils look left');
+  await move(1440,950);await pause(1000);
+  const rightGaze=await gaze(),offsets=rightGaze.match(/translate\(([-.\d]+) ([-.\d]+)/).slice(1).map(Number);
+  assert.ok(offsets[0]>0&&offsets[0]<=20&&offsets[1]>0&&offsets[1]<=14,'pupils follow right/down within subtle bounds');
+  assert.equal(await run(`getComputedStyle(document.querySelector('.v2-mascot-eyes')).pointerEvents`),'none');
+  assert.equal(await run(`(()=>{const a=document.querySelector('.v2-mascot').getBoundingClientRect(),b=document.querySelector('.v2-mascot-eyes').getBoundingClientRect();return Math.abs(a.top-b.top)<.1&&a.width===b.width&&Math.abs(a.height-b.height)<.1})()`),true,'eye layer aligns with original image');
+  assert.equal(await run(`new Promise(resolve=>{const start=performance.now();function check(){if(Number(document.querySelector('.v2-mascot-lid').getAttribute('opacity'))>.8)return resolve(true);if(performance.now()-start>8000)return resolve(false);requestAnimationFrame(check)}check()})`),true,'random blink closes eyes');
+  await pause(350);
+  await run(`document.documentElement.dispatchEvent(new PointerEvent('pointerleave'))`);await pause(1300);
+  assert.ok(Math.abs(Number((await gaze()).match(/translate\(([-.\d]+)/)[1]))<.2,'leaving page relaxes gaze');
+  await win.webContents.debugger.sendCommand('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});await pause(50);
+  assert.equal(await run(`getComputedStyle(document.querySelector('.v2-mascot-eyes')).visibility`),'hidden','reduced motion preserves static original');
+  await win.webContents.debugger.sendCommand('Emulation.setEmulatedMedia',{features:[]});await pause(50);
+
   for(const [name,w,h,theme] of [['wide',1440,950,'light'],['dark',1440,950,'dark'],['mobile',390,844,'light']]){
    win.setSize(w,h);await run(`document.documentElement.dataset.theme='${theme}';document.body.classList.toggle('v2-side-collapsed',${w<860})`);
    await new Promise(r=>setTimeout(r,350));
@@ -56,13 +81,15 @@ app.whenReady().then(async()=>{
   assert.ok(defaults.some(text=>text.includes('Python'))&&defaults.some(text=>text.startsWith('/schedule')));
   await run(`document.querySelector('.v2-suggest-item').click()`);
   assert.equal(await run(`document.querySelector('#dcInput').value`),defaults[0],'default suggestion fills input in English');
-  await run(`(()=>{const b=document.createElement('button');b.dataset.question='Check the latest SLA import';document.querySelector('#homeChatList').append(b);window.dispatchEvent(new Event('home:conversation-list-changed'))})()`);
+  await run(`window.testRecentQuestions.push('Check the latest SLA import');window.dispatchEvent(new Event('tools:languagechange'))`);
+  await new Promise(r=>setTimeout(r,50));
   assert.deepEqual(await suggestions(),['Check the latest SLA import'],'matching English history replaces defaults');
   await run(`window.testLanguage='zh-CN';window.dispatchEvent(new Event('tools:languagechange'))`);
   assert.ok((await suggestions()).every(text=>/[\u3400-\u9fff]/.test(text)),'switching back restores Chinese history');
   await run(`document.body.classList.add('dc-chatting')`);
   assert.equal(await run(`getComputedStyle(document.querySelector('.v2-agent-illustration')).display`),'none');
   assert.equal(await run(`getComputedStyle(document.querySelector('.v2-mascot')).display`),'none');
-  console.log('PASS homepage artwork layout. Screenshots: '+temp);
+  assert.equal(await run(`getComputedStyle(document.querySelector('.v2-mascot-eyes')).display`),'none','eye animation hides in conversation');
+  console.log('PASS homepage artwork layout and mascot animation. Screenshots: '+temp);
  }finally{win.destroy();server.close();app.quit();}
 }).catch(e=>{console.error(e);app.exit(1)});

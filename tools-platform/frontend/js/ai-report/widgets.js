@@ -16,7 +16,7 @@
         if(value&&typeof value==='object'){const out={};for(const [name,item] of Object.entries(value)){if(name==='__proto__'||name==='constructor')continue;out[name]=cleanValue(item,name);}return out;}
         return typeof value==='number'||typeof value==='boolean'||value===null?value:undefined;
     }
-    const cleanSpecs=list=>(Array.isArray(list)?list:[]).map(item=>({id:String(item.id),type:item.type,...(item.alias?{alias:String(item.alias).slice(0,60)}:{}),spec:cleanValue(item.spec)}));
+    const cleanSpecs=list=>(Array.isArray(list)?list:[]).map(item=>({id:String(item.id),type:item.type,...(item.alias?{alias:String(item.alias).slice(0,60)}:{}),spec:item.type==='interactive'?JSON.parse(JSON.stringify(item.spec||{})):cleanValue(item.spec)}));
 
     const baseOption=spec=>spec&&spec.option&&typeof spec.option==='object'?spec.option:spec;
     const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
@@ -66,10 +66,35 @@
         if(x)out.xAxis=Array.isArray(option.xAxis)?x:x[0];if(y)out.yAxis=Array.isArray(option.yAxis)?y:y[0];
         return out;
     }
+    // Horizontal target labels at ECharts' default end position extend beyond a narrow report cell.
+    // Keep visible labels above the line and inside the plot; explicit in-plot positions and hidden labels survive.
+    function targetLabels(option){
+        let moved=false;
+        const labelOf=label=>{
+            if(label?.show===false)return label;
+            if(label?.position&&!['end','start'].includes(label.position))return label;
+            moved=true;
+            return {...(label||{}),position:'insideEndTop',distance:6,offset:[0,0],rotate:0,align:'right',verticalAlign:'bottom'};
+        };
+        const series=[].concat(option.series||[]).map(series=>{
+            if(!Array.isArray(series?.markLine?.data))return series;
+            const mark=series.markLine;
+            const data=mark.data.map(item=>{
+                // Explicit yAxis thresholds are horizontal; xAxis references and statistical lines stay unchanged.
+                const horizontal=Array.isArray(item)?item.length===2&&item.every(point=>Array.isArray(point?.coord))&&item[0].coord[1]===item[1].coord[1]:item?.yAxis!==undefined&&item.yAxis!==null;
+                if(!horizontal)return item;
+                if(Array.isArray(item))return item.map(point=>({...point,label:labelOf({...mark.label,...point.label})}));
+                return {...item,label:labelOf({...mark.label,...item.label})};
+            });
+            return {...series,markLine:{...mark,data}};
+        });
+        const room=grid=>({...grid,top:Number.isFinite(Number(grid?.top))?Math.max(24,Number(grid.top)):grid?.top??24});
+        return {...option,...(moved?{grid:Array.isArray(option.grid)?option.grid.map(room):room(option.grid)}:{}),...(option.series?{series:Array.isArray(option.series)?series:series[0]}:{})};
+    }
     function chartOption(spec,palette,root){
         const lookup=resolver(palette,root);
         const resolve=value=>typeof value==='string'?value.replace(VAR,(_,name,fallback)=>lookup(name)||(fallback||'').trim()||palette[0]):Array.isArray(value)?value.map(resolve):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).map(([key,item])=>[key,resolve(item)])):value;
-        const option=compactDefaults(keepVisible(resolve(cleanValue(baseOption(spec))||{})));
+        const option=targetLabels(compactDefaults(keepVisible(resolve(cleanValue(baseOption(spec))||{}))));
         return {color:palette,textStyle:{fontFamily:'inherit'},tooltip:{trigger:'axis',confine:true},...option,animationDuration:option.animationDuration??500};
     }
     function staticTable(spec,limit=500){
@@ -153,15 +178,16 @@
     function each(root,lookup,visit){
         root.querySelectorAll('[data-widget]').forEach(element=>{if(element.dataset.hydrated)return;const cellId=element.closest('[data-cell]')?.dataset.cell,widget=lookup(cellId,element.dataset.widget);if(widget)visit(element,widget);});
     }
-    function dispose(){while(live.length){const item=live.pop();item.observer?.disconnect();item.chart?.dispose();}}
+    function dispose(){window.AiReportInteractive?.dispose();while(live.length){const item=live.pop();item.observer?.disconnect();item.chart?.dispose();}}
     // Live mode: interactive charts and tables in the page (and in exported HTML files).
-    function hydrate(root,lookup,{palette=DEFAULT_PALETTE}={}){
+    function hydrate(root,lookup,{palette=DEFAULT_PALETTE,interactive={}}={}){
         dispose();
         const links=new Map(),linkOf=element=>{const cell=element.closest('[data-cell]')||root;if(!links.has(cell))links.set(cell,{tables:new Map()});return links.get(cell);};
         const charts=[];
         each(root,lookup,(element,widget)=>{
             element.dataset.hydrated='1';
-            if(widget.type==='chart'&&window.echarts)charts.push([element,widget]);
+            if(widget.type==='interactive')window.AiReportInteractive?.mount(element,widget,interactive);
+            else if(widget.type==='chart'&&window.echarts)charts.push([element,widget]);
             else if(widget.type==='datatable')datatable(element,widget.spec,widget.alias?{...linkOf(element),alias:widget.alias}:null,remember(widget));
             else if(widget.type==='tabs')tabs(element,widget.spec);
         });
@@ -171,7 +197,8 @@
     function freeze(root,lookup,{palette=DEFAULT_PALETTE}={}){
         each(root,lookup,(element,widget)=>{
             element.dataset.hydrated='1';
-            if(widget.type==='chart'){element.innerHTML=chartSvg(widget.spec,palette,parseInt(element.style.height,10)||320);element.style.height='auto';}
+            if(widget.type==='interactive'){element.innerHTML=window.AiReportSanitize.clean(widget.spec.snapshot||'<p>交互格子尚未加载，请打开预览后再导出 / Open preview before exporting.</p>');element.style.height='auto';}
+            else if(widget.type==='chart'){element.innerHTML=chartSvg(widget.spec,palette,parseInt(element.style.height,10)||320);element.style.height='auto';}
             else if(widget.type==='datatable')element.innerHTML=staticTable(widget.spec);
         });
     }

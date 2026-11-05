@@ -10,7 +10,7 @@ const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'channel-ops-browser-'));
 app.setPath('userData', path.join(temp, 'profile'));
 app.disableHardwareAcceleration();
 const watchdog=setTimeout(()=>{console.error('Operations UI timed out');app.exit(1);},60000);watchdog.unref();
-let win, server, failSend = false, failRefresh = false, canSend = true, holdManual = false, releaseManual, holdSavedRefresh = false, releaseSavedRefresh;
+let win, server, failSend = false, failRefresh = false, canSend = true, canManage = true, holdManual = false, releaseManual, holdSavedRefresh = false, releaseSavedRefresh;
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const evaluate = code => win.webContents.executeJavaScript(code, true).catch(error => { throw new Error(`Browser evaluation failed: ${code}`, { cause: error }); });
 async function until(check, label) { for (let n = 0; n < 180; n++) { if (await check()) return; await wait(25); } throw new Error(`Timed out: ${label}`); }
@@ -68,6 +68,7 @@ app.whenReady().then(async () => {
     web.get('/api/channels/:channel/threads/:kind/:id/followups', (_, res) => res.json({ items: [], canManage: true }));
     web.get('/api/channels/ops/pending', async (req, res) => {
         if (failRefresh) return res.status(503).json({ error: 'network unavailable' });
+        if (!canManage) return res.json({ canManage: false, items: [], total: 0, hasMore: false, offset: 0 });
         if (holdSavedRefresh) await new Promise(resolve => { releaseSavedRefresh = resolve; });
         const offset = Number(req.query.offset) || 0;
         res.json({ canManage: true, items: drafts.slice(offset, offset + 20), total: drafts.length, hasMore: offset + 20 < drafts.length, offset });
@@ -259,6 +260,21 @@ app.whenReady().then(async () => {
     assert.equal(drafts.length,1);
     drafts = []; await evaluate('ToolsOpsInbox.refresh()');
     await until(() => evaluate('getComputedStyle(nrvStack).visibility==="visible"'), 'promotion restores after pending work');
+    console.log('checking Web entry feedback');
+    await evaluate('window.__opsNotices=[];window.AppDialog={alert:async message=>window.__opsNotices.push(message)};void 0');
+    await review();
+    assert.match(await evaluate('window.__opsNotices.at(-1)'), /当前没有待确认消息|No messages need review/);
+    canManage = false;
+    await review();
+    assert.match(await evaluate('window.__opsNotices.at(-1)'), /管理员账号|administrator account/);
+    canManage = true; failRefresh = true;
+    await review();
+    assert.match(await evaluate('window.__opsNotices.at(-1)'), /network unavailable/);
+    failRefresh = false;
+    // The entry refreshes instead of relying on a stale empty cached result.
+    drafts = [draft('new-since-last-refresh')];
+    await review();
+    assert.equal(await evaluate('!!document.querySelector("[data-ops-card=new-since-last-refresh]")'), true);
     assert.deepEqual(errors, []);
     console.log(`Channel operations browser checks passed. Screenshots: ${temp}`);
 }).catch(async error => { console.error(error); if (win) console.error(await evaluate('document.querySelector(".wl-readonly")?.outerHTML')); process.exitCode = 1; }).finally(() => { win?.destroy(); server?.close(); app.exit(process.exitCode || 0); });

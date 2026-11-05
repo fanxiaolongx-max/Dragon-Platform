@@ -5,17 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-platform-page-title="工具中台" data-platform-page-title-en="Tool Hub">工具中台</title>
     <script>
-        // 首页默认新版界面（浅色极简布局）；?ui=v1 或账号菜单“切回旧版界面”改用旧版并记住，?ui=v2 切回新版。
+        // 首页统一新版，旧书签和旧偏好也不再恢复旧导航。
         // 主题默认浅色，可在账号菜单“外观”里切到深色
         (function () {
             var root = document.documentElement;
+            root.setAttribute('data-ui', 'v2');
             try {
-                var query = new URLSearchParams(location.search).get('ui');
-                if (query === 'v2' || query === 'v1') localStorage.setItem('tools_home_ui', query);
-                if (localStorage.getItem('tools_home_ui') === 'v1') return;
+                localStorage.setItem('tools_home_ui', 'v2');
                 root.setAttribute('data-ui', 'v2');
                 root.setAttribute('data-theme', localStorage.getItem('tools_theme') === 'dark' ? 'dark' : 'light');
-            } catch (e) { /* 读不到存储时保持旧版界面 */ }
+            } catch (e) { /* 存储不可用时仍使用新版默认界面 */ }
         })();
     </script>
     <script src="/js/shared/fetch-dedupe.js"></script>
@@ -63,6 +62,8 @@
     <link rel="stylesheet" href="/css/home-capabilities.css">
     <link rel="stylesheet" href="/css/home-v2.css">
     <link rel="stylesheet" href="/css/home-theme.css">
+    <link rel="stylesheet" href="/css/conversation-rail.css">
+    <link rel="stylesheet" href="/css/conversation-bottom.css">
     <link rel="stylesheet" href="/css/home-skill-hub.css">
 </head>
 <body class="home-mode-chat home-booting">
@@ -792,6 +793,7 @@
     <script src="/js/home/promo-video-status.js"></script>
     <script src="/js/shared/f12-quick-downloads.js"></script>
     <script src="/js/shared/platform-logo-upload.js"></script>
+    <script src="/js/shared/tool-navigation.js"></script>
     <script src="/js/shared/navbar.js"></script>
     <script src="/js/shared/app-dialog.js"></script>
     <script src="/js/home/builtin-promotion.js"></script>
@@ -803,6 +805,8 @@
     <script src="/js/home/conversation-list.js"></script>
     <script src="/js/home/dragon-claw.js"></script>
     <script src="/js/home/conversation-search.js"></script>
+    <script src="/js/home/conversation-rail.js"></script>
+    <script src="/js/home/conversation-bottom.js"></script>
     <script src="/js/home/composer-controls.js"></script>
     <script src="/js/home/welink-threads.js"></script>
     <script src="/js/home/desktop-agents.js"></script>

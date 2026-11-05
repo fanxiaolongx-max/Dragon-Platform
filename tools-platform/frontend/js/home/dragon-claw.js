@@ -2801,6 +2801,7 @@
             const activeFilter = window.HomeConversationList?.getFilter?.() || { status: 'all', time: 'all' };
 
             function passesFilter(item) {
+                if (window.HomeConversationList?.matchesSource?.(item, config) === false) return false;
                 const pref = window.HomeConversationList?.get?.('mine', item.id || item._id) || {};
                 if (pref.hidden) return false;
                 if (Boolean(pref.archived) !== isArchived) return false;

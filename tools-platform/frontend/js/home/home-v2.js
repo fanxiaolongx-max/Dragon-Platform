@@ -275,7 +275,6 @@
         wide() { setWide(!root.classList.contains('v2-wide')); },
         serviceStatus() { window.openServiceStatusModal?.(); },
         requirements() { if (!window.HomeToolFrame?.open?.('/requirements')) location.href = '/requirements'; },
-        classic() { try { localStorage.setItem('tools_home_ui', 'v1'); } catch { /* 无痕模式 */ } location.reload(); },
         logout() { window.doLogout?.(); }
     };
     function run(action) { closePop(); ACTIONS[action]?.(); }
@@ -523,7 +522,6 @@
                 ${switchItem('wide', t('wide'), 'wide', root.classList.contains('v2-wide'))}
                 ${rowItem('language', t('language'), 'language')}
                 ${rowItem('target', t('requirements'), 'requirements')}
-                ${rowItem('compare', t('classic'), 'classic')}
                 ${rowItem('chat', lang() === 'en-US' ? 'Feedback' : '意见反馈', 'feedback')}
                 ${rowItem('refresh', t('checkUpdate'), 'checkUpdate')}
                 <div class="v2-pop-sep"></div>
@@ -1540,24 +1538,40 @@
     const getJson = async url => { const res = await fetch(url, { headers: authHeaders(), cache: 'no-store' }); return res.ok ? res.json() : null; };
     // ── 筛选：状态 + 时间（对三个来源的列表都生效，js/home/conversation-list.js） ──
     const sortPop = makePop('v2-sort');
+    sortPop.classList.add('v2-sort-menu');
     function renderSortMenu() {
         const filter = window.HomeConversationList?.getFilter?.() || { status: 'all', time: 'all' };
+        const sources = window.HomeConversationList?.getSources?.() || [];
+        const sourceActive = filter.source && filter.source !== 'all';
         const option = (label, attr, on) => `<button type="button" class="v2-pop-item v2-check-item${on ? ' is-checked' : ''}" role="menuitemradio" aria-checked="${on}" ${attr}><span>${esc(label)}</span>${on ? '<span class="v2-ico v2-check" data-icon="check"></span>' : ''}</button>`;
         sortPop.innerHTML = `<div class="v2-pop-cap">${esc(t('filterStatus'))}</div>
             ${[['all', 'statusAll'], ['pinned', 'statusPinned'], ['group', 'statusGroup'], ['workspace', 'statusWorkspace']].map(([id, key]) => option(t(key), `data-filter-status="${id}"`, filter.status === id)).join('')}
+            ${sources.length > 1 ? `<div class="v2-pop-sep"></div><div class="v2-pop-cap">${lang() === 'en-US' ? 'Filter source' : '筛选来源'}</div>
+            ${[{ id: 'all', label: lang() === 'en-US' ? 'All sources' : '全部来源' }, ...sources].map(item => option(item.label, `data-filter-source="${esc(item.id)}"`, (filter.source || 'all') === item.id)).join('')}` : ''}
             <div class="v2-pop-sep"></div><div class="v2-pop-cap">${esc(t('filterTime'))}</div>
             ${[['all', 'timeAll'], ['today', 'timeToday'], ['7', 'time7'], ['30', 'time30']].map(([id, key]) => option(t(key), `data-filter-time="${id}"`, filter.time === id)).join('')}
-            <div class="v2-pop-sep"></div><button type="button" class="v2-pop-item" data-filter-archived>${lang() === 'en-US' ? 'Show / hide archived chats' : '查看 / 收起已归档对话'}</button><button type="button" class="v2-pop-item v2-pop-reset" data-filter-reset${filter.status === 'all' && filter.time === 'all' ? ' disabled' : ''}>${esc(t('filterReset'))}</button>`;
+            <div class="v2-pop-sep"></div><button type="button" class="v2-pop-item" data-filter-archived>${lang() === 'en-US' ? 'Show / hide archived chats' : '查看 / 收起已归档对话'}</button><button type="button" class="v2-pop-item v2-pop-reset" data-filter-reset${filter.status === 'all' && filter.time === 'all' && !sourceActive ? ' disabled' : ''}>${esc(t('filterReset'))}</button>`;
         fillIcons(sortPop);
-        $('v2SortBtn')?.classList.toggle('is-on', filter.status !== 'all' || filter.time !== 'all');
+        $('v2SortBtn')?.classList.toggle('is-on', filter.status !== 'all' || filter.time !== 'all' || Boolean(sourceActive));
     }
     sortPop.addEventListener('click', event => {
         const status = event.target.closest('[data-filter-status]');
         const time = event.target.closest('[data-filter-time]');
+        const source = event.target.closest('[data-filter-source]');
         if (status) window.HomeConversationList?.setFilter?.({ status: status.dataset.filterStatus });
+        else if (source) {
+            const id = source.dataset.filterSource;
+            window.HomeConversationList?.setFilter?.({ source: id });
+            // 频道有独立列表；桌面渠道和本地对话使用合并列表。
+            window.HomeMode?.set('chat');
+            window.HomeWelinkThreads?.setSource?.(isChannelSource(id) ? id : 'mine');
+        }
         else if (time) window.HomeConversationList?.setFilter?.({ time: time.dataset.filterTime });
         else if (event.target.closest('[data-filter-archived]')) window.HomeConversationList?.toggleArchived?.(activeChatSource()==='agents' ? 'desktop:'+activeProvider() : activeChatSource());
-        else if (event.target.closest('[data-filter-reset]')) window.HomeConversationList?.setFilter?.({ status: 'all', time: 'all' });
+        else if (event.target.closest('[data-filter-reset]')) {
+            window.HomeConversationList?.setFilter?.({ status: 'all', time: 'all', source: 'all' });
+            window.HomeWelinkThreads?.setSource?.('mine');
+        }
         else return;
         renderSortMenu();
     });
@@ -1567,6 +1581,9 @@
         renderSortMenu();
         showPop(sortPop, anchor, 'down');
     });
+
+    window.addEventListener('home:conversation-list-changed', renderSortMenu);
+    window.addEventListener('tools:languagechange', renderSortMenu);
 
     // ── 对话分类：侧栏里可折叠的分组（对话 / 微信 / WeLink），同一时间展开一组 ──
     // 桌面 Agent（Codex / Claude Code / Antigravity）的会话已合并进「对话」列表，不再单独分组。
@@ -1728,7 +1745,7 @@
             return (data?.items || []).slice(0, 10).map(session => ({ type: 'agents', icon: 'terminal', title: session.title, sub: session.provider, open: () => { window.HomeMode?.set('chat'); window.HomeWelinkThreads?.setSource?.('agents'); window.HomeDesktopAgents?.open?.(session); } }));
         },
         async apps(q) {
-            return apps().filter(app => matches(app, q)).slice(0, 12).map(app => ({ type: 'apps', icon: 'grid', title: app.title, sub: app.group || '', open: () => { location.href = app.href; } }));
+            return apps().filter(app => matches(app, q)).slice(0, 12).map(app => ({ type: 'apps', icon: 'grid', title: app.title, sub: app.group || '', open: () => { if (!window.HomeToolFrame?.open?.(app.href)) location.href = window.ToolsNavigation?.shellUrl?.(app.href) || app.href; } }));
         },
         async skills(q) {
             return (window.HomeSkills?.items?.() || []).filter(skill => textMatch(`${skill.name || ''} ${skill.title || ''} ${skill.description || ''}`, q)).slice(0, 10)
@@ -1842,6 +1859,105 @@
             ['schedule', 'Scheduled', ['/schedule every weekday at 9am summarise yesterday’s alerts', '/schedule every Monday send last week’s metric report to WeChat', '/schedule on the 1st remind me to import last month’s data']]
         ]
     };
+
+    // SVG layers reuse the plush texture; coordinates match mascot-perched.png (1536 × 1024).
+    function animateMascot(mascot) {
+        const ns = 'http://www.w3.org/2000/svg';
+        const overlay = document.createElementNS(ns, 'svg');
+        overlay.classList.add('v2-mascot-eyes');
+        overlay.setAttribute('viewBox', '0 0 1536 1024');
+        overlay.setAttribute('aria-hidden', 'true');
+        overlay.setAttribute('focusable', 'false');
+        const texture = (x = 0, y = 0) => `<image href="${mascot.getAttribute('src')}" x="${x}" y="${y}" width="1536" height="1024"/>`;
+        overlay.innerHTML = `<defs>
+            <radialGradient id="mascot-eye-feather"><stop offset="82%" stop-color="white"/><stop offset="100%" stop-color="black"/></radialGradient>
+            <mask id="mascot-eye-left"><ellipse cx="674" cy="384" rx="67" ry="70" fill="url(#mascot-eye-feather)"/></mask>
+            <mask id="mascot-eye-right"><ellipse cx="906" cy="319" rx="65" ry="69" fill="url(#mascot-eye-feather)"/></mask>
+            <clipPath id="mascot-pupil-left"><ellipse cx="674" cy="384" rx="43" ry="44"/></clipPath>
+            <clipPath id="mascot-pupil-right"><ellipse cx="906" cy="319" rx="42" ry="44"/></clipPath>
+        </defs>
+        <g mask="url(#mascot-eye-left)">${texture(100, 96)}</g>
+        <g mask="url(#mascot-eye-right)">${texture(68, 96)}</g>
+        ${['left', 'right'].map((side, i) => `<g class="v2-mascot-pupil"><g clip-path="url(#mascot-pupil-${side})">${texture()}</g></g>
+            <path class="v2-mascot-lid" d="${i ? 'M866 319 Q906 338 946 319' : 'M634 384 Q674 403 714 384'}" fill="none" stroke="#594a39" stroke-width="9" stroke-linecap="round" opacity="0"/>`).join('')}`;
+        mascot.after(overlay);
+        const pupils = [...overlay.querySelectorAll('.v2-mascot-pupil')];
+        const lids = [...overlay.querySelectorAll('.v2-mascot-lid')];
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+        let frame = 0, blinkTimer = 0, previous = 0, blinkStart = 0, suspended = false;
+        let x = 0, y = 0, targetX = 0, targetY = 0, pointer = null;
+        let reactAt = 0, speed = 180, nextSpeed = 0;
+        const random = (min, max) => min + Math.random() * (max - min);
+        const active = () => !suspended && !document.hidden && !reducedMotion.matches && mascot.getClientRects().length > 0;
+        const draw = (open = 1) => {
+            pupils.forEach((pupil, i) => {
+                const cx = i ? 906 : 674, cy = i ? 319 : 384;
+                pupil.setAttribute('transform', `translate(${x} ${y}) translate(${cx} ${cy}) scale(1 ${open}) translate(${-cx} ${-cy})`);
+                lids[i].setAttribute('opacity', String(Math.max(0, 1 - open * 3)));
+            });
+        };
+        const scheduleBlink = (delay = random(3200, 7200)) => {
+            clearTimeout(blinkTimer);
+            blinkTimer = window.setTimeout(() => {
+                blinkTimer = 0;
+                if (!active()) return;
+                blinkStart = performance.now();
+                wake();
+            }, delay);
+        };
+        function tick(now) {
+            frame = 0;
+            if (!active()) return;
+            const dt = Math.min(48, previous ? now - previous : 16);
+            previous = now;
+            if (now >= reactAt) {
+                const box = mascot.getBoundingClientRect();
+                // Saturation keeps each pupil within about 1.3 CSS pixels at desktop size.
+                targetX = pointer ? Math.tanh((pointer.x - box.left - box.width * .51) / 300) * 20 : 0;
+                targetY = pointer ? Math.tanh((pointer.y - box.top - box.height * .34) / 240) * 14 : 0;
+            }
+            if (now >= nextSpeed) { speed = random(130, 290); nextSpeed = now + random(350, 850); }
+            const ease = 1 - Math.exp(-dt / speed);
+            x += (targetX - x) * ease;
+            y += (targetY - y) * ease;
+            let open = 1;
+            if (blinkStart) {
+                const elapsed = now - blinkStart;
+                // Fast close, brief hold, softer reopening; no clockwork blink interval.
+                open = elapsed < 65 ? 1 - elapsed / 65 : elapsed < 100 ? 0 : Math.min(1, (elapsed - 100) / 125);
+                if (elapsed >= 225) { blinkStart = 0; scheduleBlink(Math.random() < .16 ? random(160, 280) : random(3200, 7200)); }
+            }
+            draw(open);
+            if (blinkStart || Math.abs(targetX - x) + Math.abs(targetY - y) > .025 || now < reactAt) wake();
+        }
+        function wake() {
+            if (!frame && active()) frame = requestAnimationFrame(tick);
+        }
+        const resetPointer = () => { pointer = null; reactAt = 0; wake(); };
+        document.addEventListener('pointermove', event => {
+            if (event.pointerType === 'touch' || !active()) return;
+            if (!pointer) reactAt = performance.now() + random(75, 145);
+            pointer = { x: event.clientX, y: event.clientY };
+            wake();
+        }, { passive: true });
+        document.documentElement.addEventListener('pointerleave', resetPointer);
+        window.addEventListener('blur', resetPointer);
+        const sync = () => {
+            cancelAnimationFrame(frame); clearTimeout(blinkTimer);
+            frame = blinkTimer = previous = blinkStart = 0;
+            pointer = null; x = y = targetX = targetY = 0;
+            draw();
+            overlay.style.visibility = reducedMotion.matches ? 'hidden' : '';
+            if (active()) scheduleBlink();
+        };
+        document.addEventListener('visibilitychange', sync);
+        reducedMotion.addEventListener('change', sync);
+        new MutationObserver(sync).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+        window.addEventListener('pagehide', () => { suspended = true; sync(); });
+        window.addEventListener('pageshow', () => { suspended = false; sync(); });
+        sync();
+    }
+
     const quick = { scene: '', scenesEl: null, suggestEl: null, illustration: null, recent: [] };
     function fillInput(text) {
         const input = $('dcInput');
@@ -1852,11 +1968,12 @@
         input.setSelectionRange(text.length, text.length);
     }
     function recentQuestions() {
-        const titles = [...document.querySelectorAll('#homeChatList [data-question]')].map(el => el.dataset.question.trim());
+        // 推荐读取独立的最近提问数据，不依赖侧栏筛选、归档或分页后的 DOM。
+        const titles = quick.recent;
         const matchesLanguage = title => lang() === 'en-US'
             ? /[A-Za-z]/.test(title) && !/[^\p{Script=Latin}\p{M}\p{N}\p{P}\p{S}\p{Z}\s]/u.test(title)
             : /\p{Script=Han}/u.test(title);
-        return [...new Set([...titles, ...quick.recent].filter(title => title.length >= 4 && !/^@/.test(title) && matchesLanguage(title)))].slice(0, 4);
+        return [...new Set(titles.filter(title => title.length >= 4 && !/^@/.test(title) && matchesLanguage(title)))].slice(0, 4);
     }
     function updateSuggestionFade() {
         if (!quick.suggestEl || !quick.illustration?.isConnected) return;
@@ -1911,6 +2028,7 @@
             mascot.alt = '';
             mascot.setAttribute('aria-hidden', 'true');
             composer.appendChild(mascot);
+            animateMascot(mascot);
             quick.scenesEl.addEventListener('click', event => {
                 const chip = event.target.closest('[data-scene]');
                 if (!chip) return;
@@ -1948,14 +2066,12 @@
         }
     }
     async function loadRecentQuestions() {
-        if (recentQuestions().length) return renderQuick();
         try {
             const data = await getJson('/api/ai/sessions?mine=1&pagePath=%2F&limit=40&query=');
             quick.recent = (data?.items || []).map(item => String(item.firstQuestion || item.lastQuestion || item.title || '').trim()).filter(Boolean);
         } catch { /* 没有匹配历史时使用当前语言的平台能力推荐 */ }
         renderQuick();
     }
-    window.addEventListener('home:conversation-list-changed', () => { if (!quick.scene) renderQuick(); });
 
     // ── 主题 ──
     function setTheme(theme) {

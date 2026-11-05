@@ -1,0 +1,29 @@
+.conversation-bottom {
+    position: fixed; z-index: 80; transform: translateX(-50%);
+    display: grid; place-items: center; width: 34px; height: 34px; padding: 0;
+    border-radius: 50%; border: 1px solid var(--v2-line-strong, #d6d6db);
+    background: var(--v2-bg, #fff); color: var(--v2-ink2, #4b5563);
+    box-shadow: 0 3px 12px #0000000d; cursor: pointer;
+    transition: border-color 180ms, box-shadow 180ms, background 180ms;
+    -webkit-tap-highlight-color: transparent;
+}
+.conversation-bottom[hidden] { display: none; }
+.conversation-bottom:hover { color: var(--v2-ink, #1f2328); box-shadow: 0 4px 16px #0002; }
+.conversation-bottom:focus-visible { outline: 2px solid var(--v2-ink3, #8a9099); outline-offset: 3px; }
+.conversation-bottom-arrow, .conversation-bottom-dots { grid-area: 1 / 1; transition: opacity 180ms, transform 240ms cubic-bezier(.2,.8,.2,1); }
+.conversation-bottom-arrow { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.65; stroke-linecap: round; stroke-linejoin: round; }
+.conversation-bottom-dots { display: flex; gap: 3px; opacity: 0; transform: scale(.65); }
+.conversation-bottom-dots i { width: 3px; height: 3px; border-radius: 50%; background: currentColor; }
+.conversation-bottom.is-working .conversation-bottom-dots { opacity: 1; transform: scale(1); }
+.conversation-bottom.is-working .conversation-bottom-arrow { opacity: 0; transform: translateY(4px) scale(.7); }
+.conversation-bottom.is-working .conversation-bottom-dots i { animation: conversation-bottom-pulse 1.2s ease-in-out infinite; }
+.conversation-bottom.is-working .conversation-bottom-dots i:nth-child(2) { animation-delay: 140ms; }
+.conversation-bottom.is-working .conversation-bottom-dots i:nth-child(3) { animation-delay: 280ms; }
+.conversation-bottom.is-working:is(:hover, :focus-visible) .conversation-bottom-dots { opacity: 0; transform: translateY(-3px) scale(.7); }
+.conversation-bottom.is-working:is(:hover, :focus-visible) .conversation-bottom-arrow { opacity: 1; transform: none; }
+html[data-theme="dark"] .conversation-bottom { background: var(--v2-bg, #191b20); color: var(--v2-ink2, #c0c5cf); border-color: var(--v2-line-strong, #373b43); }
+@keyframes conversation-bottom-pulse { 0%, 70%, 100% { opacity: .4; transform: translateY(0); } 35% { opacity: 1; transform: translateY(-2px); } }
+@media (prefers-reduced-motion: reduce) {
+    .conversation-bottom, .conversation-bottom-arrow, .conversation-bottom-dots { transition: none; }
+    .conversation-bottom.is-working .conversation-bottom-dots i { animation: none; }
+}

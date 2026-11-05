@@ -493,6 +493,7 @@
             const data = await request('GET', `/${session.provider}/sessions/${encodeURIComponent(session.id)}/messages${initial ? '' : '?passive=1'}`, undefined, AbortSignal.timeout(45000));
             if (!current(epoch, session))
                 return;
+            const followBottom = initial || state.api.isNearBottom();
             if (data.stale)
                 data.items = state.detail?.items || [];
             // 发送后到 Agent 开始处理之间日志可能还没更新：先保持“已发送”状态，最多等一分钟
@@ -524,6 +525,9 @@
                 schedule(epoch, session);
             if (initial && historyLoad?.status !== 'loading') // 淡入只在首次打开时做；轮询时做会让整个消息区每隔几秒闪一下
                 state.api.finishLoading();
+            // Composer and workspace updates resize/reflow the timeline after
+            // renderThread. Restore the bottom only after the whole layout is ready.
+            if (followBottom) state.api.scrollToBottom();
         }
         catch (error) {
             if (current(epoch, session)) {
@@ -635,6 +639,8 @@
     window.HomeDesktopAgents = {
         available: () => localStorage.getItem('tools_role') === 'admin' && anyProviderEnabled(),
         getItems: () => (state.items || []).slice(),
+        enabledProviders: () => localStorage.getItem('tools_role') === 'admin' && state.settings?.enabled
+            ? Object.entries(names).filter(([id]) => state.settings.providers?.[id]).map(([id, label]) => ({ id, label })) : [],
         // 侧栏转圈：打开中的会话用实时详情（含刚发送待响应），其他会话用列表接口的 busy
         isBusy: (provider, id) => {
             if (state.active && state.active.provider === provider && state.active.id === id) return Boolean(state.detail?.busy || state.pending);

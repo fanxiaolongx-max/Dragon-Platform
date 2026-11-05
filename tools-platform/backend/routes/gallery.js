@@ -39,7 +39,7 @@ router.post('/upload', requireAdmin, (req, res, next) => {
         next();
     }));
 }, handle(async (req, res) => res.status(201).json(await service.upload(req.files?.file?.[0], req.files?.raster?.[0], req.body || {}))));
-router.post('/versions/:id/analyze', requireAdmin, handle(async (req, res) => res.json(await service.recognizeAndOrganize(req.params.id, req.body?.mode, req.body?.confirmed === true))));
+router.post('/versions/:id/analyze', requireAdmin, handle(async (req, res) => res.json(await service.recognizeAndOrganize(req.params.id, req.body?.mode, req.body?.confirmed === true, undefined, { reidentify: req.body?.force === true }))));
 router.get('/versions/:id/:kind', handle(async (req, res) => {
     if (!['thumbnail','preview','original'].includes(req.params.kind)) throw repo.fail('图片类型不存在', 404);
     const image = await repo.asset(req.params.id, req.params.kind);

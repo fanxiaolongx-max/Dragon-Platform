@@ -41,3 +41,26 @@ test('Antigravity local sqlite backfill enriches missing sidebar times for activ
  assert.equal(map.get('c1'),'2026-10-26T20:00:00.000Z');
  assert.equal(map.has('c2'),false);
 });
+
+test('source filters combine with status and time across unified, desktop and channel lists',()=>{
+ const events={},storage={getItem:()=>null};
+ let channels=[{id:'weixin',label:'微信'},{id:'welink',label:'WeLink'}],providers=[{id:'codex',label:'Codex'}];
+ const window={addEventListener:(name,fn)=>events[name]=fn,dispatchEvent(){},HomeDesktopAgents:{enabledProviders:()=>providers},HomeWelinkThreads:{channels:()=>channels}};
+ vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../frontend/js/home/conversation-list.js'),'utf8'),{window,localStorage:storage,sessionStorage:storage,document:{readyState:'loading',addEventListener(){}},Date,Map,WeakMap,Set,CustomEvent:class{}});
+ const api=window.HomeConversationList,now=new Date().toISOString(),item={_sourceType:'codex',cwd:'/workspace',updatedAt:now};
+ assert.deepEqual(Array.from(api.getSources(),s=>s.id),['mine','codex','weixin','welink']);
+ api.setFilter({source:'codex',status:'workspace',time:'today'});
+ assert.equal(api.passesFilter(item,{},{}),true);
+ assert.equal(api.passesFilter({...item,_sourceType:'mine'},{},{}),false);
+ assert.equal(api.passesFilter({...item,cwd:''},{},{}),false);
+ assert.equal(api.passesFilter({...item,updatedAt:'2000-01-01T00:00:00Z'},{},{}),false);
+ api.setFilter({status:'all',time:'all'});
+ assert.equal(api.passesFilter({}, {}, {source:'desktop:codex'}),true);
+ api.setFilter({source:'disabled-provider'});assert.equal(api.getFilter().source,'codex');
+ providers=[];events['home:desktop-agents-ready']();assert.equal(api.getFilter().source,'all');
+ api.setFilter({source:'weixin',status:'group'});
+ assert.equal(api.passesFilter({kind:'group'},{},{source:'weixin'}),true);
+ assert.equal(api.passesFilter({kind:'group',channel:'welink'},{},{source:'mine'}),false);
+ channels=[{id:'welink'}];events['tools:channels-updated']();assert.equal(api.getFilter().source,'all');
+ assert.equal(api.getFilter().status,'group');
+});

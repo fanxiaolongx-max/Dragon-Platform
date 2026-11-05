@@ -2311,6 +2311,7 @@ export function createComponentEditor({ deck, getScale, onChange, onStatus, onSe
         refreshLayers: renderLayers,
         addElement,
         getSelectionContext,
+        getSelectedElements,
         getPageContext,
         applyAiActions,
         auditPageLayout,

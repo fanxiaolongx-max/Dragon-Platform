@@ -53,12 +53,14 @@
         .custom-tool-snapshot-actions { display: flex; align-items: center; gap: 8px; }
         .tool-action-wrap { position: relative; }
         .tool-action-menu {
-            position: absolute;
-            top: calc(100% + 7px);
-            left: 50%;
-            transform: translateX(-50%);
+            position: fixed;
+            top: 0;
+            left: 8px;
             z-index: 20;
-            width: 232px;
+            width: min(246px, calc(100vw - 16px));
+            box-sizing: border-box;
+            overflow-y: auto;
+            overscroll-behavior: contain;
             padding: 6px;
             border: 1px solid #d8e4f1;
             border-radius: 11px;
@@ -308,7 +310,7 @@
                 updateSnapshotActions(tool.slug);
                 const displayName = getCustomToolDisplayName(tool);
                 document.getElementById('toolIcon').textContent = tool.icon || '🧩';
-                document.getElementById('openRawTool').href = tool.filePath;
+                document.getElementById('openRawTool').href = window.ToolsNavigation?.toolUrl('/tools/' + encodeURIComponent(tool.slug) + location.search + location.hash) || ('/?app=' + encodeURIComponent('/tools/' + encodeURIComponent(tool.slug) + location.search + location.hash));
                 const allowedFeatures = tool.slug === 'optical-transfer'
                     ? 'camera; autoplay; fullscreen; microphone; display-capture'
                     : 'autoplay; fullscreen; microphone; display-capture';
@@ -401,7 +403,19 @@
             const opening = menu.hidden;
             closeSnapshotMenus();
             menu.hidden = !opening;
-            document.getElementById(name + 'Tool').setAttribute('aria-expanded', String(opening));
+            const button = document.getElementById(name + 'Tool');
+            button.setAttribute('aria-expanded', String(opening));
+            if (opening) {
+                // 以当前工具容器的可见区域为边界，避免菜单居中后伸入平台侧栏。
+                const anchor = button.getBoundingClientRect();
+                const below = Math.max(0, innerHeight - anchor.bottom - 15);
+                const above = Math.max(0, anchor.top - 15);
+                const upward = menu.scrollHeight > below && above > below;
+                menu.style.maxHeight = `${upward ? above : below}px`;
+                const box = menu.getBoundingClientRect();
+                menu.style.left = `${Math.max(8, Math.min(anchor.left, innerWidth - box.width - 8))}px`;
+                menu.style.top = `${upward ? Math.max(8, anchor.top - box.height - 7) : anchor.bottom + 7}px`;
+            }
         }
         async function downloadSnapshot(format) {
             const slug = currentCustomTool?.slug;
@@ -470,9 +484,45 @@
             closeSnapshotMenus();
             window.startSnapshotPublish({ toolSlug: currentCustomTool.slug, toolName: getCustomToolDisplayName(currentCustomTool), force: action === 'force' });
         });
-        document.addEventListener('click', event => {
-            if (!event.target.closest('.custom-tool-snapshot-actions')) closeSnapshotMenus();
+        // iframe 内的点击不会冒泡到容器；同时监听工具内容与宿主侧栏所在的文档。
+        const snapshotMenuEvents = new AbortController();
+        const snapshotDocuments = new WeakSet();
+        function watchSnapshotDocument(doc, descendants = false) {
+            if (snapshotDocuments.has(doc)) return;
+            snapshotDocuments.add(doc);
+            const options = { capture: true, signal: snapshotMenuEvents.signal };
+            const outside = event => {
+                if (doc !== document || !event.target.closest?.('.custom-tool-snapshot-actions')) closeSnapshotMenus();
+            };
+            doc.addEventListener('pointerdown', outside, options);
+            doc.addEventListener('click', outside, options);
+            doc.addEventListener('keydown', event => {
+                if (event.key !== 'Escape') return;
+                const button = document.querySelector('.custom-tool-snapshot-actions [aria-expanded="true"]');
+                closeSnapshotMenus();
+                button?.focus({ preventScroll: true });
+            }, options);
+            if (!descendants) return;
+            const watchFrame = frame => {
+                try { if (frame.contentDocument) watchSnapshotDocument(frame.contentDocument, true); } catch (_) { /* 跨域工具由失焦处理 */ }
+            };
+            doc.querySelectorAll('iframe').forEach(watchFrame);
+            doc.addEventListener('load', event => {
+                if (event.target.matches?.('iframe')) watchFrame(event.target);
+            }, options);
+        }
+        watchSnapshotDocument(document, true);
+        try {
+            for (let host = window.parent; host !== window; host = host.parent) {
+                watchSnapshotDocument(host.document);
+                if (host === host.parent) break;
+            }
+        } catch (_) { /* 独立工具或跨域宿主仍可在本页面正常收起 */ }
+        window.addEventListener('blur', () => {
+            if (document.activeElement?.matches('iframe')) closeSnapshotMenus();
         });
+        window.addEventListener('resize', closeSnapshotMenus);
+        window.addEventListener('pagehide', event => { if (!event.persisted) snapshotMenuEvents.abort(); });
         document.getElementById('refreshToolButton')?.addEventListener('click', (e) => {
             e.preventDefault();
             const frame = document.querySelector('.custom-tool-frame');

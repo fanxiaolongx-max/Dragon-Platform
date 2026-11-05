@@ -132,6 +132,16 @@
             logNode.scrollTop=keepScroll?logNode.scrollHeight-fromBottom:logNode.scrollHeight;
             pullable(logNode);
         }
+        // A drag updates the prompt in place: keep the composer, draft, focus and cell iframe alive.
+        function refreshPrompt(id){
+            if(id!==cellId||editing?.cellId===id)return;
+            const found=find(id);if(!found)return;
+            const {cell,busy}=found,index=lastPromptIndex(cell.chat),node=root.querySelector(`.air-msg-prompt[data-msg="${index}"]`);
+            if(!node)return;
+            const log=root.querySelector('.air-chat-log'),atBottom=log.scrollHeight-log.scrollTop-log.clientHeight<8,top=log.scrollTop;
+            node.outerHTML=messageBody(cell.chat[index],index,cell,busy,index,found.kind!=='cell');
+            log.scrollTop=atBottom?log.scrollHeight:top;
+        }
         function loadEarlier(){const start=starts.get(cellId)||0;if(!start)return;starts.set(cellId,Math.max(0,start-PAGE));render(cellId,{keepScroll:true});}
         // Pull-to-load: at the top, further upward scrolling (wheel, trackpad or touch) stretches the conversation down with
         // resistance; past the threshold, letting go loads earlier messages, then everything springs back.
@@ -246,7 +256,7 @@
             await wait(440);root.classList.remove('is-dissolving');
         }
         const reveal=(id,index)=>starts.set(id,Math.min(starts.get(id)??index,index));
-        return {render,current:()=>cellId,dissolve,reveal};
+        return {render,refreshPrompt,current:()=>cellId,dissolve,reveal};
     }
     window.AiReportChat={create};
 })();

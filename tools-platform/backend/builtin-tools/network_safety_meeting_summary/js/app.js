@@ -1463,7 +1463,9 @@ async function transformSlideTexts(action, displayMsg = null) {
     const defaultDisplay = action === 'translate_en' ? '🌐 请将当前页面翻译为英文' : (action === 'translate_zh' ? '🇨🇳 请将当前页面翻译为中文' : '✨ 请帮我润色当前页面');
 
     if (!targets.length) {
-        appendAiMessage('model', `当前页未发现可${actionLabel}的文本。`);
+        appendAiMessage('model', selectedElements.length
+            ? `所选组件中没有可${actionLabel}的文本。图片中的文字无法直接转换；请选中文字组件，或取消选择后转换整页。`
+            : `当前页未发现可${actionLabel}的文本。`);
         return;
     }
 
@@ -1518,6 +1520,7 @@ async function transformSlideTexts(action, displayMsg = null) {
             }
         });
 
+        if (!updatedCount) throw new Error('AI 未返回可更新的文本，请重试');
         componentEditor?.refresh();
         saveDeck();
         scheduleThumbnails();

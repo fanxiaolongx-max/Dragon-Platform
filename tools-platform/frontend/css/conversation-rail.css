@@ -1,0 +1,31 @@
+.conversation-rail {
+    position: fixed; z-index: 80; transform: translateY(-50%);
+    width: 36px; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain;
+    scrollbar-width: none; padding: 6px 0; box-sizing: border-box;
+    color: var(--v2-ink3, #87909f);
+}
+.conversation-rail[hidden], .conversation-rail-preview[hidden] { display: none; }
+.conversation-rail::-webkit-scrollbar { display: none; }
+.conversation-rail button {
+    display: flex; align-items: center; width: 36px; height: 10px; min-height: 10px;
+    padding: 0 5px; border: 0; background: transparent; color: inherit; cursor: pointer;
+}
+.conversation-rail button i {
+    display: block; width: 7px; height: 2px; border-radius: 2px; background: currentColor;
+    opacity: .45; transform: scaleX(var(--rail-scale, 1)); transform-origin: left center;
+    transition: transform 240ms cubic-bezier(.2,.8,.2,1), opacity 200ms, color 200ms;
+}
+.conversation-rail button.is-active i { transform: scaleX(var(--rail-scale, 3.3)); opacity: 1; }
+.conversation-rail button:hover i, .conversation-rail button:focus-visible i { opacity: 1; }
+.conversation-rail button:focus-visible { outline: 1px solid currentColor; outline-offset: -1px; border-radius: 3px; }
+.conversation-rail-preview {
+    position: fixed; z-index: 81; pointer-events: none; padding: 10px 13px; box-sizing: border-box;
+    border: 1px solid var(--v2-line, rgba(148,163,184,.25)); border-radius: 12px;
+    background: var(--v2-surface, #fff); color: var(--v2-ink, #202630);
+    box-shadow: 0 6px 24px #0002; font-size: 12px; line-height: 1.6;
+    overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden;
+}
+html[data-theme="dark"] .conversation-rail-preview { background: #282a2f; color: #eceef2; }
+/* Keep a dedicated gutter on compact layouts, including narrow Electron windows. */
+body.dc-chatting .dc-thread { padding-inline: max(44px, calc((100% - var(--dc-col, 760px) - 40px) / 2)); }
+@media (prefers-reduced-motion: reduce) { .conversation-rail button i { transition: none; } }

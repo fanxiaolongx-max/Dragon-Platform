@@ -27,7 +27,7 @@ app.whenReady().then(async () => {
     web.get('/api/agent-files/raw', (req, res) => res.type('png').send(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWQAAAABJRU5ErkJggg==', 'base64')));
     web.get('/api/agent-files/meta', (req, res) => res.json({ name: 'agent-report.pdf', size: 20 }));
     const storage = `<script>localStorage.setItem('tools_user','admin');localStorage.setItem('tools_role','admin');localStorage.setItem('tools_tenant_id','default');localStorage.setItem('tools_token','test-only');</script>`;
-    web.get('/', (_req, res) => { let html = fs.readFileSync(path.join(root, 'frontend/index.html'), 'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, ''); res.type('html').send(html.replace('</body>', storage + ['/js/shared/i18n.js', '/js/shared/chat-files.js', '/js/home/home-mode.js', '/js/home/dragon-claw.js', '/js/home/welink-threads.js', '/js/home/desktop-agents.js'].map(src => `<script src="${src}"></script>`).join('') + '</body>')); });
+    web.get('/', (_req, res) => { let html = fs.readFileSync(path.join(root, 'frontend/index.html'), 'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, ''); res.type('html').send(html.replace('</body>', storage + ['/js/shared/i18n.js', '/js/shared/chat-files.js', '/js/home/home-mode.js', '/js/home/dragon-claw.js', '/js/home/conversation-bottom.js', '/js/home/welink-threads.js', '/js/home/desktop-agents.js'].map(src => `<script src="${src}"></script>`).join('') + '</body>')); });
     web.get('/settings', (_req, res) => res.type('html').send(`<!doctype html><html><head><link rel="stylesheet" href="/css/shared.css"><link rel="stylesheet" href="/css/desktop-agents.css"><style>body{margin:0;font:14px system-ui;background:#142435}.nav-settings-modal{display:flex}.nav-settings-window{height:min(760px,94vh)}body.test-dark .nav-settings-window{background:#172435;color:#e2e8f0}body.test-dark .nav-settings-heading{color:#e2e8f0}</style></head><body><div class="nav-settings-modal"><div class="nav-settings-window"><aside class="nav-settings-sidebar"><div class="nav-settings-title">全局设置</div><button class="nav-settings-tab active" data-tab="desktopAgents">🖥️ 桌面 Agent</button></aside><main class="nav-settings-main"><button class="nav-settings-close">×</button><header class="nav-settings-head"><div><div class="nav-settings-heading">桌面 Agent</div><div class="nav-settings-subtitle">连接本机原生桌面会话，在网页继续交流。</div></div></header><div id="navSettingsContent"><div id="settings"></div></div></main></div></div>${storage}<script src="/js/shared/i18n.js"></script><script src="/js/shared/desktop-agent-settings.js"></script><script>ToolsDesktopAgentSettings.render(document.getElementById('settings'));</script></body></html>`));
     web.get('/api/desktop-agents/settings', (_req, res) => res.json({ owned: true, settings: config }));
     web.put('/api/desktop-agents/settings', (req, res) => { saves.push(req.body); config = { ...config, ...req.body }; res.json({ settings: config }); });
@@ -109,6 +109,28 @@ app.whenReady().then(async () => {
     await evaluate('document.querySelector("[data-desktop-refresh]").click()');
     await until('!document.querySelector(".desktop-agent-thinking")');
     assert.equal(await evaluate('dcThread.querySelector(".dc-msg")===window.__first'), true);
+    // Opening workspace / enabling the composer happens after message rendering.
+    // A late layout change must not leave a completed chat above its final reply.
+    console.log('checking latest-message position after workspace layout');
+    const savedCodexHistory = histories.codex;
+    histories.codex = Array.from({ length: 12 }, (_, index) => ({ id: `position-${index}`, role: index % 2 ? 'assistant' : 'user', content: `Position message ${index}\n\n` + 'Long reply content. '.repeat(70) }));
+    await evaluate('window.__originalShowExternal=DragonClawWorkspace.showExternal;DragonClawWorkspace.showExternal=options=>{const body=window.__originalShowExternal(options);if(options.open!==false){dcThread.style.flex="none";dcThread.style.height="240px";}return body;};void 0');
+    await evaluate(`HomeDesktopAgents.open(${JSON.stringify(sessions[0])})`);
+    await wait(200);
+    assert.ok(await evaluate('dcThread.scrollHeight-dcThread.scrollTop-dcThread.clientHeight<3'), 'first open lands at the newest reply after the full layout');
+    assert.equal(await evaluate('document.querySelector(".conversation-bottom").hidden'), true, 'no down arrow on freshly opened completed chat');
+    histories.codex.at(-1).content += '\n\n' + 'Final reply expansion. '.repeat(200);
+    await evaluate('document.querySelector("[data-desktop-refresh]").click()');
+    await until('dcThread.textContent.includes("Final reply expansion")');
+    assert.ok(await evaluate('dcThread.scrollHeight-dcThread.scrollTop-dcThread.clientHeight<3'), 'an in-place final reply update follows the bottom');
+    await evaluate('dcThread.scrollTop=250'); await wait(100);
+    const readingTop = await evaluate('dcThread.scrollTop');
+    histories.codex.at(-1).content += '\n\nContinued while reading history.';
+    await evaluate('document.querySelector("[data-desktop-refresh]").click()');
+    await until('dcThread.textContent.includes("Continued while reading history")');
+    assert.ok(Math.abs(await evaluate('dcThread.scrollTop') - readingTop) < 3, 'refresh preserves a manually chosen history position');
+    await evaluate('DragonClawWorkspace.showExternal=window.__originalShowExternal;dcThread.style.removeProperty("flex");dcThread.style.removeProperty("height");void 0');
+    histories.codex = savedCodexHistory;
     assert.equal(await evaluate('document.querySelectorAll("button[data-desktop-provider]").length'),Object.keys(ids).length);
     assert.equal(await evaluate('document.querySelector("select[data-desktop-provider]")'),null);
     assert.equal(await evaluate('[...document.querySelectorAll("[data-desktop-provider] img")].every(i=>i.complete&&i.naturalWidth>0)'),true);

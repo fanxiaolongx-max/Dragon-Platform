@@ -25,10 +25,25 @@
     // 列表筛选（首页侧栏的筛选按钮）：状态 all / pinned / group（DragonTAC 讨论组）/ workspace（带工作区）；
     // 时间 all / today / 7 / 30（天）。三个来源共用，只在本次页面有效。
     const STATUSES=['all','pinned','group','workspace'],TIMES=['all','today','7','30'];
-    let filter={status:'all',time:'all'};
+    let filter={status:'all',time:'all',source:'all'};
+    function getSources(){
+        return [{id:'mine',label:'Dragon Claw'},
+            ...(window.HomeDesktopAgents?.enabledProviders?.()||[]),
+            ...(window.HomeWelinkThreads?.channels?.()||[]).map(item=>({id:item.id,label:item.id==='weixin'?L('微信','WeChat'):(item.label||item.id)}))];
+    }
+    function matchesSource(item,config={}){
+        const source=item?._sourceType||item?.channel||item?.provider||String(config.source||'mine').replace(/^desktop:/,'');
+        return filter.source==='all'||filter.source===source;
+    }
+    function reconcileSources(){
+        if(filter.source!=='all'&&!getSources().some(item=>item.id===filter.source))filter.source='all';
+        signal('*');
+    }
+    for(const event of ['tools:channels-updated','home:desktop-agents-ready','home:desktop-agents-updated'])window.addEventListener(event,reconcileSources);
     const getFilter=()=>({...filter});
-    function setFilter(next={}){filter={status:STATUSES.includes(next.status)?next.status:filter.status,time:TIMES.includes(next.time)?next.time:filter.time};signal('*');}
+    function setFilter(next={}){filter={status:STATUSES.includes(next.status)?next.status:filter.status,time:TIMES.includes(next.time)?next.time:filter.time,source:next.source==='all'||getSources().some(item=>item.id===next.source)?next.source:filter.source};signal('*');}
     function passesFilter(item,pref,config){
+        if(!matchesSource(item,config))return false;
         if(filter.status==='pinned'&&!pref?.pinned)return false;
         if(filter.status==='group'){
             const isGroup = Boolean(item?.discussionMode==='group'||item?.kind==='group'||item?.type==='group'||item?.isGroup||item?._raw?.discussionMode==='group'||item?._raw?.kind==='group');
@@ -166,7 +181,7 @@
         entry.observer=new IntersectionObserver(items=>{if(items.some(item=>item.isIntersecting)){entry.observer.disconnect();onMore?.();}},{root:scroller(list),rootMargin:'0px 0px 300px 0px'});
         entry.observer.observe(node);
     }
-    window.HomeConversationList={sections,getFilter,setFilter,passesFilter,enhance,bucket,get,latest,healthDot,close,refresh:load,pager,reset:list=>{const binding=bindings.get(list);if(binding){binding.limit=6;binding.limits?.clear();renderBatch(list);}},
+    window.HomeConversationList={sections,getFilter,setFilter,getSources,matchesSource,passesFilter,enhance,bucket,get,latest,healthDot,close,refresh:load,pager,reset:list=>{const binding=bindings.get(list);if(binding){binding.limit=6;binding.limits?.clear();renderBatch(list);}},
         // 分区「展开更多」计数清零：match(key) 为真的分区（如 'spaces' 及其下的 'project:…'）回到默认条数
         resetScopes:(list,match)=>{const binding=bindings.get(list);if(binding?.limits)for(const key of [...binding.limits.keys()])if(match(key))binding.limits.delete(key);},toggleArchived:source=>{views.set(source,views.get(source)==='archived'?'active':'archived');signal(source);},isArchived:source=>views.get(source)==='archived'};
     document.addEventListener('pointerdown',event=>{if(menu&&!menu.contains(event.target)&&!event.target.closest('[data-conversation-more]'))close();},true);

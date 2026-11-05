@@ -551,7 +551,10 @@ app.get('/monthly', (req, res) => {
 });
 app.get(['/monthly/legacy', '/pages/monthly.html'], (req, res) => sendFrontendHtml(res, 'pages/monthly.html'));
 // 旧三栏设计器已归档；固定版月报保留独立入口。
-app.get(['/ai-report', '/pages/monthly-designer.html'], (req, res) => res.redirect(302, '/monthly'));
+app.get(['/ai-report', '/pages/monthly-designer.html'], (req, res) => {
+    const queryAt = req.originalUrl.indexOf('?');
+    return res.redirect(302, '/monthly' + (queryAt < 0 ? '' : req.originalUrl.slice(queryAt)));
+});
 app.get(['/duty-roster', '/duty-roster.html'], (req, res) => {
     sendFrontendHtml(res, 'pages/duty-roster.html');
 });

@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; worker-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta name="tools-tool-theme" content="dark">
 <title>粒子特效</title>
 <style>
   :root{--bg:#07080c;--panel:rgba(255,255,255,.045);--line:rgba(255,255,255,.10);--ink:#eef1f7;--muted:#8b93a8;--node:#f4b23c;--hot:#83a2ff;--accent:#f4b23c;--amber:#f4b23c;--blue:#83a2ff;--blue2:#a9c0ff;--grad:linear-gradient(120deg,#f4b23c,#83a2ff);--accent-ink:#0a0a0f;--glasshi:rgba(255,255,255,.07)}
@@ -76,57 +77,6 @@
   body.native-overlay.circle .plate-frame{border-radius:50%}
   body.native-overlay .badge,body.native-overlay .viewtag,body.native-overlay .hint,body.native-overlay .fsbtn,
   body.parity-test .badge,body.parity-test .viewtag,body.parity-test .hint,body.parity-test .fsbtn{display:none}
-</style>
-<style id="platform-light-theme">
-/* 亮色覆盖：由 scripts/generate-light-theme.js 从 index.html 生成，平台亮色主题时生效；改原样式后请重新生成 */
-html[data-platform-theme="light"] { color-scheme: light; }
-html[data-platform-theme="light"] {
-    --bg: #fbfbfd !important;
-    --panel: rgba(15, 23, 42, 0.03) !important;
-    --line: rgba(15, 23, 42, 0.08) !important;
-    --ink: #151d2d !important;
-    --muted: #5c647a !important;
-    --blue2: #23325c !important;
-    --accent-ink: #fafafc !important;
-    --glasshi: rgba(31, 31, 31, 0.07) !important;
-}
-html[data-platform-theme="light"] .hero {
-    box-shadow: 0 26px 60px -28px rgba(15, 23, 42, 0.12),inset 0 1px 0 var(--glasshi) !important;
-}
-html[data-platform-theme="light"] .seg button.on {
-    background: rgba(15, 23, 42, 0.06) !important;
-}
-html[data-platform-theme="light"] #style button.on, html[data-platform-theme="light"] #rotmode button.on {
-    background: rgba(15, 23, 42, 0.06) !important;
-}
-html[data-platform-theme="light"] .plate-frame {
-    background: #fcfdfd !important;
-    box-shadow: 0 26px 60px -30px rgba(15, 23, 42, 0.12) !important;
-}
-html[data-platform-theme="light"] .fsbtn {
-    background: rgba(248, 249, 251, 0.6) !important;
-}
-html[data-platform-theme="light"] .fsbtn:hover {
-    color: #1f1f1f !important;
-}
-html[data-platform-theme="light"] button.pill:hover {
-    color: #1f1f1f !important;
-}
-html[data-platform-theme="light"] .tuners .mini.on {
-    background: rgba(15, 23, 42, 0.06) !important;
-}
-html[data-platform-theme="light"] .cell:hover {
-    border-color: rgba(15, 23, 42, 0.16) !important;
-}
-html[data-platform-theme="light"] .cell canvas {
-    background: #fcfdfd !important;
-}
-html[data-platform-theme="light"] kbd {
-    background: #f2f4f6 !important;
-}
-html[data-platform-theme="light"] body.native-overlay .plate-frame, html[data-platform-theme="light"] body.parity-test .plate-frame {
-    background: #fcfdfd !important;
-}
 </style>
 </head>
 <body>
@@ -860,7 +810,7 @@ function cancelInitialPrime(){
   cancelAnimationFrame(job.raf); job.renderer._boost=1; job.renderer.autoRot=job.autoRot; initialPrimeJob=null; return true;
 }
 function prime(o, fr, steps){
-  cancelInitialPrime();
+  if(!o.isCell) cancelInitialPrime();
   o.scatter(); o._t=0; o._onset=0; o._pe=null; const wr=o.autoRot; o.autoRot=false;
   o._boost=2.6;                                  // overdamped fast-settle: same physics, sped up, so a resting figure forms within `steps` frames
   for(let k=0;k<steps;k++) o.step(fr,0.016,false);
@@ -1014,8 +964,13 @@ class Cube{                                    // 3D
       if(this.insideLocal(x,y,z)){ out[0]=x+0.5; out[1]=y+0.5; out[2]=z+0.5; return; } }
     const p=this.randomPoint(); out[0]=p[0]; out[1]=p[1]; out[2]=p[2];
   }
-	  resize(){ const r=this.c.getBoundingClientRect(); this.c.width=Math.max(1,Math.ceil(r.width*this.dpr)); this.c.height=Math.max(1,Math.ceil(r.height*this.dpr));
-	    this.w=this.c.width; this.h=this.c.height; this.ctx.imageSmoothingEnabled=false; clearRender(this.ctx,this.w,this.h,this.alpha,'#050608'); }
+	  resize(){ const r=this.c.getBoundingClientRect();
+	    const rw=Math.max(1,Math.ceil(r.width*this.dpr)), rh=Math.max(1,Math.ceil(r.height*this.dpr));
+	    if(r.width<=1 || r.height<=1){ this._zeroSize=true; return false; }
+	    this._zeroSize=false; this.c.width=rw; this.c.height=rh; this.w=rw; this.h=rh;
+	    this.ctx.imageSmoothingEnabled=false; clearRender(this.ctx,this.w,this.h,this.alpha,'#050608');
+	    if(this._pendingPrime){ const fn=this._pendingPrime; this._pendingPrime=null; fn(); }
+	    return true; }
 	  field(x,y,z){ let s=0; for(let k=0;k<this.active.length;k++){const i=this.active[k]; s+=this.W[i]*phi3(this.MODES[i],x,y,z);} return s; }
   prepareFreqs(){ const freqs=this._freqs, seen=this._freqSeen; freqs.length=0;
     for(let k=0;k<this.active.length;k++){ const md=this.MODES[this.active[k]], l=md.l, m=md.m, n=md.n;
@@ -1156,10 +1111,12 @@ class Cube{                                    // 3D
   }
 	  render(energy){ this._lastEnergy=energy;
 	    if(!renderSurfaceVisible()){ this._renderPending=true; return; }
+	    if(this.w<=1 || this.h<=1 || this._zeroSize){ if(!this.resize()){ this._renderPending=true; return; } }
 	    this._renderPending=false; RENDER_COUNT++; const ctx=this.ctx,w=this.w,h=this.h;
 	    this._focal=Math.min(w,h)*0.92*BREATH;this._hw=w/2;this._hh=h/2;
 	    const cosmic=STYLE==='dcosmic'||STYLE==='cosmic', sand=!cosmic, fsC=fullscreenLike();
-	    clearRender(ctx,w,h,this.alpha, sand?(this.zoom>3?'#040405':(PHYS&&fsC?'rgba(4,4,5,0.66)':'rgba(4,4,5,0.6)')):(this.zoom>3?'#050608':this.zoom>1.6?'rgba(5,6,8,0.55)':'rgba(5,6,8,0.42)'));
+	    const clearColor=(this.isCell && !this.autoRot)?'#050608':(sand?(this.zoom>3?'#040405':(PHYS&&fsC?'rgba(4,4,5,0.66)':'rgba(4,4,5,0.6)')):(this.zoom>3?'#050608':this.zoom>1.6?'rgba(5,6,8,0.55)':'rgba(5,6,8,0.42)'));
+	    clearRender(ctx,w,h,this.alpha, clearColor);
 	    ctx.imageSmoothingEnabled=false;   // grains are pre-scaled per pixel size → 1:1 blits, no resampling
 	    if(FRAME) this.drawFrame(ctx);
 	    const N=particleCount(this); this.ensureParticles(N);
@@ -1494,8 +1451,13 @@ class ClassicCube{                             // codex 原版 Cube — verbatim
       if(this.insideLocal(x,y,z)){ out[0]=x+0.5; out[1]=y+0.5; out[2]=z+0.5; return; } }
     const p=this.randomPoint(); out[0]=p[0]; out[1]=p[1]; out[2]=p[2];
   }
-  resize(){ const r=this.c.getBoundingClientRect(); this.c.width=Math.max(1,Math.ceil(r.width*this.dpr)); this.c.height=Math.max(1,Math.ceil(r.height*this.dpr));
-    this.w=this.c.width; this.h=this.c.height; this.ctx.imageSmoothingEnabled=false; clearRender(this.ctx,this.w,this.h,this.alpha,'#050608'); }
+  resize(){ const r=this.c.getBoundingClientRect();
+    const rw=Math.max(1,Math.ceil(r.width*this.dpr)), rh=Math.max(1,Math.ceil(r.height*this.dpr));
+    if(r.width<=1 || r.height<=1){ this._zeroSize=true; return false; }
+    this._zeroSize=false; this.c.width=rw; this.c.height=rh; this.w=rw; this.h=rh;
+    this.ctx.imageSmoothingEnabled=false; clearRender(this.ctx,this.w,this.h,this.alpha,'#050608');
+    if(this._pendingPrime){ const fn=this._pendingPrime; this._pendingPrime=null; fn(); }
+    return true; }
   field(x,y,z){ let s=0; for(let k=0;k<this.active.length;k++){const i=this.active[k]; s+=this.W[i]*phi3(this.MODES[i],x,y,z);} return s; }
   prepareFreqs(){ const freqs=this._freqs, seen=this._freqSeen; freqs.length=0;
     for(let k=0;k<this.active.length;k++){ const md=this.MODES[this.active[k]], l=md.l, m=md.m, n=md.n;
@@ -1547,10 +1509,12 @@ class ClassicCube{                             // codex 原版 Cube — verbatim
   }
   render(energy){ this._lastEnergy=energy;
     if(!renderSurfaceVisible()){ this._renderPending=true; return; }
+    if(this.w<=1 || this.h<=1 || this._zeroSize){ if(!this.resize()){ this._renderPending=true; return; } }
     this._renderPending=false; RENDER_COUNT++; const ctx=this.ctx,w=this.w,h=this.h;
     this._focal=Math.min(w,h)*0.92;this._hw=w/2;this._hh=h/2;
     const cosmic=STYLE==='cosmic', sand=!cosmic;
-    clearRender(ctx,w,h,this.alpha, sand?(this.zoom>3?'#040405':'rgba(4,4,5,0.6)'):(this.zoom>3?'#050608':this.zoom>1.6?'rgba(5,6,8,0.55)':'rgba(5,6,8,0.42)'));
+    const clearColor=(this.isCell && !this.autoRot)?'#050608':(sand?(this.zoom>3?'#040405':'rgba(4,4,5,0.6)'):(this.zoom>3?'#050608':this.zoom>1.6?'rgba(5,6,8,0.55)':'rgba(5,6,8,0.42)'));
+    clearRender(ctx,w,h,this.alpha, clearColor);
     ctx.imageSmoothingEnabled=sand;
     if(FRAME) this.drawFrame(ctx);
     const N=particleCount(this); this.ensureParticles(N);
@@ -1611,16 +1575,39 @@ const cells=SHOW_ATOM_GRID ? ATOMS.map(atom=>{
     <div class="name">${atom.name}</div><div class="rule">${atom.rule}</div>`;
   grid.appendChild(cell);
   const c3=cell.querySelector('.c3');
-  const cube=new Cube(c3,2600);  cube.dpr=1;  cube.resize();
+  const cube=new Cube(c3,2600);  cube.dpr=1;  cube.isCell=true;  cube.resize();
   cubeRenderers.push(cube);
   let raf=null,start=0;
   function loop(ts){ if(!start)start=ts; const u=(ts-start)/1000*SPEED/ATOM_DUR;
     if(u>=1||reduced){ cube.autoRot=false; cube.step(atom.frame(0.999),0.016,true); cube.freeze(); raf=null; return; }
     cube.autoRot=true; cube.step(atom.frame(u),0.016,true); raf=requestAnimationFrame(loop); }
-  function play(){ if(raf)cancelAnimationFrame(raf); cube.scatter(); start=0; raf=requestAnimationFrame(loop); }
-  function still(){ if(raf){cancelAnimationFrame(raf);raf=null;} cube.autoRot=false; prime(cube, atom.frame(0.55), 55); }  // settled, no motion
+  function play(){ if(raf)cancelAnimationFrame(raf); cube.resize(); cube.scatter(); start=0; raf=requestAnimationFrame(loop); }
+  function still(){
+    if(raf){cancelAnimationFrame(raf);raf=null;}
+    cube.autoRot=false;
+    cube.resize();
+    if(cube.w>10 && cube.h>10){
+      prime(cube, atom.frame(0.55), 55);
+    } else {
+      cube._pendingPrime = () => prime(cube, atom.frame(0.55), 55);
+    }
+  }
   cell.addEventListener('click', play);                 // each atom animates only when clicked
-  return {play,still};
+  if(typeof ResizeObserver === 'function'){
+    const ro = new ResizeObserver(entries=>{
+      for(const entry of entries){
+        const cr = entry.contentRect;
+        if(cr.width > 10 && cr.height > 10){
+          if(cube.w !== Math.ceil(cr.width * cube.dpr) || cube.h !== Math.ceil(cr.height * cube.dpr)){
+            cube.resize();
+            if(!raf) still();
+          }
+        }
+      }
+    });
+    ro.observe(c3);
+  }
+  return {play,still,cube,c3};
 }) : [];
 if(SHOW_ATOM_GRID) cells.forEach(c=>c.still());         // gallery sits still until a card is clicked
 
@@ -1747,6 +1734,9 @@ function syncRenderSurface(){
     return;
   }
   const r=activeCube(); if(r._renderPending)r.render(r._lastEnergy==null?0.3:r._lastEnergy); ensureLoop();
+  if(SHOW_ATOM_GRID){
+    cells.forEach(c=>{ if(c.cube && (c.cube._zeroSize || c.cube._renderPending || c.cube.w <= 10)) c.still(); });
+  }
 }
 function setHostVisibility(visible){ HOST_VISIBLE=visible!==false; syncRenderSurface(); }
 document.addEventListener('visibilitychange',syncRenderSurface);
@@ -2346,8 +2336,15 @@ window.addEventListener('pointerup',()=>{ drag=false; });
 window.addEventListener('pointermove',dragMove);
 function relayout(){ const a=activeCube(); a.dpr=displayDpr(); a.zoom=ZOOM_3D; a.resize();
   const b=a===cube?classic:cube; b.dpr=a.dpr; b.zoom=ZOOM_3D;   // the idle engine re-syncs fully on the next style swap
-  if(!playing && !heroRaf)a.render(0.3); }  // a running loop redraws itself
+  if(!playing && !heroRaf)a.render(0.3);   // a running loop redraws itself
+  if(SHOW_ATOM_GRID){ cells.forEach(c=>{ if(c.still) c.still(); }); }
+}
 window.addEventListener('resize', relayout);
+window.addEventListener('load', ()=>{
+  if(SHOW_ATOM_GRID){
+    cells.forEach(c=>{ if(c.cube && (c.cube._zeroSize || c.cube.w <= 10)) c.still(); });
+  }
+});
 let dprMediaQuery=null;
 function watchDevicePixelRatio(){
   if(dprMediaQuery) dprMediaQuery.removeEventListener('change',handleDevicePixelRatioChange);

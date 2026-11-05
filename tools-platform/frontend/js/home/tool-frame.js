@@ -7,8 +7,19 @@
 
     const L = (zh, en) => (window.ToolsI18n?.getLanguage?.() === 'en-US' ? en : zh);
     const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    const state = { href: '', title: '' };
+    const state = { href: '', title: '', returnTo: null };
     let root, frame, titleEl, iconEl;
+    let assistantObserver;
+
+    function toolAssistant() {
+        if (!root || root.hidden) return null;
+        try {
+            return frame.contentDocument?.querySelector('.ai-fab') ? frame.contentWindow.ToolsAIAssistant || null : null;
+        } catch { return null; }
+    }
+    function syncAssistant() {
+        document.body.classList.toggle('v2-tool-has-assistant', Boolean(toolAssistant()));
+    }
 
     // 工具地址：首页工具卡、导航里登记的工具、自定义工具与插件入口（/tools/…）
     function knownPaths() {
@@ -56,13 +67,20 @@
         root.addEventListener('click', event => {
             const act = event.target.closest('[data-frame-act]')?.dataset.frameAct;
             if (act === 'close') close();
-            else if (act === 'reload') { try { frame.contentWindow.location.reload(); } catch { frame.src = state.href; } }
-            else if (act === 'external') window.open(currentHref(), '_blank', 'noopener');
+            else if (act === 'reload') frame.src = currentHref();
+            else if (act === 'external') window.open(window.ToolsNavigation.toolUrl(currentHref()), '_blank', 'noopener');
         });
         // 工具内部跳转后同步标题与地址
         frame.addEventListener('load', () => {
+            assistantObserver?.disconnect();
+            syncAssistant();
+            if (root.hidden) return;
             let doc;
             try { doc = frame.contentDocument; } catch { doc = null; }
+            if (doc?.body) {
+                assistantObserver = new MutationObserver(syncAssistant);
+                assistantObserver.observe(doc.body, { childList: true, subtree: true });
+            }
             const href = currentHref();
             if (doc?.title && !toolInfo(new URL(href, location.origin)).title) titleEl.textContent = doc.title.replace(/\s*[-|]\s*Dragon.*$/i, '');
             // 工具页里点回首页（Logo 等）：关掉内嵌而不是在框里再套一个首页
@@ -81,38 +99,65 @@
         url.hash = href ? '' : url.hash;
         const next = url.pathname + url.search + url.hash;
         if (next === location.pathname + location.search + location.hash) return;
-        history[replace ? 'replaceState' : 'pushState']({ ...(history.state || {}), app: href || null }, '', next);
+        history[replace ? 'replaceState' : 'pushState']({ ...(history.state || {}), app: href || null, toolReturn: href ? state.returnTo : null }, '', next);
     }
 
     function open(href, { push = true } = {}) {
         let url;
         try { url = new URL(href, location.origin); } catch { return false; }
+        url.searchParams.delete('standalone');
         if (!root) render();
+        // 连续打开另一个工具时仍返回最初入口，不把工具自身当作返回页。
+        if (root.hidden) {
+            const origin = new URL(location.href);
+            origin.searchParams.delete('app');
+            state.returnTo = new URLSearchParams(location.search).has('app') && history.state?.toolReturn
+                ? history.state.toolReturn
+                : { url: origin.pathname + origin.search + origin.hash, hub: Boolean(window.HomeSkillHub?.isOpen?.()),
+                    mainScroll: document.querySelector('.home-main')?.scrollTop || 0, windowScroll: window.scrollY };
+        }
         window.HomeSkillHub?.close?.();
         const path = url.pathname + url.search + url.hash;
         const info = toolInfo(url);
+        assistantObserver?.disconnect();
+        document.body.classList.remove('v2-tool-has-assistant');
         state.href = path;
         titleEl.textContent = info.title || decodeURIComponent(url.pathname.split('/').filter(Boolean).pop() || '');
         iconEl.innerHTML = iconHtml(info.icon);
         frame.title = titleEl.textContent;
-        if (frame.getAttribute('src') !== path) frame.src = path;
+        // iframe 导航不额外占用浏览器历史，返回键交给宿主页的 app 状态处理。
+        if (!frame.hasAttribute('src')) frame.src = path;
+        else frame.contentWindow.location.replace(path);
         root.hidden = false;
         document.body.classList.add('v2-tool-open');
         window.dispatchEvent(new CustomEvent('home:tool-frame', { detail: { open: true, href: path } }));
         if (push) writeUrl(path, false);
         return true;
     }
-    function close({ push = true } = {}) {
+    function close({ push = true, restore = true } = {}) {
         if (!root || root.hidden) return;
+        const returnTo = state.returnTo;
+        state.returnTo = null;
         root.hidden = true;
+        assistantObserver?.disconnect();
+        document.body.classList.remove('v2-tool-has-assistant');
         document.body.classList.remove('v2-tool-open');
-        frame.removeAttribute('src');
+        frame.contentWindow.location.replace('about:blank');
         state.href = '';
         window.dispatchEvent(new CustomEvent('home:tool-frame', { detail: { open: false } }));
-        if (push) writeUrl('', false);
+        if (push) {
+            if (restore && returnTo?.url) history.pushState({ ...(history.state || {}), app: null, toolReturn: null }, '', returnTo.url);
+            else writeUrl('', false);
+        }
+        if (restore && returnTo) {
+            if (returnTo.hub) window.HomeSkillHub?.open?.();
+            const main = document.querySelector('.home-main');
+            if (main) main.scrollTop = returnTo.mainScroll || 0;
+            window.scrollTo({ top: returnTo.windowScroll || 0 });
+        }
     }
 
-    window.HomeToolFrame = { open, close, isOpen: () => Boolean(root && !root.hidden), isToolUrl: href => { try { return isToolUrl(new URL(href, location.origin)); } catch { return false; } } };
+    window.HomeToolFrame = { open, close, assistant: toolAssistant, isOpen: () => Boolean(root && !root.hidden), isToolUrl: href => { try { return isToolUrl(new URL(href, location.origin)); } catch { return false; } } };
 
     // 首页内任何指向工具的普通点击都改为内嵌打开（新标签 / 修饰键 / 下载链接照旧）
     document.addEventListener('click', event => {
@@ -142,12 +187,12 @@
             if (info.title) { titleEl.textContent = info.title; frame.title = info.title; iconEl.innerHTML = iconHtml(info.icon); }
         });
         // 打开技能中心、切换对话或点侧栏其他入口时收起
-        window.addEventListener('home:hub', event => { if (event.detail?.open) close(); });
-        window.addEventListener('home:mode', () => close());
+        window.addEventListener('home:hub', event => { if (event.detail?.open) close({ restore: false }); });
+        window.addEventListener('home:mode', () => close({ restore: false }));
         document.getElementById('homeSidebar')?.addEventListener('click', event => {
             // 打开弹窗或侧栏菜单时保留 iframe 及其当前状态。
             if (!window.HomeToolFrame.isOpen() || event.target.closest('.v2-userbar, .v2-side-tools, [aria-haspopup], #friendLinksManageBtn, a[href]')) return;
-            if (event.target.closest('button, [role="button"], [data-conversation-id]')) close();
+            if (event.target.closest('button, [role="button"], [data-conversation-id]')) close({ restore: false });
         });
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });

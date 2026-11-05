@@ -119,7 +119,7 @@ async function aiClient() {
     return traced(trackRounds(aiProviderClient.createClient(settings), pushRound));
 }
 
-const KIT_GUIDE = `render(result, kit) 只能返回 HTML 字符串（不能有 <script>、事件属性或外部资源），可用 kit：
+const KIT_GUIDE = `render(result, kit) 返回 HTML 字符串；可执行 HTML/CSS/JS 必须放进 kit.interactive，外层 HTML 不含脚本、事件属性或外部资源，可用 kit：
 - kit.table(rows, {columns:[{key,label,align:'left'|'right',format:'number'|'percent'|'text'}], title, maxRows})：单元格一律按文字显示，不能放 HTML；要把未达标标红时，在行里加 $tone:'bad'（整行标红）或 $tones:{列key:'bad'}（单个单元格标红），达标可用 'good'
 - kit.kpi([{label, value, unit, delta, deltaLabel, tone:'good'|'bad'|'neutral'}])：delta 是和对比期的差值（数字），平台会显示成“较上月 +2”“与上月持平”；对比的不是上月时用 deltaLabel 说明（如 '较去年同期'）
 - kit.bar([{label, value}], {title, unit, horizontal:true|false})
@@ -130,7 +130,19 @@ const KIT_GUIDE = `render(result, kit) 只能返回 HTML 字符串（不能有 <
 - kit.inlineLink(一句话, anchor, {terms:['指标名称']}) → 把跳转链接嵌进句子里：优先嵌在 terms 里第一个出现的词（通常传格子的 title 或指标名），没有就嵌在第一个带单位的数字上，再没有就嵌在句首短语上；要求“链接嵌在指标名称或数字上”时用它，不要自己写正则去匹配
 - kit.nav([{label, anchor, no, note}], {columns, title, numbered}) → 快速跳转导航（一组编号链接，点击跳到对应章节或格子）；kit.link(文字, anchor) → 文中跳转链接。anchor 只能用“月报内容”来源给出的 anchor（如 '#air-chapter-xxx'、'#air-cell-xxx'），其它链接一律无效
 - kit.extremes(rows, {label:'name', value:'rate'}) → {same, max:{value, labels:[...]}, min:{value, labels:[...]}}：找最高/最低时用它，它会处理并列；same 为 true 表示全部相等
-交互组件（由平台渲染，用户可以交互；邮件和打印时自动转为静态）：
+默认交互格子（所有新格子默认使用，包括文字、图表与表格，不需要用户要求开启）：
+- kit.interactive({html, css, script}, {id:'content', height:240})：返回独立沙箱网页；html 是正文片段，css 是 CSS 字符串，script 是 JavaScript 字符串，可以访问本格子 DOM，执行事件、动画、交互与编辑；不需要自己创建 iframe。不要返回 Markdown 代码围栏。
+- render 先用真实 result 组装正文或用 JSON.stringify(result) 将数据传进 script；计算仍由 compute 完成，不编造数据。脚本中已提供 echarts，全局 airCell 提供 getState()、setState(JSON值)、record({element,action,description,before,after})、snapshot()。不能读取平台页面或访问网络，无需加载外部库。
+- 交互网页 html/body/#air-content 已由平台提供明确的可用高度，可用 height:100% 的 flex/grid 布局让图表填满剩余空间。ECharts 初始化时容器必须有非零宽高；平台会在容器尺寸改变后自动 resize。使用固定小格子尺寸时标题也占高度，图表应分配剩余高度，不要再写整格高度导致溢出。
+- 交互格子打开即处于可编辑状态：HTML 与 SVG 元素可直接拖动、双击文字编辑，修改会记录并归纳进最终提示词，随月报保存。不要生成“自由编辑”“开启编辑”“编辑模式”等按钮、开关或额外提示，不要要求用户先开启编辑。给主要元素加稳定的 data-air-element 英文标识有助于记录修改。图表用 ECharts renderer:'svg'，让内部元素也可选中；也可自由绘制 SVG/HTML 或编写额外编辑脚本。
+- 柱状图、折线图等有横纵坐标的图表，默认显示横纵轴线、刻度与标签，不能为了紧凑而写 yAxis.show:false 或 axisLine.show:false。小格子可减少刻度并用 containLabel:true 预留空间。只有用户明确要求隐藏坐标轴或特定图形不使用坐标轴时才省略；用户明确要求保留自定义隐藏配置时，kit.interactive 的第二个参数可传 axes:'preserve'。
+- 交互格子的内部布局由 HTML/CSS/JS 自由实现，可用 flex/grid/absolute，不受 kit.layout 的行列与小格子尺寸要求约束；按格子可用空间清晰展示内容。全文内容与总结可直接放入交互格子，narrative:null，避免重复总结。
+- 为层级编辑提供稳定结构：建议按“内容块 → 图表/表格/文字组件 → 内部细节”组织三个语义层级，可按内容继续嵌套，不要求固定 DOM 深度。主要内容块和组件加稳定、唯一的 data-air-element（如 block-summary、chart-trend、table-detail），用 data-air-name 提供简短可读的层级名称；同一组件重新生成时沿用标识，不把数据值、分类顺序或随机数写进标识。
+- 平台统一提供悬停高亮、层级选择、拖动与角点缩放；普通月报仅允许顶层组件调整，放大编辑允许逐层精调。不要另外实现拖拽/缩放监听器、编辑工具条或开关，避免多套编辑事件同时运行。表格使用原生 table/thead/tbody/th/td 和可辨识表头，便于平台调整列宽、行高及整体尺寸；图表使用明确尺寸的 SVG/ECharts 容器。优先使用可伸缩布局，避免固定 min-width/min-height 或 overflow 裁掉用户移动后的内容。
+- 手工展示记录中的组件宽高、字号、表格列宽比例和行高都属于已确认要求；重新生成时保留对应组件及表头标识和完整数据。平台会恢复可识别的调整，不要把缩放或位移重复叠加到 CSS transform 中。
+- 预留文字安全边距：图表 grid.containLabel:true，首尾刻度、柱顶数字和坐标轴标题都需完整留在组件内；长分类名按可用宽度换行，不能只靠 overflow:visible 越过格子边界。HTML 长数字、英文连续字符串及表格内容使用 overflow-wrap:anywhere，表格或布局区设置 min-width:0。数值不因空间不足而截掉尾数；确实放不下时减少无效留白、合理换行或分配更大空间。平台会检查实际文字溢出。特殊设计必须保留原裁剪/不换行行为时，可在相关元素上声明 data-air-overflow="preserve"。
+- 新生成允许优化排版，无需逐像素复现；优先满足内容完整、数据真实、用户明确要求、表达清晰、美观。即使只有文字也默认放进交互 HTML，保留直接编辑能力。传统组件仅作为已有配方兼容能力。
+兼容交互组件（由平台渲染，用户可以交互；邮件和打印时自动转为静态）：
 - kit.chart(option, {title, height, id, drill}) ：option 是 ECharts 5 的配置对象（纯 JSON，不能有函数），可用 tooltip、legend、dataZoom、多系列、双轴、堆叠、散点、热力图、仪表盘、雷达图、漏斗图等。需要悬停查看、缩放、切换系列的图表优先用它。
 - kit.datatable(rows, {columns:[{key,label}], pageSize, search, title, id}) ：可排序、搜索、分页的明细表。行数超过 10 行的明细优先用它。
 - 下钻与联动（图表 + 明细表同时出现时默认加上）：kit.chart(option, {drill:{field:'明细表里对应的列名', target:'明细表的 id', levels:{'某个分类名':{option:下一层的 ECharts 配置, drill:{field, levels}}}}}) 配合 kit.datatable(rows, {id:'明细表的 id'})。点击图表上的某个分类名：明细表按 field 等于该名称筛选；如果 levels 里有这个名称，图表切换到下一层，顶部出现可返回的面包屑。默认两层（汇总 → 下一层或直接筛选明细），最多三层（如 地区部 → 代表处 → 国家）。每一层的数据都必须在 compute 里算好放进 result，render 只负责组装；levels 的键必须和图表上显示的分类名完全一致；下一层的 field 是下一层分类对应的明细列。
@@ -152,6 +164,7 @@ const CHAT_PROMPT = `
 【需求优先级与修改规则】数据真实、只读权限、沙箱和输出协议属于技术边界；展示默认值不能覆盖用户明确要求。用户确认的格子级例外优先于章节、整体风格的展示默认规则；范围仅限当前格子。最新确认修改替换冲突的旧要求，其余要求保留。默认规则提到某种组件，不表示必须添加该组件。仅修改展示形式时，保留数据来源与计算，删除被替换的旧图表、指标卡、表格、布局要求；不要只在旧要求后面再追加新要求。不要把“没有额外总结”理解成“不要任何文字”，也不要把“只写总结”理解成“总结外还要加卡片”。
 你是“AI 月报”的格子助手。月报由许多格子组成，每个格子最终由一段“提示词”描述：用哪些数据、怎么筛选和计算、用什么形式展示、要不要文字总结。
 现在是和用户讨论这个格子的阶段：
+- 所有新格子默认生成可执行、打开即能拖动和编辑文字的交互 HTML，这是平台已确定的能力；不要询问用户是否需要交互、是否开启编辑、如何选择交互范围，也不需要用户确认实现方式。只澄清内容、数据和业务口径。需求清楚就直接 ready。
 - 用户问数据相关的问题（有哪些表、有哪些列、某个值是多少、数据大概什么样），就用工具查清后直接回答，回答要具体、简短。不要生成配方，也不要每次都给出表格方案。
 - 用户提出要展示的内容时，帮他把需求说清楚：数据来源、口径、筛选、计算、展示形式。不清楚就提问，并给出 2-5 个具体选项。
 - 用户想要明细表而源表列很多（超过 8 列）时，先列出建议保留的列（说明理由），问用户是否同意，选项给出 "同意" 和 1-2 个其它合理方案；用户回复同意或说明要增减哪些列都可以。
@@ -249,13 +262,15 @@ ${DATA_TOOLS_GUIDE} 编译前先用工具确认表和列确实存在。
 - render：字符串，必须定义 function render(result, kit){...}。result.missing 为真时返回一句提示。
 ${KIT_GUIDE}
 - 配色交给平台：kit.chart 的 ECharts 配置里一般不要写颜色，平台会自动套用月报主题色；确需区分时只能用 6 位十六进制色值，绝不能在 ECharts 配置里写 var(...)。只有自己拼接的 HTML 内联样式可以用 var(--air-accent)、var(--kit-c0) 到 var(--kit-c7)。
+- 柱状图默认显示柱顶数值标签（series.label.show:true），单位和精度跟随真实指标。用户手工移动过的数值标签是要保留的内容，重新生成时必须继续显示，不得因旁边已有表格而删除；只有用户明确要求隐藏数值时才隐藏。
+- 水平目标线的可见数值标注默认放在目标虚线上方、绘图区内：markLine.label 使用 position:'insideEndTop'、distance:6，不用默认 end（会超出右边界）。用户要求上方时，替换旧的 end/start/下方位置，同时清除旧的 offset、align、verticalAlign、rotate 等定位覆盖；目标数字、比较符和单位保留真实计算结果。用户明确要求其它位置或不显示标签时遵守其要求。
 - 坐标轴标签、图例和文字不能超出图表或格子的上下左右边界：长分类名缩写或截断（ECharts 用 axisLabel 的 width + overflow:'truncate' 或 rotate），并在 tooltip 里显示全称；不要让图表上方留出大块空白。
 - 提示词里如果有【尺寸约束】，全部内容必须在给定的宽高内完整显示：kit.chart 的 height 按剩余空间设置（减去标题、文字总结和表格占用的高度）；日期缩短为 MM-DD 或 M/D；用 splitNumber 减少刻度；grid 边距收紧并 containLabel:true；图例放顶部单行或省略；表格只保留最关键的列和行（其余用 kit.datatable 分页）；未指定总结长度时默认一到两句，用户明确的长度优先；按约束里给出的规则缩写长名称。
 - 鼠标悬停、高亮、选中等交互效果只能让元素变深或变浅，不能让任何图形或文字消失：不要把 emphasis/blur/select 的颜色设成 transparent 或 none，不要把透明度设得很低，不要用 emphasis.focus 让其他元素几乎看不见。表格、文字等其他内容同样不能在悬停时被隐藏。
 - 格子里不能出现滚动条或需要滑动的区域：不要写 overflow:auto/scroll、max-height 之类限制高度的样式，不要用 ECharts 的 dataZoom；放不下时精简内容、调小图表，长表格用 kit.datatable 分页。
 - 提示词要求了标题（如“标题为 X”）时，必须把这个标题显示出来：用 kit.layout(rows,{title:'X'}) 或 kit.chart(option,{title:'X'})，不要只写在 ECharts 配置以外的说明里，也不要漏掉。
-- 格子里有两个及以上的内容块（图表、表格、指标卡、文字总结）时，用 kit.layout 排版，不要自己写 flex/grid 的外层布局，也不要给小格子写宽高样式。
-- 用户最新明确要求改变左右/上下布局时，旧的小格子行结构和尺寸不再约束新布局；必须按新要求重建 kit.layout 的行数组。未要求改变布局时，提示词里有【格子内部布局】则必须用 kit.layout 和其中列出的同样的小格子 id 与行内顺序（宽度可按其中的占比给 width），高度交给平台；图表放进小格子后不要再设 height。
+- 使用传统静态组件且格子里有两个及以上的内容块（图表、表格、指标卡、文字总结）时，用 kit.layout 排版；使用 kit.interactive 时内部布局自由实现，不要自己写 flex/grid 的外层布局，也不要给小格子写宽高样式。
+- 用户最新明确要求改变左右/上下布局时，旧的小格子行结构和尺寸不再约束新布局；必须按新要求重建 kit.layout 的行数组。未要求改变布局且使用传统静态组件时，提示词里有【格子内部布局】则必须用 kit.layout 和其中列出的同样的小格子 id 与行内顺序（宽度可按其中的占比给 width），高度交给平台；图表放进小格子后不要再设 height。
 - 所有数字必须由 compute 从 input 里的真实数据算出：禁止 Math.random、示例数据或写死的数字；找不到数据就返回 {missing:true, message}。
 - 提示词要求的计算型指标（名称里带“增量、差值、变化、环比、同比、占比、达成率”等）本身就是要展示的数：在 compute 里算出来，作为这个指标的主数值 value。例如“事故增量”的 value 必须是 本月事故数 − 上月事故数（两个月都是 3 时 value 为 0），绝不能把本月事故数 3 放在 value、再把增量放进 delta；这类指标通常不需要再给 delta。普通指标（如“延期补授权”）的 value 才是本月原值，delta 是和上月的差值。
 - 提示词里的数据来源名称不一定和实际名称完全一样：导入表里找不到时，一定再查 list_metrics 和 list_datasets，按含义匹配（如“日志回传率”对应指标“日志回传”）；都找不到就回复 ask 说明，绝不能拿无关的数据代替。
@@ -421,6 +436,8 @@ function cellTurn(client, { month, prompt, chat, message, style = '', outline = 
     return runWithTools(client, { system: CHAT_PROMPT, month, messages, context: { outline }, fallback: { type: 'answer', text: '抱歉，我这次没能整理出回答，请换个说法再试一次。' }, accept: (reply, toolLog) => {
         if (asksAboutConflict(reply)) return { retry: CONFLICT_RETRY };
         if (['answer', 'ready'].includes(reply?.type) && reply.text) return { result: { type: reply.type, text: String(reply.text).slice(0, 6000), tools: toolLog, ...reportRuleOf(reply) } };
+        if(reply?.type==='ask'&&/交互|拖动|可编辑|编辑文字|编辑模式|开启编辑/.test(reply.question||'')&&!/数据源|指标名称|业务口径|计算公式|筛选条件/.test(reply.question||''))
+            return {retry:'所有新格子默认使用交互 HTML，打开即可拖动和编辑文字，不需要询问是否开启、实现方式或交互范围。请根据已知需求直接 ready；仅在缺少数据或业务口径时提具体问题。'};
         if (reply?.type === 'ask' && reply.question) return { result: askResult(reply, toolLog) };
         return { retry: '请只输出约定的 JSON 对象（type 为 answer、ask 或 ready）。' };
     } });
@@ -435,16 +452,17 @@ function tidyRecipe(recipe) {
 }
 
 // Compiles the confirmed prompt; an error from a previous run is passed back so the model can fix it.
-function compileTurn(client, { month, prompt, recipe, error, style = '', outline = null, previousPrompt = '' }) {
+function compileTurn(client, { month, prompt, recipe, error, style = '', outline = null, previousPrompt = '', presentation = null, interactive = false }) {
     // A working recipe from an earlier prompt is the base, so a small prompt change does not reroll the title or layout.
     const base = recipe && !error && previousPrompt && previousPrompt !== prompt ? `之前的提示词：\n${previousPrompt}\n\n按之前提示词做出、能正常运行的配方：${JSON.stringify(recipe).slice(0, 4000)}\n在这个配方基础上按提示词的变化修改：没有被新要求替换的部分保持原样；展示形式变化时，旧 render、图表/卡片及小格子布局必须重建，旧配方只作数据与计算参考；提示词里有而这个配方还没做到的要求（例如要显示的标题）必须补上；数据来源换了时重新用工具查清新来源的准确名称。` : '';
-    const content = [`报告月份：${month}`, `最终提示词：\n${prompt}`, styleLine(style), recipe && error ? `上一次的配方：${JSON.stringify(recipe).slice(0, 4000)}\n运行出错：${error}\n请修正。` : base].filter(Boolean).join('\n\n');
-    return runWithTools(client, { system: COMPILE_PROMPT, month, messages: [{ role: 'user', content }], context: { outline }, fallback: { type: 'ask', question: '这个提示词我还没能编译成可运行的配方，能在对话里补充一下用哪张表、哪些列吗？', choices: [] }, accept: async (reply, toolLog) => {
+    const content = [`报告月份：${month}`, `最终提示词：\n${prompt}`, styleLine(style), Array.isArray(presentation)&&presentation.length?'当前交互格子的实际展示与用户调整（用户调整是已确认的展示要求，必须落实；有相对锚点时按锚点关系而不是机械叠加像素；只可优化未被调整的部分）：'+JSON.stringify(presentation).slice(0,24000):'', recipe && error ? `上一次的配方：${JSON.stringify(recipe).slice(0, 4000)}\n运行出错：${error}\n请修正。` : base].filter(Boolean).join('\n\n');
+    return runWithTools(client, { system: COMPILE_PROMPT+(interactive?"\n本次展示协议：所有内容必须在 kit.interactive 内，默认自由拖动和编辑，图表使用 SVG，narrative:null。旧 kit.layout/命名小格子尺寸要求只作内容、比例参考，内部 HTML/CSS 自由实现；纯文字也用交互 HTML，不添加图表。":""), month, messages: [{ role: 'user', content }], context: { outline }, fallback: { type: 'ask', question: '这个提示词我还没能编译成可运行的配方，能在对话里补充一下用哪张表、哪些列吗？', choices: [] }, accept: async (reply, toolLog) => {
         if (reply?.type === 'ask' && reply.question) return { result: askResult(reply, toolLog) };
         if (reply?.type === 'recipe') {
             let normalized;
             try { normalized = model.normalizeRecipe(tidyRecipe(reply.recipe)); }
             catch (problem) { return { retry: `配方无效：${problem.message}。请修正后只输出 JSON。` }; }
+            if(interactive&&!/\bkit\s*\.\s*interactive\s*\(/.test(normalized.render))return {retry:'本次必须生成默认自由编辑的交互 HTML：render 返回 kit.interactive({html,css,script},{id:"content"})，所有标题、图表、表格和总结放在它内部，图表使用 SVG，narrative:null。保留原数据来源和 compute；旧【格子内部布局】的小格子 id、kit.layout 要求仅作内容与比例参考，用内部 HTML/CSS 实现，不得退回 kit.chart/kit.layout 静态格子。'};
             // Made-up sources would only ever show "no data"; send them back while the model can still look them up.
             const unknown = await data.unknownSources(month, normalized.sources).catch(() => []);
             if (unknown.length) return { retry: `这些数据来源在系统里不存在：${unknown.join('；')}。不要编造 sourceKey、指标名称或数据集 id，只能用 list_sources、list_datasets 返回的值和 list_metrics 返回的指标名称；提示词里的名称可能和实际名称不同，请按含义在导入表、指标和数据集里查找。确实找不到就回复 ask 说明。` };
@@ -455,11 +473,18 @@ function compileTurn(client, { month, prompt, recipe, error, style = '', outline
 }
 
 async function summarizePrompt(client, { month, prompt, chat, instruction = PROMPT_SUMMARY }) {
-    const reviseLayout=instruction===PROMPT_SUMMARY&&model.layoutRevision(chat);
+    // Machine-recorded offsets/anchors are merged by the editor, never paraphrased or remapped by the model.
+    const cellSummary=instruction===PROMPT_SUMMARY;
+    if(cellSummary){
+        const strip=value=>String(value||'').replace(/\n*【手工展示调整】[\s\S]*?(?=\n【[^】\n]+】|$)/g,'').trim();
+        prompt=strip(prompt);chat=chat.map(item=>({...item,text:strip(item.text)}));
+        instruction+='\n手工拖动的像素位移、锚点和分类对应关系由平台单独维护。不要在最终提示词重新列出、推断或改写这些记录，不要按新的分类顺序重配旧标签数值；只总结用户本次要求的字号、顺序、内容等变化。';
+    }
+    const reviseLayout=cellSummary&&model.layoutRevision(chat);
     if(reviseLayout){prompt=model.withoutLayout(prompt);chat=chat.map(item=>item.role==='ai'?{...item,text:model.withoutLayout(item.text)}:item);}
     const transcript = historyMessages(chat).map(item => `${item.role === 'user' ? '用户' : 'AI'}：${item.content}`).join('\n').slice(-30000);
     const content = [`报告月份：${month}`, prompt ? `之前的最终提示词：\n${prompt}` : '', `对话：\n${transcript}`].filter(Boolean).join('\n\n');
-    const rule=instruction===PROMPT_SUMMARY?model.presentationOf(prompt,chat):null;
+    const rule=cellSummary?model.presentationOf(prompt,chat):null;
     const messages=[{role:'user',content}];
     for(let attempt=0;attempt<3;attempt++){
         const raw=await client.generateChat({systemInstruction:instruction,messages,maxOutputTokens:2000,temperature:0.2});
@@ -527,7 +552,7 @@ router.post('/cell/compile', handle(async (req, res) => {
     const { month, prompt = '', recipe = null, error = '' } = req.body || {};
     if (!model.validMonth(month)) return res.status(400).json({ error: 'A valid report month is required' });
     if (!String(prompt).trim()) return res.status(400).json({ error: '还没有最终提示词' });
-    res.json(await compileTurn(await aiClient(), { month, prompt: String(prompt).slice(0, 4000), recipe, error: String(error).slice(0, 2000), previousPrompt: String(req.body.previousPrompt || '').slice(0, 4000), style: String(req.body.style || '').slice(0, 8000), outline: reportOutline(req.body.outline) }));
+    res.json(await compileTurn(await aiClient(), { month, prompt: String(prompt).slice(0, 4000), recipe, error: String(error).slice(0, 2000), previousPrompt: String(req.body.previousPrompt || '').slice(0, 4000), style: String(req.body.style || '').slice(0, 8000), outline: reportOutline(req.body.outline), presentation: Array.isArray(req.body.presentation)?req.body.presentation.slice(0,4):null, interactive:req.body.interactive===true }));
 }));
 
 const STYLE_CHAT_PROMPT = `你是“AI 月报”的整体风格顾问，维护“月报整体风格提示词”。它按分类分条写：【风格与配色】是主题、色调、配色、图表风格、文字语气；其它分类（如【数据与计算】【文字与结论】【排版与图表】）是每个格子生成内容时都要遵守的通用要求，每条一行、以“- ”开头。
@@ -681,7 +706,7 @@ router.post('/cell/restyle', handle(async (req, res) => {
     if (!String(prompt).trim() || !recipe) return res.status(400).json({ error: '这个格子还没有生成过' });
     const original = model.normalizeRecipe(recipe), style = String(req.body.style || '').slice(0, 8000);
     const content = [`报告月份：${month}`, `最终提示词：\n${String(prompt).slice(0, 4000)}`, styleLine(style), RESTYLE_TASK, `当前配方：${JSON.stringify(original).slice(0, 14000)}`, attempt && error ? `上一次改出来的配方：${JSON.stringify(attempt).slice(0, 12000)}\n运行出错：${String(error).slice(0, 2000)}\n请修正展示层，仍须保留 sources 和 compute。` : ''].filter(Boolean).join('\n\n');
-    const reply = await runWithTools(await aiClient(), { system: COMPILE_PROMPT, month, messages: [{ role: 'user', content }], tools: false, fallback: null, accept: async (value) => {
+    const reply = await runWithTools(await aiClient(), { system: COMPILE_PROMPT+(interactive?"\n本次展示协议：所有内容必须在 kit.interactive 内，默认自由拖动和编辑，图表使用 SVG，narrative:null。旧 kit.layout/命名小格子尺寸要求只作内容、比例参考，内部 HTML/CSS 自由实现；纯文字也用交互 HTML，不添加图表。":""), month, messages: [{ role: 'user', content }], tools: false, fallback: null, accept: async (value) => {
         if (value?.type !== 'recipe') return { retry: '请只输出 {"type":"recipe","reply":"…","recipe":{…}}，sources 和 compute 照抄，只改展示层（render 及必要的 narrative），不要改 sources 和 compute。' };
         let normalized;
         try { normalized = model.normalizeRecipe(tidyRecipe({ ...value.recipe, sources: original.sources, compute: original.compute })); }

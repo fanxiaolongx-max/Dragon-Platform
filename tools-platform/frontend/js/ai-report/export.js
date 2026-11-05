@@ -15,6 +15,7 @@
     // Interactive exports (HTML file) keep live charts and tables by embedding the trusted renderer and ECharts;
     // static exports (mail) freeze widgets into SVG and full tables so nothing depends on scripts.
     async function standalone(doc,{lang,t,interactive=false}){
+        await AiReportInteractive.flush();
         const [css,logoSrc]=await Promise.all([fetch('/css/ai-report.css').then(response=>response.text()),dataUrl(doc.template.logo).catch(()=>'')]);
         // Laid out off-screen so slot sizes and chart heights can be measured like on the page.
         const holder=document.createElement('article');holder.className='air-report is-preview';holder.style.cssText=`position:absolute;left:-100000px;top:0;width:${document.getElementById('airReport')?.getBoundingClientRect().width||1280}px`;holder.setAttribute('style',holder.style.cssText+';'+AiReportView.themeStyle(doc.style?.theme));const frame=AiReportView.frameOf(doc.style?.theme);Object.assign(holder.dataset,frame);
@@ -24,9 +25,9 @@
         const lookup=(cellId,widgetId)=>(widgets[cellId]||[]).find(item=>item.id===widgetId),palette=AiReportWidgets.paletteOf(doc.style?.theme);
         let scripts='';
         if(interactive&&Object.keys(widgets).length){
-            const [echarts,kit,renderer]=await Promise.all(['/js/vendor/echarts.min.js','/js/ai-report/render-kit.js','/js/ai-report/widgets.js'].map(scriptText));
+            const [echarts,kit,renderer,executable,elementEditor]=await Promise.all(['/js/vendor/echarts.min.js','/js/ai-report/render-kit.js','/js/ai-report/widgets.js','/js/ai-report/interactive.js','/js/ai-report/element-editor.js'].map(scriptText));
             const data=JSON.stringify({widgets,palette}).replace(/</g,'\\u003c');
-            scripts=[echarts,kit,renderer].map(inlineScript).join('')+inlineScript(`(function(){var d=${data};AiReportWidgets.hydrate(document.querySelector('.air-report'),function(c,w){return (d.widgets[c]||[]).filter(function(x){return x.id===w;})[0];},{palette:d.palette});})();`);
+            scripts=[echarts,kit,elementEditor,executable,renderer].map(inlineScript).join('')+inlineScript(`AiReportInteractive.useLibrary(${JSON.stringify(echarts).replace(/</g,'\\u003c')});(function(){var d=${data};AiReportWidgets.hydrate(document.querySelector('.air-report'),function(c,w){return (d.widgets[c]||[]).filter(function(x){return x.id===w;})[0];},{palette:d.palette});})();`);
         }else AiReportWidgets.freeze(holder,lookup,{palette});
         AiReportLayout.drawDividers(holder);
         const markup=holder.innerHTML;holder.remove();

@@ -1,0 +1,292 @@
+// End-to-end fixture: real worker, isolated DOM runtime, edits, server save/reload, and both export paths.
+const {app,BrowserWindow}=require('electron'),express=require('express'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),assert=require('node:assert/strict');
+const temp=fs.mkdtempSync(path.join(os.tmpdir(),'air-interactive-'));process.env.TOOLS_DATA_DIR=path.join(temp,'tools');process.env.TOOLS_REPORT_DATA_DIR=path.join(temp,'reports');app.setPath('userData',path.join(temp,'profile'));app.disableHardwareAcceleration();app.on('window-all-closed',()=>{});let win,exportWin,server,rejectSave=false,holdSave=false,releaseSave,saveRequests=0,jitterAnchored=false;const compileRequests=[];
+const ev=code=>win.webContents.executeJavaScript(code,true),wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+async function until(code){for(let i=0;i<250;i++){if(await ev(code))return;await wait(30);}throw Error('Timeout: '+code);}
+require('../backend/models/ai-settings-repository').getRuntimeSettings=async()=>({hasApiKey:true,keyLooksValid:true});
+require('../backend/models/ai-report-data').recipeInput=async()=>({input:{s1:{values:{'数字证书':100}}},missing:[]});
+app.whenReady().then(async()=>{
+ const web=express();web.use(express.json({limit:'8mb'}));web.get('/js/shared/navbar.js',(_q,r)=>r.type('js').send(''));web.use((q,_r,n)=>{q.user={username:'fixture',role:'admin'};n();});web.post('/api/ai-report/documents',async(_q,r,n)=>{saveRequests++;if(rejectSave)return r.status(503).json({error:'fixture save unavailable'});if(holdSave)await new Promise(resolve=>{releaseSave=resolve;});if(jitterAnchored)for(const widget of _q.body.chapters?.[0]?.cells?.[0]?.output?.widgets||[])for(const edit of Object.values(widget.spec.edits||{}))if(edit.anchor?.kind==='chart-label')edit.x=(edit.x||0)+0.000123;n();});web.post('/api/ai-report/cell/compile',(q,_r,n)=>{compileRequests.push(q.body);n();});web.use('/api/ai-report',require('../backend/routes/ai-report'));web.use(express.static(path.join(__dirname,'../frontend')));server=await new Promise(resolve=>{const s=web.listen(0,'127.0.0.1',()=>resolve(s));});
+ win=new BrowserWindow({show:false,width:1400,height:900,webPreferences:{backgroundThrottling:false}});await win.loadURL('http://127.0.0.1:'+server.address().port+'/pages/ai-report.html');
+ await until('window.AiReportApp?.state.doc&&!document.body.classList.contains("air-booting")');
+ const source={html:'<button id="old-edit-switch">自由编辑</button><button id="counter">计数</button><h3 data-air-element="heading">数字证书</h3><svg width="300" height="100"><line x1="10" y1="60" x2="290" y2="60" stroke="red"/><text data-air-element="target" x="180" y="50">目标 100%</text></svg><div id="chart" style="width:300px;height:120px"></div>',css:'h3{color:#1f5e95;margin:4px 0}',script:'document.getElementById("counter").onclick=()=>airCell.setState({clicked:true});document.querySelector("h3").dataset.scriptRan=1<2?"yes":"no";window.chart=echarts.init(document.getElementById("chart"),null,{renderer:"svg"});chart.setOption({animation:false,grid:{left:32,right:10,top:14,bottom:24},xAxis:{data:["TE","ORG"]},yAxis:{min:0,max:100,splitNumber:2},series:[{type:"bar",data:[100,98]}]});'};
+ const render='function render(result,kit){return kit.interactive('+JSON.stringify(source)+',{id:"main",height:300});}';
+ const cell=await ev(`(async()=>{const cell=AiReportModel.cell({span:6,prompt:'展示数字证书',recipePrompt:'展示数字证书',recipe:{sources:[{id:'s1',kind:'metrics',names:['数字证书']}],compute:'function compute(input){return {value:input.s1.values["数字证书"]};}',render:${JSON.stringify(render)},narrative:null}});AiReportApp.state.doc.chapters[0].cells=[cell];await AiReportRunner.run(cell,AiReportApp.state.doc.reportMonth);AiReportApp.render();return cell.id;})()`);
+ await until('!!document.querySelector(".kit-widget-interactive[data-interactive-ready=true]")&&!!AiReportApp.state.doc.chapters[0].cells[0].output.widgets[0].spec.snapshot');
+ // These legacy fine-grained cases intentionally exercise precision mode; normal-mode boundaries are tested below.
+ const rawFrame=()=>win.webContents.mainFrame.frames.find(frame=>frame.url==='about:srcdoc');
+ const frame=()=>({executeJavaScript:async code=>{await ev(`AiReportInteractive.setPrecision(${JSON.stringify(cell)},true)`);return rawFrame().executeJavaScript(code);}});
+ assert.equal(await frame().executeJavaScript('document.querySelector("h3").dataset.scriptRan'),'yes');
+ assert.equal(await frame().executeJavaScript('(()=>{try{return !!parent.document;}catch(_){return false;}})()'),false,'frame cannot access platform DOM');
+ assert.equal(await ev('document.querySelectorAll(".air-interactive-toolbar button").length'),0);
+ assert.equal(await frame().executeJavaScript('chart.getOption().series[0].label.show'),true,'bar labels default to visible when generated code omitted them');
+ assert.equal(await frame().executeJavaScript('airCell.editing'),true,'editing is enabled immediately without a button');
+ assert.equal(await frame().executeJavaScript('getComputedStyle(document.getElementById("old-edit-switch")).display'),'none','legacy mode buttons are hidden while script references stay valid');
+ await frame().executeJavaScript('document.getElementById("counter").click()');
+ await until('AiReportApp.state.doc.chapters[0].cells[0].output.widgets[0].spec.state?.clicked===true');
+ await ev('AiReportApp.state.preview=true;AiReportApp.render();AiReportInteractive.settle()');
+ assert.equal(await frame().executeJavaScript('airCell.editing'),false,'preview remains read-only');
+ await ev('AiReportApp.state.preview=false;AiReportApp.render();AiReportInteractive.settle()');
+ await ev(`(()=>{const cell=AiReportApp.state.doc.chapters[0].cells[0];cell.chat.push({role:'ai',kind:'prompt',text:cell.prompt});document.querySelector('[data-cell="'+cell.id+'"] [data-cell-chat]').click();})()`);
+ await ev('window.fixtureBeforeSaveFrame=document.querySelector(".air-interactive-frame");window.fixtureBeforeSaveComposer=document.querySelector(".air-chat-form textarea");fixtureBeforeSaveComposer.value="保存时保留输入草稿";AiReportApp.save()');await until('!!document.querySelector(".kit-widget-interactive[data-interactive-ready=true]")');
+ assert.equal(await ev('fixtureBeforeSaveFrame===document.querySelector(".air-interactive-frame")&&fixtureBeforeSaveComposer===document.querySelector(".air-chat-form textarea")&&fixtureBeforeSaveComposer.value==="保存时保留输入草稿"'),true,'save keeps live iframe and composer instead of re-rendering');
+ assert.equal(await ev('document.querySelector("[data-air=save]").disabled'),true,'saved report starts with save disabled');
+ await wait(3800);
+ assert.equal(await ev('document.querySelector("[data-air=save]").disabled'),true,'idle rendering after save must not dirty the report');
+ assert.equal(await ev('document.getElementById("airStatus").textContent'),'已保存','save status stays saved after the success message expires');
+ await frame().executeJavaScript(`(()=>{const node=document.querySelector('[data-air-element="target"]');node.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,clientX:200,clientY:50,pointerId:1,button:0}));node.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,pointerId:1}));})()`);
+ await ev('AiReportInteractive.flush()');
+ await ev('AiReportApp.render();AiReportInteractive.settle()');
+ assert.equal(await ev('document.querySelector("[data-air=save]").disabled'),true,'selection snapshots and remounting are not content edits');
+ await ev('window.fixtureFrame=document.querySelector(".air-interactive-frame");window.fixtureComposer=document.querySelector(".air-chat-form textarea");fixtureComposer.value="未发送的消息";');
+ await frame().executeJavaScript(`(()=>{const node=document.querySelector('[data-air-element="target"]');node.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,clientX:200,clientY:50,pointerId:1,button:0}));node.dispatchEvent(new PointerEvent('pointermove',{bubbles:true,clientX:215,clientY:40,pointerId:1}));node.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,pointerId:1}));})()`);
+ await until('AiReportApp.state.doc.chapters[0].cells[0].prompt.includes("偏移 15px、-10px")');
+ assert.equal(await ev('document.querySelector("[data-air=save]").disabled'),false,'drag enables save without re-rendering');
+ assert.match(await ev('document.getElementById("airStatus").textContent'),/未保存/);
+ assert.match(await ev('document.querySelector(".air-msg-prompt").textContent'),/【手工展示调整】.*偏移 15px、-10px/,'visible prompt refreshes immediately');
+ assert.equal(await ev('fixtureFrame===document.querySelector(".air-interactive-frame")&&fixtureComposer===document.querySelector(".air-chat-form textarea")&&fixtureComposer.value==="未发送的消息"'),true,'prompt refresh preserves iframe and composer draft');
+ await frame().executeJavaScript(`(()=>{document.querySelector('h3').dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));const input=document.querySelector('textarea');input.value='数字证书完成情况';input.dispatchEvent(new Event('blur'));})()`);
+ await until('AiReportApp.state.doc.chapters[0].cells[0].prompt.includes("数字证书完成情况")');
+ const before=await ev('AiReportApp.state.doc.chapters[0].cells[0].output.result.value');assert.equal(before,100);
+ // Platform ignores messages from windows other than the matching child.
+ const spoof=await ev(`(()=>{const w=AiReportApp.state.doc.chapters[0].cells[0].output.widgets[0];const before=w.spec.state;window.postMessage({airInteractive:'fake',type:'change',state:{spoofed:true}},'*');return JSON.stringify(before);})()`);await wait(50);assert.equal(await ev('JSON.stringify(AiReportApp.state.doc.chapters[0].cells[0].output.widgets[0].spec.state)'),spoof);
+ rejectSave=true;await ev('document.querySelector("[data-air=save]").click()');await until('!AiReportApp.state.saving');
+ assert.match(await ev('document.getElementById("airStatus").textContent'),/保存失败/);
+ assert.equal(await ev('document.querySelector("[data-air=save]").disabled'),false,'failed save can be retried');
+ rejectSave=false;holdSave=true;await ev('document.querySelector("[data-air=save]").click()');
+ for(let i=0;i<100&&!releaseSave;i++)await wait(20);assert.ok(releaseSave,'save request reached server');
+ await frame().executeJavaScript('airCell.setState({...airCell.getState(),duringSave:true})');await until('AiReportApp.state.doc.chapters[0].cells[0].output.widgets[0].spec.state?.duringSave===true');
+ assert.equal(await ev('document.querySelector("[data-air=save]").disabled'),true,'new edits cannot unlock an in-flight save');
+ holdSave=false;releaseSave();await until('!AiReportApp.state.saving');
+ assert.equal(await ev('document.querySelector("[data-air=save]").disabled'),false,'edits after the request stay unsaved');
+ await ev('document.querySelector("[data-air=save]").click()');await until('!AiReportApp.state.saving');const saved=await ev('AiReportApp.state.doc.id');assert.ok(saved);
+ assert.equal(await ev('document.querySelector("[data-air=save]").disabled'),true,'toolbar click persists edits and clears dirty state');
+ await win.reload();await until('!!document.querySelector(".kit-widget-interactive[data-interactive-ready=true]")&&!!AiReportApp.state.doc.id');
+ await wait(3800);assert.equal(await ev('document.querySelector("[data-air=save]").disabled'),true,'opening a saved report stays saved after snapshot initialization');
+ assert.equal(await frame().executeJavaScript('document.querySelector("h3").textContent'),'数字证书完成情况');
+ assert.equal(await frame().executeJavaScript('document.querySelector("[data-air-element=target]").style.translate'),'15px -10px');
+ const stored=await require('../backend/models/ai-report-repository').read(saved);assert.equal(stored.chapters[0].cells[0].output.widgets[0].spec.edits.target.y,-10);assert.match(stored.chapters[0].cells[0].prompt,/【手工展示调整】.*偏移 15px、-10px/);assert.equal(stored.chapters[0].cells[0].chat.findLast(item=>item.kind==='prompt').text,stored.chapters[0].cells[0].prompt);
+ const staticHtml=await ev('AiReportExport.standalone(AiReportApp.state.doc,{lang:"zh",t:(a,b)=>a})');assert.match(staticHtml,/数字证书完成情况/);assert.doesNotMatch(staticHtml,/<iframe/);assert.match(staticHtml,/15px -10px/);
+ const interactiveHtml=await ev('AiReportExport.standalone(AiReportApp.state.doc,{lang:"zh",t:(a,b)=>a,interactive:true})');const file=path.join(temp,'interactive.html');fs.writeFileSync(file,interactiveHtml);
+ exportWin=new BrowserWindow({show:false,width:1400,height:900});await exportWin.loadFile(file);
+ for(let i=0;i<150;i++){if(await exportWin.webContents.executeJavaScript('!!document.querySelector("iframe")'))break;await wait(30);}
+ await wait(300);const exported=exportWin.webContents.mainFrame.frames.find(frame=>frame.url==='about:srcdoc');assert.ok(exported,'standalone runtime loads offline');assert.equal(await exported.executeJavaScript('document.querySelector("h3").textContent'),'数字证书完成情况');assert.equal(await exported.executeJavaScript('document.querySelector("h3").dataset.scriptRan'),'yes');
+ await until('!document.querySelector("#platformStartup")');
+ await ev('document.querySelector(".kit-widget-interactive").scrollIntoView({block:"center"})');await wait(100);
+ fs.writeFileSync(path.join(temp,'preview.png'),(await win.webContents.capturePage()).toPNG());
+ // Script errors feed back into the existing compile retry loop, preserving data.
+ await ev(`document.querySelector('[data-cell="${cell}"] [data-cell-chat]').click()`);
+ await frame().executeJavaScript(`(()=>{const node=document.querySelector('[data-air-element="target"]');node.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,clientX:200,clientY:50,pointerId:1,button:0}));node.dispatchEvent(new PointerEvent('pointermove',{bubbles:true,clientX:207,clientY:50,pointerId:1}));node.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,pointerId:1}));})()`);
+ await until('document.querySelector(".air-msg-prompt").textContent.includes("偏移 22px、-10px")');
+ const savesBeforeRetry=saveRequests;
+ let compiles=0,reference=false;
+ require('../backend/models/ai-provider-client').createClient=()=>({generateChat:async options=>{
+  compiles++;reference||=options.messages[0].content.includes('数字证书完成情况');
+  const content={...source,script:compiles===2?'throw new Error("fixture script broken")':source.script};
+  return {text:JSON.stringify({type:'recipe',recipe:{sources:[],compute:'function compute(input){return {value:input.s1.values["数字证书"]};}',render:compiles===1?'function render(result,kit){return kit.text("legacy static");}':'function render(result,kit){return kit.interactive('+JSON.stringify(content)+',{id:"main",height:300});}',narrative:null}})};
+ }});
+ await ev('document.querySelector("#airChat [data-try]").click()');for(let i=0;i<250;i++){if(compiles>=3&&!await ev('AiReportApp.state.busy.size'))break;await wait(30);}await until('!AiReportApp.state.busy.size&&!!document.querySelector("[data-interactive-ready=true]")');assert.equal(compiles,3,'static output and script failure are repaired');assert.ok(reference,'current edited presentation reaches compiler');
+ assert.equal(saveRequests,savesBeforeRetry,'Try again never requires or triggers a document save');
+ assert.match(compileRequests[0].prompt,/偏移 22px、-10px/,'Try again sends the unsaved latest final prompt');
+ assert.equal(compileRequests[0].presentation[0].changes.find(item=>item.element==='target'&&item.action==='move').after.x,22,'compiler also receives exact unsaved edit history');
+ assert.equal(await ev('AiReportApp.state.doc.chapters[0].cells[0].output.result.value'),100);
+ // Regression: the real failing layout used height:100% + flex:1 with no explicit chart height.
+ const flexSource={html:'<div data-air-element="container" style="width:100%;height:100%;display:flex;flex-direction:column"><div style="font-weight:bold;font-size:14px;padding:5px 0">PS GP利润率</div><div id="chart-container" style="flex:1"></div></div>',css:'',script:`const chart=echarts.init(document.getElementById('chart-container'),null,{renderer:'svg'});chart.setOption({animation:false,grid:{top:30,left:10,right:10,bottom:20,containLabel:true},xAxis:{type:'category',data:['TE','ORG','ET','VDF'],axisLine:{show:false},axisTick:{show:false}},yAxis:{show:false},series:[{type:'bar',data:[58.9,66.2,9.8,89.3],label:{show:true,position:'top',formatter:'{c}%'}}]});`};
+ const flexRender='function render(result,kit){return kit.interactive('+JSON.stringify(flexSource)+',{id:"main",height:140});}';
+ for(const height of [140,180]){
+  await ev(`(async()=>{const cell=AiReportApp.state.doc.chapters[0].cells[0];cell.span=4;cell.height=${height};cell.fit=true;cell.recipe.render=${JSON.stringify(flexRender)};await AiReportRunner.run(cell,AiReportApp.state.doc.reportMonth);AiReportApp.render();if(${height}===180)document.querySelector('[data-cell="'+cell.id+'"]').style.marginTop='10000px';await AiReportInteractive.settle(cell.id);})()`);
+  assert.equal(await ev('!!document.querySelector("[data-interactive-error]")'),false,'offscreen frames load without animation frame waits');
+  const geometry=await frame().executeJavaScript(`(()=>{const node=document.getElementById('chart-container'),chart=echarts.getInstanceByDom(node);return {height:node.clientHeight,rendered:chart.getHeight(),labels:[...node.querySelectorAll('text')].map(n=>n.textContent).filter(t=>t.includes('%')),viewport:innerHeight,bottom:node.getBoundingClientRect().bottom};})()`);
+  const axes=await frame().executeJavaScript('(()=>{const option=echarts.getInstanceByDom(document.getElementById("chart-container")).getOption();return {x:option.xAxis[0].axisLine.show,y:option.yAxis[0].show,yLine:option.yAxis[0].axisLine.show,yLabel:option.yAxis[0].axisLabel.show};})()');
+  assert.deepEqual(axes,{x:true,y:true,yLine:true,yLabel:true},'generated hidden axes are visible by default');
+  assert.ok(geometry.height>0,'flex chart receives a nonzero height at '+height);assert.equal(geometry.rendered,geometry.height);assert.deepEqual(geometry.labels,['58.9%','66.2%','9.8%','89.3%']);assert.ok(geometry.bottom<=geometry.viewport+1);
+  assert.equal(await ev(`(()=>{const cell=document.querySelector('[data-cell="${cell}"]'),frame=cell.querySelector('iframe');return frame.getBoundingClientRect().bottom<=cell.getBoundingClientRect().bottom+1;})()`),true,'frame fits fixed report cell');
+  const initial=geometry.height;
+  await ev(`(()=>{const node=document.querySelector('[data-cell="${cell}"]');node.style.marginTop='0';node.scrollIntoView({block:'center'});node.style.height='220px';})()`);await wait(200);
+  assert.ok(await frame().executeJavaScript('echarts.getInstanceByDom(document.getElementById("chart-container")).getHeight()')>initial,'chart resizes with parent without regenerating');
+ }
+ // An explicit request to preserve hidden axes remains available without affecting defaults.
+ await ev(`(async()=>{const cell=AiReportApp.state.doc.chapters[0].cells[0];cell.recipe.render=${JSON.stringify('function render(result,kit){return kit.interactive('+JSON.stringify({html:'<div id="chart-container" style="height:120px"></div>',css:'',script:'const chart=echarts.init(document.getElementById("chart-container"),null,{renderer:"svg"});chart.setOption({animation:false,xAxis:{data:["TE"],axisLine:{show:false}},yAxis:{show:false},series:[{type:"bar",data:[100]}]});'})+',{id:"main",axes:"preserve"});}')};await AiReportRunner.run(cell,AiReportApp.state.doc.reportMonth);AiReportApp.render();await AiReportInteractive.settle(cell.id);})()`);
+ assert.equal(await frame().executeJavaScript('echarts.getInstanceByDom(document.getElementById("chart-container")).getOption().yAxis[0].show'),false);
+ // Stable, business-independent chart identities survive hover, resize, focus editing and DOM regeneration.
+ const generic={...flexSource,script:flexSource.script.replace("['TE','ORG','ET','VDF']","['Alpha','Beta','Gamma','Delta']").replace("type:'bar',data:","type:'bar',emphasis:{focus:'self',itemStyle:{color:'transparent',opacity:0}},blur:{itemStyle:{opacity:0}},data:")};
+ await ev(`(async()=>{const cell=AiReportApp.state.doc.chapters[0].cells[0];cell.height=240;cell.recipe.render=${JSON.stringify('function render(result,kit){return kit.interactive('+JSON.stringify(generic)+',{id:"main"});}')};await AiReportRunner.run(cell,AiReportApp.state.doc.reportMonth);AiReportApp.render();await AiReportInteractive.settle(cell.id);})()`);
+ const ids=await frame().executeJavaScript(`(()=>{const label=[...document.querySelectorAll('#chart-container text')].find(n=>n.textContent==='58.9%'),bars=[...document.querySelectorAll('#chart-container [data-air-element]')].filter(n=>n.dataset.airElement.includes('-bar-'));return {label:label?.dataset.airElement,bars:bars.map(n=>n.dataset.airElement)};})()`);
+ assert.ok(ids.label?.includes('-label-'));assert.equal(ids.bars.length,4,'each bar has an independent identity');
+ async function dragMark(id,dx,dy){await frame().executeJavaScript(`(()=>{const node=[...document.querySelectorAll('[data-air-element]')].find(n=>n.dataset.airElement===${JSON.stringify(id)});node.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,clientX:100,clientY:100,pointerId:2,button:0}));node.dispatchEvent(new PointerEvent('pointermove',{bubbles:true,clientX:${100+dx},clientY:${100+dy},pointerId:2}));node.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,pointerId:2}));node.dispatchEvent(new MouseEvent('click',{bubbles:true}));})()`);await wait(40);}
+ await dragMark(ids.label,12,-8);await dragMark(ids.bars[1],20,6);
+ const translated=()=>frame().executeJavaScript(`(()=>{return [...document.querySelectorAll('#chart-container [data-air-element]')].filter(n=>n.style.translate&&n.style.translate!=='none').map(n=>({id:n.dataset.airElement,translate:n.style.translate}));})()`);
+ assert.deepEqual(await translated(),[{id:ids.bars[1],translate:'20px 6px'},{id:ids.label,translate:'12px -8px'}]);
+ await frame().executeJavaScript('(()=>{const chart=echarts.getInstanceByDom(document.getElementById("chart-container"));chart.dispatchAction({type:"highlight",seriesIndex:0,dataIndex:1});chart.dispatchAction({type:"downplay",seriesIndex:0,dataIndex:1});window.focusMarker="same-frame";})()');await wait(60);
+ assert.equal((await translated()).length,2,'hover does not transfer offsets onto neighbours');
+ assert.equal(await frame().executeJavaScript(`(()=>{return [...document.querySelectorAll('#chart-container [data-air-element]')].filter(n=>n.dataset.airElement.includes('-bar-')).every(n=>getComputedStyle(n).opacity!=='0'&&getComputedStyle(n).fill!=='rgba(0, 0, 0, 0)'&&n.getAttribute('fill')!=='transparent');})()`),true,'highlight cannot hide bars');
+ await until('!document.querySelector("#platformStartup")');
+ await ev(`document.querySelector('[data-cell="${cell}"] [data-cell-focus]').click()`);await until('!!document.querySelector(".air-focus-cell:not(.is-focus-animating)")');
+ assert.equal(await frame().executeJavaScript('window.focusMarker'),'same-frame','enlarging does not recreate the iframe');
+ const focused=await ev(`(()=>{const cell=document.querySelector('.air-focus-cell').getBoundingClientRect(),chat=document.querySelector('#airChat').getBoundingClientRect();return {wide:cell.width>500,separate:cell.right<chat.left,locked:AiReportApp.state.selected===${JSON.stringify(cell)},blur:getComputedStyle(document.querySelector('.air-focus-backdrop')).backdropFilter};})()`);
+ assert.ok(focused.wide&&focused.separate&&focused.locked);assert.match(focused.blur,/blur/);
+ await until('(()=>{const cell=document.querySelector(".air-focus-cell").getBoundingClientRect(),chat=document.querySelector("#airChat").getBoundingClientRect();return Math.abs(cell.top-chat.top)<1&&Math.abs(cell.bottom-chat.bottom)<1;})()');
+ assert.equal((await translated()).length,2,'semantic edits survive enlarged chart geometry');
+ win.setSize(900,760);await wait(150);
+ await until('(()=>{const c=document.querySelector(".air-focus-cell").getBoundingClientRect(),p=document.querySelector("#airChat").getBoundingClientRect();return Math.abs(c.top-p.top)<1&&Math.abs(c.bottom-p.bottom)<1;})()');
+ const narrow=await ev('(()=>{const cell=document.querySelector(".air-focus-cell").getBoundingClientRect(),chat=document.querySelector("#airChat").getBoundingClientRect();return {cell:cell.toJSON(),chat:chat.toJSON(),width:innerWidth};})()');
+ assert.ok(narrow.cell.right<narrow.chat.left,'narrow desktop retains the chat beside the editor');
+ assert.ok(Math.abs(narrow.cell.top-narrow.chat.top)<1&&Math.abs(narrow.cell.bottom-narrow.chat.bottom)<1,'narrow desktop columns share both vertical edges');
+ win.setSize(600,800);await wait(150);
+ assert.equal(await ev('document.querySelector(".air-focus-cell").getBoundingClientRect().bottom<=document.querySelector("#airChat").getBoundingClientRect().top'),true,'small screens retain chat below the enlarged cell');
+ win.setSize(1400,900);await wait(150);
+
+ await ev(`(()=>{const other=AiReportModel.cell({prompt:'another cell'});AiReportApp.state.doc.chapters[0].cells.push(other);AiReportApp.render();document.querySelector('[data-cell="'+other.id+'"] [data-cell-chat]').click();})()`);
+ assert.equal(await ev('AiReportApp.state.selected'),cell,'chat is locked to the enlarged cell');await ev('AiReportInteractive.settle()');
+ assert.equal(await ev('document.querySelector(".air-focus-cell").dataset.cell'),cell,'focus survives an AI-style page rerender');
+ await frame().executeJavaScript('window.focusMarker="after-render"');
+ fs.writeFileSync(path.join(temp,'focus.png'),(await win.webContents.capturePage()).toPNG());
+ await ev('document.querySelector(".air-focus-backdrop").click()');await until('!document.querySelector(".air-focus-backdrop")');
+ assert.equal(await frame().executeJavaScript('window.focusMarker'),'after-render','closing preserves the iframe too');
+ assert.equal(await ev('document.querySelectorAll(".air-focus-placeholder").length'),0);assert.equal((await translated()).length,2);
+ await ev(`document.querySelector('[data-cell="${cell}"] [data-cell-focus]').click()`);await until('!!document.querySelector(".air-focus-cell:not(.is-focus-animating)")');
+ await frame().executeJavaScript('window.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true}))');await until('!document.querySelector(".air-focus-backdrop")');
+ // Repeated AI-authored names must not make moving the second element also move the first.
+ await frame().executeJavaScript(`(()=>{const block=document.createElement('div');block.innerHTML='<span data-air-element="same">First</span><span data-air-element="same">Second</span>';document.getElementById('air-content').append(block);const node=block.children[1];node.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,clientX:100,clientY:100,pointerId:3,button:0}));node.dispatchEvent(new PointerEvent('pointermove',{bubbles:true,clientX:107,clientY:103,pointerId:3}));node.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,pointerId:3}));})()`);await wait(50);
+ assert.deepEqual(await frame().executeJavaScript(`[...document.querySelectorAll('[data-air-element="same"]')].map(n=>n.style.translate)`),['','7px 3px']);
+ // A single interactive HTML can combine prose, two independent charts, a table and working controls.
+ const mixed={html:'<section style="display:grid;gap:8px"><h3 data-air-element="mixed-title" style="margin:0">综合情况</h3><p data-air-element="mixed-intro" style="margin:0">本月情况说明</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div id="chart-a" style="height:160px;min-width:0"></div><div id="chart-b" style="height:160px;min-width:0"></div></div><table style="width:100%;border-collapse:collapse"><thead><tr><th>分类</th><th>数量</th></tr></thead><tbody><tr><td>East</td><td data-air-element="mixed-value">42</td></tr></tbody></table><button id="mixed-action">查看说明</button></section>',css:'td,th{padding:4px;border:1px solid #ccd8e4;text-align:left}',script:`for(const [id,type]of [['chart-a','bar'],['chart-b','line']]){const chart=echarts.init(document.getElementById(id),null,{renderer:'svg'});chart.setOption({animation:false,grid:{left:28,right:12,top:18,bottom:24,containLabel:true},xAxis:{type:'category',data:['East','West']},yAxis:{min:0,max:100},series:[{type,data:[42,66],label:{show:true,position:'top'}}]});}document.getElementById('mixed-action').onclick=()=>airCell.setState({opened:true});`};
+ await ev(`(async()=>{const cell=AiReportApp.state.doc.chapters[0].cells[0];cell.height=440;cell.span=6;cell.recipe.render=${JSON.stringify('function render(result,kit){return kit.interactive('+JSON.stringify(mixed)+',{id:"mixed",height:380});}')};await AiReportRunner.run(cell,AiReportApp.state.doc.reportMonth);AiReportApp.render();await AiReportInteractive.settle(cell.id);})()`);
+ assert.equal(await frame().executeJavaScript('document.querySelectorAll("#chart-a svg,#chart-b svg").length'),2);
+ await frame().executeJavaScript(`(()=>{const node=document.querySelector('[data-air-element="mixed-intro"]');node.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));const input=document.querySelector('textarea');input.value='已更新的本月情况说明';input.dispatchEvent(new Event('blur'));})()`);
+ await until('AiReportApp.state.doc.chapters[0].cells[0].prompt.includes("已更新的本月情况说明")');
+ await dragMark('mixed-value',6,3);
+ const mixedLabel=await frame().executeJavaScript('Array.from(document.querySelectorAll("#chart-a text")).find(n=>n.textContent==="42").dataset.airElement');
+ await dragMark(mixedLabel,9,-5);
+ assert.equal(await frame().executeJavaScript('Array.from(document.querySelectorAll("#chart-b [data-air-element]")).some(n=>n.style.translate&&n.style.translate!=="none")'),false,'moving chart A leaves chart B untouched');
+ assert.equal(await frame().executeJavaScript('document.querySelector("[data-air-element=mixed-value]").style.translate'),'6px 3px');
+ await frame().executeJavaScript('document.getElementById("mixed-action").click()');await until('AiReportApp.state.doc.chapters[0].cells[0].output.widgets[0].spec.state?.opened===true');
+ await ev(`document.querySelector('[data-cell="${cell}"] [data-cell-focus]').click()`);await until('!!document.querySelector(".air-focus-cell:not(.is-focus-animating)")');
+ await until('(()=>{const cell=document.querySelector(".air-focus-cell").getBoundingClientRect(),chat=document.querySelector("#airChat").getBoundingClientRect();return Math.abs(cell.top-chat.top)<1&&Math.abs(cell.bottom-chat.bottom)<1;})()');
+ assert.equal(await frame().executeJavaScript('document.querySelectorAll("#chart-a svg,#chart-b svg").length'),2);
+ await until('getComputedStyle(document.querySelector(".air-focus-cell .air-cell-body")).filter==="none"');
+ fs.writeFileSync(path.join(temp,'mixed-focus.png'),(await win.webContents.capturePage()).toPNG());
+ await ev('document.querySelector(".air-focus-backdrop").click()');await until('!document.querySelector(".air-focus-backdrop")');
+ await ev('AiReportApp.save()');await win.reload();await until('!!document.querySelector(".kit-widget-interactive[data-interactive-ready=true]")');
+ assert.equal(await frame().executeJavaScript('document.querySelector("[data-air-element=mixed-intro]").textContent'),'已更新的本月情况说明');
+ assert.equal(await frame().executeJavaScript('document.querySelector("[data-air-element=mixed-value]").style.translate'),'6px 3px');
+ assert.equal(await frame().executeJavaScript('document.querySelectorAll("#chart-a svg,#chart-b svg").length'),2);
+ const mixedExport=await ev('AiReportExport.standalone(AiReportApp.state.doc,{lang:"zh",t:(a,b)=>a})');assert.match(mixedExport,/已更新的本月情况说明/);assert.match(mixedExport,/<table/);assert.ok((mixedExport.match(/<svg/g)||[]).length>=2);
+ // Wide and tall compositions fit the focus viewport uniformly; the iframe keeps its original layout size.
+ for(const [span,height]of [[12,300],[4,700]]){
+  await ev(`(()=>{const cell=AiReportApp.state.doc.chapters[0].cells[0];cell.span=${span};cell.height=${height};cell.fit=true;AiReportApp.render();})()`);await until('!!document.querySelector("[data-interactive-ready=true]")');
+  const sourceBox=await ev('(()=>{const b=document.querySelector(".air-cell-body");return {width:b.offsetWidth,height:b.offsetHeight};})()');
+  await ev(`document.querySelector('[data-cell="${cell}"] [data-cell-focus]').click()`);await until('!!document.querySelector(".air-focus-cell:not(.is-focus-animating)")');
+  const fit=await ev('(()=>{const cell=document.querySelector(".air-focus-cell"),body=cell.querySelector(".air-cell-body"),c=cell.getBoundingClientRect(),b=body.getBoundingClientRect(),s=getComputedStyle(cell),left=c.left+cell.clientLeft+parseFloat(s.paddingLeft),top=c.top+cell.clientTop+parseFloat(s.paddingTop),width=cell.clientWidth-parseFloat(s.paddingLeft)-parseFloat(s.paddingRight),height=cell.clientHeight-parseFloat(s.paddingTop)-parseFloat(s.paddingBottom);return {width:body.offsetWidth,height:body.offsetHeight,ratio:b.width/b.height,centerX:b.left+b.width/2-left-width/2,centerY:b.top+b.height/2-top-height/2,fits:b.width<=width+1&&b.height<=height+1};})()');
+  assert.equal(fit.width,sourceBox.width);assert.equal(fit.height,sourceBox.height);assert.ok(Math.abs(fit.ratio-sourceBox.width/sourceBox.height)<0.01);assert.ok(Math.abs(fit.centerX)<1&&Math.abs(fit.centerY)<1);assert.ok(fit.fits,'entire composition fits without stretching or clipping');
+  fs.writeFileSync(path.join(temp,span===12?'wide-focus.png':'tall-focus.png'),(await win.webContents.capturePage()).toPNG());
+  await ev('document.querySelector(".air-focus-backdrop").click()');await until('!document.querySelector(".air-focus-backdrop")');
+ }
+ // Regeneration changes the chart host, category order, font and label offset. Preserve the relation to its bar.
+ await frame().executeJavaScript('window.fixtureRegen=true');
+ const anchorLabel=await frame().executeJavaScript('Array.from(document.querySelectorAll("#chart-a text")).find(n=>n.textContent==="42").dataset.airElement');
+ const intoBar=await frame().executeJavaScript(`(()=>{const label=document.querySelector('[data-air-element="${anchorLabel}"]'),bar=document.querySelector('[data-air-element="${anchorLabel.replace('-label-','-bar-')}"]'),a=label.getBoundingClientRect(),b=bar.getBoundingClientRect();return b.top-(a.top+a.height/2);})()`);
+ await dragMark(anchorLabel,0,intoBar);
+ const regenerated={...mixed,html:mixed.html.replaceAll('chart-a','renamed-chart'),script:mixed.script.replaceAll('chart-a','renamed-chart').replaceAll("['East','West']","['West','East']").replaceAll('[42,66]','[66,42]').replaceAll("position:'top'","position:'top',distance:20,fontSize:18")};
+ await ev(`(async()=>{const c=AiReportApp.state.doc.chapters[0].cells[0];c.recipe.render=${JSON.stringify('function render(result,kit){return kit.interactive('+JSON.stringify(regenerated)+',{id:"mixed",height:380});}')};await AiReportRunner.run(c,AiReportApp.state.doc.reportMonth);AiReportApp.render();await AiReportInteractive.settle(c.id);})()`);
+ const restoredGap=await frame().executeJavaScript('(()=>{const label=Array.from(document.querySelectorAll("#renamed-chart text")).find(n=>n.textContent==="42"),bar=document.querySelector(`[data-air-element="${label.dataset.airElement.replace("-label-","-bar-")}"]`),a=label.getBoundingClientRect(),b=bar.getBoundingClientRect();return a.top+a.height/2-b.top;})()');
+ assert.ok(Math.abs(restoredGap)<1.5,'regenerated label center stays on its own bar edge despite new chart layout');
+ assert.equal(await frame().executeJavaScript('document.querySelector("[data-air-element=mixed-intro]").textContent'),'已更新的本月情况说明','manual text survives changed generated code');
+ await ev('AiReportApp.save()');await wait(3800);assert.equal(await ev('document.querySelector("[data-air=save]").disabled'),true,'replayed constraints remain saved without floating-point or history churn');
+ await win.reload();await until('!!document.querySelector("[data-interactive-ready=true]")');await wait(3800);assert.equal(await ev('document.querySelector("[data-air=save]").disabled'),true,'replayed history stays saved after reopening');
+ const legacyMultiline='保留数据\n【手工展示调整】旧组件\n旧换行记录\n\n更多旧记录';
+ await ev(`(()=>{const c=AiReportApp.state.doc.chapters[0].cells[0];c.prompt=c.recipePrompt=${JSON.stringify(legacyMultiline)};c.chat=[{role:'ai',kind:'prompt',text:c.prompt}];})()`);jitterAnchored=true;await ev('AiReportApp.save()');jitterAnchored=false;
+ await win.reload();await until('!!document.querySelector("[data-interactive-ready=true]")');await wait(3800);assert.equal(await ev('AiReportApp.state.doc.chapters[0].cells[0].prompt'),legacyMultiline,'derived coordinate jitter must not rewrite legacy prompts during rendering');assert.equal(await ev('document.querySelector("[data-air=save]").disabled'),true,'render-only updates remain saved even with multiline legacy records');
+ // Table headings moved above the first row must survive regenerated clipping wrappers and row/column changes.
+ const tableSource={html:'<section style="padding:28px"><p>表头位置验收</p><div id="table-clip" style="height:130px;overflow-y:auto"><table style="width:100%;font-size:12px;border-collapse:collapse"><thead><tr><th data-air-element="category">类别</th><th data-air-element="rate">利润率</th></tr></thead><tbody><tr><td>East</td><td>42%</td></tr><tr><td>West</td><td>66%</td></tr></tbody></table></div><div id="untouched-scroll" style="height:20px;overflow:auto"><p style="height:60px">未编辑的滚动内容</p></div></section>',css:'th,td{height:18px;text-align:left}',script:''};
+ async function installTable(source,reset=false){await ev(`(async()=>{const c=AiReportApp.state.doc.chapters[0].cells[0];${reset?'c.output=null;c.prompt="表头位置验收";c.recipePrompt=c.prompt;c.chat=[{role:"ai",kind:"prompt",text:c.prompt}];':''}c.span=6;c.height=280;c.recipe.render=${JSON.stringify('function render(result,kit){return kit.interactive('+JSON.stringify(source)+',{id:"table"});}')};await AiReportRunner.run(c,AiReportApp.state.doc.reportMonth);AiReportApp.render();await AiReportInteractive.settle(c.id);})()`);}
+ tableSource.html=tableSource.html.replace('<td>East</td>','<td data-air-element="east-cell">East</td>');
+ await installTable(tableSource,true);await dragMark('category',0,-14);await dragMark('rate',-7,-15);await dragMark('east-cell',4,5);
+ assert.equal(await frame().executeJavaScript('airCell.getAdjustments().edits.category.anchor.kind'),'table-cell');
+ assert.equal(await frame().executeJavaScript('getComputedStyle(document.getElementById("table-clip")).overflowY'),'visible','upward drag reveals the heading immediately');
+ assert.equal(await frame().executeJavaScript('getComputedStyle(document.getElementById("untouched-scroll")).overflowY'),'auto','unrelated scrolling remains available');
+ const changedTable={...tableSource,html:tableSource.html.replace('id="table-clip"','id="new-table-clip"').replace('<thead><tr><th data-air-element="category">类别</th><th data-air-element="rate">利润率</th></tr></thead>','<thead><tr><th data-air-element="new-rate">利润率</th><th data-air-element="new-category"><span>类别</span></th></tr></thead>').replace('<tr><td>East</td><td>42%</td></tr><tr><td>West</td><td>66%</td></tr>','<tr><td>66%</td><td>West</td></tr><tr><td>42%</td><td>East</td></tr>'),css:'th,td{height:42px;text-align:left}'};
+ changedTable.html=changedTable.html.replace(/<tbody>.*?<\/tbody>/,'<tbody><tr><td>66%</td><td>West</td></tr><tr><td>42%</td><td>East</td></tr></tbody>');
+ await installTable(changedTable);
+ assert.equal(await frame().executeJavaScript('[...document.querySelectorAll("td")].find(n=>n.textContent==="East").style.translate'),'4px 5px','body-cell binding survives reordered rows and columns');
+ const tableRestored=()=>frame().executeJavaScript(`(()=>{const table=document.querySelector('table'),cells=[...table.querySelectorAll('th')];return {translations:cells.map(n=>n.style.translate),overflow:getComputedStyle(document.getElementById('new-table-clip')).overflowY,text:table.textContent,unresolved:document.querySelectorAll('th.air-element-selected').length};})()`);
+ let tableGeometry=await tableRestored();assert.deepEqual(tableGeometry.translations,['-7px -15px','0px -14px'],'offsets follow their own column headings, not column order or the regenerated row height');assert.equal(tableGeometry.overflow,'visible');assert.match(tableGeometry.text,/类别/);assert.match(tableGeometry.text,/42%/);assert.match(tableGeometry.text,/66%/);
+ // Legacy parent-percentage records from existing reports are upgraded using their recorded displacement.
+ await ev('(()=>{const spec=AiReportApp.state.doc.chapters[0].cells[0].output.widgets[0].spec;spec.edits["new-category"].anchor={kind:"relative",target:{tag:"TH",id:"new-category"},x:.4,y:-.4};AiReportApp.render();})()');await until('!!document.querySelector("[data-interactive-ready=true]")');
+ assert.equal(await frame().executeJavaScript('airCell.getAdjustments().edits["new-category"].anchor.kind'),'table-cell');
+ await ev('AiReportApp.save()');await wait(3800);assert.equal(await ev('document.querySelector("[data-air=save]").disabled'),true);
+ await win.reload();await until('!!document.querySelector("[data-interactive-ready=true]")');tableGeometry=await tableRestored();assert.deepEqual(tableGeometry.translations,['-7px -15px','0px -14px']);assert.equal(tableGeometry.overflow,'visible');
+ // Hierarchy-aware normal/precision editing, corner sizing, table column/row sizing and regeneration.
+ const layerSource={html:'<section data-air-element="panel" data-air-name="内容区" style="width:500px;height:270px"><h3 data-air-element="layer-title" data-air-name="标题">分层验收</h3><div id="layer-chart" data-air-name="趋势图" style="width:260px;height:100px"></div><table data-air-element="layer-table" data-air-name="明细表" style="width:400px;font-size:12px;border-collapse:collapse"><thead><tr><th>类别</th><th>数量</th></tr></thead><tbody><tr><td>East</td><td>42</td></tr><tr><td>West</td><td>66</td></tr></tbody></table></section>',css:'th,td{text-align:left;height:20px}',script:'const chart=echarts.init(document.getElementById("layer-chart"),null,{renderer:"svg"});chart.setOption({animation:false,grid:{left:26,right:8,top:18,bottom:20},xAxis:{data:["East","West"]},yAxis:{max:100},series:[{type:"bar",data:[42,66]}]});'};
+ await installTable(layerSource,true);await ev(`AiReportInteractive.setPrecision(${JSON.stringify(cell)},false)`);
+ async function rawGesture(selector,dx,dy,handle=false){await rawFrame().executeJavaScript(`(()=>{const node=document.querySelector(${JSON.stringify(selector)});node.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,clientX:100,clientY:100,pointerId:19,button:0}));node.dispatchEvent(new PointerEvent('pointermove',{bubbles:true,clientX:${100+dx},clientY:${100+dy},pointerId:19}));node.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,pointerId:19}));})()`);await wait(60);}
+ await rawFrame().executeJavaScript('document.querySelector("h3").dispatchEvent(new PointerEvent("pointermove",{bubbles:true,clientX:100,clientY:100}))');
+ assert.match(await rawFrame().executeJavaScript('document.querySelector(".ae-hover .ae-label").textContent'),/第1层.*内容区/,'normal hover previews the top-level component');
+ await rawGesture('h3',8,5);
+ assert.deepEqual(await rawFrame().executeJavaScript('[document.querySelector("section").style.translate,document.querySelector("h3").style.translate]'),['8px 5px',''],'normal mode never accidentally moves a nested label');
+ await rawGesture('.ae-handle',40,20,true);
+ assert.equal(await rawFrame().executeJavaScript('document.querySelector("section").style.width'),'540px');
+ assert.match(await ev('AiReportApp.state.doc.chapters[0].cells[0].prompt'),/尺寸调整为 540 × 290px/);
+ await ev(`document.querySelector('[data-cell="${cell}"] [data-cell-focus]').click()`);await until('!!document.querySelector(".air-focus-cell:not(.is-focus-animating)")');
+ await until('document.querySelector(".air-element-tools select").options.length>8');
+ assert.equal(await ev('Array.from(document.querySelector(".air-element-tools select").options).some(o=>o.textContent.includes("明细表"))'),true,'focus shows the automatically detected named hierarchy');
+ await ev(`AiReportInteractive.selectElement(${JSON.stringify(cell)},'layer-table')`);await wait(80);
+ assert.equal(await rawFrame().executeJavaScript('document.querySelectorAll(".ae-column").length'),1);
+ const previousColumns=await rawFrame().executeJavaScript('[...document.querySelectorAll("th")].map(n=>n.getBoundingClientRect().width)');
+ await rawGesture('.ae-column',25,0,true);await rawGesture('.ae-row',0,12,true);
+ const sizedTable=await rawFrame().executeJavaScript('(()=>{const t=document.querySelector("table");return {columns:[...t.rows[0].cells].map(n=>n.getBoundingClientRect().width),row:t.rows[0].getBoundingClientRect().height,edit:airCell.getAdjustments().edits["layer-table"]};})()');
+ assert.ok(Math.abs(sizedTable.columns[0]-previousColumns[0]-25)<1);assert.ok(Math.abs(sizedTable.columns[1]-previousColumns[1]+25)<1);assert.ok(sizedTable.row>=32);
+ assert.match(await ev('document.querySelector(".air-msg-prompt").textContent'),/列“类别”宽度调整为/);assert.match(await ev('document.querySelector(".air-msg-prompt").textContent'),/第 1 行高度调整为 32px/);
+ await rawGesture('.ae-handle',30,15,true);
+ assert.equal(await rawFrame().executeJavaScript('airCell.getAdjustments().edits["layer-table"].size.width'),430);
+ await ev(`AiReportInteractive.selectElement(${JSON.stringify(cell)},AiReportInteractive.selection(${JSON.stringify(cell)}).items.find(item=>item.name==='趋势图').id)`);await wait(60);await rawGesture('.ae-handle',20,10,true);await wait(100);
+ assert.equal(await rawFrame().executeJavaScript('echarts.getInstanceByDom(document.getElementById("layer-chart")).getWidth()'),280,'chart container resizes the actual chart');
+ const smallMark=await rawFrame().executeJavaScript('(()=>{const n=document.querySelector("#layer-chart [data-air-element*=\\"-bar-\\"]");return {id:n.dataset.airElement,width:n.getBoundingClientRect().width};})()');
+ await ev(`AiReportInteractive.selectElement(${JSON.stringify(cell)},${JSON.stringify(smallMark.id)})`);await wait(60);await rawGesture('.ae-handle',8,6,true);await ev('AiReportInteractive.flush()');
+ assert.ok(await rawFrame().executeJavaScript(`document.querySelector('[data-air-element="${smallMark.id}"]').getBoundingClientRect().width>=${smallMark.width+7}`),'a tiny SVG mark resizes independently and keeps its identity after rebinding');
+ await ev(`AiReportInteractive.selectElement(${JSON.stringify(cell)},'layer-title')`);await wait(60);await rawGesture('.ae-handle',15,5,true);
+ assert.equal(await rawFrame().executeJavaScript('airCell.getAdjustments().edits["layer-title"].size.kind'),'text');
+ assert.equal(await rawFrame().executeJavaScript('airCell.getAdjustments().edits["layer-title"].x===undefined'),true,'text sizing does not introduce a fake move');
+ const layerSpec=await ev('AiReportApp.state.doc.chapters[0].cells[0].output.widgets[0].spec');assert.doesNotMatch(layerSpec.snapshot,/ae-handle|ae-column|data-air-editor/,'editor chrome never enters the export snapshot');
+ await ev('document.querySelector(".air-focus-backdrop").click()');await until('!document.querySelector(".air-focus-backdrop")');
+ const layerRegen={...layerSource,html:layerSource.html.replaceAll('layer-chart','new-chart').replace('data-air-element="layer-table"','data-air-element="new-table"').replace('<th>类别</th><th>数量</th>','<th>数量</th><th>类别</th>').replace('<td>East</td><td>42</td>','<td>42</td><td>East</td>').replace('<td>West</td><td>66</td>','<td>66</td><td>West</td>'),script:layerSource.script.replaceAll('layer-chart','new-chart'),css:'th,td{text-align:left;padding:8px;height:24px}'};
+ await installTable(layerRegen);const restoredLayer=await rawFrame().executeJavaScript('(()=>{const t=document.querySelector("table");return {width:t.getBoundingClientRect().width,row:t.rows[0].getBoundingClientRect().height,edit:airCell.getAdjustments().edits["new-table"],chart:document.getElementById("new-chart").style.width};})()');
+ assert.equal(restoredLayer.width,430);assert.ok(restoredLayer.row>=32);assert.equal(restoredLayer.edit.tableLayout.columns.find(c=>c.column==='类别').ratio,sizedTable.edit.tableLayout.columns.find(c=>c.column==='类别').ratio);assert.equal(restoredLayer.chart,'280px','chart-box matching survives a changed generated host id');
+ assert.ok(await rawFrame().executeJavaScript('document.querySelector("table").getBoundingClientRect().height<=airCell.getAdjustments().edits["new-table"].size.height+1'),'regenerated padding cannot silently expand the resized table');
+ assert.equal(await rawFrame().executeJavaScript('Object.values(airCell.getAdjustments().edits).some(edit=>edit.size?.kind==="svg"&&edit.anchor?.kind==="chart-mark")'),true,'SVG sizing replays after generated code changes');
+ await ev('AiReportApp.save()');await wait(3800);assert.equal(await ev('document.querySelector("[data-air=save]").disabled'),true);
+ await win.reload();await until('!!document.querySelector("[data-interactive-ready=true]")');await wait(500);assert.equal(await rawFrame().executeJavaScript('document.querySelector("table").style.width'),'430px');assert.equal(await ev('document.querySelector("[data-air=save]").disabled'),true);
+ fs.writeFileSync(path.join(temp,'hierarchy-editor.png'),(await win.webContents.capturePage()).toPNG());
+ // Real SVG text at chart edges gets measured padding, while long HTML values wrap intact.
+ const edgeText='123456789012345678';
+ const edgeSource={html:'<div id="edge-chart" style="width:320px;height:160px"></div><p data-air-element="long-copy" style="width:120px;white-space:nowrap;overflow:hidden">'+edgeText.repeat(3)+'</p>',css:'p{margin:0;font-size:12px}',script:'const chart=echarts.init(document.getElementById("edge-chart"),null,{renderer:"svg"});chart.setOption({animation:false,grid:{left:0,right:0,top:0,bottom:0},xAxis:{data:["FIRST","LAST"]},yAxis:{max:100},series:[{type:"bar",data:[40,100],label:{show:true,position:"top",formatter:()=>"'+edgeText+'"}}]});'};
+ await installTable(edgeSource,true);await wait(300);await ev('AiReportInteractive.flush()');
+ const safeEdges=await rawFrame().executeJavaScript('(()=>{const host=document.getElementById("edge-chart"),b=host.getBoundingClientRect();return [...host.querySelectorAll("svg text")].map(n=>({text:n.textContent,box:n.getBoundingClientRect().toJSON()})).filter(n=>n.box.width&&n.box.height).every(n=>n.box.left>=b.left-1&&n.box.right<=b.right+1&&n.box.top>=b.top-1&&n.box.bottom<=b.bottom+1);})()');
+ assert.equal(safeEdges,true,'full numeric labels and edge axis text stay inside the chart');
+ assert.equal(await rawFrame().executeJavaScript('document.querySelector("p").textContent'),edgeText.repeat(3));
+ assert.equal(await rawFrame().executeJavaScript('getComputedStyle(document.querySelector("p")).whiteSpace'),'normal');
+ assert.equal(await rawFrame().executeJavaScript('document.querySelector("p").scrollWidth<=document.querySelector("p").clientWidth+1'),true,'unbroken long text wraps instead of losing its suffix');
+ await rawFrame().executeJavaScript(`(()=>{const block=document.createElement('div');block.style.width='120px';block.style.whiteSpace='nowrap';block.innerHTML='<span>${edgeText.repeat(3)}</span>';document.getElementById('air-content').append(block);})()`);await ev('AiReportInteractive.flush()');assert.equal(await rawFrame().executeJavaScript('getComputedStyle(document.querySelector("span")).whiteSpace'),'normal','inline long values also wrap inside their narrow parent');
+ const fullSource={html:'<table data-air-element="full-table" data-air-name="满格表格" style="width:100%;height:100%;table-layout:fixed"><thead><tr><th>类别</th><th>数量</th></tr></thead><tbody><tr><td>East</td><td>42</td></tr></tbody></table>',css:'td,th{text-align:left}',script:''};
+ await installTable(fullSource,true);await ev(`document.querySelector('[data-cell="${cell}"] [data-cell-focus]').click()`);await until('!!document.querySelector(".air-focus-cell:not(.is-focus-animating)")');await ev(`AiReportInteractive.selectElement(${JSON.stringify(cell)},'full-table')`);await wait(100);
+ assert.equal(await rawFrame().executeJavaScript('document.querySelectorAll(".ae-handle").length'),8);
+ const handlesFit=await rawFrame().executeJavaScript('[...document.querySelectorAll(".ae-handle")].every(n=>{const b=n.getBoundingClientRect();return b.left>=0&&b.top>=0&&b.right<=innerWidth&&b.bottom<=innerHeight;})');assert.equal(handlesFit,true,'all eight grips remain inside the clickable viewport for a full-cell component');
+ const scale=await ev('(()=>{const b=document.querySelector(".air-focus-cell .air-cell-body");return b.getBoundingClientRect().width/b.offsetWidth;})()'),grip=await rawFrame().executeJavaScript('document.querySelector(".ae-handle").getBoundingClientRect().width');assert.ok(Math.abs(scale*grip-14)<1,'zoomed editor keeps grips at a usable screen size');
+ await ev(`AiReportInteractive.resizeElement(${JSON.stringify(cell)},1400,180)`);await wait(60);assert.equal(await rawFrame().executeJavaScript('new Set([...document.querySelectorAll(".ae-handle")].map(n=>{const b=n.getBoundingClientRect();return Math.round(b.left)+","+Math.round(b.top);})).size'),8,'an oversized component distributes grips around the visible intersection rather than stacking them at one edge');
+ await ev(`(()=>{const input=document.querySelector('[aria-label=组件宽度]');input.value='480';input.dispatchEvent(new Event('input',{bubbles:true}));const data=AiReportInteractive.selection(${JSON.stringify(cell)});document.getElementById('airReport').dispatchEvent(new CustomEvent('air-element-selection',{detail:{...data,cellId:${JSON.stringify(cell)},size:{width:1400,height:180}}}));})()`);
+ assert.equal(await ev('document.querySelector("[aria-label=组件宽度]").value'),'480','a late geometry message cannot erase an unsubmitted size draft');
+ await ev('(()=>{document.querySelector("[aria-label=组件高度]").value="160";document.querySelector("[aria-label=组件高度]").dispatchEvent(new Event("input",{bubbles:true}));document.querySelector(".air-element-sizes button").click();})()');await wait(80);
+ assert.equal(await rawFrame().executeJavaScript('document.querySelector("table").style.width'),'480px','toolbar size input is a fallback when content fills the viewport');
+ await rawGesture('[data-resize="nw"]',10,8,true);
+ assert.deepEqual(await rawFrame().executeJavaScript('(()=>{const n=document.querySelector("table");return {width:n.style.width,height:n.style.height,translate:n.style.translate};})()'),{width:'470px',height:'152px',translate:'10px 8px'},'north-west sizing moves that edge while preserving the opposite edge');
+ assert.match(await ev('document.querySelector(".air-msg-prompt").textContent'),/同步位置偏移 10px、8px/);
+ await ev('document.querySelector(".air-focus-backdrop").click()');await until('!document.querySelector(".air-focus-backdrop")');await ev('AiReportApp.save()');await wait(3800);assert.equal(await ev('document.querySelector("[data-air=save]").disabled'),true);
+ await win.reload();await until('!!document.querySelector("[data-interactive-ready=true]")');assert.equal(await rawFrame().executeJavaScript('document.querySelector("table").style.width'),'470px');
+ const impossible={html:'<p style="position:absolute;left:-30px;top:2px">超出边缘文字</p>',css:'',script:''};await installTable(impossible,true);assert.ok(await ev('Number(document.querySelector("[data-interactive-overflow]").dataset.interactiveOverflow)>0'),'remaining real overflow is reported rather than silently accepted');
+ const internalClip={html:'<div style="height:12px;overflow:hidden"><p style="margin:0">第一行<br>第二行被内部裁剪</p></div>',css:'',script:''};await installTable(internalClip,true);assert.ok(await ev('Number(document.querySelector("[data-interactive-overflow]").dataset.interactiveOverflow)>0'),'clipped rich text inside an internal container is reported too');
+ // A genuinely zero-size chart must be reported instead of silently accepted as a successful cell.
+ const broken={...flexSource,html:flexSource.html.replace('style="flex:1"','style="height:0px;flex:none"')};
+ await ev(`(async()=>{const cell=AiReportApp.state.doc.chapters[0].cells[0];cell.recipe.render=${JSON.stringify('function render(result,kit){return kit.interactive('+JSON.stringify(broken)+',{id:"main"});}')};await AiReportRunner.run(cell,AiReportApp.state.doc.reportMonth);AiReportApp.render();await AiReportInteractive.settle(cell.id);})()`);
+ assert.match(await ev('document.querySelector("[data-interactive-error]")?.dataset.interactiveError||""'),/高度为 0/);
+ console.log('PASS: scripts, editing, mixed content, independent charts, persistence, exports, focus alignment, responsive resize, and zero-size detection. '+temp);
+}).catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{win?.destroy();exportWin?.destroy();if(server)await new Promise(resolve=>server.close(resolve));await require('../backend/models/app-db').closeDatabase();await require('../backend/models/tenant-sqlite-pool').closeAll();app.exit(process.exitCode||0);});

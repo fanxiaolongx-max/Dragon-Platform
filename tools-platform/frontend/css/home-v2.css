@@ -935,9 +935,10 @@ html[data-ui="v2"] body.dc-chatting :is(.v2-scenes, .v2-suggest) { display: none
 .v2-scene:hover { background: var(--v2-chip); box-shadow: var(--v2-shadow-hover); transform: translateY(-1px); }
 .v2-scene:active { transform: none; box-shadow: none; }
 .v2-scene.is-active { background: var(--v2-ink); border-color: var(--v2-ink); color: var(--v2-bg); }
-.v2-mascot { position: absolute; right: 24px; bottom: calc(100% - 3px); width: 96px; height: auto; pointer-events: none; user-select: none; z-index: 2; filter: drop-shadow(0 2px 2px rgba(15, 23, 42, 0.12)); }
-html[data-ui="v2"] body.dc-chatting .v2-mascot { display: none; }
-@media (max-width: 600px) { .v2-mascot { right: 20px; width: 80px; } }
+.v2-mascot, .v2-mascot-eyes { position: absolute; right: 24px; bottom: calc(100% - 3px); width: 96px; height: auto; pointer-events: none; user-select: none; z-index: 2; filter: drop-shadow(0 2px 2px rgba(15, 23, 42, 0.12)); }
+.v2-mascot-eyes { aspect-ratio: 3 / 2; filter: none; }
+html[data-ui="v2"] body.dc-chatting :is(.v2-mascot, .v2-mascot-eyes) { display: none; }
+@media (max-width: 600px) { .v2-mascot, .v2-mascot-eyes { right: 20px; width: 80px; } }
 .v2-suggest { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; width: min(var(--dc-col, 760px), 100%); margin: 22px auto 6px; }
 .v2-suggest:empty { display: none; }
 .v2-suggest-cap { font-size: 12px; color: var(--v2-ink3); padding-left: 2px; }
@@ -1121,3 +1122,6 @@ html[data-theme="dark"] .v2-agent-illustration img { filter: grayscale(1) contra
     html[data-ui="v2"] body:not(.dc-chatting) .v2-suggest:has(> .v2-agent-illustration) { min-height: 160px; }
 }
 body.dc-chatting .v2-agent-illustration { display: none; }
+
+/* 来源随已启用的渠道增加，窄屏和桌面窗口内仍可滚动访问全部筛选。 */
+.v2-sort-menu { max-height: calc(100dvh - 90px); overflow-y: auto; overscroll-behavior: contain; }
