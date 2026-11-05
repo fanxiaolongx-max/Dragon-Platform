@@ -181,7 +181,8 @@ function injectLanguageRuntime(html, slug, options = {}) {
     // 直接打开工具也有跨工具草稿提醒；下载的独立 HTML 不依赖平台服务。
     const inbox = options.standalone || /src=["']\/js\/shared\/ops-inbox\.js(?:[?"'])/.test(source) ? '' : '<script src="/js/shared/ops-inbox.js"></script>';
 
-    if (source.includes('__TOOLS_CUSTOM_I18N__')) {
+    // Tools with their own translator still receive the watermark and inbox.
+    if (/<html\b[^>]*\sdata-tools-native-i18n(?=[\s=>])/i.test(source) || source.includes('__TOOLS_CUSTOM_I18N__')) {
         return injectBeforeLastBody(source, `${watermark}\n${inbox}`);
     }
 

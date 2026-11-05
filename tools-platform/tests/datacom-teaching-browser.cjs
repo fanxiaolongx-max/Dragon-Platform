@@ -44,24 +44,7 @@ async function shot(name) {
 app.whenReady()
     .then(async () => {
         const web = express();
-        const dictionary = JSON.parse(
-            fs.readFileSync(path.join(__dirname, '../backend/custom-tool-i18n/datacom-protocol-expert.json')),
-        );
-        web.get('/i18n-runtime.js', (_req, res) =>
-            res.sendFile(path.join(__dirname, '../frontend/js/shared/custom-tool-i18n-runtime.js')),
-        );
-        web.get('/live', (_req, res) =>
-            res
-                .type('html')
-                .send(
-                    fs
-                        .readFileSync(path.join(root, 'index.html'), 'utf8')
-                        .replace(
-                            '</head>',
-                            `<script>window.__TOOLS_CUSTOM_I18N__={translations:${JSON.stringify(dictionary).replace(/</g, '\\u003c')}};</script><script src="/i18n-runtime.js"></script></head>`,
-                        ),
-                ),
-        );
+        web.get('/live', (_req, res) => res.sendFile(path.join(root, 'index.html')));
         web.get('/api/datacom-knowledge', (_req, res) =>
             res.json({ ...seed, articles: [...seed.articles, layoutArticle], tenantId: 'default', canWrite: true, username: 'test' }),
         );
@@ -301,11 +284,11 @@ app.whenReady()
             'AI must use the teaching step context',
         );
         await evaluate(() => document.querySelector('.dk-ai-pop [data-close]').click());
-        await evaluate(() => window.ToolsCustomI18n.setLanguage('en'));
+        await evaluate(() => document.querySelector('#langBtn').click());
         await new Promise((r) => setTimeout(r, 100));
         assert.equal(await evaluate(() => document.querySelector('[data-act="play"]').textContent), 'Play');
         await shot('fsm-english');
-        await evaluate(() => window.ToolsCustomI18n.setLanguage('zh'));
+        await evaluate(() => document.querySelector('#langBtn').click());
         await new Promise((r) => setTimeout(r, 100));
         assert.equal(await evaluate(() => document.querySelector('[data-act="play"]').textContent), '播放演示');
         await navigate('#/a/layout-regression');
@@ -315,7 +298,7 @@ app.whenReady()
             for (const theme of ['light', 'dark']) {
                 await evaluate((theme) => {
                     document.documentElement.dataset.theme = theme;
-                    window.ToolsCustomI18n.setLanguage(theme === 'light' ? 'zh' : 'en');
+                    if (document.documentElement.lang !== (theme === 'light' ? 'zh-CN' : 'en-US')) document.querySelector('#langBtn').click();
                 }, theme);
                 await evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
                 const failures = await evaluate(() => {
@@ -328,7 +311,7 @@ app.whenReady()
                         if (rect.right > innerWidth || rect.left < 0 || rect.bottom > header.getBoundingClientRect().bottom + 1) failures.push('header control clipped');
                         if (headerItems.some((other) => other !== item && overlaps(rect, other.getBoundingClientRect()))) failures.push('header control overlaps');
                     }
-                    if (document.querySelector('#toolsCustomLanguageButton').parentElement !== header) failures.push('language button overlays content');
+                    if (document.querySelector('#langBtn').parentElement !== header) failures.push('language button overlays content');
                     document.querySelectorAll('#articleBody .dk-block-ai').forEach((bar) => {
                         const host = bar.parentElement;
                         const buttons = [...bar.querySelectorAll('button')];

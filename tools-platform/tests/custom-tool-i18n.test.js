@@ -41,6 +41,19 @@ test('language runtime is linked for served HTML and embedded for downloaded HTM
     assert.doesNotMatch(downloaded, /src="\/js\/shared\/custom-tool-i18n-runtime\.js/);
 });
 
+test('Datacom owns localization in served pages and downloaded snapshots', () => {
+    const source = fs.readFileSync(path.join(customToolsRepo.BUILTIN_TOOLS_DIR, 'datacom-protocol-expert/index.html'), 'utf8');
+    const served = i18nService.injectLanguageRuntime(source, 'datacom-protocol-expert');
+    const downloaded = i18nService.injectLanguageRuntime(source, 'datacom-protocol-expert', { inlineRuntime: true, standalone: true });
+    for (const html of [served, downloaded]) {
+        assert.doesNotMatch(html, /__TOOLS_CUSTOM_I18N__|toolsCustomLanguageButton|custom-tool-i18n-runtime\.js/);
+        assert.match(html, /id="langBtn"/);
+        assert.match(html, /__tools_html_meta_watermark__/);
+    }
+    assert.match(served, /ops-inbox\.js/);
+    assert.doesNotMatch(downloaded, /ops-inbox\.js/);
+});
+
 test('saved-webpage ZIP ignores macOS metadata and preserves the companion resource folder', async () => {
     const zip = new JSZip();
     zip.file('Saved Page.html', '<html><script src="./Saved Page_files/app.js"></script></html>');

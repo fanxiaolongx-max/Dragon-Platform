@@ -309,10 +309,7 @@ function openOutlineEditor({ id = null, domainId, parentId = null }) {
 // ---------------- 视图：总览 ----------------
 function renderHome() {
     const { catalog } = state;
-    const used = new Map();
-    catalog.articles.forEach(article => article.visuals.forEach(id => used.set(id, (used.get(id) || 0) + 1)));
     const chars = catalog.articles.reduce((sum, article) => sum + (article.bodyLength || 0), 0);
-    const hard = catalog.articles.filter(article => article.difficulty >= 4).sort((a, b) => b.difficulty - a.difficulty);
     main().innerHTML = `
         <section class="dk-hero">
             <div class="dk-hero-text">
@@ -335,6 +332,18 @@ function renderHome() {
             const count = countStatus(points);
             return `<a class="dk-cov-home-card" href="#/outline-list"><strong>${esc(item.icon)} ${esc(item.name)}</strong>${coverageBar(count)}<span>${Object.entries(STATUS).map(([key, info]) => `<i class="is-${key}">${info.short} ${count[key]}</i>`).join('')}</span></a>`;
         }).join('')}</div>
+        <div id="homeDetails" class="dk-home-details" aria-busy="true"></div>
+        </div><aside class="dk-video-recommendations" id="homeVideos" aria-label="视频课堂" hidden></aside></div></div>`;
+    const details = $('#homeDetails');
+    requestAnimationFrame(() => setTimeout(() => {
+        if (details.isConnected) renderHomeDetails(details, catalog);
+    }, 0));
+}
+
+function renderHomeDetails(details, catalog) {
+    if (!details.isConnected || (state.route && state.route.name !== 'home')) return;
+    const hard = catalog.articles.filter(article => article.difficulty >= 4).sort((a, b) => b.difficulty - a.difficulty);
+    details.innerHTML = `
         <h2 class="dk-section-title">知识体系</h2>
         <div class="dk-domain-grid">${catalog.domains.map(item => {
             const cats = catalog.categories.filter(cat => cat.domainId === item.id);
@@ -346,9 +355,12 @@ function renderHome() {
         <h2 class="dk-section-title">推荐学习路径</h2>
         <ol class="dk-path">${catalog.learningPath.map((step, index) => `<li><div class="dk-path-index">${index + 1}</div><div><h4>${esc(step.title)}</h4><div class="dk-path-items">${step.articles.map(id => articleMeta(id)).filter(Boolean).map(article => `<a href="#/a/${article.id}">${esc(article.title)}</a>`).join('<span>→</span>')}</div></div></li>`).join('')}</ol>
         <h2 class="dk-section-title">复杂知识点 · 建议配合可视化阅读</h2>
-        <div class="dk-hard-list">${hard.map(article => `<a class="dk-hard" href="#/a/${article.id}"><div>${stars(article.difficulty)}<strong>${esc(article.title)}</strong></div><p>${esc(article.summary)}</p><div class="dk-hard-vis">${article.visuals.map(id => VISUALS.get(id)).filter(Boolean).map(visual => `<span>${visualBadge(visual)}${esc(visual.title.split(' · ')[0])}</span>`).join('')}</div></a>`).join('')}</div>
-        </div><aside class="dk-video-recommendations" id="homeVideos" aria-label="视频课堂" hidden></aside></div></div>`;
-    state.mounted.push(mountVideoRecommendations($('#homeVideos'), { articles: catalog.articles, offline: Boolean(snapshotApi) }));
+        <div class="dk-hard-list">${hard.map(article => `<a class="dk-hard" href="#/a/${article.id}"><div>${stars(article.difficulty)}<strong>${esc(article.title)}</strong></div><p>${esc(article.summary)}</p><div class="dk-hard-vis">${article.visuals.map(id => VISUALS.get(id)).filter(Boolean).map(visual => `<span>${visualBadge(visual)}${esc(visual.title.split(' · ')[0])}</span>`).join('')}</div></a>`).join('')}</div>`;
+    details.removeAttribute('aria-busy');
+    const homeVideos = $('#homeVideos');
+    if (homeVideos?.isConnected) {
+        state.mounted.push(mountVideoRecommendations(homeVideos, { articles: catalog.articles, offline: Boolean(snapshotApi) }));
+    }
 }
 
 function renderLabs() {
@@ -916,7 +928,7 @@ async function reloadCatalog() {
     if (data.preference) {
         applyServerPreference(data.preference);
     }
-    renderSidebar();
+    if (state.route) renderSidebar();
 }
 
 // ---------- 左侧目录：拖动调宽，拖过最小宽度自动收起 ----------
@@ -1184,16 +1196,9 @@ async function boot() {
         await reloadCatalog();
     } catch (error) {
         main().innerHTML = `<div class="dk-empty"><h2>无法加载知识库</h2><p>${esc(error.message)}</p></div>`;
+        reportFirstScreen();
         return;
     }
-    // 视频清单与总览播放器共用一次请求，目录不阻塞知识库首屏。
-    loadVideoManifest({ offline: Boolean(snapshotApi) }).then(videos => {
-        state.videos = videos || {};
-        renderSidebar();
-    });
-    // 平台注入的语言开关放入导航栏，避免固定浮钮覆盖图表操作。
-    const languageButton = document.getElementById('toolsCustomLanguageButton');
-    if (languageButton) { languageButton.hidden = true; languageButton.style.display = 'none'; document.querySelector('.dk-topbar').appendChild(languageButton); }
     // AI 问答与笔记（只读快照中不可用）
     state.aiNotes = initAiNotes({
         readOnly: Boolean(snapshotApi), state, VISUALS, toast, findArticle: findArticleByTitle,
@@ -1207,6 +1212,21 @@ async function boot() {
     // 问答/笔记有增删改时，侧栏索引同步刷新
     document.addEventListener('dk:annotations-changed', () => { if (state.notesIndex) refreshNotesIndex(); });
     route();
+    reportFirstScreen();
+    // 首屏就绪后再补齐目录里的视频标记，与视频课堂共用清单请求。
+    requestAnimationFrame(() => setTimeout(() => {
+        loadVideoManifest({ offline: Boolean(snapshotApi) }).then(videos => {
+            state.videos = videos || {};
+            renderSidebar();
+        });
+    }, 0));
+}
+
+function reportFirstScreen() {
+    document.documentElement.dataset.dkReady = 'true';
+    if (window.parent !== window && location.origin !== 'null') {
+        window.parent.postMessage({ type: 'datacom-first-screen-ready' }, location.origin);
+    }
 }
 
 boot();

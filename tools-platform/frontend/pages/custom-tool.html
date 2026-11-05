@@ -321,6 +321,7 @@
                 // 外层地址的参数（如首页「插件与脚本」入口带的 ?script=）透传给工具页，便于直达具体脚本
                 const frameUrl = new URL(cleanFilePath, location.origin);
                 new URLSearchParams(location.search).forEach((value, key) => frameUrl.searchParams.set(key, value));
+                if (window.DragonToolSurface) frameUrl.hash = location.hash;
                 frameUrl.searchParams.set('_t', String(Date.now()));
                 frame.src = frameUrl.origin === location.origin ? `${frameUrl.pathname}${frameUrl.search}${frameUrl.hash}` : frameUrl.href;
                 frame.title = displayName;
@@ -330,14 +331,24 @@
                     if (sequence !== toolLoadSequence || !document.getElementById('toolLoader')) return;
                     setToolLoadState(shellText('工具页面加载超时', 'Tool page loading timed out'), 100, `${tool.filePath} · ${shellText('超过 30 秒', 'over 30 seconds')}`, true);
                 }, 30000);
-                frame.addEventListener('load', () => {
+                const finish = () => {
                     clearTimeout(frameTimeout);
-                    if (sequence !== toolLoadSequence) return;
+                    if (sequence !== toolLoadSequence || !frame.hidden) return;
                     setToolLoadState(shellText('工具已就绪', 'Tool is ready'), 100, `Loaded ${tool.filePath}`);
                     frame.hidden = false;
                     document.getElementById('toolLoader').hidden = true;
                     applyCustomToolShellLanguage();
+                    window.DragonToolSurface?.ready();
+                };
+                frame.addEventListener('load', () => {
+                    if (!window.DragonToolSurface || frame.contentDocument?.documentElement?.dataset.dkReady === 'true') finish();
                 }, { once: true });
+                if (window.DragonToolSurface) {
+                    window.addEventListener('message', event => {
+                        if (event.origin === location.origin && event.source === frame.contentWindow &&
+                            event.data?.type === 'datacom-first-screen-ready') finish();
+                    }, { signal: toolLoadController.signal });
+                }
                 host.appendChild(frame);
                 setToolLoadState(shellText('正在加载工具页面与脚本…', 'Loading tool page and scripts…'), 68, `GET ${tool.filePath}`);
                 applyCustomToolShellLanguage();

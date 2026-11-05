@@ -75,8 +75,8 @@
     try { if (window.top !== window) clean ||= window.top.document.documentElement.classList.contains('is-clean-tool'); } catch { /* Cross-origin host. */ }
     if (current || clean) {
         document.documentElement.classList.add('is-embedded-tool');
-        if (clean) document.documentElement.classList.add('is-clean-tool');
-        else if (window.top === window && !window.__TP_STATIC_BASE__) location.replace(shellUrl(location.href));
+        if (clean && !window.DragonToolSurface) document.documentElement.classList.add('is-clean-tool');
+        else if (!clean && window.top === window && !window.__TP_STATIC_BASE__) location.replace(shellUrl(location.href));
         const style = document.createElement('style');
         style.textContent = 'html.is-embedded-tool{--navbar-h:0px}html.is-embedded-tool #app-navbar,html.is-embedded-tool #navbar-container{display:none!important}html.is-clean-tool :is(.ai-fab,.ai-panel,.ai-proactive-alert,.ops-inbox-banner,.ops-home-inbox,.custom-tool-head){display:none!important}html.is-clean-tool .custom-tool-shell{grid-template-rows:1fr}';
         document.head.append(style);

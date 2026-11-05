@@ -19,6 +19,13 @@ contextBridge.exposeInMainWorld('ToolsDesktop', {
     openLogsFolder: () => ipcRenderer.invoke('desktop:open-logs-folder')
 });
 
+if (process.platform === 'darwin' && process.isMainFrame) {
+    contextBridge.exposeInMainWorld('DragonEmbeddedTool', {
+        command: (action, id, details) => ipcRenderer.send('desktop-tool:command', { ...details, action, id }),
+        onStatus: callback => ipcRenderer.on('desktop-tool:status', (_event, status) => callback(status))
+    });
+}
+
 // 主窗口（desktop-main-window.js）的左上角窗口按钮：页面通过它最小化 / 最大化 / 关闭，并接收窗口状态变化
 contextBridge.exposeInMainWorld('DragonWindow', {
     minimize: () => ipcRenderer.send('desktop-window:minimize'),

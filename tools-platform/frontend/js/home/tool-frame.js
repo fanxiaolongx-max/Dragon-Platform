@@ -1,5 +1,5 @@
 // 新版首页：工具在主区（侧栏右侧）内嵌打开，不再跳转到带旧顶部导航的整页。
-// 首页里点到任何工具链接（技能·插件·工具中心、发现应用、更多、对话里的工具卡等）都在这里用 iframe 打开；
+// 首页里的工具链接在这里打开。Mac 上的数通协议专家使用独立的桌面视图。
 // 工具页通过 js/shared/navbar.js 的 NAV_EMBEDDED 隐藏自己的顶部导航。地址栏记为 ?app=<路径>，刷新和前进后退都能还原。
 (function () {
     'use strict';
@@ -8,8 +8,10 @@
     const L = (zh, en) => (window.ToolsI18n?.getLanguage?.() === 'en-US' ? en : zh);
     const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const state = { href: '', title: '', returnTo: null };
-    let root, frame, titleEl, iconEl;
-    let assistantObserver;
+    const datacom = '/tools/datacom-protocol-expert';
+    const desktop = window.DragonEmbeddedTool;
+    let root, frame, titleEl, iconEl, surface, skeleton, surfaceMessage, retry;
+    let assistantObserver, surfaceObserver, resizeObserver, surfaceFrame, surfaceId = 0, activeSurface = 0;
 
     function toolAssistant() {
         if (!root || root.hidden) return null;
@@ -18,7 +20,45 @@
         } catch { return null; }
     }
     function syncAssistant() {
-        document.body.classList.toggle('v2-tool-has-assistant', Boolean(toolAssistant()));
+        document.body.classList.toggle('v2-tool-has-assistant', Boolean(activeSurface || toolAssistant()));
+    }
+
+    function queueSurfaceLayout() {
+        if (!activeSurface || surfaceFrame) return;
+        surfaceFrame = requestAnimationFrame(() => {
+            surfaceFrame = 0;
+            const { x, y, width, height } = surface.getBoundingClientRect();
+            // 原生视图在网页上层，宿主菜单和弹窗打开时暂时摘下视图。
+            const overlay = document.querySelector('.v2-pop.is-open, .v2-search.is-open, .ai-kg-overlay, dialog[open], .tools-dialog-overlay, .v2-msg.is-open');
+            const visible = !overlay && !document.body.classList.contains('v2-side-peek');
+            desktop.command('layout', activeSurface, { bounds: { x, y, width, height, visible } });
+        });
+    }
+
+    function closeSurface() {
+        if (!activeSurface) return;
+        desktop.command('close', activeSurface);
+        activeSurface = 0;
+        cancelAnimationFrame(surfaceFrame);
+        surfaceFrame = 0;
+        surfaceObserver.disconnect();
+        resizeObserver.disconnect();
+        surface.hidden = true;
+        frame.hidden = false;
+    }
+
+    function openSurface(href) {
+        const id = activeSurface = ++surfaceId;
+        frame.hidden = true;
+        surface.hidden = false;
+        skeleton.hidden = false;
+        retry.hidden = true;
+        surfaceMessage.textContent = L('正在加载数通协议专家…', 'Loading Datacom Protocol Expert…');
+        surfaceObserver.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'open', 'hidden'] });
+        resizeObserver.observe(surface);
+        syncAssistant();
+        desktop.command('open', id, { href });
+        queueSurfaceLayout();
     }
 
     // 工具地址：首页工具卡、导航里登记的工具、自定义工具与插件入口（/tools/…）
@@ -58,20 +98,48 @@
                 <button type="button" class="v2-tool-frame-btn" data-frame-act="external" title="${esc(L('在新标签页打开', 'Open in new tab'))}"><span class="v2-ico" data-icon="external"></span></button>
                 <button type="button" class="v2-tool-frame-btn" data-frame-act="close" title="${esc(L('关闭', 'Close'))}"><span class="v2-ico" data-icon="close"></span></button>
             </header>
-            <iframe class="v2-tool-frame-view" title="" allow="clipboard-read; clipboard-write; fullscreen; microphone; camera; display-capture"></iframe>`;
+            <iframe class="v2-tool-frame-view" title="" allow="clipboard-read; clipboard-write; fullscreen; microphone; camera; display-capture"></iframe>
+            <div class="v2-tool-surface" hidden>
+                <div class="v2-tool-skeleton" aria-hidden="true"><div></div><div><i></i><i></i><i></i></div></div>
+                <div class="v2-tool-surface-status">
+                    <span role="status"></span>
+                    <button type="button" data-frame-act="reload" hidden>${esc(L('重试', 'Retry'))}</button>
+                </div>
+            </div>`;
         document.querySelector('.home-main')?.prepend(root);
         frame = root.querySelector('iframe');
         titleEl = root.querySelector('.v2-tool-frame-title');
         iconEl = root.querySelector('.v2-tool-frame-icon');
+        surface = root.querySelector('.v2-tool-surface');
+        skeleton = surface.querySelector('.v2-tool-skeleton');
+        surfaceMessage = surface.querySelector('[role="status"]');
+        retry = surface.querySelector('button');
+        if (desktop) {
+            surfaceObserver = new MutationObserver(queueSurfaceLayout);
+            resizeObserver = new ResizeObserver(queueSurfaceLayout);
+            window.addEventListener('resize', queueSurfaceLayout);
+            desktop.onStatus(({ id, status }) => {
+                if (id !== activeSurface) return;
+                skeleton.hidden = true;
+                retry.hidden = status === 'ready';
+                surfaceMessage.textContent = status === 'ready' ? '' : status === 'unresponsive'
+                    ? L('工具无响应，可以重试或关闭。', 'The tool stopped responding. Retry or close it.')
+                    : L('工具加载失败，请重试。', 'The tool could not load. Please retry.');
+            });
+        }
         window.HomeV2?.fillIcons?.(root);
         root.addEventListener('click', event => {
             const act = event.target.closest('[data-frame-act]')?.dataset.frameAct;
             if (act === 'close') close();
-            else if (act === 'reload') frame.src = currentHref();
+            else if (act === 'reload') {
+                if (activeSurface) open(currentHref(), { push: false });
+                else frame.src = currentHref();
+            }
             else if (act === 'external') window.open(window.ToolsNavigation.toolUrl(currentHref()), '_blank', 'noopener');
         });
         // 工具内部跳转后同步标题与地址
         frame.addEventListener('load', () => {
+            if (activeSurface) return;
             assistantObserver?.disconnect();
             syncAssistant();
             if (root.hidden) return;
@@ -90,6 +158,7 @@
     }
 
     function currentHref() {
+        if (activeSurface) return state.href;
         try { const loc = frame.contentWindow.location; if (loc.origin === location.origin && loc.href !== 'about:blank') return loc.pathname + loc.search + loc.hash; } catch { /* 跨源 */ }
         return state.href;
     }
@@ -106,6 +175,8 @@
         let url;
         try { url = new URL(href, location.origin); } catch { return false; }
         url.searchParams.delete('standalone');
+        if (desktop && url.origin === location.origin && /^\/custom-tools\/datacom-protocol-expert\/(?:index\.html)?$/.test(url.pathname)) url.pathname = datacom;
+        const useSurface = desktop && url.origin === location.origin && url.pathname === datacom;
         if (!root) render();
         // 连续打开另一个工具时仍返回最初入口，不把工具自身当作返回页。
         if (root.hidden) {
@@ -120,17 +191,23 @@
         window.HomeV2?.closePop?.();
         const path = url.pathname + url.search + url.hash;
         const info = toolInfo(url);
+        closeSurface();
         assistantObserver?.disconnect();
         document.body.classList.remove('v2-tool-has-assistant');
         state.href = path;
-        titleEl.textContent = info.title || decodeURIComponent(url.pathname.split('/').filter(Boolean).pop() || '');
+        titleEl.textContent = info.title || (useSurface ? L('数通协议专家', 'Datacom Protocol Expert') : decodeURIComponent(url.pathname.split('/').filter(Boolean).pop() || ''));
         iconEl.innerHTML = iconHtml(info.icon);
         frame.title = titleEl.textContent;
-        // iframe 导航不额外占用浏览器历史，返回键交给宿主页的 app 状态处理。
-        if (!frame.hasAttribute('src')) frame.src = path;
-        else frame.contentWindow.location.replace(path);
         root.hidden = false;
         document.body.classList.add('v2-tool-open');
+        if (useSurface) {
+            if (frame.hasAttribute('src')) frame.contentWindow.location.replace('about:blank');
+            openSurface(path);
+        } else {
+            // iframe 导航不额外占用浏览器历史，返回键交给宿主页的 app 状态处理。
+            if (!frame.hasAttribute('src')) frame.src = path;
+            else frame.contentWindow.location.replace(path);
+        }
         window.dispatchEvent(new CustomEvent('home:tool-frame', { detail: { open: true, href: path } }));
         if (push) writeUrl(path, false);
         return true;
@@ -140,6 +217,7 @@
         const returnTo = state.returnTo;
         state.returnTo = null;
         root.hidden = true;
+        closeSurface();
         assistantObserver?.disconnect();
         document.body.classList.remove('v2-tool-has-assistant');
         document.body.classList.remove('v2-tool-open');

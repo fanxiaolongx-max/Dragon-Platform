@@ -6,11 +6,13 @@ const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 const express = require('express');
+const { injectLanguageRuntime } = require('../backend/models/custom-tool-i18n-service');
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'datacom-localization-'));
 app.setPath('userData', path.join(temp, 'profile'));
 const root = path.join(__dirname, '../backend/builtin-tools/datacom-protocol-expert');
 const seed = JSON.parse(fs.readFileSync(path.join(root, 'knowledge-seed.json')));
 let server, win;
+const watchdog = setTimeout(() => { console.error('Datacom localization test timed out'); app.exit(1); }, 180000);
 const errors = [];
 const evaluate = (fn, ...args) => win.webContents.executeJavaScript(`(${fn.toString()})(...${JSON.stringify(args)})`, true);
 async function until(fn) {
@@ -27,8 +29,22 @@ async function navigate(hash, selector) {
 }
 app.whenReady().then(async () => {
     const web = express();
-    web.get('/i18n-runtime.js', (_req, res) => res.sendFile(path.join(__dirname, '../frontend/js/shared/custom-tool-i18n-runtime.js')));
-    web.get('/', (req, res) => res.type('html').send(fs.readFileSync(path.join(root, 'index.html'), 'utf8').replace('</head>', `${req.query.platform ? '<script src="/i18n-runtime.js"></script>' : ''}<script>window.__DATACOM_SNAPSHOT__={data:${JSON.stringify(seed).replace(/</g, '\\u003c')}};</script></head>`)));
+    web.get('/host', (_req, res) => res.type('html').send(`<iframe src="/?platform=1#/a/juniper-rt-priority"></iframe>
+        <script>
+        const frame = document.querySelector('iframe');
+        window.languageMessages = [];
+        window.addEventListener('message', event => {
+            if (event.source !== frame.contentWindow || event.data?.type !== 'tools-custom-tool-language') return;
+            languageMessages.push(event.data.lang);
+            frame.contentWindow.postMessage({ type: 'tools-platform-language', lang: event.data.lang }, location.origin);
+        });
+        </script>`));
+    web.get('/js/shared/ops-inbox.js', (_req, res) => res.type('js').send(''));
+    web.get('/', (req, res) => {
+        const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8')
+            .replace('</head>', `<script>window.__DATACOM_SNAPSHOT__={data:${JSON.stringify(seed).replace(/</g, '\\u003c')}};</script></head>`);
+        res.type('html').send(req.query.platform ? injectLanguageRuntime(html, 'datacom-protocol-expert') : html);
+    });
     web.use(express.static(root));
     server = await new Promise(resolve => { const s = web.listen(0, '127.0.0.1', () => resolve(s)); });
     win = new BrowserWindow({ show: false, width: 1450, height: 1050, webPreferences: { contextIsolation: true, nodeIntegration: false } });
@@ -132,17 +148,24 @@ app.whenReady().then(async () => {
         if (host.getAttribute('aria-label') !== translate('收起目录')) throw Error('Dynamic accessibility label was stale');
         host.remove();
     });
-    await win.loadURL(`http://127.0.0.1:${server.address().port}/?platform=1`);
-    await until(() => !!document.querySelector('.dk-hero') && !!window.ToolsCustomI18n);
-    for (const expected of ['zh-CN', 'en-US']) {
-        await evaluate(() => document.querySelector('#langBtn').click());
-        await new Promise(resolve => setTimeout(resolve, 50));
-        assert.equal(await evaluate(() => document.documentElement.lang), expected, 'Native and platform controls must not toggle each other back');
+    const base = `http://127.0.0.1:${server.address().port}`;
+    await win.loadURL(base + '/host');
+    await until(() => !!document.querySelector('iframe').contentDocument?.querySelector('#articleBody h2'));
+    for (const expected of ['zh-CN', 'en-US', 'zh-CN', 'en-US']) {
+        await evaluate(() => document.querySelector('iframe').contentDocument.querySelector('#langBtn').click());
+        await evaluate(() => new Promise(resolve => setTimeout(resolve, 50)));
+        assert.equal(await evaluate(() => document.querySelector('iframe').contentDocument.documentElement.lang), expected);
     }
-    await evaluate(() => window.ToolsCustomI18n.setLanguage('zh'));
-    assert.equal(await evaluate(() => document.documentElement.lang), 'zh-CN');
-    await evaluate(() => window.ToolsCustomI18n.setLanguage('en'));
-    assert.equal(await evaluate(() => document.documentElement.lang), 'en-US');
+    assert.deepEqual(await evaluate(() => window.languageMessages), ['zh-CN', 'en-US', 'zh-CN', 'en-US']);
+    await evaluate(() => {
+        localStorage.setItem('tools_lang', 'zh-CN');
+        document.querySelector('iframe').contentWindow.postMessage({ type: 'tools-platform-language', lang: 'zh-CN' }, location.origin);
+    });
+    await until(() => document.querySelector('iframe').contentDocument.documentElement.lang === 'zh-CN');
+    assert.equal(await evaluate(() => window.languageMessages.length), 4, 'platform sync must not be echoed');
+    await win.loadURL(base + '/?platform=1');
+    await until(() => !!document.querySelector('.dk-hero'));
+    await evaluate(() => document.querySelector('#langBtn').click());
     win.setSize(1450, 1050);
     await navigate('#/a/ospf-packets', '#articleBody');
     await evaluate(() => {
@@ -154,7 +177,7 @@ app.whenReady().then(async () => {
     assert.doesNotMatch(await evaluate(() => document.querySelector('#modalRoot').textContent), /[\u3400-\u9fff]/, 'RFC modal titles and selected source explanation must be English');
     const explanation = await evaluate(() => document.querySelector('#modalRoot .dk-part-copy').textContent);
     for (const term of ['1500', '9000', 'ospf mtu-enable', 'Original description']) assert.ok(explanation.includes(term), term);
-    assert.equal(await evaluate(() => getComputedStyle(document.querySelector('#toolsCustomLanguageButton')).display), 'none');
+    assert.equal(await evaluate(() => document.querySelector('#toolsCustomLanguageButton')), null);
     if (process.env.DATACOM_SHOTS) {
         fs.mkdirSync(process.env.DATACOM_SHOTS, { recursive: true });
         await evaluate(() => document.querySelector('#modalRoot .dk-part-copy').scrollIntoView({ block: 'start' }));
@@ -163,6 +186,7 @@ app.whenReady().then(async () => {
     assert.deepEqual(errors, []);
     console.log(`${seed.articles.length} bilingual notes, Mermaid, every teaching option/step/object, RFC diagrams, round trips, English search and narrow/dark layouts passed`);
 }).catch(error => { console.error(error); process.exitCode = 1; }).finally(async () => {
+    clearTimeout(watchdog);
     win?.destroy();
     if (server) await new Promise(resolve => server.close(resolve));
     fs.rmSync(temp, { recursive: true, force: true });

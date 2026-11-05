@@ -7,13 +7,15 @@
 //   刷新、缩放、开发者工具快捷键不生效；站外链接用系统浏览器打开。
 // · 点关闭只是隐藏到托盘（本机服务继续运行），从托盘「退出」才真正退出。
 'use strict';
-const { BrowserWindow, Menu, ipcMain, screen, shell, app } = require('electron');
+const { BrowserView, BrowserWindow, Menu, ipcMain, screen, shell, app } = require('electron');
 const fs = require('fs');
 const path = require('path');
+const DATACOM_TOOL_PATH = '/tools/datacom-protocol-expert';
 
 function createMainWindowController({ getBaseUrl, getIconPath, statePath, isQuitting, preloadPath }) {
     let win = null;
     let saveTimer = null;
+    let toolSurface;
     // TOOLS_DESKTOP_WIN_CHROME=1：在 macOS 上预览 Windows 的窗口外观（开发调试用）
     const isMac = process.platform === 'darwin' && !process.env.TOOLS_DESKTOP_WIN_CHROME;
 
@@ -123,6 +125,78 @@ function createMainWindowController({ getBaseUrl, getIconPath, statePath, isQuit
         });
     }
 
+    function closeToolSurface() {
+        const surface = toolSurface;
+        if (!surface) return;
+        toolSurface = null;
+        clearInterval(surface.watchdog);
+        if (!surface.owner.isDestroyed()) surface.owner.removeBrowserView(surface.view);
+        if (!surface.contents.isDestroyed()) surface.contents.destroy();
+    }
+
+    function layoutToolSurface(surface) {
+        const { owner, view, bounds } = surface;
+        if (!surface.ready || !bounds || owner.isDestroyed()) return;
+        const [width, height] = owner.getContentSize();
+        const x = Math.min(width, Math.max(0, Math.round(bounds.x)));
+        const y = Math.min(height, Math.max(0, Math.round(bounds.y)));
+        const w = Math.min(width - x, Math.round(bounds.width));
+        const h = Math.min(height - y, Math.round(bounds.height));
+        if (!bounds.visible || w <= 0 || h <= 0) {
+            owner.removeBrowserView(view);
+            return;
+        }
+        view.setBounds({ x, y, width: w, height: h });
+        if (!owner.getBrowserViews().includes(view)) owner.addBrowserView(view);
+    }
+
+    function openToolSurface(owner, id, url) {
+        closeToolSurface();
+        const view = new BrowserView({
+            webPreferences: {
+                session: owner.webContents.session,
+                preload: path.join(__dirname, 'desktop-tool-surface-preload.js'),
+                contextIsolation: true, nodeIntegration: false, sandbox: true,
+                backgroundThrottling: false, spellcheck: false
+            }
+        });
+        const contents = view.webContents;
+        const surface = { id, owner, view, contents, ready: false, lastPong: Date.now() };
+        toolSurface = surface;
+        const report = status => {
+            if (!owner.isDestroyed() && !owner.webContents.isDestroyed()) {
+                owner.webContents.send('desktop-tool:status', { id, status });
+            }
+        };
+        const fail = status => {
+            if (toolSurface !== surface) return;
+            closeToolSurface();
+            report(status);
+        };
+        surface.setReady = () => {
+            if (surface.ready) return;
+            surface.ready = true;
+            surface.lastPong = Date.now();
+            layoutToolSurface(surface);
+            report('ready');
+        };
+        hardenContents(contents);
+        contents.on('did-create-window', child => hardenContents(child.webContents));
+        contents.on('unresponsive', () => fail('unresponsive'));
+        contents.on('render-process-gone', () => fail('failed'));
+        contents.on('did-finish-load', () => {
+            if (new URL(contents.getURL()).pathname !== DATACOM_TOOL_PATH) fail('failed');
+        });
+        surface.watchdog = setInterval(() => {
+            if (Date.now() - surface.lastPong > (surface.ready ? 5000 : 30000)) {
+                fail(surface.ready ? 'unresponsive' : 'timeout');
+            } else if (surface.ready) {
+                contents.send('desktop-tool:ping');
+            }
+        }, 1000);
+        contents.loadURL(url.href).catch(() => fail('failed'));
+    }
+
     function create() {
         const { bounds, maximized } = initialBounds();
         win = new BrowserWindow({
@@ -142,6 +216,10 @@ function createMainWindowController({ getBaseUrl, getIconPath, statePath, isQuit
         });
         if (!isMac) win.setMenu(null);
         hardenContents(win.webContents);
+        win.webContents.on('did-start-navigation', (_event, _url, inPlace, mainFrame) => {
+            if (mainFrame && !inPlace) closeToolSurface();
+        });
+        win.webContents.on('render-process-gone', closeToolSurface);
         win.webContents.on('did-create-window', child => {
             child.setMenu(null);
             hardenContents(child.webContents);
@@ -159,7 +237,7 @@ function createMainWindowController({ getBaseUrl, getIconPath, statePath, isQuit
             event.preventDefault();
             if (win.isFullScreen()) { win.once('leave-full-screen', () => win.hide()); win.setFullScreen(false); } else win.hide();
         });
-        win.on('closed', () => { win = null; });
+        win.on('closed', () => { closeToolSurface(); win = null; });
         return win;
     }
 
@@ -183,6 +261,32 @@ function createMainWindowController({ getBaseUrl, getIconPath, statePath, isQuit
 
     function registerIpc() {
         const fromSender = event => BrowserWindow.fromWebContents(event.sender);
+        ipcMain.on('desktop-tool:command', (event, { action, id, href, bounds } = {}) => {
+            if (process.platform !== 'darwin' || !win || event.sender !== win.webContents || event.senderFrame !== event.sender.mainFrame) return;
+            const hostUrl = event.senderFrame.url;
+            if (!isAppUrl(hostUrl) || new URL(hostUrl).pathname !== '/' || !Number.isSafeInteger(id)) return;
+            if (action === 'open') {
+                let url;
+                try { url = new URL(href, hostUrl); } catch { return; }
+                if (!isAppUrl(url.href) || url.pathname !== DATACOM_TOOL_PATH) return;
+                url.searchParams.set('standalone', '1');
+                openToolSurface(win, id, url);
+            } else if (toolSurface?.id === id) {
+                if (action === 'close') closeToolSurface();
+                if (action === 'layout' && bounds && ['x', 'y', 'width', 'height'].every(key => Number.isFinite(bounds[key]))) {
+                    toolSurface.bounds = bounds;
+                    layoutToolSurface(toolSurface);
+                }
+            }
+        });
+        ipcMain.on('desktop-tool:signal', (event, signal) => {
+            const surface = toolSurface;
+            if (!surface || event.sender !== surface.contents || event.senderFrame !== event.sender.mainFrame) return;
+            const url = event.senderFrame.url;
+            if (!isAppUrl(url) || new URL(url).pathname !== DATACOM_TOOL_PATH) return;
+            if (signal === 'ready') surface.setReady();
+            if (signal === 'pong') surface.lastPong = Date.now();
+        });
         ipcMain.on('desktop-window:minimize', event => fromSender(event)?.minimize());
         ipcMain.on('desktop-window:toggle-maximize', event => {
             const target = fromSender(event);

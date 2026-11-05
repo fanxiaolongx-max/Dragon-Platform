@@ -104,6 +104,8 @@ export function createTeachingStage(container, definition) {
         q('[data-act="play"]').textContent = playing ? '暂停' : '播放演示';
         q('[data-act="prev"]').disabled = index === 0;
         q('[data-act="next"]').disabled = index === lesson.steps.length - 1;
+        if (playing && visible && !document.hidden) requestTick();
+        else cancelTick();
     }
     const seek = (index) => {
         playing = false;
@@ -188,21 +190,41 @@ export function createTeachingStage(container, definition) {
     });
     const observer = new IntersectionObserver((entries) => {
         visible = entries.some((e) => e.isIntersecting);
-        last = 0;
+        if (visible && playing) requestTick();
+        else cancelTick();
     });
     observer.observe(root);
+    function requestTick() {
+        if (frame || disposed || !playing || !visible || document.hidden) return;
+        last = performance.now();
+        frame = requestAnimationFrame(tick);
+    }
+    function cancelTick() {
+        if (frame) { cancelAnimationFrame(frame); frame = 0; }
+        last = 0;
+    }
     function tick(now) {
         if (disposed) return;
-        frame = requestAnimationFrame(tick);
-        if (playing && visible && !document.hidden) {
-            if (last) t = Math.min(1, t + (Math.min((now - last) / 1000, 0.1) * speed) / (lesson.steps.length * 5));
-            if (t === 1) playing = false;
+        frame = 0;
+        if (!playing || !visible || document.hidden) return;
+        if (last) t = Math.min(1, t + (Math.min((now - last) / 1000, 0.1) * speed) / (lesson.steps.length * 5));
+        if (t >= 1) {
+            t = 1;
+            playing = false;
             render();
+            return;
         }
+        render();
         last = now;
+        frame = requestAnimationFrame(tick);
     }
+    const onVisibilityChange = () => {
+        if (document.hidden) cancelTick();
+        else if (playing && visible) requestTick();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
     rebuild();
-    frame = requestAnimationFrame(tick);
+    if (playing) requestTick();
     return {
         root,
         select,
@@ -231,7 +253,8 @@ export function createTeachingStage(container, definition) {
         },
         dispose() {
             disposed = true;
-            cancelAnimationFrame(frame);
+            cancelTick();
+            document.removeEventListener('visibilitychange', onVisibilityChange);
             observer.disconnect();
             root.remove();
         },

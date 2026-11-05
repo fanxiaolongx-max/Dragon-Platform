@@ -907,15 +907,31 @@ export function createStage(host, sceneDef, { compact = false, onSelect = null, 
     }
     const resizeObserver = new ResizeObserver(resize);
     resizeObserver.observe(root);
-    const visibilityObserver = new IntersectionObserver(entries => { state.visible = entries.some(entry => entry.isIntersecting); });
-    visibilityObserver.observe(root);
-
     let frame = 0;
+    const visibilityObserver = new IntersectionObserver(entries => {
+        state.visible = entries.some(entry => entry.isIntersecting);
+        if (state.visible && !document.hidden && !frame && !state.disposed) {
+            clock.getDelta();
+            frame = requestAnimationFrame(tick);
+        }
+    });
+    visibilityObserver.observe(root);
+    const onVisibility = () => {
+        if (!document.hidden && state.visible && !frame && !state.disposed) {
+            clock.getDelta();
+            frame = requestAnimationFrame(tick);
+        }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
     function tick() {
         if (state.disposed) return;
+        if (!state.visible || document.hidden) {
+            frame = 0;
+            return;
+        }
         frame = requestAnimationFrame(tick);
         const dt = Math.min(clock.getDelta(), 0.05);
-        if (!state.visible || document.hidden) return;
         const duration = sceneDef.duration || 12;
         if (state.playing && !scrubbing) {
             state.t = (state.t + dt * state.speed / duration) % 1;
@@ -1011,6 +1027,7 @@ export function createStage(host, sceneDef, { compact = false, onSelect = null, 
         dispose() {
             state.disposed = true;
             cancelAnimationFrame(frame);
+            document.removeEventListener('visibilitychange', onVisibility);
             resizeObserver.disconnect();
             visibilityObserver.disconnect();
             controls.dispose();

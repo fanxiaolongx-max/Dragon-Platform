@@ -1,14 +1,12 @@
 {
   "zh": [
-    "优化左下角「扫码使用」按钮交互：增加 320ms 悬停防抖过滤与 260ms 移出延时收起，杜绝光标滑过误触，并支持点击直接 Toggle 开关。",
-    "对话文件右侧抽屉预览全面升级：.md 文件优先显示富文本渲染，.html 文件优先显示网页沙箱效果，并支持一键切换源码模式与版本对比查看（Diff）。",
-    "脚本与代码文件预览新增多语言语法高亮与行号显示，支持 Python、JavaScript、HTML、CSS、SQL、JSON、Bash 等多种常见语言。",
-    "优化会话列表交互，对三方桌面 Agent 与外部频道对话重命名尝试增加友好提示引导。"
+    "增强数通协议实训专家工具：全面完善中英文多语言本地化映射、3D 拓扑交互与教学演示控制链路。",
+    "桌面端体验升级：优化内置工具多层级内嵌渲染支持与原生窗口 Surface 桥接层交互。",
+    "优化工具导航与技能中心交互，提升在单页与独立工具窗口间的切换流畅度与界面自适应体验。"
   ],
   "en": [
-    "Refined sidebar scan-to-use button with 320ms hover debounce and 260ms auto-dismiss delay to eliminate accidental triggers, plus click-to-toggle support.",
-    "Upgraded right-side chat file preview: Markdown files prioritize rich rendered output, HTML files prioritize sandboxed web preview, with instant switching to source code and diff views.",
-    "Added automatic multi-language syntax highlighting and line numbers for code previews including Python, JavaScript, HTML, CSS, SQL, JSON, and Bash.",
-    "Enhanced conversation list interaction with helpful guidance when attempting to rename third-party agent or channel chats."
+    "Enhanced Datacom Protocol Expert tool with comprehensive bilingual localization, 3D topology interaction, and interactive teaching workflows.",
+    "Upgraded desktop experience with improved nested tool surface rendering and native window preload bridging.",
+    "Refined skill hub and tool navigation for smoother transitions and responsive layout adaptation between embedded frames and standalone views."
   ]
 }

@@ -57,7 +57,7 @@ export function originalSelection(range, root) {
     return { exact, prefix: before.slice(-80), suffix: after.slice(0, 80) };
 }
 
-const ignored = (element, ignoreTextarea = true) => !element || Boolean(element.closest('script, style, noscript, [contenteditable="true"], [data-tools-i18n-ignore], #langBtn, #toolsCustomLanguageButton' + (ignoreTextarea ? ', textarea' : '')));
+const ignored = (element, ignoreTextarea = true) => !element || Boolean(element.closest('script, style, noscript, [contenteditable="true"], [data-tools-i18n-ignore], #langBtn' + (ignoreTextarea ? ', textarea' : '')));
 function fitLabel(node) {
     const element = node.parentElement;
     if (element?.tagName.toLowerCase() !== 'text' || !element.closest('.dk-diagram, .dk-mm-svg')) return;
@@ -97,63 +97,97 @@ function applyAttributes(element) {
     }
 }
 let observer;
-export function applyLanguage(root = document.body) {
-    if (root.nodeType === 3) applyText(root);
-    else {
-        if (root.nodeType === 1) applyAttributes(root);
-        const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
-        let node;
-        while ((node = walker.nextNode())) {
-            if (node.nodeType === 3) applyText(node);
-            else applyAttributes(node);
-        }
+let isApplying = false;
+let pendingRoots = new Set();
+let pendingFrame = 0;
+
+function flushPendingMutations() {
+    pendingFrame = 0;
+    if (isApplying || language !== 'en') {
+        pendingRoots.clear();
+        return;
     }
-    // Discard our own changes, preserving detection of future external updates.
-    observer?.takeRecords();
+    const roots = pendingRoots;
+    pendingRoots = new Set();
+    for (const root of roots) {
+        if (root.isConnected) applyLanguage(root);
+    }
+}
+
+export function applyLanguage(root = document.body) {
+    if (isApplying) return;
+    isApplying = true;
+    try {
+        if (root.nodeType === 3) applyText(root);
+        else {
+            if (root.nodeType === 1) applyAttributes(root);
+            const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+                acceptNode(node) {
+                    if (node.nodeType === 1 && ignored(node, false)) return NodeFilter.FILTER_REJECT;
+                    return NodeFilter.FILTER_ACCEPT;
+                }
+            });
+            let node;
+            while ((node = walker.nextNode())) {
+                if (node.nodeType === 3) applyText(node);
+                else applyAttributes(node);
+            }
+        }
+    } finally {
+        observer?.takeRecords();
+        isApplying = false;
+    }
 }
 
 export function initLanguage() {
     const button = document.getElementById('langBtn');
+    let initialized = false;
     const setLanguage = (value, notify = true) => {
         const next = /^en/i.test(value) ? 'en' : 'zh';
         const changed = next !== language;
+        if (initialized && !changed) return;
         if (changed) document.dispatchEvent(new CustomEvent('dk:beforelanguagechange'));
         language = next;
-        try { localStorage.setItem('tools_lang', next === 'en' ? 'en-US' : 'zh-CN'); } catch (_) { /* privacy mode */ }
+        if (!initialized || notify) {
+            try { localStorage.setItem('tools_lang', next === 'en' ? 'en-US' : 'zh-CN'); } catch (_) { /* privacy mode */ }
+        }
+        initialized = true;
         document.documentElement.lang = next === 'en' ? 'en-US' : 'zh-CN';
         document.title = translate('数通协议专家');
         button.textContent = next === 'en' ? '中文' : 'EN';
         button.title = next === 'en' ? 'Switch to Chinese' : '切换为英文';
         button.setAttribute('aria-label', button.title);
         applyLanguage();
-        if (changed) document.dispatchEvent(new CustomEvent('dk:languagechange', { detail: { lang: next } }));
-        if (notify && window.parent !== window) window.parent.postMessage({ type: 'tools-custom-tool-language', lang: document.documentElement.lang }, window.location.origin);
+        if (changed) {
+            document.dispatchEvent(new CustomEvent('dk:languagechange', { detail: { lang: next } }));
+            window.dispatchEvent(new CustomEvent('tools:custom-languagechange', { detail: { lang: next } }));
+        }
+        if (notify && window.parent !== window && location.origin !== 'null') {
+            window.parent.postMessage({ type: 'tools-custom-tool-language', lang: document.documentElement.lang }, location.origin);
+        }
     };
     button.addEventListener('click', () => {
         setLanguage(language === 'en' ? 'zh' : 'en');
     });
-    window.addEventListener('tools:custom-languagechange', event => setLanguage(event.detail.lang, false));
     window.addEventListener('storage', event => { if (event.key === 'tools_lang' && event.newValue) setLanguage(event.newValue, false); });
     window.addEventListener('message', event => {
-        if (event.origin === window.location.origin && event.data?.type === 'tools-platform-language') setLanguage(event.data.lang, false);
+        if (event.source === window.parent && event.origin === location.origin && event.data?.type === 'tools-platform-language') setLanguage(event.data.lang, false);
     });
-    const hidePlatformButton = () => {
-        const platformButton = document.getElementById('toolsCustomLanguageButton');
-        if (!platformButton) return;
-        platformButton.hidden = true;
-        platformButton.style.display = 'none';
-        const header = document.querySelector('.dk-topbar');
-        if (platformButton.parentElement !== header) header.append(platformButton);
-    };
-    hidePlatformButton();
     observer = new MutationObserver(records => {
-        hidePlatformButton();
-        const roots = new Set();
-        for (const record of records) {
-            if (record.type === 'characterData' || record.type === 'attributes') roots.add(record.target);
-            for (const node of record.addedNodes || []) if (node.nodeType === 1 || node.nodeType === 3) roots.add(node);
+        if (isApplying) return;
+        if (language !== 'en') {
+            observer.takeRecords();
+            return;
         }
-        for (const root of roots) if (root.isConnected) applyLanguage(root);
+        for (const record of records) {
+            if (record.type === 'characterData' || record.type === 'attributes') pendingRoots.add(record.target);
+            for (const node of record.addedNodes || []) {
+                if (node.nodeType === 1 || node.nodeType === 3) pendingRoots.add(node);
+            }
+        }
+        if (!pendingFrame && pendingRoots.size) {
+            pendingFrame = requestAnimationFrame(flushPendingMutations);
+        }
     });
     observer.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['title', 'placeholder', 'aria-label', 'alt', 'label', 'data-empty-text'] });
     setLanguage(language, false);
