@@ -1,16 +1,14 @@
 {
   "zh": [
-    "AI 报表全面支持交互单元格编辑、局部微调与历史记录，优化只读模式与图表呈现。",
-    "图表指标标线与阈值标签智能靠上定位，保证关键数据与目标参考线清晰易读。",
-    "新增内置与定制工具独立纯净窗口导航机制，外链与新开标签页不再嵌套冗余平台外壳。",
-    "首页对话新增侧轨与底栏折叠组件，大幅提升多会话切换与沉浸式操作体验。",
-    "优化工具页面平台主题与滚动条注入顺序，完善多端兼容性与全量自动化校验。"
+    "优化首页「发现应用」菜单交互，点击启动任意工具或底部功能后自动收起下拉面板。",
+    "增强搜索框键盘操作，在应用搜索输入框按下回车键即可直接打开首项匹配工具并收起菜单。",
+    "统一工具内嵌框架与独立导航事件流，工具在主区就绪时自动清理顶层悬浮菜单。",
+    "修复二级菜单与发现面板在跨模块跳转时的残留问题，提升菜单启闭流畅度与使用习惯一致性。"
   ],
   "en": [
-    "Added interactive cell editing, localized prompt adjustments, and execution history for AI reports.",
-    "Positioned chart target thresholds and reference lines for clearer data readout without overlapping.",
-    "Introduced standalone clean-window navigation for built-in and custom tools, removing redundant nested shells.",
-    "Added foldable conversation rail and bottom dock on the home screen to streamline multi-chat workflows.",
-    "Refined theme and scrollbar injection order across tools with comprehensive automated verification."
+    "Refined Discover Apps menu interaction, automatically closing the dropdown panel upon clicking any tool or action.",
+    "Enhanced search input keyboard accessibility, allowing Enter key to launch the top matching tool and dismiss the menu.",
+    "Unified tool frame embedding and standalone navigation event dispatch to clean up active popovers when tools open.",
+    "Resolved floating menu residue across discovery and secondary flyouts for smoother, predictable navigation."
   ]
 }

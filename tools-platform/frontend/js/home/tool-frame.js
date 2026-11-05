@@ -117,6 +117,7 @@
                     mainScroll: document.querySelector('.home-main')?.scrollTop || 0, windowScroll: window.scrollY };
         }
         window.HomeSkillHub?.close?.();
+        window.HomeV2?.closePop?.();
         const path = url.pathname + url.search + url.hash;
         const info = toolInfo(url);
         assistantObserver?.disconnect();

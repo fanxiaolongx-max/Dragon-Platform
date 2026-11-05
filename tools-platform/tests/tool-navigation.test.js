@@ -36,11 +36,13 @@ test('downloads, runners, external pages and attachments retain their purpose', 
     assert.deepEqual(opened[0], ['/sla?targetMonth=9&standalone=1', '_blank', 'noopener']);
 });
 test('modified clicks are clean; ordinary clicks still embed after a context menu', () => {
-    const { handlers, win } = runtime(); let href = '/report?month=9#row', embedded = '';
+    const { handlers, win } = runtime(); let href = '/report?month=9#row', embedded = '', closedPop = false;
+    win.HomeV2 = { closePop: () => { closedPop = true; } };
     const link = { target: '', matches: () => true, hasAttribute: () => false, getAttribute: () => href, setAttribute: (_, value) => { href = value; } };
     handlers.contextmenu({ target: { closest: () => link } }); assert.equal(href, '/report?month=9&standalone=1#row');
     win.HomeToolFrame = { open: path => { embedded = path; return true; } };
     handlers.click({ button: 0, target: { closest: () => link }, preventDefault() {}, stopPropagation() {} }); assert.equal(embedded, '/report?month=9#row');
+    assert.equal(closedPop, true, 'opening a tool closes any active popover');
     href = '/report'; link.hasAttribute = () => true;
     handlers.pointerdown({ button: 0, metaKey: true, target: { closest: () => link } }); assert.equal(href, '/report');
 });

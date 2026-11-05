@@ -129,6 +129,16 @@ app.whenReady().then(async () => {
     assert.ok(await evaluate(`document.querySelector('.tools-dialog-status').textContent.includes('server is currently busy')`));
     await evaluate(`document.querySelector('.tools-dialog-close').click();document.getElementById('v2UserBtn').click();document.querySelector('.v2-account [data-v2-do="checkUpdate"]').click();true`);
     assert.ok(await evaluate(`document.querySelector('.tools-dialog').textContent.includes('desktop app')`));
+    await evaluate(`document.querySelector('.tools-dialog-close')?.click();HomeV2.closePop();true`);
+    // 发现应用菜单：点击菜单内的工具后，浮层必须自动关闭
+    await evaluate(`window.HomeWorkspace = window.HomeWorkspace || {}; window.HomeWorkspace.getTools = () => [{ id: 'f12', title: 'F12扩展打包', href: '/tools/f12-to-extension', group: '推荐' }]; true`);
+    await evaluate(`document.getElementById('v2DiscoverBtn').click(); true`);
+    await until(`document.querySelector('.v2-discover').classList.contains('is-open')`);
+    assert.equal(await evaluate(`document.querySelector('.v2-discover').classList.contains('is-open')`), true);
+    await evaluate(`document.querySelector('.v2-discover a.v2-app').click(); true`);
+    await until(`!document.querySelector('.v2-discover').classList.contains('is-open')`);
+    assert.equal(await evaluate(`document.querySelector('.v2-discover').classList.contains('is-open')`), false, 'clicking a tool in discover menu closes the popover');
+    await evaluate(`HomeToolFrame?.close?.(); true`);
     assert.deepEqual(await evaluate('fixtureErrors'),[]);
     console.log('PASS compact/exclusive Skill menu, independent @ completion, visible connectors, live cascading friend links, account update/feedback actions with light/dark/English/narrow bounds. Screenshots: '+temp);
     win.destroy();server.close();app.exit(0);

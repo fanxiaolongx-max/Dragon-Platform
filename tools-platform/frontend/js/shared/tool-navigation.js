@@ -56,6 +56,7 @@
         const href = originals.get(link) || link.getAttribute('href'), url = resolveTool(href);
         if (!url || url.searchParams.get('standalone') === '1') return;
         event.preventDefault(); event.stopPropagation();
+        window.HomeV2?.closePop?.();
         const path = url.pathname + url.search + url.hash;
         if (document.documentElement.classList.contains('is-clean-tool')) { location.assign(toolUrl(path)); return; }
         if (!window.HomeToolFrame?.open?.(path)) location.assign(shellUrl(path));

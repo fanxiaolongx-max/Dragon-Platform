@@ -342,6 +342,11 @@
     });
     flyPop.addEventListener('mouseleave', () => { hoverTimer = setTimeout(() => { if (openPop?.pop === flyPop && !openPop.anchor.matches(':hover') && !linksPanel?.matches(':hover')) closePop(); }, 220); });
     flyPop.addEventListener('mouseenter', () => clearTimeout(hoverTimer));
+    flyPop.addEventListener('click', event => {
+        const item = event.target.closest('a[href], [data-v2-do]');
+        if (!item || item.dataset.v2Do === 'links') return;
+        closePop();
+    });
 
     // Keep the original live link list and its status / admin handlers inside a cascade.
     // Moving the node avoids a second copy of the configured URLs or click behavior.
@@ -470,10 +475,24 @@
     }
     discover.pop.addEventListener('click', event => {
         const chip = event.target.closest('[data-cat]');
-        if (!chip) return;
-        discover.cat = chip.dataset.cat;
-        discover.query = dInput.value = '';
-        renderDiscover();
+        if (chip) {
+            discover.cat = chip.dataset.cat;
+            discover.query = dInput.value = '';
+            renderDiscover();
+            return;
+        }
+        if (event.target.closest('.v2-app, a[href], [data-v2-do]')) {
+            closePop();
+        }
+    });
+    dInput.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+            const first = discover.pop.querySelector('.v2-discover-list a.v2-app');
+            if (first) {
+                event.preventDefault();
+                first.click();
+            }
+        }
     });
     dInput.addEventListener('input', () => { discover.query = dInput.value; discover.pinyin = window.ToolsPinyinSearch || null; ensurePinyin(); renderDiscover(); });
     $('v2DiscoverBtn')?.addEventListener('click', event => {
