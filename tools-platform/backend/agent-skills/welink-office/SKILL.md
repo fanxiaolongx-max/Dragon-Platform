@@ -17,9 +17,9 @@ icon: 💼
 
 ## 两个工具
 
-- `welink_query`：查询，以及下载（云空间文件 `onebox file-download`、分享外链 `onebox file-share-link-download`、邮件附件 `mail attachment`）。下载文件默认保存到当前工作目录（方便直接通过 `read_file` 查验），返回里有保存位置。
+- `welink_query`：查询，以及下载（云空间文件 `onebox file-download`、分享外链 `onebox file-share-link-download`、邮件附件 `mail attachment`、开放平台凭据 `openplatform aksk-get`）。下载文件默认保存到当前工作目录（方便直接通过 `read_file` 查验），返回里有保存位置。
 - `welink_action`：会改变外部状态的操作，需管理员开启「允许写操作」。**每次调用都会在对话里弹出审批卡，用户点「允许」才执行**（完全访问模式下无需逐项审批）；拒绝或超时就是没执行。
-  - 消息：`im send-to-user`、`im send-to-group`（text / image / file 至少一个）、`im create-group`、`im add-group-member`、`im recall-message`
+  - 消息：`im send-to-user`、`im send-to-group`（text / image / file 至少一个；支持 `@所有人` `atAll: true`、`@指定成员` `atuserList`、英文名 `en: true`）、`im create-group`、`im query-group-member`、`im add-group-member`、`im recall-message`
   - 会议：`meeting create`、`meeting update`、`meeting cancel`、`meeting topic-create`、`meeting topic-update`、`meeting topic-delete`
   - 云空间：`onebox file-upload`（`file` 传文件相对路径或绝对路径；父目录参数 `parent` 传 folder-id，根目录为 0，且兼容 `folder-id` 别名）、`file-copy`、`file-move`、`file-rename`、`file-remove`、`folder-new`、`folder-rename`、`folder-remove`、`file-share-link-get`、`file-share-link-edit`、`file-share-link-remove`
   - 邮件：`mail send`、`mail reply`、`mail reply-all`、`mail forward`、`mail move`
@@ -43,7 +43,7 @@ icon: 💼
 - 联系人详情：`{"command":"contact detail","accounts":["welinkId1","welinkId2"]}`。
 - 会议列表：`meeting query-list` 的 `meeting-start-time` / `meeting-end-time` 是 **13 位毫秒时间戳**，`type`：0 公开、1 待参加（默认）、2 已结束、3 我预定、4 所有、5 我管理；`size` ≤ 30。平台已内置默认值（默认查今天待参加、按时间升序、第 1 页 10 条），查今天待参加会议直接调用即可，无需必填参数。
 - 建会：`{"command":"meeting create","options":{"subject":"测试会议","start-time":1777100400000,"end-time":1777102200000,"meeting-user-list":["a00123456","b00234567"]}}`。开始时间必须在未来且 31 天内，时长 15 分钟 ~ 7 天；与会人用工号。只能修改 / 取消通过 CLI 创建的会议。
-- 发消息：`{"command":"im send-to-user","options":{"receiver":"a00123456","text":"…"}}`；群用 `im send-to-group` + `group-id`。
+- 发消息：`{"command":"im send-to-user","options":{"receiver":"a00123456","text":"…"}}`；群用 `im send-to-group` + `group-id`；群消息支持 @：`atAll: true`（@所有人）或 `atuserList: "a0012345,a0023456"`（@指定成员，可选 `en: true` 使用英文名）。
 - 发邮件：`{"command":"mail send","options":{"to":["a@huawei.com"],"cc":["b@huawei.com"],"subject":"…","body":"…"}}`；`html: true` 时 body 写 HTML。回复 / 转发用 `mail reply` / `reply-all` / `forward` + `item-id`。
 - 建日程：`{"command":"calendar create","options":{"subject":"…","start":"2026-10-28T14:00:00","end":"2026-10-28T15:00:00","attendee":["a@huawei.com"]}}`；填了 attendee 会自动发邀请。注意这和 `meeting create`（WeLink 会议）是两回事：用户说「约个会议 / 拉个会」默认用 `meeting create`，说「日程 / 日历 / Outlook 邀请」用 `calendar create`。
 - 会议 ID：所有 `meeting-id` 都是会议主键（来自 query-list 的 meetingId），**不是视频会议号**。

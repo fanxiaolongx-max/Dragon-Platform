@@ -80,7 +80,7 @@ function autoSelect(content, { pagePath = '', extraIds = [], contextMessages = [
     const knownIds = new Set([...mentions(text).known, ...(Array.isArray(extraIds) ? extraIds : [])]);
     const recentUserMessages = (Array.isArray(contextMessages) ? contextMessages : []).filter(item => item?.role === 'user').slice(-3);
 
-    if (!['ops-group', 'welink-office', 'netcare-data'].some(id => knownIds.has(id))) {
+    if (!['ops-group', 'welink-office', 'netcare-data', 'welink-slash-command'].some(id => knownIds.has(id))) {
         const scriptOperation = /(?:复制|删除|修改|新增|改名|重命名|保存|编辑|查询|查看).{0,30}脚本/.test(text)
             && !/python|shell|bash|powershell|本地|\.py\b|\.sh\b|\.js\b/i.test(text);
         const domain = scriptOperation || /脚本.{0,40}(?:分类|目录|挪|移动|站点|迁移)|(?:站点|分类|目录).{0,30}脚本|uiv(?:f12|ision)?|uiv_scripts|\bf12\b|脚本仓库|抓取脚本|采集脚本|数据抓取|targetRegion|targetOffice|generatorOffice|capture script|scraping script/i.test(text)
@@ -88,6 +88,10 @@ function autoSelect(content, { pagePath = '', extraIds = [], contextMessages = [
         const followup = /继续|再试|不对|不用改|不要改|你做吧|就按|保存|写入|入库|复制|改名|改成|删除|执行吧|确认/.test(text)
             && recentUserMessages.some(item => autoSelect(item.content, { pagePath }).includes('script-data'));
         if ((domain || followup) && byId.has('script-data')) selected.push('script-data');
+    }
+
+    if (/(?:welink|微联).{0,20}(?:斜杠|slash|ace\b)|(?:斜杠命令|slash\s*command).{0,20}(?:welink|微联|注册|创建|管理|发布)/i.test(text) && byId.has('welink-slash-command')) {
+        selected.push('welink-slash-command');
     }
 
     const improveSkill = /(?:完善|优化|改进|升级).{0,20}(?:skill\b|技能)|(?:skill\b|技能).{0,16}(?:完善|优化|改进|升级)|\b(?:improve|refine|update)\s+(?:the\s+|this\s+|an?\s+)?skill\b/i.test(text);

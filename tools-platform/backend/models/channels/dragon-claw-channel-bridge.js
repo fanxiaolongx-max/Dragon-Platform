@@ -57,6 +57,42 @@ function safeId(value) {
     return String(value || 'anonymous').replace(/[^\w.@-]/g, '_').slice(0, 80) || 'anonymous';
 }
 
+/**
+ * 精确识别当前单聊是否为机器人超级管理员（本人或配置的特权管理员）：
+ * 1. 必须是单聊（conversation.kind === 'user'）；
+ * 2. 微信渠道：匹配当前 Bot 扫码绑定的 ownerUserId，或在 config.superAdmins 中配置的 ID；
+ * 3. WeLink 渠道：匹配当前本机 welink-cli 登录工号（authStatus().uid），或在 config.superAdmins 中配置的工号。
+ */
+async function isSuperAdminAccount(channel, conversation, account) {
+    if (!conversation || conversation.kind !== 'user' || !account) return false;
+    const actor = String(account).trim().toLowerCase();
+    try {
+        if (channel === 'weixin') {
+            const config = await require('./weixin-config-repository').getConfig().catch(() => null);
+            if (!config) return false;
+            const ownerId = String(config.ownerUserId || '').trim().toLowerCase();
+            if (ownerId && actor === ownerId) return true;
+            const admins = (config.superAdmins || []).map(a => String(a).trim().toLowerCase());
+            return admins.includes(actor);
+        }
+        if (channel === 'welink') {
+            const config = await require('./welink-config-repository').getConfig().catch(() => null);
+            const admins = (config?.superAdmins || []).map(a => String(a).trim().toLowerCase());
+            if (admins.includes(actor)) return true;
+            // 自动感知 welink-cli 本机登录 UID
+            const cliRunner = require('./welink-cli-runner');
+            if (cliRunner && typeof cliRunner.authStatus === 'function') {
+                const status = await cliRunner.authStatus().catch(() => null);
+                const cliUid = String(status?.uid || '').trim().toLowerCase();
+                if (cliUid && actor === cliUid) return true;
+            }
+        }
+    } catch (_err) {
+        // 出错安全回退
+    }
+    return false;
+}
+
 function channelUser(channel, account) {
     return { username: `${channel}:${safeId(account)}`, role: 'user' };
 }
@@ -137,18 +173,21 @@ async function runTurn(options) {
 async function runTurnInner({ channel, account, conversation, toolSessionId, text, aiSessionId, modelId, contextNote, persist = true, signal, onEvent }) {
     const user = conversation ? conversationUser(channel, conversation, account) : channelUser(channel, account);
     let sessionId = await usableSessionId(aiSessionId, user.username);
-    const fullAccess = channel === 'welink' && persist !== false && Boolean(conversation?.id);
+    const isSuperAdmin = await isSuperAdminAccount(channel, conversation, account);
+    const fullAccess = (channel === 'welink' && persist !== false && Boolean(conversation?.id)) || isSuperAdmin;
     if (fullAccess) {
-        const access = require('./welink-access');
-        const config = await require('./welink-config-repository').getConfig();
-        const verdict = access.checkInbound(config.access, { kind: conversation.kind, groupId: conversation.kind === 'group' ? conversation.id : '', senderAccount: String(account || '') });
-        if (!account || !verdict.allowed) {
-            onEvent({ type: 'error', error: account ? access.describeDenial(verdict) : '无法识别 WeLink 发送人' });
-            return;
+        if (channel === 'welink') {
+            const access = require('./welink-access');
+            const config = await require('./welink-config-repository').getConfig();
+            const verdict = access.checkInbound(config.access, { kind: conversation.kind, groupId: conversation.kind === 'group' ? conversation.id : '', senderAccount: String(account || '') });
+            if (!account || !verdict.allowed) {
+                onEvent({ type: 'error', error: account ? access.describeDenial(verdict) : '无法识别 WeLink 发送人' });
+                return;
+            }
         }
         // 仅在服务端桥接中授权，保留原频道归属；HTTP body 无法授予此身份。
         user.role = 'admin';
-        sessionId = await require('../ai-chat-repository').getOrCreateSession({ sessionId, owner: user.username, pagePath: '/channels/welink', pageTitle: 'WeLink 频道' });
+        sessionId = await require('../ai-chat-repository').getOrCreateSession({ sessionId, owner: user.username, pagePath: `/channels/${channel}`, pageTitle: `${CHANNEL_LABELS[channel] || channel} 频道` });
     }
     if (persist !== false && conversation && !signal?.aborted) {
         // 回复「确认 1234」/「取消」：执行或放弃上一轮挂起的操作（频道里显示不了审批卡）
@@ -171,7 +210,7 @@ async function runTurnInner({ channel, account, conversation, toolSessionId, tex
         path: '/chat',
         headers: {},
         user,
-        channelTurn: conversation ? { channel, conversation, toolSessionId: toolSessionId || '', actor: String(account || ''), fullAccess } : null,
+        channelTurn: conversation ? { channel, conversation, toolSessionId: toolSessionId || '', actor: String(account || ''), fullAccess, isSuperAdmin } : null,
         get: () => '',
         body: {
             messages: [{ role: 'user', content: String(text || '') }],

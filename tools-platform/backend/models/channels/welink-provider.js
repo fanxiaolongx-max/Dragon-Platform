@@ -8,6 +8,7 @@ const targetsRepo = require('./channel-targets-repository');
 const followupsRepo = require('./channel-followups-repository');
 const access = require('./welink-access');
 const dragonClawBridge = require('./dragon-claw-channel-bridge');
+const welinkSlashCommandsRepo = require('./welink-slash-commands-repository');
 
 const CHANNEL = 'welink';
 const SLASH_COMMANDS = [
@@ -117,7 +118,20 @@ class WeLinkProvider {
     async listSlashCommands() {
         return this.inTenant(async () => {
             const config = await this.configRepo.getConfig();
-            return { slashCommands: config.slashCommandsEnabled ? SLASH_COMMANDS.slice() : [] };
+            if (!config.slashCommandsEnabled) return { slashCommands: [] };
+            const custom = await welinkSlashCommandsRepo.listCommands().catch(() => []);
+            const customItems = custom
+                .filter(c => c.status === 'active')
+                .map(c => ({ command: `/${c.name}`, description: c.descZh || c.nameZh || c.name }));
+            const known = new Set(SLASH_COMMANDS.map(s => s.command));
+            const merged = [...SLASH_COMMANDS];
+            for (const item of customItems) {
+                if (!known.has(item.command)) {
+                    merged.push(item);
+                    known.add(item.command);
+                }
+            }
+            return { slashCommands: merged };
         });
     }
 
@@ -193,8 +207,9 @@ class WeLinkProvider {
             queue.push({ type: 'session.title', title: trimmed });
         }
         const command = trimmed.split(/\s+/)[0].toLowerCase();
-        if (config.slashCommandsEnabled && SLASH_COMMANDS.some(item => item.command === command)) {
-            const reply = await this.handleSlashCommand(command, { toolSessionId, conversation, stored });
+        const customCmd = command.startsWith('/') ? await welinkSlashCommandsRepo.getCommand(command.slice(1)).catch(() => null) : null;
+        if (config.slashCommandsEnabled && (SLASH_COMMANDS.some(item => item.command === command) || customCmd?.status === 'active')) {
+            const reply = await this.handleSlashCommand(command, { toolSessionId, conversation, stored, customCmd });
             queue.push({ type: 'text.done', messageId, partId, content: reply });
             queue.push({ type: 'message.done', messageId });
             await targetsRepo.logMessage(this.channel, { ...baseLog, direction: 'out', text: reply, status: 'ok', trigger: 'reply', source: command });
@@ -278,9 +293,27 @@ class WeLinkProvider {
         return `收到：「${text.slice(0, 200)}」\n\n当前助理为规则回复模式，管理员可在「全局设置 › 频道对接」切换为 Dragon Claw 智能回复。输入 /help 查看命令。`;
     }
 
-    async handleSlashCommand(command, { toolSessionId, conversation, stored }) {
+    async handleSlashCommand(command, { toolSessionId, conversation, stored, customCmd } = {}) {
+        if (customCmd) {
+            if (customCmd.type === 1 || customCmd.type === 2) {
+                const targetUrl = customCmd.url || 'http://127.0.0.1:5200';
+                return [
+                    `🚀 **${customCmd.nameZh || customCmd.name}**`,
+                    customCmd.descZh ? `${customCmd.descZh}\n` : '',
+                    `👉 点击访问: ${targetUrl}`
+                ].filter(Boolean).join('\n');
+            }
+            return [
+                `⚡ **${customCmd.nameZh || customCmd.name}** (本地 Python 斜杠命令)`,
+                customCmd.descZh ? `${customCmd.descZh}\n` : '',
+                `本命令为本地回调命令。请确保发布者电脑已运行 \`python -m ace serve --env prod\` 保持长连接在线。`
+            ].filter(Boolean).join('\n');
+        }
         if (command === '/help') {
-            return ['📖 可用命令：', ...SLASH_COMMANDS.map(item => `- \`${item.command}\` ${item.description}`), '', '直接发送文字即可与 Dragon Claw 对话，可询问平台工具、指标与报表数据。'].join('\n');
+            const custom = await welinkSlashCommandsRepo.listCommands().catch(() => []);
+            const customActive = custom.filter(c => c.status === 'active').map(c => `- \`/${c.name}\` ${c.descZh || c.nameZh}`);
+            const allItems = [...SLASH_COMMANDS.map(item => `- \`${item.command}\` ${item.description}`), ...customActive];
+            return ['📖 可用命令：', ...allItems, '', '直接发送文字即可与 Dragon Claw 对话，可询问平台工具、指标与报表数据。'].join('\n');
         }
         if (command === '/new') {
             await targetsRepo.bindAiSession(this.channel, toolSessionId, null);

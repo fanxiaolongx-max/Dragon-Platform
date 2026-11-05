@@ -697,9 +697,11 @@ async function handleChatRequest(req, res) {
         const currentView = !homeAgent && !channelTurn && req.body.currentView === true;
         const pageText = typeof context === 'string' ? context.slice(0, PAGE_CONTEXT_MAX_CHARS) : '';
         const streamRequested = stream === true;
-        const fullWeLink = channelTurn?.channel === 'welink' && channelTurn.fullAccess === true && req.user?.role === 'admin';
+        const isChannelSuperAdmin = Boolean(channelTurn?.isSuperAdmin);
+        const fullChannelAdmin = channelTurn && channelTurn.fullAccess === true && req.user?.role === 'admin';
+        const fullWeLink = (channelTurn?.channel === 'welink' && fullChannelAdmin) || isChannelSuperAdmin;
         if (homeAgent && streamRequested && fullWeLink) {
-            agentSession = agentRunManager.ensureWeLinkSession({ user: req.user, tenantId: getTenantId(), chatSessionId: sessionId });
+            agentSession = agentRunManager.ensureWeLinkSession({ user: req.user, tenantId: getTenantId(), chatSessionId: sessionId, isSuperAdmin: isChannelSuperAdmin });
         }
         // 工作区模式：用户选了本地目录，走工具调用循环（仅流式、仅本机/桌面/管理员）。
         if (homeAgent && streamRequested && workspace && workspace.root) {

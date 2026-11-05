@@ -11,6 +11,7 @@ const sdkLoader = require('../models/channels/welink-sdk-loader');
 const welinkCli = require('../models/channels/welink-cli-runner');
 const welinkCliAgent = require('../models/channels/welink-cli-agent');
 const welinkNetwork = require('../models/channels/welink-network');
+const welinkSlashCommandsRepo = require('../models/channels/welink-slash-commands-repository');
 const welink = require('../models/channels/welink-bridge-service');
 const weixin = require('../models/channels/weixin-bridge-service');
 const followupsRepo = require('../models/channels/channel-followups-repository');
@@ -131,11 +132,10 @@ router.get('/welink-cli/status', welinkCliAdmin, handle(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     const refresh = req.query.refresh === '1';
     const install = await welinkCli.detect({ refresh });
-    const payload = { config: welinkCli.readConfig(), install };
-    // 仅限内网：外网时不再去连 WeLink PC，由前端提示
-    if (install.available) payload.network = await welinkNetwork.checkIntranet({ refresh });
+    const network = await welinkNetwork.checkIntranet({ refresh });
+    const payload = { config: welinkCli.readConfig(), install, network };
     // auth status 要连本机 WeLink PC，可能要几秒，前端单独请求
-    if (install.available && payload.network.intranet && req.query.auth === '1') {
+    if (install.available && network.intranet && req.query.auth === '1') {
         try {
             payload.auth = await welinkCli.authStatus();
         } catch (error) {
@@ -175,6 +175,14 @@ router.post('/welink-cli/logout', welinkCliAdmin, handle(async (_req, res) => {
     res.json(await welinkCli.logout());
 }));
 
+router.post('/welink-cli/upgrade', welinkCliAdmin, handle(async (_req, res) => {
+    const network = await welinkNetwork.checkIntranet({ refresh: true });
+    if (!network.intranet) {
+        throw Object.assign(new Error('CLI 升级仓库位于华为内网（cmc.centralrepo.rnd.huawei.com），请连接公司内网或 VPN 后再试'), { code: 'WELINK_CLI_INTRANET_REQUIRED', status: 400 });
+    }
+    res.json(await welinkCli.upgrade());
+}));
+
 // 扫码登录：NDJSON 流式返回 CLI 输出的二维码链接与进度；页面关闭或取消即结束 CLI 进程。
 router.post('/welink-cli/login', welinkCliAdmin, async (req, res) => {
     const write = ndjson(res);
@@ -212,6 +220,34 @@ router.post(`/${CH}/test`, handle(async (req, res) => {
 
 router.get(`/${CH}/diagnostics`, requireAdmin, handle(async (req, res) => {
     res.json(await ch(req).service.getDiagnostics(getTenantId()));
+}));
+
+// ── WeLink 斜杠命令管理（测试版 / Beta，基于 assistant-command-executor）──
+router.get('/welink-slash-commands', requireAdmin, handle(async (req, res) => {
+    const commands = await welinkSlashCommandsRepo.listCommands();
+    const proto = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+    const host = req.get('host') || '127.0.0.1:5200';
+    const defaultUrl = `${proto}://${host}`;
+    const network = await welinkNetwork.checkIntranet({ refresh: false }).catch(() => ({ intranet: true }));
+    res.json({ commands, defaultUrl, network });
+}));
+
+router.post('/welink-slash-commands', requireAdmin, handle(async (req, res) => {
+    const saved = await welinkSlashCommandsRepo.saveCommand(req.body);
+    const scaffold = welinkSlashCommandsRepo.generateScaffold(saved);
+    res.json({ command: saved, scaffold, hint: '命令已保存并发布！WeLink 客户端网关通常需要 5~10 分钟刷新缓存后生效。' });
+}));
+
+router.delete('/welink-slash-commands/:name', requireAdmin, handle(async (req, res) => {
+    const result = await welinkSlashCommandsRepo.deleteCommand(req.params.name);
+    res.json({ ...result, name: req.params.name });
+}));
+
+router.get('/welink-slash-commands/:name/scaffold', requireAdmin, handle(async (req, res) => {
+    const cmd = await welinkSlashCommandsRepo.getCommand(req.params.name);
+    if (!cmd) throw Object.assign(new Error(`斜杠命令 ${req.params.name} 不存在`), { status: 404 });
+    const scaffold = welinkSlashCommandsRepo.generateScaffold(cmd);
+    res.json({ name: cmd.name, command: cmd, scaffold });
 }));
 
 function ndjson(res) {

@@ -32,6 +32,8 @@ const DEFAULT_CONFIG = {
         defaultTargets: [],
         allowUserPush: false
     },
+    // 超级管理员名单：拥有本单聊的完全访问与系统最高权限（含本地磁盘与命令），未填写时自动以 ownerUserId 为准
+    superAdmins: [],
     followup: { enabled: true, calendar: { ...followupSchedule.DEFAULT_CALENDAR } },
     updatedAt: null
 };
@@ -70,6 +72,7 @@ function normalizeConfig(input = {}) {
             defaultTargets: welinkConfig.normalizeTargets(push.defaultTargets),
             allowUserPush: push.allowUserPush === true
         },
+        superAdmins: welinkConfig.normalizeIdList(base.superAdmins),
         followup: {
             enabled: (input.followup || {}).enabled !== false,
             calendar: followupSchedule.normalizeCalendar((input.followup || {}).calendar || {})

@@ -571,7 +571,10 @@
             checking: false,
             status: null,
             login: null,
-            controller: null
+            controller: null,
+            upgrading: false,
+            upgradeSuccess: '',
+            upgradeError: ''
         },
         weixin: {
             checking: false,
@@ -944,7 +947,7 @@
         }
         if (wb.qr?.type === 'qrcode_generated' || wb.qr?.type === 'scanned') {
             const scanned = wb.qr.type === 'scanned';
-            return `
+            return `<div class="v2-scan-qr-content">
                 ${renderScanQrBox(qrSvg() || '<span class="v2-scan-loading"></span>')}
                 <div class="v2-scan-hint-lead">${esc(scanned ? '已扫码，请在手机 WeLink 上确认授权' : t('scanWaitWelinkBot', '请使用手机 WeLink 扫码并确认授权'))}</div>
                 <div class="v2-scan-hint-sub">Channel ${esc(wb.status?.channelName || 'GDEClaw')} · 确认后自动填入 AK/SK 并连接</div>
@@ -955,7 +958,8 @@
                 <div class="v2-scan-actions">
                     <button type="button" class="v2-pop-item" data-scan-action="relogin-welinkbot">${esc(t('scanRelogin', '刷新二维码'))}</button>
                     ${settingsBtn}
-                </div>`;
+                </div>
+            </div>`;
         }
         if (wb.qr?.type === 'confirmed') {
             return `<div class="v2-scan-connected">
@@ -1017,6 +1021,29 @@
         loadWelinkStatus({ autoLogin: false });
     }
 
+    function renderCliBar() {
+        const w = scan.welink;
+        if (w.status?.network?.intranet === false) {
+            return `<div class="v2-scan-cli-bar" style="justify-content:center;color:var(--v2-ink3)">
+                <span>🔒 WeLink 个人身份与升级仅限华为内网使用</span>
+            </div>`;
+        }
+        if (w.upgrading) {
+            return `<div class="v2-scan-cli-bar is-busy"><span class="v2-scan-dot"></span><span>正在执行 npm 升级 (约 15~30 秒)…</span></div>`;
+        }
+        if (w.upgradeSuccess) {
+            return `<div class="v2-scan-cli-bar is-success"><span>✅ ${esc(w.upgradeSuccess)}</span></div>`;
+        }
+        if (w.upgradeError) {
+            return `<div class="v2-scan-cli-bar is-error" title="${esc(w.upgradeError)}"><span>⚠️ ${esc(w.upgradeError.slice(0, 22))}</span><button type="button" class="v2-scan-upgrade-btn" data-scan-action="upgrade-welink-cli">重试</button></div>`;
+        }
+        const ver = w.status?.install?.version;
+        return `<div class="v2-scan-cli-bar">
+            <span class="v2-scan-cli-ver">welink-cli ${esc(ver ? 'v' + ver : '未检测到')}</span>
+            <button type="button" class="v2-scan-upgrade-btn" data-scan-action="upgrade-welink-cli" ${w.status?.install?.unsupported ? 'disabled title="仅支持 Windows 系统"' : ''}>🔄 更新 CLI</button>
+        </div>`;
+    }
+
     function renderScan() {
         if (scan.weixinDisabled && scan.tab === 'weixin') {
             scan.tab = 'welink';
@@ -1041,20 +1068,20 @@
                         <button type="button" class="v2-pop-item" data-scan-action="open-channel-settings">${esc(t('scanChannelSettings', '频道设置'))}</button>
                     </div>
                 </div>`;
+            } else if (w.status?.network?.intranet === false) {
+                body = `<div class="v2-scan-connected">
+                    <div class="v2-scan-connected-icon">🌐</div>
+                    <div class="v2-scan-connected-title">${esc(t('scanIntranetOnly', '仅限内网使用'))}</div>
+                    <div class="v2-scan-connected-meta">${esc(t('scanIntranetHint', 'WeLink 个人身份与 CLI 升级仅限华为内网使用。当前网络无法访问 WeLink 内网服务，请连接公司内网或 VPN 后重新检测。'))}</div>
+                    <div class="v2-scan-actions">
+                        <button type="button" class="v2-account-btn is-primary" data-scan-action="recheck-welink">${esc(t('scanRecheck', '重新检测'))}</button>
+                    </div>
+                </div>`;
             } else if (w.status?.install?.unsupported) {
                 body = `<div class="v2-scan-connected">
                     <div class="v2-scan-connected-icon">🪟</div>
                     <div class="v2-scan-connected-title">${esc(t('scanWindowsOnly', '仅支持 Windows'))}</div>
                     <div class="v2-scan-connected-meta">${esc(t('scanWindowsHint', '内置的 welink-cli 只能在 Windows 上运行，并需要本机登录 WeLink PC。'))}</div>
-                </div>`;
-            } else if (w.status?.network?.intranet === false) {
-                body = `<div class="v2-scan-connected">
-                    <div class="v2-scan-connected-icon">🌐</div>
-                    <div class="v2-scan-connected-title">${esc(t('scanIntranetOnly', '仅限内网使用'))}</div>
-                    <div class="v2-scan-connected-meta">${esc(t('scanIntranetHint', 'WeLink 个人身份仅限华为内网使用。当前网络无法访问 WeLink 内网服务，请连接公司内网或 VPN 后重新检测。'))}</div>
-                    <div class="v2-scan-actions">
-                        <button type="button" class="v2-account-btn is-primary" data-scan-action="recheck-welink" style="margin-top:6px">${esc(t('scanRecheck', '重新检测'))}</button>
-                    </div>
                 </div>`;
             } else if (w.status?.install && !w.status.install.available) {
                 body = `<div class="v2-scan-connected">
@@ -1085,7 +1112,7 @@
                     try { qrImage = window.ToolsQrCode.toSvg(w.login.qrText, { scale: 4, border: 2 }); } catch (_) {}
                 }
                 const isPulse = w.login.statusText?.includes('已扫码');
-                body = `
+                body = `<div class="v2-scan-qr-content">
                     ${renderScanQrBox(qrImage || '<span class="v2-scan-loading"></span>')}
                     <div class="v2-scan-hint-lead">${esc(t('scanWaitWeLink', '请使用手机 WeLink 扫码登录'))}</div>
                     <div class="v2-scan-hint-sub">确认后凭据安全缓存在本机，供 Dragon Claw 协同办公</div>
@@ -1096,7 +1123,8 @@
                     <div class="v2-scan-actions">
                         <button type="button" class="v2-pop-item" data-scan-action="relogin-welink">${esc(t('scanRelogin', '刷新二维码'))}</button>
                         <button type="button" class="v2-pop-item" data-scan-action="open-channel-settings">${esc(t('scanChannelSettings', '频道设置'))}</button>
-                    </div>`;
+                    </div>
+                </div>`;
             } else if (w.login && w.login.phase === 'done') {
                 body = `<div class="v2-scan-connected">
                     <div class="v2-scan-connected-icon">✅</div>
@@ -1115,6 +1143,7 @@
             } else {
                 body = renderScanRing(w.login?.statusText || t('scanConnecting', '正在连接 WeLink PC…'), '请确保本机 WeLink 客户端处于运行登录状态');
             }
+            body = `${body}${renderCliBar()}`;
         } else if (scan.tab === 'welinkbot') {
             body = renderWelinkBot();
         } else {
@@ -1148,7 +1177,7 @@
                 if (qrVal && window.ToolsQrCode) {
                     try { qrImage = window.ToolsQrCode.toSvg(qrVal, { scale: 4, border: 2 }); } catch (_) {}
                 }
-                body = `
+                body = `<div class="v2-scan-qr-content">
                     ${renderScanQrBox(qrImage || '<span class="v2-scan-loading"></span>')}
                     <div class="v2-scan-hint-lead">${esc(t('scanWaitWeixin', '请使用手机微信扫码并确认'))}</div>
                     <div class="v2-scan-hint-sub">通过微信 ClawBot 接入个人微信助理</div>
@@ -1159,17 +1188,19 @@
                     <div class="v2-scan-actions">
                         <button type="button" class="v2-pop-item" data-scan-action="relogin-weixin">${esc(t('scanRelogin', '刷新二维码'))}</button>
                         <button type="button" class="v2-pop-item" data-scan-action="open-channel-settings">${esc(t('scanChannelSettings', '频道设置'))}</button>
-                    </div>`;
+                    </div>
+                </div>`;
             } else if (wx.qr && wx.qr.type === 'scanned') {
                 const qrVal = wx.qr.display?.weUrl || wx.qr.display?.qrcode || wx.qr.qrcode;
                 let qrImage = qrVal && window.ToolsQrCode ? window.ToolsQrCode.toSvg(qrVal, { scale: 4, border: 2 }) : '';
-                body = `
+                body = `<div class="v2-scan-qr-content">
                     ${renderScanQrBox(qrImage || '<span class="v2-scan-loading"></span>')}
                     <div class="v2-scan-hint-lead">已扫码，请在手机微信上点击确认</div>
                     <div class="v2-scan-status-pill is-pulsing">
                         <span class="v2-scan-dot"></span>
                         <span>手机已扫码，正在等待确认授权…</span>
-                    </div>`;
+                    </div>
+                </div>`;
             } else if (wx.qr && wx.qr.type === 'need_verifycode') {
                 body = `
                     <div class="v2-scan-verify-box">
@@ -1199,7 +1230,7 @@
             }
         }
 
-        scan.pop.innerHTML = `${tabs}${body}`;
+        scan.pop.innerHTML = `${tabs}<div class="v2-scan-body">${body}</div>`;
         fillIcons(scan.pop);
     }
 
@@ -1220,6 +1251,47 @@
         const actionBtn = event.target.closest('[data-scan-action]');
         if (!actionBtn) return;
         const act = actionBtn.dataset.scanAction;
+        if (act === 'upgrade-welink-cli') {
+            const w = scan.welink;
+            if (w.upgrading) return;
+            if (w.status?.network?.intranet === false) {
+                w.upgradeError = '升级仓库位于华为内网，请连接内网或 VPN 后再试';
+                renderScan();
+                setTimeout(() => { if (w.upgradeError) { w.upgradeError = ''; renderScan(); } }, 6000);
+                return;
+            }
+            if (w.status?.install?.unsupported) {
+                w.upgradeError = 'welink-cli 仅支持 Windows 系统';
+                renderScan();
+                setTimeout(() => { if (w.upgradeError) { w.upgradeError = ''; renderScan(); } }, 6000);
+                return;
+            }
+            w.upgrading = true;
+            w.upgradeSuccess = '';
+            w.upgradeError = '';
+            renderScan();
+            fetch('/api/channels/welink-cli/upgrade', { method: 'POST', headers: scanHeaders(true) })
+                .then(async res => {
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+                    return data;
+                })
+                .then(data => {
+                    w.upgrading = false;
+                    const newVer = data.version || '';
+                    w.upgradeSuccess = `已更新至 v${newVer}`;
+                    if (w.status?.install) w.status.install.version = newVer;
+                    renderScan();
+                    setTimeout(() => { if (w.upgradeSuccess) { w.upgradeSuccess = ''; renderScan(); } }, 5000);
+                })
+                .catch(err => {
+                    w.upgrading = false;
+                    w.upgradeError = err.message || '更新失败';
+                    renderScan();
+                    setTimeout(() => { if (w.upgradeError) { w.upgradeError = ''; renderScan(); } }, 8000);
+                });
+            return;
+        }
         if (act === 'switch-to-welink') {
             scan.abortAll();
             scan.tab = 'welink';
@@ -1249,12 +1321,14 @@
 
     let scanHoverTimer = 0;
     let scanCloseTimer = 0;
+    let scanPinned = false; // 用户点击了卡片内任意位置（切换标签、输入、点击操作等）后锁定，不再随鼠标移出而自动消失
     const scanBtn = $('v2ScanBtn');
 
     async function openScan(anchor = scanBtn) {
         clearTimeout(scanHoverTimer);
         clearTimeout(scanCloseTimer);
         if (openPop?.pop === scan.pop) return;
+        scanPinned = false;
         renderScan();
         showPop(scan.pop, anchor, 'up');
         await ensureQrLib().catch(() => {});
@@ -1263,7 +1337,7 @@
     }
 
     if (scanBtn) {
-        // 方案 B：增加 320ms 悬停防抖，快速划过直接忽略；鼠标移开 260ms 后若未进入弹窗则自动收起
+        // 增加 320ms 悬停防抖，快速划过直接忽略；若未固定，鼠标移开 3500ms 后自动收起
         scanBtn.addEventListener('mouseenter', () => {
             clearTimeout(scanCloseTimer);
             clearTimeout(scanHoverTimer);
@@ -1273,13 +1347,13 @@
         });
         scanBtn.addEventListener('mouseleave', () => {
             clearTimeout(scanHoverTimer);
-            if (openPop?.pop === scan.pop) {
+            if (openPop?.pop === scan.pop && !scanPinned) {
                 scanCloseTimer = setTimeout(() => {
-                    if (openPop?.pop === scan.pop) closePop();
-                }, 260);
+                    if (openPop?.pop === scan.pop && !scanPinned) closePop();
+                }, 3500);
             }
         });
-        // 点击支持 Toggle：已展开时点击立即收起，未展开时点击立即打开
+        // 点击按钮支持 Toggle：已展开时点击立即收起，未展开时点击立即打开并常驻
         scanBtn.addEventListener('click', () => {
             clearTimeout(scanHoverTimer);
             clearTimeout(scanCloseTimer);
@@ -1287,20 +1361,27 @@
                 closePop();
             } else {
                 openScan(scanBtn);
+                scanPinned = true;
             }
         });
     }
 
-    // 鼠标进入扫码面板时保持打开，移出面板后延时自动收起
+    // 用户在卡片内任意位置发生点击时，立即设为常驻，杜绝移出误关闭
+    scan.pop.addEventListener('click', () => {
+        scanPinned = true;
+        clearTimeout(scanCloseTimer);
+    });
+
+    // 鼠标进入扫码面板时保持打开，移出面板后若未常驻则延时 3.5s 自动收起
     scan.pop.addEventListener('mouseenter', () => {
         clearTimeout(scanCloseTimer);
     });
     scan.pop.addEventListener('mouseleave', () => {
         clearTimeout(scanCloseTimer);
-        if (openPop?.pop === scan.pop) {
+        if (openPop?.pop === scan.pop && !scanPinned) {
             scanCloseTimer = setTimeout(() => {
-                if (openPop?.pop === scan.pop) closePop();
-            }, 260);
+                if (openPop?.pop === scan.pop && !scanPinned) closePop();
+            }, 3500);
         }
     });
 

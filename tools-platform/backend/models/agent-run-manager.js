@@ -82,14 +82,18 @@ function ensureScratchSession({ user, tenantId, chatSessionId }) {
     return session;
 }
 
-/** WeLink SDK 专用工作区：租户/会话归属隔离，文件跨 /new 保留，工具转录按聊天会话隔离。 */
-function ensureWeLinkSession({ user, tenantId, chatSessionId }) {
+/** WeLink / 微信等频道工作区：群聊隔离沙箱，单聊/超级管理员直接映射主机用户目录或专属工作区 */
+function ensureWeLinkSession({ user, tenantId, chatSessionId, isSuperAdmin = false }) {
     const owner = ownerKey(user, tenantId);
     const hash = value => crypto.createHash('sha256').update(value).digest('hex').slice(0, 32);
-    const root = path.join(require('./tenant-context').getDataDir(tenantId), 'channel-workspaces', 'welink-sdk', hash(owner));
+    // 超级管理员私聊：直接以用户家目录为工作区根目录，拥有最高主机访问权限；群聊和其他同事则隔离在沙箱工作区
+    const root = isSuperAdmin
+        ? require('os').homedir()
+        : path.join(require('./tenant-context').getDataDir(tenantId), 'channel-workspaces', 'welink-sdk', hash(owner));
     fs.mkdirSync(root, { recursive: true });
     const session = ensureSession({ agentSessionId: `welink-${hash(`${owner}\n${chatSessionId}`)}`, user, tenantId, root, permissionMode: 'full' });
-    session.unattended = true; // 频道里没有人能点审批卡：危险类别直接不执行
+    session.unattended = !isSuperAdmin; // 超级管理员私聊豁免无人值守阻断，直接自主完全执行；群聊/普通同事无人审批直接不执行
+    session.isSuperAdmin = Boolean(isSuperAdmin);
     return session;
 }
 
@@ -384,6 +388,8 @@ function classifyDecision(session, toolName, args = null, kind = toolsService.ki
     if (!kind) return 'deny';
     if (kind === 'read') return 'allow';
     if (session.readOnly) return 'readonly';
+    // 超级管理员单聊：已豁免无人值守限制，且完全访问模式下跨目录或高风险操作自主完全执行，不再阻断
+    if (session.isSuperAdmin && session.permissionMode === 'full') return 'allow';
     // 危险类别在任何模式下都要审批（包括完全访问），除非用户已选择不再询问；无人值守的对话直接不执行
     if (dangerHits(session, toolName, args).length) return session.unattended ? 'unattended' : 'ask';
     // 每次都要用户确认的操作（如保存技能）：完全访问也询问，可选本对话不再询问

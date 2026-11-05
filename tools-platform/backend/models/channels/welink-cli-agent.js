@@ -28,6 +28,7 @@ const COMMANDS = {
     'search group': { label: '搜索群组', options: { text: { type: 'string', required: true }, 'page-size': { type: 'int', min: 1, max: 50 }, type: { type: 'int', min: 0, max: 2 } } },
     'contact detail': { label: '查询用户详情', positional: { name: 'accounts', required: true }, options: {} },
     'contact favorite_list': { label: '特别关注列表', options: { pageIndex: { type: 'int', min: 1, max: 10000 }, pageSize: { type: 'int', min: 1, max: 50 } } },
+    'openplatform aksk-get': { label: '获取开放平台凭据', options: {} },
     'im query-recent-conversation': { label: '最近会话', options: { count: { type: 'int', min: 1, max: 100 } } },
     'im query-group-member': { label: '群成员', options: { 'group-id': { type: 'string', required: true } } },
     'im query-history-message': {
@@ -99,7 +100,15 @@ const COMMANDS = {
     'im send-to-group': {
         label: '发消息到群', write: true, impact: '群里所有人会立即收到，以你本人名义发送',
         atLeastOne: ['text', 'image', 'file'],
-        options: { 'group-id': { type: 'string', required: true }, text: { type: 'text', max: 5000 }, image: { type: 'file' }, file: { type: 'file' } }
+        options: {
+            'group-id': { type: 'string', required: true },
+            text: { type: 'text', max: 5000 },
+            image: { type: 'file' },
+            file: { type: 'file' },
+            atAll: { type: 'bool' },
+            atuserList: { type: 'comma-list' },
+            en: { type: 'bool' }
+        }
     },
     'im create-group': {
         label: '创建群组', write: true, impact: '新建群并拉入成员，成员会收到通知',
@@ -189,11 +198,17 @@ const OPTION_LABELS = {
     'topic-id': '议题 ID', 'topic-name': '议题名称', 'topic-category': '议题分类', 'topic-member-list': '汇报人', 'space-id': '空间 ID', 'file-id': '文件 ID',
     parent: '父文件夹 ID', 'dest-parent': '目标文件夹 ID', 'dest-space-id': '目标空间 ID', 'folder-id': '文件夹 ID', role: '外链权限',
     'set-plain-access-code': '设置提取码', 'unset-plain-access-code': '取消提取码', to: '收件人', cc: '抄送', bcc: '密送', body: '正文', html: 'HTML 正文',
-    attachment: '附件', 'item-id': '邮件 ID', start: '开始', end: '结束', location: '地点', attendee: '参会人', reminder: '提前提醒（分钟）', accounts: '账号'
+    attachment: '附件', 'item-id': '邮件 ID', start: '开始', end: '结束', location: '地点', attendee: '参会人', reminder: '提前提醒（分钟）', accounts: '账号',
+    atAll: '@所有人', atuserList: '@指定成员', en: '使用英文名@'
 };
 
 // 参数别名映射：解决不同命令同一概念参数名不一致问题（如 parent 与 folder-id）
 const COMMAND_OPTION_ALIASES = {
+    'im send-to-group': {
+        'at-all': 'atAll', at_all: 'atAll', atall: 'atAll',
+        'at-user-list': 'atuserList', at_user_list: 'atuserList', atuserlist: 'atuserList', atUserList: 'atuserList',
+        'at-users': 'atuserList', at_users: 'atuserList', atusers: 'atuserList', atUsers: 'atuserList'
+    },
     'onebox file-upload': { 'folder-id': 'parent', folderid: 'parent' },
     'onebox folder-new': { 'folder-id': 'parent', folderid: 'parent' },
     'onebox folder-rename': { parent: 'folder-id' },
@@ -276,6 +291,12 @@ function formatValue(name, spec, value, { root = null } = {}) {
         if (!items.length) throw toolError('WELINK_ARG_INVALID', `参数 ${name} 至少需要一个邮箱`);
         if (items.length > MAX_LIST_ITEMS) throw toolError('WELINK_ARG_INVALID', `参数 ${name} 最多 ${MAX_LIST_ITEMS} 个`);
         items.forEach(item => { if (!/^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(item)) throw toolError('WELINK_ARG_INVALID', `参数 ${name} 里的 ${item} 不是有效邮箱`); });
+        return items.join(',');
+    }
+    if (spec.type === 'comma-list') {
+        const items = splitValues(value);
+        if (!items.length) throw toolError('WELINK_ARG_INVALID', `参数 ${name} 至少需要一个值`);
+        if (items.length > MAX_LIST_ITEMS) throw toolError('WELINK_ARG_INVALID', `参数 ${name} 最多 ${MAX_LIST_ITEMS} 个`);
         return items.join(',');
     }
     if (spec.type === 'file') return checkFile(name, value, { root });

@@ -537,7 +537,7 @@
     "guide": "## 能做什么\n- 按月生成排名\n\n## 什么时候用\n- 每个月要把站点指标整理成报表发给领导\n- 想知道哪个客户群拖了后腿\n\n## 怎么用\n1. 打开报表看板\n\n## 工作原理\n读取入库的快照\n\n## 注意事项\n无",
     "source_hash": "b14ade5604f5f8cfe65ec860",
     "model": "mock-guide",
-    "generated_at": "2026-11-05 20:15:07"
+    "generated_at": "2026-11-05 22:39:36"
   },
   "page:/requirements": {
     "tool_id": "page:/requirements",

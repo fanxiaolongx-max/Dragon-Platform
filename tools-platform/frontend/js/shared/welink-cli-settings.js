@@ -285,6 +285,7 @@
             <div class="nch-row">
                 <button type="button" class="nch-btn primary" data-cli-action="login" ${!install.available || extranet || loginRunning || busy || install.unsupported ? 'disabled' : ''}>📱 ${esc(loginRunning ? L('等待扫码…', 'Waiting for scan…') : L('扫码登录', 'Sign in with QR'))}</button>
                 <button type="button" class="nch-btn" data-cli-action="recheck" ${busy || loginRunning ? 'disabled' : ''}>${esc(busy === 'recheck' ? L('检测中…', 'Checking…') : L('重新检测', 'Re-detect'))}</button>
+                <button type="button" class="nch-btn" data-cli-action="upgrade-cli" ${busy || loginRunning || install.unsupported ? 'disabled' : ''}>🔄 ${esc(busy === 'upgrade-cli' ? L('升级中…', 'Upgrading…') : L('更新 CLI', 'Upgrade CLI'))}</button>
                 <button type="button" class="nch-btn" data-cli-action="save-path" ${busy || loginRunning || install.unsupported ? 'disabled' : ''}>${esc(L('保存路径', 'Save paths'))}</button>
                 ${install.available && state.auth?.loggedIn !== false ? `<button type="button" class="nch-btn danger" data-cli-action="logout" ${busy || loginRunning ? 'disabled' : ''}>${esc(L('注销', 'Sign out'))}</button>` : ''}
             </div>
@@ -316,6 +317,7 @@
         } else if (action === 'login') startLogin();
         else if (action === 'login-cancel') cancelLogin();
         else if (action === 'recheck') runAction('recheck', async () => { await load({ refresh: true }); });
+        else if (action === 'upgrade-cli') runAction('upgrade-cli', async () => { const res = await request('POST', '/upgrade'); state.notice = { kind: 'ok', text: L(`welink-cli 已成功更新至 v${res.version || ''}`, `welink-cli upgraded to v${res.version || ''}`) }; await load({ refresh: true }); });
         else if (action === 'save-path') runAction('save-path', async () => { await saveConfig({ cliPath: state.draftPath ?? state.config?.cliPath ?? '', downloadDir: state.draftDownload ?? state.config?.downloadDir ?? '' }); if (state.install?.available) loadAuth(); });
         else if (action === 'logout') {
             const confirmed = window.AppDialog

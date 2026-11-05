@@ -58,14 +58,19 @@ app.whenReady().then(async () => {
     // 宽屏模式：账号菜单里的开关，打开后对话列变宽、记在本浏览器，菜单保持打开便于来回切换
     await evaluate(`localStorage.removeItem('tools_home_wide');document.documentElement.classList.remove('v2-wide');document.body.classList.add('dc-chatting');v2UserBtn.click();true`);
     const narrow = await evaluate(`parseFloat(getComputedStyle(document.querySelector('.dc')).getPropertyValue('--dc-col'))||getComputedStyle(document.querySelector('.dc')).getPropertyValue('--dc-col')`);
+    assert.match(String(narrow), /960px/, 'default non-wide column is relaxed to 960px; was ' + narrow);
     assert.equal(await evaluate(`document.querySelector('.v2-account [data-v2-do="wide"]').getAttribute('aria-checked')`),'false');
     await evaluate(`document.querySelector('.v2-account [data-v2-do="wide"]').click();true`);await wait(50);
     assert.equal(await evaluate(`document.documentElement.classList.contains('v2-wide')&&localStorage.getItem('tools_home_wide')==='1'`),true,'wide mode is applied and remembered');
     assert.equal(await evaluate(`document.querySelector('.v2-account').classList.contains('is-open')&&document.querySelector('.v2-account [data-v2-do="wide"]').getAttribute('aria-checked')`),'true','menu stays open showing the switch on');
     assert.match(await evaluate(`getComputedStyle(document.querySelector('.dc')).getPropertyValue('--dc-col')`),/1320px/,'wide mode widens the chat column; was '+narrow);
+    // 欢迎页（非会话中）同样生效，且在 1440-1599 常见笔记本分辨率下不被覆盖
+    await evaluate(`document.body.classList.remove('dc-chatting');true`);
+    assert.match(await evaluate(`getComputedStyle(document.querySelector('.dc')).getPropertyValue('--dc-col')`),/1320px/,'wide mode widens home welcome column as well');
     await evaluate(`document.querySelector('.v2-account [data-v2-do="wide"]').click();true`);await wait(50);
     assert.equal(await evaluate(`!document.documentElement.classList.contains('v2-wide')&&localStorage.getItem('tools_home_wide')==='0'`),true,'wide mode turns back off');
-    await evaluate(`HomeV2.closePop();document.body.classList.remove('dc-chatting');true`);
+    assert.match(await evaluate(`getComputedStyle(document.querySelector('.dc')).getPropertyValue('--dc-col')`),/960px/,'non-wide home column returns to 960px');
+    await evaluate(`HomeV2.closePop();true`);
     await win.webContents.debugger.attach('1.3');
     await win.webContents.debugger.sendCommand('Emulation.setFocusEmulationEnabled',{enabled:true});
     await evaluate(`new Promise(resolve=>{const f=document.createElement('iframe');f.id='outsideMenuFrame';f.style.cssText='position:fixed;right:20px;top:120px;width:240px;height:120px;z-index:100';f.srcdoc='<button style="width:200px;height:80px">Embedded tool</button>';f.onload=resolve;document.body.append(f)})`);

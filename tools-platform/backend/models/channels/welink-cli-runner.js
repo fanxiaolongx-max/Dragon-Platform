@@ -564,6 +564,41 @@ function login({ env, onEvent = () => {}, signal } = {}) {
     });
 }
 
+const welinkNetwork = require('./welink-network');
+
+async function upgrade({ timeoutMs = 180000 } = {}) {
+    assertTenant();
+    if (overrides.upgrade) return overrides.upgrade();
+    if (isMacDesktop()) {
+        throw cliError('WELINK_CLI_UNSUPPORTED', UNSUPPORTED_PLATFORM_HINT, 400);
+    }
+    const network = await welinkNetwork.checkIntranet({ refresh: true });
+    if (!network.intranet) {
+        throw cliError('WELINK_CLI_INTRANET_REQUIRED', 'CLI 升级仓库位于华为内网（cmc.centralrepo.rnd.huawei.com），请连接公司内网或 VPN 后再试', 400);
+    }
+    const registry = 'https://cmc.centralrepo.rnd.huawei.com/artifactory/api/npm/product_npm/';
+    const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+    const args = ['install', '-g', PACKAGE_NAME, `--registry=${registry}`, '--strict-ssl=false'];
+    return new Promise((resolve, reject) => {
+        execFile(npmCmd, args, { timeout: timeoutMs, windowsHide: true, shell: process.platform === 'win32' }, async (error, stdout, stderr) => {
+            clearCache();
+            if (error) {
+                return reject(cliError('WELINK_CLI_UPGRADE_FAILED', `升级失败：${error.message || ''}\n${stderr || stdout || ''}`.trim(), 500));
+            }
+            try {
+                const install = await detect({ refresh: true });
+                let ver = install?.version;
+                if (!ver && install?.available) {
+                    try { ver = await version(); } catch (_) {}
+                }
+                resolve({ ok: true, version: ver || '', stdout: String(stdout || ''), stderr: String(stderr || '') });
+            } catch (_ignored) {
+                resolve({ ok: true, version: '', stdout: String(stdout || ''), stderr: String(stderr || '') });
+            }
+        });
+    });
+}
+
 function reset() {
     clearCache();
 }
@@ -579,7 +614,7 @@ function setOverridesForTest(next = {}) {
 module.exports = {
     PACKAGE_NAME, COMMAND_TIMEOUT_MS,
     readConfig, saveConfig, downloadDir, tenantAllowed, assertTenant,
-    detect, reset, run, version, authStatus, logout, autodiscover, login, logs, clearLogs,
+    detect, reset, run, version, authStatus, logout, autodiscover, login, logs, clearLogs, upgrade,
     parseOutput, interpretAuthStatus, classifyLoginLine, entryFromCmdShim, entryFromCustomPath,
     setOverridesForTest, getOverridesForTest: () => overrides, isMacDesktop
 };

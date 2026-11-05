@@ -437,3 +437,26 @@ test('onebox file-upload supports folder-id alias, relative path, and defaults d
 
     fs.rmSync(root, { recursive: true, force: true });
 });
+
+test('im send-to-group supports --atAll, --atuserList and --en', () => {
+    const builtAll = agent.buildArgs({
+        command: 'im send-to-group',
+        options: { 'group-id': 'group001', text: '全员注意', atAll: true }
+    }, { mode: 'write' });
+    assert.deepEqual(builtAll.args, ['im', 'send-to-group', '--group-id', 'group001', '--text', '全员注意', '--atAll']);
+
+    const builtUsers = agent.buildArgs({
+        command: 'im send-to-group',
+        options: { 'group-id': 'group001', text: '请确认', atuserList: ['a0012345', 'a0023456'], en: true }
+    }, { mode: 'write' });
+    assert.deepEqual(builtUsers.args, ['im', 'send-to-group', '--group-id', 'group001', '--text', '请确认', '--atuserList', 'a0012345,a0023456', '--en']);
+});
+
+test('runner upgrade executes update and reports newly installed version', async () => {
+    runner.setOverridesForTest({
+        upgrade: async () => ({ ok: true, version: '1.0.20' })
+    });
+    const res = await inDefault(() => runner.upgrade());
+    assert.equal(res.ok, true);
+    assert.equal(res.version, '1.0.20');
+});
