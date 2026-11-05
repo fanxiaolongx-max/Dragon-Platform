@@ -357,10 +357,26 @@ html[data-ui="v2"] #homeSidebarShortcuts .home-f12-download:hover { background: 
 html[data-ui="v2"] #homeSidebarShortcuts [role="status"] { color: var(--v2-ink2) !important; padding: 4px 10px; }
 
 /* ══════════════════════════════════════════════════════════════
-   亮色主题专项优化：子智能体、工具卡片、表格、会话任务与连接器
+   对话内容：子智能体、工具调用、任务清单与表格
    ══════════════════════════════════════════════════════════════ */
 
-/* 1. 子智能体卡片（task 工具）：浅色下通透、优雅、对比鲜明 */
+html[data-ui="v2"][data-theme="dark"] {
+    --dc-content-bg: var(--v2-bg);
+    --dc-content-raised: var(--v2-side);
+    --dc-content-hover: var(--v2-hover);
+    --dc-content-line-strong: var(--v2-line-strong);
+    --dc-sub-color-weight: 55%;
+    --dc-sub-color-base: var(--v2-ink);
+    --dc-status-running: #93c5fd;
+    --dc-status-success: #6ee7b7;
+    --dc-status-error: #fda4af;
+    --dc-tool-running-bg: color-mix(in srgb, var(--dc-status-running) 12%, var(--dc-content-bg));
+    --dc-tool-running-border: color-mix(in srgb, var(--dc-status-running) 32%, var(--dc-content-bg));
+    --dc-tool-error-bg: color-mix(in srgb, var(--dc-status-error) 12%, var(--dc-content-bg));
+    --dc-tool-error-border: color-mix(in srgb, var(--dc-status-error) 32%, var(--dc-content-bg));
+}
+
+/* 1. 子智能体卡片（task 工具） */
 .dc-sub-group,
 html[data-ui="v2"] .dc-sub-group {
     display: grid;
@@ -368,7 +384,7 @@ html[data-ui="v2"] .dc-sub-group {
     padding: 10px 12px;
     border: 1px solid var(--v2-line, #e5e7eb) !important;
     border-radius: 14px !important;
-    background: #f8fafc !important;
+    background: var(--dc-content-raised, #f8fafc) !important;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03) !important;
 }
 .dc-sub-group-head,
@@ -391,14 +407,14 @@ html[data-ui="v2"] .dc-sub-group-state::before {
 }
 .dc-sub-group.is-running .dc-sub-group-state,
 html[data-ui="v2"] .dc-sub-group.is-running .dc-sub-group-state {
-    color: #0284c7 !important;
+    color: var(--dc-status-running, #0284c7) !important;
     font-weight: 500;
 }
 .dc-sub,
 html[data-ui="v2"] .dc-sub {
     border: 1px solid color-mix(in srgb, var(--sub, #3b82f6) 24%, var(--v2-line, #e2e8f0)) !important;
     border-radius: 12px !important;
-    background: #ffffff !important;
+    background: var(--dc-content-bg, #ffffff) !important;
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04) !important;
 }
 .dc-sub::before,
@@ -409,12 +425,12 @@ html[data-ui="v2"] .dc-sub::before {
 }
 .dc-sub-avatar,
 html[data-ui="v2"] .dc-sub-avatar {
-    background: color-mix(in srgb, var(--sub, #3b82f6) 12%, #ffffff) !important;
+    background: color-mix(in srgb, var(--sub, #3b82f6) 12%, var(--dc-content-bg, #ffffff)) !important;
     border: 1px solid color-mix(in srgb, var(--sub, #3b82f6) 35%, transparent) !important;
 }
 .dc-sub-name,
 html[data-ui="v2"] .dc-sub-name {
-    color: color-mix(in srgb, var(--sub, #2563eb) 85%, #0f172a) !important;
+    color: color-mix(in srgb, var(--sub, #2563eb) var(--dc-sub-color-weight, 85%), var(--dc-sub-color-base, #0f172a)) !important;
     font-size: 13px !important;
     font-weight: 700 !important;
 }
@@ -431,12 +447,12 @@ html[data-ui="v2"] .dc-sub-stats {
 }
 .dc-sub.is-done .dc-sub-status,
 html[data-ui="v2"] .dc-sub.is-done .dc-sub-status {
-    color: #059669 !important;
+    color: var(--dc-status-success, #059669) !important;
     font-weight: 600 !important;
 }
 .dc-sub.is-running .dc-sub-status,
 html[data-ui="v2"] .dc-sub.is-running .dc-sub-status {
-    color: #2563eb !important;
+    color: var(--dc-status-running, #2563eb) !important;
     font-weight: 600 !important;
     background: none !important;
     -webkit-background-clip: unset !important;
@@ -445,7 +461,7 @@ html[data-ui="v2"] .dc-sub.is-running .dc-sub-status {
 }
 .dc-sub.is-failed .dc-sub-status,
 html[data-ui="v2"] .dc-sub.is-failed .dc-sub-status {
-    color: #dc2626 !important;
+    color: var(--dc-status-error, #dc2626) !important;
     font-weight: 600 !important;
 }
 .dc-sub-caret,
@@ -460,7 +476,7 @@ html[data-ui="v2"] .dc-sub-peek-line {
 .dc-sub-peek-line em,
 html[data-ui="v2"] .dc-sub-peek-line em {
     color: var(--v2-ink3, #64748b) !important;
-    background: #f1f5f9 !important;
+    background: var(--dc-content-hover, #f1f5f9) !important;
     padding: 1px 4px !important;
     border-radius: 4px !important;
 }
@@ -470,13 +486,13 @@ html[data-ui="v2"] .dc-sub-peek-result {
 }
 .dc-sub-prompt,
 html[data-ui="v2"] .dc-sub-prompt {
-    background: #f8fafc !important;
+    background: var(--dc-content-raised, #f8fafc) !important;
     border: 1px solid var(--v2-line, #e2e8f0) !important;
     color: var(--v2-ink, #1e293b) !important;
 }
 .dc-sub-tool,
 html[data-ui="v2"] .dc-sub-tool {
-    background: #f8fafc !important;
+    background: var(--dc-content-raised, #f8fafc) !important;
     border: 1px solid var(--v2-line, #e2e8f0) !important;
     color: var(--v2-ink2, #475569) !important;
 }
@@ -490,15 +506,24 @@ html[data-ui="v2"] .dc-sub-tool-args {
 }
 .dc-sub-result,
 html[data-ui="v2"] .dc-sub-result {
-    background: color-mix(in srgb, var(--sub, #3b82f6) 6%, #ffffff) !important;
+    background: color-mix(in srgb, var(--sub, #3b82f6) 6%, var(--dc-content-bg, #ffffff)) !important;
     border: 1px solid color-mix(in srgb, var(--sub, #3b82f6) 24%, var(--v2-line, #e2e8f0)) !important;
     color: var(--v2-ink, #0f172a) !important;
 }
 
+html[data-ui="v2"][data-theme="dark"] .dc-sub-body { border-color: var(--v2-line); }
+html[data-ui="v2"][data-theme="dark"] .dc-sub-label {
+    color: color-mix(in srgb, var(--sub) var(--dc-sub-color-weight), var(--dc-sub-color-base));
+}
+html[data-ui="v2"][data-theme="dark"] :is(.dc-sub.is-stopped .dc-sub-status, .dc-sub-peek-more, .dc-sub-tool-state) { color: var(--v2-ink3); }
+html[data-ui="v2"][data-theme="dark"] .dc-sub-peek-line.is-running span { color: var(--v2-ink); }
+html[data-ui="v2"][data-theme="dark"] .dc-sub-tool.is-ok .dc-sub-tool-state { color: var(--dc-status-success); }
+html[data-ui="v2"][data-theme="dark"] :is(.dc-sub-peek-result.is-error, .dc-sub-tool.is-fail .dc-sub-tool-state) { color: var(--dc-status-error) !important; }
+
 /* 2. MCP / 工具调用条 & 任务计划卡片 */
 .dc-tool-row,
 html[data-ui="v2"] .dc-tool-row {
-    background: #f8fafc !important;
+    background: var(--dc-content-raised, #f8fafc) !important;
     border: 1px solid var(--v2-line, #e2e8f0) !important;
     color: var(--v2-ink2, #475569) !important;
     border-radius: 9px !important;
@@ -507,18 +532,18 @@ html[data-ui="v2"] .dc-tool-row {
 }
 .dc-tool-row:hover,
 html[data-ui="v2"] .dc-tool-row:hover {
-    background: #f1f5f9 !important;
-    border-color: #cbd5e1 !important;
+    background: var(--dc-content-hover, #f1f5f9) !important;
+    border-color: var(--dc-content-line-strong, #cbd5e1) !important;
 }
 .dc-tool-row.is-running,
 html[data-ui="v2"] .dc-tool-row.is-running {
-    border-color: #93c5fd !important;
-    background: #f0f7ff !important;
+    border-color: var(--dc-tool-running-border, #93c5fd) !important;
+    background: var(--dc-tool-running-bg, #f0f7ff) !important;
 }
 .dc-tool-row.is-fail,
 html[data-ui="v2"] .dc-tool-row.is-fail {
-    border-color: #fca5a5 !important;
-    background: #fef2f2 !important;
+    border-color: var(--dc-tool-error-border, #fca5a5) !important;
+    background: var(--dc-tool-error-bg, #fef2f2) !important;
 }
 .dc-tool-name,
 html[data-ui="v2"] .dc-tool-name {
@@ -535,12 +560,12 @@ html[data-ui="v2"] .dc-tool-state {
 }
 .dc-tool-row.is-ok .dc-tool-state,
 html[data-ui="v2"] .dc-tool-row.is-ok .dc-tool-state {
-    color: #059669 !important;
+    color: var(--dc-status-success, #059669) !important;
     font-weight: 500 !important;
 }
 .dc-tool-row.is-fail .dc-tool-state,
 html[data-ui="v2"] .dc-tool-row.is-fail .dc-tool-state {
-    color: #dc2626 !important;
+    color: var(--dc-status-error, #dc2626) !important;
     font-weight: 500 !important;
 }
 .dc-tool-output summary {
@@ -548,7 +573,7 @@ html[data-ui="v2"] .dc-tool-row.is-fail .dc-tool-state {
     cursor: pointer;
 }
 .dc-tool-output pre {
-    background: #f8fafc;
+    background: var(--dc-content-raised, #f8fafc);
     border: 1px solid var(--v2-line, #e2e8f0);
     color: var(--v2-ink, #1e293b);
     border-radius: 8px;
@@ -556,7 +581,7 @@ html[data-ui="v2"] .dc-tool-row.is-fail .dc-tool-state {
 }
 .dc-todo,
 html[data-ui="v2"] .dc-todo {
-    background: #ffffff !important;
+    background: var(--dc-content-bg, #ffffff) !important;
     border: 1px solid var(--v2-line, #e2e8f0) !important;
     color: var(--v2-ink2, #475569) !important;
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04) !important;
@@ -572,9 +597,12 @@ html[data-ui="v2"] .dc-todo li.is-in_progress {
 }
 .dc-todo-mark,
 html[data-ui="v2"] .dc-todo-mark {
-    border-color: #cbd5e1 !important;
-    background: #f8fafc !important;
+    border-color: var(--dc-content-line-strong, #cbd5e1) !important;
+    background: var(--dc-content-raised, #f8fafc) !important;
 }
+
+html[data-ui="v2"][data-theme="dark"] .dc-todo li.is-in_progress .dc-todo-mark { color: var(--dc-status-running); border-color: currentColor !important; }
+html[data-ui="v2"][data-theme="dark"] .dc-todo li.is-completed .dc-todo-mark { color: var(--dc-status-success); border-color: currentColor !important; }
 
 /* 3. 表格显示：清爽优雅、表头分明、网格线清晰、悬停高亮 */
 .dc-msg-body .ai-table-wrap,
@@ -584,7 +612,7 @@ html[data-ui="v2"] .dc-msg-body .ai-table-wrap {
     overflow-x: auto !important;
     border: 1px solid var(--v2-line, #e2e8f0) !important;
     border-radius: 10px !important;
-    background: #ffffff !important;
+    background: var(--dc-content-bg, #ffffff) !important;
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04) !important;
 }
 .dc-msg-body .ai-markdown-table,
@@ -603,7 +631,7 @@ html[data-ui="v2"] .dc-msg-body .ai-markdown-table th {
     border: 0 !important;
     border-bottom: 2px solid var(--v2-line-strong, #cbd5e1) !important;
     border-right: 1px solid var(--v2-line, #e2e8f0) !important;
-    background: #f8fafc !important;
+    background: var(--dc-content-raised, #f8fafc) !important;
     color: var(--v2-ink, #0f172a) !important;
     font-weight: 650 !important;
     text-align: left !important;
@@ -616,7 +644,7 @@ html[data-ui="v2"] .dc-msg-body .ai-markdown-table td {
     border: 0 !important;
     border-bottom: 1px solid var(--v2-line, #e2e8f0) !important;
     border-right: 1px solid var(--v2-line, #e2e8f0) !important;
-    background: #ffffff !important;
+    background: var(--dc-content-bg, #ffffff) !important;
     color: var(--v2-ink, #1e293b) !important;
     line-height: 1.6 !important;
 }
@@ -636,12 +664,12 @@ html[data-ui="v2"] .dc-msg-body .ai-markdown-table tr:last-child td {
 .dc-msg-body .ai-markdown-table tbody tr:nth-child(even) td,
 .ai-markdown-table tbody tr:nth-child(even) td,
 html[data-ui="v2"] .dc-msg-body .ai-markdown-table tbody tr:nth-child(even) td {
-    background: #fafbfc !important;
+    background: var(--dc-content-raised, #fafbfc) !important;
 }
 .dc-msg-body .ai-markdown-table tbody tr:hover td,
 .ai-markdown-table tbody tr:hover td,
 html[data-ui="v2"] .dc-msg-body .ai-markdown-table tbody tr:hover td {
-    background: #f0fdf9 !important;
+    background: var(--dc-content-hover, #f0fdf9) !important;
 }
 .dc-msg-body .ai-markdown-table th:first-child,
 .ai-markdown-table th:first-child,
@@ -760,14 +788,14 @@ html[data-ui="v2"] .wl-scheduled-hint {
 /* 5. 技能草稿卡片（@create-skill） */
 html[data-ui="v2"] .dc-skill-draft,
 .dc-skill-draft {
-    background: linear-gradient(135deg, rgba(244, 114, 182, 0.05), rgba(96, 165, 250, 0.05)), #ffffff !important;
+    background: linear-gradient(135deg, rgba(244, 114, 182, 0.05), rgba(96, 165, 250, 0.05)), var(--dc-content-bg, #ffffff) !important;
     border: 1px solid rgba(244, 114, 182, 0.35) !important;
     border-radius: 14px !important;
     box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04) !important;
 }
 html[data-ui="v2"] .dc-skill-draft.is-saved,
 .dc-skill-draft.is-saved {
-    background: linear-gradient(135deg, rgba(52, 211, 153, 0.06), rgba(96, 165, 250, 0.04)), #ffffff !important;
+    background: linear-gradient(135deg, rgba(52, 211, 153, 0.06), rgba(96, 165, 250, 0.04)), var(--dc-content-bg, #ffffff) !important;
     border-color: rgba(52, 211, 153, 0.45) !important;
 }
 html[data-ui="v2"] .dc-skill-draft-icon,

@@ -309,3 +309,48 @@ test('wrapped file arguments share preview/execution validation and malformed ca
     const empty=await tools.execute(context,'write_file',{path:filename,content:''});
     assert.ok(!empty.isError);assert.equal(fs.readFileSync(path.join(ROOT,filename),'utf8'),'','intentional empty content remains supported');
 });
+
+test('full access allows cross-directory reads and writes while ask/auto keeps sandbox', async () => {
+    const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-outside-test-'));
+    const outsideFile = path.join(outsideDir, 'outside-test.txt');
+    fs.writeFileSync(outsideFile, 'outside content 123');
+
+    // 默认/ask 权限模式：拦截
+    const askCtx = { ...ctx(), permissionMode: 'ask' };
+    const askRead = await tools.execute(askCtx, 'read_file', { path: outsideFile });
+    assert.equal(askRead.isError, true);
+    assert.match(askRead.content, /超出工作目录/);
+
+    // 完全访问 full 权限模式：允许读取外部文件
+    const fullCtx = { ...ctx(), permissionMode: 'full' };
+    const fullRead = await tools.execute(fullCtx, 'read_file', { path: outsideFile });
+    assert.equal(fullRead.isError, undefined);
+    assert.match(fullRead.content, /outside content 123/);
+
+    // 完全访问 full 权限模式：允许向外部文件写入
+    const fullWrite = await tools.execute(fullCtx, 'write_file', { path: outsideFile, content: 'updated outside content' });
+    assert.equal(fullWrite.isError, undefined);
+    assert.equal(fs.readFileSync(outsideFile, 'utf8'), 'updated outside content');
+
+    // 系统目录写保护：即使 full 模式也禁止对系统目录进行写入/删除
+    const protectedTarget = process.platform === 'win32' ? 'C:\\Windows\\test.txt' : '/etc/hosts';
+    const protectedWrite = await tools.execute(fullCtx, 'write_file', { path: protectedTarget, content: 'bad' });
+    assert.equal(protectedWrite.isError, true);
+    assert.match(protectedWrite.content, /系统核心目录/);
+
+    fs.rmSync(outsideDir, { recursive: true, force: true });
+});
+
+test('command output collector automatically decodes GBK/GB18030 without question-mark corruption', async () => {
+    // 模拟一段 GBK 编码输出（如 Windows cmd 的 dir 或系统提示）
+    const gbkScript = path.join(ROOT, 'gbk-output.js');
+    fs.writeFileSync(gbkScript, `
+        const gbkBuf = Buffer.from([0xd6, 0xb8, 0xc1, 0xee, 0x20, 0xb2, 0xe2, 0xca, 0xd4]); // '指令 测试' in GBK
+        process.stdout.write(gbkBuf);
+    `);
+    const result = await tools.execute(ctx(), 'run_command', { command: `"${process.execPath}" gbk-output.js` });
+    assert.ok(!result.isError);
+    assert.match(result.content, /指令 测试/);
+    assert.ok(!result.content.includes('\uFFFD'), 'GBK output must not contain Unicode replacement character');
+    fs.rmSync(gbkScript);
+});

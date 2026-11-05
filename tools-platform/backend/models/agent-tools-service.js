@@ -424,7 +424,8 @@ async function yieldToLoop() {
 
 // ── list_directory ────────────────────────────────────────
 async function listDirectory(ctx, args = {}) {
-    const abs = guard.resolveInsideRoot(ctx.root, args.path || '.');
+    const allowOutside = ctx.permissionMode === 'full';
+    const abs = guard.resolveInsideRoot(ctx.root, args.path || '.', { allowOutside });
     const stat = await fsp.stat(abs).catch(() => null);
     if (!stat) throw toolError('AGENT_NOT_FOUND', `目录不存在：${args.path || '.'}`);
     if (!stat.isDirectory()) throw toolError('AGENT_NOT_DIR', `不是目录：${args.path || '.'}`);
@@ -539,9 +540,18 @@ async function readLineWindow(abs, startLine, maxLines, maxBytes, fileSize, prot
 
 async function readFile(ctx, args = {}) {
     if (!args.path) throw toolError('AGENT_ARGS', '缺少 path');
+    const allowOutside = ctx.permissionMode === 'full';
+    const targetPath = String(args.path);
+    const absPath = path.isAbsolute(targetPath) ? path.resolve(targetPath) : path.resolve(ctx.root, targetPath);
+    // 跨账号私有产物与附件保护：即使完全访问，也绝不能读取属于其他账号的 artifact / upload
+    if (artifacts.isUnderBase(absPath) || artifacts.isUnderUploads(absPath)) {
+        if (!ctx.artifactOwner || !artifacts.ownsFile(ctx.artifactOwner, absPath)) {
+            throw toolError('AGENT_FORBIDDEN', '无法读取属于其他账号或会话的私有产物文件');
+        }
+    }
     // 本人的大结果文件和对话附件在工作目录之外，也允许按行读取
-    const artifact = ctx.artifactOwner && path.isAbsolute(String(args.path)) && artifacts.ownsFile(ctx.artifactOwner, String(args.path));
-    const abs = artifact ? path.resolve(String(args.path)) : guard.resolveInsideRoot(ctx.root, args.path);
+    const artifact = ctx.artifactOwner && path.isAbsolute(targetPath) && artifacts.ownsFile(ctx.artifactOwner, targetPath);
+    const abs = artifact ? path.resolve(targetPath) : guard.resolveInsideRoot(ctx.root, args.path, { allowOutside });
     const display = artifact ? abs : guard.toDisplayPath(ctx.root, abs);
     guard.assertNotSecretFile(abs);
     const stat = await fsp.stat(abs).catch(() => null);
@@ -580,7 +590,8 @@ function globToRegExp(glob) {
 
 async function search(ctx, args = {}) {
     if (!args.query) throw toolError('AGENT_ARGS', '缺少 query');
-    const abs = guard.resolveInsideRoot(ctx.root, args.path || '.');
+    const allowOutside = ctx.permissionMode === 'full';
+    const abs = guard.resolveInsideRoot(ctx.root, args.path || '.', { allowOutside });
     const flags = args.caseSensitive ? 'g' : 'gi';
     let pattern;
     try {
@@ -652,8 +663,10 @@ async function previewWrite(ctx, args = {}) {
     if (typeof args.content !== 'string') throw toolError('AGENT_ARGS', 'write_file 缺少字符串类型的 content。请直接传入 path 和完整 content；写入空文件也必须显式提供 content: \"\"。本次未写入文件。');
     if (!args.path) throw toolError('AGENT_ARGS', '缺少 path');
     assertTextSize(args.content ?? '');
-    const abs = guard.resolveInsideRoot(ctx.root, args.path);
+    const allowOutside = ctx.permissionMode === 'full';
+    const abs = guard.resolveInsideRoot(ctx.root, args.path, { allowOutside });
     guard.assertNotSecretFile(abs);
+    guard.assertNotSystemCritical(abs, '写入');
     if (guard.looksBinaryByName(abs)) throw toolError('AGENT_BINARY', '请通过相应业务接口修改数据库或二进制文件');
     const display = guard.toDisplayPath(ctx.root, abs);
     const stat = await fsp.stat(abs).catch(() => null);
@@ -679,8 +692,10 @@ async function previewEdit(ctx, args = {}) {
     if (!args.path) throw toolError('AGENT_ARGS', '缺少 path');
     if (typeof args.oldString !== 'string' || typeof args.newString !== 'string') throw toolError('AGENT_ARGS', 'oldString/newString 必须是字符串');
     if (!args.oldString) throw toolError('AGENT_ARGS', 'oldString 不能为空');
-    const abs = guard.resolveInsideRoot(ctx.root, args.path);
+    const allowOutside = ctx.permissionMode === 'full';
+    const abs = guard.resolveInsideRoot(ctx.root, args.path, { allowOutside });
     guard.assertNotSecretFile(abs);
+    guard.assertNotSystemCritical(abs, '修改');
     if (guard.looksBinaryByName(abs)) throw toolError('AGENT_BINARY', '请通过相应业务接口修改数据库或二进制文件');
     const display = guard.toDisplayPath(ctx.root, abs);
     const stat = await fsp.stat(abs).catch(() => null);
@@ -711,8 +726,10 @@ async function previewMultiEdit(ctx, args = {}) {
     if (!args.path) throw toolError('AGENT_ARGS', '缺少 path');
     const edits = Array.isArray(args.edits) ? args.edits : [];
     if (!edits.length || edits.length > 50) throw toolError('AGENT_ARGS', 'edits 需要 1–50 处替换');
-    const abs = guard.resolveInsideRoot(ctx.root, args.path);
+    const allowOutside = ctx.permissionMode === 'full';
+    const abs = guard.resolveInsideRoot(ctx.root, args.path, { allowOutside });
     guard.assertNotSecretFile(abs);
+    guard.assertNotSystemCritical(abs, '修改');
     if (guard.looksBinaryByName(abs)) throw toolError('AGENT_BINARY', '请通过相应业务接口修改数据库或二进制文件');
     const display = guard.toDisplayPath(ctx.root, abs);
     const stat = await fsp.stat(abs).catch(() => null);
@@ -751,8 +768,10 @@ async function memoryTool(ctx, args = {}) {
 
 async function deletePath(ctx, args = {}) {
     if (!args.path) throw toolError('AGENT_ARGS', '缺少 path');
-    const abs = guard.resolveInsideRoot(ctx.root, args.path);
-    if (abs === ctx.root) throw toolError('AGENT_PATH_OUTSIDE', '不能删除工作目录本身');
+    const allowOutside = ctx.permissionMode === 'full';
+    const abs = guard.resolveInsideRoot(ctx.root, args.path, { allowOutside });
+    if (guard.samePath(abs, ctx.root)) throw toolError('AGENT_PATH_OUTSIDE', '不能删除工作目录本身');
+    guard.assertNotSystemCritical(abs, '删除');
     const display = guard.toDisplayPath(ctx.root, abs);
     const stat = await fsp.lstat(abs).catch(() => null);
     if (!stat) throw toolError('AGENT_NOT_FOUND', `不存在：${display}`);
@@ -771,9 +790,12 @@ async function deletePath(ctx, args = {}) {
 
 async function renamePath(ctx, args = {}) {
     if (!args.from || !args.to) throw toolError('AGENT_ARGS', '缺少 from/to');
-    const fromAbs = guard.resolveInsideRoot(ctx.root, args.from);
-    const toAbs = guard.resolveInsideRoot(ctx.root, args.to);
-    if (fromAbs === ctx.root || toAbs === ctx.root) throw toolError('AGENT_PATH_OUTSIDE', '不能移动工作目录本身');
+    const allowOutside = ctx.permissionMode === 'full';
+    const fromAbs = guard.resolveInsideRoot(ctx.root, args.from, { allowOutside });
+    const toAbs = guard.resolveInsideRoot(ctx.root, args.to, { allowOutside });
+    if (guard.samePath(fromAbs, ctx.root) || guard.samePath(toAbs, ctx.root)) throw toolError('AGENT_PATH_OUTSIDE', '不能移动工作目录本身');
+    guard.assertNotSystemCritical(fromAbs, '移动/重命名');
+    guard.assertNotSystemCritical(toAbs, '写入/覆盖');
     const fromDisplay = guard.toDisplayPath(ctx.root, fromAbs);
     const toDisplay = guard.toDisplayPath(ctx.root, toAbs);
     if (!fs.existsSync(fromAbs)) throw toolError('AGENT_NOT_FOUND', `不存在：${fromDisplay}`);
@@ -816,6 +838,22 @@ function killTree(child, { platform = process.platform, spawnProcess = spawn, ki
     }
 }
 
+function decodeProcessBuffer(buffer) {
+    if (!buffer || !buffer.length) return '';
+    try {
+        const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
+        return utf8Decoder.decode(buffer);
+    } catch {
+        try {
+            // Windows 中文环境下 cmd/内置命令走 ANSI/OEM 管道（GBK/GB18030）
+            const gbkDecoder = new TextDecoder('gb18030', { fatal: false });
+            return gbkDecoder.decode(buffer);
+        } catch {
+            return buffer.toString('utf8');
+        }
+    }
+}
+
 function createOutputCollector(limit) {
     const head = [];
     const tail = [];
@@ -842,8 +880,8 @@ function createOutputCollector(limit) {
             }
         },
         text() {
-            const headText = Buffer.concat(head).toString('utf8');
-            const tailText = Buffer.concat(tail).toString('utf8');
+            const headText = decodeProcessBuffer(Buffer.concat(head));
+            const tailText = decodeProcessBuffer(Buffer.concat(tail));
             if (total <= limit) return headText + tailText;
             return `${headText}\n…（省略 ${formatSize(total - headBytes - tailBytes)}）…\n${tailText}`;
         },

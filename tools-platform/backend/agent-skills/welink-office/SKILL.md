@@ -17,11 +17,11 @@ icon: 💼
 
 ## 两个工具
 
-- `welink_query`：查询，以及下载（云空间文件 `onebox file-download`、分享外链 `onebox file-share-link-download`、邮件附件 `mail attachment`）。下载目录由平台指定，**不要传 output / path**；返回里有保存位置。
-- `welink_action`：会改变外部状态的操作，需管理员开启「允许写操作」。**每次调用都会在对话里弹出审批卡，用户点「允许」才执行**；拒绝或超时就是没执行。
+- `welink_query`：查询，以及下载（云空间文件 `onebox file-download`、分享外链 `onebox file-share-link-download`、邮件附件 `mail attachment`）。下载文件默认保存到当前工作目录（方便直接通过 `read_file` 查验），返回里有保存位置。
+- `welink_action`：会改变外部状态的操作，需管理员开启「允许写操作」。**每次调用都会在对话里弹出审批卡，用户点「允许」才执行**（完全访问模式下无需逐项审批）；拒绝或超时就是没执行。
   - 消息：`im send-to-user`、`im send-to-group`（text / image / file 至少一个）、`im create-group`、`im add-group-member`、`im recall-message`
   - 会议：`meeting create`、`meeting update`、`meeting cancel`、`meeting topic-create`、`meeting topic-update`、`meeting topic-delete`
-  - 云空间：`onebox file-upload`（用 `file` 传本机完整路径）、`file-copy`、`file-move`、`file-rename`、`file-remove`、`folder-new`、`folder-rename`、`folder-remove`、`file-share-link-get`、`file-share-link-edit`、`file-share-link-remove`
+  - 云空间：`onebox file-upload`（`file` 传文件相对路径或绝对路径；父目录参数 `parent` 传 folder-id，根目录为 0，且兼容 `folder-id` 别名）、`file-copy`、`file-move`、`file-rename`、`file-remove`、`folder-new`、`folder-rename`、`folder-remove`、`file-share-link-get`、`file-share-link-edit`、`file-share-link-remove`
   - 邮件：`mail send`、`mail reply`、`mail reply-all`、`mail forward`、`mail move`
   - 日历：`calendar create`
   - 联系人：`contact add_favorite`、`contact del_favorite`（用 `accounts`）

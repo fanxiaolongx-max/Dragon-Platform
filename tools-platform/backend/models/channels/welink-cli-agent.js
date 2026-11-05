@@ -192,6 +192,15 @@ const OPTION_LABELS = {
     attachment: '附件', 'item-id': '邮件 ID', start: '开始', end: '结束', location: '地点', attendee: '参会人', reminder: '提前提醒（分钟）', accounts: '账号'
 };
 
+// 参数别名映射：解决不同命令同一概念参数名不一致问题（如 parent 与 folder-id）
+const COMMAND_OPTION_ALIASES = {
+    'onebox file-upload': { 'folder-id': 'parent', folderid: 'parent' },
+    'onebox folder-new': { 'folder-id': 'parent', folderid: 'parent' },
+    'onebox folder-rename': { parent: 'folder-id' },
+    'onebox folder-remove': { parent: 'folder-id' },
+    'onebox folder-list': { parent: 'folder-id' }
+};
+
 function toolError(code, message) {
     return Object.assign(new Error(message), { code });
 }
@@ -209,9 +218,13 @@ function checkString(name, value, { max = MAX_VALUE_CHARS, multiline = false } =
     return text;
 }
 
-/** 本机文件：必须是存在的普通文件（绝对路径），用于发图片/文件、邮件附件、上传云空间。 */
-function checkFile(name, value) {
-    const text = checkString(name, value, { max: 1000 });
+/** 本机文件：必须是存在的普通文件（绝对路径或工作区内的相对路径），用于发图片/文件、邮件附件、上传云空间。 */
+function checkFile(name, value, { root = null } = {}) {
+    let text = checkString(name, value, { max: 1000 });
+    if (!path.isAbsolute(text) && root) {
+        const candidate = path.resolve(root, text);
+        if (fs.existsSync(candidate)) text = candidate;
+    }
     if (!path.isAbsolute(text)) throw toolError('WELINK_ARG_INVALID', `参数 ${name} 需要本机文件的完整路径`);
     let stat;
     try { stat = fs.statSync(text); } catch { throw toolError('WELINK_ARG_INVALID', `参数 ${name} 指向的文件不存在：${text}`); }
@@ -231,7 +244,7 @@ function listValues(name, value) {
     return items.map(item => checkString(name, item));
 }
 
-function formatValue(name, spec, value) {
+function formatValue(name, spec, value, { root = null } = {}) {
     if (spec.type === 'int') {
         const number = Number(value);
         if (!Number.isInteger(number) || number < spec.min || number > spec.max) throw toolError('WELINK_ARG_INVALID', `参数 ${name} 应为 ${spec.min}~${spec.max} 的整数`);
@@ -265,7 +278,7 @@ function formatValue(name, spec, value) {
         items.forEach(item => { if (!/^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(item)) throw toolError('WELINK_ARG_INVALID', `参数 ${name} 里的 ${item} 不是有效邮箱`); });
         return items.join(',');
     }
-    if (spec.type === 'file') return checkFile(name, value);
+    if (spec.type === 'file') return checkFile(name, value, { root });
     if (spec.type === 'text') return checkString(name, value, { max: spec.max || MAX_VALUE_CHARS, multiline: true });
     return checkString(name, value, { max: spec.max || MAX_VALUE_CHARS });
 }
@@ -285,9 +298,9 @@ function checkMeetingTimes(values, now = Date.now()) {
 /**
  * 把模型给的 { command, options, accounts, search, file } 转成 CLI 参数数组；任何不在白名单里的东西都拒绝。
  * mode：'read' 只接受查询/下载命令，'write' 只接受写操作命令。
- * 返回 { command, args, label, spec, fields（审批卡展示用）, bodyFile（长正文改走 --body-path 时的内容） }。
+ * 返回 { command, args, label, spec, fields（审批卡展示用）, bodyFile（长正文改走 --body-path 时的内容）, downloadTarget }。
  */
-function buildArgs(input = {}, { mode = 'read', now } = {}) {
+function buildArgs(input = {}, { mode = 'read', now, root = null } = {}) {
     const command = String(input.command || '').trim().replace(/\s+/g, ' ');
     const spec = COMMANDS[command];
     const allowed = mode === 'write' ? WRITE_COMMANDS : READ_COMMANDS;
@@ -298,6 +311,12 @@ function buildArgs(input = {}, { mode = 'read', now } = {}) {
     const args = command.split(' ');
     const given = input.options && typeof input.options === 'object' && !Array.isArray(input.options) ? input.options : {};
     const byLoose = new Map(Object.keys(spec.options).map(name => [looseKey(name), name]));
+    const aliases = COMMAND_OPTION_ALIASES[command] || {};
+    for (const [aliasKey, targetKey] of Object.entries(aliases)) {
+        if (spec.options[targetKey] && !byLoose.has(looseKey(aliasKey))) {
+            byLoose.set(looseKey(aliasKey), targetKey);
+        }
+    }
     const defaults = typeof spec.defaults === 'function' ? spec.defaults(now) : (spec.defaults || {});
     const values = {};
     for (const [rawKey, value] of Object.entries(given)) {
@@ -349,12 +368,12 @@ function buildArgs(input = {}, { mode = 'read', now } = {}) {
         if (optionSpec.type === 'files') {
             const items = splitValues(value);
             if (items.length > 10) throw toolError('WELINK_ARG_INVALID', `参数 ${name} 最多 10 个文件`);
-            const files = items.map(item => checkFile(name, item));
+            const files = items.map(item => checkFile(name, item, { root }));
             files.forEach(file => args.push(`--${name}`, file));
             if (files.length) fields.push({ name, label, value: files.join('\n') });
             continue;
         }
-        const formatted = formatValue(name, optionSpec, value);
+        const formatted = formatValue(name, optionSpec, value, { root });
         // 长正文 / 多行正文改用 --body-path 临时文件，避开 Windows 命令行长度和换行转义问题
         if (name === 'body' && spec.mailBody && (formatted.length > 2000 || formatted.includes('\n'))) {
             bodyFile = formatted;
@@ -378,7 +397,7 @@ function buildArgs(input = {}, { mode = 'read', now } = {}) {
         const name = spec.positional.name;
         const raw = input[name] ?? given[name];
         if (spec.positional.type === 'file') {
-            const file = checkFile(name, Array.isArray(raw) ? raw[0] : raw);
+            const file = checkFile(name, Array.isArray(raw) ? raw[0] : raw, { root });
             args.push(file);
             fields.push({ name, label: OPTION_LABELS[name] || name, value: file });
         } else {
@@ -387,7 +406,12 @@ function buildArgs(input = {}, { mode = 'read', now } = {}) {
             fields.push({ name, label: OPTION_LABELS[name] || name, value: items.join('、') });
         }
     }
-    if (spec.output) args.push(spec.output, `${runner.downloadDir()}${path.sep}`);
+    let downloadTarget = null;
+    if (spec.output) {
+        downloadTarget = root ? path.resolve(root) : runner.downloadDir();
+        try { fs.mkdirSync(downloadTarget, { recursive: true }); } catch (_ignored) {}
+        args.push(spec.output, `${downloadTarget}${path.sep}`);
+    }
     const timezone = String(input.timezone || '').trim();
     if (timezone && /^(mail|calendar) /.test(command)) {
         // --timezone 要写在 mail/calendar 之后、子命令之前
@@ -395,7 +419,7 @@ function buildArgs(input = {}, { mode = 'read', now } = {}) {
         args.splice(1, 0, '--timezone', timezone);
         fields.push({ name: 'timezone', label: '时区', value: timezone });
     }
-    return { command, args, label: spec.label, spec, fields, bodyFile };
+    return { command, args, label: spec.label, spec, fields, bodyFile, downloadTarget };
 }
 
 const SHARED_PROPERTIES = {
@@ -558,7 +582,8 @@ function outcomeOf(built, result) {
     const count = countOf(result.json);
     const savedTo = built.spec.output && result.json && typeof result.json === 'object' ? (result.json.path || result.json.output || result.json.file || '') : '';
     const summary = built.spec.write ? `${built.label}成功` : `${built.label}${count === null ? '' : ` ${count} 条`}${savedTo ? `：${savedTo}` : ''}`;
-    const note = built.spec.output && !savedTo ? `\n（已下载到 ${runner.downloadDir()}）` : '';
+    const targetDir = built.downloadTarget || runner.downloadDir();
+    const note = built.spec.output && !savedTo ? `\n（已下载到 ${targetDir}）` : '';
     return { content: clamped.content + note, summary, truncated: clamped.truncated, cli, raw };
 }
 
@@ -590,7 +615,7 @@ async function execute(ctx, name, args = {}) {
     const write = name === 'welink_action';
     try {
         guard({ write });
-        const built = buildArgs(args && typeof args === 'object' ? args : {}, { mode: write ? 'write' : 'read' });
+        const built = buildArgs(args && typeof args === 'object' ? args : {}, { mode: write ? 'write' : 'read', root: ctx.root });
         if (write && ctx.permissionMode !== 'full') {
             if (!ctx.canApprove || typeof ctx.onEvent !== 'function') throw toolError('WELINK_APPROVAL_UNAVAILABLE', '写操作需要在 Dragon Claw 对话里审批确认，当前请求无法弹出审批卡');
             const { id, promise } = waitForApproval({ owner: ctx.actor || '', signal: ctx.signal });

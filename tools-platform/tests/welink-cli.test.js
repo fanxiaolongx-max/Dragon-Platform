@@ -407,3 +407,33 @@ test('full access executes WeLink writes without a card but still requires allow
     assert.equal(blocked.isError, true);
     assert.match(blocked.content, /默认租户/);
 });
+
+test('onebox file-upload supports folder-id alias, relative path, and defaults downloads to workspace root', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'welink-agent-root-'));
+    const testFile = path.join(root, 'onebox-test.txt');
+    fs.writeFileSync(testFile, 'hello');
+
+    // 1. 测试 folder-id 自动别名映射为 parent
+    // 2. 测试 file 传相对路径 'onebox-test.txt' 自动补全为 root 绝对路径
+    const uploadBuilt = agent.buildArgs({
+        command: 'onebox file-upload',
+        options: { 'space-id': '22978732', 'folder-id': '0' },
+        file: 'onebox-test.txt'
+    }, { mode: 'write', root });
+
+    assert.deepEqual(uploadBuilt.args, [
+        'onebox', 'file-upload', '--space-id', '22978732', '--parent', '0', testFile
+    ]);
+
+    // 3. 测试下载在有 root 时自动下载到工作目录
+    const downloadBuilt = agent.buildArgs({
+        command: 'onebox file-download',
+        options: { 'space-id': '22978732', 'file-id': '14' }
+    }, { mode: 'read', root });
+
+    assert.deepEqual(downloadBuilt.args, [
+        'onebox', 'file-download', '--space-id', '22978732', '--file-id', '14', '--output', `${path.resolve(root)}${path.sep}`
+    ]);
+
+    fs.rmSync(root, { recursive: true, force: true });
+});

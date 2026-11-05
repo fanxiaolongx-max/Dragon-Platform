@@ -40,32 +40,65 @@ function normalizeRoot(root) {
 }
 
 /**
- * 把相对/绝对输入解析为根目录内的绝对路径。
- * - 允许指向尚不存在的文件（用于新建），但其最深已存在的祖先必须在根内（防 symlink 逃逸）。
+ * 把相对/绝对输入解析为绝对路径。
+ * - 默认（allowOutside=false）：约束在根目录内，允许指向尚不存在的文件（用于新建），最深已存在的祖先必须在根内（防 symlink 逃逸）。
+ * - 完全访问（allowOutside=true）：允许指向工作目录之外的路径，但敏感凭据与操作系统核心目录依然受到保护。
  */
-function resolveInsideRoot(root, input) {
+function resolveInsideRoot(root, input, { allowOutside = false } = {}) {
     const rel = input ?? '.';
     if (typeof rel !== 'string' || /[\x00-\x1f\x7f]/.test(rel)) throw pathError('AGENT_PATH_INVALID', '路径包含非法字符或不是字符串。请检查 JSON 转义，Windows/macOS 均推荐使用 / 分隔符');
     if (/^[a-z]:($|[^\\/])/i.test(rel)) throw pathError('AGENT_PATH_INVALID', '不支持盘符相对路径，请使用工作目录内的相对路径或完整绝对路径');
     if (process.platform !== 'win32' && (/^[a-z]:[\\/]/i.test(rel) || /^\\\\/.test(rel))) {
         throw pathError('AGENT_PATH_INVALID', '当前系统不支持 Windows 盘符或 UNC 绝对路径，请使用相对工作目录的路径');
     }
-    const abs = path.resolve(root, rel);
-    if (!samePath(abs, root) && !isInside(root, abs)) throw pathError('AGENT_PATH_OUTSIDE', `路径超出工作目录：${rel}`);
-    let probe = abs;
-    while (!fs.existsSync(probe)) {
-        const parent = path.dirname(probe);
-        if (parent === probe) break;
-        probe = parent;
+    const abs = (allowOutside && path.isAbsolute(rel)) ? path.resolve(rel) : path.resolve(root, rel);
+    if (!allowOutside) {
+        if (!samePath(abs, root) && !isInside(root, abs)) throw pathError('AGENT_PATH_OUTSIDE', `路径超出工作目录：${rel}`);
+        let probe = abs;
+        while (!fs.existsSync(probe)) {
+            const parent = path.dirname(probe);
+            if (parent === probe) break;
+            probe = parent;
+        }
+        const real = fs.realpathSync(probe);
+        if (!samePath(real, root) && !isInside(root, real)) throw pathError('AGENT_PATH_OUTSIDE', `路径通过链接指向工作目录之外：${rel}`);
     }
-    const real = fs.realpathSync(probe);
-    if (!samePath(real, root) && !isInside(root, real)) throw pathError('AGENT_PATH_OUTSIDE', `路径通过链接指向工作目录之外：${rel}`);
     return abs;
 }
 
 function toDisplayPath(root, abs) {
+    if (!root) return abs;
     const rel = path.relative(root, abs);
-    return rel ? rel.split(path.sep).join('/') : '.';
+    if (!rel.startsWith('..') && !path.isAbsolute(rel)) {
+        return rel ? rel.split(path.sep).join('/') : '.';
+    }
+    return abs;
+}
+
+function isSystemCriticalPath(filePath) {
+    const abs = path.resolve(filePath);
+    if (process.platform === 'win32') {
+        const rootParsed = path.win32.parse(abs);
+        if (samePath(abs, rootParsed.root)) return true;
+        const systemRoot = process.env.SystemRoot || 'C:\\Windows';
+        const progFiles = process.env.ProgramFiles || 'C:\\Program Files';
+        const progFilesX86 = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';
+        for (const sys of [systemRoot, progFiles, progFilesX86]) {
+            if (sys && (samePath(abs, sys) || isInside(sys, abs))) return true;
+        }
+    } else {
+        if (abs === '/') return true;
+        for (const sys of ['/System', '/Library', '/usr', '/bin', '/sbin', '/etc', '/private/etc', '/var/db']) {
+            if (samePath(abs, sys) || isInside(sys, abs)) return true;
+        }
+    }
+    return false;
+}
+
+function assertNotSystemCritical(filePath, action = '修改') {
+    if (isSystemCriticalPath(filePath)) {
+        throw pathError('AGENT_PROTECTED_PATH', `受操作系统安全保护，禁止${action}系统核心目录或磁盘根目录：${filePath}`);
+    }
 }
 
 function isIgnoredDirName(name) {
@@ -107,5 +140,7 @@ module.exports = {
     looksBinaryByName,
     isBinaryBuffer,
     isSecretFile,
-    assertNotSecretFile
+    assertNotSecretFile,
+    isSystemCriticalPath,
+    assertNotSystemCritical
 };

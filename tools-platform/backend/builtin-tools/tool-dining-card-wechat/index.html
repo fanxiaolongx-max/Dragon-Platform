@@ -39,7 +39,7 @@
     .section-title{font-size:15px;font-weight:750;margin:0 0 12px;display:flex;align-items:center;justify-content:space-between}
 
     /* Tabs */
-    .tab-bar{display:flex;gap:6px;background:#eef3f9;padding:4px;border-radius:12px;margin-bottom:16px}
+    .tab-bar{display:flex;flex-wrap:wrap;gap:6px;background:#eef3f9;padding:4px;border-radius:12px;margin-bottom:16px}
     .tab-btn{flex:1;border:0;background:transparent;padding:9px 12px;border-radius:9px;font-size:13px;font-weight:650;color:#57657d;cursor:pointer;transition:.18s;display:flex;align-items:center;justify-content:center;gap:6px}
     .tab-btn:hover{color:#172033;background:rgba(255,255,255,.5)}
     .tab-btn.active{background:#fff;color:#3867f4;box-shadow:0 3px 10px rgba(35,53,88,.08)}
@@ -114,7 +114,7 @@
     .footnote{font-size:11px;color:#94a3b8;margin-top:12px;line-height:1.6}
 
     /* Main Dashboard */
-    .dashboard{padding:22px}
+    .dashboard{min-width:0;padding:22px}
     .toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
     .toolbar-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
     .empty{display:flex;align-items:center;justify-content:center;min-height:480px;color:var(--muted);text-align:center;line-height:1.8}
@@ -282,7 +282,8 @@
     .toast.good{background:#065f46}
     .toast.bad{background:#991b1b}
 
-    @media(max-width:1100px){.grid{grid-template-columns:1fr}.date-result-layout{grid-template-columns:1fr}}
+    @media(max-width:1100px){.grid{grid-template-columns:minmax(0,1fr)}.date-result-layout{grid-template-columns:1fr}}
+    @media(max-width:600px){.hero{flex-wrap:wrap}}
   </style>
 <style id="tool-supporting-text-contrast">
 /* Supporting text measured against its rendered surface in the platform themes. */
@@ -359,11 +360,12 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
             <span class="upload-subcard-title">💬 微信账单文件 (多选/多账单)</span>
             <button class="upload-subcard-clear" id="clearWechatBtn" style="display:none" title="移除微信账单">✕</button>
           </div>
-          <div class="upload-subcard-desc">自动换算开罗时间，识别 14/35/28/70 元并按档位区分自有/非自有</div>
+          <div class="upload-subcard-desc">仅统计二维码收款，再按金额和开罗时间划分餐次，转账补款不计入</div>
           <div class="upload-subcard-action">
             <button class="upload-subcard-btn" id="pickWechatBtn">选择微信账单</button>
             <span class="upload-subcard-status" id="wechatFileStatus">未导入</span>
           </div>
+          <div class="upload-subcard-desc" id="wechatLegacyNotice" hidden>旧快照的微信记录缺少扫码凭据，已跳过统计。请重新导入微信原始账单。</div>
           <input type="file" id="wechatFileInput" multiple accept=".xlsx,.xls,.csv" style="display:none" />
         </div>
       </div>
@@ -473,6 +475,9 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
         <button class="tab-btn" id="tabWechatBtn" data-tab="wechat">
           <span>💬</span> 微信就餐独立分析
         </button>
+        <button class="tab-btn" data-tab="transfers">
+          <span>💸</span> 微信转账统计
+        </button>
         <button class="tab-btn" id="tabCardBtn" data-tab="card">
           <span>📇</span> 刷卡流水独立分析
         </button>
@@ -579,7 +584,7 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
             <div class="toolbar">
               <div>
                 <h2 class="section-title" style="margin:0">💬 微信账单就餐人数独立分析表</h2>
-                <div style="font-size:12px;color:#64748b;margin-top:4px">严格按开罗时间与 14/35/28/70 元金额划分，精准分离自有与非自有档位</div>
+                <div style="font-size:12px;color:#64748b;margin-top:4px">仅统计二维码收款，按开罗时间与 14/35/28/70 元划分餐次和人员类别。</div>
               </div>
               <button class="btn btn-wechat btn-sm" id="exportWechatStandaloneBtn">📥 导出分文件明细 Excel</button>
             </div>
@@ -632,6 +637,22 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
           <div id="cardStandaloneResults"></div>
           <div id="cardEmptyNotice" style="display:none;padding:40px;text-align:center;color:#94a3b8">
             尚未导入营业流水文件，请在左侧上传刷卡 Excel。
+          </div>
+        </div>
+        <div id="viewTransfers" class="tab-view" style="display:none">
+          <div class="toolbar">
+            <div>
+              <h2 class="section-title" style="margin:0">微信转账统计</h2>
+              <div class="upload-subcard-desc">按开罗日期统计已导入账单中的微信转账。转账金额不限，不计入就餐。</div>
+            </div>
+            <button class="btn btn-wechat btn-sm" id="exportWechatTransfersBtn" disabled>导出转账 Excel</button>
+          </div>
+          <p id="wechatTransfersEmpty" class="upload-subcard-desc" role="status"></p>
+          <div id="wechatTransfersReport" hidden>
+            <h3 class="section-title">每日转账汇总</h3>
+            <div class="table-scroll"><table class="wechat-table" id="wechatTransfersSummary"></table></div>
+            <h3 class="section-title" style="margin-top:16px">转账明细</h3>
+            <div class="table-scroll"><table class="wechat-table" id="wechatTransfersDetails"></table></div>
           </div>
         </div>
       </div>
@@ -783,6 +804,7 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
     loaded: false,
     files: [], // { fileName, details }
     records: [], // items
+    transfers: null, // null for snapshots created before transfer tracking
     aggregatedByDate: {},
     exportStatsData: []
   };
@@ -927,19 +949,20 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
   }
 
   // Parse WeChat billing data
-  function parseWeChatFileRows(rows, fileName, group, aggregatedData){
-    let header = -1, time = -1, amount = -1, type = -1, counterparty = -1;
+  function parseWeChatFileRows(rows, fileName, group, aggregatedData, transfers){
+    let header = -1, time = -1, amount = -1, direction = -1, transactionType = -1, counterparty = -1;
     for(let r = 0; r < Math.min(rows.length, 60); r++){
-      let t = -1, a = -1, y = -1, c = -1;
+      let t = -1, a = -1, d = -1, y = -1, c = -1;
       for(let i = 0; i < (rows[r]||[]).length; i++){
         const value = String(rows[r][i] || '').replace(/\s+/g,'');
         if(value.includes('交易时间') || value === '时间') t = i;
         if(value.includes('金额')) a = i;
-        if(value.includes('收/支') || value.includes('收支')) y = i;
+        if(value.includes('收/支') || value.includes('收支')) d = i;
+        if(value === '交易类型') y = i;
         if(value.includes('交易对方') || value.includes('对方')) c = i;
       }
       if(t !== -1 && a !== -1){
-        header = r; time = t; amount = a; type = y; counterparty = c;
+        header = r; time = t; amount = a; direction = d; transactionType = y; counterparty = c;
         break;
       }
     }
@@ -948,28 +971,53 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
       group.warning = '未识别到微信账单有效表头';
       return [];
     }
+    if(transactionType === -1){
+      group.warning = '缺少「交易类型」列，无法确认二维码收款';
+      return [];
+    }
 
     const validRecords = [];
     for(let r = header + 1; r < rows.length; r++){
       const row = rows[r] || [];
+      const transactionTypeStr = String(row[transactionType] || '').trim();
+      const isTransfer = ['转账', '微信转账'].includes(transactionTypeStr);
+      const isQrReceipt = transactionTypeStr === '二维码收款';
+      if(!isTransfer && !isQrReceipt && !['二维码', '二维码收付款'].includes(transactionTypeStr)) continue;
+
+      const directionStr = direction !== -1 ? String(row[direction] || '').trim() : '';
+      const isIncome = ['收入', '收款', '收'].includes(directionStr);
+      // 简写的二维码类型可能包含支出，必须有明确的收入方向。
+      if(!isTransfer && !(direction === -1 ? isQrReceipt : isIncome)) continue;
+
       const timeStr = String(row[time] || '').trim();
       const amountStr = String(row[amount] || '').trim();
-      const typeStr = type !== -1 ? String(row[type] || '').trim() : '收';
       const counterpartyStr = counterparty !== -1 ? String(row[counterparty] || '').trim() : '';
 
-      if(!timeStr || !amountStr || !typeStr.includes('收')) continue;
+      if(!timeStr || !amountStr) continue;
 
       const money = parseFloat(amountStr.replace(/[^\d.-]/g, ''));
-      if(![14, 35, 28, 70].includes(money)) continue;
+      if(isTransfer ? !Number.isFinite(money) : ![14, 35, 28, 70].includes(money)) continue;
 
       // Parse Beijing time (+08:00) into Cairo time (Africa/Cairo)
-      const dateObj = new Date(timeStr.replace(' ', 'T') + '+08:00');
+      const isoTime = timeStr.replace(/^(\d{4})[/.\-](\d{1,2})[/.\-](\d{1,2})[ T](\d{1,2}):/, (_, year, month, day, hour) =>
+        `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hour.padStart(2, '0')}:`);
+      const dateObj = new Date(isoTime + '+08:00');
       if(isNaN(dateObj)) continue;
 
       const cairoDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Cairo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(dateObj);
-      const cairoHour = parseInt(new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Cairo', hour: '2-digit', hourCycle: 'h23' }).format(dateObj), 10);
       const cairoTime = new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).format(dateObj);
 
+      if(isTransfer){
+        const isExpense = ['支出', '付款', '支'].includes(directionStr);
+        transfers.push({
+          timeStr, cairoDate, cairoTime, transactionType: transactionTypeStr,
+          direction: isIncome ? '收入' : isExpense ? '支出' : '未标明',
+          counterparty: counterpartyStr, amountCents: Math.round(Math.abs(money) * 100), fileName
+        });
+        continue;
+      }
+
+      const cairoHour = Number(cairoTime.slice(0, 2));
       // Classification rule:
       // Breakfast: 14 = 自有-微信, 35 = 非自有-微信
       // Lunch (Cairo 10:00 - 15:59): 28 = 自有-微信, 70 = 非自有-微信
@@ -1030,7 +1078,7 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
         cairoDate,
         cairoTime,
         cairoHour,
-        typeStr,
+        transactionType: transactionTypeStr,
         counterparty: counterpartyStr,
         amount: money,
         meal,
@@ -1042,7 +1090,7 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
         '交易时间': timeStr,
         '交易日期(开罗)': cairoDate,
         '交易具体时间(开罗)': cairoTime,
-        '交易类型': typeStr,
+        '交易类型': transactionTypeStr,
         '交易对方': counterpartyStr,
         '金额(元)': money,
         '餐别': meal,
@@ -1121,6 +1169,7 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
 
   function applyFilters(){
     if(!cardData.loaded && !wechatData.loaded){
+      filteredUnifiedItems = [];
       $('emptyState').style.display = 'flex';
       $('resultArea').style.display = 'none';
       return;
@@ -1174,6 +1223,7 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
     renderCombinedView();
     renderWechatStandaloneView();
     renderCardStandaloneView();
+    if(activeTab === 'transfers') renderWechatTransfers();
   }
 
   // Build stats for a set of items
@@ -1381,6 +1431,9 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
 
     if(!wechatData.loaded || !Object.keys(wechatData.aggregatedByDate).length){
       $('wechatTableContainer').style.display = 'none';
+      $('wechatEmptyNotice').textContent = wechatData.loaded
+        ? '已导入微信账单，未找到符合餐费金额的二维码收款。'
+        : '尚未导入微信账单数据，请在左侧上传微信账单文件。';
       $('wechatEmptyNotice').style.display = 'block';
       return;
     }
@@ -2018,6 +2071,7 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
     const aggregated = {};
     const detailsByFile = files.map(f => ({ fileName: f.name, details: [], warning: '' }));
     const allWeChatRecords = [];
+    const transfers = [];
 
     for(let i = 0; i < files.length; i++){
       const file = files[i];
@@ -2025,23 +2079,31 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
       await new Promise(r => setTimeout(r, 20));
 
       const buffer = await file.arrayBuffer();
-      const wb = XLSX.read(buffer, { type: 'array' });
+      // CSV dates are Beijing-time strings. Keep the time instead of letting SheetJS infer a date-only format.
+      const wb = XLSX.read(buffer, { type: 'array', raw: /\.csv$/i.test(file.name), dateNF: 'yyyy-mm-dd hh:mm:ss' });
       const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: false });
-      const records = parseWeChatFileRows(rows, file.name, detailsByFile[i], aggregated);
+      const records = parseWeChatFileRows(rows, file.name, detailsByFile[i], aggregated, transfers);
       allWeChatRecords.push(...records);
     }
 
-    if(!allWeChatRecords.length){
-      throw new Error('所选微信账单中未找到符合 14/35/28/70 元的收入记录');
+    const skippedFiles = detailsByFile.filter(group => group.warning);
+    if(skippedFiles.length === files.length){
+      throw new Error(skippedFiles.map(group => `${group.fileName}：${group.warning}`).join('；'));
     }
 
     wechatData.loaded = true;
     wechatData.files = detailsByFile;
     wechatData.records = allWeChatRecords;
+    wechatData.transfers = transfers;
     wechatData.aggregatedByDate = aggregated;
 
     $('wechatFileCard').classList.add('has-file');
-    $('wechatFileStatus').textContent = `已导入 ${files.length} 个文件 (${allWeChatRecords.length.toLocaleString()} 条记录)`;
+    const fileStatus = $('wechatFileStatus');
+    const importedFiles = files.length - skippedFiles.length;
+    fileStatus.textContent = `已导入 ${importedFiles} 个文件（${allWeChatRecords.length.toLocaleString()} 条扫码就餐记录）`
+      + (skippedFiles.length ? `，${skippedFiles.length} 个文件未识别` : '');
+    fileStatus.title = skippedFiles.map(group => `${group.fileName}：${group.warning}`).join('\n');
+    $('wechatLegacyNotice').hidden = true;
     $('clearWechatBtn').style.display = 'block';
 
     return true;
@@ -2106,9 +2168,11 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
   }
 
   function clearWechatData(){
-    wechatData = { loaded:false, files:[], records:[], aggregatedByDate:{}, exportStatsData:[] };
+    wechatData = { loaded:false, files:[], records:[], transfers:null, aggregatedByDate:{}, exportStatsData:[] };
     $('wechatFileCard').classList.remove('has-file');
     $('wechatFileStatus').textContent = '未导入';
+    $('wechatFileStatus').removeAttribute('title');
+    $('wechatLegacyNotice').hidden = true;
     $('clearWechatBtn').style.display = 'none';
 
     refreshTransTypeAndTerminalOptions();
@@ -2178,6 +2242,74 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
     XLSX.writeFile(wb, '就餐统计与分文件明细报表_开罗时间.xlsx');
   }
 
+  function buildWechatTransferReport(transfers){
+    const byDay = new Map();
+    const total = { count:0, income:0, expense:0, unknown:0 };
+    const newestFirst = [...transfers].sort((a, b) => b.cairoDate.localeCompare(a.cairoDate) || b.cairoTime.localeCompare(a.cairoTime));
+    const details = newestFirst.map(record => {
+      const { cairoDate, direction, amountCents } = record;
+      if(!byDay.has(cairoDate)) byDay.set(cairoDate, { count:0, income:0, expense:0, unknown:0 });
+      const field = direction === '收入' ? 'income' : direction === '支出' ? 'expense' : 'unknown';
+      const day = byDay.get(cairoDate);
+      day.count++;
+      day[field] += amountCents;
+      total.count++;
+      total[field] += amountCents;
+      return {
+        '交易时间（北京时间）': record.timeStr,
+        '交易时间（开罗时间）': `${cairoDate} ${record.cairoTime}`,
+        '交易类型': record.transactionType,
+        '收支方向': direction,
+        '交易对方': record.counterparty,
+        '金额（元）': amountCents / 100,
+        '来源文件': record.fileName
+      };
+    });
+    const summary = [...byDay, ['总计', total]].map(([date, stats]) => ({
+      '日期（开罗）': date,
+      '转账笔数': stats.count,
+      '转入（元）': stats.income / 100,
+      '转出（元）': stats.expense / 100,
+      '方向未标明（元）': stats.unknown / 100
+    }));
+    return { summary, details };
+  }
+
+  function renderWechatTransfers(){
+    const transfers = wechatData.transfers;
+    const hasTransfers = Boolean(transfers?.length);
+    $('wechatTransfersReport').hidden = !hasTransfers;
+    $('exportWechatTransfersBtn').disabled = !hasTransfers;
+    $('wechatTransfersEmpty').hidden = hasTransfers;
+    $('wechatTransfersEmpty').textContent = !wechatData.loaded
+      ? '请先导入微信原始账单。'
+      : transfers === null ? '此快照未保存转账记录，请重新导入微信原始账单。' : '本次导入的账单没有微信转账记录。';
+    if(!hasTransfers){
+      $('wechatTransfersSummary').replaceChildren();
+      $('wechatTransfersDetails').replaceChildren();
+      return;
+    }
+
+    const { summary, details } = buildWechatTransferReport(transfers);
+    for(const [id, rows] of [['wechatTransfersSummary', summary], ['wechatTransfersDetails', details]]){
+      const headers = Object.keys(rows[0]);
+      $(id).innerHTML = `<thead><tr>${headers.map(header => `<th scope="col">${escapeHtml(header)}</th>`).join('')}</tr></thead>
+        <tbody>${rows.map(row => `<tr>${headers.map(header => {
+          const value = row[header];
+          return `<td>${escapeHtml(typeof value === 'number' && header.endsWith('（元）') ? value.toFixed(2) : value)}</td>`;
+        }).join('')}</tr>`).join('')}</tbody>`;
+    }
+  }
+
+  function exportWechatTransfersExcel(){
+    if(!wechatData.transfers?.length) return;
+    const { summary, details } = buildWechatTransferReport(wechatData.transfers);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summary), '每日转账汇总');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(details), '转账明细');
+    XLSX.writeFile(wb, '微信转账统计_开罗时间.xlsx');
+  }
+
   // PNG Export
   function exportPngChart(){
     const canvases = [...document.querySelectorAll('#dateResults canvas')];
@@ -2220,6 +2352,8 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
     $('viewCombined').style.display = tabKey === 'combined' ? 'block' : 'none';
     $('viewWechat').style.display = tabKey === 'wechat' ? 'block' : 'none';
     $('viewCard').style.display = tabKey === 'card' ? 'block' : 'none';
+    $('viewTransfers').style.display = tabKey === 'transfers' ? 'block' : 'none';
+    if(tabKey === 'transfers') renderWechatTransfers();
   }
 
   // ========================================================
@@ -2378,7 +2512,10 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
     $('snapshotNameInput').value = defaultName;
 
     $('snapPreviewCard').textContent = cardData.loaded ? `${cardData.fileName} (${cardData.rawRows.length.toLocaleString()} 行)` : '未导入';
-    $('snapPreviewWechat').textContent = wechatData.loaded ? `${wechatData.files.length} 个文件 (${wechatData.records.length.toLocaleString()} 条就餐记录)` : '未导入';
+    $('snapPreviewWechat').textContent = wechatData.loaded
+      ? `${wechatData.files.length} 个文件（就餐 ${wechatData.records.length.toLocaleString()} 条`
+        + (wechatData.transfers ? `，转账 ${wechatData.transfers.length.toLocaleString()} 笔）` : '）')
+      : '未导入';
     $('snapPreviewTotal').textContent = `${filteredUnifiedItems.length.toLocaleString()} 次`;
     $('snapPreviewDate').textContent = availableDates.length ? `${availableDates[0]} 至 ${availableDates[availableDates.length-1]}` : '无日期';
 
@@ -2413,6 +2550,7 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
       const summary = {
         cardCount,
         wechatCount,
+        transferCount: wechatData.transfers?.length || 0,
         totalTransactions,
         cardFileName: cardData.fileName || '',
         wechatFilesCount: wechatData.files.length || 0,
@@ -2433,6 +2571,7 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
           loaded: wechatData.loaded,
           files: wechatData.files,
           records: wechatData.records,
+          transfers: wechatData.transfers,
           aggregatedByDate: wechatData.aggregatedByDate,
           exportStatsData: wechatData.exportStatsData
         },
@@ -2532,6 +2671,7 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
           <span class="snapshot-badge">👥 就餐：<b>${(s.totalTransactions || 0).toLocaleString()}</b> 次</span>
           <span class="snapshot-badge">📇 刷卡：<b>${(s.cardCount || 0).toLocaleString()}</b> 行</span>
           <span class="snapshot-badge">💬 微信：<b>${(s.wechatCount || 0).toLocaleString()}</b> 条</span>
+          ${s.transferCount ? `<span class="snapshot-badge">💸 转账笔数：<b>${escapeHtml(s.transferCount.toLocaleString())}</b></span>` : ''}
           ${s.dateRange ? `<span class="snapshot-badge">📅 ${escapeHtml(s.dateRange)}</span>` : ''}
         </div>
         <div class="snapshot-card-actions">
@@ -2776,24 +2916,31 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
     restoreProgress.step('card', 'done', cardRows ? `${cardRows.toLocaleString()} 行` : '无');
 
     // Restore WeChat data
-    const wxRecords = w && Array.isArray(w.records) ? w.records.length : 0;
+    const hasWechatSnapshot = w?.loaded && Array.isArray(w.records);
+    const unverifiedWechat = hasWechatSnapshot && w.records.some(record => !record?.transactionType);
+    const wxRecords = hasWechatSnapshot && !unverifiedWechat ? w.records.length : 0;
     restoreProgress.step('wechat', 'active');
     restoreProgress.sub(wxRecords ? `恢复 ${wxRecords.toLocaleString()} 条微信就餐记录…` : '无微信数据，跳过');
     await nextPaint();
-    if(w && w.loaded && Array.isArray(w.records) && w.records.length){
+    if(hasWechatSnapshot && !unverifiedWechat){
       wechatData.loaded = true;
       wechatData.files = w.files || [];
       wechatData.records = w.records || [];
+      wechatData.transfers = Array.isArray(w.transfers) ? w.transfers : null;
       wechatData.aggregatedByDate = w.aggregatedByDate || {};
       wechatData.exportStatsData = w.exportStatsData || [];
 
       $('wechatFileCard').classList.add('has-file');
-      $('wechatFileStatus').textContent = `已载入 ${wechatData.files.length || 1} 个文件 (${wechatData.records.length.toLocaleString()} 条记录)`;
+      const fileStatus = $('wechatFileStatus');
+      $('wechatLegacyNotice').hidden = true;
+      fileStatus.textContent = `已载入 ${wechatData.files.length || 1} 个文件（${wechatData.records.length.toLocaleString()} 条记录）`;
+      fileStatus.removeAttribute('title');
       $('clearWechatBtn').style.display = 'block';
     } else {
       clearWechatData();
+      $('wechatLegacyNotice').hidden = !unverifiedWechat;
     }
-    restoreProgress.step('wechat', 'done', wxRecords ? `${wxRecords.toLocaleString()} 条` : '无');
+    restoreProgress.step('wechat', 'done', unverifiedWechat ? '旧微信记录已跳过' : wxRecords ? `${wxRecords.toLocaleString()} 条` : '无');
 
     // Restore Filters
     restoreProgress.step('filters', 'active');
@@ -2828,7 +2975,7 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
       });
     }
 
-    if(f && f.dateStartSlider !== undefined && f.dateEndSlider !== undefined){
+    if(!unverifiedWechat && f && f.dateStartSlider !== undefined && f.dateEndSlider !== undefined){
       $('dateStartSlider').value = f.dateStartSlider;
       $('dateEndSlider').value = f.dateEndSlider;
       syncDateSelectionFromSliders(false);
@@ -2836,7 +2983,9 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
 
     if(f && Array.isArray(f.selectedDates) && f.selectedDates.length){
       selectedDates.clear();
-      f.selectedDates.forEach(d => selectedDates.add(d));
+      f.selectedDates.forEach(d => {
+        if(!unverifiedWechat || availableDates.includes(d)) selectedDates.add(d);
+      });
     }
     restoreProgress.step('filters', 'done');
 
@@ -3126,6 +3275,7 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
   $('exportCsvBtn').onclick = exportCombinedCsv;
   $('exportWechatExcelBtn').onclick = exportWechatStandaloneExcel;
   $('exportWechatStandaloneBtn').onclick = exportWechatStandaloneExcel;
+  $('exportWechatTransfersBtn').onclick = exportWechatTransfersExcel;
   $('exportPngBtn').onclick = exportPngChart;
 
   ['familyKeywords', 'consultantPrefix', 'wxPrefix', 'ownPrefix'].forEach(id => {

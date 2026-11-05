@@ -361,8 +361,23 @@ ${directoryContext || '（空目录）'}`;
 // ── 审批 ────────────────────────────────────────────────
 /** 命令命中、且没有被放开（本对话 / 这个工作目录 / 永久）的危险类别 */
 function dangerHits(session, toolName, args) {
-    if (toolName !== 'run_command' || !args) return [];
-    return dangerRules.pending(dangerRules.detect(args.command, session.root), { sessionAllowed: session.dangerAllowed, rules: session.dangerRules, root: session.root });
+    if (toolName === 'run_command' && args) {
+        return dangerRules.pending(dangerRules.detect(args.command, session.root), { sessionAllowed: session.dangerAllowed, rules: session.dangerRules, root: session.root });
+    }
+    // 完全访问放开沙箱后，删除工作区之外的文件或递归删除非空目录，仍弹审批卡保护
+    if (toolName === 'delete_path' && args && args.path) {
+        try {
+            const raw = String(args.path);
+            const abs = path.isAbsolute(raw) ? path.resolve(raw) : path.resolve(session.root, raw);
+            const isOutside = !guard.samePath(abs, session.root) && !guard.isInside(session.root, abs);
+            if (isOutside || args.recursive) {
+                const reason = isOutside ? `删除工作目录之外的内容：${raw}` : `递归删除目录：${raw}`;
+                const hits = [{ category: 'delete-outside', label: '删除重要或工作目录之外的内容', reason }];
+                return dangerRules.pending(hits, { sessionAllowed: session.dangerAllowed, rules: session.dangerRules, root: session.root });
+            }
+        } catch (_ignored) {}
+    }
+    return [];
 }
 
 function classifyDecision(session, toolName, args = null, kind = toolsService.kindOf(toolName, args)) {
@@ -546,6 +561,7 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
     const fullSystem = redactText(`${systemInstruction}\n${addendum}${skillPrompts ? `\n${skillPrompts}` : ''}${registry.catalogPrompt()}`, { secrets: sensitiveValues });
     const opsCtx = { actor: session.username, createdRunIds: new Set() };
     const toolCtx = { root: session.root, changeLog: session.changeLog, signal, sensitiveValues, username: session.username, readOnly: session.readOnly,
+        permissionMode: session.permissionMode,
         fullResults: true, artifactOwner: session.owner,
         currentUserMessage: currentUser?.content || '', userMessages: historyMessages.filter(item => item.role === 'user').map(item => item.content),
         onProcess: child => run.processes.add(child) };

@@ -65,7 +65,10 @@ async function organizeUpload(saved,fields,clientOverride,manual) {
     try {
         const organized = await recognizeAndOrganize(saved.versionId,fields.aiMode,true,clientOverride,{versionLabelLocked:manual.includes('version_label')});
         return {...saved,...organized,aiOrganized:true};
-    } catch (_) { return {...saved,aiWarning:'AI 暂不可用，图片已保存，可稍后重试整理'}; }
+    } catch (error) {
+        console.error('[gallery-service] organizeUpload failed for version ' + saved.versionId + ':', error?.message || error);
+        return {...saved,aiWarning:'AI 暂不可用，图片已保存，可稍后重试整理'};
+    }
 }
 function parseAnalysis(raw, categories) {
     let data;
@@ -111,14 +114,21 @@ async function analyze(id, mode, confirmed, clientOverride, organizationContext,
                 messages: [{ role: 'user', content: `第一张是待整理图片。已有分类：${redactText(JSON.stringify(choices))}${context ? '\n归组上下文：'+context : ''}`, images: [{ mimeType: 'image/jpeg', data: image.bytes.toString('base64') },...(organizationContext?.images || [])] }],
                 maxOutputTokens: (mode === 'precise' ? 1000 : 650) + (organizationContext ? 250 : 0), temperature: 0.1, json: true, signal: controller.signal
             });
-        } catch (_) { throw repo.fail('AI 识别暂不可用，图片已保留，可手动整理后重试', 503); }
+        } catch (error) {
+            console.error('[gallery-service] AI generateChat failed for version ' + id + ':', error?.message || error);
+            throw repo.fail('AI 识别暂不可用，图片已保留，可手动整理后重试', 503);
+        }
         finally { clearTimeout(timeout); }
         const analysis = parseAnalysis(reply.text, choices);
         analysis.categoryId = categories[Number.parseInt(analysis.categoryId, 10)]?.id || '';
-        analysis.albumId = organizationContext?.albums[Number.parseInt(analysis.albumId,10)]?.id || '';
-        analysis.versionOf = organizationContext?.candidates.find(candidate => candidate.index === analysis.versionOf && candidate.hasReference)?.id || '';
+        analysis.albumId = organizationContext?.albums?.[Number.parseInt(analysis.albumId,10)]?.id || '';
+        analysis.versionOf = organizationContext?.candidates?.find?.(candidate => candidate.index === analysis.versionOf && candidate.hasReference)?.id || '';
         return { version: await repo.saveAnalysis(id, mode, analysis), cached: false };
-    } catch (error) { await repo.failedAnalysis(id); throw error; }
+    } catch (error) {
+        console.error('[gallery-service] analyze failed for version ' + id + ':', error);
+        await repo.failedAnalysis(id);
+        throw error;
+    }
     finally { analyzing.delete(key); }
 }
 async function recognizeAndOrganize(id,mode,confirmed,clientOverride,options = {}) {
