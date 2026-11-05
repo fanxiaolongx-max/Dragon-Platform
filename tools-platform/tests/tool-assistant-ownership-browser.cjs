@@ -18,6 +18,20 @@ app.whenReady().then(async () => {
         <p>Foreground dialog</p><input type="password" value="fixture-password"><p hidden>hidden detail</p></div>${assistant}</body></html>`));
     web.get('/late', (_, res) => res.send(`<!doctype html><html><head><title>Late</title></head><body>Late component<script>setTimeout(()=>{const s=document.createElement('script');s.src='/js/shared/ai-assistant.js';document.body.append(s)},200)</script></body></html>`));
     web.get('/plain', (_, res) => res.send('<!doctype html><html><head><title>Plain</title></head><body>No tool assistant</body></html>'));
+    const capturePage = fs.readFileSync(path.join(root, 'frontend/pages/uivf12.html'), 'utf8');
+    const analysisDialogs = capturePage.slice(capturePage.indexOf('<div id="scriptAnalysisModal"'), capturePage.indexOf('<div id="uivAiAdapterOverlay"'));
+    web.get('/capture-analysis', (_, res) => res.send(`<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>数据抓取</title>
+        <link rel="stylesheet" href="/css/uivf12.css"></head><body id="uiv-page">
+        <p>Underlying capture workspace</p>${analysisDialogs}
+        <script>window.API={getSourceMode:()=> 'auto', get:async()=>({scripts:[{
+            id:'ops-capture', name:'订单抓取脚本', category:'运营分类',
+            url:'https://example.test/?opaque=private-url-value', payload:'{"pageSize":50}', configOptions:{isPagination:true}
+        }]})};</script><script src="/js/uivf12/analysis.js"></script>${assistant}</body></html>`));
+    web.get('/dense', (_, res) => res.send(`<!doctype html><title>Long table</title>
+        <style>body{font:12px monospace}td{padding:2px}.outside{margin-top:900px}</style>
+        <table><thead><tr><th>Service</th><th>Details</th></tr></thead><tbody>
+        ${Array.from({ length: 26 }, (_, index) => `<tr><td>${index === 25 ? 'Zephyr' : 'Service-' + index}</td><td>${index === 25 ? 'Target details' : 'Ordinary unrelated information '.repeat(7)}</td></tr>`).join('')}
+        </tbody></table><p class="outside">Offscreen-only marker</p>${assistant}`));
     web.get('/hosted', (_, res) => res.send(`<!doctype html><html><head><title>Host shell</title></head><body>
         <iframe class="custom-tool-frame" style="width:95vw;height:95vh" src="/launcher"></iframe>${assistant}</body></html>`));
     web.get('/launcher', (_, res) => res.send('<!doctype html><html><head><title>AiOps fixture</title><link rel="stylesheet" href="/css/hosted-app-launcher.css"></head><body data-hosted-app="fixture"><script src="/js/hosted-app-launcher.js"></script></body></html>'));
@@ -99,5 +113,52 @@ app.whenReady().then(async () => {
     await evaluate('new Promise((resolve,reject)=>{const s=document.createElement("script");s.src="/js/shared/ai-assistant.js";s.onload=()=>resolve(true);s.onerror=reject;document.body.append(s)})');
     assert.equal(await evaluate('document.querySelectorAll(".ai-fab").length'), 1, 'repeated script loading is idempotent');
     assert.equal(await evaluate('document.querySelectorAll(".ai-panel").length'), 1);
-    console.log('PASS: one assistant per visible page, tool context, close restoration, lazy load, navigation fallback, standalone tools and repeated script loads');
+    await evaluate(`(() => {
+        const dialog = document.createElement('dialog');
+        dialog.innerHTML = '<h2>Native outer dialog</h2>';
+        dialog.id = 'nativeOuter';
+        document.body.appendChild(dialog);
+        dialog.showModal();
+    })()`);
+    await until('document.querySelector("#nativeOuter > .ai-fab") !== null');
+    await evaluate(`(() => {
+        const dialog = document.createElement('dialog');
+        dialog.innerHTML = '<h2>Native nested dialog</h2><input type="text" value="private-edit-value">';
+        dialog.id = 'nativeNested';
+        document.body.appendChild(dialog);
+        dialog.showModal();
+    })()`);
+    await until('document.querySelector("#nativeNested > .ai-fab") !== null');
+    await evaluate('ToolsAIAssistant.ask("Explain the dialog")');
+    assert.match(chats.at(-1).context, /Native nested dialog/);
+    assert.doesNotMatch(chats.at(-1).context, /Native outer dialog|Tool-specific content|private-edit-value/);
+    await evaluate('document.querySelector("#nativeNested").remove()');
+    await until('document.querySelector("#nativeOuter > .ai-fab") !== null');
+    await evaluate('document.querySelector("#nativeOuter").close()');
+    await until('document.querySelector("body > .ai-fab") !== null');
+
+    await win.loadURL(base + '/capture-analysis');
+    await evaluate('UIVScriptAnalysis.open()');
+    assert.equal(await evaluate(`(() => {
+        const bounds = document.querySelector('.ai-fab').getBoundingClientRect();
+        return !!document.elementFromPoint(bounds.left + 8, bounds.top + 8)?.closest('.ai-fab');
+    })()`), true, 'the script analysis window leaves the assistant clickable');
+    await evaluate('ToolsAIAssistant.open()');
+    assert.match(chats.at(-1).context, /脚本仓库分析/);
+    assert.match(chats.at(-1).context, /订单抓取脚本/);
+    assert.doesNotMatch(chats.at(-1).context, /Underlying capture workspace|private-url-value/);
+    await evaluate('document.querySelector(".script-analysis-action.saveas").click()');
+    await until('document.querySelector("#scriptAnalysisMiniDialog.open") !== null');
+    await evaluate('ToolsAIAssistant.ask("这个另存为弹窗有什么用？")');
+    assert.match(chats.at(-1).context, /为当前脚本副本命名并选择保存分类/);
+    assert.doesNotMatch(chats.at(-1).context, /脚本仓库分析|订单抓取脚本_副本|private-url-value/);
+    await evaluate('UIVScriptAnalysis.cancelDialog()');
+
+    await win.loadURL(base + '/dense');
+    await evaluate('ToolsAIAssistant.ask("Explain Zephyr")');
+    assert.match(chats.at(-1).context, /Service \| Details/);
+    assert.match(chats.at(-1).context, /Zephyr \| Target details/);
+    assert.match(chats.at(-1).context, /Excerpt from the current view/);
+    assert.doesNotMatch(chats.at(-1).context, /Offscreen-only marker/);
+    console.log('PASS: tool ownership, visible content, nested modals, script analysis, question-relevant rows, and IDE context');
 }).catch(error => { console.error(error); process.exitCode = 1; }).finally(() => { clearTimeout(watchdog); win?.destroy(); server?.close(); app.exit(process.exitCode || 0); });

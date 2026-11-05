@@ -602,6 +602,7 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
                 <thead>
                   <tr>
                     <th rowspan="2" class="left" style="min-width:110px">日期（开罗）</th>
+                    <th rowspan="2" class="left">日期（点分隔）</th>
                     <th colspan="3" style="background:#e8f8f0;color:#059669">早餐人数 (14 / 35元)</th>
                     <th colspan="3" style="background:#eff6ff;color:#2563eb">中餐人数 (28 / 70元, 10-15点)</th>
                     <th colspan="3" style="background:#fef3c7;color:#b45309">晚餐人数 (28 / 70元, 16-21点)</th>
@@ -933,6 +934,10 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
     const d = parseYmdLocal(value);
     if(!d) return value || '—';
     return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function formatDottedDate(value){
+    return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value.replace(/-/g, '.') : '';
   }
 
   // Card row classification
@@ -1468,6 +1473,7 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
 
       wechatData.exportStatsData.push({
         '日期 (开罗时间)': date,
+        '日期（点分隔）': formatDottedDate(date),
         '早餐-自有(14元)': x.breakfastOwn,
         '早餐-非自有(35元)': x.breakfastNonOwn,
         '早餐合计': bTot,
@@ -1485,6 +1491,7 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
 
       tbody.insertAdjacentHTML('beforeend', `<tr>
         <td class="left">${date}</td>
+        <td class="left">${formatDottedDate(date)}</td>
         <td style="color:#059669">${x.breakfastOwn}</td>
         <td style="color:#0284c7">${x.breakfastNonOwn}</td>
         <td style="font-weight:700">${bTot}</td>
@@ -1503,6 +1510,7 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
 
     wechatData.exportStatsData.push({
       '日期 (开罗时间)': '总计',
+      '日期（点分隔）': '',
       '早餐-自有(14元)': totals.bOwn,
       '早餐-非自有(35元)': totals.bNonOwn,
       '早餐合计': totals.bTot,
@@ -1520,6 +1528,7 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
 
     tfoot.innerHTML = `<tr>
       <td class="left">总计</td>
+      <td></td>
       <td style="color:#059669">${totals.bOwn}</td>
       <td style="color:#0284c7">${totals.bNonOwn}</td>
       <td style="font-weight:700">${totals.bTot}</td>
@@ -2200,6 +2209,7 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
       item.employee || '',
       item.source === 'card' ? safeText(item.rawRow[findColumn('card')]) : '微信支付',
       item.source === 'card' ? safeText(item.rawRow[findColumn('time')]) : `${item.rawWechat.cairoDate} ${item.rawWechat.cairoTime}`,
+      formatDottedDate(item.date),
       item.amount,
       item.terminal,
       item.transType,
@@ -2208,7 +2218,7 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
       item.source === 'card' ? '营业流水刷卡' : '微信账单'
     ]);
 
-    const headers = ['序号', '姓名', '工号/标识', '卡类型', '交易时间', '交易金额', '交易终端名称', '交易类型', '餐别', '人员分类', '数据来源'];
+    const headers = ['序号', '姓名', '工号/标识', '卡类型', '交易时间', '日期（点分隔）', '交易金额', '交易终端名称', '交易类型', '餐别', '人员分类', '数据来源'];
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     const csv = XLSX.utils.sheet_to_csv(ws);
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
@@ -2234,8 +2244,14 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
       }
       used.add(name);
 
-      const ws = XLSX.utils.json_to_sheet(group.details);
-      ws['!cols'] = [{ wch: 22 }, { wch: 14 }, { wch: 18 }, { wch: 12 }, { wch: 20 }, { wch: 10 }, { wch: 10 }, { wch: 14 }];
+      const rows = group.details.map(({ '交易时间': time, '交易日期(开罗)': date, ...detail }) => ({
+        '交易时间': time,
+        '交易日期(开罗)': date,
+        '日期（点分隔）': formatDottedDate(date),
+        ...detail
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
+      ws['!cols'] = [{ wch: 22 }, { wch: 14 }, { wch: 17 }, { wch: 18 }, { wch: 12 }, { wch: 20 }, { wch: 10 }, { wch: 10 }, { wch: 14 }];
       XLSX.utils.book_append_sheet(wb, ws, name);
     });
 
@@ -2258,6 +2274,7 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
       return {
         '交易时间（北京时间）': record.timeStr,
         '交易时间（开罗时间）': `${cairoDate} ${record.cairoTime}`,
+        '日期（点分隔）': formatDottedDate(cairoDate),
         '交易类型': record.transactionType,
         '收支方向': direction,
         '交易对方': record.counterparty,
@@ -2267,6 +2284,7 @@ html[data-platform-theme="light"] div.subtitle { color: #334155 !important; }
     });
     const summary = [...byDay, ['总计', total]].map(([date, stats]) => ({
       '日期（开罗）': date,
+      '日期（点分隔）': formatDottedDate(date),
       '转账笔数': stats.count,
       '转入（元）': stats.income / 100,
       '转出（元）': stats.expense / 100,

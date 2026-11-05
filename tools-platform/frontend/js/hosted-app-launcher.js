@@ -691,7 +691,9 @@
         const source = editor.value;
         const sensitivePath = /(?:^|\/)(?:\.[^/]+|[^/]*(?:credentials?|secrets?|passwd|password|private[-_]?keys?)[^/]*)(?:\/|$)/i;
         const sourceFile = /\.(?:py|[cm]?js|jsx|tsx?|html?|css|scss|sql|md|vue|svelte|java|kt|go|rs|rb|php|c|cpp|h|swift|sh)$/i;
-        if (sensitivePath.test(tab.path) || !sourceFile.test(tab.path) || /-----BEGIN [^\r\n]*PRIVATE KEY-----/.test(source)) {
+        // Do not slice a multiline credential block into an excerpt with its label removed.
+        const multilineCredential = /-----BEGIN [^\r\n]*PRIVATE KEY-----|(?:password|passwd|secret|token|api[_-]?key|private[_-]?key|cookie|authorization)(?:["']\s*\]?)?\s*[:=]\s*(?:'''|"""|`)/i;
+        if (sensitivePath.test(tab.path) || !sourceFile.test(tab.path) || multilineCredential.test(source)) {
             return '[当前文件类型未共享 / Active file type was excluded]';
         }
 

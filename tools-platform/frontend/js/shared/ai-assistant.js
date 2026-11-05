@@ -1167,7 +1167,7 @@
         <div class="ai-suggestions" id="aiSuggestions"></div>
         <div class="ai-input-area">
             <input type="text" class="ai-input" id="aiInput" placeholder="向 Dragon Claw 提问有关本页面的内容...">
-            <button class="ai-send-btn" id="aiSendBtn">
+            <button class="ai-send-btn" id="aiSendBtn" type="button">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
             </button>
         </div>
@@ -2009,25 +2009,34 @@
         openKnowledgeGraph({ mode: 'knowledge', sources });
     });
 
-    const assistantChrome = '.ai-fab, .ai-panel, .ai-proactive-alert, .ai-kg-overlay';
+    const assistantChrome = '.ai-fab, .ai-panel, .ai-proactive-alert, .ai-archive-overlay, .ai-kg-overlay';
     const contextHidden = `${assistantChrome}, [hidden], [aria-hidden="true"], [inert]`;
     const contextExcluded = `${contextHidden}, [data-ai-context-ignore], script, style, noscript, template, input, textarea, select, [contenteditable], svg, canvas`;
+    const contextDialog = 'dialog[open], [role="dialog"], [role="alertdialog"], [aria-modal="true"], [data-ai-context-root]';
 
-    function isOnScreen(doc, rect, element) {
+    function hitsOnScreen(doc, rect) {
         const left = Math.max(0, rect.left);
         const top = Math.max(0, rect.top);
         const right = Math.min(doc.documentElement.clientWidth, rect.right);
         const bottom = Math.min(doc.documentElement.clientHeight, rect.bottom);
-        if (right <= left || bottom <= top) return false;
+        if (right <= left || bottom <= top) return [];
         // Ignore our own overlay so opening/expanding the assistant does not hide its source.
-        return [0.5, 0.1, 0.9].some(fraction => {
-            const hit = doc.elementsFromPoint(left + (right - left) * fraction, top + (bottom - top) * fraction)
-                .find(node => !node.closest(assistantChrome));
-            return hit && (element.contains(hit) || hit.contains(element));
-        });
+        return [0.5, 0.1, 0.9].map(fraction => doc.elementsFromPoint(
+            left + (right - left) * fraction, top + (bottom - top) * fraction
+        ).find(node => !node.closest(assistantChrome))).filter(Boolean);
     }
 
-    function readVisibleText(doc, root) {
+    function isOnScreen(doc, rect, element) {
+        return hitsOnScreen(doc, rect).some(hit => element.contains(hit) || hit.contains(element));
+    }
+
+    function foregroundDialog(doc, selector = contextDialog) {
+        const dialogs = Array.from(doc.querySelectorAll(selector)).reverse();
+        return dialogs.find(dialog => !dialog.closest(contextHidden) &&
+            hitsOnScreen(doc, dialog.getBoundingClientRect()).some(hit => hit.closest(selector) === dialog));
+    }
+
+    function readVisibleText(doc, root, question) {
         if (root.closest(contextExcluded)) return '';
         const limit = 3400;
         const walker = doc.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, node => {
@@ -2040,14 +2049,45 @@
             return NodeFilter.FILTER_SKIP;
         });
         const range = doc.createRange();
-        let text = '';
+        const blocks = new Map();
+        let clipped = false;
         for (let node; (node = walker.nextNode());) {
             range.selectNodeContents(node);
             if (!Array.from(range.getClientRects()).some(rect => isOnScreen(doc, rect, node.parentElement))) continue;
-            text += (text ? '\n' : '') + node.data.trim();
-            if (text.length > limit) return text.slice(0, limit) + '\n[可见文字节选 / Visible text excerpt]';
+            const element = node.parentElement;
+            const block = element.closest('tr, [role="row"], h1, h2, h3, h4, h5, h6, p, li, dt, dd') || element;
+            const cell = element.closest('td, th, [role="cell"], [role="gridcell"], [role="columnheader"]');
+            const entry = blocks.get(block) || { text: '', header: block.matches('h1,h2,h3,h4,h5,h6,thead tr'), cell: null };
+            const fragment = node.data.trim();
+            const separator = entry.text ? (cell && cell !== entry.cell ? ' | ' : ' ') : '';
+            if (entry.text.length + separator.length + fragment.length > 2200) clipped = true;
+            entry.text = (entry.text + separator + fragment).slice(0, 2200);
+            entry.cell = cell;
+            blocks.set(block, entry);
+            if (blocks.size >= 500) {
+                clipped = true;
+                break;
+            }
         }
-        return text;
+        const entries = [...blocks.values()];
+        const combined = entries.map(entry => entry.text).join('\n');
+        if (!clipped && combined.length <= limit) return combined;
+
+        const terms = [...new Set(question.toLowerCase().split(/(?:请|帮我|告诉我|看一下|这[个段张页]|如何|什么|怎么|哪些|关于|的|[\s，。？、；：“”"'!?,:;]+)/)
+            .filter(term => term.length >= 2 && term.length <= 60 && !/^(?:the|and|what|how|is|are|in|for|this|explain|about|please)$/.test(term)))].slice(0, 20);
+        const ranked = entries.map((entry, index) => ({
+            ...entry, index,
+            score: terms.filter(term => entry.text.toLowerCase().includes(term)).length
+        })).sort((a, b) => Number(b.header) - Number(a.header) || b.score - a.score || a.index - b.index);
+        let length = 0;
+        const picked = [];
+        for (const entry of ranked) {
+            if (length + entry.text.length + 1 > limit) continue;
+            picked.push(entry);
+            length += entry.text.length + 1;
+        }
+        return picked.sort((a, b) => a.index - b.index).map(entry => entry.text).join('\n')
+            + '\n[当前视口节选，未覆盖全部内容 / Excerpt from the current view]';
     }
 
     function getPageContext(question) {
@@ -2056,9 +2096,7 @@
         let isolatedFrame = false;
         const pagePath = getPagePath();
         for (let depth = 0; depth < 5; depth++) {
-            root = Array.from(doc.querySelectorAll(':modal, [aria-modal="true"]')).reverse()
-                .find(node => !node.closest(contextHidden) && isOnScreen(doc, node.getBoundingClientRect(), node))
-                || doc.fullscreenElement || doc.body;
+            root = foregroundDialog(doc, 'dialog:modal') || foregroundDialog(doc) || doc.fullscreenElement || doc.body;
             const frame = Array.from(root.querySelectorAll('iframe')).find(node => {
                 if (node.closest(contextExcluded)) return false;
                 const rect = node.getBoundingClientRect();
@@ -2075,7 +2113,7 @@
         }
         let editor = '';
         try { editor = doc.defaultView.ToolsPageContext?.({ root, question }) || ''; } catch { /* The view may be navigating. */ }
-        const visibleText = readVisibleText(doc, root);
+        const visibleText = readVisibleText(doc, root, question);
         const context = [
             editor,
             visibleText && `[页面可见文字 / Visible page text]\n${visibleText}`,
@@ -2908,7 +2946,7 @@
     };
 
     async function openAssistant(options = {}) {
-        const toolAssistant = window.HomeToolFrame?.assistant?.();
+        const toolAssistant = fab.parentElement === document.body && window.HomeToolFrame?.assistant?.();
         if (toolAssistant?.open && toolAssistant !== window.ToolsAIAssistant) return toolAssistant.open(options);
         if (!activeChatController) syncConversationPage();
         wakeFab();
@@ -2940,6 +2978,23 @@
             return openAssistant({ ...options, prompt });
         }
     };
+
+    // A native modal makes the rest of its document inert. Keep the same assistant inside
+    // the active dialog and return it to the page when the dialog closes or is removed.
+    const modalRemoval = new MutationObserver(() => {
+        if (!fab.parentElement?.isConnected) dockInNativeDialog();
+    });
+    function dockInNativeDialog() {
+        const target = foregroundDialog(document, 'dialog:modal') || document.body;
+        if (fab.parentElement === target) return;
+        target.append(fab, panel, archiveOverlay);
+        modalRemoval.disconnect();
+        if (target !== document.body) modalRemoval.observe(document.body, { childList: true, subtree: true });
+    }
+    document.addEventListener('toggle', event => {
+        if (event.target.matches?.('dialog')) dockInNativeDialog();
+    }, true);
+    dockInNativeDialog();
 
     applyContextTheme();
     const pageThemeObserver = new MutationObserver(() => applyContextTheme());

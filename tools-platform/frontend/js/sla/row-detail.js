@@ -188,7 +188,7 @@
         modal.style.display = 'none';
 
         modal.innerHTML = `
-            <div class="modal-content sla-row-detail-content" onclick="event.stopPropagation()">
+            <div class="modal-content sla-row-detail-content" role="dialog" aria-modal="true" aria-labelledby="sla-detail-title" onclick="event.stopPropagation()">
                 <div class="modal-header sla-row-detail-header">
                     <div class="sla-row-detail-title-wrap">
                         <h3 id="sla-detail-title">📄 详单行详情</h3>

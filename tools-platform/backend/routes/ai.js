@@ -592,7 +592,24 @@ router.get('/connector-status', checkAuth, async (req, res) => {
 });
 
 // 对话处理函数单独命名导出：频道对接（如 WeLink）用虚拟请求复用同一套 Dragon Claw 对话链路。
+let activeAiRequests = 0;
+function getActiveAiRequests() {
+    return activeAiRequests;
+}
+
 async function handleChatRequest(req, res) {
+    activeAiRequests++;
+    let requestCleaned = false;
+    const cleanRequest = () => {
+        if (!requestCleaned) {
+            requestCleaned = true;
+            activeAiRequests = Math.max(0, activeAiRequests - 1);
+        }
+    };
+    if (res && typeof res.on === 'function') {
+        res.on('finish', cleanRequest);
+        res.on('close', cleanRequest);
+    }
     let releaseChat = () => {};
     let streamStarted = false;
     let streamHasDelta = false;
@@ -846,7 +863,8 @@ async function handleChatRequest(req, res) {
         const conversationCompression = compressionResult.compression;
         const sessionSummary = compressedSession?.summary || '';
         const effectiveMessages = await buildEffectiveMessages({
-            sessionId: savedSessionId,
+            // The initial page overview is transient. Keep it available for the first follow-up.
+            sessionId: currentView && !sessionId ? null : savedSessionId,
             incomingMessages: messages,
             lastMessage
         });
@@ -971,7 +989,7 @@ ${currentView ? '2.1 用户问“这个页面”“这段代码”“我现在�
 3.1 用户询问“每个月/分月/某月的目标值”时，这是当前目标配置问题：必须读取具体“指标目标规则”中 monthlyAndCategoryRules 的数字月份键，按月份完整列出；未出现的月份明确说“未配置”。不得用报表快照、历史入库值或其他同名指标替代。
 3.2 本次检索到的实时业务配置优先级高于历史对话、滚动摘要和之前的助手回答；如有冲突，应明确纠正旧答案。
 3.3 当只读业务配置返回“全部指标目标规则明细”时，表示用户已明确要求完整列表。必须输出全部记录，每条至少包含指标名、方向、权重和 1–12 月目标；使用紧凑的 Markdown 表格，不得因为普通检索上限而省略。
-4. 数据问题只能使用数据工具结果作为事实，明确说明月份、快照和数据时间。工具返回无数据时，不得估算或编造。
+4. 数据问题只能使用数据工具结果作为事实，明确说明月份、快照和数据时间。工具返回无数据时，不得估算或编造。${currentView ? '用户询问页面上显示的数值或表格时，可直接描述快照里明确可见的内容，注明这是页面显示值。' : ''}
 用户询问“本月/当前”指标而当前月尚无入库数据时，可以使用最新已入库快照，但必须先明确“当前最新已入库的是 X 年 X 月目标数据，以下按该批数据分析”，并说明本月暂无入库数据。目标月份以 targetMonth/month 为准，不能用快照生成日期替代，也不能把最新已入库月份称作本月。
 4.1 用户询问某个具体指标的当前/实际值时，必须优先读取只读报表分析中 current.matchedMetrics：globalValue 是入库快照保存的全局值，customerGroups 是各客户群/系统部实际值。只要 matchedMetrics 已返回该指标，不得声称“没有返回当前值”；应同时列出全局值和所有已保存的分组值，无论该分组达标还是未达标，不得只列异常项。customerGroups 中 missing=true 或 actual=“--”表示未入库数值，必须显示为“无值”，不得解读为 0。
 4.2 “某指标呢/那么某指标呢”类省略式追问会继承上一个用户问题的查询意图和月份，但指标主体必须以当前追问为准，不得混入上一个指标的数值。
@@ -2210,4 +2228,5 @@ CRITICAL FORMATTING & STYLE PRESERVATION RULES:
 });
 
 router.handleChatRequest = handleChatRequest;
+router.getActiveAiRequests = getActiveAiRequests;
 module.exports = router;

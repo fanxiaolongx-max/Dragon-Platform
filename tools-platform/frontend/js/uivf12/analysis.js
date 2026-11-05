@@ -959,7 +959,7 @@
                 <td><div class="analysis-main-text" style="cursor:pointer;" title="${copyTitle}" onclick="event.stopPropagation(); UIVScriptAnalysis.copyCellText(this.innerText)">${escapeHtml(window.UIVI18n ? UIVI18n.categoryLabel(row.category) : row.category)}</div></td>
                 <td><div class="analysis-main-text" style="cursor:pointer;" title="${copyTitle}" onclick="event.stopPropagation(); UIVScriptAnalysis.copyCellText(this.innerText)">${escapeHtml(row.name)}</div>${row.isDirty ? `<div class="analysis-muted">${window.UIVT ? window.UIVT('uiv.analysis.modifiedTag') : '已修改，待保存'}</div>` : ''}</td>
                 <td><div class="analysis-main-text" style="cursor:pointer;" title="${copyTitle}" onclick="event.stopPropagation(); UIVScriptAnalysis.copyCellText(this.innerText)">${escapeHtml(row.outputName)}</div><div class="analysis-muted" style="cursor:pointer;" title="${copyTitle}" onclick="event.stopPropagation(); UIVScriptAnalysis.copyCellText(this.innerText)">${escapeHtml(row.pageName || '-')}</div></td>
-                <td><div class="analysis-url" style="cursor:pointer;" title="${copyTitle}" onclick="event.stopPropagation(); UIVScriptAnalysis.copyCellText(this.innerText)">${escapeHtml(row.url || '-')}</div></td>
+                <td><div class="analysis-url" data-ai-context-ignore style="cursor:pointer;" title="${copyTitle}" onclick="event.stopPropagation(); UIVScriptAnalysis.copyCellText(this.innerText)">${escapeHtml(row.url || '-')}</div></td>
                 <td><div style="font-size:11px;line-height:1.4;text-align:center;">${formatLocalTime(row.updatedAt)}</div></td>
                 <td>${renderPills([row.platform], row.platform === 'DataFab' ? 'good' : '')}</td>
                 <td>

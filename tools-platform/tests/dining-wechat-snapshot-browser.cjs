@@ -58,11 +58,17 @@ app.whenReady().then(async () => {
     await new Promise(resolve => { server = web.listen(0, '127.0.0.1', resolve); });
     win = new BrowserWindow({ show: false, width: 430, height: 850 });
     await win.loadURL('http://127.0.0.1:' + server.address().port);
-    const exported = path.join(temp, 'transfers.xlsx');
-    const downloaded = new Promise(resolve => win.webContents.session.once('will-download', (_, item) => {
-        item.setSavePath(exported);
-        item.once('done', (_, state) => resolve(state));
-    }));
+    async function download(buttonId, fileName){
+        const file = path.join(temp, fileName);
+        const downloaded = new Promise(resolve => win.webContents.session.once('will-download', (_, item) => {
+            item.setSavePath(file);
+            item.once('done', (_, state) => resolve(state));
+        }));
+        await win.webContents.executeJavaScript(`document.getElementById(${JSON.stringify(buttonId)}).click()`);
+        const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error(fileName + ' download timed out')), 5000));
+        assert.equal(await Promise.race([downloaded, timeout]), 'completed');
+        return fs.readFileSync(file);
+    }
     const result = await win.webContents.executeJavaScript(`(${async () => {
         const byId = id => document.getElementById(id);
         const waitFor = async predicate => {
@@ -116,13 +122,15 @@ app.whenReady().then(async () => {
         const exportButton = byId('exportWechatTransfersBtn');
         await waitFor(() => !exportButton.disabled);
         const transferTotal = [...byId('wechatTransfersSummary').querySelectorAll('tbody tr:last-child td')].map(td => td.textContent);
+        const dottedDates = ['#wechatTableBody tr td:nth-child(2)', '#wechatTransfersSummary tbody tr td:nth-child(2)',
+            '#wechatTransfersDetails tbody tr td:nth-child(3)'].map(selector => document.querySelector(selector).textContent);
         const importedDiningTotal = byId('resultDesc').textContent;
         const detailCount = byId('wechatTransfersDetails').querySelectorAll('tbody tr').length;
         const fitsWindow = document.documentElement.scrollWidth <= innerWidth;
         window.ToolsCustomI18n.setLanguage('en');
         await waitFor(() => byId('viewTransfers').querySelector('h2').textContent === 'WeChat Transfers');
+        await waitFor(() => byId('wechatTransfersSummary').textContent.includes('Date (yyyy.mm.dd)'));
         window.ToolsCustomI18n.setLanguage('zh');
-        exportButton.click();
         await waitFor(() => !document.body.classList.contains('import-locked'));
         byId('sidebarSaveBtn').click();
         const savedName = '转账验证快照';
@@ -134,7 +142,7 @@ app.whenReady().then(async () => {
         byId('clearWechatBtn').click();
         await restore(saved.id, savedName);
         const restoredTransferCount = byId('wechatTransfersDetails').querySelectorAll('tbody tr').length;
-        return { verifiedTotal, verifiedDaily, legacyHidden, noticeVisible, exportAlert, noSavedTransfers, transferTotal, importedDiningTotal, detailCount, fitsWindow, restoredTransferCount };
+        return { verifiedTotal, verifiedDaily, legacyHidden, noticeVisible, exportAlert, noSavedTransfers, transferTotal, importedDiningTotal, detailCount, fitsWindow, restoredTransferCount, dottedDates };
     }})()`);
     assert.match(result.verifiedTotal, /总匹配记录：1 条/);
     assert.equal(result.verifiedDaily, '1');
@@ -143,16 +151,23 @@ app.whenReady().then(async () => {
     assert.match(result.exportAlert, /没有微信就餐统计数据可导出/);
     assert.match(result.noSavedTransfers, /此快照未保存转账记录/);
     assert.match(result.importedDiningTotal, /总匹配记录：1 条/);
-    assert.deepEqual(result.transferTotal, ['总计', '2', '35.00', '105.50', '0.00']);
+    assert.deepEqual(result.transferTotal, ['总计', '', '2', '35.00', '105.50', '0.00']);
+    const dottedDate = '2026.10.29';
+    assert.deepEqual(result.dottedDates, [dottedDate, dottedDate, dottedDate]);
     assert.equal(result.detailCount, 2);
     assert.equal(result.restoredTransferCount, 2);
     assert.equal(result.fitsWindow, true);
-    const downloadTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Excel download timed out')), 5000));
-    assert.equal(await Promise.race([downloaded, downloadTimeout]), 'completed');
-    const workbook = XLSX.read(fs.readFileSync(exported), { type: 'buffer' });
+    const workbook = XLSX.read(await download('exportWechatTransfersBtn', 'transfers.xlsx'), { type: 'buffer' });
     assert.deepEqual(workbook.SheetNames, ['每日转账汇总', '转账明细']);
     assert.deepEqual(XLSX.utils.sheet_to_json(workbook.Sheets['转账明细']).map(row => row['金额（元）']), [105.5, 35]);
     assert.equal(XLSX.utils.sheet_to_json(workbook.Sheets['每日转账汇总']).at(-1)['转账笔数'], 2);
+    const dining = XLSX.read(await download('exportWechatStandaloneBtn', 'dining.xlsx'), { type: 'buffer' });
+    for (const sheet of [workbook.Sheets['每日转账汇总'], workbook.Sheets['转账明细'], ...Object.values(dining.Sheets)]) {
+        assert.equal(XLSX.utils.sheet_to_json(sheet)[0]['日期（点分隔）'], dottedDate);
+    }
+    const csv = (await download('exportCsvBtn', 'dining.csv')).toString('utf8');
+    assert.match(csv, /交易时间,日期（点分隔）,交易金额/);
+    assert.match(csv, /2026-10-29 [\d:]+,2026\.10\.29,35/);
     console.log('PASS: legacy snapshot protection, separate transfers and dining totals, Excel export, narrow layout and bilingual notice.');
     win.destroy();
     server.close();

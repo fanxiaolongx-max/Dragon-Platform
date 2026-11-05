@@ -172,12 +172,17 @@ test('real chat endpoints isolate histories and reject foreign session IDs befor
         assert.match(options.systemInstruction, /只解释和总结，不执行页面、文件或数据操作/);
         assert.doesNotMatch(options.systemInstruction, /fixture-password|fixture-key|fixture-pem-body/);
         assert.equal(options.tools, undefined);
+        assert.equal(options.messages[1].content, 'Overview of the active view.');
         return { text: 'Current editor overview.' };
     } });
     const currentView = await fetch(`${url}/chat`, { method: 'POST', headers, body: JSON.stringify({
-        currentView: true, pagePath: '/tools/aiops-report', pageTitle: 'AiOps-Report', persist: false,
+        currentView: true, pagePath: '/tools/aiops-report', pageTitle: 'AiOps-Report',
         context: 'def preview():\n  password = "fixture-password"\nAPI Key: fixture-key\n-----BEGIN PRIVATE KEY-----\nfixture-pem-body',
-        messages: [{ role: 'user', content: '请概括我打开的文件' }]
+        messages: [
+            { role: 'user', content: '请概括我打开的文件' },
+            { role: 'model', content: 'Overview of the active view.' },
+            { role: 'user', content: '详细说一下第二点' }
+        ]
     }) });
     assert.equal(currentView.status, 200);
     assert.equal((await currentView.json()).grounding.currentView, true);

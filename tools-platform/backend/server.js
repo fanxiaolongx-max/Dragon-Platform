@@ -766,6 +766,8 @@ async function startServer() {
             // 频道心跳抽查与健康自愈看门狗：定时抽查每个频道的长连接与心跳状态，断线自动重连
             require('./models/channels/channel-watchdog')
                 .start(async () => (await tenantsRepo.listManagedTenants()).filter(item => item.status === 'active').map(item => item.id));
+            // 平台工具使用说明：每日后台自动低速更新缺失与过期的说明并同步落盘至 Git 预置库
+            require('./models/platform-tool-guides').startAutoUpdateScheduler();
         }, 5000);
     });
 

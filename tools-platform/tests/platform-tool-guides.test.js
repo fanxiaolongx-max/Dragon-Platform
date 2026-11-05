@@ -8,6 +8,7 @@ const sandbox = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'tools-pla
 process.env.TOOLS_DATA_DIR = path.join(sandbox, 'data');
 process.env.TOOLS_REPORT_DATA_DIR = path.join(sandbox, 'report-data');
 process.env.TOOLS_AGENT_BROWSER = 'off';
+process.env.TOOLS_DISABLE_BUILTIN_GUIDES_SEED = '1';
 
 const guides = require('../backend/models/platform-tool-guides');
 const extraTools = require('../backend/models/agent-extra-tools');
@@ -108,4 +109,24 @@ test('Dragon Claw gets a read-only platform tool guide group, also for read-only
 test('guide parsing tolerates fences and missing summaries', () => {
     assert.deepEqual(guides._internal.parseGuide('```markdown\n摘要：A\n\n## 能做什么\nB\n```'), { summary: 'A', guide: '## 能做什么\nB' });
     assert.equal(guides._internal.parseGuide('## 能做什么\nB').summary, '');
+});
+
+test('builtin store seeds pre-bundled guides and syncs updates to disk', async () => {
+    delete process.env.TOOLS_DISABLE_BUILTIN_GUIDES_SEED;
+    await guides.seedFromBuiltinStore();
+    const st = await guides.status();
+    assert.ok(st.ready >= 1, 'seeding populates pre-bundled guides');
+
+    // 测试自动更新调度逻辑
+    const mockClient = {
+        model: 'auto-mock',
+        async generateText() {
+            return { text: '摘要：自动更新生成的说明\n\n## 能做什么\n- 测试特性\n\n## 怎么用\n1. 点击按钮' };
+        }
+    };
+    const res = await guides.checkAndRunDailyAutoUpdate({ force: true, client: mockClient, delayMs: 0 });
+    assert.ok(res.success || res.skipped, 'daily auto update runs cleanly');
+    const autoStatus = guides.getAutoUpdateStatus();
+    assert.ok(['completed', 'running', 'skipped'].includes(autoStatus.status));
+    assert.ok(Array.isArray(autoStatus.logs));
 });

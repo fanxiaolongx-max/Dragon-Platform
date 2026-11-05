@@ -13,6 +13,7 @@
   "此快照未保存转账记录，请重新导入微信原始账单。": "This snapshot has no saved transfer data. Reimport the original WeChat bill.",
   "本次导入的账单没有微信转账记录。": "The imported bills contain no WeChat transfers.",
   "日期（开罗）": "Date (Cairo)",
+  "日期（点分隔）": "Date (yyyy.mm.dd)",
   "转账笔数": "Transfer count",
   "转入（元）": "Received (CNY)",
   "转出（元）": "Sent (CNY)",

@@ -15,20 +15,72 @@ const FILE_CHARS = 12000;
 const GUIDE_OUTPUT_TOKENS = 1800;
 const PAGE_ALIASES = { monthly: 'ai-report' };
 const SKIP_FILE = /(?:^|\/)(?:vendor|node_modules|dist|build|backups?|data)(?:\/|$)|\.min\.js$|(?:^|\/)(?:THIRD_PARTY[^/]*|LICENSE[^/]*|CHANGELOG[^/]*|AGENTS\.md|CLAUDE\.md)$/i;
+const BUILTIN_STORE_FILE = path.join(__dirname, 'builtin-tool-guides.json');
+
+function readBuiltinStore() {
+    if (!fs.existsSync(BUILTIN_STORE_FILE)) return {};
+    try {
+        const raw = fs.readFileSync(BUILTIN_STORE_FILE, 'utf8');
+        return JSON.parse(raw) || {};
+    } catch (_) {
+        return {};
+    }
+}
+
+/** 从内置预置 JSON 导入说明（用于新机器、全新库或未生成说明时的开箱即用） */
+async function seedFromBuiltinStore() {
+    if (process.env.TOOLS_DISABLE_BUILTIN_GUIDES_SEED === '1') return;
+    const store = readBuiltinStore();
+    const entries = Object.entries(store);
+    if (!entries.length) return;
+    for (const [toolId, item] of entries) {
+        if (!item || !item.guide) continue;
+        await run(`INSERT INTO ai_tool_guides (tool_id, title, summary, guide, source_hash, model, generated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(tool_id) DO NOTHING`,
+        [toolId, item.title || '', item.summary || '', item.guide || '', item.source_hash || '', item.model || 'builtin', item.generated_at || new Date().toISOString()]);
+    }
+}
+
+/** 将当前数据库内已有的所有工具说明同步落盘到内置 JSON（方便 Git 跟踪与发布） */
+async function syncToBuiltinStore() {
+    try {
+        const rows = await all('SELECT tool_id, title, summary, guide, source_hash, model, generated_at FROM ai_tool_guides ORDER BY tool_id ASC');
+        if (!rows || !rows.length) return;
+        const current = readBuiltinStore();
+        for (const row of rows) {
+            current[row.tool_id] = {
+                tool_id: row.tool_id,
+                title: row.title,
+                summary: row.summary,
+                guide: row.guide,
+                source_hash: row.source_hash,
+                model: row.model,
+                generated_at: row.generated_at
+            };
+        }
+        fs.writeFileSync(BUILTIN_STORE_FILE, JSON.stringify(current, null, 2), 'utf8');
+    } catch (err) {
+        console.warn('[tool-guides] 同步至预置说明文件失败：', err.message || err);
+    }
+}
 
 const readyByDb = new WeakMap();
 async function ensureReady() {
     const key = getDatabase();
     if (!readyByDb.has(key)) {
-        const pending = run(`CREATE TABLE IF NOT EXISTS ai_tool_guides (
-            tool_id TEXT PRIMARY KEY,
-            title TEXT NOT NULL DEFAULT '',
-            summary TEXT NOT NULL DEFAULT '',
-            guide TEXT NOT NULL DEFAULT '',
-            source_hash TEXT NOT NULL DEFAULT '',
-            model TEXT NOT NULL DEFAULT '',
-            generated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )`);
+        const pending = (async () => {
+            await run(`CREATE TABLE IF NOT EXISTS ai_tool_guides (
+                tool_id TEXT PRIMARY KEY,
+                title TEXT NOT NULL DEFAULT '',
+                summary TEXT NOT NULL DEFAULT '',
+                guide TEXT NOT NULL DEFAULT '',
+                source_hash TEXT NOT NULL DEFAULT '',
+                model TEXT NOT NULL DEFAULT '',
+                generated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )`);
+            await seedFromBuiltinStore();
+        })();
         readyByDb.set(key, pending);
         pending.catch(() => readyByDb.delete(key));
     }
@@ -121,7 +173,7 @@ async function status() {
         return { id: tool.id, title: tool.title, href: tool.href, kind: tool.kind, state, summary: row?.summary || '', model: row?.model || '', generatedAt: row?.generated_at || '' };
     });
     const count = state => items.filter(item => item.state === state).length;
-    return { items, total: items.length, ready: count('ready'), stale: count('stale'), missing: count('missing'), job: publicJob(jobs.get(getTenantId())) };
+    return { items, total: items.length, ready: count('ready'), stale: count('stale'), missing: count('missing'), job: publicJob(jobs.get(getTenantId())), autoUpdate: getAutoUpdateStatus() };
 }
 
 const PROMPT = `你是 Dragon Claw 工具中台的产品文档作者。下面是平台上一个工具的名称、简介和源码（页面与脚本）。
@@ -163,6 +215,7 @@ async function generateOne(tool, { client, signal }) {
     await run(`INSERT INTO ai_tool_guides (tool_id, title, summary, guide, source_hash, model, generated_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ON CONFLICT(tool_id) DO UPDATE SET title = excluded.title, summary = excluded.summary, guide = excluded.guide, source_hash = excluded.source_hash, model = excluded.model, generated_at = CURRENT_TIMESTAMP`,
     [tool.id, tool.title, parsed.summary, parsed.guide, hashOf(sources), String(client.model || '')]);
+    await syncToBuiltinStore();
     return parsed;
 }
 
@@ -221,7 +274,192 @@ async function startGeneration({ force = false, ids = null, client = null, reind
 
 async function readGuide(id) {
     await ensureReady();
-    return get('SELECT tool_id AS id, title, summary, guide, model, generated_at AS generatedAt FROM ai_tool_guides WHERE tool_id = ?', [String(id)]);
+    let guide = await get('SELECT tool_id AS id, title, summary, guide, model, generated_at AS generatedAt FROM ai_tool_guides WHERE tool_id = ?', [String(id)]);
+    if (!guide && process.env.TOOLS_DISABLE_BUILTIN_GUIDES_SEED !== '1') {
+        const store = readBuiltinStore();
+        const item = store[String(id)];
+        if (item && item.guide) {
+            guide = {
+                id: item.tool_id,
+                title: item.title,
+                summary: item.summary,
+                guide: item.guide,
+                model: item.model || 'builtin',
+                generatedAt: item.generated_at || ''
+            };
+        }
+    }
+    return guide;
+}
+
+// ── 每日后台自动更新机制（慢速、串行、避让前台、记录日志） ──────
+const autoUpdateState = {
+    status: 'idle', // 'idle' | 'checking' | 'running' | 'completed' | 'skipped' | 'failed'
+    lastCheckDate: '',
+    lastRunAt: '',
+    currentTool: '',
+    total: 0,
+    updated: 0,
+    failed: [],
+    logs: []
+};
+
+function logAutoUpdate(msg) {
+    const time = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+    const formatted = `[tool-guides-auto ${time}] ${msg}`;
+    autoUpdateState.logs.push(formatted);
+    if (autoUpdateState.logs.length > 50) autoUpdateState.logs.shift();
+    console.log(formatted);
+}
+
+function getAutoUpdateStatus() {
+    return {
+        status: autoUpdateState.status,
+        lastCheckDate: autoUpdateState.lastCheckDate,
+        lastRunAt: autoUpdateState.lastRunAt,
+        currentTool: autoUpdateState.currentTool,
+        total: autoUpdateState.total,
+        updated: autoUpdateState.updated,
+        failed: autoUpdateState.failed,
+        logs: autoUpdateState.logs.slice(-15)
+    };
+}
+
+/**
+ * 每日日常检查并自动更新缺失或过期的说明
+ * @param {{ force?: boolean, client?: object, delayMs?: number }} options
+ */
+async function checkAndRunDailyAutoUpdate({ force = false, client = null, delayMs = 3500 } = {}) {
+    const today = new Date().toISOString().slice(0, 10);
+    if (!force && autoUpdateState.lastCheckDate === today) {
+        return { skipped: true, reason: 'already_checked_today' };
+    }
+    if (autoUpdateState.status === 'running') {
+        return { skipped: true, reason: 'already_running' };
+    }
+
+    // 1. 检查 AI 运行时接口是否配置
+    let modelClient = client;
+    if (!modelClient) {
+        try {
+            const aiSettingsRepo = require('./ai-settings-repository');
+            const settings = await aiSettingsRepo.getRuntimeSettings();
+            if (!settings || (!settings.apiKey && !settings.apiBaseUrl && !settings.provider)) {
+                logAutoUpdate('AI 接口未配置，跳过本日自动更新。');
+                autoUpdateState.lastCheckDate = today;
+                autoUpdateState.status = 'skipped';
+                return { skipped: true, reason: 'ai_not_configured' };
+            }
+            modelClient = require('./ai-provider-client').createClient(settings);
+        } catch (err) {
+            logAutoUpdate(`AI 运行时初始化失败，跳过本日自动更新：${err.message}`);
+            autoUpdateState.lastCheckDate = today;
+            autoUpdateState.status = 'skipped';
+            return { skipped: true, reason: 'ai_init_failed', error: err.message };
+        }
+    }
+
+    // 2. 检查前台 AI 是否繁忙（避让前台请求）
+    let activeChats = 0;
+    try {
+        const aiRoute = require('../routes/ai');
+        if (typeof aiRoute.getActiveAiRequests === 'function') {
+            activeChats = aiRoute.getActiveAiRequests();
+        }
+    } catch (_) {}
+    if (activeChats > 0) {
+        logAutoUpdate(`当前有 ${activeChats} 个前台活跃 AI 请求正在处理，避让前台，延后 3 分钟检查。`);
+        setTimeout(() => checkAndRunDailyAutoUpdate({ force: false, client }).catch(() => {}), 180000);
+        return { skipped: true, reason: 'ai_busy' };
+    }
+
+    // 3. 检查是否有需要更新的工具
+    autoUpdateState.status = 'checking';
+    autoUpdateState.lastCheckDate = today;
+    autoUpdateState.lastRunAt = new Date().toISOString();
+    autoUpdateState.failed = [];
+
+    const curStatus = await status();
+    const pending = curStatus.items.filter(item => item.state !== 'ready');
+    autoUpdateState.total = pending.length;
+    autoUpdateState.updated = 0;
+
+    if (!pending.length) {
+        logAutoUpdate(`今日日常检查完成：全部 ${curStatus.total} 个工具的使用说明均已就绪（无缺失或过期），无需更新。`);
+        autoUpdateState.status = 'completed';
+        return { success: true, updated: 0, total: curStatus.total };
+    }
+
+    logAutoUpdate(`检测到 ${pending.length} 个工具使用说明待更新（${pending.map(i => `${i.title}[${i.state}]`).join('、')}），开始后台慢速串行更新...`);
+    autoUpdateState.status = 'running';
+
+    const toolsMap = new Map((await catalog()).map(tool => [tool.id, tool]));
+    for (let i = 0; i < pending.length; i++) {
+        const item = pending[i];
+        const tool = toolsMap.get(item.id);
+        if (!tool) continue;
+
+        // 每次生成前再次确认前台未在繁忙中，若有则稍作等待
+        try {
+            const aiRoute = require('../routes/ai');
+            while (typeof aiRoute.getActiveAiRequests === 'function' && aiRoute.getActiveAiRequests() > 0) {
+                logAutoUpdate('检测到前台用户发起 AI 对话，后台更新暂停 10 秒让位...');
+                await new Promise(r => setTimeout(r, 10000));
+            }
+        } catch (_) {}
+
+        autoUpdateState.currentTool = tool.title;
+        const step = `(${i + 1}/${pending.length})`;
+        logAutoUpdate(`${step} 正在生成「${tool.title}」使用说明...`);
+        const t0 = Date.now();
+
+        try {
+            await generateOne(tool, { client: modelClient, signal: AbortSignal.timeout(180000) });
+            const sec = ((Date.now() - t0) / 1000).toFixed(1);
+            logAutoUpdate(`${step} ✅「${tool.title}」说明已更新（耗时 ${sec}s）`);
+            autoUpdateState.updated++;
+        } catch (err) {
+            logAutoUpdate(`${step} ❌「${tool.title}」说明生成失败：${err.message}`);
+            autoUpdateState.failed.push({ id: tool.id, title: tool.title, error: err.message });
+        }
+
+        // 慢速冷却（避免 RPM 限流）
+        if (i < pending.length - 1 && delayMs > 0) {
+            await new Promise(r => setTimeout(r, delayMs));
+        }
+    }
+
+    await syncToBuiltinStore();
+    try {
+        await require('./ai-knowledge-service').refreshIndex({ force: true });
+    } catch (_) {}
+
+    autoUpdateState.status = 'completed';
+    autoUpdateState.currentTool = '';
+    logAutoUpdate(`今日工具使用说明自动更新完成：成功 ${autoUpdateState.updated} 个，失败 ${autoUpdateState.failed.length} 个。已同步落盘至 Git 预置文件。`);
+    return { success: true, updated: autoUpdateState.updated, failed: autoUpdateState.failed };
+}
+
+let autoUpdateTimer = null;
+function startAutoUpdateScheduler() {
+    if (autoUpdateTimer) return;
+    // 服务启动 15 秒后执行本日首次检查
+    setTimeout(() => {
+        checkAndRunDailyAutoUpdate({ force: false }).catch(err => {
+            console.warn('[tool-guides-auto] 首次日常检查失败：', err.message);
+        });
+    }, 15000);
+
+    // 每小时检查一次是否跨天
+    autoUpdateTimer = setInterval(() => {
+        const today = new Date().toISOString().slice(0, 10);
+        if (autoUpdateState.lastCheckDate !== today && autoUpdateState.status !== 'running') {
+            checkAndRunDailyAutoUpdate({ force: false }).catch(err => {
+                console.warn('[tool-guides-auto] 定时日常检查失败：', err.message);
+            });
+        }
+    }, 3600000);
+    if (autoUpdateTimer.unref) autoUpdateTimer.unref();
 }
 
 /** 知识库的虚拟文档：每份说明一篇 */
@@ -282,4 +520,5 @@ async function shortDescriptionNotes() {
 }
 
 module.exports = { ensureReady, catalog, status, startGeneration, readGuide, documentsForIndex, findTools, toolGuide, shortDescriptionNotes,
-    _internal: { pageTools, sourceFiles, readSources, parseGuide, terms, jobs } };
+    seedFromBuiltinStore, syncToBuiltinStore, checkAndRunDailyAutoUpdate, startAutoUpdateScheduler, getAutoUpdateStatus,
+    _internal: { pageTools, sourceFiles, readSources, parseGuide, terms, jobs, autoUpdateState, BUILTIN_STORE_FILE } };

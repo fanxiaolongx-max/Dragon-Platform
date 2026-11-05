@@ -1132,9 +1132,9 @@
     <!-- Template Mapping Modal -->
     <div id="template-mapping-modal" class="modal"
         style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999;">
-        <div class="modal-content"
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="template-mapping-title"
             style="background:#fff; width:90%; max-width:1000px; margin:50px auto; padding:20px; border-radius:8px; max-height:80vh; display:flex; flex-direction:column;">
-            <h2>⚙️ 配置 Excel 模板映射</h2>
+            <h2 id="template-mapping-title">⚙️ 配置 Excel 模板映射</h2>
             <p>将系统指标与 Excel 模板的具体行建立映射关系，以应对模板的动态变化。C 列文本会保存至 Excel 中。</p>
             <div style="flex:1; overflow-y:auto; margin:15px 0;">
                 <table class="matrix-table" style="width:100%;">
@@ -1171,11 +1171,11 @@
     <!-- Yuxiang Export Preview Modal -->
     <div id="yuxiang-preview-modal" class="modal"
         style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10000;">
-        <div class="modal-content"
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="yuxiang-preview-title"
             style="background:#fff; width:95%; max-width:1400px; margin:40px auto; padding:20px; border-radius:8px; height:calc(100vh - 80px); display:flex; flex-direction:column; box-shadow: 0 10px 40px rgba(0,0,0,0.25);">
             <div
                 style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding-bottom:10px;">
-                <h2 style="margin:0; color:#ad1457;">🐴 于祥赛马表 - 导出前数据预览与编辑</h2>
+                <h2 id="yuxiang-preview-title" style="margin:0; color:#ad1457;">🐴 于祥赛马表 - 导出前数据预览与编辑</h2>
                 <span style="color:#666; font-size:13px;">这里展示的是真实 Excel 的完整形态。直接点击虚线框的单元格进行修改，修改后点击右下角确认导出。</span>
             </div>
             <div style="flex:1; overflow:auto; margin:15px 0; background:#f5f6fa; border:1px solid #ddd;">

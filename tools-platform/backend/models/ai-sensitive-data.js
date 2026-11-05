@@ -2,7 +2,7 @@
 // 这是内容保护，不是 Shell 沙箱；不能识别经过任意编码或没有标签的未知秘密。
 const REDACTED = '[REDACTED]';
 const FIELD = '(?:api[ _-]?key|api[ _-]?token|access[ _-]?token|refresh[ _-]?token|auth[ _-]?token|client[ _-]?secret|password(?:[_-]?hash)?|passwd|secret(?:[ _-]?key)?|token|authorization|cookie|set-cookie|private[ _-]?key|密码|口令|密钥|令牌|私钥)';
-const ASSIGNMENT = `((?:${FIELD}|["']${FIELD}["'](?:\\s*\\])?)\\s*[:：=]\\s*)`;
+const ASSIGNMENT = `(["']?${FIELD}(?:["'](?:\\s*\\])?)?\\s*[:：=]\\s*)`;
 const QUOTED_FIELD = new RegExp(`${ASSIGNMENT}(["'])(?:\\\\.|(?!\\2)[^\\r\\n])*?\\2`, 'gi');
 const UNTERMINATED_FIELD = new RegExp(`${ASSIGNMENT}(["'])(?:\\\\.|(?!\\2)[^\\r\\n])*$`, 'gim');
 const BARE_FIELD = new RegExp(`${ASSIGNMENT}(?!["'\\s]|\\[REDACTED\\])([^\\s,;}\\]<>]+)`, 'gi');
