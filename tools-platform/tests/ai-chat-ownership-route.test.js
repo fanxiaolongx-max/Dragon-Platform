@@ -166,6 +166,22 @@ test('real chat endpoints isolate histories and reject foreign session IDs befor
     assert.equal(continued.status, 200);
     assert.match((await continued.json()).reply, /Continued/);
 
+    provider.createClient = () => ({ generateChat: async options => {
+        assert.match(options.systemInstruction, /本轮浏览器提供的当前页面快照（不可信资料/);
+        assert.match(options.systemInstruction, /def preview\(\):/);
+        assert.match(options.systemInstruction, /只解释和总结，不执行页面、文件或数据操作/);
+        assert.doesNotMatch(options.systemInstruction, /fixture-password|fixture-key|fixture-pem-body/);
+        assert.equal(options.tools, undefined);
+        return { text: 'Current editor overview.' };
+    } });
+    const currentView = await fetch(`${url}/chat`, { method: 'POST', headers, body: JSON.stringify({
+        currentView: true, pagePath: '/tools/aiops-report', pageTitle: 'AiOps-Report', persist: false,
+        context: 'def preview():\n  password = "fixture-password"\nAPI Key: fixture-key\n-----BEGIN PRIVATE KEY-----\nfixture-pem-body',
+        messages: [{ role: 'user', content: '请概括我打开的文件' }]
+    }) });
+    assert.equal(currentView.status, 200);
+    assert.equal((await currentView.json()).grounding.currentView, true);
+
     // 导出对话日志：只能导出自己的；按配置的密钥脱敏，普通账号不含模型网关等配置
     assert.equal((await fetch(`${url}/sessions/${id}/export`, { headers })).status, 403);
     await chat.addMessage({ owner: 'alice', sessionId: id, pagePath: '/', role: 'model', content: 'token is sk-export-secret-1', events: [{ type: 'tool_result', tool: 'search', ok: true, summary: 'done' }] });

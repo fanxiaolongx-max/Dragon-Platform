@@ -1,10 +1,11 @@
 // AI 内容边界：文件、搜索、Diff、命令结果和持久历史使用同一套凭据过滤。
 // 这是内容保护，不是 Shell 沙箱；不能识别经过任意编码或没有标签的未知秘密。
 const REDACTED = '[REDACTED]';
-const FIELD = '(?:api[_-]?key|api[_-]?token|access[_-]?token|refresh[_-]?token|auth[_-]?token|client[_-]?secret|password(?:[_-]?hash)?|passwd|secret(?:[_-]?key)?|token|authorization|cookie|set-cookie|private[_-]?key)';
-const QUOTED_FIELD = new RegExp(`((?:["']?${FIELD}["']?)\\s*[:=]\\s*)(["'])(?:\\\\.|(?!\\2)[^\\r\\n])*?\\2`, 'gi');
-const UNTERMINATED_FIELD = new RegExp(`((?:["']?${FIELD}["']?)\\s*[:=]\\s*)(["'])(?:\\\\.|(?!\\2)[^\\r\\n])*$`, 'gim');
-const BARE_FIELD = new RegExp(`((?:["']?${FIELD}["']?)\\s*[:=]\\s*)(?!["'\\s]|\\[REDACTED\\])([^\\s,;}\\]<>]+)`, 'gi');
+const FIELD = '(?:api[ _-]?key|api[ _-]?token|access[ _-]?token|refresh[ _-]?token|auth[ _-]?token|client[ _-]?secret|password(?:[_-]?hash)?|passwd|secret(?:[ _-]?key)?|token|authorization|cookie|set-cookie|private[ _-]?key|密码|口令|密钥|令牌|私钥)';
+const ASSIGNMENT = `((?:${FIELD}|["']${FIELD}["'](?:\\s*\\])?)\\s*[:：=]\\s*)`;
+const QUOTED_FIELD = new RegExp(`${ASSIGNMENT}(["'])(?:\\\\.|(?!\\2)[^\\r\\n])*?\\2`, 'gi');
+const UNTERMINATED_FIELD = new RegExp(`${ASSIGNMENT}(["'])(?:\\\\.|(?!\\2)[^\\r\\n])*$`, 'gim');
+const BARE_FIELD = new RegExp(`${ASSIGNMENT}(?!["'\\s]|\\[REDACTED\\])([^\\s,;}\\]<>]+)`, 'gi');
 const SENSITIVE_FIELD = new RegExp(`^(?:[a-z0-9]+[_-])*(?:${FIELD})$`, 'i');
 
 function redactText(value, { secrets = [] } = {}) {
@@ -22,7 +23,7 @@ function redactText(value, { secrets = [] } = {}) {
         } catch { /* 非 JSON（如 JavaScript 源码）继续按文本处理 */ }
     }
     text = text
-        .replace(/-----BEGIN (?:[A-Z ]*PRIVATE KEY)-----[\s\S]*?-----END (?:[A-Z ]*PRIVATE KEY)-----/g, REDACTED)
+        .replace(/-----BEGIN (?:[A-Z ]*PRIVATE KEY)-----[\s\S]*?(?:-----END (?:[A-Z ]*PRIVATE KEY)-----|$)/g, REDACTED)
         .replace(/^(\s*(?:authorization|proxy-authorization|cookie|set-cookie)\s*:\s*).*$/gim, `$1${REDACTED}`)
         .replace(/\b(?:Bearer|Basic)\s+[A-Za-z0-9._~+\/-]+=*/gi, match => `${match.split(/\s/)[0]} ${REDACTED}`)
         .replace(/(https?:\/\/|(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?):\/\/)([^\s/@:]+):([^\s/@]+)@/gi, `$1${REDACTED}@`)

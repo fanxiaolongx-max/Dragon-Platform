@@ -1,14 +1,14 @@
 {
   "zh": [
-    "优化首页「发现应用」菜单交互，点击启动任意工具或底部功能后自动收起下拉面板。",
-    "增强搜索框键盘操作，在应用搜索输入框按下回车键即可直接打开首项匹配工具并收起菜单。",
-    "统一工具内嵌框架与独立导航事件流，工具在主区就绪时自动清理顶层悬浮菜单。",
-    "修复二级菜单与发现面板在跨模块跳转时的残留问题，提升菜单启闭流畅度与使用习惯一致性。"
+    "优化智能体在 Windows 平台终端输出的字符集自动探测与解码，解决 GBK 与 UTF-8 混排导致的预览乱码问题。",
+    "增强 WeLink CLI OneBox 模块能力，支持参数别名兼容与工作区相对路径自动补全，优化云空间上传与下载体验。",
+    "完善智能体完全访问（Full Access）权限模式，放开跨目录安全访问限制并保留核心系统目录与危险删除审批保护。",
+    "新增 AI 助手当前页面快照智能感知与在线 IDE 上下文提取，增强中文密码与密钥等敏感凭据自动脱敏防护。"
   ],
   "en": [
-    "Refined Discover Apps menu interaction, automatically closing the dropdown panel upon clicking any tool or action.",
-    "Enhanced search input keyboard accessibility, allowing Enter key to launch the top matching tool and dismiss the menu.",
-    "Unified tool frame embedding and standalone navigation event dispatch to clean up active popovers when tools open.",
-    "Resolved floating menu residue across discovery and secondary flyouts for smoother, predictable navigation."
+    "Enhanced Windows terminal output decoding with automatic GBK and UTF-8 charset detection to eliminate artifact preview mojibake.",
+    "Upgraded WeLink CLI OneBox integration with parameter alias tolerance, relative path resolution, and seamless workspace download targeting.",
+    "Refined Agent Full Access permission mode, allowing safe cross-directory operations while retaining critical path and bulk deletion safeguards.",
+    "Added smart page view snapshot and IDE context capture for AI Assistant, with enhanced redaction for sensitive credentials."
   ]
 }

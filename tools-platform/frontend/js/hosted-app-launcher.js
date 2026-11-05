@@ -29,7 +29,7 @@
                     <label>信任的镜像主机<input name="pipTrustedHost" placeholder="镜像为 http 或自签证书时填写主机名"></label>
                     <div class="ha-actions"><button type="submit" class="ha-btn primary">保存并重新安装</button><button type="button" class="ha-btn" id="haSettingsCancel">取消</button></div>
                 </form>
-                <pre class="ha-log" id="haCardLog" hidden></pre>
+                <pre class="ha-log" id="haCardLog" data-ai-context-ignore hidden></pre>
             </section>
         </main>
         <div class="ha-bar" id="haBar" hidden>
@@ -81,11 +81,11 @@
                     </button>
                 </div>
             </div>
-            <pre id="haDrawerLog"></pre>
+            <pre id="haDrawerLog" data-ai-context-ignore></pre>
         </aside>
 
         <!-- ── 查看分配的数据库弹窗 ───────────────────────── -->
-        <div class="ha-db-modal-overlay" id="haDbModal" hidden>
+        <div class="ha-db-modal-overlay" id="haDbModal" role="dialog" aria-modal="true" data-ai-context-ignore hidden>
             <div class="ha-db-modal-window">
                 <header class="ha-db-modal-header">
                     <div class="ha-db-modal-title">
@@ -227,7 +227,7 @@
         </div>
 
         <!-- ── 在线 IDE 大弹窗 ───────────────────────────────── -->
-        <div class="ha-ide-overlay" id="haIdeModal" hidden>
+        <div class="ha-ide-overlay" id="haIdeModal" role="dialog" aria-modal="true" aria-labelledby="haIdeAppName" hidden>
             <div class="ha-ide-window" id="haIdeWindow">
                 <header class="ha-ide-header">
                     <div class="ha-ide-brand">
@@ -235,7 +235,7 @@
                         <span class="ha-ide-app-name" id="haIdeAppName">应用代码</span>
                         <span class="ha-ide-badge">在线 IDE</span>
                         <span class="ha-ide-git-branch" id="haIdeGitBranch" title="Git 当前分支">🌿 main</span>
-                        <span class="ha-ide-git-remote-pill" id="haIdeGitRemotePill" title="点击配置远程 Git 仓库">☁️ <span id="haIdeRemoteName">未配置远端</span></span>
+                        <span class="ha-ide-git-remote-pill" id="haIdeGitRemotePill" title="点击配置远程 Git 仓库" data-ai-context-ignore>☁️ <span id="haIdeRemoteName">未配置远端</span></span>
                         <span class="ha-ide-dirty-badge" id="haIdeDirtyBadge" hidden>● 未保存修改</span>
                     </div>
                     <div class="ha-ide-actions">
@@ -356,7 +356,7 @@
                 </div>
 
                 <!-- Git 远端协作抽屉 -->
-                <div class="ha-ide-drawer" id="haIdeGitDrawer" hidden>
+                <div class="ha-ide-drawer" id="haIdeGitDrawer" data-ai-context-ignore hidden>
                     <div class="ha-ide-drawer-header">
                         <h3>☁️ Git 仓库配置与远端协作</h3>
                         <button type="button" class="ha-ide-drawer-close" id="haIdeGitClose">✕</button>
@@ -397,7 +397,7 @@
                 </div>
 
                 <!-- Diff 预览弹窗 -->
-                <div class="ha-ide-diff-modal" id="haIdeDiffModal" role="dialog" aria-modal="true" aria-labelledby="haIdeDiffTitle" hidden>
+                <div class="ha-ide-diff-modal" id="haIdeDiffModal" role="dialog" aria-modal="true" aria-labelledby="haIdeDiffTitle" data-ai-context-ignore hidden>
                     <div class="ha-ide-diff-window">
                         <div class="ha-ide-diff-header">
                             <h3 id="haIdeDiffTitle">版本差异比较 (Diff)</h3>
@@ -679,6 +679,48 @@
         expandedFolders: new Set(['app', 'app/routers', 'app/services', 'app/dao']),
         filterQuery: '',
         git: { branch: 'main', remoteUrl: '', clean: true }
+    };
+
+    // The editor is the authority for the active buffer, including edits that have yet to be saved.
+    window.ToolsPageContext = ({ root, question }) => {
+        if (root !== $('haIdeModal')) return '';
+        const tab = ideState.tabs.find(item => item.path === ideState.activePath);
+        if (!tab) return '[在线 IDE / Online IDE]';
+        const editor = $('haIdeTextarea');
+        if (tab.isBinary || $('haIdeEditorView').hidden || !$('haIdeLoading').hidden) return '[当前文件内容不可用 / Active file contents are unavailable]';
+        const source = editor.value;
+        const sensitivePath = /(?:^|\/)(?:\.[^/]+|[^/]*(?:credentials?|secrets?|passwd|password|private[-_]?keys?)[^/]*)(?:\/|$)/i;
+        const sourceFile = /\.(?:py|[cm]?js|jsx|tsx?|html?|css|scss|sql|md|vue|svelte|java|kt|go|rs|rb|php|c|cpp|h|swift|sh)$/i;
+        if (sensitivePath.test(tab.path) || !sourceFile.test(tab.path) || /-----BEGIN [^\r\n]*PRIVATE KEY-----/.test(source)) {
+            return '[当前文件类型未共享 / Active file type was excluded]';
+        }
+
+        const lines = source.split('\n');
+        const selected = editor.selectionStart !== editor.selectionEnd;
+        const selectionLine = selected ? source.slice(0, editor.selectionStart).split('\n').length - 1 : -1;
+        const style = getComputedStyle(editor);
+        const firstVisibleLine = Math.max(0, Math.floor((editor.scrollTop - parseFloat(style.paddingTop)) / parseFloat(style.lineHeight)));
+        const requestedLine = /(?:第\s*(\d+)(?:\s*[-–—至]\s*\d+)?\s*行|\blines?\s+(\d+))/i.exec(question);
+        const identifiers = new Set((question.match(/[a-zA-Z_$][\w$]{2,}/g) || []).slice(0, 20));
+        const symbolLine = requestedLine || selected ? -1 : lines.findIndex(line => {
+            const symbol = /^\s*(?:(?:export|default|async|pub)\s+)*(?:def|function|class|const|let|fn|func)\s+([\w$]+)/.exec(line);
+            return symbol && identifiers.has(symbol[1]);
+        });
+        const focusLine = requestedLine ? Number(requestedLine[1] || requestedLine[2]) - 1
+            : selected ? selectionLine : symbolLine >= 0 ? symbolLine : firstVisibleLine;
+        const limit = 7600;
+        const start = source.length <= limit ? 0 : Math.max(0, Math.min(focusLine, lines.length - 1));
+        let end = start;
+        let length = 0;
+        while (end < lines.length && length + lines[end].length + 1 <= limit) length += lines[end++].length + 1;
+        const excerpt = lines.slice(start, end).join('\n');
+        const scope = excerpt ? '行 / lines ' + (start + 1) + '–' + end + ' / ' + lines.length
+            : '第 ' + (start + 1) + ' 行过长 / Line ' + (start + 1) + ' exceeds the excerpt limit';
+        const selection = selected && !requestedLine
+            ? '\n[选区行号 / Selected lines] ' + (selectionLine + 1) + '–' + source.slice(0, editor.selectionEnd - 1).split('\n').length
+            : '';
+        return '[在线 IDE 当前文件 / Active IDE file] ' + tab.path.slice(0, 400)
+            + (tab.isDirty ? ' [未保存 / Unsaved]' : '') + '\n' + scope + selection + '\n' + excerpt;
     };
 
     function getFileIcon(fileName, isDir = false, isOpen = false) {

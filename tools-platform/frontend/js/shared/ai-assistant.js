@@ -1055,7 +1055,7 @@
             alertKicker: '主动 KPI 提醒', alertTaskKicker: '近 7 天临期任务', alertHint: '点击打开助手继续追问', alertClose: '关闭提醒', alertAi: 'AI 深度分析', alertAiCaption: '深度分析结果', alertSnoozeToday: '今天不再提醒', alertCopy: '复制', alertCopied: '已复制',
             graph: '知识与指标图谱', history: '历史问答', archive: '查看归档会话', graphTheme: '切换图谱深色主题', lightTheme: '切换明亮主题', expand: '放大窗口', restore: '恢复默认大小',
             fullscreen: '全屏聊天', exitFullscreen: '退出全屏', close: '关闭', send: '发送消息', stop: '停止生成',
-            welcome: '👋 你好！我是您的专属智能体 Dragon Claw，正在为您加载页面上下文...', thinking: 'Dragon Claw 正在思考...',
+            welcome: '👋 正在读取当前页面，准备为你概括内容…', thinking: 'Dragon Claw 正在思考...',
             placeholder: '向 Dragon Claw 提问有关本页面的内容...', graphLoadFailed: '知识图谱组件加载失败',
             historyLoading: '正在加载历史问答...', historyEmpty: '暂无历史问答', unnamed: '未命名对话',
             messages: '条', historyFailed: '历史问答加载失败：', historyRestoreFailed: '历史问答恢复失败：',
@@ -1063,7 +1063,8 @@
             archiveSelect: '选择左侧会话查看完整记录', archiveLoading: '正在加载归档会话…', archiveEmpty: '暂无归档会话',
             archiveCount: n => `共 ${n} 个历史会话`, archiveFailed: '归档会话加载失败：', restoreArchive: '恢复并继续对话', restoringArchive: '正在恢复…',
             statusActive: '活跃', statusArchived: '已归档', enterChat: '进入此对话',
-            initPrompt: '你好，请用简短的话总结一下这个页面的核心功能以及如何使用它。',
+            initPrompt: '请简要概括我当前看到的内容和它的用途。如果内容较多，列出几个可以继续了解的部分。',
+            currentView: '当前页面内容',
             connectFailed: '连接 AI 服务失败：', error: '错误：', answerBasis: '本次回答依据',
             openGraph: '打开知识关系图谱', cache: '项目知识', hitChunks: n => `引用 ${n} 个相关片段`, cacheMiss: '未找到足够相关的项目片段', knowledgeNotNeeded: '本题未使用项目文档', knowledgeLibrary: '知识库', candidates: '候选',
             files: '文件', chunks: '片段', latestMonth: '最新月份', storedData: '入库数据', data: '数据', unknownFile: '未知文件', businessConfig: '实时业务配置', metricGraphReference: '运营指标图谱', metricsReferenced: n => `引用 ${n} 个指标`, submetricsReferenced: n => `${n} 个子指标`,
@@ -1075,7 +1076,7 @@
             alertKicker: 'Proactive KPI alert', alertTaskKicker: 'Tasks due in 7 days', alertHint: 'Click to open the assistant and follow up', alertClose: 'Dismiss alert', alertAi: 'AI Deep Analysis', alertAiCaption: 'Deep Analysis', alertSnoozeToday: 'Mute today', alertCopy: 'Copy', alertCopied: 'Copied',
             graph: 'Knowledge & Metrics Graph', history: 'Chat history', archive: 'View archived chats', graphTheme: 'Switch to graph dark theme', lightTheme: 'Switch to light theme', expand: 'Expand window', restore: 'Restore default size',
             fullscreen: 'Full-screen chat', exitFullscreen: 'Exit full screen', close: 'Close', send: 'Send message', stop: 'Stop generating',
-            welcome: '👋 Hi! I’m Dragon Claw, your dedicated intelligent agent. Loading current page context...', thinking: 'Dragon Claw is thinking...',
+            welcome: '👋 Reading the current page to prepare a brief overview…', thinking: 'Dragon Claw is thinking...',
             placeholder: 'Ask Dragon Claw about this page or the project...', graphLoadFailed: 'Failed to load the knowledge graph',
             historyLoading: 'Loading chat history…', historyEmpty: 'No chat history yet', unnamed: 'Untitled conversation',
             messages: 'messages', historyFailed: 'Failed to load chat history: ', historyRestoreFailed: 'Failed to restore chat history: ',
@@ -1083,7 +1084,8 @@
             archiveSelect: 'Select a conversation to view its full history', archiveLoading: 'Loading archived chats…', archiveEmpty: 'No archived chats yet',
             archiveCount: n => `${n} conversations`, archiveFailed: 'Failed to load archived chats: ', restoreArchive: 'Restore and continue', restoringArchive: 'Restoring…',
             statusActive: 'Active', statusArchived: 'Archived', enterChat: 'Open conversation',
-            initPrompt: 'Please briefly summarize the core purpose of this page and how to use it.',
+            initPrompt: 'Briefly summarize what I am currently viewing and its purpose. If there is a lot to cover, suggest a few areas I can ask about next.',
+            currentView: 'Current page content',
             connectFailed: 'Could not connect to the AI service: ', error: 'Error: ', answerBasis: 'Sources for this answer',
             openGraph: 'Open knowledge graph', cache: 'Project knowledge', hitChunks: n => `${n} relevant chunks cited`, cacheMiss: 'No sufficiently relevant project chunks found', knowledgeNotNeeded: 'Project documents were not used for this question', knowledgeLibrary: 'library', candidates: 'candidates',
             files: 'files', chunks: 'chunks', latestMonth: 'latest month', storedData: 'Stored data', data: 'Data', unknownFile: 'Unknown file', businessConfig: 'Live business config', metricGraphReference: 'Operations metric graph', metricsReferenced: n => `${n} metrics referenced`, submetricsReferenced: n => `${n} submetrics`,
@@ -1440,21 +1442,10 @@
     }
 
     function openOrClosePanel() {
-        panel.classList.toggle('open');
-        const isOpen = panel.classList.contains('open');
-        fab.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-        if (isOpen) {
-            wakeFab();
-            applyContextTheme();
-            if (isFirstOpen) {
-                isFirstOpen = false;
-                initChat();
-            }
-            loadSuggestions();
-            setTimeout(() => input.focus(), 300);
-        } else {
-            scheduleFabIdle();
-        }
+        if (!panel.classList.contains('open')) return openAssistant();
+        panel.classList.remove('open');
+        fab.setAttribute('aria-expanded', 'false');
+        scheduleFabIdle();
     }
 
     fab.addEventListener('pointerdown', event => {
@@ -1911,6 +1902,7 @@
     function renderGrounding(grounding) {
         if (!grounding || typeof grounding !== 'object') return '';
         const items = [];
+        if (grounding.currentView) items.push({ text: `📍 ${aiT('currentView')}` });
         let cacheHtml = '';
         let metricGraphHtml = '';
         const knowledgeCache = grounding.knowledgeCache;
@@ -2017,22 +2009,102 @@
         openKnowledgeGraph({ mode: 'knowledge', sources });
     });
 
-    function getPageContext() {
-        const pageTitle = document.title;
-        let context = '';
-        // 优先抓取页面核心区域
-        const contentEl = document.querySelector('.page-content');
-        if (contentEl) {
-            context = contentEl.innerText;
-        } else {
-            // 如果没有 page-content 类，退化抓取全部 body
-            context = document.body.innerText;
+    const assistantChrome = '.ai-fab, .ai-panel, .ai-proactive-alert, .ai-kg-overlay';
+    const contextHidden = `${assistantChrome}, [hidden], [aria-hidden="true"], [inert]`;
+    const contextExcluded = `${contextHidden}, [data-ai-context-ignore], script, style, noscript, template, input, textarea, select, [contenteditable], svg, canvas`;
+
+    function isOnScreen(doc, rect, element) {
+        const left = Math.max(0, rect.left);
+        const top = Math.max(0, rect.top);
+        const right = Math.min(doc.documentElement.clientWidth, rect.right);
+        const bottom = Math.min(doc.documentElement.clientHeight, rect.bottom);
+        if (right <= left || bottom <= top) return false;
+        // Ignore our own overlay so opening/expanding the assistant does not hide its source.
+        return [0.5, 0.1, 0.9].some(fraction => {
+            const hit = doc.elementsFromPoint(left + (right - left) * fraction, top + (bottom - top) * fraction)
+                .find(node => !node.closest(assistantChrome));
+            return hit && (element.contains(hit) || hit.contains(element));
+        });
+    }
+
+    function readVisibleText(doc, root) {
+        if (root.closest(contextExcluded)) return '';
+        const limit = 3400;
+        const walker = doc.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, node => {
+            if (node.nodeType === Node.TEXT_NODE) {
+                return node.data.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+            }
+            if (node.matches(contextExcluded)) return NodeFilter.FILTER_REJECT;
+            const style = doc.defaultView.getComputedStyle(node);
+            if (style.display === 'none' || style.visibility !== 'visible' || Number(style.opacity) === 0) return NodeFilter.FILTER_REJECT;
+            return NodeFilter.FILTER_SKIP;
+        });
+        const range = doc.createRange();
+        let text = '';
+        for (let node; (node = walker.nextNode());) {
+            range.selectNodeContents(node);
+            if (!Array.from(range.getClientRects()).some(rect => isOnScreen(doc, rect, node.parentElement))) continue;
+            text += (text ? '\n' : '') + node.data.trim();
+            if (text.length > limit) return text.slice(0, limit) + '\n[可见文字节选 / Visible text excerpt]';
         }
-        return { pageTitle, context };
+        return text;
+    }
+
+    function getPageContext(question) {
+        let doc = document;
+        let root;
+        let isolatedFrame = false;
+        const pagePath = getPagePath();
+        for (let depth = 0; depth < 5; depth++) {
+            root = Array.from(doc.querySelectorAll(':modal, [aria-modal="true"]')).reverse()
+                .find(node => !node.closest(contextHidden) && isOnScreen(doc, node.getBoundingClientRect(), node))
+                || doc.fullscreenElement || doc.body;
+            const frame = Array.from(root.querySelectorAll('iframe')).find(node => {
+                if (node.closest(contextExcluded)) return false;
+                const rect = node.getBoundingClientRect();
+                const mainFrame = node.matches('.v2-tool-frame-view, .custom-tool-frame')
+                    || rect.width * rect.height >= doc.documentElement.clientWidth * doc.documentElement.clientHeight / 2;
+                return mainFrame && isOnScreen(doc, rect, node);
+            });
+            if (!frame || depth === 4) break;
+            if (!frame.contentDocument?.body || frame.contentDocument.URL === 'about:blank') {
+                isolatedFrame = true;
+                break;
+            }
+            doc = frame.contentDocument;
+        }
+        let editor = '';
+        try { editor = doc.defaultView.ToolsPageContext?.({ root, question }) || ''; } catch { /* The view may be navigating. */ }
+        const visibleText = readVisibleText(doc, root);
+        const context = [
+            editor,
+            visibleText && `[页面可见文字 / Visible page text]\n${visibleText}`,
+            isolatedFrame && '[嵌入页面内容不可读取 / Embedded page content is unavailable]'
+        ].filter(Boolean).join('\n\n');
+        return { pageTitle: doc.title || document.title, pagePath, context, currentView: true };
     }
 
     function getPagePath() {
+        const activeTool = document.querySelector('#v2ToolFrame:not([hidden]) > iframe');
+        if (activeTool) return new URL(activeTool.contentDocument?.URL === 'about:blank'
+            ? activeTool.src : activeTool.contentDocument?.URL || activeTool.src, location.href).pathname;
         return window.location.pathname || '/';
+    }
+
+    let conversationPagePath = null;
+    function syncConversationPage() {
+        const nextPath = getPagePath();
+        if (conversationPagePath && conversationPagePath !== nextPath) {
+            currentSessionId = null;
+            messages = [];
+            cumulativeTokens = 0;
+            cumulativeCost = 0;
+            isFirstOpen = true;
+            chatBody.querySelectorAll('.ai-msg').forEach(node => node.remove());
+            initialMessage.textContent = aiT('welcome');
+            chatBody.insertBefore(initialMessage, typing);
+        }
+        conversationPagePath = nextPath;
     }
 
     function getAuthHeaders() {
@@ -2694,8 +2766,6 @@
         typing.style.display = 'block';
         chatBody.scrollTop = chatBody.scrollHeight;
 
-        const { pageTitle, context } = getPageContext();
-
         // 隐式发送初始消息，要求总结
         const initPrompt = aiT('initPrompt');
         messages.push({ role: 'user', content: initPrompt });
@@ -2709,9 +2779,7 @@
         try {
             const data = await requestStreamingChat({
                 messages,
-                context,
-                pageTitle,
-                pagePath: getPagePath(),
+                ...getPageContext(initPrompt),
                 uiLanguage: getAiLang(),
                 persist: false
             }, {
@@ -2747,6 +2815,11 @@
         const text = String(presetText || input.value || '').trim();
         if (!text) return;
         const displayText = String(options.displayText || text).trim();
+        syncConversationPage();
+        if (isFirstOpen) {
+            isFirstOpen = false;
+            initialMessage.remove();
+        }
 
         suggestionsEl.classList.add('is-collapsed');
         
@@ -2757,9 +2830,6 @@
         typing.style.display = 'block';
         chatBody.scrollTop = chatBody.scrollHeight;
         
-        const pageContext = getPageContext();
-        const pageTitle = pageContext.pageTitle;
-        const context = options.context === undefined ? pageContext.context : String(options.context || '');
         const controller = new AbortController();
         activeChatController = controller;
         setGeneratingState(true);
@@ -2770,9 +2840,9 @@
         try {
             const data = await requestStreamingChat({
                 messages,
-                context,
-                pageTitle,
-                pagePath: getPagePath(),
+                ...(options.context === undefined ? getPageContext(text) : {
+                    context: String(options.context || ''), pageTitle: document.title, pagePath: getPagePath()
+                }),
                 uiLanguage: getAiLang(),
                 sessionId: currentSessionId,
                 codeAnalysis: options.codeAnalysis
@@ -2840,16 +2910,14 @@
     async function openAssistant(options = {}) {
         const toolAssistant = window.HomeToolFrame?.assistant?.();
         if (toolAssistant?.open && toolAssistant !== window.ToolsAIAssistant) return toolAssistant.open(options);
+        if (!activeChatController) syncConversationPage();
+        wakeFab();
         applyContextTheme();
         panel.classList.add('open');
         fab.setAttribute('aria-expanded', 'true');
         loadSuggestions();
         const prompt = String(options.prompt || '').trim();
         if (prompt) {
-            if (isFirstOpen) {
-                isFirstOpen = false;
-                initialMessage?.remove();
-            }
             while (activeChatController) {
                 await new Promise(resolve => window.setTimeout(resolve, 100));
             }

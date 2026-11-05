@@ -13,9 +13,24 @@ app.whenReady().then(async () => {
     const web = express(); web.use(express.json());
     const assistant = '<script src="/js/shared/ai-assistant.js"></script>';
     web.get('/', (_, res) => res.send(`<!doctype html><html data-ui="v2"><head><title>Home</title></head><body><main class="home-main"></main><script>window.HomeWorkspace={getTools:()=>[{href:'/tool',title:'Tool'}]};localStorage.setItem('tools_token','fixture');</script><script src="/js/home/tool-frame.js"></script>${assistant}</body></html>`));
-    web.get('/tool', (_, res) => res.send(`<!doctype html><html><head><title>Tool</title></head><body><div class="page-content">Tool-specific content</div>${assistant}</body></html>`));
+    web.get('/tool', (_, res) => res.send(`<!doctype html><html><head><title>Tool</title></head><body><div class="page-content">Tool-specific content</div>
+        <div role="dialog" aria-modal="true" hidden id="fixtureModal" style="position:fixed;inset:0;background:white">
+        <p>Foreground dialog</p><input type="password" value="fixture-password"><p hidden>hidden detail</p></div>${assistant}</body></html>`));
     web.get('/late', (_, res) => res.send(`<!doctype html><html><head><title>Late</title></head><body>Late component<script>setTimeout(()=>{const s=document.createElement('script');s.src='/js/shared/ai-assistant.js';document.body.append(s)},200)</script></body></html>`));
     web.get('/plain', (_, res) => res.send('<!doctype html><html><head><title>Plain</title></head><body>No tool assistant</body></html>'));
+    web.get('/hosted', (_, res) => res.send(`<!doctype html><html><head><title>Host shell</title></head><body>
+        <iframe class="custom-tool-frame" style="width:95vw;height:95vh" src="/launcher"></iframe>${assistant}</body></html>`));
+    web.get('/launcher', (_, res) => res.send('<!doctype html><html><head><title>AiOps fixture</title><link rel="stylesheet" href="/css/hosted-app-launcher.css"></head><body data-hosted-app="fixture"><script src="/js/hosted-app-launcher.js"></script></body></html>'));
+    web.get('/private-runtime', (_, res) => res.send('<!doctype html><p>Sandboxed runtime content</p>'));
+    web.get('/api/hosted-apps/fixture/launch', (_, res) => res.json({ app: { status: 'running', isAdmin: true, name: 'AiOps fixture', entryUrl: '/private-runtime' } }));
+    web.get('/api/hosted-apps/fixture/editor/git/status', (_, res) => res.json({ status: { branch: 'main', clean: true } }));
+    web.get('/api/hosted-apps/fixture/editor/tree', (_, res) => res.json({ tree: ['short.py', 'long.py', '.env'].map(name => ({ name, path: name, isDir: false })) }));
+    web.get('/api/hosted-apps/fixture/editor/file', (req, res) => {
+        const name = req.query.path;
+        const content = name === 'long.py' ? Array.from({ length: 600 }, (_, i) => `def function_${i + 1}(): return ${i + 1}`).join('\n')
+            : name === '.env' ? 'UNLABELED=excluded-file-value' : 'def preview(): return "initial-buffer"';
+        res.json({ file: { path: name, name, content } });
+    });
     web.post('/api/ai/chat', (req, res) => { chats.push(req.body); res.json({ reply: 'Fixture reply' }); });
     web.get('/api/ai/proactive-alerts', (_, res) => res.json({ items: [] }));
     web.get('/api/ai/suggestions', (_, res) => res.json({ items: [] }));
@@ -35,6 +50,10 @@ app.whenReady().then(async () => {
     await evaluate('ToolsAIAssistant.open()');
     assert.equal(chats.at(-1).pagePath, '/tool', 'host API opens the tool assistant with tool context');
     assert.match(chats.at(-1).context, /Tool-specific content/);
+    await evaluate('document.querySelector("iframe").contentDocument.getElementById("fixtureModal").hidden = false');
+    await evaluate('ToolsAIAssistant.ask("Explain the dialog")');
+    assert.match(chats.at(-1).context, /Foreground dialog/);
+    assert.doesNotMatch(chats.at(-1).context, /Tool-specific content|fixture-password|hidden detail|Fixture reply/);
     assert.equal(await evaluate('document.querySelector("iframe").contentDocument.querySelector(".ai-panel").classList.contains("open")'), true);
     await evaluate('HomeToolFrame.close()');
     assert.notEqual(await evaluate('getComputedStyle(document.querySelector(".ai-fab")).display'), 'none');
@@ -43,6 +62,37 @@ app.whenReady().then(async () => {
     await evaluate('document.querySelector("iframe").contentWindow.location.replace("/plain");void 0');
     await until('document.querySelector("iframe").contentDocument?.title==="Plain"&&!document.body.classList.contains("v2-tool-has-assistant")');
     assert.notEqual(await evaluate('getComputedStyle(document.querySelector(".ai-fab")).display'), 'none', 'tools without assistant retain host fallback');
+    await evaluate('ToolsAIAssistant.open()');
+    assert.equal(chats.at(-1).pagePath, '/plain');
+    assert.match(chats.at(-1).context, /No tool assistant/);
+    await evaluate('HomeToolFrame.open("/hosted")');
+    const launcher = 'document.querySelector("#v2ToolFrame iframe").contentDocument?.querySelector(".custom-tool-frame")?.contentDocument';
+    await until(`!${launcher}?.getElementById("haBar")?.hidden && !!${launcher}?.querySelector(".ha-frame")`);
+    await evaluate('ToolsAIAssistant.open()');
+    assert.match(chats.at(-1).context, /Embedded page content is unavailable/);
+    assert.doesNotMatch(chats.at(-1).context, /Sandboxed runtime content/);
+    await evaluate(`${launcher}.querySelector('[data-action="ide"]').click()`);
+    await until(`!!${launcher}.querySelector('[data-tree-path="short.py"]')`);
+    await evaluate(`${launcher}.querySelector('[data-tree-path="short.py"]').click()`);
+    await until(`${launcher}.getElementById("haIdeTextarea").value.includes("initial-buffer") && ${launcher}.getElementById("haIdeLoading").hidden`);
+    await evaluate(`(() => { const editor = ${launcher}.getElementById("haIdeTextarea"); editor.value = 'def preview(): return "edited-buffer"'; editor.dispatchEvent(new Event("input")); })()`);
+    await evaluate('ToolsAIAssistant.ask("Explain preview")');
+    assert.equal(chats.at(-1).pageTitle, 'AiOps fixture');
+    assert.equal(chats.at(-1).pagePath, '/hosted');
+    assert.equal(chats.at(-1).currentView, true);
+    assert.match(chats.at(-1).context, /short\.py.*Unsaved/);
+    assert.match(chats.at(-1).context, /edited-buffer/);
+    assert.doesNotMatch(chats.at(-1).context, /initial-buffer|Sandboxed runtime content|Fixture reply/);
+    await evaluate(`${launcher}.querySelector('[data-tree-path="long.py"]').click()`);
+    await until(`${launcher}.getElementById("haIdeTextarea").value.includes("function_600") && ${launcher}.getElementById("haIdeLoading").hidden`);
+    await evaluate('ToolsAIAssistant.ask("Explain line 480")');
+    assert.match(chats.at(-1).context, /function_480/);
+    assert.doesNotMatch(chats.at(-1).context, /edited-buffer|function_1\(\)/);
+    await evaluate(`${launcher}.querySelector('[data-tree-path=".env"]').click()`);
+    await until(`${launcher}.getElementById("haIdeTextarea").value.includes("UNLABELED") && ${launcher}.getElementById("haIdeLoading").hidden`);
+    await evaluate('ToolsAIAssistant.ask("Explain this file")');
+    assert.match(chats.at(-1).context, /Active file type was excluded/);
+    assert.doesNotMatch(chats.at(-1).context, /excluded-file-value/);
     await win.loadURL(base + '/tool');
     await until('!!window.ToolsAIAssistant');
     assert.notEqual(await evaluate('getComputedStyle(document.querySelector(".ai-fab")).display'), 'none', 'standalone tool keeps its assistant');
