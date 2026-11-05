@@ -1247,8 +1247,13 @@
         }
     });
 
-    async function openScan(event) {
-        const anchor = event.currentTarget;
+    let scanHoverTimer = 0;
+    let scanCloseTimer = 0;
+    const scanBtn = $('v2ScanBtn');
+
+    async function openScan(anchor = scanBtn) {
+        clearTimeout(scanHoverTimer);
+        clearTimeout(scanCloseTimer);
         if (openPop?.pop === scan.pop) return;
         renderScan();
         showPop(scan.pop, anchor, 'up');
@@ -1256,8 +1261,48 @@
         if (openPop?.pop !== scan.pop) return;
         loadScanTab();
     }
-    $('v2ScanBtn')?.addEventListener('mouseenter', openScan);
-    $('v2ScanBtn')?.addEventListener('click', openScan);
+
+    if (scanBtn) {
+        // 方案 B：增加 320ms 悬停防抖，快速划过直接忽略；鼠标移开 260ms 后若未进入弹窗则自动收起
+        scanBtn.addEventListener('mouseenter', () => {
+            clearTimeout(scanCloseTimer);
+            clearTimeout(scanHoverTimer);
+            if (openPop?.pop !== scan.pop) {
+                scanHoverTimer = setTimeout(() => openScan(scanBtn), 320);
+            }
+        });
+        scanBtn.addEventListener('mouseleave', () => {
+            clearTimeout(scanHoverTimer);
+            if (openPop?.pop === scan.pop) {
+                scanCloseTimer = setTimeout(() => {
+                    if (openPop?.pop === scan.pop) closePop();
+                }, 260);
+            }
+        });
+        // 点击支持 Toggle：已展开时点击立即收起，未展开时点击立即打开
+        scanBtn.addEventListener('click', () => {
+            clearTimeout(scanHoverTimer);
+            clearTimeout(scanCloseTimer);
+            if (openPop?.pop === scan.pop) {
+                closePop();
+            } else {
+                openScan(scanBtn);
+            }
+        });
+    }
+
+    // 鼠标进入扫码面板时保持打开，移出面板后延时自动收起
+    scan.pop.addEventListener('mouseenter', () => {
+        clearTimeout(scanCloseTimer);
+    });
+    scan.pop.addEventListener('mouseleave', () => {
+        clearTimeout(scanCloseTimer);
+        if (openPop?.pop === scan.pop) {
+            scanCloseTimer = setTimeout(() => {
+                if (openPop?.pop === scan.pop) closePop();
+            }, 260);
+        }
+    });
 
     // ── 消息中心：主区整页显示平台告警（沿用 /api/alert-center） ──
     const msg = { el: null, filter: 'all', events: [], error: '' };

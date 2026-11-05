@@ -488,10 +488,13 @@ app.whenReady().then(async () => {
     if (process.env.HOME_SCAN_AUDIT) {
         const isOpen = () => evaluate(`document.querySelector('.v2-scan').classList.contains('is-open') && document.getElementById('v2ScanBtn').getAttribute('aria-expanded')==='true'`);
         await evaluate(`document.getElementById('v2ScanBtn').dispatchEvent(new MouseEvent('mouseenter'))`);
+        await wait(360);
         assert.equal(await isOpen(), true, 'hover opens scan dialog');
         await until(`!!document.querySelector('[data-scan-action="relogin-welink"]')`);
         await evaluate(`document.getElementById('v2ScanBtn').click()`);
-        assert.equal(await isOpen(), true, 'click after hover keeps dialog open');
+        assert.equal(await isOpen(), false, 'click toggles dialog closed');
+        await evaluate(`document.getElementById('v2ScanBtn').click()`);
+        assert.equal(await isOpen(), true, 'click toggles dialog open');
         assert.equal(await evaluate(`document.querySelectorAll('.v2-scan [data-scan-tab]').length`), 3, 'three scan entries');
         for (const tab of ['weixin', 'welinkbot', 'welink', 'weixin']) {
             await evaluate(`document.querySelector('[data-scan-tab="${tab}"]').click()`);
@@ -504,11 +507,14 @@ app.whenReady().then(async () => {
             assert.equal(await isOpen(), true, tab+' asynchronous response keeps dialog open');
         }
         await evaluate(`document.getElementById('v2ScanBtn').dispatchEvent(new MouseEvent('mouseleave'))`);
-        assert.equal(await isOpen(), true, 'moving away does not dismiss');
-        await evaluate('document.body.click()');assert.equal(await isOpen(), false, 'outside click closes');
+        assert.equal(await isOpen(), true, 'immediately leaving does not dismiss (debounce delay)');
+        await wait(320);
+        assert.equal(await isOpen(), false, 'delayed leave auto-dismisses');
         await evaluate(`document.getElementById('v2ScanBtn').click()`);assert.equal(await isOpen(), true, 'click can reopen');
         await evaluate(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`);assert.equal(await isOpen(), false, 'Escape closes');
-        await evaluate(`document.getElementById('v2ScanBtn').dispatchEvent(new MouseEvent('mouseenter'))`);assert.equal(await isOpen(), true, 'hover reopens');
+        await evaluate(`document.getElementById('v2ScanBtn').dispatchEvent(new MouseEvent('mouseenter'))`);
+        await wait(360);
+        assert.equal(await isOpen(), true, 'hover reopens');
         await evaluate(`document.getElementById('v2DiscoverBtn').click()`);assert.equal(await isOpen(), false, 'another menu closes scan dialog');
         // WeLink 助理：已对接时显示助理信息；刷新后出二维码
         await evaluate(`document.getElementById('v2ScanBtn').click()`);
@@ -528,6 +534,7 @@ app.whenReady().then(async () => {
         scanExtranet = true;const loginsBefore = welinkLogins;
         await evaluate(`document.querySelector('[data-scan-tab="welink"]').click()`);
         await evaluate(`document.getElementById('v2ScanBtn').dispatchEvent(new MouseEvent('mouseenter'))`);
+        await wait(360);
         await until(`!!document.querySelector('[data-scan-action="recheck-welink"]')`);
         assert.match(await evaluate(`document.querySelector('.v2-scan').textContent`), /仅限内网使用/);
         assert.equal(await evaluate(`!!document.querySelector('.v2-scan [data-scan-action="relogin-welink"]')`), false);

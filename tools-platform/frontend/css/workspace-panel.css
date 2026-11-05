@@ -689,6 +689,26 @@ body.dc-workspace-enabled .wsp-fab:not([hidden]) { display: inline-flex; }
 .dc-file-md { max-height: 420px; padding: 10px 14px; overflow: auto; color: var(--dc-text, #e2e8f0); font-size: 13px; line-height: 1.65; }
 .dc-file-code { max-height: 420px; margin: 0; padding: 8px 0; overflow: auto; background: rgba(2, 6, 23, 0.55); color: #cbd5e1; font: 11.5px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; counter-reset: dc-line; tab-size: 4; }
 .dc-file-code code { display: block; min-width: fit-content; }
+.dc-file-code .tok-keyword { color: #f47067; font-weight: 500; }
+.dc-file-code .tok-builtin { color: #79c0ff; }
+.dc-file-code .tok-string { color: #a5d6ff; }
+.dc-file-code .tok-comment { color: #8b949e; font-style: italic; }
+.dc-file-code .tok-number { color: #d2a8ff; }
+.dc-file-code .tok-decorator { color: #ffa657; }
+.dc-file-code .tok-operator { color: #f47067; }
+.dc-file-code .tok-tag { color: #7ee787; font-weight: 500; }
+.dc-file-code .tok-attr { color: #79c0ff; }
+.dc-file-code .tok-key { color: #7ee787; }
+html[data-ui="v2"]:not([data-theme="dark"]) .dc-file-code .tok-keyword { color: #cf222e; }
+html[data-ui="v2"]:not([data-theme="dark"]) .dc-file-code .tok-builtin { color: #0550ae; }
+html[data-ui="v2"]:not([data-theme="dark"]) .dc-file-code .tok-string { color: #0a3069; }
+html[data-ui="v2"]:not([data-theme="dark"]) .dc-file-code .tok-comment { color: #6e7781; }
+html[data-ui="v2"]:not([data-theme="dark"]) .dc-file-code .tok-number { color: #8250df; }
+html[data-ui="v2"]:not([data-theme="dark"]) .dc-file-code .tok-decorator { color: #953800; }
+html[data-ui="v2"]:not([data-theme="dark"]) .dc-file-code .tok-operator { color: #cf222e; }
+html[data-ui="v2"]:not([data-theme="dark"]) .dc-file-code .tok-tag { color: #116329; }
+html[data-ui="v2"]:not([data-theme="dark"]) .dc-file-code .tok-attr { color: #0550ae; }
+html[data-ui="v2"]:not([data-theme="dark"]) .dc-file-code .tok-key { color: #116329; }
 .dc-file-line { display: block; padding-right: 12px; white-space: pre; }
 .dc-file-line::before { display: inline-block; width: 3.2em; margin-right: 12px; padding-right: 8px; border-right: 1px solid rgba(148, 163, 184, 0.14); color: #475569; text-align: right; content: counter(dc-line); counter-increment: dc-line; user-select: none; }
 /* 放大：铺满窗口，Esc 或再次点击还原 */

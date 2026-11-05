@@ -1060,17 +1060,25 @@
         return data;
     }
 
-    function renderCode(content) {
+    function renderCode(content, filePath = '') {
         const lines = String(content).split('\n');
         if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop();
-        return `<pre class="dc-file-code"><code>${lines.map(line => `<span class="dc-file-line">${escapeHtml(line) || ' '}</span>`).join('')}</code></pre>`;
+        const lang = window.IdeHighlighter ? window.IdeHighlighter.detectLanguage(filePath) : 'text';
+        let highlighted = '';
+        if (window.IdeHighlighter && lang && lang !== 'text') {
+            try { highlighted = window.IdeHighlighter.highlight(lines.join('\n'), lang); } catch (_e) { highlighted = lines.map(line => escapeHtml(line)).join('\n'); }
+        } else {
+            highlighted = lines.map(line => escapeHtml(line)).join('\n');
+        }
+        const highlightedLines = highlighted.split('\n');
+        return `<pre class="dc-file-code"><code>${highlightedLines.map(line => `<span class="dc-file-line">${line || ' '}</span>`).join('')}</code></pre>`;
     }
 
     function renderPreview(card, content) {
         const kind = card.dataset.preview;
         if (kind === 'markdown') {
             const render = window.ToolsAIAssistant?.renderMarkdown;
-            return `<div class="dc-file-md">${render ? render(content) : renderCode(content)}</div>`;
+            return `<div class="dc-file-md">${render ? render(content) : renderCode(content, card.dataset.path)}</div>`;
         }
         return `<iframe class="dc-file-frame" sandbox="allow-scripts allow-forms allow-modals allow-popups" referrerpolicy="no-referrer" title="${escapeHtml(card.dataset.path)}"></iframe><div class="dc-file-hint">${escapeHtml(tx('fileSandboxHint'))}</div>`;
     }
@@ -1099,7 +1107,7 @@
             return;
         }
         if (card.dataset.view !== view) return;
-        body.innerHTML = view === 'preview' ? renderPreview(card, data.content) : renderCode(data.content);
+        body.innerHTML = view === 'preview' ? renderPreview(card, data.content) : renderCode(data.content, card.dataset.path);
         const frame = body.querySelector('iframe');
         if (frame) {
             frame.srcdoc = card.dataset.preview === 'svg'

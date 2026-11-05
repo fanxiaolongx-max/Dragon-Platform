@@ -64,3 +64,53 @@ test('source filters combine with status and time across unified, desktop and ch
  channels=[{id:'welink'}];events['tools:channels-updated']();assert.equal(api.getFilter().source,'all');
  assert.equal(api.getFilter().status,'group');
 });
+
+test('third-party desktop agents and channel chats notice users on rename attempt without network error', async () => {
+ const alerts = [];
+ let promptCalled = false, requestCalled = false;
+ const window = {
+  addEventListener() {},
+  dispatchEvent() {},
+  AppDialog: {
+   alert: async (msg, opts) => { alerts.push({ msg, opts }); },
+   prompt: async () => { promptCalled = true; return 'New Title'; }
+  },
+  fetch: async () => { requestCalled = true; return { ok: true, json: async () => ({}) }; }
+ };
+ const storage = { getItem: k => k === 'tools_user' ? 'alice' : null };
+ const mockDoc = {
+  readyState: 'complete',
+  documentElement: { dataset: {} },
+  addEventListener: () => {},
+  createElement: () => ({ addEventListener() {}, setAttribute() {}, append() {}, before() {} }),
+  body: { append() {} }
+ };
+ vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../frontend/js/home/conversation-list.js'), 'utf8'), {
+  window, fetch: window.fetch, localStorage: storage, sessionStorage: storage, document: mockDoc, Date, Map, WeakMap, Set, CustomEvent: class {}
+ });
+ const api = window.HomeConversationList;
+ requestCalled = false;
+
+ // 1. 测试三方 Agent 会话（如 antigravity）触发重命名
+ const agentItem = { id: 'session-123', _sourceType: 'antigravity', title: '增强 DragonClaw页面上下文问答' };
+ const config = { source: 'mine', items: [agentItem], id: s => s.id, title: s => s.title };
+ await api._action(config, agentItem, 'rename');
+ assert.equal(alerts.length, 1);
+ assert.match(alerts[0].msg, /第三方 Agent 对话名称由原客户端管理，暂不支持重命名/);
+ assert.equal(promptCalled, false);
+ assert.equal(requestCalled, false);
+
+ // 2. 测试外部频道会话（如 weixin）触发重命名
+ const channelItem = { id: 'wx-123', _sourceType: 'weixin', title: '客户技术支持群' };
+ await api._action(config, channelItem, 'rename');
+ assert.equal(alerts.length, 2);
+ assert.match(alerts[1].msg, /外部频道对话名称由原客户端管理，暂不支持重命名/);
+ assert.equal(promptCalled, false);
+ assert.equal(requestCalled, false);
+
+ // 3. 测试平台原生 Dragon Claw 会话触发重命名
+ const mineItem = { id: 'chat-999', _sourceType: 'mine', title: '平台数据排查' };
+ await api._action(config, mineItem, 'rename');
+ assert.equal(promptCalled, true);
+ assert.equal(requestCalled, true);
+});

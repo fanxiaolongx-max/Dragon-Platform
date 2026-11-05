@@ -1,16 +1,14 @@
 {
   "zh": [
-    "优化智能体在 Windows 平台终端输出的字符集自动探测与解码，解决 GBK 与 UTF-8 混排导致的预览乱码问题。",
-    "增强 WeLink CLI OneBox 模块能力，支持参数别名兼容与工作区相对路径自动补全，优化云空间上传与下载体验。",
-    "完善智能体完全访问（Full Access）权限模式，放开跨目录安全访问限制并保留核心系统目录与危险删除审批保护。",
-    "新增智能体工具使用说明每日静默后台更新机制，支持避让前台请求、慢速串行生成与 Git 预置库落盘沉淀。",
-    "优化 AI 助手对当前页面原生模态框的智能跟踪、屏幕可见行范围检索与可编辑标题上下文解析。"
+    "优化左下角「扫码使用」按钮交互：增加 320ms 悬停防抖过滤与 260ms 移出延时收起，杜绝光标滑过误触，并支持点击直接 Toggle 开关。",
+    "对话文件右侧抽屉预览全面升级：.md 文件优先显示富文本渲染，.html 文件优先显示网页沙箱效果，并支持一键切换源码模式与版本对比查看（Diff）。",
+    "脚本与代码文件预览新增多语言语法高亮与行号显示，支持 Python、JavaScript、HTML、CSS、SQL、JSON、Bash 等多种常见语言。",
+    "优化会话列表交互，对三方桌面 Agent 与外部频道对话重命名尝试增加友好提示引导。"
   ],
   "en": [
-    "Enhanced Windows terminal output decoding with automatic GBK and UTF-8 charset detection to eliminate artifact preview mojibake.",
-    "Upgraded WeLink CLI OneBox integration with parameter alias tolerance, relative path resolution, and seamless workspace download targeting.",
-    "Refined Agent Full Access permission mode, allowing safe cross-directory operations while retaining critical path and bulk deletion safeguards.",
-    "Introduced daily background auto-update for tool guides with queue pacing, front-end chat yielding, and repository pre-bundled syncing.",
-    "Improved AI Assistant native dialog docking, visible table row filtering, and contenteditable heading extraction."
+    "Refined sidebar scan-to-use button with 320ms hover debounce and 260ms auto-dismiss delay to eliminate accidental triggers, plus click-to-toggle support.",
+    "Upgraded right-side chat file preview: Markdown files prioritize rich rendered output, HTML files prioritize sandboxed web preview, with instant switching to source code and diff views.",
+    "Added automatic multi-language syntax highlighting and line numbers for code previews including Python, JavaScript, HTML, CSS, SQL, JSON, and Bash.",
+    "Enhanced conversation list interaction with helpful guidance when attempting to rename third-party agent or channel chats."
   ]
 }
