@@ -697,19 +697,19 @@ function renderAiUsageDashboard(data) {
         <div class="nav-ai-usage-legend"><span class="tokens">Token</span><span class="cost">${navEscape(navT('nav.ai.costLegend'))}</span><b>${navEscape(navT('nav.ai.usagePeriod'))}：${formatAiUsageNumber(period.tokens)} Tokens · ¥${period.costCny.toFixed(4)}</b></div>
         <div class="nav-ai-chart-wrap">${buildAiUsageChart(series)}</div>
         ${models.length > 0 ? `
-        <div style="margin-top:12px;background:rgba(248,250,252,0.78);border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;">
+        <div class="nav-ai-usage-history" style="margin-top:12px;background:var(--v2-side, rgba(248,250,252,0.78));border:1px solid var(--v2-line, #e2e8f0);border-radius:10px;padding:10px 12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;">
-                <span style="font-size:12px;font-weight:600;color:#334155;">${navEscape(navT('nav.ai.usageHistory'))} (${models.length})</span>
-                <span style="font-size:11px;color:#64748b;">${navEscape(navT('nav.ai.usageHistoryHelp'))}</span>
+                <span style="font-size:12px;font-weight:600;color:var(--v2-ink, #334155);">${navEscape(navT('nav.ai.usageHistory'))} (${models.length})</span>
+                <span style="font-size:11px;color:var(--v2-ink3, #64748b);">${navEscape(navT('nav.ai.usageHistoryHelp'))}</span>
             </div>
             <div style="display:flex;flex-direction:column;gap:5px;max-height:150px;overflow-y:auto;padding-right:2px;">
                 ${models.map(item => {
                     const displayName = `${item.profileName || item.provider} · ${item.model}`;
                     return `
-                    <div style="display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid #edf2f7;border-radius:8px;padding:5px 9px;font-size:12px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--v2-chip, #fff);border:1px solid var(--v2-line, #edf2f7);border-radius:8px;padding:5px 9px;font-size:12px;">
                         <div style="display:flex;align-items:center;gap:7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-                            <strong style="color:#1e293b;">${navEscape(displayName)}</strong>${configured.size && !isConfigured(item) ? `<em style="font-style:normal;font-size:10.5px;color:#94a3b8;border:1px solid #e2e8f0;border-radius:8px;padding:0 6px;">${navEscape(navT('nav.ai.unconfigured'))}</em>` : ''}
-                            <span style="color:#64748b;font-size:11px;">(${formatAiUsageNumber(item.totals?.tokens)} Tokens · ¥${Number(item.totals?.costCny || 0).toFixed(4)})</span>
+                            <strong style="color:var(--v2-ink, #1e293b);">${navEscape(displayName)}</strong>${configured.size && !isConfigured(item) ? `<em style="font-style:normal;font-size:10.5px;color:var(--v2-ink3, #94a3b8);border:1px solid var(--v2-line, #e2e8f0);border-radius:8px;padding:0 6px;">${navEscape(navT('nav.ai.unconfigured'))}</em>` : ''}
+                            <span style="color:var(--v2-ink3, #64748b);font-size:11px;">(${formatAiUsageNumber(item.totals?.tokens)} Tokens · ¥${Number(item.totals?.costCny || 0).toFixed(4)})</span>
                         </div>
                         <button type="button" class="nav-settings-add danger" onclick="clearSpecificModelUsage('${navEscape(item.key)}', '${navEscape(displayName)}', ${item.totals?.tokens || 0}, ${Number(item.totals?.costCny || 0).toFixed(4)})" style="margin:0;font-size:11px;padding:2px 8px;height:24px;line-height:20px;" title="${navEscape(navT('nav.ai.clearModelUsage'))}">🗑 ${navEscape(navT('nav.ai.clearModelUsage'))}</button>
                     </div>
@@ -901,9 +901,9 @@ async function renderAiSettings(content) {
                         </button>
                     `).join('')}
                 </div>
-                ${isImage ? '' : `<label class="nav-settings-check" style="margin-top:8px;padding:9px 10px;border:1px solid rgba(129,140,248,.24);border-radius:10px;background:rgba(255,255,255,.68);display:flex;align-items:center;gap:8px;">
+                ${isImage ? '' : `<label class="nav-settings-check nav-ai-autoswitch-check" style="margin-top:8px;padding:9px 10px;border:1px solid var(--v2-line, rgba(129,140,248,.24));border-radius:10px;background:var(--v2-chip, rgba(255,255,255,.68));display:flex;align-items:center;gap:8px;color:var(--v2-ink, inherit);">
                     <input id="navAiAutoSwitch" type="checkbox" ${settingsStore.autoSwitchEnabled ? 'checked' : ''} onchange="scheduleAiSettingsSave()">
-                    <span><b>${navEscape(navT('nav.ai.autoSwitch'))}</b><small style="display:block;margin-top:2px;color:#64748b;font-weight:500;">${navEscape(navT('nav.ai.autoSwitchHelp'))}</small></span>
+                    <span><b>${navEscape(navT('nav.ai.autoSwitch'))}</b><small style="display:block;margin-top:2px;color:var(--v2-ink3, #64748b);font-weight:500;">${navEscape(navT('nav.ai.autoSwitchHelp'))}</small></span>
                 </label>`}
                 <div class="nav-ai-profile-toolbar">
                     <label>
@@ -2241,7 +2241,7 @@ function renderMediaSettingsHtml(content, overview, videos, categories) {
             <!-- 分类切换与实时筛选 -->
             <div class="nav-media-filter-row">
                 <div class="nav-media-category-tabs" aria-label="${navEscape(navT('nav.media.categoryFilter'))}">
-                    <button type="button" class="tab-item" onclick="switchMediaCategoryFilter('all')" style="border-radius:20px; padding:4px 14px; font-size:12px; font-weight:600; cursor:pointer; border:1px solid ${activeFilter === 'all' ? '#6366f1' : '#cbd5e1'}; background:${activeFilter === 'all' ? '#6366f1' : '#fff'}; color:${activeFilter === 'all' ? '#fff' : '#475569'};">
+                    <button type="button" class="tab-item" aria-pressed="${activeFilter === 'all'}" onclick="switchMediaCategoryFilter('all')" style="border-radius:20px; padding:4px 14px; font-size:12px; font-weight:600; cursor:pointer; border:1px solid ${activeFilter === 'all' ? '#6366f1' : 'var(--v2-line, #cbd5e1)'}; background:${activeFilter === 'all' ? '#6366f1' : 'var(--v2-chip, #fff)'}; color:${activeFilter === 'all' ? '#fff' : 'var(--v2-ink2, #475569)'};">
                         全部 (${videos.length})
                     </button>
                     ${managedCategories.map(c => {
@@ -2249,7 +2249,7 @@ function renderMediaSettingsHtml(content, overview, videos, categories) {
         const cnt = categoryCount(c);
         const isAct = activeFilter === filterValue;
         return `
-                            <button type="button" class="tab-item" onclick="switchMediaCategoryFilter('${navEscape(filterValue)}')" style="border-radius:20px; padding:4px 14px; font-size:12px; font-weight:600; cursor:pointer; border:1px solid ${isAct ? '#6366f1' : '#cbd5e1'}; background:${isAct ? '#6366f1' : '#fff'}; color:${isAct ? '#fff' : '#475569'}; display:inline-flex; align-items:center; gap:4px;">
+                            <button type="button" class="tab-item" aria-pressed="${isAct}" onclick="switchMediaCategoryFilter('${navEscape(filterValue)}')" style="border-radius:20px; padding:4px 14px; font-size:12px; font-weight:600; cursor:pointer; border:1px solid ${isAct ? '#6366f1' : 'var(--v2-line, #cbd5e1)'}; background:${isAct ? '#6366f1' : 'var(--v2-chip, #fff)'}; color:${isAct ? '#fff' : 'var(--v2-ink2, #475569)'}; display:inline-flex; align-items:center; gap:4px;">
                                 <span>${c.icon || '📁'}</span> ${navEscape(c.name || filterValue || '独家影院')} (${cnt})
                             </button>
                         `;
@@ -2262,11 +2262,11 @@ function renderMediaSettingsHtml(content, overview, videos, categories) {
             </div>
 
             <!-- 视频表格管理区 -->
-            <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden;">
+            <div style="background:var(--v2-side, #fff); border:1px solid var(--v2-line, #e2e8f0); border-radius:10px; overflow:hidden;">
                 <div class="nav-media-table-scroll">
                     <table class="nav-media-table">
                         <thead>
-                            <tr style="background:#f8fafc; border-bottom:1px solid #e2e8f0; color:#64748b; font-weight:600;">
+                            <tr style="background:var(--v2-chip, #f8fafc); border-bottom:1px solid var(--v2-line, #e2e8f0); color:var(--v2-ink3, #64748b); font-weight:600;">
                                 <th style="padding:10px 12px; width:70px;">封面</th>
                                 <th style="padding:10px 12px;">片名 & 文件名</th>
                                 <th style="padding:10px 12px; width:130px;">所属分类</th>
@@ -4637,16 +4637,16 @@ window.openUserModal = async function () {
 
         let trs = res.map(u => {
             const roleBadge = u.role === 'admin'
-                ? '<span style="background:#e0e7ff; color:#4338ca; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; border:1px solid #c7d2fe;">超级管理</span>'
-                : '<span style="background:#f1f5f9; color:#64748b; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; border:1px solid #e2e8f0;">只读用户</span>';
+                ? '<span style="background:rgba(99,102,241,0.18); color:#a5b4fc; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; border:1px solid rgba(99,102,241,0.35);">超级管理</span>'
+                : '<span style="background:var(--v2-chip, #f1f5f9); color:var(--v2-ink2, #64748b); padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; border:1px solid var(--v2-line, #e2e8f0);">只读用户</span>';
 
             return `
             <tr style="transition: background 0.2s;">
                 <td style="padding:14px 16px; border-bottom:1px solid var(--v2-line, #f1f5f9); font-weight:500; color:var(--v2-ink, #334155);">${u.username}</td>
                 <td style="padding:14px 16px; border-bottom:1px solid var(--v2-line, #f1f5f9);">${roleBadge}</td>
                 <td style="padding:14px 16px; border-bottom:1px solid var(--v2-line, #f1f5f9); text-align:right;">
-                    ${u.username !== 'admin' ? `<button onclick="deleteUser('${u.username}')" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'" style="background:#fef2f2; color:#ef4444; border:1px solid #fee2e2; padding:6px 12px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s;">删除</button>` : ''}
-                    <button onclick="resetPwd('${u.username}')" onmouseover="this.style.background='#e0f2fe'" onmouseout="this.style.background='#f0f9ff'" style="background:#f0f9ff; color:#0284c7; border:1px solid #e0f2fe; padding:6px 12px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s; margin-left:8px;">重置密码</button>
+                    ${u.username !== 'admin' ? `<button onclick="deleteUser('${u.username}')" style="background:rgba(239,68,68,0.12); color:#f87171; border:1px solid rgba(239,68,68,0.3); padding:6px 12px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s;">删除</button>` : ''}
+                    <button onclick="resetPwd('${u.username}')" style="background:rgba(2,132,199,0.12); color:#38bdf8; border:1px solid rgba(2,132,199,0.3); padding:6px 12px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s; margin-left:8px;">重置密码</button>
                 </td>
             </tr>
             `;

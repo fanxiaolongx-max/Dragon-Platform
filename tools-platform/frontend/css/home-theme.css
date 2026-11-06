@@ -272,7 +272,11 @@ html[data-ui="v2"] #dcComposer .dc-composer-icon:disabled { opacity: .5; cursor:
 html[data-ui="v2"] #dcComposer .dc-voice[aria-disabled="true"] { color: var(--v2-ink3); cursor: default; }
 html[data-ui="v2"] #dcComposer #dcEnhance { order: 2; margin-left: auto; }
 html[data-ui="v2"] #dcComposer #dcModel { order: 3; margin-left: 0; min-width: 0; flex: 0 1 auto; }
-html[data-ui="v2"] #dcComposer #dcEnhance[hidden] ~ #dcModel { margin-left: auto; }
+html[data-ui="v2"] #dcComposer #dcEnhance[hidden] ~ #dcModel:not([hidden]) { margin-left: auto; }
+html[data-ui="v2"] #dcComposer #dcEnhance[hidden] ~ #dcModel[hidden] ~ #dcVoice:not([hidden]),
+html[data-ui="v2"] body.dc-external-compose #dcComposer #dcEnhance[hidden] ~ #dcVoice:not([hidden]) { margin-left: auto; }
+html[data-ui="v2"] #dcComposer #dcEnhance[hidden] ~ #dcModel[hidden] ~ #dcVoice[hidden] ~ #dcSend,
+html[data-ui="v2"] body.dc-external-compose #dcComposer #dcEnhance[hidden] ~ #dcVoice[hidden] ~ #dcSend { margin-left: auto; }
 html[data-ui="v2"] #dcComposer #dcVoice { order: 4; }
 html[data-ui="v2"] #dcComposer #dcSend { order: 5; }
 html[data-ui="v2"] #dcComposer .dc-model-btn { max-width: 100%; }
@@ -308,6 +312,44 @@ html[data-ui="v2"][data-theme="dark"] .nav-settings-tab:hover { background: var(
 html[data-ui="v2"][data-theme="dark"] .nav-settings-tab.active { background: var(--v2-chip); color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.4); }
 html[data-ui="v2"][data-theme="dark"] .nav-settings-close { background: var(--v2-chip); color: var(--v2-ink2); }
 html[data-ui="v2"][data-theme="dark"] .nav-settings-close:hover { background: var(--v2-hover); color: var(--v2-ink); }
+html[data-ui="v2"][data-theme="dark"] .nav-account-table-wrap,
+html[data-ui="v2"][data-theme="dark"] .nch-table-wrap,
+html[data-ui="v2"][data-theme="dark"] .wsc-form-card {
+    background: var(--v2-side) !important;
+    border-color: var(--v2-line) !important;
+}
+html[data-ui="v2"][data-theme="dark"] :is(.nav-account-table, .nav-security-table, .nch-table) td {
+    background: transparent !important;
+    border-bottom-color: var(--v2-line) !important;
+    color: var(--v2-ink) !important;
+}
+html[data-ui="v2"][data-theme="dark"] :is(.nav-account-table, .nav-security-table, .nch-table) tr:hover td {
+    background: var(--v2-hover) !important;
+}
+html[data-ui="v2"][data-theme="dark"] .nav-ai-profile-panel .nav-settings-check,
+html[data-ui="v2"][data-theme="dark"] .nav-settings-check.nav-ai-autoswitch-check {
+    background: var(--v2-chip) !important;
+    border-color: var(--v2-line) !important;
+    color: var(--v2-ink) !important;
+}
+html[data-ui="v2"][data-theme="dark"] .nav-ai-profile-panel .nav-settings-check small,
+html[data-ui="v2"][data-theme="dark"] .nav-settings-check.nav-ai-autoswitch-check small {
+    color: var(--v2-ink3) !important;
+}
+html[data-ui="v2"][data-theme="dark"] .nav-ai-usage-panel .nav-ai-usage-history {
+    background: var(--v2-side) !important;
+    border-color: var(--v2-line) !important;
+}
+html[data-ui="v2"][data-theme="dark"] .nav-media-category-tabs .tab-item {
+    background: var(--v2-chip) !important;
+    border-color: var(--v2-line) !important;
+    color: var(--v2-ink2) !important;
+}
+html[data-ui="v2"][data-theme="dark"] .nav-media-category-tabs .tab-item[aria-pressed="true"] {
+    background: #6366f1 !important;
+    border-color: #6366f1 !important;
+    color: #fff !important;
+}
 html[data-ui="v2"] .nav-ai-profile-panel { background: var(--v2-side); border-color: var(--v2-line); box-shadow: none; }
 @media (max-width: 640px) {
     html[data-ui="v2"] #dcComposer .dc-model-menu { right: -74px; }
@@ -1610,6 +1652,22 @@ html[data-ui="v2"] #customToolImportModal :is(.tool-import-input, .tool-import-t
     background: var(--v2-bg); color: var(--v2-ink);
 }
 html[data-ui="v2"] #customToolImportModal :is(.tool-import-input, .tool-import-textarea):focus { border-color: var(--v2-accent); box-shadow: 0 0 0 3px var(--v2-accent-soft); }
+html[data-ui="v2"] #customToolImportModal :is(.tool-import-input, .tool-import-textarea).is-locked {
+    opacity: .75;
+    background: color-mix(in srgb, var(--v2-ink) 5%, var(--v2-bg));
+    border-style: dashed;
+    cursor: not-allowed;
+}
+html[data-ui="v2"] #customToolImportModal .tool-import-locked-hint {
+    grid-column: 1 / -1;
+    font-size: 12px;
+    line-height: 1.5;
+    padding: 8px 12px;
+    border-radius: 8px;
+    color: var(--v2-ink2);
+    background: color-mix(in srgb, var(--v2-accent) 12%, transparent);
+    border: 1px dashed color-mix(in srgb, var(--v2-accent) 35%, transparent);
+}
 html[data-ui="v2"] #customToolImportModal .tool-import-textarea { min-height: 56px; height: 56px; }
 html[data-ui="v2"] #customToolImportModal .tool-import-actions { gap: 8px; margin-top: 16px; }
 html[data-ui="v2"] #customToolImportModal .tool-import-btn { min-width: 80px; padding: 8px 14px; border-radius: 9px; border-color: var(--v2-line-strong); background: color-mix(in srgb, var(--v2-bg) 65%, transparent); color: var(--v2-ink2); }

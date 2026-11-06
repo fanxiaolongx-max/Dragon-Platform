@@ -186,20 +186,20 @@
         const modal = state.scaffoldModal;
         return `
         <div style="position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;">
-            <div style="background:#fff;border-radius:12px;width:100%;max-width:760px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 25px -5px rgba(0,0,0,0.2);overflow:hidden;">
-                <div style="padding:14px 18px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;">
-                    <div style="font-weight:800;font-size:14px;display:flex;align-items:center;gap:8px;">
+            <div class="wsc-modal-window" style="background:var(--v2-bg, #fff);border-radius:12px;width:100%;max-width:760px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 25px -5px rgba(0,0,0,0.4);border:1px solid var(--v2-line, #e2e8f0);overflow:hidden;">
+                <div style="padding:14px 18px;border-bottom:1px solid var(--v2-line, #e2e8f0);display:flex;align-items:center;justify-content:space-between;">
+                    <div style="font-weight:800;font-size:14px;color:var(--v2-ink, #0f172a);display:flex;align-items:center;gap:8px;">
                         <span>🐍 WeLink 命令脚手架代码 (commands/${esc(modal.name)}_command/command.py)</span>
                     </div>
                     <button type="button" class="nch-btn" data-action="close-scaffold-modal" style="height:26px;padding:0 8px;">✕</button>
                 </div>
-                <div style="padding:12px 18px;background:#f8fafc;border-bottom:1px solid #e2e8f0;font-size:12px;color:#475569;line-height:1.5;">
+                <div style="padding:12px 18px;background:var(--v2-side, #f8fafc);border-bottom:1px solid var(--v2-line, #e2e8f0);font-size:12px;color:var(--v2-ink3, #475569);line-height:1.5;">
                     💡 将下方代码保存到本地 <code>assistant_command_executor\\commands\\${esc(modal.name)}_command\\command.py</code>，然后运行 <code>python -m ace serve --env prod</code> 即可在本地调试运行。
                 </div>
                 <div style="padding:14px 18px;overflow-y:auto;flex:1;">
                     <pre style="margin:0;padding:12px;background:#0f172a;color:#e2e8f0;border-radius:8px;font-size:12px;font-family:ui-monospace,Menlo,Monaco,monospace;line-height:1.5;overflow-x:auto;"><code>${esc(modal.scaffold)}</code></pre>
                 </div>
-                <div style="padding:12px 18px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:10px;">
+                <div style="padding:12px 18px;border-top:1px solid var(--v2-line, #e2e8f0);display:flex;justify-content:flex-end;gap:10px;">
                     <button type="button" class="nch-btn" data-action="close-scaffold-modal">${esc(L('关闭', 'Close'))}</button>
                     <button type="button" class="nch-btn primary" data-action="copy-scaffold-code">📋 ${esc(L('复制代码', 'Copy Code'))}</button>
                 </div>
@@ -289,7 +289,7 @@
 
             <!-- 现存命令表格 -->
             <div style="margin-top:8px;">
-                <div style="font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+                <div style="font-size:12px;font-weight:700;color:var(--v2-ink2, #334155);margin-bottom:6px;display:flex;align-items:center;gap:6px;">
                     <span>📋 ${esc(L('已注册的斜杠命令', 'Registered Commands'))}</span>
                     <span class="nch-muted" style="font-weight:400;font-size:11px;">(${state.commands.length})</span>
                 </div>
@@ -297,9 +297,9 @@
             </div>
 
             <!-- 新增发布表单 -->
-            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin-top:12px;">
+            <div class="wsc-form-card" style="background:var(--v2-side, #f8fafc);border:1px solid var(--v2-line, #e2e8f0);border-radius:10px;padding:14px;margin-top:12px;">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
-                    <span style="font-size:13px;font-weight:800;color:#0f172a;">🚀 ${esc(L('发布新斜杠命令', 'Publish New Slash Command'))}</span>
+                    <span style="font-size:13px;font-weight:800;color:var(--v2-ink, #0f172a);">🚀 ${esc(L('发布新斜杠命令', 'Publish New Slash Command'))}</span>
                     <div style="display:flex;gap:6px;flex-wrap:wrap;">
                         <button type="button" class="nch-btn" data-action="preset-dragonclaw" style="font-size:11px;height:26px;">🌟 ${esc(L('填入龙爪平台一键直达 (Type 1)', 'Preset: Dragon Claw (Type 1)'))}</button>
                         <button type="button" class="nch-btn" data-action="preset-query" style="font-size:11px;height:26px;">⚡ ${esc(L('填入本地智能查询 (Type 3)', 'Preset: Local Query (Type 3)'))}</button>
@@ -327,10 +327,10 @@
                     <div class="nch-field">
                         <span>${esc(L('入口范围', 'Scope'))} *</span>
                         <div style="display:flex;gap:12px;height:32px;align-items:center;">
-                            <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;">
+                            <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;color:var(--v2-ink, inherit);">
                                 <input type="checkbox" data-scope="user" ${form.scopes.includes('user') ? 'checked' : ''} /> IM 单聊
                             </label>
-                            <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;">
+                            <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;color:var(--v2-ink, inherit);">
                                 <input type="checkbox" data-scope="group" ${form.scopes.includes('group') ? 'checked' : ''} /> IM 群聊
                             </label>
                         </div>

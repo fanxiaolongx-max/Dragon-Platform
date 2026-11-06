@@ -12,7 +12,7 @@
             all: '全部工具', recent: '最近使用', favorites: '收藏', groups: '分类', other: '其他', skills: '技能',
             searchPlaceholder: '搜索工具 / 拼音首字母', empty: '没有匹配的工具', emptyRecent: '还没有最近使用的工具',
             emptyFavorites: '还没有收藏的工具：点卡片右上角的 ☆，或把卡片拖到这里',
-            favAdd: '收藏', favRemove: '取消收藏', favAdded: '已收藏「{name}」', favRemoved: '已取消收藏「{name}」',
+            moreOptions: '更多操作', favAdd: '收藏', favRemove: '取消收藏', favAdded: '已收藏「{name}」', favRemoved: '已取消收藏「{name}」',
             dropFavorite: '松开即收藏', dragHint: '拖到「收藏」区即可收藏；管理员还可拖到其他位置调整顺序和目录',
             reordered: '已调整顺序，「更多工具」同步更新', moved: '已移到「{group}」，「更多工具」同步更新',
             updated: '{time}更新', justNow: '刚刚', minutes: '{n} 分钟前', hours: '{n} 小时前', days: '{n} 天前',
@@ -22,7 +22,7 @@
             all: 'All tools', recent: 'Recent', favorites: 'Favorites', groups: 'Categories', other: 'Other', skills: 'Skills',
             searchPlaceholder: 'Search tools', empty: 'No matching tools', emptyRecent: 'No recently used tools yet',
             emptyFavorites: 'No favorites yet. Click ☆ on a card, or drag a card here',
-            favAdd: 'Add to favorites', favRemove: 'Remove from favorites', favAdded: 'Added “{name}” to favorites', favRemoved: 'Removed “{name}” from favorites',
+            moreOptions: 'More options', favAdd: 'Add to favorites', favRemove: 'Remove from favorites', favAdded: 'Added “{name}” to favorites', favRemoved: 'Removed “{name}” from favorites',
             dropFavorite: 'Drop to add to favorites', dragHint: 'Drop on Favorites to save it; admins can also drop elsewhere to reorder or move categories',
             reordered: 'Order updated; the More menu follows', moved: 'Moved to “{group}”; the More menu follows',
             updated: 'Updated {time}', justNow: 'just now', minutes: '{n}m ago', hours: '{n}h ago', days: '{n}d ago',
@@ -270,6 +270,7 @@
             actions.className = 'custom-tool-actions card-quick-actions';
             card.prepend(actions);
         }
+        actions.dataset.toolCardActions = '';
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'custom-tool-action card-fav-toggle';
@@ -282,15 +283,10 @@
             const moreBtn = document.createElement('button');
             moreBtn.type = 'button';
             moreBtn.className = 'custom-tool-action card-more-toggle';
-            moreBtn.title = '更多操作';
-            moreBtn.setAttribute('aria-label', '更多操作');
+            moreBtn.title = tx('moreOptions');
+            moreBtn.setAttribute('aria-label', moreBtn.title);
             moreBtn.setAttribute('aria-haspopup', 'menu');
             moreBtn.textContent = '···';
-            moreBtn.addEventListener('click', event => {
-                event.preventDefault();
-                event.stopPropagation();
-                window.HomeToolMenu?.open({ anchor: moreBtn, card });
-            });
             actions.append(moreBtn);
         }
     }
@@ -1004,6 +1000,14 @@
             if (suppressClick && event.target.closest('a.tool-card')) {
                 event.preventDefault();
                 event.stopPropagation();
+                return;
+            }
+            const moreBtn = event.target.closest('.card-more-toggle');
+            if (moreBtn) {
+                event.preventDefault();
+                event.stopPropagation();
+                const card = moreBtn.closest('a.tool-card');
+                window.HomeToolMenu?.open({ anchor: moreBtn, card });
                 return;
             }
             const button = event.target.closest('.card-fav-toggle');

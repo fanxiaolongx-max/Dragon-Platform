@@ -305,7 +305,7 @@ app.whenReady().then(async () => {
         win.destroy();server.close();app.exit(0);return;
     }
     if (process.env.HOME_FEATURED_AUDIT) {
-        await evaluate(`window.HomeWorkspace.getTools=()=>Array.from({length:6},(_,i)=>({id:'fixture-'+i,title:'Fixture '+i,href:'/fixture/'+i,group:i<3?'A':'B'}));void 0`);
+        await evaluate(`window.HomeWorkspace.getTools=()=>Array.from({length:6},(_,i)=>({id:'fixture-'+i,title:'Fixture '+i,href:'/tools/fixture-'+i,group:i<3?'A':'B'}));void 0`);
         for (const width of [1440,600]) {
             win.setContentSize(width,1000);
             await evaluate(`document.body.classList.add('v2-side-collapsed');HomeSkillHub.open('tools')`);
@@ -313,6 +313,11 @@ app.whenReady().then(async () => {
             const snapshot=()=>evaluate(`(()=>{const f=document.querySelector('.v2-hub-featured');return {hidden:f.hidden,keys:[...f.querySelectorAll('[data-hub-key]')].map(el=>el.dataset.hubKey),top:document.querySelector('.v2-hub-bar').getBoundingClientRect().top}})()`);
             const initial=await snapshot();assert.equal(initial.hidden,false);
             const check=async()=>assert.deepEqual(await snapshot(),initial,'shortcuts and category position remain stable at '+width+'px');
+            for (const region of ['featured', 'grid']) {
+                await evaluate(`document.querySelector('.v2-hub-${region} [data-hub-act="more"] svg').dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true}));void 0`);
+                assert.equal(await evaluate('HomeToolMenu.isOpen() && !HomeToolFrame.isOpen()'),true,'clicking the icon opens the card menu without navigating');
+                await evaluate('HomeToolMenu.close()');
+            }
             for(const category of ['A','B','all']) {
                 await evaluate(`document.querySelector('[data-hub-cat="${category}"]').click()`);
                 await check();
@@ -320,8 +325,10 @@ app.whenReady().then(async () => {
             }
             await evaluate(`document.querySelector('[data-hub-do="mine"]').click()`);
             await check();assert.equal(await evaluate(`document.querySelectorAll('.v2-hub-grid [data-hub-key]').length`),0,'favorites only changes results');
+            assert.equal(await evaluate(`document.querySelector('[data-hub-cat="all"] em').textContent`),'0','category count reflects the favorites filter');
             await evaluate(`document.querySelector('[data-hub-do="mine"]').click();document.querySelector('.v2-hub-search input').value='unmatched fixture';document.querySelector('.v2-hub-search input').dispatchEvent(new Event('input',{bubbles:true}))`);
             await check();assert.equal(await evaluate(`document.querySelectorAll('.v2-hub-grid [data-hub-key]').length`),0,'empty search only changes results');
+            assert.equal(await evaluate(`document.querySelector('[data-hub-cat="all"] em').textContent`),'0','category count reflects the search filter');
             await evaluate('HomeSkillHub.close()');
         }
         assert.deepEqual(await evaluate('fixtureErrors'),[]);

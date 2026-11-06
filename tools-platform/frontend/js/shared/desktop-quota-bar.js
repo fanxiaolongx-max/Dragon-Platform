@@ -349,9 +349,39 @@
         q('samples').textContent = String(all.length); q('updated').textContent = latest ? time(latest.at) : '—';
         chosen.forEach((s, index) => {
             const color = COLORS[index % COLORS.length];
-            for (const segment of window.PetQuotaChart?.paths(s.points, from, to, data.step, state.metric === 'used', width, height) || []) {
-                chart.append(svgEl('path', { d: segment.d, fill: 'none', stroke: color, 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
-                for (const point of segment.points) { const dot = svgEl('circle', { cx: point.x, cy: point.y, r: segment.points.length === 1 ? 3 : 2, fill: color }); dot.append(svgEl('title', {}, seriesLabel(state.provider, s) + '\n' + time(point.at) + '\n' + tr('剩余 ', 'Remaining ') + Math.round(point.remaining) + '%' + (point.resetsAt ? '\n' + tr('重置：', 'Resets: ') + time(point.resetsAt) : ''))); chart.append(dot); }
+            for (const segment of window.PetQuotaChart?.paths(s.points, from, to, data.step, state.metric === 'used', width, height, s) || []) {
+                if (segment.areaD && segment.points.length > 1) {
+                    chart.append(svgEl('path', { d: segment.areaD, fill: color, 'fill-opacity': '0.08', stroke: 'none', 'pointer-events': 'none' }));
+                }
+                if (segment.d) {
+                    chart.append(svgEl('path', { d: segment.d, fill: 'none', stroke: color, 'stroke-width': 2.5, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+                }
+                segment.points.forEach((point, pIdx) => {
+                    const isSingle = segment.points.length === 1;
+                    const isLast = pIdx === segment.points.length - 1;
+                    const titleText = seriesLabel(state.provider, s) + '\n' + time(point.at) + '\n' + tr('剩余 ', 'Remaining ') + Math.round(point.remaining) + '%' + (point.resetsAt ? '\n' + tr('重置：', 'Resets: ') + time(point.resetsAt) : '');
+                    if (isSingle || isLast) {
+                        const tipDot = svgEl('circle', {
+                            cx: point.x, cy: point.y,
+                            r: isSingle ? 3.5 : 3,
+                            fill: color,
+                            stroke: 'var(--surface, #101113)',
+                            'stroke-width': 1.5,
+                            class: 'trend-endpoint'
+                        });
+                        tipDot.append(svgEl('title', {}, titleText));
+                        chart.append(tipDot);
+                    }
+                    const hitDot = svgEl('circle', {
+                        cx: point.x, cy: point.y,
+                        r: 6,
+                        fill: color,
+                        'fill-opacity': '0',
+                        class: 'trend-hit'
+                    });
+                    hitDot.append(svgEl('title', {}, titleText));
+                    chart.append(hitDot);
+                });
             }
             const item = el('span'), mark = el('i'); mark.style.background = color; item.append(mark, document.createTextNode(seriesLabel(state.provider, s))); q('legend').append(item);
         });

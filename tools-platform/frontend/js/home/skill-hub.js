@@ -164,7 +164,7 @@
             <button type="button" class="v2-hub-quick-btn" data-hub-act="improve" title="${esc(t('improve'))}">${ico('sparkles')}</button>
             <button type="button" class="v2-hub-quick-btn" data-hub-act="history" title="${esc(t('history'))}">${ico('refresh')}</button>` : '';
         const moreBtn = `<button type="button" class="v2-hub-more-btn" data-hub-act="more" title="${esc(t('moreOptions'))}" aria-label="${esc(t('moreOptions'))}" aria-haspopup="menu">${ico('more')}</button>`;
-        const extra = `<span class="v2-hub-more">${skillButtons}${moreBtn}</span>`;
+        const extra = `<span class="v2-hub-more" data-tool-card-actions>${skillButtons}${moreBtn}</span>`;
         return `<a class="v2-hub-card" href="${esc(item.href)}" data-hub-key="${esc(item.key)}" style="--hub-c:${esc(item.color)}" title="${esc(item.title)}">
             <span class="v2-hub-icon">${iconHtml(item.icon)}</span>
             <span class="v2-hub-body">
@@ -237,9 +237,11 @@
         if (!root?.querySelector('.v2-hub-grid')) return;
         const all = entries();
         const query = state.query.trim().toLowerCase();
+        const scoped = all.filter(item => (!state.mine || item.mine) && matches(item, query));
+        const counts = new Map(categories(scoped).map(cat => [cat.id, cat.n]));
         const cats = categories(all);
         if (!cats.some(c => c.id === state.cat)) state.cat = 'all';
-        root.querySelector('.v2-hub-chips').innerHTML = cats.map(c => `<button type="button" data-hub-cat="${esc(c.id)}" aria-selected="${state.cat === c.id}">${esc(c.label)}<em>${c.n}</em></button>`).join('');
+        root.querySelector('.v2-hub-chips').innerHTML = cats.map(c => `<button type="button" data-hub-cat="${esc(c.id)}" aria-selected="${state.cat === c.id}">${esc(c.label)}<em>${counts.get(c.id) || 0}</em></button>`).join('');
 
         const feat = root.querySelector('.v2-hub-featured');
         // Featured entries are shortcuts for this tab, independent of the results below.
@@ -252,7 +254,7 @@
                 <div class="v2-hub-cards is-featured">${featured(all).map(card).join('')}</div>`;
         }
 
-        let list = all.filter(item => (!state.mine || item.mine) && (state.cat === 'all' || item.cat === state.cat || (item.extraCats || []).includes(state.cat)) && matches(item, query));
+        let list = scoped.filter(item => state.cat === 'all' || item.cat === state.cat || (item.extraCats || []).includes(state.cat));
         if (state.sort === 'name') {
             list = list.slice().sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), lang(), { numeric: true, sensitivity: 'base' }));
         } else if (state.sort === 'newest') {
@@ -330,22 +332,26 @@
         }
         const cardEl = event.target.closest('.v2-hub-card');
         if (!cardEl) return;
-        const item = entries().find(entry => entry.key === cardEl.dataset.hubKey);
-        if (!item) return;
-        const act = event.target.closest('[data-hub-act]')?.dataset.hubAct;
-        if (act) {
+        const actBtn = event.target.closest('[data-hub-act]');
+        const isMoreArea = Boolean(event.target.closest('.v2-hub-more'));
+        if (actBtn || isMoreArea) {
             event.preventDefault();
             event.stopPropagation();
+            const act = actBtn?.dataset.hubAct || 'more';
             if (act === 'more') {
-                const btn = event.target.closest('[data-hub-act="more"]');
+                const btn = actBtn || cardEl.querySelector('[data-hub-act="more"]') || cardEl.querySelector('.v2-hub-more button');
+                const item = entries().find(entry => entry.key === cardEl.dataset.hubKey);
                 window.HomeToolMenu?.open({ anchor: btn, item, card: cardEl });
                 return;
             }
-            const skill = window.HomeSkills?.items?.().find(s => s.id === item.id);
+            const item = entries().find(entry => entry.key === cardEl.dataset.hubKey);
+            const skill = item ? window.HomeSkills?.items?.().find(s => s.id === item.id) : null;
             if (act === 'improve' && skill) { close(); window.HomeSkills.improve(skill); }
             else if (act === 'history' && skill) window.HomeSkills.showHistory(skill);
             return;
         }
+        const item = entries().find(entry => entry.key === cardEl.dataset.hubKey);
+        if (!item) return;
         if (item.kind !== 'skill') return; // 工具与插件按普通链接打开
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
         event.preventDefault();

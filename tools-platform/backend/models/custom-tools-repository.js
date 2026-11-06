@@ -243,7 +243,7 @@ function manifestPath(slug) {
 function writeToolManifest(tool, options = {}) {
     const target = manifestPath(tool.slug);
     const temp = `${target}.${process.pid}.tmp`;
-    const previousManifest = options.previousManifest || readToolManifest(tool.slug);
+    const previousManifest = options.previousManifest === undefined ? readToolManifest(tool.slug) : options.previousManifest;
     const normalized = normalizeToolRecord(tool, tool.slug);
     if (previousManifest && previousManifest.tool && previousManifest.tool.updatedAt && options.preserveReleaseTimestamp !== false) {
         normalized.updatedAt = previousManifest.tool.updatedAt;
@@ -532,19 +532,29 @@ async function deleteToolHistory(slug, historyId) {
 
 function saveToolFiles(slug, files) {
     ensureCustomToolsDir();
-    const toolDir = path.join(getCustomToolsDir(), slug);
-    const tempDir = path.join(getCustomToolsDir(), `.${slug}.${Date.now().toString(36)}.tmp`);
-    fs.mkdirSync(tempDir, { recursive: true });
+    const toolsDir = getCustomToolsDir();
+    const toolDir = path.join(toolsDir, slug);
+    const staging = fs.mkdtempSync(path.join(toolsDir, `.${slug}.`));
+    const nextDir = path.join(staging, 'next');
+    const backupDir = path.join(staging, 'previous');
+    const rollback = () => {
+        fs.rmSync(toolDir, { recursive: true, force: true });
+        if (fs.existsSync(backupDir)) fs.renameSync(backupDir, toolDir);
+        cleanup();
+    };
+    const cleanup = () => fs.rmSync(staging, { recursive: true, force: true });
     try {
         for (const [relativePath, content] of files) {
-            const targetPath = path.join(tempDir, relativePath);
+            const targetPath = path.join(nextDir, relativePath);
             fs.mkdirSync(path.dirname(targetPath), { recursive: true });
             fs.writeFileSync(targetPath, content);
         }
-        fs.renameSync(tempDir, toolDir);
-        return path.join(toolDir, 'index.html');
+        if (fs.existsSync(toolDir)) fs.renameSync(toolDir, backupDir);
+        fs.renameSync(nextDir, toolDir);
+        return { rollback, cleanup };
     } catch (err) {
-        fs.rmSync(tempDir, { recursive: true, force: true });
+        if (fs.existsSync(backupDir)) fs.renameSync(backupDir, toolDir);
+        cleanup();
         throw err;
     }
 }
@@ -633,11 +643,8 @@ async function verifyCreatedTool(tool, expectedHtmlContent) {
     const stat = fs.statSync(filePath);
     if (!stat.isFile() || stat.size <= 0) throw new Error('自定义工具 HTML 文件为空');
 
-    if (Buffer.byteLength(expectedHtmlContent, 'utf8') !== stat.size) {
-        const savedContent = fs.readFileSync(filePath, 'utf-8');
-        if (savedContent !== expectedHtmlContent) {
-            throw new Error('自定义工具 HTML 文件内容校验失败');
-        }
+    if (!fs.readFileSync(filePath).equals(expectedHtmlContent)) {
+        throw new Error('自定义工具 HTML 文件内容校验失败');
     }
 
     return registered;
@@ -653,12 +660,13 @@ async function createTool(payload) {
     const name = String(payload.name || '').trim();
     const nameEn = String(payload.nameEn || '').trim();
     const htmlContent = String(payload.htmlContent || '');
-    if (!name) {
+    const updateSlug = String(payload.updateSlug || '');
+    if (!updateSlug && !name) {
         const err = new Error('工具名称不能为空');
         err.status = 400;
         throw err;
     }
-    if (name.length > 80 || nameEn.length > 120) {
+    if (!updateSlug && (name.length > 80 || nameEn.length > 120)) {
         const err = new Error('中英文工具名称长度超出限制');
         err.status = 400;
         throw err;
@@ -691,51 +699,75 @@ async function createTool(payload) {
                 return rowToTool(existing);
             }
         }
-        const existingSlugs = new Set([
+
+        const previousRow = updateSlug ? await get('SELECT * FROM custom_tools WHERE slug = ?', [updateSlug]) : null;
+        if (updateSlug && !previousRow) {
+            throw Object.assign(new Error(`要更新的自定义工具不存在：${updateSlug}`), { status: 404 });
+        }
+        const existingTool = previousRow ? rowToTool(previousRow) : null;
+        const slug = existingTool?.slug || createSlug(payload.slug || name, new Set([
             ...tools.map(item => item.slug),
             ...listToolDirs()
-        ]);
-        const slug = createSlug(payload.slug || name, existingSlugs);
+        ]));
+        if (existingTool && require('./hosted-apps/service').isLauncherFile(path.join(getCustomToolsDir(), slug, 'index.html'))) {
+            throw Object.assign(new Error('托管应用只能通过 Python 应用包更新'), { status: 400 });
+        }
+        const previousManifest = existingTool ? readToolManifest(slug) : null;
+        const effectiveName = existingTool?.name ?? name;
+        const effectiveNameEn = existingTool?.nameEn ?? nameEn;
         const now = new Date().toISOString();
         const history = {
-            id: `custom-import-${slug}`,
+            id: existingTool ? `custom-update-${slug}-${importRequestId || crypto.randomUUID()}` : `custom-import-${slug}`,
             tool: 'custom',
-            action: '导入自定义工具',
-            detail: `${name} (${slug})`,
+            action: existingTool ? '更新自定义工具' : '导入自定义工具',
+            detail: `${effectiveName} (${slug})`,
             time: now
         };
         const tool = {
             slug,
-            name,
-            nameEn: nameEn.slice(0, 120),
-            icon: String(payload.icon || '🧩').trim().slice(0, 8) || '🧩',
-            description: String(payload.description || '').trim(),
-            descriptionEn: String(payload.descriptionEn || '').trim().slice(0, 1000),
-            tags: Array.isArray(payload.tags) ? payload.tags.map(String).filter(Boolean).slice(0, 8) : [],
+            name: effectiveName,
+            nameEn: effectiveNameEn,
+            icon: String(payload.icon || existingTool?.icon || '🧩').trim().slice(0, 8) || '🧩',
+            description: String(payload.description ?? existingTool?.description ?? '').trim(),
+            descriptionEn: String(payload.descriptionEn ?? existingTool?.descriptionEn ?? '').trim().slice(0, 1000),
+            tags: Array.isArray(payload.tags) ? payload.tags.map(String).filter(Boolean).slice(0, 8) : (existingTool?.tags || []),
             href: `/tools/${slug}`,
             filePath: `/custom-tools/${slug}/index.html`,
-            publicAccess: false,
-            createdAt: now,
+            publicAccess: existingTool?.publicAccess ?? false,
+            createdAt: existingTool?.createdAt || now,
             updatedAt: now
         };
 
+        const savedFiles = saveToolFiles(slug, files);
+        let registryWritten = false;
         try {
-            saveToolFiles(slug, files);
-            writeToolManifest(tool, { history });
-            await insertOrReplaceToolRow(tool, tools.length);
+            writeToolManifest(tool, { history, previousManifest, preserveReleaseTimestamp: false });
+            await insertOrReplaceToolRow(tool, previousRow?.sort_order ?? tools.length);
+            registryWritten = true;
             if (importRequestId) await run('UPDATE custom_tools SET import_request_id = ?, import_request_hash = ? WHERE slug = ?', [importRequestId, importRequestHash, slug]);
             await syncLegacyRegistryMirror();
-            const expectedIndex = files.find(([filePath]) => filePath.toLowerCase() === 'index.html');
-            await verifyCreatedTool(tool, expectedIndex ? expectedIndex[1].toString('utf8') : '');
+            const expectedIndex = files.find(([filePath]) => filePath === 'index.html');
+            const registered = await verifyCreatedTool(tool, expectedIndex[1]);
             await historyRepo.addHistory(history);
-            return tool;
+            try { savedFiles.cleanup(); }
+            catch (cleanupErr) { console.warn('[custom-tools] import staging cleanup failed:', cleanupErr.message); }
+            return registered;
         } catch (err) {
-            removeToolDir(slug);
-            try {
-                await run('DELETE FROM custom_tools WHERE slug = ?', [slug]);
-                await syncLegacyRegistryMirror();
-            } catch (rollbackErr) {
-                console.error('[custom-tools] registry rollback failed:', rollbackErr.message);
+            try { savedFiles.rollback(); }
+            catch (rollbackErr) { console.error('[custom-tools] files rollback failed:', rollbackErr.message); }
+            if (registryWritten) {
+                try {
+                    if (previousRow) {
+                        const fields = Object.keys(previousRow).filter(key => key !== 'slug');
+                        await run(`UPDATE custom_tools SET ${fields.map(key => `${key} = ?`).join(', ')} WHERE slug = ?`,
+                            [...fields.map(key => previousRow[key]), slug]);
+                    } else {
+                        await run('DELETE FROM custom_tools WHERE slug = ?', [slug]);
+                    }
+                    await syncLegacyRegistryMirror();
+                } catch (rollbackErr) {
+                    console.error('[custom-tools] registry rollback failed:', rollbackErr.message);
+                }
             }
             throw err;
         }

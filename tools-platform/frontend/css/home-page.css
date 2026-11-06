@@ -761,6 +761,22 @@
             border-color: rgba(100,255,218,.55);
             box-shadow: 0 0 0 3px rgba(100,255,218,.08);
         }
+        .tool-import-input.is-locked {
+            opacity: .75;
+            background: rgba(255, 255, 255, 0.05);
+            border-style: dashed;
+            cursor: not-allowed;
+        }
+        .tool-import-locked-hint {
+            grid-column: 1 / -1;
+            font-size: 12px;
+            line-height: 1.5;
+            padding: 8px 12px;
+            border-radius: 8px;
+            color: #94a3b8;
+            background: rgba(100, 255, 218, 0.08);
+            border: 1px dashed rgba(100, 255, 218, 0.3);
+        }
         .tool-import-textarea { min-height: 86px; resize: vertical; line-height: 1.6; }
         .tool-import-error {
             display: none;

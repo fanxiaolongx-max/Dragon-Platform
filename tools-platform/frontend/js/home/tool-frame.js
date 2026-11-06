@@ -302,6 +302,7 @@
     // 首页内任何指向工具的普通点击都改为内嵌打开（新标签 / 修饰键 / 下载链接照旧）
     document.addEventListener('click', event => {
         if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        if (event.target.closest?.('[data-hub-act], .v2-hub-more, .card-more-toggle, .custom-tool-actions, .card-fav-toggle, .tool-context-menu')) return;
         const link = event.target.closest?.('a[href]');
         if (!link || link.hasAttribute('download') || (link.target && link.target !== '_self') || link.closest('#v2ToolFrame')) return;
         let url;

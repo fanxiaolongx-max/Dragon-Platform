@@ -67,6 +67,39 @@ test('plot breaks on resets, recovered quota and missing collection; zero is a r
     assert.ok(Math.abs(chart.paths(points,0,DAY,60000)[0].points[1].y-240)<1e-8);
     assert.equal(chart.paths(points,0,DAY,60000,true)[0].points[1].y,22);
 });
+
+test('smooth curve generation: bezier interpolation, no overshoot, and window-aware continuous gap handling',()=>{
+    // 1. 验证贝塞尔光滑曲线生成
+    const pts = [
+        { at: 0, remaining: 100 },
+        { at: 3600000, remaining: 80 },
+        { at: 7200000, remaining: 60 },
+        { at: 10800000, remaining: 40 }
+    ];
+    const pathResult = chart.paths(pts, 0, 14400000, 60000, false, 712, 280, { windowId: '5h' });
+    assert.equal(pathResult.length, 1);
+    assert.ok(pathResult[0].d.includes(' C '), 'contains cubic bezier commands');
+    assert.ok(pathResult[0].areaD.endsWith(' Z'), 'contains closed area path');
+
+    // 2. 验证周额度 (weekly) 跨夜正常间隙 (18h) 保持连续丝滑，超过 36h 很久没数据才断开
+    const weeklyPoints = [
+        { at: 0, remaining: 80 },
+        { at: 18 * 3600000, remaining: 65 }, // 18小时后（跨夜继续用），同一周额度不应断成散点
+        { at: 24 * 3600000, remaining: 50 },
+        { at: 65 * 3600000, remaining: 30 }  // 距上一采样点相隔 41 小时（很久都没数据），断开
+    ];
+    const weeklySegments = chart.segments(weeklyPoints, chart.resolveMaxGap({ windowId: 'weekly' }, 60000, weeklyPoints));
+    assert.deepEqual(weeklySegments.map(s => s.length), [3, 1], 'weekly connects overnight (18h) and breaks on 41h gap');
+
+    // 3. 验证 5 小时额度 (5h) 在周期内间隙 (3h) 连续连线，超过 6h 断开
+    const fiveHourPoints = [
+        { at: 0, remaining: 90 },
+        { at: 3 * 3600000, remaining: 50 }, // 3小时后，仍在 5h 周期内，应连续连线
+        { at: 10 * 3600000, remaining: 20 } // 7小时后（超过整轮 5h 周期），断开
+    ];
+    const fiveHourSegments = chart.segments(fiveHourPoints, chart.resolveMaxGap({ windowId: '5h' }, 60000, fiveHourPoints));
+    assert.deepEqual(fiveHourSegments.map(s => s.length), [2, 1], '5h connects 3h within window and breaks on >6h gap');
+});
 test('quota history API gates desktop/auth/admin, validates ranges and uses the session tenant and owner',async()=>{
     const express=require('../backend/node_modules/express'),app=express();
     app.use(express.json());app.use((req,res,next)=>{

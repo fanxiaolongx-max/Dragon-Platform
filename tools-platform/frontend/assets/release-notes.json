@@ -1,12 +1,12 @@
 {
   "zh": [
-    "优化内置工具备份策略：引入历史备份自动轮转机制，限制保留最近 20 批次，防止快照持续占用磁盘空间。",
-    "规范代码目录与调试脚本归档：将散落的一次性排障脚本归档至 scripts/oneoff/，完善运行时诊断与报告输出的忽略规则。",
-    "更新客户端发布源与仓库配置：统一修正包描述文件与绿色版更新地址为 Dragon-Platform，保障发行通道一致性。"
+    "修复点击工具卡片的三个点时误打开工具的问题。工具分类计数会随收藏和搜索筛选更新。",
+    "管理员可以原位更新自定义工具，保留访问权限和中英文名称。更新失败时恢复原工具文件和注册信息。",
+    "优化网页和桌面端的额度趋势图，并改善深色设置界面和外部会话输入栏的显示。"
   ],
   "en": [
-    "Optimized built-in tools backup strategy: added automatic backup batch rotation, retaining the newest 20 batches to save disk space.",
-    "Organized codebase structure and archived debugging scripts: moved one-off scripts to scripts/oneoff/ and refined ignore rules.",
-    "Updated client release sources and repository configuration: aligned package repository and portable updater URLs to Dragon-Platform."
+    "Fixed the three-dot button on tool cards so it opens the action menu. Category counts now reflect favorite and search filters.",
+    "Admins can update custom tools in place while preserving access permissions and both names. Failed updates restore the previous files and registry entry.",
+    "Improved quota charts on web and desktop, dark settings panels, and composer layout for external sessions."
   ]
 }

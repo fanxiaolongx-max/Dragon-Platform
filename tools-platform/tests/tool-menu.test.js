@@ -220,6 +220,9 @@ test('HomeToolMenu: resolves custom tool and builds complete action list', async
     win.renameCustomTool = async slug => { renamedSlug = slug; return 'AI 101 Pro'; };
     let deletedSlug = null;
     win.deleteCustomTool = async slug => { deletedSlug = slug; return true; };
+    let updatedSlug = null;
+    let updateOpts = null;
+    win.openCustomToolUpdateModal = (slug, opts) => { updatedSlug = slug; updateOpts = opts; };
 
     const script = fs.readFileSync(path.join(__dirname, '../frontend/js/home/tool-menu.js'), 'utf8');
     vm.runInNewContext(script, {
@@ -268,6 +271,7 @@ test('HomeToolMenu: resolves custom tool and builds complete action list', async
     assert.ok(actions.includes('fav'), 'has favorite');
     assert.ok(actions.includes('download'), 'has download');
     assert.ok(actions.includes('promote'), 'has promote');
+    assert.ok(actions.includes('update'), 'has update tool');
     assert.ok(actions.includes('rename'), 'has rename');
     assert.ok(actions.includes('delete'), 'has delete');
     assert.ok(actions.includes('reload'), 'has reload');
@@ -281,6 +285,24 @@ test('HomeToolMenu: resolves custom tool and builds complete action list', async
     await new Promise(r => setImmediate(r));
     assert.equal(favorited, true, 'NavFavorites.toggle called');
     assert.equal(menuApi.isOpen(), false, 'menu closed after action');
+
+    // 4. Test update click
+    menuApi.open({
+        anchor,
+        href: '/tools/ai-101',
+        title: 'AI 101',
+        onReload: () => { onReloaded = true; }
+    });
+    const newMenuEl = body.querySelector('.tool-context-menu');
+    assert.ok(newMenuEl, 'newMenuEl rendered');
+    const updateBtn = newMenuEl.querySelector('[data-tool-action="update"]');
+    assert.ok(updateBtn, 'found updateBtn');
+    newMenuEl.dispatchEvent({ type: 'click', target: updateBtn, preventDefault() {}, stopPropagation() {} });
+    await new Promise(r => setImmediate(r));
+    assert.equal(updatedSlug, 'ai-101', 'openCustomToolUpdateModal called with slug');
+    assert.ok(typeof updateOpts?.onUpdated === 'function', 'onUpdated callback passed');
+    updateOpts.onUpdated();
+    assert.equal(onReloaded, true, 'onReload called when tool updated');
 });
 
 test('HomeToolMenu: opens for Skill items with skill-specific actions', async () => {

@@ -66,12 +66,26 @@
         $('empty').textContent=all.length===1?tr('已记录第一个采样点，后续刷新会逐渐形成曲线。','First sample recorded. Future reads will build the curve.'):tr('此时间段暂无记录，历史会从启用后开始积累。','No samples in this period. History builds from activation.');
         chosen.forEach((s,index)=>{
             const color=colors[index%colors.length];
-            for(const segment of window.PetQuotaChart.paths(s.points,from,to,data.step,$('metric').value==='used',width,height)) {
-                chart.appendChild(svg('path',{d:segment.d,fill:'none',stroke:color,'stroke-width':2,'stroke-linecap':'round','stroke-linejoin':'round'}));
-                for(const point of segment.points) {
-                    const dot=svg('circle',{cx:point.x,cy:point.y,r:segment.points.length===1?3:2,fill:color});
-                    dot.appendChild(svg('title',{},label(s)+'\n'+date(point.at)+'\n'+tr('剩余 ','Remaining ')+Math.round(point.remaining)+'%'+(point.resetsAt?'\n'+tr('重置：','Resets: ')+date(point.resetsAt):'')));chart.appendChild(dot);
+            for(const segment of window.PetQuotaChart.paths(s.points,from,to,data.step,$('metric').value==='used',width,height,s)) {
+                if (segment.areaD && segment.points.length > 1) {
+                    chart.appendChild(svg('path',{d:segment.areaD,fill:color,'fill-opacity':'0.08',stroke:'none','pointer-events':'none'}));
                 }
+                if (segment.d) {
+                    chart.appendChild(svg('path',{d:segment.d,fill:'none',stroke:color,'stroke-width':2.5,'stroke-linecap':'round','stroke-linejoin':'round'}));
+                }
+                segment.points.forEach((point, pIdx) => {
+                    const isSingle = segment.points.length === 1;
+                    const isLast = pIdx === segment.points.length - 1;
+                    const titleText = label(s)+'\n'+date(point.at)+'\n'+tr('剩余 ','Remaining ')+Math.round(point.remaining)+'%'+(point.resetsAt?'\n'+tr('重置：','Resets: ')+date(point.resetsAt):'');
+                    if (isSingle || isLast) {
+                        const tipDot = svg('circle',{cx:point.x,cy:point.y,r:isSingle?3.5:3,fill:color,stroke:'var(--card, #163742)','stroke-width':1.5,class:'trend-endpoint'});
+                        tipDot.appendChild(svg('title',{},titleText));
+                        chart.appendChild(tipDot);
+                    }
+                    const hitDot = svg('circle',{cx:point.x,cy:point.y,r:6,fill:color,'fill-opacity':'0',class:'trend-hit'});
+                    hitDot.appendChild(svg('title',{},titleText));
+                    chart.appendChild(hitDot);
+                });
             }
             const legend=document.createElement('span'),mark=document.createElement('i');mark.style.background=color;legend.append(mark,document.createTextNode(label(s)));$('legend').appendChild(legend);
         });

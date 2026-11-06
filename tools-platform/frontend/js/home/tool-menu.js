@@ -18,6 +18,7 @@
             hideSkill: '隐藏技能',
             promote: '转为内置',
             demote: '取消内置',
+            updateTool: '更新工具',
             addFavorite: '收藏工具',
             removeFavorite: '取消收藏',
             openNewTab: '在新标签页打开',
@@ -44,6 +45,7 @@
             hideSkill: 'Hide Skill',
             promote: 'Make built-in',
             demote: 'Remove from built-ins',
+            updateTool: 'Update tool',
             addFavorite: 'Add to favorites',
             removeFavorite: 'Remove from favorites',
             openNewTab: 'Open in new tab',
@@ -63,6 +65,7 @@
         chat: '<path d="M5 5.5A1.5 1.5 0 0 1 6.5 4h11A1.5 1.5 0 0 1 19 5.5v8a1.5 1.5 0 0 1-1.5 1.5H11l-4 3.5V15h-.5A1.5 1.5 0 0 1 5 13.5v-8Z"/>',
         sparkles: '<path d="M12 4.5 13.6 9l4.4 1.5-4.4 1.5L12 16.5 10.4 12 6 10.5 10.4 9 12 4.5ZM18.5 15l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.8Z"/>',
         history: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+        upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>',
         download: '<path d="M12 4v11m0 0-4-4m4 4 4-4M5 19h14"/>',
         edit: '<path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 18.5l-4 1 1-4 12.5-12Z"/>',
         trash: '<path d="M4 6h16M10 11v6M14 11v6M5 6l1 13a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-13M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>',
@@ -132,15 +135,23 @@
             }
             // item.kind === 'tool'
             const toolId = String(item.id || item.key || '').replace(/^tool:/, '');
-            const slug = toolId.startsWith('custom:') ? toolId.slice(7) : (toolId.match(/^\/(?:tools|custom-tools)\/([^/?#]+)/)?.[1] || null);
-            const customTool = slug ? (window.__homeCustomTools || []).find(t => t.slug === slug) : null;
+            const itemHref = item.href || '';
+            const slug = toolId.startsWith('custom:')
+                ? toolId.slice(7)
+                : (toolId.match(/^(?:\/)?(?:tools|custom-tools)\/([^/?#]+)/)?.[1]
+                   || itemHref.match(/^(?:\/)?(?:tools|custom-tools)\/([^/?#]+)/)?.[1]
+                   || null);
+            const customTool = (slug ? (window.__homeCustomTools || []).find(t => t.slug === slug) : null)
+                || (window.__homeCustomTools || []).find(t => (itemHref && t.href === itemHref))
+                || null;
+            const resolvedSlug = slug || customTool?.slug || null;
             return {
                 kind: 'tool',
                 id: toolId,
-                slug,
-                isCustom: Boolean(slug || customTool),
+                slug: resolvedSlug,
+                isCustom: Boolean(resolvedSlug || customTool),
                 name: item.title || customTool?.name || toolId,
-                href: item.href || (slug ? `/tools/${slug}` : ''),
+                href: itemHref || (resolvedSlug ? `/tools/${resolvedSlug}` : ''),
                 customTool
             };
         }
@@ -159,19 +170,25 @@
                 };
             }
             const isCustomCard = card.dataset.customToolCard === '1' || card.classList.contains('custom-tool');
-            const slug = card.dataset.toolSlug || (card.getAttribute('href') || '').match(/^\/(?:tools|custom-tools)\/([^/?#]+)/)?.[1] || null;
-            const toolId = card.dataset.originId || (isCustomCard && slug ? `custom:${slug}` : String(card.getAttribute('href') || '').replace(/^\//, ''));
-            const customTool = slug ? (window.__homeCustomTools || []).find(t => t.slug === slug) : null;
+            const cardHref = card.getAttribute('href') || '';
+            const slug = card.dataset.toolSlug
+                || cardHref.match(/^(?:\/)?(?:tools|custom-tools)\/([^/?#]+)/)?.[1]
+                || null;
+            const customTool = (slug ? (window.__homeCustomTools || []).find(t => t.slug === slug) : null)
+                || (window.__homeCustomTools || []).find(t => (cardHref && t.href === cardHref))
+                || null;
+            const resolvedSlug = slug || customTool?.slug || null;
+            const toolId = card.dataset.originId || (resolvedSlug ? `custom:${resolvedSlug}` : cardHref.replace(/^\//, ''));
             const titleEl = card.querySelector('.card-title')?.cloneNode(true) || card.querySelector('strong')?.cloneNode(true);
             titleEl?.querySelectorAll('.new-badge, .tool-kind-badge, span')?.forEach(n => n.remove());
-            const name = customTool?.name || titleEl?.textContent?.trim() || slug || toolId;
+            const name = customTool?.name || titleEl?.textContent?.trim() || resolvedSlug || toolId;
             return {
                 kind: 'tool',
                 id: toolId,
-                slug,
-                isCustom: Boolean(isCustomCard || slug || customTool),
+                slug: resolvedSlug,
+                isCustom: Boolean(isCustomCard || resolvedSlug || customTool),
                 name,
-                href: card.getAttribute('href') || (slug ? `/tools/${slug}` : ''),
+                href: cardHref || (resolvedSlug ? `/tools/${resolvedSlug}` : ''),
                 customTool
             };
         }
@@ -180,16 +197,19 @@
         if (href) {
             let pathname = '';
             try { pathname = new URL(href, location.origin).pathname; } catch { pathname = href; }
-            const slugMatch = pathname.match(/^\/(?:tools|custom-tools)\/([^/?#]+)/);
+            const slugMatch = pathname.match(/^(?:\/)?(?:tools|custom-tools)\/([^/?#]+)/);
             const slug = slugMatch ? slugMatch[1] : null;
-            const customTool = slug ? (window.__homeCustomTools || []).find(t => t.slug === slug) : null;
-            const toolId = slug ? `custom:${slug}` : pathname.replace(/^\//, '');
+            const customTool = (slug ? (window.__homeCustomTools || []).find(t => t.slug === slug) : null)
+                || (window.__homeCustomTools || []).find(t => (pathname && t.href === pathname))
+                || null;
+            const resolvedSlug = slug || customTool?.slug || null;
+            const toolId = resolvedSlug ? `custom:${resolvedSlug}` : pathname.replace(/^\//, '');
             return {
                 kind: 'tool',
                 id: toolId,
-                slug,
-                isCustom: Boolean(slug || customTool),
-                name: title || customTool?.name || slug || toolId,
+                slug: resolvedSlug,
+                isCustom: Boolean(resolvedSlug || customTool),
+                name: title || customTool?.name || resolvedSlug || toolId,
                 href,
                 customTool
             };
@@ -321,12 +341,30 @@
                         run: async () => {
                             await window.BuiltinPromotion.toggle('tool', target.slug, {
                                 builtIn: isBuiltIn,
-                                name: target.name,
+                                name: customTool?.name || target.name,
                                 hostedApp: isHostedApp
                             });
                         }
                     });
                 }
+                if (window.openCustomToolUpdateModal) actions.push({
+                    id: 'update',
+                    label: t('updateTool'),
+                    icon: 'upload',
+                    run: () => {
+                        const handler = window.openCustomToolUpdateModal;
+                        if (handler) {
+                            handler(target.slug, {
+                                name: customTool?.name || target.name,
+                                nameEn: customTool?.nameEn || target.nameEn || '',
+                                customTool,
+                                onUpdated: () => {
+                                    if (options.onReload) options.onReload();
+                                }
+                            });
+                        }
+                    }
+                });
                 if (window.renameCustomTool) {
                     actions.push({
                         id: 'rename',

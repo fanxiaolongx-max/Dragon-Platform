@@ -157,3 +157,50 @@ test('browser fallback imports a 10.5 MB HTML with sub-1MB encrypted requests an
         assert.ok(logs.every(entry => !entry.message.includes('<html>')));
     } finally { await new Promise(resolve => server.close(resolve)); }
 });
+
+test('createTool with updateSlug updates existing tool in place, overwriting files and updating updatedAt', async () => {
+    // 1. 创建初始工具
+    const initial = await repo.createTool({
+        name: 'Original fixture',
+        icon: '🧩',
+        description: 'First version',
+        htmlContent: '<html><body>Version 1</body></html>'
+    });
+    assert.ok(initial.slug);
+    const slug = initial.slug;
+    assert.equal(fs.readFileSync(path.join(temp, 'custom-tools', slug, 'index.html'), 'utf8'), '<html><body>Version 1</body></html>');
+
+    // 2. 使用 updateSlug 重新上传更新工具
+    const updated = await repo.createTool({
+        updateSlug: slug,
+        name: 'Attempted rename',
+        nameEn: 'Attempted English rename',
+        icon: '🚀',
+        description: 'Second version updated',
+        htmlContent: '<html><body>Version 2 Refreshed</body></html>'
+    });
+
+    assert.equal(updated.slug, slug, 'slug is preserved');
+    assert.equal(updated.name, initial.name, 'name is preserved');
+    assert.equal(updated.nameEn, '', 'an empty English name is preserved');
+    assert.equal(updated.icon, '🚀', 'icon is updated');
+    assert.equal(fs.readFileSync(path.join(temp, 'custom-tools', slug, 'index.html'), 'utf8'), '<html><body>Version 2 Refreshed</body></html>', 'file content is overwritten');
+    assert.ok(new Date(updated.updatedAt) >= new Date(initial.updatedAt), 'updatedAt is refreshed');
+    await assert.rejects(repo.createTool({
+        updateSlug: 'missing-fixture', name: initial.name, htmlContent: '<html><body>Wrong target</body></html>'
+    }), { status: 404 });
+    assert.equal((await repo.listTools()).filter(tool => tool.name === initial.name).length, 1);
+
+    const history = require('../backend/models/upload-history-repository');
+    const originalAdd = history.addHistory;
+    history.addHistory = async () => { throw new Error('fixture history write failure'); };
+    try {
+        await assert.rejects(repo.createTool({
+            updateSlug: slug, description: 'Failed update', htmlContent: '<html><body>Failed version</body></html>'
+        }), /fixture history write failure/);
+        assert.deepEqual(await repo.getTool(slug), updated);
+        assert.equal(fs.readFileSync(path.join(temp, 'custom-tools', slug, 'index.html'), 'utf8'), '<html><body>Version 2 Refreshed</body></html>');
+    } finally {
+        history.addHistory = originalAdd;
+    }
+});

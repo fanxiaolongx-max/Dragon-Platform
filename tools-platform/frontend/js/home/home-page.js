@@ -136,6 +136,12 @@
                 'home.import.done': '完成',
                 'home.import.submit': '导入工具',
                 'home.import.submitting': '正在导入…',
+                'home.import.updateTitle': '更新工具 · {name}',
+                'home.import.updateSubmit': '更新工具',
+                'home.import.toolUpdated': '已成功更新工具：{name}',
+                'home.import.nameLockedHint': '更新模式下不可修改中英文名称',
+                'home.import.updatePackageMismatch': '请上传与原工具类型相同的安装包。',
+                'home.import.nameLockedNotice': '更新模式下中英文名称保持锁定，上传的新内容将直接覆盖此工具。',
                 'home.import.fileRequired': '请先选择 HTML 或 ZIP 文件',
                 'home.import.fileSelected': '已选择：{name} · {size}',
                 'home.import.aiAnalyzing': '正在用 AI 分析工具用途并生成信息…',
@@ -374,6 +380,12 @@
                 'home.import.done': 'Done',
                 'home.import.submit': 'Import Tool',
                 'home.import.submitting': 'Importing…',
+                'home.import.updateTitle': 'Update Tool · {name}',
+                'home.import.updateSubmit': 'Update Tool',
+                'home.import.toolUpdated': 'Tool updated successfully: {name}',
+                'home.import.nameLockedHint': 'Tool names cannot be modified in update mode',
+                'home.import.updatePackageMismatch': 'Upload a package of the same type as the original tool.',
+                'home.import.nameLockedNotice': 'Tool names are locked in update mode. The new upload will overwrite this tool directly.',
                 'home.import.fileRequired': 'Choose an HTML or ZIP file first',
                 'home.import.fileSelected': 'Selected: {name} · {size}',
                 'home.import.aiAnalyzing': 'AI is analyzing the tool and generating its details…',
@@ -1533,6 +1545,8 @@
             if (!panel || !btn || !modal || !form || !input) return;
             panel.hidden = role !== 'admin';
             let metadataGeneration = 0;
+            let currentUpdateTarget = null;
+            let updatePackageCheck = null;
             // SKILL 技能包（ZIP 内含 SKILL.md，或单个 .md）：导入到「全部工具 → 技能」，而不是 HTML 工具
             let skillImport = null;
             // Python Web 应用包（含 requirements.txt）：由平台托管运行，可更新已托管的同名应用
@@ -1577,11 +1591,13 @@
             };
             const setPythonMode = app => {
                 pythonImport = app;
+                if (currentUpdateTarget) return;
                 if (!skillImport) submitBtn.textContent = t(app ? (app.updateSlug ? 'home.import.pyUpdateSubmit' : 'home.import.pySubmit') : 'home.import.submit');
             };
             const setSkillMode = skill => {
                 skillImport = skill;
                 if (tagsField) tagsField.hidden = Boolean(skill);
+                if (currentUpdateTarget) return;
                 submitBtn.textContent = t(skill ? 'home.import.skillSubmit' : 'home.import.submit');
                 const title = document.getElementById('customToolImportTitle');
                 if (title) title.textContent = t(skill ? 'home.import.skillTitle' : 'home.import.title');
@@ -1739,8 +1755,10 @@
                         contentBase64: encodeTextBase64(excerpt)
                     });
                     if (generation !== metadataGeneration) return;
-                    if (nameInput.value === baseline.name && metadata.name) nameInput.value = metadata.name;
-                    if (nameEnInput.value === baseline.nameEn && metadata.nameEn) nameEnInput.value = metadata.nameEn;
+                    if (!currentUpdateTarget) {
+                        if (nameInput.value === baseline.name && metadata.name) nameInput.value = metadata.name;
+                        if (nameEnInput.value === baseline.nameEn && metadata.nameEn) nameEnInput.value = metadata.nameEn;
+                    }
                     if (descriptionInput.value === baseline.description && metadata.description) descriptionInput.value = metadata.description;
                     if (descriptionEnInput.value === baseline.descriptionEn && metadata.descriptionEn) descriptionEnInput.value = metadata.descriptionEn;
                     if (tagsInput.value === baseline.tags && Array.isArray(metadata.tags)) tagsInput.value = metadata.tags.join(', ');
@@ -1755,6 +1773,24 @@
             const resetImportForm = () => {
                 delete submitBtn.dataset.completed;
                 submitBtn.textContent = t('home.import.submit');
+                const titleEl = document.getElementById('customToolImportTitle');
+                if (titleEl) titleEl.textContent = t('home.import.title');
+                currentUpdateTarget = null;
+                updatePackageCheck = null;
+                if (nameInput) {
+                    nameInput.readOnly = false;
+                    nameInput.classList.remove('is-locked');
+                    nameInput.removeAttribute('aria-readonly');
+                    nameInput.title = '';
+                }
+                if (nameEnInput) {
+                    nameEnInput.readOnly = false;
+                    nameEnInput.classList.remove('is-locked');
+                    nameEnInput.removeAttribute('aria-readonly');
+                    nameEnInput.title = '';
+                }
+                const lockedHintEl = document.getElementById('customToolImportLockedHint');
+                if (lockedHintEl) lockedHintEl.hidden = true;
                 progressBox.hidden = true;
                 progressBar.value = 0;
                 progressLog.textContent = '';
@@ -1774,8 +1810,46 @@
                 setPythonMode(null);
                 clearImportError();
             };
-            const openImportModal = () => {
+            const openImportModal = (updateTarget = null) => {
+                if (updateTarget instanceof Event || !updateTarget || typeof updateTarget !== 'object') {
+                    updateTarget = null;
+                }
                 resetImportForm();
+                currentUpdateTarget = updateTarget && updateTarget.slug ? updateTarget : null;
+                if (currentUpdateTarget) {
+                    const customTool = currentUpdateTarget.customTool || (window.__homeCustomTools || []).find(t => t.slug === currentUpdateTarget.slug);
+                    currentUpdateTarget.hostedApp = Boolean(customTool?.hostedApp);
+                    const titleEl = document.getElementById('customToolImportTitle');
+                    const targetName = currentUpdateTarget.name || customTool?.name || currentUpdateTarget.slug;
+                    const targetNameEn = currentUpdateTarget.nameEn || customTool?.nameEn || '';
+                    if (titleEl) titleEl.textContent = t('home.import.updateTitle', { name: targetName });
+                    if (nameInput) {
+                        nameInput.value = targetName;
+                        nameInput.dataset.autoValue = targetName;
+                        nameInput.readOnly = true;
+                        nameInput.classList.add('is-locked');
+                        nameInput.setAttribute('aria-readonly', 'true');
+                        nameInput.title = t('home.import.nameLockedHint');
+                    }
+                    if (nameEnInput) {
+                        nameEnInput.value = targetNameEn;
+                        nameEnInput.dataset.autoValue = targetNameEn;
+                        nameEnInput.readOnly = true;
+                        nameEnInput.classList.add('is-locked');
+                        nameEnInput.setAttribute('aria-readonly', 'true');
+                        nameEnInput.title = t('home.import.nameLockedHint');
+                    }
+                    if (iconInput) iconInput.value = customTool?.icon || currentUpdateTarget.icon || '🧩';
+                    if (descriptionInput) descriptionInput.value = customTool?.description || currentUpdateTarget.description || '';
+                    if (descriptionEnInput) descriptionEnInput.value = customTool?.descriptionEn || currentUpdateTarget.descriptionEn || '';
+                    if (tagsInput) tagsInput.value = Array.isArray(customTool?.tags) ? customTool.tags.join(', ') : (customTool?.tags || currentUpdateTarget.tags || '');
+                    submitBtn.textContent = t('home.import.updateSubmit');
+                    const lockedHintEl = document.getElementById('customToolImportLockedHint');
+                    if (lockedHintEl) {
+                        lockedHintEl.hidden = false;
+                        lockedHintEl.textContent = t('home.import.nameLockedNotice');
+                    }
+                }
                 modal.classList.add('open');
                 document.body.style.overflow = 'hidden';
                 window.setTimeout(() => input.focus(), 0);
@@ -1791,6 +1865,9 @@
                 const file = input.files && input.files[0];
                 if (!file) {
                     metadataGeneration += 1;
+                    updatePackageCheck = null;
+                    setSkillMode(null);
+                    setPythonMode(null);
                     fileName.textContent = '';
                     filePicker.classList.remove('has-file');
                     setAiStatus();
@@ -1799,14 +1876,31 @@
                 clearImportError();
                 filePicker.classList.add('has-file');
                 fileName.textContent = t('home.import.fileSelected', { name: file.name, size: formatFileSize(file.size) });
-                const defaultName = file.name.replace(/\.(html?|zip|md)$/i, '');
-                const previousAutoValue = nameInput.dataset.autoValue || '';
-                if (!nameInput.value.trim() || nameInput.value === previousAutoValue) nameInput.value = defaultName;
-                nameInput.dataset.autoValue = defaultName;
+                if (!currentUpdateTarget) {
+                    const defaultName = file.name.replace(/\.(html?|zip|md)$/i, '');
+                    const previousAutoValue = nameInput.dataset.autoValue || '';
+                    if (!nameInput.value.trim() || nameInput.value === previousAutoValue) nameInput.value = defaultName;
+                    nameInput.dataset.autoValue = defaultName;
+                }
+                if (currentUpdateTarget) {
+                    const generation = ++metadataGeneration;
+                    const hostedApp = currentUpdateTarget.hostedApp;
+                    setAiStatus();
+                    updatePackageCheck = (async () => {
+                        if (!/\.(html?|zip)$/i.test(file.name) || await isSkillPackage(file)) return false;
+                        return (await isPythonPackage(file)) === hostedApp;
+                    })().catch(() => false);
+                    void updatePackageCheck.then(valid => {
+                        if (generation !== metadataGeneration) return;
+                        if (!valid) setAiStatus(t('home.import.updatePackageMismatch'), 'warning');
+                        else if (!hostedApp) void generateAiMetadata(file);
+                    });
+                    return;
+                }
                 void detectSkill(file);
             };
 
-            btn.addEventListener('click', openImportModal);
+            btn.addEventListener('click', () => openImportModal(null));
             input.addEventListener('change', updateSelectedFile);
             document.getElementById('customToolImportClose')?.addEventListener('click', closeImportModal);
             document.getElementById('customToolImportCancel')?.addEventListener('click', closeImportModal);
@@ -1837,16 +1931,23 @@
                     const isZip = /\.zip$/i.test(file.name);
                     if (!isZip && !/\.html?$/i.test(file.name)) throw new Error('仅支持 HTML 或 ZIP 文件');
                     if (isZip && file.size > 35 * 1024 * 1024) throw new Error('ZIP 文件不能超过 35 MB');
-                    const name = nameInput.value.trim();
+                    const isToolUpdate = Boolean(currentUpdateTarget?.slug);
+                    if (isToolUpdate) {
+                        submitBtn.disabled = true;
+                        if (!await updatePackageCheck || input.files?.[0] !== file) throw new Error(t('home.import.updatePackageMismatch'));
+                    }
+                    const updateSlug = currentUpdateTarget?.slug || pythonImport?.updateSlug || null;
+                    const name = currentUpdateTarget ? (currentUpdateTarget.name || nameInput.value.trim()) : nameInput.value.trim();
+                    const nameEn = currentUpdateTarget ? (currentUpdateTarget.nameEn !== undefined ? currentUpdateTarget.nameEn : nameEnInput.value.trim()) : nameEnInput.value.trim();
                     if (!name) throw new Error(t('home.validation.nameRequired'));
                     if (name.length > 80) throw new Error(t('home.validation.nameTooLong'));
                     if (pythonImport && !pythonImport.updateSlug && !(await AppDialog.confirm(t('home.import.pyConfirm'), { title: t('home.import.pyConfirmTitle'), confirmText: t('home.import.pySubmit') }))) return;
                     submitBtn.disabled = true;
                     submitBtn.textContent = t('home.import.submitting');
                     const payload = {
-                        ...(pythonImport?.updateSlug ? { updateSlug: pythonImport.updateSlug } : {}),
+                        ...(updateSlug ? { updateSlug } : {}),
                         name,
-                        nameEn: nameEnInput.value.trim(),
+                        nameEn,
                         icon: iconInput.value.trim() || '🧩',
                         description: descriptionInput.value.trim(),
                         descriptionEn: descriptionEnInput.value.trim(),
@@ -1867,7 +1968,10 @@
                     uploadLogs.length = 0;
                     await CustomToolUpload.upload(payload, { onProgress: logUpload });
                     submitBtn.dataset.completed = 'true';
-                    showToast(t(pythonImport ? (pythonImport.updateSlug ? 'home.import.pyUpdated' : 'home.import.pyImported') : 'home.toast.imported'));
+                    showToast(t(pythonImport ? (pythonImport.updateSlug ? 'home.import.pyUpdated' : 'home.import.pyImported') : isToolUpdate ? 'home.import.toolUpdated' : 'home.toast.imported', { name }));
+                    if (currentUpdateTarget?.onUpdated) {
+                        try { currentUpdateTarget.onUpdated(); } catch (_) {}
+                    }
                     await loadCustomTools();
                     if (window.refreshCustomToolNavLinks) await window.refreshCustomToolNavLinks();
                     window.dispatchEvent(new CustomEvent('home:tools-updated'));
@@ -1877,9 +1981,15 @@
                 } finally {
                     submitBtn.disabled = false;
                     submitBtn.textContent = t(submitBtn.dataset.completed === 'true' ? 'home.import.done' : skillImport ? 'home.import.skillSubmit'
-                        : pythonImport ? (pythonImport.updateSlug ? 'home.import.pyUpdateSubmit' : 'home.import.pySubmit') : 'home.import.submit');
+                        : pythonImport ? (pythonImport.updateSlug ? 'home.import.pyUpdateSubmit' : 'home.import.pySubmit')
+                        : currentUpdateTarget ? 'home.import.updateSubmit' : 'home.import.submit');
                 }
             });
+
+            window.openCustomToolUpdateModal = (slug, options = {}) => {
+                const target = typeof slug === 'object' && slug !== null ? slug : { slug, ...options };
+                openImportModal(target);
+            };
         }
 
         function setupToolMarket() {

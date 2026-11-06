@@ -41,7 +41,7 @@ test('modified clicks are clean; ordinary clicks still embed after a context men
     const link = { target: '', matches: () => true, hasAttribute: () => false, getAttribute: () => href, setAttribute: (_, value) => { href = value; } };
     handlers.contextmenu({ target: { closest: () => link } }); assert.equal(href, '/report?month=9&standalone=1#row');
     win.HomeToolFrame = { open: path => { embedded = path; return true; } };
-    handlers.click({ button: 0, target: { closest: () => link }, preventDefault() {}, stopPropagation() {} }); assert.equal(embedded, '/report?month=9#row');
+    handlers.click({ button: 0, target: { closest: selector => selector === 'a[href]' ? link : null }, preventDefault() {}, stopPropagation() {} }); assert.equal(embedded, '/report?month=9#row');
     assert.equal(closedPop, true, 'opening a tool closes any active popover');
     href = '/report'; link.hasAttribute = () => true;
     handlers.pointerdown({ button: 0, metaKey: true, target: { closest: () => link } }); assert.equal(href, '/report');
@@ -49,6 +49,19 @@ test('modified clicks are clean; ordinary clicks still embed after a context men
 test('same-tab tool links retain a clean window instead of rebuilding the home shell', () => {
     const { handlers, redirects } = runtime('https://platform.test/sla?standalone=1');
     const link = { target: '', hasAttribute: () => false, getAttribute: () => '/monthly?month=9#cell' };
-    handlers.click({ button: 0, target: { closest: () => link }, preventDefault() {}, stopPropagation() {} });
+    handlers.click({ button: 0, target: { closest: selector => selector === 'a[href]' ? link : null }, preventDefault() {}, stopPropagation() {} });
     assert.deepEqual(redirects, ['/monthly?month=9&standalone=1#cell']);
+});
+
+test('captured clicks on card controls reach the card handler without opening the tool', () => {
+    const { handlers, win, redirects } = runtime();
+    win.HomeToolFrame = { open: () => assert.fail('Card control must not open the tool frame') };
+    const control = {}, link = { target: '', hasAttribute: () => false, getAttribute: () => '/tools/example' };
+    handlers.click({
+        button: 0,
+        target: { closest: selector => selector === 'a[href]' ? link : control },
+        preventDefault: () => assert.fail('The card must handle the click'),
+        stopPropagation: () => assert.fail('The click must reach the card')
+    });
+    assert.deepEqual(redirects, []);
 });
