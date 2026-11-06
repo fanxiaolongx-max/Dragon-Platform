@@ -1,12 +1,12 @@
 {
   "zh": [
-    "新增 @welink-slash-command 技能：支持管理、生成、注册与调试 WeLink 客户端斜杠命令（基于 assistant-command-executor）。",
-    "频道对接 WeLink 新增可视化斜杠命令管理卡片：支持在网页端配置、发布与下架命令，并可一键导出 Python 脚手架代码。",
-    "优化 WeLink 扫码与斜杠命令表格垂直居中对齐排版，增强内网升级环境校验提示。"
+    "全局设置全面适配暗色主题：覆盖设置弹窗内全部 18 个功能菜单、侧栏导航、卡片与媒体账号管理面板，确保深浅主题视觉一致。",
+    "修复跨午夜对话排序异常：统一 SQLite 时间戳与 ISO 8601 时区解析逻辑，确保新的一天内创建的对话按时间准确排序在最前。",
+    "优化静态页面快照与发布机制：支持部门奖惩与大屏多页面快照持久化，完善大小策略控制与自动化发布同步流程。"
   ],
   "en": [
-    "Added @welink-slash-command skill to manage, scaffold, register and debug WeLink client slash commands with assistant-command-executor.",
-    "Added visual slash commands management card under WeLink channel settings to publish, manage and export Python scaffolds directly.",
-    "Refined vertical alignment for slash commands tables and enhanced intranet environment checks for CLI upgrades."
+    "Complete dark theme adaptation for Global Settings: fully styled all 18 preference tabs, navigation sidebar, cards, and media/account dialogs.",
+    "Fixed conversation sorting across midnight boundaries: unified SQLite UTC timestamp parsing with ISO dates to guarantee chronologically accurate ordering.",
+    "Enhanced static page snapshot and publishing service: added multi-page snapshot persistence, size policy enforcement, and synchronized demo builds."
   ]
 }
