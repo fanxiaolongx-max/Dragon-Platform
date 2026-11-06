@@ -6,6 +6,7 @@
     if (root.getAttribute('data-ui') !== 'v2') return;
 
     const ICONS = {
+        wide: '<path d="M3.5 5v14M20.5 5v14"/><path d="M7 12h10M9.5 9 6.5 12l3 3m5-6 3 3-3 3"/>',
         capture: '<path d="M8 4H4v4m12-4h4v4M4 16v4h4m12-4v4h-4"/><rect x="8" y="8" width="8" height="8" rx="1.5"/><path d="M8 12h8M12 8v8"/>',
         importData: '<path d="M12 3v10m-3-3 3 3 3-3M5 12l-2 5v4h18v-4l-2-5"/><path d="M3 17h5l1.5 2h5l1.5-2h5"/>',
         chart: '<rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M8 16v-3m4 3V8m4 8v-5"/>',
@@ -86,7 +87,7 @@
             keyMove: '上下切换', keyOpen: '打开', keyTab: '切换类别', keyClose: '关闭窗口',
             filterStatus: '筛选状态', statusAll: '全部状态', statusPinned: '置顶', statusGroup: '讨论组', statusWorkspace: '带工作区',
             filterTime: '筛选时间', timeAll: '全部时间', timeToday: '今天', time7: '最近 7 天', time30: '最近 30 天', filterReset: '重置筛选条件',
-            messages: '消息中心', scan: '扫码使用', appearance: '外观', light: '浅色', dark: '深色', version: '版本', service: '服务', checkUpdate: '检查更新',
+            messages: '消息中心', scan: '扫码使用', appearance: '外观', wide: '宽屏模式', light: '浅色', dark: '深色', version: '版本', service: '服务', checkUpdate: '检查更新',
             clearAll: '全部清除', markAllRead: '全部已读', filterAll: '全部', filterUnread: '未读', filterWarn: '警告', noMessages: '暂无消息', loadFailed: '读取失败：{e}',
             view: '查看', markRead: '标为已读', today: '今天', yesterday: '昨天', scanWeixin: '微信助理', scanWelink: 'WeLink 本人',
             scanHintWeixin: '用微信扫码，接入微信助理与推送', scanHintWelink: '用 WeLink 扫码，以本人身份与 Dragon Claw 协同办公',
@@ -114,7 +115,7 @@
             keyMove: 'Move', keyOpen: 'Open', keyTab: 'Switch type', keyClose: 'Close',
             filterStatus: 'Status', statusAll: 'All', statusPinned: 'Pinned', statusGroup: 'Agent group', statusWorkspace: 'With workspace',
             filterTime: 'Time', timeAll: 'Any time', timeToday: 'Today', time7: 'Last 7 days', time30: 'Last 30 days', filterReset: 'Reset filters',
-            messages: 'Messages', scan: 'Scan to use', appearance: 'Appearance', light: 'Light', dark: 'Dark', version: 'Version', service: 'Service', checkUpdate: 'Check for updates',
+            messages: 'Messages', scan: 'Scan to use', appearance: 'Appearance', wide: 'Wide layout', light: 'Light', dark: 'Dark', version: 'Version', service: 'Service', checkUpdate: 'Check for updates',
             clearAll: 'Clear all', markAllRead: 'Mark all read', filterAll: 'All', filterUnread: 'Unread', filterWarn: 'Warnings', noMessages: 'No messages', loadFailed: 'Could not load: {e}',
             view: 'View', markRead: 'Mark read', today: 'Today', yesterday: 'Yesterday', scanWeixin: 'WeChat Bot', scanWelink: 'WeLink (Me)',
             scanHintWeixin: 'Scan with WeChat to connect the assistant and proactive push', scanHintWelink: 'Scan with WeLink to work with Dragon Claw as you',
@@ -271,9 +272,9 @@
         settings() { window.openNavSettingsModal?.(); },
         language() { window.toggleAppLanguage?.(); },
         theme() { setTheme(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); },
+        wide() { setWide(!root.classList.contains('v2-wide')); },
         serviceStatus() { window.openServiceStatusModal?.(); },
         requirements() { if (!window.HomeToolFrame?.open?.('/requirements')) location.href = '/requirements'; },
-        classic() { try { localStorage.setItem('tools_home_ui', 'v1'); } catch { /* 无痕模式 */ } location.reload(); },
         logout() { window.doLogout?.(); }
     };
     function run(action) { closePop(); ACTIONS[action]?.(); }
@@ -341,6 +342,11 @@
     });
     flyPop.addEventListener('mouseleave', () => { hoverTimer = setTimeout(() => { if (openPop?.pop === flyPop && !openPop.anchor.matches(':hover') && !linksPanel?.matches(':hover')) closePop(); }, 220); });
     flyPop.addEventListener('mouseenter', () => clearTimeout(hoverTimer));
+    flyPop.addEventListener('click', event => {
+        const item = event.target.closest('a[href], [data-v2-do]');
+        if (!item || item.dataset.v2Do === 'links') return;
+        closePop();
+    });
 
     // Keep the original live link list and its status / admin handlers inside a cascade.
     // Moving the node avoids a second copy of the configured URLs or click behavior.
@@ -469,10 +475,24 @@
     }
     discover.pop.addEventListener('click', event => {
         const chip = event.target.closest('[data-cat]');
-        if (!chip) return;
-        discover.cat = chip.dataset.cat;
-        discover.query = dInput.value = '';
-        renderDiscover();
+        if (chip) {
+            discover.cat = chip.dataset.cat;
+            discover.query = dInput.value = '';
+            renderDiscover();
+            return;
+        }
+        if (event.target.closest('.v2-app, a[href], [data-v2-do]')) {
+            closePop();
+        }
+    });
+    dInput.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+            const first = discover.pop.querySelector('.v2-discover-list a.v2-app');
+            if (first) {
+                event.preventDefault();
+                first.click();
+            }
+        }
     });
     dInput.addEventListener('input', () => { discover.query = dInput.value; discover.pinyin = window.ToolsPinyinSearch || null; ensurePinyin(); renderDiscover(); });
     $('v2DiscoverBtn')?.addEventListener('click', event => {
@@ -497,6 +517,13 @@
         $('v2StatusDot').classList.toggle('is-down', serviceDown());
     }
     const rowItem = (icon, label, action, hint = '', arrow = false) => `<button type="button" class="v2-pop-item" role="menuitem" data-v2-do="${action}"><span class="v2-ico" data-icon="${icon}"></span><span>${esc(label)}</span>${hint ? `<span class="v2-pop-hint">${esc(hint)}</span>` : ''}${arrow ? '<span class="v2-ico v2-pop-arrow" data-icon="chevronRight"></span>' : ''}</button>`;
+    const switchItem = (icon, label, action, on) => `<button type="button" class="v2-pop-item" role="menuitemcheckbox" aria-checked="${on}" data-v2-do="${action}"><span class="v2-ico" data-icon="${icon}"></span><span>${esc(label)}</span><span class="v2-pop-switch" aria-hidden="true"></span></button>`;
+    // 宽屏模式：对话正文与输入框随窗口变宽，两侧不再留大片空白；只记在本浏览器
+    function setWide(on) {
+        root.classList.toggle('v2-wide', on);
+        try { localStorage.setItem('tools_home_wide', on ? '1' : '0'); } catch { /* 无痕模式下只在本页生效 */ }
+        window.dispatchEvent(new Event('resize'));
+    }
     function renderUserMenu() {
         const name = localStorage.getItem('tools_user') || '';
         const admin = localStorage.getItem('tools_role') === 'admin';
@@ -511,9 +538,9 @@
             <div class="v2-account-card v2-account-list">
                 ${admin ? rowItem('settings', t('settings'), 'settings', mac ? '⌘,' : 'Ctrl+,') : ''}
                 ${rowItem('palette', t('appearance'), 'theme', dark ? t('dark') : t('light'), true)}
+                ${switchItem('wide', t('wide'), 'wide', root.classList.contains('v2-wide'))}
                 ${rowItem('language', t('language'), 'language')}
                 ${rowItem('target', t('requirements'), 'requirements')}
-                ${rowItem('compare', t('classic'), 'classic')}
                 ${rowItem('chat', lang() === 'en-US' ? 'Feedback' : '意见反馈', 'feedback')}
                 ${rowItem('refresh', t('checkUpdate'), 'checkUpdate')}
                 <div class="v2-pop-sep"></div>
@@ -528,7 +555,7 @@
         showPop(userPop, anchor, 'up');
     });
     // 外观切换后菜单保持打开，直接刷新文案
-    userPop.addEventListener('click', event => { if (event.target.closest('[data-v2-do="theme"]')) setTimeout(() => { renderUserMenu(); userPop.classList.add('is-open'); openPop = { pop: userPop, anchor: $('v2UserBtn') }; }, 0); });
+    userPop.addEventListener('click', event => { if (event.target.closest('[data-v2-do="theme"],[data-v2-do="wide"]')) setTimeout(() => { renderUserMenu(); userPop.classList.add('is-open'); openPop = { pop: userPop, anchor: $('v2UserBtn') }; }, 0); });
     document.addEventListener('keydown', event => {
         if ((event.metaKey || event.ctrlKey) && event.key === ',' && localStorage.getItem('tools_role') === 'admin') { event.preventDefault(); run('settings'); }
     });
@@ -538,11 +565,16 @@
     const scan = {
         pop: makePop('v2-scan'),
         tab: 'welink',
+        weixinDisabled: false,
+        weixinDisabledHint: '',
         welink: {
             checking: false,
             status: null,
             login: null,
-            controller: null
+            controller: null,
+            upgrading: false,
+            upgradeSuccess: '',
+            upgradeError: ''
         },
         weixin: {
             checking: false,
@@ -578,7 +610,14 @@
     function loadScanTab() {
         if (scan.tab === 'welink') loadWelinkStatus({ autoLogin: true });
         else if (scan.tab === 'welinkbot') loadWelinkBotStatus({ autoQr: true });
-        else loadWeixinStatus({ autoQr: true });
+        else {
+            if (scan.weixinDisabled) {
+                scan.tab = 'welink';
+                loadWelinkStatus({ autoLogin: true });
+                return;
+            }
+            loadWeixinStatus({ autoQr: true });
+        }
     }
 
     function ensureQrLib() {
@@ -734,6 +773,16 @@
             if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
             scan.weixin.status = data;
             scan.weixin.checking = false;
+            if (data.disabledByIntranet) {
+                scan.weixinDisabled = true;
+                scan.weixinDisabledHint = data.disabledHint || '';
+                if (scan.tab === 'weixin') {
+                    scan.tab = 'welink';
+                    renderScan();
+                    loadWelinkStatus({ autoLogin: true });
+                    return;
+                }
+            }
             if (autoQr && !data.connected && !data.bot?.id) {
                 startWeixinQr();
                 return;
@@ -898,7 +947,7 @@
         }
         if (wb.qr?.type === 'qrcode_generated' || wb.qr?.type === 'scanned') {
             const scanned = wb.qr.type === 'scanned';
-            return `
+            return `<div class="v2-scan-qr-content">
                 ${renderScanQrBox(qrSvg() || '<span class="v2-scan-loading"></span>')}
                 <div class="v2-scan-hint-lead">${esc(scanned ? '已扫码，请在手机 WeLink 上确认授权' : t('scanWaitWelinkBot', '请使用手机 WeLink 扫码并确认授权'))}</div>
                 <div class="v2-scan-hint-sub">Channel ${esc(wb.status?.channelName || 'GDEClaw')} · 确认后自动填入 AK/SK 并连接</div>
@@ -909,7 +958,8 @@
                 <div class="v2-scan-actions">
                     <button type="button" class="v2-pop-item" data-scan-action="relogin-welinkbot">${esc(t('scanRelogin', '刷新二维码'))}</button>
                     ${settingsBtn}
-                </div>`;
+                </div>
+            </div>`;
         }
         if (wb.qr?.type === 'confirmed') {
             return `<div class="v2-scan-connected">
@@ -971,11 +1021,37 @@
         loadWelinkStatus({ autoLogin: false });
     }
 
+    function renderCliBar() {
+        const w = scan.welink;
+        if (w.status?.network?.intranet === false) {
+            return `<div class="v2-scan-cli-bar" style="justify-content:center;color:var(--v2-ink3)">
+                <span>🔒 WeLink 个人身份与升级仅限华为内网使用</span>
+            </div>`;
+        }
+        if (w.upgrading) {
+            return `<div class="v2-scan-cli-bar is-busy"><span class="v2-scan-dot"></span><span>正在执行 npm 升级 (约 15~30 秒)…</span></div>`;
+        }
+        if (w.upgradeSuccess) {
+            return `<div class="v2-scan-cli-bar is-success"><span>✅ ${esc(w.upgradeSuccess)}</span></div>`;
+        }
+        if (w.upgradeError) {
+            return `<div class="v2-scan-cli-bar is-error" title="${esc(w.upgradeError)}"><span>⚠️ ${esc(w.upgradeError.slice(0, 22))}</span><button type="button" class="v2-scan-upgrade-btn" data-scan-action="upgrade-welink-cli">重试</button></div>`;
+        }
+        const ver = w.status?.install?.version;
+        return `<div class="v2-scan-cli-bar">
+            <span class="v2-scan-cli-ver">welink-cli ${esc(ver ? 'v' + ver : '未检测到')}</span>
+            <button type="button" class="v2-scan-upgrade-btn" data-scan-action="upgrade-welink-cli" ${w.status?.install?.unsupported ? 'disabled title="仅支持 Windows 系统"' : ''}>🔄 更新 CLI</button>
+        </div>`;
+    }
+
     function renderScan() {
+        if (scan.weixinDisabled && scan.tab === 'weixin') {
+            scan.tab = 'welink';
+        }
         const tabs = `<div class="v2-seg v2-scan-tabs" role="tablist">
             <button type="button" role="tab" aria-selected="${scan.tab === 'welink'}" data-scan-tab="welink">${esc(t('scanWelink', 'WeLink 本人'))}</button>
             <button type="button" role="tab" aria-selected="${scan.tab === 'welinkbot'}" data-scan-tab="welinkbot">${esc(t('scanWelinkBot', 'WeLink 助理'))}</button>
-            <button type="button" role="tab" aria-selected="${scan.tab === 'weixin'}" data-scan-tab="weixin">${esc(t('scanWeixin', '微信助理'))}</button>
+            ${scan.weixinDisabled ? '' : `<button type="button" role="tab" aria-selected="${scan.tab === 'weixin'}" data-scan-tab="weixin">${esc(t('scanWeixin', '微信助理'))}</button>`}
         </div>`;
 
         let body = '';
@@ -992,20 +1068,20 @@
                         <button type="button" class="v2-pop-item" data-scan-action="open-channel-settings">${esc(t('scanChannelSettings', '频道设置'))}</button>
                     </div>
                 </div>`;
+            } else if (w.status?.network?.intranet === false) {
+                body = `<div class="v2-scan-connected">
+                    <div class="v2-scan-connected-icon">🌐</div>
+                    <div class="v2-scan-connected-title">${esc(t('scanIntranetOnly', '仅限内网使用'))}</div>
+                    <div class="v2-scan-connected-meta">${esc(t('scanIntranetHint', 'WeLink 个人身份与 CLI 升级仅限华为内网使用。当前网络无法访问 WeLink 内网服务，请连接公司内网或 VPN 后重新检测。'))}</div>
+                    <div class="v2-scan-actions">
+                        <button type="button" class="v2-account-btn is-primary" data-scan-action="recheck-welink">${esc(t('scanRecheck', '重新检测'))}</button>
+                    </div>
+                </div>`;
             } else if (w.status?.install?.unsupported) {
                 body = `<div class="v2-scan-connected">
                     <div class="v2-scan-connected-icon">🪟</div>
                     <div class="v2-scan-connected-title">${esc(t('scanWindowsOnly', '仅支持 Windows'))}</div>
                     <div class="v2-scan-connected-meta">${esc(t('scanWindowsHint', '内置的 welink-cli 只能在 Windows 上运行，并需要本机登录 WeLink PC。'))}</div>
-                </div>`;
-            } else if (w.status?.network?.intranet === false) {
-                body = `<div class="v2-scan-connected">
-                    <div class="v2-scan-connected-icon">🌐</div>
-                    <div class="v2-scan-connected-title">${esc(t('scanIntranetOnly', '仅限内网使用'))}</div>
-                    <div class="v2-scan-connected-meta">${esc(t('scanIntranetHint', 'WeLink 个人身份仅限华为内网使用。当前网络无法访问 WeLink 内网服务，请连接公司内网或 VPN 后重新检测。'))}</div>
-                    <div class="v2-scan-actions">
-                        <button type="button" class="v2-account-btn is-primary" data-scan-action="recheck-welink" style="margin-top:6px">${esc(t('scanRecheck', '重新检测'))}</button>
-                    </div>
                 </div>`;
             } else if (w.status?.install && !w.status.install.available) {
                 body = `<div class="v2-scan-connected">
@@ -1036,7 +1112,7 @@
                     try { qrImage = window.ToolsQrCode.toSvg(w.login.qrText, { scale: 4, border: 2 }); } catch (_) {}
                 }
                 const isPulse = w.login.statusText?.includes('已扫码');
-                body = `
+                body = `<div class="v2-scan-qr-content">
                     ${renderScanQrBox(qrImage || '<span class="v2-scan-loading"></span>')}
                     <div class="v2-scan-hint-lead">${esc(t('scanWaitWeLink', '请使用手机 WeLink 扫码登录'))}</div>
                     <div class="v2-scan-hint-sub">确认后凭据安全缓存在本机，供 Dragon Claw 协同办公</div>
@@ -1047,7 +1123,8 @@
                     <div class="v2-scan-actions">
                         <button type="button" class="v2-pop-item" data-scan-action="relogin-welink">${esc(t('scanRelogin', '刷新二维码'))}</button>
                         <button type="button" class="v2-pop-item" data-scan-action="open-channel-settings">${esc(t('scanChannelSettings', '频道设置'))}</button>
-                    </div>`;
+                    </div>
+                </div>`;
             } else if (w.login && w.login.phase === 'done') {
                 body = `<div class="v2-scan-connected">
                     <div class="v2-scan-connected-icon">✅</div>
@@ -1066,12 +1143,22 @@
             } else {
                 body = renderScanRing(w.login?.statusText || t('scanConnecting', '正在连接 WeLink PC…'), '请确保本机 WeLink 客户端处于运行登录状态');
             }
+            body = `${body}${renderCliBar()}`;
         } else if (scan.tab === 'welinkbot') {
             body = renderWelinkBot();
         } else {
             // 微信 (weixin) 标签
             const wx = scan.weixin;
-            if (wx.checking) {
+            if (scan.weixinDisabled || wx.status?.disabledByIntranet) {
+                body = `<div class="v2-scan-connected">
+                    <div class="v2-scan-connected-icon">🌐</div>
+                    <div class="v2-scan-connected-title">华为内网已自动禁用微信</div>
+                    <div class="v2-scan-connected-meta">${esc(scan.weixinDisabledHint || wx.status?.disabledHint || '当前处于华为内网环境，无法连接微信外网服务（ilinkai.weixin.qq.com）。左下角扫码仅提供 WeLink 服务。')}</div>
+                    <div class="v2-scan-actions">
+                        <button type="button" class="v2-account-btn is-primary" data-scan-action="switch-to-welink">切换至 WeLink 扫码</button>
+                    </div>
+                </div>`;
+            } else if (wx.checking) {
                 body = renderScanRing('正在检查微信连接状态…', '通过微信 ClawBot (iLink 协议) 接入');
             } else if (wx.status?.connected || wx.status?.bot?.id) {
                 body = `<div class="v2-scan-connected">
@@ -1090,7 +1177,7 @@
                 if (qrVal && window.ToolsQrCode) {
                     try { qrImage = window.ToolsQrCode.toSvg(qrVal, { scale: 4, border: 2 }); } catch (_) {}
                 }
-                body = `
+                body = `<div class="v2-scan-qr-content">
                     ${renderScanQrBox(qrImage || '<span class="v2-scan-loading"></span>')}
                     <div class="v2-scan-hint-lead">${esc(t('scanWaitWeixin', '请使用手机微信扫码并确认'))}</div>
                     <div class="v2-scan-hint-sub">通过微信 ClawBot 接入个人微信助理</div>
@@ -1101,17 +1188,19 @@
                     <div class="v2-scan-actions">
                         <button type="button" class="v2-pop-item" data-scan-action="relogin-weixin">${esc(t('scanRelogin', '刷新二维码'))}</button>
                         <button type="button" class="v2-pop-item" data-scan-action="open-channel-settings">${esc(t('scanChannelSettings', '频道设置'))}</button>
-                    </div>`;
+                    </div>
+                </div>`;
             } else if (wx.qr && wx.qr.type === 'scanned') {
                 const qrVal = wx.qr.display?.weUrl || wx.qr.display?.qrcode || wx.qr.qrcode;
                 let qrImage = qrVal && window.ToolsQrCode ? window.ToolsQrCode.toSvg(qrVal, { scale: 4, border: 2 }) : '';
-                body = `
+                body = `<div class="v2-scan-qr-content">
                     ${renderScanQrBox(qrImage || '<span class="v2-scan-loading"></span>')}
                     <div class="v2-scan-hint-lead">已扫码，请在手机微信上点击确认</div>
                     <div class="v2-scan-status-pill is-pulsing">
                         <span class="v2-scan-dot"></span>
                         <span>手机已扫码，正在等待确认授权…</span>
-                    </div>`;
+                    </div>
+                </div>`;
             } else if (wx.qr && wx.qr.type === 'need_verifycode') {
                 body = `
                     <div class="v2-scan-verify-box">
@@ -1141,7 +1230,7 @@
             }
         }
 
-        scan.pop.innerHTML = `${tabs}${body}`;
+        scan.pop.innerHTML = `${tabs}<div class="v2-scan-body">${body}</div>`;
         fillIcons(scan.pop);
     }
 
@@ -1149,6 +1238,7 @@
         const tabBtn = event.target.closest('[data-scan-tab]');
         if (tabBtn) {
             const nextTab = tabBtn.dataset.scanTab;
+            if (nextTab === 'weixin' && scan.weixinDisabled) return;
             if (nextTab !== scan.tab) {
                 scan.abortAll();
                 scan.tab = nextTab;
@@ -1161,6 +1251,54 @@
         const actionBtn = event.target.closest('[data-scan-action]');
         if (!actionBtn) return;
         const act = actionBtn.dataset.scanAction;
+        if (act === 'upgrade-welink-cli') {
+            const w = scan.welink;
+            if (w.upgrading) return;
+            if (w.status?.network?.intranet === false) {
+                w.upgradeError = '升级仓库位于华为内网，请连接内网或 VPN 后再试';
+                renderScan();
+                setTimeout(() => { if (w.upgradeError) { w.upgradeError = ''; renderScan(); } }, 6000);
+                return;
+            }
+            if (w.status?.install?.unsupported) {
+                w.upgradeError = 'welink-cli 仅支持 Windows 系统';
+                renderScan();
+                setTimeout(() => { if (w.upgradeError) { w.upgradeError = ''; renderScan(); } }, 6000);
+                return;
+            }
+            w.upgrading = true;
+            w.upgradeSuccess = '';
+            w.upgradeError = '';
+            renderScan();
+            fetch('/api/channels/welink-cli/upgrade', { method: 'POST', headers: scanHeaders(true) })
+                .then(async res => {
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+                    return data;
+                })
+                .then(data => {
+                    w.upgrading = false;
+                    const newVer = data.version || '';
+                    w.upgradeSuccess = `已更新至 v${newVer}`;
+                    if (w.status?.install) w.status.install.version = newVer;
+                    renderScan();
+                    setTimeout(() => { if (w.upgradeSuccess) { w.upgradeSuccess = ''; renderScan(); } }, 5000);
+                })
+                .catch(err => {
+                    w.upgrading = false;
+                    w.upgradeError = err.message || '更新失败';
+                    renderScan();
+                    setTimeout(() => { if (w.upgradeError) { w.upgradeError = ''; renderScan(); } }, 8000);
+                });
+            return;
+        }
+        if (act === 'switch-to-welink') {
+            scan.abortAll();
+            scan.tab = 'welink';
+            renderScan();
+            loadScanTab();
+            return;
+        }
         if (act === 'relogin-welink') {
             startWelinkLogin();
         } else if (act === 'recheck-welink') {
@@ -1181,17 +1319,71 @@
         }
     });
 
-    async function openScan(event) {
-        const anchor = event.currentTarget;
+    let scanHoverTimer = 0;
+    let scanCloseTimer = 0;
+    let scanPinned = false; // 用户点击了卡片内任意位置（切换标签、输入、点击操作等）后锁定，不再随鼠标移出而自动消失
+    const scanBtn = $('v2ScanBtn');
+
+    async function openScan(anchor = scanBtn) {
+        clearTimeout(scanHoverTimer);
+        clearTimeout(scanCloseTimer);
         if (openPop?.pop === scan.pop) return;
+        scanPinned = false;
         renderScan();
         showPop(scan.pop, anchor, 'up');
         await ensureQrLib().catch(() => {});
         if (openPop?.pop !== scan.pop) return;
         loadScanTab();
     }
-    $('v2ScanBtn')?.addEventListener('mouseenter', openScan);
-    $('v2ScanBtn')?.addEventListener('click', openScan);
+
+    if (scanBtn) {
+        // 增加 320ms 悬停防抖，快速划过直接忽略；若未固定，鼠标移开 3500ms 后自动收起
+        scanBtn.addEventListener('mouseenter', () => {
+            clearTimeout(scanCloseTimer);
+            clearTimeout(scanHoverTimer);
+            if (openPop?.pop !== scan.pop) {
+                scanHoverTimer = setTimeout(() => openScan(scanBtn), 320);
+            }
+        });
+        scanBtn.addEventListener('mouseleave', () => {
+            clearTimeout(scanHoverTimer);
+            if (openPop?.pop === scan.pop && !scanPinned) {
+                scanCloseTimer = setTimeout(() => {
+                    if (openPop?.pop === scan.pop && !scanPinned) closePop();
+                }, 3500);
+            }
+        });
+        // 点击按钮支持 Toggle：已展开时点击立即收起，未展开时点击立即打开并常驻
+        scanBtn.addEventListener('click', () => {
+            clearTimeout(scanHoverTimer);
+            clearTimeout(scanCloseTimer);
+            if (openPop?.pop === scan.pop) {
+                closePop();
+            } else {
+                openScan(scanBtn);
+                scanPinned = true;
+            }
+        });
+    }
+
+    // 用户在卡片内任意位置发生点击时，立即设为常驻，杜绝移出误关闭
+    scan.pop.addEventListener('click', () => {
+        scanPinned = true;
+        clearTimeout(scanCloseTimer);
+    });
+
+    // 鼠标进入扫码面板时保持打开，移出面板后若未常驻则延时 3.5s 自动收起
+    scan.pop.addEventListener('mouseenter', () => {
+        clearTimeout(scanCloseTimer);
+    });
+    scan.pop.addEventListener('mouseleave', () => {
+        clearTimeout(scanCloseTimer);
+        if (openPop?.pop === scan.pop && !scanPinned) {
+            scanCloseTimer = setTimeout(() => {
+                if (openPop?.pop === scan.pop && !scanPinned) closePop();
+            }, 3500);
+        }
+    });
 
     // ── 消息中心：主区整页显示平台告警（沿用 /api/alert-center） ──
     const msg = { el: null, filter: 'all', events: [], error: '' };
@@ -1351,6 +1543,14 @@
     function updateChannelsNavState(data) {
         if (data) lastChannelsData = data;
         const currentData = data || lastChannelsData || { items: window.HomeWelinkThreads?.channels?.() || [], summary: window.HomeWelinkThreads?.summary?.() || {} };
+        if (currentData.network?.weixinDisabled || currentData.summary?.weixin?.disabledByIntranet) {
+            scan.weixinDisabled = true;
+            scan.weixinDisabledHint = currentData.network?.hint || currentData.summary?.weixin?.disabledHint || '';
+            if (scan.tab === 'weixin') {
+                scan.tab = 'welink';
+                if (openPop?.pop === scan.pop) renderScan();
+            }
+        }
         const navItem = document.querySelector('.v2-nav-item[data-v2-action="channels"]');
         if (!navItem) return;
         const items = Array.isArray(currentData.items) ? currentData.items : [];
@@ -1483,24 +1683,40 @@
     const getJson = async url => { const res = await fetch(url, { headers: authHeaders(), cache: 'no-store' }); return res.ok ? res.json() : null; };
     // ── 筛选：状态 + 时间（对三个来源的列表都生效，js/home/conversation-list.js） ──
     const sortPop = makePop('v2-sort');
+    sortPop.classList.add('v2-sort-menu');
     function renderSortMenu() {
         const filter = window.HomeConversationList?.getFilter?.() || { status: 'all', time: 'all' };
+        const sources = window.HomeConversationList?.getSources?.() || [];
+        const sourceActive = filter.source && filter.source !== 'all';
         const option = (label, attr, on) => `<button type="button" class="v2-pop-item v2-check-item${on ? ' is-checked' : ''}" role="menuitemradio" aria-checked="${on}" ${attr}><span>${esc(label)}</span>${on ? '<span class="v2-ico v2-check" data-icon="check"></span>' : ''}</button>`;
         sortPop.innerHTML = `<div class="v2-pop-cap">${esc(t('filterStatus'))}</div>
             ${[['all', 'statusAll'], ['pinned', 'statusPinned'], ['group', 'statusGroup'], ['workspace', 'statusWorkspace']].map(([id, key]) => option(t(key), `data-filter-status="${id}"`, filter.status === id)).join('')}
+            ${sources.length > 1 ? `<div class="v2-pop-sep"></div><div class="v2-pop-cap">${lang() === 'en-US' ? 'Filter source' : '筛选来源'}</div>
+            ${[{ id: 'all', label: lang() === 'en-US' ? 'All sources' : '全部来源' }, ...sources].map(item => option(item.label, `data-filter-source="${esc(item.id)}"`, (filter.source || 'all') === item.id)).join('')}` : ''}
             <div class="v2-pop-sep"></div><div class="v2-pop-cap">${esc(t('filterTime'))}</div>
             ${[['all', 'timeAll'], ['today', 'timeToday'], ['7', 'time7'], ['30', 'time30']].map(([id, key]) => option(t(key), `data-filter-time="${id}"`, filter.time === id)).join('')}
-            <div class="v2-pop-sep"></div><button type="button" class="v2-pop-item" data-filter-archived>${lang() === 'en-US' ? 'Show / hide archived chats' : '查看 / 收起已归档对话'}</button><button type="button" class="v2-pop-item v2-pop-reset" data-filter-reset${filter.status === 'all' && filter.time === 'all' ? ' disabled' : ''}>${esc(t('filterReset'))}</button>`;
+            <div class="v2-pop-sep"></div><button type="button" class="v2-pop-item" data-filter-archived>${lang() === 'en-US' ? 'Show / hide archived chats' : '查看 / 收起已归档对话'}</button><button type="button" class="v2-pop-item v2-pop-reset" data-filter-reset${filter.status === 'all' && filter.time === 'all' && !sourceActive ? ' disabled' : ''}>${esc(t('filterReset'))}</button>`;
         fillIcons(sortPop);
-        $('v2SortBtn')?.classList.toggle('is-on', filter.status !== 'all' || filter.time !== 'all');
+        $('v2SortBtn')?.classList.toggle('is-on', filter.status !== 'all' || filter.time !== 'all' || Boolean(sourceActive));
     }
     sortPop.addEventListener('click', event => {
         const status = event.target.closest('[data-filter-status]');
         const time = event.target.closest('[data-filter-time]');
+        const source = event.target.closest('[data-filter-source]');
         if (status) window.HomeConversationList?.setFilter?.({ status: status.dataset.filterStatus });
+        else if (source) {
+            const id = source.dataset.filterSource;
+            window.HomeConversationList?.setFilter?.({ source: id });
+            // 频道有独立列表；桌面渠道和本地对话使用合并列表。
+            window.HomeMode?.set('chat');
+            window.HomeWelinkThreads?.setSource?.(isChannelSource(id) ? id : 'mine');
+        }
         else if (time) window.HomeConversationList?.setFilter?.({ time: time.dataset.filterTime });
         else if (event.target.closest('[data-filter-archived]')) window.HomeConversationList?.toggleArchived?.(activeChatSource()==='agents' ? 'desktop:'+activeProvider() : activeChatSource());
-        else if (event.target.closest('[data-filter-reset]')) window.HomeConversationList?.setFilter?.({ status: 'all', time: 'all' });
+        else if (event.target.closest('[data-filter-reset]')) {
+            window.HomeConversationList?.setFilter?.({ status: 'all', time: 'all', source: 'all' });
+            window.HomeWelinkThreads?.setSource?.('mine');
+        }
         else return;
         renderSortMenu();
     });
@@ -1510,6 +1726,9 @@
         renderSortMenu();
         showPop(sortPop, anchor, 'down');
     });
+
+    window.addEventListener('home:conversation-list-changed', renderSortMenu);
+    window.addEventListener('tools:languagechange', renderSortMenu);
 
     // ── 对话分类：侧栏里可折叠的分组（对话 / 微信 / WeLink），同一时间展开一组 ──
     // 桌面 Agent（Codex / Claude Code / Antigravity）的会话已合并进「对话」列表，不再单独分组。
@@ -1671,7 +1890,7 @@
             return (data?.items || []).slice(0, 10).map(session => ({ type: 'agents', icon: 'terminal', title: session.title, sub: session.provider, open: () => { window.HomeMode?.set('chat'); window.HomeWelinkThreads?.setSource?.('agents'); window.HomeDesktopAgents?.open?.(session); } }));
         },
         async apps(q) {
-            return apps().filter(app => matches(app, q)).slice(0, 12).map(app => ({ type: 'apps', icon: 'grid', title: app.title, sub: app.group || '', open: () => { location.href = app.href; } }));
+            return apps().filter(app => matches(app, q)).slice(0, 12).map(app => ({ type: 'apps', icon: 'grid', title: app.title, sub: app.group || '', open: () => { if (!window.HomeToolFrame?.open?.(app.href)) location.href = window.ToolsNavigation?.shellUrl?.(app.href) || app.href; } }));
         },
         async skills(q) {
             return (window.HomeSkills?.items?.() || []).filter(skill => textMatch(`${skill.name || ''} ${skill.title || ''} ${skill.description || ''}`, q)).slice(0, 10)
@@ -1785,6 +2004,105 @@
             ['schedule', 'Scheduled', ['/schedule every weekday at 9am summarise yesterday’s alerts', '/schedule every Monday send last week’s metric report to WeChat', '/schedule on the 1st remind me to import last month’s data']]
         ]
     };
+
+    // SVG layers reuse the plush texture; coordinates match mascot-perched.png (1536 × 1024).
+    function animateMascot(mascot) {
+        const ns = 'http://www.w3.org/2000/svg';
+        const overlay = document.createElementNS(ns, 'svg');
+        overlay.classList.add('v2-mascot-eyes');
+        overlay.setAttribute('viewBox', '0 0 1536 1024');
+        overlay.setAttribute('aria-hidden', 'true');
+        overlay.setAttribute('focusable', 'false');
+        const texture = (x = 0, y = 0) => `<image href="${mascot.getAttribute('src')}" x="${x}" y="${y}" width="1536" height="1024"/>`;
+        overlay.innerHTML = `<defs>
+            <radialGradient id="mascot-eye-feather"><stop offset="82%" stop-color="white"/><stop offset="100%" stop-color="black"/></radialGradient>
+            <mask id="mascot-eye-left"><ellipse cx="674" cy="384" rx="67" ry="70" fill="url(#mascot-eye-feather)"/></mask>
+            <mask id="mascot-eye-right"><ellipse cx="906" cy="319" rx="65" ry="69" fill="url(#mascot-eye-feather)"/></mask>
+            <clipPath id="mascot-pupil-left"><ellipse cx="674" cy="384" rx="43" ry="44"/></clipPath>
+            <clipPath id="mascot-pupil-right"><ellipse cx="906" cy="319" rx="42" ry="44"/></clipPath>
+        </defs>
+        <g mask="url(#mascot-eye-left)">${texture(100, 96)}</g>
+        <g mask="url(#mascot-eye-right)">${texture(68, 96)}</g>
+        ${['left', 'right'].map((side, i) => `<g class="v2-mascot-pupil"><g clip-path="url(#mascot-pupil-${side})">${texture()}</g></g>
+            <path class="v2-mascot-lid" d="${i ? 'M866 319 Q906 338 946 319' : 'M634 384 Q674 403 714 384'}" fill="none" stroke="#594a39" stroke-width="9" stroke-linecap="round" opacity="0"/>`).join('')}`;
+        mascot.after(overlay);
+        const pupils = [...overlay.querySelectorAll('.v2-mascot-pupil')];
+        const lids = [...overlay.querySelectorAll('.v2-mascot-lid')];
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+        let frame = 0, blinkTimer = 0, previous = 0, blinkStart = 0, suspended = false;
+        let x = 0, y = 0, targetX = 0, targetY = 0, pointer = null;
+        let reactAt = 0, speed = 180, nextSpeed = 0;
+        const random = (min, max) => min + Math.random() * (max - min);
+        const active = () => !suspended && !document.hidden && !reducedMotion.matches && mascot.getClientRects().length > 0;
+        const draw = (open = 1) => {
+            pupils.forEach((pupil, i) => {
+                const cx = i ? 906 : 674, cy = i ? 319 : 384;
+                pupil.setAttribute('transform', `translate(${x} ${y}) translate(${cx} ${cy}) scale(1 ${open}) translate(${-cx} ${-cy})`);
+                lids[i].setAttribute('opacity', String(Math.max(0, 1 - open * 3)));
+            });
+        };
+        const scheduleBlink = (delay = random(3200, 7200)) => {
+            clearTimeout(blinkTimer);
+            blinkTimer = window.setTimeout(() => {
+                blinkTimer = 0;
+                if (!active()) return;
+                blinkStart = performance.now();
+                wake();
+            }, delay);
+        };
+        function tick(now) {
+            frame = 0;
+            if (!active()) return;
+            const dt = Math.min(48, previous ? now - previous : 16);
+            previous = now;
+            if (now >= reactAt) {
+                const box = mascot.getBoundingClientRect();
+                // Saturation keeps each pupil within about 1.3 CSS pixels at desktop size.
+                targetX = pointer ? Math.tanh((pointer.x - box.left - box.width * .51) / 300) * 20 : 0;
+                targetY = pointer ? Math.tanh((pointer.y - box.top - box.height * .34) / 240) * 14 : 0;
+            }
+            if (now >= nextSpeed) { speed = random(130, 290); nextSpeed = now + random(350, 850); }
+            const ease = 1 - Math.exp(-dt / speed);
+            x += (targetX - x) * ease;
+            y += (targetY - y) * ease;
+            let open = 1;
+            if (blinkStart) {
+                const elapsed = now - blinkStart;
+                // Fast close, brief hold, softer reopening; no clockwork blink interval.
+                open = elapsed < 65 ? 1 - elapsed / 65 : elapsed < 100 ? 0 : Math.min(1, (elapsed - 100) / 125);
+                if (elapsed >= 225) { blinkStart = 0; scheduleBlink(Math.random() < .16 ? random(160, 280) : random(3200, 7200)); }
+            }
+            draw(open);
+            if (blinkStart || Math.abs(targetX - x) + Math.abs(targetY - y) > .025 || now < reactAt) wake();
+        }
+        function wake() {
+            if (!frame && active()) frame = requestAnimationFrame(tick);
+        }
+        const resetPointer = () => { pointer = null; reactAt = 0; wake(); };
+        document.addEventListener('pointermove', event => {
+            if (event.pointerType === 'touch' || !active()) return;
+            if (!pointer) reactAt = performance.now() + random(75, 145);
+            pointer = { x: event.clientX, y: event.clientY };
+            wake();
+        }, { passive: true });
+        document.documentElement.addEventListener('pointerleave', resetPointer);
+        window.addEventListener('blur', resetPointer);
+        const sync = () => {
+            cancelAnimationFrame(frame); clearTimeout(blinkTimer);
+            frame = blinkTimer = previous = blinkStart = 0;
+            pointer = null; x = y = targetX = targetY = 0;
+            draw();
+            overlay.style.visibility = reducedMotion.matches ? 'hidden' : '';
+            if (active()) scheduleBlink();
+        };
+        document.addEventListener('visibilitychange', sync);
+        reducedMotion.addEventListener('change', sync);
+        new MutationObserver(sync).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+        window.addEventListener('pagehide', () => { suspended = true; sync(); });
+        window.addEventListener('pageshow', () => { suspended = false; sync(); });
+        sync();
+    }
+
     const quick = { scene: '', scenesEl: null, suggestEl: null, illustration: null, recent: [] };
     function fillInput(text) {
         const input = $('dcInput');
@@ -1795,11 +2113,12 @@
         input.setSelectionRange(text.length, text.length);
     }
     function recentQuestions() {
-        const titles = [...document.querySelectorAll('#homeChatList [data-question]')].map(el => el.dataset.question.trim());
+        // 推荐读取独立的最近提问数据，不依赖侧栏筛选、归档或分页后的 DOM。
+        const titles = quick.recent;
         const matchesLanguage = title => lang() === 'en-US'
             ? /[A-Za-z]/.test(title) && !/[^\p{Script=Latin}\p{M}\p{N}\p{P}\p{S}\p{Z}\s]/u.test(title)
             : /\p{Script=Han}/u.test(title);
-        return [...new Set([...titles, ...quick.recent].filter(title => title.length >= 4 && !/^@/.test(title) && matchesLanguage(title)))].slice(0, 4);
+        return [...new Set(titles.filter(title => title.length >= 4 && !/^@/.test(title) && matchesLanguage(title)))].slice(0, 4);
     }
     function updateSuggestionFade() {
         if (!quick.suggestEl || !quick.illustration?.isConnected) return;
@@ -1854,6 +2173,7 @@
             mascot.alt = '';
             mascot.setAttribute('aria-hidden', 'true');
             composer.appendChild(mascot);
+            animateMascot(mascot);
             quick.scenesEl.addEventListener('click', event => {
                 const chip = event.target.closest('[data-scene]');
                 if (!chip) return;
@@ -1891,14 +2211,12 @@
         }
     }
     async function loadRecentQuestions() {
-        if (recentQuestions().length) return renderQuick();
         try {
             const data = await getJson('/api/ai/sessions?mine=1&pagePath=%2F&limit=40&query=');
             quick.recent = (data?.items || []).map(item => String(item.firstQuestion || item.lastQuestion || item.title || '').trim()).filter(Boolean);
         } catch { /* 没有匹配历史时使用当前语言的平台能力推荐 */ }
         renderQuick();
     }
-    window.addEventListener('home:conversation-list-changed', () => { if (!quick.scene) renderQuick(); });
 
     // ── 主题 ──
     function setTheme(theme) {

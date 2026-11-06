@@ -26,29 +26,54 @@
         html.desktop-mac .v2-side-tools { min-height: 32px; padding-left: var(--desktop-controls-w); }
         html.desktop-mac .v2-side-float { left: calc(var(--desktop-controls-w) + 10px); }
         html.desktop-mac { --v2-float-end: calc(var(--desktop-controls-w) + 84px); }
-        html.desktop-win { --v2-float-end: 84px; }
+        html.desktop-win { --v2-float-end: 92px; }
         html.desktop-win .v2-side-tools { min-height: 32px; padding-left: 0; }
-        html.desktop-win .v2-side-float { left: 10px; }
+        html.desktop-win .v2-side-float {
+            top: 0;
+            height: 48px;
+            left: 12px;
+            gap: 8px;
+            align-items: center;
+            z-index: 2147482001;
+            -webkit-app-region: no-drag;
+        }
+        html.desktop-win .v2-side-float .v2-icon-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 9px;
+        }
+        html.desktop-win .v2-side-float .v2-icon-btn .v2-ico {
+            width: 22px;
+            height: 22px;
+        }
+        html.desktop-win .dc-chat-head { min-height: 48px; height: 48px; }
         /* 全局设置弹窗让出顶部窗口按钮（Mac 左上红绿灯 / Windows 右上三键）的高度，弹窗整体矮一些 */
         html.is-desktop-app .nav-settings-modal { padding-top: 44px; }
         html.is-desktop-app .nav-settings-window { height: min(900px, calc(100vh - 68px)); }
-        /* Windows 顶部各栏右侧预留 140px 给右上角三键，避免遮盖工具栏按钮 */
+        /* Windows 顶部各栏右侧给右上角三键（138px 宽）让位，再留 14px 间隔，栏内最右的按钮不会贴着窗口按钮 */
         html.desktop-win .dc-chat-head,
         html.desktop-win .v2-hub-top,
-        html.desktop-win .v2-tool-frame-bar { padding-right: 140px; }
+        html.desktop-win .v2-tool-frame-bar { padding-right: 152px; }
+        /* Windows 右侧边栏（工作区、桌面 Agent 会话、文件预览）贴着窗口右上角：顶部留出三键高度（32px）的标题行，
+           面板自己的关闭等按钮下移到三键下方，不再和窗口关闭键挨在一起；留出的标题行可拖动窗口。
+           展开的文件卡片与浮动文件预览同样从三键下方开始。全屏时没有三键，不必让位。 */
+        html.desktop-win:not(.desktop-fullscreen) .home-workspace-panel { padding-top: 38px; }
+        html.desktop-win:not(.desktop-fullscreen) .home-workspace-panel::before { content: ""; position: absolute; top: 0; left: 0; right: 140px; height: 32px; -webkit-app-region: drag; }
+        html.desktop-win:not(.desktop-fullscreen) .ai-file-preview--floating,
+        html.desktop-win:not(.desktop-fullscreen) .dc-file-card.is-expanded { top: max(calc(var(--navbar-h, 0px) + 16px), 44px); }
         /* 顶部拖动条带 */
         .desktop-drag { position: fixed; top: 0; left: 0; right: 140px; height: 10px; z-index: 2147482000; -webkit-app-region: drag; }
         html.desktop-mac .desktop-drag { right: 0; }
-        /* Welcome screen: use the full blank title margin without covering sidebar buttons. */
+        /* Welcome screen and open chats: the blank title margin above the content (10–28px, where the chat header starts) drags too, without covering sidebar buttons. */
         .desktop-drag-welcome::after {
             content: ""; display: none; position: fixed; top: 10px; left: var(--v2-side-width, 240px); right: 140px; height: 18px;
             -webkit-app-region: drag;
         }
-        html.is-desktop-app[data-ui="v2"] body:not(.dc-chatting):not(.v2-hub-open):not(.v2-tool-open):not(.ai-kg-open) .desktop-drag-welcome::after { display: block; }
+        html.is-desktop-app[data-ui="v2"] body:not(.v2-hub-open):not(.v2-tool-open):not(.ai-kg-open) .desktop-drag-welcome::after { display: block; }
         html.desktop-mac .desktop-drag-welcome::after { right: 0; }
         /* 收起后左上角是「侧边栏 + 新建对话」两个浮动按钮，拖动区从它们右侧开始 */
         html.desktop-mac body.v2-side-collapsed .desktop-drag-welcome::after { left: calc(var(--desktop-controls-w) + 92px); }
-        html.desktop-win body.v2-side-collapsed .desktop-drag-welcome::after { left: 92px; }
+        html.desktop-win body.v2-side-collapsed .desktop-drag-welcome::after { left: calc(var(--v2-float-end) + 8px); }
         /* Hub headers are full of controls; reserve a blank title gutter for dragging. */
         .desktop-drag-hub { display: none; position: fixed; top: 8px; left: var(--v2-side-width, 240px); right: 140px; height: 28px; z-index: 2147482000; -webkit-app-region: drag; }
         html.desktop-mac .desktop-drag-hub { right: 0; }
@@ -56,7 +81,7 @@
         html.is-desktop-app[data-ui="v2"] body.v2-hub-open .home-main { padding-top: 44px; }
         html.is-desktop-app[data-ui="v2"] body.v2-side-collapsed.v2-hub-open .home-main { padding-top: 56px; }
         html.desktop-mac body.v2-side-collapsed .desktop-drag-hub { left: calc(var(--desktop-controls-w) + 92px); }
-        html.desktop-win body.v2-side-collapsed .desktop-drag-hub { left: 92px; }
+        html.desktop-win body.v2-side-collapsed .desktop-drag-hub { left: calc(var(--v2-float-end) + 8px); }
 
         /* Full-window graph overlay: reserve native caption space before loading any data.
            The blank gutter remains draggable; graph controls and canvas keep their mouse input. */

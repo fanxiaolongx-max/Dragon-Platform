@@ -17,8 +17,8 @@
       "description": "可跟随内置音乐、音频文件或麦克风实时变化的 3D Chladni 粒子视觉特效。",
       "href": "./particle-effects/index.html",
       "encrypted": false,
-      "fingerprint": "de0fd996a5b0892536bd349953b6c4854b75eaadd7fbb0fd5f3e3196a9999e77",
-      "updatedAt": "2026-11-03T10:49:03.428Z"
+      "fingerprint": "e76065383332475ea76706f1f278f711ecb946867015afa7226f877eab7ce350",
+      "updatedAt": "2026-11-06T10:56:46.879Z"
     },
     {
       "slug": "tool-mrrgpqy4",
@@ -62,8 +62,8 @@
       "description": "数通协议知识库：OSPF、Juniper 跨厂商策略等知识的分类整理，配合二维拓扑、报文时序、按位图解与分步实验，理解复杂协议机制。",
       "href": "./datacom-protocol-expert/index.html",
       "encrypted": false,
-      "fingerprint": "ccba833cd07a4e442ea90bc80464121c114f46ad81fee3d095a7ae055b866cef",
-      "updatedAt": "2026-11-04T06:48:54.907Z"
+      "fingerprint": "bada04e54bda55f27844b616b1dedf0ee8cfd980b39a5a6b2f30e6fe8daff9ba",
+      "updatedAt": "2026-11-06T10:56:46.761Z"
     },
     {
       "slug": "department-reward-penalty",
@@ -71,8 +71,8 @@
       "description": "用于维护部门负向事件与违规记录、扣罚规则、人员名册与操作审计日志，支持草稿发布、规则分类筛选和人员 CSV 导入导出。",
       "href": "./department-reward-penalty/index.html",
       "encrypted": false,
-      "fingerprint": "bee0736d8796fa44f1512a9e0eb115c30cb1720dbccb3af8ba0dd0ddc6113b34",
-      "updatedAt": "2026-10-20T07:41:33.971Z"
+      "fingerprint": "a2a127b3c242f100d7b3c71eeb28df188180d4e90dcbb4a9cdaa2e8af041c3de",
+      "updatedAt": "2026-11-06T10:56:46.487Z"
     },
     {
       "slug": "reward-program",
@@ -107,8 +107,8 @@
       "description": "查询产品是否属于强控业务比对范围，支持产品数据导入导出、服务器保存、模糊检索和静态快照同步。",
       "href": "./tool-mumxi3px/index.html",
       "encrypted": false,
-      "fingerprint": "14fe7c5f7244ba4f0162f08ec70f486c30930df292d5c1ef808faa0d6c7c9068",
-      "updatedAt": "2026-11-04T06:48:54.795Z"
+      "fingerprint": "ef8a3a0e3e7f388c0c96c12f3a912a74b425917ebdbb09144181e3e1daab648f",
+      "updatedAt": "2026-11-06T10:56:46.695Z"
     },
     {
       "slug": "tool-mqp55fna",
@@ -116,8 +116,8 @@
       "description": "由独立 HTML 导入的平台工具，可在统一入口和顶部导航中访问。",
       "href": "./tool-mqp55fna/index.html",
       "encrypted": false,
-      "fingerprint": "45d346d09ff463bcf77133bb087f739d5f5256dd4fff98e862a57001f6901195",
-      "updatedAt": "2026-10-25T15:10:46.035Z"
+      "fingerprint": "dd38b88a500b61919b5b0251c7177dfd154ce8792fd9912967d59c26b757cb7a",
+      "updatedAt": "2026-11-06T10:56:46.765Z"
     },
     {
       "slug": "acceptance-checklist",
@@ -176,11 +176,12 @@
     {
       "slug": "network_safety_meeting_summary",
       "name": "胶片设计",
+      "nameEn": "Slide design",
       "description": "专业华为风格胶片编辑器，模板内所有组件均可增删、修改、拖拽与缩放，并支持导出 PDF/PPT。",
       "href": "./network_safety_meeting_summary/index.html",
       "encrypted": false,
-      "fingerprint": "9809138dce9dae8d6899417f12d4528b4a371254257999418819bdefe4afa33c",
-      "updatedAt": "2026-10-22T07:10:43.926Z"
+      "fingerprint": "df7ac31c4c28d1c5f284e56cc6746309c13588518e77db6081857a7bb0d9230d",
+      "updatedAt": "2026-11-06T10:56:46.252Z"
     },
     {
       "slug": "nis_2026h1_summary",
@@ -252,8 +253,8 @@
       "description": "支持同时导入营业流水刷卡 Excel 与微信账单，单独深度分析并智能合并到营业流水总盘；自动按餐别价格档位识别【自有-微信】与【非自有-微信】，支持历史数据快照保存与一键载入。",
       "href": "./tool-dining-card-wechat/index.html",
       "encrypted": false,
-      "fingerprint": "fda06bfae9fe01fde977c4e69aa59ae4b70789b712decb83739e038f32451827",
-      "updatedAt": "2026-11-03T10:49:03.634Z"
+      "fingerprint": "f6f13a470e04ff0d1e0e77dc7e8892c5482065761f9399cb5fb8dd6fa58abf39",
+      "updatedAt": "2026-11-06T10:56:46.933Z"
     },
     {
       "slug": "tool-mqtlwcrv",
@@ -406,8 +407,8 @@
       "description": "读取微信账单文件并按金额与开罗时间规则统计早餐、中餐、晚餐人数，支持多文件汇总及分文件明细导出。",
       "href": "./tool-mu2t8wi3/index.html",
       "encrypted": false,
-      "fingerprint": "8fdb13a8707d5e0f51f40c8444ea282332d58ae45ec55237eee4f9b9c572a9dd",
-      "updatedAt": "2026-10-25T15:10:46.866Z"
+      "fingerprint": "adcc8bdc1a12ce261c45101afee73856ef94678fb33d775dfc75a2fb2b2ae2ca",
+      "updatedAt": "2026-11-06T10:56:47.151Z"
     },
     {
       "slug": "tool-mv9strpn",
@@ -417,6 +418,84 @@
       "encrypted": false,
       "fingerprint": "780c4ed056dda390dea8ad4eda5cfb6f7d656ae370a88fab7ba2c3eb93a2ebfe",
       "updatedAt": "2026-11-03T10:49:04.352Z"
+    },
+    {
+      "slug": "uivf12",
+      "name": "数据抓取",
+      "nameEn": "Data capture",
+      "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
+      "href": "./uivf12/index.html",
+      "encrypted": false,
+      "fingerprint": "e1cd98416851f0ec95d65e7d5bee4d21d752a933e56fbfc7b42f83fe37c772c4",
+      "updatedAt": "2026-11-06T10:56:44.887Z"
+    },
+    {
+      "slug": "sla",
+      "name": "数据导入",
+      "nameEn": "Data import",
+      "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
+      "href": "./sla/index.html",
+      "encrypted": false,
+      "fingerprint": "5521d4da0b09c9b3edbc9ce5f838d4c381a2887daa0140a90ff48c51627048a3",
+      "updatedAt": "2026-11-06T10:56:45.225Z"
+    },
+    {
+      "slug": "report",
+      "name": "报表看板",
+      "nameEn": "Report dashboard",
+      "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
+      "href": "./report/index.html",
+      "encrypted": false,
+      "fingerprint": "88ca621977c40a1d83f6457fe40ef17e388a40bf9c2d1100f76a50756d98c428",
+      "updatedAt": "2026-11-06T10:56:45.489Z"
+    },
+    {
+      "slug": "expedite",
+      "name": "一键催办",
+      "nameEn": "Follow-up",
+      "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
+      "href": "./expedite/index.html",
+      "encrypted": false,
+      "fingerprint": "9ee1142ff334afcc0edfb04de2edfb981ecdb8fa539a661762d314319da3108d",
+      "updatedAt": "2026-11-06T10:56:45.664Z"
+    },
+    {
+      "slug": "monthly",
+      "name": "月报页面",
+      "nameEn": "Monthly reports",
+      "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
+      "href": "./monthly/index.html",
+      "encrypted": false,
+      "fingerprint": "27d54eb5a09df355cb7dc11ec857f1ad3929261296a9fe61f1cc759fc70c390e",
+      "updatedAt": "2026-11-06T10:56:46.101Z"
+    },
+    {
+      "slug": "topic-analysis",
+      "name": "专题分析",
+      "nameEn": "Topic analysis",
+      "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
+      "href": "./topic-analysis/index.html",
+      "encrypted": false,
+      "fingerprint": "ecb8e320fb23db5dbb6cd6d1877232fcacba363a25443f57db08a93c054f7edf",
+      "updatedAt": "2026-11-06T10:56:46.190Z"
+    },
+    {
+      "slug": "bigscreen",
+      "name": "大屏看板",
+      "description": "当前报表、趋势、负责人和中英文配置的只读大屏。",
+      "href": "./bigscreen/index.html",
+      "encrypted": false,
+      "fingerprint": "29512fa9062221b022aca013373b3830dfd9a4d176bf53f64f04f3484569e5fe",
+      "updatedAt": "2026-11-06T10:56:46.440Z"
+    },
+    {
+      "slug": "picture-island",
+      "name": "图屿",
+      "description": "海报版本与生活图片的一站式图库：快速搜索、历史对比、自动压缩与 AI 分类，菜单收藏随时找。",
+      "href": "./picture-island/index.html",
+      "encrypted": false,
+      "fingerprint": "f2b4ba3daffdb72034d2aa932e2477df544c141515850a0c2cca9ac146b362b1",
+      "updatedAt": "2026-11-06T10:56:46.887Z"
     }
   ]
 }

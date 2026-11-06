@@ -2060,9 +2060,14 @@
         try { localStorage.removeItem(LAST_CHAT_KEY); } catch { /* ignore */ }
     }
 
-    // 数据库时间是 UTC 的 "YYYY-MM-DD HH:MM:SS"
+    // 数据库时间是 UTC 的 "YYYY-MM-DD HH:MM:SS"，其他来源可能是 ISO 8601 或时间戳
     function parseChatTime(value) {
-        return new Date(/Z$|[+-]\d{2}:?\d{2}$/.test(String(value)) ? value : `${String(value || '').replace(' ', 'T')}Z`);
+        if (!value) return new Date(NaN);
+        if (value instanceof Date) return value;
+        if (typeof value === 'number') return new Date(value);
+        const s = String(value).trim();
+        if (/^\d+$/.test(s)) return new Date(Number(s));
+        return new Date(/Z$|[+-]\d{2}:?\d{2}$/.test(s) ? s : `${s.replace(' ', 'T')}Z`);
     }
 
     function formatChatTime(value) {
@@ -2701,7 +2706,7 @@
             items: items,
             query: el.chatSearch?.value.trim() || '',
             id: item => item.id || item._id,
-            date: item => item.updated_at || item.created_at || item.updatedAt,
+            date: item => item.updatedAt || item.updated_at || item.lastActiveAt || item.created_at,
             title: item => {
                 const pref = window.HomeConversationList?.get?.('mine', item.id || item._id);
                 if (pref?.title) return pref.title;
@@ -2801,6 +2806,7 @@
             const activeFilter = window.HomeConversationList?.getFilter?.() || { status: 'all', time: 'all' };
 
             function passesFilter(item) {
+                if (window.HomeConversationList?.matchesSource?.(item, config) === false) return false;
                 const pref = window.HomeConversationList?.get?.('mine', item.id || item._id) || {};
                 if (pref.hidden) return false;
                 if (Boolean(pref.archived) !== isArchived) return false;
@@ -2841,8 +2847,8 @@
                 const pinA = Number(Boolean(prefA.pinned));
                 const pinB = Number(Boolean(prefB.pinned));
                 if (pinB !== pinA) return pinB - pinA;
-                const timeA = Date.parse(a.item.updatedAt || 0) || 0;
-                const timeB = Date.parse(b.item.updatedAt || 0) || 0;
+                const timeA = parseChatTime(a.item.updatedAt || a.item.updated_at || a.item.lastActiveAt || a.item.created_at || 0).getTime() || 0;
+                const timeB = parseChatTime(b.item.updatedAt || b.item.updated_at || b.item.lastActiveAt || b.item.created_at || 0).getTime() || 0;
                 return timeB - timeA || a.index - b.index;
             }
 
@@ -2867,8 +2873,8 @@
             }
 
             const sortedProjects = [...projectMap.entries()].sort((a, b) => {
-                const timeA = Math.max(...a[1].map(e => Date.parse(e.item.updatedAt || 0) || 0));
-                const timeB = Math.max(...b[1].map(e => Date.parse(e.item.updatedAt || 0) || 0));
+                const timeA = Math.max(...a[1].map(e => parseChatTime(e.item.updatedAt || e.item.updated_at || e.item.lastActiveAt || e.item.created_at || 0).getTime() || 0));
+                const timeB = Math.max(...b[1].map(e => parseChatTime(e.item.updatedAt || e.item.updated_at || e.item.lastActiveAt || e.item.created_at || 0).getTime() || 0));
                 return timeB - timeA;
             });
 

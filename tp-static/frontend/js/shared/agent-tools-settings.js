@@ -177,12 +177,18 @@
             <p class="nat-desc">${esc(L(`正在生成 ${job.done}/${job.total}${job.current ? `：${job.current}` : ''}`, `Generating ${job.done}/${job.total}${job.current ? `: ${job.current}` : ''}`))}</p>`
             : job?.finishedAt && job.total ? `<p class="nat-desc">${esc(L(`上次生成：${job.total - job.failed.length}/${job.total} 成功`, `Last run: ${job.total - job.failed.length}/${job.total} succeeded`))}${job.failed.length ? ` · <span style="color:#b91c1c">${esc(job.failed.map(item => `${item.title}：${item.error}`).join('；'))}</span>` : ''}</p>` : '';
         const rows = data.items.map(item => `<tr data-guide-id="${esc(item.id)}">
-            <td><a href="${esc(item.href)}" target="_blank" rel="noopener">${esc(item.title)}</a></td>
+            <td><a href="${esc(window.ToolsNavigation.toolUrl(item.href))}" target="_blank" rel="noopener">${esc(item.title)}</a></td>
             <td><span class="nat-guide-state is-${esc(item.state)}">${esc(guideStateLabel(item.state))}</span></td>
             <td>${esc(item.summary || '—')}</td>
             <td class="nat-num">${item.state !== 'missing' ? `<button type="button" class="nat-link" data-action="guide-view">${esc(L('查看', 'View'))}</button>` : ''}<button type="button" class="nat-link" data-action="guide-one" ${running ? 'disabled' : ''}>${esc(item.state === 'missing' ? L('生成', 'Generate') : L('重新生成', 'Redo'))}</button></td>
         </tr>${view.openGuide?.id === item.id ? `<tr><td colspan="4"><div class="nat-guide-body">${esc(view.openGuide.text)}</div></td></tr>` : ''}`).join('');
+        const auto = data.autoUpdate;
+        const autoNote = auto ? `<div class="nat-desc" style="display:flex;align-items:center;gap:8px;margin-top:6px;padding:6px 10px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:6px;font-size:12px;color:inherit">
+            <span>🌿 <b>${esc(L('每日后台自动更新已开启', 'Daily background auto-update is active'))}</b>：${esc(L('每天首次打开时自动低速检测更新缺失与过期的说明，避让前台请求并沉淀至 Git 仓库，无需手动点击。', 'Automatically checks and updates missing or outdated guides at a slow pace daily, yielding to active chats and syncing to Git.'))}</span>
+            ${auto.status === 'running' ? `<span style="color:#0284c7">⏳ ${esc(L(`正在后台更新 (${auto.updated}/${auto.total})：${auto.currentTool || ''}`, `Updating in background (${auto.updated}/${auto.total}): ${auto.currentTool || ''}`))}</span>` : auto.lastCheckDate ? `<span style="opacity:0.75">📅 ${esc(L(`今日已检查: ${auto.lastCheckDate}`, `Checked today: ${auto.lastCheckDate}`))}</span>` : ''}
+        </div>` : '';
         return `<div class="nat-summary"><span>${esc(L('工具', 'Tools'))} <b>${data.total}</b></span><span>${esc(L('已生成', 'Ready'))} <b>${data.ready}</b></span><span>${esc(L('待更新', 'Outdated'))} <b>${data.stale}</b></span><span>${esc(L('未生成', 'Missing'))} <b>${data.missing}</b></span></div>
+            ${autoNote}
             ${progress}
             <div class="nat-actions" style="justify-content:flex-start;margin:8px 0">
                 <button type="button" class="nat-btn is-primary" data-action="guide-generate" ${running || !pending ? 'disabled' : ''}>${esc(L(`生成缺失和过期的（${pending} 个）`, `Generate missing and outdated (${pending})`))}</button>

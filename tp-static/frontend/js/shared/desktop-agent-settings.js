@@ -1,6 +1,8 @@
 (function () {
     const L = (zh, en) => /^en/.test(window.ToolsI18n?.getLanguage?.() || localStorage.getItem('tools_lang') || '') ? en : zh;
     const names = { codex: 'Codex', claudecode: 'Claude Code', antigravity: 'Antigravity', workbuddy: 'WorkBuddy' };
+    const QUOTA_BAR_STORE = 'tools_desktop_quota_bar_v2';
+    const quotaBarHidden = () => { try { return JSON.parse(localStorage.getItem(QUOTA_BAR_STORE) || '{}').hidden === true; } catch { return false; } };
     const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     async function request(method, path, body) { const token = localStorage.getItem('tools_token') || sessionStorage.getItem('tools_token'); const r = await fetch('/api/desktop-agents' + path, { method, credentials: 'same-origin', cache: 'no-store', headers: { Authorization: 'Bearer ' + token, ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) }); const d = await r.json().catch(() => ({})); if (!r.ok)
         throw Error(d.error || `HTTP ${r.status}`); return d; }
@@ -39,6 +41,7 @@
                     <div class="da-card"><h4>${L('连接与发送', 'Connection & replies')}</h4>
                         ${toggle('enabled', L('连接本机桌面 Agent', 'Connect local desktop agents'), L('仅当前账号和数据空间可见', 'Visible only to this account and tenant'), cfg.enabled)}
                         ${toggle('allowSend', L('允许网页发送消息', 'Allow replies from the Web'), L('关闭后仍可查看会话', 'Turn off for read-only conversations'), cfg.allowSend)}
+                        ${toggle('quotaBar', L('网页顶部额度栏', 'Quota bar at the top of the page'), L('显示 Codex / Claude Code / Antigravity 剩余额度；仅本浏览器', 'Shows Codex / Claude Code / Antigravity quota · this browser only'), !quotaBarHidden())}
                     </div>
                     <div class="da-card"><h4>${L('最近对话列表', 'Recent conversation list')}</h4>
                         ${toggle('autoSync', L('自动刷新列表', 'Automatically refresh the list'), '', cfg.autoSync)}
@@ -66,6 +69,11 @@
             </form>
         </section>`;
         const form = content.querySelector('form'), result = content.querySelector('[role=status]');
+        // 额度栏开关只存在本浏览器（与额度栏菜单里的“隐藏”是同一项），切换后立即生效，不随“保存设置”提交
+        form.elements.quotaBar.addEventListener('change', () => {
+            try { const value = JSON.parse(localStorage.getItem(QUOTA_BAR_STORE) || '{}'); value.hidden = !form.elements.quotaBar.checked; localStorage.setItem(QUOTA_BAR_STORE, JSON.stringify(value)); } catch { }
+            window.ToolsDesktopQuotaBar?.setHidden?.(!form.elements.quotaBar.checked);
+        });
         let saving = false, inspecting = false;
         function updateAvailability() {
             form.elements.syncSeconds.disabled = !form.elements.enabled.checked || !form.elements.autoSync.checked;

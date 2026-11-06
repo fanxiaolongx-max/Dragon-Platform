@@ -2,11 +2,23 @@
  * shared/navbar.js - 统一导航栏组件
  * 支持固定工具、自定义工具、二级分类与全局顺序设置。
  */
+// Tool links opened in another tab retain the current platform shell, including nested query/hash state.
+function navToolShellUrl(href) {
+    try {
+        const url = new URL(href, location.origin);
+        if (url.origin !== location.origin || url.pathname === '/' || /^\/(api|login|downloads?)\b/.test(url.pathname)) return href;
+        url.searchParams.set('standalone', '1');
+        return url.pathname + url.search + url.hash;
+    } catch { return href; }
+}
+window.ToolsNavigation = { ...window.ToolsNavigation, toolUrl: window.ToolsNavigation?.toolUrl || navToolShellUrl };
 // 在新版首页右侧内嵌打开（js/home/tool-frame.js）时不显示旧的顶部导航，页面直接从顶部开始
 const NAV_EMBEDDED = (() => {
+    if (new URLSearchParams(location.search).get('standalone') === '1') return true;
     try { return window.top !== window && window.top.location.origin === location.origin && Boolean(window.top.HomeToolFrame); } catch { return false; }
 })();
 if (NAV_EMBEDDED) document.documentElement.classList.add('is-embedded-tool');
+if (/^\/(?:pages\/)?(?:privacy|terms)(?:\.html)?$/.test(location.pathname)) document.documentElement.classList.add('is-embedded-tool');
 const NAV_BUILTIN_LINKS = [
     { id: 'home', href: '/', icon: '🏠', label: '工具中台', labelKey: 'nav.home', defaultCategory: 'business', match: p => p === '/' },
     { id: 'uivf12', href: '/uivf12', icon: '🚀', label: '数据抓取', labelKey: 'nav.uivf12', defaultCategory: 'business', match: p => p.startsWith('/uivf12') },
@@ -5113,6 +5125,10 @@ function openBuiltinToolsSyncModal(preview, selectedSlugs) {
 }
 
 window.openBuiltinToolsComparison = async function () {
+    // 内嵌工具共用外层平台的比对窗口，避免手动入口再打开一层弹窗。
+    if (window.top !== window) {
+        try { return window.top.openBuiltinToolsComparison?.(); } catch (_) { return; }
+    }
     if (document.getElementById('builtinToolsSyncModal')?.dataset.applying === '1'
         || localStorage.getItem('tools_role') !== 'admin') return;
 
@@ -5182,6 +5198,8 @@ async function builtinSyncCheckCacheKey() {
 }
 
 async function checkBuiltinToolsSync() {
+    // 导航在首页和工具 iframe 中都会加载；全局自动提醒只由顶层页面负责。
+    if (window.top !== window) return;
     const toolMarketOpened = () => document.getElementById('toolMarketBtn')?.dataset.opened === '1';
     if (toolMarketOpened()) return;
     if (
@@ -5206,7 +5224,11 @@ async function checkBuiltinToolsSync() {
         if (cacheKey && Array.isArray(preview?.pending) && !preview.pending.length) {
             try { sessionStorage.setItem(cacheKey, String(Date.now())); } catch (_) { /* noop */ }
         }
-        if (!toolMarketOpened() && preview && Array.isArray(preview.pending) && preview.pending.length && !document.getElementById('navSettingsModal')) {
+        if (!toolMarketOpened() && !isBuiltinToolsSyncSnoozedToday()
+            && !document.getElementById('builtinToolsSyncModal')
+            && !document.getElementById('defaultQuickStartModal')
+            && !document.getElementById('navSettingsModal')
+            && preview && Array.isArray(preview.pending) && preview.pending.length) {
             // 如果所有待处理项都显式带有文件统计且变更均为 0（+0 / ~0 / -0），仅为接管或元数据标识差异，不弹窗打扰用户
             const hasActionableTools = preview.pending.some(tool => {
                 if (!tool || !tool.counts) return true;
@@ -5268,8 +5290,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     setTimeout(checkServerStatus, 500);
     const scheduleBuiltinToolsSync = () => setTimeout(checkBuiltinToolsSync, 8000);
-    if (typeof requestIdleCallback === 'function') requestIdleCallback(scheduleBuiltinToolsSync, { timeout: 12000 });
-    else scheduleBuiltinToolsSync();
+    if (window.top === window) {
+        if (typeof requestIdleCallback === 'function') requestIdleCallback(scheduleBuiltinToolsSync, { timeout: 12000 });
+        else scheduleBuiltinToolsSync();
+    }
 });
 
 mountNavbarEarly();

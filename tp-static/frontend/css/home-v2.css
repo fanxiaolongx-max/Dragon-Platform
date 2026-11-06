@@ -235,6 +235,14 @@ html[data-ui="v2"] .v2-section-cap { padding: 12px 10px 4px; font-size: 11.5px; 
 .v2-pop-item .v2-ico { color: var(--v2-ink2); }
 .v2-pop-item .v2-pop-hint { margin-left: auto; color: var(--v2-ink3); font-size: 11.5px; }
 .v2-pop-sep { height: 1px; margin: 5px 6px; background: var(--v2-line); }
+/* 菜单里的开关（宽屏模式等） */
+.v2-pop-switch { position: relative; flex: none; width: 30px; height: 18px; margin-left: auto; border-radius: 999px; background: var(--v2-line); transition: background var(--v2-ease); }
+.v2-pop-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px #0003; transition: transform var(--v2-ease); }
+.v2-pop-item[aria-checked="true"] .v2-pop-switch { background: var(--v2-accent, #087f62); }
+.v2-pop-item[aria-checked="true"] .v2-pop-switch::after { transform: translateX(12px); }
+/* 宽屏模式：对话正文、输入框随可用宽度变宽（最多 1320px），两侧不再留大片空白 */
+html[data-ui="v2"].v2-wide .dc,
+html[data-ui="v2"].v2-wide body.home-mode-chat .dc { --dc-col: min(1320px, 100%); }
 .v2-pop-cap { padding: 6px 10px 3px; font-size: 11px; color: var(--v2-ink3); }
 
 .v2-discover { width: 360px; padding: 10px; }
@@ -295,7 +303,9 @@ html[data-ui="v2"] .dc-greeting,
 html[data-ui="v2"] .dc-tagline,
 html[data-ui="v2"] .dc-feature-link { display: none !important; }
 html[data-ui="v2"] body.home-mode-chat .dc { min-height: calc(100vh - 60px); }
-html[data-ui="v2"] .dc { --dc-col: min(800px, 100%); }
+html[data-ui="v2"] .dc { --dc-col: min(960px, 100%); }
+html[data-ui="v2"].v2-wide .dc,
+html[data-ui="v2"].v2-wide body.home-mode-chat .dc { --dc-col: min(1320px, 100%); }
 
 /* ── 浅色主题：覆盖原有深色组件（深色主题沿用原样式） ── */
 html[data-ui="v2"]:not([data-theme="dark"]) .home-content.home-workspace { color: var(--v2-ink); }
@@ -462,19 +472,38 @@ html[data-ui="v2"]:not([data-theme="dark"]) .stats-bar :is(.stat-label, .stat-no
 .v2-account-btn.is-primary:hover { opacity: 0.9; background: var(--v2-ink); }
 
 /* ── 扫码使用：直连频道对接（WeLink 个人身份 / 微信助理） ── */
-.v2-scan { width: 310px; padding: 14px; display: flex; flex-direction: column; align-items: stretch; box-sizing: border-box; }
-.v2-scan-tabs { display: flex; width: 100%; box-sizing: border-box; margin-bottom: 12px; }
-.v2-scan-tabs button { flex: 1; justify-content: center; min-width: 0; padding: 0 8px; white-space: nowrap; }
+.v2-scan {
+    width: 320px;
+    height: 405px;
+    padding: 14px 14px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+.v2-scan-tabs { display: flex; width: 100%; box-sizing: border-box; margin-bottom: 10px; flex: none; }
+.v2-scan-tabs button { flex: 1; justify-content: center; min-width: 0; padding: 0 6px; white-space: nowrap; font-size: 12px; }
+.v2-scan-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    box-sizing: border-box;
+}
 
 /* 黑白符合主题风格的圆环加载进度 */
 .v2-scan-loading-box {
+    flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 24px 12px;
+    padding: 16px 12px;
     text-align: center;
-    min-height: 190px;
+    min-height: 0;
     box-sizing: border-box;
 }
 .v2-scan-ring-spinner {
@@ -526,19 +555,20 @@ html[data-theme="dark"] .v2-scan-ring-spinner svg {
 /* 优雅的二维码卡片 */
 .v2-scan-qr-box {
     align-self: center;
-    width: 180px;
-    height: 180px;
-    padding: 10px;
+    width: 154px;
+    height: 154px;
+    padding: 8px;
     box-sizing: border-box;
-    border-radius: 14px;
+    border-radius: 12px;
     background: #ffffff;
     border: 1px solid rgba(0, 0, 0, 0.08);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 4px auto 10px;
+    margin: 2px auto 6px;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
+    flex: none;
 }
 .v2-scan-qr-box:hover {
     transform: scale(1.02);
@@ -559,33 +589,35 @@ html[data-theme="dark"] .v2-scan-ring-spinner svg {
 
 /* 状态药丸与提示文案 */
 .v2-scan-hint-lead {
-    font-size: 13px;
+    font-size: 12.5px;
     font-weight: 500;
     color: var(--v2-ink);
     text-align: center;
-    margin: 2px 0 2px;
+    margin: 1px 0 2px;
+    line-height: 1.3;
 }
 .v2-scan-hint-sub {
-    font-size: 11.5px;
+    font-size: 11px;
     color: var(--v2-ink3);
     text-align: center;
-    margin: 0 0 10px;
-    line-height: 1.4;
+    margin: 0 0 6px;
+    line-height: 1.35;
 }
 .v2-scan-status-pill {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    padding: 4px 10px;
+    padding: 3px 9px;
     border-radius: 20px;
-    font-size: 11.5px;
+    font-size: 11px;
     background: rgba(0, 0, 0, 0.04);
     color: var(--v2-ink2);
-    margin: 0 auto 8px;
+    margin: 0 auto 6px;
     max-width: 95%;
     box-sizing: border-box;
     line-height: 1.3;
+    flex: none;
 }
 html[data-theme="dark"] .v2-scan-status-pill {
     background: rgba(255, 255, 255, 0.06);
@@ -664,15 +696,18 @@ html[data-theme="dark"] .v2-scan-status-pill.is-pulsing {
 
 /* 已连接 / 已登录卡片 */
 .v2-scan-connected {
-    padding: 10px 8px;
-    text-align: center;
+    flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
+    padding: 6px 4px;
+    text-align: center;
+    box-sizing: border-box;
 }
 .v2-scan-connected-icon {
-    width: 44px;
-    height: 44px;
+    width: 42px;
+    height: 42px;
     border-radius: 50%;
     background: rgba(16, 163, 127, 0.1);
     color: #10a37f;
@@ -680,8 +715,9 @@ html[data-theme="dark"] .v2-scan-status-pill.is-pulsing {
     align-items: center;
     justify-content: center;
     font-size: 20px;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.06);
+    flex: none;
 }
 .v2-scan-connected-title {
     font-size: 13.5px;
@@ -690,37 +726,120 @@ html[data-theme="dark"] .v2-scan-status-pill.is-pulsing {
     margin-bottom: 2px;
 }
 .v2-scan-connected-account {
-    font-size: 12px;
+    font-size: 11.5px;
     color: var(--v2-ink2);
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 .v2-scan-connected-meta {
-    font-size: 11.5px;
+    font-size: 11px;
     color: var(--v2-ink3);
-    line-height: 1.4;
-    margin-bottom: 12px;
-    padding: 6px 10px;
+    line-height: 1.35;
+    margin-bottom: 8px;
+    padding: 6px 8px;
     background: var(--v2-side);
     border-radius: 8px;
     border: 1px solid var(--v2-line);
+    max-width: 95%;
+    box-sizing: border-box;
+}
+.v2-scan-qr-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 0;
 }
 .v2-scan-actions {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
     gap: 6px;
-    margin-top: 6px;
+    margin-top: 10px;
     padding-top: 8px;
     border-top: 1px solid var(--v2-line);
     width: 100%;
+    max-width: 250px;
+    flex: none;
 }
 .v2-scan-actions .v2-pop-item {
     width: auto;
-    font-size: 12px;
+    font-size: 11.5px;
     color: var(--v2-ink2);
+    padding: 3px 6px;
+    border-radius: 5px;
+}
+
+/* WeLink CLI 版本与升级栏 */
+.v2-scan-cli-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
     padding: 4px 8px;
+    margin-top: 6px;
+    background: var(--v2-side);
+    border: 1px solid var(--v2-line);
     border-radius: 6px;
+    font-size: 11px;
+    color: var(--v2-ink2);
+    flex: none;
+    box-sizing: border-box;
+    width: 100%;
+}
+.v2-scan-cli-bar.is-busy {
+    background: rgba(245, 158, 11, 0.08);
+    border-color: rgba(245, 158, 11, 0.25);
+    color: #b45309;
+    justify-content: center;
+}
+.v2-scan-cli-bar.is-success {
+    background: rgba(16, 163, 127, 0.08);
+    border-color: rgba(16, 163, 127, 0.25);
+    color: #0d8264;
+    justify-content: center;
+}
+.v2-scan-cli-bar.is-error {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.25);
+    color: #dc2626;
+}
+.v2-scan-cli-ver {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10.5px;
+    color: var(--v2-ink3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.v2-scan-upgrade-btn {
+    appearance: none;
+    border: 1px solid var(--v2-line);
+    background: var(--v2-bg);
+    color: var(--v2-ink);
+    font-size: 10.5px;
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    line-height: 1.35;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+}
+.v2-scan-upgrade-btn:hover:not(:disabled) {
+    border-color: var(--v2-focus);
+    background: var(--v2-hover);
+    color: var(--v2-focus);
+}
+.v2-scan-upgrade-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 @keyframes v2-spin { to { transform: rotate(360deg); } }
 
@@ -804,11 +923,6 @@ html[data-ui="v2"] #nrvStack .nrv-float.nrv-swap { animation: v2-promo-in .35s e
 @keyframes v2-promo-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 /* 只在首页欢迎区显示：进入对话、工具区、窄屏时隐藏，避免压住输入框 */
 html[data-ui="v2"] body:is(.dc-chatting, .home-mode-tools, .v2-messages-open) #nrvStack { display: none; }
-/* 1440–1599 宽屏：欢迎页内容列让出右下角推广卡片的位置（卡片 280 + 边距，两侧对称留白） */
-@media (min-width: 1440px) and (max-width: 1599px) {
-    html[data-ui="v2"] body.home-mode-chat:not(.dc-chatting) .dc { --dc-col: min(800px, calc(100vw - var(--v2-side-width, 240px) - 2 * 312px)); }
-    html[data-ui="v2"] body.home-mode-chat:not(.dc-chatting) .home-recommended-actions { max-width: var(--dc-col); margin-inline: auto; flex-wrap: wrap; justify-content: center; }
-}
 @media (max-width: 1439px) { html[data-ui="v2"] #nrvStack { display: none; } }
 
 /* ── 侧栏顶部工具行 + 收起 ── */
@@ -928,9 +1042,10 @@ html[data-ui="v2"] body.dc-chatting :is(.v2-scenes, .v2-suggest) { display: none
 .v2-scene:hover { background: var(--v2-chip); box-shadow: var(--v2-shadow-hover); transform: translateY(-1px); }
 .v2-scene:active { transform: none; box-shadow: none; }
 .v2-scene.is-active { background: var(--v2-ink); border-color: var(--v2-ink); color: var(--v2-bg); }
-.v2-mascot { position: absolute; right: 24px; bottom: calc(100% - 3px); width: 96px; height: auto; pointer-events: none; user-select: none; z-index: 2; filter: drop-shadow(0 2px 2px rgba(15, 23, 42, 0.12)); }
-html[data-ui="v2"] body.dc-chatting .v2-mascot { display: none; }
-@media (max-width: 600px) { .v2-mascot { right: 20px; width: 80px; } }
+.v2-mascot, .v2-mascot-eyes { position: absolute; right: 24px; bottom: calc(100% - 3px); width: 96px; height: auto; pointer-events: none; user-select: none; z-index: 2; filter: drop-shadow(0 2px 2px rgba(15, 23, 42, 0.12)); }
+.v2-mascot-eyes { aspect-ratio: 3 / 2; filter: none; }
+html[data-ui="v2"] body.dc-chatting :is(.v2-mascot, .v2-mascot-eyes) { display: none; }
+@media (max-width: 600px) { .v2-mascot, .v2-mascot-eyes { right: 20px; width: 80px; } }
 .v2-suggest { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; width: min(var(--dc-col, 760px), 100%); margin: 22px auto 6px; }
 .v2-suggest:empty { display: none; }
 .v2-suggest-cap { font-size: 12px; color: var(--v2-ink3); padding-left: 2px; }
@@ -1114,3 +1229,6 @@ html[data-theme="dark"] .v2-agent-illustration img { filter: grayscale(1) contra
     html[data-ui="v2"] body:not(.dc-chatting) .v2-suggest:has(> .v2-agent-illustration) { min-height: 160px; }
 }
 body.dc-chatting .v2-agent-illustration { display: none; }
+
+/* 来源随已启用的渠道增加，窄屏和桌面窗口内仍可滚动访问全部筛选。 */
+.v2-sort-menu { max-height: calc(100dvh - 90px); overflow-y: auto; overscroll-behavior: contain; }

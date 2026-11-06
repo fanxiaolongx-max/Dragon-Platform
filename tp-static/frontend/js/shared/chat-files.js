@@ -15,8 +15,29 @@
     const BARE_PATH_RE = new RegExp(String.raw`(^|[\s(（:：，,、"“'])((?:~\/|\/(?:Volumes|Users|private|tmp|home|var|opt|mnt|srv|data|root|Applications|workspace)\/)[^\s<>"'\`，。；、（）()\[\]{}|]*?\.(?:${BARE_EXT.join('|')}))((?::\d+){0,2})(?=$|[\s，。；、）),.:;!?！？"”'])`, 'gi');
 
     const lang = () => String(window.ToolsI18n?.getLanguage?.() || localStorage.getItem('tools_lang') || document.documentElement.lang || 'zh').toLowerCase().startsWith('en') ? 'en' : 'zh';
-    const T = { zh: { download: '下载', open: '打开', missing: '文件不存在或无权限', close: '关闭', prev: '上一张', next: '下一张', reset: '原始大小', preview: '点击放大', filePreview: '文件预览', loading: '正在读取…', unsupported: '此类型暂不支持内嵌预览，请下载查看', tooLarge: '文件超过 5 MB，请下载查看', resize: '拖动调整预览宽度（方向键微调）' }, en: { download: 'Download', open: 'Open', missing: 'Missing or no access', close: 'Close', prev: 'Previous', next: 'Next', reset: 'Reset zoom', preview: 'Click to zoom', filePreview: 'File preview', loading: 'Loading…', unsupported: 'Preview is unavailable for this file type. Download to view it.', tooLarge: 'File exceeds 5 MB. Download to view it.', resize: 'Drag to resize preview (arrow keys to adjust)' } };
-    const t = key => T[lang()][key];
+    const T = {
+        zh: {
+            download: '下载', open: '打开', missing: '文件不存在或无权限', close: '关闭',
+            prev: '上一张', next: '下一张', reset: '原始大小', preview: '点击放大',
+            filePreview: '文件预览', loading: '正在读取…',
+            unsupported: '此类型暂不支持内嵌预览，请下载查看', tooLarge: '文件超过 5 MB，请下载查看',
+            resize: '拖动调整预览宽度（方向键微调）',
+            tabPreview: '预览', tabCode: '源码', tabDiff: '对比',
+            diffEmpty: '当前文件与基准版本一致，暂无改动差异',
+            diffLoading: '正在读取版本差异…'
+        },
+        en: {
+            download: 'Download', open: 'Open', missing: 'Missing or no access', close: 'Close',
+            prev: 'Previous', next: 'Next', reset: 'Reset zoom', preview: 'Click to zoom',
+            filePreview: 'File preview', loading: 'Loading…',
+            unsupported: 'Preview is unavailable for this file type. Download to view it.', tooLarge: 'File exceeds 5 MB. Download to view it.',
+            resize: 'Drag to resize preview (arrow keys to adjust)',
+            tabPreview: 'Preview', tabCode: 'Source', tabDiff: 'Diff',
+            diffEmpty: 'No changes against baseline.',
+            diffLoading: 'Comparing versions…'
+        }
+    };
+    const t = key => T[lang()][key] || key;
 
     function esc(value) {
         return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -264,6 +285,154 @@
         event.stopPropagation();
         closePreview();
     }
+    let highlighterLoading = null;
+    function ensureHighlighter() {
+        if (window.IdeHighlighter) return Promise.resolve(window.IdeHighlighter);
+        if (!highlighterLoading) {
+            highlighterLoading = new Promise(resolve => {
+                const script = document.createElement('script');
+                script.src = './tp-static/frontend/js/shared/ide-highlighter.js';
+                script.onload = () => resolve(window.IdeHighlighter || null);
+                script.onerror = () => resolve(null);
+                document.head.appendChild(script);
+            });
+        }
+        return highlighterLoading;
+    }
+
+    function previewConfigFor(filePath) {
+        const ext = extOf(filePath);
+        if (['md', 'markdown'].includes(ext)) {
+            return { mode: 'md', tabs: ['preview', 'code', 'diff'], defaultTab: 'preview', lang: 'markdown' };
+        }
+        if (['html', 'htm', 'xhtml'].includes(ext)) {
+            return { mode: 'html', tabs: ['preview', 'code', 'diff'], defaultTab: 'preview', lang: 'html' };
+        }
+        if (ext === 'svg') {
+            return { mode: 'svg', tabs: ['preview', 'code', 'diff'], defaultTab: 'preview', lang: 'html' };
+        }
+        if (ext === 'pdf') {
+            return { mode: 'pdf', tabs: [], defaultTab: 'pdf', lang: 'text' };
+        }
+        return { mode: 'text', tabs: ['code', 'diff'], defaultTab: 'code', lang: ext };
+    }
+
+    function renderCode(content, filePath) {
+        const ext = extOf(filePath);
+        const lang = window.IdeHighlighter ? window.IdeHighlighter.detectLanguage(filePath) : ext;
+        const rawLines = String(content || '').split('\n');
+        if (rawLines.length > 1 && rawLines[rawLines.length - 1] === '') rawLines.pop();
+
+        let highlightedHtml = '';
+        if (window.IdeHighlighter && lang && lang !== 'text') {
+            try {
+                highlightedHtml = window.IdeHighlighter.highlight(rawLines.join('\n'), lang);
+            } catch (_err) {
+                highlightedHtml = rawLines.map(line => esc(line)).join('\n');
+            }
+        } else {
+            highlightedHtml = rawLines.map(line => esc(line)).join('\n');
+        }
+
+        const lines = highlightedHtml.split('\n');
+        const numDigits = Math.max(2, String(lines.length).length);
+        const numsHtml = lines.map((_, i) => `<span>${String(i + 1).padStart(numDigits, ' ')}</span>`).join('');
+        const codeHtml = lines.map(line => `<span class="ai-file-line">${line || ' '}</span>`).join('\n');
+
+        return `<div class="ai-file-code-container"><div class="ai-file-line-numbers" aria-hidden="true">${numsHtml}</div><pre class="ai-file-preview-code"><code>${codeHtml}</code></pre></div>`;
+    }
+
+    function renderMarkdownContent(content) {
+        if (typeof window.ToolsAIAssistant?.renderMarkdown === 'function') {
+            return `<div class="ai-file-md">${window.ToolsAIAssistant.renderMarkdown(content)}</div>`;
+        }
+        if (typeof window.DragonClaw?.renderMarkdown === 'function') {
+            return `<div class="ai-file-md">${window.DragonClaw.renderMarkdown(content)}</div>`;
+        }
+        return `<div class="ai-file-md"><pre>${esc(content)}</pre></div>`;
+    }
+
+    function renderDiffView(diffText) {
+        if (!diffText || !diffText.trim()) {
+            return `<div class="ai-file-diff-empty"><span class="ai-file-diff-empty-icon">✓</span><p>${esc(t('diffEmpty'))}</p></div>`;
+        }
+        const lines = String(diffText).split('\n');
+        const rendered = lines.map(line => {
+            const cls = line.startsWith('+') && !line.startsWith('+++') ? 'wsp-diff-add'
+                : line.startsWith('-') && !line.startsWith('---') ? 'wsp-diff-del'
+                    : line.startsWith('@@') ? 'wsp-diff-hunk' : 'wsp-diff-ctx';
+            return `<span class="${cls}">${esc(line) || ' '}</span>`;
+        }).join('\n');
+        return `<pre class="wsp-diff"><code>${rendered}</code></pre>`;
+    }
+
+    function setupTabs(current, config) {
+        const header = current.node.querySelector('header');
+        if (!config.tabs || config.tabs.length < 2) return;
+
+        const tabLabels = {
+            preview: t('tabPreview'),
+            code: t('tabCode'),
+            diff: t('tabDiff')
+        };
+
+        const tabsNav = document.createElement('div');
+        tabsNav.className = 'ai-file-preview-tabs';
+        tabsNav.setAttribute('role', 'tablist');
+        tabsNav.innerHTML = config.tabs.map(tab => `
+            <button type="button" role="tab" class="ai-file-preview-tab ${tab === current.activeTab ? 'is-active' : ''}" data-tab="${tab}" aria-selected="${tab === current.activeTab}">${esc(tabLabels[tab] || tab)}</button>
+        `).join('');
+
+        header.insertAdjacentElement('afterend', tabsNav);
+
+        tabsNav.addEventListener('click', async event => {
+            const tabBtn = event.target.closest('.ai-file-preview-tab');
+            if (!tabBtn) return;
+            const tab = tabBtn.dataset.tab;
+            if (current.activeTab === tab) return;
+
+            current.activeTab = tab;
+            tabsNav.querySelectorAll('.ai-file-preview-tab').forEach(b => {
+                const active = b.dataset.tab === tab;
+                b.classList.toggle('is-active', active);
+                b.setAttribute('aria-selected', String(active));
+            });
+
+            const views = current.node.querySelectorAll('.ai-file-preview-view');
+            views.forEach(v => {
+                v.hidden = v.dataset.view !== tab;
+            });
+
+            if (tab === 'diff' && !current.diffLoaded) {
+                current.diffLoaded = true;
+                const diffView = current.node.querySelector('.ai-file-preview-view[data-view="diff"]');
+                if (diffView) {
+                    diffView.innerHTML = `<div class="ai-file-diff-status">${esc(t('diffLoading'))}</div>`;
+                    let diffText = null;
+                    try {
+                        const ws = window.DragonClawWorkspace?.getWorkspaceState?.();
+                        if (ws?.agentSessionId && ws?.root) {
+                            const res = await fetch(`/api/agent-workspace/changes/${encodeURIComponent(ws.agentSessionId)}?path=${encodeURIComponent(current.filePath)}&root=${encodeURIComponent(ws.root)}`, {
+                                credentials: 'same-origin',
+                                headers: authHeaders(),
+                                signal: current.controller.signal
+                            });
+                            if (res.ok) {
+                                const data = await res.json();
+                                diffText = data.diff?.text || null;
+                            }
+                        }
+                    } catch (_err) {
+                        diffText = null;
+                    }
+                    if (filePreview === current) {
+                        diffView.innerHTML = renderDiffView(diffText);
+                    }
+                }
+            }
+        });
+    }
+
     async function openPreview(filePath, opener) {
         if (filePreview) {
             filePreview.cleanupResize?.();
@@ -276,7 +445,7 @@
         node.setAttribute('role', 'region');
         node.setAttribute('aria-label', t('filePreview'));
         node.innerHTML = `<span class="ai-file-preview-resize" role="separator" tabindex="0" aria-orientation="vertical" aria-label="${esc(t('resize'))}" title="${esc(t('resize'))}"></span><header><strong title="${esc(filePath)}">${esc(baseName(filePath))}</strong><a href="${esc(fileUrl(filePath, true))}" download="${esc(baseName(filePath))}">${esc(t('download'))}</a><button type="button" aria-label="${esc(t('close'))}">✕</button></header><div class="ai-file-preview-body" aria-live="polite"></div>`;
-        const current = { node, opener, controller: new AbortController(), mounted: false, url: null };
+        const current = { node, opener, filePath, controller: new AbortController(), mounted: false, url: null, activeTab: '', diffLoaded: false };
         filePreview = current;
         current.mounted = Boolean(window.DragonClawWorkspace?.mountFilePreview(node));
         if (!current.mounted) { node.classList.add('ai-file-preview--floating'); document.body.appendChild(node); }
@@ -315,11 +484,67 @@
                 frame.title = baseName(filePath);
                 frame.src = current.url;
                 body.replaceChildren(frame);
-            } else {
-                const pre = document.createElement('pre');
-                pre.textContent = await blob.text();
-                if (filePreview === current) body.replaceChildren(pre);
+                return;
             }
+
+            await ensureHighlighter().catch(() => {});
+            if (filePreview !== current) return;
+
+            const textContent = await blob.text();
+            if (filePreview !== current) return;
+
+            body.innerHTML = '';
+            const config = previewConfigFor(filePath);
+            current.activeTab = config.defaultTab;
+
+            // 1. 渲染预览视图（.md / .html / .svg 优先展示）
+            if (config.tabs.includes('preview')) {
+                const previewView = document.createElement('div');
+                previewView.className = 'ai-file-preview-view is-preview';
+                previewView.dataset.view = 'preview';
+                previewView.hidden = config.defaultTab !== 'preview';
+
+                if (config.mode === 'md') {
+                    previewView.innerHTML = renderMarkdownContent(textContent);
+                } else if (config.mode === 'html') {
+                    const frame = document.createElement('iframe');
+                    frame.className = 'ai-file-preview-frame';
+                    frame.title = baseName(filePath);
+                    frame.setAttribute('sandbox', 'allow-scripts allow-forms allow-modals allow-popups');
+                    frame.setAttribute('referrerpolicy', 'no-referrer');
+                    frame.srcdoc = textContent;
+                    previewView.appendChild(frame);
+                } else if (config.mode === 'svg') {
+                    const frame = document.createElement('iframe');
+                    frame.className = 'ai-file-preview-frame';
+                    frame.title = baseName(filePath);
+                    frame.setAttribute('sandbox', 'allow-scripts allow-forms allow-modals allow-popups');
+                    frame.setAttribute('referrerpolicy', 'no-referrer');
+                    frame.srcdoc = `<!doctype html><meta charset="utf-8"><style>html,body{margin:0;height:100%;display:grid;place-items:center;background:#fff;}svg{max-width:96%;max-height:96vh;}</style>${textContent}`;
+                    previewView.appendChild(frame);
+                }
+                body.appendChild(previewView);
+            }
+
+            // 2. 源码/代码视图（支持行号与语法高亮）
+            const codeView = document.createElement('div');
+            codeView.className = 'ai-file-preview-view is-code';
+            codeView.dataset.view = 'code';
+            codeView.hidden = config.defaultTab !== 'code';
+            codeView.innerHTML = renderCode(textContent, filePath);
+            body.appendChild(codeView);
+
+            // 3. 对比视图（查看 Diff）
+            const diffView = document.createElement('div');
+            diffView.className = 'ai-file-preview-view is-diff';
+            diffView.dataset.view = 'diff';
+            diffView.hidden = config.defaultTab !== 'diff';
+            diffView.innerHTML = `<div class="ai-file-diff-empty"><span class="ai-file-diff-empty-icon">✓</span><p>${esc(t('diffEmpty'))}</p></div>`;
+            body.appendChild(diffView);
+
+            // 挂载顶部切换 Tab
+            setupTabs(current, config);
+
         } catch (error) {
             if (filePreview === current && error.name !== 'AbortError') body.textContent = error.message || t('missing');
         }
@@ -496,11 +721,67 @@
             .home-workspace-panel.has-file-preview,
             html[data-ui="v2"] .home-workspace-panel.has-file-preview { height: calc(100dvh - var(--navbar-h)); width: min(var(--ai-preview-width, 360px), calc(100vw - 32px)); }
         }
-        .ai-file-preview header { display: flex; align-items: center; gap: 10px; padding: 12px; border-bottom: 1px solid #94a3b844; }
-        .ai-file-preview header strong { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+        .ai-file-preview header { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid rgba(148, 163, 184, 0.2); }
+        .ai-file-preview header strong { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 13.5px; }
         .ai-file-preview header a, .ai-file-preview header button { flex: none; color: inherit; font: inherit; }
-        .ai-file-preview header button { background: transparent; border: 0; cursor: pointer; padding: 6px; }
-        .ai-file-preview-body { flex: 1; min-height: 0; overflow: auto; padding: 12px; }
+        .ai-file-preview header button { background: transparent; border: 0; cursor: pointer; padding: 6px; font-size: 14px; border-radius: 6px; }
+        .ai-file-preview header button:hover { background: rgba(148, 163, 184, 0.15); }
+        .ai-file-preview-tabs { display: flex; gap: 6px; padding: 6px 14px 10px; border-bottom: 1px solid rgba(148, 163, 184, 0.2); background: rgba(15, 23, 42, 0.25); }
+        .ai-file-preview-tab { background: transparent; border: 1px solid transparent; color: inherit; opacity: .7; padding: 3px 11px; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all .15s ease; font-family: inherit; }
+        .ai-file-preview-tab:hover { opacity: 1; background: rgba(148, 163, 184, 0.12); }
+        .ai-file-preview-tab.is-active { opacity: 1; font-weight: 600; color: #38bdf8; background: rgba(56, 189, 248, 0.14); border-color: rgba(56, 189, 248, 0.3); }
+        html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-preview-tabs { background: rgba(241, 245, 249, 0.6); }
+        html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-preview-tab.is-active { color: #0284c7; background: rgba(2, 132, 199, 0.12); border-color: rgba(2, 132, 199, 0.25); }
+        .ai-file-preview-body { flex: 1; min-height: 0; overflow: auto; padding: 0; display: flex; flex-direction: column; }
+        .ai-file-preview-view { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+        .ai-file-preview-view[hidden] { display: none !important; }
+        .ai-file-md { padding: 14px 18px; font-size: 13.5px; line-height: 1.7; color: inherit; word-break: break-word; overflow-y: auto; flex: 1; }
+        .ai-file-md h1, .ai-file-md h2, .ai-file-md h3, .ai-file-md h4 { margin: 1.2em 0 0.5em; font-weight: 600; line-height: 1.35; color: inherit; }
+        .ai-file-md h1 { font-size: 1.4em; border-bottom: 1px solid rgba(148, 163, 184, 0.25); padding-bottom: 0.3em; }
+        .ai-file-md h2 { font-size: 1.2em; border-bottom: 1px solid rgba(148, 163, 184, 0.2); padding-bottom: 0.25em; }
+        .ai-file-md h3 { font-size: 1.08em; }
+        .ai-file-md p { margin: 0.6em 0; }
+        .ai-file-md ul, .ai-file-md ol { padding-left: 1.5em; margin: 0.5em 0; }
+        .ai-file-md li { margin: 0.25em 0; }
+        .ai-file-md blockquote { margin: 0.8em 0; padding: 0.4em 1em; border-left: 3px solid #38bdf8; background: rgba(56, 189, 248, 0.08); border-radius: 0 6px 6px 0; }
+        .ai-file-md table { width: 100%; border-collapse: collapse; margin: 0.8em 0; font-size: 12.5px; }
+        .ai-file-md th, .ai-file-md td { border: 1px solid rgba(148, 163, 184, 0.25); padding: 6px 10px; text-align: left; }
+        .ai-file-md th { background: rgba(148, 163, 184, 0.12); font-weight: 600; }
+        .ai-file-md code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.9em; padding: 2px 5px; border-radius: 4px; background: rgba(148, 163, 184, 0.15); }
+        .ai-file-md pre { background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 8px; padding: 10px 12px; margin: 0.8em 0; overflow-x: auto; }
+        .ai-file-md pre code { background: transparent; padding: 0; border-radius: 0; }
+        html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-md pre { background: rgba(241, 245, 249, 0.9); }
+        .ai-file-code-container { display: flex; min-height: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; line-height: 1.6; overflow-x: auto; flex: 1; }
+        .ai-file-line-numbers { flex: none; padding: 10px 8px; text-align: right; user-select: none; opacity: .45; border-right: 1px solid rgba(148, 163, 184, 0.18); display: flex; flex-direction: column; background: rgba(148, 163, 184, 0.03); }
+        .ai-file-line-numbers span { display: block; min-height: 1.6em; }
+        .ai-file-preview-code { flex: 1; margin: 0; padding: 10px 12px; white-space: pre; overflow-x: auto; font-family: inherit; font-size: inherit; line-height: inherit; background: transparent; }
+        .ai-file-line { display: block; min-height: 1.6em; }
+        .ai-file-preview-frame { width: 100%; height: 100%; min-height: 380px; flex: 1; border: 0; background: white; }
+        .ai-file-preview-view.is-diff { padding: 12px; overflow-y: auto; flex: 1; }
+        .ai-file-diff-status { padding: 24px; text-align: center; opacity: .65; font-size: 13px; }
+        .ai-file-diff-empty { padding: 36px 16px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; opacity: .7; }
+        .ai-file-diff-empty-icon { font-size: 26px; line-height: 1; }
+        .ai-file-diff-empty p { margin: 0; font-size: 13px; }
+        .ai-file-preview-code .tok-keyword { color: #f47067; font-weight: 500; }
+        .ai-file-preview-code .tok-builtin { color: #79c0ff; }
+        .ai-file-preview-code .tok-string { color: #a5d6ff; }
+        .ai-file-preview-code .tok-comment { color: #8b949e; font-style: italic; }
+        .ai-file-preview-code .tok-number { color: #d2a8ff; }
+        .ai-file-preview-code .tok-decorator { color: #ffa657; }
+        .ai-file-preview-code .tok-operator { color: #f47067; }
+        .ai-file-preview-code .tok-tag { color: #7ee787; font-weight: 500; }
+        .ai-file-preview-code .tok-attr { color: #79c0ff; }
+        .ai-file-preview-code .tok-key { color: #7ee787; }
+        html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-preview-code .tok-keyword { color: #cf222e; }
+        html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-preview-code .tok-builtin { color: #0550ae; }
+        html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-preview-code .tok-string { color: #0a3069; }
+        html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-preview-code .tok-comment { color: #6e7781; }
+        html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-preview-code .tok-number { color: #8250df; }
+        html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-preview-code .tok-decorator { color: #953800; }
+        html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-preview-code .tok-operator { color: #cf222e; }
+        html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-preview-code .tok-tag { color: #116329; }
+        html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-preview-code .tok-attr { color: #0550ae; }
+        html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-preview-code .tok-key { color: #116329; }
         .ai-file-preview pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.7 ui-monospace, monospace; color: inherit; background: transparent; }
         .ai-file-preview iframe { width: 100%; height: 100%; border: 0; background: white; }
         .ai-lightbox { position: fixed; inset: 0; z-index: 2147483000; background: rgba(2, 6, 23, .9); display: flex; flex-direction: column; }

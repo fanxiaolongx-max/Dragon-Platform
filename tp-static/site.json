@@ -93,7 +93,7 @@
     },
     "/api/app-version": {
       "name": "tools-platform",
-      "version": "1.0.551"
+      "version": "1.0.563"
     }
   },
   "proof": {
@@ -136,6 +136,12 @@
       "iv": "Zg9ACUelQhC+wqGY",
       "hash": "7e49da68588e250dbb8bba190d2caa8ab3787cc0284bda1d8b2f805c4df742c9",
       "type": "text/javascript; charset=utf-8"
+    },
+    "bigscreen/index.html": {
+      "url": "tp-static/payload/ab98a9e4c07c82cb6094bbe5d92fa70516de5ff4d85ec9ccab1074855a85d81a.bin",
+      "iv": "8yhx5BYOwQ+YstO4",
+      "hash": "70671f307a884f59a277f27e357f573e17e978bd7b237c09d0bc287898a5282d",
+      "type": "text/html; charset=utf-8"
     },
     "chat-history-center/chat-test-data.js": {
       "url": "tp-static/payload/04c318ab3625494c9d829322d9508c179db7d22d08a108a7639df44df708d4ab.bin",
@@ -185,14 +191,14 @@
     },
     "datacom-protocol-expert/assets/app.css": {
       "url": "tp-static/payload/88adb51d768da777c71d0e3b73c5182b65314c3298f34e118a614fa32f3d5d56.bin",
-      "iv": "gNj1j59JK9OTdV74",
-      "hash": "727e4ee12f759c8307beca0249129823e0716b3fe338ed0fd6381f4959f736b0",
+      "iv": "/+8y3raeF60VbJqD",
+      "hash": "563e0a074417ddbd7a546659096e534285fbbc9fcdbf2b65ca4880385c8b439c",
       "type": "text/css; charset=utf-8"
     },
     "datacom-protocol-expert/assets/app.js": {
       "url": "tp-static/payload/375c6626a6369c6c7885115a3cda0feaf868037de2553f8cf685facce502fc23.bin",
-      "iv": "EUrHXXkIcsP0s7fz",
-      "hash": "409b843a680eaac72218067716edcd0f194eae0f5cd4ca853d2d5d29f19a97cd",
+      "iv": "OKlqFsFt5ebISuE7",
+      "hash": "654a5ee877cc00736b7fc0535e06476222373174418bb7148f3b7e15aefd753a",
       "type": "text/javascript; charset=utf-8"
     },
     "datacom-protocol-expert/assets/diagram-kit.js": {
@@ -203,8 +209,8 @@
     },
     "datacom-protocol-expert/assets/engine3d.js": {
       "url": "tp-static/payload/2836827ce58f1c4fee7539de86e7ffbd1cec8eca5f36937e6ac4dca55a82499e.bin",
-      "iv": "v7saYuoGd+Z1BfOK",
-      "hash": "05a755bb7600e50cb594d63e8f89185d22fb14a0b71d801b7907b81596c2c92a",
+      "iv": "VsdGPEyEgS2CDDWR",
+      "hash": "e67f9b8b6565a0a30cfc4c93f9bead8a9baa8cf55f6d16d3c0e791cd72f1a288",
       "type": "text/javascript; charset=utf-8"
     },
     "datacom-protocol-expert/assets/field-explanations.js": {
@@ -221,8 +227,8 @@
     },
     "datacom-protocol-expert/assets/i18n.js": {
       "url": "tp-static/payload/fdfb9dc7aef71f038178e8e8f140d382332342a5062b4c8493c3f177ae31f628.bin",
-      "iv": "6fAI08AcvQPLmKVg",
-      "hash": "d0d759fda7d99902bb6206bf3cf986b0224448b854c27d6bf3365bc7afbf8850",
+      "iv": "STrSwRCL665EIYin",
+      "hash": "a96fb02c0cfdf4fc46b43e38aece2bfb09541cb75a20ab6187876ed0a8aa0d1b",
       "type": "text/javascript; charset=utf-8"
     },
     "datacom-protocol-expert/assets/junos-lessons.js": {
@@ -389,8 +395,8 @@
     },
     "datacom-protocol-expert/assets/teaching-stage.js": {
       "url": "tp-static/payload/13b82584a82308f1234c6eb466c3769f9ce248584c1063f8c98ada0089fa62ae.bin",
-      "iv": "N37WMUMXnk2HeR+0",
-      "hash": "cfb3cec6fc25fb9b3dcf47025d139b40b4eb6a375d0aed4b4c25f99713293eef",
+      "iv": "ftXzhlOsRj3uPlrO",
+      "hash": "6433d41e240bdc12411b04c0bb3dfff5e1e534366b5abd0250dd0dfe2db585e1",
       "type": "text/javascript; charset=utf-8"
     },
     "datacom-protocol-expert/assets/toc-resize.js": {
@@ -431,8 +437,8 @@
     },
     "datacom-protocol-expert/index.html": {
       "url": "tp-static/payload/350b556c16e392b0cc02319227bdbc6d6890a508d6bd9b1e85082d7619b87ac2.bin",
-      "iv": "a+9gffahz0ltm4cO",
-      "hash": "391986d2e64e1c9c4977e8520ed7a8e65e965c9f587a08114158d0d326e5f699",
+      "iv": "Iow8flYp4y7NH2da",
+      "hash": "60a72bc7cc0d249e737c7fbe5987541e0dac4fd186e5984aed82417e36cdedeb",
       "type": "text/html; charset=utf-8"
     },
     "datacom-protocol-expert/THIRD_PARTY_NOTICES.md": {
@@ -442,29 +448,9 @@
       "type": "application/octet-stream"
     },
     "department-reward-penalty/data/audit.json": {
-      "parts": [
-        {
-          "url": "tp-static/payload/0485e5f9bf0ed14c1ddbc19d91d8145212a12f193dd8a22ea732bcb2f5574d62.bin",
-          "iv": "w+OD3wnN/SY5z3CB",
-          "hash": "064404d38e24841d87d421babbd2642cdf1eb6d2c5147a2da5af9d81a6b60445"
-        },
-        {
-          "url": "tp-static/payload/5b3fb10d3804865dc85a391f75318cc6abae8e76b2bd6d584301539b7c690559.bin",
-          "iv": "4srRmBB5wJJ2D/7d",
-          "hash": "9db6686e0aa340525c489f8c3e48ecdb813a3f0f754cbfb6d6c4c888919f79de"
-        },
-        {
-          "url": "tp-static/payload/1a351284d5d96d49ce0d879c0d35bf0bcbc8747454f919352ee2094399ea55d2.bin",
-          "iv": "zGbTPEDAXn/CfdID",
-          "hash": "c226534c4252e568118c8c76101844f1a3791810772b23cac95bd608af5b5eff"
-        },
-        {
-          "url": "tp-static/payload/215ec7649e18ea641f869c2f596cb0420bf2b2cbef4b887e190e308b7d56de53.bin",
-          "iv": "6I28pkGDetiQS7yu",
-          "hash": "53b184b8be5f251b43a4e9838f5cdb4ca9539edc34f0e69bcf4c5c7ad0e58af3"
-        }
-      ],
-      "hash": "bf7ea17d26cf9a2759a523bd920aee317889e858155663eaa81834263142a6b3",
+      "url": "tp-static/payload/44c0c6b1c72f5632ce06821a28c514bbe60e557cfdd782dddbd9c0d8b299d42a.bin",
+      "iv": "71flmDM0vOYUg1+V",
+      "hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
       "type": "application/json; charset=utf-8"
     },
     "department-reward-penalty/data/evidence/4287294d-babb-4f86-933e-ca7880bbfc1c.jpg": {
@@ -481,20 +467,20 @@
     },
     "department-reward-penalty/data/related.json": {
       "url": "tp-static/payload/c32a0c5bb395bf542577b203de4fb6cc8e56fb34d73ae7620a6240a2c5dd4b19.bin",
-      "iv": "OdIt2OI0BDFtnM1c",
-      "hash": "66bc20fd3309cbbfaae963b86da4679e8379cde10188770884d19d5dd7085e0f",
+      "iv": "RDf5ZJB8puOMko1o",
+      "hash": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
       "type": "application/json; charset=utf-8"
     },
     "department-reward-penalty/data/state.json": {
       "url": "tp-static/payload/059c0ac3a82bdb481462b9822d9d26303f893cb4fbe5ac3bbb466f742f30cc6e.bin",
-      "iv": "APfbM3wn7qQHC4I7",
-      "hash": "f5b71eafaba4118cbda1985fa86bf0b8e54eda28081fd76fe2fa4fdfbf1681b3",
+      "iv": "UUyEeEcBCzEvYdol",
+      "hash": "f22c6704cabc343151478375c21b9e7820e91c04bbf5da9061febf69131ca2ec",
       "type": "application/json; charset=utf-8"
     },
     "department-reward-penalty/index.html": {
       "url": "tp-static/payload/18fe9685647e7ffd166cc731a6e656239e45eb4b7d6938d76cc5c6055f7cd0b0.bin",
-      "iv": "lnLP2chlU5klAqGR",
-      "hash": "ed6b2fa45871492acaeb9b0a86f5892aa06b8344e2299684f11eba418076fd4e",
+      "iv": "U79lueELH8f477tk",
+      "hash": "8791118fdec10d3ff3012af612cf25155ae2fd19b6622a89c4b27757eae82a8f",
       "type": "text/html; charset=utf-8"
     },
     "eos_tool-v8/index.html": {
@@ -515,10 +501,16 @@
       "hash": "87b1b8f726003bee72a40736abbfc23c634506c672ce7d0776e28f546275a3a9",
       "type": "text/html; charset=utf-8"
     },
+    "expedite/index.html": {
+      "url": "tp-static/payload/fb7b83b7aba3086334d49373a1da5c202190cd8aef10d3dbb255e06c9dbfe19a.bin",
+      "iv": "sxBJmRbsh/Oh91Gi",
+      "hash": "0831163fc41fb9b6d9a1fec27137e525878eefcfcdb74ed020980642916c9943",
+      "type": "text/html; charset=utf-8"
+    },
     "index.html": {
       "url": "tp-static/payload/0eb547304658805aad788d320f10bf1f292797b5e6d745a3bf617584da017051.bin",
-      "iv": "AgITwSQtvKyrGE+Y",
-      "hash": "a36dea80d20bec4158870fe77443dcb878ca1bb252540027038d41c1603ea364",
+      "iv": "HsXvxmERfqtHy041",
+      "hash": "cb3e8379cbed233c47e706a077d379bf77381a9612db64a298686c576124e694",
       "type": "text/html; charset=utf-8"
     },
     "mayrig/index.html": {
@@ -527,593 +519,23 @@
       "hash": "aac767faffc9920f1e81d0fc9ca5b7298281549969a991b6d82bee4cb968ab2c",
       "type": "text/html; charset=utf-8"
     },
-    "network_safety_meeting_summary/assets/vision/MAHXOA4C-LQ.png": {
-      "url": "tp-static/payload/5057925d8d0f037b69b46e13424ac0d2a93a90bfc26585f0dc7e2b0a0e28378c.bin",
-      "iv": "5r2rL5ZwwYSD2DcF",
-      "hash": "58a9282b8f8349ae4b675feee413807dc1a2fa6cf06d6a25a885dedd83a30179",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOA9t7SU.png": {
-      "url": "tp-static/payload/04e61b34babaf83b30999cf05aa1245f60b350177f98a12e3252e440934dfb89.bin",
-      "iv": "039BoAt7pbLSxWhI",
-      "hash": "1c9f0c2a3f726ae6d591be36c1b2fb7e6d83e340acd839bb14185f6c8f2cd3ba",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOADc3t8.png": {
-      "url": "tp-static/payload/37fcc4bb85c700af6bf343e997da94df9c19cc58d2919c92839011f063db9d05.bin",
-      "iv": "ksxjeTjSlTJK6Or9",
-      "hash": "060209bf62bc55264b936436c64deec1b1954d9bcbcdf98accb1495b0f4339ea",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOAlUKEc.png": {
-      "url": "tp-static/payload/2e8659bf36bfaf1008850877bdb1bc4141a51fe7b1418d28584d51f40a2a0cf9.bin",
-      "iv": "N3yXrZMIq3KveOs1",
-      "hash": "6cf75f1fcfc6881b3de7b4d1e750e3a5fea5b74971f02c6c28ce3c00fedc875a",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOB3hcu0.png": {
-      "url": "tp-static/payload/036f194fe68cd8be30de43538225eb9ca12805445dbbda5c763ed31a4f356323.bin",
-      "iv": "HBYgJSibha7Pcv7s",
-      "hash": "afff104c5e226aa8f6413e571bf536abf4bb1806544244f59a53e6ae813cdae8",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOBJWkOg.png": {
-      "url": "tp-static/payload/f22efc374c29b4490edf37737955c515547685ce11acfa5a5a37222a96d6d5ad.bin",
-      "iv": "zeFkh2RDENbLDkgr",
-      "hash": "395347cf48c66c40ef41b7786275ba5f9475605b913e237a2caf2a30c99701c2",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOBkUaOM.png": {
-      "url": "tp-static/payload/f9b21b9957441864dd7e6eb06f56a9933ebc3b4159aff6e35c0fe7663ad9fa1b.bin",
-      "iv": "/8ZHKWISUGdMKVvn",
-      "hash": "04869bd55e4089e7ea1edfee530c869479bd96166f016917d56c5890eb901c08",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOCbMknw.png": {
-      "url": "tp-static/payload/499684144076f5974ccff199610ac05c7454a3df0679556ee63c5e1f10b0c2a2.bin",
-      "iv": "OykQv5GyOnkp0hhx",
-      "hash": "3a48f0914fa1edf93d9d00dc97d425a874475710eb3a3ea03ed50a6a0c9ef8a5",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOCwjeN8.png": {
-      "url": "tp-static/payload/37f0a2b9da681a9a7b771e36b11fbaf6f83f9d72726466dd33d7594b8c9fe001.bin",
-      "iv": "4f27D+snY29E1tFK",
-      "hash": "319fee5373cfa9606d9f38afb07cddcc8ee65312809547b958ad43d8bcca150e",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXODcT3PQ.png": {
-      "url": "tp-static/payload/3a95158bf8cd1d555d49bf9da2d25054e5321147a39e1a4ce66f845f30b17004.bin",
-      "iv": "IB9PxMsVzhUmHkmn",
-      "hash": "7e294daa334edae90095689a8e7ed9dbd10eb632c859c8f7ab3669afc76c05b0",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXODkAU4o.png": {
-      "url": "tp-static/payload/70bede9f980a3c51d13271362b672d47747539d6cfdd52832beee70bd5586a87.bin",
-      "iv": "e7F0YkOqdYnS+PYB",
-      "hash": "e8de96c13e8d804ad983e2acda0709f965c2e4e4590b7b4e803e113cf872e587",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXODMznX0.png": {
-      "url": "tp-static/payload/df4c4141f373cac07f449b14e609f7884ba38bd319e54d2d144189933318560b.bin",
-      "iv": "CN02Xx6umZuGHe0V",
-      "hash": "d40c87a37531ff78cc945719fc562e30f3f8a9df4993609197b4e3ce9fca44b7",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXODwRGRM.png": {
-      "url": "tp-static/payload/763d0db58de3b1f2ab85a1e7bf504472ef53109d5592b0c890aae6cbf52ac1b8.bin",
-      "iv": "w0fxVp+hRm39nvXz",
-      "hash": "83216c16108c3fb0ecab93a0fa7bbf8d124ddc25d771016743b4cf73d96a68c4",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOE_FPv4.png": {
-      "url": "tp-static/payload/075bc71960716c1a1fab8dc34a6331b9715a869aedb2143f0317773ffcaf6fad.bin",
-      "iv": "FKsIPGGlDIm5Zi5V",
-      "hash": "f5898ac81d959b60d7bc282e4c558bc3680d46366f7ea480f405a590504e5ae6",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOE_h5xg.png": {
-      "url": "tp-static/payload/88054fe7542627fbdb442ce5d6e44d2483c0960bc93234922af819bd196ede2e.bin",
-      "iv": "FMCL3YF6QXw9ESzC",
-      "hash": "569a8642c2596f4b2487b6c5d06b33f9f83eef44aebbea808c3c96fab480ac6c",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOEeM5JU.png": {
-      "url": "tp-static/payload/356285c5e7efcd39ee613f46d170d501f7bb21986f590eb1aca0c2fe92a3dd9b.bin",
-      "iv": "5knhgtO+Dw7dTxaC",
-      "hash": "074c2522c12e17fc205116f176d4c071cf1b9bdaf221e7da2aa39dad635e63b4",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOEk9XI4.png": {
-      "url": "tp-static/payload/aeca37914eaea60c17460173bf7cf7f64940ce2a74a3ebb5d8b6d9dbc1d9d6a3.bin",
-      "iv": "fgcPaIvz0OK6C47V",
-      "hash": "a6a2a5218aaa0096ed611c247eed08e9eb8dad1c9b2a7f4cd8c6598ea753f7a9",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOF4msL4.png": {
-      "url": "tp-static/payload/d6b87e8b5aa0e459e2dd80422d7902a5e83405f1bf2f865ea3ad3fbbb99ac2db.bin",
-      "iv": "FyZCvzgg35X4Sm0X",
-      "hash": "04f424238ceb82818b2779cad3e14d24ea87539280ccf7a50faddc5e8a2e8156",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOFDTGD8.png": {
-      "url": "tp-static/payload/98e1befc8786adb8a7665e43cce0a88961ada0b79d4d31a706ac6712abdc14e8.bin",
-      "iv": "3f5KCh54WHnw3xsC",
-      "hash": "7949c47e0d5e3146a0ebe3fef4e49934ddd363f32e0bf09a4e0b065697aeac72",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOGG-Fz0.png": {
-      "url": "tp-static/payload/34c33798da0c7c6688631834943ebd8b207902c8d5f9697743f65863643ea4ea.bin",
-      "iv": "C5IPG0nS+EB90QA2",
-      "hash": "84a22375ca990d603a8596c12c4f8608ed3401a1bdd68a7c8a8ae596c570118f",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOGjbxo4.png": {
-      "url": "tp-static/payload/af6eafc9e830a774f28b23027c2332dbe7fe6258ccffa0bea77f2946c30e698d.bin",
-      "iv": "0Dc7FyQoWR1uw5OV",
-      "hash": "d096af813475ad1ee7d939eb34df5339746452543c0fded27245c24e2ba4bfff",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOH7V3pY.png": {
-      "url": "tp-static/payload/33689af3b0704025035636a66165a0a314a8558645aabd95b7d080cd7ae04f5f.bin",
-      "iv": "uXDP7ntyKgBBHP7W",
-      "hash": "6db7c6768f647ed89b9775271e077ae5996f16fb5c438fdbcb721f771f0765fe",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOHfNFkw.png": {
-      "url": "tp-static/payload/4f60db6e466d30e6ff29563537c32754268256b7ddb61816a9b99dddf2bde9c5.bin",
-      "iv": "kQQR/DYxQI+B0vrt",
-      "hash": "a43ae78362605173f7859a4bfd15de3a908f54870c5b1f80c5d57877d1f1533e",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOHqTVt8.png": {
-      "url": "tp-static/payload/855f8505baa1a2e9eb2cada22f448f972b71c9eb1d210a52e020a32a9c0d2586.bin",
-      "iv": "gc8XFvkjPfL3OKjB",
-      "hash": "b7f79860f0aa25c2464ffb0b76c8569173dbc4634bb70c631bfa0b885b32cbf8",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOIdbXdQ.png": {
-      "url": "tp-static/payload/32dd42f85658c2fa80a4a11e3fa9c660e6164806520389a3992329864eea90d5.bin",
-      "iv": "Qfk60SfGPUgmg/Ky",
-      "hash": "2840cc20223817ec9b2f3670e67f06fb73b5b9c301efbf511b1683a0a78f71f2",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOIfjujg.png": {
-      "url": "tp-static/payload/a50ac2e08665d8b9c8e492254f910db97178e39faa0288b0fa0a66f64029306d.bin",
-      "iv": "nHdW8QAt+q4Cf3Ky",
-      "hash": "afff104c5e226aa8f6413e571bf536abf4bb1806544244f59a53e6ae813cdae8",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOIgLqCM.png": {
-      "url": "tp-static/payload/91e41cd023d98e9bf3e50300761aa073b6408918b09b77b7d3f1afa5deef6ccd.bin",
-      "iv": "6RutKdf7S67Hhqbk",
-      "hash": "8b562c2734bdb6f67e75bee8a31d07c1a69b0cd23d47ec5af0592edcf625c21b",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOIqa1-k.png": {
-      "url": "tp-static/payload/eae650f3933aac02f46232a5464554d75b115fce28dfb3dc2bb9e93077e32674.bin",
-      "iv": "2aV+ozeVa8Yujmdx",
-      "hash": "8ec09188726b871a0085cda90c9ba72f5379db4ed1fda6cf5b915438d945efb2",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOJeYGSM.png": {
-      "url": "tp-static/payload/0eaa98b98f3f089e2d0f93d7715e445ef5e2fbde2960d16493aafcd7177e75af.bin",
-      "iv": "5sVWT/Vj5JoSuPi0",
-      "hash": "9b642666c4080ea11c76e1333c37630f39b0bc742399789893884a40901a5079",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOL4pHmE.png": {
-      "url": "tp-static/payload/bd3ca732f3f70c1832a3dc6339749749de79cd598000288bc6513fa638440380.bin",
-      "iv": "odgyD9j+LjR3WUih",
-      "hash": "d7d24fd650f94afb1d47741448ac8aa7d8e66221f7d1f5538b244fc0678f7014",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOLuwbZY.png": {
-      "url": "tp-static/payload/c6f7aec6bd8c12ff1b57486406808b74cbc133c69a83ffd35fdcb1bfdcf01a5f.bin",
-      "iv": "SLUmuF1US52PPzop",
-      "hash": "e6b15755b7534039ea0a5de488c47e9d43477e4db67bd242b1635c59fdb047e8",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOM2KwCE.png": {
-      "url": "tp-static/payload/6aaf34c7f5c1fa2b9a05c71a6c25106cf430d79eed63cfbe174824cdb2242eef.bin",
-      "iv": "G3tF9oIoupTfvvtX",
-      "hash": "9b642666c4080ea11c76e1333c37630f39b0bc742399789893884a40901a5079",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOM31Qbs.png": {
-      "url": "tp-static/payload/debdc98880eeb06c60733a0e4b1cfa00011e1b0b1383c0759921b01656ced707.bin",
-      "iv": "KkcY0hdzR4ee73Xd",
-      "hash": "48ccac6fc07060edb5d89b1d8cf6fb709339fa03d2c79f4244fd8acdb1f0e7c4",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOMRW3EE.png": {
-      "url": "tp-static/payload/af4350af80e13fafdc3cff31f5bfe544037bd2f869cf4c1fa91144a13b3256a0.bin",
-      "iv": "gb8hMko7LFiK674z",
-      "hash": "d096af813475ad1ee7d939eb34df5339746452543c0fded27245c24e2ba4bfff",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXONTRz4M.png": {
-      "url": "tp-static/payload/a1a2911f74222fad39d9eca423540a3cff59a12764d62cba6b26ce46111df0d7.bin",
-      "iv": "TTVYTR0Ho/VXmf3D",
-      "hash": "052d02b67d97914d3f9690397a76e2c96823a9c282122d1012f8625a4dc2aff1",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOOeU2Mg.png": {
-      "url": "tp-static/payload/31fdadfbed0615cd1cd5988ff33b1b555acb5964d5f879cd72d34ba40440c73f.bin",
-      "iv": "P45FDm6nfKUJatNE",
-      "hash": "8b562c2734bdb6f67e75bee8a31d07c1a69b0cd23d47ec5af0592edcf625c21b",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOOkMmdM.png": {
-      "url": "tp-static/payload/55a900fc82f84723d04f747ec38797b8abc0899e998e49b4778e32c5cc735e5a.bin",
-      "iv": "wk7AI1D8scp1ysPy",
-      "hash": "69ff4702aea0b736e602afee02a1c6a54c926a304c2ff1055a793558bfe38c5c",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOOm0Iug.png": {
-      "url": "tp-static/payload/dc9c39211af09ff6a4ea38e90483d0e0afbe4481a92e54d8462febec293783bb.bin",
-      "iv": "kGHTa81viZGTQMvp",
-      "hash": "cb89231708a9d4d8d8644b996fe39dc807a49e698ac5ff199f35b3963dbd9393",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOOrUj2A.png": {
-      "url": "tp-static/payload/44d54f8b99c9a24b7d9fa75b784fab97930ecc836554b98f4c873d126ebb3afc.bin",
-      "iv": "cdoAKQY1kcRq/5qb",
-      "hash": "1f96432f2561b3b47645a55fa4e5abd11bc556900b86e95ebbd3ddda215e44a0",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOOUQ_yw.png": {
-      "url": "tp-static/payload/2375d14bb6ccb247dabb37108264c22f1882254bba3cfce84f6e0f860d08ca85.bin",
-      "iv": "GrHK+jewNbshOo7w",
-      "hash": "e8de96c13e8d804ad983e2acda0709f965c2e4e4590b7b4e803e113cf872e587",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/MAHXOPoXvYA.png": {
-      "url": "tp-static/payload/56ea1d40b09562685f0a42c5eed176ae018e039437febc14a017ad4409e1096b.bin",
-      "iv": "TmUWVdE7lC1f8Bab",
-      "hash": "1e1a777212c7d23853ecd1769dfa26c60e01ef831f45e99ce2ae50315e96645b",
-      "type": "image/png"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOA4C-LQ.svg": {
-      "url": "tp-static/payload/51b805090320657ff23104fc2022f02df3ebf40523da19f7a5698516037dd93c.bin",
-      "iv": "PykpTz6Eirpp/wr4",
-      "hash": "0f51d8dd9635d2e94bb0a4697478399cc6547b34acb165a44f4bf2999a5b0d59",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOA9t7SU.svg": {
-      "url": "tp-static/payload/aa191713264bd801ee416abb5350a72020824e47f020eebe99f0036300df7fb0.bin",
-      "iv": "zibbAfPNRzbl4Sof",
-      "hash": "f98a462d24f178044c9b920bb8500ed1cadc4307444a43c6e63e9674e81f87bb",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOADc3t8.svg": {
-      "url": "tp-static/payload/75bfe9b2b69c98ccde3c4352a6eb048202d6b8acd93d7139662503c1c20fde83.bin",
-      "iv": "i+DQp305eNTx1MW9",
-      "hash": "8bbbf1f75d7dfd3b65b898a7748941d29a128e5d8c31cfca2b5c8210ea88a30e",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOAlUKEc.svg": {
-      "url": "tp-static/payload/e07a453eeb3209ff92cc661637a4519b1b5216e051bfc96db5a28a9e13af4990.bin",
-      "iv": "kQ8Y2whFnSAEOwx6",
-      "hash": "aff9320136fb1b4ded2b2fbf499ba6ccf23b0189ebe86b35380ad6870a60df90",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOB3hcu0.svg": {
-      "url": "tp-static/payload/a6f1c74c94a96f08d0edaa05e3e352af44abadae72fee42bc9d72fa0896fcd34.bin",
-      "iv": "PO+foTaiyFX/M7jb",
-      "hash": "8607a82887b30ee9daa7f53ba2bcb9d69b0a3330b2918a7756ac26fed2198d24",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOBJWkOg.svg": {
-      "url": "tp-static/payload/8a588e92d912cd53361f7a6bb76f70e141dab2020940f74bac8e60239d6b3582.bin",
-      "iv": "4kOydXl5TcOscavy",
-      "hash": "0bca0707bcc5a85120d4bb8753f63e3ef6e5024765a19437273c60ae4191beec",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOBkUaOM.svg": {
-      "url": "tp-static/payload/0bd0d96109b626451de40f383b42f9f884badd41d2e05e45b3cff1946d8cf0d9.bin",
-      "iv": "wE+fp9+Lvi+YBM03",
-      "hash": "3f7b96ecc06f05cda60a867825b63f197413f7f2c4d16d6d3802dbb1d84a50ea",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOCbMknw.svg": {
-      "url": "tp-static/payload/8e6e5743881818a62a463a37b3fc96e9085c9289273810640246e80b83448b11.bin",
-      "iv": "HoiVHTao+0aMzyen",
-      "hash": "d3ee48515e57525b1319a33d90c2a85bd06aa50e94cba5a9459fb81f5252e445",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOCwjeN8.svg": {
-      "url": "tp-static/payload/e8c18dee7d51710bf3130682afb30715891a7be51727f0f3c113f1572ca91a63.bin",
-      "iv": "W/+i4T0v4+OmZ3kc",
-      "hash": "14c966a8013874080c19f211678765e4ab1dd7321bda4fc972e915a8f3482003",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXODcT3PQ.svg": {
-      "url": "tp-static/payload/ee0683280c766746823117999411b2c915db855fa9ca6689c50692e1861b7cfc.bin",
-      "iv": "5oXEhqbjbMjIe6Lg",
-      "hash": "67f7a215188255df2f3988b9be8045485d1efa2a1d05d1f669981c2379295b8b",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXODkAU4o.svg": {
-      "url": "tp-static/payload/c9920b4ee550237d2591fac014e591ff040dc19e4270d8cbe364f91074bdb1be.bin",
-      "iv": "imzZcuV0M3mE+rVa",
-      "hash": "247542a36dfe201291403a140e4ead795fcb8ecce1fd91576fa4e0e5ed14c1e4",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXODMznX0.svg": {
-      "url": "tp-static/payload/ffadfd453ce589762cdcbfd24af046a83a2e414a4c4826b39387b47316570b58.bin",
-      "iv": "3B3pOmu9G2lmmox8",
-      "hash": "cb63821ac3cab50cd60bffcc637b21373850cecb5293c1c346312c39dc1d1c42",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOE_FPv4.svg": {
-      "url": "tp-static/payload/845a0e3157cc167b4c4f2abae5b17e16fc3adda3a1e7088936538f6c7573cb7a.bin",
-      "iv": "J7oJJqlUSRnVoFmA",
-      "hash": "2aafa3f5262c94f1c455026636279727fd2dc99aa585fd4add7716acb81b15af",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOE_h5xg.svg": {
-      "url": "tp-static/payload/f434fbe443544f04723d62f1785a8daaaceb6be75ec1dc24cff5a82167e997cc.bin",
-      "iv": "Q2plkpnOxB0lmn/J",
-      "hash": "6e3683196d4190b79906d861748af0fac143f3f9f77e9a35effea4bfa604cb81",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOEeM5JU.svg": {
-      "url": "tp-static/payload/1db49fc97b8dd3f30d67997dffa85b134e212033334ff6bf4cfdf12e4d6d3bc4.bin",
-      "iv": "4BOQNI/ZSwmiHkZO",
-      "hash": "6c1f314237160144f6e39c9c5fac8ee49e034fefc8ae3c7c71cc1411f18a8443",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOEk9XI4.svg": {
-      "url": "tp-static/payload/0c4ab205484c38960ea7cd081a6a3d7e3f8f652684cd0a9868e6f448c4b8ee9a.bin",
-      "iv": "kLgRT3mjSM1oqD+T",
-      "hash": "286ec49e8a93fd06d4ea8ae59ba7360a6f328143266f11bfa2b809b81a8cca85",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOF4msL4.svg": {
-      "url": "tp-static/payload/611f76c1d4fd2791f3a4d0e8c4aebbcb81adbd431e0361328b13185c295f260b.bin",
-      "iv": "JH64zlYjr0tQpPkx",
-      "hash": "2320193856f4e43b1733618086656bb62057ca041012af45fee89187652aa6cd",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOFDTGD8.svg": {
-      "url": "tp-static/payload/563a43d46a8ea1f338ba16fe483c989d14d824d3dba8202b1fdd32fe5e46f8fc.bin",
-      "iv": "VtOw8t0W+iyu2YhA",
-      "hash": "400deb765248667b4e9586777d9e2c23c31c4b9dacae9a42995168478841b86e",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOGG-Fz0.svg": {
-      "url": "tp-static/payload/4e0d429bde6691595f884b11590c0a0cbc3d374bb52e067766b6f95e8cd88d06.bin",
-      "iv": "w7ZWr+FRlQA6LnJ3",
-      "hash": "1cc987b21a9c325645b2aafeb0270a3affb37cc7a63d4a9f87b3f23a4d9da4aa",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOGjbxo4.svg": {
-      "url": "tp-static/payload/4e0a16c2ba3d0b103e8064e69ae90fcfb5395414b95f569815f70a8895f1cab9.bin",
-      "iv": "REUMmIB/QExYwMED",
-      "hash": "cff9d4069707a6226dbb2a8b03628ba94ae50b4af56368d4d05bad8828666ab2",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOH7V3pY.svg": {
-      "url": "tp-static/payload/f44e648d474bbb56390f73db2aec07afc0cd9ee12a9e2fdf895d98500715ece3.bin",
-      "iv": "BIb8pQPrIj8VI9uE",
-      "hash": "5f861ceef01cd451fc4ed0a8bc2422d0b6a7a552ac8656d5346b68d2fdd20fc6",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOHfNFkw.svg": {
-      "url": "tp-static/payload/38a7e868f40ded82dcdec2fb272c950e527c0c636765e47f68660296e16c1aa9.bin",
-      "iv": "ewR67O3Fhv1zMrCV",
-      "hash": "25208202fdcece489a3706bc6139abfdc17c8f4cbc6cb6f8577138ba94218b43",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOHqTVt8.svg": {
-      "url": "tp-static/payload/81deeed51b9777faaefb3f582eda1b0b1444689e041c3897f6582c8cf4438720.bin",
-      "iv": "7aPLw6bofXB03ySb",
-      "hash": "677d9997658a4104c45f930a69c9034a2aaa6e8ef137294159a8e720fafe973b",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOIdbXdQ.svg": {
-      "url": "tp-static/payload/c074698bd6825c128a214f3167f87511c96429274e89415f709148111b082274.bin",
-      "iv": "N593zt1p4tPaIfWg",
-      "hash": "8c2cddeaea3e758e4fd08283288af790defea75ef59743170de4bbf91dbec507",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOIfjujg.svg": {
-      "url": "tp-static/payload/d5b405ac4e4aafbe606dc2772a11040293bcfc372aff84b0fd9f5637387a2c27.bin",
-      "iv": "b8l8GGjTzMP70286",
-      "hash": "8607a82887b30ee9daa7f53ba2bcb9d69b0a3330b2918a7756ac26fed2198d24",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOIgLqCM.svg": {
-      "url": "tp-static/payload/03560f441d9a6c77c0bb5e7767ab1623317393a0e48a720fb18aa2db0757559d.bin",
-      "iv": "/veemSpwFqoWLwNB",
-      "hash": "73e27c08285fe780ff27daaf09bcb0bf0b05084c9d6de1fbd07243a31e5115e2",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOIqa1-k.svg": {
-      "url": "tp-static/payload/6d9a75891124fee108902bd1f1518111de78e90e0c4a1066fc3a5a1541eafe74.bin",
-      "iv": "TyyWlwAmxuAF4Rva",
-      "hash": "7390810f9937123012ed9984e1bdb2f28ac5c6c51a22da0d2cdf5566be27556d",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOJeYGSM.svg": {
-      "url": "tp-static/payload/b5d53d4bd3427c00d1e276446da6b9667652e62be874edbca48e9fb40ae69491.bin",
-      "iv": "PryPZ/TO684aOQ9D",
-      "hash": "236ac05c716e74896c421475a7fbcf3569a14d2c9369aeb670923bc51c7eb27e",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOL4pHmE.svg": {
-      "url": "tp-static/payload/b7922ea127ec44516ec61045aa5a2adf517eb67dc16e3ddc45cdd16a649371e9.bin",
-      "iv": "vG6fwf16icCslipG",
-      "hash": "15ea8c925c919ae1179bff1a6e2fce517ce868c339f4e54c05771d975eea75f8",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOM2KwCE.svg": {
-      "url": "tp-static/payload/dd60f79f3b75b5b76a9cb0852780911799d09af7533d65880447f98f8e501360.bin",
-      "iv": "vGAwmyaa5/0b3Q46",
-      "hash": "236ac05c716e74896c421475a7fbcf3569a14d2c9369aeb670923bc51c7eb27e",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOM31Qbs.svg": {
-      "url": "tp-static/payload/ac292105946fddc345b19f7b4d5037ed12bdeb78fa8c752516c3c12d911b23db.bin",
-      "iv": "ZTCtv7NnlTj/LcUb",
-      "hash": "89f17bcf54fddec0d611510aecee69259c0cfff57d3fb238a244a6d29700aaab",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOMRW3EE.svg": {
-      "url": "tp-static/payload/4f28137098d7df44eb5f3d6563cdfb76da52069b9389f030c2b35792c8317106.bin",
-      "iv": "VhG4d9UfISG9ySWZ",
-      "hash": "cff9d4069707a6226dbb2a8b03628ba94ae50b4af56368d4d05bad8828666ab2",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXONTRz4M.svg": {
-      "url": "tp-static/payload/127f201637146e87a3ddd00f066584fee3e9c64aa7aced1cf05683c9329a8ecc.bin",
-      "iv": "0Yqmnv/zGhW3SIiW",
-      "hash": "28b2591e9eea16e81e7a95a129c1bc62e274c49b217e6a1826cadc7c403c696b",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOOeU2Mg.svg": {
-      "url": "tp-static/payload/fa678c0848b34e20910001709d4492862c1f80c114a6c27e115a8730aa2f3435.bin",
-      "iv": "KKkfKQ9MgBu46vrw",
-      "hash": "73e27c08285fe780ff27daaf09bcb0bf0b05084c9d6de1fbd07243a31e5115e2",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOOkMmdM.svg": {
-      "url": "tp-static/payload/d173dfa83ef417cc674a122b303bad4526058e313b476b335fc9b859dd5a2afb.bin",
-      "iv": "McnXvrKMs8prZC+u",
-      "hash": "604d5cd7514a1052a270301ffe158190144cadfb9f7b490d2080854197c54e7c",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOOm0Iug.svg": {
-      "url": "tp-static/payload/c6e041fd0a5c007cf4d529420515defb6eca26625d5b69fe72f477d99b402f46.bin",
-      "iv": "qybWRLJodVI459ia",
-      "hash": "a47a5d9f1940fab8d44a72259777a05092334c9bcaa9c5c164e8d19eeb0314e7",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOOrUj2A.svg": {
-      "url": "tp-static/payload/537174ceed4002320676b38569562d22b7e15aa50311cfcc783cb5c7e35de288.bin",
-      "iv": "W52OZPZAvM5gdZ3Y",
-      "hash": "9ef7c1b01a16cece48800a47e46980e76934093f9389ca7b449aedd24668de45",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOOUQ_yw.svg": {
-      "url": "tp-static/payload/86469bdf31176f281c1b2f943aa054c374f42e024e3001e6bef9cd09f26f827c.bin",
-      "iv": "EWKIcduRh5L4k3BT",
-      "hash": "247542a36dfe201291403a140e4ead795fcb8ecce1fd91576fa4e0e5ed14c1e4",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/assets/vision/sources/MAHXOPoXvYA.svg": {
-      "url": "tp-static/payload/4cf21f57973a05c69cf64340759a7f85ed54af41c6b169028dc01016653297b3.bin",
-      "iv": "xuwZjrdLHOSEI2qv",
-      "hash": "4dc87985c703bc38c7bdacdeb9a005fdb6dfed31aab67fc2db3362fe1969d8fc",
-      "type": "image/svg+xml"
-    },
-    "network_safety_meeting_summary/css/app.css": {
-      "url": "tp-static/payload/ba558ec7b9d92f38ba3d16f99542ca8fa2a39962a8c625097ae2c8eb26cc8b7f.bin",
-      "iv": "WgL/errSRNyUYD/i",
-      "hash": "8f8ac132576217d85924b444b2d5d96eb520a6e819cb3458243af9905ef93601",
-      "type": "text/css; charset=utf-8"
-    },
-    "network_safety_meeting_summary/css/tailwind.css": {
-      "url": "tp-static/payload/6aad15b12531614126cbc04bb20a41cfae3d1523b75e4c49f25eb05692d79c53.bin",
-      "iv": "BmpQBwO5mj55L9Cz",
-      "hash": "bc14fed6cb95f29360d370459a466cc383f65d88015cd209540d2f4855294327",
-      "type": "text/css; charset=utf-8"
-    },
-    "network_safety_meeting_summary/css/tailwind.input.css": {
-      "url": "tp-static/payload/3c708faa4d304f4d4ff905fea88ac8f7ddd1630546c7d7dc0d1d49e01e1ff5f2.bin",
-      "iv": "DB/TMu4AwnDMTkb+",
-      "hash": "cc1a7ad0d019ddb1d32d0ecb588ba0ac26ce41d8625dd6c366348b25f83a28ec",
-      "type": "text/css; charset=utf-8"
+    "monthly/index.html": {
+      "url": "tp-static/payload/b60ee55bb750024b57d9421ea1caaefe17080b2c22c984d1a4b5d61b777ac6fd.bin",
+      "iv": "GzO1pBajS9LMmoj2",
+      "hash": "2389c5e3e64c601ed1b85da63b35f4fac805311ffb00088b8287c54294ce0a39",
+      "type": "text/html; charset=utf-8"
+    },
+    "monthly/legacy.html": {
+      "url": "tp-static/payload/ecd532a7a192de72b22d6185ed79d29622d7065b30c8ae66fd70390d2508aa1a.bin",
+      "iv": "gnEPQXRfSHvsobmk",
+      "hash": "3dd263ebe63b271d533ff2373234349f820fe17a0041f9fdf554acdcac994735",
+      "type": "text/html; charset=utf-8"
     },
     "network_safety_meeting_summary/index.html": {
       "url": "tp-static/payload/109550da8ec251fed9a0c1ba93306b629262e47975557bdcda384f33361253fa.bin",
-      "iv": "LEa14IU0ahv1U7Wi",
-      "hash": "b3802091202cf7346b46696ef114a815f8e6696ff01ec7121a8ae2c3b186d6ee",
+      "iv": "5VhGAHkhSfdFkA16",
+      "hash": "01cc4083f2cfe37a2a7e97ac22a4946dc36594585b04353c8152fd56b3514775",
       "type": "text/html; charset=utf-8"
-    },
-    "network_safety_meeting_summary/js/app.js": {
-      "url": "tp-static/payload/44cb8ada39fe13da9fd30ed25bb048cf460d078f97b2dde852d30ce256508d13.bin",
-      "iv": "OWub5uFp/mCZkbfa",
-      "hash": "f92bcc78d1fba27821c72481360f10f9b1b579a3fce7cc9a7de96d14d619e879",
-      "type": "text/javascript; charset=utf-8"
-    },
-    "network_safety_meeting_summary/js/component-editor.js": {
-      "url": "tp-static/payload/c764dbda7f6516e860d2ad652ac5f2f324d0273af94de34afef84152c3b2d2f1.bin",
-      "iv": "2cm5hNnKJmj6EtDm",
-      "hash": "3386e472fa86aeb55e6b5448cf39d9bf1923a321343f97e2b127efe59684b256",
-      "type": "text/javascript; charset=utf-8"
-    },
-    "network_safety_meeting_summary/js/context-menu.js": {
-      "url": "tp-static/payload/4d91d764654d45fda1903dcb8d7e7001279ccc9253af3165d63af0cec610a116.bin",
-      "iv": "LME7LtIK7kO63NXH",
-      "hash": "42093b1cd36aafbfd41b8ec77cac46dc71a116b7727fa9df45dcaa27b7805e67",
-      "type": "text/javascript; charset=utf-8"
-    },
-    "network_safety_meeting_summary/js/default-slides.js": {
-      "url": "tp-static/payload/b63d333b1a7aa064c00be47fc99092f5dedc3c4f780e3c0731aa45e5b74c5adb.bin",
-      "iv": "dGdBSHG64NcmvnHJ",
-      "hash": "b76253b98c19d2690bb89485a4ea864181fe96f8e2a81a1d664ae5e3ba681d06",
-      "type": "text/javascript; charset=utf-8"
-    },
-    "network_safety_meeting_summary/js/editor.js": {
-      "url": "tp-static/payload/c6bf26129b99c12c3f0681bcebf61756f7f70bec21a97ecbc0f32be1c331e350.bin",
-      "iv": "janBc+JGD74bkpOg",
-      "hash": "62b89ffb015cd875b17b3699775a4a96d1d7f37f968e15a5406f384ed936a068",
-      "type": "text/javascript; charset=utf-8"
-    },
-    "network_safety_meeting_summary/js/pptx-exporter.js": {
-      "url": "tp-static/payload/2a303559e94c176299103b289d93069880d0efd9ba523aeca598f0d8e79b53ec.bin",
-      "iv": "CyL0psLq8SgIrW06",
-      "hash": "7dfc438232ba1f107f003c419f132e8417bee4b5c94a2f8c7f06503300c87edb",
-      "type": "text/javascript; charset=utf-8"
-    },
-    "network_safety_meeting_summary/js/project-workspace.js": {
-      "url": "tp-static/payload/cdc677354fc61d0e987b21a1f0b0cfca712036525465b740c75bd7cee11e770b.bin",
-      "iv": "UPmw2wsosy+fC/FY",
-      "hash": "0a41fe85db2fb1d37f569230ec7c50e8d8cddf9287b797314d0e87ab3778c294",
-      "type": "text/javascript; charset=utf-8"
-    },
-    "network_safety_meeting_summary/js/slide-factory.js": {
-      "url": "tp-static/payload/343a5fb7a6a20c90f0b2ae2b96d57941e36c73c215dcf5e084c254f5fa2c421d.bin",
-      "iv": "7qT/EiXc9ZQ4fQtl",
-      "hash": "d9ed9df8d378d6d135c15f7c9f119d4ea82ae0988695b8d7f0cd1e8980e0482b",
-      "type": "text/javascript; charset=utf-8"
-    },
-    "network_safety_meeting_summary/js/store.js": {
-      "url": "tp-static/payload/a7a695cddf09d0c349d878c659e4c6aa4f01ec76fc48c7d2b2bab790e2d055bb.bin",
-      "iv": "jDPO9cqBDOW1/S4f",
-      "hash": "c87fc6570eab570d9e8ae8e0b0443930319abf7f57645fc5faeab16a57119d42",
-      "type": "text/javascript; charset=utf-8"
-    },
-    "network_safety_meeting_summary/js/test-autofit.js": {
-      "url": "tp-static/payload/43d65f26e5fd1d1fd72bb7b018d37a84f50e54438b06b00a817f48b62ce5247a.bin",
-      "iv": "ruZhBbV3eKatSkut",
-      "hash": "b139ff48d1234980777226da948f44a179db60be8036386da4e5d8812c3bf27b",
-      "type": "text/javascript; charset=utf-8"
-    },
-    "network_safety_meeting_summary/js/vision-pptx.js": {
-      "url": "tp-static/payload/bf2bae42e9d228dc20580295a312c7866b1547e4b903275966d44915d189a39e.bin",
-      "iv": "KBDP5bwtsngmq7lD",
-      "hash": "0e629c5cd07b8b98b8d18d4839991d6c4d82613549693b21c1657a1bd53ada12",
-      "type": "text/javascript; charset=utf-8"
-    },
-    "network_safety_meeting_summary/js/vision-template.js": {
-      "url": "tp-static/payload/5c60586d6ad005eaeba7184ffd642500a8f3f4d3194e417b3582fe5fc6c479b8.bin",
-      "iv": "L2KROCz44hRMsg03",
-      "hash": "80f040e5153a35463ddd6c19da962c54988835f259fa20c37f7932c51bdb956d",
-      "type": "text/javascript; charset=utf-8"
-    },
-    "network_safety_meeting_summary/reference/network_safety_oath_huawei_template_pack.html": {
-      "url": "tp-static/payload/54c76dbf57153b792543ad9394aea41b634b3d3ac8634386aee7860d9000e3ec.bin",
-      "iv": "E2GrVPyY11j3PU7z",
-      "hash": "6bc2feb105ad07df65e51f30fc884f95e6cd74321af4491e318dd3ea776a239f",
-      "type": "text/html; charset=utf-8"
-    },
-    "network_safety_meeting_summary/tailwind.config.js": {
-      "url": "tp-static/payload/15a5949f2189c294be03d6e54edda7118d454f4d29112a15b13584b789320f52.bin",
-      "iv": "fQrJCcRhfs8HgC4S",
-      "hash": "db200ff4fd8216e685a0b04cfc5bd4cb7fd6ba863e8e6a1ea4a5d20545f73ba1",
-      "type": "text/javascript; charset=utf-8"
     },
     "nis_2026h1_summary/index.html": {
       "url": "tp-static/payload/2dd68bb9874f437c4a1b482526bf2b4ef6c94385ad0c031cf0eb6a7be87a5cf1.bin",
@@ -1266,8 +688,8 @@
     },
     "particle-effects/index.html": {
       "url": "tp-static/payload/dbf166f39fba2936ba828fc8da0e0fa716d150b85ce05e0be11c4b0edb5a16be.bin",
-      "iv": "Ctc0hp5gRouYYuIk",
-      "hash": "bdb77954a8171233547583f12d4ed7caf5f140579d56fadb2965ea1a80e92512",
+      "iv": "nUsasZUJpNi2qTe1",
+      "hash": "3f4d22e7ebe34ee53f89fa37e332e971821feedafc4d570455c7180ac0f5e8b3",
       "type": "text/html; charset=utf-8"
     },
     "particle-effects/LICENSE": {
@@ -1282,10 +704,28 @@
       "hash": "bf48661147d17cf99da528449300136decec3564fdf0792db89e3b839792fcd3",
       "type": "application/octet-stream"
     },
+    "picture-island/gallery.css": {
+      "url": "tp-static/payload/895263c4e8c359b3cc0fc980d86f0dedb8564db20673a2b37c776cf0fe20c907.bin",
+      "iv": "1Bw3TEOw5Vkhp1v2",
+      "hash": "90ac5be7630a935acd9dbf34377195ae6cdbce33a4c2734ee988d22c2276ae50",
+      "type": "text/css; charset=utf-8"
+    },
+    "picture-island/gallery.js": {
+      "url": "tp-static/payload/ea3b0197956953499a739695970b54f4cf1db7d15cf811bc8a442e5321e9148a.bin",
+      "iv": "ohl3d9vLw3mnHKnc",
+      "hash": "1f7ea791193b2edb63c2fd91e945d5a46566ef9c14d15935ed05d420c6aef092",
+      "type": "text/javascript; charset=utf-8"
+    },
+    "picture-island/index.html": {
+      "url": "tp-static/payload/ff2e96c053122f7f7e960a1bbbdf39e42916e0bf049f44a27e4a80cb175f15fe.bin",
+      "iv": "cbtkA/RR2I5NoO+5",
+      "hash": "952aef471087e74ee4a7673cf6b3051954b95e18523dc590009229e14ccf9c78",
+      "type": "text/html; charset=utf-8"
+    },
     "portal-data.json": {
       "url": "tp-static/payload/4187a00828abb3180acbb34476f6daf7e5f48cabcd5296e625824e9757bf3d25.bin",
-      "iv": "e7GiHOW2kLXrQrhV",
-      "hash": "d395faba85e8751ef050c65418b754b61d0f1e7e3f937c8865f6b54e0a890c47",
+      "iv": "Ka2ltWpoVunugJSw",
+      "hash": "25e2bd03311e222113391bf66b2fbd27914304d3de8541c11ef2c4c094a55550",
       "type": "application/json; charset=utf-8"
     },
     "pr-2/index.html": {
@@ -1323,6 +763,22 @@
       "hash": "9ba4d3b9e6e28e559e047da97ba345cc3a692c09d2d2e3f11033ea4e39a3a84c",
       "type": "text/html; charset=utf-8"
     },
+    "report/index.html": {
+      "parts": [
+        {
+          "url": "tp-static/payload/a342e184b9f5f7853146b8b4d1ecb54b32359a99502d61c5b9a4f15fc4b8990a.bin",
+          "iv": "trCIOrBgFmeC78iZ",
+          "hash": "286c55798c4b1b4802d761254922370013373965ee162b53979521d89e147d98"
+        },
+        {
+          "url": "tp-static/payload/da8413d1675396fd53b30039ec93df78cefa3a7ffe0085b85e2d0cb387175967.bin",
+          "iv": "YpaBkS0TIO8aL9/R",
+          "hash": "2f74cd7ea12e0e9b85cd39a53185a11a998fe81ac6e16b8d2e95afda037c4012"
+        }
+      ],
+      "hash": "56d55282d2134b26addf8fe964481a951e2ba1ab7eb38e5f4106ec6d65377ae0",
+      "type": "text/html; charset=utf-8"
+    },
     "reward-program/data/applications.json": {
       "url": "tp-static/payload/7854b600c62a3e6afde155c3baddd03a0ad96e5077ae4ee7cc55f730cc6d8099.bin",
       "iv": "d84rWNI8eWTs9hE2",
@@ -1347,6 +803,12 @@
       "hash": "01ff94a871c6c5d925dac75938bf85d9199a9d4cdecafb33e2e67344e4ac067f",
       "type": "text/html; charset=utf-8"
     },
+    "sla/index.html": {
+      "url": "tp-static/payload/65b917c319a463886c4c71cf23770c29aa27f69a9f00d1b23894e8046a10161a.bin",
+      "iv": "2g68rY+plLofRdie",
+      "hash": "459302fdfb036ab0f4f03bd1e8eb968e1d2b21cb580e17dd11a4598d5911d4ff",
+      "type": "text/html; charset=utf-8"
+    },
     "supplier-quotation-comparison/app.js": {
       "url": "tp-static/payload/c3f46a1563a501247b1923770d6e235636b757f96a7a10058d4014d8ff9f0160.bin",
       "iv": "UoUyOWR5uTIhKqTr",
@@ -1367,14 +829,14 @@
     },
     "tool-dining-card-wechat/index.html": {
       "url": "tp-static/payload/1943310520777d30948ac163e057bae479dce17eea0cfa84b7f77ae859d284b1.bin",
-      "iv": "mOoKffM5t+gANksn",
-      "hash": "faa2c17093dbe57fde77785be936c82a5e426cd9a4089492d9e4087cf1553099",
+      "iv": "41Y/HLVtAib2xlfz",
+      "hash": "0e0f3156e057c130bd2999376e831cbe3582c2dcdffe2a4d8c8e3c0b733eab02",
       "type": "text/html; charset=utf-8"
     },
     "tool-mqp55fna/data/surveys.json": {
       "url": "tp-static/payload/4ee8df221a3660cdaab55e3c900e6beb5bd637ab8899a46b2b63450c6a652ba1.bin",
-      "iv": "SqWQfTcLUvOEScZY",
-      "hash": "c39a289f80e8a71e8085137686c395c8f2c467616a02b9ddc0762fdf1f72d64a",
+      "iv": "eijbLX7wstSMaO3W",
+      "hash": "8fc7ce81b1af30f40272f8e8e0df0860a7b34a5df39a35ec26a959a648e85483",
       "type": "application/json; charset=utf-8"
     },
     "tool-mqp55fna/index.html": {
@@ -11624,20 +11086,42 @@
     },
     "tool-mu2t8wi3/index.html": {
       "url": "tp-static/payload/1802b2bd9d5f847b6649ca2b9b36db721f5a9d8497bc2bb69b4a6bbe4f4b1b8d.bin",
-      "iv": "C/I7g1BQlwb54g9u",
-      "hash": "62cbbd0728c296feaf400a1b85fa2c8b458ee00b5ff0dfb8aaf2dbc3c4ef6760",
+      "iv": "+cYJvmrndljejxQz",
+      "hash": "9694c370c46317efb42e03e9aaa3560d9d788d67f1cbc8e15f9e4c0849b912ab",
       "type": "text/html; charset=utf-8"
     },
     "tool-mumxi3px/index.html": {
       "url": "tp-static/payload/75d15759f83fc8f0e3a6cc7c39574b5443a39eabe4bc8bd9a60591224eac6eda.bin",
-      "iv": "omwpRJ57nHP1Z2Rt",
-      "hash": "714b9188d2c9df8c979f648f32b042da02922bf88a7becc71f7449620ef47dd3",
+      "iv": "w1p80o9gIih43b82",
+      "hash": "a9576c6fb53542a305e1d44392964fecb38ef8c2bce99b99679bf9fb423c9760",
       "type": "text/html; charset=utf-8"
     },
     "tool-mv9strpn/index.html": {
       "url": "tp-static/payload/8356283f5ecb826db80c591b4efa3238927d6c0caf97ccbb4136e69bebc4c81a.bin",
       "iv": "/lpDpfJBMTk3x6RU",
       "hash": "51347b35a58505586161c330b37a6383dfbb5d991c426e5adcb8d5a84f934dda",
+      "type": "text/html; charset=utf-8"
+    },
+    "topic-analysis/index.html": {
+      "url": "tp-static/payload/cd28dbcf0c6b39c04f0c291ff8f7756472a9e24123f518853a40e92e16bf083b.bin",
+      "iv": "QOvb8gQy0R0poTGE",
+      "hash": "50625ac880ec6386fb35ad22b7fd58acbce7cd4d7d840123be50dbc9a2400193",
+      "type": "text/html; charset=utf-8"
+    },
+    "uivf12/index.html": {
+      "parts": [
+        {
+          "url": "tp-static/payload/30f5dfac9be824457b348a68e56346e98e3892225a9f16f38d25051df48b42c7.bin",
+          "iv": "k+w2XeqvUKXBpvDL",
+          "hash": "04016aabe387cba597e545b9bd119d07707e9e8300ac6cf176196a1f85739163"
+        },
+        {
+          "url": "tp-static/payload/b3ec7a6f678a7de724affda91226a3b0ce112093932b78085a3797280544ee6a.bin",
+          "iv": "k5DEIP4yShLCmNEo",
+          "hash": "e530b9e680b0a8aa645cd5d2c87a0a929de93e4b6185aea6a1747622fceaf331"
+        }
+      ],
+      "hash": "df1ee23d0570b4e577aa0bce1fde73aa782ca53f0ec9a3844d032a635ecccae2",
       "type": "text/html; charset=utf-8"
     }
   }

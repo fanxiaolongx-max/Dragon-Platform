@@ -192,6 +192,12 @@
             api('GET', '/status'),
             fetch('/api/ai/models', { headers: authHeaders() }).then(res => (res.ok ? res.json() : { items: [] })).catch(() => ({ items: [] }))
         ]);
+        try {
+            const avail = await fetch('/api/channels/available', { headers: authHeaders(), cache: 'no-store' }).then(r => r.json());
+            view.networkPolicy = avail.network || { weixinDisabled: Boolean(avail?.summary?.weixin?.disabledByIntranet) };
+        } catch (_) {
+            view.networkPolicy = { weixinDisabled: false };
+        }
         view.config = config;
         view.draft = clone(config);
         view.draft.sk = '';
@@ -298,6 +304,18 @@
 
     function renderWeixinStatusHtml() {
         const status = view.status || {};
+        const isIntranetDisabled = Boolean(status.disabledByIntranet || view.networkPolicy?.weixinDisabled);
+        if (isIntranetDisabled) {
+            return `
+                <div class="nch-status">
+                    <span class="nch-pill bad"><i></i>${esc(L('华为内网已自动禁用', 'Disabled on Huawei intranet'))}</span>
+                    <span class="nch-pill"><i></i>${esc(L('长轮询：已停止', 'Polling: stopped'))}</span>
+                    <span class="nch-muted">${esc(status.disabledHint || L('华为内网无法访问微信外网服务（ilinkai.weixin.qq.com）', 'Cannot reach WeChat on Huawei intranet'))}</span>
+                </div>
+                <div class="nch-alert" style="background:#fef3c7;border-color:#fde68a;color:#92400e;margin-top:12px">
+                    🌐 <strong>${esc(L('华为内网环境提示', 'Huawei Intranet Notice'))}</strong>：${esc(status.disabledHint || L('当前系统处于华为内网环境，无法连接微信外网服务器（ilinkai.weixin.qq.com）。微信助理所有功能（长轮询、扫码登录、主动推送等）已自动禁用。如需在平台中使用频道推送与协同，请使用 WeLink 频道。', 'The system is running on the Huawei intranet and cannot reach the WeChat server (ilinkai.weixin.qq.com). All WeChat assistant features are automatically disabled. Please use WeLink instead.'))}
+                </div>`;
+        }
         const summary = status.summary || {};
         const running = Boolean(status.runtime && status.runtime.state !== 'idle');
         const busy = view.busy;
@@ -405,21 +423,23 @@
     function renderWeixinConnectionCard() {
         const d = view.draft;
         const qr = view.qr;
+        const disabled = Boolean(view.status?.disabledByIntranet || view.networkPolicy?.weixinDisabled);
         return `
             <h4>🔌 ${esc(L('连接配置', 'Connection'))}</h4>
             <p class="nch-desc">${esc(L('平台通过微信 ClawBot（iLink 协议，与 OpenClaw 微信插件同一套接口）接入个人微信：可直接导入本机 OpenClaw 已登录的 bot，或在这里扫码登录一个。配置按数据空间隔离。', 'The platform connects to personal WeChat via ClawBot (iLink, the same API as the OpenClaw WeChat plugin): import the bot already linked in local OpenClaw, or scan to link one here. Settings are for this platform.'))}</p>
-            <label class="nch-switch" style="margin-bottom:12px"><input type="checkbox" data-path="enabled" ${d.enabled ? 'checked' : ''}> ${esc(L('启用微信助理（保存后自动连接，平台重启后自动恢复）', 'Enable WeChat assistant (connects after saving and on platform start)'))}</label>
+            ${disabled ? `<div class="nch-alert" style="background:#fef3c7;border-color:#fde68a;color:#92400e;margin-bottom:12px">🌐 <strong>${esc(L('华为内网环境提示', 'Huawei Intranet Notice'))}</strong>：${esc(view.status?.disabledHint || L('当前检测到华为内网环境，无法访问微信外网服务（ilinkai.weixin.qq.com），微信配置与连接已自动锁定禁用。', 'Huawei intranet environment detected; WeChat servers unreachable, assistant configuration locked.'))}</div>` : ''}
+            <label class="nch-switch" style="margin-bottom:12px;${disabled ? 'opacity:0.6;cursor:not-allowed' : ''}"><input type="checkbox" data-path="enabled" ${d.enabled && !disabled ? 'checked' : ''} ${disabled ? 'disabled' : ''}> ${esc(disabled ? L('启用微信助理（华为内网已自动禁用）', 'Enable WeChat assistant (disabled on Huawei intranet)') : L('启用微信助理（保存后自动连接，平台重启后自动恢复）', 'Enable WeChat assistant (connects after saving and on platform start)'))}</label>
             <div class="nch-grid">
-                ${field('Bot Token', `<input type="password" data-path="token" value="" maxlength="500" autocomplete="new-password" placeholder="${esc(view.config.hasToken ? L(`已保存 ${view.config.maskedToken}，留空不修改`, `Saved ${view.config.maskedToken}; leave blank to keep`) : L('未设置，建议扫码或从 OpenClaw 导入', 'Not set; scan or import from OpenClaw'))}">`, L('只在服务端保存，界面与日志只显示掩码', 'Stored server-side only; masked in UI and logs'))}
-                ${field(L('接口地址', 'API base URL'), input('baseUrl', d.baseUrl, 'maxlength="500"'), L('扫码或导入时自动填写，一般无需修改', 'Filled by login/import; usually unchanged'))}
-                ${field('Bot Agent', input('botAgent', d.botAgent, 'maxlength="120"'), L('上报给微信的客户端标识（Name/Version）', 'Client identity reported to WeChat (Name/Version)'))}
+                ${field('Bot Token', `<input type="password" data-path="token" value="" maxlength="500" autocomplete="new-password" ${disabled ? 'disabled ' : ''}placeholder="${esc(view.config.hasToken ? L(`已保存 ${view.config.maskedToken}，留空不修改`, `Saved ${view.config.maskedToken}; leave blank to keep`) : L('未设置，建议扫码或从 OpenClaw 导入', 'Not set; scan or import from OpenClaw'))}">`, L('只在服务端保存，界面与日志只显示掩码', 'Stored server-side only; masked in UI and logs'))}
+                ${field(L('接口地址', 'API base URL'), input('baseUrl', d.baseUrl, `${disabled ? 'disabled ' : ''}maxlength="500"`), L('扫码或导入时自动填写，一般无需修改', 'Filled by login/import; usually unchanged'))}
+                ${field('Bot Agent', input('botAgent', d.botAgent, `${disabled ? 'disabled ' : ''}maxlength="120"`), L('上报给微信的客户端标识（Name/Version）', 'Client identity reported to WeChat (Name/Version)'))}
             </div>
             <div class="nch-row">
-                <button type="button" class="nch-btn primary" data-action="qr" ${qr && qr.running ? 'disabled' : ''}>📱 ${esc(qr && qr.running ? L('等待扫码…', 'Waiting for scan…') : L('扫码登录', 'Scan to link'))}</button>
-                ${view.config.hasToken ? `<button type="button" class="nch-btn danger" data-action="clear-token">${esc(L('清除已保存 Token', 'Clear saved token'))}</button>` : ''}
-                <span class="nch-muted">${esc(L('用手机微信扫码并确认，成功后自动保存凭据并连接。', 'Scan with WeChat and confirm; credentials are saved and connected automatically.'))}</span>
+                <button type="button" class="nch-btn primary" data-action="qr" ${qr && qr.running || disabled ? 'disabled' : ''}>📱 ${esc(qr && qr.running ? L('等待扫码…', 'Waiting for scan…') : L('扫码登录', 'Scan to link'))}</button>
+                ${view.config.hasToken ? `<button type="button" class="nch-btn danger" data-action="clear-token" ${disabled ? 'disabled' : ''}>${esc(L('清除已保存 Token', 'Clear saved token'))}</button>` : ''}
+                <span class="nch-muted">${esc(disabled ? L('内网环境下无法与微信服务器建立连接，扫码已停用。', 'Cannot connect to WeChat server on intranet; QR disabled.') : L('用手机微信扫码并确认，成功后自动保存凭据并连接。', 'Scan with WeChat and confirm; credentials are saved and connected automatically.'))}</span>
             </div>
-            ${qr ? renderQr(qr) : ''}`;
+            ${qr && !disabled ? renderQr(qr) : ''}`;
     }
 
     function renderConnectionCard() {
@@ -491,7 +511,10 @@
             <div class="nch-grid">
                 ${field(L('回复引擎', 'Reply engine'), `<select data-path="replyEngine"><option value="dragon-claw" ${d.replyEngine === 'dragon-claw' ? 'selected' : ''}>Dragon Claw ${esc(L('智能回复', 'AI reply'))}</option><option value="rule" ${d.replyEngine === 'rule' ? 'selected' : ''}>${esc(L('规则回复（不调用模型）', 'Rule reply (no model)'))}</option></select>`)}
                 ${field(L('对话模型', 'Model'), `<select data-path="modelId"><option value="">${esc(L('跟随当前激活方案', 'Follow active profile'))}</option>${modelOptions}</select>`, L('来自「AI 助手」中的模型映射', 'From model aliases in AI settings'))}
-                <label class="nch-switch" style="align-self:end;height:32px"><input type="checkbox" data-path="slashCommandsEnabled" ${d.slashCommandsEnabled ? 'checked' : ''}> ${esc(L('启用斜杠命令 /help /new /whoami /status', 'Enable slash commands /help /new /whoami /status'))}</label>
+                <div class="nch-field">
+                    <span>${esc(L('便捷指令', 'Shortcuts'))}</span>
+                    <label class="nch-switch" style="height:32px"><input type="checkbox" data-path="slashCommandsEnabled" ${d.slashCommandsEnabled ? 'checked' : ''}> ${esc(L('启用斜杠命令 /help /new /whoami /status', 'Enable slash commands /help /new /whoami /status'))}</label>
+                </div>
                 ${field(L('无权限时的回复', 'Reply when access is denied'), `<textarea data-path="deniedReply" maxlength="500">${esc(d.deniedReply)}</textarea>`, L('留空则静默不回复', 'Leave blank to stay silent'), true)}
             </div>`;
     }
@@ -526,10 +549,24 @@
     }
 
     function renderAccessCard() {
+        const superAdmins = Array.isArray(view.draft.superAdmins) ? view.draft.superAdmins : [];
+        const chips = superAdmins.length
+            ? superAdmins.map((id, index) => `<span class="nch-chip" title="${esc(id)}"><span>👑 ${esc(id)}</span><button type="button" aria-label="remove" data-action="super-admin-remove" data-index="${index}">×</button></span>`).join('')
+            : `<span class="nch-muted">${esc(isWeixin() ? L('默认自动识别扫码绑定者本人；可添加其他特权管理员微信 ID', 'Defaults to Bot QR owner; add extra super admins if needed') : L('默认自动识别本机登录的 WeLink 工号；可在此添加同事工号以开放完全控制权限', 'Defaults to local WeLink CLI UID; add colleague IDs here for full access'))}</span>`;
         return `
             <h4>🛡️ ${esc(L('访问控制（黑白名单）', 'Access control'))}</h4>
             <p class="nch-desc">${esc(L('消息需同时通过人员规则与群组规则（群聊时）才会被处理；主动推送同样遵守。白名单模式下只有名单内可用，黑名单模式下名单内被禁止。不知道账号或群 ID 时，可让对方给助理发送 /whoami 查看。', 'A message must pass the people rule and, in groups, the group rule. Pushes follow the same rules. Ask someone to send /whoami to the assistant to find their account or group ID.'))}</p>
-            <div class="nch-access">${renderAccessColumn('users')}${renderAccessColumn('groups')}</div>`;
+            <div class="nch-access">${renderAccessColumn('users')}${renderAccessColumn('groups')}</div>
+            <div style="margin-top:16px;padding-top:14px;border-top:1px dashed #e2e8f0">
+                <h5>👑 ${esc(L('超级管理员名单（单聊完全访问）', 'Super Admins (Full DM Access)'))}</h5>
+                <p class="nch-desc">${esc(L('名单内的用户与助理单聊时，直接获得宿主机超级管理员权限（完全访问系统、工作区及磁盘文件，如查看下载目录等）。群聊不受影响，群聊依然执行严格沙箱隔离。', 'Super admins in direct chat have full host access (system files, download directories, command execution). Group chats remain strictly sandboxed.'))}</p>
+                <div class="nch-chips" style="margin-bottom:8px">${chips}</div>
+                <div class="nch-row">
+                    <button type="button" class="nch-btn" data-action="super-admin-pick">${esc(L('从历史选择', 'Pick from history'))}</button>
+                    <input data-role="super-admin-input" maxlength="200" placeholder="${esc(isWeixin() ? L('或直接输入微信 ID，回车添加', 'Or enter WeChat ID, Enter to add') : L('或直接输入工号/账号，回车添加', 'Or enter WeLink ID, Enter to add'))}">
+                    ${superAdmins.length ? `<button type="button" class="nch-link danger" data-action="super-admin-clear">${esc(L('清空', 'Clear'))}</button>` : ''}
+                </div>
+            </div>`;
     }
 
     function renderPushCard() {
@@ -639,7 +676,11 @@ await channels.push({ channel: '${view.channel}', text: '告警：xxx', targets:
     function render() {
         const content = view.content;
         if (!content || !view.draft) return;
-        const tabs = `<div class="nch-tabs">${CHANNEL_TABS.map(tab => `<button type="button" class="nch-tab ${tab.id === view.channel ? 'active' : ''}" data-action="channel-tab" data-channel="${tab.id}">${tab.icon} ${esc(L(tab.label[0], tab.label[1]))}${tab.id === view.channel && !PANELS[tab.id] ? `<i class="${view.status?.connected ? 'ok' : ''}"></i>` : ''}</button>`).join('')}</div>`;
+        const tabs = `<div class="nch-tabs">${CHANNEL_TABS.map(tab => {
+            const isWxDisabled = tab.id === 'weixin' && (view.status?.disabledByIntranet || view.networkPolicy?.weixinDisabled);
+            const badge = isWxDisabled ? ` <span class="nch-pill warn" style="padding:1px 6px;font-size:10px;margin-left:4px">${esc(L('内网禁用', 'Disabled'))}</span>` : '';
+            return `<button type="button" class="nch-tab ${tab.id === view.channel ? 'active' : ''}" data-action="channel-tab" data-channel="${tab.id}">${tab.icon} ${esc(L(tab.label[0], tab.label[1]))}${badge}${tab.id === view.channel && !PANELS[tab.id] ? `<i class="${view.status?.connected ? 'ok' : ''}"></i>` : ''}</button>`;
+        }).join('')}</div>`;
         if (isPanel()) {
             content.innerHTML = `<div class="nch">${tabs}<div data-role="panel-root" style="display:flex;flex-direction:column;gap:14px"></div></div>`;
             window[PANELS[view.channel].global].render(content.querySelector('[data-role="panel-root"]'));
@@ -651,6 +692,7 @@ await channels.push({ channel: '${view.channel}', text: '告警：xxx', targets:
                 <section class="nch-card" data-role="status-card"></section>
                 <section class="nch-card">${renderConnectionCard()}</section>
                 ${isWeixin() ? '' : '<section class="nch-card" data-role="welink-cli-card"></section>'}
+                ${isWeixin() ? '' : '<section class="nch-card" data-role="welink-slash-commands-card"></section>'}
                 <section class="nch-card">${renderBehaviorCard()}</section>
                 <section class="nch-card" data-role="access-card">${renderAccessCard()}</section>
                 <section class="nch-card" data-role="push-card">${renderPushCard()}</section>
@@ -665,6 +707,7 @@ await channels.push({ channel: '${view.channel}', text: '告警：xxx', targets:
         renderStatusCard();
         bindMessageLog();
         renderWelinkCliCard();
+        renderWelinkSlashCommandsCard();
     }
 
     // 个人身份（welink-cli）卡片独立维护状态，按需加载（welink-cli-settings.js）
@@ -673,6 +716,15 @@ await channels.push({ channel: '${view.channel}', text: '告警：xxx', targets:
         if (!el) return;
         loadScript('./tp-static/frontend/js/shared/welink-cli-settings.js', 'ToolsWelinkCli')
             .then(() => { if (document.body.contains(el)) window.ToolsWelinkCli.render(el); })
+            .catch(error => { el.innerHTML = `<p class="nch-desc">${esc(error.message)}</p>`; });
+    }
+
+    // WeLink 斜杠命令管理卡片（测试版 / Beta）按需加载（welink-slash-commands-settings.js）
+    function renderWelinkSlashCommandsCard() {
+        const el = view.content?.querySelector('[data-role="welink-slash-commands-card"]');
+        if (!el) return;
+        loadScript('./tp-static/frontend/js/shared/welink-slash-commands-settings.js', 'ToolsWelinkSlashCommands')
+            .then(() => { if (document.body.contains(el)) window.ToolsWelinkSlashCommands.render(el); })
             .catch(error => { el.innerHTML = `<p class="nch-desc">${esc(error.message)}</p>`; });
     }
 
@@ -962,6 +1014,31 @@ await channels.push({ channel: '${view.channel}', text: '告警：xxx', targets:
             markDirty();
             return rerenderSection('access-card', renderAccessCard());
         }
+        if (action === 'super-admin-pick') {
+            if (!Array.isArray(view.draft.superAdmins)) view.draft.superAdmins = [];
+            const picked = await window.ToolsChannels.pickTargets({
+                channel: view.channel,
+                title: L('选择超级管理员（单聊完全访问）', 'Choose Super Admins'),
+                kind: 'user',
+                lockKind: true,
+                selected: view.draft.superAdmins.map(id => ({ kind: 'user', id }))
+            });
+            if (!picked) return;
+            view.draft.superAdmins = picked.map(item => item.id);
+            markDirty();
+            return rerenderSection('access-card', renderAccessCard());
+        }
+        if (action === 'super-admin-remove') {
+            if (!Array.isArray(view.draft.superAdmins)) view.draft.superAdmins = [];
+            view.draft.superAdmins.splice(Number(button.dataset.index), 1);
+            markDirty();
+            return rerenderSection('access-card', renderAccessCard());
+        }
+        if (action === 'super-admin-clear') {
+            view.draft.superAdmins = [];
+            markDirty();
+            return rerenderSection('access-card', renderAccessCard());
+        }
         if (action === 'push-pick') {
             const picked = await window.ToolsChannels.pickTargets({
                 channel: view.channel,
@@ -1059,6 +1136,19 @@ await channels.push({ channel: '${view.channel}', text: '告警：xxx', targets:
             addAccessId(match[1], el.value);
             rerenderSection('access-card', renderAccessCard());
             view.content.querySelector(`[data-role="access-input-${match[1]}"]`)?.focus();
+        }
+        if (el.dataset.role === 'super-admin-input' && event.key === 'Enter') {
+            event.preventDefault();
+            const val = String(el.value || '').trim();
+            if (val) {
+                if (!Array.isArray(view.draft.superAdmins)) view.draft.superAdmins = [];
+                if (!view.draft.superAdmins.includes(val)) {
+                    view.draft.superAdmins.push(val);
+                    markDirty();
+                    rerenderSection('access-card', renderAccessCard());
+                }
+            }
+            view.content.querySelector('[data-role="super-admin-input"]')?.focus();
         }
     }
 

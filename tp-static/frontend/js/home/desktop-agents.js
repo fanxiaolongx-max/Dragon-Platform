@@ -156,7 +156,8 @@
     function current(epoch, session) { return epoch === state.viewEpoch && identity() === state.identity && state.active && key(state.active) === key(session); }
     function openFirst() {
         if (!state.visible || !autoSelect || !state.lastSync || state.drafting) return;
-        const candidates=state.items.filter(item=>item.provider===state.provider);const first=window.HomeConversationList?.latest(candidates,{source:'desktop:'+state.provider,id:item=>item.id,date:item=>item.updatedAt})||candidates.filter(item=>!window.HomeConversationList?.get('desktop:'+state.provider,item.id).hidden&&!window.HomeConversationList?.get('desktop:'+state.provider,item.id).archived).sort((a,b)=>(Date.parse(b.updatedAt)||0)-(Date.parse(a.updatedAt)||0))[0];
+        const stamp=val=>window.HomeConversationList?.stamp?.(val)||(Date.parse(/Z$|[+-]\d{2}:?\d{2}$/.test(String(val||''))?String(val||''):`${String(val||'').replace(' ','T')}Z`)||0);
+        const candidates=state.items.filter(item=>item.provider===state.provider);const first=window.HomeConversationList?.latest(candidates,{source:'desktop:'+state.provider,id:item=>item.id,date:item=>item.updatedAt})||candidates.filter(item=>!window.HomeConversationList?.get('desktop:'+state.provider,item.id).hidden&&!window.HomeConversationList?.get('desktop:'+state.provider,item.id).archived).sort((a,b)=>stamp(b.updatedAt)-stamp(a.updatedAt))[0];
         if (first) { open(first); return; }
         const api=window.DragonClaw?.enterExternal?.({owner:'desktop-agent',onExit:exit});
         if (!api) return;
@@ -327,8 +328,10 @@
                 attachments = document.createElement('div');
                 attachments.className = 'dc-msg-attachments';
                 attachments.dataset.desktopAttachments = '1';
-                node.querySelector('.dc-msg-body').after(attachments);
             }
+            // 用户长文字的展开/收起按钮属于正文，附件始终排在按钮之后。
+            const anchor = main.querySelector('[data-dc-message-toggle]') || main.querySelector('.dc-msg-body');
+            if (attachments.previousElementSibling !== anchor) anchor.after(attachments);
             morph(attachments, files.map(file => window.ChatFiles.chipHtml(file.path, file.name)).join(''));
             window.ChatFiles.hydrate(attachments);
         } else attachments?.remove();
@@ -491,6 +494,7 @@
             const data = await request('GET', `/${session.provider}/sessions/${encodeURIComponent(session.id)}/messages${initial ? '' : '?passive=1'}`, undefined, AbortSignal.timeout(45000));
             if (!current(epoch, session))
                 return;
+            const followBottom = initial || state.api.isNearBottom();
             if (data.stale)
                 data.items = state.detail?.items || [];
             // 发送后到 Agent 开始处理之间日志可能还没更新：先保持“已发送”状态，最多等一分钟
@@ -522,6 +526,9 @@
                 schedule(epoch, session);
             if (initial && historyLoad?.status !== 'loading') // 淡入只在首次打开时做；轮询时做会让整个消息区每隔几秒闪一下
                 state.api.finishLoading();
+            // Composer and workspace updates resize/reflow the timeline after
+            // renderThread. Restore the bottom only after the whole layout is ready.
+            if (followBottom) state.api.scrollToBottom();
         }
         catch (error) {
             if (current(epoch, session)) {
@@ -633,6 +640,8 @@
     window.HomeDesktopAgents = {
         available: () => localStorage.getItem('tools_role') === 'admin' && anyProviderEnabled(),
         getItems: () => (state.items || []).slice(),
+        enabledProviders: () => localStorage.getItem('tools_role') === 'admin' && state.settings?.enabled
+            ? Object.entries(names).filter(([id]) => state.settings.providers?.[id]).map(([id, label]) => ({ id, label })) : [],
         // 侧栏转圈：打开中的会话用实时详情（含刚发送待响应），其他会话用列表接口的 busy
         isBusy: (provider, id) => {
             if (state.active && state.active.provider === provider && state.active.id === id) return Boolean(state.detail?.busy || state.pending);

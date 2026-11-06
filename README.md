@@ -55,6 +55,14 @@
 | 薪资换汇 | `tool-mu2t8i0i` | 用于驻外薪资换汇盈亏测算，支持美元、埃镑和人民币汇率转换，按发薪日期与实际成交价比较收益变化。 | [打开页面](./tool-mu2t8i0i/index.html) |
 | 就餐统计\(微信\) | `tool-mu2t8wi3` | 读取微信账单文件并按金额与开罗时间规则统计早餐、中餐、晚餐人数，支持多文件汇总及分文件明细导出。 | [打开页面](./tool-mu2t8wi3/index.html) |
 | 译维仓储管理 | `tool-mv9strpn` | 译维仓储管理工具，支持货品档案、出入库、库存盘点、条码与资金账单。业务数据按租户保存到独立服务器 SQLite 数据库，支持 JSON 备份、旧浏览器数据迁移和数据库下载。 | [打开页面](./tool-mv9strpn/index.html) |
+| 数据抓取 | `uivf12` | 平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data | [打开页面](./uivf12/index.html) |
+| 数据导入 | `sla` | 平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data | [打开页面](./sla/index.html) |
+| 报表看板 | `report` | 平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data | [打开页面](./report/index.html) |
+| 一键催办 | `expedite` | 平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data | [打开页面](./expedite/index.html) |
+| 月报页面 | `monthly` | 平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data | [打开页面](./monthly/index.html) |
+| 专题分析 | `topic-analysis` | 平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data | [打开页面](./topic-analysis/index.html) |
+| 大屏看板 | `bigscreen` | 当前报表、趋势、负责人和中英文配置的只读大屏。 | [打开页面](./bigscreen/index.html) |
+| 图屿 | `picture-island` | 海报版本与生活图片的一站式图库：快速搜索、历史对比、自动压缩与 AI 分类，菜单收藏随时找。 | [打开页面](./picture-island/index.html) |
 
 > 工具页面仅供查看；需要修改业务数据时，请返回 Dragon Claw 联系管理员。
 <!-- tools-platform:guide:end -->

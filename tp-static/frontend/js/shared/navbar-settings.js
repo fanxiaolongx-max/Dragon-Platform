@@ -1809,21 +1809,26 @@ function applyToolEstimateResult(toolSlug, res, badge, item, warnRow) {
     if (!badge || !res || !item?.isConnected) return;
     const countText = snapshotText(`${res.fileCount} 个文件`, `${res.fileCount} files`);
     const sizeText = res.totalSizeFormatted || '0 B';
-    const blocked = res.isHeavy || res.supported === false;
+    const reduced = res.demoLevel === 'latest' || res.demoLevel === 'empty';
+    const blocked = (res.isHeavy && !reduced) || res.supported === false;
     item.dataset.estimateState = blocked ? 'blocked' : 'ready';
     const checkbox = document.getElementById('snapshotToolEnabled_' + toolSlug);
     if (checkbox) {
         checkbox.disabled = blocked;
         checkbox.checked = !blocked && item.dataset.requestedEnabled === '1';
     }
-    badge.className = 'snapshot-tool-size-badge badge-' + (blocked ? 'danger' : res.warningLevel || 'normal');
+    badge.className = 'snapshot-tool-size-badge badge-' + (blocked ? 'danger' : reduced ? 'warning' : res.warningLevel || 'normal');
     badge.title = snapshotText('点击重新预估此工具大小', 'Click to re-estimate data volume');
     badge.innerHTML = `${blocked ? '⚠️ ' : ''}<span class="snapshot-size-text">${navEscape(countText)} · ${navEscape(sizeText)}</span>`;
     item.classList.toggle('snapshot-tool-heavy', blocked);
     if (warnRow) {
-        warnRow.style.display = blocked ? 'flex' : 'none';
+        warnRow.style.display = blocked || reduced ? 'flex' : 'none';
         warnRow.className = 'snapshot-tool-warning-row snapshot-heavy-warning';
-        warnRow.textContent = blocked ? snapshotText('批量与定时推送自动跳过，已发布版本保留。请打开该工具，在顶部选择“强制推送”单独更新；不会截断历史数据。', 'Skipped in bulk and scheduled publishing; the published version is retained. Open this tool and use Force publish from its top menu. History is preserved.') : '';
+        warnRow.textContent = res.demoLevel === 'latest'
+            ? snapshotText('完整快照超限，自动发布仅包含最新数据的演示。', 'The full snapshot exceeds the size limit. Only the latest data will be published.')
+            : res.demoLevel === 'empty'
+                ? snapshotText('快照数据超限，自动发布不带业务数据的演示页面。', 'Snapshot data exceeds the size limit. The demo page will be published without business data.')
+                : blocked ? snapshotText('批量与定时推送自动跳过，已发布版本保留。请打开该工具，在顶部选择“强制推送”单独更新；不会截断历史数据。', 'Skipped in bulk and scheduled publishing; the published version is retained. Open this tool and use Force publish from its top menu. History is preserved.') : '';
     }
 }
 
@@ -2222,7 +2227,7 @@ function renderMediaSettingsHtml(content, overview, videos, categories) {
                     <button type="button" class="sys-btn" onclick="openImportLocalMediaModal()" style="background:#0ea5e9; color:#fff; border:none; border-radius:6px; padding:6px 12px; font-size:13px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">
                         <span>📥</span> 本地目录一键导入
                     </button>
-                    <a href="/cinema" target="_blank" style="text-decoration:none; background:#f8fafc; color:#334155; border:1px solid #cbd5e1; border-radius:6px; padding:6px 12px; font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:4px;">
+                    <a href="${navToolShellUrl('/cinema')}" target="_blank" style="text-decoration:none; background:#f8fafc; color:#334155; border:1px solid #cbd5e1; border-radius:6px; padding:6px 12px; font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:4px;">
                         <span>🎬</span> 预览点播大厅 ↗
                     </a>
                 </div>
@@ -3983,7 +3988,7 @@ function renderDutyRosterPageSettings(content) {
                 <div class="nav-page-config-title">${navEscape(text('夜间运维值班表管理', 'Night Operation Duty Roster Management'))}</div>
                 <div class="nav-page-config-desc">${navEscape(text('值班表采用专属独立编辑工作区，支持月份切换、一键引入上月人员、中英文切换及快捷保存。', 'The duty roster has a dedicated editing workspace supporting month switching, last-month import, bilingual toggles, and server sync.'))}</div>
                 <div style="margin-top: 14px;">
-                    <a href="/duty-roster" target="_blank" class="nav-settings-add" style="display:inline-flex;align-items:center;text-decoration:none;padding:6px 14px;font-size:13px;font-weight:600;border-radius:6px;background:#312e81;color:#fff;border:none;">
+                    <a href="${navToolShellUrl('/duty-roster')}" target="_blank" class="nav-settings-add" style="display:inline-flex;align-items:center;text-decoration:none;padding:6px 14px;font-size:13px;font-weight:600;border-radius:6px;background:#312e81;color:#fff;border:none;">
                         🌙 ${navEscape(text('打开夜间运维值班表编辑器 ↗', 'Open Duty Roster Editor ↗'))}
                     </a>
                 </div>
