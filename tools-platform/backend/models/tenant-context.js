@@ -3,10 +3,13 @@ const fs = require('fs');
 const path = require('path');
 
 const DEFAULT_TENANT_ID = 'default';
-const BASE_DATA_DIR = path.resolve(process.env.TOOLS_DATA_DIR || path.join(__dirname, '../data'));
-const BASE_REPORT_DATA_DIR = path.resolve(process.env.TOOLS_REPORT_DATA_DIR
-    || (process.env.TOOLS_DATA_DIR ? BASE_DATA_DIR : path.join(__dirname, '../../data')));
-const TENANTS_ROOT = path.join(BASE_DATA_DIR, 'tenants');
+function getBaseDataDir() {
+    return path.resolve(process.env.TOOLS_DATA_DIR || path.join(__dirname, '../data'));
+}
+function getBaseReportDataDir() {
+    return path.resolve(process.env.TOOLS_REPORT_DATA_DIR
+        || (process.env.TOOLS_DATA_DIR ? getBaseDataDir() : path.join(__dirname, '../../data')));
+}
 const storage = new AsyncLocalStorage();
 
 function normalizeTenantId(value) {
@@ -24,12 +27,13 @@ function runWithTenant(tenantId, callback) {
 
 function getDataDir(tenantId = getTenantId()) {
     const id = normalizeTenantId(tenantId);
-    return id === DEFAULT_TENANT_ID ? BASE_DATA_DIR : path.join(TENANTS_ROOT, id);
+    const base = getBaseDataDir();
+    return id === DEFAULT_TENANT_ID ? base : path.join(base, 'tenants', id);
 }
 
 function getReportDataDir(tenantId = getTenantId()) {
     const id = normalizeTenantId(tenantId);
-    return id === DEFAULT_TENANT_ID ? BASE_REPORT_DATA_DIR : getDataDir(id);
+    return id === DEFAULT_TENANT_ID ? getBaseReportDataDir() : getDataDir(id);
 }
 
 function ensureTenantDirs(tenantId = getTenantId()) {
@@ -45,10 +49,10 @@ function tenantMiddleware(req, _res, next) {
 }
 
 module.exports = {
-    BASE_DATA_DIR,
-    BASE_REPORT_DATA_DIR,
+    get BASE_DATA_DIR() { return getBaseDataDir(); },
+    get BASE_REPORT_DATA_DIR() { return getBaseReportDataDir(); },
     DEFAULT_TENANT_ID,
-    TENANTS_ROOT,
+    get TENANTS_ROOT() { return path.join(getBaseDataDir(), 'tenants'); },
     ensureTenantDirs,
     getDataDir,
     getReportDataDir,

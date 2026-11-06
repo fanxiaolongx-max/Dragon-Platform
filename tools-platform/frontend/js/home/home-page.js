@@ -1448,6 +1448,8 @@
                 card.className = `tool-card custom-tool${tool.hostedApp ? ' is-hosted-app' : ''}`;
                 card.dataset.customToolCard = '1';
                 card.dataset.toolSlug = tool.slug;
+                const time = tool.updatedAt || tool.createdAt || '';
+                if (time) card.dataset.updatedAt = time;
                 card.style.setProperty('--card-accent', ['#38bdf8', '#34d399', '#f97316', '#e879f9'][index % 4]);
                 card.innerHTML = `
                     <div class="custom-tool-actions">
@@ -1481,6 +1483,7 @@
                     secondaryLabelKey: 'home.impact.onlineTool'
                 });
             });
+            window.HomeWorkspace?.syncToolUpdates?.(tools);
         }
 
         async function loadCustomTools() {
@@ -1867,6 +1870,7 @@
                     showToast(t(pythonImport ? (pythonImport.updateSlug ? 'home.import.pyUpdated' : 'home.import.pyImported') : 'home.toast.imported'));
                     await loadCustomTools();
                     if (window.refreshCustomToolNavLinks) await window.refreshCustomToolNavLinks();
+                    window.dispatchEvent(new CustomEvent('home:tools-updated'));
                 } catch (e) {
                     logUpload({ message: t('home.alert.importFailed', { message: e.message }) });
                     showImportError(t('home.alert.importFailed', { message: e.message }));
@@ -2363,6 +2367,7 @@
                     progressBar.style.width = '100%';
                     await loadCustomTools();
                     if (window.refreshCustomToolNavLinks) await window.refreshCustomToolNavLinks();
+                    window.dispatchEvent(new CustomEvent('home:tools-updated'));
                 } catch (error) {
                     appendLog(text(`更新流程失败：${error.message}`, `Update workflow failed: ${error.message}`));
                     message.textContent = text(`更新失败：${error.message}`, `Update failed: ${error.message}`);
@@ -2390,7 +2395,7 @@
 
         // 卡片中心的圆环下载进度：有 Content-Length 时显示百分比，否则显示转动的圆环；完成后打勾淡出
         function showCardDownloadProgress(slug) {
-            const card = document.querySelector(`.custom-tool[data-tool-slug="${CSS.escape(slug)}"]`);
+            const card = document.querySelector(`.custom-tool[data-tool-slug="${CSS.escape(slug)}"], .v2-hub-card[data-hub-key="tool:custom:${CSS.escape(slug)}"]`);
             if (!card) return { update() {}, done() {}, fail() {} };
             card.querySelector('.card-download-progress')?.remove();
             const RADIUS = 20;
@@ -2506,38 +2511,48 @@
             const tool = (window.__homeCustomTools || []).find(item => item.slug === slug);
             const title = document.querySelector(`[data-custom-tool-card="1"][data-tool-slug="${CSS.escape(slug)}"] .card-title`)?.cloneNode(true);
             title?.querySelectorAll('.new-badge, .tool-kind-badge').forEach(node => node.remove());
-            const currentName = tool?.name || title?.textContent?.replace(/\s+/g, ' ').trim() || '';
+            const currentName = tool?.name || title?.textContent?.replace(/\s+/g, ' ').trim() || slug;
             const name = await AppDialog.prompt(t('home.prompt.rename'), { title: t('home.dialog.renameTitle'), defaultValue: currentName, maxLength: 80, confirmText: t('home.dialog.save') });
-            if (name === null || name.trim() === currentName) return;
+            if (name === null || name.trim() === currentName) return null;
             if (!name.trim()) {
                 showToast(t('home.alert.renameFailed', { message: t('home.validation.nameRequired') }), 'warning');
-                return;
+                return null;
             }
             if (name.trim().length > 80) {
                 showToast(t('home.alert.renameFailed', { message: t('home.validation.nameTooLong') }), 'warning');
-                return;
+                return null;
             }
             try {
                 await API.patch(`/api/custom-tools/${encodeURIComponent(slug)}/name`, { name: name.trim() });
                 showToast(t('home.toast.renamed'));
                 await loadCustomTools();
                 if (window.refreshCustomToolNavLinks) await window.refreshCustomToolNavLinks();
+                window.dispatchEvent(new CustomEvent('home:tools-updated'));
+                return name.trim();
             } catch (e) {
                 AppDialog.alert(t('home.alert.renameFailed', { message: e.message }), { title: t('home.dialog.failed'), tone: 'error' });
+                return null;
             }
         }
 
         async function deleteCustomTool(slug) {
-            if (!await AppDialog.confirm(t('home.confirm.delete'), { title: t('home.dialog.deleteTitle'), tone: 'danger', confirmText: t('home.dialog.delete') })) return;
+            if (!await AppDialog.confirm(t('home.confirm.delete'), { title: t('home.dialog.deleteTitle'), tone: 'danger', confirmText: t('home.dialog.delete') })) return false;
             try {
                 await API.delete(`/api/custom-tools/${encodeURIComponent(slug)}`);
                 showToast(t('home.toast.deleted'));
                 await loadCustomTools();
                 if (window.refreshCustomToolNavLinks) await window.refreshCustomToolNavLinks();
+                window.dispatchEvent(new CustomEvent('home:tools-updated'));
+                return true;
             } catch (e) {
                 AppDialog.alert(t('home.alert.deleteFailed', { message: e.message }), { title: t('home.dialog.failed'), tone: 'error' });
+                return false;
             }
         }
+
+        window.downloadCustomTool = downloadCustomTool;
+        window.renameCustomTool = renameCustomTool;
+        window.deleteCustomTool = deleteCustomTool;
 
         window.addEventListener('tools:languagechange', () => {
             applyHomeI18n();

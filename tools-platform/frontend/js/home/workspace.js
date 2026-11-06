@@ -123,9 +123,17 @@
     }
 
     function updatedAtFor(card) {
+        if (!card) return '';
         if (card.dataset.skillCard === '1') return card.dataset.updatedAt || '';
-        if (card.dataset.customToolCard === '1') return updates.tools[card.dataset.toolSlug] || '';
-        return updates.pages[card.getAttribute('href')] || '';
+        if (card.dataset.customToolCard === '1') {
+            const slug = card.dataset.toolSlug;
+            return card.dataset.updatedAt
+                || updates.tools[slug]
+                || (window.__homeCustomTools || []).find(t => t.slug === slug)?.updatedAt
+                || (window.__homeCustomTools || []).find(t => t.slug === slug)?.createdAt
+                || '';
+        }
+        return card.dataset.updatedAt || updates.pages[card.getAttribute('href')] || '';
     }
 
     function renderCardMeta(card) {
@@ -163,13 +171,22 @@
             if (!byGroup.has(groupId)) byGroup.set(groupId, []);
             byGroup.get(groupId).push(card);
         });
-        // 目录内顺序与「更多工具」一致：按导航设置的 itemOrder，未登记的保持页面原有顺序
+        // 目录内顺序与「更多工具」一致：按导航设置的 itemOrder，未登记的保持页面原有顺序；
+        // 未显式排序的自定义工具，新导入/更新的靠前展示。
         const itemOrder = new Map((settings.itemOrder || []).map((id, index) => [id, index]));
         const domIndex = new Map(cards.map((card, index) => [card, index]));
-        byGroup.forEach(list => list.sort((a, b) => {
-            const ai = itemOrder.has(cardItemId(a)) ? itemOrder.get(cardItemId(a)) : 100000 + domIndex.get(a);
-            const bi = itemOrder.has(cardItemId(b)) ? itemOrder.get(cardItemId(b)) : 100000 + domIndex.get(b);
-            return ai - bi;
+        byGroup.forEach((list, gid) => list.sort((a, b) => {
+            const aHasOrder = itemOrder.has(cardItemId(a));
+            const bHasOrder = itemOrder.has(cardItemId(b));
+            if (aHasOrder && bHasOrder) return itemOrder.get(cardItemId(a)) - itemOrder.get(cardItemId(b));
+            if (aHasOrder) return -1;
+            if (bHasOrder) return 1;
+            if (gid === 'custom') {
+                const ta = Date.parse(updatedAtFor(a) || '') || 0;
+                const tb = Date.parse(updatedAtFor(b) || '') || 0;
+                if (ta !== tb) return tb - ta;
+            }
+            return (domIndex.get(a) || 0) - (domIndex.get(b) || 0);
         }));
         const ordered = [...known.values()].filter(category => byGroup.has(category.id))
             .map(category => ({ id: category.id, name: categoryName(category), cards: byGroup.get(category.id) }));
@@ -260,6 +277,22 @@
         const download = actions.querySelector(':scope > .custom-tool-action:not(.builtin-toggle):not(.delete)');
         if (download && /downloadCustomTool/.test(download.getAttribute('onclick') || '')) download.after(button);
         else actions.prepend(button);
+
+        if (!actions.querySelector('.card-more-toggle')) {
+            const moreBtn = document.createElement('button');
+            moreBtn.type = 'button';
+            moreBtn.className = 'custom-tool-action card-more-toggle';
+            moreBtn.title = '更多操作';
+            moreBtn.setAttribute('aria-label', '更多操作');
+            moreBtn.setAttribute('aria-haspopup', 'menu');
+            moreBtn.textContent = '···';
+            moreBtn.addEventListener('click', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                window.HomeToolMenu?.open({ anchor: moreBtn, card });
+            });
+            actions.append(moreBtn);
+        }
     }
 
     function syncFavoriteButtons() {
@@ -456,7 +489,10 @@
         getTools, recentIds, syncSidebar: () => syncSidebarState(), scrollToTools,
         getFilter: () => ({ view: state.view, query: state.query.trim() }),
         // 侧栏其它区块（插件与脚本）被点击时，退出「最近使用」/搜索，回到全部视图
-        showAll: () => { if (state.view !== 'all' || state.query) setView('all'); }
+        showAll: () => { if (state.view !== 'all' || state.query) setView('all'); },
+        syncToolUpdates,
+        setToolUpdate,
+        formatRelative
     };
 
     // 微任务批量重排：在绘制前完成（避免卡片先乱序再跳位），且不像 rAF 那样在后台标签页被暂停。
@@ -542,21 +578,57 @@
         scheduleLayout();
     }
 
+    function syncToolUpdates(tools) {
+        if (!Array.isArray(tools)) return;
+        let changed = false;
+        tools.forEach(tool => {
+            if (tool && tool.slug) {
+                const time = tool.updatedAt || tool.createdAt || '';
+                if (updates.tools[tool.slug] !== time) {
+                    updates.tools[tool.slug] = time;
+                    changed = true;
+                }
+                const card = grid?.querySelector(`[data-custom-tool-card="1"][data-tool-slug="${tool.slug}"]`);
+                if (card && time && card.dataset.updatedAt !== time) {
+                    card.dataset.updatedAt = time;
+                    renderCardMeta(card);
+                }
+            }
+        });
+        updates.toolsLoaded = true;
+        if (changed) {
+            grid?.querySelectorAll(':scope > a.tool-card').forEach(renderCardMeta);
+        }
+    }
+
+    function setToolUpdate(slug, time) {
+        if (!slug) return;
+        const stamp = time || '';
+        updates.tools[slug] = stamp;
+        const card = grid?.querySelector(`[data-custom-tool-card="1"][data-tool-slug="${slug}"]`);
+        if (card) {
+            card.dataset.updatedAt = stamp;
+            renderCardMeta(card);
+        }
+        window.dispatchEvent(new CustomEvent('home:tools-updated'));
+    }
+
     function loadToolUpdates() {
+        if (Array.isArray(window.__homeCustomTools) && window.__homeCustomTools.length) {
+            syncToolUpdates(window.__homeCustomTools);
+        }
         if (updates.toolsLoading) return updates.toolsLoading;
         updates.toolsLoading = (async () => {
             try {
                 const tools = typeof API !== 'undefined' ? await API.get('/api/custom-tools') : [];
-                (Array.isArray(tools) ? tools : []).forEach(tool => {
-                    updates.tools[tool.slug] = tool.updatedAt || tool.createdAt || '';
-                });
+                syncToolUpdates(tools);
             } catch {
                 // 同上，静默降级
             }
             updates.toolsLoaded = true;
             grid.querySelectorAll(':scope > a.tool-card').forEach(renderCardMeta);
         })().finally(() => {
-            setTimeout(() => { updates.toolsLoading = null; }, 30000);
+            setTimeout(() => { updates.toolsLoading = null; }, 5000);
         });
         return updates.toolsLoading;
     }
@@ -947,6 +1019,19 @@
         // 关掉浏览器原生的链接拖拽（只会拖出一条网址）
         grid.addEventListener('dragstart', event => {
             if (event.target.closest?.('#toolsGrid > a.tool-card')) event.preventDefault();
+        });
+
+        // 卡片右键统一弹出工具操作菜单
+        grid.addEventListener('contextmenu', event => {
+            const card = event.target.closest('#toolsGrid > a.tool-card');
+            if (!card) return;
+            event.preventDefault();
+            event.stopPropagation();
+            window.HomeToolMenu?.open({
+                x: event.clientX,
+                y: event.clientY,
+                card
+            });
         });
 
         grid.addEventListener('pointerdown', event => {

@@ -364,7 +364,7 @@
         load();
     }
 
-    window.HomeSkills = { reload: load, items: () => state.items.slice(), improve, showHistory };
+    window.HomeSkills = { reload: load, items: () => state.items.slice(), improve, showHistory, download, rename, remove };
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
     else init();

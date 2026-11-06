@@ -66,18 +66,19 @@
         if (typeof window.showToast === 'function') window.showToast(message, type);
     }
 
-    async function toggle(target) {
-        const { builtinKind: kind, builtinId: id, builtinName: name } = target.dataset;
-        const builtIn = target.dataset.builtinOn === '1';
+    async function togglePromotion(kind, id, { builtIn = false, name = '', hostedApp = false } = {}) {
+        if (!isAdmin() || !id) return false;
+        if (kind === 'tool' && builtIn && lockedTools.has(id)) {
+            toast(tx('locked'), 'warning');
+            return false;
+        }
         const label = name || id;
-        const hostedApp = kind === 'tool' && Boolean(target.closest('.is-hosted-app'));
         const confirmed = await window.AppDialog.confirm(tx(builtIn ? 'demoteBody' : hostedApp ? 'promoteBodyApp' : 'promoteBody', { name: label, path: `${SOURCE_PATHS[kind]}${id}` }), {
             title: tx(builtIn ? 'demoteTitle' : 'promoteTitle'),
             tone: builtIn ? 'danger' : undefined,
             confirmText: tx(builtIn ? 'demoteOk' : 'promoteOk')
         });
-        if (!confirmed) return;
-        target.disabled = true;
+        if (!confirmed) return false;
         try {
             const path = `/api/builtin-promotion/${encodeURIComponent(kind)}/${encodeURIComponent(id)}`;
             const result = builtIn ? await window.API.delete(path) : await window.API.post(path, {});
@@ -85,8 +86,20 @@
                 removed: result.removedFiles?.length ? tx('removedEnv', { files: result.removedFiles.join('、') }) : '' }) : '';
             toast(builtIn ? tx('demoted') : tx('promoted', { path: result.path || `${SOURCE_PATHS[kind]}${id}` }) + appNote);
             window.dispatchEvent(new CustomEvent('builtin:changed', { detail: { kind, id, builtIn: !builtIn } }));
+            return true;
         } catch (error) {
             window.AppDialog.alert(tx('failed', { message: error.message }), { tone: 'error' });
+            return false;
+        }
+    }
+
+    async function toggle(target) {
+        const { builtinKind: kind, builtinId: id, builtinName: name } = target.dataset;
+        const builtIn = target.dataset.builtinOn === '1';
+        const hostedApp = kind === 'tool' && Boolean(target.closest('.is-hosted-app'));
+        target.disabled = true;
+        try {
+            await togglePromotion(kind, id, { builtIn, name, hostedApp });
         } finally {
             target.disabled = false;
         }
@@ -121,7 +134,7 @@
         }
     }
 
-    window.BuiltinPromotion = { button };
+    window.BuiltinPromotion = { button, toggle: togglePromotion, isLocked: id => lockedTools.has(id) };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', checkWritable, { once: true });
     else checkWritable();
 })();

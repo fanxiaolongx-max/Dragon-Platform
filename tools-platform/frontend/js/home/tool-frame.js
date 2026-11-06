@@ -97,6 +97,7 @@
         root.innerHTML = `<header class="v2-tool-frame-bar">
                 <span class="v2-tool-frame-icon"></span><strong class="v2-tool-frame-title"></strong>
                 <span class="v2-tool-frame-spacer"></span>
+                <button type="button" class="v2-tool-frame-btn" data-frame-act="more" title="${esc(L('更多操作', 'More options'))}" aria-haspopup="menu" aria-label="${esc(L('更多操作', 'More options'))}"><span class="v2-ico" data-icon="more"></span></button>
                 <button type="button" class="v2-tool-frame-btn" data-frame-act="reload" title="${esc(L('刷新', 'Reload'))}"><span class="v2-ico" data-icon="refresh"></span></button>
                 <button type="button" class="v2-tool-frame-btn" data-frame-act="external" title="${esc(staticNav ? L('独立页面打开', 'Open standalone page') : L('在新标签页打开', 'Open in new tab'))}"><span class="v2-ico" data-icon="external"></span></button>
                 <button type="button" class="v2-tool-frame-btn" data-frame-act="close" title="${esc(L('关闭', 'Close'))}"><span class="v2-ico" data-icon="close"></span></button>
@@ -142,6 +143,51 @@
                 if (staticNav) staticNav.openStandalone(currentHref());
                 else window.open(window.ToolsNavigation.toolUrl(currentHref()), '_blank', 'noopener');
             }
+            else if (act === 'more') {
+                const btn = event.target.closest('[data-frame-act="more"]');
+                window.HomeToolMenu?.open({
+                    anchor: btn,
+                    href: currentHref(),
+                    title: titleEl?.textContent || '',
+                    onRename: newTitle => {
+                        if (newTitle && titleEl) {
+                            titleEl.textContent = newTitle;
+                            if (frame) frame.title = newTitle;
+                        }
+                    },
+                    onDelete: () => {
+                        close();
+                    },
+                    onReload: () => {
+                        if (activeSurface) open(currentHref(), { push: false });
+                        else frame.src = currentHref();
+                    }
+                });
+            }
+        });
+        root.querySelector('.v2-tool-frame-bar')?.addEventListener('contextmenu', event => {
+            if (event.target.closest('[data-frame-act="close"], [data-frame-act="external"], [data-frame-act="reload"]')) return;
+            event.preventDefault();
+            event.stopPropagation();
+            window.HomeToolMenu?.open({
+                x: event.clientX,
+                y: event.clientY,
+                href: currentHref(),
+                title: titleEl?.textContent || '',
+                onRename: newTitle => {
+                    if (newTitle && titleEl) {
+                        titleEl.textContent = newTitle;
+                        if (frame) frame.title = newTitle;
+                    }
+                },
+                onDelete: () => {
+                    close();
+                },
+                onReload: () => {
+                    if (activeSurface) open(currentHref(), { push: false });
+                    else frame.src = currentHref();
+                }
+            });
         });
         // 工具内部跳转后同步标题与地址
         frame.addEventListener('load', () => {
