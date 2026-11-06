@@ -55,7 +55,7 @@ const isPortableWindows = process.platform === 'win32' && Boolean(process.env.PO
 // 绿色版 EXE 的位置：刚完成自动更新时是被替换的原文件（当前进程仍从临时的 .update.exe 运行）
 const portableExePath = portableSwap?.swapped ? portableSwap.target : process.env.PORTABLE_EXECUTABLE_FILE;
 if (portableSwap) console.log('[Updater] Portable swap:', JSON.stringify(portableSwap));
-const latestReleaseUrl = 'https://github.com/fanxiaolongx-max/privacy-policy/releases/latest';
+const latestReleaseUrl = 'https://github.com/fanxiaolongx-max/Dragon-Platform/releases/latest';
 process.env.TOOLS_LOG_DIR = electronLogRoot;
 if (process.env.TOOLS_DAILY_LOGS === undefined) {
     process.env.TOOLS_DAILY_LOGS = '0';

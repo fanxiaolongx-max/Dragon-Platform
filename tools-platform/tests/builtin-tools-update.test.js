@@ -119,3 +119,19 @@ test('recommendations compare full program sizes and release metadata without co
     tool = previewBuiltinTools(options).pending[0];
     assert.equal(tool.recommended, false, 'unknown release metadata and smaller bundled code retain local changes for review');
 });
+
+test('pruneOldBackupBatches retains newest N batches and removes older ones', t => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'backup-prune-'));
+    t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const { pruneOldBackupBatches } = require('../backend/models/builtin-tools-sync');
+    for (let i = 1; i <= 25; i++) {
+        const name = `2026-11-06T10-${String(i).padStart(2, '0')}-00`;
+        fs.mkdirSync(path.join(root, name), { recursive: true });
+    }
+    assert.equal(fs.readdirSync(root).length, 25);
+    pruneOldBackupBatches(root, 20);
+    const remaining = fs.readdirSync(root).sort();
+    assert.equal(remaining.length, 20);
+    assert.equal(remaining[0], '2026-11-06T10-06-00');
+    assert.equal(remaining[19], '2026-11-06T10-25-00');
+});

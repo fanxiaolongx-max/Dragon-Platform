@@ -6,7 +6,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { createPortableUpdater, completePortableSwap, cleanupPortableLeftovers, compareVersions, SWAP_ARG, WAIT_ARG } = require('../desktop-portable-updater');
 
-const RELEASE_URL = 'https://github.com/fanxiaolongx-max/privacy-policy/releases/latest';
+const RELEASE_URL = 'https://github.com/fanxiaolongx-max/Dragon-Platform/releases/latest';
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'portable-updater-'));
 const payload = Buffer.from('MZ new portable build '.repeat(2000));
 const sha = crypto.createHash('sha256').update(payload).digest('hex');

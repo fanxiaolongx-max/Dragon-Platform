@@ -1,12 +1,12 @@
 {
   "zh": [
-    "新增工具与技能快捷操作菜单：支持在首页工具卡片、嵌入工具框架及工作区中呼出右键/操作菜单，提供重命名、置顶与删除等便捷操作。",
-    "技能与工具中心（Skill Hub）排序与分类增强：支持按最新添加、最近更新和名称多维度排序，联动工作区自定义工具分组准确展示。",
-    "优化嵌入工具框架与全屏生命周期：统一自定义工具和 Skills 的回调处理，修复工具视图切换及全屏模式下的状态同步体验。"
+    "优化内置工具备份策略：引入历史备份自动轮转机制，限制保留最近 20 批次，防止快照持续占用磁盘空间。",
+    "规范代码目录与调试脚本归档：将散落的一次性排障脚本归档至 scripts/oneoff/，完善运行时诊断与报告输出的忽略规则。",
+    "更新客户端发布源与仓库配置：统一修正包描述文件与绿色版更新地址为 Dragon-Platform，保障发行通道一致性。"
   ],
   "en": [
-    "Added tool and skill context menu (HomeToolMenu): supports context actions including rename, pin, and delete across cards, frames, and workspace.",
-    "Enhanced Skill Hub sorting and category discovery: added multi-dimensional sorting by newest, recently updated, and alphabetical order.",
-    "Optimized embedded tool frame and fullscreen lifecycle: unified callback handlers and state synchronization for custom tools and skills."
+    "Optimized built-in tools backup strategy: added automatic backup batch rotation, retaining the newest 20 batches to save disk space.",
+    "Organized codebase structure and archived debugging scripts: moved one-off scripts to scripts/oneoff/ and refined ignore rules.",
+    "Updated client release sources and repository configuration: aligned package repository and portable updater URLs to Dragon-Platform."
   ]
 }

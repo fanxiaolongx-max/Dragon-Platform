@@ -43,4 +43,9 @@ dist/
 # IDE / workspace cache & temporary reports
 .workbuddy/
 AI动态速览*.md
+tools-platform/alerts_output.json
+tools-platform/risk_report.json
+tools-platform/backend/wal_strings.txt
+tools-platform/backend/dump_step.txt
+tools-platform/export_test.xlsx
 

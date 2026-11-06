@@ -2,7 +2,7 @@
   "name": "tools-platform",
   "version": "1.0.566",
   "description": "Dragon Claw Desktop App",
-  "repository": "github:fanxiaolongx-max/privacy-policy",
+  "repository": "github:fanxiaolongx-max/Dragon-Platform",
   "main": "electron-main.js",
   "scripts": {
     "start": "node backend/server.js",
@@ -93,7 +93,7 @@
       {
         "provider": "github",
         "owner": "fanxiaolongx-max",
-        "repo": "privacy-policy"
+        "repo": "Dragon-Platform"
       }
     ],
     "mac": {

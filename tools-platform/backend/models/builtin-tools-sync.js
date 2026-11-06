@@ -468,6 +468,26 @@ function previewBuiltinTools({ sourceDir, targetDir, stateFile, includeSkipped =
     return result;
 }
 
+const MAX_BACKUP_BATCHES = 20;
+
+function pruneOldBackupBatches(backupRoot, maxToKeep = MAX_BACKUP_BATCHES) {
+    if (!backupRoot) return;
+    try {
+        const rootPath = path.resolve(backupRoot);
+        if (!fs.existsSync(rootPath)) return;
+        const entries = fs.readdirSync(rootPath, { withFileTypes: true })
+            .filter(d => d.isDirectory())
+            .map(d => d.name)
+            .sort();
+        if (entries.length > maxToKeep) {
+            const toRemove = entries.slice(0, entries.length - maxToKeep);
+            for (const name of toRemove) {
+                try { fs.rmSync(path.join(rootPath, name), { recursive: true, force: true }); } catch (_) {}
+            }
+        }
+    } catch (_) {}
+}
+
 function applyBuiltinToolDecisions({
     sourceDir,
     targetDir,
@@ -561,6 +581,9 @@ function applyBuiltinToolDecisions({
     }
     onProgress({ stage: 'saving', completed, total });
     writeDecisionState(stateFile, decisionState);
+    if (backupRoot && result.backups.length > 0) {
+        pruneOldBackupBatches(backupRoot, MAX_BACKUP_BATCHES);
+    }
     if (includePreview) result.preview = previewBuiltinTools({
         sourceDir: sourcePath,
         targetDir: targetPath,
@@ -645,5 +668,7 @@ module.exports = {
     initializeBuiltinTools,
     listBundledTools,
     previewBuiltinTools,
-    syncBuiltinTools
+    syncBuiltinTools,
+    MAX_BACKUP_BATCHES,
+    pruneOldBackupBatches
 };
