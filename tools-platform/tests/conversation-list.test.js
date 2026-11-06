@@ -114,3 +114,24 @@ test('third-party desktop agents and channel chats notice users on rename attemp
  assert.equal(promptCalled, true);
  assert.equal(requestCalled, true);
 });
+
+test('timestamp parser treats SQLite UTC string consistently with ISO strings across midnight boundaries', () => {
+ const window = { addEventListener() {}, dispatchEvent() {} };
+ vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../frontend/js/home/conversation-list.js'), 'utf8'), {
+  window, localStorage: { getItem: () => null }, sessionStorage: { getItem: () => null },
+  document: { readyState: 'complete', documentElement: { dataset: {} }, addEventListener: () => {} },
+  Date, Map, WeakMap, Set, CustomEvent: class {}
+ });
+ const { stamp } = window.HomeConversationList;
+ // 模拟场景：
+ // 对话 A: 昨天 21:50 UTC (本地 23:50，三方 Agent ISO 格式)
+ // 对话 B: 今天 22:42 UTC (本地 00:42，SQLite CURRENT_TIMESTAMP 格式 "YYYY-MM-DD HH:MM:SS")
+ const agentIsoTime = '2026-11-05T21:50:22.885Z';
+ const sqliteUtcTime = '2026-11-05 22:42:21';
+ const timeA = stamp(agentIsoTime);
+ const timeB = stamp(sqliteUtcTime);
+ assert.equal(Number.isNaN(timeA), false);
+ assert.equal(Number.isNaN(timeB), false);
+ // 对话 B (22:42 UTC) 应比 对话 A (21:50 UTC) 更新
+ assert.ok(timeB > timeA, `Expected ${sqliteUtcTime} (${timeB}) to be newer than ${agentIsoTime} (${timeA})`);
+});

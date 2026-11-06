@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { execFile } = require('child_process');
+const { execFile, fork } = require('child_process');
 const { promisify } = require('util');
 const { run, get, all, getDbPath } = require('./app-db');
 const { getTenantId, runWithTenant } = require('./tenant-context');
@@ -24,6 +24,7 @@ const git = (file, args, options = {}) => execGit(file, args, {
     }
 });
 const active = new Set();
+let publishWorkerTail = Promise.resolve();
 const scheduleTimers = new Map();
 const schemaInflight = new Map();
 const DEFAULT_TOOL_SLUG = 'department-reward-penalty';
@@ -31,6 +32,7 @@ const TOOL_SLUG = DEFAULT_TOOL_SLUG;
 const DEFAULT_FILE_TEMPLATE = '{toolSlug}/index.html';
 const MIN_INTERVAL_MINUTES = 5;
 const MAX_INTERVAL_MINUTES = 1440;
+const LEGACY_JOB_STALE_MS = 60 * 60 * 1000;
 const EVIDENCE_FILE = /^[a-f0-9-]{36}\.(?:pdf|png|jpg|jpeg|txt|zip|rar|7z|tar|gz|eml|msg)$/i;
 const PAGES_MARKER = '{"toolId":"department-reward-penalty","format":1}\n';
 const bad = (message, status = 400) => Object.assign(new Error(message), { status });
@@ -249,6 +251,7 @@ for (const [slug, [name, nameEn]] of Object.entries(platformPages.MODULES)) {
         name, nameEn,
         description: '平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data',
         defaultFile: `${slug}/index.html`,
+        demoFallback: true,
         buildSnapshot: (_tenantId, options) => platformPages.buildSnapshot(slug, options),
         buildPagesSnapshot: (_tenantId, options) => platformPages.buildPagesSnapshot(slug, options)
     });
@@ -258,6 +261,7 @@ registerProvider('bigscreen', {
     name: '大屏看板',
     description: '当前报表、趋势、负责人和中英文配置的只读大屏。',
     defaultFile: 'bigscreen/index.html',
+    demoFallback: true,
     buildSnapshot: (...args) => require('./bigscreen-snapshot').buildSnapshot(...args),
     buildPagesSnapshot: (...args) => require('./bigscreen-snapshot').buildPagesSnapshot(...args)
 });
@@ -267,6 +271,7 @@ registerProvider('department-reward-penalty', {
     name: '负向事件管理',
     description: '查看负向事件、人员、规则及审计数据的只读快照。',
     defaultFile: 'department-reward-penalty/index.html',
+    demoFallback: true,
     buildSnapshot: (tenantId, opts) => require('./department-reward-penalty-snapshot').buildSnapshot(tenantId, opts),
     buildPagesSnapshot: (tenantId, opts) => require('./department-reward-penalty-snapshot').buildPagesSnapshot(tenantId, opts)
 });
@@ -329,6 +334,22 @@ registerProvider('f12-to-extension', {
     buildSnapshot: (tenantId, opts) => require('./f12-static-packer').buildSnapshot(tenantId, opts),
     buildPagesSnapshot: (tenantId, opts) => require('./f12-static-packer').buildPagesSnapshot(tenantId, opts)
 });
+
+async function buildProviderOutput(provider, tenantId, mode, options, allowFallback) {
+    const build = async opts => mode === 'pages' && provider.buildPagesSnapshot
+        ? provider.buildPagesSnapshot(tenantId, opts)
+        : { html: await provider.buildSnapshot(tenantId, opts), files: new Map() };
+    if (!provider.demoFallback || !allowFallback) return { output: await build(options), demoLevel: 'full' };
+
+    for (const demoLevel of ['full', 'latest', 'empty']) {
+        try {
+            const output = await build({ ...options, demoLevel, demoBudget: sizePolicy.HEAVY_BYTES });
+            if (!sizePolicy.measure(output).isHeavy || demoLevel === 'empty') return { output, demoLevel };
+        } catch (error) {
+            if (error.code !== 'SNAPSHOT_DEMO_TOO_LARGE' || demoLevel === 'empty') throw error;
+        }
+    }
+}
 
 function getPagesMarker(toolSlug) {
     return JSON.stringify({ toolId: toolSlug, format: 1 }) + '\n';
@@ -409,7 +430,7 @@ async function ready() {
         progress INTEGER NOT NULL DEFAULT 0, entries_json TEXT NOT NULL DEFAULT '[]',
         command_logs_json TEXT NOT NULL DEFAULT '[]',
         commit_sha TEXT NOT NULL DEFAULT '', file_path TEXT NOT NULL DEFAULT '',
-        created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+        created_at TEXT NOT NULL, updated_at TEXT NOT NULL, worker_pid INTEGER NOT NULL DEFAULT 0
     )`);
     const toolColumns = await all('PRAGMA table_info(snapshot_tool_settings)');
     if (!toolColumns.some(column => column.name === 'public_access')) await run('ALTER TABLE snapshot_tool_settings ADD COLUMN public_access INTEGER NOT NULL DEFAULT 0');
@@ -428,6 +449,7 @@ async function ready() {
     if (!jobColumns.some(column => column.name === 'trigger_type')) await run("ALTER TABLE snapshot_publish_jobs ADD COLUMN trigger_type TEXT NOT NULL DEFAULT 'manual'");
     if (!jobColumns.some(column => column.name === 'command_logs_json')) await run("ALTER TABLE snapshot_publish_jobs ADD COLUMN command_logs_json TEXT NOT NULL DEFAULT '[]'");
     if (!jobColumns.some(column => column.name === 'tool_slug')) await run("ALTER TABLE snapshot_publish_jobs ADD COLUMN tool_slug TEXT NOT NULL DEFAULT ''");
+    if (!jobColumns.some(column => column.name === 'worker_pid')) await run('ALTER TABLE snapshot_publish_jobs ADD COLUMN worker_pid INTEGER NOT NULL DEFAULT 0');
     })();
     schemaInflight.set(key, task);
     try { await task; } finally { if (schemaInflight.get(key) === task) schemaInflight.delete(key); }
@@ -835,6 +857,35 @@ async function listJobs() {
     }));
 }
 
+async function recoverInterruptedJobs() {
+    await ready();
+    const keyPrefix = getDbPath() + ':';
+    const now = new Date();
+    const stage = '已中断';
+    const message = '推送任务的执行进程已退出或任务已失去运行状态，请重新发起推送。';
+    const rows = await all("SELECT id, worker_pid, updated_at, entries_json FROM snapshot_publish_jobs WHERE status = 'running'");
+    let recovered = 0;
+    for (const row of rows) {
+        if (active.has(keyPrefix + row.id)) continue;
+        if (!row.worker_pid && !(now - Date.parse(row.updated_at) >= LEGACY_JOB_STALE_MS)) continue;
+        if (row.worker_pid > 0 && row.worker_pid !== process.pid) {
+            try {
+                process.kill(row.worker_pid, 0);
+                continue;
+            } catch (error) {
+                if (error.code !== 'ESRCH') continue;
+            }
+        }
+        const entries = JSON.parse(row.entries_json || '[]');
+        entries.push({ at: now.toISOString(), stage, message });
+        const result = await run(`UPDATE snapshot_publish_jobs SET status='failed', stage=?, entries_json=?, updated_at=?
+            WHERE id=? AND status='running' AND updated_at=? AND worker_pid=?`,
+        [stage, JSON.stringify(entries), now.toISOString(), row.id, row.updated_at, row.worker_pid]);
+        recovered += result.changes;
+    }
+    return recovered;
+}
+
 async function updateJob(job, status, stage, progress, message, commit = '') {
     job.status = status; job.stage = stage; job.progress = progress;
     if (message) job.entries.push({ at: new Date().toISOString(), stage, message });
@@ -1097,11 +1148,15 @@ async function publish(job, tenantId, settings, options = {}) {
                 return true;
             };
             if (preflight && await skipHeavy(preflight)) continue;
-            const output = config.publishMode === 'pages'
-                ? await provider.buildPagesSnapshot(tenantId, snapshotOptions)
-                : { html: await provider.buildSnapshot(tenantId, snapshotOptions), files: new Map() };
-            output.html = stripLegacyGatekeeper(output.html);
-            if (await skipHeavy(sizePolicy.measure(output))) continue;
+            const { output, demoLevel } = await buildProviderOutput(provider, tenantId, config.publishMode, snapshotOptions, !forcedTool);
+            output.html = Buffer.from(stripLegacyGatekeeper(output.html));
+            if (demoLevel !== 'empty' && await skipHeavy(sizePolicy.measure(output))) continue;
+            if (demoLevel !== 'full') {
+                const scope = demoLevel === 'latest' ? '仅保留最新数据' : '不带业务数据，仅发布演示页面';
+                const message = `[演示降级] ${toolName} (${slug})：${scope}。`;
+                await updateJob(job, 'running', '生成快照', 48, message);
+                await recordCommandLog(job, { at: new Date().toISOString(), type: 'info', msg: message });
+            }
             const isPublic = PLATFORM_PAGE_SLUGS.has(slug) ? Boolean((await getToolSettings(slug)).publicAccess) : Boolean(tool?.publicAccess);
             publishedSlugs.push(slug);
             const fingerprint = fingerprintSnapshotBundle(output, config.publishMode, isPublic);
@@ -1186,7 +1241,7 @@ async function publish(job, tenantId, settings, options = {}) {
                 encrypted: Boolean(snapshotOptions.encryption.enabled),
                 publicAccess: isPublic,
                 fingerprint,
-                batchExcluded: sizePolicy.measure(output).isHeavy
+                batchExcluded: demoLevel === 'full' && sizePolicy.measure(output).isHeavy
             });
             guideName = menuRes.guideName || guideName;
         }
@@ -1312,14 +1367,12 @@ async function publish(job, tenantId, settings, options = {}) {
 }
 
 async function startJob(tenantId, options = {}) {
-    await ready();
+    await recoverInterruptedJobs();
     const settings = validate(await getSettings(true));
     const toolSlug = String(options.toolSlug || '').trim();
     if (toolSlug && !providers.has(toolSlug)) throw bad('该工具尚未接入静态页面发布');
     const keyPrefix = getDbPath() + ':';
     if ([...active].some(key => key.startsWith(keyPrefix))) throw bad('当前租户已有推送任务正在执行', 409);
-    const existing = (await listJobs()).find(item => item.status === 'running');
-    if (existing) throw bad('当前租户已有推送任务正在执行', 409);
     const now = new Date().toISOString();
     const trigger = options.trigger === 'scheduled' ? 'scheduled' : 'manual';
     const jobPath = toolSlug
@@ -1341,11 +1394,81 @@ async function startJob(tenantId, options = {}) {
     };
     active.add(keyPrefix + job.id);
     try {
-        await run('INSERT INTO snapshot_publish_jobs (id,status,stage,trigger_type,tool_slug,progress,entries_json,command_logs_json,commit_sha,file_path,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
-            [job.id, job.status, job.stage, trigger, toolSlug, job.progress, JSON.stringify(job.entries), JSON.stringify(job.commandLogs), '', job.path, now, now]);
-        setImmediate(() => { publish(job, tenantId, settings, options).catch(() => {}); });
+        const result = await run(`INSERT INTO snapshot_publish_jobs
+            (id,status,stage,trigger_type,tool_slug,progress,entries_json,command_logs_json,commit_sha,file_path,created_at,updated_at,worker_pid)
+            SELECT ?,?,?,?,?,?,?,?,?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM snapshot_publish_jobs WHERE status = 'running')`,
+        [job.id, job.status, job.stage, trigger, toolSlug, job.progress, JSON.stringify(job.entries), JSON.stringify(job.commandLogs), '', job.path, now, now, process.pid]);
+        if (!result.changes) throw bad('当前租户已有推送任务正在执行', 409);
+        const publishTenantId = getTenantId();
+        setImmediate(() => {
+            if (useSnapshotWorker()) {
+                publishWorkerTail = publishWorkerTail.then(() => runWithTenant(publishTenantId,
+                    () => publishInChild(job, publishTenantId, settings, options))).catch(error => {
+                    console.warn('[SNAPSHOT-PUBLISH] Could not close failed publishing worker:', error.message);
+                });
+            } else {
+                publish(job, tenantId, settings, options).catch(() => {});
+            }
+        });
         return job;
     } catch (error) { active.delete(keyPrefix + job.id); throw error; }
+}
+
+function useSnapshotWorker() {
+    return require.main !== module && process.env.NODE_ENV === 'production' && !process.versions.electron;
+}
+
+function runSnapshotWorker(request) {
+    let timeout;
+    return new Promise((resolve, reject) => {
+        let result;
+        const child = fork(__filename, [], { stdio: ['ignore', 'inherit', 'inherit', 'ipc'], execArgv: [] });
+        if (request.kind === 'estimate') {
+            timeout = setTimeout(() => {
+                child.kill('SIGKILL');
+                reject(new Error('静态快照预估超时'));
+            }, 90000);
+        }
+        child.once('message', message => { result = message; });
+        child.once('error', reject);
+        child.once('exit', code => {
+            if (code === 0 && !result?.error) resolve(result?.value);
+            else reject(new Error(result?.error || '独立快照进程已退出'));
+        });
+        child.send(request, error => {
+            if (error) {
+                child.kill();
+                reject(error);
+            }
+        });
+    }).finally(() => clearTimeout(timeout));
+}
+
+async function publishInChild(job, tenantId, settings, options) {
+    const activeKey = getDbPath() + ':' + job.id;
+    try {
+        await runSnapshotWorker({ kind: 'publish', job, tenantId, settings, options });
+    } catch {
+        const current = await getJob(job.id);
+        if (current?.status === 'running') {
+            await updateJob(current, 'failed', '已中断', current.progress, '独立推送进程已退出，请重新发起推送。');
+        }
+    } finally {
+        active.delete(activeKey);
+    }
+}
+
+if (require.main === module && process.send) {
+    process.once('disconnect', () => process.exit(1));
+    process.once('message', ({ kind, job, tenantId, settings, options, slug, mode }) => {
+        const task = runWithTenant(tenantId, () => kind === 'estimate'
+            ? estimateToolSnapshot(tenantId, slug, mode)
+            : publish(job, tenantId, settings, options));
+        task.then(
+            value => process.send({ value }, () => process.exit(0)),
+            error => process.send({ error: error.message }, () => process.exit(1))
+        );
+    });
 }
 
 function stopTenantScheduler(tenantId) {
@@ -1390,7 +1513,10 @@ async function scheduleTenant(tenantId) {
 
 async function startScheduler() {
     const tenants = await require('./tenants-repository').listTenantsForUser('', 'admin');
-    return Promise.all(tenants.map(tenant => scheduleTenant(tenant.id)));
+    return Promise.all(tenants.map(async tenant => {
+        await runWithTenant(tenant.id, recoverInterruptedJobs);
+        return scheduleTenant(tenant.id);
+    }));
 }
 
 function estimateStaticTool(slug, mode) {
@@ -1414,6 +1540,7 @@ function estimateStaticTool(slug, mode) {
 
 const estimateCache = new Map();
 const estimatePending = new Map();
+let estimateBuildTail = Promise.resolve();
 const ESTIMATE_TTL_MS = 5 * 60 * 1000;
 
 async function estimateToolSnapshot(tenantId, toolSlug, mode = 'pages', refresh = false) {
@@ -1437,31 +1564,33 @@ async function estimateToolSnapshot(tenantId, toolSlug, mode = 'pages', refresh 
     }
 
     if (estimatePending.has(cacheKey)) return estimatePending.get(cacheKey);
-    const task = (async () => {
-        const stats = await runWithTenant(tenantId, async () => {
-            if (provider.isGenericStatic) return estimateStaticTool(slug, publishMode);
-            const options = { encryption: { enabled: false } };
-            const output = publishMode === 'pages' && provider.buildPagesSnapshot
-                ? await provider.buildPagesSnapshot(tenantId, options)
-                : { html: await provider.buildSnapshot(tenantId, options), files: new Map() };
-            return sizePolicy.measure(output);
-        });
+    const buildEstimate = () => runWithTenant(tenantId, async () => {
+        if (provider.isGenericStatic) return estimateStaticTool(slug, publishMode);
+        if (useSnapshotWorker()) return runSnapshotWorker({ kind: 'estimate', tenantId, slug, mode: publishMode });
+        const { output, demoLevel } = await buildProviderOutput(provider, tenantId, publishMode, { encryption: { enabled: false } }, true);
+        return { ...sizePolicy.measure(output), demoLevel };
+    });
+    const work = provider.isGenericStatic ? buildEstimate() : estimateBuildTail.then(buildEstimate);
+    if (!provider.isGenericStatic) estimateBuildTail = work.catch(() => {});
+    const task = work.then(stats => {
         const res = {
             toolSlug: slug, supported: true, mode: publishMode, ...stats,
             htmlSizeFormatted: formatSize(stats.htmlBytes), totalSizeFormatted: formatSize(stats.totalBytes),
-            suggestion: stats.isHeavy ? '批量与定时推送会自动跳过；仅在该工具页面顶部选择强制推送才能更新。已发布版本保留，历史数据不会截断。' : ''
+            suggestion: stats.demoLevel === 'latest' ? '将自动发布最新数据演示。'
+                : stats.demoLevel === 'empty' ? '将自动发布不带业务数据的演示页面。'
+                    : stats.isHeavy ? '批量与定时推送会自动跳过；仅在该工具页面顶部选择强制推送才能更新。已发布版本保留，历史数据不会截断。' : ''
         };
         if (estimateCache.size >= 128) estimateCache.delete(estimateCache.keys().next().value);
         estimateCache.set(cacheKey, { timestamp: Date.now(), data: res });
         return res;
-    })().finally(() => estimatePending.delete(cacheKey));
+    }).finally(() => estimatePending.delete(cacheKey));
     estimatePending.set(cacheKey, task);
     return task;
 }
 
 module.exports = {
     getSettings, saveSettings, getPrerequisites, getJob, listJobs, startJob,
-    scheduleTenant, startScheduler, stopTenantScheduler, runScheduledTenant,
+    scheduleTenant, startScheduler, stopTenantScheduler, runScheduledTenant, recoverInterruptedJobs,
     resolvePublishPath, hashPassword, estimateToolSnapshot, isTransientGitError,
     getToolSettings, saveToolSettings, registerProvider, providers
 };

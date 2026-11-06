@@ -2,6 +2,7 @@ const { run, get, all } = require('./app-db');
 const { randomUUID } = require('node:crypto');
 const { getDataDir } = require('./tenant-context');
 const sources = require('./import-source-repository');
+const { checkDemoSize } = require('./snapshot-size-policy');
 
 const MAX_SNAPSHOTS = 50;
 
@@ -90,15 +91,19 @@ async function listSnapshots(options={}) {
     return { items: options.view === 'summary' ? items.map(summarizeSnapshot) : items, source: 'sqlite' };
 }
 
-async function getLatestSnapshot() {
+async function getLatestSnapshot({ demoBudget } = {}) {
     // Schema initialization is tenant-specific, even if another tenant has
     // already initialized this module in the same server process.
     await run(`CREATE TABLE IF NOT EXISTS sla_snapshots (
         id TEXT PRIMARY KEY, timestamp TEXT NOT NULL, payload_json TEXT NOT NULL,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
-    const row = await get(`SELECT payload_json FROM sla_snapshots
-        ORDER BY timestamp DESC, id DESC LIMIT 1`);
+    const row = demoBudget
+        ? await get(`SELECT CASE WHEN length(CAST(payload_json AS BLOB)) < ? THEN payload_json END AS payload_json,
+                length(CAST(payload_json AS BLOB)) AS payload_bytes
+            FROM sla_snapshots ORDER BY timestamp DESC, id DESC LIMIT 1`, [demoBudget])
+        : await get('SELECT payload_json FROM sla_snapshots ORDER BY timestamp DESC, id DESC LIMIT 1');
+    if (row) checkDemoSize(row.payload_bytes, demoBudget);
     return row ? JSON.parse(row.payload_json) : null;
 }
 

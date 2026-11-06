@@ -1121,7 +1121,7 @@
         else if((event.metaKey||event.ctrlKey)&&!event.shiftKey&&event.key.toLowerCase()==='z'&&!editing){event.preventDefault();undo();}
         else if(event.key==='Escape'&&state.selected&&!editing)select(null);
     });
-    addEventListener('beforeunload',event=>{if(dirty()){event.preventDefault();event.returnValue='';}});
+    addEventListener('beforeunload',event=>{if(!window.__TP_STATIC_DEMO__&&dirty()){event.preventDefault();event.returnValue='';}});
 
     AiReportRunner.useReport(()=>({doc:state.doc,lang:state.lang}));
     // The platform bar and the report toolbar can be folded away for more room; the choice is remembered per browser.

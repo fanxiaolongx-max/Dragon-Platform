@@ -73,3 +73,23 @@ test('offline adapter serves captured query variants and refuses every write and
     assert.equal((await window.fetch('https://remote.invalid/api/secret')).status, 404);
     assert.equal(requests, 0);
 });
+
+test('automated slide demos keep only the newest deck, then fall back to an empty page', async () => {
+    await runWithTenant('demo-fallback', async () => {
+        const repo = require('../backend/models/slide-design-repository');
+        const slug = 'network_safety_meeting_summary';
+        const oversized = 'x'.repeat(require('../backend/models/snapshot-size-policy').HEAVY_BYTES);
+        await repo.createProject({ name: 'Old oversized deck', deckHtml: oversized });
+        await repo.createProject({ name: 'Newest small deck', deckHtml: '<h1>Newest slide</h1>' });
+        const latest = await publishing.estimateToolSnapshot('demo-fallback', slug, 'pages', true);
+        assert.equal(latest.demoLevel, 'latest');
+        assert.equal(latest.isHeavy, false);
+        await repo.createProject({ name: 'Newest oversized deck', deckHtml: oversized });
+        const empty = await publishing.estimateToolSnapshot('demo-fallback', slug, 'pages', true);
+        assert.equal(empty.demoLevel, 'empty');
+        assert.equal(empty.isHeavy, false);
+        const html = (await pages.buildPagesSnapshot(slug, { demoLevel: 'empty' })).html;
+        assert.match(html, /Read-only demo/);
+        assert.doesNotMatch(html, /Newest slide|oversized deck/);
+    });
+});

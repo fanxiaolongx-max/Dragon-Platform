@@ -214,6 +214,15 @@ async function getArchivedSnapshot(snapshotId) {
     if(!row)return null;const snapshot=JSON.parse(row.payload_json);
     return {...snapshot,selectedTargetMonth:row.target_month,files:(snapshot.files||[]).map(normalizeFileName),sourceSections:snapshot.sourceSections.map(section=>({...section,sourceFiles:(section.sourceFiles||[]).map(normalizeFileName)}))};
 }
+async function getSnapshotArchiveBytes(snapshotId, batchId) {
+    await ensureReady();
+    const row = await get(`SELECT
+        COALESCE((SELECT length(CAST(payload_json AS BLOB)) FROM import_source_snapshots WHERE id=?), 0) +
+        COALESCE((SELECT SUM(length(CAST(s.headers_json AS BLOB)) + length(CAST(s.rows_json AS BLOB)))
+            FROM import_source_sheets s JOIN import_source_files f ON f.id=s.file_id WHERE f.batch_id=?), 0) AS bytes`,
+    [snapshotId, batchId || null]);
+    return row.bytes;
+}
 async function getMetricTable(snapshotId, metricKey) {
     await ensureReady();const row=await get('SELECT payload_json FROM import_source_snapshots WHERE id=?',[snapshotId]);
     if(!row)return null;const snapshot=JSON.parse(row.payload_json);const metric=snapshot.topMetrics.find(metric=>metric.key===metricKey);if(!metric)return null;
@@ -308,4 +317,4 @@ async function rangeCounts(days=0,period=''){
     const row=await get('SELECT '+ranges.map((day,index)=>day?`COALESCE(SUM(CASE WHEN julianday(created_at)>=julianday('now')-? THEN 1 ELSE 0 END),0) AS n${index}`:`COUNT(*) AS n${index}`).join(', ')+' FROM import_source_files',ranges.filter(Boolean));
     return {capturedAt:new Date().toISOString(),counts:ranges.map((day,index)=>({days:day,count:row['n'+index]}))};
 }
-module.exports={rangeCounts,normalizeFileName,getTableRules,sheetEditor,updateSheet,listComponentPresets,saveComponentPreset,deleteComponentPreset,listDataFormatPresets,saveDataFormatPreset,deleteDataFormatPreset,listMappingPresets,saveMappingPreset,deleteMappingPreset,listLogos,getLogo,saveLogo,ensureReady,getImportSettings,saveImportSettings,createBatch,saveFile,saveSheets,getFile,registerSnapshot,catalog,getSheet,getSection,getArchivedSnapshot,getMetricTable,listDocuments,getDocument,saveDocument,deleteDocuments};
+module.exports={rangeCounts,normalizeFileName,getTableRules,sheetEditor,updateSheet,listComponentPresets,saveComponentPreset,deleteComponentPreset,listDataFormatPresets,saveDataFormatPreset,deleteDataFormatPreset,listMappingPresets,saveMappingPreset,deleteMappingPreset,listLogos,getLogo,saveLogo,ensureReady,getImportSettings,saveImportSettings,createBatch,saveFile,saveSheets,getFile,registerSnapshot,catalog,getSheet,getSection,getArchivedSnapshot,getSnapshotArchiveBytes,getMetricTable,listDocuments,getDocument,saveDocument,deleteDocuments};

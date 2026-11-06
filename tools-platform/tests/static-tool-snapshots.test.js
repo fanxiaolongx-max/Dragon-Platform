@@ -19,6 +19,7 @@ const publishService = require('../backend/models/snapshot-publish-service');
 const meetingSnapshot = require('../backend/models/meeting-attendance-snapshot');
 const incentiveSnapshot = require('../backend/models/operation-incentive-snapshot');
 const snapshotRouter = require('../backend/routes/department-reward-penalty');
+const { runWithTenant } = require('../backend/models/tenant-context');
 
 test.before(async () => {
     await meetingRepo.saveSnapshot({
@@ -58,6 +59,43 @@ test('snapshot publishing registers meeting attendance and operation incentive t
     assert.ok(settings.tools.some(tool => tool.toolSlug === 'tool-ms4xb66s' && tool.name));
     assert.ok(publishService.providers.has('tool-msf5b7nn'));
     assert.ok(publishService.providers.has('tool-ms4xb66s'));
+});
+
+test('snapshot publishing closes interrupted jobs without disturbing live jobs or other tenants', async () => {
+    const old = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    const recent = new Date().toISOString();
+    const insertJob = (id, workerPid, updatedAt) => db.run(`INSERT INTO snapshot_publish_jobs
+        (id,status,stage,progress,entries_json,created_at,updated_at,worker_pid)
+        VALUES (?, 'running', '生成快照', 48, ?, ?, ?, ?)`,
+    [id, JSON.stringify([{ stage: '生成快照', message: '原日志' }]), old, updatedAt, workerPid]);
+    await runWithTenant('publish-recovery-a', async () => {
+        await publishService.getSettings();
+        await insertJob('legacy', 0, old);
+        await insertJob('fresh-legacy', 0, recent);
+        await insertJob('exited', 2147483647, recent);
+        await insertJob('live', process.ppid, old);
+    });
+    await runWithTenant('publish-recovery-b', async () => {
+        await publishService.getSettings();
+        await insertJob('other-tenant', 0, old);
+    });
+    await runWithTenant('publish-recovery-a', async () => {
+        assert.equal(await publishService.recoverInterruptedJobs(), 2);
+        for (const id of ['legacy', 'exited']) {
+            const job = await publishService.getJob(id);
+            assert.equal(job.status, 'failed');
+            assert.equal(job.stage, '已中断');
+            assert.equal(job.progress, 48);
+            assert.equal(job.entries[0].message, '原日志');
+            assert.equal(job.entries.at(-1).stage, '已中断');
+        }
+        assert.equal((await publishService.getJob('live')).status, 'running');
+        assert.equal((await publishService.getJob('fresh-legacy')).status, 'running');
+        assert.equal(await publishService.recoverInterruptedJobs(), 0);
+    });
+    await runWithTenant('publish-recovery-b', async () => {
+        assert.equal((await publishService.getJob('other-tenant')).status, 'running');
+    });
 });
 
 test('meeting attendance single HTML contains full history and returns explicit readonly errors for writes', async () => {

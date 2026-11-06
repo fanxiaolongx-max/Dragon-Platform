@@ -1,7 +1,54 @@
-/* Ordinary tools live in the home shell; new windows contain only the tool. */
+/* Shared app navigation and mobile viewport behavior. */
 (function () {
     'use strict';
     if (window.ToolsNavigation?.installed) return;
+    configureMobileViewport();
+
+    function configureMobileViewport() {
+        const { userAgent = '', platform = '', maxTouchPoints = 0 } = window.navigator || {};
+        const ios = /iPhone|iPad|iPod/i.test(userAgent) || (platform === 'MacIntel' && maxTouchPoints > 1);
+        if (/Electron/i.test(userAgent) || (!ios && !/Android/i.test(userAgent) &&
+            !window.matchMedia?.('(hover: none) and (pointer: coarse)').matches)) return;
+
+        function lockViewport() {
+            let viewport = document.querySelector('meta[name="viewport"]');
+            if (!viewport) {
+                viewport = document.createElement('meta');
+                viewport.name = 'viewport';
+                document.head.prepend(viewport);
+            }
+            const settings = viewport.content.split(',').map(value => value.trim()).filter(value =>
+                value && !/^(?:width|initial-scale|minimum-scale|maximum-scale|user-scalable)\s*=/i.test(value));
+            viewport.content = ['width=device-width', 'initial-scale=1', 'minimum-scale=1', 'maximum-scale=1',
+                'user-scalable=no', ...settings].join(', ');
+        }
+        // Some routes inject this script before the page's own viewport tag.
+        if (document.readyState === 'loading' && !document.querySelector('meta[name="viewport"]')) {
+            document.addEventListener('DOMContentLoaded', lockViewport, { once: true });
+        } else {
+            lockViewport();
+        }
+
+        const style = document.createElement('style');
+        style.textContent = `
+            :where(html, body, body *) { touch-action: manipulation; touch-action: pan-x pan-y; }
+            ${ios ? `:is(textarea, select, input:not([type]), input:is([type="text"], [type="search"],
+                [type="password"], [type="email"], [type="tel"], [type="url"], [type="number"]),
+                [contenteditable="true"], [contenteditable="plaintext-only"], [contenteditable=""]) {
+                font-size: 16px !important;
+            }` : ''}
+        `;
+        document.head.append(style);
+
+        if (ios) {
+            // Safari can ignore the viewport's scale limits for pinch gestures.
+            const preventZoom = event => event.preventDefault();
+            for (const type of ['gesturestart', 'gesturechange']) {
+                document.addEventListener(type, preventZoom, { capture: true, passive: false });
+            }
+        }
+    }
+
     const toolPath = /^\/(?:uivf12|sla|report|expedite|monthly|ai-report|duty-roster|bigscreen|topic-analysis|frt|praudit|storage|db-explorer|netcare-explorer|requirements|cinema|cinama|project-evolution|python-updater|desktop-license-admin)(?:\/|\.html$|$)|^\/(?:tools|apps)\/[^/]+(?:\/|$)|^\/pages\/(?:uivf12|sla|report|expedite|ai-report|monthly|monthly-designer|duty-roster|bigscreen|topic-analysis|frt|praudit|storage|db-explorer|netcare-explorer|requirements|custom-tool|cinema|project-evolution|python-updater|desktop-license-admin)\.html$/;
     const originals = new WeakMap();
     function resolveTool(href) {

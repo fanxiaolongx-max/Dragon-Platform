@@ -363,7 +363,8 @@
         if(state.openLatestSource===state.source&&!state.failed){
             state.openLatestSource=null;
             const config={source:state.source,id:t=>t.kind+':'+t.id,date:t=>t.lastActiveAt};
-            const latest=window.HomeConversationList?.latest(state.threads,config)||state.threads.filter(t=>!window.HomeConversationList?.get(state.source,t.kind+':'+t.id).hidden&&!window.HomeConversationList?.get(state.source,t.kind+':'+t.id).archived).sort((a,b)=>(Date.parse(b.lastActiveAt)||0)-(Date.parse(a.lastActiveAt)||0))[0];
+            const stamp=val=>window.HomeConversationList?.stamp?.(val)||(Date.parse(/Z$|[+-]\d{2}:?\d{2}$/.test(String(val||''))?String(val||''):`${String(val||'').replace(' ','T')}Z`)||0);
+            const latest=window.HomeConversationList?.latest(state.threads,config)||state.threads.filter(t=>!window.HomeConversationList?.get(state.source,t.kind+':'+t.id).hidden&&!window.HomeConversationList?.get(state.source,t.kind+':'+t.id).archived).sort((a,b)=>stamp(b.lastActiveAt)-stamp(a.lastActiveAt))[0];
             if(latest)openThread(latest);
         }
     }

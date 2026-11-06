@@ -10,6 +10,7 @@
     const state = { href: '', title: '', returnTo: null };
     const datacom = '/tools/datacom-protocol-expert';
     const desktop = window.DragonEmbeddedTool;
+    const staticNav = window.ToolsStaticNavigation;
     let root, frame, titleEl, iconEl, surface, skeleton, surfaceMessage, retry;
     let assistantObserver, surfaceObserver, resizeObserver, surfaceFrame, surfaceId = 0, activeSurface = 0;
 
@@ -70,6 +71,7 @@
             .filter(url => url && url.origin === location.origin && url.pathname !== '/' && !url.searchParams.has('skill')).map(url => url.pathname);
     }
     function isToolUrl(url) {
+        if (staticNav) return Boolean(staticNav.resolveTool(url));
         if (url.origin !== location.origin || url.pathname === '/' || /^\/(api|login|downloads?)\b/.test(url.pathname)) return false;
         // Requirements also has fixed menu/navbar entries outside the async tool catalog.
         if (['/requirements', '/pages/requirements.html'].includes(url.pathname)) return true;
@@ -77,6 +79,7 @@
         return knownPaths().some(path => url.pathname === path || url.pathname.startsWith(path.replace(/\/$/, '') + '/'));
     }
     function toolInfo(url) {
+        if (staticNav) return staticNav.resolveTool(url) || {};
         const tool = (window.HomeWorkspace?.getTools?.() || []).find(item => { try { return new URL(item.href, location.origin).pathname === url.pathname; } catch { return false; } });
         return { title: tool?.title || '', icon: tool?.icon || '' };
     }
@@ -95,7 +98,7 @@
                 <span class="v2-tool-frame-icon"></span><strong class="v2-tool-frame-title"></strong>
                 <span class="v2-tool-frame-spacer"></span>
                 <button type="button" class="v2-tool-frame-btn" data-frame-act="reload" title="${esc(L('刷新', 'Reload'))}"><span class="v2-ico" data-icon="refresh"></span></button>
-                <button type="button" class="v2-tool-frame-btn" data-frame-act="external" title="${esc(L('在新标签页打开', 'Open in new tab'))}"><span class="v2-ico" data-icon="external"></span></button>
+                <button type="button" class="v2-tool-frame-btn" data-frame-act="external" title="${esc(staticNav ? L('独立页面打开', 'Open standalone page') : L('在新标签页打开', 'Open in new tab'))}"><span class="v2-ico" data-icon="external"></span></button>
                 <button type="button" class="v2-tool-frame-btn" data-frame-act="close" title="${esc(L('关闭', 'Close'))}"><span class="v2-ico" data-icon="close"></span></button>
             </header>
             <iframe class="v2-tool-frame-view" title="" allow="clipboard-read; clipboard-write; fullscreen; microphone; camera; display-capture"></iframe>
@@ -135,7 +138,10 @@
                 if (activeSurface) open(currentHref(), { push: false });
                 else frame.src = currentHref();
             }
-            else if (act === 'external') window.open(window.ToolsNavigation.toolUrl(currentHref()), '_blank', 'noopener');
+            else if (act === 'external') {
+                if (staticNav) staticNav.openStandalone(currentHref());
+                else window.open(window.ToolsNavigation.toolUrl(currentHref()), '_blank', 'noopener');
+            }
         });
         // 工具内部跳转后同步标题与地址
         frame.addEventListener('load', () => {
@@ -150,6 +156,7 @@
                 assistantObserver.observe(doc.body, { childList: true, subtree: true });
             }
             const href = currentHref();
+            if (staticNav && !staticNav.resolveTool(href)) return;
             if (doc?.title && !toolInfo(new URL(href, location.origin)).title) titleEl.textContent = doc.title.replace(/\s*[-|]\s*Dragon.*$/i, '');
             // 工具页里点回首页（Logo 等）：关掉内嵌而不是在框里再套一个首页
             try { if (new URL(href, location.origin).pathname === '/') { close(); return; } } catch { /* ignore */ }
@@ -174,6 +181,14 @@
     function open(href, { push = true } = {}) {
         let url;
         try { url = new URL(href, location.origin); } catch { return false; }
+        if (staticNav) {
+            const tool = staticNav.resolveTool(url);
+            if (!tool) {
+                staticNav.notify();
+                return true;
+            }
+            url = tool.url;
+        }
         url.searchParams.delete('standalone');
         if (desktop && url.origin === location.origin && /^\/custom-tools\/datacom-protocol-expert\/(?:index\.html)?$/.test(url.pathname)) url.pathname = datacom;
         const useSurface = desktop && url.origin === location.origin && url.pathname === datacom;
@@ -252,13 +267,19 @@
     });
 
     function init() {
-        const app = new URLSearchParams(location.search).get('app');
-        if (app && app.startsWith('/')) open(app, { push: false });
-        window.addEventListener('popstate', () => {
+        const restore = () => {
             const next = new URLSearchParams(location.search).get('app');
             if (next && next.startsWith('/')) open(next, { push: false });
             else close({ push: false });
-        });
+        };
+        if (staticNav) staticNav.ready.then(() => {
+            restore();
+            window.addEventListener('popstate', restore);
+        }).catch(() => {});
+        else {
+            restore();
+            window.addEventListener('popstate', restore);
+        }
         // 直接打开 ?app= 时工具列表可能还没加载：加载后补上名称和图标
         window.addEventListener('home:tools-updated', () => {
             if (!window.HomeToolFrame.isOpen()) return;

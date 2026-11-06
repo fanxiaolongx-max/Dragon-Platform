@@ -4,7 +4,8 @@ const fs = require('node:fs'), path = require('node:path'), os = require('node:o
 const acorn = require('acorn');
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'snapshot-publish-ui-'));
 app.setPath('userData', path.join(temp, 'profile'));
-const source = fs.readFileSync(path.join(__dirname, '../frontend/js/shared/navbar.js'), 'utf8');
+const source = ['navbar.js', 'navbar-settings.js'].map(name =>
+    fs.readFileSync(path.join(__dirname, '../frontend/js/shared', name), 'utf8')).join('\n');
 const names = new Set(['snapshotApi', 'applyToolEstimateResult', 'markSnapshotEstimatePending', 'failSnapshotEstimate', 'renderSnapshotProgress', 'pollSnapshotProgress']);
 const assignments = new Set(['toggleAllSnapshotTools', 'openSnapshotPublishProgress', 'closeSnapshotPublishProgress', 'saveSnapshotPublishSettings']);
 const code = acorn.parse(source, { ecmaVersion: 'latest' }).body.filter(node =>
@@ -30,6 +31,22 @@ app.whenReady().then(async () => {
         toggleAllSnapshotTools(false); toggleAllSnapshotTools(true);
     });
     assert.deepEqual(await evaluate(() => ['small', 'large'].map(slug => { const c = document.getElementById('snapshotToolEnabled_' + slug); return [c.checked, c.disabled]; })), [[true, false], [false, true]]);
+    for (const demoLevel of ['latest', 'empty']) {
+        const state = await evaluate(level => {
+            const item = document.querySelector('[data-tool-slug="small"]');
+            applyToolEstimateResult('small', { demoLevel: level, isHeavy: true, supported: true, fileCount: 1 },
+                document.getElementById('snapshotToolSize_small'), item, document.getElementById('snapshotToolWarning_small'));
+            const input = document.getElementById('snapshotToolEnabled_small');
+            return [input.checked, input.disabled, document.getElementById('snapshotToolWarning_small').textContent];
+        }, demoLevel);
+        assert.deepEqual(state.slice(0, 2), [true, false]);
+        assert.match(state[2], demoLevel === 'latest' ? /最新数据/ : /不带业务数据/);
+    }
+    await evaluate(() => {
+        const item = document.querySelector('[data-tool-slug="small"]');
+        applyToolEstimateResult('small', { supported: true, fileCount: 2, totalSizeFormatted: '1 MiB' },
+            document.getElementById('snapshotToolSize_small'), item, document.getElementById('snapshotToolWarning_small'));
+    });
     // System dark mode must not mix a dark warning card with the light settings panel.
     for (const [width, height, theme] of [[1440, 1000, 'light'], [1440, 1000, 'dark'], [390, 844, 'light'], [390, 844, 'dark']]) {
         nativeTheme.themeSource = theme; win.setSize(width, height);

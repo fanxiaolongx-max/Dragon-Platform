@@ -10,6 +10,10 @@ module.exports = function platformDemo(data, slug, modules) {
         return decodeURI(parsed.pathname) + (params.size ? '?' + params : '');
     };
     const captured = new Map(Object.entries(responses).map(([key, value]) => [canonical(key), value]));
+    for (const [key, kind] of Object.entries(data.aliases || {})) {
+        const latest = responses['/api/sla/snapshots/latest'].snapshot;
+        captured.set(canonical(key), kind === 'list' ? [latest] : latest);
+    }
     const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json', 'X-Data-Source': 'snapshot' } });
     window.__TP_STATIC_DEMO__ = true;
     window.fetch = async (input, options = {}) => {
@@ -50,7 +54,11 @@ module.exports = function platformDemo(data, slug, modules) {
         nav.id = 'tp-demo-nav';
         const home = document.createElement('a');
         home.href = data.homeHref || '../index.html'; home.textContent = '首页 / Home'; nav.appendChild(home);
-        const label = document.createElement('span'); label.textContent = '只读演示 / Read-only demo'; nav.appendChild(label);
+        const label = document.createElement('span');
+        label.textContent = data.demoLevel === 'empty' ? '只读演示 · 无业务数据 / Read-only demo · No business data'
+            : data.demoLevel === 'latest' ? '只读演示 · 最新数据 / Read-only demo · Latest data'
+                : '只读演示 / Read-only demo';
+        nav.appendChild(label);
         const button = document.createElement('button'); button.textContent = '中文 / English';
         button.onclick = () => window.ToolsI18n?.toggleLanguage(); nav.appendChild(button);
         document.body.prepend(nav);

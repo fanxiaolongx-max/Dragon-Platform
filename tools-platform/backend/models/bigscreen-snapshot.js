@@ -16,16 +16,25 @@ function readData(reader, params = {}, query = {}) {
         });
     });
 }
-async function collect() {
+async function collect({ demoLevel } = {}) {
+    if (demoLevel === 'empty') return {
+        '/api/db/monthly_report_data': { trends: [], latest_snapshot: null },
+        '/api/db/snapshots': [], '/api/db/config/bigscreen_title': {},
+        '/api/db/config/bigscreen_contact_info': {}, '/api/db/config/bigscreen_owners': {},
+        '/api/sla/config': { prefs: { i18nMap: {} } }, latestByDate: {}, demoLevel
+    };
     const readers = require('../routes/db').dashboardReaders;
-    const data = {};
-    data['/api/db/monthly_report_data'] = await readData(readers.readDashboardMonthlyData);
+    const data = { demoLevel };
+    const snapshots = await readData(readers.readDashboardSnapshots);
+    const date = demoLevel === 'latest' && snapshots[0]?.created_at?.slice(0, 10);
+    data['/api/db/monthly_report_data'] = await readData(readers.readDashboardMonthlyData, {}, date ? { startDate: date, endDate: date } : {});
     data.latestByDate = {};
     for (const row of data['/api/db/monthly_report_data'].trends) {
-        const daily = await readData(readers.readDashboardMonthlyData, {}, { startDate: row.date, endDate: row.date });
+        const daily = date ? data['/api/db/monthly_report_data']
+            : await readData(readers.readDashboardMonthlyData, {}, { startDate: row.date, endDate: row.date });
         data.latestByDate[row.date] = daily.latest_snapshot;
     }
-    data['/api/db/snapshots'] = await readData(readers.readDashboardSnapshots);
+    data['/api/db/snapshots'] = demoLevel === 'latest' ? snapshots.slice(0, 1) : snapshots;
     for (const key of ['bigscreen_title', 'bigscreen_contact_info', 'bigscreen_owners']) {
         data['/api/db/config/' + key] = await readData(readers.readDashboardConfig, { key });
     }
@@ -71,8 +80,10 @@ window.API = {
     html = html.replace('id="ownerConfigBtn"', 'id="ownerConfigBtn" hidden')
         .replace('onclick="BigscreenTitle.open()"', '').replace('onclick="editContactInfo()"', '');
     const scripts = [runtime, read('js/vendor/echarts.min.js'), read('js/shared/toast.js'), read('js/shared/i18n.js'), read('js/report/bigscreen.js')];
-    return html.replace('</body>', `<button style="position:fixed;right:16px;bottom:16px;z-index:1000" onclick="ToolsI18n.toggleLanguage()">中文 / English</button>${scripts.map(source => `<script>${inline(source)}</script>`).join('\n')}</body>`);
+    const label = data.demoLevel === 'latest' ? '最新数据 / Latest data'
+        : data.demoLevel === 'empty' ? '无业务数据 / No business data' : '';
+    return html.replace('</body>', `${label ? `<span role="status" style="position:fixed;left:16px;bottom:16px;z-index:1000">${label}</span>` : ''}<button style="position:fixed;right:16px;bottom:16px;z-index:1000" onclick="ToolsI18n.toggleLanguage()">中文 / English</button>${scripts.map(source => `<script>${inline(source)}</script>`).join('\n')}</body>`);
 }
-async function buildSnapshot() { return render(await collect()); }
-async function buildPagesSnapshot() { return { html: await buildSnapshot(), files: new Map() }; }
+async function buildSnapshot(_tenantId, options) { return render(await collect(options)); }
+async function buildPagesSnapshot(tenantId, options) { return { html: await buildSnapshot(tenantId, options), files: new Map() }; }
 module.exports = { collect, render, buildSnapshot, buildPagesSnapshot };

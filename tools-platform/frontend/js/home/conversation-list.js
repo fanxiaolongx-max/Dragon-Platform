@@ -195,7 +195,7 @@
         entry.observer=new IntersectionObserver(items=>{if(items.some(item=>item.isIntersecting)){entry.observer.disconnect();onMore?.();}},{root:scroller(list),rootMargin:'0px 0px 300px 0px'});
         entry.observer.observe(node);
     }
-    window.HomeConversationList={sections,getFilter,setFilter,getSources,matchesSource,passesFilter,enhance,bucket,get,latest,healthDot,close,refresh:load,pager,reset:list=>{const binding=bindings.get(list);if(binding){binding.limit=6;binding.limits?.clear();renderBatch(list);}},
+    window.HomeConversationList={stamp,sections,getFilter,setFilter,getSources,matchesSource,passesFilter,enhance,bucket,get,latest,healthDot,close,refresh:load,pager,reset:list=>{const binding=bindings.get(list);if(binding){binding.limit=6;binding.limits?.clear();renderBatch(list);}},
         // 分区「展开更多」计数清零：match(key) 为真的分区（如 'spaces' 及其下的 'project:…'）回到默认条数
         resetScopes:(list,match)=>{const binding=bindings.get(list);if(binding?.limits)for(const key of [...binding.limits.keys()])if(match(key))binding.limits.delete(key);},toggleArchived:source=>{views.set(source,views.get(source)==='archived'?'active':'archived');signal(source);},isArchived:source=>views.get(source)==='archived',_action:action};
     document.addEventListener('pointerdown',event=>{if(menu&&!menu.contains(event.target)&&!event.target.closest('[data-conversation-more]'))close();},true);

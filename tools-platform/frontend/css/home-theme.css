@@ -298,6 +298,16 @@ html[data-ui="v2"] #dcComposer #dcSend::after { left: auto; right: 0; transform:
 html[data-ui="v2"] #dcComposer #dcSend:is(:hover, :focus-visible)::after { transform: none; }
 .dc-enhance.is-loading svg { animation: v2-spin .9s linear infinite; }
 html[data-ui="v2"] .nav-settings-window { background: var(--v2-bg); color: var(--v2-ink); border-color: var(--v2-line); box-shadow: var(--v2-shadow-box); }
+html[data-ui="v2"][data-theme="dark"] .nav-settings-window { color-scheme: dark; }
+html[data-ui="v2"][data-theme="dark"] .nav-settings-sidebar { background: var(--v2-side); border-right-color: var(--v2-line); }
+html[data-ui="v2"][data-theme="dark"] .nav-settings-heading { color: var(--v2-ink); }
+html[data-ui="v2"][data-theme="dark"] .nav-settings-subtitle,
+html[data-ui="v2"][data-theme="dark"] .nav-settings-help { color: var(--v2-ink3); }
+html[data-ui="v2"][data-theme="dark"] .nav-settings-tab { color: var(--v2-ink2); }
+html[data-ui="v2"][data-theme="dark"] .nav-settings-tab:hover { background: var(--v2-hover); color: var(--v2-ink); }
+html[data-ui="v2"][data-theme="dark"] .nav-settings-tab.active { background: var(--v2-chip); color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.4); }
+html[data-ui="v2"][data-theme="dark"] .nav-settings-close { background: var(--v2-chip); color: var(--v2-ink2); }
+html[data-ui="v2"][data-theme="dark"] .nav-settings-close:hover { background: var(--v2-hover); color: var(--v2-ink); }
 html[data-ui="v2"] .nav-ai-profile-panel { background: var(--v2-side); border-color: var(--v2-line); box-shadow: none; }
 @media (max-width: 640px) {
     html[data-ui="v2"] #dcComposer .dc-model-menu { right: -74px; }

@@ -212,12 +212,14 @@ async function buildPortal(checkout, items, changedFiles) {
                 const name = path.posix.join(dir, entry.name);
                 if (entry.isSymbolicLink()) throw new Error('静态工具发布目录不可包含符号链接');
                 if (entry.isDirectory()) walk(name);
-                else if (entry.isFile() && !entry.name.startsWith('.')) files.set(name, fs.readFileSync(path.join(checkout, name)));
+                else if (entry.isFile() && !entry.name.startsWith('.') && !changedFiles.has(name)) {
+                    files.set(name, fs.readFileSync(path.join(checkout, name)));
+                }
             }
         }
         for (const item of items) {
             const name = item.href.slice(2), dir = path.posix.dirname(name);
-            if (dir === '.') { if (fs.existsSync(path.join(checkout, name))) files.set(name, fs.readFileSync(path.join(checkout, name))); }
+            if (dir === '.') { if (!changedFiles.has(name) && fs.existsSync(path.join(checkout, name))) files.set(name, fs.readFileSync(path.join(checkout, name))); }
             else if (fs.existsSync(path.join(checkout, dir))) walk(dir);
         }
     }
@@ -226,13 +228,18 @@ async function buildPortal(checkout, items, changedFiles) {
     files.set('portal-data.json', Buffer.from(safeJson(home)));
     const proof = previous.manifest?.keyId === auth.id ? previous.manifest.proof : (() => { const value = security.seal(Buffer.from('tools-platform-static-site'), auth.key); return { iv: value.iv, data: value.ciphertext.toString('base64') }; })();
     const manifest = { version: 1, ...auth.public, tenantId: getTenantId(), media: publicFiles.media, identity: publicFiles.identity, proof, files: {} };
+    const toolSessionVersion = security.digest(publicFiles.files.get('tp-static/session.js')).slice(0, 12);
     for (const [name, value] of files) {
         assertPath(checkout, name);
         let bytes = Buffer.isBuffer(value) ? value : Buffer.from(value);
-        if (/\.html$/i.test(name) && name !== 'index.html') bytes = Buffer.from(stripLegacyGatekeeper(bytes.toString()));
-        if (/\.html$/i.test(name) && name !== 'index.html' && !bytes.includes(Buffer.from('/tp-static/session.js'))) {
+        if (/\.html?$/i.test(name) && name !== 'index.html') {
             const depth = path.posix.relative(path.posix.dirname(name), '.') || '.';
-            bytes = Buffer.from(bytes.toString().replace(/<head([^>]*)>/i, `<head$1><script src="${depth}/tp-static/session.js"></script>`));
+            const tag = `<script src="${depth}/tp-static/session.js?v=${toolSessionVersion}"></script>`;
+            const html = stripLegacyGatekeeper(bytes.toString())
+                .replace(/<script src="(?:\.\.?\/)+tp-static\/session\.js(?:\?[^"]*)?"><\/script>/gi, '');
+            bytes = Buffer.from(/<head\b[^>]*>/i.test(html)
+                ? html.replace(/<head\b[^>]*>/i, head => head + tag)
+                : html.replace(/^(?:\s*<!doctype[^>]*>)?/i, start => start + tag));
         }
         const hash = security.digest(bytes);
         const isPublic = isPublicFile(name);

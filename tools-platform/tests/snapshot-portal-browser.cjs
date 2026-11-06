@@ -6,7 +6,8 @@ const express = require('express');
 const ROOT = path.join(__dirname, '..');
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'portal-browser-'));
 app.setPath('userData', path.join(temp, 'profile'));
-let server, win;
+let server, win, standalone;
+let exitCode = 0;
 const failures = [];
 const evaluate = (fn, ...args) => win.webContents.executeJavaScript(`(${fn.toString()})(...${JSON.stringify(args)})`, true);
 async function until(fn, count = 300) {
@@ -27,7 +28,18 @@ app.whenReady().then(async () => {
             files.set('demo-tool/data/chunked.json',JSON.stringify({value:'汉'.repeat(3*1024*1024)}));
             const datacom=await require('./backend/models/datacom-knowledge-snapshot').buildPagesSnapshot('default');
             files.set('datacom-protocol-expert/index.html',datacom.html);for(const [name,content] of datacom.files)files.set('datacom-protocol-expert/'+name,content);
-            await require('./backend/models/snapshot-portal').buildPortal(checkout,[{slug:'demo-tool',name:'已发布工具',href:'./demo-tool/index.html'},{slug:'datacom-protocol-expert',name:'数通协议专家',href:'./datacom-protocol-expert/index.html'}],files);
+            const items=[{slug:'demo-tool',name:'已发布工具',href:'./demo-tool/index.html'},{slug:'datacom-protocol-expert',name:'数通协议专家',href:'./datacom-protocol-expert/index.html'}];
+            const pages=require('./backend/models/platform-page-snapshot');
+            for(const slug of Object.keys(pages.MODULES)){
+                const bundle=await pages.buildPagesSnapshot(slug,{demoLevel:'empty'});
+                files.set(slug+'/index.html',bundle.html);
+                for(const [name,bytes] of bundle.files)files.set(slug+'/'+name,bytes);
+                items.push({slug,name:pages.MODULES[slug][0],href:'./'+slug+'/index.html'});
+            }
+            const dashboard=await require('./backend/models/bigscreen-snapshot').buildPagesSnapshot('default',{demoLevel:'empty'});
+            files.set('bigscreen/index.html',dashboard.html);
+            items.push({slug:'bigscreen',name:'大屏看板',href:'./bigscreen/index.html'});
+            await require('./backend/models/snapshot-portal').buildPortal(checkout,items,files);
             await require('./backend/models/app-db').closeDatabase();await require('./backend/models/platform-db').closeDatabase();await require('./backend/models/tenant-sqlite-pool').closeAll();
         })().catch(e=>{console.error(e);process.exit(1)});
     `], { cwd: ROOT, env: { ...process.env, PORTAL_TEST_DIR: temp, TOOLS_DATA_DIR: path.join(temp, 'data'), TOOLS_REPORT_DATA_DIR: path.join(temp, 'reports'), INITIAL_ADMIN_USERNAME: 'portal-admin', INITIAL_ADMIN_PASSWORD: 'Portal-password-2026!' } });
@@ -51,8 +63,11 @@ app.whenReady().then(async () => {
     await until(() => document.getElementById('appVersionBadge')?.textContent.includes('Online test version'));
     win.setSize(390, 844);
     await evaluate(() => document.documentElement.dataset.theme = 'light');
-    assert.equal(await evaluate(() => { const badge = document.getElementById('appVersionBadge'), rect = badge.getBoundingClientRect(); return rect.width > 0 && rect.left >= 0 && rect.right <= innerWidth && badge.scrollWidth <= badge.clientWidth + 1; }), true, 'the login version badge fits a narrow window');
-    assert.equal(await evaluate(() => { const name=document.getElementById('loginBrandName'), badge=document.getElementById('appVersionBadge'); return name.getClientRects().length===1 && badge.children.length===2 && badge.children[1].getBoundingClientRect().top>=badge.children[0].getBoundingClientRect().bottom; }), true, 'brand name stays on one line and test label sits below the version');
+    assert.equal(await evaluate(() => {
+        const head = document.querySelector('.v2-login-head');
+        const rect = head.getBoundingClientRect();
+        return rect.width > 0 && rect.left >= 0 && rect.right <= innerWidth && head.scrollWidth <= head.clientWidth + 1;
+    }), true, 'the v2 login header fits a narrow window');
     await win.webContents.capturePage().then(image=>fs.writeFileSync(path.join(os.tmpdir(),'platform-login-version.png'),image.toPNG()));
     win.setSize(1440, 1000);
     await evaluate(() => { document.documentElement.dataset.theme = 'dark'; window.ToolsI18n.setLanguage('zh-CN'); });
@@ -61,7 +76,8 @@ app.whenReady().then(async () => {
     await until(() => !document.getElementById('loginBtn').disabled);
     await evaluate(() => { document.getElementById('password').value = 'Portal-password-2026!'; document.getElementById('loginBtn').click(); });
     await until(() => !!document.getElementById('toolsGrid'), 500);
-    await until(() => document.querySelectorAll('[data-custom-tool-card]').length === 3);
+    await until(() => ['demo-tool', 'private-tool', 'datacom-protocol-expert'].every(slug =>
+        document.querySelector(`[data-custom-tool-card][data-tool-slug="${slug}"]`)));
     await until(() => !!document.querySelector('#nrvStack'));
     await until(() => document.querySelector('#nav-resource-version-display')?.textContent.includes('在线测试版'));
     assert.equal(await evaluate(() => document.querySelector('#nav-resource-version-display').textContent), `v${require('../package.json').version} · 在线测试版`);
@@ -101,7 +117,7 @@ app.whenReady().then(async () => {
         cycle.push(selected.key);
     }
     assert.deepEqual(cycle.sort(), expectedCycle.sort(), 'static homepage refreshes cycle through links and videos without repeats: ' + JSON.stringify(cycle));
-    assert.equal(await evaluate(() => !!document.getElementById('homeSidebar') && !!document.getElementById('statsBar') && !!document.getElementById('homePromotions')), true);
+    assert.equal(await evaluate(() => ['homeSidebar', 'dragonClaw', 'toolsGrid'].every(id => document.getElementById(id))), true);
     assert.equal(await evaluate(() => document.querySelector('#dcDatacomPromo .dc-feature-new')?.textContent), 'NEW');
     await evaluate(() => document.getElementById('builtinToolsCompareBtn').click());
     await until(() => document.body.textContent.includes('无权限，请联系管理员添加'));
@@ -120,10 +136,10 @@ app.whenReady().then(async () => {
         win.setSize(1440, 1000);
     }
     await evaluate(() => document.getElementById('dcDatacomPromo').click());
-    await until(() => !!document.querySelector('.dk-hero'));
-    assert.equal(new URL(win.webContents.getURL()).pathname, '/project/datacom-protocol-expert/index.html');
+    await until(() => !!document.querySelector('.v2-tool-frame-view')?.contentDocument?.querySelector('.dk-hero'));
+    assert.equal(new URL(win.webContents.getURL()).searchParams.get('app'), '/project/datacom-protocol-expert/index.html');
     await win.loadURL(base + 'index.html');
-    await until(() => document.querySelectorAll('[data-custom-tool-card]').length === 3);
+    await until(() => !!document.querySelector('[data-custom-tool-card][data-tool-slug="private-tool"]'));
     await evaluate(() => window.HomeMode.set('tools'));
     await evaluate(() => document.querySelector('[data-tool-slug="private-tool"]').click());
     await until(() => document.body.textContent.includes('无权限，请联系管理员添加'));
@@ -168,15 +184,63 @@ app.whenReady().then(async () => {
     await until(() => !!document.getElementById('toolsGrid'));
     assert.equal(await evaluate(async () => { const r=await fetch('./demo-tool/data/chunked.json');if(!r.ok)throw Error('Upgrade response '+r.status+': '+await r.text());return (await r.json()).value.length; }), 3 * 1024 * 1024, 'an already signed-in client waits for the updated multipart worker');
     await evaluate(() => window.HomeMode.set('tools'));
-    await until(() => Number(getComputedStyle(document.querySelector('.tool-card')).opacity) > 0.9);
+    await until(() => !!document.querySelector('#toolsGrid [data-tool-slug="demo-tool"]'));
     await new Promise(resolve => setTimeout(resolve, 500));
     if (process.env.PORTAL_SCREENSHOT) fs.writeFileSync(process.env.PORTAL_SCREENSHOT, (await win.webContents.capturePage()).toPNG());
     const request = await evaluate(async () => (await fetch('/api/custom-tools', { method: 'POST', body: '{}' })).status);
     assert.equal(request, 403);
     await evaluate(() => document.querySelector('[data-tool-slug="demo-tool"]').click());
-    await until(() => !!document.getElementById('publishedDemo'));
-    assert.equal(new URL(win.webContents.getURL()).pathname, '/project/demo-tool/index.html');
-    assert.equal(await evaluate(async () => (await (await fetch('./data/chunked.json')).json()).value.length), 3 * 1024 * 1024, 'multipart payload is reassembled and decrypted completely');
+    await until(() => !!document.querySelector('.v2-tool-frame-view')?.contentDocument?.getElementById('publishedDemo'));
+    assert.equal(new URL(win.webContents.getURL()).searchParams.get('app'), '/project/demo-tool/index.html');
+    const embeddedUrl = win.webContents.getURL();
+    await win.loadURL(embeddedUrl);
+    await until(() => !!document.querySelector('.v2-tool-frame-view')?.contentDocument?.getElementById('publishedDemo'));
+    assert.ok(await evaluate(() => document.getElementById('homeSidebar').getClientRects().length), 'sidebar stays visible');
+    win.webContents.setWindowOpenHandler(() => ({ action: 'allow', overrideBrowserWindowOptions: { show: false } }));
+    const openedStandalone = new Promise(resolve => win.webContents.once('did-create-window', resolve));
+    await evaluate(() => document.querySelector('[data-frame-act="external"]').click());
+    standalone = await openedStandalone;
+    for (let attempt = 0; attempt < 100; attempt++) {
+        if (await standalone.webContents.executeJavaScript('!!document.getElementById("publishedDemo")').catch(() => false)) break;
+        await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    const standaloneUrl = new URL(standalone.webContents.getURL());
+    assert.equal(standaloneUrl.pathname, '/project/demo-tool/index.html');
+    assert.equal(standaloneUrl.searchParams.get('standalone'), '1');
+    assert.equal(await standalone.webContents.executeJavaScript('!!document.getElementById("publishedDemo") && !document.getElementById("homeSidebar") && !window.opener && !!sessionStorage.getItem("tp-static:/project/")'), true);
+    assert.equal(await standalone.webContents.executeJavaScript('(async () => (await (await fetch("./data/chunked.json")).json()).value.length)()'), 3 * 1024 * 1024, 'standalone multipart payload is reassembled and decrypted');
+    standalone.destroy();
+    for (const slug of ['uivf12', 'sla', 'report', 'expedite', 'monthly', 'monthly/legacy', 'topic-analysis', 'network_safety_meeting_summary', 'bigscreen']) {
+        const legacy = slug === 'monthly/legacy';
+        if (legacy) {
+            await evaluate(() => document.querySelector('.v2-tool-frame-view').contentDocument.getElementById('airLegacyReport').click());
+        } else {
+            await evaluate(slug => window.HomeToolFrame.open('/' + slug), slug);
+        }
+        const expected = '/project/' + slug + (legacy ? '.html' : '/index.html');
+        for (let attempt = 0; attempt < 100; attempt++) {
+            if (await evaluate(expected => {
+                const frame = document.querySelector('.v2-tool-frame-view');
+                const doc = frame.contentDocument;
+                return frame.contentWindow.location.pathname === expected && doc.readyState === 'complete'
+                    && doc.documentElement.classList.contains('is-clean-tool');
+            }, expected)) break;
+            await new Promise(resolve => setTimeout(resolve, 50));
+        }
+        const chrome = await evaluate(() => {
+            const frame = document.querySelector('.v2-tool-frame-view');
+            const doc = frame.contentDocument;
+            return {
+                pathname: frame.contentWindow.location.pathname,
+                offset: frame.contentWindow.getComputedStyle(doc.documentElement).getPropertyValue('--navbar-h').trim(),
+                barsVisible: [...doc.querySelectorAll('#tp-demo-nav,#app-navbar,#navbar-container')].some(el => el.getClientRects().length)
+            };
+        });
+        assert.deepEqual(chrome, { pathname: expected, offset: '0px', barsVisible: false }, slug + ' ' + JSON.stringify(chrome)
+            + ' host=' + win.webContents.getURL() + ' resolved=' + await evaluate(slug => window.ToolsStaticNavigation.resolveTool('/' + slug)?.url.href, slug));
+    }
+    await evaluate(() => history.back());
+    await until(() => document.querySelector('.v2-tool-frame-view')?.contentWindow?.location.pathname === '/project/network_safety_meeting_summary/index.html');
     await win.loadURL(base + 'datacom-protocol-expert/index.html');
     await until(() => !!document.querySelector('.dk-hero'));
     win.webContents.debugger.attach('1.3');
@@ -193,9 +257,10 @@ app.whenReady().then(async () => {
     await until(() => !!document.getElementById('loginBtn'));
     assert.equal(await evaluate(() => document.getElementById('publishedDemo') === null), true);
     console.log('original login/home, wrong password, shared tool access, direct-link protection, logout, bilingual cards, permissions and remote videos passed');
-}).then(() => { process.exitCode = 0; }).catch(error => { console.error(error); process.exitCode = 1; }).finally(async () => {
+}).catch(error => { console.error(error); exitCode = 1; }).finally(async () => {
+    if (standalone && !standalone.isDestroyed()) standalone.destroy();
     if (win) win.destroy();
     if (server) await new Promise(resolve => server.close(resolve));
     fs.rmSync(temp, { recursive: true, force: true });
-    app.exit(process.exitCode);
+    app.exit(exitCode);
 });

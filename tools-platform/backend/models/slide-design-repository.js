@@ -126,10 +126,12 @@ function rowToAsset(row) {
     };
 }
 
-async function listProjects() {
+async function listProjects({ includeDeckBytes = false } = {}) {
     await ensureReady();
-    return (await all(`SELECT id, name, '' AS deck_html, active_slide, source, created_at, updated_at
-                       FROM slide_design_projects ORDER BY updated_at DESC, created_at DESC`)).map(rowToProject);
+    const rows = await all(`SELECT id, name, '' AS deck_html, active_slide, source, created_at, updated_at
+                        ${includeDeckBytes ? ', length(CAST(deck_html AS BLOB)) AS deck_bytes' : ''}
+                        FROM slide_design_projects ORDER BY updated_at DESC, created_at DESC`);
+    return rows.map(row => includeDeckBytes ? { ...rowToProject(row), deckBytes: row.deck_bytes } : rowToProject(row));
 }
 
 async function getProject(id) {

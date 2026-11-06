@@ -15,6 +15,7 @@ window.__TP_STATIC_READY__ = (async () => {
     const en = () => /^en/i.test(localStorage.getItem('tools_lang') || document.documentElement.lang || '');
     const denied = () => en() ? 'No permission. Please contact an administrator to add access.' : '无权限，请联系管理员添加';
     const site = await (await fetchNetwork(new URL('tp-static/site.json', base), { cache: 'no-store' })).json();
+    window.__TP_STATIC_HAS_PAGE__ = name => Object.hasOwn(site.files, name);
     window.__TP_PUBLIC_MEDIA__ = site.media;
     async function worker() {
         if (!window.isSecureContext || !navigator.serviceWorker) throw new Error(en() ? 'Open this site over HTTPS.' : '请通过 HTTPS 打开此站点');

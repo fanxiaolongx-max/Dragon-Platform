@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { safeJson } = require('./static-snapshot-data');
+const { checkDemoSize } = require('./snapshot-size-policy');
 const FRONTEND = path.join(__dirname, '../../frontend');
 const MODULES = {
     uivf12: ['数据抓取', 'Data capture', 'uivf12.html'],
@@ -24,8 +25,30 @@ function readRoute(router, url) {
         router.handle(req, res, error => { clearTimeout(timer); reject(error || new Error('Unknown snapshot endpoint: ' + url)); });
     });
 }
-async function collect(slug) {
+function emptyDemo(slug) {
+    const responses = {
+        '/api/health': { status: 'ok', storage: 'snapshot' },
+        '/api/sla/config': { prefs: {} }, '/api/sla/categories': [], '/api/sla/groups': [], '/api/sla/targets': [],
+        '/api/sla/snapshots': [], '/api/sla/snapshots/latest': { snapshot: null }, '/api/sla/copied-fields': [],
+        '/api/uiv/scripts': { scripts: [], categories: [] }, '/api/uiv/categories': [],
+        '/api/upload/source-catalog': { files: [], snapshots: [], batches: [] }, '/api/upload/import-settings': {},
+        '/api/db/snapshots': [], '/api/db/monthly_report_data': { trends: [], latest_snapshot: null },
+        '/api/db/metric_count_trends?days=90': { trends: [] }, '/api/db/expiring_warning_trends?days=90': { trends: [] },
+        '/api/db/config/report_snapshot_filter': {}, '/api/db/config/welink_policy_v2': {},
+        '/api/db/config/monthly_report_titles': {},
+        '/api/ai-report/documents': [], '/api/ai-report/template': {}, '/api/ai-report/images': { items: [], total: 0 },
+        '/api/topic-snapshots': { items: [], total: 0 }, '/api/topic-snapshots/mapping-config': { config: {} },
+        '/api/topic-snapshots/eos-monthly-report': { months: [] }, '/api/topic-snapshots/monthly-report': { months: [] },
+        projects: [], assets: []
+    };
+    if (slug === 'monthly') responses.legacy = emptyDemo('monthly-legacy');
+    return { responses, demoLevel: 'empty' };
+}
+
+async function collect(slug, { demoLevel, demoBudget } = {}) {
     if (!MODULES[slug] && slug !== 'monthly-legacy') throw new Error('Unknown platform module');
+    if (demoLevel === 'empty') return emptyDemo(slug);
+    const latestOnly = demoLevel === 'latest';
     const responses = {};
     const add = async (prefix, route, suffix) => { responses[prefix + suffix] = await readRoute(require('../routes/' + route), suffix); return responses[prefix + suffix]; };
     const sla = suffix => add('/api/sla', 'sla', suffix);
@@ -38,7 +61,23 @@ async function collect(slug) {
     if (['uivf12', 'sla', 'report', 'expedite', 'monthly-legacy'].includes(slug)) {
         for (const endpoint of ['/config', '/categories', '/groups', '/targets']) await sla(endpoint);
         // Only the latest import is needed for the online demo; keep its original values.
-        const latest = (await sla('/snapshots/latest')).snapshot;
+        let latest;
+        if (latestOnly && ['expedite', 'monthly-legacy'].includes(slug)) {
+            // Their latest records come from the report database.
+            latest = null;
+            responses['/api/sla/snapshots/latest'] = { snapshot: null };
+        } else if (demoBudget) {
+            try {
+                latest = await require('./sla-snapshots-repository').getLatestSnapshot({ demoBudget });
+            } catch (error) {
+                // These modules have their own primary data source.
+                if (!latestOnly || slug === 'sla' || error.code !== 'SNAPSHOT_DEMO_TOO_LARGE') throw error;
+                latest = null;
+            }
+            responses['/api/sla/snapshots/latest'] = { snapshot: latest };
+        } else {
+            latest = (await sla('/snapshots/latest')).snapshot;
+        }
         responses['/api/sla/snapshots'] = latest ? [latest] : [];
         if (latest) responses['/api/sla/snapshots/' + latest.id] = latest;
         responses['/api/health'] = { status: 'ok', storage: 'snapshot' };
@@ -52,13 +91,17 @@ async function collect(slug) {
     if (slug === 'sla') {
         const imports = require('./import-source-repository');
         const latest = responses['/api/sla/snapshots/latest'].snapshot;
+        if (demoBudget && latest && !latestOnly) {
+            const archiveBytes = await imports.getSnapshotArchiveBytes(latest.id, latest.sourceBatchId);
+            checkDemoSize(archiveBytes + Buffer.byteLength(JSON.stringify(latest)), demoBudget);
+        }
         const catalog = await imports.catalog();
         // Keep only originals belonging to the selected latest import.
-        catalog.files = (catalog.files || []).filter(file => latest && file.batch_id === latest.sourceBatchId);
+        catalog.files = latestOnly ? [] : (catalog.files || []).filter(file => latest && file.batch_id === latest.sourceBatchId);
         catalog.snapshots = (catalog.snapshots || []).filter(item => latest && item.id === latest.id);
         responses['/api/upload/source-catalog'] = catalog;
         responses['/api/upload/import-settings'] = await imports.getImportSettings();
-        if (latest) {
+        if (latest && !latestOnly) {
             const archived = await imports.getArchivedSnapshot(latest.id);
             responses['/api/upload/source-snapshots/' + latest.id] = archived || latest;
             for (const file of catalog.files) for (const sheet of file.sheets || []) {
@@ -74,14 +117,19 @@ async function collect(slug) {
         responses['/api/db/snapshots'] = snapshots.slice(0, 1);
         await db('/config/report_snapshot_filter');
         if (slug === 'report') {
-            const saved = await db('/monthly_report_data');
+            const date = latestOnly && snapshots[0]?.created_at?.slice(0, 10);
+            const saved = await db(date ? `/monthly_report_data?startDate=${date}&endDate=${date}` : '/monthly_report_data');
+            responses['/api/db/monthly_report_data'] = saved;
+            if (date) delete responses[`/api/db/monthly_report_data?startDate=${date}&endDate=${date}`];
             const raw = saved.latest_snapshot?.raw_data_json;
             if (raw) {
                 const snapshot = typeof raw === 'string' ? JSON.parse(raw) : raw;
                 if (Array.isArray(snapshot.topMetrics)) responses['/api/sla/snapshots'] = [snapshot];
             }
-            await db('/metric_count_trends?days=90');
-            await db('/expiring_warning_trends?days=90');
+            if (!latestOnly) {
+                await db('/metric_count_trends?days=90');
+                await db('/expiring_warning_trends?days=90');
+            }
         } else {
             await db('/config/welink_policy_v2');
             const latest = snapshots[0];
@@ -89,7 +137,7 @@ async function collect(slug) {
         }
     }
     if (slug === 'monthly-legacy') {
-        Object.assign(responses, await require('./bigscreen-snapshot').collect());
+        Object.assign(responses, await require('./bigscreen-snapshot').collect({ demoLevel }));
         await db('/config/monthly_report_titles');
         await db('/config/welink_policy_v2');
     }
@@ -100,43 +148,78 @@ async function collect(slug) {
         for (const item of list) responses['/api/ai-report/documents/' + item.id] = await reports.read(item.id);
         await add('/api/ai-report', 'ai-report', '/template');
         responses['/api/ai-report/images'] = { items: [], total: 0 };
-        responses.legacy = await collect('monthly-legacy');
+        responses.legacy = await collect('monthly-legacy', { demoLevel, demoBudget });
     }
     if (slug === 'topic-analysis') {
         const repo = require('./topic-snapshots-repository');
-        const listed = await repo.listSnapshots({ limit: 200 });
+        const listed = await repo.listSnapshots({ limit: latestOnly ? 1 : 200 });
         const seen = new Set();
         listed.items = listed.items.filter(item => !seen.has(item.platform) && seen.add(item.platform));
         listed.total = listed.items.length;
         responses['/api/topic-snapshots'] = listed;
         responses['/api/topic-snapshots/mapping-config'] = { config: await repo.getMappingConfig() };
         for (const item of listed.items) responses['/api/topic-snapshots/' + item.id] = { item: await repo.getSnapshot(item.id) };
-        const topic = suffix => add('/api/topic-snapshots', 'topic-snapshots', suffix);
-        const eos = await topic('/eos-monthly-report');
-        for (const month of eos.months || []) await topic('/eos-monthly-report?month=' + month);
-        for (const item of require('../../frontend/js/shared/topic-monthly-engine').list) {
-            const result = await topic('/monthly-report?topic=' + item.key);
-            for (const month of result.months || []) await topic('/monthly-report?topic=' + item.key + '&month=' + month);
+        if (!latestOnly) {
+            const topic = suffix => add('/api/topic-snapshots', 'topic-snapshots', suffix);
+            const eos = await topic('/eos-monthly-report');
+            for (const month of eos.months || []) await topic('/eos-monthly-report?month=' + month);
+            for (const item of require('../../frontend/js/shared/topic-monthly-engine').list) {
+                const result = await topic('/monthly-report?topic=' + item.key);
+                for (const month of result.months || []) await topic('/monthly-report?topic=' + item.key + '&month=' + month);
+            }
         }
     }
     if (slug === 'network_safety_meeting_summary') {
         const repo = require('./slide-design-repository');
-        responses.projects = await Promise.all((await repo.listProjects()).map(item => repo.getProject(item.id)));
+        const projects = await repo.listProjects({ includeDeckBytes: Boolean(demoBudget) });
+        const selected = latestOnly ? projects.slice(0, 1) : projects;
+        let bytes = selected.reduce((sum, item) => sum + (item.deckBytes || 0), 0);
+        checkDemoSize(bytes, demoBudget);
+        responses.projects = await Promise.all(selected.map(item => repo.getProject(item.id)));
         responses.assets = [];
-        const count = await repo.countAssets();
+        const count = latestOnly ? 0 : await repo.countAssets();
         for (let offset = 0; offset < count; offset += 500) {
             for (const asset of await repo.listAssets({ limit: 500, offset })) {
                 const thumbnail = await repo.getAssetThumbnail(asset.id);
-                responses.assets.push({ name: asset.sourceFilename || asset.fileName, summary: asset.summary, thumbnail: thumbnail && fs.existsSync(thumbnail.absolutePath) ? 'data:image/png;base64,' + fs.readFileSync(thumbnail.absolutePath).toString('base64') : '' });
+                const thumbnailPath = thumbnail?.absolutePath;
+                const size = thumbnailPath && fs.statSync(thumbnailPath, { throwIfNoEntry: false })?.size;
+                bytes += size ? 4 * Math.ceil(size / 3) : 0;
+                checkDemoSize(bytes, demoBudget);
+                responses.assets.push({ name: asset.sourceFilename || asset.fileName, summary: asset.summary, thumbnail: size ? 'data:image/png;base64,' + fs.readFileSync(thumbnailPath).toString('base64') : '' });
             }
         }
     }
-    return { responses: await embedMedia(responses) };
+    const aliases = {};
+    const latest = responses['/api/sla/snapshots/latest']?.snapshot;
+    if (demoBudget && latest) {
+        const detail = '/api/sla/snapshots/' + latest.id;
+        if (responses[detail] === latest) {
+            delete responses[detail];
+            aliases[detail] = 'snapshot';
+        }
+        const list = responses['/api/sla/snapshots'];
+        if (list?.length === 1 && list[0] === latest) {
+            delete responses['/api/sla/snapshots'];
+            aliases['/api/sla/snapshots'] = 'list';
+        }
+    }
+    return { responses: await embedMedia(responses), aliases, demoLevel };
 }
 async function embedMedia(value) {
     // Resolve only tenant-owned media APIs referenced by saved content.
-    if (Array.isArray(value)) return Promise.all(value.map(embedMedia));
-    if (value && typeof value === 'object') return Object.fromEntries(await Promise.all(Object.entries(value).map(async ([key, item]) => [key, await embedMedia(item)])));
+    if (value && typeof value === 'object') {
+        let copy;
+        for (const key of Object.keys(value)) {
+            const item = value[key];
+            if (!item || (typeof item !== 'object' && !(typeof item === 'string' && item.includes('/api/')))) continue;
+            const embedded = await embedMedia(item);
+            if (embedded !== item) {
+                copy ||= Array.isArray(value) ? value.slice() : { ...value };
+                copy[key] = embedded;
+            }
+        }
+        return copy || value;
+    }
     if (typeof value !== 'string') return value;
     const pattern = /\/api\/(?:ai-report\/images\/[\w-]+|upload\/monthly-logos\/[\w-]+\/image|slide-design\/assets\/[\w-]+\/thumbnail)(?:\?[^\s"'<>\\]*)?/g;
     let text = value;
@@ -199,7 +282,7 @@ function render(slug, data) {
         const match = tag.match(/href="\/([^"?]+)(?:\?[^"]*)?"/);
         return match ? '<style>' + inlineCss(match[1]) + '</style>' : '';
     });
-    return html.replace(/<head([^>]*)>/i, '$&' + script(runtime(data, slug)));
+    return html.replace(/<head([^>]*)>/i, head => head + script(runtime(data, slug)));
 }
 function renderSlides(data) {
     // Saved decks are rendered in an opaque sandbox; editing/AI stays on the platform.
@@ -208,9 +291,9 @@ function renderSlides(data) {
 function homeHref(slug, options = {}) {
     return path.posix.relative(path.posix.dirname(options.publishPath || slug + '/index.html'), 'index.html') || './index.html';
 }
-async function buildSnapshot(slug, options = {}) { return render(slug, { ...await collect(slug), homeHref: homeHref(slug, options) }); }
+async function buildSnapshot(slug, options = {}) { return render(slug, { ...await collect(slug, options), homeHref: homeHref(slug, options) }); }
 async function buildPagesSnapshot(slug, options = {}) {
-    const data = { ...await collect(slug), homeHref: homeHref(slug, options) };
+    const data = { ...await collect(slug, options), homeHref: homeHref(slug, options) };
     const files = new Map();
     if (slug === 'monthly') {
         data.legacyHref = './legacy.html';

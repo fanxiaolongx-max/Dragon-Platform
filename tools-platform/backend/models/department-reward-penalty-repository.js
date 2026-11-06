@@ -72,6 +72,7 @@ async function ensureReady() {
         after_json TEXT, reason TEXT NOT NULL DEFAULT '',
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )`);
+    await run('CREATE INDEX IF NOT EXISTS idx_drp_audit_created_at ON department_reward_penalty_audit(created_at)');
     await run(`CREATE TABLE IF NOT EXISTS department_reward_penalty_security (
         key TEXT PRIMARY KEY, salt TEXT NOT NULL, hash TEXT NOT NULL,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -116,6 +117,14 @@ async function listAudit({ page = 1, pageSize = 20 } = {}) {
     const currentPage = Math.max(1, Math.min(totalPages, Number.parseInt(page, 10) || 1));
     const rows = await all('SELECT id, actor, action, kind, item_id, before_json, after_json, reason, created_at FROM department_reward_penalty_audit ORDER BY created_at DESC, rowid DESC LIMIT ? OFFSET ?', [size, (currentPage - 1) * size]);
     return { rows: rows.map(row => ({ ...row, before: row.before_json ? JSON.parse(row.before_json) : null, after: row.after_json ? JSON.parse(row.after_json) : null, before_json: undefined, after_json: undefined })), total, page: currentPage, pageSize: size, totalPages };
+}
+
+async function getAuditPayloadBytes() {
+    await ensureReady();
+    const row = await get(`SELECT COALESCE(SUM(
+        COALESCE(length(CAST(before_json AS BLOB)), 0) + COALESCE(length(CAST(after_json AS BLOB)), 0)
+    ), 0) AS bytes FROM department_reward_penalty_audit`);
+    return row.bytes;
 }
 
 async function item(kind, id) {
@@ -717,7 +726,7 @@ async function saveSnapshotMappings(mappings, actor = 'System') {
 module.exports = {
     DEFAULT_ROLES, DEFAULT_DEDUCTIONS, DEFAULT_DEDUCTION_CATEGORIES, deductionCategory,
     DEFAULT_SNAPSHOT_MAPPINGS, getSnapshotMappings, saveSnapshotMappings,
-    ensureReady, list, listAudit, item, put, putMany, putPublishedWithPin, correctHistoricalRoleWithPin, remove, audit,
+    ensureReady, list, listAudit, getAuditPayloadBytes, item, put, putMany, putPublishedWithPin, correctHistoricalRoleWithPin, remove, audit,
     hasCustomForceEditPin, verifyForceEditPin, changeForceEditPin,
     exportBackupPackage, inspectBackupPackage, restoreBackupPackage, parseBackupContent
 };

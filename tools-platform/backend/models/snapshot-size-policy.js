@@ -18,4 +18,9 @@ function classify(stats) {
     const isHeavy = stats.totalBytes >= HEAVY_BYTES || stats.fileCount >= HEAVY_FILES;
     return { ...stats, isHeavy, warningLevel: isHeavy ? 'danger' : stats.totalBytes >= 3 * 1024 * 1024 || stats.fileCount >= 30 ? 'warning' : 'normal' };
 }
-module.exports = { HEAVY_BYTES, HEAVY_FILES, MAX_GIT_FILE_BYTES, PAYLOAD_CHUNK_BYTES, measure, classify };
+function checkDemoSize(bytes, budget) {
+    if (budget && bytes >= budget) {
+        throw Object.assign(new Error('演示快照数据超出自动发布预算'), { code: 'SNAPSHOT_DEMO_TOO_LARGE' });
+    }
+}
+module.exports = { HEAVY_BYTES, HEAVY_FILES, MAX_GIT_FILE_BYTES, PAYLOAD_CHUNK_BYTES, measure, classify, checkDemoSize };

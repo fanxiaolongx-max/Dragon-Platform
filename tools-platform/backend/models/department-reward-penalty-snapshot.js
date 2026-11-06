@@ -4,6 +4,7 @@ const repo = require('./department-reward-penalty-repository');
 const { getDataDir } = require('./tenant-context');
 const tools = require('./custom-tools-repository');
 const { collectMeetingData, collectIncentiveData, staticRuntimeSource } = require('./static-snapshot-data');
+const { checkDemoSize } = require('./snapshot-size-policy');
 
 const EVIDENCE = /^\/api\/department-reward-penalty\/evidence\/([a-f0-9-]{36}\.(?:pdf|png|jpg|txt|zip|rar|7z|tar|gz|eml|msg))$/i;
 const MIME = { pdf: 'application/pdf', png: 'image/png', jpg: 'image/jpeg', txt: 'text/plain', zip: 'application/zip', eml: 'message/rfc822' };
@@ -19,7 +20,7 @@ async function loadSource() {
     return { html, apiMarker, requestMarker };
 }
 
-async function collectSnapshot(tenantId, evidenceMode) {
+async function collectSnapshot(tenantId, evidenceMode, demoBudget) {
     const data = await repo.list();
     const evidenceDir = path.join(getDataDir(tenantId), 'department-reward-penalty-evidence');
     let evidenceBytes = 0;
@@ -30,7 +31,12 @@ async function collectSnapshot(tenantId, evidenceMode) {
         const filename = match[1];
         let bytes = evidenceFiles.get(filename);
         if (!bytes) {
-            bytes = fs.readFileSync(path.join(evidenceDir, filename));
+            const file = path.join(evidenceDir, filename);
+            if (demoBudget) {
+                const total = evidenceBytes + fs.statSync(file).size;
+                checkDemoSize(evidenceMode === 'inline' ? 4 * Math.ceil(total / 3) : total, demoBudget);
+            }
+            bytes = fs.readFileSync(file);
             evidenceFiles.set(filename, bytes);
             evidenceBytes += bytes.length;
         }
@@ -48,28 +54,42 @@ async function collectSnapshot(tenantId, evidenceMode) {
         record.attachment = '';
         if (record.revokeAttachment) record.revokeAttachment = embedEvidence(record.revokeAttachment);
     }
-    const audit = [];
+    return { snapshot: { ...data, canEdit: true, username: '' }, evidenceFiles };
+}
+
+async function collectAuditJson(trailingNewline) {
+    // Serialize one page at a time. Keeping the entire parsed audit and then
+    // escaping it as one large string can exceed the server's memory limit.
+    const parts = [Buffer.from('[')];
+    let hasRows = false;
     for (let page = 1;; page++) {
-        const result = await repo.listAudit({ page, pageSize: 200 });
-        audit.push(...result.rows);
+        const result = await repo.listAudit({ page, pageSize: 50 });
+        if (result.rows.length) {
+            const json = safeJson(result.rows);
+            parts.push(Buffer.from((hasRows ? ',' : '') + json.slice(1, -1)));
+            hasRows = true;
+        }
         if (page >= result.totalPages) break;
     }
     // Keep identical business data byte-for-byte stable so scheduled runs do not create empty commits.
-    return { snapshot: { ...data, canEdit: true, username: '', audit }, evidenceFiles };
+    parts.push(Buffer.from(trailingNewline ? ']\n' : ']'));
+    return Buffer.concat(parts);
 }
 
 const { injectGatekeeper } = require('./snapshot-gatekeeper');
 
+function addDemoNotice(html, level) {
+    const label = level === 'latest' ? '只读演示 · 当前数据，不含历史审计 / Read-only demo · Current data without audit history'
+        : level === 'empty' ? '只读演示 · 无业务数据 / Read-only demo · No business data' : '';
+    return label ? html.replace(/<body\b[^>]*>/i, tag => tag + `<p role="status" style="text-align:center;margin:8px">${label}</p>`) : html;
+}
+
 async function buildSnapshot(tenantId, options = {}) {
     let { html, apiMarker, requestMarker } = await loadSource();
-    const { snapshot } = await collectSnapshot(tenantId, 'inline');
-    const [meetingData, incentiveData] = await Promise.all([collectMeetingData(), collectIncentiveData()]);
-    const related = {
-        meeting: { roster: meetingData.roster, attendance: meetingData.attendance },
-        incentive: { roster: incentiveData.roster }
-    };
+    const { snapshot, related, auditJson } = await collectDemo(tenantId, 'inline', options);
     const enc = options.encryption?.enabled && (options.encryption?.passwordHash || options.encryption?.hash) ? options.encryption : null;
-    html = html.replace(apiMarker, apiMarker + '\nconst OFFLINE_SNAPSHOT = ' + safeJson(snapshot) + ';\nconst TP_RELATED_SNAPSHOT = ' + safeJson(related) + ';\n' + staticRuntimeSource('TP_RELATED_SNAPSHOT', { incentive: true }) + '\nconst originalOfflineFetch = window.fetch.bind(window); window.fetch = (url, options = {}) => { if(String(url).startsWith("data:") || String(url).startsWith("blob:")) return originalOfflineFetch(url, options); const response = tpStaticApiResponse(url, options); if(response) return Promise.resolve(response); console.warn("[只读快照] 网络请求已拦截:", url); return Promise.resolve(tpStaticReadonlyResponse()); };');
+    const offlineJson = safeJson(snapshot).slice(0, -1) + ',"audit":' + auditJson.toString('utf8') + '}';
+    html = html.replace(apiMarker, () => apiMarker + '\nconst OFFLINE_SNAPSHOT = ' + offlineJson + ';\nconst TP_RELATED_SNAPSHOT = ' + safeJson(related) + ';\n' + staticRuntimeSource('TP_RELATED_SNAPSHOT', { incentive: true }) + '\nconst originalOfflineFetch = window.fetch.bind(window); window.fetch = (url, options = {}) => { if(String(url).startsWith("data:") || String(url).startsWith("blob:")) return originalOfflineFetch(url, options); const response = tpStaticApiResponse(url, options); if(response) return Promise.resolve(response); console.warn("[只读快照] 网络请求已拦截:", url); return Promise.resolve(tpStaticReadonlyResponse()); };');
     const offlineRequest = `async function request(path,options){
   if(typeof window !== 'undefined' && typeof window.tpIsUnlocked === 'function' && !window.tpIsUnlocked()) { throw new Error('请先输入访问密码解锁页面'); }
   if(options?.method && options.method !== 'GET') { await uiAlert('无权限，仅供查看。请联系管理员。','只读快照','warning','🔒'); throw new Error('无权限，仅供查看。请联系管理员。'); }
@@ -81,18 +101,31 @@ async function buildSnapshot(tenantId, options = {}) {
 }`;
     html = html.replace(requestMarker, offlineRequest);
     html = html.replace(/<head([^>]*)>/i, `<head$1>\n<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src data:; object-src blob: data:; frame-src blob: data:; form-action 'none'; base-uri 'none'">`);
+    html = addDemoNotice(html, options.demoLevel);
     if (enc) html = injectGatekeeper(html, enc);
     return html;
 }
 
-async function buildPagesSnapshot(tenantId, options = {}) {
-    let { html, apiMarker, requestMarker } = await loadSource();
-    const { snapshot, evidenceFiles } = await collectSnapshot(tenantId, 'files');
+async function collectDemo(tenantId, evidenceMode, { demoLevel: level, demoBudget }) {
+    if (level === 'empty') return {
+        snapshot: { personnel: [], rules: [], records: [], roles: [], deductions: [], deductionCategories: [],
+            customerGroups: [], businessUnits: [], canEdit: true, username: '' },
+        evidenceFiles: new Map(), related: {}, auditJson: Buffer.from('[]')
+    };
+    if (demoBudget && level !== 'latest') checkDemoSize(await repo.getAuditPayloadBytes(), demoBudget);
+    const { snapshot, evidenceFiles } = await collectSnapshot(tenantId, evidenceMode, demoBudget);
+    if (level === 'latest') return { snapshot, evidenceFiles, related: {}, auditJson: Buffer.from('[]') };
     const [meetingData, incentiveData] = await Promise.all([collectMeetingData(), collectIncentiveData()]);
     const related = {
         meeting: { roster: meetingData.roster, attendance: meetingData.attendance },
         incentive: { roster: incentiveData.roster }
     };
+    return { snapshot, evidenceFiles, related, auditJson: await collectAuditJson(evidenceMode === 'files') };
+}
+
+async function buildPagesSnapshot(tenantId, options = {}) {
+    let { html, apiMarker, requestMarker } = await loadSource();
+    const { snapshot, evidenceFiles, related, auditJson } = await collectDemo(tenantId, 'files', options);
     const enc = options.encryption?.enabled && (options.encryption?.passwordHash || options.encryption?.hash) ? options.encryption : null;
     html = html.replace(apiMarker, apiMarker + `
 let PAGES_SNAPSHOT = null;
@@ -139,12 +172,13 @@ window.fetch = async (url, options = {}) => {
 }`;
     html = html.replace(requestMarker, pagesRequest);
     html = html.replace(/<head([^>]*)>/i, `<head$1>\n<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; font-src data:; object-src 'self' blob: data:; frame-src 'self' blob: data:; form-action 'none'; base-uri 'none'">`);
+    html = addDemoNotice(html, options.demoLevel);
     if (enc) html = injectGatekeeper(html, enc);
-    const { records, audit, ...state } = snapshot;
+    const { records, ...state } = snapshot;
     const files = new Map([
         ['data/state.json', safeJson(state) + '\n'],
         ['data/records.json', safeJson(records) + '\n'],
-        ['data/audit.json', safeJson(audit) + '\n'],
+        ['data/audit.json', auditJson],
         ['data/related.json', safeJson(related) + '\n']
     ]);
     for (const [name, bytes] of evidenceFiles) files.set('data/evidence/' + name, bytes);

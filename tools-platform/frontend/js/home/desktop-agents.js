@@ -156,7 +156,8 @@
     function current(epoch, session) { return epoch === state.viewEpoch && identity() === state.identity && state.active && key(state.active) === key(session); }
     function openFirst() {
         if (!state.visible || !autoSelect || !state.lastSync || state.drafting) return;
-        const candidates=state.items.filter(item=>item.provider===state.provider);const first=window.HomeConversationList?.latest(candidates,{source:'desktop:'+state.provider,id:item=>item.id,date:item=>item.updatedAt})||candidates.filter(item=>!window.HomeConversationList?.get('desktop:'+state.provider,item.id).hidden&&!window.HomeConversationList?.get('desktop:'+state.provider,item.id).archived).sort((a,b)=>(Date.parse(b.updatedAt)||0)-(Date.parse(a.updatedAt)||0))[0];
+        const stamp=val=>window.HomeConversationList?.stamp?.(val)||(Date.parse(/Z$|[+-]\d{2}:?\d{2}$/.test(String(val||''))?String(val||''):`${String(val||'').replace(' ','T')}Z`)||0);
+        const candidates=state.items.filter(item=>item.provider===state.provider);const first=window.HomeConversationList?.latest(candidates,{source:'desktop:'+state.provider,id:item=>item.id,date:item=>item.updatedAt})||candidates.filter(item=>!window.HomeConversationList?.get('desktop:'+state.provider,item.id).hidden&&!window.HomeConversationList?.get('desktop:'+state.provider,item.id).archived).sort((a,b)=>stamp(b.updatedAt)-stamp(a.updatedAt))[0];
         if (first) { open(first); return; }
         const api=window.DragonClaw?.enterExternal?.({owner:'desktop-agent',onExit:exit});
         if (!api) return;

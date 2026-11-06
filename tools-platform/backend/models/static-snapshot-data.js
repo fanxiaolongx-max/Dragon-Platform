@@ -1,12 +1,8 @@
 const meetingRepo = require('./meeting-snapshots-repository');
 const incentiveRepo = require('./operation-incentive-snapshots-repository');
 
-const safeJson = value => JSON.stringify(value)
-    .replace(/</g, '\\u003c')
-    .replace(/>/g, '\\u003e')
-    .replace(/&/g, '\\u0026')
-    .replace(/\u2028/g, '\\u2028')
-    .replace(/\u2029/g, '\\u2029');
+const jsonEscapes = { '<': '\\u003c', '>': '\\u003e', '&': '\\u0026', '\u2028': '\\u2028', '\u2029': '\\u2029' };
+const safeJson = value => JSON.stringify(value).replace(/[<>&\u2028\u2029]/g, char => jsonEscapes[char]);
 
 function publicSnapshot(item) {
     if (!item || typeof item !== 'object') return item;

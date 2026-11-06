@@ -108,3 +108,24 @@ test('Git retries are reserved for transient errors, not policy, authentication 
     for (const stderr of ['remote: error: pre-receive hook declined', 'Authentication failed', 'non-fast-forward', 'remote rejected: branch is protected']) assert.equal(service.isTransientGitError({ stderr }), false);
     for (const stderr of ['Connection reset by peer', 'HTTP 503', 'Could not resolve host', 'early EOF']) assert.equal(service.isTransientGitError({ stderr }), true);
 });
+
+test('bulk publish includes downgraded demo pages and logs the chosen level', async () => {
+    for (const [slug, fallback] of [['demo-latest', 'latest'], ['demo-empty', 'empty']]) {
+        service.registerProvider(slug, { name: slug, demoFallback: true,
+            buildPagesSnapshot: async (_tenant, { demoLevel }) => {
+                if (demoLevel === 'full' || (demoLevel === 'latest' && fallback === 'empty')) {
+                    policy.checkDemoSize(policy.HEAVY_BYTES, policy.HEAVY_BYTES);
+                }
+                return { html: html.replace('</body>', fallback + '</body>'), files: new Map() };
+            }
+        });
+        await service.saveToolSettings(slug, { enabled: true });
+    }
+    const result = await finish({});
+    assert.equal(result.status, 'success', JSON.stringify(result.entries));
+    assert.ok(result.commandLogs.some(log => log.msg?.includes('demo-latest') && log.msg.includes('仅保留最新数据')));
+    assert.ok(result.commandLogs.some(log => log.msg?.includes('demo-empty') && log.msg.includes('不带业务数据')));
+    const menu = JSON.parse(show('.tools-platform-menu.json')).items;
+    assert.ok(menu.some(item => item.slug === 'demo-latest'));
+    assert.ok(menu.some(item => item.slug === 'demo-empty'));
+});
