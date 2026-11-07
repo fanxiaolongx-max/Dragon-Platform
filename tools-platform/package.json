@@ -1,6 +1,6 @@
 {
   "name": "tools-platform",
-  "version": "1.0.569",
+  "version": "1.0.570",
   "description": "Dragon Claw Desktop App",
   "repository": "github:fanxiaolongx-max/Dragon-Platform",
   "main": "electron-main.js",
@@ -107,7 +107,9 @@
       "hardenedRuntime": true,
       "entitlements": "desktop-entitlements.mac.plist",
       "entitlementsInherit": "desktop-entitlements.mac.plist",
-      "extendInfo": { "NSMicrophoneUsageDescription": "将你的录音转换成对话草稿文字。Record audio to transcribe into your chat draft." },
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "将你的录音转换成对话草稿文字。Record audio to transcribe into your chat draft."
+      },
       "forceCodeSigning": true,
       "notarize": true,
       "artifactName": "Dragon-Platform-${version}-${arch}.${ext}",
