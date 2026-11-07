@@ -63,7 +63,7 @@
 | 专题分析 | `topic-analysis` | 平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data | [打开页面](./topic-analysis/index.html) |
 | 大屏看板 | `bigscreen` | 当前报表、趋势、负责人和中英文配置的只读大屏。 | [打开页面](./bigscreen/index.html) |
 | 图屿 | `picture-island` | 海报版本与生活图片的一站式图库：快速搜索、历史对比、自动压缩与 AI 分类，菜单收藏随时找。 | [打开页面](./picture-island/index.html) |
-| AI 101 | `ai-101` | Updated description for AI 101 | [打开页面](./ai-101/index.html) |
+| AI 101 | `ai-101` | 面向通信工程师的 AI 入门实战课程。通过五级台阶（懂、问、喂、验、用）引导学员从基础认知进阶到利用 AI 解决实际工作痛点，重点涵盖提示词编写、上下文管理、幻觉识别及 Agent 任务协作，并强调企业信息安全与合规。 | [打开页面](./ai-101/index.html) |
 
 > 工具页面仅供查看；需要修改业务数据时，请返回 Dragon Claw 联系管理员。
 <!-- tools-platform:guide:end -->

@@ -94,6 +94,7 @@
     // remember=false：自动收起 / 自动展开（打开工具、切到无关对话等），不改用户记住的开关
     function setOpen(open, { remember = true } = {}) {
         if (!open && state.filePreview) { window.ChatFiles?.closePreview(); return; }
+        if (open) window.DragonBrowserSidebar?.close();
         state.open = Boolean(open) && (state.enabled || Boolean(state.external) || Boolean(state.filePreview));
         el.toggle?.setAttribute('aria-pressed', String(state.open));
         el.fab?.setAttribute('aria-pressed', String(state.open));
@@ -1320,6 +1321,7 @@
         if (event.type === 'tool_start') {
             const row = document.createElement('div');
             row.className = 'dc-tool-row is-running';
+            row.dataset.tool = event.tool;
             row.innerHTML = `<span class="dc-tool-icon" aria-hidden="true">${toolIcon(event.tool)}</span><span class="dc-tool-name">${escapeHtml(toolLabel(event.tool))}</span><span class="dc-tool-args" title="${escapeHtml(describeArgs(event.tool, event.args))}">${escapeHtml(describeArgs(event.tool, event.args))}</span><span class="dc-tool-state"><i class="dc-tool-spin" aria-hidden="true"></i></span>`;
             // 文件卡片只用于用户选择的目录；没选目录（对话传入 null，隐藏临时目录）时不挂预览。重放历史时不传，沿用原行为
             if (sourceWorkspace !== null && FILE_TOOLS.has(event.tool) && event.args?.path) row.dataset.filePath = event.args.path;
@@ -1331,6 +1333,8 @@
             if (!row) return;
             row.classList.remove('is-running');
             row.classList.add(event.ok ? 'is-ok' : 'is-fail');
+            if (!replaying && event.ok && row.dataset.tool?.startsWith('browser_'))
+                window.dispatchEvent(new CustomEvent('dragon-claw:browser-update', { detail: { tool: row.dataset.tool } }));
             row.querySelector('.dc-tool-state').innerHTML = `${event.ok ? '✓' : '✗'} <span>${escapeHtml(event.summary || '')}</span>${event.durationMs > 1500 ? ` <small>${(event.durationMs / 1000).toFixed(1)}s</small>` : ''}`;
             // 命令输出：折叠在工具行下方，需要时展开查看
             if (event.output) row.insertAdjacentHTML('afterend', `<details class="dc-tool-output"><summary>${escapeHtml(tx('toolOutput'))}</summary><pre>${escapeHtml(event.output)}</pre></details>`);
@@ -1638,6 +1642,7 @@
     }
 
     async function init() {
+        if (el.panel) return;
         el.panel = document.getElementById('dcWorkspacePanel');
         if (!el.panel) return;
         el.envBody = document.getElementById('wspEnvBody');
@@ -1668,6 +1673,7 @@
         el.extCard.dataset.card = 'external';
         el.extCard.innerHTML = '<button type="button" class="wsp-card-head" aria-expanded="true"><span data-wsp-ext-title></span><span class="wsp-card-meta" data-wsp-ext-meta></span><i class="wsp-caret" aria-hidden="true"></i></button><div class="wsp-card-body" data-wsp-ext-body></div>';
         el.panel.appendChild(el.extCard);
+        window.SidebarResize?.bind({ panel: el.panel, cssVar: '--workspace-panel-width', storageKey: 'dragon_workspace_sidebar_width' });
         bind();
         // 非对话页面期间隐藏工作区；未启用工作区时频道卡片也借用面板，所以在能力检测之前就挂上
         window.addEventListener('home:hub', event => suspendFor('hub', Boolean(event.detail?.open)));
@@ -1743,6 +1749,7 @@
             el.panel.scrollTop = scrollTop;
         },
         openPanel: () => setOpen(true),
+        closePanel: () => setOpen(false, { remember: false }),
         isPanelOpen: () => state.open,
         isEnabled: () => state.enabled,
         hasWorkspace: () => Boolean(state.root),

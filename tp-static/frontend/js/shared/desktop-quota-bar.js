@@ -13,6 +13,10 @@
     let prefs = load(), root, panel, rows, peek, menu, sensor;
     let dragged = false, quotas = null, providers = [], active = false, pollTimer = 0, tuckTimer = 0, peekTimer = 0, inside = false, menuOpen = false, drag = null, peekProvider = null;
 
+    let readingMode = document.body.classList.contains('dc-browser-open');
+    const autoHide = () => readingMode || prefs.autoHide;
+    const isExpanded = () => !readingMode && prefs.expanded;
+
     function load() {
         // 默认常驻；只有用户点 × 或在菜单里选择收起后，才收成顶边的小横条（悬停展开）
         const fallback = { hidden: false, expanded: false, theme: 'auto', autoHide: false, center: null };
@@ -33,13 +37,37 @@
         return english()
             ? { title: 'Account quota', five: '5 hours', week: 'Weekly', remaining: 'remaining', reset: 'Resets ', updated: 'Updated ', unknown: 'Plan unavailable', menu: 'Quota bar menu', hide: 'Tuck into the top edge', drag: 'Drag to slide along the top edge · double-click to center', footer: 'Hover for details · Drag to slide', expand: 'Show quota bar',
                 compact: 'Compact quota bar', detailed: 'Detailed quota panel', appearance: 'Appearance', followHome: 'Match home page', light: 'Light', dark: 'Dark', center: 'Center at top edge', refresh: 'Refresh quotas', autoHide: 'Tuck into the top edge · hover to show', hideNote: 'Turn the quota bar off in Settings → Desktop Agent', trends: 'Click a quota for its usage trend', loading: 'Reading account quotas…',
+                extraUsage: 'Spend limit', extraUsed: 'Used ', extraTotal: ' of ',
                 states: { live: 'Live', cached: 'Cached', unavailable: 'Read failed', not_installed: 'Not installed', signed_out: 'Not signed in', api_key: 'API Key mode · no subscription quota', auth_required: 'Sign in again', offline: 'Not running', unsupported: 'Quota not provided', rate_limited: 'Rate limited', desktop_session_required: 'Open a Code session in Claude Desktop' } }
             : { title: '账户剩余额度', five: '5 小时', week: '每周', remaining: '剩余', reset: '重置于 ', updated: '更新于 ', unknown: '未提供订阅信息', menu: '额度栏菜单', hide: '收起到顶边', drag: '拖动沿页面顶部左右移动 · 双击居中', footer: '悬停查看详情 · 拖动左右移动', expand: '展开额度栏',
                 compact: '精简额度栏', detailed: '详细额度面板', appearance: '外观', followHome: '跟随主页', light: '浅色', dark: '深色', center: '居中到页面顶部', refresh: '立即刷新额度', autoHide: '收起到顶边 · 悬停展开', hideNote: '完全关闭额度栏：全局设置 → 桌面 Agent', trends: '点击额度查看使用趋势', loading: '正在读取账户额度…',
+                extraUsage: '用量额度', extraUsed: '已用 ', extraTotal: '，共 ',
                 states: { live: '实时', cached: '缓存', unavailable: '读取失败', not_installed: '未安装', signed_out: '未登录', api_key: 'API Key 模式 · 无订阅额度', auth_required: '需要重新登录', offline: '未运行', unsupported: '未提供额度', rate_limited: '查询受限', desktop_session_required: '请在 Claude 桌面版打开 Code 会话' } };
     }
     const time = value => { const d = new Date(value); return value && Number.isFinite(d.getTime()) ? d.toLocaleString(english() ? 'en-US' : 'zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''; };
     const nameOf = id => id === 'antigravity' && !english() ? '反重力' : PROVIDERS.find(([key]) => key === id)[1];
+    function formatMoney(amount, currency = 'USD') {
+        if (typeof amount !== 'number' || !Number.isFinite(amount)) return '';
+        const symbol = currency === 'USD' ? 'US$' : currency === 'CNY' ? '¥' : currency === 'EUR' ? '€' : currency + ' ';
+        return symbol + amount.toFixed(2);
+    }
+    function extraUsageBlock(source, className) {
+        const extra = source?.extraUsage;
+        if (!['live', 'cached'].includes(source?.status)) return null;
+        if (!extra?.enabled || !Number.isFinite(extra.used) || extra.used < 0) return null;
+        const t = strings(), block = el('div', className), head = el('div', 'dqb-extra-head');
+        const limit = Number.isFinite(extra.limit) && extra.limit >= 0 ? t.extraTotal + formatMoney(extra.limit, extra.currency) : '';
+        head.append(el('span', 'dqb-extra-title', t.extraUsage),
+            el('span', 'dqb-extra-text', t.extraUsed + formatMoney(extra.used, extra.currency) + limit));
+        block.append(head);
+        if (Number.isFinite(extra.percent) && extra.percent >= 0) {
+            const track = el('span', 'dqb-extra-track'), fill = el('i');
+            fill.style.transform = `scaleX(${Math.min(100, extra.percent) / 100})`;
+            track.append(fill); block.append(track);
+            block.title = t.extraUsage + ' · ' + Math.round(extra.percent) + '% ' + (english() ? 'used' : '已用');
+        }
+        return block;
+    }
     // Antigravity 有 Gemini 与 Claude / GPT 两组额度：额度栏显示 Gemini 组，详情里两组都显示（同 id 的重复组只取第一组）
     function groupsOf(id) {
         const seen = new Set();
@@ -89,17 +117,17 @@
         panel = root.querySelector('.dqb-panel'); rows = root.querySelector('.dqb-rows'); peek = root.querySelector('.dqb-peek'); menu = root.querySelector('.dqb-menu'); sensor = root.querySelector('.dqb-sensor');
         document.body.append(root);
         panel.addEventListener('pointerenter', reveal);
-        panel.addEventListener('pointerleave', () => { if (drag) return; inside = false; hidePeek(); if (prefs.autoHide && !prefs.expanded) scheduleTuck(); else cancelTuck(); });
+        panel.addEventListener('pointerleave', () => { if (drag) return; inside = false; hidePeek(); if (autoHide() && !isExpanded()) scheduleTuck(); else cancelTuck(); });
         sensor.addEventListener('pointerenter', reveal); sensor.addEventListener('click', reveal);
         panel.addEventListener('pointerdown', startDrag);
         panel.querySelector('.dqb-head').addEventListener('dblclick', event => { if (!event.target.closest('button')) center(); });
         root.querySelector('[data-dqb-menu]').addEventListener('click', event => { event.stopPropagation(); menuOpen ? closeMenu() : openMenu(); });
         peek.addEventListener('pointerenter', () => clearTimeout(peekTimer));
-        peek.addEventListener('pointerleave', () => { hidePeek(); if (prefs.autoHide && !prefs.expanded) scheduleTuck(); else cancelTuck(); });
+        peek.addEventListener('pointerleave', () => { hidePeek(); if (autoHide() && !isExpanded()) scheduleTuck(); else cancelTuck(); });
         document.addEventListener('pointerdown', event => { if (menuOpen && !menu.contains(event.target) && !event.target.closest('[data-dqb-menu]')) closeMenu(); }, true);
         document.addEventListener('keydown', event => {
             if (event.key !== 'Escape' || root.hidden) return;
-            if (menuOpen) closeMenu(); else if (prefs.autoHide && !prefs.expanded) tuck();
+            if (menuOpen) closeMenu(); else if (autoHide() && !isExpanded()) tuck();
         });
         window.addEventListener('resize', place);
         // 主页切换亮暗色时同步
@@ -114,8 +142,10 @@
             icon.src = './tp-static/frontend/assets/desktop-agents/' + id + '.png'; icon.alt = ''; icon.draggable = false;
             name.append(icon, el('span', 'dqb-label'));
             const meta = el('div', 'dqb-meta'); meta.append(el('span', 'dqb-plan'), el('span', 'dqb-detail'));
-            brand.append(name, meta); row.append(brand, cell('5h'), cell('weekly'));
-            row.addEventListener('pointerenter', () => { clearTimeout(peekTimer); if (!drag && !prefs.expanded) peekTimer = setTimeout(() => showPeek(id, row), 80); });
+            brand.append(name, meta);
+            const extraBlock = el('div', 'dqb-row-extra'); extraBlock.hidden = true;
+            row.append(brand, cell('5h'), cell('weekly'), extraBlock);
+            row.addEventListener('pointerenter', () => { clearTimeout(peekTimer); if (!drag && !isExpanded()) peekTimer = setTimeout(() => showPeek(id, row), 80); });
             row.addEventListener('pointerleave', () => { clearTimeout(peekTimer); peekTimer = setTimeout(hidePeek, 120); });
             rows.append(row);
         }
@@ -128,7 +158,7 @@
         root.setAttribute('aria-label', t.title);
         panel.title = t.drag; sensor.setAttribute('aria-label', t.expand);
         root.querySelector('[data-dqb-menu]').setAttribute('aria-label', t.menu);
-        root.classList.toggle('expanded', prefs.expanded);
+        root.classList.toggle('expanded', isExpanded());
         for (const row of rows.children) {
             const id = row.dataset.provider, group = groupsOf(id)[0], source = quotas?.[id];
             row.classList.toggle('cached', source?.status === 'cached');
@@ -138,6 +168,11 @@
             row.querySelector('.dqb-detail').textContent = source?.status === 'live' ? '' : stateText(id);
             row.setAttribute('aria-label', nameOf(id) + ' · ' + stateText(id));
             row.querySelectorAll('.dqb-cell').forEach(node => paintCell(node, id, windowOf(group, node.dataset.window)));
+            const extraBlock = row.querySelector('.dqb-row-extra');
+            const nextExtra = isExpanded() ? extraUsageBlock(source, 'dqb-row-extra') : null;
+            extraBlock.hidden = !nextExtra;
+            extraBlock.replaceChildren(...(nextExtra ? nextExtra.childNodes : []));
+            extraBlock.title = nextExtra?.title || '';
         }
         root.querySelector('.dqb-live').style.opacity = providers.some(id => quotas?.[id]?.status === 'live') ? '1' : '.25';
         if (peekProvider) fillPeek(peekProvider);
@@ -174,7 +209,7 @@
             dragged = drag.moved; setTimeout(() => { dragged = false; }, 0);
             drag = null; root.classList.remove('dragging');
             save({ center: (root.offsetLeft + root.offsetWidth / 2) / Math.max(1, window.innerWidth) });
-            if (!panel.matches(':hover')) { inside = false; if (prefs.autoHide && !prefs.expanded) scheduleTuck(); else cancelTuck(); }
+            if (!panel.matches(':hover')) { inside = false; if (autoHide() && !isExpanded()) scheduleTuck(); else cancelTuck(); }
         };
         window.addEventListener('pointermove', move); window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end);
     }
@@ -183,7 +218,7 @@
     function cancelTuck() { clearTimeout(tuckTimer); }
     function tuck() {
         cancelTuck();
-        if (!prefs.autoHide || prefs.expanded) {
+        if (!autoHide() || isExpanded()) {
             root?.classList.remove('tucked');
             return;
         }
@@ -191,9 +226,9 @@
     }
     function scheduleTuck() {
         cancelTuck();
-        if (inside || drag || menuOpen || peekProvider || !prefs.autoHide || prefs.expanded || root.classList.contains('trends-open')) return;
+        if (inside || drag || menuOpen || peekProvider || !autoHide() || isExpanded() || root.classList.contains('trends-open')) return;
         tuckTimer = setTimeout(() => {
-            if (!prefs.autoHide || prefs.expanded) return;
+            if (!autoHide() || isExpanded()) return;
             if (!panel.matches(':hover') && !peek.matches(':hover')) tuck();
         }, TUCK_MS);
     }
@@ -222,7 +257,10 @@
             block.append(quotasEl); list.append(block);
         }
         const foot = el('div', 'dqb-peek-foot'); foot.append(el('span', '', source?.updatedAt ? t.updated + time(source.updatedAt) : ''), el('span', '', t.trends));
-        peek.append(top, status, list, foot);
+        const extra = extraUsageBlock(source, 'dqb-peek-extra');
+        peek.append(top, status, list);
+        if (extra) peek.append(extra);
+        peek.append(foot);
         peek.setAttribute('aria-label', nameOf(id) + ' · ' + t.title);
     }
 
@@ -240,13 +278,13 @@
             return b;
         };
         menu.replaceChildren(
-            item(t.compact, () => setExpanded(false), !prefs.expanded), item(t.detailed, () => setExpanded(true), prefs.expanded), el('hr'),
+            item(t.compact, () => setExpanded(false), !isExpanded()), item(t.detailed, () => setExpanded(true), isExpanded()), el('hr'),
             el('small', '', t.appearance),
             ...[['auto', t.followHome], ['light', t.light], ['dark', t.dark]].map(([theme, label]) => item(label, () => { save({ theme }); applyTheme(); }, prefs.theme === theme)),
             item(t.center, center), el('hr'),
             item(t.refresh, () => refresh(true)),
             item(t.autoHide, () => {
-                const next = !prefs.autoHide;
+                const next = !autoHide();
                 save({ autoHide: next });
                 if (next) {
                     inside = false;
@@ -255,7 +293,7 @@
                     cancelTuck();
                     root.classList.remove('tucked');
                 }
-            }, prefs.autoHide, 'menuitemcheckbox'),
+            }, autoHide(), 'menuitemcheckbox'),
             el('small', '', t.hideNote)
         );
         menuOpen = true; cancelTuck(); hidePeek(); menu.hidden = false;
@@ -268,14 +306,14 @@
         if (!menuOpen) return;
         menuOpen = false;
         menu.hidden = true;
-        if (prefs.autoHide && !prefs.expanded) scheduleTuck();
+        if (autoHide() && !isExpanded()) scheduleTuck();
         else cancelTuck();
     }
     function setExpanded(expanded) {
         save({ expanded });
         root.classList.remove('tucked');
         render();
-        if (prefs.autoHide && !expanded) scheduleTuck();
+        if (autoHide() && !expanded) scheduleTuck();
         else cancelTuck();
     }
 
@@ -405,7 +443,7 @@
         if (list.join() !== providers.join()) { providers = list; renderRows(); }
         if (active) return;
         active = true; root.hidden = false; render();
-        if (prefs.autoHide && !prefs.expanded) root.classList.add('tucked');
+        if (autoHide() && !isExpanded()) root.classList.add('tucked');
         refresh();
         pollTimer = setInterval(() => { if (document.visibilityState === 'visible') refresh(); }, POLL_MS);
     }
@@ -425,9 +463,19 @@
         } catch { stop(); }
     }
     function setHidden(hidden) { save({ hidden: Boolean(hidden) }); sync(); }
+    function setReadingMode(enabled) {
+        if (readingMode === Boolean(enabled)) return;
+        readingMode = Boolean(enabled);
+        if (!root) return;
+        cancelTuck();
+        if (readingMode) { inside = false; hidePeek(); closeMenu(); }
+        render();
+        if (autoHide() && !isExpanded()) tuck(); else root.classList.remove('tucked');
+    }
+    window.addEventListener('dragon-claw:browser-reading', event => setReadingMode(event.detail?.active));
     window.addEventListener('tools:desktop-agent-settings-changed', sync);
     window.addEventListener('tools:languagechange', render);
     document.addEventListener('visibilitychange', () => { if (active && document.visibilityState === 'visible') refresh(); });
-    window.ToolsDesktopQuotaBar = { sync, refresh, setHidden, isHidden: () => prefs.hidden, isActive: () => active };
+    window.ToolsDesktopQuotaBar = { sync, refresh, setReadingMode, setHidden, isHidden: () => prefs.hidden, isActive: () => active };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', sync); else sync();
 })();

@@ -4,7 +4,7 @@
   --surface:#f5f5f6; --ink:#202125; --muted:#72757e; --line:#00000013; --hover:#00000007;
   --brand-codex:#327f69; --brand-claude:#a66c46; --brand-anti:#7c6aaa; --low:#bc4553; --warn:#9a7025;
   --glow-strength:.42; --glow-blur:8px; --ease:cubic-bezier(.22,1,.36,1); --ear:12px; --bar:32px;
-  position:fixed; top:0; left:0; z-index:2147482000; width:384px; pointer-events:none;
+  position:fixed; top:0; left:0; z-index:2147482000; width:384px; max-width:100vw; box-sizing:border-box; pointer-events:none;
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft YaHei',sans-serif; color:var(--ink);
   user-select:none; -webkit-user-select:none; padding:0 var(--ear);
 }
@@ -87,6 +87,8 @@
 .dqb.expanded .dqb-cell[data-window="weekly"] .dqb-percent { display:inline; }
 .dqb.expanded .dqb-cell .dqb-track,.dqb.expanded .dqb-cell[data-window="weekly"] .dqb-track { display:block; position:static; width:100%; height:3px; }
 .dqb.expanded .dqb-reset { display:block; overflow:hidden; text-overflow:ellipsis; }
+.dqb-row-extra { display:none; }
+.dqb.expanded .dqb-row-extra:not([hidden]) { grid-column:1/-1; display:flex; flex-direction:column; gap:6px; margin-top:6px; padding:7px 9px; border-radius:10px; background:var(--hover); border:1px solid var(--line); }
 
 /* 呼吸光晕：在刘海两侧和底部缓慢流动 */
 .dqb-glow {
@@ -132,6 +134,12 @@
 .dqb-peek .low .dqb-value { color:var(--low); } .dqb-peek .warning .dqb-value { color:var(--warn); } .dqb-peek .unknown .dqb-value { color:var(--muted); }
 .dqb-peek .dqb-reset { display:block; }
 .dqb-peek-foot { display:flex; justify-content:space-between; gap:8px; margin-top:16px; padding-top:12px; border-top:1px solid var(--line); color:var(--muted); font-size:9px; white-space:nowrap; }
+.dqb-peek-extra { margin-top:12px; padding:9px 11px; border:1px solid var(--line); border-radius:12px; background:var(--hover); display:flex; flex-direction:column; gap:6px; }
+.dqb-extra-head { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; }
+.dqb-extra-title { font-size:11px; font-weight:600; color:var(--ink); }
+.dqb-extra-text { min-width:0; overflow-wrap:anywhere; font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums; }
+.dqb-extra-track { display:block; height:3.5px; width:100%; border-radius:4px; overflow:hidden; background:var(--line); }
+.dqb-extra-track i { display:block; height:100%; width:100%; border-radius:4px; background:#3b82f6; transform-origin:left; transition:transform 600ms var(--ease); }
 
 /* 额度栏菜单（代替桌面版的原生菜单） */
 .dqb-menu { position:fixed; z-index:2147482002; min-width:208px; padding:6px; border:1px solid var(--line); border-radius:12px; background:var(--surface); color:var(--ink); box-shadow:0 16px 36px #00000030; font-size:12.5px; pointer-events:auto; }

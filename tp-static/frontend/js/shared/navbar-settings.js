@@ -2194,7 +2194,7 @@ function renderMediaSettingsHtml(content, overview, videos, categories) {
                         </label>
                     </div>
                 </div>
-                <div style="display:grid; grid-template-columns:minmax(220px, 1.8fr) minmax(130px, 1fr) minmax(130px, 1fr) auto; gap:10px; align-items:end;">
+                <div class="nav-media-feiniu-fields">
                     <label style="display:block; font-size:12px; font-weight:600; color:var(--v2-ink, #334155);">
                         对接链接
                         <input type="url" id="feiniuUrlInput" class="nav-settings-input" value="${navEscape(feiniu.url || 'https://feiniu.fanxiaolong.uk/v')}" placeholder="https://feiniu.fanxiaolong.uk/v" style="display:block; width:100%; box-sizing:border-box; margin-top:4px; padding:8px 10px; border-radius:8px; font-size:13px;">

@@ -23,8 +23,67 @@ body.dc-external-compose #dcComposer #dcEnhance[hidden] ~ #dcVoice:not([hidden])
 body.dc-external-compose #dcComposer #dcEnhance[hidden] ~ #dcVoice[hidden] ~ #dcSend{margin-left:auto}
 .desktop-agent-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0 18px;color:var(--text-primary,#dbeafe)}.desktop-agent-banner>div{display:grid;gap:5px;min-width:0}.desktop-agent-banner b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.desktop-agent-banner small{font-size:11px;color:var(--text-secondary,#94a3b8)}.desktop-agent-banner button{flex:none;font-size:11px;cursor:pointer}
 .desktop-agent-thinking .dc-activity{margin-top:4px}
-.desktop-agent-facts{display:grid;gap:10px;margin:0}.desktop-agent-facts>div{display:grid;gap:3px}.desktop-agent-facts dt{font-size:11px;color:var(--text-secondary,#8291a5)}.desktop-agent-facts dd{margin:0;font-size:12.5px;line-height:1.6;color:var(--text-primary,#dbeafe);overflow-wrap:anywhere}.desktop-agent-facts dd[data-desktop-status]{color:#6ee7cf}
-.desktop-agent-ws-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}.desktop-agent-ws-actions button{font-size:11px;cursor:pointer;min-height:30px}
+/* ── 工作区「Agent 会话」卡：运行态、指标、权限与诊断 ─────────────── */
+/* 颜色统一走 --daw-* 桥接：经典主题落 --wsp-*，v2 主题经 home-theme.css 映射到 --v2-*，亮/暗都正确 */
+.desktop-agent-ws{--daw-text:var(--wsp-text,var(--text-primary,#dbeafe));--daw-muted:var(--wsp-muted,var(--text-secondary,#94a3b8));--daw-faint:var(--wsp-faint,#64748b);--daw-line:var(--wsp-border,rgba(148,163,184,.2));--daw-soft:rgba(148,163,184,.09);--daw-accent:var(--wsp-accent,#64ffda);--daw-danger:var(--v2-danger,#f2a5a0);--daw-warning:#e0a83b;display:grid;gap:12px;color:var(--daw-text);font-size:12px;line-height:1.6}
+html[data-ui="v2"]:not([data-theme="dark"]) .desktop-agent-ws{--daw-danger:#dc2626;--daw-warning:#b45309}
+.daw-dot{display:inline-block;flex:none;width:7px;height:7px;border-radius:50%;background:var(--daw-faint)}
+.daw-dot[data-level=ok]{background:#3ecf9e}
+.daw-dot[data-level=warning]{background:var(--daw-warning,#e0a83b)}
+.daw-dot[data-level=error]{background:#e2635f}
+.daw-status{display:grid;gap:7px;min-width:0;border:1px solid var(--daw-line);border-radius:10px;padding:10px 11px;background:var(--daw-soft)}
+.daw-status-head{display:flex;align-items:center;gap:8px;min-width:0}
+.daw-status-head b{min-width:0;font-size:13px;font-weight:600}
+.daw-status[data-level=error] .daw-status-head b{color:var(--daw-danger,#f2a5a0)}
+.daw-live{margin-left:auto;flex:none;font-size:10.5px;color:var(--daw-faint)}
+.daw-status-sub{margin:0;font-size:11.5px;line-height:1.6;color:var(--daw-muted);overflow-wrap:anywhere}
+.daw-modes{display:flex;align-items:center;gap:6px;min-width:0}
+.daw-modes>span{flex:none;font-size:11px;color:var(--daw-faint)}
+.daw-modes button{border:0;background:transparent;color:inherit;font:inherit;font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid transparent;cursor:pointer}
+.daw-modes button[aria-pressed=true]{background:var(--daw-accent);color:var(--v2-bg,#0d1526)}
+.daw-modes button:disabled{opacity:.5;cursor:not-allowed}
+.daw-queue{display:grid;gap:5px}
+.daw-queue-item{display:flex;align-items:center;gap:8px;min-width:0;padding:5px 8px;border:1px solid var(--daw-line);border-radius:7px;font-size:11.5px}
+.daw-queue-item i{flex:none;font-style:normal;font-size:10.5px;color:var(--daw-accent)}
+.daw-queue-item[data-status=failed] i{color:var(--daw-danger,#f2a5a0)}
+.daw-queue-item span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.daw-queue-item small{flex:none;max-width:36%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--daw-danger,#f2a5a0)}
+.daw-queue-item button{flex:none;border:0;background:transparent;color:var(--daw-muted);font:inherit;font-size:11px;cursor:pointer;padding:0 2px}
+.daw-queue-item button:hover{color:var(--daw-text)}
+.daw-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.daw-metric{min-width:0;border:1px solid var(--daw-line);border-radius:9px;padding:8px 9px;background:var(--daw-soft)}
+.daw-metric-label{font-size:11px;color:var(--daw-muted)}
+.daw-metric-value{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.5;overflow-wrap:anywhere}
+.daw-metric-value em{font-style:normal;font-size:11px;font-weight:400;color:var(--daw-faint);margin-left:4px}
+.desktop-agent-facts{display:grid;gap:7px;margin:0}
+.desktop-agent-facts>div{display:flex;align-items:baseline;justify-content:space-between;gap:10px;min-width:0}
+.desktop-agent-facts dt{flex:none;font-size:11px;color:var(--daw-muted,var(--wsp-muted,var(--text-secondary,#8291a5)))}
+.desktop-agent-facts dd{margin:0;min-width:0;text-align:right;font-size:12px;line-height:1.6;color:var(--daw-text,var(--wsp-text,var(--text-primary,#dbeafe)));overflow-wrap:anywhere}
+.desktop-agent-facts code{font-family:var(--font-mono,ui-monospace,SFMono-Regular,Menlo,monospace);font-size:11px;color:var(--daw-muted,var(--wsp-muted,var(--text-secondary,#94a3b8)))}
+.daw-truncate{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.daw-id{display:inline-flex;align-items:center;gap:6px;min-width:0}
+.daw-id code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.daw-btn{flex:none;font:inherit;font-size:11px;min-height:26px;padding:3px 9px;border:1px solid var(--daw-line);border-radius:7px;background:transparent;color:var(--daw-text);cursor:pointer}
+.daw-btn:hover{border-color:var(--daw-accent)}
+.daw-btn--tiny{min-height:20px;padding:0 7px;font-size:10.5px}
+.daw-section{border-top:1px solid var(--daw-line);padding-top:11px}
+.daw-section h4{margin:0 0 8px;font-size:11px;font-weight:600;color:var(--daw-muted)}
+.daw-conn{display:flex;align-items:center;gap:7px;margin-bottom:8px;font-size:12px;overflow-wrap:anywhere}
+.daw-chips{display:flex;flex-wrap:wrap;gap:5px}
+.daw-chip{font-size:11px;padding:2px 8px;border:1px solid var(--daw-line);border-radius:6px;color:var(--daw-faint)}
+.daw-chip[data-on=true]{color:var(--daw-accent);border-color:color-mix(in srgb,var(--daw-accent) 60%,transparent)}
+.daw-note{margin:8px 0 0;font-size:11px;line-height:1.6;color:var(--daw-faint);overflow-wrap:anywhere}
+.daw-diag{border-top:1px solid var(--daw-line);padding-top:10px}
+.daw-diag>summary{display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;font-size:11.5px;color:var(--daw-muted);list-style:none}
+.daw-diag>summary::-webkit-details-marker{display:none}
+.daw-caret{font-style:normal;font-size:12px;transition:transform .15s}
+.daw-diag[open] .daw-caret{transform:rotate(180deg)}
+.daw-diag-body{padding-top:9px}
+.daw-issues{display:grid;gap:4px;margin:8px 0 0;padding-left:16px;font-size:11.5px;line-height:1.6;color:var(--daw-warning,#e0a83b)}
+.daw-diag-actions{display:flex;gap:6px;margin-top:9px}
+.desktop-agent-ws-actions{display:flex;flex-wrap:wrap;gap:6px}
+.desktop-agent-ws-actions button{font-size:11px;cursor:pointer;min-height:30px}
+@media(prefers-reduced-motion:reduce){.daw-caret{transition:none}}
 .dc-msg--ai.desktop-agent-cont .dc-msg-avatar{visibility:hidden;height:0}.dc-msg--ai.desktop-agent-cont{animation-duration:.18s}
 .dc-msg--ai.is-continued{margin-bottom:8px}
 .dc-msg--ai.is-continued .dc-msg-tools{margin-top:2px}
@@ -103,3 +162,6 @@ body.dc-external-view .dc-agent-discussion{display:none}
 .desktop-agent-history-progress i{display:block;width:35%;height:100%;border-radius:inherit;background:#4fbcb4;animation:desktop-history-progress 1.5s ease-in-out infinite}
 @keyframes desktop-history-progress{from{transform:translateX(-100%)}to{transform:translateX(290%)}}
 @media(prefers-reduced-motion:reduce){.desktop-agent-history-progress i{animation:none;transform:translateX(90%)}}
+.desktop-agent-widget{width:100%;margin:12px 0;border:1px solid var(--border-color,#ddd);border-radius:12px;overflow:hidden}
+.desktop-agent-widget-title{padding:9px 12px;font-size:12px;color:var(--text-secondary,#666);overflow-wrap:anywhere}
+.desktop-agent-widget iframe{display:block;width:100%;height:560px;max-height:70vh;border:0;background:#fff}

@@ -156,6 +156,7 @@
     function closePop() {
         clearTimeout(hoverTimer);
         closeLinks();
+        if (openPop?.pop.classList.contains('v2-flyout')) window.HomeSidebarMenu?.restoreMore();
         if (typeof scan !== 'undefined' && scan?.abortAll) scan.abortAll();
         if (!openPop) return;
         const shortcuts = document.getElementById('homeSidebarShortcuts');
@@ -279,6 +280,7 @@
         checkUpdate() { window.ToolsDialogs?.checkUpdate(); },
         feedback() { window.ToolsDialogs?.feedback(); },
         settings() { window.openNavSettingsModal?.(); },
+        customizeMenu() { window.HomeSidebarMenu?.open(); },
         language() { window.toggleAppLanguage?.(); },
         theme() { setTheme(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); },
         wide() { setWide(!root.classList.contains('v2-wide')); },
@@ -312,11 +314,14 @@
             const links = [...document.querySelectorAll('#app-navbar .nav-links a[href]')]
                 .filter(a => a.getAttribute('href') !== '/' && !a.getAttribute('href').startsWith('#'))
                 .map(a => `<a class="v2-pop-item" role="menuitem" href="${esc(a.getAttribute('href'))}"><span class="v2-ico v2-app-glyph" data-icon="${appGlyph(a.getAttribute('href'))}"></span><span>${esc((a.querySelector('.nav-text, .nav-link-text')?.textContent || a.getAttribute('title') || a.textContent || '').trim().replace(/^\S+\s+/, m => (/^[\p{Extended_Pictographic}️]+\s+$/u.test(m) ? '' : m)))}</span></a>`);
+            const personal = window.HomeSidebarMenu;
             return [
-                links.length ? `<div class="v2-pop-cap">${esc(t('discover'))}</div>${links.join('')}<div class="v2-pop-sep"></div>` : '',
-                menuItem('link', t('links'), 'links', '›').replace('role="menuitem"', 'role="menuitem" aria-haspopup="menu" aria-controls="v2LinksSubmenu" aria-expanded="false"'),
-                menuItem('target', t('requirements'), 'requirements'),
-                menuItem('compass', lang() === 'en-US' ? 'Promotions' : '平台推广', 'promotions')
+                personal ? '<div class="v2-sidebar-more-items"></div>' : [
+                    menuItem('link', t('links'), 'links', '›').replace('role="menuitem"', 'role="menuitem" aria-haspopup="menu" aria-controls="v2LinksSubmenu" aria-expanded="false"'),
+                    menuItem('target', t('requirements'), 'requirements'),
+                    menuItem('compass', lang() === 'en-US' ? 'Promotions' : '平台推广', 'promotions')
+                ].join(''),
+                links.length ? `<div class="v2-pop-cap">${esc(t('discover'))}</div>${links.join('')}<div class="v2-pop-sep"></div>` : ''
             ].join('');
         }
     };
@@ -332,6 +337,7 @@
         // Move the live controls instead of copying their handlers or download implementation.
         if (sidebarShortcuts && shortcutHome) { sidebarShortcuts.hidden = true; shortcutHome.append(sidebarShortcuts); }
         flyPop.innerHTML = flyouts[anchor.dataset.v2Flyout]();
+        window.HomeSidebarMenu?.mountMore(flyPop.querySelector('.v2-sidebar-more-items'));
         if (anchor.dataset.v2Flyout === 'more' && sidebarShortcuts) {
             const caption = document.createElement('div');
             caption.className = 'v2-pop-cap';
@@ -340,6 +346,7 @@
             flyPop.append(caption, sidebarShortcuts);
             sidebarShortcuts.hidden = false;
         }
+        flyPop.insertAdjacentHTML('beforeend', '<div class="v2-pop-sep"></div>' + menuItem('filter', lang() === 'en-US' ? 'Customize menu' : '自定义菜单栏', 'customizeMenu'));
         fillIcons(flyPop);
         showPop(flyPop, anchor, 'right');
         if (anchor.dataset.v2Flyout === 'more' && sidebarShortcuts) sidebarShortcuts.hidden = false;
@@ -365,10 +372,11 @@
         linksAnchor?.setAttribute('aria-expanded', 'false');
         if (focus) linksAnchor?.focus({ preventScroll: true });
         linksAnchor = null;
+        if (openPop?.pop === linksPanel) openPop = null;
     }
     function positionLinksSubmenu() {
         if (!linksAnchor || !linksPanel?.classList.contains('is-open')) return;
-        const anchor = linksAnchor.getBoundingClientRect(), parent = flyPop.getBoundingClientRect(), pad = 8, gap = 6;
+        const anchor = linksAnchor.getBoundingClientRect(), parent = flyPop.contains(linksAnchor) ? flyPop.getBoundingClientRect() : anchor, pad = 8, gap = 6;
         const width = linksPanel.offsetWidth, height = linksPanel.offsetHeight;
         let left = parent.right + gap;
         if (left + width > innerWidth - pad) left = parent.left - width - gap;
@@ -379,12 +387,14 @@
         linksPanel.style.top = `${Math.max(pad, Math.min(anchor.top - 7, innerHeight - linksPanel.offsetHeight - pad))}px`;
     }
     function openLinks(anchor, focus = true) {
-        if (!openPop || openPop.pop !== flyPop || !flyPop.querySelector('[data-v2-do="links"]')) {
+        anchor ||= document.querySelector('#homeSidebar .v2-nav > [data-v2-action="links"]');
+        const direct = anchor?.closest('#homeSidebar .v2-nav-item[data-v2-action="links"]');
+        if (!direct && (!openPop || openPop.pop !== flyPop || !flyPop.querySelector('[data-v2-do="links"]'))) {
             const more = document.querySelector('[data-v2-flyout="more"]');
             if (!more) return;
             openFlyout(more);
         }
-        anchor = anchor?.closest('[data-v2-do="links"]') || flyPop.querySelector('[data-v2-do="links"]');
+        anchor = direct || anchor?.closest('[data-v2-do="links"]') || flyPop.querySelector('[data-v2-do="links"]');
         if (!anchor) return;
         if (focus && linksAnchor === anchor && linksPanel?.classList.contains('is-open')) { closeLinks(true); return; }
         if (!linksPanel) {
@@ -407,7 +417,8 @@
             new MutationObserver(positionLinksSubmenu).observe(live || linksPanel, {subtree:true,childList:true,attributes:true,attributeFilter:['hidden']});
         }
         $('homeLinksPop').hidden = true;
-        linksPanel.querySelector('.v2-links-back').textContent = lang() === 'en-US' ? '‹ Back to More' : '‹ 返回更多';
+        linksPanel.querySelector('.v2-links-back').textContent = direct ? (lang() === 'en-US' ? 'Close' : '关闭') : (lang() === 'en-US' ? '‹ Back to More' : '‹ 返回更多');
+        if (direct) showPop(linksPanel, anchor, 'right');
         linksAnchor = anchor; anchor.setAttribute('aria-expanded', 'true');
         linksPanel.querySelectorAll('a.friend-link').forEach(node => node.setAttribute('role','menuitem'));
         linksPanel.classList.add('is-open'); positionLinksSubmenu();
@@ -1598,9 +1609,13 @@
     let lastPointer = null;
     document.addEventListener('pointermove', event => { lastPointer = { x: event.clientX, y: event.clientY }; }, { passive: true });
     let peekArmed = true;
-    function setSideCollapsed(collapsed) {
-        document.body.classList.toggle('v2-side-collapsed', collapsed);
-        try { localStorage.setItem(SIDE_KEY, collapsed ? 'collapsed' : 'open'); } catch { /* 无痕模式 */ }
+    let mobileSideBackdrop = null;
+    function setSideCollapsed(collapsed, { remember = true } = {}) {
+        const narrow = window.matchMedia('(max-width: 860px)').matches;
+        document.body.classList.toggle('v2-side-collapsed', narrow || collapsed);
+        document.body.classList.toggle('v2-mobile-side-open', narrow && !collapsed);
+        if (mobileSideBackdrop) mobileSideBackdrop.hidden = !narrow || collapsed;
+        try { if (remember && !narrow) localStorage.setItem(SIDE_KEY, collapsed ? 'collapsed' : 'open'); } catch { /* 无痕模式 */ }
         setSidePeek(false);
         const toggle = $('v2SideToggle');
         if (toggle) { toggle.removeAttribute('title'); toggle.setAttribute('aria-label', t(collapsed ? 'expand' : 'collapse')); }
@@ -1613,7 +1628,8 @@
             if (lastPointer.x >= r.left && lastPointer.x <= r.right && lastPointer.y >= r.top && lastPointer.y <= r.bottom) peekArmed = false;
         }
     }
-    const isSideCollapsed = () => document.body.classList.contains('v2-side-collapsed');
+    const isSideCollapsed = () => window.matchMedia('(max-width: 860px)').matches
+        ? !document.body.classList.contains('v2-mobile-side-open') : document.body.classList.contains('v2-side-collapsed');
     const shortcutKey = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘B' : 'Ctrl+B';
 
     // 收起后左上角：侧边栏按钮（悬停临时滑出侧栏，点击恢复）+ 新建对话（任意界面一键新建）
@@ -1675,10 +1691,11 @@
     floatToggle.addEventListener('mouseleave', () => { peekArmed = true; schedulePeekEnd(); });
     sidebarEl?.addEventListener('mouseenter', () => { if (document.body.classList.contains('v2-side-peek')) clearTimeout(peekTimer); });
     sidebarEl?.addEventListener('mouseleave', () => { if (document.body.classList.contains('v2-side-peek')) schedulePeekEnd(); });
-    floatToggle.addEventListener('click', () => setSideCollapsed(false));
+    floatToggle.addEventListener('click', () => setSideCollapsed(wideSide() ? false : !isSideCollapsed()));
     floatNew.addEventListener('click', () => { setSidePeek(false); run('newChat'); });
     $('v2SideToggle')?.addEventListener('click', () => setSideCollapsed(!isSideCollapsed()));
     document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && document.body.classList.contains('v2-mobile-side-open')) { setSideCollapsed(true, { remember:false }); floatToggle.focus(); }
         if (event.key === 'Escape' && document.body.classList.contains('v2-side-peek')) setSidePeek(false);
         // ⌘B / Ctrl+B：收起或恢复侧栏
         if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'b') {
@@ -1686,6 +1703,34 @@
             setSideCollapsed(!isSideCollapsed());
         }
     });
+    mobileSideBackdrop = document.createElement('button');
+    mobileSideBackdrop.type = 'button'; mobileSideBackdrop.className = 'v2-mobile-side-backdrop'; mobileSideBackdrop.hidden = true;
+    mobileSideBackdrop.setAttribute('aria-label', t('collapse'));
+    document.body.appendChild(mobileSideBackdrop);
+    mobileSideBackdrop.addEventListener('click', () => setSideCollapsed(true, { remember:false }));
+    window.addEventListener('tools:languagechange', () => mobileSideBackdrop.setAttribute('aria-label', t('collapse')));
+    // 折叠分组、展开空间等操作保留抽屉；真正选择对话或进入功能后自动返回内容区。
+    document.addEventListener('click', event => {
+        if (wideSide() || !document.body.classList.contains('v2-mobile-side-open')) return;
+        const action = event.target.closest('[data-chat-index], [data-desktop-session], [data-wl-thread], [data-v2-action], [data-v2-do], [data-v2-mode], a[href]');
+        if (action && (sidebarEl?.contains(action) || action.closest('.v2-pop,.v2-flyout'))) setSideCollapsed(true, { remember:false });
+    });
+    const sideMedia = window.matchMedia('(max-width: 860px)');
+    let desktopSideBeforeMobile = null;
+    sideMedia.addEventListener('change', event => {
+        if (event.matches) {
+            desktopSideBeforeMobile = document.body.classList.contains('v2-side-collapsed');
+            setSideCollapsed(true, { remember:false });
+        } else {
+            let collapsed = desktopSideBeforeMobile;
+            try { const saved = localStorage.getItem(SIDE_KEY); if (saved) collapsed = saved === 'collapsed'; } catch { /* 临时状态兜底 */ }
+            if (collapsed === null) collapsed = false;
+            setSideCollapsed(collapsed, { remember:false });
+            desktopSideBeforeMobile = null;
+        }
+    });
+    window.addEventListener('pageshow', () => { if (sideMedia.matches) setSideCollapsed(true, { remember:false }); });
+    window.addEventListener('orientationchange', () => { if (sideMedia.matches) setSideCollapsed(true, { remember:false }); });
     window.addEventListener('resize', () => { if (!wideSide()) setSidePeek(false); });
 
     const authHeaders = () => (typeof getAuthHeaderForNav === 'function' ? getAuthHeaderForNav() : { Authorization: `Bearer ${localStorage.getItem('tools_token') || ''}` });
@@ -2235,7 +2280,7 @@
 
     function init() {
         fillIcons(document);
-        try { if (window.matchMedia('(max-width: 860px)').matches || localStorage.getItem(SIDE_KEY) === 'collapsed') setSideCollapsed(true); } catch { /* 无痕模式 */ }
+        try { if (window.matchMedia('(max-width: 860px)').matches || localStorage.getItem(SIDE_KEY) === 'collapsed') setSideCollapsed(true, { remember:false }); } catch { /* 无痕模式 */ }
         applyText();
         watchNavbar();
         mirrorNavbar();
@@ -2275,5 +2320,5 @@
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
     else init();
 
-    window.HomeV2 = { setTheme, closePop, fillIcons, openLinks, updateChannelsNavState };
+    window.HomeV2 = { setSideCollapsed, isSideCollapsed, setTheme, closePop, fillIcons, openLinks, updateChannelsNavState };
 })();

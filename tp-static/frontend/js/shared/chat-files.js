@@ -709,8 +709,6 @@
         .home-workspace-panel.has-file-preview { height: calc(100dvh - var(--navbar-h) - 36px); max-height: none; box-sizing: border-box; overflow: hidden; }
         .home-workspace-panel.has-file-preview > .ai-file-preview { flex: 1 1 auto; min-height: 0; }
         .ai-file-preview-resize { position: absolute; left: 0; top: 0; bottom: 0; width: 8px; z-index: 2; cursor: col-resize; touch-action: none; border-radius: 5px; }
-        .ai-file-preview-resize::after { content: ""; position: absolute; left: 3px; top: calc(50% - 24px); width: 2px; height: 48px; border-radius: 2px; background: #94a3b877; }
-        .ai-file-preview-resize:hover, .ai-file-preview-resize:focus-visible { background: #38bdf866; outline: none; }
         body.ai-preview-resizing { cursor: col-resize; user-select: none; }
         body.ai-preview-resizing .ai-file-preview iframe { pointer-events: none; }
         @media (min-width: 861px) {

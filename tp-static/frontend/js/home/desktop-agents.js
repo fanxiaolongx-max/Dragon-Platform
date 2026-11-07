@@ -9,7 +9,7 @@
     } })() };
     let root, list, poll;
     let autoSelect = false;
-    let historyLoad = null, historyTimer = null, readingEpoch = null;
+    let historyLoad = null, historyTimer = null, readingEpoch = null, wsDiagOpen = false;
     const L = (zh, en) => /^en/.test(window.ToolsI18n?.getLanguage?.() || localStorage.getItem('tools_lang') || '') ? en : zh;
     const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const identity = () => ['tools_user', 'tools_tenant_id', 'tools_token'].map(k => localStorage.getItem(k) || sessionStorage.getItem(k) || '').join('|');
@@ -166,7 +166,7 @@
         hint.textContent=names[state.provider]+' · '+L('暂无可用对话，请打开客户端后同步。','No available conversations. Open the client and sync.')+' '+(state.providers.find(p=>p.id===state.provider)?.reason||'');
         api.thread.append(hint);api.finishLoading();
     }
-    function exit() { clearInterval(historyTimer); historyTimer = null; historyLoad = null; state.viewEpoch++; state.drafting = null; clearInterval(poll); poll = null; clearInterval(state.tick); state.tick = null; const body = document.querySelector('[data-wsp-ext-body]'); if (body) {
+    function exit() { clearInterval(historyTimer); historyTimer = null; historyLoad = null; state.viewEpoch++; state.drafting = null; clearInterval(poll); poll = null; clearInterval(state.tick); state.tick = null; wsDiagOpen = false; const body = document.querySelector('[data-wsp-ext-body]'); if (body) {
         body.onclick = null;
         delete body.dataset.signature;
     } if (state.active)
@@ -230,7 +230,8 @@
         return true;
     }
     async function open(session) {
-        const api = window.DragonClaw?.enterExternal?.({ onExit: exit, owner: 'desktop-agent', composer: composer({ ...session, canSend: false }) });
+        const api = window.DragonClaw?.enterExternal?.({ onExit: exit, owner: 'desktop-agent', composer: composer({ ...session, canSend: false }),
+            exportSession: { id: `${session.provider}-${session.id}`, url: `${API}/${encodeURIComponent(session.provider)}/sessions/${encodeURIComponent(session.id)}/export` } });
         if (!api)
             return;
         window.HomeAgentDiscussion?.bindExternal?.(session.provider);
@@ -308,14 +309,28 @@
         return L('读取中…', 'Loading…'); if (d.busy || state.pending)
         return busyText(); return state.active.canSend ? L('空闲 · 可发送', 'Idle · ready') : L('只读', 'Read-only'); }
     // 轮询只做增量更新：已显示的消息原地保留，新消息追加（自带淡入），内容有变化的只改正文，避免整屏重绘闪烁
-    const sameItem = (a, b) => a && b && a.role === b.role && a.content === b.content && JSON.stringify(a.attachments || []) === JSON.stringify(b.attachments || []) && a.createdAt === b.createdAt;
+    const sameItem = (a, b) => a && b && a.role === b.role && a.content === b.content && JSON.stringify(a.attachments || []) === JSON.stringify(b.attachments || []) && JSON.stringify(a.widget || null) === JSON.stringify(b.widget || null) && a.createdAt === b.createdAt;
+    function widgetHtml(widget) {
+        // 不执行原生客户端注入的 HTML 脚本，不授予同源、表单、弹窗或导航权限。
+        const preview = document.createElement('template');
+        preview.innerHTML = widget.html;
+        preview.content.querySelectorAll('script,iframe,frame,object,embed,meta,base,link,template').forEach(node => node.remove());
+        preview.content.querySelectorAll('*').forEach(node => {
+            for (const attr of [...node.attributes]) if (/^on/i.test(attr.name) || ['href', 'xlink:href', 'action', 'formaction', 'srcdoc', 'target'].includes(attr.name)) node.removeAttribute(attr.name);
+        });
+        const doc = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'; navigate-to 'none'"><style>
+            :root{color-scheme:light;--font-sans:system-ui,sans-serif;--font-mono:monospace;--color-background-primary:#fff;--color-background-secondary:#f3f4f6;--color-background-info:#e0f2fe;--color-text-primary:#202124;--color-text-secondary:#666;--color-text-tertiary:#888;--color-text-info:#0369a1;--color-border-primary:#aaa;--color-border-secondary:#ccc;--color-border-tertiary:#ddd;--border-radius-lg:12px;--border-radius-md:8px}
+            *{box-sizing:border-box}body{margin:0;padding:16px;font-family:var(--font-sans);color:var(--color-text-primary);background:var(--color-background-primary);overflow-wrap:anywhere}img,svg,canvas{max-width:100%}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0)}
+            </style></head><body>${preview.innerHTML}</body></html>`;
+        return `<section class="desktop-agent-widget"><div class="desktop-agent-widget-title">${esc(widget.title)} · ${esc(L('可视化预览', 'Visual preview'))}</div><iframe sandbox="" referrerpolicy="no-referrer" title="${esc(widget.title)}" srcdoc="${esc(doc)}"></iframe></section>`;
+    }
     // 只替换从第一个变化处开始的段落：前面的段落、代码块和选中的文字保持不动
     function morph(target, html) { const next = document.createElement('div'); next.innerHTML = html; const before = [...target.childNodes], after = [...next.childNodes]; let i = 0; while (i < before.length && i < after.length && before[i].isEqualNode(after[i]))
         i++; before.slice(i).forEach(n => n.remove()); target.append(...after.slice(i)); }
     function fillMessage(node, item) { if (item.role !== 'user') {
         const avatar=node.querySelector('.dc-msg-avatar');if(avatar){avatar.src=`./tp-static/frontend/assets/desktop-agents/${state.active.provider}.png`;avatar.alt=names[state.active.provider];}
         node.classList.add('dc-provider-message');
-        morph(node.querySelector('.dc-msg-body'), state.api.renderMarkdown(item.content));
+        morph(node.querySelector('.dc-msg-body'), state.api.renderMarkdown(item.content) + (typeof item.widget?.html === 'string' ? widgetHtml(item.widget) : ''));
     }
     else
         node.querySelector('.dc-msg-body').textContent = item.content; const copy = node.querySelector('[data-dc-copy]'); if (copy)
@@ -442,6 +457,7 @@
                     }
                     catch { }
                     renderDock();
+                    renderWorkspace(false, true);
                     state.api?.setComposer(composer(state.active));
                 }
                 const cancel = e.target.closest('[data-desktop-cancel]')?.dataset.desktopCancel;
@@ -462,28 +478,141 @@
         if (state.active && key(state.active) === key(session) && state.detail) {
             state.detail.queue = data.queue;
             renderDock();
+            renderWorkspace();
         }
     }
     catch (error) {
         state.api?.toast(error.message);
     } }
-    function renderWorkspace(first) {
+    // 工作区面板指标：messages 接口已在每条回复上带 rounds（模型、token、速度），在这里聚合，不增加后端请求。
+    function wsMetrics(d) {
+        const m = { user: 0, agent: 0, rounds: 0, tokens: 0, tps: 0, model: '' };
+        let tpsSum = 0, tpsCount = 0;
+        for (const item of d?.items || []) {
+            if (item.role === 'user')
+                m.user++;
+            else
+                m.agent++;
+            for (const round of item.rounds || []) {
+                m.rounds++;
+                m.tokens += (Number(round.inputTokens) || 0) + (Number(round.outputTokens) || 0);
+                const tps = Number(round.tps) || 0;
+                if (tps > 0) { tpsSum += tps; tpsCount++; }
+                if (round.model)
+                    m.model = round.model;
+            }
+        }
+        m.tps = tpsCount ? Math.round(tpsSum / tpsCount * 10) / 10 : 0;
+        return m;
+    }
+    function wsTokens(n) { return n >= 1000000 ? `${(n / 1000000).toFixed(1)}M` : n >= 10000 ? `${Math.round(n / 1000)}k` : n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n); }
+    function wsRelative(value) { const ms = Date.now() - Date.parse(value); if (!Number.isFinite(ms) || ms < -5000)
+        return ''; if (ms < 60000)
+        return L('刚刚', 'just now'); if (ms < 3600000)
+        return L(`${Math.floor(ms / 60000)} 分钟前`, `${Math.floor(ms / 60000)}m ago`); if (ms < 86400000)
+        return L(`${Math.floor(ms / 3600000)} 小时前`, `${Math.floor(ms / 3600000)}h ago`); return `${Math.floor(ms / 86400000)}${L(' 天前', 'd ago')}`; }
+    // 诊断：只汇总真实存在的信号，不编造“24h 内 N 次错误”这类没有来源的数字。
+    function wsIssues(d, p) { const issues = []; if (state.error)
+        issues.push(state.error); if (!p)
+        issues.push(L('正在检测桌面连接…', 'Checking the desktop connection…')); else if (!p.connected)
+        issues.push(L('桌面连接不可用，请打开对应客户端后刷新', 'Desktop connection unavailable. Open the client and refresh.')); if (p?.warning)
+        issues.push(p.warning); if (d.stale)
+        issues.push(L('桌面当前在其他会话，正文暂停更新', 'The desktop is showing another chat; text updates pause')); if (historyLoad?.status === 'error')
+        issues.push(historyLoad.error); if (!d.canSend && d.reason)
+        issues.push(d.reason); return issues.filter(Boolean); }
+    function wsDiagnostic(d, p, issues, m) { const session = state.active; return [`Agent: ${names[session.provider] || session.provider} (${session.provider})`, `Session: ${session.title || '—'}`, `Session ID: ${session.id}`, `Can send: ${Boolean(session.canSend)}`, `Busy: ${Boolean(d.busy || state.pending)}`, `Stale: ${Boolean(d.stale)}`, `Messages: ${(d.items || []).length}`, `Model calls: ${m.rounds}`, `Tokens: ${m.tokens}`, `Connected: ${p?.connected ?? 'unknown'}`, `Latency: ${Number.isFinite(p?.latencyMs) ? Math.round(p.latencyMs) + ' ms' : '—'}`, `Can read: ${p?.canRead ?? 'unknown'}`, `Reason: ${d.reason || p?.reason || '—'}`, `Issues: ${issues.length ? issues.join(' | ') : 'none'}`, `Last sync: ${state.lastSync || '—'}`, `App: ${location.host}`, `Time: ${new Date().toISOString()}`].join('\n'); }
+    async function wsCopy(text, done) {
+        let ok = false;
+        if (window.isSecureContext && navigator.clipboard?.writeText) {
+            try {
+                await navigator.clipboard.writeText(text);
+                ok = true;
+            }
+            catch { }
+        }
+        if (!ok) {
+            // 非安全上下文或权限受限：保持在同一个交互手势中执行 execCommand
+            const area = document.createElement('textarea');
+            area.value = text;
+            area.setAttribute('readonly', '');
+            area.style.cssText = 'position:fixed;top:-1000px;opacity:0';
+            document.body.append(area);
+            area.select();
+            area.setSelectionRange(0, area.value.length);
+            try {
+                ok = document.execCommand('copy');
+            }
+            catch { }
+            area.remove();
+        }
+        state.api?.toast(ok ? (done || L('已复制', 'Copied')) : L('复制失败，请长按选中后手动复制', 'Copy failed. Select and copy it manually.'));
+        return ok;
+    }
+    function renderWorkspace(first, force = false) {
         const session = state.active, d = state.detail;
         if (!session || !d)
             return;
         const body = window.DragonClawWorkspace?.showExternal?.({ title: L('Agent 会话', 'Agent session'), meta: names[session.provider], open: first ? undefined : false });
         if (!body)
             return;
-        const updated = d.items?.at(-1)?.createdAt || session.updatedAt, signature = JSON.stringify([session.id, session.canSend, state.unknown.has(key(session)), d.reason, d.stale, d.items?.length, updated, Boolean(d.busy || state.pending), L('zh', 'en')]);
-        if (!first && body.dataset.signature === signature)
+        const items = d.items || [], queue = d.queue || [], p = state.providers.find(item => item.id === session.provider) || null;
+        const m = wsMetrics(d), issues = wsIssues(d, p), health = providerHealth(session.provider);
+        const updated = d.items?.at(-1)?.createdAt || session.updatedAt, working = Boolean(d.busy || state.pending);
+        // 分钟粒度进签名：相对时间（刚刚 / 3 分钟前）即使数据没变也能刷新
+        const signature = JSON.stringify([session.id, session.title, session.canSend, state.unknown.has(key(session)), d.reason, d.stale, items.length, updated, working, d.busySince, d.canSteer, queue, m, p?.connected, p?.canRead, p?.canSend, p?.latencyMs, p?.reason, p?.warning, state.error, state.lastSync, state.mode, historyLoad?.status, issues, Math.floor(Date.now() / 60000), L('zh', 'en')]);
+        if (!first && !force && body.dataset.signature === signature)
             return;
         body.dataset.signature = signature;
-        const facts = [[L('会话', 'Session'), session.title], [L('状态', 'Status'), statusText(), 'status'], [L('发送', 'Sending'), session.canSend && !state.unknown.has(key(session)) ? L('输入框消息直接投递到这个原生会话', 'The composer delivers to this native session') : (d.reason || L('当前连接仅支持查看', 'This connection is read-only'))], d.stale && [L('同步', 'Sync'), L('桌面当前在其他会话，正文暂停更新；运行状态照常显示', 'The desktop shows another chat; text updates pause, status still updates')], [L('消息', 'Messages'), L(`${d.items?.length || 0} 条`, `${d.items?.length || 0}`)], updated && [L('最近活动', 'Last activity'), new Date(updated).toLocaleString()], [L('会话 ID', 'Session ID'), session.id]].filter(Boolean);
-        body.innerHTML = `<dl class="desktop-agent-facts">${facts.map(([k, v, tag]) => `<div><dt>${esc(k)}</dt><dd${tag ? ` data-desktop-${tag}` : ''}>${esc(v)}</dd></div>`).join('')}</dl><div class="desktop-agent-ws-actions"><button type="button" data-desktop-refresh>${esc(L('刷新', 'Refresh'))}</button><button type="button" data-desktop-settings>${esc(L('连接设置', 'Connection settings'))}</button><button type="button" data-desktop-back>${esc(L('返回我的对话', 'Back to my chats'))}</button></div>`;
-        body.onclick = e => { if (e.target.closest('[data-desktop-back]'))
-            back(); if (e.target.closest('[data-desktop-settings]'))
-            settings(); if (e.target.closest('[data-desktop-refresh]') && state.active)
-            refreshMessages(state.viewEpoch, state.active); };
+        let subText;
+        if (d.stale)
+            subText = L('桌面当前在其他会话，正文暂停更新；运行状态照常显示', 'The desktop shows another chat; text updates pause, status still updates');
+        else if (working)
+            subText = [m.rounds ? L(`共 ${m.rounds} 次模型调用`, `${m.rounds} model calls`) : '', queue.length ? L(`${queue.length} 条待发送`, `${queue.length} queued`) : ''].filter(Boolean).join(' · ') || L('正在等待桌面写入新消息', 'Waiting for the desktop to write new messages');
+        else if (p && !p.connected)
+            subText = p.reason || L('桌面连接不可用，请打开对应客户端后刷新', 'Desktop connection unavailable. Open the client and refresh.');
+        else if (state.lastSync)
+            subText = L('最近同步', 'Last sync') + ' · ' + (wsRelative(state.lastSync) || new Date(state.lastSync).toLocaleString());
+        else
+            subText = d.reason || L('空闲', 'Idle');
+        const mode = busyMode(), queueLabel = { queued: L('排队中', 'Queued'), sending: L('投递中', 'Sending'), failed: L('未发送', 'Not sent') };
+        const modesHtml = working && session.canSend ? `<div class="daw-modes" role="group"><span>${esc(L('新消息', 'New message'))}</span><button type="button" data-desktop-ws-mode="queue" aria-pressed="${mode === 'queue'}" title="${esc(L('本轮结束后自动发送', 'Sent when this turn finishes'))}">${esc(L('排队', 'Queue'))}</button><button type="button" data-desktop-ws-mode="steer" aria-pressed="${mode === 'steer'}" title="${esc(d.canSteer ? L('并入当前这一轮，Agent 会马上看到', 'Joins the running turn right away') : L(`${names[session.provider]} 不支持运行中引导`, `${names[session.provider]} can't steer a running turn`))}"${d.canSteer ? '' : ' disabled'}>${esc(L('引导', 'Steer'))}</button></div>` : '';
+        const queueHtml = queue.length ? `<div class="daw-queue">${queue.map(item => `<div class="daw-queue-item" data-status="${esc(item.status)}"><i>${esc(queueLabel[item.status] || '')}</i><span title="${esc(item.text)}">${esc(item.text)}</span>${item.error ? `<small title="${esc(item.error)}">${esc(item.error)}</small>` : ''}${item.status !== 'sending' ? `<button type="button" data-desktop-ws-cancel="${esc(item.requestId)}">${esc(item.status === 'failed' ? L('移除', 'Remove') : L('取消', 'Cancel'))}</button>` : ''}</div>`).join('')}</div>` : '';
+        const statusHtml = `<div class="daw-status" data-level="${esc(health.level)}"><div class="daw-status-head"><i class="daw-dot" aria-hidden="true"></i><b data-desktop-status>${esc(statusText())}</b>${working ? `<span class="daw-live">${esc(L('轮询中', 'Live'))}</span>` : ''}</div><p class="daw-status-sub">${esc(subText)}</p>${modesHtml}${queueHtml}</div>`;
+        const metricsHtml = `<div class="daw-metrics">${[[L('消息', 'Messages'), String(items.length), L(`${m.user} 你 / ${m.agent} Agent`, `${m.user} you / ${m.agent} agent`)], [L('模型调用', 'Model calls'), m.rounds ? String(m.rounds) : '—', ''], [L('Token 消耗', 'Tokens'), m.tokens ? wsTokens(m.tokens) : '—', ''], [L('生成速度', 'Speed'), m.tps ? String(m.tps) : '—', m.tps ? 'tok/s' : '']].map(([label, value, hint]) => `<div class="daw-metric"><div class="daw-metric-label">${esc(label)}</div><div class="daw-metric-value">${esc(value)}${hint ? `<em>${esc(hint)}</em>` : ''}</div></div>`).join('')}</div>${m.rounds ? '' : `<p class="daw-note">${esc(L('用量与速度来自桌面日志，这个 Agent 暂未提供', 'Usage and speed come from desktop logs; this agent does not report them'))}</p>`}`;
+        const shortId = session.id.length > 20 ? `${session.id.slice(0, 8)}…${session.id.slice(-6)}` : session.id;
+        const facts = [[L('会话', 'Session'), `<span class="daw-truncate" title="${esc(session.title)}">${esc(session.title)}</span>`], m.model ? [L('模型', 'Model'), `<code>${esc(m.model)}</code>`] : null, updated ? [L('最近活动', 'Last activity'), `<time title="${esc(new Date(updated).toLocaleString())}">${esc(wsRelative(updated) || new Date(updated).toLocaleString())}</time>`] : null, [L('会话 ID', 'Session ID'), `<span class="daw-id"><code title="${esc(session.id)}">${esc(shortId)}</code><button type="button" class="daw-btn daw-btn--tiny" data-desktop-copy="${esc(session.id)}">${esc(L('复制', 'Copy'))}</button></span>`]].filter(Boolean);
+        const factsHtml = `<dl class="desktop-agent-facts">${facts.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join('')}</dl>`;
+        const unknown = state.unknown.has(key(session)), canSendNow = Boolean(session.canSend) && !unknown;
+        const sendNote = canSendNow ? L('输入框消息直接投递到这个原生会话', 'The composer delivers to this native session') : (unknown ? L('上次提交结果未确认，发送已临时停用', 'Last delivery is unconfirmed; sending is paused for now') : (d.reason || L('当前连接仅支持查看', 'This connection is read-only')));
+        const connHtml = `<section class="daw-section"><h4>${esc(L('连接与权限', 'Connection & access'))}</h4><div class="daw-conn"><i class="daw-dot" data-level="${esc(health.level)}" aria-hidden="true"></i><span>${esc([p?.connected ? L('在线', 'Online') : L('离线', 'Offline'), Number.isFinite(p?.latencyMs) ? `${Math.round(p.latencyMs)}ms` : '', L('桌面原生', 'Native desktop'), L('本机', 'Local machine')].filter(Boolean).join(' · '))}</span></div><div class="daw-chips">${[[L('读取对话', 'Read chats'), Boolean(p?.canRead)], [L('投递消息', 'Send messages'), canSendNow], [L('新建会话', 'New sessions'), Boolean(p?.canSend)], [L('运行中引导', 'Steer'), Boolean(d.canSteer)]].map(([label, on]) => `<span class="daw-chip" data-on="${on}">${esc(label)} ${on ? '✓' : '✕'}</span>`).join('')}</div><p class="daw-note">${esc(sendNote)}</p></section>`;
+        const diagHtml = `<details class="daw-diag" data-daw-diag${wsDiagOpen ? ' open' : ''}><summary><span>${esc(L('诊断', 'Diagnostics'))} · ${issues.length ? esc(L(`${issues.length} 项提示`, `${issues.length} note(s)`)) : esc(L('连接正常', 'All clear'))}</span><i class="daw-caret" aria-hidden="true">⌄</i></summary><div class="daw-diag-body"><dl class="desktop-agent-facts">${[[L('连接', 'Connection'), p?.connected ? L('已连接', 'Connected') : L('未连接', 'Disconnected')], [L('往返延迟', 'Latency'), Number.isFinite(p?.latencyMs) ? `${Math.round(p.latencyMs)} ms` : '—'], [L('最近同步', 'Last sync'), state.lastSync ? (wsRelative(state.lastSync) || new Date(state.lastSync).toLocaleString()) : '—'], [L('队列', 'Queue'), String(queue.length)]].map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>${issues.length ? `<ul class="daw-issues">${issues.map(issue => `<li>${esc(issue)}</li>`).join('')}</ul>` : ''}<div class="daw-diag-actions"><button type="button" class="daw-btn" data-desktop-ws-diag>${esc(L('复制诊断信息', 'Copy diagnostics'))}</button></div></div></details>`;
+        body.innerHTML = `<div class="desktop-agent-ws">${statusHtml}${metricsHtml}${factsHtml}${connHtml}${diagHtml}<div class="desktop-agent-ws-actions"><button type="button" data-desktop-refresh>${esc(L('刷新', 'Refresh'))}</button><button type="button" data-desktop-settings>${esc(L('连接设置', 'Connection settings'))}</button><button type="button" data-desktop-back>${esc(L('返回我的对话', 'Back to my chats'))}</button></div></div>`;
+        body.querySelector('[data-daw-diag]')?.addEventListener('toggle', e => { wsDiagOpen = e.currentTarget.open; });
+        body.onclick = e => { const modeButton = e.target.closest('[data-desktop-ws-mode]'); if (modeButton && !modeButton.disabled && state.active) {
+            state.mode = modeButton.dataset.desktopWsMode;
+            try {
+                localStorage.setItem('desktop_agent_busy_mode', state.mode);
+            }
+            catch { }
+            renderWorkspace(false, true);
+            renderDock();
+            state.api?.setComposer(composer(state.active));
+            return;
+        }
+            const cancelButton = e.target.closest('[data-desktop-ws-cancel]'); if (cancelButton && state.active) {
+                cancelQueued(state.active, cancelButton.dataset.desktopWsCancel);
+                return;
+            }
+            const copyButton = e.target.closest('[data-desktop-copy]'); if (copyButton) {
+                wsCopy(copyButton.dataset.desktopCopy, L('会话 ID 已复制', 'Session ID copied'));
+                return;
+            }
+            if (e.target.closest('[data-desktop-ws-diag]')) { if (!state.active || !state.detail)
+                return; wsCopy(wsDiagnostic(state.detail, state.providers.find(item => item.id === state.active.provider), wsIssues(state.detail, state.providers.find(item => item.id === state.active.provider)), wsMetrics(state.detail)), L('诊断信息已复制', 'Diagnostics copied')); return; }
+            if (e.target.closest('[data-desktop-back]'))
+                back(); if (e.target.closest('[data-desktop-settings]'))
+                settings(); if (e.target.closest('[data-desktop-refresh]') && state.active)
+                refreshMessages(state.viewEpoch, state.active); };
     }
     function back() { window.DragonClaw?.newChat?.(); window.HomeWelinkThreads?.setSource?.('mine'); }
     async function refreshMessages(epoch, session, initial = false) {
