@@ -3,6 +3,9 @@ const root = fs.mkdtempSync(path.join(os.tmpdir(), 'desktop-agents-'));
 process.env.TOOLS_DATA_DIR = path.join(root, 'data');
 process.env.TOOLS_DESKTOP_AGENT_HOME = path.join(root, 'home');
 process.env.CODEX_HOME = path.join(root, 'home/.codex');
+// WorkBuddy 会话默认读真实 ~/.workbuddy：开发机上会让会话数断言多出一堆真实会话，这里隔离到临时目录
+process.env.WORKBUDDY_CONFIG_DIR = path.join(root, 'home/.workbuddy');
+process.env.TOOLS_WORKBUDDY_CLI_HOME = path.join(root, 'home/.workbuddy-connector');
 const db = require('../backend/models/app-db'), platform = require('../backend/models/platform-db'), pool = require('../backend/models/tenant-sqlite-pool');
 const { runWithTenant } = require('../backend/models/tenant-context');
 const catalog = require('../backend/models/desktop-agents/catalog'), repo = require('../backend/models/desktop-agents/repository'), service = require('../backend/models/desktop-agents/service'), ipc = require('../backend/models/desktop-agents/codex-ipc');
@@ -113,6 +116,22 @@ test('connection needs an admin and explicit setup, and binds a host to one owne
     assert.equal((await auth('get', '/settings', 'alice', 'other').expect(200)).body.owned, false);
     await auth('get', `/codex/sessions/${CID}/messages`).expect(404);
     await auth('get', '/unknown/sessions/not-a-session/messages').expect(400);
+});
+test('desktop conversation export uses the native session and enforces admin, tenant and owner access', async () => {
+    const url = `/codex/sessions/${ID}/export`;
+    const result = await auth('get', url).expect(200);
+    assert.match(result.headers['content-disposition'], /dragon-claw-codex-.*\.json/);
+    assert.equal(result.headers['cache-control'], 'no-store');
+    assert.equal(result.body.format, 'dragon-claw-desktop-agent-log');
+    assert.equal(result.body.provider, 'codex');
+    assert.equal(result.body.session.id, ID);
+    assert.equal(result.body.messages[0].content, 'A real user question');
+    assert.doesNotMatch(JSON.stringify(result.body), /do-not-expose-this|private tool payload|private analysis payload|rollout_path|metadataFile/);
+    await auth('get', url, 'bob').expect(403);
+    await auth('get', url, 'alice', 'other').expect(409);
+    await auth('get', url).set('x-role', 'readonly').expect(403);
+    await request(httpServer).get('/api/desktop-agents' + url).expect(403);
+    await auth('get', `/codex/sessions/${CID}/export`).expect(404);
 });
 test('Web send reaches the same native desktop ID, requires a transcript receipt, and is idempotent', async () => {
     const id = '44444444-4444-4444-8444-444444444444', text = 'Native desktop roundtrip';

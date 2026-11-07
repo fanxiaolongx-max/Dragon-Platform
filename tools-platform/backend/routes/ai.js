@@ -1,6 +1,7 @@
 const { getUsageVideoFooter } = require('../models/platform-usage-video');
 const express = require('express');
 const router = express.Router();
+router.use('/speech',require('./ai-speech'));
 const { checkAuth } = require('../middleware/auth');
 const aiSettingsRepo = require('../models/ai-settings-repository');
 const aiChatRepo = require('../models/ai-chat-repository');

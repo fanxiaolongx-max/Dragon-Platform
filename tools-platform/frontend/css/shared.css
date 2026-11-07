@@ -7185,3 +7185,66 @@ html[data-theme="dark"] .builtin-sync-versions { color: #a6b6ca; }html[data-them
     background: var(--nsw-chip) !important;
     color: var(--nsw-ink2) !important;
 }
+/* 右侧工作区、浏览器与文件预览：与首页左侧菜单分隔线相同的主题色与光晕。 */
+:is(.dc-sidebar-resize, .ai-file-preview-resize) { outline: none; }
+:is(.dc-sidebar-resize, .ai-file-preview-resize)::after {
+    content: ''; position: absolute; inset: 8px 0; width: 2px; height: auto;
+    margin-right: auto; background: transparent; border-radius: 2px;
+    transition: background 150ms, box-shadow 150ms;
+}
+:is(.dc-sidebar-resize, .ai-file-preview-resize):is(:hover, :focus-visible)::after,
+body.dc-sidebar-resizing .dc-sidebar-resize::after,
+body.ai-preview-resizing .ai-file-preview-resize::after {
+    background: var(--v2-accent, var(--ws-accent, #64ffda));
+    box-shadow: 0 0 10px 3px var(--v2-focus, rgba(100, 255, 218, .35));
+}
+body:is(.dc-sidebar-resizing, .ai-preview-resizing),
+body:is(.dc-sidebar-resizing, .ai-preview-resizing) * { cursor: col-resize !important; user-select: none !important; }
+@media (prefers-reduced-motion: reduce) {
+    :is(.dc-sidebar-resize, .ai-file-preview-resize)::after { transition: none; }
+}
+
+/* 全局设置的小屏入口与视口：重排内容，保持表单文字和触控区域可读。 */
+body.nav-settings-open{overflow:hidden}
+.nav-settings-mobile-nav{display:none}
+.nav-media-feiniu-fields{display:grid;grid-template-columns:minmax(220px,1.8fr) minmax(130px,1fr) minmax(130px,1fr) auto;gap:10px;align-items:end}
+@media(max-width:860px){
+    .nav-settings-modal{
+        padding:0;align-items:stretch;inset:auto 0 auto 0;top:var(--nav-settings-viewport-top,0px);
+        height:var(--nav-settings-viewport-h,100dvh);box-sizing:border-box;
+    }
+    .nav-settings-window{
+        position:relative;width:100%;height:100%;max-height:100%;min-height:0;
+        grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);border:0;border-radius:0;
+    }
+    .nav-settings-sidebar{display:none}
+    .nav-settings-mobile-nav{
+        display:flex;align-items:center;gap:8px;min-width:0;
+        padding:calc(8px + env(safe-area-inset-top,0px)) 62px 8px 12px;
+        border-bottom:1px solid var(--nsw-line,var(--v2-line,#cbd5e1));background:var(--nsw-bg,var(--v2-bg,#f8fafc));
+    }
+    .nav-settings-mobile-label{flex:none;font-size:12px;font-weight:650;color:var(--nsw-ink2,var(--v2-ink2,#64748b))}
+    #navSettingsMobileSection{
+        min-width:0;flex:1;width:0;min-height:44px;font-size:16px;box-sizing:border-box;
+        padding:8px;border:1px solid var(--nsw-line,var(--v2-line,#cbd5e1));border-radius:8px;
+        background:var(--nsw-bg,var(--v2-bg,#f8fafc));color:var(--nsw-ink,var(--v2-ink,#172033));
+    }
+    .nav-settings-main{position:static;min-height:0;padding:10px 12px 0;gap:8px;grid-template-rows:auto minmax(0,1fr)}
+    .nav-settings-close{top:calc(8px + env(safe-area-inset-top,0px));right:8px;z-index:2;width:44px;height:44px}
+    .nav-settings-head{flex-direction:column;align-items:flex-start;gap:4px;padding-right:0;min-width:0}
+    .nav-settings-heading{font-size:18px;overflow-wrap:anywhere}
+    .nav-settings-subtitle{margin-top:2px;font-size:12px;line-height:1.5}
+    .nav-settings-save-state{min-width:0;text-align:left;font-size:11px}
+    #navSettingsContent{min-width:0;max-width:100%;overscroll-behavior:contain;padding:0 0 max(16px,env(safe-area-inset-bottom,0px));scroll-padding:12px}
+    #navSettingsContent :is(input:not([type=checkbox]):not([type=radio]):not([type=file]),select,textarea){
+        min-width:0;max-width:100%;box-sizing:border-box;font-size:16px!important;
+    }
+    #navSettingsContent :is(input:not([type=checkbox]):not([type=radio]):not([type=file]),select){min-height:40px}
+    #navSettingsContent :is(.nav-settings-row,.nav-ai-grid,.nav-ai-token-row,.nav-ai-alias-row,.nav-account-create,.nav-media-feiniu-fields){grid-template-columns:minmax(0,1fr)}
+    #navSettingsContent :is(.nav-settings-actions,.nav-ai-profile-head-actions,.nav-backup-actions){flex-wrap:wrap;justify-content:flex-start}
+    #navSettingsContent :is(.nav-settings-actions button,.nav-settings-add){min-height:40px}
+    #navSettingsContent .nav-settings-check{white-space:normal;overflow-wrap:anywhere;min-width:0}
+}
+@media(max-width:860px){
+    html.is-desktop-app .nav-settings-modal > .nav-settings-window{height:100%}
+}

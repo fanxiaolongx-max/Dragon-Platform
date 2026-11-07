@@ -18,7 +18,7 @@ const LIMITS = {
 // 对话附件（首页对话里上传的文件）：与大结果文件同样按 租户/账号 分目录、只给本人，保留 30 天
 const UPLOAD_KEEP_DAYS = 30;
 const UPLOAD_LIMITS = { fileBytes: 20 * 1024 * 1024, files: 5 };
-const UPLOAD_EXTENSIONS = new Set(['xlsx', 'xlsm', 'csv', 'tsv', 'txt', 'md', 'json', 'log', 'xml', 'yaml', 'yml', 'html', 'htm', 'docx', 'pptx', 'zip',
+const UPLOAD_EXTENSIONS = new Set(['xlsx', 'xlsm', 'csv', 'tsv', 'txt', 'md', 'json', 'log', 'xml', 'yaml', 'yml', 'html', 'htm', 'docx', 'pptx', 'pdf', 'zip',
     'js', 'ts', 'py', 'java', 'go', 'sql', 'sh', 'css', 'ini', 'conf', 'png', 'jpg', 'jpeg', 'gif', 'webp']);
 
 function baseDir() {

@@ -1,14 +1,12 @@
 {
   "zh": [
-    "额度栏新增 Claude 额外用量与消费上限显示，支持悬停详情和详细面板，并完善金额与未知额度的处理。",
-    "额度查询遇到短暂断网或超时会重试一次，同时保留 Claude Desktop 与 CLI 的账号来源边界。",
-    "修复输入栏增强提示词和语音按钮居中的问题，空输入与输入文字后均与发送按钮一起靠右显示。",
-    "WorkBuddy 会话支持成功返回的可视化静态预览，保留未变化的预览；查看会话时静默读取记录，不再切换桌面窗口。"
+    "Antigravity 桌面会话与历史消息接入本地存储直读，加载毫秒级响应，并聚合展示模型调用轮数、Token 用量与生成速度。",
+    "修复左侧对话列表在筛选或全部条目已展示时仍显示「展开更多」的问题，优化列表分页边界。",
+    "优化全局设置移动端导航与视口自适应，完善语音输入组件与浏览器侧栏交互支持。"
   ],
   "en": [
-    "Added Claude extra usage and spend limits to quota details and the expanded panel, with validated amounts and handling for unknown limits.",
-    "Quota reads retry once after a temporary network failure or timeout while preserving the account boundary between Claude Desktop and CLI.",
-    "Fixed prompt enhancement and voice controls drifting to the center. They now stay beside Send for empty and filled drafts.",
-    "WorkBuddy conversations show static visualization previews and preserve unchanged previews during polling. Opening history reads local records without switching desktop windows."
+    "Antigravity desktop conversations and transcripts load instantly via local storage with aggregated model calls, tokens, and generation speed metrics.",
+    "Fixed conversation list showing redundant 'Show more' button when all items or filtered items are already visible.",
+    "Improved mobile navigation and viewport adaptation for global settings, with enhanced voice input and browser sidebar interactions."
   ]
 }

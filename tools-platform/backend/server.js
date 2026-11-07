@@ -435,6 +435,7 @@ app.use('/api', (req, res, next) => {
     if (req.method === 'POST' && req.path === '/uiv/run-uivision-macro') return next(); // 只生成临时 runner，不修改业务数据
     if (req.method === 'POST' && req.path === '/platform-metrics/open') return next(); // 登录用户记录工具打开量
     if (req.method === 'POST' && req.path === '/recent-nav') return next(); // 登录用户维护自己的最近使用
+    if (req.method === 'PUT' && req.path === '/sidebar-menu') return next(); // 登录用户仅维护本人在当前租户的侧栏菜单
     if (req.method === 'PUT' && req.path === '/favorite-nav') return next(); // 登录用户维护自己的收藏工具
     if ((req.method === 'POST' && req.path === '/datacom-knowledge/ai/ask') ||
         (req.method === 'PUT' && req.path === '/datacom-knowledge/preference') ||
@@ -443,6 +444,7 @@ app.use('/api', (req, res, next) => {
     if (req.method === 'POST' && /^\/platform-promotions\/desktop\/(?:sync|open\/[^/]+|site-scripts(?:\/run)?)$/.test(req.path)) return next(); // 路由内限制本机登录用户，只操作本机桌面浏览器窗口（推广卡片、浮窗脚本）
     if (req.method === 'POST' && req.path === '/platform-promotions/clicks') return next(); // 登录用户上报推广点击，路由内校验推广项
     if (req.method === 'POST' && req.path === '/ai/proactive-alert-message') return next(); // 只读 KPI 提醒文案，不修改业务数据
+    if (req.method === 'POST' && req.path === '/ai/speech') return next(); // 登录用户仅将本人录音转成草稿文字；路由内鉴权，不保存音频或发送对话
     if (req.method === 'POST' && req.path === '/ai/enhance-prompt') return next(); // 登录用户只改写自己的草稿；无会话、文件或工具操作，路由内鉴权
     if (req.method === 'POST' && req.path === '/ai/chat') return next(); // 登录用户都可对话；工作区内非管理员只拿到只读工具（路由与 agent-run-manager 内校验）
     if (req.method === 'POST' && req.path === '/ai/uploads') return next(); // 登录用户上传本人对话附件，只存进本人附件目录（路由内按 租户::账号 分目录）
@@ -490,6 +492,7 @@ app.use('/api/surveys', surveysRoutes); // 可配置调查模板与提交记录 
 app.use('/api/nav-settings', navSettingsRoutes); // 顶部导航全局设置 API
 app.use('/api/platform-logo', require('./routes/platform-logo')); // 平台 LOGO 与多端规格图标管理
 app.use('/api/recent-nav', require('./routes/recent-nav')); // 按租户和账号保存最近使用
+app.use('/api/sidebar-menu', require('./routes/sidebar-menu'));
 app.use('/api/favorite-nav', require('./routes/favorite-nav')); // 按租户和账号保存收藏工具（顺序可拖动）
 app.use('/api/desktop-pet', require('./routes/desktop-pet'));
 app.use('/api/ai-settings', aiSettingsRoutes); // Dragon Claw 智能体模型配置 API

@@ -343,3 +343,12 @@ test('fragmented file-write arguments unwrap strict JSON envelopes before reachi
         assert.deepEqual(result.toolCalls[0].args,args);
     });
 });
+
+test('Gemini voice transcription sends inline audio without changing text-only messages',async()=>{
+ const client=createClient({...baseSettings,provider:'gemini',model:'gemini-fixture',apiBaseUrl:'http://mock/v1beta'});
+ await withFetch(()=>jsonResponse({candidates:[{content:{parts:[{text:'{"text":"voice fixture"}'}]}}]}),async calls=>{
+  const result=await client.generateText({messages:[{role:'user',content:'Transcribe',audio:[{mimeType:'audio/wav',data:'UklGRkZJWFQ='}]}],responseMimeType:'application/json'});
+  assert.equal(result.text,'{"text":"voice fixture"}');assert.deepEqual(calls[0].body.contents[0].parts[0],{inlineData:{mimeType:'audio/wav',data:'UklGRkZJWFQ='}});
+ });
+ const other=createClient({...baseSettings,provider:'anthropic',model:'fixture'});await assert.rejects(other.generateText({messages:[{role:'user',content:'transcribe',audio:[{mimeType:'audio/wav',data:'UklGRg=='}]}]}),e=>e.code==='AI_SPEECH_UNSUPPORTED');
+});

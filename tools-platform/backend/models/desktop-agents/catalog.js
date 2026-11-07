@@ -6,8 +6,11 @@ const roots = () => ({
     codex: path.join(home(), '.codex'),
     claude: path.join(home(), 'Library/Application Support/Claude/claude-code-sessions'),
     projects: [path.join(home(), '.claude/projects'), path.join(home(), '.config/claude/projects')],
+    antigravity: process.env.ANTIGRAVITY_APP_DATA_DIR
+        ? process.env.ANTIGRAVITY_APP_DATA_DIR.trim()
+        : path.join(home(), '.gemini/antigravity'),
     antigravityDb: process.env.ANTIGRAVITY_APP_DATA_DIR
-        ? path.join(process.env.ANTIGRAVITY_APP_DATA_DIR, 'conversation_summaries.db')
+        ? path.join(process.env.ANTIGRAVITY_APP_DATA_DIR.trim(), 'conversation_summaries.db')
         : path.join(home(), '.gemini/antigravity/conversation_summaries.db')
 });
 async function entries(folder) { try {
@@ -343,4 +346,193 @@ async function antigravityTimestamps(ids = []) {
         return new Map();
     }
 }
-module.exports = { home, roots, entries, json, readDb, safe, userText, codex, claude, transcript, busyState, antigravityTimestamps };
+function parseWorkspaceCwd(raw) {
+    if (!raw || typeof raw !== 'string') return '';
+    try {
+        const list = JSON.parse(raw);
+        const first = Array.isArray(list) ? list[0] : '';
+        if (typeof first === 'string' && first.startsWith('file://')) return require('node:url').fileURLToPath(first);
+    } catch { }
+    return '';
+}
+// Antigravity 本地会话索引库（~/.gemini/antigravity/conversation_summaries.db）：直接毫秒级读取会话列表，无需通过 CDP 遍历桌面 DOM
+async function antigravity(limit) {
+    const file = roots().antigravityDb;
+    try {
+        const rows = await readDb(file,
+            `SELECT conversation_id, title, preview, last_modified_time, last_user_input_time, workspace_uris, status, not_fully_idle
+             FROM conversation_summaries
+             WHERE COALESCE(parent_conversation_id, '') = '' AND COALESCE(killed, 0) = 0
+             ORDER BY COALESCE(last_modified_time, last_user_input_time) DESC
+             LIMIT ?`, [limit]);
+        const now = new Date().toISOString();
+        return rows.filter(r => typeof r.conversation_id === 'string' && /^[a-f0-9-]{36}$/i.test(r.conversation_id) && (r.title || r.preview)).map((r, i) => {
+            const rawTime = r.last_modified_time || r.last_user_input_time;
+            const parsed = rawTime ? Date.parse(rawTime) : NaN;
+            return {
+                id: r.conversation_id,
+                provider: 'antigravity',
+                title: safe(r.title || r.preview || 'Antigravity'),
+                updatedAt: Number.isNaN(parsed) ? null : new Date(parsed).toISOString(),
+                observedAt: now,
+                order: i,
+                cwd: parseWorkspaceCwd(r.workspace_uris),
+                source: 'desktop-history'
+            };
+        });
+    } catch {
+        return [];
+    }
+}
+async function antigravityBusyIds() {
+    const file = roots().antigravityDb;
+    try {
+        const rows = await readDb(file,
+            `SELECT conversation_id, last_modified_time, last_user_input_time
+             FROM conversation_summaries
+             WHERE COALESCE(parent_conversation_id, '') = '' AND COALESCE(killed, 0) = 0
+               AND (status = 'CASCADE_RUN_STATUS_RUNNING' OR COALESCE(not_fully_idle, 0) != 0)`);
+        const ids = new Set();
+        for (const r of rows) {
+            if (!r.conversation_id || !/^[a-f0-9-]{36}$/i.test(r.conversation_id)) continue;
+            const raw = r.last_modified_time || r.last_user_input_time;
+            const ts = raw ? Date.parse(raw) : NaN;
+            if (Number.isNaN(ts) || Date.now() - ts < STALE_MS) ids.add(r.conversation_id);
+        }
+        return ids;
+    } catch {
+        return null;
+    }
+}
+async function antigravityTranscriptFile(id) {
+    if (typeof id !== 'string' || !/^[a-f0-9-]{36}$/i.test(id)) return null;
+    const base = roots().antigravity;
+    const logsDir = path.join(base, 'brain', id, '.system_generated/logs');
+    for (const name of ['transcript_full.jsonl', 'transcript.jsonl']) {
+        const candidate = path.join(logsDir, name);
+        try {
+            const stat = await fs.lstat(candidate);
+            if (stat.isFile() && !stat.isSymbolicLink()) return candidate;
+        } catch { }
+    }
+    return null;
+}
+function antigravityUserText(raw) {
+    const text = String(raw || '');
+    const reqMatch = text.match(/<USER_REQUEST>([\s\S]*?)<\/USER_REQUEST>/);
+    if (reqMatch) return reqMatch[1].trim();
+    const cleaned = text.replace(/<(ADDITIONAL_METADATA|USER_SETTINGS_CHANGE)\b[\s\S]*?<\/\1>/g, '').trim();
+    return userText(cleaned);
+}
+// Antigravity 本地消息记录（brain/<id>/.system_generated/logs/transcript_full.jsonl）：
+// 直接读取本地 JSONL，聚合每轮模型调用的 input/output tokens、耗时、tok/s 与模型名，不再依赖 CDP 切换桌面窗口和解析 DOM。
+async function antigravityTranscript(sessionOrId) {
+    const id = typeof sessionOrId === 'string' ? sessionOrId : sessionOrId?.id;
+    const file = await antigravityTranscriptFile(id);
+    if (!file) return null;
+    const baseRoot = await fs.realpath(roots().antigravity).catch(() => null);
+    const real = await fs.realpath(file).catch(() => null);
+    if (!baseRoot || !real || !real.startsWith(baseRoot + path.sep)) return null;
+    const h = await fs.open(real, 'r');
+    let text, mtimeMs = 0;
+    try {
+        const stat = await h.stat();
+        mtimeMs = stat.mtimeMs;
+        const size = Math.min(stat.size, 16 * 1024 * 1024), buffer = Buffer.alloc(size);
+        await h.read(buffer, 0, size, stat.size - size);
+        text = buffer.toString();
+        if (stat.size > size) text = text.slice(text.indexOf('\n') + 1);
+    } finally {
+        await h.close();
+    }
+    const items = [];
+    let currentModel = '', busySince = null, lastStamp = null, turnSettled = true;
+    let turnRounds = [], lastAssistant = -1, pendingRound = null;
+    const finishTurn = () => {
+        if (pendingRound && !pendingRound.end && mtimeMs) {
+            const startMs = Date.parse(pendingRound.start);
+            if (Number.isFinite(startMs) && mtimeMs > startMs && mtimeMs - startMs < 120000) {
+                pendingRound.end = new Date(mtimeMs).toISOString();
+            }
+        }
+        if (lastAssistant >= 0 && turnRounds.length) {
+            items[lastAssistant].rounds = turnRounds.map((round, i) => {
+                const rawMs = round.end && round.start ? Date.parse(round.end) - Date.parse(round.start) : 0;
+                const ms = Number.isFinite(rawMs) && rawMs >= 500 ? rawMs : 0;
+                return {
+                    index: i + 1,
+                    model: round.model,
+                    inputTokens: round.inputTokens,
+                    outputTokens: round.outputTokens,
+                    estimated: false,
+                    ms,
+                    ttftMs: null,
+                    generationMs: ms,
+                    tps: ms >= 500 && round.outputTokens > 0 ? Math.round(round.outputTokens / (ms / 1000) * 10) / 10 : 0,
+                    at: round.start || round.end
+                };
+            }).filter(r => r.outputTokens > 0 || r.inputTokens > 0);
+        }
+        turnRounds = [];
+        lastAssistant = -1;
+        pendingRound = null;
+    };
+    for (const line of text.split('\n')) {
+        if (!line.trim()) continue;
+        let ev;
+        try { ev = JSON.parse(line); } catch { continue; }
+        const stamp = ev.created_at || ev.timestamp || null;
+        if (stamp) {
+            lastStamp = stamp;
+            if (pendingRound && !pendingRound.end) {
+                pendingRound.end = stamp;
+                pendingRound = null;
+            }
+        }
+        if (ev.type === 'USER_INPUT' && ev.source !== 'SYSTEM') {
+            finishTurn();
+            const raw = String(ev.content || '');
+            const mMatch = raw.match(/<USER_SETTINGS_CHANGE>[\s\S]*?Model Selection` from [^\n]+? to ([^\n]+?)\.(?:\s|$)/);
+            if (mMatch) currentModel = mMatch[1].trim();
+            const content = antigravityUserText(raw);
+            const attachments = [];
+            for (const m of Array.isArray(ev.media) ? ev.media : []) {
+                if (typeof m?.uri === 'string' && path.isAbsolute(m.uri) && !/[\0\r\n]/.test(m.uri) && attachments.length < 30) {
+                    attachments.push({ path: m.uri, name: path.basename(m.uri) });
+                }
+            }
+            busySince = stamp || new Date().toISOString();
+            turnSettled = false;
+            if (!content && !attachments.length) continue;
+            items.push({ id: String(ev.step_index ?? items.length), role: 'user', content: safe(content, 40000), ...(attachments.length ? { attachments } : {}), channel: null, createdAt: stamp });
+        } else if (ev.type === 'PLANNER_RESPONSE') {
+            busySince = busySince || stamp;
+            const inputTokens = (Number(ev.input_tokens) || 0) + (Number(ev.cache_read_tokens) || 0);
+            const outputTokens = Number(ev.output_tokens) || 0;
+            if (inputTokens > 0 || outputTokens > 0) {
+                pendingRound = { start: stamp, end: null, model: currentModel, inputTokens, outputTokens };
+                turnRounds.push(pendingRound);
+            }
+            const hasTools = Array.isArray(ev.tool_calls) && ev.tool_calls.length > 0;
+            turnSettled = !hasTools && ev.status === 'DONE';
+            if (typeof ev.content === 'string' && ev.content.trim()) {
+                const raw = ev.content.trim();
+                const attachments = await messageAttachments({ role: 'assistant', content: raw }, raw, false);
+                items.push({ id: String(ev.step_index ?? items.length), role: 'assistant', content: safe(raw, 40000), ...(attachments.length ? { attachments } : {}), channel: null, createdAt: stamp });
+                lastAssistant = items.length - 1;
+            }
+        } else if (ev.type === 'GENERIC') {
+            turnSettled = false;
+        }
+    }
+    finishTurn();
+    let dbBusy = null;
+    try {
+        const rows = await readDb(roots().antigravityDb, 'SELECT status, not_fully_idle FROM conversation_summaries WHERE conversation_id = ? LIMIT 1', [id]);
+        if (rows.length) dbBusy = rows[0].status === 'CASCADE_RUN_STATUS_RUNNING' || Boolean(Number(rows[0].not_fully_idle));
+    } catch { }
+    const fresh = Boolean(lastStamp) && Date.now() - Date.parse(lastStamp) < STALE_MS;
+    const busy = dbBusy !== null ? Boolean(dbBusy && fresh) : Boolean(busySince && !turnSettled && fresh);
+    return { items: items.slice(-200), available: true, busy, busySince: busy ? (busySince || lastStamp) : null };
+}
+module.exports = { home, roots, entries, json, readDb, safe, userText, codex, claude, transcript, busyState, antigravityTimestamps, antigravity, antigravityBusyIds, antigravityTranscript };

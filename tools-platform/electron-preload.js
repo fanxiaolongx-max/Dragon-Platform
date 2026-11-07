@@ -1,5 +1,35 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+if(process.isMainFrame)contextBridge.exposeInMainWorld('ToolsSpeech',{requestMicrophone:()=>ipcRenderer.invoke('speech:microphone')});
+
+if (process.isMainFrame) contextBridge.exposeInMainWorld('DragonBrowser', {
+    connect: () => ipcRenderer.invoke('dragon-browser:connect'),
+    reading: active => ipcRenderer.send('dragon-browser:reading', active),
+    bounds: bounds => ipcRenderer.send('dragon-browser:bounds', bounds),
+    action: (action, payload) => ipcRenderer.send('dragon-browser:action', action, payload),
+    popout: () => ipcRenderer.send('dragon-browser:popout'),
+    onState: callback => {
+        const listener = (_event, value) => callback(value);
+        ipcRenderer.on('dragon-browser:state', listener);
+        return () => ipcRenderer.removeListener('dragon-browser:state', listener);
+    },
+    onFocusUrl: callback => {
+        const listener = () => callback();
+        ipcRenderer.on('dragon-browser:focus-url', listener);
+        return () => ipcRenderer.removeListener('dragon-browser:focus-url', listener);
+    },
+    onPoppedOut: callback => {
+        const listener = () => callback();
+        ipcRenderer.on('dragon-browser:popped-out', listener);
+        return () => ipcRenderer.removeListener('dragon-browser:popped-out', listener);
+    },
+    onReveal: callback => {
+        const listener = () => callback();
+        ipcRenderer.on('dragon-browser:reveal', listener);
+        return () => ipcRenderer.removeListener('dragon-browser:reveal', listener);
+    }
+});
+
 contextBridge.exposeInMainWorld('ToolsUpdater', {
     getVersion: () => ipcRenderer.invoke('updater:get-version'),
     getStatus: () => ipcRenderer.invoke('updater:get-status'),

@@ -1,0 +1,1318 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI 101</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+SC:wght@300;400;500;600;700&family=Noto+Serif+SC:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f7f6f2;--paper:#ffffff;--ink:#111214;--ink2:#3a3b3f;--muted:#7a7b80;--faint:#b5b5b8;--line:#e6e4de;--line2:#d8d5cd;
+  --acc:#ff5a1f;--acc-soft:#fff0e8;--blue:#3d5afe;--ok:#12a36b;--warn:#d98a00;--bad:#e23d3d;
+  --ease:cubic-bezier(.19,1,.22,1);--spring:cubic-bezier(.34,1.56,.64,1);
+  --sans:"Inter","Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --serif:"Instrument Serif","Noto Serif SC",Georgia,serif;
+  --zh-serif:"Noto Serif SC","Songti SC",serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:var(--sans);overflow:hidden;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+::selection{background:var(--acc);color:#fff}
+#viewport{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg)}
+#stage{width:1920px;height:1080px;flex-shrink:0;position:relative;overflow:hidden;background:var(--bg);transform-origin:center}
+
+/* ambient orbs — persist across slides and glide */
+.orb{position:absolute;border-radius:50%;filter:blur(90px);pointer-events:none;z-index:0;transition:transform 2.2s var(--ease),opacity 2.2s var(--ease)}
+#orbA{width:900px;height:900px;background:radial-gradient(circle,#ffd9c7 0%,rgba(255,217,199,0) 70%);left:0;top:0}
+#orbB{width:800px;height:800px;background:radial-gradient(circle,#dfe4ff 0%,rgba(223,228,255,0) 70%);left:0;top:0}
+.grain{position:absolute;inset:0;pointer-events:none;z-index:1;opacity:.35;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+/* chrome */
+header{position:absolute;left:140px;right:140px;top:54px;display:flex;justify-content:space-between;align-items:center;z-index:5}
+.brand{font-size:18px;font-weight:500;color:var(--ink2);display:flex;gap:12px;align-items:center;letter-spacing:.01em}
+.brand i{width:9px;height:9px;border-radius:50%;background:var(--acc)}
+#levels{display:flex;gap:28px;position:relative}
+#levels button{border:0;background:none;padding:6px 0;font-size:19px;color:var(--faint);transition:color .5s var(--ease);display:flex;gap:8px;align-items:baseline}
+#levels button em{font-family:var(--serif);font-style:italic;font-size:20px}
+#levels button.done{color:var(--muted)}
+#levels button.active{color:var(--ink)}
+#levels button.active em{color:var(--acc)}
+#lvBar{position:absolute;bottom:-4px;height:2px;background:var(--ink);transition:left .8s var(--ease),width .8s var(--ease),opacity .4s;border-radius:2px}
+footer{position:absolute;left:140px;right:140px;bottom:44px;display:flex;justify-content:space-between;align-items:center;z-index:5;font-size:15px;color:var(--faint)}
+.ft{display:flex;align-items:center;gap:2px}
+.ft button{border:0;background:none;padding:8px 12px;border-radius:8px;color:var(--muted);font-size:15px;transition:.3s}
+.ft button:hover{color:var(--ink);background:rgba(0,0,0,.04)}
+#page{font-family:var(--serif);font-style:italic;font-size:22px;color:var(--ink2);min-width:90px;text-align:center}
+#page small{color:var(--faint);font-size:18px}
+#bar{position:absolute;top:0;left:0;height:2px;background:var(--acc);z-index:6;transition:width 1s var(--ease)}
+#miniTimer{color:var(--acc);font-family:var(--mono)}
+
+/* slides & motion */
+.slide{position:absolute;left:140px;right:140px;top:150px;bottom:120px;display:none;z-index:3}
+.slide.active,.slide.leaving{display:flex;flex-direction:column;justify-content:center}
+.slide>*{flex-shrink:0}
+.slide.leaving{animation:leave .6s var(--ease) forwards;pointer-events:none}
+.slide.leaving.back{animation-name:leaveBack}
+@keyframes leave{to{opacity:0;transform:translateY(-40px) scale(.985);filter:blur(10px)}}
+@keyframes leaveBack{to{opacity:0;transform:translateY(40px) scale(.985);filter:blur(10px)}}
+.slide.active .r{animation:rise 1.2s var(--ease) both;animation-delay:calc(var(--i,0)*90ms + 280ms)}
+@keyframes rise{from{opacity:0;transform:translateY(34px);filter:blur(8px)}to{opacity:1;transform:none;filter:none}}
+.slide.active .pop{animation:pop .9s var(--spring) both;animation-delay:calc(var(--i,0)*90ms + 300ms)}
+@keyframes pop{from{opacity:0;transform:scale(.86) translateY(20px)}to{opacity:1;transform:none}}
+.ch{display:inline-block;white-space:pre}
+.slide.active .ch{animation:ch 1.1s var(--ease) both;animation-delay:calc(var(--d)*24ms + 80ms)}
+@keyframes ch{from{opacity:0;transform:translateY(.55em) rotate(4deg);filter:blur(10px)}to{opacity:1;transform:none;filter:none}}
+.draw path,.draw line,.draw circle.d,.draw polyline{stroke-dasharray:var(--len);stroke-dashoffset:var(--len)}
+.slide.active .draw path,.slide.active .draw line,.slide.active .draw circle.d,.slide.active .draw polyline{animation:draw 1.8s var(--ease) forwards;animation-delay:calc(var(--i,0)*120ms + 400ms)}
+@keyframes draw{to{stroke-dashoffset:0}}
+
+/* type */
+.kicker{font-size:17px;letter-spacing:.16em;color:var(--muted);margin-bottom:28px;display:flex;align-items:center;gap:14px;font-weight:500}
+.kicker b{font-family:var(--serif);font-style:italic;font-weight:400;letter-spacing:0;font-size:24px;color:var(--acc)}
+h1{font-size:80px;line-height:1.16;letter-spacing:-.02em;font-weight:600;margin:0 0 28px}
+h1 em,.em{font-style:normal;color:var(--acc)}
+.serif{font-family:var(--serif);font-style:italic;font-weight:400}
+.lead{font-size:30px;line-height:1.65;color:var(--muted);margin:0;max-width:1300px}
+.note{font-size:21px;color:var(--muted);line-height:1.6}
+.mt1{margin-top:44px}.mt2{margin-top:70px}.mt3{margin-top:96px}
+.grid{display:grid;gap:24px}.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:22px;padding:40px 42px;box-shadow:0 1px 0 rgba(0,0,0,.02),0 20px 40px -30px rgba(20,20,30,.18);transition:transform .6s var(--ease),box-shadow .6s var(--ease)}
+.card:hover{transform:translateY(-4px);box-shadow:0 30px 60px -30px rgba(20,20,30,.25)}
+.card .n{font-family:var(--serif);font-style:italic;font-size:40px;color:var(--acc);line-height:1;display:block;margin-bottom:28px}
+.card h3{font-size:32px;font-weight:600;margin:0 0 14px;letter-spacing:-.01em}
+.card p{font-size:23px;line-height:1.65;color:var(--muted);margin:0}
+.rule{height:1px;background:var(--line);margin:0}
+.callout{font-size:28px;line-height:1.6;padding-left:30px;border-left:2px solid var(--acc);color:var(--ink2)}
+.callout b{color:var(--ink);font-weight:600;background:linear-gradient(transparent 62%,var(--acc-soft) 62%)}
+.tag{display:inline-flex;align-items:center;gap:8px;font-size:17px;font-weight:500;padding:7px 15px;border-radius:99px;background:#f1efe9;color:var(--ink2)}
+.tag.ok{background:#e6f6ef;color:var(--ok)}.tag.bad{background:#fdeaea;color:var(--bad)}.tag.warn{background:#fdf3e1;color:var(--warn)}.tag.acc{background:var(--acc-soft);color:var(--acc)}
+.btn{border:1px solid var(--line2);background:var(--paper);border-radius:99px;padding:13px 26px;font-size:18px;font-weight:500;transition:all .4s var(--ease);display:inline-flex;align-items:center;gap:10px}
+.btn:hover{border-color:var(--ink);transform:translateY(-2px)}
+.btn.pri{background:var(--ink);color:#fff;border-color:var(--ink)}
+.btn.pri:hover{background:var(--acc);border-color:var(--acc)}
+.actions{position:absolute;right:0;bottom:-10px;display:flex;gap:12px}
+
+/* cover */
+.cover{justify-content:center}
+.cover h1{font-size:150px;line-height:1.06;letter-spacing:-.045em;font-weight:600;margin:0 0 44px}
+.cover .lead{font-size:36px}
+.cover .meta{display:flex;gap:46px;margin-top:90px;font-size:20px;color:var(--muted)}
+.cover .meta b{display:block;font-family:var(--serif);font-style:italic;font-weight:400;font-size:52px;color:var(--ink);line-height:1;margin-bottom:8px}
+.wave{position:absolute;left:-140px;right:-140px;bottom:-120px;height:360px;pointer-events:none}
+.wave path{fill:none;stroke-width:1.5}
+
+/* divider */
+.divider{justify-content:center}
+.divider svg.num{position:absolute;right:-40px;top:50%;transform:translateY(-52%);width:900px;height:700px;overflow:visible}
+.divider svg.num text{font-family:var(--serif);font-style:italic;font-size:640px;fill:transparent;stroke:var(--ink);stroke-width:1.4;stroke-dasharray:2600;stroke-dashoffset:2600}
+.slide.active.divider svg.num text{animation:numDraw 2.6s var(--ease) .2s forwards}
+@keyframes numDraw{70%{fill:transparent}to{stroke-dashoffset:0;fill:rgba(255,90,31,.06)}}
+.divider h1{font-size:150px;letter-spacing:-.04em;margin-bottom:24px}
+.divider .lead{font-size:36px}
+.divider .goal{margin-top:80px;display:flex;gap:20px;align-items:center;font-size:24px;color:var(--ink2)}
+.divider .goal span{font-size:16px;letter-spacing:.16em;color:var(--muted)}
+
+/* pain wall */
+.wall{display:flex;flex-wrap:wrap;gap:16px;align-content:flex-start;min-height:330px;max-height:420px;overflow:auto;margin-top:40px;padding:6px 4px 20px}
+.pain{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:20px 22px 14px;font-size:24px;max-width:520px;box-shadow:0 18px 30px -24px rgba(0,0,0,.25);animation:drop .8s var(--spring) both;position:relative}
+@keyframes drop{from{opacity:0;transform:translateY(-40px) scale(.7) rotate(-6deg)}to{opacity:1;transform:none}}
+.pain .tg{display:flex;gap:6px;margin-top:12px;align-items:center}
+.pain .tg button{border:1px solid var(--line);background:none;border-radius:99px;font-size:15px;padding:4px 12px;color:var(--faint);transition:.3s}
+.pain .tg button.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.pain .x{position:absolute;right:10px;top:6px;border:0;background:none;color:var(--faint);font-size:18px;opacity:0;transition:.3s}
+.pain:hover .x{opacity:1}
+.hints{display:flex;gap:12px;flex-wrap:wrap}
+.hints span{font-size:22px;color:var(--faint);border:1.5px dashed var(--line2);border-radius:16px;padding:16px 22px}
+.inbar{display:flex;gap:14px;align-items:center;margin-top:20px;border-bottom:2px solid var(--ink);padding-bottom:12px}
+.inbar input{flex:1;border:0;background:none;font:inherit;font-size:32px;outline:none;color:var(--ink)}
+.inbar input::placeholder{color:var(--faint)}
+.count{font-family:var(--serif);font-style:italic;font-size:30px;color:var(--acc)}
+
+/* stairs */
+.stairs{display:flex;align-items:flex-end;gap:18px;height:540px;margin-top:30px}
+.stairs>div{flex:1;position:relative;height:var(--h)}
+.stairs .blk{position:absolute;inset:0;background:var(--paper);border:1px solid var(--line);border-radius:20px 20px 0 0;border-bottom:0;transform-origin:bottom}
+.slide.active .stairs .blk{animation:grow 1.3s var(--ease) both;animation-delay:calc(var(--i)*110ms + 300ms)}
+@keyframes grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+.stairs .tx{position:absolute;left:32px;right:24px;top:30px}
+.slide.active .stairs .tx{animation:rise 1s var(--ease) both;animation-delay:calc(var(--i)*110ms + 700ms)}
+.stairs .tx b{font-family:var(--serif);font-style:italic;font-weight:400;font-size:34px;color:var(--acc)}
+.stairs .tx h3{font-size:44px;margin:8px 0 8px;font-weight:600}
+.stairs .tx p{margin:0;font-size:21px;color:var(--muted)}
+.stairs>div:last-child .blk{background:var(--ink);border-color:var(--ink)}
+.stairs>div:last-child .tx{color:#fff}.stairs>div:last-child .tx p{color:#9a9ba0}
+
+/* next token */
+.nt{display:grid;grid-template-columns:1.15fr 1fr;gap:80px;margin-top:60px;align-items:start}
+.nt-text{font-size:54px;line-height:1.5;font-weight:500;letter-spacing:-.01em;min-height:240px}
+.nt-text .new{color:var(--acc)}
+.cur{display:inline-block;width:3px;height:54px;background:var(--acc);vertical-align:-9px;margin-left:6px;animation:blink 1.1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.cands{display:flex;flex-direction:column;gap:16px}
+.cand{display:grid;grid-template-columns:100px 1fr 70px;gap:18px;align-items:center;font-size:28px}
+.cand .w{font-weight:500}
+.cand .bar{height:40px;background:#efede7;border-radius:8px;overflow:hidden}
+.cand .bar i{display:block;height:100%;width:0;background:var(--faint);border-radius:8px;transition:width 1.2s var(--spring)}
+.cand.top .bar i{background:var(--ink)}
+.cand .p{font-family:var(--serif);font-style:italic;font-size:30px;color:var(--muted);text-align:right}
+.fly{position:absolute;z-index:20;font-size:54px;font-weight:600;color:var(--acc);pointer-events:none;white-space:nowrap}
+.ntw{margin-top:34px;opacity:0;transform:translateY(16px);transition:all .9s var(--ease)}
+.ntw.on{opacity:1;transform:none}
+
+/* lists */
+.list{list-style:none;margin:0;padding:0}
+.list li{display:grid;grid-template-columns:40px 1fr;padding:20px 0;border-top:1px solid var(--line);font-size:28px;font-weight:500}
+.list li:last-child{border-bottom:1px solid var(--line)}
+.list li i{font-style:normal;font-family:var(--serif);font-size:26px;color:var(--faint)}
+.list li span{display:block;font-size:21px;color:var(--muted);font-weight:400;margin-top:4px}
+.col-h{display:flex;align-items:center;gap:14px;font-size:20px;letter-spacing:.12em;color:var(--muted);margin-bottom:20px}
+
+/* quote */
+.quote{font-family:var(--zh-serif);font-size:84px;line-height:1.4;font-weight:500;letter-spacing:-.01em;margin:0}
+.quote em{font-style:normal;color:var(--acc)}
+
+/* map */
+.map{margin-top:40px;border-top:1px solid var(--ink)}
+.map .row{display:grid;grid-template-columns:150px 1fr 1fr 1fr;border-bottom:1px solid var(--line);font-size:25px;padding:13px 0;transition:background .4s}
+.map .row:hover{background:rgba(255,255,255,.7)}
+.map .row.h{font-size:16px;letter-spacing:.14em;color:var(--muted);padding:16px 0}
+.map .row .rg{font-size:17px;color:var(--faint);letter-spacing:.1em}
+.map .row b{font-weight:600}
+.chain{display:flex;align-items:center;gap:18px;font-size:24px;color:var(--muted)}
+.chain span{color:var(--ink);font-weight:600;font-size:26px}
+.chain svg{width:60px;height:12px}
+
+/* compare */
+.vs{display:grid;grid-template-columns:1fr 1.6fr;gap:28px;margin-top:50px}
+.bubble{background:var(--paper);border:1px solid var(--line);border-radius:22px;padding:34px 40px;font-size:27px;line-height:1.85}
+.slot{display:inline-block;padding:0 10px;margin:0 2px;border-radius:8px;background:#f1efe9;color:var(--muted);font-size:.86em;line-height:1.6}
+.slot b{color:var(--acc);font-weight:600;margin-right:6px;font-size:.85em}
+
+/* formula */
+.formula{display:flex;margin-top:60px;border-top:1px solid var(--ink)}
+.formula>div{flex:1;padding:36px 30px 0 0;position:relative}
+.formula>div+div{padding-left:30px;border-left:1px solid var(--line)}
+.formula b{font-family:var(--serif);font-style:italic;font-weight:400;font-size:28px;color:var(--acc)}
+.formula h3{font-size:42px;margin:14px 0 14px;font-weight:600}
+.formula p{margin:0;font-size:22px;color:var(--muted);line-height:1.6}
+
+/* loop row */
+.flow{display:flex;align-items:center;margin-top:70px}
+.flow>div{flex:1;text-align:center}
+.flow h3{font-size:34px;margin:0 0 10px;font-weight:600}
+.flow p{margin:0;font-size:21px;color:var(--muted)}
+.flow .dot{width:58px;height:58px;border-radius:50%;margin:0 auto 22px;border:1.5px solid var(--ink);display:grid;place-items:center;font-family:var(--serif);font-style:italic;font-size:26px;background:var(--paper)}
+.flow svg{width:120px;height:20px;flex:0 0 120px}
+.flow svg path{stroke:var(--faint);stroke-width:1.5;fill:none}
+
+/* case slide */
+.case{display:grid;grid-template-columns:560px 1fr;gap:70px;margin-top:20px;height:600px}
+.case .left{display:flex;flex-direction:column;min-height:0}
+.case .pick{display:flex;flex-direction:column;gap:10px;overflow:auto;padding-right:8px;margin-top:18px;flex:1;min-height:0}
+.case .pick button{text-align:left;border:1px solid var(--line);background:var(--paper);border-radius:14px;padding:14px 18px;font-size:20px;color:var(--ink2);transition:all .4s var(--ease);display:flex;gap:12px;align-items:center}
+.case .pick button small{font-family:var(--serif);font-style:italic;color:var(--faint);font-size:18px}
+.case .pick button:hover{border-color:var(--ink)}
+.case .pick button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.case .chosen{font-family:var(--zh-serif);font-size:40px;line-height:1.45;font-weight:500;outline:none;min-height:116px;border-bottom:1px solid var(--line);padding-bottom:20px}
+.case .chosen:empty:before{content:attr(data-ph);color:var(--faint)}
+.case .lbl{font-size:16px;letter-spacing:.16em;color:var(--muted);margin-bottom:16px}
+.case .tpl{display:flex;flex-direction:column;border-top:1px solid var(--ink)}
+.case .f{display:grid;grid-template-columns:230px 1fr;align-items:baseline;border-bottom:1px solid var(--line);padding:20px 0}
+.case .f b{font-size:26px;font-weight:600;display:flex;gap:12px;align-items:baseline}
+.case .f b i{font-family:var(--serif);font-weight:400;color:var(--acc);font-size:24px}
+.case .f b small{display:block}
+.case .f .hint{font-size:16px;color:var(--faint);font-weight:400;margin-top:4px;display:block}
+.case .f div[contenteditable]{font-size:25px;line-height:1.55;outline:none;min-height:38px;color:var(--ink);border-radius:8px;padding:2px 8px;margin:-2px -8px;transition:background .3s}
+.case .f div[contenteditable]:focus{background:var(--acc-soft)}
+.case .f div[contenteditable]:empty:before{content:attr(data-ph);color:var(--faint)}
+.case .empty{font-size:20px;color:var(--faint);border:1.5px dashed var(--line2);border-radius:14px;padding:20px}
+
+/* desk */
+.desk{display:grid;grid-template-columns:1.55fr 1fr;gap:60px;margin-top:50px;align-items:center}
+.win{position:relative;border:1.5px solid var(--ink);border-radius:26px;padding:40px 30px 30px}
+.win .t{position:absolute;top:-14px;left:30px;background:var(--bg);padding:0 12px;font-size:16px;letter-spacing:.14em;color:var(--ink2)}
+.blocks{display:flex;gap:10px;height:230px}
+.blocks div{border-radius:14px;background:var(--paper);border:1px solid var(--line);display:flex;align-items:flex-end;padding:18px;font-size:22px;font-weight:500;transform-origin:bottom}
+.slide.active .blocks div{animation:grow 1.1s var(--spring) both;animation-delay:calc(var(--i)*100ms + 500ms)}
+.blocks div.o{background:repeating-linear-gradient(135deg,var(--acc-soft) 0 10px,#fff 10px 20px);border-color:#ffc6ad;color:var(--acc)}
+.outside{display:flex;flex-direction:column;gap:12px}
+.outside div{font-size:24px;color:var(--faint);padding:16px 0;border-bottom:1px dashed var(--line2);display:flex;justify-content:space-between}
+.outside div:after{content:"看不见";font-size:16px;letter-spacing:.1em}
+
+/* agent orbit */
+.ag{display:grid;grid-template-columns:1fr 620px;gap:60px;align-items:center;margin-top:20px}
+.orbit{position:relative;width:560px;height:560px;margin:0 auto}
+.orbit svg{position:absolute;inset:0}
+.orbit .node{position:absolute;width:190px;text-align:center;font-size:25px;font-weight:600;transform:translate(-50%,-50%)}
+.orbit .node small{display:block;font-size:17px;color:var(--muted);font-weight:400;margin-top:4px}
+.orbit .node span{display:block;width:16px;height:16px;border-radius:50%;margin:0 auto 12px;background:var(--paper);border:2px solid var(--ink);animation:ping 4s infinite;animation-delay:var(--dl)}
+@keyframes ping{0%,100%{background:var(--paper);transform:scale(1)}6%{background:var(--acc);border-color:var(--acc);transform:scale(1.5)}20%{background:var(--paper);border-color:var(--ink);transform:scale(1)}}
+.orbit .runner{position:absolute;left:0;top:0;width:14px;height:14px;margin:-7px;border-radius:50%;background:var(--acc);box-shadow:0 0 0 8px rgba(255,90,31,.15);offset-path:path("M280,80 A200,200 0 1,1 279.99,80");animation:orbit 4s linear infinite;offset-rotate:0deg}
+@keyframes orbit{to{offset-distance:100%}}
+.orbit .center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;font-family:var(--serif);font-style:italic;font-size:46px}
+.orbit .center small{display:block;font-family:var(--sans);font-style:normal;font-size:16px;letter-spacing:.14em;color:var(--muted)}
+
+/* demo */
+.demo{display:grid;grid-template-columns:420px 1fr;gap:60px;margin-top:36px;margin-bottom:70px;min-height:400px;align-items:start}
+.dsteps{display:flex;flex-direction:column}
+.dsteps div{display:flex;gap:18px;align-items:center;padding:20px 0;border-bottom:1px solid var(--line);font-size:25px;color:var(--faint);transition:color .6s var(--ease)}
+.dsteps div i{font-style:normal;width:36px;height:36px;border-radius:50%;border:1.5px solid var(--line2);display:grid;place-items:center;font-family:var(--serif);font-size:20px;transition:all .6s var(--spring)}
+.dsteps div.done{color:var(--muted)}.dsteps div.done i{background:var(--ink);border-color:var(--ink);color:#fff}
+.dsteps div.on{color:var(--ink)}.dsteps div.on i{background:var(--acc);border-color:var(--acc);color:#fff;transform:scale(1.15)}
+.log{background:var(--paper);border:1px solid var(--line);border-radius:22px;padding:34px 40px;font-family:var(--mono);font-size:21px;line-height:1.75;white-space:pre-wrap;color:var(--ink2);box-shadow:0 30px 60px -40px rgba(0,0,0,.3)}
+.log .k{color:var(--faint)}.log .a{color:var(--blue)}.log .ok{color:var(--ok)}.log .w{color:var(--warn)}
+.log .ln{display:block;animation:typeIn .7s var(--ease) both}
+@keyframes typeIn{from{opacity:0;transform:translateX(-14px);filter:blur(4px)}to{opacity:1;transform:none;filter:none}}
+
+/* tiers */
+.tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin-top:60px;border-top:1px solid var(--ink)}
+.tiers>div{padding:38px 40px 0 0}
+.tiers>div+div{padding-left:40px;border-left:1px solid var(--line)}
+.tiers .lt{width:14px;height:14px;border-radius:50%;display:inline-block;margin-right:12px}
+.tiers h3{font-size:38px;margin:0 0 6px;font-weight:600;display:flex;align-items:center}
+.tiers .s{font-size:19px;color:var(--muted);margin-bottom:22px}
+.tiers li{list-style:none;font-size:25px;padding:14px 0;border-top:1px solid var(--line)}
+.tiers ul{padding:0;margin:0}
+
+/* org */
+.org{position:relative;height:420px;margin-top:30px}
+.org svg{position:absolute;inset:0;width:100%;height:100%}
+.org svg path{stroke:var(--line2);stroke-width:1.5;fill:none}
+.org .bx{position:absolute;translate:-50% -50%;background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:22px 30px;text-align:center;font-size:26px;font-weight:600;min-width:280px;box-shadow:0 20px 40px -30px rgba(0,0,0,.3)}
+.org .bx small{display:block;font-size:18px;color:var(--muted);font-weight:400;margin-top:6px}
+.org .bx.main{background:var(--ink);color:#fff;border-color:var(--ink)}
+.org .bx.main small{color:#9a9ba0}
+.org .bx.end{background:var(--acc-soft);border-color:#ffd1bd}
+
+/* timer */
+.timer{display:grid;grid-template-columns:1.15fr 1fr;gap:100px;align-items:center;margin-top:20px}
+.clock{font-family:var(--serif);font-size:300px;line-height:.9;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.clock.exp{color:var(--bad)}
+.tctl{display:flex;gap:12px;margin-top:40px;align-items:center}
+.seg{display:flex;border:1px solid var(--line2);border-radius:99px;padding:4px;background:var(--paper)}
+.seg button{border:0;background:none;border-radius:99px;padding:9px 18px;font-size:17px;color:var(--muted);transition:.4s var(--ease)}
+.seg button.on{background:var(--ink);color:#fff}
+.rub>div{display:grid;grid-template-columns:120px 1fr;align-items:center;padding:20px 0;border-top:1px solid var(--line)}
+.rub>div:last-child{border-bottom:1px solid var(--line)}
+.rub b{font-family:var(--serif);font-weight:400;font-size:64px;line-height:1}
+.rub b.em{color:var(--acc)}
+.rub span{font-size:28px;font-weight:600}
+.rub small{display:block;font-size:19px;color:var(--muted);font-weight:400;margin-top:4px}
+
+/* steps row for challenge */
+.chal{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-top:60px;border-top:1px solid var(--ink)}
+.chal>div{padding:34px 34px 0 0}
+.chal>div+div{padding-left:34px;border-left:1px solid var(--line)}
+.chal b{font-family:var(--serif);font-style:italic;font-weight:400;font-size:64px;color:var(--acc);line-height:1}
+.chal h3{font-size:34px;margin:22px 0 12px;font-weight:600}
+.chal p{font-size:22px;color:var(--muted);margin:0;line-height:1.6}
+
+/* timeline */
+.tl{position:relative;display:grid;grid-template-columns:repeat(4,1fr);gap:30px;margin-top:80px}
+.tl svg{position:absolute;left:0;top:10px;width:100%;height:4px;overflow:visible}
+.tl svg line{stroke:var(--ink);stroke-width:1.5}
+.tl>div{padding-top:56px;position:relative}
+.tl>div:before{content:"";position:absolute;left:0;top:2px;width:18px;height:18px;border-radius:50%;background:var(--bg);border:2px solid var(--acc)}
+.tl b{font-family:var(--serif);font-style:italic;font-weight:400;font-size:26px;color:var(--acc)}
+.tl h3{font-size:40px;margin:8px 0 12px;font-weight:600}
+.tl p{font-size:22px;color:var(--muted);margin:0 0 18px;line-height:1.6}
+
+/* closing */
+.three>div{display:grid;grid-template-columns:130px 1fr;align-items:baseline;padding:36px 0;border-top:1px solid var(--line)}
+.three>div:last-child{border-bottom:1px solid var(--line)}
+.three b{font-family:var(--serif);font-style:italic;font-weight:400;font-size:52px;color:var(--acc)}
+.three p{margin:0;font-family:var(--zh-serif);font-size:56px;font-weight:500;line-height:1.35}
+.three p span{color:var(--muted)}
+.src a{display:flex;justify-content:space-between;color:var(--ink2);font-size:23px;padding:15px 0;border-bottom:1px solid var(--line);text-decoration:none;transition:.3s}
+.src a:hover{color:var(--acc);padding-left:8px}
+.src h3{font-size:16px;letter-spacing:.16em;color:var(--muted);font-weight:500;margin:0 0 10px}
+
+/* modal */
+#modal{position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(247,246,242,.6);backdrop-filter:blur(18px) saturate(1.2);opacity:0;pointer-events:none;transition:opacity .5s var(--ease)}
+#modal.open{opacity:1;pointer-events:auto}
+.mbox{width:1400px;max-height:860px;overflow:auto;background:var(--paper);border:1px solid var(--line);border-radius:28px;padding:54px 60px;position:relative;box-shadow:0 60px 120px -40px rgba(0,0,0,.3);transform:translateY(30px) scale(.97);transition:transform .7s var(--spring)}
+#modal.open .mbox{transform:none}
+.mbox h2{font-size:38px;margin:0 0 30px;font-weight:600}
+.mbox .x{position:absolute;right:34px;top:34px}
+.mbox p,.mbox pre{font:25px/1.8 var(--sans);white-space:pre-wrap;margin:0;color:var(--ink2)}
+.mbox pre{font-family:var(--mono);font-size:22px;background:var(--bg);border-radius:16px;padding:30px}
+#ov{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+#ov button{text-align:left;border:1px solid var(--line);background:var(--bg);border-radius:14px;padding:16px 18px;font-size:19px;line-height:1.4;transition:.3s}
+#ov button:hover{border-color:var(--ink)}
+#ov small{display:block;font-family:var(--serif);font-style:italic;font-size:17px;color:var(--acc)}
+#toast{position:absolute;left:50%;bottom:110px;transform:translate(-50%,20px);background:var(--ink);color:#fff;padding:14px 28px;border-radius:99px;font-size:19px;z-index:40;opacity:0;transition:all .6s var(--spring);pointer-events:none}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+
+/* internal / external */
+.agents{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:44px}
+.agents .card{padding:30px 34px;display:flex;align-items:center;gap:22px}
+.agents .card .ic{width:56px;height:56px;border-radius:16px;background:var(--ink);color:#fff;display:grid;place-items:center;font-family:var(--serif);font-style:italic;font-size:26px;flex-shrink:0}
+.agents .card h3{font-size:28px;margin:0}
+.agents .card small{display:block;font-size:17px;color:var(--muted);margin-top:4px}
+.models{display:flex;align-items:center;gap:14px;margin-top:40px;font-size:21px;color:var(--muted)}
+.models span.m{font-size:22px;font-weight:600;color:var(--ink);padding:10px 22px;border-radius:99px;background:var(--paper);border:1px solid var(--line)}
+.decide{display:grid;grid-template-columns:620px 220px 1fr;align-items:center;margin-top:40px}
+.decide .q{background:var(--ink);color:#fff;border-radius:26px;padding:46px 48px;font-size:34px;line-height:1.5;font-weight:600}
+.decide .q small{display:block;font-size:18px;letter-spacing:.14em;color:#9a9ba0;font-weight:500;margin-bottom:16px}
+.decide svg{width:220px;height:420px}
+.decide svg path{stroke:var(--ink);stroke-width:1.5;fill:none}
+.decide .br{display:flex;flex-direction:column;gap:40px}
+.decide .br .card{padding:32px 38px;position:relative}
+.decide .br .card .yn{position:absolute;left:-74px;top:2px;font-family:var(--serif);font-style:italic;font-size:30px}
+.decide .br .card h3{font-size:34px;margin:0 0 8px}
+.chk{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--ink);margin-top:20px}
+.chk div{font-size:23px;padding:18px 0 18px 40px;border-bottom:1px solid var(--line);position:relative}
+.chk div:before{content:"";position:absolute;left:4px;top:24px;width:18px;height:18px;border:1.5px solid var(--ink);border-radius:5px}
+.steps3{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--ink);margin-top:44px}
+.steps3>div{padding:30px 34px 0 0}.steps3>div+div{padding-left:34px;border-left:1px solid var(--line)}
+.steps3 b{font-family:var(--serif);font-style:italic;font-weight:400;font-size:52px;color:var(--acc);line-height:1}
+.steps3 h3{font-size:32px;margin:16px 0 10px}.steps3 p{font-size:22px;color:var(--muted);margin:0;line-height:1.6}
+.zones{position:relative;display:grid;grid-template-columns:1fr 1fr;margin-top:44px;margin-bottom:30px;border-radius:28px;border:1px solid var(--line)}
+.zones .ext{border-radius:28px 0 0 28px}.zones .int{border-radius:0 28px 28px 0}
+.zones>div{padding:40px 50px 44px}
+.zones .ext{background:rgba(255,255,255,.55)}
+.zones .int{background:var(--ink);color:#fff}
+.zones .zt{font-size:16px;letter-spacing:.16em;color:var(--muted);margin-bottom:26px;display:flex;justify-content:space-between}
+.zones .int .zt{color:#9a9ba0}
+.zones .st{display:grid;grid-template-columns:56px 1fr;padding:18px 0;border-top:1px solid var(--line)}
+.zones .int .st{border-color:rgba(255,255,255,.14)}
+.zones .st b{font-family:var(--serif);font-style:italic;font-weight:400;font-size:34px;color:var(--acc);line-height:1}
+.zones .st h3{font-size:28px;margin:0 0 6px}.zones .st p{margin:0;font-size:20px;color:var(--muted);line-height:1.55}
+.zones .int .st p{color:#a9aab0}
+.zones .cross{position:absolute;left:50%;top:100%;transform:translate(-50%,-50%);background:var(--acc);color:#fff;border-radius:99px;padding:14px 28px;font-size:20px;font-weight:600;white-space:nowrap;box-shadow:0 20px 40px -20px rgba(255,90,31,.6);z-index:2}
+.slide.active .zones .cross{animation:slideX 1.6s var(--ease) .9s both}
+@keyframes slideX{from{opacity:0;transform:translate(-160%,-50%)}to{opacity:1;transform:translate(-50%,-50%)}}
+
+/* funnel warm-up */
+.fn{display:grid;grid-template-columns:820px minmax(0,1fr);column-gap:60px;row-gap:10px;margin-top:26px}
+.fn .row{display:contents}
+.fn .shape{height:var(--h);display:flex;justify-content:center;position:relative}
+.fn .shape i{display:block;width:var(--w);height:100%;clip-path:polygon(0 0,100% 0,var(--r) 100%,var(--l) 100%);background-color:var(--cs);background-image:radial-gradient(circle,var(--c) 2.2px,transparent 2.9px);background-size:13px 13px;opacity:.13;transform-origin:top center;transition:opacity .9s var(--ease),transform 1.1s var(--spring)}
+.fn .row.on .shape i{opacity:1;animation:pour 1.1s var(--spring)}
+@keyframes pour{from{transform:scaleY(.2)}to{transform:none}}
+.fn .lab{display:flex;flex-direction:column;justify-content:center;opacity:.14;transform:translateX(-24px);transition:all 1s var(--ease)}
+.fn .row.on .lab{opacity:1;transform:none}
+.fn .lab .num{display:flex;align-items:baseline;gap:16px}
+.fn .lab b{font-family:var(--serif);font-weight:400;font-size:60px;line-height:1;color:var(--c)}
+.fn .lab em{font-style:normal;font-family:var(--mono);font-size:19px;color:var(--muted)}
+.fn .lab p{margin:6px 0 0;font-size:23px;color:var(--ink2)}
+.fn .you{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%) scale(.6);box-shadow:0 14px 30px -12px rgba(0,0,0,.45);opacity:0;background:var(--ink);color:#fff;border-radius:99px;padding:12px 22px;font-size:19px;font-weight:600;white-space:nowrap;transition:all .9s var(--spring)}
+.fn.done .you{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.fnEnd{opacity:0;transform:translateY(16px);transition:all 1s var(--ease)}
+.fn.done~.fnEnd{opacity:1;transform:none}
+/* en */
+:root[lang="en"] .quote,:root[lang="en"] .three p,:root[lang="en"] .case .chosen{font-family:var(--serif);font-weight:400;letter-spacing:0}
+:root[lang="en"] .quote{font-size:80px;line-height:1.22}
+:root[lang="en"] .outside div:after{content:"not visible"}
+.divider .lead{max-width:900px}
+.orbit .center small{max-width:200px;margin:4px auto 0}:root[lang="en"] .three p{font-size:62px}
+:root[lang="en"] .cover h1{font-size:220px;line-height:.95}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01s!important;transition-duration:.01s!important}}
+@media print{html,body{overflow:visible;height:auto}#viewport{position:static;display:block}#stage{transform:none!important;height:auto;overflow:visible}header,footer,#bar,.actions,#modal,#toast,.orb,.grain{display:none!important}.slide{display:flex!important;position:relative;inset:auto;height:1080px;padding:150px 140px 120px;break-after:page}.slide *{animation:none!important;opacity:1!important;transform:none!important;filter:none!important}@page{size:1920px 1080px;margin:0}}
+</style>
+</head>
+<body>
+<div id="viewport"><div id="stage">
+<div class="orb" id="orbA"></div><div class="orb" id="orbB"></div><div class="grain"></div>
+<div id="bar"></div>
+<header><div class="brand"><i></i><span id="brandT">AI 入门第一课</span></div><nav id="levels"><span id="lvBar"></span></nav></header>
+
+<main id="slides">
+
+<!-- 01 COVER -->
+<section class="slide cover" data-lv="0" data-o="70,-10,10,60" data-notes="开场不讲概念。一句话定调：今天不是讲 AI 原理，是让 AI 帮你把手上的活干掉。建议 90 分钟：开场收集问题 10 分钟，五级台阶各 12 分钟，实战 20 分钟。">
+  <svg class="wave draw" viewBox="0 0 2200 360" preserveAspectRatio="none">
+    <path d="M0,220 C200,120 400,320 600,220 S1000,120 1200,220 S1600,320 1800,220 S2100,140 2200,200" stroke="#ff5a1f" style="--i:0"/>
+    <path d="M0,260 C220,190 420,330 640,260 S1040,180 1260,260 S1660,330 1880,260 S2120,210 2200,240" stroke="#c9c6be" style="--i:2"/>
+  </svg>
+  <div class="kicker r">通信工程师 · AI 入门与实战</div>
+  <h1 class="split">AI 入门<br><em>第一课</em></h1>
+  <p class="lead r">从第一次提问，到让 AI 替你干完一件活。</p>
+  <div class="meta r"><div><b>90</b>分钟</div><div><b>5</b>级台阶</div><div><b>你的</b>真实问题</div></div>
+</section>
+
+<!-- 02 FUNNEL WARM-UP -->
+<section class="slide" data-lv="0" data-o="40,-10,85,70" data-notes="开场热身，2 分钟。数据来自 Andrej Karpathy（前 OpenAI 创始成员、特斯拉 AI 负责人）2026 年 10 月在 X 上的一个粗略估算，他自己称之为“餐巾纸估算”，只表示数量级。逐层点击：先问大家“你觉得自己在哪一层？”，点完最后一层后点出结论：只要真正用起来，就已经超过世界上约 75% 的人；今天的目标是再往下走一层——从偶尔问问，走向把活交给 AI。Karpathy 也强调：这不是聪明程度的排名，差距在于你交给 AI 的是小问题还是大问题。" data-notes-en="Two-minute warm-up. The numbers are a rough October 2026 estimate by Andrej Karpathy (OpenAI founding member, former head of AI at Tesla), posted on X — he called it a napkin estimate, orders of magnitude only. Click layer by layer, asking “which layer are you in?”. After the last layer, reveal the punchline: simply using AI puts you ahead of roughly 75% of the world; today’s goal is to move one layer down — from occasional questions to handing AI real work. Karpathy stresses this is not an intelligence ranking: the gap is whether you give AI small questions or big problems.">
+  <div class="kicker r"><b>00</b>热身 · 一张漏斗图</div>
+  <h1 class="split">全世界，有多少人<em>真正在用</em> AI？</h1>
+  <div class="fn r" id="funnel">
+    <div class="row"><div class="shape" style="--h:116px"><i style="--w:820px;--l:3%;--r:97%;--c:#a8a59c;--cs:#ecebe6"></i></div>
+      <div class="lab" style="--c:#7a7b80"><div class="num"><b>≈ 60 亿</b><em>75%</em></div><p>几乎没碰过聊天机器人</p></div></div>
+    <div class="row"><div class="shape" style="--h:140px"><i style="--w:760px;--l:39%;--r:61%;--c:#3d5afe;--cs:#e6e9ff"></i><span class="you">开始用 AI 的你，已经在这里</span></div>
+      <div class="lab" style="--c:#3d5afe"><div class="num"><b>10–20 亿</b><em>≈ 20%</em></div><p>偶尔用用免费版，查查问题</p></div></div>
+    <div class="row"><div class="shape" style="--h:110px"><i style="--w:168px;--l:24%;--r:76%;--c:#ff5a1f;--cs:#fff0e8"></i></div>
+      <div class="lab" style="--c:#e8501a"><div class="num"><b>≈ 2000 万</b><em>0.2%</em></div><p>把整个项目交给智能体</p></div></div>
+    <div class="row"><div class="shape" style="--h:72px"><i style="--w:86px;--l:50%;--r:50%;--c:#7b5cff;--cs:#efeaff"></i></div>
+      <div class="lab" style="--c:#6a4cf0"><div class="num"><b>≈ 5000</b><em>0.00006%</em></div><p>在 AI 实验室内部</p></div></div>
+  </div>
+  <p class="callout fnEnd mt1">只要真正用起来，你就已经走在<b>世界上约 75% 的人</b>前面。今天的目标：<b>再往下走一层。</b></p>
+  <p class="note r" style="margin:14px 0 0;font-size:16px">来源：Andrej Karpathy，2026 年 10 月的粗略估算（“餐巾纸估算”），仅示意数量级</p>
+  <div class="actions"><button class="btn" onclick="fnReset()">重来</button><button class="btn pri" onclick="fnNext()">下一层 →</button></div>
+</section>
+
+<!-- 02 PAIN WALL -->
+<section class="slide" data-lv="0" data-o="10,20,80,70" data-notes="核心环节，现场收集 10–15 个问题。引导提问：哪件事最耗时间？哪件事最重复？哪件事最怕出错？讲师或助教把问题输入下面的框，按回车上墙。上墙后点 L2–L5 给每个问题打标签，对应后面哪一章最能解决它（可以打多个）。后面每章都有一页『现场案例』，会从这面墙里挑问题来套方法。数据保存在本机浏览器里。">
+  <div class="kicker r"><b>00</b>开始之前</div>
+  <h1 class="split">你最想甩给 AI 的<em>那件活</em>是什么？</h1>
+  <p class="lead r">最耗时间的、最重复的、最怕出错的——都可以。</p>
+  <div class="wall r" id="wall"></div>
+  <div class="inbar r"><input id="painIn" placeholder="输入一个问题，按回车上墙…" autocomplete="off"><span class="count" id="painCount">0</span><button class="btn" onclick="clearPains()">清空</button></div>
+</section>
+
+<!-- 03 ROADMAP -->
+<section class="slide" data-lv="0" data-o="60,40,0,0" data-notes="全场地图。五个动词：懂、问、喂、验、用。越往后越依赖前面的基础。刚收集的问题会分散到每一级里去解决。">
+  <div class="kicker r"><b>00</b>今天的路线</div>
+  <h1 class="split">五级台阶，每一级解决一类问题</h1>
+  <div class="stairs">
+    <div style="--h:40%;--i:0"><div class="blk"></div><div class="tx"><b>L1</b><h3>懂它</h3><p>它到底是什么</p></div></div>
+    <div style="--h:55%;--i:1"><div class="blk"></div><div class="tx"><b>L2</b><h3>问它</h3><p>把需求说清楚</p></div></div>
+    <div style="--h:70%;--i:2"><div class="blk"></div><div class="tx"><b>L3</b><h3>喂它</h3><p>给对材料</p></div></div>
+    <div style="--h:85%;--i:3"><div class="blk"></div><div class="tx"><b>L4</b><h3>验它</h3><p>识破一本正经的胡说</p></div></div>
+    <div style="--h:100%;--i:4"><div class="blk"></div><div class="tx"><b>L5</b><h3>用它</h3><p>让 AI 动手干活</p></div></div>
+  </div>
+</section>
+
+<!-- L1 -->
+<section class="slide divider" data-lv="1" data-o="75,10,5,70" data-notes="第一章只建立直觉：它是什么、为什么会错。">
+  <svg class="num" viewBox="0 0 900 700"><text x="880" y="580" text-anchor="end">01</text></svg>
+  <div class="kicker r">LEVEL ONE</div>
+  <h1 class="split">懂它</h1>
+  <p class="lead r">它是什么？为什么会一本正经地胡说？</p>
+  <div class="goal r"><span>学完能做到</span>用一句话向同事讲清楚大模型</div>
+</section>
+
+<section class="slide" data-lv="1" data-o="50,-10,0,60" data-notes="点按钮演示两次。第一次接出“配置”，第二次它会“编”一个具体的数字。重点：它每一步都在挑“最像的”，而不是“真实的”——这就是幻觉的根源。百分比为示意。">
+  <div class="kicker r"><b>01</b>一句话理解大模型</div>
+  <h1 class="split">它是一个超级<em>“接龙”</em>高手</h1>
+  <p class="lead r">读过海量文字，学会了“下一个词最可能是什么”。一个词接一个词，写出整段回答。</p>
+  <div class="nt">
+    <div class="nt-text r" id="ntText"></div>
+    <div class="r"><div class="cands" id="ntCands"></div>
+      <div class="ntw callout" id="ntWarn">它没查过任何数据，却给出了<b>一个具体数字</b>。<br>因为这样<b>最顺口</b>，不是因为<b>真实</b>。</div></div>
+  </div>
+  <div class="actions"><button class="btn" onclick="ntReset()">重来</button><button class="btn pri" onclick="ntNext()">接下一个词 →</button></div>
+</section>
+
+<section class="slide" data-lv="1" data-o="10,60,80,0" data-notes="右边每一条在后面都有对应的方法：没告诉它的→L3 喂它；会编→L4 验它；不负责→贯穿全场。">
+  <div class="kicker r"><b>01</b>所以</div>
+  <h1 class="split">长处和短处，都来自“接龙”</h1>
+  <div class="grid g2 mt1" style="gap:90px">
+    <div class="r"><div class="col-h"><span class="tag ok">放心交给它</span></div>
+      <ul class="list"><li><i>a</i><div>写和改<span>报告、方案、纪要、总结</span></div></li><li><i>b</i><div>读和提炼<span>长文档、规范、聊天记录</span></div></li><li><i>c</i><div>翻译与解释<span>英文资料、协议条款</span></div></li><li><i>d</i><div>脚本与公式<span>Python、Excel、正则</span></div></li></ul></div>
+    <div class="r"><div class="col-h"><span class="tag bad">要盯着它</span></div>
+      <ul class="list"><li><i>a</i><div>不知道你没说的<span>你的网络、你的项目、你的客户</span></div></li><li><i>b</i><div>不知道最新发生的<span>除非打开联网搜索</span></div></li><li><i>c</i><div>会一本正经地编<span>数字、原因、出处</span></div></li><li><i>d</i><div>不为结果负责<span>签字的永远是你</span></div></li></ul></div>
+  </div>
+</section>
+
+<section class="slide" data-lv="1" data-o="30,70,90,10" data-notes="这个比喻贯穿全场：实习生需要交底（L2）、需要材料（L3）、需要检查（L4）、可以放手干活但要划红线（L5）。">
+  <div class="kicker r"><b>01</b>最好用的心智模型</div>
+  <p class="quote r">把它当成一位<em>读遍天下书</em>，<br>但今天<em>第一天入职</em>的实习生。</p>
+  <div class="grid g3 mt3">
+    <div class="card pop"><span class="n">i.</span><h3>聪明勤快</h3><p>→ 大胆派活。初稿、整理、翻译，几秒就交。</p></div>
+    <div class="card pop"><span class="n">ii.</span><h3>不了解现场</h3><p>→ 交代清楚。你不说，它就靠猜。</p></div>
+    <div class="card pop"><span class="n">iii.</span><h3>不懂也敢答</h3><p>→ 检查结果。它很少主动说“我不确定”。</p></div>
+  </div>
+</section>
+
+<section class="slide" data-lv="1" data-o="80,-20,0,50" data-notes="核对于 2026-11-03。产品、套餐、可选模型变化很快，这里不做排名。关键：同一个产品里可以切换不同模型；用之前先确认单位许可和数据要求。">
+  <div class="kicker r"><b>01</b>工具地图</div>
+  <h1 class="split">先分清：公司、产品、模型</h1>
+  <div class="chain r"><span>公司</span>研发运营<svg viewBox="0 0 60 12"><path d="M0 6h54m-6-5 6 5-6 5" stroke="#b5b5b8" fill="none" stroke-width="1.5"/></svg><span>产品</span>你打开的 App<svg viewBox="0 0 60 12"><path d="M0 6h54m-6-5 6 5-6 5" stroke="#b5b5b8" fill="none" stroke-width="1.5"/></svg><span>模型</span>背后干活的“大脑”</div>
+  <div class="map">
+    <div class="row h r"><div></div><div>公司</div><div>常用产品</div><div>模型家族</div></div>
+    <div class="row r"><div class="rg">外网·海外</div><div><b>OpenAI</b></div><div>ChatGPT · Codex</div><div>GPT</div></div>
+    <div class="row r"><div></div><div><b>Anthropic</b></div><div>Claude · Claude Code</div><div>Claude</div></div>
+    <div class="row r"><div></div><div><b>Google</b></div><div>Gemini · AI Studio</div><div>Gemini</div></div>
+    <div class="row r"><div class="rg">外网·国内</div><div><b>深度求索</b></div><div>DeepSeek</div><div>DeepSeek</div></div>
+    <div class="row r"><div></div><div><b>阿里巴巴</b></div><div>千问 · 百炼</div><div>Qwen</div></div>
+    <div class="row r"><div></div><div><b>字节跳动</b></div><div>豆包 · 火山方舟</div><div>Doubao / Seed</div></div>
+    <div class="row r"><div></div><div><b>月之暗面</b></div><div>Kimi</div><div>Kimi</div></div>
+  </div>
+  <p class="note r" style="margin-top:20px">代表性示例，非完整名单，不代表排名。用之前先确认：单位允许用哪个？数据能不能上传？</p>
+</section>
+
+<section class="slide" data-lv="1" data-o="30,60,90,-10" data-notes="内网工具这一页：这些是华为内网可以直接使用的 Agent（以实际部署和权限为准）。它们背后接的通常是 DeepSeek、千问、GLM 等模型——再次印证“产品 ≠ 模型”。可以现场问：大家平时用过哪几个？各自用来干什么？" data-notes-en="Internal tools: these agents are available on the Huawei intranet (subject to actual deployment and access). Behind them are models such as DeepSeek, Qwen and GLM — another case of “product ≠ model”. Ask the room: which have you used, and for what?">
+  <div class="kicker r"><b>01</b>工具地图 · 内网</div>
+  <h1 class="split">华为内网，也有<em>直接能用</em>的 Agent</h1>
+  <div class="agents">
+    <div class="card pop"><span class="ic">W</span><div><h3>WeBotClaw</h3><small>内网可用</small></div></div>
+    <div class="card pop"><span class="ic">G</span><div><h3>GDEClaw Desktop</h3><small>内网可用</small></div></div>
+    <div class="card pop"><span class="ic">W</span><div><h3>WeClaw Desktop</h3><small>内网可用</small></div></div>
+    <div class="card pop"><span class="ic">A</span><div><h3>AgentOS Desktop</h3><small>内网可用</small></div></div>
+    <div class="card pop"><span class="ic">I</span><div><h3>ISDPClaw Desktop</h3><small>内网可用</small></div></div>
+    <div class="card pop"><span class="ic">G</span><div><h3>GTSLLM 专业智能体</h3><small>试点版 6.0.3</small></div></div>
+  </div>
+  <div class="models r"><span>背后接的模型，通常是</span><span class="m">DeepSeek</span><span class="m">千问 Qwen</span><span class="m">GLM</span><span>等</span></div>
+  <p class="callout r mt1">同一个 Agent，背后可能换不同模型——<b>产品 ≠ 模型</b>。</p>
+</section>
+
+<section class="slide" data-lv="1" data-o="20,10,70,60" data-notes="不推荐具体型号，教方法：按任务类型选功能，再用自己的脱敏任务试一试。">
+  <div class="kicker r"><b>01</b>怎么选</div>
+  <h1 class="split">别看排行榜，看你的任务</h1>
+  <div class="grid g4 mt2">
+    <div class="card pop"><span class="n">写</span><h3>写作 · 翻译</h3><p>默认模式就够。要的是快、格式听话。</p></div>
+    <div class="card pop"><span class="n">想</span><h3>分析 · 推理</h3><p>打开“深度思考”。慢一点，但更会推理。</p></div>
+    <div class="card pop"><span class="n">读</span><h3>长文档 · 日志</h3><p>看能否上传文件、一次能装下多少。</p></div>
+    <div class="card pop"><span class="n">看</span><h3>截图 · 照片</h3><p>选支持图片输入的，并核对识别结果。</p></div>
+  </div>
+  <p class="callout r mt2">最靠谱的评测：拿<b>你自己的一个脱敏任务</b>，同样的输入，换着试。</p>
+</section>
+
+<!-- L2 -->
+<section class="slide divider" data-lv="2" data-o="5,-10,75,65" data-notes="第二章：同一个 AI，问法不同，结果天差地别。">
+  <svg class="num" viewBox="0 0 900 700"><text x="880" y="580" text-anchor="end">02</text></svg>
+  <div class="kicker r">LEVEL TWO</div>
+  <h1 class="split">问它</h1>
+  <p class="lead r">同一个 AI，问法不同，结果天差地别。</p>
+  <div class="goal r"><span>学完能做到</span>写出一段“拿来就能用”的提示词</div>
+</section>
+
+<section class="slide" data-lv="2" data-o="60,50,0,-10" data-notes="左边是大多数人的问法。右边是把同一件事说清楚——方括号是要填的内容，可以现场挑墙上一个问题口头填一遍。">
+  <div class="kicker r"><b>02</b>同一个需求，两种问法</div>
+  <h1 class="split">它不是不聪明，是<em>你没说清</em></h1>
+  <div class="vs">
+    <div class="r"><div class="col-h"><span class="tag">大多数人这样问</span></div><div class="bubble" style="font-size:34px">“帮我看看这个。”</div><p class="note" style="margin-top:20px">→ 它只能猜你要什么，然后给你一个“看起来不错”的答案。</p></div>
+    <div class="r"><div class="col-h"><span class="tag acc">说清楚的问法</span></div><div class="bubble">我要<span class="slot"><b>目标</b>得到什么、给谁用</span>。现在的情况是<span class="slot"><b>背景</b>发生了什么</span>。我提供了<span class="slot"><b>材料</b>哪些资料</span>，其中<span class="slot">哪些已确认、哪些未知</span>。注意<span class="slot"><b>约束</b>不能猜什么、不能做什么</span>。请按<span class="slot"><b>交付</b>格式、长度、结构</span>输出；信息不够就先问我。</div></div>
+  </div>
+</section>
+
+<section class="slide" data-lv="2" data-o="20,-20,80,50" data-notes="五要素不是语法，是交代任务的思路。不需要写“你是顶级专家”之类的话。最后一句“不够就先问我”很重要——允许它反问。">
+  <div class="kicker r"><b>02</b>方法</div>
+  <h1 class="split">好提示词 = 一份<em>任务交底</em></h1>
+  <div class="formula">
+    <div class="r"><b>i.</b><h3>目标</h3><p>要得到什么？<br>给谁用？</p></div>
+    <div class="r"><b>ii.</b><h3>背景</h3><p>现在是什么情况？<br>为什么要做？</p></div>
+    <div class="r"><b>iii.</b><h3>材料</h3><p>哪些已知？<br>哪些未知？</p></div>
+    <div class="r"><b>iv.</b><h3>约束</h3><p>什么不能猜？<br>什么不能做？</p></div>
+    <div class="r"><b>v.</b><h3>交付</h3><p>什么格式？<br>多长？</p></div>
+  </div>
+  <p class="callout r mt2">结尾加一句：<b>“信息不够就先问我，不要猜。”</b></p>
+  <div class="actions"><button class="btn" onclick="showTpl()">复制通用模板</button></div>
+</section>
+
+<section class="slide" data-lv="2" data-o="70,40,10,-20" data-notes="和 AI 对话是多轮的。第一稿不满意，就像带实习生一样直接指出来。追问的三种常用句式在下方。">
+  <div class="kicker r"><b>02</b>迭代</div>
+  <h1 class="split">第一稿只是开始，<em>追问</em>才是技巧</h1>
+  <div class="flow">
+    <div class="r"><div class="dot">1</div><h3>交底</h3><p>用五要素说清楚</p></div>
+    <svg class="draw" viewBox="0 0 120 20" style="--i:1"><path d="M4 10h108m-8-6 8 6-8 6"/></svg>
+    <div class="r"><div class="dot">2</div><h3>看结果</h3><p>哪里不对？</p></div>
+    <svg class="draw" viewBox="0 0 120 20" style="--i:2"><path d="M4 10h108m-8-6 8 6-8 6"/></svg>
+    <div class="r"><div class="dot">3</div><h3>指出问题</h3><p>具体、直接</p></div>
+    <svg class="draw" viewBox="0 0 120 20" style="--i:3"><path d="M4 10h108m-8-6 8 6-8 6"/></svg>
+    <div class="r"><div class="dot">4</div><h3>再改一轮</h3><p>直到能交付</p></div>
+  </div>
+  <div class="grid g3 mt2">
+    <div class="card pop"><span class="n">“</span><p style="color:var(--ink);font-size:25px">把你不确定的地方<b>单独列出来</b>，不要混在结论里。</p></div>
+    <div class="card pop"><span class="n">“</span><p style="color:var(--ink);font-size:25px">第 2 点不对，因为<b>……</b>。按这个改，其他不动。</p></div>
+    <div class="card pop"><span class="n">“</span><p style="color:var(--ink);font-size:25px">先别写正文，先<b>问我</b>你还缺哪些信息。</p></div>
+  </div>
+</section>
+
+<section class="slide case-slide" data-lv="2" data-case="2" data-o="40,-10,90,40" data-notes="现场案例页。从左边挑一个墙上的问题（优先显示打了 L2 标签的），也可以直接在大字处输入。然后和大家一起把右边五个空填出来——点击灰色文字即可输入。填完点“复制为提示词”，粘贴到 AI 里现场跑一遍。">
+  <div class="kicker r"><b>02</b>现场案例 · 套用任务交底</div>
+  <div class="case-root r"></div>
+</section>
+
+<!-- L3 -->
+<section class="slide divider" data-lv="3" data-o="80,60,0,0" data-notes="第三章：AI 只能根据它“看得见”的东西回答。">
+  <svg class="num" viewBox="0 0 900 700"><text x="880" y="580" text-anchor="end">03</text></svg>
+  <div class="kicker r">LEVEL THREE</div>
+  <h1 class="split">喂它</h1>
+  <p class="lead r">它只能根据“看得见”的东西回答。</p>
+  <div class="goal r"><span>学完能做到</span>给 AI 准备一份干净、可追溯的材料包</div>
+</section>
+
+<section class="slide" data-lv="3" data-o="10,-20,60,60" data-notes="上下文窗口就像工作台：台面上的东西它才能用。Token 是计量单位，不等于一个字，因模型而异。台面满了，旧内容可能被截断或压缩，所以长对话里重要约束要重申；新开对话，台面清空。">
+  <div class="kicker r"><b>03</b>上下文</div>
+  <h1 class="split">AI 的“工作台”只有这么大</h1>
+  <div class="desk">
+    <div class="win r"><span class="t">上下文窗口 · 以 TOKEN 计量</span>
+      <div class="blocks"><div style="flex:1;--i:0">你的指令</div><div style="flex:1.4;--i:1">聊天历史</div><div style="flex:1.8;--i:2">上传的文件</div><div style="flex:1.2;--i:3">搜索结果</div><div class="o" style="flex:1;--i:4">留给回答</div></div>
+      <p class="note" style="margin:22px 0 0;font-size:19px">Token 是模型读写文字的计量单位，不等于“一个字”。台面装满后，旧内容可能被截断或压缩。</p>
+    </div>
+    <div class="outside r"><div>公司内部系统</div><div>没上传的附件</div><div>另一个对话里说过的</div><div>昨天刚发生的事</div></div>
+  </div>
+  <p class="callout r mt1">一句话管用：<b>“以附件 X 为准；找不到就说没找到。”</b></p>
+</section>
+
+<section class="slide" data-lv="3" data-o="60,10,0,70" data-notes="三个习惯可以直接写成团队规范。第三条最反直觉：大部分人不知道可以“允许”AI 说不知道。">
+  <div class="kicker r"><b>03</b>喂料的三条规矩</div>
+  <h1 class="split">材料给得好，答案差不了</h1>
+  <div class="grid g3 mt2">
+    <div class="card pop"><span class="n">i.</span><h3>标版本、标来源</h3><p>文件名、日期、状态写清楚。别让它猜哪份是最新的、哪份是有效的。</p></div>
+    <div class="card pop"><span class="n">ii.</span><h3>说明以谁为准</h3><p>“以正式版为准，聊天记录仅供参考。”冲突时它才知道听谁的。</p></div>
+    <div class="card pop"><span class="n">iii.</span><h3>允许它说“没找到”</h3><p>不给退路，它就会编一个答案给你。</p></div>
+  </div>
+  <p class="callout r mt2">长对话里，重要约束<b>再说一遍</b>；换了话题，就<b>开个新对话</b>；敏感数据，<b>先脱敏再上传</b>。</p>
+</section>
+
+<section class="slide" data-lv="3" data-o="70,-10,0,60" data-notes="本章最重要的一页。判断标准只有一个：这份材料（文本、表格、图片、日志、截图）是否涉及公司内部信息或客户信息，也就是相对保密的信息。是 → 不发外网，只用内网 Agent；或者先在内网匿名化、抽查后再外发。否 → 内外网都可以，选效果最好的。拿不准时，一律按“是”处理。具体以公司信息安全规定为准。" data-notes-en="The most important page in this chapter. One test: does this material (text, table, image, log, screenshot) involve internal company or customer information — i.e. anything confidential? Yes → don’t send it outside; use an internal agent, or anonymize internally and spot-check before sending out. No → either is fine; use whatever works best. When unsure, treat it as yes. Company information-security policy always prevails.">
+  <div class="kicker r"><b>03</b>内网 · 外网</div>
+  <h1 class="split">发给 AI 之前，先问一句：<em>这能出公司吗？</em></h1>
+  <div class="decide">
+    <div class="q r"><small>判断标准</small>这段文本、表格、图片或日志，涉及公司内部信息或客户信息吗？</div>
+    <svg class="draw" viewBox="0 0 220 420"><path d="M0 210 C110 210 90 95 210 95" style="--i:0"/><path d="M0 210 C110 210 90 325 210 325" style="--i:1"/></svg>
+    <div class="br">
+      <div class="card pop" style="border-color:#ffc6ad"><span class="yn" style="color:var(--acc)">是</span><h3>只用内网 Agent</h3><p>或：内网匿名化 → 抽查 → 再发外网</p></div>
+      <div class="card pop"><span class="yn">否</span><h3>内外网都可以</h3><p>选效果最好的那个</p></div>
+    </div>
+  </div>
+  <p class="callout r mt1">拿不准？<b>一律按“是”处理。</b></p>
+</section>
+
+<section class="slide" data-lv="3" data-o="10,50,80,-10" data-notes="如果确实需要外网模型的能力：先用内网 Agent 做匿名化，替换掉客户名、站点、IP、人名等；然后必须人工抽查——AI 匿名化也会漏。下面的清单可以直接用。图片和截图尤其容易漏：水印、Logo、角落里的系统名。" data-notes-en="If you really need an external model: anonymize first with an internal agent — replace customer names, sites, IPs, people. Then spot-check by hand; AI anonymization misses things too. The checklist below is ready to use. Images and screenshots leak most easily: watermarks, logos, system names in corners.">
+  <div class="kicker r"><b>03</b>必须外发时</div>
+  <h1 class="split">先<em>匿名化</em>，再<em>抽查</em>，最后才外发</h1>
+  <div class="steps3">
+    <div class="r"><b>1</b><h3>内网匿名化</h3><p>用内网 Agent 把敏感字段替换成代号，比如“客户 A”“站点 01”。</p></div>
+    <div class="r"><b>2</b><h3>人工抽查</h3><p>AI 匿名化也会漏。对照下面的清单，逐项看一遍。</p></div>
+    <div class="r"><b>3</b><h3>再发外网</h3><p>只发处理后的版本，原件和对照表留在内网。</p></div>
+  </div>
+  <div class="col-h r" style="margin-top:50px">抽查清单</div>
+  <div class="chk r">
+    <div>客户、运营商名称</div><div>站点、地名、经纬度</div><div>IP、MAC、网元名、序列号</div>
+    <div>人名、工号、电话、邮箱</div><div>合同号、项目编号、金额</div><div>截图里的水印、Logo、角落文字</div>
+  </div>
+</section>
+
+<section class="slide" data-lv="3" data-o="60,40,10,-20" data-notes="很实用的一招：把“方法”和“数据”分开。在外网，只描述你的需求和做法，用虚构的样例数据，让外网模型帮你写脚本、做工具、设计思路或优化提示词。然后把这些带回内网，配合真实数据让内网 Agent 去跑，并在内网检验结果。真实客户名和真实网络数据，始终只出现在右边。" data-notes-en="A very practical trick: separate method from data. Outside, describe only the need and approach with made-up sample data, and let the external model write scripts, build tools, design the approach or refine prompts. Bring those back inside, run them with real data on an internal agent, and verify the result internally. Real customer names and real network data only ever appear on the right.">
+  <div class="kicker r"><b>03</b>最实用的一招</div>
+  <h1 class="split">方法可以外借，<em>数据不出内网</em></h1>
+  <div class="zones">
+    <div class="ext r"><div class="zt"><span>外网模型</span><span>只有方法</span></div>
+      <div class="st"><b>1</b><div><h3>描述需求和做法</h3><p>用虚构的样例数据，不提真实客户和网络。</p></div></div>
+      <div class="st"><b>2</b><div><h3>拿到工具和思路</h3><p>脚本、模板、分析思路、优化过的提示词。</p></div></div>
+    </div>
+    <div class="int r"><div class="zt"><span>内网 Agent</span><span>真实数据</span></div>
+      <div class="st"><b>3</b><div><h3>带回内网运行</h3><p>把工具和提示词交给内网 Agent，配合真实数据。</p></div></div>
+      <div class="st"><b>4</b><div><h3>在内网检验</h3><p>用 L4 的四个问题核查结果，确认无误再用。</p></div></div>
+    </div>
+    <div class="cross">只带方法，不带数据 →</div>
+  </div>
+  <p class="callout r mt1">真实客户名、真实网络数据，<b>始终只出现在右边。</b></p>
+</section>
+
+<section class="slide case-slide" data-lv="3" data-case="3" data-o="20,60,80,-10" data-notes="现场案例页。挑一个需要“读材料”的问题（通常是打了 L3 标签的），和大家一起列出：要给 AI 哪些材料？哪份为准？哪些绝不能上传？">
+  <div class="kicker r"><b>03</b>现场案例 · 准备材料包</div>
+  <div class="case-root r"></div>
+</section>
+
+<!-- L4 -->
+<section class="slide divider" data-lv="4" data-o="0,40,80,0" data-notes="第四章：工程师最重要的一章。AI 的错误往往很像真的，要有一套固定的检查动作。">
+  <svg class="num" viewBox="0 0 900 700"><text x="880" y="580" text-anchor="end">04</text></svg>
+  <div class="kicker r">LEVEL FOUR</div>
+  <h1 class="split">验它</h1>
+  <p class="lead r">AI 写初稿，人对结论负责。</p>
+  <div class="goal r"><span>学完能做到</span>交付前，用四个问题过一遍</div>
+</section>
+
+<section class="slide" data-lv="4" data-o="70,-10,10,60" data-notes="“幻觉”最常见的三种样子。可以现场问：大家有没有遇到过？请举手的同事讲一次被 AI 骗的经历——这比任何预设例子都有说服力。">
+  <div class="kicker r"><b>04</b>AI 幻觉</div>
+  <h1 class="split">一本正经地胡说，有三种样子</h1>
+  <div class="grid g3 mt2">
+    <div class="card pop"><span class="tag bad">编数字</span><h3 style="margin-top:34px">“大约提升了 37%”</h3><p>你没给数据，它给你凑一个看起来合理的数。</p></div>
+    <div class="card pop"><span class="tag bad">编因果</span><h3 style="margin-top:34px">“因为 A，所以 B”</h3><p>两件事挨得近，它就把它们连成因果。</p></div>
+    <div class="card pop"><span class="tag bad">编出处</span><h3 style="margin-top:34px">“根据某规范第 5.3 节”</h3><p>看着有据可查，打开一看根本没有这一节。</p></div>
+  </div>
+  <p class="callout r mt2">现场时间：<b>你被 AI 骗过吗？</b>讲一次。</p>
+</section>
+
+<section class="slide" data-lv="4" data-o="10,50,70,-10" data-notes="四问可以打印出来贴在工位上。顺带一提 RAG（检索增强生成）：让 AI 先从你指定的资料里找相关段落再回答，并给出处。但出处本身也可能错，必须打开原文核对。">
+  <div class="kicker r"><b>04</b>交付前检查</div>
+  <h1 class="split">发出去之前，过一遍<em>四个问题</em></h1>
+  <div class="grid g4 mt2">
+    <div class="card pop"><span class="n">数字</span><h3>有来源吗？</h3><p>每个数字能指回原始数据。</p></div>
+    <div class="card pop"><span class="n">因果</span><h3>有证据吗？</h3><p>“之后发生”不等于“因此发生”。</p></div>
+    <div class="card pop"><span class="n">承诺</span><h3>有授权吗？</h3><p>时间、结论、对外表态，谁批准的？</p></div>
+    <div class="card pop"><span class="n">出处</span><h3>能打开吗？</h3><p>点开原文，看那一段是否真这么写。</p></div>
+  </div>
+  <p class="callout r mt2">小技巧：要求 AI <b>每条结论后标注来源文件和章节</b>，核对快十倍。</p>
+</section>
+
+<section class="slide case-slide" data-lv="4" data-case="4" data-o="50,60,0,0" data-notes="现场案例页。挑一个对准确性要求高的问题，和大家一起写出这件事的核查清单：哪些地方 AI 最可能编？怎么查？谁签字？">
+  <div class="kicker r"><b>04</b>现场案例 · 写一份核查清单</div>
+  <div class="case-root r"></div>
+</section>
+
+<!-- L5 -->
+<section class="slide divider" data-lv="5" data-o="75,60,0,-20" data-notes="第五章：从“问答”升级到“干活”。这是 AI 现在最大的变化。">
+  <svg class="num" viewBox="0 0 900 700"><text x="880" y="580" text-anchor="end">05</text></svg>
+  <div class="kicker r">LEVEL FIVE</div>
+  <h1 class="split">用它</h1>
+  <p class="lead r">从“告诉你怎么做”，到“自己动手做完”。</p>
+  <div class="goal r"><span>学完能做到</span>看懂 Agent 在干什么，并给它划好红线</div>
+</section>
+
+<section class="slide" data-lv="5" data-o="10,-10,70,60" data-notes="Agent 就是能调用工具、能根据结果决定下一步的 AI。右边的光点一直在转——这就是 Agent 的本质：一个循环，直到目标完成或遇到停止条件。普通问答交付的是文字建议；Agent 交付的是做完的结果。">
+  <div class="kicker r"><b>05</b>Agent 是什么</div>
+  <div class="ag">
+    <div>
+      <h1 class="split">聊天是“出主意”<br>Agent 是“<em>干活</em>”</h1>
+      <div class="r mt1"><div class="col-h"><span class="tag">普通对话</span></div><p style="font-size:27px;margin:0 0 6px">“告诉我该怎么做。”</p><p class="note" style="margin:0">交付：一段建议，剩下的你自己做。</p></div>
+      <div class="rule r" style="margin:30px 0"></div>
+      <div class="r"><div class="col-h"><span class="tag acc">Agent</span></div><p style="font-size:27px;margin:0 0 6px">“去把它做完，做完自己检查一遍。”</p><p class="note" style="margin:0">交付：做完的结果 + 过程记录。</p></div>
+    </div>
+    <div class="orbit r">
+      <svg viewBox="0 0 560 560" class="draw"><circle class="d" cx="280" cy="280" r="200" fill="none" stroke="#d8d5cd" stroke-width="1.5"/></svg>
+      <div class="runner"></div>
+      <div class="node" style="left:280px;top:80px;--dl:0s"><span></span>理解目标</div>
+      <div class="node" style="left:480px;top:280px;--dl:1s"><span></span>规划下一步</div>
+      <div class="node" style="left:280px;top:480px;--dl:2s"><span></span>调用工具<small>读文件 · 跑代码 · 搜索</small></div>
+      <div class="node" style="left:80px;top:280px;--dl:3s"><span></span>检查结果</div>
+      <div class="center">loop<small>直到完成或该停</small></div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-lv="5" data-o="60,-20,0,60" data-notes="逐步点击。关键看第 2 到 3 步：它第一次做的结果有问题，自己检查发现后修正重跑——这是 Agent 和普通问答的本质区别。最后一步仍然是：等人审核。这是离线预置演示，不调用任何模型。可以问大家：墙上哪个问题适合这样交给 Agent？">
+  <div class="kicker r"><b>05</b>离线演示</div>
+  <h1 class="split">一次 Agent 任务，背后发生了什么</h1>
+  <div class="demo">
+    <div class="dsteps r" id="dsteps"></div>
+    <div class="log r" id="dlog"></div>
+  </div>
+  <div class="actions"><button class="btn" onclick="demoReset()">重置</button><button class="btn pri" onclick="demoNext()">下一步 →</button></div>
+</section>
+
+<section class="slide" data-lv="5" data-o="20,50,80,-20" data-notes="权限是 Agent 时代最重要的事。三档可以直接写进团队规范。注意：Agent 读到的文档里可能藏着“指令”，不能据此扩大权限。Skill、API、MCP 都是连接工具的方式，都不等于自动授权。">
+  <div class="kicker r"><b>05</b>权限红线</div>
+  <h1 class="split">能动手，就必须<em>先划线</em></h1>
+  <div class="tiers">
+    <div class="r"><h3><span class="lt" style="background:var(--ok)"></span>放手做</h3><div class="s">默认允许</div><ul><li>读取指定的文件</li><li>在沙箱里计算、比对</li><li>生成报告和草稿</li></ul></div>
+    <div class="r"><h3><span class="lt" style="background:var(--warn)"></span>先问我</h3><div class="s">每次确认</div><ul><li>读取其他目录</li><li>发邮件、发消息</li><li>连接外部服务</li></ul></div>
+    <div class="r"><h3><span class="lt" style="background:var(--bad)"></span>绝不碰</h3><div class="s">任何情况</div><ul><li>操作生产网元</li><li>修改现网配置</li><li>上传敏感数据</li></ul></div>
+  </div>
+  <p class="callout r mt2">任务里写明<b>停止条件</b>：“缺材料、版本不明或涉及生产，立即停下并报告。”</p>
+</section>
+
+<section class="slide" data-lv="5" data-o="70,10,0,60" data-notes="子代理：主代理把大任务拆成独立的小任务，并行做，再汇总。适合能独立并行的任务。注意：子代理不自动共享全部上下文；代理越多协调成本越高；多个代理意见一致不代表就对。可现场让三位同事扮演子代理，对墙上一个问题分头分析，再由一人汇总。">
+  <div class="kicker r"><b>05</b>子代理</div>
+  <h1 class="split">活太大？让 AI 学会<em>分工</em></h1>
+  <div class="org">
+    <svg class="draw" viewBox="0 0 1640 420" preserveAspectRatio="none">
+      <path d="M820 85 V140 H273 V188" style="--i:0"/><path d="M820 140 V188" style="--i:1"/><path d="M820 140 H1367 V188" style="--i:2"/>
+      <path d="M273 272 V320 H820 V358" style="--i:3"/><path d="M820 272 V358" style="--i:3"/><path d="M1367 272 V320 H820" style="--i:3"/>
+    </svg>
+    <div class="bx main pop" style="left:50%;top:40px">主代理<small>拆分任务、分配、汇总</small></div>
+    <div class="bx pop" style="left:16.6%;top:230px">子代理 A<small>查资料</small></div>
+    <div class="bx pop" style="left:50%;top:230px">子代理 B<small>做分析</small></div>
+    <div class="bx pop" style="left:83.4%;top:230px">子代理 C<small>挑毛病</small></div>
+    <div class="bx end pop" style="left:50%;top:390px">汇总 → 人工复核</div>
+  </div>
+</section>
+
+<section class="slide case-slide" data-lv="5" data-case="5" data-o="10,60,70,0" data-notes="现场案例页。挑一个重复性高、步骤多的问题，一起写一张 Agent 任务卡：目标、允许范围、什么时候必须停下来问人、绝不能做什么、怎么验收。">
+  <div class="kicker r"><b>05</b>现场案例 · 写一张 Agent 任务卡</div>
+  <div class="case-root r"></div>
+</section>
+
+<!-- 实战 -->
+<section class="slide divider" data-lv="6" data-o="50,10,10,60" data-notes="综合挑战：把五级台阶串起来，解决一个真实问题。">
+  <svg class="num" viewBox="0 0 900 700"><text x="880" y="580" text-anchor="end">Go</text></svg>
+  <div class="kicker r">FINAL</div>
+  <h1 class="split">实战</h1>
+  <p class="lead r">用今天的方法，解决墙上的一个真实问题。</p>
+  <div class="goal r"><span>用上</span>问清楚 · 喂干净 · 验到底 · 守住线</div>
+</section>
+
+<section class="slide" data-lv="6" data-o="20,-10,80,60" data-notes="约 4 组，每组 4–5 人。每组从痛点墙上认领一个问题（可以按下方按钮回到墙）。用前面四张模板（交底、材料包、核查清单、任务卡）完成一次交付。每组提交：最终产物 + 关键提示词 + 一处 AI 出错的记录。">
+  <div class="kicker r"><b>GO</b>分组挑战</div>
+  <h1 class="split">认领一个问题，<em>做完它</em></h1>
+  <div class="chal">
+    <div class="r"><b>1</b><h3>认领</h3><p>从痛点墙挑一个问题，确认能脱敏、能在课上完成。</p></div>
+    <div class="r"><b>2</b><h3>交底 + 喂料</h3><p>用 L2、L3 模板写提示词，备好材料。</p></div>
+    <div class="r"><b>3</b><h3>跑 + 追问</h3><p>让 AI 做，至少追问一轮。</p></div>
+    <div class="r"><b>4</b><h3>核查</h3><p>用 L4 四问检查，标出一处错误。</p></div>
+  </div>
+  <p class="callout r mt2">每组提交：<b>最终产物</b> · <b>关键提示词</b> · <b>一处 AI 出错的记录</b></p>
+  <div class="actions"><button class="btn" onclick="goWall()">← 回到痛点墙</button></div>
+</section>
+
+<section class="slide" data-lv="6" data-o="70,50,0,0" data-notes="时间到只提示，不自动翻页；翻页时计时继续，右下角小字显示剩余时间。准确性占 40 分：编造关键内容直接重扣。">
+  <div class="kicker r"><b>GO</b>计时 · 评分</div>
+  <div class="timer">
+    <div class="r">
+      <div class="clock" id="clock">15:00</div>
+      <div class="tctl"><button class="btn pri" id="tgo" onclick="toggleTimer()">开始</button><button class="btn" onclick="resetTimer()">重置</button>
+        <div class="seg" id="seg"><button data-s="1200">20 分</button><button class="on" data-s="900">15 分</button><button data-s="480">8 分</button></div></div>
+    </div>
+    <div class="rub r">
+      <div><b class="em">40</b><span>准确<small>没有编造，没有误判</small></span></div>
+      <div><b>25</b><span>完整<small>关键点没有遗漏</small></span></div>
+      <div><b>25</b><span>可核查<small>来源、步骤、验收清楚</small></span></div>
+      <div><b>10</b><span>可复用<small>别人拿去也能用</small></span></div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-lv="6" data-o="10,40,80,-10" data-notes="用实际产物说话。区分出错原因：模型问题、材料缺失、提示不清、工具失败、检查不严。不要把所有问题都归到“提示词没写好”。">
+  <div class="kicker r"><b>GO</b>复盘</div>
+  <h1 class="split">AI 帮了哪一步？错在哪一步？</h1>
+  <div class="grid g3 mt2">
+    <div class="card pop"><span class="n">i.</span><h3>比结果</h3><p>哪组更完整？哪些结论有来源？</p></div>
+    <div class="card pop"><span class="n">ii.</span><h3>比过程</h3><p>哪一次补材料、追问，带来了真正的改进？</p></div>
+    <div class="card pop"><span class="n">iii.</span><h3>比边界</h3><p>哪一步必须有人检查、批准或接手？</p></div>
+  </div>
+  <p class="callout r mt2">每组分享：<b>一句好用的提示词</b> · <b>一次 AI 的错误</b> · <b>一个检查动作</b></p>
+</section>
+
+<section class="slide" data-lv="6" data-o="60,-20,10,60" data-notes="鼓励每人带走墙上的一个问题作为第一周的练习任务。先确认资料能用于所选工具。">
+  <div class="kicker r"><b>GO</b>课后 4 周</div>
+  <h1 class="split">会用，是练出来的</h1>
+  <div class="tl">
+    <svg class="draw"><line x1="0" y1="0" x2="100%" y2="0" style="--i:0"/></svg>
+    <div class="r"><b>Week 1</b><h3>问得清</h3><p>带走墙上一个问题，用五要素写提示词</p><span class="tag">事实不改写，未知不编造</span></div>
+    <div class="r"><b>Week 2</b><h3>查得准</h3><p>指定文档问答、版本差异核对</p><span class="tag">每个结论能回到原文</span></div>
+    <div class="r"><b>Week 3</b><h3>做得完</h3><p>用 Agent 完成一份可复核的文件</p><span class="tag">有过程记录和验收</span></div>
+    <div class="r"><b>Week 4</b><h3>可复用</h3><p>沉淀模板、清单、团队规范</p><span class="tag">别人拿去也能用</span></div>
+  </div>
+  <p class="callout r mt3">精通不是记住所有模型名字，而是<b>稳定交付、发现错误、管住权限</b>。</p>
+</section>
+
+<section class="slide" data-lv="6" data-o="30,-10,70,60" data-notes="收尾。三句话是全场的精华，停留久一点，让大家拍照。">
+  <div class="kicker r"><b>—</b>今天带走三句话</div>
+  <div class="three">
+    <div class="r"><b>01</b><p>AI 写初稿，<span>人对结论负责。</span></p></div>
+    <div class="r"><b>02</b><p>把任务交代清楚，<span>比找“神级提示词”重要。</span></p></div>
+    <div class="r"><b>03</b><p>从小任务开始，<span>验证过了再放权。</span></p></div>
+  </div>
+  <p class="lead r mt2">谢谢。现在就从墙上挑一件，明天试试看。</p>
+</section>
+
+<section class="slide" data-lv="6" data-o="80,40,0,0" data-notes="上课前再检查一次产品入口和单位许可。此页不是排行榜。">
+  <div class="kicker r"><b>—</b>参考资料 · 核对于 2026-11-03</div>
+  <h1 class="split">官方资料</h1>
+  <div class="grid g2 mt1 src" style="gap:90px">
+    <div class="r"><h3>产品与模型</h3>
+      <a href="https://developers.openai.com/api/docs/models" target="_blank" rel="noopener">OpenAI · 模型目录<span>↗</span></a>
+      <a href="https://platform.claude.com/docs/en/models/overview" target="_blank" rel="noopener">Anthropic · Claude 模型<span>↗</span></a>
+      <a href="https://support.google.com/gemini/answer/18648722" target="_blank" rel="noopener">Google · Gemini 模型说明<span>↗</span></a>
+      <a href="https://www.deepseek.com/en/" target="_blank" rel="noopener">DeepSeek · 产品入口<span>↗</span></a>
+      <a href="https://www.alibabacloud.com/help/en/model-studio/models" target="_blank" rel="noopener">阿里云 · Qwen 与百炼<span>↗</span></a>
+      <a href="https://docs.volcengine.com/docs/ark/model-list?lang=zh" target="_blank" rel="noopener">火山方舟 · 模型目录<span>↗</span></a>
+      <a href="https://www.moonshot.cn/" target="_blank" rel="noopener">月之暗面 · Kimi<span>↗</span></a></div>
+    <div class="r"><h3>概念与工程</h3>
+      <a href="https://help.openai.com/en/articles/4936856-understanding-and-counting-tokens" target="_blank" rel="noopener">Token 与上下文<span>↗</span></a>
+      <a href="https://developers.openai.com/api/docs/guides/conversation-state" target="_blank" rel="noopener">会话状态与上下文管理<span>↗</span></a>
+      <a href="https://platform.claude.com/docs/en/managed-agents/multiagent-orchestration" target="_blank" rel="noopener">子代理与多代理协作<span>↗</span></a>
+      <p class="note" style="margin-top:30px">痛点墙与案例页内容保存在本机浏览器中，演示、计时均可离线使用。</p></div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div>← → 翻页 · O 目录 · N 备注 · L 语言 · F 全屏 <span id="miniTimer"></span></div>
+  <div class="ft"><button onclick="openOverview()">目录</button><button onclick="openNotes()">讲师备注</button><button onclick="full()">全屏</button><button id="langBtn" onclick="toggleLang()" style="font-weight:600;color:var(--ink)">中文</button><button onclick="move(-1)" aria-label="上一页">←</button><span id="page"></span><button onclick="move(1)" aria-label="下一页">→</button></div>
+</footer>
+<div id="modal" role="dialog" aria-modal="true"><div class="mbox"><button class="btn x" onclick="closeModal()">关闭</button><h2 id="mt"></h2><div id="mc"></div></div></div>
+<div id="toast" role="status"></div>
+</div></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const S=[...document.querySelectorAll('.slide')];
+const esc=t=>String(t).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
+const store={get(k,d){try{const v=localStorage.getItem('aideck_'+k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem('aideck_'+k,JSON.stringify(v))}catch(e){}}};
+let lang=store.get('lang','en');
+const L=(zh,en)=>lang==='en'?en:zh;
+let idx=-1,scale=1,lastFocus=null;
+
+/* ================= i18n dictionary (static text) ================= */
+const EN={
+"AI 入门第一课":"AI 101","AI 入门":"AI","第一课":"101",
+"通信工程师 · AI 入门与实战":"FOR TELECOM ENGINEERS · AI FUNDAMENTALS",
+"从第一次提问，到让 AI 替你干完一件活。":"From your first prompt to letting AI finish real work for you.",
+"分钟":"minutes","级台阶":"levels","你的":"Your","真实问题":"real problems",
+"开始之前":"BEFORE WE START","你最想甩给 AI 的":"What’s the task you’d ","那件活":"most love to hand off","是什么？":" to AI?",
+"最耗时间的、最重复的、最怕出错的——都可以。":"The most time-consuming, the most repetitive, the one you most fear getting wrong — anything goes.",
+"清空":"Clear","今天的路线":"TODAY’S ROUTE","五级台阶，每一级解决一类问题":"Five levels, each solves one kind of problem",
+"懂它":"Know it","它到底是什么":"What it really is","问它":"Ask it","把需求说清楚":"Say what you need","喂它":"Feed it","给对材料":"Give the right material",
+"验它":"Check it","识破一本正经的胡说":"Catch confident nonsense","用它":"Use it","让 AI 动手干活":"Let AI do the work",
+"它是什么？为什么会一本正经地胡说？":"What is it? Why does it make things up so confidently?",
+"学完能做到":"YOU’LL BE ABLE TO","用一句话向同事讲清楚大模型":"Explain an LLM to a colleague in one sentence",
+"一句话理解大模型":"AN LLM IN ONE SENTENCE","它是一个超级":"It’s a world-class ","“接龙”":"next-word guesser","高手":"",
+"读过海量文字，学会了“下一个词最可能是什么”。一个词接一个词，写出整段回答。":"It has read a vast amount of text and learned what word most likely comes next. Word by word, it writes the whole answer.",
+"它没查过任何数据，却给出了":"It checked no data at all, yet produced ","一个具体数字":"a specific number","因为这样":"Because that is ","最顺口":"the most fluent",
+"，不是因为":" — not because it is ","真实":"true","重来":"Restart","接下一个词 →":"Next word →",
+"所以":"SO","长处和短处，都来自“接龙”":"Its strengths and flaws share one root",
+"放心交给它":"Hand it over","写和改":"Writing & editing","报告、方案、纪要、总结":"Reports, proposals, minutes, summaries",
+"读和提炼":"Reading & distilling","长文档、规范、聊天记录":"Long docs, specs, chat threads","翻译与解释":"Translating & explaining",
+"英文资料、协议条款":"Foreign docs, protocol clauses","脚本与公式":"Scripts & formulas","Python、Excel、正则":"Python, Excel, regex",
+"要盯着它":"Watch it closely","不知道你没说的":"Doesn’t know what you didn’t say","你的网络、你的项目、你的客户":"Your network, your project, your customer",
+"不知道最新发生的":"Doesn’t know what just happened","除非打开联网搜索":"Unless web search is on","会一本正经地编":"Makes things up confidently",
+"数字、原因、出处":"Numbers, causes, citations","不为结果负责":"Isn’t accountable","签字的永远是你":"You always sign off",
+"最好用的心智模型":"THE MOST USEFUL MENTAL MODEL","把它当成一位":"Treat it as an intern who has ","读遍天下书":"read every book",
+"但今天":"but is on ","第一天入职":"day one of the job","的实习生。":".",
+"聪明勤快":"Smart & tireless","→ 大胆派活。初稿、整理、翻译，几秒就交。":"→ Delegate boldly. Drafts, tidy-ups, translations in seconds.",
+"不了解现场":"Doesn’t know your context","→ 交代清楚。你不说，它就靠猜。":"→ Brief it well. If you don’t say it, it guesses.",
+"不懂也敢答":"Answers even when unsure","→ 检查结果。它很少主动说“我不确定”。":"→ Check the output. It rarely says “I’m not sure”.",
+"工具地图":"THE TOOL MAP","先分清：公司、产品、模型":"Company ≠ product ≠ model",
+"公司":"Company","研发运营":"builds & runs it","产品":"Product","你打开的 App":"the app you open","模型":"Model","背后干活的“大脑”":"the “brain” doing the work",
+"常用产品":"Products","模型家族":"Model family","海外":"GLOBAL","国内":"CHINA","深度求索":"DeepSeek","阿里巴巴":"Alibaba","千问 · 百炼":"Qwen · Model Studio",
+"字节跳动":"ByteDance","豆包 · 火山方舟":"Doubao · Volcano Ark","月之暗面":"Moonshot AI",
+"代表性示例，非完整名单，不代表排名。用之前先确认：单位允许用哪个？数据能不能上传？":"Representative examples, not a full list or a ranking. Before using: which tools does your company allow? Can the data be uploaded?",
+"怎么选":"HOW TO CHOOSE","别看排行榜，看你的任务":"Ignore the leaderboard. Look at your task.",
+"写":"Write","写作 · 翻译":"Writing · translation","默认模式就够。要的是快、格式听话。":"Default mode is enough. You want speed and clean formatting.",
+"想":"Think","分析 · 推理":"Analysis · reasoning","打开“深度思考”。慢一点，但更会推理。":"Turn on “extended thinking”. Slower, but reasons better.",
+"读":"Read","长文档 · 日志":"Long docs · logs","看能否上传文件、一次能装下多少。":"Check file upload and how much it can hold at once.",
+"看":"See","截图 · 照片":"Screenshots · photos","选支持图片输入的，并核对识别结果。":"Pick one that accepts images, and verify what it reads.",
+"最靠谱的评测：拿":"The best benchmark: take ","你自己的一个脱敏任务":"a desensitized task of your own","，同样的输入，换着试。":", same input, try each tool.",
+"同一个 AI，问法不同，结果天差地别。":"Same AI, different question, wildly different result.","写出一段“拿来就能用”的提示词":"Write a prompt that works first time",
+"同一个需求，两种问法":"ONE NEED, TWO WAYS TO ASK","它不是不聪明，是":"It’s not dumb — ","你没说清":"you weren’t clear",
+"大多数人这样问":"How most people ask","“帮我看看这个。”":"“Take a look at this.”","→ 它只能猜你要什么，然后给你一个“看起来不错”的答案。":"→ It can only guess what you want, then gives you something that “looks fine”.",
+"说清楚的问法":"A clear ask","我要":"I need ","目标":"Goal","得到什么、给谁用":"what, for whom","。现在的情况是":". The situation is ","背景":"Context","发生了什么":"what’s going on",
+"。我提供了":". I’ve provided ","材料":"Materials","哪些资料":"which files","，其中":", of which ","哪些已确认、哪些未知":"what’s confirmed, what’s unknown","。注意":". Note ",
+"约束":"Constraints","不能猜什么、不能做什么":"what not to guess or do","。请按":". Deliver as ","交付":"Deliverable","格式、长度、结构":"format, length, structure","输出；信息不够就先问我。":"; if anything is missing, ask me first.",
+"方法":"THE METHOD","好提示词 = 一份":"A good prompt = a ","任务交底":"task brief","要得到什么？":"What do you need?","给谁用？":"Who is it for?",
+"现在是什么情况？":"What’s the situation?","为什么要做？":"Why does it matter?","哪些已知？":"What’s known?","哪些未知？":"What’s unknown?",
+"什么不能猜？":"What must not be guessed?","什么不能做？":"What must not be done?","什么格式？":"What format?","多长？":"How long?",
+"结尾加一句：":"End with one line: ","“信息不够就先问我，不要猜。”":"“If information is missing, ask me — don’t guess.”","复制通用模板":"Copy template",
+"迭代":"ITERATE","第一稿只是开始，":"","追问":"Follow-ups","才是技巧":" are the real skill",
+"交底":"Brief","用五要素说清楚":"Use the five elements","看结果":"Review","哪里不对？":"What’s off?","指出问题":"Point it out","具体、直接":"Specific, direct","再改一轮":"Revise","直到能交付":"Until it ships",
+"把你不确定的地方":"List everything you’re unsure about ","单独列出来":"separately","，不要混在结论里。":" — don’t mix it into the conclusions.",
+"第 2 点不对，因为":"Point 2 is wrong because ","。按这个改，其他不动。":". Fix that, leave the rest.","先别写正文，先":"Don’t draft yet — first ","问我":"ask me","你还缺哪些信息。":" what information you still need.",
+"现场案例 · 套用任务交底":"LIVE CASE · APPLY THE TASK BRIEF",
+"它只能根据“看得见”的东西回答。":"It can only answer from what it can see.","给 AI 准备一份干净、可追溯的材料包":"Prepare a clean, traceable material pack for AI",
+"上下文":"CONTEXT","AI 的“工作台”只有这么大":"AI’s workbench is only this big","上下文窗口 · 以 TOKEN 计量":"CONTEXT WINDOW · MEASURED IN TOKENS",
+"你的指令":"Your instructions","聊天历史":"Chat history","上传的文件":"Uploaded files","搜索结果":"Search results","留给回答":"Room for the answer",
+"Token 是模型读写文字的计量单位，不等于“一个字”。台面装满后，旧内容可能被截断或压缩。":"A token is the unit a model reads and writes in — not the same as a word. When the bench is full, older content may be cut or compressed.",
+"公司内部系统":"Internal company systems","没上传的附件":"Attachments you didn’t upload","另一个对话里说过的":"What you said in another chat","昨天刚发生的事":"What happened yesterday",
+"一句话管用：":"One line that works: ","“以附件 X 为准；找不到就说没找到。”":"“Attachment X is the source of truth; if it’s not there, say so.”",
+"喂料的三条规矩":"THREE RULES FOR FEEDING IT","材料给得好，答案差不了":"Good material in, good answers out",
+"标版本、标来源":"Label versions & sources","文件名、日期、状态写清楚。别让它猜哪份是最新的、哪份是有效的。":"Name, date and status every file. Don’t make it guess which is newest or which is valid.",
+"说明以谁为准":"Say what’s authoritative","“以正式版为准，聊天记录仅供参考。”冲突时它才知道听谁的。":"“The official version rules; chat logs are reference only.” Then it knows whom to trust in a conflict.",
+"允许它说“没找到”":"Let it say “not found”","不给退路，它就会编一个答案给你。":"Without a way out, it will invent an answer.",
+"长对话里，重要约束":"In long chats, ","再说一遍":"repeat key constraints","；换了话题，就":"; new topic, ","开个新对话":"new chat","；敏感数据，":"; sensitive data, ","先脱敏再上传":"desensitize before upload",
+"现场案例 · 准备材料包":"LIVE CASE · BUILD A MATERIAL PACK",
+"AI 写初稿，人对结论负责。":"AI drafts. Humans own the conclusions.","交付前，用四个问题过一遍":"Run four questions before anything ships",
+"AI 幻觉":"HALLUCINATION","一本正经地胡说，有三种样子":"Confident nonsense comes in three shapes",
+"编数字":"Made-up numbers","“大约提升了 37%”":"“Roughly a 37% improvement”","你没给数据，它给你凑一个看起来合理的数。":"You gave no data, so it produced a plausible-looking figure.",
+"编因果":"Made-up causes","“因为 A，所以 B”":"“Because A, therefore B”","两件事挨得近，它就把它们连成因果。":"Two events happen close together, so it links them as cause and effect.",
+"编出处":"Made-up sources","“根据某规范第 5.3 节”":"“Per section 5.3 of the spec”","看着有据可查，打开一看根本没有这一节。":"Looks well-sourced — until you open it and the section doesn’t exist.",
+"现场时间：":"Your turn: ","你被 AI 骗过吗？":"has AI ever fooled you?","讲一次。":" Tell us once.",
+"交付前检查":"PRE-DELIVERY CHECK","发出去之前，过一遍":"Before it goes out, ask ","四个问题":"four questions",
+"数字":"Numbers","有来源吗？":"Is there a source?","每个数字能指回原始数据。":"Every number traces back to raw data.",
+"因果":"Causality","有证据吗？":"Is there evidence?","“之后发生”不等于“因此发生”。":"“After” is not “because of”.",
+"承诺":"Commitments","有授权吗？":"Is it authorized?","时间、结论、对外表态，谁批准的？":"Deadlines, conclusions, external statements — who approved them?",
+"出处":"Sources","能打开吗？":"Can you open it?","点开原文，看那一段是否真这么写。":"Open the original and check it really says that.",
+"小技巧：要求 AI":"Tip: ask AI to ","每条结论后标注来源文件和章节":"cite file and section after every conclusion","，核对快十倍。":" — checking gets ten times faster.",
+"现场案例 · 写一份核查清单":"LIVE CASE · WRITE A CHECKLIST",
+"从“告诉你怎么做”，到“自己动手做完”。":"From “telling you how” to “doing it itself”.","看懂 Agent 在干什么，并给它划好红线":"Understand what an agent does — and draw its red lines",
+"Agent 是什么":"WHAT IS AN AGENT","聊天是“出主意”":"Chat gives advice.","Agent 是“":"Agents ","干活":"do the work","”":".",
+"普通对话":"Chat","“告诉我该怎么做。”":"“Tell me how to do it.”","交付：一段建议，剩下的你自己做。":"You get: advice. The rest is on you.",
+"“去把它做完，做完自己检查一遍。”":"“Go get it done, then check your own work.”","交付：做完的结果 + 过程记录。":"You get: the finished result + a work log.",
+"理解目标":"Understand goal","规划下一步":"Plan next step","调用工具":"Use tools","读文件 · 跑代码 · 搜索":"files · code · search","检查结果":"Check result","直到完成或该停":"until done or told to stop",
+"离线演示":"OFFLINE DEMO","一次 Agent 任务，背后发生了什么":"What actually happens in an agent task","重置":"Reset","下一步 →":"Next step →",
+"权限红线":"PERMISSIONS","能动手，就必须":"If it can act, ","先划线":"draw the lines first",
+"放手做":"Go ahead","默认允许":"Allowed by default","读取指定的文件":"Read the specified files","在沙箱里计算、比对":"Compute & compare in a sandbox","生成报告和草稿":"Produce reports and drafts",
+"先问我":"Ask me first","每次确认":"Confirm each time","读取其他目录":"Read other folders","发邮件、发消息":"Send emails or messages","连接外部服务":"Connect external services",
+"绝不碰":"Never","任何情况":"Under any circumstances","操作生产网元":"Touch production network elements","修改现网配置":"Change live network config","上传敏感数据":"Upload sensitive data",
+"任务里写明":"Write a ","停止条件":"stop condition","：“缺材料、版本不明或涉及生产，立即停下并报告。”":" into every task: “If material is missing, versions are unclear, or production is involved — stop and report.”",
+"子代理":"SUBAGENTS","活太大？让 AI 学会":"Too big? Teach AI to ","分工":"divide the work",
+"主代理":"Lead agent","拆分任务、分配、汇总":"splits, assigns, merges","子代理 A":"Subagent A","查资料":"research","子代理 B":"Subagent B","做分析":"analysis","子代理 C":"Subagent C","挑毛病":"critique","汇总 → 人工复核":"Merge → human review",
+"现场案例 · 写一张 Agent 任务卡":"LIVE CASE · WRITE AN AGENT TASK CARD",
+"实战":"Practice","用今天的方法，解决墙上的一个真实问题。":"Use today’s methods to solve one real problem from the wall.","用上":"USE","问清楚 · 喂干净 · 验到底 · 守住线":"Ask clearly · Feed cleanly · Check fully · Hold the line",
+"分组挑战":"TEAM CHALLENGE","认领一个问题，":"Claim one problem. ","做完它":"Finish it.",
+"认领":"Claim","从痛点墙挑一个问题，确认能脱敏、能在课上完成。":"Pick a problem from the wall that can be desensitized and done in class.",
+"交底 + 喂料":"Brief + feed","用 L2、L3 模板写提示词，备好材料。":"Write the prompt with the L2 and L3 templates; prepare the material.",
+"跑 + 追问":"Run + follow up","让 AI 做，至少追问一轮。":"Let AI do it. Follow up at least once.",
+"核查":"Verify","用 L4 四问检查，标出一处错误。":"Check with the L4 four questions; flag one error.",
+"每组提交：":"Each team submits: ","最终产物":"the final output","关键提示词":"key prompts","一处 AI 出错的记录":"one AI mistake you caught",
+"← 回到痛点墙":"← Back to the wall","计时 · 评分":"TIMER · SCORING","开始":"Start","20 分":"20 min","15 分":"15 min","8 分":"8 min",
+"准确":"Accuracy","没有编造，没有误判":"Nothing invented or misjudged","完整":"Completeness","关键点没有遗漏":"No key points missed",
+"可核查":"Traceability","来源、步骤、验收清楚":"Clear sources, steps, acceptance","可复用":"Reusability","别人拿去也能用":"Others can reuse it",
+"复盘":"RETRO","AI 帮了哪一步？错在哪一步？":"Where did AI help? Where did it fail?",
+"比结果":"Compare outputs","哪组更完整？哪些结论有来源？":"Which is more complete? Which conclusions are sourced?",
+"比过程":"Compare process","哪一次补材料、追问，带来了真正的改进？":"Which added material or follow-up actually made it better?",
+"比边界":"Compare boundaries","哪一步必须有人检查、批准或接手？":"Which step needed a human to check, approve or take over?",
+"每组分享：":"Each team shares: ","一句好用的提示词":"one great prompt","一次 AI 的错误":"one AI mistake","一个检查动作":"one check you’ll keep",
+"课后 4 周":"THE NEXT 4 WEEKS","会用，是练出来的":"Skill comes from practice",
+"问得清":"Ask clearly","带走墙上一个问题，用五要素写提示词":"Take a problem from the wall; prompt it with the five elements","事实不改写，未知不编造":"No altered facts, no invented unknowns",
+"查得准":"Find precisely","指定文档问答、版本差异核对":"Q&A on given docs, version diffs","每个结论能回到原文":"Every claim traces to source",
+"做得完":"Finish the job","用 Agent 完成一份可复核的文件":"Use an agent to produce a verifiable file","有过程记录和验收":"With a work log and acceptance",
+"沉淀模板、清单、团队规范":"Turn it into templates, checklists, team norms",
+"精通不是记住所有模型名字，而是":"Mastery isn’t memorizing model names. It’s ","稳定交付、发现错误、管住权限":"reliable delivery, catching errors, controlling permissions",
+"今天带走三句话":"THREE THINGS TO TAKE AWAY","AI 写初稿，":"AI drafts. ","人对结论负责。":"Humans own the conclusions.",
+"把任务交代清楚，":"A clear brief ","比找“神级提示词”重要。":"beats any “magic prompt”.","从小任务开始，":"Start small. ","验证过了再放权。":"Delegate more once it’s proven.",
+"谢谢。现在就从墙上挑一件，明天试试看。":"Thank you. Pick one thing from the wall and try it tomorrow.",
+"参考资料 · 核对于 2026-11-03":"REFERENCES · CHECKED 2026-11-03","官方资料":"Official sources","产品与模型":"PRODUCTS & MODELS",
+"OpenAI · 模型目录":"OpenAI · Models","Anthropic · Claude 模型":"Anthropic · Claude models","Google · Gemini 模型说明":"Google · Gemini models","DeepSeek · 产品入口":"DeepSeek · Product",
+"阿里云 · Qwen 与百炼":"Alibaba Cloud · Qwen & Model Studio","火山方舟 · 模型目录":"Volcano Ark · Models","月之暗面 · Kimi":"Moonshot AI · Kimi",
+"概念与工程":"CONCEPTS & ENGINEERING","Token 与上下文":"Tokens & context","会话状态与上下文管理":"Conversation state & context management","子代理与多代理协作":"Subagents & multi-agent orchestration",
+"痛点墙与案例页内容保存在本机浏览器中，演示、计时均可离线使用。":"Wall and case-page entries are saved in this browser only. Demos and timer work offline.",
+"← → 翻页 · O 目录 · N 备注 · L 语言 · F 全屏":"← → navigate · O overview · N notes · L language · F fullscreen",
+"目录":"Overview","讲师备注":"Notes","全屏":"Fullscreen","外网·海外":"EXT · GLOBAL","外网·国内":"EXT · CHINA",
+"工具地图 · 内网":"THE TOOL MAP · INTRANET","华为内网，也有":"The Huawei intranet has agents ","直接能用":"ready to use","的 Agent":"",
+"内网可用":"Intranet","GTSLLM 专业智能体":"GTSLLM Pro Agent","试点版 6.0.3":"Pilot 6.0.3","背后接的模型，通常是":"Usually powered by","千问 Qwen":"Qwen","等":"and others",
+"同一个 Agent，背后可能换不同模型——":"One agent may switch models behind the scenes — ","产品 ≠ 模型":"product ≠ model",
+"内网 · 外网":"INTERNAL · EXTERNAL","发给 AI 之前，先问一句：":"Before sending anything to AI, ask: ","这能出公司吗？":"can this leave the company?",
+"判断标准":"THE TEST","这段文本、表格、图片或日志，涉及公司内部信息或客户信息吗？":"Does this text, table, image or log contain internal company or customer information?",
+"是":"Yes","否":"No","只用内网 Agent":"Internal agents only","或：内网匿名化 → 抽查 → 再发外网":"Or: anonymize internally → spot-check → then send out",
+"内外网都可以":"Either is fine","选效果最好的那个":"Use whichever works best","拿不准？":"Not sure? ","一律按“是”处理。":"Treat it as “yes”.",
+"必须外发时":"IF IT MUST GO OUTSIDE","先":"","匿名化":"Anonymize","，再":", ","抽查":"spot-check","，最后才外发":", then send",
+"内网匿名化":"Anonymize internally","用内网 Agent 把敏感字段替换成代号，比如“客户 A”“站点 01”。":"Use an internal agent to replace sensitive fields with codes like “Customer A” or “Site 01”.",
+"人工抽查":"Spot-check by hand","AI 匿名化也会漏。对照下面的清单，逐项看一遍。":"AI anonymization misses things. Go through the checklist below item by item.",
+"再发外网":"Then send out","只发处理后的版本，原件和对照表留在内网。":"Send only the processed version. The original and the mapping table stay inside.",
+"抽查清单":"SPOT-CHECK LIST","客户、运营商名称":"Customer & operator names","站点、地名、经纬度":"Sites, place names, coordinates","IP、MAC、网元名、序列号":"IPs, MACs, NE names, serial numbers",
+"人名、工号、电话、邮箱":"Names, employee IDs, phones, emails","合同号、项目编号、金额":"Contract & project numbers, amounts","截图里的水印、Logo、角落文字":"Watermarks, logos, corner text in screenshots",
+"最实用的一招":"THE MOST PRACTICAL TRICK","方法可以外借，":"Borrow the method. ","数据不出内网":"Keep the data inside.",
+"外网模型":"EXTERNAL MODEL","只有方法":"METHOD ONLY","描述需求和做法":"Describe the need & approach","用虚构的样例数据，不提真实客户和网络。":"Use made-up sample data. No real customers or networks.",
+"拿到工具和思路":"Get tools & ideas","脚本、模板、分析思路、优化过的提示词。":"Scripts, templates, analysis approaches, refined prompts.",
+"内网 Agent":"INTERNAL AGENT","真实数据":"REAL DATA","带回内网运行":"Run it inside","把工具和提示词交给内网 Agent，配合真实数据。":"Give the tools and prompts to an internal agent, with real data.",
+"在内网检验":"Verify inside","用 L4 的四个问题核查结果，确认无误再用。":"Check results with the four L4 questions before using them.",
+"只带方法，不带数据 →":"Method crosses, data doesn’t →","真实客户名、真实网络数据，":"Real customer names and network data ","始终只出现在右边。":"only ever live on the right.",
+"热身 · 一张漏斗图":"WARM-UP · ONE FUNNEL","全世界，有多少人":"How many people in the world ","真正在用":"really use","AI？":"AI?",
+"≈ 60 亿":"≈ 6 billion","几乎没碰过聊天机器人":"Have barely touched a chatbot","开始用 AI 的你，已经在这里":"Once you start using AI, you’re here",
+"10–20 亿":"1–2 billion","偶尔用用免费版，查查问题":"Occasionally use a free version to look things up","≈ 2000 万":"≈ 20 million","把整个项目交给智能体":"Hand entire projects to agents",
+"在 AI 实验室内部":"Work inside AI labs","只要真正用起来，你就已经走在":"Just by really using it, you’re already ahead of ","世界上约 75% 的人":"about 75% of the world","前面。今天的目标：":". Today’s goal: ","再往下走一层。":"move one layer down.",
+"来源：Andrej Karpathy，2026 年 10 月的粗略估算（“餐巾纸估算”），仅示意数量级":"Source: Andrej Karpathy, rough estimate, Oct 2026 (“napkin math”) — orders of magnitude only",
+"下一层 →":"Next layer →",
+"关闭":"Close","。":".","……":"…",
+"输入一个问题，按回车上墙…":"Type a problem and press Enter to pin it…"
+};
+const NOTES_EN=[
+"Don’t start with concepts. Set the tone in one line: today isn’t about how AI works — it’s about getting AI to take work off your plate. Suggested 90 minutes: 10 min collecting problems, ~12 min per level, 20 min practice.",
+"The key segment: collect 10–15 real problems. Prompt the room: what takes the most time? What’s most repetitive? What do you most fear getting wrong? Type each into the box and press Enter. Then tag each card L2–L5 for the chapter that best addresses it (multiple tags OK). Each chapter ends with a “live case” slide that pulls from this wall. Data is stored in this browser.",
+"The route for today: Know, Ask, Feed, Check, Use. Each level builds on the previous one. The problems we just collected will be solved across these levels.",
+"Chapter 1 only builds intuition: what it is and why it gets things wrong.",
+"Click twice. First it picks “config”. Then it produces a specific number out of nowhere. The point: at every step it picks the most likely word, not the true one — that’s where hallucination comes from. Percentages are illustrative.",
+"Each item on the right maps to a later chapter: not knowing → L3 Feed it; making things up → L4 Check it; not accountable → throughout.",
+"This metaphor runs through the whole session: an intern needs a brief (L2), material (L3), checking (L4), and can be given real work within red lines (L5).",
+"Checked on 2026-11-03. Products, plans and model options change fast — this is not a ranking. Key point: one product can switch between models. Confirm company policy and data rules first.",
+"No specific model recommendations — they change too fast. Teach the method: choose features by task type, then test with your own desensitized task.",
+"Chapter 2: same AI, different question, very different result.",
+"Left is how most people ask. Right says the same thing clearly — the brackets are what to fill in. Pick a problem from the wall and fill it out loud.",
+"The five elements are a way of thinking, not syntax. No need for “you are a world-class expert”. The last line — “ask me if anything is missing” — matters: it gives the model permission to ask back.",
+"Working with AI is multi-turn. If the first draft is off, say so directly, like coaching an intern. Three common follow-up patterns are below.",
+"Live case. Pick a problem from the left (L2-tagged ones appear first), or type one into the big text. Fill the five fields together with the room — click the grey text to type. Then “Copy as prompt” and run it in AI live.",
+"Chapter 3: AI can only answer from what it can see.",
+"The context window is a workbench: only what’s on it can be used. Tokens are the unit of measure, not equal to words. When full, old content may be cut or compressed — so restate key constraints in long chats; a new chat clears the bench.",
+"These three habits can go straight into team norms. The third is the least intuitive: most people don’t realize they can allow AI to say “I don’t know”.",
+"Live case. Pick a problem that involves reading material (usually L3-tagged). List together: what material to give, which is authoritative, what must never be uploaded.",
+"Chapter 4: the most important chapter for engineers. AI errors often look real, so you need a fixed set of checks.",
+"The three most common shapes of hallucination. Ask the room: has anyone been fooled by AI? A real story beats any prepared example.",
+"Print these four questions for every desk. Mention RAG briefly: AI first retrieves relevant passages from your specified material, then answers with citations — but citations can be wrong too, so open the source.",
+"Live case. Pick a problem where accuracy matters and write its checklist together: where is AI most likely to invent things? How do we verify? Who signs off?",
+"Chapter 5: from answering questions to doing the work — the biggest shift in AI right now.",
+"An agent is AI that can use tools and decide its next step based on results. The orbiting dot is the essence: a loop that runs until the goal is met or a stop condition hits. Chat delivers advice; an agent delivers finished work.",
+"Click through. Watch steps 2–3: the first result has problems, the agent catches them in a self-check and reruns — the essential difference from chat. The last step is still: wait for human review. This is an offline scripted demo. Ask: which problems on the wall suit an agent?",
+"Permissions are the most important topic in the agent era. These three tiers can go straight into team norms. Note: documents an agent reads may contain hidden “instructions” — never expand permissions because of them. Skills, APIs and MCP are ways to connect tools; none grants permission automatically.",
+"Subagents: a lead agent splits a big task into independent pieces, runs them in parallel, then merges. Good for parallelizable work. Subagents don’t automatically share all context; more agents means more coordination; agreement among agents doesn’t mean they’re right. Optional: have three colleagues role-play subagents on a wall problem.",
+"Live case. Pick a repetitive, multi-step problem and write an agent task card together: goal, allowed scope, when it must stop and ask, what it must never do, how to accept the result.",
+"Final challenge: combine all five levels to solve one real problem.",
+"About 4 teams of 4–5. Each team claims a problem from the wall (button below returns to it). Use the four templates — brief, material pack, checklist, task card — to deliver. Submit: final output + key prompts + one AI mistake caught.",
+"The timer only alerts at zero; it doesn’t change slides. It keeps running when you navigate, shown at bottom left. Accuracy is 40 points: invented key content costs heavily.",
+"Use actual outputs, not impressions. Separate causes: model limits, missing material, unclear prompts, tool failures, weak checking. Don’t blame everything on “bad prompts”.",
+"Encourage everyone to take one problem from the wall as their week-1 exercise. Confirm the data may be used with the chosen tool.",
+"Closing. These three lines are the essence — pause here and let people take a photo.",
+"Re-check product access and company policy before class. This page is not a ranking."
+];
+{let k=0;S.forEach(s=>{s._en=s.dataset.notesEn||NOTES_EN[k++]})}
+const LV={zh:['开场','懂它','问它','喂它','验它','用它','实战'],en:['Intro','Know','Ask','Feed','Check','Use','Practice']};
+const lvName=i=>LV[lang][i];
+
+/* keep zh originals */
+const SKIP='#wall,.case-root,#ntText,#ntCands,#dsteps,#dlog,#levels,#mc,#mt,#page,#clock,#painCount,#toast,#miniTimer,#langBtn,h1.split';
+const textNodes=[];
+{const w=document.createTreeWalker($('stage'),NodeFilter.SHOW_TEXT);let n;while(n=w.nextNode()){if(n.parentElement.closest(SKIP))continue;if(!n.nodeValue.trim())continue;n._zh=n.nodeValue;textNodes.push(n)}}
+const heads=[...document.querySelectorAll('h1.split')];heads.forEach(h=>h._zh=h.innerHTML);
+const trText=s=>{const k=s.trim();return (lang==='en'&&EN[k]!==undefined)?s.replace(k,EN[k]):s};
+function split(el){let d=0;const walk=n=>{[...n.childNodes].forEach(c=>{if(c.nodeType===3){const f=document.createDocumentFragment();[...c.textContent].forEach(ch=>{const s=document.createElement('span');s.className='ch';s.style.setProperty('--d',d++);s.textContent=ch;f.append(s)});c.replaceWith(f)}else if(c.nodeName!=='BR')walk(c)})};walk(el)}
+function splitWords(el){/* english: animate per word */let d=0;const walk=n=>{[...n.childNodes].forEach(c=>{if(c.nodeType===3){const f=document.createDocumentFragment();c.textContent.split(/(\s+)/).forEach(w=>{if(!w)return;if(/^\s+$/.test(w)){f.append(document.createTextNode(w));return}const s=document.createElement('span');s.className='ch';s.style.setProperty('--d',d);d+=3;s.textContent=w;f.append(s)});c.replaceWith(f)}else if(c.nodeName!=='BR')walk(c)})};walk(el)}
+
+function applyLang(){
+  document.documentElement.lang=lang==='en'?'en':'zh-CN';
+  document.title=L('AI 入门第一课','AI 101');
+  textNodes.forEach(n=>n.nodeValue=trText(n._zh));
+  heads.forEach(h=>{h.innerHTML=h._zh;const w=document.createTreeWalker(h,NodeFilter.SHOW_TEXT);const ns=[];let n;while(n=w.nextNode())ns.push(n);ns.forEach(n=>n.nodeValue=trText(n.nodeValue));lang==='en'?splitWords(h):split(h)});
+  $('painIn').placeholder=trText('输入一个问题，按回车上墙…');
+  $('langBtn').textContent=lang==='en'?'中文':'EN';
+  $('levels').querySelectorAll('button').forEach(b=>b.lastChild.nodeValue=lvName(+b.dataset.l));
+  renderWall([]);
+  if(idx>=0){const s=S[idx];if(s.classList.contains('case-slide'))buildCase(s);if(s.querySelector('#ntText'))ntReset();if(s.querySelector('#dlog'))demoRender();positionBar()}
+  if(!iv)$('tgo').textContent=L('开始','Start');
+}
+function toggleLang(){lang=lang==='en'?'zh':'en';store.set('lang',lang);applyLang();const s=S[idx];s.classList.remove('active');void s.offsetWidth;s.classList.add('active');measure(s);toast(L('已切换为中文','Switched to English'))}
+
+/* level nav */
+$('levels').insertAdjacentHTML('afterbegin',[1,2,3,4,5,6].map(i=>`<button data-l="${i}" onclick="go(S.findIndex(s=>s.dataset.lv==${i}))"><em>${i<6?'L'+i:'Go'}</em>x</button>`).join(''));
+
+function resize(){scale=Math.min(innerWidth/1920,innerHeight/1080);$('stage').style.transform=`scale(${scale})`}
+addEventListener('resize',resize);resize();
+
+function stagger(s){s.querySelectorAll('.r,.pop').forEach((el,i)=>{if(!el.style.getPropertyValue('--i'))el.style.setProperty('--i',i)})}
+function measure(s){s.querySelectorAll('.draw path,.draw line,.draw circle.d,.draw polyline').forEach(p=>{let l=1000;try{l=Math.ceil(p.getTotalLength())||2000}catch(e){}p.style.setProperty('--len',l)})}
+function positionBar(){const lv=+S[idx].dataset.lv;const btns=[...$('levels').querySelectorAll('button')];btns.forEach(b=>{const l=+b.dataset.l;b.classList.toggle('active',l===lv);b.classList.toggle('done',l<lv)});const ab=btns.find(b=>+b.dataset.l===lv);if(ab){$('lvBar').style.left=ab.offsetLeft+'px';$('lvBar').style.width=ab.offsetWidth+'px';$('lvBar').style.opacity=1}else $('lvBar').style.opacity=0}
+
+function go(n){
+  n=Math.max(0,Math.min(S.length-1,n));if(n===idx)return;
+  const prev=S[idx],back=n<idx;
+  if(prev){prev.classList.remove('active');prev.classList.add('leaving');prev.classList.toggle('back',back);setTimeout(()=>prev.classList.remove('leaving','back'),600)}
+  idx=n;const s=S[idx];
+  if(s.classList.contains('case-slide'))buildCase(s);
+  stagger(s);
+  s.classList.remove('active');void s.offsetWidth;s.classList.add('active');measure(s);
+  const o=(s.dataset.o||'50,0,0,50').split(',').map(Number);
+  $('orbA').style.transform=`translate(${o[0]*19.2-450}px,${o[1]*10.8-450}px)`;
+  $('orbB').style.transform=`translate(${o[2]*19.2-400}px,${o[3]*10.8-400}px)`;
+  positionBar();
+  $('page').innerHTML=`${String(idx+1).padStart(2,'0')} <small>/ ${S.length}</small>`;
+  $('bar').style.width=(idx+1)/S.length*100+'%';
+  try{history.replaceState(null,'','#'+(idx+1))}catch(e){}
+  closeModal();
+  if(s.querySelector('#ntText'))ntReset();
+  if(s.querySelector('#dlog'))demoReset();
+  if(s.querySelector('#funnel'))fnReset();
+}
+function move(d){go(idx+d)}
+
+/* modal & utils */
+function modal(t,h){lastFocus=document.activeElement;$('mt').textContent=t;$('mc').innerHTML=h;$('modal').classList.add('open');setTimeout(()=>$('modal').querySelector('.x').focus(),50)}
+function closeModal(){if(!$('modal').classList.contains('open'))return;$('modal').classList.remove('open');lastFocus?.focus?.()}
+function openNotes(){const t=lang==='en'?S[idx]._en:S[idx].dataset.notes;modal(L('讲师备注 · 第 '+(idx+1)+' 页','Speaker notes · '+(idx+1)),'<p>'+esc(t||L('（本页无备注）','(No notes)'))+'</p>')}
+function showText(t,b){window._copy=b;modal(t,'<pre>'+esc(b)+'</pre><div style="margin-top:24px"><button class="btn pri" onclick="copyText(window._copy)">'+L('复制','Copy')+'</button></div>')}
+function openOverview(){modal(L('目录','Overview'),'<div id="ov">'+S.map((s,i)=>{const h=s.querySelector('h1');const k=s.querySelector('.kicker');return `<button onclick="go(${i})"><small>${String(i+1).padStart(2,'0')} · ${lvName(s.dataset.lv)}</small>${esc(h?h.textContent:(k?k.textContent:''))}</button>`}).join('')+'</div>')}
+function toast(t){$('toast').textContent=t;$('toast').classList.add('on');clearTimeout(window._tt);window._tt=setTimeout(()=>$('toast').classList.remove('on'),2200)}
+async function copyText(t){try{if(navigator.clipboard&&isSecureContext)await navigator.clipboard.writeText(t);else{const e=document.createElement('textarea');e.value=t;e.style.cssText='position:fixed;opacity:0';document.body.append(e);e.select();document.execCommand('copy');e.remove()}toast(L('已复制，粘贴到单位允许使用的 AI 工具即可','Copied — paste it into an approved AI tool'))}catch(e){modal(L('请手动复制','Copy manually'),'<pre>'+esc(t)+'</pre>')}}
+async function full(){try{document.fullscreenElement?await document.exitFullscreen():await document.documentElement.requestFullscreen()}catch(e){toast(L('请按 F11 进入全屏','Press F11 for fullscreen'))}}
+function showTpl(){showText(L('通用提示词模板','Prompt template'),L(`【目标】我要得到：______，给 ______ 用。
+【背景】现在的情况是：______。
+【材料】我提供了：______。其中已确认的是 ______；还不确定的是 ______。
+【约束】不要猜测 ______；不要 ______。
+【交付】请按 ______ 格式输出，长度 ______。
+信息不够就先问我，不要猜。最后列出你不确定、需要我确认的地方。`,`[Goal] I need: ______, for ______.
+[Context] The situation is: ______.
+[Materials] I'm providing: ______. Confirmed: ______. Still unknown: ______.
+[Constraints] Do not guess ______; do not ______.
+[Deliverable] Output as ______, length ______.
+If information is missing, ask me first — don't guess. Finish by listing anything you're unsure about for me to confirm.`))}
+
+
+/* ===== funnel warm-up ===== */
+let fnI=0;
+function fnRows(){return [...$('funnel').querySelectorAll('.row')]}
+function fnReset(){fnI=0;fnRows().forEach(r=>r.classList.remove('on'));$('funnel').classList.remove('done')}
+function fnNext(){const rows=fnRows();if(fnI<rows.length){rows[fnI].classList.add('on');fnI++}else if(!$('funnel').classList.contains('done')){$('funnel').classList.add('done')}else toast(L('已到底，可点“重来”','That’s the bottom — press Restart'))}
+function goWall(){go(S.findIndex(s=>s.querySelector('#wall')))}
+/* ===== pain wall ===== */
+let pains=store.get('pains',[]);
+const HINTS={zh:['读不完的文档','写不完的报告','看不完的日志','重复的表格','啃不动的英文资料','传不下去的经验'],en:['Docs you can’t finish reading','Reports you can’t finish writing','Logs you can’t get through','Repetitive spreadsheets','Dense foreign-language docs','Know-how that never gets passed on']};
+function renderWall(animIds){
+  const w=$('wall');
+  if(!pains.length){w.innerHTML='<div class="hints">'+HINTS[lang].map(h=>`<span>${esc(h)}?</span>`).join('')+'</div>';$('painCount').textContent='0';return}
+  w.innerHTML=pains.map(p=>`<div class="pain" data-id="${p.id}" style="${animIds&&!animIds.includes(p.id)?'animation:none':''}"><button class="x" onclick="delPain(${p.id})">×</button>${esc(p.text)}<div class="tg">${[2,3,4,5].map(l=>`<button class="${(p.lv||[]).includes(l)?'on':''}" onclick="tagPain(${p.id},${l})">L${l}</button>`).join('')}</div></div>`).join('');
+  $('painCount').textContent=pains.length;
+}
+function addPain(t){t=t.trim();if(!t)return;const id=Date.now();pains.push({id,text:t,lv:[]});store.set('pains',pains);renderWall([id]);$('wall').scrollTop=1e6}
+function delPain(id){pains=pains.filter(p=>p.id!==id);store.set('pains',pains);renderWall([])}
+function tagPain(id,l){const p=pains.find(p=>p.id===id);p.lv=p.lv||[];p.lv.includes(l)?p.lv=p.lv.filter(x=>x!==l):p.lv.push(l);store.set('pains',pains);renderWall([])}
+function clearPains(){if(!pains.length)return;pains=[];store.set('pains',pains);renderWall([]);toast(L('已清空','Cleared'))}
+$('painIn').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing){addPain(e.target.value);e.target.value=''}});
+
+/* ===== case slides ===== */
+const CASES={
+ 2:{t:['任务交底','Task brief'],f:[[['目标','要得到什么？给谁用？'],['Goal','What do you need? Who is it for?']],[['背景','现在是什么情况？'],['Context','What’s the situation?']],[['材料','提供哪些资料？哪些已知 / 未知？'],['Materials','What will you provide? Known / unknown?']],[['约束','什么不能猜？什么不能做？'],['Constraints','What must not be guessed or done?']],[['交付','什么格式？多长？什么结构？'],['Deliverable','Format? Length? Structure?']]],
+   tail:['信息不够就先问我，不要猜。最后列出需要我确认的地方。','If information is missing, ask me first — don’t guess. Finish by listing what I need to confirm.']},
+ 3:{t:['材料包','Material pack'],f:[[['主材料','以哪份为准？版本、日期？'],['Primary','Which file is authoritative? Version, date?']],[['参考材料','哪些仅供参考？'],['Reference','What is reference only?']],[['缺口','还缺什么？谁能补？'],['Gaps','What’s missing? Who can supply it?']],[['找不到时','让它怎么做？（如：明确说没找到）'],['If not found','What should it do? (e.g. say “not found”)']],[['不能上传','哪些必须脱敏或不给？'],['Never upload','What must be desensitized or withheld?']]],
+   tail:['请只基于以上材料回答，每条结论标注来源；找不到就明确说没找到。','Answer only from the material above and cite a source for every conclusion; if it isn’t there, say so.']},
+ 4:{t:['核查清单','Checklist'],f:[[['数字','哪些数字必须回到原始数据核对？'],['Numbers','Which figures must be traced to raw data?']],[['因果','哪些结论需要证据支撑？'],['Causality','Which conclusions need evidence?']],[['出处','引用了哪些文档？怎么打开核对？'],['Sources','Which documents are cited? How do we open them?']],[['越权','有没有对外承诺、需要批准的内容？'],['Authority','Any commitments that need approval?']],[['签字人','最终由谁审核负责？'],['Sign-off','Who reviews and owns the result?']]],
+   head:['请按以下清单核查你刚才的输出，逐条说明依据，不确定的标为“待确认”。','Check your previous output against this list. Give evidence for each item and mark anything uncertain as “to confirm”.']},
+ 5:{t:['Agent 任务卡','Agent task card'],f:[[['目标','做完是什么样子？'],['Goal','What does “done” look like?']],[['允许','可以读哪些文件、用哪些工具？'],['Allowed','Which files and tools may it use?']],[['先问我','遇到什么情况必须停下来问人？'],['Ask first','When must it stop and ask a human?']],[['绝不碰','哪些操作任何情况都不能做？'],['Never','What must it never do?']],[['验收','交付物是什么？我怎么检查？'],['Acceptance','What’s delivered? How will I check it?']]],
+   tail:['遇到“先问我”的情况立即停下报告；完成后列出过程记录和待我确认的事项。','Stop and report on any “ask first” case. When done, list the work log and items for me to confirm.']}
+};
+function buildCase(s){
+  const lv=+s.dataset.case,c=CASES[lv],root=s.querySelector('.case-root'),st=store.get('case'+lv,{pain:'',f:{}}),li=lang==='en'?1:0;
+  const sorted=[...pains].sort((a,b)=>((b.lv||[]).includes(lv))-((a.lv||[]).includes(lv)));
+  root.innerHTML=`<div class="case">
+   <div class="left"><div class="lbl">${L('本页案例 · 从痛点墙挑选或直接输入','THIS CASE · PICK FROM THE WALL OR TYPE')}</div>
+     <div class="chosen" contenteditable="true" data-ph="${L('点这里输入，或从下方挑一个问题','Type here, or pick a problem below')}">${esc(st.pain)}</div>
+     <div class="pick">${sorted.length?sorted.map(p=>`<button data-t="${esc(p.text)}" class="${p.text===st.pain?'on':''}">${(p.lv||[]).includes(lv)?'<small>L'+lv+'</small>':''}${esc(p.text)}</button>`).join(''):`<div class="empty">${L('痛点墙还是空的。<br>可以直接在上方输入，或','The wall is empty.<br>Type above, or')} <a href="#" onclick="goWall();return false" style="color:var(--acc)">${L('回到痛点墙收集','go back to the wall to collect')}</a>.</div>`}</div>
+   </div>
+   <div><div class="lbl">${c.t[li]} · ${L('点击灰字填写','CLICK THE GREY TEXT TO FILL IN')}</div><div class="tpl">${c.f.map((f,i)=>`<div class="f"><b><i>${['i','ii','iii','iv','v'][i]}.</i><span>${f[li][0]}</span></b><div contenteditable="true" data-k="${i}" data-ph="${esc(f[li][1])}">${esc(st.f[i]||'')}</div></div>`).join('')}</div>
+   <div style="display:flex;gap:12px;margin-top:28px"><button class="btn pri" data-copy>${L('复制为提示词','Copy as prompt')}</button><button class="btn" data-clear>${L('清空本页','Clear this page')}</button></div></div></div>`;
+  const save=()=>{const v={pain:root.querySelector('.chosen').innerText.trim(),f:{}};root.querySelectorAll('[data-k]').forEach(e=>v.f[e.dataset.k]=e.innerText.trim());store.set('case'+lv,v);return v};
+  root.querySelectorAll('[contenteditable]').forEach(e=>e.addEventListener('input',save));
+  root.querySelectorAll('.pick button').forEach(b=>b.onclick=()=>{const ch=root.querySelector('.chosen');ch.textContent=b.dataset.t;root.querySelectorAll('.pick button').forEach(x=>x.classList.toggle('on',x===b));ch.animate([{opacity:0,transform:'translateY(16px)',filter:'blur(6px)'},{opacity:1,transform:'none',filter:'none'}],{duration:700,easing:'cubic-bezier(.19,1,.22,1)'});save()});
+  root.querySelector('[data-copy]').onclick=()=>{const v=save();let t=`${L('问题','Problem')}: ${v.pain||'______'}\n\n`+c.f.map((f,i)=>`[${f[li][0]}] ${v.f[i]||'______'}`).join('\n');
+    if(c.tail)t+='\n\n'+c.tail[li];if(c.head)t=c.head[li]+'\n\n'+t;copyText(t)};
+  root.querySelector('[data-clear]').onclick=()=>{store.set('case'+lv,{pain:'',f:{}});buildCase(s);toast(L('已清空本页','Page cleared'))};
+}
+
+/* ===== next token ===== */
+const NTD={zh:{base:'这个问题最可能的原因是',steps:[{c:[['配置',46],['网络',24],['版本',18],['人为',12]],add:'配置'},{pre:'错误，大约影响了',c:[['30%',38],['一半',27],['部分',21],['少量',14]],add:'30%',warn:1}]},
+ en:{base:'The most likely cause of this problem is a',steps:[{c:[['config',46],['network',24],['version',18],['human',12]],add:' config'},{pre:' error, affecting about',c:[['30%',38],['half',27],['some',21],['a few',14]],add:' 30%',warn:1}]}};
+let ntI=0,ntS=[],busy=false;
+function ntDraw(c,show){
+  $('ntText').innerHTML=ntS.map(x=>x.n?`<span class="new">${esc(x.t)}</span>`:esc(x.t)).join('')+'<span class="cur"></span>';
+  $('ntCands').innerHTML=(c||[]).map((x,i)=>`<div class="cand ${show&&i===0?'top':''}"><span class="w">${x[0]}</span><div class="bar"><i data-w="${x[1]}"></i></div><span class="p">${show?x[1]+'%':''}</span></div>`).join('');
+  requestAnimationFrame(()=>requestAnimationFrame(()=>$('ntCands').querySelectorAll('i').forEach(i=>i.style.width=show?i.dataset.w*1.9+'%':'0')));
+}
+function ntReset(){const NT=NTD[lang];ntI=0;busy=false;ntS=[{t:NT.base}];$('ntWarn').classList.remove('on');ntDraw(NT.steps[0].c,false)}
+function ntNext(){
+  const NT=NTD[lang];
+  if(busy)return;if(ntI>=NT.steps.length*2){toast(L('演示结束，可点“重来”','Demo finished — press Restart'));return}
+  const st=NT.steps[ntI>>1];
+  if(ntI%2===0){ntS.forEach(x=>x.n=0);if(st.pre)ntS.push({t:st.pre});ntDraw(st.c,true);ntI++;return}
+  busy=true;
+  const from=$('ntCands').querySelector('.cand .w').getBoundingClientRect(),to=$('ntText').querySelector('.cur').getBoundingClientRect(),sr=$('stage').getBoundingClientRect();
+  const f=document.createElement('div');f.className='fly';f.textContent=st.add.trim();$('stage').append(f);
+  const x0=(from.left-sr.left)/scale,y0=(from.top-sr.top)/scale-14,x1=(to.left-sr.left)/scale,y1=(to.top-sr.top)/scale-8;
+  f.style.left=x0+'px';f.style.top=y0+'px';
+  f.animate([{transform:'translate(0,0) scale(.55)',opacity:.4},{transform:`translate(${(x1-x0)*.5}px,${(y1-y0)*.5-80}px) scale(1.1)`,opacity:1,offset:.55},{transform:`translate(${x1-x0}px,${y1-y0}px) scale(1)`,opacity:1}],{duration:900,easing:'cubic-bezier(.65,0,.35,1)'}).onfinish=()=>{f.remove();ntS.push({t:st.add,n:1});ntDraw(st.c,true);if(st.warn)$('ntWarn').classList.add('on');busy=false};
+  ntI++;
+}
+
+/* ===== agent demo ===== */
+const DEMO={zh:[
+ ['明确任务',['<span class="k">目标</span>  汇总文件夹里的 12 份资料，出一页要点','<span class="k">允许</span>  读取该文件夹 · 生成草稿','<span class="k">停止</span>  缺文件 / 版本冲突 / 涉及敏感数据']],
+ ['首次执行',['<span class="a">▸ read</span>  12 files','<span class="a">▸ write</span> summary_draft.md','<span class="k">结果</span>  初稿 18 条要点']],
+ ['自我检查',['<span class="a">▸ check</span> 逐条对照原文','<span class="w">⚠ 发现</span>  3 份是旧版本，内容与新版冲突','<span class="w">⚠ 发现</span>  2 条要点找不到出处']],
+ ['修正重跑',['<span class="a">▸ filter</span> 只保留最新版本（9 份）','<span class="a">▸ write</span> summary_v2.md','<span class="ok">✓</span>  16 条要点，每条附来源与页码']],
+ ['提交待审',['<span class="k">交付</span>  要点 + 来源 + 待确认项 2 条','<span class="ok">● 等待你审核</span>','<span class="k">注：生成文件 ≠ 内容已确认</span>']]],
+ en:[
+ ['Define the task',['<span class="k">goal</span>   Summarize 12 files into a one-page brief','<span class="k">allow</span>  Read this folder · write drafts','<span class="k">stop</span>   Missing file / version conflict / sensitive data']],
+ ['First run',['<span class="a">▸ read</span>  12 files','<span class="a">▸ write</span> summary_draft.md','<span class="k">result</span> Draft with 18 points']],
+ ['Self-check',['<span class="a">▸ check</span> Compare each point with source','<span class="w">⚠ found</span>  3 files are outdated and conflict','<span class="w">⚠ found</span>  2 points have no source']],
+ ['Fix & rerun',['<span class="a">▸ filter</span> Keep latest versions only (9)','<span class="a">▸ write</span> summary_v2.md','<span class="ok">✓</span>  16 points, each with source and page']],
+ ['Submit for review',['<span class="k">output</span> Points + sources + 2 open items','<span class="ok">● Waiting for your review</span>','<span class="k">note: a file written ≠ content confirmed</span>']]]};
+let dI=-1;
+function demoRender(){const demo=DEMO[lang];
+  $('dsteps').innerHTML=demo.map((d,i)=>`<div class="${i===dI?'on':i<dI?'done':''}"><i>${i<dI?'✓':i+1}</i>${d[0]}</div>`).join('');
+  $('dlog').innerHTML=dI<0?`<span class="k">${L('// 点击「下一步」开始\n// 离线预置演示，不调用模型、不访问文件','// Press “Next step” to begin\n// Offline scripted demo — no model calls, no file access')}</span>`:demo.slice(0,dI+1).map((d,j)=>d[1].map((l,k)=>`<span class="ln" style="animation-delay:${j===dI?k*220:0}ms;${j<dI?'opacity:.38;animation:none':''}">${l}</span>`).join('')).join('<span class="ln" style="animation:none"> </span>');
+}
+function demoNext(){if(dI<DEMO[lang].length-1){dI++;demoRender()}else toast(L('演示完成，可重置','Demo complete — press Reset'))}
+function demoReset(){dI=-1;demoRender()}
+
+/* ===== timer ===== */
+let dur=900,remain=900000,deadline=0,iv=null;
+function paint(){const ms=iv?Math.max(0,deadline-Date.now()):remain,s=Math.ceil(ms/1000),t=`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;$('clock').textContent=t;$('clock').classList.toggle('exp',ms<=0);$('miniTimer').textContent=iv?'· '+L('计时 ','timer ')+t:'';if(ms<=0&&iv){clearInterval(iv);iv=null;remain=0;$('tgo').textContent=L('重新开始','Restart');$('miniTimer').textContent=L('· 时间到','· time’s up');toast(L('时间到，请提交当前版本','Time’s up — submit what you have'))}}
+function toggleTimer(){if(iv){remain=Math.max(0,deadline-Date.now());clearInterval(iv);iv=null;$('tgo').textContent=L('继续','Resume')}else{if(remain<=0)remain=dur*1000;deadline=Date.now()+remain;iv=setInterval(paint,200);$('tgo').textContent=L('暂停','Pause')}paint()}
+function resetTimer(){clearInterval(iv);iv=null;remain=dur*1000;$('tgo').textContent=L('开始','Start');paint()}
+$('seg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;[...$('seg').children].forEach(x=>x.classList.toggle('on',x===b));dur=+b.dataset.s;resetTimer()});
+
+/* ===== input ===== */
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){closeModal();document.activeElement?.blur?.();return}
+  if($('modal').classList.contains('open'))return;
+  const t=e.target;if(['INPUT','TEXTAREA','SELECT'].includes(t.tagName)||t.isContentEditable)return;
+  if(['ArrowRight','PageDown',' '].includes(e.key)){e.preventDefault();move(1)}
+  else if(['ArrowLeft','PageUp'].includes(e.key)){e.preventDefault();move(-1)}
+  else if(e.key==='Home')go(0);else if(e.key==='End')go(S.length-1);
+  else{const k=e.key.toLowerCase();if(k==='f')full();else if(k==='o')openOverview();else if(k==='n')openNotes();else if(k==='l')toggleLang()}
+});
+$('modal').addEventListener('click',e=>{if(e.target===$('modal'))closeModal()});
+let tx=0,ty=0;
+document.addEventListener('touchstart',e=>{tx=e.changedTouches[0].clientX;ty=e.changedTouches[0].clientY},{passive:true});
+document.addEventListener('touchend',e=>{if($('modal').classList.contains('open')||e.target.closest('button,a,input,[contenteditable]'))return;const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*2)move(dx<0?1:-1)},{passive:true});
+$('stage').addEventListener('mousemove',e=>{if(idx!==0)return;const r=$('stage').getBoundingClientRect(),x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;S[0].querySelector('.wave').style.transform=`translate(${x*-40}px,${y*-20}px)`});
+
+applyLang();
+go((parseInt(location.hash.slice(1))||1)-1);paint();
+</script>
+
+</body>
+</html>

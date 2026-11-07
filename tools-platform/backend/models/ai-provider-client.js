@@ -62,9 +62,10 @@ function normalizeMessages(messages = []) {
             const images = role === 'user' && Array.isArray(msg.images)
                 ? msg.images.filter(image => image && /^image\/(png|jpeg|webp|gif)$/.test(image.mimeType) && typeof image.data === 'string' && image.data.length <= 10 * 1024 * 1024).slice(0, 6).map(image => ({ mimeType: image.mimeType, data: image.data }))
                 : [];
-            if (!content && !toolCalls && !images.length) return null;
+            const audio=role==='user'&&Array.isArray(msg.audio)?msg.audio.filter(item=>item&&/^audio\/(webm|mp4|wav|mpeg)$/.test(item.mimeType)&&typeof item.data==='string'&&item.data.length<=12*1024*1024).slice(0,1).map(({mimeType,data})=>({mimeType,data})):[];
+            if (!content && !toolCalls && !images.length&&!audio.length) return null;
             if (toolCalls) return { role, content, toolCalls };
-            return images.length ? { role, content, images } : { role, content };
+            return {role,content,...(images.length?{images}:{}),...(audio.length?{audio}:{})};
         })
         .filter(Boolean);
 }
@@ -244,7 +245,7 @@ function toGeminiContents(messages, { model = '' } = {}) {
             });
             return { role: 'model', parts };
         }
-        if (msg.images) return { role: 'user', parts: [...msg.images.map(image => ({ inlineData: { mimeType: image.mimeType, data: image.data } })), ...(msg.content ? [{ text: msg.content }] : [])] };
+        if (msg.images || msg.audio) return {role:'user',parts:[...[...(msg.images||[]),...(msg.audio||[])].map(item=>({inlineData:item})),...(msg.content?[{text:msg.content}]:[])]};
         return { role: msg.role === 'model' ? 'model' : 'user', parts: [{ text: msg.content }] };
     });
     // 兜底：Gemini 要求带 functionCall 的模型回合紧跟用户消息或工具结果；相邻的模型回合合并为一个（文字在前、调用在后）。
@@ -579,6 +580,7 @@ class AiProviderClient {
         const protection = { secrets: [this.apiKey] };
         systemInstruction = redactText(systemInstruction, protection);
         const finalMessages = redactValue(messages ? normalizeMessages(messages) : [{ role: 'user', content: String(prompt || '') }], protection);
+        if(finalMessages.some(message=>message.audio?.length)&&this.provider!=='gemini')throw Object.assign(new Error('当前供应商不支持此音频输入'),{code:'AI_SPEECH_UNSUPPORTED'});
         const finalTools = normalizeTools(tools);
         const toolOptions = finalTools.length ? { tools: finalTools, toolChoice } : {};
         const regularRequest = async () => {

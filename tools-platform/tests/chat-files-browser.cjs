@@ -38,6 +38,40 @@ app.whenReady().then(async () => {
     await evaluate(`document.body.classList.add('home-mode-chat');
         const p=document.createElement('p'); p.id='fixture'; p.innerHTML='before'+ChatFiles.chipHtml('/tmp/a.md')+'after'+ChatFiles.chipHtml('/tmp/b.json');document.body.append(p);`);
     assert.equal(await evaluate(`(()=>{const p=fixture, c=p.querySelector('.ai-file-chip');const before=document.createRange();before.setStart(p.firstChild,0);before.setEnd(p.firstChild,6);const after=document.createRange();after.selectNodeContents(p.childNodes[2]);return c.getBoundingClientRect().top>=before.getBoundingClientRect().bottom && after.getBoundingClientRect().top>=c.getBoundingClientRect().bottom})()`), true, 'file occupies its own line between text');
+    await evaluate(`
+        window.fileReplies=document.createElement('section');
+        fileReplies.innerHTML='<div class="dc-msg dc-msg--ai" id="multiFiles"><div class="dc-msg-body"><p>修复：在 '+ChatFiles.chipHtml('/tmp/a.md','CODE0')+' 的 '+ChatFiles.chipHtml('/tmp/b.json','CODE1')+' 中。</p></div></div>'
+            +'<div class="dc-msg dc-msg--ai" id="singleFile">'+ChatFiles.chipHtml('/tmp/only.pdf','报告')+'</div>'
+            +'<div class="ai-msg ai" id="assistantFiles">'+ChatFiles.chipHtml('/tmp/c.csv')+ChatFiles.chipHtml('/tmp/d.txt')+'</div>'
+            +'<div class="dc-msg dc-msg--user" id="userFiles">'+ChatFiles.chipHtml('/tmp/upload.csv')+ChatFiles.chipHtml('/tmp/upload.txt')+'</div>';
+        document.body.append(fileReplies);`);
+    await until(`multiFiles.querySelectorAll('.ai-file-chip--compact').length===2`);
+    assert.equal(await evaluate(`multiFiles.querySelector('.ai-file-chip-name').textContent`), 'a.md', 'compact references show filenames instead of CODE labels');
+    assert.equal(await evaluate(`getComputedStyle(multiFiles.querySelector('.ai-file-chip')).display`), 'inline', 'files separated by prose remain inline');
+    assert.equal(await evaluate(`getComputedStyle(multiFiles.querySelector('.ai-file-chip-icon')).display`), 'none');
+    assert.equal(await evaluate(`getComputedStyle(multiFiles.querySelector('.ai-file-chip-download')).display`), 'none', 'compact links do not repeat download buttons');
+    assert.equal(await evaluate(`singleFile.querySelector('.ai-file-chip').classList.contains('ai-file-chip--compact')`), false, 'single file in another reply remains a card');
+    assert.equal(await evaluate(`singleFile.querySelector('.ai-file-chip-name').textContent`), '报告', 'single file retains its display label');
+    assert.equal(await evaluate(`assistantFiles.querySelectorAll('.ai-file-chip--compact').length`), 2, 'shared AI assistant uses compact references');
+    assert.equal(await evaluate(`userFiles.querySelectorAll('.ai-file-chip--compact').length`), 0, 'user uploads retain their cards');
+    await evaluate(`multiFiles.querySelector('.ai-file-chip-name').click()`);
+    await until(`document.querySelector('.ai-file-preview pre')?.textContent.includes('中文')`);
+    await evaluate(`ChatFiles.closePreview();multiFiles.querySelectorAll('.ai-file-chip')[1].remove()`);
+    await until(`!multiFiles.querySelector('.ai-file-chip--compact')`);
+    assert.equal(await evaluate(`multiFiles.querySelector('.ai-file-chip-name').textContent`), 'CODE0', 'removing a streamed reference restores the single card label');
+    await evaluate(`multiFiles.querySelector('.dc-msg-body').insertAdjacentHTML('beforeend','<p>与 '+ChatFiles.chipHtml('/tmp/again.txt')+'。</p>')`);
+    await until(`multiFiles.querySelectorAll('.ai-file-chip--compact').length===2`);
+    win.setSize(420, 900);
+    await until(`innerWidth<=420`);
+    await evaluate(`multiFiles.querySelector('.ai-file-chip-name').textContent='很长的文件名称用于验证手机窄屏下的自动换行'.repeat(6)+'.md'`);
+    assert.equal(await evaluate(`multiFiles.scrollWidth<=multiFiles.clientWidth`), true, 'compact filenames wrap on narrow screens');
+    await evaluate(`document.documentElement.dataset.theme='dark'`);
+    assert.equal(await evaluate(`getComputedStyle(multiFiles.querySelector('.ai-file-chip')).backgroundColor`), 'rgba(0, 0, 0, 0)', 'compact dark references have no card background');
+    await evaluate(`document.documentElement.dataset.theme='light'`);
+    assert.equal(await evaluate(`getComputedStyle(multiFiles.querySelector('.ai-file-chip')).backgroundColor`), 'rgba(0, 0, 0, 0)', 'compact light references have no card background');
+    await evaluate(`fileReplies.remove();localStorage.removeItem('dragon_claw_workspace_open')`);
+    win.setSize(1440, 950);
+    await until(`innerWidth===1440`);
     await evaluate(`fixture.querySelector('.ai-file-chip-name').click()`);
     await until(`document.querySelector('.ai-file-preview pre')?.textContent.includes('中文')`);
     assert.equal(await evaluate(`Math.abs(dcWorkspacePanel.getBoundingClientRect().bottom-(innerHeight-${v2 ? 0 : 18}))<3`), true, 'preview fills visible height below navbar');
@@ -101,5 +135,5 @@ app.whenReady().then(async () => {
     assert.equal(await evaluate(`Math.abs(document.querySelector('.ai-file-preview').getBoundingClientRect().bottom-(innerHeight-18))<3`), true, 'floating preview fills remaining viewport');
     await evaluate(`ChatFiles.closePreview()`);
     assert.equal(await evaluate(`!!document.querySelector('.ai-file-preview')`), false);
-    console.log('PASS: own-line files, inline preview, safe text, full viewport height, drag resizing, width restoration, narrow layout and fallback');
+    console.log('PASS: compact multi-file replies, single-file cards, streaming regrouping, inline preview, safe text, full viewport height, drag resizing, width restoration, narrow layout and fallback');
 }).then(() => app.exit(0)).catch(error => { console.error(error); app.exit(1); }).finally(() => { server?.close(); fs.rmSync(temp, {recursive:true,force:true}); });

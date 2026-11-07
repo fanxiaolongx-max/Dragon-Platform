@@ -62,15 +62,19 @@
     <link rel="stylesheet" href="/css/home-capabilities.css">
     <link rel="stylesheet" href="/css/home-v2.css">
     <link rel="stylesheet" href="/css/home-theme.css">
+    <link rel="stylesheet" href="/css/home-sidebar-menu.css">
+    <link rel="stylesheet" href="/css/browser-sidebar.css">
     <link rel="stylesheet" href="/css/conversation-rail.css">
     <link rel="stylesheet" href="/css/conversation-bottom.css">
     <link rel="stylesheet" href="/css/home-skill-hub.css">
+    <link rel="stylesheet" href="/css/voice-input.css">
 </head>
 <body class="home-mode-chat home-booting">
     <script>
         // 首帧前恢复上次的侧栏收起状态与模式，避免对话列表先出现再收起（规则与 js/home/home-mode.js 一致）
         (function () {
             var body = document.body;
+            if (window.innerWidth <= 860) body.classList.add('v2-side-collapsed');
             try {
                 if (localStorage.getItem('tools_home_wide') === '1') document.documentElement.classList.add('v2-wide');
                 if (location.hash === '#tools') { body.classList.remove('home-mode-chat'); body.classList.add('home-mode-tools'); }
@@ -286,6 +290,7 @@
                 </div>
                 <div class="dc-chat-actions">
                     <button type="button" class="dc-ghost-btn dc-workspace-toggle" id="dcWorkspaceToggle" hidden aria-pressed="false"><span class="dc-workspace-toggle-dot" aria-hidden="true"></span><span data-dc-i18n="workspace">工作区</span></button>
+                    <button type="button" class="dc-ghost-btn" id="dcBrowserToggle" aria-pressed="false">浏览器</button>
                     <button type="button" class="dc-ghost-btn dc-history-btn" id="dcHistoryBtn" data-dc-i18n="history">历史</button>
                     <div class="dc-export" id="dcExport">
                         <button type="button" class="dc-ghost-btn" id="dcExportLog" aria-haspopup="menu" aria-expanded="false" aria-controls="dcExportMenu"><span data-dc-i18n="exportLog">导出日志</span><svg class="dc-model-caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
@@ -323,7 +328,7 @@
                         <div class="dc-model-menu" id="dcModelMenu" role="dialog" hidden></div>
                     </div>
                     <span class="dc-hint" data-dc-i18n="hint">Enter 发送 · Shift + Enter 换行</span>
-                    <button type="button" class="dc-composer-icon dc-voice" id="dcVoice" data-v2 aria-label="语音输入（即将支持）" aria-disabled="true"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="7" y="2.5" width="6" height="10" rx="3" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M4.5 9.5a5.5 5.5 0 0 0 11 0M10 15v3M7.5 18h5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+                    <button type="button" class="dc-composer-icon dc-voice" id="dcVoice" aria-label="语音输入" aria-pressed="false"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="7" y="2.5" width="6" height="10" rx="3" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M4.5 9.5a5.5 5.5 0 0 0 11 0M10 15v3M7.5 18h5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
                     <button type="submit" class="dc-send" id="dcSend" aria-label="发送">
                         <svg class="dc-send-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3 17 16.2 10 13.2 3 16.2 10 3Z" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/></svg>
                         <svg class="dc-stop-icon" viewBox="0 0 20 20" aria-hidden="true"><rect x="6" y="6" width="8" height="8" rx="1.5" fill="currentColor"/></svg>
@@ -802,13 +807,16 @@
     <script src="/js/home/workspace.js"></script>
     <script src="/js/home/capabilities.js"></script>
     <script src="/js/home/skills-tools.js"></script>
+    <script src="/js/shared/sidebar-resize.js"></script>
     <script src="/js/home/workspace-panel.js"></script>
+    <script src="/js/home/browser-sidebar.js"></script>
     <script src="/js/shared/ide-highlighter.js"></script>
     <script src="/js/home/conversation-list.js"></script>
     <script src="/js/home/dragon-claw.js"></script>
     <script src="/js/home/conversation-search.js"></script>
     <script src="/js/home/conversation-rail.js"></script>
     <script src="/js/home/conversation-bottom.js"></script>
+    <script src="/js/shared/voice-input.js"></script>
     <script src="/js/home/composer-controls.js"></script>
     <script src="/js/home/welink-threads.js"></script>
     <script src="/js/home/desktop-agents.js"></script>
@@ -818,6 +826,7 @@
     <script src="/js/home/dragon-claw-skills.js"></script>
     <script src="/js/home/home-page.js"></script>
     <script src="/js/home/home-v2.js"></script>
+    <script src="/js/home/sidebar-menu.js"></script>
     <script src="/js/home/tool-menu.js"></script>
     <script src="/js/home/skill-hub.js"></script>
     <script src="/js/home/tool-frame.js"></script>

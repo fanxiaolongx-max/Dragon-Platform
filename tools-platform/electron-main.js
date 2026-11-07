@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, session, shell, Tray, Menu, nativeImage, nativeTheme, clipboard, net, screen } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, session, shell, Tray, Menu, nativeImage, nativeTheme, clipboard, net, screen, systemPreferences } = require('electron');
 
 // 绿色版自动更新的最后一步：新版先等旧版进程全部退出，再把自己换到原 EXE 的位置（必须在单实例锁之前）
 const portableSwap = process.platform === 'win32' && process.env.PORTABLE_EXECUTABLE_FILE
@@ -113,6 +113,9 @@ const desktopPromotions = (() => {
 ipcMain.on('promo-card:action', (event, action, payload) => {
     try { desktopPromotions.handleAction(event.sender, action, payload); } catch (error) { console.warn('[Electron] Promotion card action failed:', error.message || error); }
 });
+
+require('./desktop-speech').registerSpeechPermission({ipcMain,getWindow:()=>mainWindow.window,getBaseUrl:getAppBaseUrl,systemPreferences});
+require('./desktop-browser-sidebar').registerBrowserSidebar({ ipcMain, getWindow: () => mainWindow.window, getBaseUrl: getAppBaseUrl, browser: desktopPromotions, onReadingChange: active => petManager.setQuotaReadingMode(active) });
 
 function getAppIconPath() {
     const resolver = typeof resolveLogoAsset === 'function'

@@ -135,3 +135,68 @@ test('timestamp parser treats SQLite UTC string consistently with ISO strings ac
  // 对话 B (22:42 UTC) 应比 对话 A (21:50 UTC) 更新
  assert.ok(timeB > timeA, `Expected ${sqliteUtcTime} (${timeB}) to be newer than ${agentIsoTime} (${timeA})`);
 });
+
+test('Antigravity local storage catalog reads conversation list, busy status, and full transcript with token/tps rounds', async t => {
+ const sqlite3 = require('sqlite3');
+ const { antigravity, antigravityBusyIds, antigravityTranscript } = require('../backend/models/desktop-agents/catalog');
+ const agDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ag-local-'));
+ t.after(() => fs.rmSync(agDir, { recursive: true, force: true }));
+ process.env.ANTIGRAVITY_APP_DATA_DIR = agDir;
+ t.after(() => delete process.env.ANTIGRAVITY_APP_DATA_DIR);
+
+ const convId = '11111111-2222-3333-4444-555555555555';
+ const subId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+ const nowIso = new Date().toISOString();
+ const dbPath = path.join(agDir, 'conversation_summaries.db');
+ const db = new sqlite3.Database(dbPath);
+ await new Promise((res, rej) => db.run(
+  'CREATE TABLE conversation_summaries (conversation_id TEXT PRIMARY KEY, title TEXT, preview TEXT, status TEXT, last_modified_time TEXT, last_user_input_time TEXT, workspace_uris TEXT, parent_conversation_id TEXT, killed INTEGER, not_fully_idle INTEGER)',
+  err => err ? rej(err) : res()
+ ));
+ await new Promise((res, rej) => db.run(
+  `INSERT INTO conversation_summaries VALUES ('${convId}', '优化右侧工作区面板', '预览文本', 'CASCADE_RUN_STATUS_RUNNING', '${nowIso}', '${nowIso}', '["file:///Volumes/512G/project"]', '', 0, 1)`,
+  err => err ? rej(err) : res()
+ ));
+ await new Promise((res, rej) => db.run(
+  `INSERT INTO conversation_summaries VALUES ('${subId}', 'Subagent task', '', 'CASCADE_RUN_STATUS_IDLE', '${nowIso}', '${nowIso}', '[]', '${convId}', 0, 0)`,
+  err => err ? rej(err) : res()
+ ));
+ await new Promise(res => db.close(res));
+
+ const logDir = path.join(agDir, 'brain', convId, '.system_generated', 'logs');
+ const mediaDir = path.join(agDir, 'brain', convId, '.user_uploaded');
+ fs.mkdirSync(logDir, { recursive: true });
+ fs.mkdirSync(mediaDir, { recursive: true });
+ const imgPath = path.join(mediaDir, 'shot.png');
+ fs.writeFileSync(imgPath, 'png');
+ const steps = [
+  { step_index: 1, type: 'USER_INPUT', created_at: '2026-11-07T12:00:00Z', content: '<USER_REQUEST>\n检查这段代码\n</USER_REQUEST>\n<USER_SETTINGS_CHANGE>\nThe user changed `Model Selection` from Gemini 3.0 Flash to Gemini 3.1 Pro (High).\n</USER_SETTINGS_CHANGE>', media: [{ mime_type: 'image/png', uri: imgPath }] },
+  { step_index: 2, type: 'PLANNER_RESPONSE', status: 'DONE', created_at: '2026-11-07T12:00:01Z', thinking: '先读取文件', input_tokens: 1000, cache_read_tokens: 500, output_tokens: 200, tool_calls: [{ name: 'read_file' }] },
+  { step_index: 3, type: 'PLANNER_RESPONSE', status: 'DONE', created_at: '2026-11-07T12:00:05Z', content: '已经修复完成。', input_tokens: 1600, cache_read_tokens: 400, output_tokens: 100 }
+ ];
+ fs.writeFileSync(path.join(logDir, 'transcript_full.jsonl'), steps.map(s => JSON.stringify(s)).join('\n') + '\n');
+
+ const list = await antigravity(10);
+ assert.equal(list.length, 1);
+ assert.equal(list[0].id, convId);
+ assert.equal(list[0].title, '优化右侧工作区面板');
+ assert.equal(list[0].cwd, '/Volumes/512G/project');
+
+ const busy = await antigravityBusyIds();
+ assert.deepEqual([...busy], [convId]);
+
+ const res = await antigravityTranscript(list[0]);
+ assert.equal(res.available, true);
+ const messages = res.items;
+ assert.equal(messages.length, 2);
+ assert.equal(messages[0].role, 'user');
+ assert.equal(messages[0].content, '检查这段代码');
+ assert.equal(messages[0].attachments.length, 1);
+ assert.equal(messages[1].role, 'assistant');
+ assert.equal(messages[1].content, '已经修复完成。');
+ assert.equal(messages[1].rounds.length, 2);
+ assert.equal(messages[1].rounds[0].model, 'Gemini 3.1 Pro (High)');
+ assert.equal(messages[1].rounds[0].inputTokens, 1500);
+ assert.equal(messages[1].rounds[0].outputTokens, 200);
+ assert.equal(messages[1].rounds[0].tps, 50);
+});

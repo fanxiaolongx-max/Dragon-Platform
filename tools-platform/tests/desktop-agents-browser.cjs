@@ -44,6 +44,13 @@ app.whenReady().then(async () => {
         sessions.unshift({ provider: req.params.provider, id, title: 'Fresh native session', updatedAt: new Date().toISOString(), source: 'desktop-history' });
         histories[req.params.provider] = histories[req.params.provider]; newHistory[id] = [{ id: 'n1', role: 'user', content: req.body.text }];
     } res.status(202).json({ status: 'accepted', id }); });
+    const exportCalls = [];
+    web.get('/api/desktop-agents/:provider/sessions/:id/export', (req, res) => {
+        exportCalls.push({ provider: req.params.provider, id: req.params.id });
+        res.setHeader('Content-Disposition', `attachment; filename="fixture-${req.params.provider}.json"`);
+        res.json({ format: 'dragon-claw-desktop-agent-log', provider: req.params.provider, busy: busyNow,
+            session: sessions.find(s => s.provider === req.params.provider), messages: histories[req.params.provider] });
+    });
     web.get('/api/channels/available', (_req, res) => res.json({ items: [{id:'welink'},{id:'weixin'}] }));
     web.get('/api/ai/models', (_req, res) => res.json({ models: [] }));
     web.get('/api/ai/sessions', (_req, res) => res.json({ items: [] }));
@@ -151,6 +158,27 @@ app.whenReady().then(async () => {
     await evaluate('window.__widgetFrame=dcThread.querySelector(".desktop-agent-widget iframe");document.querySelector("[data-desktop-refresh]").click()');
     await wait(150);
     assert.equal(await evaluate('window.__widgetFrame===dcThread.querySelector(".desktop-agent-widget iframe")'), true, 'unchanged polling keeps the preview');
+    busyNow = true;
+    await evaluate('document.querySelector("[data-desktop-refresh]").click()');
+    await until('!!dcThread.querySelector(".desktop-agent-thinking")');
+    const download = kind => new Promise((resolve, reject) => {
+        win.webContents.session.once('will-download', (_event, item) => {
+            const file = path.join(temp, item.getFilename());
+            item.setSavePath(file);
+            item.once('done', (_event, status) => status === 'completed' ? resolve(fs.readFileSync(file, 'utf8')) : reject(Error(status)));
+        });
+        evaluate(`document.getElementById('dcExportLog').click();document.querySelector('[data-dc-export="${kind}"]').click()`).catch(reject);
+    });
+    const exportedJson = JSON.parse(await download('json'));
+    assert.equal(exportedJson.provider, 'workbuddy');
+    assert.equal(exportedJson.busy, true, 'running conversations can export their current state');
+    assert.deepEqual(exportCalls, [{ provider: 'workbuddy', id: ids.workbuddy }]);
+    const exportedHtml = await download('html');
+    assert.match(exportedHtml, /workbuddy original assistant reply/);
+    assert.match(exportedHtml, /Widget fixture/);
+    assert.doesNotMatch(exportedHtml, /class="[^"]*desktop-agent-thinking/);
+    assert.match(exportedHtml, /data:image\/png/);
+    busyNow = false;
     histories.workbuddy[1].widget.html = '<div>Updated widget</div>';
     await evaluate('document.querySelector("[data-desktop-refresh]").click()');
     await until('dcThread.querySelector(".desktop-agent-widget iframe").srcdoc.includes("Updated widget")');

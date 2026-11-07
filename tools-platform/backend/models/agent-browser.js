@@ -10,7 +10,19 @@ const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
+const {AsyncLocalStorage}=require('async_hooks');
+const commandContext=new AsyncLocalStorage(),activeCommands=new Map(),takeoverPending=new Set();
+const AUTO_HANDOFF_MS=5000;
+function interrupted(){return browserError('BROWSER_INTERRUPTED','用户已停止浏览器操作并接管。不要重试刚才的动作；交还后先读取页面再继续。');}
+function commandSignal(){return commandContext.getStore()?.signal;}
+function cancellable(promise,signal=commandSignal()){
+    if(!signal)return promise;
+    if(signal.aborted){Promise.resolve(promise).catch(()=>{});return Promise.reject(interrupted());}
+    return new Promise((resolve,reject)=>{const abort=()=>reject(interrupted());signal.addEventListener('abort',abort,{once:true});Promise.resolve(promise).then(resolve,reject).finally(()=>signal.removeEventListener('abort',abort));});
+}
+function pause(ms){const signal=commandSignal();if(signal?.aborted)return Promise.reject(interrupted());return new Promise((resolve,reject)=>{const abort=()=>{clearTimeout(timer);reject(interrupted());};const timer=setTimeout(()=>{signal?.removeEventListener('abort',abort);resolve();},ms);signal?.addEventListener('abort',abort,{once:true});});}
 const WebSocket = require('ws');
+const pageLayoutScript=require('./browser-page-layout').script;
 
 const SECRET_HEADER_RE = /^(cookie|authorization|proxy-authorization|x-csrf-token|x-xsrf-token|x-api-key|x-auth-token)$/i;
 const LIMITS = { tabs: 6, network: 400, console: 200, snapshotChars: 40000, bodyChars: 2 * 1024 * 1024, navigateMs: 30000, idleMs: 15 * 60 * 1000 };
@@ -34,7 +46,8 @@ const SNAPSHOT_SCRIPT = function snapshot(maxChars) {
     let ref = 0;
     const push = line => { if (size < maxChars) { out.push(line); size += line.length + 1; } };
     const visible = el => { const style = getComputedStyle(el); return style.visibility !== 'hidden' && style.display !== 'none' && el.getClientRects().length > 0; };
-    const label = el => (el.getAttribute('aria-label') || el.innerText || el.value || el.placeholder || el.title || el.alt || '').replace(/\s+/g, ' ').trim().slice(0, 120);
+    const privateInput = el => /^(INPUT|TEXTAREA)$/.test(el.tagName) && (el.type === 'password' || /password|passwd|secret|token|api[ _-]?key|authorization|cookie|密码|密钥|私钥/i.test([el.name,el.id,el.getAttribute('aria-label'),el.placeholder,el.autocomplete].filter(Boolean).join(' ')));
+    const label = el => (el.getAttribute('aria-label') || (!privateInput(el) && (el.innerText || el.value)) || el.placeholder || el.title || el.alt || '').replace(/\s+/g, ' ').trim().slice(0, 120);
     const INTERACTIVE = 'a[href],button,input,textarea,select,summary,[role=button],[role=link],[role=tab],[role=menuitem],[role=checkbox],[role=option],[contenteditable=true],[onclick]';
     document.querySelectorAll('[data-dragon-ref]').forEach(el => el.removeAttribute('data-dragon-ref'));
     push(`# ${document.title || '（无标题）'}`);
@@ -54,7 +67,7 @@ const SNAPSHOT_SCRIPT = function snapshot(maxChars) {
             const id = `e${++ref}`;
             node.setAttribute('data-dragon-ref', id);
             const kind = tag === 'A' ? 'link' : tag === 'SELECT' ? 'select' : tag === 'TEXTAREA' ? 'textbox' : tag === 'INPUT' ? (['checkbox', 'radio', 'submit', 'button'].includes(node.type) ? node.type : 'textbox') : (node.getAttribute('role') || 'button');
-            const extra = tag === 'A' ? ` → ${node.href}` : kind === 'textbox' && node.value ? ` 值="${String(node.value).slice(0, 80)}"` : (kind === 'checkbox' || kind === 'radio') ? (node.checked ? ' [已选]' : ' [未选]') : '';
+            const extra = tag === 'A' ? ` → ${node.href}` : kind === 'textbox' && node.value && !privateInput(node) ? ` 值="${String(node.value).slice(0, 80)}"` : (kind === 'checkbox' || kind === 'radio') ? (node.checked ? ' [已选]' : ' [未选]') : '';
             push(`[${id}] ${kind} "${label(node)}"${extra}`);
             return;
         }
@@ -64,16 +77,31 @@ const SNAPSHOT_SCRIPT = function snapshot(maxChars) {
     return { text: out.join('\n'), truncated: size >= maxChars, refs: ref };
 };
 
-function createPage({ id, send, close, label = '' }) {
+function createPage({ id, send:transport, close, label = '', notify }) {
+    const send=(method,params)=>{if(commandSignal()?.aborted)return Promise.reject(interrupted());return cancellable(transport(method,params));};
     const network = new Map();
     const consoleLog = [];
     const waiters = new Set();
+    let manualRecordingOff = false;
+    let chooser = null, dragData = null, pointer = null, pointerTimer = null, manualPrepared = false;
     const page = {
         id, label, url: '', title: '', lastUsed: Date.now(),
+        publishOperator(value){notify?.(value);},
+        async stopAI(terminate=false){await transport('Page.stopLoading',{}).catch(()=>{});if(terminate)await transport('Runtime.terminateExecution',{}).catch(()=>{});},
+        async showAICursor(x,y){
+            const viewport=await page.evaluate('({width:innerWidth,height:innerHeight})');
+            if(viewport?.width){page.aiCursor={x:x/viewport.width,y:y/viewport.height,at:Date.now()};const owner=commandContext.getStore()?.owner;if(owner)publishOperator(owner);}
+            await send('Input.dispatchMouseEvent',{type:'mouseMoved',x,y});await pause(120);
+        },
         async init() {
             await Promise.all(['Page.enable', 'Network.enable', 'Runtime.enable', 'Log.enable'].map(method => send(method, method === 'Network.enable' ? { maxTotalBufferSize: 50 * 1024 * 1024, maxResourceBufferSize: 10 * 1024 * 1024 } : {})));
         },
+        setManualControl(active) { if(manualRecordingOff&&!active){chooser=null;manualPrepared=false;send('Page.setInterceptFileChooserDialog',{enabled:false}).catch(()=>{});}manualRecordingOff = active; network.clear(); consoleLog.length = 0; },
         onEvent(method, params = {}) {
+            if (method === 'Page.fileChooserOpened') chooser = {...params, id:crypto.randomUUID()};
+            if (method === 'Page.frameNavigated' && !params.frame?.parentId) chooser = null;
+            if (method === 'Input.dragIntercepted') dragData = params.data;
+            if (manualRecordingOff && /^(Network\.|Runtime\.console|Log\.)/.test(method)) return;
             if (method === 'Network.requestWillBeSent') {
                 // 请求体（POST 参数）和请求头一起记下；Cookie、Authorization 等凭据头不记
                 const headers = Object.fromEntries(Object.entries(params.request.headers || {}).filter(([key]) => !SECRET_HEADER_RE.test(key)));
@@ -100,12 +128,13 @@ function createPage({ id, send, close, label = '' }) {
             waiters.forEach(waiter => waiter(method, params));
         },
         waitFor(predicate, timeoutMs) {
-            return new Promise(resolve => {
-                const done = value => { clearTimeout(timer); waiters.delete(check); resolve(value); };
+            return cancellable(new Promise(resolve => {
+                const signal=commandSignal(),abort=()=>done(false);
+                const done = value => { clearTimeout(timer);signal?.removeEventListener('abort',abort);waiters.delete(check); resolve(value); };
                 const check = (method, params) => { if (predicate(method, params)) done(true); };
                 const timer = setTimeout(() => done(false), timeoutMs);
-                waiters.add(check);
-            });
+                waiters.add(check);signal?.addEventListener('abort',abort,{once:true});
+            }));
         },
         async evaluate(expression, { awaitPromise = true } = {}) {
             const result = await send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise, userGesture: true });
@@ -125,6 +154,7 @@ function createPage({ id, send, close, label = '' }) {
         async settle(quietMs = 500, maxMs = 5000) {
             const until = Date.now() + maxMs;
             while (Date.now() < until) {
+                if(commandSignal()?.aborted)throw interrupted();
                 const pending = [...network.values()].filter(item => !item.done && Date.now() - item.startedAt < 15000).length;
                 if (!pending) { await new Promise(resolve => setTimeout(resolve, quietMs)); if (![...network.values()].some(item => !item.done && Date.now() - item.startedAt < 15000)) return; }
                 await new Promise(resolve => setTimeout(resolve, 150));
@@ -142,6 +172,7 @@ function createPage({ id, send, close, label = '' }) {
         },
         async click(ref) {
             const box = await page.locate(ref);
+            await page.showAICursor(box.x,box.y);
             for (const type of ['mousePressed', 'mouseReleased']) await send('Input.dispatchMouseEvent', { type, x: box.x, y: box.y, button: 'left', clickCount: 1 });
             await page.waitFor(method => method === 'Page.loadEventFired', 1500);
             await page.settle(400, 4000);
@@ -149,6 +180,7 @@ function createPage({ id, send, close, label = '' }) {
         },
         async type(ref, text, submit) {
             const box = await page.locate(ref);
+            await page.showAICursor(box.x,box.y);
             await page.evaluate(`(() => { const el = document.querySelector('[data-dragon-ref="${String(ref).replace(/[^\w-]/g, '')}"]'); el.focus();
                 if ('value' in el) { el.value = ''; el.dispatchEvent(new Event('input', { bubbles: true })); } else if (el.isContentEditable) el.textContent = ''; })()`);
             await send('Input.insertText', { text: String(text ?? '') });
@@ -163,8 +195,83 @@ function createPage({ id, send, close, label = '' }) {
             await page.evaluate(`window.scrollBy(0, ${direction === 'up' ? '-0.9' : '0.9'} * innerHeight)`);
             await page.settle(300, 3000);
         },
-        async screenshot(fullPage) {
-            const params = { format: 'png' };
+        async historyState() {
+            const history=await send('Page.getNavigationHistory');
+            return {canBack:history.currentIndex>0,canForward:history.currentIndex<history.entries.length-1};
+        },
+        async historyAction(action) {
+            if(action==='reload')await send('Page.reload');
+            else {
+                const history=await send('Page.getNavigationHistory'),offset=action==='back'?-1:1;
+                const entry=history.entries[history.currentIndex+offset];
+                if(entry)await send('Page.navigateToHistoryEntry',{entryId:entry.id});
+            }
+            await new Promise(resolve=>setTimeout(resolve,300));
+        },
+        async prepareManual() {
+            if(!manualPrepared){await send('Page.setInterceptFileChooserDialog', {enabled:true});manualPrepared=true;}
+        },
+        pendingUpload() { return chooser ? {id:chooser.id,multiple:chooser.mode==='selectMultiple'} : null; },
+        async uploadFiles(files, chooserId) {
+            if (!chooser || chooser.id!==chooserId) throw browserError('BROWSER_VIEW_STALE','请先点击网页的上传按钮，再选择文件');
+            if (files.length>1 && chooser.mode!=='selectMultiple') throw browserError('BROWSER_CONTROL_INVALID','这个上传控件只允许一个文件');
+            const target=chooser;
+            await send('DOM.setFileInputFiles',{files,backendNodeId:target.backendNodeId});
+            chooser=null;
+        },
+        async pointerInput(phase, point) {
+            clearTimeout(pointerTimer);
+            if(phase==='down'){
+                if(pointer)await page.pointerInput('cancel');
+                dragData=null;pointer={...point,entered:false};
+                await send('Input.setInterceptDrags',{enabled:true});
+                await send('Input.dispatchMouseEvent',{type:'mouseMoved',...point});
+                await send('Input.dispatchMouseEvent',{type:'mousePressed',...point,button:'left',buttons:1,clickCount:1});
+            }else if(pointer){
+                Object.assign(pointer,point||{});
+                if(phase==='move'){
+                    await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:pointer.x,y:pointer.y,button:'left',buttons:1});
+                    await new Promise(resolve=>setTimeout(resolve,16));
+                    if(pointer&&dragData){
+                        if(!pointer.entered){await send('Input.dispatchDragEvent',{type:'dragEnter',x:pointer.x,y:pointer.y,data:dragData});pointer.entered=true;}
+                        await send('Input.dispatchDragEvent',{type:'dragOver',x:pointer.x,y:pointer.y,data:dragData});
+                    }
+                }else{
+                    clearTimeout(pointerTimer);const last=pointer;pointer=null;
+                    try{if(phase==='up'&&dragData)await send('Input.dispatchDragEvent',{type:'drop',x:last.x,y:last.y,data:dragData});}
+                    finally{
+                        await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:last.x,y:last.y,button:'left',buttons:0,clickCount:1}).catch(()=>{});
+                        await send('Input.cancelDragging').catch(()=>{});
+                        await send('Input.setInterceptDrags',{enabled:false}).catch(()=>{});dragData=null;
+                    }
+                }
+            }
+            clearTimeout(pointerTimer);
+            if(pointer){pointerTimer=setTimeout(()=>page.pointerInput('cancel').catch(()=>{}),10000);pointerTimer.unref?.();}
+        },
+        async manualInput(action, args) {
+            if (action === 'click') {
+                for (const type of ['mousePressed','mouseReleased']) await send('Input.dispatchMouseEvent', {type,x:args.x,y:args.y,button:'left',clickCount:1});
+            } else if (action === 'file-drop') {
+                const data={items:[],files:args.files,dragOperationsMask:1};
+                for(const type of ['dragEnter','dragOver','drop'])await send('Input.dispatchDragEvent',{type,x:args.x,y:args.y,data});
+            } else if (action === 'scroll') {
+                await send('Input.dispatchMouseEvent', {type:'mouseWheel',x:args.x,y:args.y,deltaX:0,deltaY:args.deltaY});
+            } else if (action === 'type') {
+                if (args.replace) await page.evaluate(`(()=>{const el=document.activeElement;if(el&&('value' in el)){el.value='';el.dispatchEvent(new Event('input',{bubbles:true}));}})()`);
+                await send('Input.insertText', {text:args.text});
+            } else if (action === 'key') {
+                const codes={Enter:13,Tab:9,Backspace:8,Delete:46,Escape:27,ArrowLeft:37,ArrowUp:38,ArrowRight:39,ArrowDown:40,Home:36,End:35};
+                for(const type of ['keyDown','keyUp']) await send('Input.dispatchKeyEvent',{type,key:args.key,code:args.key,windowsVirtualKeyCode:codes[args.key],text:type==='keyDown'&&args.key==='Enter'?'\r':undefined});
+            }
+            await new Promise(resolve=>setTimeout(resolve,180));
+        },
+        async setReadingWidth(width) {
+            if(width)await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
+            else await send('Emulation.clearDeviceMetricsOverride');
+        },
+        async screenshot(fullPage, live = false) {
+            const params = live ? {format:'jpeg',quality:65} : { format: 'png' };
             if (fullPage) {
                 const metrics = await send('Page.getLayoutMetrics');
                 const size = metrics.cssContentSize || metrics.contentSize;
@@ -253,6 +360,22 @@ function createServerBrowser(owner) {
         socket.send(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }));
     });
 
+    async function attachTarget(targetId, manual=false) {
+        if(byTarget.has(targetId))return byTarget.get(targetId);
+        const {sessionId}=await send('Target.attachToTarget',{targetId,flatten:true});
+        const page=createPage({id:targetId.slice(0,8).toLowerCase(),send:(method,params)=>send(method,params,sessionId),close:()=>send('Target.closeTarget',{targetId}).catch(()=>{})});
+        page.targetId=targetId;page.setManualControl(manual);pages.set(sessionId,page);byTarget.set(targetId,page);await page.init();return page;
+    }
+    function popup(info) {
+        if(info?.type!=='page'||!info.openerId||!byTarget.has(info.openerId))return;
+        serialized(owner,async()=>{
+            const state=owners.get(owner);if(!state)return;
+            if(state.tabs.size>=LIMITS.tabs){await send('Target.closeTarget',{targetId:info.targetId});return;}
+            const manual=manualSession(state),page=await attachTarget(info.targetId,Boolean(manual));
+            state.tabs.set(page.id,page);state.active=page.id;if(manual)manual.tabId=page.id;state.frames?.clear();
+        }).catch(()=>{});
+    }
+
     async function start() {
         const exe = findChrome();
         if (!exe) throw browserError('BROWSER_UNAVAILABLE', '本机没有找到 Chrome / Edge；可用环境变量 TOOLS_AGENT_BROWSER_PATH 指定浏览器程序路径');
@@ -299,6 +422,7 @@ function createServerBrowser(owner) {
                 if (message.error) call.reject(browserError('BROWSER_CDP', message.error.message || 'CDP 错误'));
                 else call.resolve(message.result || {});
             } else if (message.method) {
+                if(message.method==='Target.targetCreated')popup(message.params?.targetInfo);
                 if (message.method === 'Target.detachedFromTarget') {
                     const page = pages.get(message.params.sessionId);
                     if (page) { pages.delete(message.params.sessionId); byTarget.delete(page.targetId); }
@@ -308,6 +432,7 @@ function createServerBrowser(owner) {
         });
         socket.on('close', () => { calls.forEach(call => call.reject(browserError('BROWSER_CLOSED', '浏览器已关闭'))); calls.clear(); pages.clear(); byTarget.clear(); socket = null; });
         child.once('exit', () => { child = null; socket?.terminate(); });
+        await send('Target.setDiscoverTargets',{discover:true});
     }
 
     const api = {
@@ -320,17 +445,7 @@ function createServerBrowser(owner) {
         async newPage() {
             await api.ensure();
             const { targetId } = await send('Target.createTarget', { url: 'about:blank' });
-            const { sessionId } = await send('Target.attachToTarget', { targetId, flatten: true });
-            const page = createPage({
-                id: targetId.slice(0, 8).toLowerCase(),
-                send: (method, params) => send(method, params, sessionId),
-                close: () => send('Target.closeTarget', { targetId }).catch(() => {})
-            });
-            page.targetId = targetId;
-            pages.set(sessionId, page);
-            byTarget.set(targetId, page);
-            await page.init();
-            return page;
+            return attachTarget(targetId);
         },
         pages: () => [...byTarget.values()],
         alive: () => Boolean(child),
@@ -354,9 +469,18 @@ function createDesktopBrowser() {
         const wc = handle.webContents;
         const dbg = wc.debugger;
         if (!dbg.isAttached()) dbg.attach('1.3');
-        const page = createPage({ id: String(handle.id).replace(/^dragon-tab-/, 't'), send: (method, params = {}) => dbg.sendCommand(method, params), close: () => handle.close?.() });
+        const page = createPage({ id: String(handle.id).replace(/^dragon-tab-/, 't'), send: (method, params = {}) => dbg.sendCommand(method, params), close: () => handle.close?.(),notify:value=>handle.setOperatorState?.(value) });
         dbg.on('message', (_event, method, params) => page.onEvent(method, params));
         wc.once('destroyed', () => pages.delete(page.id));
+        let nativeToken='';
+        handle.setOperatorHandler?.(async action=>{
+            const entry=[...owners].find(([,state])=>state.tabs.get(page.id)===page);if(!entry)return;
+            const [owner,state]=entry,manual=manualSession(state);
+            if(manual&&manual.token!==nativeToken)return;
+            if(action==='activity'&&activeCommands.has(owner)&&!manual)return;
+            try{const result=await control(owner,{action:action==='takeover'||!manual?'takeover':'activity',token:nativeToken});if(result.token)nativeToken=result.token;}catch(_error){}
+        });
+        wc.on('dom-ready',()=>{for(const[owner,state]of owners)if(state.tabs.get(page.id)===page)publishOperator(owner);});
         pages.set(page.id, page);
         return page;
     };
@@ -386,6 +510,7 @@ function available() {
 }
 
 function stateFor(owner) {
+    if(commandSignal()?.aborted)throw interrupted();
     let state = owners.get(owner);
     if (!state) {
         const browser = desktopController ? (desktopShared = desktopShared || createDesktopBrowser()) : createServerBrowser(owner);
@@ -407,6 +532,7 @@ function liveTabs(state) {
 }
 
 async function activePage(owner, tabId) {
+    if(commandSignal()?.aborted)throw interrupted();
     const state = stateFor(owner);
     const tabs = liveTabs(state);
     const page = tabId ? tabs.get(String(tabId)) : tabs.get(state.active);
@@ -428,14 +554,14 @@ async function openPage(owner, url, newTab) {
         page = await state.browser.newPage();
         tabs.set(page.id, page);
     }
-    state.active = page.id;
+    state.active = page.id;publishOperator(owner);
     const result = await page.navigate(url);
     await page.refreshInfo();
     return { page, loaded: result.ok };
 }
 
 function shutdownAll() {
-    owners.forEach(state => { clearTimeout(state.timer); state.browser.shutdown(); });
+    owners.forEach(state => { clearTimeout(state.timer);clearTimeout(state.manual?.timer); state.browser.shutdown(); });
     owners.clear();
 }
 process.once('exit', shutdownAll);
@@ -476,7 +602,52 @@ function formatSize(bytes) {
     return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)}MB` : bytes >= 1024 ? `${(bytes / 1024).toFixed(1)}KB` : `${bytes}B`;
 }
 
-async function execute(ctx, name, args = {}) {
+const browserLocks = new Map();
+function serialized(owner, job) {
+    const previous = browserLocks.get(owner) || Promise.resolve();
+    const running = previous.catch(()=>{}).then(job);
+    browserLocks.set(owner, running);
+    return running.finally(()=>{if(browserLocks.get(owner)===running)browserLocks.delete(owner);});
+}
+const MANUAL_IDLE_MS = 5 * 60 * 1000;
+function operatorState(owner,page){
+    const state=owners.get(owner),manual=state?.manual;
+    return {active:activeCommands.has(owner),manual:Boolean(manual),handoff:Boolean(manual?.handoff),expiresAt:manual?.autoIdleMs?manual.touched+manual.autoIdleMs:null,cursor:page?.aiCursor||null};
+}
+function publishOperator(owner){const state=owners.get(owner);if(state)for(const page of state.tabs.values())page.publishOperator?.(operatorState(owner,page));}
+function manualSession(state) {
+    if(state?.manual&&Date.now()-state.manual.touched>(state.manual.autoIdleMs||MANUAL_IDLE_MS)){
+        clearTimeout(state.manual.timer);
+        for(const page of state.tabs.values()){page.pointerInput?.('cancel').catch(()=>{});page.setManualControl?.(false);}
+        state.pointer=null;state.manual=null;
+        for(const[owner,item]of owners)if(item===state)publishOperator(owner);
+    }
+    return state?.manual||null;
+}
+function armHandoff(owner,state){
+    const manual=state.manual;if(!manual?.autoIdleMs)return;
+    clearTimeout(manual.timer);manual.timer=setTimeout(()=>manualSession(state),Math.max(1,manual.touched+manual.autoIdleMs-Date.now()+5));manual.timer.unref?.();publishOperator(owner);
+}
+async function execute(ctx,name,args={}){
+    // 自动交接期间的工具等待控制权；已发出的动作被停止后不自动重放。
+    let waited=false;
+    while(manualSession(owners.get(ctx.owner))?.autoIdleMs){
+        waited=true;
+        if(ctx.signal?.aborted)return {content:'任务已停止',summary:'已停止',isError:true};
+        await new Promise(resolve=>setTimeout(resolve,100));
+    }
+    if(waited&&(KIND.get(name)!=='read'||name==='browser_tabs'&&args.action&&args.action!=='list'))return {content:'人工操作已结束，页面可能变化。请先 browser_snapshot，再决定下一步，不要重放旧动作。',summary:'请重新读取页面',isError:true};
+    return serialized(ctx.owner,async()=>{
+        if(takeoverPending.has(ctx.owner)||manualSession(owners.get(ctx.owner)))return {content:'用户正在操作浏览器。交还后先 browser_snapshot 读取当前页面再继续。',summary:'用户操作中',isError:true};
+        const controller=new AbortController();controller.toolName=name;activeCommands.set(ctx.owner,controller);publishOperator(ctx.owner);
+        const abort=()=>controller.abort();ctx.signal?.addEventListener('abort',abort,{once:true});if(ctx.signal?.aborted)controller.abort();
+        try{return await commandContext.run({owner:ctx.owner,signal:controller.signal},()=>cancellable(executeUnlocked(ctx,name,args)));}
+        catch(error){return {content:`错误（${error.code||'BROWSER_FAILED'}）：${error.message}`,summary:'浏览器操作已停止',isError:true};}
+        finally{ctx.signal?.removeEventListener('abort',abort);if(activeCommands.get(ctx.owner)===controller)activeCommands.delete(ctx.owner);publishOperator(ctx.owner);}
+    });
+}
+
+async function executeUnlocked(ctx, name, args = {}) {
     const owner = ctx.owner;
     try {
         if (!owner) throw browserError('BROWSER_OWNER', '无法确定账号');
@@ -619,12 +790,13 @@ async function execute(ctx, name, args = {}) {
         }
         if (name === 'browser_wait') {
             const timeout = Math.min(30000, Math.max(100, Number(args.timeoutMs) || 10000));
-            if (!args.text) { await new Promise(resolve => setTimeout(resolve, timeout)); return { content: `已等待 ${timeout}ms`, summary: `等待 ${timeout}ms` }; }
+            if (!args.text) { await pause(timeout); return { content: `已等待 ${timeout}ms`, summary: `等待 ${timeout}ms` }; }
             const until = Date.now() + timeout;
             const needle = JSON.stringify(String(args.text));
             while (Date.now() < until) {
+                if(commandSignal()?.aborted)throw interrupted();
                 if (await page.evaluate(`document.body && document.body.innerText.includes(${needle})`).catch(() => false)) return { content: `页面已出现「${args.text}」`, summary: '已出现' };
-                await new Promise(resolve => setTimeout(resolve, 300));
+                await pause(300);
             }
             return { content: `等待 ${timeout}ms 后页面仍未出现「${args.text}」`, summary: '未出现', isError: true };
         }
@@ -674,6 +846,7 @@ async function execute(ctx, name, args = {}) {
 }
 
 async function preview(ctx, name, args = {}) {
+    if(manualSession(owners.get(ctx.owner)))return {title:'等待用户交还浏览器',fields:[{label:'状态',value:'用户正在操作页面，交还后先重新读取页面'}]};
     if (name === 'browser_navigate') {
         const url = webUrl(args.url);
         if (!url) throw browserError('BROWSER_URL', '只能打开 http / https 网址');
@@ -713,4 +886,161 @@ function definitions() {
     return DEFINITIONS.map(({ name, description, parameters }) => ({ name, description, parameters }));
 }
 
-module.exports = { LIMITS, DEFINITIONS, definitions, kindOf: name => KIND.get(name) || null, execute, preview, alwaysKey, available, findChrome, configureDesktopBrowser, webUrl, shutdownAll, _internal: { owners, SNAPSHOT_SCRIPT } };
+// 一个账号一套浏览器标签：人工与 AI 共用，画面读取本身不启动浏览器。
+async function viewUnlocked(owner, live = false) {
+    const state=owners.get(owner);
+    if(!state)return {available:false,tabs:[],manual:{active:false}};
+    const pages=liveTabs(state),manual=manualSession(state);
+    await Promise.all([...pages.values()].map(page=>page.refreshInfo()));
+    const page=pages.get(state.active);
+    const result={available:Boolean(page),activeId:page?.id||null,kind:state.browser.kind,
+        tabs:[...pages.values()].map(item=>({id:item.id,title:item.title,url:item.url})),
+        operator:operatorState(owner,page),manual:manual?{active:true,tabId:manual.tabId,expiresAt:manual.touched+(manual.autoIdleMs||MANUAL_IDLE_MS)}:{active:false}};
+    if(!page)return result;
+    if(state.browser.kind==='server'&&page.readingUrl!==page.url){
+        if(page.readingWidth)await page.setReadingWidth?.(null);
+        page.readingWidth=null;page.layoutMeasuredAt=0;page.readingUrl=page.url;
+    }
+    if(!activeCommands.has(owner)&&!state.pointer&&(!page.layoutMeasuredAt||Date.now()-page.layoutMeasuredAt>2000)){
+        page.layout=await page.evaluate?.(pageLayoutScript).catch(()=>null);page.layoutMeasuredAt=Date.now();
+        if(state.browser.kind==='server'&&!page.readingWidth&&page.layout?.preferredWidth){
+            page.readingWidth=page.layout.preferredWidth;await page.setReadingWidth?.(page.readingWidth);
+        }
+    }
+    const viewport=await page.evaluate?.('({width:innerWidth,height:innerHeight})')||{width:1280,height:900};
+    const layout=page.readingWidth?{...page.layout,preferredWidth:page.readingWidth}:page.layout;
+    const png=await page.screenshot(false,live);
+    if(png.length>8*1024*1024)throw browserError('BROWSER_VIEW_TOO_LARGE','页面画面过大，请缩小浏览器视口后重试');
+    const frameId=crypto.randomUUID();state.frames||=new Map();
+    state.frames.set(frameId,{tabId:page.id,url:page.url,viewport,at:Date.now()});
+    while(state.frames.size>80)state.frames.delete(state.frames.keys().next().value);
+    return {...result,tabId:page.id,title:page.title,url:page.url,upload:page.pendingUpload?.()||null,image:`data:image/${live?'jpeg':'png'};base64,${png.toString('base64')}`,
+        capturedAt:new Date().toISOString(),frameId,viewport,layout:layout||null,...await page.historyState?.()};
+}
+function view(owner,live=false){return commandContext.exit(()=>activeCommands.has(owner)?viewUnlocked(owner,live):serialized(owner,()=>viewUnlocked(owner,live)));}
+function controlRequest(owner,args={}){
+    const interruptedAI=args.action==='takeover'&&activeCommands.has(owner);
+    let stopping=Promise.resolve();
+    if(args.action==='takeover'){
+        const manual=manualSession(owners.get(owner));
+        if(manual&&manual.token!==args.token)return Promise.reject(browserError('BROWSER_CONTROL_BUSY','另一端正在操作浏览器'));
+        takeoverPending.add(owner);const running=activeCommands.get(owner);running?.abort();
+        stopping=Promise.all([...owners.get(owner)?.tabs.values()||[]].map(page=>page.stopAI?.(running?.toolName==='browser_evaluate').catch(()=>{})));
+    }
+    return serialized(owner,async()=>{
+        let createdManual=null,state;
+        try {
+        await stopping;
+        if(typeof owner!=='string'||!owner)throw browserError('BROWSER_OWNER','无法确定账号');
+        const action=args.action;
+        if(!['acquire','takeover','activity','release','heartbeat','open','new-tab','select-tab','close-tab','move-tab','back','forward','reload','click','scroll','type','key','upload','file-drop','pointer'].includes(action))throw browserError('BROWSER_CONTROL_INVALID','无效的浏览器操作');
+        let url=null;
+        if(action==='open'){
+            url=webUrl(args.url);
+            if(!url||new URL(url).username||new URL(url).password)throw browserError('BROWSER_CONTROL_INVALID','请输入 HTTP 或 HTTPS 网址');
+        }
+        // 仅用户明确打开网址/新标签时创建浏览器；查看画面、接管、输入都不会偷偷创建。
+        state=owners.get(owner);
+        if(!state&&(action==='open'||action==='new-tab'))state=stateFor(owner);
+        if(!state){if(action==='release')return {mode:'ai'};throw browserError('BROWSER_NO_TAB','请先输入网址或让 AI 打开网页');}
+        const pages=liveTabs(state);
+        let page=pages.get(state.active),manual=manualSession(state);
+        const acquiring=['acquire','takeover','open','new-tab'].includes(action);
+        if(acquiring){
+            if(manual&&manual.token!==args.token)throw browserError('BROWSER_CONTROL_BUSY','另一端正在手动接管');
+            if(['acquire','takeover'].includes(action)&&!page)throw browserError('BROWSER_NO_TAB','请先输入网址或让 AI 打开网页');
+            state.manual=manual||{token:crypto.randomUUID(),tabId:page?.id||null};if(!manual)createdManual=state.manual;manual=state.manual;
+        }else if(action==='release'&&!manual)return {mode:'ai'};
+        if(!manual||typeof (acquiring?manual.token:args.token)!=='string'||(!acquiring&&manual.token!==args.token))throw browserError('BROWSER_CONTROL_REQUIRED','请先手动接管，或重新接管已过期的会话');
+        if(action==='release'){
+            clearTimeout(manual.timer);
+            for(const item of pages.values()){await item.pointerInput?.('cancel');item.setManualControl?.(false);}
+            state.pointer=null;state.manual=null;state.frames?.clear();publishOperator(owner);return {mode:'ai'};
+        }
+        if(action==='takeover'){manual.autoIdleMs=AUTO_HANDOFF_MS;if(interruptedAI)manual.handoff=true;}
+        if(action!=='heartbeat')manual.touched=Date.now();armHandoff(owner,state);stateFor(owner); // 有效人工操作延长已有浏览器的闲置期限。
+        for(const item of pages.values()){item.setManualControl?.(true);if(state.browser.kind!=='desktop')await item.prepareManual?.();}
+        if(state.pointer&&!['pointer','heartbeat'].includes(action)){for(const item of pages.values())await item.pointerInput?.('cancel');state.pointer=null;}
+        const reply=()=>({mode:'manual',...(acquiring?{token:manual.token}:{}),tabId:manual.tabId});
+        if(['heartbeat','activity','acquire','takeover'].includes(action))return reply();
+        if(action==='new-tab'||(action==='open'&&!page)){
+            if(pages.size>=LIMITS.tabs)throw browserError('BROWSER_CONTROL_LIMIT',`最多同时打开 ${LIMITS.tabs} 个标签，请先关闭一个`);
+            page=await state.browser.newPage();pages.set(page.id,page);state.active=page.id;manual.tabId=page.id;page.setManualControl?.(true);
+            if(action==='new-tab'){await page.refreshInfo();return reply();}
+        }
+        if(action==='move-tab'){
+            const target=pages.get(String(args.tabId)),index=Number(args.index);
+            if(!target||!Number.isInteger(index)||index<0||index>=pages.size)throw browserError('BROWSER_CONTROL_INVALID','无效的标签位置');
+            const ordered=[...pages.values()].filter(item=>item!==target);ordered.splice(index,0,target);state.tabs=new Map(ordered.map(item=>[item.id,item]));return reply();
+        }
+        if(action==='select-tab'||action==='close-tab'){
+            const target=pages.get(String(args.tabId));
+            if(!target)throw browserError('BROWSER_VIEW_STALE','标签页已关闭，请刷新后重试');
+            if(action==='select-tab')state.active=target.id;
+            else {await target.close();pages.delete(target.id);if(state.active===target.id)state.active=[...pages.keys()].at(-1)||null;}
+            manual.tabId=state.active;state.frames?.clear();return reply();
+        }
+        if(!page||page.id!==manual.tabId)throw browserError('BROWSER_VIEW_STALE','当前标签已变化，请刷新画面后重新接管');
+        await page.refreshInfo();
+        if(action==='open'){await page.navigate(url);state.frames?.clear();return reply();}
+        if(['back','forward','reload'].includes(action)){await page.historyAction(action);state.frames?.clear();return reply();}
+        if(action==='pointer'&&args.phase==='cancel'){
+            await page.pointerInput?.('cancel');state.pointer=null;return reply();
+        }
+        const continuing=action==='pointer'&&args.phase!=='down';
+        const frame=continuing?state.pointer?.frame:state.frames?.get(args.frameId);
+        if(!frame||frame.tabId!==page.id||frame.url!==page.url||(!continuing&&Date.now()-frame.at>15000))throw browserError('BROWSER_VIEW_STALE','画面已变化或过期，请刷新后再操作');
+        const currentViewport=await page.evaluate?.('({width:innerWidth,height:innerHeight})');
+        if(currentViewport&&(currentViewport.width!==frame.viewport.width||currentViewport.height!==frame.viewport.height))throw browserError('BROWSER_VIEW_STALE','页面尺寸已变化，请刷新后再操作');
+        if(action==='pointer'){
+            if(!['down','move','up'].includes(args.phase)||typeof args.pointerId!=='string'||!args.pointerId||args.pointerId.length>80)throw browserError('BROWSER_CONTROL_INVALID','无效的拖拽动作');
+            if(continuing&&(state.pointer?.id!==args.pointerId||Date.now()-state.pointer.touched>10000))throw browserError('BROWSER_VIEW_STALE','拖拽已结束，请重新拖动');
+            if(!Number.isFinite(args.x)||!Number.isFinite(args.y)||args.x<0||args.x>1||args.y<0||args.y>1)throw browserError('BROWSER_CONTROL_INVALID','无效的拖拽位置');
+            const point={x:Math.min(frame.viewport.width-1,Math.round(args.x*frame.viewport.width)),y:Math.min(frame.viewport.height-1,Math.round(args.y*frame.viewport.height))};
+            if(args.phase==='down')state.pointer={id:args.pointerId,frame,touched:Date.now()};
+            else state.pointer.touched=Date.now();
+            try{if(args.phase==='up')await page.pointerInput('move',point);await page.pointerInput(args.phase,point);}catch(error){await page.pointerInput('cancel').catch(()=>{});state.pointer=null;throw error;}
+            if(args.phase==='up'){state.pointer=null;state.frames.clear();}
+            return reply();
+        }
+        const input={};
+        const point=value=>{
+            if(!value||!Number.isFinite(value.x)||!Number.isFinite(value.y)||value.x<0||value.x>1||value.y<0||value.y>1)throw browserError('BROWSER_CONTROL_INVALID','无效的拖拽位置');
+            return {x:Math.min(frame.viewport.width-1,Math.round(value.x*frame.viewport.width)),y:Math.min(frame.viewport.height-1,Math.round(value.y*frame.viewport.height))};
+        };
+        if(action==='upload'||action==='file-drop'){
+            // 文件只来自本次请求解析后的内存对象，不接受客户端传入本机路径。
+            const files=args._uploads,artifacts=require('./agent-artifacts');
+            if(!Array.isArray(files)||!files.length||files.length>artifacts.UPLOAD_LIMITS.files||files.some(file=>!Buffer.isBuffer(file.buffer)||file.buffer.length>artifacts.UPLOAD_LIMITS.fileBytes))throw browserError('BROWSER_CONTROL_INVALID','没有收到文件，单个文件上限 20MB，一次最多 5 个');
+            if(action==='upload'&&page.pendingUpload?.()?.id!==args.chooserId)throw browserError('BROWSER_VIEW_STALE','上传控件已变化，请重新点击网页上传按钮');
+            const saved=[];
+            try{
+                for(const file of files)saved.push(await artifacts.saveUpload(owner,file));
+                if(action==='upload')await page.uploadFiles(saved.map(file=>file.path),args.chooserId);
+                else await page.manualInput('file-drop',{...point(args),files:saved.map(file=>file.path)});
+            }catch(error){await Promise.all(saved.map(file=>fs.promises.unlink(file.path).catch(()=>{})));throw error;}
+            state.frames.clear();return {...reply(),files:saved.map(file=>({name:file.name,size:file.size}))};
+        }
+        if(action==='click'||action==='scroll'||action==='file-drop'){
+            if(!Number.isFinite(args.x)||!Number.isFinite(args.y)||args.x<0||args.x>1||args.y<0||args.y>1)throw browserError('BROWSER_CONTROL_INVALID','无效的点击位置');
+            input.x=Math.min(frame.viewport.width-1,Math.round(args.x*frame.viewport.width));input.y=Math.min(frame.viewport.height-1,Math.round(args.y*frame.viewport.height));
+        }
+        if(action==='scroll'){
+            if(!Number.isFinite(args.deltaY)||Math.abs(args.deltaY)>3000)throw browserError('BROWSER_CONTROL_INVALID','无效的滚动距离');input.deltaY=args.deltaY;
+        }
+        if(action==='type'){
+            if(typeof args.text!=='string'||args.text.length>10000)throw browserError('BROWSER_CONTROL_INVALID','输入内容过长');input.text=args.text;input.replace=args.replace===true;
+        }
+        if(action==='key'){
+            if(!['Enter','Tab','Backspace','Delete','Escape','ArrowLeft','ArrowUp','ArrowRight','ArrowDown','Home','End'].includes(args.key))throw browserError('BROWSER_CONTROL_INVALID','不支持的按键');input.key=args.key;
+        }
+        await page.manualInput(action,input);state.frames.clear();return reply();
+        } catch(error) {
+            if(createdManual&&state?.manual===createdManual){clearTimeout(createdManual.timer);for(const item of state.tabs.values())item.setManualControl?.(false);state.manual=null;}
+            throw error;
+        }
+    }).finally(()=>{if(args.action==='takeover')takeoverPending.delete(owner);});
+}
+
+function control(owner,args={}){return commandContext.exit(()=>controlRequest(owner,args));}
+module.exports = { LIMITS, DEFINITIONS, definitions, kindOf: name => KIND.get(name) || null, execute, preview, view, control, alwaysKey, available, findChrome, configureDesktopBrowser, webUrl, shutdownAll, _internal: { owners, SNAPSHOT_SCRIPT } };

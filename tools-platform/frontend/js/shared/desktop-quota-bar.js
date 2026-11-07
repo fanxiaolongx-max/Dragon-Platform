@@ -13,6 +13,10 @@
     let prefs = load(), root, panel, rows, peek, menu, sensor;
     let dragged = false, quotas = null, providers = [], active = false, pollTimer = 0, tuckTimer = 0, peekTimer = 0, inside = false, menuOpen = false, drag = null, peekProvider = null;
 
+    let readingMode = document.body.classList.contains('dc-browser-open');
+    const autoHide = () => readingMode || prefs.autoHide;
+    const isExpanded = () => !readingMode && prefs.expanded;
+
     function load() {
         // 默认常驻；只有用户点 × 或在菜单里选择收起后，才收成顶边的小横条（悬停展开）
         const fallback = { hidden: false, expanded: false, theme: 'auto', autoHide: false, center: null };
@@ -113,17 +117,17 @@
         panel = root.querySelector('.dqb-panel'); rows = root.querySelector('.dqb-rows'); peek = root.querySelector('.dqb-peek'); menu = root.querySelector('.dqb-menu'); sensor = root.querySelector('.dqb-sensor');
         document.body.append(root);
         panel.addEventListener('pointerenter', reveal);
-        panel.addEventListener('pointerleave', () => { if (drag) return; inside = false; hidePeek(); if (prefs.autoHide && !prefs.expanded) scheduleTuck(); else cancelTuck(); });
+        panel.addEventListener('pointerleave', () => { if (drag) return; inside = false; hidePeek(); if (autoHide() && !isExpanded()) scheduleTuck(); else cancelTuck(); });
         sensor.addEventListener('pointerenter', reveal); sensor.addEventListener('click', reveal);
         panel.addEventListener('pointerdown', startDrag);
         panel.querySelector('.dqb-head').addEventListener('dblclick', event => { if (!event.target.closest('button')) center(); });
         root.querySelector('[data-dqb-menu]').addEventListener('click', event => { event.stopPropagation(); menuOpen ? closeMenu() : openMenu(); });
         peek.addEventListener('pointerenter', () => clearTimeout(peekTimer));
-        peek.addEventListener('pointerleave', () => { hidePeek(); if (prefs.autoHide && !prefs.expanded) scheduleTuck(); else cancelTuck(); });
+        peek.addEventListener('pointerleave', () => { hidePeek(); if (autoHide() && !isExpanded()) scheduleTuck(); else cancelTuck(); });
         document.addEventListener('pointerdown', event => { if (menuOpen && !menu.contains(event.target) && !event.target.closest('[data-dqb-menu]')) closeMenu(); }, true);
         document.addEventListener('keydown', event => {
             if (event.key !== 'Escape' || root.hidden) return;
-            if (menuOpen) closeMenu(); else if (prefs.autoHide && !prefs.expanded) tuck();
+            if (menuOpen) closeMenu(); else if (autoHide() && !isExpanded()) tuck();
         });
         window.addEventListener('resize', place);
         // 主页切换亮暗色时同步
@@ -141,7 +145,7 @@
             brand.append(name, meta);
             const extraBlock = el('div', 'dqb-row-extra'); extraBlock.hidden = true;
             row.append(brand, cell('5h'), cell('weekly'), extraBlock);
-            row.addEventListener('pointerenter', () => { clearTimeout(peekTimer); if (!drag && !prefs.expanded) peekTimer = setTimeout(() => showPeek(id, row), 80); });
+            row.addEventListener('pointerenter', () => { clearTimeout(peekTimer); if (!drag && !isExpanded()) peekTimer = setTimeout(() => showPeek(id, row), 80); });
             row.addEventListener('pointerleave', () => { clearTimeout(peekTimer); peekTimer = setTimeout(hidePeek, 120); });
             rows.append(row);
         }
@@ -154,7 +158,7 @@
         root.setAttribute('aria-label', t.title);
         panel.title = t.drag; sensor.setAttribute('aria-label', t.expand);
         root.querySelector('[data-dqb-menu]').setAttribute('aria-label', t.menu);
-        root.classList.toggle('expanded', prefs.expanded);
+        root.classList.toggle('expanded', isExpanded());
         for (const row of rows.children) {
             const id = row.dataset.provider, group = groupsOf(id)[0], source = quotas?.[id];
             row.classList.toggle('cached', source?.status === 'cached');
@@ -165,7 +169,7 @@
             row.setAttribute('aria-label', nameOf(id) + ' · ' + stateText(id));
             row.querySelectorAll('.dqb-cell').forEach(node => paintCell(node, id, windowOf(group, node.dataset.window)));
             const extraBlock = row.querySelector('.dqb-row-extra');
-            const nextExtra = prefs.expanded ? extraUsageBlock(source, 'dqb-row-extra') : null;
+            const nextExtra = isExpanded() ? extraUsageBlock(source, 'dqb-row-extra') : null;
             extraBlock.hidden = !nextExtra;
             extraBlock.replaceChildren(...(nextExtra ? nextExtra.childNodes : []));
             extraBlock.title = nextExtra?.title || '';
@@ -205,7 +209,7 @@
             dragged = drag.moved; setTimeout(() => { dragged = false; }, 0);
             drag = null; root.classList.remove('dragging');
             save({ center: (root.offsetLeft + root.offsetWidth / 2) / Math.max(1, window.innerWidth) });
-            if (!panel.matches(':hover')) { inside = false; if (prefs.autoHide && !prefs.expanded) scheduleTuck(); else cancelTuck(); }
+            if (!panel.matches(':hover')) { inside = false; if (autoHide() && !isExpanded()) scheduleTuck(); else cancelTuck(); }
         };
         window.addEventListener('pointermove', move); window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end);
     }
@@ -214,7 +218,7 @@
     function cancelTuck() { clearTimeout(tuckTimer); }
     function tuck() {
         cancelTuck();
-        if (!prefs.autoHide || prefs.expanded) {
+        if (!autoHide() || isExpanded()) {
             root?.classList.remove('tucked');
             return;
         }
@@ -222,9 +226,9 @@
     }
     function scheduleTuck() {
         cancelTuck();
-        if (inside || drag || menuOpen || peekProvider || !prefs.autoHide || prefs.expanded || root.classList.contains('trends-open')) return;
+        if (inside || drag || menuOpen || peekProvider || !autoHide() || isExpanded() || root.classList.contains('trends-open')) return;
         tuckTimer = setTimeout(() => {
-            if (!prefs.autoHide || prefs.expanded) return;
+            if (!autoHide() || isExpanded()) return;
             if (!panel.matches(':hover') && !peek.matches(':hover')) tuck();
         }, TUCK_MS);
     }
@@ -274,13 +278,13 @@
             return b;
         };
         menu.replaceChildren(
-            item(t.compact, () => setExpanded(false), !prefs.expanded), item(t.detailed, () => setExpanded(true), prefs.expanded), el('hr'),
+            item(t.compact, () => setExpanded(false), !isExpanded()), item(t.detailed, () => setExpanded(true), isExpanded()), el('hr'),
             el('small', '', t.appearance),
             ...[['auto', t.followHome], ['light', t.light], ['dark', t.dark]].map(([theme, label]) => item(label, () => { save({ theme }); applyTheme(); }, prefs.theme === theme)),
             item(t.center, center), el('hr'),
             item(t.refresh, () => refresh(true)),
             item(t.autoHide, () => {
-                const next = !prefs.autoHide;
+                const next = !autoHide();
                 save({ autoHide: next });
                 if (next) {
                     inside = false;
@@ -289,7 +293,7 @@
                     cancelTuck();
                     root.classList.remove('tucked');
                 }
-            }, prefs.autoHide, 'menuitemcheckbox'),
+            }, autoHide(), 'menuitemcheckbox'),
             el('small', '', t.hideNote)
         );
         menuOpen = true; cancelTuck(); hidePeek(); menu.hidden = false;
@@ -302,14 +306,14 @@
         if (!menuOpen) return;
         menuOpen = false;
         menu.hidden = true;
-        if (prefs.autoHide && !prefs.expanded) scheduleTuck();
+        if (autoHide() && !isExpanded()) scheduleTuck();
         else cancelTuck();
     }
     function setExpanded(expanded) {
         save({ expanded });
         root.classList.remove('tucked');
         render();
-        if (prefs.autoHide && !expanded) scheduleTuck();
+        if (autoHide() && !expanded) scheduleTuck();
         else cancelTuck();
     }
 
@@ -439,7 +443,7 @@
         if (list.join() !== providers.join()) { providers = list; renderRows(); }
         if (active) return;
         active = true; root.hidden = false; render();
-        if (prefs.autoHide && !prefs.expanded) root.classList.add('tucked');
+        if (autoHide() && !isExpanded()) root.classList.add('tucked');
         refresh();
         pollTimer = setInterval(() => { if (document.visibilityState === 'visible') refresh(); }, POLL_MS);
     }
@@ -459,9 +463,19 @@
         } catch { stop(); }
     }
     function setHidden(hidden) { save({ hidden: Boolean(hidden) }); sync(); }
+    function setReadingMode(enabled) {
+        if (readingMode === Boolean(enabled)) return;
+        readingMode = Boolean(enabled);
+        if (!root) return;
+        cancelTuck();
+        if (readingMode) { inside = false; hidePeek(); closeMenu(); }
+        render();
+        if (autoHide() && !isExpanded()) tuck(); else root.classList.remove('tucked');
+    }
+    window.addEventListener('dragon-claw:browser-reading', event => setReadingMode(event.detail?.active));
     window.addEventListener('tools:desktop-agent-settings-changed', sync);
     window.addEventListener('tools:languagechange', render);
     document.addEventListener('visibilitychange', () => { if (active && document.visibilityState === 'visible') refresh(); });
-    window.ToolsDesktopQuotaBar = { sync, refresh, setHidden, isHidden: () => prefs.hidden, isActive: () => active };
+    window.ToolsDesktopQuotaBar = { sync, refresh, setReadingMode, setHidden, isHidden: () => prefs.hidden, isActive: () => active };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', sync); else sync();
 })();

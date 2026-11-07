@@ -57,6 +57,10 @@ test('browser tools open a page, read it, capture fetch responses and console, t
     assert.match((await run('browser_snapshot')).content, /你搜索了 华东 销售/);
     const shot = await run('browser_screenshot');
     assert.ok(fs.statSync(shot.artifactPath).size > 1000);
+    const view = await browser.view(ctx.owner);
+    assert.equal(view.available, true); assert.equal(view.title, '结果');
+    assert.ok(Buffer.from(view.image.split(',')[1], 'base64').length > 1000);
+    assert.match(view.url, /search/);
     assert.ok(shot.artifactPath.startsWith(path.join(sandbox, 'data', 'agent-artifacts')));
     assert.match((await run('browser_evaluate', { expression: 'document.title' })).content, /结果/);
     // 测试复用当前标签页的 live DOM 结构化提取

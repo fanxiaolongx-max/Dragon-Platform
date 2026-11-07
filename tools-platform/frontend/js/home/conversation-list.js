@@ -145,9 +145,10 @@
     }
     function renderBatch(list){
         const binding=bindings.get(list);if(!binding)return;
-        const signature=identity()+'|'+filter.status+'|'+filter.time+'|'+binding.config.source+'|'+(views.get(binding.config.source)||'active')+'|'+(binding.config.query||'');
+        const signature=identity()+'|'+filter.status+'|'+filter.time+'|'+filter.source+'|'+binding.config.source+'|'+(views.get(binding.config.source)||'active')+'|'+(binding.config.query||'');
         if(binding.batchSignature!==signature){binding.batchSignature=signature;binding.limit=6;binding.limits=new Map();}
-        if(list.querySelector('[data-batch-scope]'))return renderScoped(list,binding);
+        const filtered=filter.status!=='all'||filter.time!=='all'||views.get(binding.config.source)==='archived'||Boolean(binding.config.query)||!matchesSource({_sourceType:'mine'},binding.config);
+        if(list.querySelector('[data-batch-scope]'))return renderScoped(list,binding,filtered);
         const rows=[...list.querySelectorAll('.conversation-list-row')];
         const limit=binding.config.query?rows.length:binding.limit;
         rows.forEach((row,index)=>{if(row.hidden!==(index>=limit))row.hidden=index>=limit;});
@@ -157,14 +158,14 @@
             if(heading.hidden===visible)heading.hidden=!visible;
         }
         list.querySelector('.v2-list-expand')?.remove();
-        const more=rows.length>limit,remote=binding.paging||{};
-        if(!more&&!remote.hasMore)return;
+        const more=rows.length>limit,remote=binding.paging||{},fetchMore=remote.hasMore&&!filtered&&rows.length>=6;
+        if(!more&&!fetchMore)return;
         const button=document.createElement('button');button.type='button';button.className='v2-list-expand';
-        button.textContent=remote.loading?L('正在加载…','Loading…'):L('展开更多','Show more');button.disabled=!!remote.loading;
-        button.addEventListener('click',()=>{binding.limit=Math.min(binding.limit,rows.length)+6;if(!more&&remote.hasMore)remote.onMore?.();renderBatch(list);});list.append(button);
+        button.textContent=!more&&remote.loading?L('正在加载…','Loading…'):L('展开更多','Show more');button.disabled=!more&&!!remote.loading;
+        button.addEventListener('click',()=>{binding.limit=Math.min(binding.limit,rows.length)+6;if(!more&&fetchMore)remote.onMore?.();renderBatch(list);});list.append(button);
     }
     // 分区「展开更多」：任务 / 空间 / 每个项目文件夹各自计数（data-batch-scope；data-batch-unit="project" 按文件夹计；data-batch-remote 的分区用完后向服务端取下一页）
-    function renderScoped(list,binding){
+    function renderScoped(list,binding,filtered=false){
         list.querySelectorAll('.v2-list-expand').forEach(node=>node.remove());
         binding.limits||=new Map();
         const remote=binding.paging||{},query=binding.config.query;
@@ -173,11 +174,11 @@
             const units=[...scope.querySelectorAll(scope.dataset.batchUnit==='project'?'.home-chat-project':'.conversation-list-row')].filter(unit=>unit.parentElement.closest('[data-batch-scope]')===scope);
             const limit=query?units.length:(binding.limits.get(key)||step);
             units.forEach((unit,index)=>{if(unit.hidden!==(index>=limit))unit.hidden=index>=limit;});
-            const more=units.length>limit,fetchMore='batchRemote' in scope.dataset&&remote.hasMore;
+            const more=units.length>limit,fetchMore='batchRemote' in scope.dataset&&remote.hasMore&&!filtered&&units.length>=step;
             if(!more&&!fetchMore)continue;
             const button=document.createElement('button');button.type='button';button.className='v2-list-expand';
             button.textContent=!more&&remote.loading?L('正在加载…','Loading…'):L('展开更多','Show more');button.disabled=!more&&!!remote.loading;
-            button.addEventListener('click',()=>{binding.limits.set(key,Math.min(limit,units.length)+step);if(!more)remote.onMore?.();renderBatch(list);});
+            button.addEventListener('click',()=>{binding.limits.set(key,Math.min(limit,units.length)+step);if(!more&&fetchMore)remote.onMore?.();renderBatch(list);});
             scope.append(button);
         }
     }

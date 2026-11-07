@@ -22,6 +22,7 @@ app.whenReady().then(async () => {
         window.fixtureIntervals=[];const originalInterval=window.setInterval;window.setInterval=(fn,delay,...args)=>{if(delay>=10000)fixtureIntervals.push({fn,delay});return originalInterval(fn,delay,...args)};
         window.fixtureErrors=[];window.addEventListener('error',e=>fixtureErrors.push(e.message));window.addEventListener('unhandledrejection',e=>fixtureErrors.push(String(e.reason)));
     </script>`)));
+    web.get('/api/ai/speech', (_,res)=>res.json(process.env.HOME_VOICE_PREVIEW?{enabled:true,source:{id:'gemini',label:'Gemini · gemini-3.1-flash-lite'}}:{enabled:false,error:'语音未配置'}));
     web.get('/api/custom-tools', (_, res) => res.json([]));
     web.get('/api/auth/me', (_, res) => res.json({ username: 'fixture', role: 'admin', tenantId: 'default' }));
     web.get('/api/app-version', (_, res) => res.json({ version: 'fixture' }));
@@ -43,6 +44,23 @@ app.whenReady().then(async () => {
     win = new BrowserWindow({ show: false, width: 1440, height: 1000, webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false } });
     await win.loadURL(`http://127.0.0.1:${server.address().port}/`);
     await until('!!window.HomeComposer&&!!document.querySelector(".dc-permission-picker")&&!!document.querySelector(".v2-suggest-item")&&!!window.HomePromoPlayer');
+    if(process.env.HOME_VOICE_PREVIEW){
+        await evaluate(`window.voiceAudio=new AudioContext();const oscillator=voiceAudio.createOscillator(),destination=voiceAudio.createMediaStreamDestination();oscillator.connect(destination);oscillator.start();Object.defineProperty(navigator,'mediaDevices',{value:{getUserMedia:async()=>destination.stream.clone()},configurable:true});`);
+        for(const width of [1440,390])for(const external of [false,true]){
+            win.setContentSize(width,950);await wait(180);
+            await evaluate(`DragonClaw.exitExternal();${external?"DragonClaw.enterExternal({owner:'voice-fixture',composer:{canSend:true,placeholder:'WorkBuddy'}})":""};dcInput.value='测试，测试。';dcInput.dispatchEvent(new Event('input',{bubbles:true}));`);
+            await until('!dcVoice.disabled');const before=await evaluate('dcComposer.getBoundingClientRect().height');await evaluate('dcVoice.click()');await until('dcVoice.classList.contains("is-recording")');
+            assert.equal(await evaluate('document.querySelectorAll(".chat-voice-session").length'),0,'recording never adds a prompt panel');
+            assert.ok(Math.abs(await evaluate('dcComposer.getBoundingClientRect().height')-before)<2,'recording does not increase composer height');
+            assert.equal(await evaluate('document.querySelector(".chat-voice-source").textContent.includes("Gemini")'),true);
+            const rect=await evaluate('(()=>{const r=dcVoice.getBoundingClientRect();return{left:r.left,right:r.right,width:innerWidth}})()');assert.ok(rect.left>=0&&rect.right<=rect.width);
+            assert.equal(await evaluate('dcVoice.dataset.voiceSource'), 'gemini');
+            assert.equal(await evaluate('getComputedStyle(dcVoice,"::before").content'), '""');
+            assert.ok(await evaluate('document.querySelector(".chat-voice-source").getBoundingClientRect().width')<=1,'source text takes no visible row space');
+            await capture(`voice-compact-${width}-${external?'external':'normal'}`);await evaluate('document.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape"}))');
+        }
+        assert.deepEqual(await evaluate('fixtureErrors'),[]);win.destroy();server.close();console.log('PASS: compact recording button, source halo, stable composer height, 390/1440px and ordinary/external chats. '+temp);app.exit(0);return;
+    }
     if (process.env.HOME_COMPOSER_DOCK_AUDIT) {
         for (const mode of ['model', 'no-model', 'external']) {
             await evaluate(`DragonClaw.exitExternal();${mode === 'external' ? "DragonClaw.enterExternal({owner:'workbuddy-fixture',composer:{canSend:true,placeholder:'WorkBuddy running'}})" : `dcModel.hidden=${mode === 'no-model'}`};void 0`);
@@ -53,7 +71,8 @@ app.whenReady().then(async () => {
                 const geometry = await evaluate(`(()=>{
                     const voice=dcVoice.getBoundingClientRect(),send=dcSend.getBoundingClientRect(),enhance=dcEnhance.getBoundingClientRect();
                     const bar=document.querySelector('.dc-composer-bar').getBoundingClientRect();
-                    return {voiceGap:send.left-voice.right,enhanceGap:voice.left-enhance.right,rightGap:bar.right-send.right,
+                    const voiceStart=voice.left;
+                    return {voiceGap:send.left-voice.right,enhanceGap:voiceStart-enhance.right,rightGap:bar.right-send.right,
                         gap:parseFloat(getComputedStyle(document.querySelector('.dc-composer-bar')).columnGap),
                         enhanceHidden:dcEnhance.hidden,modelHidden:dcModel.hidden};
                 })()`);
@@ -61,7 +80,7 @@ app.whenReady().then(async () => {
                 assert.ok(Math.abs(geometry.voiceGap-geometry.gap)<1, 'voice stays beside send: '+context);
                 assert.ok(Math.abs(geometry.rightGap)<1, 'send stays at the right edge: '+context);
                 assert.equal(geometry.enhanceHidden,!text,'enhancement follows input: '+context);
-                if (mode !== 'model' && text) assert.ok(Math.abs(geometry.enhanceGap-geometry.gap)<1,'enhancement stays beside voice: '+context);
+                if (mode !== 'model' && text) assert.ok(Math.abs(geometry.enhanceGap-geometry.gap)<1,'enhancement stays beside voice controls: '+context);
                 if (mode === 'external' && width === 1440 && theme === 'light') await capture(text ? 'external-filled-docked' : 'external-empty-docked');
             }
         }
@@ -155,7 +174,7 @@ app.whenReady().then(async () => {
     enhanceMode='slow';await evaluate('dcEnhance.click();dcInput.value+=" 手工补充";dcInput.dispatchEvent(new Event("input",{bubbles:true}));');
     await wait(280);assert.equal(await evaluate('dcInput.value===originalDraft+" 手工补充"'),true,'late rewrites never overwrite edits');
     enhanceMode='normal';await evaluate('dcInput.value=originalDraft;dcInput.dispatchEvent(new Event("input",{bubbles:true}));window.voiceRequests=0;Object.defineProperty(navigator,"mediaDevices",{value:{getUserMedia:()=>{voiceRequests++;return Promise.reject(new Error("Unexpected microphone request"))}},configurable:true});dcVoice.click();');
-    assert.equal(await evaluate('voiceRequests'),0,'reserved voice button never requests microphone access');
+    assert.equal(await evaluate('voiceRequests'),0,'unconfigured speech service does not request microphone access');
     await evaluate('dcModelBtn.click()');
     assert.equal(await evaluate('dcModelMenu.hidden'), false);
     assert.equal(await evaluate('dcModelMenu.textContent.includes("Aragon")'), false);

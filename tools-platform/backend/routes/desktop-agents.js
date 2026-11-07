@@ -19,6 +19,14 @@ router.put('/discussions/:sessionId',route(async(req,res)=>res.json({settings:aw
 router.post('/discussion-runs',route(async(req,res)=>{const job=await discussion.start(req.user.username,req.body);if(job.status==='queued')discussion.schedule(req.user.username,job.id);res.status(202).json(job);}));
 router.get('/discussion-runs/:id',route(async(req,res)=>{res.setHeader('Cache-Control','no-store');res.json(await discussion.get(req.user.username,req.params.id));}));
 router.post('/discussion-runs/:id/cancel',route(async(req,res)=>res.json(await discussion.cancel(req.user.username,req.params.id))));
+router.get('/:provider/sessions/:id/export', route(async (req, res) => {
+    const log = await service.exportConversation(req.user.username, req.params.provider, req.params.id);
+    const id = String(req.params.id).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 80);
+    const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..*$/, '');
+    res.setHeader('Content-Disposition', `attachment; filename="dragon-claw-${req.params.provider}-${id}-${stamp}.json"`);
+    res.setHeader('Cache-Control', 'no-store');
+    res.json(log);
+}));
 router.get('/:provider/sessions/:id/messages', route(async (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.json(await service.messages(req.user.username, req.params.provider, req.params.id, { passive: req.query.passive === '1' })); }));
 router.post('/:provider/sessions/:id/messages', route(async (req, res) => { const body = req.body || {}; res.status(202).json(body.mode === 'queue' ? await service.enqueue(req.user.username, req.params.provider, req.params.id, body) : await service.send(req.user.username, req.params.provider, req.params.id, body)); }));
 router.post('/:provider/new', route(async (req, res) => res.status(202).json(await service.create(req.user.username, req.params.provider, req.body || {}))));

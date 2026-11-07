@@ -2,9 +2,25 @@
 // task or a separate model. Every action is bound to its exact conversation ID.
 const fs = require('node:fs/promises'), path = require('node:path');
 const WebSocket = require('ws');
-const { home, safe, antigravityTimestamps } = require('./catalog');
+const { home, safe, antigravityTimestamps, antigravity: localList, antigravityBusyIds: localBusyIds, antigravityTranscript } = require('./catalog');
 const { composerText } = require('./composer-text');
 const fail = (code, message) => Object.assign(new Error(message), { code });
+let probeMemo = { at: 0, ok: false };
+async function canConnect() {
+    if (Date.now() - probeMemo.at < 2000) return probeMemo.ok;
+    try {
+        const active = path.join(home(), 'Library/Application Support/Antigravity/DevToolsActivePort');
+        const port = Number((await fs.readFile(active, 'utf8')).split('\n')[0]);
+        if (!Number.isInteger(port) || port < 1024 || port > 65535) return (probeMemo = { at: Date.now(), ok: false }).ok;
+        const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`, { signal: AbortSignal.timeout(1200) })).json();
+        const ok = Array.isArray(targets) && targets.some(t => t.type === 'page' && /^https?:\/\/(?:127\.0\.0\.1|localhost):\d+\//.test(t.url));
+        probeMemo = { at: Date.now(), ok };
+        return ok;
+    } catch {
+        probeMemo = { at: Date.now(), ok: false };
+        return false;
+    }
+}
 async function connect() {
     const active = path.join(home(), 'Library/Application Support/Antigravity/DevToolsActivePort');
     const port = Number((await fs.readFile(active, 'utf8')).split('\n')[0]);
@@ -53,6 +69,10 @@ function sidebarTime(value, now=Date.now()) {
     const time=Date.parse(text);return Number.isNaN(time)?null:new Date(time).toISOString();
 }
 async function list(limit) {
+    if (typeof localList === 'function') {
+        const localRows = await localList(limit);
+        if (localRows.length > 0) return localRows;
+    }
     return using(async (c) => {
         const rows = await c.evaluate(`Array.from(document.querySelectorAll('[data-testid="conversation-row-sidebar"]')).map((e,i)=>({id:e.getAttribute('data-cascade-id'),title:e.querySelector('a')?.getAttribute('aria-label')||e.querySelector('span.truncate')?.textContent||e.textContent,order:i,time:e.querySelector('time')?.getAttribute('datetime')||Array.from(e.querySelectorAll('span,small')).find(n=>!n.children.length&&/^(?:[0-9]+[ ]*(?:s|m|h|d|w|mo|y)(?: ago)?|Yesterday|昨天)$/.test(n.textContent.trim()))?.textContent})).filter(r=>r.id)`);
         const valid = rows.filter(r => /^[a-f0-9-]{36}$/i.test(r.id)).slice(0, limit);
@@ -68,10 +88,17 @@ async function list(limit) {
         }));
     });
 }
-// 侧栏「运行中」转圈：Antigravity 侧栏里带「Stop execution」按钮的会话，加上当前页面正在运行的会话；5 秒内复用结果
+// 侧栏「运行中」转圈：优先读本地 conversation_summaries.db 的运行态；无本地库时回退到 CDP 侧栏检测
 let busyMemo = { at: 0, ids: new Set(), pending: null };
 async function busyIds() {
     if (Date.now() - busyMemo.at < 5000) return busyMemo.ids;
+    if (typeof localBusyIds === 'function') {
+        const local = await localBusyIds();
+        if (local) {
+            busyMemo = { at: Date.now(), ids: local, pending: null };
+            return local;
+        }
+    }
     if (busyMemo.pending) return busyMemo.pending;
     busyMemo.pending = using(c => c.evaluate(`(()=>{const ids=Array.from(document.querySelectorAll('[data-cascade-id]')).filter(e=>e.querySelector('button[aria-label="Stop execution"]')).map(e=>e.dataset.cascadeId);const m=location.pathname.match(/^\\/c\\/([a-f0-9-]{36})$/i);if(m&&document.querySelector('[data-testid="agent-input-box"] button[aria-label="Stop execution"]'))ids.push(m[1]);return ids;})()`))
         .then(ids => new Set((Array.isArray(ids) ? ids : []).filter(id => /^[a-f0-9-]{36}$/i.test(id))))
@@ -171,8 +198,14 @@ function readTimeline() {
     }
     return out.slice(-200).map((r, i) => ({ id: String(i), ...r }));
 }
-// passive：网页轮询只读当前已打开的会话，不切换桌面；桌面在别的会话时只从侧栏读运行状态。
-async function messages(id, { passive = false } = {}) { return using(async (c) => { if (passive && !await c.evaluate(`location.pathname==='/c/'+${JSON.stringify(id)}`)) {
+// 优先从本机 ~/.gemini/antigravity/brain/<id>/.system_generated/logs/transcript_full.jsonl 秒读消息与每轮模型指标；
+// 若本地尚无 jsonl（如桌面 fixture 测试），回退到 CDP 窗口 DOM 读取。
+async function messages(id, { passive = false } = {}) {
+    if (typeof antigravityTranscript === 'function') {
+        const local = await antigravityTranscript(id);
+        if (local) return local;
+    }
+    return using(async (c) => { if (passive && !await c.evaluate(`location.pathname==='/c/'+${JSON.stringify(id)}`)) {
     const busy = await c.evaluate(`!!Array.from(document.querySelectorAll('[data-cascade-id]')).find(e=>e.dataset.cascadeId===${JSON.stringify(id)})?.querySelector('button[aria-label="Stop execution"]')`);
     return { available: true, stale: true, busy, items: null };
 } if (!passive)
@@ -184,7 +217,8 @@ async function messages(id, { passive = false } = {}) { return using(async (c) =
             catch { /* Cache failures must not hide conversation text. */ }
         }
         return { ...row, content: safe(row.content, 40000), ...(attachments.length ? { attachments } : {}), createdAt: null };
-    })) }; }); }
+    })) }; });
+}
 // Lexical needs a real keyboard input sequence. CDP insertText alone can update
 // its document while the parent's isInputEmpty state stays true indefinitely.
 async function typeText(c, text) {
@@ -282,4 +316,4 @@ async function createAndSend(text) {
         throw fail('DELIVERY_UNKNOWN','Antigravity 已提交新建，但未确认新会话回执，请核对桌面，不会重复发送');
     });
 }
-module.exports = { connect, list, busyIds, messages, send, createAndSend, sidebarTime };
+module.exports = { connect, canConnect, list, busyIds, messages, send, createAndSend, sidebarTime };

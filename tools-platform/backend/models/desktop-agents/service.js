@@ -1,7 +1,7 @@
 const repo = require('./repository'), catalog = require('./catalog'), codex = require('./codex-ipc'), ag = require('./antigravity-cdp'), claude = require('./claude-desktop'), wb = require('./workbuddy');
 const {composerText}=require('./composer-text');
 const { getTenantId, runWithTenant } = require('../tenant-context');
-const { containsSensitiveText, redactText } = require('../ai-sensitive-data');
+const { containsSensitiveText, redactText, redactValue } = require('../ai-sensitive-data');
 const providers = ['codex', 'claudecode', 'antigravity', 'workbuddy'];
 // WorkBuddy 的记录格式与 Codex / Claude 不同，由自己的模块解析
 const readTranscript = row => row.provider === 'workbuddy' ? wb.transcript(row) : catalog.transcript(row);
@@ -63,8 +63,12 @@ async function scan(owner, cfg) {
                 ({ canSend, reason, connected } = await wb.status(items));
             }
             if (provider === 'antigravity') {
-                canSend = true;
-                reason = '原生桌面页面连接；打开记录会同步切换桌面会话';
+                const fromSidebar = items.some(i => i.source === 'desktop-sidebar');
+                canSend = fromSidebar || (typeof ag.canConnect === 'function' ? await ag.canConnect() : true);
+                connected = canSend || items.length > 0;
+                reason = canSend
+                    ? (fromSidebar ? '原生桌面页面连接；打开记录会同步切换桌面会话' : '本地记录直读 · 原生桌面会话连接')
+                    : (items.length > 0 ? 'Antigravity 桌面未运行，可查看已保存记录' : '本机桌面连接不可用，请打开对应客户端后刷新');
             }
             states.push({ id: provider, enabled: true, connected, canRead: items.length > 0, canSend: cfg.allowSend && canSend, count: items.length, latencyMs: Date.now() - checkedAt, reason });
         }
@@ -100,6 +104,16 @@ async function selected(owner, provider, id) { if (!providers.includes(provider)
 } if (!row)
     throw repo.error('会话已移除或不属于当前桌面连接', 404); return { state, row }; }
 async function messages(owner, provider, id, { passive = false } = {}) { const { state, row } = await selected(owner, provider, id), queue = queued(owner, provider, id); const content = provider === 'antigravity' ? await ag.messages(id, { passive }) : await readTranscript(row); const status = state.providers.find(p => p.id === provider); return { ...content, session: publicSession(row), canSend: status?.canSend || false, canSteer: provider === 'codex' && Boolean(status?.canSend), reason: content.reason || status?.reason || '', queue }; }
+async function exportConversation(owner, provider, id) {
+    const data = await messages(owner, provider, id, { passive: true });
+    if (data.available === false || !Array.isArray(data.items)) throw repo.error(data.reason || '当前桌面会话暂不可读取，请刷新后重试', 409);
+    return redactValue({
+        format: 'dragon-claw-desktop-agent-log', formatVersion: 1,
+        exportedAt: new Date().toISOString(), provider, session: data.session,
+        available: data.available, busy: Boolean(data.busy), messages: data.items.slice(-200)
+    }, { secrets: await require('../ai-settings-repository').getRedactionSecrets() });
+}
+
 // 空消息、超长、请求编号错误分别说明，避免长消息被误报成“编号无效”。
 const MAX_MESSAGE = 20000;
 function checkMessage(text, requestId) {
@@ -294,4 +308,4 @@ async function drain(k, { read = (row) => row.provider === 'antigravity' ? ag.me
         }
     }
 }
-module.exports = { list, messages, send, create, save, discover, publicSession, waitForReply, enqueue, cancelQueued, queued, drain, queueKey };
+module.exports = { list, messages, exportConversation, send, create, save, discover, publicSession, waitForReply, enqueue, cancelQueued, queued, drain, queueKey };

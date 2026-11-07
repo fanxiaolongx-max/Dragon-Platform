@@ -109,7 +109,6 @@ test('proactive KPI APIs are authenticated and the wording route remains read-on
 });
 
 test('navbar loads the proactive assistant without a pinned stale version', () => {
-    const matches = navbar.match(/\.src = '\/js\/shared\/ai-assistant\.js'/g) || [];
-    assert.equal(matches.length, 2);
+    assert.match(navbar, /loadNavLazyScript\('\/js\/shared\/ai-assistant\.js'/);
     assert.doesNotMatch(navbar, /ai-assistant\.js\?v=/);
 });

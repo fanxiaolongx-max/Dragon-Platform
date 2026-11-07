@@ -201,7 +201,32 @@
         if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
         return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
     }
+    // 按回复归组，不跨消息合并；流式回复新增/撤回文件时也能恢复单文件卡片。
+    const FILE_MESSAGE_SCOPE = '.dc-msg, .ai-msg, .wl-detail, .dc-btw-a';
+    function compactFileReferences(root) {
+        const groups = new Map();
+        (root || document).querySelectorAll?.('.ai-file-chip').forEach(chip => {
+            const scope = chip.closest(FILE_MESSAGE_SCOPE);
+            if (!scope || scope.matches('.dc-msg--user, .ai-msg.user')) return;
+            if (!groups.has(scope)) groups.set(scope, []);
+            groups.get(scope).push(chip);
+        });
+        groups.forEach(chips => {
+            const compact = chips.length > 1;
+            chips.forEach(chip => {
+                chip.classList.toggle('ai-file-chip--compact', compact);
+                const link = chip.querySelector('.ai-file-chip-name');
+                if (!link) return;
+                // CODE0 等引用标签在紧凑模式下显示真实文件名，便于识别。
+                if (!('fileLabel' in link.dataset)) link.dataset.fileLabel = link.textContent;
+                const label = compact ? baseName(chip.dataset.aiFile) : link.dataset.fileLabel;
+                if (link.textContent !== label) link.textContent = label;
+            });
+        });
+    }
     function hydrate(root) {
+        // hydrate 也会由附件容器调用；归组时包含正文及附件。
+        compactFileReferences(root?.closest?.(FILE_MESSAGE_SCOPE) || root);
         (root || document).querySelectorAll?.('.ai-file-chip:not([data-hydrated])').forEach(chip => {
             chip.dataset.hydrated = '1';
             stat(chip.dataset.aiFile).then(info => {
@@ -663,7 +688,7 @@
     }, true);
 
     new MutationObserver(records => {
-        if (records.some(record => record.addedNodes.length)) hydrate(document);
+        if (records.some(record => record.addedNodes.length || record.removedNodes.length)) hydrate(document);
     }).observe(document.documentElement, { childList: true, subtree: true });
 
     const style = document.createElement('style');
@@ -700,6 +725,25 @@
         .ai-file-chip a.ai-file-chip-download:hover { background: rgba(148, 163, 184, 0.24); color: #fff; }
         .ai-file-chip.is-missing { opacity: .6; border-style: dashed; }
         .ai-file-chip.is-missing a.ai-file-chip-download { pointer-events: none; opacity: .5; }
+        html .ai-file-chip.ai-file-chip--compact,
+        html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-chip.ai-file-chip--compact {
+            display: inline; width: auto; margin: 0; padding: 0; border: 0; border-radius: 0;
+            background: transparent; box-shadow: none; line-height: inherit; vertical-align: baseline;
+        }
+        .ai-file-chip--compact .ai-file-chip-text { display: inline; }
+        .ai-file-chip--compact .ai-file-chip-icon,
+        .ai-file-chip--compact .ai-file-chip-meta,
+        .ai-file-chip.ai-file-chip--compact a.ai-file-chip-download { display: none; }
+        .ai-file-chip.ai-file-chip--compact a.ai-file-chip-name {
+            display: inline; max-width: none; white-space: normal; overflow-wrap: anywhere;
+            font-size: .95em; font-weight: 500; color: #7dd3fc;
+            text-decoration: underline; text-decoration-color: #7dd3fc55;
+            text-decoration-thickness: 1px; text-underline-offset: 3px;
+        }
+        html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-chip.ai-file-chip--compact a.ai-file-chip-name { color: #2563a6; text-decoration-color: #2563a64d; }
+        .ai-file-chip.ai-file-chip--compact a.ai-file-chip-name:hover { color: #38bdf8; text-decoration-color: currentColor; }
+        html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-chip.ai-file-chip--compact a.ai-file-chip-name:hover { color: #1d4ed8; text-decoration-color: currentColor; }
+        .ai-file-chip--compact a.ai-file-chip-name:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; border-radius: 2px; }
         .ai-md-image { display: block; width: fit-content; max-width: 100%; margin: 6px 0; vertical-align: top; }
         .ai-md-image img { display: block; max-width: min(100%, 520px); max-height: 360px; border-radius: 10px; border: 1px solid rgba(148, 163, 184, .3); cursor: zoom-in; object-fit: contain; background: rgba(148, 163, 184, .08); }
         .ai-md-image.is-missing { padding: 8px 12px; border-radius: 10px; border: 1px dashed rgba(148, 163, 184, .5); font-size: 13px; opacity: .7; }
@@ -709,8 +753,6 @@
         .home-workspace-panel.has-file-preview { height: calc(100dvh - var(--navbar-h) - 36px); max-height: none; box-sizing: border-box; overflow: hidden; }
         .home-workspace-panel.has-file-preview > .ai-file-preview { flex: 1 1 auto; min-height: 0; }
         .ai-file-preview-resize { position: absolute; left: 0; top: 0; bottom: 0; width: 8px; z-index: 2; cursor: col-resize; touch-action: none; border-radius: 5px; }
-        .ai-file-preview-resize::after { content: ""; position: absolute; left: 3px; top: calc(50% - 24px); width: 2px; height: 48px; border-radius: 2px; background: #94a3b877; }
-        .ai-file-preview-resize:hover, .ai-file-preview-resize:focus-visible { background: #38bdf866; outline: none; }
         body.ai-preview-resizing { cursor: col-resize; user-select: none; }
         body.ai-preview-resizing .ai-file-preview iframe { pointer-events: none; }
         @media (min-width: 861px) {

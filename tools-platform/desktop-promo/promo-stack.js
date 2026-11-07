@@ -575,13 +575,17 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
         },
         // Dragon Claw 的浏览器工具：新开一个 Dragon 浏览器标签交给智能体（经 webContents.debugger 控制，见 backend/models/agent-browser.js）。
         // 等空白页首次加载完再交出，避免随后加载 about:blank 盖掉智能体的导航
+        setBrowserSidebar(host) { ensureSession(); browser.setSidebar(host); },
+        setBrowserSidebarBounds(bounds) { browser.setSidebarBounds(bounds); },
+        browserSidebarAction(sender, action, payload) { return browser.handleAction(sender, action, payload); },
+        popoutBrowser() { browser.popout(); },
         openAgentPage({ name = 'Dragon Claw', url = 'about:blank' } = {}) {
             ensureSession();
             const tab = browser.open({ link: { name, url } });
             const wc = tab.page.webContents;
             return new Promise(resolve => {
                 const timer = setTimeout(done, 3000);
-                function done() { clearTimeout(timer); wc.removeListener('did-stop-loading', done); resolve({ id: tab.id, webContents: wc, close: () => browser.closeTab(tab.id) }); }
+                function done() { clearTimeout(timer); wc.removeListener('did-stop-loading', done); resolve({id:tab.id,webContents:wc,close:()=>browser.closeTab(tab.id),setOperatorState:value=>tab.setOperatorState(value),setOperatorHandler:handler=>{tab.operatorAction=handler;}}); }
                 wc.once('did-stop-loading', done);
             });
         },

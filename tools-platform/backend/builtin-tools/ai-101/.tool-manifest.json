@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "tool": {
+    "slug": "ai-101",
+    "name": "AI 101",
+    "nameEn": "AI 101 Fundamentals",
+    "icon": "🧩",
+    "description": "面向通信工程师的 AI 入门实战课程。通过五级台阶（懂、问、喂、验、用）引导学员从基础认知进阶到利用 AI 解决实际工作痛点，重点涵盖提示词编写、上下文管理、幻觉识别及 Agent 任务协作，并强调企业信息安全与合规。",
+    "descriptionEn": "A practical AI introductory course for telecom engineers. It guides participants through five levels—Understand, Ask, Feed, Verify, and Use—to transition from basic concepts to solving real-world work challenges. The curriculum covers prompt engineering, context management, hallucination detection, and Agent collaborat",
+    "tags": [
+      "AI培训",
+      "提示词工程",
+      "Agent协作",
+      "信息安全",
+      "AI Literacy"
+    ],
+    "href": "/tools/ai-101",
+    "filePath": "/custom-tools/ai-101/index.html",
+    "publicAccess": false,
+    "createdAt": "2026-11-06T12:20:45.362Z",
+    "updatedAt": "2026-11-07T11:14:20.727Z"
+  },
+  "history": null
+}

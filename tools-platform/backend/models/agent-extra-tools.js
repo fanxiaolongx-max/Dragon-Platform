@@ -83,7 +83,7 @@ async function toolsets({ owner, readOnly, channel = null }) {
             kindOf: name => browser.kindOf(name),
             preview: (name, args) => browser.preview(ctx, name, args),
             alwaysKey: (name, args) => browser.alwaysKey(name, args),
-            execute: call => browser.execute(ctx, call.name, call.args && typeof call.args === 'object' ? call.args : {})
+            execute: (call,{signal}={}) => browser.execute({...ctx,signal}, call.name, call.args && typeof call.args === 'object' ? call.args : {})
         });
     }
     // MCP 服务：每个已连接的服务一组（只给默认租户的管理员；连不上的服务这一轮跳过）
@@ -124,7 +124,7 @@ async function forChat({ owner, chatSessionId, readOnly, write, signal, sensitiv
             }
             const decision = await manager.decideCall(run, call, { kind, preview: () => set.preview(call.name, call.args), key: set.alwaysKey?.(call.name, call.args) });
             if (decision.outcome) return decision.outcome;
-            return set.execute(call);
+            return set.execute(call,{signal});
         },
         end: () => run.end()
     };

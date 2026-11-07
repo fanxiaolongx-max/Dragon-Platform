@@ -13,7 +13,7 @@ const prService = require('../models/agent-pr-service');
 const workspaceChanges = require('../models/agent-workspace-changes');
 const workspaceGit = require('../models/agent-workspace-git');
 const transcripts = require('../models/agent-transcript-repository');
-const { getTenantId } = require('../models/tenant-context');
+const { getTenantId, runWithTenant } = require('../models/tenant-context');
 
 const router = express.Router();
 const SUGGEST_LIMIT = 50;
@@ -32,6 +32,84 @@ router.get('/capability', (req, res) => {
 });
 
 router.use(access.middleware);
+
+router.get('/browser/view', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    if (!runManager.isAdminUser(req.user)) return res.status(403).json({ code: 'ADMIN_REQUIRED', error: '浏览器画面仅管理员可查看' });
+    try {
+        const owner = runManager.ownerKey(req.user, getTenantId());
+        res.json(await require('../models/agent-browser').view(owner));
+    } catch (error) {
+        res.status(503).json({ code: error.code || 'BROWSER_VIEW_UNAVAILABLE', error: '无法读取浏览器画面，请稍后刷新' });
+    }
+});
+
+// 使用已有鉴权链的连续画面通道；不暴露 CDP 端口，不在 URL 中放 Token。
+const browserStreams = new Map();
+router.get('/browser/stream', async (req,res)=>{
+    if(!runManager.isAdminUser(req.user))return res.status(403).json({code:'ADMIN_REQUIRED',error:'浏览器画面仅管理员可查看'});
+    const owner=runManager.ownerKey(req.user,getTenantId());
+    if((browserStreams.get(owner)||0)>=2)return res.status(429).json({code:'BROWSER_STREAM_LIMIT',error:'浏览器画面窗口过多'});
+    browserStreams.set(owner,(browserStreams.get(owner)||0)+1);
+    res.set({'Content-Type':'application/x-ndjson','Cache-Control':'no-store, no-transform','X-Accel-Buffering':'no'});
+    res.flushHeaders();
+    let closed=false;
+    res.on('close',()=>{closed=true;});
+    const until=Date.now()+45000;
+    try{
+        while(!closed&&Date.now()<until){
+            const data=await require('../models/agent-browser').view(owner,true);
+            if(closed)break;
+            if(!res.write(JSON.stringify(data)+'\n')){
+                await new Promise(resolve=>{
+                    const done=()=>{clearTimeout(timer);res.off('drain',done);res.off('close',done);resolve();};
+                    const timer=setTimeout(()=>{closed=true;done();},3000);
+                    res.once('drain',done);res.once('close',done);
+                });
+            }
+            if(!data.available)break;
+            await new Promise(resolve=>setTimeout(resolve,250));
+        }
+    }catch(_error){if(!closed)res.write(JSON.stringify({error:'画面连接中断，请刷新重连'})+'\n');}
+    finally{const count=(browserStreams.get(owner)||1)-1;count?browserStreams.set(owner,count):browserStreams.delete(owner);res.end();}
+});
+
+// 单独接收本次选择的文件；不接受任意服务器路径，不把文件内容放入 AI 消息。
+router.post('/browser/upload', (req,res,next)=>{
+    if(!runManager.isAdminUser(req.user))return res.status(403).json({code:'ADMIN_REQUIRED',error:'浏览器控制仅管理员可用'});
+    const tenantId=getTenantId(),multer=require('multer'),limits=require('../models/agent-artifacts').UPLOAD_LIMITS;
+    multer({storage:multer.memoryStorage(),limits:{fileSize:limits.fileBytes,files:limits.files,fields:8,fieldSize:1000}}).array('files',limits.files)(req,res,error=>runWithTenant(tenantId,()=>error?res.status(400).json({code:error.code,error:'单个文件上限 20MB，一次最多 5 个'}):next()));
+},async(req,res)=>{
+    res.setHeader('Cache-Control','no-store');
+    try{
+        const owner=runManager.ownerKey(req.user,getTenantId());
+        const files=(req.files||[]).map(file=>{
+            const raw=file.originalname,decoded=Buffer.from(raw,'latin1').toString('utf8');
+            return {originalname:decoded.includes('\ufffd')?raw:decoded,buffer:file.buffer};
+        });
+        const args={action:req.body.action==='file-drop'?'file-drop':'upload',token:req.body.token,frameId:req.body.frameId,chooserId:req.body.chooserId,_uploads:files};
+        if(args.action==='file-drop'){args.x=Number(req.body.x);args.y=Number(req.body.y);}
+        res.json(await require('../models/agent-browser').control(owner,args));
+    }catch(error){
+        const code=error.code||'BROWSER_UPLOAD_FAILED';
+        const status=error.statusCode||(['BROWSER_VIEW_STALE','BROWSER_CONTROL_REQUIRED','BROWSER_NO_TAB'].includes(code)?409:code==='BROWSER_CONTROL_INVALID'?400:503);
+        res.status(status).json({code,error:status===503?'上传未确认，请核对网页后继续':error.message});
+    }
+});
+
+// 手动输入只发给当前账号的浏览器，不进入对话、工具转录或 AI 上下文。
+router.post('/browser/control', async (req,res)=>{
+    res.setHeader('Cache-Control','no-store');
+    if(!runManager.isAdminUser(req.user))return res.status(403).json({code:'ADMIN_REQUIRED',error:'浏览器控制仅管理员可用'});
+    try{
+        const owner=runManager.ownerKey(req.user,getTenantId());
+        res.json(await require('../models/agent-browser').control(owner,req.body||{}));
+    }catch(error){
+        const code=error.code||'BROWSER_CONTROL_FAILED';
+        const status=code==='BROWSER_CONTROL_INVALID'?400:['BROWSER_NO_TAB','BROWSER_CONTROL_BUSY','BROWSER_CONTROL_REQUIRED','BROWSER_VIEW_STALE','BROWSER_CONTROL_LIMIT'].includes(code)?409:503;
+        res.status(status).json({code,error:status===503?'浏览器操作未确认，请刷新画面核对后再继续':error.message});
+    }
+});
 
 // 完整工具档案的只读分页入口，独立于给模型发送的上下文裁剪。
 router.get('/transcripts/:agentSessionId', async (req, res) => {

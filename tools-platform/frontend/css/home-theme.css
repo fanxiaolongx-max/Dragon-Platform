@@ -1756,3 +1756,33 @@ html[data-ui="v2"][data-theme="dark"] .wl-task { background: var(--v2-pop); bord
     #toolMarketModal .tool-market-source input[type=url] { flex-basis: 100%; min-width: 0; }
     #toolMarketModal .tool-import-actions { flex-wrap: wrap; }
 }
+
+/* 小屏导航始终使用临时抽屉；中间列表独立滚动，账号与通知留在可见底部。 */
+.v2-mobile-side-backdrop{display:none}
+@media(max-width:860px){
+    html[data-ui="v2"] .home-content.home-workspace > .home-sidebar,
+    html[data-ui="v2"] body.v2-side-collapsed .home-content.home-workspace > .home-sidebar{
+        display:none!important;position:fixed;inset:0 auto 0 0;top:0;bottom:0;
+        width:min(320px,calc(100vw - 56px));height:100vh;height:100dvh;max-height:100dvh;
+        box-sizing:border-box;flex-direction:column;overflow:hidden;z-index:1001;
+        padding-top:env(safe-area-inset-top,0px);margin:0;
+    }
+    html[data-ui="v2"] body.v2-mobile-side-open .home-content.home-workspace > .home-sidebar{display:flex!important}
+    html[data-ui="v2"] .home-content.home-workspace > .home-sidebar > .home-panel{
+        display:flex!important;flex:1 1 0;flex-direction:column;min-height:0;width:auto;
+        overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+    }
+    html[data-ui="v2"] .home-sidebar > .v2-side-top{flex:0 0 auto}
+    html[data-ui="v2"] .home-sidebar > .v2-userbar{
+        flex:0 0 auto;margin-top:auto;padding-bottom:max(12px,env(safe-area-inset-bottom,0px));
+    }
+    html[data-ui="v2"] body.v2-mobile-side-open{overflow:hidden}
+    html[data-ui="v2"] .v2-mobile-side-backdrop:not([hidden]){
+        display:block;position:fixed;inset:0;z-index:1000;border:0;margin:0;padding:0;
+        background:rgba(15,23,42,.3);cursor:pointer;
+    }
+    html[data-ui="v2"] body.v2-mobile-side-open .v2-side-float{visibility:hidden}
+}
+@media(max-width:860px){
+    html[data-ui="v2"] .home-sidebar > .v2-side-top{flex:0 1 auto;min-height:0;max-height:calc(100dvh - 144px);overflow-y:auto;overscroll-behavior:contain}
+}

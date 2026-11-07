@@ -134,7 +134,7 @@
         root.querySelectorAll([
             '.dc-history-more', '.dc-history-loading', '.dc-history-banner', '.dc-history-divider', '.dc-thinking',
             '[data-dc-message-toggle]', '[data-dc-copy]', '[data-dc-retry]',
-            '.dc-plan-actions', '.dc-skill-draft', '.dc-cmd-link', 'script'
+            '.dc-plan-actions', '.dc-skill-draft', '.dc-cmd-link', '.desktop-agent-thinking', '.desktop-agent-history-load', '[data-desktop-back]', 'script'
         ].join(',')).forEach(node => node.remove());
         root.querySelectorAll('.is-collapsed, .is-streaming').forEach(node => node.classList.remove('is-collapsed', 'is-streaming'));
         root.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'));

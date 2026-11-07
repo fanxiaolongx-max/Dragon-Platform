@@ -2406,6 +2406,49 @@ function renderNavSettingsSidebar() {
         <div class="nav-settings-section-title" aria-hidden="true"></div>
         <button class="nav-settings-tab ${t === 'page:f12-extension' ? 'active' : ''}" data-tab="page:f12-extension" onclick="switchNavSettingsTab('page:f12-extension')">${renderNavSettingsTabLabel('🧩', navT('nav.page.f12.title'))}</button>
     `;
+    syncNavSettingsMobileNav();
+}
+
+// 手机分类复用现有侧栏的标签与分组，避免维护第二套设置目录。
+function syncNavSettingsMobileNav() {
+    const select = document.getElementById('navSettingsMobileSection');
+    const sidebar = document.querySelector('.nav-settings-sidebar');
+    if (!select || !sidebar) return;
+    select.replaceChildren();
+    let group = null;
+    for (const item of sidebar.children) {
+        if (item.classList.contains('nav-settings-title') && item.textContent.trim()) {
+            group = document.createElement('optgroup'); group.label = item.textContent.trim(); select.append(group);
+        } else if (item.matches('button[data-tab]')) {
+            const option = document.createElement('option'); option.value = item.dataset.tab;
+            option.textContent = item.querySelector('.nav-settings-tab-label')?.textContent || item.textContent;
+            (group || select).append(option);
+        }
+    }
+    select.value = navState.settingsTab;
+    select.setAttribute('aria-label', navLocaleText('设置分类', 'Settings category'));
+    document.querySelector('.nav-settings-mobile-label').textContent = navT('nav.set.title');
+}
+let navSettingsViewportCleanup = null;
+function bindNavSettingsViewport(modal) {
+    navSettingsViewportCleanup?.();
+    const viewport = window.visualViewport;
+    const update = () => {
+        if (window.innerWidth <= 860) {
+            modal.style.setProperty('--nav-settings-viewport-h', `${Math.round(viewport?.height || window.innerHeight)}px`);
+            modal.style.setProperty('--nav-settings-viewport-top', `${Math.round(viewport?.offsetTop || 0)}px`);
+        } else {
+            modal.style.removeProperty('--nav-settings-viewport-h'); modal.style.removeProperty('--nav-settings-viewport-top');
+        }
+    };
+    window.addEventListener('resize', update);
+    viewport?.addEventListener('resize', update); viewport?.addEventListener('scroll', update);
+    navSettingsViewportCleanup = () => {
+        window.removeEventListener('resize', update);
+        viewport?.removeEventListener('resize', update); viewport?.removeEventListener('scroll', update);
+        navSettingsViewportCleanup = null;
+    };
+    update();
 }
 
 function openNavSettingsModal() {
@@ -2416,10 +2459,11 @@ function openNavSettingsModal() {
         modal.id = 'navSettingsModal';
         modal.className = 'nav-settings-modal';
         modal.innerHTML = `
-            <div class="nav-settings-window">
+            <div class="nav-settings-window" role="dialog" aria-modal="true" aria-labelledby="navSettingsHeading">
+                <div class="nav-settings-mobile-nav"><label class="nav-settings-mobile-label" for="navSettingsMobileSection"></label><select id="navSettingsMobileSection" onchange="switchNavSettingsTab(this.value)"></select></div>
                 <div class="nav-settings-sidebar"></div>
                 <div class="nav-settings-main">
-                    <button class="nav-settings-close" onclick="closeNavSettingsModal()">×</button>
+                    <button type="button" class="nav-settings-close" aria-label="${navEscape(navLocaleText('关闭设置', 'Close settings'))}" onclick="closeNavSettingsModal()">×</button>
                     <div class="nav-settings-head">
                         <div>
                             <div class="nav-settings-heading" id="navSettingsHeading"></div>
@@ -2432,8 +2476,12 @@ function openNavSettingsModal() {
             </div>
         `;
         document.body.appendChild(modal);
+        modal.addEventListener('click', event => { if (event.target === modal) closeNavSettingsModal(); });
+        modal.addEventListener('keydown', event => { if (event.key === 'Escape' && event.target.tagName !== 'SELECT') { event.stopPropagation(); closeNavSettingsModal(); } });
     }
     modal.style.display = 'flex';
+    document.body.classList.add('nav-settings-open');
+    bindNavSettingsViewport(modal);
     renderNavSettingsSidebar();
     return renderNavSettingsContent();
 }
@@ -2442,6 +2490,8 @@ let chatModelSettingsReturnTarget = null;
 function closeNavSettingsModal() {
     const modal = document.getElementById('navSettingsModal');
     if (modal) modal.style.display = 'none';
+    document.body.classList.remove('nav-settings-open');
+    navSettingsViewportCleanup?.();
     if (chatModelSettingsReturnTarget?.isConnected) chatModelSettingsReturnTarget.focus({ preventScroll: true });
     chatModelSettingsReturnTarget = null;
 }
@@ -2463,6 +2513,10 @@ window.closeNavSettingsModal = closeNavSettingsModal;
 window.switchNavSettingsTab = function (tab) {
     if (tab === 'tenants') tab = 'accounts';
     navState.settingsTab = tab;
+    const mobileSelect = document.getElementById('navSettingsMobileSection');
+    if (mobileSelect) mobileSelect.value = tab;
+    const settingsContent = document.getElementById('navSettingsContent');
+    if (settingsContent) settingsContent.scrollTop = 0;
     document.querySelectorAll('.nav-settings-tab').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.tab === tab);
     });
@@ -3701,35 +3755,32 @@ window.openToolsKnowledgeGraph = function (options = {}) {
 };
 
 // 对话里的文件卡片与图片放大（ai-assistant.js 的 Markdown 渲染会用到），需先于助手脚本执行
+let toolsChatFilesLoader = null;
 function ensureChatFilesScript() {
-    if (window.ChatFiles || document.querySelector('script[src^="/js/shared/chat-files.js"]')) return;
-    const script = document.createElement('script');
-    script.src = '/js/shared/chat-files.js';
-    script.async = false;
-    document.body.appendChild(script);
+    if (window.ChatFiles) return Promise.resolve();
+    // 无版本地址会被 CDN/移动端缓存数小时，必须使用服务端内容哈希。
+    toolsChatFilesLoader ||= loadNavLazyScript('/js/shared/chat-files.js', '文件组件加载失败').catch(error => {
+        toolsChatFilesLoader = null;
+        throw error;
+    });
+    return toolsChatFilesLoader;
 }
 
 let toolsAiAssistantLoader = null;
-window.openToolsAIAssistant = function (options = {}) {
-    if (window.ToolsAIAssistant?.open) return window.ToolsAIAssistant.open(options);
+function ensureToolsAIAssistantScript() {
+    if (window.ToolsAIAssistant?.open) return Promise.resolve();
     if (!toolsAiAssistantLoader) {
-        toolsAiAssistantLoader = new Promise((resolve, reject) => {
-            const existing = document.querySelector('script[src^="/js/shared/ai-assistant.js"]');
-            const script = existing || document.createElement('script');
-            script.addEventListener('load', resolve, { once: true });
-            script.addEventListener('error', () => reject(new Error('AI 助手组件加载失败')), { once: true });
-            if (!existing) {
-                ensureChatFilesScript();
-                script.src = '/js/shared/ai-assistant.js';
-                script.async = false;
-                document.body.appendChild(script);
-            }
-        }).catch(error => {
+        toolsAiAssistantLoader = ensureChatFilesScript().then(() =>
+            loadNavLazyScript('/js/shared/ai-assistant.js', 'AI 助手组件加载失败')
+        ).catch(error => {
             toolsAiAssistantLoader = null;
             throw error;
         });
     }
-    return toolsAiAssistantLoader.then(() => {
+    return toolsAiAssistantLoader;
+}
+window.openToolsAIAssistant = function (options = {}) {
+    return ensureToolsAIAssistantScript().then(() => {
         if (!window.ToolsAIAssistant?.open) throw new Error('AI 助手组件初始化失败');
         return window.ToolsAIAssistant.open(options);
     });
@@ -3741,14 +3792,8 @@ window.openToolsAIAssistant = function (options = {}) {
     // 公开的隐私/条款页在未登录时不请求受保护的 AI 接口，避免无效 401 日志。
     if (!hasNavAuthToken()) return;
 
-    // 确保不重复加载
-    if (!document.querySelector('script[src^="/js/shared/ai-assistant.js"]')) {
-        ensureChatFilesScript();
-        const aiScript = document.createElement('script');
-        aiScript.src = '/js/shared/ai-assistant.js';
-        aiScript.async = false;
-        document.body.appendChild(aiScript);
-    }
+    // 自动初始化与手动打开共用同一加载链，等待文件组件就绪后再启动助手。
+    ensureToolsAIAssistantScript().catch(error => console.warn(error.message));
 })();
 
 // 检查服务状态

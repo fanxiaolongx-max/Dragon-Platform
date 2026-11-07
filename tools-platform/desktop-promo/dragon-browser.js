@@ -1,6 +1,7 @@
 // 一个 Dragon 浏览器窗口，多个独立页面；所有标签共用原有持久 Session 和插件。
 const { BrowserWindow, BrowserView, shell, Menu, clipboard, app } = require('electron');
 const path = require('path');
+const pageLayoutScript=require('../backend/models/browser-page-layout').script;
 const { savedUrl } = require('./browser-library');
 const { captureSite, loginOrigin, attachBrowserLogin } = require('./browser-credentials');
 const TAB_HEIGHT = 34;
@@ -19,6 +20,8 @@ function webUrl(value) {
 function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, getLibrary = () => null, getDownloads = () => null, getCredentialStore = () => null, onPageCreated = () => {}, onAction = () => {}, onVisibilityChange = () => {} }) {
     let win = null, tabs = [], activeId = null, attached = null, shown = false, sequence = 0, ready = false;
     let windowDrag = null;
+    let operatorView=null;
+    let sidebarHost = null, sidebarBounds = null, sidebarMode = false, attachedHost = null;
     let panel = '', bookmarks = [], history = [], libraryError = false;
     let notice = null, noticeTimer = null;
     let find = { open: false, text: '', matches: 0, activeMatch: 0 }, findRequest = null;
@@ -35,41 +38,71 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
     const T = (zh, en) => getLanguage() === 'en-US' ? en : zh;
 
     function pushState() {
-        if (!win || win.isDestroyed() || !ready) return;
+        if (!win || win.isDestroyed()) return;
         const tab = active();
-        if (!tab) return;
+        if (!tab) { if (sidebarHost && !sidebarHost.isDestroyed()) sidebarHost.webContents.send('dragon-browser:state', { tabs: [], activeId: null }); return; }
         const wc = tab.page.webContents;
         const english = getLanguage() === 'en-US';
         win.setTitle(`${wc.getTitle() || tab.link.name || 'Dragon'} — ${english ? 'Dragon Browser' : 'Dragon 浏览器'}`);
-        win.webContents.send('promo-card:state', {
+        const snapshot = {
             mode: 'browser', tool: true, lang: english ? 'en-US' : 'zh-CN',
             name: english ? 'Dragon Browser' : 'Dragon 浏览器', badge: 'Dragon', color: tab.link.color || 'teal',
-            title: wc.getTitle() || tab.link.name, url: wc.getURL(),
+            title: wc.getTitle() || tab.link.name, url: wc.getURL(), layout:tab.readingLayout||null,
             canBack: wc.canGoBack(), canForward: wc.canGoForward(), maximized: win.isMaximized(), activeId,
             zoom: Math.round(wc.getZoomFactor() * 100), bookmarked: bookmarks.some(item => item.url === savedUrl(wc.getURL())),
             find, panel, notice, bookmarks, history, libraryError, downloads: getDownloads()?.list() || [],
             tabs: tabs.map(item => ({ id: item.id, title: item.page.webContents.getTitle() || item.link.name || (english ? 'New tab' : '新标签页'), url: item.page.webContents.getURL(), loading: item.page.webContents.isLoading(), muted: item.page.webContents.isAudioMuted() }))
-        });
+        };
+        if (ready) win.webContents.send('promo-card:state', snapshot);
+        if (sidebarHost && !sidebarHost.isDestroyed()) sidebarHost.webContents.send('dragon-browser:state', snapshot);
     }
 
     function detach() {
-        if (attached && win && !win.isDestroyed()) win.removeBrowserView(attached);
-        attached = null;
+        if(operatorView&&attachedHost&&!attachedHost.isDestroyed())attachedHost.removeBrowserView(operatorView);operatorView=null;
+        if (attached && attachedHost && !attachedHost.isDestroyed()) attachedHost.removeBrowserView(attached);
+        attached = null; attachedHost = null;
     }
 
+    function layoutOperator(tab){
+        const wanted=tab?.operatorState?.active&&!tab?.operatorState?.manual;
+        if(operatorView&&(!wanted||operatorView!==tab.operatorView)){attachedHost?.removeBrowserView(operatorView);operatorView=null;}
+        if(!wanted||!attachedHost)return;
+        if(!tab.operatorView){
+            const view=new BrowserView({webPreferences:{preload:path.join(__dirname,'operator-preload.js'),contextIsolation:true,nodeIntegration:false,sandbox:true,backgroundThrottling:false}});
+            view.setBackgroundColor('#00000000');tab.operatorView=view;
+            view.webContents.on('ipc-message',(event,channel,action)=>{if(event.senderFrame===view.webContents.mainFrame&&channel==='dragon-browser:operator-action'&&action==='takeover')tab.operatorAction?.(action);});
+            view.webContents.setWindowOpenHandler(()=>({action:'deny'}));view.webContents.on('will-navigate',event=>event.preventDefault());
+            view.webContents.on('did-finish-load',()=>{if(!view.webContents.isDestroyed())view.webContents.send('dragon-browser:operator-state',tab.operatorState);});
+            view.webContents.loadFile(path.join(__dirname,'operator-overlay.html')).catch(()=>{});
+        }
+        if(operatorView!==tab.operatorView){attachedHost.addBrowserView(tab.operatorView);operatorView=tab.operatorView;}
+        operatorView.setBounds(tab.page.getBounds());attachedHost.setTopBrowserView(operatorView);
+        if(!operatorView.webContents.isLoading())operatorView.webContents.send('dragon-browser:operator-state',tab.operatorState);
+    }
     function layout() {
         if (!win || win.isDestroyed() || !shown) return;
+        if (sidebarMode) {
+            if (!sidebarHost || sidebarHost.isDestroyed() || !sidebarBounds) { detach(); return; }
+            const tab = active();
+            if (attached !== tab?.page || attachedHost !== sidebarHost) {
+                detach();
+                if (tab) { sidebarHost.addBrowserView(tab.page); attached = tab.page; attachedHost = sidebarHost; }
+            }
+            if (tab) { tab.page.setBounds(sidebarBounds); tab.onLayout?.();layoutOperator(tab); }
+            return;
+        }
         const [width, height] = win.getContentSize();
         const top = TAB_HEIGHT + TOOLBAR_HEIGHT + (notice ? NOTICE_HEIGHT : 0) + (find.open ? FIND_HEIGHT : 0) + (panel ? PANEL_HEIGHT : 0);
         const tab = active();
         if (attached !== tab?.page) {
             detach();
-            if (tab) { win.addBrowserView(tab.page); attached = tab.page; }
+            if (tab) { win.addBrowserView(tab.page); attached = tab.page; attachedHost = win; }
         }
         for (const tab of tabs) {
             tab.page.setBounds({ x: 0, y: top, width, height: Math.max(1, height - top) });
             if (tab.id === activeId) tab.onLayout?.();
         }
+        layoutOperator(tab);
     }
 
     function visibility(next) {
@@ -88,8 +121,8 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
         if (win.isMinimized()) win.restore();
         visibility(true);
         layout();
-        win.show(); win.focus();
-        active().page.webContents.focus();
+        if (sidebarMode && sidebarHost && !sidebarHost.isDestroyed()) sidebarHost.webContents.send('dragon-browser:reveal');
+        else { win.show(); win.focus(); active().page.webContents.focus(); }
         pushState();
     }
 
@@ -98,6 +131,7 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
         tab.closed = true;
         if (tab.tool) clearTimeout(tab.tool.timer);
         if (attached === tab.page) detach();
+        if(tab.operatorView&&!tab.operatorView.webContents.isDestroyed())tab.operatorView.webContents.close();
         tab.onModeChange?.(false);
         if (tab.release) tab.release();
         else if (!tab.page.webContents.isDestroyed()) tab.page.webContents.close();
@@ -112,6 +146,7 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
         const closing = tabs;
         tabs = []; activeId = null;
         closing.forEach(disposeTab);
+        pushState();
         onVisibilityChange();
     }
 
@@ -126,7 +161,7 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
             if (closedTabs.length > 20) closedTabs.shift();
         }
         disposeTab(tab);
-        if (!tabs.length) { win.close(); return; }
+        if (!tabs.length) { if (sidebarMode) { visibility(false); pushState(); } else win.close(); return; }
         if (activeId === id) activeId = tabs[Math.min(index, tabs.length - 1)].id;
         layout(); pushState();
     }
@@ -274,6 +309,15 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
         const wc = active()?.page.webContents;
         if (!wc) return;
         const command = input.control || input.meta;
+        if (sidebarMode && sidebarHost && !sidebarHost.isDestroyed()) {
+            if (command && key === 'l') { event.preventDefault(); sidebarHost.webContents.focus(); sidebarHost.webContents.send('dragon-browser:focus-url'); return; }
+            if ((command && ['f', 'h', 'j'].includes(key)) || key === 'f11') {
+                // 查找 / 历史 / 下载等完整浏览器面板保留在原窗口中。
+                detach(); sidebarMode = false; sidebarBounds = null;
+                sidebarHost.webContents.send('dragon-browser:popped-out');
+                showTab(activeId);
+            }
+        }
         if (key === 'escape') {
             if (find.open) { event.preventDefault(); closeFind(); layout(); pushState(); wc.focus(); }
             else if (panel) { event.preventDefault(); panel = ''; layout(); pushState(); }
@@ -333,6 +377,7 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
         ensureWindow();
         const page = options.page || new BrowserView({ webPreferences: { partition, preload: path.join(__dirname, 'page-preload.js'), contextIsolation: true, sandbox: true, nodeIntegration: false, backgroundThrottling: false } });
         const tab = { ...options, id: `dragon-tab-${++sequence}`, page, win };
+        tab.setOperatorState=value=>{tab.operatorState={...value,lang:getLanguage()};if(!wc.isDestroyed())wc.send('dragon-browser:operator-state',tab.operatorState);if(activeId===tab.id)layout();};
         tabs.push(tab);
         if (shown) tab.onModeChange?.(true);
         const wc = page.webContents;
@@ -350,12 +395,24 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
                 if (win && !win.isDestroyed()) require('electron').dialog.showMessageBox(win, { type: 'info', message: T('本机系统密码库暂不可用，密码未保存。请手动登录。', 'The system key store is unavailable. Password was not saved; sign in manually.') }).catch(() => {});
             }
         });
-        const changed = () => { if (!tab.closed) pushState(); };
+        let layoutTimer=null,layoutEpoch=0;
+        const measureLayout=()=>{
+            if(tab.closed||wc.isDestroyed()||wc.isLoading())return;
+            const epoch=++layoutEpoch;
+            wc.executeJavaScript(pageLayoutScript).then(value=>{if(!tab.closed&&epoch===layoutEpoch){if(!value?.preferredWidth&&tab.readingLayout?.preferredWidth&&value?.viewportWidth<=744)return;tab.readingLayout=value?.preferredWidth?{...value,preferredWidth:Math.round(value.preferredWidth*wc.getZoomFactor())}:value;pushState();}}).catch(()=>{});
+        };
+        const layoutInterval=setInterval(()=>{if(sidebarMode&&activeId===tab.id)measureLayout();},2500);layoutInterval.unref?.();
+        const changed = () => {
+            if(tab.closed)return;
+            tab.readingLayout=null;layoutEpoch++;pushState();clearTimeout(layoutTimer);
+            layoutTimer=setTimeout(measureLayout,700);
+        };
         const events = ['did-navigate', 'did-navigate-in-page', 'page-title-updated', 'did-start-loading', 'did-stop-loading'];
         events.forEach(event => wc.on(event, changed));
         wc.on('before-input-event', keyboard);
         const wheelZoom = (_event, direction) => { if (shown && activeId === tab.id) zoom(direction); };
         const pageMessage = (event, channel, direction) => {
+            if(event.senderFrame===wc.mainFrame&&channel==='dragon-browser:operator-action'&&direction==='activity')tab.operatorAction?.('activity');
             if (event.senderFrame === wc.mainFrame && channel === 'dragon-browser:zoom-wheel' && ['in', 'out'].includes(direction)) wheelZoom(event, direction);
         };
         const found = (_event, result) => {
@@ -373,7 +430,7 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
         wc.on('did-finish-load', visited); wc.on('did-navigate-in-page', navigatedInPage);
         if (options.page && !wc.isLoading()) visited();
         tab.cleanup = () => {
-            detachLogin();
+            clearInterval(layoutInterval);clearTimeout(layoutTimer);layoutEpoch++;detachLogin();
             wc.removeListener('did-start-navigation', loginNavigation);
             events.forEach(event => wc.removeListener(event, changed)); wc.removeListener('before-input-event', keyboard);
             wc.removeListener('zoom-changed', wheelZoom); wc.removeListener('found-in-page', found); wc.removeListener('context-menu', contextMenu);
@@ -403,9 +460,12 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
     }
 
     function handleAction(sender, action, payload) {
-        if (!win || sender !== win.webContents) return false;
+        const fromSidebar = sidebarMode && sidebarHost && !sidebarHost.isDestroyed() && sender === sidebarHost.webContents;
+        if (!win && fromSidebar && action === 'new-tab') { open({ link: { name: T('新标签页', 'New tab'), url: 'about:blank' } }); return true; }
+        if (!win || (sender !== win.webContents && !fromSidebar)) return false;
+        if (fromSidebar && !['tab-select','tab-close','tab-move','tab-menu','new-tab','reopen-tab','navigate','back','forward','reload','external','plugins','downloads','downloads-folder','download-action','history','bookmarks','library-open','zoom-in','zoom-out','zoom-reset','find-open','find','find-close','print','devtools','screenshot'].includes(action)) return false;
         const tab = active();
-        if (!tab) return true;
+        if (!tab) { if (action === 'new-tab') open({ link: { name: T('新标签页', 'New tab'), url: 'about:blank' } }); return true; }
         const wc = tab.page.webContents;
         switch (action) {
         case 'tab-select': if (typeof payload === 'string') showTab(payload); break;
@@ -428,6 +488,10 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
         case 'bookmark-remove': if (bookmarks.some(item => item.url === payload)) toggleBookmark(payload, ''); break;
         case 'download-action': if (payload && typeof payload.id === 'string' && ['pause', 'resume', 'cancel', 'open', 'show'].includes(payload.action)) getDownloads()?.action(payload.id, payload.action); break;
         case 'downloads-folder': shell.openPath(app.getPath('downloads')).catch(() => {}); break;
+        case 'plugins': onAction(tab.context || tab,'plugins'); break;
+        case 'print': wc.print({}); break;
+        case 'devtools': wc.toggleDevTools(); break;
+        case 'screenshot': wc.capturePage().then(async image=>{const result=await require('electron').dialog.showSaveDialog(fromSidebar?sidebarHost:win,{defaultPath:'Dragon-page.png',filters:[{name:'PNG',extensions:['png']}]});if(!result.canceled&&result.filePath)await require('fs').promises.writeFile(result.filePath,image.toPNG());}).catch(()=>{});break;
         case 'zoom-in': zoom('in'); break;
         case 'zoom-out': zoom('out'); break;
         case 'zoom-reset': zoom('reset'); break;
@@ -462,6 +526,17 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
     }
 
     return {
+        setSidebar(host) {
+            detach(); sidebarHost = host; sidebarBounds = null; sidebarMode = Boolean(host);
+            if (host && win && !win.isDestroyed()) win.hide();
+            if (tabs.length) visibility(true);
+            layout(); pushState();
+        },
+        setSidebarBounds(bounds) { sidebarBounds = bounds; layout(); },
+        popout() {
+            detach(); sidebarMode = false; sidebarBounds = null;
+            if (active()) showTab(activeId);
+        },
         open, showTab, closeTab, handleAction, list: () => [...tabs], isVisible: () => shown,
         refreshLibrary, libraryFailed() { libraryError = true; pushState(); },
         downloadsChanged(change) {
@@ -474,7 +549,7 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
             }
             pushState();
         },
-        getWindow: () => win, pushState,
+        getWindow: () => sidebarMode && sidebarHost && !sidebarHost.isDestroyed() ? sidebarHost : win, pushState,
         destroy() { disposeAll(); if (win && !win.isDestroyed()) win.destroy(); },
         findContext: context => tabs.find(tab => tab.context === context)
     };

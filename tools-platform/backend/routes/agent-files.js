@@ -17,6 +17,8 @@ const PLATFORM_ROOT = path.resolve(__dirname, '../..');
 const AGENT_MEDIA_DIRS = ['.codex/generated_images', '.codex/attachments', '.codex/visualizations'].map(dir => path.join(os.homedir(), dir));
 const WORKBUDDY_MEDIA_ROOT = process.env.WORKBUDDY_CONFIG_DIR?.trim() || path.join(os.homedir(), '.workbuddy');
 AGENT_MEDIA_DIRS.push(...['blobs', 'clipboard-images'].map(dir => path.join(WORKBUDDY_MEDIA_ROOT, dir)));
+const ANTIGRAVITY_MEDIA_ROOT = process.env.ANTIGRAVITY_APP_DATA_DIR?.trim() || path.join(os.homedir(), '.gemini/antigravity');
+AGENT_MEDIA_DIRS.push(path.join(ANTIGRAVITY_MEDIA_ROOT, 'brain'));
 
 const IMAGE_TYPES = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.bmp': 'image/bmp', '.avif': 'image/avif', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
 const TEXT_TYPES = new Set(['.txt', '.md', '.csv', '.tsv', '.json', '.log', '.yaml', '.yml', '.xml', '.sql', '.css', '.jsx', '.tsx', '.vue', '.svelte', '.toml', '.ini', '.cfg', '.conf', '.c', '.h', '.cpp', '.hpp', '.java', '.kt', '.kts', '.swift', '.rb', '.go', '.rs', '.r', '.lua', '.bash', '.zsh']);
@@ -63,9 +65,9 @@ async function resolveFile(req, raw) {
     const agentMediaRoot = AGENT_MEDIA_DIRS.map(dir => {
         try { return fs.realpathSync(dir); } catch (_error) { return null; }
     }).find(dir => dir && guard.isInside(dir, real));
-    // 只豁免可信产出目录自身的隐藏祖先；产出目录内的隐藏子目录仍禁止读取。
+    // 只豁免可信产出目录自身的隐藏祖先；产出目录内仅放行 .user_uploaded 附件目录，其余隐藏子目录（如 .system_generated）仍禁止读取。
     const inspectedPath = agentMediaRoot ? path.relative(agentMediaRoot, real) : real;
-    if (inspectedPath.split(/[\\/]/).some(part => part.startsWith('.') && part !== '.' && part !== '..')) throw fileError(403, 'AGENT_FILE_HIDDEN', '不能读取隐藏目录中的文件');
+    if (inspectedPath.split(/[\\/]/).some(part => part.startsWith('.') && part !== '.' && part !== '..' && !(agentMediaRoot && part === '.user_uploaded'))) throw fileError(403, 'AGENT_FILE_HIDDEN', '不能读取隐藏目录中的文件');
     try { guard.assertNotSecretFile(real); } catch (error) { throw fileError(403, error.code, error.message); }
     // Agent 的大结果文件和对话附件只给本人：管理员也不能读别人的
     const privateFile = artifacts.isUnderBase(real) || artifacts.isUnderUploads(real);
