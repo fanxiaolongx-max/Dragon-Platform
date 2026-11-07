@@ -122,3 +122,20 @@ test('syncs WorkBuddy upload blobs and explicitly presented artifacts, never arb
     assert.equal(items[4].attachments, undefined);
     assert.equal(items[6].attachments, undefined, 'presentation does not leak into another turn');
 });
+
+test('keeps successful WorkBuddy widgets between visible replies and ignores failed, sidechain and stale results', async () => {
+    const file = path.join(dir, 'widgets.jsonl');
+    const html = '<div style="color: red">工作区预览</div>';
+    const call = (callId, extra = {}) => ({ type: 'function_call', name: 'show_widget', callId, arguments: JSON.stringify({ title: '面板', widget_code: html }), ...extra });
+    const result = (callId, extra = {}) => ({ type: 'function_call_result', name: 'show_widget', callId, status: 'completed', output: [{ type: 'input_text', text: JSON.stringify({ type: 'visualizer_show_widget_result', success: true, widget_code: 'escaped result must not replace original HTML' }) }], ...extra });
+    const message = (role, text) => ({ type: 'message', role, content: [{ type: 'text', text }] });
+    fs.writeFileSync(file, [message('assistant', '先看样子'), call('ok'), result('ok'), result('ok'), message('assistant', '后续说明'),
+        call('failed'), result('failed', { status: 'failed' }), call('side', { isSidechain: true }), result('side'),
+        call('side-result'), result('side-result', { isSidechain: true }), call('stale'), message('user', '换话题'), result('stale'),
+        call('invalid', { arguments: '{' }), result('invalid'), call('oversize', { arguments: JSON.stringify({ widget_code: 'x'.repeat(200001) }) }), result('oversize')
+    ].map(line).join(''));
+    const { items } = await wb.transcript({ id: GUI, file, status: 'completed' });
+    assert.deepEqual(items.map(i => i.widget ? 'widget' : i.content), ['先看样子', 'widget', '后续说明', '换话题']);
+    assert.deepEqual(items[1].widget, { title: '面板', html });
+    assert.equal(items[1].id, 'widget:ok');
+});

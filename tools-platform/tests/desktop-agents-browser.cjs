@@ -136,6 +136,27 @@ app.whenReady().then(async () => {
     assert.equal(await evaluate('[...document.querySelectorAll("[data-desktop-provider] img")].every(i=>i.complete&&i.naturalWidth>0)'),true);
     const choose = async (provider) => { await evaluate(`document.querySelector('[data-desktop-provider="${provider}"]').click()`); await until(`dcThread.textContent.includes(${JSON.stringify(provider + ' original assistant reply')})`); assert.equal(await evaluate(`document.querySelector('[data-desktop-provider="${provider}"]').getAttribute('aria-pressed')`),'true'); };
     await choose('workbuddy');
+    histories.workbuddy[1].widget = { title: '工作区面板', html: '<div style="color:rgb(1,2,3)">Widget fixture</div><script>window.widgetExecuted=true</script><meta http-equiv="refresh" content="0;url=https://example.com"><a href="https://example.com">link</a><iframe src="https://example.com"></iframe>' };
+    await evaluate('document.querySelector("[data-desktop-refresh]").click()');
+    await until('!!dcThread.querySelector(".desktop-agent-widget iframe")');
+    assert.equal(await evaluate('dcThread.querySelector(".desktop-agent-widget iframe").getAttribute("sandbox")'), '');
+    assert.equal(await evaluate('dcThread.querySelector(".desktop-agent-widget iframe").getAttribute("referrerpolicy")'), 'no-referrer');
+    assert.equal(await evaluate('(()=>{const doc=new DOMParser().parseFromString(dcThread.querySelector(".desktop-agent-widget iframe").srcdoc,"text/html");return !!doc.querySelector("script,iframe,a[href],meta[http-equiv=refresh]")})()'), false);
+    await wait(150);
+    assert.equal(await evaluate('dcThread.querySelector(".desktop-agent-widget iframe").contentDocument'), null, 'preview has an opaque origin');
+    assert.equal(await evaluate('dcThread.querySelector(".desktop-agent-widget iframe").srcdoc.includes("Widget fixture")'), true);
+    await evaluate('dcThread.querySelector(".desktop-agent-widget").scrollIntoView({block:"center"})');
+    await wait(700);
+    fs.writeFileSync(path.join(temp, 'workbuddy-widget.png'), (await win.webContents.capturePage()).toPNG());
+    await evaluate('window.__widgetFrame=dcThread.querySelector(".desktop-agent-widget iframe");document.querySelector("[data-desktop-refresh]").click()');
+    await wait(150);
+    assert.equal(await evaluate('window.__widgetFrame===dcThread.querySelector(".desktop-agent-widget iframe")'), true, 'unchanged polling keeps the preview');
+    histories.workbuddy[1].widget.html = '<div>Updated widget</div>';
+    await evaluate('document.querySelector("[data-desktop-refresh]").click()');
+    await until('dcThread.querySelector(".desktop-agent-widget iframe").srcdoc.includes("Updated widget")');
+    delete histories.workbuddy[1].widget;
+    await evaluate('document.querySelector("[data-desktop-refresh]").click()');
+    await until('!dcThread.querySelector(".desktop-agent-widget")');
     const assertAgentAttachmentsLeft = async () => {
         assert.equal(await evaluate(`getComputedStyle(dcThread.querySelector('.dc-msg--ai [data-desktop-attachments]')).justifyContent`),'flex-start');
         assert.equal(await evaluate(`(()=>{const msg=dcThread.querySelector('.dc-msg--ai'),image=msg.querySelector('[data-desktop-attachments] img');return Math.abs(image.getBoundingClientRect().left-msg.querySelector('.dc-msg-body').getBoundingClientRect().left)<1})()`),true,'Agent image aligns with its own reply, not the user bubble');

@@ -30,7 +30,7 @@ app.whenReady().then(async () => {
     const mockSettings = { enabled: true, providers: { codex: true, claudecode: true, antigravity: true } };
     const mockQuotas = {
         codex: { status: 'live', updatedAt: Date.now(), membership: { label: 'Plus' }, groups: [{ id: 'codex', windows: [{ id: '5h', remainingPercent: 80 }, { id: 'weekly', remainingPercent: 65 }] }] },
-        claudecode: { status: 'live', updatedAt: Date.now(), membership: { label: 'Max' }, groups: [{ id: 'claudecode', windows: [{ id: '5h', remainingPercent: 50 }, { id: 'weekly', remainingPercent: 40 }] }] },
+        claudecode: { extraUsage: { enabled: true, used: 24.88, limit: 120, currency: 'USD', percent: 21 }, status: 'live', updatedAt: Date.now(), membership: { label: 'Max' }, groups: [{ id: 'claudecode', windows: [{ id: '5h', remainingPercent: 50 }, { id: 'weekly', remainingPercent: 40 }] }] },
         antigravity: { status: 'live', updatedAt: Date.now(), membership: { label: 'Ultra' }, groups: [{ id: 'gemini', windows: [{ id: '5h', remainingPercent: 90 }, { id: 'weekly', remainingPercent: 70 }] }] }
     };
 
@@ -131,8 +131,26 @@ app.whenReady().then(async () => {
     assert.equal(await evaluate('document.querySelector(".dqb").classList.contains("expanded")'), true, 'switched to detailed mode');
     assert.equal(await evaluate('Boolean(document.querySelector("[data-dqb-hide]"))'), false, 'no close button in detailed mode');
 
-    console.log('PASS: web desktop quota bar auto-hide immediately takes effect and does not tuck after unchecking');
+    const extraSelector = '.dqb-row[data-provider="claudecode"] .dqb-row-extra';
+    assert.equal(await evaluate(`document.querySelector('${extraSelector}').hidden`), false);
+    assert.match(await evaluate(`document.querySelector('${extraSelector}').textContent`), /24\.88.*120\.00/);
+    assert.match(await evaluate(`document.querySelector('${extraSelector} i').style.transform`), /0\.21/);
+    for (const [width, theme, language] of [[1200, 'light', 'zh-CN'], [390, 'dark', 'en-US']]) {
+        win.setContentSize(width, 800);
+        await evaluate(`document.documentElement.dataset.theme='${theme}';localStorage.setItem('tools_lang','${language}');window.dispatchEvent(new Event('tools:languagechange'))`);
+        await wait(100);
+        const geometry = await evaluate(`(()=>{const r=document.querySelector('.dqb-panel').getBoundingClientRect();return {left:r.left,right:r.right,width:innerWidth}})()`);
+        assert.ok(geometry.left >= 0 && geometry.right <= geometry.width, JSON.stringify(geometry));
+    }
+    mockQuotas.claudecode.extraUsage.percent = null;
+    mockQuotas.claudecode.extraUsage.limit = null;
+    mockQuotas.claudecode.extraUsage.currency = '<img src=x onerror=bad>';
+    await evaluate(`document.querySelector('[data-dqb-menu]').click();[...document.querySelectorAll('.dqb-menu button')].find(b=>b.textContent.includes('Refresh quotas')).click()`);
+    await until(`document.querySelector('${extraSelector}').textContent.includes('<img')`);
+    assert.equal(await evaluate(`document.querySelector('${extraSelector} img') === null`), true, 'currency is displayed as text');
+    assert.equal(await evaluate(`document.querySelector('${extraSelector} .dqb-extra-track') === null`), true, 'missing percentages do not imply zero usage');
+    console.log('PASS: quota bar auto-hide, extra usage amounts, safe currency text, unknown limits, and light/dark narrow layout');
     server.close();
     win.destroy();
     app.exit(0);
-});
+}).catch(error => { console.error(error); win?.destroy(); server?.close(); app.exit(1); });

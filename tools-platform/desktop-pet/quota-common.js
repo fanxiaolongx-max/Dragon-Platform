@@ -35,12 +35,12 @@ function snapshot(provider, groups, now = Date.now()) {
 function unavailable(provider, status = 'unavailable') {
     return { provider, active:false, status, groups:[], updatedAt:null, checkedAt:Date.now() };
 }
-function requestJson(url, options = {}) {
+function requestJsonOnce(url, options = {}) {
     return new Promise((resolve, reject) => {
         const body = options.body === undefined ? undefined : JSON.stringify(options.body);
-        const { body:unused, ...rest } = options;
+        const { body:unused, timeout:customTimeout, retries:unusedRetries, ...rest } = options;
         const req = (url.startsWith('https:') ? https : http).request(url, {
-            timeout:4000, ...rest, headers:{ 'Content-Type':'application/json', ...options.headers }
+            timeout: customTimeout ?? 8000, ...rest, headers:{ 'Content-Type':'application/json', ...options.headers }
         }, res => {
             let data = '', size = 0;
             res.on('data', chunk => { size += chunk.length; if (size > 1024 * 1024) req.destroy(new Error('response_too_large')); else data += chunk; });
@@ -50,10 +50,21 @@ function requestJson(url, options = {}) {
                 try { resolve(JSON.parse(data)); } catch (_) { reject(new Error('invalid_response')); }
             });
         });
-        req.on('error', () => reject(new Error('network_error')));
+        req.on('error', error => reject(new Error(['timeout', 'response_too_large'].includes(error.message) ? error.message : 'network_error')));
         req.on('timeout', () => req.destroy(new Error('timeout')));
         req.end(body);
     });
+}
+async function requestJson(url, options = {}) {
+    try {
+        return await requestJsonOnce(url, options);
+    } catch (err) {
+        if (options.retries !== 0 && (err.message === 'timeout' || err.message === 'network_error')) {
+            await new Promise(r => setTimeout(r, 400));
+            return await requestJsonOnce(url, { ...options, retries: 0 });
+        }
+        throw err;
+    }
 }
 // Reader cache stays in memory. Only sanitized fresh measurements enter SQLite history.
 function cachedReader(provider, read, ttl = 60000, now = Date.now) {

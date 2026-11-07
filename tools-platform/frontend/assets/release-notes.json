@@ -1,12 +1,14 @@
 {
   "zh": [
-    "修复点击工具卡片的三个点时误打开工具的问题。工具分类计数会随收藏和搜索筛选更新。",
-    "管理员可以原位更新自定义工具，保留访问权限和中英文名称。更新失败时恢复原工具文件和注册信息。",
-    "优化网页和桌面端的额度趋势图，并改善深色设置界面和外部会话输入栏的显示。"
+    "额度栏新增 Claude 额外用量与消费上限显示，支持悬停详情和详细面板，并完善金额与未知额度的处理。",
+    "额度查询遇到短暂断网或超时会重试一次，同时保留 Claude Desktop 与 CLI 的账号来源边界。",
+    "修复输入栏增强提示词和语音按钮居中的问题，空输入与输入文字后均与发送按钮一起靠右显示。",
+    "WorkBuddy 会话支持成功返回的可视化静态预览，保留未变化的预览；查看会话时静默读取记录，不再切换桌面窗口。"
   ],
   "en": [
-    "Fixed the three-dot button on tool cards so it opens the action menu. Category counts now reflect favorite and search filters.",
-    "Admins can update custom tools in place while preserving access permissions and both names. Failed updates restore the previous files and registry entry.",
-    "Improved quota charts on web and desktop, dark settings panels, and composer layout for external sessions."
+    "Added Claude extra usage and spend limits to quota details and the expanded panel, with validated amounts and handling for unknown limits.",
+    "Quota reads retry once after a temporary network failure or timeout while preserving the account boundary between Claude Desktop and CLI.",
+    "Fixed prompt enhancement and voice controls drifting to the center. They now stay beside Send for empty and filled drafts.",
+    "WorkBuddy conversations show static visualization previews and preserve unchanged previews during polling. Opening history reads local records without switching desktop windows."
   ]
 }

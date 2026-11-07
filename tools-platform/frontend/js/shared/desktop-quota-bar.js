@@ -33,13 +33,37 @@
         return english()
             ? { title: 'Account quota', five: '5 hours', week: 'Weekly', remaining: 'remaining', reset: 'Resets ', updated: 'Updated ', unknown: 'Plan unavailable', menu: 'Quota bar menu', hide: 'Tuck into the top edge', drag: 'Drag to slide along the top edge · double-click to center', footer: 'Hover for details · Drag to slide', expand: 'Show quota bar',
                 compact: 'Compact quota bar', detailed: 'Detailed quota panel', appearance: 'Appearance', followHome: 'Match home page', light: 'Light', dark: 'Dark', center: 'Center at top edge', refresh: 'Refresh quotas', autoHide: 'Tuck into the top edge · hover to show', hideNote: 'Turn the quota bar off in Settings → Desktop Agent', trends: 'Click a quota for its usage trend', loading: 'Reading account quotas…',
+                extraUsage: 'Spend limit', extraUsed: 'Used ', extraTotal: ' of ',
                 states: { live: 'Live', cached: 'Cached', unavailable: 'Read failed', not_installed: 'Not installed', signed_out: 'Not signed in', api_key: 'API Key mode · no subscription quota', auth_required: 'Sign in again', offline: 'Not running', unsupported: 'Quota not provided', rate_limited: 'Rate limited', desktop_session_required: 'Open a Code session in Claude Desktop' } }
             : { title: '账户剩余额度', five: '5 小时', week: '每周', remaining: '剩余', reset: '重置于 ', updated: '更新于 ', unknown: '未提供订阅信息', menu: '额度栏菜单', hide: '收起到顶边', drag: '拖动沿页面顶部左右移动 · 双击居中', footer: '悬停查看详情 · 拖动左右移动', expand: '展开额度栏',
                 compact: '精简额度栏', detailed: '详细额度面板', appearance: '外观', followHome: '跟随主页', light: '浅色', dark: '深色', center: '居中到页面顶部', refresh: '立即刷新额度', autoHide: '收起到顶边 · 悬停展开', hideNote: '完全关闭额度栏：全局设置 → 桌面 Agent', trends: '点击额度查看使用趋势', loading: '正在读取账户额度…',
+                extraUsage: '用量额度', extraUsed: '已用 ', extraTotal: '，共 ',
                 states: { live: '实时', cached: '缓存', unavailable: '读取失败', not_installed: '未安装', signed_out: '未登录', api_key: 'API Key 模式 · 无订阅额度', auth_required: '需要重新登录', offline: '未运行', unsupported: '未提供额度', rate_limited: '查询受限', desktop_session_required: '请在 Claude 桌面版打开 Code 会话' } };
     }
     const time = value => { const d = new Date(value); return value && Number.isFinite(d.getTime()) ? d.toLocaleString(english() ? 'en-US' : 'zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''; };
     const nameOf = id => id === 'antigravity' && !english() ? '反重力' : PROVIDERS.find(([key]) => key === id)[1];
+    function formatMoney(amount, currency = 'USD') {
+        if (typeof amount !== 'number' || !Number.isFinite(amount)) return '';
+        const symbol = currency === 'USD' ? 'US$' : currency === 'CNY' ? '¥' : currency === 'EUR' ? '€' : currency + ' ';
+        return symbol + amount.toFixed(2);
+    }
+    function extraUsageBlock(source, className) {
+        const extra = source?.extraUsage;
+        if (!['live', 'cached'].includes(source?.status)) return null;
+        if (!extra?.enabled || !Number.isFinite(extra.used) || extra.used < 0) return null;
+        const t = strings(), block = el('div', className), head = el('div', 'dqb-extra-head');
+        const limit = Number.isFinite(extra.limit) && extra.limit >= 0 ? t.extraTotal + formatMoney(extra.limit, extra.currency) : '';
+        head.append(el('span', 'dqb-extra-title', t.extraUsage),
+            el('span', 'dqb-extra-text', t.extraUsed + formatMoney(extra.used, extra.currency) + limit));
+        block.append(head);
+        if (Number.isFinite(extra.percent) && extra.percent >= 0) {
+            const track = el('span', 'dqb-extra-track'), fill = el('i');
+            fill.style.transform = `scaleX(${Math.min(100, extra.percent) / 100})`;
+            track.append(fill); block.append(track);
+            block.title = t.extraUsage + ' · ' + Math.round(extra.percent) + '% ' + (english() ? 'used' : '已用');
+        }
+        return block;
+    }
     // Antigravity 有 Gemini 与 Claude / GPT 两组额度：额度栏显示 Gemini 组，详情里两组都显示（同 id 的重复组只取第一组）
     function groupsOf(id) {
         const seen = new Set();
@@ -114,7 +138,9 @@
             icon.src = '/assets/desktop-agents/' + id + '.png'; icon.alt = ''; icon.draggable = false;
             name.append(icon, el('span', 'dqb-label'));
             const meta = el('div', 'dqb-meta'); meta.append(el('span', 'dqb-plan'), el('span', 'dqb-detail'));
-            brand.append(name, meta); row.append(brand, cell('5h'), cell('weekly'));
+            brand.append(name, meta);
+            const extraBlock = el('div', 'dqb-row-extra'); extraBlock.hidden = true;
+            row.append(brand, cell('5h'), cell('weekly'), extraBlock);
             row.addEventListener('pointerenter', () => { clearTimeout(peekTimer); if (!drag && !prefs.expanded) peekTimer = setTimeout(() => showPeek(id, row), 80); });
             row.addEventListener('pointerleave', () => { clearTimeout(peekTimer); peekTimer = setTimeout(hidePeek, 120); });
             rows.append(row);
@@ -138,6 +164,11 @@
             row.querySelector('.dqb-detail').textContent = source?.status === 'live' ? '' : stateText(id);
             row.setAttribute('aria-label', nameOf(id) + ' · ' + stateText(id));
             row.querySelectorAll('.dqb-cell').forEach(node => paintCell(node, id, windowOf(group, node.dataset.window)));
+            const extraBlock = row.querySelector('.dqb-row-extra');
+            const nextExtra = prefs.expanded ? extraUsageBlock(source, 'dqb-row-extra') : null;
+            extraBlock.hidden = !nextExtra;
+            extraBlock.replaceChildren(...(nextExtra ? nextExtra.childNodes : []));
+            extraBlock.title = nextExtra?.title || '';
         }
         root.querySelector('.dqb-live').style.opacity = providers.some(id => quotas?.[id]?.status === 'live') ? '1' : '.25';
         if (peekProvider) fillPeek(peekProvider);
@@ -222,7 +253,10 @@
             block.append(quotasEl); list.append(block);
         }
         const foot = el('div', 'dqb-peek-foot'); foot.append(el('span', '', source?.updatedAt ? t.updated + time(source.updatedAt) : ''), el('span', '', t.trends));
-        peek.append(top, status, list, foot);
+        const extra = extraUsageBlock(source, 'dqb-peek-extra');
+        peek.append(top, status, list);
+        if (extra) peek.append(extra);
+        peek.append(foot);
         peek.setAttribute('aria-label', nameOf(id) + ' · ' + t.title);
     }
 

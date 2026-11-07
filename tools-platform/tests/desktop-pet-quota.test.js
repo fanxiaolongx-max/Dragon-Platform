@@ -132,9 +132,15 @@ test('Claude Desktop binds to its active account, prioritizes desktop over a dif
         'CLAUDE_CODE_ACCOUNT_UUID='+account+' ANTHROPIC_BASE_URL=https://api.anthropic.com CLAUDE_CODE_OAUTH_TOKEN='+token+' CLAUDE_CODE_SUBSCRIPTION_TYPE=pro'});
     assert.equal(credential.token,token);
     const q=await readClaudeQuota({readDesktop:async()=>credential,run:async()=>JSON.stringify({loggedIn:true,authMethod:'api_key'}),requestJson:async(url,options)=>{
-        assert.equal(url,'https://api.anthropic.com/api/oauth/usage');assert.equal(options.headers.Authorization,'Bearer '+token);return{five_hour:{utilization:6,resets_at:reset},seven_day:{utilization:82,resets_at:reset}};
+        assert.equal(url,'https://api.anthropic.com/api/oauth/usage');assert.equal(options.headers.Authorization,'Bearer '+token);return{five_hour:{utilization:6,resets_at:reset},seven_day:{utilization:82,resets_at:reset},extra_usage:{monthly_limit:12000,used_credits:2488,currency:'USD'},spend:{used:{amount_minor:2488},limit:{amount_minor:12000},percent:21}};
     }});
     assert.equal(q.source,'desktop');assert.equal(q.membership.label,'Pro');assert.deepEqual(q.groups[0].windows.map(w=>w.remainingPercent),[94,18]);assert.doesNotMatch(JSON.stringify(q),/desktop-token|Authorization|accessToken/);
+    assert.equal(q.extraUsage.enabled,true);
+    assert.equal(q.extraUsage.used,24.88);
+    assert.equal(q.extraUsage.limit,120);
+    assert.equal(q.extraUsage.currency,'USD');
+    assert.equal(q.extraUsage.percent,21);
+    assert.equal(q.extraUsage.remainingPercent,79);
 });
 test('Windows desktop cache decryption rejects expired, other-account and other-provider entries',async t=>{
     const {dir,account}=temporaryDesktop(t);
@@ -194,4 +200,63 @@ test('Antigravity member details are optional and do not leak account profile or
     const reader=createAntigravityReader({platform:'darwin',run:async()=> '123 /app/language_server --csrf_token local-csrf --https_server_port 54321',
         requestJson:async url=>{requests.push(url);if(url.endsWith('GetUserStatus'))throw Error('not supported');return agData();}});
     const fallback=await reader();assert.equal(fallback.status,'live');assert.equal(fallback.membership,null);assert.equal(requests.length,2);
+});
+
+
+test('Claude extra usage keeps independent money scales, validates data and supports spend-only responses', () => {
+    const base = { five_hour: { utilization: 10 } };
+    const parse = extra => parseClaudeQuota({ ...base, ...extra }).extraUsage;
+    assert.deepEqual(parse({ extra_usage: { is_enabled: true, used_credits: 0, monthly_limit: 10000, utilization: 0 } }),
+        { enabled: true, used: 0, limit: 100, currency: 'USD', percent: 0, remainingPercent: 100 });
+    assert.deepEqual(parse({ spend: { used: { amount_minor: 12345, exponent: 3, currency: 'USD' }, limit: { amount_minor: 10000, exponent: 2, currency: 'USD' } } }),
+        { enabled: true, used: 12.345, limit: 100, currency: 'USD', percent: 12.345, remainingPercent: 87.655 });
+    assert.equal(parse({ extra_usage: { is_enabled: false, used_credits: 20 } }), null);
+    assert.equal(parse({ spend: { enabled: false, used: { amount_minor: 20 } } }), null);
+    assert.equal(parse({ extra_usage: { used_credits: Infinity, monthly_limit: -1 } }), null);
+    assert.equal(parse({ spend: { used: { amount_minor: 20, exponent: -1 } } }), null);
+    assert.equal(parse({ extra_usage: { used_credits: 20, currency: '<img src=x onerror=bad>' } }), null);
+    assert.equal(parse({ spend: { used: { amount_minor: 20, currency: 'USD' }, limit: { amount_minor: 100, currency: 'EUR' } } }), null);
+    assert.equal(parse({ extra_usage: { used_credits: 20, monthly_limit: null } }).percent, null);
+    const onlySpend = parseClaudeQuota({ spend: { used: { amount_minor: 123 }, limit: { amount_minor: 1000 } } });
+    assert.equal(onlySpend.active, true);
+    assert.equal(onlySpend.extraUsage.used, 1.23);
+});
+
+test('an unavailable Desktop account cannot fall back to an unrelated CLI OAuth token', async () => {
+    for (const status of ['desktop_session_required', 'signed_out']) {
+        const quota = await readClaudeQuota({
+            readDesktop: async () => ({ status }), token: 'other-cli-token',
+            run: async () => assert.fail('Desktop account must be resolved first'),
+            requestJson: async () => assert.fail('An unrelated account must not be queried')
+        });
+        assert.equal(quota.status, status);
+    }
+});
+
+test('quota HTTP transport retries a dropped read and timeout once but does not retry HTTP failures or oversized responses', async t => {
+    const http = require('node:http');
+    const { requestJson } = require('../desktop-pet/quota-common');
+    const counts = new Map();
+    const server = http.createServer((req, res) => {
+        const count = (counts.get(req.url) || 0) + 1;
+        counts.set(req.url, count);
+        if (req.url === '/drop' && count === 1) return req.socket.destroy();
+        if (req.url === '/timeout' && count === 1 || req.url === '/no-retry') return;
+        if (req.url === '/http') { res.writeHead(503); res.end('{}'); return; }
+        if (req.url === '/large') { res.end('x'.repeat(1024 * 1024 + 1)); return; }
+        res.end(JSON.stringify({ ok: true }));
+    });
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    t.after(() => { server.closeAllConnections(); return new Promise(resolve => server.close(resolve)); });
+    const base = 'http://127.0.0.1:' + server.address().port;
+    assert.deepEqual(await requestJson(base + '/drop'), { ok: true });
+    assert.equal(counts.get('/drop'), 2);
+    assert.deepEqual(await requestJson(base + '/timeout', { timeout: 40 }), { ok: true });
+    assert.equal(counts.get('/timeout'), 2);
+    await assert.rejects(requestJson(base + '/no-retry', { timeout: 40, retries: 0 }), /timeout/);
+    assert.equal(counts.get('/no-retry'), 1);
+    await assert.rejects(requestJson(base + '/http'), { statusCode: 503 });
+    assert.equal(counts.get('/http'), 1);
+    await assert.rejects(requestJson(base + '/large'), /response_too_large/);
+    assert.equal(counts.get('/large'), 1);
 });

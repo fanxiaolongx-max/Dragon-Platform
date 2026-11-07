@@ -1,4 +1,5 @@
 // Run: node_modules/.bin/electron tests/home-composer-browser.cjs
+// Composer alignment audit: HOME_COMPOSER_DOCK_AUDIT=1 node_modules/.bin/electron tests/home-composer-browser.cjs
 // Full home renderer, mocked APIs, isolated profile; no model calls or runtime data writes.
 const { app, BrowserWindow } = require('electron');
 const assert = require('node:assert/strict');
@@ -42,6 +43,32 @@ app.whenReady().then(async () => {
     win = new BrowserWindow({ show: false, width: 1440, height: 1000, webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false } });
     await win.loadURL(`http://127.0.0.1:${server.address().port}/`);
     await until('!!window.HomeComposer&&!!document.querySelector(".dc-permission-picker")&&!!document.querySelector(".v2-suggest-item")&&!!window.HomePromoPlayer');
+    if (process.env.HOME_COMPOSER_DOCK_AUDIT) {
+        for (const mode of ['model', 'no-model', 'external']) {
+            await evaluate(`DragonClaw.exitExternal();${mode === 'external' ? "DragonClaw.enterExternal({owner:'workbuddy-fixture',composer:{canSend:true,placeholder:'WorkBuddy running'}})" : `dcModel.hidden=${mode === 'no-model'}`};void 0`);
+            for (const width of [1440, 390]) for (const theme of ['light', 'dark']) for (const text of ['', '1']) {
+                win.setContentSize(width, 1000);
+                await until(`innerWidth===${width}`);
+                await evaluate(`document.documentElement.dataset.theme='${theme}';dcInput.value=${JSON.stringify(text)};dcInput.dispatchEvent(new Event('input',{bubbles:true}));`);
+                const geometry = await evaluate(`(()=>{
+                    const voice=dcVoice.getBoundingClientRect(),send=dcSend.getBoundingClientRect(),enhance=dcEnhance.getBoundingClientRect();
+                    const bar=document.querySelector('.dc-composer-bar').getBoundingClientRect();
+                    return {voiceGap:send.left-voice.right,enhanceGap:voice.left-enhance.right,rightGap:bar.right-send.right,
+                        gap:parseFloat(getComputedStyle(document.querySelector('.dc-composer-bar')).columnGap),
+                        enhanceHidden:dcEnhance.hidden,modelHidden:dcModel.hidden};
+                })()`);
+                const context = JSON.stringify({mode,width,theme,text,geometry});
+                assert.ok(Math.abs(geometry.voiceGap-geometry.gap)<1, 'voice stays beside send: '+context);
+                assert.ok(Math.abs(geometry.rightGap)<1, 'send stays at the right edge: '+context);
+                assert.equal(geometry.enhanceHidden,!text,'enhancement follows input: '+context);
+                if (mode !== 'model' && text) assert.ok(Math.abs(geometry.enhanceGap-geometry.gap)<1,'enhancement stays beside voice: '+context);
+                if (mode === 'external' && width === 1440 && theme === 'light') await capture(text ? 'external-filled-docked' : 'external-empty-docked');
+            }
+        }
+        assert.deepEqual(await evaluate('fixtureErrors'), []);
+        console.log('PASS: enhancement, voice and send stay together at the right edge for normal, model-free and external sessions, empty/filled drafts, light/dark and 1440/390px. Screenshots: '+temp);
+        win.destroy(); server.close(); app.exit(0); return;
+    }
     await evaluate(`document.getAnimations().forEach(a=>{try{a.finish()}catch{}})`);
     assert.equal(await evaluate('dcModelName.textContent'), models[0].name);
     await until('document.querySelectorAll("#homeChatList .conversation-list-row").length===40');

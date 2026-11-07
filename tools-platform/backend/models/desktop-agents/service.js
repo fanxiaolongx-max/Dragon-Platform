@@ -99,7 +99,7 @@ async function selected(owner, provider, id) { if (!providers.includes(provider)
     row = current.rows.find(s => s.provider === provider && s.id === id);
 } if (!row)
     throw repo.error('会话已移除或不属于当前桌面连接', 404); return { state, row }; }
-async function messages(owner, provider, id, { passive = false } = {}) { const { state, row } = await selected(owner, provider, id), queue = queued(owner, provider, id); const content = provider === 'antigravity' ? await ag.messages(id, { passive }) : await readTranscript(row); if (provider === 'workbuddy' && !passive) wb.open(id); const status = state.providers.find(p => p.id === provider); return { ...content, session: publicSession(row), canSend: status?.canSend || false, canSteer: provider === 'codex' && Boolean(status?.canSend), reason: content.reason || status?.reason || '', queue }; }
+async function messages(owner, provider, id, { passive = false } = {}) { const { state, row } = await selected(owner, provider, id), queue = queued(owner, provider, id); const content = provider === 'antigravity' ? await ag.messages(id, { passive }) : await readTranscript(row); const status = state.providers.find(p => p.id === provider); return { ...content, session: publicSession(row), canSend: status?.canSend || false, canSteer: provider === 'codex' && Boolean(status?.canSend), reason: content.reason || status?.reason || '', queue }; }
 // 空消息、超长、请求编号错误分别说明，避免长消息被误报成“编号无效”。
 const MAX_MESSAGE = 20000;
 function checkMessage(text, requestId) {

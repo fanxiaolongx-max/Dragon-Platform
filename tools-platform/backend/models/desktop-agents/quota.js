@@ -14,7 +14,15 @@ function publicQuota(value) {
         groups: (Array.isArray(value.groups) ? value.groups : []).slice(0, 10).map(group => ({
             id: group.id, label: group.label,
             windows: (Array.isArray(group.windows) ? group.windows : []).slice(0, 10).map(w => ({ id: w.id, label: w.label, remainingPercent: w.remainingPercent, resetsAt: w.resetsAt, durationMinutes: w.durationMinutes }))
-        }))
+        })),
+        extraUsage: value.extraUsage ? {
+            enabled: Boolean(value.extraUsage.enabled),
+            used: Number.isFinite(value.extraUsage.used) && value.extraUsage.used >= 0 ? value.extraUsage.used : null,
+            limit: Number.isFinite(value.extraUsage.limit) && value.extraUsage.limit >= 0 ? value.extraUsage.limit : null,
+            currency: /^[A-Z]{3}$/.test(value.extraUsage.currency) ? value.extraUsage.currency : 'USD',
+            percent: Number.isFinite(value.extraUsage.percent) && value.extraUsage.percent >= 0 ? value.extraUsage.percent : null,
+            remainingPercent: Number.isFinite(value.extraUsage.remainingPercent) && value.extraUsage.remainingPercent >= 0 ? value.extraUsage.remainingPercent : null
+        } : null
     };
 }
 async function read(owner, { force = false, detect = detector.detectAllQuotas } = {}) {

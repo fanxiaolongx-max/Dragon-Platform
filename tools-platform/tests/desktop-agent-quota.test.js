@@ -2,7 +2,7 @@ const test = require('node:test'), assert = require('node:assert/strict'), fs = 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'desktop-quota-'));
 process.env.TOOLS_DATA_DIR = path.join(root, 'data');
 const db = require('../backend/models/app-db'), host = require('../backend/models/desktop-agents/repository'), quota = require('../backend/models/desktop-agents/quota');
-const live = provider => ({ provider, active: true, status: 'live', membership: { tier: 'pro', label: 'Pro' }, updatedAt: 1, checkedAt: 1, token: 'must-not-leak', groups: [{ id: provider, label: provider, windows: [{ id: '5h', remainingPercent: 80, resetsAt: null, durationMinutes: 300, secret: 'x' }] }] });
+const live = provider => ({ provider, active: true, status: 'live', membership: { tier: 'pro', label: 'Pro' }, updatedAt: 1, checkedAt: 1, token: 'must-not-leak', groups: [{ id: provider, label: provider, windows: [{ id: '5h', remainingPercent: 80, resetsAt: null, durationMinutes: 300, secret: 'x' }] }], extraUsage: { enabled: true, used: 24.88, limit: 120, currency: 'USD', percent: 21, remainingPercent: 79, secret: 'y' } });
 const all = { codex: live('codex'), claudecode: live('claudecode'), antigravity: live('antigravity') };
 test.after(async () => { await db.closeDatabase(); await require('../backend/models/platform-db').closeDatabase(); await require('../backend/models/tenant-sqlite-pool').closeAll(); fs.rmSync(root, { recursive: true, force: true }); });
 
@@ -16,7 +16,12 @@ test('returns only enabled providers, without credentials or extra fields', asyn
     assert.deepEqual(data.providers, ['codex', 'antigravity']);
     assert.deepEqual(Object.keys(data.quotas), ['codex', 'antigravity']);
     assert.equal(data.quotas.codex.groups[0].windows[0].remainingPercent, 80);
+    assert.deepEqual(data.quotas.codex.extraUsage, { enabled: true, used: 24.88, limit: 120, currency: 'USD', percent: 21, remainingPercent: 79 });
     assert.doesNotMatch(JSON.stringify(data), /must-not-leak|secret/);
+    const invalid = await quota.read('alice', { detect: async () => ({ ...all, codex: {
+        ...all.codex, extraUsage: { enabled: true, used: Infinity, limit: -10, currency: '<img>', percent: NaN, remainingPercent: 100 }
+    } }) });
+    assert.deepEqual(invalid.quotas.codex.extraUsage, { enabled: true, used: null, limit: null, currency: 'USD', percent: null, remainingPercent: 100 });
     await assert.rejects(quota.read('bob', { detect: async () => all }), e => e.status === 403, 'another account cannot read this desktop');
 });
 

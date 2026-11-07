@@ -16,8 +16,35 @@ function parseClaudeQuota(data, subscriptionType = null) {
     }
     const result = snapshot('claudecode',[{id:'claudecode',label:'Claude Code',windows}]);
     result.membership=membership(subscriptionType || data?.subscription_type);
+
+    result.extraUsage = parseExtraUsage(data);
+    result.active ||= Boolean(result.extraUsage?.enabled && result.extraUsage.used !== null);
+
     return result.active ? result : unavailable('claudecode','unsupported');
 }
+function parseExtraUsage(data) {
+    const spend = data?.spend;
+    const extra = data?.extra_usage;
+    const useSpend = Boolean(spend?.used || spend?.limit);
+    const source = useSpend ? spend : extra;
+    if (!source || source.enabled === false || source.is_enabled === false) return null;
+    const currency = String((useSpend ? spend.used?.currency || spend.limit?.currency : extra.currency) || 'USD').toUpperCase();
+    if (!/^[A-Z]{3}$/.test(currency)) return null;
+    if (useSpend && [spend.used?.currency, spend.limit?.currency].some(value => value && String(value).toUpperCase() !== currency)) return null;
+    const amount = (minor, exponent = 2) => {
+        if (!Number.isFinite(minor) || minor < 0 || !Number.isInteger(exponent) || exponent < 0 || exponent > 6) return null;
+        return minor / 10 ** exponent;
+    };
+    const used = useSpend ? amount(spend.used?.amount_minor, spend.used?.exponent) : amount(extra.used_credits, extra.decimal_places);
+    const limit = useSpend ? amount(spend.limit?.amount_minor, spend.limit?.exponent) : amount(extra.monthly_limit, extra.decimal_places);
+    if (used === null && limit === null) return null;
+    const reportedPercent = useSpend ? spend.percent : extra.utilization;
+    const percent = Number.isFinite(reportedPercent) && reportedPercent >= 0 ? reportedPercent
+        : used !== null && limit > 0 ? used / limit * 100 : null;
+    return { enabled: true, used, limit, currency, percent,
+        remainingPercent: percent === null ? null : Math.max(0, 100 - percent) };
+}
+
 function claudeCommand(home) {
     const file = path.join(home,'.local','bin',process.platform === 'win32' ? 'claude.exe' : 'claude');
     return fs.existsSync(file) ? file : 'claude';
@@ -27,15 +54,15 @@ async function readClaudeQuota(options = {}) {
     const execute = options.run || run, request = options.requestJson || requestJson;
     const configDir = options.configDir || process.env.CLAUDE_CONFIG_DIR || path.join(home,'.claude');
     const desktop = await (options.readDesktop || readDesktopClaudeCredential)({home,platform,run:execute});
+    if (!desktop.token && desktop.status !== 'not_installed') return unavailable('claudecode',desktop.status);
     let auth = null;
     if (!desktop.token) {
         try { auth = JSON.parse(await execute(claudeCommand(home),['auth','status','--json'])); } catch (_) {}
     }
-    if (!desktop.token && desktop.status !== 'not_installed') return unavailable('claudecode',desktop.status);
-    if (!desktop.token && auth?.authMethod === 'api_key') return unavailable('claudecode','api_key');
-    if (!desktop.token && auth?.loggedIn === false) return unavailable('claudecode','signed_out');
     let subscriptionType=desktop.subscriptionType || auth?.subscriptionType || null;
     let token = desktop.token || options.token || process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    if (!token && auth?.authMethod === 'api_key') return unavailable('claudecode','api_key');
+    if (!token && auth?.loggedIn === false) return unavailable('claudecode','signed_out');
     if (!token) {
         try {
             const file = path.join(configDir,'.credentials.json');

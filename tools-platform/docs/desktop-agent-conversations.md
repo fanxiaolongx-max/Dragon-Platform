@@ -11,7 +11,7 @@
 | Codex 桌面 | 支持本地已保存文本记录 | 支持，原会话空闲时 | 原生桌面 Unix IPC，会话 UUID 不变 |
 | Claude Code 桌面 | 支持本地 Code 会话记录 | 默认只读；可开启「模拟操作发送」（macOS） | 元数据与 transcript；发送走辅助功能模拟操作 |
 | Antigravity 桌面 | 支持当前桌面侧栏可见会话与时间线 | 支持，原会话空闲且输入框没有草稿时 | 运行中桌面应用的本机 Chromium CDP |
-| WorkBuddy 桌面 | 支持 `~/.workbuddy/workbuddy.db` 会话与 `projects/` 记录，含 CLI 新建的会话 | 支持，需 CLI 登录一次 | 自带 CodeBuddy CLI 无头模式 `--resume <会话 id>`；打开记录用 `workbuddy://chat/<id>` 深链 |
+| WorkBuddy 桌面 | 支持 `~/.workbuddy/workbuddy.db` 会话与 `projects/` 记录，含 CLI 新建的会话 | 支持，需 CLI 登录一次 | 自带 CodeBuddy CLI 无头模式 `--resume <会话 id>`；查看会话仅静默读取本地记录，不启动、切换或前置桌面窗口 |
 
 Codex 需要本机桌面 IPC 可连接。Antigravity 需要运行中的桌面应用提供 `DevToolsActivePort`，打开网页历史会同步切换其桌面会话；当前连接器面向 Antigravity 桌面应用，不将另一款 Antigravity IDE 的 CLI 当成桌面连接。客户端升级造成协议或页面变化时，发送会明确失败。
 

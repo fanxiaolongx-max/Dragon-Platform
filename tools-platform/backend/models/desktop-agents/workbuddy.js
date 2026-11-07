@@ -1,5 +1,5 @@
 // WorkBuddy（腾讯）桌面连接：会话列表读 ~/.workbuddy/workbuddy.db，消息读 ~/.workbuddy/projects/<目录>/<id>.jsonl；
-// 打开记录用官方深链 workbuddy://chat/<id>（-g 后台切换，不抢焦点）；发送走 WorkBuddy 自带的 CodeBuddy CLI 无头模式（--resume 同一会话 id），
+// 查看会话仅读取本地记录，不启动或切换桌面窗口；发送走 WorkBuddy 自带的 CodeBuddy CLI 无头模式（--resume 同一会话 id），
 // 不用辅助功能模拟操作。桌面端自身的会话驱动（DaemonRPC）只在 Electron 主进程的 stdio 上，本机没有对外的发送接口。
 // CLI 不共用桌面端登录：用独立配置目录（默认 ~/.workbuddy-connector），其中 projects 软链到桌面端的会话目录，
 // 登录凭据来自该目录（或 ~/.codebuddy 的登录文件、CODEBUDDY_API_KEY 环境变量）。
@@ -125,11 +125,34 @@ async function transcript(session) {
     finally { await handle.close(); }
     const items = [];
     let busySince = null, lastStamp = null, presented = [];
+    const widgetCalls = new Map();
     for (const line of text.split('\n')) {
         let event;
         try { event = JSON.parse(line); } catch { continue; }
         const stamp = Number.isFinite(Number(event.timestamp)) && event.timestamp ? new Date(Number(event.timestamp)).toISOString() : null;
         if (stamp) lastStamp = stamp;
+        // 可视化是独立的工具回执，不在 assistant 的 output_text 中。只展示主会话成功返回的 widget。
+        if (!event.isSidechain && event.name === 'show_widget' && event.callId) {
+            if (event.type === 'function_call') {
+                try {
+                    const args = typeof event.arguments === 'string' ? JSON.parse(event.arguments) : event.arguments;
+                    if (typeof args?.widget_code === 'string' && args.widget_code.length <= 200000 && widgetCalls.size < 100)
+                        widgetCalls.set(event.callId, args);
+                } catch { /* 不完整的流式参数等待下次读取 */ }
+            } else if (event.type === 'function_call_result') {
+                const args = widgetCalls.get(event.callId);
+                widgetCalls.delete(event.callId);
+                if (args && event.status === 'completed') for (const block of Array.isArray(event.output) ? event.output : []) {
+                    try {
+                        const result = JSON.parse(block.text);
+                        if (result.type !== 'visualizer_show_widget_result' || result.success !== true) continue;
+                        items.push({ id: event.id || `widget:${event.callId}`, role: 'assistant', content: '',
+                            widget: { title: safe(args.title || result.title || 'WorkBuddy', 200), html: args.widget_code }, channel: null, createdAt: stamp });
+                        break;
+                    } catch { /* 失败或不完整的回执不展示 */ }
+                }
+            }
+        }
         if (!event.isSidechain && event.type === 'function_call_result' && event.name === 'present_files' && event.status === 'completed') {
             for (const block of Array.isArray(event.output) ? event.output : []) {
                 if (block.type !== 'input_text') continue;
@@ -145,6 +168,7 @@ async function transcript(session) {
         }
         if (event.role === 'user') {
             presented = [];
+            widgetCalls.clear();
             const files = attachments((event.content || []).filter(block => ['image_blob_ref', 'file_blob_ref'].includes(block.type)));
             let content = queryText(event);
             if (files.length) content = content.replace(/@image#\d+:([^\s]+)/g, (marker, name) => files.some(file => file.name === name) ? '' : marker).trim();
@@ -165,12 +189,6 @@ async function transcript(session) {
     const tail = items.at(-1), fresh = lastStamp && Date.now() - Date.parse(lastStamp) < STALE_MS;
     const busy = running.has(session.id) || BUSY_STATUS.has(String(session.status || '').toLowerCase()) || Boolean(fresh && tail?.role === 'user' && busySince && Date.now() - Date.parse(lastStamp) < 120000);
     return { items: items.slice(-200), available: true, busy, busySince: busy ? busySince || lastStamp : null };
-}
-
-// 官方深链：在桌面端切到这条会话；-g 不把 WorkBuddy 拉到前台
-async function open(id) {
-    if (!validId(id) || process.platform !== 'darwin') return;
-    await run('/usr/bin/open', ['-g', 'workbuddy://chat/' + encodeURIComponent(id)]).catch(() => { });
 }
 
 let appCache = null;
@@ -242,7 +260,7 @@ async function status(items) {
     const [command, app, login] = await Promise.all([cli(), runningApp(), loggedIn()]);
     if (!command) return { connected: items.length > 0, canSend: false, reason: '未找到 WorkBuddy 或 CodeBuddy CLI，可查看已保存记录' };
     const note = login ? '' : '；未检测到 CLI 登录，首次发送前请先登录';
-    return { connected: true, canSend: true, reason: `${command.kind === 'bundled' ? 'WorkBuddy 自带 CLI' : 'CodeBuddy CLI'} 无头发送${app ? '；打开记录会同步切换桌面会话' : '；桌面端未运行'}${note}` };
+    return { connected: true, canSend: true, reason: `${command.kind === 'bundled' ? 'WorkBuddy 自带 CLI' : 'CodeBuddy CLI'} 无头发送；静默读取本地记录${app ? '' : '；桌面端未运行'}${note}` };
 }
 
 // 正在运行的 CLI 回合：同一会话同时只允许一个
@@ -304,4 +322,4 @@ async function createAndSend(text) {
     await start(id, cwd, text, { resume: false });
     return { id, status: 'accepted' };
 }
-module.exports = { list, transcript, open, status, send, createAndSend, projectSlug, queryText, running };
+module.exports = { list, transcript, status, send, createAndSend, projectSlug, queryText, running };
