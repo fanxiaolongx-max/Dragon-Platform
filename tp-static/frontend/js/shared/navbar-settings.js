@@ -697,19 +697,19 @@ function renderAiUsageDashboard(data) {
         <div class="nav-ai-usage-legend"><span class="tokens">Token</span><span class="cost">${navEscape(navT('nav.ai.costLegend'))}</span><b>${navEscape(navT('nav.ai.usagePeriod'))}：${formatAiUsageNumber(period.tokens)} Tokens · ¥${period.costCny.toFixed(4)}</b></div>
         <div class="nav-ai-chart-wrap">${buildAiUsageChart(series)}</div>
         ${models.length > 0 ? `
-        <div style="margin-top:12px;background:rgba(248,250,252,0.78);border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;">
+        <div class="nav-ai-usage-history" style="margin-top:12px;background:var(--v2-side, rgba(248,250,252,0.78));border:1px solid var(--v2-line, #e2e8f0);border-radius:10px;padding:10px 12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;">
-                <span style="font-size:12px;font-weight:600;color:#334155;">${navEscape(navT('nav.ai.usageHistory'))} (${models.length})</span>
-                <span style="font-size:11px;color:#64748b;">${navEscape(navT('nav.ai.usageHistoryHelp'))}</span>
+                <span style="font-size:12px;font-weight:600;color:var(--v2-ink, #334155);">${navEscape(navT('nav.ai.usageHistory'))} (${models.length})</span>
+                <span style="font-size:11px;color:var(--v2-ink3, #64748b);">${navEscape(navT('nav.ai.usageHistoryHelp'))}</span>
             </div>
             <div style="display:flex;flex-direction:column;gap:5px;max-height:150px;overflow-y:auto;padding-right:2px;">
                 ${models.map(item => {
                     const displayName = `${item.profileName || item.provider} · ${item.model}`;
                     return `
-                    <div style="display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid #edf2f7;border-radius:8px;padding:5px 9px;font-size:12px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--v2-chip, #fff);border:1px solid var(--v2-line, #edf2f7);border-radius:8px;padding:5px 9px;font-size:12px;">
                         <div style="display:flex;align-items:center;gap:7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-                            <strong style="color:#1e293b;">${navEscape(displayName)}</strong>${configured.size && !isConfigured(item) ? `<em style="font-style:normal;font-size:10.5px;color:#94a3b8;border:1px solid #e2e8f0;border-radius:8px;padding:0 6px;">${navEscape(navT('nav.ai.unconfigured'))}</em>` : ''}
-                            <span style="color:#64748b;font-size:11px;">(${formatAiUsageNumber(item.totals?.tokens)} Tokens · ¥${Number(item.totals?.costCny || 0).toFixed(4)})</span>
+                            <strong style="color:var(--v2-ink, #1e293b);">${navEscape(displayName)}</strong>${configured.size && !isConfigured(item) ? `<em style="font-style:normal;font-size:10.5px;color:var(--v2-ink3, #94a3b8);border:1px solid var(--v2-line, #e2e8f0);border-radius:8px;padding:0 6px;">${navEscape(navT('nav.ai.unconfigured'))}</em>` : ''}
+                            <span style="color:var(--v2-ink3, #64748b);font-size:11px;">(${formatAiUsageNumber(item.totals?.tokens)} Tokens · ¥${Number(item.totals?.costCny || 0).toFixed(4)})</span>
                         </div>
                         <button type="button" class="nav-settings-add danger" onclick="clearSpecificModelUsage('${navEscape(item.key)}', '${navEscape(displayName)}', ${item.totals?.tokens || 0}, ${Number(item.totals?.costCny || 0).toFixed(4)})" style="margin:0;font-size:11px;padding:2px 8px;height:24px;line-height:20px;" title="${navEscape(navT('nav.ai.clearModelUsage'))}">🗑 ${navEscape(navT('nav.ai.clearModelUsage'))}</button>
                     </div>
@@ -901,9 +901,9 @@ async function renderAiSettings(content) {
                         </button>
                     `).join('')}
                 </div>
-                ${isImage ? '' : `<label class="nav-settings-check" style="margin-top:8px;padding:9px 10px;border:1px solid rgba(129,140,248,.24);border-radius:10px;background:rgba(255,255,255,.68);display:flex;align-items:center;gap:8px;">
+                ${isImage ? '' : `<label class="nav-settings-check nav-ai-autoswitch-check" style="margin-top:8px;padding:9px 10px;border:1px solid var(--v2-line, rgba(129,140,248,.24));border-radius:10px;background:var(--v2-chip, rgba(255,255,255,.68));display:flex;align-items:center;gap:8px;color:var(--v2-ink, inherit);">
                     <input id="navAiAutoSwitch" type="checkbox" ${settingsStore.autoSwitchEnabled ? 'checked' : ''} onchange="scheduleAiSettingsSave()">
-                    <span><b>${navEscape(navT('nav.ai.autoSwitch'))}</b><small style="display:block;margin-top:2px;color:#64748b;font-weight:500;">${navEscape(navT('nav.ai.autoSwitchHelp'))}</small></span>
+                    <span><b>${navEscape(navT('nav.ai.autoSwitch'))}</b><small style="display:block;margin-top:2px;color:var(--v2-ink3, #64748b);font-weight:500;">${navEscape(navT('nav.ai.autoSwitchHelp'))}</small></span>
                 </label>`}
                 <div class="nav-ai-profile-toolbar">
                     <label>
@@ -2156,62 +2156,62 @@ function renderMediaSettingsHtml(content, overview, videos, categories) {
         <div style="display:flex; flex-direction:column; gap:16px;">
             <!-- 资产总体概况卡片 -->
             <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:12px;">
-                <div style="background:linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border:1px solid #e2e8f0; border-radius:10px; padding:14px;">
-                    <div style="font-size:12px; color:#64748b; margin-bottom:4px;">🎬 视频资产总数</div>
-                    <div style="font-size:22px; font-weight:800; color:#0f172a;">${overview.totalVideos} <span style="font-size:12px; font-weight:500; color:#64748b;">部</span></div>
+                <div class="nav-media-stat-card" style="border:1px solid #e2e8f0; border-radius:10px; padding:14px;">
+                    <div style="font-size:12px; color:var(--v2-ink3, #64748b); margin-bottom:4px;">🎬 视频资产总数</div>
+                    <div style="font-size:22px; font-weight:800; color:var(--v2-ink, #0f172a);">${overview.totalVideos} <span style="font-size:12px; font-weight:500; color:var(--v2-ink3, #64748b);">部</span></div>
                 </div>
-                <div style="background:linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border:1px solid #e2e8f0; border-radius:10px; padding:14px;">
-                    <div style="font-size:12px; color:#64748b; margin-bottom:4px;">📁 分类文件夹</div>
-                    <div style="font-size:22px; font-weight:800; color:#0f172a;">${overview.totalCategories} <span style="font-size:12px; font-weight:500; color:#64748b;">个</span></div>
+                <div class="nav-media-stat-card" style="border:1px solid #e2e8f0; border-radius:10px; padding:14px;">
+                    <div style="font-size:12px; color:var(--v2-ink3, #64748b); margin-bottom:4px;">📁 分类文件夹</div>
+                    <div style="font-size:22px; font-weight:800; color:var(--v2-ink, #0f172a);">${overview.totalCategories} <span style="font-size:12px; font-weight:500; color:var(--v2-ink3, #64748b);">个</span></div>
                 </div>
-                <div style="background:linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border:1px solid #e2e8f0; border-radius:10px; padding:14px;">
-                    <div style="font-size:12px; color:#64748b; margin-bottom:4px;">💾 媒体库占用</div>
+                <div class="nav-media-stat-card" style="border:1px solid #e2e8f0; border-radius:10px; padding:14px;">
+                    <div style="font-size:12px; color:var(--v2-ink3, #64748b); margin-bottom:4px;">💾 媒体库占用</div>
                     <div style="font-size:22px; font-weight:800; color:#6366f1;">${overview.totalSizeFormatted}</div>
                 </div>
-                <div style="background:linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border:1px solid #e2e8f0; border-radius:10px; padding:14px;">
-                    <div style="font-size:12px; color:#64748b; margin-bottom:4px;">💽 磁盘可用空间</div>
-                    <div style="font-size:22px; font-weight:800; color:#10b981;">${overview.disk.freeGb} <span style="font-size:12px; font-weight:500; color:#64748b;">GB 可用</span></div>
+                <div class="nav-media-stat-card" style="border:1px solid #e2e8f0; border-radius:10px; padding:14px;">
+                    <div style="font-size:12px; color:var(--v2-ink3, #64748b); margin-bottom:4px;">💽 磁盘可用空间</div>
+                    <div style="font-size:22px; font-weight:800; color:#10b981;">${overview.disk.freeGb} <span style="font-size:12px; font-weight:500; color:var(--v2-ink3, #64748b);">GB 可用</span></div>
                 </div>
             </div>
 
             <!-- 飞牛影视远程对接配置卡片 -->
-            <div style="background:linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%); border:1px solid #bfdbfe; border-radius:12px; padding:16px;">
+            <div class="nav-media-remote-card" style="border:1px solid #bfdbfe; border-radius:12px; padding:16px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
                     <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                        <span style="font-size:15px; font-weight:800; color:#0f172a;">☁️ 飞牛影视对接</span>
+                        <span style="font-size:15px; font-weight:800; color:var(--v2-ink, #0f172a);">☁️ 飞牛影视对接</span>
                         ${feiniu.connected
                             ? `<span style="display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:999px; background:#dcfce7; color:#15803d; font-size:12px; font-weight:600;">● 已连接「${navEscape(feiniu.serverName || '飞牛影视')}」· 同步 ${Number(feiniu.totalVideos) || 0} 部视频</span>`
                             : (!feiniu.enabled
-                                ? `<span style="display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:999px; background:#e2e8f0; color:#475569; font-size:12px; font-weight:600;">⏸️ 已暂停对接</span>`
+                                ? `<span style="display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:999px; background:var(--v2-chip, #e2e8f0); color:var(--v2-ink3, #475569); font-size:12px; font-weight:600;">⏸️ 已暂停对接</span>`
                                 : `<span style="display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:999px; background:#fef3c7; color:#b45309; font-size:12px; font-weight:600;">⚠️ 未连接${feiniu.lastError ? '：' + navEscape(feiniu.lastError) : ''}</span>`
                             )
                         }
                     </div>
                     <div style="display:flex; align-items:center; gap:8px;">
-                        <label style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:#334155; cursor:pointer;">
+                        <label style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--v2-ink, #334155); cursor:pointer;">
                             <input type="checkbox" id="feiniuEnabledInput" ${feiniu.enabled !== false ? 'checked' : ''} style="width:15px; height:15px; accent-color:#2563eb;">
                             <span>启用飞牛片源接入</span>
                         </label>
                     </div>
                 </div>
                 <div style="display:grid; grid-template-columns:minmax(220px, 1.8fr) minmax(130px, 1fr) minmax(130px, 1fr) auto; gap:10px; align-items:end;">
-                    <label style="display:block; font-size:12px; font-weight:600; color:#334155;">
+                    <label style="display:block; font-size:12px; font-weight:600; color:var(--v2-ink, #334155);">
                         对接链接
-                        <input type="url" id="feiniuUrlInput" value="${navEscape(feiniu.url || 'https://feiniu.fanxiaolong.uk/v')}" placeholder="https://feiniu.fanxiaolong.uk/v" style="display:block; width:100%; box-sizing:border-box; margin-top:4px; padding:8px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; color:#0f172a; background:#fff;">
+                        <input type="url" id="feiniuUrlInput" class="nav-settings-input" value="${navEscape(feiniu.url || 'https://feiniu.fanxiaolong.uk/v')}" placeholder="https://feiniu.fanxiaolong.uk/v" style="display:block; width:100%; box-sizing:border-box; margin-top:4px; padding:8px 10px; border-radius:8px; font-size:13px;">
                     </label>
-                    <label style="display:block; font-size:12px; font-weight:600; color:#334155;">
+                    <label style="display:block; font-size:12px; font-weight:600; color:var(--v2-ink, #334155);">
                         账号
-                        <input type="text" id="feiniuUsernameInput" value="${navEscape(feiniu.username || 'admin')}" placeholder="输入飞牛账号" autocomplete="username" style="display:block; width:100%; box-sizing:border-box; margin-top:4px; padding:8px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; color:#0f172a; background:#fff;">
+                        <input type="text" id="feiniuUsernameInput" class="nav-settings-input" value="${navEscape(feiniu.username || 'admin')}" placeholder="输入飞牛账号" autocomplete="username" style="display:block; width:100%; box-sizing:border-box; margin-top:4px; padding:8px 10px; border-radius:8px; font-size:13px;">
                     </label>
-                    <label style="display:block; font-size:12px; font-weight:600; color:#334155;">
+                    <label style="display:block; font-size:12px; font-weight:600; color:var(--v2-ink, #334155);">
                         密码
-                        <input type="password" id="feiniuPasswordInput" value="${feiniu.hasPassword ? '********' : ''}" placeholder="输入飞牛密码" autocomplete="current-password" style="display:block; width:100%; box-sizing:border-box; margin-top:4px; padding:8px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; color:#0f172a; background:#fff;">
+                        <input type="password" id="feiniuPasswordInput" class="nav-settings-input" value="${feiniu.hasPassword ? '********' : ''}" placeholder="输入飞牛密码" autocomplete="current-password" style="display:block; width:100%; box-sizing:border-box; margin-top:4px; padding:8px 10px; border-radius:8px; font-size:13px;">
                     </label>
                     <div style="display:flex; gap:8px;">
                         <button type="button" onclick="saveFeiniuMediaConfig(this)" style="height:36px; padding:0 14px; background:#2563eb; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap;">
                             🔗 保存并对接
                         </button>
-                        <button type="button" onclick="syncFeiniuMediaCatalog(this)" style="height:36px; padding:0 12px; background:#fff; color:#1e40af; border:1px solid #93c5fd; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap;" title="立即从飞牛影视同步影片列表">
+                        <button type="button" class="nav-settings-add" onclick="syncFeiniuMediaCatalog(this)" style="height:36px; padding:0 12px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap;" title="立即从飞牛影视同步影片列表">
                             🔄 同步片库
                         </button>
                     </div>
@@ -2219,7 +2219,7 @@ function renderMediaSettingsHtml(content, overview, videos, categories) {
             </div>
 
             <!-- 操作工具条 -->
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; padding:12px; background:#fff; border:1px solid #e2e8f0; border-radius:10px;">
+            <div class="nav-media-toolbar-card" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; padding:12px; border:1px solid #e2e8f0; border-radius:10px;">
                 <div style="display:flex; gap:8px; flex-wrap:wrap;">
                     <button type="button" class="sys-btn" onclick="openCreateMediaFolderModal()" style="background:#6366f1; color:#fff; border:none; border-radius:6px; padding:6px 12px; font-size:13px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">
                         <span>+</span> 新建分类文件夹
@@ -2227,12 +2227,12 @@ function renderMediaSettingsHtml(content, overview, videos, categories) {
                     <button type="button" class="sys-btn" onclick="openImportLocalMediaModal()" style="background:#0ea5e9; color:#fff; border:none; border-radius:6px; padding:6px 12px; font-size:13px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">
                         <span>📥</span> 本地目录一键导入
                     </button>
-                    <a href="${navToolShellUrl('/cinema')}" target="_blank" style="text-decoration:none; background:#f8fafc; color:#334155; border:1px solid #cbd5e1; border-radius:6px; padding:6px 12px; font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:4px;">
+                    <a href="${navToolShellUrl('/cinema')}" target="_blank" class="nav-settings-add" style="text-decoration:none; border-radius:6px; padding:6px 12px; font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:4px;">
                         <span>🎬</span> 预览点播大厅 ↗
                     </a>
                 </div>
                 <div style="display:flex; gap:8px; align-items:center;">
-                    <button type="button" onclick="renderMediaSettings(document.getElementById('navSettingsContent'))" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:6px; padding:6px 10px; font-size:12px; cursor:pointer;" title="重新扫描磁盘视频">
+                    <button type="button" class="nav-settings-add" onclick="renderMediaSettings(document.getElementById('navSettingsContent'))" style="border-radius:6px; padding:6px 10px; font-size:12px; cursor:pointer;" title="重新扫描磁盘视频">
                         🔄 刷新
                     </button>
                 </div>
@@ -2241,7 +2241,7 @@ function renderMediaSettingsHtml(content, overview, videos, categories) {
             <!-- 分类切换与实时筛选 -->
             <div class="nav-media-filter-row">
                 <div class="nav-media-category-tabs" aria-label="${navEscape(navT('nav.media.categoryFilter'))}">
-                    <button type="button" class="tab-item" onclick="switchMediaCategoryFilter('all')" style="border-radius:20px; padding:4px 14px; font-size:12px; font-weight:600; cursor:pointer; border:1px solid ${activeFilter === 'all' ? '#6366f1' : '#cbd5e1'}; background:${activeFilter === 'all' ? '#6366f1' : '#fff'}; color:${activeFilter === 'all' ? '#fff' : '#475569'};">
+                    <button type="button" class="tab-item" aria-pressed="${activeFilter === 'all'}" onclick="switchMediaCategoryFilter('all')" style="border-radius:20px; padding:4px 14px; font-size:12px; font-weight:600; cursor:pointer; border:1px solid ${activeFilter === 'all' ? '#6366f1' : 'var(--v2-line, #cbd5e1)'}; background:${activeFilter === 'all' ? '#6366f1' : 'var(--v2-chip, #fff)'}; color:${activeFilter === 'all' ? '#fff' : 'var(--v2-ink2, #475569)'};">
                         全部 (${videos.length})
                     </button>
                     ${managedCategories.map(c => {
@@ -2249,7 +2249,7 @@ function renderMediaSettingsHtml(content, overview, videos, categories) {
         const cnt = categoryCount(c);
         const isAct = activeFilter === filterValue;
         return `
-                            <button type="button" class="tab-item" onclick="switchMediaCategoryFilter('${navEscape(filterValue)}')" style="border-radius:20px; padding:4px 14px; font-size:12px; font-weight:600; cursor:pointer; border:1px solid ${isAct ? '#6366f1' : '#cbd5e1'}; background:${isAct ? '#6366f1' : '#fff'}; color:${isAct ? '#fff' : '#475569'}; display:inline-flex; align-items:center; gap:4px;">
+                            <button type="button" class="tab-item" aria-pressed="${isAct}" onclick="switchMediaCategoryFilter('${navEscape(filterValue)}')" style="border-radius:20px; padding:4px 14px; font-size:12px; font-weight:600; cursor:pointer; border:1px solid ${isAct ? '#6366f1' : 'var(--v2-line, #cbd5e1)'}; background:${isAct ? '#6366f1' : 'var(--v2-chip, #fff)'}; color:${isAct ? '#fff' : 'var(--v2-ink2, #475569)'}; display:inline-flex; align-items:center; gap:4px;">
                                 <span>${c.icon || '📁'}</span> ${navEscape(c.name || filterValue || '独家影院')} (${cnt})
                             </button>
                         `;
@@ -2262,11 +2262,11 @@ function renderMediaSettingsHtml(content, overview, videos, categories) {
             </div>
 
             <!-- 视频表格管理区 -->
-            <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden;">
+            <div style="background:var(--v2-side, #fff); border:1px solid var(--v2-line, #e2e8f0); border-radius:10px; overflow:hidden;">
                 <div class="nav-media-table-scroll">
                     <table class="nav-media-table">
                         <thead>
-                            <tr style="background:#f8fafc; border-bottom:1px solid #e2e8f0; color:#64748b; font-weight:600;">
+                            <tr style="background:var(--v2-chip, #f8fafc); border-bottom:1px solid var(--v2-line, #e2e8f0); color:var(--v2-ink3, #64748b); font-weight:600;">
                                 <th style="padding:10px 12px; width:70px;">封面</th>
                                 <th style="padding:10px 12px;">片名 & 文件名</th>
                                 <th style="padding:10px 12px; width:130px;">所属分类</th>
@@ -2339,8 +2339,8 @@ function renderMediaSettingsHtml(content, overview, videos, categories) {
             </div>
 
             <!-- 分类文件夹管理卡片 -->
-            <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:14px;">
-                <div style="font-size:13px; font-weight:700; color:#0f172a; margin-bottom:10px;">📁 现有分类文件夹列表</div>
+            <div class="nav-media-folder-card" style="border:1px solid #e2e8f0; border-radius:10px; padding:14px;">
+                <div style="font-size:13px; font-weight:700; color:var(--v2-ink, #0f172a); margin-bottom:10px;">📁 现有分类文件夹列表</div>
                 <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:10px;">
                     ${managedCategories.map(cat => {
         const f = cat.folder || '';
@@ -2348,10 +2348,10 @@ function renderMediaSettingsHtml(content, overview, videos, categories) {
         const isSystem = !f || f === 'film' || isFeiniuCat;
         const cnt = categoryCount(cat);
         return `
-                            <div style="border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center; background:#f8fafc;">
+                            <div class="nav-media-folder-item" style="border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center;">
                                 <div>
-                                    <div style="font-weight:600; font-size:13px; color:#0f172a;">${cat.icon || '📁'} ${navEscape(cat.name || f || '独家影院')}</div>
-                                    <div style="font-size:11px; color:#64748b; margin-top:2px;">目录: ${f ? navEscape(f) : '根目录'} · ${cnt} 部视频</div>
+                                    <div style="font-weight:600; font-size:13px; color:var(--v2-ink, #0f172a);">${cat.icon || '📁'} ${navEscape(cat.name || f || '独家影院')}</div>
+                                    <div style="font-size:11px; color:var(--v2-ink3, #64748b); margin-top:2px;">目录: ${f ? navEscape(f) : '根目录'} · ${cnt} 部视频</div>
                                     <label class="nav-media-priority" title="数字越小，分类越靠前" style="margin-top:6px;">
                                         <span>分类优先级</span>
                                         <input type="number" step="1" value="${Number.isSafeInteger(cat.order) ? cat.order : 0}" onchange="setMediaCategoryPriority('${navEscape(cat.id)}', this.value, this)" aria-label="${navEscape(cat.name || f)} 分类优先级">
@@ -2359,15 +2359,15 @@ function renderMediaSettingsHtml(content, overview, videos, categories) {
                                 </div>
                                 <div style="display:flex; gap:4px;">
                                     ${!isFeiniuCat ? `
-                                        <button type="button" onclick="openEditMediaCategoryModal('${navEscape(cat.id)}')" style="border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:600;cursor:pointer;" title="设置分类访问保护">
+                                        <button type="button" class="nav-settings-add" onclick="openEditMediaCategoryModal('${navEscape(cat.id)}')" style="border-radius:6px;padding:3px 9px;font-size:11px;font-weight:600;cursor:pointer;" title="设置分类访问保护">
                                             ${cat.protected ? '🔒 PIN' : '设置'}
                                         </button>
                                     ` : ''}
                                     ${!isSystem ? `
-                                        <button type="button" onclick="deleteMediaFolder('${navEscape(f)}')" style="border:1px solid #fecaca; background:#fff; color:#ef4444; border-radius:6px; padding:3px 9px; font-size:11px; font-weight:600; cursor:pointer; transition:all .15s ease;" onmouseover="this.style.background='#fef2f2';this.style.borderColor='#f87171'" onmouseout="this.style.background='#fff';this.style.borderColor='#fecaca'" title="删除分类">
+                                        <button type="button" class="nav-settings-add danger" onclick="deleteMediaFolder('${navEscape(f)}')" style="border-radius:6px; padding:3px 9px; font-size:11px; font-weight:600; cursor:pointer;" title="删除分类">
                                             删除
                                         </button>
-                                    ` : `<span style="font-size:11px; color:#94a3b8;">${isFeiniuCat ? '飞牛媒体库' : '系统内置'}</span>`}
+                                    ` : `<span style="font-size:11px; color:var(--v2-ink3, #94a3b8);">${isFeiniuCat ? '飞牛媒体库' : '系统内置'}</span>`}
                                 </div>
                             </div>
                         `;
@@ -2547,25 +2547,25 @@ function openMediaForm(importing) {
     const dialog = document.createElement('dialog');
     dialog.id = 'mediaFormDialog';
     if (importing) dialog.classList.add('is-importing');
-    dialog.style.cssText = `position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);margin:0;width:min(${importing ? '650px' : '520px'},calc(100vw - 32px));max-height:85vh;padding:26px 28px;border:1px solid rgba(148,163,184,0.35);border-radius:18px;background:#ffffff;color:#172033;box-shadow:0 28px 80px rgba(15,23,42,0.28);overflow:auto;z-index:100005;`;
+    dialog.style.cssText = `position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);margin:0;width:min(${importing ? '650px' : '520px'},calc(100vw - 32px));max-height:85vh;padding:26px 28px;border:1px solid rgba(148,163,184,0.35);border-radius:18px;background:var(--v2-bg, #ffffff);color:var(--v2-ink, #172033);box-shadow:0 28px 80px rgba(15,23,42,0.28);overflow:auto;z-index:100005;`;
     dialog.innerHTML = `
         <form method="dialog" style="margin:0;">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-                <h2 style="margin:0;font-size:20px;font-weight:700;color:#0f172a;">${importing ? '📥 导入媒体' : '📁 新建分类'}</h2>
-                <button type="button" id="mediaFormCloseX" title="关闭" style="border:none;background:none;font-size:22px;line-height:1;color:#94a3b8;cursor:pointer;padding:4px 6px;border-radius:6px;transition:all .15s ease;">×</button>
+                <h2 style="margin:0;font-size:20px;font-weight:700;color:var(--v2-ink, #0f172a);">${importing ? '📥 导入媒体' : '📁 新建分类'}</h2>
+                <button type="button" id="mediaFormCloseX" title="关闭" style="border:none;background:none;font-size:22px;line-height:1;color:var(--v2-ink3, #94a3b8);cursor:pointer;padding:4px 6px;border-radius:6px;transition:all .15s ease;">×</button>
             </div>
-            <p style="color:#64748b;font-size:13px;line-height:1.6;margin:0 0 16px;">${importing ? '从此设备选择文件夹或多个视频，上传至指定分类。同名文件会自动重命名。' : '为视频创建一个分类，例如：经典纪录片、少儿动画。'}</p>
-            <label style="display:block;font-size:13px;font-weight:600;color:#1e293b;margin-bottom:6px;">分类名称
-                <input id="mediaFormName" required maxlength="80" placeholder="输入分类名称" style="display:block;width:100%;box-sizing:border-box;margin:6px 0 16px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;color:#0f172a;outline:none;background:#fff;">
+            <p style="color:var(--v2-ink3, #64748b);font-size:13px;line-height:1.6;margin:0 0 16px;">${importing ? '从此设备选择文件夹或多个视频，上传至指定分类。同名文件会自动重命名。' : '为视频创建一个分类，例如：经典纪录片、少儿动画。'}</p>
+            <label style="display:block;font-size:13px;font-weight:600;color:var(--v2-ink, #1e293b);margin-bottom:6px;">分类名称
+                <input id="mediaFormName" class="nav-settings-input" required maxlength="80" placeholder="输入分类名称" style="display:block;width:100%;box-sizing:border-box;margin:6px 0 16px;padding:10px 12px;border-radius:8px;font-size:14px;outline:none;">
             </label>
             ${!importing ? `
-                <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#1e293b;margin:0 0 10px;">
+                <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--v2-ink, #1e293b);margin:0 0 10px;">
                     <input id="mediaFormProtected" type="checkbox" style="width:16px;height:16px;accent-color:#6366f1;">
                     🔒 设为 PIN 保护分类
                 </label>
-                <label id="mediaFormPinWrap" style="display:none;font-size:13px;font-weight:600;color:#1e293b;margin-bottom:12px;">4 位 PIN
-                    <input id="mediaFormPin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="输入 4 位数字" style="display:block;width:100%;box-sizing:border-box;margin:6px 0 4px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;color:#0f172a;outline:none;background:#fff;">
-                    <span style="font-size:11px;font-weight:400;color:#64748b;">分类名称会显示，内容需验证 PIN 后才会加载。</span>
+                <label id="mediaFormPinWrap" style="display:none;font-size:13px;font-weight:600;color:var(--v2-ink, #1e293b);margin-bottom:12px;">4 位 PIN
+                    <input id="mediaFormPin" class="nav-settings-input" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="输入 4 位数字" style="display:block;width:100%;box-sizing:border-box;margin:6px 0 4px;padding:10px 12px;border-radius:8px;font-size:14px;outline:none;">
+                    <span style="font-size:11px;font-weight:400;color:var(--v2-ink3, #64748b);">分类名称会显示，内容需验证 PIN 后才会加载。</span>
                 </label>
             ` : ''}
             ${importing ? `
@@ -4637,35 +4637,35 @@ window.openUserModal = async function () {
 
         let trs = res.map(u => {
             const roleBadge = u.role === 'admin'
-                ? '<span style="background:#e0e7ff; color:#4338ca; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; border:1px solid #c7d2fe;">超级管理</span>'
-                : '<span style="background:#f1f5f9; color:#64748b; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; border:1px solid #e2e8f0;">只读用户</span>';
+                ? '<span style="background:rgba(99,102,241,0.18); color:#a5b4fc; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; border:1px solid rgba(99,102,241,0.35);">超级管理</span>'
+                : '<span style="background:var(--v2-chip, #f1f5f9); color:var(--v2-ink2, #64748b); padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; border:1px solid var(--v2-line, #e2e8f0);">只读用户</span>';
 
             return `
-            <tr style="transition: background 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
-                <td style="padding:14px 16px; border-bottom:1px solid #f1f5f9; font-weight:500; color:#334155;">${u.username}</td>
-                <td style="padding:14px 16px; border-bottom:1px solid #f1f5f9;">${roleBadge}</td>
-                <td style="padding:14px 16px; border-bottom:1px solid #f1f5f9; text-align:right;">
-                    ${u.username !== 'admin' ? `<button onclick="deleteUser('${u.username}')" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'" style="background:#fef2f2; color:#ef4444; border:1px solid #fee2e2; padding:6px 12px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s;">删除</button>` : ''}
-                    <button onclick="resetPwd('${u.username}')" onmouseover="this.style.background='#e0f2fe'" onmouseout="this.style.background='#f0f9ff'" style="background:#f0f9ff; color:#0284c7; border:1px solid #e0f2fe; padding:6px 12px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s; margin-left:8px;">重置密码</button>
+            <tr style="transition: background 0.2s;">
+                <td style="padding:14px 16px; border-bottom:1px solid var(--v2-line, #f1f5f9); font-weight:500; color:var(--v2-ink, #334155);">${u.username}</td>
+                <td style="padding:14px 16px; border-bottom:1px solid var(--v2-line, #f1f5f9);">${roleBadge}</td>
+                <td style="padding:14px 16px; border-bottom:1px solid var(--v2-line, #f1f5f9); text-align:right;">
+                    ${u.username !== 'admin' ? `<button onclick="deleteUser('${u.username}')" style="background:rgba(239,68,68,0.12); color:#f87171; border:1px solid rgba(239,68,68,0.3); padding:6px 12px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s;">删除</button>` : ''}
+                    <button onclick="resetPwd('${u.username}')" style="background:rgba(2,132,199,0.12); color:#38bdf8; border:1px solid rgba(2,132,199,0.3); padding:6px 12px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s; margin-left:8px;">重置密码</button>
                 </td>
             </tr>
             `;
         }).join('');
 
         m.innerHTML = `
-            <div style="background:#ffffff; width:650px; max-width:90%; padding:32px; border-radius:16px; box-shadow:0 20px 40px rgba(0,0,0,0.2); position:relative; animation: fadeIn 0.3s ease;">
-                <button onclick="document.getElementById('user-mgmt-modal').style.display='none'" style="position:absolute; top:24px; right:24px; background:none; border:none; font-size:24px; color:#94a3b8; cursor:pointer; line-height:1; transition:color 0.2s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#94a3b8'">&times;</button>
+            <div style="background:var(--v2-bg, #ffffff); color:var(--v2-ink, #172033); border:1px solid var(--v2-line, rgba(148,163,184,0.35)); width:650px; max-width:90%; padding:32px; border-radius:16px; box-shadow:0 20px 40px rgba(0,0,0,0.2); position:relative; animation: fadeIn 0.3s ease;">
+                <button onclick="document.getElementById('user-mgmt-modal').style.display='none'" style="position:absolute; top:24px; right:24px; background:none; border:none; font-size:24px; color:var(--v2-ink3, #94a3b8); cursor:pointer; line-height:1; transition:color 0.2s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='var(--v2-ink3, #94a3b8)'">&times;</button>
                 
-                <h3 style="margin-top:0; margin-bottom:24px; font-size:20px; font-weight:700; color:#1e293b; display:flex; align-items:center; gap:8px; border-bottom:2px solid #f1f5f9; padding-bottom:16px;">
+                <h3 style="margin-top:0; margin-bottom:24px; font-size:20px; font-weight:700; color:var(--v2-ink, #1e293b); display:flex; align-items:center; gap:8px; border-bottom:2px solid var(--v2-line, #f1f5f9); padding-bottom:16px;">
                     👥 账号管理与权限
                 </h3>
                 
-                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:16px; margin-bottom:24px;">
-                    <div style="font-size:13px; font-weight:600; color:#475569; margin-bottom:12px;">➕ 新增账号</div>
+                <div style="background:var(--v2-side, #f8fafc); border:1px solid var(--v2-line, #e2e8f0); border-radius:12px; padding:16px; margin-bottom:24px;">
+                    <div style="font-size:13px; font-weight:600; color:var(--v2-ink2, #475569); margin-bottom:12px;">➕ 新增账号</div>
                     <div style="display:flex; gap:12px;">
-                        <input id="nu_name" placeholder="输入新用户名" style="flex:1; padding:10px 14px; border:1px solid #cbd5e1; border-radius:8px; outline:none; font-size:14px; transition:border-color 0.2s, box-shadow 0.2s;" onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'" onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none'">
-                        <input id="nu_pwd" placeholder="设置密码" style="flex:1; padding:10px 14px; border:1px solid #cbd5e1; border-radius:8px; outline:none; font-size:14px; transition:border-color 0.2s, box-shadow 0.2s;" onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'" onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none'">
-                        <select id="nu_role" style="padding:10px 14px; border:1px solid #cbd5e1; border-radius:8px; outline:none; font-size:14px; background:#fff; cursor:pointer;">
+                        <input id="nu_name" class="nav-settings-input" placeholder="输入新用户名" style="flex:1; padding:10px 14px; border:1px solid var(--v2-line-strong, #cbd5e1); border-radius:8px; outline:none; font-size:14px; background:var(--v2-chip, #fff); color:var(--v2-ink, #0f172a);">
+                        <input id="nu_pwd" class="nav-settings-input" placeholder="设置密码" style="flex:1; padding:10px 14px; border:1px solid var(--v2-line-strong, #cbd5e1); border-radius:8px; outline:none; font-size:14px; background:var(--v2-chip, #fff); color:var(--v2-ink, #0f172a);">
+                        <select id="nu_role" class="nav-settings-select" style="padding:10px 14px; border:1px solid var(--v2-line-strong, #cbd5e1); border-radius:8px; outline:none; font-size:14px; background:var(--v2-chip, #fff); color:var(--v2-ink, #0f172a); cursor:pointer;">
                             <option value="readonly">只读权限</option>
                             <option value="admin">超级管理</option>
                         </select>
@@ -4673,13 +4673,13 @@ window.openUserModal = async function () {
                     </div>
                 </div>
                 
-                <div style="border:1px solid #e2e8f0; border-radius:12px; overflow:hidden;">
+                <div style="border:1px solid var(--v2-line, #e2e8f0); border-radius:12px; overflow:hidden;">
                     <table style="width:100%; border-collapse:collapse; text-align:left;">
                         <thead>
-                            <tr style="background:#f8fafc; border-bottom:1px solid #e2e8f0;">
-                                <th style="padding:12px 16px; font-size:13px; font-weight:600; color:#64748b;">账号名称</th>
-                                <th style="padding:12px 16px; font-size:13px; font-weight:600; color:#64748b;">权限角色</th>
-                                <th style="padding:12px 16px; font-size:13px; font-weight:600; color:#64748b; text-align:right;">快捷操作</th>
+                            <tr style="background:var(--v2-side, #f8fafc); border-bottom:1px solid var(--v2-line, #e2e8f0);">
+                                <th style="padding:12px 16px; font-size:13px; font-weight:600; color:var(--v2-ink3, #64748b);">账号名称</th>
+                                <th style="padding:12px 16px; font-size:13px; font-weight:600; color:var(--v2-ink3, #64748b);">权限角色</th>
+                                <th style="padding:12px 16px; font-size:13px; font-weight:600; color:var(--v2-ink3, #64748b); text-align:right;">快捷操作</th>
                             </tr>
                         </thead>
                         <tbody>${trs}</tbody>
@@ -4687,7 +4687,7 @@ window.openUserModal = async function () {
                 </div>
                 
                 <div style="text-align:right; margin-top:24px;">
-                    <button onclick="document.getElementById('user-mgmt-modal').style.display='none'" style="background:#f1f5f9; color:#475569; border:none; padding:10px 24px; border-radius:8px; font-weight:600; font-size:14px; cursor:pointer; transition:background 0.2s;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">完成并关闭</button>
+                    <button onclick="document.getElementById('user-mgmt-modal').style.display='none'" class="nav-settings-add" style="margin:0; border:none; padding:10px 24px; border-radius:8px; font-weight:600; font-size:14px; cursor:pointer;">完成并关闭</button>
                 </div>
             </div>
         `;

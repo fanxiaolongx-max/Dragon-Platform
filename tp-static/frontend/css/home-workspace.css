@@ -705,6 +705,8 @@ body.dc-workspace-open .home-content.home-workspace { grid-template-columns: var
 .custom-tool-action.card-fav-toggle:hover { color: #fcd34d; }
 .custom-tool-action.card-fav-toggle.is-favorite { color: #fbbf24; }
 .custom-tool-action.card-fav-toggle.is-favorite svg path { fill: currentColor; }
+.custom-tool-action.card-more-toggle { font-size: 13px; letter-spacing: -1px; font-weight: 700; color: #94a3b8; }
+.custom-tool-action.card-more-toggle:hover { color: #38bdf8; }
 
 .home-workspace .home-fav-empty {
     grid-column: 1 / -1;

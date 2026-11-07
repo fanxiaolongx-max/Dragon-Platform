@@ -2,10 +2,13 @@
     'use strict';
     const script = document.currentScript;
     const base = new URL('../', script.src);
+    let publishedItems;
     const home = window.__TP_STATIC_READY__.then(async () => {
         const response = await fetch(new URL('portal-data.json', base));
         if (!response.ok) throw new Error('请重新登录 / Please sign in again');
-        return response.json();
+        const data = await response.json();
+        publishedItems = data.items;
+        return data;
     });
     const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
     function notify() {
@@ -20,6 +23,42 @@
             panel.timer = setTimeout(() => panel.remove(), 4500);
         }
     }
+
+    function resolveTool(href) {
+        if (!publishedItems) return null;
+        let url;
+        try { url = new URL(href, base); } catch { return null; }
+        if (url.origin !== base.origin) return null;
+        const relative = url.pathname.startsWith(base.pathname) ? url.pathname.slice(base.pathname.length) : url.pathname.slice(1);
+        let route = relative.replace(/^pages\//, '').replace(/\.html$/, '').replace(/\/$/, '');
+        if (route === 'ai-report' || route === 'monthly-designer') route = 'monthly';
+        const slug = route.replace(/^(?:tools|custom-tools|apps)\//, '').replace(/\/index$/, '');
+        const exact = publishedItems.find(item => item.slug === slug || item.href.slice(2).replace(/\.html$/, '') === route);
+        const nested = !exact && /\.html?$/i.test(relative) && window.__TP_STATIC_HAS_PAGE__?.(relative)
+            && publishedItems.find(item => {
+                const entry = item.href.slice(2);
+                return entry.includes('/') && relative.startsWith(entry.slice(0, entry.lastIndexOf('/') + 1));
+            });
+        const item = exact || nested;
+        if (!item) return null;
+        const target = new URL(exact ? item.href : relative, base);
+        if (target.origin !== base.origin || !target.pathname.startsWith(base.pathname)) return null;
+        target.search = url.search;
+        target.searchParams.delete('standalone');
+        target.hash = url.hash;
+        return { url: target, title: /^en/i.test(window.ToolsI18n?.getLanguage?.() || '') ? item.nameEn || item.name : item.name };
+    }
+
+    function openStandalone(href) {
+        const tool = resolveTool(href);
+        if (!tool) return notify();
+        tool.url.searchParams.set('standalone', '1');
+        // A same-origin tab copies the snapshot's sessionStorage at creation.
+        const tab = window.open(tool.url.href, '_blank');
+        if (tab) tab.opener = null;
+        else location.assign(tool.url.href);
+    }
+    window.ToolsStaticNavigation = { ready: home, resolveTool, openStandalone, notify };
     window.__TP_STATIC_API__ = async (path, options = {}) => {
         const data = await home;
         const route = path.split('?')[0];
@@ -80,11 +119,14 @@
         if (!route || route === 'index') return location.assign(new URL('index.html' + url.hash, base));
         if (route === 'project-evolution') return window.open(new URL('project-evolution.html', base), '_blank', 'noopener');
         if (route === 'login') return location.assign(new URL('login.html', base));
-        const data = await home;
-        const slug = route.replace(/^(?:tools|custom-tools)\//, '').replace(/\/index$/, '');
-        const item = data.items.find(item => item.slug === slug || item.href.slice(2).replace(/\.html$/, '') === route);
-        if (item) location.assign(new URL(item.href, base));
-        else notify();
+        if (!publishedItems && !await home.catch(() => null)) return notify();
+        const tool = resolveTool(url);
+        if (!tool) return notify();
+        if (anchor.target === '_blank' || event.metaKey || event.ctrlKey || event.shiftKey || url.searchParams.get('standalone') === '1') {
+            openStandalone(tool.url.href);
+        } else {
+            window.HomeToolFrame?.open(tool.url.href);
+        }
     }, true);
     home.then(() => {
         // 脚本/插件列表不导出；其它区域使用平台原组件和布局。

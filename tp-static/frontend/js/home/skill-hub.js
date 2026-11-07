@@ -14,7 +14,7 @@
             use: '使用', open: '打开', improve: '完善技能', history: '版本历史',
             market: '查找工具（工具市场）', importTool: '上传工具', compare: '内置工具比对', manage: '管理',
             addSkill: '添加技能', addTool: '添加工具', addPlugin: '前往插件', findSkill: '查找技能', uploadSkill: '上传技能', createSkill: '创建技能',
-            installed: '已安装({n})', favorites: '已收藏({n})',
+            installed: '已安装({n})', favorites: '已收藏({n})', moreOptions: '更多操作',
             empty: '没有匹配「{q}」的结果', emptyCat: '这个分类下暂时没有内容', loading: '正在加载…', count: '{n} 项',
             defaultSkillDesc: '在对话里 @ 使用这个技能', where: '位于 {where}', close: '返回'
         },
@@ -26,7 +26,7 @@
             use: 'Use', open: 'Open', improve: 'Improve Skill', history: 'History',
             market: 'Find tools (market)', importTool: 'Upload tool', compare: 'Compare built-ins', manage: 'Manage',
             addSkill: 'Add Skill', addTool: 'Add tool', addPlugin: 'Go to plugins', findSkill: 'Find Skills', uploadSkill: 'Upload Skill', createSkill: 'Create Skill',
-            installed: 'Installed ({n})', favorites: 'Favorites ({n})',
+            installed: 'Installed ({n})', favorites: 'Favorites ({n})', moreOptions: 'More options',
             empty: 'Nothing matches “{q}”', emptyCat: 'Nothing in this category yet', loading: 'Loading…', count: '{n}',
             defaultSkillDesc: 'Use this Skill with @ in chat', where: 'In {where}', close: 'Back'
         }
@@ -79,15 +79,36 @@
             updatedAt: item.updatedAt || '', href: item.href || group.href
         })));
     }
+    function parseTime(iso) {
+        if (!iso) return 0;
+        const time = Date.parse(iso);
+        return Number.isFinite(time) ? time : 0;
+    }
+
     function toolEntries() {
         const favorites = new Set((() => { try { return window.NavFavorites?.get?.() || []; } catch { return []; } })());
+        const customTools = Array.isArray(window.__homeCustomTools) ? window.__homeCustomTools : [];
         return (window.HomeWorkspace?.getTools?.() || [])
             .filter(tool => tool && tool.href && tool.title && !String(tool.id).startsWith('skill:'))
-            .map(tool => ({
-                key: `tool:${tool.id}`, kind: 'tool', id: tool.id, title: tool.title, desc: tool.description || '',
-                icon: tool.icon || '🧩', color: tool.color || '#64748b', cat: tool.group, catLabel: tool.group,
-                badges: [tool.group, tool.updatedText].filter(Boolean), mine: favorites.has(tool.id), updatedAt: tool.updatedAt || '', href: tool.href
-            }));
+            .map(tool => {
+                let updatedAt = tool.updatedAt || '';
+                let updatedText = tool.updatedText || '';
+                if (!updatedAt && customTools.length) {
+                    const slug = String(tool.id || '').replace(/^custom:/, '');
+                    const match = customTools.find(t => t.slug === slug || t.href === tool.href);
+                    if (match) {
+                        updatedAt = match.updatedAt || match.createdAt || '';
+                        if (updatedAt && !updatedText && typeof window.HomeWorkspace?.formatRelative === 'function') {
+                            updatedText = window.HomeWorkspace.formatRelative(updatedAt);
+                        }
+                    }
+                }
+                return {
+                    key: `tool:${tool.id}`, kind: 'tool', id: tool.id, title: tool.title, desc: tool.description || '',
+                    icon: tool.icon || '🧩', color: tool.color || '#64748b', cat: tool.group, catLabel: tool.group,
+                    badges: [tool.group, updatedText].filter(Boolean), mine: favorites.has(tool.id), updatedAt, href: tool.href
+                };
+            });
     }
     const entries = () => (state.tab === 'skills' ? skillEntries() : state.tab === 'plugins' ? pluginEntries() : toolEntries());
 
@@ -139,9 +160,11 @@
     }
     function card(item) {
         const action = item.kind === 'skill' ? `<span class="v2-hub-use">@ ${esc(t('use'))}</span>` : `<span class="v2-hub-use">${ico('arrowUpRight')}</span>`;
-        const extra = item.kind === 'skill' ? `<span class="v2-hub-more">
-                <button type="button" data-hub-act="improve" title="${esc(t('improve'))}">${ico('sparkles')}</button>
-                <button type="button" data-hub-act="history" title="${esc(t('history'))}">${ico('refresh')}</button></span>` : '';
+        const skillButtons = item.kind === 'skill' ? `
+            <button type="button" class="v2-hub-quick-btn" data-hub-act="improve" title="${esc(t('improve'))}">${ico('sparkles')}</button>
+            <button type="button" class="v2-hub-quick-btn" data-hub-act="history" title="${esc(t('history'))}">${ico('refresh')}</button>` : '';
+        const moreBtn = `<button type="button" class="v2-hub-more-btn" data-hub-act="more" title="${esc(t('moreOptions'))}" aria-label="${esc(t('moreOptions'))}" aria-haspopup="menu">${ico('more')}</button>`;
+        const extra = `<span class="v2-hub-more" data-tool-card-actions>${skillButtons}${moreBtn}</span>`;
         return `<a class="v2-hub-card" href="${esc(item.href)}" data-hub-key="${esc(item.key)}" style="--hub-c:${esc(item.color)}" title="${esc(item.title)}">
             <span class="v2-hub-icon">${iconHtml(item.icon)}</span>
             <span class="v2-hub-body">
@@ -214,9 +237,11 @@
         if (!root?.querySelector('.v2-hub-grid')) return;
         const all = entries();
         const query = state.query.trim().toLowerCase();
+        const scoped = all.filter(item => (!state.mine || item.mine) && matches(item, query));
+        const counts = new Map(categories(scoped).map(cat => [cat.id, cat.n]));
         const cats = categories(all);
         if (!cats.some(c => c.id === state.cat)) state.cat = 'all';
-        root.querySelector('.v2-hub-chips').innerHTML = cats.map(c => `<button type="button" data-hub-cat="${esc(c.id)}" aria-selected="${state.cat === c.id}">${esc(c.label)}<em>${c.n}</em></button>`).join('');
+        root.querySelector('.v2-hub-chips').innerHTML = cats.map(c => `<button type="button" data-hub-cat="${esc(c.id)}" aria-selected="${state.cat === c.id}">${esc(c.label)}<em>${counts.get(c.id) || 0}</em></button>`).join('');
 
         const feat = root.querySelector('.v2-hub-featured');
         // Featured entries are shortcuts for this tab, independent of the results below.
@@ -229,9 +254,17 @@
                 <div class="v2-hub-cards is-featured">${featured(all).map(card).join('')}</div>`;
         }
 
-        let list = all.filter(item => (!state.mine || item.mine) && (state.cat === 'all' || item.cat === state.cat || (item.extraCats || []).includes(state.cat)) && matches(item, query));
-        if (state.sort === 'name') list = list.slice().sort((a, b) => a.title.localeCompare(b.title, lang()));
-        else if (state.sort === 'newest') list = list.slice().sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+        let list = scoped.filter(item => state.cat === 'all' || item.cat === state.cat || (item.extraCats || []).includes(state.cat));
+        if (state.sort === 'name') {
+            list = list.slice().sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), lang(), { numeric: true, sensitivity: 'base' }));
+        } else if (state.sort === 'newest') {
+            list = list.slice().sort((a, b) => {
+                const tb = parseTime(b.updatedAt);
+                const ta = parseTime(a.updatedAt);
+                if (tb !== ta) return tb - ta;
+                return String(a.title || '').localeCompare(String(b.title || ''), lang(), { numeric: true, sensitivity: 'base' });
+            });
+        }
         const loading = !all.length && (state.tab !== 'plugins' || !window.HomeCapabilities);
         root.querySelector('.v2-hub-grid').innerHTML = list.length
             ? `<div class="v2-hub-cards">${list.map(card).join('')}</div>`
@@ -278,7 +311,15 @@
         const cat = event.target.closest('[data-hub-cat]');
         if (cat) { state.cat = cat.dataset.hubCat; renderList(); return; }
         const sort = event.target.closest('[data-hub-sort]');
-        if (sort) { state.sort = sort.dataset.hubSort; remember(); render(); return; }
+        if (sort) {
+            state.sort = sort.dataset.hubSort;
+            remember();
+            root.querySelectorAll('[data-hub-sort]').forEach(btn => {
+                btn.setAttribute('aria-pressed', String(btn.dataset.hubSort === state.sort));
+            });
+            renderList();
+            return;
+        }
         const doBtn = event.target.closest('[data-hub-do]');
         if (doBtn) {
             const what = doBtn.dataset.hubDo;
@@ -291,16 +332,27 @@
         }
         const cardEl = event.target.closest('.v2-hub-card');
         if (!cardEl) return;
-        const item = entries().find(entry => entry.key === cardEl.dataset.hubKey);
-        if (!item || item.kind !== 'skill') return; // 工具与插件按普通链接打开
-        const act = event.target.closest('[data-hub-act]')?.dataset.hubAct;
-        const skill = window.HomeSkills?.items?.().find(s => s.id === item.id);
-        if (act) {
+        const actBtn = event.target.closest('[data-hub-act]');
+        const isMoreArea = Boolean(event.target.closest('.v2-hub-more'));
+        if (actBtn || isMoreArea) {
             event.preventDefault();
+            event.stopPropagation();
+            const act = actBtn?.dataset.hubAct || 'more';
+            if (act === 'more') {
+                const btn = actBtn || cardEl.querySelector('[data-hub-act="more"]') || cardEl.querySelector('.v2-hub-more button');
+                const item = entries().find(entry => entry.key === cardEl.dataset.hubKey);
+                window.HomeToolMenu?.open({ anchor: btn, item, card: cardEl });
+                return;
+            }
+            const item = entries().find(entry => entry.key === cardEl.dataset.hubKey);
+            const skill = item ? window.HomeSkills?.items?.().find(s => s.id === item.id) : null;
             if (act === 'improve' && skill) { close(); window.HomeSkills.improve(skill); }
             else if (act === 'history' && skill) window.HomeSkills.showHistory(skill);
             return;
         }
+        const item = entries().find(entry => entry.key === cardEl.dataset.hubKey);
+        if (!item) return;
+        if (item.kind !== 'skill') return; // 工具与插件按普通链接打开
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
         event.preventDefault();
         close();
@@ -318,6 +370,20 @@
         root.setAttribute('aria-label', t('skills'));
         main.prepend(root);
         root.addEventListener('click', onClick);
+        root.addEventListener('contextmenu', event => {
+            const cardEl = event.target.closest('.v2-hub-card');
+            if (!cardEl) return;
+            const item = entries().find(entry => entry.key === cardEl.dataset.hubKey);
+            if (!item) return;
+            event.preventDefault();
+            event.stopPropagation();
+            window.HomeToolMenu?.open({
+                x: event.clientX,
+                y: event.clientY,
+                item,
+                card: cardEl
+            });
+        });
         document.addEventListener('click', event => { if (state.open && !root.contains(event.target)) toggleMenu(false); });
         // 菜单里的 data-v2-do（工具市场、上传）由 home-v2.js 执行，这里只负责收起菜单
         root.addEventListener('input', event => {

@@ -120,7 +120,7 @@
         const groups = state.data.groups;
         const checked = target => p.targets.some(item => item.channel === target.channel && item.kind === target.kind && item.id === target.id);
         const s = p.schedule;
-        return `<div class="nch-access-col" style="margin-top:10px;background:#fff;border-color:#93c5fd" data-role="ops-editor">
+        return `<div class="nch-access-col" style="margin-top:10px;background:var(--v2-side, #fff);border-color:var(--v2-line-strong, #93c5fd)" data-role="ops-editor">
             <h5>${esc(p.id ? L('编辑运营计划', 'Edit plan') : L('新建运营计划', 'New plan'))}</h5>
             <div class="nch-grid">
                 <label class="nch-field"><span>${esc(L('名称', 'Name'))}</span><input data-ops-plan="name" value="${esc(p.name)}" maxlength="80"></label>

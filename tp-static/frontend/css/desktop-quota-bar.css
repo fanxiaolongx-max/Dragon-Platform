@@ -167,6 +167,9 @@
 .dqb-trends-chart svg { display:block; width:100%; overflow:visible; }
 .dqb-trends-chart text { fill:var(--muted); font-size:10px; }
 .dqb-trends-chart .grid { stroke:var(--line); stroke-width:1; }
+.dqb-trends-chart circle.trend-hit { cursor:pointer; transition:fill-opacity 140ms ease; }
+.dqb-trends-chart circle.trend-hit:hover { fill-opacity:0.65 !important; }
+.dqb-trends-chart circle.trend-endpoint { transition:transform 140ms ease; filter:drop-shadow(0 1px 3px rgba(0,0,0,0.3)); }
 .dqb-trends-chart p { position:absolute; inset:40% 16px auto; margin:0; text-align:center; color:var(--muted); }
 .dqb-trends-legend { display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:6px; color:var(--muted); font-size:10.5px; }
 .dqb-trends-legend span { display:inline-flex; align-items:center; gap:6px; }

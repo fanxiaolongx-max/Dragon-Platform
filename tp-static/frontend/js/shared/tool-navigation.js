@@ -95,6 +95,8 @@
     }, true);
     document.addEventListener('contextmenu', event => update(event.target.closest?.('a[href]')), true);
     document.addEventListener('click', event => {
+        // Card controls handle their own clicks after the document capture phase.
+        if (event.target.closest?.('button, input, select, textarea, label, [role="button"], [data-tool-card-actions]')) return;
         const link = event.target.closest?.('a[href]');
         if (!link || link.hasAttribute('download')) return;
         if (link.target === '_blank' || event.metaKey || event.ctrlKey || event.shiftKey) { update(link); return; }

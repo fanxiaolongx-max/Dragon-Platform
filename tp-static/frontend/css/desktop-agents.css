@@ -19,6 +19,8 @@
 body.dc-external-view.dc-external-compose .dc-composer{display:block!important}
 body.dc-external-compose .dc-model,body.dc-external-compose .dc-workspace-chip,body.dc-external-compose .dc-agent-discussion,body.dc-external-compose .dc-slash,body.dc-external-compose .dc-push-bar,body.dc-external-compose .dc-composer [class^="dc-skill"]{display:none!important}
 body.dc-external-compose .dc-composer textarea:disabled{cursor:not-allowed;opacity:.65}
+body.dc-external-compose #dcComposer #dcEnhance[hidden] ~ #dcVoice:not([hidden]){margin-left:auto}
+body.dc-external-compose #dcComposer #dcEnhance[hidden] ~ #dcVoice[hidden] ~ #dcSend{margin-left:auto}
 .desktop-agent-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0 18px;color:var(--text-primary,#dbeafe)}.desktop-agent-banner>div{display:grid;gap:5px;min-width:0}.desktop-agent-banner b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.desktop-agent-banner small{font-size:11px;color:var(--text-secondary,#94a3b8)}.desktop-agent-banner button{flex:none;font-size:11px;cursor:pointer}
 .desktop-agent-thinking .dc-activity{margin-top:4px}
 .desktop-agent-facts{display:grid;gap:10px;margin:0}.desktop-agent-facts>div{display:grid;gap:3px}.desktop-agent-facts dt{font-size:11px;color:var(--text-secondary,#8291a5)}.desktop-agent-facts dd{margin:0;font-size:12.5px;line-height:1.6;color:var(--text-primary,#dbeafe);overflow-wrap:anywhere}.desktop-agent-facts dd[data-desktop-status]{color:#6ee7cf}

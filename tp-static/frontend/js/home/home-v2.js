@@ -58,7 +58,16 @@
         sidebar: '<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M9 4.5v15"/>',
         filter: '<path d="M4 5h16l-6 7.5V19l-4-2v-4.5L4 5Z"/>',
         arrowUpRight: '<path d="M7.5 16.5 16.5 7.5M9 7.5h7.5V15"/>',
-        terminal: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="m7.5 9.5 3 2.5-3 2.5M12.5 15h4"/>'
+        terminal: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="m7.5 9.5 3 2.5-3 2.5M12.5 15h4"/>',
+        more: '<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>',
+        download: '<path d="M12 4v11m0 0-4-4m4 4 4-4M5 19h14"/>',
+        edit: '<path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 18.5l-4 1 1-4 12.5-12Z"/>',
+        trash: '<path d="M4 6h16M10 11v6M14 11v6M5 6l1 13a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-13M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>',
+        star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+        starFilled: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="currentColor"/>',
+        copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+        cube: '<path d="m12 2 8 4.5v11l-8 4.5-8-4.5v-11L12 2Zm0 9v11M4 6.5l8 4.5 8-4.5"/>',
+        history: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'
     };
     const svg = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
     const fillIcons = scope => scope.querySelectorAll('.v2-ico[data-icon]').forEach(el => { if (!el.firstChild) el.innerHTML = svg(el.dataset.icon); });

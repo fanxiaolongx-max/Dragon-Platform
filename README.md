@@ -63,6 +63,7 @@
 | 专题分析 | `topic-analysis` | 平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data | [打开页面](./topic-analysis/index.html) |
 | 大屏看板 | `bigscreen` | 当前报表、趋势、负责人和中英文配置的只读大屏。 | [打开页面](./bigscreen/index.html) |
 | 图屿 | `picture-island` | 海报版本与生活图片的一站式图库：快速搜索、历史对比、自动压缩与 AI 分类，菜单收藏随时找。 | [打开页面](./picture-island/index.html) |
+| AI 101 | `ai-101` | Updated description for AI 101 | [打开页面](./ai-101/index.html) |
 
 > 工具页面仅供查看；需要修改业务数据时，请返回 Dragon Claw 联系管理员。
 <!-- tools-platform:guide:end -->

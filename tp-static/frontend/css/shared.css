@@ -5974,3 +5974,1214 @@ html[data-theme="dark"] .builtin-sync-versions { color: #a6b6ca; }html[data-them
 @media (prefers-reduced-motion: reduce) {
     .tool-card.custom-tool.is-hosted-app { animation: none; }
 }
+
+/* ============================================================
+   🌙 全局设置弹窗暗色模式适配 (Global Settings Modal Dark Mode)
+   适用: html[data-theme="dark"] 与 html[data-platform-theme="dark"]
+   ============================================================ */
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-modal {
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+}
+
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-window {
+    color-scheme: dark;
+    --nsw-bg: var(--v2-bg, #0f1115);
+    --nsw-side: var(--v2-side, #15181d);
+    --nsw-chip: var(--v2-chip, #1a1d24);
+    --nsw-card: #15181d;
+    --nsw-hover: var(--v2-hover, #1d2128);
+    --nsw-line: var(--v2-line, #262a31);
+    --nsw-line-strong: var(--v2-line-strong, #353a43);
+    --nsw-ink: var(--v2-ink, #e6e8eb);
+    --nsw-ink2: var(--v2-ink2, #b3b9c2);
+    --nsw-ink3: var(--v2-ink3, #7d8590);
+    --nsw-accent: var(--v2-accent, #3ecf9e);
+    background: var(--nsw-bg);
+    color: var(--nsw-ink);
+    border: 1px solid var(--nsw-line);
+    box-shadow: 0 30px 90px rgba(0, 0, 0, 0.75);
+}
+
+/* 侧边栏与页签 */
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-sidebar {
+    background: var(--nsw-side);
+    border-right-color: var(--nsw-line);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-title {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-tab {
+    color: var(--nsw-ink2);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-tab:hover {
+    background: var(--nsw-hover);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-tab.active {
+    background: var(--nsw-chip);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* 头部、关闭按钮与通用状态 */
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-close {
+    background: var(--nsw-chip);
+    color: var(--nsw-ink2);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-close:hover {
+    background: var(--nsw-hover);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-heading {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-subtitle,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-help {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-save-state {
+    color: var(--nsw-accent);
+}
+
+/* 通用输入控件、选择框与行项目 */
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-window input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-window select,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-window textarea,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-input,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-select {
+    background: var(--nsw-chip);
+    border: 1px solid var(--nsw-line-strong);
+    color: var(--nsw-ink);
+    color-scheme: dark;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-window input:focus,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-window select:focus,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-window textarea:focus {
+    border-color: var(--nsw-accent);
+    outline: none;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-row {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-row:hover {
+    background: var(--nsw-hover);
+    border-color: var(--nsw-line-strong);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-check,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-item-name {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-actions button,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-add {
+    background: var(--nsw-chip);
+    border: 1px solid var(--nsw-line-strong);
+    color: var(--nsw-ink2);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-actions button:hover:not(:disabled),
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-add:hover:not(:disabled) {
+    background: var(--nsw-hover);
+    color: var(--nsw-ink);
+    border-color: #475569;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-actions button:disabled,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-add:disabled {
+    background: transparent;
+    color: var(--nsw-ink3);
+    border-color: var(--nsw-line);
+    opacity: 0.5;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-empty {
+    background: var(--nsw-side);
+    border: 1px dashed var(--nsw-line);
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-restore-card {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-restore-card strong {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-restore-card p {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-restore-card button {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line-strong);
+    color: var(--nsw-ink2);
+}
+
+/* 1. 静态页面推送 (snapshotPublish) */
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-settings {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-prerequisites {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink2);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-prerequisites strong {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-prerequisites small {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-prerequisites.ready {
+    background: rgba(16, 185, 129, 0.08);
+    border-color: rgba(16, 185, 129, 0.3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-prerequisites.attention {
+    background: rgba(245, 158, 11, 0.08);
+    border-color: rgba(245, 158, 11, 0.3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-prereq-latency {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-prereq-latency.warn {
+    background: rgba(245, 158, 11, 0.2);
+    color: #fbbf24;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-prereq-actions a,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-prereq-actions button {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line-strong);
+    color: #60a5fa;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-hero {
+    background: linear-gradient(125deg, rgba(30, 58, 95, 0.35), rgba(21, 24, 29, 0.75) 60%, rgba(55, 35, 80, 0.35));
+    border-color: var(--nsw-line-strong);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-hero strong {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-hero p {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-fields label {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-fields small {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-fields .snapshot-path-preview {
+    color: #38bdf8;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-security {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-security strong {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-security p {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-security-toggle {
+    color: var(--nsw-ink2);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-tool-item {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-tool-enable {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-tool-slug {
+    background: var(--nsw-side);
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-tool-size-badge {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink2);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-tool-size-badge.loading {
+    background: rgba(37, 99, 235, 0.15);
+    color: #60a5fa;
+    border-color: rgba(37, 99, 235, 0.3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-tool-size-badge.pending {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-tool-size-badge.badge-normal {
+    background: rgba(22, 101, 52, 0.2);
+    color: #86efac;
+    border-color: rgba(22, 101, 52, 0.3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-tool-size-badge.badge-warning {
+    background: rgba(180, 83, 9, 0.2);
+    color: #fcd34d;
+    border-color: rgba(180, 83, 9, 0.3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-tool-size-badge.badge-danger {
+    background: rgba(185, 28, 28, 0.2);
+    color: #fca5a5;
+    border-color: rgba(185, 28, 28, 0.3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-tool-item.snapshot-tool-heavy {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), var(--nsw-chip));
+    border-color: #f59e0b;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-heavy-warning {
+    background: rgba(154, 52, 18, 0.2);
+    border-color: rgba(254, 215, 170, 0.2);
+    color: #fdba74;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-heavy-text strong {
+    color: #fb923c;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-password-row {
+    border-top-color: var(--nsw-line);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-password-row label {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-password-row small {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-password-toggle {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-password-toggle:hover {
+    color: var(--nsw-ink);
+    background: rgba(255, 255, 255, 0.08);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-schedule {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-schedule strong {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-schedule p {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-schedule-toggle {
+    color: var(--nsw-accent);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-interval {
+    color: var(--nsw-ink2);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-schedule-status {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-actions button,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-history-head button {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line-strong);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-actions .snapshot-primary {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(29, 78, 216, 0.35);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-history-head {
+    border-top-color: var(--nsw-line);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-history-item {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-history-item:hover {
+    background: var(--nsw-hover);
+    border-color: var(--nsw-line-strong);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-history-item small {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-history-empty {
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .snapshot-progress-dialog {
+    background: var(--nsw-bg);
+    border-color: var(--nsw-line-strong);
+    color: var(--nsw-ink);
+}
+
+/* 2. 平台标识 (logo) */
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .logo-settings-card {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .logo-settings-card h3 {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .logo-settings-card p {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .logo-preview-box {
+    border-color: var(--nsw-line);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .logo-preview-box.neutral-bg {
+    background: var(--nsw-chip);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .logo-upload-zone {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line-strong);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .logo-upload-title {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .logo-upload-hint {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .logo-option-row {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .logo-ci-banner {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink2);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .logo-ci-banner strong {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .logo-ci-banner code {
+    background: var(--nsw-side);
+    color: #38bdf8;
+}
+
+/* 3. AI 助手 (ai) */
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-tabs {
+    border-color: var(--nsw-line);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-tab {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink2);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-tab:hover {
+    background: var(--nsw-hover);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-tab.is-active {
+    background: var(--nsw-chip);
+    color: var(--nsw-ink);
+    border-color: var(--nsw-accent);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-tab-icon {
+    background: var(--nsw-chip);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-tab small {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-profile-panel {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-profile-head strong {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-profile-head span {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-profile-card {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink2);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-profile-card:hover {
+    background: var(--nsw-hover);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-profile-card.selected {
+    border-color: var(--nsw-accent);
+    background: rgba(62, 207, 158, 0.08);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-profile-card.active {
+    background: linear-gradient(145deg, var(--nsw-chip), #1e2836);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-profile-card b {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-profile-toolbar {
+    border-top-color: var(--nsw-line);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-profile-panel .nav-settings-check,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-check.nav-ai-autoswitch-check {
+    background: var(--nsw-chip) !important;
+    border-color: var(--nsw-line) !important;
+    color: var(--nsw-ink) !important;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-profile-panel .nav-settings-check small,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-check.nav-ai-autoswitch-check small {
+    color: var(--nsw-ink3) !important;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-usage-panel .nav-ai-usage-history {
+    background: var(--nsw-side) !important;
+    border-color: var(--nsw-line) !important;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-status {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink2);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-usage-panel {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-usage-head strong {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-usage-dimensions {
+    background: var(--nsw-chip);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-usage-dimensions button {
+    color: var(--nsw-ink2);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-usage-dimensions button.active {
+    background: var(--nsw-accent);
+    color: #0f1115;
+    font-weight: 750;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-usage-kpis > div {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-usage-kpis strong {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-usage-kpis span,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-usage-kpis small {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-field {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-field span {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-alias-row {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-test-result {
+    background: var(--nsw-chip);
+    color: var(--nsw-ink2);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-ai-textarea {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line-strong);
+    color: var(--nsw-ink);
+}
+
+/* 4. 智能体工具 (agentTools) */
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nat {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nat-card {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nat-card h4 {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nat-desc {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nat-server {
+    border-top-color: var(--nsw-line);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nat-server-name {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nat-server-meta {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nat-badge {
+    background: var(--nsw-chip);
+    color: var(--nsw-ink2);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nat-btn {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line-strong);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nat-btn:hover {
+    background: var(--nsw-hover);
+    border-color: #475569;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nat-tools {
+    color: var(--nsw-ink2);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nat-form {
+    border-top-color: var(--nsw-line);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nat-field > span {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nat-field small {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nat-field input,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nat-field select,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nat-field textarea {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line-strong);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nat-group-head {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nat-group-head small {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nat-table th,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nat-table td {
+    border-top-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nat-table th {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nat-summary {
+    color: var(--nsw-ink2);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nat-summary b {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nat-danger {
+    border-top-color: var(--nsw-line);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nat-danger-label {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nat-danger-desc {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nat-guide-body {
+    background: var(--nsw-chip);
+    color: var(--nsw-ink2);
+}
+
+/* 5. 频道对接 (channels) */
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nch {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nch-card {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nch-card h4 {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nch-card > p.nch-desc {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nch-pill {
+    background: var(--nsw-chip);
+    color: var(--nsw-ink2);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nch-sdk-row {
+    border-top-color: var(--nsw-line);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nch-btn {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line-strong);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nch-btn:hover:not(:disabled) {
+    background: var(--nsw-hover);
+    border-color: #475569;
+    color: #60a5fa;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nch-field > span {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nch-field small {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nch-field input,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nch-field select,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nch-field textarea {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line-strong);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nch-qr {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line-strong);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nch-qr-info {
+    color: var(--nsw-ink2);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nch-access-col {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nch-access-col h5 {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nch-seg {
+    border-color: var(--nsw-line-strong);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nch-seg button {
+    background: var(--nsw-chip);
+    color: var(--nsw-ink2);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nch-row input:not([type="checkbox"]):not([type="radio"]) {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line-strong);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nch-table-wrap,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .wsc-form-card {
+    background: var(--nsw-side) !important;
+    border-color: var(--nsw-line) !important;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nch-table th {
+    background: var(--nsw-chip);
+    color: var(--nsw-ink3);
+    border-bottom-color: var(--nsw-line);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nch-table td {
+    background: transparent !important;
+    border-bottom-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nch-table tr:hover td {
+    background: var(--nsw-hover, rgba(255, 255, 255, 0.03)) !important;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nch-table td.nch-text {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nch-badge {
+    background: var(--nsw-chip);
+    color: var(--nsw-ink2);
+}
+
+/* 6. 桌面 Agent (desktopAgents) */
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .desktop-agent-settings {
+    color: var(--nsw-ink);
+    --da-line: var(--nsw-line);
+    --da-soft: var(--nsw-side);
+    --da-muted: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .da-card,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .da-provider {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .da-unit input {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line-strong);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .desktop-agent-settings button {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line-strong);
+    color: var(--nsw-ink);
+}
+
+/* 7. 程序更新 (update) */
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-update-card {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-update-field,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-update-status {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-update-field strong,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-update-status strong {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-update-field span,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-update-status span,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-update-progress-row span {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-update-progress {
+    background: var(--nsw-chip);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-update-actions button {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line-strong);
+    color: var(--nsw-ink);
+}
+
+/* 8. 备份恢复 (backup) */
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-backup-panel,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-backup-upload {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-backup-panel-title {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-backup-panel-desc {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-backup-upload input {
+    color: var(--nsw-ink2);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-backup-toolbar button {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line-strong);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-backup-name {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-backup-meta {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-backup-actions button {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line-strong);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-backup-badge {
+    background: var(--nsw-chip);
+    color: var(--nsw-ink2);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-schedule-backup-card,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-remote-backup-card {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-schedule-backup-grid label span,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-remote-backup-grid label span {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-schedule-retention-row em {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-remote-checks {
+    background: var(--nsw-chip);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-remote-switch {
+    background: rgba(7, 89, 133, 0.25);
+    color: #38bdf8;
+}
+
+/* 9. 初始化 (initialize) */
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-init-card {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-init-card button {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line-strong);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-init-card.danger-zone {
+    background: rgba(185, 28, 28, 0.08);
+    border-color: rgba(185, 28, 28, 0.3);
+}
+
+/* 10. 媒体资源 (media) */
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-media-progress-card,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-media-current-card {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-media-search {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line-strong);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-media-search input {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-media-table {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-media-table th {
+    background: var(--nsw-chip);
+    color: var(--nsw-ink3);
+    border-bottom-color: var(--nsw-line);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-media-table td {
+    border-bottom-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-media-file-name {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-media-action {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line-strong);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-media-priority input {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line-strong);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-media-preview-dialog {
+    background: var(--nsw-bg);
+    border-color: var(--nsw-line-strong);
+    color: var(--nsw-ink);
+}
+
+/* 11. 平台推广 (promotions) */
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .npp {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .npp-card {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .npp-card h4 {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .npp-desc {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .npp-field > span {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .npp-field small {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .npp-field input,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .npp-field select {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line-strong);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .npp-list {
+    border-color: var(--nsw-line);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .npp-row {
+    border-top-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .npp-row.off {
+    background: var(--nsw-chip);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .npp-main strong {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .npp-main span {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .npp-btn {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line-strong);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .npp-form {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line-strong);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .npp-kpi {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .npp-kpi b {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .npp-kpi span {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .npp-table-wrap {
+    border-color: var(--nsw-line);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .npp-table th {
+    background: var(--nsw-chip);
+    color: var(--nsw-ink3);
+    border-bottom-color: var(--nsw-line);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .npp-table td {
+    border-bottom-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+
+/* 12. 自定义工具备份 (customBackup) */
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-custom-backup-card {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-custom-backup-portability {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-custom-backup-portability p {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-custom-backup-selection {
+    background: var(--nsw-chip);
+    color: #818cf8;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-custom-backup-list {
+    border-color: var(--nsw-line);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-custom-backup-tool {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-custom-backup-tool-main strong {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-custom-backup-tool-main code {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-custom-backup-tool:hover {
+    background: var(--nsw-hover);
+    border-color: var(--nsw-line-strong);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-custom-backup-tool:has(input:checked) {
+    background: rgba(99, 102, 241, 0.12);
+    border-color: #6366f1;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-custom-backup-size {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-custom-backup-actions button {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line-strong);
+    color: var(--nsw-ink);
+}
+
+/* 13. 账号管理 (accounts) */
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-account-create {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-account-create input,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-account-create select {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line-strong);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-account-create button,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-account-actions button {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line-strong);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-account-table-wrap {
+    background: var(--nsw-side) !important;
+    border-color: var(--nsw-line) !important;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-account-table {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-account-table th {
+    background: var(--nsw-chip);
+    color: var(--nsw-ink3);
+    border-bottom-color: var(--nsw-line);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-account-table td {
+    background: transparent !important;
+    border-bottom-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-account-table tr:hover td {
+    background: var(--nsw-hover, rgba(255, 255, 255, 0.03)) !important;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-account-role {
+    background: var(--nsw-chip);
+    color: var(--nsw-ink2);
+    border: 1px solid var(--nsw-line-strong);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-account-role.admin {
+    background: rgba(99, 102, 241, 0.18) !important;
+    color: #a5b4fc !important;
+    border-color: rgba(99, 102, 241, 0.35) !important;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-account-role.readonly {
+    background: var(--nsw-chip) !important;
+    color: var(--nsw-ink2) !important;
+    border-color: var(--nsw-line-strong) !important;
+}
+
+/* 14. 安全策略 (security) */
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-security-grid {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-security-toggle {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-security-toggle small {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-security-section {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-security-section-title {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-security-lock-head strong {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-security-lock-head span {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-security-table th {
+    background: var(--nsw-chip);
+    color: var(--nsw-ink3);
+    border-bottom-color: var(--nsw-line);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-security-table td {
+    background: transparent !important;
+    border-bottom-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-security-table tr:hover td {
+    background: var(--nsw-hover, rgba(255, 255, 255, 0.03)) !important;
+}
+
+/* 15. 页面配置 (page:*) */
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-page-config-placeholder {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-page-config-title {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-page-config-desc {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-report-cleanup-card,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-report-transfer-card {
+    background: var(--nsw-side);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-report-cleanup-field label,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-report-cleanup-field span {
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-report-cleanup-field small {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-report-cleanup-field input,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-report-cleanup-field select {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line-strong);
+    color: var(--nsw-ink);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-report-cleanup-result {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line);
+    color: var(--nsw-ink2);
+}
+
+/* 覆盖带有浅色内联样式的卡片与元素 */
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-window div[style*="background:linear-gradient"],
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-window div[style*="background: linear-gradient"] {
+    background: var(--nsw-side) !important;
+    border-color: var(--nsw-line) !important;
+    color: var(--nsw-ink) !important;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-window :is(div, tr, p, section, article)[style*="background:#fff"],
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-window :is(div, tr, p, section, article)[style*="background: #fff"],
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-window :is(div, tr, p, section, article)[style*="background:#ffffff"],
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-window :is(div, tr, p, section, article)[style*="background: #ffffff"],
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-window :is(div, tr, p, section, article)[style*="background:#f8fafc"],
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-window :is(div, tr, p, section, article)[style*="background: #f8fafc"],
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-window :is(div, tr, p, section, article)[style*="background:#f1f5f9"],
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-window :is(div, tr, p, section, article)[style*="background: #f1f5f9"],
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-window :is(div, tr, p, section, article)[style*="background:rgba(248,250,252"],
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-window :is(div, tr, p, section, article)[style*="background: rgba(248,250,252"] {
+    background: var(--nsw-side) !important;
+    border-color: var(--nsw-line) !important;
+    color: var(--nsw-ink) !important;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-window div[style*="color:#0f172a"],
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-window div[style*="color: #0f172a"],
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-window span[style*="color:#0f172a"],
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-window span[style*="color: #0f172a"],
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-window strong[style*="color:#1e293b"],
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-window label[style*="color:#334155"],
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-window span[style*="color:#334155"] {
+    color: var(--nsw-ink) !important;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-window input[style*="background:#fff"],
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-window input[style*="background: #fff"],
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-window select[style*="background:#fff"],
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-settings-window select[style*="background: #fff"] {
+    background: var(--nsw-chip) !important;
+    border-color: var(--nsw-line-strong) !important;
+    color: var(--nsw-ink) !important;
+}
+
+/* 媒体与用户管理弹窗 */
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) #mediaFormDialog {
+    background: var(--nsw-bg) !important;
+    color: var(--nsw-ink) !important;
+    border-color: var(--nsw-line-strong) !important;
+    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.75) !important;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) #mediaFormDialog h2,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) #mediaFormDialog label {
+    color: var(--nsw-ink) !important;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) #mediaFormDialog input {
+    background: var(--nsw-chip) !important;
+    border-color: var(--nsw-line-strong) !important;
+    color: var(--nsw-ink) !important;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) #user-mgmt-modal > div {
+    background: var(--nsw-bg) !important;
+    color: var(--nsw-ink) !important;
+    border: 1px solid var(--nsw-line) !important;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.75) !important;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) #user-mgmt-modal div[style*="background:#f8fafc"] {
+    background: var(--nsw-side) !important;
+    border-color: var(--nsw-line) !important;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) #user-mgmt-modal input,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) #user-mgmt-modal select {
+    background: var(--nsw-chip) !important;
+    border-color: var(--nsw-line-strong) !important;
+    color: var(--nsw-ink) !important;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) #user-mgmt-modal tr[style*="background:#f8fafc"] {
+    background: var(--nsw-side) !important;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) #user-mgmt-modal td {
+    color: var(--nsw-ink) !important;
+    border-bottom: 1px solid var(--nsw-line);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) #user-mgmt-modal h2 {
+    color: var(--nsw-ink) !important;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) #user-mgmt-modal button[style*="background:#f1f5f9"] {
+    background: var(--nsw-chip) !important;
+    color: var(--nsw-ink2) !important;
+}

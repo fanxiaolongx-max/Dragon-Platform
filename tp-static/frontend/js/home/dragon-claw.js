@@ -3293,6 +3293,7 @@
     function setExternalComposer(composer) {
         external.composer = composer;
         document.body.classList.toggle('dc-external-compose', Boolean(composer));
+        if (el.model) el.model.hidden = Boolean(composer) || (!currentModel() && localStorage.getItem('tools_role') !== 'admin');
         el.input.disabled = !composer?.canSend || external.sending;
         applyPlaceholder();
         updateSendButton();
@@ -3331,6 +3332,7 @@
         el.input.disabled = false;
         el.input.value = external.draft;
         external.draft = '';
+        renderModelPicker();
         autoResize();
         applyPlaceholder();
         callback?.({ switching: false });
