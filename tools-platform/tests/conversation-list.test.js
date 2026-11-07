@@ -136,7 +136,7 @@ test('timestamp parser treats SQLite UTC string consistently with ISO strings ac
  assert.ok(timeB > timeA, `Expected ${sqliteUtcTime} (${timeB}) to be newer than ${agentIsoTime} (${timeA})`);
 });
 
-test('Antigravity local storage catalog reads conversation list, busy status, and full transcript with token/tps rounds', async t => {
+test('Antigravity local storage catalog reads conversation list, busy status, and full transcript with usage rounds without invented decode timing', async t => {
  const sqlite3 = require('sqlite3');
  const { antigravity, antigravityBusyIds, antigravityTranscript } = require('../backend/models/desktop-agents/catalog');
  const agDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ag-local-'));
@@ -198,5 +198,7 @@ test('Antigravity local storage catalog reads conversation list, busy status, an
  assert.equal(messages[1].rounds[0].model, 'Gemini 3.1 Pro (High)');
  assert.equal(messages[1].rounds[0].inputTokens, 1500);
  assert.equal(messages[1].rounds[0].outputTokens, 200);
- assert.equal(messages[1].rounds[0].tps, 50);
+ assert.equal(messages[1].rounds[0].tps, null);
+ assert.equal(messages[1].rounds[0].timingEstimated, true);
+ assert.equal(messages[1].rounds[0].cachedInputTokens, 500);
 });

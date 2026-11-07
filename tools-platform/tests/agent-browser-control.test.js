@@ -151,3 +151,15 @@ test('ordinary browsing has no AI handback state and tabs can be reordered safel
  await assert.rejects(browser.control(owner,{action:'move-tab',token:first.token,tabId:second.tabId,index:999}),error=>error.code==='BROWSER_CONTROL_INVALID');
  await browser.control(owner,{action:'release',token:first.token});
 });
+
+test('successive keystrokes reuse a keyboard frame without screenshot round trips; stale coordinates and reloaded documents are rejected', {skip:!browser.findChrome()},async()=>{
+ const owner='default::typing-pipeline',session=await browser.control(owner,{action:'open',url:base}),state=owners.get(owner),page=state.tabs.get(state.active);
+ await page.evaluate('document.getElementById("query").focus()');const view=await browser.view(owner);
+ for(const text of '123456789')await browser.control(owner,{action:'type',token:session.token,frameId:view.frameId,text});
+ await browser.control(owner,{action:'key',token:session.token,frameId:view.frameId,key:'Backspace'});
+ assert.equal(await page.evaluate('document.getElementById("query").value'),'12345678');
+ await assert.rejects(browser.control(owner,{action:'click',token:session.token,frameId:view.frameId,x:.5,y:.5}),error=>error.code==='BROWSER_VIEW_STALE');
+ // A same-URL document reload must not accept old queued text.
+ await page.navigate(base);await assert.rejects(browser.control(owner,{action:'type',token:session.token,frameId:view.frameId,text:'must not be inserted'}),error=>error.code==='BROWSER_VIEW_STALE');
+ assert.equal(await page.evaluate('document.getElementById("query").value'),'');await browser.control(owner,{action:'release',token:session.token});
+});

@@ -310,3 +310,40 @@ test('disabling sends keeps history readable; disconnect releases the desktop an
     await auth('put', '/settings', 'alice').send({ enabled: true }).expect(403);
     await runWithTenant('other', async () => assert.equal((await repo.settings()).owner, 'bob'));
 });
+
+test('Codex performance preserves explicit cache and turn timings without inventing decode durations',async()=>{
+ const file=path.join(path.dirname(transcript),'performance-fixture.jsonl');
+ fs.writeFileSync(file,[
+  {type:'event_msg',timestamp:'2026-11-07T10:00:00.000Z',payload:{type:'task_started',turn_id:'turn-performance'}},
+  {type:'response_item',timestamp:'2026-11-07T10:00:00.000Z',payload:{type:'message',role:'user',content:[{type:'input_text',text:'Measure'}]}},
+  {type:'token_usage_record',timestamp:'2026-11-07T10:00:09.000Z',payload:{turn_id:'turn-performance',response_id:'response-1',usage:{input_tokens:1000,cached_input_tokens:900,output_tokens:100,reasoning_output_tokens:25}}},
+  {type:'response_item',timestamp:'2026-11-07T10:00:09.000Z',payload:{type:'message',role:'assistant',content:[{type:'output_text',text:'Done'}]}},
+  {type:'event_msg',timestamp:'2026-11-07T10:00:10.000Z',payload:{type:'task_complete',turn_id:'turn-performance',started_at:1794045600,completed_at:1794045610,duration_ms:10000,time_to_first_token_ms:1500}}
+ ].map(JSON.stringify).join('\n'));
+ const result=await catalog.transcript({provider:'codex',id:ID,file});const round=result.items.at(-1).rounds[0];
+ assert.equal(round.turnTtftMs,1500);assert.equal(round.cachedInputTokens,900);assert.equal(round.generationMs,null);assert.equal(round.tps,null);assert.equal(round.timingEstimated,true);
+ const p=require('../backend/models/desktop-agents/performance').aggregate(result.items,result.performanceTurns);
+ assert.equal(p.turnTtftMs,1500);assert.equal(p.processingTps,110);assert.equal(p.cacheReadRatio,.9);assert.equal(p.decodeTps,null);
+});
+
+test('Claude cache input is normalized without treating cache writes as hits',async()=>{
+ const file=path.join(root,'home/.claude/projects/performance.jsonl');fs.mkdirSync(path.dirname(file),{recursive:true});
+ fs.writeFileSync(file,[{type:'user',timestamp:'2026-11-07T10:00:00Z',message:{role:'user',content:'Measure'}},
+ {type:'assistant',timestamp:'2026-11-07T10:00:05Z',message:{id:'claude-performance',role:'assistant',model:'claude-fixture',content:'Done',usage:{input_tokens:100,cache_read_input_tokens:900,cache_creation_input_tokens:100,output_tokens:10}}}].map(JSON.stringify).join('\n'));
+ const result=await catalog.transcript({provider:'claudecode',id:CID,file});const round=result.items.at(-1).rounds[0];assert.equal(round.inputTokens,1100);assert.equal(round.cachedInputTokens,900);assert.equal(round.tps,null);
+});
+
+test('Antigravity cache and tool-only usage are reported independently of visible replies', async () => {
+    const id = '88888888-8888-4888-8888-888888888888';
+    const file = path.join(catalog.roots().antigravity, 'brain', id, '.system_generated/logs/transcript_full.jsonl');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    const event = { type: 'PLANNER_RESPONSE', step_index: 4, created_at: new Date().toISOString(), input_tokens: 100, cache_read_tokens: 900, output_tokens: 20, tool_calls: [{name:'read_file'}], status:'DONE' };
+    fs.writeFileSync(file, [event, event].map(JSON.stringify).join('\n'));
+    const content = await catalog.antigravityTranscript(id);
+    const metrics = require('../backend/models/desktop-agents/performance').aggregate(content.items, [], content.modelUsage);
+    assert.equal(content.items.length, 0);
+    assert.equal(metrics.calls, 1);
+    assert.equal(metrics.inputTokens, 1000);
+    assert.equal(metrics.cacheReadRatio, .9);
+    assert.equal(metrics.decodeTps, null);
+});

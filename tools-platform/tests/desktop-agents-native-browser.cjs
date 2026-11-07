@@ -19,7 +19,7 @@ app.whenReady().then(async () => {
       <script>window.submissions=0;window.readinessMode='normal';window.keyboardSeen=false;
       const editor=document.querySelector('[contenteditable]'),sendButton=document.querySelector('[data-testid=send-button]');
       editor.addEventListener('keydown',e=>{if(e.isTrusted&&e.key===' ')window.keyboardSeen=true;});
-      editor.addEventListener('input',()=>{if(window.readinessMode==='normal')return;sendButton.disabled=true;setTimeout(()=>{sendButton.disabled=window.readinessMode==='stalled'||!window.keyboardSeen||!editor.innerText.trim();},180);});
+      editor.addEventListener('input',()=>{if(window.mountSendOnInput&&!sendButton.isConnected)setTimeout(()=>editor.parentElement.append(sendButton),120);if(window.readinessMode==='normal')return;sendButton.disabled=true;setTimeout(()=>{sendButton.disabled=window.readinessMode==='stalled'||!window.keyboardSeen||!editor.innerText.trim();},180);});
       document.querySelector('[data-testid=new-conversation-button]').onclick=e=>{e.preventDefault();history.pushState(null,'','/');document.getElementById('timeline').replaceChildren();};window.deliver=true;document.querySelector('[data-testid=send-button]').onclick=()=>{const input=document.querySelector('[contenteditable]');if(!window.deliver)return;window.submissions++;if(location.pathname==='/'){history.pushState(null,'','/c/${fresh}');const row=document.createElement('div');row.dataset.cascadeId='${fresh}';row.dataset.testid='conversation-row-sidebar';row.innerHTML='<a href="/c/${fresh}" aria-label="Fresh group"></a>';document.body.prepend(row);}const bubble=document.createElement('div');bubble.dataset.testid='user-message-bubble';const text=document.createElement('div');text.dataset.quotable='true';text.style.whiteSpace='pre-wrap';text.textContent=input.innerText;bubble.append(text);const stamp=document.createElement('span');stamp.textContent='16:24';bubble.append(stamp);document.getElementById('timeline').append(bubble);input.innerText='';};</script>`));
     server = await new Promise(resolve => { const s = web.listen(0, '127.0.0.1', () => resolve(s)); });
     win = new BrowserWindow({ show: false, webPreferences: { backgroundThrottling: false } });
@@ -40,6 +40,15 @@ app.whenReady().then(async () => {
     assert.deepEqual(await native.send(id, 'A native follow-up'), { accepted: true }, 'receipt requires a newly added user bubble');
     const messages = await native.messages(id);
     assert.deepEqual(messages.items.map(m => m.content), ['A native follow-up', 'A native follow-up'], 'timestamps and controls are excluded');
+    // Current Antigravity shows voice controls while empty; the send button
+    // only mounts after typing. Exercise the real adapter against that lifecycle.
+    await win.webContents.executeJavaScript("window.mountSendOnInput=true;window.readinessMode='keyboard';window.keyboardSeen=false;document.querySelector('[data-testid=send-button]').remove()");
+    const beforeDynamic=await win.webContents.executeJavaScript('window.submissions');
+    await native.send(id,'Send from an empty voice composer');
+    assert.equal(await win.webContents.executeJavaScript('window.submissions'),beforeDynamic+1,'a lazily mounted send button permits exactly one delivery');
+    await win.webContents.executeJavaScript("window.mountSendOnInput=false;window.readinessMode='normal';document.querySelector('[contenteditable]').removeAttribute('role')");
+    await assert.rejects(native.send(id,'Missing composer'),e=>e.code==='DESKTOP_INPUT_NOT_READY','missing input is not reported as an unsent draft');
+    await win.webContents.executeJavaScript("document.querySelector('[contenteditable]').setAttribute('role','combobox')");
     await win.webContents.executeJavaScript(`document.querySelector('[data-cascade-id="${id}"]').insertAdjacentHTML('beforeend','<button aria-label="Stop execution"></button>')`);
     await assert.rejects(native.send(id, 'Do not send'), e => e.code === 'DESKTOP_BUSY');
     await win.webContents.executeJavaScript(`document.querySelector('[data-cascade-id="${id}"] button').remove();document.querySelector('[contenteditable]').innerText='Unsent native draft'`);
@@ -49,7 +58,7 @@ app.whenReady().then(async () => {
     assert.equal(await win.webContents.executeJavaScript("document.querySelector('[contenteditable]').innerText"), 'Unsent native draft');
     await win.webContents.executeJavaScript("document.querySelector('[contenteditable]').innerText='';window.deliver=false");
     await assert.rejects(native.send(id, 'Unconfirmed delivery'), e => e.code === 'DELIVERY_UNKNOWN');
-    assert.equal((await native.messages(id)).items.length, 2, 'uncertain delivery is not automatically retried');
+    assert.equal((await native.messages(id)).items.length, 3, 'uncertain delivery is not automatically retried');
     await win.webContents.executeJavaScript("document.querySelector('[contenteditable]').innerText='';window.deliver=true");
     await win.webContents.executeJavaScript("window.readinessMode='stalled';window.keyboardSeen=false");
     const submittedBefore=await win.webContents.executeJavaScript('window.submissions');

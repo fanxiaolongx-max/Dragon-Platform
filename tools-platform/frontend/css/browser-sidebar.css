@@ -64,8 +64,8 @@ html.desktop-win:not(.desktop-fullscreen) .dc-browser-panel{padding-top:38px}
 .dc-browser-address input:focus{outline:2px solid #60a5fa66;text-align:left}
 .dc-browser-address .dc-browser-go{display:none}
 .dc-browser-address button[aria-expanded=true]{background:var(--v2-hover,#94a3b833)}
-.dc-browser-popup{flex-shrink:0;align-self:flex-end;width:min(360px,calc(100% - 20px));max-height:45dvh;margin:5px 10px 8px;border:1px solid var(--v2-line,#94a3b844);border-radius:14px;background:var(--v2-bg,#182333);box-shadow:0 8px 24px #00000014;overflow:auto;font-size:12px}
-.dc-browser-popup>header{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--v2-line,#94a3b833)}
+.dc-browser-popup{position:absolute;z-index:30;top:86px;right:10px;width:min(360px,calc(100% - 20px));max-height:45dvh;margin:0;border:1px solid var(--v2-line,#94a3b844);border-radius:14px;background:var(--v2-bg,#182333);box-shadow:0 8px 24px #00000014;overflow:auto;font-size:12px}
+.dc-browser-popup-content>header{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--v2-line,#94a3b833)}
 .dc-browser-popup-body{padding:6px}.dc-browser-popup-body>button{display:block;text-align:left;width:100%;padding:9px 10px;border-radius:7px}.dc-browser-popup-body>p{padding:8px 10px;margin:0;line-height:1.7;color:var(--v2-ink3,#94a3b8)}
 .dc-browser-popup hr{border:0;border-top:1px solid var(--v2-line,#94a3b833);margin:5px 6px}
 .dc-browser-zoom{display:flex;align-items:center;gap:8px;padding:3px 10px}.dc-browser-zoom>span:first-child{margin-right:auto}.dc-browser-zoom button{min-width:28px}
@@ -75,5 +75,25 @@ html.desktop-win:not(.desktop-fullscreen) .dc-browser-panel{padding-top:38px}
 @media(max-width:640px){
  .dc-browser-head{padding:6px;gap:4px}.dc-browser-head strong{display:none}.dc-browser-tab{min-width:76px;max-width:150px;flex-basis:150px}.dc-browser-tabs{gap:3px}.dc-browser-window-actions{gap:0}
  .dc-browser-address{gap:4px;padding:6px}.dc-browser-panel{--browser-control-size:28px}.dc-browser-address input{padding:6px 9px;font-size:12px}.dc-browser-toolbar-actions{gap:0}.dc-browser-navigation{gap:0}.dc-browser-address button svg{width:16px;height:16px}
- .dc-browser-address [data-browser=keyboard]{display:none}.dc-browser-popup{max-height:40dvh;margin-right:6px;width:calc(100% - 12px)}
+ .dc-browser-address [data-browser=keyboard]{display:none}.dc-browser-popup{width:min(360px,calc(100% - 16px))}
 }
+
+/* Windows caption buttons occupy y=0..32; browser tabs start on their own row below. */
+.dc-browser-panel{box-sizing:border-box}
+html.desktop-win:not(.desktop-fullscreen) .dc-browser-panel::before{content:"";position:absolute;top:0;left:0;right:140px;height:32px;-webkit-app-region:drag}
+html.is-desktop-app .dc-browser-panel :is(button,input,[role=tab]){-webkit-app-region:no-drag}
+
+/* Floating browser menus never participate in the webpage layout. */
+.dc-browser-surface.is-empty,.dc-browser-surface.is-empty .dc-browser-agent-view{background:var(--v2-bg,#fff)}
+.dc-browser-surface.is-empty .dc-browser-agent-status{padding:28px 20px;color:var(--v2-ink3,#64748b)}
+.dc-browser-popup .dc-browser-control{max-height:none;overflow:visible;padding:0 12px 12px}
+
+/* Stable tab nodes animate once when opened/closed, rather than restarting on every frame. */
+.dc-browser-tab{transition:background-color 160ms ease,border-color 160ms ease,box-shadow 160ms ease;transform-origin:left center}
+.dc-browser-tab-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dc-browser-tab.is-pending{opacity:.8}.dc-browser-tab.is-pending .dc-browser-tab-title::before{content:"";display:inline-block;width:7px;height:7px;margin-right:6px;border-radius:50%;background:currentColor;opacity:.35;animation:dc-tab-pending 1s ease-in-out infinite}
+.dc-browser-tab.is-leaving{pointer-events:none;overflow:hidden;flex-shrink:0}
+.dc-browser-panel [data-browser=new-tab]{transition:background-color 140ms ease,transform 140ms ease}
+.dc-browser-panel [data-browser=new-tab]:active{transform:scale(.88)}
+@keyframes dc-tab-pending{50%{opacity:.8}}
+@media(prefers-reduced-motion:reduce){.dc-browser-tab,.dc-browser-panel [data-browser=new-tab]{transition:none}.dc-browser-tab.is-pending .dc-browser-tab-title::before{animation:none}}

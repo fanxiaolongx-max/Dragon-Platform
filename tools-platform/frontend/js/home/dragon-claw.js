@@ -1020,31 +1020,95 @@
 
     // 每轮模型调用的速度汇总（与 backend/models/ai-round-tracker.js 的 summarizeRounds 一致）：平均 = 总输出 token ÷ 总生成时间
     function speedSummary(rounds = []) {
-        const list = (Array.isArray(rounds) ? rounds : []).filter(round => round && Number(round.tps) > 0);
-        if (!list.length) return null;
-        const speeds = list.map(round => Number(round.tps));
-        const output = list.reduce((sum, round) => sum + (Number(round.outputTokens) || 0), 0);
-        const ms = list.reduce((sum, round) => sum + (Number(round.generationMs) || 0), 0);
-        const ttft = list.map(round => Number(round.ttftMs)).filter(value => Number.isFinite(value) && value >= 0);
-        return {
-            rounds: rounds.length, min: Math.min(...speeds), max: Math.max(...speeds),
-            avg: ms > 0 ? output / (ms / 1000) : speeds.reduce((a, b) => a + b, 0) / speeds.length,
-            ttft: ttft.length ? ttft[0] : null, estimated: list.some(round => round.estimated)
-        };
+        const all = (Array.isArray(rounds) ? rounds : []).filter(Boolean);
+        const list = all.filter(r => !r.timingEstimated && r.timingSource === 'request-stream' && !r.estimated && Number(r.tps) > 0);
+        const nativeAll = all.filter(r => r.timingSource === 'native-metadata' && r.nativeStreamMs > 0 && r.nativeStreamTokens > 0 && Number.isFinite(r.nativeStreamTps));
+        const reportedNative = nativeAll.filter(r => r.nativeStreamScope !== 'visible-output-observed');
+        const native = reportedNative.length ? reportedNative : nativeAll;
+        const nativeOnly = !list.length && native.length > 0;
+        const speeds = nativeOnly ? native.map(r => r.nativeStreamTps) : list.map(r => Number(r.tps));
+        const tokens = nativeOnly ? native.reduce((n,r)=>n+r.nativeStreamTokens,0) : list.reduce((n,r) => n + (r.decodeTokens ?? Math.max(0, r.outputTokens - 1)), 0);
+        const ms = nativeOnly ? native.reduce((n,r)=>n+r.nativeStreamMs,0) : list.reduce((n,r) => n + (Number(r.generationMs) || 0), 0);
+        const first = all.find(r => typeof r.ttftMs === 'number' && Number.isFinite(r.ttftMs) && r.ttftMs >= 0);
+        const observed = all.find(r => r.firstTextSource === 'workbuddy-native-sdk-log' && Number.isFinite(r.observedFirstTextMs) && r.observedFirstTextMs >= 0);
+        const turn = all.find(r => typeof r.turnTtftMs === 'number' && Number.isFinite(r.turnTtftMs) && r.turnTtftMs >= 0);
+        return { rounds: all.length, rateSamples:nativeOnly?native.length:list.length, nativeOnly, observedStream: nativeOnly && native.some(r=>r.nativeStreamScope==='visible-output-observed'), min: speeds.length ? Math.min(...speeds) : null, max: speeds.length ? Math.max(...speeds) : null,
+            avg: ms > 0 ? tokens * 1000 / ms : null, ttft: first?.ttftMs ?? turn?.turnTtftMs ?? observed?.observedFirstTextMs ?? null,
+            observedTiming: !first && !turn && Boolean(observed),
+            turnTiming: !first && Boolean(turn), estimated: all.some(r => r.estimated) };
     }
     const fmtTps = value => (value >= 100 ? Math.round(value) : Math.round(value * 10) / 10).toString();
 
+    function bindMetricTooltips() {
+        const tip = document.createElement('div');
+        tip.id = 'dcMetricTooltip';
+        tip.className = 'dc-metric-tooltip';
+        tip.setAttribute('role', 'tooltip');
+        tip.hidden = true;
+        document.body.appendChild(tip);
+        let anchor = null;
+        const hide = () => {
+            anchor?.removeAttribute('aria-describedby');
+            anchor = null; tip.hidden = true;
+        };
+        const show = node => {
+            if (!node) return;
+            hide(); anchor = node;
+            tip.textContent = node.dataset.dcMetricTip || '';
+            tip.hidden = false;
+            node.setAttribute('aria-describedby', tip.id);
+            const rect = node.getBoundingClientRect();
+            const bounds = tip.getBoundingClientRect();
+            const left = Math.max(12, Math.min(rect.left, innerWidth - bounds.width - 12));
+            const below = rect.bottom + 8;
+            const preferred = below + bounds.height <= innerHeight - 12 ? below : rect.top - bounds.height - 8;
+            const top = Math.max(12, Math.min(preferred, innerHeight - bounds.height - 12));
+            tip.style.left = left + 'px'; tip.style.top = top + 'px';
+        };
+        document.addEventListener('pointerover', event => {
+            const node = event.target.closest?.('[data-dc-metric-tip]');
+            if (node && node !== anchor) show(node);
+        });
+        document.addEventListener('pointerout', event => {
+            if (anchor && anchor.contains(event.target) && !anchor.contains(event.relatedTarget)) hide();
+        });
+        document.addEventListener('focusin', event => show(event.target.closest?.('[data-dc-metric-tip]')));
+        document.addEventListener('focusout', event => { if (anchor?.contains(event.target)) hide(); });
+        document.addEventListener('keydown', event => { if (event.key === 'Escape') hide(); });
+        document.addEventListener('scroll', hide, true);
+        window.addEventListener('resize', hide);
+    }
+
     function addMessageTools(message, text, { modelName = '', usage = null, rounds = null } = {}) {
+        if (!external.active) workspace()?.performance?.(message, rounds || []);
         const bar = document.createElement('div');
         bar.className = 'dc-msg-tools';
-        const input = Number(usage?.inputTokens || 0);
-        const output = Number(usage?.outputTokens || 0);
-        const speed = speedSummary(rounds);
+        const records = (Array.isArray(rounds) ? rounds : []).filter(Boolean);
+        const input = records.length ? records.reduce((n,r) => n + (Number(r.inputTokens) || 0),0) : Number(usage?.inputTokens || 0);
+        const output = records.length ? records.reduce((n,r) => n + (Number(r.outputTokens) || 0),0) : Number(usage?.outputTokens || 0);
+        const speed = speedSummary(records);
+        const en = lang() === 'en-US';
+        const rate = value => value === null ? '—' : fmtTps(value);
+        const timing = speed.ttft === null ? '—' : (speed.ttft/1000).toFixed(2)+' s';
+        const unavailable = speed.ttft === null
+            ? (en ? 'The source did not provide request-stream timing. Token counts alone cannot establish decode TPS or TTFT.' : '来源未提供请求流式计时，仅有 Token 数无法计算真实 TPS 或 TTFT。')
+            : (en ? 'TPS unavailable: the source did not provide per-request decode timing. TTFT is reported separately.' : 'TPS 未提供：来源没有逐请求解码计时。TTFT 按已上报数据单独展示。');
+        const details = [
+            tx('usageTitle', {input:input.toLocaleString(),output:output.toLocaleString()}),
+            `${en?'Total tokens':'总 Token'}: ${(input+output).toLocaleString()}`,
+            `TPS${speed.nativeOnly ? (speed.observedStream ? (en?' (observed text)':'（文字观测）') : (en?' (native stream)':'（原生流）')) : ''} ${en?'min / avg / max':'最低 / 平均 / 最高'}: ${rate(speed.min)} / ${rate(speed.avg)} / ${rate(speed.max)}`,
+            `${speed.observedTiming ? (en?'First text (observed)':'首文字（观测）') : 'TTFT'}${speed.turnTiming ? (en?' (turn)':'（轮次级）') : ''}: ${timing}`,
+            speed.rounds ? `${speed.rounds} ${en?'model calls':'次模型调用'} · ${en?'rate samples':'流速样本'} ${speed.rateSamples}` : (en?'Per-call records unavailable':'未提供逐次调用记录'),
+            speed.avg === null ? (speed.observedTiming ? (en?'First text is measured from the recorded user turn to native SDK text arrival. It is not per-model-request TTFT; decode TPS remains unavailable.':'首文字为用户本轮消息到原生 SDK 收到文字的观测延迟，包含工具等等待，不是单次模型请求 TTFT；解码 TPS 仍未提供。') : unavailable) : speed.nativeOnly ? (speed.observedStream ? (en?'Observed text rate: visible output tokens (reasoning excluded) divided by native message start-to-end time. Only final text-only model calls are counted; chunk buffering may affect this rate.':'文字观测速率：扣除推理后的输出 Token ÷ 原生消息起止时长；仅统计最终纯文字调用，分块缓冲可能影响数值。') : (en?'Native reported output ÷ native streaming duration; includes reasoning tokens. Chunk buffering may affect this rate; it is not pure visible-text decode.':'原生输出 Token ÷ 原生 streamingDuration，包含推理 Token；分块缓冲可能影响数值，不等同于纯可见文字解码速度。')) : (en?'Decode only; duration-weighted average, excluding the first token.':'仅统计解码；平均按解码时长加权，排除首个 Token。'),
+            ...(speed.estimated ? [tx('speedEstimated')] : []),
+            ...(records.length > 3 ? [en ? 'Latest 3 calls:' : '最近 3 次调用：'] : []),
+            ...records.slice(-3).map((r,i) => `#${Math.max(0,records.length-3)+i+1} ${r.model || ''}: ${en?'in':'输入'} ${r.inputTokens ?? '—'} / ${en?'out':'输出'} ${r.outputTokens ?? '—'}; ${en?'cache read':'缓存读取'} ${r.cachedInputTokens ?? '—'}; TPS ${r.timingSource === 'native-metadata' && r.nativeStreamTps > 0 ? fmtTps(r.nativeStreamTps)+' ('+(en?'native':'原生流')+')' : !r.timingEstimated && r.timingSource === 'request-stream' && r.tps > 0 ? fmtTps(r.tps) : '—'}; TTFT ${typeof r.ttftMs === 'number' ? (r.ttftMs/1000).toFixed(2)+' s' : '—'}`)
+        ].join('\n');
         if (Array.isArray(rounds) && rounds.length) message.dcRounds = rounds;
         bar.innerHTML = `${iconButton('copy', tx('copy'), 'data-dc-copy')}
             ${modelName ? `<span class="dc-msg-model" title="${escapeHtml(tx('modelCurrent', { name: modelName }))}">${escapeHtml(modelName)}</span>` : ''}
-            ${input || output ? `<span class="dc-msg-usage" title="${escapeHtml(tx('usageTitle', { input: input.toLocaleString(), output: output.toLocaleString() }))}">${escapeHtml(tx('usageText', { input: formatTokenCount(input), output: formatTokenCount(output) }))}</span>` : ''}
-            ${speed ? `<span class="dc-msg-speed" title="${escapeHtml(tx('speedTitle', { min: fmtTps(speed.min), avg: fmtTps(speed.avg), max: fmtTps(speed.max), rounds: speed.rounds, ttft: speed.ttft === null ? '-' : (speed.ttft / 1000).toFixed(1) }) + (speed.estimated ? tx('speedEstimated') : ''))}">${escapeHtml(`${fmtTps(speed.min)}/${fmtTps(speed.avg)}/${fmtTps(speed.max)} tok/s`)}${speed.rounds > 1 ? ` · ${escapeHtml(tx('speedRounds', { n: speed.rounds }))}` : ''}</span>` : ''}`;
+            ${records.length || input || output ? `<span class="dc-msg-usage" tabindex="0" data-dc-metric-tip="${escapeHtml(details)}">${escapeHtml(tx('usageText', { input: formatTokenCount(input), output: formatTokenCount(output) }))}${speed.estimated ? ' ≈' : ''}</span>` : ''}
+            ${records.length || modelName || input || output ? `<span class="dc-msg-speed" tabindex="0" data-dc-metric-tip="${escapeHtml(details)}">${escapeHtml(`TPS${speed.nativeOnly ? (speed.observedStream ? (en?' (observed text)':'（文字观测）') : (en?' (native)':'（原生流）')) : ''} ${rate(speed.min)}/${rate(speed.avg)}/${rate(speed.max)} · ${speed.observedTiming ? (en?'First text (observed)':'首文字（观测）') : 'TTFT'} ${timing}${speed.turnTiming ? (en ? ' (turn)' : '（轮次）') : ''}${speed.rounds ? ' · '+tx('speedRounds', {n:speed.rounds}) : ''}`)}</span>` : ''}`;
         bar.querySelector('[data-dc-copy]').dataset.dcCopy = text;
         message.querySelector('.dc-msg-main').appendChild(bar);
     }
@@ -1978,7 +2042,10 @@
                         state.sessionId = event.sessionId;
                         rememberLastChat(event.sessionId, workspacePayload ? { agentSessionId: workspacePayload.agentSessionId, root: workspacePayload.root } : null);
                     }
-                    if (event.type === 'model_round' && event.round) (reply.dcLiveRounds ||= []).push(event.round);
+                    if (event.type === 'model_round' && event.round) {
+                        (reply.dcLiveRounds ||= []).push(event.round);
+                        workspace()?.performance?.(reply, reply.dcLiveRounds, { running: true });
+                    }
                     if (event.type === 'tac' && event.status === 'queued') watchTac(event.id);
                     window.DragonClawSkills?.handleEvent(reply, event);
                     workspace()?.handleEvent(reply, event, workspacePayload);
@@ -2023,6 +2090,7 @@
             }
         } finally {
             activity.finish();
+            workspace()?.performance?.(reply, reply.dcRounds || reply.dcLiveRounds || []);
             workspace()?.finishMessage?.(reply);
             if (state.controller === controller) state.controller = null;
             updateSendButton();
@@ -3392,6 +3460,7 @@
     }
 
     function bindEvents() {
+        bindMetricTooltips();
         el.form.addEventListener('submit', event => {
             event.preventDefault();
             if(external.active){sendExternal(el.input.value.trim());return;}

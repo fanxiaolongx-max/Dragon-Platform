@@ -53,14 +53,36 @@ function normalizeContextWindow(value) {
     return num > 0 ? Math.round(clampNumber(num, 0, 4096, 10000000)) : 0;
 }
 
+function normalizeModels(input, fallbackModel, provider) {
+    let list = [];
+    if (Array.isArray(input)) {
+        list = input;
+    } else if (typeof input === 'string') {
+        list = input.split(/[\r\n,，\s]+/);
+    }
+    const cleaned = list.map(m => String(m || '').trim()).filter(m => m.length > 0 && m.length <= 100);
+    if (!cleaned.length && fallbackModel) {
+        cleaned.push(String(fallbackModel).trim());
+    }
+    if (!cleaned.length) {
+        cleaned.push(DEFAULT_MODELS[provider] || DEFAULT_SETTINGS.model);
+    }
+    return Array.from(new Set(cleaned));
+}
+
 function normalizeSettings(input = {}, previous = {}) {
     const base = { ...DEFAULT_SETTINGS, ...previous, ...input };
     const provider = normalizeProvider(base.provider);
+    const models = normalizeModels(input.models !== undefined ? input.models : previous.models, base.model, provider);
+    const primaryModel = String(input.model || base.model || models[0] || DEFAULT_MODELS[provider] || DEFAULT_SETTINGS.model).trim();
+    const remaining = models.filter(m => m !== primaryModel);
+    const allModels = [primaryModel, ...remaining].filter(Boolean);
     return {
         provider,
         anthropicAuthType: normalizeAnthropicAuthType(base.anthropicAuthType),
         apiBaseUrl: String(base.apiBaseUrl || '').trim().slice(0, 500),
-        model: String(base.model || DEFAULT_MODELS[provider] || DEFAULT_SETTINGS.model).trim() || DEFAULT_MODELS[provider],
+        model: allModels[0] || DEFAULT_MODELS[provider],
+        models: allModels,
         apiKey: String(base.apiKey || '').trim(),
         maxOutputTokens: Math.round(clampNumber(base.maxOutputTokens, DEFAULT_SETTINGS.maxOutputTokens, 128, 8192)),
         contextWindowTokens: normalizeContextWindow(base.contextWindowTokens),
@@ -230,11 +252,15 @@ function runtimeSettings(stored) {
 }
 
 function publicSettings(runtime) {
+    const models = Array.isArray(runtime.models) && runtime.models.length
+        ? runtime.models
+        : [runtime.model].filter(Boolean);
     return {
         provider: runtime.provider,
         anthropicAuthType: runtime.anthropicAuthType || 'ANTHROPIC_AUTH_TOKEN',
         apiBaseUrl: runtime.apiBaseUrl,
         model: runtime.model,
+        models,
         maxOutputTokens: runtime.maxOutputTokens,
         contextWindowTokens: runtime.contextWindowTokens,
         temperature: runtime.temperature,
@@ -274,11 +300,17 @@ async function getRuntimeSettings(options = {}) {
     const store = await getProfileStore();
     // 对话模型选择指定的方案存在时作为主模型，否则使用激活方案。
     const active = (options.profileId && findProfile(store, options.profileId)) || findProfile(store, store.activeProfileId);
-    const toRuntime = profile => runtimeSettings({
-        ...profileSettings(profile),
-        profileId: profile.id,
-        profileName: profile.name
-    });
+    const toRuntime = profile => {
+        const item = runtimeSettings({
+            ...profileSettings(profile),
+            profileId: profile.id,
+            profileName: profile.name
+        });
+        if (options.modelName && profile.id === active.id) {
+            item.model = options.modelName;
+        }
+        return item;
+    };
     const primary = toRuntime(active);
     // Failover only moves between chat models; an image model never answers a conversation.
     const fallbackProfiles = store.autoSwitchEnabled
@@ -356,23 +388,49 @@ function buildModelChoices(store) {
         return runtime.hasApiKey && runtime.keyLooksValid;
     });
     const visible = ready.length ? ready : store.profiles.filter(profile => profile.id === store.activeProfileId);
-    const models = visible.map(profile => ({
-        id: `profile:${profile.id}`,
-        name: profile.model,
-        provider: profile.provider,
-        description: profile.name,
-        profileId: profile.id,
-        followsActive: false
-    }));
-    const activeChoice = models.find(item => item.profileId === store.activeProfileId) || models[0];
+    const models = [];
+    for (const profile of visible) {
+        const profileModels = Array.isArray(profile.models) && profile.models.length
+            ? profile.models
+            : [profile.model || DEFAULT_MODELS[profile.provider] || DEFAULT_SETTINGS.model].filter(Boolean);
+        profileModels.forEach((modelName, idx) => {
+            models.push({
+                id: idx === 0 ? `profile:${profile.id}` : `profile:${profile.id}:${modelName}`,
+                aliasId: `profile:${profile.id}:${modelName}`,
+                name: modelName,
+                provider: profile.provider,
+                description: profile.name,
+                profileId: profile.id,
+                modelName: modelName,
+                isPrimary: idx === 0,
+                followsActive: false
+            });
+        });
+    }
+    const activeChoice = models.find(item => item.profileId === store.activeProfileId && item.isPrimary) || models[0];
     return { mode: 'direct', defaultId: activeChoice ? activeChoice.id : '', models };
 }
 
 // 未知或已失效的选择回退到默认模型。
 function pickModelChoice(choices, modelId) {
     const id = String(modelId || '');
-    return choices.models.find(item => item.id === id)
-        || choices.models.find(item => item.id === choices.defaultId)
+    let found = choices.models.find(item => item.id === id || item.aliasId === id);
+    if (found) return found;
+
+    if (id.startsWith('profile:')) {
+        const parts = id.slice('profile:'.length).split(':');
+        const profileId = parts[0];
+        const specificModel = parts.slice(1).join(':');
+        if (specificModel) {
+            found = choices.models.find(item => item.profileId === profileId && (item.modelName === specificModel || item.name === specificModel));
+            if (found) return found;
+        }
+        found = choices.models.find(item => item.profileId === profileId);
+        if (found) return found;
+    }
+
+    return choices.models.find(item => item.id === choices.defaultId)
+        || choices.models[0]
         || null;
 }
 

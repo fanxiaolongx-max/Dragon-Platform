@@ -11,7 +11,7 @@ test('each model call becomes a round with tokens, first-token time and generati
             options.onDelta?.('你好');
             await wait(40);
             options.onDelta?.('，世界');
-            return { text: '你好，世界', usage: { promptTokens: 120, outputTokens: 8 } };
+            return { text: '你好，世界', usage: { promptTokens: 120, outputTokens: 8, reasoningTokens: 0, cachedTokens: 60 } };
         },
         other: () => 'kept'
     };
@@ -32,6 +32,8 @@ test('each model call becomes a round with tokens, first-token time and generati
     assert.ok(round.ttftMs >= 25 && round.ttftMs < round.ms);
     assert.ok(round.generationMs < round.ms, 'speed counts from the first token');
     assert.ok(round.tps > 0);
+    assert.equal(round.decodeTokens, 7);
+    assert.equal(round.cachedInputTokens, 60);
 });
 
 test('missing usage is estimated and flagged; failed calls are not counted', async () => {
@@ -57,4 +59,14 @@ test('the average weights long replies by total tokens over total generation tim
     assert.equal(summary.avgTps, 91.8);
     assert.equal(summary.outputTokens, 1010);
     assert.equal(summary.totalMs, 11700);
+});
+
+test('buffered and reasoning-bearing responses do not invent decode speed', async () => {
+    const rounds = [];
+    const client = trackRounds({ async generateText(o) { o.onReasoning?.('thinking'); return { text: 'answer', usage: { promptTokens: 10, outputTokens: 5, reasoningTokens: 2 } }; } }, r => rounds.push(r));
+    await client.generateText({ onReasoning() {} });
+    assert.equal(rounds[0].ttftMs, null);
+    assert.equal(rounds[0].generationMs, null);
+    assert.equal(rounds[0].tps, null);
+    assert.equal(summarizeRounds(rounds).avgTps, 0);
 });

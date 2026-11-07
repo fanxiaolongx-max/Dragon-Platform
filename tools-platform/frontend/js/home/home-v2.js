@@ -321,7 +321,7 @@
                     menuItem('target', t('requirements'), 'requirements'),
                     menuItem('compass', lang() === 'en-US' ? 'Promotions' : '平台推广', 'promotions')
                 ].join(''),
-                links.length ? `<div class="v2-pop-cap">${esc(t('discover'))}</div>${links.join('')}<div class="v2-pop-sep"></div>` : ''
+                links.length ? `<div class="v2-pop-cap">${esc(t('discover'))}</div>${links.join('')}` : ''
             ].join('');
         }
     };

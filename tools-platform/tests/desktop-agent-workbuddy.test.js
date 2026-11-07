@@ -139,3 +139,81 @@ test('keeps successful WorkBuddy widgets between visible replies and ignores fai
     assert.deepEqual(items[1].widget, { title: '面板', html });
     assert.equal(items[1].id, 'widget:ok');
 });
+
+test('accurately identifies busy state when WorkBuddy is working, streaming, or running tools', async () => {
+    assert.ok(wb.BUSY_STATUS.has('working'));
+    assert.ok(wb.BUSY_STATUS.has('running'));
+    assert.ok(wb.BUSY_STATUS.has('in_progress'));
+
+    const workingId = '66666666-6666-4666-8666-666666666666';
+    const workingFile = path.join(dir, workingId + '.jsonl');
+    const now = Date.now();
+
+    // 1. 模拟 WorkBuddy 输出还未完成，中间经过了工具调用且有部分助手输出
+    fs.writeFileSync(workingFile, [
+        { type: 'message', role: 'user', timestamp: now - 30000, content: query('帮我批量修改文件') },
+        { type: 'message', role: 'assistant', timestamp: now - 25000, content: [{ type: 'output_text', text: '开始处理，先跑第一步...' }] },
+        { type: 'function_call', name: 'Bash', timestamp: now - 20000 },
+        { type: 'function_call_result', name: 'Bash', status: 'completed', timestamp: now - 15000, output: { text: 'ok' } },
+        { type: 'reasoning', timestamp: now - 10000, rawContent: [{ type: 'reasoning_text', text: 'thinking next step' }] }
+    ].map(line).join(''));
+
+    // 数据库中记录为 working
+    const db = new sqlite3.Database(path.join(home, '.workbuddy/workbuddy.db'));
+    await new Promise((resolve, reject) => db.run(
+        "INSERT INTO sessions VALUES(?,?,?,?,?,?,?,?,NULL,0,'','local')",
+        [workingId, cwd, '批量处理任务', null, 'working', now - 30000, now, now - 10000],
+        e => db.close(() => e ? reject(e) : resolve())
+    ));
+
+    // 即使传入的 session 对象 status 为空或过时，transcript 也能从 db 与 jsonl 识别出 busy: true
+    const activeResult = await wb.transcript({ id: workingId, cwd, file: workingFile, status: '' });
+    assert.equal(activeResult.busy, true);
+    assert.ok(activeResult.busySince);
+
+    // 2. 模拟工具调用刚完成，处于推理中且尚未写回数据库（通过 jsonl 尾部近期事件识别）
+    const toolRunningId = '77777777-7777-4777-8777-777777777777';
+    const toolRunningFile = path.join(dir, toolRunningId + '.jsonl');
+    fs.writeFileSync(toolRunningFile, [
+        { type: 'message', role: 'user', timestamp: now - 20000, content: query('执行脚本') },
+        { type: 'message', role: 'assistant', timestamp: now - 15000, content: [{ type: 'output_text', text: '正在跑脚本' }] },
+        { type: 'function_call', name: 'Bash', timestamp: now - 5000 }
+    ].map(line).join(''));
+
+    const toolResult = await wb.transcript({ id: toolRunningId, cwd, file: toolRunningFile, status: 'completed' });
+    assert.equal(toolResult.busy, true);
+
+    // 3. 模拟完成后的会话：数据库为 completed，且最后一条为 completed assistant 消息
+    const completedId = '88888888-8888-4888-8888-888888888888';
+    const completedFile = path.join(dir, completedId + '.jsonl');
+    fs.writeFileSync(completedFile, [
+        { type: 'message', role: 'user', timestamp: now - 60000, content: query('完成了吗') },
+        { type: 'message', role: 'assistant', status: 'completed', timestamp: now - 50000, content: [{ type: 'output_text', text: '全部完成！' }] }
+    ].map(line).join(''));
+
+    const doneResult = await wb.transcript({ id: completedId, cwd, file: completedFile, status: 'completed' });
+    assert.equal(doneResult.busy, false);
+});
+
+test('ongoing WorkBuddy calls expose usage even when no new visible assistant message is written',async()=>{
+ const id='77777777-7777-4777-8777-777777777777',file=path.join(dir,id+'.jsonl'),timestamp=Date.now();
+ const usage={type:'function_call',id:'tool-block',timestamp:timestamp+1,name:'fixture-tool',providerData:{messageId:'native-call',model:'workbuddy-fixture',usage:{requests:1,inputTokens:1000,outputTokens:100,inputTokensDetails:[{cached_tokens:900}]}}};
+ fs.writeFileSync(file,line({type:'message',role:'user',timestamp,content:query('fixture question')})+line(usage)+line({...usage,id:'duplicate-block',timestamp:timestamp+2}));
+ const d=await wb.transcript({id,file,status:'running'});assert.equal(d.busy,true);assert.equal(d.items.length,1);assert.equal(d.modelUsage.length,1);
+ let p=require('../backend/models/desktop-agents/performance').aggregate(d.items,d.performanceTurns,d.modelUsage);assert.equal(p.calls,1);assert.equal(p.inputTokens,1000);assert.equal(p.cacheReadRatio,.9);
+ fs.appendFileSync(file,line({...usage,id:'second-block',timestamp:timestamp+3,providerData:{...usage.providerData,messageId:'next-native-call'}}));
+ const next=await wb.transcript({id,file,status:'running'});p=require('../backend/models/desktop-agents/performance').aggregate(next.items,next.performanceTurns,next.modelUsage);assert.equal(p.calls,2);assert.equal(p.outputTokens,200);assert.equal(p.decodeTps,null);
+});
+
+test('WorkBuddy reply footers retain usage for their own user turn without double counting the session',async()=>{
+ const id='99999999-9999-4999-8999-999999999999',file=path.join(dir,id+'.jsonl'),timestamp=Date.now();
+ const usage=(key,n)=>({type:'function_call',timestamp,providerData:{messageId:key,model:'fixture',usage:{inputTokens:n,outputTokens:10}}});
+ const user=()=>({type:'message',role:'user',timestamp,content:query('question')});
+ const reply=()=>({type:'message',role:'assistant',timestamp,content:[{type:'output_text',text:'answer'}]});
+ fs.writeFileSync(file,[user(),usage('call1',100),reply(),user(),usage('call2',200),reply()].map(line).join(''));
+ const result=await wb.transcript({id,file,status:'completed'});
+ assert.equal(result.items[1].rounds[0].inputTokens,100);
+ assert.equal(result.items[3].rounds[0].inputTokens,200);
+ const metrics=require('../backend/models/desktop-agents/performance').aggregate(result.items,[],result.modelUsage);
+ assert.equal(metrics.calls,2);assert.equal(metrics.inputTokens,300);
+});

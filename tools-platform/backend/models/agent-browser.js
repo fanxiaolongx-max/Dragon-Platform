@@ -85,7 +85,7 @@ function createPage({ id, send:transport, close, label = '', notify }) {
     let manualRecordingOff = false;
     let chooser = null, dragData = null, pointer = null, pointerTimer = null, manualPrepared = false;
     const page = {
-        id, label, url: '', title: '', lastUsed: Date.now(),
+        id, label, documentId:crypto.randomUUID(), url: '', title: '', lastUsed: Date.now(),
         publishOperator(value){notify?.(value);},
         async stopAI(terminate=false){await transport('Page.stopLoading',{}).catch(()=>{});if(terminate)await transport('Runtime.terminateExecution',{}).catch(()=>{});},
         async showAICursor(x,y){
@@ -99,7 +99,7 @@ function createPage({ id, send:transport, close, label = '', notify }) {
         setManualControl(active) { if(manualRecordingOff&&!active){chooser=null;manualPrepared=false;send('Page.setInterceptFileChooserDialog',{enabled:false}).catch(()=>{});}manualRecordingOff = active; network.clear(); consoleLog.length = 0; },
         onEvent(method, params = {}) {
             if (method === 'Page.fileChooserOpened') chooser = {...params, id:crypto.randomUUID()};
-            if (method === 'Page.frameNavigated' && !params.frame?.parentId) chooser = null;
+            if (method === 'Page.frameNavigated' && !params.frame?.parentId) {chooser = null;page.documentId=params.frame?.loaderId||crypto.randomUUID();}
             if (method === 'Input.dragIntercepted') dragData = params.data;
             if (manualRecordingOff && /^(Network\.|Runtime\.console|Log\.)/.test(method)) return;
             if (method === 'Network.requestWillBeSent') {
@@ -264,7 +264,7 @@ function createPage({ id, send:transport, close, label = '', notify }) {
                 const codes={Enter:13,Tab:9,Backspace:8,Delete:46,Escape:27,ArrowLeft:37,ArrowUp:38,ArrowRight:39,ArrowDown:40,Home:36,End:35};
                 for(const type of ['keyDown','keyUp']) await send('Input.dispatchKeyEvent',{type,key:args.key,code:args.key,windowsVirtualKeyCode:codes[args.key],text:type==='keyDown'&&args.key==='Enter'?'\r':undefined});
             }
-            await new Promise(resolve=>setTimeout(resolve,180));
+            if(!['type','key'].includes(action))await new Promise(resolve=>setTimeout(resolve,180));
         },
         async setReadingWidth(width) {
             if(width)await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
@@ -909,13 +909,14 @@ async function viewUnlocked(owner, live = false) {
     }
     const viewport=await page.evaluate?.('({width:innerWidth,height:innerHeight})')||{width:1280,height:900};
     const layout=page.readingWidth?{...page.layout,preferredWidth:page.readingWidth}:page.layout;
+    const documentId=page.documentId,capturedUrl=page.url;
     const png=await page.screenshot(false,live);
     if(png.length>8*1024*1024)throw browserError('BROWSER_VIEW_TOO_LARGE','页面画面过大，请缩小浏览器视口后重试');
     const frameId=crypto.randomUUID();state.frames||=new Map();
-    state.frames.set(frameId,{tabId:page.id,url:page.url,viewport,at:Date.now()});
+    state.frames.set(frameId,{tabId:page.id,url:capturedUrl,documentId,viewport,at:Date.now()});
     while(state.frames.size>80)state.frames.delete(state.frames.keys().next().value);
     return {...result,tabId:page.id,title:page.title,url:page.url,upload:page.pendingUpload?.()||null,image:`data:image/${live?'jpeg':'png'};base64,${png.toString('base64')}`,
-        capturedAt:new Date().toISOString(),frameId,viewport,layout:layout||null,...await page.historyState?.()};
+        capturedAt:new Date().toISOString(),documentId,frameId,viewport,layout:layout||null,...await page.historyState?.()};
 }
 function view(owner,live=false){return commandContext.exit(()=>activeCommands.has(owner)?viewUnlocked(owner,live):serialized(owner,()=>viewUnlocked(owner,live)));}
 function controlRequest(owner,args={}){
@@ -989,7 +990,7 @@ function controlRequest(owner,args={}){
         }
         const continuing=action==='pointer'&&args.phase!=='down';
         const frame=continuing?state.pointer?.frame:state.frames?.get(args.frameId);
-        if(!frame||frame.tabId!==page.id||frame.url!==page.url||(!continuing&&Date.now()-frame.at>15000))throw browserError('BROWSER_VIEW_STALE','画面已变化或过期，请刷新后再操作');
+        if(!frame||frame.tabId!==page.id||frame.url!==page.url||frame.documentId!==page.documentId||(!continuing&&Date.now()-frame.at>15000)||(!['type','key'].includes(action)&&!continuing&&frame.keyboardOnly))throw browserError('BROWSER_VIEW_STALE','画面已变化或过期，请刷新后再操作');
         const currentViewport=await page.evaluate?.('({width:innerWidth,height:innerHeight})');
         if(currentViewport&&(currentViewport.width!==frame.viewport.width||currentViewport.height!==frame.viewport.height))throw browserError('BROWSER_VIEW_STALE','页面尺寸已变化，请刷新后再操作');
         if(action==='pointer'){
@@ -1000,7 +1001,7 @@ function controlRequest(owner,args={}){
             if(args.phase==='down')state.pointer={id:args.pointerId,frame,touched:Date.now()};
             else state.pointer.touched=Date.now();
             try{if(args.phase==='up')await page.pointerInput('move',point);await page.pointerInput(args.phase,point);}catch(error){await page.pointerInput('cancel').catch(()=>{});state.pointer=null;throw error;}
-            if(args.phase==='up'){state.pointer=null;state.frames.clear();}
+            if(args.phase==='up'){state.pointer=null;for(const frame of state.frames.values())if(frame.tabId===page.id)frame.keyboardOnly=true;}
             return reply();
         }
         const input={};
@@ -1034,7 +1035,7 @@ function controlRequest(owner,args={}){
         if(action==='key'){
             if(!['Enter','Tab','Backspace','Delete','Escape','ArrowLeft','ArrowUp','ArrowRight','ArrowDown','Home','End'].includes(args.key))throw browserError('BROWSER_CONTROL_INVALID','不支持的按键');input.key=args.key;
         }
-        await page.manualInput(action,input);state.frames.clear();return reply();
+        await page.manualInput(action,input);for(const frame of state.frames.values())if(frame.tabId===page.id)frame.keyboardOnly=true;return reply();
         } catch(error) {
             if(createdManual&&state?.manual===createdManual){clearTimeout(createdManual.timer);for(const item of state.tabs.values())item.setManualControl?.(false);state.manual=null;}
             throw error;

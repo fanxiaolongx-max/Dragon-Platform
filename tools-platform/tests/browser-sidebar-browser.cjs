@@ -1,6 +1,6 @@
 // node_modules/.bin/electron tests/browser-sidebar-browser.cjs
 // 本地测试页与临时用户目录，不访问外站或业务数据库。
-const { app, BrowserWindow, ipcMain, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, nativeImage, Menu, shell } = require('electron');
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path'), assert = require('node:assert/strict'), express = require('express');
 const root = path.resolve(__dirname, '..'), temp = fs.mkdtempSync(path.join(os.tmpdir(), 'browser-sidebar-'));
 app.setPath('userData', path.join(temp, 'profile')); app.disableHardwareAcceleration();
@@ -11,7 +11,7 @@ let host, server, stack, workspaceEnabled = false, viewReads = 0, mobilePage = f
 const timeout=setTimeout(()=>{console.error('Timeout');app.exit(1);},60000);
 app.whenReady().then(async()=>{
  const web=express();web.use(express.json());
- let remoteTabs=[],remoteActive=null,remoteManual=false,remoteSequence=0,remoteNarrow=false,remoteAI=false,remoteHandoff=false;const remoteCalls=[];let streamFrames=0,streamCloses=0,uploadedFiles=[];
+ let remoteTabs=[],remoteActive=null,remoteManual=false,remoteSequence=0,remoteNarrow=false,remoteAI=false,remoteHandoff=false,remoteTypingSlow=false,remoteText='',remoteTabDelay=0;const remoteCalls=[];let streamFrames=0,streamCloses=0,uploadedFiles=[];
  web.get('/',(_req,res)=>{
   let html=fs.readFileSync(path.join(root,'frontend/index.html'),'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/g,'').replace('<html ','<html data-ui="v2" data-theme="light" ');
   res.send(html.replace('</body>','<script>document.body.classList.add("home-mode-chat");</script><script src="/js/shared/sidebar-resize.js"></script><script src="/js/home/workspace-panel.js"></script><script src="/js/home/browser-sidebar.js"></script><script src="/js/shared/chat-files.js"></script></body>'));
@@ -27,8 +27,8 @@ app.whenReady().then(async()=>{
   const timer=setInterval(frame,150);res.on('close',()=>{streamCloses++;clearInterval(timer);});
  });
  web.post('/api/agent-workspace/browser/upload',require('multer')({storage:require('multer').memoryStorage()}).array('files'),(req,res)=>{uploadedFiles.push(...req.files);res.json({files:req.files.map(file=>({name:file.originalname,size:file.size}))});});
- web.post('/api/agent-workspace/browser/control',(req,res)=>{
-  const {action}=req.body;remoteCalls.push(req.body);
+ web.post('/api/agent-workspace/browser/control',async(req,res)=>{
+  const {action}=req.body;remoteCalls.push(req.body);if(action==='new-tab'&&remoteTabDelay)await wait(remoteTabDelay);
   if(action==='release'){remoteManual=false;remoteHandoff=false;}else {if(action==='takeover'&&remoteAI)remoteHandoff=true;remoteManual=true;}
   if(action==='open'||action==='new-tab'){
    let current=remoteTabs.find(tab=>tab.id===remoteActive);
@@ -37,11 +37,14 @@ app.whenReady().then(async()=>{
   }
   if(action==='select-tab')remoteActive=req.body.tabId;
   if(action==='close-tab'){remoteTabs=remoteTabs.filter(tab=>tab.id!==req.body.tabId);if(remoteActive===req.body.tabId)remoteActive=remoteTabs.at(-1)?.id||null;}
-  res.json({mode:remoteManual?'manual':'ai',...(['acquire','takeover','open','new-tab'].includes(action)?{token:'fixture-manual-token'}:{})});
+  if(action==='type')remoteText=(req.body.replace?'':remoteText)+req.body.text;if(action==='key'&&req.body.key==='Backspace')remoteText=remoteText.slice(0,-1);
+  if(remoteTypingSlow&&['type','key'].includes(action))await wait(100);
+  res.json({tabId:remoteActive,mode:remoteManual?'manual':'ai',...(['acquire','takeover','open','new-tab'].includes(action)?{token:'fixture-manual-token'}:{})});
  });
  web.get('/api/agent-workspace/prefs',(_req,res)=>res.json({lastDirectory:'',recentDirectories:[],permissionMode:'ask'}));
  web.get('/site',(req,res)=>res.send('<title>Local browser fixture</title><input id="value" value="initial"><a href="/second">next</a><input id="native-file" type="file"><input id="native-range" type="range" min="0" max="100" value="0" style="display:block;width:300px">'));
  web.get('/narrow',(_req,res)=>res.send('<title>Narrow menu</title><main style="max-width:440px;margin:auto"><h1>Lunch menu</h1>'+Array.from({length:18},(_,i)=>'<p>Dish '+i+' — restaurant menu with fresh ingredients, soup, sandwiches and salads.</p>').join('')+'</main>'));
+ web.get('/download',(_req,res)=>res.attachment('dragon-toolbar-fixture.txt').send('sidebar download fixture'));
  web.get('/second',(_req,res)=>res.send('<title>Second fixture</title><p>second</p>'));
  web.get('/api/agent-files/stat',(_req,res)=>res.json({size:30}));
  web.get('/api/agent-files/raw',(_req,res)=>res.type('text').send('file preview fixture'));
@@ -65,6 +68,7 @@ app.whenReady().then(async()=>{
  assert.equal(await evaluate('dcWorkspacePanel.hidden'),true);
  assert.equal(await evaluate('document.body.classList.contains("v2-side-collapsed")'),true);
  assert.equal(await evaluate('!!document.querySelector(".dc-browser-modes, .dc-browser-surface iframe")'),false,'one browser with no separate embedded session');
+ assert.equal(await evaluate('document.querySelectorAll(".dc-browser-tabbar [data-browser=new-tab]").length'),1,'only the plus button creates a new tab before any pages exist');
  const automaticWidth=await evaluate('dcBrowserPanel.getBoundingClientRect().width');
  await evaluate('dcBrowserPanel.querySelector(".dc-sidebar-resize").dispatchEvent(new KeyboardEvent("keydown",{key:"ArrowRight",bubbles:true}))');
  const manualWidth=await evaluate('dcBrowserPanel.getBoundingClientRect().width');assert.ok(manualWidth<automaticWidth-30);
@@ -74,8 +78,15 @@ app.whenReady().then(async()=>{
  await evaluate(`document.querySelector('.dc-browser-address input').value=${JSON.stringify(base+'/site')};document.querySelector('.dc-browser-address').requestSubmit()`);
  await until(()=>evaluate('!document.querySelector(".dc-browser-agent-view img").hidden&&!document.querySelector(".dc-browser-operator button").disabled'));
  assert.equal(remoteManual,true,'typing an address starts the same controlled browser without asking AI first');
+ await evaluate('window.fixtureExternal=[];window.open=(...args)=>{fixtureExternal.push(args);return null;};document.querySelector("[data-browser=external]").click()');
+ assert.deepEqual(await evaluate('fixtureExternal[0]'),[base+'/site','_blank','noopener,noreferrer']);
+ assert.equal(await evaluate('DragonBrowserSidebar.isOpen()'),true,'opening in a new web tab preserves the sidebar');
+
+ const webSurfaceBefore=await evaluate('JSON.stringify(document.querySelector(".dc-browser-surface").getBoundingClientRect().toJSON())');
  await evaluate('document.querySelector("[data-browser=more]").click()');assert.equal(await evaluate('document.querySelector(".dc-browser-popup").hidden'),false);
+ assert.equal(await evaluate('JSON.stringify(document.querySelector(".dc-browser-surface").getBoundingClientRect().toJSON())'),webSurfaceBefore,'floating menu does not move or resize the web page');
  assert.equal(await evaluate('document.querySelector(".dc-browser-popup [data-browser=find-open]").disabled'),true,'web does not pretend native find is available');
+ await wait(100);fs.writeFileSync(path.join(temp,'web-floating-menu.png'),(await host.webContents.capturePage()).toPNG());
  await evaluate('document.querySelector(".dc-browser-popup [data-browser=dismiss-menu]").click()');
  await wait(100);fs.writeFileSync(path.join(temp,'web-toolbar.png'),(await host.webContents.capturePage()).toPNG());
 
@@ -91,6 +102,12 @@ app.whenReady().then(async()=>{
  await until(()=>remoteCalls.some(call=>call.action==='type'));
  await until(()=>evaluate('document.querySelector("[data-remote-text]").value===""&&!document.querySelector(".dc-browser-operator button").disabled'));
  assert.equal(remoteCalls.find(call=>call.action==='type').text,'Manual input');
+ await wait(200);remoteText='';remoteTypingSlow=true;const typingReads=viewReads,typingCalls=remoteCalls.length;
+ await evaluate(`(()=>{const image=document.querySelector('.dc-browser-agent-view img');for(const key of '123456789abcdefghij')image.dispatchEvent(new KeyboardEvent('keydown',{key,bubbles:true,cancelable:true}));image.dispatchEvent(new KeyboardEvent('keydown',{key:'Backspace',bubbles:true,cancelable:true}));image.dispatchEvent(new KeyboardEvent('keydown',{key:'X',bubbles:true,cancelable:true}));})()`);
+ await until(()=>remoteText==='123456789abcdefghiX');await wait(150);remoteTypingSlow=false;
+ assert.ok(remoteCalls.slice(typingCalls).filter(call=>call.action==='type').length<=3,'rapid keys are batched without dropping characters');
+ assert.ok(viewReads-typingReads<=1,'typing uses continuous frames instead of requesting a full screenshot per key');
+
  await evaluate('document.querySelector("[data-browser=remote-enter]").click()');await until(()=>remoteCalls.some(call=>call.action==='key'&&call.key==='Enter'));
  await until(()=>evaluate('!document.querySelector(".dc-browser-operator button").disabled'));
  await until(()=>streamFrames>1);
@@ -110,7 +127,15 @@ app.whenReady().then(async()=>{
  const narrowWidth=await evaluate('dcBrowserPanel.getBoundingClientRect().width');
  await evaluate('dcBrowserPanel.querySelector(".dc-sidebar-resize").dispatchEvent(new KeyboardEvent("keydown",{key:"ArrowLeft",bubbles:true}))');
  await wait(400);assert.ok(await evaluate('dcBrowserPanel.getBoundingClientRect().width')>narrowWidth+30,'content measurement preserves manual width');remoteNarrow=false;
- await evaluate('document.querySelector("[data-browser=new-tab]").click()');await until(()=>remoteTabs.length===2);
+ remoteTabDelay=400;await evaluate('window.originalFirstTab=document.querySelector("[data-tab=remote-1]").closest(".dc-browser-tab");document.querySelector("[data-browser=new-tab]").click()');
+ assert.equal(await evaluate('!!document.querySelector(".dc-browser-tab.is-pending")'),true,'click immediately paints a tab before a slow backend reply');
+ assert.ok(await evaluate('document.querySelector(".dc-browser-tab.is-pending").getAnimations().length')>0,'new tab has an opening animation');
+ await until(()=>remoteTabs.length===2);await until(()=>evaluate('!document.querySelector(".dc-browser-tab.is-pending")'));remoteTabDelay=0;
+ assert.equal(await evaluate('window.originalFirstTab===document.querySelector("[data-tab=remote-1]").closest(".dc-browser-tab")'),true,'unchanged tabs retain DOM identity and focus');
+ await until(()=>evaluate('document.querySelector(".dc-browser-surface").classList.contains("is-empty")'));
+ for(const theme of ['light','dark']){await evaluate(`document.documentElement.dataset.theme='${theme}'`);await wait(50);const colors=await evaluate('({surface:getComputedStyle(document.querySelector(".dc-browser-surface")).backgroundColor,platform:getComputedStyle(dcBrowserPanel).backgroundColor,imageHidden:document.querySelector(".dc-browser-agent-view img").hidden})');assert.equal(colors.surface,colors.platform);assert.equal(colors.imageHidden,true,'blank tab does not display a dark remote screenshot');}
+ await evaluate('document.documentElement.dataset.theme="light"');
+
  await until(()=>evaluate('!document.querySelector(".dc-browser-operator button").disabled'));
  await evaluate('document.querySelector("[data-tab=remote-1]").click()');await until(()=>remoteActive==='remote-1');
  await until(()=>evaluate('!document.querySelector(".dc-browser-operator button").disabled'));
@@ -133,6 +158,7 @@ app.whenReady().then(async()=>{
  host.setSize(390,844);await wait(100);await until(()=>evaluate('!document.querySelector(".dc-browser-operator button").disabled'));
  await evaluate('document.querySelector(".dc-browser-agent-view img").click()');await until(()=>remoteManual);
  await evaluate('document.querySelector("[data-browser=more]").click();document.querySelector(".dc-browser-popup [data-browser=keyboard]").click()');await until(()=>evaluate('!document.querySelector(".dc-browser-control").hidden&&!document.querySelector(".dc-browser-operator button").disabled'));
+ const mobileMenu=await evaluate('(()=>{const r=document.querySelector(".dc-browser-popup").getBoundingClientRect();return{left:r.left,right:r.right,top:r.top,width:innerWidth}})()');assert.ok(mobileMenu.left>=0&&mobileMenu.right<=mobileMenu.width&&mobileMenu.top>40,JSON.stringify(mobileMenu));
  await wait(200);fs.writeFileSync(path.join(temp,'mobile-browser-control.png'),(await host.webContents.capturePage()).toPNG());
  await wait(5400);await until(()=>!remoteManual);assert.equal(await evaluate('document.querySelector(".dc-browser-control").hidden'),true,'five idle seconds return control automatically');
  remoteAI=true;await until(()=>evaluate('!document.querySelector(".dc-browser-ai-pointer").hidden'));
@@ -146,22 +172,67 @@ app.whenReady().then(async()=>{
  await evaluate('DragonClawWorkspace.openPanel()');assert.equal(Math.round(await evaluate('dcWorkspacePanel.getBoundingClientRect().width')),Math.round(workspaceWidth));
  workspaceEnabled=false;host.destroy();
  const readingEvents=[];
+ app.setPath('downloads',path.join(temp,'downloads'));
  const {createPromoStack}=require('../desktop-promo/promo-stack');
  const extensionsStatePath=path.join(temp,'extensions.json');
  fs.writeFileSync(extensionsStatePath,JSON.stringify({imported:[],disabled:['auto:icpm','bundled:chrome-capture-pro','bundled:overseas-salary-calculator']}));
- stack=createPromoStack({statePath:path.join(temp,'stack.json'),extensionsStatePath});
+ stack=createPromoStack({statePath:path.join(temp,'stack.json'),extensionsStatePath,getSidebarHost:()=>host});
  require('../desktop-browser-sidebar').registerBrowserSidebar({ipcMain,getWindow:()=>host,getBaseUrl:()=>base,browser:stack,onReadingChange:active=>readingEvents.push(active)});
+ const externalOpens=[],originalExternal=shell.openExternal;shell.openExternal=async url=>{externalOpens.push(url);};
+ const nativeMenus=[],originalBuild=Menu.buildFromTemplate;
+ Menu.buildFromTemplate=template=>({popup:options=>nativeMenus.push({template,options})});
+ const nativeItem=expression=>nativeMenus.at(-1)?.template.find(item=>expression.test(item.label||''));
  await makeHost(true);
  await evaluate('DragonBrowserSidebar.open()');
  await until(()=>host.getBrowserViews().length===1);
  assert.equal(readingEvents.at(-1),true,'desktop browser enables native quota reading mode');
  const wc=host.getBrowserViews()[0].webContents;
+ for(const theme of ['dark','light']){await evaluate(`document.documentElement.dataset.theme='${theme}'`);await until(()=>wc.executeJavaScript(`getComputedStyle(document.documentElement).backgroundColor===${JSON.stringify(theme==='dark'?'rgb(16, 17, 20)':'rgb(255, 255, 255)')}`));}
+
  await evaluate(`document.querySelector('.dc-browser-address input').value=${JSON.stringify(base+'/site')};document.querySelector('.dc-browser-address').requestSubmit()`);
  await until(()=>wc.getURL().endsWith('/site')&&!wc.isLoading());
  await wc.executeJavaScript('document.querySelector("#value").value="kept"');
+ // Native dropdowns overlay the original page, without detaching or resizing its BrowserView.
+ const nativeViewportBefore=await wc.executeJavaScript('JSON.stringify({width:innerWidth,height:innerHeight})');
+ const nativeSurfaceBefore=await evaluate('JSON.stringify(document.querySelector(".dc-browser-surface").getBoundingClientRect().toJSON())');
+ await evaluate('document.querySelector("[data-browser=more]").click()');await until(()=>nativeItem(/^(打印…|Print…)$/));
+ assert.equal(await evaluate('document.querySelector(".dc-browser-popup").hidden'),true,'desktop uses native dropdowns above the real page');
+ assert.equal(await evaluate('JSON.stringify(document.querySelector(".dc-browser-surface").getBoundingClientRect().toJSON())'),nativeSurfaceBefore);
+ assert.equal(await wc.executeJavaScript('JSON.stringify({width:innerWidth,height:innerHeight})'),nativeViewportBefore);
+ assert.equal(host.getBrowserViews().length,1);
+ nativeItem(/^(放大|Zoom in)$/).click();await until(()=>wc.getZoomFactor()>1);
+ nativeItem(/^(重置缩放|Reset zoom)/).click();await until(()=>wc.getZoomFactor()===1);
+ nativeItem(/^(在页面中查找|Find in page)$/).click();await until(()=>evaluate('!document.querySelector(".dc-browser-find").hidden'));
+ await evaluate('document.querySelector("[data-find-input]").value="next";document.querySelector("[data-find-input]").dispatchEvent(new Event("input"))');
+ await until(()=>evaluate('document.querySelector("[data-find-count]").textContent.endsWith(" / 1")'));
+ await evaluate('document.querySelector("[data-browser=find-close]").click()');await until(()=>evaluate('document.querySelector(".dc-browser-find").hidden'));
+ wc.emit('before-input-event',{preventDefault(){}},{type:'keyDown',control:true,key:'f'});await until(()=>evaluate('!document.querySelector(".dc-browser-find").hidden'));assert.equal(host.getBrowserViews().length,1,'find shortcut keeps the page docked');await evaluate('document.querySelector("[data-browser=find-close]").click()');
+ wc.downloadURL(base+'/download');await until(()=>fs.existsSync(path.join(temp,'downloads','dragon-toolbar-fixture.txt')));
+ assert.equal(fs.readFileSync(path.join(temp,'downloads','dragon-toolbar-fixture.txt'),'utf8'),'sidebar download fixture');
+ await evaluate('document.querySelector("[data-browser=downloads]").click()');await until(()=>nativeItem(/已完成|Completed/));
+ await evaluate('document.querySelector("[data-browser=extensions]").click()');await until(()=>nativeItem(/本浏览器已加载的插件|Extensions in this browser/));
+ // Mount the actual shared Windows caption controls, including max/fullscreen state changes.
+ ipcMain.handle('desktop-window:get-state',()=>({platform:'win32',maximized:false,fullscreen:false,focused:true}));
+ await evaluate('(()=>{const script=document.createElement("script");script.src="/js/shared/desktop-window.js";document.body.append(script)})()');
+ await until(()=>evaluate('!!document.querySelector(".desktop-controls")&&document.documentElement.classList.contains("desktop-win")'));
+ for(const maximized of [false,true]){
+  host.webContents.send('desktop-window:state',{platform:'win32',maximized,fullscreen:false,focused:true});await wait(120);
+  const geometry=await evaluate('(()=>{const caption=document.querySelector(".desktop-controls").getBoundingClientRect();return{bottom:caption.bottom,browserTop:Math.min(...[...document.querySelectorAll(".dc-browser-head button,.dc-browser-address button")].filter(b=>b.getClientRects().length).map(b=>b.getBoundingClientRect().top)),surfaceTop:document.querySelector(".dc-browser-surface").getBoundingClientRect().top}})()');
+  assert.ok(geometry.browserTop>=geometry.bottom+6,JSON.stringify(geometry));
+ }
+ await wait(150);fs.writeFileSync(path.join(temp,'windows-browser-toolbar.png'),(await host.webContents.capturePage()).toPNG());
+ host.webContents.send('desktop-window:state',{platform:'win32',maximized:false,fullscreen:true,focused:true});await wait(120);
+ assert.equal(await evaluate('document.querySelector(".desktop-controls").getClientRects().length'),0);
+ assert.equal(await evaluate('getComputedStyle(dcBrowserPanel).paddingTop'),'0px');
+ host.webContents.send('desktop-window:state',{platform:'win32',maximized:false,fullscreen:false,focused:true});await wait(120);
+ await evaluate('document.documentElement.dataset.theme="dark";document.querySelector("[data-browser=more]").click()');await wait(150);
+ fs.writeFileSync(path.join(temp,'windows-browser-menu-dark.png'),(await host.webContents.capturePage()).toPNG());
+ await evaluate('document.documentElement.dataset.theme="light"');
+
+ console.log('Checked sidebar menus, download, find, zoom and Windows caption separation.');
  // 同一个原生 BrowserView 的文件控件与滑块，无需远程截图输入桥。
- wc.debugger.attach('1.3');await wc.debugger.sendCommand('Page.enable');await wc.debugger.sendCommand('Page.setInterceptFileChooserDialog',{enabled:true});
- host.show();app.focus({steal:true});host.focus();wc.focus();await wait(120);
+ console.log('Starting native slider and upload checks.');wc.debugger.attach('1.3');await wc.debugger.sendCommand('Page.enable');await wc.debugger.sendCommand('Page.setInterceptFileChooserDialog',{enabled:true});
+ host.setIgnoreMouseEvents(true);host.showInactive();await wait(120); // Render native controls without stealing focus or receiving physical mouse input.
  await wc.executeJavaScript('window.nativeMouse=[];for(const type of ["mousedown","mousemove","mouseup"])document.addEventListener(type,e=>nativeMouse.push({type:e.type,id:e.target.id,x:e.clientX,y:e.clientY}));');
  const slider=await wc.executeJavaScript('(()=>{const r=document.getElementById("native-range").getBoundingClientRect();return{x:r.left+8,y:r.top+r.height/2}})()');
  await wc.debugger.sendCommand('Input.dispatchMouseEvent',{type:'mouseMoved',...slider});
@@ -176,6 +247,7 @@ app.whenReady().then(async()=>{
  assert.equal(await wc.executeJavaScript('document.getElementById("native-file").files[0].text()'),'native browser file');
  await wc.debugger.sendCommand('Page.setInterceptFileChooserDialog',{enabled:false});wc.debugger.off('message',onChooser);
  wc.debugger.detach();
+ console.log('Checked native slider and file upload.');
  const oldId=wc.id;
  const bounds=host.getBrowserViews()[0].getBounds();
  const dom=await evaluate('(()=>{const r=document.querySelector(".dc-browser-surface").getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height}})()');
@@ -201,15 +273,28 @@ app.whenReady().then(async()=>{
  await evaluate('(()=>{const d=document.createElement("div");d.id="modal-fixture";d.setAttribute("aria-modal","true");document.body.append(d)})()');
  await until(()=>host.getBrowserViews().length===0);
  await evaluate('document.getElementById("modal-fixture").remove()');await until(()=>host.getBrowserViews().length===1);
- await evaluate('document.querySelector("[data-browser=popout]").click()');await until(()=>host.getBrowserViews().length===0);
- const separate=BrowserWindow.getAllWindows().find(w=>w!==host&&w.getBrowserViews().some(v=>v.webContents.id===agent.webContents.id));
- assert.ok(separate,'existing tab moves to separate browser window');
- await evaluate('DragonBrowserSidebar.open()');await until(()=>host.getBrowserViews().some(v=>v.webContents.id===agent.webContents.id));
+ assert.equal(await evaluate('document.querySelector("[data-browser=popout]")'),null,'there is no separate Dragon window button');
+ const pageCountBeforeExternal=BrowserWindow.getAllWindows().length;
+ await evaluate('document.querySelector("[data-browser=external]").click()');await until(()=>externalOpens.includes(base+'/second'));
+ assert.equal(BrowserWindow.getAllWindows().length,pageCountBeforeExternal,'external opening never creates a Dragon window');
+ assert.ok(host.getBrowserViews().some(view=>view.webContents.id===agent.webContents.id),'original native page stays in the sidebar');
  await wait(500);fs.writeFileSync(path.join(temp,'sidebar.png'),(await host.webContents.capturePage()).toPNG());
  assert.equal(await agent.webContents.executeJavaScript('document.body.textContent'), 'second');
  await agent.webContents.loadURL(base+'/narrow');
  await until(()=>evaluate('dcBrowserPanel.getBoundingClientRect().width<=600'));
  const nativeNarrow=await evaluate('dcBrowserPanel.getBoundingClientRect().width');await wait(2700);
  assert.equal(await evaluate('dcBrowserPanel.getBoundingClientRect().width'),nativeNarrow,'native narrow content does not oscillate after resizing');
- stack.destroy();host.destroy();server.close();clearTimeout(timeout);console.log('PASS: unified browser, manual input, tabs, handback, workspace resize, panel switching, mobile, desktop docking, preserved page state, AI opens, drag, modal occlusion and popout. '+temp);app.exit(0);
+ // Login promotion sync creates sidebar tabs, no floating promotion cards or independent browser windows.
+ const existingTabs=await evaluate('document.querySelectorAll(".dc-browser-tab").length'),windowsBefore=BrowserWindow.getAllWindows().length;
+ const promotionConfig={desktopStack:true,maxLinks:2,rotateSeconds:60,links:[{id:'promo-one',name:'Promotion one',enabled:true,url:base+'/site'},{id:'promo-two',name:'Promotion two',enabled:true,url:base+'/second'}]};
+ stack.sync(promotionConfig);await until(()=>evaluate(`document.querySelectorAll(".dc-browser-tab").length===${existingTabs+2}`));
+ assert.equal(BrowserWindow.getAllWindows().length,windowsBefore,'promotions create no floating card windows');assert.equal(stack.status().items.length,2);
+ stack.sync(promotionConfig);await wait(200);assert.equal(await evaluate('document.querySelectorAll(".dc-browser-tab").length'),existingTabs+2,'repeated login/settings sync does not duplicate tabs');
+ stack.setPaused(true);await until(()=>evaluate(`document.querySelectorAll(".dc-browser-tab").length===${existingTabs}`));assert.equal(agent.webContents.isDestroyed(),false,'pausing promotion leaves user and AI pages intact');
+ // Old renderer popout requests also open the default browser without detaching a page.
+ const beforeLegacy=externalOpens.length;stack.popoutBrowser();await until(()=>externalOpens.length===beforeLegacy+1);assert.equal(host.getBrowserViews().length,1);
+ const routed=await stack.openAgentPage({url:base+'/site',name:'Automatic browser entry'});await until(()=>host.getBrowserViews().some(view=>view.webContents===routed.webContents));
+ const independent=BrowserWindow.getAllWindows().filter(window=>window!==host&&window.isVisible()&&window.getBrowserViews().length);assert.equal(independent.length,0,'no automatic standalone Dragon window');
+ stack.open({name:'Clicked promotion',url:base+'/second'});await until(()=>host.getBrowserViews()[0]?.webContents.getURL().endsWith('/second'));
+ shell.openExternal=originalExternal;Menu.buildFromTemplate=originalBuild;stack.destroy();host.destroy();server.close();clearTimeout(timeout);await wait(500);console.log('PASS: unified browser, manual input, tabs, handback, workspace resize, panel switching, mobile, desktop docking, preserved page state, AI opens, drag, modal occlusion and external browser opening. '+temp);app.exit(0);
 }).catch(e=>{console.error(e);stack?.destroy();host?.destroy();server?.close();app.exit(1)});

@@ -11,4 +11,5 @@ async function available(owner) { await ensure(); const row = await platform.get
 async function matches(owner) { await ensure(); return !!await platform.get('SELECT device FROM desktop_agent_host_bindings WHERE device=? AND tenant_id=? AND owner=?', [device(), getTenantId(), owner]); }
 async function claim(owner) { await ensure(); await platform.run('INSERT OR IGNORE INTO desktop_agent_host_bindings(device,tenant_id,owner) VALUES(?,?,?)', [device(), getTenantId(), owner]); return matches(owner); }
 async function release(owner) { await ensure(); await platform.run('DELETE FROM desktop_agent_host_bindings WHERE device=? AND tenant_id=? AND owner=?', [device(), getTenantId(), owner]); }
-module.exports = { available, matches, claim, release };
+async function current() { await ensure(); return platform.get('SELECT tenant_id,owner FROM desktop_agent_host_bindings WHERE device=?',[device()]); }
+module.exports = { current, available, matches, claim, release };

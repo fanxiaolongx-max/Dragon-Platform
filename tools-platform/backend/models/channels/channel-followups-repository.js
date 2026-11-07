@@ -233,12 +233,13 @@ async function listThreadMessages(channel, kind, id, { limit = 40, before = '' }
         where += ' AND (created_at < ? OR (created_at = ? AND rowid < ?))';
         params.push(cursor.created_at, cursor.created_at, cursor.seq);
     }
-    const rows = await all(`SELECT id, session_id, role, content, events, created_at, model_name, rowid AS seq FROM ai_chat_messages
+    const rows = await all(`SELECT id, session_id, role, content, events, created_at, model_name, input_tokens, output_tokens, rowid AS seq FROM ai_chat_messages
         WHERE ${where} ORDER BY created_at DESC, rowid DESC LIMIT ?`, [...params, size + 1]);
     const total = Number((await get(`SELECT COUNT(*) AS total FROM ai_chat_messages WHERE session_id IN (${marks})`, ids))?.total || 0);
     const items = rows.slice(0, size).reverse().map(row => {
         let events = [];
         try { events = row.events ? JSON.parse(row.events) : []; } catch { events = []; }
+        if (!Array.isArray(events)) events = [];
         const channelEvent = events.find(event => event?.type === 'channel') || {};
         return {
             id: row.id,
@@ -250,7 +251,18 @@ async function listThreadMessages(channel, kind, id, { limit = 40, before = '' }
             // 主动推送（运营计划、测试、手动推送、跟进提醒）：时间线上标注来源
             push: (event => (event ? { trigger: event.trigger || '', source: event.source || '' } : null))(events.find(item => item?.type === 'push')),
             createdAt: toIso(row.created_at),
-            modelName: row.model_name || ''
+            modelName: row.model_name || '',
+            usage: row.role === 'model' ? { inputTokens: row.input_tokens || 0, outputTokens: row.output_tokens || 0 } : null,
+            // Expose metrics only; never return tool arguments or channel-private event payloads.
+            rounds: row.role === 'model' ? events.filter(event => event?.type === 'model_round' && event.round && typeof event.round === 'object').map(({round}) => {
+                const result = {};
+                for (const key of ['index','inputTokens','outputTokens','cachedInputTokens','reasoningOutputTokens','visibleOutputTokens','decodeTokens','ms','ttftMs','turnTtftMs','generationMs','tps']) result[key] = typeof round[key] === 'number' && Number.isFinite(round[key]) && round[key] >= 0 ? round[key] : null;
+                result.model = typeof round.model === 'string' ? round.model.slice(0,200) : '';
+                result.timingSource = ['request-stream','buffered','log-boundary','usage-only'].includes(round.timingSource) ? round.timingSource : '';
+                result.estimated = round.estimated === true;
+                result.timingEstimated = round.timingEstimated === true;
+                return result;
+            }) : []
         };
     });
     return { segments, items, hasMore: rows.length > size, total };

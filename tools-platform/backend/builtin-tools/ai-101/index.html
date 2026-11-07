@@ -174,12 +174,28 @@ h1 em,.em{font-style:normal;color:var(--acc)}
 .quote em{font-style:normal;color:var(--acc)}
 
 /* map */
-.map{margin-top:40px;border-top:1px solid var(--ink)}
-.map .row{display:grid;grid-template-columns:150px 1fr 1fr 1fr;border-bottom:1px solid var(--line);font-size:25px;padding:13px 0;transition:background .4s}
+.map{margin-top:36px;border-top:1px solid var(--ink)}
+.map .row{display:grid;grid-template-columns:128px .82fr 1.02fr .72fr 1.3fr;border-bottom:1px solid var(--line);font-size:21px;padding:9px 0;transition:background .4s}
 .map .row:hover{background:rgba(255,255,255,.7)}
-.map .row.h{font-size:16px;letter-spacing:.14em;color:var(--muted);padding:16px 0}
-.map .row .rg{font-size:17px;color:var(--faint);letter-spacing:.1em}
+.map .row.h{font-size:15px;letter-spacing:.1em;color:var(--muted);padding:13px 0}
+.map .row .rg{font-size:16px;color:var(--faint);letter-spacing:.06em}
 .map .row b{font-weight:600}
+.map .row .mdl{font-size:17px;color:var(--ink2);letter-spacing:-.01em;line-height:1.3}
+/* optional model sheet */
+.msheet-open{display:flex;align-items:center;gap:24px;margin-top:26px}
+.msheet-open span{font-size:19px;color:var(--muted)}
+.msheet{position:absolute;inset:0;z-index:30;display:none;align-items:center;justify-content:center;background:rgba(18,18,20,.66);backdrop-filter:blur(6px)}
+.msheet.open{display:flex}
+.msheet .mbox2{width:1580px;max-height:950px;overflow:auto;background:var(--paper);border:1px solid var(--line);border-radius:24px;padding:44px 56px 38px;box-shadow:0 40px 120px rgba(0,0,0,.3)}
+.msheet-h{display:flex;justify-content:space-between;align-items:flex-start;gap:30px}
+.msheet-k{font-size:16px;letter-spacing:.18em;color:var(--acc);margin-bottom:12px}
+.msheet h2{font-family:var(--zh-serif);font-size:46px;font-weight:500;margin:0;letter-spacing:-.01em}
+:root[lang="en"] .msheet h2{font-family:var(--serif);font-size:54px;font-weight:400;letter-spacing:0}
+.msheet-note{font-size:19px;color:var(--muted);margin:18px 0 0;line-height:1.6}
+.msheet .map{margin-top:28px;border-top:1px solid var(--ink)}
+.msheet .map .row{font-size:20px;padding:11px 0;grid-template-columns:150px .9fr 1.15fr .8fr 1.5fr}
+.msheet .map .row .mdl{font-size:18px}
+.msheet-foot{font-size:16px;color:var(--faint);margin-top:24px;display:flex;justify-content:space-between}
 .chain{display:flex;align-items:center;gap:18px;font-size:24px;color:var(--muted)}
 .chain span{color:var(--ink);font-weight:600;font-size:26px}
 .chain svg{width:60px;height:12px}
@@ -206,28 +222,6 @@ h1 em,.em{font-style:normal;color:var(--acc)}
 .flow .dot{width:58px;height:58px;border-radius:50%;margin:0 auto 22px;border:1.5px solid var(--ink);display:grid;place-items:center;font-family:var(--serif);font-style:italic;font-size:26px;background:var(--paper)}
 .flow svg{width:120px;height:20px;flex:0 0 120px}
 .flow svg path{stroke:var(--faint);stroke-width:1.5;fill:none}
-
-/* case slide */
-.case{display:grid;grid-template-columns:560px 1fr;gap:70px;margin-top:20px;height:600px}
-.case .left{display:flex;flex-direction:column;min-height:0}
-.case .pick{display:flex;flex-direction:column;gap:10px;overflow:auto;padding-right:8px;margin-top:18px;flex:1;min-height:0}
-.case .pick button{text-align:left;border:1px solid var(--line);background:var(--paper);border-radius:14px;padding:14px 18px;font-size:20px;color:var(--ink2);transition:all .4s var(--ease);display:flex;gap:12px;align-items:center}
-.case .pick button small{font-family:var(--serif);font-style:italic;color:var(--faint);font-size:18px}
-.case .pick button:hover{border-color:var(--ink)}
-.case .pick button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
-.case .chosen{font-family:var(--zh-serif);font-size:40px;line-height:1.45;font-weight:500;outline:none;min-height:116px;border-bottom:1px solid var(--line);padding-bottom:20px}
-.case .chosen:empty:before{content:attr(data-ph);color:var(--faint)}
-.case .lbl{font-size:16px;letter-spacing:.16em;color:var(--muted);margin-bottom:16px}
-.case .tpl{display:flex;flex-direction:column;border-top:1px solid var(--ink)}
-.case .f{display:grid;grid-template-columns:230px 1fr;align-items:baseline;border-bottom:1px solid var(--line);padding:20px 0}
-.case .f b{font-size:26px;font-weight:600;display:flex;gap:12px;align-items:baseline}
-.case .f b i{font-family:var(--serif);font-weight:400;color:var(--acc);font-size:24px}
-.case .f b small{display:block}
-.case .f .hint{font-size:16px;color:var(--faint);font-weight:400;margin-top:4px;display:block}
-.case .f div[contenteditable]{font-size:25px;line-height:1.55;outline:none;min-height:38px;color:var(--ink);border-radius:8px;padding:2px 8px;margin:-2px -8px;transition:background .3s}
-.case .f div[contenteditable]:focus{background:var(--acc-soft)}
-.case .f div[contenteditable]:empty:before{content:attr(data-ph);color:var(--faint)}
-.case .empty{font-size:20px;color:var(--faint);border:1.5px dashed var(--line2);border-radius:14px;padding:20px}
 
 /* desk */
 .desk{display:grid;grid-template-columns:1.55fr 1fr;gap:60px;margin-top:50px;align-items:center}
@@ -403,7 +397,7 @@ h1 em,.em{font-style:normal;color:var(--acc)}
 .fnEnd{opacity:0;transform:translateY(16px);transition:all 1s var(--ease)}
 .fn.done~.fnEnd{opacity:1;transform:none}
 /* en */
-:root[lang="en"] .quote,:root[lang="en"] .three p,:root[lang="en"] .case .chosen{font-family:var(--serif);font-weight:400;letter-spacing:0}
+:root[lang="en"] .quote,:root[lang="en"] .three p{font-family:var(--serif);font-weight:400;letter-spacing:0}
 :root[lang="en"] .quote{font-size:80px;line-height:1.22}
 :root[lang="en"] .outside div:after{content:"not visible"}
 .divider .lead{max-width:900px}
@@ -411,6 +405,42 @@ h1 em,.em{font-style:normal;color:var(--acc)}
 :root[lang="en"] .cover h1{font-size:220px;line-height:.95}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01s!important;transition-duration:.01s!important}}
 @media print{html,body{overflow:visible;height:auto}#viewport{position:static;display:block}#stage{transform:none!important;height:auto;overflow:visible}header,footer,#bar,.actions,#modal,#toast,.orb,.grain{display:none!important}.slide{display:flex!important;position:relative;inset:auto;height:1080px;padding:150px 140px 120px;break-after:page}.slide *{animation:none!important;opacity:1!important;transform:none!important;filter:none!important}@page{size:1920px 1080px;margin:0}}
+
+
+/* ===== live practice arena (deck palette only, zero dependencies) ===== */
+.arena{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:24px}
+.arena-col{display:flex;flex-direction:column;gap:18px;min-width:0}
+.arena-box{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:18px 24px}
+.arena-h{font-size:16px;letter-spacing:.12em;color:var(--muted);margin-bottom:10px;white-space:nowrap}
+.arena .wall{min-height:0;max-height:160px;margin-top:0;gap:8px;padding:2px;overflow:auto;align-content:flex-start}
+.arena .pain{font-size:17px;padding:8px 34px 8px 12px;border-radius:12px;max-width:none;animation:none;box-shadow:none}
+.arena .pain .x{top:2px;right:8px;font-size:16px}
+.arena .pain .tg{display:none}
+.arena .hints span{font-size:16px;padding:8px 14px}
+.arena .inbar{margin-top:8px;padding-bottom:6px;gap:8px}
+.arena .inbar input{font-size:20px}
+.arena .btn{padding:7px 14px;font-size:15px}
+.arena-mission textarea{width:100%;height:84px;resize:none;border:1px solid var(--line2);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit;font-size:19px;line-height:1.5;padding:8px 12px;outline:none}
+.arena-mission textarea:focus{border-color:var(--acc)}
+.arena-tip{font-size:15px;color:var(--faint);margin-top:6px;line-height:1.45}
+.aseg{display:flex;gap:8px;margin-bottom:10px}
+.aseg button{border:1px solid var(--line2);background:var(--bg);border-radius:99px;padding:5px 16px;font-size:15px;color:var(--muted);transition:all .3s var(--ease)}
+.aseg button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.agrp{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.agrp.two{grid-template-columns:repeat(2,1fr)}
+.agcard{border-top:2px solid var(--ink);padding-top:12px}
+.agcard .agn{font-size:15px;letter-spacing:.1em;color:var(--faint)}
+.agcard .agt{font-size:20px;color:var(--ink);margin:6px 0 10px;line-height:1.35;min-height:54px}
+.agcard button{border:1px solid var(--line2);background:var(--bg);border-radius:99px;padding:5px 12px;font-size:14px;color:var(--muted)}
+.agcard button.on{background:var(--ok);color:#fff;border-color:var(--ok)}
+.arena-timer{display:block}
+.arena .clock{font-size:104px;line-height:1}
+.arena .tctl{margin-top:0;gap:8px;flex-wrap:wrap}
+.arena .seg button{padding:6px 12px;font-size:14px}
+.arena-body{font-size:17px;line-height:1.55;color:var(--ink2)}
+.arena-body .kv{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.arena-body .pill{border:1px solid var(--line2);border-radius:99px;padding:4px 12px;font-size:15px;color:var(--ink2)}
+#aFoot{font-size:17px;color:var(--muted);margin-top:16px}
 </style>
 </head>
 <body>
@@ -422,15 +452,15 @@ h1 em,.em{font-style:normal;color:var(--acc)}
 <main id="slides">
 
 <!-- 01 COVER -->
-<section class="slide cover" data-lv="0" data-o="70,-10,10,60" data-notes="开场不讲概念。一句话定调：今天不是讲 AI 原理，是让 AI 帮你把手上的活干掉。建议 90 分钟：开场收集问题 10 分钟，五级台阶各 12 分钟，实战 20 分钟。">
+<section class="slide cover" data-lv="0" data-o="70,-10,10,60" data-notes="开场不讲概念、不收集问题、不放例子。今天方法快速过一遍约 20 分钟，剩下约 70 分钟现场提需求、一起做、现场快验；课后提交正式版由讲师统一测试验收。课件只是骨架，内容全部来自现场。" data-notes-en="No concepts, no problem collection, no examples up front. About 20 minutes on the method, then ~70 minutes building live from the room&#x27;s needs. Quick validation in class; final versions sent afterwards for a unified test. The deck is only a skeleton.">
   <svg class="wave draw" viewBox="0 0 2200 360" preserveAspectRatio="none">
     <path d="M0,220 C200,120 400,320 600,220 S1000,120 1200,220 S1600,320 1800,220 S2100,140 2200,200" stroke="#ff5a1f" style="--i:0"/>
     <path d="M0,260 C220,190 420,330 640,260 S1040,180 1260,260 S1660,330 1880,260 S2120,210 2200,240" stroke="#c9c6be" style="--i:2"/>
   </svg>
   <div class="kicker r">通信工程师 · AI 入门与实战</div>
   <h1 class="split">AI 入门<br><em>第一课</em></h1>
-  <p class="lead r">从第一次提问，到让 AI 替你干完一件活。</p>
-  <div class="meta r"><div><b>90</b>分钟</div><div><b>5</b>级台阶</div><div><b>你的</b>真实问题</div></div>
+  <p class="lead r">方法快速过一遍，剩下的时间一起把活干完。</p>
+  <div class="meta r"><div><b>90</b>分钟</div><div><b>5</b>级台阶</div><div><b>现场</b>实战</div></div>
 </section>
 
 <!-- 02 FUNNEL WARM-UP -->
@@ -453,16 +483,19 @@ h1 em,.em{font-style:normal;color:var(--acc)}
 </section>
 
 <!-- 02 PAIN WALL -->
-<section class="slide" data-lv="0" data-o="10,20,80,70" data-notes="核心环节，现场收集 10–15 个问题。引导提问：哪件事最耗时间？哪件事最重复？哪件事最怕出错？讲师或助教把问题输入下面的框，按回车上墙。上墙后点 L2–L5 给每个问题打标签，对应后面哪一章最能解决它（可以打多个）。后面每章都有一页『现场案例』，会从这面墙里挑问题来套方法。数据保存在本机浏览器里。">
-  <div class="kicker r"><b>00</b>开始之前</div>
-  <h1 class="split">你最想甩给 AI 的<em>那件活</em>是什么？</h1>
-  <p class="lead r">最耗时间的、最重复的、最怕出错的——都可以。</p>
-  <div class="wall r" id="wall"></div>
-  <div class="inbar r"><input id="painIn" placeholder="输入一个问题，按回车上墙…" autocomplete="off"><span class="count" id="painCount">0</span><button class="btn" onclick="clearPains()">清空</button></div>
+<section class="slide" data-lv="0" data-o="10,20,80,70" data-notes="开场不讲概念、不收集问题、不放例子。30 秒说明今天的结构：方法快速过一遍，然后现场提需求、归并成同一个任务、2–3 组分工一起做、现场快验、课后统一测试验收。说完直接进正题。" data-notes-en="No concepts, no collecting problems, no examples. In 30 seconds: a fast method run-through, then collect needs, merge into one task, 2–3 groups on different stages, quick live validation, unified test afterwards. Then go straight into the content.">
+  <div class="kicker r"><b>00</b>今天怎么上</div>
+  <h1 class="split">方法<em>快速过</em>，时间<em>留给做</em></h1>
+  <div class="grid g3 mt2">
+    <div class="card pop"><span class="n">01</span><h3>讲方法</h3><p>五级台阶只讲骨架，约 20 分钟。</p></div>
+    <div class="card pop"><span class="n">02</span><h3>现场提需求</h3><p>收 10 个需求，归并成同一个任务。</p></div>
+    <div class="card pop"><span class="n">03</span><h3>一起做完</h3><p>2–3 组分工不同环节，拼成一个结果。</p></div>
+  </div>
+  <p class="callout r mt2">课件里不放任何预置例子：内容全部来自现场，讲师同步一起做，最后统一测试验收。</p>
 </section>
 
 <!-- 03 ROADMAP -->
-<section class="slide" data-lv="0" data-o="60,40,0,0" data-notes="全场地图。五个动词：懂、问、喂、验、用。越往后越依赖前面的基础。刚收集的问题会分散到每一级里去解决。">
+<section class="slide" data-lv="0" data-o="60,40,0,0" data-notes="全场地图，快速过：懂、问、喂、验、用，五个动词各解决一类问题。每页只给骨架和一句结论，不展开、不举例，把时间留给最后的实战。" data-notes-en="Route map, fast: Know, Ask, Feed, Check, Use. One skeleton and one takeaway per page — no elaboration, no examples. Save the time for the final practice.">
   <div class="kicker r"><b>00</b>今天的路线</div>
   <h1 class="split">五级台阶，每一级解决一类问题</h1>
   <div class="stairs">
@@ -475,7 +508,7 @@ h1 em,.em{font-style:normal;color:var(--acc)}
 </section>
 
 <!-- L1 -->
-<section class="slide divider" data-lv="1" data-o="75,10,5,70" data-notes="第一章只建立直觉：它是什么、为什么会错。">
+<section class="slide divider" data-lv="1" data-o="75,10,5,70" data-notes="第一章只建立直觉：它是什么、为什么会错。" data-notes-en="Chapter 1 builds intuition only: what it is, and why it gets things wrong.">
   <svg class="num" viewBox="0 0 900 700"><text x="880" y="580" text-anchor="end">01</text></svg>
   <div class="kicker r">LEVEL ONE</div>
   <h1 class="split">懂它</h1>
@@ -483,72 +516,59 @@ h1 em,.em{font-style:normal;color:var(--acc)}
   <div class="goal r"><span>学完能做到</span>用一句话向同事讲清楚大模型</div>
 </section>
 
-<section class="slide" data-lv="1" data-o="50,-10,0,60" data-notes="点按钮演示两次。第一次接出“配置”，第二次它会“编”一个具体的数字。重点：它每一步都在挑“最像的”，而不是“真实的”——这就是幻觉的根源。百分比为示意。">
+<section class="slide" data-lv="1" data-o="50,-10,0,60" data-notes="一句话讲清原理即可，不做演示、不举例子。重点只有一句：它挑的是最像的下一个词，不是真的答案。这一句是后面 L2 交底、L4 核查的共同前提。" data-notes-en="One sentence is enough. No demo, no examples. The one point: it picks the most likely next word, not the true answer. That premise underpins L2 briefing and L4 checking.">
   <div class="kicker r"><b>01</b>一句话理解大模型</div>
   <h1 class="split">它是一个超级<em>“接龙”</em>高手</h1>
   <p class="lead r">读过海量文字，学会了“下一个词最可能是什么”。一个词接一个词，写出整段回答。</p>
-  <div class="nt">
-    <div class="nt-text r" id="ntText"></div>
-    <div class="r"><div class="cands" id="ntCands"></div>
-      <div class="ntw callout" id="ntWarn">它没查过任何数据，却给出了<b>一个具体数字</b>。<br>因为这样<b>最顺口</b>，不是因为<b>真实</b>。</div></div>
-  </div>
-  <div class="actions"><button class="btn" onclick="ntReset()">重来</button><button class="btn pri" onclick="ntNext()">接下一个词 →</button></div>
+  <p class="callout r mt2">它挑的是最像的下一个词，不是真实的答案；说得越顺，越容易当真。</p>
+  <p class="note r mt1">所以：会写不等于查过，说得肯定不等于说得对。</p>
 </section>
 
-<section class="slide" data-lv="1" data-o="10,60,80,0" data-notes="右边每一条在后面都有对应的方法：没告诉它的→L3 喂它；会编→L4 验它；不负责→贯穿全场。">
+<section class="slide" data-lv="1" data-o="10,60,80,0" data-notes="右边每一条在后面都有对应的方法：没告诉它的→L3 喂它；会编→L4 验它；不负责→贯穿全场。" data-notes-en="Each item on the right maps to a later chapter: not knowing → L3 Feed it; making things up → L4 Check it; no accountability → the whole session.">
   <div class="kicker r"><b>01</b>所以</div>
   <h1 class="split">长处和短处，都来自“接龙”</h1>
   <div class="grid g2 mt1" style="gap:90px">
     <div class="r"><div class="col-h"><span class="tag ok">放心交给它</span></div>
-      <ul class="list"><li><i>a</i><div>写和改<span>报告、方案、纪要、总结</span></div></li><li><i>b</i><div>读和提炼<span>长文档、规范、聊天记录</span></div></li><li><i>c</i><div>翻译与解释<span>英文资料、协议条款</span></div></li><li><i>d</i><div>脚本与公式<span>Python、Excel、正则</span></div></li></ul></div>
+      <ul class="list"><li><i>a</i><div>写和改<span>文字材料</span></div></li><li><i>b</i><div>读和提炼<span>既有材料</span></div></li><li><i>c</i><div>翻译与解释<span>不熟悉的表述</span></div></li><li><i>d</i><div>脚本与公式<span>可机械检查的规则</span></div></li></ul></div>
     <div class="r"><div class="col-h"><span class="tag bad">要盯着它</span></div>
-      <ul class="list"><li><i>a</i><div>不知道你没说的<span>你的网络、你的项目、你的客户</span></div></li><li><i>b</i><div>不知道最新发生的<span>除非打开联网搜索</span></div></li><li><i>c</i><div>会一本正经地编<span>数字、原因、出处</span></div></li><li><i>d</i><div>不为结果负责<span>签字的永远是你</span></div></li></ul></div>
+      <ul class="list"><li><i>a</i><div>不知道你没说的<span>你没说出口的现场信息</span></div></li><li><i>b</i><div>不知道最新发生的<span>除非明确给它新信息</span></div></li><li><i>c</i><div>会一本正经地编<span>缺失的细节</span></div></li><li><i>d</i><div>不为结果负责<span>责任不会转移</span></div></li></ul></div>
   </div>
 </section>
 
-<section class="slide" data-lv="1" data-o="30,70,90,10" data-notes="这个比喻贯穿全场：实习生需要交底（L2）、需要材料（L3）、需要检查（L4）、可以放手干活但要划红线（L5）。">
+<section class="slide" data-lv="1" data-o="30,70,90,10" data-notes="这个比喻贯穿全场：实习生需要交底（L2）、需要材料（L3）、需要检查（L4）、可以放手干活但要划红线（L5）。" data-notes-en="This metaphor runs through the session: an intern needs a brief (L2), material (L3), checking (L4), and boundaries before being allowed to act (L5).">
   <div class="kicker r"><b>01</b>最好用的心智模型</div>
   <p class="quote r">把它当成一位<em>读遍天下书</em>，<br>但今天<em>第一天入职</em>的实习生。</p>
   <div class="grid g3 mt3">
-    <div class="card pop"><span class="n">i.</span><h3>聪明勤快</h3><p>→ 大胆派活。初稿、整理、翻译，几秒就交。</p></div>
+    <div class="card pop"><span class="n">i.</span><h3>聪明勤快</h3><p>→ 速度与产出都很好，值得用起来。</p></div>
     <div class="card pop"><span class="n">ii.</span><h3>不了解现场</h3><p>→ 交代清楚。你不说，它就靠猜。</p></div>
     <div class="card pop"><span class="n">iii.</span><h3>不懂也敢答</h3><p>→ 检查结果。它很少主动说“我不确定”。</p></div>
   </div>
 </section>
 
-<section class="slide" data-lv="1" data-o="80,-20,0,50" data-notes="核对于 2026-11-03。产品、套餐、可选模型变化很快，这里不做排名。关键：同一个产品里可以切换不同模型；用之前先确认单位许可和数据要求。">
+<section class="slide" data-lv="1" data-o="80,-20,0,50" data-notes="只讲三层关系：公司做产品，产品里可以切换模型。清单是可选的：点按钮会全屏放大一份型号对照清单，默认收起，讲的时候可以完全不点开。名字更新很快，用之前先确认单位许可与数据边界。" data-notes-en="Teach the three layers: a company builds products, a product can switch models. The list is optional: the button opens a full-screen reference sheet, collapsed by default — you can skip it entirely. Names go stale fast; check approval and data boundaries before use.">
   <div class="kicker r"><b>01</b>工具地图</div>
   <h1 class="split">先分清：公司、产品、模型</h1>
   <div class="chain r"><span>公司</span>研发运营<svg viewBox="0 0 60 12"><path d="M0 6h54m-6-5 6 5-6 5" stroke="#b5b5b8" fill="none" stroke-width="1.5"/></svg><span>产品</span>你打开的 App<svg viewBox="0 0 60 12"><path d="M0 6h54m-6-5 6 5-6 5" stroke="#b5b5b8" fill="none" stroke-width="1.5"/></svg><span>模型</span>背后干活的“大脑”</div>
-  <div class="map">
-    <div class="row h r"><div></div><div>公司</div><div>常用产品</div><div>模型家族</div></div>
-    <div class="row r"><div class="rg">外网·海外</div><div><b>OpenAI</b></div><div>ChatGPT · Codex</div><div>GPT</div></div>
-    <div class="row r"><div></div><div><b>Anthropic</b></div><div>Claude · Claude Code</div><div>Claude</div></div>
-    <div class="row r"><div></div><div><b>Google</b></div><div>Gemini · AI Studio</div><div>Gemini</div></div>
-    <div class="row r"><div class="rg">外网·国内</div><div><b>深度求索</b></div><div>DeepSeek</div><div>DeepSeek</div></div>
-    <div class="row r"><div></div><div><b>阿里巴巴</b></div><div>千问 · 百炼</div><div>Qwen</div></div>
-    <div class="row r"><div></div><div><b>字节跳动</b></div><div>豆包 · 火山方舟</div><div>Doubao / Seed</div></div>
-    <div class="row r"><div></div><div><b>月之暗面</b></div><div>Kimi</div><div>Kimi</div></div>
-  </div>
-  <p class="note r" style="margin-top:20px">代表性示例，非完整名单，不代表排名。用之前先确认：单位允许用哪个？数据能不能上传？</p>
+  <p class="callout r mt2">同一个产品里可以切换不同模型 —— 产品不等于模型。具体名字变化很快，用之前先确认：单位允许用哪个？数据能不能上传？</p>
+  <div class="msheet-open r mt1"><button class="btn" onclick="openModels()">看一眼清单（可选）</button><span>清单默认收起，型号变化快；也可以完全不点开。</span></div>
 </section>
 
-<section class="slide" data-lv="1" data-o="30,60,90,-10" data-notes="内网工具这一页：这些是华为内网可以直接使用的 Agent（以实际部署和权限为准）。它们背后接的通常是 DeepSeek、千问、GLM 等模型——再次印证“产品 ≠ 模型”。可以现场问：大家平时用过哪几个？各自用来干什么？" data-notes-en="Internal tools: these agents are available on the Huawei intranet (subject to actual deployment and access). Behind them are models such as DeepSeek, Qwen and GLM — another case of “product ≠ model”. Ask the room: which have you used, and for what?">
-  <div class="kicker r"><b>01</b>工具地图 · 内网</div>
-  <h1 class="split">华为内网，也有<em>直接能用</em>的 Agent</h1>
-  <div class="agents">
-    <div class="card pop"><span class="ic">W</span><div><h3>WeBotClaw</h3><small>内网可用</small></div></div>
-    <div class="card pop"><span class="ic">G</span><div><h3>GDEClaw Desktop</h3><small>内网可用</small></div></div>
-    <div class="card pop"><span class="ic">W</span><div><h3>WeClaw Desktop</h3><small>内网可用</small></div></div>
-    <div class="card pop"><span class="ic">A</span><div><h3>AgentOS Desktop</h3><small>内网可用</small></div></div>
-    <div class="card pop"><span class="ic">I</span><div><h3>ISDPClaw Desktop</h3><small>内网可用</small></div></div>
-    <div class="card pop"><span class="ic">G</span><div><h3>GTSLLM 专业智能体</h3><small>试点版 6.0.3</small></div></div>
+<section class="slide" data-lv="1" data-o="30,60,90,-10" data-notes="这一页给出具体例子：内网不允许自行安装外部 Agent 软件（Codex、Gemini CLI 等），可以安装单位提供的 GDEClaw / webotClaw / WeClaw。强调内外是两套规则，具体以单位实际部署与权限为准；数据能不能外发另按 L3 判断。" data-notes-en="Give concrete examples here: external agent clients (Codex, Gemini CLI, etc.) may not be installed on the intranet; the organisation-provided GDEClaw / webotClaw / WeClaw can be. Inside and outside are two different rule sets — follow the actual deployment and permissions. Whether data may leave is a separate L3 decision.">
+  <div class="kicker r"><b>01</b>工具地图 · 边界</div>
+  <h1 class="split">看内外<em>允许用什么</em></h1>
+  <div class="grid g3 mt1">
+    <div class="card pop"><span class="n">i.</span><h3>看许可</h3><p>以单位实际部署与权限为准。</p></div>
+    <div class="card pop"><span class="n">ii.</span><h3>看数据</h3><p>先判断这段材料能不能出公司。</p></div>
+    <div class="card pop"><span class="n">iii.</span><h3>看关系</h3><p>同一个入口，背后可能换不同模型。</p></div>
   </div>
-  <div class="models r"><span>背后接的模型，通常是</span><span class="m">DeepSeek</span><span class="m">千问 Qwen</span><span class="m">GLM</span><span>等</span></div>
-  <p class="callout r mt1">同一个 Agent，背后可能换不同模型——<b>产品 ≠ 模型</b>。</p>
+  <div class="grid g2 mt1" style="gap:26px">
+    <div class="card pop"><span class="tag bad">内网 · 不允许</span><h3 style="margin-top:24px">自行安装外部 Agent 软件</h3><p>Codex、Gemini CLI 等，一律不自行安装。</p></div>
+    <div class="card pop"><span class="tag ok">内网 · 可以装</span><h3 style="margin-top:24px">单位提供的 Claw 工具</h3><p>GDEClaw · webotClaw · WeClaw 等。</p></div>
+  </div>
+  <p class="note r" style="margin-top:30px">外网按单位许可与数据边界另算；具体以单位实际部署与权限为准。</p>
 </section>
 
-<section class="slide" data-lv="1" data-o="20,10,70,60" data-notes="不推荐具体型号，教方法：按任务类型选功能，再用自己的脱敏任务试一试。">
+<section class="slide" data-lv="1" data-o="20,10,70,60" data-notes="不推荐具体型号，教方法：按任务类型选功能，再用自己的脱敏任务试一试。" data-notes-en="No specific model recommendations — they change too fast. Teach the method: choose capabilities by task type, then trial with your own desensitised task.">
   <div class="kicker r"><b>01</b>怎么选</div>
   <h1 class="split">别看排行榜，看你的任务</h1>
   <div class="grid g4 mt2">
@@ -561,7 +581,7 @@ h1 em,.em{font-style:normal;color:var(--acc)}
 </section>
 
 <!-- L2 -->
-<section class="slide divider" data-lv="2" data-o="5,-10,75,65" data-notes="第二章：同一个 AI，问法不同，结果天差地别。">
+<section class="slide divider" data-lv="2" data-o="5,-10,75,65" data-notes="第二章：同一个 AI，问法不同，结果天差地别。" data-notes-en="Chapter 2: same AI, different question, very different result.">
   <svg class="num" viewBox="0 0 900 700"><text x="880" y="580" text-anchor="end">02</text></svg>
   <div class="kicker r">LEVEL TWO</div>
   <h1 class="split">问它</h1>
@@ -569,34 +589,32 @@ h1 em,.em{font-style:normal;color:var(--acc)}
   <div class="goal r"><span>学完能做到</span>写出一段“拿来就能用”的提示词</div>
 </section>
 
-<section class="slide" data-lv="2" data-o="60,50,0,-10" data-notes="左边是大多数人的问法。右边是把同一件事说清楚——方括号是要填的内容，可以现场挑墙上一个问题口头填一遍。">
+<section class="slide" data-lv="2" data-o="60,50,0,-10" data-notes="只讲最简三要素：输入 / 处理逻辑 / 输出，这是最万能的交代方式，写提示词、写工具都用得上。左边是三要素全没给的问法，右边是三要素齐全的问法。讲解阶段不做填写、不组织互动，实际动手统一放到最后的实战台。" data-notes-en="Teach the three-element minimum: input / logic / output — the most reusable way to brief both a prompt and a tool. Left states none of them, right states all three. No filling in and no live interaction during the talk — all hands-on work happens in the final arena.">
   <div class="kicker r"><b>02</b>同一个需求，两种问法</div>
   <h1 class="split">它不是不聪明，是<em>你没说清</em></h1>
   <div class="vs">
-    <div class="r"><div class="col-h"><span class="tag">大多数人这样问</span></div><div class="bubble" style="font-size:34px">“帮我看看这个。”</div><p class="note" style="margin-top:20px">→ 它只能猜你要什么，然后给你一个“看起来不错”的答案。</p></div>
-    <div class="r"><div class="col-h"><span class="tag acc">说清楚的问法</span></div><div class="bubble">我要<span class="slot"><b>目标</b>得到什么、给谁用</span>。现在的情况是<span class="slot"><b>背景</b>发生了什么</span>。我提供了<span class="slot"><b>材料</b>哪些资料</span>，其中<span class="slot">哪些已确认、哪些未知</span>。注意<span class="slot"><b>约束</b>不能猜什么、不能做什么</span>。请按<span class="slot"><b>交付</b>格式、长度、结构</span>输出；信息不够就先问我。</div></div>
+    <div class="r"><div class="col-h"><span class="tag">大多数人这样问</span></div><div class="bubble" style="font-size:34px;color:var(--faint)">一句话就问完，三要素都没给</div><p class="note" style="margin-top:20px">→ 信息不全，它只能猜；每次猜的还不一样。</p></div>
+    <div class="r"><div class="col-h"><span class="tag acc">说清楚的问法</span></div><div class="bubble" style="font-size:26px;line-height:1.95"><span class="slot"><b>输入</b>给它什么：格式、表头、版本、以哪份为准</span><br><span class="slot"><b>处理逻辑</b>怎么算、怎么判、查不到怎么办</span><br><span class="slot"><b>输出</b>要什么格式、哪些列、怎么交付</span></div></div>
   </div>
 </section>
 
-<section class="slide" data-lv="2" data-o="20,-20,80,50" data-notes="五要素不是语法，是交代任务的思路。不需要写“你是顶级专家”之类的话。最后一句“不够就先问我”很重要——允许它反问。">
+<section class="slide" data-lv="2" data-o="20,-20,80,50" data-notes="这一页只讲三件事：输入、处理逻辑、输出。不讲背景、不堆要素，这是最万能的交代方式，提示词和工具都用得上。模板按钮可以直接复制。讲解阶段不做填写，动手统一放到最后的实战台。" data-notes-en="Just three things: input, logic, output. No context section, no long checklist — this is the most reusable way to brief both a prompt and a tool. The button copies a ready-made template. No practice during the talk; hands-on work is in the final arena.">
   <div class="kicker r"><b>02</b>方法</div>
-  <h1 class="split">好提示词 = 一份<em>任务交底</em></h1>
+  <h1 class="split">好提示词 = <em>输入 · 逻辑 · 输出</em></h1>
   <div class="formula">
-    <div class="r"><b>i.</b><h3>目标</h3><p>要得到什么？<br>给谁用？</p></div>
-    <div class="r"><b>ii.</b><h3>背景</h3><p>现在是什么情况？<br>为什么要做？</p></div>
-    <div class="r"><b>iii.</b><h3>材料</h3><p>哪些已知？<br>哪些未知？</p></div>
-    <div class="r"><b>iv.</b><h3>约束</h3><p>什么不能猜？<br>什么不能做？</p></div>
-    <div class="r"><b>v.</b><h3>交付</h3><p>什么格式？<br>多长？</p></div>
+    <div class="r"><b>i.</b><h3>输入</h3><p>给它什么？<br>格式、表头、以哪份为准</p></div>
+    <div class="r"><b>ii.</b><h3>处理逻辑</h3><p>怎么算？怎么判？<br>查不到怎么办？</p></div>
+    <div class="r"><b>iii.</b><h3>输出</h3><p>要什么格式？<br>哪些列、怎么交付？</p></div>
   </div>
   <p class="callout r mt2">结尾加一句：<b>“信息不够就先问我，不要猜。”</b></p>
   <div class="actions"><button class="btn" onclick="showTpl()">复制通用模板</button></div>
 </section>
 
-<section class="slide" data-lv="2" data-o="70,40,10,-20" data-notes="和 AI 对话是多轮的。第一稿不满意，就像带实习生一样直接指出来。追问的三种常用句式在下方。">
+<section class="slide" data-lv="2" data-o="70,40,10,-20" data-notes="和 AI 对话是多轮的。这里只讲三个动作，不预置句式，讲解阶段不练；实际动手统一放到最后的实战台。" data-notes-en="Working with AI is multi-turn. Three moves only, no canned phrasing, no practice during the talk — all hands-on work happens in the final arena.">
   <div class="kicker r"><b>02</b>迭代</div>
   <h1 class="split">第一稿只是开始，<em>追问</em>才是技巧</h1>
   <div class="flow">
-    <div class="r"><div class="dot">1</div><h3>交底</h3><p>用五要素说清楚</p></div>
+    <div class="r"><div class="dot">1</div><h3>交底</h3><p>说清输入 · 逻辑 · 输出</p></div>
     <svg class="draw" viewBox="0 0 120 20" style="--i:1"><path d="M4 10h108m-8-6 8 6-8 6"/></svg>
     <div class="r"><div class="dot">2</div><h3>看结果</h3><p>哪里不对？</p></div>
     <svg class="draw" viewBox="0 0 120 20" style="--i:2"><path d="M4 10h108m-8-6 8 6-8 6"/></svg>
@@ -605,19 +623,14 @@ h1 em,.em{font-style:normal;color:var(--acc)}
     <div class="r"><div class="dot">4</div><h3>再改一轮</h3><p>直到能交付</p></div>
   </div>
   <div class="grid g3 mt2">
-    <div class="card pop"><span class="n">“</span><p style="color:var(--ink);font-size:25px">把你不确定的地方<b>单独列出来</b>，不要混在结论里。</p></div>
-    <div class="card pop"><span class="n">“</span><p style="color:var(--ink);font-size:25px">第 2 点不对，因为<b>……</b>。按这个改，其他不动。</p></div>
-    <div class="card pop"><span class="n">“</span><p style="color:var(--ink);font-size:25px">先别写正文，先<b>问我</b>你还缺哪些信息。</p></div>
+    <div class="card pop"><span class="n">i.</span><h3>指位置</h3><p>说清哪一处不对，不笼统说不好。</p></div>
+    <div class="card pop"><span class="n">ii.</span><h3>定范围</h3><p>只改这一处，其他保持不动。</p></div>
+    <div class="card pop"><span class="n">iii.</span><h3>先问再写</h3><p>缺信息时让它先提问，不要猜。</p></div>
   </div>
 </section>
 
-<section class="slide case-slide" data-lv="2" data-case="2" data-o="40,-10,90,40" data-notes="现场案例页。从左边挑一个墙上的问题（优先显示打了 L2 标签的），也可以直接在大字处输入。然后和大家一起把右边五个空填出来——点击灰色文字即可输入。填完点“复制为提示词”，粘贴到 AI 里现场跑一遍。">
-  <div class="kicker r"><b>02</b>现场案例 · 套用任务交底</div>
-  <div class="case-root r"></div>
-</section>
-
 <!-- L3 -->
-<section class="slide divider" data-lv="3" data-o="80,60,0,0" data-notes="第三章：AI 只能根据它“看得见”的东西回答。">
+<section class="slide divider" data-lv="3" data-o="80,60,0,0" data-notes="第三章：AI 只能根据它“看得见”的东西回答。" data-notes-en="Chapter 3: AI can only answer from what it can see.">
   <svg class="num" viewBox="0 0 900 700"><text x="880" y="580" text-anchor="end">03</text></svg>
   <div class="kicker r">LEVEL THREE</div>
   <h1 class="split">喂它</h1>
@@ -625,7 +638,7 @@ h1 em,.em{font-style:normal;color:var(--acc)}
   <div class="goal r"><span>学完能做到</span>给 AI 准备一份干净、可追溯的材料包</div>
 </section>
 
-<section class="slide" data-lv="3" data-o="10,-20,60,60" data-notes="上下文窗口就像工作台：台面上的东西它才能用。Token 是计量单位，不等于一个字，因模型而异。台面满了，旧内容可能被截断或压缩，所以长对话里重要约束要重申；新开对话，台面清空。">
+<section class="slide" data-lv="3" data-o="10,-20,60,60" data-notes="上下文窗口就像工作台：台面上的东西它才能用。Token 是计量单位，不等于一个字，因模型而异。台面满了，旧内容可能被截断或压缩，所以长对话里重要约束要重申；新开对话，台面清空。" data-notes-en="The context window is a workbench: only what is on it can be used. Tokens are a unit of measure, not a character. When full, older content may be truncated; restate key constraints and start a new chat for a new topic.">
   <div class="kicker r"><b>03</b>上下文</div>
   <h1 class="split">AI 的“工作台”只有这么大</h1>
   <div class="desk">
@@ -633,17 +646,17 @@ h1 em,.em{font-style:normal;color:var(--acc)}
       <div class="blocks"><div style="flex:1;--i:0">你的指令</div><div style="flex:1.4;--i:1">聊天历史</div><div style="flex:1.8;--i:2">上传的文件</div><div style="flex:1.2;--i:3">搜索结果</div><div class="o" style="flex:1;--i:4">留给回答</div></div>
       <p class="note" style="margin:22px 0 0;font-size:19px">Token 是模型读写文字的计量单位，不等于“一个字”。台面装满后，旧内容可能被截断或压缩。</p>
     </div>
-    <div class="outside r"><div>公司内部系统</div><div>没上传的附件</div><div>另一个对话里说过的</div><div>昨天刚发生的事</div></div>
+    <div class="outside r"><div>没给它的</div><div>没上传的</div><div>不在本轮的</div><div>刚发生的</div></div>
   </div>
   <p class="callout r mt1">一句话管用：<b>“以附件 X 为准；找不到就说没找到。”</b></p>
 </section>
 
-<section class="slide" data-lv="3" data-o="60,10,0,70" data-notes="三个习惯可以直接写成团队规范。第三条最反直觉：大部分人不知道可以“允许”AI 说不知道。">
+<section class="slide" data-lv="3" data-o="60,10,0,70" data-notes="三个习惯可以直接写成团队规范。第三条最反直觉：大部分人不知道可以“允许”AI 说不知道。" data-notes-en="These three habits can go straight into team norms. The third is the least intuitive: most people don&#x27;t realise you can allow AI to say it doesn&#x27;t know.">
   <div class="kicker r"><b>03</b>喂料的三条规矩</div>
   <h1 class="split">材料给得好，答案差不了</h1>
   <div class="grid g3 mt2">
     <div class="card pop"><span class="n">i.</span><h3>标版本、标来源</h3><p>文件名、日期、状态写清楚。别让它猜哪份是最新的、哪份是有效的。</p></div>
-    <div class="card pop"><span class="n">ii.</span><h3>说明以谁为准</h3><p>“以正式版为准，聊天记录仅供参考。”冲突时它才知道听谁的。</p></div>
+    <div class="card pop"><span class="n">ii.</span><h3>说明以谁为准</h3><p>指定唯一基准，其余只作参考；冲突时它才知道听谁的。</p></div>
     <div class="card pop"><span class="n">iii.</span><h3>允许它说“没找到”</h3><p>不给退路，它就会编一个答案给你。</p></div>
   </div>
   <p class="callout r mt2">长对话里，重要约束<b>再说一遍</b>；换了话题，就<b>开个新对话</b>；敏感数据，<b>先脱敏再上传</b>。</p>
@@ -667,7 +680,7 @@ h1 em,.em{font-style:normal;color:var(--acc)}
   <div class="kicker r"><b>03</b>必须外发时</div>
   <h1 class="split">先<em>匿名化</em>，再<em>抽查</em>，最后才外发</h1>
   <div class="steps3">
-    <div class="r"><b>1</b><h3>内网匿名化</h3><p>用内网 Agent 把敏感字段替换成代号，比如“客户 A”“站点 01”。</p></div>
+    <div class="r"><b>1</b><h3>内网匿名化</h3><p>用内网 Agent 把敏感字段替换成代号，对照表留在内网。</p></div>
     <div class="r"><b>2</b><h3>人工抽查</h3><p>AI 匿名化也会漏。对照下面的清单，逐项看一遍。</p></div>
     <div class="r"><b>3</b><h3>再发外网</h3><p>只发处理后的版本，原件和对照表留在内网。</p></div>
   </div>
@@ -684,7 +697,7 @@ h1 em,.em{font-style:normal;color:var(--acc)}
   <div class="zones">
     <div class="ext r"><div class="zt"><span>外网模型</span><span>只有方法</span></div>
       <div class="st"><b>1</b><div><h3>描述需求和做法</h3><p>用虚构的样例数据，不提真实客户和网络。</p></div></div>
-      <div class="st"><b>2</b><div><h3>拿到工具和思路</h3><p>脚本、模板、分析思路、优化过的提示词。</p></div></div>
+      <div class="st"><b>2</b><div><h3>拿到工具和思路</h3><p>可复用的方法和工具。</p></div></div>
     </div>
     <div class="int r"><div class="zt"><span>内网 Agent</span><span>真实数据</span></div>
       <div class="st"><b>3</b><div><h3>带回内网运行</h3><p>把工具和提示词交给内网 Agent，配合真实数据。</p></div></div>
@@ -695,13 +708,8 @@ h1 em,.em{font-style:normal;color:var(--acc)}
   <p class="callout r mt1">真实客户名、真实网络数据，<b>始终只出现在右边。</b></p>
 </section>
 
-<section class="slide case-slide" data-lv="3" data-case="3" data-o="20,60,80,-10" data-notes="现场案例页。挑一个需要“读材料”的问题（通常是打了 L3 标签的），和大家一起列出：要给 AI 哪些材料？哪份为准？哪些绝不能上传？">
-  <div class="kicker r"><b>03</b>现场案例 · 准备材料包</div>
-  <div class="case-root r"></div>
-</section>
-
 <!-- L4 -->
-<section class="slide divider" data-lv="4" data-o="0,40,80,0" data-notes="第四章：工程师最重要的一章。AI 的错误往往很像真的，要有一套固定的检查动作。">
+<section class="slide divider" data-lv="4" data-o="0,40,80,0" data-notes="第四章：工程师最重要的一章。AI 的错误往往很像真的，要有一套固定的检查动作。" data-notes-en="Chapter 4: the most important chapter for engineers. AI errors often look real, so you need a fixed checklist.">
   <svg class="num" viewBox="0 0 900 700"><text x="880" y="580" text-anchor="end">04</text></svg>
   <div class="kicker r">LEVEL FOUR</div>
   <h1 class="split">验它</h1>
@@ -709,18 +717,18 @@ h1 em,.em{font-style:normal;color:var(--acc)}
   <div class="goal r"><span>学完能做到</span>交付前，用四个问题过一遍</div>
 </section>
 
-<section class="slide" data-lv="4" data-o="70,-10,10,60" data-notes="“幻觉”最常见的三种样子。可以现场问：大家有没有遇到过？请举手的同事讲一次被 AI 骗的经历——这比任何预设例子都有说服力。">
+<section class="slide" data-lv="4" data-o="70,-10,10,60" data-notes="只讲三类形态，不举具体例句。重点：凡是具体到数字、因果和出处的地方，都必须能回到原始材料。" data-notes-en="Only the three shapes, with no canned example sentences. Key point: anything specific about numbers, causes or citations must trace back to the original material.">
   <div class="kicker r"><b>04</b>AI 幻觉</div>
   <h1 class="split">一本正经地胡说，有三种样子</h1>
   <div class="grid g3 mt2">
-    <div class="card pop"><span class="tag bad">编数字</span><h3 style="margin-top:34px">“大约提升了 37%”</h3><p>你没给数据，它给你凑一个看起来合理的数。</p></div>
-    <div class="card pop"><span class="tag bad">编因果</span><h3 style="margin-top:34px">“因为 A，所以 B”</h3><p>两件事挨得近，它就把它们连成因果。</p></div>
-    <div class="card pop"><span class="tag bad">编出处</span><h3 style="margin-top:34px">“根据某规范第 5.3 节”</h3><p>看着有据可查，打开一看根本没有这一节。</p></div>
+    <div class="card pop"><span class="tag bad">编数字</span><h3 style="margin-top:34px">凭空补数</h3><p>没给数据，也会凑一个看起来合理的数。</p></div>
+    <div class="card pop"><span class="tag bad">编因果</span><h3 style="margin-top:34px">把先后当因果</h3><p>两件事挨得近，就被连成因果关系。</p></div>
+    <div class="card pop"><span class="tag bad">编出处</span><h3 style="margin-top:34px">引用打不开</h3><p>看着有据可查，点开原文却没有。</p></div>
   </div>
-  <p class="callout r mt2">现场时间：<b>你被 AI 骗过吗？</b>讲一次。</p>
+  <p class="callout r mt2">凡是具体到数字、因果和出处的地方，都要能回到原始材料。</p>
 </section>
 
-<section class="slide" data-lv="4" data-o="10,50,70,-10" data-notes="四问可以打印出来贴在工位上。顺带一提 RAG（检索增强生成）：让 AI 先从你指定的资料里找相关段落再回答，并给出处。但出处本身也可能错，必须打开原文核对。">
+<section class="slide" data-lv="4" data-o="10,50,70,-10" data-notes="四问可以打印出来贴在工位上。顺带一提 RAG（检索增强生成）：让 AI 先从你指定的资料里找相关段落再回答，并给出处。但出处本身也可能错，必须打开原文核对。" data-notes-en="Print these four questions for every desk. Mention RAG briefly: AI retrieves relevant passages first, then answers — but still check the source.">
   <div class="kicker r"><b>04</b>交付前检查</div>
   <h1 class="split">发出去之前，过一遍<em>四个问题</em></h1>
   <div class="grid g4 mt2">
@@ -732,13 +740,8 @@ h1 em,.em{font-style:normal;color:var(--acc)}
   <p class="callout r mt2">小技巧：要求 AI <b>每条结论后标注来源文件和章节</b>，核对快十倍。</p>
 </section>
 
-<section class="slide case-slide" data-lv="4" data-case="4" data-o="50,60,0,0" data-notes="现场案例页。挑一个对准确性要求高的问题，和大家一起写出这件事的核查清单：哪些地方 AI 最可能编？怎么查？谁签字？">
-  <div class="kicker r"><b>04</b>现场案例 · 写一份核查清单</div>
-  <div class="case-root r"></div>
-</section>
-
 <!-- L5 -->
-<section class="slide divider" data-lv="5" data-o="75,60,0,-20" data-notes="第五章：从“问答”升级到“干活”。这是 AI 现在最大的变化。">
+<section class="slide divider" data-lv="5" data-o="75,60,0,-20" data-notes="第五章：从“问答”升级到“干活”。这是 AI 现在最大的变化。" data-notes-en="Chapter 5: from answering to doing — the biggest shift in AI right now.">
   <svg class="num" viewBox="0 0 900 700"><text x="880" y="580" text-anchor="end">05</text></svg>
   <div class="kicker r">LEVEL FIVE</div>
   <h1 class="split">用它</h1>
@@ -746,30 +749,30 @@ h1 em,.em{font-style:normal;color:var(--acc)}
   <div class="goal r"><span>学完能做到</span>看懂 Agent 在干什么，并给它划好红线</div>
 </section>
 
-<section class="slide" data-lv="5" data-o="10,-10,70,60" data-notes="Agent 就是能调用工具、能根据结果决定下一步的 AI。右边的光点一直在转——这就是 Agent 的本质：一个循环，直到目标完成或遇到停止条件。普通问答交付的是文字建议；Agent 交付的是做完的结果。">
+<section class="slide" data-lv="5" data-o="10,-10,70,60" data-notes="Agent 就是能调用工具、能根据结果决定下一步的 AI。右边的光点一直在转——这就是 Agent 的本质：一个循环，直到目标完成或遇到停止条件。普通问答交付的是文字建议；Agent 交付的是做完的结果。" data-notes-en="An agent is AI that can use tools and decide its next step based on results. The orbiting dot is the essence: a loop until done or stopped. Chat delivers advice; an agent delivers a result plus a log.">
   <div class="kicker r"><b>05</b>Agent 是什么</div>
   <div class="ag">
     <div>
       <h1 class="split">聊天是“出主意”<br>Agent 是“<em>干活</em>”</h1>
-      <div class="r mt1"><div class="col-h"><span class="tag">普通对话</span></div><p style="font-size:27px;margin:0 0 6px">“告诉我该怎么做。”</p><p class="note" style="margin:0">交付：一段建议，剩下的你自己做。</p></div>
+      <div class="r mt1"><div class="col-h"><span class="tag">普通对话</span></div><p style="font-size:27px;margin:0 0 6px">只给建议</p><p class="note" style="margin:0">交付：一段建议，剩下的你自己做。</p></div>
       <div class="rule r" style="margin:30px 0"></div>
-      <div class="r"><div class="col-h"><span class="tag acc">Agent</span></div><p style="font-size:27px;margin:0 0 6px">“去把它做完，做完自己检查一遍。”</p><p class="note" style="margin:0">交付：做完的结果 + 过程记录。</p></div>
+      <div class="r"><div class="col-h"><span class="tag acc">Agent</span></div><p style="font-size:27px;margin:0 0 6px">自己动手</p><p class="note" style="margin:0">交付：做完的结果 + 过程记录。</p></div>
     </div>
     <div class="orbit r">
       <svg viewBox="0 0 560 560" class="draw"><circle class="d" cx="280" cy="280" r="200" fill="none" stroke="#d8d5cd" stroke-width="1.5"/></svg>
       <div class="runner"></div>
       <div class="node" style="left:280px;top:80px;--dl:0s"><span></span>理解目标</div>
       <div class="node" style="left:480px;top:280px;--dl:1s"><span></span>规划下一步</div>
-      <div class="node" style="left:280px;top:480px;--dl:2s"><span></span>调用工具<small>读文件 · 跑代码 · 搜索</small></div>
+      <div class="node" style="left:280px;top:480px;--dl:2s"><span></span>调用工具<small>按结果决定下一步</small></div>
       <div class="node" style="left:80px;top:280px;--dl:3s"><span></span>检查结果</div>
       <div class="center">loop<small>直到完成或该停</small></div>
     </div>
   </div>
 </section>
 
-<section class="slide" data-lv="5" data-o="60,-20,0,60" data-notes="逐步点击。关键看第 2 到 3 步：它第一次做的结果有问题，自己检查发现后修正重跑——这是 Agent 和普通问答的本质区别。最后一步仍然是：等人审核。这是离线预置演示，不调用任何模型。可以问大家：墙上哪个问题适合这样交给 Agent？">
-  <div class="kicker r"><b>05</b>离线演示</div>
-  <h1 class="split">一次 Agent 任务，背后发生了什么</h1>
+<section class="slide" data-lv="5" data-o="60,-20,0,60" data-notes="这五步是通用方法，不含任何具体任务。快速点一遍即可，也可以整页跳过；今天真正的演示是大家在实战台上一起做。离线脚本，不调用模型、不访问文件。" data-notes-en="These five steps are generic method, with no concrete task. Click through quickly or skip the page entirely; today&#x27;s real demo is everyone building on the arena slide. Offline script, no model calls, no file access.">
+  <div class="kicker r"><b>05</b>通用流程</div>
+  <h1 class="split">一次任务，按这<em>五步</em>走</h1>
   <div class="demo">
     <div class="dsteps r" id="dsteps"></div>
     <div class="log r" id="dlog"></div>
@@ -777,7 +780,8 @@ h1 em,.em{font-style:normal;color:var(--acc)}
   <div class="actions"><button class="btn" onclick="demoReset()">重置</button><button class="btn pri" onclick="demoNext()">下一步 →</button></div>
 </section>
 
-<section class="slide" data-lv="5" data-o="20,50,80,-20" data-notes="权限是 Agent 时代最重要的事。三档可以直接写进团队规范。注意：Agent 读到的文档里可能藏着“指令”，不能据此扩大权限。Skill、API、MCP 都是连接工具的方式，都不等于自动授权。">
+
+<section class="slide" data-lv="5" data-o="20,50,80,-20" data-notes="权限是 Agent 时代最重要的事。三档可以直接写进团队规范。注意：Agent 读到的文档里可能藏着“指令”，不能据此扩大权限。Skill、API、MCP 都是连接工具的方式，都不等于自动授权。" data-notes-en="Permissions are the most important topic in the agent era. These three tiers can go straight into team norms.">
   <div class="kicker r"><b>05</b>权限红线</div>
   <h1 class="split">能动手，就必须<em>先划线</em></h1>
   <div class="tiers">
@@ -788,7 +792,7 @@ h1 em,.em{font-style:normal;color:var(--acc)}
   <p class="callout r mt2">任务里写明<b>停止条件</b>：“缺材料、版本不明或涉及生产，立即停下并报告。”</p>
 </section>
 
-<section class="slide" data-lv="5" data-o="70,10,0,60" data-notes="子代理：主代理把大任务拆成独立的小任务，并行做，再汇总。适合能独立并行的任务。注意：子代理不自动共享全部上下文；代理越多协调成本越高；多个代理意见一致不代表就对。可现场让三位同事扮演子代理，对墙上一个问题分头分析，再由一人汇总。">
+<section class="slide" data-lv="5" data-o="70,10,0,60" data-notes="子代理：主代理把大任务拆成独立的小任务，并行做，再汇总。适合能独立并行的任务。注意：子代理不自动共享全部上下文；代理越多协调成本越高；多个代理意见一致不代表就对。" data-notes-en="Subagents: a lead agent splits a big task into independent pieces, runs them in parallel, then merges. Good for work too large for one context.">
   <div class="kicker r"><b>05</b>子代理</div>
   <h1 class="split">活太大？让 AI 学会<em>分工</em></h1>
   <div class="org">
@@ -804,67 +808,83 @@ h1 em,.em{font-style:normal;color:var(--acc)}
   </div>
 </section>
 
-<section class="slide case-slide" data-lv="5" data-case="5" data-o="10,60,70,0" data-notes="现场案例页。挑一个重复性高、步骤多的问题，一起写一张 Agent 任务卡：目标、允许范围、什么时候必须停下来问人、绝不能做什么、怎么验收。">
-  <div class="kicker r"><b>05</b>现场案例 · 写一张 Agent 任务卡</div>
-  <div class="case-root r"></div>
-</section>
-
 <!-- 实战 -->
-<section class="slide divider" data-lv="6" data-o="50,10,10,60" data-notes="综合挑战：把五级台阶串起来，解决一个真实问题。">
+<section class="slide divider" data-lv="6" data-o="50,10,10,60" data-notes="综合挑战：把五级台阶串起来，解决一个真实问题。" data-notes-en="Final challenge: combine all five levels on one task proposed by the room.">
   <svg class="num" viewBox="0 0 900 700"><text x="880" y="580" text-anchor="end">Go</text></svg>
   <div class="kicker r">FINAL</div>
   <h1 class="split">实战</h1>
-  <p class="lead r">用今天的方法，解决墙上的一个真实问题。</p>
+  <p class="lead r">用今天的方法，一起完成现场提出的任务。</p>
   <div class="goal r"><span>用上</span>问清楚 · 喂干净 · 验到底 · 守住线</div>
 </section>
 
-<section class="slide" data-lv="6" data-o="20,-10,80,60" data-notes="约 4 组，每组 4–5 人。每组从痛点墙上认领一个问题（可以按下方按钮回到墙）。用前面四张模板（交底、材料包、核查清单、任务卡）完成一次交付。每组提交：最终产物 + 关键提示词 + 一处 AI 出错的记录。">
-  <div class="kicker r"><b>GO</b>分组挑战</div>
-  <h1 class="split">认领一个问题，<em>做完它</em></h1>
-  <div class="chal">
-    <div class="r"><b>1</b><h3>认领</h3><p>从痛点墙挑一个问题，确认能脱敏、能在课上完成。</p></div>
-    <div class="r"><b>2</b><h3>交底 + 喂料</h3><p>用 L2、L3 模板写提示词，备好材料。</p></div>
-    <div class="r"><b>3</b><h3>跑 + 追问</h3><p>让 AI 做，至少追问一轮。</p></div>
-    <div class="r"><b>4</b><h3>核查</h3><p>用 L4 四问检查，标出一处错误。</p></div>
+<section class="slide" data-lv="6" data-o="20,-10,80,60" data-notes="全场核心页。现场收 10 个需求（回车上墙，最多 10 条），归并成一句共同任务写进中间框；这句话就是各组的共同任务。选 2 组或 3 组，各组负责不同环节，最后拼成一个结果。计时可暂停、重置、切 30/45/60 分，翻页也继续走。讲师同步一起做。结束前留 8–10 分钟现场快验，课后收正式版统一测试验收。所有内容只存在本机浏览器。" data-notes-en="Core page. Collect 10 needs from the room (Enter to pin, max 10), merge them into one shared task in the middle box — that line becomes every group’s shared task. Pick 2 or 3 groups on different stages and assemble one result. The timer can pause, reset or switch 30/45/60 min and keeps running across slides. The speaker builds alongside. Reserve 8–10 min for a quick live validation; collect final versions afterwards for a unified test. Everything stays in this browser.">
+  <div class="kicker r"><b>GO</b>实战台</div>
+  <h1 class="split">现场提需求，<em>一起做完它</em></h1>
+  <div class="arena r" id="arena">
+    <div class="arena-col">
+      <div class="arena-box arena-needs">
+        <div class="arena-h" id="aH1"></div>
+        <div class="wall" id="wall"></div>
+        <div class="inbar"><input id="painIn" autocomplete="off"><span class="count" id="painCount">0</span><button class="btn" id="clearNeeds" onclick="clearPains()"></button></div>
+      </div>
+      <div class="arena-box arena-mission">
+        <div class="arena-h" id="aH2"></div>
+        <textarea id="mission" spellcheck="false"></textarea>
+        <div class="arena-tip" id="aTip2"></div>
+      </div>
+    </div>
+    <div class="arena-col">
+      <div class="arena-box arena-groups">
+        <div class="arena-h" id="aH3"></div>
+        <div class="aseg" id="aGroupSeg"></div>
+        <div class="agrp" id="aGroups"></div>
+      </div>
+      <div class="arena-box arena-timer">
+        <div class="arena-h" id="aH4"></div>
+        <div style="display:flex;align-items:center;gap:22px;width:100%">
+          <div class="clock" id="clock">45:00</div>
+          <div class="tctl"><button class="btn pri" id="tgo" onclick="toggleTimer()"></button><button class="btn" id="treset" onclick="resetTimer()"></button>
+          <div class="seg" id="seg"><button data-s="1800"></button><button class="on" data-s="2700"></button><button data-s="3600"></button></div></div>
+        </div>
+      </div>
+      <div class="arena-box arena-submit">
+        <div class="arena-h" id="aH5"></div>
+        <div class="arena-body" id="aSubmit"></div>
+      </div>
+    </div>
   </div>
-  <p class="callout r mt2">每组提交：<b>最终产物</b> · <b>关键提示词</b> · <b>一处 AI 出错的记录</b></p>
-  <div class="actions"><button class="btn" onclick="goWall()">← 回到痛点墙</button></div>
+  <p class="note r" id="aFoot"></p>
 </section>
 
-<section class="slide" data-lv="6" data-o="70,50,0,0" data-notes="时间到只提示，不自动翻页；翻页时计时继续，右下角小字显示剩余时间。准确性占 40 分：编造关键内容直接重扣。">
-  <div class="kicker r"><b>GO</b>计时 · 评分</div>
-  <div class="timer">
-    <div class="r">
-      <div class="clock" id="clock">15:00</div>
-      <div class="tctl"><button class="btn pri" id="tgo" onclick="toggleTimer()">开始</button><button class="btn" onclick="resetTimer()">重置</button>
-        <div class="seg" id="seg"><button data-s="1200">20 分</button><button class="on" data-s="900">15 分</button><button data-s="480">8 分</button></div></div>
-    </div>
-    <div class="rub r">
-      <div><b class="em">40</b><span>准确<small>没有编造，没有误判</small></span></div>
-      <div><b>25</b><span>完整<small>关键点没有遗漏</small></span></div>
-      <div><b>25</b><span>可核查<small>来源、步骤、验收清楚</small></span></div>
-      <div><b>10</b><span>可复用<small>别人拿去也能用</small></span></div>
-    </div>
+<section class="slide" data-lv="6" data-o="70,50,0,0" data-notes="计时在实战台那一页，翻页也继续走。这里只讲验收口径：准确占 40 分，编造关键内容直接重扣。现场先跑一遍标准样例，课后提交正式版，由讲师统一测试验收。" data-notes-en="The timer lives on the arena slide and keeps running when you navigate. This page is the acceptance rubric: accuracy is 40 points, and fabricated key content is heavily penalised. Run one standard sample live; final versions go to the speaker afterwards for a unified test.">
+  <div class="kicker r"><b>GO</b>验收标准</div>
+  <h1 class="split">做完发给我，<em>统一测试验收</em></h1>
+  <div class="rub r mt2" style="max-width:1000px">
+    <div><b class="em">40</b><span>准确<small>没有编造，没有误判</small></span></div>
+    <div><b>25</b><span>完整<small>关键点没有遗漏</small></span></div>
+    <div><b>25</b><span>可核查<small>来源、步骤、验收清楚</small></span></div>
+    <div><b>10</b><span>可复用<small>别人拿去也能用</small></span></div>
   </div>
+  <p class="callout r mt2">现场先跑一遍标准样例；课后提交正式版，由讲师统一测试验收。</p>
 </section>
 
-<section class="slide" data-lv="6" data-o="10,40,80,-10" data-notes="用实际产物说话。区分出错原因：模型问题、材料缺失、提示不清、工具失败、检查不严。不要把所有问题都归到“提示词没写好”。">
+<section class="slide" data-lv="6" data-o="10,40,80,-10" data-notes="用实际产物说话。区分出错原因：模型问题、材料缺失、提示不清、工具失败、检查不严。不要把所有问题都归到“提示词没写好”。" data-notes-en="Use actual outputs, not impressions. Separate causes: model limits, missing material, unclear prompts, tool failure, weak checking. Don&#x27;t blame everything on the prompt.">
   <div class="kicker r"><b>GO</b>复盘</div>
   <h1 class="split">AI 帮了哪一步？错在哪一步？</h1>
   <div class="grid g3 mt2">
-    <div class="card pop"><span class="n">i.</span><h3>比结果</h3><p>哪组更完整？哪些结论有来源？</p></div>
-    <div class="card pop"><span class="n">ii.</span><h3>比过程</h3><p>哪一次补材料、追问，带来了真正的改进？</p></div>
-    <div class="card pop"><span class="n">iii.</span><h3>比边界</h3><p>哪一步必须有人检查、批准或接手？</p></div>
+    <div class="card pop"><span class="n">i.</span><h3>看结果</h3><p>整体是否完整？哪些结论有来源？</p></div>
+    <div class="card pop"><span class="n">ii.</span><h3>看过程</h3><p>哪一次补材料、追问，带来了真正的改进？</p></div>
+    <div class="card pop"><span class="n">iii.</span><h3>看边界</h3><p>哪一步必须有人检查、批准或接手？</p></div>
   </div>
-  <p class="callout r mt2">每组分享：<b>一句好用的提示词</b> · <b>一次 AI 的错误</b> · <b>一个检查动作</b></p>
+  <p class="callout r mt2">现场分享：<b>一句好用的提示词</b> · <b>一次 AI 的错误</b> · <b>一个检查动作</b></p>
 </section>
 
-<section class="slide" data-lv="6" data-o="60,-20,10,60" data-notes="鼓励每人带走墙上的一个问题作为第一周的练习任务。先确认资料能用于所选工具。">
+<section class="slide" data-lv="6" data-o="60,-20,10,60" data-notes="鼓励每人带走一件自己的真实任务作为第一周练习。Week 3 起用 Agent 做一份可复核的文件，Week 4 沉淀模板与清单。先确认资料能用于所选工具。" data-notes-en="Encourage everyone to take one real task of their own as the week-1 exercise. From week 3, use an agent for a reviewable deliverable; week 4 captures templates and checklists. Confirm the material is allowed with the chosen tool first.">
   <div class="kicker r"><b>GO</b>课后 4 周</div>
   <h1 class="split">会用，是练出来的</h1>
   <div class="tl">
     <svg class="draw"><line x1="0" y1="0" x2="100%" y2="0" style="--i:0"/></svg>
-    <div class="r"><b>Week 1</b><h3>问得清</h3><p>带走墙上一个问题，用五要素写提示词</p><span class="tag">事实不改写，未知不编造</span></div>
+    <div class="r"><b>Week 1</b><h3>问得清</h3><p>挑一件自己的活，用三要素写提示词</p><span class="tag">事实不改写，未知不编造</span></div>
     <div class="r"><b>Week 2</b><h3>查得准</h3><p>指定文档问答、版本差异核对</p><span class="tag">每个结论能回到原文</span></div>
     <div class="r"><b>Week 3</b><h3>做得完</h3><p>用 Agent 完成一份可复核的文件</p><span class="tag">有过程记录和验收</span></div>
     <div class="r"><b>Week 4</b><h3>可复用</h3><p>沉淀模板、清单、团队规范</p><span class="tag">别人拿去也能用</span></div>
@@ -872,18 +892,18 @@ h1 em,.em{font-style:normal;color:var(--acc)}
   <p class="callout r mt3">精通不是记住所有模型名字，而是<b>稳定交付、发现错误、管住权限</b>。</p>
 </section>
 
-<section class="slide" data-lv="6" data-o="30,-10,70,60" data-notes="收尾。三句话是全场的精华，停留久一点，让大家拍照。">
+<section class="slide" data-lv="6" data-o="30,-10,70,60" data-notes="收尾。三句话是全场的精华，停留久一点，让大家拍照。" data-notes-en="Closing. These three lines are the essence — pause here and let people take a photo.">
   <div class="kicker r"><b>—</b>今天带走三句话</div>
   <div class="three">
     <div class="r"><b>01</b><p>AI 写初稿，<span>人对结论负责。</span></p></div>
     <div class="r"><b>02</b><p>把任务交代清楚，<span>比找“神级提示词”重要。</span></p></div>
     <div class="r"><b>03</b><p>从小任务开始，<span>验证过了再放权。</span></p></div>
   </div>
-  <p class="lead r mt2">谢谢。现在就从墙上挑一件，明天试试看。</p>
+  <p class="lead r mt2">谢谢。明天就用一件真实的活试试看。</p>
 </section>
 
-<section class="slide" data-lv="6" data-o="80,40,0,0" data-notes="上课前再检查一次产品入口和单位许可。此页不是排行榜。">
-  <div class="kicker r"><b>—</b>参考资料 · 核对于 2026-11-03</div>
+<section class="slide" data-lv="6" data-o="80,40,0,0" data-notes="上课前再检查一次产品入口和单位许可。此页不是排行榜。" data-notes-en="Re-check product access and company policy before class. This page is not a ranking.">
+  <div class="kicker r"><b>—</b>参考资料 · 核对于 2026-11-07</div>
   <h1 class="split">官方资料</h1>
   <div class="grid g2 mt1 src" style="gap:90px">
     <div class="r"><h3>产品与模型</h3>
@@ -898,9 +918,10 @@ h1 em,.em{font-style:normal;color:var(--acc)}
       <a href="https://help.openai.com/en/articles/4936856-understanding-and-counting-tokens" target="_blank" rel="noopener">Token 与上下文<span>↗</span></a>
       <a href="https://developers.openai.com/api/docs/guides/conversation-state" target="_blank" rel="noopener">会话状态与上下文管理<span>↗</span></a>
       <a href="https://platform.claude.com/docs/en/managed-agents/multiagent-orchestration" target="_blank" rel="noopener">子代理与多代理协作<span>↗</span></a>
-      <p class="note" style="margin-top:30px">痛点墙与案例页内容保存在本机浏览器中，演示、计时均可离线使用。</p></div>
+      <p class="note" style="margin-top:30px">实战台内容保存在本机浏览器中，计时、离线均可使用。</p></div>
   </div>
 </section>
+
 
 </main>
 
@@ -908,6 +929,28 @@ h1 em,.em{font-style:normal;color:var(--acc)}
   <div>← → 翻页 · O 目录 · N 备注 · L 语言 · F 全屏 <span id="miniTimer"></span></div>
   <div class="ft"><button onclick="openOverview()">目录</button><button onclick="openNotes()">讲师备注</button><button onclick="full()">全屏</button><button id="langBtn" onclick="toggleLang()" style="font-weight:600;color:var(--ink)">中文</button><button onclick="move(-1)" aria-label="上一页">←</button><span id="page"></span><button onclick="move(1)" aria-label="下一页">→</button></div>
 </footer>
+<div id="modelSheet" class="msheet" role="dialog" aria-modal="true" aria-hidden="true" onclick="if(event.target===this)closeModels()">
+ <div class="mbox2">
+  <div class="msheet-h">
+   <div><div class="msheet-k">可选 · 点开才看到</div><h2>公司 / 产品 / 模型 对照清单</h2></div>
+   <button class="btn" onclick="closeModels()">关闭 ×</button>
+  </div>
+  <p class="msheet-note">只是给「公司 ≠ 产品 ≠ 模型」做个对照，不是推荐、也不是排行榜。型号更新很快，以现场能打开的为准。</p>
+  <div class="map">
+    <div class="row h"><div></div><div>公司</div><div>常用产品</div><div>模型家族</div><div class="mdl">代表型号（举例）</div></div>
+    <div class="row"><div class="rg">外网·海外</div><div><b>OpenAI</b></div><div>ChatGPT · Codex</div><div>GPT</div><div class="mdl">GPT-6.1 Sol · 6 Astra · 5.6 Sol</div></div>
+    <div class="row"><div></div><div><b>Anthropic</b></div><div>Claude · Claude Code</div><div>Claude</div><div class="mdl">Fable 5.1 · Opus 5.5 · Sonnet 5.5</div></div>
+    <div class="row"><div></div><div><b>Google</b></div><div>Gemini · AI Studio</div><div>Gemini</div><div class="mdl">Gemini 4 Argon · 3.8 Flash</div></div>
+    <div class="row"><div class="rg">外网·国内</div><div><b>深度求索</b></div><div>DeepSeek</div><div>DeepSeek</div><div class="mdl">V4.1 Flash · V4 Pro</div></div>
+    <div class="row"><div></div><div><b>阿里巴巴</b></div><div>千问 · 百炼</div><div>Qwen</div><div class="mdl">Qwen 3.8 Max · 3.7 Max</div></div>
+    <div class="row"><div></div><div><b>字节跳动</b></div><div>豆包 · 火山方舟</div><div>Doubao / Seed</div><div class="mdl">Seed 2.1 Pro · Doubao 2.0</div></div>
+    <div class="row"><div></div><div><b>月之暗面</b></div><div>Kimi</div><div>Kimi</div><div class="mdl">K3.1 Pro · K3 · K2.6</div></div>
+    <div class="row"><div></div><div><b>智谱</b></div><div>智谱清言 · BigModel</div><div>GLM</div><div class="mdl">GLM-5.3 · 5.3-Flash</div></div>
+    <div class="row"><div></div><div><b>腾讯 · 百度</b></div><div>元宝 · 文心一言</div><div>Hunyuan / ERNIE</div><div class="mdl">Hy4 · ERNIE 5.5 Flash</div></div>
+  </div>
+  <div class="msheet-foot"><span>核对日期 2026-11-07</span><span>点右上角关闭，或按 Esc</span></div>
+ </div>
+</div>
 <div id="modal" role="dialog" aria-modal="true"><div class="mbox"><button class="btn x" onclick="closeModal()">关闭</button><h2 id="mt"></h2><div id="mc"></div></div></div>
 <div id="toast" role="status"></div>
 </div></div>
@@ -952,9 +995,10 @@ const EN={
 "不懂也敢答":"Answers even when unsure","→ 检查结果。它很少主动说“我不确定”。":"→ Check the output. It rarely says “I’m not sure”.",
 "工具地图":"THE TOOL MAP","先分清：公司、产品、模型":"Company ≠ product ≠ model",
 "公司":"Company","研发运营":"builds & runs it","产品":"Product","你打开的 App":"the app you open","模型":"Model","背后干活的“大脑”":"the “brain” doing the work",
-"常用产品":"Products","模型家族":"Model family","海外":"GLOBAL","国内":"CHINA","深度求索":"DeepSeek","阿里巴巴":"Alibaba","千问 · 百炼":"Qwen · Model Studio",
-"字节跳动":"ByteDance","豆包 · 火山方舟":"Doubao · Volcano Ark","月之暗面":"Moonshot AI",
+"常用产品":"Products","模型家族":"Model family","代表型号（举例）":"Example models","海外":"GLOBAL","国内":"CHINA","深度求索":"DeepSeek","阿里巴巴":"Alibaba","千问 · 百炼":"Qwen · Model Studio",
+"字节跳动":"ByteDance","豆包 · 火山方舟":"Doubao · Volcano Ark","月之暗面":"Moonshot AI","智谱":"Zhipu AI","智谱清言 · BigModel":"ChatGLM · BigModel","腾讯 · 百度":"Tencent · Baidu","元宝 · 文心一言":"Yuanbao · Ernie Bot",
 "代表性示例，非完整名单，不代表排名。用之前先确认：单位允许用哪个？数据能不能上传？":"Representative examples, not a full list or a ranking. Before using: which tools does your company allow? Can the data be uploaded?",
+"型号只是举例，更新很快；国内还有 MiniMax、讯飞星火、阶跃星辰等，以产品里实际可选为准。":"Model names are examples only and change fast. Others in China include MiniMax, iFlytek Spark and StepFun — check what your product actually offers.",
 "怎么选":"HOW TO CHOOSE","别看排行榜，看你的任务":"Ignore the leaderboard. Look at your task.",
 "写":"Write","写作 · 翻译":"Writing · translation","默认模式就够。要的是快、格式听话。":"Default mode is enough. You want speed and clean formatting.",
 "想":"Think","分析 · 推理":"Analysis · reasoning","打开“深度思考”。慢一点，但更会推理。":"Turn on “extended thinking”. Slower, but reasons better.",
@@ -967,15 +1011,15 @@ const EN={
 "说清楚的问法":"A clear ask","我要":"I need ","目标":"Goal","得到什么、给谁用":"what, for whom","。现在的情况是":". The situation is ","背景":"Context","发生了什么":"what’s going on",
 "。我提供了":". I’ve provided ","材料":"Materials","哪些资料":"which files","，其中":", of which ","哪些已确认、哪些未知":"what’s confirmed, what’s unknown","。注意":". Note ",
 "约束":"Constraints","不能猜什么、不能做什么":"what not to guess or do","。请按":". Deliver as ","交付":"Deliverable","格式、长度、结构":"format, length, structure","输出；信息不够就先问我。":"; if anything is missing, ask me first.",
-"方法":"THE METHOD","好提示词 = 一份":"A good prompt = a ","任务交底":"task brief","要得到什么？":"What do you need?","给谁用？":"Who is it for?",
+"方法":"THE METHOD","要得到什么？":"What do you need?","给谁用？":"Who is it for?",
 "现在是什么情况？":"What’s the situation?","为什么要做？":"Why does it matter?","哪些已知？":"What’s known?","哪些未知？":"What’s unknown?",
 "什么不能猜？":"What must not be guessed?","什么不能做？":"What must not be done?","什么格式？":"What format?","多长？":"How long?",
 "结尾加一句：":"End with one line: ","“信息不够就先问我，不要猜。”":"“If information is missing, ask me — don’t guess.”","复制通用模板":"Copy template",
 "迭代":"ITERATE","第一稿只是开始，":"","追问":"Follow-ups","才是技巧":" are the real skill",
-"交底":"Brief","用五要素说清楚":"Use the five elements","看结果":"Review","哪里不对？":"What’s off?","指出问题":"Point it out","具体、直接":"Specific, direct","再改一轮":"Revise","直到能交付":"Until it ships",
+"交底":"Brief","看结果":"Review","哪里不对？":"What’s off?","指出问题":"Point it out","具体、直接":"Specific, direct","再改一轮":"Revise","直到能交付":"Until it ships",
 "把你不确定的地方":"List everything you’re unsure about ","单独列出来":"separately","，不要混在结论里。":" — don’t mix it into the conclusions.",
 "第 2 点不对，因为":"Point 2 is wrong because ","。按这个改，其他不动。":". Fix that, leave the rest.","先别写正文，先":"Don’t draft yet — first ","问我":"ask me","你还缺哪些信息。":" what information you still need.",
-"现场案例 · 套用任务交底":"LIVE CASE · APPLY THE TASK BRIEF",
+
 "它只能根据“看得见”的东西回答。":"It can only answer from what it can see.","给 AI 准备一份干净、可追溯的材料包":"Prepare a clean, traceable material pack for AI",
 "上下文":"CONTEXT","AI 的“工作台”只有这么大":"AI’s workbench is only this big","上下文窗口 · 以 TOKEN 计量":"CONTEXT WINDOW · MEASURED IN TOKENS",
 "你的指令":"Your instructions","聊天历史":"Chat history","上传的文件":"Uploaded files","搜索结果":"Search results","留给回答":"Room for the answer",
@@ -987,20 +1031,20 @@ const EN={
 "说明以谁为准":"Say what’s authoritative","“以正式版为准，聊天记录仅供参考。”冲突时它才知道听谁的。":"“The official version rules; chat logs are reference only.” Then it knows whom to trust in a conflict.",
 "允许它说“没找到”":"Let it say “not found”","不给退路，它就会编一个答案给你。":"Without a way out, it will invent an answer.",
 "长对话里，重要约束":"In long chats, ","再说一遍":"repeat key constraints","；换了话题，就":"; new topic, ","开个新对话":"new chat","；敏感数据，":"; sensitive data, ","先脱敏再上传":"desensitize before upload",
-"现场案例 · 准备材料包":"LIVE CASE · BUILD A MATERIAL PACK",
+
 "AI 写初稿，人对结论负责。":"AI drafts. Humans own the conclusions.","交付前，用四个问题过一遍":"Run four questions before anything ships",
 "AI 幻觉":"HALLUCINATION","一本正经地胡说，有三种样子":"Confident nonsense comes in three shapes",
 "编数字":"Made-up numbers","“大约提升了 37%”":"“Roughly a 37% improvement”","你没给数据，它给你凑一个看起来合理的数。":"You gave no data, so it produced a plausible-looking figure.",
 "编因果":"Made-up causes","“因为 A，所以 B”":"“Because A, therefore B”","两件事挨得近，它就把它们连成因果。":"Two events happen close together, so it links them as cause and effect.",
 "编出处":"Made-up sources","“根据某规范第 5.3 节”":"“Per section 5.3 of the spec”","看着有据可查，打开一看根本没有这一节。":"Looks well-sourced — until you open it and the section doesn’t exist.",
-"现场时间：":"Your turn: ","你被 AI 骗过吗？":"has AI ever fooled you?","讲一次。":" Tell us once.",
+
 "交付前检查":"PRE-DELIVERY CHECK","发出去之前，过一遍":"Before it goes out, ask ","四个问题":"four questions",
 "数字":"Numbers","有来源吗？":"Is there a source?","每个数字能指回原始数据。":"Every number traces back to raw data.",
 "因果":"Causality","有证据吗？":"Is there evidence?","“之后发生”不等于“因此发生”。":"“After” is not “because of”.",
 "承诺":"Commitments","有授权吗？":"Is it authorized?","时间、结论、对外表态，谁批准的？":"Deadlines, conclusions, external statements — who approved them?",
 "出处":"Sources","能打开吗？":"Can you open it?","点开原文，看那一段是否真这么写。":"Open the original and check it really says that.",
 "小技巧：要求 AI":"Tip: ask AI to ","每条结论后标注来源文件和章节":"cite file and section after every conclusion","，核对快十倍。":" — checking gets ten times faster.",
-"现场案例 · 写一份核查清单":"LIVE CASE · WRITE A CHECKLIST",
+
 "从“告诉你怎么做”，到“自己动手做完”。":"From “telling you how” to “doing it itself”.","看懂 Agent 在干什么，并给它划好红线":"Understand what an agent does — and draw its red lines",
 "Agent 是什么":"WHAT IS AN AGENT","聊天是“出主意”":"Chat gives advice.","Agent 是“":"Agents ","干活":"do the work","”":".",
 "普通对话":"Chat","“告诉我该怎么做。”":"“Tell me how to do it.”","交付：一段建议，剩下的你自己做。":"You get: advice. The rest is on you.",
@@ -1014,7 +1058,7 @@ const EN={
 "任务里写明":"Write a ","停止条件":"stop condition","：“缺材料、版本不明或涉及生产，立即停下并报告。”":" into every task: “If material is missing, versions are unclear, or production is involved — stop and report.”",
 "子代理":"SUBAGENTS","活太大？让 AI 学会":"Too big? Teach AI to ","分工":"divide the work",
 "主代理":"Lead agent","拆分任务、分配、汇总":"splits, assigns, merges","子代理 A":"Subagent A","查资料":"research","子代理 B":"Subagent B","做分析":"analysis","子代理 C":"Subagent C","挑毛病":"critique","汇总 → 人工复核":"Merge → human review",
-"现场案例 · 写一张 Agent 任务卡":"LIVE CASE · WRITE AN AGENT TASK CARD",
+
 "实战":"Practice","用今天的方法，解决墙上的一个真实问题。":"Use today’s methods to solve one real problem from the wall.","用上":"USE","问清楚 · 喂干净 · 验到底 · 守住线":"Ask clearly · Feed cleanly · Check fully · Hold the line",
 "分组挑战":"TEAM CHALLENGE","认领一个问题，":"Claim one problem. ","做完它":"Finish it.",
 "认领":"Claim","从痛点墙挑一个问题，确认能脱敏、能在课上完成。":"Pick a problem from the wall that can be desensitized and done in class.",
@@ -1031,7 +1075,7 @@ const EN={
 "比边界":"Compare boundaries","哪一步必须有人检查、批准或接手？":"Which step needed a human to check, approve or take over?",
 "每组分享：":"Each team shares: ","一句好用的提示词":"one great prompt","一次 AI 的错误":"one AI mistake","一个检查动作":"one check you’ll keep",
 "课后 4 周":"THE NEXT 4 WEEKS","会用，是练出来的":"Skill comes from practice",
-"问得清":"Ask clearly","带走墙上一个问题，用五要素写提示词":"Take a problem from the wall; prompt it with the five elements","事实不改写，未知不编造":"No altered facts, no invented unknowns",
+"问得清":"Ask clearly","事实不改写，未知不编造":"No altered facts, no invented unknowns",
 "查得准":"Find precisely","指定文档问答、版本差异核对":"Q&A on given docs, version diffs","每个结论能回到原文":"Every claim traces to source",
 "做得完":"Finish the job","用 Agent 完成一份可复核的文件":"Use an agent to produce a verifiable file","有过程记录和验收":"With a work log and acceptance",
 "沉淀模板、清单、团队规范":"Turn it into templates, checklists, team norms",
@@ -1072,51 +1116,170 @@ const EN={
 "来源：Andrej Karpathy，2026 年 10 月的粗略估算（“餐巾纸估算”），仅示意数量级":"Source: Andrej Karpathy, rough estimate, Oct 2026 (“napkin math”) — orders of magnitude only",
 "下一层 →":"Next layer →",
 "关闭":"Close","。":".","……":"…",
-"输入一个问题，按回车上墙…":"Type a problem and press Enter to pin it…"
+"输入一个问题，按回车上墙…":"Type a problem and press Enter to pin it…",
+
+"把逻辑交给 AI，":"Give AI the logic, ",
+"做成一个工具":"ship a tool",
+"输入格式、表头、处理逻辑、输出说清楚，AI 只写一次；之后数据只在本机跑。":"Specify format, headers, logic and output once. Then the data runs locally.",
+"内部自用 · 脱敏样例 · 零外部依赖":"INTERNAL USE · SAMPLE DATA · ZERO DEPENDENCIES",
+"同一份输入，永远得到同一份输出——这就是不把数据反复交给 AI 的理由。":"Same input, same output — every time. That is why the data never goes back to AI.",
+"全程示范：把一件重复的活，交给 AI 写成一个本地跑的 HTML 工具，从第一页带到实战。":"Through-line: take one repetitive job, have AI write a local HTML tool, and carry it from the first slide to the practice session.",
+"→ 它只能猜你要什么，答案每次还不一样。想稳定，就把格式和逻辑说清楚，让它写成一个工具。":"→ It can only guess, and the answer changes every time. For a stable result, spell out the format and logic and have it build a tool.",
+"“把 /24 写成了 /25”":"“It wrote /25 instead of /24”",
+"“因为端口不通，所以配置不一致”":"“The port is down, so the configs differ”",
+"“见配置文件第 5.3 行”":"“See config file, line 5.3”",
+"从痛点墙挑一个问题（或直接挑战示范任务），确认能脱敏、能在课上完成。":"Pick a problem from the wall (or take the demo task); confirm it can be desensitized and finished in class.",
+"一个能跑的工具":"a working tool",
+"工具卡":"tool card",
+"回归记录与一处 AI 出错":"regression log + one AI mistake",
+"做出一个能跑、可回归的小工具":"Build a small tool that runs and can be regressed",
+"沉淀工具卡、回归集、团队规范":"Capture tool cards, fixtures and team conventions",
+"从一个小工具开始，":"Start with one small tool, ",
+"参考资料 · 核对于 2026-11-07":"REFERENCES · CHECKED 2026-11-07",
+"延伸 · 从工具到智能体":"BEYOND · FROM TOOL TO WORKBENCH",
+"一个工具，":"One tool, ",
+"长成一个工作台":"grows into a workbench",
+"1 个 HTML":"1 HTML file",
+"解决一件重复的活；本地跑、能改无数次。":"Solves one repetitive job; runs locally, editable any number of times.",
+"四五十个工具":"Dozens of tools",
+"开始记不住：输入是什么、输出是什么、逻辑怎么走。":"You start forgetting the inputs, the outputs and the logic behind each one.",
+"工具平台":"Tool platform",
+"43 个内置工具，还是会找不到、想不起。":"43 built-in tools, and still hard to find or recall.",
+"问智能体：帮我找工具、改工具、答疑；工具卡就是检索依据。":"Ask the agent to find, fix and explain tools; the tool card is the index.",
+"再往前一步：网设做成在线集合，跨领域查询；变更脚本的 IP 与现网冲突，导入即核查。":"Next: an online collection of design files with cross-domain lookup, plus IP-conflict checks on change scripts at import time.",
+"每一级解决的，都是上一级的「记不住、找不到」。":"Each stage solves the previous stage’s “I forgot / I can’t find it”.",
+"方法":"Methods",
+"方法快速过一遍，剩下的时间一起把活干完。":"Methods in brief — the rest of the time we build together.",
+"现场":"Live",
+"今天怎么上":"HOW TODAY RUNS",
+"快速过":" in brief",
+"，时间":", time ",
+"留给做":"to build",
+"讲方法":"The method",
+"五级台阶只讲骨架，约 20 分钟。":"Five levels, skeleton only — about 20 minutes.",
+"现场提需求":"Needs from the room",
+"收 10 个需求，归并成同一个任务。":"Collect 10 needs, merge them into one shared task.",
+"一起做完":"Build it together",
+"2–3 组分工不同环节，拼成一个结果。":"2–3 groups take different stages and assemble one result.",
+"课件里不放任何预置例子：内容全部来自现场，讲师同步一起做，最后统一测试验收。":"No canned examples in the deck: everything comes from the room, the speaker builds alongside, and one unified test closes it out.",
+"它挑的是最像的下一个词，不是真实的答案；说得越顺，越容易当真。":"It picks the most likely next word, not the true answer; the smoother it sounds, the easier to believe.",
+"所以：会写不等于查过，说得肯定不等于说得对。":"So: fluent writing is not research, and confidence is not correctness.",
+"文字材料":"Written material",
+"既有材料":"Existing material",
+"不熟悉的表述":"Unfamiliar wording",
+"可机械检查的规则":"Mechanically checkable rules",
+"你没说出口的现场信息":"Context you never stated",
+"除非明确给它新信息":"Unless you explicitly give it new information",
+"缺失的细节":"Missing details",
+"责任不会转移":"Accountability stays with you",
+"→ 速度与产出都很好，值得用起来。":"→ Fast and prolific — worth putting to work.",
+"同一个产品里可以切换不同模型 —— 产品不等于模型。具体名字变化很快，用之前先确认：单位允许用哪个？数据能不能上传？":"One product can switch between models — a product is not a model. Names change fast; before using one, check: is it approved, and can the data be uploaded?",
+
+"工具地图 · 边界":"THE TOOL MAP · BOUNDARIES",
+
+
+
+"看许可":"Permissions",
+"以单位实际部署与权限为准。":"Follow your organisation's actual deployment and access.",
+"看数据":"Data boundary",
+"先判断这段材料能不能出公司。":"Decide first whether the material may leave the company.",
+"看关系":"Product vs model",
+"同一个入口，背后可能换不同模型。":"The same entry point may run different models behind it.",
+
+
+"→ 信息不全，它只能猜；每次猜的还不一样。":"→ With incomplete input it can only guess — and the guess changes every time.",
+"指位置":"Be specific",
+"说清哪一处不对，不笼统说不好。":"Name the exact spot; don't just say it's bad.",
+"定范围":"Set the scope",
+"只改这一处，其他保持不动。":"Change only that part; leave the rest alone.",
+"先问再写":"Ask before writing",
+"缺信息时让它先提问，不要猜。":"If information is missing, make it ask instead of guessing.",
+
+"没给它的":"Not provided",
+"没上传的":"Not uploaded",
+"不在本轮的":"Outside this session",
+"刚发生的":"Just happened",
+"指定唯一基准，其余只作参考；冲突时它才知道听谁的。":"Name one authoritative source, everything else is reference; then it knows what to follow when they conflict.",
+"用内网 Agent 把敏感字段替换成代号，对照表留在内网。":"Use an internal agent to replace sensitive fields with codes; keep the mapping table inside.",
+"可复用的方法和工具。":"Reusable methods and tools.",
+
+"凭空补数":"Invented numbers",
+"没给数据，也会凑一个看起来合理的数。":"Given no data, it still produces a plausible-looking number.",
+"把先后当因果":"Sequence as cause",
+"两件事挨得近，就被连成因果关系。":"Two things close together get joined as cause and effect.",
+"引用打不开":"Sources that don't open",
+"看着有据可查，点开原文却没有。":"Looks cited, but the original says no such thing.",
+"凡是具体到数字、因果和出处的地方，都要能回到原始材料。":"Anything specific — numbers, causes, citations — must trace back to the original material.",
+
+"只给建议":"Advice only",
+"自己动手":"Does the work",
+"按结果决定下一步":"Decides the next step from results",
+"通用流程":"GENERIC FLOW",
+"一次任务，按这":"One task, ",
+"五步":"five",
+"走":" steps",
+
+"用今天的方法，一起完成现场提出的任务。":"Use today's method to finish one task proposed by the room — together.",
+"实战台":"LIVE ARENA",
+"现场提需求，":"Collect needs, ",
+"一起做完它":"build together",
+"验收标准":"ACCEPTANCE",
+"做完发给我，":"Send it to me, ",
+"统一测试验收":"I'll test and verify it",
+"现场先跑一遍标准样例；课后提交正式版，由讲师统一测试验收。":"Run one standard sample live; send the final version afterwards for a unified test.",
+"整体是否完整？哪些结论有来源？":"Is the whole result complete? Which conclusions are sourced?",
+"看过程":"Look at the process",
+"看边界":"Look at the boundaries",
+"现场分享：":"Share live:",
+
+"谢谢。明天就用一件真实的活试试看。":"Thank you. Tomorrow, try it on one real task.",
+
+
+"看一眼清单（可选）":"Model list (optional)",
+"清单默认收起，型号变化快；也可以完全不点开。":"Collapsed by default — model names change fast; you can skip it entirely.",
+"可选 · 点开才看到":"OPTIONAL · OPEN ONLY IF NEEDED",
+"公司 / 产品 / 模型 对照清单":"Company / product / model reference",
+"关闭 ×":"Close ×",
+"只是给「公司 ≠ 产品 ≠ 模型」做个对照，不是推荐、也不是排行榜。型号更新很快，以现场能打开的为准。":"Just a reference for “company ≠ product ≠ model” — not a recommendation or a ranking. Names change fast; use whatever is actually available on site.",
+"核对日期 2026-11-07":"Checked 2026-11-07",
+"点右上角关闭，或按 Esc":"Close at top right, or press Esc",
+
+"这一句就是所有组共同的任务，分工不同、目标一致。":"One shared task for every group — different stages, same goal.",
+"实战台内容保存在本机浏览器中，计时、离线均可使用。":"Arena content is stored in this browser; the timer works offline.",
+"看内外":"Check what's allowed",
+"允许用什么":" — inside vs outside",
+"内网 · 不允许":"INTRANET · NOT ALLOWED",
+"自行安装外部 Agent 软件":"Installing external agent clients",
+"Codex、Gemini CLI 等，一律不自行安装。":"Codex, Gemini CLI and similar must not be installed.",
+"内网 · 可以装":"INTRANET · ALLOWED",
+"单位提供的 Claw 工具":"Organisation-provided Claw tools",
+"GDEClaw · webotClaw · WeClaw 等。":"GDEClaw · webotClaw · WeClaw, etc.",
+"外网按单位许可与数据边界另算；具体以单位实际部署与权限为准。":"The external side follows separate approval and data-boundary rules; the actual deployment and permissions always prevail.",
+"一句话就问完，三要素都没给":"One line — none of the three",
+"输入":"Input",
+"给它什么：格式、表头、版本、以哪份为准":": what it gets — format, headers, version, authoritative source",
+"处理逻辑":"Logic",
+"怎么算、怎么判、查不到怎么办":": how to compute, how to decide, what if not found",
+"输出":"Output",
+"要什么格式、哪些列、怎么交付":": format, columns, how to deliver",
+"好提示词 =":"A good prompt =",
+"输入 · 逻辑 · 输出":"input · logic · output",
+"给它什么？":"What do you give it?",
+"格式、表头、以哪份为准":"Format, headers, authoritative source",
+"怎么算？怎么判？":"How to compute? How to decide?",
+"查不到怎么办？":"What if it's not found?",
+"要什么格式？":"What format?",
+"哪些列、怎么交付？":"Which columns, how to deliver?",
+"说清输入 · 逻辑 · 输出":"State input · logic · output",
+"挑一件自己的活，用三要素写提示词":"Pick a real task and prompt it with the three elements",
 };
-const NOTES_EN=[
-"Don’t start with concepts. Set the tone in one line: today isn’t about how AI works — it’s about getting AI to take work off your plate. Suggested 90 minutes: 10 min collecting problems, ~12 min per level, 20 min practice.",
-"The key segment: collect 10–15 real problems. Prompt the room: what takes the most time? What’s most repetitive? What do you most fear getting wrong? Type each into the box and press Enter. Then tag each card L2–L5 for the chapter that best addresses it (multiple tags OK). Each chapter ends with a “live case” slide that pulls from this wall. Data is stored in this browser.",
-"The route for today: Know, Ask, Feed, Check, Use. Each level builds on the previous one. The problems we just collected will be solved across these levels.",
-"Chapter 1 only builds intuition: what it is and why it gets things wrong.",
-"Click twice. First it picks “config”. Then it produces a specific number out of nowhere. The point: at every step it picks the most likely word, not the true one — that’s where hallucination comes from. Percentages are illustrative.",
-"Each item on the right maps to a later chapter: not knowing → L3 Feed it; making things up → L4 Check it; not accountable → throughout.",
-"This metaphor runs through the whole session: an intern needs a brief (L2), material (L3), checking (L4), and can be given real work within red lines (L5).",
-"Checked on 2026-11-03. Products, plans and model options change fast — this is not a ranking. Key point: one product can switch between models. Confirm company policy and data rules first.",
-"No specific model recommendations — they change too fast. Teach the method: choose features by task type, then test with your own desensitized task.",
-"Chapter 2: same AI, different question, very different result.",
-"Left is how most people ask. Right says the same thing clearly — the brackets are what to fill in. Pick a problem from the wall and fill it out loud.",
-"The five elements are a way of thinking, not syntax. No need for “you are a world-class expert”. The last line — “ask me if anything is missing” — matters: it gives the model permission to ask back.",
-"Working with AI is multi-turn. If the first draft is off, say so directly, like coaching an intern. Three common follow-up patterns are below.",
-"Live case. Pick a problem from the left (L2-tagged ones appear first), or type one into the big text. Fill the five fields together with the room — click the grey text to type. Then “Copy as prompt” and run it in AI live.",
-"Chapter 3: AI can only answer from what it can see.",
-"The context window is a workbench: only what’s on it can be used. Tokens are the unit of measure, not equal to words. When full, old content may be cut or compressed — so restate key constraints in long chats; a new chat clears the bench.",
-"These three habits can go straight into team norms. The third is the least intuitive: most people don’t realize they can allow AI to say “I don’t know”.",
-"Live case. Pick a problem that involves reading material (usually L3-tagged). List together: what material to give, which is authoritative, what must never be uploaded.",
-"Chapter 4: the most important chapter for engineers. AI errors often look real, so you need a fixed set of checks.",
-"The three most common shapes of hallucination. Ask the room: has anyone been fooled by AI? A real story beats any prepared example.",
-"Print these four questions for every desk. Mention RAG briefly: AI first retrieves relevant passages from your specified material, then answers with citations — but citations can be wrong too, so open the source.",
-"Live case. Pick a problem where accuracy matters and write its checklist together: where is AI most likely to invent things? How do we verify? Who signs off?",
-"Chapter 5: from answering questions to doing the work — the biggest shift in AI right now.",
-"An agent is AI that can use tools and decide its next step based on results. The orbiting dot is the essence: a loop that runs until the goal is met or a stop condition hits. Chat delivers advice; an agent delivers finished work.",
-"Click through. Watch steps 2–3: the first result has problems, the agent catches them in a self-check and reruns — the essential difference from chat. The last step is still: wait for human review. This is an offline scripted demo. Ask: which problems on the wall suit an agent?",
-"Permissions are the most important topic in the agent era. These three tiers can go straight into team norms. Note: documents an agent reads may contain hidden “instructions” — never expand permissions because of them. Skills, APIs and MCP are ways to connect tools; none grants permission automatically.",
-"Subagents: a lead agent splits a big task into independent pieces, runs them in parallel, then merges. Good for parallelizable work. Subagents don’t automatically share all context; more agents means more coordination; agreement among agents doesn’t mean they’re right. Optional: have three colleagues role-play subagents on a wall problem.",
-"Live case. Pick a repetitive, multi-step problem and write an agent task card together: goal, allowed scope, when it must stop and ask, what it must never do, how to accept the result.",
-"Final challenge: combine all five levels to solve one real problem.",
-"About 4 teams of 4–5. Each team claims a problem from the wall (button below returns to it). Use the four templates — brief, material pack, checklist, task card — to deliver. Submit: final output + key prompts + one AI mistake caught.",
-"The timer only alerts at zero; it doesn’t change slides. It keeps running when you navigate, shown at bottom left. Accuracy is 40 points: invented key content costs heavily.",
-"Use actual outputs, not impressions. Separate causes: model limits, missing material, unclear prompts, tool failures, weak checking. Don’t blame everything on “bad prompts”.",
-"Encourage everyone to take one problem from the wall as their week-1 exercise. Confirm the data may be used with the chosen tool.",
-"Closing. These three lines are the essence — pause here and let people take a photo.",
-"Re-check product access and company policy before class. This page is not a ranking."
-];
-{let k=0;S.forEach(s=>{s._en=s.dataset.notesEn||NOTES_EN[k++]})}
+const NOTES_EN=[];
+{S.forEach(s=>{s._en=s.dataset.notesEn||''})}
 const LV={zh:['开场','懂它','问它','喂它','验它','用它','实战'],en:['Intro','Know','Ask','Feed','Check','Use','Practice']};
 const lvName=i=>LV[lang][i];
 
 /* keep zh originals */
-const SKIP='#wall,.case-root,#ntText,#ntCands,#dsteps,#dlog,#levels,#mc,#mt,#page,#clock,#painCount,#toast,#miniTimer,#langBtn,h1.split';
+const SKIP='#wall,#ntText,#ntCands,#dsteps,#dlog,#levels,#mc,#mt,#page,#clock,#painCount,#toast,#miniTimer,#langBtn,h1.split,#arena';
 const textNodes=[];
 {const w=document.createTreeWalker($('stage'),NodeFilter.SHOW_TEXT);let n;while(n=w.nextNode()){if(n.parentElement.closest(SKIP))continue;if(!n.nodeValue.trim())continue;n._zh=n.nodeValue;textNodes.push(n)}}
 const heads=[...document.querySelectorAll('h1.split')];heads.forEach(h=>h._zh=h.innerHTML);
@@ -1129,11 +1292,12 @@ function applyLang(){
   document.title=L('AI 入门第一课','AI 101');
   textNodes.forEach(n=>n.nodeValue=trText(n._zh));
   heads.forEach(h=>{h.innerHTML=h._zh;const w=document.createTreeWalker(h,NodeFilter.SHOW_TEXT);const ns=[];let n;while(n=w.nextNode())ns.push(n);ns.forEach(n=>n.nodeValue=trText(n.nodeValue));lang==='en'?splitWords(h):split(h)});
-  $('painIn').placeholder=trText('输入一个问题，按回车上墙…');
+  $('painIn').placeholder=L('现场提一个需求，回车上墙…','Type a need and press Enter…');
   $('langBtn').textContent=lang==='en'?'中文':'EN';
   $('levels').querySelectorAll('button').forEach(b=>b.lastChild.nodeValue=lvName(+b.dataset.l));
   renderWall([]);
-  if(idx>=0){const s=S[idx];if(s.classList.contains('case-slide'))buildCase(s);if(s.querySelector('#ntText'))ntReset();if(s.querySelector('#dlog'))demoRender();positionBar()}
+  if($('arena'))arenaRender();
+  if(idx>=0){const s=S[idx];if(s.querySelector('#ntText'))ntReset();if(s.querySelector('#dlog'))demoRender();positionBar()}
   if(!iv)$('tgo').textContent=L('开始','Start');
 }
 function toggleLang(){lang=lang==='en'?'zh':'en';store.set('lang',lang);applyLang();const s=S[idx];s.classList.remove('active');void s.offsetWidth;s.classList.add('active');measure(s);toast(L('已切换为中文','Switched to English'))}
@@ -1153,7 +1317,6 @@ function go(n){
   const prev=S[idx],back=n<idx;
   if(prev){prev.classList.remove('active');prev.classList.add('leaving');prev.classList.toggle('back',back);setTimeout(()=>prev.classList.remove('leaving','back'),600)}
   idx=n;const s=S[idx];
-  if(s.classList.contains('case-slide'))buildCase(s);
   stagger(s);
   s.classList.remove('active');void s.offsetWidth;s.classList.add('active');measure(s);
   const o=(s.dataset.o||'50,0,0,50').split(',').map(Number);
@@ -1163,7 +1326,7 @@ function go(n){
   $('page').innerHTML=`${String(idx+1).padStart(2,'0')} <small>/ ${S.length}</small>`;
   $('bar').style.width=(idx+1)/S.length*100+'%';
   try{history.replaceState(null,'','#'+(idx+1))}catch(e){}
-  closeModal();
+  closeModal();closeModels();
   if(s.querySelector('#ntText'))ntReset();
   if(s.querySelector('#dlog'))demoReset();
   if(s.querySelector('#funnel'))fnReset();
@@ -1173,23 +1336,21 @@ function move(d){go(idx+d)}
 /* modal & utils */
 function modal(t,h){lastFocus=document.activeElement;$('mt').textContent=t;$('mc').innerHTML=h;$('modal').classList.add('open');setTimeout(()=>$('modal').querySelector('.x').focus(),50)}
 function closeModal(){if(!$('modal').classList.contains('open'))return;$('modal').classList.remove('open');lastFocus?.focus?.()}
+function openModels(){const m=$('modelSheet');m.classList.add('open');m.setAttribute('aria-hidden','false')}
+function closeModels(){const m=$('modelSheet');if(m){m.classList.remove('open');m.setAttribute('aria-hidden','true')}}
 function openNotes(){const t=lang==='en'?S[idx]._en:S[idx].dataset.notes;modal(L('讲师备注 · 第 '+(idx+1)+' 页','Speaker notes · '+(idx+1)),'<p>'+esc(t||L('（本页无备注）','(No notes)'))+'</p>')}
 function showText(t,b){window._copy=b;modal(t,'<pre>'+esc(b)+'</pre><div style="margin-top:24px"><button class="btn pri" onclick="copyText(window._copy)">'+L('复制','Copy')+'</button></div>')}
 function openOverview(){modal(L('目录','Overview'),'<div id="ov">'+S.map((s,i)=>{const h=s.querySelector('h1');const k=s.querySelector('.kicker');return `<button onclick="go(${i})"><small>${String(i+1).padStart(2,'0')} · ${lvName(s.dataset.lv)}</small>${esc(h?h.textContent:(k?k.textContent:''))}</button>`}).join('')+'</div>')}
 function toast(t){$('toast').textContent=t;$('toast').classList.add('on');clearTimeout(window._tt);window._tt=setTimeout(()=>$('toast').classList.remove('on'),2200)}
 async function copyText(t){try{if(navigator.clipboard&&isSecureContext)await navigator.clipboard.writeText(t);else{const e=document.createElement('textarea');e.value=t;e.style.cssText='position:fixed;opacity:0';document.body.append(e);e.select();document.execCommand('copy');e.remove()}toast(L('已复制，粘贴到单位允许使用的 AI 工具即可','Copied — paste it into an approved AI tool'))}catch(e){modal(L('请手动复制','Copy manually'),'<pre>'+esc(t)+'</pre>')}}
 async function full(){try{document.fullscreenElement?await document.exitFullscreen():await document.documentElement.requestFullscreen()}catch(e){toast(L('请按 F11 进入全屏','Press F11 for fullscreen'))}}
-function showTpl(){showText(L('通用提示词模板','Prompt template'),L(`【目标】我要得到：______，给 ______ 用。
-【背景】现在的情况是：______。
-【材料】我提供了：______。其中已确认的是 ______；还不确定的是 ______。
-【约束】不要猜测 ______；不要 ______。
-【交付】请按 ______ 格式输出，长度 ______。
-信息不够就先问我，不要猜。最后列出你不确定、需要我确认的地方。`,`[Goal] I need: ______, for ______.
-[Context] The situation is: ______.
-[Materials] I'm providing: ______. Confirmed: ______. Still unknown: ______.
-[Constraints] Do not guess ______; do not ______.
-[Deliverable] Output as ______, length ______.
-If information is missing, ask me first — don't guess. Finish by listing anything you're unsure about for me to confirm.`))}
+function showTpl(){showText(L('通用提示词模板','Prompt template'),L(`【输入】我给你：______（格式 / 表头 / 版本，以 ______ 为准）。
+【处理逻辑】按 ______ 规则处理；查不到就 ______；不要猜 ______。
+【输出】按 ______ 格式输出，包含 ______ 列 / 字段。
+信息不够就先问我，不要猜。最后列出需要我确认的地方。`,`[Input] Here is what I'm giving you: ______ (format / headers / version; ______ is authoritative).
+[Logic] Apply these rules: ______. If something isn't found: ______. Never guess ______.
+[Output] Output as ______, with ______ columns / fields.
+If information is missing, ask me first — don't guess. Finish by listing anything you need me to confirm.`))}
 
 
 /* ===== funnel warm-up ===== */
@@ -1200,47 +1361,18 @@ function fnNext(){const rows=fnRows();if(fnI<rows.length){rows[fnI].classList.ad
 function goWall(){go(S.findIndex(s=>s.querySelector('#wall')))}
 /* ===== pain wall ===== */
 let pains=store.get('pains',[]);
-const HINTS={zh:['读不完的文档','写不完的报告','看不完的日志','重复的表格','啃不动的英文资料','传不下去的经验'],en:['Docs you can’t finish reading','Reports you can’t finish writing','Logs you can’t get through','Repetitive spreadsheets','Dense foreign-language docs','Know-how that never gets passed on']};
+const HINTS={zh:['等待现场输入…'],en:['Waiting for input…']};
 function renderWall(animIds){
   const w=$('wall');
-  if(!pains.length){w.innerHTML='<div class="hints">'+HINTS[lang].map(h=>`<span>${esc(h)}?</span>`).join('')+'</div>';$('painCount').textContent='0';return}
-  w.innerHTML=pains.map(p=>`<div class="pain" data-id="${p.id}" style="${animIds&&!animIds.includes(p.id)?'animation:none':''}"><button class="x" onclick="delPain(${p.id})">×</button>${esc(p.text)}<div class="tg">${[2,3,4,5].map(l=>`<button class="${(p.lv||[]).includes(l)?'on':''}" onclick="tagPain(${p.id},${l})">L${l}</button>`).join('')}</div></div>`).join('');
+  if(!pains.length){w.innerHTML='<div class="hints">'+HINTS[lang].map(h=>`<span>${esc(h)}</span>`).join('')+'</div>';$('painCount').textContent='0';return}
+  w.innerHTML=pains.map(p=>`<div class="pain" data-id="${p.id}" style="${animIds&&!animIds.includes(p.id)?'animation:none':''}"><button class="x" onclick="delPain(${p.id})">×</button>${esc(p.text)}<div class="tg"></div></div>`).join('');
   $('painCount').textContent=pains.length;
 }
-function addPain(t){t=t.trim();if(!t)return;const id=Date.now();pains.push({id,text:t,lv:[]});store.set('pains',pains);renderWall([id]);$('wall').scrollTop=1e6}
+function addPain(t){t=t.trim();if(!t)return;if(pains.length>=10){toast(L('已收满 10 个需求','10 needs collected'));return}const id=Date.now();pains.push({id,text:t,lv:[]});store.set('pains',pains);renderWall([id]);$('wall').scrollTop=1e6}
 function delPain(id){pains=pains.filter(p=>p.id!==id);store.set('pains',pains);renderWall([])}
 function tagPain(id,l){const p=pains.find(p=>p.id===id);p.lv=p.lv||[];p.lv.includes(l)?p.lv=p.lv.filter(x=>x!==l):p.lv.push(l);store.set('pains',pains);renderWall([])}
 function clearPains(){if(!pains.length)return;pains=[];store.set('pains',pains);renderWall([]);toast(L('已清空','Cleared'))}
 $('painIn').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing){addPain(e.target.value);e.target.value=''}});
-
-/* ===== case slides ===== */
-const CASES={
- 2:{t:['任务交底','Task brief'],f:[[['目标','要得到什么？给谁用？'],['Goal','What do you need? Who is it for?']],[['背景','现在是什么情况？'],['Context','What’s the situation?']],[['材料','提供哪些资料？哪些已知 / 未知？'],['Materials','What will you provide? Known / unknown?']],[['约束','什么不能猜？什么不能做？'],['Constraints','What must not be guessed or done?']],[['交付','什么格式？多长？什么结构？'],['Deliverable','Format? Length? Structure?']]],
-   tail:['信息不够就先问我，不要猜。最后列出需要我确认的地方。','If information is missing, ask me first — don’t guess. Finish by listing what I need to confirm.']},
- 3:{t:['材料包','Material pack'],f:[[['主材料','以哪份为准？版本、日期？'],['Primary','Which file is authoritative? Version, date?']],[['参考材料','哪些仅供参考？'],['Reference','What is reference only?']],[['缺口','还缺什么？谁能补？'],['Gaps','What’s missing? Who can supply it?']],[['找不到时','让它怎么做？（如：明确说没找到）'],['If not found','What should it do? (e.g. say “not found”)']],[['不能上传','哪些必须脱敏或不给？'],['Never upload','What must be desensitized or withheld?']]],
-   tail:['请只基于以上材料回答，每条结论标注来源；找不到就明确说没找到。','Answer only from the material above and cite a source for every conclusion; if it isn’t there, say so.']},
- 4:{t:['核查清单','Checklist'],f:[[['数字','哪些数字必须回到原始数据核对？'],['Numbers','Which figures must be traced to raw data?']],[['因果','哪些结论需要证据支撑？'],['Causality','Which conclusions need evidence?']],[['出处','引用了哪些文档？怎么打开核对？'],['Sources','Which documents are cited? How do we open them?']],[['越权','有没有对外承诺、需要批准的内容？'],['Authority','Any commitments that need approval?']],[['签字人','最终由谁审核负责？'],['Sign-off','Who reviews and owns the result?']]],
-   head:['请按以下清单核查你刚才的输出，逐条说明依据，不确定的标为“待确认”。','Check your previous output against this list. Give evidence for each item and mark anything uncertain as “to confirm”.']},
- 5:{t:['Agent 任务卡','Agent task card'],f:[[['目标','做完是什么样子？'],['Goal','What does “done” look like?']],[['允许','可以读哪些文件、用哪些工具？'],['Allowed','Which files and tools may it use?']],[['先问我','遇到什么情况必须停下来问人？'],['Ask first','When must it stop and ask a human?']],[['绝不碰','哪些操作任何情况都不能做？'],['Never','What must it never do?']],[['验收','交付物是什么？我怎么检查？'],['Acceptance','What’s delivered? How will I check it?']]],
-   tail:['遇到“先问我”的情况立即停下报告；完成后列出过程记录和待我确认的事项。','Stop and report on any “ask first” case. When done, list the work log and items for me to confirm.']}
-};
-function buildCase(s){
-  const lv=+s.dataset.case,c=CASES[lv],root=s.querySelector('.case-root'),st=store.get('case'+lv,{pain:'',f:{}}),li=lang==='en'?1:0;
-  const sorted=[...pains].sort((a,b)=>((b.lv||[]).includes(lv))-((a.lv||[]).includes(lv)));
-  root.innerHTML=`<div class="case">
-   <div class="left"><div class="lbl">${L('本页案例 · 从痛点墙挑选或直接输入','THIS CASE · PICK FROM THE WALL OR TYPE')}</div>
-     <div class="chosen" contenteditable="true" data-ph="${L('点这里输入，或从下方挑一个问题','Type here, or pick a problem below')}">${esc(st.pain)}</div>
-     <div class="pick">${sorted.length?sorted.map(p=>`<button data-t="${esc(p.text)}" class="${p.text===st.pain?'on':''}">${(p.lv||[]).includes(lv)?'<small>L'+lv+'</small>':''}${esc(p.text)}</button>`).join(''):`<div class="empty">${L('痛点墙还是空的。<br>可以直接在上方输入，或','The wall is empty.<br>Type above, or')} <a href="#" onclick="goWall();return false" style="color:var(--acc)">${L('回到痛点墙收集','go back to the wall to collect')}</a>.</div>`}</div>
-   </div>
-   <div><div class="lbl">${c.t[li]} · ${L('点击灰字填写','CLICK THE GREY TEXT TO FILL IN')}</div><div class="tpl">${c.f.map((f,i)=>`<div class="f"><b><i>${['i','ii','iii','iv','v'][i]}.</i><span>${f[li][0]}</span></b><div contenteditable="true" data-k="${i}" data-ph="${esc(f[li][1])}">${esc(st.f[i]||'')}</div></div>`).join('')}</div>
-   <div style="display:flex;gap:12px;margin-top:28px"><button class="btn pri" data-copy>${L('复制为提示词','Copy as prompt')}</button><button class="btn" data-clear>${L('清空本页','Clear this page')}</button></div></div></div>`;
-  const save=()=>{const v={pain:root.querySelector('.chosen').innerText.trim(),f:{}};root.querySelectorAll('[data-k]').forEach(e=>v.f[e.dataset.k]=e.innerText.trim());store.set('case'+lv,v);return v};
-  root.querySelectorAll('[contenteditable]').forEach(e=>e.addEventListener('input',save));
-  root.querySelectorAll('.pick button').forEach(b=>b.onclick=()=>{const ch=root.querySelector('.chosen');ch.textContent=b.dataset.t;root.querySelectorAll('.pick button').forEach(x=>x.classList.toggle('on',x===b));ch.animate([{opacity:0,transform:'translateY(16px)',filter:'blur(6px)'},{opacity:1,transform:'none',filter:'none'}],{duration:700,easing:'cubic-bezier(.19,1,.22,1)'});save()});
-  root.querySelector('[data-copy]').onclick=()=>{const v=save();let t=`${L('问题','Problem')}: ${v.pain||'______'}\n\n`+c.f.map((f,i)=>`[${f[li][0]}] ${v.f[i]||'______'}`).join('\n');
-    if(c.tail)t+='\n\n'+c.tail[li];if(c.head)t=c.head[li]+'\n\n'+t;copyText(t)};
-  root.querySelector('[data-clear]').onclick=()=>{store.set('case'+lv,{pain:'',f:{}});buildCase(s);toast(L('已清空本页','Page cleared'))};
-}
 
 /* ===== next token ===== */
 const NTD={zh:{base:'这个问题最可能的原因是',steps:[{c:[['配置',46],['网络',24],['版本',18],['人为',12]],add:'配置'},{pre:'错误，大约影响了',c:[['30%',38],['一半',27],['部分',21],['少量',14]],add:'30%',warn:1}]},
@@ -1268,17 +1400,17 @@ function ntNext(){
 
 /* ===== agent demo ===== */
 const DEMO={zh:[
- ['明确任务',['<span class="k">目标</span>  汇总文件夹里的 12 份资料，出一页要点','<span class="k">允许</span>  读取该文件夹 · 生成草稿','<span class="k">停止</span>  缺文件 / 版本冲突 / 涉及敏感数据']],
- ['首次执行',['<span class="a">▸ read</span>  12 files','<span class="a">▸ write</span> summary_draft.md','<span class="k">结果</span>  初稿 18 条要点']],
- ['自我检查',['<span class="a">▸ check</span> 逐条对照原文','<span class="w">⚠ 发现</span>  3 份是旧版本，内容与新版冲突','<span class="w">⚠ 发现</span>  2 条要点找不到出处']],
- ['修正重跑',['<span class="a">▸ filter</span> 只保留最新版本（9 份）','<span class="a">▸ write</span> summary_v2.md','<span class="ok">✓</span>  16 条要点，每条附来源与页码']],
- ['提交待审',['<span class="k">交付</span>  要点 + 来源 + 待确认项 2 条','<span class="ok">● 等待你审核</span>','<span class="k">注：生成文件 ≠ 内容已确认</span>']]],
+ ['明确任务',['<span class="k">目标</span>  交付什么、给谁用、什么算完成','<span class="k">边界</span>  能读什么、不能碰什么','<span class="k">停止</span>  缺材料、版本不明、该问人时停下']],
+ ['说清格式',['<span class="k">输入</span>  格式、表头、版本、以谁为准','<span class="k">规则</span>  怎么算、查不到怎么办','<span class="k">输出</span>  列、结构、导出方式']],
+ ['跑一遍',['<span class="a">▸ run</span>  用能核对的材料实际运行','<span class="a">▸ trace</span>  留出过程记录，能回到原始材料','<span class="w">⚠ 发现</span>  有异常就记下来，不静默跳过']],
+ ['核对结果',['<span class="a">▸ check</span>  数字有来源、因果有证据、出处能打开','<span class="a">▸ regression</span>  同一输入，结果应当一致','<span class="k">改一版</span>  指出具体哪一处，其他不动']],
+ ['提交待审',['<span class="k">交付</span>  结果 + 过程记录 + 一处错误记录','<span class="ok">● 人确认后，才算完成</span>','<span class="k">注：改文档 ≠ 改现网</span>']]],
  en:[
- ['Define the task',['<span class="k">goal</span>   Summarize 12 files into a one-page brief','<span class="k">allow</span>  Read this folder · write drafts','<span class="k">stop</span>   Missing file / version conflict / sensitive data']],
- ['First run',['<span class="a">▸ read</span>  12 files','<span class="a">▸ write</span> summary_draft.md','<span class="k">result</span> Draft with 18 points']],
- ['Self-check',['<span class="a">▸ check</span> Compare each point with source','<span class="w">⚠ found</span>  3 files are outdated and conflict','<span class="w">⚠ found</span>  2 points have no source']],
- ['Fix & rerun',['<span class="a">▸ filter</span> Keep latest versions only (9)','<span class="a">▸ write</span> summary_v2.md','<span class="ok">✓</span>  16 points, each with source and page']],
- ['Submit for review',['<span class="k">output</span> Points + sources + 2 open items','<span class="ok">● Waiting for your review</span>','<span class="k">note: a file written ≠ content confirmed</span>']]]};
+ ['Define the task',['<span class="k">goal</span>  Deliverable, audience, definition of done','<span class="k">bounds</span>  What it may read / must not touch','<span class="k">stop</span>  Missing input, unclear version, ask a human']],
+ ['Specify the format',['<span class="k">input</span>  Format, headers, version, authoritative source','<span class="k">rules</span>  How to compute, what if not found','<span class="k">output</span>  Columns, structure, export']],
+ ['Run it once',['<span class="a">▸ run</span>  Use material you can trace back','<span class="a">▸ trace</span>  Keep a process log','<span class="w">⚠ found</span>  Log anomalies, never skip silently']],
+ ['Check the result',['<span class="a">▸ check</span>  Numbers cited, causes evidenced, sources openable','<span class="a">▸ regression</span>  Same input, same output','<span class="k">revise</span>  Point to one place; leave the rest alone']],
+ ['Submit for review',['<span class="k">output</span>  Result + process log + one mistake caught','<span class="ok">● A human confirms before it counts as done</span>','<span class="k">note: editing a file ≠ changing the live network</span>']]]};
 let dI=-1;
 function demoRender(){const demo=DEMO[lang];
   $('dsteps').innerHTML=demo.map((d,i)=>`<div class="${i===dI?'on':i<dI?'done':''}"><i>${i<dI?'✓':i+1}</i>${d[0]}</div>`).join('');
@@ -1287,8 +1419,39 @@ function demoRender(){const demo=DEMO[lang];
 function demoNext(){if(dI<DEMO[lang].length-1){dI++;demoRender()}else toast(L('演示完成，可重置','Demo complete — press Reset'))}
 function demoReset(){dI=-1;demoRender()}
 
+
+
+/* ===== live practice arena: needs -> one shared task -> groups -> timer -> submit ===== */
+function arenaRender(){
+  if(!$('arena'))return;
+  $('aH1').textContent=L('① 现场提需求 · 最多 10 条','① NEEDS FROM THE ROOM · UP TO 10');
+  $('painIn').placeholder=L('现场提一个需求，回车上墙…','Type a need and press Enter…');
+  $('clearNeeds').textContent=L('清空','Clear');
+  $('aH2').textContent=L('② 归并成同一个任务','② MERGE INTO ONE SHARED TASK');
+  $('mission').placeholder=L('把上面的需求归并成一句共同任务…','Merge the needs above into one shared task…');
+  $('mission').value=store.get('mission','');
+  $('aTip2').textContent=L('这一句就是所有组共同的任务，分工不同、目标一致。','One shared task for every group — different stages, same goal.');
+  $('aH3').textContent=L('③ 分组 · 分工不同环节','③ GROUPS · DIFFERENT STAGES OF ONE TASK');
+  const n=store.get('groupN',3);
+  $('aGroupSeg').innerHTML=[2,3].map(k=>`<button class="${k===n?'on':''}" onclick="setGroups(${k})">${k} ${L('组','groups')}</button>`).join('');
+  const names=lang==='en'?['Brief & define','Build & run','Check & review']:['交底与定义','实现与运行','核查与验收'];
+  const st=store.get('groupStatus',{});
+  $('aGroups').className='agrp'+(n===2?' two':'');
+  $('aGroups').innerHTML=names.slice(0,n).map((t,i)=>`<div class="agcard"><div class="agn">${L('第 ','Group ')}${i+1}${L(' 组','')}</div><div class="agt">${t}</div><button class="${st[i]?'on':''}" onclick="toggleGroup(${i})">${st[i]?L('已提交','Submitted'):L('进行中','In progress')}</button></div>`).join('');
+  $('aH4').textContent=L('④ 计时','④ TIMER');
+  [...$('seg').children].forEach(b=>{b.textContent=(+b.dataset.s/60)+' '+L('分','min')});
+  $('treset').textContent=L('重置','Reset');
+  $('aH5').textContent=L('⑤ 提交 · 交三样','⑤ SUBMIT · THREE ITEMS');
+  $('aSubmit').innerHTML='<div class="kv">'+[L('成果','Deliverable'),L('提示词','Prompt'),L('验证记录','Verification log')].map(x=>`<span class="pill">${x}</span>`).join('')+'</div>'+
+    '<div>'+L('计时结束前现场跑一遍标准样例；课后把正式版发给讲师，统一测试验收。','Run one standard sample before time is up; send the final version to the speaker for a unified test.')+'</div>';
+  $('aFoot').textContent=L('内容只存在本机浏览器 · 讲师同步一起做 · 用到的材料先脱敏','Everything stays in this browser · the speaker builds alongside · desensitize any material first');
+}
+function setGroups(k){store.set('groupN',k);arenaRender()}
+function toggleGroup(i){const st=store.get('groupStatus',{});st[i]=!st[i];store.set('groupStatus',st);arenaRender()}
+$('mission').addEventListener('input',e=>store.set('mission',e.target.value));
+
 /* ===== timer ===== */
-let dur=900,remain=900000,deadline=0,iv=null;
+let dur=2700,remain=2700000,deadline=0,iv=null;
 function paint(){const ms=iv?Math.max(0,deadline-Date.now()):remain,s=Math.ceil(ms/1000),t=`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;$('clock').textContent=t;$('clock').classList.toggle('exp',ms<=0);$('miniTimer').textContent=iv?'· '+L('计时 ','timer ')+t:'';if(ms<=0&&iv){clearInterval(iv);iv=null;remain=0;$('tgo').textContent=L('重新开始','Restart');$('miniTimer').textContent=L('· 时间到','· time’s up');toast(L('时间到，请提交当前版本','Time’s up — submit what you have'))}}
 function toggleTimer(){if(iv){remain=Math.max(0,deadline-Date.now());clearInterval(iv);iv=null;$('tgo').textContent=L('继续','Resume')}else{if(remain<=0)remain=dur*1000;deadline=Date.now()+remain;iv=setInterval(paint,200);$('tgo').textContent=L('暂停','Pause')}paint()}
 function resetTimer(){clearInterval(iv);iv=null;remain=dur*1000;$('tgo').textContent=L('开始','Start');paint()}
@@ -1296,7 +1459,7 @@ $('seg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)r
 
 /* ===== input ===== */
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){closeModal();document.activeElement?.blur?.();return}
+  if(e.key==='Escape'){closeModal();closeModels();document.activeElement?.blur?.();return}
   if($('modal').classList.contains('open'))return;
   const t=e.target;if(['INPUT','TEXTAREA','SELECT'].includes(t.tagName)||t.isContentEditable)return;
   if(['ArrowRight','PageDown',' '].includes(e.key)){e.preventDefault();move(1)}

@@ -21,6 +21,10 @@ async function until(check, label) {
 const items = Array.from({ length: 30 }, (_, index) => ({
     id: `wl-${index}`, role: index % 2 ? 'model' : 'user', content: `message ${index}\n`.repeat(index % 2 ? 6 : 1), sessionId: 'segment', createdAt: '2026-10-20T10:00:00Z'
 }));
+const metricRounds = [{model:'channel-fixture',inputTokens:1000,outputTokens:101,cachedInputTokens:900,decodeTokens:100,ttftMs:200,generationMs:1000,timingSource:'request-stream',tps:100,ms:1200,estimated:false}];
+items.at(-1).modelName = 'channel-fixture';
+items.at(-1).usage = {inputTokens:1000,outputTokens:101};
+items.at(-1).rounds = metricRounds;
 const gap = () => evaluate('dcThread.scrollHeight-dcThread.scrollTop-dcThread.clientHeight');
 // 最后一条消息底边不能被底部面板盖住
 const lastVisible = (selector = '.wl-msg') => evaluate("[...dcThread.querySelectorAll('" + selector + "')].pop().getBoundingClientRect().bottom<=dcThread.getBoundingClientRect().bottom+1");
@@ -50,7 +54,7 @@ app.whenReady().then(async () => {
     });
     web.get('/api/ai/models', (_, res) => res.json({ models: [] }));
     web.get('/api/ai/sessions', (_, res) => res.json({ items: [{ id: 'mine', firstQuestion: 'mine', updatedAt: '2026-10-20T10:00:00Z', messageCount: 30 }] }));
-    web.get('/api/ai/sessions/:id/messages', (_, res) => res.json({ items: items.map(item => ({ id: item.id, role: item.role, content: item.content, created_at: '2026-10-20 10:00:00' })), hasMore: false }));
+    web.get('/api/ai/sessions/:id/messages', (_, res) => res.json({ items: items.map(item => ({ id: item.id, role: item.role, content: item.content, model_name:item.modelName, input_tokens:item.usage?.inputTokens, output_tokens:item.usage?.outputTokens, events:(item.rounds || []).map(round=>({type:'model_round',round})), created_at: '2026-10-20 10:00:00' })), hasMore: false }));
     web.get('/api/channels/welink/threads', (_, res) => res.json({ items: [] }));
     web.get('/api/channels/welink/threads/group/:id/messages', (_, res) => res.json({ items, segments: [{ aiSessionId: 'segment' }], canSend: true }));
     web.get('/api/channels/welink/threads/group/:id/followups', (_, res) => res.json({ items: [] }));
@@ -67,6 +71,7 @@ app.whenReady().then(async () => {
     await until(() => evaluate("dcThread.querySelectorAll('.dc-msg').length===30&&!dcThread.hasAttribute('aria-busy')"), 'personal history');
     await wait(100);
     assert.ok(await gap() < 5, 'Personal chat opens at the bottom');
+    assert.match(await evaluate('[...dcThread.querySelectorAll(".dc-msg-speed")].at(-1).textContent'),/TPS 100\/100\/100.*TTFT 0.20 s/,'ordinary history keeps the footer');
     const top0 = await evaluate('dcThread.scrollTop');
     await evaluate("dcInput.value='a\\nb\\nc\\nd\\ne\\nf';dcInput.dispatchEvent(new Event('input',{bubbles:true}))");
     await wait(80);
@@ -86,6 +91,11 @@ app.whenReady().then(async () => {
     await until(() => evaluate("dcThread.querySelectorAll('.wl-msg').length===30&&!!document.querySelector('[data-wl-role=bot]')"), 'thread with role switch');
     await wait(100);
     assert.ok(await gap() < 5, 'Thread opens at the bottom');
+    assert.match(await evaluate('[...dcThread.querySelectorAll(".dc-msg-speed")].at(-1).textContent'),/TPS 100\/100\/100.*TTFT 0.20 s/,'channel history uses the same footer');
+    assert.match(await evaluate('[...dcThread.querySelectorAll(".dc-msg-usage")].at(-1).getAttribute("data-dc-metric-tip")'),/1,000/,'channel hover keeps precise token counts');
+    items.at(-1).rounds = [{...metricRounds[0],inputTokens:2000}];
+    await evaluate('HomeWelinkThreads.refresh()');
+    assert.match(await evaluate('[...dcThread.querySelectorAll(".dc-msg-usage")].at(-1).getAttribute("data-dc-metric-tip")'),/2,000/,'late statistics update on the same message');
     const reading = await evaluate(`(()=>[...dcThread.querySelectorAll('.wl-msg')].map(message=>{
         const body=message.querySelector('.dc-msg-body');return {opacity:getComputedStyle(message).opacity,color:getComputedStyle(body).color,filter:getComputedStyle(body).filter};
     }))()`);

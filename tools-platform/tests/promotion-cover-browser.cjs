@@ -11,7 +11,7 @@ const frontend = path.join(__dirname, '../frontend');
 let config = { maxLinks: 3, rotateSeconds: 30, desktopStack: false, defaultsWritable: false, videos: ['rfc', 'incentive', 'eos', 'guide', 'aiMonthly', 'welinkCli', 'welinkSdk', 'digitalHuman'].map(id => ({ id, enabled: false })), links: [
     { ...JSON.parse(fs.readFileSync(path.join(__dirname, '../backend/platform-promotions-defaults.json'))).links[0], builtin: true, enabled: true }
 ] };
-let win, server, saves = 0;
+let win, server, saves = 0, desktopSidebar=false, desktopSyncs=0, frameRequests=0;
 const evaluate = (fn, ...args) => win.webContents.executeJavaScript(`(${fn.toString()})(...${JSON.stringify(args)})`, true);
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function until(fn) {
@@ -24,7 +24,9 @@ app.whenReady().then(async () => {
     web.get('/api/platform-promotions', (_, res) => res.json(config));
     web.put('/api/platform-promotions', (req, res) => { saves++; config = req.body; res.json(config); });
     web.get('/api/platform-promotions/stats', (_, res) => res.json({ items: [], totalClicks: 0, totalUsers: 0 }));
-    web.get('/api/platform-promotions/desktop', (_, res) => res.json({ available: false }));
+    web.get('/api/platform-promotions/desktop', (_, res) => res.json({ available: desktopSidebar,presentation:'sidebar' }));
+    web.post('/api/platform-promotions/desktop/sync',(_,res)=>{desktopSyncs++;res.json({available:true,presentation:'sidebar'});});
+    web.get('/api/platform-promotions/desktop/frame/:id',(_,res)=>{frameRequests++;res.status(404).end();});
     web.get(['/', '/settings'], (req, res) => res.type('html').send(`<!doctype html><html lang="zh-CN" data-theme="dark"><head>
         <link rel="stylesheet" href="/css/home-promo-video.css"><style>body{background:#101d32;font-family:Arial;margin:0}#settings{margin:24px;max-width:900px}*{box-sizing:border-box}</style>
         <script>localStorage.setItem('tools_lang','zh-CN')</script><script src="/js/shared/i18n.js"></script></head><body>
@@ -44,6 +46,7 @@ app.whenReady().then(async () => {
         return { x: Math.floor(r.x), y: Math.floor(r.y), width: Math.ceil(r.width), height: Math.ceil(r.height) };
     });
     fs.writeFileSync('/tmp/netcare-promotion-cover.png', (await win.webContents.capturePage(box)).toPNG());
+    desktopSidebar=true;await win.loadURL(base);for(let i=0;i<100&&!desktopSyncs;i++)await wait(20);assert.ok(desktopSyncs>0,'desktop login synchronizes sidebar promotions');await wait(350);assert.equal(frameRequests,0,'sidebar promotions do not poll retired floating-card screenshots');
     for (const [width, theme, language] of [[1200, 'dark', 'zh-CN'], [390, 'light', 'en-US']]) {
         win.setSize(width, 920);
         await win.loadURL(base + '/settings');

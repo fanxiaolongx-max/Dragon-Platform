@@ -141,6 +141,20 @@ test('提醒调度：到期任务在原群 @ 提醒人，只发一次；失败 1
     });
 });
 
+test('频道回复保留模型用量与逐次统计，同时不暴露其他事件内容', async () => {
+    await inTenant(async () => {
+        const round = { model:'fixture-model', inputTokens:1000, outputTokens:101, cachedInputTokens:900, decodeTokens:100, ttftMs:200, generationMs:1000, tps:100, timingSource:'request-stream', estimated:false, privatePayload:'never-return' };
+        const session = await chat.addMessage({ owner:'welink:metric-test', pagePath:'/channels/welink', role:'model', content:'Measured reply', modelName:'fixture-model', inputTokens:1000, outputTokens:101, events:[{type:'model_round',round},{type:'tool_start',args:{private:'never-return'}}] });
+        await repo.addSegment('welink',{kind:'user',id:'metric-test',toolSessionId:'metric-segment',aiSessionId:session});
+        const page = await repo.listThreadMessages('welink','user','metric-test');
+        assert.equal(page.items[0].modelName,'fixture-model');
+        assert.deepEqual(page.items[0].usage,{inputTokens:1000,outputTokens:101});
+        assert.equal(page.items[0].rounds[0].tps,100);
+        assert.equal(page.items[0].rounds[0].cachedInputTokens,900);
+        assert.equal(JSON.stringify(page).includes('never-return'),false);
+    });
+});
+
 test('对话时间线：同一群的多段对话合并，段落标注新的上下文，发言人随消息保存', async () => {
     await inTenant(async () => {
         const first = await chat.addMessage({ owner: 'welink-group:g-merge', pagePath: '/channels/welink', role: 'user', content: '第一段问题', events: [{ type: 'channel', sender: 'alice' }] });

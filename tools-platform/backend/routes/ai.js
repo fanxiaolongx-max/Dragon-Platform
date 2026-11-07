@@ -678,6 +678,8 @@ async function handleChatRequest(req, res) {
         let aiSettings = await aiSettingsRepo.getRuntimeSettings({ profileId: modelChoice?.profileId });
         if (modelChoice && (!aiSettings.hasApiKey || !aiSettings.keyLooksValid)) {
             aiSettings = await aiSettingsRepo.getRuntimeSettings();
+        } else if (modelChoice?.modelName) {
+            aiSettings.model = modelChoice.modelName;
         }
         if (!aiSettings.hasApiKey) {
             return res.status(503).json({
@@ -1431,6 +1433,7 @@ router.post('/compact', checkAuth, async (req, res) => {
         const choice = req.body.modelId !== undefined ? await aiSettingsRepo.resolveModelChoice(req.body.modelId) : null;
         let settings = await aiSettingsRepo.getRuntimeSettings({ profileId: choice?.profileId });
         if (choice && (!settings.hasApiKey || !settings.keyLooksValid)) settings = await aiSettingsRepo.getRuntimeSettings();
+        else if (choice?.modelName) settings.model = choice.modelName;
         if (!settings.hasApiKey || !settings.keyLooksValid) return res.status(503).json({ error: '请先配置可用的 AI 模型 Token' });
         secrets = await aiSettingsRepo.getRedactionSecrets();
         const result = await contextCompaction.compact({ sessionId: id, owner: req.user.username, agentSession: session,
@@ -1457,6 +1460,7 @@ router.post('/enhance-prompt', checkAuth, async (req, res) => {
         enhancer.validatePrompt(req.body?.text);
         const choice = await aiSettingsRepo.resolveModelChoice(req.body?.modelId);
         const settings = await aiSettingsRepo.getRuntimeSettings({ profileId: choice?.profileId });
+        if (choice?.modelName) settings.model = choice.modelName;
         if (!settings.hasApiKey || !settings.keyLooksValid) return res.status(503).json({ code: 'AI_MODEL_NOT_CONFIGURED', error: '请先配置可用的 AI 模型' });
         const secrets = await aiSettingsRepo.getRedactionSecrets();
         const result = await enhancer.enhancePrompt({ text: req.body.text, language: req.body.uiLanguage,

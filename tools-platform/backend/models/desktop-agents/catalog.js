@@ -176,16 +176,19 @@ async function transcript(session) {
     // 运行状态：Codex 看 task_started / task_complete，Claude 看最后一条消息是否已 end_turn
     // Claude 写出 end_turn 后桌面还要跑结束钩子，等 stop_hook_summary 才算结束（没有钩子的会话最多再等 60 秒）
     let busySince = null, lastStamp = null, settling = null;
-    // 每轮模型调用的 token 与速度（与 Dragon Claw 回复下方的 最低/平均/最高 tok/s 同一口径）：
+    // 每轮模型调用的实报 token；日志边界耗时不是实际解码耗时，不能用于生成速度。
     // Claude 按 API 消息 id 归并（用量在 message.usage），Codex 用 token_count 事件；耗时取「上一个边界事件 → 本次调用最后写入」的时间差，是近似值。
     // 一次提问内的所有调用挂到这一问最后一条可见回复上（item.rounds）。
     let boundary = null, codexModel = '', codexTotal = null, codexRecords = false, turnRounds = [], lastAssistant = -1;
-    const claudeCalls = new Map();
+    const claudeCalls = new Map(), performanceTurns=[],turnStarts=new Map();
+    let activeTurnId=null,codexCallHasTools=false;
     const finishTurn = () => {
         if (lastAssistant >= 0 && turnRounds.length) items[lastAssistant].rounds = turnRounds.map((round, i) => {
             const ms = Math.max(1, Date.parse(round.end) - Date.parse(round.start || round.end));
-            return { index: i + 1, model: round.model, inputTokens: round.inputTokens, outputTokens: round.outputTokens, estimated: false, ms, ttftMs: null, generationMs: ms, tps: round.outputTokens > 0 ? Math.round(round.outputTokens / (ms / 1000) * 10) / 10 : 0, at: round.start || round.end };
-        }).filter(round => round.outputTokens > 0 && Number.isFinite(round.ms));
+            return { index: i + 1, model: round.model, requestId:round.requestId||null, providerRequestId:round.providerRequestId||null, turnId:round.turnId||null, usageSource:round.usageSource||session.provider,
+                inputTokens:round.inputTokens,outputTokens:round.outputTokens,cachedInputTokens:round.cachedInputTokens??null,reasoningOutputTokens:round.reasoningOutputTokens??null,outputHasTools:round.outputHasTools??null,
+                estimated:false,timingEstimated:true,timingSource:'log-boundary',ms:Number.isFinite(ms)?ms:null,ttftMs:null,generationMs:null,tps:null,at:round.start||round.end };
+        }).filter(round => round.outputTokens > 0 || round.inputTokens > 0);
         turnRounds = [];
         lastAssistant = -1;
     };
@@ -205,13 +208,14 @@ async function transcript(session) {
                 const usage = event.message.usage;
                 let call = claudeCalls.get(event.message.id);
                 if (!call) {
-                    call = { start: boundary || stamp, model: event.message.model || '' };
+                    call = { start: boundary || stamp, model: event.message.model || '',requestId:event.message.id,providerRequestId:event.requestId||null,usageSource:'claude-message-usage' };
                     claudeCalls.set(event.message.id, call);
                     turnRounds.push(call);
                 }
                 call.end = stamp;
                 call.outputTokens = Number(usage.output_tokens) || 0;
                 call.inputTokens = (Number(usage.input_tokens) || 0) + (Number(usage.cache_read_input_tokens) || 0) + (Number(usage.cache_creation_input_tokens) || 0);
+                call.cachedInputTokens=typeof usage.cache_read_input_tokens==='number'?usage.cache_read_input_tokens:null;
                 boundary = stamp;
             }
             else if (session.provider === 'claudecode' && event.type === 'user' && !event.isMeta) {
@@ -221,19 +225,21 @@ async function transcript(session) {
             }
             else if (session.provider === 'codex') {
                 const payload = event.payload || {};
+                if(event.type==='response_item'&&['function_call','custom_tool_call'].includes(payload.type))codexCallHasTools=true;
                 if (event.type === 'turn_context' && payload.model) codexModel = payload.model;
-                if (event.type === 'event_msg' && payload.type === 'task_started') { finishTurn(); boundary = stamp; }
+                if (event.type === 'event_msg' && payload.type === 'task_started') { finishTurn(); boundary = stamp;activeTurnId=payload.turn_id||null;if(activeTurnId)turnStarts.set(activeTurnId,stamp); }
                 // 新版 Codex：每次模型调用结束写 token_usage_record（用量即本次调用）；旧版只有 token_count（在工具执行后才写，耗时偏长，且可能重复）
                 else if (event.type === 'token_usage_record' && payload.usage) {
                     codexRecords = true;
                     turnRounds = turnRounds.filter(round => !round.fromCount);
-                    turnRounds.push({ start: boundary || stamp, end: stamp, model: codexModel, outputTokens: Number(payload.usage.output_tokens) || 0, inputTokens: Number(payload.usage.input_tokens) || 0 });
+                    turnRounds.push({ start: boundary || stamp, end: stamp, model: codexModel,requestId:payload.response_id||null,turnId:payload.turn_id||activeTurnId,usageSource:'codex-token-usage-record',outputHasTools:codexCallHasTools,cachedInputTokens:payload.usage.cached_input_tokens??null,reasoningOutputTokens:payload.usage.reasoning_output_tokens??null,outputTokens:Number(payload.usage.output_tokens)||0,inputTokens:Number(payload.usage.input_tokens)||0 });
+                    codexCallHasTools=false;
                     boundary = stamp;
                 }
                 else if (!codexRecords && event.type === 'event_msg' && payload.type === 'token_count' && payload.info?.last_token_usage && payload.info.total_token_usage?.total_tokens !== codexTotal) {
                     codexTotal = payload.info.total_token_usage?.total_tokens;
                     const usage = payload.info.last_token_usage;
-                    turnRounds.push({ start: boundary || stamp, end: stamp, model: codexModel, outputTokens: Number(usage.output_tokens) || 0, inputTokens: Number(usage.input_tokens) || 0, fromCount: true });
+                    turnRounds.push({ start: boundary || stamp, end: stamp, model: codexModel, outputTokens: Number(usage.output_tokens) || 0, inputTokens: Number(usage.input_tokens) || 0,cachedInputTokens:usage.cached_input_tokens??null,reasoningOutputTokens:usage.reasoning_output_tokens??null,turnId:activeTurnId,usageSource:'codex-token-count',fromCount:true });
                     boundary = stamp;
                 }
                 else if (event.type === 'response_item' && (['function_call_output', 'custom_tool_call_output'].includes(payload.type) || (payload.type === 'message' && payload.role === 'user'))) boundary = stamp;
@@ -242,6 +248,7 @@ async function transcript(session) {
         if (session.provider === 'codex' && event.type === 'event_msg') {
             if (event.payload?.type === 'task_started')
                 busySince = stamp || new Date().toISOString();
+            if(event.payload?.type==='task_complete'){const p=event.payload,id=p.turn_id;if(id)performanceTurns.push({id,startedAt:turnStarts.get(id)||p.started_at||null,endedAt:p.completed_at||stamp,durationMs:typeof p.duration_ms==='number'?p.duration_ms:null,usageComplete:turnStarts.has(id),ttftMs:typeof p.time_to_first_token_ms==='number'?p.time_to_first_token_ms:null,source:'codex-task-complete'});}
             if (['task_complete', 'turn_aborted'].includes(event.payload?.type))
                 busySince = null;
         }
@@ -290,7 +297,14 @@ async function transcript(session) {
     }
     finishTurn();
     const busy = Boolean(busySince) && Date.now() - Date.parse(lastStamp || busySince) < STALE_MS && !(settling && Date.now() - Date.parse(settling) > 60000);
-    return { items: items.slice(-200), available: true, busy, busySince: busy ? busySince : null };
+    // Keep explicit turn latency alongside that reply's usage for the footer; never use it as per-request decode time.
+    for (const item of items) {
+        const round = item.rounds?.[0];
+        if (!round) continue;
+        const turn = performanceTurns.find(t => t.id === round.turnId);
+        if (typeof turn?.ttftMs === 'number') round.turnTtftMs = turn.ttftMs;
+    }
+    return { items: items.slice(-200),performanceTurns, available: true, busy, busySince: busy ? busySince : null };
 }
 // 会话列表的「运行中」标记：只看最近有活动的会话，按记录文件的修改时间与大小缓存，文件没变就不重读
 const busyCache = new Map();
@@ -448,6 +462,7 @@ async function antigravityTranscript(sessionOrId) {
     const items = [];
     let currentModel = '', busySince = null, lastStamp = null, turnSettled = true;
     let turnRounds = [], lastAssistant = -1, pendingRound = null;
+    const modelUsage = new Map();
     const finishTurn = () => {
         if (pendingRound && !pendingRound.end && mtimeMs) {
             const startMs = Date.parse(pendingRound.start);
@@ -464,11 +479,13 @@ async function antigravityTranscript(sessionOrId) {
                     model: round.model,
                     inputTokens: round.inputTokens,
                     outputTokens: round.outputTokens,
+                    requestId: round.requestId, usageSource: 'antigravity-planner',
+                    cachedInputTokens: round.cachedInputTokens,
                     estimated: false,
                     ms,
                     ttftMs: null,
-                    generationMs: ms,
-                    tps: ms >= 500 && round.outputTokens > 0 ? Math.round(round.outputTokens / (ms / 1000) * 10) / 10 : 0,
+                    generationMs:null,timingEstimated:true,timingSource:'log-boundary',
+                    tps:null,
                     at: round.start || round.end
                 };
             }).filter(r => r.outputTokens > 0 || r.inputTokens > 0);
@@ -510,7 +527,10 @@ async function antigravityTranscript(sessionOrId) {
             const inputTokens = (Number(ev.input_tokens) || 0) + (Number(ev.cache_read_tokens) || 0);
             const outputTokens = Number(ev.output_tokens) || 0;
             if (inputTokens > 0 || outputTokens > 0) {
-                pendingRound = { start: stamp, end: null, model: currentModel, inputTokens, outputTokens };
+                const requestId = `${id}:${ev.step_index ?? stamp}`;
+                const cachedInputTokens = Number.isSafeInteger(ev.cache_read_tokens) && ev.cache_read_tokens >= 0 ? ev.cache_read_tokens : null;
+                pendingRound = { start: stamp, end: null, model: currentModel, inputTokens, outputTokens, requestId, cachedInputTokens };
+                modelUsage.set(requestId, { requestId, usageSource: 'antigravity-planner', model: currentModel, inputTokens, outputTokens, cachedInputTokens, timingSource: 'usage-only', ttftMs: null, generationMs: null });
                 turnRounds.push(pendingRound);
             }
             const hasTools = Array.isArray(ev.tool_calls) && ev.tool_calls.length > 0;
@@ -533,6 +553,6 @@ async function antigravityTranscript(sessionOrId) {
     } catch { }
     const fresh = Boolean(lastStamp) && Date.now() - Date.parse(lastStamp) < STALE_MS;
     const busy = dbBusy !== null ? Boolean(dbBusy && fresh) : Boolean(busySince && !turnSettled && fresh);
-    return { items: items.slice(-200), available: true, busy, busySince: busy ? (busySince || lastStamp) : null };
+    return { items: items.slice(-200), modelUsage: [...modelUsage.values()], available: true, busy, busySince: busy ? (busySince || lastStamp) : null };
 }
 module.exports = { home, roots, entries, json, readDb, safe, userText, codex, claude, transcript, busyState, antigravityTimestamps, antigravity, antigravityBusyIds, antigravityTranscript };

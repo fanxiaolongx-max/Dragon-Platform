@@ -9,10 +9,15 @@ setTimeout(() => { console.error('Desktop agent UI timed out'); app.exit(1); }, 
 const ids = { codex: '11111111-1111-4111-8111-111111111111', claudecode: 'local_22222222-2222-4222-8222-222222222222', antigravity: '33333333-3333-4333-8333-333333333333', workbuddy: '44444444-4444-4444-8444-444444444444' };
 const queuedFixture = [], created = [], newHistory = {};
 let busyNow = false, claudeWritable = true, win, server, config = { enabled: true, autoSync: true, allowSend: true, syncSeconds: 20, recentLimit: 60, providers: Object.fromEntries(Object.keys(ids).map(id => [id, true])) }, sendError = false, holdSend = false, releaseSend;
+const busyStartedAt=new Date(Date.now()-65000).toISOString();
 const calls = [], saves = [];let hiddenProvider='', manualRefreshes=0, historyMode='normal';
 const sessions = Object.entries(ids).map(([provider, id]) => ({ provider, id, title: provider + ' original desktop conversation', updatedAt: '2026-10-26T10:00:00Z', source: 'desktop-history' }));
 const histories = Object.fromEntries(Object.keys(ids).map(p => [p, [{ id: 'u1', role: 'user', content: p + ' original user message', attachments: [{ path: '/tmp/agent-fixture.png', name: 'agent-fixture.png' }, { path: '/tmp/agent-report.pdf', name: 'agent-report.pdf' }] }, { id: 'a1', role: 'assistant', content: p + ' original assistant reply' }]]));
 histories.workbuddy[1].attachments = [{ path: '/tmp/wb-result.png', name: 'wb-result.png' }, { path: '/tmp/wb-result-two.png', name: 'wb-result-two.png' }];
+histories.codex[1].rounds=[{requestId:'fixture-response',turnId:'fixture-turn',usageSource:'fixture',model:'fixture-model',inputTokens:900000,outputTokens:1000,reasoningOutputTokens:100,turnTtftMs:2500,cachedInputTokens:810000,timingSource:'log-boundary',timingEstimated:true,ms:40000,generationMs:null,tps:null}];
+const aggregatePerformance=require('../backend/models/desktop-agents/performance').aggregate;
+const workbuddyUsageRecords=[{requestId:'workbuddy-native-1',usageSource:'workbuddy-provider-usage',model:'workbuddy-fixture',inputTokens:2000,outputTokens:200,cachedInputTokens:1600}];
+const performanceTurns=[{id:'fixture-turn',startedAt:'2026-10-26T09:00:00Z',durationMs:40000,ttftMs:2500,usageComplete:true}];
 histories.codex[0].attachments.push({ path: '/tmp/agent-second.png', name: 'agent-second.png' });
 const providers = () => Object.keys(ids).map(id => ({ id, enabled: true, connected: true, canRead: true, canSend: config.allowSend, count: 1, reason: 'Native desktop fixture' }));
 const evaluate = code => win.webContents.executeJavaScript(/^(let |const )/.test(code) ? `(()=>{${code}})()` : code, true), wait = ms => new Promise(r => setTimeout(r, ms));
@@ -33,7 +38,7 @@ app.whenReady().then(async () => {
     web.put('/api/desktop-agents/settings', (req, res) => { saves.push(req.body); config = { ...config, ...req.body }; res.json({ settings: config }); });
     web.get('/api/desktop-agents/sessions', (_req, res) => res.json({ items: sessions.filter(s=>s.provider!==hiddenProvider), providers: providers(), syncedAt: new Date().toISOString() }));
     web.post('/api/desktop-agents/sync', (_req, res) => { manualRefreshes++; res.json({ items: sessions.filter(s=>s.provider!==hiddenProvider), providers: providers(), syncedAt: new Date().toISOString() }); });
-    web.get('/api/desktop-agents/:provider/sessions/:id/messages', (req, res) => { if(historyMode==='error') return res.status(503).json({error:'Desktop fixture unavailable'}); if(historyMode==='empty') return res.json({items:[],canSend:true,busy:false}); res.json({ session: sessions.find(s => s.provider === req.params.provider && s.id === req.params.id) || sessions.find(s => s.provider === req.params.provider), items: newHistory[req.params.id] || histories[req.params.provider], canSend: config.allowSend && req.params.provider !== 'claudecode' || config.allowSend && claudeWritable, available: true, canSteer: req.params.provider === 'codex', queue: req.params.provider === 'codex' ? queuedFixture : [], busy: busyNow, busySince: busyNow ? new Date(Date.now() - 65000).toISOString() : null }); });
+    web.get('/api/desktop-agents/:provider/sessions/:id/messages', (req, res) => { if(historyMode==='error') return res.status(503).json({error:'Desktop fixture unavailable'}); if(historyMode==='empty') return res.json({items:[],canSend:true,busy:false}); res.json({ session: sessions.find(s => s.provider === req.params.provider && s.id === req.params.id) || sessions.find(s => s.provider === req.params.provider), items: newHistory[req.params.id] || histories[req.params.provider],performance:aggregatePerformance(newHistory[req.params.id]||histories[req.params.provider],req.params.provider==='codex'?performanceTurns:[],req.params.provider==='workbuddy'?workbuddyUsageRecords:[]), canSend: config.allowSend && req.params.provider !== 'claudecode' || config.allowSend && claudeWritable, available: true, canSteer: req.params.provider === 'codex', queue: req.params.provider === 'codex' ? queuedFixture : [], busy: busyNow, busySince: busyNow ? busyStartedAt : null }); });
     web.post('/api/desktop-agents/:provider/sessions/:id/messages', async (req, res) => { if (req.body.mode === 'queue') {
         queuedFixture.push({ requestId: req.body.requestId, text: req.body.text, status: 'queued', error: '' });
         return res.status(202).json({ status: 'queued', requestId: req.body.requestId, queue: queuedFixture });
@@ -78,6 +83,21 @@ app.whenReady().then(async () => {
     assert.match(await evaluate('dcInput.placeholder'), /Codex/);
     assert.match(await evaluate('dcThread.textContent'), /codex original assistant reply/);
     assert.match(await evaluate('dcThread.querySelector(".dc-msg--ai .dc-msg-avatar").getAttribute("src")'),/desktop-agents\/codex\.png$/);
+    assert.equal(await evaluate('document.querySelectorAll(".daw-metric").length'),8,'four additional performance cards');
+    assert.match(await evaluate('document.querySelector("[data-metric=cache]").textContent'),/90/);
+    assert.match(await evaluate('document.querySelector("[data-metric=ttft]").textContent'),/2.5/);
+    assert.equal(await evaluate('document.querySelector("[data-metric=decode] .daw-metric-value").textContent'),'—','log durations never masquerade as decode speed');
+    assert.match(await evaluate('dcThread.querySelector(".dc-msg-usage").textContent'),/900K/,'round token counts remain in the reply footer');
+    assert.match(await evaluate('dcThread.querySelector(".dc-msg-speed").textContent'),/TPS —\/—\/—.*TTFT 2.50 s/,'missing decode stays visible while explicit turn latency is retained');
+    assert.match(await evaluate('dcThread.querySelector(".dc-msg-usage").getAttribute("data-dc-metric-tip")'),/900,000/,'hover shows exact counts');
+    if(process.env.DESKTOP_PERFORMANCE_PREVIEW){
+        for(const width of [1440,390])for(const theme of ['light','dark']){
+            win.setContentSize(width,950);await evaluate(`document.documentElement.dataset.ui='v2';document.documentElement.dataset.theme='${theme}';DragonClawWorkspace.openPanel()`);await wait(160);
+            const overflow=await evaluate('[...document.querySelectorAll(".daw-metric")].some(node=>node.scrollWidth>node.clientWidth+1)');assert.equal(overflow,false,'metric cards do not overflow on narrow screens');
+            fs.writeFileSync(path.join(temp,`performance-${width}-${theme}.png`),(await win.webContents.capturePage()).toPNG());
+        }
+        win.destroy();server.close();console.log('PASS: truthful performance cards, missing decode timing, light/dark and 390/1440px. '+temp);app.exit(0);return;
+    }
     await evaluate('dcInput.value="A Codex follow-up";dcInput.dispatchEvent(new Event("input",{bubbles:true}));dcSend.click();dcSend.click();');
     await until('dcThread.textContent.includes("native reply: A Codex follow-up")');
     assert.equal(calls.length, 1);
@@ -97,7 +117,7 @@ app.whenReady().then(async () => {
     await until('document.querySelector(".desktop-agent-queued")?.textContent.includes("Queued while running")');
     assert.equal(calls.length, 1, 'queued messages are not sent directly');
     assert.equal(await evaluate('dcInput.value'), '');
-    queuedFixture.length = 0;
+    queuedFixture.length = 0;await evaluate('document.querySelector("[data-desktop-refresh]").click()');await until('!document.querySelector(".desktop-agent-queued")');
     // 无变化的轮询不重绘工作区；正在变长的回复只追加段落，前面的节点保持不变
     await evaluate('window.__ws=document.querySelector("[data-wsp-ext-body] dl"),true');
     await evaluate('document.querySelector("[data-desktop-refresh]").click()');
@@ -143,6 +163,14 @@ app.whenReady().then(async () => {
     assert.equal(await evaluate('[...document.querySelectorAll("[data-desktop-provider] img")].every(i=>i.complete&&i.naturalWidth>0)'),true);
     const choose = async (provider) => { await evaluate(`document.querySelector('[data-desktop-provider="${provider}"]').click()`); await until(`dcThread.textContent.includes(${JSON.stringify(provider + ' original assistant reply')})`); assert.equal(await evaluate(`document.querySelector('[data-desktop-provider="${provider}"]').getAttribute('aria-pressed')`),'true'); };
     await choose('workbuddy');
+    assert.equal(await evaluate('document.querySelector("[data-metric=calls] .daw-metric-value").textContent'),'1');
+    assert.equal(await evaluate('document.querySelector("[data-metric=decode] .daw-metric-value").textContent'),'—');
+    const workbuddyMessageCount=histories.workbuddy.length,wasWorkbuddyBusy=busyNow;busyNow=true;
+    workbuddyUsageRecords.push({...workbuddyUsageRecords[0],requestId:'workbuddy-native-2'});
+    await evaluate('document.querySelector("[data-desktop-refresh]").click()');await until('document.querySelector("[data-metric=calls] .daw-metric-value").textContent==="2"');
+    assert.equal(histories.workbuddy.length,workbuddyMessageCount,'tool-call usage updates without adding a visible message');
+    assert.match(await evaluate('document.querySelector("[data-wsp-ext-body]").textContent'),/workbuddy-fixture/);busyNow=wasWorkbuddyBusy;
+
     histories.workbuddy[1].widget = { title: '工作区面板', html: '<div style="color:rgb(1,2,3)">Widget fixture</div><script>window.widgetExecuted=true</script><meta http-equiv="refresh" content="0;url=https://example.com"><a href="https://example.com">link</a><iframe src="https://example.com"></iframe>' };
     await evaluate('document.querySelector("[data-desktop-refresh]").click()');
     await until('!!dcThread.querySelector(".desktop-agent-widget iframe")');
@@ -337,6 +365,50 @@ app.whenReady().then(async () => {
     assert.equal(saves[0].autoSync, false);
     await wait(100);
     fs.writeFileSync(path.join(temp, 'desktop-agent-settings.png'), (await win.webContents.capturePage()).toPNG());
+    await win.loadURL(base);
+    await until('!!window.DragonClaw');
+    await evaluate(`window.footerApi=DragonClaw.enterExternal({owner:'footer-test'});window.footerMessage=footerApi.addMessage('ai','measured reply');footerApi.addCopy(footerMessage,'measured reply',{modelName:'measured-model',rounds:[{model:'measured-model',inputTokens:1000,outputTokens:101,decodeTokens:100,ttftMs:200,generationMs:1000,timingSource:'request-stream',tps:100},{model:'measured-model',inputTokens:2000,outputTokens:201,decodeTokens:200,ttftMs:400,generationMs:1000,timingSource:'request-stream',tps:200}]})`);
+    assert.match(await evaluate('footerMessage.querySelector(".dc-msg-speed").textContent'),/TPS 100\/150\/200.*TTFT 0.20 s/);
+    assert.match(await evaluate('footerMessage.querySelector(".dc-msg-usage").textContent'),/3,000/);
+    assert.match(await evaluate('footerMessage.querySelector(".dc-msg-speed").getAttribute("data-dc-metric-tip")'),/#2 measured-model/,'hover preserves each call breakdown');
+    await evaluate(`footerMessage.querySelector('.dc-msg-tools').remove();footerApi.addCopy(footerMessage,'measured reply',{modelName:'measured-model',rounds:Array.from({length:10},(_,i)=>({model:'call-'+(i+1),inputTokens:100,outputTokens:10,timingSource:'usage-only'}))})`);
+    const limitedHover=await evaluate('footerMessage.querySelector(".dc-msg-usage").getAttribute("data-dc-metric-tip")');
+    assert.equal((limitedHover.match(/^#\d+/gm)||[]).length,3,'hover shows the latest three calls only');
+    assert.match(limitedHover,/#8 call-8/);
+    assert.match(limitedHover,/#10 call-10/);
+    assert.doesNotMatch(limitedHover,/#7 call-7/);
+    assert.match(limitedHover,/1,000 input tokens/,'summary still includes all ten calls');
+    win.setContentSize(1440,950);
+    await evaluate('footerMessage.scrollIntoView({block:"center"})');await wait(300);
+    const wideTip=await evaluate('(()=>{if(!footerMessage.isConnected)dcThread.append(footerMessage);footerMessage.querySelector(".dc-msg-usage").dispatchEvent(new PointerEvent("pointerover",{bubbles:true}));const t=document.getElementById("dcMetricTooltip"),r=t.getBoundingClientRect();return {hidden:t.hidden,width:r.width,right:r.right,left:r.left,whiteSpace:getComputedStyle(t).whiteSpace}})()');
+    assert.equal(wideTip.hidden,false,JSON.stringify(await evaluate('({connected:footerMessage.isConnected,tips:document.querySelectorAll("#dcMetricTooltip").length,spans:document.querySelectorAll("[data-dc-metric-tip]").length})')));
+    assert.ok(wideTip.width>500,'metric hover grows to fit its longest line instead of using a narrow native tooltip');
+    assert.ok(wideTip.left>=12&&wideTip.right<=1440-12);
+    assert.equal(wideTip.whiteSpace,'pre-wrap');
+    win.setContentSize(390,844);await wait(100);
+    assert.equal(await evaluate('(()=>{footerMessage.querySelector(".dc-msg-usage").dispatchEvent(new PointerEvent("pointerover",{bubbles:true}));const r=dcMetricTooltip.getBoundingClientRect();return r.left>=12&&r.right<=innerWidth-12&&r.top>=12&&r.bottom<=innerHeight-12})()'),true,'tooltip wraps to fit a narrow viewport');
+    await evaluate('document.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true}))');
+    assert.equal(await evaluate('dcMetricTooltip.hidden'),true);
+    await evaluate(`footerMessage.querySelector('.dc-msg-tools').remove();footerApi.addCopy(footerMessage,'native metrics',{modelName:'native',rounds:[{inputTokens:1000,outputTokens:200,reasoningOutputTokens:50,ttftMs:2000,timingSource:'native-metadata',nativeStreamMs:500,nativeStreamTokens:200,nativeStreamTps:400}]})`);
+    assert.match(await evaluate('footerMessage.querySelector(".dc-msg-speed").textContent'),/TPS.*native.*400\/400\/400.*TTFT 2.00 s/,'native stream measurements remain distinct from visible decode');
+    await evaluate(`footerMessage.querySelector('.dc-msg-tools').remove();footerApi.addCopy(footerMessage,'observed metrics',{modelName:'native',rounds:[{inputTokens:1000,outputTokens:20,observedFirstTextMs:2000,firstTextSource:'workbuddy-native-sdk-log'}]})`);
+    assert.match(await evaluate('footerMessage.querySelector(".dc-msg-speed").textContent'),/First text \(observed\) 2.00 s/,'WorkBuddy first-text observations are not mislabeled as API TTFT');
+    win.setContentSize(1440,950);
+    // Own chats reuse the workspace card, preserving a user's manual collapse.
+    await win.loadURL(base);
+    await evaluate('const s=document.createElement("script");s.src="/js/home/workspace-panel.js";document.body.append(s)');
+    await until('!!window.DragonClawWorkspace');
+    await evaluate('DragonClawWorkspace.init()');
+    await until('!!document.querySelector("[data-card=performance]")');
+    await evaluate(`window.metricReply=document.createElement('div');document.body.append(metricReply);window.metricRounds=[{inputTokens:1000,outputTokens:101,cachedInputTokens:900,ttftMs:200,generationMs:1000,decodeTokens:100,timingSource:'request-stream',tps:100,ms:1200,estimated:false}];DragonClawWorkspace.performance(metricReply,metricRounds,{running:true})`);
+    assert.equal(await evaluate('document.querySelector("[data-card=performance]").classList.contains("is-open")'),true);
+    assert.match(await evaluate('document.querySelector("[data-card=performance]").innerText'),/90.0%/);
+    await evaluate('document.querySelector("[data-card=performance] button").click();DragonClawWorkspace.performance(metricReply,metricRounds,{running:true})');
+    assert.equal(await evaluate('document.querySelector("[data-card=performance]").classList.contains("is-open")'),false,'stream updates preserve manual collapse');
+    await evaluate('window.metricReply2=document.createElement("div");document.body.append(metricReply2);DragonClawWorkspace.performance(metricReply2,metricRounds,{running:true});DragonClawWorkspace.performance(metricReply2,metricRounds)');
+    assert.equal(await evaluate('document.querySelector("[data-card=performance]").classList.contains("is-open")'),false,'completion auto-collapses');
+    await evaluate('DragonClawWorkspace.performance(metricReply,[])');
+    assert.match(await evaluate('document.querySelector("[data-card=performance] .wsp-card-body").textContent'),/90.0%/,'older history never replaces latest metrics');
     console.log('PASS: desktop-agent tabs, all four providers (incl. WorkBuddy), original history/replies, drafts, duplicate sends, failures, switching races, search, mobile and settings. Screenshots: ' + temp);
     win.destroy();
     server.close();

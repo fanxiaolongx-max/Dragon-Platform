@@ -17,10 +17,16 @@ function webUrl(value) {
     } catch (_) { return null; }
 }
 
-function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, getLibrary = () => null, getDownloads = () => null, getCredentialStore = () => null, onPageCreated = () => {}, onAction = () => {}, onVisibilityChange = () => {} }) {
+function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, getLibrary = () => null, getDownloads = () => null, getExtensions = () => [], getCredentialStore = () => null, onPageCreated = () => {}, onAction = () => {}, onVisibilityChange = () => {} }) {
     let win = null, tabs = [], activeId = null, attached = null, shown = false, sequence = 0, ready = false;
     let windowDrag = null;
-    let operatorView=null;
+    let operatorView=null,sidebarTheme='light';
+    function themePage(tab){
+        const dark=sidebarTheme==='dark',color=dark?'#101114':'#ffffff';
+        if(!tab||tab.page.webContents.isDestroyed())return;
+        tab.page.setBackgroundColor(['','about:blank'].includes(tab.page.webContents.getURL())?color:'#ffffff');
+        if(tab.page.webContents.getURL()==='about:blank')tab.page.webContents.executeJavaScript(`(()=>{if(location.href!=='about:blank')return;document.documentElement.style.cssText='background:${color};color:${dark?'#e2e8f0':'#172033'};color-scheme:${dark?'dark':'light'}';document.body.style.background='${color}';})()`).catch(()=>{});
+    }
     let sidebarHost = null, sidebarBounds = null, sidebarMode = false, attachedHost = null;
     let panel = '', bookmarks = [], history = [], libraryError = false;
     let notice = null, noticeTimer = null;
@@ -50,7 +56,7 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
             title: wc.getTitle() || tab.link.name, url: wc.getURL(), layout:tab.readingLayout||null,
             canBack: wc.canGoBack(), canForward: wc.canGoForward(), maximized: win.isMaximized(), activeId,
             zoom: Math.round(wc.getZoomFactor() * 100), bookmarked: bookmarks.some(item => item.url === savedUrl(wc.getURL())),
-            find, panel, notice, bookmarks, history, libraryError, downloads: getDownloads()?.list() || [],
+            find, panel, notice, bookmarks, history, libraryError, extensions:getExtensions().map(item=>({id:item.id,name:item.name,version:item.version,enabled:!item.error})), downloads: getDownloads()?.list() || [],
             tabs: tabs.map(item => ({ id: item.id, title: item.page.webContents.getTitle() || item.link.name || (english ? 'New tab' : '新标签页'), url: item.page.webContents.getURL(), loading: item.page.webContents.isLoading(), muted: item.page.webContents.isAudioMuted() }))
         };
         if (ready) win.webContents.send('promo-card:state', snapshot);
@@ -186,7 +192,7 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
     }
     function openFind() {
         find.open = true; panel = ''; layout(); pushState();
-        win.webContents.focus(); win.webContents.send('promo-card:focus-find');
+        if(!sidebarMode){win.webContents.focus();win.webContents.send('promo-card:focus-find');}
     }
     function findText(payload) {
         if (!payload || typeof payload.text !== 'string' || payload.text.length > 500) return;
@@ -209,12 +215,32 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
         catch (_) { libraryError = true; pushState(); }
     }
     function showPanel(next) {
+        if(sidebarMode){if(next==='downloads')downloadMenu();else libraryMenu(next);return;}
         panel = panel === next ? '' : next;
         if (panel === 'downloads') { clearTimeout(noticeTimer); notice = null; }
         closeFind(); layout(); pushState();
         if (panel === 'bookmarks' || panel === 'history') refreshLibrary();
     }
-    const popup = template => Menu.buildFromTemplate(template).popup({ window: win });
+    let popupPosition=null;
+    const popup = template => {const position=popupPosition,host=sidebarMode?sidebarHost:win;popupPosition=null;if(!host||host.isDestroyed())return;Menu.buildFromTemplate(template).popup({window:host,...position});};
+    function downloadMenu(){
+        const items=getDownloads()?.list()||[],labels={completed:T('已完成','Completed'),progressing:T('下载中','Downloading'),paused:T('已暂停','Paused'),cancelled:T('已取消','Cancelled'),interrupted:T('已中断','Interrupted'),failed:T('失败','Failed')};
+        popup([{label:T('打开下载文件夹','Open Downloads folder'),click:()=>shell.openPath(app.getPath('downloads')).catch(()=>{})},{type:'separator'},...(items.length?items.slice(0,30).map(item=>({label:`${item.name} · ${labels[item.state]||item.state} · ${Math.round((item.received||0)/1024)} KB`,submenu:(item.state==='completed'?['open','show']:item.state==='progressing'?['pause','cancel']:item.state==='paused'?['resume','cancel']:[]).map(action=>({label:({open:T('打开文件','Open file'),show:T('在文件夹中显示','Show in folder'),pause:T('暂停','Pause'),resume:T('继续','Resume'),cancel:T('取消','Cancel')})[action],click:()=>getDownloads()?.action(item.id,action)}))})): [{label:T('暂无下载记录','No downloads yet'),enabled:false}])]);
+    }
+    async function libraryMenu(name){
+        await refreshLibrary();const items=name==='history'?history:bookmarks;
+        popup(items.length?items.slice(0,60).map(item=>({label:item.title||item.url,click:()=>open({link:{name:item.title||item.url,url:item.url}})})):[{label:T('暂无记录','No entries yet'),enabled:false}]);
+    }
+    function sidebarMenu(payload){
+        if(!payload||!['more','downloads','extensions','tabs','history','bookmarks'].includes(payload.name))return;
+        if(Number.isFinite(payload.x)&&Number.isFinite(payload.y)){const [width,height]=sidebarHost.getContentSize(),zoom=sidebarHost.webContents.getZoomFactor();popupPosition={x:Math.max(0,Math.min(width,Math.round(payload.x*zoom))),y:Math.max(0,Math.min(height,Math.round(payload.y*zoom)))};}
+        if(payload.name==='more')return browserMenu();
+        if(payload.name==='downloads')return downloadMenu();
+        if(payload.name==='extensions'&&!active())return popup([{label:T('请先点击 + 新建标签页','Click + to open a tab first'),enabled:false}]);
+        if(payload.name==='extensions'){popupPosition=null;return onAction(active()?.context||active(),'plugins');}
+        if(payload.name==='history'||payload.name==='bookmarks')return libraryMenu(payload.name);
+        popup(tabs.map(tab=>({label:tab.page.webContents.getTitle()||tab.link.name||T('新标签页','New tab'),type:'checkbox',checked:tab.id===activeId,click:()=>showTab(tab.id)})));
+    }
     function tabMenu(id) {
         const tab = tabs.find(item => item.id === id); if (!tab) return;
         popup([
@@ -234,7 +260,7 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
         let loginEnabled = false;
         try { loginEnabled = managed && store ? await store.enabled(url) : false; } catch (_) {}
         popup([
-            { label: T('新建标签页', 'New tab'), accelerator: 'CmdOrCtrl+T', click: () => open({ link: { name: T('新标签页', 'New tab'), url: 'about:blank' } }) },
+            ...(!sidebarMode?[{ label: T('新建标签页', 'New tab'), accelerator: 'CmdOrCtrl+T', click: () => open({ link: { name: T('新标签页', 'New tab'), url: 'about:blank' } }) }]:[]),
             { label: T('恢复关闭的标签页', 'Reopen closed tab'), accelerator: 'CmdOrCtrl+Shift+T', enabled: closedTabs.length > 0, click: reopenTab },
             { type: 'separator' },
             { label: T('收藏夹', 'Bookmarks'), click: () => showPanel('bookmarks') },
@@ -249,7 +275,7 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
             { label: T('重置缩放 (100%)', 'Reset zoom (100%)'), click: () => zoom('reset') },
             { label: T('在页面中查找', 'Find in page'), accelerator: 'CmdOrCtrl+F', click: openFind },
             { label: T('打印…', 'Print…'), accelerator: 'CmdOrCtrl+P', click: () => active()?.page.webContents.print({}) },
-            { label: T('全屏', 'Full screen'), accelerator: 'F11', click: () => win.setFullScreen(!win.isFullScreen()) },
+            { label: T('全屏', 'Full screen'), accelerator: 'F11', click: () => {const host=sidebarMode?sidebarHost:win;host?.setFullScreen(!host.isFullScreen());} },
             { label: T('开发者工具', 'Developer tools'), click: () => active()?.page.webContents.toggleDevTools() }
         ]);
     }
@@ -311,21 +337,16 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
         const command = input.control || input.meta;
         if (sidebarMode && sidebarHost && !sidebarHost.isDestroyed()) {
             if (command && key === 'l') { event.preventDefault(); sidebarHost.webContents.focus(); sidebarHost.webContents.send('dragon-browser:focus-url'); return; }
-            if ((command && ['f', 'h', 'j'].includes(key)) || key === 'f11') {
-                // 查找 / 历史 / 下载等完整浏览器面板保留在原窗口中。
-                detach(); sidebarMode = false; sidebarBounds = null;
-                sidebarHost.webContents.send('dragon-browser:popped-out');
-                showTab(activeId);
-            }
+
         }
         if (key === 'escape') {
             if (find.open) { event.preventDefault(); closeFind(); layout(); pushState(); wc.focus(); }
             else if (panel) { event.preventDefault(); panel = ''; layout(); pushState(); }
-            else if (win.isFullScreen()) { event.preventDefault(); win.setFullScreen(false); }
+            else if ((sidebarMode?sidebarHost:win)?.isFullScreen()) { event.preventDefault(); (sidebarMode?sidebarHost:win).setFullScreen(false); }
             else if (wc.isLoading()) { event.preventDefault(); wc.stop(); }
             return;
         }
-        if (key === 'f11') { event.preventDefault(); win.setFullScreen(!win.isFullScreen()); return; }
+        if (key === 'f11') { event.preventDefault();const host=sidebarMode?sidebarHost:win;host?.setFullScreen(!host.isFullScreen());return; }
         if (key === 'f5') { event.preventDefault(); input.shift ? wc.reloadIgnoringCache() : wc.reload(); return; }
         if (input.alt && ['arrowleft', 'arrowright'].includes(key)) {
             event.preventDefault(); if (key === 'arrowleft' && wc.canGoBack()) wc.goBack(); else if (key === 'arrowright' && wc.canGoForward()) wc.goForward(); return;
@@ -381,6 +402,7 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
         tabs.push(tab);
         if (shown) tab.onModeChange?.(true);
         const wc = page.webContents;
+        themePage(tab);wc.on('did-finish-load',()=>themePage(tab));
         const loginNavigation = (_event, url, _inPlace, isMainFrame) => {
             if (isMainFrame && captureSite(url)) tab.captureLogin = true;
         };
@@ -461,6 +483,8 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
 
     function handleAction(sender, action, payload) {
         const fromSidebar = sidebarMode && sidebarHost && !sidebarHost.isDestroyed() && sender === sidebarHost.webContents;
+        if(fromSidebar&&action==='sidebar-menu'){sidebarMenu(payload);return true;}
+        if(fromSidebar&&action==='theme'){if(['light','dark'].includes(payload)){sidebarTheme=payload;tabs.forEach(themePage);}return true;}
         if (!win && fromSidebar && action === 'new-tab') { open({ link: { name: T('新标签页', 'New tab'), url: 'about:blank' } }); return true; }
         if (!win || (sender !== win.webContents && !fromSidebar)) return false;
         if (fromSidebar && !['tab-select','tab-close','tab-move','tab-menu','new-tab','reopen-tab','navigate','back','forward','reload','external','plugins','downloads','downloads-folder','download-action','history','bookmarks','library-open','zoom-in','zoom-out','zoom-reset','find-open','find','find-close','print','devtools','screenshot'].includes(action)) return false;
@@ -527,15 +551,17 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
 
     return {
         setSidebar(host) {
+            if(sidebarMode&&sidebarHost===host){layout();pushState();return;}
             detach(); sidebarHost = host; sidebarBounds = null; sidebarMode = Boolean(host);
             if (host && win && !win.isDestroyed()) win.hide();
             if (tabs.length) visibility(true);
             layout(); pushState();
         },
         setSidebarBounds(bounds) { sidebarBounds = bounds; layout(); },
+        // Compatibility for older renderer callers: open externally, never detach the native page.
         popout() {
-            detach(); sidebarMode = false; sidebarBounds = null;
-            if (active()) showTab(activeId);
+            const url=webUrl(active()?.page.webContents.getURL());
+            if(url)shell.openExternal(url).catch(()=>{});
         },
         open, showTab, closeTab, handleAction, list: () => [...tabs], isVisible: () => shown,
         refreshLibrary, libraryFailed() { libraryError = true; pushState(); },

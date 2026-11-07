@@ -86,7 +86,7 @@ try {
 }
 const { resolveLogoAsset } = require('./backend/models/platform-logo-runtime');
 require('./backend/models/desktop-language').events.on('change', () => { refreshTrayMenu(); desktopPromotions.languageChanged(); });
-// 首页推广链接：点击用系统浏览器打开；设置里打开卡片堆后（默认关闭），登录后在右下角以置顶小窗卡片堆显示（desktop-promo/promo-stack.js），首页读取实时画面
+// 首页推广与自动浏览器入口统一在主窗口右侧 Dragon 浏览器打开；登录推广默认关闭。
 // 推广/Dragon 浏览器模块出错时换成空实现：只是这项功能不可用，不影响桌面端启动、托盘和本地服务
 const desktopPromotions = (() => {
     try {
@@ -95,7 +95,12 @@ const desktopPromotions = (() => {
             getLanguage: () => require('./backend/models/desktop-language').getLanguage(),
             onChange: () => refreshTrayMenu(),
             onCardOpen: link => require('./backend/models/platform-promotions-desktop').recordCardClick(link),
-            openAppPath: target => openAppPath(target)
+            openAppPath: target => openAppPath(target),
+            getSidebarHost: () => {
+                const host=mainWindow.window;let home=false;try{home=['/','/index.html'].includes(new URL(host?.webContents.getURL()).pathname);}catch{}
+                if(!host||!home||!host.isVisible()||host.isMinimized())mainWindow.open('/');
+                return mainWindow.window;
+            }
         });
         require('./backend/models/platform-promotions-desktop').configureDesktopPromotions(stack);
         // Dragon Claw 浏览器工具在桌面端使用 Dragon 浏览器（页面显示在用户眼前，沿用已登录的站点）
@@ -2247,7 +2252,7 @@ function refreshTrayMenu() {
             ]
         },
         {
-            label: petT('📣 桌面推广卡片', '📣 Desktop promotion cards'),
+            label: petT('📣 浏览器推广', '📣 Browser promotions'),
             submenu: [
                 {
                     label: petT('暂停桌面推广', 'Pause desktop promotions'),
@@ -2256,7 +2261,7 @@ function refreshTrayMenu() {
                     click: (item) => desktopPromotions.setPaused(item.checked)
                 },
                 {
-                    label: petT('👀 显示推广卡片', '👀 Show promotion cards'),
+                    label: petT('👀 在侧栏打开推广链接', '👀 Open promotions in sidebar'),
                     enabled: !(desktopPromotions.isShowing?.() ?? true) || desktopPromotions.isPaused() || desktopPromotions.isHiddenToday(),
                     click: () => desktopPromotions.showNow()
                 }
@@ -2343,7 +2348,7 @@ async function startTrayApp() {
         startDesktopLicenseRefresh();
         scheduleStartupUpdateCheck();
 
-        // Dragon 浏览器：登录态与插件在启动时就绪（卡片堆仍等首页登录后再打开）
+        // Dragon 浏览器：登录态与插件在启动时就绪（推广标签仍等首页登录后按设置打开）
         Promise.resolve().then(() => desktopPromotions.init()).catch(error => console.warn('[Electron] Desktop browser init failed:', error.message || error));
 
         // 启动桌面宠物组件

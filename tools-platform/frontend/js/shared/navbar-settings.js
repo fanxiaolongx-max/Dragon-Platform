@@ -893,13 +893,19 @@ async function renderAiSettings(content) {
                     </div>
                 </div>
                 <div class="nav-ai-profile-list">
-                    ${profiles.map(profile => `
+                    ${profiles.map(profile => {
+                        const profileModels = Array.isArray(profile.models) && profile.models.length
+                            ? profile.models
+                            : [profile.model].filter(Boolean);
+                        const countStr = profileModels.length > 1 ? ` · ${profileModels.length}个模型` : ` · ${profile.model}`;
+                        return `
                         <button type="button" class="nav-ai-profile-card ${profile.id === settings.id ? 'selected' : ''} ${profile.isActive ? 'active' : ''}" onclick="selectAiProfile('${navEscape(profile.id)}')">
                             <span class="nav-ai-profile-card-top"><b>${navEscape(profile.name)}</b>${profile.isActive ? `<em>${navEscape(navT('nav.ai.profileActive'))}</em>` : ''}</span>
-                            <span>${navEscape(profile.provider)} · ${navEscape(profile.model)}${profile.provider === 'anthropic' || /claude/i.test(profile.model) ? ` · ${profile.anthropicAuthType === 'ANTHROPIC_API_KEY' ? 'API_KEY' : 'AUTH_TOKEN'}` : ''}</span>
+                            <span>${navEscape(profile.provider)}${navEscape(countStr)}${profile.provider === 'anthropic' || /claude/i.test(profile.model) ? ` · ${profile.anthropicAuthType === 'ANTHROPIC_API_KEY' ? 'API_KEY' : 'AUTH_TOKEN'}` : ''}</span>
+                            <div class="nav-ai-card-models">${profileModels.map(m => `<span class="nav-ai-model-tag${m === profile.model ? ' is-primary' : ''}">${navEscape(m)}</span>`).join('')}</div>
                             <small class="${profile.keyLooksValid ? 'ready' : ''}">${profile.keyLooksValid ? navT('nav.ai.tokenReady') : navT('nav.ai.tokenNotReady')}</small>
                         </button>
-                    `).join('')}
+                    `;}).join('')}
                 </div>
                 ${isImage ? '' : `<label class="nav-settings-check nav-ai-autoswitch-check" style="margin-top:8px;padding:9px 10px;border:1px solid var(--v2-line, rgba(129,140,248,.24));border-radius:10px;background:var(--v2-chip, rgba(255,255,255,.68));display:flex;align-items:center;gap:8px;color:var(--v2-ink, inherit);">
                     <input id="navAiAutoSwitch" type="checkbox" ${settingsStore.autoSwitchEnabled ? 'checked' : ''} onchange="scheduleAiSettingsSave()">
@@ -964,9 +970,19 @@ async function renderAiSettings(content) {
                         <button type="button" class="nav-settings-add" onclick="clearAiApiKey()">${navEscape(navT('nav.ai.btnClear'))}</button>
                     </div>
                 </label>
-                <label class="nav-ai-field">
-                    <span>${navEscape(navT('nav.ai.lblModel'))}</span>
-                    <input id="navAiModel" class="nav-settings-input" list="navAiModelOptions" value="${navEscape(settings.model)}" oninput="updateAiModelAuthVisibility(); scheduleAiSettingsSave()">
+                <div class="nav-ai-field nav-ai-field-wide nav-ai-models-box">
+                    <div class="nav-ai-models-header">
+                        <div>
+                            <b>${navEscape(navT('nav.ai.channelModelsTitle'))}</b>
+                            <small style="display:block;margin-top:2px;">${navEscape(navT('nav.ai.channelModelsHelp'))}</small>
+                        </div>
+                    </div>
+                    <input id="navAiModel" type="hidden" value="${navEscape(settings.model)}">
+                    <div id="navAiModelsList" class="nav-ai-models-chips"></div>
+                    <div class="nav-ai-add-model-bar">
+                        <input id="navAiAddModelInput" class="nav-settings-input" list="navAiModelOptions" placeholder="${navEscape(navT('nav.ai.plhAddModel'))}" onkeydown="if(event.key==='Enter'){event.preventDefault();navAiAddModel();}">
+                        <button type="button" class="nav-settings-add" onclick="navAiAddModel()">${navEscape(navT('nav.ai.btnAddModel'))}</button>
+                    </div>
                     <datalist id="navAiModelOptions">
                         <option value="gemini-2.5-flash"></option>
                         <option value="gemini-2.5-pro"></option>
@@ -980,7 +996,7 @@ async function renderAiSettings(content) {
                         <option value="MiniMax-M2.7"></option>
                         <option value="MiniMax-M3"></option>
                     </datalist>
-                </label>
+                </div>
                 <label class="nav-ai-field">
                     <span>${navEscape(navT('nav.ai.temperature'))}</span>
                     <input id="navAiTemperature" type="number" min="0" max="2" step="0.1" class="nav-settings-input" value="${navEscape(settings.temperature)}" oninput="scheduleAiSettingsSave()">
@@ -1015,6 +1031,10 @@ async function renderAiSettings(content) {
                 </div>
             </div>
         `;
+        navState.currentEditingModels = Array.isArray(settings.models) && settings.models.length
+            ? [...settings.models]
+            : [settings.model].filter(Boolean);
+        renderNavAiModelChips(settings);
         loadAiUsageDashboard(navState.aiUsageDimension);
     } catch (e) {
         content.innerHTML = `<div class="nav-settings-empty">${navEscape(navT('nav.ai.failLoad'))}${navEscape(e.message)}</div>`;
@@ -1024,13 +1044,16 @@ async function renderAiSettings(content) {
 function collectAiSettingsPayload(options = {}) {
     const tokenInput = document.getElementById('navAiApiKey');
     const authTypeSelect = document.getElementById('navAiAnthropicAuthType');
+    const models = getNavAiEditingModels();
+    const primaryModel = document.getElementById('navAiModel')?.value || models[0] || 'gemini-2.5-flash';
     const payload = {
         profileId: navState.aiSelectedProfileId,
         name: document.getElementById('navAiProfileName')?.value || 'AI 配置',
         provider: document.getElementById('navAiProvider')?.value || 'gemini',
         anthropicAuthType: authTypeSelect?.value || 'ANTHROPIC_AUTH_TOKEN',
         apiBaseUrl: document.getElementById('navAiApiBaseUrl')?.value || '',
-        model: document.getElementById('navAiModel')?.value || 'gemini-2.5-flash',
+        model: primaryModel,
+        models: models,
         temperature: document.getElementById('navAiTemperature')?.value || 0.7,
         maxOutputTokens: document.getElementById('navAiMaxTokens')?.value || 2048,
         contextWindowTokens: document.getElementById('navAiContextWindow')?.value || 0,
@@ -1089,6 +1112,7 @@ window.selectAiProfile = async function (profileId) {
     try {
         clearTimeout(navState.aiSaveTimer);
         await saveAiSettingsNow();
+        navState.currentEditingModels = null;
         navState.aiSelectedProfileId = profileId;
         renderAiSettings(document.getElementById('navSettingsContent'));
     } catch (error) {
@@ -1101,6 +1125,7 @@ window.createAiProfile = async function () {
     try {
         clearTimeout(navState.aiSaveTimer);
         await saveAiSettingsNow();
+        navState.currentEditingModels = null;
         if (indicator) indicator.textContent = navT('nav.ai.creating');
         const data = await requestAiProfile('/api/ai-settings/profiles', {
             method: 'POST',
@@ -1122,6 +1147,7 @@ window.cloneAiProfile = async function () {
     try {
         clearTimeout(navState.aiSaveTimer);
         await saveAiSettingsNow();
+        navState.currentEditingModels = null;
         const sourceName = document.getElementById('navAiProfileName')?.value.trim() || profile.name;
         const data = await requestAiProfile('/api/ai-settings/profiles', {
             method: 'POST',
@@ -1176,6 +1202,87 @@ window.deleteAiProfile = async function () {
     }
 };
 
+function getNavAiEditingModels() {
+    if (Array.isArray(navState.currentEditingModels) && navState.currentEditingModels.length) {
+        return navState.currentEditingModels;
+    }
+    const settings = (navState.aiSettings?.profiles || []).find(p => p.id === navState.aiSelectedProfileId) || navState.aiSettings || {};
+    return Array.isArray(settings.models) && settings.models.length
+        ? [...settings.models]
+        : [settings.model || 'gemini-2.5-flash'].filter(Boolean);
+}
+
+function renderNavAiModelChips(settings) {
+    const host = document.getElementById('navAiModelsList');
+    if (!host) return;
+    const models = getNavAiEditingModels();
+    const primaryInput = document.getElementById('navAiModel');
+    let primaryModel = primaryInput ? primaryInput.value.trim() : (settings?.model || models[0]);
+    if (!models.includes(primaryModel) && models.length > 0) {
+        primaryModel = models[0];
+        if (primaryInput) primaryInput.value = primaryModel;
+    }
+    host.innerHTML = models.map(m => {
+        const isPrimary = m === primaryModel;
+        return `
+            <div class="nav-ai-chip ${isPrimary ? 'is-primary' : ''}" data-model="${navEscape(m)}">
+                <span class="nav-ai-chip-name">${navEscape(m)}</span>
+                ${isPrimary
+                    ? `<span class="nav-ai-chip-star" title="${navEscape(navT('nav.ai.modelPrimary'))}">${navEscape(navT('nav.ai.modelPrimary'))}</span>`
+                    : `<button type="button" class="nav-ai-chip-star" onclick="navAiSetPrimaryModel('${navEscape(m)}')" title="${navEscape(navT('nav.ai.modelSetPrimary'))}">☆ ${navEscape(navT('nav.ai.modelSetPrimary'))}</button>`
+                }
+                <button type="button" class="nav-ai-chip-test" onclick="testAiSettingsNow('${navEscape(m)}')" title="${navEscape(navT('nav.ai.modelTest'))}">⌁ ${navEscape(navT('nav.ai.modelTest'))}</button>
+                ${models.length > 1
+                    ? `<button type="button" class="nav-ai-chip-del" onclick="navAiRemoveModel('${navEscape(m)}')" title="删除模型">✕</button>`
+                    : ''
+                }
+            </div>
+        `;
+    }).join('');
+}
+
+window.navAiAddModel = function () {
+    const input = document.getElementById('navAiAddModelInput');
+    if (!input) return;
+    const raw = input.value.trim();
+    if (!raw) return;
+    const tokens = raw.split(/[\r\n,，\s]+/).map(t => t.trim()).filter(Boolean);
+    if (!tokens.length) return;
+    const current = getNavAiEditingModels();
+    for (const t of tokens) {
+        if (!current.includes(t)) {
+            current.push(t);
+        }
+    }
+    navState.currentEditingModels = current;
+    input.value = '';
+    renderNavAiModelChips();
+    scheduleAiSettingsSave();
+};
+
+window.navAiRemoveModel = function (modelName) {
+    let current = getNavAiEditingModels().filter(m => m !== modelName);
+    if (!current.length) current = ['gemini-2.5-flash'];
+    navState.currentEditingModels = current;
+    const primaryInput = document.getElementById('navAiModel');
+    if (primaryInput && primaryInput.value === modelName) {
+        primaryInput.value = current[0];
+    }
+    renderNavAiModelChips();
+    scheduleAiSettingsSave();
+};
+
+window.navAiSetPrimaryModel = function (modelName) {
+    const current = getNavAiEditingModels();
+    if (!current.includes(modelName)) return;
+    const updated = [modelName, ...current.filter(m => m !== modelName)];
+    navState.currentEditingModels = updated;
+    const primaryInput = document.getElementById('navAiModel');
+    if (primaryInput) primaryInput.value = modelName;
+    renderNavAiModelChips();
+    scheduleAiSettingsSave();
+};
+
 window.handleAiProviderChange = function () {
     const provider = document.getElementById('navAiProvider')?.value || 'gemini';
     const modelInput = document.getElementById('navAiModel');
@@ -1190,10 +1297,12 @@ window.handleAiProviderChange = function () {
         minimax: 'MiniMax-M2.7-highspeed',
         'openai-compatible': 'gpt-4o-mini'
     };
-    if (modelInput && defaults[provider]) {
-        modelInput.value = defaults[provider];
+    if (defaults[provider]) {
+        navState.currentEditingModels = [defaults[provider]];
+        if (modelInput) modelInput.value = defaults[provider];
+        renderNavAiModelChips();
         if (authWrap) {
-            authWrap.style.display = (provider === 'anthropic' || /claude|anthropic/i.test(modelInput.value)) ? '' : 'none';
+            authWrap.style.display = (provider === 'anthropic' || /claude|anthropic/i.test(defaults[provider])) ? '' : 'none';
         }
     }
     const apiBaseUrlInput = document.getElementById('navAiApiBaseUrl');
@@ -1213,41 +1322,47 @@ window.updateAiModelAuthVisibility = function () {
     }
 };
 
-window.testAiSettingsNow = async function () {
+window.testAiSettingsNow = async function (specificModel) {
     const resultEl = document.getElementById('navAiTestResult');
     const indicator = document.getElementById('navSettingsSaveState');
     clearTimeout(navState.aiSaveTimer);
+    const targetModel = specificModel || document.getElementById('navAiModel')?.value;
+    const testingLabel = targetModel ? `${navT('nav.ai.testing')} [${targetModel}]` : navT('nav.ai.testing');
     if (resultEl) {
         resultEl.className = 'nav-ai-test-result testing';
-        resultEl.textContent = navT('nav.ai.testing');
+        resultEl.textContent = testingLabel;
     }
-    if (indicator) indicator.textContent = navT('nav.ai.testing');
+    if (indicator) indicator.textContent = testingLabel;
     try {
         const profileId = navState.aiSelectedProfileId;
+        const payload = collectAiSettingsPayload();
+        if (specificModel) payload.model = specificModel;
         const res = await fetch(`/api/ai-settings/profiles/${encodeURIComponent(profileId)}/test`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 ...getAuthHeaderForNav()
             },
-            body: JSON.stringify(collectAiSettingsPayload())
+            body: JSON.stringify(payload)
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.success) {
             throw new Error(data.error || `HTTP ${res.status}`);
         }
         const reply = data.reply ? `：${data.reply}` : '';
+        const modelTag = data.model ? `[${data.model}] ` : '';
         if (resultEl) {
             resultEl.className = 'nav-ai-test-result ok';
-            resultEl.textContent = `${navT('nav.ai.testOk')}${reply}`;
+            resultEl.textContent = `${modelTag}${navT('nav.ai.testOk')}${reply}`;
         }
-        if (indicator) indicator.textContent = navT('nav.ai.testOk');
+        if (indicator) indicator.textContent = `${modelTag}${navT('nav.ai.testOk')}`;
     } catch (e) {
+        const modelTag = targetModel ? `[${targetModel}] ` : '';
         if (resultEl) {
             resultEl.className = 'nav-ai-test-result fail';
-            resultEl.textContent = `${navT('nav.ai.testFail')}${e.message}`;
+            resultEl.textContent = `${modelTag}${navT('nav.ai.testFail')}${e.message}`;
         }
-        if (indicator) indicator.textContent = `${navT('nav.ai.testFail')}${e.message}`;
+        if (indicator) indicator.textContent = `${modelTag}${navT('nav.ai.testFail')}${e.message}`;
     }
 };
 

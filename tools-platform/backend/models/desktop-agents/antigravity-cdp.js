@@ -200,10 +200,39 @@ function readTimeline() {
 }
 // 优先从本机 ~/.gemini/antigravity/brain/<id>/.system_generated/logs/transcript_full.jsonl 秒读消息与每轮模型指标；
 // 若本地尚无 jsonl（如桌面 fixture 测试），回退到 CDP 窗口 DOM 读取。
+const timingMemo = new Map();
+async function nativeTiming(id) {
+    const previous = timingMemo.get(id);
+    if (previous && Date.now()-previous.at < 10000) return previous.promise;
+    const promise = using(c => c.evaluate(`(async()=>{
+        const rows=[];
+        for(let offset=0;offset<10000;){
+            const response=await fetch('/exa.language_server_pb.LanguageServerService/GetCascadeTrajectoryGeneratorMetadata',{
+                method:'POST',signal:AbortSignal.timeout(3500),headers:{'Content-Type':'application/json','Connect-Protocol-Version':'1','x-codeium-csrf-token':window.__APP_CONFIG__?.csrfToken},
+                body:JSON.stringify({cascadeId:${JSON.stringify(id)},generatorMetadataOffset:offset})});
+            if(!response.ok)break;
+            const data=await response.json(),page=data.generatorMetadata||[];
+            if(!page.length)break;
+            for(const item of page){const m=item.chatModel,u=m?.usage;
+                if(!u)continue;
+                // Whitelist in the native page: credentials, prompts, headers and model output never cross CDP.
+                rows.push({steps:(item.stepIndices||[]).filter(Number.isSafeInteger),ttft:m.timeToFirstToken,stream:m.streamingDuration,input:u.inputTokens??0,output:u.outputTokens??0,thinking:u.thinkingOutputTokens??0,cache:u.cacheReadTokens??0});
+            }
+            offset+=page.length;
+        }
+        return rows;
+    })()`)).catch(()=>[]);
+    timingMemo.set(id,{at:Date.now(),promise});
+    if(timingMemo.size>50)timingMemo.delete(timingMemo.keys().next().value);
+    return promise;
+}
 async function messages(id, { passive = false } = {}) {
     if (typeof antigravityTranscript === 'function') {
         const local = await antigravityTranscript(id);
-        if (local) return local;
+        if (local) {
+            if (!await canConnect()) return local;
+            return require('./native-timing').enrichAntigravity(local,await nativeTiming(id));
+        }
     }
     return using(async (c) => { if (passive && !await c.evaluate(`location.pathname==='/c/'+${JSON.stringify(id)}`)) {
     const busy = await c.evaluate(`!!Array.from(document.querySelectorAll('[data-cascade-id]')).find(e=>e.dataset.cascadeId===${JSON.stringify(id)})?.querySelector('button[aria-label="Stop execution"]')`);
@@ -278,9 +307,11 @@ async function submitPrepared(c, route, text) {
 async function send(id, text) {
     return using(async (c) => {
         await select(c, id);
-        const ready = await c.evaluate(`(()=>{if(location.pathname!=='/c/'+${JSON.stringify(id)})return 'missing';const input=document.querySelector('[role=combobox][contenteditable=true]'),send=document.querySelector('[data-testid="send-button"]');if(!input||!send)return 'missing';if(document.querySelector('[data-testid="agent-input-box"] button[aria-label="Stop execution"]')||Array.from(document.querySelectorAll('[data-cascade-id]')).find(e=>e.dataset.cascadeId===${JSON.stringify(id)})?.querySelector('button[aria-label="Stop execution"]'))return 'busy';if(input.innerText.trim()&&(${composerText.toString()})(input.innerText)!==${JSON.stringify(composerText(text))})return 'draft';input.focus();return input.innerText.trim()?'prepared':'ready';})()`);
+        // Empty composers may show voice controls instead of a send button.
+        // Check the composer now; submitPrepared waits for the button after typing.
+        const ready = await c.evaluate(`(()=>{if(location.pathname!=='/c/'+${JSON.stringify(id)})return 'missing';const inputs=document.querySelectorAll('[role=combobox][contenteditable=true]'),input=inputs[0];if(inputs.length!==1)return 'missing';if(document.querySelector('[data-testid="agent-input-box"] button[aria-label="Stop execution"]')||Array.from(document.querySelectorAll('[data-cascade-id]')).find(e=>e.dataset.cascadeId===${JSON.stringify(id)})?.querySelector('button[aria-label="Stop execution"]'))return 'busy';if(input.innerText.trim()&&(${composerText.toString()})(input.innerText)!==${JSON.stringify(composerText(text))})return 'draft';input.focus();return input.innerText.trim()?'prepared':'ready';})()`);
         if (!['ready', 'prepared'].includes(ready))
-            throw fail(ready === 'busy' ? 'DESKTOP_BUSY' : 'DESKTOP_DRAFT', ready === 'busy' ? '原会话正在运行，请等待当前回复结束' : '桌面输入框未就绪或有未发送内容');
+            throw fail(ready === 'busy' ? 'DESKTOP_BUSY' : ready === 'draft' ? 'DESKTOP_DRAFT' : 'DESKTOP_INPUT_NOT_READY', ready === 'busy' ? '原会话正在运行，请等待当前回复结束' : ready === 'draft' ? '桌面输入框有未发送内容，请先在桌面处理' : '未找到唯一的桌面输入框，请等待会话加载完成后重试');
         const beforeCount = await c.evaluate(`Array.from(document.querySelectorAll('[data-testid="user-message-bubble"]')).filter(e=>(${composerText.toString()})((e.querySelector('[data-quotable="true"]')||e).innerText)===${JSON.stringify(composerText(text))}).length`);
         if (ready === 'ready') await typeText(c, text);
         await submitPrepared(c, '/c/' + id, text);

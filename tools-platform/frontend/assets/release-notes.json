@@ -1,12 +1,14 @@
 {
   "zh": [
-    "Antigravity 桌面会话与历史消息接入本地存储直读，加载毫秒级响应，并聚合展示模型调用轮数、Token 用量与生成速度。",
-    "修复左侧对话列表在筛选或全部条目已展示时仍显示「展开更多」的问题，优化列表分页边界。",
-    "优化全局设置移动端导航与视口自适应，完善语音输入组件与浏览器侧栏交互支持。"
+    "统一 Dragon 浏览器侧栏与推广入口，优化多标签页动画、悬浮菜单、网页输入和外部浏览器打开体验。",
+    "完善桌面 Agent、普通及频道对话的统计卡片与回复明细，接入原生计时和本机遥测，区分真实计时、流式速率与观测延迟。",
+    "AI 连接支持同一方案配置多个模型，优化模型卡片管理、默认模型选择与全局设置布局。",
+    "更新 AI 入门课程内容与中英文资料，完善浏览器和工作区在不同屏幕尺寸下的交互细节。"
   ],
   "en": [
-    "Antigravity desktop conversations and transcripts load instantly via local storage with aggregated model calls, tokens, and generation speed metrics.",
-    "Fixed conversation list showing redundant 'Show more' button when all items or filtered items are already visible.",
-    "Improved mobile navigation and viewport adaptation for global settings, with enhanced voice input and browser sidebar interactions."
+    "Unified Dragon browser sidebars and promotion entry points, with smoother tabs, floating menus, page input, and external-browser actions.",
+    "Improved desktop Agent, personal and channel reply statistics with native timing and local telemetry, clearly separating measured timings, stream rates, and observed latency.",
+    "AI connection profiles now support multiple models with improved model cards, default selection, and global settings layout.",
+    "Updated the bilingual AI introductory course and refined browser and workspace interactions across screen sizes."
   ]
 }

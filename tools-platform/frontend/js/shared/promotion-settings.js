@@ -117,10 +117,10 @@
                     <small>${esc(L('默认 3 个，范围 1–10', 'Default 3, range 1–10'))}</small></label>
                 <label class="npp-field"><span>${esc(L('轮换间隔（秒）', 'Rotation interval (seconds)'))}</span>
                     <input type="number" min="10" max="600" step="5" data-path="rotateSeconds" value="${esc(d.rotateSeconds)}">
-                    <small>${esc(L('首页横幅按此间隔轮换；桌面卡片堆最短 60 秒轮换一次', 'Home banners rotate at this interval; the desktop card stack rotates at most once a minute'))}</small></label>
+                    <small>${esc(L('首页横幅按此间隔轮换；右侧浏览器标签不会定时跳转', 'Home banners rotate at this interval; browser tabs never navigate on a timer'))}</small></label>
                 <div class="npp-field npp-wide">
-                    <label class="npp-switch"><input type="checkbox" data-path="desktopStack" ${d.desktopStack ? 'checked' : ''}>${esc(L('桌面端登录后在屏幕右下角打开推广卡片堆（默认关闭）', 'Desktop app: open the promotion card stack at the bottom right after login (off by default)'))}</label>
-                    <small>${esc(L('卡片可在托盘菜单暂停；关闭卡片堆后当天不再自动弹出；Windows 全屏或演示时自动隐藏。浏览器访问时改为封面卡片 + 新标签页打开。', 'Cards can be paused from the tray menu; closing the stack hides it for the day; it hides during full-screen apps or presentations on Windows. In a browser, links show a cover card and open in a new tab.'))}</small>
+                    <label class="npp-switch"><input type="checkbox" data-path="desktopStack" ${d.desktopStack ? 'checked' : ''}>${esc(L('桌面端登录后在右侧 Dragon 浏览器打开推广链接（默认关闭）', 'Desktop app: open promotion links in the Dragon Browser sidebar after login (off by default)'))}</label>
+                    <small>${esc(L('启用后将推广链接作为右侧浏览器标签打开，不再弹出右下角置顶小窗；可在托盘暂停。Web 访问仍使用封面卡片与新标签页。', 'Enabled promotion links open as sidebar browser tabs, without floating windows. Pause promotions from the tray. Web visits still use covers and new tabs.'))}</small>
                 </div>
             </div>`;
     }
@@ -199,12 +199,12 @@
             </div>`).join('');
         return `
             <h4>🔗 ${esc(L('推广链接', 'Promoted links'))}<span style="margin-left:auto"></span><button type="button" class="npp-btn" data-action="add" ${view.editing ? 'disabled' : ''}>＋ ${esc(L('添加链接', 'Add link'))}</button></h4>
-            <p class="npp-desc">${esc(L('系统自带链接可更换封面或隐藏；自定义链接可增删改。排序靠前的链接优先显示在首页和桌面卡片堆的最前面。', 'Built-in links can have their covers changed or be hidden; custom links can be added, edited and deleted. Links at the top are shown first on the home page and at the front of the desktop card stack.'))}${view.config.defaultsWritable ? esc(L(' 当前服务运行在项目源码目录：可「编辑默认」或把自定义链接「设为默认」，写入 backend/platform-promotions-defaults.json，提交并推送后即为所有环境的默认链接（也可以直接手动编辑这个文件）。', ' This server runs from the project source: use “Edit default” or “Make default” to write backend/platform-promotions-defaults.json; commit and push it to make it the default everywhere (you can also edit the file by hand).')) : ''}</p>
+            <p class="npp-desc">${esc(L('系统自带链接可更换封面或隐藏；自定义链接可增删改。排序靠前的链接优先显示在首页和桌面推广侧栏的前面。', 'Built-in links can have their covers changed or be hidden; custom links can be added, edited and deleted. Links at the top are shown first on the home page and at the front of the desktop promotion sidebar.'))}${view.config.defaultsWritable ? esc(L(' 当前服务运行在项目源码目录：可「编辑默认」或把自定义链接「设为默认」，写入 backend/platform-promotions-defaults.json，提交并推送后即为所有环境的默认链接（也可以直接手动编辑这个文件）。', ' This server runs from the project source: use “Edit default” or “Make default” to write backend/platform-promotions-defaults.json; commit and push it to make it the default everywhere (you can also edit the file by hand).')) : ''}</p>
             ${links.length ? `<div class="npp-list">${rows}</div>` : `<div class="npp-desc">${esc(L('暂无推广链接', 'No promoted links yet'))}</div>`}
             ${view.editing ? renderLinkForm() : ''}`;
     }
 
-    const CHANNEL_LABELS = { video: ['视频大窗', 'Video'], tab: ['新标签页', 'Browser tab'], desktop: ['首页→桌面大窗', 'Home → desktop'], card: ['桌面卡片堆', 'Desktop stack'] };
+    const CHANNEL_LABELS = { video: ['视频大窗', 'Video'], tab: ['新标签页', 'Browser tab'], desktop: ['首页→桌面浏览器', 'Home → desktop browser'], card: ['桌面推广', 'Desktop promotion'] };
     function promoName(item) {
         const source = item.kind === 'video' ? view.config.videos : view.config.links;
         const found = source.find(entry => entry.id === item.id);
@@ -235,7 +235,7 @@
         }
         return `
             <h4>📊 ${esc(L('点击统计', 'Click statistics'))}</h4>
-            <p class="npp-desc">${esc(L('统计打开视频大窗、打开推广链接（新标签页、首页弹出桌面大窗、在桌面卡片堆里直接放大）的次数；同一账号 5 秒内重复点击只算一次。只显示汇总，不显示账号明细。', 'Counts video plays and link opens (browser tab, home → desktop window, or opened from the desktop card stack). Repeat clicks by the same account within 5 seconds count once. Totals only; no per-account details.'))}</p>
+            <p class="npp-desc">${esc(L('统计打开视频大窗、打开推广链接（新标签页、首页打开桌面浏览器、桌面推广入口）的次数；同一账号 5 秒内重复点击只算一次。只显示汇总，不显示账号明细。', 'Counts video plays and link opens (browser tab, home → desktop browser, or desktop promotions). Repeat clicks by the same account within 5 seconds count once. Totals only; no per-account details.'))}</p>
             <div class="npp-stats-head">
                 <div class="npp-kpis">
                     <div class="npp-kpi"><b>${stats ? stats.totalClicks : '—'}</b><span>${esc(L('总点击次数', 'Total clicks'))}</span></div>

@@ -6,9 +6,10 @@
 const fs = require('node:fs/promises'), path = require('node:path'), os = require('node:os'), crypto = require('node:crypto');
 const { execFile, spawn } = require('node:child_process');
 const { home, readDb, safe, userText } = require('./catalog');
+const {workbuddyUsage}=require('./performance');
 const fail = (code, message) => Object.assign(new Error(message), { code });
 const STALE_MS = 20 * 60 * 1000;
-const BUSY_STATUS = new Set(['running', 'in_progress', 'busy', 'streaming', 'waiting']);
+const BUSY_STATUS = new Set(['working', 'running', 'in_progress', 'busy', 'streaming', 'waiting', 'pending', 'processing']);
 const CREDENTIAL_FILES = ['.credentials.json', 'credentials.json'];
 const configDir = () => process.env.WORKBUDDY_CONFIG_DIR?.trim() || path.join(home(), '.workbuddy');
 const connectorDir = () => process.env.TOOLS_WORKBUDDY_CLI_HOME?.trim() || path.join(home(), '.workbuddy-connector');
@@ -115,20 +116,44 @@ async function transcript(session) {
     const real = await fs.realpath(file), root = await fs.realpath(projectsDir());
     if (!real.startsWith(root + path.sep)) throw Error('Transcript outside the WorkBuddy history root');
     const handle = await fs.open(real, 'r');
-    let text;
+    let text, fileMtime = 0;
     try {
         const stat = await handle.stat(), size = Math.min(stat.size, 8 * 1024 * 1024), buffer = Buffer.alloc(size);
+        fileMtime = stat.mtimeMs || 0;
         await handle.read(buffer, 0, size, stat.size - size);
         text = buffer.toString();
         if (stat.size > size) text = text.slice(text.indexOf('\n') + 1);
     }
     finally { await handle.close(); }
+    let dbStatus = null;
+    if (validId(session.id)) {
+        try {
+            const rows = await readDb(path.join(configDir(), 'workbuddy.db'),
+                'SELECT status, updated_at, last_activity_at FROM sessions WHERE id=? LIMIT 1', [session.id]);
+            if (rows[0]) {
+                dbStatus = rows[0].status;
+                session.status = rows[0].status;
+                if (rows[0].updated_at) session.updatedAt = new Date(Number(rows[0].last_activity_at || rows[0].updated_at) || 0).toISOString();
+            }
+        } catch { }
+    }
+    const currentStatus = dbStatus || session.status || '';
     const items = [];
     let busySince = null, lastStamp = null, presented = [];
-    const widgetCalls = new Map();
+    const widgetCalls = new Map(),modelUsage=new Map(),requestStarts=new Map();
+    let userStartedAt = null;
+    let lastEvent = null, lastAssistant = -1;
+    const turnUsage = new Map();
+    const finishUsage = () => {
+        if (lastAssistant >= 0 && turnUsage.size) items[lastAssistant].rounds = [...turnUsage.values()];
+        turnUsage.clear(); lastAssistant = -1;
+    };
     for (const line of text.split('\n')) {
         let event;
         try { event = JSON.parse(line); } catch { continue; }
+        if (!event.isSidechain) lastEvent = event;
+        if (!event.isSidechain && event.type === 'message' && event.role === 'user') { finishUsage(); userStartedAt = Number.isFinite(Number(event.timestamp)) && Number(event.timestamp)>0 ? Number(event.timestamp) : null; }
+        const usage=workbuddyUsage(event);if(usage){usage.model=safe(usage.model,200);modelUsage.set(usage.requestId,usage);turnUsage.set(usage.requestId,usage);if(usage.turnId&&userStartedAt&&!requestStarts.has(usage.turnId))requestStarts.set(usage.turnId,userStartedAt);}
         const stamp = Number.isFinite(Number(event.timestamp)) && event.timestamp ? new Date(Number(event.timestamp)).toISOString() : null;
         if (stamp) lastStamp = stamp;
         // 可视化是独立的工具回执，不在 assistant 的 output_text 中。只展示主会话成功返回的 widget。
@@ -183,12 +208,25 @@ async function transcript(session) {
             if (!content && !files.length) continue;
             presented = [];
             items.push({ id: event.id || String(items.length), role: 'assistant', content: safe(content, 40000), ...(files.length ? { attachments: files } : {}), channel: null, createdAt: stamp });
+            lastAssistant = items.length - 1;
         }
     }
-    // jsonl 没有明确的轮次结束标记：以数据库状态为准，CLI 进程在跑也算运行中；最后一条是用户消息/工具调用且近期有写入时也算
-    const tail = items.at(-1), fresh = lastStamp && Date.now() - Date.parse(lastStamp) < STALE_MS;
-    const busy = running.has(session.id) || BUSY_STATUS.has(String(session.status || '').toLowerCase()) || Boolean(fresh && tail?.role === 'user' && busySince && Date.now() - Date.parse(lastStamp) < 120000);
-    return { items: items.slice(-200), available: true, busy, busySince: busy ? busySince || lastStamp : null };
+    // 轮次仍在进行的三种信号：
+    // 1. 本机 CLI 子进程仍在运行；
+    // 2. 数据库状态处于活跃态（例如 WorkBuddy 桌面端的 'working'，以及 'running' / 'in_progress' 等）；
+    // 3. jsonl 记录尾部显示近期（3 分钟内）有正在执行的工具调用、思考过程、用户提问等待响应或未完成的消息。
+    // 超出 STALE_MS（20 分钟）无写入的会话视为已停止，避免进程异常退出或断电后永久停留在“处理中”。
+    const lastActivityMs = lastStamp ? Date.parse(lastStamp) : fileMtime;
+    const fresh = Boolean(lastActivityMs && (Date.now() - lastActivityMs < STALE_MS));
+    const recentActivity = Boolean(lastActivityMs && (Date.now() - lastActivityMs < 180000));
+    const lastEventActive = Boolean(recentActivity && lastEvent && (
+        ['function_call', 'function_call_result', 'reasoning'].includes(lastEvent.type) ||
+        (lastEvent.type === 'message' && (lastEvent.role === 'user' || (lastEvent.status && lastEvent.status !== 'completed')))
+    ));
+    const isDbBusy = BUSY_STATUS.has(String(currentStatus).toLowerCase());
+    const busy = running.has(session.id) || (fresh && (isDbBusy || lastEventActive));
+    finishUsage();
+    return require('./native-timing').enrichWorkbuddy({ items: items.slice(-200),modelUsage:[...modelUsage.values()], available: true, busy, busySince: busy ? busySince || lastStamp : null },session.id,requestStarts,configDir());
 }
 
 let appCache = null;
@@ -322,4 +360,4 @@ async function createAndSend(text) {
     await start(id, cwd, text, { resume: false });
     return { id, status: 'accepted' };
 }
-module.exports = { list, transcript, status, send, createAndSend, projectSlug, queryText, running };
+module.exports = { list, transcript, status, send, createAndSend, projectSlug, queryText, running, BUSY_STATUS };

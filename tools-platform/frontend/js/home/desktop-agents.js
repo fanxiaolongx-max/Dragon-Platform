@@ -9,7 +9,7 @@
     } })() };
     let root, list, poll;
     let autoSelect = false;
-    let historyLoad = null, historyTimer = null, readingEpoch = null, wsDiagOpen = false;
+    let historyLoad = null, historyTimer = null, readingEpoch = null, wsDiagOpen = false, wsMetricsOpen=false;
     const L = (zh, en) => /^en/.test(window.ToolsI18n?.getLanguage?.() || localStorage.getItem('tools_lang') || '') ? en : zh;
     const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const identity = () => ['tools_user', 'tools_tenant_id', 'tools_token'].map(k => localStorage.getItem(k) || sessionStorage.getItem(k) || '').join('|');
@@ -166,7 +166,7 @@
         hint.textContent=names[state.provider]+' · '+L('暂无可用对话，请打开客户端后同步。','No available conversations. Open the client and sync.')+' '+(state.providers.find(p=>p.id===state.provider)?.reason||'');
         api.thread.append(hint);api.finishLoading();
     }
-    function exit() { clearInterval(historyTimer); historyTimer = null; historyLoad = null; state.viewEpoch++; state.drafting = null; clearInterval(poll); poll = null; clearInterval(state.tick); state.tick = null; wsDiagOpen = false; const body = document.querySelector('[data-wsp-ext-body]'); if (body) {
+    function exit() { clearInterval(historyTimer); historyTimer = null; historyLoad = null; state.viewEpoch++; state.drafting = null; clearInterval(poll); poll = null; clearInterval(state.tick); state.tick = null; wsDiagOpen = false;wsMetricsOpen=false; const body = document.querySelector('[data-wsp-ext-body]'); if (body) {
         body.onclick = null;
         delete body.dataset.signature;
     } if (state.active)
@@ -486,8 +486,7 @@
     } }
     // 工作区面板指标：messages 接口已在每条回复上带 rounds（模型、token、速度），在这里聚合，不增加后端请求。
     function wsMetrics(d) {
-        const m = { user: 0, agent: 0, rounds: 0, tokens: 0, tps: 0, model: '' };
-        let tpsSum = 0, tpsCount = 0;
+        const m = { user:0,agent:0,rounds:0,tokens:0,inputTokens:0,outputTokens:0,model:'',performance:d?.performance||null };
         for (const item of d?.items || []) {
             if (item.role === 'user')
                 m.user++;
@@ -496,13 +495,12 @@
             for (const round of item.rounds || []) {
                 m.rounds++;
                 m.tokens += (Number(round.inputTokens) || 0) + (Number(round.outputTokens) || 0);
-                const tps = Number(round.tps) || 0;
-                if (tps > 0) { tpsSum += tps; tpsCount++; }
+                m.inputTokens+=Number(round.inputTokens)||0;m.outputTokens+=Number(round.outputTokens)||0;
                 if (round.model)
                     m.model = round.model;
             }
         }
-        m.tps = tpsCount ? Math.round(tpsSum / tpsCount * 10) / 10 : 0;
+        if(m.performance){m.rounds=m.performance.calls;m.inputTokens=m.performance.inputTokens;m.outputTokens=m.performance.outputTokens;m.tokens=m.inputTokens+m.outputTokens;if(m.performance.latestModel)m.model=m.performance.latestModel;}
         return m;
     }
     function wsTokens(n) { return n >= 1000000 ? `${(n / 1000000).toFixed(1)}M` : n >= 10000 ? `${Math.round(n / 1000)}k` : n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n); }
@@ -520,7 +518,7 @@
         issues.push(L('桌面当前在其他会话，正文暂停更新', 'The desktop is showing another chat; text updates pause')); if (historyLoad?.status === 'error')
         issues.push(historyLoad.error); if (!d.canSend && d.reason)
         issues.push(d.reason); return issues.filter(Boolean); }
-    function wsDiagnostic(d, p, issues, m) { const session = state.active; return [`Agent: ${names[session.provider] || session.provider} (${session.provider})`, `Session: ${session.title || '—'}`, `Session ID: ${session.id}`, `Can send: ${Boolean(session.canSend)}`, `Busy: ${Boolean(d.busy || state.pending)}`, `Stale: ${Boolean(d.stale)}`, `Messages: ${(d.items || []).length}`, `Model calls: ${m.rounds}`, `Tokens: ${m.tokens}`, `Connected: ${p?.connected ?? 'unknown'}`, `Latency: ${Number.isFinite(p?.latencyMs) ? Math.round(p.latencyMs) + ' ms' : '—'}`, `Can read: ${p?.canRead ?? 'unknown'}`, `Reason: ${d.reason || p?.reason || '—'}`, `Issues: ${issues.length ? issues.join(' | ') : 'none'}`, `Last sync: ${state.lastSync || '—'}`, `App: ${location.host}`, `Time: ${new Date().toISOString()}`].join('\n'); }
+    function wsDiagnostic(d, p, issues, m) { const session = state.active; return [`Agent: ${names[session.provider] || session.provider} (${session.provider})`, `Session: ${session.title || '—'}`, `Session ID: ${session.id}`, `Can send: ${Boolean(session.canSend)}`, `Busy: ${Boolean(d.busy || state.pending)}`, `Stale: ${Boolean(d.stale)}`, `Messages: ${(d.items || []).length}`, `Model calls: ${m.rounds}`, `Tokens: ${m.tokens}`, `Input tokens: ${m.inputTokens}`, `Output tokens: ${m.outputTokens}`, `Performance scope: ${m.performance?.scope||'unavailable'}`, `Cache read tokens: ${m.performance?.cachedInputTokens??'unavailable'}`, `Cache sample input tokens: ${m.performance?.cacheInputTokens??'unavailable'}`, `Cache sample calls: ${m.performance?.cacheCalls??0}`, `Turn TTFT ms: ${m.performance?.turnTtftMs??'unavailable'}`, `Turn TTFT samples: ${m.performance?.ttftSamples??0}`, `Request TTFT ms: ${m.performance?.requestTtftMs??'unavailable'}`, `Observed first text ms: ${m.performance?.observedFirstTextMs??'unavailable'}`, `Native stream TPS: ${m.performance?.nativeStreamTps??'unavailable'}`, `Decode TPS: ${m.performance?.decodeTps??'unavailable'}`, `Merged run ms: ${m.performance?.wallMs??'unavailable'}`, `Completed turns: ${m.performance?.completedTurns??0}`, `Connected: ${p?.connected ?? 'unknown'}`, `Latency: ${Number.isFinite(p?.latencyMs) ? Math.round(p.latencyMs) + ' ms' : '—'}`, `Can read: ${p?.canRead ?? 'unknown'}`, `Reason: ${d.reason || p?.reason || '—'}`, `Issues: ${issues.length ? issues.join(' | ') : 'none'}`, `Last sync: ${state.lastSync || '—'}`, `App: ${location.host}`, `Time: ${new Date().toISOString()}`].join('\n'); }
     async function wsCopy(text, done) {
         let ok = false;
         if (window.isSecureContext && navigator.clipboard?.writeText) {
@@ -559,7 +557,7 @@
         const m = wsMetrics(d), issues = wsIssues(d, p), health = providerHealth(session.provider);
         const updated = d.items?.at(-1)?.createdAt || session.updatedAt, working = Boolean(d.busy || state.pending);
         // 分钟粒度进签名：相对时间（刚刚 / 3 分钟前）即使数据没变也能刷新
-        const signature = JSON.stringify([session.id, session.title, session.canSend, state.unknown.has(key(session)), d.reason, d.stale, items.length, updated, working, d.busySince, d.canSteer, queue, m, p?.connected, p?.canRead, p?.canSend, p?.latencyMs, p?.reason, p?.warning, state.error, state.lastSync, state.mode, historyLoad?.status, issues, Math.floor(Date.now() / 60000), L('zh', 'en')]);
+        const signature = JSON.stringify([session.id, session.title, session.canSend, state.unknown.has(key(session)), d.reason, d.stale, items.length, updated, working, d.busySince, d.canSteer, queue, d.timingCollection, m, p?.connected, p?.canRead, p?.canSend, p?.latencyMs, p?.reason, p?.warning, state.error, state.lastSync, state.mode, historyLoad?.status, issues, Math.floor(Date.now() / 60000), L('zh', 'en')]);
         if (!first && !force && body.dataset.signature === signature)
             return;
         body.dataset.signature = signature;
@@ -578,7 +576,27 @@
         const modesHtml = working && session.canSend ? `<div class="daw-modes" role="group"><span>${esc(L('新消息', 'New message'))}</span><button type="button" data-desktop-ws-mode="queue" aria-pressed="${mode === 'queue'}" title="${esc(L('本轮结束后自动发送', 'Sent when this turn finishes'))}">${esc(L('排队', 'Queue'))}</button><button type="button" data-desktop-ws-mode="steer" aria-pressed="${mode === 'steer'}" title="${esc(d.canSteer ? L('并入当前这一轮，Agent 会马上看到', 'Joins the running turn right away') : L(`${names[session.provider]} 不支持运行中引导`, `${names[session.provider]} can't steer a running turn`))}"${d.canSteer ? '' : ' disabled'}>${esc(L('引导', 'Steer'))}</button></div>` : '';
         const queueHtml = queue.length ? `<div class="daw-queue">${queue.map(item => `<div class="daw-queue-item" data-status="${esc(item.status)}"><i>${esc(queueLabel[item.status] || '')}</i><span title="${esc(item.text)}">${esc(item.text)}</span>${item.error ? `<small title="${esc(item.error)}">${esc(item.error)}</small>` : ''}${item.status !== 'sending' ? `<button type="button" data-desktop-ws-cancel="${esc(item.requestId)}">${esc(item.status === 'failed' ? L('移除', 'Remove') : L('取消', 'Cancel'))}</button>` : ''}</div>`).join('')}</div>` : '';
         const statusHtml = `<div class="daw-status" data-level="${esc(health.level)}"><div class="daw-status-head"><i class="daw-dot" aria-hidden="true"></i><b data-desktop-status>${esc(statusText())}</b>${working ? `<span class="daw-live">${esc(L('轮询中', 'Live'))}</span>` : ''}</div><p class="daw-status-sub">${esc(subText)}</p>${modesHtml}${queueHtml}</div>`;
-        const metricsHtml = `<div class="daw-metrics">${[[L('消息', 'Messages'), String(items.length), L(`${m.user} 你 / ${m.agent} Agent`, `${m.user} you / ${m.agent} agent`)], [L('模型调用', 'Model calls'), m.rounds ? String(m.rounds) : '—', ''], [L('Token 消耗', 'Tokens'), m.tokens ? wsTokens(m.tokens) : '—', ''], [L('生成速度', 'Speed'), m.tps ? String(m.tps) : '—', m.tps ? 'tok/s' : '']].map(([label, value, hint]) => `<div class="daw-metric"><div class="daw-metric-label">${esc(label)}</div><div class="daw-metric-value">${esc(value)}${hint ? `<em>${esc(hint)}</em>` : ''}</div></div>`).join('')}</div>${m.rounds ? '' : `<p class="daw-note">${esc(L('用量与速度来自桌面日志，这个 Agent 暂未提供', 'Usage and speed come from desktop logs; this agent does not report them'))}</p>`}`;
+        const perf=m.performance,known=value=>typeof value==='number'&&Number.isFinite(value),rate=value=>known(value)?value.toLocaleString(undefined,{maximumFractionDigits:1}):'—';
+        const metric=(id,label,value,unit,note,help)=>`<div class="daw-metric" data-metric="${id}" title="${esc(help||note)}" tabindex="0"><div class="daw-metric-label">${esc(label)}</div><div class="daw-metric-value">${esc(value)}${unit?`<em>${esc(unit)}</em>`:''}</div>${note?`<div class="daw-metric-note">${esc(note)}</div>`:''}</div>`;
+        const metricsHtml=`<div class="daw-metrics">`+
+            metric('messages',L('消息','Messages'),String(items.length),'',L(`${m.user} 你 / ${m.agent} Agent`,`${m.user} you / ${m.agent} agent`))+
+            metric('calls',L('模型调用','Model calls'),m.rounds?String(m.rounds):'—','',L('已读取记录','Loaded records'),L('根据日志中的请求记录去重；不据此推断并发数。','Deduplicated logged requests; this is not a concurrency count.'))+
+            metric('tokens',L('Token 用量','Token usage'),m.rounds?wsTokens(m.tokens):'—','',m.rounds?L(`输入 ${wsTokens(m.inputTokens)} · 输出 ${wsTokens(m.outputTokens)}`,`In ${wsTokens(m.inputTokens)} · Out ${wsTokens(m.outputTokens)}`):L('暂未读取到用量','Usage not reported'))+
+            metric('output',L('输出 Token','Output tokens'),m.rounds?wsTokens(m.outputTokens):'—','',perf?.reasoningOutputTokens?L(`含推理 ${wsTokens(perf.reasoningOutputTokens)}`,`Includes ${wsTokens(perf.reasoningOutputTokens)} reasoning`):L('日志上报输出','Reported output'))+
+            metric('ttft',!known(perf?.requestTtftMs)&&!known(perf?.turnTtftMs)&&known(perf?.observedFirstTextMs)?L('首文字响应（观测）','First text (observed)'):L('首 Token 延迟','First-token latency'),known(perf?.requestTtftMs)?rate(perf.requestTtftMs/1000):known(perf?.turnTtftMs)?rate(perf.turnTtftMs/1000):known(perf?.observedFirstTextMs)?rate(perf.observedFirstTextMs/1000):'—',known(perf?.requestTtftMs)||known(perf?.turnTtftMs)||known(perf?.observedFirstTextMs)?'s':'',perf?.requestTtftSamples?L(`请求实报 · ${perf.requestTtftSamples} 次`,`Reported requests · ${perf.requestTtftSamples} calls`):perf?.ttftSamples?L(`轮次实报 · ${perf.ttftSamples} 轮`,`Turn-level · ${perf.ttftSamples} turns`):perf?.observedFirstTextSamples?L(`本机观测 · ${perf.observedFirstTextSamples} 轮`,`Observed locally · ${perf.observedFirstTextSamples} turns`):L('暂无首 Token 计时','No first-token timing'),L('优先显示原生请求首 Token 延迟均值；Codex 仅有轮次计时则明确显示轮次口径。包含网络与排队，不等于纯 Prefill 时间。','Prefers native request TTFT; Codex turn-level timing is labeled separately. Includes networking and queueing, not pure prefill.'))+
+            metric('decode',known(perf?.decodeTps)?L('纯输出流速','Decode TPS'):known(perf?.nativeStreamTps)?(perf.nativeStreamObserved?L('文字流速（观测）','Text stream (observed)'):L('原生流式速率','Native stream rate')):L('纯输出流速','Decode TPS'),rate(perf?.decodeTps??perf?.nativeStreamTps),known(perf?.decodeTps??perf?.nativeStreamTps)?'tok/s':'',perf?.decodeCalls?L(`逐请求实测 · ${perf.decodeCalls} 次`,`Request streams · ${perf.decodeCalls} calls`):perf?.nativeStreamCalls?L(`原生实报 · ${perf.nativeStreamCalls} 次`,`Native metadata · ${perf.nativeStreamCalls} calls`):L('缺少逐请求解码计时','No request decode timing'),known(perf?.decodeTps)?L('匹配的可见输出 Token 与首 Token 后生成耗时；不包含输入和工具时间。','Matching visible output and post-first-token stream time; excludes input and tool time.'):perf?.nativeStreamObserved?L('原生消息起止时间内的可见输出速率，扣除推理，仅接受最终纯文字调用；分块缓冲会影响观测结果。','Visible output over native message start-to-end time, reasoning excluded, for final text-only calls. Chunk buffering affects observations.'):L('原生输出 Token ÷ 原生 streamingDuration，包含推理 Token。分块缓冲可能影响数值，不等同于纯可见文字解码速度。','Native output divided by native streamingDuration, including reasoning tokens. Chunk buffering may affect this rate; it is not pure visible-text decode.'))+
+            metric('throughput',L('会话处理吞吐','Session throughput'),rate(perf?.processingTps),known(perf?.processingTps)?'tok/s':'',perf?.completedTurns?L(`含输入 · ${perf.completedTurns} 个完整轮次`,`Includes input · ${perf.completedTurns} complete turns`):L('暂无完整轮次记录','No complete turn record'),L('完整轮次的输入加输出 Token ÷ 已记录运行窗口的合并时长，含缓存与工具等待；不是吐字速度，不反映模型回答质量。','Input plus output tokens divided by merged recorded run windows. Includes cached input and tool waits; not decode speed or answer quality.'))+
+            metric('cache',L('缓存读取占比','Cache read share'),known(perf?.cacheReadRatio)?rate(perf.cacheReadRatio*100):'—',known(perf?.cacheReadRatio)?'%':'',perf?.cacheCalls?L(`${perf.cacheCalls}/${m.rounds} 次调用上报`,`${perf.cacheCalls}/${m.rounds} calls reported`):L('未上报缓存明细','No cache breakdown'),L('缓存读取 Token ÷ 同一批有缓存记录请求的输入 Token；缓存写入不算命中，缺失值不当作零。','Cached-read tokens divided by input tokens for the same reporting requests. Cache writes are not hits; missing data is not zero.'))+
+            `</div><p class="daw-note">${esc(L('口径：已读取的原生会话、计时或明确标注的本机观测；— 表示未上报。速度与吞吐不代表模型质量。','Scope: loaded native conversations/timings or labeled local observations; — means unavailable. Speed and throughput do not measure model quality.'))}</p>`;
+
+        const timingNotice=d.timingCollection?.listening&&!d.timingCollection?.matched&&['claudecode','codex','workbuddy'].includes(session.provider)?`<p class="daw-note">${esc(L('实时计时采集已就绪，等待此会话上报。已打开的 Agent 进程需在方便时重新启动，才能读取新的计时配置。','Live timing collection is ready; waiting for this conversation. Existing Agent processes need a restart when convenient to load the timing configuration.'))}</p>`:'';
+        const methodsHtml=`<details class="daw-diag" data-daw-methods${wsMetricsOpen?' open':''}><summary><span>${esc(L('统计口径与数据来源','Methods and sources'))}</span><i class="daw-caret" aria-hidden="true">⌄</i></summary><div class="daw-diag-body daw-note">${[
+            L('范围：已读取的会话日志，不含尚未记录或未读取的调用；缺失数据不补零。','Scope: loaded conversation logs. Unrecorded or unread calls are excluded; missing data is not zero.'),
+            L('首 Token：桌面上报的轮次延迟均值，含网络、排队等时间，不是纯 Prefill。Antigravity 使用原生请求计时；WorkBuddy 的本机首文字观测另行标注，不能冒充 API TTFT。','First token: reported request/turn latency including network and queueing. WorkBuddy first-text observation is labeled separately and is not per-API TTFT.'),
+            L('纯输出：仅接受逐请求流式计时，首 Token 后的可见输出 ÷ 纯生成时间；整轮耗时不能替代。','Decode: per-request visible output after the first token / stream generation time. Turn duration is not a substitute.'),
+            L('处理吞吐：完整轮次的输入加输出 ÷ 合并运行窗口时长；包含缓存上下文与工具等待，不是吐字速度。','Throughput: complete-turn input plus output / merged run-window time, including cached context and tool waits; not decode speed.'),
+            L('缓存读取占比：同批已上报请求的缓存读取 Token ÷ 输入 Token；缓存写入不算命中，调用数不代表并发数。','Cache share: cache-read / input tokens for reporting requests. Cache writes are not hits; call count is not concurrency.')
+        ].map(note=>`<p>${esc(note)}</p>`).join('')}</div></details>`;
         const shortId = session.id.length > 20 ? `${session.id.slice(0, 8)}…${session.id.slice(-6)}` : session.id;
         const facts = [[L('会话', 'Session'), `<span class="daw-truncate" title="${esc(session.title)}">${esc(session.title)}</span>`], m.model ? [L('模型', 'Model'), `<code>${esc(m.model)}</code>`] : null, updated ? [L('最近活动', 'Last activity'), `<time title="${esc(new Date(updated).toLocaleString())}">${esc(wsRelative(updated) || new Date(updated).toLocaleString())}</time>`] : null, [L('会话 ID', 'Session ID'), `<span class="daw-id"><code title="${esc(session.id)}">${esc(shortId)}</code><button type="button" class="daw-btn daw-btn--tiny" data-desktop-copy="${esc(session.id)}">${esc(L('复制', 'Copy'))}</button></span>`]].filter(Boolean);
         const factsHtml = `<dl class="desktop-agent-facts">${facts.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join('')}</dl>`;
@@ -586,7 +604,8 @@
         const sendNote = canSendNow ? L('输入框消息直接投递到这个原生会话', 'The composer delivers to this native session') : (unknown ? L('上次提交结果未确认，发送已临时停用', 'Last delivery is unconfirmed; sending is paused for now') : (d.reason || L('当前连接仅支持查看', 'This connection is read-only')));
         const connHtml = `<section class="daw-section"><h4>${esc(L('连接与权限', 'Connection & access'))}</h4><div class="daw-conn"><i class="daw-dot" data-level="${esc(health.level)}" aria-hidden="true"></i><span>${esc([p?.connected ? L('在线', 'Online') : L('离线', 'Offline'), Number.isFinite(p?.latencyMs) ? `${Math.round(p.latencyMs)}ms` : '', L('桌面原生', 'Native desktop'), L('本机', 'Local machine')].filter(Boolean).join(' · '))}</span></div><div class="daw-chips">${[[L('读取对话', 'Read chats'), Boolean(p?.canRead)], [L('投递消息', 'Send messages'), canSendNow], [L('新建会话', 'New sessions'), Boolean(p?.canSend)], [L('运行中引导', 'Steer'), Boolean(d.canSteer)]].map(([label, on]) => `<span class="daw-chip" data-on="${on}">${esc(label)} ${on ? '✓' : '✕'}</span>`).join('')}</div><p class="daw-note">${esc(sendNote)}</p></section>`;
         const diagHtml = `<details class="daw-diag" data-daw-diag${wsDiagOpen ? ' open' : ''}><summary><span>${esc(L('诊断', 'Diagnostics'))} · ${issues.length ? esc(L(`${issues.length} 项提示`, `${issues.length} note(s)`)) : esc(L('连接正常', 'All clear'))}</span><i class="daw-caret" aria-hidden="true">⌄</i></summary><div class="daw-diag-body"><dl class="desktop-agent-facts">${[[L('连接', 'Connection'), p?.connected ? L('已连接', 'Connected') : L('未连接', 'Disconnected')], [L('往返延迟', 'Latency'), Number.isFinite(p?.latencyMs) ? `${Math.round(p.latencyMs)} ms` : '—'], [L('最近同步', 'Last sync'), state.lastSync ? (wsRelative(state.lastSync) || new Date(state.lastSync).toLocaleString()) : '—'], [L('队列', 'Queue'), String(queue.length)]].map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>${issues.length ? `<ul class="daw-issues">${issues.map(issue => `<li>${esc(issue)}</li>`).join('')}</ul>` : ''}<div class="daw-diag-actions"><button type="button" class="daw-btn" data-desktop-ws-diag>${esc(L('复制诊断信息', 'Copy diagnostics'))}</button></div></div></details>`;
-        body.innerHTML = `<div class="desktop-agent-ws">${statusHtml}${metricsHtml}${factsHtml}${connHtml}${diagHtml}<div class="desktop-agent-ws-actions"><button type="button" data-desktop-refresh>${esc(L('刷新', 'Refresh'))}</button><button type="button" data-desktop-settings>${esc(L('连接设置', 'Connection settings'))}</button><button type="button" data-desktop-back>${esc(L('返回我的对话', 'Back to my chats'))}</button></div></div>`;
+        body.innerHTML = `<div class="desktop-agent-ws">${statusHtml}${metricsHtml}${timingNotice}${methodsHtml}${factsHtml}${connHtml}${diagHtml}<div class="desktop-agent-ws-actions"><button type="button" data-desktop-refresh>${esc(L('刷新', 'Refresh'))}</button><button type="button" data-desktop-settings>${esc(L('连接设置', 'Connection settings'))}</button><button type="button" data-desktop-back>${esc(L('返回我的对话', 'Back to my chats'))}</button></div></div>`;
+        body.querySelector('[data-daw-methods]')?.addEventListener('toggle',e=>{wsMetricsOpen=e.currentTarget.open;});
         body.querySelector('[data-daw-diag]')?.addEventListener('toggle', e => { wsDiagOpen = e.currentTarget.open; });
         body.onclick = e => { const modeButton = e.target.closest('[data-desktop-ws-mode]'); if (modeButton && !modeButton.disabled && state.active) {
             state.mode = modeButton.dataset.desktopWsMode;
@@ -624,8 +643,7 @@
             if (!current(epoch, session))
                 return;
             const followBottom = initial || state.api.isNearBottom();
-            if (data.stale)
-                data.items = state.detail?.items || [];
+            if(data.stale){data.items=state.detail?.items||[];data.performance=state.detail?.performance;}
             // 发送后到 Agent 开始处理之间日志可能还没更新：先保持“已发送”状态，最多等一分钟
             if (state.pending && (data.busy || Date.now() - state.pending > 60000 || (data.items || []).length > state.pendingCount))
                 state.pending = null;

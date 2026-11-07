@@ -1,10 +1,10 @@
-// 桌面推广卡片堆：在设置里打开后（默认关闭），登录后在屏幕右下角以置顶、无边框的小窗打开推广链接，像蜘蛛纸牌一样错落叠放。
+// 桌面推广：主应用将推广与所有自动浏览器入口放进右侧 Dragon 浏览器；独立组件保留旧卡片预览的兼容能力。
 // - 后面的卡片只露出顶部标题条，点击标题条把它换到最前；点击最前卡片的页面区域放大为普通窗口。
-// - 卡片堆里的大窗入口统一在 Dragon 浏览器新增标签；预览页面可移入标签，最小化时移回卡片堆。首页推广的点击用系统默认浏览器打开。
+// - 主应用的登录推广、推广点击、站点脚本和 AI 页面统一在侧栏新增标签；旧卡片 API 仅用于组件兼容。
 // - 首页通过本机接口读取每张卡片的实时画面（capturePage），点击首页画面直接弹出对应大窗。
 // - 防打扰：托盘可暂停；关闭卡片堆当天不再自动弹出；Windows 检测到全屏/演示时自动隐藏卡片堆。
 // 页面运行在独立持久分区（persist:platform-promo），登录态只保存在本机；没有有效期的会话 Cookie 自动续存 7 天。
-// 浮窗脚本、推广链接和网站的新窗口链接共用同一个 Dragon 浏览器窗口。
+// 站点脚本、推广链接和网站的新窗口链接共用同一套 Dragon 浏览器标签。
 const { app, BrowserWindow, BrowserView, Menu, dialog, screen, session, shell } = require('electron');
 const { createExtensionManager } = require('./browser-extensions');
 const { createUivBatchRunner } = require('./uiv-batch-runner');
@@ -29,8 +29,9 @@ const MIN_DESKTOP_ROTATE_SECONDS = 60;
 const SESSION_COOKIE_KEEP_DAYS = 7;
 const SITE_SCRIPT_DELAY_MS = 1500;
 
-function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, getLanguage = () => 'zh-CN', onChange = () => {}, onCardOpen = () => {}, openAppPath = () => {} }) {
+function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, getLanguage = () => 'zh-CN', onChange = () => {}, onCardOpen = () => {}, openAppPath = () => {}, getSidebarHost = null }) {
     let config = null;
+    let promotionTabs=new Map(),promotionSignature='',pendingSidebarReveal=false;
     let cards = [];             // 卡片堆中的窗口，cards[0] 为最前
     let extensions = null;
     const siteScripts = createSiteScriptStore(siteScriptsPath || path.join(path.dirname(statePath), 'desktop-site-scripts.json'));
@@ -56,6 +57,28 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
         }).catch(() => {})
     });
 
+    // All application-driven browser opens share the main window's sidebar.
+    function prepareSidebar(){
+        if(!getSidebarHost)return;
+        const host=getSidebarHost();if(!host||host.isDestroyed())throw Error(T('主窗口尚未就绪，请打开平台后重试','Open the platform main window and try again'));
+        pendingSidebarReveal=true;browser.setSidebar(host);
+    }
+    function openBrowser(options){ensureSession();prepareSidebar();return browser.open(options);}
+    function rebuildSidebarPromotions(){
+        const active=stackWanted()&&!state.paused&&!hiddenToday(),links=active?enabledLinks().slice(0,Math.max(1,Number(config?.maxLinks)||3)):[];
+        const signature=JSON.stringify(links.map(link=>[link.id,link.url]));if(signature===promotionSignature)return;
+        const ids=new Set(links.map(link=>link.id));
+        for(const[id,tabId]of promotionTabs)if(!ids.has(id)){browser.closeTab(tabId);promotionTabs.delete(id);}
+        let first=null;
+        for(const link of links){
+            let tab=browser.list().find(tab=>tab.id===promotionTabs.get(link.id));
+            if(!tab){tab=openBrowser({link:{...link}});promotionTabs.set(link.id,tab.id);}
+            else if(tab.link.url!==link.url){tab.link={...link};tab.page.webContents.loadURL(link.url).catch(()=>{});}
+            if(!first)first=tab;
+        }
+        if(first){prepareSidebar();browser.showTab(first.id);}
+        promotionSignature=signature;clearInterval(rotateTimer);rotateTimer=null;updateFullscreenWatch();
+    }
     function readState() {
         try {
             const value = JSON.parse(fs.readFileSync(statePath, 'utf8'));
@@ -84,7 +107,7 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
     const isBig = card => !!card.inBrowser;
     const browser = createDragonBrowser({
         partition: PARTITION, whenReady: () => extensions.whenReady(), getLanguage, getWorkArea: workArea,
-        getLibrary: () => browserLibrary, getDownloads: () => unregisterDownloads, getCredentialStore: () => browserCredentials,
+        getLibrary: () => browserLibrary, getDownloads: () => unregisterDownloads, getExtensions: () => extensions?.list()||[], getCredentialStore: () => browserCredentials,
         onPageCreated: tab => {
             tab.page.webContents.on('did-finish-load', () => { if (tab.tool?.autoRun) runToolScript(tab, { onlyOnOrigin: true }); });
         },
@@ -180,7 +203,7 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
         wc.on('page-title-updated', () => pushState(card));
         // 缩小预览不接受网页弹窗；移入 Dragon 标签后由标签管理器接管。
         wc.setWindowOpenHandler(({ url }) => {
-            if (/^https?:/i.test(url) && isBig(card)) browser.open({ link: { name: url, url } });
+            if (/^https?:/i.test(url) && isBig(card)) openBrowser({ link: { name: url, url } });
             return { action: 'deny' };
         });
         // 等插件加载完再打开页面，插件的内容脚本才能生效
@@ -258,6 +281,7 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
     }
 
     function rebuild() {
+        if(getSidebarHost){rebuildSidebarPromotions();return;}
         // 暂停、当天关闭或关闭桌面推广时释放全部卡片（正在放大的大窗除外）；全屏只是临时隐藏
         const alive = stackWanted() && !state.paused && !hiddenToday();
         const links = alive ? enabledLinks() : [];
@@ -312,8 +336,8 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
     function expand(card) {
         if (!card || card.win.isDestroyed()) return;
         const existing = browser.findContext(card);
-        if (existing) { browser.showTab(existing.id); return; }
-        browser.open({
+        if (existing) { prepareSidebar();browser.showTab(existing.id); return; }
+        openBrowser({
             link: card.link, page: card.page, context: card,
             onModeChange(shown) {
                 card.inBrowser = shown;
@@ -368,7 +392,7 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
     function openTool(site) {
         ensureSession();
         const link = { id: 'site:' + site.origin, name: site.name, badge: T('浮窗', 'Float'), color: 'blue', url: site.url };
-        return browser.open({ link, tool: { origin: site.origin, code: site.code, autoRun: true } });
+        return openBrowser({ link, tool: { origin: site.origin, code: site.code, autoRun: true } });
     }
 
     function runToolScript(card, { onlyOnOrigin = false } = {}) {
@@ -419,7 +443,7 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
     }
 
     function openExtensionPage(card, ext, page) {
-        browser.open({ link: { name: ext.name, url: `chrome-extension://${ext.id}/${page}` } });
+        openBrowser({ link: { name: ext.name, url: `chrome-extension://${ext.id}/${page}` } });
     }
 
     async function pick(card, kind) {
@@ -528,11 +552,13 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
             rebuild();
         },
         status() {
+            const sidebarItems=[...promotionTabs].map(([id,tabId])=>{const tab=browser.list().find(item=>item.id===tabId);return tab?{id,depth:0,expanded:true,live:browser.isVisible(),title:tab.page.webContents.getTitle()}:null;}).filter(Boolean);
             return {
+                presentation:getSidebarHost?'sidebar':'stack',
                 paused: state.paused,
                 hiddenToday: hiddenToday(),
                 enabled: stackWanted(),
-                items: cards.map((card, depth) => ({
+                items: getSidebarHost?sidebarItems:cards.map((card, depth) => ({
                     id: card.link.id,
                     depth,
                     expanded: !!browser.findContext(card),
@@ -565,23 +591,20 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
             card.frameAt = Date.now();
             return card.frame;
         },
-        // 首页推广的显式点击用系统默认浏览器打开；Dragon 浏览器只用于卡片堆放大、浮窗脚本等桌面内的场景
+        // Desktop promotion links open in the shared sidebar, like AI tools and site scripts.
         open(link, nextConfig) {
-            if (nextConfig) config = nextConfig;
-            const url = String(link?.url || '');
-            if (!/^https?:\/\//i.test(url)) return false;
-            shell.openExternal(url).catch(error => console.warn('[DesktopPromo] 系统浏览器打开失败：', error.message || error));
-            return true;
+            if(nextConfig)config=nextConfig;const url=String(link?.url||'');if(!/^https?:\/\//i.test(url))return false;
+            ensureSession();openBrowser({link});return true;
         },
         // Dragon Claw 的浏览器工具：新开一个 Dragon 浏览器标签交给智能体（经 webContents.debugger 控制，见 backend/models/agent-browser.js）。
         // 等空白页首次加载完再交出，避免随后加载 about:blank 盖掉智能体的导航
-        setBrowserSidebar(host) { ensureSession(); browser.setSidebar(host); },
-        setBrowserSidebarBounds(bounds) { browser.setSidebarBounds(bounds); },
+        setBrowserSidebar(host) { ensureSession(); browser.setSidebar(host);if(pendingSidebarReveal){pendingSidebarReveal=false;host.webContents.send('dragon-browser:reveal');} },
+        setBrowserSidebarBounds(bounds) { if(bounds)pendingSidebarReveal=false;browser.setSidebarBounds(bounds); },
         browserSidebarAction(sender, action, payload) { return browser.handleAction(sender, action, payload); },
         popoutBrowser() { browser.popout(); },
         openAgentPage({ name = 'Dragon Claw', url = 'about:blank' } = {}) {
             ensureSession();
-            const tab = browser.open({ link: { name, url } });
+            const tab = openBrowser({ link: { name, url } });
             const wc = tab.page.webContents;
             return new Promise(resolve => {
                 const timer = setTimeout(done, 3000);
@@ -593,13 +616,13 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
         openInBrowser(link, nextConfig) {
             ensureSession();
             if (nextConfig) config = nextConfig;
-            browser.open({ link });
+            openBrowser({ link });
             return true;
         },
         isPaused: () => state.paused,
         isHiddenToday: hiddenToday,
         isShowing: () => stackWanted() && !state.paused && !hiddenToday(),
-        hasCards: () => cards.length > 0,
+        hasCards: () => cards.length > 0 || promotionTabs.size > 0,
         setPaused(paused) {
             state.paused = !!paused;
             if (!paused) state.hiddenDate = '';
@@ -608,6 +631,7 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
             onChange();
         },
         showNow() {
+            promotionSignature='';
             manualShow = true;
             state.hiddenDate = '';
             if (state.paused) state.paused = false;

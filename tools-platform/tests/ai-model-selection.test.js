@@ -43,6 +43,36 @@ test('chat choices always expose real model names, ignoring legacy aliases', () 
     assert.ok(!Object.hasOwn(publicView.models[0], 'apiBaseUrl'));
 });
 
+test('channel with multiple models expands choices and resolves individual models cleanly', () => {
+    const multiStore = {
+        activeProfileId: 'chan1',
+        profiles: [
+            {
+                id: 'chan1',
+                name: 'DragonAPI',
+                provider: 'openai',
+                model: 'gpt-5.6-luna',
+                models: ['gpt-5.6-luna', 'grok-4.7'],
+                apiKey: 'api-token-1234567890'
+            }
+        ]
+    };
+    const choices = repo.buildModelChoices(multiStore);
+    assert.equal(choices.models.length, 2);
+    assert.equal(choices.models[0].name, 'gpt-5.6-luna');
+    assert.equal(choices.models[0].id, 'profile:chan1');
+    assert.equal(choices.models[1].name, 'grok-4.7');
+    assert.equal(choices.models[1].id, 'profile:chan1:grok-4.7');
+
+    const primaryPick = repo.pickModelChoice(choices, 'profile:chan1');
+    assert.equal(primaryPick.modelName, 'gpt-5.6-luna');
+    assert.equal(primaryPick.profileId, 'chan1');
+
+    const secondPick = repo.pickModelChoice(choices, 'profile:chan1:grok-4.7');
+    assert.equal(secondPick.modelName, 'grok-4.7');
+    assert.equal(secondPick.profileId, 'chan1');
+});
+
 test('unconfigured profiles still identify the real active model and never show image models', () => {
     const choices = repo.buildModelChoices({ ...store, profiles: store.profiles.map(item => ({ ...item, apiKey: '' })) });
     assert.equal(choices.models[0].name, 'gemini-2.5-flash');

@@ -1,7 +1,7 @@
 /* 首页右上角平台推广区：内置推广视频 + 推广链接（全局设置 › 平台推广 配置显示与自定义链接）。
  * - 同一时间只有一个推广项在悬浮小窗里显示（视频或链接），其余以横幅显示；点击横幅即互换。
  * - 首次打开优先展示推广链接，之后视频与链接混合随机轮换，一轮内不重复；视频小窗用低码率版本，点击放大高清观看。
- * - 链接：点击在系统浏览器打开（桌面端经本机接口调用系统默认浏览器）；桌面端可在设置里打开右下角置顶卡片堆（desktop-promo/，默认关闭），小窗显示其实时画面；
+ * - 链接：点击在右侧 Dragon 浏览器打开（桌面端经本机接口调用系统默认浏览器）；桌面端可在设置里打开右下角置顶卡片堆（desktop-promo/，默认关闭），小窗显示其实时画面；
  *   浏览器端显示封面卡片，点击在固定命名的标签页打开（已打开则直接切换过去），并预连接推广站点。
  * - 链接横幅最多显示 maxLinks 个，超出时每 rotateSeconds 秒轮换。
  * - 关闭小窗可选“仅本次关闭”（下次打开首页还会出现）或“永久关闭”；关闭后全部以横幅保留。
@@ -83,7 +83,7 @@
             'home.nrv.bannerLabel': '观看视频：{name}', 'home.nrv.dialogClose': '关闭视频',
             'home.nrv.tab': '平台推广', 'home.nrv.tabLabel': '展开平台推广',
             'home.nrv.link.badge': '推广', 'home.nrv.link.open': '打开', 'home.nrv.link.bannerLabel': '打开推广页面：{name}',
-            'home.nrv.link.hintDesktop': '点击在系统浏览器打开', 'home.nrv.link.hintTab': '点击在新标签页打开', 'home.nrv.link.live': '实时画面'
+            'home.nrv.link.hintDesktop': '点击在右侧 Dragon 浏览器打开', 'home.nrv.link.hintTab': '点击在新标签页打开', 'home.nrv.link.live': '实时画面'
         },
         'en-US': {
             'home.nrv.aiMonthly.badge': 'GUIDE', 'home.nrv.aiMonthly.name': 'AI Monthly Reports: build once, reuse next month (Mandarin)', 'home.nrv.aiMonthly.banner': 'AI Monthly Reports: build once, reuse next month · Mandarin narration',
@@ -101,7 +101,7 @@
             'home.nrv.bannerLabel': 'Watch video: {name}', 'home.nrv.dialogClose': 'Close video',
             'home.nrv.tab': 'Promotions', 'home.nrv.tabLabel': 'Show platform promotions',
             'home.nrv.link.badge': 'LINK', 'home.nrv.link.open': 'Open', 'home.nrv.link.bannerLabel': 'Open promoted page: {name}',
-            'home.nrv.link.hintDesktop': 'Click to open in your default browser', 'home.nrv.link.hintTab': 'Click to open in a new tab', 'home.nrv.link.live': 'Live'
+            'home.nrv.link.hintDesktop': 'Click to open in the Dragon Browser sidebar', 'home.nrv.link.hintTab': 'Click to open in a new tab', 'home.nrv.link.live': 'Live'
         }
     });
     const t = (key, fallback, params) => (i18n && i18n.t ? i18n.t(key, params) : fallback);
@@ -244,6 +244,7 @@
         let previousOverflow = '';
         let tucked = false;
         let resumeOnUntuck = false;
+        let desktopSidebar = false;
         let desktop = false;   // 桌面端可用：链接在右下角卡片堆打开，首页显示实时画面
         let linkOffset = 0;    // 链接横幅轮换起点
         let rotateTimer = null;
@@ -310,7 +311,7 @@
             const map = {
                 badge: link ? (linkText(link, 'badge') || t('home.nrv.link.badge', '推广')) : t('home.nrv.' + key + '.badge', ''),
                 name: link && linkText(link, 'badge') === linkText(link, 'name') ? '' : nameOf(key),
-                hint: link ? (desktop ? t('home.nrv.link.hintDesktop', '点击在系统浏览器打开') : t('home.nrv.link.hintTab', '点击在新标签页打开')) : t('home.nrv.hint', '点击放大高清观看'),
+                hint: link ? (desktop ? t('home.nrv.link.hintDesktop', '点击在右侧 Dragon 浏览器打开') : t('home.nrv.link.hintTab', '点击在新标签页打开')) : t('home.nrv.hint', '点击放大高清观看'),
                 expand: t('home.nrv.expand', '放大观看'),
                 askTitle: t('home.nrv.askTitle', '关闭推广小窗？'), askBody: compactCard
                     ? (i18n?.getLanguage?.() === 'en-US' ? 'Close for now: hidden until the next visit. Close permanently: stop automatic displays. You can reopen it from More → Promotions.' : '仅本次关闭：本次访问不再显示。永久关闭：以后不再自动展示，可从「更多 → 平台推广」重新打开。')
@@ -374,7 +375,7 @@
         }
         async function pullFrame() {
             const link = linkOf(current);
-            if (!desktop || !link || frameBusy || tucked || reviewPending || document.hidden || float.hidden) return;
+            if (!desktop || desktopSidebar || !link || frameBusy || tucked || reviewPending || document.hidden || float.hidden) return;
             frameBusy = true;
             try {
                 const res = await fetch(PROMO_API + '/desktop/frame/' + encodeURIComponent(link.id), { headers: authHeaders(), credentials: 'same-origin', cache: 'no-store' });
@@ -384,7 +385,7 @@
         }
         function updateFrameLoop() {
             clearInterval(frameTimer); frameTimer = null;
-            if (desktop && isLink(current) && !tucked && !reviewPending) { pullFrame(); frameTimer = setInterval(pullFrame, FRAME_INTERVAL_MS); }
+            if (desktop && !desktopSidebar && isLink(current) && !tucked && !reviewPending) { pullFrame(); frameTimer = setInterval(pullFrame, FRAME_INTERVAL_MS); }
         }
         // 浏览器端：固定命名的标签页；已打开过就切换过去，不重复打开、不重新加载
         function openInTab(link) {
@@ -420,9 +421,9 @@
             try {
                 const res = await api('GET', '/desktop');
                 const status = await res.json();
-                desktop = !!(status && status.available);
-                // 登录后打开 / 更新右下角卡片堆
-                if (desktop && !reviewPending) await api('POST', '/desktop/sync').catch(() => {}); // 卡片堆是否显示由桌面端按设置（默认关闭）和托盘决定
+                desktop = !!(status && status.available);desktopSidebar=status?.presentation==='sidebar';
+                // 登录后打开 / 更新推广侧栏标签
+                if (desktop && !reviewPending) await api('POST', '/desktop/sync').catch(() => {}); // 侧栏推广是否显示由桌面端按设置（默认关闭）和托盘决定
             } catch (_) { desktop = false; }
             translate();
             updateFrameLoop();

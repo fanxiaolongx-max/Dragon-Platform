@@ -713,6 +713,7 @@ async function startServer() {
     }
 
     const server = app.listen(PORT, () => {
+        require('./models/desktop-agents/telemetry').start().catch(() => console.warn('[desktop-agents] 本机计时采集器未启动，请检查 4319 端口'));
         require('./models/agent-mcp').warmup().catch(error => console.warn('[agent] MCP 预连接失败：', error.message || error));
         console.log(`\n✅ Dragon Claw 已启动`);
         console.log(`   🌐 访问地址: http://localhost:${PORT}`);
