@@ -5,7 +5,7 @@
     'use strict';
     if (document.documentElement.dataset.ui !== 'v2') return;
 
-    const L = (zh, en) => (window.ToolsI18n?.getLanguage?.() === 'en-US' ? en : zh);
+    const L = (zh, en) => (/^en/.test(window.ToolsI18n?.getLanguage?.() || localStorage.getItem('tools_lang') || '') ? en : zh);
     const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const state = { href: '', title: '', returnTo: null };
     const datacom = '/tools/datacom-protocol-expert';
@@ -97,6 +97,7 @@
         root.innerHTML = `<header class="v2-tool-frame-bar">
                 <span class="v2-tool-frame-icon"></span><strong class="v2-tool-frame-title"></strong>
                 <span class="v2-tool-frame-spacer"></span>
+                <button type="button" class="v2-tool-frame-btn v2-tool-browser-btn" data-frame-act="browser" aria-controls="dcBrowserPanel" aria-pressed="false" hidden></button>
                 <button type="button" class="v2-tool-frame-btn" data-frame-act="more" title="${esc(L('更多操作', 'More options'))}" aria-haspopup="menu" aria-label="${esc(L('更多操作', 'More options'))}"><span class="v2-ico" data-icon="more"></span></button>
                 <button type="button" class="v2-tool-frame-btn" data-frame-act="reload" title="${esc(L('刷新', 'Reload'))}"><span class="v2-ico" data-icon="refresh"></span></button>
                 <button type="button" class="v2-tool-frame-btn" data-frame-act="external" title="${esc(staticNav ? L('独立页面打开', 'Open standalone page') : L('在新标签页打开', 'Open in new tab'))}"><span class="v2-ico" data-icon="external"></span></button>
@@ -132,9 +133,22 @@
             });
         }
         window.HomeV2?.fillIcons?.(root);
+        const browserButton = root.querySelector('[data-frame-act=browser]');
+        const syncBrowserButton = () => {
+            browserButton.textContent = L('浏览器', 'Browser');
+            browserButton.title = L('显示或收起 Dragon 浏览器', 'Show or hide Dragon Browser');
+            browserButton.setAttribute('aria-pressed', String(document.body.classList.contains('dc-browser-open')));
+        };
+        syncBrowserButton();
+        window.addEventListener('tools:languagechange', syncBrowserButton);
+        window.addEventListener('dragon-claw:browser-reading', syncBrowserButton);
         root.addEventListener('click', event => {
             const act = event.target.closest('[data-frame-act]')?.dataset.frameAct;
-            if (act === 'close') close();
+            if (act === 'browser') {
+                if (document.body.classList.contains('dc-browser-open')) window.DragonBrowserSidebar?.close();
+                else window.DragonBrowserSidebar?.open();
+            }
+            else if (act === 'close') close();
             else if (act === 'reload') {
                 if (activeSurface) open(currentHref(), { push: false });
                 else frame.src = currentHref();
@@ -260,6 +274,7 @@
         iconEl.innerHTML = iconHtml(info.icon);
         frame.title = titleEl.textContent;
         root.hidden = false;
+        root.querySelector('[data-frame-act=browser]').hidden = !window.DragonBrowser || Boolean(useSurface);
         document.body.classList.add('v2-tool-open');
         if (useSurface) {
             if (frame.hasAttribute('src')) frame.contentWindow.location.replace('about:blank');
@@ -269,7 +284,7 @@
             if (!frame.hasAttribute('src')) frame.src = path;
             else frame.contentWindow.location.replace(path);
         }
-        window.dispatchEvent(new CustomEvent('home:tool-frame', { detail: { open: true, href: path } }));
+        window.dispatchEvent(new CustomEvent('home:tool-frame', { detail: { open: true, href: path, browserAllowed: !useSurface } }));
         if (push) writeUrl(path, false);
         return true;
     }

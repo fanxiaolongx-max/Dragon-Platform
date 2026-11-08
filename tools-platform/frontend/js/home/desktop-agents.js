@@ -15,7 +15,7 @@
     const identity = () => ['tools_user', 'tools_tenant_id', 'tools_token'].map(k => localStorage.getItem(k) || sessionStorage.getItem(k) || '').join('|');
     const key = s => s.provider + ':' + s.id;
     async function request(method, url, body, signal) { const token = localStorage.getItem('tools_token') || sessionStorage.getItem('tools_token'); const response = await fetch(API + url, { method, signal, credentials: 'same-origin', cache: 'no-store', headers: { Authorization: 'Bearer ' + token, ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) }); const data = await response.json().catch(() => ({})); if (!response.ok)
-        throw Object.assign(new Error(data.error || `HTTP ${response.status}`), { status: response.status, code: data.code }); return data; }
+        throw Object.assign(new Error(data.error || (response.status === 504 ? L('桌面端未及时确认，请先查看原会话，避免重复发送', 'Desktop did not acknowledge in time. Check the desktop session before resending.') : `HTTP ${response.status}`)), { status: response.status, code: data.code }); return data; }
     // 与后端上限一致：超长时不发请求，直接说明字数（保留输入框里的内容）
     const MAX_MESSAGE = 20000;
     function tooLong(text) { if (String(text || '').length > MAX_MESSAGE)
@@ -111,6 +111,7 @@
         return date.getFullYear() === now.getFullYear() ? `${date.getMonth() + 1}/${date.getDate()}` : `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
     }
     function render() {
+        queueMicrotask(()=>window.DragonClaw?.refreshModelPicker?.());
         if (!root)
             return;
         renderControls();
@@ -180,6 +181,8 @@
         if (chosenProvider && names[chosenProvider]) state.provider = chosenProvider;
         if ((!force && !state.visible) || !state.settings?.enabled)
             return false;
+        const draftModel=window.HomeDesktopModels?.forProvider?.(state.provider)||'';
+        window.HomeDesktopModels?.seedDraft?.(state.provider,draftModel);
         const provider = state.provider, name = names[provider], status = state.providers.find(p => p.id === provider), canSend = Boolean(status?.canSend);
         if(force&&(!status?.enabled||!status.connected||!canSend||!state.settings.allowSend||!state.settings.providers?.[provider]||provider==='claudecode'&&!state.settings.claudeAutomation))return false;
         let api;
@@ -192,7 +195,7 @@
             working.querySelector('.dc-msg-main').insertAdjacentHTML('beforeend', `<div class="dc-activity" role="status"><span class="dc-activity-orbit" aria-hidden="true"><i></i><i></i><i></i></span><span class="dc-activity-text">${esc(L(`正在 ${name} 中新建会话…`, `Creating a ${name} session…`))}</span></div>`);
             api.scrollToBottom();
             try {
-                const result = await request('POST', `/${provider}/new`, { text, requestId: crypto.randomUUID() });
+                const result = await request('POST', `/${provider}/new`, { text, requestId: crypto.randomUUID(), model: window.HomeDesktopModels?.forProvider?.(provider)||'' });
                 if (epoch !== state.viewEpoch)
                     return true;
                 if (result.status !== 'accepted' || !result.id)
@@ -714,7 +717,9 @@
     }
     async function send(text) { const session = state.active; if (!session || !session.canSend || state.sending || state.unknown.has(key(session)))
         return false; tooLong(text); const epoch = state.viewEpoch, account = state.identity, mode = state.detail?.busy || state.pending ? busyMode() : 'send'; state.sending = true; try {
-        const result = await request('POST', `/${session.provider}/sessions/${encodeURIComponent(session.id)}/messages`, { text, requestId: crypto.randomUUID(), mode });
+        window.HomeDesktopModels?.validate?.();
+        const model=window.HomeDesktopModels?.forProvider?.(session.provider)||'';
+        const result = await request('POST', `/${session.provider}/sessions/${encodeURIComponent(session.id)}/messages`, { text, requestId: crypto.randomUUID(), mode: model&&mode==='steer'?'queue':mode, model });
         if (account !== state.identity || account !== identity())
             return false;
         if (result.status === 'queued') {
@@ -805,6 +810,7 @@
     // 对话列表的「桌面 Agent」分类：管理员、已连接本机桌面，且至少启用了一个客户端才显示（设置读取完成前不显示，避免闪现）
     const anyProviderEnabled = () => Boolean(state.settings?.enabled && Object.keys(names).some(id => state.settings.providers?.[id]));
     window.HomeDesktopAgents = {
+        modelContext: () => state.active ? {key:'native:'+key(state.active),providers:[state.active.provider],models:state.detail&&Object.hasOwn(state.detail,'selectedModel')?{[state.active.provider]:state.detail.selectedModel}:undefined,readonly:!state.active.canSend,save:async values=>{const session=state.active;const result=await request('PUT',`/${session.provider}/sessions/${encodeURIComponent(session.id)}/model`,{model:values[session.provider]||''});if(state.active&&key(state.active)===key(session)&&state.detail)state.detail.selectedModel=result.selectedModel;}} : state.drafting ? {key:'draft',providers:[state.drafting]} : null,
         available: () => localStorage.getItem('tools_role') === 'admin' && anyProviderEnabled(),
         getItems: () => (state.items || []).slice(),
         enabledProviders: () => localStorage.getItem('tools_role') === 'admin' && state.settings?.enabled

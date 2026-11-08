@@ -49,7 +49,7 @@ async function run(command, argument) {
         throw failure(result.code || 'DESKTOP_REJECTED', result.error || 'Claude 桌面操作失败');
     return result;
 }
-const driver = { status: () => run('status'), prepare: () => run('prepare'), snapshot: () => run('snapshot'), press: title => run('press', { title }), paste: text => run('paste', { text }), submit: previous => run('submit', { previous }), restore: previous => run('restore', { previous }), interaction: title => run('interaction', { title }), choose: args => run('choose', args) };
+const driver = { models: () => run('models'), setModel: args => run('set-model', args), status: () => run('status'), prepare: () => run('prepare'), snapshot: () => run('snapshot'), press: title => run('press', { title }), paste: text => run('paste', { text }), clear: () => run('clear'), submit: previous => run('submit', { previous }), restore: previous => run('restore', { previous }), interaction: title => run('interaction', { title }), choose: args => run('choose', args) };
 
 function interactionId(row, pending) {
     return crypto.createHash('sha256').update(JSON.stringify([row.id, row.title, pending.prompt, pending.options])).digest('hex');
@@ -114,7 +114,7 @@ async function send(row, text, options = {}) {
         // has been activated. Prepare before looking up a title, not after it.
         if (d.prepare)
             focus.previous = (await d.prepare()).previous || '';
-        await attempt(row, text, d, options.wait || (ms => new Promise(r => setTimeout(r, ms))), focus);
+        await attempt(row, text, d, options.wait || (ms => new Promise(r => setTimeout(r, ms))), focus, options.model || '');
     }
     catch (error) {
         if (focus.previous)
@@ -122,7 +122,7 @@ async function send(row, text, options = {}) {
         throw error;
     }
 }
-async function attempt(row, text, d, wait, focus) {
+async function attempt(row, text, d, wait, focus, model) {
     let view = parse(await d.snapshot());
     for (let n = 0; n < 20 && !view.current && !view.rows.length && !view.composers.length; n++) {
         await wait(100);
@@ -146,15 +146,24 @@ async function attempt(row, text, d, wait, focus) {
         throw failure('DESKTOP_DRAFT', 'Claude 输入框有未发送内容，请先在桌面处理');
     if (view.busy)
         throw failure('DESKTOP_BUSY', '原会话正在运行，请等待当前回复结束或使用排队');
+    if (model) { await d.setModel({ model, windowTitle: row.title }); view = parse(await d.snapshot()); if (view.current !== row.title || view.busy || view.composers.length !== 1 || normalize(view.composers[0])) throw failure('DESKTOP_TARGET_UNCONFIRMED', '模型选择后会话状态已变化，未发送'); }
     const pasted = await d.paste(text);
     focus.previous ||= pasted.previous || '';
     view = parse(await d.snapshot());
+    for (let n = 0; n < 10 && view.current === row.title && view.composers.length === 1 && normalize(view.composers[0]) !== normalize(text); n++) {
+        await wait(100);
+        view = parse(await d.snapshot());
+    }
     if (view.current !== row.title)
         throw failure('DESKTOP_TARGET_UNCONFIRMED', '输入后 Claude 已切换会话，未发送；请检查 Claude 输入框');
-    if (view.composers.length !== 1 || normalize(view.composers[0]) !== normalize(text))
+    if (view.composers.length !== 1 || normalize(view.composers[0]) !== normalize(text)) {
+        if (view.composers.length === 1 && d.clear)
+            await d.clear().catch(() => { });
         throw failure('DESKTOP_REJECTED', 'Claude 输入框内容与待发送文字不一致，未发送；请检查 Claude 输入框');
+    }
     const previous = focus.previous;
     focus.previous = ''; // submit 自己切回
     await d.submit(previous);
 }
-module.exports = { status, send, parse, rowFor, driver, helper, interaction, choose };
+const models = async () => (await driver.models()).models;
+module.exports = { models, status, send, parse, rowFor, driver, helper, interaction, choose };

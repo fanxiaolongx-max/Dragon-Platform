@@ -304,13 +304,14 @@ async function status(items) {
 // 正在运行的 CLI 回合：同一会话同时只允许一个
 const running = new Map();
 const PERMISSION = { bypassPermissions: 'bypassPermissions', fullAccess: 'bypassPermissions', acceptEdits: 'acceptEdits', plan: 'plan', default: 'acceptEdits' };
-async function start(id, cwd, text, { resume, permissionMode = '' }) {
+async function start(id, cwd, text, { resume, permissionMode = '', model = '' }) {
     if (running.has(id)) throw fail('DESKTOP_BUSY', 'WorkBuddy 这条会话正在回复，请稍后或改用排队');
     const command = await cli();
     if (!command) throw fail('DESKTOP_UNAVAILABLE', '未找到 WorkBuddy 自带 CLI，请确认 WorkBuddy 已安装');
     const dir = await prepareHome();
     if (!cwd || !await exists(cwd)) throw fail('DESKTOP_UNAVAILABLE', '会话的工作目录已不存在，无法继续');
     const args = [...command.args, '-p', '--output-format', 'stream-json', '--verbose', resume ? '--resume' : '--session-id', id, '--permission-mode', PERMISSION[permissionMode] || 'acceptEdits'];
+    if (model) args.push('--model', model);
     const logs = path.join(dir, 'logs');
     await fs.mkdir(logs, { recursive: true });
     const log = await fs.open(path.join(logs, `${id}.log`), 'a');
@@ -351,13 +352,13 @@ async function start(id, cwd, text, { resume, permissionMode = '' }) {
         child.stdin.end(text);
     });
 }
-const send = (row, text) => start(row.id, row.cwd, text, { resume: true, permissionMode: row.permissionMode });
+const send = (row, text, model = '') => start(row.id, row.cwd, text, { resume: true, permissionMode: row.permissionMode, model });
 // 新对话：与桌面端一样放在 ~/WorkBuddy/<时间戳> 工作目录，会话 id 由这里生成，回执按 id 精确确认
-async function createAndSend(text) {
+async function createAndSend(text, { model = '' } = {}) {
     const id = crypto.randomUUID(), stamp = new Date().toISOString().replace(/[T:]/g, '-').slice(0, 19);
     const cwd = path.join(home(), 'WorkBuddy', stamp);
     await fs.mkdir(cwd, { recursive: true });
-    await start(id, cwd, text, { resume: false });
+    await start(id, cwd, text, { resume: false, model });
     return { id, status: 'accepted' };
 }
 module.exports = { list, transcript, status, send, createAndSend, projectSlug, queryText, running, BUSY_STATUS };

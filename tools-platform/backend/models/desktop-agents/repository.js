@@ -8,6 +8,7 @@ async function ensure() {
         const p = (async () => {
             await db.run(`CREATE TABLE IF NOT EXISTS desktop_agent_settings (id INTEGER PRIMARY KEY CHECK(id=1), owner TEXT NOT NULL, value TEXT NOT NULL)`);
             await db.run(`CREATE TABLE IF NOT EXISTS desktop_agent_deliveries (owner TEXT NOT NULL, request_id TEXT NOT NULL, provider TEXT NOT NULL, session_id TEXT NOT NULL, status TEXT NOT NULL, error TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, PRIMARY KEY(owner,request_id))`);
+            await db.run(`CREATE TABLE IF NOT EXISTS desktop_agent_models (owner TEXT NOT NULL,provider TEXT NOT NULL,session_id TEXT NOT NULL,model TEXT NOT NULL DEFAULT '',PRIMARY KEY(owner,provider,session_id))`);
         })();
         ready.set(connection, p);
         p.catch(() => ready.delete(connection));
@@ -59,4 +60,6 @@ async function access(owner) { const cfg = await settings(); if (!cfg.enabled)
 async function claim(owner, id, provider, session) { await ensure(); const saved = await db.run('INSERT OR IGNORE INTO desktop_agent_deliveries(owner,request_id,provider,session_id,status,created_at) VALUES(?,?,?,?,?,?)', [owner, id, provider, session, 'sending', new Date().toISOString()]); return { claimed: saved.changes > 0, item: await delivery(owner, id) }; }
 async function delivery(owner, id) { return db.get('SELECT request_id AS requestId,provider,session_id AS sessionId,status,error,created_at AS createdAt FROM desktop_agent_deliveries WHERE owner=? AND request_id=?', [owner, id]); }
 async function settle(owner, id, status, message = '') { await db.run('UPDATE desktop_agent_deliveries SET status=?,error=? WHERE owner=? AND request_id=?', [status, message, owner, id]); return delivery(owner, id); }
-module.exports = { defaults, settings, save, access, claim, settle, error };
+async function model(owner,provider,id) { await ensure(); return (await db.get('SELECT model FROM desktop_agent_models WHERE owner=? AND provider=? AND session_id=?',[owner,provider,id]))?.model || ''; }
+async function saveModel(owner,provider,id,value) { await ensure(); await db.run('INSERT INTO desktop_agent_models(owner,provider,session_id,model) VALUES(?,?,?,?) ON CONFLICT(owner,provider,session_id) DO UPDATE SET model=excluded.model',[owner,provider,id,value]); return value; }
+module.exports = { defaults, settings, save, access, claim, settle, error, model, saveModel };

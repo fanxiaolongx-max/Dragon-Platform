@@ -17,10 +17,10 @@
 .desktop-agent-chat.is-active{border-color:#4fbcb4;background:rgba(79,188,180,.12)}
 /* Native desktop sessions reuse the regular Dragon Claw composer; platform-only controls stay hidden. */
 body.dc-external-view.dc-external-compose .dc-composer{display:block!important}
-body.dc-external-compose .dc-model,body.dc-external-compose .dc-workspace-chip,body.dc-external-compose .dc-agent-discussion,body.dc-external-compose .dc-slash,body.dc-external-compose .dc-push-bar,body.dc-external-compose .dc-composer [class^="dc-skill"]{display:none!important}
+body.dc-external-compose:not(.dc-native-models) .dc-model,body.dc-external-compose .dc-workspace-chip,body.dc-external-compose .dc-agent-discussion,body.dc-external-compose .dc-slash,body.dc-external-compose .dc-push-bar,body.dc-external-compose .dc-composer [class^="dc-skill"]{display:none!important}
 body.dc-external-compose .dc-composer textarea:disabled{cursor:not-allowed;opacity:.65}
-body.dc-external-compose #dcComposer #dcEnhance[hidden] ~ #dcVoice:not([hidden]){margin-left:auto}
-body.dc-external-compose #dcComposer #dcEnhance[hidden] ~ #dcVoice[hidden] ~ #dcSend{margin-left:auto}
+body.dc-external-compose #dcComposer #dcEnhance[hidden] ~ #dcModel[hidden] ~ #dcVoice:not([hidden]){margin-left:auto}
+body.dc-external-compose #dcComposer #dcEnhance[hidden] ~ #dcModel[hidden] ~ #dcVoice[hidden] ~ #dcSend{margin-left:auto}
 .desktop-agent-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0 18px;color:var(--text-primary,#dbeafe)}.desktop-agent-banner>div{display:grid;gap:5px;min-width:0}.desktop-agent-banner b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.desktop-agent-banner small{font-size:11px;color:var(--text-secondary,#94a3b8)}.desktop-agent-banner button{flex:none;font-size:11px;cursor:pointer}
 .desktop-agent-thinking .dc-activity{margin-top:4px}
 /* ── 工作区「Agent 会话」卡：运行态、指标、权限与诊断 ─────────────── */
@@ -174,3 +174,16 @@ body.dc-external-view .dc-agent-discussion{display:none}
 .desktop-agent-widget iframe{display:block;width:100%;height:560px;max-height:70vh;border:0;background:#fff}
 
 .daw-metric-note{font-size:10px;line-height:1.45;margin-top:3px;color:var(--daw-muted);overflow-wrap:anywhere}.daw-metric:focus-visible{outline:2px solid var(--v2-accent,#3b82f6);outline-offset:2px}
+
+.dc-native-model-heading{padding:10px 12px 4px;color:var(--dc-muted,#94a3b8);font:600 11px/1.5 system-ui,sans-serif}
+.dc-native-models .dc-model-option:disabled{opacity:.5;cursor:default}
+.dc-native-models .dc-model-option{white-space:normal;overflow-wrap:anywhere}
+body.dc-native-models #dcModel{min-width:0;max-width:220px;flex:0 1 auto;margin-left:auto}
+body.dc-native-models #dcComposer #dcModel:not([hidden]) ~ #dcVoice,
+body.dc-native-models #dcComposer #dcModel:not([hidden]) ~ #dcSend{margin-left:0}
+html[data-ui="v2"] body.dc-native-models #dcComposer #dcModel{min-width:0;flex:0 1 auto;margin-left:0}
+html[data-ui="v2"] body.dc-native-models #dcComposer #dcEnhance{margin-left:auto}
+html[data-ui="v2"] body.dc-native-models #dcComposer #dcEnhance[hidden] ~ #dcModel:not([hidden]){margin-left:auto}
+html[data-ui="v2"] body.dc-native-models #dcComposer #dcModel:not([hidden]) ~ #dcVoice,
+html[data-ui="v2"] body.dc-native-models #dcComposer #dcModel:not([hidden]) ~ #dcSend{margin-left:0}
+@media(max-width:640px){body.dc-native-models #dcComposer .dc-connector-label{display:none}body.dc-native-models #dcComposer .dc-model-name{max-width:30vw}}

@@ -29,7 +29,7 @@ const MIN_DESKTOP_ROTATE_SECONDS = 60;
 const SESSION_COOKIE_KEEP_DAYS = 7;
 const SITE_SCRIPT_DELAY_MS = 1500;
 
-function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, getLanguage = () => 'zh-CN', onChange = () => {}, onCardOpen = () => {}, openAppPath = () => {}, getSidebarHost = null }) {
+function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, getLanguage = () => 'zh-CN', onChange = () => {}, onCardOpen = () => {}, openAppPath = () => {}, getSidebarHost = null, getAppBaseUrl = null }) {
     let config = null;
     let promotionTabs=new Map(),promotionSignature='',pendingSidebarReveal=false;
     let cards = [];             // 卡片堆中的窗口，cards[0] 为最前
@@ -106,6 +106,15 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
     const T = (zh, en) => (english() ? en : zh);
     const isBig = card => !!card.inBrowser;
     const browser = createDragonBrowser({
+        onOpenAppUrl: url => {
+            if (!getAppBaseUrl || !getSidebarHost) return false;
+            const href = require('./uiv-import-navigation').resolveUivImportPath(url, getAppBaseUrl());
+            if (!href) return false;
+            const host = getSidebarHost();
+            if (!host || host.isDestroyed()) return false;
+            setImmediate(() => { if (!host.isDestroyed()) host.webContents.send('dragon-browser:uiv-import', href); });
+            return true;
+        },
         partition: PARTITION, whenReady: () => extensions.whenReady(), getLanguage, getWorkArea: workArea,
         getLibrary: () => browserLibrary, getDownloads: () => unregisterDownloads, getExtensions: () => extensions?.list()||[], getCredentialStore: () => browserCredentials,
         onPageCreated: tab => {

@@ -84,3 +84,23 @@ test('native completion is correlated to the exact user prompt, not progress or 
 test('interrupted group creation is not replayed after a server restart',async()=>{
  const job=await start();await db.closeDatabase();const interrupted=await groups.get('alice',job.id);assert.equal(interrupted.status,'interrupted');assert.equal(interrupted.reports[0].status,'unknown');let sends=0;await groups.execute('alice',job.id,{create:async()=>{sends++;}});assert.equal(sends,0);
 });
+
+test('group models permit one per member, persist after starting and snapshot each submitted round',async()=>{
+ const models=require('../backend/models/desktop-agents/models'),original=models.list;
+ models.list=async p=>[{id:p+'-small',name:'Small'},{id:p+'-large',name:'Large'}];
+ try{
+  await assert.rejects(start({providers:['codex','workbuddy'],models:{codex:['codex-small','codex-large']}}));
+  await assert.rejects(start({providers:['codex','workbuddy'],models:{claudecode:'claudecode-small'}}));
+  await assert.rejects(start({providers:['codex'],models:{codex:'workbuddy-small'}}));
+  const first=await start({providers:['codex','workbuddy'],models:{codex:'codex-small',workbuddy:''}}),calls=[];
+  // Changing the saved preference does not rewrite an already submitted job.
+  await groups.saveSettings('alice',first.sessionId,{models:{codex:'codex-large',workbuddy:'workbuddy-small'}});
+  await groups.execute('alice',first.id,{create:async(p,text,options)=>{calls.push([p,options.model]);return create(p,text);},wait:async()=> 'answer'});
+  assert.deepEqual(calls,[['codex','codex-small'],['workbuddy','']]);
+  const next=await start({sessionId:first.sessionId}),sent=[];
+  await groups.execute('alice',next.id,{send:async(_owner,p,_id,body)=>{sent.push([p,body.model]);return{status:'accepted'};},wait:async()=> 'next'});
+  assert.deepEqual(sent,[['codex','codex-large'],['workbuddy','workbuddy-small']]);
+  await groups.saveSettings('alice',first.sessionId,{models:{codex:'',workbuddy:''}});
+  assert.deepEqual((await groups.settings('alice',first.sessionId)).models,{codex:'',workbuddy:''});
+ }finally{models.list=original;}
+});

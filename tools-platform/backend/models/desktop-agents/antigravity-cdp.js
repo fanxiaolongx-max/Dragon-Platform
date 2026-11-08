@@ -304,7 +304,40 @@ async function submitPrepared(c, route, text) {
     }
     throw fail('DESKTOP_INPUT_NOT_READY', 'Antigravity 尚未接受输入，发送按钮未就绪；草稿已保留，可稍后重试');
 }
-async function send(id, text) {
+// Only inspect native model options; never serialize the rest of the desktop DOM.
+function nativeModelName(s) {
+    return String(s || '').replace(/^Select model, current:\s*/i,'').trim().replace(/\s+/g, ' ').replace(/\s+(New|Notice)$/i, '')
+        .replace(/\s+\(?(Low|Medium|High|Extra High|Minimal|Default)\)?$/i,'');
+}
+function nativeModelOptions() {
+    const clean = nativeModelName;
+    return [...document.querySelectorAll('[role="menuitemradio"],[role="menuitem"],[role="option"]')]
+        .filter(e => !e.matches('[aria-disabled="true"],:disabled'))
+        .map(e => ({ id: clean(e.innerText), name: clean(e.innerText) }))
+        .filter(m => /^(Gemini|Claude|GPT|Grok)\b/i.test(m.id));
+}
+async function modelMenu(c, model = '', route = null) {
+    const opened = await c.evaluate(`(()=>{if(${JSON.stringify(route)}&&location.pathname!==${JSON.stringify(route)})return false;const b=document.querySelector('button[aria-label^="Select model, current:"]');if(!b)return false;b.click();return true})()`);
+    if (!opened) throw fail('DESKTOP_MODEL_UNAVAILABLE', '未找到 Antigravity 模型选择器');
+    try {
+        let models = [];
+        for (let n=0;n<10&&!models.length;n++) { models=await c.evaluate(`(()=>{const nativeModelName=${nativeModelName.toString()};return (${nativeModelOptions.toString()})()})()`); if(!models.length)await new Promise(r=>setTimeout(r,100)); }
+        if (!model) return models;
+        if (!models.some(m=>m.id===model)) throw fail('DESKTOP_MODEL_UNAVAILABLE','Antigravity 当前不提供这个模型，消息未发送');
+        const selected=await c.evaluate(`(()=>{if(location.pathname!==${JSON.stringify(route)})return false;const clean=${nativeModelName.toString()};const options=[...document.querySelectorAll('[role="menuitemradio"],[role="menuitem"],[role="option"]')].filter(e=>clean(e.innerText)===${JSON.stringify(model)}&&!e.matches('[aria-disabled="true"],:disabled'));if(options.length!==1)return false;options[0].click();return true})()`);
+        if(!selected)throw fail('DESKTOP_MODEL_UNCONFIRMED','Antigravity 模型选项已变化，消息未发送');
+    } finally {
+        await c.call('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
+        await c.call('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
+    }
+    for(let n=0;n<10;n++){
+        if(await c.evaluate(`location.pathname===${JSON.stringify(route)}&&(${nativeModelName.toString()})(document.querySelector('button[aria-label^="Select model, current:"]')?.getAttribute('aria-label'))===${JSON.stringify(model)}`))return;
+        await new Promise(r=>setTimeout(r,100));
+    }
+    throw fail('DESKTOP_MODEL_UNCONFIRMED','Antigravity 未确认模型切换，消息未发送');
+}
+const models = () => using(c=>modelMenu(c));
+async function send(id, text, model = '') {
     return using(async (c) => {
         await select(c, id);
         // Empty composers may show voice controls instead of a send button.
@@ -312,6 +345,8 @@ async function send(id, text) {
         const ready = await c.evaluate(`(()=>{if(location.pathname!=='/c/'+${JSON.stringify(id)})return 'missing';const inputs=document.querySelectorAll('[role=combobox][contenteditable=true]'),input=inputs[0];if(inputs.length!==1)return 'missing';if(document.querySelector('[data-testid="agent-input-box"] button[aria-label="Stop execution"]')||Array.from(document.querySelectorAll('[data-cascade-id]')).find(e=>e.dataset.cascadeId===${JSON.stringify(id)})?.querySelector('button[aria-label="Stop execution"]'))return 'busy';if(input.innerText.trim()&&(${composerText.toString()})(input.innerText)!==${JSON.stringify(composerText(text))})return 'draft';input.focus();return input.innerText.trim()?'prepared':'ready';})()`);
         if (!['ready', 'prepared'].includes(ready))
             throw fail(ready === 'busy' ? 'DESKTOP_BUSY' : ready === 'draft' ? 'DESKTOP_DRAFT' : 'DESKTOP_INPUT_NOT_READY', ready === 'busy' ? '原会话正在运行，请等待当前回复结束' : ready === 'draft' ? '桌面输入框有未发送内容，请先在桌面处理' : '未找到唯一的桌面输入框，请等待会话加载完成后重试');
+        if(model)await modelMenu(c,model,'/c/'+id);
+        await c.evaluate(`document.querySelector('[role=combobox][contenteditable=true]')?.focus()`);
         const beforeCount = await c.evaluate(`Array.from(document.querySelectorAll('[data-testid="user-message-bubble"]')).filter(e=>(${composerText.toString()})((e.querySelector('[data-quotable="true"]')||e).innerText)===${JSON.stringify(composerText(text))}).length`);
         if (ready === 'ready') await typeText(c, text);
         await submitPrepared(c, '/c/' + id, text);
@@ -325,7 +360,7 @@ async function send(id, text) {
         throw fail('DELIVERY_UNKNOWN', '已提交到桌面但未收到确认，请核对原会话后再决定是否重发');
     });
 }
-async function createAndSend(text) {
+async function createAndSend(text, { model = '' } = {}) {
     return using(async c=>{
         const before=await c.evaluate(`Array.from(document.querySelectorAll('[data-cascade-id]')).map(e=>e.dataset.cascadeId)`);
         const ready=await c.evaluate(`(()=>{const input=document.querySelector('[role=combobox][contenteditable=true]');if(input?.innerText.trim()){if(location.pathname==='/'&&(${composerText.toString()})(input.innerText)===${JSON.stringify(composerText(text))}){input.focus();return 'prepared';}return 'draft';}const button=document.querySelector('[data-testid="new-conversation-button"]');if(!button)return 'missing';button.click();return 'opening';})()`);
@@ -336,6 +371,7 @@ async function createAndSend(text) {
             await new Promise(r=>setTimeout(r,100));
         }
         if(!opened)throw fail('DESKTOP_TARGET_UNCONFIRMED','Antigravity 没有打开空白新会话，未发送');
+        if(model)await modelMenu(c,model,'/');
         await c.evaluate(`document.querySelector('[role=combobox][contenteditable=true]').focus()`);
         if(ready!=='prepared')await typeText(c,text);
         await submitPrepared(c,'/',text);
@@ -347,4 +383,4 @@ async function createAndSend(text) {
         throw fail('DELIVERY_UNKNOWN','Antigravity 已提交新建，但未确认新会话回执，请核对桌面，不会重复发送');
     });
 }
-module.exports = { connect, canConnect, list, busyIds, messages, send, createAndSend, sidebarTime };
+module.exports = { connect, canConnect, list, busyIds, messages, send, createAndSend, sidebarTime, models, modelMenu, nativeModelOptions };

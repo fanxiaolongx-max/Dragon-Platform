@@ -3,6 +3,7 @@ const db = require('../app-db'), chat = require('../ai-chat-repository'), deskto
 const { getTenantId, runWithTenant } = require('../tenant-context');
 const { containsSensitiveText, redactText } = require('../ai-sensitive-data');
 const crypto = require('node:crypto');
+const models = require('./models');
 const names = { codex: 'Codex', claudecode: 'Claude Code', antigravity: 'Antigravity', workbuddy: 'WorkBuddy' };
 const ready = new WeakMap(), active = new Map();
 const error = (text, status = 400) => Object.assign(new Error(text), { status });
@@ -58,10 +59,12 @@ async function saveSettings(owner, id, input) {
     const saved = await settings(owner,id);
     if(saved){
         if(input?.mode&&input.mode!=='group'||input?.providers!==undefined&&JSON.stringify(selectedProviders(input.providers))!==JSON.stringify(saved.providers))throw error('本对话已绑定连接器，不能修改；请新建对话',409);
+        if(input?.models!==undefined){saved.models=await models.validateMap(input.models,saved.providers);await db.run('UPDATE desktop_agent_discussions SET settings=? WHERE session_id=? AND owner=?',[JSON.stringify(saved),id,owner]);}
         return saved;
     }
     await assertUnstarted(owner,id);
     const cfg=config(input);
+    if(input?.models!==undefined)cfg.models=await models.validateMap(input.models,cfg.providers);
     await db.run('INSERT INTO desktop_agent_discussions(session_id,owner,settings,cursor) VALUES(?,?,?,0) ON CONFLICT(session_id) DO NOTHING', [id,owner,JSON.stringify(cfg)]);
     return settings(owner,id);
 }
@@ -90,9 +93,10 @@ async function start(owner, input) {
     const cfg=saved?.version===2&&saved.mode==='group'?saved:config({providers:input.providers});
     if(!cfg.providers.length)throw error('无法确认本对话绑定的连接器，请检查历史记录',409);
     if(saved&&input.providers!==undefined&&JSON.stringify(selectedProviders(input.providers))!==JSON.stringify(cfg.providers))throw error('本对话已绑定连接器，不能更改成员；请新建对话',409);
+    cfg.models=await models.validateMap(input.models===undefined?(cfg.models||{}):input.models,cfg.providers);
     const sessionId=input.sessionId||await chat.getOrCreateSession({owner,pagePath:'/',pageTitle:'连接器 · 智能体讨论'});
     const providerList = cfg.providers;
-    const reports=providerList.filter(p=>names[p]).map(provider=>({provider,agent:names[provider],nativeId:cfg.bindings[provider]||'',round:1,status:'pending'}));
+    const reports=providerList.filter(p=>names[p]).map(provider=>({provider,agent:names[provider],nativeId:cfg.bindings[provider]||'',model:cfg.models[provider]||'',round:1,status:'pending'}));
     for(const report of reports){
         if(!host.providers[report.provider]){report.status='unavailable';report.error='该成员已在全局设置中停用';}
         if(report.provider==='claudecode'&&!host.claudeAutomation){report.status='unavailable';report.error='请在全局设置开启 Claude 模拟操作发送，才能自动建立桌面会话';}
@@ -109,6 +113,7 @@ async function start(owner, input) {
         await db.run('INSERT INTO desktop_agent_discussions(session_id,owner,settings,cursor) VALUES(?,?,?,0) ON CONFLICT(session_id) DO NOTHING', [sessionId, owner, JSON.stringify(cfg)]);
         const bound=await settings(owner,sessionId);
         if(JSON.stringify(bound.providers)!==JSON.stringify(providerList))throw error('本对话已绑定其他连接器；请新建对话',409);
+        bound.models=cfg.models;await db.run('UPDATE desktop_agent_discussions SET settings=? WHERE session_id=? AND owner=?',[JSON.stringify(bound),sessionId,owner]);
         await chat.addMessage({ sessionId, owner, pagePath: '/', pageTitle: '连接器 · 讨论', role: 'user', content: input.text });
         return get(owner, input.requestId);
     }
@@ -142,11 +147,11 @@ async function execute(owner, id, { send = desktop.send, wait = desktop.waitForR
                 let receipt;
                 if(!report.nativeId){
                     report.status='creating';await write(owner,job,'running');
-                    receipt=await create(report.provider,prompt);
+                    receipt=await create(report.provider,prompt,{model:report.model||''});
                     if(!receipt.id||!/^(?:local_)?[a-f0-9-]{36}$/i.test(receipt.id))throw error('未确认新建桌面会话编号',504);
                     report.nativeId=receipt.id;job.settings.bindings[report.provider]=receipt.id;
                     await saveBindings(owner,job.sessionId,report.provider,receipt.id);
-                }else receipt=await send(owner,report.provider,report.nativeId,{text:prompt,requestId:crypto.randomUUID()});
+                }else receipt=await send(owner,report.provider,report.nativeId,{text:prompt,requestId:crypto.randomUUID(),model:report.model||''});
                 if (receipt.status !== 'accepted')
                     throw error('桌面未确认接收，请在原会话核对', 504);
                 report.status = 'waiting';

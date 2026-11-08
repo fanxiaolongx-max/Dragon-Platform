@@ -1775,11 +1775,11 @@ function buildUivCompletionDialogScript(summary) {
                     '<div style="font-size:12px;color:#cbd5e1;margin-bottom:10px;">文件会继续下载到浏览器默认下载目录；自动导入只上传浏览器端解析后的结构化 rows，不上传原始 CSV 文件。</div>' +
                     (importUrl && hasImportedFiles ? '<div id="uivf12-import-open-hint" style="margin-bottom:12px;padding:10px;border:1px solid rgba(34,197,94,.28);border-radius:10px;background:rgba(22,101,52,.16);font-size:12px;color:#bbf7d0;line-height:1.55;">' +
                         '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
-                            '<span>即将在新标签页打开数据导入页面并执行智能分流合并，当前抓取结果页会保留。</span>' +
+                            '<span>即将打开数据导入页面并执行智能分流合并，当前抓取结果页会保留。</span>' +
                             '<label style="display:inline-flex;align-items:center;gap:5px;color:#d1fae5;">目标月份<select id="uivf12-import-target-month" style="height:24px;border-radius:6px;border:1px solid rgba(103,232,249,.34);background:rgba(15,23,42,.78);color:#e0f2fe;font-size:12px;">' + monthOptions + '</select></label>' +
                             '<a id="uivf12-import-open-link" href="' + buildImportUrl('').replace(/"/g, '&quot;') + '" target="_blank" rel="noopener" style="color:#67e8f9;font-weight:800;">立即打开</a>' +
                         '</div>' +
-                        '<div style="margin-top:4px;color:#fde68a;">如果浏览器拦截了自动打开新标签页，请点击上方“立即打开”。</div></div>' : '') +
+                        '<div style="margin-top:4px;color:#fde68a;">如果未自动打开数据导入页面，请点击上方“立即打开”。</div></div>' : '') +
                     (hasFailedImports ? '<div style="margin-bottom:12px;padding:10px 14px;border:1px solid rgba(251,113,133,.3);border-radius:10px;background:rgba(127,29,29,.18);"><div style="font-size:12px;color:#fecaca;font-weight:850;margin-bottom:6px;">以下文件下载成功，但自动导入失败</div>' + failedRows + '</div>' : '') +
                     (hasNoDownloadTasks ? '<div style="margin-bottom:12px;padding:10px 14px;border:1px solid rgba(251,191,36,.3);border-radius:10px;background:rgba(146,64,14,.16);"><div style="font-size:12px;color:#fde68a;font-weight:850;margin-bottom:6px;">以下脚本已执行，但未检测到下载文件</div>' + noDownloadRows + '</div>' : '') +
                     '<div style="max-height:320px;overflow:auto;border:1px solid rgba(148,163,184,.16);border-radius:10px;padding:4px 14px;background:rgba(2,6,23,.34);">' + (fileRows || '<div style="padding:14px;color:#94a3b8;font-size:13px;">未检测到本次下载文件名。若浏览器或扩展绕过页面下载事件，文件数量将不显示。</div>') + '</div>' +

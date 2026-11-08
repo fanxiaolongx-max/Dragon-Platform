@@ -17,7 +17,7 @@ function webUrl(value) {
     } catch (_) { return null; }
 }
 
-function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, getLibrary = () => null, getDownloads = () => null, getExtensions = () => [], getCredentialStore = () => null, onPageCreated = () => {}, onAction = () => {}, onVisibilityChange = () => {} }) {
+function createDragonBrowser({ onOpenAppUrl = () => false, partition, whenReady, getLanguage, getWorkArea, getLibrary = () => null, getDownloads = () => null, getExtensions = () => [], getCredentialStore = () => null, onPageCreated = () => {}, onAction = () => {}, onVisibilityChange = () => {} }) {
     let win = null, tabs = [], activeId = null, attached = null, shown = false, sequence = 0, ready = false;
     let windowDrag = null;
     let operatorView=null,sidebarTheme='light';
@@ -462,6 +462,7 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
         wc.setWindowOpenHandler(details => {
             if (tab.closed || (tab.context && !shown)) return { action: 'deny' };
             const url = webUrl(details.url);
+            if (url && onOpenAppUrl(url)) return { action: 'deny' };
             if (url) {
                 const loadOptions = { httpReferrer: details.referrer };
                 if (details.postBody) {

@@ -28,9 +28,9 @@ async function receipt(provider,before,text,{readRows=nativeRows,readTranscript=
  }
  throw failure('DELIVERY_UNKNOWN','已操作新建，但未确认新的原生会话与消息回执；请检查桌面，不会重试或改用旧会话');
 }
-async function createAndSend(provider,text,{driver=ui,readRows=nativeRows,readReceipt=receipt,open=uri=>exec('/usr/bin/open',['-g',uri]),wait=ms=>new Promise(r=>setTimeout(r,ms)),platform=process.platform}={}){
- if(provider==='antigravity')return ag.createAndSend(text);
- if(provider==='workbuddy')return wb.createAndSend(text);
+async function createAndSend(provider,text,{driver=ui,readRows=nativeRows,readReceipt=receipt,open=uri=>exec('/usr/bin/open',['-g',uri]),wait=ms=>new Promise(r=>setTimeout(r,ms)),platform=process.platform,model=''}={}){
+ if(provider==='antigravity')return ag.createAndSend(text,{model});
+ if(provider==='workbuddy')return wb.createAndSend(text,{model});
  if(!['codex','claudecode'].includes(provider))throw failure('DESKTOP_UNAVAILABLE','未知桌面成员');
  if(platform!=='darwin')throw failure('DESKTOP_UNAVAILABLE',names[provider]+' 自动建桌面对话目前需要 macOS 桌面连接器');
  return exclusive(async()=>{
@@ -60,6 +60,7 @@ async function createAndSend(provider,text,{driver=ui,readRows=nativeRows,readRe
     if(provider==='claudecode'&&isNewClaudeComposer(current,state,view)&&!state.composers[0].trim()&&!state.busy){await driver(provider,'paste',{text});ready=true;break;}
    }
    if(!ready)throw failure('DESKTOP_TARGET_UNCONFIRMED',names[provider]+' 未打开可确认的新会话，消息尚未发送');
+   if(model){const target=await driver(provider,'snapshot');await driver(provider,'set-model',{model,windowTitle:target.windowTitle});}
    await driver(provider,'submit-text',{text,...(previous?{previous}:{})});
    previous=''; // submit-text already restored the foreground
    return await readReceipt(provider,before,text);

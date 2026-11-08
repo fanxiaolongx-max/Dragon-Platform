@@ -562,7 +562,7 @@ h1 em,.em{font-style:normal;color:var(--acc)}
   <div class="msheet-open r mt1"><button class="btn" onclick="openModels()">看一眼清单（可选）</button><span>清单默认收起，型号变化快；也可以完全不点开。</span></div>
 </section>
 
-<section class="slide" data-lv="1" data-o="30,60,90,-10" data-notes="这一页给出具体例子：内网不允许自行安装外部 Agent 软件（Codex、Gemini CLI 等），可以安装单位提供的 GDEClaw / webotClaw / WeClaw。强调内外是两套规则，具体以单位实际部署与权限为准；数据能不能外发另按 L3 判断。" data-notes-en="Give concrete examples here: external agent clients (Codex, Gemini CLI, etc.) may not be installed on the intranet; the organisation-provided GDEClaw / webotClaw / WeClaw can be. Inside and outside are two different rule sets — follow the actual deployment and permissions. Whether data may leave is a separate L3 decision.">
+<section class="slide" data-lv="1" data-o="30,60,90,-10" data-notes="这一页给出具体例子：内网不自行安装外部 Agent 客户端（Codex、Gemini CLI 等），但 Web 版 Gemini / Codex 是可以使用的，前提是注意信息安全、按 L3 判断数据边界，真实数据不外发。单位提供的 GDEClaw / webotClaw / WeClaw 可以安装。强调内外是两套规则，具体以单位实际部署与权限为准。" data-notes-en="Give concrete examples here: external agent clients (Codex, Gemini CLI, etc.) must not be installed on the intranet, but the web versions of Gemini / Codex are usable — as long as information security is respected, the L3 data boundary is applied and no real data leaves. The organisation-provided GDEClaw / webotClaw / WeClaw can be installed. Inside and outside are two different rule sets — follow the actual deployment and permissions.">
   <div class="kicker r"><b>01</b>工具地图 · 边界</div>
   <h1 class="split">看内外<em>允许用什么</em></h1>
   <div class="grid g3 mt1">
@@ -571,10 +571,10 @@ h1 em,.em{font-style:normal;color:var(--acc)}
     <div class="card pop"><span class="n">iii.</span><h3>看关系</h3><p>同一个入口，背后可能换不同模型。</p></div>
   </div>
   <div class="grid g2 mt1" style="gap:26px">
-    <div class="card pop"><span class="tag bad">内网 · 不允许</span><h3 style="margin-top:24px">自行安装外部 Agent 软件</h3><p>Codex、Gemini CLI 等，一律不自行安装。</p></div>
+    <div class="card pop"><span class="tag bad">内网 · 不装客户端</span><h3 style="margin-top:24px">外部 Agent 软件</h3><p>Codex、Gemini CLI 等不自行安装；Web 版 Gemini / Codex 可用，注意信息安全与数据边界。</p></div>
     <div class="card pop"><span class="tag ok">内网 · 可以装</span><h3 style="margin-top:24px">单位提供的 Claw 工具</h3><p>GDEClaw · webotClaw · WeClaw 等。</p></div>
   </div>
-  <p class="note r" style="margin-top:30px">外网按单位许可与数据边界另算；具体以单位实际部署与权限为准。</p>
+  <p class="note r" style="margin-top:30px">Web 版 Gemini / Codex 同样按单位许可与数据边界判断；具体以单位实际部署与权限为准。</p>
 </section>
 
 <section class="slide" data-lv="1" data-o="20,10,70,60" data-notes="不推荐具体型号，教方法：按任务类型选功能，再用自己的脱敏任务试一试。" data-notes-en="No specific model recommendations — they change too fast. Teach the method: choose capabilities by task type, then trial with your own desensitised task.">
@@ -1275,13 +1275,13 @@ const EN={
 "实战台内容保存在本机浏览器中，计时、离线均可使用。":"Arena content is stored in this browser; the timer works offline.",
 "看内外":"Check what's allowed",
 "允许用什么":" — inside vs outside",
-"内网 · 不允许":"INTRANET · NOT ALLOWED",
-"自行安装外部 Agent 软件":"Installing external agent clients",
-"Codex、Gemini CLI 等，一律不自行安装。":"Codex, Gemini CLI and similar must not be installed.",
+
+
+
 "内网 · 可以装":"INTRANET · ALLOWED",
 "单位提供的 Claw 工具":"Organisation-provided Claw tools",
 "GDEClaw · webotClaw · WeClaw 等。":"GDEClaw · webotClaw · WeClaw, etc.",
-"外网按单位许可与数据边界另算；具体以单位实际部署与权限为准。":"The external side follows separate approval and data-boundary rules; the actual deployment and permissions always prevail.",
+
 "一句话就问完，三要素都没给":"One line — none of the three",
 "输入":"Input",
 "给它什么：格式、表头、版本、以哪份为准":": what it gets — format, headers, version, authoritative source",
@@ -1322,6 +1322,10 @@ const EN={
 "一个 HTML 文件":"One HTML file",
 "一个文件，别人拿到就能跑":"One file anyone can open and run",
 "别人拿去也能用":"Reusable by others",
+"内网 · 不装客户端":"INTRANET · NO CLIENT INSTALL",
+"外部 Agent 软件":"External agent software",
+"Codex、Gemini CLI 等不自行安装；Web 版 Gemini / Codex 可用，注意信息安全与数据边界。":"Codex, Gemini CLI and similar clients must not be installed; the web versions of Gemini / Codex are fine, subject to information security and data boundaries.",
+"Web 版 Gemini / Codex 同样按单位许可与数据边界判断；具体以单位实际部署与权限为准。":"The web versions follow the same approval and data-boundary rules; actual deployment and permissions always prevail.",
 };
 const NOTES_EN=[];
 {S.forEach(s=>{s._en=s.dataset.notesEn||''})}

@@ -46,6 +46,8 @@ test('chat script sends the workspace payload, forwards events and shares its te
     assert.doesNotMatch(panel, /createPrSoon/);
     assert.match(panel, /handleEvent\(prLog, event\)/, 'PR approvals reuse the chat approval cards');
     ['getWorkspacePayload', 'resetSession', 'handleEvent', 'applyDone', 'openPicker'].forEach(name => assert.match(panel, new RegExp(`${name}`)));
+    assert.doesNotMatch(panel, /\bfunction\s+performance\s*\(/, 'do not shadow global performance.now() in workspace-panel');
+    assert.match(panel, /performance:\s*updatePerformance/);
     // 面板用到的每个文案键都要在 TEXT 表的中英文里各出现一次
     const used = new Set([...panel.matchAll(/tx\('([A-Za-z_]+)'/g)].map(match => match[1]));
     const zh = agent.slice(agent.indexOf("'zh-CN': {"), agent.indexOf("'en-US': {"));

@@ -19,6 +19,7 @@ function fakeWindow(overrides = {}) {
         snapshot: async () => { w.calls.push('snapshot'); return snapshot(); },
         press: async title => { w.calls.push('press:' + title); w.current = w.opens[title] ?? title.replace(/ 由 Claude 从 .*$/, ''); return { ok: true, previous: 'com.tencent.xinWeChat' }; },
         paste: async text => { w.calls.push('paste'); w.composers = [w.pasteResult ?? text + '\n']; if (w.switchAfterPaste) w.current = 'Another chat'; return { ok: true, previous: w.calls.some(c => c.startsWith('press:')) ? 'com.anthropic.claudefordesktop' : 'com.google.Chrome' }; },
+        clear: async () => { w.calls.push('clear'); w.composers = ['\n']; return { ok: true }; },
         restore: async previous => { w.calls.push('restore:' + previous); return { ok: true }; },
         submit: async previous => { w.calls.push('submit:' + previous); w.composers = ['\n']; return { ok: true }; }
     };
@@ -76,20 +77,28 @@ test('nothing is typed when the target cannot be confirmed or the session is not
     }
 });
 
-test('a composer that does not read back the exact text, or a switched session, is never submitted', async () => {
-    for (const state of [{ current: TARGET.title, pasteResult: 'Hello Cl' }, { current: TARGET.title, switchAfterPaste: true }]) {
-        const w = fakeWindow(state);
-        await assert.rejects(send(w), /未发送/);
-        assert.equal(w.calls.some(c => c.startsWith('submit')), false);
-        assert.equal(w.calls.at(-1), 'restore:com.google.Chrome');
-    }
+test('a composer that does not read back the exact text is cleared, and a switched session is never submitted', async () => {
+    const mismatch = fakeWindow({ current: TARGET.title, pasteResult: 'Hello Cl' });
+    await assert.rejects(send(mismatch), /未发送/);
+    assert.equal(mismatch.calls.some(c => c.startsWith('submit')), false);
+    assert.equal(mismatch.calls.includes('clear'), true, 'failed paste into an empty composer cleans up after itself');
+    assert.deepEqual(mismatch.composers, ['\n']);
+    assert.equal(mismatch.calls.at(-1), 'restore:com.google.Chrome');
+    const switched = fakeWindow({ current: TARGET.title, switchAfterPaste: true });
+    await assert.rejects(send(switched), /未发送/);
+    assert.equal(switched.calls.includes('clear'), false, 'never clear another session composer');
+    assert.equal(switched.calls.at(-1), 'restore:com.google.Chrome');
 });
 
-test('readback may merge empty paragraphs without changing message characters or indentation', async () => {
+test('readback may merge empty paragraphs or shift leading spaces before newline without losing indentation', async () => {
     const expected='[DragonTAC:fixture]\n\nRules\n\n  exact indentation\n\n';
     const w=fakeWindow({current:TARGET.title,pasteResult:'[DragonTAC:fixture]\nRules\n  exact indentation'});
     await send(w,expected);
     assert.equal(w.calls.some(c=>c.startsWith('submit')),true);
+    const json='问题：{\n  "format": "dragon-claw-chat-log",\n  "platform": {\n    "version": "1.0.572"\n  }\n}';
+    const shifted=fakeWindow({current:TARGET.title,pasteResult:'问题：{  \n"format": "dragon-claw-chat-log",  \n"platform": {    \n"version": "1.0.572"  \n}\n}'});
+    await send(shifted,json);
+    assert.equal(shifted.calls.some(c=>c.startsWith('submit')),true);
     const changed=fakeWindow({current:TARGET.title,pasteResult:'[DragonTAC:fixture]\nRules\nwrong text'});
     await assert.rejects(send(changed,expected),{code:'DESKTOP_REJECTED'});
     assert.equal(changed.calls.some(c=>c.startsWith('submit')),false);
@@ -161,4 +170,15 @@ test('unavailable native window is explicit, and English session suggestions are
     const { interaction: p } = await claude.interaction(TARGET, { driver: w.driver });
     await claude.choose(TARGET, { interactionId: p.id, option: 'Work here' }, { driver: w.driver });
     assert.equal(w.calls.at(-1)[1].option, 'Work here');
+});
+
+
+test('Claude switches the native model only after confirming the idle session and refuses failed readback', async () => {
+    const w=fakeWindow({current:TARGET.title});
+    w.driver.setModel=async args=>{assert.deepEqual(args,{model:'Sonnet 5.5',windowTitle:TARGET.title});w.calls.push('model');};
+    await claude.send(TARGET,'After model change',{driver:w.driver,model:'Sonnet 5.5'});
+    assert(w.calls.indexOf('model')<w.calls.indexOf('paste'));
+    const failed=fakeWindow({current:TARGET.title});failed.driver.setModel=async()=>{throw Object.assign(Error('unconfirmed'),{code:'DESKTOP_MODEL_UNCONFIRMED'});};
+    await assert.rejects(claude.send(TARGET,'Never fallback',{driver:failed.driver,model:'Sonnet 5.5'}),{code:'DESKTOP_MODEL_UNCONFIRMED'});
+    assert(!failed.calls.includes('paste'));
 });

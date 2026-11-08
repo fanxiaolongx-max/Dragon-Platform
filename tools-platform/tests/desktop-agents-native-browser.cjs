@@ -15,8 +15,9 @@ app.whenReady().then(async () => {
     web.get(['/c/:id','/'], (_req, res) => res.type('html').send(`<!doctype html><body>
       <div data-testid="conversation-row-sidebar" data-cascade-id="${id}"><a href="/c/${id}" aria-label="Original desktop title"></a><span>Original desktop title</span><small>4h</small></div>
       <div data-testid="conversation-row-sidebar" data-cascade-id="${other}"><a href="/c/${other}" aria-label="Other running conversation"></a><button aria-label="Stop execution"></button></div>
-      <a data-testid="new-conversation-button" href="/">New Conversation</a><div id="timeline"></div><div data-testid="agent-input-box"><div role="combobox" contenteditable="true" style="white-space:pre-wrap"></div><button data-testid="send-button">Send</button></div>
+      <a data-testid="new-conversation-button" href="/">New Conversation</a><button id="modelPicker" aria-label="Select model, current: Gemini Fixture Medium">Gemini Fixture</button><div id="modelOptions"></div><div id="timeline"></div><div data-testid="agent-input-box"><div role="combobox" contenteditable="true" style="white-space:pre-wrap"></div><button data-testid="send-button">Send</button></div>
       <script>window.submissions=0;window.readinessMode='normal';window.keyboardSeen=false;
+      document.getElementById('modelPicker').onclick=()=>{document.getElementById('modelOptions').innerHTML=['Gemini Fixture Medium New','Claude Fixture High'].map(m=>'<button role=menuitem>'+m+'</button>').join('');document.querySelectorAll('[role=menuitem]').forEach(b=>b.onclick=()=>{if(!window.rejectModel)document.getElementById('modelPicker').setAttribute('aria-label','Select model, current: '+b.textContent.replace(/ New$/,''));document.getElementById('modelOptions').replaceChildren();});};document.addEventListener('keydown',e=>{if(e.key==='Escape')document.getElementById('modelOptions').replaceChildren();});
       const editor=document.querySelector('[contenteditable]'),sendButton=document.querySelector('[data-testid=send-button]');
       editor.addEventListener('keydown',e=>{if(e.isTrusted&&e.key===' ')window.keyboardSeen=true;});
       editor.addEventListener('input',()=>{if(window.mountSendOnInput&&!sendButton.isConnected)setTimeout(()=>editor.parentElement.append(sendButton),120);if(window.readinessMode==='normal')return;sendButton.disabled=true;setTimeout(()=>{sendButton.disabled=window.readinessMode==='stalled'||!window.keyboardSeen||!editor.innerText.trim();},180);});
@@ -94,6 +95,16 @@ app.whenReady().then(async () => {
     assert.equal(fs.readFileSync(preview).subarray(0,8).toString('hex'),'89504e470d0a1a0a');
     assert.equal(JSON.stringify(diagrams).includes('data:image'),false,'inline sources never go to the frontend');
     assert.equal((await native.messages(fresh)).items.at(-3).attachments[0].path,preview,'polls retain stable attachment paths');
+    assert.deepEqual(await native.models(),[{id:'Gemini Fixture',name:'Gemini Fixture'},{id:'Claude Fixture',name:'Claude Fixture'}]);
+    const beforeModel=await win.webContents.executeJavaScript('window.submissions');
+    await native.send(fresh,'Use selected native model','Claude Fixture');
+    assert.equal(await win.webContents.executeJavaScript('window.submissions'),beforeModel+1);
+    assert.match(await win.webContents.executeJavaScript('document.getElementById("modelPicker").getAttribute("aria-label")'),/Claude Fixture High/);
+    await assert.rejects(native.send(fresh,'No missing-model fallback','Unavailable model'),e=>e.code==='DESKTOP_MODEL_UNAVAILABLE');
+    await win.webContents.executeJavaScript('window.rejectModel=true');
+    await assert.rejects(native.send(fresh,'No rejected-model fallback','Gemini Fixture'),e=>e.code==='DESKTOP_MODEL_UNCONFIRMED');
+    assert.equal(await win.webContents.executeJavaScript('window.submissions'),beforeModel+1);
+    await win.webContents.executeJavaScript('window.rejectModel=false');
     console.log('PASS: native CDP titles, exact session sends, duplicate-text receipts, timestamp removal, busy sessions, draft preservation, delayed native input readiness, exact-draft retry and uncertain delivery');
     win.destroy();
     server.close();

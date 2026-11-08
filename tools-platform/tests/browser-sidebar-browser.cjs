@@ -14,7 +14,7 @@ app.whenReady().then(async()=>{
  let remoteTabs=[],remoteActive=null,remoteManual=false,remoteSequence=0,remoteNarrow=false,remoteAI=false,remoteHandoff=false,remoteTypingSlow=false,remoteText='',remoteTabDelay=0;const remoteCalls=[];let streamFrames=0,streamCloses=0,uploadedFiles=[];
  web.get('/',(_req,res)=>{
   let html=fs.readFileSync(path.join(root,'frontend/index.html'),'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/g,'').replace('<html ','<html data-ui="v2" data-theme="light" ');
-  res.send(html.replace('</body>','<script>document.body.classList.add("home-mode-chat");</script><script src="/js/shared/sidebar-resize.js"></script><script src="/js/home/workspace-panel.js"></script><script src="/js/home/browser-sidebar.js"></script><script src="/js/shared/chat-files.js"></script></body>'));
+  res.send(html.replace('</body>','<script>document.body.classList.add("home-mode-chat");</script><script src="/js/shared/sidebar-resize.js"></script><script src="/js/home/workspace-panel.js"></script><script src="/js/home/browser-sidebar.js"></script><script src="/js/shared/chat-files.js"></script><script src="/js/home/tool-frame.js"></script></body>'));
  });
  web.get('/api/agent-workspace/capability',(_req,res)=>res.json({enabled:workspaceEnabled}));
  web.get('/api/agent-workspace/browser/view',(_req,res)=>{
@@ -42,6 +42,7 @@ app.whenReady().then(async()=>{
   res.json({tabId:remoteActive,mode:remoteManual?'manual':'ai',...(['acquire','takeover','open','new-tab'].includes(action)?{token:'fixture-manual-token'}:{})});
  });
  web.get('/api/agent-workspace/prefs',(_req,res)=>res.json({lastDirectory:'',recentDirectories:[],permissionMode:'ask'}));
+ web.get('/sla', (req,res)=>{if(!String(req.headers.cookie||'').includes('tools_token=main-fixture-session'))return res.redirect('/login.html');res.send('<title>Import fixture</title><div id=import-ready>Import</div>');});
  web.get('/site',(req,res)=>res.send('<title>Local browser fixture</title><input id="value" value="initial"><a href="/second">next</a><input id="native-file" type="file"><input id="native-range" type="range" min="0" max="100" value="0" style="display:block;width:300px">'));
  web.get('/narrow',(_req,res)=>res.send('<title>Narrow menu</title><main style="max-width:440px;margin:auto"><h1>Lunch menu</h1>'+Array.from({length:18},(_,i)=>'<p>Dish '+i+' — restaurant menu with fresh ingredients, soup, sandwiches and salads.</p>').join('')+'</main>'));
  web.get('/download',(_req,res)=>res.attachment('dragon-toolbar-fixture.txt').send('sidebar download fixture'));
@@ -176,17 +177,66 @@ app.whenReady().then(async()=>{
  const {createPromoStack}=require('../desktop-promo/promo-stack');
  const extensionsStatePath=path.join(temp,'extensions.json');
  fs.writeFileSync(extensionsStatePath,JSON.stringify({imported:[],disabled:['auto:icpm','bundled:chrome-capture-pro','bundled:overseas-salary-calculator']}));
- stack=createPromoStack({statePath:path.join(temp,'stack.json'),extensionsStatePath,getSidebarHost:()=>host});
+ stack=createPromoStack({statePath:path.join(temp,'stack.json'),extensionsStatePath,getSidebarHost:()=>host,getAppBaseUrl:()=>base});
  require('../desktop-browser-sidebar').registerBrowserSidebar({ipcMain,getWindow:()=>host,getBaseUrl:()=>base,browser:stack,onReadingChange:active=>readingEvents.push(active)});
  const externalOpens=[],originalExternal=shell.openExternal;shell.openExternal=async url=>{externalOpens.push(url);};
  const nativeMenus=[],originalBuild=Menu.buildFromTemplate;
  Menu.buildFromTemplate=template=>({popup:options=>nativeMenus.push({template,options})});
  const nativeItem=expression=>nativeMenus.at(-1)?.template.find(item=>expression.test(item.label||''));
  await makeHost(true);
+ await host.webContents.session.cookies.set({url:base,name:'tools_token',value:'main-fixture-session',httpOnly:true,sameSite:'lax'});
+ // Launch from an embedded tool without entering a historical conversation.
+ await evaluate(`HomeToolFrame.open('/site');void 0`);
+ await until(()=>evaluate('!!document.querySelector("#v2ToolFrame iframe").contentDocument?.querySelector("#value")'));
+ await evaluate('document.querySelector("#v2ToolFrame iframe").contentDocument.querySelector("#value").value="tool-state"');
+ const toolUrl=await evaluate('location.href');
+ assert.equal(await evaluate('document.querySelector("[data-frame-act=browser]").hidden'),false);
+ assert.equal(await evaluate('dcBrowserPanel.hidden'),true);
+ const batch=await stack.runUivMacro({Name:'Embedded tool batch',Commands:[{Command:'open',Target:base+'/site'}]});
+ assert.equal(batch.success,true);
+ await until(async()=>await evaluate('!dcBrowserPanel.hidden')&&host.getBrowserViews().length===1);
+ assert.equal(await evaluate('location.href'),toolUrl,'batch reveal preserves the tool page');
+ assert.equal(await evaluate('document.querySelector("#v2ToolFrame iframe").contentDocument.querySelector("#value").value'),'tool-state');
+ assert.equal(await evaluate('document.querySelector("[data-frame-act=browser]").getAttribute("aria-pressed")'),'true');
+ assert.ok(await evaluate('document.querySelector("#v2ToolFrame").getBoundingClientRect().right<=dcBrowserPanel.getBoundingClientRect().left+1'),'tool and browser are side by side');
+ await evaluate('document.querySelector("[data-frame-act=browser]").click()');
+ await until(()=>host.getBrowserViews().length===0);
+ await evaluate('document.querySelector("[data-frame-act=browser]").click()');
+ await until(()=>host.getBrowserViews().length===1);
+ assert.equal(await evaluate('document.querySelector("#v2ToolFrame iframe").contentDocument.querySelector("#value").value'),'tool-state');
+ await evaluate('localStorage.setItem("tools_lang","en-US");window.dispatchEvent(new Event("tools:languagechange"))');
+ assert.equal(await evaluate('document.querySelector("[data-frame-act=browser]").textContent'),'Browser');
+ // Reserve the full-height resize strip outside the native page bounds.
+ const strip=await evaluate(`(()=>{const h=dcBrowserPanel.querySelector('.dc-sidebar-resize').getBoundingClientRect(),s=document.querySelector('.dc-browser-surface').getBoundingClientRect();return{x:Math.round(h.left+4),y:Math.round(s.top+s.height*.6),right:h.right,width:dcBrowserPanel.getBoundingClientRect().width};})()`);
+ assert.ok(host.getBrowserViews()[0].getBounds().x>=Math.floor(strip.right),'native page leaves the lower resize strip exposed');
+ host.webContents.sendInputEvent({type:'mouseDown',x:strip.x,y:strip.y,button:'left',clickCount:1});
+ await wait(50);
+ host.webContents.sendInputEvent({type:'mouseMove',x:strip.x+80,y:strip.y,button:'left'});
+ await wait(50);
+ host.webContents.sendInputEvent({type:'mouseUp',x:strip.x+80,y:strip.y,button:'left',clickCount:1});
+ await until(()=>evaluate(`dcBrowserPanel.getBoundingClientRect().width<${strip.width-50}`));
+ await until(()=>host.getBrowserViews().length===1);
+ // Completion opens the SLA tool in the main frame's existing authenticated session.
+ const capturePage=host.getBrowserViews()[0].webContents;
+ const importHref='/sla?uivImportSession='+'a'.repeat(32)+'&uivImportToken='+'b'.repeat(32)+'&autoImport=1&targetMonth=7';
+ const captureTabs=await evaluate('document.querySelectorAll(".dc-browser-tab").length');
+ await capturePage.executeJavaScript(`window.open(${JSON.stringify(base+importHref)},'_blank','noopener');void 0`);
+ await until(()=>evaluate('!!document.querySelector("#v2ToolFrame iframe").contentDocument?.querySelector("#import-ready")'));
+ assert.equal(await evaluate('document.querySelector("#v2ToolFrame iframe").contentWindow.location.search'),importHref.slice(4),'import parameters and target month reach the existing tool');
+ assert.equal(await evaluate('DragonBrowserSidebar.isOpen()'),false,'capture browser closes its sidebar for the import tool');
+ assert.equal(await evaluate('document.querySelectorAll(".dc-browser-tab").length'),captureTabs,'import creates no Dragon browser tab');
+ assert.equal(capturePage.isDestroyed(),false,'capture results are retained');
+ await evaluate('document.querySelector("[data-frame-act=browser]").click()');
+ await until(()=>host.getBrowserViews().some(view=>view.webContents===capturePage));
+ await evaluate(`window.dispatchEvent(new CustomEvent('home:tool-frame',{detail:{open:true,browserAllowed:false}}))`);
+ host.webContents.send('dragon-browser:reveal');await wait(80);
+ assert.equal(await evaluate('dcBrowserPanel.hidden'),true,'native tool surfaces remain suspended');
+ await evaluate('HomeToolFrame.close();DragonBrowserSidebar.close();void 0');
  await evaluate('DragonBrowserSidebar.open()');
  await until(()=>host.getBrowserViews().length===1);
  assert.equal(readingEvents.at(-1),true,'desktop browser enables native quota reading mode');
  const wc=host.getBrowserViews()[0].webContents;
+ await wc.loadURL('about:blank');
  for(const theme of ['dark','light']){await evaluate(`document.documentElement.dataset.theme='${theme}'`);await until(()=>wc.executeJavaScript(`getComputedStyle(document.documentElement).backgroundColor===${JSON.stringify(theme==='dark'?'rgb(16, 17, 20)':'rgb(255, 255, 255)')}`));}
 
  await evaluate(`document.querySelector('.dc-browser-address input').value=${JSON.stringify(base+'/site')};document.querySelector('.dc-browser-address').requestSubmit()`);

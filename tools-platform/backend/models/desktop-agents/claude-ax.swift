@@ -9,7 +9,7 @@ import Foundation
 
 // The shared accessibility transport only addresses these two desktop clients.
 let bundleId = ProcessInfo.processInfo.environment["DRAGON_AX_APP"] == "codex" ? "com.openai.codex" : "com.anthropic.claudefordesktop"
-let keptRoles: Set<String> = ["AXButton", "AXHeading", "AXTextArea", "AXRadioButton"]
+let keptRoles: Set<String> = ["AXButton", "AXHeading", "AXTextArea", "AXRadioButton", "AXPopUpButton", "AXMenuItem", "AXMenuItemRadio"]
 
 func emit(_ value: [String: Any]) -> Never {
     let data = (try? JSONSerialization.data(withJSONObject: value)) ?? Data("{}".utf8)
@@ -45,7 +45,7 @@ func collect(_ window: AXUIElement, includeText: Bool = false) -> [(AXUIElement,
     while let element = stack.popLast(), visited < 20000 {
         visited += 1
         let role = text(element, kAXRoleAttribute)
-        if keptRoles.contains(role) || (includeText && role == "AXStaticText") {
+        if keptRoles.contains(role) || includeText {
             var item: [String: Any] = ["role": role, "title": text(element, kAXTitleAttribute), "desc": text(element, kAXDescriptionAttribute)]
             if role == "AXTextArea" || role == "AXRadioButton" || role == "AXStaticText" { item["value"] = String(text(element, kAXValueAttribute).prefix(20000)) }
             if let enabled = attr(element, kAXEnabledAttribute) as? Bool { item["enabled"] = enabled }
@@ -188,6 +188,78 @@ let command = args.count > 1 ? args[1] : "snapshot"
 let argument: [String: Any] = args.count > 2 ? ((try? JSONSerialization.jsonObject(with: Data(args[2].utf8))) as? [String: Any] ?? [:]) : [:]
 
 switch command {
+case "models", "set-model":
+    let (_, window, previous) = prepareWindow()
+    let expected = argument["windowTitle"] as? String
+    if let expected = expected, text(window, kAXTitleAttribute) != expected {
+        activate(previous); fail("DESKTOP_TARGET_UNCONFIRMED", "模型切换目标窗口已变化，未发送")
+    }
+    let modelPattern = "^(?:(?:Claude )?(?:Opus|Sonnet|Haiku|Fable) [0-9]|GPT[- ]|gpt[- ])"
+    func isModel(_ s: String) -> Bool { s.range(of: modelPattern, options: .regularExpression) != nil }
+    func normalized(_ s: String) -> String { s.lowercased().replacingOccurrences(of: "[^a-z0-9.]", with: "", options: .regularExpression) }
+    func modelButton() -> AXUIElement? {
+        let buttons = collect(window).filter { _, item in
+            let s = label(item)
+            return ["AXButton", "AXPopUpButton"].contains(item["role"] as? String ?? "") &&
+                (s.hasPrefix("模型：") || s == "模型" || s.hasPrefix("选择模型") || s == "Model" || s.hasPrefix("Model:") || s.hasPrefix("Select model") || isModel(s))
+        }
+        return buttons.count == 1 ? buttons[0].0 : nil
+    }
+    guard let button = modelButton() else { activate(previous); fail("DESKTOP_MODEL_UNAVAILABLE", "未找到唯一的原生模型选择器") }
+    guard let buttonBox = frame(button), owns(button, CGPoint(x: buttonBox.midX, y: buttonBox.midY)) else {
+        activate(previous); fail("DESKTOP_MODEL_UNAVAILABLE", "原生模型选择器被遮挡，请在桌面关闭弹窗后重试")
+    }
+    click(CGPoint(x: buttonBox.midX, y: buttonBox.midY))
+    pause(0.2)
+    func options() -> [(AXUIElement, String)] {
+        return collect(window, includeText: true).compactMap { node, item in
+            let role = item["role"] as? String ?? ""
+            guard role.contains("MenuItem") || role == "AXRadioButton", item["enabled"] as? Bool != false else { return nil }
+            // Accessible option names may include explanatory copy. Prefer the
+            // model's own text node rather than treating that copy as its ID.
+            let child = collect(node, includeText: true).first { $0.1["role"] as? String == "AXStaticText" && isModel(label($0.1)) }
+            let s = child.map { label($0.1) } ?? label(item)
+            guard isModel(s) else { return nil }
+            let clean = s.replacingOccurrences(of: " 需要使用额度", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+            return (node, clean)
+        }
+    }
+    var choices = options()
+    let wanted = argument["model"] as? String ?? ""
+    let more = collect(window, includeText: true).first { ["更多模型", "More models"].contains(label($0.1)) }
+    if let more = more, (command == "models" || !choices.contains(where: { normalized($0.1) == normalized(wanted) })) {
+        AXUIElementPerformAction(more.0, kAXPressAction as CFString)
+        AXUIElementSetAttributeValue(more.0, kAXFocusedAttribute as CFString, kCFBooleanTrue)
+        key(124)
+        pause(0.2)
+        choices += options()
+    }
+    if command == "models" {
+        let names = Array(Set(choices.map { $0.1 })).sorted()
+        key(53); key(53); activate(previous)
+        emit(["ok": true, "models": names.map { ["id": $0, "name": $0] }])
+    }
+    let matches = choices.filter { normalized($0.1) == normalized(wanted) }
+    // Main-menu items may be seen again after opening a submenu. Deduplicate AX nodes.
+    var unique: [(AXUIElement, String)] = []
+    for m in matches { if !unique.contains(where: { CFEqual($0.0, m.0) }) { unique.append(m) } }
+    guard unique.count == 1, text(window, kAXTitleAttribute) == (expected ?? text(window, kAXTitleAttribute)) else {
+        key(53); key(53); activate(previous); fail("DESKTOP_MODEL_UNAVAILABLE", "原生客户端未提供这个模型，消息未发送")
+    }
+    guard let optionBox = frame(unique[0].0), owns(unique[0].0, CGPoint(x: optionBox.midX, y: optionBox.midY)) else {
+        key(53); key(53); activate(previous); fail("DESKTOP_MODEL_UNCONFIRMED", "原生模型选项被遮挡，消息未发送")
+    }
+    click(CGPoint(x: optionBox.midX, y: optionBox.midY))
+    pause(0.2)
+    key(53); key(53)
+    let readback = modelButton().map { node in text(node, kAXTitleAttribute) + text(node, kAXDescriptionAttribute) + collect(node, includeText: true).filter { $0.1["role"] as? String == "AXStaticText" }.map { label($0.1) }.joined(separator: " ") } ?? ""
+    activate(previous)
+    let value = normalized(readback), target = normalized(wanted)
+    let match = value.range(of: target)
+    // Opus 5 is not Opus 5.5. Do not accept a version-prefix readback.
+    let exactVersion = match.map { r in r.upperBound == value.endIndex || !".0123456789".contains(value[r.upperBound]) } ?? false
+    guard exactVersion else { fail("DESKTOP_MODEL_UNCONFIRMED", "模型选择未通过读回确认，消息未发送") }
+    emit(["ok": true])
 case "interaction", "choose":
     let title = argument["title"] as? String ?? ""
     guard !title.isEmpty, let window = sessionWindow(title) else {
@@ -234,6 +306,7 @@ case "submit-text":
         $0.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: "\n{2,}", with: "\n", options: .regularExpression)
+            .replacingOccurrences(of: "([ \\t]+)\\n", with: "\n$1", options: .regularExpression)
     }
     let matches = collect(window).filter { $0.1["role"] as? String == "AXTextArea" && normalize($0.1["value"] as? String ?? "") == normalize(expected) }
     guard !expected.isEmpty, matches.count == 1 else { fail("DESKTOP_TARGET_UNCONFIRMED", "桌面输入框与新会话问题不一致，未发送") }
@@ -292,6 +365,19 @@ case "submit":
     pause(0.2)
     activate(argument["previous"] as? String ?? "")
     _ = app
+    emit(["ok": true])
+case "clear":
+    // Clear a composer that was verified empty before a failed paste.
+    let (_, window) = requireWindow()
+    let composers = collect(window).filter { $0.1["role"] as? String == "AXTextArea" }
+    guard composers.count == 1, frontmostId() == bundleId else { emit(["ok": true]) }
+    AXUIElementSetAttributeValue(composers[0].0, kAXFocusedAttribute as CFString, kCFBooleanTrue)
+    pause(0.05)
+    guard frontmostId() == bundleId else { emit(["ok": true]) }
+    key(0, command: true) // ⌘A
+    pause(0.05)
+    key(51) // Delete
+    pause(0.1)
     emit(["ok": true])
 case "restore":
     // Hand the foreground back after a refused send.

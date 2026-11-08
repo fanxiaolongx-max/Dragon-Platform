@@ -65,3 +65,16 @@ test('Claude preparation does not allow overwriting a new-task draft and restore
  assert(!d.calls.some(c=>['press','paste','submit-text'].includes(c.command)));
  assert.equal(d.calls.at(-1).command,'restore');assert.equal(d.calls.at(-1).arg.previous,'com.example.front');
 });
+
+
+test('new Codex and Claude conversations select the requested model before the first message',async()=>{
+ for(const provider of ['codex','claudecode']){
+  const d=driverFixture(provider),original=d.driver;
+  d.driver=async(p,command,arg)=>command==='set-model'?(d.calls.push({command,arg}),{ok:true}):original(p,command,arg);
+  await createAndSend(provider,prompt,{...d,model:'fixture-model'});
+  const at=d.calls.findIndex(c=>c.command==='set-model');assert(at>=0);assert.equal(d.calls[at].arg.model,'fixture-model');assert(at<d.calls.findIndex(c=>c.command==='submit-text'));
+  const fail=driverFixture(provider);let submitted=false;
+  const driver=fail.driver;fail.driver=async(p,command,arg)=>{if(command==='set-model')throw Object.assign(Error('unavailable'),{code:'DESKTOP_MODEL_UNAVAILABLE'});if(command==='submit-text')submitted=true;return driver(p,command,arg);};
+  await assert.rejects(createAndSend(provider,prompt,{...fail,model:'missing'}),{code:'DESKTOP_MODEL_UNAVAILABLE'});assert.equal(submitted,false);
+ }
+});

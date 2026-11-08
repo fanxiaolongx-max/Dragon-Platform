@@ -12,6 +12,7 @@
     let keyQueue=[],keySending=false,keyTimer=null,keyEpoch=0;
     let busy=false,refreshing=false,controller=null,viewEpoch=0,timer=null,lastHeartbeat=0,manualToken='';
     const suspended=new Set();
+    let toolAllowsBrowser=false;
     const icons={back:'<path d="m12 4-6 6 6 6M6 10h11"/>',forward:'<path d="m8 4 6 6-6 6M3 10h11"/>',reload:'<path d="M16 7a7 7 0 1 0 1 6M16 3v5h-5"/>',extensions:'<path d="M7 3h3a2 2 0 1 1 4 0h3v5a2 2 0 1 0 0 4v5h-5a2 2 0 1 0-4 0H3v-5a2 2 0 1 1 0-4V3z"/>',downloads:'<path d="M10 2v10m-4-4 4 4 4-4M3 12v5h14v-5"/>',more:'<circle cx="4" cy="10" r="1"/><circle cx="10" cy="10" r="1"/><circle cx="16" cy="10" r="1"/>',tabs:'<path d="m5 8 5 5 5-5"/>',external:'<path d="M11 3h6v6M17 3 8 12M8 4H3v13h13v-5"/>',close:'<path d="m5 5 10 10M15 5 5 15"/>','new-tab':'<path d="M10 3v14M3 10h14"/>',keyboard:'<rect x="2" y="4" width="16" height="12" rx="2"/><path d="M5 7h1m3 0h1m3 0h2M5 10h1m3 0h1m3 0h2M6 13h8"/>'};
     const icon=name=>`<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name]||icons.more}</svg>`;
     function menuButton(action,label,disabled=false){return `<button type="button" data-browser="${action}"${disabled?' disabled':''}>${esc(label)}</button>`;}
@@ -122,12 +123,14 @@
             if(!streaming)refresh(true);
         },2000);
     }
-    async function show(){
+    async function show({createEmpty=true}={}){
         window.ChatFiles?.closePreview();window.DragonClawWorkspace?.closePanel?.();
+        // 普通桌面工具与侧栏并排显示；独立原生工具视图仍暂停挂载，避免互相覆盖。
+        if(toolAllowsBrowser)suspended.delete('tool');
         const fresh=!open;if(fresh)collapseMenu();open=true;
         if(bridge&&(!connected||!docked)){connected=await bridge.connect().catch(()=>false);docked=connected;}
         syncTheme(true);visibility();if(fresh)requestAnimationFrame(fit);
-        if(bridge){if(connected&&!state.tabs.length)bridge.action('new-tab');}
+        if(bridge){if(createEmpty&&connected&&!state.tabs.length)bridge.action('new-tab');}
         else{startRefresh();await refresh();}
     }
     function close(){
@@ -408,7 +411,7 @@
     }
     function init(){
         toggle=document.getElementById('dcBrowserToggle');const workspace=document.getElementById('dcWorkspacePanel');if(!toggle||!workspace)return;
-        panel=document.createElement('aside');panel.className='dc-browser-panel';panel.id='dcBrowserPanel';panel.hidden=true;
+        panel=document.createElement('aside');panel.className='dc-browser-panel';panel.classList.toggle('dc-browser-native',Boolean(bridge));panel.id='dcBrowserPanel';panel.hidden=true;
         const button=(name)=>`<button type="button" data-browser="${name}">${icon(name)}</button>`;
         panel.innerHTML=`<header class="dc-browser-head"><strong>Dragon 浏览器</strong><div class="dc-browser-tabbar"><div class="dc-browser-tabs" role="tablist"></div>${button('new-tab')}${button('tabs')}</div><div class="dc-browser-window-actions">${button('external')}${button('close')}</div></header><form class="dc-browser-address"><div class="dc-browser-navigation">${button('back')}${button('forward')}${button('reload')}</div><input autocomplete="off" spellcheck="false" enterkeyhint="go"><button type="submit" class="dc-browser-go" aria-label="Go">↵</button><div class="dc-browser-toolbar-actions">${button('keyboard')}${button('extensions')}${button('downloads')}${button('more')}</div></form><div class="dc-browser-hint" hidden></div><section class="dc-browser-popup" hidden><div class="dc-browser-popup-content"></div></section><div class="dc-browser-find" hidden><input data-find-input><span data-find-count></span><button type="button" data-find-forward="false">↑</button><button type="button" data-find-forward="true">↓</button><button type="button" data-browser="find-close">×</button></div><div class="dc-browser-control" hidden><label></label><div class="dc-browser-type"><input data-remote-text autocomplete="off" autocapitalize="off" spellcheck="false"><button type="button" data-browser="send-text"></button></div><div class="dc-browser-control-options"><label><input type="checkbox" data-replace><span data-label="replace"></span></label><label><input type="checkbox" data-mask><span data-label="mask"></span></label><label><input type="checkbox" data-drag-mode><span data-label="drag"></span></label></div><div class="dc-browser-upload"><button type="button" data-browser="upload"></button><input type="file" data-local-files hidden></div><div class="dc-browser-control-keys"><button type="button" data-browser="remote-up"></button><button type="button" data-browser="remote-down"></button><button type="button" data-browser="remote-tab"></button><button type="button" data-browser="remote-backspace"></button><button type="button" data-browser="remote-enter"></button><button type="button" data-browser="remote-zoom"></button></div></div><div class="dc-browser-surface"><div class="dc-browser-agent-view"><div class="dc-browser-agent-status" role="status"></div><img hidden></div></div>`;
         workspace.after(panel);surface=panel.querySelector('.dc-browser-surface');address=panel.querySelector('.dc-browser-address input');tabsNode=panel.querySelector('.dc-browser-tabs');hint=panel.querySelector('.dc-browser-hint');image=panel.querySelector('.dc-browser-agent-view img');status=panel.querySelector('.dc-browser-agent-status');controlBox=panel.querySelector('.dc-browser-control');textInput=panel.querySelector('[data-remote-text]');
@@ -482,13 +485,24 @@
         image.addEventListener('dragover',event=>{if(manualToken&&event.dataTransfer?.types.includes('Files')){event.preventDefault();event.dataTransfer.dropEffect='copy';}});
         image.addEventListener('drop',event=>{event.preventDefault();if(manualToken&&event.dataTransfer?.files.length)uploadFiles(event.dataTransfer.files,relative(event));});
         image.addEventListener('wheel',event=>{if(!manualToken&&!state.operator?.active&&!busy&&state.available&&!event.ctrlKey&&!zoomed){event.preventDefault();const deltaY=Math.max(-3000,Math.min(3000,Math.round(event.deltaY)));command('takeover').then(()=>input('scroll',{x:.5,y:.5,deltaY}));return;}if(intent(event))return;if(!manualToken||event.ctrlKey||zoomed)return;event.preventDefault();wheelDelta+=event.deltaY;clearTimeout(wheelTimer);wheelTimer=setTimeout(()=>{const deltaY=Math.max(-3000,Math.min(3000,Math.round(wheelDelta)));wheelDelta=0;if(!busy)input('scroll',{x:.5,y:.5,deltaY});},120);},{passive:false});
-        for(const[name,key]of[['home:hub','hub'],['home:tool-frame','tool']])window.addEventListener(name,event=>{event.detail?.open?suspended.add(key):suspended.delete(key);visibility();});
+        for(const[name,key]of[['home:hub','hub'],['home:tool-frame','tool']])window.addEventListener(name,event=>{
+            if(key==='tool')toolAllowsBrowser=Boolean(bridge&&event.detail?.open&&event.detail?.browserAllowed);
+            event.detail?.open?suspended.add(key):suspended.delete(key);visibility();
+        });
         window.addEventListener('dragon-claw:sidebar-layout',layout);window.addEventListener('dragon-claw:browser-update',event=>{if(bridge)return;if(event.detail?.tool==='browser_navigate'){autoFit=true;pageWidth=0;}if(innerWidth>860||open)show();});
         window.matchMedia('(max-width: 860px)').addEventListener('change',event=>{if(event.matches)close();});window.addEventListener('resize',()=>{if(autoFit)fit();layout();});window.addEventListener('tools:languagechange',render);
         window.addEventListener('beforeunload',()=>{if(manualToken)api('release',{},true).catch(()=>{});bridge?.bounds(null);bridge?.reading?.(false);});document.addEventListener('visibilitychange',()=>{layout();if(document.hidden){if(gesture?.remote){gesture.ended=true;remotePointer(gesture,'cancel',{});gesture=null;}streamController?.abort();}else if(open){refresh(true);}});
         document.addEventListener('pointerdown',event=>{if(innerWidth<=860&&open&&!panel.contains(event.target)&&!toggle.contains(event.target)&&!event.target.closest('[aria-modal="true"],.app-dialog'))close();});document.addEventListener('keydown',event=>{if(event.key==='Escape'&&menu){menu='';renderMenu();layout();event.preventDefault();return;}if(event.key==='Escape'&&open&&!event.defaultPrevented&&!document.querySelector('[aria-modal="true"]'))close();});
         new ResizeObserver(layout).observe(surface);new MutationObserver(layout).observe(document.body,{attributes:true,childList:true,subtree:true,attributeFilter:['class','hidden','open','style']});
-        if(bridge){bridge.onState(value=>{const before=state.tabs.find(tab=>tab.id===state.activeId)?.url,after=value.tabs.find(tab=>tab.id===value.activeId)?.url;if(before!==after){autoFit=true;pageWidth=0;}state=value;render();requestAnimationFrame(fit);});bridge.onReveal(()=>{if(innerWidth>860||open)show();});bridge.onFocusUrl(()=>{address.focus();address.select();});bridge.onPoppedOut(()=>{docked=false;close();});bridge.connect().then(value=>{connected=value;docked=value;layout();}).catch(()=>{});}
+        bridge?.onUivImport?.(href=>{
+            // Import in the existing authenticated tool frame, retaining the capture tab.
+            try {
+                const url=new URL(href,location.origin);
+                if(url.origin!==location.origin||url.pathname!=='/sla'||url.searchParams.get('autoImport')!=='1')return;
+                if(window.HomeToolFrame?.open(url.pathname+url.search))close();
+            }catch{}
+        });
+        if(bridge){bridge.onState(value=>{const before=state.tabs.find(tab=>tab.id===state.activeId)?.url,after=value.tabs.find(tab=>tab.id===value.activeId)?.url;if(before!==after){autoFit=true;pageWidth=0;}state=value;render();requestAnimationFrame(fit);});bridge.onReveal(()=>{if(innerWidth>860||open)show({createEmpty:false});});bridge.onFocusUrl(()=>{address.focus();address.select();});bridge.onPoppedOut(()=>{docked=false;close();});bridge.connect().then(value=>{connected=value;docked=value;layout();}).catch(()=>{});}
         render();window.DragonBrowserSidebar={open:show,close,showAgentView:show,isOpen:()=>open};
     }
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();

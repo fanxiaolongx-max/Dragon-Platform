@@ -19,6 +19,8 @@ router.put('/discussions/:sessionId',route(async(req,res)=>res.json({settings:aw
 router.post('/discussion-runs',route(async(req,res)=>{const job=await discussion.start(req.user.username,req.body);if(job.status==='queued')discussion.schedule(req.user.username,job.id);res.status(202).json(job);}));
 router.get('/discussion-runs/:id',route(async(req,res)=>{res.setHeader('Cache-Control','no-store');res.json(await discussion.get(req.user.username,req.params.id));}));
 router.post('/discussion-runs/:id/cancel',route(async(req,res)=>res.json(await discussion.cancel(req.user.username,req.params.id))));
+router.get('/:provider/models', route(async (req,res)=>{res.setHeader('Cache-Control','no-store');res.json(await service.availableModels(req.user.username,req.params.provider,{force:req.query.refresh==='1',day:req.query.day}));}));
+router.put('/:provider/sessions/:id/model', route(async (req,res)=>res.json(await service.setModel(req.user.username,req.params.provider,req.params.id,req.body?.model))));
 router.get('/:provider/sessions/:id/export', route(async (req, res) => {
     const log = await service.exportConversation(req.user.username, req.params.provider, req.params.id);
     const id = String(req.params.id).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 80);

@@ -1,12 +1,12 @@
 {
   "zh": [
-    "桌面 Agent 支持识别 Claude「要在单独的会话中启动吗？」选择卡，可在网页端直接选择「在此处操作」或「新建会话」，点击前后均会核对确认。",
-    "WorkBuddy 会话计时支持读取按日归档的历史日志，往日会话也能显示准确的首字耗时。",
-    "AI 入门课程新增「一个 HTML 文件就是一件工具」章节，并优化「方法外借、数据不出内网」的中英文内容。"
+    "桌面 Agent 修复 Codex 运行中引导（steer）时的 504 超时问题，优化点对点客户端发现并支持会话自动唤醒。",
+    "桌面 Agent 增加原生客户端模型切换与按会话持久化支持，可在网页端直接选择模型。",
+    "修复 Windows 桌面端环境兼容性问题，解决 performance.now 异常提示并优化 Claude 桌面交互。"
   ],
   "en": [
-    "Desktop Agent now detects Claude's \"start in a separate session?\" prompt and lets you choose \"Continue here\" or \"New session\" from the web, with checks before and after the click.",
-    "WorkBuddy conversation timing now reads daily archived logs, so past conversations show accurate first-token timing.",
-    "The AI introductory course adds a \"one HTML file is one tool\" section and refines the bilingual \"borrow methods, keep data inside\" content."
+    "Fixed 504 timeout when steering active Codex sessions by using targeted client discovery and automatic session wake-up.",
+    "Added native desktop agent model selection and per-session persistence directly from the web interface.",
+    "Improved Windows desktop environment compatibility, resolving performance.now warnings and refining Claude desktop interactions."
   ]
 }

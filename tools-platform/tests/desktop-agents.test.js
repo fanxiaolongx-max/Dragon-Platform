@@ -19,7 +19,8 @@ app.use((req, res, next) => { if (req.headers['x-user'])
     req.user = { username: req.headers['x-user'], role: req.headers['x-role'] || 'admin' }; runWithTenant(req.headers['x-tenant'] || 'default', next); });
 app.use('/api/desktop-agents', require('../backend/routes/desktop-agents'));
 function auth(verb, url, user = 'alice', tenant = 'default') { return request(httpServer)[verb]('/api/desktop-agents' + url).set('x-user', user).set('x-tenant', tenant); }
-let server, httpServer, posts = 0, busy = false, steers = 0, startTask = false;
+let chosenNativeModel="", denyModel=false;
+let server, httpServer, posts = 0, busy = false, steers = 0, startTask = false, deferSteerTranscript = false, targetedOwnerOnly = false;
 function frame(x) { const data = Buffer.from(JSON.stringify(x)), h = Buffer.alloc(4); h.writeUInt32LE(data.length); return Buffer.concat([h, data]); }
 test.before(async () => {
     httpServer = await new Promise(resolve => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
@@ -37,8 +38,10 @@ test.before(async () => {
     fs.writeFileSync(path.join(project, CID + '.jsonl'), JSON.stringify({ uuid: 'm1', type: 'user', timestamp: '2026-10-26T09:00:00Z', message: { role: 'user', content: 'Claude desktop message' } }) + '\n');
     server = net.createServer(socket => {
         let buffer = Buffer.alloc(0);
-        const send = x => { const bytes = frame(x); socket.write(bytes.subarray(0, 2)); setImmediate(() => { if (!socket.destroyed)
-            socket.write(bytes.subarray(2)); }); };
+        const send = (x, cb) => { const bytes = frame(x); socket.write(bytes.subarray(0, 2)); setImmediate(() => { if (!socket.destroyed) {
+            socket.write(bytes.subarray(2));
+            cb?.();
+        } }); };
         socket.on('error', () => { });
         socket.on('data', data => {
             buffer = Buffer.concat([buffer, data]);
@@ -54,8 +57,17 @@ test.before(async () => {
                 const response = { type: 'response', requestId: m.requestId, resultType: 'success', result: {} };
                 if (m.method === 'initialize')
                     response.result = { clientId: 'dragon-test-client' };
-                if (m.method === 'thread-owner-discovery')
+                if (m.method === 'thread-owner-discovery') {
+                    if (targetedOwnerOnly && !m.targetClientId)
+                        continue;
                     response.handledByClientId = 'desktop-owner';
+                }
+                if (m.method === 'thread-follower-update-thread-settings') {
+                    assert.equal(m.version,2); assert.equal(m.params.conversationId,ID);
+                    if(!denyModel)chosenNativeModel=m.params.threadSettings.model;
+                    response.result={result:{applied:!denyModel}};
+                }
+                if(m.method==='thread-follower-read-model-settings')response.result={result:{settings:{model:chosenNativeModel}}};
                 if (m.method === 'thread-follower-start-turn') {
                     posts++;
                     assert.equal(m.version, 2);
@@ -71,10 +83,14 @@ test.before(async () => {
                     assert.equal(m.version, 1);
                     assert.equal(m.params.conversationId, ID);
                     assert.equal(m.params.restoreMessage.id, m.params.clientUserMessageId);
-                    fs.appendFileSync(transcript, JSON.stringify({ type: 'response_item', timestamp: new Date().toISOString(), payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: m.params.input[0].text }] } }) + '\n');
+                    if (!deferSteerTranscript)
+                        fs.appendFileSync(transcript, JSON.stringify({ type: 'response_item', timestamp: new Date().toISOString(), payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: m.params.input[0].text }] } }) + '\n');
                     response.result = { result: { turnId: 'native-turn' } };
                 }
-                send(response);
+                send(response, () => {
+                    if (m.method === 'initialize' && targetedOwnerOnly)
+                        send({ type: 'broadcast', method: 'thread-stream-following-changed', sourceClientId: 'desktop-owner', targetClientIds: ['dragon-test-client'], params: { conversationId: ID, hostId: 'local', following: true }, version: 1 });
+                });
             }
         });
     });
@@ -152,6 +168,42 @@ test('Web send reaches the same native desktop ID, requires a transcript receipt
     assert.match((await auth('post', `/codex/sessions/${ID}/messages`).send({ text: 'hi', requestId: 'not-a-uuid' }).expect(400)).body.error, /请求编号无效/);
     assert.equal(posts, 1);
 });
+test('model catalogs and per-session selections are authenticated, tenant isolated and reach native Codex settings', async()=>{
+    const models=require('../backend/models/desktop-agents/models'),original=models.list;
+    models.list=async provider=>[{id:provider+'-small',name:'Small'},{id:provider+'-large',name:'Large'}];
+    const url=`/codex/sessions/${ID}`;
+    try{
+        assert.equal((await auth('get','/codex/models').expect(200)).body.models.length,2);
+        await auth('get','/codex/models','bob').expect(403);
+        await auth('get','/codex/models','alice','other').expect(409);
+        await auth('put',url+'/model').send({model:'claudecode-small'}).expect(400);
+        await auth('put',url+'/model').send({model:['codex-small','codex-large']}).expect(400);
+        await auth('put',url+'/model').send({model:'codex-small'}).expect(200);
+        assert.equal((await auth('get',url+'/messages').expect(200)).body.selectedModel,'codex-small');
+        assert.equal(await require('../backend/models/desktop-agents/repository').model('bob','codex',ID),'');
+        await runWithTenant('other',async()=>assert.equal(await repo.model('alice','codex',ID),''));
+        const before=posts;
+        await auth('post',url+'/messages').send({text:'Use small model',requestId:cryptoId()}).expect(202);
+        assert.equal(chosenNativeModel,'codex-small');assert.equal(posts,before+1);
+        await auth('put',url+'/model').send({model:'codex-large'}).expect(200);
+        denyModel=true;
+        await auth('post',url+'/messages').send({text:'Do not silently use old model',requestId:cryptoId()}).expect(409);
+        assert.equal(posts,before+1,'unconfirmed model switch never sends with a fallback');
+        denyModel=false;
+        busy=true;
+        const queueId=cryptoId();
+        await auth('post',url+'/messages').send({text:'Queued model snapshot',requestId:queueId,mode:'queue',model:'codex-small'}).expect(202);
+        await auth('put',url+'/model').send({model:'codex-large'}).expect(200);
+        busy=false;
+        await service.drain(service.queueKey('alice','codex',ID),{read:async()=>({busy:false})});
+        assert.equal(chosenNativeModel,'codex-small','changing the preference never rewrites an already queued model');
+        await auth('put',url+'/model').send({model:''}).expect(200);
+        const previous=chosenNativeModel;
+        await auth('post',url+'/messages').send({text:'Use native default',model:'',requestId:cryptoId()}).expect(202);
+        assert.equal(chosenNativeModel,previous,'default inherits without resetting native settings');
+    }finally{denyModel=false;busy=false;models.list=original;await repo.saveModel('alice','codex',ID,'');}
+});
+function cryptoId(){return require('node:crypto').randomUUID();}
 test('uncertain delivery is retained and a repeated request never silently resends', async () => {
     const original = ipc.send;
     let calls = 0;
@@ -211,12 +263,19 @@ test('steer joins only a running Codex turn; other agents and idle turns are ref
         const sent = (await auth('post', `/codex/sessions/${ID}/messages`).send({ text: 'Steer the running turn', requestId: 'a3333333-3333-4333-8333-333333333333', mode: 'steer' }).expect(202)).body;
         assert.equal(sent.status, 'accepted');
         assert.equal(steers, 1);
+        deferSteerTranscript = true;
+        targetedOwnerOnly = true;
+        const deferred = (await auth('post', `/codex/sessions/${ID}/messages`).send({ text: 'Steer while tool call buffers rollout', requestId: 'a3444444-3333-4333-8333-333333333333', mode: 'steer' }).expect(202)).body;
+        assert.equal(deferred.status, 'accepted');
+        assert.equal(steers, 2);
     }
     finally {
+        deferSteerTranscript = false;
+        targetedOwnerOnly = false;
         busy = false;
     }
     await auth('post', `/codex/sessions/${ID}/messages`).send({ text: 'steer idle', requestId: 'a4444444-4444-4444-8444-444444444444', mode: 'steer' }).expect(409);
-    assert.equal(steers, 1);
+    assert.equal(steers, 2);
 });
 test('queued messages wait for the running turn, go out one at a time and can be cancelled', async () => {
     const start = posts, path_ = `/codex/sessions/${ID}`;

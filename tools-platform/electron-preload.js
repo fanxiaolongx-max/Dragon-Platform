@@ -23,6 +23,11 @@ if (process.isMainFrame) contextBridge.exposeInMainWorld('DragonBrowser', {
         ipcRenderer.on('dragon-browser:popped-out', listener);
         return () => ipcRenderer.removeListener('dragon-browser:popped-out', listener);
     },
+    onUivImport: callback => {
+        const listener = (_event, href) => callback(href);
+        ipcRenderer.on('dragon-browser:uiv-import', listener);
+        return () => ipcRenderer.removeListener('dragon-browser:uiv-import', listener);
+    },
     onReveal: callback => {
         const listener = () => callback();
         ipcRenderer.on('dragon-browser:reveal', listener);

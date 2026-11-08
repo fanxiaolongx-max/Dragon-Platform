@@ -92,6 +92,7 @@ const desktopPromotions = (() => {
     try {
         const stack = require('./desktop-promo/promo-stack').createPromoStack({
             statePath: path.join(userDataPath, 'desktop-promo-state.json'),
+            getAppBaseUrl: () => getAppBaseUrl(),
             getLanguage: () => require('./backend/models/desktop-language').getLanguage(),
             onChange: () => refreshTrayMenu(),
             onCardOpen: link => require('./backend/models/platform-promotions-desktop').recordCardClick(link),

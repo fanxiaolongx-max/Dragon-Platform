@@ -646,13 +646,9 @@
   "实战台内容保存在本机浏览器中，计时、离线均可使用。": "Arena content is stored in this browser; the timer works offline.",
   "看内外": "Check what's allowed",
   "允许用什么": " — inside vs outside",
-  "内网 · 不允许": "INTRANET · NOT ALLOWED",
-  "自行安装外部 Agent 软件": "Installing external agent clients",
-  "Codex、Gemini CLI 等，一律不自行安装。": "Codex, Gemini CLI and similar must not be installed.",
   "内网 · 可以装": "INTRANET · ALLOWED",
   "单位提供的 Claw 工具": "Organisation-provided Claw tools",
   "GDEClaw · webotClaw · WeClaw 等。": "GDEClaw · webotClaw · WeClaw, etc.",
-  "外网按单位许可与数据边界另算；具体以单位实际部署与权限为准。": "The external side follows separate approval and data-boundary rules; the actual deployment and permissions always prevail.",
   "输入": "Input",
   "给它什么：格式、表头、版本、以哪份为准": ": what it gets — format, headers, version, authoritative source",
   "处理逻辑": "Logic",
@@ -692,5 +688,9 @@
   "这一句就是所有组共同的任务：做一个单文件 HTML 工具。": "One shared task for every group: one self-contained HTML tool.",
   "一个 HTML 文件": "One HTML file",
   "一个文件，别人拿到就能跑": "One file anyone can open and run",
-  "别人拿去也能用": "Reusable by others"
+  "别人拿去也能用": "Reusable by others",
+  "内网 · 不装客户端": "INTRANET · NO CLIENT INSTALL",
+  "外部 Agent 软件": "External agent software",
+  "Web 版 Gemini / Codex 同样按单位许可与数据边界判断；具体以单位实际部署与权限为准。": "The web versions follow the same approval and data-boundary rules; actual deployment and permissions always prevail.",
+  "Codex、Gemini CLI 等不自行安装；Web 版 Gemini / Codex 可用，注意信息安全与数据边界。": "Codex, Gemini CLI and similar clients must not be installed; the web versions of Gemini / Codex are fine, subject to information security and data boundaries."
 }

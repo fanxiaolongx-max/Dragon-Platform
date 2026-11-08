@@ -217,3 +217,7 @@ html[data-ui="v2"] body.v2-tool-open .home-main { padding: 0; min-height: 0; hei
 .v2-tool-skeleton i:last-child { width: 65%; }
 .v2-tool-surface-status { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 16px; color: var(--v2-ink); }
 .v2-tool-surface-status button { padding: 6px 14px; border: 1px solid var(--v2-line); border-radius: 8px; background: var(--v2-chip); color: var(--v2-ink); cursor: pointer; }
+
+.v2-tool-browser-btn { width: auto; padding: 0 10px; white-space: nowrap; font: inherit; font-size: 12px; }
+.v2-tool-browser-btn[hidden] { display: none; }
+.v2-tool-browser-btn[aria-pressed="true"] { background: var(--v2-hover); color: var(--v2-ink); }

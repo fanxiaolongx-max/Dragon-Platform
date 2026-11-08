@@ -74,11 +74,23 @@ test('sends through the CLI on the same session via the shared projects link', a
     const args = JSON.parse(fs.readFileSync(path.join(home, '.workbuddy-connector/args.json'), 'utf8'));
     assert.deepEqual(args.slice(args.indexOf('--resume'), args.indexOf('--resume') + 2), ['--resume', GUI]);
     assert.equal(args[args.indexOf('--permission-mode') + 1], 'bypassPermissions');
+    assert.equal(args.includes('--model'),false);
     for (let n = 0; n < 50 && wb.running.has(GUI); n++) await new Promise(r => setTimeout(r, 20));
     const { items } = await wb.transcript(row);
     assert.deepEqual(items.slice(-2).map(i => i.content), ['继续', 'CLI answer']);
 });
 
+test('WorkBuddy passes explicit models to resumed and new CLI sessions, defaults omit the override',async()=>{
+    const row=(await wb.list(20)).find(r=>r.id===GUI);
+    await wb.send(row,'Use chosen model','glm-fixture');
+    let args=JSON.parse(fs.readFileSync(path.join(home,'.workbuddy-connector/args.json'),'utf8'));
+    assert.equal(args[args.indexOf('--model')+1],'glm-fixture');
+    for(let i=0;i<50&&wb.running.has(GUI);i++)await new Promise(r=>setTimeout(r,20));
+    const created=await wb.createAndSend('New model selection',{model:'hy-fixture'});
+    args=JSON.parse(fs.readFileSync(path.join(home,'.workbuddy-connector/args.json'),'utf8'));
+    assert.equal(args[args.indexOf('--model')+1],'hy-fixture');assert.equal(args[args.indexOf('--session-id')+1],created.id);
+    for(let i=0;i<50&&wb.running.has(created.id);i++)await new Promise(r=>setTimeout(r,20));
+});
 test('reports a missing CLI login instead of silently failing', async () => {
     const [row] = (await wb.list(20)).filter(r => r.id === GUI);
     await assert.rejects(wb.send(row, 'needs-login'), e => e.code === 'NOT_LOGGED_IN' && /\/login/.test(e.message));

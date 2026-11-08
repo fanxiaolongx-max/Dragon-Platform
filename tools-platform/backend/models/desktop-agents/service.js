@@ -2,6 +2,7 @@ const repo = require('./repository'), catalog = require('./catalog'), codex = re
 const {composerText}=require('./composer-text');
 const { getTenantId, runWithTenant } = require('../tenant-context');
 const { containsSensitiveText, redactText, redactValue } = require('../ai-sensitive-data');
+const models = require('./models');
 const providers = ['codex', 'claudecode', 'antigravity', 'workbuddy'];
 // WorkBuddy 的记录格式与 Codex / Claude 不同，由自己的模块解析
 const readTranscript = row => row.provider === 'workbuddy' ? wb.transcript(row) : catalog.transcript(row);
@@ -109,7 +110,24 @@ async function messages(owner, provider, id, { passive = false } = {}) { const {
         try { interaction = redactValue(await claude.interaction(row)); }
         catch { interaction = { interaction: null, interactionAvailable: false }; }
     }
-    return { ...content, ...interaction, ...(interaction.interaction ? { busy: true } : {}),...(Array.isArray(content.items)?{performance:require('./performance').aggregate(content.items,content.performanceTurns,content.modelUsage)}:{}), session: publicSession(row), canSend: status?.canSend || false, canSteer: provider === 'codex' && Boolean(status?.canSend), reason: content.reason || status?.reason || '', queue }; }
+    return { ...content, selectedModel: await repo.model(owner,provider,id), ...interaction, ...(interaction.interaction ? { busy: true } : {}),...(Array.isArray(content.items)?{performance:require('./performance').aggregate(content.items,content.performanceTurns,content.modelUsage)}:{}), session: publicSession(row), canSend: status?.canSend || false, canSteer: provider === 'codex' && Boolean(status?.canSend), reason: content.reason || status?.reason || '', queue }; }
+async function availableModels(owner,provider,{force=false,day}={}) {
+    const cfg=await repo.access(owner);
+    if(!providers.includes(provider)||!cfg.providers[provider])throw repo.error('连接器未启用',409);
+    if(provider==='claudecode'&&!cfg.claudeAutomation)throw repo.error('请开启 Claude 模拟操作发送以读取原生模型',409);
+    if(locks.has(provider))throw repo.error('连接器正在处理操作，请稍后重试',409);
+    locks.add(provider);
+    try{return {models:await models.list(provider,{force,day})};}
+    catch(e){throw Object.assign(new Error(redactText(e.message||'读取原生模型列表失败').slice(0,300)),{status:409,code:e.code||'DESKTOP_MODEL_UNAVAILABLE'});}
+    finally{locks.delete(provider);}
+}
+async function setModel(owner,provider,id,value) {
+    const {state}=await selected(owner,provider,id);
+    if(!state.providers.find(p=>p.id===provider)?.canSend)throw repo.error('当前连接只读',409);
+    const model=await models.validate(provider,value);
+    await repo.saveModel(owner,provider,id,model);
+    return {selectedModel:model};
+}
 async function chooseInteraction(owner, provider, id, body) {
     const cfg = await repo.access(owner);
     if (provider !== 'claudecode' || !cfg.allowSend || !cfg.claudeAutomation || !cfg.providers.claudecode)
@@ -143,7 +161,7 @@ function checkMessage(text, requestId) {
     if (typeof requestId !== 'string' || !/^[a-f0-9-]{36}$/i.test(requestId))
         throw repo.error('请求编号无效，请刷新页面后重试', 400);
 }
-async function send(owner, provider, id, { text, requestId, mode = 'send' }) {
+async function send(owner, provider, id, { text, requestId, mode = 'send', model: requestedModel }) {
     checkMessage(text, requestId);
     if (!['send', 'steer'].includes(mode) || mode === 'steer' && provider !== 'codex')
         throw repo.error('这个桌面 Agent 不支持运行中引导，请改用排队', 400);
@@ -152,6 +170,8 @@ async function send(owner, provider, id, { text, requestId, mode = 'send' }) {
     const { state, row } = await selected(owner, provider, id);
     if (!state.providers.find(p => p.id === provider)?.canSend)
         throw repo.error('当前连接仅支持查看，请到全局设置检查桌面发送能力', 409);
+    const model = await models.validate(provider, requestedModel === undefined ? await repo.model(owner,provider,id) : requestedModel);
+    if(mode==='steer'&&model)throw repo.error('切换模型请使用排队，从下一轮生效',409);
     const claimed = await repo.claim(owner, requestId, provider, id);
     if (!claimed.claimed) {
         if (claimed.item.provider !== provider || claimed.item.sessionId !== id)
@@ -167,21 +187,26 @@ async function send(owner, provider, id, { text, requestId, mode = 'send' }) {
     try {
         const before = provider !== 'antigravity' ? (await readTranscript(row)).items : [];
         const started = Date.now();
-        if (provider === 'codex')
-            await (mode === 'steer' ? codex.steer(id, text, requestId, row.cwd) : codex.send(id, text, requestId));
+        let steered = false;
+        if (provider === 'codex') {
+            const answer = await (mode === 'steer' ? codex.steer(id, text, requestId, row.cwd) : codex.send(id, text, requestId, model));
+            // Codex 引导在当前工具执行或长推理期间由 app-server 先接收入队，待当前子步骤结束后才落盘到 rollout JSONL
+            steered = mode === 'steer' && Boolean(answer?.result?.result?.turnId || answer?.result?.turnId);
+        }
         if (provider === 'antigravity')
-            await ag.send(id, text);
+            await ag.send(id, text, model);
         if (provider === 'claudecode') {
             // 模拟操作只能按标题认会话：同名会话无法区分时不发送
             if (state.rows.filter(r => r.provider === 'claudecode' && r.title === row.title).length > 1)
                 throw Object.assign(new Error('Claude 有同名会话，无法确认发送目标；请先在桌面重命名'), { code: 'DESKTOP_TARGET_UNCONFIRMED' });
-            await claude.send(row, text);
+            await claude.send(row, text, {model});
         }
         if (provider === 'workbuddy')
-            await wb.send(row, text);
+            await wb.send(row, text, model);
         if (provider !== 'antigravity') {
             let acknowledged = false;
-            for (let n = 0; n < 40; n++) {
+            const attempts = steered ? 4 : 40;
+            for (let n = 0; n < attempts; n++) {
                 const after = (await readTranscript(row)).items;
                 if (after.some(m => m.role === 'user' && composerText(m.content) === composerText(text) && Date.parse(m.createdAt) >= started - 1000 && !before.some(old => old.createdAt === m.createdAt && old.content === m.content))) {
                     acknowledged = true;
@@ -189,7 +214,7 @@ async function send(owner, provider, id, { text, requestId, mode = 'send' }) {
                 }
                 await new Promise(r => setTimeout(r, 200));
             }
-            if (!acknowledged)
+            if (!acknowledged && !steered)
                 throw Object.assign(new Error('已提交到桌面但尚未确认，请先核对原会话，避免重复发送'), { code: 'DELIVERY_UNKNOWN' });
         }
         return repo.settle(owner, requestId, 'accepted');
@@ -204,7 +229,7 @@ async function send(owner, provider, id, { text, requestId, mode = 'send' }) {
     }
 }
 // 网页「新对话」：在选中的桌面 Agent 里新建原生会话并发出第一条消息；以新会话的回执为准，不重试、不落到旧会话。
-async function create(owner, provider, { text, requestId }, { createAndSend = require('./new-conversation').createAndSend } = {}) {
+async function create(owner, provider, { text, requestId, model: requestedModel }, { createAndSend = require('./new-conversation').createAndSend } = {}) {
     if (!providers.includes(provider))
         throw repo.error('未知桌面 Agent', 400);
     checkMessage(text, requestId);
@@ -213,6 +238,7 @@ async function create(owner, provider, { text, requestId }, { createAndSend = re
     const state = await discover(owner);
     if (!state.providers.find(p => p.id === provider)?.canSend)
         throw repo.error('当前连接仅支持查看，无法新建桌面会话', 409);
+    const model = await models.validate(provider, requestedModel);
     const claimed = await repo.claim(owner, requestId, provider, 'new');
     if (!claimed.claimed)
         return claimed.item;
@@ -222,7 +248,8 @@ async function create(owner, provider, { text, requestId }, { createAndSend = re
     }
     locks.add(provider);
     try {
-        const result = await createAndSend(provider, text.trim());
+        const result = await createAndSend(provider, text.trim(), {model});
+        await repo.saveModel(owner,provider,result.id,model);
         invalidate(owner);
         return { ...await repo.settle(owner, requestId, 'accepted'), id: result.id };
     }
@@ -260,19 +287,20 @@ async function waitForReply(owner,provider,id,prompt,{signal,timeoutMs=180000,re
 const queues = new Map();
 function queueKey(owner, provider, id) { return [getTenantId(), owner, provider, id].join(':'); }
 function queued(owner, provider, id) { return (queues.get(queueKey(owner, provider, id))?.items || []).map(({ requestId, text, status, error, createdAt }) => ({ requestId, text, status, error, createdAt })); }
-async function enqueue(owner, provider, id, { text, requestId }) {
+async function enqueue(owner, provider, id, { text, requestId, model: requestedModel }) {
     checkMessage(text, requestId);
     if (containsSensitiveText(text))
         throw repo.error('消息包含凭据，请移除密码或 Token 后再发送', 400);
     const { state } = await selected(owner, provider, id);
     if (!state.providers.find(p => p.id === provider)?.canSend)
         throw repo.error('当前连接仅支持查看，请到全局设置检查桌面发送能力', 409);
+    const model = await models.validate(provider, requestedModel === undefined ? await repo.model(owner,provider,id) : requestedModel);
     const k = queueKey(owner, provider, id), entry = queues.get(k) || { tenant: getTenantId(), owner, provider, id, items: [], timer: null, sent: 0, sawBusy: false };
     if (entry.items.some(item => item.requestId === requestId))
         return { status: 'queued', requestId, queue: queued(owner, provider, id) };
     if (entry.items.length >= 20)
         throw repo.error('排队消息过多，请等待当前回复结束', 409);
-    entry.items.push({ requestId, text, status: 'queued', error: '', createdAt: new Date().toISOString() });
+    entry.items.push({ requestId, text, model, status: 'queued', error: '', createdAt: new Date().toISOString() });
     queues.set(k, entry);
     if (!entry.timer)
         entry.timer = setInterval(() => runWithTenant(entry.tenant, () => drain(k)).catch(() => { }), 2000);
@@ -309,7 +337,7 @@ async function drain(k, { read = (row) => row.provider === 'antigravity' ? ag.me
             return;
         next.status = 'sending';
         try {
-            await send(entry.owner, entry.provider, entry.id, { text: next.text, requestId: next.requestId });
+            await send(entry.owner, entry.provider, entry.id, { text: next.text, requestId: next.requestId, model: next.model });
             entry.items.shift();
             entry.sent = Date.now();
             entry.sawBusy = false;
@@ -327,4 +355,4 @@ async function drain(k, { read = (row) => row.provider === 'antigravity' ? ag.me
         }
     }
 }
-module.exports = { list, messages, chooseInteraction, exportConversation, send, create, save, discover, publicSession, waitForReply, enqueue, cancelQueued, queued, drain, queueKey };
+module.exports = { availableModels, setModel, list, messages, chooseInteraction, exportConversation, send, create, save, discover, publicSession, waitForReply, enqueue, cancelQueued, queued, drain, queueKey };
