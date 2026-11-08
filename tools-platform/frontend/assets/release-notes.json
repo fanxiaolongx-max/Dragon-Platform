@@ -1,12 +1,12 @@
 {
   "zh": [
-    "优化 AI 助手 Markdown 代码块渲染，支持多层嵌套及长代码围栏，避免技能内容被截断。",
-    "增强长文档与多重反引号块的解析稳定性，完整呈现大段代码与排版格式。",
-    "优化 DragonClaw 流式输出中的代码块展示与滚动交互体验。"
+    "侧栏「任务」列表默认不再混入微信 / WeLink 频道会话，只显示自己的对话与桌面 Agent 会话。",
+    "点击侧栏「频道会话」即可查看全部频道对话；在筛选里选中微信或 WeLink 时也会并入列表。",
+    "任务计数随之只统计当前显示的条目，列表更清爽。"
   ],
   "en": [
-    "Optimized Markdown code block rendering in AI assistant to properly keep nested and long fences in a single block without truncation.",
-    "Enhanced parsing stability for extensive documents and multi-backtick blocks to preserve intact formatting.",
-    "Refined DragonClaw streaming code display and scrolling interactions."
+    "The sidebar Tasks list no longer mixes in WeChat / WeLink channel chats by default, showing only your own chats and desktop agent sessions.",
+    "Open Channels in the sidebar to see channel chats, or pick WeChat or WeLink in the list filter to merge them in.",
+    "The task count now reflects only the rows shown, keeping the list tidy."
   ]
 }
