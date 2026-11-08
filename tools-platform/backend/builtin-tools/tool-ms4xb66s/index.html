@@ -289,6 +289,8 @@
   }
 
 
+  .tab.priority-tab{font-weight:800;border:2px solid #d99b22;background:#fff7df;color:#805100}
+  .tab.priority-tab.active{background:#805100;color:#fff;border-color:#805100}
   .blacklist-body{padding:18px 20px 20px;overflow:auto;display:flex;flex-direction:column;flex:1;min-height:0;gap:8px}
   .blacklist-tools{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
   .blacklist-table{max-height:46vh;overflow:auto;margin:8px 0}
@@ -930,6 +932,10 @@
             <option value="disabled">不启用黑名单</option>
           </select>
         </div>
+        <div><label>扣钱方式</label>
+          <select id="deductionMode"><option value="average" selected>开启：按本人季度月均激励扣减</option><option value="full">关闭：扣除对应月份全部激励</option></select>
+          <div class="filter-help">默认开启平均扣减：本人同季度有激励月份的扣前均值（四舍五入到元），每个扣减月扣一次，最多扣至当月金额；关闭改为整月扣除。筛选不改变均值。</div>
+        </div>
         <div><label>操作人姓名 / 工号</label><input id="filterPerson" type="text" placeholder="输入姓名或完整/部分工号"><div class="filter-help">支持包含匹配</div></div>
         <div><label>维度统计</label>
           <select id="chartDimension">
@@ -968,7 +974,8 @@
   <section class="card" style="margin-top:14px">
     <div class="toolbar">
       <div class="toolbar-left">
-        <button class="tab active" data-view="person">人员周期汇总</button>
+        <button class="tab priority-tab active" data-view="person">★ 人员月度汇总</button>
+        <button class="tab priority-tab" data-view="personQuarter">★ 人员季度汇总</button>
         <button class="tab" data-view="dimension">维度汇总</button>
         <button class="tab" data-view="period">周期汇总</button>
         <button class="tab" data-view="summary">周期交叉</button>
@@ -1898,6 +1905,7 @@ function updateLanguageUI(){
     const t=tag.textContent;
     tag.textContent=t.includes('选')||t.includes('Opt')?(isEn?'Optional':'可选'):(isEn?'Recommended':'推荐');
   });
+  document.querySelectorAll('.priority-tab').forEach(tab=>{tab.textContent=tab.dataset.view==='person'?BL('★ 人员月度汇总','★ Personnel Monthly'):BL('★ 人员季度汇总','★ Personnel Quarterly')});
   const expBtn=$('exportBtn');if(expBtn)expBtn.textContent=isEn?'Export Results':'导出当前结果';
   const expEnBtn=$('exportEnBtn');if(expEnBtn)expEnBtn.textContent=isEn?'🌐 Export (English)':'🌐 导出英文版';
   const toggleBtn=$('toggleFilterSectionBtn');
@@ -1952,8 +1960,9 @@ function updateFilterCollapsedSummary(){
   const parts=[];
   const ptMapZh={month:'月度',quarter:'季度',half:'半年度',year:'年度'};
   const ptMapEn={month:'Monthly',quarter:'Quarterly',half:'Semi-Annual',year:'Annual'};
-  const pt=$('periodType')?.value||'month';
+  const pt=currentView==='person'?'month':currentView==='personQuarter'?'quarter':$('periodType')?.value||'month';
   parts.push(isEn?(ptMapEn[pt]||pt):(ptMapZh[pt]||pt));
+  parts.push(isAverageDeduction()?BL('按本人季度月均扣减','Deduct quarterly monthly average'):BL('整月扣减','Deduct full month'));
 
   const yr=$('filterYear')?.value;
   const mo=$('filterMonth')?.value;
@@ -2072,7 +2081,12 @@ function blacklistDeductionRows(){
     const month=incentiveMonth(r),key=personKey(r.__person)+'|'+month;
     if(!groups.has(key))groups.set(key,{'工号':r.__person,'姓名':clean(r.__name||r.__fmeName)||[...incentiveBlacklist.values()].find(x=>personKey(x.staffId)===personKey(r.__person)&&x.month===month&&x.name)?.name||displayPersonName(r),'扣减月份':month,'扣减原因':reason,'来源':uniq([...incentiveBlacklist.values()].filter(x=>personKey(x.staffId)===personKey(r.__person)&&x.month===month).map(x=>x.source)).join('；'),'扣减激励（元）':0,'扣减后激励（元）':0});
     groups.get(key)['扣减激励（元）']+=Number(r.__fee)||0;
-  });return [...groups.values()];
+  });
+  const paid=new Map();rowsForSelectedDedupMode().filter(rowMatchesFilters).forEach(r=>{
+    const key=personKey(r.__person)+'|'+incentiveMonth(r);paid.set(key,(paid.get(key)||0)+Number(r.__fee||0));
+  });
+  groups.forEach((g,key)=>{const remaining=paid.get(key)||0;g['扣减激励（元）']=Math.max(0,g['扣减激励（元）']-remaining);g['扣减后激励（元）']=remaining});
+  return [...groups.values()];
 }
 function renderBlacklistDeductions(){
   const rows=blacklistDeductionRows(),months=importedIncentiveMonths();
@@ -2478,7 +2492,7 @@ function applyPaymentRules(sourceChanged=false){
     const selected=best.get(key);
     if(!selected||r.__rank>selected.__rank||(r.__rank===selected.__rank&&r.__fee>selected.__fee))best.set(key,r);
   });
-  dedupRows=[...best.values()].sort((a,b)=>(a.__date||'').localeCompare(b.__date||''));
+  dedupRows=rowsForRuleMode({dedup:true,blacklist:isBlacklistEnabled(),allGroups:true});
   calcDetailRows=validRows.map(r=>{
     const key=r.__person+'|'+r.__date;
     const selected=best.get(key);
@@ -2539,17 +2553,41 @@ function isNoDedupMode(){
 function isBlacklistEnabled(){
   return $('blacklistMode')?.value!=='disabled';
 }
-function rowsForRuleMode({dedup=true,blacklist=true}={}){
+function isAverageDeduction(){return $('deductionMode')?.value!=='full'}
+function rowsForRuleMode({dedup=true,blacklist=true,allGroups=false}={}){
   const groupRows=validRows.filter(operatorMatchesGroup);
-  const candidates=groupRows.filter(r=>!paymentBlockReason(r.__person,blacklist,r));
-  if(!dedup)return candidates;
+  const candidates=(allGroups?validRows:groupRows).filter(r=>!nonpaymentReason(r.__person));
   const best=new Map();
   candidates.forEach(r=>{
-    const key=r.__person+'|'+r.__date;
-    const selected=best.get(key);
+    const key=r.__person+'|'+r.__date,selected=best.get(key);
     if(!selected||r.__rank>selected.__rank||(r.__rank===selected.__rank&&r.__fee>selected.__fee))best.set(key,r);
   });
-  return [...best.values()].sort((a,b)=>(a.__date||'').localeCompare(b.__date||''));
+  const baseline=(dedup?[...best.values()]:candidates).sort((a,b)=>(a.__date||'').localeCompare(b.__date||''));
+  if(!blacklist)return baseline;
+  if(!isAverageDeduction())return baseline.filter(r=>!blacklistReason(r.__person,r));
+  const quarters=new Map(),months=new Map();
+  baseline.forEach(r=>{
+    const month=incentiveMonth(r),q=personKey(r.__person)+'|'+month.slice(0,4)+'|'+Math.ceil(Number(month.slice(5,7))/3);
+    if(!quarters.has(q))quarters.set(q,new Map());
+    const qm=quarters.get(q);qm.set(month,(qm.get(month)||0)+Number(r.__fee||0));
+    const key=personKey(r.__person)+'|'+month;
+    if(!months.has(key))months.set(key,{q,rows:[],total:0,blocked:false});
+    const m=months.get(key);m.rows.push(r);m.total+=Number(r.__fee||0);m.blocked=m.blocked||Boolean(blacklistReason(r.__person,r));
+  });
+  const paid=[];
+  months.forEach(m=>{
+    const amounts=[...quarters.get(m.q).values()].filter(n=>n>0);
+    const average=amounts.length?Math.round(amounts.reduce((a,b)=>a+b,0)/amounts.length):0;
+    const deduction=m.blocked?Math.min(m.total,average):0;
+    let cumulative=0,allocated=0;
+    m.rows.forEach(r=>{
+      cumulative+=Number(r.__fee||0);
+      const target=m.total?Math.round(deduction*cumulative/m.total):0,cut=target-allocated;allocated=target;
+      const fee=Number(r.__fee||0)-cut;
+      if(fee>0||!deduction)paid.push({...r,__fee:fee});
+    });
+  });
+  return paid.sort((a,b)=>(a.__date||'').localeCompare(b.__date||''));
 }
 function rowsForSelectedDedupMode(){
   return rowsForRuleMode({dedup:!isNoDedupMode(),blacklist:isBlacklistEnabled()});
@@ -2573,11 +2611,12 @@ function filtered(){
 function filteredCalcDetails(){
   const selectedRows=rowsForSelectedDedupMode();
   const selectedIds=new Set(selectedRows.map(r=>r.__row));
+  const paidByRow=new Map(selectedRows.map(r=>[r.__row,r.__fee]));
   const selectedByKey=new Map(selectedRows.map(r=>[r.__person+'|'+r.__date,r]));
   const blacklistEnabled=isBlacklistEnabled();
   return calcDetailRows.filter(rowMatchesFilters).map(r=>{
     const blockedByBlacklist=Boolean(paymentBlockReason(r.__person,blacklistEnabled,r));
-    const counted=!blockedByBlacklist&&selectedIds.has(r.__row);
+    const counted=selectedIds.has(r.__row);
     const noDedupView=isNoDedupMode()&&counted;
     const selected=selectedByKey.get(r.__person+'|'+r.__date);
     return {
@@ -2585,9 +2624,10 @@ function filteredCalcDetails(){
       __counted:counted,
       __blockedByBlacklist:blockedByBlacklist,
       __noDedupView:noDedupView,
-      __calcFee:counted?r.__fee:0,
+      __fee:counted?paidByRow.get(r.__row):r.__fee,
+      __calcFee:counted?paidByRow.get(r.__row):0,
       __calcStatus:counted?(noDedupView?'计发（不剔重）':'计发'):'忽略',
-      __ignoreReason:counted?'':blockedByBlacklist?paymentBlockReason(r.__person,blacklistEnabled,r):'同日多单，已由更高等级记录计发',
+      __ignoreReason:blockedByBlacklist?paymentBlockReason(r.__person,blacklistEnabled,r):counted?'':'同日多单，已由更高等级记录计发',
       __selectedLevel:counted||blockedByBlacklist?'':selected?.__level||'',
       __selectedTask:counted||blockedByBlacklist?'':selected?.__task||''
     };
@@ -2615,7 +2655,7 @@ function render(){
   if(currentView==='dimension')renderDimension(rows);
   else if(currentView==='period')renderPeriod(rows);
   else if(currentView==='summary')renderSummary(rows);
-  else if(currentView==='person')renderPerson(rows);
+  else if(currentView==='person'||currentView==='personQuarter')renderPerson(rows);
   else if(currentView==='detail')renderDetail(filteredCalcDetails());
   else renderExcluded(filteredExcludedRows());
 }
@@ -3158,9 +3198,8 @@ function renderSummary(rows){
   headers.push(BL('计费记录','Billable Orders'),BL('操作天数','Days'),BL('涉及人员','People'),BL('等级分布','Level Breakdown'),BL('激励合计（元）','Total Incentive (CNY)'));
   table(headers,data);
 }
-function getPersonnelPeriodSummaryData(rows=filtered()){
-  const type=$('periodType').value,m=new Map();
-  const isEn=isEnglishMode();
+function getPersonnelPeriodSummaryData(rows=filtered(),type=(currentView==='personQuarter'?'quarter':'month'),isEn=isEnglishMode()){
+  const m=new Map();
   const paidTotals=new Map();
   rows.forEach(r=>{const key=periodKey(filterDateForRow(r),type)+'|'+r.__person;paidTotals.set(key,(paidTotals.get(key)||0)+(Number(r.__fee)||0))});
   const baseRows=rowsForRuleMode({dedup:!isNoDedupMode(),blacklist:false}).filter(rowMatchesFilters);
@@ -3209,6 +3248,7 @@ function getPersonnelPeriodSummaryData(rows=filtered()){
       highCount:x.levels.High||0,
       mediumCount:x.levels.Medium||0,
       lowCount:x.levels.Low||0,
+      rawMoney:x.rawMoney,
       isDeducted,
       deductedMoney,
       deductionReason:isDeducted?appliedReasons.join('；'):'',
@@ -3234,6 +3274,8 @@ function renderPerson(rows){
       esc(x.p),
       esc(x.person)+personStatusTags(x.person),
       nameCell,
+      esc(x.changeText),
+      esc(x.departureText),
       personFieldCell(x.person),
       esc(x.bg),
       esc(x.bu),
@@ -3242,15 +3284,18 @@ function renderPerson(rows){
       x.mediumCount,
       x.lowCount,
       x.daysCount,
+      `<span class="money">${money(x.rawMoney)}</span>`,
       deductedCell,
-      reasonCell,
-      `<span class="money">${money(x.money)}</span>`
+      `<span class="money">${money(x.money)}</span>`,
+      reasonCell
     ];
   });
   const headers=[
     BL('周期','Period'),
     BL('操作人','Operator ID'),
     BL('姓名','Name'),
+    BL('工号变更','ID Change'),
+    BL('是否离职','Departure Status'),
     'WeLink · '+welinkDisplayLabel(),
     'BG',
     BL('BU1 / 部门','BU / Dept'),
@@ -3259,11 +3304,12 @@ function renderPerson(rows){
     BL('Medium单数','Medium Count'),
     BL('Low单数','Low Count'),
     BL('计费天数','Billable Days'),
+    BL('扣减前激励（元）','Before Deduction (CNY)'),
     BL('是否扣除激励','Incentive Deducted'),
-    BL('扣除原因','Deduction Reason'),
-    BL('激励合计（元）','Total Incentive (CNY)')
+    BL('扣减后激励（元）','After Deduction (CNY)'),
+    BL('扣除原因','Deduction Reason')
   ];
-  table(headers,tableRows,{reasonColumn:12});
+  table(headers,tableRows,{reasonColumn:16});
 }
 function renderDetail(rows){
   const sorted=[...rows].sort((a,b)=>
@@ -3581,38 +3627,20 @@ function exportCurrent(forceEnglish=false){
   wrapExportReasonColumn(outWs,outputLastCol-4);
   XLSX.utils.book_append_sheet(wb,outWs,resultSheetName);
 
-  // Sheet 2: Personnel Period Summary (人员周期汇总)
-  const summaryData=getPersonnelPeriodSummaryData();
-  const summaryHeaders=isEn
-    ?['Period','Operator ID','Name','ID Change','Departure Status','WeLink · '+welinkDisplayLabel(),'BG','BU / Dept','Fatal Count','High Count','Medium Count','Low Count','Billable Days','Incentive Deducted','Deduction Reason','Total Incentive (CNY)']
-    :['周期','操作人','姓名','工号变更','是否离职','WeLink · '+welinkDisplayLabel(),'BG','BU1 / 部门','Fatal单数','High单数','Medium单数','Low单数','计费天数','是否扣除激励','扣除原因','激励合计（元）'];
-
-  const summarySheetRows=summaryData.map(x=>[
-    x.p,
-    x.person,
-    x.name||'—',
-    x.changeText,
-    x.departureText,
-    personFieldValue(x.person)||'—',
-    x.bg||'—',
-    x.bu||'—',
-    x.fatalCount,
-    x.highCount,
-    x.mediumCount,
-    x.lowCount,
-    x.daysCount,
-    x.isDeducted?(x.money>0?(isEn?'Partially deducted':'部分扣除'):(isEn?'Yes':'是')):(isEn?'No':'否'),
-    x.isDeducted?(isEn?translateDeductionReason(x.deductionReason):x.deductionReason):'—',
-    Math.round(x.money)
-  ]);
-  const summaryWs=XLSX.utils.aoa_to_sheet([summaryHeaders,...summarySheetRows]);
-  summaryWs['!cols']=[
-    {wch:12},{wch:14},{wch:22},{wch:26},{wch:14},{wch:20},{wch:14},{wch:16},
-    {wch:12},{wch:12},{wch:12},{wch:12},{wch:12},
-    {wch:16},{wch:34},{wch:18}
-  ];
-  wrapExportReasonColumn(summaryWs,14);
-  XLSX.utils.book_append_sheet(wb,summaryWs,isEn?'Personnel_Summary':'人员周期汇总');
+  // Both priority views are exported from the same data and column order as the page.
+  for(const type of ['month','quarter']){
+    const summaryData=getPersonnelPeriodSummaryData(filtered(),type,isEn);
+    const headers=isEn
+      ?['Period','Operator ID','Name','ID Change','Departure Status','WeLink · '+welinkDisplayLabel(),'BG','BU / Dept','Fatal Count','High Count','Medium Count','Low Count','Billable Days','Before Deduction (CNY)','Incentive Deducted','After Deduction (CNY)','Deduction Reason']
+      :['周期','操作人','姓名','工号变更','是否离职','WeLink · '+welinkDisplayLabel(),'BG','BU1 / 部门','Fatal单数','High单数','Medium单数','Low单数','计费天数','扣减前激励（元）','是否扣除激励','扣减后激励（元）','扣除原因'];
+    const records=summaryData.map(x=>[x.p,x.person,x.name||'—',x.changeText,x.departureText,personFieldValue(x.person)||'—',x.bg||'—',x.bu||'—',x.fatalCount,x.highCount,x.mediumCount,x.lowCount,x.daysCount,x.rawMoney,
+      x.isDeducted?(x.money>0?(isEn?'Partially deducted':'部分扣除'):(isEn?'Yes':'是')):(isEn?'No':'否'),x.money,
+      x.isDeducted?(isEn?translateDeductionReason(x.deductionReason):x.deductionReason):'—']);
+    const ws=XLSX.utils.aoa_to_sheet([headers,...records]);
+    ws['!cols']=headers.map((_,i)=>({wch:i===16?34:i===2||i===3||i===5?24:18}));
+    wrapExportReasonColumn(ws,16);
+    XLSX.utils.book_append_sheet(wb,ws,type==='month'?(isEn?'Personnel_Summary':'人员周期汇总'):(isEn?'Personnel_Quarterly':'人员季度汇总'));
+  }
 
   // Sheet 3: Blacklist Deductions
   const deductions=blacklistDeductionRows();
@@ -3754,6 +3782,10 @@ $('periodSourceMode').onchange=()=>{
 $('dedupMode').onchange=()=>{
   refreshFilters();
   render();
+};
+$('deductionMode').onchange=()=>{
+  try{localStorage.setItem('nightAllowanceDeductionModeV1',$('deductionMode').value)}catch(e){}
+  applyPaymentRules();
 };
 $('blacklistMode').onchange=()=>{
   refreshFilters();
@@ -3963,10 +3995,16 @@ function attendanceBlacklistEntry(item,a){
 function updateAttendanceAnomalyAlert(rows = filtered()) {
   const visibleKeys=new Set(rows.map(r=>personKey(r.__person)+'|'+incentiveMonth(r))),visiblePeople=new Map(rows.map(r=>[personKey(r.__person),r]));
   const groups=new Map(),months=importedIncentiveMonths();
-  // A blacklist blocks the employee's whole month, including rows hidden by BU/level filters.
+  // Preview uses whole employee-months and the same quarter average as payment calculation.
+  const averages=new Map();
+  if(isAverageDeduction())rowsForRuleMode({dedup:!isNoDedupMode(),blacklist:false}).forEach(r=>{
+    const d=filterDateForRow(r),q=personKey(r.__person)+'|'+periodKey(d,'quarter'),month=incentiveMonth(r);
+    if(!averages.has(q))averages.set(q,new Map());
+    const months=averages.get(q);months.set(month,(months.get(month)||0)+Number(r.__fee||0));
+  });
   rowsForSelectedDedupMode().forEach(r=>{
     const staffId=clean(r.__person),month=incentiveMonth(r),key=personKey(staffId)+'|'+month;
-    if(!staffId||!visibleKeys.has(key))return;
+    if(!staffId||!visibleKeys.has(key)||(isBlacklistEnabled()&&blacklistReason(r.__person,r)))return;
     if(!groups.has(key))groups.set(key,{staffId,name:clean(r.__name||r.__fmeName),bu:clean(r.__bu),month,totalFee:0,orderCount:0});
     const info=groups.get(key);info.totalFee+=Number(r.__fee)||0;info.orderCount++;
     if(!info.name)info.name=clean(r.__name||r.__fmeName);
@@ -3976,6 +4014,11 @@ function updateAttendanceAnomalyAlert(rows = filtered()) {
     if(!res?.hasAnomaly)return [];
     const anomalies=(res.anomalies||[]).filter(a=>{const date=attendanceEventDate(a);return date&&months.includes(date.slice(0,7))&&date.slice(0,7)===info.month});
     if(!anomalies.length||info.totalFee<=0)return [];
+    if(isAverageDeduction()){
+      const q=personKey(info.staffId)+'|'+info.month.slice(0,4)+' Q'+Math.ceil(Number(info.month.slice(5,7))/3);
+      const values=[...(averages.get(q)?.values()||[])].filter(n=>n>0);
+      if(values.length)info.totalFee=Math.min(info.totalFee,Math.round(values.reduce((a,b)=>a+b,0)/values.length));
+    }
     return [{...info,anomalies,anomalyDesc:anomalies.map(attendanceDeductionReason).join('； '),anomalyCount:anomalies.length,deductible:true}];
   });
   visiblePeople.forEach((r,key)=>{
@@ -4563,6 +4606,7 @@ $('resetRulesBtn').onclick=()=>{
   resetRules();
 };
 loadBlacklist();
+try{$('deductionMode').value=localStorage.getItem('nightAllowanceDeductionModeV1')==='full'?'full':'average'}catch(e){}
 loadRules();
 
 const TOUR_STORAGE_KEY='nightAllowanceTourDoneV1';
@@ -4747,6 +4791,7 @@ function inferPeriodFromRows() {
 }
 
 function buildIncentiveSnapshotPayload(customTitle, customPeriod) {
+  dedupRows=rowsForRuleMode({dedup:!isNoDedupMode(),blacklist:isBlacklistEnabled(),allGroups:true});
   const period = customPeriod ? customPeriod.trim() : inferPeriodFromRows();
   const title = customTitle ? customTitle.trim() : `${period} 埃及夜间操作激励核算`;
 
@@ -4809,60 +4854,16 @@ function buildIncentiveSnapshotPayload(customTitle, customPeriod) {
   });
   const topPeople = [...personMap.values()].sort((a, b) => b.amount - a.amount || b.count - a.count).slice(0, 10);
 
-  const personSummaryMap = new Map();
-  const type = $('periodType')?.value || 'month';
-  const sourceRowsForPerson = dedupRows;
-  sourceRowsForPerson.forEach(r => {
-    const p = r.__person || r['操作人'] || '';
-    if (!p) return;
-    const pKey = typeof periodKey === 'function' ? periodKey(filterDateForRow(r), type) : period;
-    const k = pKey + '|' + p;
-    if (!personSummaryMap.has(k)) {
-      personSummaryMap.set(k, {
-        '周期': pKey,
-        '操作人': p,
-        '姓名': r.__name || r.__fmeName || r['姓名'] || '',
-        'WeLink人员字段': personFieldValue(p),
-        'BU1 / 部门': r.__bu || r['BU1 / 部门'] || r['BU1'] || r['部门'] || '',
-        '客户': r.__customer || r['客户'] || r['客户群'] || '',
-        '人员属性': r.__attr || r['人员属性'] || '',
-        '计费天数': 0,
-        '等级分布': '',
-        '激励合计（元）': 0,
-        _buSet: new Set(),
-        _custSet: new Set(),
-        _daysSet: new Set(),
-        _levelMap: {}
-      });
-    }
-    const item = personSummaryMap.get(k);
-    if (!item['姓名'] && (r.__name || r.__fmeName || r['姓名'])) {
-      item['姓名'] = r.__name || r.__fmeName || r['姓名'];
-    }
-    if (r.__bu) item._buSet.add(r.__bu);
-    if (r.__customer) item._custSet.add(r.__customer);
-    if (r.__date) item._daysSet.add(r.__date);
-    if (r.__level) item._levelMap[r.__level] = (item._levelMap[r.__level] || 0) + 1;
-    item['激励合计（元）'] += (r.__fee || 0);
-  });
-  const personnelPeriodSummary = [...personSummaryMap.values()].map(x => {
-    const bu = [...x._buSet].filter(Boolean).join(' / ') || x['BU1 / 部门'];
-    const cust = [...x._custSet].filter(Boolean).join(' / ') || x['客户'];
-    const levelDist = Object.entries(x._levelMap || {}).map(([lvl, cnt]) => `${lvl}:${cnt}`).join(' / ');
-    return {
-      '周期': x['周期'],
-      '操作人': x['操作人'],
-      '姓名': x['姓名'],
-      '工号变更': changedEmployeeId(x['操作人'])?`工号有变更（现工号：${changedEmployeeId(x['操作人'])}）`:'' ,
-      ['WeLink · '+welinkDisplayLabel()]: x['WeLink人员字段'],
-      'BU1 / 部门': bu,
-      '客户': cust,
-      '人员属性': x['人员属性'],
-      '计费天数': x._daysSet.size || 1,
-      '等级分布': levelDist,
-      '激励合计（元）': x['激励合计（元）']
-    };
-  });
+  const personnelPeriodSummary = getPersonnelPeriodSummaryData().map(x=>({
+    '周期':x.p,'操作人':x.person,'姓名':x.name,'工号变更':x.changeText,
+    ['WeLink · '+welinkDisplayLabel()]:personFieldValue(x.person),
+    'BG':x.bg,'BU1 / 部门':x.bu,
+    '客户':uniq(validRows.filter(r=>r.__person===x.person&&periodKey(filterDateForRow(r),currentView==='personQuarter'?'quarter':'month')===x.p).map(r=>r.__customer)).join(' / '),
+    '人员属性':uniq(validRows.filter(r=>r.__person===x.person).map(r=>r.__attr)).join(' / '),'计费天数':x.daysCount,
+    '等级分布':Object.entries(x.levels).map(([k,v])=>`${k}:${v}`).join(' / '),
+    '扣减前激励（元）':x.rawMoney,'是否扣除激励':x.isDeducted?'是':'否',
+    '扣减后激励（元）':x.money,'扣除原因':x.deductionReason,'激励合计（元）':x.money
+  }));
 
   const summary = {
     period,
@@ -4902,8 +4903,8 @@ function buildIncentiveSnapshotPayload(customTitle, customPeriod) {
     sheets: [
       {
         sheetName: '人员周期汇总',
-        headers: ['周期', '操作人', '姓名', '工号变更', 'WeLink · '+welinkDisplayLabel(), 'BU1 / 部门', '客户', '人员属性', '计费天数', '等级分布', '激励合计（元）'],
-        rows: personnelPeriodSummary.map(x => [x['周期'], x['操作人'], x['姓名'], x['工号变更'], x['WeLink · '+welinkDisplayLabel()], x['BU1 / 部门'], x['客户'], x['人员属性'], x['计费天数'], x['等级分布'], x['激励合计（元）']])
+        headers: ['周期', '操作人', '姓名', '工号变更', 'WeLink · '+welinkDisplayLabel(), 'BU1 / 部门', '客户', '人员属性', '计费天数', '等级分布', '扣减前激励（元）', '是否扣除激励', '扣减后激励（元）', '扣除原因', '激励合计（元）'],
+        rows: personnelPeriodSummary.map(x => [x['周期'], x['操作人'], x['姓名'], x['工号变更'], x['WeLink · '+welinkDisplayLabel()], x['BU1 / 部门'], x['客户'], x['人员属性'], x['计费天数'], x['等级分布'], x['扣减前激励（元）'], x['是否扣除激励'], x['扣减后激励（元）'], x['扣除原因'], x['激励合计（元）']])
       }
     ],
     rawRows: rawRows,
@@ -4915,6 +4916,7 @@ function buildIncentiveSnapshotPayload(customTitle, customPeriod) {
     nonpaymentRules,
     activeOperatorGroup: activeOperatorGroup || 'nonwx',
     dedupMode: $('dedupMode')?.value || 'highest',
+    deductionMode: $('deductionMode')?.value || 'average',
     blacklistMode: $('blacklistMode')?.value || 'enabled',
     periodSourceMode: $('periodSourceMode')?.value || 'imported'
   };
@@ -5355,6 +5357,7 @@ function restoreIncentiveSnapshot(snapshot) {
   nonpaymentRules=Array.isArray(p.nonpaymentRules)?p.nonpaymentRules:[];saveNonpaymentRules();
   renderNonpaymentRules();
   if (p.dedupMode && $('dedupMode')) $('dedupMode').value = p.dedupMode;
+  $('deductionMode').value=p.deductionMode==='average'?'average':'full'; // Legacy snapshots retain full-month deductions.
   if (p.blacklistMode && $('blacklistMode')) $('blacklistMode').value = p.blacklistMode;
   if (p.periodSourceMode && $('periodSourceMode')) $('periodSourceMode').value = p.periodSourceMode;
   if (p.activeOperatorGroup) activeOperatorGroup = p.activeOperatorGroup;

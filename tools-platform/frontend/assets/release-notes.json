@@ -1,12 +1,12 @@
 {
   "zh": [
-    "桌面 Agent 修复 Codex 运行中引导（steer）时的 504 超时问题，优化点对点客户端发现并支持会话自动唤醒。",
-    "桌面 Agent 增加原生客户端模型切换与按会话持久化支持，可在网页端直接选择模型。",
-    "修复 Windows 桌面端环境兼容性问题，解决 performance.now 异常提示并优化 Claude 桌面交互。"
+    "浏览器侧边栏针对桌面端网页宽度自适应展开，仅手机端页面保持紧凑收拢。",
+    "夜间操作激励统计工具新增人员季度汇总视图与导出，黑名单扣减支持季度月均扣减模式。",
+    "优化激励明细与导出表头展示，完善中英文双语导出与筛选状态摘要联动。"
   ],
   "en": [
-    "Fixed 504 timeout when steering active Codex sessions by using targeted client discovery and automatic session wake-up.",
-    "Added native desktop agent model selection and per-session persistence directly from the web interface.",
-    "Improved Windows desktop environment compatibility, resolving performance.now warnings and refining Claude desktop interactions."
+    "Browser sidebar now automatically widens for desktop web pages while staying narrow for phone-only views.",
+    "Night operation incentive calculator adds personnel quarterly summary view & export, plus quarterly monthly average deduction mode.",
+    "Enhanced incentive calculation details and export headers with bilingual support and synchronized filter summaries."
   ]
 }

@@ -281,7 +281,7 @@ test('changed employee ID badge appears in personnel tables only for a changed q
     assert.match(result.personnel, /OLD100.*工号有变更/);
     assert.match(result.personnel, /查询工号：OLD100；WeLink 返回工号：NEW200/);
     assert.match(result.detail, /OLD100.*工号有变更/);
-    assert.equal((result.personnel.match(/工号有变更/g) || []).length, 1);
+    assert.equal((result.personnel.match(/工号有变更/g) || []).length, 2);
 });
 
 test('one name initial before a numeric or WX ID does not count as an employee ID change', () => {
@@ -493,7 +493,9 @@ test('structured snapshots preserve deduction reasons and do not fabricate payme
     assert.equal(result.restored.entries[0].sourceId, 'event1');
     assert.equal(result.restored.entries[0].reason, '事件原因');
     assert.equal(result.restored.paid, 0);
-    assert.deepEqual(result.restored.summary, []);
+    assert.equal(result.restored.summary.length, 1);
+    assert.equal(result.restored.summary[0]['激励合计（元）'], 0);
+    assert.equal(result.restored.summary[0]['扣减前激励（元）'], 280);
     assert.equal(result.restored.deductions[0]['扣减激励（元）'], 280);
     assert.deepEqual(result.legacy, { paid: 1, month: '' });
     assert.equal(result.cleared, 0);
@@ -576,17 +578,17 @@ test('personnel summary separates pending attendance warnings from applied deduc
       applyAnomaliesToBlacklist();
       const applied=getPersonnelPeriodSummaryData().find(x=>x.person==='A100'&&x.p==='2026-09');
       const appliedState={deducted:applied.isDeducted,reason:applied.deductionReason,money:applied.money};
-      $('periodType').value='quarter';const quarter=getPersonnelPeriodSummaryData().find(x=>x.person==='A100');
+      currentView='personQuarter';const quarter=getPersonnelPeriodSummaryData().find(x=>x.person==='A100');
       const partial={deducted:quarter.isDeducted,amount:quarter.deductedMoney,money:quarter.money,total:getPersonnelPeriodSummaryData().reduce((s,x)=>s+x.money,0),paid:filtered().reduce((s,r)=>s+r.__fee,0)};
-      $('periodType').value='month';$('blacklistMode').value='disabled';render();
+      currentView='person';$('blacklistMode').value='disabled';render();
       const disabled=getPersonnelPeriodSummaryData().find(x=>x.person==='A100'&&x.p==='2026-09');
       ({pendingState,appliedState,partial,disabled:{deducted:disabled.isDeducted,reason:disabled.deductionReason,money:disabled.money}});
     `);
     assert.deepEqual(result.pendingState, { deducted: false, reason: '', money: 280, warning: true, blacklist: 0 });
     assert.equal(result.appliedState.deducted, true);
-    assert.equal(result.appliedState.money, 0);
+    assert.equal(result.appliedState.money, 115);
     assert.match(result.appliedState.reason, /考勤：2026-09-22《质量例会》：缺席/);
-    assert.deepEqual(result.partial, { deducted: true, amount: 280, money: 50, total: 100, paid: 100 });
+    assert.deepEqual(result.partial, { deducted: true, amount: 165, money: 165, total: 215, paid: 215 });
     assert.deepEqual(result.disabled, { deducted: false, reason: '', money: 280 });
 });
 
@@ -604,4 +606,43 @@ test('reason cells show a short escaped preview with the complete reason in a co
     assert.doesNotMatch(result.html, /<img/);
     assert.equal(result.empty, '—');
     assert.equal(result.simple, '考勤：2026-09-22《质量例会》：迟到');
+});
+
+test('average deductions use each employee quarter, stay stable under filters and toggle immediately', () => {
+    const runtime=createToolRuntime();
+    const result=evaluate(runtime, `
+      rawRows=[
+        ['2026-07-01','High'],['2026-08-01','Medium'],['2026-09-01','Fatal'],['2026-10-01','Low']
+      ].map(([date,level])=>({task_status:'completed',complete_operator:'A100','当地开始时间':date+' 23:00',operate_level:level}));
+      incentiveBlacklist=blacklistMap([
+        {staffId:'A100',month:'2026-07',reason:'七月异常',source:'手工录入'},
+        {staffId:'A100',month:'2026-09',reason:'九月异常',source:'手工录入'},
+        {staffId:'A100',month:'2026-10',reason:'十月异常',source:'手工录入'}
+      ]);recalculate();
+      const mode=$('deductionMode').value;
+      const monthly=getPersonnelPeriodSummaryData().map(x=>({p:x.p,before:x.rawMoney,after:x.money,cut:x.deductedMoney}));
+      const quarterly=getPersonnelPeriodSummaryData(filtered(),'quarter').map(x=>({p:x.p,before:x.rawMoney,after:x.money,cut:x.deductedMoney}));
+      $('filterMonth').value='09';render();
+      const filteredMoney=filtered().reduce((s,r)=>s+r.__fee,0);
+      const detailMoney=filteredCalcDetails().reduce((s,r)=>s+r.__calcFee,0);
+      const deductions=blacklistDeductionRows();
+      $('deductionMode').value='full';$('deductionMode').onchange();
+      const full=filtered().reduce((s,r)=>s+r.__fee,0),stored=localStorage.getItem('nightAllowanceDeductionModeV1');
+      $('deductionMode').value='average';$('deductionMode').onchange();
+      const snapshot=buildIncentiveSnapshotPayload('测试','2026-09');
+      $('deductionMode').value='full';restoreIncentiveSnapshot(snapshot);
+      ({mode,monthly,quarterly,filteredMoney,detailMoney,deductions,full,stored,restored:$('deductionMode').value});
+    `);
+    assert.equal(result.mode,'average');
+    assert.deepEqual(result.monthly,[
+      {p:'2026-10',before:50,after:0,cut:50},
+      {p:'2026-09',before:600,after:247,cut:353},
+      {p:'2026-08',before:180,after:180,cut:0},
+      {p:'2026-07',before:280,after:0,cut:280}
+    ]);
+    assert.deepEqual(result.quarterly,[{p:'2026 Q4',before:50,after:0,cut:50},{p:'2026 Q3',before:1060,after:427,cut:633}]);
+    assert.equal(result.filteredMoney,247);assert.equal(result.detailMoney,247);
+    assert.equal(result.deductions[0]['扣减激励（元）'],353);
+    assert.equal(result.deductions[0]['扣减后激励（元）'],247);
+    assert.equal(result.full,0);assert.equal(result.stored,'full');assert.equal(result.restored,'average');
 });

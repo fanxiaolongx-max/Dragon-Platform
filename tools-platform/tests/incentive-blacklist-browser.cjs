@@ -82,12 +82,12 @@ app.whenReady().then(async()=>{
     const pendingExport=await run(`(()=>{const wb=exportsCaptured.at(-1).wb;return {summary:XLSX.utils.sheet_to_json(wb.Sheets['人员周期汇总']),deductions:XLSX.utils.sheet_to_json(wb.Sheets['黑名单扣减明细'])}})()`);
     assert.equal(pendingExport.summary.length,2);
     assert.ok(pendingExport.summary.every(row=>row['是否扣除激励']==='否'&&row['扣除原因']==='—'));
-    assert.equal(pendingExport.summary.reduce((sum,row)=>sum+row['激励合计（元）'],0),330);
+    assert.equal(pendingExport.summary.reduce((sum,row)=>sum+row['扣减后激励（元）'],0),330);
     assert.equal(pendingExport.deductions.length,0);
     await run(`exportCurrent(true)`);
     const pendingEnglish=await run(`XLSX.utils.sheet_to_json(exportsCaptured.at(-1).wb.Sheets['Personnel_Summary'])`);
     assert.ok(pendingEnglish.every(row=>row['Incentive Deducted']==='No'&&row['Deduction Reason']==='—'));
-    assert.equal(pendingEnglish.reduce((sum,row)=>sum+row['Total Incentive (CNY)'],0),330);
+    assert.equal(pendingEnglish.reduce((sum,row)=>sum+row['After Deduction (CNY)'],0),330);
     assert.equal(await run(`incentiveBlacklist.size`),0);
 
     await run(`document.querySelector('.anomaly-row-cb[data-idx="1"]').checked=false;updateAnomalySelectionSummary();$('confirmAddToBlacklistBtn').click()`);
@@ -102,9 +102,9 @@ app.whenReady().then(async()=>{
     assert.match(attendanceExport[0]['扣减原因'],/2026-09-22.*质量月度例会.*九月场.*缺席/);
     const confirmedSummary=await run(`XLSX.utils.sheet_to_json(exportsCaptured.at(-1).wb.Sheets['人员周期汇总'])`);
     assert.equal(confirmedSummary.find(row=>row['周期']==='2026-09')['是否扣除激励'],'是');
-    assert.equal(confirmedSummary.find(row=>row['周期']==='2026-09')['激励合计（元）'],0);
+    assert.equal(confirmedSummary.find(row=>row['周期']==='2026-09')['扣减后激励（元）'],0);
     assert.equal(confirmedSummary.find(row=>row['周期']==='2026-10')['是否扣除激励'],'否');
-    assert.equal(confirmedSummary.find(row=>row['周期']==='2026-10')['激励合计（元）'],50);
+    assert.equal(confirmedSummary.find(row=>row['周期']==='2026-10')['扣减后激励（元）'],50);
     assert.equal(await run(`exportsCaptured.at(-1).wb.Sheets['人员周期汇总']['!cols'][14].wch<=34`),true);
     // Expand downward and collapse again without making the reason column wider.
     await run(`$('closeBlacklistModal').click();currentView='person';render()`);
@@ -131,6 +131,25 @@ app.whenReady().then(async()=>{
     assert.deepEqual(await run(`(()=>{const input=document.querySelector('[data-field="reason"]'),style=getComputedStyle(input);return {background:style.backgroundColor,color:style.color}})()`),{background:'rgb(24, 34, 48)',color:'rgb(228, 231, 236)'});
     await run(`document.documentElement.dataset.theme='light'`);
     assert.equal(await run(`getComputedStyle(document.querySelector('[data-field="reason"]')).backgroundColor`),'rgb(255, 255, 255)');
+    await run(`window.dispatchEvent(new MessageEvent('message',{origin:location.origin,data:{type:'tools-platform-language',lang:'zh-CN'}}))`);
+    await new Promise(resolve=>setTimeout(resolve,100));
+    // Real XLSX totals and table columns agree for a partial average deduction.
+    await run(`$('closeBlacklistModal').click();setLanguage('zh');rawRows=[['2026-07-01','High'],['2026-08-01','Medium'],['2026-09-01','Fatal']].map(([date,level])=>({task_status:'completed',complete_operator:'A100','当地开始时间':date+' 23:00',operate_level:level}));sourceWorksheet=XLSX.utils.json_to_sheet(rawRows);sourceSheetName='源数据';incentiveBlacklist=blacklistMap([{staffId:'A100',month:'2026-09',reason:'测试扣减',source:'手工录入'}]);$('deductionMode').value='average';resetAllFiltersForNewFile();recalculate();$('deductionMode').onchange();`);
+    assert.equal(await run(`$('deductionMode').value`),'average');
+    assert.equal(await run(`Number($('sMoney').textContent.replaceAll(',',''))`),707);
+    const monthlyHeaders=await run(`[...document.querySelectorAll('#tableWrap th')].map(n=>n.textContent)`);
+    assert.deepEqual(monthlyHeaders.slice(-4),['扣减前激励（元）','是否扣除激励','扣减后激励（元）','扣除原因']);
+    await run(`document.querySelector('[data-view="personQuarter"]').click();exportCurrent()`);
+    assert.deepEqual(await run(`[...document.querySelectorAll('#tableWrap th')].map(n=>n.textContent)`),monthlyHeaders);
+    const averageExport=await run(`(()=>{const {wb}=exportsCaptured.at(-1),book=XLSX.read(XLSX.write(wb,{type:'array',bookType:'xlsx'}),{type:'array'});return {monthly:XLSX.utils.sheet_to_json(book.Sheets['人员周期汇总']),quarterly:XLSX.utils.sheet_to_json(book.Sheets['人员季度汇总']),details:XLSX.utils.sheet_to_json(book.Sheets['源数据'])}})()`);
+    assert.equal(averageExport.monthly.reduce((s,r)=>s+r['扣减后激励（元）'],0),707);
+    assert.equal(averageExport.quarterly[0]['扣减前激励（元）'],1060);
+    assert.equal(averageExport.quarterly[0]['扣减后激励（元）'],707);
+    assert.equal(averageExport.details.reduce((s,r)=>s+r['本行激励（元）'],0),707);
+    await run(`$('deductionMode').value='full';$('deductionMode').onchange()`);
+    assert.equal(await run(`Number($('sMoney').textContent)`),460);
+    win.setSize(420,800);await new Promise(resolve=>setTimeout(resolve,100));
+    assert.equal(await run(`$('tableWrap').scrollWidth>$('tableWrap').clientWidth`),true);
     assert.deepEqual(errors,[]);
     console.log('PASS: table CRUD, month limits, event preview/import, template file input, all-blocked XLSX export, monthly attendance deduction and reason export, enlarged editor, pending versus confirmed summaries and export, collapsible reason columns, English, light/dark themes and narrow Electron layout');
   }catch(error){console.error(error);process.exitCode=1}

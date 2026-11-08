@@ -373,7 +373,7 @@
   "手机区号": "Mobile Country Code",
   "手机号": "Mobile Phone",
   "扣减原因": "Deduction reason",
-  "扣减后激励（元）": "Incentive after deduction (CNY)",
+  "扣减后激励（元）": "After Deduction (CNY)",
   "扣减月份": "Deduction month",
   "扣减激励（元）": "Incentive deducted (CNY)",
   "扣除原因": "Deduction Reason",
@@ -758,5 +758,14 @@
   "考勤待处理": "Attendance pending",
   "部分扣除": "Partially deducted",
   "展开": "Expand",
-  "收起": "Collapse"
+  "收起": "Collapse",
+  "★ 人员月度汇总": "★ Personnel Monthly",
+  "★ 人员季度汇总": "★ Personnel Quarterly",
+  "扣钱方式": "Deduction method",
+  "开启：按本人季度月均激励扣减": "On: deduct quarterly monthly average",
+  "关闭：扣除对应月份全部激励": "Off: deduct full month",
+  "默认开启平均扣减：本人同季度有激励月份的扣前均值（四舍五入到元），每个扣减月扣一次，最多扣至当月金额；关闭改为整月扣除。筛选不改变均值。": "Average deduction is on by default. Use the employee’s before-deduction monthly average within the same quarter (earning months only, rounded to CNY). Deduct once per affected month, capped at that month’s amount. Turn off for full-month deduction. Filters do not change the average.",
+  "扣减前激励（元）": "Before Deduction (CNY)",
+  "按本人季度月均扣减": "Deduct quarterly monthly average",
+  "整月扣减": "Deduct full month"
 }

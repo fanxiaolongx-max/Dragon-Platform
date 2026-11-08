@@ -545,7 +545,7 @@ test('personnel period summary removes customer/attribute, splits level counts, 
     assert.equal(khaled.bg, 'CNBG', 'Khaled 的实施单为 TK 开头，BG 应为 CNBG');
 });
 
-test('exportCurrent produces 3 sheets including personnel period summary with deduction columns and supports full English export', () => {
+test('exportCurrent produces monthly and quarterly sheets including personnel period summary with deduction columns and supports full English export', () => {
     const runtime = createToolRuntime();
     runtime.context.fixtureRows = [
         {
@@ -620,7 +620,7 @@ test('exportCurrent produces 3 sheets including personnel period summary with de
 
     // 检查中文导出
     const zhWb = result.savedWorkbooks[0];
-    assert.deepEqual(zhWb.wb.SheetNames, ['当前计算结果', '人员周期汇总', '黑名单扣减明细']);
+    assert.deepEqual(zhWb.wb.SheetNames, ['当前计算结果', '人员周期汇总', '人员季度汇总', '黑名单扣减明细']);
     assert.ok(zhWb.filename.startsWith('埃及代表处夜间操作激励统计结果_'));
     const zhSummarySheet = zhWb.wb.Sheets['人员周期汇总'];
     const zhHeaders = zhSummarySheet._rows[0];
@@ -642,7 +642,7 @@ test('exportCurrent produces 3 sheets including personnel period summary with de
 
     // 检查英文导出
     const enWb = result.savedWorkbooks[1];
-    assert.deepEqual(enWb.wb.SheetNames, ['Operation_Details', 'Personnel_Summary', 'Deduction_Details']);
+    assert.deepEqual(enWb.wb.SheetNames, ['Operation_Details', 'Personnel_Summary', 'Personnel_Quarterly', 'Deduction_Details']);
     assert.ok(enWb.filename.startsWith('Egypt_Night_Operation_Incentive_Results_'));
     const enSummarySheet = enWb.wb.Sheets['Personnel_Summary'];
     const enHeaders = enSummarySheet._rows[0];
@@ -660,7 +660,7 @@ test('exportCurrent produces 3 sheets including personnel period summary with de
     const enBgCol = enHeaders.indexOf('BG');
     const deductedIdx = enHeaders.indexOf('Incentive Deducted');
     const reasonIdx = enHeaders.indexOf('Deduction Reason');
-    const moneyIdx = enHeaders.indexOf('Total Incentive (CNY)');
+    const moneyIdx = enHeaders.indexOf('After Deduction (CNY)');
     const idChangeIdx = enHeaders.indexOf('ID Change');
     const departureIdx = enHeaders.indexOf('Departure Status');
 
