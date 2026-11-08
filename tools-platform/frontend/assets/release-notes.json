@@ -1,12 +1,12 @@
 {
   "zh": [
-    "浏览器侧边栏针对桌面端网页宽度自适应展开，仅手机端页面保持紧凑收拢。",
-    "夜间操作激励统计工具新增人员季度汇总视图与导出，黑名单扣减支持季度月均扣减模式。",
-    "优化激励明细与导出表头展示，完善中英文双语导出与筛选状态摘要联动。"
+    "自定义工具导入小窗支持在导入成功后自动关闭，并保持操作失败时的友好提示。",
+    "新增内置工具「考勤验收」，支持考勤明细与验收评分编辑、工作日自动计算及格式化 Excel 导出。",
+    "优化夜间操作激励统计工具黑名单季度月均扣减与分摊计算，完善表格布局与异常样式。"
   ],
   "en": [
-    "Browser sidebar now automatically widens for desktop web pages while staying narrow for phone-only views.",
-    "Night operation incentive calculator adds personnel quarterly summary view & export, plus quarterly monthly average deduction mode.",
-    "Enhanced incentive calculation details and export headers with bilingual support and synchronized filter summaries."
+    "Custom tool import dialog now automatically closes upon successful import while keeping error messages visible on failure.",
+    "Added bundled \"Attendance Acceptance\" tool for managing attendance logs, evaluations, and formatted Excel exports.",
+    "Refined night operation incentive calculator with improved quarterly average deduction logic, table layout, and anomaly styling."
   ]
 }

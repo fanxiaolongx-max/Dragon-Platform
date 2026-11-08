@@ -289,6 +289,7 @@
   }
 
 
+  .false-attendance{font-weight:900!important;color:#b42318!important;background:#fee4e2;padding:2px 5px;border-radius:4px}
   .tab.priority-tab{font-weight:800;border:2px solid #d99b22;background:#fff7df;color:#805100}
   .tab.priority-tab.active{background:#805100;color:#fff;border-color:#805100}
   .blacklist-body{padding:18px 20px 20px;overflow:auto;display:flex;flex-direction:column;flex:1;min-height:0;gap:8px}
@@ -297,7 +298,7 @@
   #blacklistRowsTable{flex:1;min-height:min(36vh,320px);max-height:none}
   #negativeEventsPanel{max-height:38vh;overflow:auto;flex-shrink:0}
   .blacklist-table table{min-width:1240px;table-layout:fixed}
-  #blacklistRowsTable th:nth-child(1){width:170px}#blacklistRowsTable th:nth-child(2){width:140px}#blacklistRowsTable th:nth-child(3){width:160px}#blacklistRowsTable th:nth-child(4){width:460px}#blacklistRowsTable th:nth-child(5){width:190px}#blacklistRowsTable th:nth-child(6){width:90px}
+  #blacklistRowsTable th:nth-child(1){width:170px}#blacklistRowsTable th:nth-child(2){width:140px}#blacklistRowsTable th:nth-child(3){width:580px}#blacklistRowsTable th:nth-child(4){width:190px}#blacklistRowsTable th:nth-child(5){width:90px}
   #negativeEventsPanel th:nth-child(1){width:60px}#negativeEventsPanel th:nth-child(2){width:160px}#negativeEventsPanel th:nth-child(3){width:140px}#negativeEventsPanel th:nth-child(4){width:140px}#negativeEventsPanel th:nth-child(5){width:140px}#negativeEventsPanel th:nth-child(6){width:auto}
   #blacklistRows td{vertical-align:top;white-space:normal}
   #blacklistRows textarea{width:100%;min-height:90px;max-height:280px;resize:vertical;line-height:1.6;overflow:auto}
@@ -306,7 +307,7 @@
   #attendanceAnomalyTableWrap table{min-width:1240px}
   #attendanceAnomalyTableWrap td:nth-child(6){min-width:160px}
   .blacklist-table input:not([type=checkbox]),.blacklist-table select,.blacklist-table textarea{box-sizing:border-box;width:100%;min-width:100px;padding:7px;border:1px solid var(--line,#d9dfe7);border-radius:5px;background:var(--card,#fff);color:var(--ink,#182230)}
-  .blacklist-table td:nth-child(4){min-width:230px}
+  .blacklist-table td:nth-child(3){min-width:230px}
   #blacklistDeductionTable td{white-space:normal;min-width:100px}
   th.deduction-reason-cell,td.deduction-reason-cell{width:250px;min-width:250px;max-width:250px;white-space:normal;vertical-align:top}
   .deduction-reason{width:230px;max-width:100%;font-size:11px;line-height:1.6}
@@ -933,8 +934,8 @@
           </select>
         </div>
         <div><label>扣钱方式</label>
-          <select id="deductionMode"><option value="average" selected>开启：按本人季度月均激励扣减</option><option value="full">关闭：扣除对应月份全部激励</option></select>
-          <div class="filter-help">默认开启平均扣减：本人同季度有激励月份的扣前均值（四舍五入到元），每个扣减月扣一次，最多扣至当月金额；关闭改为整月扣除。筛选不改变均值。</div>
+          <select id="deductionMode"><option value="average" selected>开启：按本人季度月均激励扣减</option><option value="full">关闭：扣除黑名单人员全部激励</option></select>
+          <div class="filter-help">默认按人员每季度扣一次本人有激励月份的扣前月均值（四舍五入到元），分摊到各月；重复原因不重复扣钱。关闭后扣除黑名单人员全部激励。筛选不改变均值。</div>
         </div>
         <div><label>操作人姓名 / 工号</label><input id="filterPerson" type="text" placeholder="输入姓名或完整/部分工号"><div class="filter-help">支持包含匹配</div></div>
         <div><label>维度统计</label>
@@ -1281,16 +1282,16 @@
     <div class="rule-modal-head">
       <div>
         <div class="rule-modal-title">激励黑名单配置</div>
-        <div class="section-note">按人员和扣减月份扣除该月全部激励，保留原因与来源。</div>
+        <div class="section-note">按人员统一扣减，默认每季度扣一次本人月均激励，保留原因与来源。</div>
       </div>
       <button class="icon-btn" id="closeBlacklistModal">×</button>
     </div>
     <div class="blacklist-body">
-      <div class="blacklist-help">工号、扣减月份和原因必填。月份依据当前周期口径，只能选择本次导入涉及的月份；同一人员可分月录入。</div>
+      <div class="blacklist-help">工号和扣减原因必填，无需选择扣减月份。同一人员多条原因不会重复扣减；旧快照的月份规则保留。</div>
       <div class="blacklist-tools"><button class="reset-btn" id="addBlacklistRowBtn">新增一行</button><button class="reset-btn" id="downloadBlacklistTemplateBtn">下载导入模板</button><button class="reset-btn" id="importBlacklistBtn">导入黑名单</button><button class="reset-btn" id="exportBlacklistBtn">导出黑名单</button><button class="primary" id="importNegativeEventsBtn">从负向事件管理引入</button><input type="file" id="blacklistFileInput" accept=".xlsx,.xls,.csv" hidden></div>
-      <div class="table-wrap blacklist-table" id="blacklistRowsTable"><table><thead><tr><th>工号</th><th>姓名</th><th>扣减月份</th><th>扣减原因</th><th>来源 / 事件日期</th><th>操作</th></tr></thead><tbody id="blacklistRows"></tbody></table></div>
+      <div class="table-wrap blacklist-table" id="blacklistRowsTable"><table><thead><tr><th>工号</th><th>姓名</th><th>扣减原因</th><th>来源 / 事件日期</th><th>操作</th></tr></thead><tbody id="blacklistRows"></tbody></table></div>
       <div class="blacklist-count" id="blacklistCount"></div>
-      <div id="negativeEventsPanel" hidden><p id="negativeEventsStatus" role="status"></p><div class="table-wrap blacklist-table"><table><thead><tr><th>选择</th><th>工号</th><th>姓名</th><th>发生日期</th><th>扣减月份</th><th>违规原因</th></tr></thead><tbody id="negativeEventsRows"></tbody></table></div><button class="primary" id="addNegativeEventsBtn">一键加入所选事件</button></div>
+      <div id="negativeEventsPanel" hidden><p id="negativeEventsStatus" role="status"></p><div class="table-wrap blacklist-table"><table><thead><tr><th>选择</th><th>工号</th><th>姓名</th><th>发生日期</th><th>事件月份</th><th>违规原因</th></tr></thead><tbody id="negativeEventsRows"></tbody></table></div><button class="primary" id="addNegativeEventsBtn">一键加入所选事件</button></div>
       <div class="rule-actions">
         <button class="reset-btn" id="clearBlacklistBtn">清空名单</button>
         <button class="primary" id="saveBlacklistBtn">保存并应用</button>
@@ -1320,7 +1321,7 @@
     <div class="rule-modal-head" style="flex-shrink:0">
       <div>
         <div class="rule-modal-title">📋 激励人员会议考勤排查与黑名单处理</div>
-        <div class="section-note">按人员和异常会议所在月份逐行核查。勾选后仅扣减该员工对应月份的全部激励，其他月份不受影响；会议名称、日期、场次和异常类型会自动写入黑名单原因。</div>
+        <div class="section-note">仅展示本次导入涉及月份中，至少两个月有迟到、缺席或虚假考勤的人员。仅一个月异常不展示、不自动扣减；加入黑名单后按全局扣减方式计算，同一季度只扣一次月均激励。</div>
       </div>
       <button class="icon-btn" id="closeAttendanceAnomalyModal" aria-label="关闭">×</button>
     </div>
@@ -1332,7 +1333,7 @@
             <span>全选 / 全不选</span>
           </label>
           <div id="anomalySelectionSummary" style="font-size:12.5px;color:#475569">
-            按人员月份选择，预计扣减 ¥0
+            按人员选择，预计扣减 ¥0
           </div>
         </div>
         <div style="display:inline-flex;align-items:center;gap:8px">
@@ -1349,15 +1350,15 @@
               <th style="width:120px">工号</th>
               <th style="width:110px">姓名</th>
               <th style="width:140px">BU1 / 部门</th>
-              <th style="width:140px">会议 / 扣减月份</th><th style="width:160px">该月预计扣减</th>
-              <th>会议考勤异常记录明细 (鼠标悬停可查看快照来源)</th>
+              <th style="width:140px">异常涉及月份</th><th style="width:160px">预计扣减激励</th>
+              <th>考勤问题（虚假考勤重点标识）</th>
             </tr>
           </thead>
           <tbody id="attendanceAnomalyTableBody"></tbody>
         </table>
       </div>
       <div class="rule-actions" style="flex-shrink:0;margin-top:14px;padding-top:12px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
-        <div style="font-size:12px;color:#64748b">考勤扣减将自动归入“激励黑名单配置”，可统一查看、编辑或删除；日期不明的会议暂不扣减。</div>
+        <div style="font-size:12px;color:#64748b">考勤扣减自动归入激励黑名单；同月多次异常只计一个异常月份，日期不明或导入范围外的会议不参与判断。</div>
         <div style="display:flex;gap:10px;align-items:center">
           <button type="button" class="btn secondary" id="exportAttendanceAnomalyExcelBtnFooter" style="display:inline-flex;align-items:center;gap:5px;font-weight:600;padding:8px 14px;border-radius:6px;font-size:12px;cursor:pointer">📥 导出 Excel</button>
           <button type="button" class="reset-btn" id="cancelAttendanceAnomalyModal">取消</button>
@@ -1821,13 +1822,13 @@ let incentiveBlacklist=new Map(),blacklistDraft=[],negativeEventCandidates=[];
 function blacklistMap(entries){
   const map=new Map();
   entries.forEach(entry=>{
-    const item={staffId:clean(entry.staffId),name:clean(entry.name),month:clean(entry.month),reason:clean(entry.reason),source:clean(entry.source)||'手工录入',sourceId:clean(entry.sourceId),eventDate:clean(entry.eventDate)};
-    if(item.staffId)map.set(JSON.stringify([personKey(item.staffId),item.month,item.source,item.sourceId||item.reason]),item);
+    const item={staffId:clean(entry.staffId),name:clean(entry.name),month:clean(entry.month),scope:entry.scope|| (clean(entry.month)?'month':'person'),reason:clean(entry.reason),source:clean(entry.source)||'手工录入',sourceId:clean(entry.sourceId),eventDate:clean(entry.eventDate)};
+    if(item.staffId)map.set(JSON.stringify([personKey(item.staffId),item.scope,item.month,item.source,item.sourceId||item.reason]),item);
   });return map;
 }
 function parseBlacklist(text){
-  try{const entries=typeof text==='string'?JSON.parse(text):text;if(Array.isArray(entries))return blacklistMap(entries)}catch(e){}
-  return blacklistMap(String(text||'').split(/\r?\n/).filter(s=>s.trim()).map(line=>{const parts=line.split(/\t|，|,/);return {staffId:parts.shift(),reason:parts.join('，'),month:'',source:'旧名单待补月份'}}));
+  try{const entries=typeof text==='string'?JSON.parse(text):text;if(Array.isArray(entries))return blacklistMap(entries.map(item=>({...item,scope:item.scope||'month'})))}catch(e){}
+  return blacklistMap(String(text||'').split(/\r?\n/).filter(s=>s.trim()).map(line=>{const parts=line.split(/\t|，|,/);return {staffId:parts.shift(),reason:parts.join('，'),month:'',scope:'month',source:'旧名单待补月份'}}));
 }
 function serializeBlacklist(map){return JSON.stringify([...map.values()])}
 function loadBlacklist(){
@@ -1854,6 +1855,7 @@ function validateBlacklistEntries(entries){
   if(!months.length)throw new Error('请先导入包含有效月份的操作激励数据');
   entries.forEach((entry,index)=>{
     if(!clean(entry.staffId)||!clean(entry.reason))throw new Error(BL(`第 ${index+1} 行：工号和扣减原因必填`,`Row ${index+1}: employee ID and deduction reason are required`));
+    if(entry.scope==='person'||(!entry.scope&&!entry.month))return;
     if(entry.source==='会议考勤'&&attendanceEventDate({actualDate:entry.eventDate}).slice(0,7)!==entry.month)throw new Error(BL('会议考勤扣减月份必须与会议发生月份一致','Attendance deduction month must match the meeting month'));
     if(!months.includes(entry.month))throw new Error(BL(`第 ${index+1} 行：扣减月份必须属于本次导入月份`,`Row ${index+1}: deduction month must be one of the imported months`));
   });
@@ -1863,10 +1865,10 @@ function blacklistReason(person,row){
   if(!row)return '';
   const month=incentiveMonth(row);
   if(!month)return '';
-  return uniq([...incentiveBlacklist.values()].filter(item=>personKey(item.staffId)===personKey(person)&&item.month===month).map(item=>item.reason)).join('；');
+  return uniq([...incentiveBlacklist.values()].filter(item=>personKey(item.staffId)===personKey(person)&&(item.scope==='person'||item.month===month)).map(item=>item.reason)).join('；');
 }
 function updateBlacklistCount(){
-  $('blacklistCount').textContent=BL('当前导入月份：','Imported months: ')+ (importedIncentiveMonths().join('、')||BL('尚未导入','No data'))+` · ${blacklistDraft.length} `+BL('条记录；缺少月份或超出本次月份的记录不扣减，保存前须修正或删除。','entries. Missing or out-of-scope months do not deduct; correct or delete before saving.');
+  $('blacklistCount').textContent=BL('当前导入月份：','Imported months: ')+ (importedIncentiveMonths().join('、')||BL('尚未导入','No data'))+` · ${blacklistDraft.length} `+BL('条记录；按人员统一扣减，无需填写扣减月份。','entries. Person-level deductions; no deduction month is required.');
 }
 function isEnglishMode(){
   if(document.documentElement?.lang?.toLowerCase().startsWith('en'))return true;
@@ -1941,7 +1943,7 @@ function setFilterSectionCollapsed(collapsed){
   if(deductionPanel){
     const rows=typeof blacklistDeductionRows==='function'?blacklistDeductionRows():[];
     const months=typeof importedIncentiveMonths==='function'?importedIncentiveMonths():[];
-    const pending=rawRows?.length?[...incentiveBlacklist.values()].filter(x=>!months.includes(x.month)).length:0;
+    const pending=rawRows?.length?[...incentiveBlacklist.values()].filter(x=>x.scope!=='person'&&!months.includes(x.month)).length:0;
     const hasContent=Boolean(rows.length||pending);
     deductionPanel.style.display=(hasContent&&!isFilterSectionCollapsed)?'':'none';
   }
@@ -1962,7 +1964,7 @@ function updateFilterCollapsedSummary(){
   const ptMapEn={month:'Monthly',quarter:'Quarterly',half:'Semi-Annual',year:'Annual'};
   const pt=currentView==='person'?'month':currentView==='personQuarter'?'quarter':$('periodType')?.value||'month';
   parts.push(isEn?(ptMapEn[pt]||pt):(ptMapZh[pt]||pt));
-  parts.push(isAverageDeduction()?BL('按本人季度月均扣减','Deduct quarterly monthly average'):BL('整月扣减','Deduct full month'));
+  parts.push(isAverageDeduction()?BL('按本人季度月均扣减','Deduct quarterly monthly average'):BL('黑名单人员全额扣减','Deduct all blacklisted incentives'));
 
   const yr=$('filterYear')?.value;
   const mo=$('filterMonth')?.value;
@@ -2008,7 +2010,9 @@ function translateDeductionReason(reason){
     ['按完成时间','By completion time'],
     ['不发放规则：','Non-payment rule: '],
     ['会议考勤','Meeting Attendance'],
+    ['月考勤：',' attendance: '],
     ['考勤：','Attendance: '],
+    ['虚假考勤','False attendance'],
     ['缺席','Absent'],
     ['虚假签到','False sign-in'],
     ['考勤异常','Attendance Anomaly'],
@@ -2034,6 +2038,7 @@ function translateSource(source){
     ['负向事件管理','Negative Events'],
     ['负向事件','Negative Event'],
     ['手工录入','Manual Entry'],
+    ['模板导入','Template Import'],
     ['文件导入','File Import']
   ];
   for(const [zh,en] of replacements){
@@ -2067,8 +2072,7 @@ function translateCellValue(val){
   return map[val]||val;
 }
 function renderBlacklistEditor(){
-  const months=importedIncentiveMonths();
-  $('blacklistRows').innerHTML=blacklistDraft.map((item,index)=>`<tr data-blacklist-index="${index}"><td><input aria-label="${BL('工号','Employee ID')}" data-field="staffId" value="${esc(item.staffId)}"></td><td><input aria-label="${BL('姓名','Name')}" data-field="name" value="${esc(item.name)}"></td><td><select aria-label="${BL('扣减月份','Deduction month')}" data-field="month"><option value="">${BL('请选择月份','Choose month')}</option>${!months.includes(item.month)&&item.month?`<option value="${esc(item.month)}" selected disabled>${esc(item.month)} (${BL('超出范围','Out of scope')})</option>`:''}${months.filter(month=>item.source!=='会议考勤'||month===clean(item.eventDate).slice(0,7)).map(month=>`<option ${month===item.month?'selected':''}>${month}</option>`).join('')}</select></td><td><textarea aria-label="${BL('扣减原因','Reason')}" data-field="reason">${esc(item.reason)}</textarea></td><td>${esc(item.source)}${item.eventDate?`<br>${esc(item.eventDate)}`:''}</td><td><button class="reset-btn" data-blacklist-remove="${index}">${BL('删除','Delete')}</button></td></tr>`).join('');
+  $('blacklistRows').innerHTML=blacklistDraft.map((item,index)=>`<tr data-blacklist-index="${index}"><td><input aria-label="${BL('工号','Employee ID')}" data-field="staffId" value="${esc(item.staffId)}"></td><td><input aria-label="${BL('姓名','Name')}" data-field="name" value="${esc(item.name)}"></td><td><textarea aria-label="${BL('扣减原因','Reason')}" data-field="reason">${esc(item.reason)}</textarea>${hasFalseAttendance(item.reason)?`<strong class="false-attendance">⚠ ${BL('涉及虚假考勤','False attendance')}</strong>`:''}</td><td>${esc(item.source)}${item.scope==='month'?`<br>${esc(item.month||BL('旧记录待确认','Legacy entry pending'))}`:''}</td><td><button class="reset-btn" data-blacklist-remove="${index}">${BL('删除','Delete')}</button></td></tr>`).join('');
   document.querySelectorAll('#blacklistRows textarea').forEach(resizeBlacklistReason);
   updateBlacklistCount();
 }
@@ -2079,7 +2083,7 @@ function blacklistDeductionRows(){
   baseline.forEach(r=>{
     const reason=blacklistReason(r.__person,r);if(!reason)return;
     const month=incentiveMonth(r),key=personKey(r.__person)+'|'+month;
-    if(!groups.has(key))groups.set(key,{'工号':r.__person,'姓名':clean(r.__name||r.__fmeName)||[...incentiveBlacklist.values()].find(x=>personKey(x.staffId)===personKey(r.__person)&&x.month===month&&x.name)?.name||displayPersonName(r),'扣减月份':month,'扣减原因':reason,'来源':uniq([...incentiveBlacklist.values()].filter(x=>personKey(x.staffId)===personKey(r.__person)&&x.month===month).map(x=>x.source)).join('；'),'扣减激励（元）':0,'扣减后激励（元）':0});
+    if(!groups.has(key))groups.set(key,{'工号':r.__person,'姓名':clean(r.__name||r.__fmeName)||[...incentiveBlacklist.values()].find(x=>personKey(x.staffId)===personKey(r.__person)&&(x.scope==='person'||x.month===month)&&x.name)?.name||displayPersonName(r),'扣减月份':month,'扣减原因':reason,'来源':uniq([...incentiveBlacklist.values()].filter(x=>personKey(x.staffId)===personKey(r.__person)&&(x.scope==='person'||x.month===month)).map(x=>x.source)).join('；'),'扣减激励（元）':0,'扣减后激励（元）':0});
     groups.get(key)['扣减激励（元）']+=Number(r.__fee)||0;
   });
   const paid=new Map();rowsForSelectedDedupMode().filter(rowMatchesFilters).forEach(r=>{
@@ -2090,7 +2094,7 @@ function blacklistDeductionRows(){
 }
 function renderBlacklistDeductions(){
   const rows=blacklistDeductionRows(),months=importedIncentiveMonths();
-  const pending=rawRows.length?[...incentiveBlacklist.values()].filter(x=>!months.includes(x.month)).length:0;
+  const pending=rawRows.length?[...incentiveBlacklist.values()].filter(x=>x.scope!=='person'&&!months.includes(x.month)).length:0;
   const hasContent=Boolean(rows.length||pending);
   const panel=$('blacklistDeductionPanel');
   if(panel){
@@ -2098,19 +2102,20 @@ function renderBlacklistDeductions(){
     panel.style.display=(hasContent&&!isFilterSectionCollapsed)?'':'none';
   }
   $('blacklistPendingNotice').hidden=!pending;$('reviewBlacklistBtn').hidden=!pending;
-  $('blacklistPendingNotice').textContent=BL(`有 ${pending} 条黑名单未指定本次有效月份，暂不扣减。请检查并补齐月份或移除。`,`${pending} blacklist entries have no valid month in this import and do not deduct incentives. Review their months or remove them.`);
+  $('blacklistPendingNotice').textContent=BL(`有 ${pending} 条旧月份黑名单不适用于本次月份，暂不扣减。可移除后按人员重新录入。`,`${pending} legacy month-specific entries do not apply to this import and do not deduct incentives. Remove and re-enter them as person-level entries if needed.`);
   $('blacklistDeductionTable').innerHTML='<table><thead><tr>'+['工号','姓名','扣减月份','扣减原因','来源','扣减激励（元）','扣减后激励（元）'].map(label=>`<th${label==='扣减原因'?' class="deduction-reason-cell"':''}>${esc(label)}</th>`).join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr>'+Object.entries(row).map(([key,value])=>key==='扣减原因'?`<td class="deduction-reason-cell">${deductionReasonCell(value)}</td>`:`<td>${esc(value)}</td>`).join('')+'</tr>').join('')+'</tbody></table>';
 }
 function exportBlacklist(template=false){
-  if(!window.XLSX){uiAlert('Excel 组件未加载，请刷新页面后重试。');return}
-  const months=importedIncentiveMonths();if(!months.length){uiAlert('请先导入包含有效月份的操作激励数据');return}
-  const rows=template?[]:blacklistDraft.map(x=>[x.staffId,x.name,x.month,x.reason,x.source,x.sourceId,x.eventDate]);
-  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['工号','姓名','扣减月份','扣减原因','来源','来源记录ID','事件日期'],...rows]),'黑名单');
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['允许扣减月份'],...months.map(m=>[m]),['工号、扣减月份、扣减原因必填；每人每月一行，工号请用文本格式。']]),'填写说明');
-  XLSX.writeFile(wb,template?'激励黑名单模板.xlsx':'激励黑名单.xlsx');
+  if(!window.XLSX){uiAlert(BL('Excel 组件未加载，请刷新页面后重试。','Excel component is unavailable. Refresh and retry.'));return}
+  const en=isEnglishMode(),rows=template?[]:blacklistDraft.map(x=>[x.staffId,x.name,en?translateDeductionReason(x.reason):x.reason,en?translateSource(x.source):x.source]);
+  const wb=XLSX.utils.book_new(),ws=XLSX.utils.aoa_to_sheet([en?['Employee ID','Name','Deduction Reason','Source']:['工号','姓名','扣减原因','来源'],...rows]);
+  wrapExportReasonColumn(ws,2);
+  XLSX.utils.book_append_sheet(wb,ws,en?'Blacklist':'黑名单');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([[BL('工号和扣减原因必填；无需扣减月份，每人一行，工号请用文本格式。','Employee ID and reason required. No deduction month; one row per employee; use text format for IDs.')]]),en?'Instructions':'填写说明');
+  return writeIncentiveWorkbook(wb,en?(template?'Incentive_Blacklist_Template.xlsx':'Incentive_Blacklist.xlsx'):(template?'激励黑名单模板.xlsx':'激励黑名单.xlsx'));
 }
 function importBlacklistRows(rows){
-  const entries=rows.filter(r=>Object.values(r).some(v=>clean(v))).map(r=>({staffId:clean(r['工号']),name:clean(r['姓名']),month:clean(r['扣减月份']),reason:clean(r['扣减原因']),source:clean(r['来源'])||'模板导入',sourceId:clean(r['来源记录ID']),eventDate:clean(r['事件日期'])}));
+  const entries=rows.filter(r=>Object.values(r).some(v=>clean(v))).map(r=>({staffId:clean(r['工号']||r['Employee ID']||r['Operator ID']),name:clean(r['姓名']||r.Name),month:'',scope:'person',reason:clean(r['扣减原因']||r['Deduction Reason']),source:clean(r['来源']||r.Source)||'模板导入'}));
   validateBlacklistEntries(entries);blacklistDraft=[...blacklistMap([...blacklistDraft,...entries]).values()];renderBlacklistEditor();
 }
 // Match the shared staff-id-normalization contract: one import prefix, preserving WX IDs and leading zeroes.
@@ -2138,14 +2143,14 @@ async function loadNegativeEvents(){
     const state=await response.json();
     if(rowsAtRequest!==rawRows||monthsAtRequest!==importedIncentiveMonths().join(','))throw new Error(BL('导入数据或月份已变化，请重新引入','Data or months changed; load again'));
     negativeEventCandidates=buildNegativeEventCandidates(state);
-    $('negativeEventsStatus').textContent=BL('仅显示本次月份、工号唯一匹配的已发布违规；勾选后扣减对应月份全部激励。','Published violations with a unique employee ID match in imported months only. Select to deduct the full incentive for that month.')+` (${negativeEventCandidates.length})`;
+    $('negativeEventsStatus').textContent=BL('仅显示本次月份、工号唯一匹配的已发布违规；勾选后加入人员黑名单，按全局扣减方式计算。','Published violations with a unique employee ID match in imported months only. Add employees to the blacklist and apply the selected deduction method.')+` (${negativeEventCandidates.length})`;
     $('negativeEventsRows').innerHTML=negativeEventCandidates.map((item,index)=>`<tr><td><input type="checkbox" data-negative-index="${index}" aria-label="${esc(item.staffId+' '+item.month)}"></td><td>${esc(item.staffId)}</td><td>${esc(item.name)}</td><td>${esc(item.eventDate)}</td><td>${esc(item.month)}</td><td>${esc(item.reason)}</td></tr>`).join('');
   }catch(error){$('negativeEventsStatus').textContent=error.message}finally{button.disabled=false}
 }
 function addNegativeEventsToDraft(){
-  const entries=[...document.querySelectorAll('[data-negative-index]:checked')].map(el=>negativeEventCandidates[Number(el.dataset.negativeIndex)]).filter(Boolean);
+  const entries=[...document.querySelectorAll('[data-negative-index]:checked')].map(el=>negativeEventCandidates[Number(el.dataset.negativeIndex)]).filter(Boolean).map(item=>({...item,scope:'person',month:''}));
   if(!entries.length){uiAlert(BL('请勾选需要加入的负向事件','Select negative events to add'));return}
-  try{validateBlacklistEntries(entries);blacklistDraft=[...blacklistMap([...blacklistDraft,...entries]).values()];renderBlacklistEditor();$('negativeEventsPanel').hidden=true;showToast(BL('已加入表格，保存并应用后扣减对应月份激励','Added to table. Save and apply to deduct the selected months.'),'success')}catch(error){uiAlert(error.message)}
+  try{validateBlacklistEntries(entries);blacklistDraft=[...blacklistMap([...blacklistDraft,...entries]).values()];renderBlacklistEditor();$('negativeEventsPanel').hidden=true;showToast(BL('已加入表格，保存并应用后按人员扣减激励','Added to table. Save and apply person-level deductions.'),'success')}catch(error){uiAlert(error.message)}
 }
 const RULE_STORAGE_KEY='nightAllowanceRulesV1';
 const RULES_VERSION=2;
@@ -2574,19 +2579,29 @@ function rowsForRuleMode({dedup=true,blacklist=true,allGroups=false}={}){
     if(!months.has(key))months.set(key,{q,rows:[],total:0,blocked:false});
     const m=months.get(key);m.rows.push(r);m.total+=Number(r.__fee||0);m.blocked=m.blocked||Boolean(blacklistReason(r.__person,r));
   });
-  const paid=[];
+  // Person-level entries share one quarter deduction across rows; legacy entries remain month-specific.
+  const paid=[],personQuarters=new Map(),blockedPeople=new Set([...incentiveBlacklist.values()].filter(x=>x.scope==='person').map(x=>personKey(x.staffId)));
   months.forEach(m=>{
-    const amounts=[...quarters.get(m.q).values()].filter(n=>n>0);
+    const person=personKey(m.rows[0].__person);
+    const personBlocked=blockedPeople.has(person);
+    if(personBlocked){
+      if(!personQuarters.has(m.q))personQuarters.set(m.q,{q:m.q,rows:[],total:0,blocked:true});
+      const q=personQuarters.get(m.q);q.rows.push(...m.rows);q.total+=m.total;
+    }else allocate(m);
+  });
+  personQuarters.forEach(allocate);
+  function allocate(group){
+    const amounts=[...quarters.get(group.q).values()].filter(n=>n>0);
     const average=amounts.length?Math.round(amounts.reduce((a,b)=>a+b,0)/amounts.length):0;
-    const deduction=m.blocked?Math.min(m.total,average):0;
+    const deduction=group.blocked?Math.min(group.total,average):0;
     let cumulative=0,allocated=0;
-    m.rows.forEach(r=>{
+    group.rows.forEach(r=>{
       cumulative+=Number(r.__fee||0);
-      const target=m.total?Math.round(deduction*cumulative/m.total):0,cut=target-allocated;allocated=target;
+      const target=group.total?Math.round(deduction*cumulative/group.total):0,cut=target-allocated;allocated=target;
       const fee=Number(r.__fee||0)-cut;
       if(fee>0||!deduction)paid.push({...r,__fee:fee});
     });
-  });
+  }
   return paid.sort((a,b)=>(a.__date||'').localeCompare(b.__date||''));
 }
 function rowsForSelectedDedupMode(){
@@ -2695,12 +2710,13 @@ function openIdentityDetails(){
     </table>`:'<div class="empty">当前没有校验不通过记录</div>';
   $('identityDetailsModal').classList.add('show');
 }
+function hasFalseAttendance(value){return /虚假|假打卡|false[ -]?(?:attendance|sign[ -]?in)|fake/i.test(String(value||''))}
 function deductionReasonCell(reason){
   const full=clean(reason);
   if(!full)return '—';
   const compact=full.replace(/\s+/g,' ').replace(/会议考勤异常：/g,'考勤：').replace(/；签到时间：[^；\n]*/g,'');
   const preview=compact.length>42?compact.slice(0,42)+'…':compact;
-  return `<details class="deduction-reason"><summary><span class="deduction-reason-preview">${esc(preview)}</span><span class="deduction-reason-action"><span class="reason-expand">${BL('展开','Expand')}</span><span class="reason-collapse">${BL('收起','Collapse')}</span></span></summary><div class="deduction-reason-full">${esc(full)}</div></details>`;
+  return `<details class="deduction-reason${hasFalseAttendance(full)?' false-attendance':''}"><summary><span class="deduction-reason-preview">${esc(preview)}</span><span class="deduction-reason-action"><span class="reason-expand">${BL('展开','Expand')}</span><span class="reason-collapse">${BL('收起','Collapse')}</span></span></summary><div class="deduction-reason-full">${esc(full)}</div></details>`;
 }
 function table(headers,rows,{reasonColumn=-1}={}){
   if(!rows.length){$('tableWrap').innerHTML='<div class="empty">当前条件下暂无数据</div>';return}
@@ -3520,8 +3536,34 @@ function wrapExportReasonColumn(sheet,column){
   const range=window.XLSX.utils.decode_range(sheet['!ref']||'A1:A1');
   for(let row=range.s.r;row<=range.e.r;row++){
     const cell=sheet[window.XLSX.utils.encode_cell({r:row,c:column})];
-    if(cell)cell.s={...(cell.s||{}),alignment:{...(cell.s?.alignment||{}),wrapText:true,vertical:'top'}};
+    if(cell)cell.s={...(cell.s||{}),alignment:{...(cell.s?.alignment||{}),wrapText:true,vertical:'top'},...(hasFalseAttendance(cell.v)?{font:{...(cell.s?.font||{}),bold:true,color:{rgb:'B42318'}},fill:{fgColor:{rgb:'FEE4E2'}}}:{})};
   }
+}
+function writeIncentiveWorkbook(book,fileName){
+  const XLSX=window.XLSX;
+  const styled=Object.values(book.Sheets).some(sheet=>Object.entries(sheet).some(([key,cell])=>!key.startsWith('!')&&hasFalseAttendance(cell?.v)));
+  if(!styled){XLSX.writeFile(book,fileName,{cellStyles:true});return}
+  if(typeof ExcelJS==='undefined'){uiAlert(BL('Excel 样式组件未加载，请刷新后重试。','Excel styling component unavailable. Refresh and retry.'));return}
+  return (async()=>{
+    const workbook=new ExcelJS.Workbook();
+    for(const name of book.SheetNames){
+      const source=book.Sheets[name],sheet=workbook.addWorksheet(name),range=XLSX.utils.decode_range(source['!ref']||'A1:A1');
+      for(let r=range.s.r;r<=range.e.r;r++)for(let c=range.s.c;c<=range.e.c;c++){
+        const original=source[XLSX.utils.encode_cell({r,c})];if(!original)continue;
+        const cell=sheet.getCell(r+1,c+1);cell.value=original.f?{formula:original.f,result:original.v}:original.v;
+        if(original.z)cell.numFmt=original.z;
+        cell.alignment={vertical:'top',wrapText:true};
+        if(r===range.s.r){cell.font={bold:true,color:{argb:'FFFFFFFF'}};cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1E293B'}}}
+        if(hasFalseAttendance(original.v)){cell.font={bold:true,color:{argb:'FFB42318'}};cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFEE4E2'}}}
+      }
+      (source['!cols']||[]).forEach((col,i)=>{if(col)sheet.getColumn(i+1).width=col.wch||18});
+      (source['!merges']||[]).forEach(m=>sheet.mergeCells(m.s.r+1,m.s.c+1,m.e.r+1,m.e.c+1));
+      if(source['!autofilter'])sheet.autoFilter=source['!autofilter'].ref;
+      sheet.views=[{state:'frozen',ySplit:1}];
+    }
+    const buffer=await workbook.xlsx.writeBuffer(),url=URL.createObjectURL(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})),link=document.createElement('a');
+    link.href=url;link.download=fileName;document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  })().catch(error=>{console.error('Incentive export failed',error);uiAlert(BL('导出失败，请重试。','Export failed. Please retry.'))});
 }
 function exportCurrent(forceEnglish=false){
   if(!window.XLSX){ uiAlert('Excel 组件未加载，请刷新页面后重试。', { icon: '⚠️' }); return; }
@@ -3667,7 +3709,7 @@ function exportCurrent(forceEnglish=false){
     ?`Egypt_Night_Operation_Incentive_Results_${activeOperatorGroup==='wx'?'WX':'Non-WX'}${activeNetworkDomain==='enterprise'?'_Enterprise_TE':(activeNetworkDomain==='carrier'?'_Carrier_TK':'')}_${isNoDedupMode()?'No_Dedup':'Highest_Level_Per_Day'}_${isBlacklistEnabled()?'Blacklist_Enabled':'No_Blacklist'}_${new Date().toISOString().slice(0,10)}.xlsx`
     :`埃及代表处夜间操作激励统计结果_${activeOperatorGroup==='wx'?'WX':'非WX'}${activeNetworkDomain==='enterprise'?'_企业网TE':(activeNetworkDomain==='carrier'?'_运营商TK':'')}_${isNoDedupMode()?'不剔重':'同人同日最高等级'}_${isBlacklistEnabled()?'启用黑名单':'不启用黑名单'}_${new Date().toISOString().slice(0,10)}.xlsx`;
 
-  XLSX.writeFile(wb,fileName,{cellStyles:true});
+  return writeIncentiveWorkbook(wb,fileName);
 }
 const fileInput=$('fileInput');
 $('downloadWelinkScript').onclick=()=>{
@@ -3936,7 +3978,7 @@ blacklistModal.addEventListener('click',e=>{if(e.target===blacklistModal)blackli
 $('blacklistRows').addEventListener('input',e=>{const row=e.target.closest('[data-blacklist-index]');if(row&&e.target.dataset.field){blacklistDraft[Number(row.dataset.blacklistIndex)][e.target.dataset.field]=e.target.value;if(e.target.dataset.field==='reason')resizeBlacklistReason(e.target)}});
 $('blacklistRows').addEventListener('change',e=>{const row=e.target.closest('[data-blacklist-index]');if(row&&e.target.dataset.field){blacklistDraft[Number(row.dataset.blacklistIndex)][e.target.dataset.field]=e.target.value;if(e.target.dataset.field==='reason')resizeBlacklistReason(e.target)}});
 $('blacklistRows').addEventListener('click',e=>{const button=e.target.closest('[data-blacklist-remove]');if(button){blacklistDraft.splice(Number(button.dataset.blacklistRemove),1);renderBlacklistEditor()}});
-$('addBlacklistRowBtn').onclick=()=>{blacklistDraft.push({staffId:'',name:'',month:'',reason:'',source:'手工录入'});renderBlacklistEditor()};
+$('addBlacklistRowBtn').onclick=()=>{blacklistDraft.push({staffId:'',name:'',month:'',scope:'person',reason:'',source:'手工录入'});renderBlacklistEditor()};
 $('downloadBlacklistTemplateBtn').onclick=()=>exportBlacklist(true);
 $('exportBlacklistBtn').onclick=()=>exportBlacklist(false);
 $('importBlacklistBtn').onclick=()=>$('blacklistFileInput').click();
@@ -3961,7 +4003,7 @@ function getPersonAttendanceAnomaly(person, name, month) {
   const p = clean(person).toLowerCase();
   const n = clean(name).toLowerCase();
   if (!p && !n) return null;
-  return currentAttendanceAnomalies.find(a => (!month||a.month===month)&&((p&&personKey(a.staffId)===p)||(!p&&n&&personKey(a.name)===n))) || null;
+  return currentAttendanceAnomalies.find(a => (!month||a.months?.includes(month)||a.month===month)&&((p&&personKey(a.staffId)===p)||(!p&&n&&personKey(a.name)===n))) || null;
 }
 
 function hideAttendanceAnomalyAlert() {
@@ -3975,61 +4017,48 @@ function attendanceEventDate(anomaly){
   const date=`${match[1]}-${match[2].padStart(2,'0')}-${match[3].padStart(2,'0')}`,parsed=new Date(Number(match[1]),Number(match[2])-1,Number(match[3]));
   return parsed&&dateKey(parsed)===date?date:'';
 }
-function attendanceMeetingTitle(a){return clean(a.meetingTitle||a.title||a.snapshotTitle)||'未命名会议'}
 function attendanceIssueLabel(a){
   const status=clean(a.attendance),text=status.toLowerCase();
-  if(/fake|假打卡|虚假/.test(text))return '虚假签到';
+  if(hasFalseAttendance(text)||hasFalseAttendance(a.type))return '虚假考勤';
   if(/absent|缺席/.test(text)||a.type==='absent')return '缺席';
   if(/delay|late|迟到/.test(text)||a.type==='delay')return '迟到';
   return status||'考勤异常';
 }
 function attendanceDeductionReason(a){
-  const date=attendanceEventDate(a)||'日期未明',title=attendanceMeetingTitle(a),session=clean(a.sessionName),issue=attendanceIssueLabel(a);
-  return `考勤：${date}《${title}》${session?`【${session}】`:''}：${issue}`;
+  const date=attendanceEventDate(a),month=date?date.slice(0,7):'日期未明';
+  return `${month}月考勤：${attendanceIssueLabel(a)}`;
 }
-function attendanceBlacklistEntry(item,a){
-  const date=attendanceEventDate(a);
-  return {staffId:item.staffId,name:item.name,month:date.slice(0,7),reason:attendanceDeductionReason(a),source:'会议考勤',eventDate:date,
-    sourceId:JSON.stringify([clean(a.snapshotId)||attendanceMeetingTitle(a),clean(a.sessionName),date])};
+function attendanceBlacklistEntry(item){
+  return {staffId:item.staffId,name:item.name,month:'',scope:'person',reason:uniq((item.anomalies||[]).map(attendanceDeductionReason)).join('；'),source:'会议考勤',sourceId:'attendance-person:'+personKey(item.staffId)};
+}
+function qualifyingAttendanceAnomalies(person,importedMonths){
+  const res=attendanceResults.get(personKey(person));if(!res?.anomalies?.length)return [];
+  const months=importedMonths||new Set(importedIncentiveMonths());
+  const anomalies=(res?.anomalies||[]).filter(a=>{
+    const date=attendanceEventDate(a);return date&&months.has(date.slice(0,7))&&['迟到','缺席','虚假考勤'].includes(attendanceIssueLabel(a));
+  });
+  return new Set(anomalies.map(a=>attendanceEventDate(a).slice(0,7))).size>=2?anomalies:[];
 }
 function updateAttendanceAnomalyAlert(rows = filtered()) {
-  const visibleKeys=new Set(rows.map(r=>personKey(r.__person)+'|'+incentiveMonth(r))),visiblePeople=new Map(rows.map(r=>[personKey(r.__person),r]));
-  const groups=new Map(),months=importedIncentiveMonths();
-  // Preview uses whole employee-months and the same quarter average as payment calculation.
-  const averages=new Map();
-  if(isAverageDeduction())rowsForRuleMode({dedup:!isNoDedupMode(),blacklist:false}).forEach(r=>{
-    const d=filterDateForRow(r),q=personKey(r.__person)+'|'+periodKey(d,'quarter'),month=incentiveMonth(r);
-    if(!averages.has(q))averages.set(q,new Map());
-    const months=averages.get(q);months.set(month,(months.get(month)||0)+Number(r.__fee||0));
-  });
-  rowsForSelectedDedupMode().forEach(r=>{
-    const staffId=clean(r.__person),month=incentiveMonth(r),key=personKey(staffId)+'|'+month;
-    if(!staffId||!visibleKeys.has(key)||(isBlacklistEnabled()&&blacklistReason(r.__person,r)))return;
-    if(!groups.has(key))groups.set(key,{staffId,name:clean(r.__name||r.__fmeName),bu:clean(r.__bu),month,totalFee:0,orderCount:0});
-    const info=groups.get(key);info.totalFee+=Number(r.__fee)||0;info.orderCount++;
-    if(!info.name)info.name=clean(r.__name||r.__fmeName);
+  const visible=new Set(rows.map(r=>personKey(r.__person))),groups=new Map(),importedMonths=new Set(importedIncentiveMonths()),alreadyBlocked=new Set(isBlacklistEnabled()?[...incentiveBlacklist.values()].filter(x=>x.scope==='person').map(x=>personKey(x.staffId)):[]);
+  rowsForRuleMode({dedup:!isNoDedupMode(),blacklist:false}).forEach(r=>{
+    const key=personKey(r.__person);
+    if(!visible.has(key)||alreadyBlocked.has(key))return;
+    if(!groups.has(key))groups.set(key,{staffId:r.__person,name:clean(r.__name||r.__fmeName),bu:clean(r.__bu),orderCount:0,quarters:new Map()});
+    const info=groups.get(key),month=incentiveMonth(r),quarter=periodKey(filterDateForRow(r),'quarter');info.orderCount++;
+    if(!info.quarters.has(quarter))info.quarters.set(quarter,new Map());
+    const qm=info.quarters.get(quarter);qm.set(month,(qm.get(month)||0)+Number(r.__fee||0));
   });
   currentAttendanceAnomalies=[...groups.values()].flatMap(info=>{
-    const res=attendanceResults.get(personKey(info.staffId));
-    if(!res?.hasAnomaly)return [];
-    const anomalies=(res.anomalies||[]).filter(a=>{const date=attendanceEventDate(a);return date&&months.includes(date.slice(0,7))&&date.slice(0,7)===info.month});
-    if(!anomalies.length||info.totalFee<=0)return [];
-    if(isAverageDeduction()){
-      const q=personKey(info.staffId)+'|'+info.month.slice(0,4)+' Q'+Math.ceil(Number(info.month.slice(5,7))/3);
-      const values=[...(averages.get(q)?.values()||[])].filter(n=>n>0);
-      if(values.length)info.totalFee=Math.min(info.totalFee,Math.round(values.reduce((a,b)=>a+b,0)/values.length));
-    }
-    return [{...info,anomalies,anomalyDesc:anomalies.map(attendanceDeductionReason).join('； '),anomalyCount:anomalies.length,deductible:true}];
-  });
-  visiblePeople.forEach((r,key)=>{
-    const anomalies=(attendanceResults.get(key)?.anomalies||[]).filter(a=>!attendanceEventDate(a));
-    if(anomalies.length)currentAttendanceAnomalies.push({staffId:r.__person,name:clean(r.__name||r.__fmeName),bu:clean(r.__bu),month:'',totalFee:0,orderCount:0,anomalies,anomalyDesc:anomalies.map(attendanceDeductionReason).join('； '),anomalyCount:anomalies.length,deductible:false});
-  });
-  const alertBox=$('attendanceAnomalyAlert');if(alertBox)alertBox.hidden=!currentAttendanceAnomalies.length;
-  if(currentAttendanceAnomalies.length){
-    const people=uniq(currentAttendanceAnomalies.map(x=>personKey(x.staffId))).length;
-    $('attendanceAnomalyText').textContent=BL(`有 ${people} 位员工存在会议考勤异常，按会议月份核查并扣减对应月份激励。`,`Meeting attendance anomalies affect ${people} employees. Review and deduct incentives by meeting month.`);
-  }
+    const anomalies=qualifyingAttendanceAnomalies(info.staffId,importedMonths);if(!anomalies.length)return [];
+    let totalFee=0;
+    info.quarters.forEach(months=>{const amounts=[...months.values()].filter(n=>n>0),total=amounts.reduce((a,b)=>a+b,0);totalFee+=isAverageDeduction()&&amounts.length?Math.round(total/amounts.length):total});
+    if(totalFee<=0)return [];
+    const months=uniq(anomalies.map(a=>attendanceEventDate(a).slice(0,7)));
+    return [{staffId:info.staffId,name:info.name,bu:info.bu,orderCount:info.orderCount,months,month:months.join(' / '),totalFee,anomalies,anomalyCount:anomalies.length,anomalyDesc:uniq(anomalies.map(attendanceDeductionReason)).join('；'),hasFalseAttendance:anomalies.some(a=>hasFalseAttendance(attendanceIssueLabel(a))),deductible:true}];
+  }).sort((a,b)=>Number(b.hasFalseAttendance)-Number(a.hasFalseAttendance)||b.months.length-a.months.length||a.staffId.localeCompare(b.staffId));
+  if($('attendanceAnomalyAlert'))$('attendanceAnomalyAlert').hidden=!currentAttendanceAnomalies.length;
+  if(currentAttendanceAnomalies.length)$('attendanceAnomalyText').textContent=BL(`有 ${currentAttendanceAnomalies.length} 位员工在至少两个月存在迟到、缺席或虚假考勤，请核查处理。`,`${currentAttendanceAnomalies.length} employees have late, absent or false attendance in at least two months. Review required.`);
   if(attendanceAnomalyModal?.classList.contains('show'))renderAttendanceAnomalyModalTable();
 }
 
@@ -4098,37 +4127,8 @@ function renderAttendanceAnomalyModalTable() {
   if (!tbody) return;
 
   tbody.innerHTML = currentAttendanceAnomalies.map((item, idx) => {
-    const anomalyBadges = (item.anomalies || []).map(a => {
-      const dateText = attendanceEventDate(a) || '日期未明';
-      const isAbsent = a.type === 'absent' || String(a.attendance || '').toLowerCase().includes('absent') || String(a.attendance || '').includes('缺席');
-      const attText = attendanceIssueLabel(a);
-      const snapTitle = attendanceMeetingTitle(a)+(a.sessionName?' · '+a.sessionName:'');
-      return `
-        <div class="anomaly-chip" title="快照来源：${esc(snapTitle)}${a.attendanceTime ? ' · 签到时间: ' + esc(a.attendanceTime) : ''}" style="display:inline-flex;align-items:center;gap:6px;padding:3px 9px;background:${isAbsent ? '#fef2f2' : '#fffbeb'};border:1px solid ${isAbsent ? '#fecaca' : '#fde68a'};border-radius:6px;margin:2px 4px 2px 0;font-size:11.5px">
-          <span style="font-weight:700;color:${isAbsent ? '#991b1b' : '#92400e'}">📅 ${esc(dateText)}</span>
-          <span style="padding:1px 5px;border-radius:4px;font-size:11px;font-weight:800;background:${isAbsent ? '#fee2e2' : '#fef3c7'};color:${isAbsent ? '#b91c1c' : '#b45309'}">${esc(attText)}</span>
-          <span style="font-size:11px;color:#64748b;cursor:help;max-width:420px;white-space:normal;overflow-wrap:anywhere" title="${esc(snapTitle)}">🏷️ ${esc(snapTitle)}</span>
-        </div>
-      `;
-    }).join('');
-
-    return `
-      <tr>
-        <td style="text-align:center">
-          <input type="checkbox" class="anomaly-row-cb" data-idx="${idx}" ${item.deductible?'checked':'disabled'}>
-        </td>
-        <td><strong>${esc(item.staffId)}</strong>${personStatusTags(item.staffId)}</td>
-        <td>${esc(item.name || '—')}</td>
-        <td>${esc(item.bu || '—')}</td>
-        <td>${esc(item.month||BL('日期未明，暂不扣减','Unknown date; no deduction'))}</td>
-        <td><strong style="color:var(--red)">¥${money(item.totalFee)}</strong> (${item.orderCount}单)</td>
-        <td>
-          <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center">
-            ${anomalyBadges || `<span style="color:#b91c1c">${esc(item.anomalyDesc)}</span>`}
-          </div>
-        </td>
-      </tr>
-    `;
+    const badges=uniq(item.anomalies.map(attendanceDeductionReason)).map(reason=>`<span class="anomaly-chip ${hasFalseAttendance(reason)?'false-attendance':''}" style="display:inline-block;padding:5px 8px;margin:3px;border:1px solid #f3b4af;border-radius:5px">${hasFalseAttendance(reason)?'⚠ ':''}${esc(isEnglishMode()?translateDeductionReason(reason):reason)}</span>`).join('');
+    return `<tr><td><input type="checkbox" class="anomaly-row-cb" data-idx="${idx}" checked></td><td><strong>${esc(item.staffId)}</strong>${personStatusTags(item.staffId)}</td><td>${esc(item.name||'—')}</td><td>${esc(item.bu||'—')}</td><td>${esc(item.month)} (${item.months.length})</td><td><strong>¥${money(item.totalFee)}</strong></td><td>${badges}</td></tr>`;
   }).join('');
 
   updateAnomalySelectionSummary();
@@ -4151,7 +4151,7 @@ function updateAnomalySelectionSummary() {
   });
 
   if ($('anomalySelectionSummary')) {
-    $('anomalySelectionSummary').textContent = BL(`已选择 ${selectedCount} 个人员月份，预计扣减对应月份激励 ¥${money(selectedMoney)}`,`Selected ${selectedCount} employee-months; expected deduction ¥${money(selectedMoney)}`);
+    $('anomalySelectionSummary').textContent = BL(`已选择 ${selectedCount} 人，预计扣减激励 ¥${money(selectedMoney)}`,`Selected ${selectedCount} employees; expected deduction ¥${money(selectedMoney)}`);
   }
 }
 
@@ -4171,7 +4171,7 @@ function applyAnomaliesToBlacklist() {
     return;
   }
 
-  const entries=selected.flatMap(item=>item.anomalies.map(a=>attendanceBlacklistEntry(item,a)));
+  const entries=selected.map(attendanceBlacklistEntry);
   try{validateBlacklistEntries(entries)}catch(error){uiAlert(error.message);return}
   incentiveBlacklist=blacklistMap([...incentiveBlacklist.values(),...entries]);persistBlacklist();
   blacklistDraft=[...incentiveBlacklist.values()].map(x=>({...x}));renderBlacklistEditor();
@@ -4180,394 +4180,24 @@ function applyAnomaliesToBlacklist() {
   if(typeof setFilterSectionCollapsed==='function')setFilterSectionCollapsed(true);
   applyPaymentRules();
   openBlacklistConfig();
-  showToast(BL(`已按会议月份扣减 ${selected.length} 个人员月份的激励，原因已自动加入激励黑名单配置。`,`Deducted ${selected.length} employee-months. Meeting reasons are available in the incentive blacklist.`), 'success');
+  showToast(BL(`已将 ${selected.length} 位人员加入黑名单，并按当前扣减方式自动计算激励。`,`Added ${selected.length} employees to the blacklist and recalculated incentives using the selected deduction method.`), 'success');
 }
 
 async function exportAttendanceAnomalyExcel() {
-  if (!currentAttendanceAnomalies || !currentAttendanceAnomalies.length) {
-    showToast('当前没有会议考勤异常人员可供导出', 'warning');
-    return;
-  }
-
-  const cbMap = new Map();
-  document.querySelectorAll('.anomaly-row-cb').forEach(cb => {
-    cbMap.set(Number(cb.dataset.idx), cb.checked&&!cb.disabled);
+  if(!currentAttendanceAnomalies.length){showToast(BL('当前没有会议考勤异常人员可供导出','No qualifying attendance anomalies to export'),'warning');return}
+  const en=isEnglishMode(),selected=new Map([...document.querySelectorAll('.anomaly-row-cb')].map(cb=>[Number(cb.dataset.idx),cb.checked]));
+  const summaryHeaders=en?['Employee ID','Name','BU / Dept','Affected Months','Affected Month Count','Expected Deduction (CNY)','Selected','Attendance Issues']:['工号','姓名','BU1 / 部门','异常涉及月份','异常月份数','预计扣减激励（元）','是否选中','考勤问题'];
+  const detailHeaders=en?['Employee ID','Name','Attendance Month','Attendance Issue']:['工号','姓名','考勤月份','考勤问题'];
+  const summary=[],details=[];
+  currentAttendanceAnomalies.forEach((item,index)=>{
+    summary.push([item.staffId,item.name||'—',item.bu||'—',item.month,item.months.length,item.totalFee,selected.get(index)!==false?(en?'Yes':'是'):(en?'No':'否'),en?translateDeductionReason(item.anomalyDesc):item.anomalyDesc]);
+    uniq(item.anomalies.map(attendanceDeductionReason)).forEach(reason=>details.push([item.staffId,item.name||'—',reason.slice(0,7),en?translateDeductionReason(reason):reason]));
   });
-
-  const period = $('snapPeriodInput')?.value || inferPeriodFromRows() || '全部周期';
-  const now = new Date();
-  const pad = n => String(n).padStart(2, '0');
-  const timeStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-  const dateSlug = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
-
-  const totalPersons = uniq(currentAttendanceAnomalies.map(x=>personKey(x.staffId))).length;
-  const totalIncentive = currentAttendanceAnomalies.reduce((s, a) => s + (a.totalFee || 0), 0);
-  const totalAnomalies = currentAttendanceAnomalies.reduce((s, a) => s + (a.anomalyCount || (a.anomalies?.length || 1)), 0);
-
-  if (typeof ExcelJS === 'undefined') {
-    try {
-      await new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = '/js/shared/exceljs.min.js';
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script);
-      });
-    } catch (_) {}
-  }
-
-  if (typeof ExcelJS !== 'undefined') {
-    try {
-      const wb = new ExcelJS.Workbook();
-      wb.creator = '埃及代表处夜间操作激励统计工具';
-      wb.created = now;
-
-      // Sheet 1: 考勤异常人员汇总
-      const ws1 = wb.addWorksheet('考勤异常人员汇总', {
-        views: [{ state: 'frozen', ySplit: 4 }]
-      });
-
-      ws1.columns = [
-        { width: 8 },   // A: 序号
-        { width: 16 },  // B: 工号
-        { width: 16 },  // C: 姓名
-        { width: 22 },  // D: BU1 / 部门
-        { width: 20 },  // E: 本期激励金额
-        { width: 14 },  // F: 计发单数
-        { width: 15 },  // G: 异常总频次
-        { width: 13 },  // H: 缺席次数
-        { width: 13 },  // I: 迟到次数
-        { width: 24 },  // J: 处置状态
-        { width: 60 }   // K: 考勤异常记录摘要
-      ];
-
-      // Row 1: Title Banner
-      ws1.mergeCells('A1:K1');
-      const t1 = ws1.getCell('A1');
-      t1.value = '📋 激励人员会议考勤排查清单 / Attendance Anomaly Roster';
-      t1.font = { name: 'Microsoft YaHei', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
-      t1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
-      t1.alignment = { horizontal: 'center', vertical: 'middle' };
-      ws1.getRow(1).height = 38;
-
-      // Row 2: Subtitle
-      ws1.mergeCells('A2:K2');
-      const sub1 = ws1.getCell('A2');
-      sub1.value = `核算周期: ${period}  |  导出时间: ${timeStr}  |  异常人员: ${totalPersons} 人  |  涉及激励: ¥${money(totalIncentive)}  |  异常总频次: ${totalAnomalies} 次`;
-      sub1.font = { name: 'Microsoft YaHei', size: 9.5, color: { argb: 'FF334155' } };
-      sub1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
-      sub1.alignment = { horizontal: 'center', vertical: 'middle' };
-      ws1.getRow(2).height = 22;
-
-      ws1.getRow(3).height = 6;
-
-      // Row 4: Table Headers
-      const headers1 = ['序号', '工号', '姓名', 'BU1 / 部门', '会议月份激励金额 (元)', '计发单数', '异常总频次', '缺席次数', '迟到次数', '处置状态', '考勤异常明细摘要'];
-      const hRow1 = ws1.getRow(4);
-      hRow1.height = 28;
-      headers1.forEach((h, i) => {
-        const cell = hRow1.getCell(i + 1);
-        cell.value = h;
-        cell.font = { name: 'Microsoft YaHei', size: 10.5, bold: true, color: { argb: 'FFFFFFFF' } };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
-        cell.alignment = { horizontal: 'center', vertical: 'middle' };
-        cell.border = {
-          top: { style: 'thin', color: { argb: 'FF475569' } },
-          bottom: { style: 'thin', color: { argb: 'FF475569' } },
-          left: { style: 'thin', color: { argb: 'FF475569' } },
-          right: { style: 'thin', color: { argb: 'FF475569' } }
-        };
-      });
-
-      // Data Rows
-      currentAttendanceAnomalies.forEach((item, idx) => {
-        const rIdx = 5 + idx;
-        const row = ws1.getRow(rIdx);
-        row.height = 26;
-        const isChecked = item.deductible&&(cbMap.has(idx) ? cbMap.get(idx) : true);
-        const absences = (item.anomalies || []).filter(a => a.type === 'absent' || String(a.attendance || '').includes('缺席')).length;
-        const lates = (item.anomalies || []).filter(a => a.type !== 'absent' && !String(a.attendance || '').includes('缺席')).length;
-        const summary = `扣减月份：${item.month||'日期未明，暂不扣减'}；`+(item.anomalies || []).map(attendanceDeductionReason).join('； ');
-        const statusText = isChecked ? `已勾选：待扣减 ${item.month||'日期未明'}` : '未勾选 (保留激励)';
-
-        row.getCell(1).value = idx + 1;
-        row.getCell(2).value = item.staffId;
-        row.getCell(3).value = item.name || '—';
-        row.getCell(4).value = item.bu || '—';
-        row.getCell(5).value = Number(item.totalFee) || 0;
-        row.getCell(5).numFmt = '¥#,##0';
-        row.getCell(6).value = Number(item.orderCount) || 0;
-        row.getCell(7).value = Number(item.anomalyCount) || (item.anomalies?.length || 1);
-        row.getCell(8).value = absences;
-        row.getCell(9).value = lates;
-        row.getCell(10).value = statusText;
-        row.getCell(11).value = summary;
-
-        const bg = idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
-        for (let c = 1; c <= 11; c++) {
-          const cell = row.getCell(c);
-          cell.font = cell.font || { name: 'Microsoft YaHei', size: 9.5 };
-          cell.fill = cell.fill || { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
-          cell.border = {
-            top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-            left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-            right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
-          };
-          if (c === 1 || c === 2 || c === 3 || c === 4 || c === 6 || c === 7) {
-            cell.alignment = { horizontal: 'center', vertical: 'middle' };
-          } else if (c === 5) {
-            cell.alignment = { horizontal: 'right', vertical: 'middle' };
-            cell.font = { name: 'Microsoft YaHei', size: 9.5, bold: true, color: { argb: 'FFB91C1C' } };
-          } else if (c === 8) {
-            cell.alignment = { horizontal: 'center', vertical: 'middle' };
-            if (absences > 0) {
-              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
-              cell.font = { name: 'Microsoft YaHei', size: 9.5, bold: true, color: { argb: 'FF991B1B' } };
-            }
-          } else if (c === 9) {
-            cell.alignment = { horizontal: 'center', vertical: 'middle' };
-            if (lates > 0) {
-              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
-              cell.font = { name: 'Microsoft YaHei', size: 9.5, bold: true, color: { argb: 'FF92400E' } };
-            }
-          } else if (c === 10) {
-            cell.alignment = { horizontal: 'center', vertical: 'middle' };
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isChecked ? 'FFFEE2E2' : 'FFEFF6FF' } };
-            cell.font = { name: 'Microsoft YaHei', size: 9, bold: true, color: { argb: isChecked ? 'FF991B1B' : 'FF1E40AF' } };
-          } else if (c === 11) {
-            cell.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
-          }
-        }
-      });
-
-      // Total Row
-      const endRowIdx = 4 + currentAttendanceAnomalies.length;
-      const totalRowIdx = endRowIdx + 1;
-      ws1.mergeCells(`A${totalRowIdx}:D${totalRowIdx}`);
-      const totCell = ws1.getCell(`A${totalRowIdx}`);
-      totCell.value = '合计 / Total';
-      totCell.font = { name: 'Microsoft YaHei', size: 10, bold: true, color: { argb: 'FF1E293B' } };
-      totCell.alignment = { horizontal: 'center', vertical: 'middle' };
-
-      const totRow = ws1.getRow(totalRowIdx);
-      totRow.height = 26;
-      totRow.getCell(5).value = { formula: `SUM(E5:E${endRowIdx})` };
-      totRow.getCell(5).numFmt = '¥#,##0';
-      totRow.getCell(5).font = { name: 'Microsoft YaHei', size: 10, bold: true, color: { argb: 'FFB91C1C' } };
-      totRow.getCell(5).alignment = { horizontal: 'right', vertical: 'middle' };
-
-      totRow.getCell(6).value = { formula: `SUM(F5:F${endRowIdx})` };
-      totRow.getCell(6).font = { name: 'Microsoft YaHei', size: 10, bold: true };
-      totRow.getCell(6).alignment = { horizontal: 'center', vertical: 'middle' };
-
-      totRow.getCell(7).value = { formula: `SUM(G5:G${endRowIdx})` };
-      totRow.getCell(7).font = { name: 'Microsoft YaHei', size: 10, bold: true };
-      totRow.getCell(7).alignment = { horizontal: 'center', vertical: 'middle' };
-
-      totRow.getCell(8).value = { formula: `SUM(H5:H${endRowIdx})` };
-      totRow.getCell(8).font = { name: 'Microsoft YaHei', size: 10, bold: true };
-      totRow.getCell(8).alignment = { horizontal: 'center', vertical: 'middle' };
-
-      totRow.getCell(9).value = { formula: `SUM(I5:I${endRowIdx})` };
-      totRow.getCell(9).font = { name: 'Microsoft YaHei', size: 10, bold: true };
-      totRow.getCell(9).alignment = { horizontal: 'center', vertical: 'middle' };
-
-      for (let c = 1; c <= 11; c++) {
-        const cell = totRow.getCell(c);
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
-        cell.border = {
-          top: { style: 'thin', color: { argb: 'FF94A3B8' } },
-          bottom: { style: 'double', color: { argb: 'FF475569' } },
-          left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-          right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
-        };
-      }
-
-      // Sheet 2: 考勤异常明细台账
-      const ws2 = wb.addWorksheet('考勤异常明细台账', {
-        views: [{ state: 'frozen', ySplit: 4 }]
-      });
-
-      ws2.columns = [
-        { width: 8 },   // A: 序号
-        { width: 16 },  // B: 工号
-        { width: 16 },  // C: 姓名
-        { width: 22 },  // D: BU1 / 部门
-        { width: 16 },  // E: 会议/考勤日期
-        { width: 14 },  // F: 考勤异常类型
-        { width: 16 },  // G: 签到时间
-        { width: 38 },  // H: 来源考勤快照名称
-        { width: 20 },  // I: 本期激励总额
-        { width: 14 },  // J: 计发单数
-        { width: 20 }   // K: 处置建议
-      ];
-
-      // Row 1: Title Banner
-      ws2.mergeCells('A1:K1');
-      const t2 = ws2.getCell('A1');
-      t2.value = '📑 会议考勤异常详细台账 (单次明细) / Detailed Attendance Anomalies Log';
-      t2.font = { name: 'Microsoft YaHei', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
-      t2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF83152F' } };
-      t2.alignment = { horizontal: 'center', vertical: 'middle' };
-      ws2.getRow(1).height = 38;
-
-      // Row 2: Subtitle
-      ws2.mergeCells('A2:K2');
-      const sub2 = ws2.getCell('A2');
-      sub2.value = `核算周期: ${period}  |  导出时间: ${timeStr}  |  涉及异常人员: ${totalPersons} 人  |  异常明细总记录: ${totalAnomalies} 条`;
-      sub2.font = { name: 'Microsoft YaHei', size: 9.5, color: { argb: 'FF334155' } };
-      sub2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
-      sub2.alignment = { horizontal: 'center', vertical: 'middle' };
-      ws2.getRow(2).height = 22;
-
-      ws2.getRow(3).height = 6;
-
-      // Row 4: Table Headers
-      const headers2 = ['序号', '工号', '姓名', 'BU1 / 部门', '会议/考勤日期', '考勤异常类型', '签到时间', '来源考勤快照名称', '会议月份激励金额', '计发单数', '处置建议'];
-      const hRow2 = ws2.getRow(4);
-      hRow2.height = 28;
-      headers2.forEach((h, i) => {
-        const cell = hRow2.getCell(i + 1);
-        cell.value = h;
-        cell.font = { name: 'Microsoft YaHei', size: 10.5, bold: true, color: { argb: 'FFFFFFFF' } };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF475569' } };
-        cell.alignment = { horizontal: 'center', vertical: 'middle' };
-        cell.border = {
-          top: { style: 'thin', color: { argb: 'FF334155' } },
-          bottom: { style: 'thin', color: { argb: 'FF334155' } },
-          left: { style: 'thin', color: { argb: 'FF334155' } },
-          right: { style: 'thin', color: { argb: 'FF334155' } }
-        };
-      });
-
-      // Data Rows
-      let detailCount = 0;
-      currentAttendanceAnomalies.forEach((item, pIdx) => {
-        const isChecked = item.deductible&&(cbMap.has(pIdx) ? cbMap.get(pIdx) : true);
-        const anomalies = item.anomalies || [];
-        anomalies.forEach(a => {
-          detailCount++;
-          const rIdx = 4 + detailCount;
-          const row = ws2.getRow(rIdx);
-          row.height = 24;
-          const isAbsent = a.type === 'absent' || String(a.attendance || '').includes('缺席');
-          const attText = attendanceIssueLabel(a);
-
-          row.getCell(1).value = detailCount;
-          row.getCell(2).value = item.staffId;
-          row.getCell(3).value = item.name || '—';
-          row.getCell(4).value = item.bu || '—';
-          row.getCell(5).value = a.actualDate || a.meetingDate || a.attendanceDate || '—';
-          row.getCell(6).value = attText;
-          row.getCell(7).value = a.attendanceTime || '—';
-          row.getCell(8).value = attendanceMeetingTitle(a)+(a.sessionName?' · '+a.sessionName:'');
-          row.getCell(9).value = Number(item.totalFee) || 0;
-          row.getCell(9).numFmt = '¥#,##0';
-          row.getCell(10).value = Number(item.orderCount) || 0;
-          row.getCell(11).value = isChecked ? `已勾选：待扣减 ${item.month||'日期未明'}` : '保留激励待核查';
-
-          const bg = detailCount % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
-          for (let c = 1; c <= 11; c++) {
-            const cell = row.getCell(c);
-            cell.font = cell.font || { name: 'Microsoft YaHei', size: 9.5 };
-            cell.fill = cell.fill || { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
-            cell.border = {
-              top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-              bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-              left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-              right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
-            };
-            if (c === 1 || c === 2 || c === 3 || c === 4 || c === 5 || c === 7 || c === 10) {
-              cell.alignment = { horizontal: 'center', vertical: 'middle' };
-            } else if (c === 6) {
-              cell.alignment = { horizontal: 'center', vertical: 'middle' };
-              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isAbsent ? 'FFFEE2E2' : 'FFFEF3C7' } };
-              cell.font = { name: 'Microsoft YaHei', size: 9.5, bold: true, color: { argb: isAbsent ? 'FF991B1B' : 'FF92400E' } };
-            } else if (c === 8) {
-              cell.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
-            } else if (c === 9) {
-              cell.alignment = { horizontal: 'right', vertical: 'middle' };
-              cell.font = { name: 'Microsoft YaHei', size: 9.5, bold: true, color: { argb: 'FFB91C1C' } };
-            } else if (c === 11) {
-              cell.alignment = { horizontal: 'center', vertical: 'middle' };
-              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isChecked ? 'FFFEE2E2' : 'FFEFF6FF' } };
-              cell.font = { name: 'Microsoft YaHei', size: 9, bold: true, color: { argb: isChecked ? 'FF991B1B' : 'FF1E40AF' } };
-            }
-          }
-        });
-      });
-
-      const buffer = await wb.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `激励人员会议考勤排查清单_${period}_${dateSlug}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      showToast('✅ 考勤异常排查清单 Excel 导出成功！', 'success');
-      return;
-    } catch (err) {
-      console.error('ExcelJS export error, falling back to XLSX:', err);
-    }
-  }
-
-  // Fallback to XLSX
-  if (typeof XLSX !== 'undefined') {
-    const summaryRows = currentAttendanceAnomalies.map((item, idx) => {
-      const isChecked = item.deductible&&(cbMap.has(idx) ? cbMap.get(idx) : true);
-      const absences = (item.anomalies || []).filter(a => a.type === 'absent' || String(a.attendance || '').includes('缺席')).length;
-      const lates = (item.anomalies || []).filter(a => a.type !== 'absent' && !String(a.attendance || '').includes('缺席')).length;
-      return {
-        '序号': idx + 1,
-        '工号': item.staffId,
-        '姓名': item.name || '—',
-        'BU1 / 部门': item.bu || '—',
-        '对应月份激励金额(元)': item.totalFee,
-        '扣减月份': item.month||'日期未明，暂不扣减',
-        '计发单数': item.orderCount,
-        '异常总频次': item.anomalyCount || (item.anomalies?.length || 1),
-        '缺席次数': absences,
-        '迟到次数': lates,
-        '处置状态': isChecked ? `已勾选：待扣减 ${item.month||'日期未明'}` : '未勾选 (保留激励)',
-        '考勤异常记录摘要': `扣减月份：${item.month||'日期未明，暂不扣减'}；`+(item.anomalies || []).map(attendanceDeductionReason).join('； ')
-      };
-    });
-
-    const detailRows = [];
-    currentAttendanceAnomalies.forEach((item, pIdx) => {
-      const isChecked = item.deductible&&(cbMap.has(pIdx) ? cbMap.get(pIdx) : true);
-      (item.anomalies || []).forEach(a => {
-        detailRows.push({
-          '序号': detailRows.length + 1,
-          '工号': item.staffId,
-          '姓名': item.name || '—',
-          'BU1 / 部门': item.bu || '—',
-          '会议/考勤日期': a.actualDate || a.meetingDate || a.attendanceDate || '—',
-          '考勤异常类型': a.attendance || (a.type === 'absent' ? '缺席' : '迟到'),
-          '签到时间': a.attendanceTime || '—',
-          '来源考勤快照名称': attendanceMeetingTitle(a)+(a.sessionName?' · '+a.sessionName:''),
-          '对应月份激励金额(元)': item.totalFee,
-          '扣减月份': item.month||'日期未明，暂不扣减',
-          '计发单数': item.orderCount,
-          '处置建议': isChecked ? `已勾选：待扣减 ${item.month||'日期未明'}` : '保留激励待核查'
-        });
-      });
-    });
-
-    const wb = XLSX.utils.book_new();
-    const ws1 = XLSX.utils.json_to_sheet(summaryRows);
-    const ws2 = XLSX.utils.json_to_sheet(detailRows);
-    XLSX.utils.book_append_sheet(wb, ws1, '考勤异常人员汇总');
-    XLSX.utils.book_append_sheet(wb, ws2, '考勤异常明细台账');
-    XLSX.writeFile(wb, `激励人员会议考勤排查清单_${period}_${dateSlug}.xlsx`);
-    showToast('✅ 考勤异常排查清单 Excel 导出成功！', 'success');
-  } else {
-    showToast('导出组件未就绪，请刷新重试', 'error');
-  }
+  const wb=XLSX.utils.book_new();
+  [[summaryHeaders,summary,en?'Attendance_Summary':'考勤异常人员汇总',7],[detailHeaders,details,en?'Attendance_Details':'考勤异常明细台账',3]].forEach(([headers,rows,name,reasonCol])=>{
+    const ws=XLSX.utils.aoa_to_sheet([headers,...rows]);ws['!cols']=headers.map((_,i)=>({wch:i===reasonCol?58:22}));wrapExportReasonColumn(ws,reasonCol);XLSX.utils.book_append_sheet(wb,ws,name);
+  });
+  await writeIncentiveWorkbook(wb,`${en?'Attendance_Review':'激励人员会议考勤排查清单'}_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
 if ($('attendanceAnomalyBtn')) $('attendanceAnomalyBtn').onclick = openAttendanceAnomalyModal;

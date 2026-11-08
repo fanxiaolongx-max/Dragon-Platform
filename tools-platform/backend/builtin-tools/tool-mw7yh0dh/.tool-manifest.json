@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "tool": {
+    "slug": "tool-mw7yh0dh",
+    "name": "考勤验收",
+    "nameEn": "Attendance Acceptance",
+    "icon": "🧩",
+    "description": "一款基于浏览器的考勤记录与验收单生成工具。用户可在线编辑考勤明细及验收评分，支持自动计算工作日并一键导出为格式规范、可直接打印的 Excel 文件，适用于外包项目管理与工时统计场景。",
+    "descriptionEn": "A browser-based tool for generating attendance records and acceptance certificates. Users can edit timesheets and evaluation scores online, automatically calculate working days, and export data into professionally formatted, print-ready Excel files, ideal for outsourcing project management and time tracking.",
+    "tags": [
+      "考勤管理",
+      "工时统计",
+      "验收单",
+      "Excel导出",
+      "项目管理"
+    ],
+    "href": "/tools/tool-mw7yh0dh",
+    "filePath": "/custom-tools/tool-mw7yh0dh/index.html",
+    "publicAccess": false,
+    "createdAt": "2026-11-08T14:56:48.677Z",
+    "updatedAt": "2026-11-08T15:04:45.132Z"
+  },
+  "history": null
+}

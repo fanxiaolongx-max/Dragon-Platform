@@ -107,7 +107,7 @@ test('attendance warning and processing list follow the current incentive filter
           {__person:'WX300',__name:'丙',__bu:'NIS',__customer:'ET',__attr:'FME',__level:'High',__fee:280,__rank:3,__date:'2026-09-02',__start:new Date(2026,8,2),__operatorGroup:'wx'}
         ];
         rawRows=validRows.map(r=>({complete_operator:r.__person,'当地开始时间':r.__date+' 23:00'}));
-        attendanceResults = new Map(['a100','a200','wx300'].map(id=>[id,{hasAnomaly:true,anomalies:[{type:'absent',attendance:'Absent',actualDate:id==='a200'?'2026-08-10':'2026-09-10'}]}]));
+        attendanceResults = new Map(['a100','a200','wx300'].map(id=>[id,{hasAnomaly:true,anomalies:[{type:'absent',attendance:'Absent',actualDate:'2026-08-10'},{type:'delay',attendance:'Delay',actualDate:'2026-09-10'}]}]));
         $('periodSourceMode').value='start';
         $('filterMonth').value='09';
         $('filterBU').value='NIS';
@@ -431,23 +431,18 @@ test('blacklist deductions apply only to the selected imported month and use ded
     assert.deepEqual(result.disabled, { deductions: 0, amount: 430 });
 });
 
-test('month validation rejects out-of-scope and missing months atomically, including template imports', () => {
-    const runtime = createToolRuntime();
-    const result = evaluate(runtime, `
-      rawRows=[{complete_operator:'00123456','当地开始时间':'2026-09-01 23:00',年份:2026,月份:10}];
-      $('periodSourceMode').value='imported';
-      blacklistDraft=[{staffId:'00123456',month:'2026-10',reason:'有效原因'}];saveBlacklist();
-      const errors=[];
-      for(const month of ['', '2026-09','2025-10']){try{importBlacklistRows([{'工号':'00123456','扣减月份':month,'扣减原因':'测试'}])}catch(e){errors.push(e.message)}}
-      try{importBlacklistRows([{'工号':'00123456','扣减月份':'2026-10','扣减原因':''}])}catch(e){errors.push(e.message)}
-      const importedMonths=importedIncentiveMonths();$('periodSourceMode').value='start';
-      ({errors,draftCount:blacklistDraft.length,savedCount:incentiveBlacklist.size,importedMonths,startMonths:importedIncentiveMonths()});
+test('blacklist imports no longer require months, accept English headers and reject invalid batches atomically', () => {
+    const runtime=createToolRuntime();
+    const result=evaluate(runtime, `
+      rawRows=[{complete_operator:'00123456','当地开始时间':'2026-09-01 23:00'}];
+      importBlacklistRows([{'工号':'00123456','姓名':'甲','扣减原因':'重复异常'}]);
+      importBlacklistRows([{'Employee ID':'WX12345',Name:'Test','Deduction Reason':'False attendance'}]);
+      let failed=false;try{importBlacklistRows([{'工号':'A200','扣减原因':'正常'},{'工号':'','扣减原因':'缺少工号'}])}catch(e){failed=true}
+      saveBlacklist();({failed,draft:blacklistDraft,saved:incentiveBlacklist.size,editor:$('blacklistRows').innerHTML});
     `);
-    assert.equal(result.errors.length, 4);
-    assert.equal(result.draftCount, 1);
-    assert.equal(result.savedCount, 1);
-    assert.deepEqual(result.importedMonths, ['2026-10']);
-    assert.deepEqual(result.startMonths, ['2026-09']);
+    assert.equal(result.failed,true);assert.equal(result.saved,2);assert.equal(result.draft.length,2);
+    assert.ok(result.draft.every(x=>x.scope==='person'&&x.month===''));
+    assert.doesNotMatch(result.editor,/data-field="month"/);
 });
 
 test('negative event import uses published events, imported months and unique employee IDs with original reasons', () => {
@@ -501,65 +496,33 @@ test('structured snapshots preserve deduction reasons and do not fabricate payme
     assert.equal(result.cleared, 0);
 });
 
-test('attendance preview and deductions are grouped by meeting month and automatically enter the shared blacklist', () => {
-    const runtime = createToolRuntime();
-    const result = evaluate(runtime, `
-      rawRows=[
-        {task_status:'completed',complete_operator:'A100','当地开始时间':'2026-09-01 23:00',operate_level:'High'},
-        {task_status:'completed',complete_operator:'A100','当地开始时间':'2026-09-01 23:05',operate_level:'Low'},
-        {task_status:'completed',complete_operator:'A100','当地开始时间':'2026-10-01 23:00',operate_level:'Low'}
-      ];recalculate();
-      const sept={snapshotId:'meeting-1',meetingTitle:'质量例会',sessionName:'第一场',actualDate:'2026-09-22',attendance:'Absent',type:'absent'};
-      const oct={snapshotId:'meeting-1',meetingTitle:'质量例会',sessionName:'第二场',actualDate:'2026-10-02',attendance:'Delay',type:'delay',attendanceTime:'10:15'};
-      attendanceResults=new Map([['a100',{hasAnomaly:true,anomalies:[sept,oct,{...sept,actualDate:'2026-08-22'}]}]]);
-      updateAttendanceAnomalyAlert();
-      const preview=currentAttendanceAnomalies.map(x=>({month:x.month,fee:x.totalFee,count:x.orderCount,meetings:x.anomalies.length}));
-      document.querySelectorAll=selector=>selector==='.anomaly-row-cb'?[{checked:true,disabled:false,dataset:{idx:'0'}}]:[];
-      showToast=()=>{};applyAnomaliesToBlacklist();
-      const entries=[...incentiveBlacklist.values()];
-      const after={paid:filtered().map(r=>incentiveMonth(r)),deduction:blacklistDeductionRows()[0],editorOpen:$('blacklistModal').classList.contains('show'),draftCount:blacklistDraft.length};
-      const stored=JSON.parse(localStorage.getItem(BLACKLIST_STORAGE_KEY));
-      incentiveBlacklist=blacklistMap([...entries,attendanceBlacklistEntry({staffId:'A100',name:''},sept)]);
-      ({preview,entries,after,storedCount:stored.length,repeatedCount:incentiveBlacklist.size});
+test('attendance requires two distinct imported months and creates one person-level deduction', () => {
+    const runtime=createToolRuntime();
+    const result=evaluate(runtime, `
+      rawRows=[['2026-07-01','High'],['2026-08-01','Medium'],['2026-09-01','Fatal']].map(([date,level])=>({task_status:'completed',complete_operator:'A100','当地开始时间':date+' 23:00',operate_level:level,BU1:'NIS'}));
+      rawRows.push({task_status:'completed',complete_operator:'A200','当地开始时间':'2026-09-01 23:00',operate_level:'High'});recalculate();
+      const july={snapshotId:'one',meetingTitle:'不应进入原因的来源文件.xlsx',actualDate:'2026-07-10',attendance:'Delay'},sept={actualDate:'2026-09-10',attendance:'Fake'};
+      attendanceResults=new Map([
+        ['a100',{hasAnomaly:true,anomalies:[july,sept,{...july,actualDate:'2026-07-20'}]}],
+        ['a200',{hasAnomaly:true,anomalies:[sept,{...sept,actualDate:'2026-09-20'},{actualDate:'2026-06-01',attendance:'Absent'},{attendance:'Absent'}]}]
+      ]);render();
+      const preview=currentAttendanceAnomalies.map(x=>({id:x.staffId,months:x.months,fee:x.totalFee,fake:x.hasFalseAttendance}));
+      const badge=Boolean(getPersonAttendanceAnomaly('A200','', '2026-09'));
+      const pending=filtered().reduce((a,r)=>a+r.__fee,0);
+      $('filterMonth').value='09';$('filterBU').value='NIS';render();const filteredPreview=currentAttendanceAnomalies[0].totalFee;
+      $('filterMonth').value='';$('filterBU').value='';render();
+      document.querySelectorAll=selector=>selector==='.anomaly-row-cb'?[{checked:true,disabled:false,dataset:{idx:'0'}}]:[];showToast=()=>{};applyAnomaliesToBlacklist();
+      const entry=[...incentiveBlacklist.values()][0],after=filtered().reduce((a,r)=>a+r.__fee,0);
+      const repeated=blacklistMap([entry,{...entry,reason:'另一条原因'}]);incentiveBlacklist=repeated;applyPaymentRules();
+      ({preview,badge,pending,filteredPreview,entry,after,repeatedTotal:filtered().reduce((a,r)=>a+r.__fee,0),remainingAlerts:currentAttendanceAnomalies.length,reasonHtml:deductionReasonCell(entry.reason),english:translateDeductionReason(entry.reason)});
     `);
-    assert.deepEqual(result.preview, [{ month: '2026-09', fee: 280, count: 1, meetings: 1 }, { month: '2026-10', fee: 50, count: 1, meetings: 1 }]);
-    assert.equal(result.entries[0].month, '2026-09');
-    assert.equal(result.entries[0].eventDate, '2026-09-22');
-    assert.match(result.entries[0].reason, /2026-09-22《质量例会》【第一场】：缺席/);
-    assert.deepEqual(result.after.paid, ['2026-10']);
-    assert.equal(result.after.deduction['扣减激励（元）'], 280);
-    assert.match(result.after.deduction['扣减原因'], /质量例会/);
-    assert.equal(result.after.editorOpen, true);
-    assert.equal(result.after.draftCount, 1);
-    assert.equal(result.storedCount, 1);
-    assert.equal(result.repeatedCount, 1);
-});
-
-test('attendance preview shows the full monthly deduction behind filters and never guesses an unknown meeting month', () => {
-    const runtime = createToolRuntime();
-    const result = evaluate(runtime, `
-      rawRows=[
-        {task_status:'completed',complete_operator:'A100','当地开始时间':'2026-09-01 23:00',operate_level:'High',BU1:'NIS'},
-        {task_status:'completed',complete_operator:'A100','当地开始时间':'2026-09-02 23:00',operate_level:'Low',BU1:'Other'},
-        {task_status:'completed',complete_operator:'A100','当地开始时间':'2026-10-01 23:00',operate_level:'Low',BU1:'NIS'}
-      ];recalculate();$('filterBU').value='NIS';
-      attendanceResults=new Map([['a100',{hasAnomaly:true,anomalies:[
-        {snapshotId:'sept',title:'9月例会',actualDate:'2026-09-22',attendance:'Fake',type:'delay'},
-        {snapshotId:'invalid',title:'未定日期会议',actualDate:'2026-02-30',attendance:'Absent'},
-        {snapshotId:'outside',title:'旧会议',actualDate:'2025-09-22',attendance:'Absent'}
-      ]}]]);updateAttendanceAnomalyAlert();
-      const preview=currentAttendanceAnomalies.map(x=>({month:x.month,fee:x.totalFee,deductible:x.deductible}));
-      const badgeSept=Boolean(getPersonAttendanceAnomaly('A100','', '2026-09')),badgeOct=Boolean(getPersonAttendanceAnomaly('A100','','2026-10'));
-      const fakeReason=attendanceDeductionReason(currentAttendanceAnomalies[0].anomalies[0]);
-      const entry=attendanceBlacklistEntry(currentAttendanceAnomalies[0],currentAttendanceAnomalies[0].anomalies[0]);
-      let monthError='';try{validateBlacklistEntries([{...entry,month:'2026-10'}])}catch(e){monthError=e.message}
-      ({preview,badgeSept,badgeOct,fakeReason,monthError});
-    `);
-    assert.deepEqual(result.preview, [{ month: '2026-09', fee: 330, deductible: true }, { month: '', fee: 0, deductible: false }]);
-    assert.equal(result.badgeSept, true);
-    assert.equal(result.badgeOct, false);
-    assert.match(result.fakeReason, /虚假签到/);
-    assert.match(result.monthError, /会议发生月份一致/);
+    assert.deepEqual(result.preview,[{id:'A100',months:['2026-07','2026-09'],fee:353,fake:true}]);
+    assert.equal(result.badge,false);assert.equal(result.pending,1340);assert.equal(result.filteredPreview,353);
+    assert.equal(result.entry.scope,'person');assert.equal(result.entry.month,'');
+    assert.equal(result.entry.reason,'2026-07月考勤：迟到；2026-09月考勤：虚假考勤');
+    assert.doesNotMatch(result.entry.reason,/xlsx|来源文件/);
+    assert.equal(result.after,987);assert.equal(result.repeatedTotal,987);assert.equal(result.remainingAlerts,0);
+    assert.match(result.reasonHtml,/false-attendance/);assert.match(result.english,/False attendance/);assert.doesNotMatch(result.english,/[\u3400-\u9fff]/);
 });
 
 test('personnel summary separates pending attendance warnings from applied deductions and restores payment when disabled', () => {
@@ -570,7 +533,7 @@ test('personnel summary separates pending attendance warnings from applied deduc
         {task_status:'completed',complete_operator:'A100','当地开始时间':'2026-08-01 23:00',operate_level:'Low'},
         {task_status:'completed',complete_operator:'A200','当地开始时间':'2026-09-01 23:00',operate_level:'Low'}
       ];$('periodType').value='month';recalculate();
-      attendanceResults=new Map([['a100',{hasAnomaly:true,anomalies:[{snapshotId:'meeting-1',title:'质量例会',actualDate:'2026-09-22',attendance:'Absent',type:'absent'}]}]]);
+      attendanceResults=new Map([['a100',{hasAnomaly:true,anomalies:[{snapshotId:'meeting-1',title:'质量例会',actualDate:'2026-09-22',attendance:'Absent',type:'absent'},{actualDate:'2026-08-22',attendance:'Delay',type:'delay'}]}]]);
       render();openAttendanceAnomalyModal();
       const pending=getPersonnelPeriodSummaryData().find(x=>x.person==='A100'&&x.p==='2026-09');
       const pendingState={deducted:pending.isDeducted,reason:pending.deductionReason,money:pending.money,warning:Boolean(pending.anom),blacklist:incentiveBlacklist.size};
@@ -586,8 +549,8 @@ test('personnel summary separates pending attendance warnings from applied deduc
     `);
     assert.deepEqual(result.pendingState, { deducted: false, reason: '', money: 280, warning: true, blacklist: 0 });
     assert.equal(result.appliedState.deducted, true);
-    assert.equal(result.appliedState.money, 115);
-    assert.match(result.appliedState.reason, /考勤：2026-09-22《质量例会》：缺席/);
+    assert.equal(result.appliedState.money, 140);
+    assert.match(result.appliedState.reason, /2026-09月考勤：缺席/);
     assert.deepEqual(result.partial, { deducted: true, amount: 165, money: 165, total: 215, paid: 215 });
     assert.deepEqual(result.disabled, { deducted: false, reason: '', money: 280 });
 });
@@ -605,7 +568,7 @@ test('reason cells show a short escaped preview with the complete reason in a co
     assert.match(result.html, /&lt;img/);
     assert.doesNotMatch(result.html, /<img/);
     assert.equal(result.empty, '—');
-    assert.equal(result.simple, '考勤：2026-09-22《质量例会》：迟到');
+    assert.equal(result.simple, '2026-09月考勤：迟到');
 });
 
 test('average deductions use each employee quarter, stay stable under filters and toggle immediately', () => {
