@@ -4,6 +4,9 @@
 function measurePageLayout() {
     const width=innerWidth,height=innerHeight;
     if(!document.body||width<1)return null;
+    // 禁止缩放的 device-width 页面基本是手机专用 H5：按手机宽度展示，不必铺满侧栏。
+    const viewport=(document.querySelector('meta[name="viewport" i]')?.content||'').toLowerCase().replace(/\s/g,'');
+    if(/width=device-width/.test(viewport)&&/user-scalable=(no|0)|maximum-scale=1(\.0*)?(,|$)/.test(viewport))return {viewportWidth:width,mobile:true,preferredWidth:420};
     const samples=[],styles=new WeakMap();let visited=0,weight=0;
     const style=el=>{if(!styles.has(el))styles.set(el,getComputedStyle(el));return styles.get(el);};
     const visible=el=>{

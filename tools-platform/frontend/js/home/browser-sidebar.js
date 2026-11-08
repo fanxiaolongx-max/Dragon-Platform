@@ -83,7 +83,9 @@
         if(!open||!autoFit)return;
         const left=Math.max(0,document.querySelector('.home-main')?.getBoundingClientRect().left||0),available=innerWidth-left;
         const preferred=Number(state.layout?.preferredWidth);
-        const width=innerWidth<=860?innerWidth-32:preferred>=360&&preferred<=744?preferred:pageWidth>0&&pageWidth<=600?Math.max(320,pageWidth+32):Math.min(1280,Math.max(720,Math.round(available*.7)));
+        // 手机页面按手机宽度收窄；电脑页面尽量放宽，只给中间对话留出可读的宽度。
+        const desktop=Math.max(720,Math.round(available-Math.max(380,available*.25)));
+        const width=innerWidth<=860?innerWidth-32:preferred>=360&&preferred<=744?preferred:pageWidth>0&&pageWidth<=600?Math.max(320,pageWidth+32):desktop;
         window.SidebarResize?.setWidth(panel,width);
     }
     function collapseMenu(){
