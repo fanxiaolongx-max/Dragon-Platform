@@ -1983,6 +1983,9 @@
                     submitBtn.textContent = t(submitBtn.dataset.completed === 'true' ? 'home.import.done' : skillImport ? 'home.import.skillSubmit'
                         : pythonImport ? (pythonImport.updateSlug ? 'home.import.pyUpdateSubmit' : 'home.import.pySubmit')
                         : currentUpdateTarget ? 'home.import.updateSubmit' : 'home.import.submit');
+                    if (submitBtn.dataset.completed === 'true') {
+                        closeImportModal();
+                    }
                 }
             });
 

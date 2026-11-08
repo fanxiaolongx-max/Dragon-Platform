@@ -1805,11 +1805,24 @@
 
         function isSpecialStart(index) {
             const line = lines[index] || '';
-            return /^```/.test(line.trim())
+            return Boolean(fenceOpen(line))
                 || /^#{1,4}\s+/.test(line)
                 || /^\s*(?:[-*+]\s+|\d+[.)]\s+)/.test(line)
                 || /^\s*>\s?/.test(line)
                 || (line.includes('|') && isTableSeparator(lines[index + 1] || ''));
+        }
+
+        // 代码围栏（``` 或 ~~~，可多于 3 个）：结束行须用同一字符、长度不短于开头且后面不带文字。
+        // 模型常把含 ```sql 的 Markdown（如 Skill 正文）再用 ``` 包一层：块内带语言的围栏视为嵌套，
+        // 其后的空围栏先闭合嵌套，避免外层代码块被提前截断。
+        function fenceOpen(line) {
+            const match = String(line || '').match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+            if (!match || (match[1][0] === '`' && match[2].includes('`'))) return null;
+            return { char: match[1][0], size: match[1].length, info: match[2].trim() };
+        }
+        function fenceClose(line, fence) {
+            const match = String(line || '').match(/^\s*(`{3,}|~{3,})\s*$/);
+            return Boolean(match && match[1][0] === fence.char && match[1].length >= fence.size);
         }
 
         let index = 0;
@@ -1817,11 +1830,24 @@
             const line = lines[index];
             if (!line.trim()) { index += 1; continue; }
 
-            if (/^```/.test(line.trim())) {
-                const language = line.trim().slice(3).trim();
+            const fence = fenceOpen(line);
+            if (fence) {
+                const language = fence.info.split(/\s+/)[0] || '';
                 const code = [];
+                let depth = 0;
                 index += 1;
-                while (index < lines.length && !/^```/.test(lines[index].trim())) code.push(lines[index++]);
+                while (index < lines.length) {
+                    const current = lines[index];
+                    if (fenceClose(current, fence)) {
+                        if (!depth) break;
+                        depth -= 1;
+                    } else {
+                        const nested = fenceOpen(current.trimStart());
+                        if (nested && nested.char === fence.char && nested.info) depth += 1;
+                    }
+                    code.push(current);
+                    index += 1;
+                }
                 if (index < lines.length) index += 1;
                 blocks.push(`<pre data-language="${escapeHtml(language)}"><code>${escapeHtml(code.join('\n'))}</code></pre>`);
                 continue;

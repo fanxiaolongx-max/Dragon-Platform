@@ -2050,6 +2050,8 @@
                         workspace()?.performance?.(reply, reply.dcLiveRounds, { running: true });
                     }
                     if (event.type === 'tac' && event.status === 'queued') watchTac(event.id);
+                    // 命令实时输出：交给右侧终端面板（terminal-sidebar.js），不进消息区
+                    if (event.type === 'command_start' || event.type === 'command_output' || event.type === 'command_end') { window.dispatchEvent(new CustomEvent('dragon-claw:command', { detail: event })); return; }
                     window.DragonClawSkills?.handleEvent(reply, event);
                     workspace()?.handleEvent(reply, event, workspacePayload);
                     activity.event(event);
@@ -2713,8 +2715,10 @@
                 cwd: item.cwd
             });
         }
-        // 3. 频道会话 (微信、WeLink)
-        const channelThreads = window.HomeWelinkThreads?.getAllThreads?.() || [];
+        // 3. 频道会话 (微信、WeLink)：默认不混进「任务」，点侧栏「频道会话」进入专门视图查看；
+        //    只有在筛选里明确选了某个频道时才并进来
+        const sourceFilter = window.HomeConversationList?.getFilter?.().source || 'all';
+        const channelThreads = ['weixin', 'welink'].includes(sourceFilter) ? (window.HomeWelinkThreads?.getAllThreads?.() || []) : [];
         for (const thread of channelThreads) {
             const ch = thread.channel || 'welink';
             unified.push({

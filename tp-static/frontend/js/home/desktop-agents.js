@@ -15,7 +15,7 @@
     const identity = () => ['tools_user', 'tools_tenant_id', 'tools_token'].map(k => localStorage.getItem(k) || sessionStorage.getItem(k) || '').join('|');
     const key = s => s.provider + ':' + s.id;
     async function request(method, url, body, signal) { const token = localStorage.getItem('tools_token') || sessionStorage.getItem('tools_token'); const response = await fetch(API + url, { method, signal, credentials: 'same-origin', cache: 'no-store', headers: { Authorization: 'Bearer ' + token, ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) }); const data = await response.json().catch(() => ({})); if (!response.ok)
-        throw Object.assign(new Error(data.error || `HTTP ${response.status}`), { status: response.status, code: data.code }); return data; }
+        throw Object.assign(new Error(data.error || (response.status === 504 ? L('桌面端未及时确认，请先查看原会话，避免重复发送', 'Desktop did not acknowledge in time. Check the desktop session before resending.') : `HTTP ${response.status}`)), { status: response.status, code: data.code }); return data; }
     // 与后端上限一致：超长时不发请求，直接说明字数（保留输入框里的内容）
     const MAX_MESSAGE = 20000;
     function tooLong(text) { if (String(text || '').length > MAX_MESSAGE)

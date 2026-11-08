@@ -62,8 +62,8 @@
       "description": "数通协议知识库：OSPF、Juniper 跨厂商策略等知识的分类整理，配合二维拓扑、报文时序、按位图解与分步实验，理解复杂协议机制。",
       "href": "./datacom-protocol-expert/index.html",
       "encrypted": false,
-      "fingerprint": "b63176974ae2419a4eb448a85d178ee0453590100596226a7cecdfcbfe8e97f1",
-      "updatedAt": "2026-11-08T10:29:36.870Z"
+      "fingerprint": "58b6b34db019c5c4087a4db316547c859258dcd44459098616f85afcd59da36e",
+      "updatedAt": "2026-11-08T20:34:14.824Z"
     },
     {
       "slug": "department-reward-penalty",
@@ -71,8 +71,8 @@
       "description": "用于维护部门负向事件与违规记录、扣罚规则、人员名册与操作审计日志，支持草稿发布、规则分类筛选和人员 CSV 导入导出。",
       "href": "./department-reward-penalty/index.html",
       "encrypted": false,
-      "fingerprint": "a79e7b3794b0c9262bc3c97610c6938d33bdddb1df85813254ad8824b3366b46",
-      "updatedAt": "2026-11-08T00:29:35.388Z"
+      "fingerprint": "34432f8de461a625fe389c9c2056c08acb3b7a853eba6473eb72f4364218a7c6",
+      "updatedAt": "2026-11-08T20:34:14.125Z"
     },
     {
       "slug": "reward-program",
@@ -98,8 +98,8 @@
       "description": "导入夜间操作 Excel，按人员、周期和操作等级核算操作激励并生成分析与导出结果。",
       "href": "./tool-ms4xb66s/index.html",
       "encrypted": false,
-      "fingerprint": "c3b6380bab319b7d0976ce87971ac8fbb76907cc4dcf7a6e3fbb06040e236fc5",
-      "updatedAt": "2026-10-26T02:48:50.486Z"
+      "fingerprint": "7cf1f663bb928246121fc3725617c10c1c71034dee7cb1de2fb6cd193d09614f",
+      "updatedAt": "2026-11-08T20:34:14.203Z"
     },
     {
       "slug": "tool-mumxi3px",
@@ -107,8 +107,8 @@
       "description": "查询产品是否属于强控业务比对范围，支持产品数据导入导出、服务器保存、模糊检索和静态快照同步。",
       "href": "./tool-mumxi3px/index.html",
       "encrypted": false,
-      "fingerprint": "64d6c55e9dd2b6085f4828ccfb3099ed5ccb8498fcf301b954fe72097bb3842d",
-      "updatedAt": "2026-11-08T10:29:36.722Z"
+      "fingerprint": "623a762d3e7923ca1ed5248562dcbae7bab96f50a6c96f89c34f30fd3a6de90a",
+      "updatedAt": "2026-11-08T20:34:14.645Z"
     },
     {
       "slug": "tool-mqp55fna",
@@ -426,8 +426,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./uivf12/index.html",
       "encrypted": false,
-      "fingerprint": "73d8a2a93cbc928d3912015447c512a3149d496e01e20570fee48be8b9fb3919",
-      "updatedAt": "2026-11-08T10:29:30.494Z"
+      "fingerprint": "663bdca424ff6c4ba2a5ebad85f5085985461c00fabca135e3e94cd09f1ef381",
+      "updatedAt": "2026-11-08T20:34:08.370Z"
     },
     {
       "slug": "sla",
@@ -436,8 +436,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./sla/index.html",
       "encrypted": false,
-      "fingerprint": "abd6e70702e4bdbbfb63144590b1809b418606ad3133f49eec1a474ebe7ce196",
-      "updatedAt": "2026-11-08T10:29:31.405Z"
+      "fingerprint": "4314dce8279e38df2ade24e64f7d39f33958de2f0c5bdf3adae4285960288fb3",
+      "updatedAt": "2026-11-08T20:34:09.300Z"
     },
     {
       "slug": "report",
@@ -446,8 +446,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./report/index.html",
       "encrypted": false,
-      "fingerprint": "843390b0cce8b8421cc99dbf021496d8a726262e29660def8eafbb121b1e83b2",
-      "updatedAt": "2026-11-08T10:29:31.738Z"
+      "fingerprint": "2ca24f10a463aff146612457f184691238ac35b60a2988d0a9c795fa6b3c6522",
+      "updatedAt": "2026-11-08T20:34:09.653Z"
     },
     {
       "slug": "expedite",
@@ -456,8 +456,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./expedite/index.html",
       "encrypted": false,
-      "fingerprint": "b1619f3bd323d4d457e0ff7c603927a557288d9c6451e2d7be6eaccf2e4a7ac5",
-      "updatedAt": "2026-11-08T10:29:31.908Z"
+      "fingerprint": "3558380e04b7186adae05206627451ef6f3de35d3a2131e4c3cf437994c0287f",
+      "updatedAt": "2026-11-08T20:34:09.830Z"
     },
     {
       "slug": "monthly",
@@ -466,8 +466,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./monthly/index.html",
       "encrypted": false,
-      "fingerprint": "34fd91787b9e0f4c4d4b3af6ab9a1c1fe664d410f662b4ff8621fdac46bec983",
-      "updatedAt": "2026-11-08T10:29:32.412Z"
+      "fingerprint": "8b9b884c5b798f457581dde84dd6dcae7284e1cef15370cf0fb04ad89c50bacc",
+      "updatedAt": "2026-11-08T20:34:10.318Z"
     },
     {
       "slug": "topic-analysis",
@@ -503,8 +503,8 @@
       "description": "面向通信工程师的 AI 入门实战课程。通过五级台阶（懂、问、喂、验、用）引导学员从基础认知进阶到利用 AI 解决实际工作痛点，重点涵盖提示词编写、上下文管理、幻觉识别及 Agent 任务协作，并强调企业信息安全与合规。",
       "href": "./ai-101/index.html",
       "encrypted": false,
-      "fingerprint": "d195366e57470d4ff28a3efc3784a7c94ae015a7f0b0ae41795f3995eb6891f2",
-      "updatedAt": "2026-11-08T10:29:36.906Z"
+      "fingerprint": "afd06e6f0f8e8d96375780d0f5845c6fcd20f3a261d67045e8b271bbd2ed504d",
+      "updatedAt": "2026-11-08T20:34:14.884Z"
     }
   ]
 }

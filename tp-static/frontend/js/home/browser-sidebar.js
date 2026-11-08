@@ -83,7 +83,9 @@
         if(!open||!autoFit)return;
         const left=Math.max(0,document.querySelector('.home-main')?.getBoundingClientRect().left||0),available=innerWidth-left;
         const preferred=Number(state.layout?.preferredWidth);
-        const width=innerWidth<=860?innerWidth-32:preferred>=360&&preferred<=744?preferred:pageWidth>0&&pageWidth<=600?Math.max(320,pageWidth+32):Math.min(1280,Math.max(720,Math.round(available*.7)));
+        // 手机页面按手机宽度收窄；电脑页面尽量放宽，只给中间对话留出可读的宽度。
+        const desktop=Math.max(720,Math.round(available-Math.max(380,available*.25)));
+        const width=innerWidth<=860?innerWidth-32:preferred>=360&&preferred<=744?preferred:pageWidth>0&&pageWidth<=600?Math.max(320,pageWidth+32):desktop;
         window.SidebarResize?.setWidth(panel,width);
     }
     function collapseMenu(){
@@ -123,14 +125,14 @@
             if(!streaming)refresh(true);
         },2000);
     }
-    async function show(){
-        window.ChatFiles?.closePreview();window.DragonClawWorkspace?.closePanel?.();
+    async function show({createEmpty=true}={}){
+        window.ChatFiles?.closePreview();window.DragonClawWorkspace?.closePanel?.();window.DragonTerminalSidebar?.close?.();
         // 普通桌面工具与侧栏并排显示；独立原生工具视图仍暂停挂载，避免互相覆盖。
         if(toolAllowsBrowser)suspended.delete('tool');
         const fresh=!open;if(fresh)collapseMenu();open=true;
         if(bridge&&(!connected||!docked)){connected=await bridge.connect().catch(()=>false);docked=connected;}
         syncTheme(true);visibility();if(fresh)requestAnimationFrame(fit);
-        if(bridge){if(connected&&!state.tabs.length)bridge.action('new-tab');}
+        if(bridge){if(createEmpty&&connected&&!state.tabs.length)bridge.action('new-tab');}
         else{startRefresh();await refresh();}
     }
     function close(){
@@ -494,7 +496,15 @@
         window.addEventListener('beforeunload',()=>{if(manualToken)api('release',{},true).catch(()=>{});bridge?.bounds(null);bridge?.reading?.(false);});document.addEventListener('visibilitychange',()=>{layout();if(document.hidden){if(gesture?.remote){gesture.ended=true;remotePointer(gesture,'cancel',{});gesture=null;}streamController?.abort();}else if(open){refresh(true);}});
         document.addEventListener('pointerdown',event=>{if(innerWidth<=860&&open&&!panel.contains(event.target)&&!toggle.contains(event.target)&&!event.target.closest('[aria-modal="true"],.app-dialog'))close();});document.addEventListener('keydown',event=>{if(event.key==='Escape'&&menu){menu='';renderMenu();layout();event.preventDefault();return;}if(event.key==='Escape'&&open&&!event.defaultPrevented&&!document.querySelector('[aria-modal="true"]'))close();});
         new ResizeObserver(layout).observe(surface);new MutationObserver(layout).observe(document.body,{attributes:true,childList:true,subtree:true,attributeFilter:['class','hidden','open','style']});
-        if(bridge){bridge.onState(value=>{const before=state.tabs.find(tab=>tab.id===state.activeId)?.url,after=value.tabs.find(tab=>tab.id===value.activeId)?.url;if(before!==after){autoFit=true;pageWidth=0;}state=value;render();requestAnimationFrame(fit);});bridge.onReveal(()=>{if(innerWidth>860||open)show();});bridge.onFocusUrl(()=>{address.focus();address.select();});bridge.onPoppedOut(()=>{docked=false;close();});bridge.connect().then(value=>{connected=value;docked=value;layout();}).catch(()=>{});}
+        bridge?.onUivImport?.(href=>{
+            // Import in the existing authenticated tool frame, retaining the capture tab.
+            try {
+                const url=new URL(href,location.origin);
+                if(url.origin!==location.origin||url.pathname!=='/sla'||url.searchParams.get('autoImport')!=='1')return;
+                if(window.HomeToolFrame?.open(url.pathname+url.search))close();
+            }catch{}
+        });
+        if(bridge){bridge.onState(value=>{const before=state.tabs.find(tab=>tab.id===state.activeId)?.url,after=value.tabs.find(tab=>tab.id===value.activeId)?.url;if(before!==after){autoFit=true;pageWidth=0;}state=value;render();requestAnimationFrame(fit);});bridge.onReveal(()=>{if(innerWidth>860||open)show({createEmpty:false});});bridge.onFocusUrl(()=>{address.focus();address.select();});bridge.onPoppedOut(()=>{docked=false;close();});bridge.connect().then(value=>{connected=value;docked=value;layout();}).catch(()=>{});}
         render();window.DragonBrowserSidebar={open:show,close,showAgentView:show,isOpen:()=>open};
     }
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
