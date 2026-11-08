@@ -1,12 +1,12 @@
 {
   "zh": [
-    "DragonClaw 在输入框上方吸附实时待办任务清单，支持一键折叠与划线完成动画。",
-    "任务状态与当前会话实时同步，可直观查看完成进度并保持对话视区清爽。",
-    "优化工作区面板与任务清单的联动响应，输入与任务管理紧密贴合。"
+    "优化 AI 助手 Markdown 代码块渲染，支持多层嵌套及长代码围栏，避免技能内容被截断。",
+    "增强长文档与多重反引号块的解析稳定性，完整呈现大段代码与排版格式。",
+    "优化 DragonClaw 流式输出中的代码块展示与滚动交互体验。"
   ],
   "en": [
-    "DragonClaw docks a live task list right above the composer with collapse and strike-through animations.",
-    "Task states update in real-time with the active session, keeping the message viewport tidy.",
-    "Refined workspace panel coordination for seamless task tracking while composing prompts."
+    "Optimized Markdown code block rendering in AI assistant to properly keep nested and long fences in a single block without truncation.",
+    "Enhanced parsing stability for extensive documents and multi-backtick blocks to preserve intact formatting.",
+    "Refined DragonClaw streaming code display and scrolling interactions."
   ]
 }
