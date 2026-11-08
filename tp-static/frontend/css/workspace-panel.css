@@ -824,3 +824,10 @@ body.dc-file-expanded { overflow: hidden; }
 .dc-rewind-btn small { color: var(--dc-faint, #64748b); font-size: 11px; }
 .dc-rewind-btn:hover { border-color: rgba(251, 191, 36, 0.5); color: #fcd34d; }
 .dc-rewound { margin-top: 6px; color: #fcd34d; font-size: 12px; }
+
+/* Compact metrics inherit both workspace themes and drawer width. */
+.wsp-performance-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.wsp-performance-grid > div { min-width: 0; border: 1px solid var(--wsp-border); border-radius: 10px; padding: 10px; background: rgba(148,163,184,.06); }
+.wsp-performance-grid small { display: block; color: var(--wsp-muted); font-size: 11px; }
+.wsp-performance-grid strong { display: block; margin-top: 5px; font-size: 16px; overflow-wrap: anywhere; }
+.wsp-performance-note { color: var(--wsp-muted); font-size: 11px; line-height: 1.6; margin-bottom: 0; }

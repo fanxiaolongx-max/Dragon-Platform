@@ -391,7 +391,7 @@ function registerNavbarI18n() {
             'nav.set.sub.snapshotPublish': '配置当前平台的只读快照推送目标，并查看推送进度与历史日志。',
             'nav.set.sub.initialize': '补齐开箱即用内容，或在安全备份和完整归档后恢复到首次使用状态。',
             'nav.set.sub.media': '统一管理点播媒体库、分类文件夹、本地资源批量导入与封面重绘。',
-            'nav.set.sub.promotions': '配置首页右上角推广区：推广视频的显示、推广链接的增删改、首页最多显示的链接数与轮换间隔，以及桌面端右下角推广卡片堆。',
+            'nav.set.sub.promotions': '配置首页右上角推广区：推广视频的显示、推广链接的增删改、首页最多显示的链接数与轮换间隔，以及桌面端右侧 Dragon 浏览器推广标签。',
             'nav.media.categoryFilter': '媒体分类筛选',
             'nav.media.searchLabel': '搜索媒体资源',
             'nav.media.previewBack': '返回媒体设置',
@@ -586,6 +586,14 @@ function registerNavbarI18n() {
             'nav.ai.lblApiUrl': 'API URL',
             'nav.ai.plhApiUrl': '留空使用供应商默认地址；兼容网关填 /v1 基地址',
             'nav.ai.lblModel': '模型名称',
+            'nav.ai.channelModelsTitle': '渠道模型列表',
+            'nav.ai.channelModelsHelp': '同一渠道（共享 Base URL 与 Token）可配置多个模型，标 ★ 为默认主模型',
+            'nav.ai.plhAddModel': '输入模型名称（如 gpt-5.6-luna、grok-4.7），回车或点击添加',
+            'nav.ai.btnAddModel': '＋ 添加模型',
+            'nav.ai.modelPrimary': '★ 主模型',
+            'nav.ai.modelSetPrimary': '设为主模型',
+            'nav.ai.modelTest': '测试',
+            'nav.ai.modelCount': '{count}个模型',
             'nav.ai.lblMax': '最大输出 Tokens',
             'nav.ai.lblContext': '上下文窗口 Tokens（0 = 按模型自动）',
             'nav.ai.lblInputCost': '输入成本 USD / 1M Tokens',
@@ -905,7 +913,7 @@ function registerNavbarI18n() {
             'nav.set.sub.snapshotPublish': 'Configure this platform’s read-only snapshot destination and review publishing progress and history.',
             'nav.set.sub.initialize': 'Add the Quick Start defaults or return to a clean first-run state after a safety backup and full archive.',
             'nav.set.sub.media': 'Manage the on-demand media library, category folders, local batch imports, and poster regeneration.',
-            'nav.set.sub.promotions': 'Configure the home page promo area: which videos show, promoted links, the maximum number of links and rotation interval, and the desktop promotion card stack.',
+            'nav.set.sub.promotions': 'Configure the home page promo area: which videos show, promoted links, the maximum number of links and rotation interval, and the desktop Dragon Browser promotion tabs.',
             'nav.media.categoryFilter': 'Filter media categories',
             'nav.media.searchLabel': 'Search media resources',
             'nav.media.previewBack': 'Back to media settings',
@@ -1100,6 +1108,14 @@ function registerNavbarI18n() {
             'nav.ai.lblApiUrl': 'API URL',
             'nav.ai.plhApiUrl': 'Leave empty for provider default; compatible gateways should use the /v1 base URL',
             'nav.ai.lblModel': 'Model Name',
+            'nav.ai.channelModelsTitle': 'Channel Models',
+            'nav.ai.channelModelsHelp': 'Multiple models can share this channel (Base URL & Token). Star ★ indicates primary model',
+            'nav.ai.plhAddModel': 'Enter model name (e.g. gpt-5.6-luna, grok-4.7), press Enter or Add',
+            'nav.ai.btnAddModel': '＋ Add Model',
+            'nav.ai.modelPrimary': '★ Primary',
+            'nav.ai.modelSetPrimary': 'Set Primary',
+            'nav.ai.modelTest': 'Test',
+            'nav.ai.modelCount': '{count} models',
             'nav.ai.lblMax': 'Max Output Tokens',
             'nav.ai.lblContext': 'Context Window Tokens (0 = auto by model)',
             'nav.ai.lblInputCost': 'Input Cost (USD / 1M)',
@@ -3755,35 +3771,32 @@ window.openToolsKnowledgeGraph = function (options = {}) {
 };
 
 // 对话里的文件卡片与图片放大（ai-assistant.js 的 Markdown 渲染会用到），需先于助手脚本执行
+let toolsChatFilesLoader = null;
 function ensureChatFilesScript() {
-    if (window.ChatFiles || document.querySelector('script[src^="./tp-static/frontend/js/shared/chat-files.js"]')) return;
-    const script = document.createElement('script');
-    script.src = './tp-static/frontend/js/shared/chat-files.js';
-    script.async = false;
-    document.body.appendChild(script);
+    if (window.ChatFiles) return Promise.resolve();
+    // 无版本地址会被 CDN/移动端缓存数小时，必须使用服务端内容哈希。
+    toolsChatFilesLoader ||= loadNavLazyScript('./tp-static/frontend/js/shared/chat-files.js', '文件组件加载失败').catch(error => {
+        toolsChatFilesLoader = null;
+        throw error;
+    });
+    return toolsChatFilesLoader;
 }
 
 let toolsAiAssistantLoader = null;
-window.openToolsAIAssistant = function (options = {}) {
-    if (window.ToolsAIAssistant?.open) return window.ToolsAIAssistant.open(options);
+function ensureToolsAIAssistantScript() {
+    if (window.ToolsAIAssistant?.open) return Promise.resolve();
     if (!toolsAiAssistantLoader) {
-        toolsAiAssistantLoader = new Promise((resolve, reject) => {
-            const existing = document.querySelector('script[src^="./tp-static/frontend/js/shared/ai-assistant.js"]');
-            const script = existing || document.createElement('script');
-            script.addEventListener('load', resolve, { once: true });
-            script.addEventListener('error', () => reject(new Error('AI 助手组件加载失败')), { once: true });
-            if (!existing) {
-                ensureChatFilesScript();
-                script.src = './tp-static/frontend/js/shared/ai-assistant.js';
-                script.async = false;
-                document.body.appendChild(script);
-            }
-        }).catch(error => {
+        toolsAiAssistantLoader = ensureChatFilesScript().then(() =>
+            loadNavLazyScript('./tp-static/frontend/js/shared/ai-assistant.js', 'AI 助手组件加载失败')
+        ).catch(error => {
             toolsAiAssistantLoader = null;
             throw error;
         });
     }
-    return toolsAiAssistantLoader.then(() => {
+    return toolsAiAssistantLoader;
+}
+window.openToolsAIAssistant = function (options = {}) {
+    return ensureToolsAIAssistantScript().then(() => {
         if (!window.ToolsAIAssistant?.open) throw new Error('AI 助手组件初始化失败');
         return window.ToolsAIAssistant.open(options);
     });
@@ -3795,14 +3808,8 @@ window.openToolsAIAssistant = function (options = {}) {
     // 公开的隐私/条款页在未登录时不请求受保护的 AI 接口，避免无效 401 日志。
     if (!hasNavAuthToken()) return;
 
-    // 确保不重复加载
-    if (!document.querySelector('script[src^="./tp-static/frontend/js/shared/ai-assistant.js"]')) {
-        ensureChatFilesScript();
-        const aiScript = document.createElement('script');
-        aiScript.src = './tp-static/frontend/js/shared/ai-assistant.js';
-        aiScript.async = false;
-        document.body.appendChild(aiScript);
-    }
+    // 自动初始化与手动打开共用同一加载链，等待文件组件就绪后再启动助手。
+    ensureToolsAIAssistantScript().catch(error => console.warn(error.message));
 })();
 
 // 检查服务状态

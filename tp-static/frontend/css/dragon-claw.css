@@ -1190,3 +1190,8 @@ body.dc-chatting .dc-composer {
     .dc-ghost-btn { height: 28px; padding: 0 9px; font-size: 11.5px; border-radius: 8px; }
 }
 
+
+/* Metrics size to their longest line, wrapping only at the viewport boundary. */
+.dc-metric-tooltip { position: fixed; z-index: 10020; width: max-content; max-width: calc(100vw - 24px); max-height: calc(100dvh - 24px); box-sizing: border-box; overflow: auto; padding: 10px 12px; border: 1px solid rgba(255,255,255,.12); border-radius: 9px; background: #34363b; color: #f5f6f8; box-shadow: 0 8px 28px rgba(0,0,0,.22); font: 11px/1.6 system-ui, sans-serif; font-variant-numeric: tabular-nums; white-space: pre-wrap; overflow-wrap: anywhere; pointer-events: none; }
+.dc-metric-tooltip[hidden] { display: none; }
+[data-dc-metric-tip]:focus-visible { outline: 2px solid #8297e8; outline-offset: 2px; border-radius: 3px; }

@@ -47,6 +47,48 @@
         return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
     }
 
+    // Latest reply only: loading older history must not overwrite the current reply's counters.
+    let performanceMessage = null, performanceRounds = [], performanceManual = false;
+    function performance(message, rounds = [], { running = false } = {}) {
+        if (!el.performanceCard || !message) return;
+        if (performanceMessage?.isConnected && message !== performanceMessage && (message.compareDocumentPosition(performanceMessage) & Node.DOCUMENT_POSITION_FOLLOWING)) return;
+        if (performanceMessage !== message) performanceManual = false;
+        performanceMessage = message;
+        performanceRounds = Array.isArray(rounds) ? rounds : [];
+        if (!performanceManual) {
+            el.performanceCard.classList.toggle('is-open', running);
+            el.performanceCard.querySelector('button').setAttribute('aria-expanded', String(running));
+        }
+        renderPerformance();
+    }
+    function renderPerformance() {
+        if (!el.performanceCard) return;
+        const en = (localStorage.getItem('tools_lang') || document.documentElement.lang).startsWith('en');
+        const label = (zh, english) => en ? english : zh;
+        const rounds = performanceRounds;
+        const valid = v => typeof v === 'number' && Number.isFinite(v) && v >= 0;
+        const sum = key => rounds.reduce((n, r) => n + (valid(r[key]) ? r[key] : 0), 0);
+        const timed = rounds.filter(r => valid(r.ttftMs));
+        const decoded = rounds.filter(r => !r.estimated && r.timingSource === 'request-stream' && r.tps > 0 && r.generationMs > 0 && valid(r.decodeTokens));
+        const cache = rounds.filter(r => !r.estimated && valid(r.cachedInputTokens) && r.inputTokens > 0 && r.cachedInputTokens <= r.inputTokens);
+        const cacheInput = cache.reduce((n,r) => n+r.inputTokens,0);
+        const duration = sum('ms');
+        const exact = rounds.length && rounds.every(r => !r.estimated);
+        const cells = [
+            [label('模型调用','Model calls'), rounds.length || '—'],
+            [label('输入 Token','Input tokens'), rounds.length ? formatTokens(sum('inputTokens')) : '—'],
+            [label('输出 Token','Output tokens'), rounds.length ? formatTokens(sum('outputTokens')) : '—'],
+            [label('首字延迟 · 调用均值','First text · call average'), timed.length ? (timed.reduce((n,r)=>n+r.ttftMs,0)/timed.length/1000).toFixed(2)+' s' : '—'],
+            [label('纯输出流速','Decode rate'), decoded.length ? (decoded.reduce((n,r)=>n+r.decodeTokens,0)*1000/decoded.reduce((n,r)=>n+r.generationMs,0)).toFixed(1)+' tok/s' : '—'],
+            [label('缓存读取占比','Cache read ratio'), cacheInput ? (cache.reduce((n,r)=>n+r.cachedInputTokens,0)/cacheInput*100).toFixed(1)+'%' : '—'],
+            [label('调用处理吞吐','Call processing throughput'), exact && duration > 0 ? formatTokens((sum('inputTokens')+sum('outputTokens'))*1000/duration)+' tok/s' : '—'],
+            [label('已完成调用用时','Completed call time'), duration > 0 ? (duration/1000).toFixed(1)+' s' : '—']
+        ];
+        el.performanceCard.querySelector('[data-performance-title]').textContent = label('本轮模型统计','Latest reply metrics');
+        el.performanceCard.querySelector('.wsp-card-meta').textContent = rounds.length ? String(rounds.length) : '';
+        el.performanceCard.querySelector('.wsp-card-body').innerHTML = '<div class="wsp-performance-grid">'+cells.map(([name,value])=>`<div><small>${escapeHtml(name)}</small><strong>${escapeHtml(value)}</strong></div>`).join('')+'</div><p class="wsp-performance-note">'+escapeHtml(label('仅统计本轮已完成的模型调用；— 表示未提供。首字延迟包含网络与排队；吞吐含输入及缓存，按各调用耗时累加计算，不代表纯输出速度。估算用量不参与吞吐与解码统计。','Completed model calls in the latest reply only; — means unavailable. First text includes network and queueing. Throughput includes input and cache, divided by summed call durations. Estimated usage is excluded from throughput and decode.'))+'</p>';
+    }
+
     function authHeaders() {
         if (typeof window.getAuthHeaderForNav === 'function') return window.getAuthHeaderForNav();
         const token = localStorage.getItem('tools_token') || sessionStorage.getItem('tools_token');
@@ -752,6 +794,7 @@
     }
 
     function renderAll() {
+        renderPerformance();
         renderEnv();
         renderContext();
         renderChanges();
@@ -1581,6 +1624,7 @@
             const head = event.target.closest('.wsp-card-head');
             if (head && el.panel.contains(head)) {
                 const card = head.closest('.wsp-card');
+                if (card === el.performanceCard) performanceManual = true;
                 const open = !card.classList.contains('is-open');
                 card.classList.toggle('is-open', open);
                 head.setAttribute('aria-expanded', String(open));
@@ -1674,6 +1718,12 @@
         el.extCard.innerHTML = '<button type="button" class="wsp-card-head" aria-expanded="true"><span data-wsp-ext-title></span><span class="wsp-card-meta" data-wsp-ext-meta></span><i class="wsp-caret" aria-hidden="true"></i></button><div class="wsp-card-body" data-wsp-ext-body></div>';
         el.panel.appendChild(el.extCard);
         window.SidebarResize?.bind({ panel: el.panel, cssVar: '--workspace-panel-width', storageKey: 'dragon_workspace_sidebar_width' });
+        el.performanceCard = document.createElement('section');
+        el.performanceCard.className = 'wsp-card';
+        el.performanceCard.dataset.card = 'performance';
+        el.performanceCard.innerHTML = '<button type="button" class="wsp-card-head" aria-expanded="false"><span data-performance-title></span><span class="wsp-card-meta"></span><i class="wsp-caret" aria-hidden="true"></i></button><div class="wsp-card-body"></div>';
+        el.ctxBody.closest('.wsp-card').before(el.performanceCard);
+        renderPerformance();
         bind();
         // 非对话页面期间隐藏工作区；未启用工作区时频道卡片也借用面板，所以在能力检测之前就挂上
         window.addEventListener('home:hub', event => suspendFor('hub', Boolean(event.detail?.open)));
@@ -1811,12 +1861,17 @@
             state.openDiff = null;
             state.expandChanges = false;
             state.context = null;
+            performanceMessage = null; performanceRounds = []; performanceManual = false;
+            el.performanceCard?.classList.remove('is-open');
+            el.performanceCard?.querySelector('button').setAttribute('aria-expanded', 'false');
+            renderPerformance();
             approvalCards.clear();
             toolRows.clear();
             document.querySelectorAll('.dc-file-card.is-expanded').forEach(card => toggleExpand(card, false));
             renderContext();
             renderChanges();
         },
+        performance,
         handleEvent,
         finishMessage,
         // 恢复历史对话：把入库的工具过程重放成工具行、审批卡（均为已结束状态，不可再操作）

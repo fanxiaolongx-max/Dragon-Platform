@@ -548,11 +548,13 @@
             }
             const known = new Set(state.items.map(item => item.id));
             const fresh = (page.items || []).filter(item => !known.has(item.id));
-            if (!fresh.length) return;
+            const updates = new Map((page.items || []).map(item => [item.id,item]));
+            const changed = state.items.some(item => updates.has(item.id) && JSON.stringify(item) !== JSON.stringify(updates.get(item.id)));
+            if (!fresh.length && !changed) return;
             const thread = state.api.thread;
             const atBottom = thread.scrollHeight - thread.scrollTop - thread.clientHeight < 120;
             if (!state.items.length) state.hasMore = Boolean(page.hasMore);
-            state.items = [...state.items, ...fresh];
+            state.items = [...state.items.map(item => updates.get(item.id) || item), ...fresh];
             state.segments = page.segments || state.segments;
             renderTimeline({ scroll: atBottom ? 'bottom' : 'stay' });
             if (state.source === state.active.channel) loadThreads(); // 侧栏的最后一条消息与时间一起更新
@@ -749,7 +751,7 @@
                 });
                 main.appendChild(chips);
             }
-            api.addCopy(message, item.content);
+            api.addCopy(message, item.content, { modelName: item.modelName || '', usage: item.usage || null, rounds: item.rounds || [] });
         }
         const meta = document.createElement('div');
         meta.className = 'wl-msg-meta';

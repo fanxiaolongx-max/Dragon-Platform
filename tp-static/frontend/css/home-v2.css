@@ -235,6 +235,7 @@ html[data-ui="v2"] .v2-section-cap { padding: 12px 10px 4px; font-size: 11.5px; 
 .v2-pop-item .v2-ico { color: var(--v2-ink2); }
 .v2-pop-item .v2-pop-hint { margin-left: auto; color: var(--v2-ink3); font-size: 11.5px; }
 .v2-pop-sep { height: 1px; margin: 5px 6px; background: var(--v2-line); }
+.v2-pop-sep + .v2-pop-sep, .v2-pop-sep:first-child, .v2-pop-sep:last-child { display: none; }
 /* 菜单里的开关（宽屏模式等） */
 .v2-pop-switch { position: relative; flex: none; width: 30px; height: 18px; margin-left: auto; border-radius: 999px; background: var(--v2-line); transition: background var(--v2-ease); }
 .v2-pop-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px #0003; transition: transform var(--v2-ease); }

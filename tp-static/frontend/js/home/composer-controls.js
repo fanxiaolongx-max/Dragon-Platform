@@ -206,8 +206,7 @@
             enhance.dataset.tooltip = label; enhance.setAttribute('aria-label', label); enhance.setAttribute('aria-busy', String(!!controller));
             enhance.classList.toggle('is-loading', !!controller);
             enhance.innerHTML = controller ? '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="25 13"/></svg>' : undo ? restore : sparkle;
-            voice.dataset.tooltip = text('语音输入 · 即将支持', 'Voice input · Coming soon');
-            voice.setAttribute('aria-label', voice.dataset.tooltip);
+            window.ChatVoiceInput?.refresh?.();
             send.dataset.tooltip = generating ? text('停止生成', 'Stop generating') : text('Enter 发送 · Shift+Enter 换行', 'Enter to send · Shift+Enter for a new line');
         }
         function cancel() { epoch++; controller?.abort(); controller = null; sync(); }
@@ -242,7 +241,6 @@
                 if (turn === epoch) { controller = null; sync(); }
             }
         });
-        voice.addEventListener('click', () => toast(text('语音输入即将支持，目前请使用键盘输入', 'Voice input is coming soon. Please type for now.')));
         input.addEventListener('input', () => { if (!replacing) { undo = null; if (controller) cancel(); } sync(); });
         form.addEventListener('submit', () => { cancel(); undo = null; sync(); }, true);
         document.getElementById('dcNewChat')?.addEventListener('click', () => { cancel(); undo = null; sync(); });
