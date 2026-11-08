@@ -441,6 +441,15 @@ h1 em,.em{font-style:normal;color:var(--acc)}
 .arena-body .kv{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
 .arena-body .pill{border:1px solid var(--line2);border-radius:99px;padding:4px 12px;font-size:15px;color:var(--ink2)}
 #aFoot{font-size:17px;color:var(--muted);margin-top:16px}
+/* single-file HTML slide (compact, same palette & type) */
+.hslide .grid{margin-top:34px}
+.hslide .grid+.grid{margin-top:20px}
+.hslide .card{padding:24px 28px}
+.hslide .card .n{font-size:30px;margin-bottom:12px}
+.hslide .card h3{font-size:27px;margin-bottom:8px}
+.hslide .card p{font-size:20px;line-height:1.5}
+.hslide .callout{margin-top:30px;font-size:27px}
+.hslide .note{margin-top:18px}
 </style>
 </head>
 <body>
@@ -489,7 +498,7 @@ h1 em,.em{font-style:normal;color:var(--acc)}
   <div class="grid g3 mt2">
     <div class="card pop"><span class="n">01</span><h3>讲方法</h3><p>五级台阶只讲骨架，约 20 分钟。</p></div>
     <div class="card pop"><span class="n">02</span><h3>现场提需求</h3><p>收 10 个需求，归并成同一个任务。</p></div>
-    <div class="card pop"><span class="n">03</span><h3>一起做完</h3><p>2–3 组分工不同环节，拼成一个结果。</p></div>
+    <div class="card pop"><span class="n">03</span><h3>一起做完</h3><p>2–3 组分工不同环节，拼成一个 HTML 文件。</p></div>
   </div>
   <p class="callout r mt2">课件里不放任何预置例子：内容全部来自现场，讲师同步一起做，最后统一测试验收。</p>
 </section>
@@ -598,7 +607,7 @@ h1 em,.em{font-style:normal;color:var(--acc)}
   </div>
 </section>
 
-<section class="slide" data-lv="2" data-o="20,-20,80,50" data-notes="这一页只讲三件事：输入、处理逻辑、输出。不讲背景、不堆要素，这是最万能的交代方式，提示词和工具都用得上。模板按钮可以直接复制。讲解阶段不做填写，动手统一放到最后的实战台。" data-notes-en="Just three things: input, logic, output. No context section, no long checklist — this is the most reusable way to brief both a prompt and a tool. The button copies a ready-made template. No practice during the talk; hands-on work is in the final arena.">
+<section class="slide" data-lv="2" data-o="20,-20,80,50" data-notes="这一页只讲三件事：输入、处理逻辑、输出。不讲背景、不堆要素，这是最万能的交代方式，提示词和工具都用得上。模板按钮可以直接复制；这三句也是让 AI 写一个 HTML 工具的全部交代。讲解阶段不做填写，动手统一放到最后的实战台。" data-notes-en="Just three things: input, logic, output. No context section, no long checklist — this is the most reusable way to brief both a prompt and a tool. The button copies a ready-made template; these three lines are also the entire brief for an HTML tool. No practice during the talk; hands-on work is in the final arena.">
   <div class="kicker r"><b>02</b>方法</div>
   <h1 class="split">好提示词 = <em>输入 · 逻辑 · 输出</em></h1>
   <div class="formula">
@@ -691,13 +700,13 @@ h1 em,.em{font-style:normal;color:var(--acc)}
   </div>
 </section>
 
-<section class="slide" data-lv="3" data-o="60,40,10,-20" data-notes="很实用的一招：把“方法”和“数据”分开。在外网，只描述你的需求和做法，用虚构的样例数据，让外网模型帮你写脚本、做工具、设计思路或优化提示词。然后把这些带回内网，配合真实数据让内网 Agent 去跑，并在内网检验结果。真实客户名和真实网络数据，始终只出现在右边。" data-notes-en="A very practical trick: separate method from data. Outside, describe only the need and approach with made-up sample data, and let the external model write scripts, build tools, design the approach or refine prompts. Bring those back inside, run them with real data on an internal agent, and verify the result internally. Real customer names and real network data only ever appear on the right.">
+<section class="slide" data-lv="3" data-o="60,40,10,-20" data-notes="很实用的一招：把“方法”和“数据”分开。在外网，只描述你的需求和做法，用虚构的样例数据，让外网模型写成一个单文件 HTML 工具、设计思路或优化提示词。然后把这些带回内网，配合真实数据让内网 Agent 去跑，并在内网检验结果。真实客户名和真实网络数据，始终只出现在右边。" data-notes-en="A very practical trick: separate method from data. Outside, describe only the need and approach with made-up sample data, and have the external model write a single-file HTML tool, design the approach or refine prompts. Bring those back inside, run them with real data on an internal agent, and verify the result internally. Real customer names and real network data only ever appear on the right.">
   <div class="kicker r"><b>03</b>最实用的一招</div>
   <h1 class="split">方法可以外借，<em>数据不出内网</em></h1>
   <div class="zones">
     <div class="ext r"><div class="zt"><span>外网模型</span><span>只有方法</span></div>
       <div class="st"><b>1</b><div><h3>描述需求和做法</h3><p>用虚构的样例数据，不提真实客户和网络。</p></div></div>
-      <div class="st"><b>2</b><div><h3>拿到工具和思路</h3><p>可复用的方法和工具。</p></div></div>
+      <div class="st"><b>2</b><div><h3>拿到一个 HTML 文件</h3><p>一个能在本机跑的单文件工具。</p></div></div>
     </div>
     <div class="int r"><div class="zt"><span>内网 Agent</span><span>真实数据</span></div>
       <div class="st"><b>3</b><div><h3>带回内网运行</h3><p>把工具和提示词交给内网 Agent，配合真实数据。</p></div></div>
@@ -747,6 +756,24 @@ h1 em,.em{font-style:normal;color:var(--acc)}
   <h1 class="split">用它</h1>
   <p class="lead r">从“告诉你怎么做”，到“自己动手做完”。</p>
   <div class="goal r"><span>学完能做到</span>看懂 Agent 在干什么，并给它划好红线</div>
+</section>
+
+<section class="slide hslide" data-lv="5" data-o="30,60,10,70" data-notes="本课主线，但课件里依然不放具体例子。讲清楚：三要素说清了，就能让 AI 写成一个单文件 HTML 工具；AI 写页面最稳，输入输出几乎什么格式都支持；双击就开、断网能跑、真实数据只留本机；跑不通把报错贴回去继续改，一个文件能改无数次，也方便发给同事。强调入门到中等复杂度的活都够用，不用先上平台、不用搭系统，更不用发给客户，是自己提效。真正的动手统一放到最后的实战台。" data-notes-en="The through-line of this course, still with no concrete examples. Once the three elements are clear, AI can write one self-contained HTML tool. HTML is what it writes most reliably, and nearly any input or output format works. Just open the file: no install, works offline, real data stays on the machine. Paste errors back and keep fixing the same file; one file is easy to share. From beginner tasks to mid-complexity jobs this is enough — no platform, no system, and nothing shipped to a client. All hands-on work happens in the final arena.">
+  <div class="kicker r"><b>05</b>最容易落地</div>
+  <h1 class="split">一个 HTML 文件，<em>就是一件工具</em></h1>
+  <div class="grid g3">
+    <div class="card pop"><span class="n">i.</span><h3>输入</h3><p>粘贴、选文件、导入表格；格式、表头、以哪份为准，都写在页面上。</p></div>
+    <div class="card pop"><span class="n">ii.</span><h3>处理逻辑</h3><p>规则写在页面里，AI 一次写好；之后每次都在本机跑，不再找 AI。</p></div>
+    <div class="card pop"><span class="n">iii.</span><h3>输出</h3><p>结果表、一键导出、直接抄回；要什么格式就给什么格式。</p></div>
+  </div>
+  <div class="grid g4">
+    <div class="card pop"><span class="n">01</span><h3>AI 最拿手</h3><p>HTML 它写得最稳，输入输出几乎什么格式都支持。</p></div>
+    <div class="card pop"><span class="n">02</span><h3>双击就开</h3><p>不装环境、不连服务器、断网照跑。</p></div>
+    <div class="card pop"><span class="n">03</span><h3>数据留本机</h3><p>只把格式和规则交给 AI，真实材料不上网。</p></div>
+    <div class="card pop"><span class="n">04</span><h3>改得起、传得动</h3><p>跑不通就让它改，一个文件改无数次；随手发给同事就能用。</p></div>
+  </div>
+  <p class="callout r">入门到中等复杂度的活，一个文件就够 —— 不用先上平台，也不用先搭系统。</p>
+  <p class="note r">自己做给自己用：提效、提高准确率；不发给客户。</p>
 </section>
 
 <section class="slide" data-lv="5" data-o="10,-10,70,60" data-notes="Agent 就是能调用工具、能根据结果决定下一步的 AI。右边的光点一直在转——这就是 Agent 的本质：一个循环，直到目标完成或遇到停止条件。普通问答交付的是文字建议；Agent 交付的是做完的结果。" data-notes-en="An agent is AI that can use tools and decide its next step based on results. The orbiting dot is the essence: a loop until done or stopped. Chat delivers advice; an agent delivers a result plus a log.">
@@ -817,7 +844,7 @@ h1 em,.em{font-style:normal;color:var(--acc)}
   <div class="goal r"><span>用上</span>问清楚 · 喂干净 · 验到底 · 守住线</div>
 </section>
 
-<section class="slide" data-lv="6" data-o="20,-10,80,60" data-notes="全场核心页。现场收 10 个需求（回车上墙，最多 10 条），归并成一句共同任务写进中间框；这句话就是各组的共同任务。选 2 组或 3 组，各组负责不同环节，最后拼成一个结果。计时可暂停、重置、切 30/45/60 分，翻页也继续走。讲师同步一起做。结束前留 8–10 分钟现场快验，课后收正式版统一测试验收。所有内容只存在本机浏览器。" data-notes-en="Core page. Collect 10 needs from the room (Enter to pin, max 10), merge them into one shared task in the middle box — that line becomes every group’s shared task. Pick 2 or 3 groups on different stages and assemble one result. The timer can pause, reset or switch 30/45/60 min and keeps running across slides. The speaker builds alongside. Reserve 8–10 min for a quick live validation; collect final versions afterwards for a unified test. Everything stays in this browser.">
+<section class="slide" data-lv="6" data-o="20,-10,80,60" data-notes="全场核心页。现场收 10 个需求（回车上墙，最多 10 条），归并成一句共同任务写进中间框；各组交付的是一个单文件 HTML 工具。选 2 组或 3 组，各组负责不同环节，最后拼成一个结果。计时可暂停、重置、切 30/45/60 分，翻页也继续走。讲师同步一起做。结束前留 8–10 分钟现场快验，课后收正式版统一测试验收。所有内容只存在本机浏览器。" data-notes-en="Core page. Collect 10 needs from the room (Enter to pin, max 10), merge them into one shared task in the middle box — each group delivers one self-contained HTML tool. Pick 2 or 3 groups on different stages and assemble one result. The timer can pause, reset or switch 30/45/60 min and keeps running across slides. The speaker builds alongside. Reserve 8–10 min for a quick live validation; collect final versions afterwards for a unified test. Everything stays in this browser.">
   <div class="kicker r"><b>GO</b>实战台</div>
   <h1 class="split">现场提需求，<em>一起做完它</em></h1>
   <div class="arena r" id="arena">
@@ -856,14 +883,14 @@ h1 em,.em{font-style:normal;color:var(--acc)}
   <p class="note r" id="aFoot"></p>
 </section>
 
-<section class="slide" data-lv="6" data-o="70,50,0,0" data-notes="计时在实战台那一页，翻页也继续走。这里只讲验收口径：准确占 40 分，编造关键内容直接重扣。现场先跑一遍标准样例，课后提交正式版，由讲师统一测试验收。" data-notes-en="The timer lives on the arena slide and keeps running when you navigate. This page is the acceptance rubric: accuracy is 40 points, and fabricated key content is heavily penalised. Run one standard sample live; final versions go to the speaker afterwards for a unified test.">
+<section class="slide" data-lv="6" data-o="70,50,0,0" data-notes="计时在实战台那一页，翻页也继续走。这里只讲验收口径：验收对象是一个能双击打开、断网也能跑的 HTML 文件；准确占 40 分，编造关键内容直接重扣。现场先跑一遍标准样例，课后提交正式版，由讲师统一测试验收。" data-notes-en="The timer lives on the arena slide and keeps running when you navigate. This page is the acceptance rubric for one HTML file that opens with a double click and runs offline: accuracy is 40 points, and fabricated key content is heavily penalised. Run one standard sample live; final versions go to the speaker afterwards for a unified test.">
   <div class="kicker r"><b>GO</b>验收标准</div>
   <h1 class="split">做完发给我，<em>统一测试验收</em></h1>
   <div class="rub r mt2" style="max-width:1000px">
     <div><b class="em">40</b><span>准确<small>没有编造，没有误判</small></span></div>
     <div><b>25</b><span>完整<small>关键点没有遗漏</small></span></div>
     <div><b>25</b><span>可核查<small>来源、步骤、验收清楚</small></span></div>
-    <div><b>10</b><span>可复用<small>别人拿去也能用</small></span></div>
+    <div><b>10</b><span>可复用<small>一个文件，别人拿到就能跑</small></span></div>
   </div>
   <p class="callout r mt2">现场先跑一遍标准样例；课后提交正式版，由讲师统一测试验收。</p>
 </section>
@@ -1068,7 +1095,7 @@ const EN={
 "每组提交：":"Each team submits: ","最终产物":"the final output","关键提示词":"key prompts","一处 AI 出错的记录":"one AI mistake you caught",
 "← 回到痛点墙":"← Back to the wall","计时 · 评分":"TIMER · SCORING","开始":"Start","20 分":"20 min","15 分":"15 min","8 分":"8 min",
 "准确":"Accuracy","没有编造，没有误判":"Nothing invented or misjudged","完整":"Completeness","关键点没有遗漏":"No key points missed",
-"可核查":"Traceability","来源、步骤、验收清楚":"Clear sources, steps, acceptance","可复用":"Reusability","别人拿去也能用":"Others can reuse it",
+"可核查":"Traceability","来源、步骤、验收清楚":"Clear sources, steps, acceptance","可复用":"Reusability",
 "复盘":"RETRO","AI 帮了哪一步？错在哪一步？":"Where did AI help? Where did it fail?",
 "比结果":"Compare outputs","哪组更完整？哪些结论有来源？":"Which is more complete? Which conclusions are sourced?",
 "比过程":"Compare process","哪一次补材料、追问，带来了真正的改进？":"Which added material or follow-up actually made it better?",
@@ -1105,7 +1132,7 @@ const EN={
 "人名、工号、电话、邮箱":"Names, employee IDs, phones, emails","合同号、项目编号、金额":"Contract & project numbers, amounts","截图里的水印、Logo、角落文字":"Watermarks, logos, corner text in screenshots",
 "最实用的一招":"THE MOST PRACTICAL TRICK","方法可以外借，":"Borrow the method. ","数据不出内网":"Keep the data inside.",
 "外网模型":"EXTERNAL MODEL","只有方法":"METHOD ONLY","描述需求和做法":"Describe the need & approach","用虚构的样例数据，不提真实客户和网络。":"Use made-up sample data. No real customers or networks.",
-"拿到工具和思路":"Get tools & ideas","脚本、模板、分析思路、优化过的提示词。":"Scripts, templates, analysis approaches, refined prompts.",
+"脚本、模板、分析思路、优化过的提示词。":"Scripts, templates, analysis approaches, refined prompts.",
 "内网 Agent":"INTERNAL AGENT","真实数据":"REAL DATA","带回内网运行":"Run it inside","把工具和提示词交给内网 Agent，配合真实数据。":"Give the tools and prompts to an internal agent, with real data.",
 "在内网检验":"Verify inside","用 L4 的四个问题核查结果，确认无误再用。":"Check results with the four L4 questions before using them.",
 "只带方法，不带数据 →":"Method crosses, data doesn’t →","真实客户名、真实网络数据，":"Real customer names and network data ","始终只出现在右边。":"only ever live on the right.",
@@ -1160,7 +1187,7 @@ const EN={
 "现场提需求":"Needs from the room",
 "收 10 个需求，归并成同一个任务。":"Collect 10 needs, merge them into one shared task.",
 "一起做完":"Build it together",
-"2–3 组分工不同环节，拼成一个结果。":"2–3 groups take different stages and assemble one result.",
+
 "课件里不放任何预置例子：内容全部来自现场，讲师同步一起做，最后统一测试验收。":"No canned examples in the deck: everything comes from the room, the speaker builds alongside, and one unified test closes it out.",
 "它挑的是最像的下一个词，不是真实的答案；说得越顺，越容易当真。":"It picks the most likely next word, not the true answer; the smoother it sounds, the easier to believe.",
 "所以：会写不等于查过，说得肯定不等于说得对。":"So: fluent writing is not research, and confidence is not correctness.",
@@ -1201,7 +1228,7 @@ const EN={
 "刚发生的":"Just happened",
 "指定唯一基准，其余只作参考；冲突时它才知道听谁的。":"Name one authoritative source, everything else is reference; then it knows what to follow when they conflict.",
 "用内网 Agent 把敏感字段替换成代号，对照表留在内网。":"Use an internal agent to replace sensitive fields with codes; keep the mapping table inside.",
-"可复用的方法和工具。":"Reusable methods and tools.",
+
 
 "凭空补数":"Invented numbers",
 "没给数据，也会凑一个看起来合理的数。":"Given no data, it still produces a plausible-looking number.",
@@ -1244,7 +1271,7 @@ const EN={
 "核对日期 2026-11-07":"Checked 2026-11-07",
 "点右上角关闭，或按 Esc":"Close at top right, or press Esc",
 
-"这一句就是所有组共同的任务，分工不同、目标一致。":"One shared task for every group — different stages, same goal.",
+
 "实战台内容保存在本机浏览器中，计时、离线均可使用。":"Arena content is stored in this browser; the timer works offline.",
 "看内外":"Check what's allowed",
 "允许用什么":" — inside vs outside",
@@ -1272,6 +1299,29 @@ const EN={
 "哪些列、怎么交付？":"Which columns, how to deliver?",
 "说清输入 · 逻辑 · 输出":"State input · logic · output",
 "挑一件自己的活，用三要素写提示词":"Pick a real task and prompt it with the three elements",
+"最容易落地":"EASIEST PLACE TO START",
+"一个 HTML 文件，":"One HTML file, ",
+"就是一件工具":"one tool you own",
+"粘贴、选文件、导入表格；格式、表头、以哪份为准，都写在页面上。":"Paste, pick a file or import a table; format, headers and the authoritative source all live on the page.",
+"规则写在页面里，AI 一次写好；之后每次都在本机跑，不再找 AI。":"Rules live in the page and AI writes them once; every run after that is local.",
+"结果表、一键导出、直接抄回；要什么格式就给什么格式。":"Result table, one-click export or just copy it out — in whatever format you need.",
+"AI 最拿手":"AI writes it best",
+"HTML 它写得最稳，输入输出几乎什么格式都支持。":"HTML is what AI writes most reliably; nearly any input or output format works.",
+"双击就开":"Just open it",
+"不装环境、不连服务器、断网照跑。":"No install, no server, works offline.",
+"数据留本机":"Data stays local",
+"只把格式和规则交给 AI，真实材料不上网。":"Only the format and rules go to AI; real material never leaves.",
+"改得起、传得动":"Fix & share",
+"跑不通就让它改，一个文件改无数次；随手发给同事就能用。":"Paste the error back and keep fixing the same file; send one file to a colleague.",
+"入门到中等复杂度的活，一个文件就够 —— 不用先上平台，也不用先搭系统。":"From beginner tasks to mid-complexity jobs, one file is enough — no platform, no system to build first.",
+"自己做给自己用：提效、提高准确率；不发给客户。":"Build it for yourself: faster and more accurate, not something you ship to a client.",
+"2–3 组分工不同环节，拼成一个 HTML 文件。":"2–3 groups take different stages and assemble one HTML file.",
+"拿到一个 HTML 文件":"Get one HTML file",
+"一个能在本机跑的单文件工具。":"A single file that runs on your machine.",
+"这一句就是所有组共同的任务：做一个单文件 HTML 工具。":"One shared task for every group: one self-contained HTML tool.",
+"一个 HTML 文件":"One HTML file",
+"一个文件，别人拿到就能跑":"One file anyone can open and run",
+"别人拿去也能用":"Reusable by others",
 };
 const NOTES_EN=[];
 {S.forEach(s=>{s._en=s.dataset.notesEn||''})}
@@ -1430,7 +1480,7 @@ function arenaRender(){
   $('aH2').textContent=L('② 归并成同一个任务','② MERGE INTO ONE SHARED TASK');
   $('mission').placeholder=L('把上面的需求归并成一句共同任务…','Merge the needs above into one shared task…');
   $('mission').value=store.get('mission','');
-  $('aTip2').textContent=L('这一句就是所有组共同的任务，分工不同、目标一致。','One shared task for every group — different stages, same goal.');
+  $('aTip2').textContent=L('这一句就是所有组共同的任务：做一个单文件 HTML 工具。','One shared task for every group: one self-contained HTML tool.');
   $('aH3').textContent=L('③ 分组 · 分工不同环节','③ GROUPS · DIFFERENT STAGES OF ONE TASK');
   const n=store.get('groupN',3);
   $('aGroupSeg').innerHTML=[2,3].map(k=>`<button class="${k===n?'on':''}" onclick="setGroups(${k})">${k} ${L('组','groups')}</button>`).join('');
@@ -1442,7 +1492,7 @@ function arenaRender(){
   [...$('seg').children].forEach(b=>{b.textContent=(+b.dataset.s/60)+' '+L('分','min')});
   $('treset').textContent=L('重置','Reset');
   $('aH5').textContent=L('⑤ 提交 · 交三样','⑤ SUBMIT · THREE ITEMS');
-  $('aSubmit').innerHTML='<div class="kv">'+[L('成果','Deliverable'),L('提示词','Prompt'),L('验证记录','Verification log')].map(x=>`<span class="pill">${x}</span>`).join('')+'</div>'+
+  $('aSubmit').innerHTML='<div class="kv">'+[L('一个 HTML 文件','One HTML file'),L('提示词','Prompt'),L('验证记录','Verification log')].map(x=>`<span class="pill">${x}</span>`).join('')+'</div>'+
     '<div>'+L('计时结束前现场跑一遍标准样例；课后把正式版发给讲师，统一测试验收。','Run one standard sample before time is up; send the final version to the speaker for a unified test.')+'</div>';
   $('aFoot').textContent=L('内容只存在本机浏览器 · 讲师同步一起做 · 用到的材料先脱敏','Everything stays in this browser · the speaker builds alongside · desensitize any material first');
 }
