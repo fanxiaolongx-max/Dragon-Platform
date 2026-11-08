@@ -4,6 +4,7 @@
  // 桌面 Agent 成员表：新增桌面连接器只需加在这里；DragonTAC 默认全员即这里的全部成员
  const DESKTOP_AGENTS={codex:'Codex',claudecode:'Claude Code',antigravity:'Antigravity',workbuddy:'WorkBuddy'},DESKTOP_IDS=Object.keys(DESKTOP_AGENTS);
  let enabled=false,locked=false,modeSaving=false,root,epoch=0,currentSessionId=null,activeJob=null,tracking=null,identity='',availabilityRevision=0,availabilityRequest=null,weixinDisabled=false;
+ let selectedModels={};
  let availability={available:false,reason:'checking'};
  const readiness=Object.fromEntries([...DESKTOP_IDS,'weixin','welink-cli','welink','netcare'].map(id=>[id,{ready:false,reason:'checking'}]));
 
@@ -159,6 +160,7 @@
  }
 
  function render(){
+  queueMicrotask(()=>window.DragonClaw?.refreshModelPicker?.());
   if(!root)return;
   renderAvatars();
 
@@ -252,14 +254,14 @@
 
  async function activateSession(id,{group=false,connector=''}={}){
   const revision=++epoch,account=who();
-  currentSessionId=id;activeJob=null;setSelection(id&&TOOL_SKILLS[connector]?[connector]:[]);enabled=Boolean(id&&group);
+  currentSessionId=id;activeJob=null;selectedModels={};setSelection(id&&TOOL_SKILLS[connector]?[connector]:[]);enabled=Boolean(id&&group);
   locked=Boolean(id);modeSaving=false;render();
   if(!id||!root||TOOL_SKILLS[connector]&&!group)return;
   try{
    const data=await request('GET','/discussions/'+encodeURIComponent(id));
    if(revision!==epoch||account!==who())return;
    enabled=group||(data.settings?.mode==='group'&&data.settings?.version===2);
-   activeJob=data.activeRun||null;
+   activeJob=data.activeRun||null;selectedModels=data.settings?.models||{};
    if(enabled){
     const providers=data.settings?.providers||activeJob?.settings?.providers||activeJob?.reports?.map(r=>r.provider||Object.keys(providerNames).find(key=>providerNames[key]===r.agent))||Object.keys(data.settings?.bindings||{});
     setSelection(providers);enabled=true;
@@ -275,6 +277,7 @@
  function validate(text){
   if(modeSaving)throw Error(L('请等待连接器模式保存完成','Wait for connector mode to save'));
   validateSelection();
+  window.HomeDesktopModels?.validate?.();
   if(enabled&&!getSelectedAgents().length)throw Error(L('无法确认本对话绑定的连接器，请重新打开历史对话','Could not confirm the bound connectors. Reopen this conversation.'));
   const unavailable=getSelectedAgents().find(id=>!readiness[id].ready);
   if(unavailable)throw Error(providerNames[unavailable]+' · '+L('连接器未就绪，请检查连接设置','Connector is unavailable. Check connection settings.'));
@@ -352,9 +355,9 @@
    const selectedAgents = getSelectedAgents();
    const providers = selectedAgents;
    if(!resumeJob&&!providers.length)throw Error(L('请先选择已就绪的连接器','Select an available connector first'));
-   job=resumeJob?await request('GET','/discussion-runs/'+encodeURIComponent(resumeJob.id)):await request('POST','/discussion-runs',{text,sessionId,providers,requestId:crypto.randomUUID()});
+   job=resumeJob?await request('GET','/discussion-runs/'+encodeURIComponent(resumeJob.id)):await request('POST','/discussion-runs',{text,sessionId,providers,models:window.HomeDesktopModels?.values?.()||{},requestId:crypto.randomUUID()});
    if(account!==who())throw Error('Account changed');if(signal.aborted||revision!==epoch){stop();throw new DOMException('Stopped','AbortError');}
-   currentSessionId=job.sessionId;enabled=true;locked=true;activeJob=job;publishGroup();onStarted(job);onUpdate(job);render();
+   currentSessionId=job.sessionId;selectedModels=job.settings?.models||selectedModels;enabled=true;locked=true;activeJob=job;publishGroup();onStarted(job);onUpdate(job);render();
    while(['queued','running'].includes(job.status)){
      await new Promise(resolve=>setTimeout(resolve,1000));
      signal.throwIfAborted();
@@ -489,6 +492,7 @@ ${DESKTOP_IDS.map(id=>`         <div class="dc-connector-item" data-key="${id}">
  }
 
  window.HomeAgentDiscussion={
+   modelContext:()=>{const providers=getSelectedAgents();return providers.length?{key:currentSessionId?'group:'+currentSessionId:'draft',providers,models:currentSessionId?selectedModels:undefined,save:currentSessionId?async values=>{const id=currentSessionId;const data=await request('PUT','/discussions/'+encodeURIComponent(id),{models:values});if(currentSessionId===id)selectedModels=data.settings?.models||values;}:null}:null;},
    handles,
    validate,
    run,

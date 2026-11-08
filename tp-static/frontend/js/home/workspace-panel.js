@@ -49,7 +49,7 @@
 
     // Latest reply only: loading older history must not overwrite the current reply's counters.
     let performanceMessage = null, performanceRounds = [], performanceManual = false;
-    function performance(message, rounds = [], { running = false } = {}) {
+    function updatePerformance(message, rounds = [], { running = false } = {}) {
         if (!el.performanceCard || !message) return;
         if (performanceMessage?.isConnected && message !== performanceMessage && (message.compareDocumentPosition(performanceMessage) & Node.DOCUMENT_POSITION_FOLLOWING)) return;
         if (performanceMessage !== message) performanceManual = false;
@@ -1871,7 +1871,7 @@
             renderContext();
             renderChanges();
         },
-        performance,
+        performance: updatePerformance,
         handleEvent,
         finishMessage,
         // 恢复历史对话：把入库的工具过程重放成工具行、审批卡（均为已结束状态，不可再操作）

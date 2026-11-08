@@ -17,7 +17,7 @@
 .desktop-agent-chat.is-active{border-color:#4fbcb4;background:rgba(79,188,180,.12)}
 /* Native desktop sessions reuse the regular Dragon Claw composer; platform-only controls stay hidden. */
 body.dc-external-view.dc-external-compose .dc-composer{display:block!important}
-body.dc-external-compose .dc-model,body.dc-external-compose .dc-workspace-chip,body.dc-external-compose .dc-agent-discussion,body.dc-external-compose .dc-slash,body.dc-external-compose .dc-push-bar,body.dc-external-compose .dc-composer [class^="dc-skill"]{display:none!important}
+body.dc-external-compose:not(.dc-native-models) .dc-model,body.dc-external-compose .dc-workspace-chip,body.dc-external-compose .dc-agent-discussion,body.dc-external-compose .dc-slash,body.dc-external-compose .dc-push-bar,body.dc-external-compose .dc-composer [class^="dc-skill"]{display:none!important}
 body.dc-external-compose .dc-composer textarea:disabled{cursor:not-allowed;opacity:.65}
 body.dc-external-compose #dcComposer #dcEnhance[hidden] ~ #dcVoice:not([hidden]){margin-left:auto}
 body.dc-external-compose #dcComposer #dcEnhance[hidden] ~ #dcVoice[hidden] ~ #dcSend{margin-left:auto}
@@ -127,6 +127,13 @@ body.dc-external-view .dc-agent-discussion{display:none}
 @container (max-width:480px){.da-overview{grid-template-columns:1fr}.desktop-agent-setting-fields{gap:14px}.da-footer{gap:12px}.da-row b{font-size:12.5px}}
 @media(prefers-reduced-motion:reduce){.da-switch,.da-switch::after{transition:none}}
 .desktop-agent-dock{display:grid;gap:6px;width:min(var(--dc-col,760px),100%);box-sizing:border-box;margin:0 auto 8px;padding:0 4px}
+.desktop-agent-choice{display:grid;gap:8px;min-width:0;padding:12px 14px;border:1px solid var(--dc-accent,#85efcf);border-radius:12px;background:var(--dc-surface,var(--card-bg,#172435));color:var(--dc-text,var(--text-primary,#e2e8f0));font-size:13px;line-height:1.6}
+.desktop-agent-choice strong{color:var(--dc-accent,#85efcf)}
+.desktop-agent-choice p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;max-height:160px;overflow:auto}
+.desktop-agent-choice>div{display:flex;flex-wrap:wrap;gap:8px}
+.desktop-agent-choice button{min-height:40px;max-width:100%;padding:7px 14px;border:1px solid currentColor;border-radius:8px;color:inherit;background:transparent;font:inherit;cursor:pointer;overflow-wrap:anywhere}
+.desktop-agent-choice button:disabled{opacity:.5;cursor:default}
+.desktop-agent-choice button:focus-visible{outline:2px solid var(--dc-accent,#85efcf);outline-offset:3px}
 .desktop-agent-mode{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;color:#94a3b8}
 .desktop-agent-mode>div{display:flex;gap:2px;padding:2px;border:1px solid rgba(148,163,184,.22);border-radius:9px;background:rgba(15,23,39,.6)}
 .desktop-agent-mode button{border:0;border-radius:7px;padding:4px 12px;background:transparent;color:#9baec6;font:600 12px/1.5 system-ui,sans-serif;cursor:pointer}
@@ -167,3 +174,16 @@ body.dc-external-view .dc-agent-discussion{display:none}
 .desktop-agent-widget iframe{display:block;width:100%;height:560px;max-height:70vh;border:0;background:#fff}
 
 .daw-metric-note{font-size:10px;line-height:1.45;margin-top:3px;color:var(--daw-muted);overflow-wrap:anywhere}.daw-metric:focus-visible{outline:2px solid var(--v2-accent,#3b82f6);outline-offset:2px}
+
+.dc-native-model-heading{padding:10px 12px 4px;color:var(--dc-muted,#94a3b8);font:600 11px/1.5 system-ui,sans-serif}
+.dc-native-models .dc-model-option:disabled{opacity:.5;cursor:default}
+.dc-native-models .dc-model-option{white-space:normal;overflow-wrap:anywhere}
+body.dc-native-models #dcModel{min-width:0;max-width:220px;flex:0 1 auto;margin-left:auto}
+body.dc-native-models #dcComposer #dcModel:not([hidden]) ~ #dcVoice,
+body.dc-native-models #dcComposer #dcModel:not([hidden]) ~ #dcSend{margin-left:0}
+html[data-ui="v2"] body.dc-native-models #dcComposer #dcModel{min-width:0;flex:0 1 auto;margin-left:0}
+html[data-ui="v2"] body.dc-native-models #dcComposer #dcEnhance{margin-left:auto}
+html[data-ui="v2"] body.dc-native-models #dcComposer #dcEnhance[hidden] ~ #dcModel:not([hidden]){margin-left:auto}
+html[data-ui="v2"] body.dc-native-models #dcComposer #dcModel:not([hidden]) ~ #dcVoice,
+html[data-ui="v2"] body.dc-native-models #dcComposer #dcModel:not([hidden]) ~ #dcSend{margin-left:0}
+@media(max-width:640px){body.dc-native-models #dcComposer .dc-connector-label{display:none}body.dc-native-models #dcComposer .dc-model-name{max-width:30vw}}

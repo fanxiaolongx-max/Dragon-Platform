@@ -422,6 +422,8 @@
     }
 
     function renderModelPicker() {
+        if (window.HomeDesktopModels?.render?.()) return;
+        if(el.modelMenu)delete el.modelMenu.dataset.nativeSignature;
         const model = currentModel();
         const admin = localStorage.getItem('tools_role') === 'admin';
         el.model.hidden = !model && !admin;
@@ -459,7 +461,7 @@
         // 上方空间不足时向下展开（落地页输入框靠上时）。
         const rect = el.modelBtn.getBoundingClientRect();
         el.model.classList.toggle('opens-down', rect.top < el.modelMenu.offsetHeight + 24);
-        (el.modelMenu.querySelector('.is-selected') || el.modelMenu.querySelector('[data-dc-model]'))?.focus();
+        (el.modelMenu.querySelector('.is-selected') || el.modelMenu.querySelector('[data-dc-model], [data-native-model]'))?.focus();
     }
 
     function selectModel(id) {
@@ -622,7 +624,7 @@
             }
         });
         el.modelMenu.addEventListener('keydown', event => {
-            const options = [...el.modelMenu.querySelectorAll('[data-dc-model], [data-dc-configure-model]')];
+            const options = [...el.modelMenu.querySelectorAll('[data-dc-model], [data-dc-configure-model], [data-native-model]')];
             const index = options.indexOf(document.activeElement);
             if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
                 event.preventDefault();
@@ -1952,6 +1954,7 @@
         if (state.controller || state.restoring) return;
         if (runSlashCommand(content)) return;
         if (window.HomeAgentDiscussion?.handles(content)) return sendDesktopDiscussion(content);
+        try { window.HomeDesktopModels?.validate?.(); } catch(error) { showToast(error.message);return; }
         const connector = window.HomeAgentDiscussion;
         const activeConn = connector?.getSelectedConnector?.();
         try { connector?.validateSelection?.(); } catch(error) { showToast(error.message);return; }
@@ -3272,6 +3275,7 @@
         chatList.latestSeq++;
         state.attachments = [];
         renderAttachments();
+        window.HomeDesktopModels?.resetDraft?.();
         window.HomeAgentDiscussion?.activateSession?.(null);
         exitExternal();
         window.HomeWelinkThreads?.setSource?.('mine', {remember:false});
@@ -3369,7 +3373,7 @@
     function setExternalComposer(composer) {
         external.composer = composer;
         document.body.classList.toggle('dc-external-compose', Boolean(composer));
-        if (el.model) el.model.hidden = Boolean(composer) || (!currentModel() && localStorage.getItem('tools_role') !== 'admin');
+        if (!window.HomeDesktopModels?.render?.() && el.model) el.model.hidden = Boolean(composer) || (!currentModel() && localStorage.getItem('tools_role') !== 'admin');
         el.input.disabled = !composer?.canSend || external.sending;
         applyPlaceholder();
         updateSendButton();
@@ -3726,7 +3730,7 @@
         });
         window.addEventListener('home:resume-agent-discussion',event=>{if(!state.controller&&!state.restoring&&event.detail?.sessionId===state.sessionId)sendDesktopDiscussion('',event.detail);});
         watchSchedules();
-        window.DragonClaw = { startWithSkill, enterExternal, exitExternal, newChat, openSchedules: openSchedulePanel, openChat: openChatFromList, openLatest:openLatestChat, currentSessionId:()=>state.sessionId, lang, isExternal: () => external.active };
+        window.DragonClaw = { refreshModelPicker: renderModelPicker, startWithSkill, enterExternal, exitExternal, newChat, openSchedules: openSchedulePanel, openChat: openChatFromList, openLatest:openLatestChat, currentSessionId:()=>state.sessionId, lang, isExternal: () => external.active };
         // 其他页面或新标签打开的 /?skill=<id>：直接进入该技能的新对话
         const linkedSkill = new URLSearchParams(location.search).get('skill');
         if (linkedSkill) {

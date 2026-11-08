@@ -97,3 +97,6 @@ html.is-desktop-app .dc-browser-panel :is(button,input,[role=tab]){-webkit-app-r
 .dc-browser-panel [data-browser=new-tab]:active{transform:scale(.88)}
 @keyframes dc-tab-pending{50%{opacity:.8}}
 @media(prefers-reduced-motion:reduce){.dc-browser-tab,.dc-browser-panel [data-browser=new-tab]{transition:none}.dc-browser-tab.is-pending .dc-browser-tab-title::before{animation:none}}
+
+/* 原生 BrowserView 位于 DOM 上方，正文也要为整条拖拽边缘留出命中区域。 */
+.dc-browser-native .dc-browser-surface { margin-left: 8px; }
