@@ -1401,7 +1401,17 @@
             }
             const items = Array.isArray(event.items) ? event.items : [];
             const done = items.filter(item => item.status === 'completed').length;
-            box.innerHTML = `<div class="dc-todo-head"><b>${escapeHtml(tx('todoTitle'))}</b><span>${done}/${items.length}</span></div><ol>${items.map(item => `<li class="is-${escapeHtml(item.status)}"><span class="dc-todo-mark" aria-hidden="true">${item.status === 'completed' ? '✓' : item.status === 'in_progress' ? '●' : ''}</span><span>${escapeHtml(item.content)}</span></li>`).join('')}</ol>`;
+            const dock = window.DragonClawTodoDock;
+            if (dock) {
+                if (!box.querySelector('.dc-todo-list')) box.innerHTML = '<div class="dc-todo-head"><b></b><span></span></div><ol class="dc-todo-list"></ol>';
+                box.querySelector('.dc-todo-head b').textContent = tx('todoTitle');
+                box.querySelector('.dc-todo-head span').textContent = `${done}/${items.length}`;
+                dock.renderList(box.querySelector('.dc-todo-list'), items);
+                // 进行中的清单停靠在输入框上方；历史记录只在消息里显示
+                if (!replaying) dock.update(messageEl, items, box);
+            } else {
+                box.innerHTML = `<div class="dc-todo-head"><b>${escapeHtml(tx('todoTitle'))}</b><span>${done}/${items.length}</span></div><ol>${items.map(item => `<li class="is-${escapeHtml(item.status)}"><span class="dc-todo-mark" aria-hidden="true">${item.status === 'completed' ? '✓' : item.status === 'in_progress' ? '●' : ''}</span><span>${escapeHtml(item.content)}</span></li>`).join('')}</ol>`;
+            }
         } else if (event.type === 'question') {
             // 智能体提问：选项按钮点一下就作为下一条消息发送；历史记录里的只读
             const card = document.createElement('div');
@@ -1494,6 +1504,7 @@
     }
 
     function finishMessage(messageEl) {
+        window.DragonClawTodoDock?.finish(messageEl);
         messageEl?.querySelectorAll('.dc-tool-row.is-running').forEach(row => {
             row.classList.remove('is-running');
             row.classList.add('is-fail');

@@ -497,6 +497,7 @@
 
 /* 任务清单（update_plan）与智能体提问（ask_user） */
 .dc-todo { margin-bottom: 8px; padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #ffffff; color: var(--dc-muted, #475569); font-size: 12.5px; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04); }
+.dc-todo.is-docked { display: none; }
 .dc-todo-head { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
 .dc-todo-head b { color: #0f172a; font-weight: 650; }
 .dc-todo ol { display: grid; gap: 3px; margin: 0; padding: 0; list-style: none; }
@@ -504,15 +505,79 @@
 .dc-todo-mark { display: inline-grid; place-items: center; width: 13px; height: 13px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 9px; line-height: 1; background: #f8fafc; }
 .dc-todo li.is-in_progress { color: #0f172a; font-weight: 500; }
 .dc-todo li.is-in_progress .dc-todo-mark { border-color: var(--dc-accent-2, #3b82f6); color: var(--dc-accent-2, #3b82f6); }
-.dc-todo li.is-completed > span:last-child { color: var(--dc-faint, #94a3b8); text-decoration: line-through; }
+.dc-todo li.is-completed > span:last-child { color: var(--dc-faint, #94a3b8); }
 .dc-todo li.is-completed .dc-todo-mark { border-color: #10b981; color: #10b981; }
+
+/* 清单项：勾选框里画勾、文字从左到右划线（.dc-todo-list 由 js/home/todo-dock.js 渲染，消息内与停靠区共用） */
+.dc-todo-list li { --todo-done: var(--dc-status-success, #10b981); --todo-run: var(--dc-status-running, #3b82f6); }
+.dc-todo-list .dc-todo-mark { position: relative; align-self: start; margin-top: 0.22em; transform: translateZ(0); }
+.dc-todo-list .dc-todo-mark svg { position: absolute; inset: 0; width: 100%; height: 100%; fill: none; stroke: #fff; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 11; stroke-dashoffset: 11; }
+.dc-todo-list .dc-todo-mark i { width: 5px; height: 5px; border-radius: 50%; background: var(--todo-run); opacity: 0; transform: scale(0.4); }
+.dc-todo-list li.is-in_progress .dc-todo-mark { border-color: var(--todo-run) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--todo-run) 16%, transparent); }
+.dc-todo-list li.is-in_progress .dc-todo-mark i { opacity: 1; transform: scale(1); }
+.dc-todo-list li.is-completed .dc-todo-mark { border-color: var(--todo-done) !important; background: var(--todo-done) !important; }
+.dc-todo-list li.is-completed .dc-todo-mark svg { stroke-dashoffset: 0; }
+.dc-todo-text > span { background: linear-gradient(currentColor, currentColor) no-repeat 0 58% / 0 1px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.dc-todo-list li.is-completed .dc-todo-text { color: var(--dc-faint, #94a3b8); }
+.dc-todo-list li.is-completed .dc-todo-text > span { background-size: 100% 1px; }
+
+/* 进行中的清单：停靠在输入框正上方，与输入框同宽；高度变化只压缩对话区，不遮挡回答 */
+.dc-todo-dock { display: none; }
+body.dc-chatting .dc-todo-dock { display: grid; flex: none; align-self: center; width: min(calc(var(--dc-col, 760px) + 40px), calc(100% - 32px)); grid-template-rows: 0fr; opacity: 0; transform: translateY(6px); }
+body.dc-chatting .dc-todo-dock[hidden] { display: none; }
+body.dc-chatting .dc-todo-dock.is-visible { grid-template-rows: 1fr; opacity: 1; transform: none; }
+.dc-todo-dock-inner { min-height: 0; overflow: hidden; }
+.dc-todo-dock-card { margin: 6px 12px 0; border: 1px solid var(--v2-line, #e2e8f0); border-bottom: 0; border-radius: 14px 14px 0 0; background: color-mix(in srgb, var(--dc-content-bg, #ffffff) 92%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); box-shadow: 0 -6px 18px rgba(15, 23, 42, 0.045); color: var(--v2-ink2, #475569); font-size: 12.5px; overflow: hidden; }
+.dc-todo-dock-head { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 14px 7px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.dc-todo-dock-head:focus-visible { outline: 2px solid var(--v2-focus, #93c5fd); outline-offset: -2px; border-radius: 12px 12px 0 0; }
+.dc-todo-dock-caret { flex: none; width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; opacity: 0.7; }
+.dc-todo-dock.is-collapsed .dc-todo-dock-caret { transform: rotate(-90deg); }
+.dc-todo-dock-title { flex: none; color: var(--v2-ink, #0f172a); font-weight: 650; }
+.dc-todo-dock-current { flex: 1; min-width: 0; overflow: hidden; color: var(--v2-ink3, #64748b); white-space: nowrap; text-overflow: ellipsis; opacity: 0; }
+.dc-todo-dock.is-collapsed .dc-todo-dock-current { opacity: 1; }
+.dc-todo-dock-count { flex: none; margin-left: auto; color: var(--v2-ink3, #64748b); font-variant-numeric: tabular-nums; }
+.dc-todo-dock-progress { height: 2px; margin: 0 14px; border-radius: 2px; background: var(--v2-line, #e2e8f0); overflow: hidden; }
+.dc-todo-dock-progress i { display: block; height: 100%; background: var(--dc-status-success, #10b981); transform: scaleX(0); transform-origin: left; }
+.dc-todo-dock-body { display: grid; grid-template-rows: 1fr; }
+.dc-todo-dock.is-collapsed .dc-todo-dock-body { grid-template-rows: 0fr; }
+.dc-todo-dock-scroll { min-height: 0; max-height: min(34vh, 260px); overflow-y: auto; scrollbar-width: thin; }
+.dc-todo-dock .dc-todo-list { display: grid; gap: 5px; margin: 0; padding: 8px 14px 10px; list-style: none; }
+.dc-todo-dock .dc-todo-list li { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 8px; align-items: baseline; overflow-wrap: anywhere; line-height: 1.5; }
+.dc-todo-dock .dc-todo-list li.is-in_progress { color: var(--v2-ink, #0f172a); font-weight: 500; }
+.dc-todo-dock .dc-todo-mark { display: inline-grid; place-items: center; width: 13px; height: 13px; border: 1px solid var(--dc-content-line-strong, #cbd5e1); border-radius: 4px; background: var(--dc-content-raised, #f8fafc); }
+html:not([data-ui="v2"]) .dc-todo-dock-card { border-color: rgba(148, 163, 184, 0.2); background: rgba(15, 23, 39, 0.92); color: #cbd5e1; box-shadow: 0 -8px 22px rgba(2, 6, 23, 0.18); }
+html:not([data-ui="v2"]) .dc-todo-dock-title, html:not([data-ui="v2"]) .dc-todo-dock .dc-todo-list li.is-in_progress { color: #f1f5f9; }
+html:not([data-ui="v2"]) .dc-todo-dock-progress { background: rgba(148, 163, 184, 0.18); }
+html:not([data-ui="v2"]) .dc-todo-dock .dc-todo-mark { border-color: rgba(148, 163, 184, 0.4); background: rgba(148, 163, 184, 0.08); }
+/* 停靠时输入框上沿与清单相接，形成一个整体 */
+body.dc-chatting .dc-todo-dock.is-visible + .dc-composer { margin-top: 0; }
+
+@media (prefers-reduced-motion: no-preference) {
+    .dc-todo li { transition: color 0.2s ease; }
+    .dc-todo-list li { transition: color 0.35s ease 0.12s; }
+    .dc-todo-list .dc-todo-mark { transition: background-color 0.22s ease, border-color 0.22s ease, box-shadow 0.3s ease; }
+    .dc-todo-list .dc-todo-mark svg { transition: stroke-dashoffset 0.32s cubic-bezier(0.65, 0, 0.35, 1) 0.08s; }
+    .dc-todo-list .dc-todo-mark i { transition: opacity 0.2s ease, transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1); }
+    .dc-todo-list li.is-in_progress .dc-todo-mark i { animation: dc-todo-pulse 1.6s ease-in-out infinite; }
+    .dc-todo-list li.is-completed .dc-todo-mark { animation: dc-todo-pop 0.34s cubic-bezier(0.2, 0.8, 0.2, 1); }
+    .dc-todo-text { transition: color 0.35s ease 0.18s; }
+    .dc-todo-text > span { transition: background-size 0.5s cubic-bezier(0.65, 0, 0.35, 1) 0.12s; }
+    .dc-todo-list li.is-instant, .dc-todo-list li.is-instant * { transition: none !important; animation: none !important; }
+    body.dc-chatting .dc-todo-dock { transition: grid-template-rows 0.38s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.26s ease, transform 0.38s cubic-bezier(0.2, 0.8, 0.2, 1); }
+    .dc-todo-dock-body { transition: grid-template-rows 0.32s cubic-bezier(0.2, 0.8, 0.2, 1); }
+    .dc-todo-dock-caret { transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
+    .dc-todo-dock-current { transition: opacity 0.22s ease; }
+    .dc-todo-dock-progress i { transition: transform 0.5s cubic-bezier(0.65, 0, 0.35, 1); }
+    .dc-todo-dock-head:hover .dc-todo-dock-caret { opacity: 1; }
+}
+@keyframes dc-todo-pulse { 50% { transform: scale(0.65); opacity: 0.55; } }
+@keyframes dc-todo-pop { 0% { transform: scale(1); } 45% { transform: scale(1.18); } 100% { transform: scale(1); } }
 .dc-question { margin-top: 10px; }
 .dc-question-hint { margin-bottom: 6px; color: var(--dc-faint, #64748b); font-size: 11.5px; }
 .dc-question-options { display: flex; flex-wrap: wrap; gap: 6px; }
 .dc-question-options .dc-action { max-width: 100%; text-align: left; white-space: normal; }
 .dc-question-options .dc-action.is-chosen { border-color: var(--dc-accent, #64ffda); color: var(--dc-accent, #64ffda); }
 .dc-question.is-history .dc-action:not(.is-chosen) { opacity: 0.55; }
-@media (prefers-reduced-motion: no-preference) { .dc-todo li { transition: color 0.2s ease; } }
 
 .dc-approval {
     padding: 12px 14px;
