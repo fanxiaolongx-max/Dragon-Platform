@@ -24,6 +24,25 @@ test('assistant markdown renders safe links only', () => {
     assert.doesNotMatch(render('[<img src=x onerror=alert(1)>](/a)'), /<img/);
 });
 
+test('assistant markdown keeps nested and long code fences in one block', () => {
+    const render = loadMarkdownRenderer();
+    const blocks = html => html.match(/<pre\b/g)?.length || 0;
+    // Skill 正文含 ```sql，外层又用 ``` 包住：整段仍是一个代码块，后续正文正常渲染
+    const skill = render('```markdown\n## 步骤 0\n执行：\n```sql\nSELECT 1 AS test LIMIT 1\n```\n- 返回 1 行\n```\n收尾说明');
+    assert.equal(blocks(skill), 1);
+    assert.match(skill, /<pre data-language="markdown"><code>## 步骤 0[\s\S]*```sql\nSELECT 1 AS test LIMIT 1\n```\n- 返回 1 行<\/code><\/pre><p>收尾说明<\/p>/);
+    // 外层用更长的围栏或 ~~~：内部的 ``` 一律是内容
+    const longFence = render('````md\n```\nraw\n```\n````');
+    assert.equal(blocks(longFence), 1);
+    assert.match(longFence, /<code>```\nraw\n```<\/code>/);
+    assert.match(render('~~~\n```js\nx()\n~~~\nafter'), /<code>```js\nx\(\)<\/code><\/pre><p>after<\/p>/);
+    // 普通代码块与流式输出中未闭合的块不受影响
+    assert.match(render('```js\nconst a = 1;\n```\n后文'), /<pre data-language="js"><code>const a = 1;<\/code><\/pre><p>后文<\/p>/);
+    assert.match(render('```sql\nSELECT *\nFROM t'), /<code>SELECT \*\nFROM t<\/code><\/pre>$/);
+    // 行内代码里的反引号不当作围栏
+    assert.equal(blocks(render('```js `x` ``` 不是围栏')), 0);
+});
+
 test('assistant exposes rendering and streaming helpers for the home agent', () => {
     const source = read('frontend/js/shared/ai-assistant.js');
     const exportBlock = source.slice(source.indexOf('window.ToolsAIAssistant = {'));
