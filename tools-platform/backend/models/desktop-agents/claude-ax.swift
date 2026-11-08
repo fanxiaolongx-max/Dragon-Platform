@@ -38,16 +38,16 @@ func mainWindow(_ app: NSRunningApplication) -> AXUIElement? {
 }
 
 // Depth-first walk collecting the roles the Node side understands, in screen order.
-func collect(_ window: AXUIElement) -> [(AXUIElement, [String: Any])] {
+func collect(_ window: AXUIElement, includeText: Bool = false) -> [(AXUIElement, [String: Any])] {
     var out: [(AXUIElement, [String: Any])] = []
     var stack: [AXUIElement] = [window]
     var visited = 0
     while let element = stack.popLast(), visited < 20000 {
         visited += 1
         let role = text(element, kAXRoleAttribute)
-        if keptRoles.contains(role) {
+        if keptRoles.contains(role) || (includeText && role == "AXStaticText") {
             var item: [String: Any] = ["role": role, "title": text(element, kAXTitleAttribute), "desc": text(element, kAXDescriptionAttribute)]
-            if role == "AXTextArea" || role == "AXRadioButton" { item["value"] = String(text(element, kAXValueAttribute).prefix(20000)) }
+            if role == "AXTextArea" || role == "AXRadioButton" || role == "AXStaticText" { item["value"] = String(text(element, kAXValueAttribute).prefix(20000)) }
             if let enabled = attr(element, kAXEnabledAttribute) as? Bool { item["enabled"] = enabled }
             out.append((element, item))
         }
@@ -139,11 +139,86 @@ func key(_ code: CGKeyCode, command: Bool = false) {
     }
 }
 
+// Only the observed session-suggestion card is actionable. Never expose arbitrary
+// buttons (permissions, account settings, deletion, etc.) as remote choices.
+func label(_ item: [String: Any]) -> String {
+    for key in ["title", "desc", "value"] {
+        if let value = item[key] as? String, !value.isEmpty { return value }
+    }
+    return ""
+}
+func sessionWindow(_ title: String) -> AXUIElement? {
+    guard AXIsProcessTrusted(), let app = claudeApp() else { return nil }
+    let root = AXUIElementCreateApplication(app.processIdentifier)
+    AXUIElementSetAttributeValue(root, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+    let windows = (attr(root, kAXWindowsAttribute) as? [AXUIElement]) ?? []
+    let matches = windows.filter { window in
+        collect(window).contains { _, item in
+            item["role"] as? String == "AXHeading" && item["desc"] as? String == title && (item["title"] as? String ?? "").isEmpty
+        }
+    }
+    return matches.count == 1 ? matches[0] : nil
+}
+func sessionChoice(_ window: AXUIElement) -> (String, [(AXUIElement, String)])? {
+    let prompts = collect(window, includeText: true).filter { _, item in
+        guard item["role"] as? String == "AXStaticText" else { return false }
+        let s = label(item)
+        return s.hasPrefix("要在单独的会话中启动吗？") || s.hasPrefix("Start in a separate session?")
+    }
+    guard prompts.count == 1 else { return nil }
+    var parent = prompts[0].0
+    for _ in 0..<5 {
+        guard let next = attr(parent, kAXParentAttribute) else { return nil }
+        parent = next as! AXUIElement
+        let items = collect(parent, includeText: true)
+        let buttons = items.filter { $0.1["role"] as? String == "AXButton" }
+        for labels in [["在此处操作", "新建会话"], ["Work here", "New session"]] {
+            let choices = labels.map { wanted in buttons.filter { label($0.1) == wanted && ($0.1["enabled"] as? Bool ?? true) } }
+            if choices.allSatisfy({ $0.count == 1 }) {
+                let prompt = items.filter { $0.1["role"] as? String == "AXStaticText" }.map { label($0.1) }.joined(separator: "\n")
+                return (prompt, choices.enumerated().map { (i, matches) in (matches[0].0, labels[i]) })
+            }
+        }
+    }
+    return nil
+}
+
 let args = CommandLine.arguments
 let command = args.count > 1 ? args[1] : "snapshot"
 let argument: [String: Any] = args.count > 2 ? ((try? JSONSerialization.jsonObject(with: Data(args[2].utf8))) as? [String: Any] ?? [:]) : [:]
 
 switch command {
+case "interaction", "choose":
+    let title = argument["title"] as? String ?? ""
+    guard !title.isEmpty, let window = sessionWindow(title) else {
+        if command == "interaction" { emit(["ok": true, "available": false]) }
+        fail("DESKTOP_TARGET_UNCONFIRMED", "请在 Claude 桌面打开对应会话，当前无法唯一确认目标")
+    }
+    if command == "interaction" {
+        guard let choice = sessionChoice(window) else { emit(["ok": true, "available": true, "pending": NSNull()]) }
+        emit(["ok": true, "available": true, "pending": ["prompt": choice.0, "options": choice.1.map { $0.1 }]])
+    }
+    let previous = frontmostId()
+    guard let app = claudeApp(), waitFrontmost(app) else { activate(previous); fail("DESKTOP_FOCUS", "无法激活 Claude") }
+    AXUIElementPerformAction(window, kAXRaiseAction as CFString)
+    pause(0.1)
+    // Re-read after activation. Do not click a stale card or a button elsewhere.
+    guard let fresh = sessionWindow(title), CFEqual(window, fresh),
+          let choice = sessionChoice(fresh), choice.0 == argument["prompt"] as? String,
+          let option = choice.1.first(where: { $0.1 == argument["option"] as? String }),
+          let box = frame(option.0), box.width > 8, box.height > 8,
+          frontmostId() == bundleId, owns(option.0, CGPoint(x: box.midX, y: box.midY)) else {
+        activate(previous); fail("DESKTOP_CHOICE_STALE", "Claude 的问题或目标已变化，请刷新后重新选择")
+    }
+    click(CGPoint(x: box.midX, y: box.midY))
+    for _ in 0..<15 {
+        pause(0.1)
+        if sessionChoice(fresh)?.0 != choice.0 {
+            activate(previous); emit(["ok": true, "status": "accepted"])
+        }
+    }
+    activate(previous)
+    fail("DESKTOP_CHOICE_UNCONFIRMED", "已点击但尚未确认选择生效，请检查 Claude 后刷新，避免重复操作")
 case "status":
     emit(["ok": true, "trusted": AXIsProcessTrusted(), "running": claudeApp() != nil])
 case "snapshot":

@@ -122,3 +122,43 @@ test('after preparing, missing targets and existing drafts still refuse typing a
         assert.equal(w.calls.at(-1),'restore:com.google.Chrome');
     }
 });
+
+function choiceDriver() {
+    const w = { calls: [], pending: { prompt: '要在单独的会话中启动吗？ 排查 WorkBuddy 的 TPS/TTFT 显示为空', options: ['在此处操作', '新建会话'] } };
+    w.driver = {
+        interaction: async title => { w.calls.push(['read', title]); return { available: true, pending: w.pending }; },
+        choose: async args => { w.calls.push(['choose', args]); w.pending = null; return { status: 'accepted' }; }
+    };
+    return w;
+}
+test('session suggestion exposes the actual question and choices, then verifies before acting', async () => {
+    const w = choiceDriver(), result = await claude.interaction(TARGET, { driver: w.driver });
+    assert.equal(result.interactionAvailable, true);
+    assert.deepEqual(result.interaction.options, w.pending.options);
+    assert.match(result.interaction.prompt, /WorkBuddy/);
+    assert.equal(w.calls.some(c => c[0] === 'choose'), false, 'polling never selects anything');
+    assert.equal((await claude.choose(TARGET, { interactionId: result.interaction.id, option: '在此处操作' }, { driver: w.driver })).status, 'accepted');
+    assert.deepEqual(w.calls.at(-1)[1], { title: TARGET.title, prompt: result.interaction.prompt, option: '在此处操作' });
+    await assert.rejects(claude.choose(TARGET, { interactionId: result.interaction.id, option: '在此处操作' }, { driver: w.driver }), { code: 'DESKTOP_CHOICE_STALE' });
+    assert.equal(w.calls.filter(c => c[0] === 'choose').length, 1, 'double click never replays a handled card');
+});
+test('changed question, options, session or forged button cannot be selected', async () => {
+    for (const change of ['question', 'button', 'session', 'gone']) {
+        const w = choiceDriver(), { interaction: p } = await claude.interaction(TARGET, { driver: w.driver });
+        if (change === 'question') w.pending.prompt += ' changed';
+        if (change === 'gone') w.pending = null;
+        const row = change === 'session' ? { ...TARGET, id: 'another-session' } : TARGET;
+        await assert.rejects(claude.choose(row, { interactionId: p.id, option: change === 'button' ? '跳过权限确认' : '新建会话' }, { driver: w.driver }), { code: 'DESKTOP_CHOICE_STALE' });
+        assert.equal(w.calls.some(c => c[0] === 'choose'), false);
+    }
+    const w = choiceDriver(); w.pending.options = ['允许', '拒绝'];
+    await assert.rejects(claude.interaction(TARGET, { driver: w.driver }), { code: 'DESKTOP_CHOICE_UNSUPPORTED' });
+    await assert.rejects(claude.choose(TARGET, {} , { driver: w.driver }), { code: 'DESKTOP_CHOICE_INVALID' });
+});
+test('unavailable native window is explicit, and English session suggestions are supported', async () => {
+    assert.deepEqual(await claude.interaction(TARGET, { driver: { interaction: async () => ({ available: false }) } }), { interaction: null, interactionAvailable: false });
+    const w = choiceDriver(); w.pending = { prompt: 'Start in a separate session? Investigate TPS', options: ['Work here', 'New session'] };
+    const { interaction: p } = await claude.interaction(TARGET, { driver: w.driver });
+    await claude.choose(TARGET, { interactionId: p.id, option: 'Work here' }, { driver: w.driver });
+    assert.equal(w.calls.at(-1)[1].option, 'Work here');
+});

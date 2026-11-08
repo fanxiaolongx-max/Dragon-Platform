@@ -170,7 +170,7 @@
         body.onclick = null;
         delete body.dataset.signature;
     } if (state.active)
-        window.DragonClawWorkspace?.hideExternal?.(); state.active = null; state.api = null; state.signature = ''; state.detail = null; state.pending = null; state.view = null; state.dock?.remove(); state.dock = null; render(); }
+        window.DragonClawWorkspace?.hideExternal?.(); state.active = null; state.api = null; state.signature = ''; state.detail = null; state.pending = null; state.choosing = null; state.view = null; state.dock?.remove(); state.dock = null; render(); }
     // 复用「我的对话」的输入框：只读、未确认投递时禁用并在占位文字里说明原因
     function busyMode() { return state.mode === 'steer' && state.detail?.canSteer ? 'steer' : 'queue'; }
     function composer(session) { const k = key(session), unknown = state.unknown.has(k), canSend = Boolean(session.canSend) && !unknown, name = names[session.provider], working = state.detail?.busy || state.pending; return { canSend, send, draft: state.drafts.get(k) || '', onInput: value => { if (state.active && key(state.active) === k)
@@ -298,7 +298,7 @@
         return; clearInterval(poll); poll = setInterval(() => { if (document.visibilityState === 'visible')
         refreshMessages(epoch, session); }, state.detail?.busy || state.pending ? 2500 : 5000); }
     function elapsed(since) { const ms = Math.max(0, Date.now() - Date.parse(since)), m = Math.floor(ms / 60000), sec = Math.floor(ms / 1000) % 60; return m ? L(`${m}分${sec}秒`, `${m}m ${sec}s`) : L(`${sec}秒`, `${sec}s`); }
-    function busyText() { const d = state.detail, name = names[state.active.provider]; if (d?.busy)
+    function busyText() { const d = state.detail, name = names[state.active.provider]; if (d?.interaction) return L('Claude 等待你的选择', 'Claude is waiting for your choice'); if (d?.busy)
         return d.busySince ? L(`${name} 正在处理 · ${elapsed(d.busySince)}`, `${name} is working · ${elapsed(d.busySince)}`) : L(`${name} 正在处理…`, `${name} is working…`); return L(`已发送，等待 ${name} 响应…`, `Sent. Waiting for ${name}…`); }
     function tick() { const working = state.detail?.busy || state.pending; document.querySelectorAll('[data-desktop-busy]').forEach(node => { node.textContent = working ? busyText() : ''; }); const status = document.querySelector('[data-desktop-status]'); if (status)
         status.textContent = statusText(); if (!working) {
@@ -306,7 +306,7 @@
         state.tick = null;
     } }
     function statusText() { if (historyLoad?.status === 'loading') return L('正在加载对话…', 'Loading conversation…'); if (historyLoad?.status === 'error') return L('对话加载失败 · 可重试', 'Loading failed · retry available'); const d = state.detail; if (!d)
-        return L('读取中…', 'Loading…'); if (d.busy || state.pending)
+        return L('读取中…', 'Loading…'); if (d.interaction || d.busy || state.pending)
         return busyText(); return state.active.canSend ? L('空闲 · 可发送', 'Idle · ready') : L('只读', 'Read-only'); }
     // 轮询只做增量更新：已显示的消息原地保留，新消息追加（自带淡入），内容有变化的只改正文，避免整屏重绘闪烁
     const sameItem = (a, b) => a && b && a.role === b.role && a.content === b.content && JSON.stringify(a.attachments || []) === JSON.stringify(b.attachments || []) && JSON.stringify(a.widget || null) === JSON.stringify(b.widget || null) && a.createdAt === b.createdAt;
@@ -421,7 +421,7 @@
         } };
         anchor ? add() : api.batchMessages(add);
         view.rows.push(...fresh);
-        const working = Boolean(data.busy || state.pending);
+        const working = Boolean(data.busy || state.pending) && !data.interaction;
         if (working && !view.thinking)
             api.batchMessages(() => { view.thinking = thinkingNode(); });
         if (!working && view.thinking) {
@@ -439,8 +439,9 @@
         const session = state.active, d = state.detail;
         if (!session || !d)
             return;
-        const working = Boolean(d.busy || state.pending), queue = d.queue || [], showMode = working && session.canSend;
-        if (!showMode && !queue.length) {
+        const interaction = d.interaction;
+        const working = Boolean(d.busy || state.pending), queue = d.queue || [], showMode = working && session.canSend && !interaction;
+        if (!showMode && !queue.length && !interaction) {
             state.dock?.remove();
             state.dock = null;
             return;
@@ -449,6 +450,8 @@
             state.dock = document.createElement('div');
             state.dock.className = 'desktop-agent-dock';
             state.dock.addEventListener('click', e => {
+                const choice = e.target.closest('[data-desktop-choice]');
+                if (choice && !choice.disabled) { chooseInteraction(choice.dataset.desktopChoice); return; }
                 const mode = e.target.closest('[data-desktop-mode]')?.dataset.desktopMode;
                 if (mode) {
                     state.mode = mode;
@@ -467,11 +470,26 @@
             document.getElementById('dcComposer')?.before(state.dock);
         }
         const mode = busyMode(), label = { queued: L('排队中', 'Queued'), sending: L('投递中', 'Sending'), failed: L('未发送', 'Not sent') };
-        const signature = JSON.stringify([showMode, mode, d.canSteer, queue, L('zh', 'en')]);
+        const signature = JSON.stringify([showMode, mode, d.canSteer, queue, interaction, Boolean(state.choosing), L('zh', 'en')]);
         if (state.dock.dataset.signature === signature)
             return;
         state.dock.dataset.signature = signature;
-        state.dock.innerHTML = `${showMode ? `<div class="desktop-agent-mode"><span>${esc(L(names[session.provider] + ' 运行中，新消息：', names[session.provider] + ' is running. New messages:'))}</span><div role="group"><button type="button" data-desktop-mode="queue" aria-pressed="${mode === 'queue'}" title="${esc(L('本轮结束后自动发送', 'Sent when this turn finishes'))}">${esc(L('排队', 'Queue'))}</button>${d.canSteer ? `<button type="button" data-desktop-mode="steer" aria-pressed="${mode === 'steer'}" title="${esc(L('并入当前这一轮，Agent 会马上看到', 'Joins the running turn right away'))}">${esc(L('引导', 'Steer'))}</button>` : ''}</div></div>` : ''}${queue.map(item => `<div class="desktop-agent-queued" data-status="${esc(item.status)}"><i>${esc(label[item.status] || '')}</i><span>${esc(item.text)}</span>${item.error ? `<small>${esc(item.error)}</small>` : ''}${item.status !== 'sending' ? `<button type="button" data-desktop-cancel="${esc(item.requestId)}">${esc(item.status === 'failed' ? L('移除', 'Remove') : L('取消', 'Cancel'))}</button>` : ''}</div>`).join('')}`;
+        const choiceHtml = interaction ? `<section class="desktop-agent-choice" aria-label="${esc(L('Claude 等待选择', 'Claude needs a choice'))}"><strong role="status">${esc(L('Claude 等待你的选择', 'Claude is waiting for your choice'))}</strong><p>${esc(interaction.prompt)}</p><div>${interaction.options.map(option => `<button type="button" data-desktop-choice="${esc(option)}" ${state.choosing || !session.canSend ? 'disabled' : ''}>${esc(option)}</button>`).join('')}</div>${!session.canSend ? `<small>${esc(L('当前连接只读，请在电脑上的 Claude 中选择', 'Read-only connection. Choose in Claude on your computer.'))}</small>` : ''}</section>` : '';
+        state.dock.innerHTML = `${choiceHtml}${showMode ? `<div class="desktop-agent-mode"><span>${esc(L(names[session.provider] + ' 运行中，新消息：', names[session.provider] + ' is running. New messages:'))}</span><div role="group"><button type="button" data-desktop-mode="queue" aria-pressed="${mode === 'queue'}" title="${esc(L('本轮结束后自动发送', 'Sent when this turn finishes'))}">${esc(L('排队', 'Queue'))}</button>${d.canSteer ? `<button type="button" data-desktop-mode="steer" aria-pressed="${mode === 'steer'}" title="${esc(L('并入当前这一轮，Agent 会马上看到', 'Joins the running turn right away'))}">${esc(L('引导', 'Steer'))}</button>` : ''}</div></div>` : ''}${queue.map(item => `<div class="desktop-agent-queued" data-status="${esc(item.status)}"><i>${esc(label[item.status] || '')}</i><span>${esc(item.text)}</span>${item.error ? `<small>${esc(item.error)}</small>` : ''}${item.status !== 'sending' ? `<button type="button" data-desktop-cancel="${esc(item.requestId)}">${esc(item.status === 'failed' ? L('移除', 'Remove') : L('取消', 'Cancel'))}</button>` : ''}</div>`).join('')}`;
+    }
+    async function chooseInteraction(option) {
+        if (state.choosing || !state.active || !state.detail?.interaction || !state.active.canSend) return;
+        const session = state.active, epoch = state.viewEpoch, pending = state.detail.interaction;
+        const operation = {}; state.choosing = operation; renderDock();
+        try {
+            await request('POST', `/${session.provider}/sessions/${encodeURIComponent(session.id)}/interaction`, { interactionId: pending.id, option }, AbortSignal.timeout(30000));
+            if (current(epoch, session)) state.api?.toast(L('已在 Claude 中完成选择', 'Choice applied in Claude'));
+        } catch (error) {
+            if (current(epoch, session)) state.api?.toast(error.message);
+        } finally {
+            if (state.choosing === operation) state.choosing = null;
+            if (current(epoch, session)) { renderDock(); await refreshMessages(epoch, session); }
+        }
     }
     async function cancelQueued(session, requestId) { try {
         const data = await request('DELETE', `/${session.provider}/sessions/${encodeURIComponent(session.id)}/queue/${encodeURIComponent(requestId)}`);
@@ -557,12 +575,14 @@
         const m = wsMetrics(d), issues = wsIssues(d, p), health = providerHealth(session.provider);
         const updated = d.items?.at(-1)?.createdAt || session.updatedAt, working = Boolean(d.busy || state.pending);
         // 分钟粒度进签名：相对时间（刚刚 / 3 分钟前）即使数据没变也能刷新
-        const signature = JSON.stringify([session.id, session.title, session.canSend, state.unknown.has(key(session)), d.reason, d.stale, items.length, updated, working, d.busySince, d.canSteer, queue, d.timingCollection, m, p?.connected, p?.canRead, p?.canSend, p?.latencyMs, p?.reason, p?.warning, state.error, state.lastSync, state.mode, historyLoad?.status, issues, Math.floor(Date.now() / 60000), L('zh', 'en')]);
+        const signature = JSON.stringify([session.id, session.title, session.canSend, state.unknown.has(key(session)), d.reason, d.stale, d.interaction, items.length, updated, working, d.busySince, d.canSteer, queue, d.timingCollection, m, p?.connected, p?.canRead, p?.canSend, p?.latencyMs, p?.reason, p?.warning, state.error, state.lastSync, state.mode, historyLoad?.status, issues, Math.floor(Date.now() / 60000), L('zh', 'en')]);
         if (!first && !force && body.dataset.signature === signature)
             return;
         body.dataset.signature = signature;
         let subText;
-        if (d.stale)
+        if (d.interaction)
+            subText = L('请在输入框上方选择如何继续', 'Choose how to continue above the message box');
+        else if (d.stale)
             subText = L('桌面当前在其他会话，正文暂停更新；运行状态照常显示', 'The desktop shows another chat; text updates pause, status still updates');
         else if (working)
             subText = [m.rounds ? L(`共 ${m.rounds} 次模型调用`, `${m.rounds} model calls`) : '', queue.length ? L(`${queue.length} 条待发送`, `${queue.length} queued`) : ''].filter(Boolean).join(' · ') || L('正在等待桌面写入新消息', 'Waiting for the desktop to write new messages');
@@ -573,7 +593,7 @@
         else
             subText = d.reason || L('空闲', 'Idle');
         const mode = busyMode(), queueLabel = { queued: L('排队中', 'Queued'), sending: L('投递中', 'Sending'), failed: L('未发送', 'Not sent') };
-        const modesHtml = working && session.canSend ? `<div class="daw-modes" role="group"><span>${esc(L('新消息', 'New message'))}</span><button type="button" data-desktop-ws-mode="queue" aria-pressed="${mode === 'queue'}" title="${esc(L('本轮结束后自动发送', 'Sent when this turn finishes'))}">${esc(L('排队', 'Queue'))}</button><button type="button" data-desktop-ws-mode="steer" aria-pressed="${mode === 'steer'}" title="${esc(d.canSteer ? L('并入当前这一轮，Agent 会马上看到', 'Joins the running turn right away') : L(`${names[session.provider]} 不支持运行中引导`, `${names[session.provider]} can't steer a running turn`))}"${d.canSteer ? '' : ' disabled'}>${esc(L('引导', 'Steer'))}</button></div>` : '';
+        const modesHtml = working && session.canSend && !d.interaction ? `<div class="daw-modes" role="group"><span>${esc(L('新消息', 'New message'))}</span><button type="button" data-desktop-ws-mode="queue" aria-pressed="${mode === 'queue'}" title="${esc(L('本轮结束后自动发送', 'Sent when this turn finishes'))}">${esc(L('排队', 'Queue'))}</button><button type="button" data-desktop-ws-mode="steer" aria-pressed="${mode === 'steer'}" title="${esc(d.canSteer ? L('并入当前这一轮，Agent 会马上看到', 'Joins the running turn right away') : L(`${names[session.provider]} 不支持运行中引导`, `${names[session.provider]} can't steer a running turn`))}"${d.canSteer ? '' : ' disabled'}>${esc(L('引导', 'Steer'))}</button></div>` : '';
         const queueHtml = queue.length ? `<div class="daw-queue">${queue.map(item => `<div class="daw-queue-item" data-status="${esc(item.status)}"><i>${esc(queueLabel[item.status] || '')}</i><span title="${esc(item.text)}">${esc(item.text)}</span>${item.error ? `<small title="${esc(item.error)}">${esc(item.error)}</small>` : ''}${item.status !== 'sending' ? `<button type="button" data-desktop-ws-cancel="${esc(item.requestId)}">${esc(item.status === 'failed' ? L('移除', 'Remove') : L('取消', 'Cancel'))}</button>` : ''}</div>`).join('')}</div>` : '';
         const statusHtml = `<div class="daw-status" data-level="${esc(health.level)}"><div class="daw-status-head"><i class="daw-dot" aria-hidden="true"></i><b data-desktop-status>${esc(statusText())}</b>${working ? `<span class="daw-live">${esc(L('轮询中', 'Live'))}</span>` : ''}</div><p class="daw-status-sub">${esc(subText)}</p>${modesHtml}${queueHtml}</div>`;
         const perf=m.performance,known=value=>typeof value==='number'&&Number.isFinite(value),rate=value=>known(value)?value.toLocaleString(undefined,{maximumFractionDigits:1}):'—';
@@ -650,7 +670,7 @@
             const wasBusy = state.detail?.busy;
             state.detail = data;
             state.active = { ...state.active, canSend: data.canSend };
-            const signature = JSON.stringify([data.items || [], Boolean(data.busy || state.pending)]);
+            const signature = JSON.stringify([data.items || [], Boolean(data.busy || state.pending), data.interaction || null]);
             if (signature !== state.signature || initial) {
                 renderThread(data, initial);
                 state.signature = signature;

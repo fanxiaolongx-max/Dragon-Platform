@@ -8,6 +8,7 @@ app.disableHardwareAcceleration();
 setTimeout(() => { console.error('Desktop agent UI timed out'); app.exit(1); }, 60000).unref();
 const ids = { codex: '11111111-1111-4111-8111-111111111111', claudecode: 'local_22222222-2222-4222-8222-222222222222', antigravity: '33333333-3333-4333-8333-333333333333', workbuddy: '44444444-4444-4444-8444-444444444444' };
 const queuedFixture = [], created = [], newHistory = {};
+let claudeChoice = null, choiceCalls = [];
 let busyNow = false, claudeWritable = true, win, server, config = { enabled: true, autoSync: true, allowSend: true, syncSeconds: 20, recentLimit: 60, providers: Object.fromEntries(Object.keys(ids).map(id => [id, true])) }, sendError = false, holdSend = false, releaseSend;
 const busyStartedAt=new Date(Date.now()-65000).toISOString();
 const calls = [], saves = [];let hiddenProvider='', manualRefreshes=0, historyMode='normal';
@@ -38,7 +39,8 @@ app.whenReady().then(async () => {
     web.put('/api/desktop-agents/settings', (req, res) => { saves.push(req.body); config = { ...config, ...req.body }; res.json({ settings: config }); });
     web.get('/api/desktop-agents/sessions', (_req, res) => res.json({ items: sessions.filter(s=>s.provider!==hiddenProvider), providers: providers(), syncedAt: new Date().toISOString() }));
     web.post('/api/desktop-agents/sync', (_req, res) => { manualRefreshes++; res.json({ items: sessions.filter(s=>s.provider!==hiddenProvider), providers: providers(), syncedAt: new Date().toISOString() }); });
-    web.get('/api/desktop-agents/:provider/sessions/:id/messages', (req, res) => { if(historyMode==='error') return res.status(503).json({error:'Desktop fixture unavailable'}); if(historyMode==='empty') return res.json({items:[],canSend:true,busy:false}); res.json({ session: sessions.find(s => s.provider === req.params.provider && s.id === req.params.id) || sessions.find(s => s.provider === req.params.provider), items: newHistory[req.params.id] || histories[req.params.provider],performance:aggregatePerformance(newHistory[req.params.id]||histories[req.params.provider],req.params.provider==='codex'?performanceTurns:[],req.params.provider==='workbuddy'?workbuddyUsageRecords:[]), canSend: config.allowSend && req.params.provider !== 'claudecode' || config.allowSend && claudeWritable, available: true, canSteer: req.params.provider === 'codex', queue: req.params.provider === 'codex' ? queuedFixture : [], busy: busyNow, busySince: busyNow ? busyStartedAt : null }); });
+    web.get('/api/desktop-agents/:provider/sessions/:id/messages', (req, res) => { if(historyMode==='error') return res.status(503).json({error:'Desktop fixture unavailable'}); if(historyMode==='empty') return res.json({items:[],canSend:true,busy:false}); res.json({ session: sessions.find(s => s.provider === req.params.provider && s.id === req.params.id) || sessions.find(s => s.provider === req.params.provider), items: newHistory[req.params.id] || histories[req.params.provider],performance:aggregatePerformance(newHistory[req.params.id]||histories[req.params.provider],req.params.provider==='codex'?performanceTurns:[],req.params.provider==='workbuddy'?workbuddyUsageRecords:[]), canSend: config.allowSend && req.params.provider !== 'claudecode' || config.allowSend && claudeWritable, available: true, interaction: req.params.provider === 'claudecode' ? claudeChoice : null, canSteer: req.params.provider === 'codex', queue: req.params.provider === 'codex' ? queuedFixture : [], busy: busyNow, busySince: busyNow ? busyStartedAt : null }); });
+    web.post('/api/desktop-agents/:provider/sessions/:id/interaction', (req, res) => { choiceCalls.push({ provider: req.params.provider, id: req.params.id, ...req.body }); claudeChoice = null; res.json({ status: 'accepted' }); });
     web.post('/api/desktop-agents/:provider/sessions/:id/messages', async (req, res) => { if (req.body.mode === 'queue') {
         queuedFixture.push({ requestId: req.body.requestId, text: req.body.text, status: 'queued', error: '' });
         return res.status(202).json({ status: 'queued', requestId: req.body.requestId, queue: queuedFixture });
@@ -226,6 +228,34 @@ app.whenReady().then(async () => {
 
     histories.claudecode[0].content += '\n' + 'A long user message line.\n'.repeat(14);
     await choose('claudecode');
+    claudeChoice = { id: 'a'.repeat(64), kind: 'session-suggestion', prompt: '要在单独的会话中启动吗？ 排查 WorkBuddy 的 TPS/TTFT 显示为空 <script>window.choiceInjected=true</script>', options: ['在此处操作', '新建会话'] };
+    busyNow = true;
+    await evaluate('document.querySelector("[data-desktop-refresh]").click()');
+    await until('document.querySelectorAll("[data-desktop-choice]").length===2');
+    assert.equal(await evaluate('!!dcThread.querySelector(".desktop-agent-thinking")'), false, 'waiting is not shown as thinking');
+    assert.match(await evaluate('document.querySelector("[data-desktop-status]").textContent'), /等待你的选择/);
+    assert.equal(await evaluate('window.choiceInjected'), undefined, 'native prompt is plain text');
+    assert.deepEqual(await evaluate('[...document.querySelectorAll("[data-desktop-choice]")].map(b=>b.textContent)'), ['在此处操作','新建会话']);
+    const choicePanelBefore = await evaluate('DragonClawWorkspace.isPanelOpen()');
+    await evaluate('DragonClawWorkspace.closePanel()');
+    const choiceThemeBefore = await evaluate('({ui:document.documentElement.getAttribute("data-ui"),theme:document.documentElement.getAttribute("data-theme")})');
+    for (const width of [390,1440]) for (const theme of ['light','dark']) {
+        win.setContentSize(width, 950);
+        await evaluate(`document.documentElement.dataset.ui='v2';document.documentElement.dataset.theme='${theme}'`);
+        await wait(50);
+        assert.equal(await evaluate('(()=>{const c=document.querySelector(".desktop-agent-choice"),r=c.getBoundingClientRect();return c.scrollWidth<=c.clientWidth+1&&r.left>=0&&r.right<=innerWidth&&r.bottom<=innerHeight})()'), true, 'choice card fits narrow/light/dark layouts and remains visible');
+        fs.writeFileSync(path.join(temp, `claude-choice-${width}-${theme}.png`), (await win.webContents.capturePage()).toPNG());
+    }
+    await evaluate(`for(const [k,v] of Object.entries(${JSON.stringify(choiceThemeBefore)})){if(v===null)document.documentElement.removeAttribute('data-'+k);else document.documentElement.setAttribute('data-'+k,v)}`);
+    if (choicePanelBefore) await evaluate('DragonClawWorkspace.openPanel()');
+    await evaluate('document.querySelector("[data-desktop-choice]").click();document.querySelector("[data-desktop-choice]").click()');
+    await until('!document.querySelector("[data-desktop-choice]")');
+    assert.deepEqual(choiceCalls, [{ provider: 'claudecode', id: ids.claudecode, interactionId: 'a'.repeat(64), option: '在此处操作' }]);
+    assert.equal(await evaluate('!!dcThread.querySelector(".desktop-agent-thinking")'), true, 'normal running display resumes after the choice');
+    busyNow = false;
+    await evaluate('document.querySelector("[data-desktop-refresh]").click()');
+    await until('!dcThread.querySelector(".desktop-agent-thinking")');
+
     await until(`!dcThread.querySelector('.dc-msg--user [data-dc-message-toggle]').hidden`);
     const assertFoldBeforeImages = async () => {
         assert.equal(await evaluate(`(()=>{const m=dcThread.querySelector('.dc-msg--user'),b=m.querySelector('.dc-msg-body'),t=m.querySelector('[data-dc-message-toggle]'),a=m.querySelector('[data-desktop-attachments]');

@@ -53,6 +53,25 @@ function workbuddyFirstText(log, id) {
     }
     return result;
 }
+// WorkBuddy archives previous days into logs/<date>/sdk/conversations.zip.
+// Past archives never change, so parsed entries are cached by file identity.
+const archiveCache = new Map();
+async function readArchivedLog(fs, real, id) {
+    const stat = await fs.stat(real).catch(() => null);
+    if (!stat?.isFile() || stat.size > 128*1024*1024) return '';
+    const key = `${real}:${stat.size}:${stat.mtimeMs}:${id}`;
+    if (archiveCache.has(key)) return archiveCache.get(key);
+    let text = '';
+    try {
+        const zip = await require('jszip').loadAsync(await fs.readFile(real));
+        const entry = zip.file(id+'.log');
+        // Same rule as plain logs: an oversized entry cannot establish the FIRST text.
+        if (entry && !entry.dir && (entry._data?.uncompressedSize ?? 0) <= 16*1024*1024) text = await entry.async('string');
+    } catch { text = ''; }
+    archiveCache.set(key, text);
+    while (archiveCache.size > 64) archiveCache.delete(archiveCache.keys().next().value);
+    return text;
+}
 async function enrichWorkbuddy(content, id, starts, root) {
     if (!/^[a-f0-9-]{36}$/i.test(id) || !starts.size) return content;
     const fs = require('node:fs/promises'), path = require('node:path');
@@ -63,11 +82,18 @@ async function enrichWorkbuddy(content, id, starts, root) {
     for (const date of [...dates].sort().reverse().slice(0,14)) {
         const file = path.join(root,'logs',date,'sdk','conversations',id+'.log');
         const real = await fs.realpath(file).catch(()=>null);
-        if (!real || !real.startsWith(realRoot+path.sep)) continue;
-        const stat = await fs.stat(real).catch(()=>null);
-        // A truncated tail cannot establish the FIRST text arrival.
-        if (!stat?.isFile() || stat.size > 16*1024*1024) continue;
-        for (const [key,at] of workbuddyFirstText(await fs.readFile(real,'utf8').catch(()=>''),id)) first.set(key,Math.min(first.get(key)??Infinity,at));
+        let text = '';
+        if (real && real.startsWith(realRoot+path.sep)) {
+            const stat = await fs.stat(real).catch(()=>null);
+            // A truncated tail cannot establish the FIRST text arrival.
+            if (!stat?.isFile() || stat.size > 16*1024*1024) continue;
+            text = await fs.readFile(real,'utf8').catch(()=>'');
+        } else {
+            const archive = await fs.realpath(path.join(root,'logs',date,'sdk','conversations.zip')).catch(()=>null);
+            if (!archive || !archive.startsWith(realRoot+path.sep)) continue;
+            text = await readArchivedLog(fs, archive, id);
+        }
+        for (const [key,at] of workbuddyFirstText(text,id)) first.set(key,Math.min(first.get(key)??Infinity,at));
     }
     const selected = new Map(), seen = new Set();
     for (const round of content.modelUsage || []) {

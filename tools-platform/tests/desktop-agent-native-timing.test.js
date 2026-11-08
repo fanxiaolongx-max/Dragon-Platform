@@ -40,6 +40,12 @@ test('WorkBuddy native text observations require exact conversation/request asso
   const metrics=aggregate(d.items,[],d.modelUsage);
   assert.equal(metrics.observedFirstTextSamples,1);assert.equal(metrics.observedFirstTextMs,2000);
   assert.equal(metrics.decodeTps,null);assert.equal(metrics.requestTtftMs,null);
+  // Previous days are archived by WorkBuddy as logs/<date>/sdk/conversations.zip.
+  await fs.rm(path.join(root,'logs/2026-11-07/sdk/conversations'),{recursive:true});
+  const zip=new (require('jszip'))();zip.file(id+'.log',text);zip.file('other.log',log(id,'agent_message_chunk','2026-11-07T10:00:00Z'));
+  await fs.writeFile(path.join(root,'logs/2026-11-07/sdk/conversations.zip'),await zip.generateAsync({type:'nodebuffer'}));
+  const archived=await enrichWorkbuddy({items:[{rounds}],modelUsage:rounds},id,new Map([['turn-a',start]]),root);
+  assert.equal(archived.items[0].rounds[0].observedFirstTextMs,2000);
  }finally{await fs.rm(root,{recursive:true,force:true});}
 });
 

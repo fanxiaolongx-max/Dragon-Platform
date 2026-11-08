@@ -246,9 +246,10 @@ test('queued messages wait for the running turn, go out one at a time and can be
     }
 });
 test('Claude UI automation is opt-in, needs a transcript receipt and refuses same-titled sessions', async () => {
-    const claude = require('../backend/models/desktop-agents/claude-desktop'), original = { status: claude.status, send: claude.send };
+    const claude = require('../backend/models/desktop-agents/claude-desktop'), original = { status: claude.status, send: claude.send, interaction: claude.interaction };
     const claudeFile = path.join(process.env.TOOLS_DESKTOP_AGENT_HOME, '.claude/projects/project', CID + '.jsonl');
     const sentTo = [];
+    claude.interaction = async () => ({ interaction: null, interactionAvailable: true });
     claude.status = async cfg => ({ canSend: Boolean(cfg.claudeAutomation), reason: cfg.claudeAutomation ? 'automation' : 'read-only' });
     claude.send = async (row, text) => { sentTo.push(row.title); fs.appendFileSync(claudeFile, JSON.stringify({ uuid: 'c' + sentTo.length, type: 'user', timestamp: new Date().toISOString(), message: { role: 'user', content: text } }) + '\n'); };
     try {
@@ -276,6 +277,34 @@ test('Claude UI automation is opt-in, needs a transcript receipt and refuses sam
     finally {
         Object.assign(claude, original);
         await auth('put', '/settings').send({ claudeAutomation: false }).expect(200);
+    }
+});
+test('Claude choices respect admin, owner, tenant, opt-in and current settings', async () => {
+    const claude = require('../backend/models/desktop-agents/claude-desktop');
+    const original = { status: claude.status, interaction: claude.interaction, choose: claude.choose };
+    let choices = 0, reads = 0;
+    const pending = { id: 'a'.repeat(64), prompt: '要在单独的会话中启动吗？ password=secret-value', options: ['在此处操作', '新建会话'] };
+    claude.status = async () => ({ canSend: true });
+    claude.interaction = async () => { reads++; return { interaction: pending, interactionAvailable: true }; };
+    claude.choose = async (row, body) => { assert.equal(row.title, 'Native Claude title'); assert.equal(body.interactionId, pending.id); choices++; return { status: 'accepted' }; };
+    const url = `/claudecode/sessions/local_${CID}`, body = { interactionId: pending.id, option: '在此处操作' };
+    try {
+        await auth('post', url + '/interaction').send(body).expect(403);
+        await auth('put', '/settings').send({ claudeAutomation: true }).expect(200);
+        const data = (await auth('get', url + '/messages').expect(200)).body;
+        assert.equal(data.interaction.id, pending.id); assert.match(data.interaction.prompt, /REDACTED/); assert(reads > 0);
+        await auth('post', url + '/interaction', 'bob').send(body).expect(403);
+        await auth('post', url + '/interaction', 'alice', 'other').send(body).expect(409);
+        await request(httpServer).post('/api/desktop-agents' + url + '/interaction').set('x-user', 'alice').set('x-role', 'user').send(body).expect(403);
+        assert.equal(choices, 0);
+        await auth('post', url + '/interaction').send(body).expect(200);
+        assert.equal(choices, 1);
+        await auth('put', '/settings').send({ allowSend: false }).expect(200);
+        await auth('post', url + '/interaction').send(body).expect(403);
+        assert.equal(choices, 1, 'cached canSend never overrides a newly disabled setting');
+    } finally {
+        Object.assign(claude, original);
+        await auth('put', '/settings').send({ claudeAutomation: false, allowSend: true }).expect(200);
     }
 });
 test('New chat creates a native session once and never retries an unconfirmed creation', async () => {

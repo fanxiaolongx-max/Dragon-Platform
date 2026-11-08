@@ -103,7 +103,26 @@ async function selected(owner, provider, id) { if (!providers.includes(provider)
     row = current.rows.find(s => s.provider === provider && s.id === id);
 } if (!row)
     throw repo.error('会话已移除或不属于当前桌面连接', 404); return { state, row }; }
-async function messages(owner, provider, id, { passive = false } = {}) { const { state, row } = await selected(owner, provider, id), queue = queued(owner, provider, id); let content = provider === 'antigravity' ? await ag.messages(id, { passive }) : await readTranscript(row); if (Array.isArray(content.items)) { content = await require('./telemetry').enrich(owner,provider,row.nativeId||id,content); if(provider==='codex'){const timing=require('./codex-timing');content=timing.enrich(content,await timing.read(id));} } const status = state.providers.find(p => p.id === provider); return { ...content,...(Array.isArray(content.items)?{performance:require('./performance').aggregate(content.items,content.performanceTurns,content.modelUsage)}:{}), session: publicSession(row), canSend: status?.canSend || false, canSteer: provider === 'codex' && Boolean(status?.canSend), reason: content.reason || status?.reason || '', queue }; }
+async function messages(owner, provider, id, { passive = false } = {}) { const { state, row } = await selected(owner, provider, id), queue = queued(owner, provider, id); let content = provider === 'antigravity' ? await ag.messages(id, { passive }) : await readTranscript(row); if (Array.isArray(content.items)) { content = await require('./telemetry').enrich(owner,provider,row.nativeId||id,content); if(provider==='codex'){const timing=require('./codex-timing');content=timing.enrich(content,await timing.read(id));} } const status = state.providers.find(p => p.id === provider);
+    let interaction = {};
+    if (provider === 'claudecode' && state.settings.claudeAutomation && state.rows.filter(r => r.provider === provider && r.title === row.title).length === 1) {
+        try { interaction = redactValue(await claude.interaction(row)); }
+        catch { interaction = { interaction: null, interactionAvailable: false }; }
+    }
+    return { ...content, ...interaction, ...(interaction.interaction ? { busy: true } : {}),...(Array.isArray(content.items)?{performance:require('./performance').aggregate(content.items,content.performanceTurns,content.modelUsage)}:{}), session: publicSession(row), canSend: status?.canSend || false, canSteer: provider === 'codex' && Boolean(status?.canSend), reason: content.reason || status?.reason || '', queue }; }
+async function chooseInteraction(owner, provider, id, body) {
+    const cfg = await repo.access(owner);
+    if (provider !== 'claudecode' || !cfg.allowSend || !cfg.claudeAutomation || !cfg.providers.claudecode)
+        throw repo.error('当前连接不允许执行 Claude 选择', 403);
+    const { state, row } = await selected(owner, provider, id);
+    if (state.rows.filter(r => r.provider === provider && r.title === row.title).length !== 1)
+        throw repo.error('Claude 有同名会话，请先在桌面重命名', 409);
+    if (locks.has(provider)) throw repo.error('本机正在处理其他 Claude 操作，请稍后重试', 409);
+    locks.add(provider);
+    try { return await claude.choose(row, body); }
+    catch (error) { throw Object.assign(new Error(redactText(error.message)), { status: 409, code: error.code || 'DESKTOP_CHOICE_FAILED' }); }
+    finally { locks.delete(provider); }
+}
 async function exportConversation(owner, provider, id) {
     const data = await messages(owner, provider, id, { passive: true });
     if (data.available === false || !Array.isArray(data.items)) throw repo.error(data.reason || '当前桌面会话暂不可读取，请刷新后重试', 409);
@@ -308,4 +327,4 @@ async function drain(k, { read = (row) => row.provider === 'antigravity' ? ag.me
         }
     }
 }
-module.exports = { list, messages, exportConversation, send, create, save, discover, publicSession, waitForReply, enqueue, cancelQueued, queued, drain, queueKey };
+module.exports = { list, messages, chooseInteraction, exportConversation, send, create, save, discover, publicSession, waitForReply, enqueue, cancelQueued, queued, drain, queueKey };

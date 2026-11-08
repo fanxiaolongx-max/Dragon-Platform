@@ -49,7 +49,28 @@ async function run(command, argument) {
         throw failure(result.code || 'DESKTOP_REJECTED', result.error || 'Claude 桌面操作失败');
     return result;
 }
-const driver = { status: () => run('status'), prepare: () => run('prepare'), snapshot: () => run('snapshot'), press: title => run('press', { title }), paste: text => run('paste', { text }), submit: previous => run('submit', { previous }), restore: previous => run('restore', { previous }) };
+const driver = { status: () => run('status'), prepare: () => run('prepare'), snapshot: () => run('snapshot'), press: title => run('press', { title }), paste: text => run('paste', { text }), submit: previous => run('submit', { previous }), restore: previous => run('restore', { previous }), interaction: title => run('interaction', { title }), choose: args => run('choose', args) };
+
+function interactionId(row, pending) {
+    return crypto.createHash('sha256').update(JSON.stringify([row.id, row.title, pending.prompt, pending.options])).digest('hex');
+}
+async function interaction(row, { driver: d = driver } = {}) {
+    const result = await d.interaction(row.title), p = result.pending;
+    if (!p) return { interaction: null, interactionAvailable: Boolean(result.available) };
+    // These are session-routing choices only, never a generic remote button API.
+    if (typeof p.prompt !== 'string' || p.prompt.length > 20000 || !Array.isArray(p.options) ||
+        ![['在此处操作', '新建会话'], ['Work here', 'New session']].some(labels => JSON.stringify(labels) === JSON.stringify(p.options)))
+        throw failure('DESKTOP_CHOICE_UNSUPPORTED', 'Claude 选择框暂不支持，请在桌面处理');
+    return { interactionAvailable: true, interaction: { id: interactionId(row, p), kind: 'session-suggestion', prompt: p.prompt, options: p.options } };
+}
+async function choose(row, { interactionId: expected, option } = {}, { driver: d = driver } = {}) {
+    if (typeof expected !== 'string' || !/^[a-f0-9]{64}$/.test(expected) || typeof option !== 'string')
+        throw failure('DESKTOP_CHOICE_INVALID', '选择参数无效');
+    const { interaction: pending } = await interaction(row, { driver: d });
+    if (!pending || pending.id !== expected || !pending.options.includes(option))
+        throw failure('DESKTOP_CHOICE_STALE', 'Claude 的问题已变化或已处理，请刷新后重新选择');
+    return d.choose({ title: row.title, prompt: pending.prompt, option });
+}
 // Reads the parts of the window the flow relies on. The session heading is the
 // only heading with a description but no title; sidebar rows are titled buttons.
 function parse(snapshot) {
@@ -136,4 +157,4 @@ async function attempt(row, text, d, wait, focus) {
     focus.previous = ''; // submit 自己切回
     await d.submit(previous);
 }
-module.exports = { status, send, parse, rowFor, driver, helper };
+module.exports = { status, send, parse, rowFor, driver, helper, interaction, choose };
