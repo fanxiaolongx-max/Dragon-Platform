@@ -2713,8 +2713,10 @@
                 cwd: item.cwd
             });
         }
-        // 3. 频道会话 (微信、WeLink)
-        const channelThreads = window.HomeWelinkThreads?.getAllThreads?.() || [];
+        // 3. 频道会话 (微信、WeLink)：默认不混进「任务」，点侧栏「频道会话」进入专门视图查看；
+        //    只有在筛选里明确选了某个频道时才并进来
+        const sourceFilter = window.HomeConversationList?.getFilter?.().source || 'all';
+        const channelThreads = ['weixin', 'welink'].includes(sourceFilter) ? (window.HomeWelinkThreads?.getAllThreads?.() || []) : [];
         for (const thread of channelThreads) {
             const ch = thread.channel || 'welink';
             unified.push({
