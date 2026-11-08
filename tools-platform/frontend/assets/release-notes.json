@@ -1,14 +1,12 @@
 {
   "zh": [
-    "统一 Dragon 浏览器侧栏与推广入口，优化多标签页动画、悬浮菜单、网页输入和外部浏览器打开体验。",
-    "完善桌面 Agent、普通及频道对话的统计卡片与回复明细，接入原生计时和本机遥测，区分真实计时、流式速率与观测延迟。",
-    "AI 连接支持同一方案配置多个模型，优化模型卡片管理、默认模型选择与全局设置布局。",
-    "更新 AI 入门课程内容与中英文资料，完善浏览器和工作区在不同屏幕尺寸下的交互细节。"
+    "桌面 Agent 支持识别 Claude「要在单独的会话中启动吗？」选择卡，可在网页端直接选择「在此处操作」或「新建会话」，点击前后均会核对确认。",
+    "WorkBuddy 会话计时支持读取按日归档的历史日志，往日会话也能显示准确的首字耗时。",
+    "AI 入门课程新增「一个 HTML 文件就是一件工具」章节，并优化「方法外借、数据不出内网」的中英文内容。"
   ],
   "en": [
-    "Unified Dragon browser sidebars and promotion entry points, with smoother tabs, floating menus, page input, and external-browser actions.",
-    "Improved desktop Agent, personal and channel reply statistics with native timing and local telemetry, clearly separating measured timings, stream rates, and observed latency.",
-    "AI connection profiles now support multiple models with improved model cards, default selection, and global settings layout.",
-    "Updated the bilingual AI introductory course and refined browser and workspace interactions across screen sizes."
+    "Desktop Agent now detects Claude's \"start in a separate session?\" prompt and lets you choose \"Continue here\" or \"New session\" from the web, with checks before and after the click.",
+    "WorkBuddy conversation timing now reads daily archived logs, so past conversations show accurate first-token timing.",
+    "The AI introductory course adds a \"one HTML file is one tool\" section and refines the bilingual \"borrow methods, keep data inside\" content."
   ]
 }
