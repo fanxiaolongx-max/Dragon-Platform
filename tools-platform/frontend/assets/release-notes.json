@@ -1,12 +1,12 @@
 {
   "zh": [
-    "自定义工具导入小窗支持在导入成功后自动关闭，并保持操作失败时的友好提示。",
-    "新增内置工具「考勤验收」，支持考勤明细与验收评分编辑、工作日自动计算及格式化 Excel 导出。",
-    "优化夜间操作激励统计工具黑名单季度月均扣减与分摊计算，完善表格布局与异常样式。"
+    "DragonClaw 在输入框上方吸附实时待办任务清单，支持一键折叠与划线完成动画。",
+    "任务状态与当前会话实时同步，可直观查看完成进度并保持对话视区清爽。",
+    "优化工作区面板与任务清单的联动响应，输入与任务管理紧密贴合。"
   ],
   "en": [
-    "Custom tool import dialog now automatically closes upon successful import while keeping error messages visible on failure.",
-    "Added bundled \"Attendance Acceptance\" tool for managing attendance logs, evaluations, and formatted Excel exports.",
-    "Refined night operation incentive calculator with improved quarterly average deduction logic, table layout, and anomaly styling."
+    "DragonClaw docks a live task list right above the composer with collapse and strike-through animations.",
+    "Task states update in real-time with the active session, keeping the message viewport tidy.",
+    "Refined workspace panel coordination for seamless task tracking while composing prompts."
   ]
 }
