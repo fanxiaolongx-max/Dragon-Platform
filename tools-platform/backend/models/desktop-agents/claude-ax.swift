@@ -5,6 +5,7 @@
 // Usage: claude-ax <command> [json-argument]; prints one JSON object.
 import AppKit
 import ApplicationServices
+import CryptoKit
 import Foundation
 
 // The shared accessibility transport only addresses these two desktop clients.
@@ -367,15 +368,37 @@ case "submit":
     _ = app
     emit(["ok": true])
 case "clear":
-    // Clear a composer that was verified empty before a failed paste.
-    let (_, window) = requireWindow()
-    let composers = collect(window).filter { $0.1["role"] as? String == "AXTextArea" }
-    guard composers.count == 1, frontmostId() == bundleId else { emit(["ok": true]) }
-    AXUIElementSetAttributeValue(composers[0].0, kAXFocusedAttribute as CFString, kCFBooleanTrue)
+    // Clear only the observed draft in the expected conversation.
+    let (app, window) = requireWindow()
+    let expectedTitle = argument["title"] as? String ?? ""
+    let expectedHash = argument["hash"] as? String ?? ""
+    let items = collect(window)
+    let heading = items.first {
+        $0.1["role"] as? String == "AXHeading" && $0.1["title"] as? String == "" && $0.1["desc"] as? String != ""
+    }
+    let composers = items.filter { $0.1["role"] as? String == "AXTextArea" }
+    guard !expectedTitle.isEmpty, !expectedHash.isEmpty,
+          heading?.1["desc"] as? String == expectedTitle, composers.count == 1,
+          frontmostId() == bundleId else {
+        fail("DESKTOP_TARGET_UNCONFIRMED", "Claude 会话或输入框已变化，未清空草稿")
+    }
+    let composer = composers[0].0
+    let currentHeading = heading!.0
+    func canClear() -> Bool {
+        let value = text(composer, kAXValueAttribute)
+        let hash = SHA256.hash(data: Data(value.utf8)).map { String(format: "%02x", $0) }.joined()
+        return frontmostId() == bundleId
+            && mainWindow(app).map { CFEqual($0, window) } == true
+            && text(currentHeading, kAXDescriptionAttribute) == expectedTitle
+            && attr(composer, kAXFocusedAttribute) as? Bool == true
+            && hash == expectedHash
+    }
+    AXUIElementSetAttributeValue(composer, kAXFocusedAttribute as CFString, kCFBooleanTrue)
     pause(0.05)
-    guard frontmostId() == bundleId else { emit(["ok": true]) }
+    guard canClear() else { fail("DESKTOP_DRAFT", "Claude 草稿已变化，请先在桌面处理") }
     key(0, command: true) // ⌘A
     pause(0.05)
+    guard canClear() else { fail("DESKTOP_DRAFT", "Claude 草稿已变化，请先在桌面处理") }
     key(51) // Delete
     pause(0.1)
     emit(["ok": true])

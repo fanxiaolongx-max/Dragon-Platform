@@ -1,12 +1,14 @@
 {
   "zh": [
-    "优化 Agent 交互式登录命令识别，支持多行脚本换行及条件分支（||）后的登录命令。",
-    "自动剔除可能误杀进程的 pkill 命令段，终端标签页顶部增加授权指引并在失败时明确反馈。",
-    "增强交互式终端在模型重试与连续登录步骤下的运行稳定性。"
+    "题库与答题助手优化：移除自动答题时的复盘/回顾模式拦截限制，点击后直接进行答题。",
+    "Claude 桌面智能体增强：支持重试时安全清理未提交粘贴草稿，并严格校验会话与输入框焦点。",
+    "AI 对话体验升级：回复底部展示 Prompt 缓存命中量，刷新页面后仍完整保留单轮调用指标与统计。",
+    "终端交互优化：支持将本地端口 OAuth 回调自动中继到服务端的登录进程。"
   ],
   "en": [
-    "Improved Agent interactive login detection to reliably handle multi-line scripts and conditional chains (||).",
-    "Automatically drop self-killing pkill commands, add an authorization banner in interactive tabs, and return clear failure feedback.",
-    "Enhanced interactive terminal stability during model retries and multi-step logins."
+    "Exam Question Bank Assistant: removed review-mode auto-answer restrictions so clicking runs directly.",
+    "Claude Desktop Agent: safely clear unsubmitted paste drafts on focus retry and strictly verify window target.",
+    "AI Chat enhancements: display prompt cache hits under replies and preserve per-call metrics across reloads.",
+    "Terminal updates: automatically relay localhost OAuth callbacks to server-side CLI login processes."
   ]
 }

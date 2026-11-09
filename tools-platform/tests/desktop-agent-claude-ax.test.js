@@ -90,6 +90,27 @@ test('a composer that does not read back the exact text is cleared, and a switch
     assert.equal(switched.calls.at(-1), 'restore:com.google.Chrome');
 });
 
+test('retry clears only the unchanged paste left by a confirmed pre-submit focus failure', async () => {
+    for (const edited of [false, true]) {
+        const w = fakeWindow({ current: TARGET.title });
+        const submit = w.driver.submit;
+        w.driver.submit = async () => { throw Object.assign(Error('lost focus'), { code: 'DESKTOP_FOCUS' }); };
+        await assert.rejects(send(w, 'Original message'), { code: 'DESKTOP_FOCUS' });
+        assert.equal(w.calls.at(-1), 'restore:com.google.Chrome');
+        assert.equal(w.calls.includes('clear'), false);
+        w.driver.submit = submit;
+        if (edited) {
+            w.composers[0] += 'edited';
+            await assert.rejects(send(w, 'New message'), { code: 'DESKTOP_DRAFT' });
+            assert.equal(w.calls.includes('clear'), false);
+        } else {
+            await send(w, 'New message');
+            assert.deepEqual(w.calls.filter(c => /^(clear|paste|submit)/.test(c)),
+                ['paste', 'clear', 'paste', 'submit:com.google.Chrome']);
+        }
+    }
+});
+
 test('readback may merge empty paragraphs or shift leading spaces before newline without losing indentation', async () => {
     const expected='[DragonTAC:fixture]\n\nRules\n\n  exact indentation\n\n';
     const w=fakeWindow({current:TARGET.title,pasteResult:'[DragonTAC:fixture]\nRules\n  exact indentation'});

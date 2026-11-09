@@ -49,7 +49,9 @@ async function run(command, argument) {
         throw failure(result.code || 'DESKTOP_REJECTED', result.error || 'Claude 桌面操作失败');
     return result;
 }
-const driver = { models: () => run('models'), setModel: args => run('set-model', args), status: () => run('status'), prepare: () => run('prepare'), snapshot: () => run('snapshot'), press: title => run('press', { title }), paste: text => run('paste', { text }), clear: () => run('clear'), submit: previous => run('submit', { previous }), restore: previous => run('restore', { previous }), interaction: title => run('interaction', { title }), choose: args => run('choose', args) };
+const driver = { models: () => run('models'), setModel: args => run('set-model', args), status: () => run('status'), prepare: () => run('prepare'), snapshot: () => run('snapshot'), press: title => run('press', { title }), paste: text => run('paste', { text }), clear: args => run('clear', args), submit: previous => run('submit', { previous }), restore: previous => run('restore', { previous }), interaction: title => run('interaction', { title }), choose: args => run('choose', args) };
+const unsubmittedPastes = new WeakMap();
+const draftHash = value => crypto.createHash('sha256').update(value).digest('hex');
 
 function interactionId(row, pending) {
     return crypto.createHash('sha256').update(JSON.stringify([row.id, row.title, pending.prompt, pending.options])).digest('hex');
@@ -142,10 +144,19 @@ async function attempt(row, text, d, wait, focus, model) {
     }
     if (view.composers.length !== 1)
         throw failure('DESKTOP_TARGET_UNCONFIRMED', `Claude 窗口中有 ${view.composers.length} 个输入框，无法确定发送位置`);
-    if (normalize(view.composers[0]))
-        throw failure('DESKTOP_DRAFT', 'Claude 输入框有未发送内容，请先在桌面处理');
     if (view.busy)
         throw failure('DESKTOP_BUSY', '原会话正在运行，请等待当前回复结束或使用排队');
+    if (normalize(view.composers[0])) {
+        const previous = unsubmittedPastes.get(d);
+        const hash = draftHash(view.composers[0]);
+        if (!previous || previous.id !== row.id || previous.title !== row.title || previous.hash !== hash)
+            throw failure('DESKTOP_DRAFT', 'Claude 输入框有未发送内容，请先在桌面处理');
+        unsubmittedPastes.delete(d);
+        await d.clear({ title: row.title, hash });
+        view = parse(await d.snapshot());
+        if (view.current !== row.title || view.busy || view.composers.length !== 1 || normalize(view.composers[0]))
+            throw failure('DESKTOP_TARGET_UNCONFIRMED', 'Claude 输入框清理后状态已变化，请检查桌面后重试');
+    }
     if (model) { await d.setModel({ model, windowTitle: row.title }); view = parse(await d.snapshot()); if (view.current !== row.title || view.busy || view.composers.length !== 1 || normalize(view.composers[0])) throw failure('DESKTOP_TARGET_UNCONFIRMED', '模型选择后会话状态已变化，未发送'); }
     const pasted = await d.paste(text);
     focus.previous ||= pasted.previous || '';
@@ -157,13 +168,23 @@ async function attempt(row, text, d, wait, focus, model) {
     if (view.current !== row.title)
         throw failure('DESKTOP_TARGET_UNCONFIRMED', '输入后 Claude 已切换会话，未发送；请检查 Claude 输入框');
     if (view.composers.length !== 1 || normalize(view.composers[0]) !== normalize(text)) {
-        if (view.composers.length === 1 && d.clear)
-            await d.clear().catch(() => { });
+        const partial = view.composers.length === 1 ? normalize(view.composers[0]) : '';
+        if (partial && normalize(text).startsWith(partial) && d.clear)
+            await d.clear({ title: row.title, hash: draftHash(view.composers[0]) }).catch(() => { });
         throw failure('DESKTOP_REJECTED', 'Claude 输入框内容与待发送文字不一致，未发送；请检查 Claude 输入框');
     }
-    const previous = focus.previous;
-    focus.previous = ''; // submit 自己切回
-    await d.submit(previous);
+    unsubmittedPastes.delete(d);
+    try {
+        await d.submit(focus.previous);
+        focus.previous = ''; // submit 自己切回
+    }
+    catch (error) {
+        // Native submit checks focus before pressing Return. Any other error
+        // leaves delivery uncertain and cannot authorize draft cleanup.
+        if (error.code === 'DESKTOP_FOCUS')
+            unsubmittedPastes.set(d, { id: row.id, title: row.title, hash: draftHash(view.composers[0]) });
+        throw error;
+    }
 }
 const models = async () => (await driver.models()).models;
 module.exports = { models, status, send, parse, rowFor, driver, helper, interaction, choose };

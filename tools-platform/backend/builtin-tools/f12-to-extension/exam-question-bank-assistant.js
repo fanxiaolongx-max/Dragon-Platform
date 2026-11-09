@@ -2687,26 +2687,6 @@ document.getElementById('btn-auto-answer').onclick = async () => {
     if (isStudyRunning) { logMsg(aiText('请先停止解析任务。', 'Stop translation first.'), 'warn'); return; }
     if (!examNameInput.value.trim()) { showExamAlert(t('needName')); return; }
 
-    const bodyText = document.body.innerText;
-    let isReviewMode = false;
-    if (bodyText.includes('答题用时') || bodyText.includes('Answer Time')) {
-        isReviewMode = true;
-    } else if (bodyText.includes('剩余时间') || bodyText.includes('Time Left')) {
-        isReviewMode = false;
-    } else {
-        isReviewMode = (
-            bodyText.includes('未通过') || bodyText.includes('已通过') || bodyText.includes('正确答案') ||
-            bodyText.includes('No Pass') || bodyText.includes('Score：') || bodyText.includes('Score:') ||
-            bodyText.includes('Correct answer') || bodyText.includes('Congratulations') || bodyText.includes('Wrong Question Feedback')
-        );
-    }
-
-    if (isReviewMode) {
-        showExamAlert(t('reviewModeBlocked'));
-        logMsg(t('reviewModeLog'), 'warn');
-        return;
-    }
-
     isRunning = true;
     document.getElementById('btn-start').disabled = true;
     document.getElementById('btn-auto-answer').disabled = true;
