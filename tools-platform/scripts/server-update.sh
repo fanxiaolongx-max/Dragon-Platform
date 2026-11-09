@@ -49,6 +49,11 @@ fetch_source() {
     git -C "$INSTALL_DIR" fetch --quiet --depth 1 origin "$BRANCH"
 }
 
+# 刚拉取到的提交；首次克隆后还没有 FETCH_HEAD，用当前提交
+target_rev() {
+    git -C "$INSTALL_DIR" rev-parse -q --verify FETCH_HEAD 2>/dev/null || git -C "$INSTALL_DIR" rev-parse HEAD
+}
+
 deps_hash() {
     cat "${APP_DIR}/package-lock.json" "${APP_DIR}/backend/package-lock.json" 2>/dev/null | sha256sum | cut -d' ' -f1
 }
@@ -88,7 +93,7 @@ update() {
     local before after
     before="$(git -C "$INSTALL_DIR" rev-parse HEAD 2>/dev/null || true)"
     fetch_source
-    after="$(git -C "$INSTALL_DIR" rev-parse FETCH_HEAD 2>/dev/null || git -C "$INSTALL_DIR" rev-parse HEAD)"
+    after="$(target_rev)"
     if [ -z "$force" ] && [ "$before" = "$after" ] && systemctl is-active --quiet "$SERVICE"; then
         exit 0
     fi
@@ -149,7 +154,7 @@ EOF
     fi
 
     fetch_source
-    git -C "$INSTALL_DIR" reset --quiet --hard "$(git -C "$INSTALL_DIR" rev-parse FETCH_HEAD 2>/dev/null || git -C "$INSTALL_DIR" rev-parse HEAD)"
+    git -C "$INSTALL_DIR" reset --quiet --hard "$(target_rev)"
     install_deps 1
     prepare_assets
     owned
