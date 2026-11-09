@@ -1,8 +1,8 @@
 ---
 name: NetCare 数据
 name_en: NetCare data
-description: 经数字人基座只读查询 NetCare 业务库：找表、看字段与样例、按条件统计
-description_en: Read-only NetCare business data through the digital human base: find tables, inspect columns and samples, aggregate
+description: 经数字人基座查询 NetCare 业务库（只读）与本应用库（支持读写）：找表、看字段与样例、按条件统计、应用库数据管理
+description_en: Query NetCare business data (read-only) and app schema (read-write) through the digital human base: find tables, inspect columns and samples, aggregate, manage app data
 workspace: false
 tools: netcare
 order: 9
@@ -11,7 +11,7 @@ icon: 🧭
 
 # NetCare 数据 / NetCare data
 
-目标：通过数字人基座，以只读方式查询 NetCare 业务库（netcare）和本应用 schema，回答指标、明细与口径问题，结论以真实查询结果为准。
+目标：通过数字人基座，只读查询 NetCare 业务库（netcare）并支持对本应用 schema（scope=app）进行查询与数据读写，回答指标、明细与口径问题并维护应用数据，结论以真实查询结果为准。
 
 仅管理员可用；需要先在「全局设置 › 频道对接 › 数字人」导入配置并启用。表结构核对与人工标注在「NetCare 数据探查」页（/netcare-explorer）。
 
@@ -20,7 +20,7 @@ icon: 🧭
 - `netcare_tables`：按关键词 / 类别找表，返回表名、中文名、模块、粒度、估算行数、是否已核对。
 - `netcare_describe`：看一张表的字段、类型、识别出的时间 / 地区部 / 代表处字段、取数提示和几行样例。
 - `netcare_query`：结构化查询（字段、AND 条件、分组、聚合、排序、行数），字段名按真实表结构校验。优先用它做统计。
-- `netcare_sql`：只读 SQL（单条 SELECT / WITH），用于多表关联等结构化查询做不到的情况；业务表写 `netcare.表名`。
+- `netcare_sql`：执行 SQL：业务库（scope=business）只读查询（SELECT / WITH）；应用库（scope=app）支持查询与写操作（INSERT / UPDATE / DELETE，修改/删除必须带 WHERE 条件）。业务表写 `netcare.表名`。
 
 ## 通用流程与优化策略
 

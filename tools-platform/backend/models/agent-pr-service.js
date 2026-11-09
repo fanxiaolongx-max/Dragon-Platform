@@ -3,7 +3,7 @@
 // 执行：新建分支 → 只提交本会话改动 → 推送 → gh pr create，每一步都是一条 run_command，按权限模式走审批。
 const fs = require('fs');
 const path = require('path');
-const { execFile } = require('child_process');
+const { execFileAware: execFile } = require('./tenant-sandbox'); // 团队目录里的 git / gh 在沙箱中执行
 const toolsService = require('./agent-tools-service');
 
 const IS_WIN = process.platform === 'win32';

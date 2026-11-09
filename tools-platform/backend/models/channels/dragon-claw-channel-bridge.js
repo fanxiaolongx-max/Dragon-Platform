@@ -187,6 +187,7 @@ async function runTurnInner({ channel, account, conversation, toolSessionId, tex
         }
         // 仅在服务端桥接中授权，保留原频道归属；HTTP body 无法授予此身份。
         user.role = 'admin';
+        user.isSuper = isSuperAdmin;
         sessionId = await require('../ai-chat-repository').getOrCreateSession({ sessionId, owner: user.username, pagePath: `/channels/${channel}`, pageTitle: `${CHANNEL_LABELS[channel] || channel} 频道` });
     }
     if (persist !== false && conversation && !signal?.aborted) {

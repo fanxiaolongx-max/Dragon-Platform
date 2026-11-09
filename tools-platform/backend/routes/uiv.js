@@ -247,10 +247,40 @@ function decodeMacroFromRequest(body) {
 // 脚本列表相关
 // ──────────────────────────────────────────────────────────
 
+// A shared floating panel reads administrator scripts by site, while the
+// tenant's own scripts and writes continue to use the current tenant repository.
+async function visibleScripts(req, options, includeShared = true) {
+    const { isSuperAdmin } = require('../middleware/auth');
+    if (!req.user || isSuperAdmin(req.user)) return scriptsRepo.listScripts(options);
+    const { DEFAULT_TENANT_ID, getTenantId, runWithTenant } = require('../models/tenant-context');
+    const { allowedEntries, personalEntries } = require('../models/tool-distribution');
+    const { uivScriptOrigin } = require('../models/home-capabilities');
+    const local = getTenantId() === DEFAULT_TENANT_ID ? { items: [], source: 'sqlite' } : await scriptsRepo.listScripts(options);
+    const [allowed, personal, platform] = await Promise.all([
+        allowedEntries(), personalEntries(req.user), runWithTenant(DEFAULT_TENANT_ID, () => scriptsRepo.listScripts())
+    ]);
+    const visible = item => {
+        const key = `cap:float:${uivScriptOrigin(item)}`;
+        return allowed.has(key) && !personal.get(key)?.hidden;
+    };
+    // Quick Start imports the same bundled IDs into each space. A local row
+    // belongs to that space; personal edits to shared scripts live in KV.
+    const own = local.items.filter(item => !personal.get(`cap:float:${uivScriptOrigin(item)}`)?.hidden);
+    const localIds = new Set(local.items.map(item => item.id));
+    if (!includeShared) return { ...local, items: own };
+    const { readKV } = require('../models/kv-store');
+    const shared = await Promise.all(platform.items.filter(item => !localIds.has(item.id) && visible(item)).map(async item => {
+        const copy = await readKV(`personal_float_scripts:${req.user.username}`, item.id, null);
+        return { ...(copy || item), shared: true };
+    }));
+    return { ...local, items: [...own, ...shared] };
+}
+
 // GET /api/uiv/scripts  → 返回全部脚本 + 分类
 router.get('/scripts', async (req, res) => {
     try {
-        const { items: scripts, source: scriptSource } = await scriptsRepo.listScripts({
+        res.setHeader('Cache-Control', 'private, no-store');
+        const { items: scripts, source: scriptSource } = await visibleScripts(req, {
             mode: req.query.scriptsMode || req.query.mode || 'auto'
         });
         const { items: categories, source: categorySource } = await categoriesRepo.listCategories({
@@ -284,7 +314,31 @@ router.post('/scripts', async (req, res) => {
         if (req.body && req.body.transport && req.body.transport.compression) {
             console.log(`[UIV COMPRESS] POST /api/uiv/scripts -> transport=${req.body.transport.compression}, items=${items.length}`);
         }
-        const scripts = await scriptsRepo.saveScripts(items);
+        let own = items;
+        const { isSuperAdmin } = require('../middleware/auth');
+        const { DEFAULT_TENANT_ID, getTenantId, runWithTenant } = require('../models/tenant-context');
+        if (req.user && !isSuperAdmin(req.user)) {
+            if (getTenantId() === DEFAULT_TENANT_ID) return res.status(403).json({ error: '不能修改系统空间的脚本' });
+            const { allowedEntries, personalEntries } = require('../models/tool-distribution');
+            const { uivScriptOrigin } = require('../models/home-capabilities');
+            const { writeKV } = require('../models/kv-store');
+            const [source, local, allowed, personal] = await Promise.all([
+                runWithTenant(DEFAULT_TENANT_ID, () => scriptsRepo.listScripts()), scriptsRepo.listScripts(), allowedEntries(), personalEntries(req.user)
+            ]);
+            const byId = new Map(source.items.map(item => [item.id, item]));
+            const localIds = new Set(local.items.map(item => item.id));
+            const shared = items.filter(item => byId.has(item.id) && !localIds.has(item.id));
+            for (const item of shared) {
+                const key = `cap:float:${uivScriptOrigin(byId.get(item.id))}`;
+                if (!allowed.has(key) || personal.get(key)?.hidden) return res.status(403).json({ error: '脚本未开放' });
+            }
+            for (const item of shared) {
+                await writeKV(`personal_float_scripts:${req.user.username}`, item.id, item);
+            }
+            const sharedIds = new Set(shared.map(item => item.id));
+            own = items.filter(item => !sharedIds.has(item.id));
+        }
+        const scripts = own.length ? await scriptsRepo.saveScripts(own) : (await scriptsRepo.listScripts()).items;
         configChangeMonitor.recordConfigChangeAlert({
             req,
             scope: 'uiv',
@@ -516,9 +570,12 @@ router.delete('/categories/:name', async (req, res) => {
 // GET /api/uiv/backup  → 导出全量备份 JSON
 router.get('/backup', async (req, res) => {
     try {
-        const { items: scripts, source: scriptSource } = await scriptsRepo.listScripts({
+        const { isSuperAdmin } = require('../middleware/auth');
+        const { getTenantId, DEFAULT_TENANT_ID } = require('../models/tenant-context');
+        if (req.user && !isSuperAdmin(req.user) && getTenantId() === DEFAULT_TENANT_ID) return res.status(403).json({ error: '仅系统管理员可备份平台脚本' });
+        const { items: scripts, source: scriptSource } = await visibleScripts(req, {
             mode: req.query.scriptsMode || req.query.mode || 'auto'
-        });
+        }, false);
         const { items: allCategories, source: categorySource } = await categoriesRepo.listCategories({
             mode: req.query.categoriesMode || req.query.mode || 'auto'
         });

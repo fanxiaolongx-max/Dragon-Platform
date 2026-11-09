@@ -32,7 +32,7 @@ async function getMarketSettings() {
     let saved = {};
     try { saved = row ? JSON.parse(row.value_json) : {}; } catch (_) {}
     return {
-        githubEnabled: saved.githubEnabled !== false,
+        githubEnabled: saved.githubEnabled === true && saved.githubOptIn === true,
         sources: Array.isArray(saved.sources) ? saved.sources : []
     };
 }
@@ -66,7 +66,7 @@ async function saveMarketSettings(input) {
     });
     await ensureSettingsTable();
     await run('INSERT INTO tool_market_settings (key, value_json) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json',
-        [SETTINGS_KEY, JSON.stringify({ githubEnabled: input.githubEnabled, sources })]);
+        [SETTINGS_KEY, JSON.stringify({ githubEnabled: input.githubEnabled, githubOptIn: true, sources })]);
     return { githubEnabled: input.githubEnabled, sources };
 }
 

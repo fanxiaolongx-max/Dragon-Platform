@@ -174,8 +174,9 @@ async function runToolLoop({
     client, model = '', systemPrompt, messages: initialMessages, tools: toolSource = [], executeCall, write: emit,
     signal, maxOutputTokens, temperature, sensitiveValues = [], task = '', maxSteps = MAX_STEPS, callIdPrefix = 'call',
     eventFields = {}, artifactOwner = '', artifactSession = '', spillable = () => true, maxEmptyNudges = MAX_EMPTY_NUDGES, builtins = BUILTINS, extras = null, vision = null, root = '',
-    review, fallback, toolsUnsupported, onToolCalls, afterCall, parallelSafe = () => false, subagent = null
+    review, fallback, toolsUnsupported, onToolCalls, afterCall, parallelSafe = () => false, subagent = null, toolAccess
 }) {
+    const allowed = toolAccess || extras?.allowed || await require('./agent-tool-access').forActor(null, artifactOwner);
     const secrets = { secrets: sensitiveValues };
     if (extras?.prompt) systemPrompt = `${systemPrompt}${extras.prompt}`;
     const write = event => emit?.(redactValue(event, secrets));
@@ -193,7 +194,8 @@ async function runToolLoop({
     // 自带工具放最前面、固定不变，后面按需加载的工具往末尾追加，提示缓存才能继续命中
     const currentTools = () => {
         const list = [...builtinTools, ...(typeof toolSource === 'function' ? toolSource() : toolSource), ...(extras ? extras.definitions() : [])];
-        return readerEnabled && !list.some(tool => tool.name === 'read_file') ? [...list, ARTIFACT_READER] : list;
+        if (readerEnabled && !list.some(tool => tool.name === 'read_file')) list.push(ARTIFACT_READER);
+        return list.filter(tool => allowed(tool.name));
     };
     let plan = [];
     let question = null;
@@ -399,6 +401,7 @@ async function runToolLoop({
             let outcome;
             try { requireToolArgs(call.args); }
             catch (error) { outcome = { content: `错误（${error.code}）：${error.message}`, summary: error.message, isError: true }; }
+            if (!outcome && !allowed(call.name)) outcome = { content: '当前账号未获授权使用该工具。', summary: '工具未开放', isError: true };
             if (!outcome) outcome = builtinNames.has(call.name) ? await runBuiltin(call)
                 : extras?.handles(call.name) ? await extras.execute(call, { callId, start })
                 : ownReader(call.name) ? await readArtifact(call, { owner: artifactOwner, sensitiveValues, start })

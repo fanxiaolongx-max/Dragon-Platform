@@ -4,7 +4,7 @@
 //     被 .gitignore 忽略的文件（依赖、构建产物）不追踪。
 //   - 非 git 目录：执行前扫描文件大小与修改时间，较小的目录同时保存内容；大目录只能标记改动、不可撤销。
 // 有上限，超出时降级为只标记不可撤销，不影响命令本身。
-const { execFile } = require('child_process');
+const { execFileAware: execFile } = require('./tenant-sandbox'); // 团队目录里的 git 在沙箱中执行
 const fs = require('fs');
 const path = require('path');
 const guard = require('./agent-path-guard');

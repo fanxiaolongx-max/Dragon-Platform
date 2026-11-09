@@ -10,6 +10,7 @@ const access = require('../models/agent-workspace-access');
 const guard = require('../models/agent-path-guard');
 const artifacts = require('../models/agent-artifacts');
 const { getTenantId } = require('../models/tenant-context');
+const boundary = require('../models/team-boundary');
 
 const router = express.Router();
 const PLATFORM_ROOT = path.resolve(__dirname, '../..');
@@ -49,7 +50,7 @@ function normalizeInput(raw) {
     }
     // 引用里常见的 a.md:55、a.md:55:3、a.md#L55
     value = value.replace(/#L\d+(?:-L?\d+)?$/i, '').replace(/(\.[A-Za-z0-9]{1,8}):\d+(?::\d+)?$/, '$1');
-    if (value.startsWith('~/')) value = path.join(os.homedir(), value.slice(2));
+    if (value.startsWith('~/')) value = path.join(os.homedir(), value.slice(2)); // 团队账号随后按团队边界校验，家目录不会放行
     if (!path.isAbsolute(value)) throw fileError(400, 'AGENT_FILE_RELATIVE', '只支持本机绝对路径');
     return path.resolve(value);
 }
@@ -73,7 +74,10 @@ async function resolveFile(req, raw) {
     const privateFile = artifacts.isUnderBase(real) || artifacts.isUnderUploads(real);
     const ownArtifact = privateFile && artifacts.ownsFile(`${getTenantId()}::${req.user?.username || ''}`, real);
     if (privateFile && !ownArtifact) throw fileError(403, 'AGENT_FILE_FORBIDDEN', '只能查看自己的 Agent 结果文件和附件');
-    if (!ownArtifact && !access.isAgentWorkspaceAllowed(req)) {
+    // 团队账号：只能看本团队空间里的文件和自己的附件/结果文件
+    if (boundary.isConfined(req.user)) {
+        if (!ownArtifact && !boundary.isAllowedPath(getTenantId(), real)) throw fileError(403, 'AGENT_FILE_FORBIDDEN', '该文件不在你的团队空间内');
+    } else if (!ownArtifact && !access.isAgentWorkspaceAllowed(req)) {
         const roots = extraRoots().map(root => { try { return fs.realpathSync(root); } catch (_error) { return null; } }).filter(Boolean);
         if (!roots.some(root => guard.isInside(root, real))) throw fileError(403, 'AGENT_FILE_FORBIDDEN', '该文件仅本机或管理员可查看');
     }

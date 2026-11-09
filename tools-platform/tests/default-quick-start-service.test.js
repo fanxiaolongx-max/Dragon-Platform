@@ -171,6 +171,25 @@ test('global settings can safely reapply bundled defaults after first-run decisi
     assert.equal(state.result.scriptsAdded, 1);
     assert.equal(fixture.data.targets.same.weight, 99);
     assert(fixture.data.scripts.some(item => item.id === 'new-id'));
+
+    const imported = structuredClone(fixture.data);
+    const repeated = await service.applyBundledDefaults({
+        importScripts: true,
+        importMetricRules: true,
+        bundlePath: fixture.bundlePath,
+        statePath: fixture.statePath,
+        backupDir: fixture.backupDir,
+        repositories: fixture.repositories
+    });
+    assert.deepEqual(repeated.result, {
+        scriptsAdded: 0,
+        scriptsPreserved: 2,
+        targetsAdded: 0,
+        preferencesAdded: 0,
+        groupsAdded: 0,
+        categoriesAdded: 0
+    });
+    assert.deepEqual(fixture.data, imported);
 });
 
 test('non-admin status never requests a global import decision', async t => {

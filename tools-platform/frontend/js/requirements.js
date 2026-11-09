@@ -51,6 +51,10 @@ const REQ_I18N_DICT = {
     "需求详情与管理": "Request Details & Management",
     "保存中...": "Saving...",
     "需求已更新": "Request updated",
+    "上传图片": "Add images",
+    "意见反馈": "Feedback",
+    "技能发布申请": "Skill publication request",
+    "允许发布": "Approve publication",
     "需求提交成功": "Request submitted successfully",
     "Are you sure you want to delete this request? Related logs will also be permanently deleted.": "Are you sure you want to delete this request? Related logs will also be permanently deleted.",
     "需求已删除": "Request deleted",
@@ -61,7 +65,25 @@ const REQ_I18N_DICT = {
     "无详细描述": "No description",
     "未分配": "Unassigned",
     "紧急需求": "Urgent request",
-    "在需求广场中优先展示并高亮提醒": "Show first in the plaza with a highlighted alert"
+    "在需求广场中优先展示并高亮提醒": "Show first in the plaza with a highlighted alert",
+    "相关截图 / 附件": "Screenshots / Attachments",
+    "点击添加": "Click to add",
+    "支持拖拽或粘贴": "Drag or paste supported",
+    "查看大图": "View image",
+    "删除图片": "Delete image",
+    "已保存": "Saved",
+    "新添加": "New",
+    "图片预览": "Image Preview",
+    "关闭预览": "Close preview",
+    "上一张": "Previous",
+    "下一张": "Next",
+    "已达到最大图片限制 (6张)": "Maximum limit reached (6 images)",
+    "最多只能添加 6 张图片，超出部分已忽略": "Up to 6 images allowed, extra images ignored",
+    "仅支持 PNG、JPG、WebP、GIF 格式的图片": "Only PNG, JPG, WebP, GIF images are supported",
+    "单张图片不能超过 4 MB": "Each image must not exceed 4 MB",
+    "最多 6 张图片，每张不超过 4 MB": "Up to 6 images, 4 MB each",
+    "已保存图片": "Saved image",
+    "新添加图片": "New image"
 };
 
 let currentReqLang = 'zh';
@@ -116,8 +138,14 @@ function reqIcon(name) {
 const ReqApp = {
     requirements: [],
     currentReqId: null,
+    canManageCurrent: false,
     currentPage: 1,
     pageSize: 8,
+    existingImages: [],
+    pendingImages: [],
+    previewImageList: [],
+    currentPreviewIndex: 0,
+    canEdit: true,
 
     fallbackCategories: [
         { value: '全局通用', label: '全局通用' },
@@ -133,9 +161,310 @@ const ReqApp = {
 
     init: async function() {
         this.refreshCategoryOptions();
-        document.getElementById('reqDescInput').addEventListener('input', () => this.updateDescriptionCount());
+        const descInput = document.getElementById('reqDescInput');
+        if (descInput) descInput.addEventListener('input', () => this.updateDescriptionCount());
+        this.initImagesUI();
         this.updateDescriptionCount();
         await this.loadRequirements();
+    },
+
+    initImagesUI: function() {
+        const input = document.getElementById('reqImagesInput');
+        const dropzone = document.getElementById('reqUploadDropzone');
+        if (input) {
+            input.addEventListener('change', event => {
+                const files = [...(event.target.files || [])];
+                this.handleFilesSelected(files);
+            });
+        }
+        if (dropzone) {
+            ['dragenter', 'dragover'].forEach(name => {
+                dropzone.addEventListener(name, e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (this.canEdit && ((this.existingImages?.length || 0) + (this.pendingImages?.length || 0) < 6)) {
+                        dropzone.classList.add('is-dragover');
+                    }
+                });
+            });
+            ['dragleave', 'dragend', 'drop'].forEach(name => {
+                dropzone.addEventListener(name, e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropzone.classList.remove('is-dragover');
+                });
+            });
+            dropzone.addEventListener('drop', e => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!this.canEdit) return;
+                const files = [...(e.dataTransfer?.files || [])];
+                if (files.length) this.handleFilesSelected(files);
+            });
+        }
+        if (typeof window !== 'undefined' && window.addEventListener) {
+            window.addEventListener('paste', event => {
+                const modal = document.getElementById('reqModal');
+                if (!modal || modal.style.display === 'none' || !this.canEdit) return;
+                const items = event.clipboardData?.items;
+                if (!items) return;
+                const imageFiles = [];
+                for (let i = 0; i < items.length; i++) {
+                    if (items[i].type && items[i].type.startsWith('image/')) {
+                        const file = items[i].getAsFile();
+                        if (file) imageFiles.push(file);
+                    }
+                }
+                if (imageFiles.length) {
+                    event.preventDefault();
+                    this.handleFilesSelected(imageFiles);
+                }
+            });
+            window.addEventListener('keydown', event => {
+                const previewModal = document.getElementById('reqPreviewModal');
+                if (previewModal && previewModal.style.display !== 'none') {
+                    if (event.key === 'Escape') {
+                        event.preventDefault();
+                        this.closePreviewModal();
+                    } else if (event.key === 'ArrowLeft') {
+                        event.preventDefault();
+                        this.prevPreviewImage();
+                    } else if (event.key === 'ArrowRight') {
+                        event.preventDefault();
+                        this.nextPreviewImage();
+                    }
+                    return;
+                }
+                const reqModal = document.getElementById('reqModal');
+                if (event.key === 'Escape' && reqModal && reqModal.style.display !== 'none') {
+                    if (document.activeElement?.tagName !== 'TEXTAREA') {
+                        this.closeModal();
+                    }
+                }
+            });
+        }
+    },
+
+    handleFilesSelected: function(files) {
+        if (!files || !files.length || !this.canEdit) return;
+        const input = document.getElementById('reqImagesInput');
+        if (input) input.value = '';
+
+        const currentTotal = (this.existingImages?.length || 0) + (this.pendingImages?.length || 0);
+        if (currentTotal >= 6) {
+            showToast(tText('已达到最大图片限制 (6张)', 'Maximum limit reached (6 images)'), 'error');
+            return;
+        }
+
+        let accepted = 0;
+        let rejectedFormat = 0;
+        let rejectedSize = 0;
+
+        for (const file of files) {
+            const nowTotal = (this.existingImages?.length || 0) + (this.pendingImages?.length || 0);
+            if (nowTotal >= 6) {
+                showToast(tText('最多只能添加 6 张图片，超出部分已忽略', 'Up to 6 images allowed, extra images ignored'), 'info');
+                break;
+            }
+            if (!/^image\/(png|jpeg|webp|gif)$/.test(file.type)) {
+                rejectedFormat++;
+                continue;
+            }
+            if (file.size <= 0 || file.size > 4 * 1024 * 1024) {
+                rejectedSize++;
+                continue;
+            }
+            const isDup = (this.pendingImages || []).some(p => p.name === file.name && p.size === file.size && p.file?.lastModified === file.lastModified);
+            if (isDup) continue;
+
+            const url = typeof URL !== 'undefined' && URL.createObjectURL ? URL.createObjectURL(file) : '';
+            this.pendingImages.push({ file, name: file.name, size: file.size, type: file.type, url });
+            accepted++;
+        }
+
+        if (rejectedFormat > 0) {
+            showToast(tText('仅支持 PNG、JPG、WebP、GIF 格式的图片', 'Only PNG, JPG, WebP, GIF images are supported'), 'error');
+        } else if (rejectedSize > 0) {
+            showToast(tText('单张图片不能超过 4 MB', 'Each image must not exceed 4 MB'), 'error');
+        }
+
+        this.refreshImagesUI();
+    },
+
+    removePendingImage: function(index) {
+        if (!this.pendingImages || index < 0 || index >= this.pendingImages.length) return;
+        const item = this.pendingImages.splice(index, 1)[0];
+        if (item?.url && typeof URL !== 'undefined' && URL.revokeObjectURL) {
+            URL.revokeObjectURL(item.url);
+        }
+        this.refreshImagesUI();
+    },
+
+    cleanupPendingImages: function() {
+        if (this.pendingImages && this.pendingImages.length) {
+            this.pendingImages.forEach(item => {
+                if (item?.url && typeof URL !== 'undefined' && URL.revokeObjectURL) {
+                    URL.revokeObjectURL(item.url);
+                }
+            });
+        }
+        this.pendingImages = [];
+        const input = document.getElementById('reqImagesInput');
+        if (input) input.value = '';
+    },
+
+    refreshImagesUI: function() {
+        this.existingImages = this.existingImages || [];
+        this.pendingImages = this.pendingImages || [];
+        const totalCount = this.existingImages.length + this.pendingImages.length;
+        this.imageCount = totalCount;
+
+        const countEl = document.getElementById('reqImagesCount');
+        if (countEl) countEl.textContent = `(${totalCount}/6)`;
+
+        const pickerEl = document.getElementById('reqImagesPicker');
+        if (pickerEl) pickerEl.style.display = (!this.canEdit || totalCount >= 6) ? 'none' : 'flex';
+
+        const sectionEl = document.getElementById('reqImagesSection');
+        if (sectionEl) sectionEl.hidden = (!totalCount && !this.canEdit);
+
+        const listEl = document.getElementById('reqImagesList');
+        if (!listEl) return;
+        listEl.replaceChildren();
+
+        // Render existing images
+        this.existingImages.forEach((img, idx) => {
+            const card = document.createElement('div');
+            card.className = 'req-image-card';
+            card.setAttribute('role', 'button');
+            card.setAttribute('tabindex', '0');
+            card.title = img.name || tText('已保存图片', 'Saved image');
+
+            const tag = document.createElement('span');
+            tag.className = 'req-image-tag';
+            tag.textContent = tText('已保存', 'Saved');
+
+            const image = document.createElement('img');
+            image.src = img.href;
+            image.alt = img.name || 'image';
+            image.loading = 'lazy';
+
+            const mask = document.createElement('div');
+            mask.className = 'req-image-mask';
+
+            const previewBtn = document.createElement('button');
+            previewBtn.type = 'button';
+            previewBtn.className = 'req-image-btn preview-btn';
+            previewBtn.title = tText('查看大图', 'View image');
+            previewBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>';
+            previewBtn.onclick = (e) => {
+                e.stopPropagation();
+                this.openPreviewModal(idx);
+            };
+
+            mask.append(previewBtn);
+            card.append(tag, image, mask);
+            card.onclick = () => this.openPreviewModal(idx);
+            listEl.append(card);
+        });
+
+        // Render pending images
+        this.pendingImages.forEach((item, pIdx) => {
+            const globalIdx = this.existingImages.length + pIdx;
+            const card = document.createElement('div');
+            card.className = 'req-image-card';
+            card.setAttribute('role', 'button');
+            card.setAttribute('tabindex', '0');
+            card.title = item.name || tText('新添加图片', 'New image');
+
+            const tag = document.createElement('span');
+            tag.className = 'req-image-tag new';
+            tag.textContent = tText('新添加', 'New');
+
+            const image = document.createElement('img');
+            image.src = item.url;
+            image.alt = item.name || 'image';
+
+            const mask = document.createElement('div');
+            mask.className = 'req-image-mask';
+
+            const previewBtn = document.createElement('button');
+            previewBtn.type = 'button';
+            previewBtn.className = 'req-image-btn preview-btn';
+            previewBtn.title = tText('查看大图', 'View image');
+            previewBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>';
+            previewBtn.onclick = (e) => {
+                e.stopPropagation();
+                this.openPreviewModal(globalIdx);
+            };
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.type = 'button';
+            deleteBtn.className = 'req-image-btn delete-btn';
+            deleteBtn.title = tText('删除图片', 'Delete image');
+            deleteBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+            deleteBtn.onclick = (e) => {
+                e.stopPropagation();
+                this.removePendingImage(pIdx);
+            };
+
+            mask.append(previewBtn, deleteBtn);
+            card.append(tag, image, mask);
+            card.onclick = () => this.openPreviewModal(globalIdx);
+            listEl.append(card);
+        });
+    },
+
+    openPreviewModal: function(index) {
+        const allImages = [
+            ...(this.existingImages || []).map(img => ({ name: img.name, url: img.href })),
+            ...(this.pendingImages || []).map(p => ({ name: p.name, url: p.url }))
+        ];
+        if (!allImages.length || index < 0 || index >= allImages.length) return;
+        this.previewImageList = allImages;
+        this.currentPreviewIndex = index;
+        this.updatePreviewModalUI();
+        const modal = document.getElementById('reqPreviewModal');
+        if (modal) modal.style.display = 'flex';
+    },
+
+    closePreviewModal: function() {
+        const modal = document.getElementById('reqPreviewModal');
+        if (modal) modal.style.display = 'none';
+        const img = document.getElementById('reqPreviewImage');
+        if (img) img.src = '';
+    },
+
+    prevPreviewImage: function() {
+        if (!this.previewImageList || !this.previewImageList.length) return;
+        if (this.currentPreviewIndex > 0) {
+            this.currentPreviewIndex--;
+            this.updatePreviewModalUI();
+        }
+    },
+
+    nextPreviewImage: function() {
+        if (!this.previewImageList || !this.previewImageList.length) return;
+        if (this.currentPreviewIndex < this.previewImageList.length - 1) {
+            this.currentPreviewIndex++;
+            this.updatePreviewModalUI();
+        }
+    },
+
+    updatePreviewModalUI: function() {
+        if (!this.previewImageList || !this.previewImageList.length) return;
+        const current = this.previewImageList[this.currentPreviewIndex];
+        const titleEl = document.getElementById('reqPreviewFilename');
+        if (titleEl) titleEl.textContent = current.name || tText('图片预览', 'Image Preview');
+        const indexEl = document.getElementById('reqPreviewIndex');
+        if (indexEl) indexEl.textContent = `${this.currentPreviewIndex + 1} / ${this.previewImageList.length}`;
+        const imgEl = document.getElementById('reqPreviewImage');
+        if (imgEl) imgEl.src = current.url;
+
+        const prevBtn = document.getElementById('reqPreviewPrev');
+        if (prevBtn) prevBtn.disabled = (this.currentPreviewIndex === 0);
+        const nextBtn = document.getElementById('reqPreviewNext');
+        if (nextBtn) nextBtn.disabled = (this.currentPreviewIndex >= this.previewImageList.length - 1);
     },
 
     updateDescriptionCount: function() {
@@ -401,8 +730,54 @@ const ReqApp = {
         `;
     },
 
+    renderImages: function(images, canEdit) {
+        this.cleanupPendingImages();
+        this.canEdit = Boolean(canEdit);
+        const validList = [];
+        for (const image of (images || [])) {
+            if (/^\/api\/requirements\/\d+\/images\/\d+$/.test(image.href)) {
+                validList.push(image);
+            }
+        }
+        this.existingImages = validList;
+        this.refreshImagesUI();
+    },
+
+    renderPublication: function(publication, canManage = false) {
+        const section = document.getElementById('reqSkillPublication');
+        section.hidden = !publication;
+        if (!publication) return;
+        document.getElementById('reqSkillPublicationTitle').textContent = `${tText('技能发布申请', 'Skill publication request')} · @${publication.id}`;
+        document.getElementById('reqSkillPublicationStatus').textContent = publication.state === 'published'
+            ? tText(`已由 ${publication.approvedBy} 发布`, `Published by ${publication.approvedBy}`)
+            : publication.state === 'rejected' ? tText('已拒绝', 'Rejected') : tText('待超级管理员审核', 'Awaiting administrator review');
+        const content = document.getElementById('reqSkillPublicationContent');
+        content.hidden = !publication.markdown;
+        content.textContent = publication.markdown || '';
+        document.getElementById('reqApproveSkill').hidden = !canManage || publication.state !== 'pending';
+    },
+
+    approveSkill: async function() {
+        const id = this.currentReqId;
+        const button = document.getElementById('reqApproveSkill');
+        if (!id || button.disabled) return;
+        if (!await AppDialog.confirm(tText('将此版本发布为全员可用的技能？当前系统版本会保留在版本历史中。', 'Publish this version for all users? The current system version is kept in version history.'),
+            { title: tText('允许发布', 'Approve publication') })) return;
+        button.disabled = true;
+        try {
+            await API.post(`/api/requirements/${id}/approve-skill`, {});
+            await this.openEditModal(id);
+            await this.loadRequirements();
+        } catch (error) {
+            showToast(error.message, 'error');
+        } finally { button.disabled = false; }
+    },
+
     openCreateModal: function() {
         this.currentReqId = null;
+        this.canManageCurrent = false;
+        this.renderImages([], true);
+        this.renderPublication(null);
         document.getElementById('modalTitle').textContent = tText('提交新需求', 'Submit New Request');
         
         // Reset form and enable inputs
@@ -414,6 +789,7 @@ const ReqApp = {
         this.updateDescriptionCount();
         document.getElementById('reqStatusSelect').value = '提交';
         document.getElementById('reqUrgentInput').checked = false;
+        document.getElementById('reqUrgentInput').disabled = false;
         
         // UI visibility
         document.getElementById('manageRow').style.display = 'none';
@@ -489,21 +865,17 @@ const ReqApp = {
             document.getElementById('flowchartContainer').style.display = 'flex';
             document.getElementById('logsSection').style.display = 'block';
             
-            // Set inputs state based on admin role
-            const isAdmin = localStorage.getItem('tools_role') === 'admin';
-            const inputs = ['reqTitleInput', 'reqCategorySelect', 'reqDescInput', 'reqUrgentInput', 'reqStatusSelect', 'reqAssigneeInput', 'reqRemarkInput'];
-            inputs.forEach(id => {
-                document.getElementById(id).disabled = !isAdmin;
-            });
-            
-            // Allow delete and save only if admin
-            if (isAdmin) {
-                document.getElementById('btnDeleteReq').style.display = 'block';
-                document.getElementById('btnSaveReq').style.display = 'block';
-            } else {
-                document.getElementById('btnDeleteReq').style.display = 'none';
-                document.getElementById('btnSaveReq').style.display = 'none';
+            this.canManageCurrent = req.canManage === true;
+            const canEdit = req.canEdit === true;
+            for (const id of ['reqTitleInput', 'reqCategorySelect', 'reqDescInput', 'reqUrgentInput', 'reqRemarkInput']) {
+                document.getElementById(id).disabled = !canEdit;
             }
+            document.getElementById('reqStatusSelect').disabled = !this.canManageCurrent;
+            document.getElementById('reqAssigneeInput').disabled = !this.canManageCurrent;
+            document.getElementById('btnDeleteReq').style.display = canEdit ? 'block' : 'none';
+            document.getElementById('btnSaveReq').style.display = canEdit ? 'block' : 'none';
+            this.renderImages(req.images || [], canEdit);
+            this.renderPublication(req.skillPublication, this.canManageCurrent);
 
             document.getElementById('reqModal').style.display = 'flex';
         } catch (e) {
@@ -512,127 +884,13 @@ const ReqApp = {
     },
 
     closeModal: function() {
-        document.getElementById('reqModal').style.display = 'none';
+        this.cleanupPendingImages();
+        this.closePreviewModal();
+        const modal = document.getElementById('reqModal');
+        if (modal) modal.style.display = 'none';
     },
 
-    encryptPayload: async function(payload, method, path) {
-        if (!window.crypto?.subtle) {
-            throw new Error(tText('加密提交需要通过 HTTPS 或 localhost 打开页面', 'Encrypted submission requires HTTPS or localhost'));
-        }
-        const config = await this.smallRequest('GET', '/api/requirements/transport-key');
-        if (config.version !== 1) throw new Error(tText('加密协议不兼容，请刷新页面', 'Encryption protocol mismatch. Refresh this page.'));
-        const bytes = new TextEncoder().encode(JSON.stringify(payload));
-        if (bytes.length > config.maxPlaintextBytes) {
-            throw new Error(tText('需求内容过大，加密请求不能超过 50 MB', 'Request content is too large; the encrypted request must fit within 50 MB'));
-        }
-        const base64 = bytes => {
-            let binary = '';
-            for (let offset = 0; offset < bytes.length; offset += 0x8000) {
-                binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
-            }
-            return btoa(binary);
-        };
-        const rsaKey = await crypto.subtle.importKey('spki', Uint8Array.from(atob(config.publicKey), char => char.charCodeAt(0)),
-            { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['encrypt']);
-        const aesKey = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt']);
-        const iv = crypto.getRandomValues(new Uint8Array(12));
-        const aad = new TextEncoder().encode(JSON.stringify([config.version, method, path, config.context]));
-        const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: aad }, aesKey, bytes);
-        const encryptedKey = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, rsaKey, await crypto.subtle.exportKey('raw', aesKey));
-        return { encryptedPayload: {
-            version: config.version, keyId: config.keyId, iv: base64(iv),
-            encryptedKey: base64(new Uint8Array(encryptedKey)), ciphertext: base64(new Uint8Array(ciphertext))
-        } };
-    },
-
-    requestBytes: function(method, path, body) {
-        const encoder = new TextEncoder();
-        const headers = typeof getAuthHeaders === 'function' ? getAuthHeaders() : { 'Content-Type': 'application/json' };
-        const bodyBytes = encoder.encode(body === undefined ? '' : JSON.stringify(body)).length;
-        // Reserve 64 KiB for browser/proxy headers and HTTP framing, in addition to application headers.
-        const wireBytes = bodyBytes + encoder.encode(JSON.stringify(headers) + method + path).length + 65536;
-        return { bodyBytes, wireBytes };
-    },
-
-    smallRequest: async function(method, path, body) {
-        const size = this.requestBytes(method, path, body);
-        if (size.bodyBytes > 800000 || size.wireBytes >= 1000000) {
-            throw new Error(tText('提交请求连同包头预留超过 1 MB 限制', 'Submission exceeds the 1 MB limit including reserved headers'));
-        }
-        return API[method.toLowerCase()](path, body);
-    },
-
-    submitPayload: async function(payload, method, path, onProgress = () => {}) {
-        if (!window.crypto?.subtle) {
-            throw new Error(tText('加密提交需要通过 HTTPS 或 localhost 打开页面', 'Encrypted submission requires HTTPS or localhost'));
-        }
-        const encoder = new TextEncoder();
-        const hex = bytes => Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
-        const fingerprint = hex(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(JSON.stringify([method, path, payload])))));
-        const retryable = error => ['TypeError', 'AbortError'].includes(error.name)
-            || [408, 429, 500, 502, 503, 504].includes(error.status)
-            || (error.status === 403 && !error.body?.error && !error.body?.code && !error.body?.reasonCode);
-        const retry = async (url, body) => {
-            for (let attempt = 1; ; attempt++) {
-                try { return await this.smallRequest('POST', url, body); }
-                catch (error) {
-                    if (attempt >= 3 || !retryable(error)) throw error;
-                    await new Promise(resolve => setTimeout(resolve, attempt * 300));
-                }
-            }
-        };
-        const finish = async pending => {
-            try {
-                onProgress(tText('正在校验并保存…', 'Verifying and saving…'));
-                const result = await retry(`/api/requirements/uploads/${pending.uploadId}/complete`, {});
-                this.pendingRequirementUpload = null;
-                return result;
-            } catch (error) {
-                if (!retryable(error)) this.pendingRequirementUpload = null;
-                throw error;
-            }
-        };
-        // If a completion response was lost, the same form retries the existing receipt.
-        if (this.pendingRequirementUpload?.fingerprint === fingerprint) return finish(this.pendingRequirementUpload);
-        this.pendingRequirementUpload = null;
-
-        const encrypted = await this.encryptPayload(payload, method, path);
-        const size = this.requestBytes(method, path, encrypted);
-        if (size.bodyBytes <= 800000 && size.wireBytes < 1000000) return this.smallRequest(method, path, encrypted);
-
-        // The encrypted envelope is ASCII JSON. Random boundaries cannot split source Unicode characters.
-        const serialized = JSON.stringify(encrypted);
-        const sizes = [];
-        for (let offset = 0; offset < serialized.length;) {
-            const random = crypto.getRandomValues(new Uint32Array(1))[0];
-            const length = Math.min(serialized.length - offset, 256 * 1024 + random % (256 * 1024 + 1));
-            sizes.push(length);
-            offset += length;
-        }
-        const sha256 = hex(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(serialized))));
-        const start = await this.smallRequest('POST', '/api/requirements/uploads/start', {
-            method, requirementId: method === 'PUT' ? Number(path.split('/').pop()) : null,
-            totalBytes: size.bodyBytes, totalChunks: sizes.length, sha256
-        });
-        const uploadId = start.uploadId;
-        let completionStarted = false;
-        try {
-            let offset = 0;
-            for (let index = 0; index < sizes.length; index++) {
-                onProgress(tText(`上传分块 ${index + 1}/${sizes.length}…`, `Uploading chunk ${index + 1}/${sizes.length}…`));
-                const data = serialized.slice(offset, offset + sizes[index]);
-                const ack = await retry(`/api/requirements/uploads/${uploadId}/chunk`, { index, data });
-                if (ack.receivedChunks !== index + 1) throw new Error(tText('服务器分块进度不一致', 'Server chunk progress mismatch'));
-                offset += sizes[index];
-            }
-            completionStarted = true;
-            this.pendingRequirementUpload = { uploadId, fingerprint };
-            return await finish(this.pendingRequirementUpload);
-        } catch (error) {
-            if (!completionStarted) await this.smallRequest('DELETE', `/api/requirements/uploads/${uploadId}`).catch(() => {});
-            throw error;
-        }
-    },
+    ...window.RequirementsClient,
 
     saveReq: async function() {
         const title = document.getElementById('reqTitleInput').value.trim();
@@ -652,8 +910,10 @@ const ReqApp = {
         const payload = { title, description, category, urgent };
 
         if (this.currentReqId) {
-            payload.status = document.getElementById('reqStatusSelect').value;
-            payload.assignee = document.getElementById('reqAssigneeInput').value.trim();
+            if (this.canManageCurrent) {
+                payload.status = document.getElementById('reqStatusSelect').value;
+                payload.assignee = document.getElementById('reqAssigneeInput').value.trim();
+            }
             payload.remark = document.getElementById('reqRemarkInput').value.trim();
         }
 
@@ -662,6 +922,10 @@ const ReqApp = {
             btn.textContent = tText('保存中...', 'Saving...');
             btn.disabled = true;
 
+            const pendingFiles = (this.pendingImages || []).map(item => item.file);
+            const inputFiles = [...(document.getElementById('reqImagesInput')?.files || [])];
+            const filesToEncode = pendingFiles.length ? pendingFiles : inputFiles;
+            if (filesToEncode.length) payload.images = await this.encodeImages(filesToEncode);
             const method = this.currentReqId ? 'PUT' : 'POST';
             const path = this.currentReqId ? `/api/requirements/${this.currentReqId}` : '/api/requirements';
             await this.submitPayload(payload, method, path, message => { btn.textContent = message; });
@@ -825,6 +1089,10 @@ const ReqApp = {
         );
     }
 };
+
+if (typeof window !== 'undefined') {
+    window.ReqApp = ReqApp;
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     ReqApp.init();

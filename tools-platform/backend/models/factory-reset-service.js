@@ -6,7 +6,7 @@ const backupRepo = require('./global-backup-repository');
 const usersRepo = require('./auth-users-repository');
 const appDb = require('./app-db');
 const tenantSqlitePool = require('./tenant-sqlite-pool');
-const platformDb = require('./platform-db');
+const platformDb = require('./control-db'); // 团队登记在控制库
 const { initializeTenantStorage } = require('./tenant-storage-initializer');
 const { DEFAULT_TENANT_ID, getDataDir, getReportDataDir, getTenantId } = require('./tenant-context');
 

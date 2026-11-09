@@ -5,6 +5,12 @@ const root = path.join(__dirname, '..'), temp = fs.mkdtempSync(path.join(os.tmpd
 app.setPath('userData', path.join(temp, 'profile')); app.disableHardwareAcceleration();
 let win, server, failSave = false, saves = 0;
 let layout = { primary: ['channels', 'skillHub', 'schedule', 'library', 'opsDrafts'], more: ['links', 'requirements', 'promotions'] };
+let navLayout = {
+    primaryIds: ['home', 'uivf12', 'custom:uninstalled', 'report'],
+    categories: [{ id: 'business', name: '业务工具', nameEn: 'Business' }, { id: 'audit', name: '审计', nameEn: 'Audit' }],
+    categoryByItem: { uivf12: 'audit', frt: 'audit', praudit: 'audit' },
+    itemOrder: ['report', 'uivf12', 'frt', 'praudit']
+};
 const run = code => win.webContents.executeJavaScript(code, true);
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function until(code) { for (let i = 0; i < 200; i++) { if (await run(`Boolean(${code})`)) return; await wait(25); } throw Error('Timed out: ' + code); }
@@ -46,6 +52,8 @@ app.whenReady().then(async () => {
         if (failSave) return res.status(503).json({ error: 'Fixture save failure' });
         saves++; layout = req.body; res.json(layout);
     });
+    web.get('/api/nav-settings', (_, res) => res.json(navLayout));
+    web.put('/api/nav-settings', (req, res) => { navLayout = req.body; res.json(navLayout); });
     web.get('/api/auth/me', (_, res) => res.json({ username: 'fixture', role: 'readonly', tenantId: 'default' }));
     web.get('/api/app-version', (_, res) => res.json({ version: 'fixture' }));
     web.get('/api/custom-tools', (_, res) => res.json([]));
@@ -116,7 +124,49 @@ app.whenReady().then(async () => {
         await run(`document.querySelector('[data-menu-close]').click()`);
         assert.deepEqual(await primary(), expected, 'cancel discards the unsaved reset');
     }
+    // The global tool layout is separate from the personal sidebar editor.
+    await run(`localStorage.setItem('tools_role', 'admin'); void openNavSettingsModal();`);
+    await until(`!!document.querySelector('#navSettingsContent input[type="checkbox"]')`);
+    assert.equal(await run('navSettingsHeading.textContent'), 'More Menu');
+    assert.equal(await run('navSettingsMobileSection.selectedOptions[0].textContent'), 'More Menu');
+    assert.ok(await run('navSettingsContent.scrollWidth <= navSettingsContent.clientWidth + 2'));
+    assert.equal(await run(`!!navSettingsContent.querySelector('[onchange*="home"]')`), false);
+    const workflow = ['uivf12', 'sla', 'report', 'expedite', 'monthly', 'bigscreen'];
+    const shortcuts = () => run(`Array.from(document.querySelectorAll('.v2-flyout.is-open a.v2-pop-item:has(.v2-app-glyph)'), a => a.getAttribute('href'))`);
+    assert.equal(await run(`!!navSettingsContent.querySelector('[onchange*="uivf12"]')`), false);
+    await run(`togglePrimaryNavItem('frt', true)`);
+    await until(`navSettingsSaveState.textContent === navT('nav.set.saved')`);
+    const savedPrimary = ['home', 'uivf12', 'custom:uninstalled', 'report', 'frt'];
+    assert.deepEqual(navLayout.primaryIds, savedPrimary);
+    await run(`closeNavSettingsModal(); document.querySelector('[data-v2-flyout="more"]').click()`);
+    assert.deepEqual(await shortcuts(), [...workflow, 'frt'].map(id => '/' + id));
+    assert.match(await run(`document.querySelector('.v2-flyout.is-open').textContent`), /System tools/);
+    await run(`HomeV2.closePop(); ToolsI18n.setLanguage('zh-CN'); void openNavSettingsModal(); switchNavSettingsTab('items')`);
+    await until(`navSettingsHeading.textContent === '分类与顺序' && !!navSettingsContent.querySelector('select')`);
+    assert.deepEqual(await run(`Array.from(navSettingsContent.querySelectorAll('.nav-settings-fixed-category'), el => el.textContent)`), workflow.map(() => '系统工具'));
+    assert.equal(await run(`!!navSettingsContent.querySelector('select[onchange*="uivf12"]')`), false);
+    assert.deepEqual(await run(`HomeWorkspace.getTools().slice(0, 6).map(tool => tool.id)`), workflow);
+    assert.equal(await run(`HomeWorkspace.getTools()[0].group`), '系统工具');
+    await run(`const category = navSettingsContent.querySelector('select[onchange*="frt"]'); category.value = 'business'; category.dispatchEvent(new Event('change', { bubbles: true }));`);
+    await until(`HomeWorkspace.getTools().find(tool => tool.id === 'frt')?.group === '业务工具'`);
+    await until(`navSettingsSaveState.textContent === navT('nav.set.saved')`);
+    assert.equal(navLayout.categoryByItem.frt, 'business');
+    assert.deepEqual(navLayout.primaryIds, savedPrimary, 'category changes preserve shortcut order');
+    await run(`switchNavSettingsTab('categories'); const categoryName = navSettingsContent.querySelector('input[oninput*="audit"]'); categoryName.value = '质量审计'; categoryName.dispatchEvent(new Event('input', { bubbles: true }));`);
+    await until(`HomeWorkspace.getTools().find(tool => tool.id === 'praudit')?.group === '质量审计'`);
+    await until(`navSettingsSaveState.textContent === navT('nav.set.saved')`);
+    await run(`closeNavSettingsModal(); document.getElementById('v2DiscoverBtn').click()`);
+    assert.ok(await run(`!!document.querySelector('.v2-discover.is-open [data-cat="质量审计"]')`));
+    await run(`HomeV2.closePop(); void openNavSettingsModal(); switchNavSettingsTab('primary');`);
+    assert.equal(await run(`!!navSettingsContent.querySelector('button[onclick*="HomeSidebarMenu.open"]')`), false);
+    await run(`switchNavSettingsTab('items')`);
+    assert.equal(await run(`!!navSettingsContent.querySelector('h3')`), false);
+    assert.deepEqual(await primary(), expected);
+    await run(`closeNavSettingsModal(); document.querySelector('[data-v2-action="skillHub"]').click()`);
+    await until(`!!document.querySelector('[data-hub-tab="tools"]')`);
+    await run(`document.querySelector('[data-hub-tab="tools"]').click(); document.querySelector('[data-hub-sort="mixed"]').click()`);
+    assert.deepEqual(await run(`Array.from(document.querySelectorAll('.v2-hub-grid [data-hub-key]')).slice(0, 6).map(card => card.dataset.hubKey)`), workflow.map(id => 'tool:' + id));
     assert.deepEqual(await run('fixtureErrors'), []);
-    console.log('PASS: pointer-following preview, yielding animations, Escape cancellation, real drag reorder and cross-group moves, keyboard moves, save failure/retry, server reload, live menu actions/badges, cancel, light/dark and 390px. Previews: ' + temp);
+    console.log('PASS: personal sidebar drag and save, global shortcuts and tool categories, separate layouts, Chinese/English and 390px. Previews: ' + temp);
     win.destroy(); server.close(); app.exit(0);
 }).catch(error => { console.error(error); win?.destroy(); server?.close(); app.exit(1); });

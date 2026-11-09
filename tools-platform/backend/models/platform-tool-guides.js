@@ -7,7 +7,8 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { run, get, all, getDatabase } = require('./app-db');
-const { getTenantId } = require('./tenant-context');
+const { getTenantId, getDataDir, DEFAULT_TENANT_ID } = require('./tenant-context');
+const { isSuperAdmin } = require('../middleware/auth');
 
 const FRONTEND = path.join(__dirname, '../../frontend');
 const SOURCE_CHARS = 24000;      // 每个工具交给模型的源码上限（约 1.2 万 token）
@@ -44,6 +45,7 @@ async function seedFromBuiltinStore() {
 
 /** 将当前数据库内已有的所有工具说明同步落盘到内置 JSON（方便 Git 跟踪与发布） */
 async function syncToBuiltinStore() {
+    if (getTenantId() !== DEFAULT_TENANT_ID || process.env.TOOLS_DISABLE_BUILTIN_GUIDES_SEED === '1') return;
     try {
         const rows = await all('SELECT tool_id, title, summary, guide, source_hash, model, generated_at FROM ai_tool_guides ORDER BY tool_id ASC');
         if (!rows || !rows.length) return;
@@ -106,16 +108,28 @@ function pageTools() {
     return tools;
 }
 
-async function customTools() {
+async function customTools(user) {
     const repo = require('./custom-tools-repository');
-    const dir = repo.getCustomToolsDir();
-    return (await repo.listTools()).map(tool => ({ id: `custom:${tool.slug}`, kind: 'custom', title: tool.name, description: tool.description || '', href: tool.href || `/custom-tools/${tool.slug}/`,
-        tags: (tool.tags || []).map(tag => String(tag?.label || tag?.name || tag)).filter(Boolean), dir: path.join(dir, tool.slug) }));
+    const distribution = require('./tool-distribution');
+    const tools = user ? await distribution.listAvailable(user) : await repo.listTools();
+    const entries = await Promise.all(tools.map(async tool => {
+        const source = tool.shared ? await distribution.resolveTool(tool.slug, user) : { sourceTenant: getTenantId() };
+        if (!source) return null;
+        return { id: `custom:${tool.slug}`, kind: 'custom', title: tool.name, description: tool.description || '', href: tool.href || `/custom-tools/${tool.slug}/`,
+            tags: (tool.tags || []).map(tag => String(tag?.label || tag?.name || tag)).filter(Boolean),
+            dir: path.join(getDataDir(source.sourceTenant), 'custom-tools', tool.slug) };
+    }));
+    return entries.filter(Boolean);
 }
 
 /** 当前租户的工具目录 */
-async function catalog() {
-    return [...pageTools(), ...await customTools()];
+async function catalog(user) {
+    const pages = pageTools().filter(tool => {
+        if (!user || isSuperAdmin(user)) return true;
+        if (['/storage', '/netcare-explorer'].includes(tool.href)) return false;
+        return tool.href !== '/db-explorer' || user.role === 'admin';
+    });
+    return [...pages, ...await customTools(user)];
 }
 
 function walk(dir, files = [], depth = 0, base = dir) {
@@ -163,9 +177,9 @@ function readSources(tool) {
 const hashOf = text => crypto.createHash('sha256').update(text).digest('hex').slice(0, 24);
 
 /** 工具清单与说明状态：missing / stale / ready */
-async function status() {
+async function status(user, tools) {
     await ensureReady();
-    const tools = await catalog();
+    tools ||= await catalog(user);
     const rows = new Map((await all('SELECT tool_id, summary, source_hash, model, generated_at FROM ai_tool_guides')).map(row => [row.tool_id, row]));
     const items = tools.map(tool => {
         const row = rows.get(tool.id);
@@ -173,7 +187,7 @@ async function status() {
         return { id: tool.id, title: tool.title, href: tool.href, kind: tool.kind, state, summary: row?.summary || '', model: row?.model || '', generatedAt: row?.generated_at || '' };
     });
     const count = state => items.filter(item => item.state === state).length;
-    return { items, total: items.length, ready: count('ready'), stale: count('stale'), missing: count('missing'), job: publicJob(jobs.get(getTenantId())), autoUpdate: getAutoUpdateStatus() };
+    return { items, total: items.length, ready: count('ready'), stale: count('stale'), missing: count('missing'), job: publicJob(jobs.get(getTenantId())), autoUpdate: !user || isSuperAdmin(user) ? getAutoUpdateStatus() : null };
 }
 
 const PROMPT = `你是 Dragon Claw 工具中台的产品文档作者。下面是平台上一个工具的名称、简介和源码（页面与脚本）。
@@ -208,9 +222,10 @@ function parseGuide(text) {
 async function generateOne(tool, { client, signal }) {
     const sources = readSources(tool);
     const prompt = `${PROMPT}\n\n工具名称：${tool.title}\n入口：${tool.href}\n简介：${tool.description || '（无）'}\n标签：${tool.tags.join('、') || '（无）'}\n\n源码：\n${sources || '（没有找到源码）'}`;
-    const result = await client.generateText({ prompt, maxOutputTokens: GUIDE_OUTPUT_TOKENS, temperature: 0.2, signal });
     const { redactText } = require('./ai-sensitive-data');
-    const parsed = parseGuide(redactText(String(result.text || '')));
+    const secrets = await require('./ai-settings-repository').getRedactionSecrets().catch(() => []);
+    const result = await client.generateText({ prompt: redactText(prompt, { secrets }), maxOutputTokens: GUIDE_OUTPUT_TOKENS, temperature: 0.2, signal });
+    const parsed = parseGuide(redactText(String(result.text || ''), { secrets }));
     if (!parsed.guide) throw new Error('模型没有返回说明');
     await run(`INSERT INTO ai_tool_guides (tool_id, title, summary, guide, source_hash, model, generated_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ON CONFLICT(tool_id) DO UPDATE SET title = excluded.title, summary = excluded.summary, guide = excluded.guide, source_hash = excluded.source_hash, model = excluded.model, generated_at = CURRENT_TIMESTAMP`,
@@ -231,27 +246,31 @@ const publicJob = job => {
  * 生成缺失和过期的说明（force 时全部重新生成，ids 时只生成这些）。立即返回任务状态，后台逐个执行。
  * @param {{ force?: boolean, ids?: string[], client?: object }} options client 仅供测试注入
  */
-async function startGeneration({ force = false, ids = null, client = null, reindex = true } = {}) {
+async function startGeneration({ force = false, ids = null, client = null, reindex = true, user } = {}) {
     await ensureReady();
     const tenantId = getTenantId();
     const running = jobs.get(tenantId);
     if (running?.running) return publicJob(running);
-    const current = await status();
+    const tools = await catalog(user);
+    const current = await status(user, tools);
     const wanted = new Set(ids || []);
     const queue = current.items.filter(item => (ids ? wanted.has(item.id) : force || item.state !== 'ready'));
-    const job = { running: true, total: queue.length, done: 0, failed: [], current: '', startedAt: new Date().toISOString(), finishedAt: '' };
-    jobs.set(tenantId, job);
-    if (!queue.length) { job.running = false; job.finishedAt = job.startedAt; return publicJob(job); }
     let modelClient = client;
-    if (!modelClient) {
+    if (queue.length && !modelClient) {
         const settings = await require('./ai-settings-repository').getRuntimeSettings();
         modelClient = require('./ai-provider-client').createClient(settings);
     }
-    const tools = new Map((await catalog()).map(tool => [tool.id, tool]));
+    const active = jobs.get(tenantId);
+    if (active?.running) return publicJob(active);
+    const startedAt = new Date().toISOString();
+    const job = { running: Boolean(queue.length), total: queue.length, done: 0, failed: [], current: '', startedAt, finishedAt: queue.length ? '' : startedAt };
+    jobs.set(tenantId, job);
+    if (!queue.length) return publicJob(job);
+    const byId = new Map(tools.map(tool => [tool.id, tool]));
     const runInTenant = fn => require('./tenant-context').runWithTenant(tenantId, fn);
     job.promise = runInTenant(async () => {
         for (const item of queue) {
-            const tool = tools.get(item.id);
+            const tool = byId.get(item.id);
             if (!tool) continue;
             job.current = tool.title;
             try {
@@ -481,9 +500,9 @@ function terms(text) {
 }
 
 /** 按需求或名称找工具：标题、简介、标签、说明摘要与「什么时候用」都参与打分 */
-async function findTools(query, { limit = 6 } = {}) {
+async function findTools(query, { limit = 6, user } = {}) {
     await ensureReady();
-    const tools = await catalog();
+    const tools = await catalog(user);
     const guides = new Map((await all('SELECT tool_id, summary, guide FROM ai_tool_guides')).map(row => [row.tool_id, row]));
     const wanted = terms(query);
     if (!wanted.length) return [];
@@ -498,10 +517,10 @@ async function findTools(query, { limit = 6 } = {}) {
 }
 
 /** 读一个工具的详细说明：按 id、名称或入口路径找；还没生成说明时给出简介和源码位置 */
-async function toolGuide(ref) {
+async function toolGuide(ref, { user } = {}) {
     await ensureReady();
     const value = String(ref || '').trim();
-    const tools = await catalog();
+    const tools = await catalog(user);
     const tool = tools.find(item => item.id === value || item.href === value || item.title === value)
         || tools.find(item => item.title && (value.includes(item.title) || item.title.includes(value)));
     if (!tool) return null;
@@ -510,9 +529,9 @@ async function toolGuide(ref) {
 }
 
 /** 简介过短（不到 20 字）的工具：附上说明摘要，帮模型按需求匹配 */
-async function shortDescriptionNotes() {
+async function shortDescriptionNotes(user) {
     await ensureReady();
-    const tools = (await catalog()).filter(tool => decode(tool.description).length < 20);
+    const tools = (await catalog(user)).filter(tool => decode(tool.description).length < 20);
     if (!tools.length) return '';
     const rows = new Map((await all('SELECT tool_id, summary FROM ai_tool_guides')).map(row => [row.tool_id, row.summary]));
     const lines = tools.filter(tool => rows.get(tool.id)).map(tool => `- ${tool.title}｜${tool.href}｜${rows.get(tool.id)}`);

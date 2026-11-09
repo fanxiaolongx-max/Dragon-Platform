@@ -95,6 +95,7 @@ test('real chat responses verify the streamed final reply and persisted history 
     const originals = [settings.getRuntimeSettings, settings.getRedactionSecrets, provider.createClient];
     settings.getRuntimeSettings = async () => ({ hasApiKey: true, keyLooksValid: true });
     settings.getRedactionSecrets = async () => [];
+    await require('../backend/models/tool-distribution').setEntryAccess('skill:script-data', true);
     const unverified = '你可以使用技能 `@script-data-sync-me`，它已经创建并激活。';
     provider.createClient = () => ({ model: 'mock', generateChat: async options => {
         assert.match(options.systemInstruction, /技能目录与推荐规则/);

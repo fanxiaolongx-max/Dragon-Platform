@@ -201,6 +201,9 @@ const DEFAULT_SETTINGS = {
     get itemOrder() { return getDefaultNavLayout().itemOrder; }
 };
 
+const WORKFLOW_IDS = new Set(['uivf12', 'sla', 'report', 'expedite', 'monthly', 'bigscreen']);
+const WORKFLOW_CATEGORY = '__workflow';
+
 function normalizeSettings(input = {}) {
     const categories = Array.isArray(input.categories) && input.categories.length
         ? input.categories
@@ -216,7 +219,10 @@ function normalizeSettings(input = {}) {
             }
             return cat;
         })
-        .filter(item => item.id && item.name);
+        .filter(item => item.id && item.name && item.id !== WORKFLOW_CATEGORY);
+    const categoryByItem = input.categoryByItem && typeof input.categoryByItem === 'object' && !Array.isArray(input.categoryByItem)
+        ? input.categoryByItem
+        : DEFAULT_SETTINGS.categoryByItem;
 
     const defaultIdentity = getDefaultPlatformIdentity();
     const sanitizeText = (val, fallback, maxLen = 120) => {
@@ -264,9 +270,8 @@ function normalizeSettings(input = {}) {
             : [],
         primaryIds: Array.isArray(input.primaryIds) ? input.primaryIds.map(String) : DEFAULT_SETTINGS.primaryIds.slice(),
         categories: normalizedCategories.length ? normalizedCategories : DEFAULT_SETTINGS.categories.slice(),
-        categoryByItem: input.categoryByItem && typeof input.categoryByItem === 'object' && !Array.isArray(input.categoryByItem)
-            ? { ...input.categoryByItem }
-            : { ...DEFAULT_SETTINGS.categoryByItem },
+        categoryByItem: Object.fromEntries(Object.entries(categoryByItem)
+            .filter(([id, category]) => !WORKFLOW_IDS.has(id) && category !== WORKFLOW_CATEGORY)),
         itemOrder: Array.isArray(input.itemOrder) ? input.itemOrder.map(String) : DEFAULT_SETTINGS.itemOrder.slice()
     };
 }

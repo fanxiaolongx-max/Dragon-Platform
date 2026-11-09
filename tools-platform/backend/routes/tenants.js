@@ -2,8 +2,13 @@ const express = require('express');
 const tenantsRepo = require('../models/tenants-repository');
 const sessionsRepo = require('../models/auth-sessions-repository');
 const { initializeTenantBuiltinTools } = require('../models/builtin-tools-startup');
+const { requireSuperAdmin } = require('../middleware/auth');
+const auditLog = require('../models/platform-audit-repository');
 
+// 一个账号 = 一个团队：团队登记与切换只属于超级管理员（账号增删在 /api/auth/users）。
+// 超级管理员可以临时进入某个团队排障，会话里的当前团队随之改变，并记审计日志。
 const router = express.Router();
+router.use(requireSuperAdmin);
 const operationLogs = new Map();
 const MAX_OPERATION_LOGS = 40;
 
@@ -48,7 +53,6 @@ function finishOperation(operation, status, error) {
 router.get('/', async (req, res) => {
     try {
         const includeArchived = ['1', 'true'].includes(String(req.query.includeArchived || '').toLowerCase());
-        if (includeArchived && req.user.role !== 'admin') return res.status(403).json({ error: '仅管理员可查看已归档租户' });
         const tenants = includeArchived
             ? await tenantsRepo.listManagedTenants()
             : await tenantsRepo.listTenantsForUser(req.user.username, req.user.role);
@@ -68,13 +72,15 @@ router.post('/switch', async (req, res) => {
     try {
         const tenantId = String(req.body?.tenantId || '').trim().toLowerCase();
         if (!await tenantsRepo.canAccess(req.user.username, req.user.role, tenantId)) {
-            return res.status(403).json({ error: '无权访问该租户' });
+            return res.status(403).json({ error: '团队不存在或已归档' });
         }
-        await initializeTenantBuiltinTools(tenantId);
+        if (tenantId === tenantsRepo.DEFAULT_TENANT_ID) await initializeTenantBuiltinTools(tenantId);
         await sessionsRepo.setActiveTenant(req.authToken, tenantId);
+        const leaving = tenantId === req.user.homeTenantId;
+        auditLog.record(req, { action: leaving ? 'team_leave' : 'team_enter', tenantId, target: tenantId });
         res.json({ success: true, tenantId });
     } catch (error) {
-        res.status(error.statusCode || 500).json({ error: error.message || '切换租户失败' });
+        res.status(error.statusCode || 500).json({ error: error.message || '切换团队失败' });
     }
 });
 

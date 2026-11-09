@@ -5,6 +5,8 @@ const registry = require('./agent-tool-registry');
 const agentLoop = require('./agent-loop');
 const contextStats = require('./agent-context-stats');
 const usage = require('./agent-tool-usage');
+const access = require('./agent-tool-access');
+const { isSuperAdmin } = require('../middleware/auth');
 
 const KIND_LABEL = { read: '只读', write: '写入', destructive: '删除', external: '外部 / 发送', command: '命令' };
 
@@ -15,41 +17,48 @@ function summaryOf(description) {
 
 async function build({ user }) {
     const stats = await usage.stats().catch(() => new Map());
-    const coreByName = new Map(toolsService.definitions().map(def => [def.name, def]));
+    const manage = isSuperAdmin(user);
+    const denied = manage ? await access.deniedKeys() : new Set();
+    const allowed = await access.forActor(user);
+    const core = toolsService.definitions({ readOnly: Boolean(user && user.role !== 'admin') }).filter(def => allowed(def.name));
     const item = (def, kind) => {
         const used = stats.get(def.name);
-        return { name: def.name, summary: summaryOf(def.description), kind: kind || toolsService.kindOf(def.name) || 'read',
+        return { name: def.name, enabled: !denied.has(`tool:${def.name}`), summary: summaryOf(def.description), kind: kind || toolsService.kindOf(def.name) || 'read',
             kindLabel: KIND_LABEL[kind || toolsService.kindOf(def.name) || 'read'] || '', tokens: contextStats.estimateTokens(JSON.stringify(def)),
             calls: used?.calls || 0, failures: used?.failures || 0, lastUsedAt: used?.lastUsedAt || null };
     };
     const groups = [];
-    groups.push({ id: 'builtin', label: '引擎自带', mode: 'always', note: '所有对话都带：任务清单、向用户提问、精确计算',
-        tools: Object.values(agentLoop.BUILTIN_DEFINITIONS).map(def => item(def, 'read')) });
-    groups.push({ id: 'always', label: '工作区常驻', mode: 'always', note: '选了工作目录时每步都带的文件、命令与只读数据库工具',
-        tools: [...registry.ALWAYS].map(name => coreByName.get(name)).filter(Boolean).map(def => item(def)) });
+    const addGroup = (id, label, mode, defs, kindOf) => {
+        const tools = defs.filter(def => allowed(def.name)).map(def => item(def, kindOf?.(def.name)));
+        if (tools.length || manage) groups.push({ id, label, mode, tools });
+    };
+    addGroup('builtin', '引擎自带', 'always', [
+        ...Object.values(agentLoop.BUILTIN_DEFINITIONS),
+        require('./agent-subagent').DEFINITION,
+        ...registry.META
+    ], () => 'read');
+    addGroup('always', '工作区文件与命令', 'always', core.filter(def => access.groupFor(def.name) === 'always'));
     for (const [id, group] of Object.entries(registry.GROUPS)) {
-        groups.push({ id, label: group.label, mode: 'deferred', note: '按需加载：系统提示只列名称，模型用 tool_search 加载',
-            tools: group.names.map(name => coreByName.get(name)).filter(Boolean).filter(def => !registry.ALWAYS.has(def.name)).map(def => item(def)) });
+        addGroup(id, group.label, 'deferred', core.filter(def => access.groupFor(def.name) === id));
     }
     const skillSets = [
-        ['netcare-data', 'NetCare 数据（@netcare-data）', () => require('./digital-human/netcare-agent').definitions(), () => 'read'],
+        ['netcare-data', 'NetCare 数据（@netcare-data）', () => require('./digital-human/netcare-agent').definitions(), name => (name === 'netcare_sql' ? 'write' : 'read')],
         ['ops-group', '自动化运营（@ops-group）', () => require('./channels/ops-agent').definitions(), name => require('./channels/ops-agent').kindOf(name)],
         ['welink-office', 'WeLink 办公（@welink-office）', () => require('./channels/welink-cli-agent').definitions({ write: true }), name => (name === 'welink_action' ? 'external' : 'read')]
     ];
+    const skillStore = require('./agent-skills-store');
+    const visibleSkills = manage || !user ? null : new Set((await skillStore.listForUser(user)).map(skill => skill.id));
     for (const [id, label, defs, kindOf] of skillSets) {
-        try { groups.push({ id, label, mode: 'skill', note: '选择该技能或模型用 load_skill 加载后提供', tools: defs().map(def => item(def, kindOf(def.name))) }); } catch (_error) { /* 未配置时跳过 */ }
+        if (visibleSkills && (user.role !== 'admin' || !visibleSkills.has(id) || await skillStore.unavailableReason(id))) continue;
+        addGroup(id, label, 'skill', defs(), kindOf);
     }
-    const extras = await require('./agent-extra-tools').toolsets({ owner: `${require('./tenant-context').getTenantId()}::${user?.username || ''}`, readOnly: user?.role !== 'admin' });
-    const browserAvailable = require('./agent-browser').available();
-    if (!extras.some(set => set.id === 'browser')) {
-        groups.push({ id: 'browser', label: '浏览器', mode: 'browser', available: false,
-            note: browserAvailable ? '只给管理员' : '本机没有找到 Chrome / Edge（可用环境变量 TOOLS_AGENT_BROWSER_PATH 指定）；桌面端使用 Dragon 浏览器', tools: [] });
+    const extras = await require('./agent-extra-tools').toolsets({ owner: `${require('./tenant-context').getTenantId()}::${user?.username || ''}`, user, readOnly: Boolean(user && user.role !== 'admin') });
+    const mcp = extras.filter(set => set.sharedMcp);
+    addGroup('mcp', '平台共享 MCP', 'mcp', mcp.flatMap(set => set.definitions), name => mcp.find(set => set.definitions.some(def => def.name === name))?.kindOf(name));
+    for (const set of extras.filter(set => !set.sharedMcp)) {
+        addGroup(access.groupFor(set.definitions[0].name), set.label, 'deferred', set.definitions, name => set.kindOf(name));
     }
-    for (const set of extras) {
-        groups.push({ id: set.id, label: set.label, mode: set.id === 'browser' ? 'browser' : 'mcp', available: true, note: '按需加载；只读工具直接执行，其余按审批',
-            tools: set.definitions.map(def => item(def, set.kindOf(def.name))) });
-    }
-    return { groups, mcp: require('./agent-mcp').tenantAllowed() };
+    return { groups: groups.map(group => ({ ...group, enabled: !denied.has(`group:${group.id}`) })), manage, mcp: true };
 }
 
 module.exports = { build };

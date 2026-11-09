@@ -1,0 +1,61 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .pnl{position:absolute;background:#fffdf8;border:3px solid var(--ink);border-radius:26px;box-shadow:var(--sh)}
+#root .pnl .pt{position:absolute;left:0;right:0;top:0;height:64px;border-bottom:3px solid var(--ink);border-radius:23px 23px 0 0;display:flex;align-items:center;justify-content:center;font-size:38px}
+#root .lbl{position:absolute;font-size:36px;white-space:nowrap}
+#root .big{font-size:44px}
+#root .mi{font-size:34px;border:2.5px solid var(--ink);border-radius:14px;background:#fff;padding:6px 18px 8px;margin-bottom:22px;width:fit-content}
+#root .hud{font-size:36px;background:rgba(174,216,242,.9);border:2.5px solid var(--ink);border-radius:18px;padding:10px 22px 12px;box-shadow:0 0 24px rgba(174,216,242,.9);white-space:nowrap}
+</style>
+<div id="root" data-composition-id="s8" data-width="1920" data-height="1080">
+  <div class="paper"></div>
+  <div class="head" id="s8-h"><span class="step">第 5 层</span><span class="ttl">交互</span></div>
+  <div class="pnl" id="s8-m" style="left:110px;top:220px;width:520px;height:620px"><div class="pt" style="background:#e6dfd6">点点点的菜单</div></div>
+  <div class="abs" id="s8-mn" style="left:150px;top:310px;width:440px">
+   <div class="mi">设置 ›</div><div class="mi" style="margin-left:40px">高级 ›</div><div class="mi" style="margin-left:80px">偏好 ›</div><div class="mi" style="margin-left:120px">语言 ›</div><div class="mi" style="margin-left:160px">中文 ✓</div></div>
+  <div class="cursor" id="s8-cur"></div>
+  <div class="pnl" id="s8-k" style="left:680px;top:220px;width:1130px;height:620px"><div class="pt" style="background:#9fe0c9">戴着智能眼镜做饭</div></div>
+  <div class="abs" id="s8-cook" style="left:720px;top:500px"></div>
+  <div class="abs" id="s8-gl" style="left:808px;top:536px"></div>
+  <div class="abs" id="s8-pot" style="left:1060px;top:600px"></div>
+  <div class="abs" id="s8-fr" style="left:1560px;top:380px"></div>
+  <div class="bubble" id="s8-ask" style="left:780px;top:330px;font-size:32px">这个要煮几分钟？</div>
+  <div class="abs hud" id="s8-hud" style="left:1110px;top:310px">⏱ 煮 8 分钟</div>
+  <div class="abs hud" id="s8-nx" style="left:1110px;top:410px;background:rgba(217,198,239,.9)">下一步：放入番茄 →</div>
+  <svg class="abs" style="left:0;top:0" width="1920" height="1080" id="s8-svg"><path id="s8-sw" d="M980 520 C1040 470 1100 470 1160 500" stroke="#d9c6ef" stroke-width="10" fill="none" stroke-linecap="round" pathLength="1" stroke-dasharray="1"/><path id="s8-gz" d="M910 560 L1560 470" stroke="#ffe08f" stroke-width="10" fill="none" stroke-linecap="round" stroke-dasharray="12 12" opacity="0"/></svg>
+  <div class="abs" id="s8-food" style="left:1410px;top:600px;display:flex;flex-direction:column;gap:10px"><span class="tag" style="background:#ffb3c6;font-size:30px">番茄 ×3</span><span class="tag" style="background:#fff;font-size:30px">鸡蛋 ×6</span><span class="tag" style="background:#9fe0c9;font-size:30px">青菜 ×1</span></div>
+  <div class="abs" id="s8-tri" style="left:1240px;top:740px;display:flex;gap:14px"><span class="tag" style="background:#aed8f2;font-size:32px">语音</span><span class="tag" style="background:#d9c6ef;font-size:32px">手势</span><span class="tag" style="background:#ffe08f;font-size:32px">视线</span></div>
+  <div id="s8-sp"></div>
+  <div class="cap" id="s8-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ var tl=gsap.timeline({paused:true});
+ var S="#s8-";
+ tl.fromTo("#s8-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.25);
+ 
+ put("s8-cook",dino("ck",{w:260,h:260,body:"#9fe0c9",spike:"#ffb08a",wing:"#ffb3c6"}));put("s8-gl",icon("glasses","#aed8f2",120));put("s8-pot",icon("pot","#ffc29a",170));put("s8-fr",icon("fridge","#aed8f2",220));put("s8-cur",icon("cursor","#ffffff",64));
+ gsap.set(S+"m,"+S+"mn,"+S+"cur,"+S+"k,"+S+"cook,"+S+"gl,"+S+"pot,"+S+"fr,"+S+"ask,"+S+"hud,"+S+"nx,"+S+"food,"+S+"tri",{opacity:0});
+ tl.fromTo(S+"m,"+S+"mn",{opacity:0,y:40},{opacity:1,y:0,duration:.6,stagger:.15,ease:"power3.out"},.6);
+ tl.set(S+"cur",{x:560,y:760});tl.to(S+"cur",{opacity:1,duration:.2},1.0);
+ ["#s8-mn .mi"].forEach(function(){});var mis=document.querySelectorAll("#s8-mn .mi");
+ for(var i=0;i<5;i++){cur(tl,S+"cur",230+i*40,330+i*84,1.2+i*.45,.35);click(tl,S+"cur",1.55+i*.45);tl.to(mis[i],{backgroundColor:"#ffe08f",duration:.15},1.6+i*.45);}
+ tl.to(S+"m,"+S+"mn,"+S+"cur",{filter:"grayscale(1)",opacity:.35,duration:.8},T("正在慢慢")-.2);
+ tl.fromTo(S+"k,"+S+"cook,"+S+"pot,"+S+"fr",{opacity:0,y:40},{opacity:1,y:0,duration:.6,stagger:.12,ease:"power3.out"},T("智能眼镜")-.6);dtail(tl,"ck",T("智能眼镜"),14);
+ tl.fromTo(S+"gl",{opacity:0,y:-60},{opacity:1,y:0,duration:.5,ease:"back.out(2)"},T("眼镜")-.1);
+ pop(tl,S+"ask",T("这个要煮")-.3,{});
+ tl.fromTo(S+"hud",{opacity:0,scale:.7,x:-30},{opacity:1,scale:1,x:0,duration:.5,ease:"back.out(1.8)"},T("答案"));
+ tl.to(S+"ask",{opacity:0,duration:.3},T("手一挥")-.3);
+ dset(tl,"ck","armR",{rotation:-70},T("手一挥")-.1,.35,"back.out(1.6)");dset(tl,"ck","armR",{rotation:0},T("手一挥")+.6,.4);
+ draw(tl,"#s8-sw",T("手一挥"),.5);tl.fromTo(S+"nx",{opacity:0,x:80},{opacity:1,x:0,duration:.5,ease:"power3.out"},T("下一步")-.1);tl.to("#s8-sw",{opacity:0,duration:.4},T("下一步")+.8);
+ tl.to(S+"gz",{opacity:1,strokeDashoffset:-120,duration:1.6,ease:"none"},T("看一眼"));dlook(tl,"ck",T("看一眼"),6);
+ tl.fromTo("#s8-food .tag",{opacity:0,x:30},{opacity:1,x:0,duration:.35,stagger:.2},T("认出"));tl.set(S+"food",{opacity:1},T("认出"));
+ tl.fromTo(S+"tri",{opacity:0,y:20},{opacity:1,y:0,duration:.4},T("食材")+.5);
+ captions(tl,"s8-cap");
+ window.__timelines["s8"]=tl;
+})();
+</script>
+</template></body></html>

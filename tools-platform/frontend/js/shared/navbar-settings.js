@@ -54,6 +54,7 @@ window.restoreSystemNavigationDefaults = async function () {
         navState.settings = normalizeNavSettings(payload.settings);
         writeNavigationBootstrapCache();
         renderNavLinksFromState();
+        window.dispatchEvent(new Event('tools:nav-layout-change'));
         renderNavSettingsContent();
         const nextIndicator = document.getElementById('navSettingsSaveState');
         if (nextIndicator) {
@@ -94,6 +95,7 @@ window.setCurrentNavigationAsDefault = async function () {
         }
         writeNavigationBootstrapCache();
         renderNavLinksFromState();
+        window.dispatchEvent(new Event('tools:nav-layout-change'));
         renderNavSettingsContent();
         const nextIndicator = document.getElementById('navSettingsSaveState');
         if (nextIndicator) {
@@ -105,15 +107,23 @@ window.setCurrentNavigationAsDefault = async function () {
     }
 };
 
+function getPrimarySettingsItems() {
+    const items = getAllNavItems();
+    const visible = hasHomeSidebarMenu() ? items.filter(item => isNavSidebarShortcut(item.href) && !NAV_WORKFLOW_IDS.includes(item.id)) : items;
+    return sortNavItems(visible, navState.settings.primaryIds);
+}
+
 function renderPrimarySettings(content) {
-    const items = sortNavItems(getAllNavItems(), navState.settings.primaryIds);
-    const primaryIds = new Set(navState.settings.primaryIds || []);
+    const sidebar = hasHomeSidebarMenu();
+    const items = getPrimarySettingsItems();
+    const primaryIds = new Set(navState.settings.primaryIds);
+    const lastCheckedIndex = sidebar ? items.filter(item => primaryIds.has(item.id)).length - 1 : primaryIds.size - 1;
     content.innerHTML = `
         ${renderNavigationRestorePanel()}
-        <div class="nav-settings-help">${navEscape(navT('nav.set.help.primary'))}</div>
+        <div class="nav-settings-help">${navEscape(navT(sidebar ? 'nav.set.help.sidebar' : 'nav.set.help.primary'))}</div>
         <div class="nav-settings-list">
-            ${items.map(item => {
-        const index = navState.settings.primaryIds.indexOf(item.id);
+            ${items.map((item, rowIndex) => {
+        const index = sidebar ? (primaryIds.has(item.id) ? rowIndex : -1) : navState.settings.primaryIds.indexOf(item.id);
         return `
                     <div class="nav-settings-row">
                         <label class="nav-settings-check">
@@ -122,7 +132,7 @@ function renderPrimarySettings(content) {
                         </label>
                         <div class="nav-settings-actions">
                             <button onclick="movePrimaryNavItem('${navEscape(item.id)}', -1)" ${index <= 0 ? 'disabled' : ''}>${navEscape(navT('nav.set.btn.up'))}</button>
-                            <button onclick="movePrimaryNavItem('${navEscape(item.id)}', 1)" ${index < 0 || index >= navState.settings.primaryIds.length - 1 ? 'disabled' : ''}>${navEscape(navT('nav.set.btn.down'))}</button>
+                            <button onclick="movePrimaryNavItem('${navEscape(item.id)}', 1)" ${index < 0 || index >= lastCheckedIndex ? 'disabled' : ''}>${navEscape(navT('nav.set.btn.down'))}</button>
                         </div>
                     </div>
                 `;
@@ -132,6 +142,7 @@ function renderPrimarySettings(content) {
 }
 
 window.togglePrimaryNavItem = function (id, checked) {
+    if (hasHomeSidebarMenu() && NAV_WORKFLOW_IDS.includes(id)) return;
     const ids = navState.settings.primaryIds || [];
     if (checked && !ids.includes(id)) ids.push(id);
     if (!checked) navState.settings.primaryIds = ids.filter(item => item !== id);
@@ -141,9 +152,17 @@ window.togglePrimaryNavItem = function (id, checked) {
 };
 
 window.movePrimaryNavItem = function (id, delta) {
+    if (hasHomeSidebarMenu() && NAV_WORKFLOW_IDS.includes(id)) return;
     const ids = navState.settings.primaryIds || [];
     const index = ids.indexOf(id);
-    navState.settings.primaryIds = moveArrayItem(ids, index, delta);
+    if (hasHomeSidebarMenu()) {
+        const visible = getPrimarySettingsItems().map(item => item.id).filter(itemId => ids.includes(itemId));
+        const neighbor = ids.indexOf(visible[visible.indexOf(id) + delta]);
+        if (index < 0 || neighbor < 0) return;
+        [ids[index], ids[neighbor]] = [ids[neighbor], ids[index]];
+    } else {
+        navState.settings.primaryIds = moveArrayItem(ids, index, delta);
+    }
     renderNavSettingsContent();
     scheduleNavSettingsSave();
 };
@@ -152,7 +171,7 @@ function renderCategorySettings(content) {
     const categories = navState.settings.categories || [];
     content.innerHTML = `
         ${renderNavigationRestorePanel()}
-        <div class="nav-settings-help">${navEscape(navT('nav.set.help.categories'))}</div>
+        <div class="nav-settings-help">${navEscape(navT(hasHomeSidebarMenu() ? 'nav.set.help.toolCategories' : 'nav.set.help.categories'))}</div>
         <div class="nav-settings-list">
             ${categories.map((cat, index) => `
                 <div class="nav-settings-row" style="flex-wrap: wrap; gap: 8px; padding-bottom: 12px;">
@@ -207,45 +226,78 @@ window.deleteNavCategory = function (id) {
     scheduleNavSettingsSave();
 };
 
+function getItemCategorySettingsGroups() {
+    const settings = navState.settings;
+    const allItems = getAllNavItems();
+    const workflow = { items: window.NavWorkflow.links() };
+    const configurable = allItems.filter(item => !NAV_WORKFLOW_IDS.includes(item.id));
+    if (hasHomeSidebarMenu()) {
+        const workspaceIds = (window.HomeWorkspace?.getTools?.() || []).map(tool => tool.id);
+        const order = [...new Set([...settings.itemOrder, ...workspaceIds])];
+        const groups = new Map(settings.categories.map(cat => [cat.id, { items: [] }]));
+        groups.set('', { items: [] });
+        sortNavItems(configurable.filter(item => isNavSidebarShortcut(item.href)), order).forEach(item => {
+            const preferred = settings.categoryByItem[item.id] || item.defaultCategory;
+            const fallback = item.id.startsWith('custom:') && groups.has('custom') ? 'custom' : '';
+            const categoryId = groups.has(preferred) ? preferred : fallback;
+            groups.get(categoryId).items.push({ ...item, categoryId });
+        });
+        return [workflow, ...[...groups.values()].filter(group => group.items.length)];
+    }
+    const primaryIds = new Set(settings.primaryIds || []);
+    return [workflow, { items: sortNavItems(configurable.filter(item => !primaryIds.has(item.id)), settings.itemOrder) }];
+}
+
 function renderItemCategorySettings(content) {
     const settings = navState.settings;
-    const primaryIds = new Set(settings.primaryIds || []);
-    const items = sortNavItems(getAllNavItems().filter(item => !primaryIds.has(item.id)), settings.itemOrder);
+    const groups = getItemCategorySettingsGroups();
     const categories = settings.categories || [];
+    const sidebar = hasHomeSidebarMenu();
     content.innerHTML = `
         ${renderNavigationRestorePanel()}
-        <div class="nav-settings-help">${navEscape(navT('nav.set.help.items'))}</div>
+        <div class="nav-settings-help">${navEscape(navT(sidebar ? 'nav.set.help.toolOrder' : 'nav.set.help.items'))}</div>
         <div class="nav-settings-list">
-            ${items.map((item, index) => {
-        const selected = settings.categoryByItem[item.id] || item.defaultCategory || (categories[0] && categories[0].id) || '';
-        return `
-                    <div class="nav-settings-row">
-                        <div class="nav-settings-item-name">${item.icon} ${navEscape(getNavLabel(item))}</div>
-                        <select class="nav-settings-select" onchange="setNavItemCategory('${navEscape(item.id)}', this.value)">
-                            ${categories.map(cat => `<option value="${navEscape(cat.id)}" ${cat.id === selected ? 'selected' : ''}>${navEscape(getNavCategoryName(cat))}</option>`).join('')}
-                        </select>
-                        <div class="nav-settings-actions">
-                            <button onclick="moveOverflowNavItem('${navEscape(item.id)}', -1)" ${index === 0 ? 'disabled' : ''}>${navEscape(navT('nav.set.btn.up'))}</button>
-                            <button onclick="moveOverflowNavItem('${navEscape(item.id)}', 1)" ${index === items.length - 1 ? 'disabled' : ''}>${navEscape(navT('nav.set.btn.down'))}</button>
+        ${groups.flatMap(({ items }) => items.map((item, index) => {
+                    const label = navEscape(getNavLabel(item));
+                    if (NAV_WORKFLOW_IDS.includes(item.id)) return `
+                        <div class="nav-settings-row">
+                            <div class="nav-settings-item-name">${item.icon} ${label}</div>
+                            <span class="nav-settings-fixed-category">${navEscape(window.NavWorkflow.label())}</span>
+                        </div>`;
+                    const selected = item.categoryId ?? (settings.categoryByItem[item.id] || item.defaultCategory || categories[0]?.id || '');
+                    return `
+                        <div class="nav-settings-row">
+                            <div class="nav-settings-item-name">${item.icon} ${label}</div>
+                            <select class="nav-settings-select" aria-label="${label}" onchange="setNavItemCategory('${navEscape(item.id)}', this.value)">
+                                ${sidebar && !selected ? `<option value="" disabled selected>${navEscape(navT('nav.set.otherTools'))}</option>` : ''}
+                                ${categories.map(cat => `<option value="${navEscape(cat.id)}" ${cat.id === selected ? 'selected' : ''}>${navEscape(getNavCategoryName(cat))}</option>`).join('')}
+                            </select>
+                            <div class="nav-settings-actions">
+                                <button onclick="moveOverflowNavItem('${navEscape(item.id)}', -1)" ${index === 0 ? 'disabled' : ''}>${navEscape(navT('nav.set.btn.up'))}</button>
+                                <button onclick="moveOverflowNavItem('${navEscape(item.id)}', 1)" ${index === items.length - 1 ? 'disabled' : ''}>${navEscape(navT('nav.set.btn.down'))}</button>
+                            </div>
                         </div>
-                    </div>
-                `;
-    }).join('') || `<div class="nav-settings-empty">${navEscape(navT('nav.set.emptyItems'))}</div>`}
+                    `;
+                })).join('') || `<div class="nav-settings-empty">${navEscape(navT('nav.set.emptyItems'))}</div>`}
         </div>
     `;
 }
 
 window.setNavItemCategory = function (id, categoryId) {
+    if (NAV_WORKFLOW_IDS.includes(id) || categoryId === NAV_WORKFLOW_CATEGORY) return;
     navState.settings.categoryByItem[id] = categoryId;
     scheduleNavSettingsSave();
+    if (hasHomeSidebarMenu()) queueMicrotask(renderNavSettingsContent);
 };
 
 window.moveOverflowNavItem = function (id, delta) {
-    const primaryIds = new Set(navState.settings.primaryIds || []);
-    const overflowIds = sortNavItems(getAllNavItems().filter(item => !primaryIds.has(item.id)), navState.settings.itemOrder).map(item => item.id);
-    const moved = moveArrayItem(overflowIds, overflowIds.indexOf(id), delta);
-    const primaryOrder = new Set(moved);
-    const rest = (navState.settings.itemOrder || []).filter(itemId => !primaryOrder.has(itemId));
+    if (NAV_WORKFLOW_IDS.includes(id)) return;
+    const group = getItemCategorySettingsGroups().find(({ items }) => items.some(item => item.id === id));
+    if (!group) return;
+    const ids = group.items.map(item => item.id);
+    const moved = moveArrayItem(ids, ids.indexOf(id), delta);
+    const movedIds = new Set(moved);
+    const rest = (navState.settings.itemOrder || []).filter(itemId => !movedIds.has(itemId));
     navState.settings.itemOrder = [...moved, ...rest];
     renderNavSettingsContent();
     scheduleNavSettingsSave();
@@ -589,9 +641,7 @@ window.downloadLogoBundle = async function () {
             });
         } else {
             // 默认情况：前端单纯发起 GET 下载请求，全套物料与标准宣传截图由服务端纯后台生成，无需前端截屏与大文件 POST
-            const token = localStorage.getItem('tools_token') || sessionStorage.getItem('tools_token') || '';
-            const downloadUrl = token ? `/api/platform-logo/download-bundle?token=${encodeURIComponent(token)}` : '/api/platform-logo/download-bundle';
-            response = await fetch(downloadUrl, {
+            response = await fetch('/api/platform-logo/download-bundle', {
                 method: 'GET',
                 headers: getAuthHeaderForNav()
             });
@@ -869,6 +919,9 @@ async function renderAiSettings(content) {
         if (settings) navState.aiSelectedProfileId = settings.id;
         const isImage = category === 'image';
         const isActiveProfile = !!settings?.isActive;
+        // 公共模型（超级管理员分配给所有团队）在团队里只读；超级管理员在自己的空间里可勾选「分配给所有团队」
+        const lockedProfile = !!settings?.locked;
+        const canShare = isNavSuperAdmin() && !navState.viewingTeam;
         const chatCount = allProfiles.filter(item => (item.category || 'chat') === 'chat').length, imageCount = allProfiles.length - chatCount;
         const tabs = `<div class="nav-ai-tabs" role="tablist" aria-label="${navEscape(navT('nav.ai.categoryLabel'))}">
             <button type="button" role="tab" class="nav-ai-tab ${isImage ? '' : 'is-active'}" aria-selected="${!isImage}" onclick="switchAiCategory('chat')"><span class="nav-ai-tab-icon">${navEscape(navT('nav.ai.chatIcon'))}</span><span><b>${navEscape(navT('nav.ai.chatTitle'))}</b><small>${navEscape(navT('nav.ai.chatSummary', { count: chatCount }))}</small></span></button>
@@ -900,7 +953,7 @@ async function renderAiSettings(content) {
                         const countStr = profileModels.length > 1 ? ` · ${profileModels.length}个模型` : ` · ${profile.model}`;
                         return `
                         <button type="button" class="nav-ai-profile-card ${profile.id === settings.id ? 'selected' : ''} ${profile.isActive ? 'active' : ''}" onclick="selectAiProfile('${navEscape(profile.id)}')">
-                            <span class="nav-ai-profile-card-top"><b>${navEscape(profile.name)}</b>${profile.isActive ? `<em>${navEscape(navT('nav.ai.profileActive'))}</em>` : ''}</span>
+                            <span class="nav-ai-profile-card-top"><b>${navEscape(profile.name)}</b>${profile.isActive ? `<em>${navEscape(navT('nav.ai.profileActive'))}</em>` : ''}${profile.shared ? `<em title="${navEscape(profile.locked ? navLocaleText('超级管理员提供的公共模型，只读', 'Public model from the super admin (read-only)') : navLocaleText('已分配给所有团队', 'Shared with all teams'))}">${navEscape(profile.locked ? navLocaleText('公共', 'Public') : navLocaleText('已共享', 'Shared'))}</em>` : ''}</span>
                             <span>${navEscape(profile.provider)}${navEscape(countStr)}${profile.provider === 'anthropic' || /claude/i.test(profile.model) ? ` · ${profile.anthropicAuthType === 'ANTHROPIC_API_KEY' ? 'API_KEY' : 'AUTH_TOKEN'}` : ''}</span>
                             <div class="nav-ai-card-models">${profileModels.map(m => `<span class="nav-ai-model-tag${m === profile.model ? ' is-primary' : ''}">${navEscape(m)}</span>`).join('')}</div>
                             <small class="${profile.keyLooksValid ? 'ready' : ''}">${profile.keyLooksValid ? navT('nav.ai.tokenReady') : navT('nav.ai.tokenNotReady')}</small>
@@ -914,14 +967,19 @@ async function renderAiSettings(content) {
                 <div class="nav-ai-profile-toolbar">
                     <label>
                         <span>${navEscape(navT('nav.ai.profileName'))}</span>
-                        <input id="navAiProfileName" class="nav-settings-input" maxlength="60" value="${navEscape(settings.name || navT('nav.ai.profileDefault'))}" oninput="scheduleAiSettingsSave()">
+                        <input id="navAiProfileName" class="nav-settings-input" maxlength="60" value="${navEscape(settings.name || navT('nav.ai.profileDefault'))}" oninput="scheduleAiSettingsSave()" ${lockedProfile ? 'disabled' : ''}>
                     </label>
                     <div>
                         <button type="button" class="nav-settings-add" onclick="testAiSettingsNow()">${navEscape(navT('nav.ai.testConnection'))}</button>
                         <button type="button" class="nav-settings-add activate" onclick="activateAiProfile()" ${isActiveProfile ? 'disabled' : ''}>${isActiveProfile ? (isImage ? navT('nav.ai.imageActive') : navT('nav.ai.chatActive')) : (isImage ? navT('nav.ai.imageActivate') : navT('nav.ai.chatActivate'))}</button>
-                        <button type="button" class="nav-settings-add danger" onclick="deleteAiProfile()" ${!isImage && profiles.length <= 1 ? 'disabled' : ''}>${navEscape(navT('nav.ai.profileDelete'))}</button>
+                        ${lockedProfile ? '' : `<button type="button" class="nav-settings-add danger" onclick="deleteAiProfile()" ${!isImage && profiles.length <= 1 ? 'disabled' : ''}>${navEscape(navT('nav.ai.profileDelete'))}</button>`}
                     </div>
                 </div>
+                ${canShare ? `<label class="nav-settings-check" style="margin-top:8px;display:flex;align-items:center;gap:8px">
+                    <input id="navAiShared" type="checkbox" ${settings.shared ? 'checked' : ''} onchange="scheduleAiSettingsSave()">
+                    <span><b>${navEscape(navLocaleText('分配给所有团队', 'Share with all teams'))}</b><small style="display:block;color:var(--v2-ink3, #64748b)">${navEscape(navLocaleText('勾选后每个团队都能看到并使用这个模型，但不能修改、删除，也看不到 API Key；团队没有自己的模型时默认用它。', 'Every team can see and use this model but cannot edit or delete it or see its API key; teams without their own model use it by default.'))}</small></span>
+                </label>` : ''}
+                ${lockedProfile ? `<div class="nav-settings-help" style="margin-top:8px">${navEscape(navLocaleText('这是超级管理员提供的公共模型：可以选用、测试连通性，但不能修改或删除。需要别的模型可以点「新建」添加团队自己的配置。', 'This public model is provided by the super admin: you can use and test it but not edit or delete it. Click New to add your team’s own model.'))}</div>` : ''}
             </section>
             ${isImage ? '' : `<p class="nav-settings-help">${navEscape(navT('nav.ai.modelIdentityHelp'))}</p>`}
             <div class="nav-ai-status">
@@ -941,7 +999,7 @@ async function renderAiSettings(content) {
                 </div>
                 <div id="navAiUsageBody"><div class="nav-settings-empty">${navEscape(navT('nav.ai.usageLoading'))}</div></div>
             </section>
-            <div class="nav-ai-grid">
+            <fieldset class="nav-ai-grid" ${lockedProfile ? 'disabled style="border:0;padding:0;margin:0;min-width:0;opacity:.72"' : 'style="border:0;padding:0;margin:0;min-width:0"'}>
                 <label class="nav-ai-field nav-ai-field-wide">
                     <span>${navEscape(navT('nav.ai.lblProvider'))}</span>
                     <select id="navAiProvider" class="nav-settings-input" onchange="handleAiProviderChange()">
@@ -1025,10 +1083,10 @@ async function renderAiSettings(content) {
                     <span>${navEscape(navT('nav.ai.lblPrompt'))}</span>
                     <textarea id="navAiSystemPrompt" class="nav-ai-textarea" maxlength="5000" placeholder="${navEscape(navT('nav.ai.plhPrompt'))}" oninput="scheduleAiSettingsSave()">${navEscape(settings.systemPrompt || '')}</textarea>
                 </label>
-                <div class="nav-ai-field nav-ai-field-wide">
-                    <span>${navEscape(navT('nav.ai.testResult'))}</span>
-                    <div id="navAiTestResult" class="nav-ai-test-result"></div>
-                </div>
+            </fieldset>
+            <div class="nav-ai-field nav-ai-field-wide">
+                <span>${navEscape(navT('nav.ai.testResult'))}</span>
+                <div id="navAiTestResult" class="nav-ai-test-result"></div>
             </div>
         `;
         navState.currentEditingModels = Array.isArray(settings.models) && settings.models.length
@@ -1068,6 +1126,10 @@ function collectAiSettingsPayload(options = {}) {
     const token = tokenInput ? tokenInput.value.trim() : '';
     if (token) payload.apiKey = token;
     if (options.clearApiKey) payload.clearApiKey = true;
+    const shared = document.getElementById('navAiShared');
+    if (shared) payload.shared = shared.checked === true;
+    // 公共模型在团队里只读：只同步「自动切换」开关
+    if (currentAiProfile()?.locked) return { profileId: payload.profileId, ...(autoSwitch ? { autoSwitchEnabled: payload.autoSwitchEnabled } : {}) };
     return payload;
 }
 
@@ -2094,11 +2156,19 @@ window.enableQuickStartMode = async function () {
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
-        const result = data.state?.result || {};
+        const result = data.state?.result;
+        if (!data.success || !result) throw new Error(navT('nav.init.quickMissingResult'));
+        const { scriptsAdded = 0, targetsAdded = 0, preferencesAdded = 0, groupsAdded = 0, categoriesAdded = 0 } = result;
+        const rulesAdded = targetsAdded + preferencesAdded;
+        if (!scriptsAdded && !rulesAdded && !groupsAdded && !categoriesAdded) {
+            setInitializationStatus(navT('nav.init.quickUpToDate'), 'success');
+            return;
+        }
         const message = navT('nav.init.quickSuccess')
-            .replace('{scripts}', result.scriptsAdded || 0)
-            .replace('{rules}', (result.targetsAdded || 0) + (result.preferencesAdded || 0))
-            .replace('{groups}', result.groupsAdded || 0);
+            .replace('{scripts}', scriptsAdded)
+            .replace('{rules}', rulesAdded)
+            .replace('{groups}', groupsAdded)
+            .replace('{categories}', categoriesAdded);
         setInitializationStatus(message, 'success');
     } catch (error) {
         setInitializationStatus(navT('nav.init.failed') + error.message, 'error');
@@ -4161,10 +4231,10 @@ function renderHomePageSettings(content) {
                         ${navEscape(tool.icon || '🧩')} ${navEscape(tool.name || tool.slug)}
                         <div style="font-size:11px;color:#7b8794;font-weight:500;margin-top:4px;">/custom-tools/${navEscape(tool.slug)}/index.html</div>
                     </div>
-                    <label class="nav-settings-check" style="margin-left:auto;">
+                    ${!tool.shared && !navState.viewingTeam ? `<label class="nav-settings-check" style="margin-left:auto;">
                         <input type="checkbox" ${tool.publicAccess === true ? 'checked' : ''} onchange="setCustomToolPublicAccess('${navEscape(tool.slug)}', this.checked, this)">
                         <span>${navEscape(tool.publicAccess === true ? navT('nav.page.home.public') : navT('nav.page.home.private'))}</span>
-                    </label>
+                    </label>` : ''}
                 </div>
             `).join('') || `<div class="nav-settings-empty">${navEscape(navT('nav.page.home.empty'))}</div>`}
         </div>
@@ -4184,7 +4254,7 @@ window.setCustomToolPublicAccess = async function (slug, publicAccess, checkbox)
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
         const index = navState.customTools.findIndex(item => item.slug === slug);
-        if (index >= 0) navState.customTools[index] = data.tool;
+        if (index >= 0) navState.customTools[index] = { ...navState.customTools[index], ...data.tool };
         writeNavigationBootstrapCache();
         if (indicator) indicator.textContent = navT('nav.set.saved');
         renderHomePageSettings(document.getElementById('navSettingsContent'));
@@ -4691,43 +4761,108 @@ window.unlockSecurityLock = async function (lockKey) {
     await window.reloadSecurityLocks();
 };
 
+// 账号页：所有账号都能改自己的密码；超级管理员另外管理账号（一个账号 = 一个独立团队空间）、进入团队排障、查看审计日志。
+const accountText = (zh, en) => navLocaleText(zh, en);
+const AUDIT_ACTION_LABELS = {
+    login: ['登录', 'Sign in'], user_create: ['新建账号', 'Create account'], user_delete: ['删除账号（保留数据）', 'Delete account (data kept)'],
+    user_delete_purge: ['删除账号及数据', 'Delete account and data'], password_reset: ['重置密码', 'Reset password'],
+    password_change: ['修改本人密码', 'Change own password'], team_enter: ['进入团队', 'Enter team'], team_leave: ['返回本人空间', 'Back to own space']
+};
+
+function renderMyAccountCard() {
+    const user = localStorage.getItem('tools_user') || '';
+    return `
+        <div class="nav-settings-help">${navEscape(accountText(`当前账号：${user}。每个账号拥有独立的数据空间，对话、文件、模型与工具数据互不可见。`, `Signed in as ${user}. Every account has its own isolated space for chats, files, models and tool data.`))}</div>
+        <div class="nav-account-create" style="flex-wrap:wrap">
+            <input id="me_pwd_current" type="password" autocomplete="current-password" placeholder="${navEscape(accountText('当前密码', 'Current password'))}">
+            <input id="me_pwd_new" type="password" autocomplete="new-password" placeholder="${navEscape(accountText('新密码（至少 8 位）', 'New password (8+ characters)'))}">
+            <button onclick="changeMyPassword()">${navEscape(accountText('修改我的密码', 'Change my password'))}</button>
+        </div>`;
+}
+
+window.changeMyPassword = async function () {
+    const currentPassword = document.getElementById('me_pwd_current')?.value || '';
+    const newPassword = document.getElementById('me_pwd_new')?.value || '';
+    if (!currentPassword || !newPassword) return showNavbarNotice({ title: navT('nav.dialog.notice'), message: accountText('请填写当前密码和新密码。', 'Enter your current and new password.'), tone: 'info' });
+    try {
+        await API.put('/api/auth/me/password', { currentPassword, newPassword });
+        document.getElementById('me_pwd_current').value = '';
+        document.getElementById('me_pwd_new').value = '';
+        await showNavbarNotice({ title: navT('nav.acc.resetDone'), message: accountText('密码已修改，其他设备上的登录已下线。', 'Password changed. Other signed-in devices were signed out.'), tone: 'success' });
+    } catch (e) {
+        await showNavbarNotice({ title: navT('nav.dialog.error'), message: e.message, tone: 'error' });
+    }
+};
+
 async function renderAccountSettings(content) {
+    if (!isNavSuperAdmin()) {
+        content.innerHTML = renderMyAccountCard();
+        return;
+    }
     content.innerHTML = `<div class="nav-settings-empty">${navEscape(navT('nav.acc.empty'))}</div>`;
     try {
-        const users = await API.get('/api/auth/users');
-        const rows = users.map(u => {
-            const roleBadge = u.role === 'admin'
-                ? `<span class="nav-account-role admin">${navEscape(navT('nav.acc.admin'))}</span>`
-                : `<span class="nav-account-role readonly">${navEscape(navT('nav.acc.readonly'))}</span>`;
+        const [users, audit, teamTools] = await Promise.all([
+            API.get('/api/auth/users'),
+            API.get('/api/auth/audit?limit=60').catch(() => ({ items: [] })),
+            API.get('/api/custom-tools/team-tools').catch(() => ({ items: [] }))
+        ]);
+        const teamToolRows = (teamTools.items || []).map(tool => `<tr><td>${navEscape(tool.teamName || tool.tenantId)}</td><td>${navEscape(tool.icon || '🧩')} ${navEscape(tool.name || tool.slug)}</td><td>${navEscape(tool.updatedAt ? new Date(tool.updatedAt).toLocaleString() : '')}</td><td class="nav-account-actions"><a href="${navEscape(tool.href)}" target="_blank" rel="noopener">${navEscape(accountText('打开', 'Open'))}</a></td></tr>`).join('');
+        const currentTenant = localStorage.getItem('tools_tenant_id') || 'default';
+        const rows = users.map(raw => {
+            // 旧后端（尚未重启）的账号列表没有 isSuper / tenantId：管理员按超级管理员显示，不出现「进入团队」
+            const u = { ...raw, isSuper: typeof raw.isSuper === 'boolean' ? raw.isSuper : raw.role === 'admin' };
+            const roleBadge = u.isSuper
+                ? `<span class="nav-account-role admin">${navEscape(accountText('超级管理员', 'Super admin'))}</span>`
+                : `<span class="nav-account-role readonly">${navEscape(accountText('团队管理员', 'Team admin'))}</span>`;
+            const name = encodeURIComponent(u.username);
+            const enter = !u.isSuper && u.tenantId && u.tenantId !== currentTenant
+                ? `<button onclick="switchNavTeam('${navEscape(u.tenantId)}')">${navEscape(accountText('进入团队', 'Enter team'))}</button>` : '';
             return `
                 <tr>
                     <td>${navEscape(u.username)}</td>
+                    <td>${navEscape(u.teamName || u.username)}</td>
                     <td>${roleBadge}</td>
                     <td class="nav-account-actions">
-                        ${u.username !== 'admin' ? `<button onclick="deleteUser('${navEscape(u.username)}')">${navEscape(navT('nav.acc.btnDel'))}</button>` : ''}
-                        <button onclick="resetPwd('${navEscape(u.username)}')">${navEscape(navT('nav.acc.btnReset'))}</button>
+                        ${enter}
+                        <button onclick="resetPwd(decodeURIComponent('${name}'))">${navEscape(navT('nav.acc.btnReset'))}</button>
+                        ${u.isSuper ? '' : `<button onclick="deleteUser(decodeURIComponent('${name}'))">${navEscape(navT('nav.acc.btnDel'))}</button>`}
                     </td>
-                </tr>
-            `;
+                </tr>`;
+        }).join('');
+        const auditRows = (audit.items || []).map(item => {
+            const label = AUDIT_ACTION_LABELS[item.action];
+            return `<tr><td>${navEscape(new Date(item.at).toLocaleString())}</td><td>${navEscape(item.actor)}</td><td>${navEscape(label ? accountText(label[0], label[1]) : item.action)}</td><td>${navEscape(item.target || item.tenantId || '')}</td><td>${navEscape(item.ip || '')}</td></tr>`;
         }).join('');
 
         content.innerHTML = `
-            <div class="nav-settings-help">${navEscape(navT('nav.acc.help'))}</div>
-            <div class="nav-account-create">
-                <input id="nu_name" placeholder="${navEscape(navT('nav.acc.plhUser'))}">
-                <input id="nu_pwd" placeholder="${navEscape(navT('nav.acc.plhPwd'))}" type="password">
-                <select id="nu_role">
-                    <option value="readonly">${navEscape(navT('nav.acc.readonly'))}</option>
-                    <option value="admin">${navEscape(navT('nav.acc.admin'))}</option>
-                </select>
+            ${renderMyAccountCard()}
+            <div class="nav-settings-help">${navEscape(accountText('新建账号会同时创建它独立的团队空间（数据、对话目录、模型、技能、终端都与其他账号隔离），新账号在自己的空间里拥有全部管理权限。删除账号默认保留团队数据，可选择一并彻底删除。', 'Creating an account also creates its isolated team space (data, chat folders, models, skills and terminal are separate from other accounts); the new account has full admin rights inside its own space. Deleting an account keeps its data unless you choose to purge it.'))}</div>
+            <div class="nav-account-create" style="flex-wrap:wrap">
+                <input id="nu_name" autocomplete="off" placeholder="${navEscape(accountText('账号（字母、数字、- _）', 'Username (letters, digits, - _)'))}">
+                <input id="nu_display" autocomplete="off" placeholder="${navEscape(accountText('团队名称（可选）', 'Team name (optional)'))}">
+                <input id="nu_pwd" autocomplete="new-password" placeholder="${navEscape(accountText('初始密码（至少 8 位）', 'Initial password (8+ characters)'))}" type="password">
                 <button onclick="addUser()">${navEscape(navT('nav.acc.btnAdd'))}</button>
             </div>
             <div class="nav-account-table-wrap">
                 <table class="nav-account-table">
                     <thead>
-                        <tr><th>${navEscape(navT('nav.acc.thUser'))}</th><th>${navEscape(navT('nav.acc.thRole'))}</th><th>${navEscape(navT('nav.acc.thAction'))}</th></tr>
+                        <tr><th>${navEscape(navT('nav.acc.thUser'))}</th><th>${navEscape(accountText('团队', 'Team'))}</th><th>${navEscape(navT('nav.acc.thRole'))}</th><th>${navEscape(navT('nav.acc.thAction'))}</th></tr>
                     </thead>
-                    <tbody>${rows || `<tr><td colspan="3">${navEscape(navT('nav.acc.noData'))}</td></tr>`}</tbody>
+                    <tbody>${rows || `<tr><td colspan="4">${navEscape(navT('nav.acc.noData'))}</td></tr>`}</tbody>
+                </table>
+            </div>
+            <div class="nav-settings-help" style="margin-top:18px">${navEscape(accountText('各团队自己上传的 HTML 工具（不含平台内置工具）。在沙箱中打开，工具里的脚本拿不到你的登录状态，所以依赖平台接口的功能可能无法使用。', 'HTML tools uploaded by each team (built-in tools excluded). They open in a sandbox without your sign-in, so features that call platform APIs may not work.'))}</div>
+            <div class="nav-account-table-wrap">
+                <table class="nav-account-table">
+                    <thead><tr><th>${navEscape(accountText('团队', 'Team'))}</th><th>${navEscape(accountText('工具', 'Tool'))}</th><th>${navEscape(accountText('更新时间', 'Updated'))}</th><th>${navEscape(navT('nav.acc.thAction'))}</th></tr></thead>
+                    <tbody>${teamToolRows || `<tr><td colspan="4">${navEscape(accountText('还没有团队上传工具', 'No team uploads yet'))}</td></tr>`}</tbody>
+                </table>
+            </div>
+            <div class="nav-settings-help" style="margin-top:18px">${navEscape(accountText('审计日志（最近 60 条）', 'Audit log (latest 60)'))}</div>
+            <div class="nav-account-table-wrap">
+                <table class="nav-account-table">
+                    <thead><tr><th>${navEscape(accountText('时间', 'Time'))}</th><th>${navEscape(accountText('操作人', 'Actor'))}</th><th>${navEscape(accountText('操作', 'Action'))}</th><th>${navEscape(accountText('对象', 'Target'))}</th><th>IP</th></tr></thead>
+                    <tbody>${auditRows || `<tr><td colspan="5">${navEscape(accountText('暂无记录', 'No records'))}</td></tr>`}</tbody>
                 </table>
             </div>
         `;
@@ -4736,100 +4871,26 @@ async function renderAccountSettings(content) {
     }
 }
 
+// 旧入口：统一打开设置里的账号页
 window.openUserModal = async function () {
     if (localStorage.getItem('tools_role') !== 'admin') return;
-
-    let m = document.getElementById('user-mgmt-modal');
-    if (!m) {
-        m = document.createElement('div');
-        m.id = 'user-mgmt-modal';
-        m.style.cssText = 'position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(15,23,42,0.6); backdrop-filter:blur(4px); z-index:99999; display:none; align-items:center; justify-content:center;';
-        document.body.appendChild(m);
-    }
-
-    try {
-        const res = await API.get('/api/auth/users');
-
-        let trs = res.map(u => {
-            const roleBadge = u.role === 'admin'
-                ? '<span style="background:rgba(99,102,241,0.18); color:#a5b4fc; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; border:1px solid rgba(99,102,241,0.35);">超级管理</span>'
-                : '<span style="background:var(--v2-chip, #f1f5f9); color:var(--v2-ink2, #64748b); padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; border:1px solid var(--v2-line, #e2e8f0);">只读用户</span>';
-
-            return `
-            <tr style="transition: background 0.2s;">
-                <td style="padding:14px 16px; border-bottom:1px solid var(--v2-line, #f1f5f9); font-weight:500; color:var(--v2-ink, #334155);">${u.username}</td>
-                <td style="padding:14px 16px; border-bottom:1px solid var(--v2-line, #f1f5f9);">${roleBadge}</td>
-                <td style="padding:14px 16px; border-bottom:1px solid var(--v2-line, #f1f5f9); text-align:right;">
-                    ${u.username !== 'admin' ? `<button onclick="deleteUser('${u.username}')" style="background:rgba(239,68,68,0.12); color:#f87171; border:1px solid rgba(239,68,68,0.3); padding:6px 12px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s;">删除</button>` : ''}
-                    <button onclick="resetPwd('${u.username}')" style="background:rgba(2,132,199,0.12); color:#38bdf8; border:1px solid rgba(2,132,199,0.3); padding:6px 12px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s; margin-left:8px;">重置密码</button>
-                </td>
-            </tr>
-            `;
-        }).join('');
-
-        m.innerHTML = `
-            <div style="background:var(--v2-bg, #ffffff); color:var(--v2-ink, #172033); border:1px solid var(--v2-line, rgba(148,163,184,0.35)); width:650px; max-width:90%; padding:32px; border-radius:16px; box-shadow:0 20px 40px rgba(0,0,0,0.2); position:relative; animation: fadeIn 0.3s ease;">
-                <button onclick="document.getElementById('user-mgmt-modal').style.display='none'" style="position:absolute; top:24px; right:24px; background:none; border:none; font-size:24px; color:var(--v2-ink3, #94a3b8); cursor:pointer; line-height:1; transition:color 0.2s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='var(--v2-ink3, #94a3b8)'">&times;</button>
-                
-                <h3 style="margin-top:0; margin-bottom:24px; font-size:20px; font-weight:700; color:var(--v2-ink, #1e293b); display:flex; align-items:center; gap:8px; border-bottom:2px solid var(--v2-line, #f1f5f9); padding-bottom:16px;">
-                    👥 账号管理与权限
-                </h3>
-                
-                <div style="background:var(--v2-side, #f8fafc); border:1px solid var(--v2-line, #e2e8f0); border-radius:12px; padding:16px; margin-bottom:24px;">
-                    <div style="font-size:13px; font-weight:600; color:var(--v2-ink2, #475569); margin-bottom:12px;">➕ 新增账号</div>
-                    <div style="display:flex; gap:12px;">
-                        <input id="nu_name" class="nav-settings-input" placeholder="输入新用户名" style="flex:1; padding:10px 14px; border:1px solid var(--v2-line-strong, #cbd5e1); border-radius:8px; outline:none; font-size:14px; background:var(--v2-chip, #fff); color:var(--v2-ink, #0f172a);">
-                        <input id="nu_pwd" class="nav-settings-input" placeholder="设置密码" style="flex:1; padding:10px 14px; border:1px solid var(--v2-line-strong, #cbd5e1); border-radius:8px; outline:none; font-size:14px; background:var(--v2-chip, #fff); color:var(--v2-ink, #0f172a);">
-                        <select id="nu_role" class="nav-settings-select" style="padding:10px 14px; border:1px solid var(--v2-line-strong, #cbd5e1); border-radius:8px; outline:none; font-size:14px; background:var(--v2-chip, #fff); color:var(--v2-ink, #0f172a); cursor:pointer;">
-                            <option value="readonly">只读权限</option>
-                            <option value="admin">超级管理</option>
-                        </select>
-                        <button onclick="addUser()" style="background:#10b981; color:#fff; border:none; padding:10px 20px; border-radius:8px; font-weight:600; cursor:pointer; transition:background 0.2s; box-shadow:0 2px 4px rgba(16,185,129,0.2);" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">新增</button>
-                    </div>
-                </div>
-                
-                <div style="border:1px solid var(--v2-line, #e2e8f0); border-radius:12px; overflow:hidden;">
-                    <table style="width:100%; border-collapse:collapse; text-align:left;">
-                        <thead>
-                            <tr style="background:var(--v2-side, #f8fafc); border-bottom:1px solid var(--v2-line, #e2e8f0);">
-                                <th style="padding:12px 16px; font-size:13px; font-weight:600; color:var(--v2-ink3, #64748b);">账号名称</th>
-                                <th style="padding:12px 16px; font-size:13px; font-weight:600; color:var(--v2-ink3, #64748b);">权限角色</th>
-                                <th style="padding:12px 16px; font-size:13px; font-weight:600; color:var(--v2-ink3, #64748b); text-align:right;">快捷操作</th>
-                            </tr>
-                        </thead>
-                        <tbody>${trs}</tbody>
-                    </table>
-                </div>
-                
-                <div style="text-align:right; margin-top:24px;">
-                    <button onclick="document.getElementById('user-mgmt-modal').style.display='none'" class="nav-settings-add" style="margin:0; border:none; padding:10px 24px; border-radius:8px; font-weight:600; font-size:14px; cursor:pointer;">完成并关闭</button>
-                </div>
-            </div>
-        `;
-        m.style.display = 'flex';
-    } catch (e) {
-        await showNavbarNotice({
-            title: navT('nav.dialog.error'),
-            message: navLocaleText('获取用户列表失败：', 'Failed to load accounts: ') + e.message,
-            tone: 'error'
-        });
-    }
+    navState.settingsTab = 'accounts';
+    return openNavSettingsModal();
 };
 
 window.addUser = async function () {
     const username = document.getElementById('nu_name').value.trim();
     const password = document.getElementById('nu_pwd').value;
-    const role = document.getElementById('nu_role').value;
+    const displayName = document.getElementById('nu_display')?.value.trim() || '';
     if (!username || !password) return showNavbarNotice({ title: navT('nav.dialog.notice'), message: navT('nav.acc.required'), tone: 'info' });
     try {
-        await API.post('/api/auth/users', { username, password, role });
+        await API.post('/api/auth/users', { username, password, displayName });
         await showNavbarNotice({
             title: navT('nav.acc.added'),
             message: navT('nav.acc.addedDesc').replace('{user}', username),
             tone: 'success'
         });
-        if (document.getElementById('navSettingsModal')?.style.display === 'flex') renderNavSettingsContent();
-        else openUserModal();
+        renderNavSettingsContent();
     } catch (e) {
         await showNavbarNotice({ title: navT('nav.dialog.error'), message: e.message, tone: 'error' });
     }
@@ -4839,15 +4900,21 @@ window.deleteUser = async function (u) {
     const confirmed = await showNavbarConfirm({
         title: navT('nav.acc.deleteTitle'),
         message: navT('nav.acc.deleteDesc').replace('{user}', u),
-        hint: navLocaleText('账号删除不会清理其历史操作记录。', 'Deleting the account does not remove its historical audit records.'),
+        hint: accountText('该账号的团队数据会归档保留，下一步可选择是否彻底删除。', 'The account’s team data is archived; next you can choose to purge it.'),
         tone: 'danger',
         confirmText: navT('nav.acc.btnDel')
     });
     if (!confirmed) return;
+    const purge = await showNavbarConfirm({
+        title: accountText('同时彻底删除团队数据？', 'Also purge the team data?'),
+        message: accountText(`选择「彻底删除」会永久删除账号“${u}”的全部对话、文件、模型与工具数据，无法恢复；选择「保留」则只删除账号、数据归档保留。`, `Purging permanently deletes all chats, files, models and tool data of “${u}” and cannot be undone. Keep archives the data and only removes the account.`),
+        tone: 'danger',
+        confirmText: accountText('彻底删除', 'Purge'),
+        cancelText: accountText('保留数据', 'Keep data')
+    });
     try {
-        await API.delete('/api/auth/users/' + u);
-        if (document.getElementById('navSettingsModal')?.style.display === 'flex') renderNavSettingsContent();
-        else openUserModal();
+        await API.delete('/api/auth/users/' + encodeURIComponent(u) + (purge ? '?purge=1' : ''));
+        renderNavSettingsContent();
     } catch (e) {
         await showNavbarNotice({ title: navT('nav.dialog.error'), message: e.message, tone: 'error' });
     }
@@ -4871,7 +4938,7 @@ window.resetPwd = async function (u) {
     });
     if (!values?.password) return;
     try {
-        await API.put('/api/auth/users/' + u + '/password', { password: values.password });
+        await API.put('/api/auth/users/' + encodeURIComponent(u) + '/password', { password: values.password });
         await showNavbarNotice({
             title: navT('nav.acc.resetDone'),
             message: navT('nav.acc.resetDoneDesc').replace('{user}', u),

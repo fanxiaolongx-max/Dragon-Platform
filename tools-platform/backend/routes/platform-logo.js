@@ -4,9 +4,8 @@ const path = require('node:path');
 const multer = require('multer');
 const JSZip = require('jszip');
 const { Worker } = require('node:worker_threads');
-const { requireAdmin } = require('../middleware/auth');
+const { requirePlatformAdmin: requireAdmin, isPlatformAdmin: isSuperAdmin } = require('../middleware/auth');
 const navSettingsRepo = require('../models/nav-settings-repository');
-const authSessionsRepo = require('../models/auth-sessions-repository');
 const { logoStorage, resolveLogoAsset, generateAndSaveLogo, ASSET_NAMES } = require('../models/platform-logo-runtime');
 
 function storeAssets(logo, screenshots) {
@@ -102,14 +101,7 @@ function createLogoRouter(options = {}) {
     const screenshotUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 5, fields: 0 } });
 
     const downloadBundle = async (req, res) => {
-        let user = req.user;
-        if (!user && req.query.token) {
-            try {
-                const session = await authSessionsRepo.getSession(req.query.token);
-                if (session && session.expiresAt > Date.now()) user = session.user;
-            } catch (_) {}
-        }
-        if (!user || user.role !== 'admin') {
+        if (!isSuperAdmin(req.user)) {
             return res.status(403).json({ error: '权限不足，需要超级管理员账号' });
         }
         try {

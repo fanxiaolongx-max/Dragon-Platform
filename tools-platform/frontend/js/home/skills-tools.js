@@ -94,7 +94,7 @@
             card.innerHTML = `
                 <div class="custom-tool-actions">
                     <button type="button" class="custom-tool-action action-improve" data-skill-action="improve" title="${escapeHtml(tx('improve'))}">⚡</button>
-                    <button type="button" class="custom-tool-action action-history" data-skill-action="history" title="${escapeHtml(tx('history'))}">⏱</button>
+                    <button type="button" class="custom-tool-action action-history" data-skill-action="history" title="${escapeHtml(tx('history'))}" ${item.shared && !item.personal ? 'hidden' : ''}>⏱</button>
                     <button type="button" class="custom-tool-action" data-skill-action="download" title="${escapeHtml(tx('download'))}">↓</button>
                     ${admin ? `
                         ${window.BuiltinPromotion?.button('skill', item.id, { builtIn: item.builtIn, name: displayName(item) }) || ''}
@@ -120,7 +120,7 @@
         const head = grid?.querySelector(':scope > .home-group-head[data-group="__skills"]');
         if (!head) return;
         head.querySelector('.skill-restore')?.remove();
-        if (!isAdmin() || !state.hidden) return;
+        if (!window.isNavSuperAdmin?.() || !state.hidden) return;
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'skill-restore';
@@ -179,7 +179,9 @@
     }
 
     async function remove(item) {
-        const message = item.builtIn ? tx('deleteBuiltin', { name: displayName(item) }) : tx('deleteCustom', { name: displayName(item), id: item.id });
+        const message = item.shared
+            ? (lang() === 'en-US' ? 'Hide this skill from your list? You can restore it from the market.' : '从我的列表隐藏此技能？之后可在应用市场恢复。')
+            : item.builtIn ? tx('deleteBuiltin', { name: displayName(item) }) : tx('deleteCustom', { name: displayName(item), id: item.id });
         if (!await window.AppDialog.confirm(message, { title: tx('deleteTitle'), tone: 'danger', confirmText: tx('confirmDelete') })) return;
         try {
             await window.API.delete(`/api/agent-skills/${encodeURIComponent(item.id)}`);
@@ -206,7 +208,8 @@
         if (typeof window.DragonClaw?.newChat === 'function') window.DragonClaw.newChat();
         const input = document.getElementById('dcInput');
         if (input) {
-            input.value = `@improve-skill @${item.id} `;
+            input.value = window.isNavSuperAdmin?.() ? `@improve-skill @${item.id} `
+                : (lang() === 'en-US' ? `Improve @${item.id} and save it as my personal version. ` : `完善 @${item.id} 并保存为我的个人版本。 `);
             input.dispatchEvent(new Event('input', { bubbles: true }));
             input.focus({ preventScroll: true });
             input.setSelectionRange(input.value.length, input.value.length);

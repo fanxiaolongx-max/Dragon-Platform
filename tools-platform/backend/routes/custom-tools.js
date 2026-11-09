@@ -18,14 +18,15 @@ const f12ExtensionVersionService = require('../models/f12-extension-version-serv
 const f12ScriptPresetsRepository = require('../models/f12-script-presets-repository');
 const bundledScripts = require('../models/bundled-scripts');
 const { getDataDir } = require('../models/store');
-const { requireAdmin } = require('../middleware/auth');
+const { requireAdmin, requireSuperAdmin, isSuperAdmin } = require('../middleware/auth');
 const customToolI18nGenerator = require('../../scripts/generate-custom-tool-i18n');
 const customToolExportService = require('../models/custom-tool-export-service');
 const snapshotsRepo = require('../models/custom-tools-snapshots-repository');
 const marketService = require('../models/custom-tools-market-service');
+const distribution = require('../models/tool-distribution');
 const { Worker } = require('node:worker_threads');
 const productScopeRepo = require('../models/product-scope-repository');
-const { getTenantId, runWithTenant } = require('../models/tenant-context');
+const { DEFAULT_TENANT_ID, getTenantId, runWithTenant } = require('../models/tenant-context');
 const productUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 1 } });
 
 router.use('/python-updater', require('./python-updater'));
@@ -34,6 +35,28 @@ router.use('/tool-mv9strpn/warehouse', require('./ezscan-warehouse'));
 router.get('/tool-mumxi3px/products', async (req, res, next) => {
     try { res.json(await productScopeRepo.loadProducts()); } catch (err) { next(err); }
 });
+// GET /api/custom-tools/team-tools：超级管理员查看各团队自己上传的工具（不含平台内置工具），打开地址为沙箱化的 /team-tools/…
+router.get('/team-tools', async (req, res) => {
+    if (!isSuperAdmin(req.user)) return res.status(403).json({ error: '仅超级管理员可查看各团队上传的工具', code: 'SUPER_ADMIN_REQUIRED' });
+    try {
+        const tenantsRepo = require('../models/tenants-repository');
+        const { runWithTenant, DEFAULT_TENANT_ID } = require('../models/tenant-context');
+        const teams = (await tenantsRepo.listManagedTenants()).filter(item => item.status === 'active' && item.id !== DEFAULT_TENANT_ID);
+        const items = [];
+        for (const team of teams) {
+            const tools = await runWithTenant(team.id, () => repo.listTools()).catch(() => []);
+            for (const tool of tools.filter(item => !item.builtIn)) {
+                items.push({ tenantId: team.id, teamName: team.name, slug: tool.slug, name: tool.name, icon: tool.icon, description: tool.description, createdAt: tool.createdAt, updatedAt: tool.updatedAt,
+                    href: `/team-tools/${encodeURIComponent(team.id)}/${encodeURIComponent(tool.slug)}/index.html` });
+            }
+        }
+        res.setHeader('Cache-Control', 'no-store');
+        res.json({ items });
+    } catch (err) {
+        res.status(500).json({ error: err.message || '读取团队工具失败' });
+    }
+});
+
 router.post('/tool-mumxi3px/products/import', requireAdmin, (req, res, next) => {
     req.suppressBodyLog = true;
     const tenantId = getTenantId();
@@ -143,12 +166,39 @@ function normalizeAiMetadata(payload = {}) {
     return { name, nameEn, description, descriptionEn, tags };
 }
 
-router.get('/', async (req, res) => {
-    // hostedApp：托管 Python 应用（卡片下载原始应用包，不提供只读快照）
-    res.json((await repo.listTools()).map(tool => hostedApps.isLauncherFile(path.join(repo.getToolRootDir(tool.slug) || '', 'index.html')) ? { ...tool, hostedApp: true } : tool));
+router.get('/', async (req, res, next) => {
+    try {
+        res.setHeader('Cache-Control', 'no-store');
+        res.json(await distribution.listAvailable(req.user));
+    } catch (error) { next(error); }
 });
 
-router.get('/f12-to-extension/monthly-license', requireAdmin, (req, res) => {
+router.get('/market/platform', async (req, res, next) => {
+    try {
+        const tools = await distribution.sharedCatalog(req.user);
+        const preferences = await distribution.personalEntries(req.user);
+        const localSlugs = getTenantId() === DEFAULT_TENANT_ID
+            ? new Set()
+            : new Set((await repo.listTools()).filter(tool => !tool.builtIn && !preferences.get(`tool:${tool.slug}`)?.origin).map(tool => tool.slug));
+        // Catalog entries are public to the signed-in audience only; do not return file paths.
+        res.setHeader('Cache-Control', 'no-store');
+        res.json({ tools: tools.filter(tool => !localSlugs.has(tool.slug)).map(({ slug, href, name, nameEn, description, descriptionEn, icon, builtIn, updatedAt }) =>
+            ({ slug, href, name, nameEn, description, descriptionEn, icon, builtIn, updatedAt,
+                hidden: Boolean(preferences.get(`tool:${slug}`)?.hidden),
+                installed: Boolean(preferences.get(`tool:${slug}`)?.installed) })) });
+    } catch (error) { next(error); }
+});
+
+router.patch('/:slug/distribution', requireSuperAdmin, async (req, res, next) => {
+    if (typeof req.body?.sharedAccess !== 'boolean') return res.status(400).json({ error: '工具分发开关无效' });
+    try {
+        const tool = await distribution.setSharedAccess(req.params.slug, req.body.sharedAccess);
+        if (!tool) return res.status(404).json({ error: 'HTML 工具不存在' });
+        res.json({ success: true, tool });
+    } catch (error) { next(error); }
+});
+
+router.get('/f12-to-extension/monthly-license', requireSuperAdmin, (req, res) => {
     try {
         const issued = f12LicenseService.issueMonthlyLicense({
             productId: req.query.productId,
@@ -162,7 +212,7 @@ router.get('/f12-to-extension/monthly-license', requireAdmin, (req, res) => {
     }
 });
 
-router.get('/f12-to-extension/license-config', requireAdmin, (req, res) => {
+router.get('/f12-to-extension/license-config', requireSuperAdmin, (req, res) => {
     try {
         const requestedProductId = String(req.query.productId || '').trim();
         const identity = requestedProductId
@@ -180,63 +230,112 @@ router.get('/f12-to-extension/license-config', requireAdmin, (req, res) => {
     }
 });
 
-router.get('/f12-to-extension/scripts', requireAdmin, async (_req, res) => {
+router.get('/f12-to-extension/scripts', async (req, res, next) => {
     try {
-        res.setHeader('Cache-Control', 'no-store');
-        await bundledScripts.ensureSeeded(); // 随项目内置的 F12 脚本（backend/builtin-scripts/f12）
-        const bundledIds = bundledScripts.bundledIds('f12');
-        res.json({ success: true, scripts: (await f12ScriptPresetsRepository.listPresets()).map(item => ({ ...item, builtIn: bundledIds.has(item.id) })) });
-    } catch (error) {
-        res.status(500).json({ error: error.message || '读取服务器脚本列表失败' });
-    }
+        const admin = isSuperAdmin(req.user);
+        const allowed = admin ? null : await distribution.allowedEntries();
+        const personal = await distribution.personalEntries(req.user);
+        const own = admin || getTenantId() === DEFAULT_TENANT_ID ? [] : await f12ScriptPresetsRepository.listPresets();
+        const localById = new Map(own.map(item => [item.id, item]));
+        const platformIds = new Set();
+        const scripts = await runWithTenant(DEFAULT_TENANT_ID, async () => {
+            await bundledScripts.ensureSeeded();
+            const bundledIds = bundledScripts.bundledIds('f12');
+            return (await f12ScriptPresetsRepository.listPresets()).flatMap(item => {
+                platformIds.add(item.id);
+                const key = `cap:f12:server:${item.id}`;
+                const prefs = personal.get(key) || {};
+                if (!admin && (!allowed.has(key) || prefs.hidden)) return [];
+                const selected = (prefs.fork && localById.get(item.id)) || item;
+                return [{ ...selected, name: prefs.name || selected.name, builtIn: bundledIds.has(item.id) }];
+            });
+        });
+        for (const item of own) {
+            const prefs = personal.get(`cap:f12:server:${item.id}`);
+            if (!platformIds.has(item.id) && !prefs?.hidden && !prefs?.fork && !bundledScripts.bundledIds('f12').has(item.id)) scripts.push({ ...item, name: prefs.name || item.name });
+        }
+        res.setHeader('Cache-Control', 'private, no-store');
+        res.json({ success: true, scripts, canManage: req.user?.role === 'admin' });
+    } catch (error) { next(error); }
 });
 
 router.post('/f12-to-extension/scripts', requireAdmin, async (req, res) => {
     try {
+        const admin = isSuperAdmin(req.user);
+        if (!admin && getTenantId() === DEFAULT_TENANT_ID) return res.status(403).json({ error: '不能修改系统空间的脚本' });
         const script = await f12ScriptPresetsRepository.savePreset(req.body || {});
+        if (!admin) await distribution.setPersonalEntry(req.user, `cap:f12:server:${script.id}`, { local: true });
         res.status(201).json({ success: true, script });
     } catch (error) {
-        const duplicateName = error && error.code === 'SQLITE_CONSTRAINT';
-        res.status(400).json({ error: duplicateName ? '已存在同名的服务器脚本' : (error.message || '保存服务器脚本失败') });
+        res.status(error.status || 500).json({ error: error.message || '保存 F12 脚本失败' });
     }
 });
 
 router.put('/f12-to-extension/scripts/:scriptId', requireAdmin, async (req, res) => {
     try {
-        const script = await f12ScriptPresetsRepository.savePreset(req.body || {}, req.params.scriptId);
-        if (!script) return res.status(404).json({ error: '服务器脚本不存在' });
+        const admin = isSuperAdmin(req.user);
+        if (!admin && getTenantId() === DEFAULT_TENANT_ID) return res.status(403).json({ error: '不能修改系统空间的脚本' });
+        const id = req.params.scriptId;
+        const key = `cap:f12:server:${id}`;
+        const prefs = await distribution.personalEntry(req.user, key);
+        const shared = !admin && await distribution.hasEntryAccess(key);
+        const own = !admin && !shared && !prefs.fork && !bundledScripts.bundledIds('f12').has(id)
+            && await f12ScriptPresetsRepository.getPreset(id)
+            && !await runWithTenant(DEFAULT_TENANT_ID, () => f12ScriptPresetsRepository.getPreset(id));
+        if (!admin && (prefs.hidden || (!shared && !own))) return res.status(404).json({ error: '脚本不存在或未开放' });
+        const script = await f12ScriptPresetsRepository.savePreset(req.body || {}, id, { allowCreate: shared });
+        if (!script) return res.status(404).json({ error: '脚本不存在' });
+        if (shared) await distribution.setPersonalEntry(req.user, key, { fork: true });
         res.json({ success: true, script });
     } catch (error) {
-        const duplicateName = error && error.code === 'SQLITE_CONSTRAINT';
-        res.status(400).json({ error: duplicateName ? '已存在同名的服务器脚本' : (error.message || '更新服务器脚本失败') });
+        res.status(error.status || 500).json({ error: error.message || '更新 F12 脚本失败' });
     }
 });
 
-router.post('/f12-to-extension/version/preview', requireAdmin, (req, res) => {
-    try {
-        const info = f12ExtensionVersionService.previewVersion(req.body && req.body.productId, {
-            legacyVersion: req.body && req.body.legacyVersion
-        });
-        res.setHeader('Cache-Control', 'no-store');
-        res.json({ success: true, ...info });
-    } catch (error) {
-        res.status(400).json({ error: error.message || '读取扩展版本失败' });
-    }
-});
+const pendingPersonalVersions = new Map();
+function personalF12Version(req, reserve) {
+    const { normalizeProductId } = f12ExtensionIdentityService;
+    const productId = normalizeProductId(req.body?.productId);
+    const key = `f12-version:${productId}`;
+    const owner = `${getTenantId()}:${req.user.username}:${key}`;
+    const operation = (pendingPersonalVersions.get(owner) || Promise.resolve()).catch(() => {}).then(async () => {
+        const packer = require('../builtin-tools/f12-to-extension/packer-core');
+        const prefs = await distribution.personalEntry(req.user, key);
+        let previousVersion = prefs.version || f12ExtensionVersionService.DEFAULT_BASELINE;
+        const legacy = req.body?.legacyVersion;
+        if (packer.isValidVersion(legacy) && f12ExtensionVersionService.compareVersions(legacy, previousVersion) > 0) previousVersion = legacy;
+        const allocatedVersion = packer.incrementVersion(previousVersion);
+        const downloadCount = (prefs.downloadCount || 0) + Number(reserve);
+        if (reserve) await distribution.setPersonalEntry(req.user, key, { version: allocatedVersion, downloadCount });
+        return { productId, previousVersion, nextVersion: reserve ? packer.incrementVersion(allocatedVersion) : allocatedVersion,
+            allocatedVersion: reserve ? allocatedVersion : undefined, hasSavedVersion: Boolean(prefs.version), downloadCount };
+    });
+    pendingPersonalVersions.set(owner, operation);
+    return operation.finally(() => { if (pendingPersonalVersions.get(owner) === operation) pendingPersonalVersions.delete(owner); });
+}
 
-router.post('/f12-to-extension/version/reserve', requireAdmin, (req, res) => {
-    try {
-        const info = f12ExtensionVersionService.reserveNextVersion(req.body && req.body.productId, {
-            legacyVersion: req.body && req.body.legacyVersion
-        });
-        res.setHeader('Cache-Control', 'no-store');
-        res.json({ success: true, ...info });
-    } catch (error) {
-        res.status(400).json({ error: error.message || '分配扩展版本失败' });
-    }
-});
+function f12Version(reserve) {
+    return async (req, res) => {
+        try {
+            const admin = isSuperAdmin(req.user);
+            if (!admin && (getTenantId() === DEFAULT_TENANT_ID || !await distribution.resolveTool('f12-to-extension', req.user))) {
+                return res.status(403).json({ error: '打包工具未开放' });
+            }
+            const version = reserve ? f12ExtensionVersionService.reserveNextVersion : f12ExtensionVersionService.previewVersion;
+            const info = admin
+                ? version(req.body?.productId, { legacyVersion: req.body?.legacyVersion })
+                : await personalF12Version(req, reserve);
+            res.setHeader('Cache-Control', 'no-store');
+            res.json({ success: true, ...info });
+        } catch (error) {
+            res.status(400).json({ error: error.message || '读取扩展版本失败' });
+        }
+    };
+}
+router.post('/f12-to-extension/version/preview', requireAdmin, f12Version(false));
+router.post('/f12-to-extension/version/reserve', requireAdmin, f12Version(true));
 
-router.get('/f12-to-extension/licenses', requireAdmin, (req, res) => {
+router.get('/f12-to-extension/licenses', requireSuperAdmin, (req, res) => {
     try {
         const result = f12LicenseRegistry.queryRecords({
             includeArchived: req.query.includeArchived !== '0',
@@ -253,7 +352,7 @@ router.get('/f12-to-extension/licenses', requireAdmin, (req, res) => {
     }
 });
 
-router.post('/f12-to-extension/licenses/:licenseId/revoke', requireAdmin, (req, res) => {
+router.post('/f12-to-extension/licenses/:licenseId/revoke', requireSuperAdmin, (req, res) => {
     try {
         const record = f12LicenseRegistry.setStatus(req.params.licenseId, 'revoked', {
             reason: req.body && req.body.reason
@@ -264,7 +363,7 @@ router.post('/f12-to-extension/licenses/:licenseId/revoke', requireAdmin, (req, 
     }
 });
 
-router.post('/f12-to-extension/licenses/:licenseId/restore', requireAdmin, (req, res) => {
+router.post('/f12-to-extension/licenses/:licenseId/restore', requireSuperAdmin, (req, res) => {
     try {
         const record = f12LicenseRegistry.setStatus(req.params.licenseId, 'active');
         res.json({ success: true, record });
@@ -298,7 +397,7 @@ router.post('/f12-to-extension/licenses/:licenseId/renew', requireAdmin, (req, r
     }
 });
 
-router.post('/f12-to-extension/licenses/:licenseId/archive', requireAdmin, (req, res) => {
+router.post('/f12-to-extension/licenses/:licenseId/archive', requireSuperAdmin, (req, res) => {
     try {
         const record = f12LicenseRegistry.setStatus(req.params.licenseId, 'archived');
         res.json({ success: true, record });
@@ -347,7 +446,7 @@ router.post('/ai-metadata', requireAdmin, async (req, res) => {
     }
 });
 
-router.get('/builtin-sync/preview', requireAdmin, async (req, res) => {
+router.get('/builtin-sync/preview', requireSuperAdmin, async (req, res) => {
     try {
         const preview = await previewBuiltinToolsOffMainThread({
             sourceDir: builtinToolsSourceDir,
@@ -367,7 +466,7 @@ router.get('/builtin-sync/preview', requireAdmin, async (req, res) => {
     }
 });
 
-router.get('/builtin-sync/preview-stream', requireAdmin, async (req, res) => {
+router.get('/builtin-sync/preview-stream', requireSuperAdmin, async (req, res) => {
     res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Accel-Buffering', 'no');
@@ -422,7 +521,7 @@ async function applyBuiltinTools(body, { onProgress = () => {}, includePreview =
     } });
 }
 
-router.post('/builtin-sync/apply', requireAdmin, async (req, res) => {
+router.post('/builtin-sync/apply', requireSuperAdmin, async (req, res) => {
     try {
         res.json(await applyBuiltinTools(req.body || {}));
     } catch (err) {
@@ -430,7 +529,7 @@ router.post('/builtin-sync/apply', requireAdmin, async (req, res) => {
     }
 });
 
-router.post('/builtin-sync/apply-stream', requireAdmin, async (req, res) => {
+router.post('/builtin-sync/apply-stream', requireSuperAdmin, async (req, res) => {
     res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Accel-Buffering', 'no');
@@ -446,17 +545,24 @@ router.post('/builtin-sync/apply-stream', requireAdmin, async (req, res) => {
     }
 });
 
-router.get('/market/settings', requireAdmin, async (_req, res) => {
+function requireMarketAdmin(req, res, next) {
+    requireSuperAdmin(req, res, () => {
+        if (getTenantId() !== DEFAULT_TENANT_ID) return res.status(403).json({ error: '请返回系统管理员空间管理仓库' });
+        next();
+    });
+}
+
+router.get('/market/settings', requireMarketAdmin, async (_req, res) => {
     try { res.json(await marketService.getMarketSettings()); }
     catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.put('/market/settings', requireAdmin, async (req, res) => {
+router.put('/market/settings', requireMarketAdmin, async (req, res) => {
     try { res.json(await marketService.saveMarketSettings(req.body)); }
     catch (err) { res.status(err.status || 500).json({ error: err.message }); }
 });
 
-router.get('/market/preview', requireAdmin, async (req, res) => {
+router.get('/market/preview', requireMarketAdmin, async (req, res) => {
     try {
         res.setHeader('Cache-Control', 'no-store');
         res.json(await marketService.previewMarket({ force: req.query.refresh === '1' }));
@@ -465,7 +571,7 @@ router.get('/market/preview', requireAdmin, async (req, res) => {
     }
 });
 
-router.get('/market/preview-stream', requireAdmin, async (req, res) => {
+router.get('/market/preview-stream', requireMarketAdmin, async (req, res) => {
     res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Accel-Buffering', 'no');
@@ -484,7 +590,7 @@ router.get('/market/preview-stream', requireAdmin, async (req, res) => {
     }
 });
 
-router.post('/market/apply', requireAdmin, async (req, res) => {
+router.post('/market/apply', requireMarketAdmin, async (req, res) => {
     try {
         const body = req.body || {};
         const result = await marketService.applyMarketUpdates({
@@ -505,7 +611,7 @@ router.post('/market/apply', requireAdmin, async (req, res) => {
     }
 });
 
-router.post('/market/apply-stream', requireAdmin, async (req, res) => {
+router.post('/market/apply-stream', requireMarketAdmin, async (req, res) => {
     res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Accel-Buffering', 'no');
@@ -587,6 +693,19 @@ router.post('/backup/restore', backupUpload.single('backup'), async (req, res) =
     }
 });
 
+router.use('/:slug', async (req, res, next) => {
+    if (!/^\/(?:state|history|snapshots|export)(?:\/|$)/i.test(req.path)) return next();
+    try {
+        const resolved = await distribution.resolveTool(req.params.slug, req.user);
+        if (!resolved) return res.status(403).json({ error: '此工具未开放使用' });
+        if (resolved.sourceTenant !== getTenantId() || resolved.shared) {
+            if (/^\/export(?:\/|$)/i.test(req.path) || getTenantId() === DEFAULT_TENANT_ID) return res.status(403).json({ error: '此操作不适用于分发工具' });
+            req.distributedTool = true;
+        }
+        next();
+    } catch (error) { next(error); }
+});
+
 router.get('/:slug/export', async (req, res) => {
     try {
         // 托管 Python 应用：下载导入时上传的原始应用包；包内可能有 .env 等配置，仅管理员可下载
@@ -624,7 +743,7 @@ router.get('/:slug/export', async (req, res) => {
 });
 
 router.get('/:slug/state', async (req, res) => {
-    const state = await repo.getToolState(req.params.slug);
+    const state = await repo.getToolState(req.params.slug, { distributed: req.distributedTool });
     if (!state) return res.status(404).json({ error: '自定义工具不存在' });
     res.json(state);
 });
@@ -632,6 +751,7 @@ router.get('/:slug/state', async (req, res) => {
 router.put('/:slug/state', async (req, res) => {
     try {
         const state = await repo.saveToolState(req.params.slug, req.body && req.body.data, {
+            distributed: req.distributedTool,
             reason: req.body && req.body.reason,
             createSnapshot: req.body && req.body.createSnapshot !== false
         });
@@ -643,7 +763,7 @@ router.put('/:slug/state', async (req, res) => {
 });
 
 router.post('/:slug/state/restore', async (req, res) => {
-    const restored = await repo.restoreToolState(req.params.slug, req.body && req.body.snapshotId);
+    const restored = await repo.restoreToolState(req.params.slug, req.body && req.body.snapshotId, { distributed: req.distributedTool });
     if (restored === null) return res.status(404).json({ error: '自定义工具不存在' });
     if (restored === false) return res.status(404).json({ error: '备份快照不存在' });
     res.json({ success: true, data: restored.data, updatedAt: restored.updatedAt });
@@ -651,7 +771,7 @@ router.post('/:slug/state/restore', async (req, res) => {
 
 router.get('/:slug/history', async (req, res) => {
     try {
-        const records = await repo.listToolHistory(req.params.slug);
+        const records = await repo.listToolHistory(req.params.slug, { distributed: req.distributedTool });
         if (!records) return res.status(404).json({ error: '自定义工具不存在' });
         res.json(records);
     } catch (err) {
@@ -661,7 +781,7 @@ router.get('/:slug/history', async (req, res) => {
 
 router.post('/:slug/history', async (req, res) => {
     try {
-        const record = await repo.addToolHistory(req.params.slug, req.body || {});
+        const record = await repo.addToolHistory(req.params.slug, req.body || {}, { distributed: req.distributedTool });
         if (!record) return res.status(404).json({ error: '自定义工具不存在' });
         res.status(201).json({ success: true, record });
     } catch (err) {
@@ -671,7 +791,7 @@ router.post('/:slug/history', async (req, res) => {
 
 router.delete('/:slug/history/:historyId', async (req, res) => {
     try {
-        const deleted = await repo.deleteToolHistory(req.params.slug, req.params.historyId);
+        const deleted = await repo.deleteToolHistory(req.params.slug, req.params.historyId, { distributed: req.distributedTool });
         if (deleted === null) return res.status(404).json({ error: '自定义工具不存在' });
         if (!deleted) return res.status(404).json({ error: '历史记录不存在' });
         res.json({ success: true });
@@ -680,11 +800,17 @@ router.delete('/:slug/history/:historyId', async (req, res) => {
     }
 });
 
-async function importTool(payload) {
+async function importTool(payload, user) {
+    if (user && !isSuperAdmin(user) && getTenantId() === DEFAULT_TENANT_ID) throw Object.assign(new Error('不能修改系统空间的工具'), { status: 403 });
+    const personalUpdate = payload.updateSlug && await distribution.preparePersonalToolUpdate(payload.updateSlug, user);
     // Python Web 应用包：登记为工具入口并由平台托管运行（backend/models/hosted-apps）
     const tool = await hostedApps.isPythonPayload(payload)
         ? await hostedApps.importApp(payload, { createTool: repo.createTool })
         : await repo.createTool(payload);
+    if (personalUpdate) {
+        await distribution.setPersonalEntry(user, `tool:${tool.slug}`, { fork: true, installed: true });
+        return { ...tool, shared: true };
+    }
     customToolI18nGenerator.generateToolTranslations(tool).then(result => {
         console.log(`[custom-tools] bilingual resource ready: ${result.slug} (${result.generated} generated)`);
     }).catch(error => {
@@ -698,14 +824,14 @@ router.use('/import-upload', createChunkUploadRouter(importTool));
 router.post('/', async (req, res) => {
     req.suppressBodyLog = true;
     try {
-        const tool = await importTool(req.body || {});
+        const tool = await importTool(req.body || {}, req.user);
         res.json({ success: true, tool });
     } catch (err) {
         res.status(err.status || 500).json({ error: err.message || '保存自定义工具失败' });
     }
 });
 
-router.patch('/:slug/access', async (req, res) => {
+router.patch('/:slug/access', requireSuperAdmin, async (req, res) => {
     try {
         const tool = await repo.updateToolAccess(req.params.slug, req.body && req.body.publicAccess);
         if (!tool) return res.status(404).json({ error: '自定义工具不存在' });
@@ -717,6 +843,17 @@ router.patch('/:slug/access', async (req, res) => {
 
 router.patch('/:slug/name', async (req, res) => {
     try {
+        if (!isSuperAdmin(req.user)) {
+            if (getTenantId() === DEFAULT_TENANT_ID) return res.status(403).json({ error: '不能修改系统空间的工具' });
+            const resolved = await distribution.resolveTool(req.params.slug, req.user);
+            if (!resolved) return res.status(404).json({ error: '工具不存在或未开放' });
+            if (resolved.shared) {
+                const name = String(req.body?.name || '').trim().slice(0, 80);
+                if (!name) return res.status(400).json({ error: '名称不能为空' });
+                await distribution.setPersonalEntry(req.user, `tool:${req.params.slug}`, { name });
+                return res.json({ success: true, tool: { ...resolved.tool, name, shared: true } });
+            }
+        }
         const previous = await repo.getTool(req.params.slug);
         const tool = await repo.updateToolName(req.params.slug, req.body && req.body.name);
         if (!tool) return res.status(404).json({ error: '自定义工具不存在' });
@@ -733,7 +870,17 @@ router.patch('/:slug/name', async (req, res) => {
 
 router.delete('/:slug', async (req, res) => {
     try {
+        if (!isSuperAdmin(req.user)) {
+            if (getTenantId() === DEFAULT_TENANT_ID) return res.status(403).json({ error: '不能修改系统空间的工具' });
+            const resolved = await distribution.resolveTool(req.params.slug, req.user);
+            if (!resolved) return res.status(404).json({ error: '工具不存在或未开放' });
+            if (resolved.shared) {
+                await distribution.setPersonalEntry(req.user, `tool:${req.params.slug}`, { hidden: true });
+                return res.json({ success: true, hidden: true });
+            }
+        }
         const tool = await repo.getTool(req.params.slug);
+        if (tool && getTenantId() === DEFAULT_TENANT_ID) await distribution.setSharedAccess(tool.slug, false);
         await hostedApps.removeIfHosted(req.params.slug);
         const deleted = await repo.deleteTool(req.params.slug);
         if (!deleted) return res.status(404).json({ error: '自定义工具不存在' });
@@ -807,6 +954,15 @@ router.delete('/:slug/snapshots/:id', async (req, res) => {
         console.error('[custom-tools] delete snapshot error:', err);
         res.status(500).json({ error: err.message || '删除快照失败' });
     }
+});
+
+router.get('/:slug', async (req, res, next) => {
+    try {
+        const resolved = await distribution.resolveTool(req.params.slug, req.user);
+        if (!resolved) return res.status(404).json({ error: '未找到已开放的工具' });
+        res.setHeader('Cache-Control', 'no-store');
+        res.json({ ...resolved.tool, shared: Boolean(resolved.shared) });
+    } catch (error) { next(error); }
 });
 
 module.exports = router;

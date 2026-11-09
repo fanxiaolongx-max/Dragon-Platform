@@ -425,7 +425,7 @@ async function yieldToLoop() {
 
 // ── list_directory ────────────────────────────────────────
 async function listDirectory(ctx, args = {}) {
-    const allowOutside = ctx.permissionMode === 'full';
+    const allowOutside = ctx.permissionMode === 'full' && !ctx.confined; // 团队账号即使完全访问也不能越出团队空间
     const abs = guard.resolveInsideRoot(ctx.root, args.path || '.', { allowOutside });
     const stat = await fsp.stat(abs).catch(() => null);
     if (!stat) throw toolError('AGENT_NOT_FOUND', `目录不存在：${args.path || '.'}`);
@@ -541,7 +541,7 @@ async function readLineWindow(abs, startLine, maxLines, maxBytes, fileSize, prot
 
 async function readFile(ctx, args = {}) {
     if (!args.path) throw toolError('AGENT_ARGS', '缺少 path');
-    const allowOutside = ctx.permissionMode === 'full';
+    const allowOutside = ctx.permissionMode === 'full' && !ctx.confined; // 团队账号即使完全访问也不能越出团队空间
     const targetPath = String(args.path);
     const absPath = path.isAbsolute(targetPath) ? path.resolve(targetPath) : path.resolve(ctx.root, targetPath);
     // 跨账号私有产物与附件保护：即使完全访问，也绝不能读取属于其他账号的 artifact / upload
@@ -591,7 +591,7 @@ function globToRegExp(glob) {
 
 async function search(ctx, args = {}) {
     if (!args.query) throw toolError('AGENT_ARGS', '缺少 query');
-    const allowOutside = ctx.permissionMode === 'full';
+    const allowOutside = ctx.permissionMode === 'full' && !ctx.confined; // 团队账号即使完全访问也不能越出团队空间
     const abs = guard.resolveInsideRoot(ctx.root, args.path || '.', { allowOutside });
     const flags = args.caseSensitive ? 'g' : 'gi';
     let pattern;
@@ -664,7 +664,7 @@ async function previewWrite(ctx, args = {}) {
     if (typeof args.content !== 'string') throw toolError('AGENT_ARGS', 'write_file 缺少字符串类型的 content。请直接传入 path 和完整 content；写入空文件也必须显式提供 content: \"\"。本次未写入文件。');
     if (!args.path) throw toolError('AGENT_ARGS', '缺少 path');
     assertTextSize(args.content ?? '');
-    const allowOutside = ctx.permissionMode === 'full';
+    const allowOutside = ctx.permissionMode === 'full' && !ctx.confined; // 团队账号即使完全访问也不能越出团队空间
     const abs = guard.resolveInsideRoot(ctx.root, args.path, { allowOutside });
     guard.assertNotSecretFile(abs);
     guard.assertNotSystemCritical(abs, '写入');
@@ -693,7 +693,7 @@ async function previewEdit(ctx, args = {}) {
     if (!args.path) throw toolError('AGENT_ARGS', '缺少 path');
     if (typeof args.oldString !== 'string' || typeof args.newString !== 'string') throw toolError('AGENT_ARGS', 'oldString/newString 必须是字符串');
     if (!args.oldString) throw toolError('AGENT_ARGS', 'oldString 不能为空');
-    const allowOutside = ctx.permissionMode === 'full';
+    const allowOutside = ctx.permissionMode === 'full' && !ctx.confined; // 团队账号即使完全访问也不能越出团队空间
     const abs = guard.resolveInsideRoot(ctx.root, args.path, { allowOutside });
     guard.assertNotSecretFile(abs);
     guard.assertNotSystemCritical(abs, '修改');
@@ -727,7 +727,7 @@ async function previewMultiEdit(ctx, args = {}) {
     if (!args.path) throw toolError('AGENT_ARGS', '缺少 path');
     const edits = Array.isArray(args.edits) ? args.edits : [];
     if (!edits.length || edits.length > 50) throw toolError('AGENT_ARGS', 'edits 需要 1–50 处替换');
-    const allowOutside = ctx.permissionMode === 'full';
+    const allowOutside = ctx.permissionMode === 'full' && !ctx.confined; // 团队账号即使完全访问也不能越出团队空间
     const abs = guard.resolveInsideRoot(ctx.root, args.path, { allowOutside });
     guard.assertNotSecretFile(abs);
     guard.assertNotSystemCritical(abs, '修改');
@@ -769,7 +769,7 @@ async function memoryTool(ctx, args = {}) {
 
 async function deletePath(ctx, args = {}) {
     if (!args.path) throw toolError('AGENT_ARGS', '缺少 path');
-    const allowOutside = ctx.permissionMode === 'full';
+    const allowOutside = ctx.permissionMode === 'full' && !ctx.confined; // 团队账号即使完全访问也不能越出团队空间
     const abs = guard.resolveInsideRoot(ctx.root, args.path, { allowOutside });
     if (guard.samePath(abs, ctx.root)) throw toolError('AGENT_PATH_OUTSIDE', '不能删除工作目录本身');
     guard.assertNotSystemCritical(abs, '删除');
@@ -791,7 +791,7 @@ async function deletePath(ctx, args = {}) {
 
 async function renamePath(ctx, args = {}) {
     if (!args.from || !args.to) throw toolError('AGENT_ARGS', '缺少 from/to');
-    const allowOutside = ctx.permissionMode === 'full';
+    const allowOutside = ctx.permissionMode === 'full' && !ctx.confined; // 团队账号即使完全访问也不能越出团队空间
     const fromAbs = guard.resolveInsideRoot(ctx.root, args.from, { allowOutside });
     const toAbs = guard.resolveInsideRoot(ctx.root, args.to, { allowOutside });
     if (guard.samePath(fromAbs, ctx.root) || guard.samePath(toAbs, ctx.root)) throw toolError('AGENT_PATH_OUTSIDE', '不能移动工作目录本身');
@@ -920,7 +920,7 @@ async function runInteractiveCommand(ctx, command, args = {}) {
         const banner = [`⌨ 智能体正在这里运行：${command.length > 120 ? `${command.slice(0, 120)}…` : command}`,
             '这个终端可以直接输入：粘贴用 Ctrl+V（Mac 为 ⌘V）或右键，回车提交。',
             login ? '登录：请打开下面【本次】输出的新授权链接完成授权（之前的链接和凭据已失效，每次登录的 state 都不同）。\n  · 页面显示一串凭据 → 粘贴到这里回车；\n  · 浏览器跳到 http://localhost:端口/… 打不开（你的浏览器不在服务器上）→ 复制地址栏完整地址粘贴到这里，会自动转交给服务器上的登录程序。' : ''].filter(Boolean).join('\n');
-        handle = terminals.createCommand(ctx.interactive.owner, { command, cwd: ctx.root, env: scrubbedEnv(), title: command, banner });
+        handle = terminals.createCommand(ctx.interactive.owner, { command, cwd: ctx.root, env: scrubbedEnv(), title: command, banner, sandboxTenantId: ctx.confined ? ctx.tenantId : '' });
     } catch (error) {
         return { content: `无法打开交互终端：${error.message}`, summary: '启动失败', isError: true };
     }
@@ -1017,7 +1017,11 @@ async function runCommand(ctx, args = {}) {
         const stderr = createOutputCollector(outputLimit);
         let child;
         try {
-            child = spawn(shell, shellArgs, { cwd: ctx.root, env: scrubbedEnv(), stdio: ['ignore', 'pipe', 'pipe'], detached: !isWin, windowsHide: true });
+            // 团队账号：整条命令放进团队沙箱（只能读写团队空间，网络不限）；沙箱不可用时拒绝执行
+            const launch = ctx.confined
+                ? require('./tenant-sandbox').wrap({ tenantId: ctx.tenantId, cwd: ctx.root, file: shell, args: shellArgs, env: scrubbedEnv() })
+                : { file: shell, args: shellArgs, cwd: ctx.root, env: scrubbedEnv() };
+            child = spawn(launch.file, launch.args, { cwd: launch.cwd, env: launch.env, stdio: ['ignore', 'pipe', 'pipe'], detached: !isWin, windowsHide: true });
         } catch (error) {
             resolve({ content: `无法启动命令：${error.message}`, summary: '启动失败', isError: true });
             return;

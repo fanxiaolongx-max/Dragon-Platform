@@ -2,6 +2,22 @@ const crypto = require('crypto');
 const { readKV, writeKV } = require('./kv-store');
 
 const PROFILE_STORE_KEY = 'ai_settings_profiles';
+// 公共模型：超级管理员（默认团队）里勾选了「分配给所有团队」的配置。其他团队能看到、选用，但不能修改或删除，
+// API Key 只在服务端使用，不会写进团队自己的库；团队也可以另外添加自己的模型。
+const SHARED_PREFIX = 'shared:';
+const tenantContext = require('./tenant-context');
+function inDefaultTenant() {
+    return tenantContext.getTenantId() === tenantContext.DEFAULT_TENANT_ID;
+}
+function isSharedId(id) {
+    return String(id || '').startsWith(SHARED_PREFIX);
+}
+function sharedLockedError() {
+    const error = new Error('公共模型由超级管理员统一维护，不能在团队里修改或删除；可以新增自己的模型配置');
+    error.statusCode = 403;
+    error.code = 'AI_PROFILE_SHARED';
+    return error;
+}
 const LEGACY_SETTINGS_KEY = 'ai_settings';
 const MODEL_ALIAS_KEY = 'ai_model_aliases';
 const MAX_MODEL_ALIASES = 20;
@@ -172,23 +188,40 @@ function normalizeProfile(profile, index) {
         id: String(profile && profile.id || fallbackId).slice(0, 100),
         name: cleanProfileName(profile && profile.name, defaultProfileName(settings)),
         category: profileCategory(profile),
+        shared: Boolean(profile && profile.shared === true),
         ...settings,
         createdAt: String(profile && profile.createdAt || new Date().toISOString()),
         updatedAt: String(profile && profile.updatedAt || new Date().toISOString())
     };
 }
 
+/** 默认团队里标记为公共的配置，以只读形式并入其他团队的配置列表 */
+async function sharedProfiles() {
+    if (inDefaultTenant()) return [];
+    const raw = await tenantContext.runWithTenant(tenantContext.DEFAULT_TENANT_ID, () => readKV('sys', PROFILE_STORE_KEY, null)).catch(() => null);
+    return (raw && Array.isArray(raw.profiles) ? raw.profiles : [])
+        .filter(profile => profile && profile.shared === true)
+        .map((profile, index) => ({ ...normalizeProfile(profile, index + 1), id: `${SHARED_PREFIX}${profile.id}`, shared: true, locked: true }));
+}
+
 async function getProfileStore() {
     const raw = await readKV('sys', PROFILE_STORE_KEY, null);
+    const shared = await sharedProfiles();
+    const meta = raw ? { activeProfileId: raw.activeProfileId, activeImageProfileId: raw.activeImageProfileId, autoSwitchEnabled: raw.autoSwitchEnabled === true } : {};
     if (raw && Array.isArray(raw.profiles) && raw.profiles.length) {
-        const profiles = raw.profiles.map(normalizeProfile);
-        return withActiveIds({ version: 3, activeProfileId: raw.activeProfileId, activeImageProfileId: raw.activeImageProfileId, autoSwitchEnabled: raw.autoSwitchEnabled === true, profiles });
+        const profiles = [...shared, ...raw.profiles.map(normalizeProfile).map(profile => ({ ...profile, locked: false }))];
+        return withActiveIds({ version: 3, ...meta, profiles });
     }
+    // 新团队还没有自己的配置：直接使用公共模型，不生成空白配置
+    if (shared.length) return withActiveIds({ version: 3, ...meta, profiles: shared });
 
     // 无感迁移：历史单配置原样成为第一套方案，Token 不会丢失。
     const legacy = normalizeSettings(await readKV('sys', LEGACY_SETTINGS_KEY, DEFAULT_SETTINGS));
     const first = createProfileRecord(legacy, defaultProfileName(legacy), 'default');
     const migrated = { version: 3, activeProfileId: first.id, autoSwitchEnabled: false, profiles: [first] };
+    // 团队还没有任何模型（超级管理员也没分配公共模型）：只给一套空白方案用于编辑，不落盘；
+    // 否则之后分配的公共模型不会成为团队的默认模型
+    if (!inDefaultTenant() && !await readKV('sys', LEGACY_SETTINGS_KEY, null)) return migrated;
     await writeProfileStore(migrated);
     return migrated;
 }
@@ -203,18 +236,21 @@ function withActiveIds(store) {
 }
 
 async function writeProfileStore(store) {
-    const ids = withActiveIds({ ...store, profiles: store.profiles.map(normalizeProfile) });
+    const ids = withActiveIds({ ...store, profiles: store.profiles.map((profile, index) => ({ ...normalizeProfile(profile, index), locked: Boolean(profile.locked) })) });
     const active = ids.profiles.find(item => item.id === ids.activeProfileId) || ids.profiles[0];
+    // 公共模型只是并入展示，绝不写进团队自己的库（否则团队能从自己的数据库里读到公共 API Key）
+    const own = ids.profiles.filter(profile => !isSharedId(profile.id)).map(({ locked, ...profile }) => (inDefaultTenant() ? profile : { ...profile, shared: false }));
     const normalized = {
         version: 3,
         activeProfileId: active.id,
         activeImageProfileId: ids.activeImageProfileId,
         autoSwitchEnabled: store.autoSwitchEnabled === true,
-        profiles: ids.profiles
+        profiles: own
     };
     await writeKV('sys', PROFILE_STORE_KEY, normalized);
-    // 同步旧键，确保旧版本回滚和历史脚本仍能读取当前激活配置。
-    await writeKV('sys', LEGACY_SETTINGS_KEY, profileSettings(active));
+    // 同步旧键，确保旧版本回滚和历史脚本仍能读取当前激活配置（激活的是公共模型时不写，避免把公共 Key 落进团队库）。
+    const legacy = isSharedId(active.id) ? own[0] : active;
+    if (legacy) await writeKV('sys', LEGACY_SETTINGS_KEY, profileSettings(legacy));
     return normalized;
 }
 
@@ -240,7 +276,8 @@ function profileNotFoundError() {
 }
 
 function runtimeSettings(stored) {
-    const envKey = getEnvKeyForProvider(stored.provider, stored.anthropicAuthType);
+    // 服务器环境变量里的 Key 只给超级管理员的默认团队用：团队自建配置不能借用它（否则可指向自己的 Base URL 套走 Key）
+    const envKey = inDefaultTenant() ? getEnvKeyForProvider(stored.provider, stored.anthropicAuthType) : '';
     const apiKey = stored.apiKey || envKey;
     return {
         ...stored,
@@ -282,6 +319,8 @@ function publicProfile(profile, activeProfileId, activeImageProfileId = '') {
         id: profile.id,
         name: profile.name,
         category,
+        shared: Boolean(profile.shared), // 默认团队：已分配给所有团队；其他团队：来自超级管理员的公共模型
+        locked: Boolean(profile.locked),
         isActive: profile.id === (category === 'image' ? activeImageProfileId : activeProfileId),
         createdAt: profile.createdAt,
         updatedAt: profile.updatedAt,
@@ -328,6 +367,14 @@ async function getImageRuntimeSettings() {
 }
 
 async function buildRuntimeSettings(payload = {}) {
+    const store = await getProfileStore();
+    const target = findProfile(store, payload.profileId);
+    if (target?.locked) {
+        // 公共模型的连通性测试：只能换成它自己列出的模型，其余参数（尤其 Base URL）一律用超级管理员的配置，Key 不会被发往别处
+        const stored = profileSettings(target);
+        const model = stored.models.includes(String(payload.model || '')) ? String(payload.model) : stored.model;
+        return runtimeSettings({ ...stored, model });
+    }
     const current = await getStoredSettings(payload.profileId);
     const nextPayload = { ...payload };
     delete nextPayload.profileId;
@@ -461,8 +508,17 @@ async function saveSettings(payload = {}) {
     const store = await getProfileStore();
     const profile = findProfile(store, payload.profileId);
     if (!profile) throw profileNotFoundError();
-    const nextPayload = { ...payload };
     if (Object.prototype.hasOwnProperty.call(payload, 'autoSwitchEnabled')) store.autoSwitchEnabled = payload.autoSwitchEnabled === true;
+    if (profile.locked) {
+        // 公共模型只允许在团队里切换「自动切换」开关
+        const editable = Object.keys(payload).filter(key => !['profileId', 'autoSwitchEnabled'].includes(key));
+        if (editable.length) throw sharedLockedError();
+        await writeProfileStore(store);
+        return getPublicSettings();
+    }
+    const nextPayload = { ...payload };
+    delete nextPayload.shared;
+    if (inDefaultTenant() && Object.prototype.hasOwnProperty.call(payload, 'shared')) profile.shared = payload.shared === true;
     delete nextPayload.profileId;
     delete nextPayload.name;
     delete nextPayload.autoSwitchEnabled;
@@ -498,10 +554,12 @@ async function createProfile(payload = {}) {
         model: DEFAULT_MODELS[requestedProvider]
     };
     const settings = normalizeSettings(payload, base);
-    if (!source && !Object.prototype.hasOwnProperty.call(payload, 'apiKey')) settings.apiKey = '';
+    if ((!source || source.locked) && !Object.prototype.hasOwnProperty.call(payload, 'apiKey')) settings.apiKey = '';
+    if (source && source.locked) settings.apiKey = String(payload.apiKey || '').trim(); // 复制公共模型时不带走它的 Key
     const requestedName = cleanProfileName(payload.name, source ? `${source.name} 副本` : defaultProfileName(settings));
     const category = payload.category === 'image' || payload.category === 'chat' ? payload.category : (source ? profileCategory(source) : 'chat');
     const profile = createProfileRecord(settings, uniqueProfileName(store.profiles, requestedName), crypto.randomUUID(), category);
+    if (inDefaultTenant() && payload.shared === true) profile.shared = true;
     store.profiles.push(profile);
     if (payload.activate === true) store[category === 'image' ? 'activeImageProfileId' : 'activeProfileId'] = profile.id;
     await writeProfileStore(store);
@@ -519,6 +577,7 @@ async function activateProfile(profileId) {
 
 async function deleteProfile(profileId) {
     const store = await getProfileStore();
+    if (findProfile(store, profileId)?.locked) throw sharedLockedError();
     if (store.profiles.length <= 1) {
         const error = new Error('至少需要保留一套 AI 配置');
         error.statusCode = 400;
@@ -526,6 +585,7 @@ async function deleteProfile(profileId) {
     }
     const index = store.profiles.findIndex(item => item.id === String(profileId));
     if (index < 0) throw profileNotFoundError();
+    if (store.profiles[index].locked) throw sharedLockedError();
     if (profileCategory(store.profiles[index]) === 'chat' && store.profiles.filter(item => profileCategory(item) === 'chat').length <= 1) {
         const error = new Error('至少需要保留一套对话模型配置');
         error.statusCode = 400;

@@ -436,6 +436,14 @@
         }
         .tool-card:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.2); transform: translateY(-4px); box-shadow: 0 16px 40px rgba(0,0,0,0.4); }
         .tool-card:hover::before { transform: scaleX(1); }
+        .tool-card.is-shared-access {
+            border-color: rgba(16, 163, 127, 0.45);
+            box-shadow: 0 0 0 1px rgba(16, 163, 127, 0.22), 0 4px 18px rgba(16, 163, 127, 0.16);
+        }
+        .tool-card.is-shared-access:hover {
+            border-color: rgba(16, 163, 127, 0.7);
+            box-shadow: 0 0 0 1px rgba(16, 163, 127, 0.35), 0 8px 26px rgba(16, 163, 127, 0.28);
+        }
 
         .tool-card.uivf12 { --card-accent: #64ffda; }
         .tool-card.sla    { --card-accent: #4a90e2; }
@@ -819,6 +827,9 @@
         .tool-market-trust:empty { display:none; }
         .tool-market-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-content:start; gap:8px; min-height:0; flex:1; overflow:auto; padding-right:4px; }
         .tool-market-card { display:grid; grid-template-columns:auto 36px minmax(0,1fr) auto; align-items:start; gap:9px; padding:11px 12px; border:1px solid rgba(148,163,184,.16); border-radius:12px; background:rgba(2,6,23,.3); transition: opacity .25s ease, filter .25s ease, border-color .25s ease, background .25s ease, transform .25s ease, box-shadow .25s ease; }
+        .tool-market-card.is-platform { grid-template-columns:36px minmax(0,1fr) auto; align-items:center; }
+        .tool-market-card.is-platform a { text-decoration:none; white-space:nowrap; }
+        #toolMarketPlatformList:empty { display:none; }
         .tool-market-card.is-actionable { border-color:rgba(52,211,153,.45); background:linear-gradient(135deg,rgba(16,185,129,.1) 0%,rgba(2,6,23,.45) 100%); box-shadow:0 0 16px rgba(16,185,129,.08), inset 0 0 0 1px rgba(52,211,153,.12); }
         .tool-market-card.is-actionable:hover { border-color:rgba(52,211,153,.7); box-shadow:0 4px 20px rgba(16,185,129,.16), inset 0 0 0 1px rgba(52,211,153,.2); transform:translateY(-1px); }
         .tool-market-card.is-dimmed { opacity:.48; border-color:rgba(148,163,184,.1); background:rgba(2,6,23,.2); }

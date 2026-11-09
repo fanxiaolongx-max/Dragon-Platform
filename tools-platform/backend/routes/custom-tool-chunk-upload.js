@@ -13,7 +13,7 @@ module.exports = function createUploadRouter(importTool, { scope = 'tools', form
     router.get('/key', endpoint(() => ({ publicKey: uploads.getPublicKey() })));
     router.post('/start', endpoint(req => uploads.start(req.body || {}, owner(req), scope)));
     router.post('/:id/chunk', endpoint(req => uploads.receive(req.params.id, req.body || {}, owner(req), scope)));
-    router.post('/:id/complete', endpoint(async req => formatResult(await uploads.complete(req.params.id, owner(req), importTool, scope))));
+    router.post('/:id/complete', endpoint(async req => formatResult(await uploads.complete(req.params.id, owner(req), payload => importTool(payload, req.user), scope))));
     router.delete('/:id', endpoint(req => { uploads.cancel(req.params.id, owner(req), scope); return {}; }));
     return router;
 };

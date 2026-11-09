@@ -1,0 +1,46 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .pnl{position:absolute;background:#fffdf8;border:3px solid var(--ink);border-radius:26px;box-shadow:var(--sh)}
+#root .pnl .pt{position:absolute;left:0;right:0;top:0;height:64px;border-bottom:3px solid var(--ink);border-radius:23px 23px 0 0;display:flex;align-items:center;justify-content:center;font-size:38px}
+#root .lbl{position:absolute;font-size:36px;white-space:nowrap}
+#root .big{font-size:44px}
+</style>
+<div id="root" data-composition-id="s14" data-width="1920" data-height="1080">
+  <div class="paper"></div>
+  <div class="head" id="s14-h"><span class="step">第 7 层</span><span class="ttl">硬件 · 小结</span></div>
+  <svg class="abs" style="left:0;top:0" width="1920" height="1080"><path id="s14-k0" d="M450 350 L960 450" stroke="#ffd166" stroke-width="8" stroke-linecap="round" fill="none" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><path id="s14-k1" d="M410 690 L960 450" stroke="#ffd166" stroke-width="8" stroke-linecap="round" fill="none" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><path id="s14-k2" d="M1030 830 L960 450" stroke="#ffd166" stroke-width="8" stroke-linecap="round" fill="none" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><path id="s14-k3" d="M1630 690 L960 450" stroke="#ffd166" stroke-width="8" stroke-linecap="round" fill="none" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><path id="s14-k4" d="M1590 350 L960 450" stroke="#ffd166" stroke-width="8" stroke-linecap="round" fill="none" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/></svg>
+  <div class="abs" id="s14-cl" style="left:810px;top:330px"></div><div class="abs" id="s14-br" style="left:895px;top:380px"></div><div class="lbl" id="s14-cll" style="left:850px;top:270px;font-size:36px">云端大脑</div>
+  <div class="abs" id="s14-shell" style="left:860px;top:640px;width:200px;height:200px;border-radius:40px;border:4px solid var(--ink);background:#ffe08f"></div>
+  <div class="abs" id="s14-n0" style="left:380px;top:280px;text-align:center"><span id="s14-i0"></span><br><span class="tag" style="font-size:30px;background:#fff">眼镜</span></div>
+  <div class="abs" id="s14-n1" style="left:340px;top:620px;text-align:center"><span id="s14-i1"></span><br><span class="tag" style="font-size:30px;background:#fff">耳机</span></div>
+  <div class="abs" id="s14-n2" style="left:960px;top:760px;text-align:center"><span id="s14-i2"></span><br><span class="tag" style="font-size:30px;background:#fff">挂件</span></div>
+  <div class="abs" id="s14-n3" style="left:1560px;top:620px;text-align:center"><span id="s14-i3"></span><br><span class="tag" style="font-size:30px;background:#fff">玩具</span></div>
+  <div class="abs" id="s14-n4" style="left:1520px;top:280px;text-align:center"><span id="s14-i4"></span><br><span class="tag" style="font-size:30px;background:#fff">汽车</span></div>
+
+  <div id="s14-sp"></div>
+  <div class="cap" id="s14-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ var tl=gsap.timeline({paused:true});
+ var S="#s14-";
+ tl.fromTo("#s14-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.25);
+ 
+ put("s14-cl",icon("cloud","#aed8f2",300));put("s14-br",icon("brain","#ffb3c6",130));put("s14-i0",icon("glasses","#aed8f2",140));put("s14-i1",icon("headset","#9fe0c9",140));put("s14-i2",icon("pendant","#ffe08f",140));put("s14-i3",icon("bear","#ffc29a",140));put("s14-i4",icon("car","#d9c6ef",140));
+ gsap.set(S+"cl,"+S+"br,"+S+"cll,"+S+"shell,"+S+"n0,"+S+"n1,"+S+"n2,"+S+"n3,"+S+"n4",{opacity:0});
+ tl.fromTo(S+"shell",{opacity:0,scale:.6},{opacity:1,scale:1,duration:.5,ease:"back.out(1.6)"},.5);
+ tl.to(S+"shell",{backgroundColor:"rgba(255,224,143,.15)",borderStyle:"dashed",duration:.8},T("变透明")-.2);
+ tl.fromTo(S+"cl,"+S+"br,"+S+"cll",{opacity:0,scale:.7},{opacity:1,scale:1,duration:.6,stagger:.12,ease:"back.out(1.6)"},T("发现")-.2);
+ tl.to(S+"shell",{opacity:0,duration:.4},T("眼镜")-.3);
+ ["眼镜","耳机","挂件","玩具","汽车"].forEach(function(k,i){pop(tl,S+"n"+i,T(k)-.15,{y:20});draw(tl,"#s14-k"+i,T(k),.6);});
+ tl.to(S+"br",{scale:1.15,duration:.35,yoyo:true,repeat:5,transformOrigin:"50% 50%"},T("同一个"));
+ tl.to("#s14-k0,#s14-k1,#s14-k2,#s14-k3,#s14-k4",{strokeDasharray:"0.04 0.03",duration:.01},T("同一个"));
+ tl.to("#s14-k0,#s14-k1,#s14-k2,#s14-k3,#s14-k4",{strokeDashoffset:-1,duration:3,ease:"none"},T("同一个"));
+ captions(tl,"s14-cap");
+ window.__timelines["s14"]=tl;
+})();
+</script>
+</template></body></html>

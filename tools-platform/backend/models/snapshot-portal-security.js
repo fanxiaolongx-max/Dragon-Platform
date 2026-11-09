@@ -2,7 +2,6 @@
 const crypto = require('node:crypto');
 const { run, get } = require('./app-db');
 const usersRepo = require('./auth-users-repository');
-const tenants = require('./tenants-repository');
 const { getTenantId } = require('./tenant-context');
 const pbkdf2 = require('node:util').promisify(crypto.pbkdf2);
 const ITERATIONS = 210000;
@@ -31,10 +30,10 @@ async function getSecurity() {
     await ready();
     const { items } = await usersRepo.listUsers();
     const allowed = [];
+    // 一个账号 = 一个团队：静态站点只收录当前空间自己的账号，不把其他团队的账号写进发布的站点
     for (const [username, user] of Object.entries(items).sort(([a], [b]) => a.localeCompare(b))) {
-        if (user.role === 'admin' || await tenants.canAccess(username, user.role, getTenantId())) {
-            allowed.push({ username, role: user.role, passwordHash: user.passwordHash });
-        }
+        if (((user.tenantId || 'default') !== getTenantId() && !user.isSuper) || !user.portalHash) continue; // 超级管理员可解锁其发布的任何静态站点
+        allowed.push({ username, role: user.role, passwordHash: user.portalHash });
     }
     if (!allowed.length) throw Object.assign(new Error('当前租户没有可用于静态站点登录的账号'), { status: 400 });
     const revision = digest(JSON.stringify(allowed));

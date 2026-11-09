@@ -1,0 +1,56 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .pnl{position:absolute;background:#fffdf8;border:3px solid var(--ink);border-radius:26px;box-shadow:var(--sh)}
+#root .pnl .pt{position:absolute;left:0;right:0;top:0;height:64px;border-bottom:3px solid var(--ink);border-radius:23px 23px 0 0;display:flex;align-items:center;justify-content:center;font-size:38px}
+#root .lbl{position:absolute;font-size:36px;white-space:nowrap}
+#root .big{font-size:44px}
+#root .head{left:0;right:0;justify-content:center}
+#root .flow{stroke:#ffd166;stroke-width:6;fill:none;stroke-linecap:round;stroke-dasharray:6 14}
+</style>
+<div id="root" data-composition-id="s1" data-width="1920" data-height="1080">
+  <div class="paper"></div>
+  <div class="head" id="s1-h"><span class="ttl">什么是 AI 原生？</span></div>
+  <div class="pnl" id="s1-l" style="left:150px;top:230px;width:700px;height:560px"><div class="pt" style="background:#e6dfd6">用上 AI</div></div>
+  <div class="abs" id="s1-bd" style="left:330px;top:330px"></div>
+  <div class="abs" id="s1-pg" style="left:600px;top:470px"></div>
+  <div class="tag abs" id="s1-t1" style="left:330px;top:710px;background:#fff">外挂一个 AI 插件</div>
+  <div class="pnl" id="s1-r" style="left:1070px;top:230px;width:700px;height:560px"><div class="pt" style="background:#9fe0c9">生而 AI</div></div>
+  <svg class="abs" id="s1-tree" style="left:1210px;top:300px" width="420" height="440" viewBox="0 0 420 440" overflow="visible">
+    <path d="M190 430 C170 420 150 432 120 438 M230 430 C250 420 270 432 300 438" class="ln" style="stroke:#c8a27a"/>
+    <path d="M186 430 L192 250 L228 250 L234 430 Z" fill="#d8b48c" stroke="#5b4636" stroke-width="4" stroke-linejoin="round"/>
+    <circle cx="210" cy="170" r="110" fill="#9fe0c9" stroke="#5b4636" stroke-width="4"/>
+    <circle cx="110" cy="230" r="70" fill="#9fe0c9" stroke="#5b4636" stroke-width="4"/>
+    <circle cx="310" cy="230" r="70" fill="#9fe0c9" stroke="#5b4636" stroke-width="4"/>
+    <path id="s1-f1" class="flow" d="M210 430 V250 C210 200 170 160 150 120"/><path id="s1-f2" class="flow" d="M210 300 C230 240 280 220 320 200"/><path id="s1-f3" class="flow" d="M210 330 C190 280 130 260 100 240"/>
+  </svg>
+  <div class="abs" id="s1-seed" style="left:1360px;top:690px;width:110px;height:110px;border-radius:50%;background:radial-gradient(circle,#fff6c9,#ffd166);border:3px solid var(--ink);display:flex;align-items:center;justify-content:center;font-size:40px;box-shadow:0 0 40px rgba(255,209,102,.9)">AI</div>
+  <div class="abs" id="s1-d" style="left:830px;top:620px"></div>
+  <div id="s1-sp"></div>
+  <div class="cap" id="s1-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ var tl=gsap.timeline({paused:true});
+ var S="#s1-";
+ tl.fromTo("#s1-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.25);
+ put("s1-d",dino("dn",{w:260,h:260,body:"#8fd8b8"}));tl.fromTo("#s1-d",{opacity:0,y:80},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.5);dtail(tl,"dn",.6,30);
+ put("s1-bd",icon("building","#aed8f2",260));put("s1-pg",icon("plug","#ffe08f",120));
+ gsap.set(S+"l,"+S+"bd,"+S+"pg,"+S+"t1,"+S+"r,"+S+"seed",{opacity:0});
+ tl.fromTo(S+"l,"+S+"bd",{opacity:0,y:40},{opacity:1,y:0,duration:.6,stagger:.15,ease:"power3.out"},T("左边")-.3);
+ tl.fromTo(S+"pg",{opacity:0,x:120,rotation:30},{opacity:1,x:0,rotation:-8,duration:.7,ease:"back.out(1.6)"},T("外挂"));
+ pop(tl,S+"t1",T("用上AI"),{s:.8});
+ tl.fromTo(S+"r",{opacity:0,y:40},{opacity:1,y:0,duration:.6,ease:"power3.out"},T("右边")-.3);
+ tl.fromTo(S+"seed",{opacity:0,scale:.3},{opacity:1,scale:1,duration:.5,ease:"back.out(2)",transformOrigin:"50% 50%"},T("种子")-.4);
+ tl.fromTo(S+"tree",{opacity:0,scaleY:.05,scaleX:.4},{opacity:1,scaleY:1,scaleX:1,duration:1.1,ease:"back.out(1.3)",transformOrigin:"50% 100%"},T("长出来")-.3);
+ tl.to(S+"seed",{y:-30,scale:.7,duration:.6},T("长出来")-.3);
+ tl.fromTo("#s1-f1,#s1-f2,#s1-f3",{strokeDashoffset:0,opacity:0},{strokeDashoffset:-200,opacity:1,duration:3,ease:"none"},T("流着")-.3);
+ tl.to("#s1-f1,#s1-f2,#s1-f3",{strokeDashoffset:-400,duration:3,ease:"none"},T("流着")+2.7);
+ dwave(tl,"dn",.9,3);
+ captions(tl,"s1-cap");
+ window.__timelines["s1"]=tl;
+})();
+</script>
+</template></body></html>

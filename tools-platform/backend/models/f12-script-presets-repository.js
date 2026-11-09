@@ -97,14 +97,15 @@ async function getPreset(id) {
     return row ? rowToPreset(row) : null;
 }
 
-async function savePreset(input, id = '') {
+async function savePreset(input, id = '', { allowCreate = false } = {}) {
     await ensureReady();
     const preset = normalizeInput(input);
     const now = new Date().toISOString();
     const safeId = String(id || '').trim();
     if (safeId) {
         const existing = await getPreset(safeId);
-        if (!existing) return null;
+        if (!existing && !allowCreate) return null;
+        if (existing) {
         await run(`UPDATE f12_script_presets
                    SET name = ?, description = ?, matches = ?, world = ?, include_popup = ?,
                        manual_launch = ?, run_at = ?, all_frames = ?, optional_permissions_json = ?,
@@ -115,8 +116,9 @@ async function savePreset(input, id = '') {
             JSON.stringify(preset.optionalPermissions), preset.code, now, safeId
         ]);
         return getPreset(safeId);
+        }
     }
-    const newId = crypto.randomUUID();
+    const newId = safeId || crypto.randomUUID();
     await run(`INSERT INTO f12_script_presets (
                    id, name, description, matches, world, include_popup, manual_launch,
                    run_at, all_frames, optional_permissions_json, code, created_at, updated_at

@@ -1,14 +1,12 @@
 {
   "zh": [
-    "题库与答题助手优化：移除自动答题时的复盘/回顾模式拦截限制，点击后直接进行答题。",
-    "Claude 桌面智能体增强：支持重试时安全清理未提交粘贴草稿，并严格校验会话与输入框焦点。",
-    "AI 对话体验升级：回复底部展示 Prompt 缓存命中量，刷新页面后仍完整保留单轮调用指标与统计。",
-    "终端交互优化：支持将本地端口 OAuth 回调自动中继到服务端的登录进程。"
+    "多用户与权限管控增强：完善多账号租户隔离、团队沙箱边界与权限校验机制。",
+    "需求管理与意见反馈升级：重构图片附件上传体验，支持增量上传、拖拽与截图粘贴，并支持多图优雅大图预览及单独删除；提交成功后自动平滑关闭弹窗。",
+    "导航栏与菜单布局优化：优化「更多」抽屉菜单结构，将友情链接合理收拢至菜单底部与自定义菜单栏上方。"
   ],
   "en": [
-    "Exam Question Bank Assistant: removed review-mode auto-answer restrictions so clicking runs directly.",
-    "Claude Desktop Agent: safely clear unsubmitted paste drafts on focus retry and strictly verify window target.",
-    "AI Chat enhancements: display prompt cache hits under replies and preserve per-call metrics across reloads.",
-    "Terminal updates: automatically relay localhost OAuth callbacks to server-side CLI login processes."
+    "Multi-user and access control: enhanced tenant isolation, team sandbox boundaries, and permission verification.",
+    "Requirement plaza and feedback: overhauled image attachments with incremental uploads, drag-and-drop, screenshot paste, full-screen lightbox preview, and auto-closing dialogs.",
+    "Sidebar navigation layout: refined the More drawer menu, placing friend links neatly above the custom menu at the bottom of the list."
   ]
 }

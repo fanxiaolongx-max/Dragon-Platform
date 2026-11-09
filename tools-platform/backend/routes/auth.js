@@ -1,12 +1,23 @@
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
-const { checkAuth, requireAdmin, hashPassword } = require('../middleware/auth');
+const { checkAuth, requireSuperAdmin, hashUserPassword, isLegacyPasswordHash, verifyUserPassword } = require('../middleware/auth');
 const authUsersRepo = require('../models/auth-users-repository');
 const authSessionsRepo = require('../models/auth-sessions-repository');
 const authSecurityMonitor = require('../models/auth-security-monitor');
 const authSecuritySettingsRepo = require('../models/auth-security-settings-repository');
 const tenantsRepo = require('../models/tenants-repository');
+const auditLog = require('../models/platform-audit-repository');
+const { ensureUserSpaceDirs } = require('../models/tenant-context');
+
+const USERNAME_RE = /^[a-z0-9][a-z0-9_-]{1,62}$/i;
+const MIN_PASSWORD_LENGTH = 8;
+
+function passwordProblem(password) {
+    if (typeof password !== 'string' || password.length < MIN_PASSWORD_LENGTH) return `密码至少 ${MIN_PASSWORD_LENGTH} 位`;
+    if (password.length > 200) return '密码过长';
+    return '';
+}
 
 const DEFAULT_SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -37,8 +48,8 @@ function getAuthCookieOptions(req, extra = {}) {
 
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
-    const { username, password } = req.body;
-    
+    const { username, password } = req.body || {};
+
     try {
         const block = await authSecurityMonitor.getLoginBlock(req, username);
         if (block) {
@@ -51,9 +62,9 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        const user = await authUsersRepo.getUser(username);
+        const user = typeof username === 'string' ? await authUsersRepo.getUser(username) : null;
 
-        if (!user || user.passwordHash !== hashPassword(password)) {
+        if (!user || !verifyUserPassword(password, user.passwordHash)) {
             authSecurityMonitor.recordLoginAttempt(req, {
                 username,
                 success: false,
@@ -61,14 +72,16 @@ router.post('/login', async (req, res) => {
             });
             return res.status(401).json({ error: '用户名或密码错误' });
         }
+        // 旧 sha256 哈希登录成功后透明升级成 scrypt
+        if (isLegacyPasswordHash(user.passwordHash)) {
+            await authUsersRepo.setPassword(username, password).catch(error => console.warn('[auth] 密码哈希升级失败：', error.message));
+        }
 
         const token = crypto.randomBytes(32).toString('hex');
-        
         const sessionMaxAgeMs = await getSessionMaxAgeMs();
         const expiresAt = Date.now() + sessionMaxAgeMs;
-        await tenantsRepo.ensureReady();
-        const availableTenants = await tenantsRepo.listTenantsForUser(username, user.role);
-        const tenantId = availableTenants[0]?.id || tenantsRepo.DEFAULT_TENANT_ID;
+        // 一个账号 = 一个团队：会话直接落在账号自己的团队
+        const tenantId = user.tenantId || tenantsRepo.DEFAULT_TENANT_ID;
         await authSessionsRepo.saveSession(token, username, user.role, expiresAt, tenantId);
         authSecurityMonitor.recordLoginAttempt(req, {
             username,
@@ -76,9 +89,10 @@ router.post('/login', async (req, res) => {
             reason: 'success'
         });
         authSecurityMonitor.clearSuccessfulLoginState(req, username);
-        
+        auditLog.record(req, { actor: username, action: 'login', tenantId });
+
         res.cookie('tools_token', token, getAuthCookieOptions(req, { maxAge: sessionMaxAgeMs }));
-        res.json({ success: true, token, role: user.role, username, tenantId });
+        res.json({ success: true, token, role: user.role, username, tenantId, isSuper: user.isSuper });
     } catch (err) {
         console.error('Login error:', err);
         res.status(500).json({ error: '登录失败' });
@@ -97,13 +111,36 @@ router.post('/logout', checkAuth, async (req, res) => {
 });
 
 // GET /api/auth/me
-router.get('/me', checkAuth, (req, res) => {
-    res.json(req.user);
+router.get('/me', checkAuth, async (req, res) => {
+    const me = { ...req.user };
+    if (me.isSuper && me.tenantId !== me.homeTenantId) {
+        const tenant = await tenantsRepo.getTenantById(me.tenantId).catch(() => null);
+        me.viewingTeam = { id: me.tenantId, name: tenant?.name || me.tenantId };
+    }
+    res.json(me);
 });
 
-// --- Security Settings & Lock Management (Admin Only) ---
+// PUT /api/auth/me/password：本人修改密码（需要当前密码），其他设备上的会话随之失效
+router.put('/me/password', checkAuth, async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body || {};
+        const problem = passwordProblem(newPassword);
+        if (problem) return res.status(400).json({ error: problem });
+        const user = await authUsersRepo.getUser(req.user.username);
+        if (!user || !verifyUserPassword(currentPassword, user.passwordHash)) return res.status(400).json({ error: '当前密码不正确' });
+        await authUsersRepo.setPassword(req.user.username, newPassword);
+        await authSessionsRepo.deleteSessionsForUser(req.user.username, { exceptToken: req.authToken });
+        auditLog.record(req, { action: 'password_change', target: req.user.username });
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[auth] change own password failed:', err);
+        res.status(500).json({ error: '修改密码失败' });
+    }
+});
 
-router.get('/security/settings', checkAuth, requireAdmin, async (req, res) => {
+// --- Security Settings & Lock Management (Super Admin Only) ---
+
+router.get('/security/settings', checkAuth, requireSuperAdmin, async (req, res) => {
     try {
         res.json(await authSecuritySettingsRepo.getSettings());
     } catch (err) {
@@ -112,7 +149,7 @@ router.get('/security/settings', checkAuth, requireAdmin, async (req, res) => {
     }
 });
 
-router.put('/security/settings', checkAuth, requireAdmin, async (req, res) => {
+router.put('/security/settings', checkAuth, requireSuperAdmin, async (req, res) => {
     try {
         res.json(await authSecuritySettingsRepo.saveSettings(req.body || {}));
     } catch (err) {
@@ -121,7 +158,7 @@ router.put('/security/settings', checkAuth, requireAdmin, async (req, res) => {
     }
 });
 
-router.get('/security/locks', checkAuth, requireAdmin, async (req, res) => {
+router.get('/security/locks', checkAuth, requireSuperAdmin, async (req, res) => {
     try {
         res.json(await authSecurityMonitor.listActiveLocks());
     } catch (err) {
@@ -130,7 +167,7 @@ router.get('/security/locks', checkAuth, requireAdmin, async (req, res) => {
     }
 });
 
-router.delete('/security/locks/:lockKey', checkAuth, requireAdmin, async (req, res) => {
+router.delete('/security/locks/:lockKey', checkAuth, requireSuperAdmin, async (req, res) => {
     try {
         const lock = await authSecurityMonitor.unlockLock(req.params.lockKey, req);
         if (!lock) return res.status(404).json({ error: '锁定记录不存在' });
@@ -141,72 +178,101 @@ router.delete('/security/locks/:lockKey', checkAuth, requireAdmin, async (req, r
     }
 });
 
-// --- User Management (Admin Only) ---
+// GET /api/auth/audit：审计日志（超级管理员）
+router.get('/audit', checkAuth, requireSuperAdmin, async (req, res) => {
+    try {
+        res.json({ items: await auditLog.list({ limit: req.query.limit, before: req.query.before, actor: req.query.actor, action: req.query.action }) });
+    } catch (err) {
+        res.status(500).json({ error: '读取审计日志失败' });
+    }
+});
+
+// --- Account Management (Super Admin Only)：一个账号 = 一个团队 ---
 
 // GET /api/auth/users
-router.get('/users', checkAuth, requireAdmin, async (req, res) => {
+router.get('/users', checkAuth, requireSuperAdmin, async (req, res) => {
     try {
-        const usersObj = await authUsersRepo.listUsers({ mode: 'auto' });
-        // usersObj.items is a dict: { username: { role, passwordHash } }
-        const users = usersObj.items || {};
-        const userList = Object.keys(users).map(u => ({ username: u, role: users[u].role }));
-        res.json(userList);
+        const users = (await authUsersRepo.listUsers()).items || {};
+        const tenants = new Map((await tenantsRepo.listManagedTenants()).map(item => [item.id, item]));
+        res.json(Object.values(users).map(user => ({
+            username: user.username,
+            role: user.role,
+            isSuper: user.isSuper,
+            tenantId: user.tenantId,
+            teamName: user.tenantId === tenantsRepo.DEFAULT_TENANT_ID ? '超级管理员空间' : (tenants.get(user.tenantId)?.name || user.displayName || user.username),
+            displayName: user.displayName,
+            createdAt: user.createdAt
+        })));
     } catch (err) {
         res.status(500).json({ error: '获取用户列表失败' });
     }
 });
 
-// POST /api/auth/users
-router.post('/users', checkAuth, requireAdmin, async (req, res) => {
-    const { username, password, role } = req.body;
-    if (!username || !password || !role) return res.status(400).json({ error: '缺少必填字段' });
-    
+// POST /api/auth/users：新建账号，同时建好它独立的团队空间
+router.post('/users', checkAuth, requireSuperAdmin, async (req, res) => {
+    const username = String(req.body?.username || '').trim();
+    const password = req.body?.password;
+    const displayName = String(req.body?.displayName || '').trim().slice(0, 60);
+    if (!USERNAME_RE.test(username)) return res.status(400).json({ error: '账号只能用字母、数字、- 和 _，2-63 位，并以字母或数字开头' });
+    const problem = passwordProblem(password);
+    if (problem) return res.status(400).json({ error: problem });
+    const tenantId = username.toLowerCase();
+    if (tenantId === tenantsRepo.DEFAULT_TENANT_ID) return res.status(400).json({ error: 'default 是保留名称' });
+
+    try {
+        if (await authUsersRepo.getUser(username)) return res.status(400).json({ error: '用户名已存在' });
+        if (await tenantsRepo.getTenantById(tenantId).catch(() => null)) return res.status(409).json({ error: '同名团队空间已存在（可能是已删除账号保留的数据），请换一个账号名或先在账号列表里彻底清除' });
+        await tenantsRepo.createTenant({ id: tenantId, name: displayName || username, description: `账号 ${username} 的团队空间` });
+        try {
+            ensureUserSpaceDirs(tenantId);
+            await authUsersRepo.createUser({ username, role: 'admin', passwordHash: hashUserPassword(password), tenantId, displayName });
+        } catch (error) {
+            await tenantsRepo.archiveTenant(tenantId).then(() => tenantsRepo.deleteTenantPermanently(tenantId)).catch(() => {});
+            throw error;
+        }
+        auditLog.record(req, { action: 'user_create', target: username, tenantId });
+        res.json({ success: true, username, tenantId });
+    } catch (err) {
+        console.error('[auth] create user failed:', err);
+        res.status(err.statusCode || 500).json({ error: err.message || '创建用户失败' });
+    }
+});
+
+// DELETE /api/auth/users/:username?purge=1：删除账号；团队数据默认归档保留，purge=1 时一并彻底删除
+router.delete('/users/:username', checkAuth, requireSuperAdmin, async (req, res) => {
+    const username = req.params.username;
+    const purge = ['1', 'true'].includes(String(req.query.purge || '').toLowerCase());
     try {
         const user = await authUsersRepo.getUser(username);
-        if (user) {
-            return res.status(400).json({ error: '用户名已存在' });
+        if (!user) return res.status(404).json({ error: '用户不存在' });
+        if (user.isSuper) return res.status(403).json({ error: '超级管理员不能删除' });
+        await authUsersRepo.deleteUser(username);
+        await authSessionsRepo.deleteSessionsForUser(username);
+        const tenantId = user.tenantId;
+        const sharedWithOthers = Object.values((await authUsersRepo.listUsers()).items).some(other => other.tenantId === tenantId);
+        if (tenantId && tenantId !== tenantsRepo.DEFAULT_TENANT_ID && !sharedWithOthers) {
+            await tenantsRepo.archiveTenant(tenantId).catch(error => { if (error.statusCode !== 404) throw error; });
+            if (purge) await tenantsRepo.deleteTenantPermanently(tenantId);
         }
-        
-        await authUsersRepo.saveUser(username, role, hashPassword(password));
+        auditLog.record(req, { action: purge ? 'user_delete_purge' : 'user_delete', target: username, tenantId });
+        res.json({ success: true, purged: purge });
+    } catch (err) {
+        console.error('[auth] delete user failed:', err);
+        res.status(err.statusCode || 500).json({ error: err.message || '删除用户失败' });
+    }
+});
+
+// PUT /api/auth/users/:username/password：超级管理员重置密码，该账号所有会话下线
+router.put('/users/:username/password', checkAuth, requireSuperAdmin, async (req, res) => {
+    const { password } = req.body || {};
+    const username = req.params.username;
+    const problem = passwordProblem(password);
+    if (problem) return res.status(400).json({ error: problem });
+    try {
+        if (!await authUsersRepo.setPassword(username, password)) return res.status(404).json({ error: '用户不存在' });
+        await authSessionsRepo.deleteSessionsForUser(username, { exceptToken: username === req.user.username ? req.authToken : '' });
+        auditLog.record(req, { action: 'password_reset', target: username });
         res.json({ success: true });
-    } catch (err) {
-        res.status(500).json({ error: '创建用户失败' });
-    }
-});
-
-// DELETE /api/auth/users/:username
-router.delete('/users/:username', checkAuth, requireAdmin, async (req, res) => {
-    const username = req.params.username;
-    if (username === 'admin') {
-        return res.status(403).json({ error: '默认超级管理员不能删除' });
-    }
-    
-    try {
-        const user = await authUsersRepo.getUser(username);
-        if (user) {
-            await authUsersRepo.deleteUser(username);
-            res.json({ success: true });
-        } else {
-            res.status(404).json({ error: '用户不存在' });
-        }
-    } catch (err) {
-        res.status(500).json({ error: '删除用户失败' });
-    }
-});
-
-// PUT /api/auth/users/:username/password
-router.put('/users/:username/password', checkAuth, requireAdmin, async (req, res) => {
-    const { password } = req.body;
-    const username = req.params.username;
-    
-    try {
-        const user = await authUsersRepo.getUser(username);
-        if (user) {
-            await authUsersRepo.saveUser(username, user.role, hashPassword(password));
-            res.json({ success: true });
-        } else {
-            res.status(404).json({ error: '用户不存在' });
-        }
     } catch (err) {
         res.status(500).json({ error: '修改密码失败' });
     }

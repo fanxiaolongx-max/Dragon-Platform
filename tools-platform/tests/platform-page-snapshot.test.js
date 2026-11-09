@@ -17,7 +17,10 @@ test.after(async () => {
     fs.rmSync(temp, { recursive: true, force: true });
 });
 test('platform demos capture latest tenant data, scripts and saved documents in all formats', async () => {
-    await require('../backend/models/uiv-scripts-repository').replaceAllScripts([{ id: 'demo-script', name: '示例抓取', category: '默认分类', code: 'const password="do-not-publish-this-secret"; console.log("demo");' }]);
+    await require('../backend/models/uiv-scripts-repository').replaceAllScripts([{ id: 'demo-script', name: '示例抓取', url: 'https://demo.example.com/capture', category: '默认分类', code: 'const password="do-not-publish-this-secret"; console.log("demo");' }]);
+    const distribution = require('../backend/models/tool-distribution');
+    assert.doesNotMatch(JSON.stringify(await pages.collect('uivf12')), /demo-script/);
+    await distribution.setEntryAccess('cap:float:https://demo.example.com', true);
     const sla = require('../backend/models/sla-snapshots-repository');
     await sla.addSnapshot({ id: 'old-import', timestamp: '2026-09-01T10:00:00Z', topMetrics: [] });
     await sla.addSnapshot({ id: 'latest-import', timestamp: '2026-10-01T10:00:00Z', topMetrics: [{ label: '演示指标', val: 98, value: 98, category: 'TE', isFailing: false }], expiringTickets: [], files: Array.from({ length: 20 }, (_, index) => 'demo-' + index + '.xlsx') });

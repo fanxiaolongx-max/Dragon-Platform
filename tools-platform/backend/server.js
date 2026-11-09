@@ -76,6 +76,7 @@ const slideDesignRoutes = require('./routes/slide-design');
 const surveysRoutes = require('./routes/surveys');
 const externalMetricsRoutes = require('./routes/external-metrics');
 const customToolsRepo = require('./models/custom-tools-repository');
+const toolDistribution = require('./models/tool-distribution');
 const customToolI18nService = require('./models/custom-tool-i18n-service');
 const assetVersioning = require('./models/asset-versioning');
 const pageUpdateTimes = require('./models/page-update-times');
@@ -113,7 +114,7 @@ const remoteBackupSyncRepo = require('./models/remote-backup-sync-repository');
 const legacyJsonMigration = require('./models/legacy-json-migration');
 const configChangeMonitor = require('./models/config-change-monitor');
 const alertAiAnalyzer = require('./models/alert-ai-analyzer');
-const { checkAuth, requireAdmin, checkHtmlAuth } = require('./middleware/auth');
+const { checkAuth, requireAdmin, checkHtmlAuth, inSuperAdminSpace } = require('./middleware/auth');
 const hostedAppsProxy = require('./models/hosted-apps/proxy');
 
 const app = express();
@@ -404,7 +405,7 @@ app.get('/api/home/capabilities', async (req, res, next) => {
     try {
         res.setHeader('Cache-Control', 'no-store');
         res.json(await require('./models/home-capabilities').listCapabilities({
-            isAdmin: req.user?.role === 'admin',
+            user: req.user,
             lang: req.query.lang === 'en-US' ? 'en-US' : 'zh-CN'
         }));
     } catch (error) {
@@ -412,10 +413,35 @@ app.get('/api/home/capabilities', async (req, res, next) => {
     }
 });
 
+// 平台级能力只给超级管理员（一个账号 = 一个团队，团队账号在自己团队里是管理员，但碰不到这些全局功能）。
+// softGets：首页启动时会读的接口，团队账号拿到空结果而不是 403，避免首页报错。
+function superAdminOnly(softGets = {}) {
+    return (req, res, next) => {
+        if (inSuperAdminSpace(req.user)) return next(); // 超级管理员空间里沿用各接口原有的角色规则
+        if (req.method === 'GET' && Object.prototype.hasOwnProperty.call(softGets, req.path)) return res.json(softGets[req.path]);
+        res.status(403).json({ code: 'SUPER_ADMIN_REQUIRED', error: '该功能仅超级管理员可用' });
+    };
+}
+
+// 静态页面推送（发布到外部静态站点）只给超级管理员；预览与下载生成的页面不受限
+// 另外几组只给超级管理员的接口：备份恢复、自定义工具备份、报表数据备份、工具免密访问开关
+const SUPER_ONLY_API_PATHS = [
+    /^\/(?:department-reward-penalty|reward-program)\/snapshot\/(?:settings|prerequisites|jobs|publish)(?:\/|$)/,
+    /^\/global-backup(?:\/|$)/,
+    /^\/custom-tools\/backup(?:\/|$)/,
+    /^\/custom-tools\/[^/]+\/access$/,
+    /^\/db\/report-data-backup(?:\/|$)/
+];
+app.use('/api', function superOnlyPathGate(req, res, next) {
+    if (!SUPER_ONLY_API_PATHS.some(pattern => pattern.test(req.path))) return next();
+    return superAdminOnly()(req, res, next);
+});
+
 // Protect modifications: requireAdmin for all non-GET requests under uiv, sla, upload
 app.use('/api', (req, res, next) => {
     if (req.path.startsWith('/auth/')) return next();
     if (req.method === 'POST' && req.path === '/tenants/switch') return next();
+    if (req.method === 'PATCH' && req.path === '/distribution/personal') return next();
     if (req.path.startsWith('/requirements')) return next(); // 需求管理内部自行控制权限
     if (req.path.startsWith('/surveys')) return next(); // 调查模板和提交由模块内部控制权限
     if (req.method === 'POST' && req.path === '/db/config/monthly_report_titles') return next(); // 登录用户可编辑月报中英文标题，路由内继续校验数据
@@ -454,6 +480,7 @@ app.use('/api', (req, res, next) => {
     if (req.method === 'POST' && req.path === '/report-msg/export') return next(); // 仅生成并返回当前用户的月报文件
     if (req.method === 'POST' && /^\/channels\/(?:welink|weixin)\/push$/.test(req.path)) return next(); // 路由内校验：管理员，或已开放普通用户推送且目标在默认推送范围内
     if (/^\/agent-workspace(?:\/.*)?$/.test(req.path)) return next(); // 路由内按本机/桌面/管理员门禁与会话归属校验
+    if (req.path.startsWith('/agent-mcp/')) return next(); // 智能体工具在路由内按操作校验权限
     if (req.method !== 'GET') {
         return requireAdmin(req, res, next);
     }
@@ -468,9 +495,10 @@ app.use('/api/requirements', requirementsRoutes); // 需求管理 API
 app.use('/api/ai/schedules', require('./routes/dragon-claw-schedules')); // Dragon Claw /schedule 定时指令
 app.use('/api/ai', aiRoutes); // AI 服务 API
 app.use('/api/terminal', require('./routes/terminal')); // Dragon Claw 右侧终端面板（仅管理员）
+app.use('/api/distribution', require('./routes/distribution'));
 app.use('/api/agent-skills', require('./routes/agent-skills')); // Skill 管理：内置 + 租户自定义（对话 @create-skill 创建或导入 SKILL 压缩包）
-app.use('/api/builtin-promotion', require('./routes/builtin-promotion')); // 自定义工具 / 技能 / 脚本「转为内置」写入项目源码目录，或取消内置
-app.use('/api/storage', storageRoutes); // 存储迁移状态 API
+app.use('/api/builtin-promotion', superAdminOnly({ '/status': { writable: false, kinds: {}, lockedTools: [] } }), require('./routes/builtin-promotion')); // 自定义工具 / 技能 / 脚本「转为内置」写入项目源码目录，或取消内置
+app.use('/api/storage', superAdminOnly(), storageRoutes); // 存储迁移状态 API
 app.use('/api/db-explorer', require('./routes/db-explorer')); // 数据库浏览 API
 app.use('/api/frt', frtRoutes); // FRT 历史快照 API
 app.use('/api/topic-snapshots', topicSnapshotsRoutes); // NetCare/DataFab 专题历史快照 API
@@ -484,7 +512,7 @@ app.use('/api/praudit', prauditRoutes); // PR审计配置 API
 app.use('/api/chat-history', chatHistoryRoutes); // 租户隔离的聊天记录中心
 app.use('/api/custom-tools', customToolsRoutes); // 自定义 HTML 工具注册 API
 app.use('/api/gallery', require('./routes/gallery')); // 图屿：租户图库、图片版本与 AI 整理
-app.use('/api/hosted-apps', require('./routes/hosted-apps')); // 托管 Python Web 应用：启动页与运维
+app.use('/api/hosted-apps', superAdminOnly(), require('./routes/hosted-apps')); // 托管 Python Web 应用：启动页与运维
 app.use('/api/department-reward-penalty', require('./routes/department-reward-penalty'));
 app.use('/api/reward-program', require('./routes/reward-program'));
 app.use('/api/datacom-knowledge', require('./routes/datacom-knowledge')); // 数通协议专家知识库（独立 datacom-knowledge.db）
@@ -500,10 +528,10 @@ app.use('/api/ai-settings', aiSettingsRoutes); // Dragon Claw 智能体模型配
 app.use('/api/agent-workspace', require('./routes/agent-workspace')); // Dragon Claw 工作区：本地目录联想、审批、变更撤销
 app.use('/api/agent-files', require('./routes/agent-files')); // 对话里引用的本机文件：图片预览、文件下载（本机/管理员全盘，其他账号仅 outputs）
 app.use('/api/channels', require('./routes/channels')); // 频道对接（WeLink / 微信助理）：配置、连通性、名单、主动推送
-app.use('/api/digital-human', requireAdmin, require('./routes/digital-human')); // 数字人基座对接：NetCare 业务库只读查询、应用库读写、表目录（第一期仅管理员）
-app.use('/api/agent-mcp', requireAdmin, require('./routes/agent-mcp')); // 智能体工具：MCP 服务配置（默认租户）与工具清单（仅管理员）
-app.use('/api/dragon-tac', require('./routes/dragon-tac'));
-app.use('/api/desktop-agents', require('./routes/desktop-agents'));
+app.use('/api/digital-human', superAdminOnly(), requireAdmin, require('./routes/digital-human')); // 数字人基座对接：NetCare 业务库只读查询、应用库读写、表目录（第一期仅管理员）
+app.use('/api/agent-mcp', require('./routes/agent-mcp'));
+app.use('/api/dragon-tac', superAdminOnly({ '/jobs': { items: [] } }), require('./routes/dragon-tac'));
+app.use('/api/desktop-agents', superAdminOnly({ '/settings': { owned: false, settings: null, reason: '桌面 Agent 仅超级管理员可用' }, '/sessions': { items: [], recent: [] } }), require('./routes/desktop-agents'));
 app.use('/api/global-backup', globalBackupRoutes); // 当前租户核心数据备份与恢复 API（保留历史路由名）
 app.use('/api/external/metrics', externalMetricsRoutes); // 外部/移动端只读指标 API
 app.use('/api/alert-center', alertCenterRoutes); // 系统告警台 API
@@ -514,7 +542,7 @@ app.use('/api/onboarding', onboardingRoutes); // 首次启动默认脚本/指标
 app.use('/api/duty-roster', require('./routes/duty-roster')); // 夜间运维值班表 API
 app.use('/api/tenants', tenantsRoutes); // 租户清单、切换与管理
 app.use('/api/python-updater', require('./routes/python-updater')); // Python 脚本热更新与版本管理 API
-if (desktopLicenseAdminRoutes) app.use('/api/desktop-licenses', requireAdmin, desktopLicenseAdminRoutes);
+if (desktopLicenseAdminRoutes) app.use('/api/desktop-licenses', superAdminOnly(), requireAdmin, desktopLicenseAdminRoutes);
 
 
 // ============================================================
@@ -602,29 +630,67 @@ app.get('/python-updater', checkHtmlAuth, (req, res) => {
 app.get('/tools/:slug', checkHtmlAuth, (req, res) => {
     sendFrontendHtml(res, 'pages/custom-tool.html');
 });
-app.use('/custom-tools', async (req, res, next) => {
+app.use('/custom-tools/:slug', (req, res, next) => {
     const hasSessionCookie = String(req.headers.cookie || '').split(';')
         .some(item => item.trim().startsWith('tools_token='));
-    if (hasSessionCookie) return checkHtmlAuth(req, res, next);
-    return runWithTenant(DEFAULT_TENANT_ID, async () => {
+    const authorize = async () => {
         try {
-            const slug = String(req.path || '').split('/').filter(Boolean)[0] || '';
-            const tool = slug ? await customToolsRepo.getTool(slug) : null;
-            if (tool && tool.publicAccess === true) return next();
-            return checkHtmlAuth(req, res, next);
-        } catch (err) {
-            return next(err);
-        }
-    });
+            req.distributedTool = await toolDistribution.resolveTool(req.params.slug, req.user);
+            if (!req.distributedTool) {
+                if (!req.user) return checkHtmlAuth(req, res, next);
+                return res.status(403).send('此工具未开放使用');
+            }
+            res.setHeader('Cache-Control', 'private, no-store');
+            next();
+        } catch (error) { next(error); }
+    };
+    return hasSessionCookie ? checkHtmlAuth(req, res, authorize) : authorize();
 });
-// 随源码内置的 Python 应用包只供平台安装使用，不经工具静态地址下载（下载走管理员的工具导出接口）
-app.use('/custom-tools', (req, res, next) => (/\/hosted-app\.zip$/i.test(req.path) ? res.status(404).send('Not found') : next()));
+// 应用包和隐藏配置不通过工具静态地址下载。
+app.use('/custom-tools', (req, res, next) => {
+    let requested;
+    try { requested = decodeURIComponent(req.path); } catch { return res.status(400).send('Invalid path'); }
+    if (requested.split(/[\/\\]/).some(part => part.startsWith('.') || /^hosted-app\.zip$/i.test(part))) return res.status(404).send('Not found');
+    next();
+});
+// 超级管理员查看某个团队上传的 HTML 工具：从该团队的工具目录读取，并以无同源权限的沙箱加载，
+// 工具里的脚本拿不到超级管理员的登录态（团队账号无权访问此地址）
+app.use('/team-tools/:tenantId/:slug', checkHtmlAuth, async (req, res, next) => {
+    if (!req.user?.isSuper) return res.status(403).send('仅超级管理员可查看团队工具');
+    const { normalizeTenantId } = require('./models/tenant-context');
+    const tenantId = String(req.params.tenantId || '').toLowerCase();
+    const slug = String(req.params.slug || '');
+    if (normalizeTenantId(tenantId) !== tenantId || tenantId === DEFAULT_TENANT_ID || !/^[\w-]{1,100}$/.test(slug)) return res.status(404).send('Not found');
+    try {
+        const team = await require('./models/tenants-repository').getTenantById(tenantId).catch(() => null);
+        if (!team || team.status !== 'active') return res.status(404).send('Not found');
+        res.setHeader('Content-Security-Policy', 'sandbox allow-scripts allow-forms allow-popups allow-modals allow-downloads');
+        res.setHeader('Cache-Control', 'no-store');
+        return runWithTenant(tenantId, () => {
+            const dir = path.join(customToolsRepo.getCustomToolsDir(), slug);
+            if (!fs.existsSync(dir)) return res.status(404).send('Not found');
+            return express.static(dir, { index: 'index.html', dotfiles: 'deny' })(req, res, next);
+        });
+    } catch (err) {
+        return next(err);
+    }
+});
+// 超级管理员进入其他团队排障时，团队上传的 HTML 工具按无同源权限的沙箱加载：工具脚本拿不到超级管理员的登录态去调用平台接口
+app.use('/custom-tools', (req, res, next) => {
+    if (req.user?.isSuper && req.user.tenantId !== req.user.homeTenantId) {
+        res.setHeader('Content-Security-Policy', 'sandbox allow-scripts allow-forms allow-popups allow-modals allow-downloads');
+    }
+    next();
+});
 app.get('/custom-tools/:slug/index.html', async (req, res, next) => {
     try {
-        const tool = await customToolsRepo.getTool(req.params.slug);
-        const filePath = await customToolsRepo.getToolFilePath(req.params.slug);
+        const { tool, sourceTenant } = req.distributedTool;
+        const filePath = await runWithTenant(sourceTenant, () => customToolsRepo.getToolAssetPath(req.params.slug, 'index.html'));
         if (!tool || !filePath) return res.status(404).send('Custom tool not found');
-        const html = fs.readFileSync(filePath, 'utf8');
+        let html = fs.readFileSync(filePath, 'utf8');
+        if (tool.slug === 'f12-to-extension' && req.distributedTool.shared) {
+            html = await require('./models/f12-distribution').filterIndex(html, req.user);
+        }
         const stat = fs.existsSync(filePath) ? fs.statSync(filePath) : null;
         if (req.query.download === '1') {
             const filename = `${String(tool.name || tool.slug).replace(/[\\/:*?"<>|]+/g, '_')}.html`;
@@ -651,38 +717,40 @@ app.get('/custom-tools/:slug/index.html', async (req, res, next) => {
         next(err);
     }
 });
-app.use('/custom-tools/:slug', async (req, res, next) => {
-    const requestedPath = (req.path.endsWith('/') || !req.path) ? `${req.path || '/'}index.html` : req.path;
-    let assetPath = customToolsRepo.getToolAssetPath(req.params.slug, requestedPath);
-    if (!assetPath && req.params.slug === 'tool-mtakhxqm' && requestedPath.startsWith('/audio/') && requestedPath.endsWith('.mp3')) {
-        try {
-            await ensureToolAudioReady(req.params.slug);
-            assetPath = customToolsRepo.getToolAssetPath(req.params.slug, requestedPath);
-        } catch (downloadErr) {
-            console.warn(`[custom-tools] 按需下载音频失败 (${req.params.slug}):`, downloadErr.message);
+app.use('/custom-tools/:slug', (req, res, next) => runWithTenant(req.distributedTool.sourceTenant, async () => {
+    try {
+        const requestedPath = decodeURIComponent((req.path.endsWith('/') || !req.path) ? `${req.path || '/'}index.html` : req.path);
+        if (req.params.slug === 'f12-to-extension' && req.distributedTool.shared) {
+            const access = await runWithTenant(req.user?.tenantId || DEFAULT_TENANT_ID, () =>
+                require('./models/f12-distribution').assetResponse(requestedPath.replace(/^\/+/, ''), req.user));
+            if (access.blocked) return res.status(404).send('Not found');
+            if (access.catalog) return res.type('js').send(`globalThis.F12BuiltinScripts = ${JSON.stringify(access.catalog)};`);
+            if (access.bytes) return res.type(access.type).send(access.bytes);
         }
-    }
-    if (!assetPath) return next();
-    if (/\.html?$/i.test(assetPath)) {
-        if (req.params.slug === 'tool-mtakhxqm') {
-            ensureToolAudioReady(req.params.slug).catch(err => {
-                console.warn(`[custom-tools] 预热 ${req.params.slug} 音频包提示:`, err.message);
+        let assetPath = customToolsRepo.getToolAssetPath(req.params.slug, requestedPath);
+        if (!assetPath && req.params.slug === 'tool-mtakhxqm' && requestedPath.startsWith('/audio/') && requestedPath.endsWith('.mp3')) {
+            await ensureToolAudioReady(req.params.slug).catch(error => {
+                console.warn('[custom-tools] 按需下载音频失败:', error.message);
             });
+            assetPath = customToolsRepo.getToolAssetPath(req.params.slug, requestedPath);
         }
-        try {
-            const html = fs.readFileSync(assetPath, 'utf8');
-            const stat = fs.existsSync(assetPath) ? fs.statSync(assetPath) : null;
+        if (!assetPath) return res.status(404).send('Not found');
+        if (/\.html?$/i.test(assetPath)) {
+            if (req.params.slug === 'tool-mtakhxqm') ensureToolAudioReady(req.params.slug).catch(() => {});
+            let html = fs.readFileSync(assetPath, 'utf8');
+            if (req.params.slug === 'f12-to-extension' && req.distributedTool.shared) {
+                html = await runWithTenant(req.user?.tenantId || DEFAULT_TENANT_ID, () => require('./models/f12-distribution').filterIndex(html, req.user));
+            }
+            const stat = fs.statSync(assetPath);
             return res.type('html').send(assetVersioning.versionAssetUrls(assetVersioning.injectPlatformTheme(customToolI18nService.injectLanguageRuntime(html, req.params.slug, {
-                mtime: stat ? stat.mtime : null,
-                filePath: assetPath
+                mtime: stat.mtime,
+                filePath: assetPath,
+                tool: req.distributedTool.tool
             }), { toolPath: `custom-tools/${req.params.slug}/${requestedPath.replace(/^\/+/, '')}` }), { publicDir: FRONTEND_DIR, baseDir: path.dirname(assetPath) }));
-        } catch (error) {
-            return next(error);
         }
-    }
-    res.sendFile(assetPath);
-});
-app.use('/custom-tools', (req, res, next) => express.static(customToolsRepo.getCustomToolsDir())(req, res, next));
+        return res.sendFile(assetPath);
+    } catch (error) { next(error); }
+}));
 
 
 // ── 全局错误兜底
@@ -694,13 +762,17 @@ app.use((err, req, res, next) => {
 async function startServer() {
     await legacyJsonMigration.runStartupLegacyJsonMigration();
     await initializeDefaultBusinessSchema();
+    const { board, importTenantRequirements } = require('./models/requirements-board');
+    await board();
+    const activeTenants = (await require('./models/tenants-repository').listManagedTenants()).filter(tenant => tenant.status === 'active');
+    for (const tenant of activeTenants) {
+        await importTenantRequirements(tenant.id).catch(error => {
+            console.warn(`[requirements] 旧团队需求导入失败 (${tenant.id}): ${error.message}`);
+        });
+    }
+
     try {
         await initializeTenantBuiltinTools(DEFAULT_TENANT_ID);
-        const tenants = await require('./models/tenants-repository').listManagedTenants();
-        for (const tenant of tenants.filter(item => item.id !== DEFAULT_TENANT_ID && item.status === 'active')) {
-            try { await initializeTenantBuiltinTools(tenant.id); }
-            catch (error) { console.warn(`[custom-tools] 租户 ${tenant.id} 工具自动同步失败：${error.message}`); }
-        }
     } catch (error) {
         console.warn(`[custom-tools] 系统工具初始化失败，继续使用现有用户工具：${error.message}`);
     }
@@ -748,10 +820,10 @@ async function startServer() {
             // 频道对接：已启用 WeLink 助理的租户自动连接网关（SDK 未安装时只记录提示，不影响启动）
             const tenantsRepo = require('./models/tenants-repository');
             // 托管 Python 应用：恢复上次处于运行状态的应用
-            tenantsRepo.listManagedTenants().then(items => require('./models/hosted-apps/runtime')
-                .recover(['default', ...items.filter(item => item.status === 'active').map(item => item.id)]))
+            // 托管应用与 DragonTAC 是超级管理员专属：只恢复默认团队（超级管理员空间）的运行状态
+            require('./models/hosted-apps/runtime').recover(['default'])
                 .catch(err => console.warn('[hosted-apps] 恢复运行失败：', err.message));
-            tenantsRepo.listManagedTenants().then(items => Promise.all(['default', ...items.filter(item => item.status === 'active').map(item => item.id)].map(id => runWithTenant(id, () => require('./models/dragon-tac/service').recover())))).catch(() => console.warn('[DragonTAC] 中断任务恢复失败'));
+            runWithTenant('default', () => require('./models/dragon-tac/service').recover()).catch(() => console.warn('[DragonTAC] 中断任务恢复失败'));
             require('./models/channels/welink-bridge-service')
                 .autoStartAll(async () => (await tenantsRepo.listManagedTenants()).filter(item => item.status === 'active').map(item => item.id))
                 .catch(err => console.error('[WeLink] 自动连接失败：', err.message));

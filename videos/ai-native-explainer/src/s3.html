@@ -1,0 +1,48 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .pnl{position:absolute;background:#fffdf8;border:3px solid var(--ink);border-radius:26px;box-shadow:var(--sh)}
+#root .pnl .pt{position:absolute;left:0;right:0;top:0;height:64px;border-bottom:3px solid var(--ink);border-radius:23px 23px 0 0;display:flex;align-items:center;justify-content:center;font-size:38px}
+#root .lbl{position:absolute;font-size:36px;white-space:nowrap}
+#root .big{font-size:44px}
+#root .lay{left:880px;width:640px;height:96px;border:3px solid var(--ink);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:42px;box-shadow:var(--sh)}
+</style>
+<div id="root" data-composition-id="s3" data-width="1920" data-height="1080">
+  <div class="paper"></div>
+  <div class="head" id="s3-h"><span class="step">第 1 层</span><span class="ttl">技术架构</span></div>
+  <div class="pnl" id="s3-l" style="left:110px;top:220px;width:640px;height:620px"><div class="pt" style="background:#e6dfd6">传统系统</div></div>
+  <div class="abs" id="s3-m" style="left:150px;top:320px;display:grid;grid-template-columns:240px 240px;gap:24px">
+   <div class="tag" style="background:#fff;font-size:36px;text-align:center;padding:30px 0">订单模块</div><div class="tag" style="background:#fff;font-size:36px;text-align:center;padding:30px 0">报表模块</div>
+   <div class="tag" style="background:#fff;font-size:36px;text-align:center;padding:30px 0">审批模块</div><div class="tag" style="background:#fff;font-size:36px;text-align:center;padding:30px 0">客服模块</div></div>
+  <div class="abs" id="s3-pg" style="left:590px;top:560px"></div><div class="tag abs" id="s3-pt" style="left:380px;top:740px;background:#ffe08f">AI 只是外挂插件</div>
+  <div class="pnl" id="s3-r" style="left:820px;top:220px;width:760px;height:620px"><div class="pt" style="background:#9fe0c9">AI 原生系统</div></div>
+  <div class="abs lay" id="s3-y4" style="top:300px;background:#aed8f2">界面</div>
+  <div class="abs lay" id="s3-y3" style="top:420px;background:#d9c6ef">智能体 Agent</div>
+  <div class="abs lay" id="s3-y2" style="top:540px;background:#ffe08f">知识库检索</div>
+  <div class="abs lay" id="s3-y1" style="top:660px;background:linear-gradient(90deg,#9fe0c9,#aed8f2);box-shadow:0 0 34px rgba(71,207,159,.7),var(--sh)">大模型（底座）</div>
+  <div id="s3-dots"></div>
+  <div class="abs" id="s3-d" style="left:1610px;top:630px"></div>
+  <div id="s3-sp"></div>
+  <div class="cap" id="s3-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ var tl=gsap.timeline({paused:true});
+ var S="#s3-";
+ tl.fromTo("#s3-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.25);
+ put("s3-d",dino("dn",{w:230,h:230,body:"#8fd8b8"}));tl.fromTo("#s3-d",{opacity:0,y:80},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.5);dtail(tl,"dn",.6,30);
+ put("s3-pg",icon("plug","#ffe08f",110));
+ var d="";for(var i=0;i<6;i++)d+='<i class="abs" id="s3-o'+i+'" style="left:'+(900+i*110)+'px;top:700px;width:22px;height:22px;border-radius:50%;background:#47cf9f;box-shadow:0 0 14px #47cf9f;opacity:0"></i>';document.getElementById("s3-dots").innerHTML=d;
+ gsap.set(S+"l,"+S+"m,"+S+"pg,"+S+"pt,"+S+"r,"+S+"y1,"+S+"y2,"+S+"y3,"+S+"y4",{opacity:0});
+ tl.fromTo(S+"l,"+S+"m",{opacity:0,y:40},{opacity:1,y:0,duration:.6,stagger:.2,ease:"power3.out"},T("传统系统")-.3);
+ tl.fromTo(S+"pg",{opacity:0,x:80,rotation:25},{opacity:1,x:0,rotation:-8,duration:.6,ease:"back.out(1.6)"},T("插件")-.2);pop(tl,S+"pt",T("挂在"),{});
+ tl.fromTo(S+"r",{opacity:0,y:40},{opacity:1,y:0,duration:.6,ease:"power3.out"},T("AI原生")-.3);
+ [["y1","底座"],["y2","知识库"],["y3","智能体"],["y4","界面"]].forEach(function(a){tl.fromTo(S+a[0],{opacity:0,y:50,scale:.9},{opacity:1,y:0,scale:1,duration:.55,ease:"back.out(1.5)"},T(a[1])-.15);});
+ for(var i=0;i<6;i++){tl.fromTo("#s3-o"+i,{opacity:0,y:0},{opacity:1,y:-380,duration:1.4,ease:"sine.inOut"},T("数据和决策")+i*.18);tl.to("#s3-o"+i,{opacity:0,duration:.3},T("数据和决策")+i*.18+1.2);}
+ captions(tl,"s3-cap");
+ window.__timelines["s3"]=tl;
+})();
+</script>
+</template></body></html>

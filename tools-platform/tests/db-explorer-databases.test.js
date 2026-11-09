@@ -99,13 +99,13 @@ test('database selection covers runtime databases and preserves tenant and file 
     assert.equal((await post('SELECT value FROM explorer_marker;', 'report', 'default', '/sql')).data.results[0].rows[0].value, 'default:report.db');
 
     const named = await get('/databases', 'acme');
-    assert.ok(named.data.databases.some(item => item.id === 'platform' && item.scope === 'platform' && item.tenantId === null));
+    assert.ok(!named.data.databases.some(item => item.id === 'platform'), 'the control plane is never listed for a team');
     assert.ok(!named.data.databases.some(item => item.id === 'data:extra.sqlite'));
     for (const item of named.data.databases.filter(item => item.id !== 'platform')) {
         const result = await post('SELECT value FROM explorer_marker;', item.id, 'acme');
         assert.deepEqual(result.data.results[0].rows, [{ value: `acme:${item.name}` }]);
     }
-    assert.equal((await post('SELECT value FROM explorer_marker;', 'platform', 'acme')).data.results[0].rows[0].value, 'default:tools.db');
+    assert.equal((await post('SELECT value FROM explorer_marker;', 'platform', 'acme')).status, 404);
     const changes = await post("UPDATE explorer_marker SET value='edited-report';", 'report', 'acme');
     assert.equal(changes.data.results[0].changes, 1);
     assert.equal((await post('SELECT value FROM explorer_marker;', 'tools', 'acme')).data.results[0].rows[0].value, 'acme:tools.db');

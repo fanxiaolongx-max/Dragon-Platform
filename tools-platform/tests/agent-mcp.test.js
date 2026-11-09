@@ -27,7 +27,7 @@ test.after(async () => {
     fs.rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
 
-test('MCP servers are validated, secrets are masked and kept, and only the default tenant may configure them', async () => {
+test('MCP servers are validated, secrets are masked and kept, and team accounts see only the shared service metadata', async () => {
     await assert.rejects(inDefault(() => mcp.saveServers([{ name: 'bad', command: 'npx', args: ['-y', 'some-mcp@latest'] }])), /npx …@latest/);
     await assert.rejects(inDefault(() => mcp.saveServers([{ name: 'web', transport: 'http', url: 'ftp://x' }])), /http \/ https/);
     const saved = await inDefault(() => mcp.saveServers([{ name: 'Echo Server', command: process.execPath, args: [fixture], env: { ECHO_TOKEN: 'tok-123456' } }]));
@@ -36,8 +36,9 @@ test('MCP servers are validated, secrets are masked and kept, and only the defau
     const again = await inDefault(() => mcp.saveServers([{ ...saved[0], env: { ECHO_TOKEN: mcp.MASK } }]));
     assert.equal(again[0].env.ECHO_TOKEN, mcp.MASK);
     assert.deepEqual(await inDefault(() => mcp.secrets()), ['tok-123456'], 'the masked value kept the stored secret');
-    await assert.rejects(runWithTenant('acme', () => mcp.listServers()), /默认租户/);
-    assert.deepEqual(await runWithTenant('acme', () => mcp.toolsets({ readOnly: false })), []);
+    const [shared] = await runWithTenant('acme', () => mcp.listServers({ manage: false }));
+    assert.equal(shared.name, 'Echo Server');
+    for (const key of ['env', 'headers', 'cwd', 'command', 'args', 'url', 'error']) assert.equal(shared[key], undefined);
 });
 
 test('MCP tools join chats as an approval-gated group, pass only their own env, and report tool errors', async () => {
@@ -48,16 +49,17 @@ test('MCP tools join chats as an approval-gated group, pass only their own env, 
     const set = sets.find(item => item.id === 'mcp_echo_server');
     assert.deepEqual(set.definitions.map(def => def.name), ['mcp__echo_server__echo', 'mcp__echo_server__add', 'mcp__echo_server__fail']);
     assert.equal(set.kindOf('mcp__echo_server__echo'), 'external');
-    // 只读账号只有平台工具向导（只读），没有 MCP
-    assert.deepEqual((await inDefault(() => extraTools.toolsets({ owner: 'default::guest', readOnly: true }))).map(set => set.id), ['platform_tools']);
+    const guest = { username: 'guest', role: 'viewer' };
+    const shared = await runWithTenant('acme', () => extraTools.toolsets({ owner: 'acme::guest', user: guest, readOnly: true }));
+    assert.deepEqual(shared.map(set => set.id), ['platform_tools', 'mcp_echo_server']);
 
     const events = [];
     const write = event => {
         events.push(event);
-        if (event.type === 'approval') setImmediate(() => manager.resolveApproval(event.id, event.tool.endsWith('fail') ? 'deny' : 'allow', { username: 'alice', role: 'admin' }, 'default'));
+        if (event.type === 'approval') setImmediate(() => manager.resolveApproval(event.id, event.tool.endsWith('fail') ? 'deny' : 'allow', guest, 'acme'));
     };
-    const result = await inDefault(async () => {
-        const extras = await extraTools.forChat({ owner: 'default::alice', chatSessionId: 'mcp-chat', readOnly: false, write, signal: new AbortController().signal });
+    const result = await runWithTenant('acme', async () => {
+        const extras = await extraTools.forChat({ owner: 'acme::guest', user: guest, chatSessionId: 'mcp-chat', readOnly: true, write, signal: new AbortController().signal });
         const script = [
             { toolCalls: [{ id: 's', name: 'tool_search', args: { select: ['mcp_echo_server'] } }] },
             { toolCalls: [{ id: 'e', name: 'mcp__echo_server__echo', args: { text: 'hi' } }, { id: 'f', name: 'mcp__echo_server__fail', args: {} }] },
@@ -91,10 +93,11 @@ test('channel chats (WeChat users are not admins) get trusted MCP servers and sk
         { name: 'Echo Server', command: process.execPath, args: [fixture], trusted: true },
         { name: 'Untrusted', command: process.execPath, args: [fixture] }
     ]));
+    await inDefault(() => require('../backend/models/tool-distribution').setEntryAccess('skill:web-scraper', true));
     const ids = sets => sets.map(set => set.id);
     assert.deepEqual(ids(await inDefault(() => extraTools.toolsets({ owner: 'default::weixin:bob', readOnly: true, channel: true }))), ['platform_tools', 'mcp_echo_server'],
         'no untrusted MCP, browser or save_skill in channels');
-    assert.deepEqual(ids(await inDefault(() => extraTools.toolsets({ owner: 'default::weixin:bob', readOnly: true }))), ['platform_tools'], 'outside channels read-only accounts still get no MCP');
+    assert.deepEqual(ids(await inDefault(() => extraTools.toolsets({ owner: 'default::weixin:bob', readOnly: true }))), ['platform_tools', 'mcp_echo_server', 'mcp_untrusted'], 'web chats can approve untrusted MCP calls');
 
     const events = [];
     const deltas = [];
@@ -129,4 +132,65 @@ test('an unreachable server is skipped instead of blocking the chat', async () =
     const [server] = await inDefault(() => mcp.listServers());
     assert.equal(server.status, 'error');
     assert.ok(server.error);
+});
+
+test('tool settings share safe MCP metadata and enforce team access by tool and group', async () => {
+    const express = require('../backend/node_modules/express');
+    const request = require('supertest');
+    const { tenantMiddleware } = require('../backend/models/tenant-context');
+    const superAdmin = { username: 'root', role: 'admin', isSuper: true, tenantId: 'default' };
+    const team = { username: 'alice', role: 'admin', isSuper: false, tenantId: 'acme' };
+    const app = express();
+    app.use(express.json(), (req, _res, next) => {
+        req.user = req.get('x-test-account') === 'root' ? superAdmin : team;
+        next();
+    }, tenantMiddleware);
+    app.use('/settings', require('../backend/routes/agent-mcp'));
+    const call = (method, url, account = 'alice') => request(app)[method](`/settings${url}`).set('x-test-account', account);
+    const tool = 'mcp__echo_server__add';
+    const set = (scope, id, enabled) => call('patch', '/catalog/access', 'root').send({ scope, id, enabled }).expect(200);
+
+    await inDefault(() => mcp.saveServers([{ name: 'Echo Server', command: process.execPath, args: [fixture], env: { ECHO_TOKEN: 'private-fixture-value' }, trusted: true }]));
+    await call('put', '/servers').send({ servers: [] }).expect(403);
+    await call('post', '/servers/echo_server/test').expect(403);
+    await call('patch', '/catalog/access').send({ scope: 'group', id: 'mcp', enabled: false }).expect(403);
+    const { body: shared } = await call('get', '/servers').expect(200);
+    assert.equal(shared.manage, false);
+    assert.equal(shared.servers[0].name, 'Echo Server');
+    assert.equal(shared.servers[0].command, undefined);
+
+    const { body: initial } = await call('get', '/danger-rules').expect(200);
+    assert.deepEqual(initial.rules, []);
+    await call('post', '/danger-rules', 'root').send({ category: 'upload' }).expect(200);
+    assert.deepEqual((await call('get', '/danger-rules').expect(200)).body.rules, []);
+    await call('get', '/tool-guides/item?id=page%3A%2Fnetcare-explorer').expect(404);
+
+    const catalog = async account => (await call('get', '/catalog', account).expect(200)).body.groups;
+    const names = groups => groups.flatMap(group => group.tools.map(item => item.name));
+    assert.ok(names(await catalog()).includes(tool));
+    await set('tool', tool, false);
+    assert.ok(!names(await catalog()).includes(tool));
+    assert.ok(names(await catalog()).includes('mcp__echo_server__echo'));
+    const adminMcp = (await catalog('root')).find(group => group.id === 'mcp');
+    assert.equal(adminMcp.tools.find(item => item.name === tool).enabled, false);
+    await set('group', 'mcp', false);
+    assert.ok(!(await catalog()).some(group => group.id === 'mcp'));
+
+    await runWithTenant('acme', async () => {
+        const extras = await extraTools.forChat({ owner: 'acme::alice', user: team, chatSessionId: 'disabled-tool', readOnly: false, write() {} });
+        try {
+            assert.doesNotMatch(extras.prompt, /mcp__echo_server__/);
+            let step = 0;
+            const result = await agentLoop.runToolLoop({
+                client: { generateText: async () => step++ ? { text: 'done' } : { toolCalls: [{ id: 'forced', name: tool, args: { a: 1, b: 2 } }] } },
+                systemPrompt: 'test', messages: [{ role: 'user', content: 'add' }], extras,
+                executeCall: async () => assert.fail('disabled tool must not execute')
+            });
+            assert.match(result.toolLog[0].summary, /工具未开放/);
+        } finally { extras.end(); }
+    });
+    await set('group', 'mcp', true);
+    assert.ok(!names(await catalog()).includes(tool), 'reopening a group retains the individual restriction');
+    await set('tool', tool, true);
+    assert.ok(names(await catalog()).includes(tool));
 });

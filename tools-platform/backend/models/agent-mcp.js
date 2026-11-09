@@ -1,14 +1,14 @@
 // Dragon Claw 的 MCP 客户端：管理员在「全局设置 › 智能体工具」添加 MCP 服务（本机进程 stdio 或 HTTP 地址），
 // 服务的工具作为附加工具组接进首页对话（按需加载、默认每次调用都审批）。
-// - 只开放给默认租户：MCP 服务在服务器上启动进程或访问网络，不能让租户管理员各自配置。
+// - 配置存默认租户，由超管维护；启用的服务供所有空间调用。
 // - 连不上就跳过：连接有超时，失败的服务标成不可用、它的工具不出现在列表里，60 秒后再试；换到能连上的网络后自动恢复。
 // - 环境变量 / 请求头里的值视为密钥：接口只返回打码值，内容加入脱敏名单，不发给模型。
 // - 服务要先装好、写死版本，按本地命令启动；不在运行时 npx @latest 现下载。
 const { readKV, writeKV } = require('./kv-store');
-const { getTenantId } = require('./tenant-context');
+const { DEFAULT_TENANT_ID, runWithTenant } = require('./tenant-context');
+const { redactText } = require('./ai-sensitive-data');
 
 const CONFIG_KEY = 'agent_mcp_servers';
-const DEFAULT_TENANT_ID = 'default';
 const CONNECT_TIMEOUT_MS = 15000;
 const FIRST_USE_WAIT_MS = 5000;
 const CALL_TIMEOUT_MS = 120000;
@@ -21,10 +21,6 @@ const connections = new Map(); // id → { key, client, tools, status, error, at
 
 function mcpError(code, message, statusCode = 400) {
     return Object.assign(new Error(message), { code, statusCode });
-}
-
-function tenantAllowed(tenantId = getTenantId()) {
-    return tenantId === DEFAULT_TENANT_ID;
 }
 
 const slug = value => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 24);
@@ -65,7 +61,7 @@ function normalizeServer(input, index, used) {
 }
 
 async function readServers() {
-    const stored = await readKV('sys', CONFIG_KEY, []);
+    const stored = await runWithTenant(DEFAULT_TENANT_ID, () => readKV('sys', CONFIG_KEY, []));
     return Array.isArray(stored) ? stored : [];
 }
 
@@ -77,14 +73,22 @@ function publicServer(server) {
         status: conn?.status || (server.enabled ? 'idle' : 'disabled'), error: conn?.error || '', tools: (conn?.tools || []).map(tool => ({ name: tool.name, description: String(tool.description || '').slice(0, 300) })) };
 }
 
-async function listServers() {
-    if (!tenantAllowed()) throw mcpError('MCP_TENANT', 'MCP 服务只在默认租户里配置和使用', 403);
-    return (await readServers()).map(publicServer);
+async function hasEnabledServers() {
+    return (await readServers()).some(server => server.enabled);
+}
+
+async function listServers({ manage = true } = {}) {
+    const servers = await readServers();
+    if (manage) return servers.map(publicServer);
+    return servers.filter(server => server.enabled).map(server => {
+        const { id, name, status, tools, trusted } = publicServer(server);
+        const safeTools = tools.map(tool => ({ ...tool, description: redactText(tool.description, { secrets: serverSecrets(server) }) }));
+        return { id, name, status, tools: safeTools, trusted, enabled: true };
+    });
 }
 
 /** 保存整份配置；提交回来的打码值保留原值 */
 async function saveServers(input) {
-    if (!tenantAllowed()) throw mcpError('MCP_TENANT', 'MCP 服务只在默认租户里配置和使用', 403);
     const list = Array.isArray(input) ? input.slice(0, MAX_SERVERS + 1) : [];
     if (list.length > MAX_SERVERS) throw mcpError('MCP_CONFIG', `最多 ${MAX_SERVERS} 个 MCP 服务`);
     const previous = new Map((await readServers()).map(server => [server.id, server]));
@@ -98,7 +102,7 @@ async function saveServers(input) {
         }
         return server;
     });
-    await writeKV('sys', CONFIG_KEY, servers);
+    await runWithTenant(DEFAULT_TENANT_ID, () => writeKV('sys', CONFIG_KEY, servers));
     // 配置变了的连接断开，下次使用时按新配置重连
     const keep = new Map(servers.map(server => [server.id, JSON.stringify(server)]));
     for (const [id, conn] of connections) if (keep.get(id) !== conn.key) disconnect(id);
@@ -106,9 +110,12 @@ async function saveServers(input) {
 }
 
 /** 脱敏名单：MCP 服务的环境变量与请求头里的值 */
+function serverSecrets(server) {
+    return [...Object.values(server.env || {}), ...Object.values(server.headers || {})].filter(value => String(value).length >= 6);
+}
+
 async function secrets() {
-    if (!tenantAllowed()) return [];
-    return (await readServers()).flatMap(server => [...Object.values(server.env || {}), ...Object.values(server.headers || {})]).filter(value => String(value).length >= 6);
+    return (await readServers()).flatMap(serverSecrets);
 }
 
 function disconnect(id) {
@@ -163,6 +170,10 @@ function ensureConnected(server) {
     conn = { key, status: 'connecting', error: '', tools: [], at: Date.now() };
     connections.set(server.id, conn);
     conn.connecting = connect(server).then(({ client, tools }) => {
+        if (connections.get(server.id) !== conn) {
+            client.close().catch(() => {});
+            return { status: 'error' };
+        }
         Object.assign(conn, { client, tools, status: 'ready', error: '', at: Date.now(), connecting: null });
         client.onclose = () => { if (connections.get(server.id) === conn) Object.assign(conn, { status: 'error', error: '连接已断开', at: Date.now(), client: null }); };
         return conn;
@@ -175,7 +186,6 @@ function ensureConnected(server) {
 
 /** 设置页「测试连接」：立即重连并列出工具 */
 async function testServer(id) {
-    if (!tenantAllowed()) throw mcpError('MCP_TENANT', 'MCP 服务只在默认租户里配置和使用', 403);
     const server = (await readServers()).find(item => item.id === id);
     if (!server) throw mcpError('MCP_NOT_FOUND', '没有这个 MCP 服务', 404);
     disconnect(id);
@@ -206,32 +216,35 @@ function resultText(result) {
  * trustedOnly：频道对话（微信等，发言人不是管理员）只带管理员标为「只读，免审批」的服务。
  * 没连上的服务先等最多 5 秒，仍连不上就跳过这一轮。
  */
-async function toolsets({ readOnly, trustedOnly = false }) {
-    if ((readOnly && !trustedOnly) || !tenantAllowed()) return [];
+async function toolsets({ trustedOnly = false } = {}) {
     const servers = (await readServers()).filter(server => server.enabled && (!trustedOnly || server.trusted));
     if (!servers.length) return [];
     const ready = await Promise.all(servers.map(server => Promise.race([ensureConnected(server), new Promise(resolve => setTimeout(resolve, FIRST_USE_WAIT_MS))]).then(() => [server, connections.get(server.id)])));
     return ready.filter(([, conn]) => conn?.status === 'ready' && conn.tools.length).map(([server, conn]) => {
         const byName = new Map(conn.tools.map(tool => [toolName(server.id, tool.name), tool]));
+        const redaction = { secrets: serverSecrets(server) };
         return {
             id: `mcp_${server.id}`,
             label: `MCP 服务「${server.name}」${server.trusted ? '（只读，免审批）' : ''}`,
-            definitions: [...byName].map(([name, tool]) => ({ name, description: `[MCP ${server.name}] ${String(tool.description || tool.title || tool.name).slice(0, 1000)}`, parameters: inputSchema(tool.inputSchema) })),
+            definitions: [...byName].map(([name, tool]) => ({ name, description: redactText(`[MCP ${server.name}] ${String(tool.description || tool.title || tool.name).slice(0, 1000)}`, redaction), parameters: inputSchema(tool.inputSchema) })),
+            sharedMcp: true,
             kindOf: () => (server.trusted ? 'read' : 'external'),
-            preview: async (name, args) => ({ title: `MCP · ${server.name}`, impact: server.transport === 'stdio' ? `本机进程 ${server.command}` : server.url,
+            preview: async (name, args) => ({ title: `MCP · ${server.name}`, impact: '平台共享服务',
                 fields: [{ label: '工具', value: byName.get(name)?.name || name }, { label: '参数', value: JSON.stringify(args || {}, null, 1).slice(0, 2000) }] }),
             alwaysKey: name => name,
             async execute(call) {
                 const tool = byName.get(call.name);
                 if (!tool) return { content: `MCP 服务里没有工具 ${call.name}`, summary: '工具不存在', isError: true };
                 try {
+                    const current = (await readServers()).find(item => item.id === server.id && item.enabled);
+                    if (JSON.stringify(current) !== JSON.stringify(server)) throw mcpError('MCP_UNAVAILABLE', 'MCP 服务配置已更新，请重试');
                     const live = await ensureConnected(server);
-                    if (live.status !== 'ready') throw mcpError('MCP_UNAVAILABLE', `MCP 服务「${server.name}」不可用：${live.error}`);
+                    if (live.status !== 'ready') throw mcpError('MCP_UNAVAILABLE', `MCP 服务「${server.name}」不可用`);
                     const result = await live.client.callTool({ name: tool.name, arguments: call.args && typeof call.args === 'object' ? call.args : {} }, undefined, { timeout: server.timeoutMs });
-                    const text = resultText(result);
+                    const text = redactText(resultText(result), redaction);
                     return { content: text, summary: `${server.name} · ${tool.name}${result.isError ? ' 失败' : ''}`.slice(0, 120), ...(result.isError ? { isError: true } : {}) };
-                } catch (error) {
-                    return { content: `错误（${error.code || 'MCP_ERROR'}）：${error.message}`, summary: String(error.message || '').slice(0, 120), isError: true };
+                } catch {
+                    return { content: '共享 MCP 服务调用失败，请检查服务状态后重试。', summary: 'MCP 调用失败', isError: true };
                 }
             }
         };
@@ -240,7 +253,6 @@ async function toolsets({ readOnly, trustedOnly = false }) {
 
 /** 服务启动后预先连接（默认租户），首页第一次对话不用等 */
 async function warmup() {
-    if (!tenantAllowed()) return;
     const servers = (await readServers().catch(() => [])).filter(server => server.enabled);
     servers.forEach(server => ensureConnected(server));
 }
@@ -250,4 +262,4 @@ function shutdown() {
 }
 process.once('exit', shutdown);
 
-module.exports = { CONFIG_KEY, MASK, listServers, saveServers, testServer, toolsets, secrets, warmup, shutdown, toolName, tenantAllowed, _internal: { connections, normalizeServer, resultText } };
+module.exports = { CONFIG_KEY, MASK, hasEnabledServers, listServers, saveServers, testServer, toolsets, secrets, warmup, shutdown, toolName, _internal: { connections, normalizeServer, resultText } };

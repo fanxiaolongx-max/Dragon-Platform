@@ -1,6 +1,6 @@
 // Dragon Claw 工作区：读取 git 工作区的实际改动（含用户手动、其他程序的修改），供右侧「更改」面板实时展示。
 // 只读：status / diff，不改动仓库；非 git 目录返回 { git: false }，面板只显示智能体本会话的改动。
-const { execFile } = require('child_process');
+const { execFileAware: execFile } = require('./tenant-sandbox'); // 团队目录里的 git 在沙箱中执行
 const fs = require('fs');
 const path = require('path');
 const { findExecutable, _internal: prInternal } = require('./agent-pr-service');

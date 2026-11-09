@@ -1,0 +1,48 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .pnl{position:absolute;background:#fffdf8;border:3px solid var(--ink);border-radius:26px;box-shadow:var(--sh)}
+#root .pnl .pt{position:absolute;left:0;right:0;top:0;height:64px;border-bottom:3px solid var(--ink);border-radius:23px 23px 0 0;display:flex;align-items:center;justify-content:center;font-size:38px}
+#root .lbl{position:absolute;font-size:36px;white-space:nowrap}
+#root .big{font-size:44px}
+</style>
+<div id="root" data-composition-id="s10" data-width="1920" data-height="1080">
+  <div class="paper"></div>
+  <div class="head" id="s10-h"><span class="step">第 7 层</span><span class="ttl">硬件（重点）</span></div>
+  <div class="abs" id="s10-tb" style="left:110px;top:640px;width:1700px;height:40px;border-radius:20px;background:#e8c9a4;border:3px solid var(--ink)"></div>
+  <div class="abs" id="s10-v0" style="left:200px;top:380px"></div><div class="tag abs" id="s10-c0" style="left:350px;top:330px;background:#ffb3c6;font-size:30px">AI 芯片</div><div class="lbl" id="s10-n0" style="left:220px;top:700px;font-size:38px">电饭煲</div>
+  <div class="abs" id="s10-v1" style="left:690px;top:380px"></div><div class="tag abs" id="s10-c1" style="left:840px;top:330px;background:#ffb3c6;font-size:30px">AI 芯片</div><div class="lbl" id="s10-n1" style="left:710px;top:700px;font-size:38px">相机</div>
+  <div class="abs" id="s10-v2" style="left:1180px;top:380px"></div><div class="tag abs" id="s10-c2" style="left:1330px;top:330px;background:#ffb3c6;font-size:30px">AI 芯片</div><div class="lbl" id="s10-n2" style="left:1200px;top:700px;font-size:38px">AI 录音挂件</div>
+  <div class="tag abs" id="s10-k0" style="left:180px;top:780px;background:#e6dfd6">照样煮饭 ✓ 只是用上 AI</div>
+  <div class="tag abs" id="s10-k1" style="left:660px;top:780px;background:#e6dfd6">照样拍照 ✓ 只是用上 AI</div>
+  <div class="tag abs" id="s10-k2" style="left:1160px;top:780px;background:#9fe0c9;font-size:40px">只剩空壳 → AI 原生硬件</div>
+  <div class="abs" id="s10-steam" style="left:300px;top:330px;font-size:60px">♨</div><div class="abs" id="s10-flash" style="left:690px;top:380px;width:260px;height:260px;border-radius:50%;background:radial-gradient(#fff,rgba(255,255,255,0))"></div>
+  <div class="cursor" id="s10-cur"></div>
+  <div id="s10-sp"></div>
+  <div class="cap" id="s10-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ var tl=gsap.timeline({paused:true});
+ var S="#s10-";
+ tl.fromTo("#s10-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.25);
+ 
+ put("s10-v0",icon("cooker","#aed8f2",260));put("s10-v1",icon("camera","#d9c6ef",260));put("s10-v2",icon("pendant","#ffe08f",260));put("s10-cur",icon("cursor","#ffffff",70));
+ gsap.set(S+"tb,"+S+"v0,"+S+"v1,"+S+"v2,"+S+"c0,"+S+"c1,"+S+"c2,"+S+"n0,"+S+"n1,"+S+"n2,"+S+"k0,"+S+"k1,"+S+"k2,"+S+"steam,"+S+"flash,"+S+"cur",{opacity:0});
+ var b=WHY.e+LEAD+.3;
+ tl.fromTo(S+"tb",{opacity:0},{opacity:1,duration:.4},b-.2);
+ [0,1,2].forEach(function(i){tl.fromTo(S+"v"+i+","+S+"n"+i,{opacity:0,y:40},{opacity:1,y:0,duration:.5,ease:"back.out(1.5)"},b+i*.15);pop(tl,S+"c"+i,b+.3+i*.15,{});});
+ var p=T("拔掉AI芯片");tl.set(S+"cur",{x:200,y:900});tl.to(S+"cur",{opacity:1,duration:.2},p-.6);
+ [0,1].forEach(function(i){var x=[350,840][i];cur(tl,S+"cur",x,350,p-.5+i*.6,.4);tl.to(S+"c"+i,{y:-160,rotation:25,opacity:0,duration:.5,ease:"power2.in"},p+i*.6);});
+ tl.fromTo(S+"steam",{opacity:0,y:20},{opacity:1,y:-30,duration:.8,repeat:2,yoyo:true},T("煮饭")-.2);
+ tl.fromTo(S+"flash",{opacity:0},{opacity:1,duration:.12,yoyo:true,repeat:1},T("拍照"));
+ pop(tl,S+"k0",T("只是用上")-.3,{});pop(tl,S+"k1",T("只是用上")+.1,{});
+ var q=T("拔掉AI",1);cur(tl,S+"cur",1330,350,q-.5,.4);tl.to(S+"c2",{y:-160,rotation:25,opacity:0,duration:.5,ease:"power2.in"},q);tl.to(S+"cur",{opacity:0,duration:.3},q+.6);
+ tl.to(S+"v2",{filter:"grayscale(1)",opacity:.45,duration:.6},T("空壳")-.6);pop(tl,S+"k2",T("空壳"),{});
+ captions(tl,"s10-cap");
+ window.__timelines["s10"]=tl;
+})();
+</script>
+</template></body></html>

@@ -62,7 +62,8 @@ test('conversation schedules match exact target, preserve statuses, and isolate 
     assert.equal(own.items[0].lastPush.ok, false);
     assert.equal(JSON.stringify(own).includes('private-'), false, 'no other recipients, private session or answer is exposed');
     assert.equal((await (await read(route, 'test-schedule-admin')).json()).items.length, 6);
-    assert.deepEqual((await (await read(route, 'test-schedule-other-tenant')).json()).items.map(item => item.id), ['other-tenant']);
+    // 一个账号 = 一个团队：频道对接只在超级管理员空间可用，团队空间读不到任何频道数据
+    assert.equal((await read(route, 'test-schedule-other-tenant')).status, 403);
     assert.deepEqual((await (await read('/welink/threads/user/same-id/schedules', 'test-schedule-viewer')).json()).items.map(item => item.id), ['welink-only']);
     assert.equal((await read('/weixin/threads/room/same-id/schedules', 'test-schedule-admin')).status, 400);
     assert.deepEqual((await (await read('/weixin/threads/user/missing/schedules', 'test-schedule-admin')).json()).items, []);

@@ -15,13 +15,14 @@ const { runWithTenant } = require('../backend/models/tenant-context');
 const transport = require('../backend/models/requirements-transport');
 const uploads = require('../backend/models/requirements-upload');
 const router = require('../backend/routes/requirements');
-const user = { username: 'admin', role: 'admin' };
+const user = { username: 'admin', role: 'admin', isSuper: true };
 const app = express();
 app.use(express.json({ limit: '50mb' }));
 app.use((req, res, next) => {
     if (!req.get('x-test-user')) return res.status(401).json({ error: 'Authentication required' });
-    req.user = { username: req.get('x-test-user'), role: req.get('x-test-role') || 'admin' };
-    next();
+    const username = req.get('x-test-user');
+    req.user = { username, role: req.get('x-test-role') || 'admin', isSuper: username === 'admin' };
+    runWithTenant(req.get('x-test-tenant') || 'default', next);
 });
 let loggedBody;
 app.use((req, res, next) => {
@@ -46,6 +47,7 @@ function browser(getConfig = () => transport.getPublicConfig(user), overrides = 
         ...overrides
     };
     vm.createContext(context);
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '../frontend/js/shared/requirements-client.js'), 'utf8'), context);
     vm.runInContext(fs.readFileSync(path.join(__dirname, '../frontend/js/requirements.js'), 'utf8'), context);
     return vm.runInContext('ReqApp', context);
 }
@@ -140,6 +142,7 @@ test('browser refuses insecure contexts and oversized payloads without a plainte
     await assert.rejects(client.encryptPayload({ description: 'too big' }, 'POST', '/api/requirements'), /50 MB/);
     const context = { window: { crypto: {}, addEventListener() {} }, document: { addEventListener() {} } };
     vm.createContext(context);
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '../frontend/js/shared/requirements-client.js'), 'utf8'), context);
     vm.runInContext(fs.readFileSync(path.join(__dirname, '../frontend/js/requirements.js'), 'utf8'), context);
     await assert.rejects(vm.runInContext('ReqApp.encryptPayload({}, "POST", "/api/requirements")', context), /HTTPS/);
 });
@@ -321,8 +324,7 @@ test('upload sessions isolate users and tenants, reject conflicting blocks, and 
     await Promise.all([uploads.complete(session.uploadId, user, save), uploads.complete(session.uploadId, user, save)]);
     assert.equal(writes, 1);
     const updateSession = await manualUpload({ description: 'new' }, { targetMethod: 'PUT', requirementId: 1 });
-    assert.throws(() => uploads.start(updateSession.body, { username: 'reader', role: 'user' }), /没有权限/);
-    assert.throws(() => uploads.receive(updateSession.uploadId, { index: 0, data: updateSession.parts[0] }, { username: 'admin', role: 'user' }), /没有权限/);
+    assert.throws(() => uploads.receive(updateSession.uploadId, { index: 0, data: updateSession.parts[0] }, { username: 'reader', role: 'user' }), /会话不存在/);
     uploads.cancel(updateSession.uploadId, user);
     assert.equal((await request(app).post('/api/requirements/uploads/start').send(session.body)).status, 401);
     assert.equal((await call('post', '/api/requirements/uploads/start', updateSession.body, 'user', 'reader')).status, 403);
@@ -348,4 +350,53 @@ test('bad checksums and plaintext assemblies never save; expired scratch files a
         assert.equal(fs.existsSync(dir), false);
         assert.throws(() => uploads.receive(expired.uploadId, { index: 1, data: expired.parts[1] }, user), /会话不存在或已过期/);
     } finally { Date.now = now; }
+});
+
+
+test('the public board attributes cross-tenant feedback and images and enforces ownership on every write', async () => {
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a0VsAAAAASUVORK5CYII=', 'base64');
+    const image = { name: 'screenshot.png', type: 'image/png', data: png.toString('base64') };
+    const as = (name, method, url) => request(app)[method](url)
+        .set('x-test-user', name).set('x-test-tenant', name === 'admin' ? 'default' : name);
+    const payload = { title: 'Feedback', description: 'Shared issue', category: '意见反馈', creator: 'admin', images: [image] };
+    const { body: created } = await as('alice', 'post', '/api/requirements').send(payload).expect(200);
+    const target = `/api/requirements/${created.id}`;
+    const { body: list } = await as('bob', 'get', '/api/requirements').expect(200);
+    assert.equal(list.find(row => row.id === created.id).creator, 'alice');
+    const { body: detail } = await as('bob', 'get', target).expect(200);
+    assert.equal(detail.canEdit, false);
+    assert.deepEqual(detail.images, [{ name: image.name, href: target + '/images/0' }]);
+    const response = await as('bob', 'get', detail.images[0].href).expect(200).expect('Content-Type', 'image/png');
+    assert.deepEqual(response.body, png);
+    await request(app).get(detail.images[0].href).expect(401);
+    await as('bob', 'put', target).send({ title: 'forged' }).expect(403);
+    await as('bob', 'delete', target).expect(403);
+    await as('alice', 'put', target).send({ description: 'edited', images: [{ ...image, type: 'image/svg+xml' }] }).expect(400);
+    await as('alice', 'put', target).send({ status: '需求接受' }).expect(403);
+    await as('alice', 'put', target).send({ description: 'edited' }).expect(200);
+    await as('admin', 'put', target).send({ status: '需求接受', assignee: 'admin' }).expect(200);
+    const { body: updated } = await as('bob', 'get', target).expect(200);
+    assert.equal(updated.description, 'edited');
+    assert.equal(updated.assignee, 'admin');
+    assert.equal(updated.images.length, 1);
+});
+
+test('tenant requirement import keeps logs and does not overwrite or re-publish deleted rows', async () => {
+    const { importTenantRequirements } = require('../backend/models/requirements-board');
+    const db = runWithTenant('legacy-team', () => pool.getConnection('requirements.db'));
+    await new Promise((resolve, reject) => db.exec(`
+        CREATE TABLE Requirements (id INTEGER PRIMARY KEY, title TEXT, creator TEXT, description TEXT, status TEXT);
+        CREATE TABLE RequirementLogs (id INTEGER, req_id INTEGER, old_status TEXT, new_status TEXT, remark TEXT, operator TEXT, created_at TEXT);
+        INSERT INTO Requirements VALUES (1, 'Legacy team request', 'alice', 'Old text', '提交');
+        INSERT INTO RequirementLogs VALUES (1, 1, '', '提交', 'Imported log', 'alice', '2025-01-01');
+    `, err => err ? reject(err) : resolve()));
+    await importTenantRequirements('legacy-team');
+    await importTenantRequirements('legacy-team');
+    const items = (await call('get', '/api/requirements')).body.filter(row => row.title === 'Legacy team request');
+    assert.equal(items.length, 1);
+    const url = `/api/requirements/${items[0].id}`;
+    assert.equal((await call('get', url)).body.logs[0].remark, 'Imported log');
+    await call('delete', url).expect(200);
+    await importTenantRequirements('legacy-team');
+    assert.equal((await call('get', '/api/requirements')).body.some(row => row.title === 'Legacy team request'), false);
 });

@@ -1402,11 +1402,9 @@
                 localStorage.setItem('tools_token', data.token);
                 localStorage.setItem('tools_user', data.username);
                 localStorage.setItem('tools_role', data.role);
-                if (data.tenantId && data.tenantId !== 'default') {
-                    const opened = await fetch('/api/tenants/switch', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.token}` }, body: JSON.stringify({ tenantId: 'default' }) });
-                    if (!opened.ok) throw new Error(window.ToolsI18n?.getLanguage?.() === 'en-US' ? 'Unable to open the default workspace' : '无法打开默认工作区');
-                }
-                localStorage.setItem('tools_tenant_id', 'default');
+                // 一个账号 = 一个团队：直接进入账号自己的数据空间（浏览器本地状态按团队分片）
+                localStorage.setItem('tools_tenant_id', data.tenantId || 'default');
+                localStorage.setItem('tools_super', data.isSuper === false ? '0' : '1'); // 旧后端没有该字段时按管理员即超级管理员
                 localStorage.removeItem('dragon_claw_spotlight_dismissed');
 
                 btn.innerHTML = window.ToolsI18n ? window.ToolsI18n.t('login.success') : '登录成功';

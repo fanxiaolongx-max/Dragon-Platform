@@ -1,9 +1,9 @@
-const { run, get, all } = require('./app-db');
+const { run, get, all, getDatabase } = require('./app-db');
 const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
 
 
-let initPromise = null;
+const readyByConnection = new WeakMap();
 
 async function replaceScriptsInDbRaw(scripts) {
     await run('BEGIN TRANSACTION');
@@ -30,8 +30,9 @@ async function replaceScriptsInDbRaw(scripts) {
 }
 
 async function ensureReady() {
-    if (!initPromise) {
-        initPromise = (async () => {
+    const connection = getDatabase();
+    if (!readyByConnection.has(connection)) {
+        const pending = (async () => {
             await run(`
                 CREATE TABLE IF NOT EXISTS uiv_scripts (
                     id TEXT PRIMARY KEY,
@@ -51,12 +52,13 @@ async function ensureReady() {
 
             
         })().catch(err => {
-            initPromise = null;
+            readyByConnection.delete(connection);
             throw err;
         });
+        readyByConnection.set(connection, pending);
     }
 
-    return initPromise;
+    return readyByConnection.get(connection);
 }
 
 function normalizeScript(item) {

@@ -1,4 +1,4 @@
-const { execFile } = require('node:child_process');
+const { execFileAware: execFile } = require('./tenant-sandbox'); // 团队目录里的 git 在沙箱中执行
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const os = require('node:os');

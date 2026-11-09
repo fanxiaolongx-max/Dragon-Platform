@@ -37,6 +37,7 @@ test('real chat endpoints isolate histories and reject foreign session IDs befor
     const end = serverSource.indexOf('\n});', begin) + 4;
     vm.runInNewContext(serverSource.slice(begin, end), { app, requireAdmin: auth.requireAdmin });
     app.use('/api/ai', router);
+    app.use('/api/distribution', require('../backend/routes/distribution'));
     const server = app.listen(0, '127.0.0.1');
     await new Promise(resolve => server.once('listening', resolve));
     t.after(async () => {
@@ -51,16 +52,38 @@ test('real chat endpoints isolate histories and reject foreign session IDs befor
         fs.rmSync(sandbox, { recursive: true, force: true });
     });
     for (const user of ['alice', 'bob']) await authSessions.saveSession(`synthetic-${user}`, user, 'viewer', Date.now() + 60000, 'default');
+    await authSessions.saveSession('synthetic-admin', 'admin', 'admin', Date.now() + 60000, 'default');
     const id = await chat.addMessage({ owner: 'alice', pagePath: '/', role: 'user', content: 'Alice private text' });
-    const url = `http://127.0.0.1:${server.address().port}/api/ai`;
+    const api = `http://127.0.0.1:${server.address().port}/api`;
+    const url = `${api}/ai`;
     const headers = { Authorization: 'Bearer synthetic-bob', 'Content-Type': 'application/json' };
+    const adminHeaders = { ...headers, Authorization: 'Bearer synthetic-admin' };
+    const share = (id, sharedAccess, authHeaders = adminHeaders) => fetch(`${api}/distribution`, {
+        method: 'PATCH', headers: authHeaders, body: JSON.stringify({ kind: 'skill', id, sharedAccess })
+    });
+    const viewerCatalog = async () => {
+        const response = await fetch(`${url}/skills`, { headers });
+        assert.equal(response.status, 200);
+        assert.equal(response.headers.get('cache-control'), 'no-store');
+        return (await response.json()).items;
+    };
     assert.equal((await fetch(`${url}/skills`)).status, 401);
-    const catalogResponse = await fetch(`${url}/skills`, { headers });
-    assert.equal(catalogResponse.headers.get('cache-control'), 'no-store');
-    const catalog = await catalogResponse.json();
-    assert.equal(catalog.items.length, require('../backend/models/agent-skills').list().length, 'every built-in Skill, including @create-skill');
-    assert.ok(catalog.items.some(item => item.id === 'create-skill'));
-    assert.equal('prompt' in catalog.items[0], false);
+    assert.deepEqual(await viewerCatalog(), [], 'built-in Skills are private by default');
+    const adminCatalog = await fetch(`${url}/skills`, { headers: adminHeaders });
+    assert.equal(adminCatalog.status, 200);
+    assert.deepEqual(
+        (await adminCatalog.json()).items.map(item => item.id).sort(),
+        require('../backend/models/agent-skills').list().map(item => item.id).sort(),
+        'the super admin sees all built-in Skills before sharing them'
+    );
+    assert.equal((await share('debug', true, headers)).status, 403, 'viewers cannot publish Skills');
+    const sharedSkills = ['code-review', 'create-skill', 'debug', 'project-map'];
+    for (const skill of sharedSkills) assert.equal((await share(skill, true)).status, 200);
+    const catalog = await viewerCatalog();
+    assert.deepEqual(catalog.map(item => item.id).sort(), sharedSkills);
+    assert.ok(catalog.every(item => !('prompt' in item) && !('markdown' in item)));
+    assert.equal((await share('create-skill', false)).status, 200);
+    assert.deepEqual((await viewerCatalog()).map(item => item.id).sort(), ['code-review', 'debug', 'project-map']);
     const missingWorkspace = await fetch(`${url}/chat`, { method: 'POST', headers, body: JSON.stringify({
         agent: 'dragon-claw-home', messages: [{ role: 'user', content: '@debug find the bug' }]
     }) });
@@ -110,6 +133,7 @@ test('real chat endpoints isolate histories and reject foreign session IDs befor
     provider.createClient = () => ({ model: 'mock', generateText: async options => {
         assert.match(options.systemInstruction, /### @code-review/);
         assert.match(options.systemInstruction, /### @project-map/, 'a Skill kept from earlier in the chat is loaded too');
+        assert.doesNotMatch(options.systemInstruction, /### @create-skill/, 'a revoked Skill in the request is ignored');
         assert.doesNotMatch(options.systemInstruction, /name_en:/, 'front-matter stays out of the prompt');
         assert.match(options.systemInstruction, /每项发现写清触发场景/);
         assert.equal(options.tools.some(tool => tool.name === 'run_command' || tool.name === 'write_file'), false, 'a Skill does not grant a viewer write tools');
@@ -118,7 +142,7 @@ test('real chat endpoints isolate histories and reject foreign session IDs befor
         : { text: 'Read completed', toolCalls: [] }; } });
     const completed = await fetch(`${url}/chat`, { method: 'POST', headers: { ...headers, Authorization: 'Bearer synthetic-alice' }, body: JSON.stringify({
         agent: 'dragon-claw-home', stream: true, pagePath: '/', messages: [{ role: 'user', content: '用@code-review读一下文件 @code-reveiw' }],
-        skills: ['project-map', '../../secrets'],
+        skills: ['project-map', 'create-skill', '../../secrets'],
         workspace: { root, agentSessionId: 'http-recovery-agent', permissionMode: 'full' }
     }) });
     assert.equal(completed.status, 200);

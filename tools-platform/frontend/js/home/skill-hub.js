@@ -43,6 +43,15 @@
     }
     const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const isAdmin = () => { try { return localStorage.getItem('tools_role') === 'admin'; } catch { return false; } };
+    const isSuperAdmin = () => {
+        try {
+            const isSuper = localStorage.getItem('tools_super') === '1';
+            const isTenantDefault = (localStorage.getItem('tools_tenant_id') || 'default') === 'default';
+            if (!isSuper || !isTenantDefault) return false;
+            if (typeof window.isNavSuperAdmin === 'function') return window.isNavSuperAdmin() === true;
+            return true;
+        } catch { return false; }
+    };
     const ico = name => `<span class="v2-ico" data-icon="${name}"></span>`;
 
     try {
@@ -58,7 +67,7 @@
         return (window.HomeSkills?.items?.() || []).filter(item => !item.hidden).map(item => {
             const cat = { builtin: 'builtin', import: 'imported', external: 'external' }[window.SkillSource?.kind(item)] || 'custom';
             return {
-                key: `skill:${item.id}`, kind: 'skill', id: item.id, src: item, dot: window.SkillSource?.dot(item) || '',
+                key: `skill:${item.id}`, kind: 'skill', shared: item.shared, personal: item.personal, id: item.id, src: item, dot: window.SkillSource?.dot(item) || '',
                 title: (en ? item.nameEn : '') || item.name || item.id,
                 desc: (en ? item.descriptionEn : '') || item.description || t('defaultSkillDesc'),
                 icon: item.icon || '✨', color: item.builtIn ? '#10a37f' : '#f472b6',
@@ -71,7 +80,7 @@
     function pluginEntries() {
         const en = lang() === 'en-US';
         return (window.HomeCapabilities?.groups?.() || []).flatMap(group => group.items.map((item, index) => ({
-            key: `cap:${group.kind}:${item.id || index}`, kind: 'plugin',
+            key: `cap:${group.kind}:${item.id || index}`, kind: 'plugin', capabilityId: item.id, capabilityBadge: item.badge, sharedAccess: item.sharedAccess,
             title: (en ? item.nameEn : '') || item.name, desc: item.description || '',
             icon: item.icon || group.icon || '🧩', color: group.color || '#38bdf8',
             cat: group.kind, catLabel: (en ? group.labelEn : '') || group.label,
@@ -93,10 +102,19 @@
             .map(tool => {
                 let updatedAt = tool.updatedAt || '';
                 let updatedText = tool.updatedText || '';
-                if (!updatedAt && customTools.length) {
-                    const slug = String(tool.id || '').replace(/^custom:/, '');
-                    const match = customTools.find(t => t.slug === slug || t.href === tool.href);
+                const slug = String(tool.id || '').startsWith('custom:')
+                    ? String(tool.id).slice(7)
+                    : (String(tool.id).match(/^(?:\/)?(?:tools|custom-tools)\/([^/?#]+)/)?.[1]
+                       || String(tool.href || '').match(/^(?:\/)?(?:tools|custom-tools)\/([^/?#]+)/)?.[1]
+                       || null);
+                let sharedAccess = tool.sharedAccess === true;
+                if (customTools.length) {
+                    const match = (slug ? customTools.find(t => t.slug === slug) : null)
+                        || customTools.find(t => tool.href && t.href === tool.href);
                     if (match) {
+                        if (match.sharedAccess !== undefined) {
+                            sharedAccess = match.sharedAccess === true;
+                        }
                         updatedAt = match.updatedAt || match.createdAt || '';
                         if (updatedAt && !updatedText && typeof window.HomeWorkspace?.formatRelative === 'function') {
                             updatedText = window.HomeWorkspace.formatRelative(updatedAt);
@@ -104,9 +122,10 @@
                     }
                 }
                 return {
-                    key: `tool:${tool.id}`, kind: 'tool', id: tool.id, title: tool.title, desc: tool.description || '',
+                    key: `tool:${tool.id}`, kind: 'tool', id: tool.id, slug, title: tool.title, desc: tool.description || '',
                     icon: tool.icon || '🧩', color: tool.color || '#64748b', cat: tool.group, catLabel: tool.group,
-                    badges: [tool.group, updatedText].filter(Boolean), mine: favorites.has(tool.id), updatedAt, href: tool.href
+                    badges: [tool.group, updatedText].filter(Boolean), mine: favorites.has(tool.id), updatedAt, href: tool.href,
+                    sharedAccess
                 };
             });
     }
@@ -162,10 +181,12 @@
         const action = item.kind === 'skill' ? `<span class="v2-hub-use">@ ${esc(t('use'))}</span>` : `<span class="v2-hub-use">${ico('arrowUpRight')}</span>`;
         const skillButtons = item.kind === 'skill' ? `
             <button type="button" class="v2-hub-quick-btn" data-hub-act="improve" title="${esc(t('improve'))}">${ico('sparkles')}</button>
-            <button type="button" class="v2-hub-quick-btn" data-hub-act="history" title="${esc(t('history'))}">${ico('refresh')}</button>` : '';
+            <button type="button" class="v2-hub-quick-btn" data-hub-act="history" title="${esc(t('history'))}" ${item.shared && !item.personal ? 'hidden' : ''}>${ico('refresh')}</button>` : '';
         const moreBtn = `<button type="button" class="v2-hub-more-btn" data-hub-act="more" title="${esc(t('moreOptions'))}" aria-label="${esc(t('moreOptions'))}" aria-haspopup="menu">${ico('more')}</button>`;
         const extra = `<span class="v2-hub-more" data-tool-card-actions>${skillButtons}${moreBtn}</span>`;
-        return `<a class="v2-hub-card" href="${esc(item.href)}" data-hub-key="${esc(item.key)}" style="--hub-c:${esc(item.color)}" title="${esc(item.title)}">
+        const isShared = Boolean(item.sharedAccess);
+        const sharedClass = (isSuperAdmin() && isShared) ? ' is-shared-access' : '';
+        return `<a class="v2-hub-card${sharedClass}" href="${esc(item.href)}" data-hub-key="${esc(item.key)}" style="--hub-c:${esc(item.color)}" title="${esc(item.title)}">
             <span class="v2-hub-icon">${iconHtml(item.icon)}</span>
             <span class="v2-hub-body">
                 <strong>${item.dot && window.SkillSource?.label ? window.SkillSource.label(item.title, item.src) : esc(item.title)}</strong>
@@ -212,7 +233,7 @@
         if (state.tab === 'tools') return [
             row('store', t('market'), 'data-v2-do="market"'),
             row('upload', t('importTool'), 'data-v2-do="importTool"'),
-            isAdmin() ? row('compare', t('compare'), 'data-v2-do="compare"') : ''
+            window.isNavSuperAdmin?.() ? row('compare', t('compare'), 'data-v2-do="compare"') : ''
         ].join('');
         const en = lang() === 'en-US';
         return (window.HomeCapabilities?.groups?.() || []).map(group => `<a role="menuitem" href="${esc(group.href)}"><span class="v2-hub-menu-emoji">${esc(group.icon)}</span><span>${esc((en ? group.labelEn : '') || group.label)}</span></a>`).join('');
@@ -286,6 +307,11 @@
         document.querySelector('.home-main')?.scrollTo?.({ top: 0 });
         window.scrollTo({ top: 0 });
         remember();
+        if (localStorage.getItem('tools_super') === '0') {
+            void window.HomeSkills?.reload?.();
+            void window.HomeCapabilities?.reload?.();
+            void window.reloadHomeCustomTools?.();
+        }
     }
     function close() {
         if (!state.open) return;

@@ -1,0 +1,50 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .pnl{position:absolute;background:#fffdf8;border:3px solid var(--ink);border-radius:26px;box-shadow:var(--sh)}
+#root .pnl .pt{position:absolute;left:0;right:0;top:0;height:64px;border-bottom:3px solid var(--ink);border-radius:23px 23px 0 0;display:flex;align-items:center;justify-content:center;font-size:38px}
+#root .lbl{position:absolute;font-size:36px;white-space:nowrap}
+#root .big{font-size:44px}
+#root .tl{height:14px;border-radius:7px;background:#5b4636}
+#root .node{font-size:34px;border:3px solid var(--ink);border-radius:999px;padding:8px 24px 10px;z-index:2}
+#root .ev{font-size:32px;border:3px solid var(--ink);border-radius:18px;padding:6px 18px 8px;background:#fff;box-shadow:0 0 20px rgba(255,209,102,.8),var(--sh);display:flex;align-items:center;gap:8px}
+#root .ev:after{content:"T";width:34px;height:34px;border-radius:50%;background:#ffe08f;border:2.5px solid var(--ink);font-size:24px;display:flex;align-items:center;justify-content:center}
+</style>
+<div id="root" data-composition-id="s13" data-width="1920" data-height="1080">
+  <div class="paper"></div>
+  <div class="head" id="s13-h"><span class="step">第 7 层</span><span class="ttl">硬件 · 卖出去才是开始</span></div>
+  <div class="pnl" id="s13-a" style="left:110px;top:220px;width:1700px;height:260px"><div class="pt" style="background:#e6dfd6;justify-content:flex-start;padding-left:30px">传统硬件</div></div>
+  <div class="abs tl" id="s13-l1" style="left:260px;top:380px;width:1300px"></div>
+  <div class="abs node" id="s13-n1" style="left:230px;top:350px;background:#ffe08f">购买</div>
+  <div class="tag abs" id="s13-e1" style="left:1380px;top:340px;background:#e6dfd6">交易结束</div>
+  <div class="pnl" id="s13-b" style="left:110px;top:510px;width:1700px;height:330px"><div class="pt" style="background:#9fe0c9;justify-content:flex-start;padding-left:30px">AI 原生硬件</div></div>
+  <div class="abs tl" id="s13-l2" style="left:260px;top:670px;width:1500px;background:#47cf9f"></div>
+  <div class="abs node" id="s13-n2" style="left:230px;top:640px;background:#ffe08f">购买</div>
+  <div class="abs ev" id="s13-v0" style="left:520px;top:600px">对话</div><div class="abs ev" id="s13-v1" style="left:760px;top:600px">总结</div><div class="abs ev" id="s13-v2" style="left:1000px;top:600px">识别</div><div class="abs ev" id="s13-v3" style="left:1240px;top:600px">提醒</div>
+  <svg class="abs" style="left:300px;top:690px" width="1460" height="140" viewBox="0 0 1460 140"><path id="s13-rv" d="M0 130 C300 125 600 100 900 70 C1100 50 1300 25 1450 10" stroke="#f27b96" stroke-width="8" fill="none" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/></svg>
+  <div class="tag abs" id="s13-sub" style="left:1460px;top:700px;background:#ffb3c6">会员订阅收入 ↗</div>
+  <div id="s13-sp"></div>
+  <div class="cap" id="s13-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ var tl=gsap.timeline({paused:true});
+ var S="#s13-";
+ tl.fromTo("#s13-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.25);
+ 
+ gsap.set(S+"a,"+S+"l1,"+S+"n1,"+S+"e1,"+S+"b,"+S+"l2,"+S+"n2,"+S+"v0,"+S+"v1,"+S+"v2,"+S+"v3,"+S+"sub",{opacity:0});
+ tl.fromTo(S+"a",{opacity:0,y:30},{opacity:1,y:0,duration:.5},T("传统硬件")-.4);pop(tl,S+"n1",T("卖"),{});
+ tl.fromTo(S+"l1",{opacity:1,scaleX:0},{scaleX:1,duration:.8,ease:"power2.out",transformOrigin:"0% 50%"},T("卖")+.3);
+ tl.to(S+"l1",{backgroundColor:"#d4ccc4",duration:.5},T("结束")-.2);pop(tl,S+"e1",T("结束"),{});
+ tl.fromTo(S+"b",{opacity:0,y:30},{opacity:1,y:0,duration:.5},T("AI原生")-.4);pop(tl,S+"n2",T("AI原生"),{});
+ tl.fromTo(S+"l2",{opacity:1,scaleX:0},{scaleX:1,duration:2.6,ease:"none",transformOrigin:"0% 50%"},T("每天")-.3);
+ [["v0","对话"],["v1","总结"],["v2","识别"],["v3","提醒"]].forEach(function(a){tl.fromTo(S+a[0],{opacity:0,y:20,scale:.6},{opacity:1,y:0,scale:1,duration:.4,ease:"back.out(2)"},T(a[1])-.1);});
+ tl.to(".ev",{scale:1.12,duration:.25,yoyo:true,repeat:1,stagger:.12,transformOrigin:"50% 50%"},T("Token"));
+ draw(tl,"#s13-rv",T("会员订阅")-.4,1.4);pop(tl,S+"sub",T("收入")-.1,{});
+ captions(tl,"s13-cap");
+ window.__timelines["s13"]=tl;
+})();
+</script>
+</template></body></html>

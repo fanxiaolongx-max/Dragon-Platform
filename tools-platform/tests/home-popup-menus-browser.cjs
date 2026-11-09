@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path'), express = require('express');
 const root = path.join(__dirname, '..'), frontend = path.join(root, 'frontend');
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'home-popup-menus-'));
+process.env.TOOLS_DATA_DIR = path.join(temp, 'data');
 app.setPath('userData', path.join(temp, 'profile')); app.disableHardwareAcceleration();
 let win, server, prefs = { lastDirectory: '', recentDirectories: ['/fixture/privacy-policy', '/fixture/reports'], permissionMode: 'ask' };
 let rejectPermission = false, enhanceMode = 'normal', enhanceCalls = [], sessionPages = 0;
@@ -21,6 +22,8 @@ app.whenReady().then(async () => {
         window.fixtureIntervals=[];const originalInterval=window.setInterval;window.setInterval=(fn,delay,...args)=>{if(delay>=10000)fixtureIntervals.push({fn,delay});return originalInterval(fn,delay,...args)};
         window.fixtureErrors=[];window.addEventListener('error',e=>fixtureErrors.push(e.message));window.addEventListener('unhandledrejection',e=>fixtureErrors.push(String(e.reason)));
     </script>`)));
+    web.use('/api/requirements', (req, _res, next) => { req.user = { username: 'fixture', role: 'readonly', isSuper: false }; next(); }, require('../backend/routes/requirements'));
+    web.get('/requirements', (_, res) => res.sendFile(path.join(frontend, 'pages/requirements.html')));
     web.get('/api/custom-tools', (_, res) => res.json([]));
     web.get('/api/auth/me', (_, res) => res.json({ username: 'fixture', role: 'admin', tenantId: 'default' }));
     web.get('/api/app-version', (_, res) => res.json({ version: 'fixture' }));
@@ -130,8 +133,18 @@ app.whenReady().then(async () => {
     assert.equal(await evaluate(`document.querySelector('#tools-dialog-title').textContent`),'Feedback');
     assert.ok(await visible('.tools-dialog'),'feedback fits narrow home renderer');
     await capture('feedback-home-narrow');
-    await evaluate(`document.querySelector('.tools-dialog textarea').value='Test feedback';document.querySelector('.tools-dialog textarea').dispatchEvent(new Event('input'));document.querySelector('[data-submit]').click();true`);
-    assert.ok(await evaluate(`document.querySelector('.tools-dialog-status').textContent.includes('server is currently busy')`));
+    await evaluate(`(() => {
+        const area = document.querySelector('.tools-dialog textarea');
+        area.value = 'Test feedback';
+        area.dispatchEvent(new Event('input'));
+        const file = document.querySelector('.tools-dialog input[type=file]');
+        const transfer = new DataTransfer();
+        transfer.items.add(new File([Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a0VsAAAAASUVORK5CYII='), c => c.charCodeAt(0))], 'feedback.png', { type: 'image/png' }));
+        file.files = transfer.files;
+        file.dispatchEvent(new Event('change'));
+        document.querySelector('.tools-dialog [data-submit]').click();
+    })()`);
+    await until(`document.querySelector('.tools-dialog-status').textContent.includes('Posted to the requests board')`);
     await evaluate(`document.querySelector('.tools-dialog-close').click();document.getElementById('v2UserBtn').click();document.querySelector('.v2-account [data-v2-do="checkUpdate"]').click();true`);
     assert.ok(await evaluate(`document.querySelector('.tools-dialog').textContent.includes('desktop app')`));
     await evaluate(`document.querySelector('.tools-dialog-close')?.click();HomeV2.closePop();true`);
@@ -145,6 +158,10 @@ app.whenReady().then(async () => {
     assert.equal(await evaluate(`document.querySelector('.v2-discover').classList.contains('is-open')`), false, 'clicking a tool in discover menu closes the popover');
     await evaluate(`HomeToolFrame?.close?.(); true`);
     assert.deepEqual(await evaluate('fixtureErrors'),[]);
+    await win.loadURL(`http://127.0.0.1:${server.address().port}/requirements`);
+    await until(`Array.from(document.querySelectorAll('.req-title')).some(node => node.textContent === 'Test feedback')`);
+    await evaluate(`Array.from(document.querySelectorAll('.req-title')).find(node => node.textContent === 'Test feedback').closest('.req-card').click()`);
+    await until(`document.querySelector('#reqImagesList img')?.naturalWidth === 1`);
     console.log('PASS compact/exclusive Skill menu, independent @ completion, visible connectors, live cascading friend links, account update/feedback actions with light/dark/English/narrow bounds. Screenshots: '+temp);
     win.destroy();server.close();app.exit(0);
 }).catch(error=>{console.error(error);win?.destroy();server?.close();app.exit(1)});

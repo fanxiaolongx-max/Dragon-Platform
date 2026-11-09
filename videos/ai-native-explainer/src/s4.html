@@ -1,0 +1,63 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .pnl{position:absolute;background:#fffdf8;border:3px solid var(--ink);border-radius:26px;box-shadow:var(--sh)}
+#root .pnl .pt{position:absolute;left:0;right:0;top:0;height:64px;border-bottom:3px solid var(--ink);border-radius:23px 23px 0 0;display:flex;align-items:center;justify-content:center;font-size:38px}
+#root .lbl{position:absolute;font-size:36px;white-space:nowrap}
+#root .big{font-size:44px}
+#root .bb{width:fit-content;max-width:430px;font-size:32px;border:2.5px solid var(--ink);border-radius:22px;padding:8px 20px 10px;margin-bottom:16px;white-space:nowrap}
+#root .px{width:70px;height:70px;border-radius:12px;background:#aed8f2;border:2px solid var(--ink)}
+</style>
+<div id="root" data-composition-id="s4" data-width="1920" data-height="1080">
+  <div class="paper"></div>
+  <div class="head" id="s4-h"><span class="step">第 2 层</span><span class="ttl">产品</span></div>
+  <div class="pnl" id="s4-l" style="left:110px;top:220px;width:780px;height:620px"><div class="pt" style="background:#aed8f2">天气 App</div></div>
+  <div class="abs" id="s4-ph" style="left:260px;top:300px;width:300px;height:480px;border:3px solid var(--ink);border-radius:40px;background:#fff;box-shadow:var(--sh);text-align:center;padding-top:40px">
+    <span id="s4-sun"></span><div style="font-size:84px;line-height:1">26°</div><div style="font-size:34px;margin-top:6px">晴 · 微风</div></div>
+  <div class="tag abs" id="s4-ai1" style="left:610px;top:430px;background:#ffb3c6;font-size:32px">AI 推荐</div>
+  <div class="abs" id="s4-ok1" style="left:610px;top:560px"></div><div class="tag abs" id="s4-t1" style="left:600px;top:700px;background:#e6dfd6">只是用上了 AI</div>
+  <div class="pnl" id="s4-r" style="left:950px;top:220px;width:860px;height:620px"><div class="pt" style="background:#9fe0c9">对话助手</div></div>
+  <div class="abs" id="s4-chat" style="left:1000px;top:310px;width:540px">
+    <div class="bb" style="margin-left:auto;background:#aed8f2">帮我写一封周报</div>
+    <div class="bb" style="background:#fff">好的！本周完成了 3 件事…</div>
+    <div class="bb" style="margin-left:auto;background:#aed8f2">再精简一点</div>
+    <div class="bb" style="background:#fff">已压缩成 3 句话 ✓</div></div>
+  <div class="abs" id="s4-in" style="left:1000px;top:720px;width:540px;height:70px;border:3px solid var(--ink);border-radius:35px;background:#fff;font-size:30px;color:#a3958a;padding:16px 28px">输入你的问题…</div>
+  <div class="tag abs" id="s4-ai2" style="left:1590px;top:430px;background:#ffb3c6;font-size:32px">模型</div>
+  <div class="tag abs" id="s4-t2" style="left:1150px;top:470px;background:#9fe0c9;font-size:44px">AI 原生</div>
+  <div class="cursor" id="s4-cur"></div>
+  <div id="s4-px"></div>
+  <div id="s4-sp"></div>
+  <div class="cap" id="s4-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ var tl=gsap.timeline({paused:true});
+ var S="#s4-";
+ tl.fromTo("#s4-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.25);
+ 
+ put("s4-sun",icon("star","#ffe08f",110));put("s4-ok1",icon("check","#9fe0c9",110));put("s4-cur",icon("cursor","#ffffff",70));
+ var px="";for(var i=0;i<24;i++){px+='<i class="abs px" style="left:'+(1010+(i%6)*90)+'px;top:'+(320+Math.floor(i/6)*90)+'px"></i>';}document.getElementById("s4-px").innerHTML=px;
+ gsap.set(S+"l,"+S+"ph,"+S+"ai1,"+S+"ok1,"+S+"t1,"+S+"r,"+S+"chat,"+S+"in,"+S+"ai2,"+S+"t2,"+S+"cur,.px",{opacity:0});
+ tl.fromTo(S+"l,"+S+"ph",{opacity:0,y:40},{opacity:1,y:0,duration:.6,stagger:.15,ease:"power3.out"},T("天气")-.4);
+ pop(tl,S+"ai1",T("AI推荐")-.3,{});
+ tl.set(S+"cur",{x:900,y:820});tl.to(S+"cur",{opacity:1,duration:.2},T("拿")-.6);cur(tl,S+"cur",660,450,T("拿")-.5,.5);
+ tl.to(S+"ai1",{x:260,y:-140,rotation:20,opacity:0,duration:.7,ease:"power2.in"},T("拿")+.1);cur(tl,S+"cur",900,300,T("拿")+.1,.7);
+ tl.to(S+"ph",{rotation:-2,duration:.15,yoyo:true,repeat:3},T("照样"));
+ pop(tl,S+"ok1",T("照样")+.2,{});pop(tl,S+"t1",T("用上了AI")-.2,{});
+ tl.fromTo(S+"r,"+S+"chat,"+S+"in",{opacity:0,y:40},{opacity:1,y:0,duration:.6,stagger:.15,ease:"power3.out"},T("对话助手")-.6);
+ tl.fromTo("#s4-chat .bb",{opacity:0,y:16},{opacity:1,y:0,duration:.3,stagger:.2},T("对话助手")-.2);
+ pop(tl,S+"ai2",T("把模型拿掉")-.4,{});
+ cur(tl,S+"cur",1620,450,T("把模型拿掉")-.4,.5);
+ tl.to(S+"ai2",{x:200,y:-160,rotation:25,opacity:0,duration:.7,ease:"power2.in"},T("拿掉",1)+.1);cur(tl,S+"cur",1860,260,T("拿掉",1)+.1,.7);tl.to(S+"cur",{opacity:0,duration:.3},T("拿掉",1)+.8);
+ var k=T("整个产品");
+ tl.set(".px",{opacity:1},k-.05);tl.to(S+"chat",{opacity:0,duration:.15},k);
+ tl.to(".px",{y:function(i){return 260+((i*37)%120);},x:function(i){return ((i*53)%140)-70;},rotation:function(i){return (i*47)%180;},opacity:0,duration:1.1,stagger:.02,ease:"power2.in"},k);
+ pop(tl,S+"t2",T("只剩")+.1,{});
+ captions(tl,"s4-cap");
+ window.__timelines["s4"]=tl;
+})();
+</script>
+</template></body></html>

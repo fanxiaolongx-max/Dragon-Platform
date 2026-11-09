@@ -435,14 +435,14 @@ function normalizeToolState(value) {
     return result;
 }
 
-async function getToolState(slug) {
-    if (!await getTool(slug)) return null;
+async function getToolState(slug, { distributed = false } = {}) {
+    if (!distributed && !await getTool(slug)) return null;
     return await readKV('custom_tool_state', slug, { data: {}, snapshots: [], updatedAt: null });
 }
 
 async function saveToolState(slug, data, options = {}) {
-    if (!await getTool(slug)) return null;
-    const previous = await getToolState(slug) || { data: {}, snapshots: [] };
+    const previous = await getToolState(slug, options);
+    if (!previous) return null;
     const nextData = normalizeToolState(data);
     const snapshots = Array.isArray(previous.snapshots) ? previous.snapshots.slice() : [];
     if (options.createSnapshot !== false && previous.updatedAt) {
@@ -458,12 +458,12 @@ async function saveToolState(slug, data, options = {}) {
     return next;
 }
 
-async function restoreToolState(slug, snapshotId) {
-    const current = await getToolState(slug);
+async function restoreToolState(slug, snapshotId, { distributed = false } = {}) {
+    const current = await getToolState(slug, { distributed });
     if (!current) return null;
     const snapshot = (current.snapshots || []).find(item => item.id === snapshotId);
     if (!snapshot) return false;
-    return await saveToolState(slug, snapshot.data, { reason: '恢复前自动快照' });
+    return await saveToolState(slug, snapshot.data, { reason: '恢复前自动快照', distributed });
 }
 
 const TOOL_HISTORY_LIMIT = 30;
@@ -503,26 +503,26 @@ function normalizeToolHistoryRecord(value, existing = null) {
     };
 }
 
-async function listToolHistory(slug) {
-    if (!await getTool(slug)) return null;
+async function listToolHistory(slug, { distributed = false } = {}) {
+    if (!distributed && !await getTool(slug)) return null;
     const records = await readKV('custom_tool_history', slug, []);
     return Array.isArray(records) ? records : [];
 }
 
-async function addToolHistory(slug, value) {
-    if (!await getTool(slug)) return null;
+async function addToolHistory(slug, value, { distributed = false } = {}) {
+    if (!distributed && !await getTool(slug)) return null;
     return withToolHistoryMutation(slug, async () => {
-        const records = await listToolHistory(slug) || [];
+        const records = await listToolHistory(slug, { distributed }) || [];
         const record = normalizeToolHistoryRecord(value);
         await writeKV('custom_tool_history', slug, [record, ...records].slice(0, TOOL_HISTORY_LIMIT));
         return record;
     });
 }
 
-async function deleteToolHistory(slug, historyId) {
-    if (!await getTool(slug)) return null;
+async function deleteToolHistory(slug, historyId, { distributed = false } = {}) {
+    if (!distributed && !await getTool(slug)) return null;
     return withToolHistoryMutation(slug, async () => {
-        const records = await listToolHistory(slug) || [];
+        const records = await listToolHistory(slug, { distributed }) || [];
         const next = records.filter(item => item && item.id !== historyId);
         if (next.length === records.length) return false;
         await writeKV('custom_tool_history', slug, next);
@@ -946,7 +946,9 @@ function getToolAssetPath(slug, relativePath) {
     const resolvedRoot = path.resolve(rootDir);
     if (!candidate.startsWith(`${resolvedRoot}${path.sep}`)) return null;
     try {
-        return fs.statSync(candidate).isFile() ? candidate : null;
+        const realRoot = fs.realpathSync(resolvedRoot);
+        const realCandidate = fs.realpathSync(candidate);
+        return realCandidate.startsWith(`${realRoot}${path.sep}`) && fs.statSync(realCandidate).isFile() ? realCandidate : null;
     } catch (_) {
         return null;
     }

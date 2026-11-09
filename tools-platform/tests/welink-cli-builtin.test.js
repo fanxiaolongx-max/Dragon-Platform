@@ -87,7 +87,7 @@ test('off the intranet, status reports the restriction without probing WeLink PC
     network.setOverridesForTest({ lookup: async () => { throw Object.assign(new Error('nx'), { code: 'ENOTFOUND' }); } });
     const app = express();
     app.use(express.json());
-    app.use((req, _res, next) => { req.user = { username: 'admin', role: 'admin' }; runWithTenant('default', next); });
+    app.use((req, _res, next) => { req.user = { username: 'admin', role: 'admin', isSuper: true }; runWithTenant('default', next); });
     app.use('/api/channels', require('../backend/routes/channels'));
     const server = http.createServer(app);
     await new Promise(resolve => server.listen(0, resolve));
@@ -126,7 +126,7 @@ test('the WeLink assistant SDK is bundled and its QR authorization is refused of
     network.setOverridesForTest({ lookup: async () => { throw Object.assign(new Error('nx'), { code: 'ENOTFOUND' }); } });
     const app = express();
     app.use(express.json());
-    app.use((req, _res, next) => { req.user = { username: 'admin', role: 'admin' }; runWithTenant('default', next); });
+    app.use((req, _res, next) => { req.user = { username: 'admin', role: 'admin', isSuper: true }; runWithTenant('default', next); });
     app.use('/api/channels', require('../backend/routes/channels'));
     const server = http.createServer(app);
     await new Promise(resolve => server.listen(0, resolve));
@@ -139,5 +139,33 @@ test('the WeLink assistant SDK is bundled and its QR authorization is refused of
     } finally {
         await new Promise(resolve => server.close(resolve));
         network.setOverridesForTest();
+    }
+});
+
+test('the three scan entries reject non-super administrators and read-only users', async () => {
+    const express = require('../backend/node_modules/express');
+    const request = require('supertest');
+    const app = express();
+    app.use((req, _res, next) => {
+        req.user = { role: req.get('x-role'), tenantId: req.get('x-tenant'), isSuper: false };
+        next();
+    });
+    app.use('/api/channels', require('../backend/routes/channels'));
+
+    const endpoints = [
+        ['get', '/welink-cli/status?auth=1'],
+        ['post', '/welink-cli/login'],
+        ['get', '/welink/status'],
+        ['post', '/welink/qrcode-auth'],
+        ['get', '/weixin/status'],
+        ['post', '/weixin/qrcode-auth'],
+        ['post', '/weixin/qrcode-auth/verify']
+    ];
+    for (const [role, tenant] of [['admin', 'team-a'], ['admin', 'default'], ['readonly', 'default']]) {
+        for (const [method, endpoint] of endpoints) {
+            await request(app)[method](`/api/channels${endpoint}`)
+                .set('x-role', role).set('x-tenant', tenant)
+                .expect(403, { code: 'SUPER_ADMIN_REQUIRED', error: '仅系统管理员可用' });
+        }
     }
 });

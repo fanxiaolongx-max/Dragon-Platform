@@ -1,0 +1,48 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .pnl{position:absolute;background:#fffdf8;border:3px solid var(--ink);border-radius:26px;box-shadow:var(--sh)}
+#root .pnl .pt{position:absolute;left:0;right:0;top:0;height:64px;border-bottom:3px solid var(--ink);border-radius:23px 23px 0 0;display:flex;align-items:center;justify-content:center;font-size:38px}
+#root .lbl{position:absolute;font-size:36px;white-space:nowrap}
+#root .big{font-size:44px}
+</style>
+<div id="root" data-composition-id="s2" data-width="1920" data-height="1080">
+  <div class="paper"></div>
+  <div class="head" id="s2-h"><span class="ttl">一个检验问题</span></div>
+  <div class="abs" id="s2-q" style="left:710px;top:470px;width:500px;height:150px;border-radius:30px;background:#fffdf8;border:3px solid var(--ink);box-shadow:var(--sh);display:flex;align-items:center;justify-content:center;font-size:42px;text-align:center;line-height:1.3">拿掉 AI<br>它还能成立吗？</div>
+  <div class="abs" id="s2-i0" style="left:880px;top:165px;width:160px;text-align:center"><span id="s2-ic0"></span><br><span class="tag">技术架构</span></div>
+  <div class="abs" id="s2-i1" style="left:1193px;top:278px;width:160px;text-align:center"><span id="s2-ic1"></span><br><span class="tag">产品</span></div>
+  <div class="abs" id="s2-i2" style="left:1270px;top:532px;width:160px;text-align:center"><span id="s2-ic2"></span><br><span class="tag">组织</span></div>
+  <div class="abs" id="s2-i3" style="left:1054px;top:735px;width:160px;text-align:center"><span id="s2-ic3"></span><br><span class="tag">用户</span></div>
+  <div class="abs" id="s2-i4" style="left:706px;top:735px;width:160px;text-align:center"><span id="s2-ic4"></span><br><span class="tag">交互</span></div>
+  <div class="abs" id="s2-i5" style="left:490px;top:532px;width:160px;text-align:center"><span id="s2-ic5"></span><br><span class="tag">商业模式</span></div>
+  <div class="abs" id="s2-i6" style="left:567px;top:278px;width:160px;text-align:center"><span id="s2-ic6"></span><br><span class="tag" style="font-size:40px;background:#ffb3c6">硬件</span></div>
+  <div class="tag abs" id="s2-key" style="left:1440px;top:860px;background:#ffb3c6;font-size:36px">重点</div>
+  <div class="abs" id="s2-d" style="left:110px;top:690px"></div>
+  <div id="s2-sp"></div>
+  <div class="cap" id="s2-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ var tl=gsap.timeline({paused:true});
+ var S="#s2-";
+ tl.fromTo("#s2-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.25);
+ put("s2-d",dino("dn",{w:220,h:220,body:"#8fd8b8"}));tl.fromTo("#s2-d",{opacity:0,y:80},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.5);dtail(tl,"dn",.6,30);
+ put("s2-ic0",icon("chip","#ffb3c6",96));put("s2-ic1",icon("phone","#aed8f2",96));put("s2-ic2",icon("group","#ffe08f",96));put("s2-ic3",icon("face","#9fe0c9",96));put("s2-ic4",icon("wave","#d9c6ef",96));put("s2-ic5",icon("coin","#ffe08f",96));put("s2-ic6",icon("headset","#ffb3c6",120));
+ gsap.set("#s2-q,#s2-i0,#s2-i1,#s2-i2,#s2-i3,#s2-i4,#s2-i5,#s2-i6,#s2-key",{opacity:0});
+ tl.fromTo("#s2-q",{opacity:0,scale:.7},{opacity:1,scale:1,duration:.5,ease:"back.out(1.6)",transformOrigin:"50% 50%"},WHY.e+LEAD+.35);
+ pop(tl,"#s2-i0",T("技术架构")-.1,{y:20});
+ pop(tl,"#s2-i1",T("产品")-.1,{y:20});
+ pop(tl,"#s2-i2",T("组织")-.1,{y:20});
+ pop(tl,"#s2-i3",T("用户")-.1,{y:20});
+ pop(tl,"#s2-i4",T("交互")-.1,{y:20});
+ pop(tl,"#s2-i5",T("商业模式")-.1,{y:20});
+ pop(tl,"#s2-i6",T("硬件")-.1,{y:20});
+ tl.to("#s2-i6",{scale:1.15,duration:.4,yoyo:true,repeat:3,ease:"sine.inOut",transformOrigin:"50% 50%"},T("重点"));tl.to("#s2-i6",{scale:1.15,duration:.3},T("重点")+1.7);pop(tl,"#s2-key",T("重点"),{});
+ captions(tl,"s2-cap");
+ window.__timelines["s2"]=tl;
+})();
+</script>
+</template></body></html>

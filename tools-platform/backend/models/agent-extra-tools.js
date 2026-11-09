@@ -19,22 +19,22 @@ const PLATFORM_TOOL_DEFINITIONS = [
     }
 ];
 
-async function executePlatformTool(name, args = {}) {
+async function executePlatformTool(name, args = {}, user) {
     const guides = require('./platform-tool-guides');
     try {
         if (name === 'find_platform_tools') {
-            const items = await guides.findTools(String(args.query || ''), { limit: Number(args.limit) || 6 });
+            const items = await guides.findTools(String(args.query || ''), { limit: Number(args.limit) || 6, user });
             if (!items.length) return { content: '没有找到相关的平台工具。可以换个说法，或参考系统提示里的平台工具目录。', summary: '没有找到' };
             return { content: items.map(item => `- [${item.title}](${item.href})｜id: ${item.id}｜${item.summary}${item.hasGuide ? '' : '（还没有生成详细说明）'}`).join('\n'), summary: `找到 ${items.length} 个工具` };
         }
-        const tool = await guides.toolGuide(args.tool);
+        const tool = await guides.toolGuide(args.tool, { user });
         if (!tool) {
             const rawRef = String(args.tool || '').trim().replace(/^@|^\/\?skill=/i, '');
             const skillStore = require('./agent-skills-store');
-            const allSkills = await skillStore.listAll().catch(() => []);
+            const allSkills = await skillStore.listForUser(user).catch(() => []);
             const matchedSkill = allSkills.find(item => item.id === rawRef.toLowerCase() || item.name === rawRef || item.nameEn === rawRef);
             if (matchedSkill) {
-                const loaded = await skillStore.loadSection(matchedSkill.id);
+                const loaded = await skillStore.loadSection(matchedSkill.id, user);
                 if (loaded) return { content: loaded.section, summary: `@${matchedSkill.id} 技能说明` };
             }
             return { content: `平台上没有找到「${args.tool}」这个工具，先用 find_platform_tools 搜一下。`, summary: '没有这个工具', isError: true };
@@ -48,14 +48,14 @@ async function executePlatformTool(name, args = {}) {
     }
 }
 
-const platformToolset = () => ({
+const platformToolset = user => ({
     id: 'platform_tools',
     label: '平台工具向导：按需求找平台上的工具、读某个工具的使用说明（怎么用、原理）',
     definitions: PLATFORM_TOOL_DEFINITIONS,
     kindOf: () => 'read',
     preview: async () => ({}),
     alwaysKey: name => name,
-    execute: call => executePlatformTool(call.name, call.args && typeof call.args === 'object' ? call.args : {})
+    execute: call => executePlatformTool(call.name, call.args && typeof call.args === 'object' ? call.args : {}, user)
 });
 
 /**
@@ -63,16 +63,17 @@ const platformToolset = () => ({
  * channel：频道对话（{ channel, conversation, actor, canSaveSkills }），只带只读的平台工具向导和受信任的 MCP 服务；
  * canSaveSkills（微信机器人主人、WeLink 管理员）再带技能自我进化，保存要用户在频道里回复确认码。
  */
-async function toolsets({ owner, readOnly, channel = null }) {
+async function toolsets({ owner, user, readOnly, channel = null }) {
     if (!owner) return [];
-    const sets = [platformToolset()];
+    const sets = [platformToolset(user ?? await require('./tool-distribution').actorForOwner(owner))];
     if (channel) {
-        if (channel.canSaveSkills) sets.push(require('./agent-skill-tools').toolset({ owner }));
+        if (channel.canSaveSkills) sets.push(require('./agent-skill-tools').toolset({ owner, user }));
         sets.push(...await require('./agent-mcp').toolsets({ readOnly, trustedOnly: true }).catch(error => { console.warn('[agent] MCP 工具不可用：', error.message || error); return []; }));
         return sets;
     }
+    sets.push(...await require('./agent-mcp').toolsets().catch(error => { console.warn('[agent] MCP 工具不可用：', error.message || error); return []; }));
     if (readOnly) return sets;
-    sets.push(require('./agent-skill-tools').toolset({ owner })); // 技能自我进化：保存前用户审批
+    sets.push(require('./agent-skill-tools').toolset({ owner, user })); // 技能自我进化：保存前用户审批
     const where = browser.available();
     if (where) {
         const ctx = { owner };
@@ -86,8 +87,6 @@ async function toolsets({ owner, readOnly, channel = null }) {
             execute: (call,{signal}={}) => browser.execute({...ctx,signal}, call.name, call.args && typeof call.args === 'object' ? call.args : {})
         });
     }
-    // MCP 服务：每个已连接的服务一组（只给默认租户的管理员；连不上的服务这一轮跳过）
-    sets.push(...await require('./agent-mcp').toolsets({ readOnly }).catch(error => { console.warn('[agent] MCP 工具不可用：', error.message || error); return []; }));
     return sets;
 }
 
@@ -95,16 +94,18 @@ async function toolsets({ owner, readOnly, channel = null }) {
  * 不选目录的对话：返回 { definitions(), prompt, handles(name), execute(call, { start }), end() }；没有可用工具组时返回 null。
  * 审批：读取类直接执行，其余弹审批卡（「总是允许」在本对话内有效）。
  */
-async function forChat({ owner, chatSessionId, readOnly, write, signal, sensitiveValues = [], channel = null }) {
-    const sets = await toolsets({ owner, readOnly, channel });
+async function forChat({ owner, user, chatSessionId, readOnly, write, signal, sensitiveValues = [], channel = null }) {
+    const sets = await toolsets({ owner, user, readOnly, channel });
     if (!sets.length) return null;
     const manager = require('./agent-run-manager');
     const session = manager.chatSession(owner, chatSessionId);
-    if (channel) session.unattended = true; // 频道里没人能点审批卡：需要审批的调用直接不执行
-    const registry = await require('./agent-tool-registry').create({ session, core: false, skillCatalog: true, extraToolsets: sets, sensitiveValues });
+    session.readOnly = Boolean(readOnly);
+    session.unattended = Boolean(channel); // 频道里没人能点审批卡
+    const registry = await require('./agent-tool-registry').create({ session, user, core: false, skillCatalog: true, extraToolsets: sets, sensitiveValues });
     const run = manager.beginChatRun({ owner, chatSessionId, write, signal });
     return {
         definitions: () => registry.definitions(),
+        allowed: registry.allowed,
         prompt: registry.catalogPrompt(),
         handles: name => registry.isMeta(name) || Boolean(registry.toolset(name)),
         async execute(call, { start }) {
@@ -122,7 +123,7 @@ async function forChat({ owner, chatSessionId, readOnly, write, signal, sensitiv
                 return require('./channels/channel-pending-actions').defer({ ...channel, title: confirmTitle(call, preview), preview, execute: () => set.execute(call) })
                     || { content: '这个操作需要用户确认，当前频道会话无法确认，没有执行', summary: '需要确认，未执行', isError: true };
             }
-            const decision = await manager.decideCall(run, call, { kind, preview: () => set.preview(call.name, call.args), key: set.alwaysKey?.(call.name, call.args) });
+            const decision = await manager.decideCall(run, call, { kind, preview: () => set.preview(call.name, call.args), key: set.alwaysKey?.(call.name, call.args), sharedMcp: set.sharedMcp });
             if (decision.outcome) return decision.outcome;
             return set.execute(call,{signal});
         },

@@ -33,7 +33,7 @@
         open: false,
         filePreview: null,
         external: null, // { previousOpen }：显示外部卡片（WeLink 跟进与记忆）时隐藏环境/上下文/更改
-        picker: { items: [], active: -1, timer: null, lastInput: null, exists: false, isDir: false, requestId: 0 }
+        picker: { items: [], active: -1, timer: null, requestId: 0 }
     };
     const el = {};
     const approvalCards = new Map();
@@ -800,27 +800,54 @@
         renderChanges();
         renderChip();
         el.panel.querySelectorAll('[data-wsp-i18n]').forEach(node => { node.textContent = tx(node.dataset.wspI18n); });
-        el.picker.querySelectorAll('[data-wsp-i18n]').forEach(node => { node.textContent = tx(node.dataset.wspI18n); });
+        el.picker.querySelectorAll('[data-wsp-i18n]').forEach(node => {
+            const key = node.dataset.wspI18n;
+            node.textContent = tx(key === 'pickerHelp' && state.capability?.confined ? 'teamPickerHelp' : key);
+        });
         if (el.fab) {
             const label = el.fab.querySelector('.wsp-fab-label');
             if (label) label.textContent = tx('workspace');
             el.fab.setAttribute('aria-label', tx('workspace'));
         }
-        if (el.pickerInput) el.pickerInput.placeholder = tx('typedPathPlaceholder');
+        if (el.pickerInput) el.pickerInput.placeholder = tx(state.capability?.confined ? 'teamPathPlaceholder' : 'typedPathPlaceholder');
     }
 
     // ── 目录选择：路径输入 + 后端联想 ────────────────────
-    function openPicker() {
+    async function openPicker() {
+        if (!state.enabled) return;
+        const prepareAccountDirectory = state.capability.canPrepareAccountDirectory && !state.root;
+        clearTimeout(state.picker.timer);
+        const requestId = ++state.picker.requestId;
         el.picker.hidden = false;
         document.body.classList.add('dc-picker-open');
-        el.pickerInput.value = state.root || state.prefs.lastDirectory || '';
+        el.pickerInput.value = prepareAccountDirectory ? '' : state.root || state.prefs.lastDirectory || '';
+        el.pickerList.replaceChildren();
+        el.pickerStatus.textContent = prepareAccountDirectory ? tx('accountDirectoryLoading') : '';
+        state.picker.items = [];
+        state.picker.active = -1;
+        el.pickerSelect.disabled = true;
         renderPickerRecent();
         el.pickerInput.focus();
         el.pickerInput.select();
-        suggest(true);
+        if (prepareAccountDirectory) {
+            try {
+                const { directory } = await request('POST', `${API}/account-directory`);
+                if (requestId !== state.picker.requestId) return;
+                if (!directory) throw new Error('Missing account directory');
+                el.pickerInput.value = directory;
+                if (document.activeElement === el.pickerInput) el.pickerInput.select();
+            } catch (error) {
+                if (requestId !== state.picker.requestId) return;
+                const key = error.code === 'ACCOUNT_DIRECTORY_CONFLICT' ? 'accountDirectoryConflict' : 'accountDirectoryFailed';
+                return suggest(key);
+            }
+        }
+        suggest();
     }
 
     function closePicker() {
+        clearTimeout(state.picker.timer);
+        state.picker.requestId++;
         el.picker.hidden = true;
         document.body.classList.remove('dc-picker-open');
         state.picker.active = -1;
@@ -835,25 +862,24 @@
 
     function scheduleSuggest() {
         clearTimeout(state.picker.timer);
+        state.picker.requestId++;
         state.picker.timer = setTimeout(() => suggest(), 150);
     }
 
-    async function suggest(force = false) {
+    async function suggest(notice) {
+        clearTimeout(state.picker.timer);
         const input = el.pickerInput.value;
-        if (!force && input === state.picker.lastInput) return;
-        state.picker.lastInput = input;
         const requestId = state.picker.requestId += 1;
         try {
             const data = await request('GET', `${API}/suggest?input=${encodeURIComponent(input)}&showHidden=${el.pickerHidden.checked ? 'true' : 'false'}`);
             if (requestId !== state.picker.requestId) return;
-            state.picker.exists = Boolean(data.exists);
-            state.picker.isDir = Boolean(data.isDir);
             state.picker.items = [];
             (data.groups || []).forEach(group => {
                 group.entries.forEach(entry => state.picker.items.push({ ...entry, group: group.label }));
             });
             state.picker.active = state.picker.items.length ? 0 : -1;
             renderPickerList(data);
+            if (notice) el.pickerStatus.textContent = tx(notice);
         } catch (error) {
             if (requestId !== state.picker.requestId) return;
             el.pickerList.innerHTML = '';
@@ -880,11 +906,11 @@
             </button>`);
         });
         el.pickerList.innerHTML = html.join('') || `<div class="wsp-picker-none">${escapeHtml(data.error === 'EACCES' ? tx('noPermission') : input ? tx('noMatches') : tx('noMatches'))}</div>`;
-        if (!input) el.pickerStatus.innerHTML = `<span>${escapeHtml(tx('pickerEmptyHint'))}</span>`;
+        if (!input) el.pickerStatus.textContent = tx(data.confined ? 'teamPickerEmptyHint' : 'pickerEmptyHint');
         else if (data.exists && data.isDir) el.pickerStatus.innerHTML = `<span class="wsp-status-ok">✓ ${escapeHtml(tx('dirReady'))}${data.isGit ? ` · ⎇ git` : ''}</span>`;
         else if (data.exists) el.pickerStatus.innerHTML = `<span class="wsp-status-bad">${escapeHtml(tx('notDir'))}</span>`;
         else el.pickerStatus.innerHTML = `<span class="wsp-status-dim">${escapeHtml(tx('dirNotFound'))}</span>`;
-        el.pickerSelect.disabled = !(data.exists && data.isDir);
+        el.pickerSelect.disabled = !input || !(data.exists && data.isDir);
         el.pickerInput.setAttribute('aria-activedescendant', state.picker.active >= 0 ? `wspOpt${state.picker.active}` : '');
     }
 
@@ -908,7 +934,7 @@
         const sep = state.capability?.sep || '/';
         el.pickerInput.value = item.path.endsWith(sep) ? item.path : `${item.path}${sep}`;
         el.pickerInput.setSelectionRange(el.pickerInput.value.length, el.pickerInput.value.length);
-        suggest(true);
+        suggest();
     }
 
     async function confirmPicker(explicitPath) {
@@ -1664,7 +1690,7 @@
             if (fill) {
                 el.pickerInput.value = fill.dataset.wspFill;
                 el.pickerInput.focus();
-                suggest(true);
+                suggest();
                 return;
             }
             const item = event.target.closest('[data-wsp-index]');
@@ -1674,8 +1700,8 @@
             }
         });
         el.pickerInput.addEventListener('input', scheduleSuggest);
-        el.pickerHidden.addEventListener('change', () => suggest(true));
-        el.pickerClear.addEventListener('click', () => { el.pickerInput.value = ''; el.pickerInput.focus(); suggest(true); });
+        el.pickerHidden.addEventListener('change', () => suggest());
+        el.pickerClear.addEventListener('click', () => { el.pickerInput.value = ''; el.pickerInput.focus(); suggest(); });
         el.pickerSelect.addEventListener('click', () => confirmPicker());
         el.pickerInput.addEventListener('keydown', event => {
             if (event.isComposing) return;
@@ -1685,7 +1711,7 @@
                 if (state.picker.items.length) { event.preventDefault(); completeActive(); }
             } else if (event.key === 'Enter') {
                 event.preventDefault();
-                if (state.picker.exists && state.picker.isDir) confirmPicker();
+                if (!el.pickerSelect.disabled) confirmPicker();
                 else if (state.picker.items.length) completeActive();
             } else if (event.key === 'Escape') { event.preventDefault(); closePicker(); }
         });

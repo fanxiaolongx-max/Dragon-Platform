@@ -13,6 +13,7 @@ const scriptService = require('./agent-script-service');
 const contextStats = require('./agent-context-stats');
 const { AgentChangeLog } = require('./agent-change-log');
 const guard = require('./agent-path-guard');
+const boundary = require('./team-boundary');
 const transcriptRepo = require('./agent-transcript-repository');
 const commandGuard = require('./agent-command-guard');
 const dangerRules = require('./agent-danger-rules');
@@ -74,11 +75,27 @@ function isAdminUser(user) {
 function ensureScratchSession({ user, tenantId, chatSessionId }) {
     const owner = ownerKey(user, tenantId);
     const userHash = crypto.createHash('sha256').update(owner).digest('hex').slice(0, 16);
-    const root = path.join(require('os').tmpdir(), 'dragon-claw-scratch', userHash);
+    // 团队账号的临时空间放在团队自己的 tmp 下（沙箱可写、团队边界内）；超级管理员仍用系统临时目录
+    const root = boundary.isConfined(user, tenantId)
+        ? path.join(require('./tenant-context').getTmpDir(tenantId), 'scratch', userHash)
+        : path.join(require('os').tmpdir(), 'dragon-claw-scratch', userHash);
     fs.mkdirSync(root, { recursive: true });
     const chatHash = crypto.createHash('sha256').update(`${owner}\n${chatSessionId || 'new'}`).digest('hex').slice(0, 24);
     const session = ensureSession({ agentSessionId: `scratch-${chatHash}`, user, tenantId, root, permissionMode: 'auto' });
     session.scratch = true;
+    return session;
+}
+
+/**
+ * 团队账号没选目录时的默认工作区：直接用团队工作目录（团队的整个文件空间），命令照常可用、在沙箱里执行。
+ * 按对话区分智能体会话；沿用临时目录的前端处理（scratch），不在界面上暴露服务器路径。
+ */
+function ensureTeamDefaultSession({ user, tenantId, chatSessionId, permissionMode }) {
+    const owner = ownerKey(user, tenantId);
+    const chatHash = crypto.createHash('sha256').update(`${owner}\n${chatSessionId || 'new'}`).digest('hex').slice(0, 24);
+    const session = ensureSession({ agentSessionId: `teamws-${chatHash}`, user, tenantId, root: boundary.workspaceRoot(tenantId), permissionMode: permissionMode || 'auto' });
+    session.scratch = true;
+    session.teamDefault = true;
     return session;
 }
 
@@ -89,7 +106,9 @@ function ensureWeLinkSession({ user, tenantId, chatSessionId, isSuperAdmin = fal
     // 超级管理员私聊：直接以用户家目录为工作区根目录，拥有最高主机访问权限；群聊和其他同事则隔离在沙箱工作区
     const root = isSuperAdmin
         ? require('os').homedir()
-        : path.join(require('./tenant-context').getDataDir(tenantId), 'channel-workspaces', 'welink-sdk', hash(owner));
+        : boundary.isConfined(user, tenantId)
+            ? path.join(require('./tenant-context').getTmpDir(tenantId), 'channel-workspaces', 'welink-sdk', hash(owner)) // 团队空间：放在沙箱可写的团队 tmp 下
+            : path.join(require('./tenant-context').getDataDir(tenantId), 'channel-workspaces', 'welink-sdk', hash(owner));
     fs.mkdirSync(root, { recursive: true });
     const session = ensureSession({ agentSessionId: `welink-${hash(`${owner}\n${chatSessionId}`)}`, user, tenantId, root, permissionMode: 'full' });
     session.unattended = !isSuperAdmin; // 超级管理员私聊豁免无人值守阻断，直接自主完全执行；群聊/普通同事无人审批直接不执行
@@ -101,6 +120,9 @@ function ensureSession({ agentSessionId, user, tenantId, root, permissionMode })
     const id = String(agentSessionId || '').slice(0, 100);
     if (!/^[\w-]{8,100}$/.test(id)) throw managerError('AGENT_SESSION_INVALID', 'agentSessionId 无效');
     const realRoot = guard.normalizeRoot(root);
+    // 团队账号的工作目录必须在团队空间内（前端选目录、恢复会话、频道会话都经过这里）
+    const confined = boundary.isConfined(user, tenantId);
+    if (confined) boundary.assertAllowed(user, tenantId, realRoot, '工作目录');
     const owner = ownerKey(user, tenantId);
     let session = sessions.get(id);
     if (session && session.owner !== owner) throw managerError('AGENT_SESSION_FORBIDDEN', '无权访问该智能体会话', 403);
@@ -137,6 +159,7 @@ function ensureSession({ agentSessionId, user, tenantId, root, permissionMode })
         session.dangerAllowed.clear();
     }
     if (permissionMode) session.permissionMode = normalizePermissionMode(permissionMode);
+    session.confined = confined;
     session.lastUsedAt = Date.now();
     return session;
 }
@@ -376,7 +399,12 @@ function commandStream(write, { runId, callId, command, cwd }) {
 
 function buildAgentAddendum(session, { gitBranch, directoryContext }) {
     const modeText = { ask: '请求批准（写入、删除、命令都会先征求用户同意）', auto: '帮我批准（读写自动，删除/重命名/命令需用户同意）', full: '完全访问（管理员的文件操作和命令自动执行，不再逐项审批；Shell 以服务进程的系统账号权限运行）' }[session.permissionMode];
-    const location = session.scratch
+    const location = session.teamDefault
+        ? `## 工作区（团队工作目录）
+用户没有单独选择子目录，你在本团队的工作目录里工作：可以在其中创建、读取、修改文件并执行 Shell 命令（命令在团队沙箱中运行）。
+- 用户问到文件位置时，用相对团队工作目录的路径说明（如 reports/2026-11.xlsx），不要展示服务器上的绝对路径。
+- 需要长期保存的项目可以建子目录，并提示用户在输入框下方「选择工作空间」里选中它。`
+        : session.scratch
         ? `## 工作区（临时目录）
 用户没有选择工作目录。需要文件或命令时，你在一个私有临时目录里工作：可以在其中创建、读取、修改文件并执行命令。
 - 不要向用户提及或展示该目录的路径；需要交付的内容直接写在回复里，或说明生成的文件名与内容摘要。
@@ -388,8 +416,7 @@ function buildAgentAddendum(session, { gitBranch, directoryContext }) {
 ${location}
 - 操作系统：${process.platform}${gitBranch ? `\n- Git 分支：${gitBranch}` : ''}
 - 权限模式：${session.readOnly ? '只读（当前账号不是管理员，只能查看和搜索文件，不能修改、删除、重命名或执行命令；需要改动时请告诉用户联系管理员）' : modeText}
-- 文件工具的路径以根目录为范围（如 src/index.js）；根目录是 Shell 的默认工作位置，不是 Shell 的系统隔离边界。管理员可用命令访问任务所需的其他目录。
-${!session.readOnly && session.permissionMode === 'full' ? '- 当前管理员已选择完全访问：围绕用户当前任务自主规划、执行、检查结果并继续修复；无需为每个命令、跨目录操作或风险标记重复请求批准。遇到执行错误先主动排查；只有缺少必要信息或需要用户做实际选择时再提问。完全访问不会提升操作系统账号权限，也不代表可以自行扩展用户任务。读取密钥凭据、用 Shell 直接动平台数据、把文件发到外部、删除工作目录之外的内容、改系统设置这几类命令仍会请用户审批（用户可按类别设为不再询问），被拒绝时不要换写法绕过。\n' : ''}
+${session.confined ? '- 文件工具的路径以根目录为范围（如 src/index.js）。当前账号的文件与命令都被隔离在本团队空间内：Shell 在系统沙箱里运行，只能读写团队工作目录、临时目录与 $HOME（团队专属），读不到服务器上的其他目录；可以正常联网、安装用户级依赖（npm/pip 会装进团队 $HOME）。遇到 Operation not permitted / Permission denied 访问外部路径时，说明那是团队空间之外，不要尝试绕过。\n' : '- 文件工具的路径以根目录为范围（如 src/index.js）；根目录是 Shell 的默认工作位置，不是 Shell 的系统隔离边界。管理员可用命令访问任务所需的其他目录。\n'}${!session.readOnly && session.permissionMode === 'full' ? '- 当前管理员已选择完全访问：围绕用户当前任务自主规划、执行、检查结果并继续修复；无需为每个命令、跨目录操作或风险标记重复请求批准。遇到执行错误先主动排查；只有缺少必要信息或需要用户做实际选择时再提问。完全访问不会提升操作系统账号权限，也不代表可以自行扩展用户任务。读取密钥凭据、用 Shell 直接动平台数据、把文件发到外部、删除工作目录之外的内容、改系统设置这几类命令仍会请用户审批（用户可按类别设为不再询问），被拒绝时不要换写法绕过。\n' : ''}
 ${session.readOnly ? '' : `- 安装依赖或命令行工具（npm i -g、pip install、brew install、winget 等）、运行版本检查与验证命令，都是任务本身的一部分：直接用 run_command 执行${session.permissionMode === 'full' ? '（完全访问下自动执行）' : '（需要时界面会弹审批卡，由用户点批准）'}，不要以“沙箱/权限受限”为由让用户自己去终端敲命令。命令输出会实时显示在右侧终端面板。命令运行中要等用户输入（如「xxx auth login」打开授权链接后要粘贴凭据、验证码、y/n 确认、交互式菜单）时，用 run_command 加 interactive=true 执行：命令会在用户右侧终端面板的真终端里运行，提示用户「在右侧终端里完成授权/输入，命令结束后我会继续」，然后等命令结束再根据结果继续。不要让用户把凭据、token、密码发到对话里，也不要用 echo 把凭据管道给命令；用户在终端里输入的内容会自动从结果中隐藏。登录命令不要用 nohup … & 放到后台，也不要再起第二个登录进程：直接 interactive=true 前台运行，它会一直等到用户完成授权。用户的浏览器通常不在这台服务器上，授权后跳回 http://localhost:端口/… 打不开是正常的，告诉用户把地址栏里的完整地址粘贴到右侧终端（或对话框），平台会自动转交给服务器上的登录程序。只有必须在浏览器里完成的动作（打开授权链接、扫码）才需要用户离开终端；全局安装报 EACCES 等权限错误时先自己换用户级安装（如 npm 前缀设到用户目录）再重试。\n`}- 改文件前先用 read_file 看清上下文；小改动用 edit_file，整文件重写才用 write_file。
 - 脚本专用保存允许鉴权逻辑与原有凭据，读取给模型/日志仍脱敏；不要沿用旧对话的“CSRF 占位符禁止克隆”结论。修复不代表删除授权；同名时按工具的 suggestedCall 原位 rebuild，不能先删后建或交付空框架。
 - 涉及 UIVF12 抓取脚本仓库（脚本、分类目录）的查询、新建、复制、修改、移动和删除时，优先 list_uiv_scripts / list_uiv_categories / read_uiv_script / save_uiv_script / move_uiv_script / delete_uiv_script / manage_uiv_category。专用工具可对完整长脚本做局部修改、校验语法并提交回读，避免 Shell 与截断 payload_json 的二次转义。用户已要求执行时不要停在方案或“可以入库”的描述。
@@ -429,8 +456,6 @@ function classifyDecision(session, toolName, args = null, kind = toolsService.ki
     if (!kind) return 'deny';
     if (kind === 'read') return 'allow';
     if (session.readOnly) return 'readonly';
-    // 超级管理员单聊：已豁免无人值守限制，且完全访问模式下跨目录或高风险操作自主完全执行，不再阻断
-    if (session.isSuperAdmin && session.permissionMode === 'full') return 'allow';
     // 危险类别在任何模式下都要审批（包括完全访问），除非用户已选择不再询问；无人值守的对话直接不执行
     if (dangerHits(session, toolName, args).length) return session.unattended ? 'unattended' : 'ask';
     // 每次都要用户确认的操作（如保存技能）：完全访问也询问，可选本对话不再询问
@@ -463,7 +488,7 @@ function awaitApproval(run, call, preview) {
 }
 
 /** 等待审批卡的结果：{ decision, scope }（scope 只在危险类别卡选择「不再询问」时有值） */
-function waitApproval(run, call, preview) {
+function waitApproval(run, call, preview, sharedMcp = false) {
     const id = crypto.randomUUID();
     return new Promise(resolve => {
         const settle = (decision, scope = '') => {
@@ -476,19 +501,24 @@ function waitApproval(run, call, preview) {
         };
         const timer = setTimeout(() => settle('timeout'), APPROVAL_TIMEOUT_MS);
         if (typeof timer.unref === 'function') timer.unref();
-        pendingApprovals.set(id, { runId: run.id, sessionId: run.session.id, owner: run.session.owner, settle, timer, createdAt: Date.now() });
+        pendingApprovals.set(id, { runId: run.id, sessionId: run.session.id, owner: run.session.owner, sharedMcp, settle, timer, createdAt: Date.now() });
         run.pending.set(id, settle);
-        run.write({ type: 'approval', id, runId: run.id, callId: call.id, tool: call.name, args: call.args, preview, expiresInMs: APPROVAL_TIMEOUT_MS });
+        run.write({ type: 'approval', id, runId: run.id, callId: call.id, tool: call.name, args: call.args, preview, ...(sharedMcp ? { noAlways: true } : {}), expiresInMs: APPROVAL_TIMEOUT_MS });
     });
 }
 
 /** 由 POST /api/agent-workspace/approvals/:id 调用；只结算 Promise，不触库。 */
+function isSharedMcpApproval(approvalId, user, tenantId) {
+    const pending = pendingApprovals.get(String(approvalId || ''));
+    return Boolean(user && pending?.sharedMcp && pending.owner === ownerKey(user, tenantId));
+}
+
 function resolveApproval(approvalId, decision, user, tenantId, scope = '') {
-    if (!isAdminUser(user)) throw managerError('AGENT_SESSION_FORBIDDEN', '只读账号无权批准写入或命令', 403);
+    if (!isAdminUser(user) && !isSharedMcpApproval(approvalId, user, tenantId)) throw managerError('AGENT_SESSION_FORBIDDEN', '只读账号无权批准写入或命令', 403);
     const pending = pendingApprovals.get(String(approvalId || ''));
     if (!pending) throw managerError('AGENT_APPROVAL_NOT_FOUND', '审批已过期或不存在', 404);
     if (pending.owner !== ownerKey(user, tenantId)) throw managerError('AGENT_SESSION_FORBIDDEN', '无权处理该审批', 403);
-    const normalized = ['allow', 'deny', 'always'].includes(decision) ? decision : 'deny';
+    const normalized = decision === 'always' && pending.sharedMcp ? 'allow' : ['allow', 'deny', 'always'].includes(decision) ? decision : 'deny';
     const normalizedScope = normalized === 'always' && dangerRules.SCOPES.includes(scope) ? scope : '';
     pending.settle(normalized, normalizedScope);
     return { ok: true, decision: normalized, ...(normalizedScope ? { scope: normalizedScope } : {}) };
@@ -527,8 +557,10 @@ function beginChatRun({ owner, chatSessionId, write, signal }) {
  * 按类别决定一次调用：允许则返回 {}，否则返回 { outcome }（拒绝 / 超时 / 预览出错）。
  * preview 是函数，只在需要审批时才调用；key 是「总是允许」的粒度（如浏览器按站点）。
  */
-async function decideCall(run, call, { kind, preview, key = call.name }) {
-    let decision = classifyDecision(run.session, key, call.args, kind);
+async function decideCall(run, call, { kind, preview, key = call.name, sharedMcp = false }) {
+    let decision = sharedMcp && kind === 'external'
+        ? (run.session.unattended ? 'unattended' : 'ask')
+        : classifyDecision(run.session, key, call.args, kind);
     if (decision === 'ask') {
         let shown = {};
         try {
@@ -536,7 +568,7 @@ async function decideCall(run, call, { kind, preview, key = call.name }) {
         } catch (error) {
             return { outcome: { content: `错误（${error.code || 'ERROR'}）：${error.message}`, summary: String(error.message || '').slice(0, 120), isError: true } };
         }
-        const answer = await awaitApproval(run, call, shown);
+        const { decision: answer } = await waitApproval(run, call, shown, sharedMcp);
         if (answer === 'always') run.session.alwaysAllow.add(key);
         run.write({ type: 'approval_result', runId: run.id, callId: call.id, decision: answer });
         decision = answer === 'allow' || answer === 'always' ? 'allow' : answer;
@@ -575,7 +607,7 @@ function beginRun(session, write, signal) {
     return run;
 }
 
-async function runAgentTurn({ session, client, systemInstruction, historyMessages, write, signal, maxOutputTokens, temperature, model, sensitiveValues = [], chatSessionId = '', onRunStarted, skillCatalog, skillLanguage = 'zh', skillPrompt = '', skillIds = null, vision = null, extraToolsets = [], userEvents = [], interactiveTerminal = false }) {
+async function runAgentTurn({ session, user, client, systemInstruction, historyMessages, write, signal, maxOutputTokens, temperature, model, sensitiveValues = [], chatSessionId = '', onRunStarted, skillCatalog, skillLanguage = 'zh', skillPrompt = '', skillIds = null, vision = null, extraToolsets = [], userEvents = [], interactiveTerminal = false }) {
     const emit = write;
     write = event => emit(redactValue(event, { secrets: sensitiveValues }));
     const run = beginRun(session, write, signal);
@@ -600,15 +632,15 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
     // 本轮用户消息附带的图片（能看图的模型）：合并转录后仍挂在最后一条用户消息上
     if (currentUser?.images?.length && messages.at(-1)?.role === 'user' && !messages.at(-1).images) messages[messages.length - 1] = { ...messages.at(-1), images: currentUser.images };
     // 工具登记表：常驻工具 + tool_search / load_skill；用户选择的技能（@netcare-data / @ops-group / @welink-office 等）带上各自的专用工具
-    const registry = await toolRegistry.create({ session, messages, sensitiveValues, skillCatalog: Array.isArray(skillCatalog) && skillCatalog.length > 0,
-        extraToolsets: [...await require('./agent-extra-tools').toolsets({ owner: session.owner, readOnly: session.readOnly }), ...extraToolsets],
+    const registry = await toolRegistry.create({ session, user, messages, sensitiveValues, skillCatalog: Array.isArray(skillCatalog) && skillCatalog.length > 0,
+        extraToolsets: [...await require('./agent-extra-tools').toolsets({ owner: session.owner, user, readOnly: session.readOnly }), ...extraToolsets],
         skillIds: Array.isArray(skillIds) ? skillIds : [...String(systemInstruction).matchAll(/^### @([a-z][a-z0-9-]*)$/gm)].map(match => match[1]) });
     if (extraToolsets.length) await registry.runMeta({ name: 'tool_search', args: { select: extraToolsets.map(set => set.id) } });
     const skillPrompts = registry.startPrompt();
     const fullSystem = redactText(`${systemInstruction}\n${addendum}${skillPrompts ? `\n${skillPrompts}` : ''}${registry.catalogPrompt()}`, { secrets: sensitiveValues });
     const opsCtx = { actor: session.username, createdRunIds: new Set() };
     const toolCtx = { root: session.root, changeLog: session.changeLog, signal, sensitiveValues, username: session.username, readOnly: session.readOnly,
-        permissionMode: session.permissionMode,
+        permissionMode: session.permissionMode, confined: Boolean(session.confined), tenantId: session.tenantId,
         fullResults: true, artifactOwner: session.owner,
         currentUserMessage: currentUser?.content || '', userMessages: historyMessages.filter(item => item.role === 'user').map(item => item.content),
         onProcess: child => run.processes.add(child) };
@@ -635,6 +667,11 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
         if (misnamed) outcome = { content: `${misnamed} 是工具名，不是 Shell 命令。请直接调用 ${misnamed} 工具（已加载它的参数说明），不要用 run_command 执行。`, summary: `${misnamed} 是工具，不是命令`, isError: true };
         const toolset = !outcome && registry.toolset(call.name);
         const toolsetKind = toolset?.kindOf?.(call.name) || null;
+        if (toolset?.sharedMcp) {
+            registry.noteCall(call.name);
+            const { outcome } = await decideCall(run, call, { kind: toolsetKind, sharedMcp: true, preview: () => toolset.preview(call.name, call.args) });
+            return outcome || toolset.execute(call, { signal });
+        }
         if (toolset && !toolset.kindOf) outcome = await toolset.execute(call, { opsCtx, signal, write });
         // 「总是允许」的粒度：附加工具组可以更细（浏览器打开网页按站点）
         const allowKey = toolset?.alwaysKey?.(call.name, call.args) || call.name;
@@ -690,7 +727,7 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
             // 命令往本机 AI 工具技能目录里装了技能（如 thcli +connect）：收进平台技能库，之后可直接 @ 引用
             if (call.name === 'run_command' && !session.readOnly) {
                 try {
-                    const captured = await require('./agent-skills-store').captureExternalSkills({ since: commandStarted - 2000, createdBy: session.owner || '' });
+                    const captured = await require('./agent-skills-store').captureExternalSkills({ since: commandStarted - 2000, createdBy: session.owner || '', ...(session.confined ? { home: require('./tenant-context').getHomeDir(session.tenantId) } : {}) }); // 团队的命令在沙箱里，CLI 装的技能落在团队 HOME
                     const ids = [...captured.added, ...captured.updated];
                     if (ids.length) {
                         outcome = { ...outcome, content: `${outcome.content}\n（系统：这条命令生成的 ${ids.length} 个技能已收录到 Dragon Claw 技能库${captured.updated.length ? `（其中 ${captured.updated.length} 个为更新）` : ''}：${ids.map(id => `@${id}`).join(' ')}。用户之后可在对话里直接 @ 引用，也会显示在技能列表里。）` };
@@ -715,7 +752,7 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
     try {
         await checkpoint('running');
         const loop = await agentLoop.runToolLoop({
-            client, model, systemPrompt: fullSystem, messages, tools: () => registry.definitions(), executeCall, write,
+            client, model, systemPrompt: fullSystem, messages, tools: () => registry.definitions(), executeCall, write, toolAccess: registry.allowed,
             signal, maxOutputTokens, temperature, sensitiveValues, task: String(currentUser?.content || ''),
             eventFields: { runId: run.id }, artifactOwner: session.owner, artifactSession: session.id, vision, root: session.root,
             // 工具说明不存文件
@@ -830,6 +867,7 @@ module.exports = {
     reserveWorkspaceMutation,
     hasActiveRunInDirectory,
     ensureScratchSession,
+    ensureTeamDefaultSession,
     ensureWeLinkSession,
     ownerKey,
     isAdminUser,
@@ -855,6 +893,7 @@ module.exports = {
     buildDirectoryContext,
     classifyDecision,
     resolveApproval,
+    isSharedMcpApproval,
     runAgentTurn,
     stats,
     _internal: { sessions, runs, pendingApprovals }

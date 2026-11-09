@@ -296,5 +296,5 @@ test('netcare-data skill is a non-workspace builtin skill and the API is mounted
     assert.equal(skill.workspace, false);
     assert.deepEqual(skills.select('@netcare-data 查一下风险表').map(item => item.id), ['netcare-data']);
     const server = fs.readFileSync(path.join(__dirname, '../backend/server.js'), 'utf8');
-    assert.match(server, /app\.use\('\/api\/digital-human', requireAdmin, require\('\.\/routes\/digital-human'\)\)/);
+    assert.match(server, /app\.use\('\/api\/digital-human', superAdminOnly\(\), requireAdmin, require\('\.\/routes\/digital-human'\)\)/);
 });

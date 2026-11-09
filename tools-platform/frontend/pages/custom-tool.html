@@ -298,10 +298,18 @@
             try {
                 const registry = await fetchToolList(toolLoadController.signal);
                 const tools = registry.tools;
-                clearTimeout(listTimeout);
                 if (sequence !== toolLoadSequence) return;
                 setToolLoadState(shellText('正在定位工具资源…', 'Locating tool assets…'), 42, `${shellText(`工具清单已返回，正在查找 ${slug}`, `Registry loaded; locating ${slug}`)}${registry.requestId ? ` · ${registry.requestId}` : ''}`);
-                const tool = (tools || []).find(item => item.slug === slug);
+                let tool = (tools || []).find(item => item.slug === slug);
+                if (!tool && slug) {
+                    const response = await fetch(`/api/custom-tools/${encodeURIComponent(slug)}`, {
+                        signal: toolLoadController.signal,
+                        headers: typeof getAuthHeaders === 'function' ? getAuthHeaders() : {}
+                    });
+                    if (response.ok) tool = await response.json();
+                }
+                clearTimeout(listTimeout);
+                if (sequence !== toolLoadSequence) return;
                 if (!tool) {
                     setToolLoadState(shellText('未找到该自定义工具', 'Custom tool not found'), 100, shellText('工具清单中不存在当前 slug', 'The current slug is missing from the registry'), true);
                     return;

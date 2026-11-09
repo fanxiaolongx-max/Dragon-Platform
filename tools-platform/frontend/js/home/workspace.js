@@ -1,6 +1,6 @@
 // 首页工具模式：左侧分类与搜索，右侧按分类分组铺满的卡片网格，卡片底部显示「上次更新」。
 // 「全部工具」顶部依次是「最近使用」「收藏」两个快捷区（卡片副本），下面是各分类目录。
-// 卡片右上角星标收藏；拖到收藏区即收藏；管理员可拖动卡片调整顺序和所属目录，同步到「更多工具」（顶部栏主功能只在设置里调整）。
+// 卡片右上角星标收藏；拖到收藏区即收藏；管理员可拖动卡片调整工具分类和顺序。
 // 卡片仍由 index.html 渲染（内置为静态 HTML，自定义工具由 renderCustomToolCards 生成）；
 // 这里只做增强：分组排序、筛选、更新时间，不改动卡片自身的数据和事件。
 // 分类沿用导航设置（navbar.js 的 navState.settings），在导航中调整分类后首页同步变化。
@@ -14,7 +14,7 @@
             emptyFavorites: '还没有收藏的工具：点卡片右上角的 ☆，或把卡片拖到这里',
             moreOptions: '更多操作', favAdd: '收藏', favRemove: '取消收藏', favAdded: '已收藏「{name}」', favRemoved: '已取消收藏「{name}」',
             dropFavorite: '松开即收藏', dragHint: '拖到「收藏」区即可收藏；管理员还可拖到其他位置调整顺序和目录',
-            reordered: '已调整顺序，「更多工具」同步更新', moved: '已移到「{group}」，「更多工具」同步更新',
+            reordered: '已调整分类内顺序', moved: '已移到「{group}」',
             updated: '{time}更新', justNow: '刚刚', minutes: '{n} 分钟前', hours: '{n} 小时前', days: '{n} 天前',
             updatedTitle: '上次更新：{time}', searchTitle: '搜索“{q}”', toolCount: '{n} 个工具'
         },
@@ -24,7 +24,7 @@
             emptyFavorites: 'No favorites yet. Click ☆ on a card, or drag a card here',
             moreOptions: 'More options', favAdd: 'Add to favorites', favRemove: 'Remove from favorites', favAdded: 'Added “{name}” to favorites', favRemoved: 'Removed “{name}” from favorites',
             dropFavorite: 'Drop to add to favorites', dragHint: 'Drop on Favorites to save it; admins can also drop elsewhere to reorder or move categories',
-            reordered: 'Order updated; the More menu follows', moved: 'Moved to “{group}”; the More menu follows',
+            reordered: 'Order updated within the category', moved: 'Moved to “{group}”',
             updated: 'Updated {time}', justNow: 'just now', minutes: '{n}m ago', hours: '{n}h ago', days: '{n}d ago',
             updatedTitle: 'Last updated: {time}', searchTitle: 'Search “{q}”', toolCount: '{n} tools'
         }
@@ -162,20 +162,23 @@
 
     function buildGroups(cards) {
         const settings = navSettings();
-        const known = new Map((settings.categories || []).map(category => [category.id, category]));
+        const workflow = window.NavWorkflow;
+        const known = new Map((settings.categories || []).filter(category => category.id !== workflow?.categoryId).map(category => [category.id, category]));
         const byGroup = new Map();
         cards.forEach(card => {
             const itemId = cardItemId(card);
             let groupId = settings.categoryByItem?.[itemId] || defaultCategory(card, itemId);
             if (!known.has(groupId) && groupId !== SKILLS_GROUP) groupId = known.has('custom') && card.dataset.customToolCard === '1' ? 'custom' : '__other';
+            if (workflow?.ids.includes(itemId)) groupId = workflow.categoryId;
             if (!byGroup.has(groupId)) byGroup.set(groupId, []);
             byGroup.get(groupId).push(card);
         });
-        // 目录内顺序与「更多工具」一致：按导航设置的 itemOrder，未登记的保持页面原有顺序；
+        // 目录内按导航设置的 itemOrder 排序，未登记的保持页面原有顺序；
         // 未显式排序的自定义工具，新导入/更新的靠前展示。
         const itemOrder = new Map((settings.itemOrder || []).map((id, index) => [id, index]));
         const domIndex = new Map(cards.map((card, index) => [card, index]));
         byGroup.forEach((list, gid) => list.sort((a, b) => {
+            if (workflow && gid === workflow.categoryId) return workflow.ids.indexOf(cardItemId(a)) - workflow.ids.indexOf(cardItemId(b));
             const aHasOrder = itemOrder.has(cardItemId(a));
             const bHasOrder = itemOrder.has(cardItemId(b));
             if (aHasOrder && bHasOrder) return itemOrder.get(cardItemId(a)) - itemOrder.get(cardItemId(b));
@@ -190,6 +193,9 @@
         }));
         const ordered = [...known.values()].filter(category => byGroup.has(category.id))
             .map(category => ({ id: category.id, name: categoryName(category), cards: byGroup.get(category.id) }));
+        if (workflow && byGroup.has(workflow.categoryId)) {
+            ordered.unshift({ id: workflow.categoryId, name: workflow.label(), cards: byGroup.get(workflow.categoryId) });
+        }
         if (byGroup.has(SKILLS_GROUP)) ordered.push({ id: SKILLS_GROUP, name: tx('skills'), cards: byGroup.get(SKILLS_GROUP) });
         if (byGroup.has('__other')) ordered.push({ id: '__other', name: tx('other'), cards: byGroup.get('__other') });
         const colorIndex = new Map((settings.categories || []).map((category, index) => [category.id, index]));
@@ -708,8 +714,9 @@
             if (searchInput) searchInput.placeholder = tx('searchPlaceholder');
             scheduleLayout();
         });
-        // navbar 加载/保存导航设置后会派发该事件，借此同步分类。
+        // 导航数据加载和布局编辑后同步工具分类与顺序。
         window.addEventListener('tools:requirement-page-categories-change', scheduleLayout);
+        window.addEventListener('tools:nav-layout-change', scheduleLayout);
         window.addEventListener('tools:favorites-change', scheduleLayout);
         bindFavoritesAndDrag();
         window.addEventListener('home:mode', () => {
@@ -741,7 +748,7 @@
 
     // ── iOS 式拖动排序：整张卡片浮起跟手，其他卡片平滑让位（FLIP 动画），松手落位 ──
     // 鼠标拖动超过 6px 开始；触屏长按 320ms 开始（不影响滚动）。收藏区任何人可拖入 / 排序；
-    // 目录内排序与跨目录移动仅管理员，提交后同步导航设置（「更多工具」；顶部栏主功能顺序不变）。
+    // 目录内排序与跨目录移动仅管理员，提交后同步工具分类和顺序。
     const SORT_THRESHOLD = 6;
     const LONG_PRESS_MS = 320;
     let sort = null;
@@ -854,7 +861,7 @@
         if (node === sort.original || node === sort.favoritePlaceholder) return sort.target; // 停在空槽上保持不变
         const section = sectionOf(node);
         if (!section) return sort.target;
-        if (section.kind === 'group' && !isAdmin()) return sort.target;
+        if (section.kind === 'group' && (!isAdmin() || section.groupId === window.NavWorkflow?.categoryId || window.NavWorkflow?.ids.includes(sort.id))) return sort.target;
         if (section.kind === 'favorites') {
             if (node.classList.contains('home-fav-empty') || node.classList.contains('home-shortcut-head')) return { kind: 'favorites', index: 0 };
             const list = favoriteCards().filter(card => card !== sort.favoritePlaceholder);
@@ -897,7 +904,7 @@
         if (card.dataset.shortcut === 'favorites') sort.startTarget = { kind: 'favorites', index: sort.sourceFavoriteIndex };
         else if (!card.dataset.shortcut && isAdmin()) {
             const group = groupOfCard(original);
-            if (group && ![SKILLS_GROUP, '__other'].includes(group.id)) sort.startTarget = { kind: 'group', groupId: group.id, index: group.cards.indexOf(original) };
+            if (group && ![SKILLS_GROUP, '__other', window.NavWorkflow?.categoryId].includes(group.id)) sort.startTarget = { kind: 'group', groupId: group.id, index: group.cards.indexOf(original) };
         }
         sort.target = sort.startTarget;
         document.body.classList.add('home-sorting');

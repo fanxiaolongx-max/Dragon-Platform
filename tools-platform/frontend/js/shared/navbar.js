@@ -36,6 +36,14 @@ const NAV_BUILTIN_LINKS = [
     // 数字人基座的 NetCare 业务库探查：接口第一期只开放给管理员，普通账号不显示入口
     { id: 'netcare-explorer', href: '/netcare-explorer', icon: '🧭', label: 'NetCare 数据探查', labelEn: 'NetCare Explorer', labelKey: 'nav.netcareExplorer', defaultCategory: 'system', adminOnly: true, match: p => p.startsWith('/netcare-explorer') }
 ];
+const NAV_WORKFLOW_IDS = ['uivf12', 'sla', 'report', 'expedite', 'monthly', 'bigscreen'];
+const NAV_WORKFLOW_CATEGORY = '__workflow';
+window.NavWorkflow = {
+    categoryId: NAV_WORKFLOW_CATEGORY,
+    ids: NAV_WORKFLOW_IDS,
+    label: () => navT('nav.set.systemTools'),
+    links: () => NAV_WORKFLOW_IDS.map(id => NAV_BUILTIN_LINKS.find(item => item.id === id))
+};
 
 const NAV_DEFAULT_SETTINGS = {
     // 与服务端首次安装预设保持一致；接口返回已有配置后会立即替换此启动默认值。
@@ -164,7 +172,7 @@ function tenantNavCacheKey() {
 
 const TENANT_BROWSER_STATE_PREFIX = 'tools_tenant_browser_state:';
 const TENANT_BROWSER_GLOBAL_KEYS = new Set([
-    'tools_token', 'tools_user', 'tools_role', 'tools_tenant_id', 'tools_lang', 'tools_language'
+    'tools_token', 'tools_user', 'tools_role', 'tools_super', 'tools_tenant_id', 'tools_lang', 'tools_language'
 ]);
 
 function switchTenantBrowserState(fromTenantId, toTenantId) {
@@ -246,14 +254,8 @@ function getNavLabel(item) {
 }
 
 function getNavCategoryName(cat) {
-    if (!window.ToolsI18n) return cat.name;
-    const lang = window.ToolsI18n.getLanguage();
-    if (cat.nameKey) return navT(cat.nameKey);
-    const inferredKey = `nav.category.${cat.id}`;
-    const inferred = navT(inferredKey);
-    if (inferred !== inferredKey) return inferred;
-    if (lang === 'en-US' && cat.nameEn) return cat.nameEn;
-    return cat.name;
+    if (window.ToolsI18n?.getLanguage?.() === 'en-US' && cat.nameEn) return cat.nameEn;
+    return cat.name || (cat.nameKey ? navT(cat.nameKey) : '');
 }
 
 // 拼音（全拼/首字母）匹配用平台共用的 shared/pinyin-search.js，词库较大，搜索框首次使用时再按需加载。
@@ -327,6 +329,7 @@ function registerNavbarI18n() {
             'nav.f12packer': 'F12扩展打包',
             'nav.pythonUpdater': 'Python脚本更新',
             'nav.more': '更多工具',
+            'nav.sidebarShortcuts': '快捷工具',
             'nav.moreSearch': '搜索工具、拼音或首字母...',
             'nav.moreSearchLabel': '搜索更多工具',
             'nav.moreAll': '全部',
@@ -359,6 +362,7 @@ function registerNavbarI18n() {
             'nav.customTool': '自定义工具',
             'nav.set.title': '全局设置',
             'nav.set.tab.primary': '顶部菜单',
+            'nav.set.tab.sidebar': '更多菜单',
             'nav.set.tab.logo': '平台标识',
             'nav.set.tab.categories': '二级分类',
             'nav.set.tab.items': '分类与顺序',
@@ -382,6 +386,7 @@ function registerNavbarI18n() {
             'nav.set.pageConfig': '{page}配置',
             'nav.page.f12.title': 'F12插件',
             'nav.set.sub.primary': '修改后会自动保存，并立即影响顶部导航。',
+            'nav.set.sub.sidebar': '管理首页左侧「更多」里的工具快捷入口。',
             'nav.set.sub.logo': '修改平台名称、主图标及桌面应用图标。',
             'nav.set.sub.categories': '修改后会自动保存，并立即影响“更多工具”的分类展示。',
             'nav.set.sub.items': '修改后会自动保存，并立即影响“更多工具”的分组与排序。',
@@ -401,18 +406,25 @@ function registerNavbarI18n() {
             'nav.set.sub.report': '报表看板历史数据的独立备份、跨站点恢复与冗余清理。',
             'nav.set.sub.pageFallback': '该页面的配置预留位，后续可把页面内相关设置迁移到这里统一管理。',
             'nav.set.help.primary': '勾选后显示在顶部 bar；未勾选的菜单会进入“更多工具”。使用上下按钮调整顶部显示顺序。',
+            'nav.set.help.sidebar': '勾选工具即可加入「更多 → 快捷工具」，用上下按钮调整显示顺序。修改会自动保存，也可通过「发现应用」按分类浏览工具。',
             'nav.set.help.categories': '分类会显示在“更多工具”下拉菜单中。配置英文名称后，系统会在英文模式下自动应用。',
             'nav.set.help.items': '这里管理“更多工具”里的二级分类和分类内顺序。顶部直显菜单不会出现在此列表中。',
+            'nav.set.sub.toolCategories': '管理「发现应用」和工具列表中的分类，修改会自动保存。',
+            'nav.set.help.toolCategories': '可新增、重命名或调整分类顺序。填写英文名称后，切换到英文界面时会显示该名称。',
+            'nav.set.sub.toolOrder': '调整工具所属分类和分类内的显示顺序，修改会自动保存。',
+            'nav.set.help.toolOrder': '使用下拉框为工具选择分类，用上下按钮调整分类内顺序。',
+            'nav.set.systemTools': '系统工具',
+            'nav.set.otherTools': '其他',
             'nav.set.btn.up': '上移',
             'nav.set.btn.down': '下移',
             'nav.set.btn.delete': '删除',
             'nav.set.btn.addCategory': '新增分类',
             'nav.set.restore.title': '恢复系统默认布局',
-            'nav.set.restore.desc': '恢复顶部菜单、系统分类和系统工具顺序。非系统自带工具、自建分类及其当前位置会保留。',
+            'nav.set.restore.desc': '恢复系统工具快捷入口、分类和工具顺序，保留非系统工具和自建分类。',
             'nav.set.restore.button': '恢复系统默认',
             'nav.set.restore.confirmTitle': '恢复系统导航默认布局？',
-            'nav.set.restore.confirmMessage': '系统自带菜单、分类和工具顺序将恢复默认。',
-            'nav.set.restore.confirmHint': '不会删除或覆盖非系统自带工具；它们当前所在的顶部菜单、分类和相对顺序会尽量保留。',
+            'nav.set.restore.confirmMessage': '系统工具快捷入口、分类和工具顺序将恢复默认。',
+            'nav.set.restore.confirmHint': '非系统工具和自建分类会保留，工具现有的快捷入口、分类和相对顺序会尽量保留。',
             'nav.set.restore.cancel': '取消',
             'nav.set.restore.action': '确认恢复',
             'nav.set.restore.restoring': '正在恢复系统默认...',
@@ -420,7 +432,7 @@ function registerNavbarI18n() {
             'nav.set.restore.fail': '恢复失败: ',
             'nav.set.default.button': '设为系统默认布局',
             'nav.set.default.confirmTitle': '将当前布局设为系统默认布局？',
-            'nav.set.default.confirmMessage': '当前顶部菜单、分类及工具排版将被写入系统源码默认配置（defaults/nav-layout.json），并立即对当前系统生效。',
+            'nav.set.default.confirmMessage': '当前工具快捷入口、分类和工具顺序将写入系统默认配置（defaults/nav-layout.json），并在当前平台生效。',
             'nav.set.default.confirmHint': '推送代码至远端仓库后，该布局将作为所有环境和后续默认初始化的系统标准布局。',
             'nav.set.default.action': '确认设为默认',
             'nav.set.default.saving': '正在设为系统默认布局...',
@@ -434,7 +446,9 @@ function registerNavbarI18n() {
             'nav.init.quickConfirmMessage': '系统将补齐内置智能调度脚本和全量指标规则。',
             'nav.init.quickConfirmHint': '已有同名内容会保留，不会被默认版本覆盖。',
             'nav.init.quickRunning': '正在导入默认内容...',
-            'nav.init.quickSuccess': '导入完成：新增脚本 {scripts} 个、指标规则 {rules} 条、指标分组 {groups} 个。',
+            'nav.init.quickSuccess': '导入完成：新增脚本 {scripts} 个、指标规则 {rules} 条、指标分组 {groups} 个、分类 {categories} 个。',
+            'nav.init.quickUpToDate': '当前空间已包含开箱即用内容，无需新增。已有脚本和配置已保留。',
+            'nav.init.quickMissingResult': '服务器未返回导入结果，请刷新后重试。',
             'nav.init.dangerLabel': '危险区域',
             'nav.init.resetTitle': '彻底初始化当前平台',
             'nav.init.resetDesc': '先自动生成当前平台安全备份，再完整归档其数据并建立干净数据库。账号、其他数据空间及桌面/F12 授权不会受影响。',
@@ -456,7 +470,7 @@ function registerNavbarI18n() {
 
             'nav.page.placeholderTitle': '{page}配置预留位',
             'nav.page.placeholderDesc': '当前暂无需要迁移到全局设置的配置项。后续如果该页面新增全局级设置，可以直接放在这里。',
-            'nav.page.home.help': '逐个控制自定义 HTML 工具的新窗口直达地址是否需要登录。默认关闭公开访问；开启后，任何获得链接的人都可以访问该工具及其静态资源。',
+            'nav.page.home.help': '在工具卡片的三点菜单中设置全员开放。已开放的内置工具会自动显示在工具列表，也可在这里为已开放的工具允许免登录访问。',
             'nav.page.home.title': '自定义 HTML 访问鉴权',
             'nav.page.home.public': '允许免登录新窗口访问',
             'nav.page.home.private': '需要登录',
@@ -849,6 +863,7 @@ function registerNavbarI18n() {
             'nav.f12packer': 'F12 Packer',
             'nav.pythonUpdater': 'Python Updater',
             'nav.more': 'More Tools',
+            'nav.sidebarShortcuts': 'Tool Shortcuts',
             'nav.moreSearch': 'Search tools, pinyin, or initials...',
             'nav.moreSearchLabel': 'Search more tools',
             'nav.moreAll': 'All',
@@ -881,6 +896,7 @@ function registerNavbarI18n() {
             'nav.customTool': 'Custom Tool',
             'nav.set.title': 'Global Settings',
             'nav.set.tab.primary': 'Top Menu',
+            'nav.set.tab.sidebar': 'More Menu',
             'nav.set.tab.logo': 'Platform Identity',
             'nav.set.tab.categories': 'Categories',
             'nav.set.tab.items': 'Items & Order',
@@ -904,6 +920,7 @@ function registerNavbarI18n() {
             'nav.set.pageConfig': '{page} Config',
             'nav.page.f12.title': 'F12 Plugins',
             'nav.set.sub.primary': 'Changes are saved automatically and immediately applied to the top navigation.',
+            'nav.set.sub.sidebar': 'Manage tool shortcuts in More on the home sidebar.',
             'nav.set.sub.logo': 'Manage the platform name, logo and desktop app icons.',
             'nav.set.sub.categories': 'Changes are saved automatically and immediately applied to the category display in "More Tools".',
             'nav.set.sub.items': 'Changes are saved automatically and immediately applied to the grouping and ordering in "More Tools".',
@@ -923,18 +940,25 @@ function registerNavbarI18n() {
             'nav.set.sub.report': 'Independent backup, cross-site restore, and redundant-history cleanup for Report Dashboard data.',
             'nav.set.sub.pageFallback': "Placeholder for this page's configuration. Future page settings can be managed here.",
             'nav.set.help.primary': 'Checked items appear in the top bar; unchecked items move to "More Tools". Use up/down buttons to reorder.',
+            'nav.set.help.sidebar': 'Select tools to add them to More → Tool Shortcuts. Use Up and Down to reorder them. Changes save automatically. Use Discover Apps to browse by category.',
             'nav.set.help.categories': 'Categories are displayed in the "More Tools" dropdown. English names will apply automatically in English mode.',
             'nav.set.help.items': 'Manage sub-categories and their ordering in "More Tools". Direct top menu items do not appear here.',
+            'nav.set.sub.toolCategories': 'Manage categories in Discover Apps and the tool list. Changes save automatically.',
+            'nav.set.help.toolCategories': 'Add, rename, or reorder categories. Enter an English name to display it in the English interface.',
+            'nav.set.sub.toolOrder': 'Assign tools to categories and reorder them within each category. Changes save automatically.',
+            'nav.set.help.toolOrder': 'Use the dropdown to assign a category and Up and Down to reorder tools within it.',
+            'nav.set.systemTools': 'System tools',
+            'nav.set.otherTools': 'Other',
             'nav.set.btn.up': 'Up',
             'nav.set.btn.down': 'Down',
             'nav.set.btn.delete': 'Delete',
             'nav.set.btn.addCategory': 'Add Category',
             'nav.set.restore.title': 'Restore system defaults',
-            'nav.set.restore.desc': 'Restore the top menu, system categories, and system-tool order. Non-system tools, custom categories, and their placements are preserved.',
+            'nav.set.restore.desc': 'Restore system tool shortcuts, categories, and tool order. Non-system tools and custom categories are kept.',
             'nav.set.restore.button': 'Restore defaults',
             'nav.set.restore.confirmTitle': 'Restore the default navigation layout?',
-            'nav.set.restore.confirmMessage': 'Built-in menus, categories, and tool order will be restored to system defaults.',
-            'nav.set.restore.confirmHint': 'Non-system tools will not be deleted or overwritten. Their top-menu placement, category, and relative order will be preserved where possible.',
+            'nav.set.restore.confirmMessage': 'System tool shortcuts, categories, and tool order will be restored to defaults.',
+            'nav.set.restore.confirmHint': 'Non-system tools and custom categories are kept. Existing shortcuts, categories, and relative order for these tools are preserved where possible.',
             'nav.set.restore.cancel': 'Cancel',
             'nav.set.restore.action': 'Restore',
             'nav.set.restore.restoring': 'Restoring system defaults...',
@@ -942,7 +966,7 @@ function registerNavbarI18n() {
             'nav.set.restore.fail': 'Restore failed: ',
             'nav.set.default.button': 'Set as system default',
             'nav.set.default.confirmTitle': 'Set current layout as system default?',
-            'nav.set.default.confirmMessage': 'The current top menu, categories, and tool arrangement will be saved to codebase defaults (defaults/nav-layout.json) and applied immediately.',
+            'nav.set.default.confirmMessage': 'The current tool shortcuts, categories, and tool order will be saved to defaults/nav-layout.json and applied to this platform.',
             'nav.set.default.confirmHint': 'Once pushed to the remote repository, this layout will serve as the system standard default across environments.',
             'nav.set.default.action': 'Set as default',
             'nav.set.default.saving': 'Setting as system default...',
@@ -956,7 +980,9 @@ function registerNavbarI18n() {
             'nav.init.quickConfirmMessage': 'The bundled smart-scheduling scripts and complete metric rules will be added.',
             'nav.init.quickConfirmHint': 'Existing same-name content is preserved and will not be overwritten.',
             'nav.init.quickRunning': 'Importing default content...',
-            'nav.init.quickSuccess': 'Import complete: {scripts} scripts, {rules} metric rules, and {groups} metric groups added.',
+            'nav.init.quickSuccess': 'Import complete: added {scripts} scripts, {rules} metric rules, {groups} metric groups, and {categories} categories.',
+            'nav.init.quickUpToDate': 'This workspace already has the Quick Start defaults. Existing scripts and settings were kept.',
+            'nav.init.quickMissingResult': 'The server did not return the import result. Refresh and try again.',
             'nav.init.dangerLabel': 'Danger Zone',
             'nav.init.resetTitle': 'Factory Reset Platform',
             'nav.init.resetDesc': 'Creates a platform-scoped safety backup, archives this platform, and builds a clean database. Accounts, other data spaces, and desktop/F12 licenses are unaffected.',
@@ -978,7 +1004,7 @@ function registerNavbarI18n() {
 
             'nav.page.placeholderTitle': '{page} Configuration Placeholder',
             'nav.page.placeholderDesc': 'There are currently no configuration items to migrate to global settings. Future global settings for this page will be placed here.',
-            'nav.page.home.help': 'Control whether each custom HTML tool can be opened in a new window without signing in. Public access is off by default; when enabled, anyone with the link can access the tool and its static assets.',
+            'nav.page.home.help': 'Use the three-dot menu on a tool card to share it. Shared built-in tools appear in the tool list. You can separately allow signed-out access here.',
             'nav.page.home.title': 'Custom HTML Access Control',
             'nav.page.home.public': 'Allow public new-window access',
             'nav.page.home.private': 'Sign-in required',
@@ -1728,11 +1754,11 @@ window.NavFavorites = {
 };
 
 /**
- * 管理员拖动首页卡片后调整全局导航布局：itemOrder 决定「更多工具」与首页卡片顺序，categoryId 改变所属目录。
- * 顶部栏主功能（primaryIds）的顺序只在导航设置里调整，拖动卡片不改变它。保存沿用导航设置的防抖保存。
+ * 管理员拖动首页卡片后调整工具分类和顺序。快捷入口（primaryIds）的顺序在设置中单独维护。
  */
 function reorderNavItem(itemId, { beforeId = '', afterId = '', categoryId = '' } = {}) {
     if (localStorage.getItem('tools_role') !== 'admin' || !navState.settings || !itemId) return false;
+    if (NAV_WORKFLOW_IDS.includes(itemId) || categoryId === NAV_WORKFLOW_CATEGORY) return false;
     const settings = navState.settings;
     const ordered = sortNavItems(getAllNavItems(), settings.itemOrder).map(item => item.id);
     if (!ordered.includes(itemId)) return false;
@@ -2162,20 +2188,61 @@ async function loadNavigationData() {
     if (document.getElementById('navSettingsModal')) renderNavSettingsContent();
 }
 
-// Backend compatibility: authenticated sessions always enter the default workspace.
-async function ensureDefaultWorkspace(user) {
+// 一个账号 = 一个团队：服务端会话决定当前团队（超级管理员排障时可临时进入其他团队）。
+// 浏览器本地状态按团队分片保存，团队变化时切换分片并刷新。
+async function syncTenantWorkspace(user) {
     const previous = localStorage.getItem('tools_tenant_id') || 'default';
-    if (user.tenantId && user.tenantId !== 'default') {
-        const response = await fetch('/api/tenants/switch', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaderForNav() }, body: JSON.stringify({ tenantId: 'default' }) });
-        if (!response.ok) { promptNavRelogin(); throw new Error('Unable to open the default workspace'); }
-        switchTenantBrowserState(previous, 'default');
-        localStorage.setItem('tools_tenant_id', 'default');
+    const target = user.tenantId || 'default';
+    // 旧后端（尚未重启）的 /api/auth/me 没有 isSuper：沿用单用户时代的语义，管理员即超级管理员
+    const isSuper = typeof user.isSuper === 'boolean' ? user.isSuper : user.role === 'admin';
+    localStorage.setItem('tools_super', isSuper ? '1' : '0');
+    navState.viewingTeam = user.viewingTeam || null;
+    navState.homeTenantId = user.homeTenantId || target;
+    if (previous !== target) {
+        switchTenantBrowserState(previous, target);
+        localStorage.setItem('tools_tenant_id', target);
         window.location.reload(); return true;
     }
-    if (previous !== 'default') switchTenantBrowserState(previous, 'default');
-    localStorage.setItem('tools_tenant_id', 'default');
-    navState.activeTenantId = 'default'; return false;
+    navState.activeTenantId = target;
+    renderViewingTeamBanner();
+    return false;
 }
+
+function isNavSuperAdmin() {
+    if (localStorage.getItem('tools_role') !== 'admin') return false;
+    const flag = localStorage.getItem('tools_super');
+    return flag === null ? true : flag === '1'; // 还没从服务端取到标记时不隐藏管理员菜单
+}
+if (typeof window !== 'undefined') window.isNavSuperAdmin = isNavSuperAdmin;
+
+// 超级管理员进入其他团队排障时的提示条
+function renderViewingTeamBanner() {
+    document.getElementById('navViewingTeamBanner')?.remove();
+    const team = navState.viewingTeam;
+    if (!team) return;
+    const en = window.ToolsI18n?.getLanguage?.() === 'en-US';
+    const bar = document.createElement('div');
+    bar.id = 'navViewingTeamBanner';
+    bar.setAttribute('role', 'status');
+    bar.style.cssText = 'position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:10050;display:flex;gap:10px;align-items:center;padding:8px 14px;border-radius:999px;background:#7c2d12;color:#fff;font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,.25)';
+    bar.innerHTML = `<span>${navEscape(en ? `Viewing team: ${team.name}` : `正在查看团队：${team.name}`)}</span><button type="button" style="border:0;border-radius:999px;padding:3px 10px;background:#fff;color:#7c2d12;font-weight:600;cursor:pointer">${navEscape(en ? 'Back to mine' : '返回我的空间')}</button>`;
+    bar.querySelector('button').addEventListener('click', () => switchNavTeam(navState.homeTenantId || 'default'));
+    document.body.appendChild(bar);
+}
+
+async function switchNavTeam(tenantId) {
+    const response = await fetch('/api/tenants/switch', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaderForNav() }, body: JSON.stringify({ tenantId }) });
+    if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        alert(data.error || '切换失败');
+        return;
+    }
+    const previous = localStorage.getItem('tools_tenant_id') || 'default';
+    if (previous !== tenantId) switchTenantBrowserState(previous, tenantId);
+    localStorage.setItem('tools_tenant_id', tenantId);
+    window.location.href = '/';
+}
+if (typeof window !== 'undefined') window.switchNavTeam = switchNavTeam;
 function activeTenantName() { return navState.settings?.platformName || 'Dragon Claw'; }
 
 function renderNavbar() {
@@ -2221,7 +2288,7 @@ function renderNavbar() {
                 <span class="nav-action-text">${navEscape(navT('nav.alertCenter'))}</span>
                 <span class="nav-alert-count" id="navAlertCount" hidden>0</span>
             </button>
-            ${role === 'admin' ? `<button type="button" class="nav-gear-btn" onclick="openNavSettingsModal()" title="${navEscape(navT('nav.settings'))}" aria-label="${navEscape(navT('nav.settings'))}">
+            ${role ? `<button type="button" class="nav-gear-btn" onclick="openNavSettingsModal()" title="${navEscape(navT('nav.settings'))}" aria-label="${navEscape(navT('nav.settings'))}">
                 <svg class="nav-gear-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="3"></circle>
                     <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-4v-.09A1.7 1.7 0 0 0 9 19.36a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.64 15a1.7 1.7 0 0 0-1.55-1.03H3v-4h.09A1.7 1.7 0 0 0 4.64 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.64a1.7 1.7 0 0 0 1.03-1.55V3h4v.09A1.7 1.7 0 0 0 15 4.64a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.36 9a1.7 1.7 0 0 0 1.55 1.03H21v4h-.09A1.7 1.7 0 0 0 19.4 15z"></path>
@@ -2360,6 +2427,7 @@ document.addEventListener('pointerdown', (event) => {
 function scheduleNavSettingsSave() {
     renderNavLinksFromState();
     writeNavigationBootstrapCache();
+    window.dispatchEvent(new Event('tools:nav-layout-change'));
     const indicator = document.getElementById('navSettingsSaveState');
     if (indicator) indicator.textContent = navT('nav.set.saving');
     clearTimeout(navState.saveTimer);
@@ -2389,38 +2457,58 @@ function renderNavSettingsTabLabel(icon, label) {
 }
 
 function renderPageSettingsTabs() {
-    return NAV_BUILTIN_LINKS.map(item => `
+    // 「工具中台」页配置的是工具免密访问，属于超级管理员
+    // 迁移状态、NetCare 数据探查依赖超级管理员专属接口
+    return NAV_BUILTIN_LINKS.filter(item => !['home', 'storage', 'netcare-explorer'].includes(item.id) || isNavSuperAdmin()).map(item => `
         <button class="nav-settings-tab nav-settings-tab-page ${navState.settingsTab === `page:${item.id}` ? 'active' : ''}" data-tab="page:${navEscape(item.id)}" onclick="switchNavSettingsTab('page:${navEscape(item.id)}')">${renderNavSettingsTabLabel(item.icon, getNavLabel(item))}</button>
     `).join('');
+}
+
+function hasHomeSidebarMenu() {
+    return Boolean(document.querySelector('#homeSidebar [data-v2-flyout="more"]'));
+}
+
+function isNavSidebarShortcut(href) {
+    return Boolean(href && href !== '/' && !href.startsWith('#'));
+}
+
+function getPrimarySettingsTitle() {
+    return navT(hasHomeSidebarMenu() ? 'nav.set.tab.sidebar' : 'nav.set.tab.primary');
 }
 
 function renderNavSettingsSidebar() {
     const sidebar = document.querySelector('.nav-settings-sidebar');
     if (!sidebar) return;
     const t = navState.settingsTab;
+    const agentToolsTab = `<button class="nav-settings-tab ${t === 'agentTools' ? 'active' : ''}" data-tab="agentTools" onclick="switchNavSettingsTab('agentTools')">${renderNavSettingsTabLabel('🧰', navLocaleText('智能体工具', 'Agent tools'))}</button>`;
+    if (localStorage.getItem('tools_role') !== 'admin') {
+        sidebar.innerHTML = agentToolsTab;
+        syncNavSettingsMobileNav();
+        return;
+    }
     sidebar.innerHTML = `
         <div class="nav-settings-title">${navEscape(navT('nav.set.title'))}</div>
-        <button class="nav-settings-tab ${t === 'primary' ? 'active' : ''}" data-tab="primary" onclick="switchNavSettingsTab('primary')">${renderNavSettingsTabLabel('🧭', navT('nav.set.tab.primary'))}</button>
-        <button class="nav-settings-tab ${t === 'logo' ? 'active' : ''}" data-tab="logo" onclick="switchNavSettingsTab('logo')">${renderNavSettingsTabLabel('🏷️', navT('nav.set.tab.logo'))}</button>
+        <button class="nav-settings-tab ${t === 'primary' ? 'active' : ''}" data-tab="primary" onclick="switchNavSettingsTab('primary')">${renderNavSettingsTabLabel('🧭', getPrimarySettingsTitle())}</button>
+        ${isNavSuperAdmin() ? `<button class="nav-settings-tab ${t === 'logo' ? 'active' : ''}" data-tab="logo" onclick="switchNavSettingsTab('logo')">${renderNavSettingsTabLabel('🏷️', navT('nav.set.tab.logo'))}</button>` : ''}
         <button class="nav-settings-tab ${t === 'categories' ? 'active' : ''}" data-tab="categories" onclick="switchNavSettingsTab('categories')">${renderNavSettingsTabLabel('🗂️', navT('nav.set.tab.categories'))}</button>
         <button class="nav-settings-tab ${t === 'items' ? 'active' : ''}" data-tab="items" onclick="switchNavSettingsTab('items')">${renderNavSettingsTabLabel('↕️', navT('nav.set.tab.items'))}</button>
         <button class="nav-settings-tab ${t === 'ai' ? 'active' : ''}" data-tab="ai" onclick="switchNavSettingsTab('ai')">${renderNavSettingsTabLabel('🤖', navT('nav.set.tab.ai'))}</button>
-        <button class="nav-settings-tab ${t === 'agentTools' ? 'active' : ''}" data-tab="agentTools" onclick="switchNavSettingsTab('agentTools')">${renderNavSettingsTabLabel('🧰', navLocaleText('智能体工具', 'Agent tools'))}</button>
-        <button class="nav-settings-tab ${t === 'channels' ? 'active' : ''}" data-tab="channels" onclick="switchNavSettingsTab('channels')">${renderNavSettingsTabLabel('🔌', navT('nav.set.tab.channels'))}</button>
-        <button class="nav-settings-tab ${t === 'desktopAgents' ? 'active' : ''}" data-tab="desktopAgents" onclick="switchNavSettingsTab('desktopAgents')">${renderNavSettingsTabLabel('🖥️', navLocaleText('桌面 Agent', 'Desktop Agents'))}</button>
-        <button class="nav-settings-tab ${t === 'update' ? 'active' : ''}" data-tab="update" onclick="switchNavSettingsTab('update')">${renderNavSettingsTabLabel('🔄', navT('nav.set.tab.update'))}</button>
-        <button class="nav-settings-tab ${t === 'backup' ? 'active' : ''}" data-tab="backup" onclick="switchNavSettingsTab('backup')">${renderNavSettingsTabLabel('💾', navT('nav.set.tab.backup'))}</button>
-        <button class="nav-settings-tab ${t === 'snapshotPublish' ? 'active' : ''}" data-tab="snapshotPublish" onclick="switchNavSettingsTab('snapshotPublish')">${renderNavSettingsTabLabel('📤', navT('nav.set.tab.snapshotPublish'))}</button>
+        ${agentToolsTab}
+        ${isNavSuperAdmin() ? `<button class="nav-settings-tab ${t === 'channels' ? 'active' : ''}" data-tab="channels" onclick="switchNavSettingsTab('channels')">${renderNavSettingsTabLabel('🔌', navT('nav.set.tab.channels'))}</button>` : ''}
+        ${isNavSuperAdmin() ? `<button class="nav-settings-tab ${t === 'desktopAgents' ? 'active' : ''}" data-tab="desktopAgents" onclick="switchNavSettingsTab('desktopAgents')">${renderNavSettingsTabLabel('🖥️', navLocaleText('桌面 Agent', 'Desktop Agents'))}</button>` : ''}
+        ${isNavSuperAdmin() ? `<button class="nav-settings-tab ${t === 'update' ? 'active' : ''}" data-tab="update" onclick="switchNavSettingsTab('update')">${renderNavSettingsTabLabel('🔄', navT('nav.set.tab.update'))}</button>` : ''}
+        ${isNavSuperAdmin() ? `<button class="nav-settings-tab ${t === 'backup' ? 'active' : ''}" data-tab="backup" onclick="switchNavSettingsTab('backup')">${renderNavSettingsTabLabel('💾', navT('nav.set.tab.backup'))}</button>` : ''}
+        ${isNavSuperAdmin() ? `<button class="nav-settings-tab ${t === 'snapshotPublish' ? 'active' : ''}" data-tab="snapshotPublish" onclick="switchNavSettingsTab('snapshotPublish')">${renderNavSettingsTabLabel('📤', navT('nav.set.tab.snapshotPublish'))}</button>` : ''}
         <button class="nav-settings-tab ${t === 'initialize' ? 'active' : ''}" data-tab="initialize" onclick="switchNavSettingsTab('initialize')">${renderNavSettingsTabLabel('🌱', navT('nav.set.tab.initialize'))}</button>
-        <button class="nav-settings-tab ${t === 'media' ? 'active' : ''}" data-tab="media" onclick="switchNavSettingsTab('media')">${renderNavSettingsTabLabel('🎬', navT('nav.set.tab.media'))}</button>
-        <button class="nav-settings-tab ${t === 'promotions' ? 'active' : ''}" data-tab="promotions" onclick="switchNavSettingsTab('promotions')">${renderNavSettingsTabLabel('📣', navT('nav.set.tab.promotions'))}</button>
-        <button class="nav-settings-tab ${t === 'customBackup' ? 'active' : ''}" data-tab="customBackup" onclick="switchNavSettingsTab('customBackup')">${renderNavSettingsTabLabel('🧰', navT('nav.set.tab.customBackup'))}</button>
-        <button class="nav-settings-tab ${t === 'accounts' ? 'active' : ''}" data-tab="accounts" onclick="switchNavSettingsTab('accounts')">${renderNavSettingsTabLabel('👤', navT('nav.set.tab.accounts'))}</button>
-        <button class="nav-settings-tab ${t === 'security' ? 'active' : ''}" data-tab="security" onclick="switchNavSettingsTab('security')">${renderNavSettingsTabLabel('🛡️', navT('nav.set.tab.security'))}</button>
+        ${isNavSuperAdmin() ? `<button class="nav-settings-tab ${t === 'media' ? 'active' : ''}" data-tab="media" onclick="switchNavSettingsTab('media')">${renderNavSettingsTabLabel('🎬', navT('nav.set.tab.media'))}</button>` : ''}
+        ${isNavSuperAdmin() ? `<button class="nav-settings-tab ${t === 'promotions' ? 'active' : ''}" data-tab="promotions" onclick="switchNavSettingsTab('promotions')">${renderNavSettingsTabLabel('📣', navT('nav.set.tab.promotions'))}</button>` : ''}
+        ${isNavSuperAdmin() ? `<button class="nav-settings-tab ${t === 'customBackup' ? 'active' : ''}" data-tab="customBackup" onclick="switchNavSettingsTab('customBackup')">${renderNavSettingsTabLabel('🧰', navT('nav.set.tab.customBackup'))}</button>` : ''}
+        <button class="nav-settings-tab ${t === 'accounts' ? 'active' : ''}" data-tab="accounts" onclick="switchNavSettingsTab('accounts')">${renderNavSettingsTabLabel('👤', isNavSuperAdmin() ? navT('nav.set.tab.accounts') : navLocaleText('我的账号', 'My account'))}</button>
+        ${isNavSuperAdmin() ? `<button class="nav-settings-tab ${t === 'security' ? 'active' : ''}" data-tab="security" onclick="switchNavSettingsTab('security')">${renderNavSettingsTabLabel('🛡️', navT('nav.set.tab.security'))}</button>` : ''}
         <div class="nav-settings-title nav-settings-section-title">${navEscape(navT('nav.set.tab.pages'))}</div>
         ${renderPageSettingsTabs()}
         <div class="nav-settings-section-title" aria-hidden="true"></div>
-        <button class="nav-settings-tab ${t === 'page:f12-extension' ? 'active' : ''}" data-tab="page:f12-extension" onclick="switchNavSettingsTab('page:f12-extension')">${renderNavSettingsTabLabel('🧩', navT('nav.page.f12.title'))}</button>
+        ${isNavSuperAdmin() ? `<button class="nav-settings-tab ${t === 'page:f12-extension' ? 'active' : ''}" data-tab="page:f12-extension" onclick="switchNavSettingsTab('page:f12-extension')">${renderNavSettingsTabLabel('🧩', navT('nav.page.f12.title'))}</button>` : ''}
     `;
     syncNavSettingsMobileNav();
 }
@@ -2468,7 +2556,9 @@ function bindNavSettingsViewport(modal) {
 }
 
 function openNavSettingsModal() {
-    if (localStorage.getItem('tools_role') !== 'admin') return;
+    const role = localStorage.getItem('tools_role');
+    if (!role) return;
+    if (role !== 'admin') navState.settingsTab = 'agentTools';
     let modal = document.getElementById('navSettingsModal');
     if (!modal) {
         modal = document.createElement('div');
@@ -2526,8 +2616,12 @@ window.openChatModelSettings = async function () {
 };
 window.closeNavSettingsModal = closeNavSettingsModal;
 
+// 只有超级管理员能看到的平台级设置页
+const NAV_SUPER_ONLY_SETTINGS_TABS = new Set(['logo', 'channels', 'desktopAgents', 'update', 'snapshotPublish', 'media', 'promotions', 'security', 'backup', 'customBackup', 'page:home', 'page:f12-extension', 'page:storage', 'page:netcare-explorer']);
 window.switchNavSettingsTab = function (tab) {
+    if (localStorage.getItem('tools_role') !== 'admin') tab = 'agentTools';
     if (tab === 'tenants') tab = 'accounts';
+    if (NAV_SUPER_ONLY_SETTINGS_TABS.has(tab) && !isNavSuperAdmin()) tab = 'primary';
     navState.settingsTab = tab;
     const mobileSelect = document.getElementById('navSettingsMobileSection');
     if (mobileSelect) mobileSelect.value = tab;
@@ -2546,7 +2640,7 @@ function getNavSettingsTitle() {
         const item = NAV_BUILTIN_LINKS.find(link => link.id === pageId);
         return item ? navT('nav.set.pageConfig', { page: getNavLabel(item) }) : navT('nav.set.tab.pages');
     }
-    if (navState.settingsTab === 'accounts') return navT('nav.set.tab.accounts');
+    if (navState.settingsTab === 'accounts') return isNavSuperAdmin() ? navT('nav.set.tab.accounts') : navLocaleText('我的账号', 'My account');
     if (navState.settingsTab === 'security') return navT('nav.set.tab.security');
     if (navState.settingsTab === 'ai') return navT('nav.set.tab.ai');
     if (navState.settingsTab === 'agentTools') return navLocaleText('智能体工具', 'Agent tools');
@@ -2562,7 +2656,7 @@ function getNavSettingsTitle() {
     if (navState.settingsTab === 'categories') return navT('nav.set.tab.categories');
     if (navState.settingsTab === 'items') return navT('nav.set.tab.items');
     if (navState.settingsTab === 'logo') return navT('nav.set.tab.logo');
-    return navT('nav.set.tab.primary');
+    return getPrimarySettingsTitle();
 }
 
 function getNavSettingsSubtitle() {
@@ -2586,10 +2680,11 @@ function getNavSettingsSubtitle() {
     if (navState.settingsTab === 'media') return navT('nav.set.sub.media');
     if (navState.settingsTab === 'promotions') return navT('nav.set.sub.promotions');
     if (navState.settingsTab === 'customBackup') return navT('nav.set.sub.customBackup');
-    if (navState.settingsTab === 'categories') return navT('nav.set.sub.categories');
-    if (navState.settingsTab === 'items') return navT('nav.set.sub.items');
+    const sidebar = hasHomeSidebarMenu();
+    if (navState.settingsTab === 'categories') return navT(sidebar ? 'nav.set.sub.toolCategories' : 'nav.set.sub.categories');
+    if (navState.settingsTab === 'items') return navT(sidebar ? 'nav.set.sub.toolOrder' : 'nav.set.sub.items');
     if (navState.settingsTab === 'logo') return navT('nav.set.sub.logo');
-    return navT('nav.set.sub.primary');
+    return navT(sidebar ? 'nav.set.sub.sidebar' : 'nav.set.sub.primary');
 }
 
 // 全局设置各页签的渲染与操作（约占本文件一半）放在 shared/navbar-settings.js，首次打开设置时才加载：
@@ -2626,6 +2721,7 @@ async function renderNavSettingsContent() {
         indicator.textContent = navT('nav.set.loaded');
     }
 
+    if (NAV_SUPER_ONLY_SETTINGS_TABS.has(navState.settingsTab) && !isNavSuperAdmin()) navState.settingsTab = 'primary';
     if (navState.settingsTab.startsWith('page:')) return renderPageSettings(content, navState.settingsTab.slice(5));
     if (navState.settingsTab === 'accounts') return renderAccountSettings(content);
     if (navState.settingsTab === 'security') return renderSecuritySettings(content);
@@ -5191,7 +5287,7 @@ window.openBuiltinToolsComparison = async function () {
         try { return window.top.openBuiltinToolsComparison?.(); } catch (_) { return; }
     }
     if (document.getElementById('builtinToolsSyncModal')?.dataset.applying === '1'
-        || localStorage.getItem('tools_role') !== 'admin') return;
+        || !isNavSuperAdmin()) return;
 
     const existingModal = document.getElementById('builtinToolsSyncModal');
     if (existingModal && existingModal.dataset.loading === '1') {
@@ -5265,7 +5361,7 @@ async function checkBuiltinToolsSync() {
     if (toolMarketOpened()) return;
     if (
         builtinToolsSyncChecking
-        || localStorage.getItem('tools_role') !== 'admin'
+        || !isNavSuperAdmin()
         || isBuiltinToolsSyncSnoozedToday()
         || typeof API === 'undefined'
         || document.getElementById('builtinToolsSyncModal')
@@ -5389,7 +5485,7 @@ async function syncNavUserSession() {
                 const previousUser = localStorage.getItem('tools_user');
                 localStorage.setItem('tools_user', data.username);
                 if (data.role) localStorage.setItem('tools_role', data.role);
-                if (await ensureDefaultWorkspace(data)) return;
+                if (await syncTenantWorkspace(data)) return;
                 // 导航栏按本地角色渲染管理员入口（设置、租户管理）；服务端角色与渲染时不同就整条重绘。
                 if ((data.role && data.role !== previousRole) || data.username !== previousUser) {
                     renderNavbar();

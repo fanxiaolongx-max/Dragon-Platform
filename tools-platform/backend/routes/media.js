@@ -5,7 +5,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { Readable } = require('stream');
 const { exec, execSync, spawn } = require('child_process');
-const { checkAuth, requireAdmin } = require('../middleware/auth');
+const { checkAuth, requirePlatformAdmin: requireAdmin, isPlatformAdmin: isSuperAdmin } = require('../middleware/auth');
 const authSessionsRepo = require('../models/auth-sessions-repository');
 const { getTenantId } = require('../models/tenant-context');
 const { getSubtitles, searchShooter, readLimitedBody } = require('../models/media-subtitles');
@@ -488,7 +488,7 @@ async function hasAdminMediaSession(req) {
     if (!token) return false;
     try {
         const session = await authSessionsRepo.getSession(token);
-        return Boolean(session && session.expiresAt >= Date.now() && session.user?.role === 'admin');
+        return Boolean(session && session.expiresAt >= Date.now() && isSuperAdmin(session.user));
     } catch (_) {
         return false;
     }

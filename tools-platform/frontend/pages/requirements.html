@@ -44,7 +44,7 @@
     </div>
 
     <!-- 需求详情/编辑/流转 Modal -->
-    <div class="modal-overlay" id="reqModal">
+    <div class="modal-overlay" id="reqModal" onclick="if(event.target === this) ReqApp.closeModal()">
         <div class="modal-content req-detail-modal">
             <div class="modal-header">
                 <h2 id="modalTitle" data-i18n="需求详情">需求详情</h2>
@@ -117,6 +117,38 @@
                     </div>
                 </div>
 
+                <section class="form-group req-publication" id="reqSkillPublication" hidden>
+                    <strong id="reqSkillPublicationTitle"></strong>
+                    <p id="reqSkillPublicationStatus"></p>
+                    <pre id="reqSkillPublicationContent" hidden></pre>
+                    <button type="button" class="btn btn-primary" id="reqApproveSkill" onclick="ReqApp.approveSkill()" data-i18n="允许发布" hidden>允许发布</button>
+                </section>
+
+                <div class="form-group req-images-form-group" id="reqImagesSection">
+                    <div class="req-upload-header">
+                        <label class="req-upload-label" for="reqImagesInput">
+                            <span data-i18n="上传图片">上传图片</span>
+                            <span class="req-upload-count" id="reqImagesCount">(0/6)</span>
+                        </label>
+                        <span class="req-upload-tips" data-i18n="支持 PNG/JPG/WebP/GIF，单张最大 4MB，最多 6 张">支持 PNG/JPG/WebP/GIF，单张最大 4MB，最多 6 张</span>
+                    </div>
+                    <div class="req-upload-dropzone" id="reqUploadDropzone">
+                        <div class="req-image-list" id="reqImagesList"></div>
+                        <label id="reqImagesPicker" for="reqImagesInput" class="req-upload-picker" tabindex="0" role="button" aria-label="上传图片">
+                            <input id="reqImagesInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden>
+                            <div class="req-picker-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="17 8 12 3 7 8"/>
+                                    <line x1="12" y1="3" x2="12" y2="15"/>
+                                </svg>
+                            </div>
+                            <span class="req-picker-text" data-i18n="点击添加">点击添加</span>
+                            <span class="req-picker-subtext" data-i18n="支持拖拽或粘贴">支持拖拽或粘贴</span>
+                        </label>
+                    </div>
+                </div>
+
                 <label class="urgent-toggle" for="reqUrgentInput">
                     <input type="checkbox" id="reqUrgentInput">
                     <span class="urgent-toggle-icon"><svg class="req-line-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v5M12 17h.01"/></svg></span>
@@ -165,11 +197,34 @@
         </div>
     </div>
 
+    <!-- 优雅图片大图预览弹窗 (Lightbox) -->
+    <div class="req-preview-overlay" id="reqPreviewModal" style="display: none;" onclick="if(event.target === this) ReqApp.closePreviewModal()">
+        <div class="req-preview-container">
+            <div class="req-preview-header">
+                <span class="req-preview-filename" id="reqPreviewFilename" data-i18n="图片预览">图片预览</span>
+                <span class="req-preview-index" id="reqPreviewIndex">1 / 1</span>
+                <button type="button" class="req-preview-close" onclick="ReqApp.closePreviewModal()" aria-label="关闭预览" title="关闭 (Esc)">&times;</button>
+            </div>
+            <div class="req-preview-viewport">
+                <button type="button" class="req-preview-nav prev" id="reqPreviewPrev" onclick="ReqApp.prevPreviewImage()" aria-label="上一张" title="上一张 (←)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
+                <div class="req-preview-img-box">
+                    <img id="reqPreviewImage" src="" alt="大图预览">
+                </div>
+                <button type="button" class="req-preview-nav next" id="reqPreviewNext" onclick="ReqApp.nextPreviewImage()" aria-label="下一张" title="下一张 (→)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="/js/shared/api.js"></script>
     <script src="/js/shared/toast.js"></script>
     <script src="/js/shared/platform-logo-upload.js"></script>
     <script src="/js/shared/navbar.js"></script>
     <script src="/js/shared/app-dialog.js"></script>
+    <script src="/js/shared/requirements-client.js"></script>
     <script src="/js/requirements.js"></script>
 </body>
 </html>

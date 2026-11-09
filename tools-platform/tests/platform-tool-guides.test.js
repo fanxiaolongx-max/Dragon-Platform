@@ -99,6 +99,9 @@ test('Dragon Claw gets a read-only platform tool guide group, also for read-only
     assert.match(read.content, /# 报表看板[\s\S]*摘要：把各站点[\s\S]*## 怎么用/);
     const fallback = await set.execute({ name: 'read_tool_guide', args: { tool: '/uivf12' } });
     assert.match(fallback.content, /还没有生成使用说明/);
+    const hidden = await set.execute({ name: 'read_tool_guide', args: { tool: 'create-skill' } });
+    assert.equal(hidden.isError, true);
+    await require('../backend/models/tool-distribution').setEntryAccess('skill:create-skill', true);
     const skillGuide = await set.execute({ name: 'read_tool_guide', args: { tool: 'create-skill' } });
     assert.equal(skillGuide.isError, undefined);
     assert.match(skillGuide.content, /### @create-skill[\s\S]*平台技能保存规则/);

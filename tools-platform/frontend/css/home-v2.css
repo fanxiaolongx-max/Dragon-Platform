@@ -483,6 +483,18 @@ html[data-ui="v2"]:not([data-theme="dark"]) .stats-bar :is(.stat-label, .stat-no
     box-sizing: border-box;
     overflow: hidden;
 }
+.v2-scan.is-restricted {
+    width: max-content;
+    max-width: calc(100vw - 16px);
+    height: auto;
+    padding: 14px 18px;
+    text-align: center;
+}
+.v2-scan-restricted {
+    color: var(--v2-ink);
+    font-size: 14px;
+    font-weight: 700;
+}
 .v2-scan-tabs { display: flex; width: 100%; box-sizing: border-box; margin-bottom: 10px; flex: none; }
 .v2-scan-tabs button { flex: 1; justify-content: center; min-width: 0; padding: 0 6px; white-space: nowrap; font-size: 12px; }
 .v2-scan-body {

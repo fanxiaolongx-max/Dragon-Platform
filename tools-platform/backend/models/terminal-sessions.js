@@ -90,6 +90,12 @@ function resolveCwd(requested) {
     return os.homedir();
 }
 
+// 团队账号的终端与交互命令：整条 Shell 包进团队沙箱（models/tenant-sandbox.js），工作目录必须在团队空间内
+function launchSpec(file, args, dir, env, sandboxTenantId) {
+    if (!sandboxTenantId) return { file, args, cwd: dir, env };
+    return require('./tenant-sandbox').wrap({ tenantId: sandboxTenantId, cwd: dir, file, args, env });
+}
+
 const sessions = new Map();
 
 function publicView(session) {
@@ -146,7 +152,7 @@ function sweep(now = Date.now()) {
 const sweeper = setInterval(sweep, 60 * 1000);
 sweeper.unref?.();
 
-function create(owner, { shell: shellId, cwd, cols = 100, rows = 30, title } = {}) {
+function create(owner, { shell: shellId, cwd, cols = 100, rows = 30, title, sandboxTenantId = '' } = {}) {
     if (!owner) throw Object.assign(new Error('缺少账号'), { status: 401 });
     sweep();
     const live = listFor(owner).filter(item => !item.exited);
@@ -175,9 +181,10 @@ function create(owner, { shell: shellId, cwd, cols = 100, rows = 30, title } = {
     };
     session.exitPromise = new Promise(resolve => { session.resolveExit = resolve; });
     const env = terminalEnv();
+    const launch = launchSpec(shell.file, shell.args, dir, env, sandboxTenantId); // 沙箱不可用时直接抛错，不开终端
     if (pty) {
         try {
-            const term = pty.spawn(shell.file, shell.args, { name: 'xterm-256color', cols: size.cols, rows: size.rows, cwd: dir, env, useConpty: true });
+            const term = pty.spawn(launch.file, launch.args, { name: 'xterm-256color', cols: size.cols, rows: size.rows, cwd: launch.cwd, env: launch.env, useConpty: true });
             session.pty = true;
             session.term = term;
             term.onData(data => append(session, data));
@@ -187,19 +194,20 @@ function create(owner, { shell: shellId, cwd, cols = 100, rows = 30, title } = {
             session.term = null;
         }
     }
-    if (!session.term) startPipeShell(session, shell, dir, env);
+    if (!session.term) startPipeShell(session, shell, dir, env, sandboxTenantId);
     sessions.set(session.id, session);
     return publicView(session);
 }
 
 // 没有 node-pty 时的退路：管道 Shell。没有回显和提示符，由前端本地回显、按行发送。
-function startPipeShell(session, shell, dir, env) {
+function startPipeShell(session, shell, dir, env, sandboxTenantId = '') {
     const isWin = process.platform === 'win32';
     let args = shell.args.filter(arg => arg !== '-l');
     if (isWin && /powershell|pwsh/i.test(shell.file)) args = ['-NoLogo', '-NoProfile', '-Command', '-'];
     else if (isWin) args = ['/Q'];
     else args = ['-i'];
-    const child = spawn(shell.file, args, { cwd: dir, env: { ...env, PS1: '$ ' }, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true, detached: !isWin });
+    const launch = launchSpec(shell.file, args, dir, { ...env, PS1: '$ ' }, sandboxTenantId);
+    const child = spawn(launch.file, launch.args, { cwd: launch.cwd, env: launch.env, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true, detached: !isWin });
     session.child = child;
     const outDecoder = new StringDecoder('utf8');
     const errDecoder = new StringDecoder('utf8');
@@ -304,7 +312,7 @@ const view = (owner, id) => publicView(get(owner, id));
 
 // 智能体的交互式命令：在一个真终端里只跑这一条命令（不是常驻 Shell），用户在终端面板里输入。
 // 输入会被记下来，命令结束后交给模型的输出里会隐藏用户输入（例如粘贴的登录凭据）。
-function createCommand(owner, { command, cwd, env, cols = 100, rows = 30, title, banner = '' } = {}) {
+function createCommand(owner, { command, cwd, env, cols = 100, rows = 30, title, banner = '', sandboxTenantId = '' } = {}) {
     if (!owner) throw Object.assign(new Error('缺少账号'), { status: 401 });
     const text = String(command || '').trim();
     if (!text) throw Object.assign(new Error('缺少命令'), { status: 400 });
@@ -324,11 +332,11 @@ function createCommand(owner, { command, cwd, env, cols = 100, rows = 30, title,
     // 顶部说明只给用户看：不计入交给模型的输出
     if (banner) session.buffer = `\x1b[33m${String(banner).replace(/\r?\n/g, '\r\n')}\x1b[0m\r\n\r\n`;
     session.bannerLength = session.buffer.length;
-    const fullEnv = { ...(env || terminalEnv()), TERM: 'xterm-256color', COLORTERM: 'truecolor' };
+    const launch = launchSpec(shell.file, shell.args, dir, { ...(env || terminalEnv()), TERM: 'xterm-256color', COLORTERM: 'truecolor' }, sandboxTenantId);
     const pty = loadPty();
     if (pty) {
         try {
-            const term = pty.spawn(shell.file, shell.args, { name: 'xterm-256color', cols: size.cols, rows: size.rows, cwd: dir, env: fullEnv, useConpty: true });
+            const term = pty.spawn(launch.file, launch.args, { name: 'xterm-256color', cols: size.cols, rows: size.rows, cwd: launch.cwd, env: launch.env, useConpty: true });
             session.pty = true;
             session.term = term;
             term.onData(data => append(session, data));
@@ -339,7 +347,7 @@ function createCommand(owner, { command, cwd, env, cols = 100, rows = 30, title,
     }
     if (!session.term) {
         // 没有 PTY：管道运行，程序看到的不是终端（部分交互程序会改走非交互路径）
-        const child = spawn(shell.file, shell.args, { cwd: dir, env: fullEnv, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true, detached: !isWin });
+        const child = spawn(launch.file, launch.args, { cwd: launch.cwd, env: launch.env, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true, detached: !isWin });
         session.child = child;
         const outDecoder = new StringDecoder('utf8');
         const errDecoder = new StringDecoder('utf8');

@@ -83,11 +83,11 @@ function definitions() {
         }
     }, {
         name: 'netcare_sql',
-        description: '执行一条只读 SQL（SELECT / WITH），用于多表关联等 netcare_query 做不到的查询。业务表写 netcare.表名；应用 schema（scope=app）表名不带库名。务必带 LIMIT 或聚合。',
+        description: '执行一条 SQL：业务库（scope=business）只读查询（SELECT / WITH）；应用库（scope=app）支持查询与写操作（INSERT / UPDATE / DELETE，修改/删除必须带 WHERE 条件）。业务表写 netcare.表名；应用库表名不带库名。务必带 LIMIT 或聚合。',
         parameters: {
             type: 'object',
             properties: {
-                sql: { type: 'string', description: '单条只读 SQL' },
+                sql: { type: 'string', description: '单条 SQL 语句' },
                 scope: SCOPE_PROPERTY,
                 maxRows: { type: 'integer', description: `最多返回行数，默认 200，上限 ${MAX_MODEL_ROWS}` }
             },
@@ -175,6 +175,14 @@ async function query(args) {
 
 async function sql(args) {
     const scope = scopeOf(args.scope);
+    const sqlText = String(args.sql || '').trim();
+    if (scope === 'app' && /^\s*(insert|update|delete)\b/i.test(sqlText)) {
+        const result = await client.executeApp(sqlText);
+        return {
+            content: `应用库写操作执行成功（${result.kind}）：影响 ${result.affectedRows} 行，耗时 ${result.durationMs}ms`,
+            summary: `SQL 写操作：影响 ${result.affectedRows} 行（应用库）`
+        };
+    }
     const result = await client.queryAll(args.sql, { scope, maxRows: clampInt(args.maxRows, 1, MAX_MODEL_ROWS, 200) });
     return { content: rowsText(result.rows, { sql: String(args.sql).slice(0, 600), truncated: result.truncated }), summary: `SQL：${result.rows.length} 行` };
 }
@@ -207,10 +215,10 @@ async function buildPrompt() {
         return lines.join('\n');
     }
     lines.push(
-        `用 netcare_tables / netcare_describe / netcare_query / netcare_sql 经数字人基座只读查询 NetCare 业务库（${config.businessSchema}）${configRepo.appReady(config) ? '与本应用 schema' : ''}。结果以工具返回为准，不要编造表名、字段或数字。`,
+        `用 netcare_tables / netcare_describe / netcare_query / netcare_sql 经数字人基座查询 NetCare 业务库（${config.businessSchema}，只读）${configRepo.appReady(config) ? '与本应用 schema（scope=app，支持查询及 INSERT/UPDATE/DELETE 写操作，修改必须带 WHERE 条件）' : ''}。结果以工具返回为准，不要编造表名、字段或数字。`,
         `今天是 ${new Date().toLocaleDateString('sv-SE')}（平台服务器本地时间）。`,
         '先找表、看字段再查询；统计用聚合在库里算；回答时说明所用表、条件、时间范围和是否全量，并附 SQL 摘要。',
-        '需要查询时在本轮直接调用工具，不要只回复「请稍等 / 正在查询」就结束。'
+        '需要查询或操作时在本轮直接调用工具，不要只回复「请稍等 / 正在查询」就结束。'
     );
     return lines.join('\n');
 }

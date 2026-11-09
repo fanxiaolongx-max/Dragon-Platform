@@ -53,9 +53,10 @@ test('market settings isolate tenants and disabled sources cause no requests', a
             assert.equal(disabled.sources.every(source => source.enabled === false), true);
             assert.deepEqual(disabled.tools, []);
             const app = express();
-            app.use((req, _res, next) => runWithTenant('alpha', () => { req.user = { role: 'admin' }; next(); }));
+            app.use((req, _res, next) => runWithTenant(req.get('x-test-tenant') || 'default', () => { req.user = { role: 'admin', isSuper: req.get('x-test-super') === '1' }; next(); }));
             app.use('/api/custom-tools', require('../backend/routes/custom-tools'));
-            const streamed = await request(app).get('/api/custom-tools/market/preview-stream?refresh=1').expect(200);
+            await request(app).get('/api/custom-tools/market/preview-stream?refresh=1').set('x-test-tenant', 'alpha').expect(403);
+            const streamed = await request(app).get('/api/custom-tools/market/preview-stream?refresh=1').set('x-test-super', '1').expect(200);
             const events = streamed.text.trim().split('\n').map(line => JSON.parse(line));
             assert.equal(events[0].stage, 'sources_ready');
             assert.equal(events.at(-1).type, 'result');
@@ -64,7 +65,7 @@ test('market settings isolate tenants and disabled sources cause no requests', a
         });
         await runWithTenant('beta', async () => {
             const settings = await market.getMarketSettings();
-            assert.equal(settings.githubEnabled, true);
+            assert.equal(settings.githubEnabled, false);
             assert.deepEqual(settings.sources, []);
         });
     } finally {

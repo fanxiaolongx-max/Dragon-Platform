@@ -14,16 +14,22 @@ const workspaceChanges = require('../models/agent-workspace-changes');
 const workspaceGit = require('../models/agent-workspace-git');
 const transcripts = require('../models/agent-transcript-repository');
 const { getTenantId, runWithTenant } = require('../models/tenant-context');
+const boundary = require('../models/team-boundary');
+const { isSuperAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 const SUGGEST_LIMIT = 50;
 
 router.get('/capability', (req, res) => {
     const verdict = access.evaluate(req);
+    const confined = boundary.isConfined(req.user);
     res.json({
         enabled: verdict.enabled,
         reason: verdict.reason,
-        homeDir: verdict.enabled ? os.homedir() : '',
+        // 团队账号的「家目录」就是团队工作目录：目录联想、~ 展开都以它为根
+        homeDir: verdict.enabled ? (confined ? boundary.workspaceRoot() : os.homedir()) : '',
+        confined,
+        canPrepareAccountDirectory: verdict.enabled && !isSuperAdmin(req.user),
         platform: process.platform,
         sep: path.sep,
         readOnly: !runManager.isAdminUser(req.user), // 管理员全部权限，其他账号只读
@@ -31,7 +37,35 @@ router.get('/capability', (req, res) => {
     });
 });
 
-router.use(access.middleware);
+router.use((req, res, next) => {
+    const approvalId = req.method === 'POST' && req.path.match(/^\/approvals\/([^/]+)$/)?.[1];
+    if (approvalId && runManager.isSharedMcpApproval(approvalId, req.user, getTenantId())) {
+        const verdict = access.evaluate(req);
+        if (verdict.reason !== 'ORIGIN_MISMATCH') return next();
+    }
+    return access.middleware(req, res, next);
+});
+
+// 只创建当前会话所属工作空间里的账号同名目录，不接收客户端路径。
+router.post('/account-directory', async (req, res) => {
+    const { username } = req.user;
+    if (isSuperAdmin(req.user) || !/^[a-z0-9][a-z0-9_-]{0,62}$/i.test(username || '')) {
+        return res.status(403).json({ code: 'ACCOUNT_DIRECTORY_FORBIDDEN', error: '当前账号无法自动创建工作目录' });
+    }
+    try {
+        const directory = path.join(boundary.workspaceRoot(), username);
+        await fsp.mkdir(directory).catch(error => {
+            if (error.code !== 'EEXIST') throw error;
+        });
+        // lstat 不跟随链接，遇到同名文件或符号链接时保留原项。
+        if (!(await fsp.lstat(directory)).isDirectory()) {
+            return res.status(409).json({ code: 'ACCOUNT_DIRECTORY_CONFLICT', error: '账号同名路径已被占用' });
+        }
+        res.json({ directory });
+    } catch (_error) {
+        res.status(500).json({ code: 'ACCOUNT_DIRECTORY_UNAVAILABLE', error: '无法准备账号工作目录' });
+    }
+});
 
 router.get('/browser/view', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -129,6 +163,14 @@ function expandHome(input) {
     return text;
 }
 
+/** 解析用户给的目录：团队账号以团队工作目录为基准并校验不越界；超级管理员保持原行为 */
+function userPath(req, input, what) {
+    if (!boundary.isConfined(req.user)) return expandHome(input);
+    const resolved = boundary.resolveUserPath(req.user, getTenantId(), input);
+    boundary.assertAllowed(req.user, getTenantId(), resolved, what);
+    return resolved;
+}
+
 async function listWindowsDrives() {
     const letters = Array.from({ length: 26 }, (_, index) => `${String.fromCharCode(65 + index)}:\\`);
     const checks = await Promise.all(letters.map(drive => fsp.stat(drive).then(stat => stat.isDirectory()).catch(() => false)));
@@ -161,6 +203,30 @@ async function listSubdirectories(parent, { prefix = '', showHidden = false, lim
     return { entries: resolved, total: dirs.length };
 }
 
+// 团队账号的目录联想：只在团队工作目录内列子目录，越界输入返回空列表
+async function suggestInsideWorkspace(req) {
+    const tenantId = getTenantId();
+    const root = boundary.workspaceRoot(tenantId);
+    const showHidden = req.query.showHidden === 'true';
+    const input = String(req.query.input || '').replace(/[\u0000-\u001f]/g, '');
+    if (!input.trim() || input.trim() === '~') {
+        const list = await listSubdirectories(root, { showHidden, limit: 50 });
+        return { input: '', parent: root, prefix: '', exists: true, isDir: true, confined: true, groups: [{ label: 'home', base: root, entries: list.entries }] };
+    }
+    const resolved = path.resolve(boundary.resolveUserPath(req.user, tenantId, input));
+    const endsWithSep = /[\\/]$/.test(input);
+    const parent = endsWithSep ? resolved : path.dirname(resolved);
+    const prefix = endsWithSep ? '' : path.basename(resolved);
+    if (!boundary.isAllowedPath(tenantId, parent)) {
+        return { input, parent: root, prefix: '', exists: false, isDir: false, confined: true, error: 'OUTSIDE_TEAM', groups: [{ label: 'children', base: root, entries: [] }] };
+    }
+    let exists = false;
+    let isDir = false;
+    try { const stat = await fsp.stat(resolved); exists = true; isDir = stat.isDirectory(); } catch (_error) { exists = false; }
+    const listing = await listSubdirectories(parent, { prefix, showHidden });
+    return { input, parent, prefix, exists, isDir, confined: true, isGit: isDir && fs.existsSync(path.join(resolved, '.git')), error: listing.error || undefined, groups: [{ label: 'children', base: parent, entries: listing.entries }] };
+}
+
 /**
  * GET /suggest?input=&showHidden=
  * 输入拆成「已存在的父目录 + 未完成的末段」，只列目录。空输入 → 家目录与根目录；
@@ -168,6 +234,7 @@ async function listSubdirectories(parent, { prefix = '', showHidden = false, lim
  */
 router.get('/suggest', async (req, res) => {
     try {
+        if (boundary.isConfined(req.user)) return res.json(await suggestInsideWorkspace(req));
         const raw = expandHome(String(req.query.input || '').replace(/[\u0000-\u001f]/g, ''));
         const showHidden = req.query.showHidden === 'true';
         const isWin = process.platform === 'win32';
@@ -257,22 +324,31 @@ function workspaceMutation(handler) {
     };
 }
 router.get('/git', async (req, res) => {
-    try { res.setHeader('Cache-Control','no-store');res.json(await workspaceGit.inspect(expandHome(req.query.root))); }
+    try { res.setHeader('Cache-Control','no-store');res.json(await workspaceGit.inspect(userPath(req, req.query.root))); }
     catch(error) { res.status(error.statusCode || 400).json({code:error.code,error:error.message}); }
 });
-router.post('/git/branch', workspaceMutation(req => workspaceGit.switchBranch(expandHome(req.body?.root), req.body?.branch, req.body?.create === true)));
-router.post('/git/worktree', workspaceMutation(req => workspaceGit.createWorktree(expandHome(req.body?.root), runManager.ownerKey(req.user,getTenantId()))));
-router.post('/create', workspaceMutation(req => workspaceGit.createDirectory(expandHome(req.body?.path))));
+router.post('/git/branch', workspaceMutation(req => workspaceGit.switchBranch(userPath(req, req.body?.root), req.body?.branch, req.body?.create === true)));
+router.post('/git/worktree', workspaceMutation(async req => {
+    const root = userPath(req, req.body?.root);
+    if (boundary.isConfined(req.user)) {
+        // worktree 建在主仓库的上一级目录：仓库就是团队工作目录本身时会落到团队空间外
+        const info = await workspaceGit.inspect(root);
+        if (info?.mainRoot) boundary.assertAllowed(req.user, getTenantId(), path.join(path.dirname(info.mainRoot), '.dragonclaw-worktrees'), 'Worktree 目录');
+    }
+    return workspaceGit.createWorktree(root, runManager.ownerKey(req.user,getTenantId()));
+}));
+router.post('/create', workspaceMutation(req => workspaceGit.createDirectory(userPath(req, req.body?.path, '新建目录'))));
 
 router.post('/select', async (req, res) => {
     try {
-        const root = guard.normalizeRoot(expandHome(req.body && req.body.path));
+        const root = guard.normalizeRoot(userPath(req, req.body && req.body.path, '所选目录'));
+        boundary.assertAllowed(req.user, getTenantId(), root, '所选目录');
         const prefs = await prefsRepo.rememberDirectory(req.user.username, root);
         // 最近一次在该目录的会话 id：新标签页（sessionStorage 为空）重选同一目录时沿用，服务端转录才能接上
         const agentSessionId = await runManager.findLatestSessionId(req.user, getTenantId(), root);
         res.json({ root, git: await workspaceGit.inspect(root), gitBranch: runManager.readGitBranch(root), name: path.basename(root) || root, prefs, agentSessionId });
     } catch (error) {
-        const status = ['AGENT_ROOT_NOT_FOUND', 'AGENT_ROOT_NOT_DIR', 'AGENT_ROOT_REQUIRED'].includes(error.code) ? 400 : 500;
+        const status = error.code === 'TEAM_BOUNDARY' ? 403 : ['AGENT_ROOT_NOT_FOUND', 'AGENT_ROOT_NOT_DIR', 'AGENT_ROOT_REQUIRED'].includes(error.code) ? 400 : 500;
         res.status(status).json({ code: error.code, error: error.message || '选择目录失败' });
     }
 });
@@ -294,17 +370,17 @@ router.post('/approvals/:id', (req, res) => {
 });
 
 // 工作目录：内存会话的根目录优先；重启后会话不在内存时用 ?root=（与 /select 同样校验）
-function resolveRoot(session, rawRoot) {
+function resolveRoot(req, session, rawRoot) {
     if (session) return session.root;
     if (!rawRoot) return '';
-    return guard.normalizeRoot(expandHome(String(rawRoot)));
+    return guard.normalizeRoot(userPath(req, String(rawRoot), '工作目录'));
 }
 
 // 「更改」= 智能体本会话的改动（可撤销）+ git 工作区的实际改动（手动 / 外部修改，只能查看）
 router.get('/changes/:agentSessionId', async (req, res) => {
     try {
         let session = runManager.getSession(req.params.agentSessionId, req.user, getTenantId());
-        const root = resolveRoot(session, req.query.root);
+        const root = resolveRoot(req, session, req.query.root);
         // 重启后会话不在内存：按库里的记录恢复，智能体 / 命令的改动仍可查看与撤销
         if (!session && root) session = await runManager.restoreSession(req.params.agentSessionId, req.user, getTenantId(), root);
         if (!root) return res.json({ changes: [], diff: null, git: false });
@@ -327,7 +403,7 @@ const FILE_VIEW_MAX_BYTES = 2 * 1024 * 1024;
 router.get('/file/:agentSessionId', async (req, res) => {
     try {
         const session = runManager.getSession(req.params.agentSessionId, req.user, getTenantId());
-        const root = resolveRoot(session, req.query.root);
+        const root = resolveRoot(req, session, req.query.root);
         if (!root) return res.status(400).json({ code: 'AGENT_ROOT_REQUIRED', error: '尚未选择工作目录' });
         const abs = guard.resolveInsideRoot(root, String(req.query.path || ''));
         const display = guard.toDisplayPath(root, abs);
@@ -350,7 +426,7 @@ router.get('/file/:agentSessionId', async (req, res) => {
 // 恢复对话：上一轮的上下文占用 + 当前的实际改动
 router.get('/state/:agentSessionId', async (req, res) => {
     try {
-        const root = guard.normalizeRoot(expandHome(String(req.query.root || '')));
+        const root = guard.normalizeRoot(userPath(req, String(req.query.root || ''), '工作目录'));
         const state = await runManager.loadSessionState(req.params.agentSessionId, req.user, getTenantId(), root);
         const collected = await workspaceChanges.collect(root, state.session ? state.session.changeLog.summary() : []);
         res.json({ context: state.context, turnCount: state.turnCount, ...collected });
@@ -372,7 +448,7 @@ router.post('/changes/:agentSessionId/revert', async (req, res) => {
     try {
         let session = runManager.getSession(req.params.agentSessionId, req.user, getTenantId());
         if (!session && req.body && req.body.root) {
-            session = await runManager.restoreSession(req.params.agentSessionId, req.user, getTenantId(), resolveRoot(null, req.body.root));
+            session = await runManager.restoreSession(req.params.agentSessionId, req.user, getTenantId(), resolveRoot(req, null, req.body.root));
         }
         if (!session) return res.status(404).json({ code: 'AGENT_SESSION_NOT_FOUND', error: '会话不存在或已过期' });
         if (session.activeRun) return res.status(409).json({ code: 'AGENT_RUN_BUSY', error: '任务进行中，暂不能撤销' });
@@ -388,7 +464,7 @@ router.post('/changes/:agentSessionId/revert', async (req, res) => {
 // 按轮回退：哪些轮次改过文件（对话里的回答据此显示「回退到这一轮之前」），以及执行回退
 router.get('/checkpoints/:agentSessionId', async (req, res) => {
     try {
-        const root = resolveRoot(null, String(req.query.root || ''));
+        const root = resolveRoot(req, null, String(req.query.root || ''));
         if (!root) return res.json({ runs: [] });
         const session = runManager.getSession(req.params.agentSessionId, req.user, getTenantId())
             || await runManager.restoreSession(req.params.agentSessionId, req.user, getTenantId(), root);
@@ -406,7 +482,7 @@ router.post('/checkpoints/:agentSessionId/rewind', async (req, res) => {
     try {
         let session = runManager.getSession(req.params.agentSessionId, req.user, getTenantId());
         if (!session && req.body && req.body.root) {
-            session = await runManager.restoreSession(req.params.agentSessionId, req.user, getTenantId(), resolveRoot(null, req.body.root));
+            session = await runManager.restoreSession(req.params.agentSessionId, req.user, getTenantId(), resolveRoot(req, null, req.body.root));
         }
         if (!session) return res.status(404).json({ code: 'AGENT_SESSION_NOT_FOUND', error: '会话不存在或已过期' });
         const result = await runManager.rewindToBefore(session, String(req.body && req.body.runId || ''));

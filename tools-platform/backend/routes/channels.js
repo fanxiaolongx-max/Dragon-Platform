@@ -2,7 +2,7 @@
 // 配置、连接控制、诊断、名单维护仅管理员；推送对普通用户仅在开启「允许普通用户推送」时
 // 开放，且只能推送到默认推送范围内的目标。状态、配置、联系人、日志、推送两个频道共用同一套接口。
 const express = require('express');
-const { requireAdmin } = require('../middleware/auth');
+const { requireAdmin, isSuperAdmin, inSuperAdminSpace } = require('../middleware/auth');
 const { getTenantId } = require('../models/tenant-context');
 const configRepo = require('../models/channels/welink-config-repository');
 const weixinConfigRepo = require('../models/channels/weixin-config-repository');
@@ -54,6 +54,22 @@ const handle = fn => async (req, res) => {
 };
 
 const ch = req => CHANNELS[req.params.channel];
+
+// 扫码入口及其状态、验证码和本机身份操作只允许超级管理员使用。
+router.use(['/welink-cli', '/welink/status', '/weixin/status', '/welink/qrcode-auth', '/weixin/qrcode-auth'], (req, res, next) => {
+    if (isSuperAdmin(req.user)) return next();
+    res.status(403).json({ code: 'SUPER_ADMIN_REQUIRED', error: '仅系统管理员可用' });
+});
+
+// 频道机器人（WeLink / 微信）与 welink-cli 个人身份是平台级能力，只给超级管理员：
+// 团队账号读「已对接频道」时拿到空列表（首页不显示频道分类），其余频道接口一律 403。
+router.use((req, res, next) => {
+    if (inSuperAdminSpace(req.user)) return next(); // 超级管理员空间里沿用各接口原有的角色规则
+    if (req.method === 'GET' && req.path === '/available') return res.json({ items: [], summary: {}, network: {} });
+    if (req.method === 'GET' && /^\/(?:welink|weixin)\/threads$/.test(req.path)) return res.json({ items: [], total: 0, hasMore: false });
+    if (req.method === 'GET' && req.path === '/ops/pending') return res.json({ canManage: false, items: [], total: 0, hasMore: false, offset: 0 });
+    res.status(403).json({ code: 'SUPER_ADMIN_REQUIRED', error: '频道对接仅超级管理员可用' });
+});
 
 /** 已对接（已启用且已配置凭据）的频道，首页对话侧栏据此显示频道分类；所有登录用户可读。 */
 router.get('/available', handle(async (_req, res) => {

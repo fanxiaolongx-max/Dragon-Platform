@@ -80,7 +80,7 @@ test('monthly report trends carry only chart fields; the latest snapshot keeps e
 }));
 
 test('requirements list clips long descriptions while the detail API returns the full text', () => runWithTenant('default', async () => {
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await require('../backend/models/requirements-board').board();
     const long = '日志'.repeat(5000);
     await execReq("INSERT INTO Requirements (title, description, status, creator, category) VALUES ('长需求', ?, '提交', 'admin', 'F12')", [long]);
     await execReq("INSERT INTO Requirements (title, description, status, creator, category) VALUES ('短需求', '简短描述', '提交', 'admin', 'F12')");

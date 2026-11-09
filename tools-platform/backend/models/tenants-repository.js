@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const { all, get, run } = require('./platform-db');
+const { all, get, run } = require('./control-db');
 const { DEFAULT_TENANT_ID, getDataDir, TENANTS_ROOT } = require('./tenant-context');
 const appDb = require('./app-db');
 const tenantPool = require('./tenant-sqlite-pool');

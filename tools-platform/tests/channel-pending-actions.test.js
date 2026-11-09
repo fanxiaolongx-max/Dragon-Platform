@@ -36,7 +36,8 @@ ${steps}`;
 const wechat = { channel: 'weixin', conversation: { kind: 'user', id: 'owner@im.wechat' }, actor: 'owner@im.wechat' };
 
 async function channelTurn(markdown, { canSaveSkills = true, chatSessionId = 'wx' } = {}) {
-    const extras = await extraTools.forChat({ owner: 'default::weixin:owner', chatSessionId, readOnly: true, channel: { ...wechat, canSaveSkills }, write: () => {}, signal: new AbortController().signal });
+    const user = { username: 'weixin:owner', role: canSaveSkills ? 'admin' : 'readonly', isSuper: canSaveSkills };
+    const extras = await extraTools.forChat({ owner: 'default::weixin:owner', user, chatSessionId, readOnly: true, channel: { ...wechat, canSaveSkills }, write: () => {}, signal: new AbortController().signal });
     const script = [{ toolCalls: [{ id: 's', name: 'save_skill', args: { markdown, reason: '每家一条' } }] }, { text: '请回复确认' }];
     const requests = [];
     const result = await extraTools.runChannelTurn({ extras, client: { generateText: async options => { requests.push({ ...options, messages: [...options.messages] }); return { usage, toolCalls: [], ...script.shift() }; } },
@@ -86,17 +87,21 @@ test('other WeChat users get no skill saving at all', async () => {
     assert.deepEqual((await extraTools.toolsets({ owner: 'default::weixin:guest', readOnly: true, channel: { ...wechat, canSaveSkills: false } })).map(set => set.id), ['platform_tools']);
 });
 
-test('a full-access WeLink conversation defers save_skill to a typed confirmation instead of refusing it', async () => {
-    const welink = { channel: 'welink', conversation: { kind: 'user', id: 'w1' }, actor: 'w1' };
-    const session = manager.ensureWeLinkSession({ user: { username: 'welink:w1', role: 'admin' }, tenantId: 'default', chatSessionId: `wl-${process.pid}` });
-    session.channelContext = welink;
-    const script = [{ toolCalls: [{ id: 'w', name: 'save_skill', args: { markdown: skillMd('1. WeLink 改的'), reason: '测试' } }] }, { text: 'ok' }];
-    const turn = await manager.runAgentTurn({ session, client: { model: 'mock', async generateText() { return { text: '', toolCalls: [], usage, ...script.shift() }; } },
-        systemInstruction: 'S', historyMessages: [{ role: 'user', content: '完善技能' }], write: () => {}, signal: new AbortController().signal });
-    assert.equal(turn.denied, 0);
-    const code = /确认 (\d{4})/.exec(pendingActions.takeNote(welink.channel, welink.conversation, welink.actor))[1];
-    assert.match(await pendingActions.handleReply({ ...welink, text: `确认 ${code}` }), /^✅ 已更新技能 @news-brief/);
-    assert.match((await store.getSkill('news-brief')).markdown, /WeLink 改的/);
+test('a full-access WeLink conversation confirms and saves skills only in its own space', async () => {
+    const { runWithTenant } = require('../backend/models/tenant-context');
+    await runWithTenant('welink-personal', async () => {
+        const welink = { channel: 'welink', conversation: { kind: 'user', id: 'w1' }, actor: 'w1' };
+        const session = manager.ensureWeLinkSession({ user: { username: 'welink:w1', role: 'admin' }, tenantId: 'welink-personal', chatSessionId: `wl-${process.pid}` });
+        session.channelContext = welink;
+        const script = [{ toolCalls: [{ id: 'w', name: 'save_skill', args: { markdown: skillMd('1. WeLink 改的'), reason: '测试' } }] }, { text: 'ok' }];
+        const turn = await manager.runAgentTurn({ session, client: { model: 'mock', async generateText() { return { text: '', toolCalls: [], usage, ...script.shift() }; } },
+            systemInstruction: 'S', historyMessages: [{ role: 'user', content: '完善技能' }], write: () => {}, signal: new AbortController().signal });
+        assert.equal(turn.denied, 0);
+        const code = /确认 (\d{4})/.exec(pendingActions.takeNote(welink.channel, welink.conversation, welink.actor))[1];
+        assert.match(await pendingActions.handleReply({ ...welink, text: `确认 ${code}` }), /^✅ 已创建技能 @news-brief/);
+        assert.match((await store.getSkill('news-brief')).markdown, /WeLink 改的/);
+    });
+    assert.doesNotMatch((await store.getSkill('news-brief')).markdown, /WeLink 改的/);
 });
 
 test('confirmation is isolated by tenant, channel, conversation and exact actor, including missing actors', async () => {

@@ -88,26 +88,37 @@ function summaryOf(description) {
  * @param {Array} [input.messages]   送给模型的历史；其中调用过的工具视为已加载，保证历史与工具列表一致
  * @param {boolean} [input.skillCatalog] 系统提示里有技能目录时才提供 load_skill
  */
-async function create({ session, skillIds = [], messages = [], skillCatalog = false, sensitiveValues = [], core: withCore = true, extraToolsets = [] }) {
+async function create({ session, user, skillIds = [], messages = [], skillCatalog = false, sensitiveValues = [], core: withCore = true, extraToolsets = [] }) {
     const readOnly = Boolean(session.readOnly);
     if (!(session.loadedTools instanceof Set)) session.loadedTools = new Set();
     if (!(session.loadedSkills instanceof Set)) session.loadedSkills = new Set();
-    const core = withCore ? toolsService.definitions({ readOnly }) : [];
+    const actor = user ?? await require('./tool-distribution').actorForOwner(session.owner);
+    const allowed = await require('./agent-tool-access').forActor(actor);
+    const core = withCore ? toolsService.definitions({ readOnly }).filter(tool => allowed(tool.name)) : [];
     const coreByName = new Map(core.map(item => [item.name, item]));
     // 附加工具组（浏览器、MCP 服务）：整组按需加载，执行与审批由各组自己的 kindOf / preview / execute 提供
-    const extraGroups = new Map(extraToolsets.map(set => [set.id, { ...set, names: new Set(set.definitions.map(item => item.name)) }]));
+    const extraGroups = new Map(extraToolsets.flatMap(set => {
+        const definitions = set.definitions.filter(tool => allowed(tool.name));
+        return definitions.length ? [[set.id, { ...set, definitions }]] : [];
+    }));
     const extraByName = new Map([...extraGroups.values()].flatMap(set => set.definitions.map(def => [def.name, { def, set }])));
     const knownTool = name => coreByName.has(name) || extraByName.has(name);
     const groupNames = name => GROUPS[name]?.names || extraGroups.get(name)?.definitions.map(item => item.name) || null;
     const groupOf = name => GROUP_OF.get(name) || extraByName.get(name)?.set.id;
     const toolsets = new Map(); // group → { definitions, names, prompt, execute }
-    const userSkills = new Set(skillIds);
+    const skillStore = require('./agent-skills-store');
+    const visibleSkillIds = actor ? new Set((await skillStore.listForUser(actor)).map(item => item.id)) : null;
+    const isVisibleSkill = id => !visibleSkillIds || visibleSkillIds.has(id);
+    const userSkills = new Set(skillIds.filter(isVisibleSkill));
+    if (visibleSkillIds) session.loadedSkills = new Set([...session.loadedSkills].filter(isVisibleSkill));
 
     const attachToolset = async group => {
-        if (readOnly || toolsets.has(group) || !TOOLSETS[group]) return toolsets.get(group) || null;
+        if (readOnly || toolsets.has(group) || !TOOLSETS[group] || !isVisibleSkill(TOOLSETS[group].skillId)) return toolsets.get(group) || null;
         if (await require('./agent-skills-store').unavailableReason(TOOLSETS[group].skillId)) return null;
         const built = await TOOLSETS[group].build(session);
-        const set = { ...built, names: new Set(built.definitions.map(item => item.name)) };
+        const definitions = built.definitions.filter(tool => allowed(tool.name));
+        if (!definitions.length) return null;
+        const set = { ...built, definitions, names: new Set(definitions.map(item => item.name)) };
         toolsets.set(group, set);
         return set;
     };
@@ -147,7 +158,7 @@ async function create({ session, skillIds = [], messages = [], skillCatalog = fa
         const list = [];
         const push = item => { if (item && !seen.has(item.name)) { seen.add(item.name); list.push(item); } };
         core.filter(item => ALWAYS.has(item.name)).forEach(push);
-        META.filter(item => item.name !== 'load_skill' || skillCatalog).forEach(push);
+        META.filter(item => allowed(item.name) && (item.name !== 'load_skill' || skillCatalog)).forEach(push);
         startToolsets.forEach(group => toolsets.get(group).definitions.forEach(push));
         session.loadedTools.forEach(name => push(coreByName.get(name) || extraByName.get(name)?.def));
         toolsets.forEach(set => set.definitions.forEach(push));
@@ -198,10 +209,11 @@ async function create({ session, skillIds = [], messages = [], skillCatalog = fa
     const loadSkill = async ({ id } = {}) => {
         const cleanId = String(id || '').replace(/^@/, '').trim().toLowerCase();
         if (!builtinSkills.ID_RE.test(cleanId)) return { content: '技能 ID 无效。', summary: '技能 ID 无效', isError: true };
-        const unavailable = await require('./agent-skills-store').unavailableReason(cleanId);
+        if (!isVisibleSkill(cleanId)) return { content: '技能不存在或未开放。', summary: '技能未开放', isError: true };
+        const unavailable = await skillStore.unavailableReason(cleanId);
         if (unavailable) return { content: unavailable, summary: 'NetCare 连接未启用' };
         if (userSkills.has(cleanId)) return { content: `@${cleanId} 已在系统提示中加载，直接按其中的流程执行。`, summary: `@${cleanId} 已加载` };
-        const loaded = await require('./agent-skills-store').loadSection(cleanId);
+        const loaded = await skillStore.loadSection(cleanId, actor);
         if (!loaded) return { content: `技能目录中没有 @${cleanId}。只能加载目录中列出的技能。`, summary: `没有 @${cleanId}`, isError: true };
         const alreadyLoaded = session.loadedSkills.has(cleanId);
         session.loadedSkills.add(cleanId);
@@ -221,21 +233,22 @@ async function create({ session, skillIds = [], messages = [], skillCatalog = fa
 
     return {
         definitions,
+        allowed,
         deferred,
         catalogPrompt,
         // 本轮开始时挂上的 Skill 工具集说明，放进系统提示；轮中加载的说明随 load_skill 结果返回
         startPrompt: () => startToolsets.map(group => toolsets.get(group).prompt).filter(Boolean).join('\n'),
-        isMeta: name => META_NAMES.has(name),
+        isMeta: name => allowed(name) && META_NAMES.has(name),
         async runMeta(call) {
             if (call.name === 'tool_search') {
                 const args = call.args || {};
                 const select = (Array.isArray(args.select) ? args.select : args.select ? [args.select] : [])
                     .map(value => String(value || '').trim());
-                const allSkills = skillCatalog ? await require('./agent-skills-store').listAll().catch(() => []) : [];
+                const allSkills = skillCatalog ? await skillStore.listForUser(actor).catch(() => []) : [];
                 const catalogSkillIds = new Set(allSkills.map(item => item.id));
                 const isSkill = value => {
                     const clean = String(value || '').replace(/^@/, '').toLowerCase();
-                    return TOOLSET_OF_SKILL.has(clean) || (skillCatalog && ( Boolean(builtinSkills.builtin(clean)) || catalogSkillIds.has(clean) ));
+                    return isVisibleSkill(clean) && (TOOLSET_OF_SKILL.has(clean) || (skillCatalog && ( Boolean(builtinSkills.builtin(clean)) || catalogSkillIds.has(clean) )));
                 };
                 const query = String(args.query || '').trim();
                 const skillQuery = isSkill(query);
@@ -283,4 +296,4 @@ async function create({ session, skillIds = [], messages = [], skillCatalog = fa
     };
 }
 
-module.exports = { create, ALWAYS, GROUPS, TOOLSETS, META_NAMES };
+module.exports = { create, ALWAYS, GROUPS, TOOLSETS, META, META_NAMES };

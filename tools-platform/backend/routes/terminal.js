@@ -1,9 +1,10 @@
 // Dragon Claw 终端面板 API（仅管理员）：新建 / 列出 / 输入 / 调整大小 / 中断 / 关闭终端标签，以及 NDJSON 实时输出流。
 const express = require('express');
 const { requireAdmin } = require('../middleware/auth');
-const { getTenantId } = require('../models/tenant-context');
+const { getTenantId, getDataDir } = require('../models/tenant-context');
 const { ownerKey } = require('../models/agent-run-manager');
 const terminals = require('../models/terminal-sessions');
+const boundary = require('../models/team-boundary');
 
 const router = express.Router();
 router.use(express.json({ limit: '128kb' }));
@@ -20,7 +21,19 @@ router.get('/info', handle(async (_req, res) => res.json(terminals.info())));
 router.get('/sessions', handle(async (req, res) => res.json({ items: terminals.list(owner(req)), ...terminals.info() })));
 router.post('/sessions', handle(async (req, res) => {
     const { shell, cwd, cols, rows, title } = req.body || {};
-    res.json({ session: terminals.create(owner(req), { shell, cwd, cols, rows, title }) });
+    if (boundary.isConfined(req.user)) {
+        // 团队账号：终端只能开在团队空间内（默认团队工作目录），整个 Shell 运行在团队沙箱里
+        const dir = boundary.resolveUserPath(req.user, getTenantId(), cwd);
+        boundary.assertAllowed(req.user, getTenantId(), dir, '终端目录');
+        try {
+            res.json({ session: terminals.create(owner(req), { shell, cwd: dir, cols, rows, title, sandboxTenantId: getTenantId() }) });
+        } catch (error) {
+            throw Object.assign(error, { status: error.status || error.statusCode || 503 });
+        }
+        return;
+    }
+    // 未选工作目录时，默认进入当前租户的数据存储目录
+    res.json({ session: terminals.create(owner(req), { shell, cwd: String(cwd || '').trim() || getDataDir(), cols, rows, title }) });
 }));
 router.post('/sessions/:id/input', handle(async (req, res) => {
     terminals.write(owner(req), req.params.id, req.body?.data);

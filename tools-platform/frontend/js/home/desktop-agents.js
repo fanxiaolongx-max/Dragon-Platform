@@ -759,7 +759,8 @@
         state.sending = false;
     } }
     function init() {
-        if (localStorage.getItem('tools_role') !== 'admin')
+        // 桌面 Agent 是超级管理员的私有功能：团队账号看不到入口（tools_super 由导航栏按服务端会话写入）
+        if (localStorage.getItem('tools_role') !== 'admin' || localStorage.getItem('tools_super') === '0')
             return;
         const mine = document.getElementById('homeChatList');
         if (!mine)

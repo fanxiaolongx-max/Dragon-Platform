@@ -98,7 +98,7 @@
                 'home.builtin.compare': '内置工具差异比对与回退',
                 'home.custom.uploadShort': '导入',
                 'home.market.title': '工具市场',
-                'home.market.subtitle': '从已启用的仓库安装或更新 HTML 工具。',
+                'home.market.subtitle': '浏览系统管理员提供的 HTML 工具。',
                 'home.market.details': '查看详细更新日志',
                 'home.import.title': '导入自定义工具',
                 'home.import.subtitle': '一次填写工具信息并上传 HTML 或 ZIP 工具包（自动支持离线快照与 Pages 静态推送）。',
@@ -342,7 +342,7 @@
                 'home.builtin.compare': 'Compare and restore bundled tools',
                 'home.custom.uploadShort': 'Import',
                 'home.market.title': 'Tool Market',
-                'home.market.subtitle': 'Install or update HTML tools from enabled sources.',
+                'home.market.subtitle': 'Browse HTML tools provided by the system administrator.',
                 'home.market.details': 'View detailed update log',
                 'home.import.title': 'Import Custom Tool',
                 'home.import.subtitle': 'Enter all tool details and select an HTML or ZIP package in one place (with automatic offline snapshot and Pages publishing support).',
@@ -1457,7 +1457,9 @@
                 const tags = hasTags ? tool.tags : [t('home.custom.defaultTag1'), t('home.custom.defaultTag2')];
                 const card = document.createElement('a');
                 card.href = tool.href;
-                card.className = `tool-card custom-tool${tool.hostedApp ? ' is-hosted-app' : ''}`;
+                const isSharedAccess = tool.sharedAccess === true;
+                const isSuperAdminUser = localStorage.getItem('tools_super') === '1' && (localStorage.getItem('tools_tenant_id') || 'default') === 'default';
+                card.className = `tool-card custom-tool${tool.hostedApp ? ' is-hosted-app' : ''}${isSuperAdminUser && isSharedAccess ? ' is-shared-access' : ''}`;
                 card.dataset.customToolCard = '1';
                 card.dataset.toolSlug = tool.slug;
                 const time = tool.updatedAt || tool.createdAt || '';
@@ -1465,8 +1467,8 @@
                 card.style.setProperty('--card-accent', ['#38bdf8', '#34d399', '#f97316', '#e879f9'][index % 4]);
                 card.innerHTML = `
                     <div class="custom-tool-actions">
-                        ${tool.hostedApp && role !== 'admin' ? '' : `<button type="button" class="custom-tool-action" title="${escapeHtml(t(tool.hostedApp ? 'home.custom.downloadApp' : 'home.custom.download'))}" onclick="event.preventDefault(); event.stopPropagation(); downloadCustomTool('${escapeHtml(tool.slug)}')">↓</button>`}
-                        ${role === 'admin' ? `
+                        ${tool.shared || (tool.hostedApp && role !== 'admin') ? '' : `<button type="button" class="custom-tool-action" title="${escapeHtml(t(tool.hostedApp ? 'home.custom.downloadApp' : 'home.custom.download'))}" onclick="event.preventDefault(); event.stopPropagation(); downloadCustomTool('${escapeHtml(tool.slug)}')">↓</button>`}
+                        ${role === 'admin' && !tool.shared ? `
                             ${window.BuiltinPromotion?.button('tool', tool.slug, { builtIn: tool.builtIn === true, name: displayName }) || ''}
                             <button type="button" class="custom-tool-action" title="${escapeHtml(t('home.custom.rename'))}" onclick="event.preventDefault(); event.stopPropagation(); renameCustomTool('${escapeHtml(tool.slug)}')">✎</button>
                             <button type="button" class="custom-tool-action delete" title="${escapeHtml(t('home.custom.delete'))}" onclick="event.preventDefault(); event.stopPropagation(); deleteCustomTool('${escapeHtml(tool.slug)}')">×</button>
@@ -1999,6 +2001,7 @@
             const button = document.getElementById('toolMarketBtn');
             const modal = document.getElementById('toolMarketModal');
             const list = document.getElementById('toolMarketList');
+            const platformList = document.getElementById('toolMarketPlatformList');
             const summary = document.getElementById('toolMarketSummary');
             const trust = document.getElementById('toolMarketTrust');
             const message = document.getElementById('toolMarketMessage');
@@ -2210,7 +2213,7 @@
                 const enabledSources = (data.sources || []).filter(source => source.enabled);
                 const failedSources = enabledSources.filter(source => source.error);
                 summary.textContent = enabledSources.length === 0
-                    ? text('所有仓库已停用。可在右上角齿轮中启用。', 'All sources are disabled. Enable one in settings.')
+                    ? text('系统工具目录', 'System tool catalog')
                     : failedSources.length === enabledSources.length
                         ? text('仓库暂时不可用，请检查地址或网络后刷新。', 'Sources are unavailable. Check their addresses or network and refresh.')
                     : actionable > 0
@@ -2288,7 +2291,8 @@
                         <span class="tool-market-status ${escapeHtml(tool.status)}">${escapeHtml(statusLabels[tool.status] || tool.status)}</span>
                     </article>`);
                 }
-                list.innerHTML = itemsHtml.length ? itemsHtml.join('') : `<div class="tool-market-empty">${text('市场目录中暂无工具', 'No tools are currently listed')}</div>`;
+                list.innerHTML = itemsHtml.join('');
+                list.style.display = itemsHtml.length ? '' : 'none';
                 applyButton.disabled = selectable === 0;
                 applyButton.textContent = text('更新所选工具', 'Update selected tools');
                 refreshButton.textContent = text('刷新', 'Refresh');
@@ -2374,6 +2378,41 @@
                 };
             };
 
+            async function loadPlatformTools(admin) {
+                const [{ tools = [] }, { items = [] }] = await Promise.all([
+                    API.get('/api/custom-tools/market/platform'),
+                    admin ? {} : API.get('/api/distribution/catalog')
+                ]);
+                const entries = [...tools.map(tool => ({ ...tool, id: tool.slug, kind: 'tool' })), ...items];
+                platformList.innerHTML = entries.map(tool => {
+                    const needsRestore = !admin && (tool.hidden || (tool.kind === 'tool' && !tool.builtIn && !tool.installed));
+                    return `<article class="tool-market-card is-platform">
+                        <div class="tool-market-icon">${escapeHtml(tool.icon || '🧩')}</div>
+                        <div class="tool-market-copy">
+                            <strong class="tool-market-title">${escapeHtml(english() ? (tool.nameEn || tool.name) : tool.name)}</strong>
+                            <p>${escapeHtml(english() ? (tool.descriptionEn || tool.description || '') : (tool.description || ''))}</p>
+                        </div>
+                        ${needsRestore ? `<button type="button" class="tool-import-btn" data-market-restore="${escapeHtml(tool.id)}" data-entry-kind="${escapeHtml(tool.kind)}">${tool.hidden ? text('恢复', 'Restore') : text('加入我的工具', 'Add to my tools')}</button>`
+                            : `<a class="tool-import-btn" href="${escapeHtml(tool.href)}" target="_blank" rel="noopener">${text('打开', 'Open')}</a>`}
+                    </article>`;
+                }).join('') || `<div class="tool-market-empty">${text('暂无已开放的工具', 'No tools have been shared yet')}</div>`;
+                return entries.length;
+            }
+
+            platformList.addEventListener('click', async event => {
+                const button = event.target.closest('[data-market-restore]');
+                if (!button || button.disabled) return;
+                button.disabled = true;
+                try {
+                    await API.patch('/api/distribution/personal', { kind: button.dataset.entryKind, id: button.dataset.marketRestore, action: 'restore' });
+                    await loadPlatformTools(false);
+                    await Promise.all([loadCustomTools(), window.refreshCustomToolNavLinks?.(), window.HomeSkills?.reload?.(), window.HomeCapabilities?.reload?.()]);
+                } catch (error) {
+                    message.textContent = error.message;
+                    button.disabled = false;
+                }
+            });
+
             const load = async force => {
                 if (loading) return;
                 resetProgress();
@@ -2382,15 +2421,28 @@
                 message.textContent = text('正在加载最新工具目录…', 'Loading the latest catalog…');
                 summary.textContent = message.textContent;
                 trust.textContent = '';
+                const admin = localStorage.getItem('tools_super') === '1' && window.isNavSuperAdmin?.() === true && (localStorage.getItem('tools_tenant_id') || 'default') === 'default';
+                document.getElementById('toolMarketSettingsBtn').style.display = admin ? '' : 'none';
+                details.style.display = admin ? '' : 'none';
+                applyButton.style.display = admin ? '' : 'none';
+                if (!admin) settingsPanel.classList.remove('open');
+                platformList.replaceChildren();
+                list.style.display = '';
                 renderLoadingCard();
                 applyButton.disabled = true;
                 refreshButton.disabled = true;
                 try {
-                    const data = await requestStream(`/api/custom-tools/market/preview-stream${force ? '?refresh=1' : ''}`, null, createLoadTracker());
-                    render(data);
+                    const count = await loadPlatformTools(admin);
+                    if (admin) {
+                        render(await requestStream(`/api/custom-tools/market/preview-stream${force ? '?refresh=1' : ''}`, null, createLoadTracker()));
+                    } else {
+                        render({ tools: [], sources: [] });
+                        summary.textContent = text(`系统工具 · ${count} 个`, `System tools · ${count}`);
+                    }
                 } catch (error) {
                     appendLog(text(`目录加载失败：${error.message}`, `Catalog load failed: ${error.message}`));
                     preview = null;
+                    list.style.display = '';
                     list.innerHTML = `<div class="tool-market-empty">${escapeHtml(error.message || text('市场加载失败', 'Failed to load market'))}</div>`;
                     summary.textContent = text('无法连接工具市场', 'Unable to connect to the tool market');
                     trust.textContent = '';
@@ -2474,6 +2526,7 @@
                         : text(`已完成 ${succeeded} 个工具的安装/更新。`, `Installed or updated ${succeeded} tools.`);
                     appendLog(text('安装完成，正在重新检查市场和本地工具', 'Installation finished; checking market and local tools again'));
                     const refreshed = await requestStream('/api/custom-tools/market/preview-stream?refresh=1');
+                    await loadPlatformTools(true);
                     render(refreshed);
                     message.textContent = completionMessage;
                     progress.classList.add('visible');
@@ -2649,7 +2702,11 @@
         }
 
         async function deleteCustomTool(slug) {
-            if (!await AppDialog.confirm(t('home.confirm.delete'), { title: t('home.dialog.deleteTitle'), tone: 'danger', confirmText: t('home.dialog.delete') })) return false;
+            const shared = (window.__homeCustomTools || []).some(item => item.slug === slug && item.shared);
+            const message = shared
+                ? (window.ToolsI18n?.getLanguage?.() === 'en-US' ? 'Remove this tool from your list? You can restore it from the market.' : '从我的列表移除此工具？之后可在应用市场恢复。')
+                : t('home.confirm.delete');
+            if (!await AppDialog.confirm(message, { title: t('home.dialog.deleteTitle'), tone: 'danger', confirmText: t('home.dialog.delete') })) return false;
             try {
                 await API.delete(`/api/custom-tools/${encodeURIComponent(slug)}`);
                 showToast(t('home.toast.deleted'));
@@ -2663,6 +2720,7 @@
             }
         }
 
+        window.reloadHomeCustomTools = loadCustomTools;
         window.downloadCustomTool = downloadCustomTool;
         window.renameCustomTool = renameCustomTool;
         window.deleteCustomTool = deleteCustomTool;

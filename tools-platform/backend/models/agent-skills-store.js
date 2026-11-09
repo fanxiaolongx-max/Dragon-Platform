@@ -224,6 +224,89 @@ async function listAll({ includeHidden = false } = {}) {
     return [...builtins, ...customs].filter(item => includeHidden || !item.hidden);
 }
 
+// Team-owned skills stay local. Shared skills always use the administrator's current content.
+async function publishedSkill(id, { includeClosed = false } = {}) {
+    const { hasEntryAccess } = require('./tool-distribution');
+    const { DEFAULT_TENANT_ID, runWithTenant } = require('./tenant-context');
+    if (!includeClosed && !await hasEntryAccess(`skill:${id}`)) return null;
+    return runWithTenant(DEFAULT_TENANT_ID, async () => (await listAll()).find(item => item.id === id) || null);
+}
+
+async function listForUser(user, { includeHidden = false } = {}) {
+    if (!user) return listAll({ includeHidden });
+    const { isSuperAdmin } = require('../middleware/auth');
+    const { allowedEntries, personalEntries } = require('./tool-distribution');
+    const { DEFAULT_TENANT_ID, getTenantId, runWithTenant } = require('./tenant-context');
+    const allowed = await allowedEntries();
+    if (isSuperAdmin(user)) {
+        return (await listAll({ includeHidden })).map(item => ({ ...item, sharedAccess: allowed.has(`skill:${item.id}`) }));
+    }
+    const preferences = await personalEntries(user);
+    const local = getTenantId() === DEFAULT_TENANT_ID ? [] : await listAll({ includeHidden: true });
+    const own = local.filter(item => !item.builtIn && !preferences.get(`skill:${item.id}`)?.origin);
+    const ids = new Set(own.map(item => item.id));
+    const copies = new Map(local.map(item => [item.id, item]));
+    const shared = await runWithTenant(DEFAULT_TENANT_ID, listAll);
+    return [...own, ...shared.flatMap(item => {
+        const prefs = preferences.get(`skill:${item.id}`) || {};
+        const hidden = Boolean(prefs.hidden);
+        if (ids.has(item.id) || !allowed.has(`skill:${item.id}`) || (hidden && !includeHidden)) return [];
+        const personal = prefs.fork && prefs.baseRevision === (item.updatedAt || '') && copies.get(item.id);
+        return [{ ...item, ...(personal || {}), name: prefs.name || (personal || item).name, nameEn: prefs.name || (personal || item).nameEn,
+            shared: true, personal: Boolean(personal), hidden, sharedAccess: true }];
+    })];
+}
+
+async function withSkillForUser(id, user, task) {
+    const skill = (await listForUser(user)).find(item => item.id === id);
+    if (!skill) return null;
+    const { DEFAULT_TENANT_ID, runWithTenant } = require('./tenant-context');
+    return skill.shared && !skill.personal ? runWithTenant(DEFAULT_TENANT_ID, () => task(skill)) : task(skill);
+}
+
+async function preparePersonalSkill(id, user) {
+    if (!user || require('../middleware/auth').isSuperAdmin(user)) return null;
+    const { DEFAULT_TENANT_ID, getTenantId } = require('./tenant-context');
+    if (getTenantId() === DEFAULT_TENANT_ID) throw httpError('不能在系统空间中修改技能', 403);
+    const { personalEntry, setPersonalEntry } = require('./tool-distribution');
+    const key = `skill:${id}`;
+    const prefs = await personalEntry(user, key);
+    const base = await publishedSkill(id);
+    if (!base) {
+        if (prefs.origin || builtinSkills.builtin(id)) throw httpError('技能未开放', 403);
+        return null;
+    }
+    const local = await getCustom(id);
+    if (local && !base.builtIn && !prefs.origin) return null;
+    await setPersonalEntry(user, key, { origin: true });
+    return () => setPersonalEntry(user, key, { fork: true, hidden: false, baseRevision: base.updatedAt || '' });
+}
+
+async function publicationSnapshot(id, user) {
+    if (!user || require('../middleware/auth').isSuperAdmin(user)) return null;
+    const skill = (await listForUser(user)).find(item => item.id === id);
+    if (!skill || (skill.shared && !skill.personal)) return null;
+    const local = await getSkill(id);
+    if (!local) return null;
+    return { id: local.id, name: local.name, markdown: local.markdown, files: local.files || [] };
+}
+
+async function publishSnapshot(snapshot, createdBy) {
+    const { DEFAULT_TENANT_ID, runWithTenant } = require('./tenant-context');
+    return runWithTenant(DEFAULT_TENANT_ID, async () => {
+        const current = await getSkill(snapshot.id);
+        const candidate = normalizeSkillMarkdown(snapshot.markdown);
+        if (candidate.id !== snapshot.id) throw httpError('技能发布标识不一致');
+        if (!current || current.body !== candidate.body || current.name !== candidate.name
+            || current.description !== candidate.description || current.nameEn !== candidate.nameEn
+            || current.descriptionEn !== candidate.descriptionEn || Boolean(current.workspace) !== Boolean(candidate.workspace)
+            || current.icon !== candidate.icon || JSON.stringify(current.files || []) !== JSON.stringify(snapshot.files || [])) {
+            await saveSkill(candidate, { files: snapshot.files, source: 'published', createdBy, overwrite: true });
+        }
+        await require('./tool-distribution').setEntryAccess(`skill:${snapshot.id}`, true);
+    });
+}
+
 /** 删除自定义 Skill 行（转为内置后调用），同时清掉同标识的内置覆盖记录 */
 async function deleteRows(id) {
     await ensureReady();
@@ -451,14 +534,19 @@ async function saveSkill(skill, { files = [], source = 'chat', createdBy = '', o
 async function createFromMarkdown(markdown, options = {}) {
     const fallbackId = String(options.fileName || '').replace(/\.md$/i, '').replace(/(^|[-_.])skill$/i, '');
     const skill = normalizeSkillMarkdown(markdown, { fallbackId, overrides: options.overrides || {} });
-    return saveSkill(skill, { source: options.source || 'chat', createdBy: options.createdBy, overwrite: options.overwrite });
+    const finish = await preparePersonalSkill(skill.id, options.user);
+    const result = await saveSkill(skill, { source: options.source || 'chat', createdBy: options.createdBy, overwrite: options.overwrite });
+    if (finish) await finish();
+    return result;
 }
 
 /** 导入 SKILL 压缩包；overrides 来自导入对话框中用户修改过的名称、简介 */
 async function importArchive(buffer, options = {}) {
     const parsed = await parseSkillArchive(buffer, { archiveName: options.archiveName });
     const skill = normalizeSkillMarkdown(parsed.markdown, { fallbackId: parsed.fallbackId, overrides: options.overrides || {} });
+    const finish = await preparePersonalSkill(skill.id, options.user);
     const meta = await saveSkill(skill, { files: parsed.files, source: 'import', createdBy: options.createdBy, overwrite: options.overwrite });
+    if (finish) await finish();
     return { ...meta, skippedFiles: parsed.skipped };
 }
 
@@ -627,6 +715,10 @@ async function exportZip(id) {
 
 // 一个技能在系统提示中的段落：自定义正文优先（含附带文件，受 promptFiles 预算限制），否则用内置正文
 async function skillSection(item) {
+    if (item.shared && !item.personal) {
+        const { DEFAULT_TENANT_ID, runWithTenant } = require('./tenant-context');
+        return runWithTenant(DEFAULT_TENANT_ID, () => skillSection({ ...item, shared: false }));
+    }
     const custom = await getCustom(item.id);
     if (item.builtIn && !custom) return `### @${item.id}\n${builtinSkills.builtin(item.id).body}`;
     if (!custom) return '';
@@ -648,10 +740,10 @@ async function unavailableReason(id) {
 }
 
 /** 模型在工作区或对话里用 load_skill 自行加载：只接受当前租户目录中可见的技能 */
-async function loadSection(id) {
+async function loadSection(id, user) {
     const cleanId = String(id || '').toLowerCase();
     if (await unavailableReason(cleanId)) return null;
-    const item = (await listAll()).find(entry => entry.id === cleanId);
+    const item = (await listForUser(user)).find(entry => entry.id === cleanId);
     if (!item) return null;
     const rawSection = await skillSection(item);
     if (!rawSection) return null;
@@ -662,8 +754,8 @@ async function loadSection(id) {
 }
 
 /** 对话加载：与 agent-skills.load 相同的规则，但白名单是当前租户可见的全部 Skill */
-async function loadAll(content, { hasWorkspace = false, language = 'zh', extraIds = [], redactionSecrets = [] } = {}) {
-    const allSkills = await listAll();
+async function loadAll(content, { hasWorkspace = false, language = 'zh', extraIds = [], redactionSecrets = [], user } = {}) {
+    const allSkills = await listForUser(user);
     const unavailable = new Map();
     for (const item of allSkills) {
         const reason = await unavailableReason(item.id);
@@ -693,6 +785,11 @@ async function loadAll(content, { hasWorkspace = false, language = 'zh', extraId
 }
 
 module.exports = {
+    listForUser,
+    withSkillForUser,
+    publishedSkill,
+    publicationSnapshot,
+    publishSnapshot,
     LIMITS,
     loadSection,
     unavailableReason,

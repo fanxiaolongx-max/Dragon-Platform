@@ -148,7 +148,7 @@ test('channels 路由：内网环境下 /available 过滤微信，/qrcode-auth �
     const app = express();
     app.use(express.json());
     app.use((req, _res, next) => {
-        req.user = { username: 'admin', role: 'admin' };
+        req.user = { username: 'admin', role: 'admin', isSuper: true };
         runWithTenant('default', next);
     });
     app.use('/api/channels', require('../backend/routes/channels'));

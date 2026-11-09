@@ -1,0 +1,58 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .pnl{position:absolute;background:#fffdf8;border:3px solid var(--ink);border-radius:26px;box-shadow:var(--sh)}
+#root .pnl .pt{position:absolute;left:0;right:0;top:0;height:64px;border-bottom:3px solid var(--ink);border-radius:23px 23px 0 0;display:flex;align-items:center;justify-content:center;font-size:38px}
+#root .lbl{position:absolute;font-size:36px;white-space:nowrap}
+#root .big{font-size:44px}
+#root .ln2{height:14px;border-radius:7px;background:#e6dfd6;margin-top:14px;width:90%}
+#root .bar{width:56px;border:3px solid var(--ink);border-radius:14px 14px 4px 4px;background:linear-gradient(#ffe08f,#ffc29a)}
+</style>
+<div id="root" data-composition-id="s6" data-width="1920" data-height="1080">
+  <div class="paper"></div>
+  <div class="head" id="s6-h"><span class="step">第 3 层</span><span class="ttl">组织 · AI 原生</span></div>
+  <div class="pnl" id="s6-p" style="left:110px;top:220px;width:900px;height:430px"><div class="pt" style="background:#ffb3c6">HR 自己动手</div></div>
+  <div class="abs" id="s6-hr" style="left:130px;top:350px"></div>
+  <div class="bubble" id="s6-say" style="left:340px;top:300px;font-size:36px">帮我做个请假登记工具</div>
+  <div class="abs" id="s6-lp" style="left:400px;top:410px"></div>
+  <div class="codebox" id="s6-code" style="left:452px;top:440px;width:200px;height:120px;font-size:15px;line-height:1.5;border:none;background:transparent;padding:4px 6px"></div>
+  <div class="abs" id="s6-app" style="left:700px;top:400px;width:270px;height:220px;border:3px solid var(--ink);border-radius:20px;background:#fff;box-shadow:var(--sh);padding:12px 16px"><div style="font-size:32px">请假登记</div><div class="ln2"></div><div class="ln2" style="width:70%"></div><div class="tag" style="font-size:26px;background:#9fe0c9;margin-top:10px">已接入系统 ✓</div></div>
+  <div class="abs" id="s6-clk" style="left:830px;top:240px"></div><div class="tag abs" id="s6-min" style="left:690px;top:250px;background:#ffe08f;font-size:30px">几分钟</div>
+  <div class="pnl" id="s6-sh" style="left:110px;top:680px;width:900px;height:150px"></div>
+  <div class="abs" id="s6-shi" style="left:140px;top:700px"></div>
+  <div class="lbl" id="s6-sht" style="left:260px;top:712px;font-size:38px">专业团队兜底：<span class="tag" style="font-size:32px;background:#aed8f2">平台</span> <span class="tag" style="font-size:32px;background:#ffe08f">数据</span> <span class="tag" style="font-size:32px;background:#ffb3c6">安全</span></div>
+  <div class="pnl" id="s6-c" style="left:1060px;top:220px;width:750px;height:610px"><div class="pt" style="background:#9fe0c9">同样的业务</div></div>
+  <div class="abs" id="s6-b1" style="left:1110px;top:330px"></div><div class="lbl" id="s6-l1" style="left:1110px;top:740px">过去 · 几百人</div>
+  <div class="abs" id="s6-b2" style="left:1460px;top:470px"></div><div class="lbl" id="s6-l2" style="left:1440px;top:740px">现在 · 小团队</div>
+  <div class="abs bar" id="s6-v1" style="left:1340px;top:330px;height:380px"></div><div class="abs bar" id="s6-v2" style="left:1690px;top:330px;height:380px"></div>
+  <div id="s6-sp"></div>
+  <div class="cap" id="s6-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ var tl=gsap.timeline({paused:true});
+ var S="#s6-";
+ tl.fromTo("#s6-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.25);
+ 
+ put("s6-hr",dino("hr",{w:220,h:220,body:"#ffb8c9",spike:"#ffe08f",wing:"#aed8f2"}));put("s6-lp",icon("laptop","#aed8f2",310));put("s6-clk",icon("clock","#9fe0c9",100));put("s6-shi",icon("shield","#9fe0c9",100));
+ put("s6-b1",icon("building","#e6dfd6",220));put("s6-b2",icon("group","#9fe0c9",170));
+ gsap.set(S+"p,"+S+"hr,"+S+"say,"+S+"lp,"+S+"app,"+S+"clk,"+S+"min,"+S+"sh,"+S+"shi,"+S+"sht,"+S+"c,"+S+"b1,"+S+"l1,"+S+"b2,"+S+"l2,"+S+"v1,"+S+"v2",{opacity:0});
+ tl.fromTo(S+"p,"+S+"hr",{opacity:0,y:40},{opacity:1,y:0,duration:.6,stagger:.15,ease:"power3.out"},T("HR")-.5);dtail(tl,"hr",T("HR"),20);
+ pop(tl,S+"say",T("帮我做")-.2,{});tl.fromTo(S+"lp",{opacity:0,y:30},{opacity:1,y:0,duration:.4},T("帮我做"));
+ typeText(tl,"s6-code","表单：请假人 · 日期\n提交 → 审批 → 存档",T("几分钟")-.4,1.4);dtype(tl,"hr",T("几分钟")-.4,1.6);
+ pop(tl,S+"clk",T("几分钟"),{});pop(tl,S+"min",T("几分钟")+.15,{});
+ tl.to(S+"clk svg path:last-child",{rotation:360,svgOrigin:"50 52",duration:1.2,ease:"none"},T("几分钟")+.3);
+ tl.fromTo(S+"app",{opacity:0,scale:.6,x:-60},{opacity:1,scale:1,x:0,duration:.6,ease:"back.out(1.6)"},T("生成"));
+ tl.fromTo(S+"sh",{opacity:0,y:30},{opacity:1,y:0,duration:.5},T("专业团队")-.4);pop(tl,S+"shi",T("专业团队"),{});tl.fromTo(S+"sht",{opacity:0,x:-20},{opacity:1,x:0,duration:.5},T("平台"));
+ tl.fromTo(S+"c",{opacity:0,y:40},{opacity:1,y:0,duration:.6,ease:"power3.out"},T("小团队")-1.2);
+ tl.fromTo(S+"b1,"+S+"l1",{opacity:0,y:20},{opacity:1,y:0,duration:.4,stagger:.1},T("小团队")-.8);
+ tl.fromTo(S+"v1",{opacity:1,scaleY:0},{scaleY:1,duration:.7,ease:"power2.out",transformOrigin:"50% 100%"},T("小团队")-.6);
+ tl.fromTo(S+"b2,"+S+"l2",{opacity:0,y:20},{opacity:1,y:0,duration:.4,stagger:.1},T("小团队"));
+ tl.fromTo(S+"v2",{opacity:1,scaleY:0},{scaleY:1.04,duration:.9,ease:"back.out(1.4)",transformOrigin:"50% 100%"},T("做出"));
+ captions(tl,"s6-cap");
+ window.__timelines["s6"]=tl;
+})();
+</script>
+</template></body></html>

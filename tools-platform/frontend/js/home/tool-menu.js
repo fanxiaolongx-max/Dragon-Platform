@@ -6,6 +6,7 @@
     const TEXT = {
         'zh-CN': {
             moreOptions: '更多操作',
+            shareAll: '全员开放', unshareAll: '关闭开放', accessSaved: '开放设置已保存', publish: '申请发布', publishReason: '说明这次完善的内容，将提交到需求广场审核。', publishSent: '发布申请已提交', personalHide: '从我的列表移除', personalHideHint: '你可以在应用市场恢复此条目。',
             useSkill: '在对话中使用',
             improveSkill: '完善技能',
             skillHistory: '版本历史与回退',
@@ -33,6 +34,7 @@
         },
         'en-US': {
             moreOptions: 'More options',
+            shareAll: 'Share with everyone', unshareAll: 'Stop sharing', accessSaved: 'Access settings saved', publish: 'Request publication', publishReason: 'Describe your improvements. The request will be reviewed in the requests board.', publishSent: 'Publication request submitted', personalHide: 'Remove from my list', personalHideHint: 'You can restore this item from the tool market.',
             useSkill: 'Use in chat',
             improveSkill: 'Improve Skill',
             skillHistory: 'Version history',
@@ -129,6 +131,9 @@
                 return {
                     kind: 'plugin',
                     id: item.key,
+                    capabilityId: item.capabilityId,
+                    badge: item.capabilityBadge,
+                    sharedAccess: item.sharedAccess,
                     name: item.title,
                     href: item.href
                 };
@@ -152,7 +157,8 @@
                 isCustom: Boolean(resolvedSlug || customTool),
                 name: item.title || customTool?.name || toolId,
                 href: itemHref || (resolvedSlug ? `/tools/${resolvedSlug}` : ''),
-                customTool
+                customTool,
+                card
             };
         }
 
@@ -166,7 +172,8 @@
                     id: skillId,
                     name: skill.name || skillId,
                     skill,
-                    href: `/?skill=${encodeURIComponent(skillId)}`
+                    href: `/?skill=${encodeURIComponent(skillId)}`,
+                    card
                 };
             }
             const isCustomCard = card.dataset.customToolCard === '1' || card.classList.contains('custom-tool');
@@ -189,7 +196,8 @@
                 isCustom: Boolean(isCustomCard || resolvedSlug || customTool),
                 name,
                 href: cardHref || (resolvedSlug ? `/tools/${resolvedSlug}` : ''),
-                customTool
+                customTool,
+                card
             };
         }
 
@@ -218,9 +226,78 @@
         return null;
     }
 
+    function distributionAction(target) {
+        if (localStorage.getItem('tools_super') !== '1' || !window.isNavSuperAdmin?.() || (localStorage.getItem('tools_tenant_id') || 'default') !== 'default') return null;
+        let endpoint, payload, entry;
+        if (target.kind === 'tool' && target.slug && target.customTool && !target.customTool.hostedApp) {
+            entry = target.customTool;
+            endpoint = `/api/custom-tools/${encodeURIComponent(target.slug)}/distribution`;
+            payload = {};
+        } else if (target.kind === 'skill' || target.capabilityId) {
+            const skill = target.kind === 'skill';
+            entry = skill ? target.skill : target;
+            endpoint = '/api/distribution';
+            payload = { kind: skill ? 'skill' : 'cap', id: skill ? target.id : target.capabilityId };
+        } else return null;
+        const sharedAccess = entry?.sharedAccess !== true;
+        return {
+            id: 'distribution', label: t(sharedAccess ? 'shareAll' : 'unshareAll'), icon: 'external',
+            run: async () => {
+                try {
+                    await API.patch(endpoint, { ...payload, sharedAccess });
+                    if (entry) entry.sharedAccess = sharedAccess;
+                    if (target.card) {
+                        target.card.classList.toggle('is-shared-access', sharedAccess);
+                    }
+                    if (target.kind === 'skill') window.dispatchEvent(new CustomEvent('skills:changed'));
+                    if (target.kind === 'plugin') await window.HomeCapabilities?.reload?.();
+                    if (target.kind === 'tool') {
+                        if (typeof window.reloadHomeCustomTools === 'function') {
+                            await window.reloadHomeCustomTools();
+                        } else if (typeof window.loadCustomTools === 'function') {
+                            await window.loadCustomTools();
+                        }
+                        await window.refreshCustomToolNavLinks?.();
+                        window.dispatchEvent(new CustomEvent('home:tools-updated'));
+                    }
+                    toast(t('accessSaved'));
+                } catch (error) { toast(error.message, 'error'); }
+            }
+        };
+    }
+
+    function updateCapability(target) {
+        if (!target.capabilityId.startsWith('f12:builtin:')) {
+            if (target.href) window.HomeToolFrame?.open?.(target.href) || window.open(target.href, '_blank', 'noopener');
+            return;
+        }
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = target.badge === 'extension' ? '.zip' : '.js';
+        input.addEventListener('change', async () => {
+            const file = input.files[0];
+            if (!file) return;
+            if (file.size > 8 * 1024 * 1024) {
+                toast(lang() === 'en-US' ? 'File exceeds 8 MB' : '文件超过 8 MB', 'error');
+                return;
+            }
+            try {
+                const bytes = new Uint8Array(await file.arrayBuffer());
+                let binary = '';
+                for (let offset = 0; offset < bytes.length; offset += 0x8000) binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+                await API.patch('/api/distribution/capability-file', { id: target.capabilityId, data: btoa(binary) });
+                toast(t('accessSaved'));
+                await window.HomeCapabilities?.reload?.();
+            } catch (error) { toast(error.message, 'error'); }
+        }, { once: true });
+        input.click();
+    }
+
     // 构建动作项列表
     function buildActions(target, options) {
         const actions = [];
+        const distribution = distributionAction(target);
+        if (distribution) actions.push(distribution);
         const admin = isAdmin();
 
         if (target.kind === 'skill') {
@@ -242,7 +319,7 @@
                     window.HomeSkills?.improve?.(skill);
                 }
             });
-            actions.push({
+            if (!skill.shared || skill.personal) actions.push({
                 id: 'history',
                 label: t('skillHistory'),
                 icon: 'history',
@@ -259,6 +336,18 @@
                 }
             });
 
+            if (admin && !window.isNavSuperAdmin?.() && (!skill.shared || skill.personal)) actions.push({
+                id: 'publish', label: t('publish'), icon: 'upload',
+                run: async () => {
+                    const reason = await window.AppDialog.prompt(t('publishReason'), { title: t('publish'), maxLength: 1000, multiline: true });
+                    if (reason === null) return;
+                    try {
+                        await API.post('/api/requirements/skill-publications', { skillId: target.id, reason });
+                        toast(t('publishSent'));
+                    } catch (error) { toast(error.message, 'error'); }
+                }
+            });
+
             if (admin) {
                 actions.push({ divider: true });
                 actions.push({
@@ -271,7 +360,7 @@
                 });
                 actions.push({
                     id: 'delete',
-                    label: skill.builtIn ? t('hideSkill') : t('deleteSkill'),
+                    label: skill.shared || skill.builtIn ? t('hideSkill') : t('deleteSkill'),
                     icon: 'trash',
                     danger: true,
                     run: async () => {
@@ -320,7 +409,7 @@
             }
 
             // 2. 自定义工具下载
-            if (isCustom && window.downloadCustomTool) {
+            if (isCustom && !customTool?.shared && window.downloadCustomTool) {
                 actions.push({
                     id: 'download',
                     label: isHostedApp ? t('downloadApp') : t('downloadTool'),
@@ -333,7 +422,7 @@
 
             // 3. 管理员操作：转为内置 / 重命名 / 删除
             if (isCustom && admin) {
-                if (!isReadonly() && window.BuiltinPromotion?.toggle) {
+                if (!customTool?.shared && !isReadonly() && window.BuiltinPromotion?.toggle) {
                     actions.push({
                         id: 'promote',
                         label: isBuiltIn ? t('demote') : t('promote'),
@@ -430,6 +519,31 @@
         }
 
         if (target.kind === 'plugin') {
+            if (target.capabilityId && admin && !window.isNavSuperAdmin?.()) {
+                actions.push({
+                    id: 'update', label: t('updateTool'), icon: 'upload',
+                    run: () => updateCapability(target)
+                }, {
+                    id: 'rename', label: t('rename'), icon: 'edit',
+                    run: async () => {
+                        const name = await window.AppDialog.prompt(t('rename'), { defaultValue: target.name, maxLength: 80 });
+                        if (!name?.trim()) return;
+                        try {
+                            await API.patch('/api/distribution/personal', { kind: 'cap', id: target.capabilityId, action: 'rename', name });
+                            await window.HomeCapabilities?.reload?.();
+                        } catch (error) { toast(error.message, 'error'); }
+                    }
+                }, {
+                    id: 'hide', label: t('personalHide'), icon: 'trash', danger: true,
+                    run: async () => {
+                        if (!await window.AppDialog.confirm(t('personalHideHint'), { title: t('personalHide') })) return;
+                        try {
+                            await API.patch('/api/distribution/personal', { kind: 'cap', id: target.capabilityId, action: 'hide' });
+                            await window.HomeCapabilities?.reload?.();
+                        } catch (error) { toast(error.message, 'error'); }
+                    }
+                });
+            }
             if (target.href) {
                 actions.push({
                     id: 'open',

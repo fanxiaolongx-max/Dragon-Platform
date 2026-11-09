@@ -1,5 +1,6 @@
 // Dragon Claw 右侧终端面板：
 // - 「Agent」标签：实时显示智能体 run_command 的执行过程（只读），命令开始时自动展开面板；
+//   智能体没执行过命令时不显示该标签，手动打开面板直接新建默认 Shell（目录：已选工作目录，否则当前租户数据目录）；
 // - 用户标签：管理员可新建多个交互式终端（macOS / Linux：zsh、bash…；Windows：PowerShell、CMD），
 //   服务端用 node-pty 提供真终端，缺少时退化为逐行执行（本地回显）。刷新页面后会重新连接仍在运行的终端并回放输出。
 (function () {
@@ -16,7 +17,7 @@
     };
     const icon = name => `<svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
 
-    let panel, toggle, tabsNode, body, menuNode, statusNode;
+    let panel, toggle, tabsNode, body, menuNode, statusNode, continueButton;
     let open = false, info = null, activeId = 'agent', xtermReady = null;
     const tabs = new Map(); // id → { id, kind:'agent'|'shell', title, term, fit, node, ... }
     const agentQueue = []; // xterm 尚未加载时缓存 Agent 输出
@@ -211,9 +212,16 @@
     }
 
     // ── 标签栏 ───────────────────────────────────────
+    function continuationDirectory() {
+        const tab = tabs.get(activeId);
+        if (tab?.kind === 'agent' && !agentRunning) return tab.lastCommandCwd;
+        if (tab?.exited && tab.interactiveCommand) return tab.cwd;
+        return '';
+    }
+
     function renderTabs() {
         if (!tabsNode) return;
-        tabsNode.innerHTML = [...tabs.values()].map(tab => {
+        tabsNode.innerHTML = [...tabs.values()].filter(visibleTab).map(tab => {
             const current = tab.id === activeId;
             const state = tab.kind === 'agent' ? (agentRunning ? 'running' : '') : (tab.exited ? 'exited' : tab.connecting ? 'connecting' : '');
             return `<div class="dc-term-tab${current ? ' is-active' : ''}" role="presentation" data-state="${state}">
@@ -226,9 +234,15 @@
             ? (agentRunning ? L('智能体正在执行命令…', 'Agent is running a command…') : L('智能体执行的命令会实时显示在这里', 'Commands run by the agent appear here live'))
             : tab.exited ? L(`已退出（${tab.exitCode ?? '-'}）`, `Exited (${tab.exitCode ?? '-'})`) : `${tab.shellLabel || ''}${tab.pty === false ? L(' · 简易模式', ' · basic mode') : ''} · ${tab.cwd || ''}`;
         panel.querySelector('[data-term-action="interrupt"]').hidden = !tab || tab.kind === 'agent' || tab.exited;
+        continueButton.hidden = !isAdmin() || !continuationDirectory();
+        continueButton.textContent = L('在终端继续', 'Continue in terminal');
+        continueButton.title = L('在命令的起始目录打开交互式终端', 'Open an interactive terminal in the command’s starting directory');
     }
+    // Agent 标签只在智能体执行过命令后显示
+    const visibleTab = tab => tab.kind !== 'agent' || tab.used;
+    const fallbackTabId = () => [...tabs.values()].filter(visibleTab).at(-1)?.id || 'agent';
     function select(id) {
-        if (!tabs.has(id)) id = 'agent';
+        if (!tabs.has(id) || !visibleTab(tabs.get(id))) id = fallbackTabId();
         activeId = id;
         for (const tab of tabs.values()) if (tab.node) tab.node.hidden = tab.id !== id;
         renderTabs();
@@ -269,6 +283,7 @@
         if (!event?.type) return;
         if (event.type === 'command_start') {
             agentRunning += 1;
+            Object.assign(tabs.get('agent'), { used: true, lastCommandCwd: event.cwd });
             const time = new Date(event.startedAt || Date.now()).toLocaleTimeString(undefined, { hour12: false });
             agentWrite(`\r\n\x1b[2m${time}\x1b[0m \x1b[36m${folderName(event.cwd)}\x1b[0m \x1b[1;32m❯\x1b[0m \x1b[1m${String(event.command || '').replace(/\n/g, '\r\n  ')}\x1b[0m\r\n`);
             if (!open && localStorage.getItem(AUTO_KEY) !== '0' && innerWidth > 860) show({ tab: 'agent', auto: true });
@@ -383,13 +398,13 @@
     }
     function markExited(tab, code, note) {
         tab.exited = true; tab.exitCode = code; tab.connecting = false;
-        tab.term?.write(`\r\n\x1b[2m${note || L(`[进程已退出 ${code ?? ''}] 关闭此标签或新建一个终端`, `[Process exited ${code ?? ''}] Close this tab or open a new terminal`)}\x1b[0m\r\n`);
+        const exited = L(`[进程已退出 ${code ?? ''}]`, `[Process exited ${code ?? ''}]`);
+        tab.term?.write(`\r\n\x1b[2m${note || exited}\x1b[0m\r\n`);
         renderTabs();
     }
-    async function newTerminal(shell) {
+    async function newTerminal(shell, { cwd = window.DragonClawWorkspace?.getWorkspacePayload?.()?.root || '' } = {}) {
         if (!isAdmin()) return showError(L('只有管理员可以打开终端', 'Only administrators can open a terminal'));
         try {
-            const cwd = window.DragonClawWorkspace?.getWorkspacePayload?.()?.root || '';
             const count = [...tabs.values()].filter(tab => tab.kind === 'shell').length;
             const shellInfo = info?.shells?.find(item => item.id === shell) || info?.shells?.find(item => item.default);
             const { session } = await api('/sessions', { method: 'POST', body: { shell: shellInfo?.id, cwd, cols: 100, rows: 30, title: `${shellInfo?.label || L('终端', 'Terminal')}${count ? ` ${count + 1}` : ''}` } });
@@ -403,16 +418,23 @@
         tab.controller?.abort();
         tabs.delete(id);
         tab.term?.dispose(); tab.node.remove();
-        if (activeId === id) select([...tabs.keys()].at(-1) || 'agent'); else renderTabs();
         api(`/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {});
+        // 关掉最后一个终端且没有 Agent 输出：收起面板
+        if (![...tabs.values()].some(visibleTab)) { activeId = 'agent'; renderTabs(); close(); return; }
+        if (activeId === id) select(fallbackTabId()); else renderTabs();
     }
-    async function restoreSessions() {
-        if (!isAdmin()) return;
+    let restoring = null;
+    function restoreSessions() {
+        if (!isAdmin()) return Promise.resolve();
+        if (!info && !restoring) restoring = loadSessions().finally(() => { restoring = null; });
+        return restoring || Promise.resolve();
+    }
+    async function loadSessions() {
         try {
             const data = await api('/sessions');
             info = { pty: data.pty, shells: data.shells, platform: data.platform };
             renderMenu();
-            for (const session of data.items || []) if (!session.exited) addShellTab(session);
+            for (const session of data.items || []) if (!session.exited) addShellTab({ ...session, interactiveCommand: Boolean(session.command) });
             renderTabs();
         } catch (_error) { /* 旧服务端或无权限：只保留 Agent 标签 */ }
     }
@@ -441,8 +463,13 @@
         window.DragonClawWorkspace?.closePanel?.();
         if (document.body.classList.contains('dc-browser-open')) window.DragonBrowserSidebar?.close?.();
         open = true; visibility();
-        if (!info && isAdmin()) restoreSessions();
+        const restored = restoreSessions();
         try { await ensureAgentTab(); } catch (error) { showError(L('终端组件加载失败：', 'Failed to load terminal: ') + error.message); }
+        // 手动打开且还没有任何可见标签：直接新建默认终端，不显示空的 Agent 标签
+        if (!tab) {
+            await restored;
+            if (open && ![...tabs.values()].some(visibleTab) && isAdmin()) { await newTerminal(); if (!auto) tabs.get(activeId)?.term?.focus(); return; }
+        }
         select(tab || activeId);
         if (!auto) tabs.get(activeId)?.term?.focus();
     }
@@ -470,12 +497,13 @@
             </header>
             <div class="dc-term-menu" role="menu" hidden></div>
             <div class="dc-term-body"></div>
-            <footer class="dc-term-status" role="status"></footer>`;
+            <footer class="dc-term-status"><span class="dc-term-status-text" role="status"></span><button type="button" data-term-action="continue" hidden></button></footer>`;
         (document.getElementById('dcBrowserPanel') || workspace).after(panel);
         tabsNode = panel.querySelector('.dc-term-tabs');
         body = panel.querySelector('.dc-term-body');
         menuNode = panel.querySelector('.dc-term-menu');
-        statusNode = panel.querySelector('.dc-term-status');
+        statusNode = panel.querySelector('.dc-term-status-text');
+        continueButton = panel.querySelector('[data-term-action="continue"]');
         const agentNode = document.createElement('div');
         agentNode.className = 'dc-term-view'; isolateKeys(agentNode); body.append(agentNode);
         tabs.set('agent', { id: 'agent', kind: 'agent', title: 'Agent', node: agentNode });
@@ -483,6 +511,13 @@
 
         window.SidebarResize?.bind({ panel, cssVar: '--terminal-panel-width', storageKey: 'dragon_terminal_sidebar_width', defaultWidth: 560 });
         toggle.addEventListener('click', () => open ? close() : show());
+        continueButton.addEventListener('click', async () => {
+            const cwd = continuationDirectory();
+            if (!cwd) return;
+            continueButton.disabled = true;
+            try { await newTerminal(undefined, { cwd }); }
+            finally { continueButton.disabled = false; }
+        });
         panel.addEventListener('click', event => {
             const button = event.target.closest('button');
             if (!button) return;
@@ -491,7 +526,7 @@
             if (button.dataset.termNew) { menuNode.hidden = true; newTerminal(button.dataset.termNew); }
             const action = button.dataset.termAction;
             if (action === 'new') newTerminal();
-            if (action === 'menu') { if (!info && isAdmin()) restoreSessions(); menuNode.hidden = !menuNode.hidden; }
+            if (action === 'menu') { restoreSessions(); menuNode.hidden = !menuNode.hidden; }
             if (action === 'close') close();
             if (action === 'copy') copyFrom(tabs.get(activeId));
             if (action === 'clear') { const tab = tabs.get(activeId); tab?.term?.clear(); }

@@ -1,7 +1,13 @@
-// 数字人基座对接配置：与频道对接一致，存放在当前租户的 sys_kv_store（租户隔离）。
+// 数字人基座对接配置：平台级共用配置，统一存放在超级管理员空间（默认团队）的 sys_kv_store，
+// 只有超级管理员能修改；各团队在对话里使用数字人连接器时读取同一份配置。
 // 基座地址、数据源与应用身份（x-app-id / x-app-level）都在这里配置，代码不内置任何连接信息；
 // 管理员可直接粘贴参考工程的 .env 文本导入（parseEnvText）。
-const { readKV, writeKV } = require('../kv-store');
+const kv = require('../kv-store');
+const tenantContext = require('../tenant-context');
+// 不论当前在哪个团队，都读写超级管理员空间里的那一份
+const inPlatformSpace = fn => tenantContext.runWithTenant(tenantContext.DEFAULT_TENANT_ID, fn);
+const readKV = (...args) => inPlatformSpace(() => kv.readKV(...args));
+const writeKV = (...args) => inPlatformSpace(() => kv.writeKV(...args));
 
 const CATEGORY = 'digital-human';
 const KEY = 'config';

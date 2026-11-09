@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const appDb = require('./app-db');
 const pool = require('./tenant-sqlite-pool');
-const { BASE_DATA_DIR, getDataDir, getReportDataDir, getTenantId } = require('./tenant-context');
+const { getDataDir, getReportDataDir, getTenantId } = require('./tenant-context');
 
 const KNOWN = {
     'tools.db': ['tools', '工具业务', 'Tools'],
@@ -62,27 +62,13 @@ function catalog() {
     for (const [name, definition] of Object.entries(KNOWN)) {
         add(name === 'report.db' ? reportDir : dataDir, name, name === 'report.db' ? 'report' : 'data', definition);
     }
-    if (path.resolve(dataDir) === path.resolve(BASE_DATA_DIR)) {
-        const tools = items.find(item => item.id === 'tools');
-        if (tools) {
-            tools.label = '工具业务与平台控制';
-            tools.labelEn = 'Tools & Platform Control';
-            tools.description += ' 默认租户的此库还保存全局账号、会话与租户控制数据。';
-            tools.descriptionEn += ' For the default tenant, this database also stores global accounts, sessions and tenant control data.';
-        }
-    }
     if (fs.existsSync(dataDir)) {
         for (const entry of fs.readdirSync(dataDir, { withFileTypes: true })) {
             if (!entry.isFile() || !SQLITE_FILE.test(entry.name) || ARCHIVE_FILE.test(entry.name) || KNOWN[entry.name]) continue;
             add(dataDir, entry.name, 'data', [`data:${entry.name}`, entry.name, entry.name]);
         }
     }
-    // The control plane lives in the default tools.db. Avoid duplicating that
-    // physical database for the default tenant; name it explicitly for others.
-    const platformFile = path.join(BASE_DATA_DIR, 'tools.db');
-    if (path.resolve(platformFile) !== path.resolve(dataDir, 'tools.db')) {
-        add(BASE_DATA_DIR, 'tools.db', 'platform', ['platform', '平台账号与租户（全局）', 'Accounts & Tenants (Global)']);
-    }
+    // 账号、会话与团队登记在独立的控制库（data/platform/control.db），任何团队的数据库浏览都看不到。
     return items;
 }
 

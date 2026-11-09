@@ -24,7 +24,7 @@ async function crashDuringTurn(name, gap = false, tenant = 'default') {
         const chat=require('./backend/models/ai-chat-repository'), {runWithTenant}=require('./backend/models/tenant-context');
         runWithTenant(process.env.TEST_TENANT,async()=>{
             const id=await chat.getOrCreateSession({owner:'alice',pagePath:'/',pageTitle:'Dragon Claw'});
-            const session=manager.ensureSession({agentSessionId:process.env.TEST_ID,user:{username:'alice',role:'admin'},tenantId:process.env.TEST_TENANT,root:process.env.TEST_ROOT,permissionMode:'full'});
+            const session=manager.ensureSession({agentSessionId:process.env.TEST_ID,user:{username:'alice',role:'admin',isSuper:true},tenantId:process.env.TEST_TENANT,root:process.env.TEST_ROOT,permissionMode:'full'});
             const ready=()=>process.stdout.write(JSON.stringify({chatId:id})+'\\n');
             if(process.env.TEST_GAP==='yes'){
                 const execute=tools.execute;

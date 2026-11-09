@@ -169,8 +169,9 @@ test('default tenant publication reports unavailable source without creating a p
 test('updater routes preserve publication and source-availability HTTP status codes', async () => {
     const handlers = new Map();
     const router = {
-        get: (route, handler) => handlers.set(`GET ${route}`, handler),
-        post: (route, handler) => handlers.set(`POST ${route}`, handler)
+        use() {},
+        get: (route, ...stack) => handlers.set(`GET ${route}`, stack.at(-1)),
+        post: (route, ...stack) => handlers.set(`POST ${route}`, stack.at(-1))
     };
     const errorWithStatus = statusCode => Object.assign(new Error('操作不可用'), { statusCode });
     loadModule(routePath, {
@@ -179,7 +180,7 @@ test('updater routes preserve publication and source-availability HTTP status co
             syncToPackagerRepo: async () => { throw errorWithStatus(403); },
             exportUniversalShellZip: async () => { throw errorWithStatus(503); }
         },
-        '../middleware/auth': { requireAdmin() {} }
+        '../middleware/auth': { requireAdmin() {}, requireSuperAdmin() {} }
     });
     for (const [key, expectedStatus] of [['POST /sync-repo', 403], ['GET /export-shell', 503]]) {
         const response = { status(code) { this.statusCode = code; return this; }, json(data) { this.body = data; } };

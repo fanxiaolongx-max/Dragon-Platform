@@ -4,6 +4,11 @@ const router = express.Router();
 const store = require('../models/agent-skills-store');
 const { requireAdmin } = require('../middleware/auth');
 
+router.use((_req, res, next) => {
+    res.setHeader('Cache-Control', 'private, no-store');
+    next();
+});
+
 function sendError(res, error, fallback) {
     res.status(error.statusCode || 500).json({ code: error.code, error: error.statusCode ? error.message : `${fallback}: ${error.message}` });
 }
@@ -25,7 +30,7 @@ router.get('/', async (req, res) => {
     try {
         const includeHidden = req.query.includeHidden === '1' && req.user?.role === 'admin';
         res.setHeader('Cache-Control', 'no-store');
-        res.json({ items: await store.listAll({ includeHidden }) });
+        res.json({ items: await store.listForUser(req.user, { includeHidden }) });
     } catch (error) {
         sendError(res, error, '读取技能列表失败');
     }
@@ -37,6 +42,7 @@ router.post('/', requireAdmin, async (req, res) => {
         const markdown = String(req.body?.skillMd || '');
         if (!markdown.trim()) return res.status(400).json({ error: '缺少 SKILL.md 内容' });
         const skill = await store.createFromMarkdown(markdown, {
+            user: req.user,
             source: req.body?.source === 'import' ? 'import' : 'chat',
             createdBy: req.user?.username || '',
             overwrite: req.body?.overwrite === true,
@@ -61,6 +67,7 @@ router.post('/preview', requireAdmin, async (req, res) => {
 router.post('/import', requireAdmin, async (req, res) => {
     try {
         const skill = await store.importArchive(decodeArchive(req.body), {
+            user: req.user,
             archiveName: req.body?.archiveName,
             createdBy: req.user?.username || '',
             overwrite: req.body?.overwrite === true,
@@ -72,7 +79,7 @@ router.post('/import', requireAdmin, async (req, res) => {
     }
 });
 
-router.post('/restore-builtins', requireAdmin, async (_req, res) => {
+router.post('/restore-builtins', require('../middleware/auth').requireSuperAdmin, async (_req, res) => {
     try {
         res.json({ restored: await store.restoreBuiltins() });
     } catch (error) {
@@ -83,12 +90,28 @@ router.post('/restore-builtins', requireAdmin, async (_req, res) => {
 // 获取单个技能的完整信息（含 Markdown 正文）
 router.get('/:id', async (req, res) => {
     try {
-        const skill = await store.getSkill(req.params.id);
+        const skill = await store.withSkillForUser(req.params.id, req.user, async item => ({ ...await store.getSkill(item.id), name: item.name, shared: item.shared, personal: item.personal }));
         if (!skill) return res.status(404).json({ error: '技能不存在' });
         res.json({ skill });
     } catch (error) {
         sendError(res, error, '读取技能详情失败');
     }
+});
+
+// Shared skill content is usable; its private revision history and mutations stay in the owner space.
+router.use('/:id', async (req, res, next) => {
+    if (/^\/export\/?$/i.test(req.path)) return next();
+    try {
+        const { isSuperAdmin } = require('../middleware/auth');
+        if (isSuperAdmin(req.user)) return next();
+        if (require('../models/tenant-context').getTenantId() === 'default' && req.method !== 'GET') {
+            return res.status(403).json({ error: '不能修改系统空间的技能' });
+        }
+        const visible = (await store.listForUser(req.user)).find(item => item.id === req.params.id);
+        if (!visible || (visible.shared && !visible.personal && !['/name', '/'].includes(req.path))) return res.status(404).json({ error: '技能不存在' });
+        if (visible.shared) req.sharedSkill = true;
+        next();
+    } catch (error) { next(error); }
 });
 
 // 历史版本备份列表
@@ -150,7 +173,11 @@ router.post('/:id/reset', requireAdmin, async (req, res) => {
 
 router.patch('/:id/name', requireAdmin, async (req, res) => {
     try {
-        await store.rename(req.params.id, req.body?.name);
+        if (req.sharedSkill) {
+            const name = String(req.body?.name || '').trim().slice(0, 80);
+            if (!name) return res.status(400).json({ error: '名称不能为空' });
+            await require('../models/tool-distribution').setPersonalEntry(req.user, `skill:${req.params.id}`, { name });
+        } else await store.rename(req.params.id, req.body?.name);
         res.json({ success: true });
     } catch (error) {
         sendError(res, error, '重命名技能失败');
@@ -159,6 +186,10 @@ router.patch('/:id/name', requireAdmin, async (req, res) => {
 
 router.delete('/:id', requireAdmin, async (req, res) => {
     try {
+        if (req.sharedSkill) {
+            await require('../models/tool-distribution').setPersonalEntry(req.user, `skill:${req.params.id}`, { hidden: true });
+            return res.json({ success: true, hidden: true });
+        }
         res.json({ success: true, ...(await store.remove(req.params.id)) });
     } catch (error) {
         sendError(res, error, '删除技能失败');
@@ -167,7 +198,9 @@ router.delete('/:id', requireAdmin, async (req, res) => {
 
 router.get('/:id/export', async (req, res) => {
     try {
-        const { buffer, filename } = await store.exportZip(req.params.id);
+        const archive = await store.withSkillForUser(req.params.id, req.user, item => store.exportZip(item.id));
+        if (!archive) return res.status(404).json({ error: '技能不存在' });
+        const { buffer, filename } = archive;
         res.setHeader('Content-Type', 'application/zip');
         res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
         res.setHeader('X-Skill-Export-Filename', encodeURIComponent(filename));

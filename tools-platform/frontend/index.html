@@ -72,13 +72,12 @@
 </head>
 <body class="home-mode-chat home-booting">
     <script>
-        // 首帧前恢复上次的侧栏收起状态与模式，避免对话列表先出现再收起（规则与 js/home/home-mode.js 一致）
+        // 首帧前恢复侧栏收起状态，避免对话列表先出现再收起（规则与 js/home/home-mode.js 一致）
         (function () {
             var body = document.body;
             if (window.innerWidth <= 860) body.classList.add('v2-side-collapsed');
             try {
                 if (localStorage.getItem('tools_home_wide') === '1') document.documentElement.classList.add('v2-wide');
-                if (location.hash === '#tools') { body.classList.remove('home-mode-chat'); body.classList.add('home-mode-tools'); }
                 if (window.innerWidth > 860) {
                     var stored = localStorage.getItem('home_sidebar_mode');
                     if (stored ? stored === 'collapsed' : window.innerWidth < 1280) body.classList.add('home-sidebar-collapsed');
@@ -87,10 +86,12 @@
             setTimeout(function () { body.classList.remove('home-booting'); }, 1500); // 兜底：侧栏脚本未运行时也恢复动画
         })();
     </script>
-    <!-- 首屏先确定模式，避免等待底部脚本时同时露出对话区和工具区。 -->
+    <!-- #tools 由新版工具中心接管，等待底部脚本时保持主区隐藏。 -->
     <script id="homeModeBootstrap">
-        if (location.hash === '#tools') document.body.classList.replace('home-mode-chat', 'home-mode-tools');
-        else if (performance.getEntriesByType('navigation')[0]?.type === 'reload') {
+        if (location.hash === '#tools') {
+            document.body.classList.add('v2-hub-pending');
+            document.addEventListener('DOMContentLoaded', () => document.body.classList.remove('v2-hub-pending'), { once: true });
+        } else if (performance.getEntriesByType('navigation')[0]?.type === 'reload') {
             // 刷新欢迎页时从顶部开始；pageshow 后的首帧覆盖浏览器已保存的滚动位置。
             const previousScrollRestoration = history.scrollRestoration;
             history.scrollRestoration = 'manual';
@@ -760,7 +761,7 @@
             <div class="tool-market-body">
                 <div class="tool-market-settings" id="toolMarketSettings">
                     <strong id="toolMarketSettingsTitle">仓库设置</strong>
-                    <div class="tool-market-source"><label><input type="checkbox" id="toolMarketGithubEnabled"> <span id="toolMarketGithubLabel">启用 GitHub 官方仓库（优先）</span></label></div>
+                    <div class="tool-market-source"><label><input type="checkbox" id="toolMarketGithubEnabled"> <span id="toolMarketGithubLabel">启用 GitHub 官方仓库</span></label></div>
                     <div id="toolMarketSources"></div>
                     <div class="tool-market-settings-actions"><button type="button" class="tool-import-btn" id="toolMarketAddSource">添加第三方仓库</button><button type="button" class="tool-import-btn" id="toolMarketHelpBtn">帮助</button><button type="button" class="tool-import-btn primary" id="toolMarketSaveSettings">保存设置</button></div>
                     <div class="tool-market-help" id="toolMarketHelp"></div>
@@ -770,6 +771,7 @@
                     <span id="toolMarketSummary">正在加载最新工具目录…</span>
                     <span class="tool-market-trust" id="toolMarketTrust"></span>
                 </div>
+                <div class="tool-market-list" id="toolMarketPlatformList"></div>
                 <div class="tool-market-list" id="toolMarketList"></div>
                 <div class="tool-market-progress" id="toolMarketProgress">
                     <div class="tool-market-progress-head"><span id="toolMarketProgressText"></span><span id="toolMarketProgressCount"></span></div>
@@ -791,6 +793,7 @@
     </div>
 
     <script src="/js/shared/api.js"></script>
+    <script src="/js/shared/requirements-client.js"></script>
     <script src="/js/shared/custom-tool-upload.js"></script>
     <script src="/js/shared/migration-status.js"></script>
     <script src="/js/shared/toast.js"></script>

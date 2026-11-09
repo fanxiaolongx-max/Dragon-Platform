@@ -1,7 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
-const { initializeBuiltinTools } = require('./builtin-tools-sync');
 const {
     BASE_DATA_DIR,
     BASE_REPORT_DATA_DIR,
@@ -74,13 +73,7 @@ async function initializeTenantStorage(tenantId, onProgress) {
         emitProgress(onProgress, { stage: 'directories', percent: 78, message: '正在创建附件、图片与自定义工具目录', messageEn: 'Creating attachment, image, and custom-tool directories' });
         fs.mkdirSync(path.join(stagingDir, 'images'), { recursive: true });
         fs.mkdirSync(path.join(stagingDir, 'custom-tools'), { recursive: true });
-        emitProgress(onProgress, { stage: 'builtin-tools', percent: 84, message: '正在安装租户系统内置工具', messageEn: 'Installing built-in tools for the tenant' });
-        initializeBuiltinTools({
-            sourceDir: process.env.TOOLS_BUILTIN_TOOLS_DIR ? path.resolve(process.env.TOOLS_BUILTIN_TOOLS_DIR) : path.join(__dirname, '../builtin-tools'),
-            targetDir: path.join(stagingDir, 'custom-tools'),
-            stateFile: path.join(stagingDir, 'builtin-tools-sync-decisions.json'),
-            backupRoot: path.join(stagingDir, 'backups', 'builtin-tools')
-        });
+        emitProgress(onProgress, { stage: 'builtin-tools', percent: 84, message: '内置工具由系统管理员统一分发', messageEn: 'Built-in tools are distributed by the system administrator' });
         emitProgress(onProgress, { stage: 'storage-commit', percent: 90, message: '正在原子提交租户数据目录', messageEn: 'Atomically committing the tenant data directory' });
         fs.renameSync(stagingDir, dataDir);
         emitProgress(onProgress, { stage: 'storage-ready', percent: 92, level: 'success', message: '租户独立存储已就绪', messageEn: 'Tenant-isolated storage is ready' });

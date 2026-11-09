@@ -38,6 +38,11 @@ test('WeLink 完整链路执行文件、命令、Skill 和 Dragon 浏览器，�
     settings.getRedactionSecrets = async () => [];
     browser.available = () => ({ kind: 'desktop', label: 'Dragon' });
     browser.preview = async () => ({});
+    await runWithTenant('default', async () => {
+        const { setEntryAccess } = require('../backend/models/tool-distribution');
+        await setEntryAccess('skill:debug', true);
+        await setEntryAccess('skill:write-doc', true);
+    });
     const navigations = [];
     browser.execute = async (ctx, name, args) => {
         navigations.push({ ctx, name, args });

@@ -32,10 +32,24 @@ func text(_ element: AXUIElement, _ name: String) -> String {
 func claudeApp() -> NSRunningApplication? {
     NSRunningApplication.runningApplications(withBundleIdentifier: bundleId).first
 }
-func mainWindow(_ app: NSRunningApplication) -> AXUIElement? {
+func mainWindow(_ app: NSRunningApplication, title: String? = nil) -> AXUIElement? {
     let root = AXUIElementCreateApplication(app.processIdentifier)
-    if let main = attr(root, kAXMainWindowAttribute) { return (main as! AXUIElement) }
-    return (attr(root, kAXWindowsAttribute) as? [AXUIElement])?.first
+    let windows = (attr(root, kAXWindowsAttribute) as? [AXUIElement]) ?? []
+    if let title = title, !title.isEmpty {
+        if let match = windows.first(where: { text($0, kAXTitleAttribute) == title }) {
+            AXUIElementPerformAction(match, kAXRaiseAction as CFString)
+            return match
+        }
+    }
+    if let main = attr(root, kAXMainWindowAttribute) as! AXUIElement? {
+        AXUIElementPerformAction(main, kAXRaiseAction as CFString)
+        return main
+    }
+    if let first = windows.first {
+        AXUIElementPerformAction(first, kAXRaiseAction as CFString)
+        return first
+    }
+    return nil
 }
 
 // Depth-first walk collecting the roles the Node side understands, in screen order.
@@ -57,10 +71,10 @@ func collect(_ window: AXUIElement, includeText: Bool = false) -> [(AXUIElement,
     return out
 }
 
-func requireWindow() -> (NSRunningApplication, AXUIElement) {
+func requireWindow(targetTitle: String? = nil) -> (NSRunningApplication, AXUIElement) {
     guard AXIsProcessTrusted() else { fail("AX_PERMISSION", "需要在“系统设置 → 隐私与安全性 → 辅助功能”中允许运行平台服务的程序") }
     guard let app = claudeApp() else { fail("DESKTOP_UNAVAILABLE", "Claude 桌面未运行") }
-    guard let window = mainWindow(app) else { fail("DESKTOP_UNAVAILABLE", "Claude 桌面没有打开的窗口") }
+    guard let window = mainWindow(app, title: targetTitle) else { fail("DESKTOP_UNAVAILABLE", "Claude 桌面没有打开的窗口") }
     return (app, window)
 }
 // NSWorkspace only refreshes the frontmost app while the run loop turns, so waits spin it.
@@ -81,8 +95,8 @@ func waitFrontmost(_ app: NSRunningApplication) -> Bool {
 // Chromium may initially expose only its outer HTML container while the app is
 // in the background. Activate first and wait for actual controls, so a cold AX
 // tree is not mistaken for a missing sidebar conversation. No typing occurs.
-func prepareWindow() -> (NSRunningApplication, AXUIElement, String) {
-    let (app, _) = requireWindow()
+func prepareWindow(targetTitle: String? = nil) -> (NSRunningApplication, AXUIElement, String) {
+    let (app, _) = requireWindow(targetTitle: targetTitle)
     let previous = frontmostId()
     // Existing OS permission does not initialize Electron's web accessibility
     // tree. This is Electron's documented assistive-technology entry point:
@@ -91,9 +105,10 @@ func prepareWindow() -> (NSRunningApplication, AXUIElement, String) {
     AXUIElementSetAttributeValue(root, "AXManualAccessibility" as CFString, kCFBooleanTrue)
     guard waitFrontmost(app) else { activate(previous); fail("DESKTOP_FOCUS", "无法把 Claude 切到前台") }
     for _ in 0..<30 {
-        if let window = mainWindow(app) {
+        if let window = mainWindow(app, title: targetTitle) {
             let items = collect(window)
             if items.contains(where: { $0.1["role"] as? String == "AXTextArea" }) && items.contains(where: { $0.1["role"] as? String == "AXButton" }) {
+                AXUIElementPerformAction(window, kAXRaiseAction as CFString)
                 return (app, window, previous)
             }
         }
@@ -114,7 +129,7 @@ func frame(_ element: AXUIElement) -> CGRect? {
 func owns(_ row: AXUIElement, _ point: CGPoint) -> Bool {
     var hit: AXUIElement?
     guard AXUIElementCopyElementAtPosition(AXUIElementCreateSystemWide(), Float(point.x), Float(point.y), &hit) == .success, var node = hit else { return false }
-    for _ in 0..<8 {
+    for _ in 0..<25 {
         if CFEqual(node, row) { return true }
         guard let parent = attr(node, kAXParentAttribute) else { return false }
         node = parent as! AXUIElement
@@ -190,9 +205,9 @@ let argument: [String: Any] = args.count > 2 ? ((try? JSONSerialization.jsonObje
 
 switch command {
 case "models", "set-model":
-    let (_, window, previous) = prepareWindow()
     let expected = argument["windowTitle"] as? String
-    if let expected = expected, text(window, kAXTitleAttribute) != expected {
+    let (_, window, previous) = prepareWindow(targetTitle: expected)
+    if let expected = expected, !expected.isEmpty, text(window, kAXTitleAttribute) != expected && text(window, kAXTitleAttribute) != "Claude" {
         activate(previous); fail("DESKTOP_TARGET_UNCONFIRMED", "模型切换目标窗口已变化，未发送")
     }
     let modelPattern = "^(?:(?:Claude )?(?:Opus|Sonnet|Haiku|Fable) [0-9]|GPT[- ]|gpt[- ])"

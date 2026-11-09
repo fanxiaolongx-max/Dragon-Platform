@@ -1,0 +1,45 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .pnl{position:absolute;background:#fffdf8;border:3px solid var(--ink);border-radius:26px;box-shadow:var(--sh)}
+#root .pnl .pt{position:absolute;left:0;right:0;top:0;height:64px;border-bottom:3px solid var(--ink);border-radius:23px 23px 0 0;display:flex;align-items:center;justify-content:center;font-size:38px}
+#root .lbl{position:absolute;font-size:36px;white-space:nowrap}
+#root .big{font-size:44px}
+#root .blk{height:72px;border:3px solid var(--ink);border-radius:18px;box-shadow:var(--sh);display:flex;align-items:center;justify-content:center;font-size:38px}
+</style>
+<div id="root" data-composition-id="s15" data-width="1920" data-height="1080">
+  <div class="paper"></div>
+  <div class="head" id="s15-h"><span class="ttl">七层总览</span></div>
+    <div class="abs blk" id="s15-b0" style="left:350px;top:800px;width:620px;background:#ffb3c6">技术架构</div>
+  <div class="abs blk" id="s15-b1" style="left:375px;top:718px;width:570px;background:#aed8f2">产品</div>
+  <div class="abs blk" id="s15-b2" style="left:400px;top:636px;width:520px;background:#ffe08f">组织</div>
+  <div class="abs blk" id="s15-b3" style="left:425px;top:554px;width:470px;background:#9fe0c9">用户</div>
+  <div class="abs blk" id="s15-b4" style="left:450px;top:472px;width:420px;background:#d9c6ef">交互</div>
+  <div class="abs blk" id="s15-b5" style="left:475px;top:390px;width:370px;background:#ffc29a">商业模式</div>
+  <div class="abs blk" id="s15-b6" style="left:500px;top:308px;width:320px;background:#ffb3c6">硬件</div>
+  <div class="abs" id="s15-top" style="left:1010px;top:330px;width:780px;font-size:60px;line-height:1.35">不是给旧东西加上 AI<br><span style="background:linear-gradient(transparent 60%,rgba(255,224,143,.9) 60%)">而是从 AI 出发，重新设计一切</span></div>
+  <div class="abs" id="s15-d" style="left:1350px;top:610px"></div>
+  <div class="bubble" id="s15-bye" style="left:1190px;top:600px;font-size:40px">下次见！</div>
+  <div id="s15-sp"></div>
+  <div class="cap" id="s15-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ var tl=gsap.timeline({paused:true});
+ var S="#s15-";
+ tl.fromTo("#s15-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.25);
+ 
+ put("s15-d",dino("dn",{w:280,h:280}));
+ gsap.set(S+"top,"+S+"bye",{opacity:0});
+ tl.fromTo(S+"d",{opacity:0,y:80},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.4);dtail(tl,"dn",.6,16);
+ ["技术架构","产品","组织","用户","交互","商业模式","硬件"].forEach(function(k,i){tl.fromTo(S+"b"+i,{opacity:0,y:-260,rotation:(i%2?6:-6)},{opacity:1,y:0,rotation:0,duration:.55,ease:"bounce.out"},T(k)-.2);});
+ tl.fromTo(S+"top",{opacity:0,x:40},{opacity:1,x:0,duration:.7,ease:"power3.out"},T("不是给")-.2);
+ tl.to("#s15-b0,#s15-b1,#s15-b2,#s15-b3,#s15-b4,#s15-b5,#s15-b6",{boxShadow:"0 0 30px rgba(255,209,102,.9)",duration:.5,stagger:.08},T("重新设计")-.3);
+ pop(tl,S+"bye",T("下次见")-.3,{});dwave(tl,"dn",T("我是小龙")-.2,4);
+ captions(tl,"s15-cap");
+ window.__timelines["s15"]=tl;
+})();
+</script>
+</template></body></html>

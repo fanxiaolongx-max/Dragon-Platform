@@ -41,6 +41,15 @@ test('nav-layout-defaults: DEFAULT_SETTINGS dynamically delegates to getDefaultN
     assert.deepEqual(repo.DEFAULT_SETTINGS.itemOrder, layout.itemOrder);
 });
 
+test('workflow tools and their category cannot be reassigned in stored layouts', () => {
+    const layout = repo.normalizeSettings({
+        categories: [{ id: '__workflow', name: 'Renamed' }, { id: 'audit', name: 'Audit' }],
+        categoryByItem: { report: 'audit', sla: 'audit', frt: 'audit', 'custom:tool': '__workflow' }
+    });
+    assert.deepEqual(layout.categories.map(category => category.id), ['audit']);
+    assert.deepEqual(layout.categoryByItem, { frt: 'audit' });
+});
+
 test('nav-layout-defaults: setAsDefaultLayout writes defaults/nav-layout.json and saves to current tenant', async () => {
     const customLayout = {
         primaryIds: ['home', 'topic-analysis', 'custom-report'],

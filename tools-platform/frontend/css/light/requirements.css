@@ -251,3 +251,112 @@ html[data-platform-theme="light"] .log-remark {
     color: #2d3c4e !important;
     border-left: 1px dashed rgba(15, 23, 42, 0.12) !important;
 }
+
+/* Light theme for image upload and preview */
+html[data-platform-theme="light"] .req-upload-label {
+    color: #1e293b !important;
+}
+
+html[data-platform-theme="light"] .req-upload-count {
+    color: #0284c7 !important;
+}
+
+html[data-platform-theme="light"] .req-upload-tips {
+    color: #64748b !important;
+}
+
+html[data-platform-theme="light"] .req-upload-dropzone {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+}
+
+html[data-platform-theme="light"] .req-upload-dropzone.is-dragover {
+    border-color: #0284c7 !important;
+    background: #f0f9ff !important;
+    box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2) !important;
+}
+
+html[data-platform-theme="light"] .req-image-card {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08) !important;
+}
+
+html[data-platform-theme="light"] .req-image-card:hover {
+    border-color: #0284c7 !important;
+    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.14) !important;
+}
+
+html[data-platform-theme="light"] .req-upload-picker {
+    border: 1.5px dashed #94a3b8 !important;
+    background: #ffffff !important;
+}
+
+html[data-platform-theme="light"] .req-upload-picker:hover,
+html[data-platform-theme="light"] .req-upload-picker:focus-visible {
+    border-color: #0284c7 !important;
+    background: #f0f9ff !important;
+}
+
+html[data-platform-theme="light"] .req-picker-icon {
+    color: #64748b !important;
+}
+
+html[data-platform-theme="light"] .req-upload-picker:hover .req-picker-icon {
+    color: #0284c7 !important;
+}
+
+html[data-platform-theme="light"] .req-picker-text {
+    color: #1e293b !important;
+}
+
+html[data-platform-theme="light"] .req-picker-subtext {
+    color: #64748b !important;
+}
+
+html[data-platform-theme="light"] .req-preview-container {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: 0 25px 60px rgba(15, 23, 42, 0.3) !important;
+}
+
+html[data-platform-theme="light"] .req-preview-header {
+    background: #f8fafc !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+}
+
+html[data-platform-theme="light"] .req-preview-filename {
+    color: #1e293b !important;
+}
+
+html[data-platform-theme="light"] .req-preview-index {
+    color: #64748b !important;
+}
+
+html[data-platform-theme="light"] .req-preview-close {
+    color: #64748b !important;
+}
+
+html[data-platform-theme="light"] .req-preview-close:hover {
+    color: #0f172a !important;
+    background: rgba(15, 23, 42, 0.08) !important;
+}
+
+html[data-platform-theme="light"] .req-preview-viewport {
+    background: #f1f5f9 !important;
+}
+
+html[data-platform-theme="light"] .req-preview-img-box img {
+    box-shadow: 0 8px 30px rgba(15, 23, 42, 0.16) !important;
+}
+
+html[data-platform-theme="light"] .req-preview-nav {
+    background: rgba(255, 255, 255, 0.9) !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #1e293b !important;
+}
+
+html[data-platform-theme="light"] .req-preview-nav:hover {
+    background: #0284c7 !important;
+    color: #ffffff !important;
+}

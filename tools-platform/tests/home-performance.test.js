@@ -105,6 +105,7 @@ function syncPage(sessionStorage = storage()) {
     };
     context.window.top = context.window;
     vm.createContext(context);
+    vm.runInContext(source.slice(source.indexOf('function isNavSuperAdmin()'), source.indexOf("if (typeof window !== 'undefined') window.isNavSuperAdmin")), context);
     vm.runInContext(source.slice(source.indexOf('const BUILTIN_SYNC_CHECK_TTL_MS'), source.indexOf('let pageScrollbarIdleTimer')), context);
     return { context, run: () => context.checkBuiltinToolsSync(), count: () => count, advance: ms => { now += ms; }, version: value => { version = value; } };
 }

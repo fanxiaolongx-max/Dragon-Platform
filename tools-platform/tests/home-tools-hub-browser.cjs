@@ -5,6 +5,7 @@
 // Workspace scope audit: HOME_WORKSPACE_SCOPE_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Collapsed sidebar peek audit: HOME_SIDE_PEEK_AUDIT=1 [HOME_SIDE_PEEK_SHOT=/path/prefix] [DESKTOP_DRAG_AUDIT=1 DRAG_PLATFORM=darwin|win32] node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Scan popup audit: HOME_SCAN_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
+// Scan permissions audit: HOME_SCAN_AUDIT=access node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Message navigation audit: HOME_MESSAGES_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Dialog return audit: HOME_DIALOG_RETURN_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Desktop right-edge audit: HOME_WINDOW_EDGE_AUDIT=1 DESKTOP_DRAG_AUDIT=1 DRAG_PLATFORM=darwin|win32 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
@@ -19,6 +20,9 @@ const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'home-composer-'));
 app.setPath('userData', path.join(temp, 'profile')); app.disableHardwareAcceleration();
 let win, server, prefs = { lastDirectory: '', recentDirectories: ['/fixture/privacy-policy', '/fixture/reports'], permissionMode: 'ask' };
 let rejectPermission = false, enhanceMode = 'normal', enhanceCalls = [], sessionPages = 0, scanExtranet = false, welinkLogins = 0;
+let scanSuperAdmin = true, scanRequests = 0;
+let marketRestored = false, marketSharing = false;
+let delayHubScript = false;
 const models = [{ id: 'profile:main', name: 'DeepSeek-V4.1-Flash', provider: 'openai-compatible', description: '主连接' }, { id: 'profile:other', name: 'claude-sonnet-4-20250514', provider: 'anthropic', description: '备用连接' }];
 const evaluate = code => win.webContents.executeJavaScript(code, true);
 const until = code => evaluate(`new Promise((resolve,reject)=>{let n=0;const poll=()=>{if(${code})resolve();else if(++n>250)reject(new Error(${JSON.stringify(code)}));else setTimeout(poll,20)};poll()})`);
@@ -32,11 +36,21 @@ app.whenReady().then(async () => {
         localStorage.setItem('tools_tenant_id','default');localStorage.setItem('tools_role','admin');localStorage.setItem('tools_user','fixture');localStorage.setItem('tools_token','fixture-session');localStorage.setItem('tools_lang','zh-CN');
         window.fixtureIntervals=[];const originalInterval=window.setInterval;window.setInterval=(fn,delay,...args)=>{if(delay>=10000)fixtureIntervals.push({fn,delay});return originalInterval(fn,delay,...args)};
         window.fixtureErrors=[];window.addEventListener('error',e=>fixtureErrors.push(e.message));window.addEventListener('unhandledrejection',e=>fixtureErrors.push(String(e.reason)));
-    </script>`)));
+    </script>`).replace('<script src="/js/home/skill-hub.js"></script>', tag => delayHubScript ? `<script>
+        window.fixtureHubBootFrames = [];
+        const bootSurfaces = ['toolsGrid', 'dragonClaw'].map(id => document.getElementById(id));
+        function sampleHubBootFrame() {
+            if (document.readyState !== 'loading') return;
+            window.fixtureHubBootFrames.push(bootSurfaces.map(node => getComputedStyle(node).display));
+            requestAnimationFrame(sampleHubBootFrame);
+        }
+        requestAnimationFrame(sampleHubBootFrame);
+    </script>${tag}` : tag)));
+    web.get('/js/home/skill-hub.js', (_, res, next) => delayHubScript ? setTimeout(next, 400) : next());
     web.get('/requirements', (_, res) => res.type('html').send(require('../backend/models/asset-versioning').injectPlatformTheme(fs.readFileSync(path.join(frontend,'pages/requirements.html'),'utf8'),{toolPath:'pages/requirements.html'})));
     web.get('/api/requirements', (_, res) => res.json([]));
     web.get('/api/custom-tools', (_, res) => res.json([]));
-    web.get('/api/auth/me', (_, res) => res.json({ username: 'fixture', role: 'admin', tenantId: 'default' }));
+    web.get('/api/auth/me', (_, res) => res.json({ username: 'fixture', role: 'admin', tenantId: 'default', isSuper: scanSuperAdmin }));
     web.get('/api/app-version', (_, res) => res.json({ version: 'fixture' }));
     web.get('/api/tenants', (_, res) => res.json({ tenants: [{ id: 'default', name: '默认租户' }], activeTenantId: 'default' }));
     web.get('/api/platform-promotions', (_, res) => res.json({ desktopStack: false, rotateSeconds: 15, maxLinks: 3, videos: ['rfc','incentive','eos','guide','aiMonthly','welinkCli','welinkSdk','digitalHuman'].map(id=>({id,enabled:false})), links: [{ id: 'fixture', name: '平台功能介绍', nameEn: 'Platform guide', description: '查看平台使用指南', badge: '资讯', enabled: true, url: 'https://example.test/guide', color: 'teal' }] }));
@@ -51,6 +65,12 @@ app.whenReady().then(async () => {
     web.get('/api/ai/skills', (_, res) => res.json({ items: [{ id: 'research-check', name: '研究依据核对', nameEn: 'Research check', description: '核对结论与依据', descriptionEn: 'Review research evidence' }] }));
     web.get(['/api/friend-links','/api/recent-nav','/api/upload/history'], (_, res) => res.json([]));
     if (process.env.HOME_SCAN_AUDIT) {
+        web.use((req, res, next) => {
+            if (!/^\/api\/channels\/(?:welink-cli\/|(?:welink|weixin)\/(?:status|qrcode-auth))/.test(req.path)) return next();
+            scanRequests += 1;
+            if (!scanSuperAdmin) return res.status(403).json({ code: 'SUPER_ADMIN_REQUIRED', error: '仅系统管理员可用' });
+            next();
+        });
         web.get('/api/channels/welink-cli/status', (_, res) => res.json(scanExtranet
             ? { install: { available: true }, network: { intranet: false, host: 'open.inner.welink.huawei.com' } }
             : { install: { available: true }, network: { intranet: true }, auth: { loggedIn: true } }));
@@ -67,6 +87,17 @@ app.whenReady().then(async () => {
     if(process.env.HOME_TOOL_EXTERNAL_AUDIT)web.get(['/uivf12','/monthly','/report','/sla','/expedite','/bigscreen','/topic-analysis','/tools/external-fixture'],(_,res)=>res.send(require('../backend/models/asset-versioning').injectPlatformTheme('<!doctype html><head><title>Tool fixture</title><link rel="stylesheet" href="/css/shared.css"></head><body><div id="navbar-container"></div><main id="fixture-tool">Tool content</main><script src="/js/shared/navbar.js"></script></body>',{toolPath:'pages/report.html'})));
     if(process.env.HOME_TOOL_EXTERNAL_AUDIT)web.get('/custom-tools/external-fixture/index.html',(_,res)=>res.send(require('../backend/models/asset-versioning').injectPlatformTheme('<!doctype html><head></head><a id=rawReport href="/report?month=9#row" target="_blank">Report</a>',{toolPath:'custom-tools/external-fixture/index.html'})));
     if (process.env.HOME_MARKET_THEME_AUDIT) {
+        web.get('/api/custom-tools/market/platform', (_,res)=>res.json({ tools: [{ slug: 'fixture-html', name: '平台工具', nameEn: 'Platform tool', href: '/tools/fixture-html', builtIn: true, hidden: !marketRestored }] }));
+        web.get('/api/distribution/catalog', (_,res)=>res.json({ items: [] }));
+        web.patch('/api/distribution/personal', (req,res)=>{
+            assert.deepEqual(req.body, { kind: 'tool', id: 'fixture-html', action: 'restore' });
+            marketRestored = true; res.json({ success: true });
+        });
+        web.patch('/api/distribution', (req,res)=>{
+            assert.equal(req.body.id, 'python:fixture');
+            marketSharing = req.body.sharedAccess;
+            res.json({ sharedAccess: marketSharing });
+        });
         web.get('/api/custom-tools/market/settings', (_,res)=>res.json({githubEnabled:true,sources:[{id:'fixture',name:'Fixture',url:'https://example.test/catalog.json',enabled:true}]}));
         web.get('/api/custom-tools/market/preview-stream', (_,res)=>res.type('application/x-ndjson').send(JSON.stringify({type:'result',data:{sources:[{enabled:true}],trust:{state:'unsigned'},tools:['update','missing','conflict','unchanged','incompatible'].map((status,i)=>({slug:'fixture-'+i,name:['在线验收表','聊天记录中心','数通协议专家','负向事件管理','版本不兼容'][i],nameEn:'Tool '+i,description:'工具说明与版本信息',icon:'🧩',status,recommended:status==='update',fingerprint:'abcdef1234567890',selectedSource:'market',minPlatformVersion:'1.0.0'}))}})+'\n'));
     }
@@ -141,6 +172,7 @@ app.whenReady().then(async () => {
     }
     if(process.env.HOME_TOOL_EXTERNAL_AUDIT)web.get('/custom-tools/external-fixture/index.html',(_,res)=>res.send(require('../backend/models/asset-versioning').injectPlatformTheme('<!doctype html><head></head><a id=rawReport href="/report?month=9#row" target="_blank">Report</a>',{toolPath:'custom-tools/external-fixture/index.html'})));
     if (process.env.HOME_MARKET_THEME_AUDIT) {
+        await until(`localStorage.getItem('tools_super') === '1'`);
         for (const [width,theme,lang] of [[1440,'light','zh-CN'],[1440,'dark','en-US'],[390,'light','zh-CN'],[390,'dark','en-US']]) {
             win.setContentSize(width,900);
             await evaluate(`document.documentElement.dataset.theme='${theme}';ToolsI18n.setLanguage('${lang}');HomeSkillHub.open('tools');document.getElementById('toolMarketBtn').click();void 0`);
@@ -158,6 +190,20 @@ app.whenReady().then(async () => {
             await evaluate(`document.getElementById('toolMarketClose').click();void 0`);
             assert.equal(await evaluate('HomeSkillHub.isOpen()'),true);
         }
+        await evaluate(`window.HomeToolMenu.open({ anchor: document.getElementById('v2UserBtn'), item: {
+            kind: 'plugin', key: 'cap:python:fixture', capabilityId: 'python:fixture', title: 'Fixture', href: '/tools/python-updater'
+        } })`);
+        assert.match(await evaluate(`document.querySelector('[data-tool-action="distribution"]').textContent`), /Share with everyone/);
+        await evaluate(`document.querySelector('[data-tool-action="distribution"]').click()`);
+        for (let i = 0; i < 20 && !marketSharing; i++) await wait(20);
+        assert.equal(marketSharing, true);
+        await evaluate(`localStorage.setItem('tools_super', '0'); document.getElementById('toolMarketBtn').click()`);
+        await until(`!!document.querySelector('[data-market-restore="fixture-html"]')`);
+        assert.equal(await evaluate(`getComputedStyle(document.getElementById('toolMarketSettingsBtn')).display`), 'none');
+        await evaluate(`document.querySelector('[data-market-restore="fixture-html"]').click()`);
+        for (let i = 0; i < 20 && !marketRestored; i++) await wait(20);
+        assert.equal(marketRestored, true);
+        await until(`!!document.querySelector('#toolMarketPlatformList a[href^="/tools/fixture-html"]')`);
         console.log('PASS: market cards/statuses/settings stay light monochrome, readable and in viewport; Chinese/English, light/dark platform, 1440/390px; source page retained. Screenshots: '+temp);
         win.destroy();server.close();app.exit(0);return;
     }
@@ -492,6 +538,34 @@ app.whenReady().then(async () => {
         console.log('PASS: collapsing hides the sidebar behind two top-left buttons (toggle aligned with the docked toggle'+(macDesktop?', clear of Mac traffic lights':'')+'); hovering slides it in as an overlay with a tooltip and shortcut, leaving slides it out, open menus keep it, click or the shortcut restores it, new chat works anywhere, narrow windows do not peek.');
         win.destroy();server.close();app.exit(0);return;
     }
+    if (process.env.HOME_SCAN_AUDIT === 'access') {
+        const open = () => evaluate(`document.getElementById('v2ScanBtn').click()`);
+        const notice = () => evaluate(`document.querySelector('.v2-scan.is-open')?.textContent.trim()`);
+        await until(`localStorage.getItem('tools_super') === '1'`);
+        await open();
+        await until(`!!document.querySelector('[data-scan-action="relogin-welink"]')`);
+        for (const tab of ['welinkbot', 'weixin']) {
+            await evaluate(`document.querySelector('[data-scan-tab="${tab}"]').click()`);
+            await until(`!!document.querySelector('[data-scan-action="relogin-${tab}"]')`);
+        }
+        scanSuperAdmin = false;
+        await win.reload();
+        await until(`localStorage.getItem('tools_super') === '0'`);
+        const before = scanRequests;
+        await open();
+        assert.equal(await notice(), '仅系统管理员可用');
+        assert.equal(await evaluate(`document.querySelectorAll('.v2-scan :is(button,a,img,svg)').length`), 0);
+        await evaluate(`ToolsI18n.setLanguage('en-US')`);
+        assert.equal(await notice(), 'System administrators only');
+        assert.equal(scanRequests, before, 'team admins make no scan requests');
+        await evaluate(`ToolsI18n.setLanguage('zh-CN'); document.getElementById('v2ScanBtn').click(); localStorage.setItem('tools_super', '1')`);
+        await open();
+        await until(`document.querySelector('.v2-scan.is-open')?.textContent.trim() === '仅系统管理员可用'`);
+        assert.equal(scanRequests, before + 1, 'a stale role is blocked by the server before QR login');
+        assert.deepEqual(await evaluate('fixtureErrors'), []);
+        console.log('PASS: all three scan tabs work for a super admin; team admins see only the localized restriction and make no scan requests; stale permissions are denied by the API.');
+        win.destroy();server.close();app.exit(0);return;
+    }
     if (process.env.HOME_SCAN_AUDIT) {
         const isOpen = () => evaluate(`document.querySelector('.v2-scan').classList.contains('is-open') && document.getElementById('v2ScanBtn').getAttribute('aria-expanded')==='true'`);
         await evaluate(`document.getElementById('v2ScanBtn').dispatchEvent(new MouseEvent('mouseenter'))`);
@@ -697,6 +771,15 @@ app.whenReady().then(async () => {
     await evaluate('HomeMode.set("chat");window.dispatchEvent(new Event("home:show-tools"))');await assertTools();
     await evaluate('document.querySelector("[data-v2-action=newChat]").click()');assert.equal(await evaluate('HomeSkillHub.isOpen()'),false);
     await win.loadURL(`http://127.0.0.1:${server.address().port}/#tools`);await assertTools();
+    delayHubScript = true;
+    const reloaded = new Promise(resolve => win.webContents.once('did-finish-load', resolve));
+    win.webContents.reloadIgnoringCache();
+    await reloaded;
+    delayHubScript = false;
+    const bootFrames = await evaluate('window.fixtureHubBootFrames');
+    assert.ok(bootFrames.length > 0, 'sampled frames while the hub script was loading');
+    assert.ok(bootFrames.every(([tools, chat]) => tools === 'none' && chat === 'none'), 'legacy cards and chat stay hidden while the tools hub initializes');
+    await assertTools();
     await evaluate('location.hash=""');await until('!HomeSkillHub.isOpen()');
     await evaluate('location.hash="tools"');await assertTools();
     await evaluate('HomeSkillHub.close()');assert.equal(await evaluate('location.hash'),'');
@@ -713,6 +796,6 @@ app.whenReady().then(async () => {
     assert.equal(await evaluate('document.documentElement.dataset.ui'),'v2','old ui=v1 links migrate to the new layout');
     assert.equal(await evaluate('localStorage.getItem("tools_home_ui")'),'v2');
     assert.equal(await evaluate('!!document.querySelector("[data-v2-do=classic]")'),false);
-    console.log('PASS: shared tools hub, filters, navigation, themes/English/390px, and migration of legacy layout links. Previews: '+temp);
+    console.log('PASS: tools hub reload without legacy flash, filters, navigation, themes/English/390px, and migration of legacy layout links. Previews: '+temp);
     win.destroy();server.close();app.exit(0);
 }).catch(error=>{console.error(error);win?.destroy();server?.close();app.exit(1)});

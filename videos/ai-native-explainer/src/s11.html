@@ -1,0 +1,49 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .pnl{position:absolute;background:#fffdf8;border:3px solid var(--ink);border-radius:26px;box-shadow:var(--sh)}
+#root .pnl .pt{position:absolute;left:0;right:0;top:0;height:64px;border-bottom:3px solid var(--ink);border-radius:23px 23px 0 0;display:flex;align-items:center;justify-content:center;font-size:38px}
+#root .lbl{position:absolute;font-size:36px;white-space:nowrap}
+#root .big{font-size:44px}
+#root .out{font-size:38px;border:3px solid var(--ink);border-radius:18px;padding:10px 26px 12px;box-shadow:var(--sh);white-space:nowrap}
+</style>
+<div id="root" data-composition-id="s11" data-width="1920" data-height="1080">
+  <div class="paper"></div>
+  <div class="head" id="s11-h"><span class="step">第 7 层</span><span class="ttl">硬件 · AI 录音挂件</span></div>
+  <div class="pnl" id="s11-mt" style="left:110px;top:220px;width:700px;height:620px"><div class="pt" style="background:#ffe08f">开会中</div></div>
+  <div class="abs" id="s11-dn" style="left:230px;top:380px"></div>
+  <div class="abs" id="s11-pd" style="left:400px;top:560px"></div>
+  <div class="abs" id="s11-wv" style="left:500px;top:440px"></div>
+  <div class="abs" id="s11-cl" style="left:950px;top:220px"></div><div class="abs" id="s11-br" style="left:1020px;top:270px"></div>
+  <svg class="abs" style="left:0;top:0" width="1920" height="1080"><path id="s11-up" d="M560 520 C700 420 820 360 960 330" stroke="#ffd166" stroke-width="10" fill="none" stroke-linecap="round" stroke-dasharray="14 14" opacity="0"/></svg>
+  <div class="abs out" id="s11-o1" style="left:1280px;top:250px;background:#aed8f2">文字稿</div>
+  <div class="abs out" id="s11-o2" style="left:1280px;top:360px;background:#ffe08f">重点总结</div>
+  <div class="abs out" id="s11-o3" style="left:1280px;top:470px;background:#9fe0c9">待办清单 ✓</div>
+  <div class="abs" id="s11-ph" style="left:1420px;top:560px"></div>
+  <div id="s11-sp"></div>
+  <div class="cap" id="s11-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ var tl=gsap.timeline({paused:true});
+ var S="#s11-";
+ tl.fromTo("#s11-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.25);
+ 
+ put("s11-dn",dino("dn",{w:300,h:300}));put("s11-pd",icon("pendant","#ffe08f",80));put("s11-wv",icon("wave","#ffd166",100));put("s11-cl",icon("cloud","#aed8f2",280));put("s11-br",icon("brain","#ffb3c6",130));put("s11-ph",icon("phone","#ffb3c6",240));
+ gsap.set(S+"mt,"+S+"dn,"+S+"pd,"+S+"wv,"+S+"cl,"+S+"br,"+S+"o1,"+S+"o2,"+S+"o3,"+S+"ph",{opacity:0});
+ tl.fromTo(S+"mt,"+S+"dn",{opacity:0,y:40},{opacity:1,y:0,duration:.6,stagger:.15,ease:"power3.out"},.4);dtail(tl,"dn",.6,16);
+ tl.fromTo(S+"pd",{opacity:0,y:-80,scale:.5},{opacity:1,y:0,scale:1,duration:.6,ease:"back.out(2)"},T("夹在")-.1);
+ tl.fromTo(S+"wv",{opacity:0,scaleY:.3},{opacity:1,scaleY:1,duration:.3,repeat:7,yoyo:true,transformOrigin:"50% 50%"},T("负责听")-.2);
+ tl.fromTo(S+"cl,"+S+"br",{opacity:0,scale:.7},{opacity:1,scale:1,duration:.5,stagger:.1,ease:"back.out(1.6)"},T("云端")-.5);
+ tl.to(S+"up",{opacity:1,strokeDashoffset:-140,duration:2,ease:"none"},T("声音")-.1);
+ tl.to(S+"br",{scale:1.1,duration:.3,yoyo:true,repeat:5,transformOrigin:"50% 50%"},T("AI")-.1);
+ [["o1","文字"],["o2","重点总结"],["o3","办"]].forEach(function(a){tl.fromTo(S+a[0],{opacity:0,x:-60,scale:.8},{opacity:1,x:0,scale:1,duration:.45,ease:"back.out(1.6)"},T(a[1])-.15);});
+ tl.fromTo(S+"ph",{opacity:0,y:40},{opacity:1,y:0,duration:.5},T("推送")-.4);
+ tl.to(S+"o1,"+S+"o2,"+S+"o3",{x:180,y:"+=330",scale:.5,opacity:0,duration:.7,stagger:.12,ease:"power2.in"},T("手机")-.1);
+ captions(tl,"s11-cap");
+ window.__timelines["s11"]=tl;
+})();
+</script>
+</template></body></html>

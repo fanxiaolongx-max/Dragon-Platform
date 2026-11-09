@@ -1,0 +1,56 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .pnl{position:absolute;background:#fffdf8;border:3px solid var(--ink);border-radius:26px;box-shadow:var(--sh)}
+#root .pnl .pt{position:absolute;left:0;right:0;top:0;height:64px;border-bottom:3px solid var(--ink);border-radius:23px 23px 0 0;display:flex;align-items:center;justify-content:center;font-size:38px}
+#root .lbl{position:absolute;font-size:36px;white-space:nowrap}
+#root .big{font-size:44px}
+</style>
+<div id="root" data-composition-id="s9" data-width="1920" data-height="1080">
+  <div class="paper"></div>
+  <div class="head" id="s9-h"><span class="step">第 6 层</span><span class="ttl">商业模式</span></div>
+  <div class="abs" id="s9-w" style="left:150px;top:260px"></div><div class="lbl" id="s9-wl" style="left:150px;top:420px">用户请求</div>
+  <div class="abs" id="s9-cl" style="left:1500px;top:220px"></div><div class="lbl" id="s9-cll" style="left:1520px;top:420px">算力中心</div>
+  <div class="tag abs" id="s9-a1" style="left:600px;top:240px;background:#fff">问一句话：几枚</div>
+  <div class="tag abs" id="s9-a2" style="left:600px;top:240px;background:#ffb3c6">生成视频：一大串</div>
+  <div id="s9-coins"></div>
+  <svg class="abs" id="s9-sc" style="left:560px;top:470px" width="800" height="380" viewBox="0 0 800 380" overflow="visible">
+   <path d="M400 70 V330 M300 340 H500" class="ln" style="stroke-width:7"/>
+   <g id="s9-beam"><path d="M120 70 H680" class="ln" style="stroke-width:7"/>
+    <g id="s9-pl"><path d="M120 70 L70 170 M120 70 L170 170" class="ln" style="stroke-width:4"/><path d="M50 170 H190 Q120 220 50 170Z" fill="#9fe0c9" stroke="#5b4636" stroke-width="4"/><text x="120" y="250" text-anchor="middle" font-family="ZCOOL KuaiLe" font-size="34" fill="#5b4636">用户付的钱</text></g>
+    <g id="s9-pr"><path d="M680 70 L630 170 M680 70 L730 170" class="ln" style="stroke-width:4"/><path d="M610 170 H750 Q680 220 610 170Z" fill="#ffb3c6" stroke="#5b4636" stroke-width="4"/><text x="680" y="250" text-anchor="middle" font-family="ZCOOL KuaiLe" font-size="34" fill="#5b4636">Token 成本</text></g></g>
+   <circle cx="400" cy="70" r="14" fill="#ffe08f" stroke="#5b4636" stroke-width="4"/></svg>
+  <div class="abs" id="s9-app" style="left:910px;top:300px"></div><div class="abs" id="s9-crack" style="left:930px;top:310px;font-size:80px;color:#f27b96">⚡</div>
+  <div class="abs" id="s9-pt" style="left:1380px;top:640px;display:flex;flex-direction:column;gap:12px"><span class="tag" style="background:#ffe08f;font-size:34px">按用量计费</span><span class="tag" style="background:#9fe0c9;font-size:34px">按效果付费</span></div>
+  <div class="abs" id="s9-d" style="left:110px;top:660px"></div>
+  <div id="s9-sp"></div>
+  <div class="cap" id="s9-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ var tl=gsap.timeline({paused:true});
+ var S="#s9-";
+ tl.fromTo("#s9-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.25);
+ put("s9-d",dino("dn",{w:230,h:230,body:"#8fd8b8"}));tl.fromTo("#s9-d",{opacity:0,y:80},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.5);dtail(tl,"dn",.6,30);
+ put("s9-w",icon("wallet","#ffb3c6",150));put("s9-cl",icon("server","#aed8f2",170));put("s9-app",icon("phone","#9fe0c9",110));
+ var c="";for(var i=0;i<14;i++)c+='<span class="abs cn" id="s9-c'+i+'" style="left:300px;top:'+(300+(i%3)*24)+'px"></span>';document.getElementById("s9-coins").innerHTML=c;
+ document.querySelectorAll("#s9-coins .cn").forEach(function(e){e.innerHTML=icon("coin","#ffe08f",54);});
+ gsap.set(S+"w,"+S+"wl,"+S+"cl,"+S+"cll,"+S+"a1,"+S+"a2,"+S+"sc,"+S+"app,"+S+"crack,"+S+"pt,.cn",{opacity:0});
+ tl.fromTo(S+"w,"+S+"wl,"+S+"cl,"+S+"cll",{opacity:0,y:30},{opacity:1,y:0,duration:.5,stagger:.1},T("Token")-.8);
+ var fly=function(n,t){for(var i=0;i<n;i++){tl.fromTo("#s9-c"+i,{opacity:0,x:0,y:0},{opacity:1,x:1180,y:-40+(i%3)*20,duration:1.1,ease:"sine.inOut"},t+i*.12);tl.to("#s9-c"+i,{opacity:0,duration:.15},t+i*.12+1.0);}};
+ pop(tl,S+"a1",T("问一句话")-.2,{});fly(3,T("问一句话"));tl.to(S+"a1",{opacity:0,duration:.25},T("生成一段")-.3);
+ pop(tl,S+"a2",T("生成一段")-.1,{});fly(14,T("生成一段")+.1);
+ tl.fromTo(S+"sc",{opacity:0,y:30},{opacity:1,y:0,duration:.5},T("如果")-.3);tl.fromTo(S+"app",{opacity:0,scale:.6},{opacity:1,scale:1,duration:.4,ease:"back.out(2)"},T("如果"));
+ tl.to("#s9-beam",{rotation:12,svgOrigin:"400 70",duration:.8,ease:"back.out(1.4)"},T("撑不住"));
+ tl.to("#s9-pl",{rotation:-12,svgOrigin:"120 70",duration:.8},T("撑不住"));tl.to("#s9-pr",{rotation:-12,svgOrigin:"680 70",duration:.8},T("撑不住"));
+ tl.fromTo(S+"crack",{opacity:0,scale:.3},{opacity:1,scale:1,duration:.3,ease:"back.out(3)"},T("亏得"));tl.to(S+"app",{rotation:-8,x:-6,duration:.08,repeat:7,yoyo:true},T("亏得"));tl.to(S+"app",{filter:"grayscale(1)",duration:.3},T("亏得"));
+ tl.fromTo("#s9-pt .tag",{opacity:0,x:40},{opacity:1,x:0,duration:.4,stagger:.3},T("按用量")-.2);tl.set(S+"pt",{opacity:1},T("按用量")-.2);
+ tl.to("#s9-beam,#s9-pl,#s9-pr",{rotation:0,duration:.9,ease:"back.out(1.6)"},T("回正")-.3);
+ tl.to(S+"crack",{opacity:0,duration:.3},T("回正")-.3);tl.to(S+"app",{filter:"grayscale(0)",scale:1.15,duration:.4,yoyo:true,repeat:1},T("回正"));
+ captions(tl,"s9-cap");
+ window.__timelines["s9"]=tl;
+})();
+</script>
+</template></body></html>

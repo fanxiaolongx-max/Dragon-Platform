@@ -208,7 +208,7 @@ test('built-in skills can be customized with automatic backup of pristine versio
 });
 
 
-test('NetCare recommendations follow the current tenant configuration without hiding management entries', async () => {
+test('NetCare recommendations follow the shared platform configuration without hiding management entries', async () => {
     const config = require('../backend/models/digital-human/config-repository');
     assert.ok((await store.listAll()).some(item => item.id === 'netcare-data'));
     const disabled = await store.loadAll('本月哪些指标没达标');
@@ -222,8 +222,9 @@ test('NetCare recommendations follow the current tenant configuration without hi
     try {
         assert.ok((await store.loadAll('查指标')).catalog.some(item => item.id === 'netcare-data'));
         assert.match((await store.loadSection('netcare-data')).section, /### @netcare-data/);
+        // 数字人对接是超级管理员统一配置、所有团队共用的平台级配置
         await runWithTenant('acme', async () => {
-            assert.equal((await store.loadAll('查指标')).catalog.some(item => item.id === 'netcare-data'), false);
+            assert.equal((await store.loadAll('查指标')).catalog.some(item => item.id === 'netcare-data'), true);
         });
     } finally {
         await config.saveConfig({ enabled: false });

@@ -47,7 +47,7 @@ test('manual comparison exposes market differences without automatic prompts; on
     fs.writeFileSync(path.join(installedDir, 'user-note.txt'), 'keep me');
     const app = express();
     app.use(express.json());
-    app.use((req, _res, next) => runWithTenant('manual', () => { req.user = { role: req.headers['x-test-role'] || 'admin' }; next(); }));
+    app.use((req, _res, next) => runWithTenant('manual', () => { req.user = { role: req.headers['x-test-role'] || 'admin', isSuper: true }; next(); }));
     app.use('/api/custom-tools', router);
     const url = '/api/custom-tools/builtin-sync';
     await request(app).get(url + '/preview?manual=1').set('x-test-role', 'viewer').expect(403);
@@ -85,7 +85,7 @@ test('stream endpoint keeps admin checks, tenant paths and result/error contract
     const app = express();
     app.use(express.json());
     app.use((req, _res, next) => runWithTenant(req.headers['x-test-tenant'] || 'alpha', () => {
-        req.user = { role: req.headers['x-test-role'] || 'admin' }; next();
+        req.user = { role: req.headers['x-test-role'] || 'admin', isSuper: true }; next();
     }));
     app.use('/api/custom-tools', router);
     const endpoint = '/api/custom-tools/builtin-sync/apply-stream';
@@ -125,7 +125,7 @@ test('preview-stream endpoint checks admin role and streams progress and preview
     const app = express();
     app.use(express.json());
     app.use((req, _res, next) => runWithTenant('alpha', () => {
-        req.user = { role: req.headers['x-test-role'] || 'admin' }; next();
+        req.user = { role: req.headers['x-test-role'] || 'admin', isSuper: true }; next();
     }));
     app.use('/api/custom-tools', router);
     const endpoint = '/api/custom-tools/builtin-sync/preview-stream?manual=1';

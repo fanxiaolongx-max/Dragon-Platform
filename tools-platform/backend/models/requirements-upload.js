@@ -28,17 +28,12 @@ function cleanup() {
 }
 setInterval(cleanup, 60000).unref();
 
-function authorizeTarget(target, user) {
-    if (target.method === 'PUT' && user.role !== 'admin') fail('没有权限，提交后仅管理员可修改需求信息', 403);
-}
-
 function getSession(id, user) {
     cleanup();
     const session = sessions.get(id);
     if (!session || session.tenant !== getTenantId() || session.owner !== user.username) {
         fail('需求上传会话不存在或已过期，请重新提交', 404);
     }
-    authorizeTarget(session.target, user);
     session.expiresAt = Date.now() + TTL;
     return session;
 }
@@ -60,7 +55,6 @@ function start(body, user) {
         fail('需求分块上传参数无效或总大小超过 50 MB');
     }
     const target = { method, requirementId, path: method === 'POST' ? '/api/requirements' : `/api/requirements/${requirementId}` };
-    authorizeTarget(target, user);
     const active = [...sessions.values()].filter(session => !session.completed);
     if (active.length >= 32 || active.filter(session => session.tenant === getTenantId() && session.owner === user.username).length >= 3) {
         fail('未完成的需求上传过多，请稍后重试', 429);

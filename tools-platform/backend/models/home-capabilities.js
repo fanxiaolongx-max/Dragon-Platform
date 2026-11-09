@@ -64,7 +64,7 @@ const PROVIDERS = [
         where: '「F12扩展打包」→ 选择脚本',
         whereEn: 'F12 Extension Packager → script picker',
         href: F12_PACKER_HREF,
-        async list({ isAdmin }) {
+        async list({ isAdmin, seed = true }) {
             const items = Object.entries(loadF12BuiltinCatalog()).map(([id, preset]) => ({
                 id: `f12:builtin:${id}`,
                 name: preset.name || id,
@@ -78,7 +78,7 @@ const PROVIDERS = [
             }));
             // 服务器脚本库只对管理员开放（与打包器接口权限一致）
             if (isAdmin) {
-                await bundledScripts.ensureSeeded();
+                if (seed) await bundledScripts.ensureSeeded();
                 const bundledIds = bundledScripts.bundledIds('f12');
                 const presets = await f12PresetsRepository.listPresets();
                 const builtinNames = new Set(items.map(item => item.name));
@@ -106,8 +106,8 @@ const PROVIDERS = [
         where: '「Python脚本更新器」→ 脚本列表',
         whereEn: 'Python Script Updater → script list',
         href: PYTHON_PACKER_HREF,
-        async list() {
-            await bundledScripts.ensureSeeded();
+        async list({ seed = true }) {
+            if (seed) await bundledScripts.ensureSeeded();
             const bundledIds = bundledScripts.bundledIds('python');
             const scripts = await pythonScriptRepository.listScripts();
             return scripts.map(script => ({
@@ -163,11 +163,37 @@ const PROVIDERS = [
     }
 ];
 
-async function listCapabilities({ isAdmin = false, lang = 'zh-CN' } = {}) {
+async function listCapabilities({ isAdmin = false, user, ignorePersonal = false, lang = 'zh-CN' } = {}) {
+    const { isSuperAdmin } = require('../middleware/auth');
+    const { allowedEntries, personalEntries } = require('./tool-distribution');
+    const { DEFAULT_TENANT_ID, getTenantId, runWithTenant } = require('./tenant-context');
+    const superAdmin = user && isSuperAdmin(user);
+    const allowed = user ? await allowedEntries() : null;
+    const preferences = user && !ignorePersonal ? await personalEntries(user) : new Map();
     const groups = await Promise.all(PROVIDERS.map(async provider => {
         let items = [];
         try {
-            items = await provider.list({ isAdmin, lang });
+            items = user
+                ? await runWithTenant(DEFAULT_TENANT_ID, () => provider.list({ isAdmin: true, lang }))
+                : await provider.list({ isAdmin, lang });
+            if (user && !superAdmin) {
+                const platformIds = new Set(items.map(item => item.id));
+                items = items.filter(item => allowed.has(`cap:${item.id}`));
+                if (!ignorePersonal && getTenantId() !== DEFAULT_TENANT_ID) {
+                    const local = await provider.list({ isAdmin: user.role === 'admin', lang, seed: false });
+                    if (provider.kind === 'float') {
+                        const localIds = new Set(local.map(item => item.id));
+                        items = [...local, ...items.filter(item => !localIds.has(item.id))];
+                    } else {
+                        items.push(...local.filter(item => !item.builtIn && !platformIds.has(item.id)
+                            && !preferences.get(`cap:${item.id}`)?.fork));
+                    }
+                }
+                items = items.flatMap(item => {
+                    const prefs = preferences.get(`cap:${item.id}`) || {};
+                    return prefs.hidden ? [] : [{ ...item, name: prefs.name || item.name, nameEn: prefs.name || item.nameEn }];
+                });
+            }
         } catch (error) {
             console.warn(`[home-capabilities] ${provider.kind} provider failed:`, error.message);
         }
@@ -175,10 +201,10 @@ async function listCapabilities({ isAdmin = false, lang = 'zh-CN' } = {}) {
         return {
             ...meta,
             count: items.length,
-            items: items.map(item => ({ ...item, kind: provider.kind, icon: provider.icon, color: provider.color }))
+            items: items.map(item => ({ ...item, kind: provider.kind, icon: provider.icon, color: provider.color, sharedAccess: allowed?.has(`cap:${item.id}`) }))
         };
     }));
     return { groups: groups.filter(group => group.count > 0), generatedAt: new Date().toISOString() };
 }
 
-module.exports = { listCapabilities, PROVIDERS };
+module.exports = { listCapabilities, PROVIDERS, uivScriptOrigin };

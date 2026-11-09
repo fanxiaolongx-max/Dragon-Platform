@@ -44,14 +44,14 @@ function parse(markdown) {
     return store.normalizeSkillMarkdown(String(markdown || ''));
 }
 
-async function preview(name, args = {}, { secrets = [] } = {}) {
+async function preview(name, args = {}, { secrets = [], user } = {}) {
     if (name !== 'save_skill') return {};
     const store = require('./agent-skills-store');
     // 含账号密码的直接拒绝，不弹审批卡
     const problem = credentialProblem(String(args.markdown || ''), secrets);
     if (problem) throw Object.assign(new Error(`没有提交：${problem}。请删掉相关内容后重新提交`), { code: 'SKILL_HAS_CREDENTIALS' });
     const skill = parse(args.markdown);
-    const current = await store.getSkill(skill.id).catch(() => null);
+    const current = await store.withSkillForUser(skill.id, user, item => store.getSkill(item.id)).catch(() => null);
     const before = current?.markdown || '';
     const after = String(args.markdown || '');
     const diff = unifiedDiff(`@${skill.id}`, before, after);
@@ -64,12 +64,12 @@ async function preview(name, args = {}, { secrets = [] } = {}) {
     };
 }
 
-async function execute(call, { username = '', secrets = [] } = {}) {
+async function execute(call, { username = '', secrets = [], user } = {}) {
     const args = call.args && typeof call.args === 'object' ? call.args : {};
     const store = require('./agent-skills-store');
     try {
         if (call.name === 'read_skill') {
-            const skill = await store.getSkill(String(args.id || '').replace(/^@/, ''));
+            const skill = await store.withSkillForUser(String(args.id || '').replace(/^@/, ''), user, item => store.getSkill(item.id));
             if (!skill) return { content: `没有技能 @${args.id}；新建技能直接用 save_skill 提交。`, summary: '没有这个技能', isError: true };
             return { content: redactText(skill.markdown, { secrets }), summary: `读取 @${skill.id}` };
         }
@@ -77,8 +77,8 @@ async function execute(call, { username = '', secrets = [] } = {}) {
         const problem = credentialProblem(markdown, secrets);
         if (problem) return { content: `没有保存：${problem}。请删掉相关内容后重新提交。`, summary: '技能含账号密码，未保存', isError: true };
         const skill = parse(markdown);
-        const existed = Boolean(await store.getSkill(skill.id).catch(() => null));
-        const saved = await store.createFromMarkdown(markdown, { source: 'agent', createdBy: username, overwrite: true });
+        const existed = Boolean(await store.withSkillForUser(skill.id, user, item => store.getSkill(item.id)).catch(() => null));
+        const saved = await store.createFromMarkdown(markdown, { source: 'agent', createdBy: username, overwrite: true, user });
         return {
             content: `已${existed ? '更新' : '创建'}技能 @${saved.id}「${saved.name}」${existed ? '，旧版本已自动备份，可在技能管理里回退' : ''}。下次对话即可使用。`,
             summary: `${existed ? '更新' : '创建'} @${saved.id}`
@@ -89,16 +89,17 @@ async function execute(call, { username = '', secrets = [] } = {}) {
 }
 
 /** 附加工具组：read_skill 只读；save_skill 每次确认（kind 'confirm'） */
-function toolset({ owner = '', secrets = [] } = {}) {
+function toolset({ owner = '', user, secrets = [] } = {}) {
     const username = String(owner).split('::').pop();
+    const actor = () => user ?? require('./tool-distribution').actorForOwner(owner);
     return {
         id: 'skill_evolution',
         label: '技能自我进化：读取技能当前版本、提交创建或完善后的技能（用户审批后保存，自动备份）',
         definitions: DEFINITIONS,
         kindOf: name => (name === 'save_skill' ? 'confirm' : 'read'),
-        preview: (name, args) => preview(name, args, { secrets }),
+        preview: async (name, args) => preview(name, args, { secrets, user: await actor() }),
         alwaysKey: name => name,
-        execute: call => execute(call, { username, secrets })
+        execute: async call => execute(call, { username, secrets, user: await actor() })
     };
 }
 

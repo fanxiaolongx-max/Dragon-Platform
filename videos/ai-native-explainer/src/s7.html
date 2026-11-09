@@ -1,0 +1,51 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .pnl{position:absolute;background:#fffdf8;border:3px solid var(--ink);border-radius:26px;box-shadow:var(--sh)}
+#root .pnl .pt{position:absolute;left:0;right:0;top:0;height:64px;border-bottom:3px solid var(--ink);border-radius:23px 23px 0 0;display:flex;align-items:center;justify-content:center;font-size:38px}
+#root .lbl{position:absolute;font-size:36px;white-space:nowrap}
+#root .big{font-size:44px}#root .ln3{height:22px;border-radius:11px;background:#e6dfd6;margin-bottom:22px}
+</style>
+<div id="root" data-composition-id="s7" data-width="1920" data-height="1080">
+  <div class="paper"></div>
+  <div class="head" id="s7-h"><span class="step">第 4 层</span><span class="ttl">用户</span></div>
+  <div class="pnl" id="s7-l" style="left:110px;top:220px;width:860px;height:620px"><div class="pt" style="background:#9fe0c9">新一代用户：直接说</div></div>
+  <div class="abs" id="s7-kid" style="left:140px;top:520px"></div>
+  <div class="bubble" id="s7-say" style="left:170px;top:330px;font-size:34px">讲一个恐龙去太空的故事！</div>
+  <div class="abs" id="s7-tab" style="left:470px;top:440px;width:440px;height:330px;border:3px solid var(--ink);border-radius:30px;background:#2f3a64;box-shadow:var(--sh);overflow:hidden">
+    <svg id="s7-art" width="440" height="230" viewBox="0 0 440 230"><circle cx="70" cy="50" r="5" fill="#fff"/><circle cx="380" cy="40" r="4" fill="#fff"/><circle cx="300" cy="90" r="3" fill="#fff"/><circle cx="120" cy="150" r="3" fill="#fff"/>
+     <circle cx="350" cy="170" r="44" fill="#ffc29a" stroke="#5b4636" stroke-width="4"/><path d="M150 150 L200 70 L250 150 Z" fill="#fff" stroke="#5b4636" stroke-width="4" stroke-linejoin="round"/><rect x="170" y="150" width="60" height="50" rx="8" fill="#aed8f2" stroke="#5b4636" stroke-width="4"/><path id="s7-fire" d="M180 200 L200 228 L220 200 Z" fill="#ffd166"/></svg>
+    <div id="s7-story" style="background:#fffdf8;height:100px;padding:14px 18px;font-size:26px;line-height:1.4"></div></div>
+  <div class="pnl" id="s7-r" style="left:1010px;top:220px;width:800px;height:620px"><div class="pt" style="background:#e6dfd6">很多大人：一个字一个字地敲</div></div>
+  <div class="abs" id="s7-adult" style="left:1040px;top:530px"></div>
+  <div class="abs" id="s7-sb" style="left:1290px;top:400px;width:480px;height:80px;border:3px solid var(--ink);border-radius:40px;background:#fff;display:flex;align-items:center;gap:14px;padding:0 22px;font-size:34px"><span id="s7-mg"></span><span id="s7-kw"></span><i id="s7-caret" style="width:3px;height:40px;background:#5b4636"></i></div>
+  <div class="abs" id="s7-res" style="left:1290px;top:510px;width:480px"><div class="ln3"></div><div class="ln3" style="width:80%"></div><div class="ln3" style="width:90%"></div><div class="ln3" style="width:60%"></div></div>
+  <div id="s7-sp"></div>
+  <div class="cap" id="s7-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ var tl=gsap.timeline({paused:true});
+ var S="#s7-";
+ tl.fromTo("#s7-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.25);
+ 
+ put("s7-kid",dino("kid",{w:250,h:250,body:"#ffe08f",spike:"#ffb3c6",wing:"#9fe0c9"}));put("s7-adult",dino("ad",{w:260,h:260,body:"#aed8f2",spike:"#ffe08f",wing:"#d9c6ef"}));put("s7-mg",icon("search","#aed8f2",44));
+ gsap.set(S+"l,"+S+"kid,"+S+"say,"+S+"tab,"+S+"r,"+S+"adult,"+S+"sb,"+S+"res",{opacity:0});gsap.set("#s7-art",{opacity:0});
+ tl.fromTo(S+"l,"+S+"kid",{opacity:0,y:40},{opacity:1,y:0,duration:.6,stagger:.15,ease:"power3.out"},T("新一代")-.4);dtail(tl,"kid",T("新一代"),20);
+ tl.fromTo(S+"tab",{opacity:0,y:30},{opacity:1,y:0,duration:.5},T("平板")-.3);
+ pop(tl,S+"say",T("讲一个")-.2,{});
+ tl.fromTo("#s7-art",{opacity:0,scale:.8},{opacity:1,scale:1,duration:.6,ease:"back.out(1.6)",transformOrigin:"50% 50%"},T("插画"));
+ typeText(tl,"s7-story","小恐龙登上火箭，飞向橙色的星球…",T("故事",1)-.2,1.6);
+ tl.to("#s7-fire",{scaleY:1.5,duration:.15,yoyo:true,repeat:11,transformOrigin:"50% 0%"},T("插画"));
+ dcheer(tl,"kid",T("马上"));
+ tl.fromTo(S+"r,"+S+"adult,"+S+"sb",{opacity:0,y:40},{opacity:1,y:0,duration:.6,stagger:.15,ease:"power3.out"},T("很多大人")-.4);dtail(tl,"ad",T("很多大人"),10);
+ typeText(tl,"s7-kw","恐龙 太空 故事 儿童",T("一个字")-.1,2.4);dtype(tl,"ad",T("一个字")-.1,2.4);
+ tl.to("#s7-caret",{opacity:0,duration:.01,repeat:12,yoyo:true,repeatDelay:.25},T("很多大人"));
+ tl.fromTo(S+"res",{opacity:0,y:20},{opacity:1,y:0,duration:.4},T("关键词")+.4);
+ captions(tl,"s7-cap");
+ window.__timelines["s7"]=tl;
+})();
+</script>
+</template></body></html>

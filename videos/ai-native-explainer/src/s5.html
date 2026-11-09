@@ -1,0 +1,60 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .pnl{position:absolute;background:#fffdf8;border:3px solid var(--ink);border-radius:26px;box-shadow:var(--sh)}
+#root .pnl .pt{position:absolute;left:0;right:0;top:0;height:64px;border-bottom:3px solid var(--ink);border-radius:23px 23px 0 0;display:flex;align-items:center;justify-content:center;font-size:38px}
+#root .lbl{position:absolute;font-size:36px;white-space:nowrap}
+#root .big{font-size:44px}
+#root .st{width:230px;height:200px;border:3px solid var(--ink);border-radius:24px;box-shadow:var(--sh);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+#root .st b{font-weight:400;font-size:46px}#root .st span{font-size:30px}
+#root .st i{position:absolute;right:14px;top:14px;width:46px;height:56px;background:#fff;border:2.5px solid var(--ink);border-radius:5px}
+#root .ar{font-size:60px}
+</style>
+<div id="root" data-composition-id="s5" data-width="1920" data-height="1080">
+  <div class="paper"></div>
+  <div class="head" id="s5-h"><span class="step">第 3 层</span><span class="ttl">组织 · 传统流程</span></div>
+  <svg class="abs" style="left:110px;top:560px" width="1700" height="20"><path id="s5-belt" d="M0 10 H1700" stroke="#5b4636" stroke-width="6" stroke-dasharray="18 14"/></svg>
+  <div class="abs st" id="s5-k0" style="left:120px;top:300px;background:#ffb3c6"><b>业务</b><span>提需求</span><i></i><i style="top:-8px;left:10px"></i></div>
+  <div class="abs" id="s5-d0" style="left:165px;top:600px"></div>
+  <div class="abs ar" id="s5-a0" style="left:360px;top:355px">→</div>
+  <div class="abs st" id="s5-k1" style="left:405px;top:300px;background:#aed8f2"><b>产品</b><span>写文档</span><i></i><i style="top:-8px;left:10px"></i></div>
+  <div class="abs" id="s5-d1" style="left:450px;top:600px"></div>
+  <div class="abs ar" id="s5-a1" style="left:645px;top:355px">→</div>
+  <div class="abs st" id="s5-k2" style="left:690px;top:300px;background:#ffe08f"><b>设计</b><span>画图</span><i></i><i style="top:-8px;left:10px"></i></div>
+  <div class="abs" id="s5-d2" style="left:735px;top:600px"></div>
+  <div class="abs ar" id="s5-a2" style="left:930px;top:355px">→</div>
+  <div class="abs st" id="s5-k3" style="left:975px;top:300px;background:#9fe0c9"><b>开发</b><span>写代码</span><i></i><i style="top:-8px;left:10px"></i></div>
+  <div class="abs" id="s5-d3" style="left:1020px;top:600px"></div>
+  <div class="abs ar" id="s5-a3" style="left:1215px;top:355px">→</div>
+  <div class="abs st" id="s5-k4" style="left:1260px;top:300px;background:#d9c6ef"><b>测试</b><span>找问题</span><i></i><i style="top:-8px;left:10px"></i></div>
+  <div class="abs" id="s5-d4" style="left:1305px;top:600px"></div>
+  <div class="abs ar" id="s5-a4" style="left:1500px;top:355px">→</div>
+  <div class="abs st" id="s5-k5" style="left:1545px;top:300px;background:#ffc29a"><b>上线</b><span>发布</span><i></i><i style="top:-8px;left:10px"></i></div>
+  <div class="abs" id="s5-d5" style="left:1590px;top:600px"></div>
+<div class="pnl" id="s5-cal" style="left:1560px;top:700px;width:250px;height:190px"><div class="pt" style="background:#ffb3c6;height:56px;font-size:30px">日历</div><div class="abs" id="s5-wk" style="left:0;right:0;top:80px;text-align:center;font-size:60px">第 1 周</div></div>
+  <div id="s5-sp"></div>
+  <div class="cap" id="s5-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ var tl=gsap.timeline({paused:true});
+ var S="#s5-";
+ tl.fromTo("#s5-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.25);
+ 
+ put("s5-d0",dino("d0",{w:150,h:150,body:"#ffb3c6"}));put("s5-d1",dino("d1",{w:150,h:150,body:"#aed8f2"}));put("s5-d2",dino("d2",{w:150,h:150,body:"#ffe08f"}));put("s5-d3",dino("d3",{w:150,h:150,body:"#9fe0c9"}));put("s5-d4",dino("d4",{w:150,h:150,body:"#d9c6ef"}));put("s5-d5",dino("d5",{w:150,h:150,body:"#ffc29a"}));
+ gsap.set(".st,.ar,#s5-cal,#s5-d0,#s5-d1,#s5-d2,#s5-d3,#s5-d4,#s5-d5",{opacity:0});
+ pop(tl,"#s5-k0",T("业务")-.15,{y:20});tl.fromTo("#s5-d0",{opacity:0,y:40},{opacity:1,y:0,duration:.45,ease:"back.out(1.6)"},T("业务")-.05);
+ pop(tl,"#s5-k1",T("产品")-.15,{y:20});tl.fromTo("#s5-d1",{opacity:0,y:40},{opacity:1,y:0,duration:.45,ease:"back.out(1.6)"},T("产品")-.05);tl.fromTo("#s5-a0",{opacity:0,x:-20},{opacity:1,x:0,duration:.3},T("产品")-.25);
+ pop(tl,"#s5-k2",T("设计")-.15,{y:20});tl.fromTo("#s5-d2",{opacity:0,y:40},{opacity:1,y:0,duration:.45,ease:"back.out(1.6)"},T("设计")-.05);tl.fromTo("#s5-a1",{opacity:0,x:-20},{opacity:1,x:0,duration:.3},T("设计")-.25);
+ pop(tl,"#s5-k3",T("开发")-.15,{y:20});tl.fromTo("#s5-d3",{opacity:0,y:40},{opacity:1,y:0,duration:.45,ease:"back.out(1.6)"},T("开发")-.05);tl.fromTo("#s5-a2",{opacity:0,x:-20},{opacity:1,x:0,duration:.3},T("开发")-.25);
+ pop(tl,"#s5-k4",T("测试")-.15,{y:20});tl.fromTo("#s5-d4",{opacity:0,y:40},{opacity:1,y:0,duration:.45,ease:"back.out(1.6)"},T("测试")-.05);tl.fromTo("#s5-a3",{opacity:0,x:-20},{opacity:1,x:0,duration:.3},T("测试")-.25);
+ pop(tl,"#s5-k5",T("上线")-.15,{y:20});tl.fromTo("#s5-d5",{opacity:0,y:40},{opacity:1,y:0,duration:.45,ease:"back.out(1.6)"},T("上线")-.05);tl.fromTo("#s5-a4",{opacity:0,x:-20},{opacity:1,x:0,duration:.3},T("上线")-.25);
+ var w=T("一转眼");tl.fromTo("#s5-cal",{opacity:0,y:30},{opacity:1,y:0,duration:.4},w-.5);["第 2 周","第 3 周","第 4 周"].forEach(function(t,i){tl.set("#s5-wk",{innerHTML:t},w+.3+i*.45);tl.fromTo("#s5-wk",{rotationX:80},{rotationX:0,duration:.3},w+.3+i*.45);});
+ tl.to(".st i",{y:-6,duration:.4,yoyo:true,repeat:9,ease:"sine.inOut"},T("业务"));
+ captions(tl,"s5-cap");
+ window.__timelines["s5"]=tl;
+})();
+</script>
+</template></body></html>
