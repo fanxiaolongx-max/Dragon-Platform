@@ -1,12 +1,12 @@
 {
   "zh": [
-    "终端面板支持标准终端快捷键与按键拦截，隔离页面快捷键（如 Ctrl+R/U/P 等），防止误触全局操作。",
-    "增强终端复制粘贴体验：支持快捷键与右键直接粘贴，支持 macOS 行编辑、全选、清屏与字体缩放。",
-    "Agent 遇到各类登录命令时自动切换至交互终端运行，并自动剔除管道传入的陈旧凭据。"
+    "优化 Agent 交互式登录命令识别，支持多行脚本换行及条件分支（||）后的登录命令。",
+    "自动剔除可能误杀进程的 pkill 命令段，终端标签页顶部增加授权指引并在失败时明确反馈。",
+    "增强交互式终端在模型重试与连续登录步骤下的运行稳定性。"
   ],
   "en": [
-    "Terminal panel now intercepts standard terminal keys (Ctrl+R/U/P) and prevents triggering page-level shortcuts.",
-    "Enhanced copy & paste in terminal: supports multi-key shortcuts, right-click paste, macOS line editing, clear, and font zoom.",
-    "Agent login commands are automatically upgraded to run interactively in the terminal with stale piped credentials dropped."
+    "Improved Agent interactive login detection to reliably handle multi-line scripts and conditional chains (||).",
+    "Automatically drop self-killing pkill commands, add an authorization banner in interactive tabs, and return clear failure feedback.",
+    "Enhanced interactive terminal stability during model retries and multi-step logins."
   ]
 }
