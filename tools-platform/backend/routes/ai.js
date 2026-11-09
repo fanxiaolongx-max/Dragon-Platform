@@ -578,7 +578,7 @@ function compactRecordedEvent(event) {
 router.get('/skills', checkAuth, async (_req, res) => {
     try {
         res.setHeader('Cache-Control', 'no-store');
-        res.json({ items: (await agentSkillsStore.listAll()).map(({ id, name, nameEn, description, descriptionEn, workspace, icon, builtIn }) => ({ id, name, nameEn, description, descriptionEn, workspace, icon, builtIn })) });
+        res.json({ items: (await agentSkillsStore.listAll()).map(({ id, name, nameEn, description, descriptionEn, workspace, icon, builtIn, customized, source }) => ({ id, name, nameEn, description, descriptionEn, workspace, icon, builtIn, customized: Boolean(customized), source: builtIn ? 'builtin' : source || 'chat' })) });
     } catch (error) {
         res.status(500).json({ error: `读取技能列表失败: ${error.message}` });
     }

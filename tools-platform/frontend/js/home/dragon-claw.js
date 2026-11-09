@@ -2063,6 +2063,7 @@
                     if (event.type === 'title') { scheduleChatListRefresh(100); return; }
                     if (controller.signal.aborted || !reply.isConnected) return;
                     if (event.type === 'start' && event.sessionId) {
+                    if (event.type === 'skills_changed') { window.dispatchEvent(new CustomEvent('skills:changed', { detail: { ids: event.ids } })); return; }
                         state.sessionId = event.sessionId;
                         rememberLastChat(event.sessionId, workspacePayload ? { agentSessionId: workspacePayload.agentSessionId, root: workspacePayload.root } : null);
                     }

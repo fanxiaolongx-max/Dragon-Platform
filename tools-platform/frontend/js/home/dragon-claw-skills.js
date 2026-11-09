@@ -62,6 +62,7 @@
             option.dataset.skillIndex = String(index); option.tabIndex = -1; option.setAttribute('role', 'option');
             const label = document.createElement('b'), description = document.createElement('span');
             label.textContent = `${item.icon ? `${item.icon} ` : ''}@${item.id} · ${en() ? item.nameEn : item.name}`;
+            if (window.SkillSource) label.insertAdjacentHTML('beforeend', window.SkillSource.dot(item));
             description.textContent = en() ? item.descriptionEn : item.description;
             option.append(label, description);
             if (item.workspace && !window.DragonClawWorkspace?.getWorkspacePayload?.()) {

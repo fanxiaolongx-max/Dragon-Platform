@@ -684,8 +684,20 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
                 owner: session.owner,
                 onStart: view => write({ type: 'command_terminal', runId: run.id, callId: call.id, terminalId: view.id, title: view.title, cwd: view.cwd, pty: view.pty, shellLabel: view.shellLabel })
             } : null;
+            const commandStarted = Date.now();
             outcome = await toolsService.execute(live ? { ...toolCtx, onOutput: live.push, interactive } : toolCtx, call.name, call.args);
             live?.end(outcome);
+            // 命令往本机 AI 工具技能目录里装了技能（如 thcli +connect）：收进平台技能库，之后可直接 @ 引用
+            if (call.name === 'run_command' && !session.readOnly) {
+                try {
+                    const captured = await require('./agent-skills-store').captureExternalSkills({ since: commandStarted - 2000, createdBy: session.owner || '' });
+                    const ids = [...captured.added, ...captured.updated];
+                    if (ids.length) {
+                        outcome = { ...outcome, content: `${outcome.content}\n（系统：这条命令生成的 ${ids.length} 个技能已收录到 Dragon Claw 技能库${captured.updated.length ? `（其中 ${captured.updated.length} 个为更新）` : ''}：${ids.map(id => `@${id}`).join(' ')}。用户之后可在对话里直接 @ 引用，也会显示在技能列表里。）` };
+                        write({ type: 'skills_changed', runId: run.id, ids });
+                    }
+                } catch { /* 收录失败不影响命令结果 */ }
+            }
         }
         // 命令输出随事件下发（截断），界面可展开查看，也随会话记录入库
         const output = (call.name === 'run_command' || /_uiv_/.test(call.name)) && typeof outcome.content === 'string' ? outcome.content.slice(0, toolsService.LIMITS.resultChars) : undefined;

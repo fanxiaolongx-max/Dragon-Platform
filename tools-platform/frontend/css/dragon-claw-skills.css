@@ -70,3 +70,10 @@ body.light-theme .dc-skill-draft .dc-action:not(.dc-action--primary) { color: va
     .dc-skill-draft { grid-template-columns: 36px minmax(0, 1fr); }
     .dc-skill-draft-actions { grid-column: 1 / -1; justify-content: flex-start; }
 }
+
+/* 技能来源小圆点：内置 / 对话创建 / 导入 / 外部命令生成；技能卡片、技能中心、@ 菜单共用 */
+.skill-src-dot { --src: #10b981; display: inline-block; width: 7px; height: 7px; margin: 0 2px 1px 7px; border-radius: 50%; vertical-align: middle; flex-shrink: 0;
+    background: radial-gradient(circle at 35% 35%, color-mix(in srgb, var(--src) 55%, #fff), var(--src) 70%); box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--src) 18%, transparent); }
+.skill-src-dot[data-src="chat"] { --src: #8b5cf6; }
+.skill-src-dot[data-src="import"] { --src: #f59e0b; }
+.skill-src-dot[data-src="external"] { --src: #0ea5e9; }

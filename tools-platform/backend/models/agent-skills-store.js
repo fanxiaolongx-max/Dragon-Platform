@@ -462,6 +462,77 @@ async function importArchive(buffer, options = {}) {
     return { ...meta, skippedFiles: parsed.skipped };
 }
 
+// ── 外部生成的技能收录 ──
+// 智能体运行的命令（如 thcli +connect、某些 CLI 的 skills install）会把 SKILL.md 写进本机各 AI 工具的技能目录。
+// 这里把命令期间新出现 / 更新的技能复制进平台技能库（source = 'external'），统一由平台管理、可 @ 引用；
+// 不引用外部路径，外部目录之后被删改不影响平台里的副本。用户自己建的同名技能不覆盖。
+const EXTERNAL_SKILL_DIRS = ['.claude/skills', '.agents/skills', '.codex/skills', '.cursor/skills', '.codebuddy/skills', '.openclaw/skills', '.gemini/skills', '.workbuddy/skills', '.trae/skills', '.kimi/skills', '.config/opencode/skills'];
+
+function readSkillFolder(dir) {
+    const fs = require('fs');
+    const path = require('path');
+    const files = [];
+    let total = 0;
+    const walk = (current, depth) => {
+        if (depth > 3 || files.length >= LIMITS.files) return;
+        let entries = [];
+        try { entries = fs.readdirSync(current, { withFileTypes: true }); } catch { return; }
+        for (const entry of entries) {
+            if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === '__pycache__') continue;
+            const full = path.join(current, entry.name);
+            if (entry.isDirectory()) { walk(full, depth + 1); continue; }
+            const relative = path.relative(dir, full).split(path.sep).join('/');
+            if (relative.toLowerCase() === 'skill.md' || !TEXT_FILE_RE.test(relative) || files.length >= LIMITS.files) continue;
+            let content;
+            try { content = fs.readFileSync(full, 'utf8'); } catch { continue; }
+            const bytes = Buffer.byteLength(content);
+            if (bytes > LIMITS.fileBytes || total + bytes > LIMITS.totalFileBytes) continue;
+            total += bytes;
+            files.push({ path: relative, content });
+        }
+    };
+    walk(dir, 0);
+    return files.sort((a, b) => a.path.localeCompare(b.path));
+}
+
+/** 收录 since（毫秒时间戳）之后在本机技能目录里新建或更新的技能；返回 { added, updated } 的技能标识 */
+async function captureExternalSkills({ since = 0, home = require('os').homedir(), createdBy = '' } = {}) {
+    const fs = require('fs');
+    const path = require('path');
+    const found = new Map(); // 同一技能常被注入到多个工具目录，按文件夹名去重，取最新的一份
+    for (const relative of EXTERNAL_SKILL_DIRS) {
+        const root = path.join(home, relative);
+        let entries = [];
+        try { entries = fs.readdirSync(root, { withFileTypes: true }); } catch { continue; }
+        for (const entry of entries) {
+            if (entry.name.startsWith('.')) continue;
+            const dir = path.join(root, entry.name);
+            const file = path.join(dir, 'SKILL.md');
+            let stat;
+            try { stat = fs.statSync(file); } catch { continue; }
+            if (!stat.isFile() || stat.mtimeMs < since) continue;
+            const previous = found.get(entry.name);
+            if (!previous || previous.mtimeMs < stat.mtimeMs) found.set(entry.name, { dir, file, mtimeMs: stat.mtimeMs });
+        }
+    }
+    const added = [];
+    const updated = [];
+    for (const [folder, item] of found) {
+        try {
+            const skill = normalizeSkillMarkdown(fs.readFileSync(item.file, 'utf8'), { fallbackId: folder });
+            if (builtinSkills.builtin(skill.id)) continue;
+            const existing = await getCustom(skill.id);
+            if (existing && existing.source !== 'external') continue; // 用户自己创建 / 导入的同名技能不动
+            const files = readSkillFolder(item.dir);
+            if (existing && existing.body === skill.body && JSON.stringify(existing.files || []) === JSON.stringify(files)
+                && existing.description === skill.description && existing.name === skill.name) continue;
+            await saveSkill(skill, { files, source: 'external', createdBy, overwrite: Boolean(existing) });
+            (existing ? updated : added).push(skill.id);
+        } catch { /* 格式不对的 SKILL.md 跳过 */ }
+    }
+    return { added, updated };
+}
+
 /** 导入前预览：返回识别出的标识与名称，供导入对话框预填，不写库 */
 async function previewArchive(buffer, { archiveName = '' } = {}) {
     const parsed = await parseSkillArchive(buffer, { archiveName });
@@ -635,6 +706,7 @@ module.exports = {
     insertDemoted,
     createFromMarkdown,
     importArchive,
+    captureExternalSkills,
     previewArchive,
     previewMarkdown,
     rename,

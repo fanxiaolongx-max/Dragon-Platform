@@ -229,3 +229,38 @@ test('NetCare recommendations follow the current tenant configuration without hi
         await config.saveConfig({ enabled: false });
     }
 });
+
+test('skills that a command writes into local AI-tool skill folders are copied into the platform store', async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-capture-home-'));
+    const write = (dir, id, body, extra = {}) => {
+        const folder = path.join(home, dir, id);
+        fs.mkdirSync(path.join(folder, 'references'), { recursive: true });
+        fs.writeFileSync(path.join(folder, 'SKILL.md'), `---\nname: ${id}\ndescription: ${id} 的说明\n---\n${body}\n`);
+        for (const [file, content] of Object.entries(extra)) fs.writeFileSync(path.join(folder, file), content);
+        return folder;
+    };
+    const old = write('.claude/skills', 'old-local-skill', '旧的本机技能');
+    const past = (Date.now() - 3600_000) / 1000;
+    fs.utimesSync(path.join(old, 'SKILL.md'), past, past);
+    const since = Date.now() - 1000;
+    write('.claude/skills', 'cli-demo', '用 demo 命令查询', { 'references/cmd.md': '命令参考' });
+    write('.codex/skills', 'cli-demo', '用 demo 命令查询', { 'references/cmd.md': '命令参考' });
+    await store.createFromMarkdown('---\nid: mine-skill\nname: 我的技能\n---\n用户自己写的', {});
+    write('.agents/skills', 'mine-skill', '外部同名，不应覆盖');
+
+    let result = await store.captureExternalSkills({ since, home });
+    assert.deepEqual(result, { added: ['cli-demo'], updated: [] });
+    const saved = await store.getSkill('cli-demo');
+    assert.equal(saved.source, 'external');
+    assert.deepEqual(saved.files.map(file => file.path), ['references/cmd.md']);
+    assert.equal(await store.getSkill('old-local-skill'), null);
+    assert.match((await store.getSkill('mine-skill')).body, /用户自己写的/);
+    assert.ok((await store.listAll()).find(item => item.id === 'cli-demo' && item.source === 'external'));
+
+    assert.deepEqual(await store.captureExternalSkills({ since, home }), { added: [], updated: [] });
+    write('.claude/skills', 'cli-demo', '用 demo 命令查询（新版）');
+    result = await store.captureExternalSkills({ since, home });
+    assert.deepEqual(result.updated, ['cli-demo']);
+    assert.match((await store.getSkill('cli-demo')).body, /新版/);
+    fs.rmSync(home, { recursive: true, force: true });
+});
