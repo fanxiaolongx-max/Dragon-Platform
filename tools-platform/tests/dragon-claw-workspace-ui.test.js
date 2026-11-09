@@ -203,7 +203,7 @@ test('/session lists my chats and resuming replays tool cards and command output
     for (const key of ['sessionTitle', 'sessionSearch', 'sessionEmpty', 'sessionHint', 'slashSession', 'slashNew', 'toolOutput', 'toolInterrupted']) assert.equal(js.split(`${key}: '`).length - 1, 2, key);
     const panel = read('frontend/js/home/workspace-panel.js');
     assert.match(panel, /replayEvents\(messageEl, events = \[\]\) \{/);
-    assert.match(panel, /if \(!event \|\| event\.type === 'change'\) continue;/, 'replay does not touch the live change list');
+    assert.match(panel, /if \(!event \|\| event\.type === 'change' \|\| event\.type === 'model_round'\) continue;/, 'replay does not touch the live change list');
     assert.match(panel, /openCards\.forEach\(card => \{ if \(card && !card\.classList\.contains\('is-settled'\)\) settleCard\(card, 'abort'\); \}\);/);
     assert.match(panel, /if \(event\.output\) row\.insertAdjacentHTML\('afterend', `<details class="dc-tool-output">/);
     const css = read('frontend/css/dragon-claw.css');
