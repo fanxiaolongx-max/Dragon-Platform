@@ -626,7 +626,8 @@ async function handleChatRequest(req, res) {
     // 频道对话（WeLink 等）由桥接层在虚拟请求上挂 channelTurn；HTTP 请求无法设置该属性
     const channelTurn = req.channelTurn && typeof req.channelTurn === 'object' && req.channelTurn.conversation?.kind && req.channelTurn.conversation?.id ? req.channelTurn : null;
     const channelUserEvents = channelTurn ? [{ type: 'channel', channel: channelTurn.channel, kind: channelTurn.conversation.kind, sender: channelTurn.actor || '' }] : null;
-    const RECORDED_EVENT_TYPES = new Set(['tool_start', 'tool_result', 'approval', 'approval_result', 'plan', 'question', 'followup', 'subagent']);
+    // model_round：每次模型调用的用量 / 缓存 / 速度，刷新后回答底部的 TPS 与缓存命中靠它还原
+    const RECORDED_EVENT_TYPES = new Set(['tool_start', 'tool_result', 'approval', 'approval_result', 'plan', 'question', 'followup', 'subagent', 'model_round']);
     const recordEvent = payload => {
         if (!payload) return;
         if (payload.type === 'delta') streamedText += String(payload.delta || '');
