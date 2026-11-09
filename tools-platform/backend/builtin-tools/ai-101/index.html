@@ -407,40 +407,13 @@ h1 em,.em{font-style:normal;color:var(--acc)}
 @media print{html,body{overflow:visible;height:auto}#viewport{position:static;display:block}#stage{transform:none!important;height:auto;overflow:visible}header,footer,#bar,.actions,#modal,#toast,.orb,.grain{display:none!important}.slide{display:flex!important;position:relative;inset:auto;height:1080px;padding:150px 140px 120px;break-after:page}.slide *{animation:none!important;opacity:1!important;transform:none!important;filter:none!important}@page{size:1920px 1080px;margin:0}}
 
 
-/* ===== live practice arena (deck palette only, zero dependencies) ===== */
-.arena{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:24px}
-.arena-col{display:flex;flex-direction:column;gap:18px;min-width:0}
-.arena-box{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:18px 24px}
-.arena-h{font-size:16px;letter-spacing:.12em;color:var(--muted);margin-bottom:10px;white-space:nowrap}
-.arena .wall{min-height:0;max-height:160px;margin-top:0;gap:8px;padding:2px;overflow:auto;align-content:flex-start}
-.arena .pain{font-size:17px;padding:8px 34px 8px 12px;border-radius:12px;max-width:none;animation:none;box-shadow:none}
-.arena .pain .x{top:2px;right:8px;font-size:16px}
-.arena .pain .tg{display:none}
-.arena .hints span{font-size:16px;padding:8px 14px}
-.arena .inbar{margin-top:8px;padding-bottom:6px;gap:8px}
-.arena .inbar input{font-size:20px}
-.arena .btn{padding:7px 14px;font-size:15px}
-.arena-mission textarea{width:100%;height:84px;resize:none;border:1px solid var(--line2);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit;font-size:19px;line-height:1.5;padding:8px 12px;outline:none}
-.arena-mission textarea:focus{border-color:var(--acc)}
-.arena-tip{font-size:15px;color:var(--faint);margin-top:6px;line-height:1.45}
-.aseg{display:flex;gap:8px;margin-bottom:10px}
-.aseg button{border:1px solid var(--line2);background:var(--bg);border-radius:99px;padding:5px 16px;font-size:15px;color:var(--muted);transition:all .3s var(--ease)}
-.aseg button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
-.agrp{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-.agrp.two{grid-template-columns:repeat(2,1fr)}
-.agcard{border-top:2px solid var(--ink);padding-top:12px}
-.agcard .agn{font-size:15px;letter-spacing:.1em;color:var(--faint)}
-.agcard .agt{font-size:20px;color:var(--ink);margin:6px 0 10px;line-height:1.35;min-height:54px}
-.agcard button{border:1px solid var(--line2);background:var(--bg);border-radius:99px;padding:5px 12px;font-size:14px;color:var(--muted)}
-.agcard button.on{background:var(--ok);color:#fff;border-color:var(--ok)}
-.arena-timer{display:block}
-.arena .clock{font-size:104px;line-height:1}
-.arena .tctl{margin-top:0;gap:8px;flex-wrap:wrap}
-.arena .seg button{padding:6px 12px;font-size:14px}
-.arena-body{font-size:17px;line-height:1.55;color:var(--ink2)}
-.arena-body .kv{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
-.arena-body .pill{border:1px solid var(--line2);border-radius:99px;padding:4px 12px;font-size:15px;color:var(--ink2)}
-#aFoot{font-size:17px;color:var(--muted);margin-top:16px}
+/* ===== live practice: one big timer, nothing else ===== */
+.bigtimer{display:flex;flex-direction:column;align-items:center;justify-content:center;margin-top:6px}
+.bigtimer .clock{font-size:340px;line-height:.95}
+.bigtimer .tctl{margin-top:26px;gap:14px;justify-content:center;flex-wrap:wrap}
+.bigtimer .btn{padding:12px 30px;font-size:19px}
+.bigtimer .seg{margin-left:12px}
+.bigtimer .seg button{padding:9px 22px;font-size:17px}
 /* single-file HTML slide (compact, same palette & type) */
 .hslide .grid{margin-top:34px}
 .hslide .grid+.grid{margin-top:20px}
@@ -844,43 +817,14 @@ h1 em,.em{font-style:normal;color:var(--acc)}
   <div class="goal r"><span>用上</span>问清楚 · 喂干净 · 验到底 · 守住线</div>
 </section>
 
-<section class="slide" data-lv="6" data-o="20,-10,80,60" data-notes="全场核心页。现场收 10 个需求（回车上墙，最多 10 条），归并成一句共同任务写进中间框；各组交付的是一个单文件 HTML 工具。选 2 组或 3 组，各组负责不同环节，最后拼成一个结果。计时可暂停、重置、切 30/45/60 分，翻页也继续走。讲师同步一起做。结束前留 8–10 分钟现场快验，课后收正式版统一测试验收。所有内容只存在本机浏览器。" data-notes-en="Core page. Collect 10 needs from the room (Enter to pin, max 10), merge them into one shared task in the middle box — each group delivers one self-contained HTML tool. Pick 2 or 3 groups on different stages and assemble one result. The timer can pause, reset or switch 30/45/60 min and keeps running across slides. The speaker builds alongside. Reserve 8–10 min for a quick live validation; collect final versions afterwards for a unified test. Everything stays in this browser.">
+<section class="slide" data-lv="6" data-o="20,-10,80,60" data-notes="全场核心页，但页面上只放一个大倒计时：现场口头收需求、口头分组，课件里不做任何录入或操作。计时可开始/暂停、重置、切 30/45/60 分，翻页也继续走。讲师同步一起做。结束前留 8–10 分钟现场快验，课后收正式版统一测试验收。" data-notes-en="Core page, but the slide shows only one big timer: needs are collected and groups assigned verbally in the room; nothing is typed or operated here. The timer can start/pause, reset or switch 30/45/60 min and keeps running across slides. The speaker builds alongside. Reserve 8–10 min for a quick live validation; collect final versions afterwards for a unified test.">
   <div class="kicker r"><b>GO</b>实战台</div>
   <h1 class="split">现场提需求，<em>一起做完它</em></h1>
-  <div class="arena r" id="arena">
-    <div class="arena-col">
-      <div class="arena-box arena-needs">
-        <div class="arena-h" id="aH1"></div>
-        <div class="wall" id="wall"></div>
-        <div class="inbar"><input id="painIn" autocomplete="off"><span class="count" id="painCount">0</span><button class="btn" id="clearNeeds" onclick="clearPains()"></button></div>
-      </div>
-      <div class="arena-box arena-mission">
-        <div class="arena-h" id="aH2"></div>
-        <textarea id="mission" spellcheck="false"></textarea>
-        <div class="arena-tip" id="aTip2"></div>
-      </div>
-    </div>
-    <div class="arena-col">
-      <div class="arena-box arena-groups">
-        <div class="arena-h" id="aH3"></div>
-        <div class="aseg" id="aGroupSeg"></div>
-        <div class="agrp" id="aGroups"></div>
-      </div>
-      <div class="arena-box arena-timer">
-        <div class="arena-h" id="aH4"></div>
-        <div style="display:flex;align-items:center;gap:22px;width:100%">
-          <div class="clock" id="clock">45:00</div>
-          <div class="tctl"><button class="btn pri" id="tgo" onclick="toggleTimer()"></button><button class="btn" id="treset" onclick="resetTimer()"></button>
-          <div class="seg" id="seg"><button data-s="1800"></button><button class="on" data-s="2700"></button><button data-s="3600"></button></div></div>
-        </div>
-      </div>
-      <div class="arena-box arena-submit">
-        <div class="arena-h" id="aH5"></div>
-        <div class="arena-body" id="aSubmit"></div>
-      </div>
-    </div>
+  <div class="bigtimer r" id="arena">
+    <div class="clock" id="clock">45:00</div>
+    <div class="tctl"><button class="btn pri" id="tgo" onclick="toggleTimer()"></button><button class="btn" id="treset" onclick="resetTimer()"></button>
+    <div class="seg" id="seg"><button data-s="1800"></button><button class="on" data-s="2700"></button><button data-s="3600"></button></div></div>
   </div>
-  <p class="note r" id="aFoot"></p>
 </section>
 
 <section class="slide" data-lv="6" data-o="70,50,0,0" data-notes="计时在实战台那一页，翻页也继续走。这里只讲验收口径：验收对象是一个能双击打开、断网也能跑的 HTML 文件；准确占 40 分，编造关键内容直接重扣。现场先跑一遍标准样例，课后提交正式版，由讲师统一测试验收。" data-notes-en="The timer lives on the arena slide and keeps running when you navigate. This page is the acceptance rubric for one HTML file that opens with a double click and runs offline: accuracy is 40 points, and fabricated key content is heavily penalised. Run one standard sample live; final versions go to the speaker afterwards for a unified test.">
@@ -945,7 +889,7 @@ h1 em,.em{font-style:normal;color:var(--acc)}
       <a href="https://help.openai.com/en/articles/4936856-understanding-and-counting-tokens" target="_blank" rel="noopener">Token 与上下文<span>↗</span></a>
       <a href="https://developers.openai.com/api/docs/guides/conversation-state" target="_blank" rel="noopener">会话状态与上下文管理<span>↗</span></a>
       <a href="https://platform.claude.com/docs/en/managed-agents/multiagent-orchestration" target="_blank" rel="noopener">子代理与多代理协作<span>↗</span></a>
-      <p class="note" style="margin-top:30px">实战台内容保存在本机浏览器中，计时、离线均可使用。</p></div>
+      <p class="note" style="margin-top:30px">倒计时在本机运行，离线可用。</p></div>
   </div>
 </section>
 
@@ -1272,7 +1216,7 @@ const EN={
 "点右上角关闭，或按 Esc":"Close at top right, or press Esc",
 
 
-"实战台内容保存在本机浏览器中，计时、离线均可使用。":"Arena content is stored in this browser; the timer works offline.",
+"倒计时在本机运行，离线可用。":"The countdown runs in this browser and works offline.",
 "看内外":"Check what's allowed",
 "允许用什么":" — inside vs outside",
 
@@ -1333,7 +1277,7 @@ const LV={zh:['开场','懂它','问它','喂它','验它','用它','实战'],en
 const lvName=i=>LV[lang][i];
 
 /* keep zh originals */
-const SKIP='#wall,#ntText,#ntCands,#dsteps,#dlog,#levels,#mc,#mt,#page,#clock,#painCount,#toast,#miniTimer,#langBtn,h1.split,#arena';
+const SKIP='#ntText,#ntCands,#dsteps,#dlog,#levels,#mc,#mt,#page,#clock,#toast,#miniTimer,#langBtn,h1.split,#arena';
 const textNodes=[];
 {const w=document.createTreeWalker($('stage'),NodeFilter.SHOW_TEXT);let n;while(n=w.nextNode()){if(n.parentElement.closest(SKIP))continue;if(!n.nodeValue.trim())continue;n._zh=n.nodeValue;textNodes.push(n)}}
 const heads=[...document.querySelectorAll('h1.split')];heads.forEach(h=>h._zh=h.innerHTML);
@@ -1346,10 +1290,8 @@ function applyLang(){
   document.title=L('AI 入门第一课','AI 101');
   textNodes.forEach(n=>n.nodeValue=trText(n._zh));
   heads.forEach(h=>{h.innerHTML=h._zh;const w=document.createTreeWalker(h,NodeFilter.SHOW_TEXT);const ns=[];let n;while(n=w.nextNode())ns.push(n);ns.forEach(n=>n.nodeValue=trText(n.nodeValue));lang==='en'?splitWords(h):split(h)});
-  $('painIn').placeholder=L('现场提一个需求，回车上墙…','Type a need and press Enter…');
   $('langBtn').textContent=lang==='en'?'中文':'EN';
   $('levels').querySelectorAll('button').forEach(b=>b.lastChild.nodeValue=lvName(+b.dataset.l));
-  renderWall([]);
   if($('arena'))arenaRender();
   if(idx>=0){const s=S[idx];if(s.querySelector('#ntText'))ntReset();if(s.querySelector('#dlog'))demoRender();positionBar()}
   if(!iv)$('tgo').textContent=L('开始','Start');
@@ -1412,22 +1354,6 @@ let fnI=0;
 function fnRows(){return [...$('funnel').querySelectorAll('.row')]}
 function fnReset(){fnI=0;fnRows().forEach(r=>r.classList.remove('on'));$('funnel').classList.remove('done')}
 function fnNext(){const rows=fnRows();if(fnI<rows.length){rows[fnI].classList.add('on');fnI++}else if(!$('funnel').classList.contains('done')){$('funnel').classList.add('done')}else toast(L('已到底，可点“重来”','That’s the bottom — press Restart'))}
-function goWall(){go(S.findIndex(s=>s.querySelector('#wall')))}
-/* ===== pain wall ===== */
-let pains=store.get('pains',[]);
-const HINTS={zh:['等待现场输入…'],en:['Waiting for input…']};
-function renderWall(animIds){
-  const w=$('wall');
-  if(!pains.length){w.innerHTML='<div class="hints">'+HINTS[lang].map(h=>`<span>${esc(h)}</span>`).join('')+'</div>';$('painCount').textContent='0';return}
-  w.innerHTML=pains.map(p=>`<div class="pain" data-id="${p.id}" style="${animIds&&!animIds.includes(p.id)?'animation:none':''}"><button class="x" onclick="delPain(${p.id})">×</button>${esc(p.text)}<div class="tg"></div></div>`).join('');
-  $('painCount').textContent=pains.length;
-}
-function addPain(t){t=t.trim();if(!t)return;if(pains.length>=10){toast(L('已收满 10 个需求','10 needs collected'));return}const id=Date.now();pains.push({id,text:t,lv:[]});store.set('pains',pains);renderWall([id]);$('wall').scrollTop=1e6}
-function delPain(id){pains=pains.filter(p=>p.id!==id);store.set('pains',pains);renderWall([])}
-function tagPain(id,l){const p=pains.find(p=>p.id===id);p.lv=p.lv||[];p.lv.includes(l)?p.lv=p.lv.filter(x=>x!==l):p.lv.push(l);store.set('pains',pains);renderWall([])}
-function clearPains(){if(!pains.length)return;pains=[];store.set('pains',pains);renderWall([]);toast(L('已清空','Cleared'))}
-$('painIn').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing){addPain(e.target.value);e.target.value=''}});
-
 /* ===== next token ===== */
 const NTD={zh:{base:'这个问题最可能的原因是',steps:[{c:[['配置',46],['网络',24],['版本',18],['人为',12]],add:'配置'},{pre:'错误，大约影响了',c:[['30%',38],['一半',27],['部分',21],['少量',14]],add:'30%',warn:1}]},
  en:{base:'The most likely cause of this problem is a',steps:[{c:[['config',46],['network',24],['version',18],['human',12]],add:' config'},{pre:' error, affecting about',c:[['30%',38],['half',27],['some',21],['a few',14]],add:' 30%',warn:1}]}};
@@ -1475,34 +1401,12 @@ function demoReset(){dI=-1;demoRender()}
 
 
 
-/* ===== live practice arena: needs -> one shared task -> groups -> timer -> submit ===== */
+/* ===== live practice: render only the timer controls ===== */
 function arenaRender(){
   if(!$('arena'))return;
-  $('aH1').textContent=L('① 现场提需求 · 最多 10 条','① NEEDS FROM THE ROOM · UP TO 10');
-  $('painIn').placeholder=L('现场提一个需求，回车上墙…','Type a need and press Enter…');
-  $('clearNeeds').textContent=L('清空','Clear');
-  $('aH2').textContent=L('② 归并成同一个任务','② MERGE INTO ONE SHARED TASK');
-  $('mission').placeholder=L('把上面的需求归并成一句共同任务…','Merge the needs above into one shared task…');
-  $('mission').value=store.get('mission','');
-  $('aTip2').textContent=L('这一句就是所有组共同的任务：做一个单文件 HTML 工具。','One shared task for every group: one self-contained HTML tool.');
-  $('aH3').textContent=L('③ 分组 · 分工不同环节','③ GROUPS · DIFFERENT STAGES OF ONE TASK');
-  const n=store.get('groupN',3);
-  $('aGroupSeg').innerHTML=[2,3].map(k=>`<button class="${k===n?'on':''}" onclick="setGroups(${k})">${k} ${L('组','groups')}</button>`).join('');
-  const names=lang==='en'?['Brief & define','Build & run','Check & review']:['交底与定义','实现与运行','核查与验收'];
-  const st=store.get('groupStatus',{});
-  $('aGroups').className='agrp'+(n===2?' two':'');
-  $('aGroups').innerHTML=names.slice(0,n).map((t,i)=>`<div class="agcard"><div class="agn">${L('第 ','Group ')}${i+1}${L(' 组','')}</div><div class="agt">${t}</div><button class="${st[i]?'on':''}" onclick="toggleGroup(${i})">${st[i]?L('已提交','Submitted'):L('进行中','In progress')}</button></div>`).join('');
-  $('aH4').textContent=L('④ 计时','④ TIMER');
   [...$('seg').children].forEach(b=>{b.textContent=(+b.dataset.s/60)+' '+L('分','min')});
   $('treset').textContent=L('重置','Reset');
-  $('aH5').textContent=L('⑤ 提交 · 交三样','⑤ SUBMIT · THREE ITEMS');
-  $('aSubmit').innerHTML='<div class="kv">'+[L('一个 HTML 文件','One HTML file'),L('提示词','Prompt'),L('验证记录','Verification log')].map(x=>`<span class="pill">${x}</span>`).join('')+'</div>'+
-    '<div>'+L('计时结束前现场跑一遍标准样例；课后把正式版发给讲师，统一测试验收。','Run one standard sample before time is up; send the final version to the speaker for a unified test.')+'</div>';
-  $('aFoot').textContent=L('内容只存在本机浏览器 · 讲师同步一起做 · 用到的材料先脱敏','Everything stays in this browser · the speaker builds alongside · desensitize any material first');
 }
-function setGroups(k){store.set('groupN',k);arenaRender()}
-function toggleGroup(i){const st=store.get('groupStatus',{});st[i]=!st[i];store.set('groupStatus',st);arenaRender()}
-$('mission').addEventListener('input',e=>store.set('mission',e.target.value));
 
 /* ===== timer ===== */
 let dur=2700,remain=2700000,deadline=0,iv=null;

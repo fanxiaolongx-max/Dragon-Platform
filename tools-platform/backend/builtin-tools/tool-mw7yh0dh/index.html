@@ -311,6 +311,13 @@
     <div class="sheet-title-tag">02 · 验收清单 / Acceptance Certificate</div>
     <div class="sheet-container" id="certContainer">
         <table id="certTable">
+            <colgroup>
+                <col style="width: 26%;">
+                <col style="width: 10%;">
+                <col style="width: 30%;">
+                <col style="width: 17%;">
+                <col style="width: 17%;">
+            </colgroup>
             <tbody>
                 <!-- 顶部标题 -->
                 <tr>
@@ -320,11 +327,10 @@
                 </tr>
                 <!-- 表头信息 -->
                 <tr>
-                    <th class="bg-gray-cert text-left" style="width: 25%;">Project /项目</th>
-                    <td contenteditable="true" data-save="cert-project" class="text-left" style="width: 25%;">XX</td>
-                    <td style="border:none; width: 10%;"></td>
-                    <th class="bg-gray-cert text-center" style="width: 20%;">Evaluation Month/考核月份</th>
-                    <td id="displayCertMonth" class="text-center" style="width: 20%; font-weight:bold;"></td>
+                    <th class="bg-gray-cert text-left">Project /项目</th>
+                    <td contenteditable="true" data-save="cert-project" colspan="2" class="text-left">XX</td>
+                    <th class="bg-gray-cert text-center">Evaluation Month/考核月份</th>
+                    <td id="displayCertMonth" class="text-center" style="font-weight:bold;"></td>
                 </tr>
                 <tr>
                     <th class="bg-gray-cert text-left">Outsourcing Company/<br>业务服务外包公司</th>
@@ -579,21 +585,21 @@
             const certWidths = [35, 13, 40, 23, 25];
             cert.columns = certWidths.map(width => ({ width }));
             grid(cert, 9, 5);
-            // 行号与原模板对应：大标题、项目、外包公司/月份、表头、两行内容、总分、两行签字。
+            // 行号与页面对应：大标题、项目与考核月份、外包公司、表头、两行内容、总分、两行签字。
             merge(cert, 'A1:E1', f('cert-top-title'), {
                 noBorder: true, font: { bold: true, size: 22, color: { argb: colors.red } }
             });
             cert.getRow(1).height = Math.max(68, textHeight(f('cert-top-title'), 136, 22));
             set(cert, 'A2', 'Project /项目', { ...label(colors.certGray), ...left });
-            merge(cert, 'B2:E2', f('cert-project'), left);
+            merge(cert, 'B2:C2', f('cert-project'), left);
+            set(cert, 'D2', 'Evaluation Month/考核月份', { ...label(colors.certGray), font: { bold: true, size: 9 } });
+            set(cert, 'E2', data.certMonth);
             set(cert, 'A3', 'Outsourcing Company/业务服务外包公司', {
                 ...label(colors.certGray), alignment: { horizontal: 'left' }, font: { bold: true, size: 9 }
             });
-            merge(cert, 'B3:C3', f('cert-company'), left);
-            set(cert, 'D3', 'Evaluation Month/考核月份', { ...label(colors.certGray), font: { bold: true, size: 9 } });
-            set(cert, 'E3', data.certMonth);
-            cert.getRow(2).height = Math.max(20, textHeight(f('cert-project'), 101));
-            cert.getRow(3).height = Math.max(25, textHeight(f('cert-company'), 53));
+            merge(cert, 'B3:E3', f('cert-company'), left);
+            cert.getRow(2).height = Math.max(20, textHeight(f('cert-project'), 53));
+            cert.getRow(3).height = Math.max(25, textHeight(f('cert-company'), 101));
             const headers = ['Traction Point /考核项', 'Full Score/满分', 'Appraisal aspect 评估方法', 'Evaluation Score/得分', 'Remark/备注'];
             headers.forEach((value, i) => set(cert, `${String.fromCharCode(65 + i)}4`, value, {
                 color: colors.black, font: { bold: true, color: { argb: colors.white }, size: 9 }

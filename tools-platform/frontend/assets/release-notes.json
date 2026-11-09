@@ -1,12 +1,12 @@
 {
   "zh": [
-    "侧栏「任务」列表默认不再混入微信 / WeLink 频道会话，只显示自己的对话与桌面 Agent 会话。",
-    "点击侧栏「频道会话」即可查看全部频道对话；在筛选里选中微信或 WeLink 时也会并入列表。",
-    "任务计数随之只统计当前显示的条目，列表更清爽。"
+    "新增侧边栏交互式终端面板，集成 xterm.js 与 PTY 进程管理，支持实时执行与终端会话交互。",
+    "Agent 执行命令支持向右侧终端面板实时流式推送输出，命令执行过程一目了然。",
+    "优化推理模型调用参数兼容性，并完善 AI 101 课程及考勤验收工具交互。"
   ],
   "en": [
-    "The sidebar Tasks list no longer mixes in WeChat / WeLink channel chats by default, showing only your own chats and desktop agent sessions.",
-    "Open Channels in the sidebar to see channel chats, or pick WeChat or WeLink in the list filter to merge them in.",
-    "The task count now reflects only the rows shown, keeping the list tidy."
+    "Added an interactive Terminal Sidebar powered by xterm.js and PTY session management for live terminal access.",
+    "Agent tool commands now stream real-time execution output directly to the workspace terminal panel.",
+    "Improved reasoning model compatibility and updated AI 101 lessons and Attendance Acceptance tool."
   ]
 }

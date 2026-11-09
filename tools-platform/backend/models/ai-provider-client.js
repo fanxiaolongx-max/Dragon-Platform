@@ -732,11 +732,13 @@ class AiProviderClient {
     }
 
     async generateOpenAi({ messages, systemInstruction, maxOutputTokens, temperature, responseMimeType, json, signal, tools, toolChoice }) {
+        const isReasoning = /^(o[13]|kimi-k3)/i.test(this.model) || /tokenhub\.tencentmaas\.com/i.test(this.baseUrl);
+        const resolvedMaxTokens = Math.round(Number(maxOutputTokens || this.settings.maxOutputTokens || 2048));
         const body = {
             model: this.model,
             messages: toOpenAiMessages(messages, systemInstruction, { model: this.model }),
-            max_tokens: Math.round(Number(maxOutputTokens || this.settings.maxOutputTokens || 2048)),
-            temperature: Number(temperature ?? this.settings.temperature ?? 0.7)
+            max_tokens: isReasoning ? Math.max(resolvedMaxTokens, 512) : resolvedMaxTokens,
+            temperature: isReasoning ? 1 : Number(temperature ?? this.settings.temperature ?? 0.7)
         };
         if (isJsonMode({ responseMimeType, json })) body.response_format = { type: 'json_object' };
         const openAiTools = toOpenAiTools(tools);
@@ -772,11 +774,13 @@ class AiProviderClient {
     }
 
     async generateOpenAiStream({ messages, systemInstruction, maxOutputTokens, temperature, onDelta, onReasoning, signal, tools, toolChoice }) {
+        const isReasoning = /^(o[13]|kimi-k3)/i.test(this.model) || /tokenhub\.tencentmaas\.com/i.test(this.baseUrl);
+        const resolvedMaxTokens = Math.round(Number(maxOutputTokens || this.settings.maxOutputTokens || 2048));
         const body = {
             model: this.model,
             messages: toOpenAiMessages(messages, systemInstruction, { model: this.model }),
-            max_tokens: Math.round(Number(maxOutputTokens || this.settings.maxOutputTokens || 2048)),
-            temperature: Number(temperature ?? this.settings.temperature ?? 0.7),
+            max_tokens: isReasoning ? Math.max(resolvedMaxTokens, 512) : resolvedMaxTokens,
+            temperature: isReasoning ? 1 : Number(temperature ?? this.settings.temperature ?? 0.7),
             stream: true
         };
         if (this.provider === 'openai') body.stream_options = { include_usage: true };

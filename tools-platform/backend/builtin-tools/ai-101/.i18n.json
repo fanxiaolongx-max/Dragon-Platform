@@ -643,7 +643,6 @@
   "只是给「公司 ≠ 产品 ≠ 模型」做个对照，不是推荐、也不是排行榜。型号更新很快，以现场能打开的为准。": "Just a reference for “company ≠ product ≠ model” — not a recommendation or a ranking. Names change fast; use whatever is actually available on site.",
   "核对日期 2026-11-07": "Checked 2026-11-07",
   "点右上角关闭，或按 Esc": "Close at top right, or press Esc",
-  "实战台内容保存在本机浏览器中，计时、离线均可使用。": "Arena content is stored in this browser; the timer works offline.",
   "看内外": "Check what's allowed",
   "允许用什么": " — inside vs outside",
   "内网 · 可以装": "INTRANET · ALLOWED",
@@ -692,5 +691,6 @@
   "内网 · 不装客户端": "INTRANET · NO CLIENT INSTALL",
   "外部 Agent 软件": "External agent software",
   "Web 版 Gemini / Codex 同样按单位许可与数据边界判断；具体以单位实际部署与权限为准。": "The web versions follow the same approval and data-boundary rules; actual deployment and permissions always prevail.",
-  "Codex、Gemini CLI 等不自行安装；Web 版 Gemini / Codex 可用，注意信息安全与数据边界。": "Codex, Gemini CLI and similar clients must not be installed; the web versions of Gemini / Codex are fine, subject to information security and data boundaries."
+  "Codex、Gemini CLI 等不自行安装；Web 版 Gemini / Codex 可用，注意信息安全与数据边界。": "Codex, Gemini CLI and similar clients must not be installed; the web versions of Gemini / Codex are fine, subject to information security and data boundaries.",
+  "倒计时在本机运行，离线可用。": "The countdown runs in this browser and works offline."
 }
