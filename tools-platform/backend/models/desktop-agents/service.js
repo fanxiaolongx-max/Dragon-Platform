@@ -111,10 +111,12 @@ async function messages(owner, provider, id, { passive = false } = {}) { const {
         catch { interaction = { interaction: null, interactionAvailable: false }; }
     }
     return { ...content, selectedModel: await repo.model(owner,provider,id), ...interaction, ...(interaction.interaction ? { busy: true } : {}),...(Array.isArray(content.items)?{performance:require('./performance').aggregate(content.items,content.performanceTurns,content.modelUsage)}:{}), session: publicSession(row), canSend: status?.canSend || false, canSteer: provider === 'codex' && Boolean(status?.canSend), reason: content.reason || status?.reason || '', queue }; }
-async function availableModels(owner,provider,{force=false,day}={}) {
+async function availableModels(owner,provider,{force=false,cached=false,day}={}) {
     const cfg=await repo.access(owner);
     if(!providers.includes(provider)||!cfg.providers[provider])throw repo.error('连接器未启用',409);
     if(provider==='claudecode'&&!cfg.claudeAutomation)throw repo.error('请开启 Claude 模拟操作发送以读取原生模型',409);
+    // 页面打开时只取已缓存的列表，不为此操作桌面端；用户打开模型菜单时才允许真正读取
+    if(cached&&!force)return {models:await models.list(provider,{cached:true,day})};
     if(locks.has(provider))throw repo.error('连接器正在处理操作，请稍后重试',409);
     locks.add(provider);
     try{return {models:await models.list(provider,{force,day})};}

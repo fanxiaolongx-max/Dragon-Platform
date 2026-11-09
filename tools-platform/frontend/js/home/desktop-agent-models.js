@@ -22,13 +22,17 @@
     }
     function refresh(){window.DragonClaw?.refreshModelPicker?.();}
     const dayKey=()=>{const now=new Date();return [now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');};
-    function load(provider) {
-        const day=dayKey(),old=catalogs.get(provider);
-        if(old?.loading||old?.day===day&&(!old.error||Date.now()-old.at<60000))return;
+    // Claude / Antigravity 只能打开原生模型菜单读列表（会把客户端切到前台）：
+    // 页面渲染时只取服务端缓存，用户点开模型菜单且还没有列表时才真正去读。
+    const uiRead=new Set(['claudecode','antigravity']);
+    function load(provider,live=false) {
+        const day=dayKey(),old=catalogs.get(provider),cachedOnly=uiRead.has(provider)&&!live;
+        if(old?.loading)return;
+        if(live?old?.items.length:old?.day===day&&(!old.error||Date.now()-old.at<60000))return;
         const identity=account,entry={day,at:Date.now(),loading:true,items:old?.items||[],error:''};catalogs.set(provider,entry);
         loadTail=loadTail.catch(()=>{}).then(async()=>{
             if(identity!==who())return;
-            try{entry.items=(await request('GET',`/${provider}/models?day=${day}`)).models||[];}
+            try{entry.items=(await request('GET',`/${provider}/models?day=${day}${cachedOnly?'&cached=1':''}`)).models||[];}
             catch(e){entry.error=e.message;entry.at=Date.now();}
             finally{entry.loading=false;if(identity===who())refresh();}
         });
@@ -70,6 +74,7 @@
     function values(){const c=sync();return c?Object.fromEntries(c.providers.map(p=>[p,selected[p]||''])):{};}
     window.HomeDesktopModels={render,values,forProvider:p=>values()[p]||'',seedDraft:(p,m)=>{draft={...draft,[p]:m};if(scope==='draft')selected=draft;},resetDraft:()=>{draft={};if(scope==='draft')selected=draft;},validate:()=>{const c=sync();if(saving)throw Error(L('请等待模型选择保存完成','Wait for model selection to save'));if(c?.providers.some(p=>selected[p]&&catalogs.get(p)?.loading))throw Error(L('请等待所选模型列表读取完成','Wait for the selected model catalog to load'));}};
     document.addEventListener('click',e=>{
+        if(e.target.closest('#dcModelBtn')){const c=sync();c?.providers.filter(p=>uiRead.has(p)&&!catalogs.get(p)?.items?.length).forEach(p=>load(p,true));}
         const option=e.target.closest('[data-native-model]');
         if(option&&sync()){e.stopImmediatePropagation();if(!option.disabled)choose(option.dataset.nativeProvider,option.dataset.nativeModel);}
     },true);

@@ -26,10 +26,22 @@ async function readWorkbuddy() {
     }
     throw error('未读取到 WorkBuddy 可用模型，请先打开 WorkBuddy');
 }
-async function list(provider, { force = false, validation = false, day = new Date().toISOString().slice(0,10) } = {}) {
+// Claude / Antigravity 的模型只能靠打开原生模型菜单读取，会把客户端切到前台。
+// 这类列表读过一次就落库，之后只在用户主动刷新或从未读过时才去操作界面。
+const uiProviders = ['claudecode', 'antigravity'];
+const stored = {
+    read: async provider => { try { return clean(await require('./repository').catalog(provider)); } catch { return []; } },
+    save: async (provider, items) => { try { await require('./repository').saveCatalog(provider, items); } catch { /* 缓存失败不影响本次读取 */ } }
+};
+async function list(provider, { force = false, validation = false, cached = false, day = new Date().toISOString().slice(0,10) } = {}) {
     if (!providers.includes(provider)) throw error('未知桌面 Agent');
     if(typeof day!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(day))throw error('模型缓存日期无效');
-    const old = memo.get(provider);
+    let old = memo.get(provider);
+    if (!old && uiProviders.includes(provider)) {
+        const saved = await stored.read(provider);
+        if (saved.length) { old = { day, items: saved }; memo.set(provider, old); }
+    }
+    if (uiProviders.includes(provider) && !force && (old || cached)) return old?.items || [];
     // Sending/queueing/group validation must never open a native menu in the
     // middle of another desktop operation. The explicit catalog endpoint owns
     // that UI work and its provider lock; sends still verify the native choice.
@@ -41,6 +53,7 @@ async function list(provider, { force = false, validation = false, day = new Dat
     const items = clean(await (provider === 'codex' ? codexModels() : provider === 'workbuddy' ? readWorkbuddy() : require(provider === 'claudecode' ? './claude-desktop' : './antigravity-cdp').models()));
     if (!items.length) throw error('未读取到原生客户端可切换的模型，请打开客户端后重试');
     memo.set(provider,{day,items});
+    if (uiProviders.includes(provider)) await stored.save(provider, items);
     return items;
 }
 async function validate(provider, model) {
@@ -55,4 +68,4 @@ async function validateMap(input, selected) {
     for (const [p,m] of Object.entries(input)) out[p] = await validate(p,m);
     return out;
 }
-module.exports = { list, validate, validateMap, workbuddyModels, clean };
+module.exports = { list, validate, validateMap, workbuddyModels, clean, stored, memo };

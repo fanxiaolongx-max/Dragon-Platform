@@ -9,6 +9,7 @@ async function ensure() {
             await db.run(`CREATE TABLE IF NOT EXISTS desktop_agent_settings (id INTEGER PRIMARY KEY CHECK(id=1), owner TEXT NOT NULL, value TEXT NOT NULL)`);
             await db.run(`CREATE TABLE IF NOT EXISTS desktop_agent_deliveries (owner TEXT NOT NULL, request_id TEXT NOT NULL, provider TEXT NOT NULL, session_id TEXT NOT NULL, status TEXT NOT NULL, error TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, PRIMARY KEY(owner,request_id))`);
             await db.run(`CREATE TABLE IF NOT EXISTS desktop_agent_models (owner TEXT NOT NULL,provider TEXT NOT NULL,session_id TEXT NOT NULL,model TEXT NOT NULL DEFAULT '',PRIMARY KEY(owner,provider,session_id))`);
+            await db.run(`CREATE TABLE IF NOT EXISTS desktop_agent_catalogs (provider TEXT PRIMARY KEY, items TEXT NOT NULL, updated_at TEXT NOT NULL)`);
         })();
         ready.set(connection, p);
         p.catch(() => ready.delete(connection));
@@ -62,4 +63,7 @@ async function delivery(owner, id) { return db.get('SELECT request_id AS request
 async function settle(owner, id, status, message = '') { await db.run('UPDATE desktop_agent_deliveries SET status=?,error=? WHERE owner=? AND request_id=?', [status, message, owner, id]); return delivery(owner, id); }
 async function model(owner,provider,id) { await ensure(); return (await db.get('SELECT model FROM desktop_agent_models WHERE owner=? AND provider=? AND session_id=?',[owner,provider,id]))?.model || ''; }
 async function saveModel(owner,provider,id,value) { await ensure(); await db.run('INSERT INTO desktop_agent_models(owner,provider,session_id,model) VALUES(?,?,?,?) ON CONFLICT(owner,provider,session_id) DO UPDATE SET model=excluded.model',[owner,provider,id,value]); return value; }
-module.exports = { defaults, settings, save, access, claim, settle, error, model, saveModel };
+// 只能通过操作原生界面读到的模型列表（Claude / Antigravity）落库，重启后不必再把客户端切到前台去读
+async function catalog(provider) { await ensure(); const row = await db.get('SELECT items FROM desktop_agent_catalogs WHERE provider=?', [provider]); try { return row ? JSON.parse(row.items) : null; } catch { return null; } }
+async function saveCatalog(provider, items) { await ensure(); await db.run('INSERT INTO desktop_agent_catalogs(provider,items,updated_at) VALUES(?,?,?) ON CONFLICT(provider) DO UPDATE SET items=excluded.items,updated_at=excluded.updated_at', [provider, JSON.stringify(items), new Date().toISOString()]); }
+module.exports = { defaults, settings, save, access, claim, settle, error, model, saveModel, catalog, saveCatalog };

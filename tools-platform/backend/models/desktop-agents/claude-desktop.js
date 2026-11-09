@@ -82,8 +82,20 @@ function parse(snapshot) {
         current: elements.find(e => e.role === 'AXHeading' && !e.title && e.desc)?.desc || '',
         rows: elements.filter(e => e.role === 'AXButton' && e.title).map(e => e.title),
         composers: elements.filter(e => e.role === 'AXTextArea').map(e => e.value || ''),
-        busy: elements.some(e => e.role === 'AXButton' && STOP.has(e.desc))
+        busy: elements.some(e => e.role === 'AXButton' && STOP.has(e.desc)),
+        model: currentModel(elements)
     };
+}
+// 输入框旁的模型按钮（不打开菜单，只看它当前显示的名字）；找不到唯一一个时返回空，交给原生切换流程确认
+const MODEL_LABEL = /^(?:模型[：:]\s*|Model:\s*)?((?:Claude )?(?:Opus|Sonnet|Haiku|Fable) [0-9][\w. -]*|GPT[- ][\w. -]+|gpt[- ][\w. -]+)$/;
+function currentModel(elements) {
+    const found = elements.filter(e => ['AXButton', 'AXPopUpButton'].includes(e.role)).map(e => (e.title || e.desc || '').trim().match(MODEL_LABEL)?.[1]).filter(Boolean);
+    return found.length === 1 ? found[0] : '';
+}
+// 与 Swift 读回校验同样严格：Opus 5 不等于 Opus 5.5
+function sameModel(shown, wanted) {
+    const key = s => String(s || '').toLowerCase().replace(/^claude /, '').replace(/[^a-z0-9.]/g, '');
+    return Boolean(shown && wanted) && key(shown) === key(wanted);
 }
 // Sub-sessions are listed as "<title> 由 Claude 从 <parent> 发起".
 function rowFor(rows, title) {
@@ -157,7 +169,8 @@ async function attempt(row, text, d, wait, focus, model) {
         if (view.current !== row.title || view.busy || view.composers.length !== 1 || normalize(view.composers[0]))
             throw failure('DESKTOP_TARGET_UNCONFIRMED', 'Claude 输入框清理后状态已变化，请检查桌面后重试');
     }
-    if (model) { await d.setModel({ model, windowTitle: row.title }); view = parse(await d.snapshot()); if (view.current !== row.title || view.busy || view.composers.length !== 1 || normalize(view.composers[0])) throw failure('DESKTOP_TARGET_UNCONFIRMED', '模型选择后会话状态已变化，未发送'); }
+    // 当前显示的已经是所选模型就不再打开模型菜单（避免每次发送都在桌面上重新选一遍）
+    if (model && !sameModel(view.model, model)) { await d.setModel({ model, windowTitle: row.title }); view = parse(await d.snapshot()); if (view.current !== row.title || view.busy || view.composers.length !== 1 || normalize(view.composers[0])) throw failure('DESKTOP_TARGET_UNCONFIRMED', '模型选择后会话状态已变化，未发送'); }
     const pasted = await d.paste(text);
     focus.previous ||= pasted.previous || '';
     view = parse(await d.snapshot());
@@ -187,4 +200,4 @@ async function attempt(row, text, d, wait, focus, model) {
     }
 }
 const models = async () => (await driver.models()).models;
-module.exports = { models, status, send, parse, rowFor, driver, helper, interaction, choose };
+module.exports = { models, status, send, parse, rowFor, driver, helper, interaction, choose, sameModel };

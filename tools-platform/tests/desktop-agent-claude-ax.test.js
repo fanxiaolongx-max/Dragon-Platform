@@ -12,7 +12,8 @@ function fakeWindow(overrides = {}) {
         ...(w.current ? [{ role: 'AXHeading', title: '', desc: w.current }, { role: 'AXButton', title: '', desc: w.current + '，重命名会话' }] : []),
         { role: 'AXHeading', title: '您说：earlier message', desc: '' },
         ...w.composers.map(value => ({ role: 'AXTextArea', title: '', desc: '提示词', value })),
-        ...(w.busy ? [{ role: 'AXButton', title: '', desc: '停止' }] : [])
+        ...(w.busy ? [{ role: 'AXButton', title: '', desc: '停止' }] : []),
+        ...(w.modelLabel ? [{ role: 'AXPopUpButton', title: w.modelLabel, desc: '' }] : [])
     ] });
     w.driver = {
         status: async () => ({ ok: true, trusted: w.trusted ?? true, running: w.running ?? true }),
@@ -33,7 +34,7 @@ test('parse finds the session heading, sidebar rows, composer and the stop butto
         { role: 'AXHeading', title: '', desc: 'Chat A' }, { role: 'AXButton', title: '', desc: 'Chat A，重命名会话' },
         { role: 'AXHeading', title: 'Claude 已回复：done', desc: '' }, { role: 'AXTextArea', title: '', desc: '提示词', value: '\n' }, { role: 'AXButton', title: '', desc: '停止' }
     ] });
-    assert.deepEqual(view, { frontmost: true, current: 'Chat A', rows: ['Chat A'], composers: ['\n'], busy: true });
+    assert.deepEqual(view, { frontmost: true, current: 'Chat A', rows: ['Chat A'], composers: ['\n'], busy: true, model: '' });
     assert.equal(claude.rowFor(['Chat A', 'Chat A 由 Claude 从 X 发起'].slice(1), 'Chat A'), 'Chat A 由 Claude 从 X 发起');
     assert.throws(() => claude.rowFor(['Chat A', 'Chat A 由 Claude 从 X 发起'], 'Chat A'), { code: 'DESKTOP_TARGET_UNCONFIRMED' });
     assert.throws(() => claude.rowFor(['Chat B'], 'Chat A'), { code: 'DESKTOP_TARGET_UNCONFIRMED' });
@@ -202,4 +203,17 @@ test('Claude switches the native model only after confirming the idle session an
     const failed=fakeWindow({current:TARGET.title});failed.driver.setModel=async()=>{throw Object.assign(Error('unconfirmed'),{code:'DESKTOP_MODEL_UNCONFIRMED'});};
     await assert.rejects(claude.send(TARGET,'Never fallback',{driver:failed.driver,model:'Sonnet 5.5'}),{code:'DESKTOP_MODEL_UNCONFIRMED'});
     assert(!failed.calls.includes('paste'));
+});
+
+test('Claude skips the native model menu when the composer already shows the chosen model', async () => {
+    const same=fakeWindow({current:TARGET.title,modelLabel:'Sonnet 5.5'});
+    same.driver.setModel=async()=>{same.calls.push('model');};
+    await claude.send(TARGET,'Same model',{driver:same.driver,model:'Sonnet 5.5'});
+    assert(!same.calls.includes('model'));assert(same.calls.includes('paste'));
+    const other=fakeWindow({current:TARGET.title,modelLabel:'Sonnet 5'});
+    other.driver.setModel=async()=>{other.calls.push('model');};
+    await claude.send(TARGET,'Different version',{driver:other.driver,model:'Sonnet 5.5'});
+    assert(other.calls.includes('model'),'Sonnet 5 must not count as Sonnet 5.5');
+    assert.equal(claude.sameModel('Claude Opus 5.5','Opus 5.5'),true);
+    assert.equal(claude.sameModel('','Opus 5.5'),false);
 });
