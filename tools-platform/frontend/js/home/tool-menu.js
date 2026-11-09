@@ -124,7 +124,8 @@
                     id: skillId,
                     name: skill.name || item.title || skillId,
                     skill,
-                    href: item.href || `/?skill=${encodeURIComponent(skillId)}`
+                    href: item.href || `/?skill=${encodeURIComponent(skillId)}`,
+                    card
                 };
             }
             if (item.kind === 'plugin') {

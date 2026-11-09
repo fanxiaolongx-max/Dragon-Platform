@@ -129,6 +129,7 @@
         head.appendChild(button);
     }
 
+    let hasLoaded = false;
     async function load() {
         try {
             const data = await window.API.get(`/api/agent-skills${isAdmin() ? '?includeHidden=1' : ''}`);
@@ -139,7 +140,9 @@
             state.items = []; // 技能目录读取失败时只是不显示技能分类
             state.hidden = 0;
         }
+        hasLoaded = true;
         renderCards();
+        window.dispatchEvent(new CustomEvent('skills:loaded', { detail: { count: state.items.length } }));
     }
 
     async function download(id) {
@@ -397,7 +400,7 @@
             return clause > cut * 0.55 ? head.slice(0, clause) : `${head.trim()}…`;
         }
     };
-    window.HomeSkills = { reload: load, items: () => state.items.slice(), improve, showHistory, download, rename, remove };
+    window.HomeSkills = { reload: load, items: () => state.items.slice(), ready: () => hasLoaded, isLoaded: () => hasLoaded, improve, showHistory, download, rename, remove };
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
     else init();

@@ -4,7 +4,7 @@
     const bridge=window.DragonBrowser;
     const L=(zh,en)=>/^en/.test(window.ToolsI18n?.getLanguage?.()||localStorage.getItem('tools_lang')||'')?en:zh;
     const esc=value=>String(value||'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-    let panel,surface,toggle,address,tabsNode,hint,image,status,controlBox,textInput,operatorBanner,aiPointer;
+    let panel,surface,toggle,address,tabsNode,hint,image,status,statusBadge,statusTextNode,agentStatusNode,controlBox,textInput,operatorBanner,aiPointer;
     let menu='',menuSignature='',closedTabs=[],draggedTab=null,lastTheme='',pendingTab=null,tabSequence=0,tabScrollTimer=null,lastVisibleTab='';
     let intentUntil=0,lastActivity=0,activitySent=0,idleRelease=false;
     let open=false,connected=false,docked=false,raf=0,readingVisible=false,previousMenu=null;
@@ -78,6 +78,31 @@
     try{manualToken=sessionStorage.getItem(tokenKey())||'';if(manualToken)lastActivity=Date.now();}catch{}
     function remember(token){if(token&&token!==manualToken)lastActivity=Date.now();manualToken=token||'';try{manualToken?sessionStorage.setItem(tokenKey(),manualToken):sessionStorage.removeItem(tokenKey());}catch{}}
     function headers(){const result=window.getAuthHeaderForNav?.()||{};const token=localStorage.getItem('tools_token')||sessionStorage.getItem('tools_token');if(token&&!result.Authorization)result.Authorization=`Bearer ${token}`;return result;}
+    function setStatus(text,type='info'){
+        const msg=String(text||'').trim();
+        if(!statusBadge)return;
+        if(!msg){
+            statusBadge.hidden=true;
+            if(statusTextNode)statusTextNode.textContent='';
+            statusBadge.classList.remove('is-error','is-loading');
+            if(agentStatusNode&&!image?.hidden)agentStatusNode.textContent='';
+            return;
+        }
+        const isBlankPrompt=!displayedFrame&&image?.hidden;
+        if(isBlankPrompt){
+            statusBadge.hidden=true;
+            if(statusTextNode)statusTextNode.textContent='';
+            if(agentStatusNode)agentStatusNode.textContent=msg;
+            return;
+        }
+        if(agentStatusNode)agentStatusNode.textContent='';
+        statusBadge.hidden=false;
+        const isError=type==='error'||Date.now()<=errorUntil;
+        statusBadge.classList.toggle('is-error',isError);
+        statusBadge.classList.toggle('is-loading',!isError&&(type==='loading'||/读取|加载|上传|重连|刷新|Loading|Uploading|Connecting|Refreshing/i.test(msg)));
+        if(statusTextNode)statusTextNode.textContent=msg;
+        statusBadge.title=msg;
+    }
     function showError(message){errorUntil=Date.now()+6000;status.textContent=message;}
     function fit(){
         if(!open||!autoFit)return;
@@ -254,7 +279,8 @@
         if(quiet&&refreshing)return;
         const epoch=++viewEpoch;controller?.abort();const request=new AbortController();controller=request;refreshing=true;
         const timeout=setTimeout(()=>request.abort(),20000);
-        if(!quiet)status.textContent=L('正在读取浏览器画面…','Loading browser view…');
+        const hasVisibleFrame=Boolean(displayedFrame&&!image.hidden);
+        if(!quiet&&!hasVisibleFrame)status.textContent=L('正在读取浏览器画面…','Loading browser view…');
         try{
             const response=await fetch('/api/agent-workspace/browser/view',{headers:headers(),credentials:'same-origin',cache:'no-store',signal:request.signal});const data=await response.json();
             if(epoch!==viewEpoch)return;if(!response.ok)throw Error(data.error||`HTTP ${response.status}`);
@@ -402,7 +428,7 @@
         if(name==='new-tab')return createTab();
         if(bridge)return bridge.action(name);
         if(name==='upload')return panel.querySelector('[data-local-files]').click();
-        if(name==='reload')return command('reload');
+        if(name==='reload'){status.textContent=L('正在刷新…','Refreshing…');return command('reload');}
         if(name==='stop-and-control')return command('takeover');
         if(name==='return-ai')return command('release');
         if(name==='back'||name==='forward')return command(name);
@@ -415,8 +441,15 @@
         toggle=document.getElementById('dcBrowserToggle');const workspace=document.getElementById('dcWorkspacePanel');if(!toggle||!workspace)return;
         panel=document.createElement('aside');panel.className='dc-browser-panel';panel.classList.toggle('dc-browser-native',Boolean(bridge));panel.id='dcBrowserPanel';panel.hidden=true;
         const button=(name)=>`<button type="button" data-browser="${name}">${icon(name)}</button>`;
-        panel.innerHTML=`<header class="dc-browser-head"><strong>Dragon 浏览器</strong><div class="dc-browser-tabbar"><div class="dc-browser-tabs" role="tablist"></div>${button('new-tab')}${button('tabs')}</div><div class="dc-browser-window-actions">${button('external')}${button('close')}</div></header><form class="dc-browser-address"><div class="dc-browser-navigation">${button('back')}${button('forward')}${button('reload')}</div><input autocomplete="off" spellcheck="false" enterkeyhint="go"><button type="submit" class="dc-browser-go" aria-label="Go">↵</button><div class="dc-browser-toolbar-actions">${button('keyboard')}${button('extensions')}${button('downloads')}${button('more')}</div></form><div class="dc-browser-hint" hidden></div><section class="dc-browser-popup" hidden><div class="dc-browser-popup-content"></div></section><div class="dc-browser-find" hidden><input data-find-input><span data-find-count></span><button type="button" data-find-forward="false">↑</button><button type="button" data-find-forward="true">↓</button><button type="button" data-browser="find-close">×</button></div><div class="dc-browser-control" hidden><label></label><div class="dc-browser-type"><input data-remote-text autocomplete="off" autocapitalize="off" spellcheck="false"><button type="button" data-browser="send-text"></button></div><div class="dc-browser-control-options"><label><input type="checkbox" data-replace><span data-label="replace"></span></label><label><input type="checkbox" data-mask><span data-label="mask"></span></label><label><input type="checkbox" data-drag-mode><span data-label="drag"></span></label></div><div class="dc-browser-upload"><button type="button" data-browser="upload"></button><input type="file" data-local-files hidden></div><div class="dc-browser-control-keys"><button type="button" data-browser="remote-up"></button><button type="button" data-browser="remote-down"></button><button type="button" data-browser="remote-tab"></button><button type="button" data-browser="remote-backspace"></button><button type="button" data-browser="remote-enter"></button><button type="button" data-browser="remote-zoom"></button></div></div><div class="dc-browser-surface"><div class="dc-browser-agent-view"><div class="dc-browser-agent-status" role="status"></div><img hidden></div></div>`;
-        workspace.after(panel);surface=panel.querySelector('.dc-browser-surface');address=panel.querySelector('.dc-browser-address input');tabsNode=panel.querySelector('.dc-browser-tabs');hint=panel.querySelector('.dc-browser-hint');image=panel.querySelector('.dc-browser-agent-view img');status=panel.querySelector('.dc-browser-agent-status');controlBox=panel.querySelector('.dc-browser-control');textInput=panel.querySelector('[data-remote-text]');
+        panel.innerHTML=`<header class="dc-browser-head"><strong>Dragon 浏览器</strong><div class="dc-browser-tabbar"><div class="dc-browser-tabs" role="tablist"></div>${button('new-tab')}${button('tabs')}</div><div class="dc-browser-window-actions">${button('external')}${button('close')}</div></header><form class="dc-browser-address"><div class="dc-browser-navigation">${button('back')}${button('forward')}${button('reload')}</div><div class="dc-browser-url-wrap"><input autocomplete="off" spellcheck="false" enterkeyhint="go"><div class="dc-browser-status-badge" role="status" aria-live="polite" hidden><span class="dc-browser-status-dot" aria-hidden="true"></span><span class="dc-browser-status-text"></span></div></div><button type="submit" class="dc-browser-go" aria-label="Go">↵</button><div class="dc-browser-toolbar-actions">${button('keyboard')}${button('extensions')}${button('downloads')}${button('more')}</div></form><div class="dc-browser-hint" hidden></div><section class="dc-browser-popup" hidden><div class="dc-browser-popup-content"></div></section><div class="dc-browser-find" hidden><input data-find-input><span data-find-count></span><button type="button" data-find-forward="false">↑</button><button type="button" data-find-forward="true">↓</button><button type="button" data-browser="find-close">×</button></div><div class="dc-browser-control" hidden><label></label><div class="dc-browser-type"><input data-remote-text autocomplete="off" autocapitalize="off" spellcheck="false"><button type="button" data-browser="send-text"></button></div><div class="dc-browser-control-options"><label><input type="checkbox" data-replace><span data-label="replace"></span></label><label><input type="checkbox" data-mask><span data-label="mask"></span></label><label><input type="checkbox" data-drag-mode><span data-label="drag"></span></label></div><div class="dc-browser-upload"><button type="button" data-browser="upload"></button><input type="file" data-local-files hidden></div><div class="dc-browser-control-keys"><button type="button" data-browser="remote-up"></button><button type="button" data-browser="remote-down"></button><button type="button" data-browser="remote-tab"></button><button type="button" data-browser="remote-backspace"></button><button type="button" data-browser="remote-enter"></button><button type="button" data-browser="remote-zoom"></button></div></div><div class="dc-browser-surface"><div class="dc-browser-agent-view"><div class="dc-browser-agent-status" role="status"></div><img hidden></div></div>`;
+        workspace.after(panel);surface=panel.querySelector('.dc-browser-surface');address=panel.querySelector('.dc-browser-address input');tabsNode=panel.querySelector('.dc-browser-tabs');hint=panel.querySelector('.dc-browser-hint');image=panel.querySelector('.dc-browser-agent-view img');statusBadge=panel.querySelector('.dc-browser-status-badge');statusTextNode=panel.querySelector('.dc-browser-status-text');agentStatusNode=panel.querySelector('.dc-browser-agent-status');controlBox=panel.querySelector('.dc-browser-control');textInput=panel.querySelector('[data-remote-text]');
+        status={
+            get textContent(){return statusTextNode?.textContent||agentStatusNode?.textContent||'';},
+            set textContent(val){
+                const isErr=Date.now()<=errorUntil;
+                setStatus(val,isErr?'error':'info');
+            }
+        };
         panel.querySelector('.dc-browser-popup').append(controlBox);
         operatorBanner=document.createElement('div');operatorBanner.className='dc-browser-operator';operatorBanner.hidden=true;operatorBanner.setAttribute('role','status');operatorBanner.innerHTML='<span></span><button type="button" data-browser="stop-and-control"></button>';surface.append(operatorBanner);
         aiPointer=document.createElement('div');aiPointer.className='dc-browser-ai-pointer';aiPointer.hidden=true;aiPointer.innerHTML='<svg width="24" height="28" viewBox="0 0 24 28" aria-hidden="true"><path d="M2 2L20 17L12 18L8 26Z" fill="currentColor" stroke="white" stroke-width="2"/></svg><span>AI</span>';surface.append(aiPointer);

@@ -1,6 +1,7 @@
 // Run: node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Requirements embed audit: HOME_REQUIREMENTS_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Featured stability audit: HOME_FEATURED_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
+// Skill sharing audit: HOME_SKILL_SHARING_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Sidebar height audit: HOME_SIDEBAR_HEIGHT_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Workspace scope audit: HOME_WORKSPACE_SCOPE_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Collapsed sidebar peek audit: HOME_SIDE_PEEK_AUDIT=1 [HOME_SIDE_PEEK_SHOT=/path/prefix] [DESKTOP_DRAG_AUDIT=1 DRAG_PLATFORM=darwin|win32] node_modules/.bin/electron tests/home-tools-hub-browser.cjs
@@ -63,6 +64,19 @@ app.whenReady().then(async () => {
     web.get('/api/ai/models', (_, res) => res.json({ models, defaultId: models[0].id, mode: 'direct' }));
     web.get('/api/ai/sessions', (req, res) => { if(Number(req.query.offset)>0)sessionPages++;res.json({ items: Array.from({length:55},(_,index)=>({ id: 'recent-fixture-'+index, title: '研究依据核对 Skill', messageCount: 2, firstQuestion:'创建研究依据核对 Skill，检查结论与依据是否对应、口径是否一致，缺依据如何标注；交付一个含名称、说明、触发条件和步骤的 SKILL.md，不安装。',updatedAt:'2026-11-02T09:00:00Z' })).slice(Number(req.query.offset)||0,(Number(req.query.offset)||0)+(Number(req.query.limit)||40)) }); });
     web.get('/api/ai/skills', (_, res) => res.json({ items: [{ id: 'research-check', name: '研究依据核对', nameEn: 'Research check', description: '核对结论与依据', descriptionEn: 'Review research evidence' }] }));
+    if (process.env.HOME_SKILL_SHARING_AUDIT) {
+        let sharedAccess = false;
+        web.get('/api/agent-skills', (_, res) => res.set('Cache-Control', 'no-store').json({
+            items: ['project-map', 'debug', 'code-review', 'data-check'].map(id => ({
+                id, name: id, builtIn: true, sharedAccess: id === 'project-map' && sharedAccess
+            }))
+        }));
+        web.patch('/api/distribution', (req, res) => {
+            assert.deepEqual(req.body, { kind: 'skill', id: 'project-map', sharedAccess: !sharedAccess });
+            sharedAccess = req.body.sharedAccess;
+            res.json({ sharedAccess });
+        });
+    }
     web.get(['/api/friend-links','/api/recent-nav','/api/upload/history'], (_, res) => res.json([]));
     if (process.env.HOME_SCAN_AUDIT) {
         web.use((req, res, next) => {
@@ -109,6 +123,41 @@ app.whenReady().then(async () => {
     await win.loadURL(`http://127.0.0.1:${server.address().port}/`);
 
     await until('window.HomeSkillHub&&document.querySelector("[data-v2-mode=tools]")&&document.getElementById("v2SkillHub")');
+    if (process.env.HOME_SKILL_SHARING_AUDIT) {
+        const skillCard = '[data-hub-key="skill:project-map"]';
+        const sharedCount = `document.querySelectorAll('${skillCard}.is-shared-access').length`;
+        const openSkills = async () => {
+            await until(`localStorage.getItem('tools_super') === '1' && HomeSkills.items().length === 4`);
+            await evaluate(`HomeSkillHub.open('skills')`);
+            assert.equal(await evaluate(`document.querySelectorAll('${skillCard}').length`), 2);
+        };
+        const toggleSharing = async label => {
+            await evaluate(`document.querySelector('.v2-hub-grid ${skillCard} [data-hub-act="more"]').click()`);
+            const action = `document.querySelector('[data-tool-action="distribution"]')`;
+            assert.match(await evaluate(`${action}.textContent`), label);
+            await evaluate(`${action}.click()`);
+        };
+        await openSkills();
+        assert.equal(await evaluate(sharedCount), 0);
+        const border = () => evaluate(`getComputedStyle(document.querySelector('.v2-hub-grid ${skillCard}')).borderColor`);
+        const privateBorder = await border();
+        await toggleSharing(/全员开放/);
+        await until(`${sharedCount} === 2`);
+        assert.notEqual(await border(), privateBorder);
+        assert.equal(await evaluate(`document.querySelectorAll('.v2-hub-card.is-shared-access').length`), 2);
+
+        await win.loadURL(`http://127.0.0.1:${server.address().port}/`);
+        await openSkills();
+        assert.equal(await evaluate(sharedCount), 2);
+        win.setContentSize(390, 900);
+        await evaluate(`document.documentElement.dataset.theme = 'dark'; ToolsI18n.setLanguage('en-US')`);
+        const sharedDarkBorder = await border();
+        await toggleSharing(/Stop sharing/);
+        await until(`${sharedCount} === 0`);
+        assert.notEqual(await border(), sharedDarkBorder);
+        console.log('PASS: skill sharing updates featured and grid borders, survives reload, and clears when disabled');
+        win.destroy();server.close();app.exit(0);return;
+    }
     if(process.env.HOME_TOOL_EXTERNAL_AUDIT){
         let opened='';win.webContents.setWindowOpenHandler(({url})=>{opened=url;return {action:'deny'};});
         const base=`http://127.0.0.1:${server.address().port}`;
