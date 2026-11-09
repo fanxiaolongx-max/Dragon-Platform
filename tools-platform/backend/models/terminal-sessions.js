@@ -304,7 +304,7 @@ const view = (owner, id) => publicView(get(owner, id));
 
 // 智能体的交互式命令：在一个真终端里只跑这一条命令（不是常驻 Shell），用户在终端面板里输入。
 // 输入会被记下来，命令结束后交给模型的输出里会隐藏用户输入（例如粘贴的登录凭据）。
-function createCommand(owner, { command, cwd, env, cols = 100, rows = 30, title } = {}) {
+function createCommand(owner, { command, cwd, env, cols = 100, rows = 30, title, banner = '' } = {}) {
     if (!owner) throw Object.assign(new Error('缺少账号'), { status: 401 });
     const text = String(command || '').trim();
     if (!text) throw Object.assign(new Error('缺少命令'), { status: 400 });
@@ -321,6 +321,9 @@ function createCommand(owner, { command, cwd, env, cols = 100, rows = 30, title 
         buffer: '', listeners: new Set(), inputs: [], recordInputs: true, ...size
     };
     session.exitPromise = new Promise(resolve => { session.resolveExit = resolve; });
+    // 顶部说明只给用户看：不计入交给模型的输出
+    if (banner) session.buffer = `\x1b[33m${String(banner).replace(/\r?\n/g, '\r\n')}\x1b[0m\r\n\r\n`;
+    session.bannerLength = session.buffer.length;
     const fullEnv = { ...(env || terminalEnv()), TERM: 'xterm-256color', COLORTERM: 'truecolor' };
     const pty = loadPty();
     if (pty) {
@@ -347,7 +350,7 @@ function createCommand(owner, { command, cwd, env, cols = 100, rows = 30, title 
         child.on('close', (code, signal) => markExit(session, code, signal));
     }
     sessions.set(session.id, session);
-    return { view: publicView(session), wait: () => session.exitPromise, kill: () => kill(owner, session.id, { keep: true }), snapshot: () => ({ output: session.buffer, inputs: [...session.inputs] }) };
+    return { view: publicView(session), wait: () => session.exitPromise, kill: () => kill(owner, session.id, { keep: true }), snapshot: () => ({ output: session.buffer.slice(session.bannerLength || 0), inputs: [...session.inputs] }) };
 }
 
 // 终端原始输出 → 给模型看的纯文本：去掉控制序列、处理回车覆盖、隐藏用户输入

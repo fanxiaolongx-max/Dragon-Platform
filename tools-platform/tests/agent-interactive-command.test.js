@@ -19,3 +19,19 @@ test('interactive output strips terminal control codes and hides what the user t
     const text = plainOutput(raw, ['eyJsecret-token\r']);
     assert.equal(text, '请粘贴凭据: [用户输入已隐藏]\nprogress 100%\n收到 [用户输入已隐藏]');
 });
+
+test('multi-line login commands are detected and self-killing pkill segments are dropped', () => {
+    assert.deepEqual(interactiveUpgrade('pkill -f "thcli auth login"\nthcli auth login --browser no'), { command: 'thcli auth login --browser no', stripped: false, droppedKill: true });
+    assert.deepEqual(interactiveUpgrade('pkill -f "thcli auth login" || true; thcli auth login --browser no'), { command: 'thcli auth login --browser no', stripped: false, droppedKill: true });
+    assert.equal(interactiveUpgrade('pkill -f "thcli auth login"'), null);
+    assert.equal(interactiveUpgrade('ps aux | grep login'), null);
+});
+
+test('the interactive tab banner is shown to the user but not returned to the model', async () => {
+    const { createCommand } = require('../backend/models/terminal-sessions');
+    const handle = createCommand('test-owner', { command: 'echo done', cwd: process.cwd(), banner: '提示：只给用户看' });
+    await handle.wait();
+    const { output } = handle.snapshot();
+    assert.ok(output.includes('done'));
+    assert.ok(!output.includes('只给用户看'));
+});

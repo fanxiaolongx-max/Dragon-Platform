@@ -916,7 +916,11 @@ async function runInteractiveCommand(ctx, command, args = {}) {
     const started = Date.now();
     let handle;
     try {
-        handle = terminals.createCommand(ctx.interactive.owner, { command, cwd: ctx.root, env: scrubbedEnv(), title: command });
+        const login = Boolean(interactiveUpgrade(command));
+        const banner = [`⌨ 智能体正在这里运行：${command.length > 120 ? `${command.slice(0, 120)}…` : command}`,
+            '这个终端可以直接输入：粘贴用 Ctrl+V（Mac 为 ⌘V）或右键，回车提交。',
+            login ? '登录：请打开下面【本次】输出的新授权链接完成授权，再把页面上新显示的凭据粘贴到这里。之前拿到的凭据已失效（每次登录的 state 都不同）。' : ''].filter(Boolean).join('\n');
+        handle = terminals.createCommand(ctx.interactive.owner, { command, cwd: ctx.root, env: scrubbedEnv(), title: command, banner });
     } catch (error) {
         return { content: `无法打开交互终端：${error.message}`, summary: '启动失败', isError: true };
     }
@@ -948,7 +952,7 @@ async function runInteractiveCommand(ctx, command, args = {}) {
 // 有终端面板时自动改为交互执行。模型常犯的写法 echo "凭据" | xxx login 也在这里纠正——
 // 登录请求每次都会生成新的 state，预先 echo 进去的旧凭据必然不匹配。
 // 一段命令（按 ; && || | 切开）是否为「CLI 的登录子命令」：程序名 + 最多两个子命令词 + login，如 thcli auth login、gh auth login、npm login
-const TEXT_TOOLS = new Set(['echo', 'printf', 'grep', 'egrep', 'rg', 'ag', 'find', 'cat', 'less', 'more', 'head', 'tail', 'sed', 'awk', 'ls', 'man', 'which', 'type', 'whereis', 'history', 'git', 'last', 'lastlog', 'su', 'sudo', 'tee', 'xargs', 'wc', 'sort', 'uniq', 'cut', 'tr', 'jq', 'curl', 'wget', 'ssh']);
+const TEXT_TOOLS = new Set(['echo', 'printf', 'grep', 'egrep', 'rg', 'ag', 'find', 'cat', 'less', 'more', 'head', 'tail', 'sed', 'awk', 'ls', 'man', 'which', 'type', 'whereis', 'history', 'git', 'last', 'lastlog', 'su', 'sudo', 'tee', 'xargs', 'wc', 'sort', 'uniq', 'cut', 'tr', 'jq', 'curl', 'wget', 'ssh', 'pkill', 'pgrep', 'kill', 'killall', 'ps', 'nohup', 'timeout']);
 function isLoginSegment(segment) {
     const tokens = String(segment || '').trim().split(/\s+/).filter(Boolean);
     const index = tokens.findIndex(token => /^(?:login|signin|sign-in)$/i.test(token));
@@ -962,9 +966,17 @@ function interactiveUpgrade(command) {
     if (/(?:^|\s)(?:--help|-h|help|status|logout|whoami)(?:\s|$)/i.test(text)) return null;
     const piped = text.match(/^(?:echo|printf)\s+(?:"(?:[^"\\]|\\.)*"|'[^']*'|\S+)\s*\|\s*([^|]+)$/s);
     if (piped && isLoginSegment(piped[1])) return { command: piped[1].trim(), stripped: true };
-    if (!text.split(/;|&&|\|\|/).some(isLoginSegment)) return null;
+    // 多条命令（; && || 或换行分隔）里任意一段是登录子命令就整体交互执行（如先 pkill 旧的登录进程再登录）
+    const segments = text.split(/;|&&|\|\||\n/);
+    if (!segments.some(isLoginSegment)) return null;
     // 有意从文件 / 管道读凭据（gh auth login --with-token < token.txt 等）不改
-    if (/[<|]/.test(text) || /--with-token|--password-stdin|--token[ =]/i.test(text)) return null;
+    if (/<|(?<!\|)\|(?!\|)/.test(text) || /--with-token|--password-stdin|--token[ =]/i.test(text)) return null;
+    // 「先 pkill -f "xxx login" 再登录」：pkill -f 会匹配并杀掉正在执行这条命令的 Shell 自己，登录根本跑不起来；交互执行时去掉这类段
+    const killer = /^\s*(?:sudo\s+)?(?:pkill|killall)\b/;
+    if (segments.some(segment => killer.test(segment))) {
+        const kept = text.split(/\n|;|&&|\|\|/).map(item => item.trim()).filter(item => item && item !== 'true' && !killer.test(item));
+        return { command: kept.join(' && '), stripped: false, droppedKill: true };
+    }
     return { command: text, stripped: false };
 }
 
@@ -974,10 +986,14 @@ async function runCommand(ctx, args = {}) {
     const upgrade = ctx.interactive?.owner && args.interactive !== true && args.interactive !== 'true' ? interactiveUpgrade(command) : null;
     if (upgrade) {
         const result = await runInteractiveCommand(ctx, upgrade.command, args);
-        const note = upgrade.stripped
-            ? '（系统提示：登录命令每次都会生成新的 state，不能用 echo 预先传入凭据；已去掉 echo 部分，改在用户的终端面板里交互执行，用户在终端里粘贴了页面显示的凭据。以后直接对登录命令使用 interactive=true，不要再让用户把凭据发到对话里。）'
-            : '（系统提示：登录类命令已自动改在用户的终端面板里交互执行。）';
-        return { ...result, content: `${note}\n${result.content}` };
+        const notes = ['（系统提示：登录类命令已自动改在用户右侧终端面板的交互标签里执行，用户直接在终端里打开授权链接、粘贴凭据。'];
+        if (upgrade.stripped) notes.push('登录每次都会生成新的 state，用户在对话里发来的旧凭据无法复用，echo 部分已去掉。');
+        if (upgrade.droppedKill) notes.push('命令里的 pkill/killall 段已去掉：pkill -f 会匹配并杀掉执行这条命令的 Shell 自己。');
+        notes.push(result.exitCode === 0 && !result.isError
+            ? '命令正常结束，请用 auth status 之类的命令核实后再告诉用户结果。'
+            : `登录没有成功（${result.summary}）。不要告诉用户已经成功；如实说明原因（例如粘贴的不是本次链接授权后的新凭据），需要时再次执行登录命令让用户在终端里重试。`);
+        notes.push('以后对登录命令直接用 interactive=true，不要让用户把凭据发到对话里。）');
+        return { ...result, content: `${notes.join('')}\n${result.content}` };
     }
     if (args.interactive === true || args.interactive === 'true') {
         if (ctx.interactive?.owner) return runInteractiveCommand(ctx, command, args);
