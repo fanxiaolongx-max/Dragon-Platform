@@ -70,3 +70,16 @@ test('buffered and reasoning-bearing responses do not invent decode speed', asyn
     assert.equal(rounds[0].tps, null);
     assert.equal(summarizeRounds(rounds).avgTps, 0);
 });
+
+test('tool-loop follow-up calls through result.providerClient stay tracked', async () => {
+    const other = { provider: 'openai', model: 'b', async generateText() { return { text: 'x', usage: { outputTokens: 1 }, providerClient: this }; } };
+    const raw = { provider: 'gemini', model: 'a', calls: 0, async generateText() { this.calls += 1; return { text: '', usage: { outputTokens: 3 }, providerClient: this.calls > 1 ? other : this }; } };
+    const rounds = [];
+    const client = trackRounds(raw, round => rounds.push(round));
+    const first = await client.generateText({});
+    assert.equal(first.providerClient, client);
+    const second = await first.providerClient.generateText({});
+    const third = await second.providerClient.generateText({});
+    assert.equal(third.providerClient, second.providerClient);
+    assert.deepEqual(rounds.map(round => [round.index, round.model]), [[1, 'gemini/a'], [2, 'gemini/a'], [3, 'openai/b']]);
+});

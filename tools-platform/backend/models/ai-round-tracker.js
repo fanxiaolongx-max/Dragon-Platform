@@ -28,9 +28,10 @@ function summarizeRounds(rounds = []) {
     };
 }
 
-function trackRounds(client, onRound) {
+function trackRounds(client, onRound, shared = { index: 0, wrapped: new WeakMap() }) {
     if (!client || (typeof client.generateText !== 'function' && typeof client.generateChat !== 'function')) return client;
-    let index = 0;
+    if (shared.wrapped.has(client)) return shared.wrapped.get(client);
+    let proxy = null;
     const wrap = method => async (options = {}) => {
         const startedAt = Date.now();
         let firstAt = 0;
@@ -40,6 +41,11 @@ function trackRounds(client, onRound) {
         if (typeof options.onDelta === 'function') patched.onDelta = (delta, ...rest) => { if (delta) { mark(); chunks++; } streamed += String(delta || ''); return options.onDelta(delta, ...rest); };
         if (typeof options.onReasoning === 'function') patched.onReasoning = (delta, ...rest) => { return options.onReasoning(delta, ...rest); };
         const result = await method.call(client, patched);
+        // 工具循环会把后续步骤固定到 result.providerClient（客户端返回的是未包装的自身，或自动切换后的另一个客户端）。
+        // 换成同样计时的包装，否则第二轮起的调用全部漏记，回复下方的 TPS / TTFT 就只剩第一轮（多半只有工具调用、没有文字）。
+        if (result && typeof result === 'object' && result.providerClient && typeof result.providerClient === 'object') {
+            result.providerClient = result.providerClient === client ? proxy : trackRounds(result.providerClient, onRound, shared);
+        }
         try {
             const endedAt = Date.now();
             const reported = Number(result?.usage?.outputTokens) || 0;
@@ -49,9 +55,9 @@ function trackRounds(client, onRound) {
             const reasoning = result?.usage?.reasoningTokens;
             const canDecode = reported > 1 && reasoning === 0 && chunks > 1 && !result?.autoSwitch && generationMs > 0;
             const cached = result?.usage?.cachedTokens;
-            index += 1;
+            shared.index += 1;
             const round = {
-                index,
+                index: shared.index,
                 model: result?.autoSwitch?.to || [client.provider, client.model].filter(Boolean).join('/') || '',
                 inputTokens: Number(result?.usage?.inputTokens || result?.usage?.promptTokens) || 0,
                 outputTokens,
@@ -73,7 +79,7 @@ function trackRounds(client, onRound) {
     };
     const generateText = typeof client.generateText === 'function' ? wrap(client.generateText) : undefined;
     const generateChat = typeof client.generateChat === 'function' ? wrap(client.generateChat) : generateText;
-    return new Proxy(client, {
+    proxy = new Proxy(client, {
         get(target, prop, receiver) {
             if (prop === 'generateText' && generateText) return generateText;
             if (prop === 'generateChat') return generateChat;
@@ -81,6 +87,8 @@ function trackRounds(client, onRound) {
             return typeof value === 'function' ? value.bind(target) : value;
         }
     });
+    shared.wrapped.set(client, proxy);
+    return proxy;
 }
 
 module.exports = { trackRounds, summarizeRounds, estimateTokens };
