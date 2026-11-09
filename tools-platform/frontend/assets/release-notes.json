@@ -1,12 +1,12 @@
 {
   "zh": [
-    "新增侧边栏交互式终端面板，集成 xterm.js 与 PTY 进程管理，支持实时执行与终端会话交互。",
-    "Agent 执行命令支持向右侧终端面板实时流式推送输出，命令执行过程一目了然。",
-    "优化推理模型调用参数兼容性，并完善 AI 101 课程及考勤验收工具交互。"
+    "Agent 执行需要输入的命令（如 CLI 登录粘贴凭据、确认提示）时，会在右侧终端面板打开交互标签，直接在终端里输入即可，输入内容不会发给模型。",
+    "终端面板中的网址可直接点击打开，支持 ⌘C / 右键 / 复制按钮复制选中内容或全部输出。",
+    "修复 Agent 调用工具后回复下方 TPS 与 TTFT 显示为空的问题。"
   ],
   "en": [
-    "Added an interactive Terminal Sidebar powered by xterm.js and PTY session management for live terminal access.",
-    "Agent tool commands now stream real-time execution output directly to the workspace terminal panel.",
-    "Improved reasoning model compatibility and updated AI 101 lessons and Attendance Acceptance tool."
+    "When an agent command needs input (CLI login credentials, confirmations), an interactive tab opens in the terminal panel so you can type there; your input is hidden from the model.",
+    "Links in the terminal panel are clickable, and you can copy the selection or all output with ⌘C, right click or the copy button.",
+    "Fixed TPS and TTFT showing as empty under agent replies that used tools."
   ]
 }
