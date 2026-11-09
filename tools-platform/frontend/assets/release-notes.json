@@ -1,12 +1,12 @@
 {
   "zh": [
-    "Agent 执行需要输入的命令（如 CLI 登录粘贴凭据、确认提示）时，会在右侧终端面板打开交互标签，直接在终端里输入即可，输入内容不会发给模型。",
-    "终端面板中的网址可直接点击打开，支持 ⌘C / 右键 / 复制按钮复制选中内容或全部输出。",
-    "修复 Agent 调用工具后回复下方 TPS 与 TTFT 显示为空的问题。"
+    "终端面板支持标准终端快捷键与按键拦截，隔离页面快捷键（如 Ctrl+R/U/P 等），防止误触全局操作。",
+    "增强终端复制粘贴体验：支持快捷键与右键直接粘贴，支持 macOS 行编辑、全选、清屏与字体缩放。",
+    "Agent 遇到各类登录命令时自动切换至交互终端运行，并自动剔除管道传入的陈旧凭据。"
   ],
   "en": [
-    "When an agent command needs input (CLI login credentials, confirmations), an interactive tab opens in the terminal panel so you can type there; your input is hidden from the model.",
-    "Links in the terminal panel are clickable, and you can copy the selection or all output with ⌘C, right click or the copy button.",
-    "Fixed TPS and TTFT showing as empty under agent replies that used tools."
+    "Terminal panel now intercepts standard terminal keys (Ctrl+R/U/P) and prevents triggering page-level shortcuts.",
+    "Enhanced copy & paste in terminal: supports multi-key shortcuts, right-click paste, macOS line editing, clear, and font zoom.",
+    "Agent login commands are automatically upgraded to run interactively in the terminal with stale piped credentials dropped."
   ]
 }
