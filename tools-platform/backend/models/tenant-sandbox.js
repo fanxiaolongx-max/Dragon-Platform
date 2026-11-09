@@ -39,22 +39,46 @@ function nodePrefix() {
     return ['/', '/usr', '/usr/local', '/opt/homebrew'].includes(prefix) ? '' : prefix;
 }
 
-function status() {
-    if (cachedStatus) return cachedStatus;
-    if (process.env.TOOLS_SANDBOX_DISABLED === '1') return (cachedStatus = { available: false, kind: 'none', reason: '已通过 TOOLS_SANDBOX_DISABLED 关闭沙箱' });
-    if (process.platform === 'darwin') {
-        const ok = fs.existsSync('/usr/bin/sandbox-exec')
-            && spawnSync('/usr/bin/sandbox-exec', ['-p', '(version 1)(allow default)', '/usr/bin/true'], { timeout: 5000 }).status === 0;
-        cachedStatus = ok ? { available: true, kind: 'seatbelt' } : { available: false, kind: 'seatbelt', reason: '本机 sandbox-exec 不可用' };
-    } else if (process.platform === 'linux') {
-        const bwrap = findOnPath('bwrap');
-        const ok = bwrap && spawnSync(bwrap, ['--ro-bind', '/', '/', '--unshare-pid', '--dev', '/dev', '--proc', '/proc', '/bin/true'], { timeout: 5000 }).status === 0;
-        cachedStatus = ok ? { available: true, kind: 'bwrap', bwrap }
-            : { available: false, kind: 'bwrap', reason: bwrap ? 'bwrap 无法创建用户命名空间（Ubuntu 24.04 需放开 kernel.apparmor_restrict_unprivileged_userns 或为 bwrap 配 AppArmor 规则）' : '服务器未安装 bubblewrap（apt install bubblewrap）' };
-    } else {
-        cachedStatus = { available: false, kind: 'none', reason: 'Windows 服务器不支持团队命令沙箱，团队账号无法执行命令' };
+/**
+ * 用真实的沙箱规则跑一次空命令：只验证「sandbox-exec / bwrap 能启动」不够——
+ * 平台本身已处在另一层沙箱里、或内核不允许时，带 deny 规则的真实配置会直接失败。
+ */
+function probe(kind, bwrap) {
+    const dir = real(fs.mkdtempSync(path.join(os.tmpdir(), 'team-sandbox-probe-')));
+    try {
+        const dirs = { workspace: dir, home: dir, tmp: dir };
+        const result = kind === 'seatbelt'
+            ? spawnSync('/usr/bin/sandbox-exec', ['-p', seatbeltProfile(dirs), '/usr/bin/true'], { timeout: 5000, encoding: 'utf8' })
+            : spawnSync(bwrap, [...bwrapArgs(dirs, dir), '--', 'true'], { timeout: 5000, encoding: 'utf8' });
+        return result.status === 0 ? '' : String(result.stderr || result.error?.message || `退出码 ${result.status}`).trim().split('\n').pop().slice(0, 200) || '启动失败';
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
     }
+}
+
+const UNAVAILABLE_RECHECK_MS = 60 * 1000;
+
+function status() {
+    // 可用的结果一直缓存；不可用的结果只缓存一分钟，装好 bwrap / 放开内核限制后不用重启平台
+    if (cachedStatus && (cachedStatus.available || Date.now() - cachedStatus.checkedAt < UNAVAILABLE_RECHECK_MS)) return cachedStatus;
+    cachedStatus = { ...detect(), checkedAt: Date.now() };
     return cachedStatus;
+}
+
+function detect() {
+    if (process.env.TOOLS_SANDBOX_DISABLED === '1') return { available: false, kind: 'none', reason: '已通过 TOOLS_SANDBOX_DISABLED 关闭沙箱' };
+    if (process.platform === 'darwin') {
+        if (!fs.existsSync('/usr/bin/sandbox-exec')) return { available: false, kind: 'seatbelt', reason: '本机没有 sandbox-exec' };
+        const failure = probe('seatbelt');
+        return failure ? { available: false, kind: 'seatbelt', reason: `本机 sandbox-exec 无法应用团队沙箱规则（${failure}）；平台自身运行在沙箱里时会这样` } : { available: true, kind: 'seatbelt' };
+    }
+    if (process.platform === 'linux') {
+        const bwrap = findOnPath('bwrap');
+        if (!bwrap) return { available: false, kind: 'bwrap', reason: '服务器未安装 bubblewrap（apt install bubblewrap）' };
+        const failure = probe('bwrap', bwrap);
+        return failure ? { available: false, kind: 'bwrap', reason: `bwrap 无法建立团队沙箱（${failure}）；Ubuntu 24.04 需放开 kernel.apparmor_restrict_unprivileged_userns 或为 bwrap 配 AppArmor 规则` } : { available: true, kind: 'bwrap', bwrap };
+    }
+    return { available: false, kind: 'none', reason: 'Windows 服务器不支持团队命令沙箱，团队账号无法执行命令' };
 }
 
 function teamDirs(tenantId) {

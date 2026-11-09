@@ -59,10 +59,11 @@ router.delete('/danger-rules/:id', requireAdmin, async (req, res) => {
 
 // 工具使用说明：状态、生成（后台执行，轮询 GET 看进度）、查看单份
 router.get('/tool-guides', async (req, res) => {
-    try { res.setHeader('Cache-Control', 'no-store'); res.json({ ...await require('../models/platform-tool-guides').status(req.user), manage: req.user.role === 'admin' }); } catch (error) { fail(res, error); }
+    try { res.setHeader('Cache-Control', 'no-store'); res.json({ ...await require('../models/platform-tool-guides').status(req.user), manage: isSuperAdmin(req.user) }); } catch (error) { fail(res, error); }
 });
 
-router.post('/tool-guides/generate', async (req, res) => {
+// 重新生成会消耗模型额度并重建知识库索引，默认空间还会写回内置说明：只给超级管理员
+router.post('/tool-guides/generate', requireSuperAdmin, async (req, res) => {
     try {
         const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(String).slice(0, 200) : null;
         res.json({ job: await require('../models/platform-tool-guides').startGeneration({ force: req.body?.force === true, ids, user: req.user }) });

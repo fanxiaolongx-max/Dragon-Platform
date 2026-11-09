@@ -301,6 +301,9 @@ html[data-ui="v2"] #dcComposer .dc-composer-bar [data-tooltip]::after {
     line-height: 1.4; white-space: nowrap; pointer-events: none; opacity: 0;
     transition: opacity 120ms ease, transform 120ms ease;
 }
+html[data-ui="v2"] #dcComposer .dc-composer-bar [data-tooltip]:not(:hover):not(:focus-visible)::after {
+    display: none;
+}
 html[data-ui="v2"] #dcComposer .dc-composer-bar [data-tooltip]:is(:hover, :focus-visible)::after { opacity: 1; transform: translate(-50%, 0); }
 html[data-ui="v2"] #dcComposer #dcSend::after { left: auto; right: 0; transform: translateY(3px); }
 html[data-ui="v2"] #dcComposer #dcSend:is(:hover, :focus-visible)::after { transform: none; }
@@ -356,9 +359,10 @@ html[data-ui="v2"][data-theme="dark"] .nav-media-category-tabs .tab-item[aria-pr
 }
 html[data-ui="v2"] .nav-ai-profile-panel { background: var(--v2-side); border-color: var(--v2-line); box-shadow: none; }
 @media (max-width: 640px) {
+    html[data-ui="v2"] #dcComposer .dc-connector-label { display: none; }
     html[data-ui="v2"] #dcComposer .dc-model-menu { right: -74px; }
-    html[data-ui="v2"] #dcComposer .dc-model-name { max-width: 32vw; }
-    html[data-ui="v2"] #dcComposer .dc-composer-bar { gap: 3px; }
+    html[data-ui="v2"] #dcComposer .dc-model-name { max-width: 22vw; }
+    html[data-ui="v2"] #dcComposer .dc-composer-bar { gap: 3px; max-width: 100%; min-width: 0; }
     html[data-ui="v2"] #dcComposer .dc-model-btn { padding-inline: 4px; gap: 4px; }
 }
 @media (prefers-reduced-motion: reduce) { .dc-enhance.is-loading svg { animation: none; } }
@@ -1124,8 +1128,20 @@ html[data-ui="v2"] .dc-skill-draft-status,
     from { opacity: 0; transform: translateY(6px); }
     to { opacity: 1; transform: none; }
 }
-.dc-connector-popover[hidden] {
+.dc-connector-popover[hidden],
+.dc-connector-item[hidden],
+.dc-connector-divider[hidden],
+.dc-connector-manage[hidden],
+.dc-connector-empty[hidden],
+.dc-connector-note[hidden] {
     display: none !important;
+}
+.dc-connector-empty {
+    padding: 20px 12px;
+    font-size: 13px;
+    color: var(--v2-ink3, #94a3b8);
+    text-align: center;
+    user-select: none;
 }
 .dc-connector-list {
     display: grid;

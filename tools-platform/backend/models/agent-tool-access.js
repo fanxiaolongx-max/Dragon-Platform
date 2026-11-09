@@ -1,5 +1,5 @@
 // 平台策略只限制非超级管理员的智能体工具调用。缺省沿用各工具的角色和审批规则。
-const { isSuperAdmin } = require('../middleware/auth');
+const { isSuperAdmin, inSuperAdminSpace } = require('../middleware/auth');
 const { DEFAULT_TENANT_ID, runWithTenant } = require('./tenant-context');
 const { readKV, writeKV, deleteKV } = require('./kv-store');
 const CATEGORY = 'agent_tool_access';
@@ -18,25 +18,41 @@ function groupFor(name) {
     return Object.entries(prefixes).find(([prefix]) => name.startsWith(prefix))?.[1] || 'other';
 }
 
-async function deniedKeys() {
+// 这两组工具运行在团队命令沙箱之外（平台共享的 MCP 服务进程、服务器本机的浏览器，能读服务器文件、访问本机端口）：
+// 团队账号默认不开放，超级管理员在「智能体工具」里明确开启后才可用。其余工具默认开放、可单独关闭。
+// 超级管理员空间里的其他账号与频道对话不受这条默认规则影响（仍可被单独关闭）。
+const DEFAULT_OFF_GROUPS = ['mcp', 'browser'];
+
+/** 对团队账号关闭的工具 / 分组；teamDefaults=false 时只返回超级管理员明确关闭的 */
+async function deniedKeys({ teamDefaults = true } = {}) {
     return runWithTenant(DEFAULT_TENANT_ID, async () => {
         await readKV(CATEGORY, '', false);
-        const rows = await require('./app-db').all('SELECT key FROM sys_kv_store WHERE category = ? AND value = ?', [CATEGORY, 'true']);
-        return new Set(rows.map(row => row.key));
+        const rows = await require('./app-db').all('SELECT key, value FROM sys_kv_store WHERE category = ?', [CATEGORY]);
+        const denied = new Set(rows.filter(row => row.value === 'true').map(row => row.key));
+        if (teamDefaults) {
+            const granted = new Set(rows.filter(row => row.value === 'false').map(row => row.key));
+            for (const group of DEFAULT_OFF_GROUPS) if (!granted.has(`group:${group}`)) denied.add(`group:${group}`);
+        }
+        return denied;
     });
 }
 
 async function forActor(user, owner) {
     if (isSuperAdmin(user) || (!user && !owner)) return allowAll;
-    const denied = await deniedKeys();
-    if (!denied.size) return allowAll;
     const actor = user ?? await require('./tool-distribution').actorForOwner(owner);
-    return isSuperAdmin(actor) ? allowAll : name => !denied.has(`tool:${name}`) && !denied.has(`group:${groupFor(name)}`);
+    if (isSuperAdmin(actor)) return allowAll;
+    const key = String(owner || '');
+    const denied = await deniedKeys({ teamDefaults: !inSuperAdminSpace(actor, key.includes('::') ? key.slice(0, key.indexOf('::')) : undefined) });
+    return denied.size ? name => !denied.has(`tool:${name}`) && !denied.has(`group:${groupFor(name)}`) : allowAll;
 }
 
 function setAccess(scope, id, enabled) {
     const key = `${scope}:${id}`;
-    return runWithTenant(DEFAULT_TENANT_ID, () => enabled ? deleteKV(CATEGORY, key) : writeKV(CATEGORY, key, true));
+    const defaultOff = scope === 'group' && DEFAULT_OFF_GROUPS.includes(id);
+    return runWithTenant(DEFAULT_TENANT_ID, () => {
+        if (defaultOff) return enabled ? writeKV(CATEGORY, key, false) : deleteKV(CATEGORY, key);
+        return enabled ? deleteKV(CATEGORY, key) : writeKV(CATEGORY, key, true);
+    });
 }
 
-module.exports = { groupFor, deniedKeys, forActor, setAccess };
+module.exports = { DEFAULT_OFF_GROUPS, groupFor, deniedKeys, forActor, setAccess };

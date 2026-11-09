@@ -195,6 +195,22 @@ if (!fs.existsSync(VIDEOS_DIR)) {
     fs.mkdirSync(VIDEOS_DIR, { recursive: true });
 }
 
+function isMediaFeatureEnabled() {
+    try {
+        const manifest = readManifest();
+        return Boolean(manifest && manifest.enabled);
+    } catch (_) {
+        return false;
+    }
+}
+
+function setMediaFeatureEnabled(enabled) {
+    const manifest = readManifest();
+    manifest.enabled = Boolean(enabled);
+    writeManifest(manifest);
+    return manifest.enabled;
+}
+
 /**
  * 读取或初始化媒体清单元数据
  */
@@ -208,6 +224,7 @@ function readManifest() {
         console.warn('[Media] 读取 media-manifest.json 异常，使用默认结构:', e.message);
     }
     return {
+        enabled: false,
         categories: [
             { id: 'all', name: '全部', icon: '🎬', folder: '' },
             { id: 'film', name: '独家电影', icon: '🌟', folder: '' },
@@ -496,12 +513,16 @@ async function hasAdminMediaSession(req) {
 
 async function mediaAssetGuard(req, res, next) {
     try {
+        const adminSession = await hasAdminMediaSession(req);
+        if (!isMediaFeatureEnabled() && !adminSession) {
+            return res.status(403).json({ error: '媒体资源功能未启用', code: 'MEDIA_FEATURE_DISABLED' });
+        }
         const relativePath = decodeURIComponent(req.path).replace(/^\/+/, '');
         const { categories, videos } = scanMediaList();
         const matchedVideo = videos.find(video => videoMatchesAsset(video, relativePath));
         const category = matchedVideo && categoryForVideo(categories, matchedVideo);
         if (!category?.protected) return next();
-        if (verifyCategoryAccess(req.query.access, category.id) || await hasAdminMediaSession(req)) return next();
+        if (verifyCategoryAccess(req.query.access, category.id) || adminSession) return next();
         return res.status(403).json({ error: '该媒体需要 PIN 验证', code: 'MEDIA_PIN_REQUIRED' });
     } catch (error) {
         return res.status(400).json({ error: error.message || '无效的媒体路径' });
@@ -511,8 +532,19 @@ async function mediaAssetGuard(req, res, next) {
 // ============================================================
 // 公开点播 API (无需鉴权)
 // ============================================================
+router.get('/public/status', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ success: true, enabled: isMediaFeatureEnabled() });
+});
+
+async function requireMediaEnabled(req, res, next) {
+    if (isMediaFeatureEnabled()) return next();
+    if (await hasAdminMediaSession(req)) return next();
+    return res.status(403).json({ error: '媒体资源功能未启用', code: 'MEDIA_FEATURE_DISABLED' });
+}
+
 // Same visibility boundary as /public/list; the browser cannot supply a URL or file path.
-router.get('/public/subtitles/:id', async (req, res) => {
+router.get('/public/subtitles/:id', requireMediaEnabled, async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     try {
         const { categories, videos } = scanMediaList();
@@ -576,7 +608,7 @@ router.get('/public/subtitles/:id', async (req, res) => {
     }
 });
 
-router.get('/public/list', async (req, res) => {
+router.get('/public/list', requireMediaEnabled, async (req, res) => {
     try {
         const { categories, videos } = await scanMediaListAsync();
         const { category, q, access } = req.query;
@@ -622,7 +654,7 @@ router.get('/public/list', async (req, res) => {
 /**
  * 飞牛影视海报/剧照代理
  */
-router.get('/public/feiniu/image', async (req, res) => {
+router.get('/public/feiniu/image', requireMediaEnabled, async (req, res) => {
     try {
         const rawPath = String(req.query.path || '').trim();
         if (!rawPath || !rawPath.startsWith('/')) {
@@ -656,7 +688,7 @@ router.get('/public/feiniu/image', async (req, res) => {
 /**
  * 飞牛影视 HLS 播放列表代理
  */
-router.get('/public/feiniu/hls/:guid/index.m3u8', async (req, res) => {
+router.get('/public/feiniu/hls/:guid/index.m3u8', requireMediaEnabled, async (req, res) => {
     try {
         const { guid } = req.params;
         let session = await ensureFeiniuHlsSession(guid);
@@ -699,7 +731,7 @@ router.get('/public/feiniu/hls/:guid/index.m3u8', async (req, res) => {
 /**
  * 飞牛影视 HLS 分片代理（支持会话过期自动重连）
  */
-router.get('/public/feiniu/hls/:guid/:segment', async (req, res) => {
+router.get('/public/feiniu/hls/:guid/:segment', requireMediaEnabled, async (req, res) => {
     try {
         const { guid, segment } = req.params;
         if (!/^[A-Za-z0-9_.-]+\.ts$/.test(segment)) {
@@ -756,7 +788,7 @@ router.get('/public/feiniu/hls/:guid/:segment', async (req, res) => {
 /**
  * 飞牛影视通用点播流代理（原生兼容视频走 HTTP Range 直链，特殊编码走转码流封装）
  */
-router.get('/public/feiniu/stream/:guid', async (req, res) => {
+router.get('/public/feiniu/stream/:guid', requireMediaEnabled, async (req, res) => {
     try {
         const { guid } = req.params;
         const { origin, token, streamMeta } = await resolveFeiniuPlayback(guid);
@@ -846,7 +878,7 @@ router.get('/public/feiniu/stream/:guid', async (req, res) => {
     }
 });
 
-router.post('/public/unlock', (req, res) => {
+router.post('/public/unlock', requireMediaEnabled, (req, res) => {
     try {
         const { category, pin } = req.body || {};
         const manifest = readManifest();
@@ -891,6 +923,7 @@ router.get('/admin/overview', async (req, res) => {
 
         res.json({
             success: true,
+            enabled: isMediaFeatureEnabled(),
             totalVideos: videos.length,
             totalCategories: categories.filter(category => category.id !== 'all').length,
             totalSizeFormatted: (totalBytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB',
@@ -902,6 +935,30 @@ router.get('/admin/overview', async (req, res) => {
         res.status(err.statusCode || 500).json({ error: err.message });
     }
 });
+
+/**
+ * 媒体资源功能总开关读取与更新
+ */
+router.get('/admin/status', (req, res) => {
+    res.json({ success: true, enabled: isMediaFeatureEnabled() });
+});
+
+function handleUpdateMediaFeatureStatus(req, res) {
+    try {
+        const { enabled } = req.body || {};
+        const isEnabled = setMediaFeatureEnabled(enabled);
+        res.json({
+            success: true,
+            enabled: isEnabled,
+            message: isEnabled ? '媒体资源功能已启用' : '媒体资源功能已停用'
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message || '更新媒体资源功能状态失败' });
+    }
+}
+
+router.post('/admin/status', handleUpdateMediaFeatureStatus);
+router.put('/admin/status', handleUpdateMediaFeatureStatus);
 
 /**
  * 飞牛影视对接配置读取与保存
@@ -1324,5 +1381,8 @@ module.exports = {
     createCategoryPinRecord,
     verifyCategoryPin,
     verifyCategoryAccess,
-    mediaAssetGuard
+    mediaAssetGuard,
+    isMediaFeatureEnabled,
+    setMediaFeatureEnabled,
+    hasAdminMediaSession
 };

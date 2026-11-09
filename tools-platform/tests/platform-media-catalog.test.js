@@ -15,7 +15,7 @@ const {
     formatFileSize
 } = require('../backend/models/platform-media-catalog');
 
-const { router, scanMediaList } = require('../backend/routes/media');
+const { router, scanMediaList, isMediaFeatureEnabled, setMediaFeatureEnabled } = require('../backend/routes/media');
 
 test('平台与知识类视频清单包含平台类与知识类两个主分类', () => {
     const catalog = getPlatformMediaCatalog();
@@ -102,38 +102,54 @@ test('无需配置：当媒体库引入新远端视频时，目录自动引入�
 });
 
 test('公开点播接口按平台类和知识类精准筛选，分类计数准确无交叉污染', async () => {
+    const wasEnabled = isMediaFeatureEnabled();
     const app = express();
     app.use('/api/media', router);
 
-    const listRes = await request(app).get('/api/media/public/list').expect(200);
-    assert.equal(listRes.body.success, true);
+    try {
+        setMediaFeatureEnabled(false);
+        const forbiddenRes = await request(app).get('/api/media/public/list').expect(403);
+        assert.equal(forbiddenRes.body.code, 'MEDIA_FEATURE_DISABLED');
 
-    const platCat = listRes.body.categories.find(c => c.id === 'platform');
-    assert.ok(platCat, '分类列表中应有平台类');
-    assert.equal(platCat.name, '平台类');
-    assert.ok(platCat.count >= 13, `平台类视频计数应不少于 13，实际: ${platCat.count}`);
+        setMediaFeatureEnabled(true);
+        const listRes = await request(app).get('/api/media/public/list').expect(200);
+        assert.equal(listRes.body.success, true);
 
-    const knowCat = listRes.body.categories.find(c => c.id === 'knowledge');
-    assert.ok(knowCat, '分类列表中应有知识类');
-    assert.equal(knowCat.name, '知识类');
-    assert.ok(knowCat.count >= 8, `知识类视频计数应不少于 8，实际: ${knowCat.count}`);
+        const platCat = listRes.body.categories.find(c => c.id === 'platform');
+        assert.ok(platCat, '分类列表中应有平台类');
+        assert.equal(platCat.name, '平台类');
+        assert.ok(platCat.count >= 13, `平台类视频计数应不少于 13，实际: ${platCat.count}`);
 
-    const filterPlatform = await request(app).get('/api/media/public/list?category=platform').expect(200);
-    assert.equal(filterPlatform.body.count, platCat.count);
-    assert.ok(filterPlatform.body.data.every(v => v.category === 'platform'), '筛选平台类时不应混入其他分类视频');
+        const knowCat = listRes.body.categories.find(c => c.id === 'knowledge');
+        assert.ok(knowCat, '分类列表中应有知识类');
+        assert.equal(knowCat.name, '知识类');
+        assert.ok(knowCat.count >= 8, `知识类视频计数应不少于 8，实际: ${knowCat.count}`);
 
-    const filterKnowledge = await request(app).get('/api/media/public/list?category=knowledge').expect(200);
-    assert.equal(filterKnowledge.body.count, knowCat.count);
-    assert.ok(filterKnowledge.body.data.every(v => v.category === 'knowledge'), '筛选知识类时不应混入其他分类视频');
+        const filterPlatform = await request(app).get('/api/media/public/list?category=platform').expect(200);
+        assert.equal(filterPlatform.body.count, platCat.count);
+        assert.ok(filterPlatform.body.data.every(v => v.category === 'platform'), '筛选平台类时不应混入其他分类视频');
+
+        const filterKnowledge = await request(app).get('/api/media/public/list?category=knowledge').expect(200);
+        assert.equal(filterKnowledge.body.count, knowCat.count);
+        assert.ok(filterKnowledge.body.data.every(v => v.category === 'knowledge'), '筛选知识类时不应混入其他分类视频');
+    } finally {
+        setMediaFeatureEnabled(wasEnabled);
+    }
 });
 
 test('字幕接口对于平台和知识类内置媒体优雅返回无需字幕，不报错', async () => {
+    const wasEnabled = isMediaFeatureEnabled();
     const app = express();
     app.use('/api/media', router);
 
-    const subRes = await request(app).get('/api/media/public/subtitles/promo___platform-guide').expect(200);
-    assert.equal(subRes.body.success, true);
-    assert.deepEqual(subRes.body.tracks, []);
+    try {
+        setMediaFeatureEnabled(true);
+        const subRes = await request(app).get('/api/media/public/subtitles/promo___platform-guide').expect(200);
+        assert.equal(subRes.body.success, true);
+        assert.deepEqual(subRes.body.tracks, []);
+    } finally {
+        setMediaFeatureEnabled(wasEnabled);
+    }
 });
 
 test('管理接口保护平台与知识类远端资源，禁止从磁盘物理删除', async () => {

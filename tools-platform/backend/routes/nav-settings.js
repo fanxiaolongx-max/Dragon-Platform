@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const repo = require('../models/nav-settings-repository');
 const customToolsRepo = require('../models/custom-tools-repository');
-const { requireAdmin } = require('../middleware/auth');
+const { requireAdmin, requirePlatformAdmin } = require('../middleware/auth');
 
 router.get('/', async (req, res) => {
     res.json(await repo.getSettings());
@@ -26,7 +26,8 @@ router.post('/restore-defaults', requireAdmin, async (req, res) => {
     }
 });
 
-router.post('/set-as-default', requireAdmin, async (req, res) => {
+// 写回项目源码里的默认导航布局：只给超级管理员
+router.post('/set-as-default', requirePlatformAdmin, async (req, res) => {
     try {
         const layoutInput = req.body?.settings || req.body?.layout || null;
         res.json(await repo.setAsDefaultLayout(layoutInput));

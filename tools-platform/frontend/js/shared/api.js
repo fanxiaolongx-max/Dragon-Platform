@@ -393,11 +393,21 @@ html[data-theme="dark"] .tools-dialog{--td-bg:#20242c;--td-ink:#f3f4f6;--td-mute
         observer.observe(document.body, { childList: true });
         area.oninput = () => { dialog.overlay.querySelector('[data-length]').textContent = area.value.length; submit.disabled = !area.value.trim(); };
         dialog.overlay.querySelector('[data-images]').onclick = () => input.click();
-        const client = window.RequirementsClient;
+        // 只有首页和需求页自带 requirements-client.js；其他页面打开反馈框时按需加载
+        let client = window.RequirementsClient;
+        const clientReady = client ? Promise.resolve() : new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = '/js/shared/requirements-client.js';
+            script.onload = () => { client = window.RequirementsClient; client ? resolve() : reject(new Error('RequirementsClient unavailable')); };
+            script.onerror = () => reject(new Error(tr('反馈组件加载失败，请刷新页面后重试', 'Failed to load the feedback component. Refresh and try again.')));
+            document.head.appendChild(script);
+        });
+        clientReady.catch(() => {});
         const status = dialog.overlay.querySelector('[role="status"]');
-        input.onchange = () => {
+        input.onchange = async () => {
             const files = [...input.files];
             input.value = '';
+            try { await clientReady; } catch (error) { status.textContent = error.message; return; }
             if (!client.validImages(files, images.length)) {
                 status.textContent = tr('最多选择 6 张图片，每张不超过 4 MB（PNG、JPG、WebP、GIF）。', 'Choose up to 6 images, 4 MB each (PNG, JPG, WebP, GIF).');
                 return;
@@ -420,6 +430,7 @@ html[data-theme="dark"] .tools-dialog{--td-bg:#20242c;--td-ink:#f3f4f6;--td-mute
             submit.disabled = area.disabled = imageButton.disabled = true;
             status.textContent = tr('正在提交…', 'Submitting…');
             try {
+                await clientReady;
                 await client.submitPayload({
                     title: description.split('\n')[0].slice(0, 80),
                     description,

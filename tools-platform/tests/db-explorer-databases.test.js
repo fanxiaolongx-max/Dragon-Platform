@@ -20,7 +20,8 @@ test('database selection covers runtime databases and preserves tenant and file 
     const web = express();
     web.use(express.json());
     web.use((req, _res, next) => runWithTenant(req.headers['x-test-tenant'] || 'default', () => {
-        req.user = { role: req.headers['x-test-role'] || 'admin' };
+        // 默认是超级管理员（可进入任意团队排障）；x-test-team 表示团队自己的管理员账号
+        req.user = { role: req.headers['x-test-role'] || 'admin', isSuper: !req.headers['x-test-team'] };
         next();
     }));
     web.use('/api/db-explorer', require('../backend/routes/db-explorer'));
@@ -119,6 +120,10 @@ test('database selection covers runtime databases and preserves tenant and file 
     for (const endpoint of ['/databases', '/catalog?database=report', '/tables?database=report', '/tables/explorer_marker?database=report']) {
         assert.equal((await fetch(base + endpoint, { headers: { 'x-test-role': 'member' } })).status, 403);
     }
+    // 团队账号在自己团队里是管理员，但数据探索只给超级管理员
+    const teamHeaders = { 'Content-Type': 'application/json', 'x-test-tenant': 'acme', 'x-test-team': '1' };
+    assert.equal((await fetch(base + '/databases', { headers: teamHeaders })).status, 403);
+    assert.equal((await fetch(base + '/query', { method: 'POST', headers: teamHeaders, body: JSON.stringify({ sql: 'SELECT 1;' }) })).status, 403);
     const forbidden = await fetch(base + '/query', {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'x-test-role': 'member' },
         body: JSON.stringify({ sql: 'SELECT 1;', database: 'report' })

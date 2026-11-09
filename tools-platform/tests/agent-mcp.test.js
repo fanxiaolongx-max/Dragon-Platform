@@ -58,6 +58,9 @@ test('MCP tools join chats as an approval-gated group, pass only their own env, 
         events.push(event);
         if (event.type === 'approval') setImmediate(() => manager.resolveApproval(event.id, event.tool.endsWith('fail') ? 'deny' : 'allow', guest, 'acme'));
     };
+    // 团队默认用不了共享 MCP，这里先由超级管理员开启
+    const toolAccess = require('../backend/models/agent-tool-access');
+    await toolAccess.setAccess('group', 'mcp', true);
     const result = await runWithTenant('acme', async () => {
         const extras = await extraTools.forChat({ owner: 'acme::guest', user: guest, chatSessionId: 'mcp-chat', readOnly: true, write, signal: new AbortController().signal });
         const script = [
@@ -71,6 +74,7 @@ test('MCP tools join chats as an approval-gated group, pass only their own env, 
         extras.end();
         return { out, requests };
     });
+    await toolAccess.setAccess('group', 'mcp', false);
     assert.match(result.requests[0].systemInstruction, /MCP 服务「Echo Server」[\s\S]*mcp__echo_server__echo/);
     const approvals = events.filter(event => event.type === 'approval');
     assert.deepEqual(approvals.map(event => event.preview.title), ['MCP · Echo Server', 'MCP · Echo Server']);
@@ -167,6 +171,11 @@ test('tool settings share safe MCP metadata and enforce team access by tool and 
 
     const catalog = async account => (await call('get', '/catalog', account).expect(200)).body.groups;
     const names = groups => groups.flatMap(group => group.tools.map(item => item.name));
+    // MCP 服务运行在团队沙箱之外：团队默认不开放，超级管理员明确开启后才可用
+    assert.ok(!(await catalog()).some(group => group.id === 'mcp'));
+    assert.equal((await catalog('root')).find(group => group.id === 'mcp').enabled, false);
+    await set('group', 'mcp', true);
+    assert.equal((await catalog('root')).find(group => group.id === 'mcp').enabled, true);
     assert.ok(names(await catalog()).includes(tool));
     await set('tool', tool, false);
     assert.ok(!names(await catalog()).includes(tool));

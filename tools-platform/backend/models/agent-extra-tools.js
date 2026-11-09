@@ -65,6 +65,7 @@ const platformToolset = user => ({
  */
 async function toolsets({ owner, user, readOnly, channel = null }) {
     if (!owner) return [];
+    // 平台共享的 MCP 服务与服务器本机浏览器运行在团队沙箱之外：非超级管理员默认不开放，由 agent-tool-access 统一过滤
     const sets = [platformToolset(user ?? await require('./tool-distribution').actorForOwner(owner))];
     if (channel) {
         if (channel.canSaveSkills) sets.push(require('./agent-skill-tools').toolset({ owner, user }));

@@ -1572,7 +1572,9 @@ function getAllNavItems() {
         updatedAt: tool.updatedAt
     }));
     const isAdmin = localStorage.getItem('tools_role') === 'admin';
-    return [...NAV_BUILTIN_LINKS.filter(item => !item.adminOnly || isAdmin), ...customItems];
+    // 迁移状态、数据探索、NetCare 浏览只给超级管理员（后端同样拦截），团队账号的导航里不出现
+    const superOnly = isNavSuperAdmin() ? [] : ['storage', 'db-explorer', 'netcare-explorer'];
+    return [...NAV_BUILTIN_LINKS.filter(item => (!item.adminOnly || isAdmin) && !superOnly.includes(item.id)), ...customItems];
 }
 
 // 需求管理页以导航中的实际页面/工具作为分类来源，避免维护另一份容易过期的页面清单。
@@ -2677,7 +2679,13 @@ function getNavSettingsSubtitle() {
     if (navState.settingsTab === 'backup') return navT('nav.set.sub.backup');
     if (navState.settingsTab === 'snapshotPublish') return navT('nav.set.sub.snapshotPublish');
     if (navState.settingsTab === 'initialize') return navT('nav.set.sub.initialize');
-    if (navState.settingsTab === 'media') return navT('nav.set.sub.media');
+    if (navState.settingsTab === 'media') {
+        const isEn = Boolean(navState.mediaOverviewCache?.enabled);
+        const statusNote = isEn
+            ? navLocaleText('【已启用】', ' [Enabled]')
+            : navLocaleText('【未启用】', ' [Disabled]');
+        return navT('nav.set.sub.media') + ' ' + statusNote;
+    }
     if (navState.settingsTab === 'promotions') return navT('nav.set.sub.promotions');
     if (navState.settingsTab === 'customBackup') return navT('nav.set.sub.customBackup');
     const sidebar = hasHomeSidebarMenu();

@@ -3,6 +3,7 @@ const repo = require('../models/platform-promotions-repository');
 const clicks = require('../models/platform-promotion-clicks-repository');
 const { getDesktopPromotions, rememberOwner } = require('../models/platform-promotions-desktop');
 const { getTenantId } = require('../models/tenant-context');
+const { requirePlatformAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -21,8 +22,8 @@ router.get('/', async (req, res) => {
     }
 });
 
-// 非 GET 默认需要管理员（server.js 统一拦截）
-router.put('/', async (req, res) => {
+// 平台推广由超级管理员维护（会同步服务器桌面的推广卡片）；团队账号只读
+router.put('/', requirePlatformAdmin, async (req, res) => {
     try {
         const config = await repo.saveConfig(req.body || {});
         syncDesktop(config);
@@ -33,7 +34,7 @@ router.put('/', async (req, res) => {
 });
 
 // 默认（系统自带）推广链接写回项目源码 backend/platform-promotions-defaults.json，提交 Git 后成为所有环境的默认值
-router.put('/defaults', async (req, res) => {
+router.put('/defaults', requirePlatformAdmin, async (req, res) => {
     try {
         repo.saveDefaultLinks(req.body && req.body.links);
         const config = await repo.getConfig();

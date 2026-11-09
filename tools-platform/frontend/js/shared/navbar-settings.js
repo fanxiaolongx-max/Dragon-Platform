@@ -2299,6 +2299,11 @@ async function renderMediaSettings(content) {
         navState.mediaVideosCache = videosData.data || [];
         navState.mediaCategoriesCache = videosData.categories || [];
 
+        const subtitle = document.getElementById('navSettingsSubtitle');
+        if (subtitle && navState.settingsTab === 'media' && typeof getNavSettingsSubtitle === 'function') {
+            subtitle.textContent = getNavSettingsSubtitle();
+        }
+
         renderMediaSettingsHtml(content, overview, navState.mediaVideosCache, navState.mediaCategoriesCache);
     } catch (e) {
         content.innerHTML = `<div class="nav-settings-empty" style="color:#ef4444;">加载媒体资源管理失败：${navEscape(e.message)}</div>`;
@@ -2339,6 +2344,39 @@ function renderMediaSettingsHtml(content, overview, videos, categories) {
 
     content.innerHTML = `
         <div style="display:flex; flex-direction:column; gap:16px;">
+            <!-- 媒体资源总开关控制卡片 -->
+            <div class="nav-media-enable-banner" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px; padding:14px 18px; border-radius:12px; border:1px solid ${overview.enabled ? '#86efac' : 'var(--v2-line, #e2e8f0)'}; background:${overview.enabled ? 'linear-gradient(135deg, rgba(240, 253, 244, 0.95) 0%, rgba(220, 252, 231, 0.6) 100%)' : 'var(--v2-chip, #f8fafc)'}; transition:all 0.2s ease;">
+                <div style="display:flex; align-items:center; gap:12px; min-width:240px; flex:1;">
+                    <div style="width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:22px; background:${overview.enabled ? '#dcfce7' : '#e2e8f0'}; flex-shrink:0;">
+                        🎬
+                    </div>
+                    <div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="font-size:14px; font-weight:700; color:var(--v2-ink, #0f172a);">
+                                ${navLocaleText('媒体资源点播功能', 'Media Resources & Cinema Feature')}
+                            </span>
+                            <span id="mediaFeatureStatusBadge" style="padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700; background:${overview.enabled ? '#16a34a' : '#94a3b8'}; color:#fff;">
+                                ${overview.enabled ? navLocaleText('已启用', 'Enabled') : navLocaleText('未启用', 'Disabled')}
+                            </span>
+                        </div>
+                        <div style="font-size:12px; color:var(--v2-ink3, #64748b); margin-top:2px; line-height:1.4;">
+                            ${overview.enabled
+                                ? navLocaleText('已启用：登录页正显示「🎬 影视作品」入口，点播大厅开放访问。', 'Enabled: Login page displays the "🎬 Cinema" entry, cinema lobby is accessible.')
+                                : navLocaleText('启用后，登录页才会显示「🎬 影视作品」按钮和功能；未启用时影视作品功能不可用且不显示。', 'When enabled, the login page displays the "🎬 Cinema" button and feature; otherwise it is unavailable and hidden.')
+                            }
+                        </div>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <label class="nav-media-toggle-switch" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer; user-select:none; padding:6px 12px; border-radius:8px; background:rgba(255,255,255,0.7); border:1px solid ${overview.enabled ? '#bbf7d0' : '#cbd5e1'};">
+                        <input type="checkbox" id="mediaFeatureEnabledSwitch" ${overview.enabled ? 'checked' : ''} onchange="toggleMediaFeatureEnabled(this.checked)" style="width:18px; height:18px; cursor:pointer; accent-color:#16a34a;">
+                        <span style="font-size:13px; font-weight:700; color:var(--v2-ink, #1e293b);">
+                            ${navLocaleText('启用媒体资源功能', 'Enable Media Resources')}
+                        </span>
+                    </label>
+                </div>
+            </div>
+
             <!-- 资产总体概况卡片 -->
             <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:12px;">
                 <div class="nav-media-stat-card" style="border:1px solid #e2e8f0; border-radius:10px; padding:14px;">
@@ -2562,6 +2600,34 @@ function renderMediaSettingsHtml(content, overview, videos, categories) {
         </div>
     `;
 }
+
+// 切换媒体资源点播功能启用/停用总开关
+window.toggleMediaFeatureEnabled = async function (enabled) {
+    const sw = document.getElementById('mediaFeatureEnabledSwitch');
+    if (sw) sw.disabled = true;
+    try {
+        const res = await fetch('/api/media/admin/status', {
+            method: 'POST',
+            headers: {
+                ...getAuthHeaderForNav(),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ enabled: Boolean(enabled) })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            throw new Error(data.error || '保存媒体资源功能开关失败');
+        }
+        showNavToast(data.message || (enabled ? navLocaleText('媒体资源功能已启用', 'Media Resources enabled') : navLocaleText('媒体资源功能已停用', 'Media Resources disabled')));
+        await renderMediaSettings(document.getElementById('navSettingsContent'));
+    } catch (err) {
+        showNavToast(err.message || '操作失败', 'error');
+        if (sw) {
+            sw.disabled = false;
+            sw.checked = !enabled;
+        }
+    }
+};
 
 // 保存并对接飞牛影视配置
 window.saveFeiniuMediaConfig = async function (btn) {

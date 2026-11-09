@@ -8,7 +8,11 @@ const authSecurityMonitor = require('../models/auth-security-monitor');
 const authSecuritySettingsRepo = require('../models/auth-security-settings-repository');
 const tenantsRepo = require('../models/tenants-repository');
 const auditLog = require('../models/platform-audit-repository');
-const { ensureUserSpaceDirs } = require('../models/tenant-context');
+const { ensureUserSpaceDirs, runWithTenant, DEFAULT_TENANT_ID } = require('../models/tenant-context');
+
+// 登录安全（失败计数、锁定、告警、安全策略）是全平台一份，固定存放在超级管理员空间：
+// 不随调用者所在团队变化——超级管理员进入某个团队排障时看到的仍是同一份。
+router.use((req, res, next) => runWithTenant(DEFAULT_TENANT_ID, next));
 
 const USERNAME_RE = /^[a-z0-9][a-z0-9_-]{1,62}$/i;
 const MIN_PASSWORD_LENGTH = 8;

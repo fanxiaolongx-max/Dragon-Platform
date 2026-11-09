@@ -19,7 +19,8 @@ async function ensureReady() {
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             `);
-            try { await run(`ALTER TABLE auth_sessions ADD COLUMN active_tenant_id TEXT NOT NULL DEFAULT '${DEFAULT_TENANT_ID}'`); } catch (_) {}
+            const columns = new Set((await all('PRAGMA table_info(auth_sessions)')).map(column => column.name));
+            if (!columns.has('active_tenant_id')) await run(`ALTER TABLE auth_sessions ADD COLUMN active_tenant_id TEXT NOT NULL DEFAULT '${DEFAULT_TENANT_ID}'`);
             // 以前删除账号不清会话：启动时清掉已不存在账号的遗留会话
             await run('DELETE FROM auth_sessions WHERE username NOT IN (SELECT username FROM auth_users)');
         })().catch(err => {

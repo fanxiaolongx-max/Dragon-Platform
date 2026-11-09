@@ -56,7 +56,7 @@ const slaRoutes = require('./routes/sla');
 const uploadRoutes = require('./routes/upload');
 const authRoutes = require('./routes/auth');
 const requirementsRoutes = require('./routes/requirements');
-const { router: mediaRoutes, VIDEOS_DIR, mediaAssetGuard } = require('./routes/media');
+const { router: mediaRoutes, VIDEOS_DIR, mediaAssetGuard, isMediaFeatureEnabled, hasAdminMediaSession } = require('./routes/media');
 const aiRoutes = require('./routes/ai');
 const storageRoutes = require('./routes/storage');
 const frtRoutes = require('./routes/frt');
@@ -248,7 +248,8 @@ app.use((req, res, next) => {
         if (!isRuntimeLogViewerRequest && !isChatProgressPoll) {
             console.log(`${color}[${ts}] ${req.method} ${safeUrl} #${req.requestId}${externalTag} → ${status} (${dur}ms) ${bodySize}${querySummary} ip=${client} ua="${userAgent.substring(0, 120)}"${reset}`);
         }
-        if (!isChatProgressPoll) serviceStatusRepo.trackRequest({
+        // 请求统计是平台运维数据，统一记在超级管理员空间（此处在租户中间件之外，不显式指定时落点不确定）
+        if (!isChatProgressPoll) runWithTenant(DEFAULT_TENANT_ID, () => serviceStatusRepo.trackRequest({
             method: req.method,
             pathname: safeUrl,
             statusCode: status,
@@ -256,7 +257,7 @@ app.use((req, res, next) => {
             requestId: req.requestId,
             requestBody: req.suppressBodyLog ? '[omitted]' : JSON.stringify(redactForLog(req.body || {})).slice(0, 16000),
             responseBody: res.locals.serviceStatusResponseBody || ''
-        }).catch(error => console.warn(`[service-status] 请求指标记录失败：${error.message}`));
+        })).catch(error => console.warn(`[service-status] 请求指标记录失败：${error.message}`));
         if (status >= 400 && !req.suppressBodyLog) {
             console.log(`  ↳ Body:`, JSON.stringify(redactForLog(req.body)).substring(0, 300));
         }
@@ -382,7 +383,11 @@ app.get('/api/public/videos', (req, res, next) => {
 app.get('/api/platform-identity', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     const repo = require('./models/nav-settings-repository');
-    res.json(await repo.getSettings());
+    const settings = await repo.getSettings();
+    res.json({
+        ...settings,
+        mediaEnabled: typeof isMediaFeatureEnabled === 'function' ? isMediaFeatureEnabled() : false
+    });
 });
 
 app.use('/api', checkAuth); // Protect all /api/* (except login, which is handled inside checkAuth)
@@ -557,7 +562,13 @@ app.get('/login.html', (req, res) => {
 app.get(['/project-evolution', '/project-evolution.html'], (req, res) => {
     sendFrontendHtml(res, 'pages/project-evolution.html');
 });
-app.get(['/cinema', '/cinema.html', '/cinama', '/cinama.html'], (req, res) => {
+app.get(['/cinema', '/cinema.html', '/cinama', '/cinama.html'], async (req, res) => {
+    if (typeof isMediaFeatureEnabled === 'function' && !isMediaFeatureEnabled()) {
+        const isAdmin = typeof hasAdminMediaSession === 'function' && await hasAdminMediaSession(req);
+        if (!isAdmin) {
+            return res.redirect('/login');
+        }
+    }
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');

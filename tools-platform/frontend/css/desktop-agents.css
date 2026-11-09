@@ -186,4 +186,4 @@ html[data-ui="v2"] body.dc-native-models #dcComposer #dcEnhance{margin-left:auto
 html[data-ui="v2"] body.dc-native-models #dcComposer #dcEnhance[hidden] ~ #dcModel:not([hidden]){margin-left:auto}
 html[data-ui="v2"] body.dc-native-models #dcComposer #dcModel:not([hidden]) ~ #dcVoice,
 html[data-ui="v2"] body.dc-native-models #dcComposer #dcModel:not([hidden]) ~ #dcSend{margin-left:0}
-@media(max-width:640px){body.dc-native-models #dcComposer .dc-connector-label{display:none}body.dc-native-models #dcComposer .dc-model-name{max-width:30vw}}
+@media(max-width:640px){#dcComposer .dc-connector-label{display:none}#dcComposer .dc-model-name{max-width:30vw}}

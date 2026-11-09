@@ -119,7 +119,7 @@ test('公开字幕 API 限定目录清单、PIN 权限和租户缓存边界', as
     fs.mkdirSync(path.join(process.env.TOOLS_MEDIA_DIR, 'locked'), { recursive: true });
     fs.writeFileSync(path.join(process.env.TOOLS_MEDIA_DIR, 'film.mp4'), Buffer.alloc(30000));
     fs.writeFileSync(path.join(process.env.TOOLS_MEDIA_DIR, 'locked/hidden.mp4'), Buffer.alloc(30000));
-    fs.writeFileSync(path.join(process.env.TOOLS_MEDIA_DIR, 'media-manifest.json'), JSON.stringify({ categories: [{ id: 'all', folder: '' }, pinCategory], videos: {} }));
+    fs.writeFileSync(path.join(process.env.TOOLS_MEDIA_DIR, 'media-manifest.json'), JSON.stringify({ enabled: true, categories: [{ id: 'all', folder: '' }, pinCategory], videos: {} }));
     const web = express(); web.use(express.json());
     web.use((req, _res, next) => runWithTenant(req.headers['x-test-tenant'] || 'default', next));
     web.use('/api/media', router);
@@ -158,6 +158,7 @@ test('飞牛从原始 Range 读取指纹，媒体凭据不会发送给字幕源�
         resolveFeiniuPlayback: async () => ({ origin: 'https://media.example', token: 'fixture-token', streamMeta: { mediaGuid, fileSize: 0, fileName: 'movie.mp4' } })
     };
     try {
+        fs.writeFileSync(path.join(process.env.TOOLS_MEDIA_DIR, 'media-manifest.json'), JSON.stringify({ enabled: true, categories: [], videos: {} }));
         delete require.cache[routePath];
         const isolatedRouter = require(routePath).router;
         const web = express(); web.use('/api/media', isolatedRouter);

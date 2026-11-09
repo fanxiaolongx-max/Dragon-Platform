@@ -386,12 +386,32 @@
             min-height: 16px;
         }
 
-        /* 桌面端隐藏“休息一下”与“影视作品”大按钮 */
-        html[data-desktop="true"] :is(.btn-play-game, .btn-cinema) {
+        /* 影视作品入口默认隐藏（未启用媒体资源功能时不可见） */
+        .btn-cinema,
+        .footer-cinema-divider,
+        .footer-cinema-link {
             display: none !important;
         }
+
+        /* 仅在明确启用媒体资源功能且为 v2 界面时展示底部影视小链接（非桌面端） */
+        html[data-ui="v2"][data-media-enabled="true"]:not([data-desktop="true"]) .footer-cinema-divider,
+        html[data-ui="v2"][data-media-enabled="true"]:not([data-desktop="true"]) .footer-cinema-link {
+            display: inline !important;
+        }
+
+        /* 旧版（v1）网页下在启用媒体功能时显示卡片大按钮（非桌面端） */
+        html[data-media-enabled="true"]:not([data-ui="v2"]):not([data-desktop="true"]) button.btn-cinema {
+            display: flex !important;
+        }
+
         /* 旧版（v1）网页下已有大按钮，底部不重复显示小链接 */
         html:not([data-ui="v2"]) .footer-entertainment-item {
+            display: none !important;
+        }
+
+        /* 桌面端隐藏所有娱乐与影视入口 */
+        html[data-desktop="true"] :is(.btn-play-game, .btn-cinema),
+        html[data-desktop="true"] .footer-entertainment-item {
             display: none !important;
         }
 
@@ -910,10 +930,10 @@
             <a href="/terms" data-i18n="login.terms" onclick="openLegalModal('terms'); return false;">服务条款</a>
             <span style="color:rgba(255,255,255,0.2);">|</span>
             <a class="login-evolution-link" href="/project-evolution" onclick="openLegalModal('evolution'); return false;" data-i18n="login.evolutionTitle" data-i18n-aria-label="login.evolutionAria" aria-label="在弹窗中观看项目演进高清视频">项目演进</a>
-            <span class="footer-entertainment-item" style="color:rgba(255,255,255,0.2);">|</span>
-            <a class="footer-entertainment-item" href="#" data-i18n="login.playGame" onclick="toggleGame(true); return false;">♨️ 休息一下</a>
-            <span class="footer-entertainment-item" style="color:rgba(255,255,255,0.2);">|</span>
-            <a class="footer-entertainment-item" href="/cinema" data-i18n="login.cinema">🎬 影视作品</a>
+            <span class="footer-entertainment-item footer-game-divider" style="color:rgba(255,255,255,0.2);">|</span>
+            <a class="footer-entertainment-item footer-game-link" href="#" data-i18n="login.playGame" onclick="toggleGame(true); return false;">♨️ 休息一下</a>
+            <span class="footer-entertainment-item footer-cinema-divider" style="color:rgba(255,255,255,0.2);">|</span>
+            <a class="footer-entertainment-item footer-cinema-link" href="/cinema" data-i18n="login.cinema">🎬 影视作品</a>
         </div>
 
         <div class="login-slogan-wrap" id="loginSloganWrap">
@@ -1662,6 +1682,16 @@
             applyLoginPlatformIdentity(name);
         }
 
+        function applyMediaFeatureState(enabled) {
+            if (enabled) {
+                document.documentElement.setAttribute('data-media-enabled', 'true');
+                if (document.body) document.body.classList.add('media-feature-enabled');
+            } else {
+                document.documentElement.removeAttribute('data-media-enabled');
+                if (document.body) document.body.classList.remove('media-feature-enabled');
+            }
+        }
+
         async function loadPlatformIdentity() {
             try {
                 const cachedIdentity = localStorage.getItem('tools_platform_identity');
@@ -1688,6 +1718,9 @@
                     const data = await res.json();
                     if (data && typeof data === 'object') {
                         applyLoginPlatformIdentity(data);
+                        if (typeof data.mediaEnabled !== 'undefined') {
+                            applyMediaFeatureState(Boolean(data.mediaEnabled));
+                        }
                         try {
                             localStorage.setItem('tools_platform_name', currentPlatformName);
                             localStorage.setItem('tools_platform_identity', JSON.stringify({
@@ -1705,6 +1738,16 @@
             } catch (e) {
                 console.warn('[Login] load nav-settings failed:', e);
             }
+
+            try {
+                const mediaStatusRes = await fetch('/api/media/public/status', { cache: 'no-store' });
+                if (mediaStatusRes.ok) {
+                    const mediaStatus = await mediaStatusRes.json();
+                    if (mediaStatus && typeof mediaStatus.enabled !== 'undefined') {
+                        applyMediaFeatureState(Boolean(mediaStatus.enabled));
+                    }
+                }
+            } catch (_) {}
 
             try {
                 const logoRes = await fetch('/api/platform-logo/status', { cache: 'no-store' });

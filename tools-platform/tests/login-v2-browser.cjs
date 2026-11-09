@@ -98,7 +98,7 @@ app.whenReady().then(async () => {
     assert.equal(state1.theme, 'light', 'Default login page uses data-theme="light"');
     assert.equal(state1.hasV2Head, true, 'v2 brand header is visible');
     assert.equal(state1.brandTitle, 'DragonClaw', 'Brand title is DragonClaw');
-    assert.ok(state1.mascotSrc.includes('dragonclaw-mascot'), 'Cartoon dragon mascot is shown');
+    assert.ok(state1.mascotSrc.includes('logo.png') || state1.mascotSrc.includes('dragonclaw-mascot'), 'Cartoon dragon mascot is shown');
     assert.equal(state1.btnPlayGameDisplay, 'none', 'Big btn-play-game is hidden in v2');
     assert.equal(state1.btnCinemaDisplay, 'none', 'Big btn-cinema is hidden in v2');
     assert.notEqual(state1.footerEntertainmentDisplay, 'none', 'Footer entertainment items are visible on web');

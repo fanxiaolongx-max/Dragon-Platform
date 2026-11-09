@@ -21,6 +21,17 @@
  const TOOL_SKILLS={'welink-cli':'welink-office',netcare:'netcare-data'};
  const L=(zh,en)=>/^en/.test(window.ToolsI18n?.getLanguage?.()||localStorage.getItem('tools_lang')||'')?en:zh;
  const who=()=>['tools_user','tools_tenant_id','tools_token'].map(k=>localStorage.getItem(k)||sessionStorage.getItem(k)||'').join('|');
+ function isSuperAdmin(){
+  try{
+   if(typeof window.isNavSuperAdmin==='function')return window.isNavSuperAdmin()===true;
+   if(localStorage.getItem('tools_role')!=='admin')return false;
+   const flag=localStorage.getItem('tools_super');
+   if(flag==='0')return false;
+   const tenant=localStorage.getItem('tools_tenant_id')||'default';
+   if(tenant!=='default')return false;
+   return flag==='1'||flag===null;
+  }catch{return false;}
+ }
  async function request(method,url,body){
    const token=localStorage.getItem('tools_token')||sessionStorage.getItem('tools_token');
    const r=await fetch(API+url,{method,cache:'no-store',credentials:'same-origin',headers:{Authorization:'Bearer '+token,...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});
@@ -184,6 +195,8 @@
   // 更新 popover 里的开关状态
   const popover = root.querySelector('.dc-connector-popover');
   if(popover){
+    const superAdmin = isSuperAdmin();
+    let visibleCount = 0;
     Object.keys(connectors).forEach(key => {
       const input = popover.querySelector(`input[data-connector="${key}"]`);
       if(input){
@@ -196,12 +209,29 @@
         const row=input.closest('.dc-connector-item');
         row.classList.toggle('is-unavailable',!readiness[key].ready&&!locked);
         row.title=locked?L('对话已开始，连接器不可修改','Conversation started; connectors cannot be changed'):readiness[key].ready?L('已就绪','Ready'):connectorReason(key);
+
+        const isEnabled = Boolean(readiness[key]?.ready || connectors[key]);
+        const showRow = superAdmin || isEnabled;
+        row.hidden = !showRow;
+        if(showRow) visibleCount++;
       }
     });
-  }
 
-  const note=root.querySelector('[data-connector-note]');
-  if(note)note.textContent=locked?L('本对话已绑定连接器；新建对话可重新选择','Bound to this conversation. Start a new chat to change connectors.'):L('仅预选新对话 · 发送后固定','Choose for your new chat · fixed after sending');
+    const empty = popover.querySelector('.dc-connector-empty');
+    if(empty){
+      empty.hidden = superAdmin || visibleCount > 0;
+      empty.textContent = L('暂无可用连接器','No connectors available');
+    }
+    const divider = popover.querySelector('.dc-connector-divider');
+    if(divider) divider.hidden = !superAdmin;
+    const manageBtn = popover.querySelector('.dc-connector-manage');
+    if(manageBtn) manageBtn.hidden = !superAdmin;
+    const note = root.querySelector('[data-connector-note]');
+    if(note){
+      note.hidden = !superAdmin && visibleCount === 0;
+      note.textContent=locked?L('本对话已绑定连接器；新建对话可重新选择','Bound to this conversation. Start a new chat to change connectors.'):L('仅预选新对话 · 发送后固定','Choose for your new chat · fixed after sending');
+    }
+  }
   const hint=root.querySelector('[data-tac-hint]');
   if(hint){
     hint.textContent=enabled&&availability.available?(locked?L('本对话固定为讨论组','Agent group for this conversation'):L('发送前可取消 · 首次发送新建桌面对话','Turn off before sending · new desktop chats on first send')):'';
@@ -412,6 +442,7 @@ ${DESKTOP_IDS.map(id=>`         <div class="dc-connector-item" data-key="${id}">
            </div>
            <label class="dc-switch"><input type="checkbox" data-connector="${key}"><span class="dc-switch-track"><span class="dc-switch-thumb"></span></span></label>
          </div>`).join('')}
+         <div class="dc-connector-empty" hidden>${L('暂无可用连接器','No connectors available')}</div>
        </div>
        <div class="dc-connector-note" data-connector-note></div>
        <div class="dc-connector-divider"></div>

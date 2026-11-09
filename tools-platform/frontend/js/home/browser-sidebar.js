@@ -460,7 +460,7 @@
         panel.querySelector('.dc-browser-agent-view').hidden=Boolean(bridge);
         window.SidebarResize?.bind({panel,cssVar:'--browser-panel-width',storageKey:'dragon_browser_sidebar_width',defaultWidth:480,onManualResize:()=>{autoFit=false;}});
         toggle.addEventListener('click',()=>open?close():show());panel.querySelector('form').addEventListener('submit',event=>{event.preventDefault();navigate();});
-        panel.addEventListener('click',event=>{const button=event.target.closest('button');if(!button)return;if(button.dataset.browser)action(button.dataset.browser);if(button.dataset.tab){if(bridge)bridge.action('tab-select',button.dataset.tab);else command('select-tab',{tabId:button.dataset.tab});}if(button.dataset.closeTab){const closed=state.tabs.find(tab=>tab.id===button.dataset.closeTab);if(closed&&/^https?:/.test(closed.url))closedTabs.push(closed);closedTabs=closedTabs.slice(-20);if(bridge)bridge.action('tab-close',button.dataset.closeTab);else command('close-tab',{tabId:button.dataset.closeTab});}});
+        panel.addEventListener('click',event=>{const button=event.target.closest('button');if(!button)return;if(button.dataset.browser)action(button.dataset.browser);if(button.dataset.tab){if(bridge)bridge.action('tab-select',button.dataset.tab);else command('select-tab',{tabId:button.dataset.tab});}if(button.dataset.closeTab){const closedId=button.dataset.closeTab,closed=state.tabs.find(tab=>tab.id===closedId);if(closed&&/^https?:/.test(closed.url))closedTabs.push(closed);closedTabs=closedTabs.slice(-20);const lastTab=state.tabs.filter(tab=>tab.id!==closedId&&!tab.pending).length===0;if(bridge)bridge.action('tab-close',closedId);else command('close-tab',{tabId:closedId});if(lastTab)close();}});
         panel.addEventListener('click',event=>{
             const button=event.target.closest('button');if(!button)return;
             if(button.dataset.download&&bridge)bridge.action('download-action',{id:button.dataset.download,action:button.dataset.downloadAction});
@@ -537,7 +537,7 @@
                 if(window.HomeToolFrame?.open(url.pathname+url.search))close();
             }catch{}
         });
-        if(bridge){bridge.onState(value=>{const before=state.tabs.find(tab=>tab.id===state.activeId)?.url,after=value.tabs.find(tab=>tab.id===value.activeId)?.url;if(before!==after){autoFit=true;pageWidth=0;}state=value;render();requestAnimationFrame(fit);});bridge.onReveal(()=>{if(innerWidth>860||open)show({createEmpty:false});});bridge.onFocusUrl(()=>{address.focus();address.select();});bridge.onPoppedOut(()=>{docked=false;close();});bridge.connect().then(value=>{connected=value;docked=value;layout();}).catch(()=>{});}
+        if(bridge){bridge.onState(value=>{const before=state.tabs.find(tab=>tab.id===state.activeId)?.url,after=value.tabs.find(tab=>tab.id===value.activeId)?.url;if(before!==after){autoFit=true;pageWidth=0;}state=value;if(open&&!state.tabs.length)close();else{render();requestAnimationFrame(fit);}});bridge.onReveal(()=>{if(innerWidth>860||open)show({createEmpty:false});});bridge.onFocusUrl(()=>{address.focus();address.select();});bridge.onPoppedOut(()=>{docked=false;close();});bridge.connect().then(value=>{connected=value;docked=value;layout();}).catch(()=>{});}
         render();window.DragonBrowserSidebar={open:show,close,showAgentView:show,isOpen:()=>open};
     }
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();

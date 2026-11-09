@@ -77,8 +77,14 @@ function open() {
     const db = new sqlite3.Database(file);
     db.configure('busyTimeout', 5000);
     const ready = initializeSqliteConnection(db).then(() => migrateLegacyTables(db));
-    ready.catch(() => {});
-    state = { db, ready, file };
+    const opened = { db, ready, file };
+    // 打开或迁移失败（磁盘忙、被占用等）时不缓存这次失败：记日志、关闭连接，下次访问重新打开
+    ready.catch(error => {
+        console.error(`[control-db] 打开平台控制库失败：${error.message || error}`);
+        if (state === opened) state = null;
+        db.close(() => {});
+    });
+    state = opened;
     return state;
 }
 
