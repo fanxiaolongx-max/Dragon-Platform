@@ -66,6 +66,10 @@ contextBridge.exposeInMainWorld('DragonWindow', {
     minimize: () => ipcRenderer.send('desktop-window:minimize'),
     toggleMaximize: () => ipcRenderer.send('desktop-window:toggle-maximize'),
     close: () => ipcRenderer.send('desktop-window:close'),
+    // 焦点在终端面板时让所有按键直达页面（Ctrl+R 反向搜索、Ctrl+U 删行、Ctrl+P 上一条历史等不被当成刷新 / 查看源码 / 打印）
+    setTerminalKeys: active => ipcRenderer.send('desktop-window:terminal-keys', Boolean(active)),
+    readClipboard: () => ipcRenderer.invoke('desktop-window:read-clipboard'), // 终端右键 / 快捷键粘贴：直接读系统剪贴板，不弹网页权限
+
     getState: () => ipcRenderer.invoke('desktop-window:get-state'),
     onState: (callback) => {
         if (typeof callback !== 'function') return () => {};

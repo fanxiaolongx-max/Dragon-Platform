@@ -88,8 +88,10 @@ function createMainWindowController({ getBaseUrl, getIconPath, statePath, isQuit
     }
 
     // 浏览器式快捷键：刷新 / 强制刷新 / 缩放 / 开发者工具 / 打印 / 查看源码
+    const terminalFocus = new WeakSet(); // 焦点在终端面板的 webContents：不拦截任何按键
     function blockBrowserKeys(event, input) {
         if (input.type !== 'keyDown') return;
+        if (terminalFocus.has(this)) return;
         const key = String(input.key || '').toLowerCase();
         const mod = isMac ? input.meta : input.control;
         const blocked = key === 'f5' || key === 'f12'
@@ -296,6 +298,8 @@ function createMainWindowController({ getBaseUrl, getIconPath, statePath, isQuit
             else target.maximize();
         });
         ipcMain.on('desktop-window:close', event => fromSender(event)?.close());
+        ipcMain.handle('desktop-window:read-clipboard', () => require('electron').clipboard.readText());
+        ipcMain.on('desktop-window:terminal-keys', (event, active) => { if (active) terminalFocus.add(event.sender); else terminalFocus.delete(event.sender); });
         ipcMain.handle('desktop-window:get-state', event => {
             const target = fromSender(event);
             return { platform: isMac ? 'darwin' : process.platform === 'darwin' ? 'win32' : process.platform, maximized: Boolean(target?.isMaximized()), fullscreen: Boolean(target?.isFullScreen()), focused: Boolean(target?.isFocused()), main: target === win };

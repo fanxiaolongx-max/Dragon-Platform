@@ -65,10 +65,76 @@
             ? { background: '#0d1117', foreground: '#e6edf3', cursor: '#e6edf3', selectionBackground: '#3b82f655', black: '#484f58', brightBlack: '#6e7681' }
             : { background: '#ffffff', foreground: '#1f2328', cursor: '#1f2328', selectionBackground: '#3b82f633', black: '#24292f', brightBlack: '#57606a', white: '#6e7781', brightWhite: '#8c959f', yellow: '#9a6700', brightYellow: '#7d4e00' };
     }
+    const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+    let fontSize = Number(localStorage.getItem('dragon_terminal_font_size')) || 12.5;
+    function setFontSize(next) {
+        fontSize = Math.max(9, Math.min(24, Math.round(next * 2) / 2));
+        try { localStorage.setItem('dragon_terminal_font_size', String(fontSize)); } catch {}
+        for (const tab of tabs.values()) if (tab.term) { tab.term.options.fontSize = fontSize; }
+        fitTab(tabs.get(activeId));
+        flash(L(`字号 ${fontSize}`, `Font size ${fontSize}`));
+    }
+    async function pasteInto(tab) {
+        if (!tab || tab.kind !== 'shell' || tab.exited) return;
+        try {
+            const text = window.DragonWindow?.readClipboard ? await window.DragonWindow.readClipboard() : await navigator.clipboard.readText();
+            if (text) tab.term.paste(text); // 走 xterm 的粘贴（含括号粘贴模式），再经 onData 发出
+        } catch (_error) {
+            flash(IS_MAC ? L('无法读取剪贴板，请用 ⌘V 粘贴', 'Clipboard unavailable, use ⌘V') : L('无法读取剪贴板，请用 Ctrl+V 粘贴', 'Clipboard unavailable, use Ctrl+V'), true);
+        }
+    }
+    // 与系统终端一致的按键：返回 false 表示 xterm 不处理（交给浏览器默认行为或这里自己处理）
+    //  复制：⌘C / Ctrl+C（有选中时）、Ctrl+Shift+C、Ctrl+Insert；粘贴：⌘V / Ctrl+V / Ctrl+Shift+V / Shift+Insert；
+    //  全选 ⌘A / Ctrl+Shift+A；清屏 ⌘K / Ctrl+Shift+K；字号 ⌘/Ctrl + = - 0；
+    //  macOS：⌘←/→ 行首行尾，⌥←/→ 按词移动，⌘⌫ 删到行首，⌥⌫ 删前一个词；其余（Ctrl+C/D/Z/R/L/U/W/A/E、Tab、Esc、方向键、F1–F12、Alt 组合）原样送进终端
+    function keyHandler(tab) {
+        return event => {
+            if (event.type !== 'keydown') return true;
+            const term = tab.term;
+            const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+            const cmd = IS_MAC ? event.metaKey : event.ctrlKey;
+            const send = data => { event.preventDefault(); if (tab.kind === 'shell' && !tab.exited) (tab.pty === false ? localEdit(tab, data) : sendInput(tab, data)); return false; };
+            if (key === '`' && event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); close(); return false; }
+            if ((key === 'c' && (event.metaKey || event.ctrlKey) && (term.hasSelection() || event.shiftKey)) || (key === 'Insert' && event.ctrlKey)) { event.preventDefault(); copyFrom(tab); return false; }
+            if ((key === 'v' && (IS_MAC ? event.metaKey : event.ctrlKey)) || (key === 'Insert' && event.shiftKey)) {
+                if (tab.kind !== 'shell') { flashReadonly(); return false; }
+                // 桌面版（Electron）与 Shift+Insert：直接读剪贴板粘贴；网页版交给浏览器原生 paste 事件（xterm 接收，无需剪贴板权限）
+                if (key === 'Insert' || window.DragonWindow) { event.preventDefault(); pasteInto(tab); }
+                return false;
+            }
+            if (key === 'a' && (IS_MAC ? event.metaKey && !event.shiftKey : event.ctrlKey && event.shiftKey)) { event.preventDefault(); term.selectAll(); return false; }
+            if (key === 'k' && (IS_MAC ? event.metaKey : event.ctrlKey && event.shiftKey)) { event.preventDefault(); term.clear(); return false; }
+            if (cmd && !event.altKey && ['=', '+', '-', '_', '0'].includes(key)) {
+                event.preventDefault();
+                setFontSize(key === '0' ? 12.5 : fontSize + (key === '-' || key === '_' ? -1 : 1));
+                return false;
+            }
+            if (IS_MAC && tab.kind === 'shell') {
+                if (event.metaKey && !event.altKey && key === 'ArrowLeft') return send('\x01');
+                if (event.metaKey && !event.altKey && key === 'ArrowRight') return send('\x05');
+                if (event.metaKey && key === 'Backspace') return send('\x15');
+                if (event.altKey && !event.metaKey && key === 'ArrowLeft') return send('\x1bb');
+                if (event.altKey && !event.metaKey && key === 'ArrowRight') return send('\x1bf');
+                if (event.altKey && !event.metaKey && key === 'Backspace') return send('\x17');
+            }
+            if (IS_MAC && event.metaKey) return false; // 其他 ⌘ 组合交给浏览器 / 应用（⌘W、⌘T 等）
+            if (tab.kind !== 'shell' && !event.ctrlKey && !event.metaKey && !event.altKey && (key.length === 1 || key === 'Enter')) { flashReadonly(); return false; }
+            return true;
+        };
+    }
+    function flashReadonly() {
+        flash(L('Agent 标签只显示智能体命令输出，不能输入；需要你输入时会自动打开 ⌨ 交互标签，也可以点 + 新建终端', 'The Agent tab is read-only output. Commands that need input open a ⌨ tab automatically, or click + for a new terminal'));
+    }
+    // 焦点在终端里时：按键不再冒泡到页面的全局快捷键；桌面版让主进程放行 Ctrl+R / Ctrl+U / Ctrl+P 等
+    function isolateKeys(node) {
+        node.addEventListener('keydown', event => event.stopPropagation());
+        node.addEventListener('focusin', () => window.DragonWindow?.setTerminalKeys?.(true));
+        node.addEventListener('focusout', event => { if (!event.relatedTarget || !event.relatedTarget.closest?.('.dc-term-view')) window.DragonWindow?.setTerminalKeys?.(false); });
+    }
     function makeTerm(options = {}) {
         const term = new window.Terminal({
             fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Cascadia Mono", "Microsoft YaHei Mono", monospace',
-            fontSize: 12.5, lineHeight: 1.25, cursorBlink: true, scrollback: 5000, allowProposedApi: false,
+            fontSize, lineHeight: 1.25, cursorBlink: true, scrollback: 5000, allowProposedApi: false,
             rightClickSelectsWord: false, macOptionClickForcesSelection: true,
             theme: theme(), ...options
         });
@@ -166,10 +232,7 @@
         Object.assign(tab, { term, fit });
         term.open(tab.node);
         // 只读终端也要能用快捷键复制
-        term.attachCustomKeyEventHandler(event => {
-            if (event.type === 'keydown' && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'c' && term.hasSelection()) { copyFrom(tab); return false; }
-            return true;
-        });
+        term.attachCustomKeyEventHandler(keyHandler(tab));
         term.writeln(`\x1b[2m${L('Dragon Claw · 智能体命令输出', 'Dragon Claw · agent command output')}\x1b[0m`);
         agentQueue.splice(0).forEach(text => term.write(text));
         return tab;
@@ -210,6 +273,7 @@
         if (tabs.has(session.id)) return tabs.get(session.id);
         const node = document.createElement('div');
         node.className = 'dc-term-view'; node.hidden = true;
+        isolateKeys(node);
         body.append(node);
         const tab = { ...session, kind: 'shell', node, connecting: true, line: '', inputQueue: '', sending: false };
         tabs.set(session.id, tab);
@@ -223,14 +287,7 @@
         term.open(tab.node);
         term.onData(data => tab.pty === false ? localEdit(tab, data) : sendInput(tab, data));
         // Ctrl/Cmd+Shift+C / V：复制粘贴；Ctrl+C 交给终端（中断）
-        term.attachCustomKeyEventHandler(event => {
-            if (event.type !== 'keydown') return true;
-            const mod = event.ctrlKey || event.metaKey;
-            // 有选中内容时 ⌘C / Ctrl+C / Ctrl+Shift+C 复制；没有选中时 Ctrl+C 仍是中断
-            if (mod && event.key.toLowerCase() === 'c' && (term.hasSelection() || event.shiftKey)) { copyFrom(tab); return false; }
-            if (event.metaKey && event.key.toLowerCase() === 'k') { term.clear(); return false; }
-            return true;
-        });
+        term.attachCustomKeyEventHandler(keyHandler(tab));
         if (tab.id === activeId) { fitTab(tab); if (open) term.focus(); }
         connect(tab);
     }
@@ -393,7 +450,7 @@
         menuNode = panel.querySelector('.dc-term-menu');
         statusNode = panel.querySelector('.dc-term-status');
         const agentNode = document.createElement('div');
-        agentNode.className = 'dc-term-view'; body.append(agentNode);
+        agentNode.className = 'dc-term-view'; isolateKeys(agentNode); body.append(agentNode);
         tabs.set('agent', { id: 'agent', kind: 'agent', title: 'Agent', node: agentNode });
         renderMenu(); renderTabs();
 
@@ -422,11 +479,22 @@
             copyFrom(tab);
         });
         // 右键：有选中内容时直接复制（不弹浏览器菜单）
+        // 右键：有选中内容时复制，否则粘贴（Windows Terminal 的习惯；Agent 只读标签不粘贴）
+        // 网页版读剪贴板要用户授权：已授权 / 尚未询问（首次弹一次「允许」）时直接粘贴；
+        // 被拒绝或浏览器不支持时不拦截，交给浏览器原生右键菜单（xterm 已把输入框移到光标下，菜单里的「粘贴」可用）
+        let clipboardRead = window.DragonWindow?.readClipboard ? 'granted' : navigator.clipboard?.readText ? 'prompt' : 'unsupported';
+        if (!window.DragonWindow?.readClipboard) navigator.permissions?.query({ name: 'clipboard-read' }).then(status => {
+            clipboardRead = status.state;
+            status.onchange = () => { clipboardRead = status.state; };
+        }).catch(() => {});
         body.addEventListener('contextmenu', event => {
             const tab = tabs.get(activeId);
-            if (!tab?.term?.hasSelection()) return;
+            if (!tab?.term) return;
+            if (tab.term.hasSelection()) { event.preventDefault(); copyFrom(tab); tab.term.clearSelection(); return; }
+            if (tab.kind !== 'shell' || tab.exited) { event.preventDefault(); return; }
+            if (clipboardRead === 'denied' || clipboardRead === 'unsupported') return;
             event.preventDefault();
-            copyFrom(tab);
+            pasteInto(tab);
         });
         // 中键关闭标签
         tabsNode.addEventListener('auxclick', event => { const id = event.target.closest('[data-term-tab]')?.dataset.termTab; if (event.button === 1 && id && id !== 'agent') closeTab(id); });
