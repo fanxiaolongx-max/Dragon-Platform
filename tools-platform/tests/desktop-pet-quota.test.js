@@ -35,6 +35,27 @@ test('missing, invalid or over-range values never manufacture 100% quota',()=>{
     assert.equal(parseClaudeQuota({five_hour:{utilization:0},seven_day:{utilization:100}}).groups[0].windows[1].remainingPercent,0);
 });
 
+test('Codex reads finite purchased credits from its account bucket or legacy snapshot', () => {
+    const credits = { hasCredits: true, unlimited: false, balance: '2476.5' };
+    const data = codexData();
+    data.rateLimitsByLimitId.codex.credits = credits;
+    data.rateLimits = { credits: { ...credits, balance: '1' } };
+    assert.equal(parseCodexQuota(data).creditsBalance, 2476.5);
+    const balanceOnly = parseCodexQuota({ rateLimits: { credits } });
+    assert.equal(balanceOnly.creditsBalance, 2476.5);
+    assert.equal(balanceOnly.status, 'live');
+
+    for (const missing of [null, { ...credits, hasCredits: false }, { ...credits, unlimited: true },
+        ...['', '0', '-1', '1e3', 'Infinity', '0x10', '9'.repeat(400)].map(balance => ({ ...credits, balance }))]) {
+        assert.equal(parseCodexQuota({ rateLimits: { credits: missing } }).creditsBalance, undefined);
+    }
+    data.rateLimits = null;
+    delete data.rateLimitsByLimitId.codex.credits;
+    data.rateLimitsByLimitId.codex_other = { credits };
+    data.rateLimitResetCredits = { availableCount: 2 };
+    assert.equal(parseCodexQuota(data).creditsBalance, undefined);
+});
+
 test('cache coalesces concurrent reads, preserves timestamps, expires reset windows and clears on sign-out',async()=>{
     let now=1000,count=0,fail=false,status='unavailable';
     const read=cachedReader('codex',async()=>{count++;if(fail)return unavailable('codex',status);return{...parseCodexQuota(codexData()),updatedAt:now};},100,()=>now);

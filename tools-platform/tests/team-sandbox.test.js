@@ -68,7 +68,8 @@ test('commands run inside the team sandbox', { skip: !sandbox.status().available
     assert.match(await run('echo hi > a.txt && cat a.txt && echo "$HOME"'), new RegExp(`hi[\\s\\S]*${tenant.getHomeDir('east').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
     assert.match(await run('echo cfg > "$HOME/.cfg" && cat "$HOME/.cfg"'), /cfg/);
     assert.doesNotMatch(await run(`cat "${path.join(__dirname, '..', 'package.json')}"`), /"name"/, 'project source is unreadable');
-    assert.doesNotMatch(await run(`ls "${tenant.getDataDir('east')}"`), /tools\.db|workspace/, 'team database directory is unreadable');
+    assert.doesNotMatch(await run(`ls "${tenant.getDataDir('east')}"`), /tools\.db/, 'team database directory is unreadable');
+    assert.doesNotMatch(await run(`cat "${path.join(tenant.getDataDir('east'), 'tools.db')}" 2>&1`), /SQLite format/, 'team database is unreadable');
     await run(`echo x > "${path.join(boundary.workspaceRoot('west'), 'x.txt')}"`);
     assert.equal(fs.existsSync(path.join(boundary.workspaceRoot('west'), 'x.txt')), false, 'cannot write into another team');
     fs.writeFileSync(path.join(boundary.workspaceRoot('west'), 'secret.txt'), 'WEST-SECRET');

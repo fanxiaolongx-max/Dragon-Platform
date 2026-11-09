@@ -11,6 +11,7 @@ function publicQuota(value) {
     if (!value || typeof value !== 'object') return null;
     return {
         status: value.status, membership: value.membership || null, updatedAt: value.updatedAt || null,
+        creditsBalance: Number.isFinite(value.creditsBalance) && value.creditsBalance > 0 ? value.creditsBalance : null,
         groups: (Array.isArray(value.groups) ? value.groups : []).slice(0, 10).map(group => ({
             id: group.id, label: group.label,
             windows: (Array.isArray(group.windows) ? group.windows : []).slice(0, 10).map(w => ({ id: w.id, label: w.label, remainingPercent: w.remainingPercent, resetsAt: w.resetsAt, durationMinutes: w.durationMinutes }))

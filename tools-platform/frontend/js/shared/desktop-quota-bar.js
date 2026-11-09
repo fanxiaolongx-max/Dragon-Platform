@@ -52,8 +52,17 @@
         return symbol + amount.toFixed(2);
     }
     function extraUsageBlock(source, className) {
-        const extra = source?.extraUsage;
         if (!['live', 'cached'].includes(source?.status)) return null;
+        const balance = source.creditsBalance;
+        if (Number.isFinite(balance) && balance > 0) {
+            const block = el('div', className), head = el('div', 'dqb-extra-head');
+            const amount = Math.floor(balance).toLocaleString(english() ? 'en-US' : 'zh-CN');
+            head.append(el('span', 'dqb-extra-title', L('剩余充值额度', 'Remaining credits')),
+                el('span', 'dqb-extra-text', amount + ' credits'));
+            block.append(head);
+            return block;
+        }
+        const extra = source.extraUsage;
         if (!extra?.enabled || !Number.isFinite(extra.used) || extra.used < 0) return null;
         const t = strings(), block = el('div', className), head = el('div', 'dqb-extra-head');
         const limit = Number.isFinite(extra.limit) && extra.limit >= 0 ? t.extraTotal + formatMoney(extra.limit, extra.currency) : '';

@@ -17,6 +17,15 @@ function parseCodexQuota(response, accountPlan = null) {
     }));
     const value = snapshot('codex', groups);
     value.membership=membership(buckets?.codex?.planType) || membership(response?.rateLimits?.planType) || membership(accountPlan);
+    const credits = buckets?.codex?.credits ?? response?.rateLimits?.credits;
+    if (credits?.hasCredits === true && credits.unlimited === false &&
+        typeof credits.balance === 'string' && /^\d+(?:\.\d+)?$/.test(credits.balance.trim())) {
+        const balance = Number(credits.balance);
+        if (Number.isFinite(balance) && balance > 0) {
+            value.creditsBalance = balance;
+            value.active = true;
+        }
+    }
     return value.active ? value : unavailable('codex','unsupported');
 }
 function codexCommandForFile(file, env = process.env, runtime = process.execPath) {

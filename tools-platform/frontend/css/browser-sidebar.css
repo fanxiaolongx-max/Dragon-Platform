@@ -26,9 +26,13 @@ html.desktop-win:not(.desktop-fullscreen) .dc-browser-panel{padding-top:38px}
  html[data-ui=v2] body.v2-side-collapsed:is(.home-sidebar-collapsed,:not(.home-sidebar-collapsed)).dc-browser-open .home-content.home-workspace{grid-template-columns:minmax(0,1fr) var(--browser-panel-width,480px)}
 }
 .dc-browser-panel [hidden]{display:none!important}
-.dc-browser-agent-view{height:100%;overflow:auto;background:var(--v2-side,#f3f4f6)}
+.dc-browser-agent-view{position:relative;height:100%;overflow:auto;background:var(--v2-side,#f3f4f6)}
 .dc-browser-agent-status{padding:10px 14px;font-size:12px;color:var(--v2-ink3,#666);overflow-wrap:anywhere}
-.dc-browser-agent-view img{display:block;width:100%;height:auto;background:#fff}
+.dc-browser-agent-status:empty{display:none}
+.dc-browser-surface:not(.is-empty) .dc-browser-agent-status{display:none!important}
+.dc-browser-surface.is-empty .dc-browser-agent-status{padding:36px 20px;text-align:center;color:var(--v2-ink3,#64748b);font-size:13px;line-height:1.7}
+.dc-browser-agent-view img{display:block;width:100%;height:auto;background:#fff;outline:none}
+.dc-browser-agent-view img:focus,.dc-browser-agent-view img:focus-visible{outline:none}
 
 .dc-browser-control{padding:0 14px 8px;font-size:12px;flex-shrink:0;max-height:34dvh;overflow:auto}.dc-browser-control>label{display:block;margin-bottom:5px}
 .dc-browser-type{display:flex;gap:6px}.dc-browser-type input{min-width:0;flex:1;font:inherit;font-size:16px;padding:7px;border:1px solid var(--v2-line,#aaa);border-radius:6px;background:var(--v2-bg,#fff);color:inherit}
