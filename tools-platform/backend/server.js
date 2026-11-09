@@ -467,6 +467,7 @@ app.use('/api/db', require('./routes/db')); // DB 保存 API
 app.use('/api/requirements', requirementsRoutes); // 需求管理 API
 app.use('/api/ai/schedules', require('./routes/dragon-claw-schedules')); // Dragon Claw /schedule 定时指令
 app.use('/api/ai', aiRoutes); // AI 服务 API
+app.use('/api/terminal', require('./routes/terminal')); // Dragon Claw 右侧终端面板（仅管理员）
 app.use('/api/agent-skills', require('./routes/agent-skills')); // Skill 管理：内置 + 租户自定义（对话 @create-skill 创建或导入 SKILL 压缩包）
 app.use('/api/builtin-promotion', require('./routes/builtin-promotion')); // 自定义工具 / 技能 / 脚本「转为内置」写入项目源码目录，或取消内置
 app.use('/api/storage', storageRoutes); // 存储迁移状态 API

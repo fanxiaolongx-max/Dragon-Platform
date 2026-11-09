@@ -43,7 +43,8 @@
       "output": "dist"
     },
     "asarUnpack": [
-      "backend/vendor/**/*"
+      "backend/vendor/**/*",
+      "node_modules/node-pty/**/*"
     ],
     "files": [
       "backend/**/*",
@@ -183,5 +184,8 @@
     "electron": "^28.0.0",
     "electron-builder": "^24.13.3",
     "picomatch": "^4.0.4"
+  },
+  "optionalDependencies": {
+    "node-pty": "^1.1.0"
   }
 }

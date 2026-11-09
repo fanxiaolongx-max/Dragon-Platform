@@ -136,7 +136,7 @@
     // remember=false：自动收起 / 自动展开（打开工具、切到无关对话等），不改用户记住的开关
     function setOpen(open, { remember = true } = {}) {
         if (!open && state.filePreview) { window.ChatFiles?.closePreview(); return; }
-        if (open) window.DragonBrowserSidebar?.close();
+        if (open) { window.DragonBrowserSidebar?.close(); window.DragonTerminalSidebar?.close?.(); }
         state.open = Boolean(open) && (state.enabled || Boolean(state.external) || Boolean(state.filePreview));
         el.toggle?.setAttribute('aria-pressed', String(state.open));
         el.fab?.setAttribute('aria-pressed', String(state.open));

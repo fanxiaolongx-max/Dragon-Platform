@@ -126,7 +126,7 @@
         },2000);
     }
     async function show({createEmpty=true}={}){
-        window.ChatFiles?.closePreview();window.DragonClawWorkspace?.closePanel?.();
+        window.ChatFiles?.closePreview();window.DragonClawWorkspace?.closePanel?.();window.DragonTerminalSidebar?.close?.();
         // 普通桌面工具与侧栏并排显示；独立原生工具视图仍暂停挂载，避免互相覆盖。
         if(toolAllowsBrowser)suspended.delete('tool');
         const fresh=!open;if(fresh)collapseMenu();open=true;

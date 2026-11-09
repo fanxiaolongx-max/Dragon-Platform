@@ -1,0 +1,56 @@
+/* Dragon Claw 右侧终端面板：与浏览器侧栏同一套栅格位置（互斥显示），宽度单独记忆 */
+.dc-terminal-panel{position:sticky;top:calc(var(--navbar-h,0px) + 18px);height:calc(100dvh - var(--navbar-h,0px) - 36px);min-width:0;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--v2-line,#d0d7de);border-radius:12px;background:var(--dc-term-bg,#fff);color:var(--v2-ink,#1f2328);--dc-term-bg:#fff;--dc-term-head:#f6f8fa;--dc-term-line:#d0d7de;--dc-term-muted:#57606a;--dc-term-active:#fff;--dc-term-hover:#eaeef2}
+html[data-theme=dark] .dc-terminal-panel{--dc-term-bg:#0d1117;--dc-term-head:#161b22;--dc-term-line:#30363d;--dc-term-muted:#8b949e;--dc-term-active:#0d1117;--dc-term-hover:#21262d;color:#e6edf3}
+@media(prefers-color-scheme:dark){html:not([data-theme]) .dc-terminal-panel{--dc-term-bg:#0d1117;--dc-term-head:#161b22;--dc-term-line:#30363d;--dc-term-muted:#8b949e;--dc-term-active:#0d1117;--dc-term-hover:#21262d;color:#e6edf3}}
+.dc-terminal-panel[hidden],.dc-terminal-panel [hidden]{display:none!important}
+html[data-ui=v2] .dc-terminal-panel{top:0;height:100dvh;max-height:100dvh;border-radius:0;border:0;border-left:1px solid var(--dc-term-line)}
+html.desktop-win:not(.desktop-fullscreen) .dc-terminal-panel{padding-top:38px}
+.dc-terminal-panel button{font:inherit;color:inherit;border:0;background:transparent;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:5px 7px}
+.dc-terminal-panel button:hover{background:var(--dc-term-hover)}
+
+.dc-term-head{display:flex;align-items:stretch;gap:2px;min-height:38px;padding:0 6px 0 10px;background:var(--dc-term-head);border-bottom:1px solid var(--dc-term-line);flex-shrink:0}
+.dc-term-tabs{display:flex;align-items:flex-end;gap:2px;min-width:0;overflow-x:auto;scrollbar-width:none;flex:0 1 auto}
+.dc-term-tabs::-webkit-scrollbar{display:none}
+.dc-term-tab{position:relative;display:flex;align-items:center;flex-shrink:0;max-width:190px;margin-top:6px;border:1px solid transparent;border-bottom:0;border-radius:8px 8px 0 0;color:var(--dc-term-muted)}
+.dc-term-tab.is-active{background:var(--dc-term-active);border-color:var(--dc-term-line);color:inherit;margin-bottom:-1px}
+.dc-term-tab>button[role=tab]{font-size:12px;padding:6px 8px;min-width:0;border-radius:8px 8px 0 0}
+.dc-term-tab>button[role=tab]:hover,.dc-term-tab-close:hover{background:transparent}
+.dc-term-tab>button[role=tab] span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px}
+.dc-term-tab-close{padding:3px!important;margin-right:4px;opacity:.55}.dc-term-tab-close:hover{opacity:1;background:var(--dc-term-hover)!important}
+.dc-term-tab-close svg{width:12px;height:12px}
+.dc-term-tab[data-state=exited] span{text-decoration:line-through;opacity:.7}
+.dc-term-tab[data-state=connecting] span{opacity:.6}
+.dc-term-dot{width:7px;height:7px;border-radius:50%;background:#2da44e;box-shadow:0 0 0 0 #2da44e88;animation:dcTermPulse 1.4s infinite;flex-shrink:0}
+@keyframes dcTermPulse{70%{box-shadow:0 0 0 6px #2da44e00}100%{box-shadow:0 0 0 0 #2da44e00}}
+@media(prefers-reduced-motion:reduce){.dc-term-dot{animation:none}}
+.dc-term-new{display:flex;align-items:center;flex-shrink:0;color:var(--dc-term-muted)}
+.dc-term-new button{padding:5px}.dc-term-new button+button{padding:5px 3px;margin-left:-2px}
+.dc-term-actions{display:flex;align-items:center;margin-left:auto;flex-shrink:0;color:var(--dc-term-muted)}
+
+.dc-term-menu{position:absolute;top:40px;left:10px;z-index:20;min-width:230px;max-width:calc(100% - 20px);padding:6px;border:1px solid var(--dc-term-line);border-radius:10px;background:var(--dc-term-bg);box-shadow:0 12px 32px #0000002e;font-size:13px}
+.dc-term-menu-title{padding:4px 8px 6px;font-size:11px;font-weight:600;color:var(--dc-term-muted)}
+.dc-term-menu button{width:100%;justify-content:flex-start;padding:7px 8px}.dc-term-menu button small{margin-left:auto;color:var(--dc-term-muted);font-size:11px}
+.dc-term-menu hr{border:0;border-top:1px solid var(--dc-term-line);margin:6px 2px}
+.dc-term-menu-check{display:flex;gap:8px;align-items:flex-start;padding:6px 8px;cursor:pointer;line-height:1.4}
+.dc-term-menu-check input{margin-top:2px}
+.dc-term-menu p{margin:4px 8px;color:var(--dc-term-muted);font-size:12px;line-height:1.5}
+
+.dc-term-body{position:relative;flex:1;min-height:0;background:var(--dc-term-bg)}
+.dc-term-view{position:absolute;inset:6px 4px 4px 10px}
+.dc-term-view .xterm{height:100%;background:var(--dc-term-bg)}
+/* xterm.css 把视口底色写死为黑色，行高除不尽时底部露出黑条；滚动阴影也去掉 */
+.dc-term-view .xterm .xterm-viewport{background-color:transparent!important}
+.dc-term-view .xterm .xterm-scrollable-element>.shadow{display:none!important}
+.dc-term-view .xterm-viewport{scrollbar-width:thin}
+.dc-term-status{flex-shrink:0;padding:5px 12px;font-size:11px;color:var(--dc-term-muted);border-top:1px solid var(--dc-term-line);background:var(--dc-term-head);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.dc-term-status.is-error{color:#cf222e}
+
+@media(min-width:861px){
+ body.dc-terminal-open .home-content.home-workspace{grid-template-columns:var(--ws-side) minmax(0,1fr) var(--terminal-panel-width,560px)}
+ body.home-sidebar-collapsed.dc-terminal-open .home-content.home-workspace{grid-template-columns:var(--ws-rail) minmax(0,1fr) var(--terminal-panel-width,560px)}
+ html[data-ui=v2] body:is(.home-sidebar-collapsed,:not(.home-sidebar-collapsed)):not(.v2-side-collapsed).dc-terminal-open .home-content.home-workspace{grid-template-columns:var(--v2-side-width,240px) minmax(0,1fr) var(--terminal-panel-width,560px)}
+ html[data-ui=v2] body.v2-side-collapsed:is(.home-sidebar-collapsed,:not(.home-sidebar-collapsed)).dc-terminal-open .home-content.home-workspace{grid-template-columns:minmax(0,1fr) var(--terminal-panel-width,560px)}
+}
+@media(max-width:860px){
+ .dc-terminal-panel,html[data-ui=v2] .dc-terminal-panel{position:fixed;inset:0 0 0 auto;width:min(var(--terminal-panel-width,560px),calc(100vw - 32px));z-index:1050;height:100dvh;border-radius:0}
+}

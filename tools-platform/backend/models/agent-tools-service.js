@@ -934,8 +934,9 @@ async function runCommand(ctx, args = {}) {
         const timer = setTimeout(() => { timedOut = true; killTree(child); }, timeoutMs);
         const onAbort = () => killTree(child);
         ctx.signal?.addEventListener('abort', onAbort, { once: true });
-        child.stdout.on('data', chunk => stdout.push(chunk));
-        child.stderr.on('data', chunk => stderr.push(chunk));
+        // 实时输出（终端面板）：只做旁路转发，不影响收集给模型的结果
+        child.stdout.on('data', chunk => { stdout.push(chunk); ctx.onOutput?.(chunk, 'stdout'); });
+        child.stderr.on('data', chunk => { stderr.push(chunk); ctx.onOutput?.(chunk, 'stderr'); });
         const finish = (code, signal, spawnError) => {
             if (finished) return;
             finished = true;
