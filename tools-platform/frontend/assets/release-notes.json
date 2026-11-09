@@ -1,12 +1,14 @@
 {
   "zh": [
-    "多用户与权限管控增强：完善多账号租户隔离、团队沙箱边界与权限校验机制。",
-    "需求管理与意见反馈升级：重构图片附件上传体验，支持增量上传、拖拽与截图粘贴，并支持多图优雅大图预览及单独删除；提交成功后自动平滑关闭弹窗。",
-    "导航栏与菜单布局优化：优化「更多」抽屉菜单结构，将友情链接合理收拢至菜单底部与自定义菜单栏上方。"
+    "团队账号安全加固：数据探索、平台推广配置、工具说明生成等平台级操作仅超级管理员可用；平台共享的 MCP 服务与服务器本机浏览器对团队默认关闭，超级管理员可在「智能体工具」里按组开启。",
+    "团队命令沙箱更可靠：改用真实沙箱规则检测可用性，装好依赖后一分钟内自动恢复，无需重启平台。",
+    "新增 Linux 服务器一键安装与自动更新脚本：定时拉取最新版本，启动异常自动回退到上一版。",
+    "媒体资源新增总开关，关闭后登录页与公开点播入口不再展示；意见反馈窗口在所有页面都可上传图片。"
   ],
   "en": [
-    "Multi-user and access control: enhanced tenant isolation, team sandbox boundaries, and permission verification.",
-    "Requirement plaza and feedback: overhauled image attachments with incremental uploads, drag-and-drop, screenshot paste, full-screen lightbox preview, and auto-closing dialogs.",
-    "Sidebar navigation layout: refined the More drawer menu, placing friend links neatly above the custom menu at the bottom of the list."
+    "Team account hardening: the data explorer, promotion settings and tool-guide generation are now super admin only; shared MCP servers and the server-side browser are off for teams by default and can be enabled per group under Agent Tools.",
+    "More reliable team command sandbox: availability is checked with the real sandbox rules and recovers within a minute after dependencies are installed, with no restart.",
+    "New install and auto-update script for Linux servers: pulls the latest version on a timer and rolls back if the new version fails to start.",
+    "Media resources gain a master switch that hides the login-page and public playback entries when off; the feedback dialog can attach images on every page."
   ]
 }
