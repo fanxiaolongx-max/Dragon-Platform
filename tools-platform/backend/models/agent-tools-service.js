@@ -237,12 +237,13 @@ const DEFINITIONS = [
     {
         name: 'run_command',
         kind: 'command',
-        description: '在工作目录中执行一条 shell 命令（如运行测试、git status、构建）。输出会被截断；默认 60 秒超时，最长 300 秒。',
+        description: '在工作目录中执行一条 shell 命令（如运行测试、git status、构建、安装依赖）。输出会被截断；默认 60 秒超时，最长 300 秒。命令运行中需要用户输入（登录后粘贴凭据/验证码、确认提示、交互式选择）时，设 interactive=true：命令在用户右侧终端面板的真终端里运行，用户直接在终端里输入，命令结束后返回输出（用户输入的内容会被隐藏），交互命令默认等待 10 分钟、最长 30 分钟。',
         parameters: {
             type: 'object',
             properties: {
                 command: { type: 'string', description: '完整命令行' },
-                timeoutMs: { type: 'integer', description: '超时毫秒数，默认 60000，最大 300000' }
+                timeoutMs: { type: 'integer', description: '超时毫秒数，默认 60000，最大 300000；interactive=true 时默认 600000，最大 1800000' },
+                interactive: { type: 'boolean', description: '命令需要用户在终端里输入时设为 true（如 xxx auth login 等待粘贴凭据）。不需要输入的命令不要设置' }
             },
             required: ['command']
         }
@@ -908,9 +909,48 @@ function resolveShell(platform = process.platform, env = process.env) {
     return { shell: '/bin/sh', args: ['-c'] };
 }
 
+// 交互式命令：在终端面板的真终端（node-pty）里运行，用户直接输入；结束后把（隐藏了用户输入的）输出交给模型
+async function runInteractiveCommand(ctx, command, args = {}) {
+    const terminals = require('./terminal-sessions');
+    const timeoutMs = Math.min(30 * 60 * 1000, Math.max(5000, Number(args.timeoutMs) || 10 * 60 * 1000));
+    const started = Date.now();
+    let handle;
+    try {
+        handle = terminals.createCommand(ctx.interactive.owner, { command, cwd: ctx.root, env: scrubbedEnv(), title: command });
+    } catch (error) {
+        return { content: `无法打开交互终端：${error.message}`, summary: '启动失败', isError: true };
+    }
+    ctx.interactive.onStart?.(handle.view);
+    let timedOut = false;
+    const timer = setTimeout(() => { timedOut = true; handle.kill(); }, timeoutMs);
+    const onAbort = () => handle.kill();
+    ctx.signal?.addEventListener('abort', onAbort, { once: true });
+    const { exitCode } = await handle.wait();
+    clearTimeout(timer);
+    ctx.signal?.removeEventListener('abort', onAbort);
+    const durationMs = Date.now() - started;
+    const { output, inputs } = handle.snapshot();
+    const limit = ctx.fullResults ? LIMITS.commandArtifactBytes : LIMITS.commandOutputBytes;
+    let text = terminals.plainOutput(output, inputs);
+    if (text.length > limit) text = `${text.slice(0, Math.floor(limit / 2))}\n…（省略）…\n${text.slice(-Math.floor(limit / 2))}`;
+    const status = timedOut ? `等待用户输入超时（${Math.round(timeoutMs / 1000)} 秒）并终止` : ctx.signal?.aborted ? '已被用户中止' : `退出码 ${exitCode ?? '未知'}`;
+    return {
+        content: [`$ ${command}（交互终端）`, text, inputs.length ? `— 用户在终端中输入过 ${inputs.join('').split(/\r/).filter(Boolean).length || 1} 次（内容已隐藏）` : '— 用户没有输入', `— ${status}，耗时 ${durationMs}ms`].filter(Boolean).join('\n'),
+        summary: status,
+        isError: timedOut || Boolean(ctx.signal?.aborted) || (exitCode !== 0 && exitCode !== null),
+        exitCode,
+        durationMs,
+        interactive: true
+    };
+}
+
 async function runCommand(ctx, args = {}) {
     const command = String(args.command || '').trim();
     if (!command) throw toolError('AGENT_ARGS', '缺少 command');
+    if (args.interactive === true || args.interactive === 'true') {
+        if (ctx.interactive?.owner) return runInteractiveCommand(ctx, command, args);
+        return { content: '当前对话没有可供用户输入的终端（例如频道对话或后台任务），交互式命令无法执行。请告诉用户到 Dragon Claw 网页端打开右侧「终端」面板自行运行该命令。', summary: '无交互终端', isError: true };
+    }
     const timeoutMs = Math.min(LIMITS.commandMaxTimeoutMs, Math.max(1000, Number(args.timeoutMs) || LIMITS.commandTimeoutMs));
     const isWin = process.platform === 'win32';
     const resolved = resolveShell();

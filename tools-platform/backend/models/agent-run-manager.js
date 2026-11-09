@@ -390,7 +390,7 @@ ${location}
 - 权限模式：${session.readOnly ? '只读（当前账号不是管理员，只能查看和搜索文件，不能修改、删除、重命名或执行命令；需要改动时请告诉用户联系管理员）' : modeText}
 - 文件工具的路径以根目录为范围（如 src/index.js）；根目录是 Shell 的默认工作位置，不是 Shell 的系统隔离边界。管理员可用命令访问任务所需的其他目录。
 ${!session.readOnly && session.permissionMode === 'full' ? '- 当前管理员已选择完全访问：围绕用户当前任务自主规划、执行、检查结果并继续修复；无需为每个命令、跨目录操作或风险标记重复请求批准。遇到执行错误先主动排查；只有缺少必要信息或需要用户做实际选择时再提问。完全访问不会提升操作系统账号权限，也不代表可以自行扩展用户任务。读取密钥凭据、用 Shell 直接动平台数据、把文件发到外部、删除工作目录之外的内容、改系统设置这几类命令仍会请用户审批（用户可按类别设为不再询问），被拒绝时不要换写法绕过。\n' : ''}
-${session.readOnly ? '' : `- 安装依赖或命令行工具（npm i -g、pip install、brew install、winget 等）、运行版本检查与验证命令，都是任务本身的一部分：直接用 run_command 执行${session.permissionMode === 'full' ? '（完全访问下自动执行）' : '（需要时界面会弹审批卡，由用户点批准）'}，不要以“沙箱/权限受限”为由让用户自己去终端敲命令。命令输出会实时显示在右侧终端面板。只有确实需要用户本人参与的步骤（浏览器扫码/授权登录、输入密码或凭据、在交互式提示里做选择）才交给用户，并说明在哪一步、做什么；全局安装报 EACCES 等权限错误时先自己换用户级安装（如 npm 前缀设到用户目录）再重试。\n`}- 改文件前先用 read_file 看清上下文；小改动用 edit_file，整文件重写才用 write_file。
+${session.readOnly ? '' : `- 安装依赖或命令行工具（npm i -g、pip install、brew install、winget 等）、运行版本检查与验证命令，都是任务本身的一部分：直接用 run_command 执行${session.permissionMode === 'full' ? '（完全访问下自动执行）' : '（需要时界面会弹审批卡，由用户点批准）'}，不要以“沙箱/权限受限”为由让用户自己去终端敲命令。命令输出会实时显示在右侧终端面板。命令运行中要等用户输入（如「xxx auth login」打开授权链接后要粘贴凭据、验证码、y/n 确认、交互式菜单）时，用 run_command 加 interactive=true 执行：命令会在用户右侧终端面板的真终端里运行，提示用户「在右侧终端里完成授权/输入，命令结束后我会继续」，然后等命令结束再根据结果继续。不要让用户把凭据、token、密码发到对话里，也不要用 echo 把凭据管道给命令；用户在终端里输入的内容会自动从结果中隐藏。只有必须在浏览器里完成的动作（打开授权链接、扫码）才需要用户离开终端；全局安装报 EACCES 等权限错误时先自己换用户级安装（如 npm 前缀设到用户目录）再重试。\n`}- 改文件前先用 read_file 看清上下文；小改动用 edit_file，整文件重写才用 write_file。
 - 脚本专用保存允许鉴权逻辑与原有凭据，读取给模型/日志仍脱敏；不要沿用旧对话的“CSRF 占位符禁止克隆”结论。修复不代表删除授权；同名时按工具的 suggestedCall 原位 rebuild，不能先删后建或交付空框架。
 - 涉及 UIVF12 抓取脚本仓库（脚本、分类目录）的查询、新建、复制、修改、移动和删除时，优先 list_uiv_scripts / list_uiv_categories / read_uiv_script / save_uiv_script / move_uiv_script / delete_uiv_script / manage_uiv_category。专用工具可对完整长脚本做局部修改、校验语法并提交回读，避免 Shell 与截断 payload_json 的二次转义。用户已要求执行时不要停在方案或“可以入库”的描述。
 - 用户询问“本月/当前”指标而本月没有入库数据时，可以使用最新已入库快照，但须先明确“当前最新已入库的是 X 年 X 月目标数据，以下按该批数据分析”，并说明本月暂无入库数据。目标月份以 targetMonth/month 为准，不得用生成日期替代或把最新已入库月份称为本月。
@@ -575,7 +575,7 @@ function beginRun(session, write, signal) {
     return run;
 }
 
-async function runAgentTurn({ session, client, systemInstruction, historyMessages, write, signal, maxOutputTokens, temperature, model, sensitiveValues = [], chatSessionId = '', onRunStarted, skillCatalog, skillLanguage = 'zh', skillPrompt = '', skillIds = null, vision = null, extraToolsets = [], userEvents = [] }) {
+async function runAgentTurn({ session, client, systemInstruction, historyMessages, write, signal, maxOutputTokens, temperature, model, sensitiveValues = [], chatSessionId = '', onRunStarted, skillCatalog, skillLanguage = 'zh', skillPrompt = '', skillIds = null, vision = null, extraToolsets = [], userEvents = [], interactiveTerminal = false }) {
     const emit = write;
     write = event => emit(redactValue(event, { secrets: sensitiveValues }));
     const run = beginRun(session, write, signal);
@@ -679,7 +679,12 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
         if (!outcome) {
             // run_command 的输出实时推给界面（右侧终端面板），结果仍按原样交给模型
             const live = call.name === 'run_command' ? commandStream(write, { runId: run.id, callId: call.id, command: call.args?.command, cwd: toolCtx.root }) : null;
-            outcome = await toolsService.execute(live ? { ...toolCtx, onOutput: live.push } : toolCtx, call.name, call.args);
+            // 交互式命令（interactive=true）：只在有人看着界面的对话里提供终端；频道 / 定时等无人值守对话没有
+            const interactive = live && interactiveTerminal && !session.unattended && !session.channelContext ? {
+                owner: session.owner,
+                onStart: view => write({ type: 'command_terminal', runId: run.id, callId: call.id, terminalId: view.id, title: view.title, cwd: view.cwd, pty: view.pty, shellLabel: view.shellLabel })
+            } : null;
+            outcome = await toolsService.execute(live ? { ...toolCtx, onOutput: live.push, interactive } : toolCtx, call.name, call.args);
             live?.end(outcome);
         }
         // 命令输出随事件下发（截断），界面可展开查看，也随会话记录入库

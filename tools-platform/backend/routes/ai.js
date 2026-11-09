@@ -1043,6 +1043,8 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
         const agentResult = agentMode
             ? await agentRunManager.runAgentTurn({
                 chatSessionId: persist !== false ? savedSessionId : '',
+                // 交互式命令只给浏览器里正在看的对话（定时任务、频道桥接是内部构造的请求，没有 socket）
+                interactiveTerminal: Boolean(req.socket) && !channelTurn && streamRequested,
                 userEvents: channelUserEvents,
                 onRunStarted: runId => { agentRunId = runId; },
                 sensitiveValues,

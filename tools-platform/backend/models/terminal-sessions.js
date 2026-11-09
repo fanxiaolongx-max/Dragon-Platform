@@ -102,6 +102,7 @@ function publicView(session) {
         pty: session.pty,
         exited: session.exited,
         exitCode: session.exitCode,
+        command: session.command || '',
         createdAt: session.createdAt,
         cols: session.cols,
         rows: session.rows
@@ -128,6 +129,7 @@ function markExit(session, exitCode, signal) {
     session.exitCode = exitCode ?? null;
     session.exitedAt = Date.now();
     emit(session, { type: 'exit', exitCode: session.exitCode, signal: signal || null });
+    session.resolveExit?.({ exitCode: session.exitCode, signal: signal || null });
 }
 
 function listFor(owner) {
@@ -168,8 +170,10 @@ function create(owner, { shell: shellId, cwd, cols = 100, rows = 30, title } = {
         lastOutputAt: 0,
         buffer: '',
         listeners: new Set(),
+        inputs: [],
         ...size
     };
+    session.exitPromise = new Promise(resolve => { session.resolveExit = resolve; });
     const env = terminalEnv();
     if (pty) {
         try {
@@ -224,6 +228,7 @@ function write(owner, id, data) {
     const text = String(data || '').slice(0, MAX_INPUT_CHARS);
     if (!text) return;
     session.lastSeenAt = Date.now();
+    if (session.recordInputs) session.inputs.push(text);
     if (session.term) session.term.write(text);
     else session.child?.stdin.write(process.platform === 'win32' ? text.replace(/\r(?!\n)/g, '\r\n') : text.replace(/\r(?!\n)/g, '\n'));
 }
@@ -247,7 +252,7 @@ function signal(owner, id, name = 'SIGINT') {
     }
 }
 
-function kill(owner, id) {
+function kill(owner, id, { keep = false } = {}) {
     const session = sessions.get(String(id || ''));
     if (!session || session.owner !== owner) return false;
     if (!session.exited) {
@@ -257,7 +262,7 @@ function kill(owner, id) {
         } catch (_error) { /* 已退出 */ }
     }
     markExit(session, session.exitCode, 'SIGHUP');
-    sessions.delete(session.id);
+    if (!keep) sessions.delete(session.id); // keep：命令被中止/超时，标签留着让用户看到最后的输出
     return true;
 }
 
@@ -297,4 +302,69 @@ process.once('exit', shutdown);
 
 const view = (owner, id) => publicView(get(owner, id));
 
-module.exports = { create, view, write, resize, signal, kill, rename, attach, list, info, availableShells, _internal: { sessions, sweep, resolveCwd } };
+// 智能体的交互式命令：在一个真终端里只跑这一条命令（不是常驻 Shell），用户在终端面板里输入。
+// 输入会被记下来，命令结束后交给模型的输出里会隐藏用户输入（例如粘贴的登录凭据）。
+function createCommand(owner, { command, cwd, env, cols = 100, rows = 30, title } = {}) {
+    if (!owner) throw Object.assign(new Error('缺少账号'), { status: 401 });
+    const text = String(command || '').trim();
+    if (!text) throw Object.assign(new Error('缺少命令'), { status: 400 });
+    const isWin = process.platform === 'win32';
+    const shellInfo = require('./agent-tools-service').resolveShell();
+    const shell = { id: 'agent', label: isWin ? 'cmd' : path.basename(shellInfo.shell), file: shellInfo.shell, args: [...shellInfo.args, text] };
+    const dir = resolveCwd(cwd);
+    const size = { cols: clampSize(cols, 100, 20, 500), rows: clampSize(rows, 30, 5, 200) };
+    const session = {
+        id: crypto.randomUUID(), owner, command: text.slice(0, 4000),
+        title: String(title || text).replace(/\s+/g, ' ').slice(0, 60),
+        shell, cwd: dir, pty: false, exited: false, exitCode: null,
+        createdAt: Date.now(), lastSeenAt: Date.now(), lastOutputAt: 0,
+        buffer: '', listeners: new Set(), inputs: [], recordInputs: true, ...size
+    };
+    session.exitPromise = new Promise(resolve => { session.resolveExit = resolve; });
+    const fullEnv = { ...(env || terminalEnv()), TERM: 'xterm-256color', COLORTERM: 'truecolor' };
+    const pty = loadPty();
+    if (pty) {
+        try {
+            const term = pty.spawn(shell.file, shell.args, { name: 'xterm-256color', cols: size.cols, rows: size.rows, cwd: dir, env: fullEnv, useConpty: true });
+            session.pty = true;
+            session.term = term;
+            term.onData(data => append(session, data));
+            term.onExit(({ exitCode, signal }) => markExit(session, exitCode, signal));
+        } catch (error) {
+            console.warn('[terminal] node-pty spawn failed, falling back to pipes:', error.message || error);
+        }
+    }
+    if (!session.term) {
+        // 没有 PTY：管道运行，程序看到的不是终端（部分交互程序会改走非交互路径）
+        const child = spawn(shell.file, shell.args, { cwd: dir, env: fullEnv, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true, detached: !isWin });
+        session.child = child;
+        const outDecoder = new StringDecoder('utf8');
+        const errDecoder = new StringDecoder('utf8');
+        const normalize = value => value.replace(/\r?\n/g, '\r\n');
+        child.stdout.on('data', chunk => append(session, normalize(outDecoder.write(chunk))));
+        child.stderr.on('data', chunk => append(session, normalize(errDecoder.write(chunk))));
+        child.on('error', error => { append(session, `\r\n[无法启动命令：${error.message}]\r\n`); markExit(session, null); });
+        child.on('close', (code, signal) => markExit(session, code, signal));
+    }
+    sessions.set(session.id, session);
+    return { view: publicView(session), wait: () => session.exitPromise, kill: () => kill(owner, session.id, { keep: true }), snapshot: () => ({ output: session.buffer, inputs: [...session.inputs] }) };
+}
+
+// 终端原始输出 → 给模型看的纯文本：去掉控制序列、处理回车覆盖、隐藏用户输入
+function plainOutput(raw, inputs = []) {
+    let text = String(raw || '')
+        .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '') // OSC（标题等）
+        .replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '') // CSI
+        .replace(/\x1b[@-Z\\-_]/g, '')
+        .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
+    text = text.split(/\r?\n/).map(line => {
+        const parts = line.split('\r');
+        return parts.filter(part => part.length).pop() || '';
+    }).join('\n');
+    const secrets = inputs.join('').split(/[\r\n]+/).map(item => item.trim()).filter(item => item.length >= 4)
+        .sort((a, b) => b.length - a.length);
+    for (const secret of secrets) text = text.split(secret).join('[用户输入已隐藏]');
+    return text.replace(/\n{3,}/g, '\n\n').trim();
+}
+
+module.exports = { create, createCommand, plainOutput, view, write, resize, signal, kill, rename, attach, list, info, availableShells, _internal: { sessions, sweep, resolveCwd } };

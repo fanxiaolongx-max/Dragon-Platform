@@ -188,6 +188,12 @@
             if (!open && localStorage.getItem(AUTO_KEY) !== '0' && innerWidth > 860) show({ tab: 'agent', auto: true });
             else if (open && tabs.get(activeId)?.kind !== 'shell') select('agent');
             renderTabs();
+        } else if (event.type === 'command_terminal') {
+            // 交互式命令：在独立标签里以真终端运行，用户直接在里面输入；强制打开面板并聚焦
+            agentWrite(`\x1b[33m↳ ${L('该命令需要你输入，已在「', 'This command needs your input — opened in the "')}${String(event.title || '').slice(0, 40)}${L('」标签打开交互终端', '" tab')}\x1b[0m\r\n`);
+            addShellTab({ id: event.terminalId, title: `⌨ ${String(event.title || L('交互命令', 'Interactive')).slice(0, 40)}`, cwd: event.cwd, pty: event.pty, shellLabel: event.shellLabel, interactiveCommand: true });
+            show({ tab: event.terminalId });
+            flash(L('命令正在等待你的输入，请在终端里操作', 'The command is waiting for your input in the terminal'));
         } else if (event.type === 'command_output') {
             agentWrite(String(event.data || ''));
         } else if (event.type === 'command_end') {
@@ -225,7 +231,7 @@
             if (event.metaKey && event.key.toLowerCase() === 'k') { term.clear(); return false; }
             return true;
         });
-        if (tab.id === activeId) fitTab(tab);
+        if (tab.id === activeId) { fitTab(tab); if (open) term.focus(); }
         connect(tab);
     }
     // 管道模式没有服务端回显：本地处理行编辑，回车整行发送
