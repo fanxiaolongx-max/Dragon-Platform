@@ -1090,6 +1090,15 @@
         const output = records.length ? records.reduce((n,r) => n + (Number(r.outputTokens) || 0),0) : Number(usage?.outputTokens || 0);
         const speed = speedSummary(records);
         const en = lang() === 'en-US';
+        // 缓存命中：多步调用每次都会重发前文，命中缓存的部分按缓存价计费（通常为原价一到两成）
+        const cacheKnown = records.filter(r => Number.isFinite(Number(r.cachedInputTokens)) && r.cachedInputTokens !== null);
+        const cached = cacheKnown.reduce((n,r) => n + Number(r.cachedInputTokens),0);
+        const cacheInput = cacheKnown.reduce((n,r) => n + (Number(r.inputTokens) || 0),0);
+        const cacheLine = cached > 0 && cacheInput > 0
+            ? (en ? `Cache hit: ${cached.toLocaleString()} of ${cacheInput.toLocaleString()} input tokens (${Math.round(cached/cacheInput*100)}%), billed at the provider's cached rate. Each tool step resends the conversation, so summed input grows quickly; cached tokens are much cheaper.`
+                : `缓存命中：${cached.toLocaleString()} / ${cacheInput.toLocaleString()} 输入 tokens（${Math.round(cached/cacheInput*100)}%），按供应商缓存价计费。多步工具调用每步都会重发前文，所以累计输入涨得快，但命中缓存的部分便宜得多。`)
+            : '';
+        const cacheBadge = cached > 0 && cacheInput > 0 ? (en ? ` (cached ${formatTokenCount(cached)})` : `（缓存 ${formatTokenCount(cached)}）`) : '';
         const rate = value => value === null ? '—' : fmtTps(value);
         const timing = speed.ttft === null ? '—' : (speed.ttft/1000).toFixed(2)+' s';
         const unavailable = speed.ttft === null
@@ -1098,6 +1107,7 @@
         const details = [
             tx('usageTitle', {input:input.toLocaleString(),output:output.toLocaleString()}),
             `${en?'Total tokens':'总 Token'}: ${(input+output).toLocaleString()}`,
+            ...(cacheLine ? [cacheLine] : []),
             `TPS${speed.nativeOnly ? (speed.observedStream ? (en?' (observed text)':'（文字观测）') : (en?' (native stream)':'（原生流）')) : ''} ${en?'min / avg / max':'最低 / 平均 / 最高'}: ${rate(speed.min)} / ${rate(speed.avg)} / ${rate(speed.max)}`,
             `${speed.observedTiming ? (en?'First text (observed)':'首文字（观测）') : 'TTFT'}${speed.turnTiming ? (en?' (turn)':'（轮次级）') : ''}: ${timing}`,
             speed.rounds ? `${speed.rounds} ${en?'model calls':'次模型调用'} · ${en?'rate samples':'流速样本'} ${speed.rateSamples}` : (en?'Per-call records unavailable':'未提供逐次调用记录'),
@@ -1109,7 +1119,7 @@
         if (Array.isArray(rounds) && rounds.length) message.dcRounds = rounds;
         bar.innerHTML = `${iconButton('copy', tx('copy'), 'data-dc-copy')}
             ${modelName ? `<span class="dc-msg-model" title="${escapeHtml(tx('modelCurrent', { name: modelName }))}">${escapeHtml(modelName)}</span>` : ''}
-            ${records.length || input || output ? `<span class="dc-msg-usage" tabindex="0" data-dc-metric-tip="${escapeHtml(details)}">${escapeHtml(tx('usageText', { input: formatTokenCount(input), output: formatTokenCount(output) }))}${speed.estimated ? ' ≈' : ''}</span>` : ''}
+            ${records.length || input || output ? `<span class="dc-msg-usage" tabindex="0" data-dc-metric-tip="${escapeHtml(details)}">${escapeHtml(tx('usageText', { input: formatTokenCount(input) + cacheBadge, output: formatTokenCount(output) }))}${speed.estimated ? ' ≈' : ''}</span>` : ''}
             ${records.length || modelName || input || output ? `<span class="dc-msg-speed" tabindex="0" data-dc-metric-tip="${escapeHtml(details)}">${escapeHtml(`TPS${speed.nativeOnly ? (speed.observedStream ? (en?' (observed text)':'（文字观测）') : (en?' (native)':'（原生流）')) : ''} ${rate(speed.min)}/${rate(speed.avg)}/${rate(speed.max)} · ${speed.observedTiming ? (en?'First text (observed)':'首文字（观测）') : 'TTFT'} ${timing}${speed.turnTiming ? (en ? ' (turn)' : '（轮次）') : ''}${speed.rounds ? ' · '+tx('speedRounds', {n:speed.rounds}) : ''}`)}</span>` : ''}`;
         bar.querySelector('[data-dc-copy]').dataset.dcCopy = text;
         message.querySelector('.dc-msg-main').appendChild(bar);
@@ -1948,6 +1958,17 @@
         if (options.fromComposer && state.attachments.some(item => item.status === 'uploading')) { showToast(tx('attachPending')); return; }
         if (!content && withAttachments) content = displayText = lang() === 'en-US' ? 'Please look at the attached files.' : '请看一下附件。';
         if (!content) return;
+        // 浏览器授权后跳回的 http://localhost:端口/?token=… 地址：不发给模型（含凭据），由服务器转交给本机等待回调的登录程序
+        const callbackUrl = !external.active && window.DragonTerminalSidebar?.loopbackUrl?.(content);
+        if (callbackUrl) {
+            if (state.controller || state.restoring) { showToast(lang() === 'en-US' ? 'Forwarding the callback…' : '正在转交授权回调…'); }
+            const relayed = await window.DragonTerminalSidebar.relayCallback(callbackUrl);
+            showToast(relayed.text);
+            if (!relayed.ok || state.controller || state.restoring) return;
+            content = displayText = lang() === 'en-US'
+                ? 'I finished authorizing in the browser; the localhost callback was forwarded to the login program on the server. Please check the login status and continue.'
+                : '我已在浏览器完成授权，跳回的本机回调地址已转交给服务器上的登录程序。请检查登录状态并继续。';
+        }
         el.thread.querySelectorAll('.dc-continue').forEach(node => node.remove()); // 发了新消息，「继续执行」不再适用
         if (external.active) return sendExternal(content);
         if (isSideCommand(content)) return runSlashCommand(content);
@@ -1967,9 +1988,6 @@
             return window.HomeWelinkThreads?.composeNew?.(activeConn, content);
         }
         const homeConnector = connector?.homeConnector?.() || '';
-        if (homeConnector && workspace()?.getWorkspacePayload?.()) {
-            showToast(lang() === 'en-US' ? 'This connector uses a regular chat. Deselect the local workspace first.' : '此连接器用于普通对话，请先取消本地工作区'); return;
-        }
         connector?.lock?.();
         el.thread.querySelectorAll('.dc-plan-actions').forEach(node => node.remove()); // 计划确认按钮只对最新一条计划有效
         el.thread.querySelectorAll('.dc-question:not(.is-history)').forEach(card => { card.classList.add('is-history'); card.querySelectorAll('[data-answer]').forEach(node => { node.disabled = true; }); }); // 用户自己回复后，旧问题的选项失效
@@ -2045,6 +2063,7 @@
                         state.sessionId = event.sessionId;
                         rememberLastChat(event.sessionId, workspacePayload ? { agentSessionId: workspacePayload.agentSessionId, root: workspacePayload.root } : null);
                     }
+                    if (event.type === 'skills_changed') { window.dispatchEvent(new CustomEvent('skills:changed', { detail: { ids: event.ids } })); return; }
                     if (event.type === 'model_round' && event.round) {
                         (reply.dcLiveRounds ||= []).push(event.round);
                         workspace()?.performance?.(reply, reply.dcLiveRounds, { running: true });

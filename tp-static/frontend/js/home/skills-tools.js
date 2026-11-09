@@ -7,7 +7,7 @@
 
     const TEXT = {
         'zh-CN': {
-            builtin: '内置技能', custom: '自定义技能', imported: '导入技能', workspace: '需工作目录', defaultDesc: '在对话里 @ 使用这个技能',
+            builtin: '内置技能', custom: '自定义技能', imported: '导入技能', external: '外部技能', workspace: '需工作目录', defaultDesc: '在对话里 @ 使用这个技能',
             download: '下载 SKILL 包', rename: '重命名', delete: '删除', renameTitle: '重命名技能', renamePrompt: '新的技能名称',
             save: '保存', deleteTitle: '删除技能', deleteBuiltin: '内置技能「{name}」会从列表和 @ 菜单中隐藏，之后可在「技能」分类标题处恢复。确定删除吗？',
             deleteCustom: '确定删除技能「{name}」吗？删除后对话里将无法再 @{id}。', confirmDelete: '删除', renamed: '已重命名', deleted: '已删除技能',
@@ -26,7 +26,7 @@
             close: '关闭'
         },
         'en-US': {
-            builtin: 'Built-in Skill', custom: 'Custom Skill', imported: 'Imported Skill', workspace: 'Needs a folder', defaultDesc: 'Use this Skill with @ in chat',
+            builtin: 'Built-in Skill', custom: 'Custom Skill', imported: 'Imported Skill', external: 'External Skill', workspace: 'Needs a folder', defaultDesc: 'Use this Skill with @ in chat',
             download: 'Download SKILL package', rename: 'Rename', delete: 'Delete', renameTitle: 'Rename Skill', renamePrompt: 'New Skill name',
             save: 'Save', deleteTitle: 'Delete Skill', deleteBuiltin: 'The built-in Skill “{name}” will be hidden from the list and the @ menu. You can restore it from the Skills heading. Delete it?',
             deleteCustom: 'Delete the Skill “{name}”? @{id} will no longer work in chat.', confirmDelete: 'Delete', renamed: 'Renamed', deleted: 'Skill deleted',
@@ -90,7 +90,7 @@
             card.dataset.skillId = item.id;
             card.dataset.updatedAt = item.updatedAt || '';
             card.title = tx('useHint', { id: item.id });
-            const kind = item.builtIn ? tx('builtin') : item.source === 'import' ? tx('imported') : tx('custom');
+            const kind = tx({ builtin: 'builtin', import: 'imported', external: 'external' }[window.SkillSource.kind(item)] || 'custom');
             card.innerHTML = `
                 <div class="custom-tool-actions">
                     <button type="button" class="custom-tool-action action-improve" data-skill-action="improve" title="${escapeHtml(tx('improve'))}">⚡</button>
@@ -102,7 +102,7 @@
                         <button type="button" class="custom-tool-action delete" data-skill-action="delete" title="${escapeHtml(tx('delete'))}">×</button>` : ''}
                 </div>
                 <div class="card-icon">${escapeHtml(item.icon || '✨')}</div>
-                <div class="card-title">${escapeHtml(displayName(item))}<span class="tool-kind-badge skill-mention-badge">@${escapeHtml(item.id)}</span></div>
+                <div class="card-title">${escapeHtml(displayName(item))}${window.SkillSource.dot(item)}<span class="tool-kind-badge skill-mention-badge">@${escapeHtml(item.id)}</span></div>
                 <div class="card-desc">${escapeHtml(displayDescription(item))}</div>
                 <div class="card-features">
                     <span class="feature-tag">${escapeHtml(kind)}</span>
@@ -364,6 +364,29 @@
         load();
     }
 
+    // 技能来源：内置 / 对话里创建 / 导入 / 外部命令生成（如 thcli +connect），名字后用小圆点区分
+    window.SkillSource = {
+        kind: item => item?.builtIn || item?.source === 'builtin' ? 'builtin' : ['import', 'external'].includes(item?.source) ? item.source : 'chat',
+        dot: item => `<i class="skill-src-dot" data-src="${window.SkillSource.kind(item)}" aria-hidden="true"></i>`,
+        // 列表里用的一句话简介：去掉括号补充说明，只取第一句，过长截断（完整简介放在悬停提示里）
+        brief: (item, english = false) => {
+            const full = String((english ? item?.descriptionEn || item?.description : item?.description || item?.descriptionEn) || '').replace(/\s+/g, ' ').trim();
+            let text = full;
+            for (let i = 0; i < 3; i += 1) text = text.replace(/[（(][^（）()]*[）)]/g, '');
+            text = (text.split(/(?<=[。！？；;!?])|(?<=\.)\s|\n|——|—/)[0] || '').replace(/[。；;，,、：:\s]+$/, '').trim() || full;
+            // 按显示宽度截断（中文算 1，英文数字约 0.55）；尽量断在逗号、顿号处，句子读起来完整
+            const max = english ? 40 : 30;
+            let width = 0, cut = text.length;
+            for (let i = 0; i < text.length; i += 1) {
+                width += /[\u2e80-\uffff]/.test(text[i]) ? 1 : 0.55;
+                if (width > max) { cut = i; break; }
+            }
+            if (cut >= text.length) return text;
+            const head = text.slice(0, cut);
+            const clause = Math.max(head.lastIndexOf('，'), head.lastIndexOf('、'), head.lastIndexOf(','), head.lastIndexOf('；'));
+            return clause > cut * 0.55 ? head.slice(0, clause) : `${head.trim()}…`;
+        }
+    };
     window.HomeSkills = { reload: load, items: () => state.items.slice(), improve, showHistory, download, rename, remove };
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });

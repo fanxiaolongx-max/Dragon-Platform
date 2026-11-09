@@ -1893,7 +1893,7 @@
             replaying = true; // 历史文件卡片默认收起，不批量加载预览
             try {
                 for (const event of events) {
-                    if (!event || event.type === 'change') continue;
+                    if (!event || event.type === 'change' || event.type === 'model_round') continue;
                     handleEvent(messageEl, event);
                     if (event.type === 'tool_start') startedRows.push({ callId: event.callId, row: toolRows.get(event.callId) });
                     if (event.type === 'approval') openCards.set(event.callId, approvalCards.get(event.callId));

@@ -208,6 +208,10 @@ html[data-ui="v2"] .dc-composer-submenu { width: 314px; z-index: 1301; }
 .dc-composer-options { max-height: min(300px, 45dvh); overflow-y: auto; overscroll-behavior: contain; }
 .dc-composer-menu .dc-composer-skill-option { display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 10px; min-height: 46px; padding: 7px 9px; }
 .dc-composer-menu .dc-composer-skill-option small { margin-top: 2px; line-height: 1.4; }
+/* 技能子菜单：每项等高，名称、简介各一行 */
+.dc-composer-menu .dc-composer-skill-option { height: 50px; min-height: 50px; flex-shrink: 0; }
+.dc-composer-menu .dc-composer-skill-option > span { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.dc-composer-menu .dc-composer-skill-option b, .dc-composer-menu .dc-composer-skill-option small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dc-composer-menu input { box-sizing: border-box; width: 100%; height: 34px; margin-bottom: 5px; padding: 0 10px; border: 1px solid transparent; border-radius: 8px; background: var(--v2-side); color: var(--v2-ink); font: inherit; font-size: 12px; }
 .dc-composer-menu input:focus { outline: 1px solid var(--v2-accent); }
 .dc-composer-menu .dc-composer-back { display: none; }

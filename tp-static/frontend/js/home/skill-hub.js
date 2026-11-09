@@ -10,7 +10,7 @@
             skills: '技能', plugins: '插件与脚本', tools: '工具', search: '搜索{tab}', all: '全部',
             sortMixed: '综合', sortNewest: '最新', sortName: '名称',
             featuredSkills: '精选技能', featuredTools: '最近使用', featuredPlugins: '常用插件', shuffle: '换一批',
-            builtin: '内置', custom: '自定义', imported: '导入', workspace: '需工作目录', customized: '已自定义',
+            builtin: '内置', custom: '自定义', imported: '导入', external: '外部', workspace: '需工作目录', customized: '已自定义',
             use: '使用', open: '打开', improve: '完善技能', history: '版本历史',
             market: '查找工具（工具市场）', importTool: '上传工具', compare: '内置工具比对', manage: '管理',
             addSkill: '添加技能', addTool: '添加工具', addPlugin: '前往插件', findSkill: '查找技能', uploadSkill: '上传技能', createSkill: '创建技能',
@@ -22,7 +22,7 @@
             skills: 'Skills', plugins: 'Plugins & scripts', tools: 'Tools', search: 'Search {tab}', all: 'All',
             sortMixed: 'Default', sortNewest: 'Newest', sortName: 'Name',
             featuredSkills: 'Featured skills', featuredTools: 'Recently used', featuredPlugins: 'Popular plugins', shuffle: 'Shuffle',
-            builtin: 'Built-in', custom: 'Custom', imported: 'Imported', workspace: 'Needs a folder', customized: 'Customized',
+            builtin: 'Built-in', custom: 'Custom', imported: 'Imported', external: 'External', workspace: 'Needs a folder', customized: 'Customized',
             use: 'Use', open: 'Open', improve: 'Improve Skill', history: 'History',
             market: 'Find tools (market)', importTool: 'Upload tool', compare: 'Compare built-ins', manage: 'Manage',
             addSkill: 'Add Skill', addTool: 'Add tool', addPlugin: 'Go to plugins', findSkill: 'Find Skills', uploadSkill: 'Upload Skill', createSkill: 'Create Skill',
@@ -56,9 +56,9 @@
     function skillEntries() {
         const en = lang() === 'en-US';
         return (window.HomeSkills?.items?.() || []).filter(item => !item.hidden).map(item => {
-            const cat = item.builtIn ? 'builtin' : item.source === 'import' ? 'imported' : 'custom';
+            const cat = { builtin: 'builtin', import: 'imported', external: 'external' }[window.SkillSource?.kind(item)] || 'custom';
             return {
-                key: `skill:${item.id}`, kind: 'skill', id: item.id,
+                key: `skill:${item.id}`, kind: 'skill', id: item.id, dot: window.SkillSource?.dot(item) || '',
                 title: (en ? item.nameEn : '') || item.name || item.id,
                 desc: (en ? item.descriptionEn : '') || item.description || t('defaultSkillDesc'),
                 icon: item.icon || '✨', color: item.builtIn ? '#10a37f' : '#f472b6',
@@ -168,7 +168,7 @@
         return `<a class="v2-hub-card" href="${esc(item.href)}" data-hub-key="${esc(item.key)}" style="--hub-c:${esc(item.color)}" title="${esc(item.title)}">
             <span class="v2-hub-icon">${iconHtml(item.icon)}</span>
             <span class="v2-hub-body">
-                <strong>${esc(item.title)}</strong>
+                <strong>${esc(item.title)}${item.dot || ''}</strong>
                 <small>${esc(item.desc)}</small>
                 <span class="v2-hub-meta">${item.badges.slice(0, 3).map(b => `<span>${esc(b)}</span>`).join('')}</span>
             </span>
