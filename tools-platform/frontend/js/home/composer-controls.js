@@ -120,17 +120,29 @@
                     const items = await window.DragonClawSkills.catalog();
                     if (turn !== revision || menu.hidden) return;
                     const search = sub.querySelector('input'), list = sub.querySelector('.dc-composer-options');
-                    const filter = () => {
-                        const query = search.value.trim().toLowerCase(); list.replaceChildren();
-                        items.filter(item => [item.id, item.name, item.nameEn, item.description, item.descriptionEn].some(value => String(value || '').toLowerCase().includes(query))).forEach(item => {
+                    // 技能多时分批渲染：先放一屏，滚到底部附近再追加
+                    let found = [], shown = 0;
+                    const more = () => {
+                        const fragment = document.createDocumentFragment();
+                        found.slice(shown, shown + 30).forEach(item => {
                             const option = document.createElement('button'); option.type = 'button'; option.className = 'dc-composer-skill-option dc-skill-option'; option.dataset.composerSkill = item.id;
                             const name = en() ? item.nameEn || item.name : item.name;
-                            option.innerHTML = `${glyph('skills')}<span><b>${esc(name || item.id)}</b><small>${esc((en() ? item.descriptionEn || item.description : item.description) || `@${item.id}`)}</small></span>`;
-                            option.onclick = () => { close(); window.DragonClawSkills.use(item.id); }; list.append(option);
+                            const full = (en() ? item.descriptionEn || item.description : item.description) || '';
+                            if (full) option.title = full;
+                            option.innerHTML = `${glyph('skills')}<span><b>${esc(name || item.id)}${window.SkillSource?.dot(item) || ''}</b><small>${esc(window.SkillSource?.brief(item, en()) || full || `@${item.id}`)}</small></span>`;
+                            option.onclick = () => { close(); window.DragonClawSkills.use(item.id); }; fragment.append(option);
                         });
+                        shown = Math.min(found.length, shown + 30);
+                        list.append(fragment);
+                    };
+                    const filter = () => {
+                        const query = search.value.trim().toLowerCase(); list.replaceChildren(); list.scrollTop = 0;
+                        found = items.filter(item => [item.id, item.name, item.nameEn, item.description, item.descriptionEn].some(value => String(value || '').toLowerCase().includes(query)));
+                        shown = 0; more();
                         if (!list.children.length) list.innerHTML = `<p class="dc-context-empty">${text('没有匹配的技能', 'No matching Skills')}</p>`;
                         position();
                     };
+                    list.addEventListener('scroll', () => { if (shown < found.length && list.scrollTop + list.clientHeight > list.scrollHeight - 100) more(); }, { passive: true });
                     search.addEventListener('input', filter); filter();
                 } catch {
                     if (turn === revision) sub.querySelector('.dc-composer-options').innerHTML = `<p class="dc-context-empty">${text('加载失败，请重试', 'Could not load. Please retry.')}</p><button type="button" data-sub-action="retry">${text('重新加载', 'Retry')}</button>`;
@@ -168,6 +180,8 @@
                 event.preventDefault(); event.stopPropagation(); const key = current; closeSub(); menu.querySelector(`[data-composer-action="${key}"]`)?.focus(); return;
             }
             if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key) && (event.target.tagName !== 'INPUT' || ['ArrowDown','ArrowUp'].includes(event.key))) {
+                const pending = surface.querySelector('.dc-composer-options');
+                if (surface === sub && event.key !== 'ArrowUp' && pending) pending.dispatchEvent(new Event('scroll')); // 键盘移到底部附近时同样追加
                 const options = [...surface.querySelectorAll('button:not(:disabled)')].filter(item => item.getClientRects().length), index = options.indexOf(document.activeElement);
                 event.preventDefault(); const next = event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length;
                 options[next]?.focus();

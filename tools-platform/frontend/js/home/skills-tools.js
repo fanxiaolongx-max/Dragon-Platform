@@ -367,7 +367,25 @@
     // 技能来源：内置 / 对话里创建 / 导入 / 外部命令生成（如 thcli +connect），名字后用小圆点区分
     window.SkillSource = {
         kind: item => item?.builtIn || item?.source === 'builtin' ? 'builtin' : ['import', 'external'].includes(item?.source) ? item.source : 'chat',
-        dot: item => `<i class="skill-src-dot" data-src="${window.SkillSource.kind(item)}" aria-hidden="true"></i>`
+        dot: item => `<i class="skill-src-dot" data-src="${window.SkillSource.kind(item)}" aria-hidden="true"></i>`,
+        // 列表里用的一句话简介：去掉括号补充说明，只取第一句，过长截断（完整简介放在悬停提示里）
+        brief: (item, english = false) => {
+            const full = String((english ? item?.descriptionEn || item?.description : item?.description || item?.descriptionEn) || '').replace(/\s+/g, ' ').trim();
+            let text = full;
+            for (let i = 0; i < 3; i += 1) text = text.replace(/[（(][^（）()]*[）)]/g, '');
+            text = (text.split(/(?<=[。！？；;!?])|(?<=\.)\s|\n|——|—/)[0] || '').replace(/[。；;，,、：:\s]+$/, '').trim() || full;
+            // 按显示宽度截断（中文算 1，英文数字约 0.55）；尽量断在逗号、顿号处，句子读起来完整
+            const max = english ? 40 : 30;
+            let width = 0, cut = text.length;
+            for (let i = 0; i < text.length; i += 1) {
+                width += /[\u2e80-\uffff]/.test(text[i]) ? 1 : 0.55;
+                if (width > max) { cut = i; break; }
+            }
+            if (cut >= text.length) return text;
+            const head = text.slice(0, cut);
+            const clause = Math.max(head.lastIndexOf('，'), head.lastIndexOf('、'), head.lastIndexOf(','), head.lastIndexOf('；'));
+            return clause > cut * 0.55 ? head.slice(0, clause) : `${head.trim()}…`;
+        }
     };
     window.HomeSkills = { reload: load, items: () => state.items.slice(), improve, showHistory, download, rename, remove };
 

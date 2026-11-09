@@ -5,8 +5,13 @@
     background: var(--dc-surface, #101a2c); color: var(--dc-text, #dce6ef); box-shadow: 0 12px 32px rgba(0, 0, 0, .22);
 }
 .dc-skill-menu[hidden] { display: none; }
-.dc-skill-option { display: flex; flex-direction: column; gap: 4px; width: 100%; padding: 10px 12px; border: 0; border-radius: 9px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
-.dc-skill-option b { font-size: 12px; overflow-wrap: anywhere; }
+.dc-skill-option { display: flex; flex-direction: column; justify-content: center; gap: 3px; width: 100%; height: 50px; padding: 0 12px; border: 0; border-radius: 9px; background: transparent; color: inherit; text-align: left; cursor: pointer; flex-shrink: 0; }
+.dc-skill-option b { font-size: 12px; }
+/* 每项等高：名称一行、简介一行，超出省略（完整简介在悬停提示里） */
+.dc-skill-option-head { display: flex; align-items: center; gap: 0; min-width: 0; }
+.dc-skill-option-head b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dc-skill-option-head small { margin-left: auto; padding-left: 8px; white-space: nowrap; flex-shrink: 0; }
+.dc-skill-option .dc-skill-option-desc { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dc-skill-option span, .dc-skill-option small { font-size: 11px; color: var(--dc-muted, #9aacc0); }
 .dc-skill-option small { color: var(--dc-accent, #64ffda); }
 .dc-skill-option.is-active, .dc-skill-option:focus-visible { background: rgba(100, 200, 190, .12); outline: none; box-shadow: inset 2px 0 var(--dc-accent, #64ffda); }

@@ -38,6 +38,7 @@
     function highlight(index) {
         if (!matches.length) return;
         active = (index + matches.length) % matches.length;
+        while (active >= rendered - 3 && rendered < matches.length) renderMore();
         menu.querySelectorAll('[data-skill-index]').forEach(node => {
             const selected = Number(node.dataset.skillIndex) === active;
             node.classList.toggle('is-active', selected);
@@ -45,6 +46,35 @@
             if (selected) node.scrollIntoView({ block: 'nearest' });
         });
         input.setAttribute('aria-activedescendant', `dcSkillOption${active}`);
+    }
+    // 技能多时分批渲染：先放一屏，滚动或方向键接近底部再追加，避免一次生成上百个节点
+    const PAGE = 30;
+    let rendered = 0;
+    function optionNode(item, index) {
+        const option = document.createElement('button');
+        option.type = 'button'; option.className = 'dc-skill-option'; option.id = `dcSkillOption${index}`;
+        option.dataset.skillIndex = String(index); option.tabIndex = -1; option.setAttribute('role', 'option');
+        const full = en() ? item.descriptionEn || item.description : item.description || item.descriptionEn;
+        if (full) option.title = full;
+        const head = document.createElement('span'), label = document.createElement('b'), description = document.createElement('span');
+        head.className = 'dc-skill-option-head'; description.className = 'dc-skill-option-desc';
+        label.textContent = `${item.icon ? `${item.icon} ` : ''}@${item.id} · ${en() ? item.nameEn : item.name}`;
+        head.appendChild(label);
+        if (window.SkillSource) head.insertAdjacentHTML('beforeend', window.SkillSource.dot(item));
+        if (item.workspace && !window.DragonClawWorkspace?.getWorkspacePayload?.()) {
+            const tag = document.createElement('small');
+            tag.textContent = words('需工作目录', 'Needs folder'); head.appendChild(tag);
+        }
+        description.textContent = window.SkillSource?.brief(item, en()) || full || '';
+        option.append(head, description);
+        return option;
+    }
+    function renderMore(before = menu.querySelector('.dc-skill-caption:last-child')) {
+        if (!menu || rendered >= matches.length) return;
+        const fragment = document.createDocumentFragment();
+        matches.slice(rendered, rendered + PAGE).forEach((item, offset) => fragment.appendChild(optionNode(item, rendered + offset)));
+        rendered = Math.min(matches.length, rendered + PAGE);
+        menu.insertBefore(fragment, before);
     }
     function render() {
         const current = token();
@@ -56,26 +86,12 @@
         title.className = 'dc-skill-caption';
         title.textContent = words('Skills · 发送后在本对话持续使用（全部工具 → 技能 可管理）', 'Skills · Active in this chat after sending (manage in All tools → Skills)');
         menu.appendChild(title);
-        matches.forEach((item, index) => {
-            const option = document.createElement('button');
-            option.type = 'button'; option.className = 'dc-skill-option'; option.id = `dcSkillOption${index}`;
-            option.dataset.skillIndex = String(index); option.tabIndex = -1; option.setAttribute('role', 'option');
-            const label = document.createElement('b'), description = document.createElement('span');
-            label.textContent = `${item.icon ? `${item.icon} ` : ''}@${item.id} · ${en() ? item.nameEn : item.name}`;
-            if (window.SkillSource) label.insertAdjacentHTML('beforeend', window.SkillSource.dot(item));
-            description.textContent = en() ? item.descriptionEn : item.description;
-            option.append(label, description);
-            if (item.workspace && !window.DragonClawWorkspace?.getWorkspacePayload?.()) {
-                const hint = document.createElement('small');
-                hint.textContent = words('需选择工作目录', 'Choose a workspace folder'); option.appendChild(hint);
-            }
-            menu.appendChild(option);
-        });
+        rendered = 0;
         const hint = document.createElement('div'); hint.className = 'dc-skill-caption';
         hint.textContent = loading ? words('正在加载…', 'Loading…') : failed ? words('加载失败，点击重试', 'Could not load. Click to retry')
             : !matches.length ? words('没有匹配的 Skill', 'No matching Skills') : words('↑↓ 选择 · Enter / Tab 插入 · Esc 关闭', '↑↓ to choose · Enter / Tab to insert · Esc to close');
         if (failed) { hint.tabIndex = 0; hint.setAttribute('role', 'button'); hint.onclick = load; hint.onkeydown = event => { if (event.key === 'Enter') load(); }; }
-        menu.appendChild(hint); menu.hidden = false;
+        menu.appendChild(hint); renderMore(hint); menu.hidden = false;
         const formTop = input.closest('form').getBoundingClientRect().top;
         const rootTop = document.getElementById('dragonClaw').getBoundingClientRect().top;
         menu.style.maxHeight = `${Math.max(100, Math.min(420, window.innerHeight * .55, formTop - Math.max(0, rootTop) - 14))}px`;
@@ -247,6 +263,7 @@
             }
         }, true);
         menu.addEventListener('mousedown', event => event.preventDefault());
+        menu.addEventListener('scroll', () => { if (menu.scrollTop + menu.clientHeight > menu.scrollHeight - 120) renderMore(); }, { passive: true });
         menu.addEventListener('pointermove', event => { const option = event.target.closest('[data-skill-index]'); if (option && Number(option.dataset.skillIndex) !== active) highlight(Number(option.dataset.skillIndex)); });
         menu.addEventListener('click', event => { const option = event.target.closest('[data-skill-index]'); if (option) choose(Number(option.dataset.skillIndex)); });
         document.addEventListener('click', event => { if (event.target !== input && !menu.contains(event.target)) close(); });
