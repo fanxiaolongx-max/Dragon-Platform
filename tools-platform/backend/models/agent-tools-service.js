@@ -944,9 +944,41 @@ async function runInteractiveCommand(ctx, command, args = {}) {
     };
 }
 
+// 登录类命令（xxx login / xxx auth login）会停下来等用户粘贴凭据、输入验证码：
+// 有终端面板时自动改为交互执行。模型常犯的写法 echo "凭据" | xxx login 也在这里纠正——
+// 登录请求每次都会生成新的 state，预先 echo 进去的旧凭据必然不匹配。
+// 一段命令（按 ; && || | 切开）是否为「CLI 的登录子命令」：程序名 + 最多两个子命令词 + login，如 thcli auth login、gh auth login、npm login
+const TEXT_TOOLS = new Set(['echo', 'printf', 'grep', 'egrep', 'rg', 'ag', 'find', 'cat', 'less', 'more', 'head', 'tail', 'sed', 'awk', 'ls', 'man', 'which', 'type', 'whereis', 'history', 'git', 'last', 'lastlog', 'su', 'sudo', 'tee', 'xargs', 'wc', 'sort', 'uniq', 'cut', 'tr', 'jq', 'curl', 'wget', 'ssh']);
+function isLoginSegment(segment) {
+    const tokens = String(segment || '').trim().split(/\s+/).filter(Boolean);
+    const index = tokens.findIndex(token => /^(?:login|signin|sign-in)$/i.test(token));
+    if (index < 1 || index > 3) return false;
+    const program = tokens[0].split(/[\\/]/).pop().toLowerCase();
+    if (TEXT_TOOLS.has(program) || /^[A-Z_]+=/.test(tokens[0])) return false;
+    return tokens.slice(1, index).every(token => /^[a-z][\w-]*$/i.test(token));
+}
+function interactiveUpgrade(command) {
+    const text = String(command || '').trim();
+    if (/(?:^|\s)(?:--help|-h|help|status|logout|whoami)(?:\s|$)/i.test(text)) return null;
+    const piped = text.match(/^(?:echo|printf)\s+(?:"(?:[^"\\]|\\.)*"|'[^']*'|\S+)\s*\|\s*([^|]+)$/s);
+    if (piped && isLoginSegment(piped[1])) return { command: piped[1].trim(), stripped: true };
+    if (!text.split(/;|&&|\|\|/).some(isLoginSegment)) return null;
+    // 有意从文件 / 管道读凭据（gh auth login --with-token < token.txt 等）不改
+    if (/[<|]/.test(text) || /--with-token|--password-stdin|--token[ =]/i.test(text)) return null;
+    return { command: text, stripped: false };
+}
+
 async function runCommand(ctx, args = {}) {
     const command = String(args.command || '').trim();
     if (!command) throw toolError('AGENT_ARGS', '缺少 command');
+    const upgrade = ctx.interactive?.owner && args.interactive !== true && args.interactive !== 'true' ? interactiveUpgrade(command) : null;
+    if (upgrade) {
+        const result = await runInteractiveCommand(ctx, upgrade.command, args);
+        const note = upgrade.stripped
+            ? '（系统提示：登录命令每次都会生成新的 state，不能用 echo 预先传入凭据；已去掉 echo 部分，改在用户的终端面板里交互执行，用户在终端里粘贴了页面显示的凭据。以后直接对登录命令使用 interactive=true，不要再让用户把凭据发到对话里。）'
+            : '（系统提示：登录类命令已自动改在用户的终端面板里交互执行。）';
+        return { ...result, content: `${note}\n${result.content}` };
+    }
     if (args.interactive === true || args.interactive === 'true') {
         if (ctx.interactive?.owner) return runInteractiveCommand(ctx, command, args);
         return { content: '当前对话没有可供用户输入的终端（例如频道对话或后台任务），交互式命令无法执行。请告诉用户到 Dragon Claw 网页端打开右侧「终端」面板自行运行该命令。', summary: '无交互终端', isError: true };
@@ -1211,4 +1243,4 @@ function errorResult(ctx, error) {
     return { content, summary: message, isError: true };
 }
 
-module.exports = { LIMITS, definitions, kindOf, preview, execute, errorResult, scrubbedEnv, resolveShell, killTree };
+module.exports = { interactiveUpgrade, LIMITS, definitions, kindOf, preview, execute, errorResult, scrubbedEnv, resolveShell, killTree };
