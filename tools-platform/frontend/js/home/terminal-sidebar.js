@@ -74,6 +74,29 @@
         fitTab(tabs.get(activeId));
         flash(L(`字号 ${fontSize}`, `Font size ${fontSize}`));
     }
+    // 浏览器授权回调：CLI 登录在服务器本机 localhost:端口 等回调，用户浏览器不在服务器上时跳回去会打不开。
+    // 粘贴（终端或对话框）一个带参数的 http://localhost:端口/… 地址时，交给服务器本机去请求。
+    function loopbackUrl(text) {
+        const value = String(text || '').replace(/\x1b\[20[01]~/g, '').trim();
+        return /^http:\/\/(?:localhost|127\.0\.0\.1|\[::1\]):\d{2,5}(?:\/[^\s]*)?\?[^\s]*=[^\s]*$/i.test(value) ? value : '';
+    }
+    async function relayCallback(url) {
+        try {
+            const result = await api('/loopback', { method: 'POST', body: { url } });
+            const message = result.ok
+                ? L(`已把授权回调转交给服务器上的登录程序（HTTP ${result.status}）${result.message ? `：${result.message.slice(0, 80)}` : ''}`, `Callback forwarded to the login program on the server (HTTP ${result.status})`)
+                : L(`登录程序返回 HTTP ${result.status}${result.message ? `：${result.message.slice(0, 80)}` : ''}`, `Login program returned HTTP ${result.status}`);
+            return { ...result, text: message };
+        } catch (error) {
+            return { ok: false, text: error.message };
+        }
+    }
+    async function relayFromTerminal(tab, url) {
+        flash(L('正在把授权回调转交给服务器上的登录程序…', 'Forwarding the callback to the server…'));
+        const result = await relayCallback(url);
+        flash(result.text, !result.ok);
+        tab.term?.write(`\r\n\x1b[${result.ok ? '32' : '31'}m[${result.ok ? '✓' : '✗'}] ${result.text}\x1b[0m\r\n`);
+    }
     async function pasteInto(tab) {
         if (!tab || tab.kind !== 'shell' || tab.exited) return;
         try {
@@ -285,7 +308,11 @@
         const { term, fit } = makeTerm();
         Object.assign(tab, { term, fit });
         term.open(tab.node);
-        term.onData(data => tab.pty === false ? localEdit(tab, data) : sendInput(tab, data));
+        term.onData(data => {
+            const callback = data.length > 20 && loopbackUrl(data);
+            if (callback) { relayFromTerminal(tab, callback); return; }
+            tab.pty === false ? localEdit(tab, data) : sendInput(tab, data);
+        });
         // Ctrl/Cmd+Shift+C / V：复制粘贴；Ctrl+C 交给终端（中断）
         term.attachCustomKeyEventHandler(keyHandler(tab));
         if (tab.id === activeId) { fitTab(tab); if (open) term.focus(); }
@@ -513,7 +540,7 @@
         window.matchMedia('(max-width: 860px)').addEventListener('change', event => { if (event.matches) close(); });
         // 首页其他模式（工具页、频道）遮住对话时一并收起
         for (const name of ['home:hub', 'home:tool-frame']) window.addEventListener(name, event => { if (event.detail?.open) close(); });
-        window.DragonTerminalSidebar = { open: show, close, isOpen: () => open, newTerminal };
+        window.DragonTerminalSidebar = { open: show, close, isOpen: () => open, newTerminal, loopbackUrl, relayCallback };
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();

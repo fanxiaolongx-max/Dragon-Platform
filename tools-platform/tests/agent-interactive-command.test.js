@@ -35,3 +35,10 @@ test('the interactive tab banner is shown to the user but not returned to the mo
     assert.ok(output.includes('done'));
     assert.ok(!output.includes('只给用户看'));
 });
+
+test('background nohup login commands run in the foreground interactive terminal instead', () => {
+    assert.deepEqual(interactiveUpgrade('nohup thcli auth login > /tmp/thcli-login.log 2>&1 & sleep 2 && cat /tmp/thcli-login.log'), { command: 'thcli auth login', stripped: false, background: true });
+    assert.deepEqual(interactiveUpgrade('gh auth login --web >/tmp/gh.log 2>&1 &'), { command: 'gh auth login --web', stripped: false, background: true });
+    assert.equal(interactiveUpgrade('nohup node server.js > out.log 2>&1 &'), null);
+    assert.equal(interactiveUpgrade('nohup thcli auth status > /tmp/s.log 2>&1 &'), null);
+});

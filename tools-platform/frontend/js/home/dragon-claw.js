@@ -1948,6 +1948,17 @@
         if (options.fromComposer && state.attachments.some(item => item.status === 'uploading')) { showToast(tx('attachPending')); return; }
         if (!content && withAttachments) content = displayText = lang() === 'en-US' ? 'Please look at the attached files.' : '请看一下附件。';
         if (!content) return;
+        // 浏览器授权后跳回的 http://localhost:端口/?token=… 地址：不发给模型（含凭据），由服务器转交给本机等待回调的登录程序
+        const callbackUrl = !external.active && window.DragonTerminalSidebar?.loopbackUrl?.(content);
+        if (callbackUrl) {
+            if (state.controller || state.restoring) { showToast(lang() === 'en-US' ? 'Forwarding the callback…' : '正在转交授权回调…'); }
+            const relayed = await window.DragonTerminalSidebar.relayCallback(callbackUrl);
+            showToast(relayed.text);
+            if (!relayed.ok || state.controller || state.restoring) return;
+            content = displayText = lang() === 'en-US'
+                ? 'I finished authorizing in the browser; the localhost callback was forwarded to the login program on the server. Please check the login status and continue.'
+                : '我已在浏览器完成授权，跳回的本机回调地址已转交给服务器上的登录程序。请检查登录状态并继续。';
+        }
         el.thread.querySelectorAll('.dc-continue').forEach(node => node.remove()); // 发了新消息，「继续执行」不再适用
         if (external.active) return sendExternal(content);
         if (isSideCommand(content)) return runSlashCommand(content);

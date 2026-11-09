@@ -919,7 +919,7 @@ async function runInteractiveCommand(ctx, command, args = {}) {
         const login = Boolean(interactiveUpgrade(command));
         const banner = [`⌨ 智能体正在这里运行：${command.length > 120 ? `${command.slice(0, 120)}…` : command}`,
             '这个终端可以直接输入：粘贴用 Ctrl+V（Mac 为 ⌘V）或右键，回车提交。',
-            login ? '登录：请打开下面【本次】输出的新授权链接完成授权，再把页面上新显示的凭据粘贴到这里。之前拿到的凭据已失效（每次登录的 state 都不同）。' : ''].filter(Boolean).join('\n');
+            login ? '登录：请打开下面【本次】输出的新授权链接完成授权（之前的链接和凭据已失效，每次登录的 state 都不同）。\n  · 页面显示一串凭据 → 粘贴到这里回车；\n  · 浏览器跳到 http://localhost:端口/… 打不开（你的浏览器不在服务器上）→ 复制地址栏完整地址粘贴到这里，会自动转交给服务器上的登录程序。' : ''].filter(Boolean).join('\n');
         handle = terminals.createCommand(ctx.interactive.owner, { command, cwd: ctx.root, env: scrubbedEnv(), title: command, banner });
     } catch (error) {
         return { content: `无法打开交互终端：${error.message}`, summary: '启动失败', isError: true };
@@ -963,6 +963,11 @@ function isLoginSegment(segment) {
 }
 function interactiveUpgrade(command) {
     const text = String(command || '').trim();
+    // 「nohup xxx login > log 2>&1 & sleep 2 && cat log」：后台登录进程会随回合结束被回收、用户也没法输入，改为前台交互运行
+    const background = text.match(/^\s*(?:nohup\s+)?([^&|;<>\n]+?)(?:\s+\d?>>?\s*(?:&\d|[^\s&]+))*\s*&(?!&)/);
+    if (background && isLoginSegment(background[1]) && !/(?:^|\s)(?:--help|-h|help|status|logout|whoami)(?:\s|$)/i.test(background[1])) {
+        return { command: background[1].trim(), stripped: false, background: true };
+    }
     if (/(?:^|\s)(?:--help|-h|help|status|logout|whoami)(?:\s|$)/i.test(text)) return null;
     const piped = text.match(/^(?:echo|printf)\s+(?:"(?:[^"\\]|\\.)*"|'[^']*'|\S+)\s*\|\s*([^|]+)$/s);
     if (piped && isLoginSegment(piped[1])) return { command: piped[1].trim(), stripped: true };
@@ -988,6 +993,7 @@ async function runCommand(ctx, args = {}) {
         const result = await runInteractiveCommand(ctx, upgrade.command, args);
         const notes = ['（系统提示：登录类命令已自动改在用户右侧终端面板的交互标签里执行，用户直接在终端里打开授权链接、粘贴凭据。'];
         if (upgrade.stripped) notes.push('登录每次都会生成新的 state，用户在对话里发来的旧凭据无法复用，echo 部分已去掉。');
+        if (upgrade.background) notes.push('原命令把登录放到后台（nohup … &）：后台进程会被回收、用户也无法输入，已改为在交互终端里前台运行，命令会等到用户完成授权才结束，不要再另起登录进程。');
         if (upgrade.droppedKill) notes.push('命令里的 pkill/killall 段已去掉：pkill -f 会匹配并杀掉执行这条命令的 Shell 自己。');
         notes.push(result.exitCode === 0 && !result.isError
             ? '命令正常结束，请用 auth status 之类的命令核实后再告诉用户结果。'

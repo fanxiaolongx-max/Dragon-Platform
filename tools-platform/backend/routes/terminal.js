@@ -31,6 +31,28 @@ router.post('/sessions/:id/interrupt', handle(async (req, res) => { terminals.si
 router.patch('/sessions/:id', handle(async (req, res) => res.json({ session: terminals.rename(owner(req), req.params.id, req.body?.title) })));
 router.delete('/sessions/:id', handle(async (req, res) => res.json({ ok: terminals.kill(owner(req), req.params.id) })));
 
+// 浏览器授权回调转交：CLI 登录（thcli/gh/gcloud…）在服务器本机 localhost:端口 等浏览器回调，
+// 但用户的浏览器通常不在服务器上，跳回 localhost 会打不开。用户把地址栏里的完整地址交给这里，由服务器本机去请求。
+// 只接受 http 回环地址；地址里带 token，走 POST 正文、不写日志。
+router.post('/loopback', handle(async (req, res) => {
+    let url;
+    try { url = new URL(String(req.body?.url || '').trim()); } catch { url = null; }
+    if (!url || url.protocol !== 'http:' || !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) || !url.port) {
+        throw Object.assign(new Error('只能转交本机回调地址（http://localhost:端口/…）'), { status: 400 });
+    }
+    let response;
+    try {
+        response = await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(15000) });
+    } catch (error) {
+        const refused = /ECONNREFUSED/.test(String(error?.cause?.code || error?.cause?.message || error?.message));
+        throw Object.assign(new Error(refused
+            ? `服务器本机 ${url.port} 端口没有程序在等待回调：登录进程可能已退出或超时，请重新发起登录并使用新的授权链接`
+            : `转交失败：${error?.cause?.message || error.message}`), { status: 502 });
+    }
+    const text = (await response.text().catch(() => '')).replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    res.json({ ok: response.status < 400, status: response.status, message: text.slice(0, 300) });
+}));
+
 router.get('/sessions/:id/stream', handle(async (req, res) => {
     const key = owner(req);
     // 先校验存在，失败时还能返回 JSON 错误
