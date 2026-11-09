@@ -368,6 +368,13 @@
     window.SkillSource = {
         kind: item => item?.builtIn || item?.source === 'builtin' ? 'builtin' : ['import', 'external'].includes(item?.source) ? item.source : 'chat',
         dot: item => `<i class="skill-src-dot" data-src="${window.SkillSource.kind(item)}" aria-hidden="true"></i>`,
+        // 名字 + 来源圆点：名字过长时在自己的轨道里来回滚动，圆点始终露在外面（插入页面后调用 fit 量一下）
+        label: (text, item) => `<span class="skill-name"><span class="skill-name-track"><span class="skill-name-text">${escapeHtml(text)}</span></span>${window.SkillSource.dot(item)}</span>`,
+        fit: root => requestAnimationFrame(() => (root || document).querySelectorAll('.skill-name-track').forEach(track => {
+            const text = track.firstElementChild, shift = text ? text.scrollWidth - track.clientWidth : 0;
+            track.classList.toggle('is-long', shift > 2 && track.clientWidth > 0);
+            if (shift > 2) { track.style.setProperty('--shift', `-${shift + 6}px`); track.style.setProperty('--dur', `${Math.min(14, 4 + shift / 18).toFixed(1)}s`); }
+        })),
         // 列表里用的一句话简介：去掉括号补充说明，只取第一句，过长截断（完整简介放在悬停提示里）
         brief: (item, english = false) => {
             const full = String((english ? item?.descriptionEn || item?.description : item?.description || item?.descriptionEn) || '').replace(/\s+/g, ' ').trim();

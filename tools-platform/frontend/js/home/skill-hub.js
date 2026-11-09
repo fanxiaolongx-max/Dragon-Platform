@@ -58,7 +58,7 @@
         return (window.HomeSkills?.items?.() || []).filter(item => !item.hidden).map(item => {
             const cat = { builtin: 'builtin', import: 'imported', external: 'external' }[window.SkillSource?.kind(item)] || 'custom';
             return {
-                key: `skill:${item.id}`, kind: 'skill', id: item.id, dot: window.SkillSource?.dot(item) || '',
+                key: `skill:${item.id}`, kind: 'skill', id: item.id, src: item, dot: window.SkillSource?.dot(item) || '',
                 title: (en ? item.nameEn : '') || item.name || item.id,
                 desc: (en ? item.descriptionEn : '') || item.description || t('defaultSkillDesc'),
                 icon: item.icon || '✨', color: item.builtIn ? '#10a37f' : '#f472b6',
@@ -168,7 +168,7 @@
         return `<a class="v2-hub-card" href="${esc(item.href)}" data-hub-key="${esc(item.key)}" style="--hub-c:${esc(item.color)}" title="${esc(item.title)}">
             <span class="v2-hub-icon">${iconHtml(item.icon)}</span>
             <span class="v2-hub-body">
-                <strong>${esc(item.title)}${item.dot || ''}</strong>
+                <strong>${item.dot && window.SkillSource?.label ? window.SkillSource.label(item.title, item.src) : esc(item.title)}</strong>
                 <small>${esc(item.desc)}</small>
                 <span class="v2-hub-meta">${item.badges.slice(0, 3).map(b => `<span>${esc(b)}</span>`).join('')}</span>
             </span>
@@ -270,6 +270,7 @@
             ? `<div class="v2-hub-cards">${list.map(card).join('')}</div>`
             : `<div class="v2-hub-empty">${esc(loading ? t('loading') : query ? t('empty', { q: state.query.trim() }) : t('emptyCat'))}</div>`;
         window.HomeV2?.fillIcons?.(root);
+        window.SkillSource?.fit?.(root);
     }
 
     function open(tab) {

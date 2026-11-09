@@ -129,11 +129,12 @@
                             const name = en() ? item.nameEn || item.name : item.name;
                             const full = (en() ? item.descriptionEn || item.description : item.description) || '';
                             if (full) option.title = full;
-                            option.innerHTML = `${glyph('skills')}<span><b>${esc(name || item.id)}${window.SkillSource?.dot(item) || ''}</b><small>${esc(window.SkillSource?.brief(item, en()) || full || `@${item.id}`)}</small></span>`;
+                            option.innerHTML = `${glyph('skills')}<span><b>${window.SkillSource?.label ? window.SkillSource.label(name || item.id, item) : esc(name || item.id)}</b><small>${esc(window.SkillSource?.brief(item, en()) || full || `@${item.id}`)}</small></span>`;
                             option.onclick = () => { close(); window.DragonClawSkills.use(item.id); }; fragment.append(option);
                         });
                         shown = Math.min(found.length, shown + 30);
                         list.append(fragment);
+                        window.SkillSource?.fit?.(list);
                     };
                     const filter = () => {
                         const query = search.value.trim().toLowerCase(); list.replaceChildren(); list.scrollTop = 0;
