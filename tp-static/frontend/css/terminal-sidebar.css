@@ -37,7 +37,10 @@ html.desktop-win:not(.desktop-fullscreen) .dc-terminal-panel{padding-top:38px}
 
 .dc-term-body{position:relative;flex:1;min-height:0;background:var(--dc-term-bg)}
 .dc-term-view{position:absolute;inset:6px 4px 4px 10px}
-.dc-term-view .xterm{height:100%}
+.dc-term-view .xterm{height:100%;background:var(--dc-term-bg)}
+/* xterm.css 把视口底色写死为黑色，行高除不尽时底部露出黑条；滚动阴影也去掉 */
+.dc-term-view .xterm .xterm-viewport{background-color:transparent!important}
+.dc-term-view .xterm .xterm-scrollable-element>.shadow{display:none!important}
 .dc-term-view .xterm-viewport{scrollbar-width:thin}
 .dc-term-status{flex-shrink:0;padding:5px 12px;font-size:11px;color:var(--dc-term-muted);border-top:1px solid var(--dc-term-line);background:var(--dc-term-head);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 .dc-term-status.is-error{color:#cf222e}

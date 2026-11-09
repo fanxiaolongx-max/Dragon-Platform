@@ -2051,7 +2051,7 @@
                     }
                     if (event.type === 'tac' && event.status === 'queued') watchTac(event.id);
                     // 命令实时输出：交给右侧终端面板（terminal-sidebar.js），不进消息区
-                    if (event.type === 'command_start' || event.type === 'command_output' || event.type === 'command_end') { window.dispatchEvent(new CustomEvent('dragon-claw:command', { detail: event })); return; }
+                    if (/^command_(start|output|end|terminal)$/.test(event.type)) { window.dispatchEvent(new CustomEvent('dragon-claw:command', { detail: event })); return; }
                     window.DragonClawSkills?.handleEvent(reply, event);
                     workspace()?.handleEvent(reply, event, workspacePayload);
                     activity.event(event);

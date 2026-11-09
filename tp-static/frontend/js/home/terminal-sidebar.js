@@ -12,7 +12,7 @@
         plus: '<path d="M10 4v12M4 10h12"/>', caret: '<path d="m6 8 4 4 4-4"/>', close: '<path d="m5 5 10 10M15 5 5 15"/>',
         clear: '<path d="M4 6h12M8 6V4h4v2M6 6l1 10h6l1-10"/>', stop: '<rect x="5" y="5" width="10" height="10" rx="1.5"/>',
         agent: '<rect x="4" y="6" width="12" height="10" rx="2"/><path d="M10 3v3M7.5 11h.01M12.5 11h.01"/>',
-        shell: '<path d="m4 6 4 4-4 4M10 15h6"/>', pin: '<path d="M10 3v8M6 7l4 4 4-4M4 16h12"/>'
+        shell: '<path d="m4 6 4 4-4 4M10 15h6"/>', copy: '<rect x="7" y="7" width="9" height="9" rx="1.5"/><path d="M4 13V5.5A1.5 1.5 0 0 1 5.5 4H13"/>', pin: '<path d="M10 3v8M6 7l4 4 4-4M4 16h12"/>'
     };
     const icon = name => `<svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
 
@@ -52,7 +52,10 @@
             document.head.append(link);
         }
         xtermReady = (window.Terminal ? Promise.resolve() : loadScript('./tp-static/frontend/js/vendor/xterm/xterm.js'))
-            .then(() => window.FitAddon ? null : loadScript('./tp-static/frontend/js/vendor/xterm/addon-fit.js'))
+            .then(() => Promise.all([
+                window.FitAddon ? null : loadScript('./tp-static/frontend/js/vendor/xterm/addon-fit.js'),
+                window.WebLinksAddon ? null : loadScript('./tp-static/frontend/js/vendor/xterm/addon-web-links.js')
+            ]))
             .catch(error => { xtermReady = null; throw error; });
         return xtermReady;
     }
@@ -66,11 +69,56 @@
         const term = new window.Terminal({
             fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Cascadia Mono", "Microsoft YaHei Mono", monospace',
             fontSize: 12.5, lineHeight: 1.25, cursorBlink: true, scrollback: 5000, allowProposedApi: false,
+            rightClickSelectsWord: false, macOptionClickForcesSelection: true,
             theme: theme(), ...options
         });
         const fit = new window.FitAddon.FitAddon();
         term.loadAddon(fit);
+        // 输出里的网址可点击（含自动换行折断的长链接），在新标签页打开
+        if (window.WebLinksAddon) term.loadAddon(new window.WebLinksAddon.WebLinksAddon((event, uri) => {
+            event.preventDefault();
+            window.open(uri, '_blank', 'noopener,noreferrer');
+        }));
         return { term, fit };
+    }
+
+    // ── 复制 ─────────────────────────────────────────
+    async function copyText(text) {
+        if (!text) return false;
+        try { await navigator.clipboard.writeText(text); return true; } catch (_error) { /* 非安全上下文：退回 execCommand */ }
+        const area = document.createElement('textarea');
+        area.value = text; area.setAttribute('readonly', ''); area.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0';
+        document.body.append(area); area.select();
+        let ok = false;
+        try { ok = document.execCommand('copy'); } catch (_error) { ok = false; }
+        area.remove();
+        return ok;
+    }
+    // 整个缓冲区的纯文本：自动换行折断的行拼回一行
+    function bufferText(term) {
+        const buffer = term.buffer.active;
+        const lines = [];
+        for (let i = 0; i < buffer.length; i++) {
+            const line = buffer.getLine(i);
+            if (!line) continue;
+            const text = line.translateToString(true);
+            if (line.isWrapped && lines.length) lines[lines.length - 1] += text; else lines.push(text);
+        }
+        while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
+        return lines.join('\n');
+    }
+    async function copyFrom(tab, { all = false } = {}) {
+        if (!tab?.term) return;
+        const selection = tab.term.getSelection();
+        const text = selection && !all ? selection : bufferText(tab.term);
+        const ok = await copyText(text);
+        flash(ok ? (selection && !all ? L('已复制选中内容', 'Selection copied') : L('已复制全部输出', 'All output copied')) : L('复制失败，请用快捷键重试', 'Copy failed, try the keyboard shortcut'), !ok);
+    }
+    function flash(message, error = false) {
+        statusNode.textContent = message;
+        statusNode.classList.toggle('is-error', error);
+        clearTimeout(flash.timer);
+        flash.timer = setTimeout(() => { statusNode.classList.remove('is-error'); renderTabs(); }, 2200);
     }
 
     // ── 标签栏 ───────────────────────────────────────
@@ -117,6 +165,11 @@
         const { term, fit } = makeTerm({ convertEol: true, disableStdin: true, cursorBlink: false, cursorStyle: 'bar', cursorInactiveStyle: 'none' });
         Object.assign(tab, { term, fit });
         term.open(tab.node);
+        // 只读终端也要能用快捷键复制
+        term.attachCustomKeyEventHandler(event => {
+            if (event.type === 'keydown' && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'c' && term.hasSelection()) { copyFrom(tab); return false; }
+            return true;
+        });
         term.writeln(`\x1b[2m${L('Dragon Claw · 智能体命令输出', 'Dragon Claw · agent command output')}\x1b[0m`);
         agentQueue.splice(0).forEach(text => term.write(text));
         return tab;
@@ -135,6 +188,12 @@
             if (!open && localStorage.getItem(AUTO_KEY) !== '0' && innerWidth > 860) show({ tab: 'agent', auto: true });
             else if (open && tabs.get(activeId)?.kind !== 'shell') select('agent');
             renderTabs();
+        } else if (event.type === 'command_terminal') {
+            // 交互式命令：在独立标签里以真终端运行，用户直接在里面输入；强制打开面板并聚焦
+            agentWrite(`\x1b[33m↳ ${L('该命令需要你输入，已在「', 'This command needs your input — opened in the "')}${String(event.title || '').slice(0, 40)}${L('」标签打开交互终端', '" tab')}\x1b[0m\r\n`);
+            addShellTab({ id: event.terminalId, title: `⌨ ${String(event.title || L('交互命令', 'Interactive')).slice(0, 40)}`, cwd: event.cwd, pty: event.pty, shellLabel: event.shellLabel, interactiveCommand: true });
+            show({ tab: event.terminalId });
+            flash(L('命令正在等待你的输入，请在终端里操作', 'The command is waiting for your input in the terminal'));
         } else if (event.type === 'command_output') {
             agentWrite(String(event.data || ''));
         } else if (event.type === 'command_end') {
@@ -167,12 +226,12 @@
         term.attachCustomKeyEventHandler(event => {
             if (event.type !== 'keydown') return true;
             const mod = event.ctrlKey || event.metaKey;
-            if (mod && event.shiftKey && event.key.toLowerCase() === 'c') { const text = term.getSelection(); if (text) navigator.clipboard?.writeText(text).catch(() => {}); return false; }
-            if (event.metaKey && event.key.toLowerCase() === 'c' && term.hasSelection()) return false; // macOS ⌘C：浏览器默认复制
+            // 有选中内容时 ⌘C / Ctrl+C / Ctrl+Shift+C 复制；没有选中时 Ctrl+C 仍是中断
+            if (mod && event.key.toLowerCase() === 'c' && (term.hasSelection() || event.shiftKey)) { copyFrom(tab); return false; }
             if (event.metaKey && event.key.toLowerCase() === 'k') { term.clear(); return false; }
             return true;
         });
-        if (tab.id === activeId) fitTab(tab);
+        if (tab.id === activeId) { fitTab(tab); if (open) term.focus(); }
         connect(tab);
     }
     // 管道模式没有服务端回显：本地处理行编辑，回车整行发送
@@ -323,7 +382,7 @@
         panel.innerHTML = `<header class="dc-term-head">
                 <div class="dc-term-tabs" role="tablist"></div>
                 <div class="dc-term-new"><button type="button" data-term-action="new" title="${esc(L('新建终端', 'New terminal'))}">${icon('plus')}</button><button type="button" data-term-action="menu" aria-haspopup="menu" title="${esc(L('选择 Shell', 'Choose shell'))}">${icon('caret')}</button></div>
-                <div class="dc-term-actions"><button type="button" data-term-action="interrupt" title="${esc(L('中断（Ctrl+C）', 'Interrupt (Ctrl+C)'))}" hidden>${icon('stop')}</button><button type="button" data-term-action="clear" title="${esc(L('清屏', 'Clear'))}">${icon('clear')}</button><button type="button" data-term-action="close" title="${esc(L('关闭面板', 'Close panel'))}">${icon('close')}</button></div>
+                <div class="dc-term-actions"><button type="button" data-term-action="interrupt" title="${esc(L('中断（Ctrl+C）', 'Interrupt (Ctrl+C)'))}" hidden>${icon('stop')}</button><button type="button" data-term-action="copy" title="${esc(L('复制（有选中复制选中，否则复制全部输出）', 'Copy (selection, or all output)'))}">${icon('copy')}</button><button type="button" data-term-action="clear" title="${esc(L('清屏', 'Clear'))}">${icon('clear')}</button><button type="button" data-term-action="close" title="${esc(L('关闭面板', 'Close panel'))}">${icon('close')}</button></div>
             </header>
             <div class="dc-term-menu" role="menu" hidden></div>
             <div class="dc-term-body"></div>
@@ -350,8 +409,24 @@
             if (action === 'new') newTerminal();
             if (action === 'menu') { if (!info && isAdmin()) restoreSessions(); menuNode.hidden = !menuNode.hidden; }
             if (action === 'close') close();
+            if (action === 'copy') copyFrom(tabs.get(activeId));
             if (action === 'clear') { const tab = tabs.get(activeId); tab?.term?.clear(); }
             if (action === 'interrupt') { const tab = tabs.get(activeId); if (tab?.kind === 'shell') api(`/sessions/${tab.id}/interrupt`, { method: 'POST' }).catch(error => showError(error.message)); }
+        });
+        // 兜底：焦点不在终端输入框（只读的 Agent 标签）时，面板内 ⌘C / Ctrl+C 也复制选中内容
+        panel.addEventListener('keydown', event => {
+            const tab = tabs.get(activeId);
+            if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'c' || !tab?.term?.hasSelection()) return;
+            if (event.target.closest?.('.xterm-helper-textarea')) return; // 终端自己的快捷键处理已复制
+            event.preventDefault();
+            copyFrom(tab);
+        });
+        // 右键：有选中内容时直接复制（不弹浏览器菜单）
+        body.addEventListener('contextmenu', event => {
+            const tab = tabs.get(activeId);
+            if (!tab?.term?.hasSelection()) return;
+            event.preventDefault();
+            copyFrom(tab);
         });
         // 中键关闭标签
         tabsNode.addEventListener('auxclick', event => { const id = event.target.closest('[data-term-tab]')?.dataset.termTab; if (event.button === 1 && id && id !== 'agent') closeTab(id); });
