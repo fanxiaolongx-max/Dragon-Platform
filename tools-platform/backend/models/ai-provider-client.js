@@ -340,6 +340,10 @@ function stripReasoningText(value) {
     text = text.replace(/<think(?:ing)?\b[^>]*>[\s\S]*?<\/think(?:ing)?>/gi, '');
     text = text.replace(/<reasoning\b[^>]*>[\s\S]*?<\/reasoning>/gi, '');
 
+    // 对话模板已经替模型写好了开头的 <think>（DeepSeek-R1 / Qwen 等常见），正文里只剩一个收尾标签：标签之前全是思考
+    const orphanClose = text.match(/<\/think(?:ing)?>/i);
+    if (orphanClose && !/<think(?:ing)?\b[^>]*>/i.test(text.slice(0, orphanClose.index))) text = text.slice(orphanClose.index + orphanClose[0].length);
+
     const openThink = text.search(/<think(?:ing)?\b[^>]*>/i);
     if (openThink >= 0) {
         const afterOpen = text.slice(openThink).replace(/^<think(?:ing)?\b[^>]*>/i, '');
@@ -450,10 +454,30 @@ async function readSseResponse(res, onData) {
 // 推理模型的思考内容：DeepSeek / Qwen 等的 reasoning_content、OpenRouter 的 reasoning、MiniMax reasoning_split 的 reasoning_details
 function openAiDeltaReasoning(delta) {
     if (!delta) return '';
-    if (typeof delta.reasoning_content === 'string') return delta.reasoning_content;
-    if (typeof delta.reasoning === 'string') return delta.reasoning;
+    for (const key of ['reasoning_content', 'reasoning', 'thinking', 'thought']) if (typeof delta[key] === 'string' && delta[key]) return delta[key];
     if (Array.isArray(delta.reasoning_details)) return delta.reasoning_details.map(item => item && typeof item.text === 'string' ? item.text : '').join('');
     return '';
+}
+
+const TRUNCATED_FINISH_RE = /^(length|max_tokens|max_output_tokens)$/i;
+const REASONING_RETRY_TOKENS = 8192;
+const reasoningSplitSeen = new Set(); // 已确认会把思考和正文分开返回的「地址|模型」
+const reasoningHungry = new Set(); // 曾把输出上限全花在思考上的「地址|模型」：之后的请求直接用放宽后的上限，不再每次白等一轮
+
+/**
+ * 正文为空、只有思考内容时怎么办。
+ * - 被输出上限截断：思考还没写完，绝不能当正文（否则续写会接着思考往下写），交给上层调高上限重试；
+ * - 这个模型之前正常分开返回过思考和正文：这次就是没作答，同样返回空，由上层提示它继续；
+ * - 其余情况（网关的推理解析配置不对，把整段回答都归进了思考字段）：把它当正文，保证这类部署能用。
+ */
+function settleReasoningOnly(key, { text, reasoning, toolCalls, finishReason }) {
+    if (text) {
+        if (reasoning) reasoningSplitSeen.add(key);
+        return { text, reasoningOnly: false };
+    }
+    if (!reasoning || (toolCalls && toolCalls.length)) return { text: '', reasoningOnly: false };
+    if (TRUNCATED_FINISH_RE.test(String(finishReason || '')) || reasoningSplitSeen.has(key)) return { text: '', reasoningOnly: true };
+    return { text: stripReasoningText(reasoning), reasoningOnly: false };
 }
 
 /**
@@ -559,6 +583,7 @@ class AiProviderClient {
         this.anthropicAuthType = settings.anthropicAuthType === 'ANTHROPIC_API_KEY' ? 'ANTHROPIC_API_KEY' : 'ANTHROPIC_AUTH_TOKEN';
         this.usesMiniMaxProtocol = this.provider === 'minimax'
             || (this.provider === 'openai-compatible' && (/minimax/i.test(this.baseUrl) || /^MiniMax-/i.test(this.model)));
+        this.reasoningKey = `${this.baseUrl}|${this.model}`;
     }
 
     getAnthropicHeaders(isStream = false) {
@@ -595,64 +620,81 @@ class AiProviderClient {
             }
             return this.generateGemini({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, responseMimeType, json, thinkingBudget, signal, ...toolOptions });
         };
-        let result;
         const wantsStream = typeof onDelta === 'function' && !isJsonMode({ responseMimeType, json });
-        if (wantsStream) {
-            let emitted = false;
-            const emit = delta => {
-                const text = String(delta || '');
-                if (!text) return;
-                emitted = true;
-                onDelta(text);
-            };
-            try {
-                // 思考内容只用于界面展示，不计入 emitted（不影响失败回退与自动切换判断）
-                const reasoning = typeof onReasoning === 'function' ? delta => { const text = String(delta || ''); if (text) onReasoning(text); } : null;
-                if (this.usesMiniMaxProtocol) {
-                    result = await this.generateMiniMaxStream({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, onDelta: emit, onReasoning: reasoning, signal, ...toolOptions });
-                } else if (this.provider === 'openai' || this.provider === 'openai-compatible') {
-                    result = await this.generateOpenAiStream({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, onDelta: emit, onReasoning: reasoning, signal, ...toolOptions });
-                } else if (this.provider === 'anthropic') {
-                    result = await this.generateAnthropicStream({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, onDelta: emit, signal, ...toolOptions });
-                } else {
-                    result = await this.generateGeminiStream({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, thinkingBudget, onDelta: emit, onReasoning: reasoning, signal, ...toolOptions });
+        const attempt = async () => {
+            let result;
+            if (wantsStream) {
+                let emitted = false;
+                const emit = delta => {
+                    const text = String(delta || '');
+                    if (!text) return;
+                    emitted = true;
+                    onDelta(text);
+                };
+                try {
+                    // 思考内容只用于界面展示，不计入 emitted（不影响失败回退与自动切换判断）
+                    const reasoning = typeof onReasoning === 'function' ? delta => { const text = String(delta || ''); if (text) onReasoning(text); } : null;
+                    if (this.usesMiniMaxProtocol) {
+                        result = await this.generateMiniMaxStream({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, onDelta: emit, onReasoning: reasoning, signal, ...toolOptions });
+                    } else if (this.provider === 'openai' || this.provider === 'openai-compatible') {
+                        result = await this.generateOpenAiStream({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, onDelta: emit, onReasoning: reasoning, signal, ...toolOptions });
+                    } else if (this.provider === 'anthropic') {
+                        result = await this.generateAnthropicStream({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, onDelta: emit, onReasoning: reasoning, signal, ...toolOptions });
+                    } else {
+                        result = await this.generateGeminiStream({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, thinkingBudget, onDelta: emit, onReasoning: reasoning, signal, ...toolOptions });
+                    }
+                } catch (error) {
+                    const status = Number(error && (error.status || error.statusCode));
+                    const canFallback = !emitted && !signal?.aborted && !['AI_TOOLS_UNSUPPORTED', 'AI_TOOL_SIGNATURE_MISSING', 'AI_TOOL_HISTORY_INVALID'].includes(error?.code)
+                        && ([400, 404, 405, 415, 422, 501].includes(status) || error?.code === 'AI_STREAM_UNSUPPORTED');
+                    if (!canFallback) throw error;
+                    console.warn(`[AI] ${this.provider} stream unavailable; falling back to buffered response: ${redactText(error.message, protection)}`);
+                    result = await regularRequest();
+                    emit(result.text);
                 }
-            } catch (error) {
-                const status = Number(error && (error.status || error.statusCode));
-                const canFallback = !emitted && !signal?.aborted && !['AI_TOOLS_UNSUPPORTED', 'AI_TOOL_SIGNATURE_MISSING', 'AI_TOOL_HISTORY_INVALID'].includes(error?.code)
-                    && ([400, 404, 405, 415, 422, 501].includes(status) || error?.code === 'AI_STREAM_UNSUPPORTED');
-                if (!canFallback) throw error;
-                console.warn(`[AI] ${this.provider} stream unavailable; falling back to buffered response: ${redactText(error.message, protection)}`);
+            } else {
                 result = await regularRequest();
-                emit(result.text);
             }
-        } else {
-            result = await regularRequest();
+            return result;
+        };
+        const recordUsage = async result => {
+            try {
+                const usage = result?.usage || {};
+                const promptTokens = Number(usage.promptTokens || 0);
+                const outputTokens = Number(usage.outputTokens || 0);
+                const totalTokens = Number(usage.totalTokens || 0) || promptTokens + outputTokens;
+                const billablePromptTokens = Number(usage.billablePromptTokens ?? promptTokens);
+                const costUsd = (
+                    billablePromptTokens * Number(this.settings.inputCostPerMillionUsd || 0) +
+                    outputTokens * Number(this.settings.outputCostPerMillionUsd || 0)
+                ) / 1000000;
+                await aiUsageRepo.recordUsage({
+                    promptTokens,
+                    outputTokens,
+                    totalTokens,
+                    costUsd,
+                    costCny: costUsd * Number(this.settings.usdToCny || 0),
+                    provider: this.provider,
+                    model: this.model,
+                    profileId: this.settings.profileId,
+                    profileName: this.settings.profileName
+                });
+            } catch (usageErr) {
+                console.warn('[AI] failed to record provider usage:', usageErr.message || usageErr);
+            }
+        };
+        const configuredLimit = Math.round(Number(maxOutputTokens || this.settings.maxOutputTokens || 2048));
+        if (reasoningHungry.has(this.reasoningKey) && configuredLimit < REASONING_RETRY_TOKENS) maxOutputTokens = REASONING_RETRY_TOKENS;
+        let result = await attempt();
+        // 思考把输出上限用完、正文一个字没写：调高上限重试一次，所有调用方（对话、标题、摘要、智能体）都不必各自处理
+        if (result?.reasoningOnly && TRUNCATED_FINISH_RE.test(String(result.finishReason || '')) && !this.usesMiniMaxProtocol && !signal?.aborted
+            && Math.round(Number(maxOutputTokens || this.settings.maxOutputTokens || 2048)) < REASONING_RETRY_TOKENS) {
+            reasoningHungry.add(this.reasoningKey);
+            await recordUsage(result);
+            maxOutputTokens = REASONING_RETRY_TOKENS;
+            result = await attempt();
         }
-        try {
-            const usage = result?.usage || {};
-            const promptTokens = Number(usage.promptTokens || 0);
-            const outputTokens = Number(usage.outputTokens || 0);
-            const totalTokens = Number(usage.totalTokens || 0) || promptTokens + outputTokens;
-            const billablePromptTokens = Number(usage.billablePromptTokens ?? promptTokens);
-            const costUsd = (
-                billablePromptTokens * Number(this.settings.inputCostPerMillionUsd || 0) +
-                outputTokens * Number(this.settings.outputCostPerMillionUsd || 0)
-            ) / 1000000;
-            await aiUsageRepo.recordUsage({
-                promptTokens,
-                outputTokens,
-                totalTokens,
-                costUsd,
-                costCny: costUsd * Number(this.settings.usdToCny || 0),
-                provider: this.provider,
-                model: this.model,
-                profileId: this.settings.profileId,
-                profileName: this.settings.profileName
-            });
-        } catch (usageErr) {
-            console.warn('[AI] failed to record provider usage:', usageErr.message || usageErr);
-        }
+        await recordUsage(result);
         if (!Array.isArray(result.toolCalls)) result.toolCalls = [];
         // 工具循环需要在后续步骤固定到实际成功的供应商客户端（AutoSwitch 可能切换过）。
         result.providerClient = this;
@@ -762,13 +804,17 @@ class AiProviderClient {
         const choice = data.choices && data.choices[0];
         const msg = choice && choice.message;
         const rawContent = (msg && msg.content !== null && msg.content !== undefined && msg.content !== '')
-            ? msg.content
-            : (msg && (msg.reasoning_content || msg.reasoning || msg.thought)) || (choice && choice.text) || '';
+            ? openAiDeltaText(msg)
+            : (choice && choice.text) || '';
+        const toolCalls = collectOpenAiToolCalls(msg && msg.tool_calls);
+        const finishReason = String(choice && choice.finish_reason || '');
+        const settled = settleReasoningOnly(this.reasoningKey, { text: stripReasoningText(rawContent), reasoning: openAiDeltaReasoning(msg), toolCalls, finishReason });
         return {
-            text: stripReasoningText(rawContent),
-            toolCalls: collectOpenAiToolCalls(msg && msg.tool_calls),
+            text: settled.text,
+            reasoningOnly: settled.reasoningOnly,
+            toolCalls,
             usage: usageFromOpenAi(usage),
-            finishReason: String(choice && choice.finish_reason || ''),
+            finishReason,
             raw: data
         };
     }
@@ -801,6 +847,7 @@ class AiProviderClient {
         });
         if (!res.ok) await parseErrorResponse(res, { toolsSent: openAiTools.length > 0 });
         let text = '';
+        let reasoning = '';
         let finishReason = '';
         let usage = {};
         const toolCallAccumulator = createOpenAiToolCallAccumulator();
@@ -813,8 +860,11 @@ class AiProviderClient {
             const choice = data.choices && data.choices[0];
             if (choice && choice.finish_reason) finishReason = String(choice.finish_reason);
             if (choice && choice.delta && choice.delta.tool_calls) toolCallAccumulator.push(choice.delta.tool_calls);
-            const thought = onReasoning ? openAiDeltaReasoning(choice && choice.delta) : '';
-            if (thought) onReasoning(thought);
+            const thought = openAiDeltaReasoning(choice && choice.delta);
+            if (thought) {
+                reasoning += thought;
+                if (onReasoning) onReasoning(thought);
+            }
             const delta = openAiDeltaText(choice && choice.delta);
             if (delta) {
                 text += delta;
@@ -824,9 +874,13 @@ class AiProviderClient {
         });
         splitter?.flush();
         const toolCalls = toolCallAccumulator.finish();
-        assertStreamProducedText(text, toolCalls);
+        // 只有思考、没有正文不算「流式不可用」：不能回退去重发一遍请求，更不能把思考当正文
+        if (!reasoning) assertStreamProducedText(text, toolCalls);
+        const settled = settleReasoningOnly(this.reasoningKey, { text: stripReasoningText(text), reasoning, toolCalls, finishReason });
+        if (!text && settled.text) onDelta(settled.text);
         return {
-            text: stripReasoningText(text),
+            text: settled.text,
+            reasoningOnly: settled.reasoningOnly,
             toolCalls,
             usage: usageFromOpenAi(usage),
             finishReason,
@@ -916,6 +970,7 @@ class AiProviderClient {
         });
         if (!res.ok) await parseErrorResponse(res, { toolsSent: openAiTools.length > 0 });
         let text = '';
+        let reasoning = '';
         let finishReason = '';
         let usage = {};
         const toolCallAccumulator = createOpenAiToolCallAccumulator();
@@ -928,8 +983,11 @@ class AiProviderClient {
             const choice = data.choices && data.choices[0];
             if (choice && choice.finish_reason) finishReason = String(choice.finish_reason);
             if (choice && choice.delta && choice.delta.tool_calls) toolCallAccumulator.push(choice.delta.tool_calls);
-            const thought = onReasoning ? openAiDeltaReasoning(choice && choice.delta) : '';
-            if (thought) onReasoning(thought);
+            const thought = openAiDeltaReasoning(choice && choice.delta);
+            if (thought) {
+                reasoning += thought;
+                if (onReasoning) onReasoning(thought);
+            }
             const delta = openAiDeltaText(choice && choice.delta);
             if (delta) {
                 text += delta;
@@ -939,9 +997,13 @@ class AiProviderClient {
         });
         splitter?.flush();
         const toolCalls = toolCallAccumulator.finish();
-        assertStreamProducedText(text, toolCalls);
+        // 只有思考、没有正文不算「流式不可用」：不能回退去重发一遍请求，更不能把思考当正文
+        if (!reasoning) assertStreamProducedText(text, toolCalls);
+        const settled = settleReasoningOnly(this.reasoningKey, { text: stripReasoningText(text), reasoning, toolCalls, finishReason });
+        if (!text && settled.text) onDelta(settled.text);
         return {
-            text: stripReasoningText(text),
+            text: settled.text,
+            reasoningOnly: settled.reasoningOnly,
             toolCalls,
             usage: usageFromOpenAi(usage),
             finishReason,
@@ -1068,7 +1130,7 @@ class AiProviderClient {
         };
     }
 
-    async generateAnthropicStream({ messages, systemInstruction, maxOutputTokens, temperature, onDelta, signal, tools, toolChoice }) {
+    async generateAnthropicStream({ messages, systemInstruction, maxOutputTokens, temperature, onDelta, onReasoning, signal, tools, toolChoice }) {
         const body = {
             model: this.model,
             max_tokens: Math.round(Number(maxOutputTokens || this.settings.maxOutputTokens || 2048)),
@@ -1090,6 +1152,7 @@ class AiProviderClient {
         });
         if (!res.ok) await parseErrorResponse(res, { toolsSent: anthropicTools.length > 0 });
         let text = '';
+        let thought = false;
         let finishReason = '';
         let streamUsage = {};
         // tool_use 块：content_block_start 给 id/name，input_json_delta 拼 JSON，content_block_stop 收口。
@@ -1115,6 +1178,11 @@ class AiProviderClient {
                 openBlocks.delete(data.index);
                 if (block.name) toolCalls.push({ id: block.id, name: block.name, args: parseToolArgs(block.json) });
             }
+            // 思考块（thinking_delta）只进思考过程，不进正文
+            if (data.type === 'content_block_delta' && data.delta?.type === 'thinking_delta' && data.delta.thinking) {
+                thought = true;
+                if (onReasoning) onReasoning(String(data.delta.thinking));
+            }
             const delta = data.type === 'content_block_delta' && data.delta?.type === 'text_delta'
                 ? String(data.delta.text || '')
                 : '';
@@ -1124,9 +1192,10 @@ class AiProviderClient {
             }
         });
         openBlocks.forEach(block => { if (block.name) toolCalls.push({ id: block.id, name: block.name, args: parseToolArgs(block.json) }); });
-        assertStreamProducedText(text, toolCalls);
+        if (!thought) assertStreamProducedText(text, toolCalls);
         return {
             text: stripReasoningText(text),
+            reasoningOnly: thought && !text && !toolCalls.length,
             toolCalls,
             usage: usageFromAnthropic(streamUsage),
             finishReason,

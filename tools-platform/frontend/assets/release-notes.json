@@ -1,8 +1,10 @@
 {
   "zh": [
-    "修复「专题分析」页面在首页与发现应用中缺失的问题：补充首页工具卡片与中英文元数据，发现应用弹窗支持完备检索与直达专题分析页面。"
+    "修复思考过程被当成正文显示的问题：思考型模型（GLM、DeepSeek、Qwen 等）把输出额度全部用在思考上时，不再把思考内容当作回答输出并接着往下续写，而是自动放宽输出上限重新生成；该模型后续请求直接使用放宽后的上限，不再每轮白等。",
+    "兼容更多思考格式：识别 reasoning / thinking / thought 等思考字段、只有收尾标签的 </think>，以及 Anthropic 协议的思考块（现在会显示在「思考过程」里）；只有思考没有正文时不再重复发送一次请求。"
   ],
   "en": [
-    "Fix missing Topic Analysis tool on the homepage and in Discover Apps: add the built-in tool card and bilingual metadata, and ensure Discover Apps search and categories include Topic Analysis."
+    "Fix reasoning shown as the answer: when a thinking model (GLM, DeepSeek, Qwen, …) spends its whole output limit on reasoning, the reasoning is no longer printed as the reply and continued; the request is regenerated with a larger output limit, which later requests to that model use straight away.",
+    "Broader reasoning support: recognise reasoning / thinking / thought fields, a closing-only </think> tag, and Anthropic thinking blocks (now shown under Thinking); a reply with reasoning but no text no longer triggers a duplicate request."
   ]
 }
