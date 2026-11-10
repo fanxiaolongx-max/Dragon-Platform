@@ -2484,8 +2484,9 @@ function renderNavSettingsSidebar() {
     if (!sidebar) return;
     const t = navState.settingsTab;
     const agentToolsTab = `<button class="nav-settings-tab ${t === 'agentTools' ? 'active' : ''}" data-tab="agentTools" onclick="switchNavSettingsTab('agentTools')">${renderNavSettingsTabLabel('🧰', navLocaleText('智能体工具', 'Agent tools'))}</button>`;
+    const vaultTab = `<button class="nav-settings-tab ${t === 'vault' ? 'active' : ''}" data-tab="vault" onclick="switchNavSettingsTab('vault')">${renderNavSettingsTabLabel('🔐', navLocaleText('保险箱', 'Vault'))}</button>`;
     if (localStorage.getItem('tools_role') !== 'admin') {
-        sidebar.innerHTML = agentToolsTab;
+        sidebar.innerHTML = agentToolsTab + vaultTab;
         syncNavSettingsMobileNav();
         return;
     }
@@ -2497,6 +2498,7 @@ function renderNavSettingsSidebar() {
         <button class="nav-settings-tab ${t === 'items' ? 'active' : ''}" data-tab="items" onclick="switchNavSettingsTab('items')">${renderNavSettingsTabLabel('↕️', navT('nav.set.tab.items'))}</button>
         <button class="nav-settings-tab ${t === 'ai' ? 'active' : ''}" data-tab="ai" onclick="switchNavSettingsTab('ai')">${renderNavSettingsTabLabel('🤖', navT('nav.set.tab.ai'))}</button>
         ${agentToolsTab}
+        ${vaultTab}
         ${isNavSuperAdmin() ? `<button class="nav-settings-tab ${t === 'channels' ? 'active' : ''}" data-tab="channels" onclick="switchNavSettingsTab('channels')">${renderNavSettingsTabLabel('🔌', navT('nav.set.tab.channels'))}</button>` : ''}
         ${isNavSuperAdmin() ? `<button class="nav-settings-tab ${t === 'desktopAgents' ? 'active' : ''}" data-tab="desktopAgents" onclick="switchNavSettingsTab('desktopAgents')">${renderNavSettingsTabLabel('🖥️', navLocaleText('桌面 Agent', 'Desktop Agents'))}</button>` : ''}
         ${isNavSuperAdmin() ? `<button class="nav-settings-tab ${t === 'update' ? 'active' : ''}" data-tab="update" onclick="switchNavSettingsTab('update')">${renderNavSettingsTabLabel('🔄', navT('nav.set.tab.update'))}</button>` : ''}
@@ -2561,7 +2563,7 @@ function bindNavSettingsViewport(modal) {
 function openNavSettingsModal() {
     const role = localStorage.getItem('tools_role');
     if (!role) return;
-    if (role !== 'admin') navState.settingsTab = 'agentTools';
+    if (role !== 'admin' && navState.settingsTab !== 'vault') navState.settingsTab = 'agentTools';
     let modal = document.getElementById('navSettingsModal');
     if (!modal) {
         modal = document.createElement('div');
@@ -2622,7 +2624,7 @@ window.closeNavSettingsModal = closeNavSettingsModal;
 // 只有超级管理员能看到的平台级设置页
 const NAV_SUPER_ONLY_SETTINGS_TABS = new Set(['logo', 'channels', 'desktopAgents', 'update', 'snapshotPublish', 'media', 'promotions', 'security', 'backup', 'customBackup', 'page:home', 'page:f12-extension', 'page:storage', 'page:netcare-explorer']);
 window.switchNavSettingsTab = function (tab) {
-    if (localStorage.getItem('tools_role') !== 'admin') tab = 'agentTools';
+    if (localStorage.getItem('tools_role') !== 'admin' && tab !== 'vault') tab = 'agentTools';
     if (tab === 'tenants') tab = 'accounts';
     if (NAV_SUPER_ONLY_SETTINGS_TABS.has(tab) && !isNavSuperAdmin()) tab = 'primary';
     navState.settingsTab = tab;
@@ -2647,6 +2649,7 @@ function getNavSettingsTitle() {
     if (navState.settingsTab === 'security') return navT('nav.set.tab.security');
     if (navState.settingsTab === 'ai') return navT('nav.set.tab.ai');
     if (navState.settingsTab === 'agentTools') return navLocaleText('智能体工具', 'Agent tools');
+    if (navState.settingsTab === 'vault') return navLocaleText('保险箱', 'Vault');
     if (navState.settingsTab === 'desktopAgents') return navLocaleText('桌面 Agent', 'Desktop Agents');
     if (navState.settingsTab === 'channels') return navT('nav.set.tab.channels');
     if (navState.settingsTab === 'update') return navT('nav.set.tab.update');
@@ -2674,6 +2677,7 @@ function getNavSettingsSubtitle() {
     if (navState.settingsTab === 'security') return navT('nav.set.sub.security');
     if (navState.settingsTab === 'ai') return navT('nav.set.sub.ai');
     if (navState.settingsTab === 'agentTools') return navLocaleText('Dragon Claw 的 MCP 服务与工具清单：哪些工具常驻、哪些按需加载、占多少上下文、被调用了多少次。', 'Dragon Claw MCP servers and tool catalog: what is always loaded, what loads on demand, context cost and call counts.');
+    if (navState.settingsTab === 'vault') return navLocaleText('只属于你的网站账号密码：Dragon 浏览器自动保存、自动填写并登录，AI 也能代你登录，但看不到密码。', 'Your own website logins: saved, filled and signed in automatically by the Dragon browser. The AI can sign in for you without seeing the password.');
     if (navState.settingsTab === 'desktopAgents') return navLocaleText('连接本机原生桌面会话，同步最近对话并在 Web 继续交流。', 'Sync recent native desktop sessions and continue them from the Web.');
     if (navState.settingsTab === 'channels') return navT('nav.set.sub.channels');
     if (navState.settingsTab === 'update') return navT('nav.set.sub.update');
@@ -2736,6 +2740,7 @@ async function renderNavSettingsContent() {
     if (navState.settingsTab === 'security') return renderSecuritySettings(content);
     if (navState.settingsTab === 'ai') return renderAiSettings(content);
     if (navState.settingsTab === 'agentTools') return renderAgentToolsSettings(content);
+    if (navState.settingsTab === 'vault') return renderVaultSettings(content);
     if (navState.settingsTab === 'desktopAgents') return renderDesktopAgentSettings(content);
     if (navState.settingsTab === 'channels') return renderChannelSettings(content);
     if (navState.settingsTab === 'update') return renderUpdaterSettings(content);

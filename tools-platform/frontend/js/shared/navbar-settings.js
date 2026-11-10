@@ -895,6 +895,16 @@ async function renderAgentToolsSettings(content) {
     }
 }
 
+// 保险箱设置页按需加载，逻辑在 shared/vault-settings.js
+async function renderVaultSettings(content) {
+    try {
+        if (!window.ToolsVaultSettings) await loadNavLazyScript('/js/shared/vault-settings.js', navLocaleText('无法加载保险箱组件', 'Vault component could not load'));
+        await window.ToolsVaultSettings.render(content);
+    } catch (error) {
+        content.innerHTML = `<div class="nav-settings-empty">${navEscape(error.message)}</div>`;
+    }
+}
+
 // 平台推广设置页按需加载，逻辑在 shared/promotion-settings.js
 async function renderPromotionSettings(content) {
     try {

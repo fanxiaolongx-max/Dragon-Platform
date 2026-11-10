@@ -17,7 +17,7 @@ function webUrl(value) {
     } catch (_) { return null; }
 }
 
-function createDragonBrowser({ onOpenAppUrl = () => false, partition, whenReady, getLanguage, getWorkArea, getLibrary = () => null, getDownloads = () => null, getExtensions = () => [], getCredentialStore = () => null, onPageCreated = () => {}, onAction = () => {}, onVisibilityChange = () => {} }) {
+function createDragonBrowser({ onOpenAppUrl = () => false, partition, whenReady, getLanguage, getWorkArea, getLibrary = () => null, getDownloads = () => null, getExtensions = () => [], getCredentialStore = () => null, credentialOrigin = loginOrigin, isAppOrigin = () => false, onPageCreated = () => {}, onAction = () => {}, onVisibilityChange = () => {} }) {
     let win = null, tabs = [], activeId = null, attached = null, shown = false, sequence = 0, ready = false;
     let windowDrag = null;
     let operatorView=null,sidebarTheme='light';
@@ -33,13 +33,12 @@ function createDragonBrowser({ onOpenAppUrl = () => false, partition, whenReady,
     let find = { open: false, text: '', matches: 0, activeMatch: 0 }, findRequest = null;
     const closedTabs = [];
     const active = () => tabs.find(tab => tab.id === activeId);
+    // 保险箱对任何 http(s) 站点生效；平台自己的页面（登录页等）除外，平台登录密码不进保险箱。
     function loginContext(tab) {
         const current = tab.page.webContents.getURL();
         if (captureSite(tab.link.url) || captureSite(current)) tab.captureLogin = true;
-        const origin = loginOrigin(current);
-        if (!tab.captureLogin || !origin) return false;
-        const host = new URL(origin).hostname;
-        return host === 'huawei.com' || host.endsWith('.huawei.com');
+        const origin = credentialOrigin(current);
+        return !!origin && !isAppOrigin(origin);
     }
     const T = (zh, en) => getLanguage() === 'en-US' ? en : zh;
 
@@ -409,7 +408,7 @@ function createDragonBrowser({ onOpenAppUrl = () => false, partition, whenReady,
         wc.on('did-start-navigation', loginNavigation);
         let loginStorageWarned = false;
         const detachLogin = attachBrowserLogin(wc, {
-            getStore: getCredentialStore, allowed: () => loginContext(tab),
+            getStore: getCredentialStore, allowed: () => loginContext(tab), originOf: credentialOrigin,
             notify: result => {
                 if (result !== 'unavailable' || loginStorageWarned) return;
                 loginStorageWarned = true;

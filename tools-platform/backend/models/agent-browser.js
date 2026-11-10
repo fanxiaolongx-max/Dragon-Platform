@@ -24,6 +24,7 @@ function pause(ms){const signal=commandSignal();if(signal?.aborted)return Promis
 const WebSocket = require('ws');
 const pageLayoutScript=require('./browser-page-layout').script;
 const { createDownloads } = require('./agent-browser-downloads');
+const browserVault = require('./agent-browser-vault');
 
 const SECRET_HEADER_RE = /^(cookie|authorization|proxy-authorization|x-csrf-token|x-xsrf-token|x-api-key|x-auth-token)$/i;
 const ZOOM_LEVELS = [.5,.67,.75,.8,.9,1,1.1,1.25,1.5,1.75,2,2.5,3];
@@ -79,13 +80,13 @@ const SNAPSHOT_SCRIPT = function snapshot(maxChars) {
     return { text: out.join('\n'), truncated: size >= maxChars, refs: ref };
 };
 
-function createPage({ id, send:transport, close, label = '', notify, setZoom }) {
+function createPage({ id, send:transport, close, label = '', notify, setZoom, vault = false }) {
     const send=(method,params)=>{if(commandSignal()?.aborted)return Promise.reject(interrupted());return cancellable(transport(method,params));};
     const network = new Map();
     const consoleLog = [];
     const waiters = new Set();
     let manualRecordingOff = false;
-    let chooser = null, dragData = null, pointer = null, pointerTimer = null, manualPrepared = false;
+    let chooser = null, dragData = null, pointer = null, pointerTimer = null, manualPrepared = false, vaultHook = null;
     const page = {
         id, label, documentId:crypto.randomUUID(), url: '', title: '', lastUsed: Date.now(),
         publishOperator(value){notify?.(value);},
@@ -97,9 +98,13 @@ function createPage({ id, send:transport, close, label = '', notify, setZoom }) 
         },
         async init() {
             await Promise.all(['Page.enable', 'Network.enable', 'Runtime.enable', 'Log.enable'].map(method => send(method, method === 'Network.enable' ? { maxTotalBufferSize: 50 * 1024 * 1024, maxResourceBufferSize: 10 * 1024 * 1024 } : {})));
+            // 保险箱：登录页自动填充、提交时自动保存。失败不影响浏览器本身可用。
+            if (vault) vaultHook = await browserVault.install(transport, () => vaultContext(page)).catch(() => null);
         },
+        cdp: (method, params = {}) => transport(method, params),
         setManualControl(active) { if(manualRecordingOff&&!active){chooser=null;manualPrepared=false;send('Page.setInterceptFileChooserDialog',{enabled:false}).catch(()=>{});}manualRecordingOff = active; network.clear(); consoleLog.length = 0; },
         onEvent(method, params = {}) {
+            if (method === 'Runtime.bindingCalled') { vaultHook?.(params); return; }
             if (method === 'Page.fileChooserOpened') chooser = {...params, id:crypto.randomUUID()};
             if (method === 'Page.frameNavigated' && !params.frame?.parentId) {chooser = null;page.documentId=params.frame?.loaderId||crypto.randomUUID();}
             if (method === 'Input.dragIntercepted') dragData = params.data;
@@ -437,7 +442,7 @@ function createServerBrowser(owner) {
     async function attachTarget(targetId, manual=false) {
         if(byTarget.has(targetId))return byTarget.get(targetId);
         const {sessionId}=await send('Target.attachToTarget',{targetId,flatten:true});
-        const page=createPage({id:targetId.slice(0,8).toLowerCase(),send:(method,params)=>send(method,params,sessionId),close:()=>send('Target.closeTarget',{targetId}).catch(()=>{})});
+        const page=createPage({id:targetId.slice(0,8).toLowerCase(),send:(method,params)=>send(method,params,sessionId),close:()=>send('Target.closeTarget',{targetId}).catch(()=>{}),vault:true});
         page.targetId=targetId;page.setManualControl(manual);pages.set(sessionId,page);byTarget.set(targetId,page);await page.init();return page;
     }
     function popup(info) {
@@ -603,6 +608,22 @@ function createDesktopBrowser() {
 const owners = new Map(); // owner → { browser, tabs: Map(id → page), active }
 let desktopShared = null;
 
+// 页面当前归属的账号：保险箱按它取 / 存凭据；填过的密码记在浏览器状态上，用来从工具结果里抹掉。
+function vaultContext(page) {
+    const entry = [...owners].find(([, state]) => state.tabs.get(page.id) === page);
+    if (!entry) return null;
+    const [owner, state] = entry;
+    state.vaultSecrets ||= new Set();
+    return { owner, secrets: state.vaultSecrets, notify: notice => { state.vaultNotice = { ...notice, tabId: page.id, at: Date.now() }; } };
+}
+function maskVaultSecrets(owner, result) {
+    const secrets = owners.get(owner)?.vaultSecrets;
+    if (!secrets?.size || !result || typeof result !== 'object') return result;
+    const masked = { ...result };
+    for (const key of ['content', 'summary']) if (typeof masked[key] === 'string') masked[key] = browserVault.maskSecrets(masked[key], secrets);
+    return masked;
+}
+
 function available() {
     if (String(process.env.TOOLS_AGENT_BROWSER || '').toLowerCase() === 'off') return null; // 管理员可用环境变量关闭浏览器工具
     if (desktopController) return { kind: 'desktop', label: 'Dragon 浏览器' };
@@ -680,6 +701,8 @@ const DEFINITIONS = [
         parameters: { type: 'object', properties: { ref: { type: 'string' }, ...TAB_PROP }, required: ['ref'] } },
     { name: 'browser_type', kind: 'write', description: '清空并在输入框里输入文字（ref 来自 browser_snapshot）；submit=true 时随后按回车提交。',
         parameters: { type: 'object', properties: { ref: { type: 'string' }, text: { type: 'string' }, submit: { type: 'boolean' }, ...TAB_PROP }, required: ['ref', 'text'] } },
+    { name: 'browser_login', kind: 'write', description: '用用户保险箱里保存的账号密码登录当前页面：页面要求登录时先调用它，不要向用户索要密码，也不要自己猜或输入密码。密码由浏览器直接填进网页，不会返回给你。保险箱里没有这个站点的账号时，请用户在浏览器面板里手动登录一次（登录后自动存入保险箱），或到 全局设置 › 保险箱 添加。',
+        parameters: { type: 'object', properties: { username: { type: 'string', description: '该站点保存了多个账号时，指定用哪一个（用返回的账号名）' }, submit: { type: 'boolean', description: '填好后是否点击登录，默认 true' }, ...TAB_PROP } } },
     { name: 'browser_scroll', kind: 'read', description: '页面向下或向上滚动一屏（加载更多内容的页面需要），之后用 browser_snapshot 读取。',
         parameters: { type: 'object', properties: { direction: { type: 'string', enum: ['down', 'up'] }, ...TAB_PROP } } },
     { name: 'browser_wait', kind: 'read', description: '等待页面出现某段文字（单页应用异步加载时用），或单纯等待若干毫秒。',
@@ -744,7 +767,7 @@ async function execute(ctx,name,args={}){
         if(takeoverPending.has(ctx.owner)||manualSession(owners.get(ctx.owner)))return {content:'用户正在操作浏览器。交还后先 browser_snapshot 读取当前页面再继续。',summary:'用户操作中',isError:true};
         const controller=new AbortController();controller.toolName=name;activeCommands.set(ctx.owner,controller);publishOperator(ctx.owner);
         const abort=()=>controller.abort();ctx.signal?.addEventListener('abort',abort,{once:true});if(ctx.signal?.aborted)controller.abort();
-        try{return await commandContext.run({owner:ctx.owner,signal:controller.signal},()=>cancellable(executeUnlocked(ctx,name,args)));}
+        try{return maskVaultSecrets(ctx.owner,await commandContext.run({owner:ctx.owner,signal:controller.signal},()=>cancellable(executeUnlocked(ctx,name,args))));}
         catch(error){return {content:`错误（${error.code||'BROWSER_FAILED'}）：${error.message}`,summary:'浏览器操作已停止',isError:true};}
         finally{ctx.signal?.removeEventListener('abort',abort);if(activeCommands.get(ctx.owner)===controller)activeCommands.delete(ctx.owner);publishOperator(ctx.owner);}
     });
@@ -894,6 +917,24 @@ async function executeUnlocked(ctx, name, args = {}) {
             await page.refreshInfo();
             return { content: `已在 ${args.ref}「${box.text}」输入${args.submit ? '并提交' : ''}，当前页面：${page.title}\n${page.url}`, summary: `输入${args.submit ? '并提交' : ''}` };
         }
+        if (name === 'browser_login') {
+            await page.refreshInfo();
+            const state = owners.get(owner);
+            if (state) state.vaultSecrets ||= new Set();
+            const navigated = page.waitFor(method => method === 'Page.frameNavigated' || method === 'Page.loadEventFired', 8000).catch(() => false);
+            const outcome = await browserVault.login({ cdp: page.cdp, url: page.url, owner, username: args.username ? String(args.username) : '', submit: args.submit !== false, secrets: state?.vaultSecrets });
+            if (outcome.status === 'no-credentials') return { content: `保险箱里没有 ${outcome.origin} 的账号。请让用户在浏览器面板里手动登录一次（登录后会自动存入保险箱），或到「全局设置 › 保险箱」添加；不要向用户索要密码。`, summary: '保险箱没有该站点账号', isError: true };
+            if (outcome.status === 'choose-account') return { content: `保险箱里 ${outcome.origin} 有多个账号：${outcome.accounts.join('、')}。请用 username 参数指定一个（不确定时先问用户）。`, summary: '需要选择账号', isError: true };
+            if (outcome.status === 'no-form') return { content: `当前页面没有找到登录表单（${page.url}）。先打开登录页，或用 browser_snapshot 确认页面状态。`, summary: '未找到登录表单', isError: true };
+            if (outcome.status === 'submitted') { await navigated; await page.settle?.().catch(() => {}); }
+            await page.refreshInfo();
+            const stillLogin = outcome.status === 'submitted' ? await page.evaluate(`[...document.querySelectorAll('input[type="password"]')].some(el=>el.getClientRects().length>0)`).catch(() => false) : false;
+            const tail = outcome.status === 'needs-verification' ? '页面还需要验证码或其他验证，账号密码已填好但没有提交：请用户在浏览器面板里完成验证后登录。'
+                : outcome.status === 'filled' ? '账号密码已填好，未提交。'
+                : stillLogin ? '已提交，但页面仍显示登录表单：可能密码已失效或需要额外验证，请让用户在浏览器面板里处理，不要反复重试。'
+                : '已提交登录。';
+            return { content: `已用保险箱账号 ${outcome.username} 填写${outcome.status === 'submitted' ? '并提交' : ''}（密码未向你提供）。${tail}\n当前页面：${page.title}\n${page.url}`, summary: `保险箱登录 ${outcome.username}` };
+        }
         if (name === 'browser_scroll') {
             await page.scroll(args.direction);
             return { content: '已滚动，用 browser_snapshot 读取新内容。', summary: args.direction === 'up' ? '向上滚动' : '向下滚动' };
@@ -945,6 +986,14 @@ async function executeUnlocked(ctx, name, args = {}) {
             return { content: `截图已保存：${file}（${formatSize(png.length)}）。在回复里写出这个路径，用户就能直接查看图片；读页面文字请用 browser_snapshot。`, summary: `截图 ${formatSize(png.length)}`, artifactPath: file, imagePaths: [file] };
         }
         if (name === 'browser_evaluate') {
+            // 保险箱填入的密码还留在页面输入框里时不执行脚本：脚本可以把密码换个形式读出来，抹字符串挡不住
+            const secrets = owners.get(owner)?.vaultSecrets;
+            if (secrets?.size) {
+                const typed = await page.evaluate(`[...document.querySelectorAll('input[type="password"]')].map(el=>el.value).filter(Boolean)`).catch(() => []);
+                if (Array.isArray(typed) && typed.some(value => secrets.has(value))) {
+                    return { content: '页面的密码框里还有保险箱填入的密码，这时不能执行页面脚本。先完成登录（browser_login），或请用户在浏览器面板里处理后再试。', summary: '密码未提交，脚本未执行', isError: true };
+                }
+            }
             const value = await page.evaluate(String(args.expression || ''));
             const text = typeof value === 'string' ? value : JSON.stringify(value, null, 1);
             return { content: text === undefined ? '（没有返回值）' : String(text).slice(0, LIMITS.bodyChars), summary: '已执行页面脚本' };
@@ -969,6 +1018,13 @@ async function preview(ctx, name, args = {}) {
         const fields = [{ label: '页面', value: `${page.title}\n${page.url}` }, { label: '元素', value: `${args.ref}${box ? `「${box.text}」` : ''}` }];
         if (name === 'browser_type') fields.push({ label: '输入', value: String(args.text ?? '') }, { label: '提交', value: args.submit ? '输入后按回车' : '否' });
         return { title: name === 'browser_click' ? '点击网页元素' : '在网页输入', fields };
+    }
+    if (name === 'browser_login') {
+        const page = await activePage(ctx.owner, args.tabId);
+        await page.refreshInfo();
+        const accounts = await require('./password-vault').vault().find(browserVault.vaultOwnerOf(ctx.owner), page.url).catch(() => []);
+        return { title: '用保险箱账号登录', impact: '密码由浏览器直接填入网页，不会发给模型', fields: [{ label: '页面', value: `${page.title}\n${page.url}` },
+            { label: '账号', value: accounts.length ? accounts.map(item => require('./password-vault').maskUsername(item.username)).join('、') : '保险箱里没有该站点的账号' }] };
     }
     if (name === 'browser_evaluate') {
         const page = await activePage(ctx.owner, args.tabId);
@@ -1003,7 +1059,8 @@ async function viewUnlocked(owner, live = false) {
     const pages=liveTabs(state),manual=manualSession(state);
     await Promise.all([...pages.values()].map(page=>page.refreshInfo()));
     const page=pages.get(state.active);
-    const result={available:Boolean(page),activeId:page?.id||null,kind:state.browser.kind,
+    const vaultNotice=state.vaultNotice&&Date.now()-state.vaultNotice.at<15000?state.vaultNotice:null;
+    const result={available:Boolean(page),activeId:page?.id||null,kind:state.browser.kind,...(vaultNotice?{vault:vaultNotice}:{}),
         tabs:[...pages.values()].map(item=>({id:item.id,title:item.title,url:item.url})),
         operator:operatorState(owner,page),manual:manual?{active:true,tabId:manual.tabId,expiresAt:manual.touched+(manual.autoIdleMs||MANUAL_IDLE_MS)}:{active:false}};
     if (state.browser.downloads) result.downloads = state.browser.downloads();

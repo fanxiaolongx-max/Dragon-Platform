@@ -80,7 +80,7 @@ async function toolsets({ owner, user, readOnly, channel = null }) {
         const ctx = { owner };
         sets.push({
             id: 'browser',
-            label: `浏览器（${where.kind === 'desktop' ? 'Dragon 浏览器，页面显示在桌面上' : `本机 ${where.label}，无界面`}）：打开网页、读页面、点击输入、抓网络请求与控制台`,
+            label: `浏览器（${where.kind === 'desktop' ? 'Dragon 浏览器，页面显示在桌面上' : `本机 ${where.label}，无界面`}）：打开网页、读页面、点击输入、抓网络请求与控制台；页面要登录时用 browser_login（从用户保险箱代填，密码不经过你）`,
             definitions: browser.definitions(),
             kindOf: name => browser.kindOf(name),
             preview: (name, args) => browser.preview(ctx, name, args),

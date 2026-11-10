@@ -128,6 +128,8 @@ const DEFINITIONS = new Map([
     ["topic_settings", {"category": "reports", "description": "专题工具的配置与偏好。", "descriptionEn": "Topic tool configuration and preferences.", "source": "backend/models/topic-snapshots-repository.js"}],
     ["auth_users", {"category": "auth", "description": "平台账号、角色与密码哈希。", "descriptionEn": "Platform accounts, roles and password hashes.", "source": "backend/models/auth-users-repository.js"}],
     ["auth_sessions", {"category": "auth", "description": "登录会话及有效期，供鉴权使用。", "descriptionEn": "Login sessions and expiry used for authentication.", "source": "backend/models/auth-sessions-repository.js"}],
+    ["vault_logins", {"category": "auth", "description": "保险箱：各账号自己保存的网站登录凭据（密码为加密密文），独立存放在 data/vault，数据库浏览不可见。", "descriptionEn": "Vault: each account's own website logins (passwords stored encrypted), kept in data/vault outside the database explorer.", "source": "backend/models/password-vault.js"}],
+    ["vault_sites", {"category": "auth", "description": "保险箱：各账号设置为不保存密码的站点。", "descriptionEn": "Vault: sites each account chose never to save passwords for.", "source": "backend/models/password-vault.js"}],
     ["tenants", {"category": "auth", "description": "租户注册、状态与管理信息。", "descriptionEn": "Tenant registration, status and management metadata.", "source": "backend/models/tenants-repository.js"}],
     ["auth_login_attempts", {"category": "auth", "description": "登录尝试与认证安全监测记录。", "descriptionEn": "Login attempts used by authentication security monitoring.", "source": "backend/models/auth-security-monitor.js"}],
     ["auth_security_alert_state", {"category": "auth", "description": "登录安全告警状态及告警去重信息。", "descriptionEn": "Authentication security alert state and deduplication.", "source": "backend/models/auth-security-monitor.js"}],

@@ -9,6 +9,7 @@
     let intentUntil=0,lastActivity=0,activitySent=0,idleRelease=false;
     let open=false,connected=false,docked=false,raf=0,readingVisible=false,previousMenu=null;
     const ZOOM_LEVELS=[.5,.67,.75,.8,.9,1,1.1,1.25,1.5,1.75,2,2.5,3];
+    let vaultNotice={at:0,until:0,text:''};
     let state={tabs:[]},displayedFrame=null,autoFit=true,pageWidth=0,zoomed=false,viewScale=1,tabSignature='';
     let keyQueue=[],keySending=false,keyTimer=null,keyEpoch=0;
     let busy=false,refreshing=false,controller=null,viewEpoch=0,timer=null,lastHeartbeat=0,manualToken='';
@@ -245,6 +246,7 @@
         address.placeholder=L('输入网址开始浏览','Enter a URL to browse');address.setAttribute('aria-label',L('网址','URL'));
         toggle.textContent=L('浏览器','Browser');panel.querySelector('strong').textContent=L('Dragon 浏览器','Dragon Browser');panel.setAttribute('aria-label',L('内置浏览器','Built-in browser'));
         hint.hidden=true;hint.textContent='';
+        if(!bridge&&Date.now()<vaultNotice.until){hint.hidden=false;hint.textContent=vaultNotice.text;}
         const blank=!url||url==='about:blank';surface.classList.toggle('is-empty',blank);if(!bridge&&blank){image.hidden=true;status.textContent=L('输入网址或搜索关键词开始浏览','Enter a URL or search to start browsing');}
         renderOperator();
         controlBox.hidden=Boolean(bridge)||!manualToken||menu!=='keyboard';
@@ -306,6 +308,12 @@
         if(data.error){status.textContent=data.error;return;}
         if(pendingTab&&!pendingTab.pending){if(!data.tabs?.some(tab=>tab.id===pendingTab.id))return;pendingTab=null;}
         if(!data.manual?.active&&!busy)remember('');state={...data,tabs:data.tabs||[]};
+        // 保险箱提示：登录时自动保存 / 更新、打开登录页自动填写。只显示打码后的账号，不含密码。
+        if(data.vault?.at&&data.vault.at!==vaultNotice.at){
+            let host=data.vault.origin;try{host=new URL(data.vault.origin).host;}catch{}
+            const name=data.vault.username||'';
+            vaultNotice={at:data.vault.at,until:Date.now()+7000,text:data.vault.kind==='filled'?L(`🔐 已用保险箱账号 ${name} 自动填写`,`🔐 Filled from your vault: ${name}`):data.vault.kind==='updated'?L(`🔐 已更新保险箱里 ${host} 的密码（${name}）`,`🔐 Vault password updated for ${host} (${name})`):L(`🔐 已把 ${host} 的账号 ${name} 存入保险箱，可在 全局设置 › 保险箱 管理`,`🔐 Saved ${name} for ${host} to your vault (Settings › Vault)`)};
+        }
         if(data.available&&/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(data.image||'')){
             image.onload=()=>{if(image.src!==data.image)return;displayedFrame=data;pageWidth=data.viewport?.width?Math.round(data.viewport.width*(data.zoom||1)):image.naturalWidth;fit();};image.src=data.image;image.alt=data.title||L('网页画面','Browser view');image.hidden=false;
             if(Date.now()>errorUntil)status.textContent='';

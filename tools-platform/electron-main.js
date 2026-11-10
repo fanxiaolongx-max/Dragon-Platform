@@ -93,6 +93,18 @@ const desktopPromotions = (() => {
         const stack = require('./desktop-promo/promo-stack').createPromoStack({
             statePath: path.join(userDataPath, 'desktop-promo-state.json'),
             getAppBaseUrl: () => getAppBaseUrl(),
+            // 保险箱归属：主窗口当前登录平台的账号。没登录就不保存、不填充任何密码。
+            getVaultOwner: async () => {
+                const host = mainWindow.window;
+                if (!host || host.isDestroyed()) return null;
+                const cookies = await host.webContents.session.cookies.get({ url: getAppBaseUrl(), name: 'tools_token' });
+                const sessions = require('./backend/models/auth-sessions-repository');
+                for (const cookie of cookies) {
+                    const session = await sessions.getSession(cookie.value).catch(() => null);
+                    if (session && session.expiresAt > Date.now() && session.user?.username) return String(session.user.username);
+                }
+                return null;
+            },
             getLanguage: () => require('./backend/models/desktop-language').getLanguage(),
             onChange: () => refreshTrayMenu(),
             onCardOpen: link => require('./backend/models/platform-promotions-desktop').recordCardClick(link),

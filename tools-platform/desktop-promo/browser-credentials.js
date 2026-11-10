@@ -90,11 +90,11 @@ function createBrowserCredentials(filename, safeStorage) {
 // This handler is attached only to tabs opened for the capture sites. Each IPC
 // reply is tied to the current main-frame URL and document nonce, never a URL
 // supplied by page JavaScript. No Electron bridge is exposed to the page.
-function attachBrowserLogin(wc, { getStore, allowed = () => true, notify = () => {} }) {
+function attachBrowserLogin(wc, { getStore, allowed = () => true, notify = () => {}, originOf = loginOrigin }) {
     let documentNonce = '', documentOrigin = '';
     const handler = async (event, channel, message) => {
         if (channel !== 'dragon-browser:login' || event.senderFrame !== wc.mainFrame || !allowed() || !message || typeof message.document !== 'string' || message.document.length > 100) return;
-        const href = wc.getURL(), origin = loginOrigin(href), store = getStore();
+        const href = wc.getURL(), origin = originOf(href), store = getStore();
         if (!origin || !store) return;
         try {
             if (message.action !== 'probe' && (message.document !== documentNonce || origin !== documentOrigin)) return;
@@ -106,12 +106,72 @@ function attachBrowserLogin(wc, { getStore, allowed = () => true, notify = () =>
                 const credentials = await store.read(origin);
                 const enabled = await store.enabled(origin);
                 if (wc.isDestroyed() || wc.getURL() !== href || documentNonce !== message.document) return;
-                const autoSubmit = !!(enabled && credentials && store.claimAutoSubmit(origin));
-                wc.send('dragon-browser:login-state', { document: message.document, origin, enabled, credentials, autoSubmit });
+                const autoSubmit = !!(enabled && credentials && credentials.autoSubmit !== false && store.claimAutoSubmit(origin));
+                wc.send('dragon-browser:login-state', { document: message.document, origin, enabled, credentials: credentials ? { username: credentials.username, password: credentials.password } : null, autoSubmit });
             }
         } catch (_) { notify('unavailable'); }
     };
     wc.on('ipc-message', handler);
     return () => wc.removeListener('ipc-message', handler);
 }
-module.exports = { loginOrigin, captureSite, createBrowserCredentials, attachBrowserLogin };
+
+/**
+ * 把 Dragon 浏览器的「记住密码」接到平台保险箱：凭据归当前登录平台的账号所有，任何站点都可用。
+ * 接口与上面的本机库一致（attachBrowserLogin 不用区分）。没有登录账号时什么都不存、什么都不填。
+ * legacy：旧版只存在这台电脑上的密码库，第一次用到某个站点时迁进保险箱。
+ */
+function createVaultCredentials({ vault, getOwner, legacy = null }) {
+    const attempts = new Map();
+    const owner = async () => { try { return (await getOwner()) || null; } catch (_) { return null; } };
+    return {
+        ready: Promise.resolve(),
+        claimAutoSubmit(origin) {
+            const last = attempts.get(origin) || 0;
+            if (Date.now() - last < 300000) return false;
+            attempts.set(origin, Date.now());
+            return true;
+        },
+        async read(url) {
+            const account = await owner();
+            if (!account) return null;
+            let entry = (await vault.find(account, url)).find(item => item.autoFill);
+            if (!entry && legacy && !(await vault.find(account, url)).length) {
+                const old = await legacy.read(url).catch(() => null);
+                if (old) {
+                    entry = (await vault.save(account, { url, username: old.username, password: old.password })).entry;
+                    await legacy.remove(url).catch(() => {}); // 迁移后清掉本机旧副本，避免在保险箱里删除后又被迁回来
+                }
+            }
+            if (!entry) return null;
+            const found = await vault.credentials(account, url, { id: entry.id });
+            return found ? { username: found.username, password: found.password, autoSubmit: found.autoSubmit } : null;
+        },
+        async save(url, credentials) {
+            const account = await owner();
+            if (!account || !credentials || await vault.neverSave(account, url)) return false;
+            // 用户刚亲手登录过：接下来几分钟回到登录页（后退、退出登录）只填写，不再自动提交
+            try { attempts.set(new URL(url).origin, Date.now()); } catch (_) { /* 地址无效时由保险箱拒绝 */ }
+            try { await vault.save(account, { url, username: credentials.username, password: credentials.password }); return true; }
+            catch (_) { return false; }
+        },
+        async enabled(url) {
+            const account = await owner();
+            return !!account && !(await vault.neverSave(account, url));
+        },
+        async toggle(url) {
+            const account = await owner();
+            if (!account) return false;
+            const never = !(await vault.neverSave(account, url));
+            await vault.setNeverSave(account, url, never);
+            return !never;
+        },
+        async remove(url) {
+            const account = await owner();
+            if (!account) return;
+            for (const entry of await vault.find(account, url)) await vault.remove(account, entry.id);
+            await vault.setNeverSave(account, url, true);
+        },
+        async close() { await legacy?.close().catch(() => {}); }
+    };
+}
+module.exports = { loginOrigin, captureSite, createBrowserCredentials, attachBrowserLogin, createVaultCredentials };

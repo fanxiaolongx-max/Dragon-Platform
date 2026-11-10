@@ -486,6 +486,7 @@ app.use('/api', (req, res, next) => {
     if (req.method === 'POST' && /^\/channels\/(?:welink|weixin)\/push$/.test(req.path)) return next(); // 路由内校验：管理员，或已开放普通用户推送且目标在默认推送范围内
     if (/^\/agent-workspace(?:\/.*)?$/.test(req.path)) return next(); // 路由内按本机/桌面/管理员门禁与会话归属校验
     if (req.path.startsWith('/agent-mcp/')) return next(); // 智能体工具在路由内按操作校验权限
+    if (/^\/vault(?:\/.*)?$/.test(req.path)) return next(); // 保险箱：每个登录账号只读写自己的条目，路由内按账号隔离
     if (req.method !== 'GET') {
         return requireAdmin(req, res, next);
     }
@@ -535,6 +536,7 @@ app.use('/api/agent-files', require('./routes/agent-files')); // 对话里引用
 app.use('/api/channels', require('./routes/channels')); // 频道对接（WeLink / 微信助理）：配置、连通性、名单、主动推送
 app.use('/api/digital-human', superAdminOnly(), requireAdmin, require('./routes/digital-human')); // 数字人基座对接：NetCare 业务库只读查询、应用库读写、表目录（第一期仅管理员）
 app.use('/api/agent-mcp', require('./routes/agent-mcp'));
+app.use('/api/vault', require('./routes/vault')); // 保险箱：本人网站登录凭据，Dragon 浏览器自动填充与 AI 代填
 app.use('/api/dragon-tac', superAdminOnly({ '/jobs': { items: [] } }), require('./routes/dragon-tac'));
 app.use('/api/desktop-agents', superAdminOnly({ '/settings': { owned: false, settings: null, reason: '桌面 Agent 仅超级管理员可用' }, '/sessions': { items: [], recent: [] } }), require('./routes/desktop-agents'));
 app.use('/api/global-backup', globalBackupRoutes); // 当前租户核心数据备份与恢复 API（保留历史路由名）

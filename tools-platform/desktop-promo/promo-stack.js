@@ -8,7 +8,7 @@
 const { app, BrowserWindow, BrowserView, Menu, dialog, screen, session, shell } = require('electron');
 const { createExtensionManager } = require('./browser-extensions');
 const { createUivBatchRunner } = require('./uiv-batch-runner');
-const { createBrowserCredentials } = require('./browser-credentials');
+const { createBrowserCredentials, createVaultCredentials } = require('./browser-credentials');
 const { createSiteScriptStore } = require('./site-scripts');
 const { createPagePreview } = require('./page-preview');
 const { createDragonBrowser } = require('./dragon-browser');
@@ -29,7 +29,7 @@ const MIN_DESKTOP_ROTATE_SECONDS = 60;
 const SESSION_COOKIE_KEEP_DAYS = 7;
 const SITE_SCRIPT_DELAY_MS = 1500;
 
-function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, getLanguage = () => 'zh-CN', onChange = () => {}, onCardOpen = () => {}, openAppPath = () => {}, getSidebarHost = null, getAppBaseUrl = null }) {
+function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, getLanguage = () => 'zh-CN', onChange = () => {}, onCardOpen = () => {}, openAppPath = () => {}, getSidebarHost = null, getVaultOwner = null, getAppBaseUrl = null }) {
     let config = null;
     let promotionTabs=new Map(),promotionSignature='',pendingSidebarReveal=false;
     let cards = [];             // 卡片堆中的窗口，cards[0] 为最前
@@ -116,7 +116,8 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
             return true;
         },
         partition: PARTITION, whenReady: () => extensions.whenReady(), getLanguage, getWorkArea: workArea,
-        getLibrary: () => browserLibrary, getDownloads: () => unregisterDownloads, getExtensions: () => extensions?.list()||[], getCredentialStore: () => browserCredentials,
+        getLibrary: () => browserLibrary, getDownloads: () => unregisterDownloads, getExtensions: () => extensions?.list()||[], getCredentialStore: () => browserCredentials, credentialOrigin: value => require('../backend/models/password-vault').originOf(value),
+        isAppOrigin: origin => { try { return !!getAppBaseUrl && new URL(getAppBaseUrl()).origin === origin; } catch (_) { return false; } },
         onPageCreated: tab => {
             tab.page.webContents.on('did-finish-load', () => { if (tab.tool?.autoRun) runToolScript(tab, { onlyOnOrigin: true }); });
         },
@@ -133,8 +134,12 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
         sessionReady = true;
         const promoSession = session.fromPartition(PARTITION);
         try {
-            browserCredentials = createBrowserCredentials(path.join(path.dirname(statePath), 'dragon-browser-credentials.db'), require('electron').safeStorage);
-            browserCredentials.ready.catch(() => {});
+            // 记住的密码进平台保险箱（按当前登录账号）；旧版只存在本机的密码库仅作迁移来源。
+            let legacy = null;
+            try { legacy = createBrowserCredentials(path.join(path.dirname(statePath), 'dragon-browser-credentials.db'), require('electron').safeStorage); legacy.ready.catch(() => {}); } catch (_) { /* 没有旧库也不影响 */ }
+            browserCredentials = getVaultOwner
+                ? createVaultCredentials({ vault: require('../backend/models/password-vault').vault(), getOwner: getVaultOwner, legacy })
+                : legacy;
         } catch (_) { /* Browsing still works when the local credential store is unavailable. */ }
         try {
             browserLibrary = createBrowserLibrary(path.join(path.dirname(statePath), 'dragon-browser.db'));

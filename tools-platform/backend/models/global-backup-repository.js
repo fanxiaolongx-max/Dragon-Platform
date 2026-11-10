@@ -48,6 +48,7 @@ const PRIMARY_PRESERVED_DIRS = ['images', 'slide-library', 'tenants'];
 // backup copies and large abandoned upload files.
 const PRIMARY_OPERATIONAL_DIRS = ['backups', 'tmp', 'quarantine', 'runtime'];
 const DEFAULT_MACHINE_FILES = [
+    'vault', // 保险箱（密文库 + 本机密钥）：绑定这台机器，不随备份外流
     'desktop-license-registry.json',
     'desktop-license-signing-key.json',
     'f12-extension-identities.json',
