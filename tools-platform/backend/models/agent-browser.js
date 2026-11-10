@@ -23,6 +23,7 @@ function cancellable(promise,signal=commandSignal()){
 function pause(ms){const signal=commandSignal();if(signal?.aborted)return Promise.reject(interrupted());return new Promise((resolve,reject)=>{const abort=()=>{clearTimeout(timer);reject(interrupted());};const timer=setTimeout(()=>{signal?.removeEventListener('abort',abort);resolve();},ms);signal?.addEventListener('abort',abort,{once:true});});}
 const WebSocket = require('ws');
 const pageLayoutScript=require('./browser-page-layout').script;
+const { createDownloads } = require('./agent-browser-downloads');
 
 const SECRET_HEADER_RE = /^(cookie|authorization|proxy-authorization|x-csrf-token|x-xsrf-token|x-api-key|x-auth-token)$/i;
 const LIMITS = { tabs: 6, network: 400, console: 200, snapshotChars: 40000, bodyChars: 2 * 1024 * 1024, navigateMs: 30000, idleMs: 15 * 60 * 1000 };
@@ -362,7 +363,7 @@ function teamProfileDir(team, owner) {
     return path.join(require('./tenant-context').getHomeDir(team), '.agent-browser', crypto.createHash('sha256').update(String(owner)).digest('hex').slice(0, 24));
 }
 
-async function teamLaunch(team, exe, args) {
+async function teamLaunch(team, exe, args, downloadDirectory) {
     const sandbox = require('./tenant-sandbox');
     const info = sandbox.status();
     if (!info.available) throw browserError('BROWSER_UNAVAILABLE', `团队账号的浏览器需要命令沙箱：${info.reason}`);
@@ -380,7 +381,7 @@ async function teamLaunch(team, exe, args) {
     }
     const launch = sandbox.wrap({
         tenantId: team, cwd: tenant.getHomeDir(team), file: exe, env: process.env,
-        writable: info.kind === 'seatbelt' ? [shortTmp] : [],
+        writable: [downloadDirectory, ...(info.kind === 'seatbelt' ? [shortTmp] : [])],
         // 程序本体所在目录只读放行（Linux 上 /usr/bin/google-chrome 多是指向 /opt 的软链接）
         readOnly: [path.dirname(fs.realpathSync(exe)), ...(process.platform === 'darwin' ? [exe.slice(0, exe.indexOf('.app/') + 4)] : [])],
         args: [...args.slice(0, -1),
@@ -407,6 +408,7 @@ function createServerBrowser(owner) {
     const pages = new Map(); // sessionId → page
     const byTarget = new Map(); // targetId → page
     let starting = null;
+    let downloads = null;
 
     const send = (method, params = {}, sessionId) => new Promise((resolve, reject) => {
         if (!socket || socket.readyState !== WebSocket.OPEN) return reject(browserError('BROWSER_CLOSED', '浏览器已关闭'));
@@ -453,8 +455,10 @@ function createServerBrowser(owner) {
             ...(isLinux || process.env.CI ? ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] : []),
             'about:blank'
         ];
+        const store = createDownloads();
+        downloads = store;
         if (team) {
-            const launch = await teamLaunch(team, exe, args);
+            const launch = await teamLaunch(team, exe, args, store.directory);
             child = spawn(launch.file, launch.args, { cwd: launch.cwd, env: launch.env, stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true });
         } else {
             child = spawn(exe, args, { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true });
@@ -482,6 +486,9 @@ function createServerBrowser(owner) {
                 if (message.error) call.reject(browserError('BROWSER_CDP', message.error.message || 'CDP 错误'));
                 else call.resolve(message.result || {});
             } else if (message.method) {
+                if (message.method === 'Browser.downloadWillBegin' || message.method === 'Browser.downloadProgress') {
+                    store.event(message.method, message.params, guid => send('Browser.cancelDownload', { guid }).catch(() => {}));
+                }
                 if(message.method==='Target.targetCreated')popup(message.params?.targetInfo);
                 if (message.method === 'Target.detachedFromTarget') {
                     const page = pages.get(message.params.sessionId);
@@ -491,12 +498,18 @@ function createServerBrowser(owner) {
             }
         });
         socket.on('close', () => { calls.forEach(call => call.reject(browserError('BROWSER_CLOSED', '浏览器已关闭'))); calls.clear(); pages.clear(); byTarget.clear(); socket = null; });
-        child.once('exit', () => { child = null; socket?.terminate(); });
+        child.once('exit', () => {
+            store.dispose();
+            if (downloads === store) { downloads = null; child = null; socket?.terminate(); }
+        });
+        await send('Browser.setDownloadBehavior', { behavior: 'allowAndName', downloadPath: store.directory, eventsEnabled: true });
         await send('Target.setDiscoverTargets',{discover:true});
     }
 
     const api = {
         kind: 'server',
+        downloads: () => downloads?.list() || [],
+        openDownload: id => downloads?.open(id),
         // 上传给网页的文件：团队的浏览器在沙箱里，只读得到团队目录，先复制到团队临时目录
         localFile(source) {
             if (!team) return source;
@@ -508,7 +521,7 @@ function createServerBrowser(owner) {
         },
         async ensure() {
             if (socket && socket.readyState === WebSocket.OPEN) return;
-            starting = starting || start().finally(() => { starting = null; });
+            starting = starting || start().catch(error => { api.shutdown(); throw error; }).finally(() => { starting = null; });
             await starting;
         },
         async newPage() {
@@ -521,6 +534,8 @@ function createServerBrowser(owner) {
         shutdown() {
             try { socket?.close(); } catch (_error) { /* noop */ }
             if (child) { try { child.kill(); } catch (_error) { /* noop */ } }
+            downloads?.dispose();
+            downloads = null;
             child = null;
         }
     };
@@ -846,9 +861,16 @@ async function executeUnlocked(ctx, name, args = {}) {
             return { content: `${snap.text}${snap.truncated ? '\n…（内容过长已截断：可调大 maxChars，或用 browser_network 直接取接口数据）' : ''}`, summary: `${page.title || page.url} · ${snap.refs} 个可操作元素`.slice(0, 120) };
         }
         if (name === 'browser_click') {
+            const browser = owners.get(owner)?.browser;
+            const previous = browser?.downloads?.()[0]?.id;
             const box = await page.click(args.ref);
             await page.refreshInfo();
-            return { content: `已点击 ${args.ref}「${box.text}」，当前页面：${page.title}\n${page.url}\n页面可能已变化，继续操作前用 browser_snapshot 重新读取。`, summary: `点击「${box.text}」`.slice(0, 120) };
+            const download = browser?.downloads?.()[0];
+            const result = download && download.id !== previous
+                ? download.state === 'completed' ? '\n浏览器已收到文件，可在侧栏「下载」中保存到本机。'
+                    : '\n浏览器收到下载请求，可在侧栏「下载」中查看状态。'
+                : '';
+            return { content: `已点击 ${args.ref}「${box.text}」，当前页面：${page.title}\n${page.url}\n页面可能已变化，继续操作前用 browser_snapshot 重新读取。${result}`, summary: `点击「${box.text}」`.slice(0, 120) };
         }
         if (name === 'browser_type') {
             const box = await page.type(args.ref, args.text, args.submit === true);
@@ -967,6 +989,7 @@ async function viewUnlocked(owner, live = false) {
     const result={available:Boolean(page),activeId:page?.id||null,kind:state.browser.kind,
         tabs:[...pages.values()].map(item=>({id:item.id,title:item.title,url:item.url})),
         operator:operatorState(owner,page),manual:manual?{active:true,tabId:manual.tabId,expiresAt:manual.touched+(manual.autoIdleMs||MANUAL_IDLE_MS)}:{active:false}};
+    if (state.browser.downloads) result.downloads = state.browser.downloads();
     if(!page)return result;
     if(state.browser.kind==='server'&&page.readingUrl!==page.url){
         if(page.readingWidth)await page.setReadingWidth?.(null);
@@ -1116,4 +1139,8 @@ function controlRequest(owner,args={}){
 }
 
 function control(owner,args={}){return commandContext.exit(()=>controlRequest(owner,args));}
-module.exports = { LIMITS, DEFINITIONS, definitions, kindOf: name => KIND.get(name) || null, execute, preview, view, control, alwaysKey, available, findChrome, configureDesktopBrowser, webUrl, shutdownAll, _internal: { owners, SNAPSHOT_SCRIPT } };
+function openDownload(owner, id) {
+    return owners.get(owner)?.browser.openDownload?.(id);
+}
+
+module.exports = { LIMITS, DEFINITIONS, definitions, kindOf: name => KIND.get(name) || null, execute, preview, view, control, openDownload, alwaysKey, available, findChrome, configureDesktopBrowser, webUrl, shutdownAll, _internal: { owners, SNAPSHOT_SCRIPT } };

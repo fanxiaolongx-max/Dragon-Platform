@@ -21,6 +21,13 @@ test.before(async()=>{
         if (req.headers['x-user']) req.user={username:req.headers['x-user'],role:req.headers['x-role']||'admin'};
         runWithTenant(req.headers['x-tenant']||'default',next);
     });
+    app.get('/download-page', (_, res) => res.send(`<button id="export">Export HTML</button><a href="/download-fixture">Download text</a>
+        <script>document.getElementById('export').onclick = () => {
+            const url = URL.createObjectURL(new Blob(['<h1>Browser export</h1>'], {type:'text/html'}));
+            const link = document.createElement('a');
+            link.href = url; link.download = '导出档案.html'; link.click(); URL.revokeObjectURL(url);
+        };</script>`));
+    app.get('/download-fixture', (_, res) => res.attachment('report.txt').send('HTTP download'));
     app.use(require('../backend/routes/agent-workspace'));
     server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));base=`http://127.0.0.1:${server.address().port}`;
 });
@@ -42,6 +49,49 @@ test('viewing without an existing browser does not start one',async()=>{
     const before=owners.size;
     assert.deepEqual(await (await get({'x-user':'nobody'})).json(),{available:false,tabs:[],manual:{active:false}});
     assert.equal(owners.size,before);
+});
+
+test('manual Blob exports and AI HTTP downloads can be saved by their tenant and account only', {skip:!browser.findChrome()}, async t=>{
+    const owner='default::exporter';
+    t.after(()=>{
+        const state=owners.get(owner);
+        clearTimeout(state?.timer);
+        state?.browser.shutdown();
+        owners.delete(owner);
+    });
+    const session=await browser.control(owner,{action:'open',url:base+'/download-page'});
+    const state=owners.get(owner), page=state.tabs.get(state.active);
+    const frame=await browser.view(owner);
+    const point=await page.evaluate(`(() => {
+        const r=document.getElementById('export').getBoundingClientRect();
+        return {x:(r.x+r.width/2)/innerWidth,y:(r.y+r.height/2)/innerHeight};
+    })()`);
+    await browser.control(owner,{action:'click',token:session.token,frameId:frame.frameId,...point});
+    await browser.control(owner,{action:'release',token:session.token});
+    const snapshot=await browser.execute({owner},'browser_snapshot');
+    const ref=snapshot.content.match(/\[(e\d+)\] link "Download text"/)?.[1];
+    assert.ok(ref);
+    const click=await browser.execute({owner},'browser_click',{ref});
+    assert.match(click.content,/侧栏「下载」/);
+    const downloads=(await browser.view(owner)).downloads;
+    assert.deepEqual(downloads.map(({name,state})=>[name,state]),[['report.txt','completed'],['导出档案.html','completed']]);
+    assert.ok(downloads.every(item=>!Object.hasOwn(item,'path')&&!Object.hasOwn(item,'url')));
+    const getFile=(id,headers={})=>fetch(base+'/browser/downloads/'+encodeURIComponent(id),{headers});
+    const id=downloads[1].id;
+    assert.equal((await getFile(id)).status,401);
+    assert.equal((await getFile(id,{'x-user':'exporter','x-role':'viewer'})).status,403);
+    assert.equal((await getFile(id,{'x-user':'bob'})).status,404);
+    assert.equal((await getFile(id,{'x-user':'exporter','x-tenant':'other'})).status,404);
+    assert.equal((await getFile('../download-fixture',{'x-user':'exporter'})).status,404);
+    const response=await getFile(id,{'x-user':'exporter'});
+    assert.equal(response.status,200);
+    assert.equal(response.headers.get('content-type'),'application/octet-stream');
+    assert.match(response.headers.get('content-disposition'),/^attachment;.*filename\*=UTF-8''/);
+    assert.equal(response.headers.get('cache-control'),'no-store');
+    assert.equal(await response.text(),'<h1>Browser export</h1>');
+    assert.equal(await (await getFile(downloads[0].id,{'x-user':'exporter'})).text(),'HTTP download');
+    state.browser.shutdown();
+    assert.equal((await getFile(id,{'x-user':'exporter'})).status,404);
 });
 test('closed pages, oversized screenshots and capture failures are handled without leaking raw errors',async()=>{
     const closed=fixture('default::closed','Closed');owners.get('default::closed').browser.pages=()=>[];

@@ -1,0 +1,584 @@
+/* ==========================================================================
+   Dragon Claw · Multi-Agent Swarm HTML Live Painter (右侧浏览器多指针协同实时绘制画布)
+   ========================================================================== */
+
+.dc-browser-panel.is-swarm-canvas .dc-browser-surface {
+    background: #080c14;
+    overflow: hidden;
+}
+
+.dc-browser-panel.is-swarm-canvas .dc-browser-agent-view,
+.dc-browser-panel.is-swarm-canvas .dc-browser-operator,
+.dc-browser-panel.is-swarm-canvas .dc-browser-ai-pointer {
+    display: none !important;
+}
+
+.dc-swarm-stage {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    background: radial-gradient(circle at 50% 20%, #111a2e 0%, #070b14 75%);
+    color: #e2e8f0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+    user-select: none;
+    overflow: hidden;
+}
+
+.dc-swarm-stage[hidden] {
+    display: none !important;
+}
+
+/* ── Top Telemetry Ribbon ──────────────────────────────────────────────── */
+.dc-swarm-topbar {
+    position: relative;
+    z-index: 8;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 7px 12px;
+    background: rgba(10, 15, 28, 0.88);
+    border-bottom: 1px solid rgba(99, 102, 241, 0.24);
+    backdrop-filter: blur(14px);
+    font-size: 11.5px;
+    flex-shrink: 0;
+}
+
+.dc-swarm-topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+}
+
+.dc-swarm-live-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.2px;
+    color: #f8fafc;
+    background: linear-gradient(110deg, rgba(99, 102, 241, 0.35), rgba(236, 72, 153, 0.35));
+    border: 1px solid rgba(139, 92, 246, 0.45);
+    box-shadow: 0 0 16px rgba(99, 102, 241, 0.28);
+    white-space: nowrap;
+}
+
+.dc-swarm-stage.is-finished .dc-swarm-live-pill {
+    background: linear-gradient(110deg, rgba(16, 185, 129, 0.28), rgba(6, 182, 212, 0.28));
+    border-color: rgba(16, 185, 129, 0.48);
+    box-shadow: 0 0 14px rgba(16, 185, 129, 0.2);
+}
+
+.dc-swarm-pulse-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #38bdf8;
+    box-shadow: 0 0 8px #38bdf8, 0 0 14px #ec4899;
+    animation: dcSwarmPulse 1.1s ease-in-out infinite;
+}
+
+.dc-swarm-stage.is-finished .dc-swarm-pulse-dot {
+    background: #10b981;
+    box-shadow: 0 0 8px #10b981;
+    animation: none;
+}
+
+@keyframes dcSwarmPulse {
+    0%, 100% { transform: scale(0.85); opacity: 0.65; }
+    50% { transform: scale(1.25); opacity: 1; }
+}
+
+.dc-swarm-agent-cluster {
+    display: inline-flex;
+    align-items: center;
+    padding-left: 4px;
+    flex-shrink: 0;
+}
+
+.dc-swarm-agent-dot {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    margin-left: -5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 700;
+    color: #fff;
+    border: 1.5px solid #0b1120;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+    transition: transform 0.2s ease;
+}
+
+.dc-swarm-agent-dot.is-active {
+    transform: translateY(-2px) scale(1.08);
+}
+
+.dc-swarm-ticker {
+    min-width: 0;
+    flex: 1;
+    color: #94a3b8;
+    font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dc-swarm-ticker strong {
+    color: #e2e8f0;
+    font-weight: 600;
+}
+
+.dc-swarm-topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+}
+
+.dc-browser-panel .dc-swarm-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 9px;
+    height: 25px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    color: #cbd5e1;
+    background: rgba(30, 41, 59, 0.72);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    cursor: pointer;
+    transition: all 0.16s ease;
+    white-space: nowrap;
+}
+
+.dc-browser-panel .dc-swarm-btn:hover {
+    color: #fff;
+    background: rgba(51, 65, 85, 0.9);
+    border-color: rgba(99, 102, 241, 0.55);
+}
+
+.dc-browser-panel .dc-swarm-btn[aria-pressed="true"] {
+    color: #fff;
+    background: linear-gradient(120deg, rgba(99, 102, 241, 0.42), rgba(14, 165, 233, 0.36));
+    border-color: rgba(99, 102, 241, 0.65);
+}
+
+/* ── Main Viewport Area ────────────────────────────────────────────────── */
+.dc-swarm-viewport {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    background: #080c16;
+}
+
+/* Blueprint holographic grid & synthetic wireframe layer */
+.dc-swarm-blueprint {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    background-image:
+        linear-gradient(rgba(99, 102, 241, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(99, 102, 241, 0.08) 1px, transparent 1px),
+        radial-gradient(circle at 50% 35%, rgba(56, 189, 248, 0.08), transparent 65%);
+    background-size: 28px 28px, 28px 28px, 100% 100%;
+    transition: opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+    display: flex;
+    flex-direction: column;
+    padding: 18px;
+    gap: 14px;
+    box-sizing: border-box;
+}
+
+.dc-swarm-blueprint.is-faded {
+    opacity: 0;
+}
+
+.dc-swarm-bp-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 46px;
+    padding: 0 16px;
+    border-radius: 10px;
+    border: 1px dashed rgba(99, 102, 241, 0.42);
+    background: rgba(15, 23, 42, 0.68);
+    box-shadow: inset 0 0 24px rgba(99, 102, 241, 0.08);
+    transition: all 0.3s ease;
+}
+
+.dc-swarm-bp-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.dc-swarm-bp-logo {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #6366f1, #ec4899);
+    box-shadow: 0 0 12px rgba(99, 102, 241, 0.5);
+}
+
+.dc-swarm-bp-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #f1f5f9;
+    letter-spacing: 0.3px;
+}
+
+.dc-swarm-bp-swatches {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.dc-swarm-bp-swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.35);
+    transition: transform 0.25s ease, background-color 0.25s ease;
+}
+
+.dc-swarm-bp-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.dc-swarm-bp-card {
+    position: relative;
+    height: 86px;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px dashed rgba(56, 189, 248, 0.36);
+    background: rgba(15, 23, 42, 0.62);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.dc-swarm-bp-card.is-hot {
+    border-style: solid;
+    border-color: var(--bp-accent, #38bdf8);
+    box-shadow: 0 0 22px rgba(56, 189, 248, 0.16), inset 0 0 18px rgba(56, 189, 248, 0.08);
+}
+
+.dc-swarm-bp-card-tag {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: #38bdf8;
+    opacity: 0.9;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dc-swarm-bp-bar {
+    height: 8px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, rgba(99, 102, 241, 0.45), rgba(236, 72, 153, 0.45), rgba(56, 189, 248, 0.45));
+    background-size: 200% 100%;
+    animation: dcSwarmShimmer 2.2s linear infinite;
+}
+
+.dc-swarm-bp-bar.is-short {
+    width: 62%;
+    height: 6px;
+    opacity: 0.65;
+}
+
+@keyframes dcSwarmShimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.dc-swarm-bp-main {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 1.65fr 1fr;
+    gap: 12px;
+}
+
+.dc-swarm-bp-stage-box,
+.dc-swarm-bp-side-box {
+    position: relative;
+    border-radius: 12px;
+    border: 1px dashed rgba(139, 92, 246, 0.36);
+    background: rgba(15, 23, 42, 0.56);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow: hidden;
+}
+
+.dc-swarm-bp-code-stream {
+    margin-top: auto;
+    font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+    font-size: 10.5px;
+    line-height: 1.55;
+    color: #94a3b8;
+    max-height: 110px;
+    overflow: hidden;
+    mask-image: linear-gradient(to bottom, transparent 0%, #000 22%, #000 100%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 22%, #000 100%);
+}
+
+.dc-swarm-bp-code-line {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dc-swarm-bp-code-line span {
+    color: #38bdf8;
+}
+
+/* ── Live Rendered HTML Iframe ─────────────────────────────────────────── */
+.dc-swarm-preview-wrap {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: #ffffff;
+    transition: opacity 0.3s ease;
+}
+
+.dc-swarm-iframe {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: block;
+    background: transparent;
+}
+
+/* ── Source Code Streaming View ────────────────────────────────────────── */
+.dc-swarm-code-view {
+    position: absolute;
+    inset: 0;
+    z-index: 7;
+    background: #0b101d;
+    color: #e2e8f0;
+    overflow: auto;
+    padding: 16px;
+    font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    user-select: text;
+}
+
+.dc-swarm-code-view pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* ── 60FPS FX Canvas & Multi-Cursor Layer ──────────────────────────────── */
+.dc-swarm-fx {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 4;
+    pointer-events: none;
+    transition: opacity 0.35s ease;
+}
+
+.dc-swarm-cursors {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    pointer-events: none;
+    overflow: hidden;
+    transition: opacity 0.35s ease;
+}
+
+.dc-swarm-stage.is-cursors-hidden .dc-swarm-fx,
+.dc-swarm-stage.is-cursors-hidden .dc-swarm-cursors {
+    opacity: 0 !important;
+}
+
+.dc-swarm-cursor {
+    position: absolute;
+    left: 0;
+    top: 0;
+    will-change: transform;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.dc-swarm-cursor-svg {
+    display: block;
+    width: 22px;
+    height: 24px;
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.48)) drop-shadow(0 0 8px var(--cursor-color, #6366f1));
+    transform-origin: 3px 3px;
+    transition: transform 0.12s ease;
+}
+
+.dc-swarm-cursor.is-clicking .dc-swarm-cursor-svg {
+    transform: scale(0.84) rotate(-6deg);
+}
+
+.dc-swarm-cursor.is-sketching .dc-swarm-cursor-svg {
+    transform: rotate(8deg) scale(1.05);
+}
+
+.dc-swarm-cursor-tool {
+    position: absolute;
+    left: -7px;
+    top: -7px;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: var(--cursor-color, #6366f1);
+    color: #fff;
+    font-size: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 10px var(--cursor-color, #6366f1);
+    border: 1.5px solid #fff;
+}
+
+.dc-swarm-cursor-tag {
+    position: absolute;
+    left: 16px;
+    top: 16px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px 3px 7px;
+    border-radius: 999px;
+    background: rgba(10, 15, 28, 0.86);
+    border: 1.5px solid var(--cursor-color, #6366f1);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.42), 0 0 12px var(--cursor-glow, rgba(99, 102, 241, 0.38));
+    color: #f8fafc;
+    font-size: 10.5px;
+    line-height: 1.3;
+    white-space: nowrap;
+    backdrop-filter: blur(8px);
+}
+
+.dc-swarm-cursor-role {
+    font-weight: 700;
+    color: var(--cursor-color, #6366f1);
+    filter: brightness(1.22);
+}
+
+.dc-swarm-cursor-task {
+    color: #e2e8f0;
+    font-family: "JetBrains Mono", "SFMono-Regular", Consolas, sans-serif;
+    font-size: 10px;
+    max-width: 170px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ── Bottom Telemetry Footer Bar ───────────────────────────────────────── */
+.dc-swarm-footer {
+    position: relative;
+    z-index: 8;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 6px 12px;
+    background: rgba(10, 15, 28, 0.9);
+    border-top: 1px solid rgba(99, 102, 241, 0.2);
+    font-size: 11px;
+    color: #94a3b8;
+    flex-shrink: 0;
+}
+
+.dc-swarm-metrics {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.dc-swarm-metric {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.dc-swarm-metric b {
+    color: #f1f5f9;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 600;
+}
+
+.dc-swarm-progress-track {
+    flex: 1;
+    max-width: 180px;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(51, 65, 85, 0.7);
+    overflow: hidden;
+}
+
+.dc-swarm-progress-fill {
+    height: 100%;
+    width: 15%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #6366f1, #ec4899, #06b6d4, #10b981);
+    background-size: 200% 100%;
+    animation: dcSwarmShimmer 1.8s linear infinite;
+    transition: width 0.25s ease;
+}
+
+/* Inline Chat Trigger Pill on HTML code blocks */
+.dc-swarm-inline-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #fff;
+    background: linear-gradient(115deg, #6366f1, #ec4899, #06b6d4);
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 3px 14px rgba(99, 102, 241, 0.32);
+    transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.dc-swarm-inline-trigger:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 5px 18px rgba(236, 72, 153, 0.42);
+}
+
+@media (max-width: 640px) {
+    .dc-swarm-bp-grid {
+        grid-template-columns: 1fr;
+    }
+    .dc-swarm-bp-main {
+        grid-template-columns: 1fr;
+    }
+    .dc-swarm-agent-cluster {
+        display: none;
+    }
+}

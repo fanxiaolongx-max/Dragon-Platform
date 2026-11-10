@@ -5,6 +5,7 @@ const fs = require('fs');
 const fsp = require('fs/promises');
 const os = require('os');
 const path = require('path');
+const { pipeline } = require('node:stream/promises');
 const access = require('../models/agent-workspace-access');
 const prefsRepo = require('../models/agent-workspace-repository');
 const runManager = require('../models/agent-run-manager');
@@ -75,6 +76,28 @@ router.get('/browser/view', async (req, res) => {
         res.json(await require('../models/agent-browser').view(owner));
     } catch (error) {
         res.status(503).json({ code: error.code || 'BROWSER_VIEW_UNAVAILABLE', error: '无法读取浏览器画面，请稍后刷新' });
+    }
+});
+
+router.get('/browser/downloads/:id', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    if (!runManager.isAdminUser(req.user)) return res.status(403).json({ code: 'ADMIN_REQUIRED', error: '浏览器下载仅管理员可用' });
+    let file;
+    try {
+        const owner = runManager.ownerKey(req.user, getTenantId());
+        file = await require('../models/agent-browser').openDownload(owner, req.params.id);
+        if (!file) return res.status(404).json({ code: 'BROWSER_DOWNLOAD_NOT_FOUND', error: '下载文件尚未完成或已失效' });
+        res.attachment(file.name);
+        res.set({ 'Content-Type': 'application/octet-stream', 'Content-Length': String(file.size), 'X-Content-Type-Options': 'nosniff' });
+        await pipeline(file.handle.createReadStream(), res);
+    } catch {
+        if (!res.headersSent && !res.destroyed) {
+            res.removeHeader('Content-Disposition');
+            res.removeHeader('Content-Length');
+            res.status(503).json({ code: 'BROWSER_DOWNLOAD_FAILED', error: '无法读取下载文件，请重试' });
+        }
+    } finally {
+        await file?.handle.close().catch(() => {});
     }
 });
 

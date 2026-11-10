@@ -11,7 +11,7 @@ let host, server, stack, workspaceEnabled = false, viewReads = 0, mobilePage = f
 const timeout=setTimeout(()=>{console.error('Timeout');app.exit(1);},60000);
 app.whenReady().then(async()=>{
  const web=express();web.use(express.json());
- let remoteTabs=[],remoteActive=null,remoteManual=false,remoteSequence=0,remoteNarrow=false,remoteAI=false,remoteHandoff=false,remoteTypingSlow=false,remoteText='',remoteTabDelay=0;const remoteCalls=[];let streamFrames=0,streamCloses=0,uploadedFiles=[];
+ let remoteTabs=[],remoteActive=null,remoteManual=false,remoteSequence=0,remoteNarrow=false,remoteAI=false,remoteHandoff=false,remoteTypingSlow=false,remoteText='',remoteTabDelay=0;const remoteCalls=[];let streamFrames=0,streamCloses=0,uploadedFiles=[],remoteDownloads=[];
  web.get('/',(_req,res)=>{
   let html=fs.readFileSync(path.join(root,'frontend/index.html'),'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/g,'').replace('<html ','<html data-ui="v2" data-theme="light" ');
   res.send(html.replace('</body>','<script>document.body.classList.add("home-mode-chat");</script><script src="/js/shared/sidebar-resize.js"></script><script src="/js/home/workspace-panel.js"></script><script src="/js/home/browser-sidebar.js"></script><script src="/js/shared/chat-files.js"></script><script src="/js/home/tool-frame.js"></script></body>'));
@@ -19,11 +19,11 @@ app.whenReady().then(async()=>{
  web.get('/api/agent-workspace/capability',(_req,res)=>res.json({enabled:workspaceEnabled}));
  web.get('/api/agent-workspace/browser/view',(_req,res)=>{
   viewReads++;const current=remoteTabs.find(tab=>tab.id===remoteActive),width=mobilePage?375:1280,height=800;
-  res.json({available:!!current,tabs:remoteTabs,activeId:remoteActive,title:current?.title,url:current?.url,frameId:'fixture-frame',viewport:{width,height},layout:remoteNarrow?{preferredWidth:480}:null,upload:{id:'chooser-fixture',multiple:true},operator:{active:remoteAI,handoff:remoteHandoff,cursor:remoteAI?{x:.4,y:.3,at:Date.now()}:null},manual:{active:remoteManual},image:current?nativeImage.createFromBitmap(Buffer.alloc(width*height*4,255),{width,height}).toDataURL():undefined});
+  res.json({available:!!current,tabs:remoteTabs,activeId:remoteActive,title:current?.title,url:current?.url,frameId:'fixture-frame',viewport:{width,height},downloads:remoteDownloads,layout:remoteNarrow?{preferredWidth:480}:null,upload:{id:'chooser-fixture',multiple:true},operator:{active:remoteAI,handoff:remoteHandoff,cursor:remoteAI?{x:.4,y:.3,at:Date.now()}:null},manual:{active:remoteManual},image:current?nativeImage.createFromBitmap(Buffer.alloc(width*height*4,255),{width,height}).toDataURL():undefined});
  });
  web.get('/api/agent-workspace/browser/stream',(req,res)=>{
   res.set({'Content-Type':'application/x-ndjson','Cache-Control':'no-store'});res.flushHeaders();
-  const frame=()=>{const current=remoteTabs.find(tab=>tab.id===remoteActive);streamFrames++;res.write(JSON.stringify({available:!!current,tabs:remoteTabs,activeId:remoteActive,title:current?.title,url:current?.url,frameId:'fixture-frame',viewport:{width:mobilePage?375:1280,height:800},layout:remoteNarrow?{preferredWidth:480}:null,operator:{active:remoteAI,handoff:remoteHandoff,cursor:remoteAI?{x:.4,y:.3,at:Date.now()}:null},manual:{active:remoteManual},upload:{id:'chooser-fixture',multiple:true},image:current?nativeImage.createFromBitmap(Buffer.alloc(200*125*4,255),{width:200,height:125}).toDataURL():undefined})+'\n');};
+  const frame=()=>{const current=remoteTabs.find(tab=>tab.id===remoteActive);streamFrames++;res.write(JSON.stringify({available:!!current,tabs:remoteTabs,activeId:remoteActive,title:current?.title,url:current?.url,frameId:'fixture-frame',viewport:{width:mobilePage?375:1280,height:800},downloads:remoteDownloads,layout:remoteNarrow?{preferredWidth:480}:null,operator:{active:remoteAI,handoff:remoteHandoff,cursor:remoteAI?{x:.4,y:.3,at:Date.now()}:null},manual:{active:remoteManual},upload:{id:'chooser-fixture',multiple:true},image:current?nativeImage.createFromBitmap(Buffer.alloc(200*125*4,255),{width:200,height:125}).toDataURL():undefined})+'\n');};
   const timer=setInterval(frame,150);res.on('close',()=>{streamCloses++;clearInterval(timer);});
  });
  web.post('/api/agent-workspace/browser/upload',require('multer')({storage:require('multer').memoryStorage()}).array('files'),(req,res)=>{uploadedFiles.push(...req.files);res.json({files:req.files.map(file=>({name:file.originalname,size:file.size}))});});
@@ -42,6 +42,7 @@ app.whenReady().then(async()=>{
   res.json({tabId:remoteActive,mode:remoteManual?'manual':'ai',...(['acquire','takeover','open','new-tab'].includes(action)?{token:'fixture-manual-token'}:{})});
  });
  web.get('/api/agent-workspace/prefs',(_req,res)=>res.json({lastDirectory:'',recentDirectories:[],permissionMode:'ask'}));
+ web.get('/api/agent-workspace/browser/downloads/export-fixture',(req,res)=>req.headers.authorization==='Bearer test-download-token'?res.type('application/octet-stream').send('<h1>Web export</h1>'):res.sendStatus(401));
  web.get('/sla', (req,res)=>{if(!String(req.headers.cookie||'').includes('tools_token=main-fixture-session'))return res.redirect('/login.html');res.send('<title>Import fixture</title><div id=import-ready>Import</div>');});
  web.get('/site',(req,res)=>res.send('<title>Local browser fixture</title><input id="value" value="initial"><a href="/second">next</a><input id="native-file" type="file"><input id="native-range" type="range" min="0" max="100" value="0" style="display:block;width:300px">'));
  web.get('/narrow',(_req,res)=>res.send('<title>Narrow menu</title><main style="max-width:440px;margin:auto"><h1>Lunch menu</h1>'+Array.from({length:18},(_,i)=>'<p>Dish '+i+' — restaurant menu with fresh ingredients, soup, sandwiches and salads.</p>').join('')+'</main>'));
@@ -90,6 +91,22 @@ app.whenReady().then(async()=>{
  await wait(100);fs.writeFileSync(path.join(temp,'web-floating-menu.png'),(await host.webContents.capturePage()).toPNG());
  await evaluate('document.querySelector(".dc-browser-popup [data-browser=dismiss-menu]").click()');
  await wait(100);fs.writeFileSync(path.join(temp,'web-toolbar.png'),(await host.webContents.capturePage()).toPNG());
+ remoteDownloads=[{id:'export-fixture',name:'导出.html',state:'progressing',received:0}];
+ await until(()=>evaluate('!!document.querySelector("[data-browser=downloads].has-downloads")'));
+ await evaluate('document.querySelector(".dc-browser-toolbar-actions [data-browser=downloads]").click()');
+ assert.equal(await evaluate('!!document.querySelector("[data-download-action=save]")'),false);
+ remoteDownloads[0].state='completed';
+ await until(()=>evaluate('!!document.querySelector("[data-download-action=save]")'));
+ const savedExport=path.join(temp,'web-export.html');
+ const downloadCompleted=new Promise((resolve,reject)=>host.webContents.session.once('will-download',(_event,item)=>{
+  assert.equal(item.getFilename(),'导出.html');
+  item.setSavePath(savedExport);
+  item.once('done',(_event,state)=>state==='completed'?resolve():reject(Error(state)));
+ }));
+ await evaluate('sessionStorage.setItem("tools_token","test-download-token");document.querySelector("[data-download-action=save]").click()');
+ await downloadCompleted;
+ assert.equal(fs.readFileSync(savedExport,'utf8'),'<h1>Web export</h1>');
+ await evaluate('sessionStorage.removeItem("tools_token");document.querySelector(".dc-browser-popup [data-browser=dismiss-menu]").click()');
 
  assert.equal(await evaluate('document.querySelector(".dc-browser-control").hidden'),true,'page input tools stay collapsed by default');
  assert.equal(await evaluate('document.querySelector(".dc-browser-operator").hidden'),true,'ordinary browsing has no AI handback banner');
