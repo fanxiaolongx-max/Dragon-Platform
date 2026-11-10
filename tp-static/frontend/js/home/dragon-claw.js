@@ -2036,6 +2036,12 @@
         const basePayload = workspace()?.getWorkspacePayload?.() || null;
         const workspacePayload = basePayload && options.workspaceMode ? { ...basePayload, permissionMode: options.workspaceMode } : basePayload;
         const keptSkills = window.DragonClawSkills?.activeIds?.() || [];
+        const isNormalChat = !external.active && !homeConnector;
+        const swarmHtmlTools = new Map();
+        let swarmToolPlayed = false;
+        if (isNormalChat && window.DragonHtmlSwarm?.isHtmlGenerationPrompt?.(content)) {
+            window.DragonHtmlSwarm.startSession({ prompt: content });
+        }
         let started = false;
         try {
             const clientToolData = await collectClientToolData(`${state.messages.slice(-3, -1).map(item => item.role === 'user' ? item.content : '').join('\n')}\n${content}`);
@@ -2061,6 +2067,7 @@
                     if (!delta || controller.signal.aborted || !reply.isConnected) return;
                     started = true;
                     renderer.append(delta);
+                    if (isNormalChat) window.DragonHtmlSwarm?.onStreamDelta?.(renderer.current(), { prompt: content });
                 },
                 onStatus: status => activity.status(status),
                 onEvent: event => {
@@ -2079,6 +2086,32 @@
                     if (event.type === 'tac' && event.status === 'queued') watchTac(event.id);
                     // 命令实时输出：交给右侧终端面板（terminal-sidebar.js），不进消息区
                     if (/^command_(start|output|end|terminal)$/.test(event.type)) { window.dispatchEvent(new CustomEvent('dragon-claw:command', { detail: event })); return; }
+                    if (isNormalChat && event.type === 'tool_start' && ['write_file', 'edit_file', 'multi_edit'].includes(event.tool) && /\.html?$/i.test(String(event.args?.path || ''))) {
+                        const filePath = String(event.args.path);
+                        const inlineHtml = typeof event.args?.content === 'string' ? event.args.content : '';
+                        swarmHtmlTools.set(event.callId, { path: filePath, content: inlineHtml });
+                        if (inlineHtml.trim().length > 40) {
+                            swarmToolPlayed = true;
+                            window.DragonHtmlSwarm?.playFullHtml?.(inlineHtml, { title: filePath.split(/[\\/]/).pop() || filePath });
+                        } else {
+                            window.DragonHtmlSwarm?.startSession?.({ prompt: content, title: filePath.split(/[\\/]/).pop() || filePath });
+                        }
+                    } else if (isNormalChat && event.type === 'tool_result' && event.ok && swarmHtmlTools.has(event.callId)) {
+                        const info = swarmHtmlTools.get(event.callId);
+                        const root = workspacePayload?.root;
+                        const agentSessionId = workspacePayload?.agentSessionId;
+                        if (!info.content && root && agentSessionId) {
+                            swarmToolPlayed = true;
+                            fetch(`/api/agent-workspace/file/${encodeURIComponent(agentSessionId)}?root=${encodeURIComponent(root)}&path=${encodeURIComponent(info.path)}`, { headers: authHeaders() })
+                                .then(r => r.ok ? r.json() : null)
+                                .then(fileData => {
+                                    if (fileData?.content) {
+                                        window.DragonHtmlSwarm?.playFullHtml?.(fileData.content, { title: info.path.split(/[\\/]/).pop() || info.path });
+                                    }
+                                })
+                                .catch(() => {});
+                        }
+                    }
                     window.DragonClawSkills?.handleEvent(reply, event);
                     workspace()?.handleEvent(reply, event, workspacePayload);
                     activity.event(event);
@@ -2092,6 +2125,10 @@
             if (data.runId) reply.dataset.runId = data.runId; // 按轮回退用
             if (workspacePayload) workspace()?.applyDone(data);
             const finalText = renderer.finish(data.reply || renderer.current());
+            if (isNormalChat) {
+                if (!swarmToolPlayed) window.DragonHtmlSwarm?.onStreamFinish?.(finalText, { prompt: content });
+                window.DragonHtmlSwarm?.decorateMessageHtmlBlocks?.(reply, finalText);
+            }
             state.messages.push({ role: 'model', content: finalText });
             const grounding = api.renderGrounding ? api.renderGrounding(data.grounding) : '';
             if (grounding) reply.querySelector('.dc-msg-main').insertAdjacentHTML('beforeend', grounding);
@@ -2103,6 +2140,9 @@
             if (keptSkills.includes('ops-group')) window.ToolsOpsInbox?.refresh();
         } catch (error) {
             const partial = renderer.finish();
+            if (isNormalChat && window.DragonHtmlSwarm?.isActive?.() && !swarmToolPlayed) {
+                window.DragonHtmlSwarm?.onStreamFinish?.(partial, { prompt: content });
+            }
             if (!reply.isConnected) return;
             if (error?.name === 'AbortError') {
                 if (partial || reply.querySelector('.dc-tool-log')?.childElementCount) {
@@ -2292,6 +2332,7 @@
             if (skillIds?.length) window.DragonClawSkills?.badge?.(message, skillIds);
             const rounds = (Array.isArray(events) ? events : []).filter(event => event?.type === 'model_round' && event.round).map(event => event.round);
             addMessageTools(message, text, { modelName: item.model_name || '', usage: { inputTokens: item.input_tokens, outputTokens: item.output_tokens }, rounds });
+            if (!provider && !external.active) window.DragonHtmlSwarm?.decorateMessageHtmlBlocks?.(message, text);
             window.DragonClawSkills?.offerSave?.(message, text);
         } else {
             addUserTools(message, text);
@@ -2790,11 +2831,17 @@
     }
 
     function markRunningChats() {
-        el.chatList?.querySelectorAll('[data-chat-index]').forEach(button => {
+        if (!el.chatList) return;
+        for (const button of el.chatList.querySelectorAll('[data-chat-index]')) {
             const running = isItemRunning(chatList.renderedItems?.[Number(button.dataset.chatIndex)]);
             const row = button.closest('.home-chat-item') || button;
-            if (row.classList.contains('is-running') !== running) row.classList.toggle('is-running', running);
-        });
+            if (row.classList.contains('is-running') === running) continue;
+            if (isUnifiedMode()) {
+                renderChatList();
+                return;
+            }
+            row.classList.toggle('is-running', running);
+        }
     }
 
     async function handleUnifiedDelete(entry) {
@@ -2950,6 +2997,7 @@
             }
 
             function sortEntries(a, b) {
+                if (a.running !== b.running) return Number(b.running) - Number(a.running);
                 const prefA = window.HomeConversationList?.get?.('mine', a.item.id || a.item._id) || {};
                 const prefB = window.HomeConversationList?.get?.('mine', b.item.id || b.item._id) || {};
                 const pinA = Number(Boolean(prefA.pinned));
@@ -2967,11 +3015,12 @@
                 const item = allItems[i];
                 if (!passesFilter(item)) continue;
                 const root = getChatDirectory(item);
+                const entry = { item, index: i, running: isItemRunning(item) };
                 if (root) {
                     if (!projectMap.has(root)) projectMap.set(root, []);
-                    projectMap.get(root).push({ item, index: i });
+                    projectMap.get(root).push(entry);
                 } else {
-                    taskEntries.push({ item, index: i });
+                    taskEntries.push(entry);
                 }
             }
 
@@ -3242,7 +3291,7 @@
         });
         window.addEventListener('home:desktop-agents-updated', () => renderChatList());
         window.addEventListener('home:desktop-agents-busy', markRunningChats);
-        // 服务器上正在生成的对话（其他标签页、定时任务等）每 10 秒核对一次，只更新转圈不重绘列表
+        // 每 10 秒核对其他标签页、定时任务等会话的生成状态，状态变化时同步转圈和排序
         setInterval(async () => {
             if (document.visibilityState !== 'visible' || !chatList.loaded || chatList.query || !chatList.items.length) return;
             const seq = chatList.seq;
@@ -3347,6 +3396,7 @@
             showToast(tx('chatBusy'));
             return null;
         }
+        window.DragonHtmlSwarm?.deactivate?.();
         window.HomeAgentDiscussion?.activateSession?.(null);
         el.form.querySelector('[data-external-send-status]')?.remove();
         const previous = external.active ? external.onExit : null;

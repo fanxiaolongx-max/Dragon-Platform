@@ -8,6 +8,7 @@
     let menu='',menuSignature='',closedTabs=[],draggedTab=null,lastTheme='',pendingTab=null,tabSequence=0,tabScrollTimer=null,lastVisibleTab='';
     let intentUntil=0,lastActivity=0,activitySent=0,idleRelease=false;
     let open=false,connected=false,docked=false,raf=0,readingVisible=false,previousMenu=null;
+    const ZOOM_LEVELS=[.5,.67,.75,.8,.9,1,1.1,1.25,1.5,1.75,2,2.5,3];
     let state={tabs:[]},displayedFrame=null,autoFit=true,pageWidth=0,zoomed=false,viewScale=1,tabSignature='';
     let keyQueue=[],keySending=false,keyTimer=null,keyEpoch=0;
     let busy=false,refreshing=false,controller=null,viewEpoch=0,timer=null,lastHeartbeat=0,manualToken='';
@@ -48,15 +49,20 @@
             title=L('浏览器菜单','Browser menu');
             body=menuButton('reopen-tab',L('恢复关闭的标签页','Reopen closed tab'),!bridge&&!closedTabs.length)+ '<hr>'+
                 menuButton('find-open',L('在页面中查找','Find in page'),!bridge)+menuButton('print',L('打印…','Print…'),!bridge)+
-                `<div class="dc-browser-zoom"><span>${L('缩放','Zoom')}</span>${menuButton('zoom-out','−')}<span>${bridge?state.zoom||100:Math.round(viewScale*100)}%</span>${menuButton('zoom-in','＋')}${menuButton('zoom-reset',L('重置','Reset'))}</div><hr>`+
+                `<div class="dc-browser-zoom"><span>${L('缩放','Zoom')}</span>${menuButton('zoom-out','−')}<span>${bridge?state.zoom||100:Math.round((state.zoom||1)*100)}%</span>${menuButton('zoom-in','＋')}${menuButton('zoom-reset',L('重置','Reset'))}</div><hr>`+
                 menuButton('screenshot',L('保存页面截图','Save screenshot'))+menuButton('downloads',L('下载','Downloads'))+
                 menuButton('history',L('历史记录','History'))+menuButton('bookmarks',L('收藏夹','Bookmarks'))+
                 menuButton('keyboard',L('网页输入与上传','Page input and upload'),Boolean(bridge)||!state.available||state.url==='about:blank')+ '<hr>'+menuButton('external',bridge?L('在系统默认浏览器打开','Open in default browser'):L('在新标签页打开','Open in new tab'))+
                 menuButton('devtools',L('开发者工具','Developer tools'),!bridge);
         }else if(menu==='downloads'){
             title=L('下载','Downloads');const items=state.downloads||[];
-            body=bridge?menuButton('downloads-folder',L('打开下载文件夹','Open Downloads folder')):'';
-            body+=items.length?items.slice(0,50).map(item=>`<div class="dc-browser-download"><div><b>${esc(item.name)}</b><small>${esc(({completed:L('已完成','Completed'),progressing:L('下载中','Downloading'),paused:L('已暂停','Paused'),cancelled:L('已取消','Cancelled'),interrupted:L('已中断','Interrupted'),failed:L('失败','Failed')})[item.state]||item.state)} · ${Math.round((item.received||0)/1024)} KB</small></div><div>${(item.state==='completed'?['open','show']:item.state==='progressing'?['pause','cancel']:item.state==='paused'?['resume','cancel']:[]).map(action=>`<button type="button" data-download="${esc(item.id)}" data-download-action="${action}">${({open:L('打开','Open'),show:L('文件夹','Folder'),pause:L('暂停','Pause'),resume:L('继续','Resume'),cancel:L('取消','Cancel')})[action]}</button>`).join('')}</div></div>`).join(''):`<p>${bridge?L('暂无下载记录','No downloads yet'):L('Web 端暂不提供服务端浏览器的文件下载管理。可保存当前页面截图；网站文件请在系统浏览器中下载。','Server browser downloads are not available here. Save a screenshot, or download website files in your system browser.')}</p>`;
+            body=bridge?menuButton('downloads-folder',L('打开下载文件夹','Open Downloads folder')):`<p>${L('单个文件上限 50 MB，请在关闭浏览器会话前保存。','Up to 50 MB per file. Save it before the browser session ends.')}</p>`;
+            const states={completed:L('已完成','Completed'),progressing:L('下载中','Downloading'),paused:L('已暂停','Paused'),cancelled:L('已取消','Cancelled'),interrupted:L('已中断','Interrupted'),failed:L('失败','Failed'),'too-large':L('文件超过 50 MB','File exceeds 50 MB')};
+            const actions={save:L('保存到本机','Save to device'),open:L('打开','Open'),show:L('文件夹','Folder'),pause:L('暂停','Pause'),resume:L('继续','Resume'),cancel:L('取消','Cancel')};
+            body+=items.length?items.slice(0,50).map(item=>{
+                const controls=item.state==='completed'?(bridge?['open','show']:['save']):!bridge?[]:item.state==='progressing'?['pause','cancel']:item.state==='paused'?['resume','cancel']:[];
+                return `<div class="dc-browser-download"><div><b>${esc(item.name)}</b><small>${esc(states[item.state]||item.state)} · ${Math.round((item.received||0)/1024)} KB</small></div><div>${controls.map(action=>`<button type="button" data-download="${esc(item.id)}" data-download-action="${action}">${actions[action]}</button>`).join('')}</div></div>`;
+            }).join(''):`<p>${L('暂无下载记录','No downloads yet')}</p>`;
         }else if(menu==='extensions'){
             title=L('扩展程序','Extensions');body=bridge?((state.extensions||[]).map(item=>`<div class="dc-browser-download"><div><b>${esc(item.name)}</b><small>${esc(item.version)} · ${item.enabled?L('已加载','Loaded'):L('加载失败','Failed to load')}</small></div></div>`).join(''))+'<p>'+L('管理已加载的扩展，导入 ZIP 或文件夹，或启用本机 Chrome / Edge 扩展。','Manage loaded extensions, import a ZIP or folder, or enable local Chrome / Edge extensions.')+'</p>'+menuButton('plugins',L('管理扩展程序…','Manage extensions…')):'<p>'+L('扩展管理适用于 Dragon 桌面版。Web 侧栏无法访问或安装你当前 Chrome / Safari 的扩展。','Extension management is available in Dragon desktop. The web sidebar cannot access or install your Chrome / Safari extensions.')+'</p>';
         }else if(menu==='history'||menu==='bookmarks'){
@@ -133,7 +139,7 @@
     function bounds(){
         raf=0;positionMenu();if(!bridge||!connected)return;
         const modal=[...document.querySelectorAll('[aria-modal="true"],.app-dialog,.modal.open')].some(node=>node.getClientRects().length&&getComputedStyle(node).visibility!=='hidden');
-        if(!open||suspended.size||document.hidden||document.body.classList.contains('dc-sidebar-resizing')||modal)return bridge.bounds(null);
+        if(!open||suspended.size||document.hidden||document.body.classList.contains('dc-sidebar-resizing')||modal||panel?.classList.contains('is-swarm-canvas'))return bridge.bounds(null);
         const rect=surface.getBoundingClientRect();bridge.bounds(rect.width>0&&rect.height>0?{x:rect.x,y:rect.y,width:rect.width,height:rect.height}:null);
     }
     function layout(){if(!raf)raf=requestAnimationFrame(bounds);}
@@ -145,22 +151,25 @@
         if(bridge||timer)return;
         lastHeartbeat=Date.now();
         timer=setInterval(()=>{
-            if(!open||suspended.size||document.hidden||busy||refreshing)return;
+            if(!open||suspended.size||document.hidden||busy||refreshing||panel?.classList.contains('is-swarm-canvas'))return;
             if(manualToken&&Date.now()-lastHeartbeat>30000){lastHeartbeat=Date.now();api('heartbeat').catch(()=>{});}
             if(!streaming)refresh(true);
         },2000);
     }
-    async function show({createEmpty=true}={}){
+    async function show({createEmpty=true,liveCanvas=false}={}){
         window.ChatFiles?.closePreview();window.DragonClawWorkspace?.closePanel?.();window.DragonTerminalSidebar?.close?.();
+        if(!liveCanvas&&panel?.classList.contains('is-swarm-canvas'))window.DragonHtmlSwarm?.deactivate?.();
         // 普通桌面工具与侧栏并排显示；独立原生工具视图仍暂停挂载，避免互相覆盖。
         if(toolAllowsBrowser)suspended.delete('tool');
         const fresh=!open;if(fresh)collapseMenu();open=true;
-        if(bridge&&(!connected||!docked)){connected=await bridge.connect().catch(()=>false);docked=connected;}
+        if(!liveCanvas&&bridge&&(!connected||!docked)){connected=await bridge.connect().catch(()=>false);docked=connected;}
         syncTheme(true);visibility();if(fresh)requestAnimationFrame(fit);
+        if(liveCanvas)return;
         if(bridge){if(createEmpty&&connected&&!state.tabs.length)bridge.action('new-tab');}
         else{startRefresh();await refresh();}
     }
     function close(){
+        window.DragonHtmlSwarm?.deactivate?.();
         clearKeyboard();pendingTab=null;tabSignature='';
         menu='';renderMenu();
         if(manualToken)api('release',{},true).catch(()=>{});
@@ -198,6 +207,7 @@
         },reduceMotion()?0:180);}
     }
     async function createTab(){
+        if(panel?.classList.contains('is-swarm-canvas')){window.DragonHtmlSwarm?.deactivate?.();if(!bridge)startRefresh();}
         if(bridge){bridge.action('new-tab');return;}
         if(pendingTab?.pending||busy||state.manual?.active&&!manualToken)return;
         clearKeyboard();const placeholder={id:`pending-tab-${++tabSequence}`,title:'',url:'about:blank',pending:true};pendingTab=placeholder;tabSignature='';pageWidth=0;autoFit=true;render();
@@ -217,12 +227,15 @@
         const tabs=state.tabs.slice();if(pendingTab&&!tabs.some(tab=>tab.id===pendingTab.id))tabs.push(pendingTab);
         const activeId=pendingTab?.id||state.activeId,current=tabs.find(tab=>tab.id===activeId),url=pendingTab?'about:blank':state.url||current?.url||'';
         const elsewhere=Boolean(state.manual?.active&&!manualToken),creating=Boolean(pendingTab?.pending);
-        if(document.activeElement!==address||creating)address.value=url==='about:blank'?'':url;
+        if((document.activeElement!==address||creating)&&!panel?.classList.contains('is-swarm-canvas'))address.value=url==='about:blank'?'':url;
         address.readOnly=!bridge&&(elsewhere||creating);
         const signature=JSON.stringify([tabs,activeId,L('中','en')]);
         if(signature!==tabSignature){tabSignature=signature;paintTabs(tabs,activeId);}
         for(const button of tabsNode.querySelectorAll('button'))button.disabled=busy||elsewhere||creating||button.closest('.is-leaving')!==null;
         const labels={more:L('更多选项','More options'),downloads:L('下载','Downloads'),extensions:L('扩展程序','Extensions'),tabs:L('搜索标签页','All tabs'),keyboard:L('网页输入与上传','Page input and upload'),close:L('关闭浏览器','Close browser'),external:bridge?L('在系统默认浏览器打开','Open in default browser'):L('在新标签页打开','Open in new tab'),back:L('后退','Back'),forward:L('前进','Forward'),reload:L('刷新','Refresh'), 'new-tab':L('新标签页','New tab')};
+        const hasDownloads=!bridge&&Boolean(state.downloads?.length);
+        panel.querySelector('.dc-browser-toolbar-actions [data-browser=downloads]').classList.toggle('has-downloads',hasDownloads);
+        if(hasDownloads)labels.downloads=L('下载（有记录）','Downloads available');
         for(const [name,label]of Object.entries(labels))for(const button of panel.querySelectorAll(`[data-browser="${name}"]`)){button.title=label;button.setAttribute('aria-label',label);}
         panel.querySelector('[data-browser=back]').disabled=busy||elsewhere||!state.canBack;
         panel.querySelector('[data-browser=forward]').disabled=busy||elsewhere||!state.canForward;
@@ -294,7 +307,7 @@
         if(pendingTab&&!pendingTab.pending){if(!data.tabs?.some(tab=>tab.id===pendingTab.id))return;pendingTab=null;}
         if(!data.manual?.active&&!busy)remember('');state={...data,tabs:data.tabs||[]};
         if(data.available&&/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(data.image||'')){
-            image.onload=()=>{if(image.src!==data.image)return;displayedFrame=data;pageWidth=data.viewport?.width||image.naturalWidth;fit();};image.src=data.image;image.alt=data.title||L('网页画面','Browser view');image.hidden=false;
+            image.onload=()=>{if(image.src!==data.image)return;displayedFrame=data;pageWidth=data.viewport?.width?Math.round(data.viewport.width*(data.zoom||1)):image.naturalWidth;fit();};image.src=data.image;image.alt=data.title||L('网页画面','Browser view');image.hidden=false;
             if(Date.now()>errorUntil)status.textContent='';
         }else{displayedFrame=null;image.hidden=true;status.textContent=L('输入网址开始浏览，或让 AI 打开一个网站。','Enter a URL to browse, or ask AI to open a site.');}
         render();
@@ -327,6 +340,20 @@
             if(!response.ok)throw Error(data.error||'Upload failed');
             busy=false;await refresh();
         }catch(error){showError(error.message);}finally{busy=false;render();panel.querySelector('[data-local-files]').value='';}
+    }
+    async function saveDownload(button){
+        const item=state.downloads?.find(item=>item.id===button.dataset.download&&item.state==='completed');
+        if(!item)return;
+        button.disabled=true;
+        try{
+            const response=await fetch('/api/agent-workspace/browser/downloads/'+encodeURIComponent(item.id),{headers:headers(),credentials:'same-origin',cache:'no-store'});
+            if(!response.ok)throw Error(L('下载文件已失效或暂时无法读取。','The download has expired or is unavailable.'));
+            const url=URL.createObjectURL(await response.blob());
+            const link=document.createElement('a');
+            link.href=url;link.download=item.name;link.click();
+            setTimeout(()=>URL.revokeObjectURL(url),60000);
+        }catch(error){showError(error.message);}
+        finally{button.disabled=false;}
     }
     async function api(action,details={},keepalive=false){
         const sentToken=manualToken;
@@ -404,6 +431,8 @@
     }
     function normalizeUrl(raw){const value=raw.trim();if(!value)throw Error();if(!/^[a-z][a-z\d+.-]*:/i.test(value)&&(/\s/.test(value)||!/[.:/]/.test(value)))return 'https://www.google.com/search?q='+encodeURIComponent(value);const prefix=/^(localhost|127\.0\.0\.1)(:|\/|$)/.test(value)?'http://':'https://';const url=new URL(/^[a-z][a-z\d+.-]*:\/\//i.test(value)?value:prefix+value);if(!['http:','https:'].includes(url.protocol)||url.username||url.password)throw Error();return url.href;}
     function navigate(){
+        if(/^dragon:\/\/ai-swarm-canvas/i.test(address.value.trim()))return;
+        if(panel?.classList.contains('is-swarm-canvas')){window.DragonHtmlSwarm?.deactivate?.();if(!bridge)startRefresh();}
         if(bridge)return bridge.action('navigate',address.value);
         let url;try{url=normalizeUrl(address.value);}catch{status.textContent=L('请输入有效的 HTTP 或 HTTPS 网址。','Enter a valid HTTP or HTTPS URL.');return;}
         autoFit=true;pageWidth=0;command('open',{url});
@@ -420,7 +449,13 @@
             if(image.hidden)return;const a=document.createElement('a');a.href=image.src;a.download=image.src.startsWith('data:image/jpeg')?'Dragon-page.jpg':'Dragon-page.png';a.click();return;
         }
         if(name==='reopen-tab'&&!bridge){const tab=closedTabs.pop();if(tab)command('new-tab').then(()=>command('open',{url:tab.url}));return;}
-        if(!bridge&&['zoom-in','zoom-out','zoom-reset'].includes(name)){viewScale=name==='zoom-reset'?1:Math.max(.5,Math.min(3,Math.round((viewScale+(name==='zoom-in'?.25:-.25))*100)/100));zoomed=viewScale!==1;image.style.width=`${viewScale*100}%`;menuSignature='';render();return;}
+        // 网页端缩放让远端页面真正按比例重排（同 Chrome 缩放），而不是只缩小截图留白边。
+        if(!bridge&&['zoom-in','zoom-out','zoom-reset'].includes(name)){
+            const current=state.zoom||1,index=ZOOM_LEVELS.findIndex(level=>level>=current-.001);
+            const level=name==='zoom-reset'?1:ZOOM_LEVELS[Math.max(0,Math.min(ZOOM_LEVELS.length-1,(index<0?ZOOM_LEVELS.indexOf(1):index)+(name==='zoom-in'?1:-1)))];
+            if(level===current||!state.available)return;
+            menuSignature='';return command('zoom',{level});
+        }
         if(bridge&&['plugins','print','devtools','find-open'].includes(name)){menu='';renderMenu();layout();}
 
         if(name==='popout')name='external';
@@ -464,6 +499,7 @@
         panel.addEventListener('click',event=>{
             const button=event.target.closest('button');if(!button)return;
             if(button.dataset.download&&bridge)bridge.action('download-action',{id:button.dataset.download,action:button.dataset.downloadAction});
+            if(!bridge&&button.dataset.downloadAction==='save')saveDownload(button);
             if(button.dataset.libraryUrl&&bridge){bridge.action('library-open',button.dataset.libraryUrl);setMenu(menu);}
             if(button.dataset.findForward&&bridge)bridge.action('find',{text:panel.querySelector('[data-find-input]').value,forward:button.dataset.findForward==='true'});
         });

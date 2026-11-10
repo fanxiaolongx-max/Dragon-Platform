@@ -314,18 +314,18 @@
     // 轮询只做增量更新：已显示的消息原地保留，新消息追加（自带淡入），内容有变化的只改正文，避免整屏重绘闪烁
     const sameItem = (a, b) => a && b && a.role === b.role && a.content === b.content && JSON.stringify(a.attachments || []) === JSON.stringify(b.attachments || []) && JSON.stringify(a.widget || null) === JSON.stringify(b.widget || null) && a.createdAt === b.createdAt;
     function widgetHtml(widget) {
-        // 不执行原生客户端注入的 HTML 脚本，不授予同源、表单、弹窗或导航权限。
+        // 尊重事实产出的 HTML（图表库、柱状图、Canvas、内联样式与脚本），在隔离沙箱（无同源权限、无导航权限）中运行
         const preview = document.createElement('template');
         preview.innerHTML = widget.html;
-        preview.content.querySelectorAll('script,iframe,frame,object,embed,meta,base,link,template').forEach(node => node.remove());
+        preview.content.querySelectorAll('iframe,frame,object,embed,meta,base,link[rel=import],template').forEach(node => node.remove());
         preview.content.querySelectorAll('*').forEach(node => {
-            for (const attr of [...node.attributes]) if (/^on/i.test(attr.name) || ['href', 'xlink:href', 'action', 'formaction', 'srcdoc', 'target'].includes(attr.name)) node.removeAttribute(attr.name);
+            for (const attr of [...node.attributes]) if (['action', 'formaction', 'srcdoc', 'target'].includes(attr.name)) node.removeAttribute(attr.name);
         });
-        const doc = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'; navigate-to 'none'"><style>
+        const doc = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' https: http: data: blob:; style-src 'unsafe-inline' https: http:; img-src data: https: http: blob:; font-src data: https: http:; connect-src data: https: http:; base-uri 'none'; form-action 'none'; navigate-to 'none'"><style>
             :root{color-scheme:light;--font-sans:system-ui,sans-serif;--font-mono:monospace;--color-background-primary:#fff;--color-background-secondary:#f3f4f6;--color-background-info:#e0f2fe;--color-text-primary:#202124;--color-text-secondary:#666;--color-text-tertiary:#888;--color-text-info:#0369a1;--color-border-primary:#aaa;--color-border-secondary:#ccc;--color-border-tertiary:#ddd;--border-radius-lg:12px;--border-radius-md:8px}
             *{box-sizing:border-box}body{margin:0;padding:16px;font-family:var(--font-sans);color:var(--color-text-primary);background:var(--color-background-primary);overflow-wrap:anywhere}img,svg,canvas{max-width:100%}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0)}
             </style></head><body>${preview.innerHTML}</body></html>`;
-        return `<section class="desktop-agent-widget"><div class="desktop-agent-widget-title">${esc(widget.title)} · ${esc(L('可视化预览', 'Visual preview'))}</div><iframe sandbox="" referrerpolicy="no-referrer" title="${esc(widget.title)}" srcdoc="${esc(doc)}"></iframe></section>`;
+        return `<section class="desktop-agent-widget"><div class="desktop-agent-widget-title">${esc(widget.title)} · ${esc(L('可视化预览', 'Visual preview'))}</div><iframe sandbox="allow-scripts" referrerpolicy="no-referrer" title="${esc(widget.title)}" srcdoc="${esc(doc)}"></iframe></section>`;
     }
     // 只替换从第一个变化处开始的段落：前面的段落、代码块和选中的文字保持不动
     function morph(target, html) { const next = document.createElement('div'); next.innerHTML = html; const before = [...target.childNodes], after = [...next.childNodes]; let i = 0; while (i < before.length && i < after.length && before[i].isEqualNode(after[i]))

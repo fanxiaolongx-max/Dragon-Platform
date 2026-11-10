@@ -48,9 +48,10 @@
             // 1. 无前序有效点；
             // 2. 采样时间倒流；
             // 3. 超过最大容忍间隔（很久没数据）；
-            // 4. 重置时间戳变更（进入新的一轮周期）；
+            // 4. 重置时间戳变更（进入新的一轮周期；排除服务商接口在各次轮询中的秒级/毫秒级微小抖动，变更大于 1 小时方计为真实周期重置）；
             // 5. 额度回升显著大于正常浮动（> 0.5%，通常为重置回满或充值）。
-            const isReset = Boolean(point.resetsAt && last && last.resetsAt && point.resetsAt !== last.resetsAt);
+            const resetDiff = (point.resetsAt && last?.resetsAt) ? Math.abs(Date.parse(point.resetsAt) - Date.parse(last.resetsAt)) : 0;
+            const isReset = Boolean(point.resetsAt && last?.resetsAt && Number.isFinite(resetDiff) && resetDiff > 3600 * 1000);
             const isRebound = Boolean(last && point.remaining > last.remaining + 0.5);
             const isLongGap = Boolean(last && (point.at - last.at > gap || point.at <= last.at));
 

@@ -1637,6 +1637,7 @@ function getRecentNavToolIds() {
 
 function recordRecentNavTool(toolId) {
     if (!toolId || typeof toolId !== 'string') return;
+    try { window.CatalogUpdateAudit?.markUsed?.('tool', toolId.replace(/^custom:/, '')); } catch (_) {}
     try {
         const tenantId = localStorage.getItem('tools_tenant_id') || 'default';
         const key = `${NAV_RECENT_STORAGE_KEY}:${tenantId}`;
