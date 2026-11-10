@@ -230,7 +230,7 @@
     function distributionAction(target) {
         if (localStorage.getItem('tools_super') !== '1' || !window.isNavSuperAdmin?.() || (localStorage.getItem('tools_tenant_id') || 'default') !== 'default') return null;
         let endpoint, payload, entry;
-        if (target.kind === 'tool' && target.slug && target.customTool && !target.customTool.hostedApp) {
+        if (target.kind === 'tool' && target.slug && target.customTool) {
             entry = target.customTool;
             endpoint = `/api/custom-tools/${encodeURIComponent(target.slug)}/distribution`;
             payload = {};
@@ -389,6 +389,8 @@
             const customTool = target.customTool || (target.slug ? (window.__homeCustomTools || []).find(t => t.slug === target.slug) : null);
             const isBuiltIn = customTool?.builtIn === true;
             const isHostedApp = customTool?.hostedApp || customTool?.category === 'hosted-app';
+            // 开放给全员的托管应用是全员共用的同一个进程：团队账号不能更新、重命名，只能从自己的首页隐藏（后端同样拒绝）
+            const sharedHosted = Boolean(isHostedApp && customTool?.shared);
             const favId = target.id || (isCustom ? `custom:${target.slug}` : target.href.replace(/^\//, ''));
 
             // 1. 收藏 / 取消收藏
@@ -437,7 +439,7 @@
                         }
                     });
                 }
-                if (window.openCustomToolUpdateModal) actions.push({
+                if (!sharedHosted && window.openCustomToolUpdateModal) actions.push({
                     id: 'update',
                     label: t('updateTool'),
                     icon: 'upload',
@@ -455,7 +457,7 @@
                         }
                     }
                 });
-                if (window.renameCustomTool) {
+                if (!sharedHosted && window.renameCustomTool) {
                     actions.push({
                         id: 'rename',
                         label: t('rename'),
@@ -469,7 +471,7 @@
                 if (window.deleteCustomTool) {
                     actions.push({
                         id: 'delete',
-                        label: t('deleteTool'),
+                        label: sharedHosted ? t('personalHide') : t('deleteTool'),
                         icon: 'trash',
                         danger: true,
                         run: async () => {

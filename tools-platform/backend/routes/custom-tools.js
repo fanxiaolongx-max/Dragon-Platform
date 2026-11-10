@@ -18,7 +18,7 @@ const f12ExtensionVersionService = require('../models/f12-extension-version-serv
 const f12ScriptPresetsRepository = require('../models/f12-script-presets-repository');
 const bundledScripts = require('../models/bundled-scripts');
 const { getDataDir } = require('../models/store');
-const { requireAdmin, requireSuperAdmin, isSuperAdmin } = require('../middleware/auth');
+const { requireAdmin, requireSuperAdmin, isSuperAdmin, inSuperAdminSpace } = require('../middleware/auth');
 const customToolI18nGenerator = require('../../scripts/generate-custom-tool-i18n');
 const customToolExportService = require('../models/custom-tool-export-service');
 const snapshotsRepo = require('../models/custom-tools-snapshots-repository');
@@ -802,9 +802,12 @@ router.delete('/:slug/history/:historyId', async (req, res) => {
 
 async function importTool(payload, user) {
     if (user && !isSuperAdmin(user) && getTenantId() === DEFAULT_TENANT_ID) throw Object.assign(new Error('不能修改系统空间的工具'), { status: 403 });
+    // Python 应用在宿主机直接起进程，不在团队沙箱里：只允许超级管理员空间导入
+    const pythonApp = await hostedApps.isPythonPayload(payload);
+    if (pythonApp && !inSuperAdminSpace(user)) throw Object.assign(new Error('Python 应用包仅超级管理员可以导入'), { status: 403, code: 'SUPER_ADMIN_REQUIRED' });
     const personalUpdate = payload.updateSlug && await distribution.preparePersonalToolUpdate(payload.updateSlug, user);
     // Python Web 应用包：登记为工具入口并由平台托管运行（backend/models/hosted-apps）
-    const tool = await hostedApps.isPythonPayload(payload)
+    const tool = pythonApp
         ? await hostedApps.importApp(payload, { createTool: repo.createTool })
         : await repo.createTool(payload);
     if (personalUpdate) {
@@ -848,6 +851,8 @@ router.patch('/:slug/name', async (req, res) => {
             const resolved = await distribution.resolveTool(req.params.slug, req.user);
             if (!resolved) return res.status(404).json({ error: '工具不存在或未开放' });
             if (resolved.shared) {
+                // 托管应用是全员共用的同一个进程，各团队各取一个名字会造成混乱
+                if (await distribution.sharedHostedApp(req.params.slug, req.user)) return res.status(403).json({ error: '托管应用由超级管理员维护，不能重命名', code: 'SUPER_ADMIN_REQUIRED' });
                 const name = String(req.body?.name || '').trim().slice(0, 80);
                 if (!name) return res.status(400).json({ error: '名称不能为空' });
                 await distribution.setPersonalEntry(req.user, `tool:${req.params.slug}`, { name });

@@ -1553,6 +1553,7 @@
             let skillImport = null;
             // Python Web 应用包（含 requirements.txt）：由平台托管运行，可更新已托管的同名应用
             let pythonImport = null;
+            let pythonBlocked = false; // 团队账号选了 Python 应用包：提交按钮保持禁用，直到换一个文件
             const tagsField = document.getElementById('customToolTags')?.closest('.tool-import-field');
             const fileToBase64 = async file => {
                 const bytes = new Uint8Array(await file.arrayBuffer());
@@ -1610,6 +1611,7 @@
             };
             const detectSkill = async file => {
                 const generation = ++metadataGeneration;
+                if (pythonBlocked) { pythonBlocked = false; submitBtn.disabled = false; }
                 setAiStatus(t('home.import.skillChecking'), 'loading');
                 let preview = null;
                 try {
@@ -1634,6 +1636,8 @@
                         if (generation !== metadataGeneration) return;
                         setPythonMode(null);
                         setAiStatus(error.message, 'warning');
+                        // Python 应用包只有超级管理员能导入：不让继续提交（后端同样拒绝）
+                        if (error.status === 403) { submitBtn.disabled = true; pythonBlocked = true; }
                         return;
                     }
                     if (generation !== metadataGeneration) return;

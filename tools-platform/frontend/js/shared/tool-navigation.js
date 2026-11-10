@@ -119,13 +119,20 @@
     const open = window.open;
     window.open = function (url, ...args) { return open.call(this, typeof url === 'string' || url instanceof URL ? toolUrl(String(url)) : url, ...args); };
     window.ToolsNavigation = { ...window.ToolsNavigation, toolUrl, shellUrl, installed: true };
+    const publicPath = /^\/(?:cinema|cinama|project-evolution|privacy|terms)(?:\/|\.html$|$)|^\/pages\/(?:cinema|cinama|project-evolution|privacy|terms)\.html$/i;
+    const isPublic = publicPath.test(location.pathname);
     const current = location.pathname !== '/' ? resolveTool(location.href) : null;
-    let clean = current?.searchParams.get('standalone') === '1';
+    let clean = current?.searchParams.get('standalone') === '1' || (isPublic && window.top === window);
     try { if (window.top !== window) clean ||= window.top.document.documentElement.classList.contains('is-clean-tool'); } catch { /* Cross-origin host. */ }
     if (current || clean) {
-        document.documentElement.classList.add('is-embedded-tool');
-        if (clean && !window.DragonToolSurface) document.documentElement.classList.add('is-clean-tool');
-        else if (!clean && window.top === window && !window.__TP_STATIC_BASE__) location.replace(shellUrl(location.href));
+        if (!isPublic || window.top !== window) {
+            document.documentElement.classList.add('is-embedded-tool');
+        }
+        if (clean && !window.DragonToolSurface) {
+            if (!isPublic) document.documentElement.classList.add('is-clean-tool');
+        } else if (!clean && window.top === window && !window.__TP_STATIC_BASE__ && !isPublic) {
+            location.replace(shellUrl(location.href));
+        }
         const style = document.createElement('style');
         style.textContent = 'html.is-embedded-tool{--navbar-h:0px}html.is-embedded-tool #app-navbar,html.is-embedded-tool #navbar-container{display:none!important}html.is-clean-tool :is(.ai-fab,.ai-panel,.ai-proactive-alert,.ops-inbox-banner,.ops-home-inbox,.custom-tool-head){display:none!important}html.is-clean-tool .custom-tool-shell{grid-template-rows:1fr}';
         document.head.append(style);

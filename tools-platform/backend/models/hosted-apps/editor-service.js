@@ -592,7 +592,60 @@ function getDiff(slug, { commitHash = null, filePath = null } = {}) {
     return { diff: runGit(codeDir, args) };
 }
 
+// ── 只读查看（开放给全员的应用）：密钥类文件不展示，不产生任何写入 ─────────
+const SECRET_NAME = /^(?:\.env(?:\..*)?|\.netrc|\.npmrc|\.pypirc|id_(?:rsa|dsa|ecdsa|ed25519)|credentials(?:\..*)?|secrets?(?:\..*)?)$/i;
+const SECRET_EXT = /\.(?:pem|key|p12|pfx|jks|keystore|crt|cer)$/i;
+const SECRET_SAFE = /^\.env\.(?:example|sample|template)$/i;
+const SECRET_PATHSPECS = ['.env', '.env.*', '.netrc', '.npmrc', '.pypirc', 'id_rsa', 'id_dsa', 'id_ecdsa', 'id_ed25519', 'credentials', 'credentials.*', 'secret', 'secret.*', 'secrets', 'secrets.*',
+    '*.pem', '*.key', '*.p12', '*.pfx', '*.jks', '*.keystore', '*.crt', '*.cer'].map(name => `:(exclude,glob,icase)**/${name}`);
+
+function isSecretPath(relativePath) {
+    return String(relativePath || '').replace(/\\/g, '/').split('/').filter(Boolean)
+        .some(name => !SECRET_SAFE.test(name) && (SECRET_NAME.test(name) || SECRET_EXT.test(name)));
+}
+
+function denySecret(relativePath) {
+    if (isSecretPath(relativePath)) throw Object.assign(new Error('该文件包含密钥或本地配置，仅超级管理员可查看'), { status: 403 });
+}
+
+const hasGitRepo = slug => fs.existsSync(path.join(path.resolve(runtime.paths(slug).code), '.git'));
+const stripCredentials = url => String(url || '').replace(/^([a-z][a-z0-9+.-]*:\/\/)[^/@]+@/i, '$1');
+
+const viewer = {
+    tree(slug) {
+        const prune = items => items.filter(item => !isSecretPath(item.name)).map(item => item.isDir ? { ...item, children: prune(item.children || []) } : item);
+        return prune(getFileTree(slug));
+    },
+    file(slug, relativePath) {
+        denySecret(relativePath);
+        const { resolved, codeDir } = resolveSafePath(slug, relativePath);
+        // 符号链接可能指到应用目录之外
+        if (fs.existsSync(resolved)) {
+            const real = fs.realpathSync(resolved), root = fs.realpathSync(codeDir);
+            if (real !== root && !real.startsWith(root + path.sep)) throw Object.assign(new Error('非法路径访问（路径超出应用目录范围）'), { status: 403 });
+            denySecret(path.relative(root, real));
+        }
+        return readFile(slug, relativePath);
+    },
+    gitStatus(slug) {
+        if (!hasGitRepo(slug)) return { branch: '', remoteUrl: '', clean: true, modified: [], untracked: [], ahead: 0, behind: 0, version: '', packageName: '' };
+        const status = getGitStatus(slug);
+        return { ...status, remoteUrl: stripCredentials(status.remoteUrl),
+            modified: status.modified.filter(item => !isSecretPath(item.file)), untracked: status.untracked.filter(file => !isSecretPath(file)) };
+    },
+    gitHistory(slug, limit) { return hasGitRepo(slug) ? getGitHistory(slug, limit) : []; },
+    diff(slug, { commitHash = null, filePath = null } = {}) {
+        if (!hasGitRepo(slug)) return { diff: '' };
+        if (filePath) denySecret(filePath);
+        const codeDir = path.resolve(runtime.paths(slug).code);
+        const scope = filePath ? ['--', String(filePath)] : ['--', '.', ...SECRET_PATHSPECS];
+        return { diff: runGit(codeDir, [...(commitHash ? ['show', String(commitHash).trim()] : ['diff', 'HEAD']), ...scope]) };
+    }
+};
+
 module.exports = {
+    viewer,
+    isSecretPath,
     ensureGitRepo,
     getFileTree,
     readFile,

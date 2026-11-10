@@ -2430,33 +2430,33 @@ function renderMediaSettingsHtml(content, overview, videos, categories) {
                         密码
                         <input type="password" id="feiniuPasswordInput" class="nav-settings-input" value="${feiniu.hasPassword ? '********' : ''}" placeholder="输入飞牛密码" autocomplete="current-password" style="display:block; width:100%; box-sizing:border-box; margin-top:4px; padding:8px 10px; border-radius:8px; font-size:13px;">
                     </label>
-                    <div style="display:flex; gap:8px;">
-                        <button type="button" onclick="saveFeiniuMediaConfig(this)" style="height:36px; padding:0 14px; background:#2563eb; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap;">
-                            🔗 保存并对接
+                    <div style="display:flex; align-items:center; gap:8px; height:38px;">
+                        <button type="button" onclick="saveFeiniuMediaConfig(this)" style="height:38px; padding:0 16px; background:linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color:#fff; border:1px solid #1d4ed8; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 1px 3px rgba(37,99,235,0.25); box-sizing:border-box; margin:0 !important; transition:all 0.15s ease;" onmouseover="this.style.filter='brightness(1.08)'" onmouseout="this.style.filter='none'">
+                            <span>🔗</span> 保存并对接
                         </button>
-                        <button type="button" class="nav-settings-add" onclick="syncFeiniuMediaCatalog(this)" style="height:36px; padding:0 12px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap;" title="立即从飞牛影视同步影片列表">
-                            🔄 同步片库
+                        <button type="button" onclick="syncFeiniuMediaCatalog(this)" style="height:38px; padding:0 14px; background:var(--v2-card, #fff); color:var(--v2-ink, #334155); border:1px solid var(--v2-line, #cbd5e1); border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 1px 2px rgba(0,0,0,0.04); box-sizing:border-box; margin:0 !important; transition:all 0.15s ease;" onmouseover="this.style.borderColor='#2563eb';this.style.color='#2563eb';this.style.background='#eff6ff'" onmouseout="this.style.borderColor='var(--v2-line, #cbd5e1)';this.style.color='var(--v2-ink, #334155)';this.style.background='var(--v2-card, #fff)'" title="立即从飞牛影视同步影片列表">
+                            <span>🔄</span> 同步片库
                         </button>
                     </div>
                 </div>
             </div>
 
             <!-- 操作工具条 -->
-            <div class="nav-media-toolbar-card" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; padding:12px; border:1px solid #e2e8f0; border-radius:10px;">
-                <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                    <button type="button" class="sys-btn" onclick="openCreateMediaFolderModal()" style="background:#6366f1; color:#fff; border:none; border-radius:6px; padding:6px 12px; font-size:13px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">
-                        <span>+</span> 新建分类文件夹
+            <div class="nav-media-toolbar-card" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; padding:12px 14px; border:1px solid var(--v2-line, #e2e8f0); border-radius:10px; background:var(--v2-side, #ffffff);">
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                    <button type="button" onclick="openCreateMediaFolderModal()" style="height:36px; padding:0 14px; background:linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color:#fff; border:1px solid #4f46e5; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 1px 3px rgba(99,102,241,0.25); white-space:nowrap; box-sizing:border-box; margin:0 !important; transition:all 0.15s ease;" onmouseover="this.style.filter='brightness(1.08)'" onmouseout="this.style.filter='none'">
+                        <span style="font-size:15px; font-weight:700; line-height:1;">+</span> 新建分类文件夹
                     </button>
-                    <button type="button" class="sys-btn" onclick="openImportLocalMediaModal()" style="background:#0ea5e9; color:#fff; border:none; border-radius:6px; padding:6px 12px; font-size:13px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">
+                    <button type="button" onclick="openImportLocalMediaModal()" style="height:36px; padding:0 14px; background:linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); color:#fff; border:1px solid #0284c7; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 1px 3px rgba(14,165,233,0.25); white-space:nowrap; box-sizing:border-box; margin:0 !important; transition:all 0.15s ease;" onmouseover="this.style.filter='brightness(1.08)'" onmouseout="this.style.filter='none'">
                         <span>📥</span> 本地目录一键导入
                     </button>
-                    <a href="${navToolShellUrl('/cinema')}" target="_blank" class="nav-settings-add" style="text-decoration:none; border-radius:6px; padding:6px 12px; font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:4px;">
+                    <a href="${navToolShellUrl('/cinema')}" target="_blank" style="height:36px; padding:0 14px; background:var(--v2-card, #fff); color:var(--v2-ink, #334155); border:1px solid var(--v2-line, #cbd5e1); border-radius:8px; font-size:13px; font-weight:600; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 1px 2px rgba(0,0,0,0.04); white-space:nowrap; box-sizing:border-box; margin:0 !important; transition:all 0.15s ease;" onmouseover="this.style.borderColor='#6366f1';this.style.color='#4f46e5';this.style.background='#f5f3ff'" onmouseout="this.style.borderColor='var(--v2-line, #cbd5e1)';this.style.color='var(--v2-ink, #334155)';this.style.background='var(--v2-card, #fff)'">
                         <span>🎬</span> 预览点播大厅 ↗
                     </a>
                 </div>
-                <div style="display:flex; gap:8px; align-items:center;">
-                    <button type="button" class="nav-settings-add" onclick="renderMediaSettings(document.getElementById('navSettingsContent'))" style="border-radius:6px; padding:6px 10px; font-size:12px; cursor:pointer;" title="重新扫描磁盘视频">
-                        🔄 刷新
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <button type="button" onclick="renderMediaSettings(document.getElementById('navSettingsContent'))" style="height:36px; padding:0 14px; background:var(--v2-card, #fff); color:var(--v2-ink2, #475569); border:1px solid var(--v2-line, #cbd5e1); border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 1px 2px rgba(0,0,0,0.04); white-space:nowrap; box-sizing:border-box; margin:0 !important; transition:all 0.15s ease;" onmouseover="this.style.borderColor='#94a3b8';this.style.color='#0f172a';this.style.background='var(--v2-chip, #f8fafc)'" onmouseout="this.style.borderColor='var(--v2-line, #cbd5e1)';this.style.color='var(--v2-ink2, #475569)';this.style.background='var(--v2-card, #fff)'" title="重新扫描磁盘视频与片库">
+                        <span>🔄</span> 刷新
                     </button>
                 </div>
             </div>

@@ -71,7 +71,7 @@ app.whenReady().then(async () => {
         hasMore: false
     }));
     web.get('/api/desktop-agents/settings', (_, res) => res.json({ owned: true, settings: { enabled: true, autoSync: false, syncSeconds: 20, providers: { codex: true, claudecode: false } } }));
-    web.get('/api/desktop-agents/sessions', (_, res) => res.json({ items: [{ id: 'codex-fixture', provider: 'codex', title: 'Codex 筛选验证', updatedAt: '2026-11-02T10:00:00Z' }], providers: [{ id: 'codex', enabled: true, connected: true }] }));
+    web.get('/api/desktop-agents/sessions', (_, res) => res.json({ items: [{ id: 'codex-fixture', provider: 'codex', title: 'Codex 筛选验证', updatedAt: '2026-11-02T08:00:00Z' }], providers: [{ id: 'codex', enabled: true, connected: true }] }));
     web.use('/api', (_, res) => res.json({ items: [] }));
     web.use(express.static(frontend));
 
@@ -102,6 +102,23 @@ app.whenReady().then(async () => {
     console.log('3. Verifying agent / channel icons in unified chat list...');
     const hasIcons = await evaluate('document.querySelectorAll("#homeChatList .home-chat-agent-ico").length > 0');
     console.log('Has agent icons:', hasIcons);
+
+    await until('document.querySelector("#homeChatList").textContent.includes("Codex 筛选验证")');
+    const firstTask = 'document.querySelector(\'[data-section="tasks"] .home-chat-owned\')';
+    assert.match(await evaluate(`${firstTask}.textContent`), /普通对话 1/);
+    await evaluate(`
+        window.fixtureIsBusy = HomeDesktopAgents.isBusy;
+        HomeDesktopAgents.isBusy = (provider, id) => id === 'codex-fixture' || window.fixtureIsBusy(provider, id);
+        window.dispatchEvent(new Event('home:desktop-agents-busy'));
+    `);
+    assert.match(await evaluate(`${firstTask}.textContent`), /Codex 筛选验证/);
+    assert.equal(await evaluate(`${firstTask}.classList.contains('is-running')`), true);
+    await evaluate(`
+        HomeDesktopAgents.isBusy = window.fixtureIsBusy;
+        window.dispatchEvent(new Event('home:desktop-agents-busy'));
+    `);
+    assert.match(await evaluate(`${firstTask}.textContent`), /普通对话 1/);
+    assert.equal(await evaluate('!!document.querySelector(\'[data-section="tasks"] .is-running\')'), false);
 
     console.log('4. Verifying workspace / project structure, toggle and add button...');
     const projectToggle = await evaluate('!!document.querySelector("[data-project-toggle]")');

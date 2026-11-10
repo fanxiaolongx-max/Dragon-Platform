@@ -153,7 +153,28 @@ function ensureFromBundle(slug) {
 }
 
 /** 启动页调用：未运行则后台启动，运行中则签发当前用户的访问链接。 */
-async function launch(slug, user) {
+/** 非运维账号看到的状态：不带端口、进程号，错误只给笼统提示。 */
+function publicStatus(status) {
+    const { port: _port, pid: _pid, ...rest } = status;
+    return { ...rest, lastError: status.lastError ? '应用暂时不可用，请联系管理员' : '' };
+}
+
+/**
+ * viewer：团队账号打开超级管理员开放的应用。只签发访问链接，不触发安装和启动；
+ * 应用里的身份固定为普通成员（团队账号在自己团队里是管理员，但不是这个应用的管理员）。
+ */
+async function launch(slug, user, { viewer = false, userTenantId } = {}) {
+    if (viewer) {
+        const current = runtime.status(runtime.assertSlug(slug));
+        if (!current) return null;
+        const result = { ...publicStatus(current), isAdmin: false, canView: true };
+        if (current.status === 'running') {
+            const { token, expiresAt } = proxy.issueToken({ tenantId: tenant.getTenantId(), slug, username: user.username, role: 'readonly', userTenantId });
+            result.entryUrl = proxy.entryUrl(slug, token);
+            result.entryExpiresAt = expiresAt;
+        }
+        return result;
+    }
     await ensureFromBundle(runtime.assertSlug(slug));
     const state = runtime.status(slug);
     if (!state) return null;
@@ -208,4 +229,4 @@ async function removeIfHosted(slug) {
     return runtime.removeApp(slug);
 }
 
-module.exports = { isPythonPayload, preview, importApp, updatePackage, launch, removeIfHosted, launcherHtml, isLauncherFile, packageForSource, ensureFromBundle, BUNDLED_PACKAGE, LAUNCHER_TAG };
+module.exports = { publicStatus, isPythonPayload, preview, importApp, updatePackage, launch, removeIfHosted, launcherHtml, isLauncherFile, packageForSource, ensureFromBundle, BUNDLED_PACKAGE, LAUNCHER_TAG };

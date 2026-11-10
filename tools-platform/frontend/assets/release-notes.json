@@ -1,24 +1,16 @@
 {
   "zh": [
-    "媒体资源库新增科普动画《AI 原生的 7 个层面》（平台类第 14 集）：托管于 Dragon-Platform-Media，按需下载并本地缓存，缓存后可离线观看。",
-    "需求图片上传自动压缩：选图上限放宽至 20MB，客户端自动等比缩放并转换为高质量 WebP 格式（体积降低 70%~90%），动图保真保留，大幅优化传输带宽与存储性能。",
-    "已关闭需求图片自动清理：需求评价归档或拒绝超过 30 天后，系统每日定时自动清理图片释放数据库空间，并在流转日志中留存系统审计记录。",
-    "需求图片接口缓存加速：图片获取接口支持 24 小时浏览器缓存，避免预览和流转时重复下载。",
-    "团队账号安全加固：数据探索、平台推广配置、工具说明生成等平台级操作仅超级管理员可用；平台共享的 MCP 服务对团队默认关闭，超级管理员可在「智能体工具」里开启。",
-    "团队账号可以使用对话里的浏览器：每个账号独立的浏览器进程运行在团队沙箱中，不能访问服务器本机和内网地址。",
-    "团队命令沙箱更可靠：改用真实沙箱规则检测可用性，装好依赖后一分钟内自动恢复，无需重启平台。",
-    "新增 Linux 服务器一键安装与自动更新脚本：定时拉取最新版本，启动异常自动回退到上一版。",
-    "媒体资源新增总开关，关闭后登录页与公开点播入口不再展示；意见反馈窗口在所有页面都可上传图片。"
+    "智能体工具权限收敛与状态联动：WeLink 频道消息（机器人推送）纳入团队默认关闭策略，与平台共享 MCP 保持一致；当底层频道未启用时自动对非超管隐藏，超管后台清晰标明连接状态。",
+    "WorkBuddy 桌面连接器会话解析增强：修复桌面智能体遇到字符串等非数组格式消息时报错中断的问题，自适应兼容多种原生会话结构与历史解析。",
+    "托管 Python 应用跨团队共享与访问治理：支持超级管理员将托管应用安全共享至指定团队或全员，严格隔离底层源码与平台鉴权，强化应用代码编辑与反向代理安全性。",
+    "登录页与媒体资源大厅跳转修复：修复未登录状态下点击登录页「影视作品」被重定向回登录界面的问题，支持免登录直接浏览公开点播大厅；统一后台媒体资源卡片操作按钮对齐与样式。",
+    "AI 月报保存网络容错优化：AiOps-Report 接口增加连接异常自动重试机制，有效抵御隧道代理抖动或 Keep-Alive 长连接回收导致的保存中断。"
   ],
   "en": [
-    "New explainer animation \"Seven Layers of AI Native\" (platform episode 14) in the media library: hosted on Dragon-Platform-Media, downloaded on demand and cached locally for offline viewing.",
-    "Requirement image auto-compression: raw file size limit relaxed to 20MB with client-side proportional downscaling and WebP compression (70%~90% size reduction), preserving animated GIFs intact.",
-    "Closed requirement image auto-cleanup: images for evaluated or rejected requirements older than 30 days are automatically reclaimed daily to free database storage, logging audit trails.",
-    "Requirement image cache optimization: image endpoints now serve 24-hour browser caching headers, preventing redundant downloads during review.",
-    "Team account hardening: the data explorer, promotion settings and tool-guide generation are now super admin only; shared MCP servers are off for teams by default and can be enabled under Agent Tools.",
-    "Team accounts can use the in-chat browser: each account gets its own browser process inside the team sandbox, with no access to the server itself or private networks.",
-    "More reliable team command sandbox: availability is checked with the real sandbox rules and recovers within a minute after dependencies are installed, with no restart.",
-    "New install and auto-update script for Linux servers: pulls the latest version on a timer and rolls back if the new version fails to start.",
-    "Media resources gain a master switch that hides the login-page and public playback entries when off; the feedback dialog can attach images on every page."
+    "Agent tool access hardening & channel status linking: WeLink channel messaging (bot push) is now off for teams by default alongside shared MCP; tools are hidden from non-super admins when the channel is disabled.",
+    "WorkBuddy desktop connector session resilience: fixed conversation crashes caused by non-array teammate messages, adapting seamlessly across varied native chat structures.",
+    "Hosted Python app team sharing & governance: super admins can now securely share hosted applications across teams with strict source isolation, hardened code editing, and secure proxy authentication.",
+    "Login page & cinema navigation fixes: resolved an issue where clicking 'Cinema' on the login page redirected back to login, enabling direct guest access; standardized media resource button alignment.",
+    "AI monthly report network resilience: added automatic connection retry to AiOps-Report document saving to withstand transient tunnel flaps and keep-alive socket drops."
   ]
 }

@@ -87,6 +87,18 @@ my_app/                     # ZIP 里可以有一层顶级目录
 - **只有管理员能导入**：导入时会提示，平台将在本机运行包里的 Python 代码。进程级隔离不是操作系统沙箱：应用代码拥有运行平台的操作系统账号的文件和网络权限，请只导入来源可信的应用包。
 - **入口鉴权**：应用只监听 `127.0.0.1`。用户必须登录平台，由启动页签发访问令牌（绑定租户、应用、用户，有效期 12 小时，HMAC 签名）。令牌无效或过期时返回 401；不带令牌访问时，跳转到工具入口。
 - **请求过滤**：转发给应用的请求会去掉 Cookie、Authorization、Origin、Referer 和各类转发头，改为附带 `X-Platform-User`、`X-Platform-Role`、`X-Platform-Tenant`、`X-Platform-Timestamp`、`X-Platform-Signature`。签名为 `HMAC-SHA256(PLATFORM_APP_SECRET, user\nrole\ntenant\ntimestamp)`，应用可以据此识别平台用户。
+- **按团队分数据**：应用被超级管理员「开放给全员」后，所有团队共用同一个进程和同一个应用库。平台另外附带 `X-Platform-User-Tenant`（当前用户所属团队的 ID；超级管理员空间的用户为 `default`）和 `X-Platform-Team-Signature`，签名为 `HMAC-SHA256(PLATFORM_APP_SECRET, user\nrole\ntenant\nuserTenant\ntimestamp)`。需要按团队隔离的应用，请在表里加团队列，写入和查询都用校验过的这个值过滤；`X-Platform-Tenant` 始终是应用所在空间，不能用来区分团队。团队账号在应用里的 `X-Platform-Role` 固定为 `readonly`（普通成员）。
+
+  ```python
+  import hmac, hashlib, os, time
+  def platform_team(headers):
+      user, role, tenant = headers.get("x-platform-user", ""), headers.get("x-platform-role", ""), headers.get("x-platform-tenant", "")
+      team, ts = headers.get("x-platform-user-tenant", ""), headers.get("x-platform-timestamp", "")
+      expected = hmac.new(os.environ["PLATFORM_APP_SECRET"].encode(), f"{user}\n{role}\n{tenant}\n{team}\n{ts}".encode(), hashlib.sha256).hexdigest()
+      if not hmac.compare_digest(expected, headers.get("x-platform-team-signature", "")) or abs(time.time() * 1000 - int(ts or 0)) > 60000:
+          raise PermissionError("平台身份校验失败")
+      return team
+  ```
 - **响应过滤**：应用响应里的 Set-Cookie、Clear-Site-Data、HSTS、X-Frame-Options 等会被去掉，防止改写平台 Cookie 或清空平台数据。平台改设 `X-Frame-Options: SAMEORIGIN`，禁止外站嵌入；重定向地址会改写到应用前缀之下。
 - **页面隔离**：所有应用响应都带 `Content-Security-Policy: sandbox ...`（不含 `allow-same-origin`），启动页的 iframe 也带同样的 sandbox 属性。应用页面因此是独立来源，读不到平台 Cookie，不能带登录态调用平台 API，也访问不了上层页面。
 - **兼容层**：页面里的 `localStorage` 由平台注入的兼容脚本改为按「应用 + 用户」保存在服务端（上限 5 MB，多页面和多设备共享），`sessionStorage` 为内存实现，`document.cookie` 读写不报错但不生效。应用如需会话，请使用平台转发的用户头，不要依赖 Cookie。

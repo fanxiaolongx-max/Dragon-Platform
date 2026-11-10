@@ -28,9 +28,9 @@ async function build({ user }) {
             calls: used?.calls || 0, failures: used?.failures || 0, lastUsedAt: used?.lastUsedAt || null };
     };
     const groups = [];
-    const addGroup = (id, label, mode, defs, kindOf) => {
+    const addGroup = (id, label, mode, defs, kindOf, note) => {
         const tools = defs.filter(def => allowed(def.name)).map(def => item(def, kindOf?.(def.name)));
-        if (tools.length || manage) groups.push({ id, label, mode, tools });
+        if (tools.length || manage) groups.push({ id, label, mode, tools, ...(note ? { note } : {}) });
     };
     addGroup('builtin', '引擎自带', 'always', [
         ...Object.values(agentLoop.BUILTIN_DEFINITIONS),
@@ -39,7 +39,15 @@ async function build({ user }) {
     ], () => 'read');
     addGroup('always', '工作区文件与命令', 'always', core.filter(def => access.groupFor(def.name) === 'always'));
     for (const [id, group] of Object.entries(registry.GROUPS)) {
-        addGroup(id, group.label, 'deferred', core.filter(def => access.groupFor(def.name) === id));
+        let note = '';
+        if (id === 'welink-channel') {
+            const welinkStatus = await require('./channels').getStatus({ channel: 'welink' }).catch(() => null);
+            if (!welinkStatus?.enabled) {
+                note = '未启用频道对接';
+                if (!manage) continue;
+            }
+        }
+        addGroup(id, group.label, 'deferred', core.filter(def => access.groupFor(def.name) === id), undefined, note);
     }
     const skillSets = [
         ['netcare-data', 'NetCare 数据（@netcare-data）', () => require('./digital-human/netcare-agent').definitions(), name => (name === 'netcare_sql' ? 'write' : 'read')],

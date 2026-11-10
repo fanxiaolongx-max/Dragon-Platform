@@ -41,8 +41,9 @@ function key() {
 const sign = payload => crypto.createHmac('sha256', key()).update(payload).digest('base64url').slice(0, 32);
 
 /** 签发访问令牌：只有经过平台登录校验的接口调用。 */
-function issueToken({ tenantId, slug, username, role }, now = Date.now()) {
-    const payload = Buffer.from(JSON.stringify({ t: tenantId, s: slug, u: username, r: role, e: Math.floor(now / 1000) + TOKEN_TTL_SECONDS })).toString('base64url');
+function issueToken({ tenantId, slug, username, role, userTenantId }, now = Date.now()) {
+    // t 是应用所在空间（决定转发到哪个进程）；ut 是用户自己的团队，应用可据此按团队区分数据
+    const payload = Buffer.from(JSON.stringify({ t: tenantId, s: slug, u: username, r: role, ...(userTenantId && userTenantId !== tenantId ? { ut: userTenantId } : {}), e: Math.floor(now / 1000) + TOKEN_TTL_SECONDS })).toString('base64url');
     return { token: `${payload}.${sign(payload)}`, expiresAt: new Date(now + TOKEN_TTL_SECONDS * 1000).toISOString() };
 }
 
@@ -128,7 +129,7 @@ const SHIM = `(function () {
 const MAX_STORAGE_BYTES = 5 * 1024 * 1024;
 
 function storageFile(slug, claims) {
-    const user = crypto.createHash('sha256').update(`${claims.t}\n${claims.u}`).digest('hex').slice(0, 32);
+    const user = crypto.createHash('sha256').update(`${claims.ut || claims.t}\n${claims.u}`).digest('hex').slice(0, 32);
     return path.join(runtime.paths(slug, claims.t).data, 'browser-storage', `${user}.json`);
 }
 
@@ -206,6 +207,8 @@ function forwardHeaders(req, { port, prefix, claims, secret }) {
     if (req.headers['transfer-encoding'] !== undefined) headers['transfer-encoding'] = req.headers['transfer-encoding'];
     const timestamp = String(Date.now());
     const user = encodeURIComponent(claims.u || '');
+    const team = claims.ut || claims.t; // 用户所属团队：开放给全员的应用里与 claims.t（应用所在空间）不同
+    const hmac = text => crypto.createHmac('sha256', secret || '').update(text).digest('hex');
     Object.assign(headers, {
         host: `127.0.0.1:${port}`,
         'accept-encoding': 'identity',
@@ -215,9 +218,12 @@ function forwardHeaders(req, { port, prefix, claims, secret }) {
         'x-platform-user': user,
         'x-platform-role': claims.r || 'user',
         'x-platform-tenant': claims.t,
+        'x-platform-user-tenant': team,
+        // 按团队分数据的应用校验这个：HMAC-SHA256(secret, user\nrole\ntenant\nuserTenant\ntimestamp)
+        'x-platform-team-signature': hmac(`${user}\n${claims.r || 'user'}\n${claims.t}\n${team}\n${timestamp}`),
         'x-platform-timestamp': timestamp,
         // 应用可用 PLATFORM_APP_SECRET 校验：HMAC-SHA256(secret, user\nrole\ntenant\ntimestamp)
-        'x-platform-signature': crypto.createHmac('sha256', secret || '').update(`${user}\n${claims.r || 'user'}\n${claims.t}\n${timestamp}`).digest('hex')
+        'x-platform-signature': hmac(`${user}\n${claims.r || 'user'}\n${claims.t}\n${timestamp}`)
     });
     return headers;
 }
@@ -348,4 +354,4 @@ function handleUpgrade(req, socket, head) {
     });
 }
 
-module.exports = { handler, handleUpgrade, issueToken, verifyToken, entryUrl, injectShim, injectAppRuntime, rewriteLocation, SHIM, SANDBOX };
+module.exports = { forwardHeaders, handler, handleUpgrade, issueToken, verifyToken, entryUrl, injectShim, injectAppRuntime, rewriteLocation, SHIM, SANDBOX };

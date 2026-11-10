@@ -54,7 +54,7 @@ async function setPersonalEntry(user, key, patch) {
 async function platformTool(slug, user) {
     return platform(async () => {
         const tool = await tools.getTool(slug);
-        return tool && !isHosted(tool) && (isSuperAdmin(user) || await hasEntryAccess(slug)) ? tool : null;
+        return tool && (isSuperAdmin(user) || await hasEntryAccess(slug)) ? tool : null;
     });
 }
 
@@ -63,8 +63,9 @@ async function sharedCatalog(user) {
         const entries = await tools.listTools();
         const allowed = await allowedEntries();
         const admin = isSuperAdmin(user);
-        return entries.filter(tool => !isHosted(tool) && (admin || allowed.has(tool.slug)))
-            .map(tool => ({ ...tool, sharedAccess: allowed.has(tool.slug), shared: !admin }));
+        // 托管 Python 应用也可以开放给全员：全员共用超级管理员空间里的同一个进程，只能使用和只读查看
+        return entries.filter(tool => admin || allowed.has(tool.slug))
+            .map(tool => ({ ...tool, hostedApp: Boolean(isHosted(tool)), sharedAccess: allowed.has(tool.slug), shared: !admin }));
     });
 }
 
@@ -83,7 +84,8 @@ async function listAvailable(user) {
     const shared = await sharedCatalog(null);
     return [...own, ...shared.flatMap(tool => {
         const prefs = preferences.get(`tool:${tool.slug}`) || {};
-        if (prefs.hidden || localSlugs.has(tool.slug) || (!tool.builtIn && !prefs.installed)) return [];
+        // 开放的托管应用直接出现在全员首页，不需要先到市场里安装
+        if (prefs.hidden || localSlugs.has(tool.slug) || (!tool.builtIn && !tool.hostedApp && !prefs.installed)) return [];
         const localCopy = prefs.fork && copies.get(tool.slug);
         return [{ ...tool, ...(localCopy || {}), name: prefs.name || tool.name, nameEn: prefs.name || tool.nameEn, shared: true }];
     })];
@@ -99,8 +101,9 @@ async function resolveTool(slug, user) {
         const tool = await tools.getTool(slug);
         if (!tool) return null;
         if (isSuperAdmin(user)) return { tool, sourceTenant: DEFAULT_TENANT_ID };
-        if (isHosted(tool)) return null;
         const shared = await hasEntryAccess(slug);
+        // 托管应用只给已登录且被开放的账号，不支持免登录访问
+        if (isHosted(tool) && (!user || !shared)) return null;
         if (!user && (!shared || !tool.publicAccess)) return null;
         if (user && !shared) {
             const prefix = slug === 'f12-to-extension' ? 'cap:f12:' : slug === 'python-updater' ? 'cap:python:' : '';
@@ -122,6 +125,7 @@ async function preparePersonalToolUpdate(slug, user) {
         return false;
     }
     if (!await hasEntryAccess(slug)) throw Object.assign(new Error('该工具未单独开放'), { status: 403 });
+    if (await platform(() => isHosted(resolved.tool))) throw Object.assign(new Error('托管应用由超级管理员维护，不能修改'), { status: 403 });
     await setPersonalEntry(user, `tool:${slug}`, { origin: true });
     if (!await tools.getTool(slug)) {
         const source = await platform(() => tools.getToolAssetPath(slug, 'index.html'));
@@ -137,10 +141,17 @@ async function preparePersonalToolUpdate(slug, user) {
 async function setSharedAccess(slug, enabled) {
     return platform(async () => {
         const tool = await tools.getTool(slug);
-        if (!tool || isHosted(tool)) return null;
+        if (!tool) return null;
         await setEntryAccess(slug, enabled);
         return { ...tool, sharedAccess: enabled };
     });
+}
+
+/** 团队账号能否使用这个开放的托管应用（在调用者自己的租户上下文里判断：个人隐藏、同名自有工具都算不可用）。 */
+async function sharedHostedApp(slug, user) {
+    if (!user || getTenantId() === DEFAULT_TENANT_ID) return false;
+    const resolved = await resolveTool(slug, user);
+    return Boolean(resolved?.shared && resolved.sourceTenant === DEFAULT_TENANT_ID && await platform(() => isHosted(resolved.tool)));
 }
 
 async function actorForOwner(owner) {
@@ -151,4 +162,4 @@ async function actorForOwner(owner) {
     return user ? { username, role: user.role, isSuper: user.isSuper } : { username, role: 'readonly', isSuper: false };
 }
 
-module.exports = { listAvailable, sharedCatalog, resolveTool, setSharedAccess, allowedEntries, hasEntryAccess, setEntryAccess, actorForOwner, personalEntries, personalEntry, setPersonalEntry, platformTool, preparePersonalToolUpdate };
+module.exports = { sharedHostedApp, listAvailable, sharedCatalog, resolveTool, setSharedAccess, allowedEntries, hasEntryAccess, setEntryAccess, actorForOwner, personalEntries, personalEntry, setPersonalEntry, platformTool, preparePersonalToolUpdate };

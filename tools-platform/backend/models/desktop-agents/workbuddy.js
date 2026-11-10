@@ -95,7 +95,14 @@ async function transcriptFile(session) {
 }
 // 用户消息正文包在 <user_query> 里，前面是客户端注入的上下文提醒；CLI 写入的是纯文本
 function queryText(event) {
-    const raw = (event.content || []).filter(x => ['input_text', 'text'].includes(x.type)).map(x => x.text).join('\n');
+    let raw = '';
+    if (typeof event.content === 'string') {
+        raw = event.content;
+    } else if (Array.isArray(event.content)) {
+        raw = event.content.filter(x => x && typeof x === 'object' && ['input_text', 'text'].includes(x.type)).map(x => x.text).join('\n');
+    } else if (event.content && typeof event.content === 'object' && typeof event.content.text === 'string') {
+        raw = event.content.text;
+    }
     const queries = [...raw.matchAll(/<user_query>([\s\S]*?)<\/user_query>/g)].map(m => m[1].trim());
     return queries.length ? queries.join('\n\n') : userText(raw).trim();
 }
@@ -194,7 +201,8 @@ async function transcript(session) {
         if (event.role === 'user') {
             presented = [];
             widgetCalls.clear();
-            const files = attachments((event.content || []).filter(block => ['image_blob_ref', 'file_blob_ref'].includes(block.type)));
+            const blocks = Array.isArray(event.content) ? event.content : [];
+            const files = attachments(blocks.filter(block => block && typeof block === 'object' && ['image_blob_ref', 'file_blob_ref'].includes(block.type)));
             let content = queryText(event);
             if (files.length) content = content.replace(/@image#\d+:([^\s]+)/g, (marker, name) => files.some(file => file.name === name) ? '' : marker).trim();
             if (!content && !files.length) continue;
@@ -202,8 +210,16 @@ async function transcript(session) {
             items.push({ id: event.id || String(items.length), role: 'user', content: safe(content, 40000), ...(files.length ? { attachments: files } : {}), channel: null, createdAt: stamp });
         }
         else if (event.role === 'assistant') {
-            const content = (event.content || []).filter(x => ['output_text', 'text'].includes(x.type)).map(x => x.text).join('\n').trim();
-            const direct = attachments((event.content || []).filter(block => ['image_blob_ref', 'file_blob_ref'].includes(block.type)));
+            const blocks = Array.isArray(event.content) ? event.content : [];
+            let content = '';
+            if (typeof event.content === 'string') {
+                content = event.content.trim();
+            } else if (blocks.length) {
+                content = blocks.filter(x => x && typeof x === 'object' && ['output_text', 'text'].includes(x.type)).map(x => x.text).join('\n').trim();
+            } else if (event.content && typeof event.content === 'object' && typeof event.content.text === 'string') {
+                content = event.content.text.trim();
+            }
+            const direct = attachments(blocks.filter(block => block && typeof block === 'object' && ['image_blob_ref', 'file_blob_ref'].includes(block.type)));
             const files = attachments([...presented.map(f => f.path), ...direct]);
             if (!content && !files.length) continue;
             presented = [];

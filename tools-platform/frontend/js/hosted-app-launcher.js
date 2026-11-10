@@ -38,16 +38,16 @@
             </button>
             <div class="ha-menu" id="haMenu" role="menu" hidden>
                 <div class="ha-menu-meta" id="haMeta"></div>
-                <button type="button" role="menuitem" data-action="restart">重启应用</button>
-                <button type="button" role="menuitem" data-action="logs">查看运行日志</button>
+                <button type="button" role="menuitem" data-manage data-action="restart">重启应用</button>
+                <button type="button" role="menuitem" data-manage data-action="logs">查看运行日志</button>
                 <button type="button" role="menuitem" data-action="db-info">🗄️ 查看分配的数据库</button>
                 <button type="button" role="menuitem" data-action="ide">💻 在线修改代码 (IDE)</button>
-                <button type="button" role="menuitem" data-action="package-update">📦 更新上传包</button>
-                <button type="button" role="menuitem" data-action="schema-init" hidden>${schemaText('初始化应用表（模拟基座 DBA）', 'Initialize app tables (DBA simulation)')}</button>
-                <button type="button" role="menuitem" data-action="schema-upgrade" hidden>${schemaText('升级应用表（模拟基座 DBA）', 'Upgrade app tables (DBA simulation)')}</button>
-                <button type="button" role="menuitem" data-action="reinstall">重新安装依赖</button>
-                <button type="button" role="menuitem" data-action="settings">Python 环境设置</button>
-                <button type="button" role="menuitem" data-action="stop" class="danger">停止应用</button>
+                <button type="button" role="menuitem" data-manage data-action="package-update">📦 更新上传包</button>
+                <button type="button" role="menuitem" data-manage data-action="schema-init" hidden>${schemaText('初始化应用表（模拟基座 DBA）', 'Initialize app tables (DBA simulation)')}</button>
+                <button type="button" role="menuitem" data-manage data-action="schema-upgrade" hidden>${schemaText('升级应用表（模拟基座 DBA）', 'Upgrade app tables (DBA simulation)')}</button>
+                <button type="button" role="menuitem" data-manage data-action="reinstall">重新安装依赖</button>
+                <button type="button" role="menuitem" data-manage data-action="settings">Python 环境设置</button>
+                <button type="button" role="menuitem" data-manage data-action="stop" class="danger">停止应用</button>
             </div>
         </div>
         <aside class="ha-drawer" id="haDrawer" hidden>
@@ -481,7 +481,14 @@
 
     function updateBar(app) {
         for (const item of document.querySelectorAll('[data-action^="schema-"]')) item.hidden = app.databaseContract !== 'digital-human';
-        setBarVisible(app.isAdmin && !!frame);
+        // 只读查看：超级管理员开放给全员的应用，团队账号能看状态和代码，不能启停或修改（后端同样拒绝）
+        const readOnly = !app.isAdmin && Boolean(app.canView);
+        document.body.classList.toggle('ha-readonly', readOnly);
+        $('haIdeTextarea').readOnly = readOnly;
+        const ideItem = document.querySelector('#haMenu [data-action="ide"]');
+        if (ideItem) ideItem.textContent = readOnly ? '💻 查看应用代码（只读）' : '💻 在线修改代码 (IDE)';
+        $('haPill').title = readOnly ? '应用状态与代码（只读）' : '应用运维';
+        setBarVisible((app.isAdmin || readOnly) && !!frame);
         $('haDot').dataset.status = app.status;
         $('haPillText').textContent = STATUS_TEXT[app.status] || app.status;
         const appLabel = app.packageName || app.name || '';
@@ -491,7 +498,7 @@
     }
 
     async function refreshStatus() {
-        if (!current?.isAdmin) return;
+        if (!current?.isAdmin && !current?.canView) return;
         try {
             const { app } = await api('/status');
             if (app) {
@@ -605,23 +612,24 @@
             return false;
         }
         if (frame) { frame.remove(); frame = null; setBarVisible(false); }
-        const adminActions = app.isAdmin ? [{ label: '查看日志', action: 'logs-inline' }, { label: '在线修改代码 (IDE)', action: 'ide' }] : [];
+        const adminActions = app.isAdmin ? [{ label: '查看日志', action: 'logs-inline' }, { label: '在线修改代码 (IDE)', action: 'ide' }]
+            : app.canView ? [{ label: '查看应用代码（只读）', action: 'ide' }] : [];
         if (app.status === 'installing' || app.status === 'starting') {
             setCard({ title: STATUS_TEXT[app.status], detail: app.status === 'installing' ? '首次打开需要创建虚拟环境并安装依赖，可能需要几分钟。' : '应用正在启动，请稍候。', busy: true, actions: adminActions });
             return true;
         }
         if (app.status === 'install_failed') {
             setCard({ title: '依赖安装失败', detail: app.lastError || '', error: true,
-                actions: app.isAdmin ? [{ label: '重新安装依赖', action: 'reinstall', primary: true }, { label: 'Python 环境设置', action: 'settings' }, ...adminActions] : [] });
+                actions: app.isAdmin ? [{ label: '重新安装依赖', action: 'reinstall', primary: true }, { label: 'Python 环境设置', action: 'settings' }, ...adminActions] : adminActions });
             return false;
         }
         if (app.status === 'crashed') {
             setCard({ title: '应用异常退出', detail: app.lastError || '平台会自动尝试重启。', error: true,
-                actions: app.isAdmin ? [{ label: '重新启动', action: 'restart', primary: true }, ...adminActions] : [] });
+                actions: app.isAdmin ? [{ label: '重新启动', action: 'restart', primary: true }, ...adminActions] : adminActions });
             return true;
         }
         setCard({ title: '应用已停止', detail: app.isAdmin ? '管理员停止了该应用。' : '应用当前未运行，请联系管理员启动。',
-            actions: app.isAdmin ? [{ label: '启动应用', action: 'start', primary: true }, ...adminActions] : [] });
+            actions: app.isAdmin ? [{ label: '启动应用', action: 'start', primary: true }, ...adminActions] : adminActions });
         return false;
     }
 
@@ -1183,12 +1191,14 @@
         // 保存快捷键 (⌘S / Ctrl+S)
         if ((e.metaKey || e.ctrlKey) && e.key === 's') {
             e.preventDefault();
+            if (!current?.isAdmin) return;
             saveCurrentFile();
             return;
         }
 
         // 保存并重启快捷键 (⌘R / Ctrl+Enter)
         if ((e.metaKey && e.key === 'r') || (e.ctrlKey && e.key === 'Enter')) {
+            if (!current?.isAdmin) return;
             e.preventDefault();
             saveAndRestartApp();
             return;
@@ -1631,6 +1641,7 @@
     $('haIdeBtnGit').addEventListener('click', toggleGitDrawer);
     $('haIdeBtnPackageUpdate').addEventListener('click', openUploadModal);
     $('haIdeGitRemotePill').addEventListener('click', () => {
+        if (!current?.isAdmin) return;
         if (!$('haIdeGitDrawer').hidden) closeGitDrawer();
         else { closeHistoryDrawer(); openGitDrawer(); }
     });
@@ -1958,6 +1969,8 @@
 
     // ── 运维胶囊动作分发 ─────────────────────────────────
     async function runAction(action) {
+        // 非运维账号：只读查看的只有「数据库信息」和「查看代码」，其余动作不执行
+        if (action !== 'retry' && !current?.isAdmin && !(current?.canView && ['db-info', 'ide'].includes(action))) return;
         if (action === 'schema-init' || action === 'schema-upgrade') {
             const kind = action === 'schema-init' ? 'init' : 'upgrade';
             try {

@@ -920,7 +920,7 @@
 
             <button class="btn-login" id="loginBtn" data-i18n="login.submit" onclick="doLogin()">登 录</button>
             <button class="btn-play-game" data-i18n="login.playGame" onclick="toggleGame(true)">♨️ 休息一下</button>
-            <button class="btn-cinema" data-i18n="login.cinema" onclick="window.location.href='/cinema'">🎬 影视作品</button>
+            <button class="btn-cinema" data-i18n="login.cinema" onclick="window.open('/cinema', '_blank')">🎬 影视作品</button>
             <div id="error-msg"></div>
         </div>
 
@@ -933,7 +933,7 @@
             <span class="footer-entertainment-item footer-game-divider" style="color:rgba(255,255,255,0.2);">|</span>
             <a class="footer-entertainment-item footer-game-link" href="#" data-i18n="login.playGame" onclick="toggleGame(true); return false;">♨️ 休息一下</a>
             <span class="footer-entertainment-item footer-cinema-divider" style="color:rgba(255,255,255,0.2);">|</span>
-            <a class="footer-entertainment-item footer-cinema-link" href="/cinema" data-i18n="login.cinema">🎬 影视作品</a>
+            <a class="footer-entertainment-item footer-cinema-link" href="/cinema" target="_blank" data-i18n="login.cinema">🎬 影视作品</a>
         </div>
 
         <div class="login-slogan-wrap" id="loginSloganWrap">

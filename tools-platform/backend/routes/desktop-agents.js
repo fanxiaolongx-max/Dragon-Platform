@@ -5,6 +5,7 @@ router.use(requireAdmin);
 const route = fn => (req, res, next) => Promise.resolve(fn(req, res)).catch(error => {
     if (error.status || error.statusCode)
         return res.status(error.status || error.statusCode).json({ error: error.message, code: error.code || 'DESKTOP_AGENT_ERROR', ...(error.requestId ? { requestId: error.requestId } : {}) });
+    console.error('[DesktopAgents] 路由处理未捕获异常:', error);
     res.status(503).json({ error: '桌面连接暂时不可用，请刷新或检查全局设置', code: 'DESKTOP_AGENT_UNAVAILABLE' });
 });
 router.get('/settings', route(async (req, res) => { res.setHeader('Cache-Control', 'no-store'); const cfg = await repo.settings(); const owned = (!cfg.owner || cfg.owner === req.user.username) && await require('../models/desktop-agents/binding').available(req.user.username); res.json({ owned, settings: owned ? cfg : null, reason: owned ? '' : '本机桌面对话已绑定其他租户或账号' }); }));

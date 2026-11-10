@@ -883,3 +883,11 @@ body {
     width: 18px; height: 18px; border: 2px solid rgba(88, 166, 255, 0.2); border-top-color: #58a6ff;
     border-radius: 50%; animation: ha-spin .7s linear infinite; flex-shrink: 0;
 }
+
+/* 只读查看（开放给全员的应用）：隐藏一切会改动应用的入口，后端同样拒绝这些操作 */
+.ha-readonly [data-manage],
+.ha-readonly #haIdeBtnSave, .ha-readonly #haIdeBtnRestart, .ha-readonly #haIdeBtnGit, .ha-readonly #haIdeBtnPackageUpdate,
+.ha-readonly #haIdeBtnNewFile, .ha-readonly #haIdeBtnNewFolder, .ha-readonly #haIdeBtnDiscard,
+.ha-readonly #haIdeReplaceInput, .ha-readonly #haIdeBtnReplace, .ha-readonly #haIdeBtnReplaceAll,
+.ha-readonly #haIdeDirtyBadge, .ha-readonly [data-tree-act], .ha-readonly [data-revert] { display: none !important; }
+.ha-readonly #haIdeGitRemotePill { cursor: default; }

@@ -4,7 +4,26 @@ const router = express.Router();
 const runtime = require('../models/hosted-apps/runtime');
 const service = require('../models/hosted-apps/service');
 const editorService = require('../models/hosted-apps/editor-service');
-const { requireAdmin } = require('../middleware/auth');
+const { requireAdmin, inSuperAdminSpace } = require('../middleware/auth');
+const distribution = require('../models/tool-distribution');
+const { DEFAULT_TENANT_ID, getTenantId, runWithTenant } = require('../models/tenant-context');
+
+// 团队账号只能碰超级管理员「开放给全员」的应用，并且只有下面这些只读接口；启停、改代码、Git、日志、配置等一律拒绝。
+// 应用在超级管理员空间里，所以通过后切到该空间处理；处理函数里用 req.hostedViewer 去掉密钥类内容。
+const VIEWER_READS = [/^\/launch$/, /^\/status$/, /^\/config$/, /^\/editor\/tree$/, /^\/editor\/file$/, /^\/editor\/git\/(?:status|history|diff)$/];
+const COMMIT_RE = /^[0-9a-f]{7,40}$/i;
+router.use(async (req, res, next) => {
+    if (inSuperAdminSpace(req.user)) return next(); // 超级管理员空间里沿用各接口原有的角色规则
+    const deny = () => res.status(403).json({ code: 'SUPER_ADMIN_REQUIRED', error: '该功能仅超级管理员可用' });
+    const match = /^\/([a-z0-9][a-z0-9-]{0,79})(\/.+)$/.exec(req.path);
+    if (!match || req.method !== 'GET' || !VIEWER_READS.some(pattern => pattern.test(match[2]))) return deny();
+    try {
+        if (!await distribution.sharedHostedApp(match[1], req.user)) return deny();
+        req.hostedViewer = true;
+        req.hostedViewerTenant = getTenantId();
+        runWithTenant(DEFAULT_TENANT_ID, next);
+    } catch (error) { next(error); }
+});
 
 const send = (res, error, fallback) => res.status(error.status || 500).json({ error: error.message || fallback, code: error.code });
 
@@ -56,7 +75,7 @@ router.post('/:slug/package', requireAdmin, async (req, res) => {
 
 router.get('/:slug/launch', async (req, res) => {
     try {
-        const result = await service.launch(req.params.slug, req.user);
+        const result = await service.launch(req.params.slug, req.user, { viewer: req.hostedViewer, userTenantId: req.hostedViewerTenant });
         if (!result) return res.status(404).json({ error: '应用不存在' });
         res.json({ success: true, app: result });
     } catch (error) { send(res, error, '打开应用失败'); }
@@ -66,7 +85,7 @@ router.get('/:slug/status', requireAdmin, (req, res) => {
     try {
         const status = runtime.status(req.params.slug);
         if (!status) return res.status(404).json({ error: '应用不存在' });
-        res.json({ success: true, app: status });
+        res.json({ success: true, app: req.hostedViewer ? service.publicStatus(status) : status });
     } catch (error) { send(res, error, '读取状态失败'); }
 });
 
@@ -114,7 +133,7 @@ router.get('/:slug/config', requireAdmin, async (req, res) => {
                 }
             },
             availableDatasources: datasources.filter(d => d.type !== 'APP_CUSTOM').map(d => d.name),
-            env: state.env || {}
+            env: req.hostedViewer ? {} : state.env || {}
         });
     } catch (error) { send(res, error, '读取应用配置失败'); }
 });
@@ -182,7 +201,7 @@ router.post('/:slug/:action(start|stop|restart|reinstall)', requireAdmin, async 
 router.get('/:slug/editor/tree', requireAdmin, (req, res) => {
     try {
         if (!runtime.exists(req.params.slug)) return res.status(404).json({ error: '应用不存在' });
-        const tree = editorService.getFileTree(req.params.slug);
+        const tree = req.hostedViewer ? editorService.viewer.tree(req.params.slug) : editorService.getFileTree(req.params.slug);
         res.json({ success: true, tree });
     } catch (error) { send(res, error, '读取文件树失败'); }
 });
@@ -190,7 +209,7 @@ router.get('/:slug/editor/tree', requireAdmin, (req, res) => {
 router.get('/:slug/editor/file', requireAdmin, (req, res) => {
     try {
         if (!runtime.exists(req.params.slug)) return res.status(404).json({ error: '应用不存在' });
-        const file = editorService.readFile(req.params.slug, req.query.path);
+        const file = req.hostedViewer ? editorService.viewer.file(req.params.slug, req.query.path) : editorService.readFile(req.params.slug, req.query.path);
         res.json({ success: true, file });
     } catch (error) { send(res, error, '读取文件失败'); }
 });
@@ -238,7 +257,7 @@ router.post('/:slug/editor/rename', requireAdmin, (req, res) => {
 router.get('/:slug/editor/git/status', requireAdmin, (req, res) => {
     try {
         if (!runtime.exists(req.params.slug)) return res.status(404).json({ error: '应用不存在' });
-        const status = editorService.getGitStatus(req.params.slug);
+        const status = req.hostedViewer ? editorService.viewer.gitStatus(req.params.slug) : editorService.getGitStatus(req.params.slug);
         res.json({ success: true, status });
     } catch (error) { send(res, error, '读取 Git 状态失败'); }
 });
@@ -247,7 +266,7 @@ router.get('/:slug/editor/git/history', requireAdmin, (req, res) => {
     try {
         if (!runtime.exists(req.params.slug)) return res.status(404).json({ error: '应用不存在' });
         const limit = parseInt(req.query.limit, 10) || 40;
-        const history = editorService.getGitHistory(req.params.slug, limit);
+        const history = req.hostedViewer ? editorService.viewer.gitHistory(req.params.slug, limit) : editorService.getGitHistory(req.params.slug, limit);
         res.json({ success: true, history });
     } catch (error) { send(res, error, '读取版本历史失败'); }
 });
@@ -256,7 +275,10 @@ router.get('/:slug/editor/git/diff', requireAdmin, (req, res) => {
     try {
         if (!runtime.exists(req.params.slug)) return res.status(404).json({ error: '应用不存在' });
         const { commit, file } = req.query || {};
-        const result = editorService.getDiff(req.params.slug, { commitHash: commit, filePath: file });
+        // 提交号直接拼进 git 命令：只接受哈希，避免被当成命令行选项
+        if (commit && !COMMIT_RE.test(String(commit).trim())) return res.status(400).json({ error: '提交号无效' });
+        const result = req.hostedViewer ? editorService.viewer.diff(req.params.slug, { commitHash: commit, filePath: file })
+            : editorService.getDiff(req.params.slug, { commitHash: commit, filePath: file });
         res.json({ success: true, ...result });
     } catch (error) { send(res, error, '获取 Diff 失败'); }
 });

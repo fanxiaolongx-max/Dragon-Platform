@@ -2790,11 +2790,17 @@
     }
 
     function markRunningChats() {
-        el.chatList?.querySelectorAll('[data-chat-index]').forEach(button => {
+        if (!el.chatList) return;
+        for (const button of el.chatList.querySelectorAll('[data-chat-index]')) {
             const running = isItemRunning(chatList.renderedItems?.[Number(button.dataset.chatIndex)]);
             const row = button.closest('.home-chat-item') || button;
-            if (row.classList.contains('is-running') !== running) row.classList.toggle('is-running', running);
-        });
+            if (row.classList.contains('is-running') === running) continue;
+            if (isUnifiedMode()) {
+                renderChatList();
+                return;
+            }
+            row.classList.toggle('is-running', running);
+        }
     }
 
     async function handleUnifiedDelete(entry) {
@@ -2950,6 +2956,7 @@
             }
 
             function sortEntries(a, b) {
+                if (a.running !== b.running) return Number(b.running) - Number(a.running);
                 const prefA = window.HomeConversationList?.get?.('mine', a.item.id || a.item._id) || {};
                 const prefB = window.HomeConversationList?.get?.('mine', b.item.id || b.item._id) || {};
                 const pinA = Number(Boolean(prefA.pinned));
@@ -2967,11 +2974,12 @@
                 const item = allItems[i];
                 if (!passesFilter(item)) continue;
                 const root = getChatDirectory(item);
+                const entry = { item, index: i, running: isItemRunning(item) };
                 if (root) {
                     if (!projectMap.has(root)) projectMap.set(root, []);
-                    projectMap.get(root).push({ item, index: i });
+                    projectMap.get(root).push(entry);
                 } else {
-                    taskEntries.push({ item, index: i });
+                    taskEntries.push(entry);
                 }
             }
 
@@ -3242,7 +3250,7 @@
         });
         window.addEventListener('home:desktop-agents-updated', () => renderChatList());
         window.addEventListener('home:desktop-agents-busy', markRunningChats);
-        // 服务器上正在生成的对话（其他标签页、定时任务等）每 10 秒核对一次，只更新转圈不重绘列表
+        // 每 10 秒核对其他标签页、定时任务等会话的生成状态，状态变化时同步转圈和排序
         setInterval(async () => {
             if (document.visibilityState !== 'visible' || !chatList.loaded || chatList.query || !chatList.items.length) return;
             const seq = chatList.seq;
