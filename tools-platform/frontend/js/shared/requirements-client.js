@@ -122,17 +122,169 @@
             }
         },
 
-        validImages(files, existing = 0) {
+        async compressImage(file, options = {}) {
+            const maxWidth = options.maxWidth || 1920;
+            const maxHeight = options.maxHeight || 1920;
+            const quality = options.quality !== undefined ? options.quality : 0.82;
+            const minSizeToCompress = options.minSizeToCompress || 150 * 1024;
+
+            if (!file || file.type === 'image/gif') {
+                return {
+                    name: file?.name || 'image',
+                    type: file?.type || 'image/png',
+                    bytes: new Uint8Array(await file.arrayBuffer())
+                };
+            }
+
+            if (typeof document === 'undefined' || typeof document.createElement !== 'function') {
+                return {
+                    name: file.name,
+                    type: file.type,
+                    bytes: new Uint8Array(await file.arrayBuffer())
+                };
+            }
+
+            try {
+                let source = null;
+                let width = 0;
+                let height = 0;
+                let cleanup = () => {};
+
+                if (typeof createImageBitmap === 'function') {
+                    try {
+                        const bitmap = await createImageBitmap(file);
+                        width = bitmap.width;
+                        height = bitmap.height;
+                        source = bitmap;
+                        cleanup = () => bitmap.close?.();
+                    } catch {
+                        // Fall back to Image
+                    }
+                }
+
+                if (!source && typeof Image !== 'undefined') {
+                    const url = typeof URL !== 'undefined' && URL.createObjectURL ? URL.createObjectURL(file) : null;
+                    if (url) {
+                        try {
+                            source = await new Promise((resolve, reject) => {
+                                const img = new Image();
+                                img.onload = () => resolve(img);
+                                img.onerror = () => reject(new Error('Image decode failed'));
+                                img.src = url;
+                            });
+                            width = source.naturalWidth || source.width;
+                            height = source.naturalHeight || source.height;
+                            cleanup = () => URL.revokeObjectURL(url);
+                        } catch {
+                            URL.revokeObjectURL(url);
+                        }
+                    }
+                }
+
+                if (!source || !width || !height) {
+                    return {
+                        name: file.name,
+                        type: file.type,
+                        bytes: new Uint8Array(await file.arrayBuffer())
+                    };
+                }
+
+                try {
+                    // Skip compression if already small and dimensions are within bounds
+                    if (file.size <= minSizeToCompress && width <= maxWidth && height <= maxHeight) {
+                        return {
+                            name: file.name,
+                            type: file.type,
+                            bytes: new Uint8Array(await file.arrayBuffer())
+                        };
+                    }
+
+                    let targetWidth = width;
+                    let targetHeight = height;
+                    if (width > maxWidth || height > maxHeight) {
+                        const ratio = Math.min(maxWidth / width, maxHeight / height);
+                        targetWidth = Math.max(1, Math.round(width * ratio));
+                        targetHeight = Math.max(1, Math.round(height * ratio));
+                    }
+
+                    const canvas = document.createElement('canvas');
+                    canvas.width = targetWidth;
+                    canvas.height = targetHeight;
+                    const ctx = canvas.getContext('2d');
+                    if (!ctx) {
+                        return {
+                            name: file.name,
+                            type: file.type,
+                            bytes: new Uint8Array(await file.arrayBuffer())
+                        };
+                    }
+
+                    ctx.drawImage(source, 0, 0, targetWidth, targetHeight);
+
+                    // Prefer WebP; fallback to JPEG
+                    let targetType = 'image/webp';
+                    try {
+                        if (typeof canvas.toDataURL === 'function' && !canvas.toDataURL('image/webp').startsWith('data:image/webp')) {
+                            targetType = 'image/jpeg';
+                        }
+                    } catch {
+                        targetType = 'image/jpeg';
+                    }
+
+                    const blob = await new Promise(resolve => {
+                        if (typeof canvas.toBlob === 'function') {
+                            canvas.toBlob(resolve, targetType, quality);
+                        } else {
+                            resolve(null);
+                        }
+                    });
+
+                    // If conversion failed or inflated an already small file
+                    if (!blob || (blob.size >= file.size && file.size <= 4 * 1024 * 1024 && width <= maxWidth && height <= maxHeight)) {
+                        return {
+                            name: file.name,
+                            type: file.type,
+                            bytes: new Uint8Array(await file.arrayBuffer())
+                        };
+                    }
+
+                    let name = file.name;
+                    const newExt = targetType === 'image/webp' ? '.webp' : '.jpg';
+                    if (!name.toLowerCase().endsWith(newExt)) {
+                        name = name.replace(/\.[^.]+$/, '') + newExt;
+                    }
+
+                    return {
+                        name,
+                        type: targetType,
+                        bytes: new Uint8Array(await blob.arrayBuffer())
+                    };
+                } finally {
+                    cleanup();
+                }
+            } catch {
+                return {
+                    name: file.name,
+                    type: file.type,
+                    bytes: new Uint8Array(await file.arrayBuffer())
+                };
+            }
+        },
+
+        validImages(files, existing = 0, { maxFileSize = 20 * 1024 * 1024 } = {}) {
             return files.length + existing <= 6 && files.every(file =>
-                /^image\/(png|jpeg|webp|gif)$/.test(file.type) && file.size > 0 && file.size <= 4 * 1024 * 1024);
+                /^image\/(png|jpeg|webp|gif)$/.test(file.type) && file.size > 0 && file.size <= maxFileSize);
         },
 
         async encodeImages(files) {
-            return Promise.all(files.map(async file => ({
-                name: file.name,
-                type: file.type,
-                data: base64(new Uint8Array(await file.arrayBuffer()))
-            })));
+            return Promise.all(files.map(async file => {
+                const compressed = await this.compressImage(file);
+                return {
+                    name: compressed.name,
+                    type: compressed.type,
+                    data: base64(compressed.bytes)
+                };
+            }));
         }
     };
 })();

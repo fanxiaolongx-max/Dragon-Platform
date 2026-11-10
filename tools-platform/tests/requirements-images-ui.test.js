@@ -104,11 +104,11 @@ test('requirements image upload supports incremental addition, limit of 6, delet
     assert.equal(elements.reqImagesCount.textContent, '(4/6)');
     assert.equal(elements.reqImagesList.children.length, 4);
 
-    // Reject oversized file (> 4MB)
-    const bigFile = { name: 'big.png', size: 5 * 1024 * 1024, type: 'image/png', lastModified: 5000 };
+    // Reject oversized file (> 20MB)
+    const bigFile = { name: 'big.png', size: 25 * 1024 * 1024, type: 'image/png', lastModified: 5000 };
     ReqApp.handleFilesSelected([bigFile]);
     assert.equal(ReqApp.pendingImages.length, 4, 'Oversized file must be rejected');
-    assert.ok(notices.some(n => n.msg.includes('4 MB')));
+    assert.ok(notices.some(n => n.msg.includes('20 MB')));
 
     // Reject invalid type
     const exeFile = { name: 'virus.exe', size: 1024, type: 'application/x-msdownload', lastModified: 6000 };

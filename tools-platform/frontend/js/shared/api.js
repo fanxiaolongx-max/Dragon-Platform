@@ -409,7 +409,7 @@ html[data-theme="dark"] .tools-dialog{--td-bg:#20242c;--td-ink:#f3f4f6;--td-mute
             input.value = '';
             try { await clientReady; } catch (error) { status.textContent = error.message; return; }
             if (!client.validImages(files, images.length)) {
-                status.textContent = tr('最多选择 6 张图片，每张不超过 4 MB（PNG、JPG、WebP、GIF）。', 'Choose up to 6 images, 4 MB each (PNG, JPG, WebP, GIF).');
+                status.textContent = tr('最多选择 6 张图片，每张不超过 20 MB（自动压缩，支持 PNG、JPG、WebP、GIF）。', 'Choose up to 6 images, 20 MB each (auto-compressed, PNG, JPG, WebP, GIF supported).');
                 return;
             }
             status.textContent = '';

@@ -1,5 +1,8 @@
 {
   "zh": [
+    "需求图片上传自动压缩：选图上限放宽至 20MB，客户端自动等比缩放并转换为高质量 WebP 格式（体积降低 70%~90%），动图保真保留，大幅优化传输带宽与存储性能。",
+    "已关闭需求图片自动清理：需求评价归档或拒绝超过 30 天后，系统每日定时自动清理图片释放数据库空间，并在流转日志中留存系统审计记录。",
+    "需求图片接口缓存加速：图片获取接口支持 24 小时浏览器缓存，避免预览和流转时重复下载。",
     "团队账号安全加固：数据探索、平台推广配置、工具说明生成等平台级操作仅超级管理员可用；平台共享的 MCP 服务对团队默认关闭，超级管理员可在「智能体工具」里开启。",
     "团队账号可以使用对话里的浏览器：每个账号独立的浏览器进程运行在团队沙箱中，不能访问服务器本机和内网地址。",
     "团队命令沙箱更可靠：改用真实沙箱规则检测可用性，装好依赖后一分钟内自动恢复，无需重启平台。",
@@ -7,6 +10,9 @@
     "媒体资源新增总开关，关闭后登录页与公开点播入口不再展示；意见反馈窗口在所有页面都可上传图片。"
   ],
   "en": [
+    "Requirement image auto-compression: raw file size limit relaxed to 20MB with client-side proportional downscaling and WebP compression (70%~90% size reduction), preserving animated GIFs intact.",
+    "Closed requirement image auto-cleanup: images for evaluated or rejected requirements older than 30 days are automatically reclaimed daily to free database storage, logging audit trails.",
+    "Requirement image cache optimization: image endpoints now serve 24-hour browser caching headers, preventing redundant downloads during review.",
     "Team account hardening: the data explorer, promotion settings and tool-guide generation are now super admin only; shared MCP servers are off for teams by default and can be enabled under Agent Tools.",
     "Team accounts can use the in-chat browser: each account gets its own browser process inside the team sandbox, with no access to the server itself or private networks.",
     "More reliable team command sandbox: availability is checked with the real sandbox rules and recovers within a minute after dependencies are installed, with no restart.",

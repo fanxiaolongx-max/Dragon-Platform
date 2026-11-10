@@ -104,4 +104,88 @@ async function importTenantRequirements(tenantId) {
     });
 }
 
-module.exports = { board, transaction, importTenantRequirements };
+async function cleanupExpiredRequirementImages({
+    retentionDays = Number(process.env.REQUIREMENTS_IMAGE_RETENTION_DAYS) || 30,
+    closedStatuses = (process.env.REQUIREMENTS_IMAGE_CLOSED_STATUSES?.split(',').map(s => s.trim()).filter(Boolean)) || ['需求评价', '已拒绝']
+} = {}) {
+    if (typeof retentionDays !== 'number' || retentionDays < 0) return { cleanedCount: 0, imagesFreed: 0 };
+    if (!Array.isArray(closedStatuses) || !closedStatuses.length) return { cleanedCount: 0, imagesFreed: 0 };
+
+    return transaction(async query => {
+        const placeholders = closedStatuses.map(() => '?').join(', ');
+        const rows = await query.all(
+            `SELECT id, status, images FROM Requirements
+             WHERE status IN (${placeholders})
+               AND images IS NOT NULL AND images != '[]' AND images != ''
+               AND datetime(COALESCE(updated_at, created_at)) < datetime('now', '-' || ? || ' days')`,
+            [...closedStatuses, retentionDays]
+        );
+
+        let imagesFreed = 0;
+        let cleanedCount = 0;
+
+        for (const row of rows) {
+            let count = 0;
+            try {
+                const parsed = JSON.parse(row.images);
+                count = Array.isArray(parsed) ? parsed.length : 0;
+            } catch {
+                count = 1;
+            }
+            if (count > 0) {
+                imagesFreed += count;
+            }
+            await query.run("UPDATE Requirements SET images = '[]' WHERE id = ?", [row.id]);
+            await query.run(
+                'INSERT INTO RequirementLogs (req_id, old_status, new_status, remark, operator) VALUES (?, ?, ?, ?, ?)',
+                [row.id, row.status, row.status, `需求关闭超过 ${retentionDays} 天，系统自动清理 ${count} 张图片释放空间`, 'system']
+            );
+            cleanedCount++;
+        }
+
+        return { cleanedCount, imagesFreed };
+    });
+}
+
+let cleanupTimer = null;
+
+function startImageCleanupSchedule({
+    intervalMs = 24 * 60 * 60 * 1000,
+    retentionDays = Number(process.env.REQUIREMENTS_IMAGE_RETENTION_DAYS) || 30,
+    closedStatuses
+} = {}) {
+    if (cleanupTimer) clearInterval(cleanupTimer);
+    const run = () => {
+        cleanupExpiredRequirementImages({ retentionDays, closedStatuses })
+            .then(stats => {
+                if (stats.cleanedCount > 0) {
+                    console.log(`[requirements] 自动清理 ${stats.cleanedCount} 个已关闭需求的图片，释放 ${stats.imagesFreed} 张图片`);
+                }
+            })
+            .catch(error => {
+                console.warn(`[requirements] 图片自动清理失败: ${error.message}`);
+            });
+    };
+    run();
+    cleanupTimer = setInterval(run, intervalMs);
+    if (cleanupTimer && typeof cleanupTimer.unref === 'function') {
+        cleanupTimer.unref();
+    }
+    return cleanupTimer;
+}
+
+function stopImageCleanupSchedule() {
+    if (cleanupTimer) {
+        clearInterval(cleanupTimer);
+        cleanupTimer = null;
+    }
+}
+
+module.exports = {
+    board,
+    transaction,
+    importTenantRequirements,
+    cleanupExpiredRequirementImages,
+    startImageCleanupSchedule,
+    stopImageCleanupSchedule
+};

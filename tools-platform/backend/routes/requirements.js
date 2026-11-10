@@ -136,6 +136,7 @@ router.get('/:id/images/:index', endpoint(async (req, res) => {
     const row = await query.get('SELECT images FROM Requirements WHERE id = ?', [req.params.id]);
     const image = row && /^\d+$/.test(req.params.index) && JSON.parse(row.images)[Number(req.params.index)];
     if (!image) throw requestError('图片不存在', 404);
+    res.setHeader('Cache-Control', 'private, max-age=86400');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.type(image.type).send(Buffer.from(image.data, 'base64'));
 }));

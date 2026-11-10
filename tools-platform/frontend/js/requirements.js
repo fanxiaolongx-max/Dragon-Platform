@@ -80,8 +80,9 @@ const REQ_I18N_DICT = {
     "已达到最大图片限制 (6张)": "Maximum limit reached (6 images)",
     "最多只能添加 6 张图片，超出部分已忽略": "Up to 6 images allowed, extra images ignored",
     "仅支持 PNG、JPG、WebP、GIF 格式的图片": "Only PNG, JPG, WebP, GIF images are supported",
-    "单张图片不能超过 4 MB": "Each image must not exceed 4 MB",
-    "最多 6 张图片，每张不超过 4 MB": "Up to 6 images, 4 MB each",
+    "单张图片不能超过 20 MB": "Each image must not exceed 20 MB",
+    "最多 6 张图片，每张不超过 20 MB (自动压缩)": "Up to 6 images, 20 MB each (auto-compressed)",
+    "支持 PNG/JPG/WebP/GIF，单张最大 20MB（自动压缩），最多 6 张": "Supports PNG/JPG/WebP/GIF, up to 20MB each (auto-compressed), max 6 images",
     "已保存图片": "Saved image",
     "新添加图片": "New image"
 };
@@ -270,7 +271,7 @@ const ReqApp = {
                 rejectedFormat++;
                 continue;
             }
-            if (file.size <= 0 || file.size > 4 * 1024 * 1024) {
+            if (file.size <= 0 || file.size > 20 * 1024 * 1024) {
                 rejectedSize++;
                 continue;
             }
@@ -285,7 +286,7 @@ const ReqApp = {
         if (rejectedFormat > 0) {
             showToast(tText('仅支持 PNG、JPG、WebP、GIF 格式的图片', 'Only PNG, JPG, WebP, GIF images are supported'), 'error');
         } else if (rejectedSize > 0) {
-            showToast(tText('单张图片不能超过 4 MB', 'Each image must not exceed 4 MB'), 'error');
+            showToast(tText('单张图片不能超过 20 MB', 'Each image must not exceed 20 MB'), 'error');
         }
 
         this.refreshImagesUI();

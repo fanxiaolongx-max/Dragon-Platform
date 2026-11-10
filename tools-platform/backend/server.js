@@ -773,8 +773,9 @@ app.use((err, req, res, next) => {
 async function startServer() {
     await legacyJsonMigration.runStartupLegacyJsonMigration();
     await initializeDefaultBusinessSchema();
-    const { board, importTenantRequirements } = require('./models/requirements-board');
+    const { board, importTenantRequirements, startImageCleanupSchedule } = require('./models/requirements-board');
     await board();
+    startImageCleanupSchedule();
     const activeTenants = (await require('./models/tenants-repository').listManagedTenants()).filter(tenant => tenant.status === 'active');
     for (const tenant of activeTenants) {
         await importTenantRequirements(tenant.id).catch(error => {
