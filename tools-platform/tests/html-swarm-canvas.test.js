@@ -81,3 +81,18 @@ test('index.html, browser-sidebar.js and dragon-claw.js wire DragonHtmlSwarm onl
     assert.match(clawJs, /window\.DragonHtmlSwarm\?\.onStreamFinish/);
     assert.match(swarmCss, /\.dc-swarm-cursor/);
 });
+
+test('html-swarm-canvas uses paced smooth reveal and real wireframe drafting without synthetic curves', () => {
+    const swarmJs = fs.readFileSync(path.join(rootDir, 'frontend/js/home/html-swarm-canvas.js'), 'utf8');
+
+    // 严禁包含虚构正弦波动图/雷达环
+    assert.doesNotMatch(swarmJs, /drawSyntheticSketches/);
+    assert.doesNotMatch(swarmJs, /'spline'/);
+    assert.doesNotMatch(swarmJs, /'radar'/);
+
+    // 必须包含真实的组件骨架线框测绘与平滑渐进推进引擎
+    assert.match(swarmJs, /drawWireframeDrafts/);
+    assert.match(swarmJs, /stepPacedReveal/);
+    assert.match(swarmJs, /streamTargetCode/);
+    assert.match(swarmJs, /revealedCode/);
+});

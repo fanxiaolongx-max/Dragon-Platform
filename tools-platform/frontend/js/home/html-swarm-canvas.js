@@ -20,7 +20,7 @@
         { id: 'style',  zh: 'Style·视觉总监', en: 'Style·Visual',  color: '#ec4899', glow: 'rgba(236,72,153,0.45)',  tool: '✦', role: 'style',   defaultTaskZh: '渲染流光渐变与毛玻璃', defaultTaskEn: 'Painting Glass & Gradients' },
         { id: 'dom',    zh: 'DOM·组件工匠',  en: 'DOM·Builder',   color: '#06b6d4', glow: 'rgba(6,182,212,0.45)',   tool: '◈', role: 'dom',     defaultTaskZh: '装配卡片与交互控件', defaultTaskEn: 'Mounting UI Components' },
         { id: 'motion', zh: 'Motion·动效大师',en: 'Motion·FX',     color: '#f59e0b', glow: 'rgba(245,158,11,0.45)',  tool: '⚡', role: 'motion',  defaultTaskZh: '注入阻尼曲线与关键帧', defaultTaskEn: 'Injecting Keyframe Curves' },
-        { id: 'chart',  zh: 'Chart·图形引擎', en: 'Chart·Vector',  color: '#10b981', glow: 'rgba(16,185,129,0.45)',  tool: '📈', role: 'chart',   defaultTaskZh: '绘制矢量曲线与数据图', defaultTaskEn: 'Sketching Vector Charts' },
+        { id: 'chart',  zh: 'Frame·骨架线框', en: 'Frame·Wireframe',color: '#10b981', glow: 'rgba(16,185,129,0.45)',  tool: '▥', role: 'frame',   defaultTaskZh: '测绘组件轮廓与线框', defaultTaskEn: 'Drafting Component Wireframe' },
         { id: 'type',   zh: 'Type·排版专家',  en: 'Type·Copy',     color: '#8b5cf6', glow: 'rgba(139,92,246,0.45)',  tool: 'T', role: 'type',    defaultTaskZh: '校准字重层级与标题', defaultTaskEn: 'Typesetting Hierarchy' },
         { id: 'logic',  zh: 'Logic·交互核心', en: 'Logic·Script',  color: '#f43f5e', glow: 'rgba(244,63,94,0.45)',   tool: '⚙', role: 'logic',   defaultTaskZh: '绑定状态机与事件监听', defaultTaskEn: 'Wiring Event Listeners' },
         { id: 'shader', zh: 'Shader·光影渲染',en: 'Shader·Glow',   color: '#3b82f6', glow: 'rgba(59,130,246,0.45)',  tool: '◐', role: 'style',   defaultTaskZh: '计算环境光遮蔽与阴影', defaultTaskEn: 'Computing Ambient Shadows' },
@@ -125,6 +125,10 @@
         replaying: false,
         replayTimer: null,
         fadeTimer: null,
+        pacingTimer: null,    // 流式节奏平滑推进定时器（避免 AI 极速输出时闪烁过快）
+        streamTargetCode: '', // AI 实际吐出的完整 HTML 代码
+        revealedCode: '',     // 画布当前平滑展开渲染的代码
+        streamDonePending: false, // AI 流式已经结束，等待画布平滑收尾
         cursorsHidden: false,
         showSource: false,
         startedAt: 0,
@@ -147,7 +151,7 @@
         syntheticBoxes: [],   // 蓝图/合成图形区块 [{ x, y, w, h, kind, color, label, progress }]
         ripples: [],          // 点击波纹 [{ x, y, r, maxR, color, alpha }]
         sparks: [],           // 粒子火花 [{ x, y, vx, vy, color, alpha, size }]
-        sketches: [],         // 假绘制的高级矢量图形 [{ x, y, w, h, kind, color, progress, bornAt, ttl }]
+        wireframes: [],       // 真实页面框架与容器测绘线框 [{ key, x, y, w, h, color, label, bornAt, ttl }]
         links: [],            // 两个 Agent 之间的激光同步连线 [{ a, b, color, bornAt, ttl }]
         cursors: [],          // 10 个指针实体
         iframeReady: false,
@@ -530,28 +534,27 @@
                     h: Math.min(vh - 16, r.height),
                     tag,
                     label: `<${tag}${cls}>${text ? ' ' + text : ''}`,
-                    kind: isChartLike ? 'chart' : (tag === 'button' || tag === 'input' || tag === 'form') ? 'logic' : (tag === 'h1' || tag === 'h2' || tag === 'h3') ? 'type' : 'dom'
+                    kind: (tag === 'header' || tag === 'nav' || tag === 'section' || tag === 'main' || tag === 'article' || tag === 'aside' || tag === 'footer' || tag === 'div') ? 'frame' : (tag === 'button' || tag === 'input' || tag === 'form') ? 'logic' : (tag === 'h1' || tag === 'h2' || tag === 'h3') ? 'type' : 'dom'
                 });
             }
 
             state.domTargets = targets;
             state.nodeCount = doc.body.querySelectorAll('*').length;
 
-            // 如果检测到图表容器（如 <canvas> 或 .chart），自动生成假的高级矢量图表手绘动画覆盖在对应坐标上！
-            targets.filter(t => t.kind === 'chart' && t.w >= 80 && t.h >= 60).slice(0, 4).forEach((t, idx) => {
-                const key = `chart-${Math.round(t.x / 20)}-${Math.round(t.y / 20)}`;
-                if (!state.sketches.some(s => s.key === key)) {
-                    state.sketches.push({
+            // 围绕核心布局容器生成线框骨架（用于指针辅助测绘框架，不画任何虚构图表）
+            targets.filter(t => t.kind === 'frame' && t.w >= 100 && t.h >= 40).slice(0, 5).forEach((t, idx) => {
+                const key = `frame-${Math.round(t.x / 20)}-${Math.round(t.y / 20)}`;
+                if (!state.wireframes.some(s => s.key === key)) {
+                    state.wireframes.push({
                         key,
-                        x: t.x + 8,
-                        y: t.y + 8,
-                        w: Math.max(80, t.w - 16),
-                        h: Math.max(50, t.h - 16),
-                        kind: idx % 3 === 0 ? 'spline' : idx % 3 === 1 ? 'bars' : 'radar',
-                        color: state.palette[idx % state.palette.length] || '#10b981',
+                        x: t.x,
+                        y: t.y,
+                        w: t.w,
+                        h: t.h,
+                        color: state.palette[idx % state.palette.length] || '#6366f1',
                         label: t.label,
                         bornAt: performance.now(),
-                        ttl: 5500
+                        ttl: 4200
                     });
                 }
             });
@@ -684,7 +687,7 @@
         const h = Math.max(260, state.height);
         const pad = 36;
 
-        // 优先飞向真实的 iframe DOM 节点！
+        // 优先飞向真实的 iframe DOM 节点与真实框架！
         if (state.domTargets.length > 0) {
             // 按角色偏好挑选节点，或挑最新生成的末尾节点
             const rolePool = state.domTargets.filter(t => t.kind === cursor.agent.role);
@@ -694,47 +697,37 @@
             const target = pool[weightedIndex];
 
             const actionRoll = Math.random();
-            if (actionRoll < 0.38) {
-                // 拖拽拉框动作：从元素左上角拉到右下角
+            if (actionRoll < 0.45) {
+                // 拖拽拉框动作：从元素左上角拉到右下角，绘制真实组件框架轮廓
                 cursor.mode = 'DRAG_BOX';
-                cursor.x = Math.max(pad, Math.min(w - pad, target.x + (Math.random() - 0.5) * 14));
-                cursor.y = Math.max(pad, Math.min(h - pad, target.y + (Math.random() - 0.5) * 14));
+                cursor.x = Math.max(pad, Math.min(w - pad, target.x + (Math.random() - 0.5) * 10));
+                cursor.y = Math.max(pad, Math.min(h - pad, target.y + (Math.random() - 0.5) * 10));
                 cursor.boxStart = { x: target.x, y: target.y };
-                cursor.tx = Math.max(pad, Math.min(w - pad, target.x + Math.min(target.w, 320)));
-                cursor.ty = Math.max(pad, Math.min(h - pad, target.y + Math.min(target.h, 180)));
+                cursor.tx = Math.max(pad, Math.min(w - pad, target.x + Math.min(target.w, 340)));
+                cursor.ty = Math.max(pad, Math.min(h - pad, target.y + Math.min(target.h, 200)));
                 cursor.boxColor = cursor.agent.color;
                 cursor.boxLabel = target.label;
-                cursor.modeUntil = now + 900 + Math.random() * 650;
+                cursor.modeUntil = now + 1400 + Math.random() * 800;
                 cursor.nextRetargetAt = cursor.modeUntil;
                 cursor.node.classList.add('is-clicking');
-                spawnRipple(cursor.x, cursor.y, cursor.agent.color, 26);
-                return;
-            }
-            if (actionRoll < 0.65 && (cursor.agent.role === 'chart' || target.kind === 'chart')) {
-                // 手绘矢量图形/图表动作
-                cursor.mode = 'SKETCH_GRAPHIC';
-                cursor.tx = Math.max(pad, Math.min(w - pad, target.x + target.w * (0.2 + Math.random() * 0.6)));
-                cursor.ty = Math.max(pad, Math.min(h - pad, target.y + target.h * (0.2 + Math.random() * 0.6)));
-                cursor.modeUntil = now + 1100;
-                cursor.nextRetargetAt = cursor.modeUntil;
-                cursor.node.classList.add('is-sketching');
+                spawnRipple(cursor.x, cursor.y, cursor.agent.color, 24);
                 return;
             }
 
             // 涂抹上色 / 测量校准
-            cursor.mode = cursor.agent.role === 'qa' || cursor.agent.role === 'layout' ? 'MEASURE_ALIGN' : 'PAINT_SWEEP';
+            cursor.mode = cursor.agent.role === 'qa' || cursor.agent.role === 'layout' || cursor.agent.role === 'frame' ? 'MEASURE_ALIGN' : 'PAINT_SWEEP';
             cursor.tx = Math.max(pad, Math.min(w - pad, target.x + Math.random() * Math.min(target.w, w - target.x - pad)));
             cursor.ty = Math.max(pad, Math.min(h - pad, target.y + Math.random() * Math.min(target.h, h - target.y - pad)));
             cursor.boxStart = { x: target.x, y: target.y, w: target.w, h: target.h };
             cursor.boxLabel = target.label;
-            cursor.modeUntil = now + 750 + Math.random() * 600;
+            cursor.modeUntil = now + 1300 + Math.random() * 900;
             cursor.nextRetargetAt = cursor.modeUntil;
             cursor.node.classList.remove('is-clicking', 'is-sketching');
-            if (Math.random() < 0.5) spawnRipple(cursor.tx, cursor.ty, cursor.agent.color, 22);
+            if (Math.random() < 0.4) spawnRipple(cursor.tx, cursor.ty, cursor.agent.color, 20);
             return;
         }
 
-        // 蓝图阶段（<body> 尚未大面积成型）：围绕蓝图槽位进行协同绘制与假图表手绘
+        // 蓝图阶段（<body> 尚未大面积成型）：围绕蓝图槽位进行骨架线框测绘
         const slots = stageEl ? [...stageEl.querySelectorAll('[data-bp-slot]')] : [];
         if (slots.length && viewportEl) {
             const vpRect = viewportEl.getBoundingClientRect();
@@ -746,40 +739,24 @@
                 slotEl.classList.add('is-hot');
                 setTimeout(() => slotEl.classList.remove('is-hot'), 520);
 
-                if (cursor.index % 3 === 0) {
+                if (cursor.index % 2 === 0) {
                     cursor.mode = 'DRAG_BOX';
-                    cursor.boxStart = { x: rx + 6, y: ry + 6 };
-                    cursor.tx = Math.max(pad, Math.min(w - pad, rx + sr.width - 12));
-                    cursor.ty = Math.max(pad, Math.min(h - pad, ry + sr.height - 12));
+                    cursor.boxStart = { x: rx + 4, y: ry + 4 };
+                    cursor.tx = Math.max(pad, Math.min(w - pad, rx + sr.width - 8));
+                    cursor.ty = Math.max(pad, Math.min(h - pad, ry + sr.height - 8));
                     cursor.boxColor = cursor.agent.color;
                     cursor.boxLabel = `${Math.round(sr.width)} × ${Math.round(sr.height)} px`;
-                    cursor.modeUntil = now + 950;
+                    cursor.modeUntil = now + 1500;
                     cursor.nextRetargetAt = cursor.modeUntil;
-                    spawnRipple(rx + 12, ry + 12, cursor.agent.color, 24);
-
-                    // 在主舞台槽位定期生成假矢量图表手绘动画
-                    if (slotEl.dataset.bpSlot === '3' && state.sketches.length < 2) {
-                        state.sketches.push({
-                            key: 'bp-stage-chart',
-                            x: rx + 18,
-                            y: ry + 34,
-                            w: Math.max(120, sr.width - 36),
-                            h: Math.max(80, sr.height - 110),
-                            kind: Math.random() < 0.5 ? 'spline' : 'bars',
-                            color: cursor.agent.color,
-                            label: 'AI Vector Synthesizer',
-                            bornAt: now,
-                            ttl: 4200
-                        });
-                    }
+                    spawnRipple(rx + 10, ry + 10, cursor.agent.color, 22);
                     return;
                 }
 
-                cursor.mode = 'PAINT_SWEEP';
+                cursor.mode = 'MEASURE_ALIGN';
                 cursor.tx = Math.max(pad, Math.min(w - pad, rx + 14 + Math.random() * (sr.width - 28)));
                 cursor.ty = Math.max(pad, Math.min(h - pad, ry + 14 + Math.random() * (sr.height - 28)));
                 cursor.boxStart = { x: rx, y: ry, w: sr.width, h: sr.height };
-                cursor.modeUntil = now + 700 + Math.random() * 500;
+                cursor.modeUntil = now + 1200 + Math.random() * 600;
                 cursor.nextRetargetAt = cursor.modeUntil;
                 return;
             }
@@ -840,8 +817,8 @@
             fxCtx.fillRect(0, scanY - 36, w, 72);
         }
 
-        // 2. 绘制假矢量图表/几何图形手绘层（Spline 曲线图 / 柱状矩阵 / 雷达环）
-        drawSyntheticSketches(fxCtx, now);
+        // 2. 绘制真实页面容器骨架框架与 CAD 辅助线（不画任何虚构图表/正弦曲线）
+        drawWireframeDrafts(fxCtx, now);
 
         // 3. 更新并绘制 10 个 AI 指针的物理轨迹、选框与标尺
         const activeCursors = state.cursors;
@@ -855,17 +832,17 @@
                 }
             }
 
-            // 阻尼弹簧 + 弧线微扰动，让鼠标轨迹像真人大师一样丝滑柔顺
+            // 阻尼弹簧 + 弧线微扰动（更平缓稳重的大师级移动手感，避免过快跳动）
             const dx = c.tx - c.x;
             const dy = c.ty - c.y;
             const dist = Math.hypot(dx, dy);
-            const spring = 0.085;
-            const damping = 0.76;
-            const wobbleX = Math.sin(now * 0.006 + c.phaseOffset) * Math.min(1.6, dist * 0.03);
-            const wobbleY = Math.cos(now * 0.005 + c.phaseOffset) * Math.min(1.6, dist * 0.03);
+            const spring = 0.046;
+            const damping = 0.81;
+            const wobbleX = Math.sin(now * 0.004 + c.phaseOffset) * Math.min(1.4, dist * 0.025);
+            const wobbleY = Math.cos(now * 0.0035 + c.phaseOffset) * Math.min(1.4, dist * 0.025);
 
-            c.vx = (c.vx + dx * spring + wobbleX * 0.15) * damping;
-            c.vy = (c.vy + dy * spring + wobbleY * 0.15) * damping;
+            c.vx = (c.vx + dx * spring + wobbleX * 0.12) * damping;
+            c.vy = (c.vy + dy * spring + wobbleY * 0.12) * damping;
             c.x += c.vx;
             c.y += c.vy;
 
@@ -1080,87 +1057,72 @@
         ctx.restore();
     }
 
-    // 绘制假的高难度矢量图表（Spline 动态曲线图、柱状能量图、雷达仪表盘）
-    function drawSyntheticSketches(ctx, now) {
-        for (let i = state.sketches.length - 1; i >= 0; i--) {
-            const sk = state.sketches[i];
-            const age = now - sk.bornAt;
-            if (age > sk.ttl) {
-                state.sketches.splice(i, 1);
+    // 绘制真实组件与页面骨架线框（CAD/Figma 风格线框，不绘制任何虚构波浪图）
+    function drawWireframeDrafts(ctx, now) {
+        for (let i = state.wireframes.length - 1; i >= 0; i--) {
+            const wf = state.wireframes[i];
+            const age = now - wf.bornAt;
+            if (age > wf.ttl) {
+                state.wireframes.splice(i, 1);
                 continue;
             }
-            const progress = Math.min(1, age / 1400);
-            const fadeOut = age > sk.ttl - 900 ? Math.max(0, (sk.ttl - age) / 900) : 1;
-            const alpha = fadeOut * 0.78;
+            const progress = Math.min(1, age / 800);
+            const fadeOut = age > wf.ttl - 700 ? Math.max(0, (wf.ttl - age) / 700) : 1;
+            const alpha = fadeOut * 0.72;
 
             ctx.save();
             ctx.globalAlpha = alpha;
 
-            if (sk.kind === 'spline') {
-                // 贝塞尔平滑面积图 + 控制点手柄
-                const pts = 7;
-                const coords = [];
-                for (let k = 0; k < pts; k++) {
-                    const px = sk.x + (sk.w * k) / (pts - 1);
-                    const wave = Math.sin(k * 1.15 + now * 0.003) * 0.32 + 0.5;
-                    const py = sk.y + sk.h * (0.18 + wave * 0.64);
-                    coords.push({ x: px, y: py });
-                }
-                const visibleCount = Math.max(2, Math.ceil(coords.length * progress));
-                ctx.beginPath();
-                ctx.moveTo(coords[0].x, coords[0].y);
-                for (let k = 1; k < visibleCount; k++) {
-                    const prev = coords[k - 1];
-                    const cur = coords[k];
-                    const mx = (prev.x + cur.x) / 2;
-                    ctx.bezierCurveTo(mx, prev.y, mx, cur.y, cur.x, cur.y);
-                }
-                ctx.strokeStyle = sk.color;
-                ctx.lineWidth = 2.2;
-                ctx.shadowColor = sk.color;
-                ctx.shadowBlur = 10;
-                ctx.stroke();
+            // 1. 骨架矩形轮廓线
+            const strokeW = Math.max(20, wf.w * progress);
+            const strokeH = Math.max(16, wf.h * progress);
+            ctx.strokeStyle = wf.color;
+            ctx.lineWidth = 1.35;
+            ctx.setLineDash([6, 4]);
+            ctx.strokeRect(wf.x, wf.y, strokeW, strokeH);
 
-                // 绘制数据节点圆环
-                for (let k = 0; k < visibleCount; k++) {
-                    ctx.fillStyle = '#ffffff';
-                    ctx.beginPath();
-                    ctx.arc(coords[k].x, coords[k].y, 3, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-            } else if (sk.kind === 'bars') {
-                // 动态生长柱状矩阵
-                const count = 8;
-                const gap = 6;
-                const barW = Math.max(6, (sk.w - gap * (count - 1)) / count);
-                for (let k = 0; k < count; k++) {
-                    if (k / count > progress) break;
-                    const ratio = (0.3 + 0.65 * Math.abs(Math.sin(k * 0.9 + now * 0.0025))) * Math.min(1, (progress - k / count) * 3);
-                    const bh = sk.h * ratio;
-                    const bx = sk.x + k * (barW + gap);
-                    const by = sk.y + sk.h - bh;
-                    ctx.fillStyle = sk.color;
-                    ctx.globalAlpha = alpha * 0.55;
-                    ctx.beginPath();
-                    ctx.roundRect(bx, by, barW, bh, 3);
-                    ctx.fill();
-                }
-            } else {
-                // 科幻雷达圆环仪表
-                const cx = sk.x + sk.w / 2;
-                const cy = sk.y + sk.h / 2;
-                const r = Math.min(sk.w, sk.h) * 0.38;
-                ctx.strokeStyle = sk.color;
-                ctx.lineWidth = 2.5;
-                ctx.beginPath();
-                ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress * 0.88);
-                ctx.stroke();
+            // 2. 四角锚点控制手柄
+            ctx.setLineDash([]);
+            ctx.fillStyle = '#ffffff';
+            ctx.strokeStyle = wf.color;
+            ctx.lineWidth = 1.2;
+            const corners = [
+                [wf.x, wf.y],
+                [wf.x + strokeW, wf.y],
+                [wf.x, wf.y + strokeH],
+                [wf.x + strokeW, wf.y + strokeH]
+            ];
+            for (const [cx, cy] of corners) {
+                ctx.fillRect(cx - 2.5, cy - 2.5, 5, 5);
+                ctx.strokeRect(cx - 2.5, cy - 2.5, 5, 5);
+            }
 
-                ctx.lineWidth = 1;
-                ctx.setLineDash([4, 4]);
+            // 3. 极浅的原型骨架占位槽（如同 UI 设计工具中的线框卡片占位，简洁真实）
+            if (strokeW > 120 && strokeH > 50) {
+                ctx.fillStyle = wf.color;
+                ctx.globalAlpha = alpha * 0.12;
+                const railW = Math.min(strokeW - 32, 160);
                 ctx.beginPath();
-                ctx.arc(cx, cy, r * 0.68, now * 0.002, now * 0.002 + Math.PI * 1.4);
-                ctx.stroke();
+                ctx.roundRect(wf.x + 16, wf.y + 14, railW, 8, 4);
+                ctx.roundRect(wf.x + 16, wf.y + 28, Math.min(strokeW - 32, railW * 0.65), 6, 3);
+                ctx.fill();
+            }
+
+            // 4. 真实组件框架标签胶囊
+            if (wf.label && strokeW > 60) {
+                const labelText = `${wf.label.slice(0, 24)} · ${Math.round(wf.w)}×${Math.round(wf.h)}`;
+                ctx.font = '600 10px "JetBrains Mono", monospace';
+                const tw = ctx.measureText(labelText).width + 10;
+                const pillX = Math.min(state.width - tw - 6, Math.max(4, wf.x));
+                const pillY = wf.y > 20 ? wf.y - 17 : wf.y + 3;
+                ctx.fillStyle = wf.color;
+                ctx.globalAlpha = alpha * 0.92;
+                ctx.beginPath();
+                ctx.roundRect(pillX, pillY, tw, 15, 3.5);
+                ctx.fill();
+                ctx.fillStyle = '#ffffff';
+                ctx.globalAlpha = 1;
+                ctx.fillText(labelText, pillX + 5, pillY + 10.5);
             }
 
             ctx.restore();
@@ -1198,14 +1160,19 @@
     function startSession({ prompt = '', title = '' } = {}) {
         clearTimeout(state.replayTimer);
         clearTimeout(state.fadeTimer);
+        clearTimeout(state.pacingTimer);
+        state.pacingTimer = null;
         state.active = true;
         state.streaming = true;
         state.finished = false;
         state.replaying = false;
+        state.streamDonePending = false;
         state.cursorsHidden = false;
         state.showSource = false;
         state.startedAt = performance.now();
         state.htmlCode = '';
+        state.streamTargetCode = '';
+        state.revealedCode = '';
         state.pageTitle = title || '';
         state.prompt = String(prompt || '');
         state.lineCount = 0;
@@ -1216,7 +1183,7 @@
         state.lastStyleSig = '';
         state.seenTokens.clear();
         state.domTargets = [];
-        state.sketches = [];
+        state.wireframes = [];
         state.ripples = [];
         state.sparks = [];
         state.links = [];
@@ -1238,9 +1205,64 @@
         ensureLiveIframe();
         state.cursors.forEach((c, idx) => {
             c.taskNode.textContent = L(c.agent.defaultTaskZh, c.agent.defaultTaskEn);
-            c.nextRetargetAt = performance.now() + idx * 90;
+            c.nextRetargetAt = performance.now() + idx * 110;
         });
         updateMetricsUi();
+    }
+
+    // 平滑渐进推进：当 AI 生成极快时，自适应平抑展开节奏，保证 4~8 秒优雅呈现
+    function stepPacedReveal() {
+        if (!state.active || state.finished || state.replaying) {
+            state.pacingTimer = null;
+            return;
+        }
+
+        const target = state.streamTargetCode || '';
+        const currentLen = state.revealedCode.length;
+        const totalLen = target.length;
+
+        if (currentLen >= totalLen) {
+            state.pacingTimer = null;
+            if (state.streamDonePending && !state.finished) {
+                finalizeSession();
+            }
+            return;
+        }
+
+        const lag = totalLen - currentLen;
+        // 动态自适应步长：滞后多时稍快，AI 已完成时加速收尾，但无论如何不突变
+        const step = state.streamDonePending
+            ? Math.max(26, Math.min(lag, Math.floor(lag * 0.15) + 20))
+            : Math.max(12, Math.min(lag, Math.floor(lag * 0.05) + 10));
+
+        let nextPos = currentLen + step;
+        if (nextPos < totalLen) {
+            const nextTagEnd = target.indexOf('>', nextPos);
+            if (nextTagEnd !== -1 && nextTagEnd - nextPos < 28) {
+                nextPos = nextTagEnd + 1;
+            }
+        } else {
+            nextPos = totalLen;
+        }
+
+        state.revealedCode = target.slice(0, nextPos);
+        state.htmlCode = state.revealedCode;
+        analyzeStreamTokens(state.htmlCode);
+
+        if (state.showSource && codeViewEl) {
+            const codeEl = codeViewEl.querySelector('code');
+            if (codeEl) codeEl.textContent = state.htmlCode;
+        }
+
+        updateIncrementalIframe(state.htmlCode, false);
+        updateMetricsUi();
+
+        if (state.revealedCode.length < totalLen || state.streamDonePending) {
+            const delay = state.streamDonePending ? 36 : 46;
+            state.pacingTimer = setTimeout(stepPacedReveal, delay);
+        } else {
+            state.pacingTimer = null;
+        }
     }
 
     function onStreamDelta(fullStreamText, { prompt = '' } = {}) {
@@ -1251,35 +1273,19 @@
             startSession({ prompt, title: extracted.title });
         }
 
-        state.htmlCode = extracted.code;
-        analyzeStreamTokens(extracted.code);
-
-        if (state.showSource && codeViewEl) {
-            const codeEl = codeViewEl.querySelector('code');
-            if (codeEl) codeEl.textContent = state.htmlCode;
-        }
-
-        const now = performance.now();
-        if (now - state.lastRenderAt >= 130) {
-            state.lastRenderAt = now;
-            updateIncrementalIframe(state.htmlCode, false);
-        } else if (!state.renderTimer) {
-            state.renderTimer = setTimeout(() => {
-                state.renderTimer = null;
-                state.lastRenderAt = performance.now();
-                updateIncrementalIframe(state.htmlCode, false);
-            }, 130);
+        state.streamTargetCode = extracted.code;
+        if (!state.pacingTimer && state.revealedCode.length < state.streamTargetCode.length) {
+            stepPacedReveal();
         }
         return true;
     }
 
     function onStreamFinish(finalText = '', { prompt = '' } = {}) {
-        if (state.renderTimer) {
-            clearTimeout(state.renderTimer);
-            state.renderTimer = null;
-        }
+        clearTimeout(state.renderTimer);
+        state.renderTimer = null;
+
         const extracted = extractStreamingHtml(finalText);
-        if (!extracted.found && !state.htmlCode) {
+        if (!extracted.found && !state.streamTargetCode && !state.htmlCode) {
             // 如果预触发了但最终回答里根本没有 HTML 代码，自动收起舞台
             if (state.active && !state.lineCount) deactivate();
             return false;
@@ -1287,13 +1293,29 @@
 
         if (extracted.found) {
             if (!state.active) startSession({ prompt, title: extracted.title });
-            state.htmlCode = extracted.code;
-            analyzeStreamTokens(extracted.code);
+            state.streamTargetCode = extracted.code;
         }
 
+        state.streamDonePending = true;
+        // 如果当前展开进度已经追平，直接收尾；否则让 stepPacedReveal 步进完成后优雅收官
+        if (state.revealedCode.length >= state.streamTargetCode.length) {
+            finalizeSession();
+        } else if (!state.pacingTimer) {
+            stepPacedReveal();
+        }
+        return true;
+    }
+
+    function finalizeSession() {
+        clearTimeout(state.pacingTimer);
+        state.pacingTimer = null;
         state.streaming = false;
         state.finished = true;
+        state.streamDonePending = false;
+        state.htmlCode = state.streamTargetCode || state.htmlCode;
+        analyzeStreamTokens(state.htmlCode);
         updateIncrementalIframe(state.htmlCode, true);
+
         if (state.showSource && codeViewEl) {
             const codeEl = codeViewEl.querySelector('code');
             if (codeEl) codeEl.textContent = state.htmlCode;
@@ -1302,12 +1324,12 @@
 
         if (stageEl) stageEl.classList.add('is-finished');
         if (livePillTextEl) livePillTextEl.textContent = L('10 AI 协同绘制完成', '10 AI Swarm Complete');
-        if (tickerEl) tickerEl.innerHTML = `<strong>✓</strong> ${esc(L('页面渲染与交互脚本已就绪，可直接点击体验或重播绘制', 'Page & scripts ready — interact directly or replay'))}`;
+        if (tickerEl) tickerEl.innerHTML = `<strong>✓</strong> ${esc(L('页面框架与交互脚本已就绪，可直接点击体验或重播绘制', 'Framework & scripts ready — interact directly or replay'))}`;
 
-        // 庆祝花火：所有指针在最后 2.4 秒做一次终检巡礼，随后自动淡出让用户无遮挡交互
+        // 庆祝花火：所有指针做一次终检巡礼，随后自动淡出让用户无遮挡交互
         state.cursors.forEach(c => {
-            spawnRipple(c.x, c.y, c.agent.color, 36);
-            c.taskNode.textContent = L('✓ 绘制校验完成', '✓ Verified & Polished');
+            spawnRipple(c.x, c.y, c.agent.color, 32);
+            c.taskNode.textContent = L('✓ 框架对齐完成', '✓ Framework Aligned');
         });
         clearTimeout(state.fadeTimer);
         state.fadeTimer = setTimeout(() => {
@@ -1315,7 +1337,6 @@
                 toggleCursors(true);
             }
         }, 2600);
-        return true;
     }
 
     // 用于工作区 write_file / edit_file 生成完 HTML 文件、或点击「重播绘制」时的高速流式仿真演练
@@ -1326,9 +1347,9 @@
         state.replaying = true;
 
         const totalLen = code.length;
-        const steps = 28;
+        const steps = 45;
         let step = 0;
-        const stepMs = 110;
+        const stepMs = 95;
 
         const runStep = () => {
             if (!state.active || !state.replaying) return;
@@ -1347,7 +1368,7 @@
                 state.replayTimer = setTimeout(runStep, stepMs);
             } else {
                 state.replaying = false;
-                onStreamFinish('```html\n' + code + '\n```');
+                finalizeSession();
             }
         };
         runStep();
@@ -1403,6 +1424,8 @@
     function deactivate() {
         clearTimeout(state.replayTimer);
         clearTimeout(state.fadeTimer);
+        clearTimeout(state.pacingTimer);
+        state.pacingTimer = null;
         if (state.renderTimer) {
             clearTimeout(state.renderTimer);
             state.renderTimer = null;
@@ -1410,6 +1433,7 @@
         state.active = false;
         state.streaming = false;
         state.replaying = false;
+        state.streamDonePending = false;
         if (state.rafId) {
             cancelAnimationFrame(state.rafId);
             state.rafId = 0;
