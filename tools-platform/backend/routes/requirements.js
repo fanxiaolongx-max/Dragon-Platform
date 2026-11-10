@@ -3,6 +3,7 @@ const router = express.Router();
 const transport = require('../models/requirements-transport');
 const uploads = require('../models/requirements-upload');
 const { board, transaction } = require('../models/requirements-board');
+const updates = require('../models/catalog-update-review');
 const { parseImages } = require('../models/requirements-images');
 const { isSuperAdmin } = require('../middleware/auth');
 const { DEFAULT_TENANT_ID, getTenantId, runWithTenant } = require('../models/tenant-context');
@@ -44,6 +45,11 @@ router.post('/uploads/:uploadId/chunk', uploadEndpoint(req => uploads.receive(re
 router.delete('/uploads/:uploadId', uploadEndpoint(req => { uploads.cancel(req.params.uploadId, req.user); return { success: true }; }));
 router.post('/uploads/:uploadId/complete', uploadEndpoint(req => uploads.complete(req.params.uploadId, req.user, (envelope, target) => {
     const body = transport.decrypt(envelope, { user: req.user, method: target.method, path: target.path });
+    if (target.path === '/api/requirements/catalog-updates') {
+        return submitPublication(req, body).then(value => ({ body: value }), error => ({
+            status: error.status || 500, body: { error: error.status ? error.message : '更新申请保存失败', code: error.code }
+        }));
+    }
     return (target.method === 'POST' ? createRequirement : updateRequirement)(
         { user: req.user, params: { id: target.requirementId }, body }
     ).then(value => ({ body: value }), error => ({
@@ -88,47 +94,81 @@ router.get('/', endpoint(async () => {
     return rows.map(({ description_truncated, ...row }) => description_truncated ? { ...row, description_truncated: true } : row);
 }));
 
-router.post('/skill-publications', endpoint(async req => {
-    const skillId = typeof req.body?.skillId === 'string' ? req.body.skillId : '';
-    const snapshot = await require('../models/agent-skills-store').publicationSnapshot(skillId, req.user);
-    if (!snapshot) throw requestError('请先保存你的技能版本', 404);
-    const reason = String(req.body?.reason || '').trim().slice(0, 1000);
+async function submitPublication(req, body) {
+    if (!req.user) throw requestError('请先登录', 401);
+    const { kind, snapshot, attachment } = await updates.prepare(body, req.user);
+    const reason = typeof body.reason === 'string' ? body.reason.trim().slice(0, 1000) : '';
+    const applicantTenant = getTenantId();
+    const category = updates.categories[kind];
     return transaction(async query => {
         const pending = await query.get(`SELECT id FROM Requirements WHERE creator = ?
+            AND COALESCE(json_extract(skill_publication, '$.kind'), 'skill') = ?
             AND json_extract(skill_publication, '$.snapshot.id') = ?
-            AND json_extract(skill_publication, '$.state') = 'pending' AND status <> '已拒绝'`, [req.user.username, skillId]);
-        if (pending) throw requestError('此技能已有待审核的发布申请', 409);
+            AND COALESCE(json_extract(skill_publication, '$.applicantTenant'), ?) = ?
+            AND json_extract(skill_publication, '$.state') = 'pending' AND status <> '已拒绝'`,
+        [req.user.username, kind, snapshot.id, applicantTenant, applicantTenant]);
+        if (pending) throw requestError('此条目已有待审核的更新申请', 409);
         const { id } = await query.run(
             'INSERT INTO Requirements (title, description, category, status, creator, skill_publication) VALUES (?, ?, ?, ?, ?, ?)',
-            [`技能发布申请：${snapshot.name}`, reason, '技能发布申请', statuses[0], req.user.username,
-                JSON.stringify({ state: 'pending', snapshot, applicantTenant: req.user.homeTenantId || getTenantId() })]
+            [`${category}：${snapshot.name}`, reason, category, statuses[0], req.user.username,
+                JSON.stringify({ kind, state: 'pending', snapshot, applicantTenant, fileName: attachment?.name })]
         );
+        if (attachment) {
+            await query.run('INSERT INTO RequirementUpdateFiles (req_id, name, data) VALUES (?, ?, ?)', [id, attachment.name, attachment.bytes]);
+        }
         await query.run('INSERT INTO RequirementLogs (req_id, old_status, new_status, remark, operator) VALUES (?, ?, ?, ?, ?)',
-            [id, '', statuses[0], '提交技能发布申请', req.user.username]);
+            [id, '', statuses[0], `提交${category}`, req.user.username]);
         return { success: true, id };
     });
-}));
+}
 
-router.post('/:id/approve-skill', endpoint(async req => {
-    if (!isSuperAdmin(req.user)) throw requestError('仅超级管理员可审核发布', 403);
+router.post('/skill-publications', endpoint(req => submitPublication(req, { ...req.body, kind: 'skill', id: req.body?.skillId, file: undefined })));
+router.post('/catalog-updates', decryptRequest, endpoint(req => submitPublication(req, req.body)));
+
+function canReadPublication(row, publication, user) {
+    return isSuperAdmin(user) || (row.creator === user?.username && (!publication.applicantTenant || publication.applicantTenant === getTenantId()));
+}
+
+async function approvePublication(req, skillOnly = false) {
+    if (!isSuperAdmin(req.user)) throw requestError('仅超级管理员可审核更新', 403);
     return transaction(async query => {
         const row = await query.get('SELECT creator, status, skill_publication FROM Requirements WHERE id = ?', [req.params.id]);
-        if (!row?.skill_publication) throw requestError('技能发布申请不存在', 404);
+        if (!row?.skill_publication) throw requestError('更新申请不存在', 404);
         const publication = JSON.parse(row.skill_publication);
-        if (publication.state === 'published') return { success: true };
-        if (row.status === '已拒绝') throw requestError('已拒绝的申请无法发布', 409);
-        await require('../models/agent-skills-store').publishSnapshot(publication.snapshot, req.user.username);
-        if (publication.applicantTenant && publication.applicantTenant !== DEFAULT_TENANT_ID) {
-            await runWithTenant(publication.applicantTenant, () => require('../models/tool-distribution')
-                .setPersonalEntry({ username: row.creator }, `skill:${publication.snapshot.id}`, { origin: true, fork: false }));
+        const skill = !publication.kind || publication.kind === 'skill';
+        if (skillOnly && !skill) throw requestError('技能发布申请不存在', 404);
+        if (publication.state !== 'pending') return { success: true };
+        if (row.status === '已拒绝') throw requestError('已拒绝的申请无法通过审核', 409);
+        if (skill) {
+            await require('../models/agent-skills-store').publishSnapshot(publication.snapshot, req.user.username);
+            if (publication.applicantTenant && publication.applicantTenant !== DEFAULT_TENANT_ID && !publication.fileName) {
+                await runWithTenant(publication.applicantTenant, () => require('../models/tool-distribution')
+                    .setPersonalEntry({ username: row.creator }, `skill:${publication.snapshot.id}`, { origin: true, fork: false }));
+            }
         }
-        const published = { ...publication, state: 'published', approvedBy: req.user.username, approvedAt: new Date().toISOString() };
+        const published = { ...publication, state: skill ? 'published' : 'reviewed', approvedBy: req.user.username, approvedAt: new Date().toISOString() };
+        const nextStatus = skill ? '需求完成' : '需求接受';
         await query.run('UPDATE Requirements SET status = ?, assignee = ?, skill_publication = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-            ['需求完成', req.user.username, JSON.stringify(published), req.params.id]);
+            [nextStatus, req.user.username, JSON.stringify(published), req.params.id]);
         await query.run('INSERT INTO RequirementLogs (req_id, old_status, new_status, remark, operator) VALUES (?, ?, ?, ?, ?)',
-            [req.params.id, row.status, '需求完成', '已允许发布技能', req.user.username]);
+            [req.params.id, row.status, nextStatus, skill ? '已发布技能' : '更新审核通过，待发布', req.user.username]);
         return { success: true };
     });
+}
+
+router.post('/:id/approve-skill', endpoint(req => approvePublication(req, true)));
+router.post('/:id/approve-update', endpoint(req => approvePublication(req)));
+
+router.get('/:id/update-file', endpoint(async (req, res) => {
+    const query = await board();
+    const row = await query.get('SELECT creator, skill_publication FROM Requirements WHERE id = ?', [req.params.id]);
+    if (!row?.skill_publication || !canReadPublication(row, JSON.parse(row.skill_publication), req.user)) {
+        throw requestError('更新附件不存在', 404);
+    }
+    const file = await query.get('SELECT name, data FROM RequirementUpdateFiles WHERE req_id = ?', [req.params.id]);
+    if (!file) throw requestError('更新附件不存在', 404);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.attachment(file.name).type('application/octet-stream').send(file.data);
 }));
 
 router.get('/:id/images/:index', endpoint(async (req, res) => {
@@ -151,12 +191,14 @@ router.get('/:id', endpoint(async req => {
     return {
         ...details,
         skillPublication: publication ? {
+            kind: publication.kind || 'skill',
             id: publication.snapshot.id,
             name: publication.snapshot.name,
             state: publication.state === 'pending' && row.status === '已拒绝' ? 'rejected' : publication.state,
             approvedBy: publication.approvedBy,
             approvedAt: publication.approvedAt,
-            markdown: canManage || row.creator === req.user.username ? publication.snapshot.markdown : undefined
+            markdown: canReadPublication(row, publication, req.user) ? publication.snapshot.markdown : undefined,
+            fileName: canReadPublication(row, publication, req.user) ? publication.fileName : undefined
         } : undefined,
         images: JSON.parse(row.images).map(({ name }, index) => ({ name, href: `/api/requirements/${row.id}/images/${index}` })),
         canEdit: canEdit(row, req.user), canManage,
@@ -201,6 +243,13 @@ async function updateRequirement(req) {
         if (title !== undefined && !title.trim() || category !== undefined && !category.trim()) throw requestError('标题和页面分类为必填项', 400);
         const nextStatus = canManage && status !== undefined ? status : row.status;
         if (nextStatus !== row.status) {
+            const publication = row.skill_publication && JSON.parse(row.skill_publication);
+            if (publication?.state === 'pending' && nextStatus !== '已拒绝') {
+                throw requestError('请先使用更新审核操作', 409);
+            }
+            if (publication && publication.state !== 'pending' && nextStatus === '已拒绝') {
+                throw requestError('已通过审核的申请无法拒绝', 409);
+            }
             const oldIndex = statuses.indexOf(row.status);
             const newIndex = statuses.indexOf(nextStatus);
             if (row.status === '已拒绝') throw requestError('已拒绝的需求无法再流转', 400);
@@ -228,6 +277,7 @@ router.delete('/:id', endpoint(req => transaction(async query => {
     const row = await query.get('SELECT creator FROM Requirements WHERE id = ?', [id]);
     if (!row) throw requestError('需求不存在', 404);
     if (!canEdit(row, req.user)) throw requestError('没有权限删除此需求', 403);
+    await query.run('DELETE FROM RequirementUpdateFiles WHERE req_id = ?', [id]);
     await query.run('DELETE FROM RequirementLogs WHERE req_id = ?', [id]);
     await query.run('DELETE FROM Requirements WHERE id = ?', [id]);
     return { success: true, message: '删除成功' };

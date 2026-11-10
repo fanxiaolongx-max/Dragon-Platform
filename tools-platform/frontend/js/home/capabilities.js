@@ -7,12 +7,12 @@
 
     const TEXT = {
         'zh-CN': {
-            title: '插件与脚本', subtitle: '藏在各工具里的小功能，新增脚本或插件后会自动出现在这里', count: '{n} 项',
+            more: '更多操作', title: '插件与脚本', subtitle: '藏在各工具里的小功能，新增脚本或插件后会自动出现在这里', count: '{n} 项',
             where: '在哪里：{where}', open: '打开', openAll: '前往', badgeExtension: '完整扩展', badgeServer: '服务器脚本',
             badgeScript: 'F12 脚本', scripts: '{n} 个脚本', entrySub: '{n} 个藏在工具里的小功能'
         },
         'en-US': {
-            title: 'Plugins & scripts', subtitle: 'Small features tucked inside tools. New scripts and plugins appear here automatically.', count: '{n}',
+            more: 'More options', title: 'Plugins & scripts', subtitle: 'Small features tucked inside tools. New scripts and plugins appear here automatically.', count: '{n}',
             where: 'Where: {where}', open: 'Open', openAll: 'Go', badgeExtension: 'Extension', badgeServer: 'Server script',
             badgeScript: 'F12 script', scripts: '{n} scripts', entrySub: '{n} features tucked inside tools'
         }
@@ -134,6 +134,7 @@
                                     <span class="home-cap-card-desc">${escapeHtml(item.description)}</span>
                                 </span>
                                 ${promotionButton(group, item)}
+                                <button type="button" class="custom-tool-action" data-cap-more aria-haspopup="menu" aria-label="${escapeHtml(tx('more'))}">⋯</button>
                                 <span class="home-cap-card-arrow" aria-hidden="true">↗</span>
                             </a>`).join('')}
                     </div>
@@ -252,6 +253,23 @@
         el.section = document.getElementById('homeCaps');
         el.entry = document.getElementById('homeCapsEntry');
         el.entry?.addEventListener('click', () => scrollToGroup(''));
+        const openMenu = event => {
+            const card = event.target.closest('[data-cap-index]');
+            if (!card || (event.type === 'click' && !event.target.closest('[data-cap-more]'))) return;
+            const group = state.groups.find(entry => entry.kind === card.closest('[data-cap-group]')?.dataset.capGroup);
+            const item = group?.items[Number(card.dataset.capIndex)];
+            if (!item) return;
+            event.preventDefault();
+            event.stopPropagation();
+            window.HomeToolMenu?.open({
+                anchor: event.type === 'click' ? card.querySelector('[data-cap-more]') : null,
+                x: event.clientX, y: event.clientY,
+                item: { kind: 'plugin', key: item.id, capabilityId: item.id, capabilityBadge: item.badge,
+                    capabilityKind: item.kind, sharedAccess: item.sharedAccess, title: itemName(item), href: item.href }
+            });
+        };
+        el.section?.addEventListener('click', openMenu);
+        el.section?.addEventListener('contextmenu', openMenu);
         state.filter = window.HomeWorkspace?.getFilter?.() || state.filter;
         el.nav?.addEventListener('click', event => {
             const button = event.target.closest('[data-cap-kind]');

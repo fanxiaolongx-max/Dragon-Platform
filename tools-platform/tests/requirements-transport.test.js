@@ -400,3 +400,26 @@ test('tenant requirement import keeps logs and does not overwrite or re-publish 
     await importTenantRequirements('legacy-team');
     assert.equal((await call('get', '/api/requirements')).body.some(row => row.title === 'Legacy team request'), false);
 });
+
+test('a readonly account can submit a chunked catalog update through the encrypted client', async () => {
+    const updatePath = '/api/requirements/catalog-updates';
+    const requests = [];
+    const api = Object.fromEntries(['get', 'post', 'delete'].map(method => [method, async (url, body) => {
+        requests.push(url);
+        const response = await call(method, url, body, 'readonly', 'reader');
+        assert.equal(response.status, 200, response.text);
+        return response.body;
+    }]));
+    const client = browser(undefined, { API: api });
+    const source = Buffer.from('<html>' + 'x'.repeat(600000) + '</html>');
+    const result = await client.submitPayload({
+        kind: 'tool', id: '/report', reason: 'Chart update', file: { name: 'report.html', data: source.toString('base64') }
+    }, 'POST', updatePath);
+    assert.ok(requests.includes('/api/requirements/uploads/start'));
+    assert.ok(!requests.includes(updatePath));
+    const url = `/api/requirements/${result.id}/update-file`;
+    const downloaded = await call('get', url, undefined, 'readonly', 'reader');
+    assert.deepEqual(downloaded.body, source);
+    assert.equal((await call('get', url, undefined, 'readonly', 'reader').set('x-test-tenant', 'another')).status, 404);
+    assert.equal((await call('get', url, undefined, 'readonly', 'other-reader')).status, 404);
+});

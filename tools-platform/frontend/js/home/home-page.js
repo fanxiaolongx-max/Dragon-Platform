@@ -1468,11 +1468,6 @@
                 card.innerHTML = `
                     <div class="custom-tool-actions">
                         ${tool.shared || (tool.hostedApp && role !== 'admin') ? '' : `<button type="button" class="custom-tool-action" title="${escapeHtml(t(tool.hostedApp ? 'home.custom.downloadApp' : 'home.custom.download'))}" onclick="event.preventDefault(); event.stopPropagation(); downloadCustomTool('${escapeHtml(tool.slug)}')">↓</button>`}
-                        ${role === 'admin' && !tool.shared ? `
-                            ${window.BuiltinPromotion?.button('tool', tool.slug, { builtIn: tool.builtIn === true, name: displayName }) || ''}
-                            <button type="button" class="custom-tool-action" title="${escapeHtml(t('home.custom.rename'))}" onclick="event.preventDefault(); event.stopPropagation(); renameCustomTool('${escapeHtml(tool.slug)}')">✎</button>
-                            <button type="button" class="custom-tool-action delete" title="${escapeHtml(t('home.custom.delete'))}" onclick="event.preventDefault(); event.stopPropagation(); deleteCustomTool('${escapeHtml(tool.slug)}')">×</button>
-                        ` : ''}
                     </div>
                     <div class="card-icon">${escapeHtml(tool.icon || '🧩')}</div>
                     <div class="card-title">
@@ -2396,7 +2391,7 @@
                             <strong class="tool-market-title">${escapeHtml(english() ? (tool.nameEn || tool.name) : tool.name)}</strong>
                             <p>${escapeHtml(english() ? (tool.descriptionEn || tool.description || '') : (tool.description || ''))}</p>
                         </div>
-                        ${needsRestore ? `<button type="button" class="tool-import-btn" data-market-restore="${escapeHtml(tool.id)}" data-entry-kind="${escapeHtml(tool.kind)}">${tool.hidden ? text('恢复', 'Restore') : text('加入我的工具', 'Add to my tools')}</button>`
+                        ${needsRestore ? `<button type="button" class="tool-import-btn" data-market-restore="${escapeHtml(tool.id)}" data-market-action="${tool.hidden ? 'unhide' : 'restore'}" data-entry-kind="${escapeHtml(tool.kind)}">${tool.hidden ? text('恢复', 'Restore') : text('加入我的工具', 'Add to my tools')}</button>`
                             : `<a class="tool-import-btn" href="${escapeHtml(tool.href)}" target="_blank" rel="noopener">${text('打开', 'Open')}</a>`}
                     </article>`;
                 }).join('') || `<div class="tool-market-empty">${text('暂无已开放的工具', 'No tools have been shared yet')}</div>`;
@@ -2408,7 +2403,7 @@
                 if (!button || button.disabled) return;
                 button.disabled = true;
                 try {
-                    await API.patch('/api/distribution/personal', { kind: button.dataset.entryKind, id: button.dataset.marketRestore, action: 'restore' });
+                    await API.patch('/api/distribution/personal', { kind: button.dataset.entryKind, id: button.dataset.marketRestore, action: button.dataset.marketAction });
                     await loadPlatformTools(false);
                     await Promise.all([loadCustomTools(), window.refreshCustomToolNavLinks?.(), window.HomeSkills?.reload?.(), window.HomeCapabilities?.reload?.()]);
                 } catch (error) {

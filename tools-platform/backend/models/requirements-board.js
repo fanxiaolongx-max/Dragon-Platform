@@ -35,6 +35,9 @@ async function board() {
                 id INTEGER PRIMARY KEY AUTOINCREMENT, req_id INTEGER, old_status TEXT, new_status TEXT,
                 remark TEXT, operator TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )`);
+            await query.run(`CREATE TABLE IF NOT EXISTS RequirementUpdateFiles (
+                req_id INTEGER PRIMARY KEY, name TEXT NOT NULL, data BLOB NOT NULL
+            )`);
             await query.run('CREATE TABLE IF NOT EXISTS RequirementImports (tenant TEXT, legacy_id INTEGER, PRIMARY KEY (tenant, legacy_id))');
         })();
         ready.set(db, pending);

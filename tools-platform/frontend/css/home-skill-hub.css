@@ -142,6 +142,9 @@ html[data-theme="dark"] .v2-hub-card.is-shared-access:hover {
 .tool-context-menu {
     position: fixed;
     z-index: 12500;
+    box-sizing: border-box;
+    max-height: calc(100vh - 20px);
+    overflow-y: auto;
     min-width: 180px;
     padding: 6px;
     border: 1px solid var(--v2-line, rgba(148, 163, 184, 0.25));

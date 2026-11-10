@@ -1,16 +1,12 @@
 {
   "zh": [
-    "桌面智能体可视化预览沙箱与额度趋势抖动平滑：桌面会话 Widget 预览安全开放脚本与图表渲染支持；额度消耗时间曲线对重置时间戳增加分钟级舍入与时间容差，防止服务商秒级抖动导致曲线虚假折断。",
-    "AI 指针群协同绘制节奏平抑与骨架线框纯粹化：引入自适应平滑推进机制，在 AI 极速输出时平抑展开速度，留出 4~8 秒优雅呈现周期；彻底移除作品中不存在的虚构波动曲线图表，全面聚焦真实页面组件的骨架线框测绘、四角锚点控制柄与尺寸对齐标尺，指针运动更加稳健沉着。",
-    "桌面底栏与宠物窗口额度趋势图交互精简：优化额度消耗时间曲线样式，移除交互探测点的悬停灰点与连续折线末端冗余圆点，仅对孤立单点保留打点，提升曲线干净度与观感。",
-    "内置浏览器远程下载管理：支持在远程/网页端内置浏览器中捕获、查看并一键保存已完成的文件下载，下载按钮提供实时状态徽标提醒。",
-    "智能体工具权限收敛与状态联动：WeLink 频道消息（机器人推送）纳入团队默认关闭策略，与平台共享 MCP 保持一致；当底层频道未启用时自动对非超管隐藏，超管后台清晰标明连接状态。"
+    "工具与能力目录更新审查与分块加密传输：需求看板支持工具、插件/脚本及技能的更新申请流程，支持成员提交更新候选包并安全存储于 RequirementUpdateFiles，配合客户端分块加密传输；管理员可在看板中一键审核与下载更新附件，审核通过前限制流转至已完成。",
+    "能力卡片更多操作与工具菜单体验增强：首页插件与脚本卡片新增更多操作菜单，支持快捷发起更新申请；工具上下文菜单增加最大高度限制与纵向滚动支持，防止菜单项超出屏幕；独立窗口打开自定义工具时新增「在工具中台管理」快捷链接。",
+    "共享工具与能力隐藏恢复状态保留：租户成员恢复已隐藏的共享工具或插件时，完整保留此前配置的个人别名与本地修改快照，避免恢复时覆盖定制内容。"
   ],
   "en": [
-    "Desktop agent visual preview sandbox & quota jitter smoothing: safely enabled script and chart rendering inside desktop agent widget previews; smoothed quota history reset timestamps with minute-rounding and tolerance against transient provider ticks.",
-    "AI Cursor Swarm Live Painter pacing & wireframe focus: introduced an adaptive smoothing pipeline that paces rapid stream bursts across a 4-8 second build cycle; completely removed fictional sine-wave curves in favor of authentic CAD/Figma-style component wireframe outlines, corner handles, and dimension guides.",
-    "Desktop quota bar & pet trend chart visual refinement: streamlined quota consumption curves by removing hover-point fills and redundant segment endpoints, marking only isolated points for a cleaner look.",
-    "Built-in browser remote download management: captures completed file downloads in the remote browser view with status indicators and one-click local saving.",
-    "Agent tool access hardening & channel status linking: WeLink channel messaging (bot push) is now off for teams by default alongside shared MCP; tools are hidden from non-super admins when the channel is disabled."
+    "Catalog update review workflow & chunked encrypted transport: added review submissions for tools, plugins/scripts, and skills with secure RequirementUpdateFiles attachment storage and client chunked encryption; administrators can review and download packages directly from the requirements board before approval.",
+    "Capability card more-actions & tool menu enhancements: added more-options menus to plugin & script cards for quick update submissions; constrained tool context menus to viewport height with vertical scrolling; added a direct \"Manage in the tool hub\" link when custom tools are opened standalone.",
+    "Shared tool & capability hide/restore preservation: restoring hidden shared tools or capabilities now cleanly preserves user-configured aliases and local customization snapshots without accidental overwrites."
   ]
 }

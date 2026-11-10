@@ -282,6 +282,10 @@ async function preparePersonalSkill(id, user) {
     return () => setPersonalEntry(user, key, { fork: true, hidden: false, baseRevision: base.updatedAt || '' });
 }
 
+function toPublicationSnapshot(skill, files = []) {
+    return { id: skill.id, name: skill.name, markdown: skillMarkdown(skill, skill.body), files };
+}
+
 async function publicationSnapshot(id, user) {
     if (!user || require('../middleware/auth').isSuperAdmin(user)) return null;
     const skill = (await listForUser(user)).find(item => item.id === id);
@@ -789,6 +793,7 @@ module.exports = {
     withSkillForUser,
     publishedSkill,
     publicationSnapshot,
+    toPublicationSnapshot,
     publishSnapshot,
     LIMITS,
     loadSection,

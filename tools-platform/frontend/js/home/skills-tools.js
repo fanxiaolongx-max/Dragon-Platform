@@ -9,7 +9,7 @@
         'zh-CN': {
             builtin: '内置技能', custom: '自定义技能', imported: '导入技能', external: '外部技能', workspace: '需工作目录', defaultDesc: '在对话里 @ 使用这个技能',
             download: '下载 SKILL 包', rename: '重命名', delete: '删除', renameTitle: '重命名技能', renamePrompt: '新的技能名称',
-            save: '保存', deleteTitle: '删除技能', deleteBuiltin: '内置技能「{name}」会从列表和 @ 菜单中隐藏，之后可在「技能」分类标题处恢复。确定删除吗？',
+            save: '保存', deleteTitle: '删除技能', deleteBuiltin: '隐藏内置技能「{name}」？之后可在「技能」分类标题处恢复。', hideBuiltinTitle: '隐藏技能', hiddenBuiltin: '已隐藏技能',
             deleteCustom: '确定删除技能「{name}」吗？删除后对话里将无法再 @{id}。', confirmDelete: '删除', renamed: '已重命名', deleted: '已删除技能',
             downloaded: '已下载 {file}', failed: '操作失败：{message}', restore: '恢复内置技能 {n}', restored: '已恢复内置技能',
             useHint: '点击开始对话并使用 @{id}',
@@ -28,7 +28,7 @@
         'en-US': {
             builtin: 'Built-in Skill', custom: 'Custom Skill', imported: 'Imported Skill', external: 'External Skill', workspace: 'Needs a folder', defaultDesc: 'Use this Skill with @ in chat',
             download: 'Download SKILL package', rename: 'Rename', delete: 'Delete', renameTitle: 'Rename Skill', renamePrompt: 'New Skill name',
-            save: 'Save', deleteTitle: 'Delete Skill', deleteBuiltin: 'The built-in Skill “{name}” will be hidden from the list and the @ menu. You can restore it from the Skills heading. Delete it?',
+            save: 'Save', deleteTitle: 'Delete Skill', deleteBuiltin: 'Hide the built-in Skill “{name}”? You can restore it from the Skills heading.', hideBuiltinTitle: 'Hide Skill', hiddenBuiltin: 'Skill hidden',
             deleteCustom: 'Delete the Skill “{name}”? @{id} will no longer work in chat.', confirmDelete: 'Delete', renamed: 'Renamed', deleted: 'Skill deleted',
             downloaded: 'Downloaded {file}', failed: 'Failed: {message}', restore: 'Restore built-in Skills {n}', restored: 'Built-in Skills restored',
             useHint: 'Click to start a chat with @{id}',
@@ -81,7 +81,6 @@
     function renderCards() {
         if (!grid) return;
         grid.querySelectorAll(':scope > [data-skill-card="1"]').forEach(card => card.remove());
-        const admin = isAdmin();
         state.items.forEach(item => {
             const card = document.createElement('a');
             card.href = `/?skill=${encodeURIComponent(item.id)}`;
@@ -93,13 +92,9 @@
             const kind = tx({ builtin: 'builtin', import: 'imported', external: 'external' }[window.SkillSource.kind(item)] || 'custom');
             card.innerHTML = `
                 <div class="custom-tool-actions">
-                    <button type="button" class="custom-tool-action action-improve" data-skill-action="improve" title="${escapeHtml(tx('improve'))}">⚡</button>
+                    <button type="button" class="custom-tool-action action-improve" data-skill-action="improve" ${window.HomeToolMenu?.canManage?.() ? '' : 'hidden'} title="${escapeHtml(tx('improve'))}">⚡</button>
                     <button type="button" class="custom-tool-action action-history" data-skill-action="history" title="${escapeHtml(tx('history'))}" ${item.shared && !item.personal ? 'hidden' : ''}>⏱</button>
                     <button type="button" class="custom-tool-action" data-skill-action="download" title="${escapeHtml(tx('download'))}">↓</button>
-                    ${admin ? `
-                        ${window.BuiltinPromotion?.button('skill', item.id, { builtIn: item.builtIn, name: displayName(item) }) || ''}
-                        <button type="button" class="custom-tool-action" data-skill-action="rename" title="${escapeHtml(tx('rename'))}">✎</button>
-                        <button type="button" class="custom-tool-action delete" data-skill-action="delete" title="${escapeHtml(tx('delete'))}">×</button>` : ''}
                 </div>
                 <div class="card-icon">${escapeHtml(item.icon || '✨')}</div>
                 <div class="card-title">${escapeHtml(displayName(item))}${window.SkillSource.dot(item)}<span class="tool-kind-badge skill-mention-badge">@${escapeHtml(item.id)}</span></div>
@@ -182,13 +177,16 @@
     }
 
     async function remove(item) {
-        const message = item.shared
-            ? (lang() === 'en-US' ? 'Hide this skill from your list? You can restore it from the market.' : '从我的列表隐藏此技能？之后可在应用市场恢复。')
-            : item.builtIn ? tx('deleteBuiltin', { name: displayName(item) }) : tx('deleteCustom', { name: displayName(item), id: item.id });
-        if (!await window.AppDialog.confirm(message, { title: tx('deleteTitle'), tone: 'danger', confirmText: tx('confirmDelete') })) return;
+        const reset = item.builtIn && item.customized;
+        const title = reset ? 'resetToDefault' : item.builtIn ? 'hideBuiltinTitle' : 'deleteTitle';
+        const message = tx(reset ? 'resetConfirm' : item.builtIn ? 'deleteBuiltin' : 'deleteCustom',
+            { name: displayName(item), id: item.id });
+        if (!await window.AppDialog.confirm(message, {
+            title: tx(title), tone: 'danger', confirmText: tx(item.builtIn ? title : 'confirmDelete')
+        })) return;
         try {
             await window.API.delete(`/api/agent-skills/${encodeURIComponent(item.id)}`);
-            toast(tx('deleted'));
+            toast(tx(reset ? 'resetSuccess' : item.builtIn ? 'hiddenBuiltin' : 'deleted'));
             window.dispatchEvent(new CustomEvent('skills:changed', { detail: { id: item.id } }));
         } catch (error) {
             window.AppDialog.alert(tx('failed', { message: error.message }), { tone: 'error' });
@@ -350,8 +348,6 @@
             if (act === 'improve') improve(item);
             else if (act === 'history') showHistory(item);
             else if (act === 'download') download(item.id);
-            else if (act === 'rename') rename(item);
-            else if (act === 'delete') remove(item);
             return;
         }
         // 新标签打开（Ctrl/⌘/中键）时走 /?skill= 链接，由 dragon-claw.js 处理

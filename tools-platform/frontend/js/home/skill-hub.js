@@ -81,12 +81,12 @@
     function pluginEntries() {
         const en = lang() === 'en-US';
         return (window.HomeCapabilities?.groups?.() || []).flatMap(group => group.items.map((item, index) => ({
-            key: `cap:${group.kind}:${item.id || index}`, kind: 'plugin', capabilityId: item.id, capabilityBadge: item.badge, sharedAccess: item.sharedAccess,
+            key: `cap:${group.kind}:${item.id || index}`, kind: 'plugin', capabilityId: item.id, capabilityBadge: item.badge, capabilityKind: item.kind, sharedAccess: item.sharedAccess,
             title: (en ? item.nameEn : '') || item.name, desc: item.description || '',
             icon: item.icon || group.icon || '🧩', color: group.color || '#38bdf8',
             cat: group.kind, catLabel: (en ? group.labelEn : '') || group.label,
             badges: [t('where', { where: (en ? group.whereEn : '') || group.where })].filter(Boolean),
-            updatedAt: item.updatedAt || '', href: item.href || group.href
+            updatedAt: item.updatedAt || '', href: `${item.href || group.href}${(item.href || group.href).includes('?') ? '&' : '?'}capability=${encodeURIComponent(item.id)}`
         })));
     }
     function parseTime(iso) {
@@ -181,7 +181,7 @@
     function card(item) {
         const action = item.kind === 'skill' ? `<span class="v2-hub-use">@ ${esc(t('use'))}</span>` : `<span class="v2-hub-use">${ico('arrowUpRight')}</span>`;
         const skillButtons = item.kind === 'skill' ? `
-            <button type="button" class="v2-hub-quick-btn" data-hub-act="improve" title="${esc(t('improve'))}">${ico('sparkles')}</button>
+            <button type="button" class="v2-hub-quick-btn" data-hub-act="improve" ${window.HomeToolMenu?.canManage?.() ? '' : 'hidden'} title="${esc(t('improve'))}">${ico('sparkles')}</button>
             <button type="button" class="v2-hub-quick-btn" data-hub-act="history" title="${esc(t('history'))}" ${item.shared && !item.personal ? 'hidden' : ''}>${ico('refresh')}</button>` : '';
         const moreBtn = `<button type="button" class="v2-hub-more-btn" data-hub-act="more" title="${esc(t('moreOptions'))}" aria-label="${esc(t('moreOptions'))}" aria-haspopup="menu">${ico('more')}</button>`;
         const extra = `<span class="v2-hub-more" data-tool-card-actions>${skillButtons}${moreBtn}</span>`;

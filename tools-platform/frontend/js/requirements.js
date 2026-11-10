@@ -54,6 +54,8 @@ const REQ_I18N_DICT = {
     "上传图片": "Add images",
     "意见反馈": "Feedback",
     "技能发布申请": "Skill publication request",
+    "工具更新申请": "Tool update request",
+    "插件与脚本更新申请": "Plugin or script update request",
     "允许发布": "Approve publication",
     "需求提交成功": "Request submitted successfully",
     "Are you sure you want to delete this request? Related logs will also be permanently deleted.": "Are you sure you want to delete this request? Related logs will also be permanently deleted.",
@@ -747,26 +749,48 @@ const ReqApp = {
     renderPublication: function(publication, canManage = false) {
         const section = document.getElementById('reqSkillPublication');
         section.hidden = !publication;
+        this.currentPublication = publication;
         if (!publication) return;
-        document.getElementById('reqSkillPublicationTitle').textContent = `${tText('技能发布申请', 'Skill publication request')} · @${publication.id}`;
+        const skill = publication.kind === 'skill' || !publication.kind;
+        const title = skill ? tText('技能发布申请', 'Skill publication request')
+            : publication.kind === 'tool' ? tText('工具更新申请', 'Tool update request')
+            : tText('插件与脚本更新申请', 'Plugin or script update request');
+        document.getElementById('reqSkillPublicationTitle').textContent = `${title} · ${skill ? '@' : ''}${publication.id}`;
         document.getElementById('reqSkillPublicationStatus').textContent = publication.state === 'published'
             ? tText(`已由 ${publication.approvedBy} 发布`, `Published by ${publication.approvedBy}`)
-            : publication.state === 'rejected' ? tText('已拒绝', 'Rejected') : tText('待超级管理员审核', 'Awaiting administrator review');
+            : publication.state === 'reviewed'
+                ? tText(`已由 ${publication.approvedBy} 审核通过，由超管通过原入口发布`, `Approved by ${publication.approvedBy}. A super admin can release it through the original tool.`)
+                : publication.state === 'rejected' ? tText('已拒绝', 'Rejected') : tText('待超级管理员审核', 'Awaiting administrator review');
         const content = document.getElementById('reqSkillPublicationContent');
         content.hidden = !publication.markdown;
         content.textContent = publication.markdown || '';
-        document.getElementById('reqApproveSkill').hidden = !canManage || publication.state !== 'pending';
+        const attachment = document.getElementById('reqUpdateFile');
+        attachment.hidden = !publication.fileName;
+        if (publication.fileName) {
+            attachment.href = `/api/requirements/${this.currentReqId}/update-file`;
+            attachment.download = publication.fileName;
+            attachment.textContent = tText('下载提交文件', 'Download submitted file') + ` · ${publication.fileName}`;
+        } else {
+            attachment.removeAttribute('href');
+        }
+        const approve = document.getElementById('reqApproveSkill');
+        approve.hidden = !canManage || publication.state !== 'pending';
+        approve.textContent = skill ? tText('允许发布', 'Approve publication') : tText('审核通过', 'Approve update');
     },
 
     approveSkill: async function() {
         const id = this.currentReqId;
         const button = document.getElementById('reqApproveSkill');
-        if (!id || button.disabled) return;
-        if (!await AppDialog.confirm(tText('将此版本发布为全员可用的技能？当前系统版本会保留在版本历史中。', 'Publish this version for all users? The current system version is kept in version history.'),
-            { title: tText('允许发布', 'Approve publication') })) return;
+        const publication = this.currentPublication;
+        if (!id || !publication || button.disabled) return;
+        const skill = !publication.kind || publication.kind === 'skill';
+        const prompt = skill
+            ? tText('将此版本发布为全员可用的技能？当前系统版本会保留在版本历史中。', 'Publish this version for all users? The current system version is kept in version history.')
+            : tText('将这份更新标记为审核通过？请通过原有维护入口发布提交的版本。', 'Approve this update? Release the submitted version through its existing maintenance page.');
+        if (!await AppDialog.confirm(prompt, { title: button.textContent })) return;
         button.disabled = true;
         try {
-            await API.post(`/api/requirements/${id}/approve-skill`, {});
+            await API.post(`/api/requirements/${id}/approve-update`, {});
             await this.openEditModal(id);
             await this.loadRequirements();
         } catch (error) {
@@ -844,8 +868,10 @@ const ReqApp = {
                 const optVal = opt.value;
                 if (req.status === '已拒绝') {
                     opt.disabled = optVal !== '已拒绝';
+                } else if (req.skillPublication?.state === 'pending') {
+                    opt.disabled = optVal !== req.status && optVal !== '已拒绝';
                 } else if (optVal === '已拒绝') {
-                    opt.disabled = false;
+                    opt.disabled = Boolean(req.skillPublication);
                 } else {
                     const optIndex = statuses.indexOf(optVal);
                     // 允许留在当前状态，或前进一格

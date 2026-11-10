@@ -163,7 +163,7 @@ const PROVIDERS = [
     }
 ];
 
-async function listCapabilities({ isAdmin = false, user, ignorePersonal = false, lang = 'zh-CN' } = {}) {
+async function listCapabilities({ isAdmin = false, user, ignorePersonal = false, includeHidden = false, lang = 'zh-CN' } = {}) {
     const { isSuperAdmin } = require('../middleware/auth');
     const { allowedEntries, personalEntries } = require('./tool-distribution');
     const { DEFAULT_TENANT_ID, getTenantId, runWithTenant } = require('./tenant-context');
@@ -191,7 +191,7 @@ async function listCapabilities({ isAdmin = false, user, ignorePersonal = false,
                 }
                 items = items.flatMap(item => {
                     const prefs = preferences.get(`cap:${item.id}`) || {};
-                    return prefs.hidden ? [] : [{ ...item, name: prefs.name || item.name, nameEn: prefs.name || item.nameEn }];
+                    return prefs.hidden && !includeHidden ? [] : [{ ...item, name: prefs.name || item.name, nameEn: prefs.name || item.nameEn }];
                 });
             }
         } catch (error) {

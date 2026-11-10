@@ -203,3 +203,56 @@ test('skill improvements remain personal until an administrator approves a publi
     assert.doesNotMatch((await request(app).get(skillUrl)).body.skill.markdown, /Personal improvement fixture/);
     assert.doesNotMatch((await request(app).get(skillUrl).set('x-tenant', 'bob')).body.skill.markdown, /Personal improvement fixture/);
 });
+
+test('members submit tool and plugin update packages without changing shared content', async () => {
+    const tool = await repo.createTool({ slug: 'update-review', name: 'Review tool', htmlContent: '<html>Original</html>' });
+    await asAdmin(request(app).patch(`/api/custom-tools/${tool.slug}/distribution`)).send({ sharedAccess: true }).expect(200);
+    await request(app).patch('/api/distribution/personal').send({ kind: 'tool', id: tool.slug, action: 'restore' }).expect(200);
+    const { groups } = await capabilities.listCapabilities();
+    const plugin = groups.find(group => group.kind === 'f12').items.find(item => item.badge === 'script');
+    await asAdmin(request(app).patch('/api/distribution')).send({ kind: 'cap', id: plugin.id, sharedAccess: true }).expect(200);
+
+    for (const [kind, id, name, content] of [
+        ['tool', `custom:${tool.slug}`, 'index.html', '<html>Candidate</html>'],
+        ['cap', plugin.id, 'script.js', '/* Candidate */']
+    ]) {
+        const payload = { kind, id, reason: 'Example improvement', file: { name, data: Buffer.from(content).toString('base64') } };
+        const submit = request(app).post('/api/requirements/catalog-updates').send(payload);
+        const { body: { id: requestId } } = await submit.expect(200);
+        await request(app).post('/api/requirements/catalog-updates').send(payload).expect(409);
+        const url = `/api/requirements/${requestId}`;
+        await request(app).get(url + '/update-file').set('x-tenant', 'bob').expect(404);
+        const details = await request(app).get(url).set('x-tenant', 'bob').expect(200);
+        assert.equal(details.body.skillPublication.fileName, undefined);
+        const download = await asAdmin(request(app).get(url + '/update-file')).expect(200);
+        assert.match(download.headers['content-disposition'], /attachment/);
+        assert.equal(download.body.toString(), content);
+        await request(app).post(url + '/approve-update').expect(403);
+        await asAdmin(request(app).post(url + '/approve-skill')).expect(404);
+        await asAdmin(request(app).post(url + '/approve-update')).expect(200);
+        await asAdmin(request(app).post(url + '/approve-update')).expect(200);
+        const approved = await request(app).get(url).expect(200);
+        assert.equal(approved.body.skillPublication.state, 'reviewed');
+        assert.equal(approved.body.logs.length, 2);
+    }
+
+    assert.match(fs.readFileSync(await repo.getToolFilePath(tool.slug), 'utf8'), /Original/);
+    await request(app).post('/api/requirements/catalog-updates').send({
+        kind: 'cap', id: 'f12:builtin:missing', file: { name: 'script.js', data: 'YQ==' }
+    }).expect(404);
+});
+
+test('restoring a hidden shared tool preserves its alias and personal content', async () => {
+    const tool = await repo.createTool({ slug: 'preserve-fork', name: 'Shared version', htmlContent: '<html>Shared</html>' });
+    await asAdmin(request(app).patch(`/api/custom-tools/${tool.slug}/distribution`)).send({ sharedAccess: true }).expect(200);
+    const personal = (action, name) => request(app).patch('/api/distribution/personal').send({ kind: 'tool', id: tool.slug, action, name });
+    await personal('restore').expect(200);
+    await personal('rename', 'Personal name').expect(200);
+    await request(app).post('/api/custom-tools').send({ updateSlug: tool.slug, htmlContent: '<html>Personal</html>' }).expect(200);
+    await personal('hide').expect(200);
+    const resolve = () => tenant.runWithTenant('alice', () => distribution.resolveTool(tool.slug, member));
+    assert.equal(await resolve(), null);
+    await personal('unhide').expect(200);
+    assert.equal((await resolve()).sourceTenant, 'alice');
+    assert.equal((await resolve()).tool.name, 'Personal name');
+});

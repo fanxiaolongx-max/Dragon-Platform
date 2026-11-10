@@ -100,6 +100,7 @@
             const sha256 = hex(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(serialized))));
             const start = await this.smallRequest('POST', '/api/requirements/uploads/start', {
                 method, requirementId: method === 'PUT' ? Number(path.split('/').pop()) : null,
+                ...(path === '/api/requirements/catalog-updates' ? { catalogUpdate: true } : {}),
                 totalBytes: size.bodyBytes, totalChunks: sizes.length, sha256
             });
             const uploadId = start.uploadId;

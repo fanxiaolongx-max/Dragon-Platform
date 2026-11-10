@@ -27,7 +27,7 @@ router.get('/catalog', async (req, res, next) => {
         const prefs = await personalEntries(req.user);
         const entries = await require('../models/tool-distribution').allowedEntries();
         const skills = await runWithTenant(DEFAULT_TENANT_ID, () => require('../models/agent-skills-store').listAll());
-        const { groups } = await require('../models/home-capabilities').listCapabilities({ user: req.user, ignorePersonal: true });
+        const { groups } = await require('../models/home-capabilities').listCapabilities({ user: req.user, includeHidden: true });
         res.setHeader('Cache-Control', 'private, no-store');
         res.json({ items: [
             ...skills.filter(item => entries.has(`skill:${item.id}`)).map(item => ({
@@ -35,7 +35,7 @@ router.get('/catalog', async (req, res, next) => {
                 descriptionEn: item.descriptionEn, icon: item.icon, href: `/?skill=${encodeURIComponent(item.id)}`,
                 hidden: Boolean(prefs.get(`skill:${item.id}`)?.hidden)
             })),
-            ...groups.flatMap(group => group.items.map(item => ({ ...item, kind: 'cap', hidden: Boolean(prefs.get(`cap:${item.id}`)?.hidden) })))
+            ...groups.flatMap(group => group.items.filter(item => item.sharedAccess || prefs.get(`cap:${item.id}`)?.hidden).map(item => ({ ...item, kind: 'cap', hidden: Boolean(prefs.get(`cap:${item.id}`)?.hidden) })))
         ] });
     } catch (error) { next(error); }
 });
@@ -46,7 +46,7 @@ router.patch('/personal', async (req, res, next) => {
         return res.status(403).json({ error: '只能在自己的团队空间调整个人副本' });
     }
     const { kind, id, action, name } = req.body || {};
-    if (!['tool', 'skill', 'cap'].includes(kind) || typeof id !== 'string' || id.length > 350 || !['restore', 'hide', 'rename'].includes(action)) {
+    if (!['tool', 'skill', 'cap'].includes(kind) || typeof id !== 'string' || id.length > 350 || !['restore', 'unhide', 'hide', 'rename'].includes(action)) {
         return res.status(400).json({ error: '个人设置无效' });
     }
     try {
@@ -54,8 +54,8 @@ router.patch('/personal', async (req, res, next) => {
         let exists = kind === 'tool' ? await platformTool(id, req.user) : kind === 'skill'
             ? await require('../models/agent-skills-store').publishedSkill(id)
             : await require('../models/tool-distribution').hasEntryAccess(key);
-        if (!exists && kind === 'cap' && action !== 'restore') {
-            const { groups } = await require('../models/home-capabilities').listCapabilities({ user: req.user });
+        if (!exists && kind === 'cap') {
+            const { groups } = await require('../models/home-capabilities').listCapabilities({ user: req.user, includeHidden: ['restore', 'unhide'].includes(action) });
             exists = groups.some(group => group.items.some(item => item.id === id));
         }
         if (!exists) return res.status(404).json({ error: '该条目尚未开放' });
@@ -66,6 +66,8 @@ router.patch('/personal', async (req, res, next) => {
             patch = { name: value };
         } else if (action === 'hide') {
             patch = { hidden: true };
+        } else if (action === 'unhide') {
+            patch = { hidden: false };
         } else {
             const prefs = await personalEntry(req.user, key);
             if (kind === 'cap' && id.startsWith('float:') && prefs.hidden) {

@@ -190,6 +190,7 @@
                 </div>
             </div>
             <div class="custom-tool-actions">
+                <a class="tool-action" id="manageToolLink" hidden>在工具中台管理</a>
                 <a class="tool-action" id="openRawTool" href="#" target="_blank" rel="noopener">新窗口打开</a>
                 <button class="tool-action" id="refreshToolButton" onclick="location.reload()">刷新</button>
             </div>
@@ -234,6 +235,7 @@
             document.documentElement.lang = isEnglishToolShell() ? 'en-US' : 'zh-CN';
             document.title = `${displayName} - Dragon Claw`;
             document.getElementById('toolName').textContent = displayName;
+            document.getElementById('manageToolLink').textContent = shellText('在工具中台管理', 'Manage in the tool hub');
             document.getElementById('openRawTool').textContent = shellText('新窗口打开', 'Open in New Window');
             document.getElementById('downloadReadonlyTool').textContent = shellText('下载只读页面 ▾', 'Download Snapshot ▾');
             document.getElementById('publishReadonlyTool').textContent = shellText('推送只读页面 ▾', 'Publish Snapshot ▾');
@@ -319,6 +321,14 @@
                 const displayName = getCustomToolDisplayName(tool);
                 document.getElementById('toolIcon').textContent = tool.icon || '🧩';
                 document.getElementById('openRawTool').href = window.ToolsNavigation?.toolUrl('/tools/' + encodeURIComponent(tool.slug) + location.search + location.hash) || ('/?app=' + encodeURIComponent('/tools/' + encodeURIComponent(tool.slug) + location.search + location.hash));
+                const manage = document.getElementById('manageToolLink');
+                if (window.parent === window) {
+                    const href = '/tools/' + encodeURIComponent(tool.slug) + location.search + location.hash;
+                    const url = new URL(href, location.origin);
+                    url.searchParams.delete('standalone');
+                    manage.href = '/?app=' + encodeURIComponent(url.pathname + url.search + url.hash);
+                    manage.hidden = false;
+                }
                 const allowedFeatures = tool.slug === 'optical-transfer'
                     ? 'camera; autoplay; fullscreen; microphone; display-capture'
                     : 'autoplay; fullscreen; microphone; display-capture';

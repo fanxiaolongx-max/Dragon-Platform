@@ -5,10 +5,11 @@
 
     const TEXT = {
         'zh-CN': {
+            submitUpdate: '提交更新审核', submitSavedSkill: '提交已保存版本', updateReason: '说明本次改动，提交后由超级管理员在需求广场审核。请确认提交内容适合共享。', updateSent: '更新已提交到需求广场', personalRename: '设置我的显示名称', localUpdate: '更新我的副本', editSource: '前往维护页面', fileTooLarge: '更新文件不能超过 8 MB', hidden: '已从我的列表移除',
             moreOptions: '更多操作',
-            shareAll: '全员开放', unshareAll: '关闭开放', accessSaved: '开放设置已保存', publish: '申请发布', publishReason: '说明这次完善的内容，将提交到需求广场审核。', publishSent: '发布申请已提交', personalHide: '从我的列表移除', personalHideHint: '你可以在应用市场恢复此条目。',
+            shareAll: '全员开放', unshareAll: '关闭开放', accessSaved: '开放设置已保存', personalHide: '从我的列表移除', personalHideHint: '你可以在应用市场恢复此条目。',
             useSkill: '在对话中使用',
-            improveSkill: '完善技能',
+            improveSkill: '完善技能', improveCopy: '完善我的副本',
             skillHistory: '版本历史与回退',
             downloadSkill: '下载技能包',
             downloadTool: '下载工具',
@@ -16,7 +17,7 @@
             rename: '重命名',
             deleteTool: '删除工具',
             deleteSkill: '删除技能',
-            hideSkill: '隐藏技能',
+            hideSkill: '隐藏技能', resetSkill: '恢复内置版本',
             promote: '转为内置',
             demote: '取消内置',
             updateTool: '更新工具',
@@ -33,10 +34,11 @@
             copiedSkillAt: '已复制 @{id} 到剪贴板'
         },
         'en-US': {
+            submitUpdate: 'Submit update for review', submitSavedSkill: 'Submit saved version', updateReason: 'Describe the changes. A super admin will review the submission in the requests board. Make sure the content can be shared.', updateSent: 'Update submitted to the requests board', personalRename: 'Set my display name', localUpdate: 'Update my copy', editSource: 'Open maintenance page', fileTooLarge: 'Update files must be 8 MB or smaller', hidden: 'Removed from my list',
             moreOptions: 'More options',
-            shareAll: 'Share with everyone', unshareAll: 'Stop sharing', accessSaved: 'Access settings saved', publish: 'Request publication', publishReason: 'Describe your improvements. The request will be reviewed in the requests board.', publishSent: 'Publication request submitted', personalHide: 'Remove from my list', personalHideHint: 'You can restore this item from the tool market.',
+            shareAll: 'Share with everyone', unshareAll: 'Stop sharing', accessSaved: 'Access settings saved', personalHide: 'Remove from my list', personalHideHint: 'You can restore this item from the tool market.',
             useSkill: 'Use in chat',
-            improveSkill: 'Improve Skill',
+            improveSkill: 'Improve Skill', improveCopy: 'Improve my copy',
             skillHistory: 'Version history',
             downloadSkill: 'Download Skill',
             downloadTool: 'Download tool',
@@ -44,7 +46,7 @@
             rename: 'Rename',
             deleteTool: 'Delete tool',
             deleteSkill: 'Delete Skill',
-            hideSkill: 'Hide Skill',
+            hideSkill: 'Hide Skill', resetSkill: 'Restore built-in version',
             promote: 'Make built-in',
             demote: 'Remove from built-ins',
             updateTool: 'Update tool',
@@ -89,6 +91,9 @@
     }
     const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const isAdmin = () => { try { return localStorage.getItem('tools_role') === 'admin'; } catch { return false; } };
+    const isSuperAdmin = () => window.isNavSuperAdmin?.() === true;
+    const canPersonalize = () => !isSuperAdmin() && (localStorage.getItem('tools_tenant_id') || 'default') !== 'default';
+    const canManage = () => isAdmin() && (isSuperAdmin() || canPersonalize());
     const isReadonly = () => document.body.classList.contains('builtin-promotion-readonly');
 
     function ico(name) {
@@ -134,6 +139,7 @@
                     id: item.key,
                     capabilityId: item.capabilityId,
                     badge: item.capabilityBadge,
+                    capabilityKind: item.capabilityKind,
                     sharedAccess: item.sharedAccess,
                     name: item.title,
                     href: item.href
@@ -204,8 +210,23 @@
 
         // 3. 如果从内嵌打开页面（tool-frame）传了 href
         if (href) {
-            let pathname = '';
-            try { pathname = new URL(href, location.origin).pathname; } catch { pathname = href; }
+            let pathname = href;
+            try {
+                const url = new URL(href, location.origin);
+                pathname = url.pathname;
+                const capabilityId = url.searchParams.get('capability');
+                const matches = (window.HomeCapabilities?.groups?.() || []).flatMap(group => group.items).filter(entry => {
+                    const source = new URL(entry.href, location.origin);
+                    const canonical = pathname.replace(/^\/custom-tools\/([^/]+)\/(?:index\.html)?$/, '/tools/$1');
+                    return source.pathname === canonical && [...source.searchParams].every(([key, value]) => url.searchParams.get(key) === value)
+                        && (!capabilityId || entry.id === capabilityId);
+                });
+                if (matches.length === 1) {
+                    const entry = matches[0];
+                    return resolveTarget({ item: { kind: 'plugin', key: entry.id, capabilityId: entry.id, capabilityBadge: entry.badge,
+                        capabilityKind: entry.kind, sharedAccess: entry.sharedAccess, title: entry.name, href: entry.href } });
+                }
+            } catch { /* Fall back to a tool target for malformed URLs. */ }
             const slugMatch = pathname.match(/^(?:\/)?(?:tools|custom-tools)\/([^/?#]+)/);
             const slug = slugMatch ? slugMatch[1] : null;
             const customTool = (slug ? (window.__homeCustomTools || []).find(t => t.slug === slug) : null)
@@ -218,7 +239,7 @@
                 id: toolId,
                 slug: resolvedSlug,
                 isCustom: Boolean(resolvedSlug || customTool),
-                name: title || customTool?.name || resolvedSlug || toolId,
+                name: customTool?.name || title || resolvedSlug || toolId,
                 href,
                 customTool
             };
@@ -267,31 +288,80 @@
         };
     }
 
-    function updateCapability(target) {
-        if (!target.capabilityId.startsWith('f12:builtin:')) {
-            if (target.href) window.HomeToolFrame?.open?.(target.href) || window.open(target.href, '_blank', 'noopener');
-            return;
-        }
+    const MAX_UPDATE_BYTES = 8 * 1024 * 1024;
+
+    function pickUpdateFile(accept, callback) {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = target.badge === 'extension' ? '.zip' : '.js';
+        input.accept = accept;
         input.addEventListener('change', async () => {
             const file = input.files[0];
             if (!file) return;
-            if (file.size > 8 * 1024 * 1024) {
-                toast(lang() === 'en-US' ? 'File exceeds 8 MB' : '文件超过 8 MB', 'error');
+            if (file.size > MAX_UPDATE_BYTES) {
+                toast(t('fileTooLarge'), 'error');
                 return;
             }
             try {
-                const bytes = new Uint8Array(await file.arrayBuffer());
-                let binary = '';
-                for (let offset = 0; offset < bytes.length; offset += 0x8000) binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
-                await API.patch('/api/distribution/capability-file', { id: target.capabilityId, data: btoa(binary) });
-                toast(t('accessSaved'));
-                await window.HomeCapabilities?.reload?.();
+                await callback(file);
             } catch (error) { toast(error.message, 'error'); }
         }, { once: true });
         input.click();
+    }
+
+    function encodeFile(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result).split(',', 2)[1]);
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function reviewAction(kind, id, accept) {
+        const label = t(accept ? 'submitUpdate' : 'submitSavedSkill');
+        const submit = async file => {
+            const reason = await window.AppDialog.prompt(t('updateReason'), { title: label, maxLength: 1000, multiline: true });
+            if (reason === null) return;
+            try {
+                const attachment = file ? { name: file.name, data: await encodeFile(file) } : undefined;
+                await window.RequirementsClient.submitPayload({ kind, id, reason, file: attachment }, 'POST', '/api/requirements/catalog-updates');
+                toast(t('updateSent'));
+            } catch (error) { toast(error.message, 'error'); }
+        };
+        return { id: accept ? 'submitUpdate' : 'submitSavedSkill', label, icon: 'upload',
+            run: () => accept ? pickUpdateFile(accept, submit) : submit() };
+    }
+
+    function personalActions(kind, id, target, reload, options) {
+        const change = async (action, name) => {
+            try {
+                await API.patch('/api/distribution/personal', { kind, id, action, name });
+                if (action === 'rename') options.onRename?.(name);
+                else {
+                    toast(t('hidden'));
+                    options.onDelete?.();
+                }
+                await reload();
+            } catch (error) { toast(error.message, 'error'); }
+        };
+        return [{
+            id: 'rename', label: t('personalRename'), icon: 'edit',
+            run: async () => {
+                const name = await window.AppDialog.prompt(t('personalRename'), { defaultValue: target.name, maxLength: 80 });
+                if (name?.trim()) await change('rename', name.trim());
+            }
+        }, {
+            id: 'hide', label: t('personalHide'), icon: 'trash',
+            run: async () => {
+                if (await window.AppDialog.confirm(t('personalHideHint'), { title: t('personalHide') })) await change('hide');
+            }
+        }];
+    }
+
+    async function reloadTools() {
+        await window.reloadHomeCustomTools?.();
+        await window.refreshCustomToolNavLinks?.();
+        window.dispatchEvent(new CustomEvent('home:tools-updated'));
     }
 
     // 构建动作项列表
@@ -299,7 +369,7 @@
         const actions = [];
         const distribution = distributionAction(target);
         if (distribution) actions.push(distribution);
-        const admin = isAdmin();
+        const admin = canManage();
 
         if (target.kind === 'skill') {
             const skill = target.skill || {};
@@ -312,9 +382,9 @@
                     window.DragonClaw?.startWithSkill?.(target.id);
                 }
             });
-            actions.push({
+            if (admin) actions.push({
                 id: 'improve',
-                label: t('improveSkill'),
+                label: t(skill.shared ? 'improveCopy' : 'improveSkill'),
                 icon: 'sparkles',
                 run: () => {
                     window.HomeSkills?.improve?.(skill);
@@ -337,20 +407,20 @@
                 }
             });
 
-            if (admin && !window.isNavSuperAdmin?.() && (!skill.shared || skill.personal)) actions.push({
-                id: 'publish', label: t('publish'), icon: 'upload',
-                run: async () => {
-                    const reason = await window.AppDialog.prompt(t('publishReason'), { title: t('publish'), maxLength: 1000, multiline: true });
-                    if (reason === null) return;
-                    try {
-                        await API.post('/api/requirements/skill-publications', { skillId: target.id, reason });
-                        toast(t('publishSent'));
-                    } catch (error) { toast(error.message, 'error'); }
-                }
-            });
+            actions.push(reviewAction('skill', target.id, '.md,.zip'));
+            if (!isSuperAdmin() && (!skill.shared || skill.personal)) actions.push(reviewAction('skill', target.id));
 
-            if (admin) {
-                actions.push({ divider: true });
+            actions.push({ divider: true });
+            if (skill.shared && canPersonalize()) {
+                actions.push(...personalActions('skill', target.id, target,
+                    () => window.dispatchEvent(new CustomEvent('skills:changed')), options));
+            } else if (admin && !skill.shared) {
+                if (isSuperAdmin() && !isReadonly() && window.BuiltinPromotion?.toggle) {
+                    actions.push({
+                        id: 'promote', label: t(skill.builtIn ? 'demote' : 'promote'), icon: 'cube',
+                        run: () => window.BuiltinPromotion.toggle('skill', target.id, { builtIn: skill.builtIn, name: target.name })
+                    });
+                }
                 actions.push({
                     id: 'rename',
                     label: t('rename'),
@@ -361,7 +431,7 @@
                 });
                 actions.push({
                     id: 'delete',
-                    label: skill.shared || skill.builtIn ? t('hideSkill') : t('deleteSkill'),
+                    label: t(skill.builtIn ? (skill.customized ? 'resetSkill' : 'hideSkill') : 'deleteSkill'),
                     icon: 'trash',
                     danger: true,
                     run: async () => {
@@ -389,7 +459,7 @@
             const customTool = target.customTool || (target.slug ? (window.__homeCustomTools || []).find(t => t.slug === target.slug) : null);
             const isBuiltIn = customTool?.builtIn === true;
             const isHostedApp = customTool?.hostedApp || customTool?.category === 'hosted-app';
-            // 开放给全员的托管应用是全员共用的同一个进程：团队账号不能更新、重命名，只能从自己的首页隐藏（后端同样拒绝）
+            // 托管应用的进程由平台共享，团队账号只能修改个人显示设置或提交更新。
             const sharedHosted = Boolean(isHostedApp && customTool?.shared);
             const favId = target.id || (isCustom ? `custom:${target.slug}` : target.href.replace(/^\//, ''));
 
@@ -423,9 +493,20 @@
                 });
             }
 
-            // 3. 管理员操作：转为内置 / 重命名 / 删除
-            if (isCustom && admin) {
-                if (!customTool?.shared && !isReadonly() && window.BuiltinPromotion?.toggle) {
+            const pagePath = target.href.split(/[?#]/, 1)[0];
+            const isPlatformPage = /^\/(?:uivf12|sla|report|expedite|monthly|duty-roster|bigscreen|topic-analysis|frt|requirements|praudit|storage|db-explorer|netcare-explorer)$/.test(pagePath);
+            if (customTool || isPlatformPage) {
+                const id = customTool ? `custom:${target.slug}` : pagePath;
+                const accept = isHostedApp ? '.zip' : isPlatformPage ? '.html,.htm,.zip,.patch,.diff' : '.html,.htm,.zip';
+                actions.push(reviewAction('tool', id, accept));
+            }
+            if (customTool?.shared && canPersonalize()) {
+                actions.push(...personalActions('tool', target.slug, target, reloadTools, options));
+            }
+
+            // 团队原件由团队管理员维护。共享工具的上传只更新该团队的副本。
+            if (customTool && admin) {
+                if (!customTool.shared && isSuperAdmin() && !isReadonly() && !window.BuiltinPromotion?.isLocked?.(target.slug) && window.BuiltinPromotion?.toggle) {
                     actions.push({
                         id: 'promote',
                         label: isBuiltIn ? t('demote') : t('promote'),
@@ -441,7 +522,7 @@
                 }
                 if (!sharedHosted && window.openCustomToolUpdateModal) actions.push({
                     id: 'update',
-                    label: t('updateTool'),
+                    label: t(customTool.shared ? 'localUpdate' : 'updateTool'),
                     icon: 'upload',
                     run: () => {
                         const handler = window.openCustomToolUpdateModal;
@@ -457,7 +538,7 @@
                         }
                     }
                 });
-                if (!sharedHosted && window.renameCustomTool) {
+                if (!customTool.shared && window.renameCustomTool) {
                     actions.push({
                         id: 'rename',
                         label: t('rename'),
@@ -468,10 +549,10 @@
                         }
                     });
                 }
-                if (window.deleteCustomTool) {
+                if (!customTool.shared && !window.BuiltinPromotion?.isLocked?.(target.slug) && window.deleteCustomTool) {
                     actions.push({
                         id: 'delete',
-                        label: sharedHosted ? t('personalHide') : t('deleteTool'),
+                        label: t('deleteTool'),
                         icon: 'trash',
                         danger: true,
                         run: async () => {
@@ -522,30 +603,28 @@
         }
 
         if (target.kind === 'plugin') {
-            if (target.capabilityId && admin && !window.isNavSuperAdmin?.()) {
-                actions.push({
-                    id: 'update', label: t('updateTool'), icon: 'upload',
-                    run: () => updateCapability(target)
-                }, {
-                    id: 'rename', label: t('rename'), icon: 'edit',
-                    run: async () => {
-                        const name = await window.AppDialog.prompt(t('rename'), { defaultValue: target.name, maxLength: 80 });
-                        if (!name?.trim()) return;
-                        try {
-                            await API.patch('/api/distribution/personal', { kind: 'cap', id: target.capabilityId, action: 'rename', name });
+            if (target.capabilityId) {
+                const isF12Builtin = target.capabilityId.startsWith('f12:builtin:');
+                const accept = target.badge === 'extension' ? '.zip' : target.capabilityKind === 'python' ? '.py,.zip' : '.js,.json,.zip';
+                actions.push(reviewAction('cap', target.capabilityId, accept));
+                if (canPersonalize()) {
+                    actions.push(...personalActions('cap', target.capabilityId, target, () => window.HomeCapabilities?.reload?.(), options));
+                }
+                if (admin && canPersonalize() && isF12Builtin) {
+                    actions.push({
+                        id: 'update', label: t('localUpdate'), icon: 'upload',
+                        run: () => pickUpdateFile(target.badge === 'extension' ? '.zip' : '.js', async file => {
+                            await API.patch('/api/distribution/capability-file', { id: target.capabilityId, data: await encodeFile(file) });
                             await window.HomeCapabilities?.reload?.();
-                        } catch (error) { toast(error.message, 'error'); }
-                    }
-                }, {
-                    id: 'hide', label: t('personalHide'), icon: 'trash', danger: true,
-                    run: async () => {
-                        if (!await window.AppDialog.confirm(t('personalHideHint'), { title: t('personalHide') })) return;
-                        try {
-                            await API.patch('/api/distribution/personal', { kind: 'cap', id: target.capabilityId, action: 'hide' });
-                            await window.HomeCapabilities?.reload?.();
-                        } catch (error) { toast(error.message, 'error'); }
-                    }
-                });
+                            toast(t('accessSaved'));
+                        })
+                    });
+                } else if (admin && !isF12Builtin && target.href && !options.onReload) {
+                    actions.push({
+                        id: 'update', label: t('editSource'), icon: 'edit',
+                        run: () => { location.href = target.href; }
+                    });
+                }
             }
             if (target.href) {
                 actions.push({
@@ -553,7 +632,8 @@
                     label: t('openPlugin'),
                     icon: 'external',
                     run: () => {
-                        location.href = target.href;
+                        if (options.onReload) window.open(target.href, '_blank', 'noopener');
+                        else location.href = target.href;
                     }
                 });
                 actions.push({
@@ -678,9 +758,12 @@
         if (document.activeElement?.matches?.('iframe')) close();
     });
     window.addEventListener('resize', close);
-    window.addEventListener('scroll', close, true);
+    window.addEventListener('scroll', event => {
+        if (event.target !== activeMenu) close();
+    }, true);
 
     window.HomeToolMenu = {
+        canManage,
         open,
         close,
         isOpen: () => Boolean(activeMenu),

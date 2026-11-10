@@ -45,8 +45,9 @@ function checkBody(body) {
 function start(body, user) {
     checkBody(body);
     cleanup();
-    const { method, requirementId, totalBytes, totalChunks, sha256 } = body;
-    if (!['POST', 'PUT'].includes(method)
+    const { method, requirementId, totalBytes, totalChunks, sha256, catalogUpdate } = body;
+    if ((catalogUpdate !== undefined && (catalogUpdate !== true || method !== 'POST'))
+        || !['POST', 'PUT'].includes(method)
         || (method === 'PUT' && (!Number.isSafeInteger(requirementId) || requirementId <= 0))
         || (method === 'POST' && requirementId != null)
         || !Number.isSafeInteger(totalBytes) || totalBytes <= 0 || totalBytes > MAX_TOTAL_BYTES
@@ -54,7 +55,7 @@ function start(body, user) {
         || totalBytes > totalChunks * MAX_CHUNK_BYTES || !/^[a-f0-9]{64}$/.test(sha256 || '')) {
         fail('需求分块上传参数无效或总大小超过 50 MB');
     }
-    const target = { method, requirementId, path: method === 'POST' ? '/api/requirements' : `/api/requirements/${requirementId}` };
+    const target = { method, requirementId, path: catalogUpdate ? '/api/requirements/catalog-updates' : method === 'POST' ? '/api/requirements' : `/api/requirements/${requirementId}` };
     const active = [...sessions.values()].filter(session => !session.completed);
     if (active.length >= 32 || active.filter(session => session.tenant === getTenantId() && session.owner === user.username).length >= 3) {
         fail('未完成的需求上传过多，请稍后重试', 429);
