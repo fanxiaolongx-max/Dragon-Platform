@@ -182,10 +182,11 @@ router.get('/market/platform', async (req, res, next) => {
             : new Set((await repo.listTools()).filter(tool => !tool.builtIn && !preferences.get(`tool:${tool.slug}`)?.origin).map(tool => tool.slug));
         // Catalog entries are public to the signed-in audience only; do not return file paths.
         res.setHeader('Cache-Control', 'no-store');
-        res.json({ tools: tools.filter(tool => !localSlugs.has(tool.slug)).map(({ slug, href, name, nameEn, description, descriptionEn, icon, builtIn, updatedAt }) =>
+        res.json({ tools: tools.filter(tool => !localSlugs.has(tool.slug)).map(({ slug, href, name, nameEn, description, descriptionEn, icon, builtIn, updatedAt, hostedApp }) =>
             ({ slug, href, name, nameEn, description, descriptionEn, icon, builtIn, updatedAt,
+                hostedApp: Boolean(hostedApp),
                 hidden: Boolean(preferences.get(`tool:${slug}`)?.hidden),
-                installed: Boolean(preferences.get(`tool:${slug}`)?.installed) })) });
+                installed: Boolean(hostedApp || preferences.get(`tool:${slug}`)?.installed) })) });
     } catch (error) { next(error); }
 });
 
@@ -802,9 +803,9 @@ router.delete('/:slug/history/:historyId', async (req, res) => {
 
 async function importTool(payload, user) {
     if (user && !isSuperAdmin(user) && getTenantId() === DEFAULT_TENANT_ID) throw Object.assign(new Error('不能修改系统空间的工具'), { status: 403 });
-    // Python 应用在宿主机直接起进程，不在团队沙箱里：只允许超级管理员空间导入
+    // Python 应用在宿主机直接起进程，不在团队沙箱里：仅允许超级管理员导入
     const pythonApp = await hostedApps.isPythonPayload(payload);
-    if (pythonApp && !inSuperAdminSpace(user)) throw Object.assign(new Error('Python 应用包仅超级管理员可以导入'), { status: 403, code: 'SUPER_ADMIN_REQUIRED' });
+    if (pythonApp && !isSuperAdmin(user)) throw Object.assign(new Error('Python Web 托管应用仅允许超级管理员上传'), { status: 403, code: 'SUPER_ADMIN_REQUIRED' });
     const personalUpdate = payload.updateSlug && await distribution.preparePersonalToolUpdate(payload.updateSlug, user);
     // Python Web 应用包：登记为工具入口并由平台托管运行（backend/models/hosted-apps）
     const tool = pythonApp

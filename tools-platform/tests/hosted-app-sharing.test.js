@@ -87,6 +87,12 @@ test('sharing gives every team account the entry, use and read-only inspection â
     assert.equal(listed[0].hostedApp, true);
     assert.equal(listed[0].shared, true);
 
+    const marketTools = (await request(app).get('/api/custom-tools/market/platform')).body.tools;
+    const marketApp = marketTools.find(t => t.slug === SLUG);
+    assert.ok(marketApp, 'shared hosted app is present in market');
+    assert.equal(marketApp.hostedApp, true);
+    assert.equal(marketApp.installed, true, 'shared hosted app is treated as already installed/added');
+
     const launch = (await request(app).get(api('/launch')).expect(200)).body.app;
     assert.equal(launch.isAdmin, false);
     assert.equal(launch.canView, true);

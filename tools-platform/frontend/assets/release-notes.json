@@ -1,8 +1,8 @@
 {
   "zh": [
-    "Dragon 浏览器网页端缩放改为真实页面缩放：菜单里的缩放现在让远端页面按 Chrome 同样的方式重排（50% 时一屏能看到更多内容），不再只是把截图缩小、在右侧和下方留出白边；缩放比例在切换网址后保留，可一键重置。"
+    "优化工具市场展示与权限控制：已在工具列表的工具与平台托管应用（如 AiOps-Report）在工具市场中正确显示「打开」按钮而非「加入我的工具」；严格限制 Python Web 托管应用包仅超级管理员可上传导入与预览，团队普通管理员界面提示与包检测将实时拦截非超管上传。"
   ],
   "en": [
-    "Dragon browser zoom on the web now zooms the real page: the menu zoom re-lays out the remote page the way Chrome does (50% shows more of the page), instead of shrinking the screenshot and leaving blank space on the right and bottom; the level persists across navigation and can be reset in one click."
+    "Improve tool market display and upload permissions: tools and hosted apps already in the user's tools list (such as AiOps-Report) now show 'Open' instead of 'Add to My Tools'; Python Web hosted app packages are strictly restricted to super administrators for uploading and previewing, with immediate UI blocking for non-super admins."
   ]
 }

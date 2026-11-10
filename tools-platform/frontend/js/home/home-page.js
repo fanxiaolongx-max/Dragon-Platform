@@ -104,6 +104,8 @@
                 'home.import.subtitle': '一次填写工具信息并上传 HTML 或 ZIP 工具包（自动支持离线快照与 Pages 静态推送）。',
                 'home.import.fileTitle': '选择 HTML / ZIP / SKILL 文件',
                 'home.import.fileHint': 'HTML 或 ZIP 工具包（最大 35 MB）；含 SKILL.md 的会导入为技能；含 requirements.txt 的 Python Web 应用包（FastAPI 等）由平台托管运行',
+                'home.import.fileHintNonSuper': 'HTML 或 ZIP 工具包（最大 35 MB）；含 SKILL.md 的会导入为技能',
+                'home.import.pySuperAdminOnly': 'Python Web 托管应用仅允许超级管理员上传',
                 'home.import.pyDetected': '已识别为 Python Web 应用（{entry}，{iface}）：导入后平台会创建独立环境、安装依赖并在工具菜单生成入口',
                 'home.import.pyOffline': '，使用包内 {count} 个离线依赖',
                 'home.import.pyNoPython': '已识别为 Python Web 应用，但{message}；仍可导入，配置好 Python 后在应用入口重新安装依赖',
@@ -348,6 +350,8 @@
                 'home.import.subtitle': 'Enter all tool details and select an HTML or ZIP package in one place (with automatic offline snapshot and Pages publishing support).',
                 'home.import.fileTitle': 'Choose an HTML / ZIP / SKILL file',
                 'home.import.fileHint': 'HTML or ZIP tool package (up to 35 MB). A package with SKILL.md is imported as a Skill; a Python web app package with requirements.txt (FastAPI etc.) is hosted by the platform',
+                'home.import.fileHintNonSuper': 'HTML or ZIP tool package (up to 35 MB). A package with SKILL.md is imported as a Skill',
+                'home.import.pySuperAdminOnly': 'Python Web hosted apps can only be uploaded by super administrators',
                 'home.import.pyDetected': 'Recognized as a Python web app ({entry}, {iface}). The platform will create an isolated environment, install dependencies and add a menu entry',
                 'home.import.pyOffline': ', using {count} bundled offline packages',
                 'home.import.pyNoPython': 'Recognized as a Python web app, but {message}. You can still import it and reinstall dependencies from the app entry once Python is configured',
@@ -1184,7 +1188,7 @@
             setText('#customToolImportTitle', t('home.import.title'));
             setText('#customToolImportSubtitle', t('home.import.subtitle'));
             setText('#customToolFileTitle', t('home.import.fileTitle'));
-            setText('#customToolFileHint', t('home.import.fileHint'));
+            setText('#customToolFileHint', (localStorage.getItem('tools_super') === '1' && (typeof window.isNavSuperAdmin === 'function' ? window.isNavSuperAdmin() === true : true) && (localStorage.getItem('tools_tenant_id') || 'default') === 'default') ? t('home.import.fileHint') : t('home.import.fileHintNonSuper'));
             setText('#customToolIconLabel', t('home.import.icon'));
             const importNameLabel = document.getElementById('customToolNameLabel');
             if (importNameLabel) importNameLabel.innerHTML = `${escapeHtml(t('home.import.name'))} <span>*</span>`;
@@ -1541,6 +1545,11 @@
             };
             if (!panel || !btn || !modal || !form || !input) return;
             panel.hidden = role !== 'admin';
+            const isSuperAdminUser = () => localStorage.getItem('tools_super') === '1' && (typeof window.isNavSuperAdmin === 'function' ? window.isNavSuperAdmin() === true : true) && (localStorage.getItem('tools_tenant_id') || 'default') === 'default';
+            const updateFileHint = () => {
+                const hintEl = document.getElementById('customToolFileHint');
+                if (hintEl) hintEl.textContent = isSuperAdminUser() ? t('home.import.fileHint') : t('home.import.fileHintNonSuper');
+            };
             let metadataGeneration = 0;
             let currentUpdateTarget = null;
             let updatePackageCheck = null;
@@ -1625,15 +1634,28 @@
                 if (!preview) {
                     setSkillMode(null);
                     let pythonApp = null;
-                    try {
-                        if (await isPythonPackage(file)) pythonApp = (await API.post('/api/hosted-apps/preview', { archiveBase64: await fileToBase64(file), archiveName: file.name })).app;
-                    } catch (error) {
-                        if (generation !== metadataGeneration) return;
-                        setPythonMode(null);
-                        setAiStatus(error.message, 'warning');
-                        // Python 应用包只有超级管理员能导入：不让继续提交（后端同样拒绝）
-                        if (error.status === 403) { submitBtn.disabled = true; pythonBlocked = true; }
-                        return;
+                    const isPy = await isPythonPackage(file);
+                    if (isPy) {
+                        if (!isSuperAdminUser()) {
+                            if (generation !== metadataGeneration) return;
+                            setPythonMode(null);
+                            const errorMsg = t('home.import.pySuperAdminOnly');
+                            setAiStatus(errorMsg, 'warning');
+                            showImportError(errorMsg);
+                            submitBtn.disabled = true;
+                            pythonBlocked = true;
+                            return;
+                        }
+                        try {
+                            pythonApp = (await API.post('/api/hosted-apps/preview', { archiveBase64: await fileToBase64(file), archiveName: file.name })).app;
+                        } catch (error) {
+                            if (generation !== metadataGeneration) return;
+                            setPythonMode(null);
+                            setAiStatus(error.message, 'warning');
+                            // Python 应用包只有超级管理员能导入：不让继续提交（后端同样拒绝）
+                            if (error.status === 403) { submitBtn.disabled = true; pythonBlocked = true; }
+                            return;
+                        }
                     }
                     if (generation !== metadataGeneration) return;
                     if (!pythonApp) {
@@ -1816,6 +1838,7 @@
                     updateTarget = null;
                 }
                 resetImportForm();
+                updateFileHint();
                 currentUpdateTarget = updateTarget && updateTarget.slug ? updateTarget : null;
                 if (currentUpdateTarget) {
                     const customTool = currentUpdateTarget.customTool || (window.__homeCustomTools || []).find(t => t.slug === currentUpdateTarget.slug);
@@ -1889,12 +1912,21 @@
                     setAiStatus();
                     updatePackageCheck = (async () => {
                         if (!/\.(html?|zip)$/i.test(file.name) || await isSkillPackage(file)) return false;
-                        return (await isPythonPackage(file)) === hostedApp;
+                        const isPy = await isPythonPackage(file);
+                        if (isPy && !isSuperAdminUser()) {
+                            const errorMsg = t('home.import.pySuperAdminOnly');
+                            setAiStatus(errorMsg, 'warning');
+                            showImportError(errorMsg);
+                            submitBtn.disabled = true;
+                            pythonBlocked = true;
+                            return false;
+                        }
+                        return isPy === hostedApp;
                     })().catch(() => false);
                     void updatePackageCheck.then(valid => {
                         if (generation !== metadataGeneration) return;
-                        if (!valid) setAiStatus(t('home.import.updatePackageMismatch'), 'warning');
-                        else if (!hostedApp) void generateAiMetadata(file);
+                        if (!valid && !pythonBlocked) setAiStatus(t('home.import.updatePackageMismatch'), 'warning');
+                        else if (!hostedApp && !pythonBlocked) void generateAiMetadata(file);
                     });
                     return;
                 }
@@ -1932,6 +1964,9 @@
                     const isZip = /\.zip$/i.test(file.name);
                     if (!isZip && !/\.html?$/i.test(file.name)) throw new Error('仅支持 HTML 或 ZIP 文件');
                     if (isZip && file.size > 35 * 1024 * 1024) throw new Error('ZIP 文件不能超过 35 MB');
+                    if (!isSuperAdminUser() && await isPythonPackage(file)) {
+                        throw new Error(t('home.import.pySuperAdminOnly'));
+                    }
                     const isToolUpdate = Boolean(currentUpdateTarget?.slug);
                     if (isToolUpdate) {
                         submitBtn.disabled = true;
@@ -2383,9 +2418,11 @@
                     API.get('/api/custom-tools/market/platform'),
                     admin ? {} : API.get('/api/distribution/catalog')
                 ]);
+                const existingSlugs = new Set((window.__homeCustomTools || []).map(t => t.slug || t.id).filter(Boolean));
                 const entries = [...tools.map(tool => ({ ...tool, id: tool.slug, kind: 'tool' })), ...items];
                 platformList.innerHTML = entries.map(tool => {
-                    const needsRestore = !admin && (tool.hidden || (tool.kind === 'tool' && !tool.builtIn && !tool.installed));
+                    const alreadyPresent = existingSlugs.has(tool.slug || tool.id) || Boolean(tool.installed) || Boolean(tool.builtIn) || Boolean(tool.hostedApp);
+                    const needsRestore = !admin && (tool.hidden || (tool.kind === 'tool' && !alreadyPresent));
                     return `<article class="tool-market-card is-platform">
                         <div class="tool-market-icon">${escapeHtml(tool.icon || '🧩')}</div>
                         <div class="tool-market-copy">

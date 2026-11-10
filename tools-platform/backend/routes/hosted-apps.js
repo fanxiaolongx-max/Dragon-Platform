@@ -4,7 +4,7 @@ const router = express.Router();
 const runtime = require('../models/hosted-apps/runtime');
 const service = require('../models/hosted-apps/service');
 const editorService = require('../models/hosted-apps/editor-service');
-const { requireAdmin, inSuperAdminSpace } = require('../middleware/auth');
+const { requireAdmin, requireSuperAdmin, inSuperAdminSpace } = require('../middleware/auth');
 const distribution = require('../models/tool-distribution');
 const { DEFAULT_TENANT_ID, getTenantId, runWithTenant } = require('../models/tenant-context');
 
@@ -50,21 +50,21 @@ router.put('/settings', requireAdmin, async (req, res) => {
     } catch (error) { send(res, error, '保存设置失败'); }
 });
 
-router.post('/preview', requireAdmin, async (req, res) => {
+router.post('/preview', requireSuperAdmin, async (req, res) => {
     req.suppressBodyLog = true;
     try {
         res.json({ success: true, app: await service.preview(req.body || {}) });
     } catch (error) { send(res, error, '识别应用包失败'); }
 });
 
-router.post('/:slug/preview', requireAdmin, async (req, res) => {
+router.post('/:slug/preview', requireSuperAdmin, async (req, res) => {
     req.suppressBodyLog = true;
     try {
         res.json({ success: true, app: await service.preview(req.body || {}) });
     } catch (error) { send(res, error, '识别应用包失败'); }
 });
 
-router.post('/:slug/package', requireAdmin, async (req, res) => {
+router.post('/:slug/package', requireSuperAdmin, async (req, res) => {
     req.suppressBodyLog = true;
     try {
         if (!runtime.exists(req.params.slug)) return res.status(404).json({ error: '应用不存在' });
