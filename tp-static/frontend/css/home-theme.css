@@ -158,10 +158,17 @@ html[data-ui="v2"] #dcComposer.is-generating .dc-send { background: var(--v2-ink
 html[data-ui="v2"] #dcComposer .dc-hint,
 html[data-ui="v2"] #dcComposer .dc-skill-discover:not(.is-warn) { display: none; }
 html[data-ui="v2"] #dcComposer .dc-skill-discover.is-warn { padding: 6px 16px; color: var(--v2-ink2); }
-html[data-ui="v2"] #dcComposer .dc-model-menu { width: min(360px, calc(100vw - 48px)); max-width: calc(100vw - 48px); padding: 6px; background: var(--v2-pop); border-color: var(--v2-line); box-shadow: var(--v2-shadow-pop); border-radius: 15px; }
-html[data-ui="v2"] #dcComposer .dc-model-option { padding: 10px; border-radius: 9px; }
-html[data-ui="v2"] #dcComposer .dc-model-option-name { white-space: normal; overflow-wrap: anywhere; font-size: 13px; font-weight: 500; color: var(--v2-ink); }
-html[data-ui="v2"] #dcComposer .dc-model-option-desc { color: var(--v2-ink2); font-size: 11px; overflow-wrap: anywhere; }
+html[data-ui="v2"] #dcComposer .dc-model-menu { width: min(340px, calc(100vw - 32px)); max-width: calc(100vw - 24px); min-width: 200px; padding: 6px; background: var(--v2-pop); border-color: var(--v2-line); box-shadow: var(--v2-shadow-pop); border-radius: 15px; transition: transform 0.15s ease, opacity 0.14s ease; }
+html[data-ui="v2"] #dcComposer .dc-model-option { padding: 8px 10px; border-radius: 9px; min-width: 0; }
+html[data-ui="v2"] #dcComposer .dc-model-option-text { min-width: 0; overflow: hidden; display: grid; flex: 1; gap: 2px; }
+html[data-ui="v2"] #dcComposer .dc-model-option-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; font-size: 13px; font-weight: 500; color: var(--v2-ink); }
+html[data-ui="v2"] #dcComposer .dc-model-option-name-inner { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+html[data-ui="v2"] #dcComposer .dc-model-option:hover .dc-model-option-name.is-overflowing,
+html[data-ui="v2"] #dcComposer .dc-model-option:focus-visible .dc-model-option-name.is-overflowing { text-overflow: clip; }
+html[data-ui="v2"] #dcComposer .dc-model-option:hover .dc-model-option-name.is-overflowing .dc-model-option-name-inner,
+html[data-ui="v2"] #dcComposer .dc-model-option:focus-visible .dc-model-option-name.is-overflowing .dc-model-option-name-inner { display: inline-block; max-width: none; overflow: visible; animation: dc-model-name-marquee 3.5s ease-in-out infinite alternate; }
+@keyframes dc-model-name-marquee { 0%, 20% { transform: translateX(0); } 80%, 100% { transform: translateX(var(--marquee-dist, -40px)); } }
+html[data-ui="v2"] #dcComposer .dc-model-option-desc { color: var(--v2-ink2); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 html[data-ui="v2"] #dcComposer .dc-model-option.is-selected { background: var(--v2-chip); }
 html[data-ui="v2"] #dcComposer .dc-model-menu-head { padding: 8px 10px; }
 html[data-ui="v2"] #dcComposer .dc-model-menu-head span { color: var(--v2-ink3); }
@@ -346,6 +353,15 @@ html[data-ui="v2"][data-theme="dark"] .nav-settings-check.nav-ai-autoswitch-chec
 html[data-ui="v2"][data-theme="dark"] .nav-ai-usage-panel .nav-ai-usage-history {
     background: var(--v2-side) !important;
     border-color: var(--v2-line) !important;
+}
+html[data-ui="v2"][data-theme="dark"] .nav-ai-usage-toggle-btn {
+    background: var(--v2-chip, #1e293b) !important;
+    border-color: var(--v2-line, #334155) !important;
+    color: var(--v2-ink2, #94a3b8) !important;
+}
+html[data-ui="v2"][data-theme="dark"] .nav-ai-usage-toggle-btn:hover {
+    background: var(--v2-hover, #273449) !important;
+    color: var(--v2-ink, #f1f5f9) !important;
 }
 html[data-ui="v2"][data-theme="dark"] .nav-media-category-tabs .tab-item {
     background: var(--v2-chip) !important;

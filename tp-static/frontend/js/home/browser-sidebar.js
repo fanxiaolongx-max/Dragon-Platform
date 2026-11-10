@@ -4,11 +4,12 @@
     const bridge=window.DragonBrowser;
     const L=(zh,en)=>/^en/.test(window.ToolsI18n?.getLanguage?.()||localStorage.getItem('tools_lang')||'')?en:zh;
     const esc=value=>String(value||'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-    let panel,surface,toggle,address,tabsNode,hint,image,status,statusBadge,statusTextNode,agentStatusNode,controlBox,textInput,operatorBanner,aiPointer;
+    let panel,surface,toggle,address,tabsNode,hint,image,status,statusBadge,statusTextNode,agentStatusNode,controlBox,textInput,operatorBanner,aiPresence,aiPointer;
     let menu='',menuSignature='',closedTabs=[],draggedTab=null,lastTheme='',pendingTab=null,tabSequence=0,tabScrollTimer=null,lastVisibleTab='';
     let intentUntil=0,lastActivity=0,activitySent=0,idleRelease=false;
     let open=false,connected=false,docked=false,raf=0,readingVisible=false,previousMenu=null;
     const ZOOM_LEVELS=[.5,.67,.75,.8,.9,1,1.1,1.25,1.5,1.75,2,2.5,3];
+    let vaultNotice={at:0,until:0,text:''};
     let state={tabs:[]},displayedFrame=null,autoFit=true,pageWidth=0,zoomed=false,viewScale=1,tabSignature='';
     let keyQueue=[],keySending=false,keyTimer=null,keyEpoch=0;
     let busy=false,refreshing=false,controller=null,viewEpoch=0,timer=null,lastHeartbeat=0,manualToken='';
@@ -245,6 +246,7 @@
         address.placeholder=L('输入网址开始浏览','Enter a URL to browse');address.setAttribute('aria-label',L('网址','URL'));
         toggle.textContent=L('浏览器','Browser');panel.querySelector('strong').textContent=L('Dragon 浏览器','Dragon Browser');panel.setAttribute('aria-label',L('内置浏览器','Built-in browser'));
         hint.hidden=true;hint.textContent='';
+        if(!bridge&&Date.now()<vaultNotice.until){hint.hidden=false;hint.textContent=vaultNotice.text;}
         const blank=!url||url==='about:blank';surface.classList.toggle('is-empty',blank);if(!bridge&&blank){image.hidden=true;status.textContent=L('输入网址或搜索关键词开始浏览','Enter a URL or search to start browsing');}
         renderOperator();
         controlBox.hidden=Boolean(bridge)||!manualToken||menu!=='keyboard';
@@ -267,11 +269,18 @@
         if(!operatorBanner||bridge)return;
         const manual=Boolean(manualToken),elsewhere=state.manual?.active&&!manual,ai=state.operator?.active;
         const show=ai||Boolean(state.operator?.handoff)||(Date.now()<intentUntil&&ai);
-        operatorBanner.hidden=!show||!state.available;operatorBanner.classList.toggle('is-manual',manual);
+        const aiActive=Boolean(ai&&state.available&&!manual&&!elsewhere);
+        aiPresence.classList.toggle('is-active',aiActive);
+        operatorBanner.hidden=!show||!state.available;operatorBanner.classList.toggle('is-ai',aiActive);
         const seconds=Math.max(0,Math.ceil(((state.operator?.expiresAt||lastActivity+5000)-Date.now())/1000));
-        operatorBanner.querySelector('span').textContent=manual?L(`你正在操作 · ${seconds} 秒后 AI 继续`,`You are in control · AI resumes in ${seconds}s`):elsewhere?L('其他窗口正在操作','Controlled in another window'):ai?L('AI 正在操作 · 暂停后可操作页面','AI is working · pause to interact'):L('页面由 AI 控制','AI controls this page');
+        const message=manual?L(`你正在操作 · ${seconds} 秒后 AI 继续`,`You are in control · AI resumes in ${seconds}s`):elsewhere?L('其他窗口正在操作','Controlled in another window'):ai?L('AI 正在操作 · 暂停后可操作页面','AI is working · pause to interact'):L('页面由 AI 控制','AI controls this page');
+        const statusLabel=operatorBanner.querySelector('span');
+        if(statusLabel.textContent!==message)statusLabel.textContent=message;
+        statusLabel.classList.toggle('browser-ai-status',aiActive);
         const button=operatorBanner.querySelector('button');button.textContent=manual?L('立即交还','Return to AI'):L('停止并接管','Stop and take control');button.disabled=busy||elsewhere;
         button.dataset.browser=manual?'return-ai':'stop-and-control';
+        button.classList.toggle('browser-ai-takeover',aiActive);
+        button.setAttribute('aria-label',button.textContent);
         const cursor=state.operator?.cursor;
         aiPointer.hidden=!ai||manual||!cursor||Date.now()-cursor.at>5000||image.hidden;
         if(!aiPointer.hidden){const r=image.getBoundingClientRect(),s=surface.getBoundingClientRect();aiPointer.style.left=`${r.left-s.left+cursor.x*r.width}px`;aiPointer.style.top=`${r.top-s.top+cursor.y*r.height}px`;}
@@ -306,6 +315,12 @@
         if(data.error){status.textContent=data.error;return;}
         if(pendingTab&&!pendingTab.pending){if(!data.tabs?.some(tab=>tab.id===pendingTab.id))return;pendingTab=null;}
         if(!data.manual?.active&&!busy)remember('');state={...data,tabs:data.tabs||[]};
+        // 保险箱提示：登录时自动保存 / 更新、打开登录页自动填写。只显示打码后的账号，不含密码。
+        if(data.vault?.at&&data.vault.at!==vaultNotice.at){
+            let host=data.vault.origin;try{host=new URL(data.vault.origin).host;}catch{}
+            const name=data.vault.username||'';
+            vaultNotice={at:data.vault.at,until:Date.now()+7000,text:data.vault.kind==='filled'?L(`🔐 已用保险箱账号 ${name} 自动填写`,`🔐 Filled from your vault: ${name}`):data.vault.kind==='updated'?L(`🔐 已更新保险箱里 ${host} 的密码（${name}）`,`🔐 Vault password updated for ${host} (${name})`):L(`🔐 已把 ${host} 的账号 ${name} 存入保险箱，可在 全局设置 › 保险箱 管理`,`🔐 Saved ${name} for ${host} to your vault (Settings › Vault)`)};
+        }
         if(data.available&&/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(data.image||'')){
             image.onload=()=>{if(image.src!==data.image)return;displayedFrame=data;pageWidth=data.viewport?.width?Math.round(data.viewport.width*(data.zoom||1)):image.naturalWidth;fit();};image.src=data.image;image.alt=data.title||L('网页画面','Browser view');image.hidden=false;
             if(Date.now()>errorUntil)status.textContent='';
@@ -459,7 +474,16 @@
         if(bridge&&['plugins','print','devtools','find-open'].includes(name)){menu='';renderMenu();layout();}
 
         if(name==='popout')name='external';
-        if(name==='external'){const url=state.url||state.tabs.find(tab=>tab.id===state.activeId)?.url;if(bridge)return bridge.action('external');if(/^https?:\/\//.test(url||''))window.open(url,'_blank','noopener,noreferrer');return;}
+        if(name==='external'){
+            if(panel?.classList.contains('is-swarm-canvas')&&window.DragonHtmlSwarm?.openInNewTab){
+                window.DragonHtmlSwarm.openInNewTab();
+                return;
+            }
+            const url=state.url||state.tabs.find(tab=>tab.id===state.activeId)?.url;
+            if(bridge)return bridge.action('external');
+            if(/^https?:\/\//.test(url||''))window.open(url,'_blank','noopener,noreferrer');
+            return;
+        }
         if(name==='new-tab')return createTab();
         if(bridge)return bridge.action(name);
         if(name==='upload')return panel.querySelector('[data-local-files]').click();
@@ -486,6 +510,7 @@
             }
         };
         panel.querySelector('.dc-browser-popup').append(controlBox);
+        aiPresence=document.createElement('div');aiPresence.className='browser-ai-presence';aiPresence.setAttribute('aria-hidden','true');aiPresence.innerHTML='<div class="browser-ai-halo"></div><div class="browser-ai-orb"><i></i></div>';surface.append(aiPresence);
         operatorBanner=document.createElement('div');operatorBanner.className='dc-browser-operator';operatorBanner.hidden=true;operatorBanner.setAttribute('role','status');operatorBanner.innerHTML='<span></span><button type="button" data-browser="stop-and-control"></button>';surface.append(operatorBanner);
         aiPointer=document.createElement('div');aiPointer.className='dc-browser-ai-pointer';aiPointer.hidden=true;aiPointer.innerHTML='<svg width="24" height="28" viewBox="0 0 24 28" aria-hidden="true"><path d="M2 2L20 17L12 18L8 26Z" fill="currentColor" stroke="white" stroke-width="2"/></svg><span>AI</span>';surface.append(aiPointer);
         setInterval(()=>{

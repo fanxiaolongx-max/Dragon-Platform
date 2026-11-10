@@ -62,8 +62,8 @@
       "description": "数通协议知识库：OSPF、Juniper 跨厂商策略等知识的分类整理，配合二维拓扑、报文时序、按位图解与分步实验，理解复杂协议机制。",
       "href": "./datacom-protocol-expert/index.html",
       "encrypted": false,
-      "fingerprint": "1ace3670a8082fc60c27570e37348942554160d429e3f60b69b7e84db5d8d9ac",
-      "updatedAt": "2026-11-10T12:29:29.365Z"
+      "fingerprint": "12effa3f7d0a4d71876b165d8cc38c372033828f280e42f664f987ff2dccba54",
+      "updatedAt": "2026-11-10T22:29:35.720Z"
     },
     {
       "slug": "department-reward-penalty",
@@ -71,8 +71,8 @@
       "description": "用于维护部门负向事件与违规记录、扣罚规则、人员名册与操作审计日志，支持草稿发布、规则分类筛选和人员 CSV 导入导出。",
       "href": "./department-reward-penalty/index.html",
       "encrypted": false,
-      "fingerprint": "cfb5f62ac98851c19226cf65b911144e06404a1f9e20c7718c653b20dbec0171",
-      "updatedAt": "2026-11-10T12:29:29.043Z"
+      "fingerprint": "e9abdc7a3a56b37c0d0a3087fc91141913ff6848e0be647a9179204d64eefc97",
+      "updatedAt": "2026-11-10T22:29:35.177Z"
     },
     {
       "slug": "reward-program",
@@ -107,8 +107,8 @@
       "description": "查询产品是否属于强控业务比对范围，支持产品数据导入导出、服务器保存、模糊检索和静态快照同步。",
       "href": "./tool-mumxi3px/index.html",
       "encrypted": false,
-      "fingerprint": "1b86969f92ee020da42ce65c1f2112e57a65041efa35efb7d14efee26ada95ed",
-      "updatedAt": "2026-11-10T12:29:29.265Z"
+      "fingerprint": "dc2dd74a3c80bd838e3d0fdc8441a4222dda93dfac3c61af2934feab98bcaf1b",
+      "updatedAt": "2026-11-10T22:29:35.625Z"
     },
     {
       "slug": "tool-mqp55fna",
@@ -426,8 +426,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./uivf12/index.html",
       "encrypted": false,
-      "fingerprint": "9d5917cbc29cd6d9c8364230d4716849be9442313aaf03c7f0155c4b278dae70",
-      "updatedAt": "2026-11-10T12:29:27.745Z"
+      "fingerprint": "2ce8f1fa94d92d523eaa5610403c3fc6ca838a46331ba58880a063462f964f30",
+      "updatedAt": "2026-11-10T22:29:28.857Z"
     },
     {
       "slug": "sla",
@@ -436,8 +436,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./sla/index.html",
       "encrypted": false,
-      "fingerprint": "df375d7b86c9c620dab19acdb00dfcaed7ba5914f5f0b15f510c5ede1a717a78",
-      "updatedAt": "2026-11-10T12:29:28.031Z"
+      "fingerprint": "ecf5a642549657b3369bb5b3d304eece6fe598fa2b8b515486bc74dae8d98680",
+      "updatedAt": "2026-11-10T22:29:29.790Z"
     },
     {
       "slug": "report",
@@ -446,8 +446,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./report/index.html",
       "encrypted": false,
-      "fingerprint": "ebc67aecc8167490f64bb3da7204051c2095d0649e2b3e13e43d08ccfe8c3f7f",
-      "updatedAt": "2026-11-10T12:29:28.239Z"
+      "fingerprint": "53963559511e8aa2dc70e3481344ad21becbb7b102d61ac48eb5050c38b5cfa7",
+      "updatedAt": "2026-11-10T22:29:30.033Z"
     },
     {
       "slug": "expedite",
@@ -456,8 +456,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./expedite/index.html",
       "encrypted": false,
-      "fingerprint": "d5ef0ef1fd9a1b7a827e91a2275186ff03ced824a67705f1a7e137f37aa4536f",
-      "updatedAt": "2026-11-10T12:29:28.369Z"
+      "fingerprint": "0b05b79b8bb0618bd713c68497a68385379dbaf0e8c9d7557225baf4e3b55015",
+      "updatedAt": "2026-11-10T22:29:30.164Z"
     },
     {
       "slug": "monthly",
@@ -466,8 +466,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./monthly/index.html",
       "encrypted": false,
-      "fingerprint": "d726b715ecfbbe5003397e1ae4966676b9a49a4885c1f0ff4dd67a477d00661f",
-      "updatedAt": "2026-11-10T12:29:28.713Z"
+      "fingerprint": "f55f721fa4aa074d03ab607a084251e65cfa8be8aa1cb8d641bdf58908eab6b0",
+      "updatedAt": "2026-11-10T22:29:30.633Z"
     },
     {
       "slug": "topic-analysis",
@@ -476,8 +476,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./topic-analysis/index.html",
       "encrypted": false,
-      "fingerprint": "159245c18494072422dd5cfd1f0d85b61c0a906d98d8c2c2c6c54970072edc25",
-      "updatedAt": "2026-11-10T02:29:32.146Z"
+      "fingerprint": "12fa4b9415ffab1afdbf6f76e08eece4b77d3e149cb3d74c3a0aa1fb37d89c24",
+      "updatedAt": "2026-11-10T22:29:30.698Z"
     },
     {
       "slug": "bigscreen",
@@ -485,8 +485,8 @@
       "description": "当前报表、趋势、负责人和中英文配置的只读大屏。",
       "href": "./bigscreen/index.html",
       "encrypted": false,
-      "fingerprint": "84c55d9752061d9c96c8ed6cb0f27d9804084e6b767999962c32003e86b02015",
-      "updatedAt": "2026-11-10T02:29:32.392Z"
+      "fingerprint": "00e4463271dc73b7057bf17788b4844c1f52eaf19963dc67f9eeb0d4afce4b4f",
+      "updatedAt": "2026-11-10T22:29:30.953Z"
     },
     {
       "slug": "picture-island",

@@ -322,9 +322,15 @@ body.dc-chatting .dc-feature-link { display: none; }
     cursor: pointer;
 }
 .dc-model-option:hover, .dc-model-option:focus-visible { background: rgba(148, 163, 184, 0.12); outline: none; }
-.dc-model-option-text { display: grid; flex: 1; min-width: 0; gap: 2px; }
-.dc-model-option-name { overflow: hidden; font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.dc-model-option-desc { color: var(--dc-muted); font-size: 11.5px; line-height: 1.4; }
+.dc-model-option-text { display: grid; flex: 1; min-width: 0; gap: 2px; overflow: hidden; }
+.dc-model-option-name { overflow: hidden; font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.dc-model-option-name-inner { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+.dc-model-option:hover .dc-model-option-name.is-overflowing,
+.dc-model-option:focus-visible .dc-model-option-name.is-overflowing { text-overflow: clip; }
+.dc-model-option:hover .dc-model-option-name.is-overflowing .dc-model-option-name-inner,
+.dc-model-option:focus-visible .dc-model-option-name.is-overflowing .dc-model-option-name-inner { display: inline-block; max-width: none; overflow: visible; animation: dc-model-name-marquee 3.5s ease-in-out infinite alternate; }
+@keyframes dc-model-name-marquee { 0%, 20% { transform: translateX(0); } 80%, 100% { transform: translateX(var(--marquee-dist, -40px)); } }
+.dc-model-option-desc { color: var(--dc-muted); font-size: 11.5px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .dc-model-check { width: 16px; height: 16px; flex: none; color: var(--dc-accent); visibility: hidden; }
 .dc-model-option.is-selected .dc-model-check { visibility: visible; }
 

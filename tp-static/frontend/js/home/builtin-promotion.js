@@ -118,7 +118,7 @@
     // 变化后刷新各区块：工具列表、技能（@ 菜单 + 技能分类）、插件与脚本
     window.addEventListener('builtin:changed', event => {
         const kind = event.detail?.kind;
-        if (kind === 'tool' && typeof window.loadCustomTools === 'function') window.loadCustomTools();
+        if (kind === 'tool') window.reloadHomeCustomTools?.();
         if (kind === 'skill') window.dispatchEvent(new CustomEvent('skills:changed', { detail: { id: event.detail.id } }));
         if (kind === 'f12' || kind === 'python') window.HomeCapabilities?.reload?.();
     });

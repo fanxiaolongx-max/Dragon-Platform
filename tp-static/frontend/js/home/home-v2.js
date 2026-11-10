@@ -462,7 +462,25 @@
     discover.pop.innerHTML = `<div class="v2-discover-search"><span class="v2-ico" data-icon="search"></span><input type="search" autocomplete="off" spellcheck="false"></div><div class="v2-discover-chips"></div><div class="v2-discover-list"></div><div class="v2-discover-foot"></div>`;
     fillIcons(discover.pop);
     const dInput = discover.pop.querySelector('input');
-    const apps = () => (window.HomeWorkspace?.getTools?.() || []).filter(item => item && item.href && item.title);
+    const apps = () => {
+        const workspaceTools = (window.HomeWorkspace?.getTools?.() || []).filter(item => item && item.href && item.title);
+        const seenHrefs = new Set(workspaceTools.map(t => t.href).filter(Boolean));
+        const isAdmin = localStorage.getItem('tools_role') === 'admin';
+        const isSuper = typeof window.isNavSuperAdmin === 'function' ? window.isNavSuperAdmin() : (localStorage.getItem('tools_super') === '1');
+        const superOnly = isSuper ? [] : ['storage', 'db-explorer', 'netcare-explorer'];
+        const extraBuiltins = (typeof NAV_BUILTIN_LINKS !== 'undefined' ? NAV_BUILTIN_LINKS : [])
+            .filter(item => item.href !== '/' && !seenHrefs.has(item.href) && (!item.adminOnly || isAdmin) && !superOnly.includes(item.id))
+            .map(item => ({
+                id: item.id,
+                title: typeof getNavLabel === 'function' ? getNavLabel(item) : (item.label || item.id),
+                description: item.description || (typeof navLocaleText === 'function' ? navLocaleText('平台内置工具与系统功能', 'Platform built-in tool') : '平台内置工具与系统功能'),
+                href: item.href,
+                icon: item.icon || '🧩',
+                tags: item.tags || [],
+                group: (typeof getNavCategoryByItem === 'function' ? getNavCategoryByItem(item.id) : null)?.name || item.defaultCategory || 'business'
+            }));
+        return [...workspaceTools, ...extraBuiltins];
+    };
     function recentApps(all) {
         const ids = typeof getRecentNavToolIds === 'function' ? getRecentNavToolIds() : [];
         const nav = typeof getAllNavItems === 'function' ? getAllNavItems() : [];

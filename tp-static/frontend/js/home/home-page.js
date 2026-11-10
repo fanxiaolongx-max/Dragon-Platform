@@ -550,6 +550,12 @@
                 tags: { 'zh-CN': ['📡 实时态势总览', '🏆 客户群排行', '🚨 短板风险分布', '🧭 趋势驾驶舱'], 'en-US': ['📡 Live situation overview', '🏆 Group ranking', '🚨 Risk distribution', '🧭 Trend cockpit'] },
                 arrow: 'home.arrow.tool'
             },
+            '/topic-analysis': {
+                title: { 'zh-CN': '专题分析', 'en-US': 'Topic Analysis' },
+                desc: { 'zh-CN': 'NetCare 与 DataFab 导入快照的历史记录中心。完整 JSON 持久保存，支持专题月报生成与跨期差异对比。', 'en-US': 'Historical snapshot archive for NetCare and DataFab. Complete JSON storage with monthly topic reports and cross-period diff analysis.' },
+                tags: { 'zh-CN': ['📜 历史快照中心', '📊 专题月报生成', '🔍 跨期差异对比', '📑 双语工程导出'], 'en-US': ['📜 Snapshot archive', '📊 Topic monthly report', '🔍 Cross-period diff', '📑 Bilingual export'] },
+                arrow: 'home.arrow.tool'
+            },
             '/frt': {
                 title: { 'zh-CN': 'FRT KPI核算', 'en-US': 'FRT KPI Calculation' },
                 desc: { 'zh-CN': 'FRT自动化核算平台 (动态规则引擎版)，支持导入报表智能提取SR类型，动态筛选、预警扣分项。', 'en-US': 'Automated FRT calculation platform with a dynamic rule engine, smart SR type extraction from imported reports, filtering, and deduction warnings.' },
@@ -1437,13 +1443,18 @@
             });
         }
 
+        const getStaticToolCount = () => {
+            const grid = document.getElementById('toolsGrid');
+            return grid ? grid.querySelectorAll(':scope > a.tool-card:not([data-custom-tool-card="1"])').length : 12;
+        };
+
         async function loadStats() {
             if (!document.getElementById('statsBar')) return;
             try {
                 platformSummary = await API.get('/api/platform-metrics/summary');
                 renderPlatformStats(platformSummary);
             } catch (e) {
-                if (document.getElementById('stat-tools')) document.getElementById('stat-tools').textContent = String(11 + customToolsCount);
+                if (document.getElementById('stat-tools')) document.getElementById('stat-tools').textContent = String(getStaticToolCount() + customToolsCount);
             }
         }
 
@@ -1466,6 +1477,8 @@
                 card.className = `tool-card custom-tool${tool.hostedApp ? ' is-hosted-app' : ''}${isSuperAdminUser && isSharedAccess ? ' is-shared-access' : ''}`;
                 card.dataset.customToolCard = '1';
                 card.dataset.toolSlug = tool.slug;
+                if (tool.shared) card.dataset.shared = '1';
+                if (tool.sharedAccess) card.dataset.sharedAccess = '1';
                 const time = tool.updatedAt || tool.createdAt || '';
                 if (time) card.dataset.updatedAt = time;
                 card.style.setProperty('--card-accent', ['#38bdf8', '#34d399', '#f97316', '#e879f9'][index % 4]);
@@ -1504,10 +1517,10 @@
                 const tools = await API.get('/api/custom-tools');
                 customToolsCount = Array.isArray(tools) ? tools.length : 0;
                 renderCustomToolCards(tools);
-                if (document.getElementById('stat-tools')) document.getElementById('stat-tools').textContent = String(11 + customToolsCount);
+                if (document.getElementById('stat-tools')) document.getElementById('stat-tools').textContent = String(getStaticToolCount() + customToolsCount);
             } catch (e) {
                 customToolsCount = 0;
-                if (document.getElementById('stat-tools')) document.getElementById('stat-tools').textContent = '11';
+                if (document.getElementById('stat-tools')) document.getElementById('stat-tools').textContent = String(getStaticToolCount());
             }
         }
 

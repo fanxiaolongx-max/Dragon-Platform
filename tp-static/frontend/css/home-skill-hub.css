@@ -13,6 +13,7 @@ html[data-ui="v2"] body.v2-hub-open .home-main {
 .v2-hub { max-width: 1180px; margin: 0 auto; color: var(--v2-ink); }
 
 .v2-hub-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
+.v2-hub-navigation { display: flex; align-items: center; flex: 1 1 min-content; flex-wrap: wrap; gap: 8px 22px; min-width: 0; }
 .v2-hub-tabs { display: flex; gap: 22px; }
 .v2-hub-tabs button {
     display: inline-flex; align-items: center; gap: 6px; padding: 4px 0; border: 0; background: none; cursor: pointer;
@@ -22,14 +23,23 @@ html[data-ui="v2"] body.v2-hub-open .home-main {
 .v2-hub-tabs button:hover { color: var(--v2-ink2); }
 .v2-hub-tabs button[aria-selected="true"] { color: var(--v2-ink); font-weight: 650; }
 
-.v2-hub-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.v2-hub-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; font-size: 11px; line-height: 1.5; color: var(--v2-ink); }
+.v2-hub-legend-item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.v2-hub-legend-item[hidden] { display: none; }
+.v2-hub-legend-label { color: var(--v2-ink2); }
+.v2-hub-legend-swatch { flex: none; display: inline-block; width: 16px; height: 11px; border: 1px solid var(--v2-line); border-radius: 4px; background: var(--v2-bg); }
+.v2-hub-legend-swatch.is-built-in { width: 9px; height: 9px; border: 0; border-radius: 3px; }
+.v2-hub-source-legend .skill-src-dot { margin: 0; }
+.v2-hub-source-fallback { margin-bottom: 14px; }
+
+.v2-hub-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; margin-inline-start: auto; }
 .v2-hub-search {
     display: flex; align-items: center; gap: 7px; width: 220px; height: 34px; padding: 0 11px;
     border: 1px solid var(--v2-line); border-radius: 9px; background: var(--v2-bg); color: var(--v2-ink3);
 }
 .v2-hub-search:focus-within { border-color: var(--v2-line-strong); box-shadow: 0 0 0 3px var(--v2-accent-soft); }
 .v2-hub-search .v2-ico { width: 15px; height: 15px; }
-.v2-hub-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--v2-ink); font: inherit; font-size: 13px; }
+.v2-hub-search input { flex: 1; min-width: 0; border: 0; border-radius: inherit; outline: 0; background: none; color: var(--v2-ink); font: inherit; font-size: 13px; }
 .v2-hub-search input::placeholder { color: var(--v2-ink3); }
 
 .v2-hub-btn {
@@ -61,9 +71,10 @@ html[data-ui="v2"] body.v2-hub-open .home-main {
 
 .v2-hub-featured { margin-bottom: 26px; }
 .v2-hub-featured[hidden] { display: none; }
-.v2-hub-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.v2-hub-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.v2-hub-heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 16px; min-width: 0; }
 .v2-hub-head h2 { margin: 0; font-size: 15px; font-weight: 650; color: var(--v2-ink); }
-.v2-hub-link { display: inline-flex; align-items: center; gap: 5px; border: 0; background: none; color: var(--v2-ink3); font: inherit; font-size: 12.5px; cursor: pointer; }
+.v2-hub-link { display: inline-flex; align-items: center; flex: none; gap: 5px; border: 0; background: none; color: var(--v2-ink3); font: inherit; font-size: 12.5px; cursor: pointer; }
 .v2-hub-link:hover { color: var(--v2-ink); }
 .v2-hub-link .v2-ico { width: 13px; height: 13px; }
 
@@ -90,7 +101,7 @@ html[data-ui="v2"] body.v2-hub-open .home-main {
 .v2-hub-card:hover { border-color: var(--v2-line-strong); box-shadow: var(--v2-shadow-hover); }
 
 /* 超管视角下全员开放的工具卡片：微弱光晕效果，便于识别 */
-.v2-hub-card.is-shared-access {
+:is(.v2-hub-card, .v2-hub-legend-swatch).is-shared-access {
     border-color: color-mix(in srgb, var(--v2-accent, #10a37f) 42%, var(--v2-line));
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--v2-accent, #10a37f) 22%, transparent),
                 0 3px 14px color-mix(in srgb, var(--v2-accent, #10a37f) 18%, transparent);
@@ -100,7 +111,7 @@ html[data-ui="v2"] body.v2-hub-open .home-main {
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--v2-accent, #10a37f) 35%, transparent),
                 0 6px 20px color-mix(in srgb, var(--v2-accent, #10a37f) 26%, transparent);
 }
-html[data-theme="dark"] .v2-hub-card.is-shared-access {
+html[data-theme="dark"] :is(.v2-hub-card, .v2-hub-legend-swatch).is-shared-access {
     border-color: color-mix(in srgb, var(--v2-accent, #3ecf9e) 48%, var(--v2-line));
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--v2-accent, #3ecf9e) 26%, transparent),
                 0 3px 16px color-mix(in srgb, var(--v2-accent, #3ecf9e) 22%, transparent);
@@ -116,13 +127,20 @@ html[data-theme="dark"] .v2-hub-card.is-shared-access:hover {
     background: color-mix(in srgb, var(--hub-c, #64748b) 14%, var(--v2-bg));
 }
 .v2-hub-icon img { width: 100%; height: 100%; object-fit: cover; }
-.v2-hub-body { display: flex; flex-direction: column; gap: 5px; min-width: 0; flex: 1; padding-right: 34px; }
-.v2-hub-body strong { font-size: 14.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:is(.v2-hub-icon, .v2-hub-legend-swatch).is-built-in {
+    --hub-built-in-glow: #7852cf;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--hub-built-in-glow) 60%, transparent),
+                0 0 12px color-mix(in srgb, var(--hub-built-in-glow) 36%, transparent);
+}
+html[data-theme="dark"] :is(.v2-hub-icon, .v2-hub-legend-swatch).is-built-in { --hub-built-in-glow: #b29aff; }
+.v2-hub-body { display: flex; flex-direction: column; gap: 5px; min-width: 0; flex: 1; }
+.v2-hub-card-title { display: flex; align-items: center; gap: 8px; }
+.v2-hub-card-title strong { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .v2-hub-body small { font-size: 12.5px; color: var(--v2-ink2); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
-.v2-hub-meta { display: flex; gap: 10px; margin-top: auto; padding-top: 4px; font-size: 11.5px; color: var(--v2-ink3); white-space: nowrap; overflow: hidden; }
+.v2-hub-meta { display: flex; gap: 10px; margin-top: auto; margin-inline-end: 24px; padding-top: 4px; font-size: 11.5px; color: var(--v2-ink3); white-space: nowrap; overflow: hidden; }
 .v2-hub-meta span { overflow: hidden; text-overflow: ellipsis; }
 .v2-hub-use {
-    position: absolute; top: 14px; right: 14px; display: inline-flex; align-items: center; gap: 3px; height: 26px; min-width: 26px; padding: 0 7px;
+    flex: none; display: inline-flex; align-items: center; gap: 3px; height: 26px; min-width: 26px; padding: 0 7px;
     justify-content: center; border: 1px solid var(--v2-line); border-radius: 7px; background: var(--v2-bg); color: var(--v2-ink2); font-size: 12px;
     transition: background var(--v2-ease), color var(--v2-ease), border-color var(--v2-ease);
 }
@@ -213,10 +231,12 @@ html[data-theme="dark"] .v2-hub-card.is-shared-access:hover {
 
 @media (max-width: 860px) {
     .v2-hub-top { flex-direction: column; align-items: stretch; }
-    .v2-hub-search { flex: 1; width: auto; }
+    .v2-hub-navigation { flex-basis: auto; }
+    .v2-hub-actions { margin-inline-start: 0; }
+    .v2-hub-search { flex: 1 1 120px; min-width: 0; width: auto; }
     .v2-hub-bar { flex-direction: column; align-items: stretch; }
     .v2-hub-sort { align-self: flex-end; }
-    .v2-hub-cards { grid-template-columns: 1fr; }
+    .v2-hub-cards { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* 工具内嵌（js/home/tool-frame.js）：占满主区，顶部一条细标题栏，下面是工具页 */

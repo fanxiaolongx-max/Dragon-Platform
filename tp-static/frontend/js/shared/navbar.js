@@ -143,6 +143,7 @@ let navState = {
     aiSelectedProfileId: null,
     aiSaveTimer: null,
     aiUsageDimension: 'day',
+    aiUsageExpanded: false,
     securitySettings: null,
     securityLocks: [],
     securitySaveTimer: null,
@@ -615,6 +616,14 @@ function registerNavbarI18n() {
             'nav.ai.lblUsdCny': '美元兑人民币',
             'nav.ai.lblPrompt': '补充系统提示词',
             'nav.ai.plhPrompt': '例如：回答优先使用中文，涉及平台操作时给出步骤。',
+            'nav.ai.advancedTitle': '高级参数与自定义协议',
+            'nav.ai.advancedHelp': '附加参数覆盖协议默认字段，可用 null 省略不支持的字段。请求头和高级 JSON 同样加密保存，读取配置时不回显。',
+            'nav.ai.extraHeadersLabel': '附加请求头 JSON',
+            'nav.ai.extraHeadersPlaceholder': '可选 JSON 对象，例如 {"X-Project":"demo"}',
+            'nav.ai.extraBodyLabel': '附加请求参数 JSON',
+            'nav.ai.extraBodyPlaceholder': '可选 JSON 对象，例如 {"temperature":null,"max_tokens":null,"max_completion_tokens":8000}',
+            'nav.ai.jsonSavedPlaceholder': '已加密保存，留空保留；JSON 填 {} 清空',
+            'nav.ai.jsonInvalid': '必须是有效的 JSON 对象',
             'nav.ai.failLoad': '加载 AI 助手配置失败：',
             'nav.ai.saving': '正在保存 AI 设置...',
             'nav.ai.saved': 'AI 设置已自动保存',
@@ -632,6 +641,8 @@ function registerNavbarI18n() {
             'nav.ai.usageLoading': '正在读取用量...',
             'nav.ai.usageFail': '用量读取失败：',
             'nav.ai.usagePeriod': '当前区间',
+            'nav.ai.usageExpand': '展开趋势',
+            'nav.ai.usageCollapse': '收起趋势',
             'nav.ai.autoSwitch': '主模型异常时自动切换',
             'nav.ai.autoSwitchHelp': '仅切换到已配置有效 Token 的其他方案；限流、超时、鉴权或服务异常时生效。',
             'nav.ai.usageAllModels': '全部模型',
@@ -1149,6 +1160,14 @@ function registerNavbarI18n() {
             'nav.ai.lblUsdCny': 'USD to CNY Exchange Rate',
             'nav.ai.lblPrompt': 'Supplemental System Prompt',
             'nav.ai.plhPrompt': 'e.g. Please respond in English and provide step-by-step instructions.',
+            'nav.ai.advancedTitle': 'Advanced / custom protocol',
+            'nav.ai.advancedHelp': 'Extra parameters override defaults; null omits unsupported fields. Headers and advanced JSON are encrypted and never returned by read APIs.',
+            'nav.ai.extraHeadersLabel': 'Extra headers JSON',
+            'nav.ai.extraHeadersPlaceholder': 'Optional JSON object, e.g. {"X-Project":"demo"}',
+            'nav.ai.extraBodyLabel': 'Extra request parameters JSON',
+            'nav.ai.extraBodyPlaceholder': 'Optional JSON object, e.g. {"temperature":null,"max_tokens":null,"max_completion_tokens":8000}',
+            'nav.ai.jsonSavedPlaceholder': 'Saved and encrypted; leave blank to retain. Use {} to clear JSON.',
+            'nav.ai.jsonInvalid': 'must be a valid JSON object',
             'nav.ai.failLoad': 'Failed to load AI configuration: ',
             'nav.ai.saving': 'Saving AI settings...',
             'nav.ai.saved': 'AI settings saved automatically',
@@ -1166,6 +1185,8 @@ function registerNavbarI18n() {
             'nav.ai.usageLoading': 'Loading usage...',
             'nav.ai.usageFail': 'Failed to load usage: ',
             'nav.ai.usagePeriod': 'Selected range',
+            'nav.ai.usageExpand': 'Expand Trend',
+            'nav.ai.usageCollapse': 'Collapse Trend',
             'nav.ai.autoSwitch': 'Auto-switch when the primary model fails',
             'nav.ai.autoSwitchHelp': 'Uses another profile with a valid token for rate limits, timeouts, authentication, or service failures.',
             'nav.ai.usageAllModels': 'All models',
@@ -2484,8 +2505,9 @@ function renderNavSettingsSidebar() {
     if (!sidebar) return;
     const t = navState.settingsTab;
     const agentToolsTab = `<button class="nav-settings-tab ${t === 'agentTools' ? 'active' : ''}" data-tab="agentTools" onclick="switchNavSettingsTab('agentTools')">${renderNavSettingsTabLabel('🧰', navLocaleText('智能体工具', 'Agent tools'))}</button>`;
+    const vaultTab = `<button class="nav-settings-tab ${t === 'vault' ? 'active' : ''}" data-tab="vault" onclick="switchNavSettingsTab('vault')">${renderNavSettingsTabLabel('🔐', navLocaleText('保险箱', 'Vault'))}</button>`;
     if (localStorage.getItem('tools_role') !== 'admin') {
-        sidebar.innerHTML = agentToolsTab;
+        sidebar.innerHTML = agentToolsTab + vaultTab;
         syncNavSettingsMobileNav();
         return;
     }
@@ -2497,6 +2519,7 @@ function renderNavSettingsSidebar() {
         <button class="nav-settings-tab ${t === 'items' ? 'active' : ''}" data-tab="items" onclick="switchNavSettingsTab('items')">${renderNavSettingsTabLabel('↕️', navT('nav.set.tab.items'))}</button>
         <button class="nav-settings-tab ${t === 'ai' ? 'active' : ''}" data-tab="ai" onclick="switchNavSettingsTab('ai')">${renderNavSettingsTabLabel('🤖', navT('nav.set.tab.ai'))}</button>
         ${agentToolsTab}
+        ${vaultTab}
         ${isNavSuperAdmin() ? `<button class="nav-settings-tab ${t === 'channels' ? 'active' : ''}" data-tab="channels" onclick="switchNavSettingsTab('channels')">${renderNavSettingsTabLabel('🔌', navT('nav.set.tab.channels'))}</button>` : ''}
         ${isNavSuperAdmin() ? `<button class="nav-settings-tab ${t === 'desktopAgents' ? 'active' : ''}" data-tab="desktopAgents" onclick="switchNavSettingsTab('desktopAgents')">${renderNavSettingsTabLabel('🖥️', navLocaleText('桌面 Agent', 'Desktop Agents'))}</button>` : ''}
         ${isNavSuperAdmin() ? `<button class="nav-settings-tab ${t === 'update' ? 'active' : ''}" data-tab="update" onclick="switchNavSettingsTab('update')">${renderNavSettingsTabLabel('🔄', navT('nav.set.tab.update'))}</button>` : ''}
@@ -2561,7 +2584,7 @@ function bindNavSettingsViewport(modal) {
 function openNavSettingsModal() {
     const role = localStorage.getItem('tools_role');
     if (!role) return;
-    if (role !== 'admin') navState.settingsTab = 'agentTools';
+    if (role !== 'admin' && navState.settingsTab !== 'vault') navState.settingsTab = 'agentTools';
     let modal = document.getElementById('navSettingsModal');
     if (!modal) {
         modal = document.createElement('div');
@@ -2622,7 +2645,7 @@ window.closeNavSettingsModal = closeNavSettingsModal;
 // 只有超级管理员能看到的平台级设置页
 const NAV_SUPER_ONLY_SETTINGS_TABS = new Set(['logo', 'channels', 'desktopAgents', 'update', 'snapshotPublish', 'media', 'promotions', 'security', 'backup', 'customBackup', 'page:home', 'page:f12-extension', 'page:storage', 'page:netcare-explorer']);
 window.switchNavSettingsTab = function (tab) {
-    if (localStorage.getItem('tools_role') !== 'admin') tab = 'agentTools';
+    if (localStorage.getItem('tools_role') !== 'admin' && tab !== 'vault') tab = 'agentTools';
     if (tab === 'tenants') tab = 'accounts';
     if (NAV_SUPER_ONLY_SETTINGS_TABS.has(tab) && !isNavSuperAdmin()) tab = 'primary';
     navState.settingsTab = tab;
@@ -2647,6 +2670,7 @@ function getNavSettingsTitle() {
     if (navState.settingsTab === 'security') return navT('nav.set.tab.security');
     if (navState.settingsTab === 'ai') return navT('nav.set.tab.ai');
     if (navState.settingsTab === 'agentTools') return navLocaleText('智能体工具', 'Agent tools');
+    if (navState.settingsTab === 'vault') return navLocaleText('保险箱', 'Vault');
     if (navState.settingsTab === 'desktopAgents') return navLocaleText('桌面 Agent', 'Desktop Agents');
     if (navState.settingsTab === 'channels') return navT('nav.set.tab.channels');
     if (navState.settingsTab === 'update') return navT('nav.set.tab.update');
@@ -2674,6 +2698,7 @@ function getNavSettingsSubtitle() {
     if (navState.settingsTab === 'security') return navT('nav.set.sub.security');
     if (navState.settingsTab === 'ai') return navT('nav.set.sub.ai');
     if (navState.settingsTab === 'agentTools') return navLocaleText('Dragon Claw 的 MCP 服务与工具清单：哪些工具常驻、哪些按需加载、占多少上下文、被调用了多少次。', 'Dragon Claw MCP servers and tool catalog: what is always loaded, what loads on demand, context cost and call counts.');
+    if (navState.settingsTab === 'vault') return navLocaleText('只属于你的网站账号密码：Dragon 浏览器自动保存、自动填写并登录，AI 也能代你登录，但看不到密码。', 'Your own website logins: saved, filled and signed in automatically by the Dragon browser. The AI can sign in for you without seeing the password.');
     if (navState.settingsTab === 'desktopAgents') return navLocaleText('连接本机原生桌面会话，同步最近对话并在 Web 继续交流。', 'Sync recent native desktop sessions and continue them from the Web.');
     if (navState.settingsTab === 'channels') return navT('nav.set.sub.channels');
     if (navState.settingsTab === 'update') return navT('nav.set.sub.update');
@@ -2736,6 +2761,7 @@ async function renderNavSettingsContent() {
     if (navState.settingsTab === 'security') return renderSecuritySettings(content);
     if (navState.settingsTab === 'ai') return renderAiSettings(content);
     if (navState.settingsTab === 'agentTools') return renderAgentToolsSettings(content);
+    if (navState.settingsTab === 'vault') return renderVaultSettings(content);
     if (navState.settingsTab === 'desktopAgents') return renderDesktopAgentSettings(content);
     if (navState.settingsTab === 'channels') return renderChannelSettings(content);
     if (navState.settingsTab === 'update') return renderUpdaterSettings(content);

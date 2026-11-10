@@ -875,6 +875,45 @@ window.setAiUsageDimension = function (dimension) {
     loadAiUsageDashboard(dimension);
 };
 
+window.toggleAiUsagePanel = function (event) {
+    if (event && event.target && event.target.closest('.nav-ai-usage-dimensions')) return;
+    navState.aiUsageExpanded = !navState.aiUsageExpanded;
+    const panel = document.getElementById('navAiUsagePanel');
+    if (!panel) return;
+    const isExpanded = !!navState.aiUsageExpanded;
+    panel.classList.toggle('is-expanded', isExpanded);
+    panel.classList.toggle('is-collapsed', !isExpanded);
+
+    const head = panel.querySelector('.nav-ai-usage-head');
+    if (head) {
+        head.title = navT(isExpanded ? 'nav.ai.usageCollapse' : 'nav.ai.usageExpand');
+    }
+
+    const chevron = panel.querySelector('.nav-ai-usage-chevron');
+    if (chevron) {
+        chevron.textContent = isExpanded ? '▾' : '▸';
+    }
+
+    const toggleBtn = document.getElementById('navAiUsageToggleBtn');
+    if (toggleBtn) {
+        toggleBtn.setAttribute('aria-expanded', String(isExpanded));
+        toggleBtn.title = navT(isExpanded ? 'nav.ai.usageCollapse' : 'nav.ai.usageExpand');
+        const textSpan = toggleBtn.querySelector('.nav-ai-usage-toggle-text');
+        if (textSpan) textSpan.textContent = navT(isExpanded ? 'nav.ai.usageCollapse' : 'nav.ai.usageExpand');
+        const arrowSpan = toggleBtn.querySelector('.nav-ai-usage-toggle-arrow');
+        if (arrowSpan) arrowSpan.textContent = isExpanded ? '▴' : '▾';
+    }
+
+    const body = document.getElementById('navAiUsageBody');
+    if (isExpanded) {
+        if (!navState.aiUsageData) {
+            loadAiUsageDashboard(navState.aiUsageDimension);
+        } else if (body && !body.querySelector('.nav-ai-usage-kpis')) {
+            renderAiUsageDashboard(navState.aiUsageData);
+        }
+    }
+};
+
 // 频道对接（WeLink 助理）设置页按需加载，逻辑在 shared/channel-settings.js
 async function renderChannelSettings(content) {
     try {
@@ -890,6 +929,16 @@ async function renderAgentToolsSettings(content) {
     try {
         if (!window.ToolsAgentToolsSettings) await loadNavLazyScript('./tp-static/frontend/js/shared/agent-tools-settings.js', navLocaleText('无法加载智能体工具组件', 'Agent tools component could not load'));
         await window.ToolsAgentToolsSettings.render(content);
+    } catch (error) {
+        content.innerHTML = `<div class="nav-settings-empty">${navEscape(error.message)}</div>`;
+    }
+}
+
+// 保险箱设置页按需加载，逻辑在 shared/vault-settings.js
+async function renderVaultSettings(content) {
+    try {
+        if (!window.ToolsVaultSettings) await loadNavLazyScript('./tp-static/frontend/js/shared/vault-settings.js', navLocaleText('无法加载保险箱组件', 'Vault component could not load'));
+        await window.ToolsVaultSettings.render(content);
     } catch (error) {
         content.innerHTML = `<div class="nav-settings-empty">${navEscape(error.message)}</div>`;
     }
@@ -919,6 +968,7 @@ async function renderAiSettings(content) {
         if (settings) navState.aiSelectedProfileId = settings.id;
         const isImage = category === 'image';
         const isActiveProfile = !!settings?.isActive;
+        const isUsageExpanded = !!navState.aiUsageExpanded;
         // 公共模型（超级管理员分配给所有团队）在团队里只读；超级管理员在自己的空间里可勾选「分配给所有团队」
         const lockedProfile = !!settings?.locked;
         const canShare = isNavSuperAdmin() && !navState.viewingTeam;
@@ -987,17 +1037,29 @@ async function renderAiSettings(content) {
                 <span>${navEscape(navT('nav.ai.sourcePrefix'))}${navEscape(sourceLabelForAiSettings(settings.apiKeySource))}</span>
                 <span class="${settings.hasApiKey && !settings.keyLooksValid ? 'warning' : ''}">${navEscape(keyHealthLabelForAiSettings(settings))}</span>
             </div>
-            <section class="nav-ai-usage-panel">
-                <div class="nav-ai-usage-head">
-                    <div><strong>${navEscape(navT('nav.ai.usageTitle'))}</strong><span>${navEscape(navT('nav.ai.usageHelp'))}</span></div>
-                    <div class="nav-ai-usage-dimensions">
-                        <button type="button" data-ai-usage-dimension="day" onclick="setAiUsageDimension('day')">${navEscape(navT('nav.ai.usageDay'))}</button>
-                        <button type="button" data-ai-usage-dimension="week" onclick="setAiUsageDimension('week')">${navEscape(navT('nav.ai.usageWeek'))}</button>
-                        <button type="button" data-ai-usage-dimension="month" onclick="setAiUsageDimension('month')">${navEscape(navT('nav.ai.usageMonth'))}</button>
-                        <button type="button" data-ai-usage-dimension="year" onclick="setAiUsageDimension('year')">${navEscape(navT('nav.ai.usageYear'))}</button>
+            <section id="navAiUsagePanel" class="nav-ai-usage-panel ${isUsageExpanded ? 'is-expanded' : 'is-collapsed'}">
+                <div class="nav-ai-usage-head" onclick="toggleAiUsagePanel(event)" title="${navEscape(navT(isUsageExpanded ? 'nav.ai.usageCollapse' : 'nav.ai.usageExpand'))}">
+                    <div>
+                        <div class="nav-ai-usage-title-row">
+                            <span class="nav-ai-usage-chevron" aria-hidden="true">${isUsageExpanded ? '▾' : '▸'}</span>
+                            <strong>${navEscape(navT('nav.ai.usageTitle'))}</strong>
+                        </div>
+                        <span>${navEscape(navT('nav.ai.usageHelp'))}</span>
+                    </div>
+                    <div class="nav-ai-usage-head-actions">
+                        <div class="nav-ai-usage-dimensions" onclick="event.stopPropagation()">
+                            <button type="button" data-ai-usage-dimension="day" onclick="setAiUsageDimension('day')">${navEscape(navT('nav.ai.usageDay'))}</button>
+                            <button type="button" data-ai-usage-dimension="week" onclick="setAiUsageDimension('week')">${navEscape(navT('nav.ai.usageWeek'))}</button>
+                            <button type="button" data-ai-usage-dimension="month" onclick="setAiUsageDimension('month')">${navEscape(navT('nav.ai.usageMonth'))}</button>
+                            <button type="button" data-ai-usage-dimension="year" onclick="setAiUsageDimension('year')">${navEscape(navT('nav.ai.usageYear'))}</button>
+                        </div>
+                        <button type="button" class="nav-ai-usage-toggle-btn" id="navAiUsageToggleBtn" aria-expanded="${isUsageExpanded}" onclick="event.stopPropagation(); toggleAiUsagePanel();" title="${navEscape(navT(isUsageExpanded ? 'nav.ai.usageCollapse' : 'nav.ai.usageExpand'))}">
+                            <span class="nav-ai-usage-toggle-text">${navEscape(navT(isUsageExpanded ? 'nav.ai.usageCollapse' : 'nav.ai.usageExpand'))}</span>
+                            <span class="nav-ai-usage-toggle-arrow">${isUsageExpanded ? '▴' : '▾'}</span>
+                        </button>
                     </div>
                 </div>
-                <div id="navAiUsageBody"><div class="nav-settings-empty">${navEscape(navT('nav.ai.usageLoading'))}</div></div>
+                <div id="navAiUsageBody" class="nav-ai-usage-body"><div class="nav-settings-empty">${navEscape(navT('nav.ai.usageLoading'))}</div></div>
             </section>
             <fieldset class="nav-ai-grid" ${lockedProfile ? 'disabled style="border:0;padding:0;margin:0;min-width:0;opacity:.72"' : 'style="border:0;padding:0;margin:0;min-width:0"'}>
                 <label class="nav-ai-field nav-ai-field-wide">
@@ -1083,6 +1145,20 @@ async function renderAiSettings(content) {
                     <span>${navEscape(navT('nav.ai.lblPrompt'))}</span>
                     <textarea id="navAiSystemPrompt" class="nav-ai-textarea" maxlength="5000" placeholder="${navEscape(navT('nav.ai.plhPrompt'))}" oninput="scheduleAiSettingsSave()">${navEscape(settings.systemPrompt || '')}</textarea>
                 </label>
+                <details class="nav-ai-advanced-details nav-ai-field-wide" style="margin-top:10px;padding:10px 12px;border:1px solid var(--v2-line, rgba(129,140,248,.24));border-radius:10px;background:var(--v2-chip, rgba(255,255,255,.68));">
+                    <summary style="cursor:pointer;font-weight:600;color:var(--v2-ink, inherit);">${navEscape(navT('nav.ai.advancedTitle'))}</summary>
+                    <p class="nav-settings-help" style="margin:8px 0 10px;">${navEscape(navT('nav.ai.advancedHelp'))}</p>
+                    <div style="display:flex;flex-direction:column;gap:10px;">
+                        <label class="nav-ai-field nav-ai-field-wide">
+                            <span>${navEscape(navT('nav.ai.extraHeadersLabel'))}</span>
+                            <textarea id="navAiExtraHeaders" class="nav-ai-textarea" rows="3" spellcheck="false" placeholder="${settings.hasHeaders ? navEscape(navT('nav.ai.jsonSavedPlaceholder')) : navEscape(navT('nav.ai.extraHeadersPlaceholder'))}" oninput="scheduleAiSettingsSave()"></textarea>
+                        </label>
+                        <label class="nav-ai-field nav-ai-field-wide">
+                            <span>${navEscape(navT('nav.ai.extraBodyLabel'))}</span>
+                            <textarea id="navAiExtraBody" class="nav-ai-textarea" rows="3" spellcheck="false" placeholder="${settings.hasExtraBody ? navEscape(navT('nav.ai.jsonSavedPlaceholder')) : navEscape(navT('nav.ai.extraBodyPlaceholder'))}" oninput="scheduleAiSettingsSave()"></textarea>
+                        </label>
+                    </div>
+                </details>
             </fieldset>
             <div class="nav-ai-field nav-ai-field-wide">
                 <span>${navEscape(navT('nav.ai.testResult'))}</span>
@@ -1093,7 +1169,9 @@ async function renderAiSettings(content) {
             ? [...settings.models]
             : [settings.model].filter(Boolean);
         renderNavAiModelChips(settings);
-        loadAiUsageDashboard(navState.aiUsageDimension);
+        if (isUsageExpanded) {
+            loadAiUsageDashboard(navState.aiUsageDimension);
+        }
     } catch (e) {
         content.innerHTML = `<div class="nav-settings-empty">${navEscape(navT('nav.ai.failLoad'))}${navEscape(e.message)}</div>`;
     }
@@ -1126,6 +1204,32 @@ function collectAiSettingsPayload(options = {}) {
     const token = tokenInput ? tokenInput.value.trim() : '';
     if (token) payload.apiKey = token;
     if (options.clearApiKey) payload.clearApiKey = true;
+    const headersInput = document.getElementById('navAiExtraHeaders');
+    const extraBodyInput = document.getElementById('navAiExtraBody');
+    if (headersInput) {
+        const val = headersInput.value.trim();
+        if (val) {
+            try {
+                const parsed = JSON.parse(val);
+                if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error();
+                payload.headers = parsed;
+            } catch (_) {
+                throw new Error(`${navT('nav.ai.extraHeadersLabel')} ${navT('nav.ai.jsonInvalid')}`);
+            }
+        }
+    }
+    if (extraBodyInput) {
+        const val = extraBodyInput.value.trim();
+        if (val) {
+            try {
+                const parsed = JSON.parse(val);
+                if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error();
+                payload.extraBody = parsed;
+            } catch (_) {
+                throw new Error(`${navT('nav.ai.extraBodyLabel')} ${navT('nav.ai.jsonInvalid')}`);
+            }
+        }
+    }
     const shared = document.getElementById('navAiShared');
     if (shared) payload.shared = shared.checked === true;
     // 公共模型在团队里只读：只同步「自动切换」开关
@@ -1458,6 +1562,20 @@ async function saveAiSettingsNow(options = {}) {
         tokenInput.placeholder = savedProfile?.hasApiKey
             ? `${navT('nav.ai.plhKeep')}${savedProfile.maskedApiKey}`
             : navT('nav.ai.plhToken');
+    }
+    const headersInput = document.getElementById('navAiExtraHeaders');
+    if (headersInput && headersInput.value.trim()) {
+        headersInput.value = '';
+        headersInput.placeholder = savedProfile?.hasHeaders
+            ? navT('nav.ai.jsonSavedPlaceholder')
+            : navT('nav.ai.extraHeadersPlaceholder');
+    }
+    const extraBodyInput = document.getElementById('navAiExtraBody');
+    if (extraBodyInput && extraBodyInput.value.trim()) {
+        extraBodyInput.value = '';
+        extraBodyInput.placeholder = savedProfile?.hasExtraBody
+            ? navT('nav.ai.jsonSavedPlaceholder')
+            : navT('nav.ai.extraBodyPlaceholder');
     }
     const status = document.querySelector('.nav-ai-status');
     if (status) {
