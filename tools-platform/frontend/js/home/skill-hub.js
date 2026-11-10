@@ -11,6 +11,9 @@
             sortMixed: '综合', sortNewest: '最新', sortName: '名称',
             featuredSkills: '精选技能', featuredTools: '最近使用', featuredPlugins: '常用插件', shuffle: '换一批',
             builtin: '内置', custom: '自定义', imported: '导入', external: '外部', workspace: '需工作目录', customized: '已自定义',
+            cardLegend: '卡片标识', sharedFrame: '卡片外框', iconRing: '图标内圈', sharedWithAll: '全员开放', shared: '全员共享',
+            skillSource: '技能来源', createdInChat: '对话创建', externalCommand: '外部命令',
+            pluginSource: '插件与脚本标识', toolSource: '工具来源', floatingScripts: '浮窗脚本',
             use: '使用', open: '打开', improve: '完善技能', history: '版本历史',
             market: '查找工具（工具市场）', importTool: '上传工具', compare: '内置工具比对', manage: '管理',
             addSkill: '添加技能', addTool: '添加工具', addPlugin: '前往插件', findSkill: '查找技能', uploadSkill: '上传技能', createSkill: '创建技能',
@@ -23,6 +26,9 @@
             sortMixed: 'Default', sortNewest: 'Newest', sortName: 'Name',
             featuredSkills: 'Featured skills', featuredTools: 'Recently used', featuredPlugins: 'Popular plugins', shuffle: 'Shuffle',
             builtin: 'Built-in', custom: 'Custom', imported: 'Imported', external: 'External', workspace: 'Needs a folder', customized: 'Customized',
+            cardLegend: 'Card indicators', sharedFrame: 'Card border', iconRing: 'Icon ring', sharedWithAll: 'Shared with all', shared: 'Shared',
+            skillSource: 'Skill source', createdInChat: 'Created in chat', externalCommand: 'External command',
+            pluginSource: 'Plugin & script indicators', toolSource: 'Tool source', floatingScripts: 'Floating scripts',
             use: 'Use', open: 'Open', improve: 'Improve Skill', history: 'History',
             market: 'Find tools (market)', importTool: 'Upload tool', compare: 'Compare built-ins', manage: 'Manage',
             addSkill: 'Add Skill', addTool: 'Add tool', addPlugin: 'Go to plugins', findSkill: 'Find Skills', uploadSkill: 'Upload Skill', createSkill: 'Create Skill',
@@ -32,6 +38,11 @@
         }
     };
     const TABS = ['skills', 'plugins', 'tools'];
+    const SOURCES = {
+        skills: { title: 'skillSource', labels: { builtin: 'builtin', chat: 'createdInChat', import: 'imported', external: 'externalCommand' } },
+        plugins: { title: 'pluginSource', labels: { builtin: 'builtin', custom: 'custom', float: 'floatingScripts' } },
+        tools: { title: 'toolSource', labels: { builtin: 'builtin', shared: 'shared', custom: 'custom' } }
+    };
     const STORE_KEY = 'tools_v2_hub';
     const state = { open: false, tab: 'skills', cat: 'all', sort: 'mixed', query: '', seed: 0, mine: false };
     let root;
@@ -65,10 +76,11 @@
     function skillEntries() {
         const en = lang() === 'en-US';
         return (window.HomeSkills?.items?.() || []).filter(item => !item.hidden).map(item => {
-            const cat = { builtin: 'builtin', import: 'imported', external: 'external' }[window.SkillSource?.kind(item)] || 'custom';
+            const source = window.SkillSource?.kind(item) || 'chat';
+            const cat = { builtin: 'builtin', import: 'imported', external: 'external' }[source] || 'custom';
             return {
-                key: `skill:${item.id}`, kind: 'skill', shared: item.shared, personal: item.personal, id: item.id, src: item, dot: window.SkillSource?.dot(item) || '',
-                sharedAccess: item.sharedAccess === true,
+                key: `skill:${item.id}`, kind: 'skill', shared: item.shared, personal: item.personal, id: item.id, src: item, source,
+                sharedAccess: item.sharedAccess === true, builtIn: cat === 'builtin',
                 title: (en ? item.nameEn : '') || item.name || item.id,
                 desc: (en ? item.descriptionEn : '') || item.description || t('defaultSkillDesc'),
                 icon: item.icon || '✨', color: item.builtIn ? '#10a37f' : '#f472b6',
@@ -81,7 +93,8 @@
     function pluginEntries() {
         const en = lang() === 'en-US';
         return (window.HomeCapabilities?.groups?.() || []).flatMap(group => group.items.map((item, index) => ({
-            key: `cap:${group.kind}:${item.id || index}`, kind: 'plugin', capabilityId: item.id, capabilityBadge: item.badge, capabilityKind: item.kind, sharedAccess: item.sharedAccess,
+            key: `cap:${group.kind}:${item.id || index}`, kind: 'plugin', capabilityId: item.id, capabilityBadge: item.badge, capabilityKind: item.kind, sharedAccess: item.sharedAccess, builtIn: item.builtIn === true,
+            source: item.builtIn === true ? 'builtin' : group.kind === 'float' ? 'float' : 'custom',
             title: (en ? item.nameEn : '') || item.name, desc: item.description || '',
             icon: item.icon || group.icon || '🧩', color: group.color || '#38bdf8',
             cat: group.kind, catLabel: (en ? group.labelEn : '') || group.label,
@@ -109,12 +122,18 @@
                        || String(tool.href || '').match(/^(?:\/)?(?:tools|custom-tools)\/([^/?#]+)/)?.[1]
                        || null);
                 let sharedAccess = tool.sharedAccess === true;
+                let shared = tool.shared === true;
+                let builtIn = tool.builtIn === true;
                 if (customTools.length) {
                     const match = (slug ? customTools.find(t => t.slug === slug) : null)
                         || customTools.find(t => tool.href && t.href === tool.href);
                     if (match) {
+                        builtIn = match.builtIn === true;
                         if (match.sharedAccess !== undefined) {
                             sharedAccess = match.sharedAccess === true;
+                        }
+                        if (match.shared !== undefined) {
+                            shared = match.shared === true;
                         }
                         updatedAt = match.updatedAt || match.createdAt || '';
                         if (updatedAt && !updatedText && typeof window.HomeWorkspace?.formatRelative === 'function') {
@@ -122,11 +141,13 @@
                         }
                     }
                 }
+                const isShared = !builtIn && Boolean(shared || sharedAccess);
+                const source = builtIn ? 'builtin' : (isShared ? 'shared' : 'custom');
                 return {
                     key: `tool:${tool.id}`, kind: 'tool', id: tool.id, slug, title: tool.title, desc: tool.description || '',
                     icon: tool.icon || '🧩', color: tool.color || '#64748b', cat: tool.group, catLabel: tool.group,
                     badges: [tool.group, updatedText].filter(Boolean), mine: favorites.has(tool.id), updatedAt, href: tool.href,
-                    sharedAccess
+                    sharedAccess, shared: isShared, builtIn, source
                 };
             });
     }
@@ -178,6 +199,14 @@
         if (/^(https?:|\/|data:image)/.test(value)) return `<img src="${esc(value)}" alt="" loading="lazy">`;
         return esc(value.length <= 4 ? value : '') || '🧩';
     }
+    function sourceLegend() {
+        const { title, labels } = SOURCES[state.tab];
+        return `<div class="v2-hub-legend v2-hub-source-legend" role="group" aria-label="${esc(t(title))}">
+            <span class="v2-hub-legend-label" aria-hidden="true">${esc(t(title))}</span>
+            ${Object.entries(labels).map(([source, label]) => `<span class="v2-hub-legend-item">${window.SkillSource.indicator(source)}${esc(t(label))}</span>`).join('')}
+        </div>`;
+    }
+
     function card(item) {
         const action = item.kind === 'skill' ? `<span class="v2-hub-use">@ ${esc(t('use'))}</span>` : `<span class="v2-hub-use">${ico('arrowUpRight')}</span>`;
         const skillButtons = item.kind === 'skill' ? `
@@ -187,14 +216,15 @@
         const extra = `<span class="v2-hub-more" data-tool-card-actions>${skillButtons}${moreBtn}</span>`;
         const isShared = Boolean(item.sharedAccess);
         const sharedClass = (isSuperAdmin() && isShared) ? ' is-shared-access' : '';
+        const title = window.SkillSource?.label(item.title, item.src, { source: item.source, meaning: t(SOURCES[state.tab].labels[item.source]) }) || esc(item.title);
         return `<a class="v2-hub-card${sharedClass}" href="${esc(item.href)}" data-hub-key="${esc(item.key)}" style="--hub-c:${esc(item.color)}" title="${esc(item.title)}">
-            <span class="v2-hub-icon">${iconHtml(item.icon)}</span>
+            <span class="v2-hub-icon${item.builtIn ? ' is-built-in' : ''}"${item.builtIn ? ` role="img" aria-label="${esc(t('builtin'))}" title="${esc(t('builtin'))}"` : ''}>${iconHtml(item.icon)}</span>
             <span class="v2-hub-body">
-                <strong>${item.dot && window.SkillSource?.label ? window.SkillSource.label(item.title, item.src) : esc(item.title)}</strong>
+                <span class="v2-hub-card-title"><strong>${title}</strong>${action}</span>
                 <small>${esc(item.desc)}</small>
                 <span class="v2-hub-meta">${item.badges.slice(0, 3).map(b => `<span>${esc(b)}</span>`).join('')}</span>
             </span>
-            ${extra}${action}
+            ${extra}
         </a>`;
     }
 
@@ -207,13 +237,20 @@
         const actions = `${mineBtn}<div class="v2-hub-add"><button type="button" class="v2-hub-btn is-primary" data-hub-do="addMenu" aria-haspopup="menu" aria-expanded="false"><span class="v2-hub-plus">+</span><span>${esc(addLabel)}</span></button><div class="v2-hub-menu" role="menu" hidden>${addMenu()}</div></div>`;
         root.innerHTML = `
             <header class="v2-hub-top">
-                <nav class="v2-hub-tabs" role="tablist">${TABS.map(id => `<button type="button" role="tab" data-hub-tab="${id}" aria-selected="${state.tab === id}">${ico(id === 'skills' ? 'sparkles' : id === 'plugins' ? 'plug' : 'grid')}<span>${esc(t(id))}</span></button>`).join('')}</nav>
+                <div class="v2-hub-navigation">
+                    <nav class="v2-hub-tabs" role="tablist">${TABS.map(id => `<button type="button" role="tab" data-hub-tab="${id}" aria-selected="${state.tab === id}">${ico(id === 'skills' ? 'sparkles' : id === 'plugins' ? 'plug' : 'grid')}<span>${esc(t(id))}</span></button>`).join('')}</nav>
+                    <div class="v2-hub-legend" role="group" aria-label="${esc(t('cardLegend'))}">
+                        <span class="v2-hub-legend-item" data-hub-shared-legend hidden><i class="v2-hub-legend-swatch is-shared-access" aria-hidden="true"></i><span class="v2-hub-legend-label">${esc(t('sharedFrame'))}</span>${esc(t('sharedWithAll'))}</span>
+                        <span class="v2-hub-legend-item"><i class="v2-hub-legend-swatch is-built-in" aria-hidden="true"></i><span class="v2-hub-legend-label">${esc(t('iconRing'))}</span>${esc(t('builtin'))}</span>
+                    </div>
+                </div>
                 <div class="v2-hub-actions">
                     <label class="v2-hub-search">${ico('search')}<input type="search" autocomplete="off" spellcheck="false" placeholder="${esc(t('search', { tab: t(state.tab) }))}" value="${esc(state.query)}"></label>
                     ${actions}
                 </div>
             </header>
             <section class="v2-hub-featured"></section>
+            <div class="v2-hub-source-fallback" hidden></div>
             <div class="v2-hub-bar">
                 <div class="v2-hub-chips" role="tablist"></div>
                 <div class="v2-hub-sort" role="group">${['mixed', 'newest', 'name'].map(id => `<button type="button" data-hub-sort="${id}" aria-pressed="${state.sort === id}">${esc(t(id === 'mixed' ? 'sortMixed' : id === 'newest' ? 'sortNewest' : 'sortName'))}</button>`).join('')}</div>
@@ -257,6 +294,7 @@
 
     function renderList() {
         if (!root?.querySelector('.v2-hub-grid')) return;
+        root.querySelector('[data-hub-shared-legend]').hidden = !isSuperAdmin();
         const all = entries();
         const query = state.query.trim().toLowerCase();
         const scoped = all.filter(item => (!state.mine || item.mine) && matches(item, query));
@@ -270,9 +308,13 @@
         // Keep their space stable while filtering so the category bar never jumps.
         const showFeatured = all.length > 3;
         feat.hidden = !showFeatured;
+        const showSources = Boolean(window.SkillSource);
+        const sourceFallback = root.querySelector('.v2-hub-source-fallback');
+        sourceFallback.hidden = !showSources || showFeatured;
+        if (!sourceFallback.hidden && !sourceFallback.firstElementChild) sourceFallback.innerHTML = sourceLegend();
         if (showFeatured) {
             const title = t(state.tab === 'skills' ? 'featuredSkills' : state.tab === 'plugins' ? 'featuredPlugins' : 'featuredTools');
-            feat.innerHTML = `<div class="v2-hub-head"><h2>${esc(title)}</h2>${state.tab === 'tools' ? '' : `<button type="button" class="v2-hub-link" data-hub-do="shuffle">${ico('refresh')}<span>${esc(t('shuffle'))}</span></button>`}</div>
+            feat.innerHTML = `<div class="v2-hub-head"><div class="v2-hub-heading"><h2>${esc(title)}</h2>${showSources ? sourceLegend() : ''}</div>${state.tab === 'tools' ? '' : `<button type="button" class="v2-hub-link" data-hub-do="shuffle">${ico('refresh')}<span>${esc(t('shuffle'))}</span></button>`}</div>
                 <div class="v2-hub-cards is-featured">${featured(all).map(card).join('')}</div>`;
         }
 
@@ -417,6 +459,13 @@
         root.hidden = true;
         root.setAttribute('aria-label', t('skills'));
         main.prepend(root);
+        let titleLayoutWidth = 0;
+        new ResizeObserver(([entry]) => {
+            const width = entry.contentRect.width;
+            if (width === titleLayoutWidth) return;
+            titleLayoutWidth = width;
+            if (state.open) window.SkillSource?.fit?.(root);
+        }).observe(root);
         root.addEventListener('click', onClick);
         root.addEventListener('contextmenu', event => {
             const cardEl = event.target.closest('.v2-hub-card');

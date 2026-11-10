@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>微信账单就餐人数统计工具（分文件详表）</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}</style>
+</head>
+<body class="bg-gray-50 min-h-screen p-8">
+<div class="max-w-5xl mx-auto bg-white p-8 rounded-xl shadow-lg">
+  <h1 class="text-2xl font-bold text-gray-800 mb-2">🍽️ 微信账单就餐人数统计工具</h1>
+  <p class="text-sm text-gray-500 mb-6">规则：收入14和35计为早餐；28和70自动转换为开罗时间后，10:00-15:59计为中餐，16:00-21:59计为晚餐。<br>
+  提示：支持同时多选账单。<b>导出的 Excel 包含一张合并汇总表，并按照每个输入文件分别生成详表 Sheet。</b></p>
+  <div class="flex items-center space-x-4 mb-8 bg-blue-50 p-4 rounded-lg border border-blue-100">
+    <input type="file" id="fileInput" multiple accept=".xlsx,.xls,.csv" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer">
+    <button id="exportBtn" class="hidden whitespace-nowrap bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-md shadow-sm">导出统计与分文件明细</button>
+  </div>
+  <div id="loading" class="hidden text-center text-gray-500 py-10">正在处理数据，请稍候...</div>
+  <div id="tableContainer" class="hidden overflow-x-auto shadow-sm border border-gray-200 rounded-lg">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-100"><tr>
+        <th class="px-6 py-3 text-left text-xs text-gray-700">日期（开罗时间）</th>
+        <th class="px-6 py-3 text-left text-xs text-gray-700">日期（点分隔）</th>
+        <th class="px-6 py-3 text-center text-xs text-gray-700">早餐人数<br><span class="text-gray-400">(14 / 35元)</span></th>
+        <th class="px-6 py-3 text-center text-xs text-gray-700">中餐人数<br><span class="text-gray-400">(28 / 70元，10点-15点)</span></th>
+        <th class="px-6 py-3 text-center text-xs text-gray-700">晚餐人数<br><span class="text-gray-400">(28 / 70元，16点-21点)</span></th>
+        <th class="px-6 py-3 text-center text-xs text-gray-700">未知时段</th>
+        <th class="px-6 py-3 text-center text-xs text-gray-700">日合计</th>
+      </tr></thead>
+      <tbody id="resultBody" class="bg-white divide-y divide-gray-200"></tbody>
+      <tfoot id="resultFoot" class="bg-gray-50 font-bold"></tfoot>
+    </table>
+  </div>
+</div>
+<script>
+let globalStatsData=[];
+let globalDetailDataByFile=[];
+const el=id=>document.getElementById(id);
+const formatDottedDate=date=>date.replace(/-/g,'.');
+
+el('fileInput').addEventListener('change',async e=>{
+  const files=[...e.target.files];
+  if(!files.length)return;
+  el('loading').classList.remove('hidden');
+  el('tableContainer').classList.add('hidden');
+  el('exportBtn').classList.add('hidden');
+  el('loading').innerText='正在处理数据，请稍候...';
+  const aggregatedData={};
+  globalDetailDataByFile=files.map(file=>({fileName:file.name,details:[],warning:''}));
+  await Promise.all(files.map((file,index)=>processFile(file,globalDetailDataByFile[index],aggregatedData)));
+  renderData(aggregatedData);
+});
+
+function processFile(file,group,aggregatedData){
+  return new Promise(resolve=>{
+    const reader=new FileReader();
+    reader.onload=evt=>{
+      try{
+        const wb=XLSX.read(new Uint8Array(evt.target.result),{type:'array'});
+        const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:false});
+        let header=-1,time=-1,amount=-1,type=-1,counterparty=-1;
+        for(let r=0;r<rows.length;r++){
+          let t=-1,a=-1,y=-1,c=-1;
+          for(let i=0;i<(rows[r]||[]).length;i++){
+            const value=String(rows[r][i]||'').replace(/\s+/g,'');
+            if(value.includes('交易时间')||value==='时间')t=i;
+            if(value.includes('金额'))a=i;
+            if(value.includes('收/支')||value.includes('收支'))y=i;
+            if(value.includes('交易对方')||value.includes('对方'))c=i;
+          }
+          if(t!==-1&&a!==-1){header=r;time=t;amount=a;type=y;counterparty=c;break}
+        }
+        if(header===-1){group.warning='未识别到有效表头';resolve();return}
+        for(let r=header+1;r<rows.length;r++){
+          const row=rows[r]||[];
+          const timeStr=String(row[time]||'').trim();
+          const amountStr=String(row[amount]||'').trim();
+          const typeStr=type!==-1?String(row[type]||'').trim():'收';
+          const counterpartyStr=counterparty!==-1?String(row[counterparty]||'').trim():'';
+          if(!timeStr||!amountStr||!typeStr.includes('收'))continue;
+          const money=parseFloat(amountStr.replace(/[^\d.-]/g,''));
+          if(![14,35,28,70].includes(money))continue;
+          const dateObj=new Date(timeStr.replace(' ','T')+'+08:00');
+          if(isNaN(dateObj))continue;
+          const date=new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Cairo',year:'numeric',month:'2-digit',day:'2-digit'}).format(dateObj);
+          const hour=parseInt(new Intl.DateTimeFormat('en-GB',{timeZone:'Africa/Cairo',hour:'2-digit',hourCycle:'h23'}).format(dateObj),10);
+          const exactTime=new Intl.DateTimeFormat('en-GB',{timeZone:'Africa/Cairo',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).format(dateObj);
+          if(!aggregatedData[date])aggregatedData[date]={breakfast:0,lunch:0,dinner:0,unknown:0};
+          let meal;
+          if(money===14||money===35){aggregatedData[date].breakfast++;meal='早餐'}
+          else if(hour>=10&&hour<=15){aggregatedData[date].lunch++;meal='中餐'}
+          else if(hour>=16&&hour<=21){aggregatedData[date].dinner++;meal='晚餐'}
+          else{aggregatedData[date].unknown++;meal='未知时段'}
+          group.details.push({'交易时间':timeStr,'交易日期':date,'日期（点分隔）':formatDottedDate(date),'交易具体时间':exactTime,'交易类型':typeStr,'交易对方':counterpartyStr,'金额(元)':money,'餐别':meal});
+        }
+      }catch(err){group.warning='处理失败：'+err.message}
+      resolve();
+    };
+    reader.onerror=()=>{group.warning='文件读取失败';resolve()};
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function renderData(data){
+  const dates=Object.keys(data).sort(),body=el('resultBody'),foot=el('resultFoot');
+  body.innerHTML='';foot.innerHTML='';globalStatsData=[];
+  if(!dates.length){el('loading').innerText='未找到14/35/28/70元的收入记录。';return}
+  const totals={breakfast:0,lunch:0,dinner:0,unknown:0,total:0};
+  dates.forEach(date=>{
+    const x=data[date],total=x.breakfast+x.lunch+x.dinner+x.unknown;
+    totals.breakfast+=x.breakfast;totals.lunch+=x.lunch;totals.dinner+=x.dinner;totals.unknown+=x.unknown;totals.total+=total;
+    const dottedDate=formatDottedDate(date);
+    globalStatsData.push({'日期 (开罗时间)':date,'日期（点分隔）':dottedDate,'早餐人数':x.breakfast,'中餐人数':x.lunch,'晚餐人数':x.dinner,'未知时段人数':x.unknown,'日合计':total});
+    body.insertAdjacentHTML('beforeend',`<tr><td class="px-6 py-4 text-sm font-medium">${date}</td><td class="px-6 py-4 text-sm">${dottedDate}</td><td class="px-6 py-4 text-center">${x.breakfast}</td><td class="px-6 py-4 text-center">${x.lunch}</td><td class="px-6 py-4 text-center">${x.dinner}</td><td class="px-6 py-4 text-center">${x.unknown}</td><td class="px-6 py-4 text-center font-bold">${total}</td></tr>`);
+  });
+  globalStatsData.push({'日期 (开罗时间)':'总计','日期（点分隔）':'','早餐人数':totals.breakfast,'中餐人数':totals.lunch,'晚餐人数':totals.dinner,'未知时段人数':totals.unknown,'日合计':totals.total});
+  foot.innerHTML=`<tr><td class="px-6 py-4">总计</td><td></td><td class="text-center text-blue-600">${totals.breakfast}</td><td class="text-center text-blue-600">${totals.lunch}</td><td class="text-center text-blue-600">${totals.dinner}</td><td class="text-center text-blue-600">${totals.unknown}</td><td class="text-center text-red-600 text-lg">${totals.total}</td></tr>`;
+  globalDetailDataByFile.forEach(g=>g.details.sort((a,b)=>a['交易时间'].localeCompare(b['交易时间'])));
+  el('loading').classList.add('hidden');el('tableContainer').classList.remove('hidden');el('exportBtn').classList.remove('hidden');
+}
+
+function uniqueSheetName(fileName,used,index){
+  let base=fileName.replace(/\.[^.]+$/,'').replace(/[\\\/?*\[\]:]/g,'_').trim()||`文件${index}详表`;
+  base=base.slice(0,31);let name=base,n=2;
+  while(used.has(name)){const suffix=`_${n++}`;name=base.slice(0,31-suffix.length)+suffix}
+  used.add(name);return name;
+}
+
+el('exportBtn').addEventListener('click',()=>{
+  if(!globalStatsData.length)return;
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(globalStatsData),'就餐人数统计');
+  const used=new Set(['就餐人数统计']);
+  globalDetailDataByFile.forEach((group,index)=>{
+    if(!group.details.length)return;
+    const ws=XLSX.utils.json_to_sheet(group.details);
+    ws['!cols']=[{wch:22},{wch:12},{wch:17},{wch:12},{wch:15},{wch:20},{wch:10},{wch:10}];
+    XLSX.utils.book_append_sheet(wb,ws,uniqueSheetName(group.fileName,used,index+1));
+  });
+  XLSX.writeFile(wb,'就餐统计与分文件明细报表_开罗时间.xlsx');
+});
+</script>
+</body>
+</html>

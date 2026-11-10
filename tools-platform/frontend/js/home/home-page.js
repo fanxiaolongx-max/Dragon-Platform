@@ -1477,6 +1477,8 @@
                 card.className = `tool-card custom-tool${tool.hostedApp ? ' is-hosted-app' : ''}${isSuperAdminUser && isSharedAccess ? ' is-shared-access' : ''}`;
                 card.dataset.customToolCard = '1';
                 card.dataset.toolSlug = tool.slug;
+                if (tool.shared) card.dataset.shared = '1';
+                if (tool.sharedAccess) card.dataset.sharedAccess = '1';
                 const time = tool.updatedAt || tool.createdAt || '';
                 if (time) card.dataset.updatedAt = time;
                 card.style.setProperty('--card-accent', ['#38bdf8', '#34d399', '#f97316', '#e879f9'][index % 4]);

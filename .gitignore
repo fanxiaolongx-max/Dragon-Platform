@@ -41,6 +41,7 @@ dist/
 .tmp/
 
 # IDE / workspace cache & temporary reports
+.claude/
 .workbuddy/
 AI动态速览*.md
 tools-platform/alerts_output.json

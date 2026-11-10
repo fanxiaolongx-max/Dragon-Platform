@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "tool": {
+    "slug": "aiops-risk",
+    "name": "AiOps-Risk",
+    "icon": "🐍",
+    "description": "",
+    "tags": [
+      "Python 应用"
+    ],
+    "href": "/tools/aiops-risk",
+    "filePath": "/custom-tools/aiops-risk/index.html",
+    "publicAccess": false,
+    "createdAt": "2026-11-01T08:17:51.974Z",
+    "updatedAt": "2026-11-10T20:06:59.022Z"
+  },
+  "history": null
+}

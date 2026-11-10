@@ -1,4 +1,5 @@
-.dc-sidebar-resize{position:absolute;left:0;top:0;bottom:0;width:8px;z-index:5;cursor:col-resize;touch-action:none}
+/* 手柄必须压过面板内所有内容层（如 z-index:6 的指针群舞台），否则只有标签栏旁的一小段能拖。 */
+.dc-sidebar-resize{position:absolute;left:0;top:0;bottom:0;width:8px;z-index:20;cursor:col-resize;touch-action:none}
 body.dc-sidebar-resizing{cursor:col-resize;user-select:none}body.dc-sidebar-resizing iframe{pointer-events:none}
 .home-workspace-panel.has-file-preview>.dc-sidebar-resize{display:none!important}
 .dc-browser-panel{position:sticky;top:calc(var(--navbar-h,0px) + 18px);height:calc(100dvh - var(--navbar-h,0px) - 36px);min-width:0;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--v2-line,#334155);border-radius:12px;background:var(--v2-bg,#0f172a);color:var(--v2-ink,#e2e8f0)}
@@ -44,11 +45,11 @@ html.desktop-win:not(.desktop-fullscreen) .dc-browser-panel{padding-top:38px}
 
 .dc-browser-upload{margin-top:6px}.dc-browser-upload button{min-height:36px;border:1px solid var(--v2-line,#ccc);text-align:left}
 
-.dc-browser-operator{position:absolute;z-index:4;bottom:18px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:12px;width:max-content;max-width:calc(100% - 24px);padding:10px 12px 10px 16px;border:1px solid transparent;border-radius:20px;background:linear-gradient(var(--v2-bg,#fff),var(--v2-bg,#fff)) padding-box,linear-gradient(110deg,#7c3aed,#38bdf8,#2dd4bf,#f472b6) border-box;box-shadow:0 5px 28px #7c3aed26,0 2px 10px #38bdf833;color:var(--v2-ink,#172033);font-size:12px;backdrop-filter:blur(18px)}
-.dc-browser-operator span{min-width:0;line-height:1.5}.dc-browser-panel .dc-browser-operator button{flex-shrink:0;border-radius:13px;padding:9px 12px;min-height:38px;color:white;background:linear-gradient(110deg,#7c3aed,#2563eb);font-weight:600}.dc-browser-panel .dc-browser-operator button:hover{background:linear-gradient(110deg,#6d28d9,#0284c7)}
+.dc-browser-operator:not(.is-ai){position:absolute;z-index:4;bottom:18px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:12px;width:max-content;max-width:calc(100% - 24px);padding:10px 12px 10px 16px;border:1px solid transparent;border-radius:20px;background:linear-gradient(var(--v2-bg,#fff),var(--v2-bg,#fff)) padding-box,linear-gradient(110deg,#7c3aed,#38bdf8,#2dd4bf,#f472b6) border-box;box-shadow:0 5px 28px #7c3aed26,0 2px 10px #38bdf833;color:var(--v2-ink,#172033);font-size:12px;backdrop-filter:blur(18px)}
+.dc-browser-operator span{min-width:0;line-height:1.5}.dc-browser-panel .dc-browser-operator:not(.is-ai) button{flex-shrink:0;border-radius:13px;padding:9px 12px;min-height:38px;color:white;background:linear-gradient(110deg,#7c3aed,#2563eb);font-weight:600}.dc-browser-panel .dc-browser-operator:not(.is-ai) button:hover{background:linear-gradient(110deg,#6d28d9,#0284c7)}
 .dc-browser-ai-pointer{position:absolute;z-index:3;color:#7c3aed;pointer-events:none;filter:drop-shadow(0 2px 4px #0003);transition:left .16s ease,top .16s ease}.dc-browser-ai-pointer span{position:absolute;left:18px;top:20px;border-radius:8px;background:linear-gradient(100deg,#7c3aed,#0891b2);color:white;font-size:10px;padding:2px 5px}
 @media(prefers-reduced-motion:reduce){.dc-browser-ai-pointer{transition:none}}
-@media(max-width:640px){.dc-browser-operator{gap:6px;padding:8px 9px 8px 12px;border-radius:17px;font-size:11px;bottom:12px}.dc-browser-panel .dc-browser-operator button{padding:8px;font-size:11px}}
+@media(max-width:640px){.dc-browser-operator:not(.is-ai){gap:6px;padding:8px 9px 8px 12px;border-radius:17px;font-size:11px;bottom:12px}.dc-browser-panel .dc-browser-operator:not(.is-ai) button{padding:8px;font-size:11px}}
 
 /* Browser chrome: compact tabs above a single navigation row. */
 .dc-browser-panel{--browser-control-size:30px}
@@ -118,3 +119,5 @@ html.is-desktop-app .dc-browser-panel :is(button,input,[role=tab]){-webkit-app-r
 
 /* 原生 BrowserView 位于 DOM 上方，正文也要为整条拖拽边缘留出命中区域。 */
 .dc-browser-native .dc-browser-surface { margin-left: 8px; }
+
+.dc-browser-operator.is-ai:not([hidden]){display:contents}

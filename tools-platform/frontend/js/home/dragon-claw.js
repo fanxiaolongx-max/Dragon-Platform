@@ -448,16 +448,47 @@
             <div class="dc-model-options" role="listbox" aria-label="${escapeHtml(tx('modelLabel'))}">${state.models.map(item => {
                 const selected = item.id === model?.id;
                 const description = [item.provider, item.description, item.id === state.defaultModelId ? tx('modelDefault') : ''].filter(Boolean).join(' · ');
-                return `<button type="button" class="dc-model-option${selected ? ' is-selected' : ''}" role="option" aria-selected="${selected}" data-dc-model="${escapeHtml(item.id)}">
-                    ${modelSymbol(item)}<span class="dc-model-option-text"><span class="dc-model-option-name">${escapeHtml(item.name)}</span>${description ? `<span class="dc-model-option-desc">${escapeHtml(description)}</span>` : ''}</span>
+                return `<button type="button" class="dc-model-option${selected ? ' is-selected' : ''}" role="option" aria-selected="${selected}" data-dc-model="${escapeHtml(item.id)}" title="${escapeHtml(item.name)}${description ? ` · ${escapeHtml(description)}` : ''}">
+                    ${modelSymbol(item)}<span class="dc-model-option-text"><span class="dc-model-option-name"><span class="dc-model-option-name-inner">${escapeHtml(item.name)}</span></span>${description ? `<span class="dc-model-option-desc">${escapeHtml(description)}</span>` : ''}</span>
                     <svg class="dc-model-check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5 6.5 11.5 12.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </button>`;
             }).join('') || `<p class="dc-model-empty">${lang() === 'en-US' ? 'No available models' : '暂无可用模型'}</p>`}</div>
             ${admin ? `<div class="dc-model-menu-footer"><button type="button" data-dc-configure-model><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m12 4 4 4M4 12l9-9 4 4-9 9-5 1 1-5Z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg><span>${lang() === 'en-US' ? 'Configure custom models' : '配置自定义模型'}</span></button></div>` : ''}`;
+        if (modelMenuOpen()) clampModelMenuHorizontal();
     }
 
     function modelMenuOpen() {
         return !el.modelMenu.hidden;
+    }
+
+    function clampModelMenuHorizontal() {
+        if (!el.modelMenu || el.modelMenu.hidden) return;
+        el.modelMenu.style.left = '';
+        el.modelMenu.style.right = '';
+        el.modelMenu.style.width = '';
+        el.modelMenu.style.maxWidth = '';
+
+        const composer = el.model?.closest('.dc-composer') || document.getElementById('dcComposer');
+        const compRect = composer?.getBoundingClientRect();
+        const winW = window.innerWidth || document.documentElement.clientWidth || 1024;
+        const minLeft = compRect ? Math.max(8, compRect.left + 8) : 8;
+        const maxRight = compRect ? Math.min(winW - 8, compRect.right - 8) : (winW - 8);
+        const availW = Math.max(180, maxRight - minLeft);
+        const targetW = Math.min(340, availW);
+
+        el.modelMenu.style.width = `${Math.round(targetW)}px`;
+        el.modelMenu.style.maxWidth = `${Math.round(availW)}px`;
+
+        const menuRect = el.modelMenu.getBoundingClientRect();
+        if (menuRect.left < minLeft) {
+            const shift = minLeft - menuRect.left;
+            const currentRight = parseFloat(window.getComputedStyle(el.modelMenu).right) || 0;
+            el.modelMenu.style.right = `${Math.round(currentRight - shift)}px`;
+        } else if (menuRect.right > maxRight) {
+            const shift = menuRect.right - maxRight;
+            const currentRight = parseFloat(window.getComputedStyle(el.modelMenu).right) || 0;
+            el.modelMenu.style.right = `${Math.round(currentRight + shift)}px`;
+        }
     }
 
     function toggleModelMenu(open = !modelMenuOpen()) {
@@ -465,10 +496,16 @@
         el.modelMenu.hidden = !open;
         el.modelBtn.setAttribute('aria-expanded', String(open));
         el.model.classList.toggle('is-open', open);
-        if (!open) return;
+        if (!open) {
+            el.modelMenu.style.right = '';
+            el.modelMenu.style.width = '';
+            el.modelMenu.style.maxWidth = '';
+            return;
+        }
         // 上方空间不足时向下展开（落地页输入框靠上时）。
         const rect = el.modelBtn.getBoundingClientRect();
         el.model.classList.toggle('opens-down', rect.top < el.modelMenu.offsetHeight + 24);
+        clampModelMenuHorizontal();
         (el.modelMenu.querySelector('.is-selected') || el.modelMenu.querySelector('[data-dc-model], [data-native-model]'))?.focus();
     }
 
@@ -623,6 +660,47 @@
 
     function bindModelPicker() {
         el.modelBtn.addEventListener('click', () => toggleModelMenu());
+        window.addEventListener('resize', () => {
+            if (modelMenuOpen()) clampModelMenuHorizontal();
+        }, { passive: true });
+        if (typeof ResizeObserver !== 'undefined') {
+            const composer = document.getElementById('dcComposer');
+            if (composer) {
+                new ResizeObserver(() => {
+                    if (modelMenuOpen()) clampModelMenuHorizontal();
+                }).observe(composer);
+            }
+        }
+        const measureMarquee = event => {
+            const option = event.target.closest('.dc-model-option');
+            if (!option) return;
+            const nameEl = option.querySelector('.dc-model-option-name');
+            const innerEl = nameEl?.querySelector('.dc-model-option-name-inner');
+            if (!nameEl || !innerEl) return;
+            const overflow = innerEl.scrollWidth - nameEl.clientWidth;
+            if (overflow > 4) {
+                nameEl.style.setProperty('--marquee-dist', `-${Math.ceil(overflow + 8)}px`);
+                nameEl.classList.add('is-overflowing');
+            } else {
+                nameEl.classList.remove('is-overflowing');
+            }
+        };
+        el.modelMenu.addEventListener('mouseover', measureMarquee);
+        el.modelMenu.addEventListener('focusin', measureMarquee);
+        el.modelMenu.addEventListener('mouseout', event => {
+            const option = event.target.closest('.dc-model-option');
+            const related = event.relatedTarget?.closest?.('.dc-model-option');
+            if (option && option !== related) {
+                option.querySelector('.dc-model-option-name')?.classList.remove('is-overflowing');
+            }
+        });
+        el.modelMenu.addEventListener('focusout', event => {
+            const option = event.target.closest('.dc-model-option');
+            const related = event.relatedTarget?.closest?.('.dc-model-option');
+            if (option && option !== related) {
+                option.querySelector('.dc-model-option-name')?.classList.remove('is-overflowing');
+            }
+        });
         el.modelMenu.addEventListener('click', event => {
             const option = event.target.closest('[data-dc-model]');
             if (option) selectModel(option.dataset.dcModel);

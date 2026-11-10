@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "tool": {
+    "slug": "aiops-report",
+    "name": "AiOps-Report",
+    "icon": "🐍",
+    "description": "",
+    "tags": [
+      "Python 应用"
+    ],
+    "href": "/tools/aiops-report",
+    "filePath": "/custom-tools/aiops-report/index.html",
+    "publicAccess": false,
+    "createdAt": "2026-10-29T16:35:57.176Z",
+    "updatedAt": "2026-11-10T20:06:52.847Z"
+  },
+  "history": null
+}

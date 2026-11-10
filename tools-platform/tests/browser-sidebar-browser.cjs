@@ -180,6 +180,11 @@ app.whenReady().then(async()=>{
  await wait(200);fs.writeFileSync(path.join(temp,'mobile-browser-control.png'),(await host.webContents.capturePage()).toPNG());
  await wait(5400);await until(()=>!remoteManual);assert.equal(await evaluate('document.querySelector(".dc-browser-control").hidden'),true,'five idle seconds return control automatically');
  remoteAI=true;await until(()=>evaluate('!document.querySelector(".dc-browser-ai-pointer").hidden'));
+ await until(()=>evaluate('document.querySelector(".browser-ai-presence").classList.contains("is-active")'));
+ assert.equal(await evaluate('getComputedStyle(document.querySelector(".browser-ai-takeover")).fontSize'),'0px','the takeover target sits over the orb at mobile width');
+ remoteAI=false;await until(()=>evaluate('!document.querySelector(".browser-ai-presence").classList.contains("is-active")'));
+ await until(()=>evaluate('getComputedStyle(document.querySelector(".browser-ai-halo")).opacity==="0"'));
+ remoteAI=true;await until(()=>evaluate('document.querySelector(".browser-ai-presence").classList.contains("is-active")'));
  const clicksBefore=remoteCalls.filter(call=>call.action==='click').length;
  await evaluate('document.querySelector(".dc-browser-agent-view img").click()');assert.equal(remoteCalls.filter(call=>call.action==='click').length,clicksBefore,'AI-owned click is blocked until stop');
  assert.equal(await evaluate('document.querySelector(".dc-browser-operator").hidden'),false);

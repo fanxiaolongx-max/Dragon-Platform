@@ -3,7 +3,7 @@
  *
  * 在普通对话（非三方连接器 Agent）中：
  * - 当检测到 AI 正在流式生成 HTML 页面（或通过工作区工具写入 .html 文件）时，
- *   自动打开右侧内置浏览器，启动 10 个各司其职的多彩 AI 鼠标指针群进行 60fps 丝滑协同绘制预览。
+ *   自动打开右侧内置浏览器，启动 10 个各司其职的 AI 指针协同绘制预览（每次绘制随机一套三色配色）。
  * - 实时解析流式输出中的 <title>、CSS 颜色/选择器、DOM 标签与文案，驱动指针群任务气泡、
  *   拖拽选框、贝塞尔激光轨迹、矢量图表手绘（假图真画）与无闪烁增量 DOM 预览。
  */
@@ -14,19 +14,55 @@
     const L = (zh, en) => /^en/i.test(window.ToolsI18n?.getLanguage?.() || localStorage.getItem('tools_lang') || '') ? en : zh;
     const esc = val => String(val ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 
-    // 10 位专业分工的 AI 协同绘制指针特工
+    // 10 位分工不同的 AI 协同绘制指针。tone 是三色调色板里的下标：整场绘制只出现三种颜色。
+    // tempo 越大动作越慢、停顿越久，让十个指针各有节奏而不是同步运动。
     const AGENTS = [
-        { id: 'arch',   zh: 'Arch·架构师',   en: 'Arch·Layout',   color: '#6366f1', glow: 'rgba(99,102,241,0.45)',  tool: '⬚', role: 'layout',  defaultTaskZh: '构建栅格与弹性容器', defaultTaskEn: 'Scaffolding Grid & Flex' },
-        { id: 'style',  zh: 'Style·视觉总监', en: 'Style·Visual',  color: '#ec4899', glow: 'rgba(236,72,153,0.45)',  tool: '✦', role: 'style',   defaultTaskZh: '渲染流光渐变与毛玻璃', defaultTaskEn: 'Painting Glass & Gradients' },
-        { id: 'dom',    zh: 'DOM·组件工匠',  en: 'DOM·Builder',   color: '#06b6d4', glow: 'rgba(6,182,212,0.45)',   tool: '◈', role: 'dom',     defaultTaskZh: '装配卡片与交互控件', defaultTaskEn: 'Mounting UI Components' },
-        { id: 'motion', zh: 'Motion·动效大师',en: 'Motion·FX',     color: '#f59e0b', glow: 'rgba(245,158,11,0.45)',  tool: '⚡', role: 'motion',  defaultTaskZh: '注入阻尼曲线与关键帧', defaultTaskEn: 'Injecting Keyframe Curves' },
-        { id: 'chart',  zh: 'Frame·骨架线框', en: 'Frame·Wireframe',color: '#10b981', glow: 'rgba(16,185,129,0.45)',  tool: '▥', role: 'frame',   defaultTaskZh: '测绘组件轮廓与线框', defaultTaskEn: 'Drafting Component Wireframe' },
-        { id: 'type',   zh: 'Type·排版专家',  en: 'Type·Copy',     color: '#8b5cf6', glow: 'rgba(139,92,246,0.45)',  tool: 'T', role: 'type',    defaultTaskZh: '校准字重层级与标题', defaultTaskEn: 'Typesetting Hierarchy' },
-        { id: 'logic',  zh: 'Logic·交互核心', en: 'Logic·Script',  color: '#f43f5e', glow: 'rgba(244,63,94,0.45)',   tool: '⚙', role: 'logic',   defaultTaskZh: '绑定状态机与事件监听', defaultTaskEn: 'Wiring Event Listeners' },
-        { id: 'shader', zh: 'Shader·光影渲染',en: 'Shader·Glow',   color: '#3b82f6', glow: 'rgba(59,130,246,0.45)',  tool: '◐', role: 'style',   defaultTaskZh: '计算环境光遮蔽与阴影', defaultTaskEn: 'Computing Ambient Shadows' },
-        { id: 'layout', zh: 'Layout·响应式',  en: 'Layout·Flex',   color: '#14b8a6', glow: 'rgba(20,184,166,0.45)',  tool: '⊞', role: 'layout',  defaultTaskZh: '自适应断点与留白对齐', defaultTaskEn: 'Responsive Breakpoints' },
-        { id: 'qa',     zh: 'QA·像素校准',    en: 'QA·Pixel',      color: '#eab308', glow: 'rgba(234,179,8,0.45)',   tool: '⌖', role: 'qa',      defaultTaskZh: '亚像素级边距测量校准', defaultTaskEn: 'Sub-pixel Alignment Check' }
+        { id: 'arch',   zh: 'Arch · 架构',   en: 'Arch · Layout',   tone: 0, tempo: 1.00, role: 'layout', defaultTaskZh: '搭建栅格与容器', defaultTaskEn: 'Scaffolding grid' },
+        { id: 'style',  zh: 'Style · 视觉',  en: 'Style · Visual',  tone: 1, tempo: 0.88, role: 'style',  defaultTaskZh: '铺设色彩与质感', defaultTaskEn: 'Laying down color' },
+        { id: 'dom',    zh: 'DOM · 组件',    en: 'DOM · Builder',   tone: 2, tempo: 0.94, role: 'dom',    defaultTaskZh: '装配卡片与控件', defaultTaskEn: 'Mounting components' },
+        { id: 'motion', zh: 'Motion · 动效', en: 'Motion · FX',     tone: 0, tempo: 0.82, role: 'motion', defaultTaskZh: '调校缓动曲线', defaultTaskEn: 'Tuning easing' },
+        { id: 'chart',  zh: 'Frame · 线框',  en: 'Frame · Wireframe', tone: 1, tempo: 1.12, role: 'frame', defaultTaskZh: '勾勒组件轮廓', defaultTaskEn: 'Drafting outlines' },
+        { id: 'type',   zh: 'Type · 排版',   en: 'Type · Copy',     tone: 0, tempo: 1.06, role: 'type',   defaultTaskZh: '校准字重层级', defaultTaskEn: 'Setting type scale' },
+        { id: 'logic',  zh: 'Logic · 交互',  en: 'Logic · Script',  tone: 2, tempo: 0.90, role: 'logic',  defaultTaskZh: '绑定事件与状态', defaultTaskEn: 'Wiring events' },
+        { id: 'shader', zh: 'Shader · 光影', en: 'Shader · Light',  tone: 1, tempo: 1.20, role: 'style',  defaultTaskZh: '计算阴影层次', defaultTaskEn: 'Resolving shadows' },
+        { id: 'layout', zh: 'Layout · 响应式', en: 'Layout · Flex', tone: 0, tempo: 1.16, role: 'layout', defaultTaskZh: '对齐留白与断点', defaultTaskEn: 'Aligning spacing' },
+        { id: 'qa',     zh: 'QA · 校准',     en: 'QA · Pixel',      tone: 2, tempo: 1.28, role: 'qa',     defaultTaskZh: '逐像素测量校准', defaultTaskEn: 'Measuring pixels' }
     ];
+
+    // 配色：每套只有三个色调，每次绘制随机选一套，指针、头像圆点、进度与高亮全部取自这一套。
+    // 色相来自 Pantone 2026：年度色 11-4201 Cloud Dancer (#F0EEE9)，以及 Pantone 时装周
+    // 2026 春夏 / 2026-27 秋冬趋势色（Marina、Dutch Canal、All Aboard、Alexandrite、Neptune Green、
+    // Amethyst Orchid、Burnished Lilac、Amaranth、Musk Melon、Muted Clay、Arabian Spice、Acacia、
+    // Shale Green、Burnt Olive）。dark = 深色页面上用的三色，light = 亮色页面上用的三色；
+    // 同一色相在另一种背景上不够清晰时，取它加深或提亮后的衍生色（注释里标「衍生」）。
+    const SWARM_PALETTES = [
+        { id: 'marina',      dark: ['#96BAE0', '#5C97CB', '#F0EEE9'], light: ['#5085C3', '#2F5F99' /* Marina 衍生 */, '#2A2D33'] },
+        { id: 'alexandrite', dark: ['#7FBB9E', '#4FA3A5' /* Alexandrite 衍生 */, '#F0EEE9'], light: ['#00666C', '#3F8F70' /* Neptune Green 衍生 */, '#2A2D33'] },
+        { id: 'orchid',      dark: ['#C5AEB1', '#B08CC2' /* Amethyst Orchid 衍生 */, '#F0EEE9'], light: ['#926AA6', '#6B3453', '#2A2D33'] },
+        { id: 'melon',       dark: ['#EC935E', '#D29380', '#F0EEE9'], light: ['#C8683A' /* Musk Melon 衍生 */, '#884332', '#2A2D33'] },
+        { id: 'acacia',      dark: ['#DACD65', '#9DB89B' /* Shale Green 衍生 */, '#F0EEE9'], light: ['#739072', '#646049', '#2A2D33'] }
+    ];
+
+    const hexToRgb = hex => {
+        const h = String(hex).replace('#', '');
+        const full = h.length === 3 ? h.split('').map(ch => ch + ch).join('') : h;
+        const n = parseInt(full, 16);
+        return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    };
+    const luminance = ([r, g, b]) => {
+        const lin = v => { const s = v / 255; return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4); };
+        return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+    };
+    // 色块上的文字颜色：亮色块配深字，暗色块配白字
+    const inkOn = hex => luminance(hexToRgb(hex)) > 0.36 ? '#14161a' : '#ffffff';
+    const rgba = (hex, alpha) => { const [r, g, b] = hexToRgb(hex); return `rgba(${r},${g},${b},${alpha})`; };
+
+    // 运动学工具：最小加加速度曲线（人手移动的钟形速度曲线）、三次贝塞尔、随机数
+    const rand = (min, max) => min + Math.random() * (max - min);
+    const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+    const minJerk = t => t * t * t * (10 + t * (-15 + 6 * t));
+    const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+    const bezier = (p0, p1, p2, p3, t) => { const u = 1 - t; return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3; };
 
     // 判断用户提问是否有明确的「生成/制作 HTML 网页」意图
     const HTML_PROMPT_INTENT_RE = /(?:(?:生成|写|做|画|设计|开发|创建|制作|来一个|来个|弄个|编写|重构|美化|构建|build|create|make|generate|design|write|code)\s*(?:一个|个|一份|套|段|出|张)?[\s\S]{0,28}(?:html|htm|网页|前端页面|单页|落地页|landing\s*page|大屏页面|可视化页面|看板页面|小游戏网页))|(?:(?:html|htm|网页|单页应用)[\s\S]{0,16}(?:生成|制作|编写|设计|开发|页面|代码|实现))/i;
@@ -103,6 +139,7 @@
     // ── 核心状态 ─────────────────────────────────────────────
     let stageEl = null;
     let viewportEl = null;
+    let scaffoldEl = null;
     let blueprintEl = null;
     let previewWrapEl = null;
     let iframeEl = null;
@@ -117,6 +154,7 @@
     let metricNodesEl = null;
     let metricStylesEl = null;
     let metricTimeEl = null;
+    let lastPaletteId = '';
 
     const state = {
         active: false,
@@ -149,10 +187,15 @@
         seenTokens: new Set(),
         domTargets: [],       // 真实 iframe 内的 DOM 元素矩形 [{ x, y, w, h, tag, label, kind }]
         syntheticBoxes: [],   // 蓝图/合成图形区块 [{ x, y, w, h, kind, color, label, progress }]
-        ripples: [],          // 点击波纹 [{ x, y, r, maxR, color, alpha }]
-        sparks: [],           // 粒子火花 [{ x, y, vx, vy, color, alpha, size }]
-        wireframes: [],       // 真实页面框架与容器测绘线框 [{ key, x, y, w, h, color, label, bornAt, ttl }]
-        links: [],            // 两个 Agent 之间的激光同步连线 [{ a, b, color, bornAt, ttl }]
+        ripples: [],          // 按下涟漪 [{ x, y, color, bornAt, maxR }]
+        wireframes: [],       // 框选松手后定格的组件线框 [{ x, y, w, h, color, ink, label, bornAt, ttl }]
+        marks: [],            // 进行中的选框 / 标尺 / 点选高亮 [{ kind, c, bornAt, endAt, ... }]
+        busy: new Map(),      // 正被某个指针处理的元素 → 释放时间
+        swarmPalette: null,   // 本次绘制选用的三色调色板
+        pageDark: true,       // 指针下方画面是否为深色（蓝图阶段为深色）
+        encore: false,        // 绘制完成后用户重新打开指针群
+        labelCount: 0,        // 当前亮着名牌的指针数
+        collectTimer: null,
         cursors: [],          // 10 个指针实体
         iframeReady: false,
         lastBodySig: '',
@@ -177,13 +220,13 @@
                         <span data-swarm-pill-text>${esc(L('10 AI 协同绘制中', '10 AI Agents Painting'))}</span>
                     </span>
                     <div class="dc-swarm-agent-cluster" aria-hidden="true">
-                        ${AGENTS.map(a => `<span class="dc-swarm-agent-dot" data-agent-dot="${a.id}" style="background:${a.color}" title="${esc(L(a.zh, a.en))}">${esc(a.id[0].toUpperCase())}</span>`).join('')}
+                        ${AGENTS.map(a => `<span class="dc-swarm-agent-dot" data-agent-dot="${a.id}" title="${esc(L(a.zh, a.en))}">${esc(a.id[0].toUpperCase())}</span>`).join('')}
                     </div>
                     <div class="dc-swarm-ticker" data-swarm-ticker>${esc(L('正在初始化多智能体协同画布…', 'Initializing multi-agent swarm canvas…'))}</div>
                 </div>
                 <div class="dc-swarm-topbar-actions">
-                    <button type="button" class="dc-swarm-btn" data-swarm-action="replay" title="${esc(L('让 AI 指针群重新演示绘制过程', 'Replay multi-agent swarm drawing'))}">✨ ${esc(L('重播绘制', 'Replay'))}</button>
-                    <button type="button" class="dc-swarm-btn" data-swarm-action="cursors" aria-pressed="true" title="${esc(L('显示或隐藏 AI 指针群图层', 'Toggle AI cursors overlay'))}">👁 ${esc(L('指针群', 'Cursors'))}</button>
+                    <button type="button" class="dc-swarm-btn" data-swarm-action="replay" title="${esc(L('让 AI 指针群重新演示绘制过程', 'Replay multi-agent swarm drawing'))}"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.6-3.7M13 2.6v2.9h-2.9"/></svg>${esc(L('重播绘制', 'Replay'))}</button>
+                    <button type="button" class="dc-swarm-btn" data-swarm-action="cursors" aria-pressed="true" title="${esc(L('显示或隐藏 AI 指针群图层', 'Toggle AI cursors overlay'))}"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 2.4 12.6 7.9 8.1 9 5.8 13.4Z"/></svg>${esc(L('指针群', 'Cursors'))}</button>
                     <button type="button" class="dc-swarm-btn" data-swarm-action="source" aria-pressed="false" title="${esc(L('切换实时预览与源码视图', 'Toggle preview and source code'))}">&lt;/&gt; ${esc(L('源码', 'Code'))}</button>
                     <button type="button" class="dc-swarm-btn" data-swarm-action="popout" title="${esc(L('在新标签页打开完整网页', 'Open in new tab'))}">⤢</button>
                     <button type="button" class="dc-swarm-btn" data-swarm-action="download" title="${esc(L('下载生成的 HTML 文件', 'Download HTML file'))}">↓</button>
@@ -191,45 +234,14 @@
             </div>
             <div class="dc-swarm-viewport">
                 <div class="dc-swarm-preview-wrap"></div>
-                <div class="dc-swarm-blueprint">
-                    <div class="dc-swarm-bp-header">
-                        <div class="dc-swarm-bp-brand">
-                            <span class="dc-swarm-bp-logo"></span>
-                            <span class="dc-swarm-bp-title" data-swarm-bp-title>AI Swarm Live Blueprint</span>
+                <div class="dc-swarm-scaffold">
+                    <div class="dc-swarm-scaffold-card">
+                        <div class="dc-swarm-scaffold-badge">
+                            <span class="dc-swarm-scaffold-dot"></span>
+                            <span class="dc-swarm-scaffold-tag" data-swarm-scaffold-title>${esc(state.pageTitle || L('等待真实框架挂载…', 'Awaiting real DOM…'))}</span>
                         </div>
-                        <div class="dc-swarm-bp-swatches" data-swarm-swatches>
-                            ${state.palette.map(c => `<span class="dc-swarm-bp-swatch" style="background:${c}"></span>`).join('')}
-                        </div>
-                    </div>
-                    <div class="dc-swarm-bp-grid">
-                        <div class="dc-swarm-bp-card" data-bp-slot="0" style="--bp-accent:#6366f1">
-                            <span class="dc-swarm-bp-card-tag">&lt;section.hero-metric&gt;</span>
-                            <div class="dc-swarm-bp-bar"></div>
-                            <div class="dc-swarm-bp-bar is-short"></div>
-                        </div>
-                        <div class="dc-swarm-bp-card" data-bp-slot="1" style="--bp-accent:#ec4899">
-                            <span class="dc-swarm-bp-card-tag">&lt;div.glass-card&gt;</span>
-                            <div class="dc-swarm-bp-bar"></div>
-                            <div class="dc-swarm-bp-bar is-short"></div>
-                        </div>
-                        <div class="dc-swarm-bp-card" data-bp-slot="2" style="--bp-accent:#06b6d4">
-                            <span class="dc-swarm-bp-card-tag">&lt;canvas.visual-chart&gt;</span>
-                            <div class="dc-swarm-bp-bar"></div>
-                            <div class="dc-swarm-bp-bar is-short"></div>
-                        </div>
-                    </div>
-                    <div class="dc-swarm-bp-main">
-                        <div class="dc-swarm-bp-stage-box" data-bp-slot="3">
-                            <span class="dc-swarm-bp-card-tag">&lt;main.interactive-viewport&gt; · SVG / Canvas Vector Stage</span>
-                            <div class="dc-swarm-bp-code-stream" data-swarm-bp-stream></div>
-                        </div>
-                        <div class="dc-swarm-bp-side-box" data-bp-slot="4">
-                            <span class="dc-swarm-bp-card-tag">&lt;aside.control-panel&gt; · CSS Tokens</span>
-                            <div class="dc-swarm-bp-bar"></div>
-                            <div class="dc-swarm-bp-bar is-short"></div>
-                            <div class="dc-swarm-bp-bar"></div>
-                            <div class="dc-swarm-bp-bar is-short"></div>
-                        </div>
+                        <p class="dc-swarm-scaffold-hint">${esc(L('实时解析代码流与样式规则 · 真实 DOM 容器就位后指针群开始绘制', 'Parsing stream & styles · AI swarm begins painting when real DOM mounts'))}</p>
+                        <div class="dc-swarm-scaffold-stream" data-swarm-scaffold-stream></div>
                     </div>
                 </div>
                 <canvas class="dc-swarm-fx"></canvas>
@@ -251,7 +263,8 @@
 
         surface.appendChild(stageEl);
         viewportEl = stageEl.querySelector('.dc-swarm-viewport');
-        blueprintEl = stageEl.querySelector('.dc-swarm-blueprint');
+        scaffoldEl = stageEl.querySelector('.dc-swarm-scaffold');
+        blueprintEl = scaffoldEl;
         previewWrapEl = stageEl.querySelector('.dc-swarm-preview-wrap');
         fxCanvas = stageEl.querySelector('.dc-swarm-fx');
         fxCtx = fxCanvas.getContext('2d');
@@ -288,46 +301,137 @@
         cursorsWrapEl.innerHTML = '';
         state.cursors = AGENTS.map((agent, idx) => {
             const node = document.createElement('div');
-            node.className = 'dc-swarm-cursor';
-            node.style.setProperty('--cursor-color', agent.color);
-            node.style.setProperty('--cursor-glow', agent.glow);
+            node.className = 'dc-swarm-cursor is-away';
             node.innerHTML = `
-                <svg class="dc-swarm-cursor-svg" viewBox="0 0 24 26" fill="none" aria-hidden="true">
-                    <path d="M3 2.5L20.5 14.2L12.2 15.6L8.2 23.5L3 2.5Z" fill="${agent.color}" stroke="#ffffff" stroke-width="1.8" stroke-linejoin="round"/>
+                <svg class="dc-swarm-cursor-svg" viewBox="0 0 20 22" aria-hidden="true">
+                    <path d="M2.6 1.9 17.4 10.6 10.3 12.3 6.6 19.2Z"/>
                 </svg>
-                <span class="dc-swarm-cursor-tool">${esc(agent.tool)}</span>
                 <div class="dc-swarm-cursor-tag">
                     <span class="dc-swarm-cursor-role">${esc(L(agent.zh, agent.en))}</span>
                     <span class="dc-swarm-cursor-task">${esc(L(agent.defaultTaskZh, agent.defaultTaskEn))}</span>
                 </div>
             `;
             cursorsWrapEl.appendChild(node);
-
-            const angle = (idx / AGENTS.length) * Math.PI * 2;
-            const startX = 240 + Math.cos(angle) * 180;
-            const startY = 220 + Math.sin(angle) * 140;
             return {
                 agent,
                 index: idx,
                 node,
-                roleNode: node.querySelector('.dc-swarm-cursor-role'),
                 taskNode: node.querySelector('.dc-swarm-cursor-task'),
-                x: startX,
-                y: startY,
-                vx: 0,
-                vy: 0,
-                tx: startX,
-                ty: startY,
+                x: -40,
+                y: -40,
+                tone: '#96BAE0',
+                ink: '#14161a',
+                steps: [],        // 待执行的计划步骤
+                step: null,       // 当前步骤
+                stepAt: 0,
+                nextPlanAt: 0,
+                leaveAt: 0,       // 绘制完成后的离场时间
+                labelUntil: 0,
+                labeled: false,
+                flipX: false,
+                flipY: false,
+                away: true,
+                pressed: false,
+                drift: 0,
                 trail: [],
-                mode: 'PATROL', // 'DRAG_BOX' | 'PAINT_SWEEP' | 'SKETCH_GRAPHIC' | 'MEASURE_ALIGN' | 'PATROL'
-                boxStart: null,
-                boxEnd: null,
-                boxColor: agent.color,
-                boxLabel: '',
-                modeUntil: 0,
-                nextRetargetAt: 0,
-                phaseOffset: idx * 0.85
+                seed: idx * 1.7 + Math.random() * 6,
+                side: Math.random() < 0.5 ? -1 : 1
             };
+        });
+        applyTones();
+    }
+
+    // 每次绘制换一套配色，且不与上一次相同
+    function pickPalette() {
+        const pool = SWARM_PALETTES.filter(p => p.id !== lastPaletteId);
+        const picked = pool[Math.floor(Math.random() * pool.length)] || SWARM_PALETTES[0];
+        lastPaletteId = picked.id;
+        return picked;
+    }
+
+    // 把当前配色写到指针、头像圆点和舞台 CSS 变量上。
+    // 顶栏/底栏固定深色，用 dark 三色；指针和画布标注按页面明暗取 dark 或 light 三色。
+    function applyTones() {
+        const palette = state.swarmPalette || SWARM_PALETTES[0];
+        const pageTones = state.pageDark ? palette.dark : palette.light;
+        state.cursors.forEach(c => {
+            c.tone = pageTones[c.agent.tone];
+            c.ink = inkOn(c.tone);
+            c.node.style.setProperty('--cursor-color', c.tone);
+            c.node.style.setProperty('--cursor-ink', c.ink);
+        });
+        if (!stageEl) return;
+        stageEl.dataset.swarmPalette = palette.id;
+        stageEl.classList.toggle('is-page-light', !state.pageDark);
+        ['a', 'b', 'c'].forEach((key, i) => stageEl.style.setProperty(`--sw-${key}`, palette.dark[i]));
+        stageEl.querySelectorAll('[data-agent-dot]').forEach(dot => {
+            const agent = AGENTS.find(a => a.id === dot.dataset.agentDot);
+            const color = palette.dark[agent ? agent.tone : 0];
+            dot.style.background = color;
+            dot.style.color = inkOn(color);
+        });
+    }
+
+    // 读取预览页面的实际背景明暗；蓝图阶段画布是深色的
+    function detectPageDark(doc) {
+        try {
+            const win = doc.defaultView;
+            for (const el of [doc.body, doc.documentElement]) {
+                if (!el) continue;
+                const cs = win.getComputedStyle(el);
+                const image = /rgba?\([^)]+\)/.exec(cs.backgroundImage || '');
+                for (const value of [image && image[0], cs.backgroundColor]) {
+                    const m = /rgba?\(([^)]+)\)/.exec(value || '');
+                    if (!m) continue;
+                    const parts = m[1].split(/[\s,/]+/).filter(Boolean).map(Number);
+                    if (parts.length >= 4 && parts[3] < 0.5) continue;
+                    return luminance(parts.slice(0, 3)) < 0.3;
+                }
+            }
+        } catch {
+            // 读不到就按浏览器默认的白底处理
+        }
+        return false;
+    }
+
+    function refreshPageTone() {
+        const doc = iframeEl && iframeEl.contentDocument;
+        const dark = state.bodyReady && doc ? detectPageDark(doc) : true;
+        if (dark === state.pageDark) return;
+        state.pageDark = dark;
+        applyTones();
+    }
+
+    // 预览页面滚动后元素位置会变，重新采集，保证选框贴合真实元素
+    function watchFrameScroll(frame) {
+        try {
+            frame.contentWindow.addEventListener('scroll', () => {
+                if (state.collectTimer) return;
+                state.collectTimer = setTimeout(() => { state.collectTimer = null; collectDomTargets(); }, 140);
+            }, { passive: true });
+        } catch {
+            // ignore
+        }
+    }
+
+    // 开场：指针从画布四周错峰入场
+    function resetCursors(now) {
+        const { w, h } = viewSize();
+        const order = state.cursors.map((_, i) => i).sort(() => Math.random() - 0.5);
+        state.cursors.forEach((c, i) => {
+            c.steps.length = 0;
+            c.step = null;
+            c.trail.length = 0;
+            c.leaveAt = 0;
+            c.labelUntil = 0;
+            c.drift = 0;
+            setPressed(c, false);
+            setAway(c, true);
+            const edge = Math.floor(Math.random() * 4);
+            c.x = edge === 0 ? -28 : edge === 1 ? w + 28 : rand(40, w - 40);
+            c.y = edge === 2 ? -28 : edge === 3 ? h + 28 : rand(40, h - 40);
+            c.nextPlanAt = now + 120 + order[i] * rand(150, 260);
+            c.taskNode.textContent = L(c.agent.defaultTaskZh, c.agent.defaultTaskEn);
         });
     }
 
@@ -369,6 +473,7 @@
                 </style><style id="__dc_swarm_live_css"></style></head><body></body></html>`);
                 doc.close();
                 state.iframeReady = true;
+                watchFrameScroll(iframeEl);
             }
         } catch {
             state.iframeReady = false;
@@ -425,11 +530,16 @@
             finalFrame.setAttribute('referrerpolicy', 'no-referrer');
             finalFrame.srcdoc = htmlCode;
             finalFrame.addEventListener('load', () => {
+                watchFrameScroll(finalFrame);
                 collectDomTargets();
             }, { once: true });
             previewWrapEl.replaceChildren(finalFrame);
             iframeEl = finalFrame;
-            blueprintEl?.classList.add('is-faded');
+            if (!state.bodyReady) {
+                state.bodyReady = true;
+                onRealDomReady();
+            }
+            scaffoldEl?.classList.add('is-faded');
             return;
         }
 
@@ -480,7 +590,7 @@
             }
 
             const cleanBody = sanitizePartialBody(rawBody);
-            if (cleanBody.trim().length > 12) {
+            if (cleanBody.trim().length > 6) {
                 if (cleanBody !== state.lastBodySig) {
                     state.lastBodySig = cleanBody;
                     doc.body.innerHTML = cleanBody;
@@ -491,9 +601,12 @@
                     }
                     collectDomTargets();
                 }
-                if (state.domTargets.length >= 2 || cleanBody.length > 180) {
-                    state.bodyReady = true;
-                    blueprintEl?.classList.add('is-faded');
+                if (state.domTargets.length >= 1 || cleanBody.length > 80) {
+                    if (!state.bodyReady) {
+                        state.bodyReady = true;
+                        onRealDomReady();
+                    }
+                    refreshPageTone();
                 }
             }
         } catch {
@@ -541,23 +654,7 @@
             state.domTargets = targets;
             state.nodeCount = doc.body.querySelectorAll('*').length;
 
-            // 围绕核心布局容器生成线框骨架（用于指针辅助测绘框架，不画任何虚构图表）
-            targets.filter(t => t.kind === 'frame' && t.w >= 100 && t.h >= 40).slice(0, 5).forEach((t, idx) => {
-                const key = `frame-${Math.round(t.x / 20)}-${Math.round(t.y / 20)}`;
-                if (!state.wireframes.some(s => s.key === key)) {
-                    state.wireframes.push({
-                        key,
-                        x: t.x,
-                        y: t.y,
-                        w: t.w,
-                        h: t.h,
-                        color: state.palette[idx % state.palette.length] || '#6366f1',
-                        label: t.label,
-                        bornAt: performance.now(),
-                        ttl: 4200
-                    });
-                }
-            });
+            refreshPageTone();
         } catch {
             // ignore
         }
@@ -572,8 +669,8 @@
         const title = extractTitle(text);
         if (title && title !== state.pageTitle) {
             state.pageTitle = title;
-            const bpTitle = stageEl?.querySelector('[data-swarm-bp-title]');
-            if (bpTitle) bpTitle.textContent = title;
+            const scaffoldTitle = stageEl?.querySelector('[data-swarm-scaffold-title], [data-swarm-bp-title]');
+            if (scaffoldTitle) scaffoldTitle.textContent = title;
             updateBrowserChromeTitle(title);
         }
 
@@ -594,11 +691,11 @@
         const styleMatches = text.match(/\{[^}]*\}/g);
         state.styleCount = styleMatches ? styleMatches.length : 0;
 
-        // 4. 提取最新生成的最后几行代码用于蓝图流展示与任务派发
+        // 4. 提取最新生成的最后几行代码用于待命流展示与任务派发
         const tailLines = text.slice(-900).split('\n').map(l => l.trim()).filter(Boolean);
-        const bpStream = stageEl?.querySelector('[data-swarm-bp-stream]');
-        if (bpStream && !state.bodyReady) {
-            bpStream.innerHTML = tailLines.slice(-6).map(line => `<div class="dc-swarm-bp-code-line"><span>›</span> ${esc(line.slice(0, 72))}</div>`).join('');
+        const scaffoldStream = stageEl?.querySelector('[data-swarm-scaffold-stream], [data-swarm-bp-stream]');
+        if (scaffoldStream && !state.bodyReady) {
+            scaffoldStream.innerHTML = tailLines.slice(-4).map(line => `<div class="dc-swarm-scaffold-line"><span>›</span> ${esc(line.slice(0, 68))}</div>`).join('');
         }
 
         const latestLine = tailLines.at(-1) || '';
@@ -630,7 +727,7 @@
             role = 'layout';
             taskText = `布局 ${line.replace(/\{.*$/, '').slice(0, 28)}`;
         } else if (/<(?:canvas|svg|path|circle|rect)\b|chart|echarts|ctx\./i.test(line)) {
-            role = 'chart';
+            role = 'frame';
             taskText = `绘制图表 ${line.slice(0, 26)}`;
         } else if (/<(?:h[1-6]|p|span|strong|title|label)\b/i.test(line)) {
             role = 'type';
@@ -655,10 +752,16 @@
 
         if (picked) {
             picked.taskNode.textContent = taskText;
+            // 接到任务的指针亮出名牌，并在歇着时提前开工
+            const now = performance.now();
+            picked.labelUntil = Math.max(picked.labelUntil, now + 2200);
+            if (picked.step && picked.step.kind === 'wait' && !picked.steps.length) {
+                picked.step.dur = Math.min(picked.step.dur, now - picked.stepAt + 260);
+            }
             const dot = stageEl?.querySelector(`[data-agent-dot="${picked.agent.id}"]`);
             if (dot) {
                 dot.classList.add('is-active');
-                setTimeout(() => dot.classList.remove('is-active'), 360);
+                setTimeout(() => dot.classList.remove('is-active'), 620);
             }
         }
         if (tickerEl) {
@@ -681,109 +784,263 @@
         }
     }
 
-    // ── 60FPS 指针群物理运动与炫酷特效绘制循环 ─────────────────
-    function assignNextCursorTarget(cursor, now) {
-        const w = Math.max(320, state.width);
-        const h = Math.max(260, state.height);
-        const pad = 36;
+    // ── 指针群运动引擎 ─────────────────────────────────────────
+    // 每个指针按「计划」行动：一串带时长的步骤（移动 / 停顿 / 动作）。
+    // 移动沿三次贝塞尔弧线，用最小加加速度曲线取时间（钟形速度：起步慢、中段快、收尾慢），
+    // 时长按 Fitts 定律随距离对数增长，并乘上各自的 tempo，所以十个指针不会同步。
+    const ROLE_KIND = { layout: 'frame', frame: 'frame', type: 'type', logic: 'logic', dom: 'dom', style: 'dom', motion: 'dom' };
+    const planningAllowed = () => state.bodyReady && Boolean(state.domTargets.length) && (!state.finished || state.replaying || state.encore);
+    const viewSize = () => ({ w: Math.max(320, state.width), h: Math.max(260, state.height) });
+    const targetKey = t => `${Math.round(t.x)}|${Math.round(t.y)}|${Math.round(t.w)}|${Math.round(t.h)}`;
+    const pushWait = (c, dur) => { c.steps.push({ kind: 'wait', dur }); };
+    const pushDo = (c, fn) => { c.steps.push({ kind: 'do', fn, dur: 0 }); };
 
-        // 优先飞向真实的 iframe DOM 节点与真实框架！
-        if (state.domTargets.length > 0) {
-            // 按角色偏好挑选节点，或挑最新生成的末尾节点
-            const rolePool = state.domTargets.filter(t => t.kind === cursor.agent.role);
-            const pool = rolePool.length ? rolePool : state.domTargets;
-            // 偏向于底部/新生成的节点
-            const weightedIndex = Math.min(pool.length - 1, Math.floor(Math.pow(Math.random(), 0.65) * pool.length));
-            const target = pool[weightedIndex];
+    function pushMove(c, from, tx, ty, { drag = false, settle = false } = {}) {
+        const dx = tx - from.x;
+        const dy = ty - from.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < 1) return { x: tx, y: ty };
+        // 弧线：控制点沿法线偏移。每个指针有惯用的一侧，拖拽和回正几乎走直线。
+        const side = Math.random() < 0.78 ? c.side : -c.side;
+        const off = (drag || settle ? dist * rand(0, 0.035) : dist * rand(0.06, 0.2)) * side;
+        const nx = -dy / dist;
+        const ny = dx / dist;
+        const dur = settle
+            ? rand(130, 200)
+            : ((drag ? 300 : 150) + (drag ? 135 : 105) * Math.log2(dist / 14 + 1)) * c.agent.tempo * rand(0.9, 1.15);
+        c.steps.push({
+            kind: 'move',
+            x0: from.x, y0: from.y, x1: tx, y1: ty,
+            cx1: from.x + dx * 0.3 + nx * off, cy1: from.y + dy * 0.3 + ny * off,
+            cx2: from.x + dx * 0.72 + nx * off * 0.5, cy2: from.y + dy * 0.72 + ny * off * 0.5,
+            dur,
+            ease: settle ? easeOutCubic : minJerk
+        });
+        return { x: tx, y: ty };
+    }
 
-            const actionRoll = Math.random();
-            if (actionRoll < 0.45) {
-                // 拖拽拉框动作：从元素左上角拉到右下角，绘制真实组件框架轮廓
-                cursor.mode = 'DRAG_BOX';
-                cursor.x = Math.max(pad, Math.min(w - pad, target.x + (Math.random() - 0.5) * 10));
-                cursor.y = Math.max(pad, Math.min(h - pad, target.y + (Math.random() - 0.5) * 10));
-                cursor.boxStart = { x: target.x, y: target.y };
-                cursor.tx = Math.max(pad, Math.min(w - pad, target.x + Math.min(target.w, 340)));
-                cursor.ty = Math.max(pad, Math.min(h - pad, target.y + Math.min(target.h, 200)));
-                cursor.boxColor = cursor.agent.color;
-                cursor.boxLabel = target.label;
-                cursor.modeUntil = now + 1400 + Math.random() * 800;
-                cursor.nextRetargetAt = cursor.modeUntil;
-                cursor.node.classList.add('is-clicking');
-                spawnRipple(cursor.x, cursor.y, cursor.agent.color, 24);
-                return;
-            }
+    // 远距离移动常会略微冲过目标，停一下再回正
+    function pushApproach(c, from, tx, ty) {
+        const dist = Math.hypot(tx - from.x, ty - from.y);
+        if (dist > 200 && Math.random() < 0.55) {
+            const k = rand(5, 11) / dist;
+            const over = pushMove(c, from, tx + (tx - from.x) * k + rand(-3, 3), ty + (ty - from.y) * k + rand(-3, 3));
+            pushWait(c, rand(40, 90));
+            return pushMove(c, over, tx, ty, { settle: true });
+        }
+        return pushMove(c, from, tx, ty);
+    }
 
-            // 涂抹上色 / 测量校准
-            cursor.mode = cursor.agent.role === 'qa' || cursor.agent.role === 'layout' || cursor.agent.role === 'frame' ? 'MEASURE_ALIGN' : 'PAINT_SWEEP';
-            cursor.tx = Math.max(pad, Math.min(w - pad, target.x + Math.random() * Math.min(target.w, w - target.x - pad)));
-            cursor.ty = Math.max(pad, Math.min(h - pad, target.y + Math.random() * Math.min(target.h, h - target.y - pad)));
-            cursor.boxStart = { x: target.x, y: target.y, w: target.w, h: target.h };
-            cursor.boxLabel = target.label;
-            cursor.modeUntil = now + 1300 + Math.random() * 900;
-            cursor.nextRetargetAt = cursor.modeUntil;
-            cursor.node.classList.remove('is-clicking', 'is-sketching');
-            if (Math.random() < 0.4) spawnRipple(cursor.tx, cursor.ty, cursor.agent.color, 20);
+    function currentTargets() {
+        return state.domTargets || [];
+    }
+
+    function pickTarget(c, now) {
+        const targets = currentTargets();
+        if (!targets.length) return null;
+        const want = ROLE_KIND[c.agent.role];
+        const preferred = want && Math.random() < 0.6 ? targets.filter(t => t.kind === want) : [];
+        const pool = preferred.length ? preferred : targets;
+        for (let i = 0; i < 6; i++) {
+            // 偏向列表末尾，即最新生成的节点；同一个元素同一时间只让一个指针处理
+            const t = pool[Math.min(pool.length - 1, Math.floor(Math.pow(Math.random(), 0.65) * pool.length))];
+            if ((state.busy.get(targetKey(t)) || 0) <= now) return t;
+        }
+        return null;
+    }
+
+    function setPressed(c, pressed) {
+        c.pressed = pressed;
+        c.node.classList.toggle('is-pressed', pressed);
+    }
+
+    function setAway(c, away) {
+        if (c.away === away) return;
+        c.away = away;
+        c.node.classList.toggle('is-away', away);
+    }
+
+    function addMark(mark) {
+        state.marks.push(mark);
+        return mark;
+    }
+
+    function spawnRipple(x, y, color, now, maxR = 16) {
+        state.ripples.push({ x, y, color, bornAt: now, maxR });
+    }
+
+    // 真实页面框架出现时：淡出待命层，指针群有序入场奔赴真实 DOM 元素
+    function onRealDomReady() {
+        const now = performance.now();
+        scaffoldEl?.classList.add('is-faded');
+        if (livePillTextEl) livePillTextEl.textContent = L('10 AI 协同绘制中', '10 AI Agents Painting');
+        if (tickerEl) tickerEl.innerHTML = `<strong>✓</strong> ${esc(L('已挂载页面真实框架，指针群开始协同测绘与渲染…', 'Real DOM mounted — swarm measuring & rendering elements…'))}`;
+        const order = state.cursors.map((_, i) => i).sort(() => Math.random() - 0.5);
+        state.cursors.forEach((c, i) => {
+            c.steps.length = 0;
+            c.step = null;
+            c.nextPlanAt = now + 40 + order[i] * rand(60, 160);
+        });
+    }
+
+    function retireBlueprintWork() {
+        state.wireframes.length = 0;
+        state.busy.clear();
+        state.marks.length = 0;
+    }
+
+    // 给指针排下一段工作：框选一个容器、测量间距，或点选一个元素，然后休息一会儿
+    function planNext(c, now) {
+        const { w, h } = viewSize();
+        c.steps.length = 0;
+        const from = { x: c.x, y: c.y };
+        const target = pickTarget(c, now);
+        if (!target) {
+            pushWait(c, rand(350, 750));
             return;
         }
 
-        // 蓝图阶段（<body> 尚未大面积成型）：围绕蓝图槽位进行骨架线框测绘
-        const slots = stageEl ? [...stageEl.querySelectorAll('[data-bp-slot]')] : [];
-        if (slots.length && viewportEl) {
-            const vpRect = viewportEl.getBoundingClientRect();
-            const slotEl = slots[cursor.index % slots.length];
-            const sr = slotEl.getBoundingClientRect();
-            if (sr.width > 20 && sr.height > 20) {
-                const rx = sr.left - vpRect.left;
-                const ry = sr.top - vpRect.top;
-                slotEl.classList.add('is-hot');
-                setTimeout(() => slotEl.classList.remove('is-hot'), 520);
+        const box = { x: clamp(target.x, 6, w - 30), y: clamp(target.y, 6, h - 24) };
+        box.w = clamp(target.w, 12, w - 6 - box.x);
+        box.h = clamp(target.h, 10, h - 6 - box.y);
+        const label = target.label ? target.label.slice(0, 28) : '';
+        const role = c.agent.role;
+        const roll = Math.random();
+        let kind;
+        if (role === 'qa') kind = roll < 0.7 ? 'measure' : 'touch';
+        else if (role === 'layout' || role === 'frame') kind = roll < 0.62 ? 'frame' : 'measure';
+        else kind = roll < 0.5 ? 'touch' : roll < 0.78 ? 'frame' : 'measure';
+        if (kind === 'frame' && (box.w < 60 || box.h < 28 || box.w * box.h > w * h * 0.42)) kind = 'touch';
+        if (kind === 'measure' && (box.w < 40 || box.h < 24)) kind = 'touch';
 
-                if (cursor.index % 2 === 0) {
-                    cursor.mode = 'DRAG_BOX';
-                    cursor.boxStart = { x: rx + 4, y: ry + 4 };
-                    cursor.tx = Math.max(pad, Math.min(w - pad, rx + sr.width - 8));
-                    cursor.ty = Math.max(pad, Math.min(h - pad, ry + sr.height - 8));
-                    cursor.boxColor = cursor.agent.color;
-                    cursor.boxLabel = `${Math.round(sr.width)} × ${Math.round(sr.height)} px`;
-                    cursor.modeUntil = now + 1500;
-                    cursor.nextRetargetAt = cursor.modeUntil;
-                    spawnRipple(rx + 10, ry + 10, cursor.agent.color, 22);
-                    return;
-                }
-
-                cursor.mode = 'MEASURE_ALIGN';
-                cursor.tx = Math.max(pad, Math.min(w - pad, rx + 14 + Math.random() * (sr.width - 28)));
-                cursor.ty = Math.max(pad, Math.min(h - pad, ry + 14 + Math.random() * (sr.height - 28)));
-                cursor.boxStart = { x: rx, y: ry, w: sr.width, h: sr.height };
-                cursor.modeUntil = now + 1200 + Math.random() * 600;
-                cursor.nextRetargetAt = cursor.modeUntil;
-                return;
-            }
+        const inside = () => ({ x: box.x + box.w * rand(0.2, 0.8), y: box.y + box.h * rand(0.25, 0.75) });
+        let mark = null;
+        let at;
+        if (kind === 'frame') {
+            // 移到左上角 → 按下 → 拖到右下角 → 稍停 → 松开，选框定格成线框后淡出
+            at = pushApproach(c, from, box.x, box.y);
+            pushWait(c, rand(90, 220));
+            pushDo(c, t => {
+                setPressed(c, true);
+                mark = addMark({ kind: 'box', c, x: box.x, y: box.y, bornAt: t });
+                spawnRipple(box.x, box.y, c.tone, t);
+            });
+            pushWait(c, rand(60, 130));
+            pushMove(c, at, box.x + box.w, box.y + box.h, { drag: true });
+            pushWait(c, rand(160, 420));
+            pushDo(c, t => {
+                setPressed(c, false);
+                if (mark) { mark.endAt = t; mark.fx = c.x; mark.fy = c.y; }
+                state.wireframes.push({ x: box.x, y: box.y, w: box.w, h: box.h, color: c.tone, ink: c.ink, label, bornAt: t, ttl: 1500 });
+            });
+        } else if (kind === 'measure') {
+            // 移入元素 → 出现到边缘的标尺 → 慢慢扫到另一点 → 收起
+            const p1 = inside();
+            const p2 = inside();
+            at = pushApproach(c, from, p1.x, p1.y);
+            pushDo(c, t => { mark = addMark({ kind: 'measure', c, box, bornAt: t }); });
+            pushWait(c, rand(260, 520));
+            pushMove(c, at, p2.x, p2.y, { drag: true });
+            pushWait(c, rand(240, 600));
+            pushDo(c, t => { if (mark) mark.endAt = t; });
+        } else {
+            // 移到元素上 → 点一下 → 元素描边短暂亮起
+            const p = inside();
+            pushApproach(c, from, p.x, p.y);
+            pushWait(c, rand(80, 200));
+            pushDo(c, t => {
+                setPressed(c, true);
+                mark = addMark({ kind: 'touch', c, box, bornAt: t });
+                spawnRipple(c.x, c.y, c.tone, t);
+                markSlotHot(target);
+            });
+            pushWait(c, rand(80, 140));
+            pushDo(c, () => setPressed(c, false));
+            pushWait(c, rand(380, 900));
+            pushDo(c, t => { if (mark) mark.endAt = t; });
         }
 
-        // 兜底巡航
-        cursor.mode = 'PATROL';
-        cursor.tx = pad + Math.random() * (w - pad * 2);
-        cursor.ty = pad + Math.random() * (h - pad * 2);
-        cursor.nextRetargetAt = now + 800 + Math.random() * 600;
+        const busyFor = c.steps.reduce((sum, step) => sum + step.dur, 0);
+        state.busy.set(targetKey(target), now + busyFor);
+        if (state.busy.size > 200) state.busy.clear();
+        c.labelUntil = Math.max(c.labelUntil, now + busyFor);
+        // 做完一件事后停一会儿再接下一件，时长各不相同
+        pushWait(c, rand(900, 3200) * c.agent.tempo);
     }
 
-    function spawnRipple(x, y, color, maxR = 28) {
-        state.ripples.push({ x, y, r: 3, maxR, color, alpha: 0.9 });
-        for (let i = 0; i < 6; i++) {
-            const ang = (Math.PI * 2 * i) / 6 + Math.random() * 0.5;
-            const spd = 1.2 + Math.random() * 2.4;
-            state.sparks.push({
-                x,
-                y,
-                vx: Math.cos(ang) * spd,
-                vy: Math.sin(ang) * spd,
-                color,
-                alpha: 0.95,
-                size: 1.8 + Math.random() * 1.8
-            });
+    function stepCursor(c, now) {
+        for (let guard = 0; guard < 10; guard++) {
+            if (!c.step) {
+                if (!c.steps.length) {
+                    if (c.leaveAt && now >= c.leaveAt) { setAway(c, true); return; }
+                    if (!planningAllowed() || now < c.nextPlanAt) return;
+                    planNext(c, now);
+                    setAway(c, false);
+                }
+                c.step = c.steps.shift();
+                c.stepAt = now;
+            }
+            const step = c.step;
+            if (step.kind === 'do') {
+                step.fn(now);
+                c.step = null;
+                continue;
+            }
+            const t = step.dur > 0 ? (now - c.stepAt) / step.dur : 1;
+            if (step.kind === 'move') {
+                const e = step.ease(clamp(t, 0, 1));
+                c.x = bezier(step.x0, step.cx1, step.cx2, step.x1, e);
+                c.y = bezier(step.y0, step.cy1, step.cy2, step.y1, e);
+            }
+            if (t < 1) return;
+            c.step = null;
         }
+    }
+
+    function renderCursor(c, now, w, h) {
+        // 停顿时保留极轻微的手部漂移，移动时淡出，避免指针像钉在屏幕上
+        const resting = (!c.step || c.step.kind === 'wait') && !c.pressed;
+        c.drift += ((resting ? 1 : 0) - c.drift) * 0.08;
+        const jx = (Math.sin(now * 0.0011 + c.seed) * 0.7 + Math.sin(now * 0.0027 + c.seed * 1.9) * 0.3) * c.drift;
+        const jy = (Math.cos(now * 0.0013 + c.seed * 1.3) * 0.6 + Math.sin(now * 0.0031 + c.seed * 0.7) * 0.3) * c.drift;
+        c.node.style.transform = `translate3d(${(c.x + jx).toFixed(2)}px, ${(c.y + jy).toFixed(2)}px, 0)`;
+
+        // 只有正在做事或刚接到任务的指针显示名牌；类名只在状态变化时切换，不触发逐帧布局
+        // 同时最多亮 4 个名牌，画面不拥挤
+        const labeled = !c.away && now < c.labelUntil && (c.labeled || state.labelCount < 4);
+        if (labeled !== c.labeled) {
+            c.labeled = labeled;
+            state.labelCount += labeled ? 1 : -1;
+            c.node.classList.toggle('is-labeled', labeled);
+        }
+        const flipX = c.x > w - 210;
+        if (flipX !== c.flipX) { c.flipX = flipX; c.node.classList.toggle('is-flip-x', flipX); }
+        const flipY = c.y > h - 52;
+        if (flipY !== c.flipY) { c.flipY = flipY; c.node.classList.toggle('is-flip-y', flipY); }
+    }
+
+    // 快速移动时留下一条很淡、逐渐变细的尾迹；慢速或静止时没有
+    function drawTrail(ctx, c, now) {
+        const trail = c.trail;
+        trail.push({ x: c.x, y: c.y, t: now });
+        while (trail.length && now - trail[0].t > 150) trail.shift();
+        if (c.away || trail.length < 3) return;
+        const first = trail[0];
+        const last = trail[trail.length - 1];
+        const strength = clamp((Math.hypot(last.x - first.x, last.y - first.y) - 14) / 70, 0, 1);
+        if (strength <= 0) return;
+        ctx.strokeStyle = c.tone;
+        ctx.lineCap = 'round';
+        for (let k = 1; k < trail.length; k++) {
+            const f = k / (trail.length - 1);
+            ctx.globalAlpha = f * f * 0.24 * strength;
+            ctx.lineWidth = 0.6 + f * 1.5;
+            ctx.beginPath();
+            ctx.moveTo(trail[k - 1].x, trail[k - 1].y);
+            ctx.lineTo(trail[k].x, trail[k].y);
+            ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
     }
 
     function tickFrame(now) {
@@ -806,258 +1063,152 @@
         fxCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
         fxCtx.clearRect(0, 0, w, h);
 
-        // 1. 绘制顶部柔和激光扫描线（仅在绘制进行中显示）
-        if (!state.finished || state.replaying) {
-            const scanY = ((now * 0.14) % (h + 120)) - 60;
-            const scanGrad = fxCtx.createLinearGradient(0, scanY - 36, 0, scanY + 36);
-            scanGrad.addColorStop(0, 'rgba(99, 102, 241, 0)');
-            scanGrad.addColorStop(0.5, 'rgba(56, 189, 248, 0.09)');
-            scanGrad.addColorStop(1, 'rgba(236, 72, 153, 0)');
-            fxCtx.fillStyle = scanGrad;
-            fxCtx.fillRect(0, scanY - 36, w, 72);
-        }
-
-        // 2. 绘制真实页面容器骨架框架与 CAD 辅助线（不画任何虚构图表/正弦曲线）
+        // 1. 已定格的组件线框（指针框选松手后留下，随后淡出）
         drawWireframeDrafts(fxCtx, now);
 
-        // 3. 更新并绘制 10 个 AI 指针的物理轨迹、选框与标尺
-        const activeCursors = state.cursors;
-        for (let i = 0; i < activeCursors.length; i++) {
-            const c = activeCursors[i];
-            if (now >= c.nextRetargetAt && (!state.finished || state.replaying)) {
-                assignNextCursorTarget(c, now);
-                if (Math.random() < 0.28) {
-                    const mate = activeCursors[(i + 1 + Math.floor(Math.random() * 3)) % activeCursors.length];
-                    state.links.push({ a: c, b: mate, color: c.agent.color, bornAt: now, ttl: 950 });
-                }
-            }
-
-            // 阻尼弹簧 + 弧线微扰动（更平缓稳重的大师级移动手感，避免过快跳动）
-            const dx = c.tx - c.x;
-            const dy = c.ty - c.y;
-            const dist = Math.hypot(dx, dy);
-            const spring = 0.046;
-            const damping = 0.81;
-            const wobbleX = Math.sin(now * 0.004 + c.phaseOffset) * Math.min(1.4, dist * 0.025);
-            const wobbleY = Math.cos(now * 0.0035 + c.phaseOffset) * Math.min(1.4, dist * 0.025);
-
-            c.vx = (c.vx + dx * spring + wobbleX * 0.12) * damping;
-            c.vy = (c.vy + dy * spring + wobbleY * 0.12) * damping;
-            c.x += c.vx;
-            c.y += c.vy;
-
-            // 防止右侧气泡超出画布右边界
-            const tagFlipX = c.x > w - 195;
-            const tagFlipY = c.y > h - 56;
-            c.node.style.transform = `translate3d(${c.x.toFixed(1)}px, ${c.y.toFixed(1)}px, 0)`;
-            const tagEl = c.node.querySelector('.dc-swarm-cursor-tag');
-            if (tagEl) {
-                tagEl.style.left = tagFlipX ? '-172px' : '16px';
-                tagEl.style.top = tagFlipY ? '-26px' : '16px';
-            }
-
-            // 记录彗星拖尾
-            c.trail.push({ x: c.x + 3, y: c.y + 3, t: now });
-            while (c.trail.length > 18 || (c.trail.length && now - c.trail[0].t > 340)) {
-                c.trail.shift();
-            }
-
-            // 绘制丝滑渐变彗星尾迹
-            if (c.trail.length > 2) {
-                fxCtx.save();
-                fxCtx.beginPath();
-                fxCtx.moveTo(c.trail[0].x, c.trail[0].y);
-                for (let k = 1; k < c.trail.length - 1; k++) {
-                    const xc = (c.trail[k].x + c.trail[k + 1].x) / 2;
-                    const yc = (c.trail[k].y + c.trail[k + 1].y) / 2;
-                    fxCtx.quadraticCurveTo(c.trail[k].x, c.trail[k].y, xc, yc);
-                }
-                const lastPt = c.trail[c.trail.length - 1];
-                fxCtx.lineTo(lastPt.x, lastPt.y);
-                fxCtx.strokeStyle = c.agent.color;
-                fxCtx.lineWidth = 2.4;
-                fxCtx.lineCap = 'round';
-                fxCtx.globalAlpha = 0.42;
-                fxCtx.shadowColor = c.agent.color;
-                fxCtx.shadowBlur = 8;
-                fxCtx.stroke();
-                fxCtx.restore();
-            }
-
-            // 绘制当前指针正在执行的动作（拉框 / 标尺 / 涂抹高亮）
-            if (c.mode === 'DRAG_BOX' && c.boxStart && now < c.modeUntil) {
-                drawDragMarquee(fxCtx, c.boxStart.x, c.boxStart.y, c.x, c.y, c.agent.color, c.boxLabel);
-            } else if (c.mode === 'MEASURE_ALIGN' && c.boxStart && now < c.modeUntil) {
-                drawMeasureGuides(fxCtx, c.x, c.y, c.boxStart, c.agent.color);
-            } else if (c.mode === 'PAINT_SWEEP' && c.boxStart && now < c.modeUntil) {
-                drawPaintHighlight(fxCtx, c.boxStart, c.x, c.y, c.agent.color);
-            }
+        // 2. 推进每个指针的计划并更新位置（只写 transform）
+        for (let i = 0; i < state.cursors.length; i++) {
+            const c = state.cursors[i];
+            stepCursor(c, now);
+            renderCursor(c, now, w, h);
+            drawTrail(fxCtx, c, now);
         }
 
-        // 4. 绘制双指针协同同步激光连线
-        for (let i = state.links.length - 1; i >= 0; i--) {
-            const link = state.links[i];
-            const age = now - link.bornAt;
-            if (age > link.ttl) {
-                state.links.splice(i, 1);
+        // 3. 进行中的选框 / 标尺 / 点选高亮
+        for (let i = state.marks.length - 1; i >= 0; i--) {
+            const mark = state.marks[i];
+            const fadeIn = clamp((now - mark.bornAt) / 140, 0, 1);
+            const fadeOut = mark.endAt ? 1 - clamp((now - mark.endAt) / (mark.kind === 'box' ? 160 : 280), 0, 1) : 1;
+            const alpha = fadeIn * fadeOut;
+            if ((mark.endAt && alpha <= 0) || now - mark.bornAt > 9000) {
+                state.marks.splice(i, 1);
                 continue;
             }
-            const alpha = (1 - age / link.ttl) * 0.48;
-            const prog = age / link.ttl;
-            fxCtx.save();
-            fxCtx.beginPath();
-            const mx = (link.a.x + link.b.x) / 2;
-            const my = (link.a.y + link.b.y) / 2 - 28;
-            fxCtx.moveTo(link.a.x + 4, link.a.y + 4);
-            fxCtx.quadraticCurveTo(mx, my, link.b.x + 4, link.b.y + 4);
-            fxCtx.strokeStyle = link.color;
-            fxCtx.globalAlpha = alpha;
-            fxCtx.setLineDash([4, 4]);
-            fxCtx.lineWidth = 1.3;
-            fxCtx.stroke();
-
-            // 沿连线飞行的能量脉冲光点
-            const t = prog;
-            const px = (1 - t) * (1 - t) * link.a.x + 2 * (1 - t) * t * mx + t * t * link.b.x;
-            const py = (1 - t) * (1 - t) * link.a.y + 2 * (1 - t) * t * my + t * t * link.b.y;
-            fxCtx.fillStyle = '#ffffff';
-            fxCtx.shadowColor = link.color;
-            fxCtx.shadowBlur = 10;
-            fxCtx.beginPath();
-            fxCtx.arc(px, py, 3, 0, Math.PI * 2);
-            fxCtx.fill();
-            fxCtx.restore();
+            if (mark.kind === 'box') drawDragMarquee(fxCtx, mark, alpha);
+            else if (mark.kind === 'measure') drawMeasureGuides(fxCtx, mark, alpha);
+            else drawTouchHighlight(fxCtx, mark, alpha);
         }
 
-        // 5. 绘制点击冲击波与火花粒子
+        // 4. 按下时的一圈涟漪
         for (let i = state.ripples.length - 1; i >= 0; i--) {
             const rp = state.ripples[i];
-            rp.r += (rp.maxR - rp.r) * 0.14 + 0.6;
-            rp.alpha *= 0.91;
-            if (rp.alpha < 0.04) {
+            const t = (now - rp.bornAt) / 420;
+            if (t >= 1) {
                 state.ripples.splice(i, 1);
                 continue;
             }
-            fxCtx.save();
             fxCtx.beginPath();
-            fxCtx.arc(rp.x, rp.y, rp.r, 0, Math.PI * 2);
+            fxCtx.arc(rp.x, rp.y, 3 + (rp.maxR - 3) * easeOutCubic(t), 0, Math.PI * 2);
             fxCtx.strokeStyle = rp.color;
-            fxCtx.globalAlpha = rp.alpha;
-            fxCtx.lineWidth = 1.6;
+            fxCtx.globalAlpha = 0.5 * (1 - t);
+            fxCtx.lineWidth = 1.25;
             fxCtx.stroke();
-            fxCtx.restore();
-        }
-
-        for (let i = state.sparks.length - 1; i >= 0; i--) {
-            const sp = state.sparks[i];
-            sp.x += sp.vx;
-            sp.y += sp.vy;
-            sp.vx *= 0.94;
-            sp.vy *= 0.94;
-            sp.alpha *= 0.9;
-            if (sp.alpha < 0.05) {
-                state.sparks.splice(i, 1);
-                continue;
-            }
-            fxCtx.save();
-            fxCtx.fillStyle = sp.color;
-            fxCtx.globalAlpha = sp.alpha;
-            fxCtx.beginPath();
-            fxCtx.arc(sp.x, sp.y, sp.size, 0, Math.PI * 2);
-            fxCtx.fill();
-            fxCtx.restore();
         }
 
         fxCtx.restore();
     }
 
-    // 绘制拖拽选框（带四角控制点与实时像素尺寸标签）
-    function drawDragMarquee(ctx, x1, y1, x2, y2, color, label) {
-        const left = Math.min(x1, x2);
-        const top = Math.min(y1, y2);
-        const width = Math.max(16, Math.abs(x2 - x1));
-        const height = Math.max(14, Math.abs(y2 - y1));
+    const FX_FONT = '500 10px ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace';
+    const crisp = v => Math.round(v) + 0.5;
+
+    // 尺寸 / 标签胶囊：色块底 + 自动取反差的文字色。cx 为水平中心。
+    function drawPill(ctx, text, cx, y, color, ink, alpha) {
+        ctx.font = FX_FONT;
+        const tw = ctx.measureText(text).width + 12;
+        const x = clamp(cx - tw / 2, 4, Math.max(4, state.width - tw - 4));
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.roundRect(Math.round(x), Math.round(y), tw, 16, 4);
+        ctx.fill();
+        ctx.fillStyle = ink;
+        ctx.fillText(text, Math.round(x) + 6, Math.round(y) + 11.5);
+    }
+
+    function drawHandles(ctx, left, top, width, height, color, alpha) {
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1;
+        for (const [hx, hy] of [[left, top], [left + width, top], [left, top + height], [left + width, top + height]]) {
+            ctx.fillRect(hx - 2.5, hy - 2.5, 5, 5);
+            ctx.strokeRect(hx - 2.5, hy - 2.5, 5, 5);
+        }
+    }
+
+    // 拖拽选框：从按下点拉到指针当前位置，下方跟随实时尺寸
+    function drawDragMarquee(ctx, mark, alpha) {
+        const x2 = mark.endAt ? mark.fx : mark.c.x;
+        const y2 = mark.endAt ? mark.fy : mark.c.y;
+        const left = crisp(Math.min(mark.x, x2));
+        const top = crisp(Math.min(mark.y, y2));
+        const width = Math.max(1, Math.round(Math.abs(x2 - mark.x)));
+        const height = Math.max(1, Math.round(Math.abs(y2 - mark.y)));
+        const color = mark.c.tone;
 
         ctx.save();
         ctx.fillStyle = color;
-        ctx.globalAlpha = 0.06;
+        ctx.globalAlpha = 0.07 * alpha;
         ctx.fillRect(left, top, width, height);
-
         ctx.strokeStyle = color;
-        ctx.globalAlpha = 0.72;
-        ctx.lineWidth = 1.25;
-        ctx.setLineDash([5, 3]);
+        ctx.globalAlpha = 0.95 * alpha;
+        ctx.lineWidth = 1;
         ctx.strokeRect(left, top, width, height);
-        ctx.setLineDash([]);
-
-        // 四角小方块控制柄
-        const corners = [
-            [left, top],
-            [left + width, top],
-            [left, top + height],
-            [left + width, top + height]
-        ];
-        ctx.fillStyle = '#ffffff';
-        for (const [cx, cy] of corners) {
-            ctx.fillRect(cx - 2.5, cy - 2.5, 5, 5);
-            ctx.strokeRect(cx - 2.5, cy - 2.5, 5, 5);
+        drawHandles(ctx, left, top, width, height, color, alpha);
+        if (width > 36 && height > 14) {
+            const below = top + height + 22 < state.height;
+            drawPill(ctx, `${width} × ${height}`, left + width / 2, below ? top + height + 6 : top - 22, color, mark.c.ink, alpha);
         }
-
-        // 尺寸标注胶囊
-        const dimText = label ? `${label.slice(0, 22)} · ${Math.round(width)}×${Math.round(height)}` : `${Math.round(width)} × ${Math.round(height)} px`;
-        ctx.font = '600 10px "JetBrains Mono", monospace';
-        const tw = ctx.measureText(dimText).width + 10;
-        const pillX = Math.min(state.width - tw - 6, Math.max(4, left));
-        const pillY = top > 22 ? top - 18 : top + height + 4;
-        ctx.fillStyle = color;
-        ctx.globalAlpha = 0.88;
-        ctx.beginPath();
-        ctx.roundRect(pillX, pillY, tw, 15, 4);
-        ctx.fill();
-        ctx.fillStyle = '#ffffff';
-        ctx.globalAlpha = 1;
-        ctx.fillText(dimText, pillX + 5, pillY + 10.5);
         ctx.restore();
     }
 
-    // 绘制 CAD / Figma 风格对齐标尺线
-    function drawMeasureGuides(ctx, cx, cy, box, color) {
-        if (!box || !box.w) return;
+    // 测量标尺：指针到元素左、上边缘的距离线与读数
+    function drawMeasureGuides(ctx, mark, alpha) {
+        const box = mark.box;
+        const color = mark.c.tone;
+        const cx = crisp(clamp(mark.c.x, box.x, box.x + box.w));
+        const cy = crisp(clamp(mark.c.y, box.y, box.y + box.h));
+        const left = crisp(box.x);
+        const top = crisp(box.y);
+
         ctx.save();
         ctx.strokeStyle = color;
-        ctx.globalAlpha = 0.55;
         ctx.lineWidth = 1;
-        ctx.setLineDash([3, 3]);
-
-        // 十字基准线
+        ctx.globalAlpha = 0.32 * alpha;
+        ctx.strokeRect(left, top, Math.round(box.w), Math.round(box.h));
+        ctx.globalAlpha = 0.9 * alpha;
         ctx.beginPath();
-        ctx.moveTo(box.x, cy);
-        ctx.lineTo(box.x + box.w, cy);
-        ctx.moveTo(cx, box.y);
-        ctx.lineTo(cx, box.y + box.h);
+        ctx.moveTo(left, cy); ctx.lineTo(cx, cy);
+        ctx.moveTo(left, cy - 3); ctx.lineTo(left, cy + 3);
+        ctx.moveTo(cx, top); ctx.lineTo(cx, cy);
+        ctx.moveTo(cx - 3, top); ctx.lineTo(cx + 3, top);
+        ctx.stroke();
+        const dx = Math.round(cx - left);
+        const dy = Math.round(cy - top);
+        if (dx > 34) drawPill(ctx, String(dx), left + dx / 2, cy - 20, color, mark.c.ink, alpha);
+        if (dy > 30) drawPill(ctx, String(dy), cx + 20, top + dy / 2 - 8, color, mark.c.ink, alpha);
+        ctx.restore();
+    }
+
+    // 点选高亮：元素描边短暂亮起
+    function drawTouchHighlight(ctx, mark, alpha) {
+        const box = mark.box;
+        const color = mark.c.tone;
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(crisp(box.x), crisp(box.y), Math.round(box.w), Math.round(box.h), 4);
+        ctx.fillStyle = color;
+        ctx.globalAlpha = 0.05 * alpha;
+        ctx.fill();
+        ctx.strokeStyle = color;
+        ctx.globalAlpha = 0.7 * alpha;
+        ctx.lineWidth = 1;
         ctx.stroke();
         ctx.restore();
     }
 
-    // 绘制元素着色扫描高光框
-    function drawPaintHighlight(ctx, box, cx, cy, color) {
-        if (!box || !box.w) return;
-        ctx.save();
-        ctx.strokeStyle = color;
-        ctx.globalAlpha = 0.42;
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(box.x, box.y, box.w, box.h);
-
-        const grad = ctx.createRadialGradient(cx, cy, 2, cx, cy, 48);
-        grad.addColorStop(0, color);
-        grad.addColorStop(1, 'transparent');
-        ctx.fillStyle = grad;
-        ctx.globalAlpha = 0.16;
-        ctx.fillRect(box.x, box.y, box.w, box.h);
-        ctx.restore();
-    }
-
-    // 绘制真实组件与页面骨架线框（CAD/Figma 风格线框，不绘制任何虚构波浪图）
+    // 组件线框：指针框选松手后，选框贴合到真实元素的外框并标注标签与尺寸，停留片刻后淡出。
+    // 只描真实元素的轮廓，不画任何虚构图形。
     function drawWireframeDrafts(ctx, now) {
         for (let i = state.wireframes.length - 1; i >= 0; i--) {
             const wf = state.wireframes[i];
@@ -1066,65 +1217,24 @@
                 state.wireframes.splice(i, 1);
                 continue;
             }
-            const progress = Math.min(1, age / 800);
-            const fadeOut = age > wf.ttl - 700 ? Math.max(0, (wf.ttl - age) / 700) : 1;
-            const alpha = fadeOut * 0.72;
+            const alpha = age < 120 ? age / 120 : age > wf.ttl - 700 ? (wf.ttl - age) / 700 : 1;
+            const left = crisp(wf.x);
+            const top = crisp(wf.y);
+            const width = Math.round(wf.w);
+            const height = Math.round(wf.h);
 
             ctx.save();
-            ctx.globalAlpha = alpha;
-
-            // 1. 骨架矩形轮廓线
-            const strokeW = Math.max(20, wf.w * progress);
-            const strokeH = Math.max(16, wf.h * progress);
             ctx.strokeStyle = wf.color;
-            ctx.lineWidth = 1.35;
-            ctx.setLineDash([6, 4]);
-            ctx.strokeRect(wf.x, wf.y, strokeW, strokeH);
-
-            // 2. 四角锚点控制手柄
-            ctx.setLineDash([]);
-            ctx.fillStyle = '#ffffff';
-            ctx.strokeStyle = wf.color;
-            ctx.lineWidth = 1.2;
-            const corners = [
-                [wf.x, wf.y],
-                [wf.x + strokeW, wf.y],
-                [wf.x, wf.y + strokeH],
-                [wf.x + strokeW, wf.y + strokeH]
-            ];
-            for (const [cx, cy] of corners) {
-                ctx.fillRect(cx - 2.5, cy - 2.5, 5, 5);
-                ctx.strokeRect(cx - 2.5, cy - 2.5, 5, 5);
+            ctx.lineWidth = 1;
+            ctx.globalAlpha = 0.9 * alpha;
+            ctx.strokeRect(left, top, width, height);
+            drawHandles(ctx, left, top, width, height, wf.color, alpha);
+            if (width > 60) {
+                const text = wf.label ? `${wf.label} · ${width}×${height}` : `${width} × ${height}`;
+                ctx.font = FX_FONT;
+                const half = (ctx.measureText(text).width + 12) / 2;
+                drawPill(ctx, text, left + half, top > 24 ? top - 21 : top + 5, wf.color, wf.ink, alpha);
             }
-
-            // 3. 极浅的原型骨架占位槽（如同 UI 设计工具中的线框卡片占位，简洁真实）
-            if (strokeW > 120 && strokeH > 50) {
-                ctx.fillStyle = wf.color;
-                ctx.globalAlpha = alpha * 0.12;
-                const railW = Math.min(strokeW - 32, 160);
-                ctx.beginPath();
-                ctx.roundRect(wf.x + 16, wf.y + 14, railW, 8, 4);
-                ctx.roundRect(wf.x + 16, wf.y + 28, Math.min(strokeW - 32, railW * 0.65), 6, 3);
-                ctx.fill();
-            }
-
-            // 4. 真实组件框架标签胶囊
-            if (wf.label && strokeW > 60) {
-                const labelText = `${wf.label.slice(0, 24)} · ${Math.round(wf.w)}×${Math.round(wf.h)}`;
-                ctx.font = '600 10px "JetBrains Mono", monospace';
-                const tw = ctx.measureText(labelText).width + 10;
-                const pillX = Math.min(state.width - tw - 6, Math.max(4, wf.x));
-                const pillY = wf.y > 20 ? wf.y - 17 : wf.y + 3;
-                ctx.fillStyle = wf.color;
-                ctx.globalAlpha = alpha * 0.92;
-                ctx.beginPath();
-                ctx.roundRect(pillX, pillY, tw, 15, 3.5);
-                ctx.fill();
-                ctx.fillStyle = '#ffffff';
-                ctx.globalAlpha = 1;
-                ctx.fillText(labelText, pillX + 5, pillY + 10.5);
-            }
-
             ctx.restore();
         }
     }
@@ -1185,28 +1295,29 @@
         state.domTargets = [];
         state.wireframes = [];
         state.ripples = [];
-        state.sparks = [];
-        state.links = [];
+        state.marks = [];
+        state.busy.clear();
+        state.encore = false;
+        state.pageDark = true;
+        state.swarmPalette = pickPalette();
 
         if (!openBrowserStage()) return;
 
         stageEl.classList.remove('is-finished', 'is-cursors-hidden');
-        blueprintEl?.classList.remove('is-faded');
+        scaffoldEl?.classList.remove('is-faded');
         if (codeViewEl) codeViewEl.hidden = true;
         const cursorsBtn = stageEl.querySelector('[data-swarm-action="cursors"]');
         cursorsBtn?.setAttribute('aria-pressed', 'true');
         const sourceBtn = stageEl.querySelector('[data-swarm-action="source"]');
         sourceBtn?.setAttribute('aria-pressed', 'false');
 
-        if (livePillTextEl) livePillTextEl.textContent = L('10 AI 协同绘制中', '10 AI Agents Painting');
-        if (tickerEl) tickerEl.textContent = L('正在构建全息蓝图与响应式栅格…', 'Scaffolding holographic blueprint & grid…');
+        if (livePillTextEl) livePillTextEl.textContent = L('10 AI 协同准备中', '10 AI Agents Ready');
+        if (tickerEl) tickerEl.textContent = L('等待页面真实框架挂载，指针群就位待命…', 'Awaiting real DOM framework — swarm on standby…');
         updateBrowserChromeTitle(state.pageTitle || L('AI实时协同画布', 'ai-swarm-canvas'));
 
         ensureLiveIframe();
-        state.cursors.forEach((c, idx) => {
-            c.taskNode.textContent = L(c.agent.defaultTaskZh, c.agent.defaultTaskEn);
-            c.nextRetargetAt = performance.now() + idx * 110;
-        });
+        resetCursors(performance.now());
+        applyTones();
         updateMetricsUi();
     }
 
@@ -1326,17 +1437,22 @@
         if (livePillTextEl) livePillTextEl.textContent = L('10 AI 协同绘制完成', '10 AI Swarm Complete');
         if (tickerEl) tickerEl.innerHTML = `<strong>✓</strong> ${esc(L('页面框架与交互脚本已就绪，可直接点击体验或重播绘制', 'Framework & scripts ready — interact directly or replay'))}`;
 
-        // 庆祝花火：所有指针做一次终检巡礼，随后自动淡出让用户无遮挡交互
-        state.cursors.forEach(c => {
-            spawnRipple(c.x, c.y, c.agent.color, 32);
-            c.taskNode.textContent = L('✓ 框架对齐完成', '✓ Framework Aligned');
+        // 收尾：指针做完手头的动作后错峰离场，不遮挡用户与页面交互
+        const now = performance.now();
+        const order = state.cursors.map((_, i) => i).sort(() => Math.random() - 0.5);
+        state.cursors.forEach((c, i) => {
+            c.taskNode.textContent = L('已完成', 'Done');
+            while (c.steps.length && c.steps[c.steps.length - 1].kind === 'wait') c.steps.pop();
+            if (!c.steps.length && c.step && c.step.kind === 'wait') c.step = null;
+            c.leaveAt = now + 450 + order[i] * 140;
+            c.labelUntil = Math.min(c.labelUntil, now + 700);
         });
         clearTimeout(state.fadeTimer);
         state.fadeTimer = setTimeout(() => {
             if (state.active && state.finished && !state.replaying) {
                 toggleCursors(true);
             }
-        }, 2600);
+        }, 3600);
     }
 
     // 用于工作区 write_file / edit_file 生成完 HTML 文件、或点击「重播绘制」时的高速流式仿真演练
@@ -1381,6 +1497,12 @@
 
     function toggleCursors(hide) {
         state.cursorsHidden = Boolean(hide);
+        // 绘制完成后重新打开指针群：让它们回到画布上继续巡检
+        state.encore = !state.cursorsHidden && state.finished && !state.replaying;
+        if (state.encore) {
+            clearTimeout(state.fadeTimer);
+            resetCursors(performance.now());
+        }
         if (!stageEl) return;
         stageEl.classList.toggle('is-cursors-hidden', state.cursorsHidden);
         const btn = stageEl.querySelector('[data-swarm-action="cursors"]');
@@ -1400,11 +1522,18 @@
     }
 
     function openInNewTab() {
-        if (!state.htmlCode) return;
-        const blob = new Blob([state.htmlCode], { type: 'text/html;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        window.open(url, '_blank', 'noopener,noreferrer');
-        setTimeout(() => URL.revokeObjectURL(url), 60000);
+        const code = state.htmlCode || state.streamTargetCode || (iframeEl && iframeEl.srcdoc);
+        if (!code) return false;
+        try {
+            const blob = new Blob([code], { type: 'text/html;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const win = window.open(url, '_blank', 'noopener,noreferrer');
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
+            return Boolean(win);
+        } catch (e) {
+            console.error('Failed to open swarm canvas in new tab', e);
+            return false;
+        }
     }
 
     function downloadCurrentHtml() {
@@ -1456,7 +1585,7 @@
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'dc-swarm-inline-trigger';
-        btn.innerHTML = `<span>✨</span><span>${esc(L('右侧浏览器 AI 指针群协同绘制预览', 'AI Cursor Swarm Live Preview in Browser'))}</span>`;
+        btn.innerHTML = `<span class="dc-swarm-inline-mark" aria-hidden="true"></span><span>${esc(L('右侧浏览器 AI 指针群协同绘制预览', 'AI Cursor Swarm Live Preview in Browser'))}</span>`;
         btn.addEventListener('click', () => {
             if (window.innerWidth <= 860) {
                 window.DragonBrowserSidebar?.open?.({ liveCanvas: true, createEmpty: false });
@@ -1474,8 +1603,11 @@
         onStreamFinish,
         playFullHtml,
         replayCurrent,
+        openInNewTab,
         deactivate,
         decorateMessageHtmlBlocks,
-        isActive: () => state.active
+        isActive: () => state.active,
+        palettes: SWARM_PALETTES,
+        currentPalette: () => state.swarmPalette && state.swarmPalette.id
     };
 })();

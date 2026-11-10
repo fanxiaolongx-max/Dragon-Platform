@@ -368,10 +368,11 @@
 
     // 技能来源：内置 / 对话里创建 / 导入 / 外部命令生成（如 thcli +connect），名字后用小圆点区分
     window.SkillSource = {
-        kind: item => item?.builtIn || item?.source === 'builtin' ? 'builtin' : ['import', 'external'].includes(item?.source) ? item.source : 'chat',
-        dot: item => `<i class="skill-src-dot" data-src="${window.SkillSource.kind(item)}" aria-hidden="true"></i>`,
+        kind: item => item?.builtIn || item?.source === 'builtin' ? 'builtin' : ['import', 'external', 'shared', 'float', 'custom'].includes(item?.source) ? item.source : (item?.shared || item?.sharedAccess) ? 'shared' : 'chat',
+        indicator: (source, meaning = '') => `<i class="skill-src-dot" data-src="${escapeHtml(source)}"${meaning ? ` role="img" aria-label="${escapeHtml(meaning)}" title="${escapeHtml(meaning)}"` : ' aria-hidden="true"'}></i>`,
+        dot: item => window.SkillSource.indicator(window.SkillSource.kind(item)),
         // 名字 + 来源圆点：名字过长时在自己的轨道里来回滚动，圆点始终露在外面（插入页面后调用 fit 量一下）
-        label: (text, item) => `<span class="skill-name"><span class="skill-name-track"><span class="skill-name-text">${escapeHtml(text)}</span></span>${window.SkillSource.dot(item)}</span>`,
+        label: (text, item, { source = window.SkillSource.kind(item), meaning = '' } = {}) => `<span class="skill-name"><span class="skill-name-track"><span class="skill-name-text">${escapeHtml(text)}</span></span>${window.SkillSource.indicator(source, meaning)}</span>`,
         fit: root => requestAnimationFrame(() => (root || document).querySelectorAll('.skill-name-track').forEach(track => {
             const text = track.firstElementChild, shift = text ? text.scrollWidth - track.clientWidth : 0;
             track.classList.toggle('is-long', shift > 2 && track.clientWidth > 0);

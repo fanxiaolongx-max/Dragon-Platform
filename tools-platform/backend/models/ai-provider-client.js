@@ -581,9 +581,47 @@ class AiProviderClient {
         };
         this.model = settings.model || defaultModels[this.provider];
         this.anthropicAuthType = settings.anthropicAuthType === 'ANTHROPIC_API_KEY' ? 'ANTHROPIC_API_KEY' : 'ANTHROPIC_AUTH_TOKEN';
+        this.customHeaders = settings.headers && typeof settings.headers === 'object' && !Array.isArray(settings.headers) ? settings.headers : {};
+        this.extraBody = (settings.extraBody && typeof settings.extraBody === 'object' && !Array.isArray(settings.extraBody))
+            ? settings.extraBody
+            : ((settings.extra_body && typeof settings.extra_body === 'object' && !Array.isArray(settings.extra_body)) ? settings.extra_body : {});
         this.usesMiniMaxProtocol = this.provider === 'minimax'
             || (this.provider === 'openai-compatible' && (/minimax/i.test(this.baseUrl) || /^MiniMax-/i.test(this.model)));
         this.reasoningKey = `${this.baseUrl}|${this.model}`;
+    }
+
+    applyExtraHeaders(baseHeaders = {}) {
+        const headers = { ...baseHeaders };
+        const forbidden = new Set(['host', 'content-length', 'transfer-encoding', 'connection']);
+        for (const [k, v] of Object.entries(this.customHeaders || {})) {
+            if (!k || forbidden.has(k.toLowerCase())) continue;
+            if (v === null || v === undefined) {
+                delete headers[k];
+            } else {
+                headers[k] = String(v);
+            }
+        }
+        return headers;
+    }
+
+    applyExtraBody(baseBody = {}) {
+        if (!this.extraBody || typeof this.extraBody !== 'object' || Array.isArray(this.extraBody) || !Object.keys(this.extraBody).length) {
+            return baseBody;
+        }
+        const out = { ...baseBody };
+        for (const [k, v] of Object.entries(this.extraBody)) {
+            if (v === null) {
+                delete out[k];
+            } else if (v && typeof v === 'object' && !Array.isArray(v) && out[k] && typeof out[k] === 'object' && !Array.isArray(out[k])) {
+                out[k] = { ...out[k], ...v };
+                for (const [subKey, subVal] of Object.entries(out[k])) {
+                    if (subVal === null) delete out[k][subKey];
+                }
+            } else {
+                out[k] = v;
+            }
+        }
+        return out;
     }
 
     getAnthropicHeaders(isStream = false) {
@@ -602,7 +640,8 @@ class AiProviderClient {
     }
 
     async generateText({ prompt, systemInstruction = '', messages = null, maxOutputTokens, temperature, responseMimeType, json, thinkingBudget, onRetry, onDelta, onReasoning, signal, tools = null, toolChoice } = {}) {
-        const protection = { secrets: [this.apiKey] };
+        const headerSecrets = Object.values(this.customHeaders).filter(v => typeof v === 'string' && v.trim().length >= 4);
+        const protection = { secrets: [this.apiKey, ...headerSecrets].filter(Boolean) };
         systemInstruction = redactText(systemInstruction, protection);
         const finalMessages = redactValue(messages ? normalizeMessages(messages) : [{ role: 'user', content: String(prompt || '') }], protection);
         if(finalMessages.some(message=>message.audio?.length)&&this.provider!=='gemini')throw Object.assign(new Error('当前供应商不支持此音频输入'),{code:'AI_SPEECH_UNSUPPORTED'});
@@ -717,8 +756,8 @@ class AiProviderClient {
         const parts = [...images.filter(image => image && image.data && /^image\//.test(image.mimeType)).slice(0, 4).map(image => ({ inlineData: { mimeType: image.mimeType, data: image.data } })), { text: String(prompt || '') }];
         const request = withRatio => fetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'], ...(withRatio && aspectRatio ? { imageConfig: { aspectRatio } } : {}) } }),
+            headers: this.applyExtraHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify(this.applyExtraBody({ contents: [{ role: 'user', parts }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'], ...(withRatio && aspectRatio ? { imageConfig: { aspectRatio } } : {}) } })),
             signal
         });
         let res = await request(true);
@@ -756,8 +795,8 @@ class AiProviderClient {
 
         const res = await fetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
+            headers: this.applyExtraHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify(this.applyExtraBody(body)),
             signal
         });
         if (!res.ok) await parseErrorResponse(res, { toolsSent: geminiTools.length > 0 });
@@ -791,11 +830,11 @@ class AiProviderClient {
 
         const res = await fetch(`${this.baseUrl}/chat/completions`, {
             method: 'POST',
-            headers: {
+            headers: this.applyExtraHeaders({
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${this.apiKey}`
-            },
-            body: JSON.stringify(body),
+            }),
+            body: JSON.stringify(this.applyExtraBody(body)),
             signal
         });
         if (!res.ok) await parseErrorResponse(res, { toolsSent: openAiTools.length > 0 });
@@ -837,12 +876,12 @@ class AiProviderClient {
         }
         const res = await fetch(`${this.baseUrl}/chat/completions`, {
             method: 'POST',
-            headers: {
+            headers: this.applyExtraHeaders({
                 'Content-Type': 'application/json',
                 Accept: 'text/event-stream',
                 Authorization: `Bearer ${this.apiKey}`
-            },
-            body: JSON.stringify(body),
+            }),
+            body: JSON.stringify(this.applyExtraBody(body)),
             signal
         });
         if (!res.ok) await parseErrorResponse(res, { toolsSent: openAiTools.length > 0 });
@@ -908,8 +947,8 @@ class AiProviderClient {
         if (geminiTools.length && toolChoice === 'none') body.toolConfig = { functionCallingConfig: { mode: 'NONE' } };
         const res = await fetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-            body: JSON.stringify(body),
+            headers: this.applyExtraHeaders({ 'Content-Type': 'application/json', Accept: 'text/event-stream' }),
+            body: JSON.stringify(this.applyExtraBody(body)),
             signal
         });
         if (!res.ok) await parseErrorResponse(res, { toolsSent: geminiTools.length > 0 });
@@ -960,12 +999,12 @@ class AiProviderClient {
         }
         const res = await fetch(`${this.baseUrl}/chat/completions`, {
             method: 'POST',
-            headers: {
+            headers: this.applyExtraHeaders({
                 'Content-Type': 'application/json',
                 Accept: 'text/event-stream',
                 Authorization: `Bearer ${this.apiKey}`
-            },
-            body: JSON.stringify(body),
+            }),
+            body: JSON.stringify(this.applyExtraBody(body)),
             signal
         });
         if (!res.ok) await parseErrorResponse(res, { toolsSent: openAiTools.length > 0 });
@@ -1039,11 +1078,11 @@ class AiProviderClient {
             }
             const res = await fetch(`${this.baseUrl}/chat/completions`, {
                 method: 'POST',
-                headers: {
+                headers: this.applyExtraHeaders({
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${this.apiKey}`
-                },
-                body: JSON.stringify(body),
+                }),
+                body: JSON.stringify(this.applyExtraBody(body)),
                 signal
             });
             if (!res.ok) await parseErrorResponse(res, { toolsSent: openAiTools.length > 0 });
@@ -1114,8 +1153,8 @@ class AiProviderClient {
 
         const res = await fetch(`${this.baseUrl}/messages`, {
             method: 'POST',
-            headers: this.getAnthropicHeaders(false),
-            body: JSON.stringify(body),
+            headers: this.applyExtraHeaders(this.getAnthropicHeaders(false)),
+            body: JSON.stringify(this.applyExtraBody(body)),
             signal
         });
         if (!res.ok) await parseErrorResponse(res, { toolsSent: anthropicTools.length > 0 });
@@ -1146,8 +1185,8 @@ class AiProviderClient {
         }
         const res = await fetch(`${this.baseUrl}/messages`, {
             method: 'POST',
-            headers: this.getAnthropicHeaders(true),
-            body: JSON.stringify(body),
+            headers: this.applyExtraHeaders(this.getAnthropicHeaders(true)),
+            body: JSON.stringify(this.applyExtraBody(body)),
             signal
         });
         if (!res.ok) await parseErrorResponse(res, { toolsSent: anthropicTools.length > 0 });

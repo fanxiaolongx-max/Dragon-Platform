@@ -36,8 +36,101 @@ const DEFAULT_SETTINGS = {
     outputCostPerMillionUsd: 0.3,
     usdToCny: 7.2,
     systemPrompt: '',
-    pptCopilotRules: ''
+    pptCopilotRules: '',
+    headers: {},
+    extraBody: {}
 };
+
+const FORBIDDEN_HEADERS = new Set(['host', 'content-length', 'transfer-encoding', 'connection', 'cookie', 'proxy-authorization']);
+
+function getAiSettingsCipherKey() {
+    return crypto.hkdfSync('sha256', Buffer.from('dragon-ai-settings-master-salt-v1', 'utf8'), Buffer.from('ai-headers-extra-body', 'utf8'), Buffer.from('dragon-claw-ai-v1', 'utf8'), 32);
+}
+
+function encryptJson(data) {
+    if (!data || typeof data !== 'object') return '';
+    const raw = JSON.stringify(data);
+    if (!raw || raw === '{}' || raw === '[]') return '';
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv('aes-256-gcm', getAiSettingsCipherKey(), iv);
+    const ciphertext = Buffer.concat([cipher.update(raw, 'utf8'), cipher.final()]);
+    const tag = cipher.getAuthTag();
+    return Buffer.concat([iv, tag, ciphertext]).toString('base64');
+}
+
+function decryptJson(cipherText) {
+    if (!cipherText || typeof cipherText !== 'string') return {};
+    try {
+        const buf = Buffer.from(cipherText, 'base64');
+        if (buf.length < 28) return {};
+        const iv = buf.subarray(0, 12);
+        const tag = buf.subarray(12, 28);
+        const body = buf.subarray(28);
+        const decipher = crypto.createDecipheriv('aes-256-gcm', getAiSettingsCipherKey(), iv);
+        decipher.setAuthTag(tag);
+        const plain = Buffer.concat([decipher.update(body), decipher.final()]).toString('utf8');
+        const parsed = JSON.parse(plain);
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+        return {};
+    }
+}
+
+function normalizeHeaders(input, previous = {}) {
+    if (input === undefined) return previous && typeof previous === 'object' && !Array.isArray(previous) ? { ...previous } : {};
+    let obj = input;
+    if (typeof input === 'string') {
+        const trimmed = input.trim();
+        if (!trimmed) return previous && typeof previous === 'object' && !Array.isArray(previous) ? { ...previous } : {};
+        try { obj = JSON.parse(trimmed); }
+        catch {
+            const err = new Error('附加请求头必须是有效的 JSON 对象');
+            err.statusCode = 400;
+            throw err;
+        }
+    }
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+        const err = new Error('附加请求头必须是 JSON 对象');
+        err.statusCode = 400;
+        throw err;
+    }
+    const clean = {};
+    for (const [k, v] of Object.entries(obj)) {
+        const name = String(k || '').trim();
+        if (!name || !/^[A-Za-z0-9-_]{1,80}$/.test(name) || FORBIDDEN_HEADERS.has(name.toLowerCase())) continue;
+        if (v === null || v === undefined) continue;
+        const valStr = String(v);
+        if (/[\r\n\x00]/.test(valStr)) continue;
+        clean[name] = valStr;
+    }
+    return clean;
+}
+
+function normalizeExtraBody(input, previous = {}) {
+    if (input === undefined) return previous && typeof previous === 'object' && !Array.isArray(previous) ? { ...previous } : {};
+    let obj = input;
+    if (typeof input === 'string') {
+        const trimmed = input.trim();
+        if (!trimmed) return previous && typeof previous === 'object' && !Array.isArray(previous) ? { ...previous } : {};
+        try { obj = JSON.parse(trimmed); }
+        catch {
+            const err = new Error('附加请求参数必须是有效的 JSON 对象');
+            err.statusCode = 400;
+            throw err;
+        }
+    }
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+        const err = new Error('附加请求参数必须是 JSON 对象');
+        err.statusCode = 400;
+        throw err;
+    }
+    if (JSON.stringify(obj).length > 60000) {
+        const err = new Error('附加请求参数过大（最多支持 60 KB）');
+        err.statusCode = 400;
+        throw err;
+    }
+    return obj;
+}
 
 const DEFAULT_MODELS = {
     gemini: 'gemini-2.5-flash',
@@ -93,6 +186,8 @@ function normalizeSettings(input = {}, previous = {}) {
     const primaryModel = String(input.model || base.model || models[0] || DEFAULT_MODELS[provider] || DEFAULT_SETTINGS.model).trim();
     const remaining = models.filter(m => m !== primaryModel);
     const allModels = [primaryModel, ...remaining].filter(Boolean);
+    const headers = normalizeHeaders(input.headers !== undefined ? input.headers : previous.headers, previous.headers);
+    const extraBody = normalizeExtraBody(input.extraBody !== undefined ? input.extraBody : (input.extra_body !== undefined ? input.extra_body : previous.extraBody), previous.extraBody);
     return {
         provider,
         anthropicAuthType: normalizeAnthropicAuthType(base.anthropicAuthType),
@@ -107,7 +202,9 @@ function normalizeSettings(input = {}, previous = {}) {
         outputCostPerMillionUsd: clampNumber(base.outputCostPerMillionUsd, DEFAULT_SETTINGS.outputCostPerMillionUsd, 0, 999),
         usdToCny: clampNumber(base.usdToCny, DEFAULT_SETTINGS.usdToCny, 0, 99),
         systemPrompt: String(base.systemPrompt || '').slice(0, 5000),
-        pptCopilotRules: String(base.pptCopilotRules || '').slice(0, 20000)
+        pptCopilotRules: String(base.pptCopilotRules || '').slice(0, 20000),
+        headers,
+        extraBody
     };
 }
 
@@ -182,7 +279,9 @@ function profileSettings(profile) {
 }
 
 function normalizeProfile(profile, index) {
-    const settings = normalizeSettings(profile);
+    const rawHeaders = profile && (profile.headers !== undefined ? profile.headers : (profile.headersCipher ? decryptJson(profile.headersCipher) : {}));
+    const rawExtraBody = profile && (profile.extraBody !== undefined ? profile.extraBody : (profile.extraBodyCipher ? decryptJson(profile.extraBodyCipher) : (profile.extra_body !== undefined ? profile.extra_body : {})));
+    const settings = normalizeSettings({ ...profile, headers: rawHeaders, extraBody: rawExtraBody });
     const fallbackId = index === 0 ? 'default' : crypto.randomUUID();
     return {
         id: String(profile && profile.id || fallbackId).slice(0, 100),
@@ -239,7 +338,19 @@ async function writeProfileStore(store) {
     const ids = withActiveIds({ ...store, profiles: store.profiles.map((profile, index) => ({ ...normalizeProfile(profile, index), locked: Boolean(profile.locked) })) });
     const active = ids.profiles.find(item => item.id === ids.activeProfileId) || ids.profiles[0];
     // 公共模型只是并入展示，绝不写进团队自己的库（否则团队能从自己的数据库里读到公共 API Key）
-    const own = ids.profiles.filter(profile => !isSharedId(profile.id)).map(({ locked, ...profile }) => (inDefaultTenant() ? profile : { ...profile, shared: false }));
+    const own = ids.profiles.filter(profile => !isSharedId(profile.id)).map(({ locked, ...profile }) => {
+        const p = inDefaultTenant() ? { ...profile } : { ...profile, shared: false };
+        const headersCipher = encryptJson(p.headers);
+        const extraBodyCipher = encryptJson(p.extraBody);
+        if (headersCipher) p.headersCipher = headersCipher;
+        else delete p.headersCipher;
+        if (extraBodyCipher) p.extraBodyCipher = extraBodyCipher;
+        else delete p.extraBodyCipher;
+        delete p.headers;
+        delete p.extraBody;
+        delete p.extra_body;
+        return p;
+    });
     const normalized = {
         version: 3,
         activeProfileId: active.id,
@@ -261,7 +372,17 @@ async function getRedactionSecrets() {
     const channelSecrets = await require('./channels/welink-config-repository').getSecrets().catch(() => []);
     // MCP 服务的环境变量与请求头（Token 等）同样不发给模型
     const mcpSecrets = await require('./agent-mcp').secrets().catch(() => []);
-    return [...new Set([...store.profiles.map(profile => runtimeSettings(profile).apiKey), ...channelSecrets, ...mcpSecrets].filter(Boolean))];
+    const headerSecrets = [];
+    for (const profile of store.profiles) {
+        if (profile.headers && typeof profile.headers === 'object') {
+            for (const val of Object.values(profile.headers)) {
+                if (typeof val === 'string' && val.trim().length >= 4) {
+                    headerSecrets.push(val.trim());
+                }
+            }
+        }
+    }
+    return [...new Set([...store.profiles.map(profile => runtimeSettings(profile).apiKey), ...headerSecrets, ...channelSecrets, ...mcpSecrets].filter(Boolean))];
 }
 
 function findProfile(store, profileId) {
@@ -292,6 +413,8 @@ function publicSettings(runtime) {
     const models = Array.isArray(runtime.models) && runtime.models.length
         ? runtime.models
         : [runtime.model].filter(Boolean);
+    const hasHeaders = Boolean(runtime.headers && typeof runtime.headers === 'object' && Object.keys(runtime.headers).length > 0);
+    const hasExtraBody = Boolean(runtime.extraBody && typeof runtime.extraBody === 'object' && Object.keys(runtime.extraBody).length > 0);
     return {
         provider: runtime.provider,
         anthropicAuthType: runtime.anthropicAuthType || 'ANTHROPIC_AUTH_TOKEN',
@@ -309,7 +432,9 @@ function publicSettings(runtime) {
         hasApiKey: runtime.hasApiKey,
         keyLooksValid: runtime.hasApiKey ? runtime.keyLooksValid : false,
         apiKeySource: runtime.apiKeySource,
-        maskedApiKey: maskApiKey(runtime.apiKey)
+        maskedApiKey: maskApiKey(runtime.apiKey),
+        hasHeaders,
+        hasExtraBody
     };
 }
 
@@ -375,7 +500,7 @@ async function buildRuntimeSettings(payload = {}) {
         const model = stored.models.includes(String(payload.model || '')) ? String(payload.model) : stored.model;
         return runtimeSettings({ ...stored, model });
     }
-    const current = await getStoredSettings(payload.profileId);
+    const current = payload.profileId ? await getStoredSettings(payload.profileId).catch(() => DEFAULT_SETTINGS) : DEFAULT_SETTINGS;
     const nextPayload = { ...payload };
     delete nextPayload.profileId;
     delete nextPayload.name;
@@ -528,6 +653,12 @@ async function saveSettings(payload = {}) {
     } else if (!Object.prototype.hasOwnProperty.call(payload, 'apiKey') || String(payload.apiKey || '').trim() === '') {
         nextPayload.apiKey = profile.apiKey;
     }
+    if (payload.clearHeaders || (payload.headers && typeof payload.headers === 'object' && Object.keys(payload.headers).length === 0)) {
+        nextPayload.headers = {};
+    }
+    if (payload.clearExtraBody || (payload.extraBody && typeof payload.extraBody === 'object' && Object.keys(payload.extraBody).length === 0) || (payload.extra_body && typeof payload.extra_body === 'object' && Object.keys(payload.extra_body).length === 0)) {
+        nextPayload.extraBody = {};
+    }
     const normalized = normalizeSettings(nextPayload, profile);
     if (normalized.apiKey && !isLikelyValidApiKey(normalized.apiKey)) {
         const error = new Error('API Token 格式疑似无效');
@@ -555,7 +686,11 @@ async function createProfile(payload = {}) {
     };
     const settings = normalizeSettings(payload, base);
     if ((!source || source.locked) && !Object.prototype.hasOwnProperty.call(payload, 'apiKey')) settings.apiKey = '';
-    if (source && source.locked) settings.apiKey = String(payload.apiKey || '').trim(); // 复制公共模型时不带走它的 Key
+    if (source && source.locked) {
+        settings.apiKey = String(payload.apiKey || '').trim(); // 复制公共模型时不带走它的 Key
+        if (!Object.prototype.hasOwnProperty.call(payload, 'headers')) settings.headers = {};
+        if (!Object.prototype.hasOwnProperty.call(payload, 'extraBody') && !Object.prototype.hasOwnProperty.call(payload, 'extra_body')) settings.extraBody = {};
+    }
     const requestedName = cleanProfileName(payload.name, source ? `${source.name} 副本` : defaultProfileName(settings));
     const category = payload.category === 'image' || payload.category === 'chat' ? payload.category : (source ? profileCategory(source) : 'chat');
     const profile = createProfileRecord(settings, uniqueProfileName(store.profiles, requestedName), crypto.randomUUID(), category);

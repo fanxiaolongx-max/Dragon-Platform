@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "tool": {
+    "slug": "tool-mu2t8wi3",
+    "name": "就餐统计(微信)",
+    "nameEn": "Meal Count Analyzer",
+    "icon": "🧩",
+    "description": "读取微信账单文件并按金额与开罗时间规则统计早餐、中餐、晚餐人数，支持多文件汇总及分文件明细导出。",
+    "descriptionEn": "Reads WeChat bill files and counts breakfast, lunch, and dinner participants based on amount and Cairo time rules, supporting multi-file summaries and separate detailed exports.",
+    "tags": [
+      "微信账单",
+      "就餐统计",
+      "Excel导出",
+      "时间分类"
+    ],
+    "href": "/tools/tool-mu2t8wi3",
+    "filePath": "/custom-tools/tool-mu2t8wi3/index.html",
+    "publicAccess": false,
+    "createdAt": "2026-09-15T15:12:16.779Z",
+    "updatedAt": "2026-11-10T16:08:25.899Z"
+  },
+  "history": null
+}

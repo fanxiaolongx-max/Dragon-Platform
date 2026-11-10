@@ -4,7 +4,7 @@
     const bridge=window.DragonBrowser;
     const L=(zh,en)=>/^en/.test(window.ToolsI18n?.getLanguage?.()||localStorage.getItem('tools_lang')||'')?en:zh;
     const esc=value=>String(value||'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-    let panel,surface,toggle,address,tabsNode,hint,image,status,statusBadge,statusTextNode,agentStatusNode,controlBox,textInput,operatorBanner,aiPointer;
+    let panel,surface,toggle,address,tabsNode,hint,image,status,statusBadge,statusTextNode,agentStatusNode,controlBox,textInput,operatorBanner,aiPresence,aiPointer;
     let menu='',menuSignature='',closedTabs=[],draggedTab=null,lastTheme='',pendingTab=null,tabSequence=0,tabScrollTimer=null,lastVisibleTab='';
     let intentUntil=0,lastActivity=0,activitySent=0,idleRelease=false;
     let open=false,connected=false,docked=false,raf=0,readingVisible=false,previousMenu=null;
@@ -269,11 +269,18 @@
         if(!operatorBanner||bridge)return;
         const manual=Boolean(manualToken),elsewhere=state.manual?.active&&!manual,ai=state.operator?.active;
         const show=ai||Boolean(state.operator?.handoff)||(Date.now()<intentUntil&&ai);
-        operatorBanner.hidden=!show||!state.available;operatorBanner.classList.toggle('is-manual',manual);
+        const aiActive=Boolean(ai&&state.available&&!manual&&!elsewhere);
+        aiPresence.classList.toggle('is-active',aiActive);
+        operatorBanner.hidden=!show||!state.available;operatorBanner.classList.toggle('is-ai',aiActive);
         const seconds=Math.max(0,Math.ceil(((state.operator?.expiresAt||lastActivity+5000)-Date.now())/1000));
-        operatorBanner.querySelector('span').textContent=manual?L(`你正在操作 · ${seconds} 秒后 AI 继续`,`You are in control · AI resumes in ${seconds}s`):elsewhere?L('其他窗口正在操作','Controlled in another window'):ai?L('AI 正在操作 · 暂停后可操作页面','AI is working · pause to interact'):L('页面由 AI 控制','AI controls this page');
+        const message=manual?L(`你正在操作 · ${seconds} 秒后 AI 继续`,`You are in control · AI resumes in ${seconds}s`):elsewhere?L('其他窗口正在操作','Controlled in another window'):ai?L('AI 正在操作 · 暂停后可操作页面','AI is working · pause to interact'):L('页面由 AI 控制','AI controls this page');
+        const statusLabel=operatorBanner.querySelector('span');
+        if(statusLabel.textContent!==message)statusLabel.textContent=message;
+        statusLabel.classList.toggle('browser-ai-status',aiActive);
         const button=operatorBanner.querySelector('button');button.textContent=manual?L('立即交还','Return to AI'):L('停止并接管','Stop and take control');button.disabled=busy||elsewhere;
         button.dataset.browser=manual?'return-ai':'stop-and-control';
+        button.classList.toggle('browser-ai-takeover',aiActive);
+        button.setAttribute('aria-label',button.textContent);
         const cursor=state.operator?.cursor;
         aiPointer.hidden=!ai||manual||!cursor||Date.now()-cursor.at>5000||image.hidden;
         if(!aiPointer.hidden){const r=image.getBoundingClientRect(),s=surface.getBoundingClientRect();aiPointer.style.left=`${r.left-s.left+cursor.x*r.width}px`;aiPointer.style.top=`${r.top-s.top+cursor.y*r.height}px`;}
@@ -467,7 +474,16 @@
         if(bridge&&['plugins','print','devtools','find-open'].includes(name)){menu='';renderMenu();layout();}
 
         if(name==='popout')name='external';
-        if(name==='external'){const url=state.url||state.tabs.find(tab=>tab.id===state.activeId)?.url;if(bridge)return bridge.action('external');if(/^https?:\/\//.test(url||''))window.open(url,'_blank','noopener,noreferrer');return;}
+        if(name==='external'){
+            if(panel?.classList.contains('is-swarm-canvas')&&window.DragonHtmlSwarm?.openInNewTab){
+                window.DragonHtmlSwarm.openInNewTab();
+                return;
+            }
+            const url=state.url||state.tabs.find(tab=>tab.id===state.activeId)?.url;
+            if(bridge)return bridge.action('external');
+            if(/^https?:\/\//.test(url||''))window.open(url,'_blank','noopener,noreferrer');
+            return;
+        }
         if(name==='new-tab')return createTab();
         if(bridge)return bridge.action(name);
         if(name==='upload')return panel.querySelector('[data-local-files]').click();
@@ -494,6 +510,7 @@
             }
         };
         panel.querySelector('.dc-browser-popup').append(controlBox);
+        aiPresence=document.createElement('div');aiPresence.className='browser-ai-presence';aiPresence.setAttribute('aria-hidden','true');aiPresence.innerHTML='<div class="browser-ai-halo"></div><div class="browser-ai-orb"><i></i></div>';surface.append(aiPresence);
         operatorBanner=document.createElement('div');operatorBanner.className='dc-browser-operator';operatorBanner.hidden=true;operatorBanner.setAttribute('role','status');operatorBanner.innerHTML='<span></span><button type="button" data-browser="stop-and-control"></button>';surface.append(operatorBanner);
         aiPointer=document.createElement('div');aiPointer.className='dc-browser-ai-pointer';aiPointer.hidden=true;aiPointer.innerHTML='<svg width="24" height="28" viewBox="0 0 24 28" aria-hidden="true"><path d="M2 2L20 17L12 18L8 26Z" fill="currentColor" stroke="white" stroke-width="2"/></svg><span>AI</span>';surface.append(aiPointer);
         setInterval(()=>{

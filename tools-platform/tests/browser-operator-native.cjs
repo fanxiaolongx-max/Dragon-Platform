@@ -13,7 +13,9 @@ app.whenReady().then(async()=>{
  const state=browser._internal.owners.get(owner),page=state.tabs.get(state.active),wc=host.getBrowserViews()[0].webContents;
  const running=browser.execute({owner},'browser_wait',{timeoutMs:30000});await until(()=>host.getBrowserViews().length===2);
  const overlay=host.getBrowserViews().find(view=>view.webContents!==wc);await until(()=>overlay.webContents.getURL().endsWith('operator-overlay.html')&&!overlay.webContents.isLoading());
- assert.match(await overlay.webContents.executeJavaScript('document.body.innerText'),/停止并接管/);
+ await until(()=>overlay.webContents.executeJavaScript('document.querySelector(".browser-ai-presence").classList.contains("is-active")'));
+ assert.equal(await overlay.webContents.executeJavaScript('document.querySelector("button").getAttribute("aria-label")'),'停止并接管');
+ assert.equal(await overlay.webContents.executeJavaScript('getComputedStyle(document.querySelector(".browser-ai-orb")).width'),'48px','the shared animation stylesheet loads in the native overlay');
  host.show();app.focus({steal:true});host.focus();overlay.webContents.focus();await wait(120);
  const button=await overlay.webContents.executeJavaScript('(()=>{const r=document.querySelector("button").getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}})()');
  overlay.webContents.sendInputEvent({type:'mouseDown',x:Math.round(button.x),y:Math.round(button.y),button:'left',clickCount:1});overlay.webContents.sendInputEvent({type:'mouseUp',x:Math.round(button.x),y:Math.round(button.y),button:'left',clickCount:1});
@@ -26,6 +28,9 @@ app.whenReady().then(async()=>{
  host.hide();await wait(5400);assert.equal(state.manual,null,'native five-second lease expires without heartbeat');
  const snap=await browser.execute({owner},'browser_snapshot');const ref=snap.content.match(/\[(e\d+)\] button "Click target"/)[1];
  const click=browser.execute({owner},'browser_click',{ref});await until(()=>host.getBrowserViews().length===2);
- await click;assert.equal(await wc.executeJavaScript('window.count'),1,'AI CDP bypasses the user-input shield and clicks once');await until(()=>host.getBrowserViews().length===1);
+ await click;assert.equal(await wc.executeJavaScript('window.count'),1,'AI CDP bypasses the user-input shield and clicks once');
+ assert.equal(host.getBrowserViews().length,2,'the native overlay remains attached during the exit transition');
+ await until(()=>overlay.webContents.executeJavaScript('document.querySelector("button").hidden&&!document.querySelector(".browser-ai-presence").classList.contains("is-active")'));
+ await until(()=>host.getBrowserViews().length===1);
  browser.shutdownAll();stack.destroy();host.destroy();server.close();clearTimeout(timeout);console.log('PASS: native input shield, forced stop, real mouse activity, five-second handback and AI cursor/click.');app.exit(0);
 }).catch(error=>{console.error(error);stack?.destroy();host?.destroy();server?.close();app.exit(1);});

@@ -8,6 +8,7 @@ const TAB_HEIGHT = 34;
 const TOOLBAR_HEIGHT = 40;
 const PANEL_HEIGHT = 240, FIND_HEIGHT = 38;
 const NOTICE_HEIGHT = 32;
+const OPERATOR_EXIT_MS = 480; // Allow the shared 440 ms exit transition to finish.
 const ZOOM_LEVELS = [.25, .33, .5, .67, .75, .8, .9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 5];
 
 function webUrl(value) {
@@ -20,7 +21,7 @@ function webUrl(value) {
 function createDragonBrowser({ onOpenAppUrl = () => false, partition, whenReady, getLanguage, getWorkArea, getLibrary = () => null, getDownloads = () => null, getExtensions = () => [], getCredentialStore = () => null, credentialOrigin = loginOrigin, isAppOrigin = () => false, onPageCreated = () => {}, onAction = () => {}, onVisibilityChange = () => {} }) {
     let win = null, tabs = [], activeId = null, attached = null, shown = false, sequence = 0, ready = false;
     let windowDrag = null;
-    let operatorView=null,sidebarTheme='light';
+    let operatorView=null,operatorExitTimer=null,sidebarTheme='light';
     function themePage(tab){
         const dark=sidebarTheme==='dark',color=dark?'#101114':'#ffffff';
         if(!tab||tab.page.webContents.isDestroyed())return;
@@ -62,20 +63,38 @@ function createDragonBrowser({ onOpenAppUrl = () => false, partition, whenReady,
         if (sidebarHost && !sidebarHost.isDestroyed()) sidebarHost.webContents.send('dragon-browser:state', snapshot);
     }
 
+    function detachOperator() {
+        clearTimeout(operatorExitTimer);operatorExitTimer=null;
+        if(operatorView&&attachedHost&&!attachedHost.isDestroyed())attachedHost.removeBrowserView(operatorView);
+        operatorView=null;
+    }
+
     function detach() {
-        if(operatorView&&attachedHost&&!attachedHost.isDestroyed())attachedHost.removeBrowserView(operatorView);operatorView=null;
+        detachOperator();
         if (attached && attachedHost && !attachedHost.isDestroyed()) attachedHost.removeBrowserView(attached);
         attached = null; attachedHost = null;
     }
 
     function layoutOperator(tab){
-        const wanted=tab?.operatorState?.active&&!tab?.operatorState?.manual;
-        if(operatorView&&(!wanted||operatorView!==tab.operatorView)){attachedHost?.removeBrowserView(operatorView);operatorView=null;}
-        if(!wanted||!attachedHost)return;
+        if(!tab||!attachedHost||attachedHost.isDestroyed())return;
+        if(operatorView&&operatorView!==tab.operatorView)detachOperator();
+        const state=tab.operatorState;
+        if(state?.manual){detachOperator();return;} // Give input back immediately on takeover.
+        if(!state?.active){
+            if(!operatorView)return;
+            operatorView.setBounds(tab.page.getBounds());
+            if(operatorView.webContents.isLoading()){detachOperator();return;}
+            if(!operatorExitTimer){
+                operatorView.webContents.send('dragon-browser:operator-state',state);
+                operatorExitTimer=setTimeout(detachOperator,OPERATOR_EXIT_MS);
+            }
+            return;
+        }
+        clearTimeout(operatorExitTimer);operatorExitTimer=null;
         if(!tab.operatorView){
             const view=new BrowserView({webPreferences:{preload:path.join(__dirname,'operator-preload.js'),contextIsolation:true,nodeIntegration:false,sandbox:true,backgroundThrottling:false}});
             view.setBackgroundColor('#00000000');tab.operatorView=view;
-            view.webContents.on('ipc-message',(event,channel,action)=>{if(event.senderFrame===view.webContents.mainFrame&&channel==='dragon-browser:operator-action'&&action==='takeover')tab.operatorAction?.(action);});
+            view.webContents.on('ipc-message',(event,channel,action)=>{if(event.senderFrame===view.webContents.mainFrame&&channel==='dragon-browser:operator-action'&&action==='takeover'&&operatorView===view&&tab.operatorState?.active&&!tab.operatorState.manual)tab.operatorAction?.(action);});
             view.webContents.setWindowOpenHandler(()=>({action:'deny'}));view.webContents.on('will-navigate',event=>event.preventDefault());
             view.webContents.on('did-finish-load',()=>{if(!view.webContents.isDestroyed())view.webContents.send('dragon-browser:operator-state',tab.operatorState);});
             view.webContents.loadFile(path.join(__dirname,'operator-overlay.html')).catch(()=>{});

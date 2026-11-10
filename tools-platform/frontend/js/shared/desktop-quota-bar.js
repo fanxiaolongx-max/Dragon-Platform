@@ -56,7 +56,9 @@
         const balance = source.creditsBalance;
         if (Number.isFinite(balance) && balance > 0) {
             const block = el('div', className), head = el('div', 'dqb-extra-head');
-            const amount = Math.floor(balance).toLocaleString(english() ? 'en-US' : 'zh-CN');
+            // 1 以上取整；不足 1 时保留两位小数（向下取），避免"有余额却显示 0"
+            const shown = balance >= 1 ? Math.floor(balance) : Math.floor(balance * 100) / 100;
+            const amount = shown > 0 ? shown.toLocaleString(english() ? 'en-US' : 'zh-CN', { maximumFractionDigits: 2 }) : '<0.01';
             head.append(el('span', 'dqb-extra-title', L('剩余充值额度', 'Remaining credits')),
                 el('span', 'dqb-extra-text', amount + ' credits'));
             block.append(head);

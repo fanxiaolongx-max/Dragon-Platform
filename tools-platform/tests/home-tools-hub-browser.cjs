@@ -2,6 +2,7 @@
 // Requirements embed audit: HOME_REQUIREMENTS_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Featured stability audit: HOME_FEATURED_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Skill sharing audit: HOME_SKILL_SHARING_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
+// Built-in icons audit: HOME_BUILTIN_ICONS_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Sidebar height audit: HOME_SIDEBAR_HEIGHT_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Workspace scope audit: HOME_WORKSPACE_SCOPE_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Collapsed sidebar peek audit: HOME_SIDE_PEEK_AUDIT=1 [HOME_SIDE_PEEK_SHOT=/path/prefix] [DESKTOP_DRAG_AUDIT=1 DRAG_PLATFORM=darwin|win32] node_modules/.bin/electron tests/home-tools-hub-browser.cjs
@@ -18,6 +19,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path'), express = require('express');
 const root = path.join(__dirname, '..'), frontend = path.join(root, 'frontend');
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'home-composer-'));
+const builtinIconsAudit = process.env.HOME_BUILTIN_ICONS_AUDIT;
 app.setPath('userData', path.join(temp, 'profile')); app.disableHardwareAcceleration();
 let win, server, prefs = { lastDirectory: '', recentDirectories: ['/fixture/privacy-policy', '/fixture/reports'], permissionMode: 'ask' };
 let rejectPermission = false, enhanceMode = 'normal', enhanceCalls = [], sessionPages = 0, scanExtranet = false, welinkLogins = 0;
@@ -50,7 +52,34 @@ app.whenReady().then(async () => {
     web.get('/js/home/skill-hub.js', (_, res, next) => delayHubScript ? setTimeout(next, 400) : next());
     web.get('/requirements', (_, res) => res.type('html').send(require('../backend/models/asset-versioning').injectPlatformTheme(fs.readFileSync(path.join(frontend,'pages/requirements.html'),'utf8'),{toolPath:'pages/requirements.html'})));
     web.get('/api/requirements', (_, res) => res.json([]));
-    web.get('/api/custom-tools', (_, res) => res.json([]));
+    const promoted = new Set();
+    web.get('/api/custom-tools', (_, res) => res.json(builtinIconsAudit ? [{
+        slug: 'fixture-tool', name: 'Fixture tool with a deliberately long card title', href: '/tools/fixture-tool', hostedApp: true, builtIn: promoted.has('tool')
+    }] : []));
+    if (builtinIconsAudit) {
+        web.get('/api/agent-skills', (_, res) => res.json({ items: [
+            { id: 'fixture-skill', name: 'Fixture skill with a deliberately long card title', builtIn: promoted.has('skill') },
+            ...['one', 'two', 'three'].map(id => ({ id, name: id, builtIn: true }))
+        ] }));
+        web.get('/api/home/capabilities', (_, res) => res.json({ groups: [
+            { kind: 'f12', label: 'F12', where: 'F12 Extension Packager', href: '/tools/f12-to-extension', items: [
+                { id: 'f12:server:fixture-f12', name: 'Fixture F12 with a deliberately long card title', kind: 'f12', builtIn: promoted.has('f12') },
+                { id: 'f12:builtin:fixture-plugin', name: 'Fixture plugin', kind: 'f12', builtIn: true }
+            ] },
+            { kind: 'python', label: 'Python', where: 'Python Script Updater', href: '/tools/python-updater', items: [
+                { id: 'python:fixture-python', name: 'Fixture Python with a deliberately long card title', kind: 'python', builtIn: promoted.has('python') }
+            ] },
+            { kind: 'float', label: 'Floating scripts', where: 'Data Capture', href: '/uivf12', items: [
+                { id: 'float:fixture', name: 'Fixture panel', kind: 'float' }
+            ] }
+        ] }));
+        web.all('/api/builtin-promotion/:kind/:id', (req, res) => {
+            if (req.method === 'POST') promoted.add(req.params.kind);
+            else if (req.method === 'DELETE') promoted.delete(req.params.kind);
+            else return res.sendStatus(405);
+            res.json({ success: true });
+        });
+    }
     web.get('/api/auth/me', (_, res) => res.json({ username: 'fixture', role: 'admin', tenantId: 'default', isSuper: scanSuperAdmin }));
     web.get('/api/app-version', (_, res) => res.json({ version: 'fixture' }));
     web.get('/api/tenants', (_, res) => res.json({ tenants: [{ id: 'default', name: '默认租户' }], activeTenantId: 'default' }));
@@ -123,6 +152,77 @@ app.whenReady().then(async () => {
     await win.loadURL(`http://127.0.0.1:${server.address().port}/`);
 
     await until('window.HomeSkillHub&&document.querySelector("[data-v2-mode=tools]")&&document.getElementById("v2SkillHub")');
+    if (builtinIconsAudit) {
+        await until(`localStorage.getItem('tools_super') === '1'`);
+        await evaluate(`AppDialog.confirm=async()=>true;window.showToast=()=>{};void 0`);
+        const legendSources = `[...document.querySelectorAll('.v2-hub-featured .v2-hub-source-legend [data-src]')].map(dot=>dot.dataset.src)`;
+        for (const [tab, kind, id, key, builtInKey] of [
+            ['tools', 'tool', 'fixture-tool', 'tool:custom:fixture-tool', 'tool:sla'],
+            ['skills', 'skill', 'fixture-skill', 'skill:fixture-skill', 'skill:one'],
+            ['plugins', 'f12', 'fixture-f12', 'cap:f12:f12:server:fixture-f12', 'cap:f12:f12:builtin:fixture-plugin'],
+            ['plugins', 'python', 'fixture-python', 'cap:python:python:fixture-python', 'cap:f12:f12:builtin:fixture-plugin']
+        ]) {
+            await evaluate(`HomeSkillHub.open('${tab}')`);
+            const icons = key => `[data-hub-key="${key}"] .v2-hub-icon`;
+            const fixture = icons(key);
+            const glows = selector => `[...document.querySelectorAll('${selector}')].map(icon=>getComputedStyle(icon).boxShadow!=='none')`;
+            await until(`!!document.querySelector('${fixture}') && !!document.querySelector('${icons(builtInKey)}')`);
+            assert.match(await evaluate(`document.querySelector('[data-hub-shared-legend]:not([hidden])').textContent`), /卡片外框全员开放/);
+            const sources = { skills: ['builtin', 'chat', 'import', 'external'], plugins: ['builtin', 'custom', 'float'], tools: ['builtin', 'shared', 'custom'] };
+            assert.deepEqual(await evaluate(legendSources), sources[tab]);
+            const cardSource = key => `document.querySelector('.v2-hub-grid [data-hub-key="${key}"] strong .skill-src-dot')?.dataset.src`;
+            const customSource = tab === 'skills' ? 'chat' : 'custom';
+            assert.equal(await evaluate(cardSource(key)), customSource);
+            assert.equal(await evaluate(cardSource(builtInKey)), 'builtin');
+            const card = `document.querySelector('.v2-hub-grid [data-hub-key="${key}"]')`;
+            await until(`!!${card}.querySelector('.skill-name-track.is-long')`);
+            const geometry = await evaluate(`(()=>{
+                const card = ${card}, rect = selector => card.querySelector(selector).getBoundingClientRect();
+                const text = card.querySelector('.skill-name-text'), animation = text.getAnimations()[0];
+                animation.pause();
+                animation.currentTime = 0;
+                const start = text.getBoundingClientRect().left, dot = rect('strong .skill-src-dot');
+                animation.currentTime = animation.effect.getTiming().duration * 0.9;
+                return { track: rect('.skill-name-track').right, dotLeft: dot.left, dotRight: dot.right, dotEnd: rect('strong .skill-src-dot').left,
+                    action: rect('.v2-hub-use').left, textShift: start - text.getBoundingClientRect().left };
+            })()`);
+            assert.ok(geometry.track <= geometry.dotLeft && geometry.dotRight < geometry.action, `indicator sits between the title and action: ${JSON.stringify(geometry)}`);
+            assert.equal(geometry.dotLeft, geometry.dotEnd, 'indicator stays still while the title scrolls');
+            assert.ok(geometry.textShift > 0, 'long title scrolls inside its track');
+            if (tab === 'skills') {
+                win.setContentSize(700, 900);
+                await until(`!${card}.querySelector('.skill-name-track.is-long')`);
+                win.setContentSize(1440, 900);
+                await until(`!!${card}.querySelector('.skill-name-track.is-long')`);
+            }
+            assert.ok((await evaluate(glows(fixture))).every(value => !value));
+            assert.ok((await evaluate(glows(icons(builtInKey)))).every(Boolean));
+            assert.equal(await evaluate(`BuiltinPromotion.toggle('${kind}','${id}')`), true);
+            await until(`${glows(fixture)}.length>0 && ${glows(fixture)}.every(Boolean)`);
+            assert.equal(await evaluate(cardSource(key)), 'builtin');
+            assert.equal(await evaluate(`BuiltinPromotion.toggle('${kind}','${id}',{builtIn:true})`), true);
+            await until(`${glows(fixture)}.length>0 && ${glows(fixture)}.every(value=>!value)`);
+            assert.equal(await evaluate(cardSource(key)), customSource);
+        }
+        win.setContentSize(390, 900);
+        await evaluate(`document.documentElement.dataset.theme='dark'; ToolsI18n.setLanguage('en-US')`);
+        assert.equal(await evaluate(`document.querySelector('.v2-hub-grid .v2-hub-icon.is-built-in').title`), 'Built-in');
+        assert.equal(await evaluate(`document.querySelector('[data-hub-key="cap:float:float:fixture"] .v2-hub-icon').classList.contains('is-built-in')`), false);
+        assert.equal(await evaluate(`document.querySelector('[data-hub-key="cap:float:float:fixture"] strong .skill-src-dot').title`), 'Floating scripts');
+        await capture('built-in-icons');
+        await evaluate(`HomeSkillHub.open('skills')`);
+        assert.match(await evaluate(`document.querySelector('.v2-hub-featured .v2-hub-source-legend').textContent`), /Created in chat/);
+        assert.equal(await evaluate(`document.querySelector('.home-main').scrollWidth <= document.querySelector('.home-main').clientWidth`), true);
+        await capture('skill-legend-narrow');
+        win.setContentSize(1440, 900);
+        await evaluate(`document.documentElement.dataset.theme='light'; ToolsI18n.setLanguage('zh-CN')`);
+        await capture('skill-legend-wide');
+        await evaluate(`const first = HomeSkills.items()[0]; HomeSkills.items=()=>[first]; localStorage.setItem('tools_super','0'); HomeSkillHub.open('skills');void 0`);
+        assert.equal(await evaluate(`document.querySelector('[data-hub-shared-legend]').hidden`), true);
+        assert.equal(await evaluate(`document.querySelectorAll('.v2-hub-source-fallback:not([hidden]) .skill-src-dot').length`), 4);
+        console.log('PASS: built-in icons update after promotion and demotion; card and skill-source legends, super-admin visibility, and narrow bilingual layout. '+temp);
+        win.destroy();server.close();app.exit(0);return;
+    }
     if (process.env.HOME_SKILL_SHARING_AUDIT) {
         const skillCard = '[data-hub-key="skill:project-map"]';
         const sharedCount = `document.querySelectorAll('${skillCard}.is-shared-access').length`;
@@ -765,8 +865,9 @@ app.whenReady().then(async () => {
     if (process.env.DESKTOP_DRAG_AUDIT) {
         await until('!!document.querySelector(".desktop-drag-hub")');
         const region = selector => evaluate(`getComputedStyle(document.querySelector(${JSON.stringify(selector)})).getPropertyValue('-webkit-app-region')`);
-        for (const width of [1440, 1000, 600]) {
+        for (const width of [1440, 1000, 900, 600]) {
             win.setSize(width,900);
+            await evaluate(`ToolsI18n.setLanguage('${width === 900 ? 'en-US' : 'zh-CN'}');document.documentElement.dataset.theme='${width === 900 ? 'dark' : 'light'}'`);
             for (const collapsed of [false,true]) {
                 await evaluate(`document.body.classList.toggle('v2-side-collapsed',${collapsed})`);
                 for (const tab of ['skills','plugins','tools']) {
@@ -779,7 +880,13 @@ app.whenReady().then(async () => {
                     assert.equal(await region('.v2-hub-search input'),'no-drag');
                     assert.equal(await region('[data-hub-tab]'),'no-drag');
                     assert.equal(await region('[data-hub-do="addMenu"]'),'no-drag');
-                    if(!collapsed)assert.ok(await evaluate(`(()=>{const b=document.querySelector('#v2SideToggle'),r=b.getBoundingClientRect();return b.contains(document.elementFromPoint(r.x+r.width/2,r.top+1))})()`),'sidebar button upper edge remains clickable');
+                    if(tab==='tools'){
+                        const edges=await evaluate(`(()=>{const rect=selector=>document.querySelector(selector).getBoundingClientRect();
+                            return {add:rect('[data-hub-do="addMenu"]').right,sort:rect('.v2-hub-sort').right,grid:rect('.v2-hub-grid').right,actionsTop:rect('.v2-hub-actions').top,captionBottom:document.querySelector('.desktop-controls')?.getBoundingClientRect().bottom||0};})()`);
+                        assert.ok(Math.abs(edges.add-edges.grid)<1&&Math.abs(edges.sort-edges.grid)<1,'tools actions and sort align with the grid at '+width+'px: '+JSON.stringify(edges));
+                        assert.ok(edges.actionsTop>=edges.captionBottom,'tool actions stay below window controls');
+                    }
+                    if(!collapsed&&width>860)assert.ok(await evaluate(`(()=>{const b=document.querySelector('#v2SideToggle'),r=b.getBoundingClientRect();return b.contains(document.elementFromPoint(r.x+r.width/2,r.top+1))})()`),tab+' sidebar button upper edge remains clickable at '+width+'px');
                 }
             }
         }
@@ -792,7 +899,7 @@ app.whenReady().then(async () => {
         await evaluate('HomeToolFrame.close();document.body.classList.add("dc-chatting")');
         assert.equal(await region('.dc-chat-head'),'drag');
         await capture('desktop-drag');
-        console.log('PASS: desktop hub drag gutters for skills/plugins/tools at 1440/1000/600px, expanded/collapsed sidebar; controls excluded; tool and chat headers draggable. '+temp);
+        console.log('PASS: desktop hub drag gutters and right-aligned tool actions at 1440/1000/900/600px, expanded/collapsed sidebar; controls excluded; tool and chat headers draggable. '+temp);
         win.destroy();server.close();app.exit(0);return;
     }
     const assertTools=async()=>{
@@ -832,11 +939,24 @@ app.whenReady().then(async () => {
     await evaluate('location.hash=""');await until('!HomeSkillHub.isOpen()');
     await evaluate('location.hash="tools"');await assertTools();
     await evaluate('HomeSkillHub.close()');assert.equal(await evaluate('location.hash'),'');
+    win.show();app.focus({steal:true});win.focus();win.webContents.focus();
+    await until('document.hasFocus()');
     for(const [width,theme,language] of [[1440,'dark','zh-CN'],[390,'light','en-US']]){
         win.setContentSize(width,1000);await wait(100);
         await evaluate(`document.documentElement.dataset.theme='${theme}';ToolsI18n.setLanguage('${language}');HomeMode.set('tools')`);
         if(width===390)await evaluate('document.getElementById("v2SideToggle").click()');
         await assertTools();assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true);
+        await evaluate(`document.querySelector('[data-hub-tab="tools"]').focus()`);
+        win.webContents.sendInputEvent({type:'keyDown',keyCode:'Tab'});
+        win.webContents.sendInputEvent({type:'keyUp',keyCode:'Tab'});
+        await until(`document.activeElement.matches('.v2-hub-search input')`);
+        const focus = await evaluate(`(()=>{
+            const input = document.querySelector('.v2-hub-search input');
+            const field = getComputedStyle(input), wrapper = getComputedStyle(input.parentElement);
+            return { visible: input.matches(':focus-visible'), style: field.outlineStyle, innerRadius: field.borderRadius, outerRadius: wrapper.borderRadius };
+        })()`);
+        assert.ok(focus.visible && focus.style === 'solid' && focus.innerRadius === focus.outerRadius && parseFloat(focus.innerRadius) > 0,
+            'the search focus outline follows the outer radius at '+width+'px: '+JSON.stringify(focus));
         await capture('tools-hub-'+width+'-'+theme);
     }
     assert.deepEqual(await evaluate('fixtureErrors'),[]);

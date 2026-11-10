@@ -86,9 +86,11 @@ window.addEventListener('wheel', event => {
     const language=()=>state?.lang==='en-US';
     function render(){
         if(!document.documentElement)return;
+        const handoff=state?.manual&&state?.handoff&&state?.expiresAt;
+        if(!host&&!handoff)return;
         if(!host){host=document.createElement('div');host.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:2147483647';root=host.attachShadow({mode:'closed'});root.innerHTML='<style>:host{all:initial}.note{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);padding:11px 17px;border:1px solid transparent;border-radius:18px;background:linear-gradient(#fffffff2,#fffffff2) padding-box,linear-gradient(110deg,#7c3aed,#38bdf8,#2dd4bf,#f472b6) border-box;box-shadow:0 4px 24px #7c3aed26;color:#172033;font:12px system-ui;backdrop-filter:blur(16px)}@media(prefers-color-scheme:dark){.note{background:linear-gradient(#182033f0,#182033f0) padding-box,linear-gradient(110deg,#7c3aed,#38bdf8,#2dd4bf,#f472b6) border-box;color:#eef2ff}}</style><div class="note" role="status"></div>';document.documentElement.append(host);}
-        host.hidden=!state?.manual||!state?.handoff||!state?.expiresAt;
-        if(!host.hidden){const seconds=Math.max(0,Math.ceil((state.expiresAt-Date.now())/1000));root.querySelector('.note').textContent=language()?`You are in control · AI resumes in ${seconds}s`:`你正在操作 · ${seconds} 秒后 AI 继续`;}
+        host.style.display=handoff?'':'none';
+        if(handoff){const seconds=Math.max(0,Math.ceil((state.expiresAt-Date.now())/1000));root.querySelector('.note').textContent=language()?`You are in control · AI resumes in ${seconds}s`:`你正在操作 · ${seconds} 秒后 AI 继续`;}
     }
     ipcRenderer.on('dragon-browser:operator-state',(_event,value)=>{state=value;render();});
     for(const type of ['pointerdown','pointermove','keydown','wheel','touchstart'])document.addEventListener(type,event=>{

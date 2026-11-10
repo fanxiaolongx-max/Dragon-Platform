@@ -1,0 +1,144 @@
+.browser-ai-presence {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.browser-ai-halo {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 440ms ease;
+    /* Fade inward from each edge so the page content stays clear. */
+    mask-image: linear-gradient(#000 0, transparent 12px),
+        linear-gradient(0deg, #000 0, transparent 12px),
+        linear-gradient(90deg, #000 0, transparent 12px),
+        linear-gradient(270deg, #000 0, transparent 12px);
+}
+
+.browser-ai-halo::before,
+.browser-ai-halo::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: conic-gradient(from 32deg, #48d9ff, #686aff, #e362df, #5299ff, #50e1c8, #48d9ff);
+}
+
+.browser-ai-halo::after {
+    background: conic-gradient(from 155deg, #48d9ff, #686aff, #e362df, #5299ff, #50e1c8, #48d9ff);
+    animation: browser-ai-ribbon 4s ease-in-out infinite alternate paused;
+}
+
+.browser-ai-orb,
+button.browser-ai-takeover {
+    position: absolute;
+    left: 50%;
+    bottom: 16px;
+    width: 48px;
+    height: 48px;
+    transform: translateX(-50%);
+    border-radius: 50%;
+}
+
+.browser-ai-orb {
+    overflow: hidden;
+    isolation: isolate;
+    background: radial-gradient(circle at 43% 29%, #3942a8, #161951 58%, #0e113b);
+    box-shadow: 0 3px 18px #4538c46b, 0 1px 6px #15225155;
+    opacity: 0;
+    transform: translate(-50%, 74px) scale(.86);
+    transition: transform 440ms cubic-bezier(.46, .04, .89, .53), opacity 440ms ease-in;
+}
+
+.browser-ai-orb::before,
+.browser-ai-orb::after {
+    content: "";
+    position: absolute;
+    inset: -24%;
+    background: radial-gradient(ellipse at 33% 51%, #b6f8ff 2%, #32e0f6 12%, transparent 39%),
+        radial-gradient(ellipse at 60% 29%, #f6a0ff 2%, #bc4fff 20%, transparent 44%),
+        radial-gradient(ellipse at 65% 67%, #5d8dff 5%, #4854f4 23%, transparent 43%);
+    animation: browser-ai-flow 5s linear infinite paused;
+}
+
+.browser-ai-orb::after {
+    inset: -17%;
+    background: radial-gradient(ellipse at 67% 29%, #ecffff 2%, #50c6ff 13%, transparent 36%),
+        radial-gradient(ellipse at 38% 66%, #ffb5e7 2%, #dc65ee 16%, transparent 37%);
+    mix-blend-mode: screen;
+    opacity: .82;
+    animation: browser-ai-flow 3.8s linear infinite reverse paused;
+}
+
+.browser-ai-orb > i {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+    background: radial-gradient(ellipse at 36% 15%, #fff9, transparent 45%);
+    box-shadow: inset 0 0 0 1px #fff6, inset 0 -4px 10px #110b5366;
+}
+
+.browser-ai-presence.is-active .browser-ai-halo { opacity: .32; }
+.browser-ai-presence.is-active .browser-ai-orb {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+    transition: transform 460ms cubic-bezier(.18, .85, .29, 1), opacity 300ms ease-out;
+}
+.browser-ai-presence.is-active .browser-ai-halo::after,
+.browser-ai-presence.is-active .browser-ai-orb::before,
+.browser-ai-presence.is-active .browser-ai-orb::after { animation-play-state: running; }
+
+.browser-ai-status {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+button.browser-ai-takeover {
+    z-index: 5;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #fff;
+    cursor: pointer;
+    font-size: 0;
+}
+
+button.browser-ai-takeover:hover { background: transparent; }
+
+button.browser-ai-takeover:hover::after,
+button.browser-ai-takeover:focus-visible::after {
+    content: attr(aria-label);
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 8px);
+    transform: translateX(-50%);
+    border-radius: 8px;
+    padding: 6px 10px;
+    background: #182033;
+    color: white;
+    font: 600 12px system-ui;
+    white-space: nowrap;
+}
+
+button.browser-ai-takeover:focus-visible { outline: 2px solid #6579ff; outline-offset: 3px; }
+
+@keyframes browser-ai-flow { to { transform: rotate(1turn); } }
+@keyframes browser-ai-ribbon { from { opacity: 0; } to { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+    .browser-ai-halo::after,
+    .browser-ai-orb::before,
+    .browser-ai-orb::after { animation: none; }
+    .browser-ai-presence .browser-ai-orb,
+    .browser-ai-presence.is-active .browser-ai-orb {
+        transform: translateX(-50%);
+        transition: opacity 440ms ease;
+    }
+}

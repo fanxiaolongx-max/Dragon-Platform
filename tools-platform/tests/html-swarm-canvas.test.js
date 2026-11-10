@@ -96,3 +96,57 @@ test('html-swarm-canvas uses paced smooth reveal and real wireframe drafting wit
     assert.match(swarmJs, /streamTargetCode/);
     assert.match(swarmJs, /revealedCode/);
 });
+
+test('swarm palettes stay small: three tones per page mode, a handful of sets, one picked per drawing', () => {
+    const swarmJs = fs.readFileSync(path.join(rootDir, 'frontend/js/home/html-swarm-canvas.js'), 'utf8');
+    const context = vm.createContext({
+        window: {}, document: {}, localStorage: { getItem: () => 'zh-CN' },
+        performance: { now: () => 0 }, requestAnimationFrame: () => 1, cancelAnimationFrame() {}, setTimeout, clearTimeout
+    });
+    context.window.window = context.window;
+    vm.runInContext(swarmJs, context);
+    const palettes = context.window.DragonHtmlSwarm.palettes;
+
+    assert.ok(palettes.length >= 3 && palettes.length <= 6, 'a few curated sets, not a rainbow');
+    for (const palette of palettes) {
+        for (const tones of [palette.dark, palette.light]) {
+            assert.equal(tones.length, 3, `${palette.id} uses exactly three tones`);
+            tones.forEach(tone => assert.match(tone, /^#[0-9A-Fa-f]{6}$/));
+        }
+    }
+    // Pantone 2026 年度色 Cloud Dancer 作为深色页面上的中性色
+    assert.ok(palettes.some(palette => palette.dark.includes('#F0EEE9')));
+    // 指针不再各自写死颜色，也不再有十种高饱和色
+    assert.doesNotMatch(swarmJs, /glow:\s*'rgba/);
+    assert.match(swarmJs, /pickPalette\(\)/);
+    assert.match(swarmJs, /minJerk/);
+});
+
+test('sidebar resize handle sits above the swarm stage so the whole left edge is draggable', () => {
+    const sidebarCss = fs.readFileSync(path.join(rootDir, 'frontend/css/browser-sidebar.css'), 'utf8');
+    const swarmCss = fs.readFileSync(path.join(rootDir, 'frontend/css/html-swarm-canvas.css'), 'utf8');
+    const handleZ = Number(/\.dc-sidebar-resize\{[^}]*z-index:(\d+)/.exec(sidebarCss)[1]);
+    const stageZ = Number(/\.dc-swarm-stage \{[^}]*z-index: (\d+)/.exec(swarmCss)[1]);
+    assert.ok(handleZ > stageZ, `handle z-index ${handleZ} must exceed stage z-index ${stageZ}`);
+});
+
+test('swarm stage eliminates fake placeholder cards and activates cursors only on real DOM tree mount', () => {
+    const swarmJs = fs.readFileSync(path.join(rootDir, 'frontend/js/home/html-swarm-canvas.js'), 'utf8');
+    const swarmCss = fs.readFileSync(path.join(rootDir, 'frontend/css/html-swarm-canvas.css'), 'utf8');
+
+    // 严禁包含编造的假结构卡片与假槽位
+    assert.doesNotMatch(swarmJs, /data-bp-slot/);
+    assert.doesNotMatch(swarmJs, /hero-metric/);
+    assert.doesNotMatch(swarmJs, /glass-card/);
+    assert.doesNotMatch(swarmJs, /visual-chart/);
+    assert.doesNotMatch(swarmJs, /interactive-viewport/);
+    assert.doesNotMatch(swarmCss, /\.dc-swarm-bp-grid/);
+    assert.doesNotMatch(swarmCss, /\.dc-swarm-bp-card/);
+
+    // 必须仅在真实 DOM 框架挂载后才开启绘制计划并对准真实 DOM 元素
+    assert.match(swarmJs, /onRealDomReady/);
+    assert.match(swarmJs, /planningAllowed\s*=\s*\(\)\s*=>\s*state\.bodyReady/);
+    assert.match(swarmJs, /\.dc-swarm-scaffold/);
+    assert.match(swarmCss, /\.dc-swarm-scaffold/);
+    assert.match(swarmCss, /\.dc-swarm-scaffold-card/);
+});

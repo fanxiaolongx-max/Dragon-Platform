@@ -1,14 +1,18 @@
 {
   "zh": [
-    "新增「保险箱」（全局设置 › 保险箱）：每个账号一份只属于自己的网站账号密码，管理员也看不到别人的；密码加密保存，查看明文需再输入一次平台登录密码。",
-    "Dragon 浏览器登录即保存、再访问自动登录：不论是手动打开、点工具里的「Dragon 浏览器」按钮还是 AI 操作，登录时自动存入保险箱，下次打开登录页自动填写并登录；可按账号关闭自动填写 / 自动登录，或设为该站点不保存。桌面版原先只支持 NetCare、DataFab，现在对所有站点生效，旧的本机密码会自动迁入保险箱。",
-    "AI 可以用保险箱代你登录但看不到密码：新增 browser_login 工具，密码由浏览器直接填进网页，不进入对话和模型；只在保存时的那个站点上填写，登录请求等浏览器结果里的密码会被抹掉。",
-    "优化 Windows 下命令执行与路径引号兼容：cmd.exe 自动保留路径与参数的双引号，修复 PowerShell 脚本和含空格路径的参数传递问题；新增批量文件/目录变更后的主动核验机制。"
+    "重做「AI 指针群」协同绘制体验：彻底移除虚构组件占位卡片，改为真实搭建中（Scaffolding）代码遮罩与实时元素高亮；指针全程紧贴真实 DOM 节点协同作业。右上角新增「在新标签页打开」独立预览按钮，随时全屏沉浸式调试。",
+    "分屏与模型菜单体验优化：左下角模型切换弹窗在右侧宽屏浏览器展开等极窄分屏场景下自适应收窄并防切断出界；选项超长模型名自动截断，Hover 或 Focus 时平滑走马灯滚动。",
+    "工具中心细化来源标识与图例：工具卡片右上角指示灯与图例区分为「内置（绿色）」、「全员共享（青蓝色）」与「自定义（紫色）」，从管理员开放或工具市场同步的工具显示为全员共享，归属更加一目了然。",
+    "AI 用量趋势与额度展示优化：全局导航栏的 Token 与成本趋势面板默认折叠，支持手动随时展开；额度不足 1 credit 时保留两位小数，避免显示为 0。",
+    "AI 供应商高级设置强化：支持为模型配置自定义请求头与附加请求体（extraBody），敏感头过滤并采用 AES-GCM 强加密存储，保护私有凭据安全。",
+    "Dragon 浏览器在 AI 操作网页时新增边缘光晕与状态提示，左边缘支持整条拖拽调宽，随时接管手动操作。"
   ],
   "en": [
-    "New Vault (Settings › Vault): every account gets its own private set of website logins that administrators cannot see; passwords are encrypted and viewing one requires your platform password again.",
-    "Dragon browser saves on sign-in and signs in next time: whether you open a site yourself, from a tool's Dragon browser button, or the AI does it, logins are saved to your vault and sign-in pages are filled and submitted automatically. Auto-fill and auto sign-in can be turned off per login, or a site set to never save. The desktop app, previously limited to NetCare and DataFab, now covers every site and migrates passwords saved on the machine.",
-    "The AI can sign in for you without seeing the password: a new browser_login tool has the browser fill the page directly, never through the chat or the model, only on the exact site the login was saved for, with passwords masked in anything the browser returns.",
-    "Improve Windows command execution and quoted path compatibility: preserve double quotes in cmd.exe arguments to fix PowerShell invocations and paths with spaces; add verification for batch file and folder operations."
+    "Rebuilt the AI cursor swarm experience: eliminated synthetic placeholder cards in favor of authentic code scaffolding, with cursors snapping strictly to real mounted DOM nodes. Added an 'Open in new tab' button to inspect live web prototypes in a separate browser tab.",
+    "Responsive model picker improvements: the bottom-left model switch popover now adaptively narrows and clamps to viewport bounds in tight split-screen views; long model names are truncated with ellipsis and smoothly marquee on hover or focus.",
+    "Refined tool source indicators in the Hub: card status dots and legends now distinguish 'Built-in (green)', 'Shared (cyan)', and 'Custom (purple)', accurately classifying tools distributed by admins or synced from the catalog as shared.",
+    "AI usage trend and quota improvements: the token and cost trend panel in the navbar is now collapsed by default and can be toggled open; credit balances under 1 credit retain decimal precision to prevent showing 0.",
+    "Secure AI provider options: support custom request headers and extraBody parameters with sensitive header sanitization and AES-GCM encrypted persistence.",
+    "Dragon browser AI presence: added edge glowing and real-time status indication during automated browsing, with a full-height draggable left border and one-click manual takeover."
   ]
 }
