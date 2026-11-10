@@ -404,13 +404,12 @@
                     chart.append(svgEl('path', { d: segment.d, fill: 'none', stroke: color, 'stroke-width': 2.5, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
                 }
                 segment.points.forEach((point, pIdx) => {
-                    const isSingle = segment.points.length === 1;
-                    const isLast = pIdx === segment.points.length - 1;
+                    const isSingle = all.length === 1;
                     const titleText = seriesLabel(state.provider, s) + '\n' + time(point.at) + '\n' + tr('剩余 ', 'Remaining ') + Math.round(point.remaining) + '%' + (point.resetsAt ? '\n' + tr('重置：', 'Resets: ') + time(point.resetsAt) : '');
-                    if (isSingle || isLast) {
+                    if (isSingle) {
                         const tipDot = svgEl('circle', {
                             cx: point.x, cy: point.y,
-                            r: isSingle ? 3.5 : 3,
+                            r: 3.5,
                             fill: color,
                             stroke: 'var(--surface, #101113)',
                             'stroke-width': 1.5,

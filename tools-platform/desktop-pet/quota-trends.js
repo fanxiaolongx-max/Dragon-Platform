@@ -74,11 +74,10 @@
                     chart.appendChild(svg('path',{d:segment.d,fill:'none',stroke:color,'stroke-width':2.5,'stroke-linecap':'round','stroke-linejoin':'round'}));
                 }
                 segment.points.forEach((point, pIdx) => {
-                    const isSingle = segment.points.length === 1;
-                    const isLast = pIdx === segment.points.length - 1;
+                    const isSingle = all.length === 1;
                     const titleText = label(s)+'\n'+date(point.at)+'\n'+tr('剩余 ','Remaining ')+Math.round(point.remaining)+'%'+(point.resetsAt?'\n'+tr('重置：','Resets: ')+date(point.resetsAt):'');
-                    if (isSingle || isLast) {
-                        const tipDot = svg('circle',{cx:point.x,cy:point.y,r:isSingle?3.5:3,fill:color,stroke:'var(--card, #163742)','stroke-width':1.5,class:'trend-endpoint'});
+                    if (isSingle) {
+                        const tipDot = svg('circle',{cx:point.x,cy:point.y,r:3.5,fill:color,stroke:'var(--card, #163742)','stroke-width':1.5,class:'trend-endpoint'});
                         tipDot.appendChild(svg('title',{},titleText));
                         chart.appendChild(tipDot);
                     }
@@ -90,7 +89,7 @@
             const legend=document.createElement('span'),mark=document.createElement('i');mark.style.background=color;legend.append(mark,document.createTextNode(label(s)));$('legend').appendChild(legend);
         });
         chart.setAttribute('aria-label',tr('额度百分比时间曲线','Quota percentage over time'));
-        $('status').textContent=failed?tr('本地历史暂时不可用，请稍后刷新重试。','Local history is unavailable. Refresh to retry.'):busy?tr('正在同步本地记录…','Syncing local history…'):tr('悬停采样点查看数值；重置、额度回升或较长停采会断开曲线。长范围图按时间桶取最后一个点。','Hover over points for details. Resets, quota increases and sampling gaps break the line. Longer ranges use the last sample per time bucket.');
+        $('status').textContent=failed?tr('本地历史暂时不可用，请稍后刷新重试。','Local history is unavailable. Refresh to retry.'):busy?tr('正在同步本地记录…','Syncing local history…'):tr('悬停曲线查看数值；重置、额度回升或较长停采会断开曲线。长范围图按时间桶取最后一个点。','Hover over the line for details. Resets, quota increases and sampling gaps break the line. Longer ranges use the last sample per time bucket.');
         $('coverage').textContent=data?.firstSampleAt?tr('此服务商开始记录于：','Recording this provider since: ')+date(data.firstSampleAt):tr('尚未采集到此服务商的有效额度。','No valid quota samples for this provider yet.');
     }
     async function load(refresh=false) {
