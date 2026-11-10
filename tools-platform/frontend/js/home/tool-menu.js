@@ -6,6 +6,10 @@
     const TEXT = {
         'zh-CN': {
             submitUpdate: '提交更新审核', submitSavedSkill: '提交已保存版本', updateReason: '说明本次改动，提交后由超级管理员在需求广场审核。请确认提交内容适合共享。', updateSent: '更新已提交到需求广场', personalRename: '设置我的显示名称', localUpdate: '更新我的副本', editSource: '前往维护页面', fileTooLarge: '更新文件不能超过 8 MB', hidden: '已从我的列表移除',
+            kindSkill: '技能', kindTool: '工具', kindPlugin: '插件与脚本',
+            mustUseBeforeSubmit: '您已更新了此{kind}，但尚未在本地实际使用或体验。请先打开并好好使用一下，确认好用后再提交审核。',
+            confirmSubmitPrompt: '提交更新审核前，请确认您已在本地充分使用、测试过此{kind}，确认好用且适合全员共享。确认现在提交吗？',
+            confirmSubmitBtn: '确认提交',
             moreOptions: '更多操作',
             shareAll: '全员开放', unshareAll: '关闭开放', accessSaved: '开放设置已保存', personalHide: '从我的列表移除', personalHideHint: '你可以在应用市场恢复此条目。',
             useSkill: '在对话中使用',
@@ -35,6 +39,10 @@
         },
         'en-US': {
             submitUpdate: 'Submit update for review', submitSavedSkill: 'Submit saved version', updateReason: 'Describe the changes. A super admin will review the submission in the requests board. Make sure the content can be shared.', updateSent: 'Update submitted to the requests board', personalRename: 'Set my display name', localUpdate: 'Update my copy', editSource: 'Open maintenance page', fileTooLarge: 'Update files must be 8 MB or smaller', hidden: 'Removed from my list',
+            kindSkill: 'Skill', kindTool: 'Tool', kindPlugin: 'Plugin/Script',
+            mustUseBeforeSubmit: 'You have updated this {kind}, but have not used or tested it locally yet. Please try it out first and make sure it works well before submitting for review.',
+            confirmSubmitPrompt: 'Before submitting for review, please make sure you have thoroughly tested and used this {kind} locally, and confirmed it is ready and suitable for sharing. Submit now?',
+            confirmSubmitBtn: 'Confirm Submit',
             moreOptions: 'More options',
             shareAll: 'Share with everyone', unshareAll: 'Stop sharing', accessSaved: 'Access settings saved', personalHide: 'Remove from my list', personalHideHint: 'You can restore this item from the tool market.',
             useSkill: 'Use in chat',
@@ -317,7 +325,70 @@
         });
     }
 
-    function reviewAction(kind, id, accept) {
+    const CatalogUpdateAudit = {
+        key: () => `dragon_catalog_revision:${localStorage.getItem('tools_tenant_id') || 'default'}:${localStorage.getItem('tools_user') || 'user'}`,
+        getAll() {
+            try { return JSON.parse(localStorage.getItem(this.key()) || '{}'); } catch { return {}; }
+        },
+        save(data) {
+            try { localStorage.setItem(this.key(), JSON.stringify(data)); } catch {}
+        },
+        markUpdated(kind, id) {
+            if (!kind || !id) return;
+            const all = this.getAll();
+            const itemKey = `${kind}:${id}`;
+            all[itemKey] = {
+                ...(all[itemKey] || {}),
+                updatedAt: Date.now(),
+                usedAfterUpdate: false
+            };
+            this.save(all);
+        },
+        markUsed(kind, id) {
+            if (!kind || !id) return;
+            const all = this.getAll();
+            const itemKey = `${kind}:${id}`;
+            all[itemKey] = {
+                ...(all[itemKey] || {}),
+                usedAfterUpdate: true,
+                lastUsedAt: Date.now()
+            };
+            this.save(all);
+        },
+        hasUploadedUpdate(kind, id, target) {
+            if (!kind || !id) return false;
+            const itemKey = `${kind}:${id}`;
+            const record = this.getAll()[itemKey] || this.getAll()[`${kind}:${String(id).replace(/^custom:/, '')}`];
+            if (record?.updatedAt) return true;
+            if (kind === 'skill') {
+                const skill = target?.skill || {};
+                if (skill.customized || skill.personal || skill.hasLocalUpdate) return true;
+            } else if (kind === 'tool') {
+                const customTool = target?.customTool || {};
+                if (customTool.fork || customTool.hasLocalUpdate) return true;
+            } else if (kind === 'cap') {
+                if (target?.customized || target?.fork || target?.hasLocalUpdate) return true;
+            }
+            return false;
+        },
+        hasUsedAfterUpdate(kind, id, target) {
+            if (!this.hasUploadedUpdate(kind, id, target)) return false;
+            const itemKey = `${kind}:${id}`;
+            const record = this.getAll()[itemKey] || this.getAll()[`${kind}:${String(id).replace(/^custom:/, '')}`];
+            if (record?.usedAfterUpdate) return true;
+            if (kind === 'tool' && window.NavFavorites?.has?.(target?.id || `custom:${target?.slug}`)) return true;
+            return false;
+        }
+    };
+    window.CatalogUpdateAudit = CatalogUpdateAudit;
+
+    function reviewAction(kind, id, accept, target) {
+        // 1. 管理员自己就是审核员，不需要提交审核，直接可以更新工具
+        if (isAdmin() || isSuperAdmin()) return null;
+
+        // 2. 首先得自己上传更新了，然后才能有提交更新审核的按钮，不然更新啥呢
+        if (!CatalogUpdateAudit.hasUploadedUpdate(kind, id, target)) return null;
+
         const label = t(accept ? 'submitUpdate' : 'submitSavedSkill');
         const submit = async file => {
             const reason = await window.AppDialog.prompt(t('updateReason'), { title: label, maxLength: 1000, multiline: true });
@@ -328,8 +399,33 @@
                 toast(t('updateSent'));
             } catch (error) { toast(error.message, 'error'); }
         };
-        return { id: accept ? 'submitUpdate' : 'submitSavedSkill', label, icon: 'upload',
-            run: () => accept ? pickUpdateFile(accept, submit) : submit() };
+        return {
+            id: accept ? 'submitUpdate' : 'submitSavedSkill',
+            label,
+            icon: 'upload',
+            run: async () => {
+                const kindText = kind === 'skill' ? t('kindSkill') : kind === 'tool' ? t('kindTool') : t('kindPlugin');
+
+                // 3. 而且自己得先用过才知道好不好用是不是要提交更新审核
+                if (!CatalogUpdateAudit.hasUsedAfterUpdate(kind, id, target)) {
+                    if (window.AppDialog?.alert) {
+                        await window.AppDialog.alert(t('mustUseBeforeSubmit', { kind: kindText }), { title: label, tone: 'warning' });
+                    } else {
+                        alert(t('mustUseBeforeSubmit', { kind: kindText }));
+                    }
+                    return;
+                }
+
+                // 4. 提交前也会提示用户自己得好好用用再提
+                const confirmed = window.AppDialog?.confirm
+                    ? await window.AppDialog.confirm(t('confirmSubmitPrompt', { kind: kindText }), { title: label, confirmText: t('confirmSubmitBtn') })
+                    : confirm(t('confirmSubmitPrompt', { kind: kindText }));
+                if (!confirmed) return;
+
+                if (accept) pickUpdateFile(accept, submit);
+                else await submit();
+            }
+        };
     }
 
     function personalActions(kind, id, target, reload, options) {
@@ -378,6 +474,7 @@
                 label: t('useSkill'),
                 icon: 'chat',
                 run: () => {
+                    CatalogUpdateAudit.markUsed('skill', target.id);
                     window.HomeMode?.set?.('chat');
                     window.DragonClaw?.startWithSkill?.(target.id);
                 }
@@ -387,6 +484,7 @@
                 label: t(skill.shared ? 'improveCopy' : 'improveSkill'),
                 icon: 'sparkles',
                 run: () => {
+                    CatalogUpdateAudit.markUpdated('skill', target.id);
                     window.HomeSkills?.improve?.(skill);
                 }
             });
@@ -407,8 +505,8 @@
                 }
             });
 
-            actions.push(reviewAction('skill', target.id, '.md,.zip'));
-            if (!isSuperAdmin() && (!skill.shared || skill.personal)) actions.push(reviewAction('skill', target.id));
+            const skillReview = reviewAction('skill', target.id, skill.customized || skill.personal ? null : '.md,.zip', target);
+            if (skillReview) actions.push(skillReview);
 
             actions.push({ divider: true });
             if (skill.shared && canPersonalize()) {
@@ -498,7 +596,8 @@
             if (customTool || isPlatformPage) {
                 const id = customTool ? `custom:${target.slug}` : pagePath;
                 const accept = isHostedApp ? '.zip' : isPlatformPage ? '.html,.htm,.zip,.patch,.diff' : '.html,.htm,.zip';
-                actions.push(reviewAction('tool', id, accept));
+                const toolReview = reviewAction('tool', id, accept, target);
+                if (toolReview) actions.push(toolReview);
             }
             if (customTool?.shared && canPersonalize()) {
                 actions.push(...personalActions('tool', target.slug, target, reloadTools, options));
@@ -532,6 +631,7 @@
                                 nameEn: customTool?.nameEn || target.nameEn || '',
                                 customTool,
                                 onUpdated: () => {
+                                    CatalogUpdateAudit.markUpdated('tool', target.slug || target.id);
                                     if (options.onReload) options.onReload();
                                 }
                             });
@@ -571,7 +671,10 @@
                     id: 'reload',
                     label: t('reload'),
                     icon: 'refresh',
-                    run: () => options.onReload()
+                    run: () => {
+                        CatalogUpdateAudit.markUsed('tool', target.slug || target.id);
+                        options.onReload();
+                    }
                 });
             }
 
@@ -582,6 +685,7 @@
                     label: t('openNewTab'),
                     icon: 'external',
                     run: () => {
+                        CatalogUpdateAudit.markUsed('tool', target.slug || target.id);
                         const directUrl = window.ToolsNavigation?.toolUrl?.(target.href) || target.href;
                         window.open(directUrl, '_blank', 'noopener');
                     }
@@ -606,7 +710,8 @@
             if (target.capabilityId) {
                 const isF12Builtin = target.capabilityId.startsWith('f12:builtin:');
                 const accept = target.badge === 'extension' ? '.zip' : target.capabilityKind === 'python' ? '.py,.zip' : '.js,.json,.zip';
-                actions.push(reviewAction('cap', target.capabilityId, accept));
+                const capReview = reviewAction('cap', target.capabilityId, accept, target);
+                if (capReview) actions.push(capReview);
                 if (canPersonalize()) {
                     actions.push(...personalActions('cap', target.capabilityId, target, () => window.HomeCapabilities?.reload?.(), options));
                 }
@@ -615,6 +720,7 @@
                         id: 'update', label: t('localUpdate'), icon: 'upload',
                         run: () => pickUpdateFile(target.badge === 'extension' ? '.zip' : '.js', async file => {
                             await API.patch('/api/distribution/capability-file', { id: target.capabilityId, data: await encodeFile(file) });
+                            CatalogUpdateAudit.markUpdated('cap', target.capabilityId);
                             await window.HomeCapabilities?.reload?.();
                             toast(t('accessSaved'));
                         })
@@ -632,6 +738,7 @@
                     label: t('openPlugin'),
                     icon: 'external',
                     run: () => {
+                        CatalogUpdateAudit.markUsed('cap', target.capabilityId || target.id);
                         if (options.onReload) window.open(target.href, '_blank', 'noopener');
                         else location.href = target.href;
                     }

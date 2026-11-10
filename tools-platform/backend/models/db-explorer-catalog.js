@@ -245,6 +245,7 @@ const DEFINITIONS = new Map([
     ["requirements", {"category": "surveys", "description": "需求广场中的需求内容、状态与负责人。", "descriptionEn": "Requirements with content, workflow state and assignees.", "source": "backend/routes/requirements.js"}],
     ["requirementimports", {"category": "surveys", "description": "记录已迁移到需求广场的历史需求。", "descriptionEn": "Tracks legacy requirements migrated to the public board.", "source": "backend/models/requirements-board.js"}],
     ["requirementlogs", {"category": "surveys", "description": "需求状态流转、备注与操作历史。", "descriptionEn": "Requirement state transitions, notes and operation history.", "source": "backend/routes/requirements.js"}],
+    ["requirementupdatefiles", {"category": "surveys", "description": "需求广场中工具、技能与插件更新申请的附件文件数据。", "descriptionEn": "Attachment files submitted for catalog update reviews in the requirements board.", "source": "backend/routes/requirements.js"}],
     ["warehouse_state", {"category": "warehouse", "description": "仓储工具保存的仓储业务状态与修订。", "descriptionEn": "Persisted warehouse business state and revision.", "source": "backend/models/ezscan-warehouse-repository.js"}],
 ]);
 

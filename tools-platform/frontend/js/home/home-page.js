@@ -1968,6 +1968,7 @@
                     }
                     uploadLogs.length = 0;
                     await CustomToolUpload.upload(payload, { onProgress: logUpload });
+                    try { window.CatalogUpdateAudit?.markUpdated?.('tool', currentUpdateTarget?.slug || payload.slug || name); } catch (_) {}
                     submitBtn.dataset.completed = 'true';
                     showToast(t(pythonImport ? (pythonImport.updateSlug ? 'home.import.pyUpdated' : 'home.import.pyImported') : isToolUpdate ? 'home.import.toolUpdated' : 'home.toast.imported', { name }));
                     if (currentUpdateTarget?.onUpdated) {

@@ -38,6 +38,9 @@ function createDOM() {
             this.listeners = {};
             this._innerHTML = '';
         }
+        click() {
+            this.dispatchEvent({ type: 'click' });
+        }
         get className() { return [...this.classList.classes].join(' '); }
         set className(val) {
             this.classList.classes.clear();
@@ -211,6 +214,7 @@ test('HomeToolMenu: resolves custom tool and builds complete action list', async
         has: id => id === 'custom:ai-101' && favorited,
         toggle: id => { favorited = !favorited; return favorited; }
     };
+    win.isNavSuperAdmin = () => true;
     win.BuiltinPromotion = {
         toggle: async () => true
     };
@@ -436,4 +440,106 @@ test('HomeToolMenu: rename and delete trigger callbacks for embedded tool frame'
     menuEl.dispatchEvent({ type: 'click', target: deleteBtn, preventDefault() {}, stopPropagation() {} });
     await new Promise(r => setImmediate(r));
     assert.equal(deleted, true);
+});
+
+test('HomeToolMenu: admin does not see submitUpdate, normal user only sees submitUpdate after local update, and must test before submit', async () => {
+    const { win, doc, body } = createDOM();
+    const storage = { tools_role: 'admin', tools_tenant_id: 'default' };
+    win.localStorage = {
+        getItem: k => storage[k] ?? null,
+        setItem: (k, v) => { storage[k] = String(v); }
+    };
+    win.isNavSuperAdmin = () => true;
+    win.__homeCustomTools = [
+        { slug: 'ops-calc', name: 'Ops Calc', href: '/tools/ops-calc', shared: false }
+    ];
+
+    const script = fs.readFileSync(path.join(__dirname, '../frontend/js/home/tool-menu.js'), 'utf8');
+    vm.runInNewContext(script, {
+        window: win,
+        document: doc,
+        localStorage: win.localStorage,
+        location: win.location,
+        URL,
+        navigator: win.navigator,
+        CustomEvent: class CustomEvent { constructor(type, init) { this.type = type; this.detail = init?.detail; } },
+        console
+    });
+
+    // 1. As admin, submitUpdate should NOT appear on tools, skills, or capabilities
+    win.HomeToolMenu.open({ href: '/tools/ops-calc' });
+    let menuEl = body.querySelector('.tool-context-menu');
+    let actions = menuEl.querySelectorAll('[data-tool-action]').map(btn => btn.dataset.toolAction);
+    assert.equal(actions.includes('submitUpdate'), false, 'admin has no submitUpdate on tool');
+
+    win.HomeToolMenu.open({ item: { kind: 'skill', id: 'my-skill', title: 'My Skill', href: '/?skill=my-skill' } });
+    menuEl = body.querySelector('.tool-context-menu');
+    actions = menuEl.querySelectorAll('[data-tool-action]').map(btn => btn.dataset.toolAction);
+    assert.equal(actions.includes('submitUpdate'), false, 'admin has no submitUpdate on skill');
+
+    win.HomeToolMenu.open({ item: { kind: 'plugin', key: 'my-cap', capabilityId: 'my-cap', title: 'My Cap', href: '/plugins/my-cap' } });
+    menuEl = body.querySelector('.tool-context-menu');
+    actions = menuEl.querySelectorAll('[data-tool-action]').map(btn => btn.dataset.toolAction);
+    assert.equal(actions.includes('submitUpdate'), false, 'admin has no submitUpdate on plugin');
+
+    // 2. Switch to non-admin user
+    storage.tools_role = 'user';
+    storage.tools_tenant_id = 'team-a';
+    win.isNavSuperAdmin = () => false;
+
+    // A tool without local update should NOT have submitUpdate
+    win.HomeToolMenu.open({ href: '/tools/ops-calc' });
+    menuEl = body.querySelector('.tool-context-menu');
+    actions = menuEl.querySelectorAll('[data-tool-action]').map(btn => btn.dataset.toolAction);
+    assert.equal(actions.includes('submitUpdate'), false, 'normal user without local update has no submitUpdate');
+
+    // A pristine skill without customization should NOT have submitUpdate
+    win.HomeToolMenu.open({ item: { kind: 'skill', id: 'my-skill', title: 'My Skill', href: '/?skill=my-skill', skill: { id: 'my-skill', builtIn: true, customized: false } } });
+    menuEl = body.querySelector('.tool-context-menu');
+    actions = menuEl.querySelectorAll('[data-tool-action]').map(btn => btn.dataset.toolAction);
+    assert.equal(actions.includes('submitUpdate'), false, 'normal user without customized skill has no submitUpdate');
+
+    // 3. Mark tool as updated locally
+    win.CatalogUpdateAudit.markUpdated('tool', 'ops-calc');
+
+    // Now submitUpdate appears!
+    win.HomeToolMenu.open({ href: '/tools/ops-calc' });
+    menuEl = body.querySelector('.tool-context-menu');
+    actions = menuEl.querySelectorAll('[data-tool-action]').map(btn => btn.dataset.toolAction);
+    assert.equal(actions.includes('submitUpdate'), true, 'submitUpdate appears after local update');
+
+    // 4. Click submitUpdate before using it -> triggers mustUseBeforeSubmit warning!
+    let alertCalled = false;
+    let confirmCalled = false;
+    let promptCalled = false;
+    win.AppDialog = {
+        alert: async (msg, opts) => { alertCalled = true; },
+        confirm: async (msg, opts) => { confirmCalled = true; return true; },
+        prompt: async (msg, opts) => { promptCalled = true; return 'Fixed edge cases'; }
+    };
+    win.RequirementsClient = {
+        submitPayload: async () => ({ success: true })
+    };
+
+    const submitBtn = menuEl.querySelector('[data-tool-action="submitUpdate"]');
+    menuEl.dispatchEvent({ type: 'click', target: submitBtn, preventDefault() {}, stopPropagation() {} });
+    await new Promise(r => setImmediate(r));
+    assert.equal(alertCalled, true, 'must use before submit alert was shown');
+    assert.equal(confirmCalled, false, 'confirm was not shown since user has not used it');
+
+    // 5. Test skill: mark as used after update and submit saved version directly
+    win.CatalogUpdateAudit.markUsed('skill', 'my-skill');
+    alertCalled = false;
+    confirmCalled = false;
+    promptCalled = false;
+
+    win.HomeToolMenu.open({ item: { kind: 'skill', id: 'my-skill', title: 'My Skill', href: '/?skill=my-skill', builtIn: true, customized: true } });
+    menuEl = body.querySelector('.tool-context-menu');
+    const submitBtn2 = menuEl.querySelector('[data-tool-action="submitSavedSkill"]');
+    assert.ok(submitBtn2, 'submitSavedSkill exists for customized skill');
+    menuEl.dispatchEvent({ type: 'click', target: submitBtn2, preventDefault() {}, stopPropagation() {} });
+    await new Promise(r => setImmediate(r));
+    assert.equal(alertCalled, false, 'no warning alert because skill was marked as used');
+    assert.equal(confirmCalled, true, 'confirmation dialog was prompted before submitting');
+    assert.equal(promptCalled, true, 'reason prompt was requested');
 });

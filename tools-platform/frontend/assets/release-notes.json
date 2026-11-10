@@ -1,12 +1,12 @@
 {
   "zh": [
-    "工具与能力目录更新审查与分块加密传输：需求看板支持工具、插件/脚本及技能的更新申请流程，支持成员提交更新候选包并安全存储于 RequirementUpdateFiles，配合客户端分块加密传输；管理员可在看板中一键审核与下载更新附件，审核通过前限制流转至已完成。",
-    "能力卡片更多操作与工具菜单体验增强：首页插件与脚本卡片新增更多操作菜单，支持快捷发起更新申请；工具上下文菜单增加最大高度限制与纵向滚动支持，防止菜单项超出屏幕；独立窗口打开自定义工具时新增「在工具中台管理」快捷链接。",
-    "共享工具与能力隐藏恢复状态保留：租户成员恢复已隐藏的共享工具或插件时，完整保留此前配置的个人别名与本地修改快照，避免恢复时覆盖定制内容。"
+    "技能、插件与工具更新审核流收敛：管理员作为审核员直接维护与更新工具，无需提交审核；团队成员仅在本地完成副本更新后才展示「提交更新审核」按钮，提交前必须已在本地实际使用并完成深度体验确认。",
+    "Dragon 浏览器侧栏缩放体验与显示优化：修复网页缩放时产生的画面留白与排版问题，真实联动视口比例与页面渲染，提升远程页面浏览流畅度。",
+    "额度使用趋势曲线视觉精简与抖动平滑：全面移除连续曲线上的冗余交互圆点，保持线条丝滑纯净；优化重置时间戳的分钟精度对齐，避免服务商秒级抖动导致的曲线断裂。"
   ],
   "en": [
-    "Catalog update review workflow & chunked encrypted transport: added review submissions for tools, plugins/scripts, and skills with secure RequirementUpdateFiles attachment storage and client chunked encryption; administrators can review and download packages directly from the requirements board before approval.",
-    "Capability card more-actions & tool menu enhancements: added more-options menus to plugin & script cards for quick update submissions; constrained tool context menus to viewport height with vertical scrolling; added a direct \"Manage in the tool hub\" link when custom tools are opened standalone.",
-    "Shared tool & capability hide/restore preservation: restoring hidden shared tools or capabilities now cleanly preserves user-configured aliases and local customization snapshots without accidental overwrites."
+    "Skill, plugin, and tool update review refinement: administrators act as reviewers with direct update capabilities and no redundant review submissions; team members only see the review submission button after locally updating their copy, requiring local testing and explicit confirmation before submission.",
+    "Dragon browser sidebar zoom & display optimization: resolved blank border margins during remote page zooming, accurately aligning viewport scaling and page rendering for smoother web inspection.",
+    "Quota usage trend line smoothing: eliminated redundant hover/endpoint dots on continuous curves for a clean and sleek line display, with minute-precision timestamp alignment against provider jitter."
   ]
 }
