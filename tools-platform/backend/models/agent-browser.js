@@ -26,6 +26,7 @@ const pageLayoutScript=require('./browser-page-layout').script;
 const { createDownloads } = require('./agent-browser-downloads');
 
 const SECRET_HEADER_RE = /^(cookie|authorization|proxy-authorization|x-csrf-token|x-xsrf-token|x-api-key|x-auth-token)$/i;
+const ZOOM_LEVELS = [.5,.67,.75,.8,.9,1,1.1,1.25,1.5,1.75,2,2.5,3];
 const LIMITS = { tabs: 6, network: 400, console: 200, snapshotChars: 40000, bodyChars: 2 * 1024 * 1024, navigateMs: 30000, idleMs: 15 * 60 * 1000 };
 
 function browserError(code, message) {
@@ -78,7 +79,7 @@ const SNAPSHOT_SCRIPT = function snapshot(maxChars) {
     return { text: out.join('\n'), truncated: size >= maxChars, refs: ref };
 };
 
-function createPage({ id, send:transport, close, label = '', notify }) {
+function createPage({ id, send:transport, close, label = '', notify, setZoom }) {
     const send=(method,params)=>{if(commandSignal()?.aborted)return Promise.reject(interrupted());return cancellable(transport(method,params));};
     const network = new Map();
     const consoleLog = [];
@@ -268,8 +269,24 @@ function createPage({ id, send:transport, close, label = '', notify }) {
             if(!['type','key'].includes(action))await new Promise(resolve=>setTimeout(resolve,180));
         },
         async setReadingWidth(width) {
-            if(width)await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
-            else await send('Emulation.clearDeviceMetricsOverride');
+            page.readingWidth=width||null;
+            await page.applyMetrics();
+        },
+        // 真正的页面缩放（与 Chrome 缩放一致）：布局视口按 1/zoom 变化、像素比按 zoom 变化，输出画面尺寸不变。
+        async setZoom(level) {
+            page.zoom=ZOOM_LEVELS.includes(level)?level:1;
+            if(setZoom)return setZoom(page.zoom);
+            await page.applyMetrics();
+        },
+        async applyMetrics() {
+            const zoom=page.zoom||1,width=page.readingWidth||0;
+            if(zoom===1&&!width)return send('Emulation.clearDeviceMetricsOverride');
+            if(!width&&!page.naturalViewport){
+                await send('Emulation.clearDeviceMetricsOverride');
+                page.naturalViewport=await page.evaluate('({width:innerWidth,height:innerHeight})').catch(()=>null);
+            }
+            const baseWidth=width||page.naturalViewport?.width||1366,baseHeight=width?900:page.naturalViewport?.height||900;
+            await send('Emulation.setDeviceMetricsOverride',{width:Math.round(baseWidth/zoom),height:Math.round(baseHeight/zoom),deviceScaleFactor:zoom,mobile:false});
         },
         async screenshot(fullPage, live = false) {
             const params = live ? {format:'jpeg',quality:65} : { format: 'png' };
@@ -553,7 +570,7 @@ function createDesktopBrowser() {
         const wc = handle.webContents;
         const dbg = wc.debugger;
         if (!dbg.isAttached()) dbg.attach('1.3');
-        const page = createPage({ id: String(handle.id).replace(/^dragon-tab-/, 't'), send: (method, params = {}) => dbg.sendCommand(method, params), close: () => handle.close?.(),notify:value=>handle.setOperatorState?.(value) });
+        const page = createPage({ id: String(handle.id).replace(/^dragon-tab-/, 't'), send: (method, params = {}) => dbg.sendCommand(method, params), close: () => handle.close?.(),notify:value=>handle.setOperatorState?.(value),setZoom:level=>wc.setZoomFactor(level) });
         dbg.on('message', (_event, method, params) => page.onEvent(method, params));
         wc.once('destroyed', () => pages.delete(page.id));
         let nativeToken='';
@@ -998,7 +1015,7 @@ async function viewUnlocked(owner, live = false) {
     if(!activeCommands.has(owner)&&!state.pointer&&(!page.layoutMeasuredAt||Date.now()-page.layoutMeasuredAt>2000)){
         page.layout=await page.evaluate?.(pageLayoutScript).catch(()=>null);page.layoutMeasuredAt=Date.now();
         if(state.browser.kind==='server'&&!page.readingWidth&&page.layout?.preferredWidth){
-            page.readingWidth=page.layout.preferredWidth;await page.setReadingWidth?.(page.readingWidth);
+            await page.setReadingWidth?.(page.layout.preferredWidth);
         }
     }
     const viewport=await page.evaluate?.('({width:innerWidth,height:innerHeight})')||{width:1280,height:900};
@@ -1010,7 +1027,7 @@ async function viewUnlocked(owner, live = false) {
     state.frames.set(frameId,{tabId:page.id,url:capturedUrl,documentId,viewport,at:Date.now()});
     while(state.frames.size>80)state.frames.delete(state.frames.keys().next().value);
     return {...result,tabId:page.id,title:page.title,url:page.url,upload:page.pendingUpload?.()||null,image:`data:image/${live?'jpeg':'png'};base64,${png.toString('base64')}`,
-        capturedAt:new Date().toISOString(),documentId,frameId,viewport,layout:layout||null,...await page.historyState?.()};
+        capturedAt:new Date().toISOString(),documentId,frameId,viewport,zoom:page.zoom||1,layout:layout||null,...await page.historyState?.()};
 }
 function view(owner,live=false){return commandContext.exit(()=>activeCommands.has(owner)?viewUnlocked(owner,live):serialized(owner,()=>viewUnlocked(owner,live)));}
 function controlRequest(owner,args={}){
@@ -1028,7 +1045,7 @@ function controlRequest(owner,args={}){
         await stopping;
         if(typeof owner!=='string'||!owner)throw browserError('BROWSER_OWNER','无法确定账号');
         const action=args.action;
-        if(!['acquire','takeover','activity','release','heartbeat','open','new-tab','select-tab','close-tab','move-tab','back','forward','reload','click','scroll','type','key','upload','file-drop','pointer'].includes(action))throw browserError('BROWSER_CONTROL_INVALID','无效的浏览器操作');
+        if(!['acquire','takeover','activity','release','heartbeat','open','new-tab','select-tab','close-tab','move-tab','back','forward','reload','click','scroll','type','key','upload','file-drop','pointer','zoom'].includes(action))throw browserError('BROWSER_CONTROL_INVALID','无效的浏览器操作');
         let url=null;
         if(action==='open'){
             url=webUrl(args.url);
@@ -1078,6 +1095,11 @@ function controlRequest(owner,args={}){
         if(!page||page.id!==manual.tabId)throw browserError('BROWSER_VIEW_STALE','当前标签已变化，请刷新画面后重新接管');
         await page.refreshInfo();
         if(action==='open'){await page.navigate(url);state.frames?.clear();return reply();}
+        if(action==='zoom'){
+            const level=Number(args.level);
+            if(!ZOOM_LEVELS.includes(level))throw browserError('BROWSER_CONTROL_INVALID','无效的缩放比例');
+            await page.setZoom(level);state.frames?.clear();return {...reply(),zoom:page.zoom};
+        }
         if(['back','forward','reload'].includes(action)){await page.historyAction(action);state.frames?.clear();return reply();}
         if(action==='pointer'&&args.phase==='cancel'){
             await page.pointerInput?.('cancel');state.pointer=null;return reply();

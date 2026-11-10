@@ -8,6 +8,7 @@
     let menu='',menuSignature='',closedTabs=[],draggedTab=null,lastTheme='',pendingTab=null,tabSequence=0,tabScrollTimer=null,lastVisibleTab='';
     let intentUntil=0,lastActivity=0,activitySent=0,idleRelease=false;
     let open=false,connected=false,docked=false,raf=0,readingVisible=false,previousMenu=null;
+    const ZOOM_LEVELS=[.5,.67,.75,.8,.9,1,1.1,1.25,1.5,1.75,2,2.5,3];
     let state={tabs:[]},displayedFrame=null,autoFit=true,pageWidth=0,zoomed=false,viewScale=1,tabSignature='';
     let keyQueue=[],keySending=false,keyTimer=null,keyEpoch=0;
     let busy=false,refreshing=false,controller=null,viewEpoch=0,timer=null,lastHeartbeat=0,manualToken='';
@@ -48,7 +49,7 @@
             title=L('浏览器菜单','Browser menu');
             body=menuButton('reopen-tab',L('恢复关闭的标签页','Reopen closed tab'),!bridge&&!closedTabs.length)+ '<hr>'+
                 menuButton('find-open',L('在页面中查找','Find in page'),!bridge)+menuButton('print',L('打印…','Print…'),!bridge)+
-                `<div class="dc-browser-zoom"><span>${L('缩放','Zoom')}</span>${menuButton('zoom-out','−')}<span>${bridge?state.zoom||100:Math.round(viewScale*100)}%</span>${menuButton('zoom-in','＋')}${menuButton('zoom-reset',L('重置','Reset'))}</div><hr>`+
+                `<div class="dc-browser-zoom"><span>${L('缩放','Zoom')}</span>${menuButton('zoom-out','−')}<span>${bridge?state.zoom||100:Math.round((state.zoom||1)*100)}%</span>${menuButton('zoom-in','＋')}${menuButton('zoom-reset',L('重置','Reset'))}</div><hr>`+
                 menuButton('screenshot',L('保存页面截图','Save screenshot'))+menuButton('downloads',L('下载','Downloads'))+
                 menuButton('history',L('历史记录','History'))+menuButton('bookmarks',L('收藏夹','Bookmarks'))+
                 menuButton('keyboard',L('网页输入与上传','Page input and upload'),Boolean(bridge)||!state.available||state.url==='about:blank')+ '<hr>'+menuButton('external',bridge?L('在系统默认浏览器打开','Open in default browser'):L('在新标签页打开','Open in new tab'))+
@@ -306,7 +307,7 @@
         if(pendingTab&&!pendingTab.pending){if(!data.tabs?.some(tab=>tab.id===pendingTab.id))return;pendingTab=null;}
         if(!data.manual?.active&&!busy)remember('');state={...data,tabs:data.tabs||[]};
         if(data.available&&/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(data.image||'')){
-            image.onload=()=>{if(image.src!==data.image)return;displayedFrame=data;pageWidth=data.viewport?.width||image.naturalWidth;fit();};image.src=data.image;image.alt=data.title||L('网页画面','Browser view');image.hidden=false;
+            image.onload=()=>{if(image.src!==data.image)return;displayedFrame=data;pageWidth=data.viewport?.width?Math.round(data.viewport.width*(data.zoom||1)):image.naturalWidth;fit();};image.src=data.image;image.alt=data.title||L('网页画面','Browser view');image.hidden=false;
             if(Date.now()>errorUntil)status.textContent='';
         }else{displayedFrame=null;image.hidden=true;status.textContent=L('输入网址开始浏览，或让 AI 打开一个网站。','Enter a URL to browse, or ask AI to open a site.');}
         render();
@@ -448,7 +449,13 @@
             if(image.hidden)return;const a=document.createElement('a');a.href=image.src;a.download=image.src.startsWith('data:image/jpeg')?'Dragon-page.jpg':'Dragon-page.png';a.click();return;
         }
         if(name==='reopen-tab'&&!bridge){const tab=closedTabs.pop();if(tab)command('new-tab').then(()=>command('open',{url:tab.url}));return;}
-        if(!bridge&&['zoom-in','zoom-out','zoom-reset'].includes(name)){viewScale=name==='zoom-reset'?1:Math.max(.5,Math.min(3,Math.round((viewScale+(name==='zoom-in'?.25:-.25))*100)/100));zoomed=viewScale!==1;image.style.width=`${viewScale*100}%`;menuSignature='';render();return;}
+        // 网页端缩放让远端页面真正按比例重排（同 Chrome 缩放），而不是只缩小截图留白边。
+        if(!bridge&&['zoom-in','zoom-out','zoom-reset'].includes(name)){
+            const current=state.zoom||1,index=ZOOM_LEVELS.findIndex(level=>level>=current-.001);
+            const level=name==='zoom-reset'?1:ZOOM_LEVELS[Math.max(0,Math.min(ZOOM_LEVELS.length-1,(index<0?ZOOM_LEVELS.indexOf(1):index)+(name==='zoom-in'?1:-1)))];
+            if(level===current||!state.available)return;
+            menuSignature='';return command('zoom',{level});
+        }
         if(bridge&&['plugins','print','devtools','find-open'].includes(name)){menu='';renderMenu();layout();}
 
         if(name==='popout')name='external';
