@@ -187,9 +187,9 @@ test('平台类与知识类视频自动附带循序渐进短序号/第几集标�
     const platformVideos = catalog.videos.filter(v => v.category === 'platform');
     const knowledgeVideos = catalog.videos.filter(v => v.category === 'knowledge');
 
-    // 平台类 13 集顺序校验
-    assert.equal(platformVideos.length, 13);
-    for (let i = 0; i < 13; i++) {
+    // 平台类 14 集顺序校验
+    assert.equal(platformVideos.length, 14);
+    for (let i = 0; i < 14; i++) {
         const v = platformVideos[i];
         assert.equal(v.episode, i + 1, `平台视频索引 ${i} 的 episode 应为 ${i + 1}`);
         assert.ok(v.episodeFormatted, `平台视频应有 episodeFormatted`);
@@ -229,9 +229,9 @@ test('平台类与知识类视频自动附带循序渐进短序号/第几集标�
     };
     const platRes = buildPlatformVideos(mockHomeManifest);
     const brandNew = platRes.find(v => v.id === 'promo___brand-new-tool');
-    assert.equal(brandNew.episode, 14, '新平台视频应自动获得第 14 集');
-    assert.equal(brandNew.episodeFormatted, '第14集');
-    assert.match(brandNew.title, /^第14集 · /);
+    assert.equal(brandNew.episode, 15, '新平台视频应自动获得第 15 集');
+    assert.equal(brandNew.episodeFormatted, '第15集');
+    assert.match(brandNew.title, /^第15集 · /);
 
     const mockDatacomManifest = {
         assets: {

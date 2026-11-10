@@ -38,7 +38,8 @@ const KNOWN_PLATFORM_SEQUENCE = [
     'welink-cli-guide',
     'welink-sdk-guide',
     'digital-human-guide',
-    'project-evolution-galaxy'
+    'project-evolution-galaxy',
+    'ai-native-explainer'
 ];
 
 // 循序渐进的学习顺序定义：数通知识类（OSPF 体系从身份、报文、状态机到区域、LSA、高级选路）
@@ -183,6 +184,13 @@ const KNOWN_PLATFORM_META = {
         description: '功能介绍 · 结合数字人自然交互与数据基座，让复杂的运营报表一问即得、清晰直观。',
         tags: ['功能介绍', '数字人', '数据探索', '智能问答'],
         duration: 166
+    },
+    'ai-native-explainer': {
+        title: 'AI 原生的 7 个层面',
+        englishTitle: 'Seven Layers of AI Native',
+        description: '科普动画 · 毛绒小龙用一个检验问题“把 AI 拿掉它还能成立吗”，拆解技术架构、产品、组织、用户、交互、商业模式与硬件七个层面，硬件部分重点讲解。',
+        tags: ['科普动画', 'AI 原生', '硬件', '商业模式'],
+        duration: 287
     },
     'project-evolution-galaxy': {
         title: '项目演进 · 银河之旅',

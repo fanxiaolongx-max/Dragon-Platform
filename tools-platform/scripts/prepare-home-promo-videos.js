@@ -12,7 +12,9 @@ const EVOLUTION_BASE_URL = 'https://github.com/fanxiaolongx-max/Dragon-Platform-
 // Each later media release keeps its own tag; earlier files and cache identities stay untouched.
 const FEATURE_GUIDES = ['ai-monthly-guide', 'welink-cli-guide', 'welink-sdk-guide', 'digital-human-guide'];
 const FEATURE_BASE_URL = 'https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/feature-guides-20261028-1';
+const AI_NATIVE_BASE_URL = 'https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/ai-native-explainer-20261110';
 const RELEASE_URLS = {
+    'ai-native-explainer.mp4': AI_NATIVE_BASE_URL, 'ai-native-explainer-hd.mp4': AI_NATIVE_BASE_URL,
     ...Object.fromEntries(FEATURE_GUIDES.flatMap(name => [name + '.mp4', name + '-hd.mp4']).map(name => [name, FEATURE_BASE_URL])),
     'ai-monthly-guide.mp4': 'https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/ai-monthly-guide-20261028-2',
     'ai-monthly-guide-hd.mp4': 'https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/ai-monthly-guide-20261028-2',
@@ -24,7 +26,8 @@ const RELEASE_URLS = {
 const FILES = ['netcare-rfc-ai-guide', 'operation-incentive-guide', 'platform-guide']
     .flatMap(base => ['', '-en'].flatMap(language => ['', '-hd'].map(quality => `${base}${language}${quality}.mp4`)))
     .concat(['eos-report-guide.mp4', 'eos-report-guide-hd.mp4', 'eos-report-guide-en.mp4', 'eos-report-guide-en-hd.mp4', 'project-evolution-galaxy-hd.mp4'])
-    .concat(FEATURE_GUIDES.flatMap(name => [name + '.mp4', name + '-hd.mp4']));
+    .concat(FEATURE_GUIDES.flatMap(name => [name + '.mp4', name + '-hd.mp4']))
+    .concat(['ai-native-explainer.mp4', 'ai-native-explainer-hd.mp4']);
 const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 
 function assertFastStart(bytes, name) {
