@@ -1,10 +1,10 @@
 {
   "zh": [
-    "修复思考过程被当成正文显示的问题：思考型模型（GLM、DeepSeek、Qwen 等）把输出额度全部用在思考上时，不再把思考内容当作回答输出并接着往下续写，而是自动放宽输出上限重新生成；该模型后续请求直接使用放宽后的上限，不再每轮白等。",
-    "兼容更多思考格式：识别 reasoning / thinking / thought 等思考字段、只有收尾标签的 </think>，以及 Anthropic 协议的思考块（现在会显示在「思考过程」里）；只有思考没有正文时不再重复发送一次请求。"
+    "内置工具使用指南更新：补充「专题分析」工具的使用指南与核心功能说明，支持查看 NetCare 与 DataFab 历史快照、专题月报生成及跨期差异对比。",
+    "优化思考型模型回复逻辑：防止思考过程被当成正文输出，自动放宽输出上限重新生成；增强对多种思考字段及 Anthropic 思考协议块的兼容解析。"
   ],
   "en": [
-    "Fix reasoning shown as the answer: when a thinking model (GLM, DeepSeek, Qwen, …) spends its whole output limit on reasoning, the reasoning is no longer printed as the reply and continued; the request is regenerated with a larger output limit, which later requests to that model use straight away.",
-    "Broader reasoning support: recognise reasoning / thinking / thought fields, a closing-only </think> tag, and Anthropic thinking blocks (now shown under Thinking); a reply with reasoning but no text no longer triggers a duplicate request."
+    "Built-in tool guides update: add user guide and core capabilities documentation for the Topic Analysis tool, covering NetCare and DataFab snapshot archives, topic monthly report generation, and cross-period diff analysis.",
+    "Improve thinking model response handling: prevent reasoning traces from being output as the answer, automatically expand output limits on retry, and broaden reasoning field and block recognition across providers."
   ]
 }
