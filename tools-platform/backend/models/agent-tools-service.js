@@ -1009,7 +1009,8 @@ async function runCommand(ctx, args = {}) {
     const isWin = process.platform === 'win32';
     const resolved = resolveShell();
     const shell = resolved.shell;
-    const shellArgs = [...resolved.args, command];
+    // 与 Node 的 cmd.exe shell 调用一致：/s 去掉外层引号，保留命令内的引号。
+    const shellArgs = [...resolved.args, isWin ? `"${command}"` : command];
     const started = Date.now();
     return new Promise(resolve => {
         const outputLimit = ctx.fullResults ? LIMITS.commandArtifactBytes : LIMITS.commandOutputBytes;
@@ -1021,7 +1022,14 @@ async function runCommand(ctx, args = {}) {
             const launch = ctx.confined
                 ? require('./tenant-sandbox').wrap({ tenantId: ctx.tenantId, cwd: ctx.root, file: shell, args: shellArgs, env: scrubbedEnv() })
                 : { file: shell, args: shellArgs, cwd: ctx.root, env: scrubbedEnv() };
-            child = spawn(launch.file, launch.args, { cwd: launch.cwd, env: launch.env, stdio: ['ignore', 'pipe', 'pipe'], detached: !isWin, windowsHide: true });
+            child = spawn(launch.file, launch.args, {
+                cwd: launch.cwd,
+                env: launch.env,
+                stdio: ['ignore', 'pipe', 'pipe'],
+                detached: !isWin,
+                windowsHide: true,
+                windowsVerbatimArguments: isWin
+            });
         } catch (error) {
             resolve({ content: `无法启动命令：${error.message}`, summary: '启动失败', isError: true });
             return;

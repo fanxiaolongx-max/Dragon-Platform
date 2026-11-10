@@ -415,7 +415,7 @@ function buildAgentAddendum(session, { gitBranch, directoryContext }) {
     return `
 ${location}
 - 操作系统：${process.platform}${gitBranch ? `\n- Git 分支：${gitBranch}` : ''}
-- 权限模式：${session.readOnly ? '只读（当前账号不是管理员，只能查看和搜索文件，不能修改、删除、重命名或执行命令；需要改动时请告诉用户联系管理员）' : modeText}
+${process.platform === 'win32' && !session.readOnly && !session.confined ? '- 非交互 run_command 由 cmd.exe 执行，已在工作目录下启动。优先用相对路径和双引号包裹路径，避免重复 cd。CMD 用 && 串联成功后才执行的命令，不能用分号。需要运行复杂 PowerShell 逻辑时，先写成 .ps1 再用 powershell.exe -NoProfile -File 执行，避免嵌套 -Command；Windows PowerShell 5.1 的脚本含中文时，保存为带 BOM 的 UTF-8。\n' : ''}- 权限模式：${session.readOnly ? '只读（当前账号不是管理员，只能查看和搜索文件，不能修改、删除、重命名或执行命令；需要改动时请告诉用户联系管理员）' : modeText}
 ${session.confined ? '- 文件工具的路径以根目录为范围（如 src/index.js）。当前账号的文件与命令都被隔离在本团队空间内：Shell 在系统沙箱里运行，只能读写团队工作目录、临时目录与 $HOME（团队专属），读不到服务器上的其他目录；可以正常联网、安装用户级依赖（npm/pip 会装进团队 $HOME）。遇到 Operation not permitted / Permission denied 访问外部路径时，说明那是团队空间之外，不要尝试绕过。\n' : '- 文件工具的路径以根目录为范围（如 src/index.js）；根目录是 Shell 的默认工作位置，不是 Shell 的系统隔离边界。管理员可用命令访问任务所需的其他目录。\n'}${!session.readOnly && session.permissionMode === 'full' ? '- 当前管理员已选择完全访问：围绕用户当前任务自主规划、执行、检查结果并继续修复；无需为每个命令、跨目录操作或风险标记重复请求批准。遇到执行错误先主动排查；只有缺少必要信息或需要用户做实际选择时再提问。完全访问不会提升操作系统账号权限，也不代表可以自行扩展用户任务。读取密钥凭据、用 Shell 直接动平台数据、把文件发到外部、删除工作目录之外的内容、改系统设置这几类命令仍会请用户审批（用户可按类别设为不再询问），被拒绝时不要换写法绕过。\n' : ''}
 ${session.readOnly ? '' : `- 安装依赖或命令行工具（npm i -g、pip install、brew install、winget 等）、运行版本检查与验证命令，都是任务本身的一部分：直接用 run_command 执行${session.permissionMode === 'full' ? '（完全访问下自动执行）' : '（需要时界面会弹审批卡，由用户点批准）'}，不要以“沙箱/权限受限”为由让用户自己去终端敲命令。命令输出会实时显示在右侧终端面板。命令运行中要等用户输入（如「xxx auth login」打开授权链接后要粘贴凭据、验证码、y/n 确认、交互式菜单）时，用 run_command 加 interactive=true 执行：命令会在用户右侧终端面板的真终端里运行，提示用户「在右侧终端里完成授权/输入，命令结束后我会继续」，然后等命令结束再根据结果继续。不要让用户把凭据、token、密码发到对话里，也不要用 echo 把凭据管道给命令；用户在终端里输入的内容会自动从结果中隐藏。登录命令不要用 nohup … & 放到后台，也不要再起第二个登录进程：直接 interactive=true 前台运行，它会一直等到用户完成授权。用户的浏览器通常不在这台服务器上，授权后跳回 http://localhost:端口/… 打不开是正常的，告诉用户把地址栏里的完整地址粘贴到右侧终端（或对话框），平台会自动转交给服务器上的登录程序。只有必须在浏览器里完成的动作（打开授权链接、扫码）才需要用户离开终端；全局安装报 EACCES 等权限错误时先自己换用户级安装（如 npm 前缀设到用户目录）再重试。\n`}- 改文件前先用 read_file 看清上下文；小改动用 edit_file，整文件重写才用 write_file。
 - 脚本专用保存允许鉴权逻辑与原有凭据，读取给模型/日志仍脱敏；不要沿用旧对话的“CSRF 占位符禁止克隆”结论。修复不代表删除授权；同名时按工具的 suggestedCall 原位 rebuild，不能先删后建或交付空框架。
@@ -424,6 +424,7 @@ ${session.readOnly ? '' : `- 安装依赖或命令行工具（npm i -g、pip ins
 - 涉及平台业务数据或 SQLite 时，先 list_databases，再 database_schema / read_database_table；平台数据库由当前租户解析，与所选目录无关。库标识必须用 list_databases 实际返回的值（如 platform:report.db 存报表/月报指标与快照），不要自行拼写。读取结果为空时如实说明是哪张表为空，不要推测成权限受限或数据未入库。不要用 Shell 绕过数据库工具的凭据和租户限制。
 - ${session.readOnly ? '当前账号无数据库写权限。' : '当前管理员可用 insert_database_row / update_database_rows / delete_database_rows 对业务数据增删改；按当前权限模式执行。修改前先确认表结构和目标行，用 filters 精确定位；整表操作必须显式 allowAllRows=true，并按实际范围设置 maxAffectedRows。历史报表保留入库口径，除非用户明确要求，不用当前规则重算。数据库提交不支持文件撤销。'}
 - 工具返回的错误要如实告诉用户；被用户拒绝的操作不要换个方式重试。
+- 用命令批量创建、移动或重命名文件和目录后，重新列出源和目标目录核实实际变更。退出码为 0 时也要核实；遇到失败或结果不符时，先核对已完成的部分再决定如何重试。
 - 执行完成后用简洁的 Markdown 总结做了什么、改了哪些文件。
 
 目录概览（前两层）：

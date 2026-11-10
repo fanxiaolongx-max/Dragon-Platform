@@ -2,11 +2,13 @@
   "zh": [
     "新增「保险箱」（全局设置 › 保险箱）：每个账号一份只属于自己的网站账号密码，管理员也看不到别人的；密码加密保存，查看明文需再输入一次平台登录密码。",
     "Dragon 浏览器登录即保存、再访问自动登录：不论是手动打开、点工具里的「Dragon 浏览器」按钮还是 AI 操作，登录时自动存入保险箱，下次打开登录页自动填写并登录；可按账号关闭自动填写 / 自动登录，或设为该站点不保存。桌面版原先只支持 NetCare、DataFab，现在对所有站点生效，旧的本机密码会自动迁入保险箱。",
-    "AI 可以用保险箱代你登录但看不到密码：新增 browser_login 工具，密码由浏览器直接填进网页，不进入对话和模型；只在保存时的那个站点上填写，登录请求等浏览器结果里的密码会被抹掉。"
+    "AI 可以用保险箱代你登录但看不到密码：新增 browser_login 工具，密码由浏览器直接填进网页，不进入对话和模型；只在保存时的那个站点上填写，登录请求等浏览器结果里的密码会被抹掉。",
+    "优化 Windows 下命令执行与路径引号兼容：cmd.exe 自动保留路径与参数的双引号，修复 PowerShell 脚本和含空格路径的参数传递问题；新增批量文件/目录变更后的主动核验机制。"
   ],
   "en": [
     "New Vault (Settings › Vault): every account gets its own private set of website logins that administrators cannot see; passwords are encrypted and viewing one requires your platform password again.",
     "Dragon browser saves on sign-in and signs in next time: whether you open a site yourself, from a tool's Dragon browser button, or the AI does it, logins are saved to your vault and sign-in pages are filled and submitted automatically. Auto-fill and auto sign-in can be turned off per login, or a site set to never save. The desktop app, previously limited to NetCare and DataFab, now covers every site and migrates passwords saved on the machine.",
-    "The AI can sign in for you without seeing the password: a new browser_login tool has the browser fill the page directly, never through the chat or the model, only on the exact site the login was saved for, with passwords masked in anything the browser returns."
+    "The AI can sign in for you without seeing the password: a new browser_login tool has the browser fill the page directly, never through the chat or the model, only on the exact site the login was saved for, with passwords masked in anything the browser returns.",
+    "Improve Windows command execution and quoted path compatibility: preserve double quotes in cmd.exe arguments to fix PowerShell invocations and paths with spaces; add verification for batch file and folder operations."
   ]
 }

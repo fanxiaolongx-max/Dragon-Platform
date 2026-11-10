@@ -184,6 +184,31 @@ test('run_command executes in the root with scrubbed env, timeout and output cap
     }
 });
 
+test('run_command preserves quoted Windows paths and PowerShell arguments', { skip: !IS_WIN }, async () => {
+    const workdir = path.join(ROOT, '交接 材料');
+    fs.mkdirSync(workdir);
+    const context = { ...ctx(), root: workdir, changeLog: new AgentChangeLog(workdir) };
+    const create = await tools.execute(context, 'run_command', {
+        command: `cd /d "${workdir}" && mkdir "01 月报" "02 收编"`
+    });
+    assert.equal(create.exitCode, 0, create.content);
+    assert.deepEqual(fs.readdirSync(workdir).sort(), ['01 月报', '02 收编']);
+
+    const script = path.join(workdir, '整理 文件.ps1');
+    fs.writeFileSync(script, '\uFEFF$ErrorActionPreference = "Stop"\nNew-Item -ItemType Directory -Path "03 会议" | Out-Null\n');
+    const run = await tools.execute(context, 'run_command', {
+        command: `powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${script}"`
+    });
+    assert.equal(run.exitCode, 0, run.content);
+    assert.ok(fs.statSync(path.join(workdir, '03 会议')).isDirectory());
+
+    const inline = await tools.execute(context, 'run_command', {
+        command: `powershell.exe -NoProfile -Command "& { $name = 'agent-quoting-ok'; Write-Output $name }"`
+    });
+    assert.equal(inline.exitCode, 0, inline.content);
+    assert.match(inline.content, /\nagent-quoting-ok\r?\n/);
+});
+
 test('unified diff and tool definitions are well formed', () => {
     const diff = unifiedDiff('a.txt', 'one\ntwo\nthree\n', 'one\n2\nthree\nfour\n');
     assert.equal(diff.added, 2);
