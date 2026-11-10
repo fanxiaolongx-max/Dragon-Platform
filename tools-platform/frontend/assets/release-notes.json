@@ -1,8 +1,8 @@
 {
   "zh": [
-    "优化工具市场展示与权限控制：已在工具列表的工具与平台托管应用（如 AiOps-Report）在工具市场中正确显示「打开」按钮而非「加入我的工具」；严格限制 Python Web 托管应用包仅超级管理员可上传导入与预览，团队普通管理员界面提示与包检测将实时拦截非超管上传。"
+    "修复「专题分析」页面在首页与发现应用中缺失的问题：补充首页工具卡片与中英文元数据，发现应用弹窗支持完备检索与直达专题分析页面。"
   ],
   "en": [
-    "Improve tool market display and upload permissions: tools and hosted apps already in the user's tools list (such as AiOps-Report) now show 'Open' instead of 'Add to My Tools'; Python Web hosted app packages are strictly restricted to super administrators for uploading and previewing, with immediate UI blocking for non-super admins."
+    "Fix missing Topic Analysis tool on the homepage and in Discover Apps: add the built-in tool card and bilingual metadata, and ensure Discover Apps search and categories include Topic Analysis."
   ]
 }

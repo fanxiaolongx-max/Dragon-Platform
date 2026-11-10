@@ -11,6 +11,7 @@ const page = read('frontend/pages/topic-analysis.html');
 const script = read('frontend/js/topic-analysis.js');
 const navbar = read('frontend/js/shared/navbar.js');
 const navRepository = read('backend/models/nav-settings-repository.js');
+const indexHtml = read('frontend/index.html');
 
 test('topic snapshot API and analysis page are wired', () => {
     assert.match(server, /app\.use\('\/api\/topic-snapshots', topicSnapshotsRoutes\)/);
@@ -39,4 +40,6 @@ test('topic snapshot API and analysis page are wired', () => {
     assert.match(navbar, /id: 'topic-analysis'[\s\S]*defaultCategory: 'cat_mshv1h0m'/);
     assert.match(navbar, /'nav\.topicAnalysis': '专题分析'/);
     assert.match(navRepository, /'topic-analysis': 'cat_mshv1h0m'/);
+    assert.match(indexHtml, /href="\/topic-analysis" class="tool-card"/);
+    assert.match(indexHtml, /<div class="card-title">专题分析<\/div>/);
 });
