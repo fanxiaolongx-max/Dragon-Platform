@@ -1,4 +1,4 @@
-// 全局设置 › 智能体工具：MCP 服务（默认租户，增删改、启用、只读免审批、测试连接）与 Dragon Claw 工具清单。
+// 全局设置 › 智能体工具：共享 MCP、空间审批规则、工具说明与工具权限。
 // 由 navbar.js 在切换到 agentTools 标签时按需加载；数据来自 /api/agent-mcp（backend/routes/agent-mcp.js）。
 (function () {
     'use strict';
@@ -8,7 +8,7 @@
     const esc = value => String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
     const MASK = '••••••';
     const EMPTY = { id: '', name: '', enabled: true, trusted: false, transport: 'stdio', command: '', args: [], cwd: '', env: {}, url: '', headers: {}, timeoutMs: 120000 };
-    const view = { content: null, servers: [], catalog: null, editing: null, notice: null, busy: false, mcp: true };
+    const view = { content: null, servers: [], catalog: null, editing: null, notice: null, busy: false, manageMcp: false };
 
     function authHeaders() {
         const token = localStorage.getItem('tools_token') || sessionStorage.getItem('tools_token');
@@ -102,14 +102,14 @@
         return `<div class="nat-server" data-id="${esc(server.id)}">
             <div>
                 <div class="nat-server-name">${esc(server.name)} <span class="nat-badge is-${esc(server.status)}">${esc(statusLabel(server.status))}</span>${server.trusted ? ` <span class="nat-badge">${esc(L('只读免审批', 'Read-only, no approval'))}</span>` : ''}</div>
-                <div class="nat-server-meta">${esc(server.transport === 'http' ? 'HTTP' : L('本机进程', 'Local process'))} · <code>${esc(where)}</code></div>
+                ${view.manageMcp ? `<div class="nat-server-meta">${esc(server.transport === 'http' ? 'HTTP' : L('本机进程', 'Local process'))} · <code>${esc(where)}</code></div>` : ''}
                 ${server.error ? `<div class="nat-server-error">${esc(server.error)}</div>` : ''}
             </div>
-            <div class="nat-actions">
+            ${view.manageMcp ? `<div class="nat-actions">
                 <button type="button" class="nat-btn" data-action="test" ${view.busy ? 'disabled' : ''}>${esc(L('测试连接', 'Test'))}</button>
                 <button type="button" class="nat-btn" data-action="edit">${esc(L('编辑', 'Edit'))}</button>
                 <button type="button" class="nat-btn is-danger" data-action="remove">${esc(L('删除', 'Delete'))}</button>
-            </div>
+            </div>` : ''}
             ${server.tools?.length ? `<details class="nat-tools"><summary>${esc(L(`${server.tools.length} 个工具`, `${server.tools.length} tools`))}</summary><ul>${server.tools.map(tool => `<li><code>${esc(tool.name)}</code> ${esc(tool.description)}</li>`).join('')}</ul></details>` : ''}
             ${view.editing?.id === server.id ? renderForm(view.editing) : ''}
         </div>`;
@@ -137,6 +137,11 @@
         </form>`;
     }
 
+    function accessSwitch(scope, id, enabled, disabled = false) {
+        const label = scope === 'group' ? L('整组向团队开放', 'Share group with teams') : L('向团队开放', 'Share with teams');
+        return `<label class="nat-switch"><input type="checkbox" data-access-scope="${scope}" data-access-id="${esc(id)}" ${enabled ? 'checked' : ''} ${disabled || view.busy ? 'disabled' : ''}>${esc(label)}</label>`;
+    }
+
     function renderCatalog() {
         const catalog = view.catalog;
         if (!catalog) return `<p class="nat-desc">${esc(L('正在加载…', 'Loading…'))}</p>`;
@@ -144,9 +149,9 @@
         const upfront = catalog.groups.filter(group => group.mode === 'always').flatMap(group => group.tools).reduce((sum, tool) => sum + tool.tokens, 0);
         return `<div class="nat-summary"><span>${esc(L('工具', 'Tools'))} <b>${all.length}</b></span><span>${esc(L('每步固定带上（工作区）约', 'Sent every step (workspace) ~'))} <b>${upfront.toLocaleString()}</b> token</span><span>${esc(L('累计调用', 'Total calls'))} <b>${all.reduce((sum, tool) => sum + tool.calls, 0).toLocaleString()}</b></span></div>
             ${catalog.groups.map(group => `<div class="nat-group">
-                <div class="nat-group-head">${esc(group.label)} <small>${esc(group.note || '')}</small></div>
-                ${group.tools.length ? `<div class="nat-table-wrap"><table class="nat-table"><thead><tr><th>${esc(L('工具', 'Tool'))}</th><th>${esc(L('类别', 'Kind'))}</th><th>${esc(L('说明', 'Description'))}</th><th class="nat-num">token</th><th class="nat-num">${esc(L('调用', 'Calls'))}</th></tr></thead><tbody>
-                    ${group.tools.map(tool => `<tr><td><code>${esc(tool.name)}</code></td><td>${esc(tool.kindLabel)}</td><td>${esc(tool.summary)}</td><td class="nat-num">${tool.tokens}</td><td class="nat-num" title="${esc(tool.lastUsedAt ? L(`最近 ${tool.lastUsedAt}`, `Last ${tool.lastUsedAt}`) : '')}">${tool.calls}${tool.failures ? ` <small style="color:#b91c1c">✗${tool.failures}</small>` : ''}</td></tr>`).join('')}
+                <div class="nat-group-head">${esc(group.label)} <small>${esc(group.note || '')}</small>${catalog.manage ? accessSwitch('group', group.id, group.enabled) : ''}</div>
+                ${group.tools.length ? `<div class="nat-table-wrap"><table class="nat-table"><thead><tr><th>${esc(L('工具', 'Tool'))}</th><th>${esc(L('类别', 'Kind'))}</th><th>${esc(L('说明', 'Description'))}</th><th class="nat-num">token</th><th class="nat-num">${esc(L('调用', 'Calls'))}</th>${catalog.manage ? `<th>${esc(L('团队权限', 'Team access'))}</th>` : ''}</tr></thead><tbody>
+                    ${group.tools.map(tool => `<tr><td><code>${esc(tool.name)}</code></td><td>${esc(tool.kindLabel)}</td><td>${esc(tool.summary)}</td><td class="nat-num">${tool.tokens}</td><td class="nat-num" title="${esc(tool.lastUsedAt ? L(`最近 ${tool.lastUsedAt}`, `Last ${tool.lastUsedAt}`) : '')}">${tool.calls}${tool.failures ? ` <small style="color:#b91c1c">✗${tool.failures}</small>` : ''}</td>${catalog.manage ? `<td>${accessSwitch('tool', tool.name, group.enabled && tool.enabled, !group.enabled)}</td>` : ''}</tr>`).join('')}
                 </tbody></table></div>` : ''}
             </div>`).join('')}`;
     }
@@ -159,7 +164,7 @@
             const global = rules.some(rule => rule.scope === 'global');
             return `<div class="nat-danger">
                 <div><div class="nat-danger-label">${esc(category.label)}</div><div class="nat-danger-desc">${esc(category.description)}</div></div>
-                <div class="nat-actions">${global ? '' : `<button type="button" class="nat-btn" data-action="danger-allow" data-category="${esc(category.id)}" ${view.busy ? 'disabled' : ''}>${esc(L('永久不再询问', 'Never ask'))}</button>`}</div>
+                <div class="nat-actions">${global || !danger.manage ? '' : `<button type="button" class="nat-btn" data-action="danger-allow" data-category="${esc(category.id)}" ${view.busy ? 'disabled' : ''}>${esc(L('永久不再询问', 'Never ask'))}</button>`}</div>
                 ${rules.length ? `<div class="nat-danger-rules">${rules.map(rule => `<span class="nat-rule" title="${esc(`${rule.by || ''} ${rule.createdAt || ''}`.trim())}"><span>${esc(rule.scope === 'global' ? L('永久不再询问（含频道）', 'Never ask (incl. channels)') : L(`不再询问：${rule.root}`, `Never ask in ${rule.root}`))}</span><button type="button" data-action="danger-revoke" data-rule="${esc(rule.id)}" ${view.busy ? 'disabled' : ''}>${esc(L('撤销', 'Revoke'))}</button></span>`).join('')}</div>` : ''}
             </div>`;
         }).join('');
@@ -180,7 +185,7 @@
             <td><a href="${esc(window.ToolsNavigation.toolUrl(item.href))}" target="_blank" rel="noopener">${esc(item.title)}</a></td>
             <td><span class="nat-guide-state is-${esc(item.state)}">${esc(guideStateLabel(item.state))}</span></td>
             <td>${esc(item.summary || '—')}</td>
-            <td class="nat-num">${item.state !== 'missing' ? `<button type="button" class="nat-link" data-action="guide-view">${esc(L('查看', 'View'))}</button>` : ''}<button type="button" class="nat-link" data-action="guide-one" ${running ? 'disabled' : ''}>${esc(item.state === 'missing' ? L('生成', 'Generate') : L('重新生成', 'Redo'))}</button></td>
+            <td class="nat-num">${item.state !== 'missing' ? `<button type="button" class="nat-link" data-action="guide-view">${esc(L('查看', 'View'))}</button>` : ''}${data.manage ? `<button type="button" class="nat-link" data-action="guide-one" ${running ? 'disabled' : ''}>${esc(item.state === 'missing' ? L('生成', 'Generate') : L('重新生成', 'Redo'))}</button>` : ''}</td>
         </tr>${view.openGuide?.id === item.id ? `<tr><td colspan="4"><div class="nat-guide-body">${esc(view.openGuide.text)}</div></td></tr>` : ''}`).join('');
         const auto = data.autoUpdate;
         const autoNote = auto ? `<div class="nat-desc" style="display:flex;align-items:center;gap:8px;margin-top:6px;padding:6px 10px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:6px;font-size:12px;color:inherit">
@@ -190,10 +195,10 @@
         return `<div class="nat-summary"><span>${esc(L('工具', 'Tools'))} <b>${data.total}</b></span><span>${esc(L('已生成', 'Ready'))} <b>${data.ready}</b></span><span>${esc(L('待更新', 'Outdated'))} <b>${data.stale}</b></span><span>${esc(L('未生成', 'Missing'))} <b>${data.missing}</b></span></div>
             ${autoNote}
             ${progress}
-            <div class="nat-actions" style="justify-content:flex-start;margin:8px 0">
+            ${data.manage ? `<div class="nat-actions" style="justify-content:flex-start;margin:8px 0">
                 <button type="button" class="nat-btn is-primary" data-action="guide-generate" ${running || !pending ? 'disabled' : ''}>${esc(L(`生成缺失和过期的（${pending} 个）`, `Generate missing and outdated (${pending})`))}</button>
                 <button type="button" class="nat-btn" data-action="guide-regenerate" ${running ? 'disabled' : ''}>${esc(L('全部重新生成', 'Regenerate all'))}</button>
-            </div>
+            </div>` : ''}
             <div class="nat-table-wrap"><table class="nat-table"><thead><tr><th>${esc(L('工具', 'Tool'))}</th><th>${esc(L('状态', 'State'))}</th><th>${esc(L('摘要', 'Summary'))}</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
     }
 
@@ -223,16 +228,14 @@
             ${view.notice ? `<div class="nat-notice is-${view.notice.type}">${esc(view.notice.text)}</div>` : ''}
             <section class="nat-card" data-section="mcp">
                 <h4>🔌 ${esc(L('MCP 服务', 'MCP servers'))}</h4>
-                <p class="nat-desc">${esc(view.mcp
-                    ? L('服务的工具会接进首页对话（选不选目录都能用），按需加载；默认每次调用都要用户在对话里批准。连不上的服务会自动跳过，换到能连上的网络后自动恢复。', 'Server tools join home chats (with or without a folder), loaded on demand; every call needs approval by default. Unreachable servers are skipped and come back automatically.')
-                    : L('MCP 服务只在默认工作区里配置和使用。', 'MCP servers are configured and used in the default workspace only.'))}</p>
-                ${view.mcp ? `${view.servers.map(renderServer).join('') || `<p class="nat-desc">${esc(L('还没有 MCP 服务。', 'No MCP servers yet.'))}</p>`}
-                ${view.editing && !view.editing.id ? renderForm(view.editing) : ''}
-                ${view.editing ? '' : `<div class="nat-actions" style="justify-content:flex-start;margin-top:8px"><button type="button" class="nat-btn is-primary" data-action="add">${esc(L('添加服务', 'Add server'))}</button></div>`}` : ''}
+                <p class="nat-desc">${esc(L('超管配置的已启用服务供所有账号调用，连接配置仅超管可见。默认逐次审批，只有标记为只读的服务可免审批。', 'Enabled services are shared with all accounts. Only super admins see the connection settings. Calls require approval by default, except for services marked read-only.'))}</p>
+                ${view.servers.map(renderServer).join('') || `<p class="nat-desc">${esc(L('还没有 MCP 服务。', 'No MCP servers yet.'))}</p>`}
+                ${view.manageMcp && view.editing && !view.editing.id ? renderForm(view.editing) : ''}
+                ${view.manageMcp && !view.editing ? `<div class="nat-actions" style="justify-content:flex-start;margin-top:8px"><button type="button" class="nat-btn is-primary" data-action="add">${esc(L('添加服务', 'Add server'))}</button></div>` : ''}
             </section>
-            <section class="nat-card" data-section="danger"><h4>⛔ ${esc(L('危险操作', 'Dangerous actions'))}</h4><p class="nat-desc">${esc(L('智能体执行的命令命中下面几类时，即使选了「完全访问」也会弹审批卡；可以在审批卡上按类别选择本对话、这个工作目录或永久不再询问。WeLink 频道等无人值守的对话没人审批，这几类命令不会执行，除非在这里设为永久不再询问。识别靠检查命令文本，写在脚本里的操作识别不到；命令里的 rm 会移到废纸篓，智能体改平台数据库前会自动备份。', 'Agent commands in these categories ask for approval even with full access; on the card you can stop asking for this chat, this folder or always. Unattended chats such as WeLink channels skip them unless set to never ask here. Detection reads the command text and cannot see inside scripts; rm moves files to the Trash and platform databases are backed up before the agent changes them.'))}</p>${renderDanger()}</section>
+            <section class="nat-card" data-section="danger"><h4>⛔ ${esc(L('危险操作 · 当前空间', 'Dangerous actions · Current space'))}</h4><p class="nat-desc">${esc(L('当前空间默认关闭所有免审批规则。智能体执行的命令命中下面几类时，即使选了「完全访问」也会弹审批卡；可以在审批卡上按类别选择本对话、这个工作目录或永久不再询问。WeLink 频道等无人值守的对话没人审批，这几类命令不会执行，除非在这里设为永久不再询问。识别靠检查命令文本，写在脚本里的操作识别不到；命令里的 rm 会移到废纸篓，智能体改平台数据库前会自动备份。', 'Approval exemptions are off by default in this space. Agent commands in these categories ask for approval even with full access; on the card you can stop asking for this chat, this folder or always. Unattended chats such as WeLink channels skip them unless set to never ask here. Detection reads the command text and cannot see inside scripts; rm moves files to the Trash and platform databases are backed up before the agent changes them.'))}</p>${renderDanger()}</section>
             <section class="nat-card" data-section="guides"><h4>📘 ${esc(L('工具使用说明', 'Tool guides'))}</h4><p class="nat-desc">${esc(L('用当前配置的模型读每个工具的页面和代码，生成一份面向用户的说明（能做什么、什么时候用、怎么用、工作原理）。Dragon Claw 按需求找工具、回答「怎么用」时会参考它，也会进入项目知识库检索。每个工具调用一次模型、读取约 1 万多 token 的源码；只生成缺失的和源码变了的。', 'The current model reads each tool\'s page and code and writes a user guide (what it does, when to use it, how to use it, how it works). Dragon Claw uses these to match needs to tools and explain usage, and they join the knowledge search. Each tool costs one model call reading about 10k+ tokens of source; only missing and changed tools are generated.'))}</p>${renderGuides()}</section>
-            <section class="nat-card"><h4>🧰 ${esc(L('工具清单', 'Tool catalog'))}</h4><p class="nat-desc">${esc(L('Dragon Claw 首页对话能用的工具，按来源分组；token 是工具说明占用的上下文，按需加载的工具只在用到时才占用。', 'Tools Dragon Claw home chats can use, grouped by source; tokens are the context each description takes, and deferred tools only count once loaded.'))}</p>${renderCatalog()}</section>
+            <section class="nat-card"><h4>🧰 ${esc(L('工具清单', 'Tool catalog'))}</h4><p class="nat-desc">${esc(L('Dragon Claw 首页对话能用的工具，按来源分组。超管可按整组或单项控制团队的使用权限。token 是工具说明占用的上下文，按需加载的工具只在用到时才占用。', 'Tools Dragon Claw home chats can use, grouped by source. Super admins can control team access by group or tool. Tokens are the context each description takes, and deferred tools only count once loaded.'))}</p>${renderCatalog()}</section>
         </div>`;
     }
 
@@ -327,7 +330,22 @@
                 view.busy = false; render();
             }
         });
-        content.addEventListener('change', event => {
+        content.addEventListener('change', async event => {
+            const { accessScope, accessId } = event.target.dataset;
+            if (accessScope && view.catalog?.manage) {
+                const enabled = event.target.checked;
+                view.busy = true;
+                render();
+                try {
+                    await api('PATCH', '/catalog/access', { scope: accessScope, id: accessId, enabled });
+                    view.notice = { type: 'ok', text: L('工具权限已保存，下一轮对话生效。', 'Tool access saved. Applies from the next turn.') };
+                } catch (error) {
+                    view.notice = { type: 'error', text: error.message };
+                }
+                view.busy = false;
+                await loadCatalog();
+                return;
+            }
             if (event.target.name !== 'transport' || !view.editing || !event.target.closest('.nat')) return;
             Object.assign(view.editing, readForm(event.target.form));
             render();
@@ -345,17 +363,16 @@
     async function render0(content) {
         ensureStyle();
         view.content = content;
-        view.editing = null;
-        view.notice = null;
+        Object.assign(view, { editing: null, notice: null, manageMcp: false, servers: [], catalog: null, guides: null, danger: null, openGuide: null });
         render();
         if (!content.dataset.natBound) { bind(content); content.dataset.natBound = '1'; }
         try {
-            view.servers = (await api('GET', '/servers')).servers;
-            view.mcp = true;
+            const data = await api('GET', '/servers');
+            view.servers = data.servers;
+            view.manageMcp = data.manage === true;
         } catch (error) {
             view.servers = [];
-            view.mcp = false;
-            if (!/默认租户|default tenant/i.test(error.message)) view.notice = { type: 'error', text: error.message };
+            view.notice = { type: 'error', text: error.message };
         }
         render();
         loadDanger();

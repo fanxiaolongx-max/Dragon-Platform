@@ -10,7 +10,7 @@
 .dc-voice.is-transcribing svg{animation:voice-spin 1s linear infinite}
 .dc-voice[disabled]{opacity:.4;cursor:default}
 /* Keep actual source/status available to assistive technology, without visible text. */
-.chat-voice-source{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);clip-path:inset(50%);white-space:nowrap;border:0}
+.chat-voice-source{position:absolute;left:0;top:0;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);clip-path:inset(50%);white-space:nowrap;border:0}
 .chat-voice-source[hidden]{display:none}
 #dcComposer .dc-connector-control{flex-shrink:0;white-space:nowrap}
 @keyframes voice-spin{to{transform:rotate(360deg)}}

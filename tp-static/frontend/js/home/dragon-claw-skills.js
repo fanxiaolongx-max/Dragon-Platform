@@ -58,9 +58,9 @@
         if (full) option.title = full;
         const head = document.createElement('span'), label = document.createElement('b'), description = document.createElement('span');
         head.className = 'dc-skill-option-head'; description.className = 'dc-skill-option-desc';
-        label.textContent = `${item.icon ? `${item.icon} ` : ''}@${item.id} · ${en() ? item.nameEn : item.name}`;
+        const text = `${item.icon ? `${item.icon} ` : ''}@${item.id} · ${en() ? item.nameEn : item.name}`;
+        if (window.SkillSource?.label) label.innerHTML = window.SkillSource.label(text, item); else label.textContent = text;
         head.appendChild(label);
-        if (window.SkillSource) head.insertAdjacentHTML('beforeend', window.SkillSource.dot(item));
         if (item.workspace && !window.DragonClawWorkspace?.getWorkspacePayload?.()) {
             const tag = document.createElement('small');
             tag.textContent = words('需工作目录', 'Needs folder'); head.appendChild(tag);
@@ -75,6 +75,7 @@
         matches.slice(rendered, rendered + PAGE).forEach((item, offset) => fragment.appendChild(optionNode(item, rendered + offset)));
         rendered = Math.min(matches.length, rendered + PAGE);
         menu.insertBefore(fragment, before);
+        window.SkillSource?.fit?.(menu);
     }
     function render() {
         const current = token();
@@ -91,7 +92,7 @@
         hint.textContent = loading ? words('正在加载…', 'Loading…') : failed ? words('加载失败，点击重试', 'Could not load. Click to retry')
             : !matches.length ? words('没有匹配的 Skill', 'No matching Skills') : words('↑↓ 选择 · Enter / Tab 插入 · Esc 关闭', '↑↓ to choose · Enter / Tab to insert · Esc to close');
         if (failed) { hint.tabIndex = 0; hint.setAttribute('role', 'button'); hint.onclick = load; hint.onkeydown = event => { if (event.key === 'Enter') load(); }; }
-        menu.appendChild(hint); renderMore(hint); menu.hidden = false;
+        menu.appendChild(hint); renderMore(hint); menu.hidden = false; window.SkillSource?.fit?.(menu);
         const formTop = input.closest('form').getBoundingClientRect().top;
         const rootTop = document.getElementById('dragonClaw').getBoundingClientRect().top;
         menu.style.maxHeight = `${Math.max(100, Math.min(420, window.innerHeight * .55, formTop - Math.max(0, rootTop) - 14))}px`;

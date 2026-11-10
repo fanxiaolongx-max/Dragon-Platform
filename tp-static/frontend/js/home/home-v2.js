@@ -107,6 +107,7 @@
             scanWelinkBot: 'WeLink 助理', scanWaitWelinkBot: '请使用手机 WeLink 扫码并确认授权', scanConnectedWelinkBot: 'WeLink 助理已对接',
             scanRecheck: '重新检测', scanWindowsOnly: '仅支持 Windows', scanWindowsHint: '内置的 welink-cli 只能在 Windows 上运行，并需要本机登录 WeLink PC。',
             scanRelogin: '重新扫码', scanLogout: '退出登录', scanChannelSettings: '频道设置',
+            scanAdminOnly: '仅系统管理员可用',
             channelDisabledNoChannel: '当前未对接任何频道（WeLink / 微信），可在全局设置中对接',
             channelDisabledNotEnabled: '已配置频道凭据但尚未启用，请在全局设置中开启'
         },
@@ -135,6 +136,7 @@
             scanWelinkBot: 'WeLink Bot', scanWaitWelinkBot: 'Scan with WeLink mobile and confirm', scanConnectedWelinkBot: 'WeLink assistant connected',
             scanRecheck: 'Check again', scanWindowsOnly: 'Windows only', scanWindowsHint: 'The built-in welink-cli runs only on Windows, with WeLink PC signed in on this machine.',
             scanRelogin: 'Re-scan', scanLogout: 'Sign out', scanChannelSettings: 'Channel settings',
+            scanAdminOnly: 'System administrators only',
             channelDisabledNoChannel: 'No channels configured (WeLink / WeChat). Configure them in Global Settings.',
             channelDisabledNotEnabled: 'Channels configured but not enabled. Please enable them in Global Settings.'
         }
@@ -311,17 +313,21 @@
     // ── 二级菜单：技能·插件·工具 / 更多（悬停或点击展开） ──
     const flyouts = {
         more: () => {
+            const workflow = window.NavWorkflow?.links() || [];
+            const workflowPaths = new Set(workflow.map(item => item.href));
+            const toolLink = (href, label) => `<a class="v2-pop-item" role="menuitem" href="${esc(href)}"><span class="v2-ico v2-app-glyph" data-icon="${appGlyph(href)}"></span><span>${esc(label)}</span></a>`;
             const links = [...document.querySelectorAll('#app-navbar .nav-links a[href]')]
-                .filter(a => a.getAttribute('href') !== '/' && !a.getAttribute('href').startsWith('#'))
-                .map(a => `<a class="v2-pop-item" role="menuitem" href="${esc(a.getAttribute('href'))}"><span class="v2-ico v2-app-glyph" data-icon="${appGlyph(a.getAttribute('href'))}"></span><span>${esc((a.querySelector('.nav-text, .nav-link-text')?.textContent || a.getAttribute('title') || a.textContent || '').trim().replace(/^\S+\s+/, m => (/^[\p{Extended_Pictographic}️]+\s+$/u.test(m) ? '' : m)))}</span></a>`);
+                .filter(a => isNavSidebarShortcut(a.getAttribute('href')) && !workflowPaths.has(a.getAttribute('href')))
+                .map(a => toolLink(a.getAttribute('href'), (a.querySelector('.nav-text, .nav-link-text')?.textContent || a.getAttribute('title') || a.textContent || '').trim().replace(/^\S+\s+/, m => (/^[\p{Extended_Pictographic}️]+\s+$/u.test(m) ? '' : m))));
             const personal = window.HomeSidebarMenu;
             return [
+                workflow.length ? `<div class="v2-pop-cap">${esc(window.NavWorkflow.label())}</div>${workflow.map(item => toolLink(item.href, getNavLabel(item))).join('')}` : '',
                 personal ? '<div class="v2-sidebar-more-items"></div>' : [
                     menuItem('link', t('links'), 'links', '›').replace('role="menuitem"', 'role="menuitem" aria-haspopup="menu" aria-controls="v2LinksSubmenu" aria-expanded="false"'),
                     menuItem('target', t('requirements'), 'requirements'),
                     menuItem('compass', lang() === 'en-US' ? 'Promotions' : '平台推广', 'promotions')
                 ].join(''),
-                links.length ? `<div class="v2-pop-cap">${esc(t('discover'))}</div>${links.join('')}` : ''
+                links.length ? `<div class="v2-pop-cap">${esc(navT('nav.sidebarShortcuts'))}</div>${links.join('')}` : ''
             ].join('');
         }
     };
@@ -345,6 +351,19 @@
             flyPop.insertAdjacentHTML('beforeend', '<div class="v2-pop-sep"></div>');
             flyPop.append(caption, sidebarShortcuts);
             sidebarShortcuts.hidden = false;
+        }
+        if (anchor.dataset.v2Flyout === 'more') {
+            const linksBtn = flyPop.querySelector('[data-v2-do="links"]');
+            if (linksBtn) {
+                if (!linksBtn.querySelector('.v2-pop-hint')) {
+                    const hint = document.createElement('span');
+                    hint.className = 'v2-pop-hint';
+                    hint.textContent = '›';
+                    linksBtn.append(hint);
+                }
+                flyPop.insertAdjacentHTML('beforeend', '<div class="v2-pop-sep"></div>');
+                flyPop.append(linksBtn);
+            }
         }
         flyPop.insertAdjacentHTML('beforeend', '<div class="v2-pop-sep"></div>' + menuItem('filter', lang() === 'en-US' ? 'Customize menu' : '自定义菜单栏', 'customizeMenu'));
         fillIcons(flyPop);
@@ -556,7 +575,7 @@
                 <div><small>${esc(t('service'))}</small><button type="button" class="v2-account-service" data-v2-do="serviceStatus" title="${esc(t('serviceStatus'))}" aria-label="${esc(t('serviceStatus'))}"><span class="v2-status-dot${serviceDown() ? ' is-down' : ''}"></span>${esc(serviceText())}</button></div>
             </div>
             <div class="v2-account-card v2-account-list">
-                ${admin ? rowItem('settings', t('settings'), 'settings', mac ? '⌘,' : 'Ctrl+,') : ''}
+                ${rowItem('settings', t('settings'), 'settings', mac ? '⌘,' : 'Ctrl+,')}
                 ${rowItem('palette', t('appearance'), 'theme', dark ? t('dark') : t('light'), true)}
                 ${switchItem('wide', t('wide'), 'wide', root.classList.contains('v2-wide'))}
                 ${rowItem('language', t('language'), 'language')}
@@ -577,7 +596,7 @@
     // 外观切换后菜单保持打开，直接刷新文案
     userPop.addEventListener('click', event => { if (event.target.closest('[data-v2-do="theme"],[data-v2-do="wide"]')) setTimeout(() => { renderUserMenu(); userPop.classList.add('is-open'); openPop = { pop: userPop, anchor: $('v2UserBtn') }; }, 0); });
     document.addEventListener('keydown', event => {
-        if ((event.metaKey || event.ctrlKey) && event.key === ',' && localStorage.getItem('tools_role') === 'admin') { event.preventDefault(); run('settings'); }
+        if ((event.metaKey || event.ctrlKey) && event.key === ',' && localStorage.getItem('tools_role')) { event.preventDefault(); run('settings'); }
     });
     $('v2AlertBtn')?.addEventListener('click', () => run('alerts'));
 
@@ -585,6 +604,7 @@
     const scan = {
         pop: makePop('v2-scan'),
         tab: 'welink',
+        denied: false,
         weixinDisabled: false,
         weixinDisabledHint: '',
         welink: {
@@ -612,6 +632,24 @@
     };
     scan.pop.setAttribute('role', 'dialog');
 
+    function canUseScan() {
+        return !scan.denied && localStorage.getItem('tools_super') === '1' && window.isNavSuperAdmin?.();
+    }
+
+    async function fetchScan(url, options) {
+        if (!canUseScan()) throw new Error(t('scanAdminOnly'));
+        const response = await fetch(url, options);
+        if (response.status === 403) {
+            const error = await response.clone().json().catch(() => ({}));
+            if (error?.code === 'SUPER_ADMIN_REQUIRED') {
+                scan.denied = true;
+                scan.abortAll();
+                renderScan();
+            }
+        }
+        return response;
+    }
+
     function scanHeaders(json) {
         const token = localStorage.getItem('tools_token') || sessionStorage.getItem('tools_token');
         return {
@@ -628,6 +666,7 @@
     };
 
     function loadScanTab() {
+        if (!canUseScan()) return;
         if (scan.tab === 'welink') loadWelinkStatus({ autoLogin: true });
         else if (scan.tab === 'welinkbot') loadWelinkBotStatus({ autoQr: true });
         else {
@@ -673,7 +712,7 @@
         scan.welink.checking = true;
         renderScan();
         try {
-            const res = await fetch(`/api/channels/welink-cli/status?auth=1${refresh ? '&refresh=1' : ''}`, { headers: scanHeaders() });
+            const res = await fetchScan(`/api/channels/welink-cli/status?auth=1${refresh ? '&refresh=1' : ''}`, { headers: scanHeaders() });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status });
             scan.welink.status = data;
@@ -704,7 +743,7 @@
         renderScan();
         try {
             const env = scan.welink.status?.config?.env || '';
-            const res = await fetch('/api/channels/welink-cli/login', {
+            const res = await fetchScan('/api/channels/welink-cli/login', {
                 method: 'POST',
                 headers: scanHeaders(true),
                 body: JSON.stringify({ env }),
@@ -788,7 +827,7 @@
         scan.weixin.checking = true;
         renderScan();
         try {
-            const res = await fetch('/api/channels/weixin/status', { headers: scanHeaders() });
+            const res = await fetchScan('/api/channels/weixin/status', { headers: scanHeaders() });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
             scan.weixin.status = data;
@@ -821,7 +860,7 @@
         scan.weixin.qr = { type: 'starting', running: true };
         renderScan();
         try {
-            const res = await fetch('/api/channels/weixin/qrcode-auth', {
+            const res = await fetchScan('/api/channels/weixin/qrcode-auth', {
                 method: 'POST',
                 headers: scanHeaders(true),
                 body: JSON.stringify({}),
@@ -863,7 +902,7 @@
     async function submitWeixinVerify(code) {
         if (!code) return;
         try {
-            await fetch('/api/channels/weixin/qrcode-auth/verify', {
+            await fetchScan('/api/channels/weixin/qrcode-auth/verify', {
                 method: 'POST',
                 headers: scanHeaders(true),
                 body: JSON.stringify({ code })
@@ -877,7 +916,7 @@
         scan.welinkbot.checking = true;
         renderScan();
         try {
-            const res = await fetch('/api/channels/welink/status', { headers: scanHeaders() });
+            const res = await fetchScan('/api/channels/welink/status', { headers: scanHeaders() });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
             scan.welinkbot.status = data;
@@ -900,7 +939,7 @@
         scan.welinkbot.qr = { type: 'starting', running: true };
         renderScan();
         try {
-            const res = await fetch('/api/channels/welink/qrcode-auth', {
+            const res = await fetchScan('/api/channels/welink/qrcode-auth', {
                 method: 'POST',
                 headers: scanHeaders(true),
                 body: JSON.stringify({}),
@@ -1036,7 +1075,7 @@
 
     async function logoutWelink() {
         try {
-            await fetch('/api/channels/welink-cli/logout', { method: 'POST', headers: scanHeaders() });
+            await fetchScan('/api/channels/welink-cli/logout', { method: 'POST', headers: scanHeaders() });
         } catch (_) {}
         loadWelinkStatus({ autoLogin: false });
     }
@@ -1065,6 +1104,12 @@
     }
 
     function renderScan() {
+        const allowed = canUseScan();
+        scan.pop.classList.toggle('is-restricted', !allowed);
+        if (!allowed) {
+            scan.pop.innerHTML = `<strong class="v2-scan-restricted" role="status">${esc(t('scanAdminOnly'))}</strong>`;
+            return;
+        }
         if (scan.weixinDisabled && scan.tab === 'weixin') {
             scan.tab = 'welink';
         }
@@ -1255,6 +1300,7 @@
     }
 
     scan.pop.addEventListener('click', event => {
+        if (!canUseScan()) return;
         const tabBtn = event.target.closest('[data-scan-tab]');
         if (tabBtn) {
             const nextTab = tabBtn.dataset.scanTab;
@@ -1290,7 +1336,7 @@
             w.upgradeSuccess = '';
             w.upgradeError = '';
             renderScan();
-            fetch('/api/channels/welink-cli/upgrade', { method: 'POST', headers: scanHeaders(true) })
+            fetchScan('/api/channels/welink-cli/upgrade', { method: 'POST', headers: scanHeaders(true) })
                 .then(async res => {
                     const data = await res.json().catch(() => ({}));
                     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
@@ -1351,6 +1397,7 @@
         scanPinned = false;
         renderScan();
         showPop(scan.pop, anchor, 'up');
+        if (!canUseScan()) return;
         await ensureQrLib().catch(() => {});
         if (openPop?.pop !== scan.pop) return;
         loadScanTab();
@@ -2316,6 +2363,7 @@
         if (!quick.scene) loadRecentQuestions();
         updateChannelsNavState();
         if (openPop?.pop === discover.pop) renderDiscover();
+        if (openPop?.pop === scan.pop) renderScan();
     });
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
     else init();

@@ -330,7 +330,8 @@
             position: fixed;
             bottom: 80px;
             right: 62px;
-            width: 420px;
+            width: min(420px, calc(100vw - 24px));
+            max-width: calc(100vw - 24px);
             height: min(640px, calc(100vh - 120px));
             background: #f7f9fd !important;
             color: #334155 !important;

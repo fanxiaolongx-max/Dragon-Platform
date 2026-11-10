@@ -41,6 +41,7 @@
         layout.primary.forEach(id => {
             const button = buttons.get(id);
             button.classList.remove('v2-pop-item'); button.removeAttribute('role');
+            button.querySelector('.v2-pop-hint')?.remove();
             nav.insertBefore(button, moreButton);
         });
         layout.more.forEach(id => {

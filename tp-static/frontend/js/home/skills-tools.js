@@ -94,7 +94,7 @@
             card.innerHTML = `
                 <div class="custom-tool-actions">
                     <button type="button" class="custom-tool-action action-improve" data-skill-action="improve" title="${escapeHtml(tx('improve'))}">⚡</button>
-                    <button type="button" class="custom-tool-action action-history" data-skill-action="history" title="${escapeHtml(tx('history'))}">⏱</button>
+                    <button type="button" class="custom-tool-action action-history" data-skill-action="history" title="${escapeHtml(tx('history'))}" ${item.shared && !item.personal ? 'hidden' : ''}>⏱</button>
                     <button type="button" class="custom-tool-action" data-skill-action="download" title="${escapeHtml(tx('download'))}">↓</button>
                     ${admin ? `
                         ${window.BuiltinPromotion?.button('skill', item.id, { builtIn: item.builtIn, name: displayName(item) }) || ''}
@@ -120,7 +120,7 @@
         const head = grid?.querySelector(':scope > .home-group-head[data-group="__skills"]');
         if (!head) return;
         head.querySelector('.skill-restore')?.remove();
-        if (!isAdmin() || !state.hidden) return;
+        if (!window.isNavSuperAdmin?.() || !state.hidden) return;
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'skill-restore';
@@ -129,6 +129,7 @@
         head.appendChild(button);
     }
 
+    let hasLoaded = false;
     async function load() {
         try {
             const data = await window.API.get(`/api/agent-skills${isAdmin() ? '?includeHidden=1' : ''}`);
@@ -139,7 +140,9 @@
             state.items = []; // 技能目录读取失败时只是不显示技能分类
             state.hidden = 0;
         }
+        hasLoaded = true;
         renderCards();
+        window.dispatchEvent(new CustomEvent('skills:loaded', { detail: { count: state.items.length } }));
     }
 
     async function download(id) {
@@ -179,7 +182,9 @@
     }
 
     async function remove(item) {
-        const message = item.builtIn ? tx('deleteBuiltin', { name: displayName(item) }) : tx('deleteCustom', { name: displayName(item), id: item.id });
+        const message = item.shared
+            ? (lang() === 'en-US' ? 'Hide this skill from your list? You can restore it from the market.' : '从我的列表隐藏此技能？之后可在应用市场恢复。')
+            : item.builtIn ? tx('deleteBuiltin', { name: displayName(item) }) : tx('deleteCustom', { name: displayName(item), id: item.id });
         if (!await window.AppDialog.confirm(message, { title: tx('deleteTitle'), tone: 'danger', confirmText: tx('confirmDelete') })) return;
         try {
             await window.API.delete(`/api/agent-skills/${encodeURIComponent(item.id)}`);
@@ -206,7 +211,8 @@
         if (typeof window.DragonClaw?.newChat === 'function') window.DragonClaw.newChat();
         const input = document.getElementById('dcInput');
         if (input) {
-            input.value = `@improve-skill @${item.id} `;
+            input.value = window.isNavSuperAdmin?.() ? `@improve-skill @${item.id} `
+                : (lang() === 'en-US' ? `Improve @${item.id} and save it as my personal version. ` : `完善 @${item.id} 并保存为我的个人版本。 `);
             input.dispatchEvent(new Event('input', { bubbles: true }));
             input.focus({ preventScroll: true });
             input.setSelectionRange(input.value.length, input.value.length);
@@ -368,6 +374,13 @@
     window.SkillSource = {
         kind: item => item?.builtIn || item?.source === 'builtin' ? 'builtin' : ['import', 'external'].includes(item?.source) ? item.source : 'chat',
         dot: item => `<i class="skill-src-dot" data-src="${window.SkillSource.kind(item)}" aria-hidden="true"></i>`,
+        // 名字 + 来源圆点：名字过长时在自己的轨道里来回滚动，圆点始终露在外面（插入页面后调用 fit 量一下）
+        label: (text, item) => `<span class="skill-name"><span class="skill-name-track"><span class="skill-name-text">${escapeHtml(text)}</span></span>${window.SkillSource.dot(item)}</span>`,
+        fit: root => requestAnimationFrame(() => (root || document).querySelectorAll('.skill-name-track').forEach(track => {
+            const text = track.firstElementChild, shift = text ? text.scrollWidth - track.clientWidth : 0;
+            track.classList.toggle('is-long', shift > 2 && track.clientWidth > 0);
+            if (shift > 2) { track.style.setProperty('--shift', `-${shift + 6}px`); track.style.setProperty('--dur', `${Math.min(14, 4 + shift / 18).toFixed(1)}s`); }
+        })),
         // 列表里用的一句话简介：去掉括号补充说明，只取第一句，过长截断（完整简介放在悬停提示里）
         brief: (item, english = false) => {
             const full = String((english ? item?.descriptionEn || item?.description : item?.description || item?.descriptionEn) || '').replace(/\s+/g, ' ').trim();
@@ -387,7 +400,7 @@
             return clause > cut * 0.55 ? head.slice(0, clause) : `${head.trim()}…`;
         }
     };
-    window.HomeSkills = { reload: load, items: () => state.items.slice(), improve, showHistory, download, rename, remove };
+    window.HomeSkills = { reload: load, items: () => state.items.slice(), ready: () => hasLoaded, isLoaded: () => hasLoaded, improve, showHistory, download, rename, remove };
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
     else init();

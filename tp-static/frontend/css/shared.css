@@ -2340,6 +2340,15 @@ dialog#mediaFormDialog.is-importing {
     font-size: 13px;
 }
 
+.nav-settings-fixed-category {
+    justify-self: start;
+    padding: 4px 10px;
+    border-radius: 7px;
+    background: var(--nsw-chip, #f1f5f9);
+    color: var(--nsw-ink2, #475569);
+    font-size: 13px;
+}
+
 .nav-settings-actions {
     display: flex;
     gap: 6px;
@@ -7429,6 +7438,7 @@ body.nav-settings-open{overflow:hidden}
     #navSettingsContent :is(.nav-settings-actions,.nav-ai-profile-head-actions,.nav-backup-actions){flex-wrap:wrap;justify-content:flex-start}
     #navSettingsContent :is(.nav-settings-actions button,.nav-settings-add){min-height:40px}
     #navSettingsContent .nav-settings-check{white-space:normal;overflow-wrap:anywhere;min-width:0}
+    .nav-settings-restore-card{flex-direction:column;align-items:stretch;gap:10px}
 }
 @media(max-width:860px){
     html.is-desktop-app .nav-settings-modal > .nav-settings-window{height:100%}

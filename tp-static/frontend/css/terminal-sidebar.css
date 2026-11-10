@@ -42,8 +42,10 @@ html.desktop-win:not(.desktop-fullscreen) .dc-terminal-panel{padding-top:38px}
 .dc-term-view .xterm .xterm-viewport{background-color:transparent!important}
 .dc-term-view .xterm .xterm-scrollable-element>.shadow{display:none!important}
 .dc-term-view .xterm-viewport{scrollbar-width:thin}
-.dc-term-status{flex-shrink:0;padding:5px 12px;font-size:11px;color:var(--dc-term-muted);border-top:1px solid var(--dc-term-line);background:var(--dc-term-head);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-.dc-term-status.is-error{color:#cf222e}
+.dc-term-status{display:flex;align-items:center;gap:8px;flex-shrink:0;padding:5px 12px;font-size:11px;color:var(--dc-term-muted);border-top:1px solid var(--dc-term-line);background:var(--dc-term-head)}
+.dc-term-status-text{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.dc-term-status-text.is-error{color:#cf222e}
+.dc-term-status button{flex-shrink:0;border:1px solid var(--dc-term-line);padding:2px 6px}
 
 @media(min-width:861px){
  body.dc-terminal-open .home-content.home-workspace{grid-template-columns:var(--ws-side) minmax(0,1fr) var(--terminal-panel-width,560px)}

@@ -15,7 +15,7 @@
             market: '查找工具（工具市场）', importTool: '上传工具', compare: '内置工具比对', manage: '管理',
             addSkill: '添加技能', addTool: '添加工具', addPlugin: '前往插件', findSkill: '查找技能', uploadSkill: '上传技能', createSkill: '创建技能',
             installed: '已安装({n})', favorites: '已收藏({n})', moreOptions: '更多操作',
-            empty: '没有匹配「{q}」的结果', emptyCat: '这个分类下暂时没有内容', loading: '正在加载…', count: '{n} 项',
+            empty: '没有匹配「{q}」的结果', emptyCat: '这个分类下暂时没有内容', emptySkills: '暂无可用技能（超管分配或个人创建后在此显示）', loading: '正在加载…', count: '{n} 项',
             defaultSkillDesc: '在对话里 @ 使用这个技能', where: '位于 {where}', close: '返回'
         },
         'en-US': {
@@ -27,7 +27,7 @@
             market: 'Find tools (market)', importTool: 'Upload tool', compare: 'Compare built-ins', manage: 'Manage',
             addSkill: 'Add Skill', addTool: 'Add tool', addPlugin: 'Go to plugins', findSkill: 'Find Skills', uploadSkill: 'Upload Skill', createSkill: 'Create Skill',
             installed: 'Installed ({n})', favorites: 'Favorites ({n})', moreOptions: 'More options',
-            empty: 'Nothing matches “{q}”', emptyCat: 'Nothing in this category yet', loading: 'Loading…', count: '{n}',
+            empty: 'Nothing matches “{q}”', emptyCat: 'Nothing in this category yet', emptySkills: 'No skills available yet', loading: 'Loading…', count: '{n}',
             defaultSkillDesc: 'Use this Skill with @ in chat', where: 'In {where}', close: 'Back'
         }
     };
@@ -43,6 +43,15 @@
     }
     const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const isAdmin = () => { try { return localStorage.getItem('tools_role') === 'admin'; } catch { return false; } };
+    const isSuperAdmin = () => {
+        try {
+            const isSuper = localStorage.getItem('tools_super') === '1';
+            const isTenantDefault = (localStorage.getItem('tools_tenant_id') || 'default') === 'default';
+            if (!isSuper || !isTenantDefault) return false;
+            if (typeof window.isNavSuperAdmin === 'function') return window.isNavSuperAdmin() === true;
+            return true;
+        } catch { return false; }
+    };
     const ico = name => `<span class="v2-ico" data-icon="${name}"></span>`;
 
     try {
@@ -58,7 +67,8 @@
         return (window.HomeSkills?.items?.() || []).filter(item => !item.hidden).map(item => {
             const cat = { builtin: 'builtin', import: 'imported', external: 'external' }[window.SkillSource?.kind(item)] || 'custom';
             return {
-                key: `skill:${item.id}`, kind: 'skill', id: item.id, dot: window.SkillSource?.dot(item) || '',
+                key: `skill:${item.id}`, kind: 'skill', shared: item.shared, personal: item.personal, id: item.id, src: item, dot: window.SkillSource?.dot(item) || '',
+                sharedAccess: item.sharedAccess === true,
                 title: (en ? item.nameEn : '') || item.name || item.id,
                 desc: (en ? item.descriptionEn : '') || item.description || t('defaultSkillDesc'),
                 icon: item.icon || '✨', color: item.builtIn ? '#10a37f' : '#f472b6',
@@ -71,7 +81,7 @@
     function pluginEntries() {
         const en = lang() === 'en-US';
         return (window.HomeCapabilities?.groups?.() || []).flatMap(group => group.items.map((item, index) => ({
-            key: `cap:${group.kind}:${item.id || index}`, kind: 'plugin',
+            key: `cap:${group.kind}:${item.id || index}`, kind: 'plugin', capabilityId: item.id, capabilityBadge: item.badge, sharedAccess: item.sharedAccess,
             title: (en ? item.nameEn : '') || item.name, desc: item.description || '',
             icon: item.icon || group.icon || '🧩', color: group.color || '#38bdf8',
             cat: group.kind, catLabel: (en ? group.labelEn : '') || group.label,
@@ -93,10 +103,19 @@
             .map(tool => {
                 let updatedAt = tool.updatedAt || '';
                 let updatedText = tool.updatedText || '';
-                if (!updatedAt && customTools.length) {
-                    const slug = String(tool.id || '').replace(/^custom:/, '');
-                    const match = customTools.find(t => t.slug === slug || t.href === tool.href);
+                const slug = String(tool.id || '').startsWith('custom:')
+                    ? String(tool.id).slice(7)
+                    : (String(tool.id).match(/^(?:\/)?(?:tools|custom-tools)\/([^/?#]+)/)?.[1]
+                       || String(tool.href || '').match(/^(?:\/)?(?:tools|custom-tools)\/([^/?#]+)/)?.[1]
+                       || null);
+                let sharedAccess = tool.sharedAccess === true;
+                if (customTools.length) {
+                    const match = (slug ? customTools.find(t => t.slug === slug) : null)
+                        || customTools.find(t => tool.href && t.href === tool.href);
                     if (match) {
+                        if (match.sharedAccess !== undefined) {
+                            sharedAccess = match.sharedAccess === true;
+                        }
                         updatedAt = match.updatedAt || match.createdAt || '';
                         if (updatedAt && !updatedText && typeof window.HomeWorkspace?.formatRelative === 'function') {
                             updatedText = window.HomeWorkspace.formatRelative(updatedAt);
@@ -104,9 +123,10 @@
                     }
                 }
                 return {
-                    key: `tool:${tool.id}`, kind: 'tool', id: tool.id, title: tool.title, desc: tool.description || '',
+                    key: `tool:${tool.id}`, kind: 'tool', id: tool.id, slug, title: tool.title, desc: tool.description || '',
                     icon: tool.icon || '🧩', color: tool.color || '#64748b', cat: tool.group, catLabel: tool.group,
-                    badges: [tool.group, updatedText].filter(Boolean), mine: favorites.has(tool.id), updatedAt, href: tool.href
+                    badges: [tool.group, updatedText].filter(Boolean), mine: favorites.has(tool.id), updatedAt, href: tool.href,
+                    sharedAccess
                 };
             });
     }
@@ -162,13 +182,15 @@
         const action = item.kind === 'skill' ? `<span class="v2-hub-use">@ ${esc(t('use'))}</span>` : `<span class="v2-hub-use">${ico('arrowUpRight')}</span>`;
         const skillButtons = item.kind === 'skill' ? `
             <button type="button" class="v2-hub-quick-btn" data-hub-act="improve" title="${esc(t('improve'))}">${ico('sparkles')}</button>
-            <button type="button" class="v2-hub-quick-btn" data-hub-act="history" title="${esc(t('history'))}">${ico('refresh')}</button>` : '';
+            <button type="button" class="v2-hub-quick-btn" data-hub-act="history" title="${esc(t('history'))}" ${item.shared && !item.personal ? 'hidden' : ''}>${ico('refresh')}</button>` : '';
         const moreBtn = `<button type="button" class="v2-hub-more-btn" data-hub-act="more" title="${esc(t('moreOptions'))}" aria-label="${esc(t('moreOptions'))}" aria-haspopup="menu">${ico('more')}</button>`;
         const extra = `<span class="v2-hub-more" data-tool-card-actions>${skillButtons}${moreBtn}</span>`;
-        return `<a class="v2-hub-card" href="${esc(item.href)}" data-hub-key="${esc(item.key)}" style="--hub-c:${esc(item.color)}" title="${esc(item.title)}">
+        const isShared = Boolean(item.sharedAccess);
+        const sharedClass = (isSuperAdmin() && isShared) ? ' is-shared-access' : '';
+        return `<a class="v2-hub-card${sharedClass}" href="${esc(item.href)}" data-hub-key="${esc(item.key)}" style="--hub-c:${esc(item.color)}" title="${esc(item.title)}">
             <span class="v2-hub-icon">${iconHtml(item.icon)}</span>
             <span class="v2-hub-body">
-                <strong>${esc(item.title)}${item.dot || ''}</strong>
+                <strong>${item.dot && window.SkillSource?.label ? window.SkillSource.label(item.title, item.src) : esc(item.title)}</strong>
                 <small>${esc(item.desc)}</small>
                 <span class="v2-hub-meta">${item.badges.slice(0, 3).map(b => `<span>${esc(b)}</span>`).join('')}</span>
             </span>
@@ -212,7 +234,7 @@
         if (state.tab === 'tools') return [
             row('store', t('market'), 'data-v2-do="market"'),
             row('upload', t('importTool'), 'data-v2-do="importTool"'),
-            isAdmin() ? row('compare', t('compare'), 'data-v2-do="compare"') : ''
+            window.isNavSuperAdmin?.() ? row('compare', t('compare'), 'data-v2-do="compare"') : ''
         ].join('');
         const en = lang() === 'en-US';
         return (window.HomeCapabilities?.groups?.() || []).map(group => `<a role="menuitem" href="${esc(group.href)}"><span class="v2-hub-menu-emoji">${esc(group.icon)}</span><span>${esc((en ? group.labelEn : '') || group.label)}</span></a>`).join('');
@@ -265,11 +287,28 @@
                 return String(a.title || '').localeCompare(String(b.title || ''), lang(), { numeric: true, sensitivity: 'base' });
             });
         }
-        const loading = !all.length && (state.tab !== 'plugins' || !window.HomeCapabilities);
+        const isTabLoading = () => {
+            if (state.tab === 'skills') {
+                return Boolean(window.HomeSkills && typeof window.HomeSkills.ready === 'function' && !window.HomeSkills.ready());
+            }
+            if (state.tab === 'plugins') {
+                return Boolean(window.HomeCapabilities && typeof window.HomeCapabilities.ready === 'function' && !window.HomeCapabilities.ready());
+            }
+            return false;
+        };
+        const loading = isTabLoading();
+        const emptyText = loading
+            ? t('loading')
+            : query
+            ? t('empty', { q: state.query.trim() })
+            : (!all.length && state.tab === 'skills')
+            ? t('emptySkills')
+            : t('emptyCat');
         root.querySelector('.v2-hub-grid').innerHTML = list.length
             ? `<div class="v2-hub-cards">${list.map(card).join('')}</div>`
-            : `<div class="v2-hub-empty">${esc(loading ? t('loading') : query ? t('empty', { q: state.query.trim() }) : t('emptyCat'))}</div>`;
+            : `<div class="v2-hub-empty">${esc(emptyText)}</div>`;
         window.HomeV2?.fillIcons?.(root);
+        window.SkillSource?.fit?.(root);
     }
 
     function open(tab) {
@@ -285,6 +324,15 @@
         document.querySelector('.home-main')?.scrollTo?.({ top: 0 });
         window.scrollTo({ top: 0 });
         remember();
+        if (localStorage.getItem('tools_super') === '0') {
+            Promise.allSettled([
+                window.HomeSkills?.reload?.(),
+                window.HomeCapabilities?.reload?.(),
+                window.reloadHomeCustomTools?.()
+            ]).then(() => {
+                if (state.open) renderList();
+            });
+        }
     }
     function close() {
         if (!state.open) return;
@@ -410,7 +458,7 @@
             if (root.querySelector('.v2-hub-menu:not([hidden])')) { toggleMenu(false); return; }
             close();
         }, true);
-        ['skills:changed', 'home:tools-updated', 'home:capabilities'].forEach(name => window.addEventListener(name, () => { if (state.open) setTimeout(renderList, 0); }));
+        ['skills:changed', 'skills:loaded', 'home:tools-updated', 'home:capabilities'].forEach(name => window.addEventListener(name, () => { if (state.open) setTimeout(renderList, 0); }));
         window.addEventListener('tools:languagechange', () => { if (state.open) render(); });
         const syncHash = () => {
             const h = location.hash.replace(/^#/, '');

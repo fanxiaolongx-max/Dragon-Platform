@@ -380,7 +380,7 @@ html[data-theme="dark"] .tools-dialog{--td-bg:#20242c;--td-ink:#f3f4f6;--td-mute
         catch { manual = false; if (dialog.overlay.isConnected) dialog.overlay.querySelector('[role="status"]').textContent = tr('检查失败，请稍后重试。', 'Check failed. Please try again.'); }
     }
     function feedback() {
-        const dialog = open(`<h2 id="tools-dialog-title">${tr('意见反馈', 'Feedback')}</h2><div class="tools-feedback-editor"><textarea maxlength="10000" aria-label="${tr('描述你遇到的问题', 'Describe the problem')}" placeholder="${tr('描述你遇到的问题', 'Describe the problem')}"></textarea><div class="tools-feedback-previews"></div><div class="tools-feedback-toolbar"><button class="tools-dialog-btn" data-images>${tr('上传图片', 'Add images')} (<span data-count>0</span>/6)</button><span><span data-length>0</span>/10000</span></div><input type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden></div><label class="tools-feedback-privacy"><input type="checkbox" disabled><span>${tr('日志上传暂未开放。你填写的内容和图片暂不会上传。', 'Log upload is not available yet. Your text and images will not be uploaded.')}</span></label><div class="tools-dialog-status" role="status"></div><div class="tools-dialog-actions"><button class="tools-dialog-btn primary" data-submit disabled>${tr('提交反馈', 'Submit feedback')}</button></div>`, true);
+        const dialog = open(`<h2 id="tools-dialog-title">${tr('意见反馈', 'Feedback')}</h2><div class="tools-feedback-editor"><textarea maxlength="10000" aria-label="${tr('描述你遇到的问题', 'Describe the problem')}" placeholder="${tr('描述你遇到的问题', 'Describe the problem')}"></textarea><div class="tools-feedback-previews"></div><div class="tools-feedback-toolbar"><button class="tools-dialog-btn" data-images>${tr('上传图片', 'Add images')} (<span data-count>0</span>/6)</button><span><span data-length>0</span>/10000</span></div><input type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden></div><p class="tools-feedback-privacy">${tr('反馈和图片将随你的用户名提交到需求广场，所有登录用户可见。', 'Your feedback and images will be posted under your username and visible to signed-in users.')}</p><div class="tools-dialog-status" role="status"></div><div class="tools-dialog-actions"><button class="tools-dialog-btn primary" data-submit disabled>${tr('提交反馈', 'Submit feedback')}</button></div>`, true);
         dialog.kind = 'feedback';
         const area = dialog.overlay.querySelector('textarea'), input = dialog.overlay.querySelector('[type=file]'), submit = dialog.overlay.querySelector('[data-submit]'), previews = dialog.overlay.querySelector('.tools-feedback-previews');
         let images = [];
@@ -393,14 +393,66 @@ html[data-theme="dark"] .tools-dialog{--td-bg:#20242c;--td-ink:#f3f4f6;--td-mute
         observer.observe(document.body, { childList: true });
         area.oninput = () => { dialog.overlay.querySelector('[data-length]').textContent = area.value.length; submit.disabled = !area.value.trim(); };
         dialog.overlay.querySelector('[data-images]').onclick = () => input.click();
-        input.onchange = () => {
+        // 只有首页和需求页自带 requirements-client.js；其他页面打开反馈框时按需加载
+        let client = window.RequirementsClient;
+        const clientReady = client ? Promise.resolve() : new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = './tp-static/frontend/js/shared/requirements-client.js';
+            script.onload = () => { client = window.RequirementsClient; client ? resolve() : reject(new Error('RequirementsClient unavailable')); };
+            script.onerror = () => reject(new Error(tr('反馈组件加载失败，请刷新页面后重试', 'Failed to load the feedback component. Refresh and try again.')));
+            document.head.appendChild(script);
+        });
+        clientReady.catch(() => {});
+        const status = dialog.overlay.querySelector('[role="status"]');
+        input.onchange = async () => {
             const files = [...input.files];
-            const invalid = files.some(f => !/^image\/(png|jpeg|webp|gif)$/.test(f.type) || f.size > 10 * 1024 * 1024);
-            dialog.overlay.querySelector('[role="status"]').textContent = invalid || files.length + images.length > 6 ? tr('最多选择 6 张图片，每张不超过 10 MB（PNG、JPG、WebP、GIF）。', 'Choose up to 6 images, 10 MB each (PNG, JPG, WebP, GIF).') : '';
-            files.filter(f => /^image\/(png|jpeg|webp|gif)$/.test(f.type) && f.size <= 10 * 1024 * 1024).slice(0, 6 - images.length).forEach(f => images.push({ name: f.name, url: URL.createObjectURL(f) })); input.value = ''; render();
+            input.value = '';
+            try { await clientReady; } catch (error) { status.textContent = error.message; return; }
+            if (!client.validImages(files, images.length)) {
+                status.textContent = tr('最多选择 6 张图片，每张不超过 20 MB（自动压缩，支持 PNG、JPG、WebP、GIF）。', 'Choose up to 6 images, 20 MB each (auto-compressed, PNG, JPG, WebP, GIF supported).');
+                return;
+            }
+            status.textContent = '';
+            images.push(...files.map(file => ({ file, name: file.name, url: URL.createObjectURL(file) })));
+            render();
         };
-        previews.onclick = event => { const button = event.target.closest('[data-remove]'); if (button) { URL.revokeObjectURL(images.splice(Number(button.dataset.remove), 1)[0].url); render(); } };
-        submit.onclick = () => { dialog.overlay.querySelector('[role="status"]').textContent = tr('服务器当前繁忙，请稍后重试。', 'The server is currently busy. Please try again later.'); };
+        previews.onclick = event => {
+            const button = event.target.closest('[data-remove]');
+            if (button && !area.disabled) {
+                URL.revokeObjectURL(images.splice(Number(button.dataset.remove), 1)[0].url);
+                render();
+            }
+        };
+        submit.onclick = async () => {
+            const description = area.value.trim();
+            if (!description || submit.disabled) return;
+            const imageButton = dialog.overlay.querySelector('[data-images]');
+            submit.disabled = area.disabled = imageButton.disabled = true;
+            status.textContent = tr('正在提交…', 'Submitting…');
+            try {
+                await clientReady;
+                await client.submitPayload({
+                    title: description.split('\n')[0].slice(0, 80),
+                    description,
+                    category: '意见反馈',
+                    images: await client.encodeImages(images.map(item => item.file))
+                }, 'POST', '/api/requirements', message => { status.textContent = message; });
+                status.textContent = tr('已提交到需求广场。', 'Posted to the requests board.');
+                if (typeof showToast === 'function') {
+                    showToast(tr('意见反馈提交成功', 'Feedback submitted successfully'), 'success');
+                }
+                setTimeout(() => {
+                    dialog.close();
+                    if (window.ReqApp?.loadRequirements) {
+                        window.ReqApp.loadRequirements();
+                    }
+                }, 600);
+            } catch (error) {
+                status.textContent = tr('提交失败：', 'Submission failed: ') + error.message;
+                submit.disabled = false;
+                area.disabled = imageButton.disabled = false;
+            }
+        };
         area.focus();
     }
     window.ToolsDialogs = { checkUpdate, feedback };
