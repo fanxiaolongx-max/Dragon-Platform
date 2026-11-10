@@ -37,7 +37,7 @@ function samples(quotas, now = Date.now()) {
             if (!identifier(group.id)) continue;
             for (const w of (Array.isArray(group.windows) ? group.windows : []).slice(0,10)) {
                 if (!identifier(w.id) || typeof w.remainingPercent !== 'number' || !Number.isFinite(w.remainingPercent) || w.remainingPercent < 0 || w.remainingPercent > 100) continue;
-                const reset = w.resetsAt && Number.isFinite(Date.parse(w.resetsAt)) ? new Date(w.resetsAt).toISOString() : '';
+                const reset = w.resetsAt && Number.isFinite(Date.parse(w.resetsAt)) ? new Date(Math.round(Date.parse(w.resetsAt) / 60000) * 60000).toISOString() : '';
                 result.push([provider, group.id, String(group.label || group.id).slice(0,80), w.id,
                     String(w.label || '').slice(0,80), data.updatedAt, w.remainingPercent, reset,
                     Number.isInteger(w.durationMinutes) && w.durationMinutes > 0 ? w.durationMinutes : null]);

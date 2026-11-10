@@ -9,7 +9,14 @@ test.before(async()=>{
  server=http.createServer((req,res)=>{res.setHeader('Content-Type','text/html; charset=utf-8');if(req.url==='/narrow')return res.end('<main style="max-width:440px;margin:auto"><h1>Lunch menu</h1>'+Array.from({length:20},(_,i)=>'<p>Menu '+i+' — delicious restaurant dishes and fresh ingredients, including soup, salads and sandwiches.</p>').join('')+'</main>');res.end(`<title>${req.url.startsWith('/second')?'Second':'Shared browser'}</title><form action="/second"><input id="query" name="q"><button id="submit">Search</button></form><input type="password" id="private" placeholder="Password"><input id="api-key" placeholder="API Key"><a id="popup" href="/second" target="_blank">Popup</a><div style="height:1800px">Long page</div>`);});
  server.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));base=`http://127.0.0.1:${server.address().port}`;
 });
-test.after(async()=>{browser.shutdownAll();server?.close();await wait(200);fs.rmSync(sandbox,{recursive:true,force:true,maxRetries:5,retryDelay:100});});
+test.after(async()=>{
+ browser.shutdownAll();
+ server?.close();
+ for(let i=0;i<10;i++){
+  await wait(150);
+  try{fs.rmSync(sandbox,{recursive:true,force:true});break;}catch(_){}
+ }
+});
 
 test('manual and AI share actual Chrome tabs; input, scroll, history and handing back preserve page state', {skip:!browser.findChrome()},async()=>{
  const owner='default::manual-fixture';

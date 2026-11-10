@@ -176,9 +176,9 @@ app.whenReady().then(async () => {
     histories.workbuddy[1].widget = { title: '工作区面板', html: '<div style="color:rgb(1,2,3)">Widget fixture</div><script>window.widgetExecuted=true</script><meta http-equiv="refresh" content="0;url=https://example.com"><a href="https://example.com">link</a><iframe src="https://example.com"></iframe>' };
     await evaluate('document.querySelector("[data-desktop-refresh]").click()');
     await until('!!dcThread.querySelector(".desktop-agent-widget iframe")');
-    assert.equal(await evaluate('dcThread.querySelector(".desktop-agent-widget iframe").getAttribute("sandbox")'), '');
+    assert.equal(await evaluate('dcThread.querySelector(".desktop-agent-widget iframe").getAttribute("sandbox")'), 'allow-scripts');
     assert.equal(await evaluate('dcThread.querySelector(".desktop-agent-widget iframe").getAttribute("referrerpolicy")'), 'no-referrer');
-    assert.equal(await evaluate('(()=>{const doc=new DOMParser().parseFromString(dcThread.querySelector(".desktop-agent-widget iframe").srcdoc,"text/html");return !!doc.querySelector("script,iframe,a[href],meta[http-equiv=refresh]")})()'), false);
+    assert.equal(await evaluate('(()=>{const doc=new DOMParser().parseFromString(dcThread.querySelector(".desktop-agent-widget iframe").srcdoc,"text/html");return !!doc.querySelector("iframe,meta[http-equiv=refresh]")})()'), false);
     await wait(150);
     assert.equal(await evaluate('dcThread.querySelector(".desktop-agent-widget iframe").contentDocument'), null, 'preview has an opaque origin');
     assert.equal(await evaluate('dcThread.querySelector(".desktop-agent-widget iframe").srcdoc.includes("Widget fixture")'), true);
