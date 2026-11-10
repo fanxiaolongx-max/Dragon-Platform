@@ -469,7 +469,7 @@ function createServerBrowser(owner) {
                 if (match) { clearTimeout(timer); resolve(match[1]); }
                 if (buffer.length > 65536) buffer = buffer.slice(-4096);
             });
-            child.once('exit', code => { clearTimeout(timer); console.warn(`[agent-browser] 浏览器启动失败（退出码 ${code}）：${buffer.trim().split('\n').slice(-3).join(' | ').slice(0, 600)}`); reject(browserError('BROWSER_START', `浏览器启动失败（退出码 ${code}）`)); });
+            child.once('exit', code => { clearTimeout(timer); if (!/DevTools listening on ws:/.test(buffer)) console.warn(`[agent-browser] 浏览器启动失败（退出码 ${code}）：${buffer.trim().split('\n').slice(-3).join(' | ').slice(0, 600)}`); reject(browserError('BROWSER_START', `浏览器启动失败（退出码 ${code}）`)); });
         });
         socket = new WebSocket(wsUrl, { perMessageDeflate: false, maxPayload: 256 * 1024 * 1024 });
         await new Promise((resolve, reject) => { socket.once('open', resolve); socket.once('error', reject); });
