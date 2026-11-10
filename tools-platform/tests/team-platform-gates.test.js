@@ -65,19 +65,22 @@ test('team admins cannot reach platform-level capabilities', async t => {
     assert.equal((await call('GET', '/platform-promotions', east)).status, 200);
     assert.equal((await call('POST', '/agent-mcp/tool-guides/generate', east, { force: true })).status, 403);
 
-    // 共享 MCP 与服务器本机浏览器运行在团队沙箱之外：团队默认用不了，超级管理员按组开启后才可用
+    // 共享 MCP 运行在团队沙箱之外：团队默认用不了，超级管理员按组开启后才可用。
+    // 浏览器对团队默认开放——团队的浏览器进程在沙箱里、只能经出口代理上网。
     const access = require('../backend/models/agent-tool-access');
     const team = { username: 'east', role: 'admin', isSuper: false, tenantId: 'east' };
     const names = ['mcp__demo__echo', 'browser_navigate'];
     const allowedFor = async (user, owner) => { const allowed = await access.forActor(user, owner); return names.filter(name => allowed(name)); };
-    assert.deepEqual(await tenant.runWithTenant('east', () => allowedFor(team)), []);
-    assert.deepEqual(await tenant.runWithTenant('east', () => allowedFor(null, 'east::east')), [], 'background runs resolve the owner');
+    assert.deepEqual(await tenant.runWithTenant('east', () => allowedFor(team)), ['browser_navigate']);
+    assert.deepEqual(await tenant.runWithTenant('east', () => allowedFor(null, 'east::east')), ['browser_navigate'], 'background runs resolve the owner');
     assert.deepEqual(await allowedFor({ username: 'admin', role: 'admin', isSuper: true, tenantId: 'default' }), names);
     assert.equal((await tenant.runWithTenant('east', () => access.forActor(team)))('read_file'), true, 'other tools stay available');
-    await access.setAccess('group', 'browser', true);
-    assert.deepEqual(await tenant.runWithTenant('east', () => allowedFor(team)), ['browser_navigate']);
+    await access.setAccess('group', 'mcp', true);
+    assert.deepEqual(await tenant.runWithTenant('east', () => allowedFor(team)), names);
+    await access.setAccess('group', 'mcp', false);
     await access.setAccess('group', 'browser', false);
-    assert.deepEqual(await tenant.runWithTenant('east', () => allowedFor(team)), []);
+    assert.deepEqual(await tenant.runWithTenant('east', () => allowedFor(team)), [], 'the super admin can still switch the browser off');
+    await access.setAccess('group', 'browser', true);
     // 超级管理员空间里的其他账号、频道对话不受默认关闭影响
     assert.deepEqual(await allowedFor({ username: 'ops', role: 'viewer', isSuper: false, tenantId: 'default' }), names);
 });

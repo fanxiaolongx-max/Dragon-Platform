@@ -1,12 +1,14 @@
 {
   "zh": [
-    "团队账号安全加固：数据探索、平台推广配置、工具说明生成等平台级操作仅超级管理员可用；平台共享的 MCP 服务与服务器本机浏览器对团队默认关闭，超级管理员可在「智能体工具」里按组开启。",
+    "团队账号安全加固：数据探索、平台推广配置、工具说明生成等平台级操作仅超级管理员可用；平台共享的 MCP 服务对团队默认关闭，超级管理员可在「智能体工具」里开启。",
+    "团队账号可以使用对话里的浏览器：每个账号独立的浏览器进程运行在团队沙箱中，不能访问服务器本机和内网地址。",
     "团队命令沙箱更可靠：改用真实沙箱规则检测可用性，装好依赖后一分钟内自动恢复，无需重启平台。",
     "新增 Linux 服务器一键安装与自动更新脚本：定时拉取最新版本，启动异常自动回退到上一版。",
     "媒体资源新增总开关，关闭后登录页与公开点播入口不再展示；意见反馈窗口在所有页面都可上传图片。"
   ],
   "en": [
-    "Team account hardening: the data explorer, promotion settings and tool-guide generation are now super admin only; shared MCP servers and the server-side browser are off for teams by default and can be enabled per group under Agent Tools.",
+    "Team account hardening: the data explorer, promotion settings and tool-guide generation are now super admin only; shared MCP servers are off for teams by default and can be enabled under Agent Tools.",
+    "Team accounts can use the in-chat browser: each account gets its own browser process inside the team sandbox, with no access to the server itself or private networks.",
     "More reliable team command sandbox: availability is checked with the real sandbox rules and recovers within a minute after dependencies are installed, with no restart.",
     "New install and auto-update script for Linux servers: pulls the latest version on a timer and rolls back if the new version fails to start.",
     "Media resources gain a master switch that hides the login-page and public playback entries when off; the feedback dialog can attach images on every page."

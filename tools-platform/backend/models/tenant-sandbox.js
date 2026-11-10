@@ -108,17 +108,17 @@ function sbplString(value) {
 }
 
 /** macOS Seatbelt 规则：后写的规则优先，但放行规则必须写出与拒绝规则相同的具体操作（file-read* 盖不住 file-read-data）*/
-function seatbeltProfile(dirs) {
+function seatbeltProfile(dirs, readOnly = [], writable = []) {
     const rule = dirs => [...new Set(dirs)].map(dir => `(subpath ${sbplString(dir)})`).join(' ');
     // 用户与数据所在的目录：连目录项属性都不给看（cd、ls 都进不去）
     const hidden = rule(['/Users', '/Volumes', real(os.homedir()), real(tenant.BASE_DATA_DIR), real(tenant.BASE_REPORT_DATA_DIR), real(PROJECT_ROOT)]);
     // 系统临时与日志目录：系统框架启动时要查看属性，只拦内容
     const contentOnly = rule(['/private/var/folders', '/private/tmp', '/private/var/root', '/private/var/log', real(os.tmpdir())]);
-    const team = [dirs.workspace, dirs.home, dirs.tmp].map(dir => `(subpath ${sbplString(dir)})`).join(' ');
+    const team = [dirs.workspace, dirs.home, dirs.tmp, ...writable].map(dir => `(subpath ${sbplString(dir)})`).join(' ');
     const prefix = nodePrefix();
     // 进入团队目录 / Node 安装目录要逐级解析上层路径：只给这几级上层目录放行「看目录项属性」，其余受保护路径连 cd 都进不去
     const ancestors = new Set();
-    for (const dir of [dirs.workspace, dirs.home, dirs.tmp, prefix].filter(Boolean)) {
+    for (const dir of [dirs.workspace, dirs.home, dirs.tmp, prefix, ...readOnly, ...writable].filter(Boolean)) {
         for (let current = path.dirname(dir); current !== path.dirname(current); current = path.dirname(current)) ancestors.add(current);
     }
     const ancestorRules = [...ancestors].map(dir => `(literal ${sbplString(dir)})`).join(' ');
@@ -129,13 +129,14 @@ function seatbeltProfile(dirs) {
         `(deny file-read-data file-read-xattr file-read-metadata ${hidden})`,
         ancestorRules ? `(allow file-read-metadata ${ancestorRules})` : '',
         prefix ? `(allow file-read-data file-read-xattr file-read-metadata (subpath ${sbplString(prefix)}))` : '',
+        ...readOnly.map(dir => `(allow file-read-data file-read-xattr file-read-metadata (subpath ${sbplString(dir)}))`),
         '(deny file-write*)',
         '(allow file-write* (literal "/dev/null") (literal "/dev/zero") (literal "/dev/dtracehelper") (regex #"^/dev/tty") (regex #"^/dev/fd/") (regex #"^/dev/ptmx$"))',
         `(allow file-read-data file-read-xattr file-read-metadata file-write* ${team})`
     ].filter(Boolean).join('\n');
 }
 
-function bwrapArgs(dirs, cwd) {
+function bwrapArgs(dirs, cwd, readOnly = [], writable = []) {
     const args = ['--die-with-parent', '--new-session', '--unshare-pid', '--unshare-ipc', '--unshare-uts', '--share-net'];
     // 只挂系统程序目录；/opt、/srv、/home 这类常放应用与数据的目录一律不挂（平台本身可能就装在 /opt 下）
     for (const dir of ['/usr', '/bin', '/sbin', '/lib', '/lib32', '/lib64', '/etc']) args.push('--ro-bind-try', dir, dir);
@@ -152,7 +153,8 @@ function bwrapArgs(dirs, cwd) {
         if (fs.existsSync(dir)) args.push('--tmpfs', dir);
     }
     if (typeof process.getuid === 'function' && process.getuid() === 0) args.push('--cap-drop', 'ALL'); // root 运行时去掉全部特权
-    for (const dir of [dirs.workspace, dirs.home, dirs.tmp]) args.push('--bind', dir, dir);
+    for (const dir of readOnly) args.push('--ro-bind', dir, dir);
+    for (const dir of [dirs.workspace, dirs.home, dirs.tmp, ...writable]) args.push('--bind', dir, dir);
     args.push('--chdir', cwd);
     return args;
 }
@@ -161,7 +163,7 @@ function bwrapArgs(dirs, cwd) {
  * 把一条命令包进团队沙箱。
  * @returns {{ file: string, args: string[], env: object, cwd: string }}
  */
-function wrap({ tenantId, cwd, file, args = [], env = process.env }) {
+function wrap({ tenantId, cwd, file, args = [], env = process.env, readOnly = [], writable = [] }) {
     const info = status();
     if (!info.available) throw sandboxError(`团队命令沙箱不可用：${info.reason}`);
     const dirs = teamDirs(tenantId);
@@ -169,10 +171,13 @@ function wrap({ tenantId, cwd, file, args = [], env = process.env }) {
     const inside = [dirs.workspace, dirs.home, dirs.tmp].some(root => workdir === root || workdir.startsWith(root + path.sep));
     if (!inside) throw sandboxError('命令的工作目录不在团队空间内');
     const sandboxedEnv = sandboxEnv(env, dirs);
+    // readOnly / writable：平台指定的额外目录（如浏览器程序的安装目录、短路径的临时目录），不接受用户输入
+    const extra = [...new Set(readOnly.filter(Boolean).map(real))];
+    const extraWritable = [...new Set(writable.filter(Boolean).map(real))];
     if (info.kind === 'seatbelt') {
-        return { file: '/usr/bin/sandbox-exec', args: ['-p', seatbeltProfile(dirs), file, ...args], env: sandboxedEnv, cwd: workdir };
+        return { file: '/usr/bin/sandbox-exec', args: ['-p', seatbeltProfile(dirs, extra, extraWritable), file, ...args], env: sandboxedEnv, cwd: workdir };
     }
-    return { file: info.bwrap, args: [...bwrapArgs(dirs, workdir), '--', file, ...args], env: sandboxedEnv, cwd: workdir };
+    return { file: info.bwrap, args: [...bwrapArgs(dirs, workdir, extra, extraWritable), '--', file, ...args], env: sandboxedEnv, cwd: workdir };
 }
 
 /** 路径属于哪个团队空间（data/tenants/<id>/…）；不属于任何团队返回空串 */

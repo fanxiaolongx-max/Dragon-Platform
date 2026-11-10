@@ -344,7 +344,62 @@ function hookExitSignals() {
     }
 }
 
+/**
+ * 团队账号（owner 为 团队::账号，团队不是超级管理员空间）的浏览器：
+ * - 进程放进团队命令沙箱，读不到服务器上的其他文件，配置目录在团队自己的 home 里；
+ * - 只能经平台的出口代理上网，访问不了服务器本机和内网地址（models/team-browser-proxy.js）。
+ * 沙箱不可用（如 Windows 服务器）时不启动，而不是退回到不受限的浏览器。
+ */
+function teamOf(owner) {
+    const key = String(owner || '');
+    if (!key.includes('::')) return '';
+    const tenant = require('./tenant-context');
+    const id = tenant.normalizeTenantId(key.slice(0, key.indexOf('::')));
+    return id === tenant.DEFAULT_TENANT_ID ? '' : id;
+}
+
+function teamProfileDir(team, owner) {
+    return path.join(require('./tenant-context').getHomeDir(team), '.agent-browser', crypto.createHash('sha256').update(String(owner)).digest('hex').slice(0, 24));
+}
+
+async function teamLaunch(team, exe, args) {
+    const sandbox = require('./tenant-sandbox');
+    const info = sandbox.status();
+    if (!info.available) throw browserError('BROWSER_UNAVAILABLE', `团队账号的浏览器需要命令沙箱：${info.reason}`);
+    const proxy = await require('./team-browser-proxy').ensure();
+    const tenant = require('./tenant-context');
+    tenant.ensureUserSpaceDirs(team);
+    // Chrome 在临时目录里建 Unix 套接字，路径有长度上限（约 100 字节），团队目录通常太深：
+    // macOS 用 /private/tmp 下按团队分开的短目录，Linux 沙箱里的 /tmp 本来就是私有的
+    let shortTmp = '/tmp';
+    if (info.kind === 'seatbelt') {
+        const base = `/private/tmp/dragon-claw-browser-${process.getuid()}`;
+        fs.mkdirSync(base, { recursive: true, mode: 0o700 });
+        shortTmp = path.join(base, crypto.createHash('sha256').update(`${tenant.BASE_DATA_DIR}\n${team}`).digest('hex').slice(0, 16));
+        fs.mkdirSync(shortTmp, { recursive: true, mode: 0o700 });
+    }
+    const launch = sandbox.wrap({
+        tenantId: team, cwd: tenant.getHomeDir(team), file: exe, env: process.env,
+        writable: info.kind === 'seatbelt' ? [shortTmp] : [],
+        // 程序本体所在目录只读放行（Linux 上 /usr/bin/google-chrome 多是指向 /opt 的软链接）
+        readOnly: [path.dirname(fs.realpathSync(exe)), ...(process.platform === 'darwin' ? [exe.slice(0, exe.indexOf('.app/') + 4)] : [])],
+        args: [...args.slice(0, -1),
+            `--proxy-server=${proxy}`, '--proxy-bypass-list=<-loopback>', // 回环地址也必须走代理（由代理拒绝）
+            '--disable-quic', '--force-webrtc-ip-handling-policy=disable_non_proxied_udp',
+            // 已经在团队沙箱里：Chrome 自带的进程沙箱无法再嵌套一层（macOS 会直接初始化失败），关掉它，由外层沙箱兜底
+            '--no-sandbox', '--disable-gpu', ...(info.kind === 'bwrap' ? ['--disable-setuid-sandbox', '--disable-dev-shm-usage'] : []),
+            // 不用服务账号的系统钥匙串 / 密钥环（沙箱里读不到，Chrome 会一直等）：Cookie 等只存在团队自己的配置目录里
+            info.kind === 'seatbelt' ? '--use-mock-keychain' : '--password-store=basic',
+            args[args.length - 1]]
+    });
+    // CFFIXED_USER_HOME：macOS 的系统框架按它找用户目录，否则会去读服务账号的真实家目录；
+    // MAC_CHROMIUM_TMPDIR：macOS 的 Chrome 不看 TMPDIR，要用它指定临时目录
+    launch.env = { ...launch.env, TMPDIR: shortTmp, ...(info.kind === 'seatbelt' ? { CFFIXED_USER_HOME: tenant.getHomeDir(team), MAC_CHROMIUM_TMPDIR: shortTmp } : {}) };
+    return launch;
+}
+
 function createServerBrowser(owner) {
+    const team = teamOf(owner);
     let child = null;
     let socket = null;
     let seq = 0;
@@ -379,7 +434,7 @@ function createServerBrowser(owner) {
     async function start() {
         const exe = findChrome();
         if (!exe) throw browserError('BROWSER_UNAVAILABLE', '本机没有找到 Chrome / Edge；可用环境变量 TOOLS_AGENT_BROWSER_PATH 指定浏览器程序路径');
-        const dir = profileDir(owner);
+        const dir = team ? teamProfileDir(team, owner) : profileDir(owner);
         fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
         clearStaleProfile(dir);
         hookExitSignals();
@@ -398,7 +453,12 @@ function createServerBrowser(owner) {
             ...(isLinux || process.env.CI ? ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] : []),
             'about:blank'
         ];
-        child = spawn(exe, args, { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true });
+        if (team) {
+            const launch = await teamLaunch(team, exe, args);
+            child = spawn(launch.file, launch.args, { cwd: launch.cwd, env: launch.env, stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true });
+        } else {
+            child = spawn(exe, args, { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true });
+        }
         const startTimeoutMs = process.env.CI ? 60000 : 30000;
         const wsUrl = await new Promise((resolve, reject) => {
             let buffer = '';
@@ -409,7 +469,7 @@ function createServerBrowser(owner) {
                 if (match) { clearTimeout(timer); resolve(match[1]); }
                 if (buffer.length > 65536) buffer = buffer.slice(-4096);
             });
-            child.once('exit', code => { clearTimeout(timer); reject(browserError('BROWSER_START', `浏览器启动失败（退出码 ${code}）`)); });
+            child.once('exit', code => { clearTimeout(timer); console.warn(`[agent-browser] 浏览器启动失败（退出码 ${code}）：${buffer.trim().split('\n').slice(-3).join(' | ').slice(0, 600)}`); reject(browserError('BROWSER_START', `浏览器启动失败（退出码 ${code}）`)); });
         });
         socket = new WebSocket(wsUrl, { perMessageDeflate: false, maxPayload: 256 * 1024 * 1024 });
         await new Promise((resolve, reject) => { socket.once('open', resolve); socket.once('error', reject); });
@@ -437,6 +497,15 @@ function createServerBrowser(owner) {
 
     const api = {
         kind: 'server',
+        // 上传给网页的文件：团队的浏览器在沙箱里，只读得到团队目录，先复制到团队临时目录
+        localFile(source) {
+            if (!team) return source;
+            const dir = path.join(require('./tenant-context').getTmpDir(team), 'browser-uploads');
+            fs.mkdirSync(dir, { recursive: true });
+            const target = path.join(dir, `${crypto.randomBytes(6).toString('hex')}-${path.basename(source)}`);
+            fs.copyFileSync(source, target);
+            return target;
+        },
         async ensure() {
             if (socket && socket.readyState === WebSocket.OPEN) return;
             starting = starting || start().finally(() => { starting = null; });
@@ -513,6 +582,8 @@ function stateFor(owner) {
     if(commandSignal()?.aborted)throw interrupted();
     let state = owners.get(owner);
     if (!state) {
+        // 桌面端的 Dragon 浏览器是全机共用的一个窗口，不能给团队账号
+        if (desktopController && teamOf(owner)) throw browserError('BROWSER_UNAVAILABLE', '桌面版的浏览器只给本机用户使用，团队账号不可用');
         const browser = desktopController ? (desktopShared = desktopShared || createDesktopBrowser()) : createServerBrowser(owner);
         state = { browser, tabs: new Map(), active: null, timer: null };
         owners.set(owner, state);
@@ -1017,8 +1088,9 @@ function controlRequest(owner,args={}){
             const saved=[];
             try{
                 for(const file of files)saved.push(await artifacts.saveUpload(owner,file));
-                if(action==='upload')await page.uploadFiles(saved.map(file=>file.path),args.chooserId);
-                else await page.manualInput('file-drop',{...point(args),files:saved.map(file=>file.path)});
+                const paths=saved.map(file=>state.browser.localFile?state.browser.localFile(file.path):file.path);
+                if(action==='upload')await page.uploadFiles(paths,args.chooserId);
+                else await page.manualInput('file-drop',{...point(args),files:paths});
             }catch(error){await Promise.all(saved.map(file=>fs.promises.unlink(file.path).catch(()=>{})));throw error;}
             state.frames.clear();return {...reply(),files:saved.map(file=>({name:file.name,size:file.size}))};
         }
