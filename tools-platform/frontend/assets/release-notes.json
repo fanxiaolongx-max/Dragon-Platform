@@ -1,14 +1,12 @@
 {
   "zh": [
-    "AI 指针群升级为 Figma 风格多工具协同画布：指针根据操作语义自动切换箭头（arrow）、十字框选（crosshair）、文本输入（ibeam）与钢笔矢量（pen）形态，支持沿着元素边缘落下锚点与闪烁排版光标校对。",
-    "新增像素标尺与相邻元素间距红线：绘制期间在画布顶边与左边显示 16px 标尺及活动选区投影，实时测量真实 DOM 兄弟节点之间的像素间距并绘制对齐参考线；同步增强宽选框的坐标尺寸角标。",
-    "新增可选 Web Audio 协同音效开关：顶栏提供「音效」按钮（默认静音并持久化偏好），开启后按指针横向位置生成立体声敲击、落点音阶共鸣与完成和弦。",
-    "修复 AI 指针点选元素分支遗留的未定义函数调用隐患，确保指针全程流畅稳定运行。"
+    "桌面端新增运行黑盒：程序异常消失后，下次启动的日志会说明上次未正常退出，并在本地保存崩溃转储，便于定位闪退原因。",
+    "Dragon Claw 执行的每条命令的开始与结束都会写入运行日志；页面渲染进程崩溃后主窗口自动重新加载。",
+    "桌面宠物已全面停用：不再创建宠物窗口，也不再加载全局键盘监听；托盘里的 Agent 额度侧栏可独立开关。"
   ],
   "en": [
-    "Upgraded the AI cursor swarm to a Figma-style multi-tool canvas: cursors switch dynamically between arrow, crosshair marquee, I-beam text inspection, and vector pen nibs with anchor-point drafting and blinking caret passes.",
-    "Added Figma-inspired top/left 16px pixel rulers with active selection bands, live sibling DOM spacing redlines, alignment hairlines, and coordinate/dimension badges on marquee selections.",
-    "Added an optional Web Audio collaboration sound toggle in the top bar (muted by default, saved across sessions) with stereo-panned clicks, pentatonic snap chimes, and a soft completion chord.",
-    "Fixed a lingering undefined helper call in the touch-highlight path so cursor actions execute cleanly without runtime errors."
+    "Desktop now keeps a run black box: after the app disappears unexpectedly, the next launch logs that the previous run ended abnormally and keeps crash dumps locally to help locate the cause.",
+    "Every command Dragon Claw runs is logged at start and end, and the main window reloads itself after a renderer crash.",
+    "The desktop pet is fully disabled: no pet window is created and the global keyboard listener is no longer loaded; the agent quota sidebar can still be toggled from the tray."
   ]
 }

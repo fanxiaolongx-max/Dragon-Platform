@@ -5,12 +5,18 @@
 
 const { systemPreferences, shell } = require('electron');
 
+// 原生模块只在真正启动监听时才加载：桌宠停用后主进程里不会有全局键盘钩子。
 let uIOhook = null;
-try {
-    const pkg = require('uiohook-napi');
-    uIOhook = pkg.uIOhook;
-} catch (err) {
-    console.warn('[PetKeyboardHook] Failed to load uiohook-napi:', err.message || err);
+let hookLoaded = false;
+function loadHook() {
+    if (hookLoaded) return uIOhook;
+    hookLoaded = true;
+    try {
+        uIOhook = require('uiohook-napi').uIOhook;
+    } catch (err) {
+        console.warn('[PetKeyboardHook] Failed to load uiohook-napi:', err.message || err);
+    }
+    return uIOhook;
 }
 
 let isRunning = false;
@@ -77,7 +83,7 @@ function startKeyboardHook(callback) {
         onKeyPressCallback = callback;
     }
 
-    if (!uIOhook) {
+    if (!loadHook()) {
         console.warn('[PetKeyboardHook] uiohook-napi is not available');
         return false;
     }

@@ -1035,6 +1035,9 @@ async function runCommand(ctx, args = {}) {
             return;
         }
         ctx.onProcess?.(child);
+        // 命令能结束宿主进程（例如 taskkill 命中桌面端自身）。开始和结束都同步落日志，异常退出后能看到最后一条命令。
+        const logged = redactText(command, { secrets: ctx.sensitiveValues }).replace(/\s+/g, ' ').slice(0, 300);
+        console.log(`[agent] run_command 开始 pid=${child.pid} cwd=${ctx.root} ${logged}`);
         let finished = false;
         let timedOut = false;
         const timer = setTimeout(() => { timedOut = true; killTree(child); }, timeoutMs);
@@ -1057,6 +1060,7 @@ async function runCommand(ctx, args = {}) {
             if (err) parts.push(`[stderr]\n${err}`);
             const status = timedOut ? `已超时（${timeoutMs}ms）并终止` : ctx.signal?.aborted ? '已被用户中止' : `退出码 ${code ?? signal}`;
             parts.push(`— ${status}，耗时 ${durationMs}ms${stdout.truncated || stderr.truncated ? '，输出已截断' : ''}`);
+            console.log(`[agent] run_command 结束 pid=${child.pid} ${spawnError ? `启动失败：${spawnError.message}` : status}，耗时 ${durationMs}ms`);
             resolve({
                 content: parts.join('\n'),
                 summary: status,

@@ -1,3 +1,4 @@
+process.env.DRAGON_DESKTOP_PET = '1'; // 桌宠默认停用，这些用例覆盖的是启用后的行为
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');

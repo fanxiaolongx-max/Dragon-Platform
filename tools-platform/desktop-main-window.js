@@ -221,7 +221,17 @@ function createMainWindowController({ getBaseUrl, getIconPath, statePath, isQuit
         win.webContents.on('did-start-navigation', (_event, _url, inPlace, mainFrame) => {
             if (mainFrame && !inPlace) closeToolSurface();
         });
-        win.webContents.on('render-process-gone', closeToolSurface);
+        // 页面渲染进程崩溃后窗口会变成空白：收起工具层并重新加载，一分钟内最多三次，避免反复崩溃时死循环。
+        const reloads = [];
+        win.webContents.on('render-process-gone', (_event, details = {}) => {
+            closeToolSurface();
+            if (details.reason === 'clean-exit' || isQuitting()) return;
+            const now = Date.now();
+            while (reloads.length && now - reloads[0] > 60000) reloads.shift();
+            if (reloads.length >= 3) return;
+            reloads.push(now);
+            setTimeout(() => { if (win && !win.isDestroyed()) win.webContents.reload(); }, 500);
+        });
         win.webContents.on('did-create-window', child => {
             child.setMenu(null);
             hardenContents(child.webContents);

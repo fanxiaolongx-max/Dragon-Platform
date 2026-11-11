@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, session, shell, Tray, Menu, nativeImage, nativeTheme, clipboard, net, screen, systemPreferences } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, session, shell, Tray, Menu, nativeImage, nativeTheme, clipboard, net, screen, systemPreferences, crashReporter } = require('electron');
 
 // 绿色版自动更新的最后一步：新版先等旧版进程全部退出，再把自己换到原 EXE 的位置（必须在单实例锁之前）
 const portableSwap = process.platform === 'win32' && process.env.PORTABLE_EXECUTABLE_FILE
@@ -205,6 +205,9 @@ function setupElectronFileLogging() {
 }
 
 setupElectronFileLogging();
+
+// 运行黑盒：记录上次是否异常结束，并在本地保存原生崩溃转储
+require('./desktop-crash-monitor').createCrashMonitor({ app, crashReporter, logRoot: electronLogRoot }).start();
 
 process.on('uncaughtException', (err) => {
     console.error('[Electron] Uncaught Exception:', err);
@@ -2224,6 +2227,8 @@ function refreshTrayMenu() {
         { label: '打开报表看板', click: () => openAppPath('/report') },
         { label: '在浏览器中打开', enabled: Boolean(baseUrl), click: () => openAppPathInBrowser('/') },
         { type: 'separator' },
+        // 桌宠停用时额度侧栏独立显示：这一项同时控制“独立显示”，其余桌宠菜单不再出现
+        ...(petManager.isPetAvailable() ? [
         {label:petT('显示 Agent 额度侧栏','Show agent quota sidebar'),type:'checkbox',checked:petManager.isQuotaPanelEnabled(),click:item=>{petManager.setQuotaPanelEnabled(item.checked);refreshTrayMenu();}},
         {
             label: petT('隐藏桌宠时保留额度侧栏', 'Keep quota sidebar when pet is hidden'),
@@ -2263,7 +2268,10 @@ function refreshTrayMenu() {
                     }
                 }
             ]
-        },
+        }
+        ] : [
+        {label:petT('显示 Agent 额度侧栏','Show agent quota sidebar'),type:'checkbox',checked:petManager.isQuotaStandalone()&&petManager.isQuotaPanelEnabled(),click:item=>{petManager.setQuotaStandalone(item.checked);petManager.setQuotaPanelEnabled(item.checked);refreshTrayMenu();}}
+        ]),
         {
             label: petT('📣 浏览器推广', '📣 Browser promotions'),
             submenu: [

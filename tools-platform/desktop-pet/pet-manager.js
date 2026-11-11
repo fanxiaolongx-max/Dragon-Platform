@@ -140,6 +140,10 @@ function sendPetEnvironment() {
 /**
  * 向桌宠窗口派发全局或本地按键反馈
  */
+// 桌面宠物已全面停用：不创建宠物窗口、不加载全局键盘监听。额度侧栏是独立功能，仍可从托盘开启。
+// 仅当环境变量 DRAGON_DESKTOP_PET=1 时才启用（供测试和日后恢复使用）。
+const PET_DISABLED = process.env.DRAGON_DESKTOP_PET !== '1';
+
 function triggerPetKeyPress() {
     try {
         if (petWin && !petWin.isDestroyed() && petWin.isVisible()) {
@@ -154,7 +158,7 @@ function triggerPetKeyPress() {
 function syncKeyboardHookState() {
     try {
         const cfg = loadPetConfig();
-        const shouldRun = cfg.enabled !== false && cfg.typingOn !== false && isPetVisible();
+        const shouldRun = !PET_DISABLED && cfg.enabled !== false && cfg.typingOn !== false && isPetVisible();
         if (shouldRun) {
             startKeyboardHook(triggerPetKeyPress);
         } else {
@@ -551,6 +555,7 @@ function syncQuotaPanel() {
  * 创建桌宠透明视窗
  */
 function createPetWindow() {
+    if (PET_DISABLED) return null;
     if (petWin && !petWin.isDestroyed()) {
         petWin.show();
         return petWin;
@@ -1110,6 +1115,7 @@ function hidePetForNow() {
  * 本次重新唤起显示
  */
 function showPetForNow() {
+    if (PET_DISABLED) return;
     if (petWin && !petWin.isDestroyed()) {
         petWin.show();
         petWin.focus();
@@ -1124,6 +1130,7 @@ function showPetForNow() {
  * 永久开启/关闭桌宠 (切换为无桌宠模式)
  */
 function setPetEnabled(enabled) {
+    if (PET_DISABLED) return;
     savePetConfig({ enabled: Boolean(enabled) });
     if (enabled) {
         showPetForNow();
@@ -1146,6 +1153,7 @@ function setPetEnabled(enabled) {
  * 检查当前桌宠是否永久启用
  */
 function isPetEnabled() {
+    if (PET_DISABLED) return false;
     const cfg = loadPetConfig();
     return cfg.enabled !== false;
 }
@@ -1176,7 +1184,7 @@ function initDesktopPet({ port = 3030, baseUrl = 'http://localhost:3030' } = {})
 
     const cfg = loadPetConfig();
     quotaPanelOptions = {enabled:cfg.quotaPanelOn !== false,group:cfg.quotaPanelGroup === 'third-party' ? 'third-party' : 'gemini'};
-    if (cfg.enabled !== false) createPetWindow();
+    if (isPetEnabled()) createPetWindow();
     if (cfg.quotaStandalone) { syncQuotaPanel(); refreshQuotas(); }
     if (!presencePollingTimer) presencePollingTimer = setInterval(() => {
         if (isPetVisible()) sendPetEnvironment();
@@ -1215,6 +1223,7 @@ function cleanupDesktopPet() {
 }
 
 module.exports = {
+    isPetAvailable: () => !PET_DISABLED,
     initDesktopPet,
     cleanupDesktopPet,
     isPetEnabled,
