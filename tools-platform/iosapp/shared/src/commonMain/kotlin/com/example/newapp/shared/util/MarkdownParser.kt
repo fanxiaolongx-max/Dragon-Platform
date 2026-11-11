@@ -26,7 +26,8 @@ enum class MdBlockKind {
     CODE_BLOCK,
     BLOCKQUOTE,
     DIVIDER,
-    TABLE
+    TABLE,
+    IMAGE
 }
 
 data class MdBlock(
@@ -37,13 +38,15 @@ data class MdBlock(
     val spans: List<MdSpan> = emptyList(),
     val codeLanguage: String = "",
     val codeText: String = "",
-    val tableRows: List<List<List<MdSpan>>> = emptyList()
+    val tableRows: List<List<List<MdSpan>>> = emptyList(),
+    val imageUrl: String = "",
+    val imageAlt: String = ""
 )
 
 /**
  * Pure Kotlin block + inline Markdown parser shared between iOS and Android so structured
  * AI and desktop-agent transcripts render consistently with symbol chips, headings, nested lists,
- * blockquotes, tables, and code fences.
+ * blockquotes, tables, images, and code fences.
  */
 object MarkdownParser {
     private val inlineHeadingRegex = Regex("""([^\s#\n])\s+(#{1,4}\s+\S)""")
@@ -51,6 +54,7 @@ object MarkdownParser {
     private val headingGluedBulletRegex = Regex("""^(#{1,4}\s+[^\n]{2,}?)\s+-\s+(.+)$""")
     private val inlineOrderedListRegex = Regex("""([。！？.!?:：；;)）\]`*])\s+(\d{1,2}\.\s+(?:\*\*|\[|`|[\u4E00-\u9FFFA-Z]))""")
     private val inlineDividerRegex = Regex("""([^\n\s-])\s+---+\s+(\S)""")
+    private val markdownImageRegex = Regex("""!\[([^\]]*)]\(([^)\s]+)(?:\s+["'][^"']*["'])?\)""")
 
     private val headingLineRegex = Regex("""^(#{1,4})\s+(.+)$""")
     private val bulletLineRegex = Regex("""^(\s*)([-*•])\s+(.*)$""")
@@ -90,7 +94,7 @@ object MarkdownParser {
         val parts = mutableListOf<String>()
         for (block in blocks) {
             when (block.kind) {
-                MdBlockKind.DIVIDER -> Unit
+                MdBlockKind.DIVIDER, MdBlockKind.IMAGE -> Unit
                 MdBlockKind.CODE_BLOCK -> {
                     val trimmed = block.codeText.trim()
                     if (trimmed.isNotEmpty() && trimmed.lines().size <= 3 && trimmed.length <= 120) {
@@ -345,6 +349,37 @@ object MarkdownParser {
                         spans = parseInline(body)
                     )
                 )
+                i++
+                continue
+            }
+
+            if (markdownImageRegex.containsMatchIn(line)) {
+                var cursor = 0
+                for (match in markdownImageRegex.findAll(line)) {
+                    val before = line.substring(cursor, match.range.first).trim()
+                    if (before.isNotEmpty()) {
+                        paragraphBuf.add(before)
+                    }
+                    flushParagraph()
+                    flushQuote()
+                    val alt = match.groupValues[1].trim()
+                    val url = match.groupValues[2].trim()
+                    if (url.isNotEmpty()) {
+                        out.add(
+                            MdBlock(
+                                id = nextId(),
+                                kind = MdBlockKind.IMAGE,
+                                imageUrl = url,
+                                imageAlt = alt
+                            )
+                        )
+                    }
+                    cursor = match.range.last + 1
+                }
+                val trailing = line.substring(cursor).trim()
+                if (trailing.isNotEmpty()) {
+                    paragraphBuf.add(trailing)
+                }
                 i++
                 continue
             }

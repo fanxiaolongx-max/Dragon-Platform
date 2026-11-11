@@ -134,13 +134,28 @@ class DragonClawSdk(
         SessionGrouping.groupSidebarSessions(aiSessions, desktopSessions, searchQuery, currentEpochMillis())
 
     fun mapHistoryMessages(items: List<SessionMessageItem>): List<ChatMessage> =
-        DragonClawHelpers.mapStoredMessages(items)
+        DragonClawHelpers.mapStoredMessages(items, baseUrl = getBaseUrl())
 
     fun mapDesktopAgentMessages(items: List<DesktopAgentMessageItem>): List<ChatMessage> =
-        DragonClawHelpers.mapDesktopAgentMessages(items)
+        DragonClawHelpers.mapDesktopAgentMessages(items, baseUrl = getBaseUrl())
 
     fun appendFilesToPrompt(text: String, files: List<UploadedFileInfo>, language: String): String =
         DragonClawHelpers.appendUploadedFilesPrompt(text, files, language)
+
+    fun attachmentsFromUploadedFiles(files: List<UploadedFileInfo>): List<ChatAttachment> =
+        DragonClawHelpers.attachmentsFromUploadedFiles(files, baseUrl = getBaseUrl())
+
+    fun extractMessageAttachmentsAndCleanText(
+        rawContent: String,
+        existingAttachments: List<ChatAttachment> = emptyList()
+    ): Pair<String, List<ChatAttachment>> =
+        DragonClawHelpers.extractMessageAttachmentsAndCleanText(rawContent, baseUrl = getBaseUrl(), existingAttachments = existingAttachments)
+
+    fun resolveImageUrl(rawSrc: String): String =
+        DragonClawHelpers.resolveImageSourceUrl(getBaseUrl(), rawSrc)
+
+    fun filterStarterPrompts(suggestions: List<AiSuggestion>, language: String, limit: Int = 3): List<String> =
+        DragonClawHelpers.filterStarterPrompts(suggestions, language, limit)
 
     fun mergeToolCatalog(remoteTools: List<CustomToolDto>): List<PlatformTool> =
         ToolCatalogMerger.merge(remoteTools)
@@ -459,6 +474,19 @@ class DragonClawSdk(
         onError: (String) -> Unit
     ): TaskHandle = runAsync(
         block = { api.transcribeSpeech(token, audioBytes, fileName, mimeType) },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
+    fun synthesizeSpeech(
+        token: String,
+        text: String,
+        language: String = "zh",
+        voice: String? = null,
+        onSuccess: (SynthesizedSpeechAudio) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = { api.synthesizeSpeech(token, text, language, voice) },
         onSuccess = onSuccess,
         onError = onError
     )

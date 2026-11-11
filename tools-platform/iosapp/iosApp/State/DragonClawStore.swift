@@ -686,19 +686,31 @@ final class DragonClawStore {
                 return
             }
             let basePrompt = (overridePrompt ?? composerText).trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !basePrompt.isEmpty else { return }
+            let usedFiles = overridePrompt == nil ? pendingAttachments : []
+            let finalPrompt = overridePrompt != nil
+                ? basePrompt
+                : sdk.appendFilesToPrompt(text: basePrompt, files: usedFiles, language: language)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !finalPrompt.isEmpty else { return }
             chatErrorBanner = nil
             if overridePrompt == nil {
                 composerText = ""
+                pendingAttachments.removeAll()
             }
+            let uploadedAttachments = sdk.attachmentsFromUploadedFiles(files: usedFiles)
+            let extractedPair = sdk.extractMessageAttachmentsAndCleanText(rawContent: finalPrompt, existingAttachments: uploadedAttachments)
+            let cleanDisplay = (extractedPair.first as String? ?? finalPrompt)
+            let displayAttachments = (extractedPair.second as? [ChatAttachment]) ?? uploadedAttachments
             let userMsg = ChatMessage(
                 id: UUID().uuidString,
                 role: "user",
-                content: basePrompt,
+                content: cleanDisplay,
                 thinking: "",
                 createdAt: nil,
                 statusText: nil,
                 toolCalls: [],
+                attachments: displayAttachments,
+                rawContent: finalPrompt,
                 inputTokens: nil,
                 outputTokens: nil,
                 modelName: desktop.providerDisplayName(),
@@ -713,7 +725,7 @@ final class DragonClawStore {
                 token: token,
                 provider: desktop.provider,
                 sessionId: desktop.id,
-                text: basePrompt,
+                text: finalPrompt,
                 requestId: UUID().uuidString,
                 mode: mode
             ) { [weak self] _ in
@@ -735,9 +747,10 @@ final class DragonClawStore {
         }
 
         let basePrompt = (overridePrompt ?? composerText).trimmingCharacters(in: .whitespacesAndNewlines)
+        let usedFiles = overridePrompt == nil ? pendingAttachments : []
         let finalContent = overridePrompt != nil
             ? basePrompt
-            : sdk.appendFilesToPrompt(text: basePrompt, files: pendingAttachments, language: language)
+            : sdk.appendFilesToPrompt(text: basePrompt, files: usedFiles, language: language)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !finalContent.isEmpty else { return }
 
@@ -747,14 +760,21 @@ final class DragonClawStore {
             pendingAttachments.removeAll()
         }
 
+        let uploadedAttachments = sdk.attachmentsFromUploadedFiles(files: usedFiles)
+        let extractedPair = sdk.extractMessageAttachmentsAndCleanText(rawContent: finalContent, existingAttachments: uploadedAttachments)
+        let cleanDisplay = (extractedPair.first as String? ?? finalContent)
+        let displayAttachments = (extractedPair.second as? [ChatAttachment]) ?? uploadedAttachments
+
         let userMsg = ChatMessage(
             id: UUID().uuidString,
             role: "user",
-            content: finalContent,
+            content: cleanDisplay,
             thinking: "",
             createdAt: nil,
             statusText: nil,
             toolCalls: [],
+            attachments: displayAttachments,
+            rawContent: finalContent,
             inputTokens: nil,
             outputTokens: nil,
             modelName: nil,
@@ -770,6 +790,8 @@ final class DragonClawStore {
             createdAt: nil,
             statusText: L10n.tr(language, zh: "正在思考...", en: "Thinking..."),
             toolCalls: [],
+            attachments: [],
+            rawContent: nil,
             inputTokens: nil,
             outputTokens: nil,
             modelName: nil,
@@ -782,7 +804,7 @@ final class DragonClawStore {
         isStreaming = true
 
         let payloadHistory = messages.dropLast().map { msg in
-            ChatHistoryMessageDto(role: msg.isUser ? "user" : "model", content: msg.content)
+            ChatHistoryMessageDto(role: msg.isUser ? "user" : "model", content: msg.historyContent)
         }
 
         activeStreamHandle = sdk.streamChat(
@@ -822,6 +844,8 @@ final class DragonClawStore {
                 createdAt: existing.createdAt,
                 statusText: nil,
                 toolCalls: existing.toolCalls,
+                attachments: existing.attachments,
+                rawContent: existing.rawContent,
                 inputTokens: existing.inputTokens,
                 outputTokens: existing.outputTokens,
                 modelName: existing.modelName,
@@ -930,14 +954,19 @@ final class DragonClawStore {
             }
         case .done:
             let finalText = (cur.content.isEmpty ? (event.text ?? "") : cur.content)
+            let extracted = sdk.extractMessageAttachmentsAndCleanText(rawContent: finalText, existingAttachments: cur.attachments)
+            let cleanedText = (extracted.first as String? ?? finalText)
+            let attached = (extracted.second as? [ChatAttachment]) ?? cur.attachments
             let doneMsg = ChatMessage(
                 id: cur.id,
                 role: cur.role,
-                content: finalText,
+                content: cleanedText,
                 thinking: cur.thinking,
                 createdAt: cur.createdAt,
                 statusText: nil,
                 toolCalls: cur.toolCalls,
+                attachments: attached,
+                rawContent: finalText,
                 inputTokens: event.inputTokens ?? cur.inputTokens,
                 outputTokens: event.outputTokens ?? cur.outputTokens,
                 modelName: event.modelName ?? cur.modelName,
@@ -963,12 +992,24 @@ final class DragonClawStore {
             let cur = messages[idx]
             let fallbackContent = cur.content.isEmpty && errorNote != nil ? "[\(errorNote!)]" : cur.content
             finalContent = cur.content
+            let extracted = sdk.extractMessageAttachmentsAndCleanText(rawContent: fallbackContent, existingAttachments: cur.attachments)
+            let cleanedText = (extracted.first as String? ?? fallbackContent)
+            let attached = (extracted.second as? [ChatAttachment]) ?? cur.attachments
             updateMessage(
                 at: idx,
-                with: copyMessage(
-                    cur,
-                    content: fallbackContent,
+                with: ChatMessage(
+                    id: cur.id,
+                    role: cur.role,
+                    content: cleanedText,
+                    thinking: cur.thinking,
+                    createdAt: cur.createdAt,
                     statusText: nil,
+                    toolCalls: cur.toolCalls,
+                    attachments: attached,
+                    rawContent: fallbackContent,
+                    inputTokens: cur.inputTokens,
+                    outputTokens: cur.outputTokens,
+                    modelName: cur.modelName,
                     interrupted: cur.interrupted || interrupted,
                     isStreaming: false
                 )
@@ -986,6 +1027,8 @@ final class DragonClawStore {
         thinking: String? = nil,
         statusText: String? = "__KEEP__",
         toolCalls: [ToolCallTrace]? = nil,
+        attachments: [ChatAttachment]? = nil,
+        rawContent: String? = nil,
         interrupted: Bool? = nil,
         isStreaming: Bool? = nil
     ) -> ChatMessage {
@@ -997,6 +1040,8 @@ final class DragonClawStore {
             createdAt: m.createdAt,
             statusText: statusText == "__KEEP__" ? m.statusText : statusText,
             toolCalls: toolCalls ?? m.toolCalls,
+            attachments: attachments ?? m.attachments,
+            rawContent: rawContent ?? m.rawContent,
             inputTokens: m.inputTokens,
             outputTokens: m.outputTokens,
             modelName: m.modelName,

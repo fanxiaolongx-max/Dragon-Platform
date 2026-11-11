@@ -15,25 +15,17 @@ struct ChatView: View {
     @State private var showSkillsSheet = false
     @State private var skillQuery = ""
     @State private var selectedPhotoItems: [PhotosPickerItem] = []
+    @State private var lightboxPayload: LightboxPayload? = nil
 
     private var palette: DragonClawPalette { store.palette }
     private var lang: String { store.language }
 
     private var starterPrompts: [String] {
-        if !store.suggestions.isEmpty {
-            return store.suggestions.prefix(6).map(\.question)
-        }
-        return lang == "en"
-            ? [
-                "Summarize this month's failing SLA & KPI metrics",
-                "Show overdue tickets that need urgent escalation",
-                "How do I check the Night Duty Roster and PR audit?"
-            ]
-            : [
-                "总结本月异常 KPI 指标并给出改进建议",
-                "排查当前超时与临期 SLA 工单清单",
-                "帮我说明月报核算和 PR 稽查怎么操作"
-            ]
+        DragonClawHelpers.shared.filterStarterPrompts(
+            suggestions: store.suggestions,
+            language: lang,
+            limit: 3
+        )
     }
 
     var body: some View {
@@ -48,7 +40,7 @@ struct ChatView: View {
                     heroEmptyState
                         .padding(.horizontal, 18)
                         .padding(.top, 24)
-                        .padding(.bottom, 16)
+                        .padding(.bottom, 24)
                 } else {
                     LazyVStack(spacing: 16) {
                         if store.isLoadingSessionMessages {
@@ -60,6 +52,8 @@ struct ChatView: View {
                             ChatBubbleRow(
                                 message: message,
                                 renderToken: message.renderKey,
+                                token: store.token,
+                                baseUrl: store.baseUrl,
                                 isThinkingExpanded: Binding(
                                     get: { store.expandedThinkingIds.contains(message.id) },
                                     set: { expanded in
@@ -72,7 +66,14 @@ struct ChatView: View {
                                 ),
                                 palette: palette,
                                 language: lang,
-                                onRetry: { store.retryLastPrompt() }
+                                onRetry: { store.retryLastPrompt() },
+                                onOpenLightbox: { items, index in
+                                    lightboxPayload = LightboxPayload(
+                                        items: items,
+                                        initialIndex: index,
+                                        token: store.token
+                                    )
+                                }
                             )
                             .id(message.id)
                         }
@@ -95,6 +96,18 @@ struct ChatView: View {
                         proxy.scrollTo(lastId, anchor: .bottom)
                     }
                 }
+            }
+        }
+        .overlay {
+            if showPlusMenu {
+                Color.black.opacity(0.001)
+                    .ignoresSafeArea()
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation(.spring(response: 0.22, dampingFraction: 0.86)) {
+                            showPlusMenu = false
+                        }
+                    }
             }
         }
         .safeAreaInset(edge: .bottom) {
@@ -174,6 +187,9 @@ struct ChatView: View {
         .fullScreenCover(isPresented: $voiceChat.isPresented) {
             VoiceConversationModal(voiceChat: voiceChat, store: store)
         }
+        .fullScreenCover(item: $lightboxPayload) { payload in
+            ImageLightboxOverlay(payload: payload)
+        }
         .onChange(of: speechManager.errorMessage) { _, err in
             if let err, !err.isEmpty {
                 store.chatErrorBanner = err
@@ -224,6 +240,8 @@ struct ChatView: View {
                             Text(prompt)
                                 .font(.system(size: 13))
                                 .foregroundStyle(palette.inkPrimary)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
                                 .multilineTextAlignment(.leading)
                             Spacer()
                             Image(systemName: "arrow.up.right")
@@ -232,6 +250,7 @@ struct ChatView: View {
                         }
                         .padding(.horizontal, 13)
                         .padding(.vertical, 10)
+                        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     }
                     .buttonStyle(.plain)
                     .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -318,7 +337,7 @@ struct ChatView: View {
         let trimmed = store.composerText.trimmingCharacters(in: .whitespacesAndNewlines)
         let hasPayload = !trimmed.isEmpty || !store.pendingAttachments.isEmpty
         let canSend = store.activeDesktopSession != nil
-            ? (!trimmed.isEmpty && store.activeDesktopCanSend)
+            ? (hasPayload && store.activeDesktopCanSend)
             : hasPayload
 
         return ZStack(alignment: .bottomLeading) {
@@ -481,6 +500,7 @@ struct ChatView: View {
 
                 if !trimmed.isEmpty {
                     Button {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         store.enhanceDraftPrompt()
                     } label: {
                         Group {
@@ -488,11 +508,13 @@ struct ChatView: View {
                                 ProgressView().controlSize(.mini)
                             } else {
                                 Image(systemName: "wand.and.stars")
-                                    .font(.system(size: 12.5, weight: .semibold))
+                                    .font(.system(size: 13.5, weight: .semibold))
                                     .foregroundStyle(palette.accentStrong)
                             }
                         }
-                        .frame(width: 28, height: 28)
+                        .frame(width: 34, height: 34)
+                        .background(palette.accent.opacity(0.12), in: Circle())
+                        .contentShape(Circle())
                     }
                     .buttonStyle(.plain)
                     .disabled(store.isEnhancingPrompt)
@@ -510,8 +532,9 @@ struct ChatView: View {
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(palette.inkPrimary)
                         .rotationEffect(.degrees(showPlusMenu ? 45 : 0))
-                        .frame(width: 32, height: 32)
+                        .frame(width: 34, height: 34)
                         .background(palette.chipSurface.opacity(0.65), in: Circle())
+                        .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(L10n.tr(lang, zh: "更多操作", en: "More actions"))
@@ -588,6 +611,18 @@ struct ChatView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)
+        .background {
+            // Absorb stray taps inside the floating composer so they never pass through to home suggestions or message list.
+            Color.black.opacity(0.001)
+                .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .onTapGesture {
+                    if showPlusMenu {
+                        withAnimation(.spring(response: 0.22, dampingFraction: 0.86)) {
+                            showPlusMenu = false
+                        }
+                    }
+                }
+        }
         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 
@@ -844,28 +879,95 @@ private struct CameraCapturePicker: UIViewControllerRepresentable {
 private struct ChatBubbleRow: View {
     let message: ChatMessage
     let renderToken: String
+    let token: String
+    let baseUrl: String
     @Binding var isThinkingExpanded: Bool
     let palette: DragonClawPalette
     let language: String
     let onRetry: () -> Void
+    let onOpenLightbox: ([LightboxImageItem], Int) -> Void
 
     @State private var copied = false
+
+    private var markdownBlocks: [MdBlock] {
+        MarkdownParser.shared.parse(raw: message.content)
+    }
+
+    private var inlineMarkdownImages: [LightboxImageItem] {
+        markdownBlocks.compactMap { block in
+            guard block.kind == .image else { return nil }
+            let rawSrc = block.imageUrl
+            guard !rawSrc.isEmpty else { return nil }
+            let resolved = DragonClawHelpers.shared.resolveImageSourceUrl(baseUrl: baseUrl, rawSrc: rawSrc)
+            let finalUrl = resolved.isEmpty ? rawSrc : resolved
+            let title = block.imageAlt.isEmpty
+                ? DragonClawHelpers.shared.basename(pathOrUrl: rawSrc)
+                : block.imageAlt
+            return LightboxImageItem(urlString: finalUrl, title: title)
+        }
+    }
+
+    private var trailingAttachments: [ChatAttachment] {
+        guard !message.attachments.isEmpty else { return [] }
+        let inlineUrls = Set(inlineMarkdownImages.map { $0.urlString.lowercased() })
+        return message.attachments.filter { att in
+            guard att.isImage else { return true }
+            let resolved = !att.url.isEmpty
+                ? att.url
+                : DragonClawHelpers.shared.resolveImageSourceUrl(baseUrl: baseUrl, rawSrc: att.path)
+            return resolved.isEmpty || !inlineUrls.contains(resolved.lowercased())
+        }
+    }
+
+    private var allLightboxItems: [LightboxImageItem] {
+        var combined: [LightboxImageItem] = []
+        var seen = Set<String>()
+        for att in message.imageAttachments {
+            let resolved = !att.url.isEmpty
+                ? att.url
+                : DragonClawHelpers.shared.resolveImageSourceUrl(baseUrl: baseUrl, rawSrc: att.path)
+            let url = resolved.isEmpty ? att.path : resolved
+            if !url.isEmpty && seen.insert(url.lowercased()).inserted {
+                combined.append(LightboxImageItem(urlString: url, title: att.displayName))
+            }
+        }
+        for item in inlineMarkdownImages {
+            if seen.insert(item.urlString.lowercased()).inserted {
+                combined.append(item)
+            }
+        }
+        return combined
+    }
 
     var body: some View {
         if message.isUser {
             HStack {
                 Spacer(minLength: 48)
-                Text(message.content)
-                    .font(.system(size: 12.5))
-                    .lineSpacing(1.5)
-                    .foregroundStyle(palette.inkPrimary)
-                    .textSelection(.enabled)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .glassEffect(
-                        .regular.tint(palette.accent.opacity(palette.isDark ? 0.22 : 0.14)),
-                        in: RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    )
+                VStack(alignment: .trailing, spacing: 8) {
+                    if !message.attachments.isEmpty {
+                        ChatAttachmentGalleryView(
+                            attachments: message.attachments,
+                            token: token,
+                            baseUrl: baseUrl,
+                            palette: palette,
+                            onOpenLightbox: onOpenLightbox
+                        )
+                    }
+
+                    if !message.content.isEmpty {
+                        Text(message.content)
+                            .font(.system(size: 12.5))
+                            .lineSpacing(1.5)
+                            .foregroundStyle(palette.inkPrimary)
+                            .textSelection(.enabled)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .glassEffect(
+                                .regular.tint(palette.accent.opacity(palette.isDark ? 0.22 : 0.14)),
+                                in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            )
+                    }
+                }
             }
         } else {
             VStack(alignment: .leading, spacing: 10) {
@@ -955,10 +1057,34 @@ private struct ChatBubbleRow: View {
                 }
 
                 if !message.content.isEmpty {
-                    MarkdownMessageView(text: message.content, palette: palette)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    MarkdownMessageView(
+                        text: message.content,
+                        palette: palette,
+                        token: token,
+                        baseUrl: baseUrl,
+                        onTapImage: { src, alt in
+                            let items = allLightboxItems
+                            if let idx = items.firstIndex(where: { $0.urlString.caseInsensitiveCompare(src) == .orderedSame }) {
+                                onOpenLightbox(items, idx)
+                            } else {
+                                let title = alt.isEmpty ? DragonClawHelpers.shared.basename(pathOrUrl: src) : alt
+                                onOpenLightbox([LightboxImageItem(urlString: src, title: title)], 0)
+                            }
+                        }
+                    )
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                }
+
+                if !trailingAttachments.isEmpty {
+                    ChatAttachmentGalleryView(
+                        attachments: trailingAttachments,
+                        token: token,
+                        baseUrl: baseUrl,
+                        palette: palette,
+                        onOpenLightbox: onOpenLightbox
+                    )
                 }
 
                 if !message.isStreaming {
@@ -1151,6 +1277,12 @@ private struct VoiceConversationModal: View {
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(palette.inkPrimary)
                             .lineLimit(1)
+                        if !voiceChat.activeVoiceModelLabel.isEmpty {
+                            Text("· \(L10n.tr(lang, zh: "自然语音", en: "Natural Voice"))")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(palette.accentStrong)
+                                .lineLimit(1)
+                        }
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 7)

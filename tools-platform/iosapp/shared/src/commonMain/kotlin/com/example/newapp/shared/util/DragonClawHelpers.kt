@@ -1,6 +1,7 @@
 package com.example.newapp.shared.util
 
 import com.example.newapp.shared.model.*
+import io.ktor.http.encodeURLParameter
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -55,6 +56,222 @@ object DragonClawHelpers {
         return "$fallback (HTTP $statusCode)"
     }
 
+    private val IMAGE_EXT_REGEX = Regex("""\.(png|jpe?g|gif|webp|bmp|avif|heic|svg)(?:[?#].*)?$""", RegexOption.IGNORE_CASE)
+    private val MARKDOWN_IMAGE_URL_REGEX = Regex("""!\[[^\]]*]\(([^)\s]+)(?:\s+["'][^"']*["'])?\)""")
+    private val RAW_API_IMAGE_REGEX = Regex("""/api/agent-files/raw\?path=[^\s)"'<>]+""", RegexOption.IGNORE_CASE)
+    private val LOCAL_IMAGE_PATH_REGEX = Regex(
+        """(?:file://)?((?:/(?:Users|Volumes|tmp|var|home|app|opt|data|root|private)/|~/|[A-Za-z]:\\)[^\s\r\n"'`()<>|\[\]]+\.(?:png|jpe?g|gif|webp|bmp|avif|heic|svg)(?:[?#][^\s)"'<>]*)?)""",
+        RegexOption.IGNORE_CASE
+    )
+    private val UPLOAD_BLOCK_HEADER_REGEX = Regex("""^\[(?:已上传附件路径：|Attached files uploaded to server:|已上传附件)]\s*$""")
+    private val UPLOAD_BULLET_LINE_REGEX = Regex("""^-\s+(?:([^:\r\n]{1,120}):\s+)?((?:/|~/|[A-Za-z]:\\)[^\r\n]+)\s*$""")
+
+    /** Filters & compacts welcome suggestions down to 2-3 short single-line starter prompts. */
+    fun filterStarterPrompts(
+        suggestions: List<AiSuggestion>,
+        language: String,
+        limit: Int = 3
+    ): List<String> {
+        val cap = limit.coerceIn(1, 3)
+        val isEn = language == "en"
+        val maxLen = if (isEn) 38 else 22
+        val minLen = if (isEn) 5 else 4
+        val picked = mutableListOf<String>()
+        val seen = mutableSetOf<String>()
+
+        fun tryAdd(candidateRaw: String) {
+            if (picked.size >= cap) return
+            val clean = candidateRaw.replace(Regex("""\s+"""), " ").trim()
+            if (clean.length < minLen || clean.length > maxLen) return
+            if (clean.contains("http://", ignoreCase = true) ||
+                clean.contains("https://", ignoreCase = true) ||
+                clean.contains("~/") ||
+                clean.contains("/Users/") ||
+                clean.contains("/Volumes/") ||
+                clean.contains("/var/") ||
+                clean.contains("```") ||
+                clean.contains(".log") ||
+                clean.contains(".md") ||
+                clean.contains("read_file", ignoreCase = true)
+            ) {
+                return
+            }
+            val key = clean.lowercase()
+            if (seen.add(key)) picked.add(clean)
+        }
+
+        for (item in suggestions) {
+            if (item.question.contains('\n') || item.question.contains('\r')) continue
+            tryAdd(item.question)
+            if (picked.size >= cap) break
+        }
+
+        val defaults = if (isEn) {
+            listOf("Today's key KPIs", "Failing metrics", "At-risk SLA tickets")
+        } else {
+            listOf("今日重点 KPI", "本月未达标指标", "超时 SLA 工单")
+        }
+        if (picked.size < minOf(2, cap)) {
+            for (fallback in defaults) {
+                tryAdd(fallback)
+                if (picked.size >= cap) break
+            }
+        }
+        return picked.take(cap)
+    }
+
+    fun isImageReference(pathOrUrl: String, mimeType: String = ""): Boolean {
+        if (mimeType.startsWith("image/", ignoreCase = true)) return true
+        val trimmed = pathOrUrl.trim()
+        if (trimmed.isEmpty()) return false
+        if (trimmed.startsWith("data:image/", ignoreCase = true)) return true
+        if (trimmed.contains("/api/agent-files/raw?", ignoreCase = true)) {
+            val encodedPath = trimmed.substringAfter("path=", "").substringBefore('&')
+            return encodedPath.isNotBlank() && IMAGE_EXT_REGEX.containsMatchIn(encodedPath)
+        }
+        return IMAGE_EXT_REGEX.containsMatchIn(trimmed)
+    }
+
+    fun basename(pathOrUrl: String): String {
+        val noQuery = pathOrUrl.trim().substringBefore('#').substringBefore('?')
+        return noQuery.substringAfterLast('/').substringAfterLast('\\').ifBlank { noQuery }
+    }
+
+    fun cleanFilePath(rawPath: String): String {
+        val stripped = rawPath.trim()
+            .removePrefix("file://")
+            .substringBefore('#')
+        val lineSuffix = Regex(""":\d+(?::\d+)?$""")
+        return lineSuffix.replace(stripped, "")
+    }
+
+    fun resolveImageSourceUrl(baseUrl: String, rawSrc: String): String {
+        val cleanBase = normalizeBaseUrl(baseUrl)
+        val trimmed = rawSrc.trim()
+        if (trimmed.isEmpty()) return ""
+        if (trimmed.startsWith("https://", ignoreCase = true) ||
+            trimmed.startsWith("http://", ignoreCase = true) ||
+            trimmed.startsWith("data:image/", ignoreCase = true)
+        ) {
+            return trimmed
+        }
+        if (trimmed.startsWith("/api/", ignoreCase = true)) {
+            return "$cleanBase$trimmed"
+        }
+        val cleanPath = cleanFilePath(trimmed)
+        return "$cleanBase/api/agent-files/raw?path=${cleanPath.encodeURLParameter(spaceToPlus = false)}"
+    }
+
+    fun resolveAttachmentUrl(baseUrl: String, attachment: ChatAttachment): String {
+        if (attachment.url.isNotBlank()) return resolveImageSourceUrl(baseUrl, attachment.url)
+        if (attachment.path.isNotBlank()) return resolveImageSourceUrl(baseUrl, attachment.path)
+        return ""
+    }
+
+    fun attachmentsFromUploadedFiles(files: List<UploadedFileInfo>, baseUrl: String): List<ChatAttachment> {
+        return files.mapNotNull { file ->
+            val cleanPath = file.path.trim()
+            if (cleanPath.isEmpty()) return@mapNotNull null
+            ChatAttachment(
+                path = cleanPath,
+                name = file.name.ifBlank { basename(cleanPath) },
+                url = resolveImageSourceUrl(baseUrl, cleanPath)
+            )
+        }
+    }
+
+    fun extractMessageAttachmentsAndCleanText(
+        rawContent: String,
+        baseUrl: String,
+        existingAttachments: List<ChatAttachment> = emptyList()
+    ): Pair<String, List<ChatAttachment>> {
+        val cleanBase = normalizeBaseUrl(baseUrl)
+        val resultAttachments = mutableListOf<ChatAttachment>()
+        val seenKeys = mutableSetOf<String>()
+
+        fun addAttachment(path: String = "", name: String = "", url: String = "") {
+            val cleanPath = cleanFilePath(path)
+            val resolvedUrl = if (url.isNotBlank()) resolveImageSourceUrl(cleanBase, url) else resolveImageSourceUrl(cleanBase, cleanPath)
+            val dedupKey = (cleanPath.ifBlank { resolvedUrl }).lowercase()
+            if (dedupKey.isBlank() || !seenKeys.add(dedupKey)) return
+            resultAttachments.add(
+                ChatAttachment(
+                    path = cleanPath,
+                    name = name.ifBlank { basename(cleanPath.ifBlank { resolvedUrl }) },
+                    url = resolvedUrl
+                )
+            )
+        }
+
+        existingAttachments.forEach { att ->
+            addAttachment(path = att.path, name = att.name, url = att.url)
+        }
+
+        val markdownImageTargets = MARKDOWN_IMAGE_URL_REGEX.findAll(rawContent)
+            .map { cleanFilePath(it.groupValues[1]).lowercase() }
+            .toSet()
+
+        val cleanedLines = mutableListOf<String>()
+        val lines = rawContent.lines()
+        var inUploadBlock = false
+        for (line in lines) {
+            val trimmed = line.trim()
+            if (UPLOAD_BLOCK_HEADER_REGEX.matches(trimmed)) {
+                inUploadBlock = true
+                continue
+            }
+            if (inUploadBlock) {
+                val bullet = UPLOAD_BULLET_LINE_REGEX.matchEntire(trimmed)
+                if (bullet != null) {
+                    val label = bullet.groupValues[1].trim()
+                    val filePath = bullet.groupValues[2].trim()
+                    addAttachment(path = filePath, name = label.ifBlank { basename(filePath) })
+                    continue
+                }
+                if (trimmed.isEmpty()) {
+                    inUploadBlock = false
+                    continue
+                }
+                inUploadBlock = false
+            }
+
+            // Strip redundant desktop placeholder lines like "[media_...png]" when an attachment matches
+            if (trimmed.startsWith("[") && trimmed.endsWith("]") && trimmed.length in 3..140) {
+                val inner = trimmed.removePrefix("[").removeSuffix("]").trim()
+                val matchesExisting = existingAttachments.any {
+                    it.name.equals(inner, ignoreCase = true) ||
+                        basename(it.path).equals(inner, ignoreCase = true) ||
+                        inner.startsWith("图片") ||
+                        inner.startsWith("Image #")
+                }
+                if (matchesExisting) continue
+            }
+
+            cleanedLines.add(line)
+        }
+
+        var cleanedText = cleanedLines.joinToString("\n").trim()
+
+        // Extract standalone or inline local image paths / /api/agent-files/raw links outside code fences
+        val textWithoutCode = cleanedText.replace(Regex("""```[\s\S]*?```"""), "")
+        for (m in RAW_API_IMAGE_REGEX.findAll(textWithoutCode)) {
+            val rawUrl = m.value
+            val fullUrl = resolveImageSourceUrl(cleanBase, rawUrl)
+            if (isImageReference(rawUrl) && cleanFilePath(rawUrl).lowercase() !in markdownImageTargets) {
+                addAttachment(path = rawUrl, url = fullUrl)
+            }
+        }
+        for (m in LOCAL_IMAGE_PATH_REGEX.findAll(textWithoutCode)) {
+            val matchedPath = cleanFilePath(m.groupValues[1])
+            if (matchedPath.lowercase() in markdownImageTargets) continue
+            // Skip paths referenced inside Markdown `[label](file:///...png)` only if rendered inside `![]()`, else include
+            addAttachment(path = matchedPath, name = basename(matchedPath))
+        }
+
+        cleanedText = cleanedText.replace(Regex("""\n{3,}"""), "\n\n").trim()
+        return cleanedText to resultAttachments
+    }
+
     fun appendUploadedFilesPrompt(
         draftText: String,
         files: List<UploadedFileInfo>,
@@ -74,18 +291,24 @@ object DragonClawHelpers {
         }
     }
 
-    fun mapStoredMessages(items: List<SessionMessageItem>): List<ChatMessage> {
+    fun mapStoredMessages(items: List<SessionMessageItem>, baseUrl: String = ""): List<ChatMessage> {
         return items.map { item ->
             val role = if (item.role == "user") "user" else "model"
             val traces = extractToolTracesFromEvents(item.events)
             val thinking = extractThinkingFromEvents(item.events)
+            val (cleanedText, extractedAttachments) = extractMessageAttachmentsAndCleanText(
+                rawContent = item.content,
+                baseUrl = baseUrl
+            )
             ChatMessage(
                 id = item.id.ifBlank { "${item.created_at.orEmpty()}_${role}_${item.content.hashCode()}" },
                 role = role,
-                content = item.content,
+                content = cleanedText,
                 thinking = thinking,
                 createdAt = item.created_at,
                 toolCalls = traces,
+                attachments = extractedAttachments,
+                rawContent = item.content,
                 inputTokens = item.input_tokens,
                 outputTokens = item.output_tokens,
                 modelName = item.model_name,
@@ -95,24 +318,34 @@ object DragonClawHelpers {
         }
     }
 
-    fun mapDesktopAgentMessages(items: List<DesktopAgentMessageItem>): List<ChatMessage> {
+    fun mapDesktopAgentMessages(items: List<DesktopAgentMessageItem>, baseUrl: String = ""): List<ChatMessage> {
+        val cleanBase = normalizeBaseUrl(baseUrl)
         return items.mapNotNull { item ->
-            val attachmentSuffix = if (item.attachments.isNotEmpty()) {
-                "\n\n" + item.attachments.joinToString("\n") { "[${it.name.ifBlank { it.path }}]" }
-            } else {
-                ""
+            val structuredAttachments = item.attachments.mapNotNull { att ->
+                val rawPath = att.path.trim()
+                if (rawPath.isEmpty()) return@mapNotNull null
+                ChatAttachment(
+                    path = rawPath,
+                    name = att.name.ifBlank { basename(rawPath) },
+                    url = resolveImageSourceUrl(cleanBase, rawPath)
+                )
             }
-            val text = (item.content + attachmentSuffix).trim()
-            if (text.isEmpty()) return@mapNotNull null
+            val (cleanedText, mergedAttachments) = extractMessageAttachmentsAndCleanText(
+                rawContent = item.content,
+                baseUrl = cleanBase,
+                existingAttachments = structuredAttachments
+            )
+            if (cleanedText.isEmpty() && mergedAttachments.isEmpty()) return@mapNotNull null
             val role = if (item.role == "user") "user" else "model"
             val lastRound = item.rounds.lastOrNull()
             val totalIn = item.rounds.mapNotNull { it.inputTokens }.takeIf { it.isNotEmpty() }?.sum()
             val totalOut = item.rounds.mapNotNull { it.outputTokens }.takeIf { it.isNotEmpty() }?.sum()
             ChatMessage(
-                id = item.id.ifBlank { "${item.createdAt.orEmpty()}_${role}_${text.hashCode()}" },
+                id = item.id.ifBlank { "${item.createdAt.orEmpty()}_${role}_${cleanedText.hashCode()}_${mergedAttachments.size}" },
                 role = role,
-                content = text,
+                content = cleanedText,
                 createdAt = item.createdAt,
+                attachments = mergedAttachments,
                 inputTokens = totalIn,
                 outputTokens = totalOut,
                 modelName = lastRound?.model?.takeIf { it.isNotBlank() },

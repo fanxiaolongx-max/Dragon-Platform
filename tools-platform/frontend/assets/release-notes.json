@@ -1,12 +1,14 @@
 {
   "zh": [
-    "修复侧边栏删除或归档当前会话后意外退回主页面的问题：同步更新最近会话与已归档列表，并保持停留在当前列表视图，方便连续管理多个对话。",
-    "修复端内 WebView 打开工作台工具时误弹「需要重新登录」弹窗的问题：在页面脚本加载前注入同源 Cookie 与 localStorage/sessionStorage 登录态与租户上下文。",
-    "修复 Android 端在运营商屏蔽 188.114.* 或私有 DNS 仅返回不可达 IPv6 时登录请求超时的问题：引入支持 Google/AliDNS DoH 解析与可达 IPv4 优选的智能网络解析器。"
+    "修复 iOS 与 Android 输入框润色按钮及悬浮输入区点击透传到首页推荐问题的问题，点击反馈更清晰。",
+    "精简对话主页「快速提问」为 2–3 条短提示词，避免冗长指令占屏并提升首屏可读性。",
+    "实时语音对话升级为云端大模型自然语音合成（Gemini 2.5 Flash TTS 主用、系统语音兜底），语调自然流畅。",
+    "普通对话与三方桌面智能体全面支持发送/回复图片气泡内预览，并提供全屏缩放、左右滑切换与保存分享灯箱。"
   ],
   "en": [
-    "Stay inside the active session list (Recent or Archived) after deleting or archiving a conversation instead of kicking back to the main chat screen.",
-    "Fix false \"Re-login required\" popups when opening workbench tools in iOS and Android WebViews by seeding origin-scoped localStorage, sessionStorage, and auth cookies before page scripts run.",
-    "Fix Android login request timeouts on networks where system/Private DNS returns unreachable IPv6 or blackholed 188.114.* edge IPs by adding DoH (8.8.8.8 / 223.5.5.5) resolution and clean IPv4 prioritization."
+    "Prevent touch pass-through from the floating composer and refine the prompt-enhance button hit area on both iOS and Android.",
+    "Curate home starter prompts down to 2–3 crisp, concise suggestions for cleaner first-screen readability.",
+    "Upgrade live AI voice conversation from robotic device TTS to natural cloud neural voice synthesis (Gemini 2.5 Flash TTS with device fallback).",
+    "Render user and assistant images inline across both regular chats and desktop agent sessions, with a full-screen zoomable, swipeable image lightbox."
   ]
 }

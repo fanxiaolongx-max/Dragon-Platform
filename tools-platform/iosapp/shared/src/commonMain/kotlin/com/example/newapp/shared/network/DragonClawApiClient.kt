@@ -239,6 +239,35 @@ class DragonClawApiClient(
         return decodeOrThrow(response, "Speech transcription failed")
     }
 
+    suspend fun synthesizeSpeech(
+        token: String,
+        text: String,
+        language: String = "zh",
+        voice: String? = null
+    ): SynthesizedSpeechAudio {
+        val response = client.post("$baseUrl/api/ai/speech/synthesize") {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+            contentType(ContentType.Application.Json)
+            setBody(SpeechSynthesisRequest(text = text, language = language, voice = voice))
+            timeout {
+                requestTimeoutMillis = 28_000L
+                socketTimeoutMillis = 28_000L
+            }
+        }
+        if (!response.status.isSuccess()) {
+            val raw = response.bodyAsText()
+            throw ApiHttpException(
+                response.status.value,
+                DragonClawHelpers.parseErrorMessage(response.status.value, raw, "Speech synthesis failed")
+            )
+        }
+        val bytes = response.body<ByteArray>()
+        val mime = response.headers[HttpHeaders.ContentType]?.substringBefore(';')?.trim()?.ifBlank { null } ?: "audio/wav"
+        val model = response.headers["X-Speech-Model"]?.trim().orEmpty()
+        val chosenVoice = response.headers["X-Speech-Voice"]?.trim().orEmpty()
+        return SynthesizedSpeechAudio(bytes = bytes, mimeType = mime, model = model, voice = chosenVoice)
+    }
+
     suspend fun getSkills(token: String): AgentSkillsResponse {
         val response = client.get("$baseUrl/api/ai/skills") {
             header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))

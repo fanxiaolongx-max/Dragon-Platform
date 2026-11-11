@@ -221,20 +221,23 @@ enum VoiceChatPhase: Equatable {
     case paused
 }
 
-/// Manages real-time hands-free AI voice conversation turns (VAD record -> STT -> AI stream -> native TTS loop).
+/// Manages real-time hands-free AI voice conversation turns (VAD record -> STT -> AI stream -> natural AI voice loop).
 @Observable
 @MainActor
-final class VoiceChatController: NSObject, AVSpeechSynthesizerDelegate {
+final class VoiceChatController: NSObject, AVSpeechSynthesizerDelegate, AVAudioPlayerDelegate {
     var isPresented = false
     var phase: VoiceChatPhase = .idle
     var isSpeechMuted = false
     var userTranscript = ""
     var assistantTranscript = ""
+    var activeVoiceModelLabel = ""
     var errorText: String?
 
     let speechRecorder = SpeechInputManager()
 
     private let synthesizer = AVSpeechSynthesizer()
+    private var audioPlayer: AVAudioPlayer?
+    private var synthesisTaskHandle: TaskHandle?
     private weak var boundStore: DragonClawStore?
     private var resumeListeningTask: Task<Void, Never>?
 
@@ -249,14 +252,15 @@ final class VoiceChatController: NSObject, AVSpeechSynthesizerDelegate {
         errorText = nil
         assistantTranscript = ""
         userTranscript = ""
+        activeVoiceModelLabel = ""
         store.prepareVoiceConversationSessionIfNeeded()
         beginListeningTurn()
     }
 
     func endSession() {
+        stopPlayback()
         resumeListeningTask?.cancel()
         resumeListeningTask = nil
-        synthesizer.stopSpeaking(at: .immediate)
         speechRecorder.cancelRecording()
         boundStore?.clearVoiceTurnCompletion()
         if boundStore?.isStreaming == true {
@@ -272,7 +276,7 @@ final class VoiceChatController: NSObject, AVSpeechSynthesizerDelegate {
         if phase == .paused {
             beginListeningTurn()
         } else {
-            synthesizer.stopSpeaking(at: .immediate)
+            stopPlayback()
             speechRecorder.cancelRecording()
             phase = .paused
         }
@@ -280,9 +284,11 @@ final class VoiceChatController: NSObject, AVSpeechSynthesizerDelegate {
 
     func toggleSpeechMute() {
         isSpeechMuted.toggle()
-        if isSpeechMuted && phase == .speaking {
-            synthesizer.stopSpeaking(at: .immediate)
-            scheduleNextListeningTurn()
+        if isSpeechMuted && (phase == .speaking || phase == .thinking) {
+            stopPlayback()
+            if phase == .speaking {
+                scheduleNextListeningTurn()
+            }
         }
     }
 
@@ -292,9 +298,9 @@ final class VoiceChatController: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     func interruptAndSpeak() {
+        stopPlayback()
         resumeListeningTask?.cancel()
         resumeListeningTask = nil
-        synthesizer.stopSpeaking(at: .immediate)
         boundStore?.clearVoiceTurnCompletion()
         if boundStore?.isStreaming == true {
             boundStore?.stopStreaming()
@@ -308,10 +314,18 @@ final class VoiceChatController: NSObject, AVSpeechSynthesizerDelegate {
         }
     }
 
+    private func stopPlayback() {
+        synthesisTaskHandle?.cancel()
+        synthesisTaskHandle = nil
+        audioPlayer?.stop()
+        audioPlayer = nil
+        synthesizer.stopSpeaking(at: .immediate)
+    }
+
     private func beginListeningTurn() {
         guard isPresented, let store = boundStore else { return }
+        stopPlayback()
         resumeListeningTask?.cancel()
-        synthesizer.stopSpeaking(at: .immediate)
         errorText = nil
         phase = .listening
         speechRecorder.startRecording(
@@ -362,26 +376,68 @@ final class VoiceChatController: NSObject, AVSpeechSynthesizerDelegate {
     private func handleReplyCompleted(_ rawReply: String) {
         guard isPresented, let store = boundStore else { return }
         let cleanSpeech = MarkdownParser.shared.toSpeechText(raw: rawReply)
-        assistantTranscript = cleanSpeech.isEmpty ? rawReply : cleanSpeech
+        let speakable = (cleanSpeech.isEmpty ? rawReply : cleanSpeech).trimmingCharacters(in: .whitespacesAndNewlines)
+        assistantTranscript = speakable
 
-        if isSpeechMuted || cleanSpeech.isEmpty {
+        if isSpeechMuted || speakable.isEmpty {
             scheduleNextListeningTurn()
             return
         }
 
         phase = .speaking
+        configureSpeakerPlaybackSession()
+
+        let truncatedForVoice = speakable.count > 1200 ? String(speakable.prefix(1200)) : speakable
+        synthesisTaskHandle?.cancel()
+        synthesisTaskHandle = store.sdk.synthesizeSpeech(
+            token: store.token,
+            text: truncatedForVoice,
+            language: store.language,
+            voice: nil
+        ) { [weak self] audio in
+            Task { @MainActor [weak self] in
+                guard let self, self.isPresented, self.phase == .speaking, !self.isSpeechMuted else { return }
+                self.synthesisTaskHandle = nil
+                self.activeVoiceModelLabel = audio.model
+                let nsData = IosInteropKt.byteArrayToNSData(bytes: audio.bytes)
+                do {
+                    let player = try AVAudioPlayer(data: nsData as Data)
+                    player.delegate = self
+                    player.prepareToPlay()
+                    if player.play() {
+                        self.audioPlayer = player
+                        return
+                    }
+                } catch {
+                    // Fall through to local fallback only if compressed audio decode fails
+                }
+                self.speakWithSystemFallback(speakable, language: store.language)
+            }
+        } onError: { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, self.isPresented, self.phase == .speaking, !self.isSpeechMuted else { return }
+                self.synthesisTaskHandle = nil
+                self.speakWithSystemFallback(speakable, language: store.language)
+            }
+        }
+    }
+
+    private func configureSpeakerPlaybackSession() {
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+            try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth, .duckOthers])
+            try session.overrideOutputAudioPort(.speaker)
             try session.setActive(true)
         } catch {
             // Continue with default playback route if session override is constrained
         }
+    }
 
-        let utterance = AVSpeechUtterance(string: cleanSpeech)
-        let preferredLang = store.language == "en" ? "en-US" : "zh-CN"
-        utterance.voice = AVSpeechSynthesisVoice(language: preferredLang)
-        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 1.03
+    private func speakWithSystemFallback(_ text: String, language: String) {
+        activeVoiceModelLabel = ""
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.voice = AVSpeechSynthesisVoice(language: language == "en" ? "en-US" : "zh-CN")
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 1.02
         synthesizer.stopSpeaking(at: .immediate)
         synthesizer.speak(utterance)
     }
@@ -403,6 +459,22 @@ final class VoiceChatController: NSObject, AVSpeechSynthesizerDelegate {
             try? await Task.sleep(nanoseconds: 280_000_000)
             guard let self, self.isPresented, self.phase == .speaking || self.phase == .thinking else { return }
             self.beginListeningTurn()
+        }
+    }
+
+    nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        Task { @MainActor [weak self] in
+            guard let self, self.isPresented, self.phase == .speaking else { return }
+            self.audioPlayer = nil
+            self.scheduleNextListeningTurn()
+        }
+    }
+
+    nonisolated func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
+        Task { @MainActor [weak self] in
+            guard let self, self.isPresented, self.phase == .speaking else { return }
+            self.audioPlayer = nil
+            self.scheduleNextListeningTurn()
         }
     }
 

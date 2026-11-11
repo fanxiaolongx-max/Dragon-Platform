@@ -74,4 +74,159 @@ async function recognize({file,signal,localService=require('./local-speech')}){
     throw error('AI_SPEECH_UNAVAILABLE','没有可用的语音识别引擎，请配置语音模型或安装离线模型',503);
 }
 
-module.exports={MAX_BYTES,MAX_SECONDS,audioType,selectSettings,transcribe,capability,recognize};
+function pcm16ToWav(pcmBuffer, sampleRate = 24000, channels = 1, bitsPerSample = 16) {
+    const pcm = Buffer.isBuffer(pcmBuffer) ? pcmBuffer : Buffer.from(pcmBuffer || []);
+    const blockAlign = (channels * bitsPerSample) >> 3;
+    const byteRate = sampleRate * blockAlign;
+    const header = Buffer.alloc(44);
+    header.write('RIFF', 0, 'ascii');
+    header.writeUInt32LE(36 + pcm.length, 4);
+    header.write('WAVE', 8, 'ascii');
+    header.write('fmt ', 12, 'ascii');
+    header.writeUInt32LE(16, 16);
+    header.writeUInt16LE(1, 20); // PCM linear
+    header.writeUInt16LE(channels, 22);
+    header.writeUInt32LE(sampleRate, 24);
+    header.writeUInt32LE(byteRate, 28);
+    header.writeUInt16LE(blockAlign, 32);
+    header.writeUInt16LE(bitsPerSample, 34);
+    header.write('data', 36, 'ascii');
+    header.writeUInt32LE(pcm.length, 40);
+    return Buffer.concat([header, pcm]);
+}
+
+function supportsTtsCloud(settings) {
+    if (!settings?.hasApiKey || !settings.keyLooksValid) return false;
+    return ['gemini', 'openai', 'openai-compatible'].includes(settings.provider);
+}
+
+async function selectTtsSettings(repo = require('./ai-settings-repository')) {
+    const current = await repo.getRuntimeSettings();
+    const geminiList = [];
+    const otherList = [];
+    const seen = new Set();
+    const pushCandidate = s => {
+        if (!s || !supportsTtsCloud(s) || seen.has(s.profileId)) return;
+        seen.add(s.profileId);
+        if (s.provider === 'gemini') geminiList.push(s);
+        else otherList.push(s);
+    };
+    pushCandidate(current);
+    const choices = await repo.getModelChoices();
+    for (const profile of choices.models || []) {
+        if (seen.has(profile.profileId) || !['gemini', 'openai', 'openai-compatible'].includes(profile.provider)) continue;
+        const settings = await repo.getRuntimeSettings({ profileId: profile.profileId });
+        pushCandidate(settings);
+    }
+    // Prefer native Gemini 2.5 TTS ahead of generic OpenAI-compatible chat proxies unless a dedicated OpenAI TTS profile is active
+    const currentIsTtsModel = /^(?:tts-1|gpt-4o-mini-tts)/i.test(current?.model || '');
+    const ordered = currentIsTtsModel ? [...otherList, ...geminiList] : [...geminiList, ...otherList];
+    if (!ordered.length) throw error('AI_SPEECH_UNAVAILABLE', '请在全局设置中配置可用的 Gemini 或语音合成模型', 503);
+    const clean = settings => ({ ...settings, autoSwitchEnabled: false, fallbackProfiles: [] });
+    return { ...clean(ordered[0]), speechFallbacks: ordered.slice(1).map(clean) };
+}
+
+function buildTtsPrompt(text, language) {
+    const isEn = String(language || '').toLowerCase().startsWith('en');
+    const directive = isEn
+        ? 'Read the following reply aloud verbatim with warm, natural human expression and conversational pacing. Do not add, omit, or explain anything:'
+        : '请用自然、亲切、有真人对话感的语气逐字朗读以下回复内容，不要添加、删减或解释任何多余内容：';
+    return `${directive}\n${text}`;
+}
+
+async function synthesize({ text, voice, language, settings, signal }) {
+    const cleanText = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 1800);
+    if (!cleanText) throw error('AI_SPEECH_SYNTHESIS_EMPTY', '没有可朗读的回复内容', 400);
+    if (!settings) settings = await selectTtsSettings();
+
+    if (settings.provider === 'gemini') {
+        const base = String(settings.apiBaseUrl || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/+$/, '');
+        const model = String(settings.ttsModel || (/-tts\b/i.test(settings.model || '') ? settings.model : 'gemini-2.5-flash-preview-tts'));
+        const voiceName = String(voice || 'Aoede').trim() || 'Aoede';
+        const url = `${base}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(settings.apiKey)}`;
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { ...(settings.headers || {}), 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ role: 'user', parts: [{ text: buildTtsPrompt(cleanText, language) }] }],
+                generationConfig: {
+                    responseModalities: ['AUDIO'],
+                    speechConfig: {
+                        voiceConfig: {
+                            prebuiltVoiceConfig: { voiceName }
+                        }
+                    }
+                }
+            }),
+            signal
+        });
+        if (!res.ok) throw error('AI_SPEECH_SYNTHESIS_UPSTREAM', `Gemini 语音合成暂不可用 (${res.status})`, 502);
+        const data = await res.json();
+        const audioPart = (data?.candidates?.[0]?.content?.parts || []).find(part => part?.inlineData?.data);
+        if (!audioPart?.inlineData?.data) throw error('AI_SPEECH_SYNTHESIS_EMPTY', '语音模型未返回音频数据', 502);
+        const rawMime = String(audioPart.inlineData.mimeType || 'audio/L16;codec=pcm;rate=24000');
+        const rawBuf = Buffer.from(audioPart.inlineData.data, 'base64');
+        if (/^audio\/(?:l16|pcm)/i.test(rawMime)) {
+            const rateMatch = /rate=(\d+)/i.exec(rawMime);
+            const sampleRate = rateMatch ? Math.max(8000, Math.min(96000, Number(rateMatch[1]))) : 24000;
+            return { audio: pcm16ToWav(rawBuf, sampleRate, 1, 16), mimeType: 'audio/wav', model, voice: voiceName };
+        }
+        return { audio: rawBuf, mimeType: rawMime.split(';')[0] || 'audio/wav', model, voice: voiceName };
+    }
+
+    if (['openai', 'openai-compatible'].includes(settings.provider)) {
+        const base = String(settings.apiBaseUrl || 'https://api.openai.com/v1').replace(/\/+$/, '');
+        const modelsToTry = /^(?:gpt-4o-mini-tts|tts-1(?:-hd)?)$/i.test(settings.model || '')
+            ? [settings.model]
+            : ['gpt-4o-mini-tts', 'tts-1'];
+        const chosenVoice = String(voice || 'nova').trim() || 'nova';
+        for (const ttsModel of modelsToTry) {
+            const res = await fetch(`${base}/audio/speech`, {
+                method: 'POST',
+                headers: {
+                    ...(settings.headers || {}),
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${settings.apiKey}`
+                },
+                body: JSON.stringify({
+                    model: ttsModel,
+                    input: cleanText,
+                    voice: chosenVoice,
+                    response_format: 'mp3'
+                }),
+                signal
+            });
+            if (res.ok) {
+                const audio = Buffer.from(await res.arrayBuffer());
+                if (audio.length > 64) {
+                    return { audio, mimeType: 'audio/mpeg', model: ttsModel, voice: chosenVoice };
+                }
+            }
+        }
+        throw error('AI_SPEECH_SYNTHESIS_UPSTREAM', '云端语音合成服务暂不可用', 502);
+    }
+
+    throw error('AI_SPEECH_UNAVAILABLE', '当前供应商不支持语音合成', 503);
+}
+
+async function synthesizeSpeech({ text, voice, language, signal, settingsRepo } = {}) {
+    if (process.env.TOOLS_SPEECH_MODE === 'offline') {
+        throw error('AI_SPEECH_OFFLINE', '离线语音模式未启用云端自然语音合成', 503);
+    }
+    const primary = await module.exports.selectTtsSettings(settingsRepo);
+    const candidates = [primary, ...(primary.speechFallbacks || [])].slice(0, 3);
+    let lastError;
+    for (const candidate of candidates) {
+        const ttsTimeout = AbortSignal.timeout(22000);
+        const stepSignal = signal ? AbortSignal.any([signal, ttsTimeout]) : ttsTimeout;
+        try {
+            return await module.exports.synthesize({ text, voice, language, settings: candidate, signal: stepSignal });
+        } catch (err) {
+            if (signal?.aborted || err?.code === 'AI_SPEECH_SYNTHESIS_EMPTY') throw err;
+            lastError = err;
+        }
+    }
+    throw lastError || error('AI_SPEECH_SYNTHESIS_FAILED', '自然语音合成失败', 502);
+}
+
+module.exports={MAX_BYTES,MAX_SECONDS,audioType,selectSettings,transcribe,capability,recognize,pcm16ToWav,selectTtsSettings,synthesize,synthesizeSpeech};

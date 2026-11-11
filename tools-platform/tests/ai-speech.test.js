@@ -51,3 +51,36 @@ test('cloud first, another speech model second, offline fallback last; offline p
   await assert.rejects(speech.recognize({file,signal:controller.signal,localService:local}));assert.equal(calls.includes('offline'),false,'cancelling never activates another engine');
  }finally{speech.selectSettings=beforeSelect;speech.transcribe=beforeTranscribe;beforeMode===undefined?delete process.env.TOOLS_SPEECH_MODE:process.env.TOOLS_SPEECH_MODE=beforeMode;}
 });
+
+test('natural TTS wraps Gemini PCM L16 into valid RIFF WAV and POST /speech/synthesize enforces auth',async()=>{
+ const pcm=Buffer.from([0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08]);
+ const wrapped=speech.pcm16ToWav(pcm,24000,1,16);
+ assert.equal(wrapped.toString('ascii',0,4),'RIFF');
+ assert.equal(wrapped.toString('ascii',8,12),'WAVE');
+ assert.equal(wrapped.readUInt32LE(24),24000);
+ assert.equal(wrapped.readUInt32LE(40),pcm.length);
+ const originalFetch=global.fetch;
+ global.fetch=async()=>new Response(JSON.stringify({
+  candidates:[{content:{parts:[{inlineData:{mimeType:'audio/L16;codec=pcm;rate=24000',data:pcm.toString('base64')}}]}}]
+ }),{headers:{'Content-Type':'application/json'}});
+ try{
+  const out=await speech.synthesize({text:'你好，系统正常。',language:'zh',settings:{provider:'gemini',model:'gemini-3.1-flash-lite',apiBaseUrl:'https://generativelanguage.googleapis.com/v1beta',apiKey:'k-test',hasApiKey:true,keyLooksValid:true}});
+  assert.equal(out.mimeType,'audio/wav');
+  assert.equal(out.audio.toString('ascii',0,4),'RIFF');
+ }finally{global.fetch=originalFetch;}
+
+ const beforeSynth=speech.synthesizeSpeech;
+ speech.synthesizeSpeech=async({text})=>({audio:speech.pcm16ToWav(pcm,24000),mimeType:'audio/wav',model:'gemini-2.5-flash-preview-tts',voice:'Aoede',echo:text});
+ try{
+  const app=express();app.use(express.json());app.use((req,res,next)=>{if(req.headers['x-user'])req.user={username:req.headers['x-user'],role:'viewer'};runWithTenant(req.headers['x-tenant']||'default',next);});app.use('/speech',require('../backend/routes/ai-speech'));
+  const s=app.listen(0,'127.0.0.1');await new Promise(resolve=>s.once('listening',resolve));
+  const b=`http://127.0.0.1:${s.address().port}`;
+  assert.equal((await fetch(b+'/speech/synthesize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:'hi'})})).status,401);
+  const okRes=await fetch(b+'/speech/synthesize',{method:'POST',headers:{'Content-Type':'application/json','x-user':'alice'},body:JSON.stringify({text:'你好，这是自然语音测试。',language:'zh'})});
+  assert.equal(okRes.status,200);
+  assert.equal(okRes.headers.get('content-type'),'audio/wav');
+  const bytes=Buffer.from(await okRes.arrayBuffer());
+  assert.equal(bytes.toString('ascii',0,4),'RIFF');
+  s.close();
+ }finally{speech.synthesizeSpeech=beforeSynth;}
+});

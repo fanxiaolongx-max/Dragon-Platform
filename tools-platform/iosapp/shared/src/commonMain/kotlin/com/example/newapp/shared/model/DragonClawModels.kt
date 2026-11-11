@@ -221,6 +221,39 @@ data class ToolCallTrace(
     val isFinished: Boolean = false
 )
 
+@Serializable
+data class ChatAttachment(
+    val path: String = "",
+    val name: String = "",
+    val mimeType: String = "",
+    val url: String = ""
+) {
+    val displayName: String
+        get() = name.ifBlank {
+            val raw = url.ifBlank { path }.substringBefore('?').substringBefore('#')
+            raw.substringAfterLast('/').ifBlank { raw }
+        }
+
+    val isImage: Boolean
+        get() {
+            if (mimeType.startsWith("image/", ignoreCase = true)) return true
+            val candidate = (path.ifBlank { url.ifBlank { name } })
+                .substringAfter("path=", missingDelimiterValue = path.ifBlank { url.ifBlank { name } })
+                .substringBefore('&')
+                .substringBefore('#')
+                .substringBefore('?')
+                .lowercase()
+            if (candidate.startsWith("data:image/")) return true
+            return IMAGE_EXTENSIONS.any { candidate.endsWith(it) }
+        }
+
+    companion object {
+        private val IMAGE_EXTENSIONS = listOf(
+            ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".avif", ".heic", ".svg"
+        )
+    }
+}
+
 data class ChatMessage(
     val id: String,
     val role: String,
@@ -229,6 +262,8 @@ data class ChatMessage(
     val createdAt: String? = null,
     val statusText: String? = null,
     val toolCalls: List<ToolCallTrace> = emptyList(),
+    val attachments: List<ChatAttachment> = emptyList(),
+    val rawContent: String? = null,
     val inputTokens: Int? = null,
     val outputTokens: Int? = null,
     val modelName: String? = null,
@@ -236,7 +271,10 @@ data class ChatMessage(
     val isStreaming: Boolean = false
 ) {
     val isUser: Boolean get() = role == "user"
-    val renderKey: String get() = "${id}_${content.length}_${thinking.length}_${statusText.orEmpty()}_${isStreaming}_${toolCalls.size}"
+    val historyContent: String get() = rawContent?.takeIf { it.isNotBlank() } ?: content
+    val imageAttachments: List<ChatAttachment> get() = attachments.filter { it.isImage }
+    val fileAttachments: List<ChatAttachment> get() = attachments.filter { !it.isImage }
+    val renderKey: String get() = "${id}_${content.length}_${thinking.length}_${statusText.orEmpty()}_${isStreaming}_${toolCalls.size}_${attachments.size}"
 }
 
 enum class SessionBucket {
@@ -281,6 +319,20 @@ data class SpeechRecognitionResponse(
     val degraded: Boolean = false,
     val source: SpeechSourceInfo? = null,
     val error: String? = null
+)
+
+@Serializable
+data class SpeechSynthesisRequest(
+    val text: String,
+    val language: String = "zh",
+    val voice: String? = null
+)
+
+class SynthesizedSpeechAudio(
+    val bytes: ByteArray,
+    val mimeType: String,
+    val model: String = "",
+    val voice: String = ""
 )
 
 @Serializable

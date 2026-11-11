@@ -111,6 +111,7 @@ fun LiquidGlassSurface(
     tint: Color? = null,
     tintAlpha: Float = 0.14f,
     elevation: Dp = 6.dp,
+    consumeTouches: Boolean = false,
     onClick: (() -> Unit)? = null,
     content: @Composable BoxScope.() -> Unit
 ) {
@@ -129,6 +130,13 @@ fun LiquidGlassSurface(
             interactionSource = remember { MutableInteractionSource() },
             indication = null,
             onClick = onClick
+        )
+    } else if (consumeTouches) {
+        // Absorb stray taps inside overlay containers (e.g. composer) so nothing behind can receive them
+        Modifier.clickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null,
+            onClick = {}
         )
     } else {
         Modifier

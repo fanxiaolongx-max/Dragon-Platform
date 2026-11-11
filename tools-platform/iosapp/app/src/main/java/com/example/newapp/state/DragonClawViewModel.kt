@@ -2,6 +2,8 @@ package com.example.newapp.state
 
 import android.content.ContentResolver
 import android.content.Context
+import android.media.AudioAttributes
+import android.media.MediaPlayer
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.speech.tts.TextToSpeech
@@ -20,6 +22,7 @@ import com.example.newapp.shared.data.DragonClawSdk
 import com.example.newapp.shared.data.TaskHandle
 import com.example.newapp.shared.model.*
 import com.example.newapp.shared.network.DragonClawApiClient
+import com.example.newapp.shared.util.DragonClawHelpers
 import com.example.newapp.shared.util.MarkdownParser
 import com.example.newapp.ui.theme.tr
 import kotlinx.coroutines.Dispatchers
@@ -28,6 +31,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
 import java.util.Locale
 import java.util.UUID
 
@@ -177,6 +182,8 @@ class DragonClawViewModel : ViewModel() {
         private set
     var voiceChatErrorText by mutableStateOf<String?>(null)
         private set
+    var voiceChatModelLabel by mutableStateOf("")
+        private set
 
     // Skills, Archived Sessions, Schedules & Tool Nav Sync (P1)
     var skills by mutableStateOf<List<AgentSkillItem>>(emptyList())
@@ -215,13 +222,28 @@ class DragonClawViewModel : ViewModel() {
     private var speechRecorder: AudioSpeechRecorder? = null
     private var ttsEngine: TextToSpeech? = null
     private var ttsReady = false
+    private var voiceMediaPlayer: MediaPlayer? = null
+    private var voiceSpeechJob: Job? = null
+    private var voiceAudioTempFile: File? = null
     private var voiceResumeJob: Job? = null
     private var voiceAppContext: Context? = null
     private var voiceTurnCompletion: ((String) -> Unit)? = null
 
+    private fun stopAllVoicePlayback() {
+        voiceSpeechJob?.cancel()
+        voiceSpeechJob = null
+        runCatching { voiceMediaPlayer?.stop() }
+        runCatching { voiceMediaPlayer?.release() }
+        voiceMediaPlayer = null
+        runCatching { voiceAudioTempFile?.delete() }
+        voiceAudioTempFile = null
+        ttsEngine?.stop()
+        voiceChatModelLabel = ""
+    }
+
     override fun onCleared() {
         voiceResumeJob?.cancel()
-        ttsEngine?.stop()
+        stopAllVoicePlayback()
         ttsEngine?.shutdown()
         ttsEngine = null
         speechRecorder?.cancel()
@@ -710,13 +732,28 @@ class DragonClawViewModel : ViewModel() {
                 return
             }
             val text = (overridePrompt ?: composerText).trim()
-            if (text.isEmpty()) return
+            val attachedInfos = if (overridePrompt == null) sdk.attachmentsFromUploadedFiles(pendingAttachments) else emptyList()
+            val rawSendText = if (overridePrompt == null) {
+                sdk.appendFilesToPrompt(text, pendingAttachments, language).trim()
+            } else {
+                text
+            }
+            if (rawSendText.isEmpty() && attachedInfos.isEmpty()) return
+            val (cleanedText, resolvedAttachments) = sdk.extractMessageAttachmentsAndCleanText(
+                rawContent = rawSendText,
+                existingAttachments = attachedInfos
+            )
             chatErrorBanner = null
-            if (overridePrompt == null) composerText = ""
+            if (overridePrompt == null) {
+                composerText = ""
+                pendingAttachments = emptyList()
+            }
             messages = messages + ChatMessage(
                 id = UUID.randomUUID().toString(),
                 role = "user",
-                content = text,
+                content = cleanedText,
+                attachments = resolvedAttachments,
+                rawContent = rawSendText,
                 modelName = desktop.providerDisplayName()
             )
             val wasBusy = activeDesktopBusy
@@ -729,7 +766,7 @@ class DragonClawViewModel : ViewModel() {
                         provider = desktop.provider,
                         sessionId = desktop.id,
                         request = DesktopAgentSendRequest(
-                            text = text,
+                            text = rawSendText,
                             requestId = UUID.randomUUID().toString(),
                             mode = mode
                         )
@@ -748,12 +785,18 @@ class DragonClawViewModel : ViewModel() {
             return
         }
         val base = (overridePrompt ?: composerText).trim()
+        val attachedInfos = if (overridePrompt == null) sdk.attachmentsFromUploadedFiles(pendingAttachments) else emptyList()
         val finalContent = if (overridePrompt != null) {
             base
         } else {
             sdk.appendFilesToPrompt(base, pendingAttachments, language).trim()
         }
-        if (finalContent.isEmpty()) return
+        if (finalContent.isEmpty() && attachedInfos.isEmpty()) return
+
+        val (cleanedUserText, resolvedAttachments) = sdk.extractMessageAttachmentsAndCleanText(
+            rawContent = finalContent,
+            existingAttachments = attachedInfos
+        )
 
         chatErrorBanner = null
         if (overridePrompt == null) {
@@ -764,7 +807,9 @@ class DragonClawViewModel : ViewModel() {
         val userMsg = ChatMessage(
             id = UUID.randomUUID().toString(),
             role = "user",
-            content = finalContent
+            content = cleanedUserText,
+            attachments = resolvedAttachments,
+            rawContent = finalContent
         )
         val assistantId = UUID.randomUUID().toString()
         val placeholder = ChatMessage(
@@ -778,7 +823,7 @@ class DragonClawViewModel : ViewModel() {
         isStreaming = true
 
         val historyDtos = messages.dropLast(1).map {
-            ChatHistoryMessageDto(role = if (it.isUser) "user" else "model", content = it.content)
+            ChatHistoryMessageDto(role = if (it.isUser) "user" else "model", content = it.historyContent)
         }
 
         activeStreamHandle = sdk.streamChat(
@@ -869,14 +914,23 @@ class DragonClawViewModel : ViewModel() {
                 StreamEventType.MODEL_ROUND, StreamEventType.COMPACTION -> {
                     if (!event.text.isNullOrBlank()) cur.copy(statusText = event.text) else cur
                 }
-                StreamEventType.DONE -> cur.copy(
-                    content = cur.content.ifBlank { event.text.orEmpty() },
-                    statusText = null,
-                    inputTokens = event.inputTokens ?: cur.inputTokens,
-                    outputTokens = event.outputTokens ?: cur.outputTokens,
-                    modelName = event.modelName ?: cur.modelName,
-                    isStreaming = false
-                )
+                StreamEventType.DONE -> {
+                    val rawFinal = cur.content.ifBlank { event.text.orEmpty() }
+                    val (cleanedText, extractedAtts) = sdk.extractMessageAttachmentsAndCleanText(
+                        rawContent = rawFinal,
+                        existingAttachments = cur.attachments
+                    )
+                    cur.copy(
+                        content = cleanedText,
+                        attachments = extractedAtts,
+                        rawContent = rawFinal,
+                        statusText = null,
+                        inputTokens = event.inputTokens ?: cur.inputTokens,
+                        outputTokens = event.outputTokens ?: cur.outputTokens,
+                        modelName = event.modelName ?: cur.modelName,
+                        isStreaming = false
+                    )
+                }
                 StreamEventType.ERROR -> {
                     val err = event.errorMessage ?: tr(language, "响应异常", "Stream error")
                     chatErrorBanner = err
@@ -898,9 +952,20 @@ class DragonClawViewModel : ViewModel() {
         messages = messages.map { cur ->
             if (cur.id != assistantId) cur
             else {
-                finalContent = cur.content
+                val rawFinal = if (cur.content.isBlank() && errorNote != null) {
+                    "[$errorNote]"
+                } else {
+                    cur.rawContent ?: cur.content
+                }
+                val (cleanedText, extractedAtts) = sdk.extractMessageAttachmentsAndCleanText(
+                    rawContent = rawFinal,
+                    existingAttachments = cur.attachments
+                )
+                finalContent = cleanedText
                 cur.copy(
-                    content = if (cur.content.isBlank() && errorNote != null) "[$errorNote]" else cur.content,
+                    content = cleanedText,
+                    attachments = extractedAtts,
+                    rawContent = rawFinal,
                     statusText = null,
                     interrupted = cur.interrupted || interrupted,
                     isStreaming = false
@@ -1005,6 +1070,7 @@ class DragonClawViewModel : ViewModel() {
         val appCtx = context.applicationContext
         voiceAppContext = appCtx
         ensureTtsInitialized(appCtx)
+        stopAllVoicePlayback()
         if (isRecordingVoice) cancelVoiceRecording()
         if (activeDesktopSession != null) startNewChat()
 
@@ -1018,7 +1084,7 @@ class DragonClawViewModel : ViewModel() {
     fun endVoiceConversation() {
         voiceResumeJob?.cancel()
         voiceResumeJob = null
-        ttsEngine?.stop()
+        stopAllVoicePlayback()
         speechRecorder?.cancel()
         voiceTurnCompletion = null
         if (isStreaming) stopStreaming()
@@ -1033,7 +1099,7 @@ class DragonClawViewModel : ViewModel() {
         if (voiceChatPhase == VoiceChatPhase.PAUSED) {
             beginVoiceConversationListening()
         } else {
-            ttsEngine?.stop()
+            stopAllVoicePlayback()
             speechRecorder?.cancel()
             voiceChatPhase = VoiceChatPhase.PAUSED
             voiceChatAudioLevel = 0.14f
@@ -1044,7 +1110,7 @@ class DragonClawViewModel : ViewModel() {
     fun toggleVoiceChatMute() {
         isVoiceChatSpeechMuted = !isVoiceChatSpeechMuted
         if (isVoiceChatSpeechMuted && voiceChatPhase == VoiceChatPhase.SPEAKING) {
-            ttsEngine?.stop()
+            stopAllVoicePlayback()
             scheduleNextVoiceChatListening()
         }
     }
@@ -1056,7 +1122,7 @@ class DragonClawViewModel : ViewModel() {
 
     fun interruptAndListenInVoiceChat() {
         voiceResumeJob?.cancel()
-        ttsEngine?.stop()
+        stopAllVoicePlayback()
         voiceTurnCompletion = null
         if (isStreaming) stopStreaming()
         voiceChatErrorText = null
@@ -1101,7 +1167,7 @@ class DragonClawViewModel : ViewModel() {
         val ctx = voiceAppContext ?: return
         if (!isVoiceChatActive) return
         voiceResumeJob?.cancel()
-        ttsEngine?.stop()
+        stopAllVoicePlayback()
         voiceChatErrorText = null
         voiceChatHasSpeech = false
         voiceChatAudioLevel = 0.14f
@@ -1190,6 +1256,93 @@ class DragonClawViewModel : ViewModel() {
         }
 
         voiceChatPhase = VoiceChatPhase.SPEAKING
+        stopAllVoicePlayback()
+        val appCtx = voiceAppContext
+        if (appCtx == null) {
+            fallbackDeviceSpeechOrAdvance(speechText)
+            return
+        }
+
+        voiceSpeechJob = viewModelScope.launch {
+            runCatching {
+                sdk.api.synthesizeSpeech(
+                    token = token,
+                    text = speechText,
+                    language = language
+                )
+            }.onSuccess { audio ->
+                if (!isVoiceChatActive || isVoiceChatSpeechMuted || voiceChatPhase != VoiceChatPhase.SPEAKING) {
+                    return@onSuccess
+                }
+                voiceChatModelLabel = audio.model
+                val started = playSynthesizedAudio(appCtx, audio)
+                if (!started) {
+                    fallbackDeviceSpeechOrAdvance(speechText)
+                }
+            }.onFailure {
+                if (!isVoiceChatActive || isVoiceChatSpeechMuted || voiceChatPhase != VoiceChatPhase.SPEAKING) {
+                    return@onFailure
+                }
+                fallbackDeviceSpeechOrAdvance(speechText)
+            }
+        }
+    }
+
+    private suspend fun playSynthesizedAudio(appCtx: Context, audio: SynthesizedSpeechAudio): Boolean {
+        val ext = if (audio.mimeType.contains("mpeg", ignoreCase = true) || audio.mimeType.contains("mp3", ignoreCase = true)) {
+            "mp3"
+        } else {
+            "wav"
+        }
+        val audioFile = withContext(Dispatchers.IO) {
+            runCatching {
+                val target = File(appCtx.cacheDir, "dc_voice_reply_${System.currentTimeMillis()}.$ext")
+                FileOutputStream(target).use { it.write(audio.bytes) }
+                target
+            }.getOrNull()
+        } ?: return false
+
+        if (!isVoiceChatActive || isVoiceChatSpeechMuted || voiceChatPhase != VoiceChatPhase.SPEAKING) {
+            runCatching { audioFile.delete() }
+            return false
+        }
+
+        return runCatching {
+            val player = MediaPlayer().apply {
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build()
+                )
+                setDataSource(audioFile.absolutePath)
+                setOnCompletionListener {
+                    stopAllVoicePlayback()
+                    if (isVoiceChatActive && voiceChatPhase == VoiceChatPhase.SPEAKING) {
+                        scheduleNextVoiceChatListening()
+                    }
+                }
+                setOnErrorListener { _, _, _ ->
+                    stopAllVoicePlayback()
+                    if (isVoiceChatActive && voiceChatPhase == VoiceChatPhase.SPEAKING) {
+                        scheduleNextVoiceChatListening()
+                    }
+                    true
+                }
+                prepare()
+                start()
+            }
+            voiceAudioTempFile = audioFile
+            voiceMediaPlayer = player
+            true
+        }.getOrElse {
+            runCatching { audioFile.delete() }
+            false
+        }
+    }
+
+    private fun fallbackDeviceSpeechOrAdvance(speechText: String) {
+        voiceChatModelLabel = ""
         val engine = ttsEngine
         if (engine != null && ttsReady) {
             val locale = if (language == "en") Locale.US else Locale.SIMPLIFIED_CHINESE

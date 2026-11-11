@@ -56,6 +56,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
@@ -77,7 +78,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.newapp.R
 import com.example.newapp.shared.model.AgentSkillItem
+import com.example.newapp.shared.model.ChatAttachment
 import com.example.newapp.shared.model.ChatMessage
+import com.example.newapp.shared.util.DragonClawHelpers
 import com.example.newapp.shared.util.MarkdownParser
 import com.example.newapp.shared.util.MdBlock
 import com.example.newapp.shared.util.MdBlockKind
@@ -85,7 +88,12 @@ import com.example.newapp.shared.util.MdSpan
 import com.example.newapp.shared.util.MdSpanKind
 import com.example.newapp.state.DragonClawViewModel
 import com.example.newapp.state.VoiceChatPhase
+import com.example.newapp.ui.components.AuthenticatedRemoteImageCard
+import com.example.newapp.ui.components.ChatAttachmentGallery
 import com.example.newapp.ui.components.DragonClawBackdrop
+import com.example.newapp.ui.components.ImageLightboxDialog
+import com.example.newapp.ui.components.LightboxImageItem
+import com.example.newapp.ui.components.LightboxPayload
 import com.example.newapp.ui.components.LiquidGlassSurface
 import com.example.newapp.ui.theme.DragonClawPalette
 import com.example.newapp.ui.theme.LocalDragonClawPalette
@@ -105,6 +113,7 @@ fun ChatScreen(vm: DragonClawViewModel) {
     var skillSearch by remember { mutableStateOf("") }
     var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
     var pendingVoiceChatOnPermission by remember { mutableStateOf(false) }
+    var lightboxPayload by remember { mutableStateOf<LightboxPayload?>(null) }
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments()
@@ -184,21 +193,11 @@ fun ChatScreen(vm: DragonClawViewModel) {
     }
 
     val starterPrompts = remember(vm.suggestions, lang) {
-        if (vm.suggestions.isNotEmpty()) {
-            vm.suggestions.take(6).map { it.question }
-        } else if (lang == "en") {
-            listOf(
-                "Summarize this month's failing SLA & KPI metrics",
-                "Show overdue tickets that need urgent escalation",
-                "How do I check the Night Duty Roster and PR audit?"
-            )
-        } else {
-            listOf(
-                "总结本月异常 KPI 指标并给出改进建议",
-                "排查当前超时与临期 SLA 工单清单",
-                "帮我说明月报核算和 PR 稽查怎么操作"
-            )
-        }
+        DragonClawHelpers.filterStarterPrompts(
+            suggestions = vm.suggestions,
+            language = lang,
+            limit = 3
+        )
     }
 
     Column(
@@ -312,7 +311,15 @@ fun ChatScreen(vm: DragonClawViewModel) {
                             ) {
                                 Icon(Icons.Rounded.AutoAwesome, contentDescription = null, tint = palette.accentStrong, modifier = Modifier.size(15.dp))
                                 Spacer(Modifier.width(9.dp))
-                                Text(prompt, color = palette.inkPrimary, fontSize = 12.5.sp, lineHeight = 18.sp, modifier = Modifier.weight(1f))
+                                Text(
+                                    text = prompt,
+                                    color = palette.inkPrimary,
+                                    fontSize = 12.5.sp,
+                                    lineHeight = 18.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
                                 Icon(Icons.Rounded.NorthEast, contentDescription = null, tint = palette.inkMuted, modifier = Modifier.size(14.dp))
                             }
                         }
@@ -333,11 +340,33 @@ fun ChatScreen(vm: DragonClawViewModel) {
                     items(vm.messages, key = { it.id }) { msg ->
                         ChatBubbleItem(
                             message = msg,
+                            token = vm.token,
+                            baseUrl = vm.baseUrl,
                             language = lang,
-                            onRetry = { vm.retryLastPrompt() }
+                            onRetry = { vm.retryLastPrompt() },
+                            onOpenLightbox = { items, index ->
+                                lightboxPayload = LightboxPayload(
+                                    items = items,
+                                    initialIndex = index,
+                                    token = vm.token
+                                )
+                            }
                         )
                     }
                 }
+            }
+
+            if (showPlusMenu) {
+                // Dismiss popup cleanly without passing taps through to messages or home suggestions
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { showPlusMenu = false }
+                        )
+                )
             }
         }
 
@@ -356,6 +385,7 @@ fun ChatScreen(vm: DragonClawViewModel) {
                     LiquidGlassSurface(
                         shape = CircleShape,
                         elevation = 2.dp,
+                        consumeTouches = true,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
@@ -401,6 +431,7 @@ fun ChatScreen(vm: DragonClawViewModel) {
                         tint = palette.danger,
                         tintAlpha = 0.14f,
                         elevation = 3.dp,
+                        consumeTouches = true,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
@@ -423,6 +454,7 @@ fun ChatScreen(vm: DragonClawViewModel) {
                         tint = palette.accent,
                         tintAlpha = 0.14f,
                         elevation = 3.dp,
+                        consumeTouches = true,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
@@ -494,7 +526,7 @@ fun ChatScreen(vm: DragonClawViewModel) {
                     val trimmed = vm.composerText.trim()
                     val hasPayload = trimmed.isNotEmpty() || vm.pendingAttachments.isNotEmpty()
                     val canSend = if (vm.activeDesktopSession != null) {
-                        trimmed.isNotEmpty() && vm.activeDesktopCanSend
+                        hasPayload && vm.activeDesktopCanSend
                     } else {
                         hasPayload
                     }
@@ -507,6 +539,7 @@ fun ChatScreen(vm: DragonClawViewModel) {
                     LiquidGlassSurface(
                         shape = RoundedCornerShape(24.dp),
                         elevation = 10.dp,
+                        consumeTouches = true,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(
@@ -536,15 +569,23 @@ fun ChatScreen(vm: DragonClawViewModel) {
                                     )
                                 }
                                 if (trimmed.isNotEmpty()) {
-                                    IconButton(
-                                        onClick = { vm.enhanceDraftPrompt() },
-                                        enabled = !vm.isEnhancingPrompt,
-                                        modifier = Modifier.size(30.dp)
+                                    Spacer(Modifier.width(6.dp))
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = palette.accent.copy(alpha = 0.14f),
+                                        onClick = {
+                                            if (!vm.isEnhancingPrompt) {
+                                                vm.enhanceDraftPrompt()
+                                            }
+                                        },
+                                        modifier = Modifier.size(34.dp)
                                     ) {
-                                        if (vm.isEnhancingPrompt) {
-                                            CircularProgressIndicator(strokeWidth = 2.dp, color = palette.accentStrong, modifier = Modifier.size(14.dp))
-                                        } else {
-                                            Icon(Icons.Rounded.AutoAwesome, contentDescription = "Enhance", tint = palette.accentStrong, modifier = Modifier.size(16.dp))
+                                        Box(contentAlignment = Alignment.Center) {
+                                            if (vm.isEnhancingPrompt) {
+                                                CircularProgressIndicator(strokeWidth = 2.dp, color = palette.accentStrong, modifier = Modifier.size(14.dp))
+                                            } else {
+                                                Icon(Icons.Rounded.AutoAwesome, contentDescription = "Enhance", tint = palette.accentStrong, modifier = Modifier.size(16.dp))
+                                            }
                                         }
                                     }
                                 }
@@ -687,6 +728,7 @@ fun ChatScreen(vm: DragonClawViewModel) {
                 LiquidGlassSurface(
                     shape = RoundedCornerShape(24.dp),
                     elevation = 14.dp,
+                    consumeTouches = true,
                     modifier = Modifier.width(196.dp)
                 ) {
                     Column(modifier = Modifier.padding(vertical = 8.dp, horizontal = 6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -793,6 +835,14 @@ fun ChatScreen(vm: DragonClawViewModel) {
 
     if (vm.isVoiceChatActive) {
         VoiceConversationDialog(vm = vm)
+    }
+
+    lightboxPayload?.let { payload ->
+        ImageLightboxDialog(
+            payload = payload,
+            language = lang,
+            onDismiss = { lightboxPayload = null }
+        )
     }
 }
 
@@ -918,33 +968,92 @@ private fun InlineVoiceWaveformBar(
 @Composable
 private fun ChatBubbleItem(
     message: ChatMessage,
+    token: String,
+    baseUrl: String,
     language: String,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    onOpenLightbox: (List<LightboxImageItem>, Int) -> Unit
 ) {
     val palette = LocalDragonClawPalette.current
     val clipboard = LocalClipboardManager.current
     var showThinking by remember { mutableStateOf(false) }
     var copied by remember { mutableStateOf(false) }
 
+    val blocks = remember(message.content) { MarkdownParser.parse(message.content) }
+    val inlineMarkdownImages = remember(blocks, baseUrl) {
+        blocks.mapNotNull { block ->
+            if (block.kind != MdBlockKind.IMAGE || block.imageUrl.isBlank()) return@mapNotNull null
+            val resolved = DragonClawHelpers.resolveImageSourceUrl(baseUrl, block.imageUrl).ifBlank { block.imageUrl }
+            val title = block.imageAlt.ifBlank { DragonClawHelpers.basename(block.imageUrl) }
+            LightboxImageItem(urlString = resolved, title = title)
+        }
+    }
+    val trailingAttachments = remember(message.attachments, inlineMarkdownImages, baseUrl) {
+        if (message.attachments.isEmpty()) emptyList()
+        else {
+            val inlineUrls = inlineMarkdownImages.map { it.urlString.lowercase() }.toSet()
+            message.attachments.filter { att ->
+                if (!att.isImage) true
+                else {
+                    val resolved = att.url.ifBlank { DragonClawHelpers.resolveImageSourceUrl(baseUrl, att.path) }
+                    resolved.isBlank() || resolved.lowercase() !in inlineUrls
+                }
+            }
+        }
+    }
+    val allLightboxItems = remember(message.imageAttachments, inlineMarkdownImages, baseUrl) {
+        val combined = mutableListOf<LightboxImageItem>()
+        val seen = mutableSetOf<String>()
+        message.imageAttachments.forEach { att ->
+            val url = att.url.ifBlank { DragonClawHelpers.resolveImageSourceUrl(baseUrl, att.path) }.ifBlank { att.path }
+            if (url.isNotBlank() && seen.add(url.lowercase())) {
+                combined.add(LightboxImageItem(urlString = url, title = att.displayName))
+            }
+        }
+        inlineMarkdownImages.forEach { item ->
+            if (seen.add(item.urlString.lowercase())) {
+                combined.add(item)
+            }
+        }
+        combined
+    }
+
     if (message.isUser) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End
         ) {
-            LiquidGlassSurface(
-                shape = RoundedCornerShape(18.dp),
-                tint = palette.accent,
-                tintAlpha = 0.16f,
-                elevation = 4.dp,
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.widthIn(max = 310.dp)
             ) {
-                Text(
-                    text = message.content,
-                    color = palette.inkPrimary,
-                    fontSize = 12.5.sp,
-                    lineHeight = 17.5.sp,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                )
+                if (message.attachments.isNotEmpty()) {
+                    ChatAttachmentGallery(
+                        attachments = message.attachments,
+                        token = token,
+                        baseUrl = baseUrl,
+                        palette = palette,
+                        onOpenLightbox = onOpenLightbox
+                    )
+                }
+
+                if (message.content.isNotEmpty()) {
+                    LiquidGlassSurface(
+                        shape = RoundedCornerShape(18.dp),
+                        tint = palette.accent,
+                        tintAlpha = 0.16f,
+                        elevation = 4.dp
+                    ) {
+                        Text(
+                            text = message.content,
+                            color = palette.inkPrimary,
+                            fontSize = 12.5.sp,
+                            lineHeight = 17.5.sp,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        )
+                    }
+                }
             }
         }
     } else {
@@ -1059,10 +1168,33 @@ private fun ChatBubbleItem(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     FormattedResponseContent(
-                        text = message.content,
+                        blocks = blocks,
+                        rawText = message.content,
+                        token = token,
+                        baseUrl = baseUrl,
+                        onTapImage = { src, alt ->
+                            val items = allLightboxItems
+                            val idx = items.indexOfFirst { it.urlString.equals(src, ignoreCase = true) }
+                            if (idx >= 0) {
+                                onOpenLightbox(items, idx)
+                            } else {
+                                val title = alt.ifBlank { DragonClawHelpers.basename(src) }
+                                onOpenLightbox(listOf(LightboxImageItem(urlString = src, title = title)), 0)
+                            }
+                        },
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
                     )
                 }
+            }
+
+            if (trailingAttachments.isNotEmpty()) {
+                ChatAttachmentGallery(
+                    attachments = trailingAttachments,
+                    token = token,
+                    baseUrl = baseUrl,
+                    palette = palette,
+                    onOpenLightbox = onOpenLightbox
+                )
             }
 
             if (!message.isStreaming) {
@@ -1115,16 +1247,22 @@ private fun ChatBubbleItem(
 }
 
 @Composable
-private fun FormattedResponseContent(text: String, modifier: Modifier = Modifier) {
+private fun FormattedResponseContent(
+    blocks: List<MdBlock>,
+    rawText: String,
+    token: String,
+    baseUrl: String,
+    onTapImage: (String, String) -> Unit,
+    modifier: Modifier = Modifier
+) {
     val palette = LocalDragonClawPalette.current
     val clipboard = LocalClipboardManager.current
-    val blocks = remember(text) { MarkdownParser.parse(text) }
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(9.dp)) {
-        if (blocks.isEmpty() && text.isNotEmpty()) {
+        if (blocks.isEmpty() && rawText.isNotEmpty()) {
             SelectionContainer {
                 Text(
-                    text = text,
+                    text = rawText,
                     color = palette.inkPrimary,
                     fontSize = 14.5.sp,
                     lineHeight = 22.sp
@@ -1136,7 +1274,10 @@ private fun FormattedResponseContent(text: String, modifier: Modifier = Modifier
                     block = block,
                     isFirst = index == 0,
                     palette = palette,
-                    onCopyCode = { code -> clipboard.setText(AnnotatedString(code)) }
+                    token = token,
+                    baseUrl = baseUrl,
+                    onCopyCode = { code -> clipboard.setText(AnnotatedString(code)) },
+                    onTapImage = onTapImage
                 )
             }
         }
@@ -1148,7 +1289,10 @@ private fun MdBlockItemView(
     block: MdBlock,
     isFirst: Boolean,
     palette: DragonClawPalette,
-    onCopyCode: (String) -> Unit
+    token: String,
+    baseUrl: String,
+    onCopyCode: (String) -> Unit,
+    onTapImage: (String, String) -> Unit
 ) {
     when (block.kind) {
         MdBlockKind.HEADING -> {
@@ -1350,6 +1494,28 @@ private fun MdBlockItemView(
                         Box(modifier = Modifier.fillMaxWidth().height(0.75.dp).background(palette.hairLine))
                     }
                 }
+            }
+        }
+
+        MdBlockKind.IMAGE -> {
+            val resolved = remember(block.imageUrl, baseUrl) {
+                DragonClawHelpers.resolveImageSourceUrl(baseUrl, block.imageUrl).ifBlank { block.imageUrl }
+            }
+            val altTitle = remember(block.imageAlt, block.imageUrl) {
+                block.imageAlt.ifBlank { DragonClawHelpers.basename(block.imageUrl) }
+            }
+            if (resolved.isNotBlank()) {
+                AuthenticatedRemoteImageCard(
+                    urlString = resolved,
+                    altText = altTitle,
+                    token = token,
+                    cornerRadius = 14.dp,
+                    contentScale = ContentScale.Crop,
+                    onClick = { onTapImage(resolved, altTitle) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 140.dp, max = 230.dp)
+                )
             }
         }
     }
@@ -1670,8 +1836,18 @@ private fun VoiceConversationDialog(vm: DragonClawViewModel) {
                                 fontWeight = FontWeight.SemiBold,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.widthIn(max = 180.dp)
+                                modifier = Modifier.widthIn(max = 160.dp)
                             )
+                            if (vm.voiceChatModelLabel.isNotBlank()) {
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    text = "· ${tr(lang, "自然语音", "Natural Voice")}",
+                                    color = palette.accentStrong,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1
+                                )
+                            }
                         }
                     }
 

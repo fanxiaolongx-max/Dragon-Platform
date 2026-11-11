@@ -109,6 +109,9 @@ struct GlassModeSegmentedPill<Option: Hashable>: View {
 struct MarkdownMessageView: View {
     let text: String
     let palette: DragonClawPalette
+    var token: String = ""
+    var baseUrl: String = ""
+    var onTapImage: ((String, String) -> Void)? = nil
 
     private var blocks: [MdBlock] {
         MarkdownParser.shared.parse(raw: text)
@@ -218,6 +221,21 @@ struct MarkdownMessageView: View {
 
         case .table:
             tableBlockView(rows: block.tableRows)
+
+        case .image:
+            let resolved = DragonClawHelpers.shared.resolveImageSourceUrl(baseUrl: baseUrl, rawSrc: block.imageUrl)
+            AuthenticatedRemoteImageView(
+                urlString: resolved,
+                token: token,
+                alt: block.imageAlt,
+                maxHeight: 240,
+                cornerRadius: 14,
+                contentMode: .fit,
+                palette: palette
+            ) { _ in
+                onTapImage?(resolved, block.imageAlt)
+            }
+            .padding(.vertical, 2)
 
         default:
             Text(attributedSpans(block.spans, baseSize: 14.5))
@@ -387,4 +405,434 @@ struct MarkdownMessageView: View {
         default: return palette.accentStrong
         }
     }
+}
+
+struct LightboxImageItem: Identifiable, Hashable {
+    let id = UUID()
+    let urlString: String
+    let title: String
+}
+
+struct LightboxPayload: Identifiable {
+    let id = UUID()
+    let items: [LightboxImageItem]
+    let initialIndex: Int
+    let token: String
+}
+
+final class AuthenticatedImageCache: @unchecked Sendable {
+    static let shared = AuthenticatedImageCache()
+    private let cache = NSCache<NSString, UIImage>()
+
+    private init() {
+        cache.countLimit = 120
+        cache.totalCostLimit = 80 * 1024 * 1024
+    }
+
+    func cached(for key: String) -> UIImage? {
+        cache.object(forKey: key as NSString)
+    }
+
+    func store(_ image: UIImage, for key: String) {
+        let bytes = Int(image.size.width * image.size.height * image.scale * image.scale * 4)
+        cache.setObject(image, forKey: key as NSString, cost: max(1, bytes))
+    }
+
+    func load(urlString: String, token: String) async -> UIImage? {
+        let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let cacheKey = "\(trimmed)#\(token.prefix(12))"
+        if let hit = cached(for: cacheKey) {
+            return hit
+        }
+
+        if trimmed.lowercased().hasPrefix("data:image/"),
+           let commaIdx = trimmed.firstIndex(of: ",") {
+            let b64 = String(trimmed[trimmed.index(after: commaIdx)...])
+            if let data = Data(base64Encoded: b64, options: .ignoreUnknownCharacters),
+               let img = UIImage(data: data) {
+                store(img, for: cacheKey)
+                return img
+            }
+            return nil
+        }
+
+        guard let url = URL(string: trimmed) else { return nil }
+        var req = URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad, timeoutInterval: 25)
+        if !token.isEmpty {
+            req.setValue(DragonClawHelpers.shared.normalizeBearerHeader(rawToken: token), forHTTPHeaderField: "Authorization")
+        }
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+                return nil
+            }
+            if let img = UIImage(data: data) {
+                store(img, for: cacheKey)
+                return img
+            }
+        } catch {
+            return nil
+        }
+        return nil
+    }
+}
+
+struct AuthenticatedRemoteImageView: View {
+    let urlString: String
+    let token: String
+    var alt: String = ""
+    var maxHeight: CGFloat = 240
+    var cornerRadius: CGFloat = 14
+    var contentMode: ContentMode = .fill
+    let palette: DragonClawPalette
+    var onTap: ((UIImage?) -> Void)? = nil
+
+    @State private var loadedImage: UIImage?
+    @State private var failed = false
+
+    var body: some View {
+        Button {
+            onTap?(loadedImage)
+        } label: {
+            Group {
+                if let uiImage = loadedImage {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .aspectRatio(contentMode: contentMode)
+                        .frame(maxWidth: .infinity, maxHeight: maxHeight)
+                        .clipped()
+                } else if failed {
+                    HStack(spacing: 8) {
+                        Image(systemName: "photo.badge.exclamationmark")
+                            .font(.subheadline)
+                            .foregroundStyle(palette.inkMuted)
+                        Text(alt.isEmpty ? "图片加载失败" : alt)
+                            .font(.caption)
+                            .foregroundStyle(palette.inkSecondary)
+                            .lineLimit(1)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
+                    .background(palette.elevatedSurface.opacity(0.8))
+                } else {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .fill(palette.elevatedSurface.opacity(0.72))
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                    .frame(height: min(maxHeight, 148))
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(palette.hairLine, lineWidth: 0.75)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .task(id: "\(urlString)_\(token.prefix(12))") {
+            failed = false
+            if let img = await AuthenticatedImageCache.shared.load(urlString: urlString, token: token) {
+                loadedImage = img
+            } else {
+                failed = true
+            }
+        }
+    }
+}
+
+struct ChatAttachmentGalleryView: View {
+    let attachments: [ChatAttachment]
+    let token: String
+    let baseUrl: String
+    let palette: DragonClawPalette
+    let onOpenLightbox: ([LightboxImageItem], Int) -> Void
+
+    private var imageAttachments: [ChatAttachment] {
+        attachments.filter(\.isImage)
+    }
+
+    private var fileAttachments: [ChatAttachment] {
+        attachments.filter { !$0.isImage }
+    }
+
+    private var lightboxItems: [LightboxImageItem] {
+        imageAttachments.map { att in
+            LightboxImageItem(
+                urlString: DragonClawHelpers.shared.resolveAttachmentUrl(baseUrl: baseUrl, attachment: att),
+                title: att.displayName
+            )
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if !imageAttachments.isEmpty {
+                let items = lightboxItems
+                if imageAttachments.count == 1, let single = imageAttachments.first {
+                    let url = items.first?.urlString ?? ""
+                    AuthenticatedRemoteImageView(
+                        urlString: url,
+                        token: token,
+                        alt: single.displayName,
+                        maxHeight: 240,
+                        cornerRadius: 16,
+                        contentMode: .fill,
+                        palette: palette
+                    ) { _ in
+                        onOpenLightbox(items, 0)
+                    }
+                    .frame(maxWidth: 256)
+                } else {
+                    LazyVGrid(
+                        columns: [
+                            GridItem(.flexible(), spacing: 6),
+                            GridItem(.flexible(), spacing: 6)
+                        ],
+                        spacing: 6
+                    ) {
+                        ForEach(Array(imageAttachments.enumerated()), id: \.offset) { idx, att in
+                            let url = idx < items.count ? items[idx].urlString : ""
+                            AuthenticatedRemoteImageView(
+                                urlString: url,
+                                token: token,
+                                alt: att.displayName,
+                                maxHeight: 118,
+                                cornerRadius: 12,
+                                contentMode: .fill,
+                                palette: palette
+                            ) { _ in
+                                onOpenLightbox(items, idx)
+                            }
+                            .frame(height: 118)
+                        }
+                    }
+                    .frame(maxWidth: 268)
+                }
+            }
+
+            if !fileAttachments.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(Array(fileAttachments.enumerated()), id: \.offset) { _, file in
+                            HStack(spacing: 5) {
+                                Image(systemName: "doc.text.fill")
+                                    .font(.caption2)
+                                    .foregroundStyle(palette.accentStrong)
+                                Text(file.displayName)
+                                    .font(.caption2.weight(.medium))
+                                    .foregroundStyle(palette.inkPrimary)
+                                    .lineLimit(1)
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(palette.elevatedSurface.opacity(0.9), in: Capsule())
+                            .overlay(Capsule().stroke(palette.hairLine, lineWidth: 0.75))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct ImageLightboxOverlay: View {
+    let payload: LightboxPayload
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var currentIndex: Int
+    @State private var loadedImages: [Int: UIImage] = [:]
+    @State private var shareSheetImage: UIImage?
+
+    init(payload: LightboxPayload) {
+        self.payload = payload
+        _currentIndex = State(initialValue: min(max(0, payload.initialIndex), max(0, payload.items.count - 1)))
+    }
+
+    private var currentTitle: String {
+        guard payload.items.indices.contains(currentIndex) else { return "" }
+        return payload.items[currentIndex].title
+    }
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+
+            TabView(selection: $currentIndex) {
+                ForEach(Array(payload.items.enumerated()), id: \.offset) { idx, item in
+                    ZoomableLightboxPage(
+                        item: item,
+                        token: payload.token,
+                        onLoaded: { img in loadedImages[idx] = img }
+                    )
+                    .tag(idx)
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: payload.items.count > 1 ? .automatic : .never))
+
+            VStack {
+                HStack(spacing: 12) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 40, height: 40)
+                            .background(.ultraThinMaterial, in: Circle())
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        if !currentTitle.isEmpty {
+                            Text(currentTitle)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
+                        }
+                        if payload.items.count > 1 {
+                            Text("\(currentIndex + 1) / \(payload.items.count)")
+                                .font(.caption2.monospacedDigit())
+                                .foregroundStyle(.white.opacity(0.72))
+                        }
+                    }
+
+                    Spacer()
+
+                    if let activeImage = loadedImages[currentIndex] {
+                        Button {
+                            shareSheetImage = activeImage
+                        } label: {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .frame(width: 40, height: 40)
+                                .background(.ultraThinMaterial, in: Circle())
+                                .contentShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+
+                Spacer()
+            }
+        }
+        .sheet(
+            isPresented: Binding(
+                get: { shareSheetImage != nil },
+                set: { if !$0 { shareSheetImage = nil } }
+            )
+        ) {
+            if let img = shareSheetImage {
+                ActivityShareController(activityItems: [img])
+            }
+        }
+    }
+}
+
+private struct ZoomableLightboxPage: View {
+    let item: LightboxImageItem
+    let token: String
+    let onLoaded: (UIImage) -> Void
+
+    @State private var image: UIImage?
+    @State private var failed = false
+    @State private var scale: CGFloat = 1
+    @State private var steadyScale: CGFloat = 1
+    @State private var offset: CGSize = .zero
+    @State private var steadyOffset: CGSize = .zero
+
+    var body: some View {
+        ZStack {
+            if let img = image {
+                Image(uiImage: img)
+                    .resizable()
+                    .scaledToFit()
+                    .scaleEffect(scale)
+                    .offset(offset)
+                    .gesture(
+                        MagnificationGesture()
+                            .onChanged { value in
+                                scale = min(4.5, max(1.0, steadyScale * value))
+                            }
+                            .onEnded { _ in
+                                if scale <= 1.05 {
+                                    withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                                        scale = 1
+                                        steadyScale = 1
+                                        offset = .zero
+                                        steadyOffset = .zero
+                                    }
+                                } else {
+                                    steadyScale = scale
+                                }
+                            }
+                    )
+                    .simultaneousGesture(
+                        scale > 1.05
+                            ? DragGesture()
+                                .onChanged { value in
+                                    offset = CGSize(
+                                        width: steadyOffset.width + value.translation.width,
+                                        height: steadyOffset.height + value.translation.height
+                                    )
+                                }
+                                .onEnded { _ in
+                                    steadyOffset = offset
+                                }
+                            : nil
+                    )
+                    .onTapGesture(count: 2) {
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
+                            if scale > 1.2 {
+                                scale = 1
+                                steadyScale = 1
+                                offset = .zero
+                                steadyOffset = .zero
+                            } else {
+                                scale = 2.2
+                                steadyScale = 2.2
+                            }
+                        }
+                    }
+            } else if failed {
+                VStack(spacing: 10) {
+                    Image(systemName: "photo.badge.exclamationmark")
+                        .font(.largeTitle)
+                        .foregroundStyle(.white.opacity(0.65))
+                    Text(item.title.isEmpty ? "无法加载图片" : item.title)
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.75))
+                }
+            } else {
+                ProgressView()
+                    .tint(.white)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .task(id: item.urlString) {
+            failed = false
+            if let loaded = await AuthenticatedImageCache.shared.load(urlString: item.urlString, token: token) {
+                image = loaded
+                onLoaded(loaded)
+            } else {
+                failed = true
+            }
+        }
+    }
+}
+
+private struct ActivityShareController: UIViewControllerRepresentable {
+    let activityItems: [Any]
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+    }
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }

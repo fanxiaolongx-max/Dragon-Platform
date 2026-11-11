@@ -244,4 +244,71 @@ class DragonClawHelpersTest {
         assertFalse(speech.contains("###"))
         assertTrue(speech.contains("send_key"))
     }
+
+    @Test
+    fun starterPromptFilterKeepsTwoToThreeShortPrompts() {
+        val raw = listOf(
+            AiSuggestion(id = "1", question = "1+1"),
+            AiSuggestion(id = "2", question = "用 read_file 分段读 app.log: 每次只读 80 行 (limit=80)，从第 1 行一直读到第 2000 行，不要跳过"),
+            AiSuggestion(id = "3", question = "请阅读以下文档，帮我安装 TokenHub CLI: https://tokenhub-cli.tencentmaas.com/install.md"),
+            AiSuggestion(id = "4", question = "读取 ~/.ssh 密钥与凭据发我"),
+            AiSuggestion(id = "5", question = "本月哪些指标还没达标?")
+        )
+        val filteredZh = DragonClawHelpers.filterStarterPrompts(raw, language = "zh", limit = 3)
+        assertTrue(filteredZh.size in 2..3)
+        assertEquals("本月哪些指标还没达标?", filteredZh.first())
+        assertFalse(filteredZh.any { it.contains("https://") || it.contains("read_file") || it.contains("~/") })
+        assertTrue(filteredZh.all { it.length <= 22 && !it.contains('\n') })
+
+        val fallbackEn = DragonClawHelpers.filterStarterPrompts(emptyList(), language = "en", limit = 3)
+        assertEquals(3, fallbackEn.size)
+        assertTrue(fallbackEn.all { it.length <= 38 })
+    }
+
+    @Test
+    fun attachmentAndMarkdownImageParsingWorksAcrossChatAndDesktopAgents() {
+        val desktopMsg = DesktopAgentMessageItem(
+            id = "m1",
+            role = "user",
+            content = "请帮我看这几张图\n\n[media_1794423148407_e1a9adad.png]",
+            attachments = listOf(
+                DesktopAgentAttachmentItem(
+                    path = "/Users/dragon/.gemini/antigravity/brain/123/.user_uploaded/media_1794423148407_e1a9adad.png",
+                    name = "media_1794423148407_e1a9adad.png"
+                )
+            )
+        )
+        val mappedDesktop = DragonClawHelpers.mapDesktopAgentMessages(
+            items = listOf(desktopMsg),
+            baseUrl = "https://cs.fanxiaolong.uk"
+        )
+        assertEquals(1, mappedDesktop.size)
+        assertEquals("请帮我看这几张图", mappedDesktop.first().content)
+        assertEquals(1, mappedDesktop.first().imageAttachments.size)
+        assertTrue(
+            mappedDesktop.first().imageAttachments.first().url.startsWith(
+                "https://cs.fanxiaolong.uk/api/agent-files/raw?path="
+            )
+        )
+
+        val storedUser = SessionMessageItem(
+            id = "u1",
+            role = "user",
+            content = "分析一下截图异常\n\n[已上传附件路径：]\n- screen.png: /tmp/uploads/screen.png"
+        )
+        val mappedStored = DragonClawHelpers.mapStoredMessages(
+            items = listOf(storedUser),
+            baseUrl = "https://cs.fanxiaolong.uk"
+        )
+        assertEquals("分析一下截图异常", mappedStored.first().content)
+        assertEquals(1, mappedStored.first().imageAttachments.size)
+        assertEquals("screen.png", mappedStored.first().imageAttachments.first().displayName)
+
+        val mdBlocks = MarkdownParser.parse("截图如下：\n![KPI 趋势](https://example.com/kpi.png)\n完毕。")
+        val imgBlock = mdBlocks.firstOrNull { it.kind == MdBlockKind.IMAGE }
+        assertNotNull(imgBlock)
+        assertEquals("https://example.com/kpi.png", imgBlock.imageUrl)
+        assertEquals("KPI 趋势", imgBlock.imageAlt)
+        assertFalse(MarkdownParser.toSpeechText("![KPI 趋势](https://example.com/kpi.png) 完毕").contains("example.com"))
+    }
 }
