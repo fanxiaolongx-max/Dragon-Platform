@@ -1,18 +1,14 @@
 {
   "zh": [
-    "重做「AI 指针群」协同绘制体验：彻底移除虚构组件占位卡片，改为真实搭建中（Scaffolding）代码遮罩与实时元素高亮；指针全程紧贴真实 DOM 节点协同作业。右上角新增「在新标签页打开」独立预览按钮，随时全屏沉浸式调试。",
-    "分屏与模型菜单体验优化：左下角模型切换弹窗在右侧宽屏浏览器展开等极窄分屏场景下自适应收窄并防切断出界；选项超长模型名自动截断，Hover 或 Focus 时平滑走马灯滚动。",
-    "工具中心细化来源标识与图例：工具卡片右上角指示灯与图例区分为「内置（绿色）」、「全员共享（青蓝色）」与「自定义（紫色）」，从管理员开放或工具市场同步的工具显示为全员共享，归属更加一目了然。",
-    "AI 用量趋势与额度展示优化：全局导航栏的 Token 与成本趋势面板默认折叠，支持手动随时展开；额度不足 1 credit 时保留两位小数，避免显示为 0。",
-    "AI 供应商高级设置强化：支持为模型配置自定义请求头与附加请求体（extraBody），敏感头过滤并采用 AES-GCM 强加密存储，保护私有凭据安全。",
-    "Dragon 浏览器在 AI 操作网页时新增边缘光晕与状态提示，左边缘支持整条拖拽调宽，随时接管手动操作。"
+    "AI 指针群升级为 Figma 风格多工具协同画布：指针根据操作语义自动切换箭头（arrow）、十字框选（crosshair）、文本输入（ibeam）与钢笔矢量（pen）形态，支持沿着元素边缘落下锚点与闪烁排版光标校对。",
+    "新增像素标尺与相邻元素间距红线：绘制期间在画布顶边与左边显示 16px 标尺及活动选区投影，实时测量真实 DOM 兄弟节点之间的像素间距并绘制对齐参考线；同步增强宽选框的坐标尺寸角标。",
+    "新增可选 Web Audio 协同音效开关：顶栏提供「音效」按钮（默认静音并持久化偏好），开启后按指针横向位置生成立体声敲击、落点音阶共鸣与完成和弦。",
+    "修复 AI 指针点选元素分支遗留的未定义函数调用隐患，确保指针全程流畅稳定运行。"
   ],
   "en": [
-    "Rebuilt the AI cursor swarm experience: eliminated synthetic placeholder cards in favor of authentic code scaffolding, with cursors snapping strictly to real mounted DOM nodes. Added an 'Open in new tab' button to inspect live web prototypes in a separate browser tab.",
-    "Responsive model picker improvements: the bottom-left model switch popover now adaptively narrows and clamps to viewport bounds in tight split-screen views; long model names are truncated with ellipsis and smoothly marquee on hover or focus.",
-    "Refined tool source indicators in the Hub: card status dots and legends now distinguish 'Built-in (green)', 'Shared (cyan)', and 'Custom (purple)', accurately classifying tools distributed by admins or synced from the catalog as shared.",
-    "AI usage trend and quota improvements: the token and cost trend panel in the navbar is now collapsed by default and can be toggled open; credit balances under 1 credit retain decimal precision to prevent showing 0.",
-    "Secure AI provider options: support custom request headers and extraBody parameters with sensitive header sanitization and AES-GCM encrypted persistence.",
-    "Dragon browser AI presence: added edge glowing and real-time status indication during automated browsing, with a full-height draggable left border and one-click manual takeover."
+    "Upgraded the AI cursor swarm to a Figma-style multi-tool canvas: cursors switch dynamically between arrow, crosshair marquee, I-beam text inspection, and vector pen nibs with anchor-point drafting and blinking caret passes.",
+    "Added Figma-inspired top/left 16px pixel rulers with active selection bands, live sibling DOM spacing redlines, alignment hairlines, and coordinate/dimension badges on marquee selections.",
+    "Added an optional Web Audio collaboration sound toggle in the top bar (muted by default, saved across sessions) with stereo-panned clicks, pentatonic snap chimes, and a soft completion chord.",
+    "Fixed a lingering undefined helper call in the touch-highlight path so cursor actions execute cleanly without runtime errors."
   ]
 }

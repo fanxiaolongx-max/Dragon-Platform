@@ -150,3 +150,78 @@ test('swarm stage eliminates fake placeholder cards and activates cursors only o
     assert.match(swarmCss, /\.dc-swarm-scaffold/);
     assert.match(swarmCss, /\.dc-swarm-scaffold-card/);
 });
+
+test('swarm canvas supports Figma multi-tool cursors, rulers, spacing redlines, and safe audio toggle', () => {
+    const swarmJs = fs.readFileSync(path.join(rootDir, 'frontend/js/home/html-swarm-canvas.js'), 'utf8');
+    const swarmCss = fs.readFileSync(path.join(rootDir, 'frontend/css/html-swarm-canvas.css'), 'utf8');
+
+    // 多工具光标形态切换（CSS + DOM data-tool + JS setTool）
+    for (const tool of ['arrow', 'crosshair', 'ibeam', 'pen']) {
+        assert.match(swarmCss, new RegExp(`data-tool="${tool}"`), `CSS handles ${tool} cursor`);
+        assert.match(swarmCss, new RegExp(`\\.dc-swarm-cursor-svg--${tool}`), `CSS styles ${tool} SVG`);
+        assert.match(swarmJs, new RegExp(`dc-swarm-cursor-svg--${tool}`), `JS builds ${tool} SVG`);
+    }
+    assert.match(swarmJs, /function setTool\(/);
+
+    // Figma 标尺、间距红线、I-beam 输入与钢笔矢量工具，且清理已移除的 markSlotHot 死调用
+    assert.match(swarmJs, /function drawRulers\(/);
+    assert.match(swarmJs, /function drawSpacingGuides\(/);
+    assert.match(swarmJs, /function drawTypingEffect\(/);
+    assert.match(swarmJs, /function drawPenDraft\(/);
+    assert.match(swarmJs, /data-swarm-action="sound"/);
+    assert.doesNotMatch(swarmJs, /markSlotHot\(/);
+
+    // 沙箱运行时校验：computeGuidesForBox 邻近间距/对齐计算，以及无 AudioContext 下 toggleSound 安全性
+    const store = { tools_lang: 'zh-CN' };
+    const context = vm.createContext({
+        window: {
+            innerWidth: 1440,
+            devicePixelRatio: 2,
+            addEventListener() {},
+            matchMedia: () => ({ matches: false, addEventListener() {} })
+        },
+        document: {
+            documentElement: { lang: 'zh-CN', getAttribute: () => 'zh-CN' },
+            getElementById: () => null,
+            createElement: () => ({
+                style: {},
+                classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
+                addEventListener() {},
+                querySelector: () => null,
+                querySelectorAll: () => [],
+                setAttribute() {}
+            })
+        },
+        localStorage: {
+            getItem: key => store[key] || null,
+            setItem: (key, val) => { store[key] = String(val); }
+        },
+        performance: { now: () => 1000 },
+        requestAnimationFrame: () => 1,
+        cancelAnimationFrame() {},
+        setTimeout,
+        clearTimeout,
+        Blob,
+        URL: { createObjectURL: () => 'blob:mock', revokeObjectURL() {} }
+    });
+    context.window.window = context.window;
+    context.window.document = context.document;
+    vm.runInContext(swarmJs, context);
+
+    const swarm = context.window.DragonHtmlSwarm;
+    const guides = swarm.computeGuidesForBox(
+        { x: 100, y: 100, w: 120, h: 80 },
+        [
+            { x: 80, y: 80, w: 400, h: 300 },   // 外层父容器应被跳过
+            { x: 244, y: 100, w: 120, h: 80 },  // 右侧相距 24px 且上下边缘对齐
+            { x: 100, y: 200, w: 120, h: 60 }   // 下方相距 20px 且左右边缘对齐
+        ]
+    );
+    assert.deepEqual(Array.from(guides.gaps, g => g.dist), [20, 24]);
+    assert.ok(guides.aligns.length >= 2, 'detects aligned edges between siblings');
+
+    assert.equal(swarm.toggleSound(true), true);
+    assert.equal(store.dc_swarm_sound, '1');
+    assert.equal(swarm.toggleSound(false), false);
+    assert.equal(store.dc_swarm_sound, '0');
+});
