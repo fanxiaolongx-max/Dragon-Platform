@@ -31,8 +31,12 @@ function createCrashMonitor({ app, crashReporter, logRoot, fs = nodeFs, proc = p
     function reportPreviousRun() {
         let previous = null;
         try { previous = JSON.parse(fs.readFileSync(markerPath, 'utf-8')); } catch (_error) { return; }
+        let markerMtimeMs = Number.POSITIVE_INFINITY;
+        try { markerMtimeMs = fs.statSync(markerPath).mtimeMs; } catch (_error) { /* 使用 marker 记录的启动时间 */ }
         const startedMs = Date.parse(previous.startedAt) || 0;
-        const dumps = countDumps(startedMs);
+        // Linux 细粒度 Date.now() 可能超前内核文件系统粗粒度时间戳几个毫秒，取二者较早值避免漏计刚启动后写入的转储文件。
+        const sinceMs = Math.min(startedMs, Number.isFinite(markerMtimeMs) ? markerMtimeMs : startedMs);
+        const dumps = countDumps(sinceMs);
         error(`[Electron] 上次运行未正常退出（pid ${previous.pid}，版本 ${previous.version || '未知'}，启动于 ${previous.startedAt}）。`
             + '可能原因：原生崩溃、进程被外部结束（含命令行 taskkill）、系统关机或注销。'
             + `期间新增崩溃转储 ${dumps} 个，目录：${dumpDir}。上次日志的最后几行就是结束前在做的事。`);

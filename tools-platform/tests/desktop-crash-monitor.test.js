@@ -37,6 +37,19 @@ test('异常结束会在下次启动时报告，正常退出不会', () => {
     assert.equal(setup(logRoot).lines.length, 0);
 });
 
+test('文件系统粗粒度时间戳略早于 startedAt 时仍能计入同一 tick 写入的转储', () => {
+    const logRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'crash-monitor-skew-'));
+    const first = setup(logRoot);
+    const skewTime = new Date(Date.parse(JSON.parse(fs.readFileSync(first.monitor.markerPath, 'utf-8')).startedAt) - 5);
+    fs.utimesSync(first.monitor.markerPath, skewTime, skewTime);
+    const dumpFile = path.join(first.monitor.dumpDir, 'skew.dmp');
+    fs.writeFileSync(dumpFile, 'x');
+    fs.utimesSync(dumpFile, skewTime, skewTime);
+
+    const second = setup(logRoot);
+    assert.match(second.lines[0][1], /新增崩溃转储 1 个/);
+});
+
 test('绕过 app.quit 的退出和渲染进程崩溃都会留下记录', () => {
     const { app, proc, lines } = setup(fs.mkdtempSync(path.join(os.tmpdir(), 'crash-monitor-')));
     app.emit('render-process-gone', {}, { getURL: () => 'http://localhost:3030/' }, { reason: 'crashed', exitCode: -1073741819 });
