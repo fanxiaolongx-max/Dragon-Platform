@@ -78,8 +78,7 @@ function decodeSubtitle(buffer) {
     if (buffer.length > MAX_BYTES) throw new Error('Subtitle too large');
     if (buffer[0] === 0xff && buffer[1] === 0xfe) return new TextDecoder('utf-16le').decode(buffer);
     if (buffer[0] === 0xfe && buffer[1] === 0xff) return new TextDecoder('utf-16be').decode(buffer);
-    try { return new TextDecoder('utf-8', { fatal: true }).decode(buffer); }
-    catch (_) { return new TextDecoder('gb18030').decode(buffer); }
+    return require('./safe-utf8').decodeUtf8Strict(buffer) ?? new TextDecoder('gb18030').decode(buffer);
 }
 
 function cueTime(value) {

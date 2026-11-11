@@ -841,17 +841,15 @@ function killTree(child, { platform = process.platform, spawnProcess = spawn, ki
 
 function decodeProcessBuffer(buffer) {
     if (!buffer || !buffer.length) return '';
+    // 不能用 fatal 模式的 TextDecoder：桌面端遇到非 UTF-8 输出（中文 Windows 的 GBK）会直接崩溃，见 safe-utf8.js
+    const { decodeUtf8Strict, trimPartialUtf8 } = require('./safe-utf8');
+    const utf8 = decodeUtf8Strict(buffer) ?? decodeUtf8Strict(trimPartialUtf8(buffer));
+    if (utf8 !== null) return utf8;
     try {
-        const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
-        return utf8Decoder.decode(buffer);
+        // Windows 中文环境下 cmd/内置命令走 ANSI/OEM 管道（GBK/GB18030）
+        return new TextDecoder('gb18030', { fatal: false }).decode(buffer);
     } catch {
-        try {
-            // Windows 中文环境下 cmd/内置命令走 ANSI/OEM 管道（GBK/GB18030）
-            const gbkDecoder = new TextDecoder('gb18030', { fatal: false });
-            return gbkDecoder.decode(buffer);
-        } catch {
-            return buffer.toString('utf8');
-        }
+        return buffer.toString('utf8');
     }
 }
 
@@ -1281,4 +1279,4 @@ function errorResult(ctx, error) {
     return { content, summary: message, isError: true };
 }
 
-module.exports = { interactiveUpgrade, LIMITS, definitions, kindOf, preview, execute, errorResult, scrubbedEnv, resolveShell, killTree };
+module.exports = { interactiveUpgrade, LIMITS, definitions, kindOf, preview, execute, errorResult, scrubbedEnv, resolveShell, killTree, decodeProcessBuffer };

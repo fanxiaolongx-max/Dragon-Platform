@@ -62,7 +62,9 @@ function decrypt(body, { user, method, path }) {
         decipher.setAAD(Buffer.from(JSON.stringify([VERSION, method, path, contextFor(user)])));
         decipher.setAuthTag(ciphertext.subarray(-16));
         plaintext = Buffer.concat([decipher.update(ciphertext.subarray(0, -16)), decipher.final()]);
-        const payload = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(plaintext));
+        const decoded = require('./safe-utf8').decodeUtf8Strict(plaintext);
+        if (decoded === null) fail();
+        const payload = JSON.parse(decoded);
         if (!payload || typeof payload !== 'object' || Array.isArray(payload) || Object.hasOwn(payload, 'encryptedPayload')) fail();
         for (const field of ['title', 'description', 'category', 'status', 'assignee', 'remark']) {
             if (payload[field] !== undefined && typeof payload[field] !== 'string') fail();

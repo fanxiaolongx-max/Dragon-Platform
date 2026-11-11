@@ -32,12 +32,8 @@ function canonicalContent(relativePath, content) {
         return Buffer.from(JSON.stringify(stableJson(manifest)), 'utf8');
     }
     if (content.includes(0)) return content;
-    try {
-        const decoded = new TextDecoder('utf-8', { fatal: true }).decode(content);
-        return Buffer.from(decoded.replace(/\r\n?/g, '\n'), 'utf8');
-    } catch (_) {
-        return content;
-    }
+    const decoded = require('./safe-utf8').decodeUtf8Strict(content);
+    return decoded === null ? content : Buffer.from(decoded.replace(/\r\n?/g, '\n'), 'utf8');
 }
 
 function fingerprintFiles(rootDir, files) {
