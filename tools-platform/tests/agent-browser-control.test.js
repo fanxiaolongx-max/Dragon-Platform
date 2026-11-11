@@ -43,9 +43,11 @@ test('manual and AI share actual Chrome tabs; input, scroll, history and handing
  await click('query');view=await browser.view(owner);await send('key',{frameId:view.frameId,key:'Enter'});
  for(let i=0;i<40;i++){await page.refreshInfo();if(page.url.includes('/second'))break;await wait(50);}
  assert.match(page.url,/second\?q=shared/);
- await send('back');await page.refreshInfo();assert.equal(new URL(page.url).pathname,'/');
- await send('forward');await page.refreshInfo();assert.equal(new URL(page.url).pathname,'/second');
- view=await browser.view(owner);await send('scroll',{frameId:view.frameId,x:.5,y:.5,deltaY:500});assert.ok(await page.evaluate('scrollY')>0);
+ await send('back');for(let i=0;i<20;i++){await page.refreshInfo();if(new URL(page.url).pathname==='/')break;await wait(50);}assert.equal(new URL(page.url).pathname,'/');
+ await send('forward');for(let i=0;i<20;i++){await page.refreshInfo();if(new URL(page.url).pathname==='/second'&&await page.evaluate('document.readyState==="complete"&&document.documentElement.scrollHeight>innerHeight'))break;await wait(50);}assert.equal(new URL(page.url).pathname,'/second');
+ view=await browser.view(owner);await send('scroll',{frameId:view.frameId,x:.5,y:.5,deltaY:500});
+ for(let i=0;i<20;i++){if(await page.evaluate('scrollY')>0)break;await wait(50);}
+ assert.ok(await page.evaluate('scrollY')>0);
  const original=page.id;
  await send('open',{url:base});await click('popup');
  for(let i=0;i<40&&state.tabs.size<2;i++)await wait(50);
