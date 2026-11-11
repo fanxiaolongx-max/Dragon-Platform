@@ -156,10 +156,19 @@
     let metricTimeEl = null;
     let lastPaletteId = '';
 
+    const SOUND_STORAGE_KEY = 'dc_swarm_sound';
+    const loadSoundPref = () => {
+        try { return localStorage.getItem(SOUND_STORAGE_KEY) === '1'; } catch { return false; }
+    };
+    const saveSoundPref = enabled => {
+        try { localStorage.setItem(SOUND_STORAGE_KEY, enabled ? '1' : '0'); } catch { /* ignore */ }
+    };
+
     const state = {
         active: false,
         streaming: false,
         finished: false,
+        finishedAt: 0,
         replaying: false,
         replayTimer: null,
         fadeTimer: null,
@@ -168,6 +177,7 @@
         revealedCode: '',     // 画布当前平滑展开渲染的代码
         streamDonePending: false, // AI 流式已经结束，等待画布平滑收尾
         cursorsHidden: false,
+        soundEnabled: loadSoundPref(),
         showSource: false,
         startedAt: 0,
         lastRenderAt: 0,
@@ -185,12 +195,15 @@
         bodyReady: false,
         palette: ['#6366f1', '#ec4899', '#06b6d4', '#10b981', '#f59e0b'],
         seenTokens: new Set(),
-        domTargets: [],       // 真实 iframe 内的 DOM 元素矩形 [{ x, y, w, h, tag, label, kind }]
+        domTargets: [],       // 真实 iframe 内的 DOM 元素矩形 [{ x, y, w, h, tag, label, kind, fontSize, hasText }]
         syntheticBoxes: [],   // 蓝图/合成图形区块 [{ x, y, w, h, kind, color, label, progress }]
         ripples: [],          // 按下涟漪 [{ x, y, color, bornAt, maxR }]
-        wireframes: [],       // 框选松手后定格的组件线框 [{ x, y, w, h, color, ink, label, bornAt, ttl }]
-        marks: [],            // 进行中的选框 / 标尺 / 点选高亮 [{ kind, c, bornAt, endAt, ... }]
+        wireframes: [],       // 框选松手后定格的组件线框 [{ x, y, w, h, color, ink, label, bornAt, ttl, guides }]
+        marks: [],            // 进行中的选框 / 标尺 / 点选 / 输入 / 钢笔标记 [{ kind, c, bornAt, endAt, ... }]
         busy: new Map(),      // 正被某个指针处理的元素 → 释放时间
+        paintStates: new Map(), // DOM 元素揭示状态 domPath → { domPath, status: 'hidden'|'painting'|'revealed'|'done', bornAt, paintingAt, revealedAt, box }
+        veils: [],            // 马赛克模糊消散遮罩 [{ key, x, y, w, h, cells, phase, bornAt, dissolveAt, ... }]
+        swapTimer: null,      // 收尾切换 finalFrame 定时器
         swarmPalette: null,   // 本次绘制选用的三色调色板
         pageDark: true,       // 指针下方画面是否为深色（蓝图阶段为深色）
         encore: false,        // 绘制完成后用户重新打开指针群
@@ -201,6 +214,245 @@
         lastBodySig: '',
         lastStyleSig: ''
     };
+
+    // ── 轻量程序化 Web Audio 协作音效（默认静音，与渐进显影进度联动，不依赖外部音频文件） ───────
+    const SwarmAudio = (() => {
+        let ctx = null;
+        let master = null;
+        let lastPlayAt = 0;
+        let lastRevealAt = 0;
+        // E major 9 / Lydian shimmer 音阶：随页面显影完成度从低音域逐步走向明亮高音域
+        const CHIME_SCALE = [246.94, 277.18, 329.63, 369.99, 415.30, 493.88, 554.37, 659.25, 739.99, 830.61, 987.77];
+
+        function ensureCtx() {
+            if (!state.soundEnabled) return null;
+            const Ctor = window.AudioContext || window.webkitAudioContext;
+            if (!Ctor) return null;
+            try {
+                if (!ctx) {
+                    ctx = new Ctor();
+                    master = ctx.createGain();
+                    master.gain.value = 0.22;
+                    if (typeof ctx.createDynamicsCompressor === 'function') {
+                        const comp = ctx.createDynamicsCompressor();
+                        comp.threshold.setValueAtTime(-16, ctx.currentTime);
+                        comp.knee.setValueAtTime(18, ctx.currentTime);
+                        comp.ratio.setValueAtTime(4, ctx.currentTime);
+                        comp.attack.setValueAtTime(0.004, ctx.currentTime);
+                        comp.release.setValueAtTime(0.18, ctx.currentTime);
+                        master.connect(comp);
+                        comp.connect(ctx.destination);
+                    } else {
+                        master.connect(ctx.destination);
+                    }
+                }
+                if (ctx.state === 'suspended' && typeof ctx.resume === 'function') {
+                    ctx.resume().catch(() => {});
+                }
+                return ctx;
+            } catch {
+                return null;
+            }
+        }
+
+        function getRevealProgress() {
+            const total = state.paintStates.size;
+            if (!total) return clamp((state.domTargets?.length || 0) / 18, 0, 0.5);
+            let doneCount = 0;
+            state.paintStates.forEach(rec => {
+                if (rec.status === 'revealed' || rec.status === 'done') doneCount += 1;
+                else if (rec.status === 'painting') doneCount += 0.35;
+            });
+            return clamp(doneCount / Math.max(1, total), 0, 1);
+        }
+
+        function panFor(x) {
+            const w = Math.max(1, state.width || 800);
+            return clamp((Number(x || 0) / w) * 2 - 1, -0.82, 0.82);
+        }
+
+        function connectPanned(audio, node, x) {
+            if (typeof audio.createStereoPanner === 'function') {
+                const pan = audio.createStereoPanner();
+                pan.pan.value = panFor(x);
+                node.connect(pan);
+                pan.connect(master);
+            } else {
+                node.connect(master);
+            }
+        }
+
+        function tone({ freq0, freq1 = freq0, dur = 0.04, gain = 0.25, type = 'triangle', x = 400, minGap = 38, delay = 0 }) {
+            const audio = ensureCtx();
+            if (!audio || !master) return;
+            if (!delay) {
+                const nowMs = performance.now();
+                if (nowMs - lastPlayAt < minGap) return;
+                lastPlayAt = nowMs;
+            }
+            try {
+                const t = audio.currentTime + delay;
+                const osc = audio.createOscillator();
+                const amp = audio.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq0, t);
+                if (freq1 !== freq0) osc.frequency.exponentialRampToValueAtTime(Math.max(40, freq1), t + dur);
+                amp.gain.setValueAtTime(0.0008, t);
+                amp.gain.linearRampToValueAtTime(gain, t + 0.005);
+                amp.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+                osc.connect(amp);
+                connectPanned(audio, amp, x);
+                osc.start(t);
+                osc.stop(t + dur + 0.02);
+            } catch {
+                // ignore blocked audio context
+            }
+        }
+
+        function playGlassNote(audio, { freq, at, dur, gain, overtoneMix = 0.28, panX = 400 }) {
+            if (!audio || !master) return;
+            try {
+                const osc1 = audio.createOscillator();
+                const osc2 = audio.createOscillator();
+                const amp = audio.createGain();
+                let out = amp;
+
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(freq, at);
+
+                osc2.type = 'triangle';
+                osc2.frequency.setValueAtTime(freq * 2, at);
+
+                const subGain = audio.createGain();
+                subGain.gain.value = overtoneMix;
+
+                if (typeof audio.createBiquadFilter === 'function') {
+                    const filter = audio.createBiquadFilter();
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(Math.min(7200, freq * 5), at);
+                    filter.frequency.exponentialRampToValueAtTime(Math.max(480, freq * 1.8), at + dur);
+                    filter.Q.value = 1.1;
+                    osc1.connect(filter);
+                    osc2.connect(subGain);
+                    subGain.connect(filter);
+                    filter.connect(amp);
+                } else {
+                    osc1.connect(amp);
+                    osc2.connect(subGain);
+                    subGain.connect(amp);
+                }
+
+                amp.gain.setValueAtTime(0.0008, at);
+                amp.gain.linearRampToValueAtTime(gain, at + 0.014);
+                amp.gain.exponentialRampToValueAtTime(0.0008, at + dur);
+
+                connectPanned(audio, out, panX);
+                osc1.start(at);
+                osc2.start(at);
+                osc1.stop(at + dur + 0.03);
+                osc2.stop(at + dur + 0.03);
+            } catch {
+                // ignore blocked audio context
+            }
+        }
+
+        return {
+            unlock: () => { ensureCtx(); },
+            playClick: x => {
+                const p = getRevealProgress();
+                const f0 = 700 + p * 260;
+                tone({ freq0: f0, freq1: 230 + p * 90, dur: 0.026, gain: 0.19, type: 'triangle', x, minGap: 44 });
+            },
+            playTick: x => {
+                const p = getRevealProgress();
+                tone({ freq0: 1280 + p * 480, freq1: 580 + p * 220, dur: 0.015, gain: 0.12, type: 'sine', x, minGap: 34 });
+            },
+            playSnap: x => {
+                const p = getRevealProgress();
+                const baseIdx = Math.floor(p * (CHIME_SCALE.length - 3));
+                const pick = clamp(baseIdx + Math.floor(Math.random() * 3), 0, CHIME_SCALE.length - 1);
+                const freq = CHIME_SCALE[pick];
+                tone({ freq0: freq, freq1: freq * 1.006, dur: 0.11, gain: 0.15, type: 'sine', x, minGap: 52 });
+            },
+            playReveal: (x = 400, ratio = null) => {
+                const audio = ensureCtx();
+                if (!audio || !master) return;
+                const nowMs = performance.now();
+                if (nowMs - lastRevealAt < 65) return;
+                lastRevealAt = nowMs;
+                const p = ratio == null ? getRevealProgress() : clamp(ratio, 0, 1);
+                const idx = clamp(Math.floor(p * (CHIME_SCALE.length - 2)) + (Math.random() < 0.35 ? 1 : 0), 0, CHIME_SCALE.length - 1);
+                const freq = CHIME_SCALE[idx];
+                // 马赛克渐隐清晰瞬间的柔和琉璃音色，随完成度音高平稳上行
+                playGlassNote(audio, {
+                    freq,
+                    at: audio.currentTime,
+                    dur: 0.22 + p * 0.14,
+                    gain: 0.11 + p * 0.05,
+                    overtoneMix: 0.2 + p * 0.14,
+                    panX: x
+                });
+            },
+            playFinish: (revealDelaySec = 0.42) => {
+                const audio = ensureCtx();
+                if (!audio || !master) return;
+                const t0 = audio.currentTime;
+                const w = Math.max(300, state.width || 900);
+
+                // 第一阶段：温暖低频托底 + 随画布从左向右扫过的上行晶格琶音，呼应末尾残余遮罩清扫
+                try {
+                    const bass = audio.createOscillator();
+                    const bassAmp = audio.createGain();
+                    bass.type = 'triangle';
+                    bass.frequency.setValueAtTime(164.81, t0); // E3
+                    bassAmp.gain.setValueAtTime(0.0008, t0);
+                    bassAmp.gain.linearRampToValueAtTime(0.16, t0 + 0.06);
+                    bassAmp.gain.exponentialRampToValueAtTime(0.0008, t0 + revealDelaySec + 0.95);
+                    bass.connect(bassAmp);
+                    bassAmp.connect(master);
+                    bass.start(t0);
+                    bass.stop(t0 + revealDelaySec + 1.0);
+                } catch {
+                    // ignore
+                }
+
+                const sweepNotes = [329.63, 415.30, 493.88, 659.25, 739.99, 987.77]; // E4 G#4 B4 E5 F#5 B5
+                sweepNotes.forEach((freq, i) => {
+                    const at = t0 + i * Math.max(0.048, (revealDelaySec * 0.85) / sweepNotes.length);
+                    const panX = w * (0.14 + (i / (sweepNotes.length - 1)) * 0.72);
+                    playGlassNote(audio, {
+                        freq,
+                        at,
+                        dur: 0.36 + i * 0.04,
+                        gain: 0.11 + i * 0.012,
+                        overtoneMix: 0.24,
+                        panX
+                    });
+                });
+
+                // 第二阶段：与最终高清页面交叉淡入（finalFrame opacity -> 1）精确合拍的璀璨和弦定格 + 顶音星芒余韵
+                const landAt = t0 + Math.max(0.14, revealDelaySec);
+                const bloomChord = [
+                    { freq: 329.63, gain: 0.13, panX: w * 0.3, dur: 1.05 },  // E4
+                    { freq: 493.88, gain: 0.12, panX: w * 0.7, dur: 1.05 },  // B4
+                    { freq: 659.25, gain: 0.14, panX: w * 0.48, dur: 1.15 }, // E5
+                    { freq: 830.61, gain: 0.12, panX: w * 0.62, dur: 1.15 }, // G#5
+                    { freq: 987.77, gain: 0.11, panX: w * 0.38, dur: 1.25 }, // B5
+                    { freq: 1318.51, gain: 0.085, panX: w * 0.5, dur: 1.35 } // E6 星芒泛音
+                ];
+                bloomChord.forEach((n, idx) => {
+                    playGlassNote(audio, {
+                        freq: n.freq,
+                        at: landAt + idx * 0.014,
+                        dur: n.dur,
+                        gain: n.gain,
+                        overtoneMix: idx >= 4 ? 0.14 : 0.22,
+                        panX: n.panX
+                    });
+                });
+            }
+        };
+    })();
 
     // ── 创建与挂载右侧浏览器画布舞台 ─────────────────────────
     function ensureStage() {
@@ -227,6 +479,7 @@
                 <div class="dc-swarm-topbar-actions">
                     <button type="button" class="dc-swarm-btn" data-swarm-action="replay" title="${esc(L('让 AI 指针群重新演示绘制过程', 'Replay multi-agent swarm drawing'))}"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.6-3.7M13 2.6v2.9h-2.9"/></svg>${esc(L('重播绘制', 'Replay'))}</button>
                     <button type="button" class="dc-swarm-btn" data-swarm-action="cursors" aria-pressed="true" title="${esc(L('显示或隐藏 AI 指针群图层', 'Toggle AI cursors overlay'))}"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 2.4 12.6 7.9 8.1 9 5.8 13.4Z"/></svg>${esc(L('指针群', 'Cursors'))}</button>
+                    <button type="button" class="dc-swarm-btn" data-swarm-action="sound" aria-pressed="${state.soundEnabled ? 'true' : 'false'}" title="${esc(L('开启或静音 AI 指针群协作音效', 'Toggle swarm collaboration sound FX'))}"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 6.4h2.6l3.4-2.8v8.8L5.1 9.6H2.5z"/><path d="M11 5.6a3.4 3.4 0 0 1 0 4.8M12.8 4a5.6 5.6 0 0 1 0 8"/></svg>${esc(L('音效', 'Sound'))}</button>
                     <button type="button" class="dc-swarm-btn" data-swarm-action="source" aria-pressed="false" title="${esc(L('切换实时预览与源码视图', 'Toggle preview and source code'))}">&lt;/&gt; ${esc(L('源码', 'Code'))}</button>
                     <button type="button" class="dc-swarm-btn" data-swarm-action="popout" title="${esc(L('在新标签页打开完整网页', 'Open in new tab'))}">⤢</button>
                     <button type="button" class="dc-swarm-btn" data-swarm-action="download" title="${esc(L('下载生成的 HTML 文件', 'Download HTML file'))}">↓</button>
@@ -286,6 +539,7 @@
             const act = btn.dataset.swarmAction;
             if (act === 'replay') replayCurrent();
             else if (act === 'cursors') toggleCursors(!state.cursorsHidden);
+            else if (act === 'sound') toggleSound(!state.soundEnabled);
             else if (act === 'source') toggleSourceView(!state.showSource);
             else if (act === 'popout') openInNewTab();
             else if (act === 'download') downloadCurrentHtml();
@@ -302,9 +556,25 @@
         state.cursors = AGENTS.map((agent, idx) => {
             const node = document.createElement('div');
             node.className = 'dc-swarm-cursor is-away';
+            node.setAttribute('data-tool', 'arrow');
             node.innerHTML = `
-                <svg class="dc-swarm-cursor-svg" viewBox="0 0 20 22" aria-hidden="true">
+                <svg class="dc-swarm-cursor-svg dc-swarm-cursor-svg--arrow" viewBox="0 0 20 22" aria-hidden="true">
                     <path d="M2.6 1.9 17.4 10.6 10.3 12.3 6.6 19.2Z"/>
+                </svg>
+                <svg class="dc-swarm-cursor-svg dc-swarm-cursor-svg--crosshair" viewBox="0 0 18 18" aria-hidden="true">
+                    <path class="dc-swarm-cursor-halo" d="M9 2.5V15.5M2.5 9H15.5"/>
+                    <path class="dc-swarm-cursor-stroke" d="M9 2.5V15.5M2.5 9H15.5"/>
+                    <circle class="dc-swarm-cursor-dot" cx="9" cy="9" r="1.15"/>
+                </svg>
+                <svg class="dc-swarm-cursor-svg dc-swarm-cursor-svg--ibeam" viewBox="0 0 14 20" aria-hidden="true">
+                    <path class="dc-swarm-cursor-halo" d="M3.8 2.8H10.2M7 2.8V17.2M3.8 17.2H10.2"/>
+                    <path class="dc-swarm-cursor-stroke" d="M3.8 2.8H10.2M7 2.8V17.2M3.8 17.2H10.2"/>
+                </svg>
+                <svg class="dc-swarm-cursor-svg dc-swarm-cursor-svg--pen" viewBox="0 0 20 20" aria-hidden="true">
+                    <path d="M2.2 2.2 14.2 5.4 11.4 11.4 5.4 14.2Z"/>
+                    <path class="dc-swarm-cursor-slit" d="M2.4 2.4 8.2 8.2"/>
+                    <circle class="dc-swarm-cursor-dot" cx="8.6" cy="8.6" r="1.2"/>
+                    <path d="M11.6 11.6 15.8 15.8 14.2 17.4 10 13.2Z"/>
                 </svg>
                 <div class="dc-swarm-cursor-tag">
                     <span class="dc-swarm-cursor-role">${esc(L(agent.zh, agent.en))}</span>
@@ -321,6 +591,7 @@
                 y: -40,
                 tone: '#96BAE0',
                 ink: '#14161a',
+                tool: 'arrow',
                 steps: [],        // 待执行的计划步骤
                 step: null,       // 当前步骤
                 stepAt: 0,
@@ -425,6 +696,7 @@
             c.leaveAt = 0;
             c.labelUntil = 0;
             c.drift = 0;
+            setTool(c, 'arrow');
             setPressed(c, false);
             setAway(c, true);
             const edge = Math.floor(Math.random() * 4);
@@ -466,6 +738,28 @@
                 doc.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style id="__dc_swarm_base">
                     html { scroll-behavior: smooth; }
                     body { margin: 0; min-height: 100vh; transition: background-color 0.25s ease, color 0.25s ease; }
+                    [data-sw="hidden"] {
+                        opacity: 0 !important;
+                        filter: blur(18px) saturate(0.4) !important;
+                        transform: translateY(6px) scale(0.985) !important;
+                        pointer-events: none !important;
+                    }
+                    [data-sw="painting"] {
+                        opacity: 0.48 !important;
+                        filter: blur(8px) saturate(0.8) !important;
+                        transform: translateY(2px) scale(0.994) !important;
+                        transition: opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+                                    filter 0.72s cubic-bezier(0.22, 1, 0.36, 1),
+                                    transform 0.55s cubic-bezier(0.22, 1, 0.36, 1) !important;
+                    }
+                    [data-sw="revealed"] {
+                        opacity: 1 !important;
+                        filter: blur(0px) saturate(1) !important;
+                        transform: translateY(0) scale(1) !important;
+                        transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1),
+                                    filter 0.85s cubic-bezier(0.16, 1, 0.3, 1),
+                                    transform 0.65s cubic-bezier(0.16, 1, 0.3, 1) !important;
+                    }
                     @keyframes __dcSwarmReveal {
                         0% { outline: 1.5px solid rgba(56, 189, 248, 0.75); box-shadow: 0 0 18px rgba(99, 102, 241, 0.25); }
                         100% { outline: 1.5px solid transparent; box-shadow: none; }
@@ -518,22 +812,233 @@
         return links;
     }
 
+    // ── 渐进式揭示（未绘制先隐藏 → 绘制时模糊/马赛克浮现 → 完成后丝滑清晰） ────
+    function computeDomPath(el, rootBody) {
+        if (!el || el === rootBody || el.nodeType !== 1) return '';
+        const parts = [];
+        let cur = el;
+        while (cur && cur !== rootBody && cur.nodeType === 1) {
+            let idx = 0;
+            let sib = cur.previousElementSibling;
+            while (sib) {
+                if (sib.tagName === cur.tagName) idx++;
+                sib = sib.previousElementSibling;
+            }
+            parts.push(`${cur.tagName.toLowerCase()}:${idx}`);
+            cur = cur.parentElement;
+        }
+        return parts.reverse().join('>');
+    }
+
+    function spawnMosaicVeil(key, box, color, ink, now) {
+        if (!box || box.w < 10 || box.h < 10) return;
+        const existing = state.veils.find(v => v.key === key);
+        if (existing) {
+            existing.x = box.x;
+            existing.y = box.y;
+            existing.w = box.w;
+            existing.h = box.h;
+            return;
+        }
+        const cellSize = clamp(Math.round(Math.min(box.w, box.h) / 4.2), 11, 22);
+        const cols = clamp(Math.ceil(box.w / cellSize), 2, 16);
+        const rows = clamp(Math.ceil(box.h / cellSize), 2, 12);
+        const cells = [];
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                const wave = ((c / Math.max(1, cols - 1)) * 0.55 + (r / Math.max(1, rows - 1)) * 0.45);
+                cells.push({
+                    gx: c,
+                    gy: r,
+                    delay: clamp(wave * 0.62 + Math.random() * 0.34, 0, 0.92),
+                    shade: (Math.random() - 0.5) * 0.24,
+                    tinted: Math.random() < 0.26
+                });
+            }
+        }
+        state.veils.push({
+            key,
+            x: box.x,
+            y: box.y,
+            w: box.w,
+            h: box.h,
+            cellW: box.w / cols,
+            cellH: box.h / rows,
+            cols,
+            rows,
+            cells,
+            color: color || state.swarmPalette?.tones?.[0]?.hex || '#5c97cb',
+            ink: ink || '#ffffff',
+            phase: 'painting',
+            bornAt: now,
+            dissolveAt: 0,
+            dissolveDur: 780
+        });
+        if (state.veils.length > 64) state.veils.shift();
+    }
+
+    function dissolveMosaicVeil(key, box, color, ink, now) {
+        let veil = state.veils.find(v => v.key === key);
+        if (!veil && box && box.w >= 10 && box.h >= 10) {
+            spawnMosaicVeil(key, box, color, ink, now);
+            veil = state.veils.find(v => v.key === key);
+        }
+        if (veil && veil.phase !== 'dissolving') {
+            veil.phase = 'dissolving';
+            veil.dissolveAt = now;
+            if (!state.finished) {
+                const centerX = box ? box.x + box.w * 0.5 : (veil.x + veil.w * 0.5);
+                SwarmAudio.playReveal(centerX);
+            }
+        } else if (box && !state.finished) {
+            SwarmAudio.playReveal(box.x + box.w * 0.5);
+        }
+    }
+
+    function setTargetPaintStatus(el, domPath, status, box, tone, ink) {
+        if (!domPath) return;
+        const now = performance.now();
+        const prev = state.paintStates.get(domPath);
+        if (status === 'painting' && prev && (prev.status === 'revealed' || prev.status === 'done')) return;
+        if (status === 'revealed' && prev && prev.status === 'done') return;
+
+        const rec = prev || { domPath, status: 'hidden', bornAt: now };
+        rec.status = status;
+        if (box) rec.box = box;
+        if (status === 'painting' && !rec.paintingAt) {
+            rec.paintingAt = now;
+            if (box) spawnMosaicVeil(domPath, box, tone, ink, now);
+        }
+        if (status === 'revealed' && !rec.revealedAt) {
+            rec.revealedAt = now;
+            dissolveMosaicVeil(domPath, box || rec.box, tone, ink, now);
+        }
+        state.paintStates.set(domPath, rec);
+
+        if (el && el.isConnected) {
+            el.setAttribute('data-sw', status);
+            // 祖先提升不变量：任何正在绘制或已揭示的元素，其祖先容器自动解除隐藏，避免连带隐藏同级或子元素
+            let parent = el.parentElement;
+            const body = el.ownerDocument?.body;
+            while (parent && parent !== body) {
+                const pPath = computeDomPath(parent, body);
+                const pRec = state.paintStates.get(pPath);
+                if (!pRec || pRec.status === 'hidden') {
+                    state.paintStates.set(pPath, { domPath: pPath, status: 'revealed', bornAt: now, revealedAt: now });
+                    parent.setAttribute('data-sw', 'revealed');
+                }
+                parent = parent.parentElement;
+            }
+        }
+    }
+
+    function revealTargetAndChildren(el, domPath, box, color, ink) {
+        setTargetPaintStatus(el, domPath, 'revealed', box, color, ink);
+        if (!el || !el.isConnected) return;
+        const body = el.ownerDocument?.body;
+        const kids = el.querySelectorAll('*');
+        const vw = state.width || 800;
+        const vh = state.height || 600;
+        let delay = 45;
+        for (let i = 0; i < kids.length && i < 28; i++) {
+            const k = kids[i];
+            const kTag = k.tagName.toLowerCase();
+            if (kTag === 'script' || kTag === 'style' || kTag === 'link') continue;
+            const kPath = computeDomPath(k, body);
+            const rec = state.paintStates.get(kPath);
+            if (!rec || rec.status !== 'hidden') continue;
+            // 若内部子节点本身是独立大卡片/区块，保留给其他 AI 指针单独绘制；仅顺带展开文字、按钮、小图标等叶内容
+            const kr = k.getBoundingClientRect?.();
+            const isSmallOrLeaf = !kr || (kr.width * kr.height < vw * vh * 0.08) || k.childElementCount <= 1 || /^(h[1-6]|p|span|strong|b|small|label|a|li|td|th|button|svg|canvas|img|i)$/.test(kTag);
+            if (!isSmallOrLeaf) continue;
+            setTimeout(() => {
+                if (!state.active) return;
+                const curRec = state.paintStates.get(kPath);
+                if (curRec && curRec.status === 'hidden') {
+                    setTargetPaintStatus(k, kPath, 'revealed', kr ? { x: kr.left, y: kr.top, w: kr.width, h: kr.height } : null, color, ink);
+                }
+            }, delay);
+            delay += 32;
+        }
+    }
+
+    function applyInitialMasks(doc) {
+        if (!doc || !doc.body || state.finished) return;
+        const all = doc.body.querySelectorAll('*');
+        const now = performance.now();
+        for (let i = 0; i < all.length; i++) {
+            const el = all[i];
+            const tag = el.tagName.toLowerCase();
+            if (tag === 'script' || tag === 'style' || tag === 'link' || tag === 'meta' || tag === 'title') continue;
+            const domPath = computeDomPath(el, doc.body);
+            el.dataset.swPath = domPath;
+            const rec = state.paintStates.get(domPath);
+            if (rec) {
+                if (rec.status === 'done' || (rec.status === 'revealed' && now - (rec.revealedAt || now) > 880)) {
+                    rec.status = 'done';
+                    el.removeAttribute('data-sw');
+                } else {
+                    el.setAttribute('data-sw', rec.status);
+                }
+            } else {
+                state.paintStates.set(domPath, { domPath, status: 'hidden', bornAt: now });
+                el.setAttribute('data-sw', 'hidden');
+            }
+        }
+    }
+
+    function sweepRemainingTargets(doc) {
+        if (!doc || !doc.body) return false;
+        const hiddenEls = Array.from(doc.body.querySelectorAll('[data-sw="hidden"], [data-sw="painting"]'));
+        if (!hiddenEls.length) return false;
+        const tones = state.swarmPalette?.tones || [{ hex: '#5c97cb', ink: '#ffffff' }];
+        let delay = 0;
+        const maxDelay = 340;
+        const stepDelay = hiddenEls.length > 1 ? Math.min(28, Math.floor(maxDelay / hiddenEls.length)) : 0;
+        hiddenEls.forEach((el, idx) => {
+            const path = el.dataset.swPath || computeDomPath(el, doc.body);
+            const r = el.getBoundingClientRect();
+            const box = (r.width >= 8 && r.height >= 8) ? { x: r.left, y: r.top, w: r.width, h: r.height } : null;
+            const t = tones[idx % tones.length];
+            setTimeout(() => {
+                if (!state.active) return;
+                setTargetPaintStatus(el, path, 'revealed', box, t.hex, t.ink);
+            }, delay);
+            delay = Math.min(maxDelay, delay + stepDelay);
+        });
+        return true;
+    }
+
     function updateIncrementalIframe(htmlCode, isFinal = false) {
         if (!htmlCode) return;
         if (isFinal) {
             // 最终完成：使用完整的 srcdoc（仅开放 allow-scripts 等沙箱，执行页面内完整 JS 与图表逻辑）
+            // 保留底层画布交叉淡入，确保从模糊揭示过渡到可执行页面零闪烁
             if (!previewWrapEl) return;
+            const prevFrame = iframeEl;
             const finalFrame = document.createElement('iframe');
             finalFrame.className = 'dc-swarm-iframe';
             finalFrame.title = state.pageTitle || L('AI 实时协同预览', 'AI Swarm Live Preview');
             finalFrame.setAttribute('sandbox', 'allow-scripts allow-forms allow-modals allow-popups allow-same-origin');
             finalFrame.setAttribute('referrerpolicy', 'no-referrer');
+            finalFrame.style.position = 'absolute';
+            finalFrame.style.inset = '0';
+            finalFrame.style.opacity = prevFrame ? '0' : '1';
+            finalFrame.style.transition = 'opacity 0.36s ease';
             finalFrame.srcdoc = htmlCode;
             finalFrame.addEventListener('load', () => {
                 watchFrameScroll(finalFrame);
                 collectDomTargets();
+                requestAnimationFrame(() => {
+                    finalFrame.style.opacity = '1';
+                    if (prevFrame && prevFrame !== finalFrame) {
+                        setTimeout(() => {
+                            if (prevFrame.parentNode === previewWrapEl) prevFrame.remove();
+                        }, 380);
+                    }
+                });
             }, { once: true });
-            previewWrapEl.replaceChildren(finalFrame);
+            previewWrapEl.appendChild(finalFrame);
             iframeEl = finalFrame;
             if (!state.bodyReady) {
                 state.bodyReady = true;
@@ -594,6 +1099,8 @@
                 if (cleanBody !== state.lastBodySig) {
                     state.lastBodySig = cleanBody;
                     doc.body.innerHTML = cleanBody;
+                    // 新挂 DOM 节点立即标记为未绘制隐藏状态（与已绘制节点状态无缝延续）
+                    applyInitialMasks(doc);
                     // 自动滚到底部正在生成的区域（如果页面超出视口高度）
                     const win = frame.contentWindow;
                     if (win && doc.body.scrollHeight > state.height + 120) {
@@ -620,15 +1127,16 @@
         try {
             const doc = iframeEl.contentDocument;
             if (!doc || !doc.body) return;
-            const candidates = doc.body.querySelectorAll('header, nav, main, section, article, aside, footer, h1, h2, h3, button, input, select, textarea, canvas, svg, table, ul, form, [class*="card"], [class*="chart"], [class*="panel"], [class*="hero"], [class*="stat"], [class*="box"], [class*="btn"], div');
+            const candidates = doc.body.querySelectorAll('header, nav, main, section, article, aside, footer, h1, h2, h3, p, a, label, li, blockquote, button, input, select, textarea, canvas, svg, table, ul, form, [class*="card"], [class*="chart"], [class*="panel"], [class*="hero"], [class*="stat"], [class*="box"], [class*="btn"], div');
             const targets = [];
             const vw = state.width || 800;
             const vh = state.height || 600;
+            const win = doc.defaultView;
 
-            for (let i = 0; i < candidates.length && targets.length < 48; i++) {
+            for (let i = 0; i < candidates.length && targets.length < 72; i++) {
                 const el = candidates[i];
                 const r = el.getBoundingClientRect();
-                if (r.width < 24 || r.height < 18) continue;
+                if (r.width < 22 || r.height < 14) continue;
                 if (r.bottom < 0 || r.top > vh + 40 || r.right < 0 || r.left > vw + 40) continue;
                 // 避免全屏大外框把所有注意力占满
                 if (r.width > vw * 0.94 && r.height > vh * 0.9 && candidates.length > 4) continue;
@@ -638,16 +1146,33 @@
                     ? '.' + el.className.trim().split(/\s+/).slice(0, 2).join('.')
                     : '';
                 const text = (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 18);
-                const isChartLike = tag === 'canvas' || tag === 'svg' || /chart|graph|plot|canvas|ring|gauge|trend|visual|echarts/i.test(cls + ' ' + (el.id || ''));
+                let fontSize = '';
+                try {
+                    const fs = win?.getComputedStyle?.(el)?.fontSize;
+                    if (fs) fontSize = `${Math.round(parseFloat(fs))}px`;
+                } catch {
+                    // ignore
+                }
+                const isTypeTag = tag === 'h1' || tag === 'h2' || tag === 'h3' || tag === 'p' || tag === 'a' || tag === 'label' || tag === 'li' || tag === 'blockquote';
+                const domPath = el.dataset?.swPath || computeDomPath(el, doc.body);
 
                 targets.push({
+                    el,
+                    domPath,
+                    childCount: el.childElementCount,
                     x: Math.max(8, Math.min(vw - 40, r.left)),
                     y: Math.max(8, Math.min(vh - 36, r.top)),
                     w: Math.min(vw - 16, r.width),
                     h: Math.min(vh - 16, r.height),
                     tag,
+                    fontSize,
+                    hasText: Boolean(text) && (isTypeTag || tag === 'button' || el.childElementCount === 0),
                     label: `<${tag}${cls}>${text ? ' ' + text : ''}`,
-                    kind: (tag === 'header' || tag === 'nav' || tag === 'section' || tag === 'main' || tag === 'article' || tag === 'aside' || tag === 'footer' || tag === 'div') ? 'frame' : (tag === 'button' || tag === 'input' || tag === 'form') ? 'logic' : (tag === 'h1' || tag === 'h2' || tag === 'h3') ? 'type' : 'dom'
+                    kind: (tag === 'header' || tag === 'nav' || tag === 'section' || tag === 'main' || tag === 'article' || tag === 'aside' || tag === 'footer' || tag === 'div')
+                        ? 'frame'
+                        : (tag === 'button' || tag === 'input' || tag === 'select' || tag === 'textarea' || tag === 'form')
+                            ? 'logic'
+                            : isTypeTag ? 'type' : 'dom'
                 });
             }
 
@@ -835,10 +1360,37 @@
         return state.domTargets || [];
     }
 
+    function isTargetUnpainted(t) {
+        if (!t || !t.domPath) return false;
+        const rec = state.paintStates.get(t.domPath);
+        return !rec || rec.status === 'hidden';
+    }
+
+    function hasAnyUnpaintedTargets() {
+        const targets = currentTargets();
+        for (let i = 0; i < targets.length; i++) {
+            if (isTargetUnpainted(targets[i])) return true;
+        }
+        return false;
+    }
+
     function pickTarget(c, now) {
         const targets = currentTargets();
         if (!targets.length) return null;
         const want = ROLE_KIND[c.agent.role];
+
+        // 优先分派尚未绘制的隐藏元素，且倾向自上而下、先细粒度卡片后大容器，确保画面由空白逐渐显影
+        const unpainted = targets.filter(t => isTargetUnpainted(t) && (state.busy.get(targetKey(t)) || 0) <= now);
+        if (unpainted.length) {
+            const preferredUnpainted = want && Math.random() < 0.65 ? unpainted.filter(t => t.kind === want) : [];
+            const pool = (preferredUnpainted.length ? preferredUnpainted : unpainted).slice().sort((a, b) => {
+                const scoreA = (a.childCount > 8 ? 260 : 0) + a.y * 0.45 + Math.random() * 120;
+                const scoreB = (b.childCount > 8 ? 260 : 0) + b.y * 0.45 + Math.random() * 120;
+                return scoreA - scoreB;
+            });
+            return pool[Math.floor(Math.random() * Math.min(3, pool.length))];
+        }
+
         const preferred = want && Math.random() < 0.6 ? targets.filter(t => t.kind === want) : [];
         const pool = preferred.length ? preferred : targets;
         for (let i = 0; i < 6; i++) {
@@ -854,10 +1406,93 @@
         c.node.classList.toggle('is-pressed', pressed);
     }
 
+    function setTool(c, tool) {
+        const next = tool || 'arrow';
+        if (c.tool === next) return;
+        c.tool = next;
+        if (c.node && typeof c.node.setAttribute === 'function') {
+            c.node.setAttribute('data-tool', next);
+        }
+    }
+
     function setAway(c, away) {
         if (c.away === away) return;
         c.away = away;
         c.node.classList.toggle('is-away', away);
+    }
+
+    // 计算当前元素与真实 DOM 兄弟节点之间的最小间距红线及边缘对齐线
+    function computeGuidesForBox(box, pool = state.domTargets) {
+        if (!box || !Array.isArray(pool) || !pool.length) return { gaps: [], aligns: [] };
+        const left = box.x;
+        const right = box.x + box.w;
+        const top = box.y;
+        const bottom = box.y + box.h;
+        const best = { left: null, right: null, top: null, bottom: null };
+        const aligns = [];
+
+        for (let i = 0; i < pool.length; i++) {
+            const o = pool[i];
+            if (!o) continue;
+            if (Math.abs(o.x - box.x) < 2 && Math.abs(o.y - box.y) < 2 && Math.abs(o.w - box.w) < 2 && Math.abs(o.h - box.h) < 2) continue;
+            const oLeft = o.x;
+            const oRight = o.x + o.w;
+            const oTop = o.y;
+            const oBottom = o.y + o.h;
+            const containsBox = oLeft <= left + 1 && oRight >= right - 1 && oTop <= top + 1 && oBottom >= bottom - 1;
+            const insideBox = left <= oLeft + 1 && right >= oRight - 1 && top <= oTop + 1 && bottom >= oBottom - 1;
+            if (containsBox || insideBox) continue;
+
+            const yOverlap = Math.min(bottom, oBottom) - Math.max(top, oTop);
+            if (yOverlap > 6) {
+                const cy = (Math.max(top, oTop) + Math.min(bottom, oBottom)) / 2;
+                if (oRight <= left + 0.5) {
+                    const dist = Math.round(left - oRight);
+                    if (dist >= 2 && dist <= 220 && (!best.left || dist < best.left.dist)) {
+                        best.left = { axis: 'x', x1: oRight, y1: cy, x2: left, y2: cy, dist };
+                    }
+                } else if (oLeft >= right - 0.5) {
+                    const dist = Math.round(oLeft - right);
+                    if (dist >= 2 && dist <= 220 && (!best.right || dist < best.right.dist)) {
+                        best.right = { axis: 'x', x1: right, y1: cy, x2: oLeft, y2: cy, dist };
+                    }
+                }
+            }
+
+            const xOverlap = Math.min(right, oRight) - Math.max(left, oLeft);
+            if (xOverlap > 6) {
+                const cx = (Math.max(left, oLeft) + Math.min(right, oRight)) / 2;
+                if (oBottom <= top + 0.5) {
+                    const dist = Math.round(top - oBottom);
+                    if (dist >= 2 && dist <= 220 && (!best.top || dist < best.top.dist)) {
+                        best.top = { axis: 'y', x1: cx, y1: oBottom, x2: cx, y2: top, dist };
+                    }
+                } else if (oTop >= bottom - 0.5) {
+                    const dist = Math.round(oTop - bottom);
+                    if (dist >= 2 && dist <= 220 && (!best.bottom || dist < best.bottom.dist)) {
+                        best.bottom = { axis: 'y', x1: cx, y1: bottom, x2: cx, y2: oTop, dist };
+                    }
+                }
+            }
+
+            if (aligns.length < 2) {
+                if (Math.abs(left - oLeft) <= 1.5) {
+                    aligns.push({ axis: 'y', pos: left, start: Math.min(top, oTop), end: Math.max(bottom, oBottom) });
+                } else if (Math.abs(right - oRight) <= 1.5) {
+                    aligns.push({ axis: 'y', pos: right, start: Math.min(top, oTop), end: Math.max(bottom, oBottom) });
+                } else if (Math.abs(top - oTop) <= 1.5) {
+                    aligns.push({ axis: 'x', pos: top, start: Math.min(left, oLeft), end: Math.max(right, oRight) });
+                } else if (Math.abs(bottom - oBottom) <= 1.5) {
+                    aligns.push({ axis: 'x', pos: bottom, start: Math.min(left, oLeft), end: Math.max(right, oRight) });
+                }
+            }
+        }
+
+        const gaps = [best.left, best.right, best.top, best.bottom]
+            .filter(Boolean)
+            .sort((a, b) => a.dist - b.dist)
+            .slice(0, 2);
+        return { gaps, aligns };
     }
 
     function addMark(mark) {
@@ -889,14 +1524,15 @@
         state.marks.length = 0;
     }
 
-    // 给指针排下一段工作：框选一个容器、测量间距，或点选一个元素，然后休息一会儿
+    // 给指针排下一段工作：框选容器、间距测量、排版 I-beam 校对、钢笔锚点勾勒或点选元素
     function planNext(c, now) {
         const { w, h } = viewSize();
         c.steps.length = 0;
+        setTool(c, 'arrow');
         const from = { x: c.x, y: c.y };
         const target = pickTarget(c, now);
         if (!target) {
-            pushWait(c, rand(350, 750));
+            pushWait(c, hasAnyUnpaintedTargets() ? rand(120, 260) : rand(350, 750));
             return;
         }
 
@@ -907,65 +1543,156 @@
         const role = c.agent.role;
         const roll = Math.random();
         let kind;
-        if (role === 'qa') kind = roll < 0.7 ? 'measure' : 'touch';
-        else if (role === 'layout' || role === 'frame') kind = roll < 0.62 ? 'frame' : 'measure';
-        else kind = roll < 0.5 ? 'touch' : roll < 0.78 ? 'frame' : 'measure';
-        if (kind === 'frame' && (box.w < 60 || box.h < 28 || box.w * box.h > w * h * 0.42)) kind = 'touch';
-        if (kind === 'measure' && (box.w < 40 || box.h < 24)) kind = 'touch';
+        if (role === 'qa') {
+            kind = roll < 0.72 ? 'measure' : 'touch';
+        } else if (role === 'type') {
+            kind = (target.hasText || target.kind === 'type') ? (roll < 0.68 ? 'type' : 'measure') : (roll < 0.5 ? 'measure' : 'touch');
+        } else if (role === 'layout' || role === 'frame') {
+            kind = roll < 0.54 ? 'frame' : roll < 0.78 ? 'pen' : 'measure';
+        } else if (role === 'style' || role === 'motion') {
+            kind = roll < 0.28 ? 'pen' : roll < 0.56 ? 'frame' : roll < 0.8 ? 'measure' : 'touch';
+        } else {
+            kind = (target.hasText && roll < 0.26) ? 'type' : roll < 0.5 ? 'touch' : roll < 0.78 ? 'frame' : 'measure';
+        }
 
+        if (kind === 'frame' && (box.w < 60 || box.h < 28 || box.w * box.h > w * h * 0.42)) kind = 'touch';
+        if (kind === 'pen' && (box.w < 70 || box.h < 36 || box.w * box.h > w * h * 0.45)) kind = 'touch';
+        if (kind === 'type' && (box.w < 48 || box.h < 16)) kind = 'touch';
+        if (kind === 'measure' && (box.w < 40 || box.h < 22)) kind = 'touch';
+
+        const guides = (kind === 'frame' || kind === 'measure' || kind === 'type') ? computeGuidesForBox(box) : null;
         const inside = () => ({ x: box.x + box.w * rand(0.2, 0.8), y: box.y + box.h * rand(0.25, 0.75) });
+        const markPainting = () => setTargetPaintStatus(target.el, target.domPath, 'painting', box, c.tone, c.ink);
+        const markRevealed = () => revealTargetAndChildren(target.el, target.domPath, box, c.tone, c.ink);
         let mark = null;
         let at;
         if (kind === 'frame') {
-            // 移到左上角 → 按下 → 拖到右下角 → 稍停 → 松开，选框定格成线框后淡出
+            // 切换十字框选光标 → 移到左上角 → 按下拖到右下角 → 松手定格线框与兄弟间距红线
             at = pushApproach(c, from, box.x, box.y);
-            pushWait(c, rand(90, 220));
+            pushDo(c, () => setTool(c, 'crosshair'));
+            pushWait(c, rand(80, 190));
             pushDo(c, t => {
                 setPressed(c, true);
+                markPainting();
+                SwarmAudio.playClick(box.x);
                 mark = addMark({ kind: 'box', c, x: box.x, y: box.y, bornAt: t });
                 spawnRipple(box.x, box.y, c.tone, t);
             });
-            pushWait(c, rand(60, 130));
+            pushWait(c, rand(50, 110));
             pushMove(c, at, box.x + box.w, box.y + box.h, { drag: true });
-            pushWait(c, rand(160, 420));
+            pushWait(c, rand(150, 360));
             pushDo(c, t => {
                 setPressed(c, false);
+                setTool(c, 'arrow');
+                markRevealed();
+                SwarmAudio.playSnap(c.x);
                 if (mark) { mark.endAt = t; mark.fx = c.x; mark.fy = c.y; }
-                state.wireframes.push({ x: box.x, y: box.y, w: box.w, h: box.h, color: c.tone, ink: c.ink, label, bornAt: t, ttl: 1500 });
+                state.wireframes.push({ x: box.x, y: box.y, w: box.w, h: box.h, color: c.tone, ink: c.ink, label, guides, bornAt: t, ttl: 1550 });
+            });
+        } else if (kind === 'type') {
+            // 切换 I-beam 文本光标 → 沿文本基线平滑扫过 + 闪烁输入光标与字号胶囊
+            const yMid = clamp(box.y + Math.min(box.h * 0.55, 22), box.y + 8, box.y + box.h - 6);
+            const xStart = clamp(box.x + 8, box.x + 4, box.x + box.w - 16);
+            const xEnd = clamp(box.x + Math.min(box.w - 8, rand(56, 150)), xStart + 14, box.x + box.w - 4);
+            at = pushApproach(c, from, xStart, yMid);
+            pushDo(c, t => {
+                setTool(c, 'ibeam');
+                setPressed(c, true);
+                markPainting();
+                SwarmAudio.playTick(xStart);
+                mark = addMark({ kind: 'type', c, box, yLine: yMid, fontSize: target.fontSize || '', guides, bornAt: t });
+            });
+            pushWait(c, rand(60, 120));
+            pushDo(c, () => setPressed(c, false));
+            pushMove(c, at, xEnd, yMid, { drag: true });
+            pushDo(c, () => SwarmAudio.playTick(xEnd));
+            pushWait(c, rand(360, 740));
+            pushDo(c, t => {
+                setTool(c, 'arrow');
+                markRevealed();
+                if (mark) mark.endAt = t;
+            });
+        } else if (kind === 'pen') {
+            // 切换钢笔工具 → 沿元素边缘依次落点绘制矢量轮廓与锚点方块
+            const topEdge = Math.random() < 0.5;
+            const pts = topEdge
+                ? [
+                    { x: box.x, y: box.y + box.h * 0.5 },
+                    { x: box.x, y: box.y },
+                    { x: box.x + box.w * 0.5, y: box.y },
+                    { x: box.x + box.w, y: box.y }
+                ]
+                : [
+                    { x: box.x, y: box.y },
+                    { x: box.x + box.w, y: box.y },
+                    { x: box.x + box.w, y: box.y + box.h }
+                ];
+            at = pushApproach(c, from, pts[0].x, pts[0].y);
+            pushDo(c, t => {
+                setTool(c, 'pen');
+                markPainting();
+                SwarmAudio.playTick(pts[0].x);
+                mark = addMark({ kind: 'pen', c, box, anchors: [{ x: pts[0].x, y: pts[0].y }], bornAt: t });
+            });
+            for (let pi = 1; pi < pts.length; pi++) {
+                const pt = pts[pi];
+                at = pushMove(c, at, pt.x, pt.y, { drag: true });
+                pushDo(c, () => {
+                    if (mark) mark.anchors.push({ x: pt.x, y: pt.y });
+                    SwarmAudio.playSnap(pt.x);
+                });
+                pushWait(c, rand(60, 140));
+            }
+            pushWait(c, rand(180, 380));
+            pushDo(c, t => {
+                setTool(c, 'arrow');
+                markRevealed();
+                if (mark) mark.endAt = t;
             });
         } else if (kind === 'measure') {
-            // 移入元素 → 出现到边缘的标尺 → 慢慢扫到另一点 → 收起
+            // 移入元素 → 显示内边距标尺 + 兄弟间距红线 → 扫过对角测量 → 收起
             const p1 = inside();
             const p2 = inside();
             at = pushApproach(c, from, p1.x, p1.y);
-            pushDo(c, t => { mark = addMark({ kind: 'measure', c, box, bornAt: t }); });
-            pushWait(c, rand(260, 520));
+            pushDo(c, t => {
+                markPainting();
+                mark = addMark({ kind: 'measure', c, box, guides, bornAt: t });
+            });
+            pushWait(c, rand(240, 480));
             pushMove(c, at, p2.x, p2.y, { drag: true });
-            pushWait(c, rand(240, 600));
-            pushDo(c, t => { if (mark) mark.endAt = t; });
+            pushWait(c, rand(240, 560));
+            pushDo(c, t => {
+                markRevealed();
+                if (mark) mark.endAt = t;
+            });
         } else {
             // 移到元素上 → 点一下 → 元素描边短暂亮起
             const p = inside();
             pushApproach(c, from, p.x, p.y);
-            pushWait(c, rand(80, 200));
+            pushWait(c, rand(80, 190));
             pushDo(c, t => {
                 setPressed(c, true);
+                markPainting();
+                SwarmAudio.playClick(c.x);
                 mark = addMark({ kind: 'touch', c, box, bornAt: t });
                 spawnRipple(c.x, c.y, c.tone, t);
-                markSlotHot(target);
             });
             pushWait(c, rand(80, 140));
             pushDo(c, () => setPressed(c, false));
-            pushWait(c, rand(380, 900));
-            pushDo(c, t => { if (mark) mark.endAt = t; });
+            pushWait(c, rand(360, 820));
+            pushDo(c, t => {
+                markRevealed();
+                if (mark) mark.endAt = t;
+            });
         }
 
         const busyFor = c.steps.reduce((sum, step) => sum + step.dur, 0);
         state.busy.set(targetKey(target), now + busyFor);
         if (state.busy.size > 200) state.busy.clear();
         c.labelUntil = Math.max(c.labelUntil, now + busyFor);
-        // 做完一件事后停一会儿再接下一件，时长各不相同
-        pushWait(c, rand(900, 3200) * c.agent.tempo);
+        // 尚有未显影元素时缩短接活间隔，加快协同绘制覆盖；全部显影后放缓进入巡检节奏
+        const pendingReveal = hasAnyUnpaintedTargets();
+        pushWait(c, (pendingReveal ? rand(55, 200) : rand(900, 3200)) * c.agent.tempo);
     }
 
     function stepCursor(c, now) {
@@ -1054,14 +1781,27 @@
             metricTimeEl.textContent = `${((now - state.startedAt) / 1000).toFixed(1)}s`;
         }
 
-        if (!fxCtx || state.cursorsHidden) return;
+        if (!fxCtx) return;
         const dpr = state.dpr || 1;
         const w = state.width;
         const h = state.height;
 
+        if (state.cursorsHidden) {
+            if (!state.veils.length) return;
+            fxCtx.save();
+            fxCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            fxCtx.clearRect(0, 0, w, h);
+            drawMosaicVeils(fxCtx, now);
+            fxCtx.restore();
+            return;
+        }
+
         fxCtx.save();
         fxCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
         fxCtx.clearRect(0, 0, w, h);
+
+        // 0. 渐进马赛克磨砂消融遮罩（局部未完成时保持像素块覆层，完成后丝滑化开显影）
+        drawMosaicVeils(fxCtx, now);
 
         // 1. 已定格的组件线框（指针框选松手后留下，随后淡出）
         drawWireframeDrafts(fxCtx, now);
@@ -1074,7 +1814,7 @@
             drawTrail(fxCtx, c, now);
         }
 
-        // 3. 进行中的选框 / 标尺 / 点选高亮
+        // 3. 进行中的选框 / 标尺 / 点选 / 排版输入 / 钢笔矢量高亮
         for (let i = state.marks.length - 1; i >= 0; i--) {
             const mark = state.marks[i];
             const fadeIn = clamp((now - mark.bornAt) / 140, 0, 1);
@@ -1086,6 +1826,8 @@
             }
             if (mark.kind === 'box') drawDragMarquee(fxCtx, mark, alpha);
             else if (mark.kind === 'measure') drawMeasureGuides(fxCtx, mark, alpha);
+            else if (mark.kind === 'type') drawTypingEffect(fxCtx, mark, alpha, now);
+            else if (mark.kind === 'pen') drawPenDraft(fxCtx, mark, alpha);
             else drawTouchHighlight(fxCtx, mark, alpha);
         }
 
@@ -1105,11 +1847,17 @@
             fxCtx.stroke();
         }
 
+        // 5. Figma 风格顶部/左侧像素标尺与当前活动选区投射带
+        drawRulers(fxCtx, w, h, now);
+
         fxCtx.restore();
     }
 
     const FX_FONT = '500 10px ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace';
+    const RULER_FONT = '500 8.5px ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace';
+    const REDLINE_COLOR = '#f43f5e';
     const crisp = v => Math.round(v) + 0.5;
+    const setDash = (ctx, pat) => { if (typeof ctx.setLineDash === 'function') ctx.setLineDash(pat); };
 
     // 尺寸 / 标签胶囊：色块底 + 自动取反差的文字色。cx 为水平中心。
     function drawPill(ctx, text, cx, y, color, ink, alpha) {
@@ -1136,7 +1884,69 @@
         }
     }
 
-    // 拖拽选框：从按下点拉到指针当前位置，下方跟随实时尺寸
+    // Figma 兄弟元素间距红线与边缘对齐辅助线
+    function drawSpacingGuides(ctx, guides, alpha) {
+        if (!guides || alpha <= 0.02) return;
+        const { gaps = [], aligns = [] } = guides;
+        if (!gaps.length && !aligns.length) return;
+
+        ctx.save();
+        ctx.strokeStyle = REDLINE_COLOR;
+        ctx.lineWidth = 1;
+
+        if (aligns.length) {
+            setDash(ctx, [3, 3]);
+            ctx.globalAlpha = 0.48 * alpha;
+            ctx.beginPath();
+            for (let i = 0; i < aligns.length; i++) {
+                const a = aligns[i];
+                if (a.axis === 'y') {
+                    const px = crisp(a.pos);
+                    ctx.moveTo(px, a.start);
+                    ctx.lineTo(px, a.end);
+                } else {
+                    const py = crisp(a.pos);
+                    ctx.moveTo(a.start, py);
+                    ctx.lineTo(a.end, py);
+                }
+            }
+            ctx.stroke();
+            setDash(ctx, []);
+        }
+
+        for (let i = 0; i < gaps.length; i++) {
+            const g = gaps[i];
+            ctx.strokeStyle = REDLINE_COLOR;
+            ctx.globalAlpha = 0.9 * alpha;
+            ctx.beginPath();
+            if (g.axis === 'x') {
+                const y = crisp(g.y1);
+                const x1 = crisp(g.x1);
+                const x2 = crisp(g.x2);
+                ctx.moveTo(x1, y); ctx.lineTo(x2, y);
+                ctx.moveTo(x1, y - 3.5); ctx.lineTo(x1, y + 3.5);
+                ctx.moveTo(x2, y - 3.5); ctx.lineTo(x2, y + 3.5);
+                ctx.stroke();
+                if (g.dist >= 12) {
+                    drawPill(ctx, `${g.dist}`, (g.x1 + g.x2) / 2, g.y1 > 24 ? g.y1 - 20 : g.y1 + 5, REDLINE_COLOR, '#ffffff', alpha);
+                }
+            } else {
+                const x = crisp(g.x1);
+                const y1 = crisp(g.y1);
+                const y2 = crisp(g.y2);
+                ctx.moveTo(x, y1); ctx.lineTo(x, y2);
+                ctx.moveTo(x - 3.5, y1); ctx.lineTo(x + 3.5, y1);
+                ctx.moveTo(x - 3.5, y2); ctx.lineTo(x + 3.5, y2);
+                ctx.stroke();
+                if (g.dist >= 12) {
+                    drawPill(ctx, `${g.dist}`, g.x1 + 20, (g.y1 + g.y2) / 2 - 8, REDLINE_COLOR, '#ffffff', alpha);
+                }
+            }
+        }
+        ctx.restore();
+    }
+
+    // 拖拽选框：从按下点拉到指针当前位置，下方跟随实时坐标与尺寸
     function drawDragMarquee(ctx, mark, alpha) {
         const x2 = mark.endAt ? mark.fx : mark.c.x;
         const y2 = mark.endAt ? mark.fy : mark.c.y;
@@ -1157,12 +1967,13 @@
         drawHandles(ctx, left, top, width, height, color, alpha);
         if (width > 36 && height > 14) {
             const below = top + height + 22 < state.height;
-            drawPill(ctx, `${width} × ${height}`, left + width / 2, below ? top + height + 6 : top - 22, color, mark.c.ink, alpha);
+            const label = width > 108 ? `${Math.round(left)},${Math.round(top)} · ${width}×${height}` : `${width} × ${height}`;
+            drawPill(ctx, label, left + width / 2, below ? top + height + 6 : top - 22, color, mark.c.ink, alpha);
         }
         ctx.restore();
     }
 
-    // 测量标尺：指针到元素左、上边缘的距离线与读数
+    // 测量标尺：元素内部到边缘的距离线 + 真实 DOM 兄弟间距红线
     function drawMeasureGuides(ctx, mark, alpha) {
         const box = mark.box;
         const color = mark.c.tone;
@@ -1174,7 +1985,7 @@
         ctx.save();
         ctx.strokeStyle = color;
         ctx.lineWidth = 1;
-        ctx.globalAlpha = 0.32 * alpha;
+        ctx.globalAlpha = 0.34 * alpha;
         ctx.strokeRect(left, top, Math.round(box.w), Math.round(box.h));
         ctx.globalAlpha = 0.9 * alpha;
         ctx.beginPath();
@@ -1187,6 +1998,102 @@
         const dy = Math.round(cy - top);
         if (dx > 34) drawPill(ctx, String(dx), left + dx / 2, cy - 20, color, mark.c.ink, alpha);
         if (dy > 30) drawPill(ctx, String(dy), cx + 20, top + dy / 2 - 8, color, mark.c.ink, alpha);
+        ctx.restore();
+        if (mark.guides) drawSpacingGuides(ctx, mark.guides, alpha);
+    }
+
+    // 排版 I-beam 校对效果：虚线文本框、基线扫描高亮、闪烁光标与字号胶囊
+    function drawTypingEffect(ctx, mark, alpha, now) {
+        const box = mark.box;
+        const color = mark.c.tone;
+        const left = crisp(box.x);
+        const top = crisp(box.y);
+        const width = Math.round(box.w);
+        const height = Math.round(box.h);
+        const yLine = crisp(mark.yLine || (box.y + Math.min(box.h * 0.55, 22)));
+        const caretX = crisp(clamp(mark.c.x, box.x + 6, box.x + box.w - 4));
+
+        ctx.save();
+        ctx.fillStyle = color;
+        ctx.globalAlpha = 0.04 * alpha;
+        ctx.fillRect(left, top, width, height);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1;
+        setDash(ctx, [3, 3]);
+        ctx.globalAlpha = 0.72 * alpha;
+        ctx.strokeRect(left, top, width, height);
+        setDash(ctx, []);
+
+        // 文本基线选中条
+        ctx.globalAlpha = 0.45 * alpha;
+        ctx.beginPath();
+        ctx.moveTo(left + 6, yLine + 5);
+        ctx.lineTo(caretX, yLine + 5);
+        ctx.stroke();
+
+        // 闪烁竖线输入光标
+        const blink = (Math.floor(now / 340) % 2) === 0 ? 1 : 0.35;
+        ctx.globalAlpha = 0.95 * alpha * blink;
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.moveTo(caretX, Math.max(top + 3, yLine - 7));
+        ctx.lineTo(caretX, Math.min(top + height - 3, yLine + 7));
+        ctx.stroke();
+
+        if (width > 42) {
+            const badge = mark.fontSize ? `Aa ${mark.fontSize}` : 'Aa';
+            drawPill(ctx, badge, left + 22, top > 24 ? top - 20 : top + height + 5, color, mark.c.ink, alpha);
+        }
+        ctx.restore();
+        if (mark.guides) drawSpacingGuides(ctx, mark.guides, alpha * 0.72);
+    }
+
+    // 钢笔矢量轮廓勾勒：已落点的锚点方块 + 到当前光标的弹性虚线
+    function drawPenDraft(ctx, mark, alpha) {
+        const anchors = mark.anchors || [];
+        if (!anchors.length) return;
+        const color = mark.c.tone;
+
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.3;
+        ctx.globalAlpha = 0.88 * alpha;
+        if (anchors.length > 1) {
+            ctx.beginPath();
+            ctx.moveTo(crisp(anchors[0].x), crisp(anchors[0].y));
+            for (let i = 1; i < anchors.length; i++) {
+                ctx.lineTo(crisp(anchors[i].x), crisp(anchors[i].y));
+            }
+            ctx.stroke();
+        }
+
+        if (!mark.endAt) {
+            const last = anchors[anchors.length - 1];
+            const dist = Math.round(Math.hypot(mark.c.x - last.x, mark.c.y - last.y));
+            if (dist > 3) {
+                setDash(ctx, [3, 3]);
+                ctx.globalAlpha = 0.7 * alpha;
+                ctx.beginPath();
+                ctx.moveTo(crisp(last.x), crisp(last.y));
+                ctx.lineTo(crisp(mark.c.x), crisp(mark.c.y));
+                ctx.stroke();
+                setDash(ctx, []);
+                if (dist > 28) {
+                    drawPill(ctx, `${dist}px`, (last.x + mark.c.x) / 2, (last.y + mark.c.y) / 2 - 20, color, mark.c.ink, alpha * 0.9);
+                }
+            }
+        }
+
+        // 锚点白色小方块
+        ctx.fillStyle = '#ffffff';
+        ctx.lineWidth = 1.1;
+        ctx.globalAlpha = alpha;
+        for (let i = 0; i < anchors.length; i++) {
+            const ax = anchors[i].x;
+            const ay = anchors[i].y;
+            ctx.fillRect(ax - 2.5, ay - 2.5, 5, 5);
+            ctx.strokeRect(ax - 2.5, ay - 2.5, 5, 5);
+        }
         ctx.restore();
     }
 
@@ -1207,7 +2114,178 @@
         ctx.restore();
     }
 
-    // 组件线框：指针框选松手后，选框贴合到真实元素的外框并标注标签与尺寸，停留片刻后淡出。
+    // Figma 风格顶部与左侧像素标尺，同步高亮当前活动元素区间
+    function drawRulers(ctx, w, h, now) {
+        if (w < 220 || h < 160) return;
+        let rulerAlpha = 1;
+        if (state.finished && !state.encore) {
+            if (!state.finishedAt) return;
+            const elapsed = now - state.finishedAt;
+            if (elapsed > 2800) return;
+            if (elapsed > 1900) rulerAlpha = 1 - clamp((elapsed - 1900) / 900, 0, 1);
+        }
+        if (rulerAlpha <= 0.02) return;
+
+        const R = 16;
+        const dark = state.pageDark;
+        const bg = dark ? 'rgba(13, 16, 22, 0.56)' : 'rgba(246, 247, 250, 0.78)';
+        const border = dark ? 'rgba(255, 255, 255, 0.09)' : 'rgba(15, 23, 42, 0.1)';
+        const tick = dark ? 'rgba(255, 255, 255, 0.24)' : 'rgba(15, 23, 42, 0.24)';
+        const textCol = dark ? 'rgba(255, 255, 255, 0.44)' : 'rgba(15, 23, 42, 0.48)';
+
+        ctx.save();
+        ctx.globalAlpha = rulerAlpha;
+
+        // 背景条与角落交叉方块
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, w, R);
+        ctx.fillRect(0, R, R, h - R);
+
+        // 将进行中 mark 的范围投影到标尺上（最多取 3 个，避免视觉凌乱）
+        let bands = 0;
+        for (let i = state.marks.length - 1; i >= 0 && bands < 3; i--) {
+            const m = state.marks[i];
+            let bx = 0; let by = 0; let bw = 0; let bh = 0;
+            if (m.kind === 'box') {
+                const x2 = m.endAt ? m.fx : m.c.x;
+                const y2 = m.endAt ? m.fy : m.c.y;
+                bx = Math.min(m.x, x2);
+                by = Math.min(m.y, y2);
+                bw = Math.abs(x2 - m.x);
+                bh = Math.abs(y2 - m.y);
+            } else if (m.box) {
+                bx = m.box.x; by = m.box.y; bw = m.box.w; bh = m.box.h;
+            }
+            if (bw > 8 && bh > 8) {
+                bands += 1;
+                ctx.fillStyle = m.c.tone;
+                ctx.globalAlpha = 0.22 * rulerAlpha;
+                ctx.fillRect(Math.max(R, bx), 0, Math.min(w - Math.max(R, bx), bw), R);
+                ctx.fillRect(0, Math.max(R, by), R, Math.min(h - Math.max(R, by), bh));
+            }
+        }
+
+        ctx.globalAlpha = rulerAlpha;
+        ctx.strokeStyle = tick;
+        ctx.fillStyle = textCol;
+        ctx.font = RULER_FONT;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let x = 20; x < w; x += 10) {
+            const px = crisp(x);
+            const len = x % 100 === 0 ? 7 : x % 50 === 0 ? 4.5 : 2.5;
+            ctx.moveTo(px, R);
+            ctx.lineTo(px, R - len);
+            if (x % 100 === 0) ctx.fillText(String(x), x + 2, 9.5);
+        }
+        for (let y = 20; y < h; y += 10) {
+            const py = crisp(y);
+            const len = y % 100 === 0 ? 7 : y % 50 === 0 ? 4.5 : 2.5;
+            ctx.moveTo(R, py);
+            ctx.lineTo(R - len, py);
+        }
+        ctx.stroke();
+
+        // 左侧垂直刻度数字
+        for (let y = 100; y < h; y += 100) {
+            ctx.save();
+            ctx.translate(9.5, y - 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.fillText(String(y), 0, 0);
+            ctx.restore();
+        }
+
+        // 内边框线
+        ctx.strokeStyle = border;
+        ctx.beginPath();
+        ctx.moveTo(R, crisp(R)); ctx.lineTo(w, crisp(R));
+        ctx.moveTo(crisp(R), R); ctx.lineTo(crisp(R), h);
+        ctx.stroke();
+
+        ctx.restore();
+    }
+
+    // 马赛克像素消融遮罩：指针落笔区域保持磨砂格纹覆盖，绘制完毕后按对角波纹依次缩小消融，与 DOM 模糊到清晰同步
+    function drawMosaicVeils(ctx, now) {
+        state.paintStates.forEach(rec => {
+            if (rec.status === 'revealed' && rec.revealedAt && now - rec.revealedAt > 920) {
+                rec.status = 'done';
+            }
+        });
+        for (let i = state.veils.length - 1; i >= 0; i--) {
+            const v = state.veils[i];
+            const dissolving = v.phase === 'dissolving';
+            const elapsed = dissolving ? (now - v.dissolveAt) / v.dissolveDur : 0;
+            if (dissolving && elapsed >= 1) {
+                state.veils.splice(i, 1);
+                continue;
+            }
+            const enter = clamp((now - v.bornAt) / 180, 0, 1);
+            const pad = 1;
+            const cw = v.cellW;
+            const ch = v.cellH;
+            const isDark = state.pageDark;
+
+            ctx.save();
+            for (let k = 0; k < v.cells.length; k++) {
+                const cell = v.cells[k];
+                let vis = enter;
+                let spark = 0;
+                if (dissolving) {
+                    const ct = clamp((elapsed - cell.delay * 0.54) / 0.46, 0, 1);
+                    const ease = 1 - Math.pow(1 - ct, 3);
+                    vis = (1 - ease) * enter;
+                    if (ct > 0.08 && ct < 0.72) {
+                        spark = Math.sin(((ct - 0.08) / 0.64) * Math.PI);
+                    }
+                } else {
+                    const shimmer = Math.sin(now * 0.0055 + cell.gx * 0.65 + cell.gy * 0.45);
+                    vis = enter * (0.76 + 0.14 * shimmer);
+                }
+                if (vis <= 0.025) continue;
+
+                const cx = v.x + cell.gx * cw;
+                const cy = v.y + cell.gy * ch;
+                const scale = dissolving ? (0.28 + 0.72 * vis) : (0.94 + 0.06 * vis);
+                const tw = Math.max(2, cw * scale - pad);
+                const th = Math.max(2, ch * scale - pad);
+                const tx = cx + (cw - tw) * 0.5;
+                const ty = cy + (ch - th) * 0.5;
+
+                if (cell.tinted) {
+                    ctx.fillStyle = v.color;
+                    ctx.globalAlpha = vis * (dissolving ? 0.44 : 0.28);
+                } else {
+                    const baseLum = isDark ? (26 + Math.round(cell.shade * 26)) : (232 + Math.round(cell.shade * 18));
+                    const baseB = isDark ? Math.min(255, baseLum + 16) : Math.min(255, baseLum + 8);
+                    ctx.fillStyle = `rgb(${baseLum}, ${baseLum + 4}, ${baseB})`;
+                    ctx.globalAlpha = vis * (isDark ? 0.72 : 0.78);
+                }
+                ctx.fillRect(tx, ty, tw, th);
+
+                if (spark > 0.12) {
+                    ctx.globalAlpha = spark * 0.42;
+                    ctx.strokeStyle = v.color;
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(tx + 0.5, ty + 0.5, Math.max(1, tw - 1), Math.max(1, th - 1));
+                }
+            }
+
+            if (!dissolving) {
+                ctx.globalAlpha = 0.28 * enter;
+                ctx.strokeStyle = v.color;
+                ctx.lineWidth = 1;
+                ctx.strokeRect(crisp(v.x), crisp(v.y), Math.round(v.w), Math.round(v.h));
+                const sweepY = v.y + (((now - v.bornAt) * 0.09) % Math.max(12, v.h));
+                ctx.globalAlpha = 0.22 * enter;
+                ctx.fillStyle = v.color;
+                ctx.fillRect(v.x, sweepY, v.w, 2);
+            }
+            ctx.restore();
+        }
+    }
+
+    // 组件线框：指针框选松手后，选框贴合到真实元素的外框并标注标签、坐标尺寸与兄弟间距红线，停留片刻后淡出。
     // 只描真实元素的轮廓，不画任何虚构图形。
     function drawWireframeDrafts(ctx, now) {
         for (let i = state.wireframes.length - 1; i >= 0; i--) {
@@ -1236,6 +2314,10 @@
                 drawPill(ctx, text, left + half, top > 24 ? top - 21 : top + 5, wf.color, wf.ink, alpha);
             }
             ctx.restore();
+            if (wf.guides && age < 950) {
+                const gAlpha = alpha * (1 - clamp((age - 450) / 500, 0, 1)) * 0.85;
+                if (gAlpha > 0.03) drawSpacingGuides(ctx, wf.guides, gAlpha);
+            }
         }
     }
 
@@ -1250,6 +2332,36 @@
         }
     }
 
+    function isSwarmBrowserOpen() {
+        try {
+            const sidebarOpen = Boolean(window.DragonBrowserSidebar?.isOpen?.());
+            if (!sidebarOpen) return false;
+            const stage = document.getElementById('dcSwarmStage');
+            const panel = document.getElementById('dcBrowserPanel');
+            const isSwarm = Boolean(panel?.classList.contains('is-swarm-canvas') && stage && !stage.hidden);
+            return Boolean(state.active || isSwarm);
+        } catch (_e) {
+            return false;
+        }
+    }
+
+    function collapseAutoOpenedHtmlCards() {
+        try {
+            document.querySelectorAll('.dc-file-card[data-preview="html"]').forEach(card => {
+                if (!card.dataset.userOpened) {
+                    const body = card.querySelector('.dc-file-body');
+                    if (body && !body.hidden) {
+                        body.hidden = true;
+                        card.dataset.view = '';
+                        card.querySelectorAll('[data-file-view]').forEach(tab => tab.setAttribute('aria-selected', 'false'));
+                        const expandBtn = card.querySelector('[data-file-action="expand"]');
+                        if (expandBtn) expandBtn.hidden = true;
+                    }
+                }
+            });
+        } catch (_e) { /* noop */ }
+    }
+
     function openBrowserStage() {
         const stage = ensureStage();
         if (!stage) return false;
@@ -1261,6 +2373,7 @@
         if (window.innerWidth > 860 || window.DragonBrowserSidebar?.isOpen?.()) {
             window.DragonBrowserSidebar?.open?.({ liveCanvas: true, createEmpty: false });
         }
+        collapseAutoOpenedHtmlCards();
         resizeCanvas();
         if (!state.rafId) state.rafId = requestAnimationFrame(tickFrame);
         return true;
@@ -1271,10 +2384,13 @@
         clearTimeout(state.replayTimer);
         clearTimeout(state.fadeTimer);
         clearTimeout(state.pacingTimer);
+        clearTimeout(state.swapTimer);
         state.pacingTimer = null;
+        state.swapTimer = null;
         state.active = true;
         state.streaming = true;
         state.finished = false;
+        state.finishedAt = 0;
         state.replaying = false;
         state.streamDonePending = false;
         state.cursorsHidden = false;
@@ -1297,6 +2413,8 @@
         state.ripples = [];
         state.marks = [];
         state.busy.clear();
+        state.paintStates.clear();
+        state.veils = [];
         state.encore = false;
         state.pageDark = true;
         state.swarmPalette = pickPalette();
@@ -1305,6 +2423,8 @@
 
         stageEl.classList.remove('is-finished', 'is-cursors-hidden');
         scaffoldEl?.classList.remove('is-faded');
+        if (previewWrapEl) previewWrapEl.innerHTML = '';
+        iframeEl = null;
         if (codeViewEl) codeViewEl.hidden = true;
         const cursorsBtn = stageEl.querySelector('[data-swarm-action="cursors"]');
         cursorsBtn?.setAttribute('aria-pressed', 'true');
@@ -1319,6 +2439,7 @@
         resetCursors(performance.now());
         applyTones();
         updateMetricsUi();
+        if (state.soundEnabled) SwarmAudio.unlock();
     }
 
     // 平滑渐进推进：当 AI 生成极快时，自适应平抑展开节奏，保证 4~8 秒优雅呈现
@@ -1397,8 +2518,8 @@
 
         const extracted = extractStreamingHtml(finalText);
         if (!extracted.found && !state.streamTargetCode && !state.htmlCode) {
-            // 如果预触发了但最终回答里根本没有 HTML 代码，自动收起舞台
-            if (state.active && !state.lineCount) deactivate();
+            // 如果预触发了但最终回答里根本没有 HTML 代码且无工具代码注入，自动收起舞台
+            if (state.active) deactivate();
             return false;
         }
 
@@ -1418,14 +2539,38 @@
     }
 
     function finalizeSession() {
+        if (!state.htmlCode && !state.streamTargetCode) {
+            deactivate();
+            return;
+        }
         clearTimeout(state.pacingTimer);
+        clearTimeout(state.swapTimer);
         state.pacingTimer = null;
+        state.swapTimer = null;
         state.streaming = false;
-        state.finished = true;
         state.streamDonePending = false;
         state.htmlCode = state.streamTargetCode || state.htmlCode;
         analyzeStreamTokens(state.htmlCode);
-        updateIncrementalIframe(state.htmlCode, true);
+
+        // 先在 finished=true 前同步最终增量 DOM（保留已揭示区块状态并为尾部新增节点挂初始遮罩）
+        if (iframeEl?.contentDocument?.body) {
+            updateIncrementalIframe(state.htmlCode, false);
+        }
+        state.finished = true;
+
+        // 让未显影区块交错消融清扫，再平滑交叉淡入最终可交互 iframe
+        const swept = sweepRemainingTargets(iframeEl?.contentDocument);
+        const swapDelay = swept ? 580 : 120;
+
+        if (!iframeEl?.contentDocument?.body) {
+            updateIncrementalIframe(state.htmlCode, true);
+        } else {
+            state.swapTimer = setTimeout(() => {
+                state.swapTimer = null;
+                if (!state.active || !state.finished || state.replaying) return;
+                updateIncrementalIframe(state.htmlCode, true);
+            }, swapDelay);
+        }
 
         if (state.showSource && codeViewEl) {
             const codeEl = codeViewEl.querySelector('code');
@@ -1437,15 +2582,18 @@
         if (livePillTextEl) livePillTextEl.textContent = L('10 AI 协同绘制完成', '10 AI Swarm Complete');
         if (tickerEl) tickerEl.innerHTML = `<strong>✓</strong> ${esc(L('页面框架与交互脚本已就绪，可直接点击体验或重播绘制', 'Framework & scripts ready — interact directly or replay'))}`;
 
-        // 收尾：指针做完手头的动作后错峰离场，不遮挡用户与页面交互
+        // 收尾：指针做完手头的动作后错峰离场，音效与最终高清显影精确合拍
         const now = performance.now();
+        state.finishedAt = now;
+        SwarmAudio.playFinish(swapDelay / 1000);
         const order = state.cursors.map((_, i) => i).sort(() => Math.random() - 0.5);
         state.cursors.forEach((c, i) => {
             c.taskNode.textContent = L('已完成', 'Done');
+            setTool(c, 'arrow');
             while (c.steps.length && c.steps[c.steps.length - 1].kind === 'wait') c.steps.pop();
             if (!c.steps.length && c.step && c.step.kind === 'wait') c.step = null;
-            c.leaveAt = now + 450 + order[i] * 140;
-            c.labelUntil = Math.min(c.labelUntil, now + 700);
+            c.leaveAt = now + (swept ? 660 : 450) + order[i] * 140;
+            c.labelUntil = Math.min(c.labelUntil, now + 760);
         });
         clearTimeout(state.fadeTimer);
         state.fadeTimer = setTimeout(() => {
@@ -1475,7 +2623,7 @@
             const partial = code.slice(0, sliceLen);
             state.htmlCode = partial;
             analyzeStreamTokens(partial);
-            updateIncrementalIframe(partial, step >= steps);
+            updateIncrementalIframe(partial, false);
             if (state.showSource && codeViewEl) {
                 const codeEl = codeViewEl.querySelector('code');
                 if (codeEl) codeEl.textContent = partial;
@@ -1507,6 +2655,18 @@
         stageEl.classList.toggle('is-cursors-hidden', state.cursorsHidden);
         const btn = stageEl.querySelector('[data-swarm-action="cursors"]');
         btn?.setAttribute('aria-pressed', String(!state.cursorsHidden));
+    }
+
+    function toggleSound(enable) {
+        state.soundEnabled = Boolean(enable);
+        saveSoundPref(state.soundEnabled);
+        if (state.soundEnabled) {
+            SwarmAudio.unlock();
+            SwarmAudio.playReveal((state.width || 800) / 2, 0.72);
+        }
+        const btn = stageEl?.querySelector('[data-swarm-action="sound"]');
+        btn?.setAttribute('aria-pressed', String(state.soundEnabled));
+        return state.soundEnabled;
     }
 
     function toggleSourceView(show) {
@@ -1554,7 +2714,11 @@
         clearTimeout(state.replayTimer);
         clearTimeout(state.fadeTimer);
         clearTimeout(state.pacingTimer);
+        clearTimeout(state.swapTimer);
         state.pacingTimer = null;
+        state.swapTimer = null;
+        state.paintStates.clear();
+        state.veils = [];
         if (state.renderTimer) {
             clearTimeout(state.renderTimer);
             state.renderTimer = null;
@@ -1574,23 +2738,41 @@
         iframeEl = null;
     }
 
-    // 为消息气泡里的 HTML 代码块挂载「✨ AI 指针群协同预览」快捷按钮
+    // 为消息气泡里的 HTML 代码块或 HTML 文件卡片挂载「✨ AI 指针群协同预览」快捷按钮
     function decorateMessageHtmlBlocks(messageEl, rawContent = '') {
         if (!messageEl) return;
-        const extracted = extractStreamingHtml(rawContent);
-        if (!extracted.found || extracted.code.trim().length < 40) return;
         const main = messageEl.querySelector('.dc-msg-main') || messageEl;
         if (main.querySelector('.dc-swarm-inline-trigger')) return;
+
+        const extracted = extractStreamingHtml(rawContent);
+        const htmlCard = messageEl.querySelector('.dc-file-card[data-preview="html"]');
+        const hasExtracted = extracted.found && extracted.code.trim().length >= 40;
+        if (!hasExtracted && !htmlCard) return;
 
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'dc-swarm-inline-trigger';
         btn.innerHTML = `<span class="dc-swarm-inline-mark" aria-hidden="true"></span><span>${esc(L('右侧浏览器 AI 指针群协同绘制预览', 'AI Cursor Swarm Live Preview in Browser'))}</span>`;
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', async () => {
             if (window.innerWidth <= 860) {
                 window.DragonBrowserSidebar?.open?.({ liveCanvas: true, createEmpty: false });
             }
-            playFullHtml(extracted.code, { title: extracted.title });
+            if (hasExtracted) {
+                playFullHtml(extracted.code, { title: extracted.title });
+                return;
+            }
+            if (htmlCard && window.HomeWorkspace?.loadFile) {
+                try {
+                    const data = await window.HomeWorkspace.loadFile(htmlCard);
+                    if (data?.content) {
+                        playFullHtml(data.content, { title: htmlCard.dataset.path?.split(/[\\/]/).pop() || '' });
+                        return;
+                    }
+                } catch (_e) {}
+            }
+            if (state.htmlCode) {
+                playFullHtml(state.htmlCode, { title: state.pageTitle });
+            }
         });
         main.appendChild(btn);
     }
@@ -1603,10 +2785,14 @@
         onStreamFinish,
         playFullHtml,
         replayCurrent,
+        toggleSound,
         openInNewTab,
         deactivate,
         decorateMessageHtmlBlocks,
+        computeGuidesForBox,
         isActive: () => state.active,
+        isSwarmBrowserOpen,
+        collapseAutoOpenedHtmlCards,
         palettes: SWARM_PALETTES,
         currentPalette: () => state.swarmPalette && state.swarmPalette.id
     };

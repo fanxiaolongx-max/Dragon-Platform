@@ -1089,6 +1089,20 @@
         return `${value} B`;
     }
 
+    function isSwarmBrowserActive() {
+        try {
+            if (typeof window.DragonHtmlSwarm?.isSwarmBrowserOpen === 'function') {
+                return window.DragonHtmlSwarm.isSwarmBrowserOpen();
+            }
+            const sidebarOpen = Boolean(window.DragonBrowserSidebar?.isOpen?.());
+            const panel = document.getElementById('dcBrowserPanel');
+            const hasSwarm = Boolean(panel && panel.classList.contains('is-swarm-canvas'));
+            return sidebarOpen && (hasSwarm || Boolean(window.DragonHtmlSwarm?.isActive?.()));
+        } catch (_e) {
+            return false;
+        }
+    }
+
     function attachFileCard(row, filePath, autoOpen) {
         if (!filePath) return;
         // 同一条回复里同一文件只保留最后一张卡片（多次编辑时显示最终版本）
@@ -1116,7 +1130,20 @@
             <div class="dc-file-body" hidden></div>`;
         const anchor = row.nextElementSibling?.classList.contains('dc-tool-output') ? row.nextElementSibling : row;
         anchor.insertAdjacentElement('afterend', card);
-        if (autoOpen && previewKind) showFileView(card, 'preview');
+        // 如果右侧已自动打开 AI 指针群协同绘制浏览器，左侧的 HTML 预览无需默认展开，
+        // 自动保持收起状态（用户仍可点击「预览」或「代码」手动展开），
+        // 避免左侧过早展示完成内容与右侧协同绘制动画产生视觉冲突。
+        const suppressAutoPreview = previewKind === 'html' && isSwarmBrowserActive();
+        if (autoOpen && previewKind && !suppressAutoPreview) {
+            showFileView(card, 'preview');
+        }
+        // 异步读取文件内容以更新文件行数与大小元数据；
+        // 如果此文件是 HTML，将完整页面内容同步注入右侧 Dragon 浏览器 AI 指针群进行协同绘制
+        loadFile(card).then(data => {
+            if (previewKind === 'html' && data?.content && window.DragonHtmlSwarm) {
+                window.DragonHtmlSwarm.playFullHtml?.(data.content, { title: baseName(filePath) });
+            }
+        }).catch(() => {});
     }
 
     async function loadFile(card) {
@@ -1653,7 +1680,10 @@
             if (fileCard) {
                 const viewBtn = event.target.closest('[data-file-view]');
                 const actionBtn = event.target.closest('[data-file-action]');
-                if (viewBtn) showFileView(fileCard, viewBtn.dataset.fileView);
+                if (viewBtn) {
+                    fileCard.dataset.userOpened = '1';
+                    showFileView(fileCard, viewBtn.dataset.fileView);
+                }
                 else if (actionBtn?.dataset.fileAction === 'expand') toggleExpand(fileCard);
                 else if (actionBtn?.dataset.fileAction === 'download') downloadFile(fileCard);
                 return;
@@ -1952,6 +1982,7 @@
         openPicker,
         selectDirectory: (path, options) => selectDirectory(path, undefined, options),
         getRoot: () => state.root,
+        loadFile,
         clearDirectory,
         refreshTexts: renderAll
     };

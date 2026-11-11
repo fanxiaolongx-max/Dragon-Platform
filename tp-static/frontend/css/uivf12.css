@@ -4154,11 +4154,13 @@ body.uiv-modal-open { overflow: hidden; }
 #uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-site-script-desktop { background: #087f62; color: #fff; border-color: #087f62; }
 #uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-topic-simulator-root { color: var(--uiv-dialog-ink); background: var(--uiv-dialog-bg); }
 #uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-batch-schedule { margin-top: 14px; padding: 14px; border: 1px solid var(--uiv-dialog-line); border-radius: 10px; background: var(--uiv-dialog-soft); }
+#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-batch-schedule-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-batch-schedule-info { flex: 1; min-width: 0; }
 #uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-batch-schedule strong { color: var(--uiv-dialog-ink); font-size: 14px; font-weight: 600; }
 #uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-batch-schedule p { margin: 5px 0 0; color: var(--uiv-dialog-muted); font-size: 12px; line-height: 1.65; }
-#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-batch-schedule label { display: flex; align-items: center; gap: 8px; color: var(--uiv-dialog-ink); font-size: 13px; }
-#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-batch-schedule-interval { margin-top: 12px; }
-#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-batch-schedule select { flex: 1; min-width: 0; padding: 8px; border: 1px solid var(--uiv-dialog-line); border-radius: 8px; background: var(--uiv-dialog-bg); color: var(--uiv-dialog-ink); font: inherit; }
+#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-batch-schedule-toggle { flex-shrink: 0; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; color: var(--uiv-dialog-ink); font-size: 13px; font-weight: 500; cursor: pointer; user-select: none; padding-top: 2px; }
+#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-batch-schedule-interval { margin-top: 12px; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; color: var(--uiv-dialog-ink); font-size: 13px; }
+#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-batch-schedule-interval select { flex: none; width: auto; min-width: 110px; padding: 6px 10px; border: 1px solid var(--uiv-dialog-line); border-radius: 8px; background: var(--uiv-dialog-bg); color: var(--uiv-dialog-ink); font: inherit; font-size: 13px; cursor: pointer; }
 #uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) :is(.uiv-batch-filter-item,.uiv-batch-filter-footer) { background: var(--uiv-dialog-soft); border-color: var(--uiv-dialog-line); }
 #uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) :is(.uiv-batch-filter-tools,.uiv-batch-filter-footer) button { background: var(--uiv-dialog-bg); color: var(--uiv-dialog-ink); border-color: var(--uiv-dialog-line); font-weight: 600; }
 #uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-batch-filter-footer .primary { background: #087f62; border-color: #087f62; color: #fff; }
