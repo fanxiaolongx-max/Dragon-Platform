@@ -11,6 +11,16 @@
 		058557D9273AAEEB004C7B11 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 058557D8273AAEEB004C7B11 /* Preview Assets.xcassets */; };
 		2152FB042600AC8F00CF470E /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2152FB032600AC8F00CF470E /* iOSApp.swift */; };
 		7555FF83242A565900829871 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7555FF82242A565900829871 /* ContentView.swift */; };
+		DC0200010000000000000001 /* DragonClawTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC0100010000000000000001 /* DragonClawTheme.swift */; };
+		DC0200010000000000000002 /* LiquidGlassComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC0100010000000000000002 /* LiquidGlassComponents.swift */; };
+		DC0200010000000000000003 /* SpeechInputManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC0100010000000000000003 /* SpeechInputManager.swift */; };
+		DC0200010000000000000004 /* DragonClawStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC0100010000000000000004 /* DragonClawStore.swift */; };
+		DC0200010000000000000005 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC0100010000000000000005 /* LoginView.swift */; };
+		DC0200010000000000000006 /* RootShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC0100010000000000000006 /* RootShellView.swift */; };
+		DC0200010000000000000007 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC0100010000000000000007 /* ChatView.swift */; };
+		DC0200010000000000000008 /* ToolsHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC0100010000000000000008 /* ToolsHubView.swift */; };
+		DC0200010000000000000009 /* AuthenticatedWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC0100010000000000000009 /* AuthenticatedWebView.swift */; };
+		DC020001000000000000000A /* MetricsMonitorViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC010001000000000000000A /* MetricsMonitorViews.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -21,6 +31,16 @@
 		7555FF82242A565900829871 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		7555FF8C242A565B00829871 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AB3632DC29227652001CCB65 /* Config.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
+		DC0100010000000000000001 /* DragonClawTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Theme/DragonClawTheme.swift"; sourceTree = "<group>"; };
+		DC0100010000000000000002 /* LiquidGlassComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Components/LiquidGlassComponents.swift"; sourceTree = "<group>"; };
+		DC0100010000000000000003 /* SpeechInputManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Services/SpeechInputManager.swift"; sourceTree = "<group>"; };
+		DC0100010000000000000004 /* DragonClawStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "State/DragonClawStore.swift"; sourceTree = "<group>"; };
+		DC0100010000000000000005 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Views/LoginView.swift"; sourceTree = "<group>"; };
+		DC0100010000000000000006 /* RootShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Views/RootShellView.swift"; sourceTree = "<group>"; };
+		DC0100010000000000000007 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Views/ChatView.swift"; sourceTree = "<group>"; };
+		DC0100010000000000000008 /* ToolsHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Views/ToolsHubView.swift"; sourceTree = "<group>"; };
+		DC0100010000000000000009 /* AuthenticatedWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Views/AuthenticatedWebView.swift"; sourceTree = "<group>"; };
+		DC010001000000000000000A /* MetricsMonitorViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Views/MetricsMonitorViews.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -75,6 +95,16 @@
 				7555FF8C242A565B00829871 /* Info.plist */,
 				2152FB032600AC8F00CF470E /* iOSApp.swift */,
 				058557D7273AAEEB004C7B11 /* Preview Content */,
+				DC0100010000000000000001 /* DragonClawTheme.swift */,
+				DC0100010000000000000002 /* LiquidGlassComponents.swift */,
+				DC0100010000000000000003 /* SpeechInputManager.swift */,
+				DC0100010000000000000004 /* DragonClawStore.swift */,
+				DC0100010000000000000005 /* LoginView.swift */,
+				DC0100010000000000000006 /* RootShellView.swift */,
+				DC0100010000000000000007 /* ChatView.swift */,
+				DC0100010000000000000008 /* ToolsHubView.swift */,
+				DC0100010000000000000009 /* AuthenticatedWebView.swift */,
+				DC010001000000000000000A /* MetricsMonitorViews.swift */,
 			);
 			path = iosApp;
 			sourceTree = "<group>";
@@ -182,6 +212,16 @@
 			files = (
 				2152FB042600AC8F00CF470E /* iOSApp.swift in Sources */,
 				7555FF83242A565900829871 /* ContentView.swift in Sources */,
+				DC0200010000000000000001 /* DragonClawTheme.swift in Sources */,
+				DC0200010000000000000002 /* LiquidGlassComponents.swift in Sources */,
+				DC0200010000000000000003 /* SpeechInputManager.swift in Sources */,
+				DC0200010000000000000004 /* DragonClawStore.swift in Sources */,
+				DC0200010000000000000005 /* LoginView.swift in Sources */,
+				DC0200010000000000000006 /* RootShellView.swift in Sources */,
+				DC0200010000000000000007 /* ChatView.swift in Sources */,
+				DC0200010000000000000008 /* ToolsHubView.swift in Sources */,
+				DC0200010000000000000009 /* AuthenticatedWebView.swift in Sources */,
+				DC020001000000000000000A /* MetricsMonitorViews.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -240,7 +280,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -296,7 +336,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
@@ -318,7 +358,7 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				INFOPLIST_FILE = iosApp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Tools Platform";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -351,7 +391,7 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				INFOPLIST_FILE = iosApp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Tools Platform";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

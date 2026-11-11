@@ -33,11 +33,14 @@ test('strict manifest persists, startup never creates tables, and deployment req
         apps[id] = { tenantId: id, slug, uuid: state.uuid };
         await runtime.applyStartupSql({ slug, tenantId: id }, state);
         assert.equal(fs.existsSync(runtime.paths(slug).db), false, 'startup must not provision the database');
+        assert.equal(await deployment.needsInit(slug), true);
+        assert.equal(fs.existsSync(runtime.paths(slug).db), false, 'needsInit check must not create the database');
         const info = deployment.inspect(slug, 'init');
         await assert.rejects(() => deployment.apply(slug, 'init', 'stale'), error => error.code === 'HOSTED_SCHEMA_CHANGED');
         assert.equal(fs.existsSync(runtime.paths(slug).db), false);
         await assert.rejects(() => data.execute(apps[id], { datasourceId: 'app', sql: 'CREATE TABLE bypass(id)' }), /部署脚本/);
         await deployment.apply(slug, 'init', info.hash);
+        assert.equal(await deployment.needsInit(slug), false);
         assert.equal((await deployment.apply(slug, 'init', info.hash)).skipped, true);
     });
     zip.file('platform-app.json', JSON.stringify({ entry: 'main:app', databaseContract: 'unknown' }));

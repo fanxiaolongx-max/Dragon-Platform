@@ -14,6 +14,7 @@
     let renewTimer = null;
     let logsOpen = false;
     let barCollapseTimer = null;
+    let schemaInitDismissed = false;
 
     document.body.innerHTML = `
         <main class="ha-stage" id="haStage">
@@ -606,14 +607,38 @@
     function render(app) {
         current = app;
         updateBar(app);
+        const adminActions = app.isAdmin ? [{ label: '查看日志', action: 'logs-inline' }, { label: '在线修改代码 (IDE)', action: 'ide' }]
+            : app.canView ? [{ label: '查看应用代码（只读）', action: 'ide' }] : [];
         if (app.status === 'running' && app.entryUrl) {
+            if (app.needsSchemaInit && !schemaInitDismissed) {
+                if (frame) { frame.remove(); frame = null; setBarVisible(false); }
+                if (app.isAdmin) {
+                    setCard({
+                        title: schemaText('首次使用需初始化应用表', 'Initialize app tables before first use'),
+                        detail: schemaText('当前应用启用了基座数据库契约（模拟基座 DBA 模式），启动时不会自动建表。请先预览并执行初始化脚本，完成后即可正常使用。', 'This app follows the database contract and does not auto-create tables on startup. Preview and deploy the initialization script to begin.'),
+                        actions: [
+                            { label: schemaText('预览并初始化应用表', 'Preview & initialize tables'), action: 'schema-init', primary: true },
+                            { label: schemaText('暂不初始化，直接进入', 'Skip & open anyway'), action: 'skip-schema-init' },
+                            ...adminActions
+                        ]
+                    });
+                } else {
+                    setCard({
+                        title: schemaText('应用数据库尚未初始化', 'App database not initialized'),
+                        detail: schemaText('当前应用的数据库表尚未初始化，请联系管理员在右上角运维菜单执行「初始化应用表」。', 'The database tables have not been initialized yet. Ask an administrator to run "Initialize app tables" from the top-right ops menu.'),
+                        actions: [
+                            { label: schemaText('重新检测', 'Re-check'), action: 'retry', primary: true },
+                            { label: schemaText('仍尝试进入', 'Open anyway'), action: 'skip-schema-init' }
+                        ]
+                    });
+                }
+                return false;
+            }
             openFrame(app);
             updateBar(app);
             return false;
         }
         if (frame) { frame.remove(); frame = null; setBarVisible(false); }
-        const adminActions = app.isAdmin ? [{ label: '查看日志', action: 'logs-inline' }, { label: '在线修改代码 (IDE)', action: 'ide' }]
-            : app.canView ? [{ label: '查看应用代码（只读）', action: 'ide' }] : [];
         if (app.status === 'installing' || app.status === 'starting') {
             setCard({ title: STATUS_TEXT[app.status], detail: app.status === 'installing' ? '首次打开需要创建虚拟环境并安装依赖，可能需要几分钟。' : '应用正在启动，请稍候。', busy: true, actions: adminActions });
             return true;
@@ -1970,17 +1995,26 @@
     // ── 运维胶囊动作分发 ─────────────────────────────────
     async function runAction(action) {
         // 非运维账号：只读查看的只有「数据库信息」和「查看代码」，其余动作不执行
-        if (action !== 'retry' && !current?.isAdmin && !(current?.canView && ['db-info', 'ide'].includes(action))) return;
+        if (!['retry', 'skip-schema-init'].includes(action) && !current?.isAdmin && !(current?.canView && ['db-info', 'ide'].includes(action))) return;
+        if (action === 'skip-schema-init') {
+            schemaInitDismissed = true;
+            return load();
+        }
         if (action === 'schema-init' || action === 'schema-upgrade') {
             const kind = action === 'schema-init' ? 'init' : 'upgrade';
             try {
                 const { script } = await api(`/database-script?kind=${kind}`);
-                if (script.applied) { toast(schemaText('当前脚本已部署，无需重复执行', 'This script is already deployed')); return; }
+                if (script.applied) {
+                    toast(schemaText('当前脚本已部署，无需重复执行', 'This script is already deployed'));
+                    if (current?.needsSchemaInit) load({ reopen: true });
+                    return;
+                }
                 if (!window.AppDialog) { toast(schemaText('请刷新页面后使用数据库部署功能', 'Refresh the page to enable database deployment'), 'error'); return; }
                 const approved = await AppDialog.confirm(schemaText(`仅在当前应用库执行 ${script.file}，不操作业务库。请核对下方脚本后执行。`, `Run ${script.file} in this app database only. Review the script below before deploying.`), { title: kind === 'init' ? schemaText('初始化应用表', 'Initialize app tables') : schemaText('升级应用表', 'Upgrade app tables'), details: script.sql, tone: 'warning', confirmText: schemaText('执行部署脚本', 'Deploy script'), cancelText: schemaText('取消', 'Cancel') });
                 if (!approved) return;
                 await api('/database-script', { method: 'POST', body: JSON.stringify({ kind, hash: script.hash }) });
-                toast(schemaText('应用表部署完成，请刷新应用页面', 'Database deployed. Refresh the application page'));
+                toast(schemaText('应用表部署完成，正在加载应用…', 'Database deployed. Loading application…'));
+                load({ reopen: true });
             } catch (error) { toast(schemaText(`数据库部署失败：${error.message}`, `Database deployment failed: ${error.message}`), 'error'); }
             return;
         }

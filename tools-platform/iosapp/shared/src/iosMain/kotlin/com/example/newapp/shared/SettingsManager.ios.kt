@@ -1,6 +1,8 @@
 package com.example.newapp.shared
 
+import platform.Foundation.NSDate
 import platform.Foundation.NSUserDefaults
+import platform.Foundation.timeIntervalSince1970
 
 actual class SettingsManager actual constructor() {
     private val defaults = NSUserDefaults.standardUserDefaults
@@ -18,11 +20,15 @@ actual class SettingsManager actual constructor() {
     }
 
     actual fun getBoolean(key: String, defaultValue: Boolean): Boolean {
-        return defaults.boolForKey(key)
+        return if (defaults.objectForKey(key) == null) defaultValue else defaults.boolForKey(key)
+    }
+
+    actual fun removeKey(key: String) {
+        defaults.removeObjectForKey(key)
     }
 
     actual fun getCurrentMonth(): Int {
-        val date = platform.Foundation.NSDate()
+        val date = NSDate()
         val calendar = platform.Foundation.NSCalendar.currentCalendar
         val components = calendar.components(platform.Foundation.NSCalendarUnitMonth, fromDate = date)
         return components.month.toInt()
@@ -32,3 +38,5 @@ actual class SettingsManager actual constructor() {
         return platform.Foundation.NSBundle.mainBundle.objectForInfoDictionaryKey("CFBundleShortVersionString") as? String ?: "1.0.0"
     }
 }
+
+actual fun currentEpochMillis(): Long = (NSDate().timeIntervalSince1970 * 1000.0).toLong()

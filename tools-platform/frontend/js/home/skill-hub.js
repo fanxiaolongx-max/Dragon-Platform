@@ -11,7 +11,7 @@
             sortMixed: '综合', sortNewest: '最新', sortName: '名称',
             featuredSkills: '精选技能', featuredTools: '最近使用', featuredPlugins: '常用插件', shuffle: '换一批',
             builtin: '内置', custom: '自定义', imported: '导入', external: '外部', workspace: '需工作目录', customized: '已自定义',
-            cardLegend: '卡片标识', sharedFrame: '卡片外框', iconRing: '图标内圈', sharedWithAll: '全员开放', shared: '全员共享',
+            cardLegend: '外框标识', sharedFrame: '卡片外框', iconRing: '图标内圈', sharedWithAll: '全员开放', shared: '全员共享',
             skillSource: '技能来源', createdInChat: '对话创建', externalCommand: '外部命令',
             pluginSource: '插件与脚本标识', toolSource: '工具来源', floatingScripts: '浮窗脚本',
             use: '使用', open: '打开', improve: '完善技能', history: '版本历史',
@@ -26,7 +26,7 @@
             sortMixed: 'Default', sortNewest: 'Newest', sortName: 'Name',
             featuredSkills: 'Featured skills', featuredTools: 'Recently used', featuredPlugins: 'Popular plugins', shuffle: 'Shuffle',
             builtin: 'Built-in', custom: 'Custom', imported: 'Imported', external: 'External', workspace: 'Needs a folder', customized: 'Customized',
-            cardLegend: 'Card indicators', sharedFrame: 'Card border', iconRing: 'Icon ring', sharedWithAll: 'Shared with all', shared: 'Shared',
+            cardLegend: 'Border style', sharedFrame: 'Card border', iconRing: 'Icon ring', sharedWithAll: 'Shared with all', shared: 'Shared',
             skillSource: 'Skill source', createdInChat: 'Created in chat', externalCommand: 'External command',
             pluginSource: 'Plugin & script indicators', toolSource: 'Tool source', floatingScripts: 'Floating scripts',
             use: 'Use', open: 'Open', improve: 'Improve Skill', history: 'History',
@@ -44,7 +44,7 @@
         tools: { title: 'toolSource', labels: { builtin: 'builtin', shared: 'shared', custom: 'custom' } }
     };
     const STORE_KEY = 'tools_v2_hub';
-    const state = { open: false, tab: 'skills', cat: 'all', sort: 'mixed', query: '', seed: 0, mine: false };
+    const state = { open: false, tab: 'skills', cat: 'all', sort: 'mixed', query: '', seed: 0, mine: false, filterSource: 'all', filterIndicator: 'all' };
     let root;
 
     const lang = () => (window.ToolsI18n?.getLanguage?.() === 'en-US' ? 'en-US' : 'zh-CN');
@@ -199,12 +199,29 @@
         if (/^(https?:|\/|data:image)/.test(value)) return `<img src="${esc(value)}" alt="" loading="lazy">`;
         return esc(value.length <= 4 ? value : '') || '🧩';
     }
-    function sourceLegend() {
-        const { title, labels } = SOURCES[state.tab];
-        return `<div class="v2-hub-legend v2-hub-source-legend" role="group" aria-label="${esc(t(title))}">
-            <span class="v2-hub-legend-label" aria-hidden="true">${esc(t(title))}</span>
-            ${Object.entries(labels).map(([source, label]) => `<span class="v2-hub-legend-item">${window.SkillSource.indicator(source)}${esc(t(label))}</span>`).join('')}
-        </div>`;
+    function renderFilters() {
+        if (!root) return;
+        const sourceMeta = SOURCES[state.tab] || SOURCES.tools;
+        const sourceLabel = root.querySelector('[data-hub-filter-label="source"]');
+        if (sourceLabel) sourceLabel.textContent = t(sourceMeta.title);
+        const sourceSort = root.querySelector('[data-hub-filter-sort="source"]');
+        if (sourceSort) {
+            const dot = source => (window.SkillSource?.indicator ? window.SkillSource.indicator(source) : '');
+            const allBtn = `<button type="button" data-hub-filter-source="all" aria-pressed="${state.filterSource === 'all'}">${esc(t('all'))}</button>`;
+            const items = Object.entries(sourceMeta.labels).map(([source, labelKey]) => {
+                const pressed = state.filterSource === source;
+                return `<button type="button" data-hub-filter-source="${esc(source)}" aria-pressed="${pressed}">${dot(source)}<span>${esc(t(labelKey))}</span></button>`;
+            }).join('');
+            sourceSort.innerHTML = allBtn + items;
+        }
+        const indicatorSort = root.querySelector('[data-hub-filter-sort="indicator"]');
+        if (indicatorSort) {
+            const sharedBtn = indicatorSort.querySelector('[data-hub-shared-filter]');
+            if (sharedBtn) sharedBtn.hidden = !isSuperAdmin() || state.tab !== 'tools';
+            indicatorSort.querySelectorAll('[data-hub-filter-indicator]').forEach(btn => {
+                btn.setAttribute('aria-pressed', String(btn.dataset.hubFilterIndicator === state.filterIndicator));
+            });
+        }
     }
 
     function card(item) {
@@ -216,9 +233,10 @@
         const extra = `<span class="v2-hub-more" data-tool-card-actions>${skillButtons}${moreBtn}</span>`;
         const isShared = Boolean(item.sharedAccess);
         const sharedClass = (isSuperAdmin() && isShared) ? ' is-shared-access' : '';
+        const builtInClass = item.builtIn ? ' is-built-in' : '';
         const title = window.SkillSource?.label(item.title, item.src, { source: item.source, meaning: t(SOURCES[state.tab].labels[item.source]) }) || esc(item.title);
-        return `<a class="v2-hub-card${sharedClass}" href="${esc(item.href)}" data-hub-key="${esc(item.key)}" style="--hub-c:${esc(item.color)}" title="${esc(item.title)}">
-            <span class="v2-hub-icon${item.builtIn ? ' is-built-in' : ''}"${item.builtIn ? ` role="img" aria-label="${esc(t('builtin'))}" title="${esc(t('builtin'))}"` : ''}>${iconHtml(item.icon)}</span>
+        return `<a class="v2-hub-card${sharedClass}${builtInClass}" href="${esc(item.href)}" data-hub-key="${esc(item.key)}" style="--hub-c:${esc(item.color)}" title="${esc(item.title)}">
+            <span class="v2-hub-icon">${iconHtml(item.icon)}</span>
             <span class="v2-hub-body">
                 <span class="v2-hub-card-title"><strong>${title}</strong>${action}</span>
                 <small>${esc(item.desc)}</small>
@@ -237,26 +255,38 @@
         const actions = `${mineBtn}<div class="v2-hub-add"><button type="button" class="v2-hub-btn is-primary" data-hub-do="addMenu" aria-haspopup="menu" aria-expanded="false"><span class="v2-hub-plus">+</span><span>${esc(addLabel)}</span></button><div class="v2-hub-menu" role="menu" hidden>${addMenu()}</div></div>`;
         root.innerHTML = `
             <header class="v2-hub-top">
-                <div class="v2-hub-navigation">
-                    <nav class="v2-hub-tabs" role="tablist">${TABS.map(id => `<button type="button" role="tab" data-hub-tab="${id}" aria-selected="${state.tab === id}">${ico(id === 'skills' ? 'sparkles' : id === 'plugins' ? 'plug' : 'grid')}<span>${esc(t(id))}</span></button>`).join('')}</nav>
-                    <div class="v2-hub-legend" role="group" aria-label="${esc(t('cardLegend'))}">
-                        <span class="v2-hub-legend-item" data-hub-shared-legend hidden><i class="v2-hub-legend-swatch is-shared-access" aria-hidden="true"></i><span class="v2-hub-legend-label">${esc(t('sharedFrame'))}</span>${esc(t('sharedWithAll'))}</span>
-                        <span class="v2-hub-legend-item"><i class="v2-hub-legend-swatch is-built-in" aria-hidden="true"></i><span class="v2-hub-legend-label">${esc(t('iconRing'))}</span>${esc(t('builtin'))}</span>
-                    </div>
-                </div>
+                <nav class="v2-hub-tabs" role="tablist">${TABS.map(id => `<button type="button" role="tab" data-hub-tab="${id}" aria-selected="${state.tab === id}">${ico(id === 'skills' ? 'sparkles' : id === 'plugins' ? 'plug' : 'grid')}<span>${esc(t(id))}</span></button>`).join('')}</nav>
                 <div class="v2-hub-actions">
                     <label class="v2-hub-search">${ico('search')}<input type="search" autocomplete="off" spellcheck="false" placeholder="${esc(t('search', { tab: t(state.tab) }))}" value="${esc(state.query)}"></label>
                     ${actions}
                 </div>
             </header>
             <section class="v2-hub-featured"></section>
-            <div class="v2-hub-source-fallback" hidden></div>
             <div class="v2-hub-bar">
                 <div class="v2-hub-chips" role="tablist"></div>
-                <div class="v2-hub-sort" role="group">${['mixed', 'newest', 'name'].map(id => `<button type="button" data-hub-sort="${id}" aria-pressed="${state.sort === id}">${esc(t(id === 'mixed' ? 'sortMixed' : id === 'newest' ? 'sortNewest' : 'sortName'))}</button>`).join('')}</div>
+            </div>
+            <div class="v2-hub-controls">
+                <div class="v2-hub-filters">
+                    <div class="v2-hub-filter-group" data-hub-filter-group="source">
+                        <span class="v2-hub-filter-label" data-hub-filter-label="source"></span>
+                        <div class="v2-hub-sort" role="group" data-hub-filter-sort="source"></div>
+                    </div>
+                    <div class="v2-hub-filter-group" data-hub-filter-group="indicator">
+                        <span class="v2-hub-filter-label">${esc(t('cardLegend'))}</span>
+                        <div class="v2-hub-sort" role="group" data-hub-filter-sort="indicator">
+                            <button type="button" data-hub-filter-indicator="all" aria-pressed="${state.filterIndicator === 'all'}">${esc(t('all'))}</button>
+                            <button type="button" data-hub-filter-indicator="sharedAccess" data-hub-shared-filter hidden aria-pressed="${state.filterIndicator === 'sharedAccess'}"><i class="v2-hub-legend-swatch is-shared-access" aria-hidden="true"></i><span>${esc(t('sharedWithAll'))}</span></button>
+                            <button type="button" data-hub-filter-indicator="builtIn" aria-pressed="${state.filterIndicator === 'builtIn'}"><i class="v2-hub-legend-swatch is-built-in" aria-hidden="true"></i><span>${esc(t('builtin'))}</span></button>
+                        </div>
+                    </div>
+                </div>
+                <div class="v2-hub-sort" role="group">
+                    ${['mixed', 'newest', 'name'].map(id => `<button type="button" data-hub-sort="${id}" aria-pressed="${state.sort === id}">${esc(t(id === 'mixed' ? 'sortMixed' : id === 'newest' ? 'sortNewest' : 'sortName'))}</button>`).join('')}
+                </div>
             </div>
             <div class="v2-hub-grid"></div>`;
         window.HomeV2?.fillIcons?.(root);
+        renderFilters();
         renderList();
     }
 
@@ -294,7 +324,6 @@
 
     function renderList() {
         if (!root?.querySelector('.v2-hub-grid')) return;
-        root.querySelector('[data-hub-shared-legend]').hidden = !isSuperAdmin();
         const all = entries();
         const query = state.query.trim().toLowerCase();
         const scoped = all.filter(item => (!state.mine || item.mine) && matches(item, query));
@@ -308,17 +337,25 @@
         // Keep their space stable while filtering so the category bar never jumps.
         const showFeatured = all.length > 3;
         feat.hidden = !showFeatured;
-        const showSources = Boolean(window.SkillSource);
-        const sourceFallback = root.querySelector('.v2-hub-source-fallback');
-        sourceFallback.hidden = !showSources || showFeatured;
-        if (!sourceFallback.hidden && !sourceFallback.firstElementChild) sourceFallback.innerHTML = sourceLegend();
         if (showFeatured) {
             const title = t(state.tab === 'skills' ? 'featuredSkills' : state.tab === 'plugins' ? 'featuredPlugins' : 'featuredTools');
-            feat.innerHTML = `<div class="v2-hub-head"><div class="v2-hub-heading"><h2>${esc(title)}</h2>${showSources ? sourceLegend() : ''}</div>${state.tab === 'tools' ? '' : `<button type="button" class="v2-hub-link" data-hub-do="shuffle">${ico('refresh')}<span>${esc(t('shuffle'))}</span></button>`}</div>
+            feat.innerHTML = `<div class="v2-hub-head"><h2>${esc(title)}</h2>${state.tab === 'tools' ? '' : `<button type="button" class="v2-hub-link" data-hub-do="shuffle">${ico('refresh')}<span>${esc(t('shuffle'))}</span></button>`}</div>
                 <div class="v2-hub-cards is-featured">${featured(all).map(card).join('')}</div>`;
         }
 
-        let list = scoped.filter(item => state.cat === 'all' || item.cat === state.cat || (item.extraCats || []).includes(state.cat));
+        let list = scoped.filter(item => {
+            if (state.cat !== 'all' && item.cat !== state.cat && !(item.extraCats || []).includes(state.cat)) {
+                return false;
+            }
+            if (state.filterSource !== 'all' && item.source !== state.filterSource) {
+                return false;
+            }
+            if (state.filterIndicator !== 'all') {
+                if (state.filterIndicator === 'sharedAccess' && !item.sharedAccess) return false;
+                if (state.filterIndicator === 'builtIn' && !item.builtIn) return false;
+            }
+            return true;
+        });
         if (state.sort === 'name') {
             list = list.slice().sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), lang(), { numeric: true, sensitivity: 'base' }));
         } else if (state.sort === 'newest') {
@@ -355,7 +392,7 @@
 
     function open(tab) {
         if (!root) { window.addEventListener('home:skill-hub-ready', () => open(tab), { once: true }); return; }
-        if (TABS.includes(tab)) { state.tab = tab; state.cat = 'all'; state.query = ''; state.mine = false; }
+        if (TABS.includes(tab)) { state.tab = tab; state.cat = 'all'; state.query = ''; state.mine = false; state.filterSource = 'all'; state.filterIndicator = 'all'; }
         state.open = true;
         root.hidden = false;
         document.body.classList.add('v2-hub-open');
@@ -392,7 +429,7 @@
         const tab = event.target.closest('[data-hub-tab]');
         if (!event.target.closest('.v2-hub-add')) toggleMenu(false);
         if (tab) {
-            state.tab = tab.dataset.hubTab; state.cat = 'all'; state.query = ''; state.mine = false;
+            state.tab = tab.dataset.hubTab; state.cat = 'all'; state.query = ''; state.mine = false; state.filterSource = 'all'; state.filterIndicator = 'all';
             if (state.tab !== 'tools' && (location.hash === '#tools' || location.hash === 'tools')) {
                 try { history.replaceState(history.state, '', location.pathname + location.search); } catch { /* noop */ }
             }
@@ -400,6 +437,22 @@
         }
         const cat = event.target.closest('[data-hub-cat]');
         if (cat) { state.cat = cat.dataset.hubCat; renderList(); return; }
+        const filterSourceBtn = event.target.closest('[data-hub-filter-source]');
+        if (filterSourceBtn) {
+            const val = filterSourceBtn.dataset.hubFilterSource;
+            state.filterSource = state.filterSource === val && val !== 'all' ? 'all' : val;
+            renderFilters();
+            renderList();
+            return;
+        }
+        const filterIndicatorBtn = event.target.closest('[data-hub-filter-indicator]');
+        if (filterIndicatorBtn) {
+            const val = filterIndicatorBtn.dataset.hubFilterIndicator;
+            state.filterIndicator = state.filterIndicator === val && val !== 'all' ? 'all' : val;
+            renderFilters();
+            renderList();
+            return;
+        }
         const sort = event.target.closest('[data-hub-sort]');
         if (sort) {
             state.sort = sort.dataset.hubSort;

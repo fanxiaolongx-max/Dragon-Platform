@@ -2,10 +2,40 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const sqlite3 = require('sqlite3');
 const tenant = require('../tenant-context');
 const runtime = require('./runtime');
 const pending = new Set();
 const fail = (message, code, status = 400) => Object.assign(new Error(message), { code, status });
+
+/** 只读检查本地 sqlite 库是否已创建至少一张业务表；库不存在时不创建文件。 */
+function hasUserTables(dbPath) {
+    if (!fs.existsSync(dbPath)) return Promise.resolve(false);
+    try {
+        if (fs.statSync(dbPath).size === 0) return Promise.resolve(false);
+    } catch (_error) {
+        return Promise.resolve(false);
+    }
+    return new Promise(resolve => {
+        const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY, openError => {
+            if (openError) return resolve(true); // 无法判断时保守放行，避免误拦已初始化应用
+            db.get("SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' LIMIT 1", (queryError, row) => {
+                db.close(() => resolve(queryError ? true : Boolean(row)));
+            });
+        });
+    });
+}
+
+async function needsInit(slug) {
+    const state = runtime.readState(runtime.assertSlug(slug));
+    if (!state || state.databaseContract !== 'digital-human') return false;
+    const tenantId = tenant.getTenantId();
+    if (require('./data-environment').mode({ slug, tenantId }) === 'remote') return false;
+    let plan;
+    try { plan = inspect(slug, 'init'); } catch (_error) { return false; }
+    if (plan.applied || state.schemaDeployments?.init?.hash || state.initSqlHash) return false;
+    return !(await hasUserTables(runtime.paths(slug, tenantId).db));
+}
 
 function inspect(slug, kind) {
     if (!['init', 'upgrade'].includes(kind)) throw fail('部署类型只支持 init 或 upgrade', 'HOSTED_SCHEMA_KIND');
@@ -44,4 +74,4 @@ async function apply(slug, kind, expectedHash) {
         return { kind, file: plan.file, hash: plan.hash, skipped: false };
     } finally { pending.delete(key); }
 }
-module.exports = { inspect, apply };
+module.exports = { inspect, apply, needsInit };

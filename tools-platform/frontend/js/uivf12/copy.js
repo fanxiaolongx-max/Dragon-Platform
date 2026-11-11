@@ -101,6 +101,26 @@ function writeUivBatchSchedule(schedule) {
     return normalized;
 }
 
+async function syncUivBatchScopeFromServer() {
+    try {
+        if (typeof API !== 'undefined' && typeof API.get === 'function') {
+            const data = await API.get('/api/uiv/batch-scope');
+            if (data && typeof data === 'object') {
+                if (Array.isArray(data.excludedCategories)) {
+                    writeUivBatchExcludedCategories(data.excludedCategories);
+                }
+                if (data.schedule && typeof data.schedule === 'object') {
+                    writeUivBatchSchedule(data.schedule);
+                }
+                return data;
+            }
+        }
+    } catch (e) {
+        console.warn('[uiv-batch-scope] sync from server failed, using local storage:', e);
+    }
+    return null;
+}
+
 function renderUivBatchScheduleSettings() {
     const schedule = readUivBatchSchedule();
     const enabled = document.getElementById('uiv-batch-schedule-enabled');
@@ -154,7 +174,11 @@ function setBatchFilterChecks(checked) {
 
 async function openUivBatchCategoryFilter() {
     try {
-        const { scripts = [], categories = [] } = await API.get('/api/uiv/scripts');
+        const [scriptsData] = await Promise.all([
+            API.get('/api/uiv/scripts'),
+            syncUivBatchScopeFromServer()
+        ]);
+        const { scripts = [], categories = [] } = scriptsData || {};
         const stats = getUivBatchCategoryStats(scripts, categories);
         if (!stats.length) {
             showToast('当前仓库还没有分类可配置。', 'error');
@@ -197,15 +221,23 @@ async function openUivBatchCategoryFilter() {
                         `).join('')}
                     </div>
                     <div class="uiv-batch-schedule">
-                        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-                            <div><strong>⏱️ ${topicUploadText('运行周期', 'Schedule')}</strong><p>${topicUploadText('默认关闭。开启后需保持数据抓取页打开；上一轮未结束时不会重复启动。', 'Off by default. Keep this page open; an active desktop batch will not be started again.')}</p></div>
-                            <label><input id="uiv-batch-schedule-enabled" type="checkbox"> ${topicUploadText('开启', 'Enable')}</label>
+                        <div class="uiv-batch-schedule-head">
+                            <div class="uiv-batch-schedule-info">
+                                <strong>⏱️ ${topicUploadText('运行周期', 'Schedule')}</strong>
+                                <p>${topicUploadText('默认关闭。开启后需保持数据抓取页打开；上一轮未结束时不会重复启动。', 'Off by default. Keep this page open; an active desktop batch will not be started again.')}</p>
+                            </div>
+                            <label class="uiv-batch-schedule-toggle">
+                                <input id="uiv-batch-schedule-enabled" type="checkbox">
+                                <span>${topicUploadText('开启', 'Enable')}</span>
+                            </label>
                         </div>
-                        <label class="uiv-batch-schedule-interval">${topicUploadText('每隔', 'Every')}
+                        <div class="uiv-batch-schedule-interval">
+                            <span>${topicUploadText('每隔', 'Every')}</span>
                             <select id="uiv-batch-schedule-interval">
                                 ${[30, 60, 120, 240, 480, 720, 1440].map(minutes => `<option value="${minutes}">${minutes < 60 ? topicUploadText('30 分钟', '30 minutes') : topicUploadText(`${minutes / 60} 小时`, `${minutes / 60} hours`)}</option>`).join('')}
-                            </select>${topicUploadText('运行一次', '')}
-                        </label>
+                            </select>
+                            <span>${topicUploadText('运行一次', 'run once')}</span>
+                        </div>
                     </div>
                 </div>
                 <div class="uiv-batch-filter-footer">
@@ -235,13 +267,21 @@ function clearAllUivBatchCategories() {
     document.querySelectorAll('.uiv-batch-filter-check').forEach(input => { input.checked = false; });
 }
 
-function resetUivBatchCategoryFilter() {
+async function resetUivBatchCategoryFilter() {
     writeUivBatchExcludedCategories([]);
     selectAllUivBatchCategories();
+    try {
+        if (typeof API !== 'undefined' && typeof API.post === 'function') {
+            const schedule = readUivBatchSchedule();
+            await API.post('/api/uiv/batch-scope', { excludedCategories: [], schedule });
+        }
+    } catch (e) {
+        console.warn('[uiv-batch-scope] failed to persist reset to server:', e);
+    }
     showToast('✅ 已恢复默认：执行全部分类脚本', 'success');
 }
 
-function saveUivBatchCategoryFilter() {
+async function saveUivBatchCategoryFilter() {
     const inputs = Array.from(document.querySelectorAll('.uiv-batch-filter-check'));
     if (!inputs.length) return;
     const checked = new Set(getBatchFilterCheckedCategories());
@@ -263,6 +303,13 @@ function saveUivBatchCategoryFilter() {
         intervalMinutes: Number(document.getElementById('uiv-batch-schedule-interval')?.value) || 60,
         lastRunAt: scheduleEnabled && !previousSchedule.enabled ? Date.now() : previousSchedule.lastRunAt
     });
+    try {
+        if (typeof API !== 'undefined' && typeof API.post === 'function') {
+            await API.post('/api/uiv/batch-scope', { excludedCategories: excluded, schedule });
+        }
+    } catch (e) {
+        console.warn('[uiv-batch-scope] failed to persist to server:', e);
+    }
     startUivBatchSchedule();
     closeUivBatchCategoryFilter();
     const selected = inputs.length - excluded.length;
@@ -4339,7 +4386,9 @@ document.addEventListener('DOMContentLoaded', () => {
     syncTheme();
     new MutationObserver(syncTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-platform-theme'] });
     updateUivBatchSpeedButton();
-    startUivBatchSchedule();
+    syncUivBatchScopeFromServer().finally(() => {
+        startUivBatchSchedule();
+    });
     // 首页「插件与脚本」入口：?siteScripts=1 直接打开浮窗脚本选择
     if (new URLSearchParams(location.search).get('siteScripts') === '1') openSiteConsoleScriptPicker();
     refreshDesktopSiteScripts();

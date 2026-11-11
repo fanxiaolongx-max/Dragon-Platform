@@ -35,7 +35,7 @@ setTimeout(() => app.exit(1), 60000).unref();
 app.whenReady().then(async () => {
     const web = express(); web.use(express.json());
     web.get('/', (_, res) => res.type('html').send(fs.readFileSync(path.join(frontend, 'index.html'), 'utf8').replace('<head>', `<head><script>
-        ${process.env.DESKTOP_DRAG_AUDIT ? `window.DragonWindow={getState:async()=>({platform:'${process.env.DRAG_PLATFORM || 'win32'}'}),onState:()=>{}};` : ''}
+        ${process.env.DESKTOP_DRAG_AUDIT ? `window.fixtureWindowCloses=0;window.DragonWindow={getState:async()=>({platform:'${process.env.DRAG_PLATFORM || 'win32'}'}),onState:()=>{},close:()=>{fixtureWindowCloses++}};` : ''}
         localStorage.setItem('tools_tenant_id','default');localStorage.setItem('tools_role','admin');localStorage.setItem('tools_user','fixture');localStorage.setItem('tools_token','fixture-session');localStorage.setItem('tools_lang','zh-CN');
         window.fixtureIntervals=[];const originalInterval=window.setInterval;window.setInterval=(fn,delay,...args)=>{if(delay>=10000)fixtureIntervals.push({fn,delay});return originalInterval(fn,delay,...args)};
         window.fixtureErrors=[];window.addEventListener('error',e=>fixtureErrors.push(e.message));window.addEventListener('unhandledrejection',e=>fixtureErrors.push(String(e.reason)));
@@ -865,7 +865,7 @@ app.whenReady().then(async () => {
     if (process.env.DESKTOP_DRAG_AUDIT) {
         await until('!!document.querySelector(".desktop-drag-hub")');
         const region = selector => evaluate(`getComputedStyle(document.querySelector(${JSON.stringify(selector)})).getPropertyValue('-webkit-app-region')`);
-        for (const width of [1440, 1000, 900, 600]) {
+        for (const width of process.env.HOME_TOOL_CAPTION_AUDIT ? [] : [1440, 1000, 900, 600]) {
             win.setSize(width,900);
             await evaluate(`ToolsI18n.setLanguage('${width === 900 ? 'en-US' : 'zh-CN'}');document.documentElement.dataset.theme='${width === 900 ? 'dark' : 'light'}'`);
             for (const collapsed of [false,true]) {
@@ -896,10 +896,35 @@ app.whenReady().then(async () => {
         await until('document.body.classList.contains("v2-tool-open")');
         assert.equal(await region('.v2-tool-frame-bar'),'drag');
         assert.equal(await region('.v2-tool-frame-btn'),'no-drag');
+        if((process.env.DRAG_PLATFORM||'win32')==='win32'){
+            assert.equal(await evaluate(`document.querySelector('[data-frame-act="browser"]').getClientRects().length`),0,'unavailable browser button stays hidden');
+            for (const width of [1440,600]) {
+                win.setContentSize(width,900);
+                await wait(80);
+                assert.equal(await evaluate(`document.documentElement.scrollWidth<=innerWidth`),true,'caption layout stays within the window at '+width);
+            }
+            win.setContentSize(1440,900);await wait(80);
+            await capture('tool-caption');
+            const chrome=await evaluate(`(()=>{
+                const buttons=[...document.querySelectorAll('.v2-tool-frame-actions button:not([hidden])')].filter(b=>b.getClientRects().length);
+                const caption=document.querySelector('.desktop-controls').getBoundingClientRect();
+                return {buttons:buttons.map(b=>{const r=b.getBoundingClientRect(),s=getComputedStyle(b);return {top:r.top,height:r.height,width:r.width,radius:s.borderRadius}}),
+                    right:buttons.at(-1).getBoundingClientRect().right,left:caption.left,top:caption.top};
+            })()`);
+            assert.equal(chrome.right,chrome.left,'tool actions sit immediately beside the window buttons');
+            assert.ok(chrome.buttons.every(b=>b.top===chrome.top&&b.height===32&&b.width===46&&b.radius==='0px'));
+            await evaluate(`document.querySelector('.desktop-controls [data-act="close"]').click()`);
+            assert.equal(await evaluate('HomeToolFrame.isOpen()'),false,'window close first closes the embedded tool');
+            assert.equal(await evaluate('fixtureWindowCloses'),0);
+            await evaluate(`document.querySelector('.desktop-controls [data-act="close"]').click()`);
+            assert.equal(await evaluate('fixtureWindowCloses'),1,'window close resumes after leaving the tool');
+        }
         await evaluate('HomeToolFrame.close();document.body.classList.add("dc-chatting")');
         assert.equal(await region('.dc-chat-head'),'drag');
         await capture('desktop-drag');
-        console.log('PASS: desktop hub drag gutters and right-aligned tool actions at 1440/1000/900/600px, expanded/collapsed sidebar; controls excluded; tool and chat headers draggable. '+temp);
+        console.log(process.env.HOME_TOOL_CAPTION_AUDIT
+            ? 'PASS: tool caption buttons align with window controls at 1440/600px; close returns from the tool before closing the window. '+temp
+            : 'PASS: desktop hub drag gutters and right-aligned tool actions at 1440/1000/900/600px, expanded/collapsed sidebar; controls excluded; tool and chat headers draggable. '+temp);
         win.destroy();server.close();app.exit(0);return;
     }
     const assertTools=async()=>{

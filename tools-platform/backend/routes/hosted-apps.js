@@ -81,11 +81,13 @@ router.get('/:slug/launch', async (req, res) => {
     } catch (error) { send(res, error, '打开应用失败'); }
 });
 
-router.get('/:slug/status', requireAdmin, (req, res) => {
+router.get('/:slug/status', requireAdmin, async (req, res) => {
     try {
         const status = runtime.status(req.params.slug);
         if (!status) return res.status(404).json({ error: '应用不存在' });
-        res.json({ success: true, app: req.hostedViewer ? service.publicStatus(status) : status });
+        const needsSchemaInit = await require('../models/hosted-apps/schema-deployment').needsInit(req.params.slug);
+        const app = req.hostedViewer ? service.publicStatus(status) : status;
+        res.json({ success: true, app: { ...app, needsSchemaInit } });
     } catch (error) { send(res, error, '读取状态失败'); }
 });
 

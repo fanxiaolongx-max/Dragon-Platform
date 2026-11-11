@@ -28,6 +28,10 @@ actual class SettingsManager actual constructor() {
         return prefs.getBoolean(key, defaultValue)
     }
 
+    actual fun removeKey(key: String) {
+        prefs.edit().remove(key).apply()
+    }
+
     actual fun getCurrentMonth(): Int {
         return java.util.Calendar.getInstance().get(java.util.Calendar.MONTH) + 1
     }
@@ -41,3 +45,5 @@ actual class SettingsManager actual constructor() {
         }
     }
 }
+
+actual fun currentEpochMillis(): Long = System.currentTimeMillis()

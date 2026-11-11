@@ -10,7 +10,7 @@ const source = '<!doctype html>\n<html>\n<head>\n<style>\n/* toolbar */\n:root {
     + Array.from({length: 760}, (_, i) => `const value${i} = ${i}; // 中文注释与 HTML <tag> 字符`).join('\n')
     + '\n</script>\n<img src=x onerror="window.__sourceExecuted=true">\n</body>\n</html>\n';
 const errors = [];
-let strictContract=false, deploymentCalls=0, packageCalls=0, failPackage=false;
+let strictContract=false, needsSchemaInit=false, deploymentCalls=0, packageCalls=0, failPackage=false;
 const deploymentSql='CREATE TABLE IF NOT EXISTS reports(id INTEGER PRIMARY KEY);\n'+('-- <img src=x onerror=alert(1)> preview only\n'.repeat(180));
 const server = http.createServer((req, res) => {
     const url = new URL(req.url, 'http://fixture');
@@ -21,9 +21,9 @@ const server = http.createServer((req, res) => {
     } else if (url.pathname === '/app-fixture') {
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.end('<style>body{margin:0}header{height:52px;background:#102b47;display:flex;justify-content:flex-end;align-items:center}button{margin-right:8px;height:32px}</style><header><button id="save" onclick="this.textContent=\'已保存\'">保存</button></header>');
-    } else if (url.pathname.endsWith('/launch')) json({app:{status:'running',isAdmin:true,name:'Fixture',entryUrl:'/app-fixture',databaseContract:strictContract?'digital-human':'platform'}});
+    } else if (url.pathname.endsWith('/launch')) json({app:{status:'running',isAdmin:true,name:'Fixture',entryUrl:'/app-fixture',databaseContract:strictContract?'digital-human':'platform',needsSchemaInit}});
     else if (url.pathname.endsWith('/database-script')) {
-        if(req.method==='POST'){deploymentCalls++;json({success:true,deployment:{skipped:false}});}
+        if(req.method==='POST'){deploymentCalls++;needsSchemaInit=false;json({success:true,deployment:{skipped:false}});}
         else json({script:{kind:url.searchParams.get('kind'),file:'db/'+url.searchParams.get('kind')+'.sqlite.sql',hash:'fixture-hash',sql:deploymentSql,applied:false}});
     }
     else if (url.pathname.endsWith('/preview')) {
@@ -137,7 +137,21 @@ let browser;
     await page.locator('[data-dialog="ok"]').click();
     await page.waitForFunction(()=>!document.querySelector('.app-dialog.open'));
     assert.equal(deploymentCalls,1,'Explicit confirmation must execute deployment once');
+    needsSchemaInit=true;
+    await page.goto('http://127.0.0.1:'+server.address().port+'/launcher');
+    await page.locator('#haTitle').filter({hasText:'首次使用需初始化应用表'}).waitFor();
+    assert.equal(await page.locator('.ha-frame').count(),0,'Uninitialized app shows guide card before opening frame');
+    await page.locator('#haActions button.primary').click();
+    await page.locator('.app-dialog-details').waitFor();
+    await page.locator('[data-dialog="ok"]').click();
+    await page.locator('.ha-frame').waitFor();
+    assert.equal(deploymentCalls,2,'Guide card triggers schema deployment and opens app frame automatically');
+    needsSchemaInit=true;
+    await page.goto('http://127.0.0.1:'+server.address().port+'/launcher');
+    await page.locator('#haTitle').filter({hasText:'首次使用需初始化应用表'}).waitFor();
+    await page.locator('#haActions button', {hasText:'暂不初始化'}).click();
+    await page.locator('.ha-frame').waitFor();
     if(process.env.HOSTED_EDITOR_SCREENSHOT) await page.screenshot({path:process.env.HOSTED_EDITOR_SCREENSHOT});
     assert.deepEqual(errors,[]);
-    console.log('PASS: long HTML with embedded CSS/JavaScript keeps highlighting and source alignment; editing, scrolling, dark/light and narrow-screen indicator position SQL deployment preview/cancel/confirm, and package upload layering, stale previews, unsaved-edit confirmation, failure retry and success close verified.');
+    console.log('PASS: long HTML with embedded CSS/JavaScript keeps highlighting and source alignment; editing, scrolling, dark/light and narrow-screen indicator position SQL deployment preview/cancel/confirm, schema-init onboarding auto-loads app, and package upload layering, stale previews, unsaved-edit confirmation, failure retry and success close verified.');
 })().catch(error => { console.error(error.stack); process.exitCode=1; }).finally(async () => { await browser?.close(); server.close(); });

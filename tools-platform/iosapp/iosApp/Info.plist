@@ -13,7 +13,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleDisplayName</key>
-	<string>Tools Platform</string>
+	<string>Dragon Claw</string>
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundlePackageType</key>
@@ -24,8 +24,12 @@
 	<string>1</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>UIUserInterfaceStyle</key>
-	<string>Dark</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Used for voice input in Dragon Claw AI conversations</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Used to transcribe your voice prompts into text for Dragon Claw</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Used to upload screenshots and images to Dragon Claw AI</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>

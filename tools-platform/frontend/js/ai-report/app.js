@@ -114,13 +114,20 @@
     }
     function toolbar(){
         $('#airLegacyReport').textContent=t('旧月报','Classic report');
-        $('#airMonth').value=state.doc.reportMonth;
-        $('#airReportName').textContent=state.doc.name;
-        $('#airReportList').innerHTML=state.reports.map(item=>`<button type="button" data-open="${esc(item.id)}" aria-current="${item.id===state.doc.id}"><span>${esc(item.name)}</span><small>${esc(item.reportMonth)}</small></button>`).join('')||`<p>${t('还没有保存的月报','No saved reports yet')}</p>`;
-        const stale=staleCells().length,narratives=$('#airNarratives');
-        narratives.hidden=!stale||state.preview;narratives.textContent=t(`更新总结（${stale}）`,`Update summaries (${stale})`);
+        $('#airReportList').innerHTML=state.reports.map(item=>`<button type="button" data-open="${esc(item.id)}" aria-current="${item.id===state.doc?.id}"><span>${esc(item.name)}</span><small>${esc(item.reportMonth)}</small></button>`).join('')||`<p>${t('还没有保存的月报','No saved reports yet')}</p>`;
         $('[data-air=preview]').textContent=state.preview?t('返回编辑','Edit'):t('预览','Preview');
         $('[data-air=language]').textContent=state.lang==='en'?'中文':'EN';
+        if(!state.doc){
+            $('#airMonth').value='';
+            $('#airReportName').textContent=t('AI 月报','AI Report');
+            $('#airNarratives').hidden=true;
+            $('[data-air=save]').disabled=true;
+            return;
+        }
+        $('#airMonth').value=state.doc.reportMonth;
+        $('#airReportName').textContent=state.doc.name;
+        const stale=staleCells().length,narratives=$('#airNarratives');
+        narratives.hidden=!stale||state.preview;narratives.textContent=t(`更新总结（${stale}）`,`Update summaries (${stale})`);
         $('[data-air=save]').disabled=!!state.saving||!dirty();
         document.title=`${state.doc.name} - AI 月报`;
     }
@@ -1078,20 +1085,22 @@
         finally{state.saving=false;$('[data-air=save]').disabled=!dirty();}
     }
     async function setMonth(month){
-        if(!M.validMonth(month)||month===state.doc.reportMonth)return;
+        if(!state.doc||!M.validMonth(month)||month===state.doc.reportMonth)return;
         checkpoint();state.doc.reportMonth=month;render();await runAll({withNarrative:false});await generateFields();
         if(staleCells().length)status(t('数字已按新月份更新；文字总结点“更新总结”重写','Numbers updated; use “Update summaries” to rewrite the text'));
     }
     async function renameOrCopy(copy){
+        if(!state.doc)return;
         const name=await AppDialog.prompt(copy?t('另存为新的月报名称','Save as a new report named'):t('月报名称','Report name'),{defaultValue:state.doc.name});
         if(!name?.trim())return;checkpoint();state.doc.name=name.trim().slice(0,200);if(copy)state.doc.id='';render();if(copy)await save();
     }
     async function removeReport(){
-        if(!state.doc.id||!await AppDialog.confirm(t(`删除月报“${state.doc.name}”？此操作不能撤销。`,`Delete report “${state.doc.name}”? This cannot be undone.`),{tone:'danger',confirmText:t('删除','Delete')}))return;
+        if(!state.doc?.id||!await AppDialog.confirm(t(`删除月报“${state.doc.name}”？此操作不能撤销。`,`Delete report “${state.doc.name}”? This cannot be undone.`),{tone:'danger',confirmText:t('删除','Delete')}))return;
         await API.delete('/api/ai-report/documents/'+encodeURIComponent(state.doc.id));state.saved=snapshot();await loadReports();
         if(state.reports.length)await openReport(state.reports[0].id);else await newReport();
     }
     async function exportAs(kind){
+        if(!state.doc)return;
         await focusEditor?.close({animate:false});
         await new Promise(requestAnimationFrame);
         const options={lang:state.lang,t};

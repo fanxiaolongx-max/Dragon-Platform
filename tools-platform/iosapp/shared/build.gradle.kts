@@ -1,8 +1,6 @@
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     id("com.android.library")
-    alias(libs.plugins.jetbrains.compose)
-    alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
 }
 
@@ -17,19 +15,14 @@ kotlin {
         iosTarget.binaries.framework {
             baseName = "shared"
             isStatic = true
+            binaryOption("bundleId", "com.fanxiaolong.dragonclaw.shared")
         }
     }
 
     sourceSets {
         val commonMain by getting {
             dependencies {
-                implementation(compose.runtime)
-                implementation(compose.foundation)
-                implementation(compose.material3)
-                @OptIn(org.jetbrains.compose.ExperimentalComposeLibrary::class)
-                implementation(compose.components.resources)
-                
-                // Networking & Serialization
+                implementation(libs.kotlinx.coroutines.core)
                 implementation(libs.ktor.client.core)
                 implementation(libs.ktor.client.content.negotiation)
                 implementation(libs.ktor.serialization.kotlinx.json)
@@ -37,10 +30,15 @@ kotlin {
                 implementation(libs.ktor.client.logging)
             }
         }
+        val commonTest by getting {
+            dependencies {
+                implementation(kotlin("test"))
+            }
+        }
         val androidMain by getting {
             dependencies {
-                api(libs.androidx.activity.compose)
-                api(libs.androidx.core.ktx)
+                implementation(libs.androidx.core.ktx)
+                implementation(libs.kotlinx.coroutines.android)
                 implementation(libs.ktor.client.okhttp)
             }
         }
@@ -64,8 +62,6 @@ android {
     namespace = "com.example.newapp.shared"
 
     sourceSets["main"].manifest.srcFile("src/androidMain/AndroidManifest.xml")
-    sourceSets["main"].res.srcDirs("src/androidMain/res")
-    sourceSets["main"].resources.srcDirs("src/commonMain/resources")
 
     defaultConfig {
         minSdk = 24

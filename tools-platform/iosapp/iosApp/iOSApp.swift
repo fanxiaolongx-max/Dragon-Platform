@@ -2,9 +2,12 @@ import SwiftUI
 
 @main
 struct iOSApp: App {
-	var body: some Scene {
-		WindowGroup {
-			ContentView()
-		}
-	}
+    @State private var store = DragonClawStore()
+
+    var body: some Scene {
+        WindowGroup {
+            ContentView(store: store)
+                .preferredColorScheme(store.colorScheme)
+        }
+    }
 }

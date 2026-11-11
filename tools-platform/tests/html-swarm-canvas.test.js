@@ -225,3 +225,110 @@ test('swarm canvas supports Figma multi-tool cursors, rulers, spacing redlines, 
     assert.equal(swarm.toggleSound(false), false);
     assert.equal(store.dc_swarm_sound, '0');
 });
+
+test('auto collapses HTML preview cards when right side swarm browser opens and workspace-panel respects it', () => {
+    const workspaceJs = fs.readFileSync(path.join(__dirname, '../frontend/js/home/workspace-panel.js'), 'utf8');
+    const swarmJs = fs.readFileSync(path.join(__dirname, '../frontend/js/home/html-swarm-canvas.js'), 'utf8');
+
+    assert.ok(swarmJs.includes('collapseAutoOpenedHtmlCards'), 'swarm canvas implements collapseAutoOpenedHtmlCards');
+    assert.ok(swarmJs.includes('isSwarmBrowserOpen'), 'swarm canvas implements isSwarmBrowserOpen');
+    assert.ok(workspaceJs.includes('isSwarmBrowserActive'), 'workspace-panel implements isSwarmBrowserActive');
+    assert.ok(workspaceJs.includes('suppressAutoPreview'), 'workspace-panel suppresses auto preview for html files when swarm active');
+    assert.ok(workspaceJs.includes('userOpened'), 'workspace-panel tracks manual user clicks with userOpened');
+    assert.ok(workspaceJs.includes('DragonHtmlSwarm.playFullHtml'), 'workspace-panel feeds loaded HTML file content into DragonHtmlSwarm');
+
+    const dragonClawJs = fs.readFileSync(path.join(__dirname, '../frontend/js/home/dragon-claw.js'), 'utf8');
+    assert.ok(dragonClawJs.includes('!swarmHtmlTools.size'), 'dragon-claw avoids premature finish when html tools are active');
+});
+
+test('swarm canvas implements progressive blur/mosaic veil reveal and coordinated completion audio', () => {
+    const swarmJs = fs.readFileSync(path.join(rootDir, 'frontend/js/home/html-swarm-canvas.js'), 'utf8');
+
+    // 1. 渐进显影 CSS 约束：hidden 状态禁止 transition（避免挂载首帧闪烁），painting -> revealed 具备丝滑模糊消融过渡
+    assert.match(swarmJs, /\[data-sw="hidden"\]\s*\{[^}]*opacity:\s*0\s*!important[^}]*filter:\s*blur\(18px\)/);
+    assert.match(swarmJs, /\[data-sw="painting"\]\s*\{[^}]*filter:\s*blur\(8px\)/);
+    assert.match(swarmJs, /\[data-sw="revealed"\]\s*\{[^}]*opacity:\s*1\s*!important[^}]*filter:\s*blur\(0px\)/);
+
+    // 2. 马赛克消融遮罩、祖先提升不变量、优先调度未绘制目标以及收尾交错清扫
+    for (const sym of [
+        'function spawnMosaicVeil(',
+        'function dissolveMosaicVeil(',
+        'function drawMosaicVeils(',
+        'function setTargetPaintStatus(',
+        'function revealTargetAndChildren(',
+        'function applyInitialMasks(',
+        'function sweepRemainingTargets(',
+        'function isTargetUnpainted(',
+        'function hasAnyUnpaintedTargets('
+    ]) {
+        assert.ok(swarmJs.includes(sym), `missing ${sym}`);
+    }
+    assert.match(swarmJs, /applyInitialMasks\(doc\)/);
+    assert.match(swarmJs, /drawMosaicVeils\(fxCtx,\s*now\)/);
+
+    // 3. 与显影进度及全页完成同步的多声部音频设计（局部消融音 + 双阶段和弦尾奏）
+    for (const sym of ['getRevealProgress', 'playGlassNote', 'playReveal:', 'playFinish:']) {
+        assert.ok(swarmJs.includes(sym), `missing audio capability ${sym}`);
+    }
+    assert.match(swarmJs, /SwarmAudio\.playFinish\(swapDelay\s*\/\s*1000\)/);
+
+    // 4. 沙箱 Web Audio 行为验证：静音不创建上下文，开启音频后能安全合成琉璃揭示音
+    let ctxCreated = 0;
+    let oscStarted = 0;
+    const makeParam = () => ({ value: 0, setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} });
+    const makeNode = () => ({ connect() {}, start() { oscStarted += 1; }, stop() {}, gain: makeParam(), frequency: makeParam(), Q: makeParam(), threshold: makeParam(), knee: makeParam(), ratio: makeParam(), attack: makeParam(), release: makeParam(), pan: makeParam(), type: 'sine' });
+    class FakeAudioContext {
+        constructor() { ctxCreated += 1; this.currentTime = 0; this.state = 'running'; this.destination = {}; }
+        createGain() { return makeNode(); }
+        createOscillator() { return makeNode(); }
+        createBiquadFilter() { return makeNode(); }
+        createStereoPanner() { return makeNode(); }
+        createDynamicsCompressor() { return makeNode(); }
+        resume() { return Promise.resolve(); }
+    }
+    const store = { tools_lang: 'zh-CN' };
+    const context = vm.createContext({
+        window: {
+            innerWidth: 1440,
+            devicePixelRatio: 2,
+            AudioContext: FakeAudioContext,
+            addEventListener() {},
+            matchMedia: () => ({ matches: false, addEventListener() {} })
+        },
+        document: {
+            documentElement: { lang: 'zh-CN', getAttribute: () => 'zh-CN' },
+            getElementById: () => null,
+            createElement: () => ({
+                style: {},
+                classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
+                addEventListener() {},
+                querySelector: () => null,
+                querySelectorAll: () => [],
+                setAttribute() {}
+            })
+        },
+        localStorage: {
+            getItem: key => store[key] || null,
+            setItem: (key, val) => { store[key] = String(val); }
+        },
+        performance: { now: () => 1000 },
+        requestAnimationFrame: () => 1,
+        cancelAnimationFrame() {},
+        setTimeout,
+        clearTimeout,
+        Blob,
+        URL: { createObjectURL: () => 'blob:mock', revokeObjectURL() {} }
+    });
+    context.window.window = context.window;
+    context.window.document = context.document;
+    vm.runInContext(swarmJs, context);
+
+    const swarm = context.window.DragonHtmlSwarm;
+    assert.equal(ctxCreated, 0, 'default muted session must not initialize AudioContext');
+    assert.equal(swarm.toggleSound(true), true);
+    assert.equal(ctxCreated, 1, 'enabling sound initializes AudioContext');
+    assert.ok(oscStarted >= 2, 'enabling sound triggers layered glass reveal chime');
+    const countAfterEnable = oscStarted;
+    assert.equal(swarm.toggleSound(false), false);
+    assert.equal(oscStarted, countAfterEnable, 'disabling sound produces no extra oscillators');
+});

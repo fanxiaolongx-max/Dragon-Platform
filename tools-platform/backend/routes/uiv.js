@@ -648,5 +648,52 @@ router.get('/extension-download', (req, res) => {
     });
 });
 
+// GET /api/uiv/batch-scope → 获取批脚本执行范围与定时运行周期配置
+router.get('/batch-scope', async (req, res) => {
+    try {
+        const { readKV } = require('../models/kv-store');
+        let config = null;
+        if (req.user && req.user.username) {
+            config = await readKV('uiv_batch_scope', `user:${req.user.username}`, null);
+        }
+        if (!config) {
+            config = await readKV('uiv_batch_scope', 'default', null);
+        }
+        res.json(config || {
+            excludedCategories: [],
+            schedule: { enabled: false, intervalMinutes: 60, lastRunAt: 0 }
+        });
+    } catch (err) {
+        console.error('[GET /api/uiv/batch-scope] failed:', err);
+        res.status(500).json({ error: '获取批脚本范围失败' });
+    }
+});
+
+// POST /api/uiv/batch-scope → 保存批脚本执行范围与定时运行周期配置
+router.post('/batch-scope', async (req, res) => {
+    try {
+        const { writeKV } = require('../models/kv-store');
+        const excludedCategories = Array.isArray(req.body?.excludedCategories)
+            ? Array.from(new Set(req.body.excludedCategories.map(String).filter(Boolean))).sort()
+            : [];
+        const rawSchedule = req.body?.schedule || {};
+        const schedule = {
+            enabled: rawSchedule.enabled === true,
+            intervalMinutes: Math.max(5, Number(rawSchedule.intervalMinutes) || 60),
+            lastRunAt: Number(rawSchedule.lastRunAt) || 0
+        };
+        const payload = { excludedCategories, schedule, updatedAt: Date.now() };
+
+        await writeKV('uiv_batch_scope', 'default', payload);
+        if (req.user && req.user.username) {
+            await writeKV('uiv_batch_scope', `user:${req.user.username}`, payload);
+        }
+        res.json({ success: true, ...payload });
+    } catch (err) {
+        console.error('[POST /api/uiv/batch-scope] failed:', err);
+        res.status(500).json({ error: '保存批脚本范围失败' });
+    }
+});
+
 module.exports = router;
 

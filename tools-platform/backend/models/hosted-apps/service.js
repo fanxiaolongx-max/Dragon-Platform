@@ -164,10 +164,11 @@ function publicStatus(status) {
  * 应用里的身份固定为普通成员（团队账号在自己团队里是管理员，但不是这个应用的管理员）。
  */
 async function launch(slug, user, { viewer = false, userTenantId } = {}) {
+    const schemaDeployment = require('./schema-deployment');
     if (viewer) {
         const current = runtime.status(runtime.assertSlug(slug));
         if (!current) return null;
-        const result = { ...publicStatus(current), isAdmin: false, canView: true };
+        const result = { ...publicStatus(current), isAdmin: false, canView: true, needsSchemaInit: await schemaDeployment.needsInit(slug) };
         if (current.status === 'running') {
             const { token, expiresAt } = proxy.issueToken({ tenantId: tenant.getTenantId(), slug, username: user.username, role: 'readonly', userTenantId });
             result.entryUrl = proxy.entryUrl(slug, token);
@@ -182,7 +183,7 @@ async function launch(slug, user, { viewer = false, userTenantId } = {}) {
     const stalled = ['installing', 'starting'].includes(state.status) && !runtime.isActive(slug);
     if ((['stopped', 'crashed'].includes(state.status) || stalled) && runtime.readState(slug)?.desired !== 'stopped') startInBackground(slug, tenant.getTenantId());
     const current = runtime.status(slug);
-    const result = { ...current, isAdmin: user.role === 'admin' };
+    const result = { ...current, isAdmin: user.role === 'admin', needsSchemaInit: await schemaDeployment.needsInit(slug) };
     if (current.status === 'running') {
         const { token, expiresAt } = proxy.issueToken({ tenantId: tenant.getTenantId(), slug, username: user.username, role: user.role });
         result.entryUrl = proxy.entryUrl(slug, token);

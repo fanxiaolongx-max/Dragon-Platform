@@ -1,22 +1,18 @@
-import UIKit
 import SwiftUI
-import shared
-
-struct ComposeView: UIViewControllerRepresentable {
-    func makeUIViewController(context: Context) -> UIViewController {
-        Main_iosKt.MainViewController()
-    }
-
-    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
-}
 
 struct ContentView: View {
+    @Bindable var store: DragonClawStore
+
     var body: some View {
-        ComposeView()
-                .ignoresSafeArea(.all) // Let Compose handle safe areas
-                .preferredColorScheme(.dark) // Make status bar text white
+        Group {
+            if store.isAuthenticated {
+                RootShellView(store: store)
+                    .transition(.opacity)
+            } else {
+                LoginView(store: store)
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.24), value: store.isAuthenticated)
     }
 }
-
-
-

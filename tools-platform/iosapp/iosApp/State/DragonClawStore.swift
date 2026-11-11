@@ -1,0 +1,756 @@
+import Foundation
+import Observation
+import SwiftUI
+import shared
+
+enum AppWorkMode: String, CaseIterable, Hashable {
+    case chat
+    case tools
+}
+
+enum MetricsRoute: Hashable {
+    case dashboard
+    case snapshotDetail(snapshotId: String, month: Int)
+    case metricsList(title: String, filterType: String, month: Int, snapshotId: String?, category: String?)
+    case alerts(month: Int)
+    case trend(metricLabel: String, category: String)
+    case search(month: Int)
+}
+
+@Observable
+@MainActor
+final class DragonClawStore {
+    let sdk = DragonClawSdk(settings: SettingsManager(), api: DragonClawApiClient(settings: SettingsManager()))
+
+    // Preferences & Session
+    var baseUrl: String
+    var language: String
+    var themeMode: String
+    var rememberMe: Bool
+    var autoLogin: Bool
+
+    var token: String = ""
+    var username: String = ""
+    var role: String = "user"
+    var isAuthenticated = false
+    var isAuthenticating = false
+    var loginError: String?
+
+    // Platform Identity & Navigation
+    var identity: PlatformIdentity = PlatformIdentity(
+        platformName: "Dragon Claw",
+        platformNameZh: "Dragon Claw",
+        platformNameEn: "Dragon Claw",
+        platformSubtitle: "埃及 CS 工具与知识中心",
+        platformSubtitleEn: "Egypt CS Tools & Knowledge Center",
+        platformSlogan: "“认真做好每一个工具，让日常工作更省心。”",
+        platformSloganEn: "“Build every tool with care. Make everyday work easier.”",
+        mediaEnabled: false
+    )
+    var appVersion: String
+    var workMode: AppWorkMode = .chat
+    var isDrawerOpen = false
+    var alertUnreadCount: Int = 0
+
+    // Chat State
+    var models: [AiModelInfo] = []
+    var selectedModelId: String
+    var suggestions: [AiSuggestion] = []
+    var sessions: [AiSessionSummary] = []
+    var sessionGroups: [SessionGroup] = []
+    var sessionSearchQuery: String = ""
+    var currentSessionId: String? = nil
+    var messages: [ChatMessage] = []
+    var composerText: String = ""
+    var isStreaming = false
+    var isEnhancingPrompt = false
+    var isUploadingFiles = false
+    var isLoadingSessionMessages = false
+    var pendingAttachments: [UploadedFileInfo] = []
+    var chatErrorBanner: String? = nil
+
+    // Tools Hub State
+    var tools: [PlatformTool] = []
+    var toolSearchQuery: String = ""
+    var activeWebTool: PlatformTool? = nil
+    var showNativeMetrics = false
+    var metricsPath: [MetricsRoute] = []
+
+    // KPI / SLA Metrics Cache
+    var currentMonth: Int
+    var summaryByMonth: [Int: SummaryResponse] = [:]
+    var snapshotsByMonth: [Int: [Snapshot]] = [:]
+    var metricsLoadingByMonth: Set<Int> = []
+    var metricsErrorByMonth: [Int: String] = [:]
+
+    private var activeStreamHandle: TaskHandle? = nil
+    private var activeTaskHandles: [TaskHandle] = []
+
+    var colorScheme: ColorScheme {
+        themeMode == "dark" ? .dark : .light
+    }
+
+    var palette: DragonClawPalette {
+        DragonClawPalette(isDark: themeMode == "dark")
+    }
+
+    var activeModelDisplayName: String {
+        if !selectedModelId.isEmpty,
+           let matched = models.first(where: { $0.id == selectedModelId }) {
+            return matched.name
+        }
+        return models.first?.name ?? L10n.tr(language, zh: "默认模型", en: "Default")
+    }
+
+    var displayPlatformName: String {
+        identity.localizedName(language: language)
+    }
+
+    var filteredTools: [PlatformTool] {
+        let catalog = tools.isEmpty ? ToolCatalogMerger.shared.merge(remoteTools: []) : tools
+        let q = toolSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else { return catalog }
+        return catalog.filter {
+            $0.titleZh.lowercased().contains(q)
+                || $0.titleEn.lowercased().contains(q)
+                || $0.descZh.lowercased().contains(q)
+                || $0.descEn.lowercased().contains(q)
+                || $0.routePath.lowercased().contains(q)
+        }
+    }
+
+    init() {
+        self.baseUrl = sdk.getBaseUrl()
+        self.language = sdk.getLanguage()
+        self.themeMode = sdk.getThemeMode()
+        self.rememberMe = sdk.getRememberMe()
+        self.autoLogin = sdk.getAutoLogin()
+        self.selectedModelId = sdk.getSelectedModelId()
+        self.appVersion = sdk.getAppVersion()
+        self.currentMonth = Int(sdk.getCurrentMonth())
+        self.tools = ToolCatalogMerger.shared.merge(remoteTools: [])
+        self.username = sdk.getSavedUsername()
+
+        loadPlatformIdentity()
+        restoreSessionIfPossible()
+    }
+
+    // MARK: - Preferences
+
+    func toggleTheme() {
+        themeMode = themeMode == "dark" ? "light" : "dark"
+        sdk.saveThemeMode(mode: themeMode)
+    }
+
+    func toggleLanguage() {
+        language = language == "zh" ? "en" : "zh"
+        sdk.saveLanguage(language: language)
+        regroupSessions()
+    }
+
+    func updateServerBaseUrl(_ newUrl: String) {
+        sdk.saveBaseUrl(url: newUrl)
+        self.baseUrl = sdk.getBaseUrl()
+        loadPlatformIdentity()
+    }
+
+    func selectModel(_ modelId: String) {
+        selectedModelId = modelId
+        sdk.saveSelectedModelId(modelId: modelId)
+    }
+
+    // MARK: - Auth
+
+    func loadPlatformIdentity() {
+        let handle = sdk.fetchPlatformIdentity { [weak self] id in
+            Task { @MainActor [weak self] in
+                self?.identity = id
+            }
+        } onError: { _ in }
+        activeTaskHandles.append(handle)
+    }
+
+    private func restoreSessionIfPossible() {
+        let savedToken = sdk.getSavedToken()
+        let savedUser = sdk.getSavedUsername()
+        let savedPass = sdk.getSavedPassword()
+
+        if !savedToken.isEmpty && autoLogin {
+            isAuthenticating = true
+            let handle = sdk.verifySession(token: savedToken) { [weak self] profile in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    self.token = savedToken
+                    self.username = profile.username.isEmpty ? savedUser : profile.username
+                    self.role = profile.role
+                    self.isAuthenticated = true
+                    self.isAuthenticating = false
+                    self.bootstrapWorkspace()
+                }
+            } onError: { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    self.isAuthenticating = false
+                    if !savedUser.isEmpty && !savedPass.isEmpty {
+                        self.performLogin(
+                            username: savedUser,
+                            password: savedPass,
+                            remember: self.rememberMe,
+                            autoLogin: true
+                        )
+                    }
+                }
+            }
+            activeTaskHandles.append(handle)
+        }
+    }
+
+    func performLogin(username: String, password: String, remember: Bool, autoLogin: Bool) {
+        let cleanUser = username.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanUser.isEmpty, !password.isEmpty else {
+            loginError = L10n.tr(language, zh: "请输入账号和密码", en: "Please enter username and password")
+            return
+        }
+        isAuthenticating = true
+        loginError = nil
+
+        let handle = sdk.login(username: cleanUser, password: password) { [weak self] response in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.isAuthenticating = false
+                if response.success, let newToken = response.token, !newToken.isEmpty {
+                    let finalUser = response.username ?? cleanUser
+                    let finalRole = response.role ?? "user"
+                    self.rememberMe = remember
+                    self.autoLogin = autoLogin
+                    self.sdk.saveSessionAuth(
+                        token: newToken,
+                        username: finalUser,
+                        password: password,
+                        role: finalRole,
+                        rememberMe: remember,
+                        autoLogin: autoLogin
+                    )
+                    self.token = self.sdk.getSavedToken()
+                    self.username = finalUser
+                    self.role = finalRole
+                    self.isAuthenticated = true
+                    self.bootstrapWorkspace()
+                } else {
+                    self.loginError = response.error ?? response.message ?? L10n.tr(self.language, zh: "登录失败", en: "Login failed")
+                }
+            }
+        } onError: { [weak self] err in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.isAuthenticating = false
+                self.loginError = err
+            }
+        }
+        activeTaskHandles.append(handle)
+    }
+
+    func logout() {
+        stopStreaming()
+        activeTaskHandles.forEach { $0.cancel() }
+        activeTaskHandles.removeAll()
+        sdk.clearSessionAuth(keepUsername: rememberMe)
+        token = ""
+        isAuthenticated = false
+        isDrawerOpen = false
+        activeWebTool = nil
+        showNativeMetrics = false
+        metricsPath.removeAll()
+        messages.removeAll()
+        sessions.removeAll()
+        sessionGroups.removeAll()
+        pendingAttachments.removeAll()
+        currentSessionId = nil
+        workMode = .chat
+    }
+
+    // MARK: - Workspace Bootstrap
+
+    func bootstrapWorkspace() {
+        guard !token.isEmpty else { return }
+        loadModels()
+        loadSuggestions()
+        loadSessions()
+        loadToolsCatalog()
+        loadAlertSummary()
+    }
+
+    func loadModels() {
+        let handle = sdk.fetchModels(token: token) { [weak self] res in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.models = res.models
+                if self.selectedModelId.isEmpty, let def = res.defaultId, !def.isEmpty {
+                    self.selectedModelId = def
+                }
+            }
+        } onError: { _ in }
+        activeTaskHandles.append(handle)
+    }
+
+    func loadSuggestions() {
+        let handle = sdk.fetchSuggestions(token: token, limit: 8) { [weak self] res in
+            Task { @MainActor [weak self] in
+                self?.suggestions = res.items
+            }
+        } onError: { _ in }
+        activeTaskHandles.append(handle)
+    }
+
+    func loadSessions() {
+        let handle = sdk.fetchSessions(token: token, query: sessionSearchQuery, limit: 40) { [weak self] res in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.sessions = res.items
+                self.regroupSessions()
+            }
+        } onError: { _ in }
+        activeTaskHandles.append(handle)
+    }
+
+    func regroupSessions() {
+        sessionGroups = sdk.groupSessionsByDate(sessions: sessions)
+    }
+
+    func loadToolsCatalog() {
+        let handle = sdk.fetchToolCatalog(token: token) { [weak self] merged in
+            Task { @MainActor [weak self] in
+                self?.tools = merged
+            }
+        } onError: { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.tools = ToolCatalogMerger.shared.merge(remoteTools: [])
+            }
+        }
+        activeTaskHandles.append(handle)
+    }
+
+    func loadAlertSummary() {
+        let handle = sdk.fetchAlertSummary(token: token) { [weak self] summary in
+            Task { @MainActor [weak self] in
+                self?.alertUnreadCount = Int(summary.unread)
+            }
+        } onError: { _ in }
+        activeTaskHandles.append(handle)
+    }
+
+    // MARK: - Chat Flow
+
+    func startNewChat() {
+        stopStreaming()
+        currentSessionId = nil
+        messages.removeAll()
+        pendingAttachments.removeAll()
+        chatErrorBanner = nil
+        workMode = .chat
+        isDrawerOpen = false
+    }
+
+    func openSession(_ session: AiSessionSummary) {
+        stopStreaming()
+        currentSessionId = session.id
+        workMode = .chat
+        isDrawerOpen = false
+        chatErrorBanner = nil
+        isLoadingSessionMessages = true
+
+        let handle = sdk.fetchSessionMessages(token: token, sessionId: session.id, limit: 60, before: nil) { [weak self] res in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.isLoadingSessionMessages = false
+                self.messages = self.sdk.mapHistoryMessages(items: res.items)
+            }
+        } onError: { [weak self] err in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.isLoadingSessionMessages = false
+                self.chatErrorBanner = err
+            }
+        }
+        activeTaskHandles.append(handle)
+    }
+
+    func removeSession(_ session: AiSessionSummary) {
+        let targetId = session.id
+        let handle = sdk.deleteSession(token: token, sessionId: targetId) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.sessions.removeAll { $0.id == targetId }
+                self.regroupSessions()
+                if self.currentSessionId == targetId {
+                    self.startNewChat()
+                }
+            }
+        } onError: { _ in }
+        activeTaskHandles.append(handle)
+    }
+
+    func enhanceDraftPrompt() {
+        let trimmed = composerText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !isEnhancingPrompt else { return }
+        isEnhancingPrompt = true
+        chatErrorBanner = nil
+
+        let handle = sdk.enhancePrompt(
+            token: token,
+            text: trimmed,
+            language: language,
+            modelId: selectedModelId.isEmpty ? nil : selectedModelId
+        ) { [weak self] res in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.isEnhancingPrompt = false
+                if let enhanced = res.prompt?.trimmingCharacters(in: .whitespacesAndNewlines), !enhanced.isEmpty {
+                    self.composerText = enhanced
+                } else if let err = res.error {
+                    self.chatErrorBanner = err
+                }
+            }
+        } onError: { [weak self] err in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.isEnhancingPrompt = false
+                self.chatErrorBanner = err
+            }
+        }
+        activeTaskHandles.append(handle)
+    }
+
+    func uploadAttachments(_ drafts: [UploadAttachmentDraft]) {
+        guard !drafts.isEmpty, !isUploadingFiles else { return }
+        isUploadingFiles = true
+        chatErrorBanner = nil
+
+        let handle = sdk.uploadFiles(token: token, drafts: drafts) { [weak self] res in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.isUploadingFiles = false
+                if !res.files.isEmpty {
+                    self.pendingAttachments.append(contentsOf: res.files)
+                } else if let err = res.error {
+                    self.chatErrorBanner = err
+                }
+            }
+        } onError: { [weak self] err in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.isUploadingFiles = false
+                self.chatErrorBanner = err
+            }
+        }
+        activeTaskHandles.append(handle)
+    }
+
+    func removePendingAttachment(_ file: UploadedFileInfo) {
+        pendingAttachments.removeAll { $0.path == file.path }
+    }
+
+    func sendPrompt(_ overridePrompt: String? = nil) {
+        guard !isStreaming else { return }
+        let basePrompt = (overridePrompt ?? composerText).trimmingCharacters(in: .whitespacesAndNewlines)
+        let finalContent = overridePrompt != nil
+            ? basePrompt
+            : sdk.appendFilesToPrompt(text: basePrompt, files: pendingAttachments, language: language)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !finalContent.isEmpty else { return }
+
+        chatErrorBanner = nil
+        if overridePrompt == nil {
+            composerText = ""
+            pendingAttachments.removeAll()
+        }
+
+        let userMsg = ChatMessage(
+            id: UUID().uuidString,
+            role: "user",
+            content: finalContent,
+            thinking: "",
+            createdAt: nil,
+            statusText: nil,
+            toolCalls: [],
+            inputTokens: nil,
+            outputTokens: nil,
+            modelName: nil,
+            interrupted: false,
+            isStreaming: false
+        )
+        let assistantId = UUID().uuidString
+        let assistantPlaceholder = ChatMessage(
+            id: assistantId,
+            role: "model",
+            content: "",
+            thinking: "",
+            createdAt: nil,
+            statusText: L10n.tr(language, zh: "正在思考...", en: "Thinking..."),
+            toolCalls: [],
+            inputTokens: nil,
+            outputTokens: nil,
+            modelName: nil,
+            interrupted: false,
+            isStreaming: true
+        )
+
+        messages.append(userMsg)
+        messages.append(assistantPlaceholder)
+        isStreaming = true
+
+        let payloadHistory = messages.dropLast().map { msg in
+            ChatHistoryMessageDto(role: msg.isUser ? "user" : "model", content: msg.content)
+        }
+
+        activeStreamHandle = sdk.streamChat(
+            token: token,
+            messages: Array(payloadHistory),
+            sessionId: currentSessionId,
+            language: language,
+            modelId: selectedModelId.isEmpty ? nil : selectedModelId
+        ) { [weak self] event in
+            Task { @MainActor [weak self] in
+                self?.applyStreamEvent(event, assistantId: assistantId)
+            }
+        } onComplete: { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.finishStreaming(assistantId: assistantId, interrupted: false)
+            }
+        } onError: { [weak self] err in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.chatErrorBanner = err
+                self.finishStreaming(assistantId: assistantId, interrupted: true, errorNote: err)
+            }
+        }
+    }
+
+    func stopStreaming() {
+        activeStreamHandle?.cancel()
+        activeStreamHandle = nil
+        guard isStreaming else { return }
+        if let idx = messages.lastIndex(where: { !$0.isUser && $0.isStreaming }) {
+            let existing = messages[idx]
+            messages[idx] = ChatMessage(
+                id: existing.id,
+                role: existing.role,
+                content: existing.content,
+                thinking: existing.thinking,
+                createdAt: existing.createdAt,
+                statusText: nil,
+                toolCalls: existing.toolCalls,
+                inputTokens: existing.inputTokens,
+                outputTokens: existing.outputTokens,
+                modelName: existing.modelName,
+                interrupted: true,
+                isStreaming: false
+            )
+        }
+        isStreaming = false
+    }
+
+    func retryLastPrompt() {
+        guard !isStreaming, let lastUser = messages.last(where: { $0.isUser }) else { return }
+        sendPrompt(lastUser.content)
+    }
+
+    private func applyStreamEvent(_ event: ChatStreamEvent, assistantId: String) {
+        if let sid = event.sessionId, !sid.isEmpty {
+            currentSessionId = sid
+        }
+        guard let idx = messages.firstIndex(where: { $0.id == assistantId }) else { return }
+        let cur = messages[idx]
+
+        switch event.type {
+        case .start:
+            break
+        case .title:
+            loadSessions()
+        case .status:
+            messages[idx] = copyMessage(cur, statusText: event.text ?? cur.statusText)
+        case .thinking:
+            let nextThinking = cur.thinking + (event.text ?? "")
+            messages[idx] = copyMessage(
+                cur,
+                thinking: nextThinking,
+                statusText: L10n.tr(language, zh: "深度思考中...", en: "Reasoning...")
+            )
+        case .delta:
+            let nextContent = cur.content + (event.text ?? "")
+            messages[idx] = copyMessage(cur, content: nextContent, statusText: nil)
+        case .toolStart:
+            let callId = event.callId ?? UUID().uuidString
+            let trace = ToolCallTrace(
+                callId: callId,
+                toolName: event.toolName ?? "tool",
+                argsSummary: event.toolArgsSummary ?? "",
+                summary: "",
+                ok: true,
+                durationMs: nil,
+                isFinished: false
+            )
+            var nextTools = cur.toolCalls
+            if let existingIdx = nextTools.firstIndex(where: { $0.callId == callId }) {
+                nextTools[existingIdx] = trace
+            } else {
+                nextTools.append(trace)
+            }
+            messages[idx] = copyMessage(
+                cur,
+                statusText: L10n.tr(language, zh: "正在调用 \(trace.toolName)...", en: "Running \(trace.toolName)..."),
+                toolCalls: nextTools
+            )
+        case .toolResult:
+            let callId = event.callId ?? (event.toolName ?? "tool")
+            var nextTools = cur.toolCalls
+            if let existingIdx = nextTools.firstIndex(where: { $0.callId == callId }) {
+                let prev = nextTools[existingIdx]
+                nextTools[existingIdx] = ToolCallTrace(
+                    callId: prev.callId,
+                    toolName: prev.toolName,
+                    argsSummary: prev.argsSummary,
+                    summary: event.text ?? "",
+                    ok: event.toolOk,
+                    durationMs: event.durationMs,
+                    isFinished: true
+                )
+            } else {
+                nextTools.append(
+                    ToolCallTrace(
+                        callId: callId,
+                        toolName: event.toolName ?? "tool",
+                        argsSummary: "",
+                        summary: event.text ?? "",
+                        ok: event.toolOk,
+                        durationMs: event.durationMs,
+                        isFinished: true
+                    )
+                )
+            }
+            messages[idx] = copyMessage(cur, statusText: nil, toolCalls: nextTools)
+        case .modelRound, .compaction:
+            if let text = event.text, !text.isEmpty {
+                messages[idx] = copyMessage(cur, statusText: text)
+            }
+        case .done:
+            let finalText = (cur.content.isEmpty ? (event.text ?? "") : cur.content)
+            messages[idx] = ChatMessage(
+                id: cur.id,
+                role: cur.role,
+                content: finalText,
+                thinking: cur.thinking,
+                createdAt: cur.createdAt,
+                statusText: nil,
+                toolCalls: cur.toolCalls,
+                inputTokens: event.inputTokens ?? cur.inputTokens,
+                outputTokens: event.outputTokens ?? cur.outputTokens,
+                modelName: event.modelName ?? cur.modelName,
+                interrupted: false,
+                isStreaming: false
+            )
+        case .error:
+            let errText = event.errorMessage ?? L10n.tr(language, zh: "响应异常", en: "Stream error")
+            chatErrorBanner = errText
+            let content = cur.content.isEmpty ? "[\(errText)]" : cur.content
+            messages[idx] = copyMessage(cur, content: content, statusText: nil, interrupted: true, isStreaming: false)
+        default:
+            break
+        }
+    }
+
+    private func finishStreaming(assistantId: String, interrupted: Bool, errorNote: String? = nil) {
+        activeStreamHandle = nil
+        isStreaming = false
+        if let idx = messages.firstIndex(where: { $0.id == assistantId }) {
+            let cur = messages[idx]
+            let fallbackContent = cur.content.isEmpty && errorNote != nil ? "[\(errorNote!)]" : cur.content
+            messages[idx] = copyMessage(
+                cur,
+                content: fallbackContent,
+                statusText: nil,
+                interrupted: cur.interrupted || interrupted,
+                isStreaming: false
+            )
+        }
+        loadSessions()
+    }
+
+    private func copyMessage(
+        _ m: ChatMessage,
+        content: String? = nil,
+        thinking: String? = nil,
+        statusText: String? = "__KEEP__",
+        toolCalls: [ToolCallTrace]? = nil,
+        interrupted: Bool? = nil,
+        isStreaming: Bool? = nil
+    ) -> ChatMessage {
+        ChatMessage(
+            id: m.id,
+            role: m.role,
+            content: content ?? m.content,
+            thinking: thinking ?? m.thinking,
+            createdAt: m.createdAt,
+            statusText: statusText == "__KEEP__" ? m.statusText : statusText,
+            toolCalls: toolCalls ?? m.toolCalls,
+            inputTokens: m.inputTokens,
+            outputTokens: m.outputTokens,
+            modelName: m.modelName,
+            interrupted: interrupted ?? m.interrupted,
+            isStreaming: isStreaming ?? m.isStreaming
+        )
+    }
+
+    // MARK: - Tool Hub Navigation
+
+    func openTool(_ tool: PlatformTool) {
+        isDrawerOpen = false
+        if tool.isNative || tool.routePath == "native://kpi-monitor" {
+            metricsPath.removeAll()
+            showNativeMetrics = true
+            ensureMonthLoaded(currentMonth)
+        } else {
+            activeWebTool = tool
+        }
+    }
+
+    func openMetricsModule() {
+        isDrawerOpen = false
+        workMode = .tools
+        metricsPath.removeAll()
+        showNativeMetrics = true
+        ensureMonthLoaded(currentMonth)
+    }
+
+    // MARK: - Metrics Data Loading
+
+    func ensureMonthLoaded(_ month: Int, force: Bool = false) {
+        guard !token.isEmpty else { return }
+        if !force, summaryByMonth[month] != nil { return }
+        if metricsLoadingByMonth.contains(month) { return }
+        metricsLoadingByMonth.insert(month)
+        metricsErrorByMonth[month] = nil
+
+        let summaryHandle = sdk.fetchMetricsSummary(token: token, month: Int32(month), includeOverall: true) { [weak self] summary in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.summaryByMonth[month] = summary
+                self.metricsLoadingByMonth.remove(month)
+            }
+        } onError: { [weak self] err in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.metricsErrorByMonth[month] = err
+                self.metricsLoadingByMonth.remove(month)
+            }
+        }
+        let snapsHandle = sdk.fetchSnapshots(token: token, month: Int32(month), limit: 20) { [weak self] res in
+            Task { @MainActor [weak self] in
+                self?.snapshotsByMonth[month] = res.items
+            }
+        } onError: { _ in }
+        activeTaskHandles.append(summaryHandle)
+        activeTaskHandles.append(snapsHandle)
+    }
+}

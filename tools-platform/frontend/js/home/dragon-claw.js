@@ -2175,11 +2175,11 @@
                             window.DragonHtmlSwarm?.startSession?.({ prompt: content, title: filePath.split(/[\\/]/).pop() || filePath });
                         }
                     } else if (isNormalChat && event.type === 'tool_result' && event.ok && swarmHtmlTools.has(event.callId)) {
+                        swarmToolPlayed = true;
                         const info = swarmHtmlTools.get(event.callId);
-                        const root = workspacePayload?.root;
-                        const agentSessionId = workspacePayload?.agentSessionId;
+                        const root = workspacePayload?.root || (window.HomeWorkspace?.getRoot?.() || '');
+                        const agentSessionId = workspacePayload?.agentSessionId || (window.HomeWorkspace?.getWorkspacePayload?.()?.agentSessionId || '');
                         if (!info.content && root && agentSessionId) {
-                            swarmToolPlayed = true;
                             fetch(`/api/agent-workspace/file/${encodeURIComponent(agentSessionId)}?root=${encodeURIComponent(root)}&path=${encodeURIComponent(info.path)}`, { headers: authHeaders() })
                                 .then(r => r.ok ? r.json() : null)
                                 .then(fileData => {
@@ -2204,7 +2204,9 @@
             if (workspacePayload) workspace()?.applyDone(data);
             const finalText = renderer.finish(data.reply || renderer.current());
             if (isNormalChat) {
-                if (!swarmToolPlayed) window.DragonHtmlSwarm?.onStreamFinish?.(finalText, { prompt: content });
+                if (!swarmToolPlayed && !swarmHtmlTools.size) {
+                    window.DragonHtmlSwarm?.onStreamFinish?.(finalText, { prompt: content });
+                }
                 window.DragonHtmlSwarm?.decorateMessageHtmlBlocks?.(reply, finalText);
             }
             state.messages.push({ role: 'model', content: finalText });
