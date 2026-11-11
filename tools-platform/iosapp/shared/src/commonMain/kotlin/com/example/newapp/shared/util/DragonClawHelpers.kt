@@ -8,6 +8,18 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 
+data class AestheticImageFrame(
+    val width: Double,
+    val height: Double,
+    val innerPadding: Double,
+    val needsBackdropFrame: Boolean
+)
+
+data class MarkdownRenderRun(
+    val block: MdBlock? = null,
+    val imageGroup: List<MdBlock> = emptyList()
+)
+
 /** Pure Kotlin helpers shared by iOS and Android (stream parsing, timestamps, grouping, error extraction). */
 object DragonClawHelpers {
     @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
@@ -526,6 +538,124 @@ object DragonClawHelpers {
             }
         }
         return ordered.values.toList()
+    }
+
+    /**
+     * Computes an aesthetically proportioned frame in logical points/dp for a single image across
+     * normal, panoramic/strip, stitched-tall, and small-icon aspect ratios without cropping or upscaling.
+     */
+    fun computeAestheticSingleImageFrame(
+        pixelWidth: Int,
+        pixelHeight: Int,
+        maxContainerWidth: Double = 246.0
+    ): AestheticImageFrame {
+        fun snap(v: Double): Double = kotlin.math.round(v * 2.0) / 2.0
+        val safeMaxW = maxContainerWidth.coerceAtLeast(160.0)
+        if (pixelWidth <= 0 || pixelHeight <= 0) {
+            return AestheticImageFrame(
+                width = snap(safeMaxW.coerceAtMost(208.0)),
+                height = 148.0,
+                innerPadding = 0.0,
+                needsBackdropFrame = true
+            )
+        }
+
+        val wPx = pixelWidth.toDouble()
+        val hPx = pixelHeight.toDouble()
+        val ratio = wPx / hPx
+
+        if (ratio > 1.85) {
+            // Wide banners / cropped horizontal strips: avoid stretching full screen width or blowing up small banners.
+            val logicalW = (wPx / 1.5).coerceIn(176.0, safeMaxW.coerceAtMost(244.0))
+            val fitH = logicalW / ratio
+            return if (fitH >= 80.0) {
+                AestheticImageFrame(
+                    width = snap(logicalW),
+                    height = snap(fitH.coerceAtMost(220.0)),
+                    innerPadding = 0.0,
+                    needsBackdropFrame = false
+                )
+            } else {
+                AestheticImageFrame(
+                    width = snap(logicalW),
+                    height = snap(fitH.coerceAtLeast(74.0)),
+                    innerPadding = 10.0,
+                    needsBackdropFrame = true
+                )
+            }
+        }
+
+        if (ratio >= 1.0) {
+            // Standard landscape & square images: balanced visual weight without excessive upscaling of tiny icons.
+            val capW = safeMaxW.coerceAtMost(if (ratio >= 1.35) 244.0 else 212.0)
+            val targetW = if (wPx < capW * 1.35 && hPx < 240.0) {
+                (wPx / 1.25).coerceIn(88.0, capW)
+            } else {
+                capW
+            }
+            val fitH = (targetW / ratio).coerceIn(88.0, 236.0)
+            val balancedW = (fitH * ratio).coerceIn(88.0, capW)
+            val tiny = wPx < 160.0 && hPx < 160.0
+            return AestheticImageFrame(
+                width = snap(balancedW),
+                height = snap(fitH),
+                innerPadding = if (tiny) 6.0 else 0.0,
+                needsBackdropFrame = tiny
+            )
+        }
+
+        // Portrait & tall stitched images.
+        val capH = if (ratio >= 0.68) 228.0 else 252.0
+        val targetH = if (hPx < capH * 1.35 && wPx < 240.0) {
+            (hPx / 1.25).coerceIn(112.0, capH)
+        } else {
+            capH
+        }
+        val fitW = targetH * ratio
+        return if (fitW >= 114.0) {
+            val boundedW = fitW.coerceAtMost(safeMaxW.coerceAtMost(208.0))
+            val boundedH = (boundedW / ratio).coerceAtMost(capH)
+            AestheticImageFrame(
+                width = snap(boundedW),
+                height = snap(boundedH),
+                innerPadding = 0.0,
+                needsBackdropFrame = false
+            )
+        } else {
+            // Ultra-tall stitched screenshot: keep readable card width with tasteful inset fit.
+            AestheticImageFrame(
+                width = snap(safeMaxW.coerceAtMost(138.0)),
+                height = snap(capH),
+                innerPadding = 8.0,
+                needsBackdropFrame = true
+            )
+        }
+    }
+
+    /** Groups consecutive Markdown image blocks into decks while leaving individual blocks separate. */
+    fun buildMarkdownRenderRuns(blocks: List<MdBlock>): List<MarkdownRenderRun> {
+        if (blocks.isEmpty()) return emptyList()
+        val runs = mutableListOf<MarkdownRenderRun>()
+        var idx = 0
+        while (idx < blocks.size) {
+            val current = blocks[idx]
+            if (current.kind == MdBlockKind.IMAGE && current.imageUrl.isNotBlank()) {
+                val collected = mutableListOf<MdBlock>()
+                while (idx < blocks.size && blocks[idx].kind == MdBlockKind.IMAGE && blocks[idx].imageUrl.isNotBlank()) {
+                    collected.add(blocks[idx])
+                    idx += 1
+                }
+                if (collected.size >= 2) {
+                    runs.add(MarkdownRenderRun(block = null, imageGroup = collected))
+                } else {
+                    runs.add(MarkdownRenderRun(block = collected.first(), imageGroup = emptyList()))
+                }
+            } else {
+                runs.add(MarkdownRenderRun(block = current, imageGroup = emptyList()))
+                idx += 1
+            }
+        }
+        return runs
     }
 }
 

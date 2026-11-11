@@ -117,6 +117,10 @@ struct MarkdownMessageView: View {
         MarkdownParser.shared.parse(raw: text)
     }
 
+    private var runs: [MarkdownRenderRun] {
+        DragonClawHelpers.shared.buildMarkdownRenderRuns(blocks: blocks)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
             if blocks.isEmpty && !text.isEmpty {
@@ -127,8 +131,33 @@ struct MarkdownMessageView: View {
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
-                ForEach(Array(blocks.enumerated()), id: \.offset) { index, block in
-                    blockView(block, isFirst: index == 0)
+                ForEach(Array(runs.enumerated()), id: \.offset) { index, run in
+                    if run.imageGroup.count >= 2 {
+                        let deckItems: [LightboxImageItem] = run.imageGroup.compactMap { imgBlock in
+                            let resolved = DragonClawHelpers.shared.resolveImageSourceUrl(baseUrl: baseUrl, rawSrc: imgBlock.imageUrl)
+                            let finalUrl = resolved.isEmpty ? imgBlock.imageUrl : resolved
+                            guard !finalUrl.isEmpty else { return nil }
+                            let title = imgBlock.imageAlt.isEmpty
+                                ? DragonClawHelpers.shared.basename(pathOrUrl: imgBlock.imageUrl)
+                                : imgBlock.imageAlt
+                            return LightboxImageItem(urlString: finalUrl, title: title)
+                        }
+                        if !deckItems.isEmpty {
+                            ChatStackedImageDeckView(
+                                items: deckItems,
+                                token: token,
+                                palette: palette,
+                                onOpenLightbox: { items, tappedIdx in
+                                    guard items.indices.contains(tappedIdx) else { return }
+                                    let chosen = items[tappedIdx]
+                                    onTapImage?(chosen.urlString, chosen.title)
+                                }
+                            )
+                            .padding(.vertical, 2)
+                        }
+                    } else if let block = run.block {
+                        blockView(block, isFirst: index == 0)
+                    }
                 }
             }
         }
@@ -224,18 +253,20 @@ struct MarkdownMessageView: View {
 
         case .image:
             let resolved = DragonClawHelpers.shared.resolveImageSourceUrl(baseUrl: baseUrl, rawSrc: block.imageUrl)
-            AuthenticatedRemoteImageView(
-                urlString: resolved,
-                token: token,
-                alt: block.imageAlt,
-                maxHeight: 240,
-                cornerRadius: 14,
-                contentMode: .fit,
-                palette: palette
-            ) { _ in
-                onTapImage?(resolved, block.imageAlt)
+            let finalUrl = resolved.isEmpty ? block.imageUrl : resolved
+            if !finalUrl.isEmpty {
+                AuthenticatedRemoteImageView(
+                    urlString: finalUrl,
+                    token: token,
+                    alt: block.imageAlt,
+                    adaptiveMaxWidth: 232,
+                    cornerRadius: 14,
+                    palette: palette
+                ) { _ in
+                    onTapImage?(finalUrl, block.imageAlt)
+                }
+                .padding(.vertical, 2)
             }
-            .padding(.vertical, 2)
 
         default:
             Text(attributedSpans(block.spans, baseSize: 14.5))
@@ -433,6 +464,12 @@ final class AuthenticatedImageCache: @unchecked Sendable {
         cache.object(forKey: key as NSString)
     }
 
+    func cachedImage(urlString: String, token: String) -> UIImage? {
+        let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return cached(for: "\(trimmed)#\(token.prefix(12))")
+    }
+
     func store(_ image: UIImage, for key: String) {
         let bytes = Int(image.size.width * image.size.height * image.scale * image.scale * 4)
         cache.setObject(image, forKey: key as NSString, cost: max(1, bytes))
@@ -482,66 +519,428 @@ struct AuthenticatedRemoteImageView: View {
     let urlString: String
     let token: String
     var alt: String = ""
-    var maxHeight: CGFloat = 240
-    var cornerRadius: CGFloat = 14
-    var contentMode: ContentMode = .fill
+    var fixedSize: CGSize? = nil
+    var adaptiveMaxWidth: CGFloat? = 246
+    var cornerRadius: CGFloat = 16
+    var innerPadding: CGFloat = 0
     let palette: DragonClawPalette
     var onTap: ((UIImage?) -> Void)? = nil
 
     @State private var loadedImage: UIImage?
     @State private var failed = false
 
-    var body: some View {
-        Button {
-            onTap?(loadedImage)
-        } label: {
-            Group {
-                if let uiImage = loadedImage {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .aspectRatio(contentMode: contentMode)
-                        .frame(maxWidth: .infinity, maxHeight: maxHeight)
-                        .clipped()
-                } else if failed {
-                    HStack(spacing: 8) {
-                        Image(systemName: "photo.badge.exclamationmark")
-                            .font(.subheadline)
-                            .foregroundStyle(palette.inkMuted)
-                        Text(alt.isEmpty ? "图片加载失败" : alt)
-                            .font(.caption)
+    private var activeImage: UIImage? {
+        loadedImage ?? AuthenticatedImageCache.shared.cachedImage(urlString: urlString, token: token)
+    }
+
+    private var resolvedFrame: (size: CGSize, padding: CGFloat, needsBackdrop: Bool) {
+        if let fixed = fixedSize {
+            return (fixed, innerPadding, false)
+        }
+        let img = activeImage
+        let pxW = Int32((img?.size.width ?? 0) * (img?.scale ?? 1))
+        let pxH = Int32((img?.size.height ?? 0) * (img?.scale ?? 1))
+        let maxW = Double(adaptiveMaxWidth ?? 246)
+        let frame = DragonClawHelpers.shared.computeAestheticSingleImageFrame(
+            pixelWidth: pxW,
+            pixelHeight: pxH,
+            maxContainerWidth: maxW
+        )
+        return (
+            CGSize(width: CGFloat(frame.width), height: CGFloat(frame.height)),
+            max(innerPadding, CGFloat(frame.innerPadding)),
+            frame.needsBackdropFrame
+        )
+    }
+
+    @ViewBuilder
+    private var cardSurface: some View {
+        let layout = resolvedFrame
+        let backdropFill = layout.needsBackdrop
+            ? palette.cardSurface.opacity(palette.isDark ? 0.90 : 0.96)
+            : palette.elevatedSurface.opacity(0.68)
+
+        ZStack {
+            if let uiImage = activeImage {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFit()
+                    .padding(layout.padding)
+                    .frame(width: layout.size.width, height: layout.size.height)
+            } else if failed {
+                VStack(spacing: 6) {
+                    Image(systemName: "photo.badge.exclamationmark")
+                        .font(.subheadline)
+                        .foregroundStyle(palette.inkMuted)
+                    if !alt.isEmpty {
+                        Text(alt)
+                            .font(.caption2)
                             .foregroundStyle(palette.inkSecondary)
                             .lineLimit(1)
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                    .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
-                    .background(palette.elevatedSurface.opacity(0.8))
-                } else {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .fill(palette.elevatedSurface.opacity(0.72))
-                        ProgressView()
-                            .controlSize(.small)
-                    }
-                    .frame(height: min(maxHeight, 148))
                 }
+                .padding(10)
+                .frame(width: layout.size.width, height: layout.size.height)
+            } else {
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(width: layout.size.width, height: layout.size.height)
             }
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(palette.hairLine, lineWidth: 0.75)
-            )
-            .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .frame(width: layout.size.width, height: layout.size.height)
+        .background(backdropFill)
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .stroke(palette.hairLine, lineWidth: 0.75)
+        )
+        .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+    }
+
+    var body: some View {
+        Group {
+            if let onTap {
+                Button {
+                    onTap(activeImage)
+                } label: {
+                    cardSurface
+                }
+                .buttonStyle(.plain)
+            } else {
+                cardSurface
+            }
+        }
         .task(id: "\(urlString)_\(token.prefix(12))") {
             failed = false
+            if let hit = AuthenticatedImageCache.shared.cachedImage(urlString: urlString, token: token) {
+                loadedImage = hit
+                return
+            }
             if let img = await AuthenticatedImageCache.shared.load(urlString: urlString, token: token) {
                 loadedImage = img
             } else {
                 failed = true
             }
         }
+    }
+}
+
+enum ChatDeckGestureTags {
+    static let horizontalDeckViewTag = 948271
+}
+
+private struct InteractiveDeckGestureOverlay: UIViewRepresentable {
+    let onTap: () -> Void
+    let onDragChanged: (CGFloat) -> Void
+    let onDragEnded: (CGFloat, CGFloat) -> Void
+    let onDragCancelled: () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        view.backgroundColor = .clear
+        view.isUserInteractionEnabled = true
+        view.tag = ChatDeckGestureTags.horizontalDeckViewTag
+
+        let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap))
+        tap.cancelsTouchesInView = false
+        tap.delaysTouchesBegan = false
+        tap.delegate = context.coordinator
+
+        let pan = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePan(_:)))
+        pan.maximumNumberOfTouches = 1
+        pan.delaysTouchesBegan = false
+        pan.cancelsTouchesInView = true
+        pan.delegate = context.coordinator
+
+        view.addGestureRecognizer(tap)
+        view.addGestureRecognizer(pan)
+        context.coordinator.panRecognizer = pan
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        context.coordinator.parent = self
+        uiView.tag = ChatDeckGestureTags.horizontalDeckViewTag
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var parent: InteractiveDeckGestureOverlay
+        weak var panRecognizer: UIPanGestureRecognizer?
+
+        init(parent: InteractiveDeckGestureOverlay) {
+            self.parent = parent
+        }
+
+        @objc func handleTap() {
+            parent.onTap()
+        }
+
+        @objc func handlePan(_ pan: UIPanGestureRecognizer) {
+            guard let view = pan.view else { return }
+            let tx = pan.translation(in: view).x
+            let vx = pan.velocity(in: view).x
+            switch pan.state {
+            case .began, .changed:
+                parent.onDragChanged(tx)
+            case .ended:
+                parent.onDragEnded(tx, vx)
+            case .cancelled, .failed:
+                parent.onDragCancelled()
+            default:
+                break
+            }
+        }
+
+        func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            if gestureRecognizer === panRecognizer, let view = gestureRecognizer.view {
+                let v = (gestureRecognizer as? UIPanGestureRecognizer)?.velocity(in: view) ?? .zero
+                let absVx = abs(v.x)
+                let absVy = abs(v.y)
+                // Only claim horizontal swipes; leave vertical drags cleanly to parent transcript ScrollView.
+                return absVx > 22 && absVx > absVy * 1.4
+            }
+            return true
+        }
+    }
+}
+
+struct ChatStackedImageDeckView: View {
+    let items: [LightboxImageItem]
+    let token: String
+    let palette: DragonClawPalette
+    let onOpenLightbox: ([LightboxImageItem], Int) -> Void
+
+    @State private var activeIndex: Int = 0
+    @State private var dragOffsetX: CGFloat = 0
+
+    private let cardWidth: CGFloat = 204
+    private let cardHeight: CGFloat = 248
+
+    private var safeActive: Int {
+        guard !items.isEmpty else { return 0 }
+        return ((activeIndex % items.count) + items.count) % items.count
+    }
+
+    var body: some View {
+        if items.isEmpty {
+            EmptyView()
+        } else if items.count == 1, let single = items.first {
+            AuthenticatedRemoteImageView(
+                urlString: single.urlString,
+                token: token,
+                alt: single.title,
+                adaptiveMaxWidth: 246,
+                cornerRadius: 16,
+                palette: palette
+            ) { _ in
+                onOpenLightbox(items, 0)
+            }
+        } else {
+            let count = items.count
+            let visibleDepths = min(3, count)
+            let peekWidth: CGFloat = visibleDepths >= 3 ? 30 : 16
+            let current = safeActive
+            let prevIdx = (current - 1 + count) % count
+            let draggingRight = dragOffsetX > 3
+            let rightProgress = draggingRight ? min(1, max(0, dragOffsetX / (cardWidth * 0.62))) : 0
+            let leftProgress = dragOffsetX < -3 ? min(1, max(0, -dragOffsetX / (cardWidth * 0.62))) : 0
+
+            VStack(alignment: .center, spacing: 8) {
+                ZStack(alignment: .leading) {
+                    ForEach((0..<visibleDepths).reversed(), id: \.self) { depth in
+                        let idx = (current + depth) % count
+                        if !(draggingRight && depth > 0 && idx == prevIdx) {
+                            let isFront = depth == 0
+                            let metrics = layerMetrics(
+                                depth: depth,
+                                draggingRight: draggingRight,
+                                leftProgress: leftProgress,
+                                rightProgress: rightProgress
+                            )
+                            deckCard(
+                                item: items[idx],
+                                isFront: isFront && !draggingRight,
+                                counterText: (isFront && !draggingRight) ? "\(current + 1) / \(count)" : nil
+                            )
+                            .frame(width: cardWidth, height: cardHeight)
+                            .scaleEffect(metrics.scale)
+                            .rotationEffect(.degrees(metrics.rotation))
+                            .offset(x: metrics.offsetX)
+                            .opacity(metrics.opacity)
+                            .zIndex(Double(visibleDepths - depth))
+                        }
+                    }
+
+                    if draggingRight {
+                        deckCard(
+                            item: items[prevIdx],
+                            isFront: true,
+                            counterText: "\(prevIdx + 1) / \(count)"
+                        )
+                        .frame(width: cardWidth, height: cardHeight)
+                        .scaleEffect(0.92 + 0.08 * rightProgress)
+                        .rotationEffect(.degrees(3.2 * (1 - rightProgress)))
+                        .offset(x: -cardWidth * 0.56 * (1 - rightProgress))
+                        .opacity(min(1, max(0, 0.40 + 0.60 * rightProgress)))
+                        .zIndex(10)
+                    }
+                }
+                .frame(width: cardWidth + peekWidth, height: cardHeight, alignment: .leading)
+                .overlay(
+                    InteractiveDeckGestureOverlay(
+                        onTap: {
+                            onOpenLightbox(items, safeActive)
+                        },
+                        onDragChanged: { tx in
+                            dragOffsetX = min(cardWidth * 0.95, max(-cardWidth * 0.95, tx))
+                        },
+                        onDragEnded: { tx, vx in
+                            let clamped = min(cardWidth * 0.95, max(-cardWidth * 0.95, tx))
+                            let threshold = cardWidth * 0.24
+                            if clamped < -threshold || vx < -340 {
+                                withAnimation(.spring(response: 0.30, dampingFraction: 0.84)) {
+                                    activeIndex = (safeActive + 1) % count
+                                    dragOffsetX = 0
+                                }
+                            } else if clamped > threshold || vx > 340 {
+                                withAnimation(.spring(response: 0.30, dampingFraction: 0.84)) {
+                                    activeIndex = (safeActive - 1 + count) % count
+                                    dragOffsetX = 0
+                                }
+                            } else {
+                                withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                                    dragOffsetX = 0
+                                }
+                            }
+                        },
+                        onDragCancelled: {
+                            withAnimation(.spring(response: 0.26, dampingFraction: 0.84)) {
+                                dragOffsetX = 0
+                            }
+                        }
+                    )
+                )
+
+                HStack(spacing: 5) {
+                    ForEach(0..<min(count, 8), id: \.self) { dotIdx in
+                        let active = dotIdx == current
+                        Capsule()
+                            .fill(active ? palette.accentStrong : palette.inkMuted.opacity(0.34))
+                            .frame(width: active ? 14 : 5, height: 5)
+                    }
+                }
+                .frame(width: cardWidth)
+            }
+            .onChange(of: items.map(\.urlString)) { _, _ in
+                activeIndex = 0
+                dragOffsetX = 0
+            }
+        }
+    }
+
+    private func layerMetrics(
+        depth: Int,
+        draggingRight: Bool,
+        leftProgress: CGFloat,
+        rightProgress: CGFloat
+    ) -> (offsetX: CGFloat, scale: CGFloat, rotation: Double, opacity: Double) {
+        if draggingRight {
+            let offsetX: CGFloat = switch depth {
+            case 0: 15 * 0.65 * rightProgress
+            case 1: 15 + 13 * rightProgress
+            default: 28
+            }
+            let scale: CGFloat = switch depth {
+            case 0: 1.0 - 0.05 * rightProgress
+            case 1: 0.94 - 0.05 * rightProgress
+            default: 0.88
+            }
+            let rotation: Double = depth == 0 ? Double(1.5 * rightProgress) : 1.4
+            let opacity: Double = switch depth {
+            case 0: Double(1.0 - 0.08 * rightProgress)
+            case 1: 0.95
+            default: 0.88
+            }
+            return (offsetX, scale, rotation, opacity)
+        } else {
+            let offsetX: CGFloat = switch depth {
+            case 0: dragOffsetX
+            case 1: 15 * (1 - leftProgress)
+            default: 28 - 13 * leftProgress
+            }
+            let scale: CGFloat = switch depth {
+            case 0: 1.0 - 0.04 * leftProgress
+            case 1: 0.94 + 0.06 * leftProgress
+            default: 0.88 + 0.06 * leftProgress
+            }
+            let rotation: Double = switch depth {
+            case 0: Double(-4.2 * leftProgress)
+            case 1: Double(1.4 * (1 - leftProgress))
+            default: Double(2.4 - 1.0 * leftProgress)
+            }
+            let opacity: Double = switch depth {
+            case 0: Double(1.0 - 0.14 * leftProgress)
+            case 1: Double(0.95 + 0.05 * leftProgress)
+            default: Double(0.88 + 0.07 * leftProgress)
+            }
+            return (offsetX, scale, rotation, opacity)
+        }
+    }
+
+    private func deckCard(
+        item: LightboxImageItem,
+        isFront: Bool,
+        counterText: String?
+    ) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 20, style: .continuous)
+        return ZStack(alignment: .bottomTrailing) {
+            AuthenticatedRemoteImageView(
+                urlString: item.urlString,
+                token: token,
+                alt: item.title,
+                fixedSize: CGSize(width: cardWidth - 8, height: cardHeight - 8),
+                adaptiveMaxWidth: nil,
+                cornerRadius: 16,
+                innerPadding: 6,
+                palette: palette,
+                onTap: nil
+            )
+            .padding(4)
+
+            if let counterText {
+                HStack(spacing: 4) {
+                    Text(counterText)
+                        .font(.system(size: 10.5, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(.white)
+                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                        .font(.system(size: 9.5, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.9))
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.black.opacity(0.56), in: Capsule())
+                .overlay(Capsule().stroke(Color.white.opacity(0.22), lineWidth: 0.6))
+                .padding(10)
+            }
+        }
+        .frame(width: cardWidth, height: cardHeight)
+        .background(palette.cardSurface.opacity(palette.isDark ? 0.94 : 0.98), in: shape)
+        .overlay(
+            shape.stroke(
+                isFront ? (palette.isDark ? Color.white.opacity(0.16) : Color.black.opacity(0.10)) : palette.hairLine,
+                lineWidth: isFront ? 1.0 : 0.75
+            )
+        )
+        .shadow(
+            color: Color.black.opacity(palette.isDark ? (isFront ? 0.36 : 0.22) : (isFront ? 0.14 : 0.07)),
+            radius: isFront ? 12 : 5,
+            x: 0,
+            y: isFront ? 5 : 2
+        )
     }
 }
 
@@ -579,39 +978,19 @@ struct ChatAttachmentGalleryView: View {
                         urlString: url,
                         token: token,
                         alt: single.displayName,
-                        maxHeight: 240,
+                        adaptiveMaxWidth: 246,
                         cornerRadius: 16,
-                        contentMode: .fill,
                         palette: palette
                     ) { _ in
                         onOpenLightbox(items, 0)
                     }
-                    .frame(maxWidth: 256)
                 } else {
-                    LazyVGrid(
-                        columns: [
-                            GridItem(.flexible(), spacing: 6),
-                            GridItem(.flexible(), spacing: 6)
-                        ],
-                        spacing: 6
-                    ) {
-                        ForEach(Array(imageAttachments.enumerated()), id: \.offset) { idx, att in
-                            let url = idx < items.count ? items[idx].urlString : ""
-                            AuthenticatedRemoteImageView(
-                                urlString: url,
-                                token: token,
-                                alt: att.displayName,
-                                maxHeight: 118,
-                                cornerRadius: 12,
-                                contentMode: .fill,
-                                palette: palette
-                            ) { _ in
-                                onOpenLightbox(items, idx)
-                            }
-                            .frame(height: 118)
-                        }
-                    }
-                    .frame(maxWidth: 268)
+                    ChatStackedImageDeckView(
+                        items: items,
+                        token: token,
+                        palette: palette,
+                        onOpenLightbox: onOpenLightbox
+                    )
                 }
             }
 

@@ -368,4 +368,54 @@ class DragonClawHelpersTest {
         assertTrue(DragonClawHelpers.isBusyQueueableError("当前对话正在执行，请先停止"))
         assertFalse(DragonClawHelpers.isBusyQueueableError("Network timeout"))
     }
+
+    @Test
+    fun aestheticSingleImageSizingAndMarkdownImageGroupingHandleExtremeRatios() {
+        // Wide banner strip (like an alert banner screenshot) stays bounded with a balanced glass backdrop
+        val banner = DragonClawHelpers.computeAestheticSingleImageFrame(340, 52, 246.0)
+        assertTrue(banner.width in 176.0..244.0)
+        assertTrue(banner.height >= 74.0)
+        assertTrue(banner.needsBackdropFrame)
+        assertTrue(banner.innerPadding > 0.0)
+
+        // Normal 16:9 desktop capture fits cleanly without extra padding
+        val widescreen = DragonClawHelpers.computeAestheticSingleImageFrame(1920, 1080, 246.0)
+        assertEquals(244.0, widescreen.width)
+        assertTrue(widescreen.height in 135.0..140.0)
+        assertFalse(widescreen.needsBackdropFrame)
+
+        // Tall iPhone screenshot maintains crisp flush portrait proportions
+        val iphone = DragonClawHelpers.computeAestheticSingleImageFrame(1290, 2796, 246.0)
+        assertTrue(iphone.width in 114.0..122.0)
+        assertEquals(252.0, iphone.height)
+        assertFalse(iphone.needsBackdropFrame)
+
+        // Ultra-tall stitched scroll capture keeps readable width inside a framed card
+        val ultraTall = DragonClawHelpers.computeAestheticSingleImageFrame(400, 2400, 246.0)
+        assertEquals(138.0, ultraTall.width)
+        assertEquals(252.0, ultraTall.height)
+        assertTrue(ultraTall.needsBackdropFrame)
+
+        // Small low-res icon avoids awkward magnification
+        val tinyIcon = DragonClawHelpers.computeAestheticSingleImageFrame(64, 64, 246.0)
+        assertEquals(88.0, tinyIcon.width)
+        assertEquals(88.0, tinyIcon.height)
+        assertTrue(tinyIcon.needsBackdropFrame)
+
+        // Consecutive Markdown images group into one deck run while solo images stay single
+        val md = """
+            说明如下：
+            ![a](/api/a.png)
+            ![b](/api/b.png)
+            ![c](/api/c.png)
+            结尾段落
+            ![solo](/api/solo.png)
+        """.trimIndent()
+        val runs = DragonClawHelpers.buildMarkdownRenderRuns(MarkdownParser.parse(md))
+        assertEquals(4, runs.size)
+        assertEquals(MdBlockKind.PARAGRAPH, runs[0].block?.kind)
+        assertEquals(3, runs[1].imageGroup.size)
+        assertEquals(MdBlockKind.PARAGRAPH, runs[2].block?.kind)
+        assertEquals(MdBlockKind.IMAGE, runs[3].block?.kind)
+    }
 }

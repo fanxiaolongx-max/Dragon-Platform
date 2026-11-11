@@ -1,14 +1,10 @@
 {
   "zh": [
-    "移动端更新至 v1.1.0 (2)，并在登录后侧边栏 Dragon Claw 标题右侧同步显示当前版本号。",
-    "精简实时语音对话状态文案（去除冗长停顿提示），优化后端语音模式提示词，回复更干练、直接、响应更快。",
-    "iOS 与 Android 实时语音右上角支持「免提 → 听筒/耳机 → 静音」三态无缝切换并实时切换硬件声道，同步修复 Android 语音页面底部按钮裁切与图标居中问题。",
-    "侧边栏「告警中心未读」横幅支持点击展开原生告警抽屉，支持筛选、详情查看、标为已读与归档，关闭后精确保留在原侧栏位置。"
+    "移动端更新至 v1.1.0 (3)：首页头像、标题与快捷提问垂直居中对齐，并移除小标题下方重复的模型选择按钮。",
+    "聊天收发与 Markdown 中的单张图片自动按原图比例自适应缩放（超宽横幅、超长截图与小图标均完整展示且不越界），多图消息升级为可左右滑动切换的层叠卡片堆，点击直接打开大图浏览器。"
   ],
   "en": [
-    "Bump mobile apps to v1.1.0 (2) and display the live version badge right beside Dragon Claw in the signed-in sidebar header.",
-    "Clean up live voice conversation overlays by removing verbose pause hints and tuning backend voice-mode prompts for concise, fast, direct answers.",
-    "Add 3-mode live audio routing (Speaker -> Earpiece/Headset -> Muted) on both iOS and Android, and fix Android voice button centering and bottom bar inset clearance.",
-    "Make the sidebar Alert Center banner interactive on mobile with filterable alert cards, mark-read and archive actions, returning cleanly to the exact sidebar state on close."
+    "Bump mobile apps to v1.1.0 (3): vertically center the Home hero avatar, title, and starter prompts, and remove the duplicate model selector beneath the slogan.",
+    "Add aesthetic proportion-aware scaling for single images (preventing wide-banner overflow and blurry upscaling) plus an interactive swipeable stacked card deck for multi-image messages with tap-to-zoom lightbox support."
   ]
 }

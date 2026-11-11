@@ -10,6 +10,9 @@ import android.provider.MediaStore
 import android.util.Base64
 import android.util.LruCache
 import android.widget.Toast
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -31,6 +34,7 @@ import androidx.compose.material.icons.rounded.BrokenImage
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.OpenInFull
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.CircularProgressIndicator
@@ -40,15 +44,19 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
+import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -56,8 +64,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.zIndex
 import androidx.core.content.FileProvider
 import com.example.newapp.shared.model.ChatAttachment
+import com.example.newapp.shared.network.AndroidBinaryHttpClient
 import com.example.newapp.shared.util.DragonClawHelpers
 import com.example.newapp.ui.theme.DragonClawPalette
 import com.example.newapp.ui.theme.LocalDragonClawPalette
@@ -65,11 +75,10 @@ import com.example.newapp.ui.theme.tr
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
-import java.net.HttpURLConnection
-import java.net.URL
+import kotlin.math.abs
+import kotlin.math.hypot
 import kotlin.math.max
 
 data class LightboxImageItem(
@@ -90,6 +99,13 @@ object AuthenticatedImageCache {
         override fun sizeOf(key: String, value: Bitmap): Int = (value.byteCount / 1024).coerceAtLeast(1)
     }
 
+    fun peekCached(urlString: String, token: String): Bitmap? {
+        val cleanUrl = urlString.trim()
+        if (cleanUrl.isEmpty()) return null
+        val cacheKey = "${token.takeLast(12)}::$cleanUrl"
+        return cache.get(cacheKey)?.takeIf { !it.isRecycled }
+    }
+
     suspend fun loadBitmap(urlString: String, token: String): Result<Bitmap> = withContext(Dispatchers.IO) {
         val cleanUrl = urlString.trim()
         if (cleanUrl.isEmpty()) return@withContext Result.failure(IllegalArgumentException("Empty image URL"))
@@ -103,44 +119,14 @@ object AuthenticatedImageCache {
             return@withContext decodeDataUri(cleanUrl).onSuccess { bmp -> cache.put(cacheKey, bmp) }
         }
 
-        val parsed = runCatching { URL(cleanUrl) }.getOrElse {
-            return@withContext Result.failure(it)
-        }
-        var conn: HttpURLConnection? = null
         return@withContext try {
-            conn = (parsed.openConnection() as HttpURLConnection).apply {
-                connectTimeout = 15_000
-                readTimeout = 30_000
-                instanceFollowRedirects = true
-                if (token.isNotBlank()) {
-                    setRequestProperty("Authorization", "Bearer $token")
-                }
-            }
-            val code = conn.responseCode
-            if (code !in 200..299) {
-                return@withContext Result.failure(IllegalStateException("HTTP $code"))
-            }
-            val bytes = conn.inputStream.use { input ->
-                val buffer = ByteArrayOutputStream()
-                val chunk = ByteArray(16_384)
-                while (true) {
-                    val read = input.read(chunk)
-                    if (read <= 0) break
-                    buffer.write(chunk, 0, read)
-                    if (buffer.size() > 24 * 1024 * 1024) {
-                        throw IllegalStateException("Image exceeds 24MB limit")
-                    }
-                }
-                buffer.toByteArray()
-            }
+            val bytes = AndroidBinaryHttpClient.fetchBytes(cleanUrl, token, maxBytes = 24 * 1024 * 1024)
             val bmp = decodeSampledBitmap(bytes, maxDim = 2048)
                 ?: return@withContext Result.failure(IllegalStateException("Failed to decode image"))
             cache.put(cacheKey, bmp)
             Result.success(bmp)
         } catch (err: Throwable) {
             Result.failure(err)
-        } finally {
-            runCatching { conn?.disconnect() }
         }
     }
 
@@ -169,19 +155,25 @@ fun AuthenticatedRemoteImageCard(
     altText: String,
     token: String,
     modifier: Modifier = Modifier,
-    cornerRadius: Dp = 14.dp,
-    contentScale: ContentScale = ContentScale.Crop,
+    cornerRadius: Dp = 16.dp,
+    contentScale: ContentScale = ContentScale.Fit,
+    adaptiveMaxWidth: Dp? = null,
+    innerPadding: Dp = 0.dp,
     onLoaded: ((Bitmap) -> Unit)? = null,
     onClick: (() -> Unit)? = null
 ) {
     val palette = LocalDragonClawPalette.current
     var reloadNonce by remember(urlString, token) { mutableIntStateOf(0) }
-    var bitmap by remember(urlString, token) { mutableStateOf<Bitmap?>(null) }
-    var isLoading by remember(urlString, token) { mutableStateOf(true) }
+    var bitmap by remember(urlString, token) {
+        mutableStateOf(AuthenticatedImageCache.peekCached(urlString, token))
+    }
+    var isLoading by remember(urlString, token) { mutableStateOf(bitmap == null) }
     var loadError by remember(urlString, token) { mutableStateOf<String?>(null) }
 
     LaunchedEffect(urlString, token, reloadNonce) {
-        isLoading = true
+        if (bitmap == null) {
+            isLoading = true
+        }
         loadError = null
         AuthenticatedImageCache.loadBitmap(urlString, token)
             .onSuccess { bmp ->
@@ -195,6 +187,30 @@ fun AuthenticatedRemoteImageCard(
             }
     }
 
+    val adaptiveFrame = remember(bitmap, adaptiveMaxWidth) {
+        adaptiveMaxWidth?.let { maxW ->
+            DragonClawHelpers.computeAestheticSingleImageFrame(
+                pixelWidth = bitmap?.width ?: 0,
+                pixelHeight = bitmap?.height ?: 0,
+                maxContainerWidth = maxW.value.toDouble()
+            )
+        }
+    }
+
+    val sizedModifier = if (adaptiveFrame != null) {
+        modifier.size(width = adaptiveFrame.width.dp, height = adaptiveFrame.height.dp)
+    } else {
+        modifier
+    }
+
+    val effectivePadding = maxOf(innerPadding.value, (adaptiveFrame?.innerPadding ?: 0.0).toFloat()).dp
+    val needsBackdrop = adaptiveFrame?.needsBackdropFrame == true
+    val cardFill = if (needsBackdrop) {
+        palette.cardSurface.copy(alpha = if (palette.isDark) 0.90f else 0.96f)
+    } else {
+        palette.elevatedSurface.copy(alpha = 0.65f)
+    }
+
     val shape = RoundedCornerShape(cornerRadius)
     val clickModifier = if (onClick != null) {
         Modifier.clickable(enabled = bitmap != null) { onClick() }
@@ -204,9 +220,9 @@ fun AuthenticatedRemoteImageCard(
 
     Box(
         contentAlignment = Alignment.Center,
-        modifier = modifier
+        modifier = sizedModifier
             .clip(shape)
-            .background(palette.elevatedSurface.copy(alpha = 0.65f))
+            .background(cardFill)
             .border(0.75.dp, palette.glassBorderSoft, shape)
             .then(clickModifier)
     ) {
@@ -216,8 +232,10 @@ fun AuthenticatedRemoteImageCard(
                 Image(
                     bitmap = loaded.asImageBitmap(),
                     contentDescription = altText.ifBlank { "Image" },
-                    contentScale = contentScale,
-                    modifier = Modifier.fillMaxSize()
+                    contentScale = if (adaptiveFrame != null) ContentScale.Fit else contentScale,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(effectivePadding)
                 )
             }
             isLoading -> {
@@ -257,6 +275,321 @@ fun AuthenticatedRemoteImageCard(
 }
 
 @Composable
+fun ChatStackedImageDeck(
+    items: List<LightboxImageItem>,
+    token: String,
+    palette: DragonClawPalette,
+    onOpenLightbox: (List<LightboxImageItem>, Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (items.isEmpty()) return
+    if (items.size == 1) {
+        val single = items[0]
+        AuthenticatedRemoteImageCard(
+            urlString = single.urlString,
+            altText = single.title,
+            token = token,
+            cornerRadius = 16.dp,
+            contentScale = ContentScale.Fit,
+            adaptiveMaxWidth = 246.dp,
+            onClick = { onOpenLightbox(items, 0) },
+            modifier = modifier
+        )
+        return
+    }
+
+    val count = items.size
+    var activeIndex by remember(items.map { it.urlString }) { mutableIntStateOf(0) }
+    val safeActive = activeIndex.coerceIn(0, count - 1)
+    if (safeActive != activeIndex) activeIndex = safeActive
+
+    val dragOffsetPx = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+
+    val cardWidth = 204.dp
+    val cardHeight = 248.dp
+    val visibleDepths = minOf(3, count)
+    val peekPadding = if (visibleDepths >= 3) 30.dp else 16.dp
+    val cardWidthPx = with(density) { cardWidth.toPx() }
+    val offset1Px = with(density) { 15.dp.toPx() }
+    val offset2Px = with(density) { 28.dp.toPx() }
+
+    val currentActiveState by rememberUpdatedState(safeActive)
+    val currentItemsState by rememberUpdatedState(items)
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = modifier
+    ) {
+        Box(
+            contentAlignment = Alignment.CenterStart,
+            modifier = Modifier
+                .width(cardWidth + peekPadding)
+                .height(cardHeight)
+                .pointerInput(count) {
+                    val touchSlop = viewConfiguration.touchSlop
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        var lockedHorizontal = false
+                        var movedTooFar = false
+                        var dragX = 0f
+                        val tracker = VelocityTracker().apply {
+                            addPosition(down.uptimeMillis, down.position)
+                        }
+                        while (true) {
+                            val event = awaitPointerEvent(PointerEventPass.Main)
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            tracker.addPosition(change.uptimeMillis, change.position)
+                            val dx = change.position.x - down.position.x
+                            val dy = change.position.y - down.position.y
+                            if (!change.pressed) {
+                                if (lockedHorizontal) {
+                                    val vx = runCatching { tracker.calculateVelocity().x }.getOrDefault(0f)
+                                    val threshold = cardWidthPx * 0.24f
+                                    scope.launch {
+                                        when {
+                                            dragX < -threshold || vx < -340f -> {
+                                                activeIndex = (currentActiveState + 1) % count
+                                                dragOffsetPx.snapTo(0f)
+                                            }
+                                            dragX > threshold || vx > 340f -> {
+                                                activeIndex = (currentActiveState - 1 + count) % count
+                                                dragOffsetPx.snapTo(0f)
+                                            }
+                                            else -> {
+                                                dragOffsetPx.animateTo(
+                                                    0f,
+                                                    spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessMedium)
+                                                )
+                                            }
+                                        }
+                                    }
+                                } else if (!movedTooFar && !change.isConsumed) {
+                                    onOpenLightbox(currentItemsState, currentActiveState)
+                                }
+                                break
+                            }
+
+                            if (hypot(dx.toDouble(), dy.toDouble()) > touchSlop * 1.05) {
+                                movedTooFar = true
+                            }
+
+                            if (!lockedHorizontal) {
+                                if (abs(dy) > touchSlop * 0.8f && abs(dy) > abs(dx) * 1.15f) {
+                                    // Yield to vertical transcript scrolling cleanly.
+                                    break
+                                }
+                                if (abs(dx) > touchSlop * 0.85f && abs(dx) > abs(dy) * 1.35f) {
+                                    lockedHorizontal = true
+                                    dragX = dx.coerceIn(-cardWidthPx * 0.95f, cardWidthPx * 0.95f)
+                                    change.consume()
+                                    scope.launch { dragOffsetPx.snapTo(dragX) }
+                                }
+                            } else {
+                                dragX = dx.coerceIn(-cardWidthPx * 0.95f, cardWidthPx * 0.95f)
+                                change.consume()
+                                scope.launch { dragOffsetPx.snapTo(dragX) }
+                            }
+                        }
+                    }
+                }
+        ) {
+            val dragX = dragOffsetPx.value
+            val prevIdx = (safeActive - 1 + count) % count
+            val draggingRight = dragX > 3f
+            val rightProgress = if (draggingRight) (dragX / (cardWidthPx * 0.62f)).coerceIn(0f, 1f) else 0f
+            val leftProgress = if (dragX < -3f) (-dragX / (cardWidthPx * 0.62f)).coerceIn(0f, 1f) else 0f
+
+            for (depth in (visibleDepths - 1) downTo 0) {
+                val idx = (safeActive + depth) % count
+                if (draggingRight && depth > 0 && idx == prevIdx) continue
+
+                val item = items[idx]
+                val isFront = depth == 0
+                val tx: Float
+                val cardScale: Float
+                val rotZ: Float
+                val cardAlpha: Float
+
+                if (draggingRight) {
+                    tx = when (depth) {
+                        0 -> offset1Px * 0.65f * rightProgress
+                        1 -> offset1Px + (offset2Px - offset1Px) * rightProgress
+                        else -> offset2Px
+                    }
+                    cardScale = when (depth) {
+                        0 -> 1f - 0.05f * rightProgress
+                        1 -> 0.94f - 0.05f * rightProgress
+                        else -> 0.88f
+                    }
+                    rotZ = if (isFront) 1.5f * rightProgress else 1.4f
+                    cardAlpha = when (depth) {
+                        0 -> 1f - 0.08f * rightProgress
+                        1 -> 0.95f
+                        else -> 0.88f
+                    }
+                } else {
+                    tx = when (depth) {
+                        0 -> dragX
+                        1 -> offset1Px * (1f - leftProgress)
+                        else -> offset2Px - (offset2Px - offset1Px) * leftProgress
+                    }
+                    cardScale = when (depth) {
+                        0 -> 1f - 0.04f * leftProgress
+                        1 -> 0.94f + 0.06f * leftProgress
+                        else -> 0.88f + 0.06f * leftProgress
+                    }
+                    rotZ = when (depth) {
+                        0 -> -4.2f * leftProgress
+                        1 -> 1.4f * (1f - leftProgress)
+                        else -> 2.4f - 1.0f * leftProgress
+                    }
+                    cardAlpha = when (depth) {
+                        0 -> 1f - 0.14f * leftProgress
+                        1 -> 0.95f + 0.05f * leftProgress
+                        else -> 0.88f + 0.07f * leftProgress
+                    }
+                }
+
+                key("deck:${idx}:${item.urlString}") {
+                    StackedImageDeckCard(
+                        item = item,
+                        token = token,
+                        palette = palette,
+                        isFront = isFront && !draggingRight,
+                        frontCounterLabel = if (isFront && !draggingRight) "${safeActive + 1} / $count" else null,
+                        modifier = Modifier
+                            .size(width = cardWidth, height = cardHeight)
+                            .zIndex((visibleDepths - depth).toFloat())
+                            .graphicsLayer {
+                                translationX = tx
+                                scaleX = cardScale
+                                scaleY = cardScale
+                                rotationZ = rotZ
+                            }
+                            .alpha(cardAlpha)
+                    )
+                }
+            }
+
+            if (draggingRight) {
+                val incomingItem = items[prevIdx]
+                key("deck:${prevIdx}:${incomingItem.urlString}") {
+                    StackedImageDeckCard(
+                        item = incomingItem,
+                        token = token,
+                        palette = palette,
+                        isFront = true,
+                        frontCounterLabel = "${prevIdx + 1} / $count",
+                        modifier = Modifier
+                            .size(width = cardWidth, height = cardHeight)
+                            .zIndex(10f)
+                            .graphicsLayer {
+                                translationX = -cardWidthPx * 0.56f * (1f - rightProgress)
+                                scaleX = 0.92f + 0.08f * rightProgress
+                                scaleY = 0.92f + 0.08f * rightProgress
+                                rotationZ = 3.2f * (1f - rightProgress)
+                            }
+                            .alpha((0.40f + 0.60f * rightProgress).coerceIn(0f, 1f))
+                    )
+                }
+            }
+        }
+
+        // Compact stack indicator dots centered under front card
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .width(cardWidth)
+                .padding(end = 2.dp),
+            content = {
+                Spacer(Modifier.weight(1f))
+                items.indices.take(8).forEach { dotIdx ->
+                    val active = dotIdx == safeActive
+                    Box(
+                        modifier = Modifier
+                            .size(width = if (active) 14.dp else 5.dp, height = 5.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (active) palette.accentStrong else palette.inkMuted.copy(alpha = 0.34f)
+                            )
+                    )
+                }
+                Spacer(Modifier.weight(1f))
+            }
+        )
+    }
+}
+
+@Composable
+private fun StackedImageDeckCard(
+    item: LightboxImageItem,
+    token: String,
+    palette: DragonClawPalette,
+    isFront: Boolean,
+    frontCounterLabel: String?,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = palette.cardSurface.copy(alpha = if (palette.isDark) 0.94f else 0.98f),
+        border = BorderStroke(
+            width = if (isFront) 1.dp else 0.75.dp,
+            color = if (isFront) palette.glassBorderSoft else palette.hairLine
+        ),
+        shadowElevation = if (isFront) 10.dp else 4.dp,
+        modifier = modifier
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            AuthenticatedRemoteImageCard(
+                urlString = item.urlString,
+                altText = item.title,
+                token = token,
+                cornerRadius = 16.dp,
+                contentScale = ContentScale.Fit,
+                innerPadding = 6.dp,
+                onClick = null,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(4.dp)
+            )
+            if (frontCounterLabel != null) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color.Black.copy(alpha = 0.56f),
+                    border = BorderStroke(0.6.dp, Color.White.copy(alpha = 0.22f)),
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(10.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = frontCounterLabel,
+                            color = Color.White,
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Icon(
+                            imageVector = Icons.Rounded.OpenInFull,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.9f),
+                            modifier = Modifier.size(10.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun ChatAttachmentGallery(
     attachments: List<ChatAttachment>,
     token: String,
@@ -274,7 +607,7 @@ fun ChatAttachmentGallery(
     }
     val files = remember(attachments) { attachments.filterNot { it.isImage } }
 
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = modifier) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = modifier) {
         if (images.size == 1) {
             val single = images[0]
             AuthenticatedRemoteImageCard(
@@ -282,32 +615,17 @@ fun ChatAttachmentGallery(
                 altText = single.title,
                 token = token,
                 cornerRadius = 16.dp,
-                contentScale = ContentScale.Crop,
-                onClick = { onOpenLightbox(images, 0) },
-                modifier = Modifier
-                    .widthIn(min = 160.dp, max = 250.dp)
-                    .height(176.dp)
+                contentScale = ContentScale.Fit,
+                adaptiveMaxWidth = 246.dp,
+                onClick = { onOpenLightbox(images, 0) }
             )
         } else if (images.size > 1) {
-            val rows = images.chunked(2)
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                rows.forEachIndexed { rowIdx, rowItems ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        rowItems.forEachIndexed { colIdx, item ->
-                            val index = rowIdx * 2 + colIdx
-                            AuthenticatedRemoteImageCard(
-                                urlString = item.urlString,
-                                altText = item.title,
-                                token = token,
-                                cornerRadius = 14.dp,
-                                contentScale = ContentScale.Crop,
-                                onClick = { onOpenLightbox(images, index) },
-                                modifier = Modifier.size(120.dp)
-                            )
-                        }
-                    }
-                }
-            }
+            ChatStackedImageDeck(
+                items = images,
+                token = token,
+                palette = palette,
+                onOpenLightbox = onOpenLightbox
+            )
         }
 
         if (files.isNotEmpty()) {

@@ -1149,6 +1149,17 @@ private struct DirectionalDrawerPanInstaller: UIViewRepresentable {
             }
         }
 
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            var cursor: UIView? = touch.view
+            while let view = cursor {
+                if view.tag == ChatDeckGestureTags.horizontalDeckViewTag {
+                    return false
+                }
+                cursor = view.superview
+            }
+            return true
+        }
+
         func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
             guard let pan = gestureRecognizer as? UIPanGestureRecognizer,
                   let view = attachedView,

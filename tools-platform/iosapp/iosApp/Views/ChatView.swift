@@ -35,178 +35,186 @@ struct ChatView: View {
     }
 
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                if store.messages.isEmpty && store.isLoadingSessionMessages {
+        ZStack {
+            if store.messages.isEmpty && store.isLoadingSessionMessages {
+                ScrollView(showsIndicators: false) {
                     ChatShimmerSkeletonView(palette: palette)
                         .padding(.horizontal, 14)
                         .padding(.top, 20)
                         .padding(.bottom, 20)
-                } else if store.messages.isEmpty {
-                    heroEmptyState
+                }
+            } else if store.messages.isEmpty {
+                GeometryReader { geo in
+                    ScrollView(showsIndicators: false) {
+                        VStack(spacing: 0) {
+                            Spacer(minLength: 16)
+                            heroEmptyState
+                            Spacer(minLength: 16)
+                        }
                         .padding(.horizontal, 18)
-                        .padding(.top, 24)
-                        .padding(.bottom, 24)
-                } else {
-                    LazyVStack(spacing: 16) {
-                        if store.hasMoreOlderMessages || store.isLoadingOlderMessages {
-                            HStack(spacing: 8) {
-                                if store.isLoadingOlderMessages {
-                                    ProgressView().controlSize(.small)
-                                    Text(L10n.tr(lang, zh: "正在加载更早消息...", en: "Loading earlier messages..."))
-                                        .font(.caption)
-                                        .foregroundStyle(palette.inkMuted)
-                                } else {
-                                    Button {
-                                        guard anchorBeforePrependId == nil else { return }
-                                        anchorBeforePrependId = store.messages.first?.id
-                                        store.loadOlderMessages()
-                                    } label: {
-                                        Label(
-                                            L10n.tr(lang, zh: "加载更早消息", en: "Load earlier messages"),
-                                            systemImage: "arrow.up.circle"
-                                        )
-                                        .font(.caption.weight(.medium))
-                                        .foregroundStyle(palette.inkSecondary)
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 6)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .glassEffect(.regular.interactive(), in: Capsule())
-                                }
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 4)
-                            .id("__older_history_sentinel__")
-                            .onScrollVisibilityChange(threshold: 0.1) { visible in
-                                guard visible,
-                                      initialOpenSettled,
-                                      lastAnchoredSessionGen == store.chatOpenScrollGeneration,
-                                      anchorBeforePrependId == nil,
-                                      store.hasMoreOlderMessages,
-                                      !store.isLoadingOlderMessages,
-                                      !store.isLoadingSessionMessages else { return }
-                                anchorBeforePrependId = store.messages.first?.id
-                                store.loadOlderMessages()
-                            }
-                        }
-
-                        if store.isLoadingSessionMessages {
-                            ChatShimmerSkeletonView(palette: palette)
-                                .padding(.vertical, 8)
-                        }
-
-                        ForEach(Array(store.messages.enumerated()), id: \.element.id) { index, message in
-                            let isLastMessage = index == store.messages.count - 1
-                            let isDesktopActiveTurn = store.activeDesktopSession != nil &&
-                                store.activeDesktopBusy &&
-                                isLastMessage &&
-                                !message.isUser
-                            ChatBubbleRow(
-                                message: message,
-                                renderToken: message.renderKey,
-                                token: store.token,
-                                baseUrl: store.baseUrl,
-                                senderLabel: !message.isUser ? store.activeDesktopSession?.providerDisplayName() : nil,
-                                suppressActionFooter: isDesktopActiveTurn,
-                                showTurnWorkingIndicator: isDesktopActiveTurn,
-                                isThinkingExpanded: Binding(
-                                    get: { store.expandedThinkingIds.contains(message.id) },
-                                    set: { expanded in
-                                        if expanded {
-                                            store.expandedThinkingIds.insert(message.id)
-                                        } else {
-                                            store.expandedThinkingIds.remove(message.id)
+                        .frame(maxWidth: .infinity, minHeight: geo.size.height)
+                    }
+                    .scrollDismissesKeyboard(.interactively)
+                }
+            } else {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(spacing: 16) {
+                            if store.hasMoreOlderMessages || store.isLoadingOlderMessages {
+                                HStack(spacing: 8) {
+                                    if store.isLoadingOlderMessages {
+                                        ProgressView().controlSize(.small)
+                                        Text(L10n.tr(lang, zh: "正在加载更早消息...", en: "Loading earlier messages..."))
+                                            .font(.caption)
+                                            .foregroundStyle(palette.inkMuted)
+                                    } else {
+                                        Button {
+                                            guard anchorBeforePrependId == nil else { return }
+                                            anchorBeforePrependId = store.messages.first?.id
+                                            store.loadOlderMessages()
+                                        } label: {
+                                            Label(
+                                                L10n.tr(lang, zh: "加载更早消息", en: "Load earlier messages"),
+                                                systemImage: "arrow.up.circle"
+                                            )
+                                            .font(.caption.weight(.medium))
+                                            .foregroundStyle(palette.inkSecondary)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 6)
                                         }
+                                        .buttonStyle(.plain)
+                                        .glassEffect(.regular.interactive(), in: Capsule())
                                     }
-                                ),
-                                palette: palette,
-                                language: lang,
-                                onRetry: { store.retryLastPrompt() },
-                                onOpenLightbox: { items, index in
-                                    lightboxPayload = LightboxPayload(
-                                        items: items,
-                                        initialIndex: index,
-                                        token: store.token
-                                    )
                                 }
-                            )
-                            .id(message.id)
-                        }
-
-                        Color.clear
-                            .frame(height: 1)
-                            .id("__chat_bottom_anchor__")
-                            .onScrollVisibilityChange(threshold: 0.1) { visible in
-                                isNearBottom = visible
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 4)
+                                .id("__older_history_sentinel__")
+                                .onScrollVisibilityChange(threshold: 0.1) { visible in
+                                    guard visible,
+                                          initialOpenSettled,
+                                          lastAnchoredSessionGen == store.chatOpenScrollGeneration,
+                                          anchorBeforePrependId == nil,
+                                          store.hasMoreOlderMessages,
+                                          !store.isLoadingOlderMessages,
+                                          !store.isLoadingSessionMessages else { return }
+                                    anchorBeforePrependId = store.messages.first?.id
+                                    store.loadOlderMessages()
+                                }
                             }
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
-                }
-            }
-            .defaultScrollAnchor(.bottom)
-            .scrollDismissesKeyboard(.interactively)
-            .onAppear {
-                if !store.messages.isEmpty, lastAnchoredSessionGen != store.chatOpenScrollGeneration {
-                    let gen = store.chatOpenScrollGeneration
-                    lastAnchoredSessionGen = gen
-                    initialOpenSettled = false
-                    isNearBottom = true
-                    proxy.scrollTo("__chat_bottom_anchor__", anchor: .bottom)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                        if lastAnchoredSessionGen == gen {
-                            initialOpenSettled = true
+
+                            ForEach(Array(store.messages.enumerated()), id: \.element.id) { index, message in
+                                let isLastMessage = index == store.messages.count - 1
+                                let isDesktopActiveTurn = store.activeDesktopSession != nil &&
+                                    store.activeDesktopBusy &&
+                                    isLastMessage &&
+                                    !message.isUser
+                                ChatBubbleRow(
+                                    message: message,
+                                    renderToken: message.renderKey,
+                                    token: store.token,
+                                    baseUrl: store.baseUrl,
+                                    senderLabel: !message.isUser ? store.activeDesktopSession?.providerDisplayName() : nil,
+                                    suppressActionFooter: isDesktopActiveTurn,
+                                    showTurnWorkingIndicator: isDesktopActiveTurn,
+                                    isThinkingExpanded: Binding(
+                                        get: { store.expandedThinkingIds.contains(message.id) },
+                                        set: { expanded in
+                                            if expanded {
+                                                store.expandedThinkingIds.insert(message.id)
+                                            } else {
+                                                store.expandedThinkingIds.remove(message.id)
+                                            }
+                                        }
+                                    ),
+                                    palette: palette,
+                                    language: lang,
+                                    onRetry: { store.retryLastPrompt() },
+                                    onOpenLightbox: { items, index in
+                                        lightboxPayload = LightboxPayload(
+                                            items: items,
+                                            initialIndex: index,
+                                            token: store.token
+                                        )
+                                    }
+                                )
+                                .id(message.id)
+                            }
+
+                            Color.clear
+                                .frame(height: 1)
+                                .id("__chat_bottom_anchor__")
+                                .onScrollVisibilityChange(threshold: 0.1) { visible in
+                                    isNearBottom = visible
+                                }
                         }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
                     }
-                }
-            }
-            .onChange(of: store.chatOpenScrollGeneration) { _, newGen in
-                anchorBeforePrependId = nil
-                lastAnchoredSessionGen = newGen
-                initialOpenSettled = false
-                isNearBottom = true
-                DispatchQueue.main.async {
-                    proxy.scrollTo("__chat_bottom_anchor__", anchor: .bottom)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                        if lastAnchoredSessionGen == newGen {
-                            initialOpenSettled = true
-                        }
-                    }
-                }
-            }
-            .onChange(of: store.messages.first?.id) { _, _ in
-                if let anchorId = anchorBeforePrependId {
-                    DispatchQueue.main.async {
-                        proxy.scrollTo(anchorId, anchor: .top)
-                        anchorBeforePrependId = nil
-                    }
-                }
-            }
-            .onChange(of: store.messages.last?.content) { _, _ in
-                if anchorBeforePrependId == nil,
-                   !store.messages.isEmpty,
-                   (isNearBottom || store.messages.last?.isUser == true) {
-                    withAnimation(.easeOut(duration: 0.16)) {
-                        proxy.scrollTo("__chat_bottom_anchor__", anchor: .bottom)
-                    }
-                }
-            }
-            .onChange(of: store.messages.last?.id) { _, _ in
-                if anchorBeforePrependId == nil,
-                   !store.messages.isEmpty,
-                   (isNearBottom || store.messages.last?.isUser == true) {
-                    if lastAnchoredSessionGen != store.chatOpenScrollGeneration {
-                        lastAnchoredSessionGen = store.chatOpenScrollGeneration
-                        proxy.scrollTo("__chat_bottom_anchor__", anchor: .bottom)
-                    } else {
-                        withAnimation(.easeOut(duration: 0.16)) {
+                    .defaultScrollAnchor(.bottom)
+                    .scrollDismissesKeyboard(.interactively)
+                    .onAppear {
+                        if !store.messages.isEmpty, lastAnchoredSessionGen != store.chatOpenScrollGeneration {
+                            let gen = store.chatOpenScrollGeneration
+                            lastAnchoredSessionGen = gen
+                            initialOpenSettled = false
+                            isNearBottom = true
                             proxy.scrollTo("__chat_bottom_anchor__", anchor: .bottom)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                                if lastAnchoredSessionGen == gen {
+                                    initialOpenSettled = true
+                                }
+                            }
+                        }
+                    }
+                    .onChange(of: store.chatOpenScrollGeneration) { _, newGen in
+                        anchorBeforePrependId = nil
+                        lastAnchoredSessionGen = newGen
+                        initialOpenSettled = false
+                        isNearBottom = true
+                        DispatchQueue.main.async {
+                            proxy.scrollTo("__chat_bottom_anchor__", anchor: .bottom)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                                if lastAnchoredSessionGen == newGen {
+                                    initialOpenSettled = true
+                                }
+                            }
+                        }
+                    }
+                    .onChange(of: store.messages.first?.id) { _, _ in
+                        if let anchorId = anchorBeforePrependId {
+                            DispatchQueue.main.async {
+                                proxy.scrollTo(anchorId, anchor: .top)
+                                anchorBeforePrependId = nil
+                            }
+                        }
+                    }
+                    .onChange(of: store.messages.last?.content) { _, _ in
+                        if anchorBeforePrependId == nil,
+                           !store.messages.isEmpty,
+                           (isNearBottom || store.messages.last?.isUser == true) {
+                            withAnimation(.easeOut(duration: 0.16)) {
+                                proxy.scrollTo("__chat_bottom_anchor__", anchor: .bottom)
+                            }
+                        }
+                    }
+                    .onChange(of: store.messages.last?.id) { _, _ in
+                        if anchorBeforePrependId == nil,
+                           !store.messages.isEmpty,
+                           (isNearBottom || store.messages.last?.isUser == true) {
+                            if lastAnchoredSessionGen != store.chatOpenScrollGeneration {
+                                lastAnchoredSessionGen = store.chatOpenScrollGeneration
+                                proxy.scrollTo("__chat_bottom_anchor__", anchor: .bottom)
+                            } else {
+                                withAnimation(.easeOut(duration: 0.16)) {
+                                    proxy.scrollTo("__chat_bottom_anchor__", anchor: .bottom)
+                                }
+                            }
                         }
                     }
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .overlay {
             if showPlusMenu {
                 Color.black.opacity(0.001)
@@ -310,10 +318,8 @@ struct ChatView: View {
     }
 
     private var heroEmptyState: some View {
-        VStack(spacing: 22) {
-            Spacer(minLength: 18)
-
-            VStack(spacing: 14) {
+        VStack(spacing: 24) {
+            VStack(spacing: 12) {
                 Image("DragonClawAvatar")
                     .resizable()
                     .scaledToFill()
@@ -331,41 +337,41 @@ struct ChatView: View {
                     .font(.system(size: 12.5))
                     .foregroundStyle(palette.inkMuted)
                     .multilineTextAlignment(.center)
-
-                modelSelectorPill
             }
 
-            VStack(alignment: .leading, spacing: 9) {
-                Text(L10n.tr(lang, zh: "快速提问", en: "Suggested Prompts"))
-                    .font(.system(size: 11.5, weight: .semibold))
-                    .foregroundStyle(palette.inkMuted)
-                    .padding(.leading, 4)
+            if !starterPrompts.isEmpty {
+                VStack(alignment: .leading, spacing: 9) {
+                    Text(L10n.tr(lang, zh: "快速提问", en: "Suggested Prompts"))
+                        .font(.system(size: 11.5, weight: .semibold))
+                        .foregroundStyle(palette.inkMuted)
+                        .padding(.leading, 4)
 
-                ForEach(starterPrompts, id: \.self) { prompt in
-                    Button {
-                        store.sendPrompt(prompt)
-                    } label: {
-                        HStack(spacing: 10) {
-                            Image(systemName: "sparkles")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(palette.accentStrong)
-                            Text(prompt)
-                                .font(.system(size: 13))
-                                .foregroundStyle(palette.inkPrimary)
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-                                .multilineTextAlignment(.leading)
-                            Spacer()
-                            Image(systemName: "arrow.up.right")
-                                .font(.caption2.weight(.semibold))
-                                .foregroundStyle(palette.inkMuted)
+                    ForEach(starterPrompts, id: \.self) { prompt in
+                        Button {
+                            store.sendPrompt(prompt)
+                        } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: "sparkles")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(palette.accentStrong)
+                                Text(prompt)
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(palette.inkPrimary)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                                    .multilineTextAlignment(.leading)
+                                Spacer()
+                                Image(systemName: "arrow.up.right")
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(palette.inkMuted)
+                            }
+                            .padding(.horizontal, 13)
+                            .padding(.vertical, 10)
+                            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                         }
-                        .padding(.horizontal, 13)
-                        .padding(.vertical, 10)
-                        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .buttonStyle(.plain)
+                        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                     }
-                    .buttonStyle(.plain)
-                    .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
             }
         }
@@ -642,18 +648,6 @@ struct ChatView: View {
             .buttonStyle(.plain)
             .accessibilityLabel(store.activeModelDisplayName)
         }
-    }
-
-    private var modelSelectorPill: some View {
-        modelPickerButton(
-            maxWidth: nil,
-            font: .caption.weight(.semibold),
-            foreground: palette.inkPrimary,
-            showCpuIcon: true,
-            horizontalPadding: 14,
-            verticalPadding: 8
-        )
-        .glassEffect(.regular.interactive(), in: .capsule)
     }
 
     private var floatingLiquidComposer: some View {

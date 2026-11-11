@@ -23,6 +23,9 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.Dns
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.io.ByteArrayOutputStream
 import java.net.HttpURLConnection
 import java.net.Inet4Address
 import java.net.InetAddress
@@ -30,6 +33,7 @@ import java.net.URL
 import java.net.URLEncoder
 import java.net.UnknownHostException
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 
 actual fun createPlatformHttpClient(block: HttpClientConfig<*>.() -> Unit): HttpClient = HttpClient(OkHttp) {
     engine {
@@ -193,6 +197,49 @@ actual suspend fun streamNdjsonPost(
             val line = channel.readUTF8Line() ?: break
             if (line.isNotBlank()) {
                 onLine(line)
+            }
+        }
+    }
+}
+
+object AndroidBinaryHttpClient {
+    private val client: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(12, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .followRedirects(true)
+            .dns(SmartAndroidDns)
+            .build()
+    }
+
+    fun fetchBytes(urlString: String, token: String = "", maxBytes: Int = 24 * 1024 * 1024): ByteArray {
+        val requestBuilder = Request.Builder()
+            .url(urlString)
+            .get()
+        if (token.isNotBlank()) {
+            requestBuilder.header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+        }
+        client.newCall(requestBuilder.build()).execute().use { response ->
+            if (!response.isSuccessful) {
+                throw IllegalStateException("HTTP ${response.code}")
+            }
+            val body = response.body ?: throw IllegalStateException("Empty response body")
+            val contentLength = body.contentLength()
+            if (contentLength > maxBytes) {
+                throw IllegalStateException("Image exceeds ${maxBytes / (1024 * 1024)}MB limit")
+            }
+            return body.byteStream().use { input ->
+                val buffer = ByteArrayOutputStream()
+                val chunk = ByteArray(16_384)
+                while (true) {
+                    val read = input.read(chunk)
+                    if (read <= 0) break
+                    buffer.write(chunk, 0, read)
+                    if (buffer.size() > maxBytes) {
+                        throw IllegalStateException("Image exceeds ${maxBytes / (1024 * 1024)}MB limit")
+                    }
+                }
+                buffer.toByteArray()
             }
         }
     }

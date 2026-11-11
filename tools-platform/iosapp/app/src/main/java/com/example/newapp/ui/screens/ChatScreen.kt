@@ -91,6 +91,7 @@ import com.example.newapp.state.VoiceAudioRoute
 import com.example.newapp.state.VoiceChatPhase
 import com.example.newapp.ui.components.AuthenticatedRemoteImageCard
 import com.example.newapp.ui.components.ChatAttachmentGallery
+import com.example.newapp.ui.components.ChatStackedImageDeck
 import com.example.newapp.ui.components.DragonClawBackdrop
 import com.example.newapp.ui.components.ImageLightboxDialog
 import com.example.newapp.ui.components.LightboxImageItem
@@ -284,100 +285,92 @@ fun ChatScreen(vm: DragonClawViewModel) {
             if (vm.messages.isEmpty() && vm.isLoadingSessionMessages) {
                 ChatShimmerSkeleton(modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 18.dp))
             } else if (vm.messages.isEmpty()) {
-                LazyColumn(
-                    contentPadding = PaddingValues(horizontal = 18.dp, vertical = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    item {
-                        Spacer(Modifier.height(14.dp))
-                        LiquidGlassSurface(
-                            shape = CircleShape,
-                            elevation = 8.dp,
-                            modifier = Modifier.size(80.dp)
-                        ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.dragon_claw_avatar),
-                                contentDescription = "Dragon Claw",
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(6.dp)
-                                    .clip(CircleShape)
-                            )
-                        }
-                        Spacer(Modifier.height(14.dp))
-                        Text(
-                            text = tr(lang, "Dragon Claw，让想法落地", "Dragon Claw, from idea to done"),
-                            color = palette.inkPrimary,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = vm.identity.localizedSlogan(lang),
-                            color = palette.inkMuted,
-                            fontSize = 12.sp,
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(Modifier.height(12.dp))
-
-                        LiquidGlassSurface(
-                            shape = CircleShape,
-                            elevation = 4.dp,
-                            onClick = {
-                                vm.prepareActiveModelPicker()
-                                showModelMenu = true
-                            }
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
-                            ) {
-                                Icon(Icons.Rounded.Memory, contentDescription = null, tint = palette.accentStrong, modifier = Modifier.size(15.dp))
-                                Spacer(Modifier.width(5.dp))
-                                Text(vm.activeModelDisplayName, color = palette.inkPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
-                                Spacer(Modifier.width(4.dp))
-                                Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null, tint = palette.inkMuted, modifier = Modifier.size(15.dp))
-                            }
-                        }
-                        Spacer(Modifier.height(12.dp))
-                    }
-
-                    item {
-                        Text(
-                            text = tr(lang, "快速提问", "Suggested Prompts"),
-                            color = palette.inkMuted,
-                            fontSize = 11.5.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)
-                        )
-                    }
-
-                    items(starterPrompts) { prompt ->
-                        LiquidGlassSurface(
-                            shape = RoundedCornerShape(15.dp),
-                            elevation = 4.dp,
-                            onClick = { vm.sendPrompt(prompt) },
+                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                    val viewportHeight = maxHeight
+                    Column(
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = viewportHeight)
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 18.dp, vertical = 16.dp)
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = 13.dp, vertical = 10.dp)
+                            LiquidGlassSurface(
+                                shape = CircleShape,
+                                elevation = 8.dp,
+                                modifier = Modifier.size(80.dp)
                             ) {
-                                Icon(Icons.Rounded.AutoAwesome, contentDescription = null, tint = palette.accentStrong, modifier = Modifier.size(15.dp))
-                                Spacer(Modifier.width(9.dp))
-                                Text(
-                                    text = prompt,
-                                    color = palette.inkPrimary,
-                                    fontSize = 12.5.sp,
-                                    lineHeight = 18.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f)
+                                Image(
+                                    painter = painterResource(id = R.drawable.dragon_claw_avatar),
+                                    contentDescription = "Dragon Claw",
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(6.dp)
+                                        .clip(CircleShape)
                                 )
-                                Icon(Icons.Rounded.NorthEast, contentDescription = null, tint = palette.inkMuted, modifier = Modifier.size(14.dp))
+                            }
+                            Spacer(Modifier.height(14.dp))
+                            Text(
+                                text = tr(lang, "Dragon Claw，让想法落地", "Dragon Claw, from idea to done"),
+                                color = palette.inkPrimary,
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(Modifier.height(5.dp))
+                            Text(
+                                text = vm.identity.localizedSlogan(lang),
+                                color = palette.inkMuted,
+                                fontSize = 12.sp,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+
+                        if (starterPrompts.isNotEmpty()) {
+                            Spacer(Modifier.height(24.dp))
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = tr(lang, "快速提问", "Suggested Prompts"),
+                                    color = palette.inkMuted,
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)
+                                )
+
+                                starterPrompts.forEach { prompt ->
+                                    LiquidGlassSurface(
+                                        shape = RoundedCornerShape(15.dp),
+                                        elevation = 4.dp,
+                                        onClick = { vm.sendPrompt(prompt) },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.padding(horizontal = 13.dp, vertical = 10.dp)
+                                        ) {
+                                            Icon(Icons.Rounded.AutoAwesome, contentDescription = null, tint = palette.accentStrong, modifier = Modifier.size(15.dp))
+                                            Spacer(Modifier.width(9.dp))
+                                            Text(
+                                                text = prompt,
+                                                color = palette.inkPrimary,
+                                                fontSize = 12.5.sp,
+                                                lineHeight = 18.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            Icon(Icons.Rounded.NorthEast, contentDescription = null, tint = palette.inkMuted, modifier = Modifier.size(14.dp))
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -1747,16 +1740,43 @@ private fun FormattedResponseContent(
                 )
             }
         } else {
-            blocks.forEachIndexed { index, block ->
-                MdBlockItemView(
-                    block = block,
-                    isFirst = index == 0,
-                    palette = palette,
-                    token = token,
-                    baseUrl = baseUrl,
-                    onCopyCode = { code -> clipboard.setText(AnnotatedString(code)) },
-                    onTapImage = onTapImage
-                )
+            val runs = remember(blocks) { DragonClawHelpers.buildMarkdownRenderRuns(blocks) }
+            runs.forEachIndexed { index, run ->
+                val group = run.imageGroup
+                val singleBlock = run.block
+                if (group.size >= 2) {
+                    val deckItems = remember(group, baseUrl) {
+                        group.mapNotNull { imgBlock ->
+                            val resolved = DragonClawHelpers.resolveImageSourceUrl(baseUrl, imgBlock.imageUrl)
+                                .ifBlank { imgBlock.imageUrl }
+                            if (resolved.isBlank()) null else {
+                                val title = imgBlock.imageAlt.ifBlank { DragonClawHelpers.basename(imgBlock.imageUrl) }
+                                LightboxImageItem(urlString = resolved, title = title)
+                            }
+                        }
+                    }
+                    if (deckItems.isNotEmpty()) {
+                        ChatStackedImageDeck(
+                            items = deckItems,
+                            token = token,
+                            palette = palette,
+                            onOpenLightbox = { items, tappedIdx ->
+                                val item = items.getOrNull(tappedIdx) ?: return@ChatStackedImageDeck
+                                onTapImage(item.urlString, item.title)
+                            }
+                        )
+                    }
+                } else if (singleBlock != null) {
+                    MdBlockItemView(
+                        block = singleBlock,
+                        isFirst = index == 0,
+                        palette = palette,
+                        token = token,
+                        baseUrl = baseUrl,
+                        onCopyCode = { code -> clipboard.setText(AnnotatedString(code)) },
+                        onTapImage = onTapImage
+                    )
+                }
             }
         }
     }
@@ -1988,11 +2008,9 @@ private fun MdBlockItemView(
                     altText = altTitle,
                     token = token,
                     cornerRadius = 14.dp,
-                    contentScale = ContentScale.Crop,
-                    onClick = { onTapImage(resolved, altTitle) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 140.dp, max = 230.dp)
+                    contentScale = ContentScale.Fit,
+                    adaptiveMaxWidth = 232.dp,
+                    onClick = { onTapImage(resolved, altTitle) }
                 )
             }
         }
