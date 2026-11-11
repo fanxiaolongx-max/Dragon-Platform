@@ -17,29 +17,153 @@ import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.readUTF8Line
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.Dns
+import java.net.HttpURLConnection
+import java.net.Inet4Address
 import java.net.InetAddress
+import java.net.URL
+import java.net.URLEncoder
+import java.net.UnknownHostException
+import java.util.concurrent.ConcurrentHashMap
 
 actual fun createPlatformHttpClient(block: HttpClientConfig<*>.() -> Unit): HttpClient = HttpClient(OkHttp) {
     engine {
         config {
             connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
-            dns(object : Dns {
-                override fun lookup(hostname: String): List<InetAddress> {
-                    val list = Dns.SYSTEM.lookup(hostname)
-                    if (hostname.contains("fanxiaolong.uk")) {
-                        // Prioritize responsive Anycast IP ranges (172.67.x.x, 104.21.x.x) over 188.114.x.x
-                        return list.sortedBy { address ->
-                            val ip = address.hostAddress ?: ""
-                            if (ip.startsWith("188.114.")) 1 else 0
-                        }
-                    }
-                    return list
-                }
-            })
+            dns(SmartAndroidDns)
         }
     }
     block()
+}
+
+internal object SmartAndroidDns : Dns {
+    private const val CACHE_TTL_MS = 120_000L
+    private const val DOH_TIMEOUT_MS = 4_000
+
+    private data class CachedEntry(val addresses: List<InetAddress>, val expiresAtMs: Long)
+
+    private val cache = ConcurrentHashMap<String, CachedEntry>()
+    private val dohEndpoints = listOf(
+        "https://8.8.8.8/resolve",
+        "https://223.5.5.5/resolve"
+    )
+    private val ipv4Regex = Regex("""^(\d{1,3}\.){3}\d{1,3}$""")
+    private val dnsJson = Json { ignoreUnknownKeys = true }
+
+    override fun lookup(hostname: String): List<InetAddress> {
+        val cleanHost = hostname.trim()
+        if (cleanHost.isEmpty()) throw UnknownHostException(hostname)
+        if (isIpOrLocalHost(cleanHost)) {
+            return Dns.SYSTEM.lookup(cleanHost)
+        }
+
+        val now = System.currentTimeMillis()
+        cache[cleanHost]?.takeIf { it.expiresAtMs > now && it.addresses.isNotEmpty() }?.let {
+            return it.addresses
+        }
+
+        val systemAddresses = runCatching { Dns.SYSTEM.lookup(cleanHost) }.getOrDefault(emptyList())
+        val hasPreferredSystemIpv4 = systemAddresses.any { addr ->
+            addr is Inet4Address && !isBlackholedEdgeIp(addr.hostAddress)
+        }
+        val shouldQueryDoh = cleanHost.endsWith("fanxiaolong.uk", ignoreCase = true) || !hasPreferredSystemIpv4
+        val dohAddresses = if (shouldQueryDoh) lookupViaDoh(cleanHost) else emptyList()
+
+        val ordered = mergeAndPrioritizeAddresses(dohAddresses = dohAddresses, systemAddresses = systemAddresses)
+        if (ordered.isEmpty()) {
+            throw UnknownHostException("Unable to resolve host: $cleanHost")
+        }
+        cache[cleanHost] = CachedEntry(ordered, now + CACHE_TTL_MS)
+        return ordered
+    }
+
+    private fun lookupViaDoh(hostname: String): List<InetAddress> {
+        val encoded = runCatching { URLEncoder.encode(hostname, "UTF-8") }.getOrDefault(hostname)
+        for (endpoint in dohEndpoints) {
+            val resolved = runCatching {
+                val conn = (URL("$endpoint?name=$encoded&type=A").openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    setRequestProperty("Accept", "application/dns-json")
+                    connectTimeout = DOH_TIMEOUT_MS
+                    readTimeout = DOH_TIMEOUT_MS
+                    useCaches = false
+                }
+                try {
+                    if (conn.responseCode !in 200..299) return@runCatching emptyList()
+                    val body = conn.inputStream.bufferedReader().use { it.readText() }
+                    parseDohIpv4Answers(hostname, body)
+                } finally {
+                    conn.disconnect()
+                }
+            }.getOrDefault(emptyList())
+            if (resolved.isNotEmpty()) return resolved
+        }
+        return emptyList()
+    }
+
+    internal fun parseDohIpv4Answers(hostname: String, jsonBody: String): List<InetAddress> {
+        val root = dnsJson.parseToJsonElement(jsonBody).jsonObject
+        val answers = root["Answer"]?.jsonArray ?: return emptyList()
+        val result = mutableListOf<InetAddress>()
+        for (item in answers) {
+            val obj = item.jsonObject
+            val type = obj["type"]?.jsonPrimitive?.intOrNull ?: continue
+            if (type != 1) continue
+            val data = obj["data"]?.jsonPrimitive?.content?.trim() ?: continue
+            val addr = parseIpv4WithHost(hostname, data) ?: continue
+            result.add(addr)
+        }
+        return result
+    }
+
+    private fun parseIpv4WithHost(hostname: String, ip: String): InetAddress? {
+        if (!ipv4Regex.matches(ip)) return null
+        val parts = ip.split('.')
+        if (parts.size != 4) return null
+        val bytes = ByteArray(4)
+        for (i in 0 until 4) {
+            val octet = parts[i].toIntOrNull() ?: return null
+            if (octet !in 0..255) return null
+            bytes[i] = octet.toByte()
+        }
+        return runCatching { InetAddress.getByAddress(hostname, bytes) }.getOrNull()
+    }
+
+    internal fun mergeAndPrioritizeAddresses(
+        dohAddresses: List<InetAddress>,
+        systemAddresses: List<InetAddress>
+    ): List<InetAddress> {
+        val seen = LinkedHashSet<String>()
+        val deduped = mutableListOf<InetAddress>()
+        for (addr in dohAddresses + systemAddresses) {
+            val key = addr.hostAddress ?: continue
+            if (seen.add(key)) deduped.add(addr)
+        }
+        val preferredIpv4 = deduped.filter { it is Inet4Address && !isBlackholedEdgeIp(it.hostAddress) }
+        if (preferredIpv4.isNotEmpty()) {
+            // Avoid hanging OkHttp sequential connects on blocked 188.114.* / unreachable IPv6 when clean IPv4s exist.
+            return preferredIpv4
+        }
+        val fallbackIpv4 = deduped.filterIsInstance<Inet4Address>()
+        if (fallbackIpv4.isNotEmpty()) return fallbackIpv4
+        return deduped
+    }
+
+    internal fun isBlackholedEdgeIp(ip: String?): Boolean =
+        ip != null && ip.startsWith("188.114.")
+
+    internal fun isIpOrLocalHost(host: String): Boolean {
+        if (host.equals("localhost", ignoreCase = true)) return true
+        if (host.contains(':') || ipv4Regex.matches(host)) return true
+        if (!host.contains('.')) return true
+        val lower = host.lowercase()
+        return lower.endsWith(".local") || lower.endsWith(".internal") || lower.endsWith(".lan")
+    }
 }
 
 actual suspend fun streamNdjsonPost(

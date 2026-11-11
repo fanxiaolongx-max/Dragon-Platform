@@ -24,6 +24,11 @@ struct AuthenticatedToolWebScreen: View {
                     AuthenticatedWKWebView(
                         url: url,
                         token: store.token,
+                        username: store.username,
+                        role: store.role,
+                        tenantId: store.tenantId,
+                        isSuper: store.isSuper,
+                        language: store.language,
                         isLoading: $isLoading,
                         progress: $pageProgress,
                         webViewRef: $webViewRef
@@ -69,6 +74,11 @@ struct AuthenticatedToolWebScreen: View {
 private struct AuthenticatedWKWebView: UIViewRepresentable {
     let url: URL
     let token: String
+    let username: String
+    let role: String
+    let tenantId: String
+    let isSuper: Bool
+    let language: String
     @Binding var isLoading: Bool
     @Binding var progress: Double
     @Binding var webViewRef: WKWebView?
@@ -81,6 +91,20 @@ private struct AuthenticatedWKWebView: UIViewRepresentable {
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .default()
         config.allowsInlineMediaPlayback = true
+        if !token.isEmpty {
+            let seedScript = Self.buildStorageBootstrapScript(
+                origin: Self.originString(for: url),
+                token: token,
+                username: username,
+                role: role,
+                tenantId: tenantId,
+                isSuper: isSuper,
+                language: language
+            )
+            config.userContentController.addUserScript(
+                WKUserScript(source: seedScript, injectionTime: .atDocumentStart, forMainFrameOnly: false)
+            )
+        }
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
@@ -95,6 +119,62 @@ private struct AuthenticatedWKWebView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: WKWebView, context: Context) {}
+
+    private static func originString(for url: URL) -> String {
+        let scheme = url.scheme ?? "https"
+        let host = url.host ?? ""
+        if let port = url.port {
+            return "\(scheme)://\(host):\(port)"
+        }
+        return "\(scheme)://\(host)"
+    }
+
+    private static func jsonLiteral(_ value: String) -> String {
+        guard let data = try? JSONSerialization.data(withJSONObject: [value]),
+              let encoded = String(data: data, encoding: .utf8),
+              encoded.count >= 2 else {
+            return "\"\""
+        }
+        return String(encoded.dropFirst().dropLast())
+    }
+
+    private static func buildStorageBootstrapScript(
+        origin: String,
+        token: String,
+        username: String,
+        role: String,
+        tenantId: String,
+        isSuper: Bool,
+        language: String
+    ) -> String {
+        let cleanTenant = tenantId.isEmpty ? "default" : tenantId
+        let cleanLang = language.isEmpty ? "zh" : language
+        return """
+        (function() {
+            try {
+                if (window.location && window.location.origin !== \(jsonLiteral(origin))) return;
+                var pairs = {
+                    tools_token: \(jsonLiteral(token)),
+                    tools_user: \(jsonLiteral(username)),
+                    tools_role: \(jsonLiteral(role)),
+                    tools_super: \(jsonLiteral(isSuper ? "1" : "0")),
+                    tools_tenant_id: \(jsonLiteral(cleanTenant)),
+                    tools_lang: \(jsonLiteral(cleanLang)),
+                    tools_language: \(jsonLiteral(cleanLang))
+                };
+                Object.keys(pairs).forEach(function(key) {
+                    var val = pairs[key];
+                    if (val !== undefined && val !== null && val !== '') {
+                        try { window.localStorage.setItem(key, val); } catch (_) {}
+                        try { window.sessionStorage.setItem(key, val); } catch (_) {}
+                    }
+                });
+                var secureAttr = window.location.protocol === 'https:' ? '; Secure' : '';
+                document.cookie = 'tools_token=' + encodeURIComponent(pairs.tools_token) + '; path=/; SameSite=Lax' + secureAttr;
+            } catch (_) {}
+        })();
+        """
+    }
 
     @MainActor
     private func injectAuthCookieAndLoad(webView: WKWebView) async {

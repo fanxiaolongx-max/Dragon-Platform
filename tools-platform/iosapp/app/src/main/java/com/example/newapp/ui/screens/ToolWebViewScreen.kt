@@ -2,11 +2,13 @@ package com.example.newapp.ui.screens
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.graphics.Bitmap
 import android.net.Uri
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import org.json.JSONObject
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -124,12 +126,40 @@ fun ToolWebViewScreen(
 
             AndroidView(
                 factory = { ctx ->
+                    val parsed = runCatching { Uri.parse(targetUrl) }.getOrNull()
+                    val scheme = parsed?.scheme ?: "https"
+                    val host = parsed?.host.orEmpty()
+                    val portSuffix = if (parsed != null && parsed.port > 0) ":${parsed.port}" else ""
+                    val originUrl = if (host.isNotBlank()) "$scheme://$host$portSuffix" else targetUrl
+                    val secureFlag = if (scheme.equals("https", ignoreCase = true)) "; Secure" else ""
+
                     val cm = CookieManager.getInstance()
                     cm.setAcceptCookie(true)
                     if (vm.token.isNotBlank()) {
-                        cm.setCookie(targetUrl, "tools_token=${vm.token}; Path=/; SameSite=Lax")
+                        val cookieHeader = "tools_token=${vm.token}; Path=/; SameSite=Lax$secureFlag"
+                        cm.setCookie(originUrl, cookieHeader)
+                        cm.setCookie(targetUrl, cookieHeader)
                         cm.flush()
                     }
+                    val seedScript = buildStorageSeedScript(
+                        expectedOrigin = null,
+                        token = vm.token,
+                        username = vm.username,
+                        role = vm.role,
+                        tenantId = vm.tenantId,
+                        isSuper = vm.isSuper,
+                        language = vm.language
+                    )
+                    val originGuardedScript = buildStorageSeedScript(
+                        expectedOrigin = originUrl,
+                        token = vm.token,
+                        username = vm.username,
+                        role = vm.role,
+                        tenantId = vm.tenantId,
+                        isSuper = vm.isSuper,
+                        language = vm.language
+                    )
+
                     WebView(ctx).apply {
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
@@ -138,18 +168,30 @@ fun ToolWebViewScreen(
                         settings.builtInZoomControls = true
                         settings.displayZoomControls = false
                         cm.setAcceptThirdPartyCookies(this, true)
-                        webViewClient = WebViewClient()
+                        webViewClient = object : WebViewClient() {
+                            override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                                super.onPageStarted(view, url, favicon)
+                                if (vm.token.isNotBlank() && originGuardedScript.isNotBlank()) {
+                                    view?.evaluateJavascript(originGuardedScript, null)
+                                }
+                            }
+                        }
                         webChromeClient = object : WebChromeClient() {
                             override fun onProgressChanged(view: WebView?, newProgress: Int) {
                                 loadProgress = newProgress
                             }
                         }
-                        val headers = if (vm.token.isNotBlank()) {
-                            mapOf("Authorization" to "Bearer ${vm.token}")
+                        if (vm.token.isNotBlank() && host.isNotBlank()) {
+                            val bootstrapHtml = """
+                                <!DOCTYPE html><html><head><meta charset="utf-8"><script>
+                                $seedScript
+                                window.location.replace(${JSONObject.quote(targetUrl)});
+                                </script></head><body></body></html>
+                            """.trimIndent()
+                            loadDataWithBaseURL("$originUrl/", bootstrapHtml, "text/html", "utf-8", null)
                         } else {
-                            emptyMap()
+                            loadUrl(targetUrl)
                         }
-                        loadUrl(targetUrl, headers)
                         webViewRef = this
                     }
                 },
@@ -157,4 +199,48 @@ fun ToolWebViewScreen(
             )
         }
     }
+}
+
+private fun buildStorageSeedScript(
+    expectedOrigin: String?,
+    token: String,
+    username: String,
+    role: String,
+    tenantId: String,
+    isSuper: Boolean,
+    language: String
+): String {
+    if (token.isBlank()) return ""
+    val cleanTenant = tenantId.ifBlank { "default" }
+    val cleanLang = language.ifBlank { "zh" }
+    val originCheck = if (!expectedOrigin.isNullOrBlank()) {
+        "if (window.location && window.location.origin !== ${JSONObject.quote(expectedOrigin)}) return;"
+    } else {
+        ""
+    }
+    return """
+        (function() {
+            try {
+                $originCheck
+                var pairs = {
+                    tools_token: ${JSONObject.quote(token)},
+                    tools_user: ${JSONObject.quote(username)},
+                    tools_role: ${JSONObject.quote(role)},
+                    tools_super: ${JSONObject.quote(if (isSuper) "1" else "0")},
+                    tools_tenant_id: ${JSONObject.quote(cleanTenant)},
+                    tools_lang: ${JSONObject.quote(cleanLang)},
+                    tools_language: ${JSONObject.quote(cleanLang)}
+                };
+                Object.keys(pairs).forEach(function(key) {
+                    var val = pairs[key];
+                    if (val !== undefined && val !== null && val !== '') {
+                        try { window.localStorage.setItem(key, val); } catch (_) {}
+                        try { window.sessionStorage.setItem(key, val); } catch (_) {}
+                    }
+                });
+                var secureAttr = window.location && window.location.protocol === 'https:' ? '; Secure' : '';
+                document.cookie = 'tools_token=' + encodeURIComponent(pairs.tools_token) + '; path=/; SameSite=Lax' + secureAttr;
+            } catch (_) {}
+        })();
+    """.trimIndent()
 }

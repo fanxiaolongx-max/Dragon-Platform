@@ -1,12 +1,12 @@
 {
   "zh": [
-    "移除左上角侧边栏图标上的冗余红点角标，保留侧边栏内的系统告警横幅展示。",
-    "重塑底部语音双按钮交互与响应体验：右下角绿色波形按钮升级为「AI 实时语音对话」（支持 1.4 秒静音自动发送、实时打断与原生语音播报），麦克风按钮专注「语音转文字」输入，并扩大触控命中区域、打通权限与报错提示。",
-    "重构跨平台共享 Markdown 块级渲染引擎（KMP MarkdownParser）：支持自动拆分粘连标题与编号列表、渲染大号清晰标题与悬挂缩进条目、将本地文件路径与函数链接渲染为简洁的代码语言胶囊徽标（JS / PY 等），全面提升长文排版阅读体验。"
+    "修复侧边栏删除或归档当前会话后意外退回主页面的问题：同步更新最近会话与已归档列表，并保持停留在当前列表视图，方便连续管理多个对话。",
+    "修复端内 WebView 打开工作台工具时误弹「需要重新登录」弹窗的问题：在页面脚本加载前注入同源 Cookie 与 localStorage/sessionStorage 登录态与租户上下文。",
+    "修复 Android 端在运营商屏蔽 188.114.* 或私有 DNS 仅返回不可达 IPv6 时登录请求超时的问题：引入支持 Google/AliDNS DoH 解析与可达 IPv4 优选的智能网络解析器。"
   ],
   "en": [
-    "Remove the stray red badge dot on the top-left sidebar toggle while keeping the alert banner inside the drawer.",
-    "Fix & clarify bottom-right voice buttons: assign the microphone button to reliable speech-to-text dictation (with full hit target & permission error surfacing) and turn the green waveform button into a hands-free AI Voice Conversation mode with auto-silence turn detection, interruption, and native TTS playback.",
-    "Upgrade mobile chat formatting with a shared KMP block+inline Markdown parser: auto-splits collapsed headings/numbered lists, renders spacious typography with hanging indents, code blocks, tables, and compact symbol/language pills instead of raw file:// URLs."
+    "Stay inside the active session list (Recent or Archived) after deleting or archiving a conversation instead of kicking back to the main chat screen.",
+    "Fix false \"Re-login required\" popups when opening workbench tools in iOS and Android WebViews by seeding origin-scoped localStorage, sessionStorage, and auth cookies before page scripts run.",
+    "Fix Android login request timeouts on networks where system/Private DNS returns unreachable IPv6 or blackholed 188.114.* edge IPs by adding DoH (8.8.8.8 / 223.5.5.5) resolution and clean IPv4 prioritization."
   ]
 }

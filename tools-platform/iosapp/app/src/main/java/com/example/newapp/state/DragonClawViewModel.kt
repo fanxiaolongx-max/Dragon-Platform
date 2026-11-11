@@ -83,6 +83,10 @@ class DragonClawViewModel : ViewModel() {
         private set
     var role by mutableStateOf("user")
         private set
+    var tenantId by mutableStateOf("default")
+        private set
+    var isSuper by mutableStateOf(false)
+        private set
     var isAuthenticated by mutableStateOf(false)
         private set
     var isAuthenticating by mutableStateOf(false)
@@ -292,6 +296,10 @@ class DragonClawViewModel : ViewModel() {
                         token = savedToken
                         username = profile.username.ifBlank { savedUser }
                         role = profile.role
+                        tenantId = profile.tenantId?.takeIf { it.isNotBlank() }
+                            ?: profile.homeTenantId?.takeIf { it.isNotBlank() }
+                            ?: "default"
+                        isSuper = profile.isSuper
                         isAuthenticated = true
                         isAuthenticating = false
                         bootstrapWorkspace()
@@ -340,6 +348,8 @@ class DragonClawViewModel : ViewModel() {
                         token = sdk.getSavedToken()
                         username = finalUser
                         role = finalRole
+                        tenantId = res.tenantId?.takeIf { it.isNotBlank() } ?: "default"
+                        isSuper = res.isSuper == true
                         isAuthenticated = true
                         bootstrapWorkspace()
                     } else {
@@ -361,6 +371,8 @@ class DragonClawViewModel : ViewModel() {
         desktopPollJob = null
         sdk.clearSessionAuth(keepUsername = rememberMe)
         token = ""
+        tenantId = "default"
+        isSuper = false
         isAuthenticated = false
         activeWebTool = null
         showNativeMetrics = false
@@ -457,6 +469,10 @@ class DragonClawViewModel : ViewModel() {
     }
 
     fun startNewChat() {
+        resetActiveChatState(resetShellSurface = true)
+    }
+
+    private fun resetActiveChatState(resetShellSurface: Boolean) {
         stopStreaming()
         sessionLoadJob?.cancel()
         sessionLoadJob = null
@@ -472,9 +488,11 @@ class DragonClawViewModel : ViewModel() {
         messages = emptyList()
         pendingAttachments = emptyList()
         chatErrorBanner = null
-        showNativeMetrics = false
-        activeWebTool = null
-        workMode = AppWorkMode.CHAT
+        if (resetShellSurface) {
+            showNativeMetrics = false
+            activeWebTool = null
+            workMode = AppWorkMode.CHAT
+        }
     }
 
     fun openSidebarEntry(entry: SidebarSessionEntry) {
@@ -604,11 +622,13 @@ class DragonClawViewModel : ViewModel() {
             runCatching { sdk.api.deleteSession(token, session.id) }
                 .onSuccess {
                     sessions = sessions.filterNot { it.id == session.id }
+                    archivedSessions = archivedSessions.filterNot { it.id == session.id }
                     regroupSessions()
                     if (currentSessionId == session.id) {
-                        startNewChat()
+                        resetActiveChatState(resetShellSurface = false)
                     }
                 }
+                .onFailure { chatErrorBanner = it.message }
         }
     }
 
@@ -1286,7 +1306,9 @@ class DragonClawViewModel : ViewModel() {
                     sessions = sessions.filterNot { it.id == session.id }
                     regroupSessions()
                     loadArchivedSessions()
-                    if (currentSessionId == session.id) startNewChat()
+                    if (currentSessionId == session.id) {
+                        resetActiveChatState(resetShellSurface = false)
+                    }
                 }
                 .onFailure { chatErrorBanner = it.message }
         }

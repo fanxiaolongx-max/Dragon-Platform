@@ -42,6 +42,8 @@ final class DragonClawStore {
     var token: String = ""
     var username: String = ""
     var role: String = "user"
+    var tenantId: String = "default"
+    var isSuper: Bool = false
     var isAuthenticated = false
     var isAuthenticating = false
     var loginError: String?
@@ -229,6 +231,8 @@ final class DragonClawStore {
                     self.token = savedToken
                     self.username = profile.username.isEmpty ? savedUser : profile.username
                     self.role = profile.role
+                    self.tenantId = (profile.tenantId?.isEmpty == false ? profile.tenantId : profile.homeTenantId) ?? "default"
+                    self.isSuper = profile.isSuper
                     self.isAuthenticated = true
                     self.isAuthenticating = false
                     self.bootstrapWorkspace()
@@ -280,6 +284,8 @@ final class DragonClawStore {
                     self.token = self.sdk.getSavedToken()
                     self.username = finalUser
                     self.role = finalRole
+                    self.tenantId = (response.tenantId?.isEmpty == false ? response.tenantId : nil) ?? "default"
+                    self.isSuper = response.isSuper?.boolValue ?? false
                     self.isAuthenticated = true
                     self.bootstrapWorkspace()
                 } else {
@@ -306,6 +312,8 @@ final class DragonClawStore {
         activeTaskHandles.removeAll()
         sdk.clearSessionAuth(keepUsername: rememberMe)
         token = ""
+        tenantId = "default"
+        isSuper = false
         isAuthenticated = false
         isDrawerOpen = false
         activeWebTool = nil
@@ -428,6 +436,10 @@ final class DragonClawStore {
     // MARK: - Chat Flow
 
     func startNewChat() {
+        resetActiveChatState(closeDrawer: true)
+    }
+
+    private func resetActiveChatState(closeDrawer: Bool) {
         stopStreaming()
         activeSessionLoadHandle?.cancel()
         activeSessionLoadHandle = nil
@@ -443,10 +455,12 @@ final class DragonClawStore {
         messages.removeAll()
         pendingAttachments.removeAll()
         chatErrorBanner = nil
-        showNativeMetrics = false
-        activeWebTool = nil
-        workMode = .chat
-        isDrawerOpen = false
+        if closeDrawer {
+            showNativeMetrics = false
+            activeWebTool = nil
+            workMode = .chat
+            isDrawerOpen = false
+        }
     }
 
     func openSidebarEntry(_ entry: SidebarSessionEntry) {
@@ -590,12 +604,17 @@ final class DragonClawStore {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.sessions.removeAll { $0.id == targetId }
+                self.archivedSessions.removeAll { $0.id == targetId }
                 self.regroupSessions()
                 if self.currentSessionId == targetId {
-                    self.startNewChat()
+                    self.resetActiveChatState(closeDrawer: false)
                 }
             }
-        } onError: { _ in }
+        } onError: { [weak self] err in
+            Task { @MainActor [weak self] in
+                self?.chatErrorBanner = err
+            }
+        }
         activeTaskHandles.append(handle)
     }
 
@@ -1163,7 +1182,7 @@ final class DragonClawStore {
                 self.regroupSessions()
                 self.loadArchivedSessions()
                 if self.currentSessionId == targetId {
-                    self.startNewChat()
+                    self.resetActiveChatState(closeDrawer: false)
                 }
             }
         } onError: { [weak self] err in
