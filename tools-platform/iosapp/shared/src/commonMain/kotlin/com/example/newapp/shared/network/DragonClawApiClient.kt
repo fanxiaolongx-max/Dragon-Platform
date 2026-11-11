@@ -286,12 +286,13 @@ class DragonClawApiClient(
         token: String,
         text: String,
         language: String = "zh",
-        voice: String? = null
+        voice: String? = null,
+        turnId: String? = null
     ): SynthesizedSpeechAudio {
         val response = client.post("$baseUrl/api/ai/speech/synthesize") {
             header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
             contentType(ContentType.Application.Json)
-            setBody(SpeechSynthesisRequest(text = text, language = language, voice = voice))
+            setBody(SpeechSynthesisRequest(text = text, language = language, voice = voice, turnId = turnId))
             timeout {
                 requestTimeoutMillis = 28_000L
                 socketTimeoutMillis = 28_000L

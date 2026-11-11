@@ -1754,16 +1754,33 @@ private struct VoiceConversationModal: View {
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(palette.inkPrimary)
                             .lineLimit(1)
-                        if !voiceChat.activeVoiceModelLabel.isEmpty {
-                            Text("· \(L10n.tr(lang, zh: "自然语音", en: "Natural Voice"))")
-                                .font(.caption2.weight(.semibold))
-                                .foregroundStyle(palette.accentStrong)
-                                .lineLimit(1)
+
+                        Menu {
+                            ForEach(VoicePersonaCatalog.shared.presets, id: \.id) { preset in
+                                Button {
+                                    store.updateVoicePersona(preset.id)
+                                } label: {
+                                    if store.selectedVoicePersona == preset.id {
+                                        Label(preset.localizedLabel(language: lang), systemImage: "checkmark")
+                                    } else {
+                                        Text(preset.localizedLabel(language: lang))
+                                    }
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 3) {
+                                Text("· \(VoicePersonaCatalog.shared.optionFor(raw: store.selectedVoicePersona).id)")
+                                    .font(.caption2.weight(.semibold))
+                                Image(systemName: "chevron.down")
+                                    .font(.system(size: 8.5, weight: .bold))
+                            }
+                            .foregroundStyle(palette.accentStrong)
+                            .lineLimit(1)
                         }
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 7)
-                    .glassEffect(.regular, in: Capsule())
+                    .glassEffect(.regular.interactive(), in: Capsule())
 
                     Spacer()
 

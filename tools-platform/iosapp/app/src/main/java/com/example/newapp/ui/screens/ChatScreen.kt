@@ -82,6 +82,7 @@ import com.example.newapp.shared.model.ChatAttachment
 import com.example.newapp.shared.model.ChatMessage
 import com.example.newapp.shared.util.DragonClawHelpers
 import com.example.newapp.shared.util.MarkdownParser
+import com.example.newapp.shared.util.VoicePersonaCatalog
 import com.example.newapp.shared.util.MdBlock
 import com.example.newapp.shared.util.MdBlockKind
 import com.example.newapp.shared.util.MdSpan
@@ -2331,35 +2332,80 @@ fun VoiceConversationOverlay(vm: DragonClawViewModel) {
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    LiquidGlassSurface(shape = CircleShape, elevation = 3.dp) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                    var showVoiceMenu by remember { mutableStateOf(false) }
+                    val currentPreset = VoicePersonaCatalog.optionFor(vm.selectedVoicePersona)
+                    Box {
+                        LiquidGlassSurface(
+                            shape = CircleShape,
+                            elevation = 3.dp,
+                            onClick = { showVoiceMenu = true }
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .clip(CircleShape)
-                                    .background(if (phase == VoiceChatPhase.PAUSED) palette.inkMuted else palette.accentStrong)
-                            )
-                            Spacer(Modifier.width(7.dp))
-                            Text(
-                                text = vm.activeModelDisplayName,
-                                color = palette.inkPrimary,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.widthIn(max = 185.dp)
-                            )
-                            if (vm.voiceChatModelLabel.isNotBlank()) {
-                                Spacer(Modifier.width(6.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(if (phase == VoiceChatPhase.PAUSED) palette.inkMuted else palette.accentStrong)
+                                )
+                                Spacer(Modifier.width(7.dp))
                                 Text(
-                                    text = "· ${tr(lang, "自然语音", "Natural Voice")}",
+                                    text = vm.activeModelDisplayName,
+                                    color = palette.inkPrimary,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.widthIn(max = 145.dp)
+                                )
+                                Spacer(Modifier.width(5.dp))
+                                Text(
+                                    text = "· ${currentPreset.id}",
                                     color = palette.accentStrong,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     maxLines = 1
+                                )
+                                Icon(
+                                    Icons.Rounded.KeyboardArrowDown,
+                                    contentDescription = null,
+                                    tint = palette.accentStrong,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
+
+                        DropdownMenu(
+                            expanded = showVoiceMenu,
+                            onDismissRequest = { showVoiceMenu = false },
+                            modifier = Modifier.background(palette.elevatedSurface)
+                        ) {
+                            VoicePersonaCatalog.presets.forEach { preset ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = preset.localizedLabel(lang),
+                                            color = if (vm.selectedVoicePersona == preset.id) palette.accentStrong else palette.inkPrimary,
+                                            fontSize = 13.sp,
+                                            fontWeight = if (vm.selectedVoicePersona == preset.id) FontWeight.SemiBold else FontWeight.Normal
+                                        )
+                                    },
+                                    trailingIcon = {
+                                        if (vm.selectedVoicePersona == preset.id) {
+                                            Icon(
+                                                Icons.Rounded.Check,
+                                                contentDescription = null,
+                                                tint = palette.accentStrong,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        vm.updateVoicePersona(preset.id)
+                                        showVoiceMenu = false
+                                    }
                                 )
                             }
                         }

@@ -97,7 +97,7 @@ class AudioSpeechRecorder(
                         val silenceThreshold = maxOf(850, (noiseFloor * 1.65).toInt())
                         if (amp >= speechThreshold) {
                             speechTicks++
-                            if (speechTicks >= 3) hasSpeech = true
+                            if (speechTicks >= 2) hasSpeech = true
                             silentTicks = 0
                         } else if (hasSpeech && amp < silenceThreshold) {
                             silentTicks++
@@ -108,7 +108,7 @@ class AudioSpeechRecorder(
                     onLevel?.invoke(orbLevel, hasSpeech)
 
                     if (onSilenceDetected != null && !silenceFired) {
-                        if ((hasSpeech && silentTicks >= 25) || secs >= 45) {
+                        if ((hasSpeech && silentTicks >= 13) || secs >= 45) {
                             silenceFired = true
                             onSilenceDetected()
                             break

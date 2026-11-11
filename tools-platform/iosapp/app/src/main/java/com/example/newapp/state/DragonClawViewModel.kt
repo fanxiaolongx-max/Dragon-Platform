@@ -4,7 +4,9 @@ import android.content.ContentResolver
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
+import android.media.AudioFormat
 import android.media.AudioManager
+import android.media.AudioTrack
 import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Build
@@ -28,13 +30,21 @@ import com.example.newapp.shared.model.*
 import com.example.newapp.shared.network.DragonClawApiClient
 import com.example.newapp.shared.util.DragonClawHelpers
 import com.example.newapp.shared.util.MarkdownParser
+import com.example.newapp.shared.util.StreamingSpeechSegmenter
+import com.example.newapp.shared.util.VoicePersonaCatalog
 import com.example.newapp.ui.theme.tr
+import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.coroutines.resume
 import java.io.File
 import java.io.FileOutputStream
 import java.util.Locale
@@ -126,6 +136,8 @@ class DragonClawViewModel : ViewModel() {
     var models by mutableStateOf<List<AiModelInfo>>(emptyList())
         private set
     var selectedModelId by mutableStateOf(sdk.getSelectedModelId())
+        private set
+    var selectedVoicePersona by mutableStateOf(sdk.getVoicePersonaId())
         private set
     var suggestions by mutableStateOf<List<AiSuggestion>>(emptyList())
         private set
@@ -275,18 +287,53 @@ class DragonClawViewModel : ViewModel() {
     val metricsLoadingMonths = mutableStateMapOf<Int, Boolean>()
     val metricsErrorByMonth = mutableStateMapOf<Int, String?>()
 
+    private sealed interface VoiceSynthesizedChunk {
+        data class CloudAudio(val audio: SynthesizedSpeechAudio, val fallbackText: String) : VoiceSynthesizedChunk
+        data class LocalFallback(val text: String) : VoiceSynthesizedChunk
+    }
+
     private var activeStreamHandle: TaskHandle? = null
     private var speechRecorder: AudioSpeechRecorder? = null
     private var ttsEngine: TextToSpeech? = null
     private var ttsReady = false
     private var voiceMediaPlayer: MediaPlayer? = null
+    private var voiceCueTrack: AudioTrack? = null
     private var voiceSpeechJob: Job? = null
+    private var voicePlaybackLoopJob: Job? = null
     private var voiceAudioTempFile: File? = null
     private var voiceResumeJob: Job? = null
     private var voiceAppContext: Context? = null
     private var voiceTurnCompletion: ((String) -> Unit)? = null
+    private var voiceTurnClauseHandler: ((String) -> Unit)? = null
+    private var voiceSpeechSegmenter: StreamingSpeechSegmenter? = null
+    private var activeVoiceTurnId: String = ""
+    private var voiceNextChunkIndex = 0
+    private var voiceAllChunksEnqueued = false
+    private val voiceDeferredChunks = mutableMapOf<Int, Deferred<VoiceSynthesizedChunk>>()
+    private var ttsCompletionContinuation: CancellableContinuation<Unit>? = null
+
+    private fun clearVoiceTurnCallbacks() {
+        voiceTurnCompletion = null
+        voiceTurnClauseHandler = null
+        voiceSpeechSegmenter = null
+    }
+
+    private fun resetVoiceTurnPipeline(turnId: String = "") {
+        voicePlaybackLoopJob?.cancel()
+        voicePlaybackLoopJob = null
+        voiceDeferredChunks.values.forEach { it.cancel() }
+        voiceDeferredChunks.clear()
+        activeVoiceTurnId = turnId
+        voiceNextChunkIndex = 0
+        voiceAllChunksEnqueued = false
+        ttsCompletionContinuation?.let { cont ->
+            ttsCompletionContinuation = null
+            if (cont.isActive) cont.cancel()
+        }
+    }
 
     private fun stopAllVoicePlayback() {
+        resetVoiceTurnPipeline()
         voiceSpeechJob?.cancel()
         voiceSpeechJob = null
         runCatching { voiceMediaPlayer?.stop() }
@@ -301,6 +348,9 @@ class DragonClawViewModel : ViewModel() {
     override fun onCleared() {
         voiceResumeJob?.cancel()
         stopAllVoicePlayback()
+        runCatching { voiceCueTrack?.stop() }
+        runCatching { voiceCueTrack?.release() }
+        voiceCueTrack = null
         voiceAppContext?.let { resetVoiceAudioRoute(it) }
         ttsEngine?.shutdown()
         ttsEngine = null
@@ -366,6 +416,12 @@ class DragonClawViewModel : ViewModel() {
     fun selectModel(modelId: String) {
         selectedModelId = modelId
         sdk.saveSelectedModelId(modelId)
+    }
+
+    fun updateVoicePersona(voiceId: String) {
+        val normalized = VoicePersonaCatalog.normalizeVoiceId(voiceId)
+        selectedVoicePersona = normalized
+        sdk.saveVoicePersonaId(normalized)
     }
 
     fun loadDesktopModels(provider: String, forceLive: Boolean = false) {
@@ -1386,6 +1442,7 @@ class DragonClawViewModel : ViewModel() {
     }
 
     fun stopStreaming() {
+        clearVoiceTurnCallbacks()
         activeStreamHandle?.cancel()
         activeStreamHandle = null
         if (!isStreaming) return
@@ -1418,10 +1475,18 @@ class DragonClawViewModel : ViewModel() {
                     thinking = cur.thinking + event.text.orEmpty(),
                     statusText = tr(language, "深度思考中...", "Reasoning...")
                 )
-                StreamEventType.DELTA -> cur.copy(
-                    content = cur.content + event.text.orEmpty(),
-                    statusText = null
-                )
+                StreamEventType.DELTA -> {
+                    val nextContent = cur.content + event.text.orEmpty()
+                    val seg = voiceSpeechSegmenter
+                    val handler = voiceTurnClauseHandler
+                    if (seg != null && handler != null) {
+                        seg.consumeAccumulated(nextContent, isFinal = false).forEach { handler(it) }
+                    }
+                    cur.copy(
+                        content = nextContent,
+                        statusText = null
+                    )
+                }
                 StreamEventType.TOOL_START -> {
                     val callId = event.callId ?: UUID.randomUUID().toString()
                     val trace = ToolCallTrace(
@@ -1493,6 +1558,7 @@ class DragonClawViewModel : ViewModel() {
         activeStreamHandle = null
         isStreaming = false
         var finalContent = ""
+        var finalRawContent = ""
         messages = messages.map { cur ->
             if (cur.id != assistantId) cur
             else {
@@ -1505,6 +1571,7 @@ class DragonClawViewModel : ViewModel() {
                     rawContent = rawFinal,
                     existingAttachments = cur.attachments
                 )
+                finalRawContent = rawFinal
                 finalContent = cleanedText
                 cur.copy(
                     content = cleanedText,
@@ -1516,8 +1583,15 @@ class DragonClawViewModel : ViewModel() {
                 )
             }
         }
+        if (!interrupted) {
+            val seg = voiceSpeechSegmenter
+            val handler = voiceTurnClauseHandler
+            if (seg != null && handler != null) {
+                seg.consumeAccumulated(finalRawContent, isFinal = true).forEach { handler(it) }
+            }
+        }
         val callback = voiceTurnCompletion
-        voiceTurnCompletion = null
+        clearVoiceTurnCallbacks()
         callback?.invoke(finalContent)
         loadSessions()
         if (!interrupted && regularQueue.isNotEmpty() && activeDesktopSession == null) {
@@ -1618,11 +1692,67 @@ class DragonClawViewModel : ViewModel() {
 
     // --- Live Hands-Free AI Voice Conversation ---
 
+    private fun playStudioCue(appCtx: Context, isOpen: Boolean) {
+        if (isVoiceChatSpeechMuted) return
+        viewModelScope.launch {
+            runCatching {
+                applyVoiceAudioRoute(appCtx)
+                val wav = withContext(Dispatchers.Default) {
+                    if (isOpen) {
+                        DragonClawHelpers.generateVoiceOpenCueWav(24_000)
+                    } else {
+                        DragonClawHelpers.generateVoiceCloseCueWav(24_000)
+                    }
+                }
+                if (wav.size <= 44) return@launch
+                val pcmLen = wav.size - 44
+                val track = withContext(Dispatchers.IO) {
+                    runCatching { voiceCueTrack?.stop() }
+                    runCatching { voiceCueTrack?.release() }
+                    val attrs = AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                    val format = AudioFormat.Builder()
+                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                        .setSampleRate(24_000)
+                        .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                        .build()
+                    val minBuf = AudioTrack.getMinBufferSize(
+                        24_000,
+                        AudioFormat.CHANNEL_OUT_MONO,
+                        AudioFormat.ENCODING_PCM_16BIT
+                    ).coerceAtLeast(pcmLen)
+                    AudioTrack.Builder()
+                        .setAudioAttributes(attrs)
+                        .setAudioFormat(format)
+                        .setBufferSizeInBytes(minBuf)
+                        .setTransferMode(AudioTrack.MODE_STATIC)
+                        .build().apply {
+                            write(wav, 44, pcmLen)
+                            setVolume(0.85f)
+                        }
+                }
+                voiceCueTrack = track
+                track.play()
+                delay(340L)
+                if (voiceCueTrack === track) {
+                    runCatching { track.stop() }
+                    runCatching { track.release() }
+                    voiceCueTrack = null
+                }
+            }
+        }
+    }
+
     fun startVoiceConversation(context: Context) {
         val appCtx = context.applicationContext
         voiceAppContext = appCtx
         ensureTtsInitialized(appCtx)
+        voiceResumeJob?.cancel()
+        voiceResumeJob = null
         stopAllVoicePlayback()
+        clearVoiceTurnCallbacks()
         if (isRecordingVoice) cancelVoiceRecording()
         if (activeDesktopSession != null) startNewChat()
 
@@ -1632,7 +1762,14 @@ class DragonClawViewModel : ViewModel() {
         voiceChatErrorText = null
         voiceChatUserTranscript = ""
         voiceChatAssistantTranscript = ""
-        beginVoiceConversationListening()
+        playStudioCue(appCtx, isOpen = true)
+        voiceChatPhase = VoiceChatPhase.PAUSED
+        voiceResumeJob = viewModelScope.launch {
+            delay(220L)
+            if (isVoiceChatActive) {
+                beginVoiceConversationListening()
+            }
+        }
     }
 
     fun endVoiceConversation() {
@@ -1640,13 +1777,25 @@ class DragonClawViewModel : ViewModel() {
         voiceResumeJob = null
         stopAllVoicePlayback()
         speechRecorder?.cancel()
-        voiceTurnCompletion = null
+        clearVoiceTurnCallbacks()
         if (isStreaming) stopStreaming()
+        val appCtx = voiceAppContext
+        val shouldPlayCloseCue = appCtx != null && !isVoiceChatSpeechMuted
         isVoiceChatActive = false
         voiceChatPhase = VoiceChatPhase.IDLE
         voiceChatAudioLevel = 0.14f
         voiceChatHasSpeech = false
-        voiceAppContext?.let { resetVoiceAudioRoute(it) }
+        if (shouldPlayCloseCue && appCtx != null) {
+            playStudioCue(appCtx, isOpen = false)
+            viewModelScope.launch {
+                delay(380L)
+                if (!isVoiceChatActive) {
+                    resetVoiceAudioRoute(appCtx)
+                }
+            }
+        } else {
+            appCtx?.let { resetVoiceAudioRoute(it) }
+        }
     }
 
     fun toggleVoiceChatPause() {
@@ -1748,7 +1897,7 @@ class DragonClawViewModel : ViewModel() {
     fun interruptAndListenInVoiceChat() {
         voiceResumeJob?.cancel()
         stopAllVoicePlayback()
-        voiceTurnCompletion = null
+        clearVoiceTurnCallbacks()
         if (isStreaming) stopStreaming()
         voiceChatErrorText = null
         voiceChatPhase = VoiceChatPhase.PAUSED
@@ -1769,8 +1918,9 @@ class DragonClawViewModel : ViewModel() {
                     override fun onStart(utteranceId: String?) = Unit
                     override fun onDone(utteranceId: String?) {
                         viewModelScope.launch {
-                            if (isVoiceChatActive && voiceChatPhase == VoiceChatPhase.SPEAKING) {
-                                scheduleNextVoiceChatListening()
+                            ttsCompletionContinuation?.let { cont ->
+                                ttsCompletionContinuation = null
+                                if (cont.isActive) cont.resume(Unit)
                             }
                         }
                     }
@@ -1778,8 +1928,9 @@ class DragonClawViewModel : ViewModel() {
                     @Deprecated("Deprecated in Java")
                     override fun onError(utteranceId: String?) {
                         viewModelScope.launch {
-                            if (isVoiceChatActive && voiceChatPhase == VoiceChatPhase.SPEAKING) {
-                                scheduleNextVoiceChatListening()
+                            ttsCompletionContinuation?.let { cont ->
+                                ttsCompletionContinuation = null
+                                if (cont.isActive) cont.resume(Unit)
                             }
                         }
                     }
@@ -1855,11 +2006,21 @@ class DragonClawViewModel : ViewModel() {
                     }
                     if (activeDesktopSession != null) startNewChat()
                     if (isStreaming) stopStreaming()
+                    val turnId = UUID.randomUUID().toString()
+                    resetVoiceTurnPipeline(turnId)
                     voiceChatUserTranscript = spoken
                     voiceChatAssistantTranscript = ""
                     voiceChatPhase = VoiceChatPhase.THINKING
+                    voiceSpeechSegmenter = StreamingSpeechSegmenter()
+                    voiceTurnClauseHandler = { clause ->
+                        if (isVoiceChatActive && activeVoiceTurnId == turnId) {
+                            enqueueVoiceSpeechClause(clause, turnId)
+                        }
+                    }
                     voiceTurnCompletion = { reply ->
-                        if (isVoiceChatActive) handleVoiceReplyCompleted(reply)
+                        if (isVoiceChatActive && activeVoiceTurnId == turnId) {
+                            handleVoiceReplyCompleted(reply, turnId)
+                        }
                     }
                     sendPrompt(spoken, voiceMode = true)
                 }
@@ -1870,50 +2031,130 @@ class DragonClawViewModel : ViewModel() {
         }
     }
 
-    private fun handleVoiceReplyCompleted(rawReply: String) {
-        if (!isVoiceChatActive) return
-        val speechText = MarkdownParser.toSpeechText(rawReply).ifBlank { rawReply.trim() }
-        voiceChatAssistantTranscript = speechText
+    private fun appendVoiceTranscriptClause(clean: String) {
+        val current = voiceChatAssistantTranscript
+        voiceChatAssistantTranscript = when {
+            current.isEmpty() -> clean
+            clean.firstOrNull()?.let { it.code < 128 && it.isLetterOrDigit() } == true -> "$current $clean"
+            else -> "$current$clean"
+        }
+    }
 
-        if (isVoiceChatSpeechMuted || speechText.isBlank()) {
-            scheduleNextVoiceChatListening()
-            return
+    private fun enqueueVoiceSpeechClause(clause: String, turnId: String) {
+        if (!isVoiceChatActive || activeVoiceTurnId != turnId) return
+        val clean = clause.trim()
+        if (clean.isEmpty()) return
+
+        appendVoiceTranscriptClause(clean)
+        if (isVoiceChatSpeechMuted) return
+
+        if (voiceChatPhase == VoiceChatPhase.THINKING || voiceChatPhase == VoiceChatPhase.TRANSCRIBING) {
+            voiceChatPhase = VoiceChatPhase.SPEAKING
+            voiceAppContext?.let { applyVoiceAudioRoute(it) }
         }
 
-        voiceChatPhase = VoiceChatPhase.SPEAKING
-        stopAllVoicePlayback()
-        val appCtx = voiceAppContext
-        if (appCtx == null) {
-            fallbackDeviceSpeechOrAdvance(speechText)
-            return
+        val chunkIdx = voiceNextChunkIndex++
+        val voiceId = selectedVoicePersona
+        val langSnap = language
+        val deferred = viewModelScope.async {
+            var lastAudio: SynthesizedSpeechAudio? = null
+            for (attempt in 0..1) {
+                val res = runCatching {
+                    sdk.api.synthesizeSpeech(
+                        token = token,
+                        text = clean,
+                        language = langSnap,
+                        voice = voiceId,
+                        turnId = turnId
+                    )
+                }.getOrNull()
+                if (res != null) {
+                    lastAudio = res
+                    break
+                }
+                if (attempt == 0) delay(120L)
+            }
+            if (lastAudio != null) {
+                VoiceSynthesizedChunk.CloudAudio(lastAudio, fallbackText = clean)
+            } else {
+                VoiceSynthesizedChunk.LocalFallback(clean)
+            }
         }
+        voiceDeferredChunks[chunkIdx] = deferred
+        ensureVoicePlaybackLoopRunning(turnId)
+    }
 
-        voiceSpeechJob = viewModelScope.launch {
-            runCatching {
-                sdk.api.synthesizeSpeech(
-                    token = token,
-                    text = speechText,
-                    language = language
-                )
-            }.onSuccess { audio ->
-                if (!isVoiceChatActive || isVoiceChatSpeechMuted || voiceChatPhase != VoiceChatPhase.SPEAKING) {
-                    return@onSuccess
+    private fun ensureVoicePlaybackLoopRunning(turnId: String) {
+        if (voicePlaybackLoopJob?.isActive == true) return
+        voicePlaybackLoopJob = viewModelScope.launch {
+            var playIdx = 0
+            while (isActive && isVoiceChatActive && activeVoiceTurnId == turnId && !isVoiceChatSpeechMuted) {
+                val deferred = voiceDeferredChunks[playIdx]
+                if (deferred != null) {
+                    val chunk = deferred.await()
+                    voiceDeferredChunks.remove(playIdx)
+                    playIdx++
+                    if (!isVoiceChatActive || activeVoiceTurnId != turnId || isVoiceChatSpeechMuted) break
+                    if (voiceChatPhase != VoiceChatPhase.SPEAKING) {
+                        voiceChatPhase = VoiceChatPhase.SPEAKING
+                    }
+                    val appCtx = voiceAppContext
+                    val playedOk = when (chunk) {
+                        is VoiceSynthesizedChunk.CloudAudio -> {
+                            voiceChatModelLabel = chunk.audio.model
+                            if (appCtx != null) playSynthesizedAudioBlocking(appCtx, chunk.audio) else false
+                        }
+                        is VoiceSynthesizedChunk.LocalFallback -> false
+                    }
+                    if (!playedOk) {
+                        val fallbackText = when (chunk) {
+                            is VoiceSynthesizedChunk.CloudAudio -> chunk.fallbackText
+                            is VoiceSynthesizedChunk.LocalFallback -> chunk.text
+                        }
+                        speakLocalTtsBlocking(fallbackText)
+                    }
+                } else if (voiceAllChunksEnqueued && playIdx >= voiceNextChunkIndex) {
+                    break
+                } else {
+                    delay(25L)
                 }
-                voiceChatModelLabel = audio.model
-                val started = playSynthesizedAudio(appCtx, audio)
-                if (!started) {
-                    fallbackDeviceSpeechOrAdvance(speechText)
-                }
-            }.onFailure {
-                if (!isVoiceChatActive || isVoiceChatSpeechMuted || voiceChatPhase != VoiceChatPhase.SPEAKING) {
-                    return@onFailure
-                }
-                fallbackDeviceSpeechOrAdvance(speechText)
+            }
+            if (isVoiceChatActive &&
+                activeVoiceTurnId == turnId &&
+                voiceAllChunksEnqueued &&
+                (voiceChatPhase == VoiceChatPhase.SPEAKING || voiceChatPhase == VoiceChatPhase.THINKING)
+            ) {
+                scheduleNextVoiceChatListening()
             }
         }
     }
 
-    private suspend fun playSynthesizedAudio(appCtx: Context, audio: SynthesizedSpeechAudio): Boolean {
+    private fun handleVoiceReplyCompleted(rawReply: String, turnId: String) {
+        if (!isVoiceChatActive || activeVoiceTurnId != turnId) return
+        val speechText = MarkdownParser.toSpeechText(rawReply).ifBlank { rawReply.trim() }
+        voiceChatAssistantTranscript = speechText
+        voiceAllChunksEnqueued = true
+
+        if (isVoiceChatSpeechMuted || (speechText.isBlank() && voiceNextChunkIndex == 0)) {
+            scheduleNextVoiceChatListening()
+            return
+        }
+
+        if (voiceNextChunkIndex == 0 && speechText.isNotBlank()) {
+            val truncated = if (speechText.length > 1200) speechText.take(1200) else speechText
+            enqueueVoiceSpeechClause(truncated, turnId)
+        }
+
+        if (voiceNextChunkIndex > 0) {
+            if (voiceChatPhase != VoiceChatPhase.SPEAKING) {
+                voiceChatPhase = VoiceChatPhase.SPEAKING
+                voiceAppContext?.let { applyVoiceAudioRoute(it) }
+            }
+            ensureVoicePlaybackLoopRunning(turnId)
+        }
+    }
+
+    private suspend fun playSynthesizedAudioBlocking(appCtx: Context, audio: SynthesizedSpeechAudio): Boolean {
         val ext = if (audio.mimeType.contains("mpeg", ignoreCase = true) || audio.mimeType.contains("mp3", ignoreCase = true)) {
             "mp3"
         } else {
@@ -1932,64 +2173,82 @@ class DragonClawViewModel : ViewModel() {
             return false
         }
 
-        return runCatching {
-            applyVoiceAudioRoute(appCtx)
-            val player = MediaPlayer().apply {
-                setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                        .build()
-                )
-                setDataSource(audioFile.absolutePath)
-                setOnCompletionListener {
-                    stopAllVoicePlayback()
-                    if (isVoiceChatActive && voiceChatPhase == VoiceChatPhase.SPEAKING) {
-                        scheduleNextVoiceChatListening()
+        return suspendCancellableCoroutine { cont ->
+            val startedPlayer = runCatching {
+                applyVoiceAudioRoute(appCtx)
+                MediaPlayer().apply {
+                    setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                            .build()
+                    )
+                    setDataSource(audioFile.absolutePath)
+                    setOnCompletionListener { mp ->
+                        runCatching { mp.release() }
+                        if (voiceMediaPlayer === mp) voiceMediaPlayer = null
+                        if (voiceAudioTempFile === audioFile) voiceAudioTempFile = null
+                        runCatching { audioFile.delete() }
+                        if (cont.isActive) cont.resume(true)
                     }
-                }
-                setOnErrorListener { _, _, _ ->
-                    stopAllVoicePlayback()
-                    if (isVoiceChatActive && voiceChatPhase == VoiceChatPhase.SPEAKING) {
-                        scheduleNextVoiceChatListening()
+                    setOnErrorListener { mp, _, _ ->
+                        runCatching { mp.release() }
+                        if (voiceMediaPlayer === mp) voiceMediaPlayer = null
+                        if (voiceAudioTempFile === audioFile) voiceAudioTempFile = null
+                        runCatching { audioFile.delete() }
+                        if (cont.isActive) cont.resume(false)
+                        true
                     }
-                    true
+                    prepare()
+                    start()
                 }
-                prepare()
-                start()
+            }.getOrNull()
+
+            if (startedPlayer == null) {
+                runCatching { audioFile.delete() }
+                if (cont.isActive) cont.resume(false)
+            } else {
+                voiceAudioTempFile = audioFile
+                voiceMediaPlayer = startedPlayer
+                cont.invokeOnCancellation {
+                    runCatching { startedPlayer.stop() }
+                    runCatching { startedPlayer.release() }
+                    if (voiceMediaPlayer === startedPlayer) voiceMediaPlayer = null
+                    if (voiceAudioTempFile === audioFile) voiceAudioTempFile = null
+                    runCatching { audioFile.delete() }
+                }
             }
-            voiceAudioTempFile = audioFile
-            voiceMediaPlayer = player
-            true
-        }.getOrElse {
-            runCatching { audioFile.delete() }
-            false
         }
     }
 
-    private fun fallbackDeviceSpeechOrAdvance(speechText: String) {
+    private suspend fun speakLocalTtsBlocking(speechText: String) {
+        if (!isVoiceChatActive || isVoiceChatSpeechMuted) return
         voiceChatModelLabel = ""
         voiceAppContext?.let { applyVoiceAudioRoute(it) }
         val engine = ttsEngine
         if (engine != null && ttsReady) {
-            val locale = if (language == "en") Locale.US else Locale.SIMPLIFIED_CHINESE
-            runCatching { engine.language = locale }
-            val ttsParams = Bundle().apply {
-                putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_VOICE_CALL)
-            }
-            val result = engine.speak(speechText, TextToSpeech.QUEUE_FLUSH, ttsParams, "dc_voice_${System.currentTimeMillis()}")
-            if (result != TextToSpeech.SUCCESS) {
-                scheduleNextVoiceChatListening()
-            }
-        } else {
-            // Fallback brief pause so user can read the response on screen before next turn
-            voiceResumeJob?.cancel()
-            voiceResumeJob = viewModelScope.launch {
-                delay(2400L)
-                if (isVoiceChatActive && voiceChatPhase == VoiceChatPhase.SPEAKING) {
-                    beginVoiceConversationListening()
+            withTimeoutOrNull(18_000L) {
+                suspendCancellableCoroutine<Unit> { cont ->
+                    ttsCompletionContinuation = cont
+                    val locale = if (language == "en") Locale.US else Locale.SIMPLIFIED_CHINESE
+                    runCatching { engine.language = locale }
+                    val ttsParams = Bundle().apply {
+                        putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_VOICE_CALL)
+                    }
+                    val result = engine.speak(speechText, TextToSpeech.QUEUE_FLUSH, ttsParams, "dc_voice_${System.currentTimeMillis()}")
+                    if (result != TextToSpeech.SUCCESS) {
+                        if (ttsCompletionContinuation === cont) ttsCompletionContinuation = null
+                        if (cont.isActive) cont.resume(Unit)
+                    } else {
+                        cont.invokeOnCancellation {
+                            if (ttsCompletionContinuation === cont) ttsCompletionContinuation = null
+                            engine.stop()
+                        }
+                    }
                 }
             }
+        } else {
+            delay(minOf(2400L, speechText.length * 85L + 350L))
         }
     }
 
@@ -2008,7 +2267,7 @@ class DragonClawViewModel : ViewModel() {
     private fun scheduleNextVoiceChatListening() {
         voiceResumeJob?.cancel()
         voiceResumeJob = viewModelScope.launch {
-            delay(280L)
+            delay(240L)
             if (isVoiceChatActive && (voiceChatPhase == VoiceChatPhase.SPEAKING || voiceChatPhase == VoiceChatPhase.THINKING)) {
                 beginVoiceConversationListening()
             }

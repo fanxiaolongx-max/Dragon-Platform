@@ -60,27 +60,59 @@ test('natural TTS wraps Gemini PCM L16 into valid RIFF WAV and POST /speech/synt
  assert.equal(wrapped.readUInt32LE(24),24000);
  assert.equal(wrapped.readUInt32LE(40),pcm.length);
  const originalFetch=global.fetch;
- global.fetch=async()=>new Response(JSON.stringify({
-  candidates:[{content:{parts:[{inlineData:{mimeType:'audio/L16;codec=pcm;rate=24000',data:pcm.toString('base64')}}]}}]
- }),{headers:{'Content-Type':'application/json'}});
+ let geminiBody;
+ global.fetch=async(_url,init)=>{
+  geminiBody=JSON.parse(init.body);
+  return new Response(JSON.stringify({
+   candidates:[{content:{parts:[{inlineData:{mimeType:'audio/L16;codec=pcm;rate=24000',data:pcm.toString('base64')}}]}}]
+  }),{headers:{'Content-Type':'application/json'}});
+ };
  try{
   const out=await speech.synthesize({text:'你好，系统正常。',language:'zh',settings:{provider:'gemini',model:'gemini-3.1-flash-lite',apiBaseUrl:'https://generativelanguage.googleapis.com/v1beta',apiKey:'k-test',hasApiKey:true,keyLooksValid:true}});
   assert.equal(out.mimeType,'audio/wav');
   assert.equal(out.audio.toString('ascii',0,4),'RIFF');
+  assert.equal(out.voice,'Kore');
+  assert.equal(geminiBody.generationConfig.temperature,0.15);
+  assert.equal(geminiBody.generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName,'Kore');
+  assert.match(geminiBody.contents[0].parts[0].text,/Kore/);
+
+  const customOut=await speech.synthesize({text:'Second turn.',voice:'Charon',language:'en',settings:{provider:'gemini',model:'gemini-3.1-flash-lite',apiBaseUrl:'https://generativelanguage.googleapis.com/v1beta',apiKey:'k-test',hasApiKey:true,keyLooksValid:true}});
+  assert.equal(customOut.voice,'Charon');
+  assert.equal(geminiBody.generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName,'Charon');
  }finally{global.fetch=originalFetch;}
 
  const beforeSynth=speech.synthesizeSpeech;
- speech.synthesizeSpeech=async({text})=>({audio:speech.pcm16ToWav(pcm,24000),mimeType:'audio/wav',model:'gemini-2.5-flash-preview-tts',voice:'Aoede',echo:text});
+ let releaseFirstChunk,abortedOldTurn=false;
+ speech.synthesizeSpeech=async({text,voice,signal})=>{
+  if(text==='chunk-1'){
+   await new Promise(resolve=>{
+    releaseFirstChunk=resolve;
+    signal.addEventListener('abort',()=>{abortedOldTurn=true;resolve();},{once:true});
+   });
+  }
+  return {audio:speech.pcm16ToWav(pcm,24000),mimeType:'audio/wav',model:'gemini-2.5-flash-preview-tts',voice:voice||'Kore',echo:text};
+ };
  try{
   const app=express();app.use(express.json());app.use((req,res,next)=>{if(req.headers['x-user'])req.user={username:req.headers['x-user'],role:'viewer'};runWithTenant(req.headers['x-tenant']||'default',next);});app.use('/speech',require('../backend/routes/ai-speech'));
   const s=app.listen(0,'127.0.0.1');await new Promise(resolve=>s.once('listening',resolve));
   const b=`http://127.0.0.1:${s.address().port}`;
   assert.equal((await fetch(b+'/speech/synthesize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:'hi'})})).status,401);
-  const okRes=await fetch(b+'/speech/synthesize',{method:'POST',headers:{'Content-Type':'application/json','x-user':'alice'},body:JSON.stringify({text:'你好，这是自然语音测试。',language:'zh'})});
+  const okRes=await fetch(b+'/speech/synthesize',{method:'POST',headers:{'Content-Type':'application/json','x-user':'alice'},body:JSON.stringify({text:'你好，这是自然语音测试。',voice:'Kore',language:'zh'})});
   assert.equal(okRes.status,200);
   assert.equal(okRes.headers.get('content-type'),'audio/wav');
+  assert.equal(okRes.headers.get('x-speech-voice'),'Kore');
   const bytes=Buffer.from(await okRes.arrayBuffer());
   assert.equal(bytes.toString('ascii',0,4),'RIFF');
+
+  const p1=fetch(b+'/speech/synthesize',{method:'POST',headers:{'Content-Type':'application/json','x-user':'alice'},body:JSON.stringify({text:'chunk-1',turnId:'turn-a',language:'zh'})});
+  while(!releaseFirstChunk)await new Promise(resolve=>setTimeout(resolve,5));
+  const p2=await fetch(b+'/speech/synthesize',{method:'POST',headers:{'Content-Type':'application/json','x-user':'alice'},body:JSON.stringify({text:'chunk-2',turnId:'turn-a',language:'zh'})});
+  assert.equal(p2.status,200,'same turnId must allow pipelined concurrent TTS synthesis');
+  assert.equal(abortedOldTurn,false);
+  const pNewTurn=await fetch(b+'/speech/synthesize',{method:'POST',headers:{'Content-Type':'application/json','x-user':'alice'},body:JSON.stringify({text:'chunk-next',turnId:'turn-b',language:'zh'})});
+  assert.equal(pNewTurn.status,200);
+  assert.equal(abortedOldTurn,true,'switching to a new turnId aborts stale in-flight synthesis');
+  await p1;
   s.close();
  }finally{speech.synthesizeSpeech=beforeSynth;}
 });

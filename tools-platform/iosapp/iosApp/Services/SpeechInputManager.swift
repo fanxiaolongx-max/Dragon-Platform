@@ -1,6 +1,7 @@
 import AVFoundation
 import Foundation
 import Observation
+import UIKit
 import shared
 
 /// Native AVAudioRecorder with live metering + optional auto-silence VAD for both
@@ -177,13 +178,13 @@ final class SpeechInputManager {
                     if tickCount >= 8, self.onSilenceDetected != nil, !self.silenceCallbackFired {
                         if level >= 0.26 {
                             speechTicks += 1
-                            if speechTicks >= 3 {
+                            if speechTicks >= 2 {
                                 self.hasDetectedSpeech = true
                             }
                             silentTicks = 0
                         } else if self.hasDetectedSpeech && level < 0.19 {
                             silentTicks += 1
-                            if silentTicks >= 25 {
+                            if silentTicks >= 13 {
                                 self.silenceCallbackFired = true
                                 self.onSilenceDetected?()
                                 break
@@ -282,14 +283,28 @@ final class VoiceChatController: NSObject, AVSpeechSynthesizerDelegate, AVAudioP
     var activeVoiceModelLabel = ""
     var errorText: String?
 
+    private enum SynthesizedChunkResult {
+        case audio(SynthesizedSpeechAudio, fallbackText: String)
+        case fallback(String)
+    }
+
     let speechRecorder = SpeechInputManager()
 
     private let synthesizer = AVSpeechSynthesizer()
     private var audioPlayer: AVAudioPlayer?
-    private var synthesisTaskHandle: TaskHandle?
+    private var cuePlayer: AVAudioPlayer?
+    private let hapticGenerator = UIImpactFeedbackGenerator(style: .soft)
     private weak var boundStore: DragonClawStore?
     private var resumeListeningTask: Task<Void, Never>?
     private nonisolated(unsafe) var routeObserver: NSObjectProtocol?
+
+    private var activeTurnId: String = ""
+    private var nextChunkIndex: Int = 0
+    private var nextPlayChunkIndex: Int = 0
+    private var allChunksEnqueuedForTurn = false
+    private var isSpeakingSystemFallback = false
+    private var chunkTaskHandles: [Int: TaskHandle] = [:]
+    private var synthesizedChunks: [Int: SynthesizedChunkResult] = [:]
 
     override init() {
         super.init()
@@ -328,21 +343,37 @@ final class VoiceChatController: NSObject, AVSpeechSynthesizerDelegate, AVAudioP
         refreshExternalRouteState()
         configureActiveAudioRoute()
         store.prepareVoiceConversationSessionIfNeeded()
-        beginListeningTurn()
-    }
-
-    func endSession() {
         stopPlayback()
         resumeListeningTask?.cancel()
         resumeListeningTask = nil
+        playStudioCue(isOpen: true, haptic: true)
+        phase = .paused
+        resumeListeningTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 220_000_000)
+            guard let self, self.isPresented else { return }
+            self.beginListeningTurn()
+        }
+    }
+
+    func endSession() {
+        resumeListeningTask?.cancel()
+        resumeListeningTask = nil
+        stopPlayback()
         speechRecorder.cancelRecording()
         boundStore?.clearVoiceTurnCompletion()
         if boundStore?.isStreaming == true {
             boundStore?.stopStreaming()
         }
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        playStudioCue(isOpen: false, haptic: true)
         phase = .idle
         isPresented = false
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 320_000_000)
+            guard let self, !self.isPresented else { return }
+            self.cuePlayer?.stop()
+            self.cuePlayer = nil
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        }
     }
 
     func togglePause() {
@@ -402,12 +433,47 @@ final class VoiceChatController: NSObject, AVSpeechSynthesizerDelegate, AVAudioP
         }
     }
 
+    private func resetTurnPipeline(turnId: String = "") {
+        for handle in chunkTaskHandles.values {
+            handle.cancel()
+        }
+        chunkTaskHandles.removeAll()
+        synthesizedChunks.removeAll()
+        activeTurnId = turnId
+        nextChunkIndex = 0
+        nextPlayChunkIndex = 0
+        allChunksEnqueuedForTurn = false
+    }
+
     private func stopPlayback() {
-        synthesisTaskHandle?.cancel()
-        synthesisTaskHandle = nil
+        resetTurnPipeline()
+        isSpeakingSystemFallback = false
         audioPlayer?.stop()
         audioPlayer = nil
         synthesizer.stopSpeaking(at: .immediate)
+        activeVoiceModelLabel = ""
+    }
+
+    private func playStudioCue(isOpen: Bool, haptic: Bool = true) {
+        if haptic {
+            hapticGenerator.prepare()
+            hapticGenerator.impactOccurred()
+        }
+        guard audioRoute != .muted else { return }
+        configureActiveAudioRoute()
+        let bytes = isOpen
+            ? DragonClawHelpers.shared.generateVoiceOpenCueWav(sampleRate: 24_000)
+            : DragonClawHelpers.shared.generateVoiceCloseCueWav(sampleRate: 24_000)
+        let nsData = IosInteropKt.byteArrayToNSData(bytes: bytes)
+        do {
+            let cue = try AVAudioPlayer(data: nsData as Data)
+            cue.volume = 0.85
+            cue.prepareToPlay()
+            cue.play()
+            cuePlayer = cue
+        } catch {
+            cuePlayer = nil
+        }
     }
 
     private func beginListeningTurn() {
@@ -440,56 +506,128 @@ final class VoiceChatController: NSObject, AVSpeechSynthesizerDelegate, AVAudioP
             return
         }
 
+        let turnId = UUID().uuidString
+        resetTurnPipeline(turnId: turnId)
         phase = .transcribing
         errorText = nil
         store.transcribeAndStreamVoiceTurn(
             data,
             onRecognized: { [weak self] spoken in
-                guard let self, self.isPresented else { return }
+                guard let self, self.isPresented, self.activeTurnId == turnId else { return }
                 self.userTranscript = spoken
                 self.assistantTranscript = ""
                 self.phase = .thinking
             },
+            onClauseReady: { [weak self] clause in
+                guard let self, self.isPresented, self.activeTurnId == turnId else { return }
+                self.enqueueSpeechClause(clause, turnId: turnId)
+            },
             onReplyDone: { [weak self] fullReply in
-                guard let self, self.isPresented else { return }
-                self.handleReplyCompleted(fullReply)
+                guard let self, self.isPresented, self.activeTurnId == turnId else { return }
+                self.handleReplyCompleted(fullReply, turnId: turnId)
             },
             onError: { [weak self] msg in
-                guard let self, self.isPresented else { return }
+                guard let self, self.isPresented, self.activeTurnId == turnId else { return }
                 self.scheduleRetryListening(message: msg)
             }
         )
     }
 
-    private func handleReplyCompleted(_ rawReply: String) {
-        guard isPresented, let store = boundStore else { return }
-        let cleanSpeech = MarkdownParser.shared.toSpeechText(raw: rawReply)
-        let speakable = (cleanSpeech.isEmpty ? rawReply : cleanSpeech).trimmingCharacters(in: .whitespacesAndNewlines)
-        assistantTranscript = speakable
+    private func appendAssistantTranscriptClause(_ clean: String) {
+        if assistantTranscript.isEmpty {
+            assistantTranscript = clean
+        } else if let first = clean.unicodeScalars.first, first.isASCII,
+                  (CharacterSet.alphanumerics.contains(first)) {
+            assistantTranscript += " " + clean
+        } else {
+            assistantTranscript += clean
+        }
+    }
 
-        if isSpeechMuted || speakable.isEmpty {
-            scheduleNextListeningTurn()
-            return
+    private func enqueueSpeechClause(_ clause: String, turnId: String) {
+        guard isPresented, activeTurnId == turnId, let store = boundStore else { return }
+        let clean = clause.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty else { return }
+
+        appendAssistantTranscriptClause(clean)
+        guard !isSpeechMuted else { return }
+
+        if phase == .thinking || phase == .transcribing {
+            phase = .speaking
+            configureActiveAudioRoute()
         }
 
-        phase = .speaking
-        configureActiveAudioRoute()
-
-        let truncatedForVoice = speakable.count > 1200 ? String(speakable.prefix(1200)) : speakable
-        synthesisTaskHandle?.cancel()
-        synthesisTaskHandle = store.sdk.synthesizeSpeech(
-            token: store.token,
-            text: truncatedForVoice,
+        let index = nextChunkIndex
+        nextChunkIndex += 1
+        synthesizeChunk(
+            turnId: turnId,
+            index: index,
+            text: clean,
+            voice: store.selectedVoicePersona,
             language: store.language,
-            voice: nil
+            retriesLeft: 1
+        )
+    }
+
+    private func synthesizeChunk(
+        turnId: String,
+        index: Int,
+        text: String,
+        voice: String,
+        language: String,
+        retriesLeft: Int
+    ) {
+        guard isPresented, activeTurnId == turnId, let store = boundStore else { return }
+        let handle = store.sdk.synthesizeSpeech(
+            token: store.token,
+            text: text,
+            language: language,
+            voice: voice,
+            turnId: turnId
         ) { [weak self] audio in
             Task { @MainActor [weak self] in
-                guard let self, self.isPresented, self.phase == .speaking, !self.isSpeechMuted else { return }
-                self.synthesisTaskHandle = nil
-                self.activeVoiceModelLabel = audio.model
+                guard let self, self.isPresented, self.activeTurnId == turnId, !self.isSpeechMuted else { return }
+                self.chunkTaskHandles.removeValue(forKey: index)
+                self.synthesizedChunks[index] = .audio(audio, fallbackText: text)
+                self.drainPlaybackQueueIfIdle()
+            }
+        } onError: { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, self.isPresented, self.activeTurnId == turnId, !self.isSpeechMuted else { return }
+                self.chunkTaskHandles.removeValue(forKey: index)
+                if retriesLeft > 0 {
+                    self.synthesizeChunk(
+                        turnId: turnId,
+                        index: index,
+                        text: text,
+                        voice: voice,
+                        language: language,
+                        retriesLeft: retriesLeft - 1
+                    )
+                    return
+                }
+                self.synthesizedChunks[index] = .fallback(text)
+                self.drainPlaybackQueueIfIdle()
+            }
+        }
+        chunkTaskHandles[index] = handle
+    }
+
+    private func drainPlaybackQueueIfIdle() {
+        guard isPresented, !isSpeechMuted else { return }
+        guard audioPlayer == nil, !isSpeakingSystemFallback else { return }
+
+        if let nextItem = synthesizedChunks.removeValue(forKey: nextPlayChunkIndex) {
+            nextPlayChunkIndex += 1
+            if phase != .speaking {
+                phase = .speaking
+            }
+            switch nextItem {
+            case .audio(let audio, let fallbackText):
+                activeVoiceModelLabel = audio.model
                 let nsData = IosInteropKt.byteArrayToNSData(bytes: audio.bytes)
                 do {
-                    self.configureActiveAudioRoute()
+                    configureActiveAudioRoute()
                     let player = try AVAudioPlayer(data: nsData as Data)
                     player.delegate = self
                     player.prepareToPlay()
@@ -500,15 +638,40 @@ final class VoiceChatController: NSObject, AVSpeechSynthesizerDelegate, AVAudioP
                 } catch {
                     // Fall through to local fallback only if compressed audio decode fails
                 }
-                self.speakWithSystemFallback(speakable, language: store.language)
+                speakWithSystemFallback(fallbackText, language: boundStore?.language ?? "zh")
+            case .fallback(let fallbackText):
+                speakWithSystemFallback(fallbackText, language: boundStore?.language ?? "zh")
             }
-        } onError: { [weak self] _ in
-            Task { @MainActor [weak self] in
-                guard let self, self.isPresented, self.phase == .speaking, !self.isSpeechMuted else { return }
-                self.synthesisTaskHandle = nil
-                self.speakWithSystemFallback(speakable, language: store.language)
-            }
+            return
         }
+
+        if allChunksEnqueuedForTurn && nextPlayChunkIndex >= nextChunkIndex {
+            scheduleNextListeningTurn()
+        }
+    }
+
+    private func handleReplyCompleted(_ rawReply: String, turnId: String) {
+        guard isPresented, activeTurnId == turnId else { return }
+        let cleanSpeech = MarkdownParser.shared.toSpeechText(raw: rawReply)
+        let speakable = (cleanSpeech.isEmpty ? rawReply : cleanSpeech).trimmingCharacters(in: .whitespacesAndNewlines)
+        assistantTranscript = speakable
+        allChunksEnqueuedForTurn = true
+
+        if isSpeechMuted || (speakable.isEmpty && nextChunkIndex == 0) {
+            scheduleNextListeningTurn()
+            return
+        }
+
+        if nextChunkIndex == 0 && !speakable.isEmpty {
+            let truncatedForVoice = speakable.count > 1200 ? String(speakable.prefix(1200)) : speakable
+            enqueueSpeechClause(truncatedForVoice, turnId: turnId)
+        }
+
+        if phase != .speaking && nextPlayChunkIndex < nextChunkIndex {
+            phase = .speaking
+            configureActiveAudioRoute()
+        }
+        drainPlaybackQueueIfIdle()
     }
 
     private func refreshExternalRouteState() {
@@ -552,6 +715,7 @@ final class VoiceChatController: NSObject, AVSpeechSynthesizerDelegate, AVAudioP
 
     private func speakWithSystemFallback(_ text: String, language: String) {
         activeVoiceModelLabel = ""
+        isSpeakingSystemFallback = true
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = AVSpeechSynthesisVoice(language: language == "en" ? "en-US" : "zh-CN")
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 1.02
@@ -573,7 +737,7 @@ final class VoiceChatController: NSObject, AVSpeechSynthesizerDelegate, AVAudioP
     private func scheduleNextListeningTurn() {
         resumeListeningTask?.cancel()
         resumeListeningTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: 280_000_000)
+            try? await Task.sleep(nanoseconds: 240_000_000)
             guard let self, self.isPresented, self.phase == .speaking || self.phase == .thinking else { return }
             self.beginListeningTurn()
         }
@@ -581,24 +745,25 @@ final class VoiceChatController: NSObject, AVSpeechSynthesizerDelegate, AVAudioP
 
     nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         Task { @MainActor [weak self] in
-            guard let self, self.isPresented, self.phase == .speaking else { return }
+            guard let self, self.isPresented, self.phase == .speaking, player === self.audioPlayer else { return }
             self.audioPlayer = nil
-            self.scheduleNextListeningTurn()
+            self.drainPlaybackQueueIfIdle()
         }
     }
 
     nonisolated func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
         Task { @MainActor [weak self] in
-            guard let self, self.isPresented, self.phase == .speaking else { return }
+            guard let self, self.isPresented, self.phase == .speaking, player === self.audioPlayer else { return }
             self.audioPlayer = nil
-            self.scheduleNextListeningTurn()
+            self.drainPlaybackQueueIfIdle()
         }
     }
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         Task { @MainActor [weak self] in
             guard let self, self.isPresented, self.phase == .speaking else { return }
-            self.scheduleNextListeningTurn()
+            self.isSpeakingSystemFallback = false
+            self.drainPlaybackQueueIfIdle()
         }
     }
 }

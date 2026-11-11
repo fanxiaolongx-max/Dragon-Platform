@@ -15,9 +15,22 @@ router.get('/',async(_req,res)=>{
 });
 router.post('/synthesize',async(req,res)=>{
     const tenant=getTenantId(),key=`${tenant}::${req.user.username}`;
-    ttsControllers.get(key)?.abort();
+    const turnId=typeof req.body?.turnId==='string'?req.body.turnId.trim().slice(0,64):'';
+    const existing=ttsControllers.get(key);
+    if(existing){
+        if(!turnId||!existing.turnId||existing.turnId!==turnId){
+            for(const prev of existing.controllers)prev.abort();
+            existing.controllers.clear();
+            existing.turnId=turnId||null;
+        }else if(existing.controllers.size>=4){
+            const oldest=existing.controllers.values().next().value;
+            if(oldest){oldest.abort();existing.controllers.delete(oldest);}
+        }
+    }
+    const group=existing&&ttsControllers.get(key)===existing?existing:{turnId:turnId||null,controllers:new Set()};
+    if(!existing){ttsControllers.set(key,group);}
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),25000);
-    ttsControllers.set(key,controller);
+    group.controllers.add(controller);
     const onClose=()=>{if(!res.writableEnded)controller.abort();};res.on('close',onClose);
     try{
         const result=await runWithTenant(tenant,()=>speech.synthesizeSpeech({
@@ -42,7 +55,8 @@ router.post('/synthesize',async(req,res)=>{
         }
     }finally{
         clearTimeout(timer);
-        if(ttsControllers.get(key)===controller)ttsControllers.delete(key);
+        group.controllers.delete(controller);
+        if(ttsControllers.get(key)===group&&group.controllers.size===0)ttsControllers.delete(key);
         res.off('close',onClose);
     }
 });

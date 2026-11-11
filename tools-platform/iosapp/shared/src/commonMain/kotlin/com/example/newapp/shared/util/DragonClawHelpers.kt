@@ -7,6 +7,10 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
+import kotlin.math.PI
+import kotlin.math.exp
+import kotlin.math.roundToInt
+import kotlin.math.sin
 
 data class AestheticImageFrame(
     val width: Double,
@@ -656,6 +660,323 @@ object DragonClawHelpers {
             }
         }
         return runs
+    }
+
+    /** Studio ascending major-fifth chime (C5 -> G5) signaling voice call opened / mic live. */
+    fun generateVoiceOpenCueWav(sampleRate: Int = 24_000): ByteArray {
+        return synthesizeStudioChimeWav(
+            sampleRate = sampleRate,
+            totalSec = 0.255,
+            freqs = doubleArrayOf(523.25, 783.99),
+            startsSec = doubleArrayOf(0.0, 0.088),
+            dursSec = doubleArrayOf(0.145, 0.165),
+            harmonicMix = 0.16,
+            amplitude = 0.30
+        )
+    }
+
+    /** Calm descending fifth chime (D5 -> G4) signaling voice call ended / mic closed. */
+    fun generateVoiceCloseCueWav(sampleRate: Int = 24_000): ByteArray {
+        return synthesizeStudioChimeWav(
+            sampleRate = sampleRate,
+            totalSec = 0.295,
+            freqs = doubleArrayOf(587.33, 392.00),
+            startsSec = doubleArrayOf(0.0, 0.098),
+            dursSec = doubleArrayOf(0.155, 0.195),
+            harmonicMix = 0.10,
+            amplitude = 0.26
+        )
+    }
+
+    private fun synthesizeStudioChimeWav(
+        sampleRate: Int,
+        totalSec: Double,
+        freqs: DoubleArray,
+        startsSec: DoubleArray,
+        dursSec: DoubleArray,
+        harmonicMix: Double,
+        amplitude: Double
+    ): ByteArray {
+        val rate = sampleRate.coerceIn(16_000, 48_000)
+        val totalSamples = (rate * totalSec).roundToInt().coerceAtLeast(1)
+        val dataSize = totalSamples * 2
+        val wav = ByteArray(44 + dataSize)
+
+        // Write standard 44-byte RIFF/WAVE mono 16-bit PCM header
+        "RIFF".encodeToByteArray().copyInto(wav, 0)
+        writeInt32LE(wav, 4, 36 + dataSize)
+        "WAVEfmt ".encodeToByteArray().copyInto(wav, 8)
+        writeInt32LE(wav, 16, 16)
+        writeInt16LE(wav, 20, 1)
+        writeInt16LE(wav, 22, 1)
+        writeInt32LE(wav, 24, rate)
+        writeInt32LE(wav, 28, rate * 2)
+        writeInt16LE(wav, 32, 2)
+        writeInt16LE(wav, 34, 16)
+        "data".encodeToByteArray().copyInto(wav, 36)
+        writeInt32LE(wav, 40, dataSize)
+
+        val attackSec = 0.012
+        for (s in 0 until totalSamples) {
+            val t = s.toDouble() / rate.toDouble()
+            var mix = 0.0
+            for (n in freqs.indices) {
+                val localT = t - startsSec[n]
+                val dur = dursSec[n]
+                if (localT >= 0.0 && localT <= dur) {
+                    val attack = if (localT < attackSec) sin((localT / attackSec) * (PI / 2.0)) else 1.0
+                    val norm = (localT / dur).coerceIn(0.0, 1.0)
+                    val decay = exp(-4.8 * norm) * (1.0 - norm * norm * 0.25)
+                    val f = freqs[n]
+                    val tone = sin(2.0 * PI * f * localT) + harmonicMix * sin(2.0 * PI * (f * 2.0) * localT)
+                    mix += tone * attack * decay
+                }
+            }
+            val sampleVal = (mix * amplitude * 32767.0).roundToInt().coerceIn(-32767, 32767)
+            val byteIdx = 44 + s * 2
+            wav[byteIdx] = (sampleVal and 0xFF).toByte()
+            wav[byteIdx + 1] = ((sampleVal ushr 8) and 0xFF).toByte()
+        }
+        return wav
+    }
+
+    private fun writeInt32LE(dst: ByteArray, offset: Int, value: Int) {
+        dst[offset] = (value and 0xFF).toByte()
+        dst[offset + 1] = ((value ushr 8) and 0xFF).toByte()
+        dst[offset + 2] = ((value ushr 16) and 0xFF).toByte()
+        dst[offset + 3] = ((value ushr 24) and 0xFF).toByte()
+    }
+
+    private fun writeInt16LE(dst: ByteArray, offset: Int, value: Int) {
+        dst[offset] = (value and 0xFF).toByte()
+        dst[offset + 1] = ((value ushr 8) and 0xFF).toByte()
+    }
+}
+
+object VoicePersonaCatalog {
+    const val DEFAULT_VOICE_ID = "Kore"
+    const val SETTINGS_KEY_VOICE_ID = "voice_persona_id"
+
+    val presets: List<VoicePersonaOption> = listOf(
+        VoicePersonaOption(
+            id = "Kore",
+            labelZh = "知性女声 · Kore",
+            labelEn = "Balanced · Kore",
+            styleHintZh = "稳重清晰，语速稳定",
+            styleHintEn = "Poised, crisp & consistent"
+        ),
+        VoicePersonaOption(
+            id = "Aoede",
+            labelZh = "温柔女声 · Aoede",
+            labelEn = "Warm · Aoede",
+            styleHintZh = "温和舒缓，亲和自然",
+            styleHintEn = "Warm & conversational"
+        ),
+        VoicePersonaOption(
+            id = "Zephyr",
+            labelZh = "轻快女声 · Zephyr",
+            labelEn = "Bright · Zephyr",
+            styleHintZh = "清亮简洁，响应明快",
+            styleHintEn = "Clear & brisk"
+        ),
+        VoicePersonaOption(
+            id = "Charon",
+            labelZh = "沉稳男声 · Charon",
+            labelEn = "Deep · Charon",
+            styleHintZh = "低沉专业，冷静克制",
+            styleHintEn = "Calm, grounded male"
+        ),
+        VoicePersonaOption(
+            id = "Puck",
+            labelZh = "干练男声 · Puck",
+            labelEn = "Crisp · Puck",
+            styleHintZh = "轻快直率，干净利落",
+            styleHintEn = "Direct & upbeat male"
+        )
+    )
+
+    fun normalizeVoiceId(raw: String?): String {
+        val candidate = raw?.trim().orEmpty()
+        if (candidate.isEmpty()) return DEFAULT_VOICE_ID
+        return presets.firstOrNull { it.id.equals(candidate, ignoreCase = true) }?.id ?: DEFAULT_VOICE_ID
+    }
+
+    fun optionFor(raw: String?): VoicePersonaOption {
+        val normalized = normalizeVoiceId(raw)
+        return presets.firstOrNull { it.id == normalized } ?: presets.first()
+    }
+}
+
+/**
+ * Incremental clause segmenter used during SSE delta streaming to kick off TTS synthesis
+ * on completed leading clauses while the LLM is still streaming the rest of the reply.
+ */
+class StreamingSpeechSegmenter {
+    private var consumedRawOffset: Int = 0
+    private var emittedChunkCount: Int = 0
+
+    fun reset() {
+        consumedRawOffset = 0
+        emittedChunkCount = 0
+    }
+
+    fun consumeAccumulated(accumulatedRaw: String, isFinal: Boolean): List<String> {
+        if (accumulatedRaw.isEmpty()) {
+            if (isFinal) consumedRawOffset = 0
+            return emptyList()
+        }
+        val safeOffset = consumedRawOffset.coerceIn(0, accumulatedRaw.length)
+        if (isFinal) {
+            val tailRaw = accumulatedRaw.substring(safeOffset)
+            consumedRawOffset = accumulatedRaw.length
+            val speech = MarkdownParser.toSpeechText(tailRaw).trim()
+            if (speech.isNotEmpty()) {
+                emittedChunkCount++
+                return listOf(speech)
+            }
+            return emptyList()
+        }
+
+        val emitted = mutableListOf<String>()
+        while (consumedRawOffset < accumulatedRaw.length) {
+            val rem = accumulatedRaw.substring(consumedRawOffset)
+            val baseFenceCount = countCodeFences(accumulatedRaw, consumedRawOffset)
+            val splitPos = findFirstStableSplit(rem, startsInCodeFence = (baseFenceCount % 2 == 1), isFirstChunk = (emittedChunkCount == 0))
+            if (splitPos <= 0) break
+
+            val candidateRaw = rem.substring(0, splitPos)
+            val speech = MarkdownParser.toSpeechText(candidateRaw).trim()
+            if (speech.isEmpty()) {
+                consumedRawOffset += splitPos
+                continue
+            }
+            consumedRawOffset += splitPos
+            emittedChunkCount++
+            emitted.add(speech)
+        }
+        return emitted
+    }
+
+    private fun countCodeFences(text: String, endIndex: Int): Int {
+        var count = 0
+        var i = 0
+        val limit = endIndex.coerceIn(0, text.length)
+        while (i <= limit - 3) {
+            if (text[i] == '`' && text[i + 1] == '`' && text[i + 2] == '`') {
+                count++
+                i += 3
+            } else {
+                i++
+            }
+        }
+        return count
+    }
+
+    private fun findFirstStableSplit(
+        rem: String,
+        startsInCodeFence: Boolean,
+        isFirstChunk: Boolean
+    ): Int {
+        var inFence = startsInCodeFence
+        var inlineBacktick = false
+        var bracketDepth = 0
+        var parenLinkDepth = 0
+        var lastSoftSplit = -1
+        var speakableCharEstimate = 0
+
+        var i = 0
+        val len = rem.length
+        while (i < len) {
+            val ch = rem[i]
+            if (!inlineBacktick && i + 2 < len && rem[i] == '`' && rem[i + 1] == '`' && rem[i + 2] == '`') {
+                inFence = !inFence
+                i += 3
+                continue
+            }
+            if (!inFence && ch == '`') {
+                inlineBacktick = !inlineBacktick
+                i++
+                continue
+            }
+            if (inFence) {
+                i++
+                continue
+            }
+            if (!inlineBacktick) {
+                if (ch == '[') {
+                    bracketDepth++
+                } else if (ch == ']' && bracketDepth > 0) {
+                    bracketDepth--
+                    if (i + 1 < len && rem[i + 1] == '(') {
+                        parenLinkDepth++
+                    }
+                } else if (ch == '(' && bracketDepth == 0 && parenLinkDepth > 0) {
+                    parenLinkDepth++
+                } else if (ch == ')' && parenLinkDepth > 0) {
+                    parenLinkDepth--
+                }
+            }
+
+            if (!ch.isWhitespace() && ch != '*' && ch != '#' && ch != '`') {
+                speakableCharEstimate++
+            }
+
+            if (!inlineBacktick && bracketDepth == 0 && parenLinkDepth == 0) {
+                val nextCh = if (i + 1 < len) rem[i + 1] else '\u0000'
+                val prevCh = if (i > 0) rem[i - 1] else '\u0000'
+                val isCjkSentenceEnd = ch == '。' || ch == '！' || ch == '？'
+                val isNewlineBreak = ch == '\n'
+                val isAsciiSentenceMark = (ch == '!' || ch == '?' || ch == '.') &&
+                    (nextCh == ' ' || nextCh == '\n' || nextCh == '\t') &&
+                    nextCh != '\u0000' &&
+                    !(ch == '.' && prevCh == '.') &&
+                    !(ch == '.' && nextCh == '.') &&
+                    !(ch == '.' && isDigitOrListDot(rem, i))
+
+                val isStrong = isCjkSentenceEnd || isNewlineBreak || isAsciiSentenceMark
+                if (isStrong) {
+                    var cut = i + 1
+                    while (cut < len && (rem[cut] == '”' || rem[cut] == '’' || rem[cut] == '」' || rem[cut] == ')' || rem[cut] == '）' || rem[cut] == '"')) {
+                        cut++
+                    }
+                    val minLen = if (isFirstChunk) 8 else 20
+                    if (speakableCharEstimate >= minLen) {
+                        val candidateSpeakable = MarkdownParser.toSpeechText(rem.substring(0, cut)).trim()
+                        if (candidateSpeakable.length >= minLen) {
+                            return cut
+                        }
+                    }
+                }
+
+                val isSoft = ch == '，' || ch == '；' || ch == '：' ||
+                    ((ch == ',' || ch == ';') && (nextCh == ' ' || nextCh == '\n' || nextCh.code >= 0x4E00))
+                if (isSoft) {
+                    val softCut = i + 1
+                    val softMin = if (isFirstChunk) 12 else 72
+                    if (speakableCharEstimate >= softMin) {
+                        lastSoftSplit = softCut
+                        if (isFirstChunk || speakableCharEstimate >= 90) {
+                            val candidateSpeakable = MarkdownParser.toSpeechText(rem.substring(0, lastSoftSplit)).trim()
+                            if (candidateSpeakable.length >= softMin) {
+                                return lastSoftSplit
+                            }
+                        }
+                    }
+                }
+            }
+            i++
+        }
+        return -1
+    }
+
+    private fun isDigitOrListDot(s: String, dotIndex: Int): Boolean {
+        if (dotIndex <= 0) return false
+        val prev = s[dotIndex - 1]
+        if (!prev.isDigit()) return false
+        // Allow genuine 4-digit years ("in 2025. Then...") followed by uppercase start
+        val twoBefore = if (dotIndex >= 2) s[dotIndex - 2].isDigit() else false
+        val afterSpace = if (dotIndex + 2 < s.length) s[dotIndex + 2] else '\u0000'
+        return !(twoBefore && afterSpace in 'A'..'Z')
     }
 }
 

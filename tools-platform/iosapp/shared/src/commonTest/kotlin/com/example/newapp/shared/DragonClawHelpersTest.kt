@@ -7,6 +7,8 @@ import com.example.newapp.shared.util.MdBlockKind
 import com.example.newapp.shared.util.MdSpanKind
 import com.example.newapp.shared.util.NdjsonStreamParser
 import com.example.newapp.shared.util.SessionGrouping
+import com.example.newapp.shared.util.StreamingSpeechSegmenter
+import com.example.newapp.shared.util.VoicePersonaCatalog
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -417,5 +419,49 @@ class DragonClawHelpersTest {
         assertEquals(3, runs[1].imageGroup.size)
         assertEquals(MdBlockKind.PARAGRAPH, runs[2].block?.kind)
         assertEquals(MdBlockKind.IMAGE, runs[3].block?.kind)
+    }
+
+    @Test
+    fun streamingSpeechSegmenterVoicePersonasAndStudioCuesBehaveDeterministically() {
+        assertEquals("Kore", VoicePersonaCatalog.normalizeVoiceId(null))
+        assertEquals("Charon", VoicePersonaCatalog.normalizeVoiceId("charon"))
+        assertEquals(5, VoicePersonaCatalog.presets.size)
+
+        val segmenter = StreamingSpeechSegmenter()
+        // Lists like "1. " and version numbers like "1.1.0" must not trigger premature splits
+        assertTrue(segmenter.consumeAccumulated("1. ", isFinal = false).isEmpty())
+        assertTrue(segmenter.consumeAccumulated("1. 版本 v1.1.0", isFinal = false).isEmpty())
+        // Once first comma clause >= 12 speakable chars arrives, flush chunk 0 immediately for low latency
+        val firstChunks = segmenter.consumeAccumulated(
+            "1. 版本 v1.1.0，已经完成了首页视觉对齐，接下来会继续",
+            isFinal = false
+        )
+        assertEquals(1, firstChunks.size)
+        assertTrue(firstChunks[0].contains("版本 v1.1.0") || firstChunks[0].contains("已经完成了首页视觉对齐"))
+
+        // Final flush emits remaining text cleanly without duplicating earlier clause
+        val finalChunks = segmenter.consumeAccumulated(
+            "1. 版本 v1.1.0，已经完成了首页视觉对齐，接下来会继续优化语音。",
+            isFinal = true
+        )
+        assertEquals(1, finalChunks.size)
+        assertTrue(finalChunks[0].contains("优化语音"))
+        assertFalse(finalChunks[0].contains("版本 v1.1.0"))
+
+        // Unclosed code fence waits until closing fence before flushing
+        val codeSegmenter = StreamingSpeechSegmenter()
+        assertTrue(codeSegmenter.consumeAccumulated("看这段代码：\n```kotlin\nval x = 1。", isFinal = false).isEmpty())
+        val afterClose = codeSegmenter.consumeAccumulated("看这段代码：\n```kotlin\nval x = 1。\n```\n执行完成。", isFinal = true)
+        assertTrue(afterClose.isNotEmpty())
+
+        // Studio cues produce valid distinct 24kHz PCM WAV buffers
+        val openWav = DragonClawHelpers.generateVoiceOpenCueWav()
+        val closeWav = DragonClawHelpers.generateVoiceCloseCueWav()
+        assertEquals("RIFF", openWav.sliceArray(0..3).decodeToString())
+        assertEquals("WAVE", openWav.sliceArray(8..11).decodeToString())
+        assertEquals("RIFF", closeWav.sliceArray(0..3).decodeToString())
+        assertEquals("WAVE", closeWav.sliceArray(8..11).decodeToString())
+        assertTrue(openWav.size > 4400 && closeWav.size > 4400)
+        assertTrue(closeWav.size > openWav.size, "Closing chime should resolve slightly longer than opening chime")
     }
 }

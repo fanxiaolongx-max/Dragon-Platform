@@ -1,10 +1,12 @@
 {
   "zh": [
-    "移动端更新至 v1.1.0 (3)：首页头像、标题与快捷提问垂直居中对齐，并移除小标题下方重复的模型选择按钮。",
-    "聊天收发与 Markdown 中的单张图片自动按原图比例自适应缩放（超宽横幅、超长截图与小图标均完整展示且不越界），多图消息升级为可左右滑动切换的层叠卡片堆，点击直接打开大图浏览器。"
+    "移动端（iOS & Android）更新至 v1.1.0 (4)：实时语音通话升级为流式分句并行合成与无缝排队播报，端到端尾音检测收紧至约 715ms，首字播报延迟大幅降低。",
+    "锁定跨轮次一致的 AI 声线与语调，支持 5 种预设音色随心切换（默认沉稳 Kore），并新增进退语音模式的高品质双音微提示与触感反馈。",
+    "修复安卓应用名称与启动图标配置为 Dragon Claw，并新增后台服务日志导出及桌面首页侧栏拖拽优化。"
   ],
   "en": [
-    "Bump mobile apps to v1.1.0 (3): vertically center the Home hero avatar, title, and starter prompts, and remove the duplicate model selector beneath the slogan.",
-    "Add aesthetic proportion-aware scaling for single images (preventing wide-banner overflow and blurry upscaling) plus an interactive swipeable stacked card deck for multi-image messages with tap-to-zoom lightbox support."
+    "Bump iOS & Android apps to v1.1.0 (4): upgrade live voice conversations with streaming clause pipelining, concurrent ordered TTS synthesis, gapless playback, and 715ms VAD turn-taking.",
+    "Lock consistent cross-turn voice tone and speaking persona (default Kore) with a 5-voice persona selector and distinct studio chimes for starting and ending voice calls.",
+    "Update the Android app name and adaptive launcher icons to Dragon Claw, alongside service log export and home conversation rail drag polish."
   ]
 }

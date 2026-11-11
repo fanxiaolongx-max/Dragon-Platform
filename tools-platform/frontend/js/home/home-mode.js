@@ -68,11 +68,13 @@
         if (widths[mode] !== undefined) el.layout.style.setProperty('--ws-side-preferred', `${widths[mode]}px`);
         else el.layout.style.removeProperty('--ws-side-preferred');
         if(document.documentElement.dataset.ui==='v2')document.documentElement.style.setProperty('--v2-side-width', `${Math.max(bounds.min,Math.min(bounds.max,widths[mode] || 240))}px`);
-        if (!el.resizer) return;
-        el.resizer.hidden = isMobile() || (document.documentElement.dataset.ui==='v2' ? document.body.classList.contains('v2-side-collapsed') : isCollapsed());
-        el.resizer.setAttribute('aria-valuemin', String(bounds.min));
-        el.resizer.setAttribute('aria-valuemax', String(bounds.max));
-        if (!el.resizer.hidden) el.resizer.setAttribute('aria-valuenow', String(Math.round(el.sidebar.getBoundingClientRect().width)));
+        if (el.resizer) {
+            el.resizer.hidden = isMobile() || (document.documentElement.dataset.ui==='v2' ? document.body.classList.contains('v2-side-collapsed') : isCollapsed());
+            el.resizer.setAttribute('aria-valuemin', String(bounds.min));
+            el.resizer.setAttribute('aria-valuemax', String(bounds.max));
+            if (!el.resizer.hidden) el.resizer.setAttribute('aria-valuenow', String(Math.round(el.sidebar.getBoundingClientRect().width)));
+        }
+        window.dispatchEvent(new Event('dragon-claw:sidebar-layout'));
     }
 
     function saveWidth() {

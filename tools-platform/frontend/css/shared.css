@@ -4922,6 +4922,9 @@ body.service-status-open { overflow: hidden; }
 .service-runtime-query:hover { background: #10724d; }
 .service-runtime-reset { padding: 8px 9px; border: 1px solid #d8dee6; border-radius: 8px; color: #596579; background: #fff; font: 12px inherit; cursor: pointer; }
 .service-runtime-reset:hover { border-color: #98a2b3; background: #f7f9fb; }
+.service-runtime-export { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.service-runtime-export span { flex: 1 1 240px; color: #667085; font-size: 11px; overflow-wrap: anywhere; }
+.service-runtime-export button:disabled { opacity: .55; cursor: wait; }
 .service-runtime-follow { display: flex; align-items: center; gap: 3px; color: #596579; font-size: 11px; white-space: nowrap; cursor: pointer; }
 .service-runtime-follow input { accent-color: #16865d; }
 .service-runtime-log-summary { color: #7a8493; font-size: 11px; }

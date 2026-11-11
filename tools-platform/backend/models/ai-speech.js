@@ -126,11 +126,29 @@ async function selectTtsSettings(repo = require('./ai-settings-repository')) {
     return { ...clean(ordered[0]), speechFallbacks: ordered.slice(1).map(clean) };
 }
 
-function buildTtsPrompt(text, language) {
+const DEFAULT_GEMINI_VOICE = 'Kore';
+const VOICE_PERSONA_MAP = Object.freeze({
+    Kore: { gemini: 'Kore', openai: 'nova' },
+    Aoede: { gemini: 'Aoede', openai: 'shimmer' },
+    Zephyr: { gemini: 'Zephyr', openai: 'alloy' },
+    Charon: { gemini: 'Charon', openai: 'onyx' },
+    Puck: { gemini: 'Puck', openai: 'echo' }
+});
+
+function resolveVoicePersona(voice) {
+    const raw = String(voice || '').trim();
+    if (!raw) return VOICE_PERSONA_MAP[DEFAULT_GEMINI_VOICE];
+    const matchedKey = Object.keys(VOICE_PERSONA_MAP).find(k => k.toLowerCase() === raw.toLowerCase());
+    if (matchedKey) return VOICE_PERSONA_MAP[matchedKey];
+    return { gemini: raw, openai: raw };
+}
+
+function buildTtsPrompt(text, language, voiceName) {
     const isEn = String(language || '').toLowerCase().startsWith('en');
+    const isMale = /^(Charon|Puck)$/i.test(voiceName);
     const directive = isEn
-        ? 'Read the following reply aloud verbatim with warm, natural human expression and conversational pacing. Do not add, omit, or explain anything:'
-        : '请用自然、亲切、有真人对话感的语气逐字朗读以下回复内容，不要添加、删减或解释任何多余内容：';
+        ? `Speak as a consistent ${isMale ? 'calm male' : 'clear, poised female'} AI voice (${voiceName}). Keep steady pitch, crisp articulation, relaxed natural warmth, and brisk conversational pacing (~1.06x) with zero theatrical swings. Read the exact text verbatim without adding or omitting anything:`
+        : `请全程严格保持同一位${isMale ? '沉稳清晰的男声' : '知性温和、干练从容的女声'}说话人形象（音色 ${voiceName}）。保持音高平稳、吐字清晰、语速稳定偏轻快（约 1.06 倍常速），不要戏剧化起伏或突然变换风格，不要添加或删减任何多余文字，直接逐字朗读以下内容：`;
     return `${directive}\n${text}`;
 }
 
@@ -139,17 +157,20 @@ async function synthesize({ text, voice, language, settings, signal }) {
     if (!cleanText) throw error('AI_SPEECH_SYNTHESIS_EMPTY', '没有可朗读的回复内容', 400);
     if (!settings) settings = await selectTtsSettings();
 
+    const persona = resolveVoicePersona(voice);
+
     if (settings.provider === 'gemini') {
         const base = String(settings.apiBaseUrl || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/+$/, '');
         const model = String(settings.ttsModel || (/-tts\b/i.test(settings.model || '') ? settings.model : 'gemini-2.5-flash-preview-tts'));
-        const voiceName = String(voice || 'Aoede').trim() || 'Aoede';
+        const voiceName = persona.gemini;
         const url = `${base}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(settings.apiKey)}`;
-        const res = await fetch(url, {
+        const callGeminiTts = includeTemperature => fetch(url, {
             method: 'POST',
             headers: { ...(settings.headers || {}), 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                contents: [{ role: 'user', parts: [{ text: buildTtsPrompt(cleanText, language) }] }],
+                contents: [{ role: 'user', parts: [{ text: buildTtsPrompt(cleanText, language, voiceName) }] }],
                 generationConfig: {
+                    ...(includeTemperature ? { temperature: 0.15 } : {}),
                     responseModalities: ['AUDIO'],
                     speechConfig: {
                         voiceConfig: {
@@ -160,6 +181,15 @@ async function synthesize({ text, voice, language, settings, signal }) {
             }),
             signal
         });
+        let res = await callGeminiTts(true);
+        if (res.status === 400) {
+            const errPreview = await res.text().catch(() => '');
+            if (/temperature/i.test(errPreview)) {
+                res = await callGeminiTts(false);
+            } else {
+                throw error('AI_SPEECH_SYNTHESIS_UPSTREAM', `Gemini 语音合成暂不可用 (${res.status})`, 502);
+            }
+        }
         if (!res.ok) throw error('AI_SPEECH_SYNTHESIS_UPSTREAM', `Gemini 语音合成暂不可用 (${res.status})`, 502);
         const data = await res.json();
         const audioPart = (data?.candidates?.[0]?.content?.parts || []).find(part => part?.inlineData?.data);
@@ -179,8 +209,10 @@ async function synthesize({ text, voice, language, settings, signal }) {
         const modelsToTry = /^(?:gpt-4o-mini-tts|tts-1(?:-hd)?)$/i.test(settings.model || '')
             ? [settings.model]
             : ['gpt-4o-mini-tts', 'tts-1'];
-        const chosenVoice = String(voice || 'nova').trim() || 'nova';
+        const chosenVoice = persona.openai;
         for (const ttsModel of modelsToTry) {
+            const isGpt4oMiniTts = /^gpt-4o-mini-tts/i.test(ttsModel);
+            const isEn = String(language || '').toLowerCase().startsWith('en');
             const res = await fetch(`${base}/audio/speech`, {
                 method: 'POST',
                 headers: {
@@ -192,6 +224,11 @@ async function synthesize({ text, voice, language, settings, signal }) {
                     model: ttsModel,
                     input: cleanText,
                     voice: chosenVoice,
+                    ...(isGpt4oMiniTts ? {
+                        instructions: isEn
+                            ? 'Speak with a consistent, warm, concise, steady conversational cadence.'
+                            : '请用一贯沉稳温和、自然干练、语速稳定偏轻快的真人对话语气朗读。'
+                    } : {}),
                     response_format: 'mp3'
                 }),
                 signal
@@ -229,4 +266,4 @@ async function synthesizeSpeech({ text, voice, language, signal, settingsRepo } 
     throw lastError || error('AI_SPEECH_SYNTHESIS_FAILED', '自然语音合成失败', 502);
 }
 
-module.exports={MAX_BYTES,MAX_SECONDS,audioType,selectSettings,transcribe,capability,recognize,pcm16ToWav,selectTtsSettings,synthesize,synthesizeSpeech};
+module.exports={MAX_BYTES,MAX_SECONDS,DEFAULT_GEMINI_VOICE,VOICE_PERSONA_MAP,audioType,selectSettings,transcribe,capability,recognize,pcm16ToWav,selectTtsSettings,resolveVoicePersona,buildTtsPrompt,synthesize,synthesizeSpeech};

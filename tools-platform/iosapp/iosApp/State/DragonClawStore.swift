@@ -108,6 +108,7 @@ final class DragonClawStore {
 
     // Voice & Skills State
     var skills: [AgentSkillItem] = []
+    var selectedVoicePersona: String
 
     // Archived Sessions & Schedules State
     var showArchivedSessions = false
@@ -139,6 +140,8 @@ final class DragonClawStore {
     private var desktopPollTask: Task<Void, Never>? = nil
     private var activeTaskHandles: [TaskHandle] = []
     private var voiceTurnCompletion: ((String) -> Void)? = nil
+    private var voiceTurnClauseHandler: ((String) -> Void)? = nil
+    private var voiceSpeechSegmenter: StreamingSpeechSegmenter? = nil
     private var regularBeforeCursor: String? = nil
     private var desktopBeforeCursor: String? = nil
     private var desktopLoadedRawItems: [DesktopAgentMessageItem] = []
@@ -205,6 +208,7 @@ final class DragonClawStore {
         self.rememberMe = sdk.getRememberMe()
         self.autoLogin = sdk.getAutoLogin()
         self.selectedModelId = sdk.getSelectedModelId()
+        self.selectedVoicePersona = sdk.getVoicePersonaId()
         self.appVersion = sdk.getAppVersion()
         self.currentMonth = Int(sdk.getCurrentMonth())
         self.tools = ToolCatalogMerger.shared.merge(remoteTools: [])
@@ -236,6 +240,12 @@ final class DragonClawStore {
     func selectModel(_ modelId: String) {
         selectedModelId = modelId
         sdk.saveSelectedModelId(modelId: modelId)
+    }
+
+    func updateVoicePersona(_ voiceId: String) {
+        let normalized = VoicePersonaCatalog.shared.normalizeVoiceId(raw: voiceId)
+        selectedVoicePersona = normalized
+        sdk.saveVoicePersonaId(voiceId: normalized)
     }
 
     func loadDesktopModels(provider: String, forceLive: Bool = false) {
@@ -1382,6 +1392,7 @@ final class DragonClawStore {
     }
 
     func stopStreaming() {
+        clearVoiceTurnCompletion()
         activeStreamHandle?.cancel()
         activeStreamHandle = nil
         guard isStreaming else { return }
@@ -1446,6 +1457,12 @@ final class DragonClawStore {
         case .delta:
             let nextContent = cur.content + (event.text ?? "")
             updateMessage(at: idx, with: copyMessage(cur, content: nextContent, statusText: nil))
+            if let seg = voiceSpeechSegmenter, let clauseHandler = voiceTurnClauseHandler {
+                let readyClauses = seg.consumeAccumulated(accumulatedRaw: nextContent, isFinal: false)
+                for clause in readyClauses {
+                    clauseHandler(clause)
+                }
+            }
         case .toolStart:
             let callId = event.callId ?? UUID().uuidString
             let trace = ToolCallTrace(
@@ -1566,6 +1583,14 @@ final class DragonClawStore {
                 )
             )
         }
+        if let seg = voiceSpeechSegmenter, let clauseHandler = voiceTurnClauseHandler, !interrupted {
+            let remainingClauses = seg.consumeAccumulated(accumulatedRaw: finalContent, isFinal: true)
+            for clause in remainingClauses {
+                clauseHandler(clause)
+            }
+        }
+        voiceSpeechSegmenter = nil
+        voiceTurnClauseHandler = nil
         let completion = voiceTurnCompletion
         voiceTurnCompletion = nil
         completion?(finalContent)
@@ -1632,11 +1657,14 @@ final class DragonClawStore {
 
     func clearVoiceTurnCompletion() {
         voiceTurnCompletion = nil
+        voiceTurnClauseHandler = nil
+        voiceSpeechSegmenter = nil
     }
 
     func transcribeAndStreamVoiceTurn(
         _ data: Data,
         onRecognized: @escaping (String) -> Void,
+        onClauseReady: @escaping (String) -> Void,
         onReplyDone: @escaping (String) -> Void,
         onError: @escaping (String) -> Void
     ) {
@@ -1664,6 +1692,8 @@ final class DragonClawStore {
                 if self.isStreaming {
                     self.stopStreaming()
                 }
+                self.voiceSpeechSegmenter = StreamingSpeechSegmenter()
+                self.voiceTurnClauseHandler = onClauseReady
                 self.voiceTurnCompletion = onReplyDone
                 onRecognized(text)
                 self.sendPrompt(text, voiceMode: true)

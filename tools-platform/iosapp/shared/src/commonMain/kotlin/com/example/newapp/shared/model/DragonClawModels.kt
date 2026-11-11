@@ -326,8 +326,20 @@ data class SpeechRecognitionResponse(
 data class SpeechSynthesisRequest(
     val text: String,
     val language: String = "zh",
-    val voice: String? = null
+    val voice: String? = null,
+    val turnId: String? = null
 )
+
+data class VoicePersonaOption(
+    val id: String,
+    val labelZh: String,
+    val labelEn: String,
+    val styleHintZh: String,
+    val styleHintEn: String
+) {
+    fun localizedLabel(language: String): String = if (language == "en") labelEn else labelZh
+    fun localizedStyleHint(language: String): String = if (language == "en") styleHintEn else styleHintZh
+}
 
 class SynthesizedSpeechAudio(
     val bytes: ByteArray,

@@ -4340,11 +4340,60 @@ window.renderServiceRuntimeLogShell = function () {
                 <button type="button" class="service-runtime-reset" onclick="clearServiceRuntimeLogFilters()">${serviceStatusBi('重置', 'Reset')}</button>
                 <label class="service-runtime-follow"><input id="serviceRuntimeLogFollow" type="checkbox" checked onchange="toggleServiceRuntimeLogPolling()"> ${serviceStatusBi('实时跟随', 'Follow live')}</label>
             </div>
+            <div class="service-runtime-export">
+                <button type="button" class="service-runtime-reset" onclick="exportServiceRuntimeLogs(true)">${serviceStatusBi('导出当天 ZIP', 'Export today ZIP')}</button>
+                <button type="button" class="service-runtime-reset" onclick="exportServiceRuntimeLogs(false)">${serviceStatusBi('导出日期范围 ZIP', 'Export date range ZIP')}</button>
+                <span id="serviceRuntimeLogExportStatus" role="status">${serviceStatusBi('导出全部等级，含本人 AI 文本/代码；不含图片附件。日期按本机时区。', 'All levels, with your AI text/code; no media attachments. Dates use your local timezone.')}</span>
+            </div>
             <div class="service-runtime-log-summary" id="serviceRuntimeLogSummary"></div>
             <div class="service-runtime-log-list" id="serviceRuntimeLogList" aria-live="polite"></div>
             <div class="service-runtime-log-pagination" id="serviceRuntimeLogPagination"></div>
         </section>`;
     window.toggleServiceRuntimeLogPolling();
+};
+
+window.exportServiceRuntimeLogs = async function (todayOnly) {
+    const buttons = document.querySelectorAll('.service-runtime-export button');
+    if ([...buttons].some(button => button.disabled)) return;
+    const status = document.getElementById('serviceRuntimeLogExportStatus');
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const startDate = todayOnly ? today : document.getElementById('serviceRuntimeLogStartDate')?.value;
+    const endDate = todayOnly ? today : document.getElementById('serviceRuntimeLogEndDate')?.value;
+    if (!startDate || !endDate || endDate < startDate) {
+        if (status) status.textContent = serviceStatusBi('请在上方选择有效的起止日期。', 'Select a valid start and end date above.');
+        return;
+    }
+    const start = new Date(`${startDate}T00:00:00`);
+    const end = new Date(`${endDate}T00:00:00`);
+    end.setDate(end.getDate() + 1);
+    const query = new URLSearchParams({ startDate, endDate, startOffset: String(start.getTimezoneOffset()), endOffset: String(end.getTimezoneOffset()) });
+    buttons.forEach(button => { button.disabled = true; });
+    if (status) status.textContent = serviceStatusBi('正在打包日志并尝试读取 AI 对话…', 'Packing logs and trying to read AI conversations…');
+    try {
+        const token = localStorage.getItem('tools_token');
+        const response = await fetch(`/api/platform-metrics/service-status/logs/export?${query}`, {
+            credentials: 'same-origin', headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
+        if (!response.ok) {
+            const body = await response.json().catch(() => ({}));
+            throw new Error(body.error || `HTTP ${response.status}`);
+        }
+        if (!response.headers.get('Content-Type')?.includes('application/zip')) throw new Error(serviceStatusBi('服务器未返回日志压缩包，请检查登录状态。', 'No ZIP received; check your login.'));
+        const url = URL.createObjectURL(await response.blob());
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `service-logs-${startDate}_${endDate}.zip`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+        if (status) status.textContent = serviceStatusBi('已生成 ZIP。导出数量、保留范围和 AI 读取情况见包内 manifest.json。', 'ZIP ready. See manifest.json for counts, retention and AI availability.');
+    } catch (error) {
+        if (status) status.textContent = serviceStatusBi('导出失败：', 'Export failed: ') + error.message;
+    } finally {
+        buttons.forEach(button => { button.disabled = false; });
+    }
 };
 
 window.toggleServiceRuntimeLogPolling = function () {

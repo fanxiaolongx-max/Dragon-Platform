@@ -6,6 +6,7 @@ import com.example.newapp.shared.model.*
 import com.example.newapp.shared.network.DragonClawApiClient
 import com.example.newapp.shared.util.DragonClawHelpers
 import com.example.newapp.shared.util.SessionGrouping
+import com.example.newapp.shared.util.VoicePersonaCatalog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -79,6 +80,18 @@ class DragonClawSdk(
 
     fun saveSelectedModelId(modelId: String) {
         settings.saveString(KEY_SELECTED_MODEL, modelId.trim())
+    }
+
+    fun getVoicePersonaId(): String =
+        VoicePersonaCatalog.normalizeVoiceId(
+            settings.getString(VoicePersonaCatalog.SETTINGS_KEY_VOICE_ID, VoicePersonaCatalog.DEFAULT_VOICE_ID)
+        )
+
+    fun saveVoicePersonaId(voiceId: String) {
+        settings.saveString(
+            VoicePersonaCatalog.SETTINGS_KEY_VOICE_ID,
+            VoicePersonaCatalog.normalizeVoiceId(voiceId)
+        )
     }
 
     fun saveSessionAuth(
@@ -540,10 +553,11 @@ class DragonClawSdk(
         text: String,
         language: String = "zh",
         voice: String? = null,
+        turnId: String? = null,
         onSuccess: (SynthesizedSpeechAudio) -> Unit,
         onError: (String) -> Unit
     ): TaskHandle = runAsync(
-        block = { api.synthesizeSpeech(token, text, language, voice) },
+        block = { api.synthesizeSpeech(token, text, language, voice, turnId) },
         onSuccess = onSuccess,
         onError = onError
     )

@@ -69,6 +69,18 @@ router.get('/service-status/logs', requireAdmin, async (req, res) => {
     }
 });
 
+router.get('/service-status/logs/export', requireAdmin, async (req, res) => {
+    try {
+        res.setHeader('Cache-Control', 'no-store');
+        const archive = await require('../models/service-log-export').buildArchive(req.query, req.user.username);
+        res.setHeader('Content-Disposition', `attachment; filename="${archive.filename}"`);
+        res.type('application/zip').send(archive.buffer);
+    } catch (err) {
+        console.error('[platform-metrics] log export failed:', err.message);
+        res.status(err.statusCode || 500).json({ code: err.code || 'LOG_EXPORT_FAILED', error: err.statusCode ? err.message : '导出日志压缩包失败' });
+    }
+});
+
 router.get('/summary', async (req, res) => {
     try {
         res.setHeader('Cache-Control', 'no-store');
