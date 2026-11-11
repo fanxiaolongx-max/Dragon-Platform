@@ -30,7 +30,9 @@ class AudioSpeechRecorder(
 
     fun start(
         onSamples: (List<Float>, Int) -> Unit,
-        onError: (String) -> Unit
+        onError: (String) -> Unit,
+        onLevel: ((Float, Boolean) -> Unit)? = null,
+        onSilenceDetected: (() -> Unit)? = null
     ): Boolean {
         cancel()
         val dir = File(context.cacheDir, "audio").apply { mkdirs() }
@@ -60,8 +62,25 @@ class AudioSpeechRecorder(
             val ring = MutableList(BAR_COUNT) { 0.14f }
             onSamples(ring.toList(), 0)
             meterJob = scope.launch {
+                var tickCount = 0
+                var baselineAcc = 0L
+                var baselineSamples = 0
+                var noiseFloor = 450
+                var speechTicks = 0
+                var silentTicks = 0
+                var hasSpeech = false
+                var silenceFired = false
+
                 while (isActive && recorder != null) {
+                    tickCount++
                     val amp = runCatching { recorder?.maxAmplitude ?: 0 }.getOrDefault(0)
+                    if (tickCount in 3..8) {
+                        baselineAcc += amp
+                        baselineSamples++
+                        if (tickCount == 8 && baselineSamples > 0) {
+                            noiseFloor = (baselineAcc / baselineSamples).toInt().coerceIn(220, 1400)
+                        }
+                    }
                     val normalized = if (amp <= 0) {
                         0.14f
                     } else {
@@ -72,6 +91,29 @@ class AudioSpeechRecorder(
                     ring.add(normalized)
                     val secs = ((System.currentTimeMillis() - startedMs) / 1000L).toInt().coerceAtLeast(0)
                     onSamples(ring.toList(), secs)
+
+                    if (tickCount >= 9) {
+                        val speechThreshold = maxOf(1150, (noiseFloor * 2.5).toInt())
+                        val silenceThreshold = maxOf(850, (noiseFloor * 1.65).toInt())
+                        if (amp >= speechThreshold) {
+                            speechTicks++
+                            if (speechTicks >= 3) hasSpeech = true
+                            silentTicks = 0
+                        } else if (hasSpeech && amp < silenceThreshold) {
+                            silentTicks++
+                        }
+                    }
+
+                    val orbLevel = (amp / 14000f).coerceIn(0.12f, 1.0f)
+                    onLevel?.invoke(orbLevel, hasSpeech)
+
+                    if (onSilenceDetected != null && !silenceFired) {
+                        if ((hasSpeech && silentTicks >= 25) || secs >= 45) {
+                            silenceFired = true
+                            onSilenceDetected()
+                            break
+                        }
+                    }
                     delay(55L)
                 }
             }

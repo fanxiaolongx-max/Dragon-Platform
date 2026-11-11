@@ -120,6 +120,7 @@ final class DragonClawStore {
     private var activeSessionLoadHandle: TaskHandle? = nil
     private var desktopPollTask: Task<Void, Never>? = nil
     private var activeTaskHandles: [TaskHandle] = []
+    private var voiceTurnCompletion: ((String) -> Void)? = nil
 
     var currentSidebarSelectionKey: String? {
         if let desktop = activeDesktopSession {
@@ -938,9 +939,11 @@ final class DragonClawStore {
     private func finishStreaming(assistantId: String, interrupted: Bool, errorNote: String? = nil) {
         activeStreamHandle = nil
         isStreaming = false
+        var finalContent = ""
         if let idx = messages.firstIndex(where: { $0.id == assistantId }) {
             let cur = messages[idx]
             let fallbackContent = cur.content.isEmpty && errorNote != nil ? "[\(errorNote!)]" : cur.content
+            finalContent = cur.content
             updateMessage(
                 at: idx,
                 with: copyMessage(
@@ -952,6 +955,9 @@ final class DragonClawStore {
                 )
             )
         }
+        let completion = voiceTurnCompletion
+        voiceTurnCompletion = nil
+        completion?(finalContent)
         loadSessions()
     }
 
@@ -995,6 +1001,58 @@ final class DragonClawStore {
     }
 
     // MARK: - Voice Transcription, Skills, Session Lifecycle, Schedules & Tool Nav Sync (P1)
+
+    func prepareVoiceConversationSessionIfNeeded() {
+        if activeDesktopSession != nil {
+            startNewChat()
+        }
+    }
+
+    func clearVoiceTurnCompletion() {
+        voiceTurnCompletion = nil
+    }
+
+    func transcribeAndStreamVoiceTurn(
+        _ data: Data,
+        onRecognized: @escaping (String) -> Void,
+        onReplyDone: @escaping (String) -> Void,
+        onError: @escaping (String) -> Void
+    ) {
+        guard !data.isEmpty, !token.isEmpty else {
+            onError(L10n.tr(language, zh: "录音无效，请重试", en: "Empty audio, please try again"))
+            return
+        }
+        let bytes = IosInteropKt.nsDataToByteArray(data: data)
+        let handle = sdk.transcribeSpeech(
+            token: token,
+            audioBytes: bytes,
+            fileName: "voice.m4a",
+            mimeType: "audio/mp4"
+        ) { [weak self] res in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let text = res.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                if text.isEmpty {
+                    onError(res.error ?? L10n.tr(self.language, zh: "未识别到语音，请再试一次", en: "No speech recognized"))
+                    return
+                }
+                if self.activeDesktopSession != nil {
+                    self.startNewChat()
+                }
+                if self.isStreaming {
+                    self.stopStreaming()
+                }
+                self.voiceTurnCompletion = onReplyDone
+                onRecognized(text)
+                self.sendPrompt(text)
+            }
+        } onError: { err in
+            Task { @MainActor in
+                onError(err)
+            }
+        }
+        activeTaskHandles.append(handle)
+    }
 
     func transcribeVoiceAudio(_ data: Data, sendImmediately: Bool) {
         guard !data.isEmpty, !token.isEmpty else { return }

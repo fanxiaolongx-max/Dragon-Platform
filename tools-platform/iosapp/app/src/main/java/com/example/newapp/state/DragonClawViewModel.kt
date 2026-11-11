@@ -4,7 +4,10 @@ import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -17,6 +20,7 @@ import com.example.newapp.shared.data.DragonClawSdk
 import com.example.newapp.shared.data.TaskHandle
 import com.example.newapp.shared.model.*
 import com.example.newapp.shared.network.DragonClawApiClient
+import com.example.newapp.shared.util.MarkdownParser
 import com.example.newapp.ui.theme.tr
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -24,11 +28,21 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Locale
 import java.util.UUID
 
 enum class AppWorkMode {
     CHAT,
     TOOLS
+}
+
+enum class VoiceChatPhase {
+    IDLE,
+    LISTENING,
+    TRANSCRIBING,
+    THINKING,
+    SPEAKING,
+    PAUSED
 }
 
 sealed interface MetricsRoute {
@@ -142,6 +156,24 @@ class DragonClawViewModel : ViewModel() {
     var voiceElapsedSeconds by mutableIntStateOf(0)
         private set
 
+    // Live Hands-Free AI Voice Conversation State
+    var isVoiceChatActive by mutableStateOf(false)
+        private set
+    var voiceChatPhase by mutableStateOf(VoiceChatPhase.IDLE)
+        private set
+    var isVoiceChatSpeechMuted by mutableStateOf(false)
+        private set
+    var voiceChatAudioLevel by mutableFloatStateOf(0.14f)
+        private set
+    var voiceChatHasSpeech by mutableStateOf(false)
+        private set
+    var voiceChatUserTranscript by mutableStateOf("")
+        private set
+    var voiceChatAssistantTranscript by mutableStateOf("")
+        private set
+    var voiceChatErrorText by mutableStateOf<String?>(null)
+        private set
+
     // Skills, Archived Sessions, Schedules & Tool Nav Sync (P1)
     var skills by mutableStateOf<List<AgentSkillItem>>(emptyList())
         private set
@@ -177,8 +209,17 @@ class DragonClawViewModel : ViewModel() {
 
     private var activeStreamHandle: TaskHandle? = null
     private var speechRecorder: AudioSpeechRecorder? = null
+    private var ttsEngine: TextToSpeech? = null
+    private var ttsReady = false
+    private var voiceResumeJob: Job? = null
+    private var voiceAppContext: Context? = null
+    private var voiceTurnCompletion: ((String) -> Unit)? = null
 
     override fun onCleared() {
+        voiceResumeJob?.cancel()
+        ttsEngine?.stop()
+        ttsEngine?.shutdown()
+        ttsEngine = null
         speechRecorder?.cancel()
         speechRecorder = null
         super.onCleared()
@@ -833,15 +874,22 @@ class DragonClawViewModel : ViewModel() {
     private fun finishStreaming(assistantId: String, interrupted: Boolean, errorNote: String? = null) {
         activeStreamHandle = null
         isStreaming = false
+        var finalContent = ""
         messages = messages.map { cur ->
             if (cur.id != assistantId) cur
-            else cur.copy(
-                content = if (cur.content.isBlank() && errorNote != null) "[$errorNote]" else cur.content,
-                statusText = null,
-                interrupted = cur.interrupted || interrupted,
-                isStreaming = false
-            )
+            else {
+                finalContent = cur.content
+                cur.copy(
+                    content = if (cur.content.isBlank() && errorNote != null) "[$errorNote]" else cur.content,
+                    statusText = null,
+                    interrupted = cur.interrupted || interrupted,
+                    isStreaming = false
+                )
+            }
         }
+        val callback = voiceTurnCompletion
+        voiceTurnCompletion = null
+        callback?.invoke(finalContent)
         loadSessions()
     }
 
@@ -928,6 +976,239 @@ class DragonClawViewModel : ViewModel() {
                     chatStatusBanner = null
                     chatErrorBanner = err.message ?: tr(language, "语音识别失败", "Voice recognition failed")
                 }
+        }
+    }
+
+    // --- Live Hands-Free AI Voice Conversation ---
+
+    fun startVoiceConversation(context: Context) {
+        val appCtx = context.applicationContext
+        voiceAppContext = appCtx
+        ensureTtsInitialized(appCtx)
+        if (isRecordingVoice) cancelVoiceRecording()
+        if (activeDesktopSession != null) startNewChat()
+
+        isVoiceChatActive = true
+        voiceChatErrorText = null
+        voiceChatUserTranscript = ""
+        voiceChatAssistantTranscript = ""
+        beginVoiceConversationListening()
+    }
+
+    fun endVoiceConversation() {
+        voiceResumeJob?.cancel()
+        voiceResumeJob = null
+        ttsEngine?.stop()
+        speechRecorder?.cancel()
+        voiceTurnCompletion = null
+        if (isStreaming) stopStreaming()
+        isVoiceChatActive = false
+        voiceChatPhase = VoiceChatPhase.IDLE
+        voiceChatAudioLevel = 0.14f
+        voiceChatHasSpeech = false
+    }
+
+    fun toggleVoiceChatPause() {
+        voiceResumeJob?.cancel()
+        if (voiceChatPhase == VoiceChatPhase.PAUSED) {
+            beginVoiceConversationListening()
+        } else {
+            ttsEngine?.stop()
+            speechRecorder?.cancel()
+            voiceChatPhase = VoiceChatPhase.PAUSED
+            voiceChatAudioLevel = 0.14f
+            voiceChatHasSpeech = false
+        }
+    }
+
+    fun toggleVoiceChatMute() {
+        isVoiceChatSpeechMuted = !isVoiceChatSpeechMuted
+        if (isVoiceChatSpeechMuted && voiceChatPhase == VoiceChatPhase.SPEAKING) {
+            ttsEngine?.stop()
+            scheduleNextVoiceChatListening()
+        }
+    }
+
+    fun submitVoiceConversationTurn() {
+        if (!isVoiceChatActive || voiceChatPhase != VoiceChatPhase.LISTENING) return
+        finishVoiceConversationListeningAndSend()
+    }
+
+    fun interruptAndListenInVoiceChat() {
+        voiceResumeJob?.cancel()
+        ttsEngine?.stop()
+        voiceTurnCompletion = null
+        if (isStreaming) stopStreaming()
+        voiceChatErrorText = null
+        voiceChatPhase = VoiceChatPhase.PAUSED
+        voiceResumeJob = viewModelScope.launch {
+            delay(140L)
+            if (isVoiceChatActive) beginVoiceConversationListening()
+        }
+    }
+
+    private fun ensureTtsInitialized(appCtx: Context) {
+        if (ttsEngine != null) return
+        ttsEngine = TextToSpeech(appCtx) { status ->
+            ttsReady = status == TextToSpeech.SUCCESS
+            if (ttsReady) {
+                val locale = if (language == "en") Locale.US else Locale.SIMPLIFIED_CHINESE
+                runCatching { ttsEngine?.language = locale }
+                ttsEngine?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) = Unit
+                    override fun onDone(utteranceId: String?) {
+                        viewModelScope.launch {
+                            if (isVoiceChatActive && voiceChatPhase == VoiceChatPhase.SPEAKING) {
+                                scheduleNextVoiceChatListening()
+                            }
+                        }
+                    }
+
+                    @Deprecated("Deprecated in Java")
+                    override fun onError(utteranceId: String?) {
+                        viewModelScope.launch {
+                            if (isVoiceChatActive && voiceChatPhase == VoiceChatPhase.SPEAKING) {
+                                scheduleNextVoiceChatListening()
+                            }
+                        }
+                    }
+                })
+            }
+        }
+    }
+
+    private fun beginVoiceConversationListening() {
+        val ctx = voiceAppContext ?: return
+        if (!isVoiceChatActive) return
+        voiceResumeJob?.cancel()
+        ttsEngine?.stop()
+        voiceChatErrorText = null
+        voiceChatHasSpeech = false
+        voiceChatAudioLevel = 0.14f
+        voiceChatPhase = VoiceChatPhase.LISTENING
+
+        val rec = speechRecorder ?: AudioSpeechRecorder(ctx, viewModelScope).also {
+            speechRecorder = it
+        }
+        val started = rec.start(
+            onSamples = { samples, secs ->
+                voiceWaveformSamples = samples
+                voiceElapsedSeconds = secs
+            },
+            onError = { err ->
+                voiceChatErrorText = err
+                voiceChatPhase = VoiceChatPhase.PAUSED
+            },
+            onLevel = { level, hasSpeech ->
+                voiceChatAudioLevel = level
+                voiceChatHasSpeech = hasSpeech
+            },
+            onSilenceDetected = {
+                viewModelScope.launch {
+                    finishVoiceConversationListeningAndSend()
+                }
+            }
+        )
+        if (!started) {
+            voiceChatPhase = VoiceChatPhase.PAUSED
+        }
+    }
+
+    private fun finishVoiceConversationListeningAndSend() {
+        if (!isVoiceChatActive || voiceChatPhase != VoiceChatPhase.LISTENING) return
+        val bytes = speechRecorder?.stopAndReadBytes()
+        voiceChatAudioLevel = 0.14f
+        voiceChatHasSpeech = false
+        if (bytes == null || bytes.size < 64) {
+            scheduleVoiceRetry(tr(language, "没有听清，请再说一次", "Didn't catch that, listening again..."))
+            return
+        }
+
+        voiceChatPhase = VoiceChatPhase.TRANSCRIBING
+        voiceChatErrorText = null
+        viewModelScope.launch {
+            runCatching {
+                sdk.api.transcribeSpeech(
+                    token = token,
+                    audioBytes = bytes,
+                    fileName = "voice.m4a",
+                    mimeType = "audio/mp4"
+                )
+            }
+                .onSuccess { res ->
+                    if (!isVoiceChatActive) return@onSuccess
+                    val spoken = res.text.trim()
+                    if (spoken.isEmpty()) {
+                        scheduleVoiceRetry(res.error ?: tr(language, "未识别到语音，请再试一次", "No speech recognized"))
+                        return@onSuccess
+                    }
+                    if (activeDesktopSession != null) startNewChat()
+                    if (isStreaming) stopStreaming()
+                    voiceChatUserTranscript = spoken
+                    voiceChatAssistantTranscript = ""
+                    voiceChatPhase = VoiceChatPhase.THINKING
+                    voiceTurnCompletion = { reply ->
+                        if (isVoiceChatActive) handleVoiceReplyCompleted(reply)
+                    }
+                    sendPrompt(spoken)
+                }
+                .onFailure { err ->
+                    if (!isVoiceChatActive) return@onFailure
+                    scheduleVoiceRetry(err.message ?: tr(language, "语音识别失败", "Voice recognition failed"))
+                }
+        }
+    }
+
+    private fun handleVoiceReplyCompleted(rawReply: String) {
+        if (!isVoiceChatActive) return
+        val speechText = MarkdownParser.toSpeechText(rawReply).ifBlank { rawReply.trim() }
+        voiceChatAssistantTranscript = speechText
+
+        if (isVoiceChatSpeechMuted || speechText.isBlank()) {
+            scheduleNextVoiceChatListening()
+            return
+        }
+
+        voiceChatPhase = VoiceChatPhase.SPEAKING
+        val engine = ttsEngine
+        if (engine != null && ttsReady) {
+            val locale = if (language == "en") Locale.US else Locale.SIMPLIFIED_CHINESE
+            runCatching { engine.language = locale }
+            val result = engine.speak(speechText, TextToSpeech.QUEUE_FLUSH, null, "dc_voice_${System.currentTimeMillis()}")
+            if (result != TextToSpeech.SUCCESS) {
+                scheduleNextVoiceChatListening()
+            }
+        } else {
+            // Fallback brief pause so user can read the response on screen before next turn
+            voiceResumeJob?.cancel()
+            voiceResumeJob = viewModelScope.launch {
+                delay(2400L)
+                if (isVoiceChatActive && voiceChatPhase == VoiceChatPhase.SPEAKING) {
+                    beginVoiceConversationListening()
+                }
+            }
+        }
+    }
+
+    private fun scheduleVoiceRetry(message: String) {
+        voiceChatErrorText = message
+        voiceChatPhase = VoiceChatPhase.PAUSED
+        voiceResumeJob?.cancel()
+        voiceResumeJob = viewModelScope.launch {
+            delay(1200L)
+            if (isVoiceChatActive && voiceChatPhase == VoiceChatPhase.PAUSED) {
+                beginVoiceConversationListening()
+            }
+        }
+    }
+
+    private fun scheduleNextVoiceChatListening() {
+        voiceResumeJob?.cancel()
+        voiceResumeJob = viewModelScope.launch {
+            delay(280L)
+            if (isVoiceChatActive && (voiceChatPhase == VoiceChatPhase.SPEAKING || voiceChatPhase == VoiceChatPhase.THINKING)) {
+                beginVoiceConversationListening()
+            }
         }
     }
 

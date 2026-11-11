@@ -1,14 +1,12 @@
 {
   "zh": [
-    "修复移动端发送消息流式回复丢失：序列化请求显式携带 stream 与 agent 参数并保障主线程按序刷新，发完即见完整回答与耗时 token。",
-    "修复模型切换半截裁剪与会话扫光骨架：重构 SwiftUI 模型菜单触发层避免文字裁剪，点击会话直接跳转聊天页并展示动态扫光骨架屏。",
-    "修复已归档会话标题与后台对齐：支持 snake_case 与首句提问/自动摘要标题解码，归档列表真实呈现原对话名称。",
-    "侧边栏打通 Agent 对话生态：移动端合并展示 Codex、Claude Code、Antigravity、WorkBuddy 桌面端连接器与工作区群聊会话，支持查看与续聊。"
+    "移除左上角侧边栏图标上的冗余红点角标，保留侧边栏内的系统告警横幅展示。",
+    "重塑底部语音双按钮交互与响应体验：右下角绿色波形按钮升级为「AI 实时语音对话」（支持 1.4 秒静音自动发送、实时打断与原生语音播报），麦克风按钮专注「语音转文字」输入，并扩大触控命中区域、打通权限与报错提示。",
+    "重构跨平台共享 Markdown 块级渲染引擎（KMP MarkdownParser）：支持自动拆分粘连标题与编号列表、渲染大号清晰标题与悬挂缩进条目、将本地文件路径与函数链接渲染为简洁的代码语言胶囊徽标（JS / PY 等），全面提升长文排版阅读体验。"
   ],
   "en": [
-    "Fix missing streaming replies on mobile send: explicitly serialize stream and agent defaults with FIFO main-thread delivery so replies and token metadata render immediately.",
-    "Fix model switcher clipping & add chat shimmer skeleton: decouple SwiftUI label from UIKit menu animation and switch straight into a shimmer loading state when opening sessions.",
-    "Fix archived session titles in backend & mobile: return auto titles and first-question fallbacks and decode snake_case archive metadata instead of falling back to generic placeholders.",
-    "Unify Agent conversations in mobile sidebar: merge Codex, Claude Code, Antigravity, WorkBuddy, workspace agent, and group discussions with provider badges and interactive replies."
+    "Remove the stray red badge dot on the top-left sidebar toggle while keeping the alert banner inside the drawer.",
+    "Fix & clarify bottom-right voice buttons: assign the microphone button to reliable speech-to-text dictation (with full hit target & permission error surfacing) and turn the green waveform button into a hands-free AI Voice Conversation mode with auto-silence turn detection, interruption, and native TTS playback.",
+    "Upgrade mobile chat formatting with a shared KMP block+inline Markdown parser: auto-splits collapsed headings/numbered lists, renders spacious typography with hanging indents, code blocks, tables, and compact symbol/language pills instead of raw file:// URLs."
   ]
 }

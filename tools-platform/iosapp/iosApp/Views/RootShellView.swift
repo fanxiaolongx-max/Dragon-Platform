@@ -132,20 +132,11 @@ struct RootShellView: View {
     private var topFloatingHeader: some View {
         GlassEffectContainer(spacing: 10) {
             HStack(spacing: 10) {
-                ZStack(alignment: .topTrailing) {
-                    GlassCircleIconButton(
-                        systemImage: "sidebar.left",
-                        accessibilityLabel: L10n.tr(lang, zh: "打开历史侧边栏", en: "Open sidebar")
-                    ) {
-                        setSidebarOpen(!store.isDrawerOpen)
-                    }
-
-                    if store.alertUnreadCount > 0 {
-                        Circle()
-                            .fill(palette.danger)
-                            .frame(width: 9, height: 9)
-                            .offset(x: -2, y: 2)
-                    }
+                GlassCircleIconButton(
+                    systemImage: "sidebar.left",
+                    accessibilityLabel: L10n.tr(lang, zh: "打开历史侧边栏", en: "Open sidebar")
+                ) {
+                    setSidebarOpen(!store.isDrawerOpen)
                 }
 
                 Spacer(minLength: 4)

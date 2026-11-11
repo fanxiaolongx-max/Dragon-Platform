@@ -7,6 +7,7 @@ struct ChatView: View {
     @Bindable var store: DragonClawStore
 
     @State private var speechManager = SpeechInputManager()
+    @State private var voiceChat = VoiceChatController()
     @State private var showPhotoPicker = false
     @State private var showFileImporter = false
     @State private var showPlusMenu = false
@@ -169,6 +170,14 @@ struct ChatView: View {
         }
         .sheet(isPresented: $showSkillsSheet) {
             skillsPickerSheet
+        }
+        .fullScreenCover(isPresented: $voiceChat.isPresented) {
+            VoiceConversationModal(voiceChat: voiceChat, store: store)
+        }
+        .onChange(of: speechManager.errorMessage) { _, err in
+            if let err, !err.isEmpty {
+                store.chatErrorBanner = err
+            }
         }
     }
 
@@ -510,7 +519,7 @@ struct ChatView: View {
                 Spacer(minLength: 4)
 
                 modelPickerButton(
-                    maxWidth: 164,
+                    maxWidth: 138,
                     font: .system(size: 12, weight: .medium),
                     foreground: palette.inkSecondary,
                     showCpuIcon: false,
@@ -525,10 +534,12 @@ struct ChatView: View {
                     Image(systemName: "mic")
                         .font(.system(size: 15.5, weight: .medium))
                         .foregroundStyle(palette.inkPrimary)
-                        .frame(width: 32, height: 32)
+                        .frame(width: 34, height: 34)
+                        .background(palette.chipSurface.opacity(0.45), in: Circle())
+                        .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(L10n.tr(lang, zh: "语音输入", en: "Voice input"))
+                .accessibilityLabel(L10n.tr(lang, zh: "语音转文字", en: "Speech to text"))
 
                 if store.isStreaming {
                     Button {
@@ -539,6 +550,7 @@ struct ChatView: View {
                             .foregroundStyle(.white)
                             .frame(width: 38, height: 32)
                             .background(palette.danger, in: Capsule())
+                            .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
                 } else if canSend {
@@ -551,21 +563,26 @@ struct ChatView: View {
                             .foregroundStyle(.white)
                             .frame(width: 38, height: 32)
                             .background(palette.accentStrong, in: Capsule())
+                            .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
                 } else {
                     Button {
                         showPlusMenu = false
-                        speechManager.startRecording(language: lang)
+                        if speechManager.isRecording {
+                            speechManager.cancelRecording()
+                        }
+                        voiceChat.startSession(store: store)
                     } label: {
                         Image(systemName: "waveform")
                             .font(.system(size: 14, weight: .bold))
                             .foregroundStyle(.white)
-                            .frame(width: 40, height: 32)
+                            .frame(width: 42, height: 34)
                             .background(palette.accentStrong, in: Capsule())
+                            .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(L10n.tr(lang, zh: "快捷语音", en: "Voice Bar"))
+                    .accessibilityLabel(L10n.tr(lang, zh: "AI 语音对话", en: "AI Voice Conversation"))
                 }
             }
         }
@@ -606,13 +623,15 @@ struct ChatView: View {
                     store.transcribeVoiceAudio(data, sendImmediately: false)
                 }
             } label: {
-                Image(systemName: "stop.fill")
-                    .font(.system(size: 11.5, weight: .bold))
+                Image(systemName: "checkmark")
+                    .font(.system(size: 12.5, weight: .bold))
                     .foregroundStyle(palette.inkPrimary)
                     .frame(width: 34, height: 34)
                     .background(palette.chipSurface, in: Circle())
+                    .contentShape(Circle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(L10n.tr(lang, zh: "转入输入框", en: "Transcribe to draft"))
 
             Button {
                 if let data = speechManager.finishAndReadAudioData() {
@@ -937,7 +956,8 @@ private struct ChatBubbleRow: View {
 
                 if !message.content.isEmpty {
                     MarkdownMessageView(text: message.content, palette: palette)
-                        .padding(12)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
                         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
                 }
 
@@ -978,7 +998,7 @@ private struct ChatBubbleRow: View {
                     }
                 }
             }
-            .padding(.trailing, 18)
+            .padding(.trailing, 4)
         }
     }
 }
@@ -1066,5 +1086,265 @@ private struct ChatShimmerSkeletonView: View {
         }
         .clipShape(shape)
         .allowsHitTesting(false)
+    }
+}
+
+private struct VoiceConversationModal: View {
+    @Bindable var voiceChat: VoiceChatController
+    @Bindable var store: DragonClawStore
+
+    @State private var pulseRing = false
+
+    private var palette: DragonClawPalette { store.palette }
+    private var lang: String { store.language }
+
+    private var liveAssistantText: String {
+        if let streamingMsg = store.messages.last(where: { !$0.isUser }), !streamingMsg.content.isEmpty,
+           voiceChat.phase == .thinking || voiceChat.phase == .speaking {
+            let clean = MarkdownParser.shared.toSpeechText(raw: streamingMsg.content)
+            return clean.isEmpty ? streamingMsg.content : clean
+        }
+        return voiceChat.assistantTranscript
+    }
+
+    private var statusTitle: String {
+        switch voiceChat.phase {
+        case .listening:
+            return voiceChat.speechRecorder.hasDetectedSpeech
+                ? L10n.tr(lang, zh: "正在听你说话…", en: "Listening to you...")
+                : L10n.tr(lang, zh: "请开始说话", en: "Speak anytime")
+        case .transcribing:
+            return L10n.tr(lang, zh: "正在识别语音…", en: "Transcribing speech...")
+        case .thinking:
+            return L10n.tr(lang, zh: "AI 正在思考…", en: "Dragon Claw is thinking...")
+        case .speaking:
+            return L10n.tr(lang, zh: "正在语音回复…", en: "Speaking...")
+        case .paused, .idle:
+            return L10n.tr(lang, zh: "语音对话已暂停", en: "Voice chat paused")
+        }
+    }
+
+    private var orbScale: CGFloat {
+        switch voiceChat.phase {
+        case .listening:
+            return 0.94 + voiceChat.speechRecorder.audioLevel * 0.34
+        case .speaking, .thinking:
+            return pulseRing ? 1.12 : 0.96
+        case .transcribing:
+            return 1.03
+        case .paused, .idle:
+            return 0.92
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            DragonClawBackdrop(palette: palette)
+
+            VStack(spacing: 22) {
+                HStack {
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(voiceChat.phase == .paused ? palette.inkMuted : palette.accentStrong)
+                            .frame(width: 8, height: 8)
+                        Text(store.activeModelDisplayName)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(palette.inkPrimary)
+                            .lineLimit(1)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .glassEffect(.regular, in: Capsule())
+
+                    Spacer()
+
+                    Button {
+                        voiceChat.toggleSpeechMute()
+                    } label: {
+                        Image(systemName: voiceChat.isSpeechMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(voiceChat.isSpeechMuted ? palette.inkMuted : palette.accentStrong)
+                            .frame(width: 38, height: 38)
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .glassEffect(.regular.interactive(), in: .circle)
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+
+                Spacer(minLength: 10)
+
+                ZStack {
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [palette.accent.opacity(0.28), palette.accentStrong.opacity(0.03)],
+                                center: .center,
+                                startRadius: 18,
+                                endRadius: 120
+                            )
+                        )
+                        .frame(width: 220, height: 220)
+                        .scaleEffect(orbScale * 1.16)
+                        .animation(.easeOut(duration: 0.14), value: voiceChat.speechRecorder.audioLevel)
+
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [palette.accentStrong, palette.accent],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 132, height: 132)
+                        .scaleEffect(orbScale)
+                        .shadow(color: palette.accentStrong.opacity(0.32), radius: 22, y: 10)
+                        .overlay {
+                            Image("DragonClawAvatar")
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 92, height: 92)
+                                .clipShape(Circle())
+                        }
+                        .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: pulseRing)
+                        .onTapGesture {
+                            if voiceChat.phase == .speaking || voiceChat.phase == .thinking {
+                                voiceChat.interruptAndSpeak()
+                            } else if voiceChat.phase == .listening {
+                                voiceChat.submitCurrentListeningTurn()
+                            } else {
+                                voiceChat.togglePause()
+                            }
+                        }
+                }
+
+                VStack(spacing: 6) {
+                    Text(statusTitle)
+                        .font(.system(size: 17, weight: .bold, design: .rounded))
+                        .foregroundStyle(palette.inkPrimary)
+
+                    if voiceChat.phase == .listening {
+                        Text(L10n.tr(lang, zh: "说完停顿 1.4 秒自动发送，也可点击上方发送", en: "Pauses auto-send after 1.4s, or tap Send"))
+                            .font(.caption)
+                            .foregroundStyle(palette.inkMuted)
+                    } else if voiceChat.phase == .speaking || voiceChat.phase == .thinking {
+                        Text(L10n.tr(lang, zh: "轻触龙爪头像可随时打断插话", en: "Tap avatar anytime to interrupt"))
+                            .font(.caption)
+                            .foregroundStyle(palette.inkMuted)
+                    }
+                }
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 10) {
+                        if let err = voiceChat.errorText, !err.isEmpty {
+                            HStack(spacing: 8) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundStyle(palette.danger)
+                                Text(err)
+                                    .font(.caption.weight(.medium))
+                                    .foregroundStyle(palette.danger)
+                            }
+                            .padding(10)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(palette.danger.opacity(0.10), in: RoundedRectangle(cornerRadius: 12))
+                        }
+
+                        if !voiceChat.userTranscript.isEmpty {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(L10n.tr(lang, zh: "你", en: "You"))
+                                    .font(.caption2.weight(.bold))
+                                    .foregroundStyle(palette.accentStrong)
+                                Text(voiceChat.userTranscript)
+                                    .font(.subheadline)
+                                    .foregroundStyle(palette.inkPrimary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(12)
+                            .glassEffect(.regular.tint(palette.accent.opacity(0.10)), in: RoundedRectangle(cornerRadius: 16))
+                        }
+
+                        if !liveAssistantText.isEmpty {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Dragon Claw")
+                                    .font(.caption2.weight(.bold))
+                                    .foregroundStyle(palette.inkMuted)
+                                Text(liveAssistantText)
+                                    .font(.subheadline)
+                                    .foregroundStyle(palette.inkPrimary)
+                                    .lineSpacing(3)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(12)
+                            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                }
+                .frame(maxHeight: 220)
+
+                Spacer(minLength: 8)
+
+                HStack(spacing: 24) {
+                    Button {
+                        voiceChat.togglePause()
+                    } label: {
+                        Image(systemName: voiceChat.phase == .paused ? "mic.fill" : "pause.fill")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundStyle(palette.inkPrimary)
+                            .frame(width: 56, height: 56)
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .glassEffect(.regular.interactive(), in: .circle)
+
+                    if voiceChat.phase == .listening {
+                        Button {
+                            voiceChat.submitCurrentListeningTurn()
+                        } label: {
+                            Image(systemName: "arrow.up")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundStyle(.white)
+                                .frame(width: 66, height: 66)
+                                .background(palette.accentStrong, in: Circle())
+                                .contentShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                    } else if voiceChat.phase == .speaking || voiceChat.phase == .thinking {
+                        Button {
+                            voiceChat.interruptAndSpeak()
+                        } label: {
+                            Image(systemName: "hand.raised.fill")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundStyle(.white)
+                                .frame(width: 66, height: 66)
+                                .background(palette.accentStrong, in: Circle())
+                                .contentShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        ProgressView()
+                            .frame(width: 66, height: 66)
+                            .glassEffect(.regular, in: .circle)
+                    }
+
+                    Button {
+                        voiceChat.endSession()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 19, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 56, height: 56)
+                            .background(palette.danger, in: Circle())
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.bottom, 28)
+            }
+        }
+        .onAppear {
+            pulseRing = true
+        }
     }
 }

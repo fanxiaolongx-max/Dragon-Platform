@@ -254,8 +254,7 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                 ) {
                     GlassCircleIconButton(
                         icon = Icons.Rounded.Menu,
-                        contentDescription = tr(lang, "打开侧边栏", "Open drawer"),
-                        badgeCount = vm.alertUnreadCount
+                        contentDescription = tr(lang, "打开侧边栏", "Open drawer")
                     ) {
                         animateSidebar(1f)
                     }

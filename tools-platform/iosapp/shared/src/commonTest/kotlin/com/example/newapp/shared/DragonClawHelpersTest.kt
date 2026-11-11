@@ -2,10 +2,14 @@ package com.example.newapp.shared
 
 import com.example.newapp.shared.model.*
 import com.example.newapp.shared.util.DragonClawHelpers
+import com.example.newapp.shared.util.MarkdownParser
+import com.example.newapp.shared.util.MdBlockKind
+import com.example.newapp.shared.util.MdSpanKind
 import com.example.newapp.shared.util.NdjsonStreamParser
 import com.example.newapp.shared.util.SessionGrouping
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -187,5 +191,57 @@ class DragonClawHelpersTest {
         assertEquals(2, unified.first().items.size)
         assertEquals("Codex", unified.first().items[0].badgeLabel("zh"))
         assertEquals("群聊", unified.first().items[1].badgeLabel("zh"))
+    }
+
+    @Test
+    fun markdownParserHandlesCollapsedHeadingsListsAndFileLinks() {
+        val sample = """
+            目前只支持部分基础按键，完整文字/符号/中文输入还不支持。
+
+            ### 1. 现在已经支持什么（可直接用）
+            - 点击手机预览画面（[previewCanvas](file:///Volumes/512G/06-工具开发/Open-AutoGLM-GUI/web_app/static/js/main.js)）后，[onCanvasMouseDown](file:///Volumes/512G/06-工具开发/Open-AutoGLM-GUI/web_app/static/js/main.js) 会把键盘焦点给到画布。
+              - 小写字母 `a-z`、数字 `0-9`
+              - 未按 Shift 的基础标点 (`- = [ ]`) ### 2. 为什么现在不好用 / 缺少什么 1. **不支持大写字母与 Shift 组合符号**: [send_key](file:///Volumes/512G/06-工具开发/Open-AutoGLM-GUI/web_app/services/scrcpy_service.py#L2417-L2418) 把 `meta_state` 写死为 `0`。 2. **不支持中文/输入法与粘贴**: [handlePreviewKeyboard](file:///Volumes/512G/06-工具开发/Open-AutoGLM-GUI/web_app/static/js/main.js#L5451) 跳过了 `isComposing`。 ### 3. 现在的临时替代方法 - 点预览工具栏的 **「录」** -> 在 **「向手机输入文本」** 里输入任意文本（通过 [/api/automation/devices/{device_id}/input](file:///Volumes/512G/06-工具开发/Open-AutoGLM-GUI/web_app/routers/automation.py#L286-L313)）。 --- 如果你希望支持： 1. **支持 Shift 修饰键**：直接输入符号； 2. **支持电脑中文输入法**：查看 [文档](https://example.com/docs)
+
+            ```python
+            def send_key(code: int):
+                return code
+            ```
+        """.trimIndent()
+
+        val blocks = MarkdownParser.parse(sample)
+        val headings = blocks.filter { it.kind == MdBlockKind.HEADING }
+        assertEquals(3, headings.size)
+        assertEquals("1. 现在已经支持什么（可直接用）", headings[0].spans.joinToString("") { it.text })
+        assertEquals("2. 为什么现在不好用 / 缺少什么", headings[1].spans.joinToString("") { it.text })
+        assertEquals("3. 现在的临时替代方法", headings[2].spans.joinToString("") { it.text })
+
+        val bullets = blocks.filter { it.kind == MdBlockKind.BULLET_ITEM }
+        assertTrue(bullets.size >= 4)
+        assertEquals(0, bullets[0].level)
+        assertEquals(1, bullets[1].level)
+        val chip = bullets[0].spans.first { it.kind == MdSpanKind.SYMBOL_CHIP }
+        assertEquals("previewCanvas", chip.text)
+        assertEquals("JS", chip.badge)
+
+        val ordered = blocks.filter { it.kind == MdBlockKind.ORDERED_ITEM }
+        assertEquals(listOf("1.", "2.", "1.", "2."), ordered.map { it.marker })
+        val pyChip = ordered[0].spans.first { it.kind == MdSpanKind.SYMBOL_CHIP }
+        assertEquals("send_key", pyChip.text)
+        assertEquals("PY", pyChip.badge)
+
+        assertTrue(blocks.any { it.kind == MdBlockKind.DIVIDER })
+        val codeBlock = blocks.first { it.kind == MdBlockKind.CODE_BLOCK }
+        assertEquals("python", codeBlock.codeLanguage)
+        assertTrue(codeBlock.codeText.contains("def send_key(code: int):"))
+
+        val webLink = ordered.last().spans.first { it.kind == MdSpanKind.WEB_LINK }
+        assertEquals("https://example.com/docs", webLink.url)
+        assertEquals("文档", webLink.text)
+
+        val speech = MarkdownParser.toSpeechText(sample)
+        assertFalse(speech.contains("file:///"))
+        assertFalse(speech.contains("###"))
+        assertTrue(speech.contains("send_key"))
     }
 }
