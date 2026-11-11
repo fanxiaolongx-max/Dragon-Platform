@@ -243,3 +243,120 @@ class UploadAttachmentDraft(
     val mimeType: String,
     val bytes: ByteArray
 )
+
+@Serializable
+data class SpeechSourceInfo(
+    val id: String = "",
+    val label: String = "",
+    val location: String = ""
+)
+
+@Serializable
+data class SpeechRecognitionResponse(
+    val text: String = "",
+    val degraded: Boolean = false,
+    val source: SpeechSourceInfo? = null,
+    val error: String? = null
+)
+
+@Serializable
+data class AgentSkillItem(
+    val id: String = "",
+    val name: String = "",
+    val nameEn: String? = null,
+    val description: String = "",
+    val descriptionEn: String? = null,
+    val workspace: String? = null,
+    val icon: String? = null,
+    val builtIn: Boolean = false,
+    val shared: Boolean = false,
+    val customized: Boolean = false,
+    val source: String? = null
+) {
+    fun localizedName(language: String): String =
+        if (language == "en") nameEn?.takeIf { it.isNotBlank() } ?: name.ifBlank { id }
+        else name.ifBlank { nameEn.orEmpty() }.ifBlank { id }
+
+    fun localizedDescription(language: String): String =
+        if (language == "en") descriptionEn?.takeIf { it.isNotBlank() } ?: description
+        else description.ifBlank { descriptionEn.orEmpty() }
+}
+
+@Serializable
+data class AgentSkillsResponse(
+    val items: List<AgentSkillItem> = emptyList()
+)
+
+@Serializable
+data class CompactSessionRequest(
+    val sessionId: String,
+    val modelId: String? = null
+)
+
+@Serializable
+data class CompactSessionResponse(
+    val performed: Boolean = false,
+    val reason: String? = null,
+    val beforeChars: Int = 0,
+    val afterChars: Int = 0,
+    val retainedRecentMessages: Int = 0,
+    val error: String? = null
+)
+
+@Serializable
+data class ArchiveSessionResponse(
+    val session: AiSessionSummary? = null,
+    val error: String? = null
+)
+
+@Serializable
+data class DragonClawScheduleItem(
+    val id: String = "",
+    val instruction: String = "",
+    val kind: String = "",
+    val timezone: String = "",
+    val sessionId: String = "",
+    val status: String = "active",
+    val nextRunAt: String? = null,
+    val lastRunAt: String? = null,
+    val lastStatus: String = "",
+    val lastError: String = "",
+    val lastReply: String = "",
+    val runCount: Int = 0
+)
+
+@Serializable
+data class SchedulesResponse(
+    val items: List<DragonClawScheduleItem> = emptyList(),
+    val active: Int = 0,
+    val serverTime: String? = null
+)
+
+@Serializable
+data class CreateScheduleRequest(
+    val text: String,
+    val sessionId: String = "",
+    val timezone: String = "",
+    val modelId: String? = null
+)
+
+@Serializable
+data class ScheduleMutationResponse(
+    val item: DragonClawScheduleItem? = null,
+    val error: String? = null
+)
+
+@Serializable
+data class NavToolIdsResponse(
+    val ids: List<String> = emptyList()
+)
+
+@Serializable
+data class SaveFavoriteNavRequest(
+    val ids: List<String>
+)
+
+@Serializable
+data class RecordRecentNavRequest(
+    val toolId: String
+)

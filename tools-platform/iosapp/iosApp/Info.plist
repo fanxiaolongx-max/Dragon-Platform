@@ -24,6 +24,8 @@
 	<string>1</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Used to capture photos and screenshots to share with Dragon Claw AI</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Used for voice input in Dragon Claw AI conversations</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

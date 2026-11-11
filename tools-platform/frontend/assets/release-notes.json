@@ -1,14 +1,14 @@
 {
   "zh": [
-    "修复 Windows 桌面端闪退：AI 运行的命令输出中文（GBK 编码）内容时程序会直接消失，现已修复，并顺带解决长输出被截断时出现乱码的问题。",
-    "移动端升级为原生液态玻璃架构：支持 iOS 与 Android 双端原生渲染，重构 100% 全宽平滑手势侧栏与紧凑版式。",
-    "优化对话渲染与流式响应：新增实时打字机流式刷新机制，修复会话重入重绘，全面提升移动端交互流畅度。",
-    "登录与网络自适应增强：解决登录页非滚动专业布局与空白处轻触收起键盘，强化多节点容灾与快速建连能力。"
+    "移动端真流式输出上线：iOS 切换为基于 URLSession 增量代理的无缓冲 NDJSON 流，搭配稳定消息主键实现真打字机逐字刷新。",
+    "手势方向锁与触控防误触优化：参考业界交互规范在 iOS 与 Android 双端引入方向锁定手势识别，彻底避免上下滚动与左右抽屉滑动同时触发。",
+    "对话输入区重构与语音波形条：采用极简无边框输入框与“+”悬浮功能菜单（相机/照片/文件/技能/压缩上下文），新增内嵌 32 通道动态点阵波形语音转写与直发。",
+    "移动端能力全量对齐与更名：iOS 展示名正式升级为 Dragon Claw，全面补齐会话归档/导出、定时任务管理及常用/最近工具双向同步。"
   ],
   "en": [
-    "Fixed a Windows desktop crash: the app could vanish when a command run by the AI printed non-UTF-8 (GBK) output; truncated long output no longer turns into garbled text.",
-    "Mobile apps upgraded to native liquid glass architecture with full-screen gesture sidebar and compact responsive layout on iOS and Android.",
-    "Real-time streaming and chat rendering improved: added instant typewriter streaming updates and view refresh reliability.",
-    "Login and network resilience enhanced: fixed non-scrollable native login page, dismiss keyboard on background tap, and smart multi-node failover."
+    "True token-by-token mobile streaming: iOS now uses an incremental URLSession delegate for unbuffered NDJSON streaming with stable message identity.",
+    "Directional gesture axis-lock on iOS & Android: disambiguates vertical scrolling from horizontal drawer swipes to prevent simultaneous accidental drags.",
+    "Minimalist chat composer & dotted-waveform voice bar: redesigned borderless composer with a vertical '+' popover (Camera, Photos, Files, Skills, Compact) and inline 32-bar audio transcription.",
+    "Full mobile feature parity & Dragon Claw branding: renamed iOS app to Dragon Claw and added session archive/export, scheduled tasks, context compaction, and pinned/recent tool sync."
   ]
 }

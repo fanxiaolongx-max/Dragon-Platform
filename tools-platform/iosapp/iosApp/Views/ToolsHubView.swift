@@ -38,6 +38,21 @@ struct ToolsHubView: View {
         store.filteredTools.filter { selectedCategory.matches($0.category) }
     }
 
+    private var pinnedTools: [PlatformTool] {
+        store.favoriteToolIds.compactMap { id in
+            store.filteredTools.first { $0.id == id }
+        }
+    }
+
+    private var recentTools: [PlatformTool] {
+        let favSet = Set(store.favoriteToolIds)
+        return store.recentToolIds
+            .filter { !favSet.contains($0) }
+            .compactMap { id in store.filteredTools.first { $0.id == id } }
+            .prefix(6)
+            .map { $0 }
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -45,6 +60,10 @@ struct ToolsHubView: View {
 
                 if selectedCategory == .all && store.toolSearchQuery.trimmingCharacters(in: .whitespaces).isEmpty {
                     featuredKpiMonitorCard
+
+                    if !pinnedTools.isEmpty || !recentTools.isEmpty {
+                        pinnedAndRecentSection
+                    }
                 }
 
                 LazyVGrid(
@@ -60,10 +79,58 @@ struct ToolsHubView: View {
             .padding(.vertical, 10)
             .padding(.bottom, 24)
         }
+        .onAppear {
+            store.loadToolNavState()
+        }
         .refreshable {
             store.loadToolsCatalog()
             store.loadAlertSummary()
+            store.loadToolNavState()
         }
+    }
+
+    private var pinnedAndRecentSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(L10n.tr(lang, zh: "常用 & 最近", en: "Pinned & Recent"))
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(palette.inkMuted)
+                .padding(.horizontal, 2)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(pinnedTools, id: \.id) { tool in
+                        toolQuickNavPill(tool, isFavorite: true)
+                    }
+                    ForEach(recentTools, id: \.id) { tool in
+                        toolQuickNavPill(tool, isFavorite: false)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+    }
+
+    private func toolQuickNavPill(_ tool: PlatformTool, isFavorite: Bool) -> some View {
+        Button {
+            store.openTool(tool)
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: isFavorite ? "star.fill" : "clock.arrow.circlepath")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(isFavorite ? palette.warning : palette.inkMuted)
+                Text(tool.localizedTitle(language: lang))
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(palette.inkPrimary)
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+        }
+        .buttonStyle(.plain)
+        .glassEffect(
+            isFavorite ? .regular.tint(palette.warning.opacity(0.14)).interactive() : .regular.interactive(),
+            in: Capsule()
+        )
     }
 
     private var headerSearchAndFilters: some View {
@@ -182,6 +249,7 @@ struct ToolsHubView: View {
                     Image(systemName: tool.isNative ? "sparkles" : "arrow.up.right")
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(palette.inkMuted)
+                        .padding(.trailing, 26)
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -212,6 +280,21 @@ struct ToolsHubView: View {
         }
         .buttonStyle(.plain)
         .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(alignment: .topTrailing) {
+            let isFav = store.favoriteToolIds.contains(tool.id)
+            Button {
+                store.toggleFavoriteTool(tool.id)
+            } label: {
+                Image(systemName: isFav ? "star.fill" : "star")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(isFav ? palette.warning : palette.inkMuted)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 9)
+            .padding(.trailing, 9)
+        }
     }
 
     private func toolAccentColor(_ tool: PlatformTool) -> Color {

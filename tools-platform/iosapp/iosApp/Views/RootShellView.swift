@@ -1,17 +1,21 @@
 import SwiftUI
+import UIKit
 import shared
 
 struct RootShellView: View {
     @Bindable var store: DragonClawStore
     @State private var showServerSheet = false
+    @State private var showSchedulesSheet = false
+    @State private var scheduleDraft = ""
     @State private var serverDraft = ""
     @State private var sidebarProgress: CGFloat = 0
-    @GestureState private var dragDeltaX: CGFloat = 0
+    @State private var dragDeltaX: CGFloat = 0
 
     private var palette: DragonClawPalette { store.palette }
     private var lang: String { store.language }
 
     private func setSidebarOpen(_ open: Bool) {
+        dragDeltaX = 0
         withAnimation(.spring(response: 0.34, dampingFraction: 0.88)) {
             sidebarProgress = open ? 1 : 0
             store.isDrawerOpen = open
@@ -48,6 +52,9 @@ struct RootShellView: View {
                 if progress > 0.005 {
                     Color.black.opacity((palette.isDark ? 0.35 : 0.18) * progress)
                         .ignoresSafeArea()
+                        .onTapGesture {
+                            setSidebarOpen(false)
+                        }
                 }
 
                 if progress > 0.001 {
@@ -56,38 +63,36 @@ struct RootShellView: View {
                         .zIndex(10)
                 }
             }
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 18, coordinateSpace: .global)
-                    .updating($dragDeltaX) { value, state, _ in
-                        let dx = value.translation.width
-                        let dy = value.translation.height
-                        guard abs(dx) > abs(dy) * 1.35 else {
-                            state = 0
-                            return
-                        }
-                        if sidebarProgress < 0.5 && dx > 0 {
-                            state = dx
-                        } else if sidebarProgress >= 0.5 && dx < 0 {
-                            state = dx
+            .background(
+                DirectionalDrawerPanInstaller(
+                    isDrawerOpen: sidebarProgress >= 0.5,
+                    isDisabled: store.activeWebTool != nil || store.showNativeMetrics || showServerSheet || showSchedulesSheet || store.exportedSessionJson != nil,
+                    onDragChanged: { tx in
+                        if sidebarProgress < 0.5 && tx > 0 {
+                            dragDeltaX = tx
+                        } else if sidebarProgress >= 0.5 && tx < 0 {
+                            dragDeltaX = tx
                         } else {
-                            state = 0
+                            dragDeltaX = 0
                         }
-                    }
-                    .onEnded { value in
-                        let dx = value.translation.width
-                        let dy = value.translation.height
-                        guard abs(dx) > abs(dy) * 1.35 else { return }
-                        let predictedDx = value.predictedEndTranslation.width
+                    },
+                    onDragEnded: { tx, vx in
+                        let currentFraction = min(max(sidebarProgress + tx / width, 0), 1)
+                        let predictedFraction = min(max(sidebarProgress + (tx + vx * 0.16) / width, 0), 1)
                         let shouldOpen: Bool
-                        if sidebarProgress < 0.5 && dx > 0 {
-                            shouldOpen = (dx / width) > 0.22 || (predictedDx / width) > 0.45
-                        } else if sidebarProgress >= 0.5 && dx < 0 {
-                            shouldOpen = !((-dx / width) > 0.22 || (-predictedDx / width) > 0.45)
+                        if sidebarProgress < 0.5 {
+                            shouldOpen = currentFraction > 0.24 || predictedFraction > 0.42
                         } else {
-                            return
+                            shouldOpen = !(currentFraction < 0.76 || predictedFraction < 0.58)
                         }
+                        sidebarProgress = currentFraction
                         setSidebarOpen(shouldOpen)
+                    },
+                    onDragCancelled: {
+                        setSidebarOpen(sidebarProgress >= 0.5)
                     }
+                )
+                .allowsHitTesting(false)
             )
         }
         .onAppear {
@@ -109,6 +114,15 @@ struct RootShellView: View {
         }
         .sheet(isPresented: $showServerSheet) {
             serverSettingsSheet
+        }
+        .sheet(isPresented: $showSchedulesSheet) {
+            schedulesSheet
+        }
+        .sheet(item: Binding(
+            get: { store.exportedSessionJson.map { ExportedLogIdentifiable(json: $0) } },
+            set: { if $0 == nil { store.exportedSessionJson = nil } }
+        )) { payload in
+            exportLogSheet(payload.json)
         }
     }
 
@@ -171,7 +185,7 @@ struct RootShellView: View {
             palette.cardSurface.opacity(palette.isDark ? 0.56 : 0.64)
                 .ignoresSafeArea()
 
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 11) {
                 HStack(spacing: 10) {
                     Image("DragonClawAvatar")
                         .resizable()
@@ -209,13 +223,21 @@ struct RootShellView: View {
                     .font(.system(size: 13))
                     .textInputAutocapitalization(.never)
                     .onSubmit {
-                        store.loadSessions()
+                        if store.showArchivedSessions {
+                            store.loadArchivedSessions()
+                        } else {
+                            store.loadSessions()
+                        }
                     }
 
                     if !store.sessionSearchQuery.isEmpty {
                         Button {
                             store.sessionSearchQuery = ""
-                            store.loadSessions()
+                            if store.showArchivedSessions {
+                                store.loadArchivedSessions()
+                            } else {
+                                store.loadSessions()
+                            }
                         } label: {
                             Image(systemName: "xmark.circle.fill")
                                 .font(.caption)
@@ -225,7 +247,7 @@ struct RootShellView: View {
                     }
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 9)
+                .padding(.vertical, 8.5)
                 .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
 
                 // Primary Navigation Actions
@@ -242,25 +264,25 @@ struct RootShellView: View {
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(palette.inkPrimary)
                             .padding(.horizontal, 12)
-                            .padding(.vertical, 10)
+                            .padding(.vertical, 9.5)
                         }
                         .buttonStyle(.plain)
                         .glassEffect(.regular.tint(palette.accent.opacity(0.14)).interactive(), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
 
-                        HStack(spacing: 8) {
+                        HStack(spacing: 7) {
                             Button {
                                 withAnimation(.snappy) {
                                     store.workMode = .tools
                                 }
                                 setSidebarOpen(false)
                             } label: {
-                                HStack(spacing: 6) {
+                                HStack(spacing: 5) {
                                     Image(systemName: "square.grid.2x2")
                                     Text(L10n.tr(lang, zh: "工具台", en: "Tools"))
                                 }
-                                .font(.system(size: 11.5, weight: .semibold))
+                                .font(.system(size: 11, weight: .semibold))
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 9)
+                                .padding(.vertical, 8.5)
                             }
                             .buttonStyle(.plain)
                             .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -268,14 +290,37 @@ struct RootShellView: View {
                             Button {
                                 store.openMetricsModule()
                             } label: {
-                                HStack(spacing: 6) {
+                                HStack(spacing: 5) {
                                     Image(systemName: "chart.bar.xaxis")
-                                    Text("KPI / SLA")
+                                    Text("KPI")
                                 }
-                                .font(.system(size: 11.5, weight: .semibold))
+                                .font(.system(size: 11, weight: .semibold))
                                 .foregroundStyle(palette.accentStrong)
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 9)
+                                .padding(.vertical, 8.5)
+                            }
+                            .buttonStyle(.plain)
+                            .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                            Button {
+                                store.loadSchedules()
+                                showSchedulesSheet = true
+                            } label: {
+                                HStack(spacing: 5) {
+                                    Image(systemName: "clock.arrow.2.circlepath")
+                                    Text(L10n.tr(lang, zh: "定时", en: "Tasks"))
+                                    let activeCount = store.schedules.filter { $0.status == "active" }.count
+                                    if activeCount > 0 {
+                                        Text("\(activeCount)")
+                                            .font(.system(size: 9.5, weight: .bold))
+                                            .padding(.horizontal, 5)
+                                            .padding(.vertical, 1)
+                                            .background(palette.accentStrong.opacity(0.22), in: Capsule())
+                                    }
+                                }
+                                .font(.system(size: 11, weight: .semibold))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8.5)
                             }
                             .buttonStyle(.plain)
                             .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -293,16 +338,46 @@ struct RootShellView: View {
                         Spacer()
                     }
                     .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 7.5)
                     .background(palette.danger.opacity(0.10), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+
+                // Active vs Archived sessions segmented strip
+                HStack(spacing: 6) {
+                    sessionScopeTab(
+                        selected: !store.showArchivedSessions,
+                        title: L10n.tr(lang, zh: "最近会话", en: "Active")
+                    ) {
+                        store.showArchivedSessions = false
+                    }
+                    sessionScopeTab(
+                        selected: store.showArchivedSessions,
+                        title: L10n.tr(lang, zh: "已归档", en: "Archived")
+                    ) {
+                        store.showArchivedSessions = true
+                        store.loadArchivedSessions()
+                    }
+                    Spacer()
                 }
 
                 Divider().overlay(palette.hairLine)
 
-                // Date-grouped Session History
+                // Session List (Active grouped or Archived)
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 14) {
-                        if store.sessionGroups.isEmpty {
+                    LazyVStack(alignment: .leading, spacing: 12) {
+                        if store.showArchivedSessions {
+                            if store.archivedSessions.isEmpty {
+                                Text(L10n.tr(lang, zh: "暂无已归档会话", en: "No archived conversations"))
+                                    .font(.system(size: 11.5))
+                                    .foregroundStyle(palette.inkMuted)
+                                    .padding(.vertical, 20)
+                                    .frame(maxWidth: .infinity)
+                            } else {
+                                ForEach(store.archivedSessions, id: \.id) { session in
+                                    sessionRowView(session, isArchived: true)
+                                }
+                            }
+                        } else if store.sessionGroups.isEmpty {
                             Text(L10n.tr(lang, zh: "暂无历史会话", en: "No conversation history"))
                                 .font(.system(size: 11.5))
                                 .foregroundStyle(palette.inkMuted)
@@ -310,45 +385,14 @@ struct RootShellView: View {
                                 .frame(maxWidth: .infinity)
                         } else {
                             ForEach(store.sessionGroups, id: \.bucket) { group in
-                                VStack(alignment: .leading, spacing: 6) {
+                                VStack(alignment: .leading, spacing: 5) {
                                     Text(group.localizedTitle(language: lang))
                                         .font(.system(size: 10.5, weight: .semibold))
                                         .foregroundStyle(palette.inkMuted)
                                         .padding(.horizontal, 6)
 
                                     ForEach(group.items, id: \.id) { session in
-                                        let isSelected = session.id == store.currentSessionId
-                                        Button {
-                                            store.openSession(session)
-                                        } label: {
-                                            HStack(spacing: 8) {
-                                                Image(systemName: "bubble.left")
-                                                    .font(.system(size: 12))
-                                                    .foregroundStyle(isSelected ? palette.accentStrong : palette.inkMuted)
-                                                Text(session.displayTitle(language: lang))
-                                                    .font(.system(size: 12.5))
-                                                    .foregroundStyle(isSelected ? palette.accentStrong : palette.inkPrimary)
-                                                    .lineLimit(1)
-                                                Spacer()
-                                                if session.busy {
-                                                    ProgressView().controlSize(.mini)
-                                                }
-                                            }
-                                            .padding(.horizontal, 10)
-                                            .padding(.vertical, 8)
-                                            .background(
-                                                isSelected ? palette.accent.opacity(0.14) : Color.clear,
-                                                in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                            )
-                                        }
-                                        .buttonStyle(.plain)
-                                        .contextMenu {
-                                            Button(role: .destructive) {
-                                                store.removeSession(session)
-                                            } label: {
-                                                Label(L10n.tr(lang, zh: "删除会话", en: "Delete"), systemImage: "trash")
-                                            }
-                                        }
+                                        sessionRowView(session, isArchived: false)
                                     }
                                 }
                             }
@@ -416,6 +460,110 @@ struct RootShellView: View {
         .frame(maxHeight: .infinity)
     }
 
+    private func sessionScopeTab(selected: Bool, title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(selected ? palette.accentStrong : palette.inkMuted)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(
+                    selected ? palette.accent.opacity(0.15) : Color.clear,
+                    in: Capsule()
+                )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func sessionRowView(_ session: AiSessionSummary, isArchived: Bool) -> some View {
+        let isSelected = session.id == store.currentSessionId
+        return HStack(spacing: 8) {
+            Button {
+                store.openSession(session)
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: isArchived ? "archivebox" : "bubble.left")
+                        .font(.system(size: 12))
+                        .foregroundStyle(isSelected ? palette.accentStrong : palette.inkMuted)
+                    Text(session.displayTitle(language: lang))
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(isSelected ? palette.accentStrong : palette.inkPrimary)
+                        .lineLimit(1)
+                    Spacer()
+                    if session.busy {
+                        ProgressView().controlSize(.mini)
+                    }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Menu {
+                if isArchived {
+                    Button {
+                        store.unarchiveSession(session)
+                    } label: {
+                        Label(L10n.tr(lang, zh: "恢复会话", en: "Unarchive"), systemImage: "tray.and.arrow.up")
+                    }
+                } else {
+                    Button {
+                        store.archiveSession(session)
+                    } label: {
+                        Label(L10n.tr(lang, zh: "归档会话", en: "Archive"), systemImage: "archivebox")
+                    }
+                }
+                Button {
+                    store.exportSession(session)
+                } label: {
+                    Label(L10n.tr(lang, zh: "导出日志 (JSON)", en: "Export Log"), systemImage: "square.and.arrow.up")
+                }
+                Divider()
+                Button(role: .destructive) {
+                    store.removeSession(session)
+                } label: {
+                    Label(L10n.tr(lang, zh: "删除会话", en: "Delete"), systemImage: "trash")
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(palette.inkMuted)
+                    .frame(width: 26, height: 26)
+                    .contentShape(Rectangle())
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(
+            isSelected ? palette.accent.opacity(0.14) : Color.clear,
+            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+        )
+        .contextMenu {
+            if isArchived {
+                Button {
+                    store.unarchiveSession(session)
+                } label: {
+                    Label(L10n.tr(lang, zh: "恢复会话", en: "Unarchive"), systemImage: "tray.and.arrow.up")
+                }
+            } else {
+                Button {
+                    store.archiveSession(session)
+                } label: {
+                    Label(L10n.tr(lang, zh: "归档会话", en: "Archive"), systemImage: "archivebox")
+                }
+            }
+            Button {
+                store.exportSession(session)
+            } label: {
+                Label(L10n.tr(lang, zh: "导出日志 (JSON)", en: "Export Log"), systemImage: "square.and.arrow.up")
+            }
+            Button(role: .destructive) {
+                store.removeSession(session)
+            } label: {
+                Label(L10n.tr(lang, zh: "删除会话", en: "Delete"), systemImage: "trash")
+            }
+        }
+    }
+
     private var serverSettingsSheet: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
@@ -440,11 +588,300 @@ struct RootShellView: View {
         }
         .presentationDetents([.fraction(0.35)])
     }
+
+    private var schedulesSheet: some View {
+        NavigationStack {
+            VStack(spacing: 12) {
+                HStack(spacing: 8) {
+                    TextField(
+                        L10n.tr(lang, zh: "如：每天 9:00 汇总昨日 SLA 告警", en: "e.g. Daily 9:00 summarize SLA alerts"),
+                        text: $scheduleDraft
+                    )
+                    .font(.system(size: 13))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                    Button {
+                        let text = scheduleDraft
+                        scheduleDraft = ""
+                        store.createSchedule(text: text)
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.system(size: 14, weight: .bold))
+                            .frame(width: 38, height: 38)
+                    }
+                    .buttonStyle(.glassProminent)
+                    .tint(palette.accentStrong)
+                    .disabled(scheduleDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+
+                if store.isLoadingSchedules && store.schedules.isEmpty {
+                    ProgressView().padding(.top, 30)
+                    Spacer()
+                } else if store.schedules.isEmpty {
+                    VStack(spacing: 8) {
+                        Image(systemName: "calendar.badge.clock")
+                            .font(.title2)
+                            .foregroundStyle(palette.inkMuted)
+                        Text(L10n.tr(lang, zh: "暂无定时任务（也可直接在对话输入 /schedule）", en: "No scheduled tasks yet"))
+                            .font(.system(size: 12.5))
+                            .foregroundStyle(palette.inkMuted)
+                    }
+                    .padding(.top, 40)
+                    Spacer()
+                } else {
+                    List {
+                        ForEach(store.schedules, id: \.id) { item in
+                            VStack(alignment: .leading, spacing: 5) {
+                                HStack {
+                                    Text(item.instruction)
+                                        .font(.system(size: 13.5, weight: .semibold))
+                                        .foregroundStyle(palette.inkPrimary)
+                                    Spacer()
+                                    Text(item.status)
+                                        .font(.caption2.weight(.semibold))
+                                        .foregroundStyle(item.status == "active" ? palette.accentStrong : palette.inkMuted)
+                                        .padding(.horizontal, 7)
+                                        .padding(.vertical, 2)
+                                        .background(palette.accent.opacity(0.12), in: Capsule())
+                                }
+                                if let next = item.nextRunAt, !next.isEmpty {
+                                    Text(L10n.tr(lang, zh: "下次执行: \(next)", en: "Next: \(next)"))
+                                        .font(.caption2)
+                                        .foregroundStyle(palette.inkMuted)
+                                }
+                                if !item.lastError.isEmpty {
+                                    Text(item.lastError)
+                                        .font(.caption2)
+                                        .foregroundStyle(palette.danger)
+                                        .lineLimit(2)
+                                }
+                            }
+                            .swipeActions(edge: .trailing) {
+                                Button(role: .destructive) {
+                                    store.deleteSchedule(item)
+                                } label: {
+                                    Label(L10n.tr(lang, zh: "取消", en: "Cancel"), systemImage: "trash")
+                                }
+                            }
+                        }
+                    }
+                    .listStyle(.plain)
+                }
+            }
+            .navigationTitle(L10n.tr(lang, zh: "定时指令 (/schedule)", en: "Scheduled Tasks"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(L10n.tr(lang, zh: "关闭", en: "Done")) {
+                        showSchedulesSheet = false
+                    }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private func exportLogSheet(_ jsonText: String) -> some View {
+        NavigationStack {
+            VStack(spacing: 12) {
+                ScrollView {
+                    Text(jsonText)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(palette.inkPrimary)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                }
+                .background(palette.cardSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                HStack(spacing: 12) {
+                    Button {
+                        UIPasteboard.general.string = jsonText
+                    } label: {
+                        Label(L10n.tr(lang, zh: "复制 JSON", en: "Copy JSON"), systemImage: "doc.on.doc")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.glass)
+
+                    ShareLink(item: jsonText) {
+                        Label(L10n.tr(lang, zh: "分享文件", en: "Share"), systemImage: "square.and.arrow.up")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.glassProminent)
+                    .tint(palette.accentStrong)
+                }
+            }
+            .padding(16)
+            .navigationTitle(L10n.tr(lang, zh: "导出对话日志", en: "Exported Chat Log"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(L10n.tr(lang, zh: "完成", en: "Done")) {
+                        store.exportedSessionJson = nil
+                    }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+}
+
+/// UIKit UIPanGestureRecognizer bridge attached to the hosting UIViewController.view.
+/// Guarantees mutually-exclusive horizontal drawer vs vertical ScrollView axis lock
+/// (~27 degree cone + UIGestureRecognizerDelegate failing vertical UIScrollView pans).
+private struct DirectionalDrawerPanInstaller: UIViewRepresentable {
+    var isDrawerOpen: Bool
+    var isDisabled: Bool
+    var onDragChanged: (CGFloat) -> Void
+    var onDragEnded: (CGFloat, CGFloat) -> Void
+    var onDragCancelled: () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    func makeUIView(context: Context) -> BridgeAnchorView {
+        let view = BridgeAnchorView()
+        view.isHidden = true
+        view.isUserInteractionEnabled = false
+        view.onWindowChange = { anchor in
+            context.coordinator.attachIfNeeded(from: anchor)
+        }
+        return view
+    }
+
+    func updateUIView(_ uiView: BridgeAnchorView, context: Context) {
+        context.coordinator.parent = self
+        context.coordinator.attachIfNeeded(from: uiView)
+    }
+
+    static func dismantleUIView(_ uiView: BridgeAnchorView, coordinator: Coordinator) {
+        coordinator.detach()
+    }
+
+    final class BridgeAnchorView: UIView {
+        var onWindowChange: ((UIView) -> Void)?
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            if window != nil {
+                onWindowChange?(self)
+            }
+        }
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var parent: DirectionalDrawerPanInstaller
+        private weak var attachedView: UIView?
+        private weak var hostController: UIViewController?
+        private var panRecognizer: UIPanGestureRecognizer?
+
+        init(parent: DirectionalDrawerPanInstaller) {
+            self.parent = parent
+        }
+
+        func attachIfNeeded(from anchor: UIView) {
+            var responder: UIResponder? = anchor
+            var foundVC: UIViewController?
+            while let next = responder?.next {
+                if let vc = next as? UIViewController {
+                    foundVC = vc
+                    break
+                }
+                responder = next
+            }
+            guard let vc = foundVC, let target = vc.view else { return }
+            if attachedView === target && panRecognizer != nil { return }
+
+            detach()
+            let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
+            pan.name = "DragonClawDirectionalDrawerPan"
+            pan.maximumNumberOfTouches = 1
+            pan.delaysTouchesBegan = false
+            pan.cancelsTouchesInView = true
+            pan.delegate = self
+            target.addGestureRecognizer(pan)
+            attachedView = target
+            hostController = vc
+            panRecognizer = pan
+        }
+
+        func detach() {
+            if let pan = panRecognizer, let view = attachedView {
+                view.removeGestureRecognizer(pan)
+            }
+            panRecognizer = nil
+            attachedView = nil
+            hostController = nil
+        }
+
+        @objc private func handlePan(_ pan: UIPanGestureRecognizer) {
+            guard let view = attachedView else { return }
+            let tx = pan.translation(in: view).x
+            let vx = pan.velocity(in: view).x
+            switch pan.state {
+            case .began, .changed:
+                parent.onDragChanged(tx)
+            case .ended:
+                parent.onDragEnded(tx, vx)
+            case .cancelled, .failed:
+                parent.onDragCancelled()
+            default:
+                break
+            }
+        }
+
+        func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            guard let pan = gestureRecognizer as? UIPanGestureRecognizer,
+                  let view = attachedView,
+                  !parent.isDisabled else {
+                return false
+            }
+            if hostController?.presentedViewController != nil {
+                return false
+            }
+            let velocity = pan.velocity(in: view)
+            let absVx = abs(velocity.x)
+            let absVy = abs(velocity.y)
+            // Strict horizontal cone (~27 degrees): abs(vx) > abs(vy) * 1.9
+            guard absVx > 35 && absVx > absVy * 1.9 else {
+                return false
+            }
+            return parent.isDrawerOpen ? (velocity.x < 0) : (velocity.x > 0)
+        }
+
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+        ) -> Bool {
+            false
+        }
+
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldBeRequiredToFailBy otherGestureRecognizer: UIGestureRecognizer
+        ) -> Bool {
+            guard let otherView = otherGestureRecognizer.view as? UIScrollView else {
+                return false
+            }
+            // Yield horizontal gestures inside horizontally scrollable containers (e.g. attachments / filter chips).
+            let canScrollHorizontally = otherView.contentSize.width > (otherView.bounds.width + 2)
+            return !canScrollHorizontally
+        }
+    }
 }
 
 private struct WebToolIdentifiable: Identifiable {
     let tool: PlatformTool
     var id: String { tool.id }
+}
+
+private struct ExportedLogIdentifiable: Identifiable {
+    let id = UUID()
+    let json: String
 }
 
 private extension String {

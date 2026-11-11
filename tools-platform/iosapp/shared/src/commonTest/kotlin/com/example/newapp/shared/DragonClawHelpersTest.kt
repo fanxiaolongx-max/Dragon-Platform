@@ -106,4 +106,36 @@ class DragonClawHelpersTest {
         assertTrue(out.contains("帮我分析表格"))
         assertTrue(out.contains("/tmp/ai/demo.xlsx"))
     }
+
+    @Test
+    fun decodeP1ModelsLeniently() {
+        val json = DragonClawHelpers.lenientJson
+        val speech = json.decodeFromString<SpeechRecognitionResponse>(
+            """{"text":"查看今天工单趋势","degraded":false,"source":{"id":"gemini","label":"Gemini","location":"cloud"}}"""
+        )
+        assertEquals("查看今天工单趋势", speech.text)
+        assertEquals("gemini", speech.source?.id)
+
+        val skills = json.decodeFromString<AgentSkillsResponse>(
+            """{"items":[{"id":"sla-audit","name":"SLA 核查","nameEn":"SLA Audit","description":"核查逾期工单","builtIn":true}]}"""
+        )
+        assertEquals(1, skills.items.size)
+        assertEquals("SLA Audit", skills.items.first().localizedName("en"))
+        assertEquals("SLA 核查", skills.items.first().localizedName("zh"))
+
+        val compact = json.decodeFromString<CompactSessionResponse>(
+            """{"performed":true,"beforeChars":12000,"afterChars":1800,"retainedRecentMessages":2}"""
+        )
+        assertTrue(compact.performed)
+        assertEquals(1800, compact.afterChars)
+
+        val schedules = json.decodeFromString<SchedulesResponse>(
+            """{"items":[{"id":"sch_1","instruction":"每天早上9点汇报SLA","kind":"recurring","status":"active","runCount":3}],"active":1}"""
+        )
+        assertEquals(1, schedules.active)
+        assertEquals("sch_1", schedules.items.first().id)
+
+        val nav = json.decodeFromString<NavToolIdsResponse>("""{"ids":["native-kpi-monitor","report"]}""")
+        assertEquals(listOf("native-kpi-monitor", "report"), nav.ids)
+    }
 }

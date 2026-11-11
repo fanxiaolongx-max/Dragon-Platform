@@ -438,6 +438,175 @@ class DragonClawSdk(
         onError = onError
     )
 
+    // --- Voice Speech, Skills, Session Lifecycle, Schedules & Tool Nav Sync (P1) ---
+
+    fun transcribeSpeech(
+        token: String,
+        audioBytes: ByteArray,
+        fileName: String = "voice.m4a",
+        mimeType: String = "audio/mp4",
+        onSuccess: (SpeechRecognitionResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = { api.transcribeSpeech(token, audioBytes, fileName, mimeType) },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
+    fun fetchSkills(
+        token: String,
+        onSuccess: (AgentSkillsResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = { api.getSkills(token) },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
+    fun compactSession(
+        token: String,
+        sessionId: String,
+        modelId: String? = null,
+        onSuccess: (CompactSessionResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = { api.compactSession(token, sessionId, modelId) },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
+    fun fetchArchivedSessions(
+        token: String,
+        query: String = "",
+        limit: Int = 40,
+        onSuccess: (AiSessionsResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = { api.getArchivedSessions(token, query, limit) },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
+    fun archiveSession(
+        token: String,
+        sessionId: String,
+        onSuccess: (ArchiveSessionResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = { api.archiveSession(token, sessionId) },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
+    fun unarchiveSession(
+        token: String,
+        sessionId: String,
+        onSuccess: (ArchiveSessionResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = { api.unarchiveSession(token, sessionId) },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
+    fun exportSessionJson(
+        token: String,
+        sessionId: String,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = { api.exportSessionRawJson(token, sessionId) },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
+    fun fetchSchedules(
+        token: String,
+        onSuccess: (SchedulesResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = { api.getSchedules(token) },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
+    fun createSchedule(
+        token: String,
+        text: String,
+        sessionId: String = "",
+        timezone: String = "",
+        modelId: String? = null,
+        onSuccess: (ScheduleMutationResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = {
+            api.createSchedule(
+                token,
+                CreateScheduleRequest(
+                    text = text,
+                    sessionId = sessionId,
+                    timezone = timezone,
+                    modelId = modelId
+                )
+            )
+        },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
+    fun deleteSchedule(
+        token: String,
+        scheduleId: String,
+        onSuccess: (ScheduleMutationResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = { api.deleteSchedule(token, scheduleId) },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
+    fun fetchFavoriteNav(
+        token: String,
+        onSuccess: (NavToolIdsResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = { api.getFavoriteNav(token) },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
+    fun saveFavoriteNav(
+        token: String,
+        ids: List<String>,
+        onSuccess: (NavToolIdsResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = { api.saveFavoriteNav(token, ids) },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
+    fun fetchRecentNav(
+        token: String,
+        onSuccess: (NavToolIdsResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = { api.getRecentNav(token) },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
+    fun recordRecentNav(
+        token: String,
+        toolId: String,
+        onSuccess: (NavToolIdsResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = { api.recordRecentNav(token, toolId) },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
     companion object {
         private const val DEFAULT_BASE_URL = "https://cs.fanxiaolong.uk"
         private const val KEY_BASE_URL = "api_base_url"

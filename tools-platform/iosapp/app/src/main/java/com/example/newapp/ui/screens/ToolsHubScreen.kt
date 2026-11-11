@@ -64,6 +64,20 @@ fun ToolsHubScreen(vm: DragonClawViewModel) {
                 !(selectedFilter == ToolFilterChip.ALL && vm.toolSearchQuery.isBlank() && it.isNative)
         }
     }
+    val pinnedTools = remember(vm.filteredTools, vm.favoriteToolIds) {
+        vm.favoriteToolIds.mapNotNull { id -> vm.filteredTools.firstOrNull { it.id == id } }
+    }
+    val recentTools = remember(vm.filteredTools, vm.recentToolIds, vm.favoriteToolIds) {
+        val favSet = vm.favoriteToolIds.toSet()
+        vm.recentToolIds
+            .filter { it !in favSet }
+            .mapNotNull { id -> vm.filteredTools.firstOrNull { it.id == id } }
+            .take(6)
+    }
+
+    LaunchedEffect(Unit) {
+        vm.loadToolNavState()
+    }
 
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
@@ -173,11 +187,88 @@ fun ToolsHubScreen(vm: DragonClawViewModel) {
             }
         }
 
+        if (selectedFilter == ToolFilterChip.ALL && vm.toolSearchQuery.isBlank() && (pinnedTools.isNotEmpty() || recentTools.isNotEmpty())) {
+            item(span = { GridItemSpan(2) }) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = tr(lang, "常用 & 最近", "Pinned & Recent"),
+                        color = palette.inkMuted,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 2.dp)
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                    ) {
+                        pinnedTools.forEach { tool ->
+                            ToolQuickNavPill(
+                                tool = tool,
+                                language = lang,
+                                isFavorite = true,
+                                onClick = { vm.openTool(tool) }
+                            )
+                        }
+                        recentTools.forEach { tool ->
+                            ToolQuickNavPill(
+                                tool = tool,
+                                language = lang,
+                                isFavorite = false,
+                                onClick = { vm.openTool(tool) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         items(gridTools, key = { it.id }) { tool ->
             ToolGridGlassCard(
                 tool = tool,
                 language = lang,
+                isFavorite = vm.favoriteToolIds.contains(tool.id),
+                onToggleFavorite = { vm.toggleFavoriteTool(tool.id) },
                 onClick = { vm.openTool(tool) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ToolQuickNavPill(
+    tool: PlatformTool,
+    language: String,
+    isFavorite: Boolean,
+    onClick: () -> Unit
+) {
+    val palette = LocalDragonClawPalette.current
+    LiquidGlassSurface(
+        shape = CircleShape,
+        tint = if (isFavorite) palette.warning else null,
+        tintAlpha = 0.14f,
+        elevation = 3.dp,
+        onClick = onClick
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+        ) {
+            Icon(
+                imageVector = if (isFavorite) Icons.Rounded.Star else Icons.Rounded.History,
+                contentDescription = null,
+                tint = if (isFavorite) palette.warning else palette.inkMuted,
+                modifier = Modifier.size(13.dp)
+            )
+            Text(
+                text = tool.localizedTitle(language),
+                color = palette.inkPrimary,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -187,6 +278,8 @@ fun ToolsHubScreen(vm: DragonClawViewModel) {
 private fun ToolGridGlassCard(
     tool: PlatformTool,
     language: String,
+    isFavorite: Boolean,
+    onToggleFavorite: () -> Unit,
     onClick: () -> Unit
 ) {
     val palette = LocalDragonClawPalette.current
@@ -221,12 +314,28 @@ private fun ToolGridGlassCard(
                 ) {
                     Icon(toolIconFor(tool.iconKey), contentDescription = null, tint = accent, modifier = Modifier.size(17.dp))
                 }
-                Icon(
-                    imageVector = if (tool.isNative) Icons.Rounded.AutoAwesome else Icons.Rounded.NorthEast,
-                    contentDescription = null,
-                    tint = palette.inkMuted,
-                    modifier = Modifier.size(14.dp)
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Icon(
+                        imageVector = if (tool.isNative) Icons.Rounded.AutoAwesome else Icons.Rounded.NorthEast,
+                        contentDescription = null,
+                        tint = palette.inkMuted,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    IconButton(
+                        onClick = onToggleFavorite,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isFavorite) Icons.Rounded.Star else Icons.Rounded.StarBorder,
+                            contentDescription = if (isFavorite) tr(language, "取消收藏", "Unstar") else tr(language, "收藏", "Star"),
+                            tint = if (isFavorite) palette.warning else palette.inkMuted,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
             }
 
             Column {

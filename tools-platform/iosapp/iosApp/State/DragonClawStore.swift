@@ -69,8 +69,24 @@ final class DragonClawStore {
     var pendingAttachments: [UploadedFileInfo] = []
     var chatErrorBanner: String? = nil
 
+    var chatStatusBanner: String? = nil
+    var expandedThinkingIds: Set<String> = []
+
+    // Voice & Skills State
+    var skills: [AgentSkillItem] = []
+
+    // Archived Sessions & Schedules State
+    var showArchivedSessions = false
+    var archivedSessions: [AiSessionSummary] = []
+    var schedules: [DragonClawScheduleItem] = []
+    var isLoadingSchedules = false
+    var isCompactingContext = false
+    var exportedSessionJson: String? = nil
+
     // Tools Hub State
     var tools: [PlatformTool] = []
+    var favoriteToolIds: [String] = []
+    var recentToolIds: [String] = []
     var toolSearchQuery: String = ""
     var activeWebTool: PlatformTool? = nil
     var showNativeMetrics = false
@@ -263,8 +279,17 @@ final class DragonClawStore {
         metricsPath.removeAll()
         messages.removeAll()
         sessions.removeAll()
+        archivedSessions.removeAll()
         sessionGroups.removeAll()
         pendingAttachments.removeAll()
+        skills.removeAll()
+        schedules.removeAll()
+        favoriteToolIds.removeAll()
+        recentToolIds.removeAll()
+        expandedThinkingIds.removeAll()
+        showArchivedSessions = false
+        exportedSessionJson = nil
+        chatStatusBanner = nil
         currentSessionId = nil
         workMode = .chat
     }
@@ -278,6 +303,9 @@ final class DragonClawStore {
         loadSessions()
         loadToolsCatalog()
         loadAlertSummary()
+        loadSkills()
+        loadSchedules()
+        loadToolNavState()
     }
 
     func loadModels() {
@@ -723,6 +751,7 @@ final class DragonClawStore {
 
     func openTool(_ tool: PlatformTool) {
         isDrawerOpen = false
+        recordToolOpened(tool.id)
         if tool.isNative || tool.routePath == "native://kpi-monitor" {
             metricsPath.removeAll()
             showNativeMetrics = true
@@ -730,6 +759,239 @@ final class DragonClawStore {
         } else {
             activeWebTool = tool
         }
+    }
+
+    // MARK: - Voice Transcription, Skills, Session Lifecycle, Schedules & Tool Nav Sync (P1)
+
+    func transcribeVoiceAudio(_ data: Data, sendImmediately: Bool) {
+        guard !data.isEmpty, !token.isEmpty else { return }
+        let bytes = IosInteropKt.nsDataToByteArray(data: data)
+        chatErrorBanner = nil
+        chatStatusBanner = L10n.tr(language, zh: "正在识别语音...", en: "Transcribing voice...")
+
+        let handle = sdk.transcribeSpeech(
+            token: token,
+            audioBytes: bytes,
+            fileName: "voice.m4a",
+            mimeType: "audio/mp4"
+        ) { [weak self] res in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.chatStatusBanner = nil
+                let text = res.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                if text.isEmpty {
+                    self.chatErrorBanner = res.error ?? L10n.tr(self.language, zh: "未识别到有效语音，请重试", en: "No speech recognized")
+                    return
+                }
+                if sendImmediately {
+                    let combined = self.composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        ? text
+                        : "\(self.composerText.trimmingCharacters(in: .whitespacesAndNewlines)) \(text)"
+                    self.composerText = combined
+                    self.sendPrompt()
+                } else {
+                    self.composerText = self.composerText.isEmpty ? text : "\(self.composerText) \(text)"
+                }
+            }
+        } onError: { [weak self] err in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.chatStatusBanner = nil
+                self.chatErrorBanner = err
+            }
+        }
+        activeTaskHandles.append(handle)
+    }
+
+    func loadSkills() {
+        guard !token.isEmpty else { return }
+        let handle = sdk.fetchSkills(token: token) { [weak self] res in
+            Task { @MainActor [weak self] in
+                self?.skills = res.items
+            }
+        } onError: { _ in }
+        activeTaskHandles.append(handle)
+    }
+
+    func applySkill(_ skill: AgentSkillItem) {
+        let tokenTag = "@\(skill.localizedName(language: language))"
+        let trimmed = composerText.trimmingCharacters(in: .whitespaces)
+        composerText = trimmed.isEmpty ? "\(tokenTag) " : "\(composerText) \(tokenTag) "
+    }
+
+    func compactCurrentSession() {
+        guard let sessionId = currentSessionId, !sessionId.isEmpty, !isCompactingContext else { return }
+        isCompactingContext = true
+        chatErrorBanner = nil
+        chatStatusBanner = L10n.tr(language, zh: "正在压缩对话上下文...", en: "Compacting conversation context...")
+        let handle = sdk.compactSession(
+            token: token,
+            sessionId: sessionId,
+            modelId: selectedModelId.isEmpty ? nil : selectedModelId
+        ) { [weak self] res in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.isCompactingContext = false
+                if res.performed {
+                    self.chatStatusBanner = L10n.tr(
+                        self.language,
+                        zh: "上下文已压缩（\(res.beforeChars) -> \(res.afterChars) 字符）",
+                        en: "Compacted context (\(res.beforeChars) -> \(res.afterChars) chars)"
+                    )
+                } else {
+                    self.chatStatusBanner = res.error ?? L10n.tr(self.language, zh: "当前上下文已足够精简", en: "Context is already compact")
+                }
+            }
+        } onError: { [weak self] err in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.isCompactingContext = false
+                self.chatStatusBanner = nil
+                self.chatErrorBanner = err
+            }
+        }
+        activeTaskHandles.append(handle)
+    }
+
+    func loadArchivedSessions() {
+        guard !token.isEmpty else { return }
+        let handle = sdk.fetchArchivedSessions(token: token, query: sessionSearchQuery, limit: 40) { [weak self] res in
+            Task { @MainActor [weak self] in
+                self?.archivedSessions = res.items
+            }
+        } onError: { _ in }
+        activeTaskHandles.append(handle)
+    }
+
+    func archiveSession(_ session: AiSessionSummary) {
+        let targetId = session.id
+        let handle = sdk.archiveSession(token: token, sessionId: targetId) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.sessions.removeAll { $0.id == targetId }
+                self.regroupSessions()
+                self.loadArchivedSessions()
+                if self.currentSessionId == targetId {
+                    self.startNewChat()
+                }
+            }
+        } onError: { [weak self] err in
+            Task { @MainActor [weak self] in self?.chatErrorBanner = err }
+        }
+        activeTaskHandles.append(handle)
+    }
+
+    func unarchiveSession(_ session: AiSessionSummary) {
+        let targetId = session.id
+        let handle = sdk.unarchiveSession(token: token, sessionId: targetId) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.archivedSessions.removeAll { $0.id == targetId }
+                self.loadSessions()
+            }
+        } onError: { [weak self] err in
+            Task { @MainActor [weak self] in self?.chatErrorBanner = err }
+        }
+        activeTaskHandles.append(handle)
+    }
+
+    func exportSession(_ session: AiSessionSummary) {
+        chatErrorBanner = nil
+        let handle = sdk.exportSessionJson(token: token, sessionId: session.id) { [weak self] raw in
+            Task { @MainActor [weak self] in
+                self?.exportedSessionJson = raw
+            }
+        } onError: { [weak self] err in
+            Task { @MainActor [weak self] in self?.chatErrorBanner = err }
+        }
+        activeTaskHandles.append(handle)
+    }
+
+    func loadSchedules() {
+        guard !token.isEmpty else { return }
+        isLoadingSchedules = true
+        let handle = sdk.fetchSchedules(token: token) { [weak self] res in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.isLoadingSchedules = false
+                self.schedules = res.items
+            }
+        } onError: { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.isLoadingSchedules = false
+            }
+        }
+        activeTaskHandles.append(handle)
+    }
+
+    func createSchedule(text: String) {
+        let clean = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty, !token.isEmpty else { return }
+        let handle = sdk.createSchedule(
+            token: token,
+            text: clean,
+            sessionId: currentSessionId ?? "",
+            timezone: TimeZone.current.identifier,
+            modelId: selectedModelId.isEmpty ? nil : selectedModelId
+        ) { [weak self] res in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if let item = res.item {
+                    self.schedules.insert(item, at: 0)
+                } else {
+                    self.loadSchedules()
+                }
+            }
+        } onError: { [weak self] err in
+            Task { @MainActor [weak self] in self?.chatErrorBanner = err }
+        }
+        activeTaskHandles.append(handle)
+    }
+
+    func deleteSchedule(_ schedule: DragonClawScheduleItem) {
+        let id = schedule.id
+        let handle = sdk.deleteSchedule(token: token, scheduleId: id) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.schedules.removeAll { $0.id == id }
+            }
+        } onError: { [weak self] err in
+            Task { @MainActor [weak self] in self?.chatErrorBanner = err }
+        }
+        activeTaskHandles.append(handle)
+    }
+
+    func loadToolNavState() {
+        guard !token.isEmpty else { return }
+        let favHandle = sdk.fetchFavoriteNav(token: token) { [weak self] res in
+            Task { @MainActor [weak self] in self?.favoriteToolIds = res.ids }
+        } onError: { _ in }
+        let recentHandle = sdk.fetchRecentNav(token: token) { [weak self] res in
+            Task { @MainActor [weak self] in self?.recentToolIds = res.ids }
+        } onError: { _ in }
+        activeTaskHandles.append(favHandle)
+        activeTaskHandles.append(recentHandle)
+    }
+
+    func toggleFavoriteTool(_ toolId: String) {
+        var next = favoriteToolIds
+        if let idx = next.firstIndex(of: toolId) {
+            next.remove(at: idx)
+        } else {
+            next.insert(toolId, at: 0)
+        }
+        favoriteToolIds = next
+        let handle = sdk.saveFavoriteNav(token: token, ids: next) { [weak self] res in
+            Task { @MainActor [weak self] in self?.favoriteToolIds = res.ids }
+        } onError: { _ in }
+        activeTaskHandles.append(handle)
+    }
+
+    func recordToolOpened(_ toolId: String) {
+        guard !token.isEmpty else { return }
+        let handle = sdk.recordRecentNav(token: token, toolId: toolId) { [weak self] res in
+            Task { @MainActor [weak self] in self?.recentToolIds = res.ids }
+        } onError: { _ in }
+        activeTaskHandles.append(handle)
     }
 
     func openMetricsModule() {

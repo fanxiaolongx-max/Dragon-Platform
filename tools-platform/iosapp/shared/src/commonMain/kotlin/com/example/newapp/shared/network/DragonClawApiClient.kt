@@ -19,10 +19,9 @@ import io.ktor.client.request.forms.submitFormWithBinaryData
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
-import io.ktor.client.request.preparePost
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
-import io.ktor.client.statement.bodyAsChannel
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.Headers
@@ -30,10 +29,6 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
-import io.ktor.utils.io.ByteReadChannel
-import io.ktor.utils.io.readUTF8Line
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
 
 class ApiHttpException(val statusCode: Int, override val message: String) : Exception(message)
 
@@ -201,31 +196,170 @@ class DragonClawApiClient(
         request: ChatStreamRequest,
         onEvent: suspend (ChatStreamEvent) -> Unit
     ) {
-        client.preparePost("$baseUrl/api/ai/chat") {
-            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
-            header("Accept", "application/x-ndjson")
-            contentType(ContentType.Application.Json)
-            setBody(request)
-            timeout {
-                requestTimeoutMillis = 600_000L
-                socketTimeoutMillis = 120_000L
-            }
-        }.execute { response ->
-            if (!response.status.isSuccess()) {
-                val raw = runCatching { response.bodyAsText() }.getOrDefault("")
-                throw ApiHttpException(
-                    response.status.value,
-                    DragonClawHelpers.parseErrorMessage(response.status.value, raw, "Chat request failed")
+        val bodyJson = DragonClawHelpers.lenientJson.encodeToString(ChatStreamRequest.serializer(), request)
+        streamNdjsonPost(
+            client = client,
+            url = "$baseUrl/api/ai/chat",
+            bearerHeader = DragonClawHelpers.normalizeBearerHeader(token),
+            jsonBody = bodyJson
+        ) { line ->
+            val parsed = NdjsonStreamParser.parseLine(line) ?: return@streamNdjsonPost
+            onEvent(parsed)
+        }
+    }
+
+    // --- Voice Speech, Skills, Session Lifecycle, Schedules & Tool Nav Sync (P1) ---
+
+    suspend fun transcribeSpeech(
+        token: String,
+        audioBytes: ByteArray,
+        fileName: String = "voice.m4a",
+        mimeType: String = "audio/mp4"
+    ): SpeechRecognitionResponse {
+        val safeName = fileName.replace("\"", "_")
+        val response = client.submitFormWithBinaryData(
+            url = "$baseUrl/api/ai/speech",
+            formData = formData {
+                append(
+                    key = "audio",
+                    value = audioBytes,
+                    headers = Headers.build {
+                        append(HttpHeaders.ContentType, mimeType)
+                        append(HttpHeaders.ContentDisposition, "filename=\"$safeName\"")
+                    }
                 )
             }
-            val channel: ByteReadChannel = response.bodyAsChannel()
-            while (!channel.isClosedForRead) {
-                currentCoroutineContext().ensureActive()
-                val line = channel.readUTF8Line() ?: break
-                val parsed = NdjsonStreamParser.parseLine(line) ?: continue
-                onEvent(parsed)
+        ) {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+            timeout {
+                requestTimeoutMillis = 75_000L
+                socketTimeoutMillis = 75_000L
             }
         }
+        return decodeOrThrow(response, "Speech transcription failed")
+    }
+
+    suspend fun getSkills(token: String): AgentSkillsResponse {
+        val response = client.get("$baseUrl/api/ai/skills") {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+        }
+        return decodeOrThrow(response, "Failed to load skills")
+    }
+
+    suspend fun compactSession(
+        token: String,
+        sessionId: String,
+        modelId: String? = null
+    ): CompactSessionResponse {
+        val response = client.post("$baseUrl/api/ai/compact") {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+            contentType(ContentType.Application.Json)
+            setBody(CompactSessionRequest(sessionId = sessionId, modelId = modelId))
+            timeout {
+                requestTimeoutMillis = 120_000L
+                socketTimeoutMillis = 120_000L
+            }
+        }
+        return decodeOrThrow(response, "Failed to compact context")
+    }
+
+    suspend fun getArchivedSessions(
+        token: String,
+        query: String = "",
+        limit: Int = 40
+    ): AiSessionsResponse {
+        val response = client.get("$baseUrl/api/ai/sessions-archive") {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+            url {
+                parameters.append("archivedOnly", "1")
+                parameters.append("limit", limit.toString())
+                if (query.isNotBlank()) parameters.append("query", query.trim())
+            }
+        }
+        return decodeOrThrow(response, "Failed to load archived sessions")
+    }
+
+    suspend fun archiveSession(token: String, sessionId: String): ArchiveSessionResponse {
+        val response = client.post("$baseUrl/api/ai/sessions/$sessionId/archive") {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+        }
+        return decodeOrThrow(response, "Failed to archive session")
+    }
+
+    suspend fun unarchiveSession(token: String, sessionId: String): ArchiveSessionResponse {
+        val response = client.post("$baseUrl/api/ai/sessions/$sessionId/unarchive") {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+        }
+        return decodeOrThrow(response, "Failed to unarchive session")
+    }
+
+    suspend fun exportSessionRawJson(token: String, sessionId: String): String {
+        val response = client.get("$baseUrl/api/ai/sessions/$sessionId/export") {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+        }
+        val raw = runCatching { response.bodyAsText() }.getOrDefault("")
+        if (!response.status.isSuccess()) {
+            throw ApiHttpException(
+                response.status.value,
+                DragonClawHelpers.parseErrorMessage(response.status.value, raw, "Failed to export session")
+            )
+        }
+        return raw
+    }
+
+    suspend fun getSchedules(token: String): SchedulesResponse {
+        val response = client.get("$baseUrl/api/ai/schedules") {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+        }
+        return decodeOrThrow(response, "Failed to load schedules")
+    }
+
+    suspend fun createSchedule(token: String, request: CreateScheduleRequest): ScheduleMutationResponse {
+        val response = client.post("$baseUrl/api/ai/schedules") {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
+        return decodeOrThrow(response, "Failed to create schedule")
+    }
+
+    suspend fun deleteSchedule(token: String, scheduleId: String): ScheduleMutationResponse {
+        val response = client.delete("$baseUrl/api/ai/schedules/$scheduleId") {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+        }
+        return decodeOrThrow(response, "Failed to cancel schedule")
+    }
+
+    suspend fun getFavoriteNav(token: String): NavToolIdsResponse {
+        val response = client.get("$baseUrl/api/favorite-nav") {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+        }
+        return decodeOrThrow(response, "Failed to load favorites")
+    }
+
+    suspend fun saveFavoriteNav(token: String, ids: List<String>): NavToolIdsResponse {
+        val response = client.put("$baseUrl/api/favorite-nav") {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+            contentType(ContentType.Application.Json)
+            setBody(SaveFavoriteNavRequest(ids = ids))
+        }
+        return decodeOrThrow(response, "Failed to save favorites")
+    }
+
+    suspend fun getRecentNav(token: String): NavToolIdsResponse {
+        val response = client.get("$baseUrl/api/recent-nav") {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+        }
+        return decodeOrThrow(response, "Failed to load recent tools")
+    }
+
+    suspend fun recordRecentNav(token: String, toolId: String): NavToolIdsResponse {
+        val response = client.post("$baseUrl/api/recent-nav") {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+            contentType(ContentType.Application.Json)
+            setBody(RecordRecentNavRequest(toolId = toolId))
+        }
+        return decodeOrThrow(response, "Failed to record recent tool")
     }
 
     // --- Tool Hub ---

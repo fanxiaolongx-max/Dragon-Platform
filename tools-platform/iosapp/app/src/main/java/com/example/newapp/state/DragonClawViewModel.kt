@@ -1,6 +1,7 @@
 package com.example.newapp.state
 
 import android.content.ContentResolver
+import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.compose.runtime.getValue
@@ -10,6 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.newapp.services.AudioSpeechRecorder
 import com.example.newapp.shared.SettingsManager
 import com.example.newapp.shared.data.DragonClawSdk
 import com.example.newapp.shared.data.TaskHandle
@@ -106,9 +108,38 @@ class DragonClawViewModel : ViewModel() {
     var pendingAttachments by mutableStateOf<List<UploadedFileInfo>>(emptyList())
         private set
     var chatErrorBanner by mutableStateOf<String?>(null)
+    var chatStatusBanner by mutableStateOf<String?>(null)
+
+    // Voice Recording & Waveform State
+    var isRecordingVoice by mutableStateOf(false)
+        private set
+    var isTranscribingVoice by mutableStateOf(false)
+        private set
+    var voiceWaveformSamples by mutableStateOf(List(AudioSpeechRecorder.BAR_COUNT) { 0.14f })
+        private set
+    var voiceElapsedSeconds by mutableIntStateOf(0)
+        private set
+
+    // Skills, Archived Sessions, Schedules & Tool Nav Sync (P1)
+    var skills by mutableStateOf<List<AgentSkillItem>>(emptyList())
+        private set
+    var showArchivedSessions by mutableStateOf(false)
+    var archivedSessions by mutableStateOf<List<AiSessionSummary>>(emptyList())
+        private set
+    var schedules by mutableStateOf<List<DragonClawScheduleItem>>(emptyList())
+        private set
+    var isLoadingSchedules by mutableStateOf(false)
+        private set
+    var isCompactingContext by mutableStateOf(false)
+        private set
+    var exportedSessionJson by mutableStateOf<String?>(null)
 
     // Tool Hub & Metrics Navigation
     var tools by mutableStateOf(ToolCatalogMerger.merge(emptyList()))
+        private set
+    var favoriteToolIds by mutableStateOf<List<String>>(emptyList())
+        private set
+    var recentToolIds by mutableStateOf<List<String>>(emptyList())
         private set
     var toolSearchQuery by mutableStateOf("")
     var activeWebTool by mutableStateOf<PlatformTool?>(null)
@@ -123,6 +154,13 @@ class DragonClawViewModel : ViewModel() {
     val metricsErrorByMonth = mutableStateMapOf<Int, String?>()
 
     private var activeStreamHandle: TaskHandle? = null
+    private var speechRecorder: AudioSpeechRecorder? = null
+
+    override fun onCleared() {
+        speechRecorder?.cancel()
+        speechRecorder = null
+        super.onCleared()
+    }
 
     init {
         loadPlatformIdentity()
@@ -262,8 +300,16 @@ class DragonClawViewModel : ViewModel() {
         metricsBackStack = listOf(MetricsRoute.Dashboard)
         messages = emptyList()
         sessions = emptyList()
+        archivedSessions = emptyList()
         sessionGroups = emptyList()
         pendingAttachments = emptyList()
+        skills = emptyList()
+        schedules = emptyList()
+        favoriteToolIds = emptyList()
+        recentToolIds = emptyList()
+        showArchivedSessions = false
+        exportedSessionJson = null
+        chatStatusBanner = null
         currentSessionId = null
         workMode = AppWorkMode.CHAT
     }
@@ -275,6 +321,9 @@ class DragonClawViewModel : ViewModel() {
         loadSessions()
         loadToolsCatalog()
         loadAlertSummary()
+        loadSkills()
+        loadSchedules()
+        loadToolNavState()
     }
 
     fun loadModels() {
@@ -594,10 +643,257 @@ class DragonClawViewModel : ViewModel() {
     // --- Tool Hub & KPI Monitor Navigation ---
 
     fun openTool(tool: PlatformTool) {
+        recordToolOpened(tool.id)
         if (tool.isNative || tool.routePath == "native://kpi-monitor") {
             openMetricsModule()
         } else {
             activeWebTool = tool
+        }
+    }
+
+    // --- Voice Input, Camera Upload, Skills, Session Lifecycle, Schedules & Tool Nav Sync (P1) ---
+
+    fun startVoiceRecording(context: Context) {
+        if (isRecordingVoice || isTranscribingVoice) return
+        chatErrorBanner = null
+        val rec = speechRecorder ?: AudioSpeechRecorder(context.applicationContext, viewModelScope).also {
+            speechRecorder = it
+        }
+        val started = rec.start(
+            onSamples = { samples, secs ->
+                voiceWaveformSamples = samples
+                voiceElapsedSeconds = secs
+            },
+            onError = { err ->
+                isRecordingVoice = false
+                chatErrorBanner = err
+            }
+        )
+        if (started) {
+            isRecordingVoice = true
+        }
+    }
+
+    fun cancelVoiceRecording() {
+        speechRecorder?.cancel()
+        isRecordingVoice = false
+        voiceElapsedSeconds = 0
+        voiceWaveformSamples = List(AudioSpeechRecorder.BAR_COUNT) { 0.14f }
+    }
+
+    fun finishVoiceRecording(sendImmediately: Boolean) {
+        val bytes = speechRecorder?.stopAndReadBytes()
+        isRecordingVoice = false
+        voiceElapsedSeconds = 0
+        voiceWaveformSamples = List(AudioSpeechRecorder.BAR_COUNT) { 0.14f }
+        if (bytes == null || bytes.size < 44) {
+            chatErrorBanner = tr(language, "录音时间太短，请重试", "Recording is too short")
+            return
+        }
+        isTranscribingVoice = true
+        chatErrorBanner = null
+        chatStatusBanner = tr(language, "正在识别语音...", "Transcribing voice...")
+        viewModelScope.launch {
+            runCatching {
+                sdk.api.transcribeSpeech(
+                    token = token,
+                    audioBytes = bytes,
+                    fileName = "voice.m4a",
+                    mimeType = "audio/mp4"
+                )
+            }
+                .onSuccess { res ->
+                    isTranscribingVoice = false
+                    chatStatusBanner = null
+                    val spoken = res.text.trim()
+                    if (spoken.isEmpty()) {
+                        chatErrorBanner = res.error ?: tr(language, "未识别到有效语音，请重试", "No speech recognized")
+                        return@onSuccess
+                    }
+                    if (sendImmediately) {
+                        val combined = if (composerText.isBlank()) spoken else "${composerText.trim()} $spoken"
+                        composerText = combined
+                        sendPrompt()
+                    } else {
+                        composerText = if (composerText.isBlank()) spoken else "$composerText $spoken"
+                    }
+                }
+                .onFailure { err ->
+                    isTranscribingVoice = false
+                    chatStatusBanner = null
+                    chatErrorBanner = err.message ?: tr(language, "语音识别失败", "Voice recognition failed")
+                }
+        }
+    }
+
+    fun uploadCapturedBytes(bytes: ByteArray, fileName: String, mimeType: String) {
+        if (bytes.isEmpty() || isUploadingFiles) return
+        isUploadingFiles = true
+        chatErrorBanner = null
+        viewModelScope.launch {
+            val draft = UploadAttachmentDraft(fileName = fileName, mimeType = mimeType, bytes = bytes)
+            runCatching { sdk.api.uploadFiles(token, listOf(draft)) }
+                .onSuccess { res ->
+                    isUploadingFiles = false
+                    if (res.files.isNotEmpty()) {
+                        pendingAttachments = pendingAttachments + res.files
+                    } else if (!res.error.isNullOrBlank()) {
+                        chatErrorBanner = res.error
+                    }
+                }
+                .onFailure { err ->
+                    isUploadingFiles = false
+                    chatErrorBanner = err.message
+                }
+        }
+    }
+
+    fun loadSkills() {
+        if (token.isBlank()) return
+        viewModelScope.launch {
+            runCatching { sdk.api.getSkills(token) }
+                .onSuccess { skills = it.items }
+        }
+    }
+
+    fun applySkill(skill: AgentSkillItem) {
+        val tag = "@${skill.localizedName(language)}"
+        composerText = if (composerText.isBlank()) "$tag " else "$composerText $tag "
+    }
+
+    fun compactCurrentSession() {
+        val sid = currentSessionId ?: return
+        if (isCompactingContext || sid.isBlank()) return
+        isCompactingContext = true
+        chatErrorBanner = null
+        chatStatusBanner = tr(language, "正在压缩对话上下文...", "Compacting conversation context...")
+        viewModelScope.launch {
+            runCatching { sdk.api.compactSession(token, sid, selectedModelId.ifBlank { null }) }
+                .onSuccess { res ->
+                    isCompactingContext = false
+                    chatStatusBanner = if (res.performed) {
+                        tr(language, "上下文已压缩（${res.beforeChars} -> ${res.afterChars} 字符）", "Context compacted (${res.beforeChars} -> ${res.afterChars} chars)")
+                    } else {
+                        res.error ?: tr(language, "当前上下文已足够精简", "Context is already compact")
+                    }
+                }
+                .onFailure { err ->
+                    isCompactingContext = false
+                    chatStatusBanner = null
+                    chatErrorBanner = err.message
+                }
+        }
+    }
+
+    fun loadArchivedSessions() {
+        if (token.isBlank()) return
+        viewModelScope.launch {
+            runCatching { sdk.api.getArchivedSessions(token, query = sessionSearchQuery, limit = 40) }
+                .onSuccess { archivedSessions = it.items }
+        }
+    }
+
+    fun archiveSession(session: AiSessionSummary) {
+        viewModelScope.launch {
+            runCatching { sdk.api.archiveSession(token, session.id) }
+                .onSuccess {
+                    sessions = sessions.filterNot { it.id == session.id }
+                    sessionGroups = sdk.groupSessionsByDate(sessions)
+                    loadArchivedSessions()
+                    if (currentSessionId == session.id) startNewChat()
+                }
+                .onFailure { chatErrorBanner = it.message }
+        }
+    }
+
+    fun unarchiveSession(session: AiSessionSummary) {
+        viewModelScope.launch {
+            runCatching { sdk.api.unarchiveSession(token, session.id) }
+                .onSuccess {
+                    archivedSessions = archivedSessions.filterNot { it.id == session.id }
+                    loadSessions()
+                }
+                .onFailure { chatErrorBanner = it.message }
+        }
+    }
+
+    fun exportSession(session: AiSessionSummary) {
+        viewModelScope.launch {
+            runCatching { sdk.api.exportSessionRawJson(token, session.id) }
+                .onSuccess { exportedSessionJson = it }
+                .onFailure { chatErrorBanner = it.message }
+        }
+    }
+
+    fun loadSchedules() {
+        if (token.isBlank()) return
+        isLoadingSchedules = true
+        viewModelScope.launch {
+            runCatching { sdk.api.getSchedules(token) }
+                .onSuccess {
+                    isLoadingSchedules = false
+                    schedules = it.items
+                }
+                .onFailure { isLoadingSchedules = false }
+        }
+    }
+
+    fun createSchedule(text: String) {
+        val clean = text.trim()
+        if (clean.isEmpty() || token.isBlank()) return
+        viewModelScope.launch {
+            val tz = java.util.TimeZone.getDefault().id
+            runCatching {
+                sdk.api.createSchedule(
+                    token = token,
+                    request = CreateScheduleRequest(
+                        text = clean,
+                        sessionId = currentSessionId.orEmpty(),
+                        timezone = tz,
+                        modelId = selectedModelId.ifBlank { null }
+                    )
+                )
+            }
+                .onSuccess { res ->
+                    res.item?.let { schedules = listOf(it) + schedules } ?: loadSchedules()
+                }
+                .onFailure { chatErrorBanner = it.message }
+        }
+    }
+
+    fun deleteSchedule(schedule: DragonClawScheduleItem) {
+        viewModelScope.launch {
+            runCatching { sdk.api.deleteSchedule(token, schedule.id) }
+                .onSuccess { schedules = schedules.filterNot { it.id == schedule.id } }
+                .onFailure { chatErrorBanner = it.message }
+        }
+    }
+
+    fun loadToolNavState() {
+        if (token.isBlank()) return
+        viewModelScope.launch {
+            runCatching { sdk.api.getFavoriteNav(token) }
+                .onSuccess { favoriteToolIds = it.ids }
+            runCatching { sdk.api.getRecentNav(token) }
+                .onSuccess { recentToolIds = it.ids }
+        }
+    }
+
+    fun toggleFavoriteTool(toolId: String) {
+        val next = favoriteToolIds.toMutableList()
+        if (!next.remove(toolId)) next.add(0, toolId)
+        favoriteToolIds = next
+        viewModelScope.launch {
+            runCatching { sdk.api.saveFavoriteNav(token, next) }
+                .onSuccess { favoriteToolIds = it.ids }
+        }
+    }
+
+    fun recordToolOpened(toolId: String) {
+        if (token.isBlank()) return
+        viewModelScope.launch {
+            runCatching { sdk.api.recordRecentNav(token, toolId) }
+                .onSuccess { recentToolIds = it.ids }
         }
     }
 

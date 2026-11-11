@@ -1,5 +1,6 @@
 package com.example.newapp.ui.screens
 
+import android.content.Intent
 import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
@@ -11,13 +12,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.rounded.*
@@ -27,19 +31,28 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.newapp.R
+import com.example.newapp.shared.model.AiSessionSummary
 import com.example.newapp.state.AppWorkMode
 import com.example.newapp.state.DragonClawViewModel
 import com.example.newapp.ui.components.DragonClawBackdrop
@@ -51,10 +64,18 @@ import com.example.newapp.ui.theme.tr
 import kotlin.math.abs
 import kotlinx.coroutines.launch
 
+private enum class GestureAxisLock {
+    UNDECIDED,
+    HORIZONTAL_DRAWER,
+    LOCKED_VERTICAL_OR_CHILD
+}
+
 @Composable
 fun RootShellScreen(vm: DragonClawViewModel) {
     val palette = LocalDragonClawPalette.current
     val lang = vm.language
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
     val drawerProgress = remember { Animatable(0f) }
     var dragFraction by remember { mutableFloatStateOf(-1f) }
@@ -73,7 +94,21 @@ fun RootShellScreen(vm: DragonClawViewModel) {
     }
     BackHandler(enabled = effectiveProgress > 0.45f) { animateSidebar(0f) }
     var showServerDialog by remember { mutableStateOf(false) }
+    var showSchedulesSheet by remember { mutableStateOf(false) }
+    var scheduleDraft by remember { mutableStateOf("") }
     var serverDraft by remember { mutableStateOf(vm.baseUrl) }
+    var childScrollActiveForGesture by remember { mutableStateOf(false) }
+
+    val childScrollLockConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source == NestedScrollSource.Drag && (abs(available.x) > 0.5f || abs(available.y) > 0.5f)) {
+                    childScrollActiveForGesture = true
+                }
+                return Offset.Zero
+            }
+        }
+    }
 
     when {
         vm.activeWebTool != null -> {
@@ -96,32 +131,38 @@ fun RootShellScreen(vm: DragonClawViewModel) {
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
+            .nestedScroll(childScrollLockConnection)
             .pointerInput(Unit) {
                 val touchSlop = viewConfiguration.touchSlop
                 awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Final)
+                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                     if (dragFraction >= 0f) return@awaitEachGesture
+                    childScrollActiveForGesture = false
                     val startProgress = drawerProgress.value
-                    var engaged = false
+                    var lockState = GestureAxisLock.UNDECIDED
                     var totalDx = 0f
-                    var lastPosX = down.position.x
-                    var lastTimeMs = down.uptimeMillis
-                    var vx = 0f
+                    val velocityTracker = VelocityTracker().apply {
+                        addPosition(down.uptimeMillis, down.position)
+                    }
 
                     while (true) {
-                        val pass = if (engaged) PointerEventPass.Initial else PointerEventPass.Final
+                        val pass = if (lockState == GestureAxisLock.HORIZONTAL_DRAWER) {
+                            PointerEventPass.Initial
+                        } else {
+                            PointerEventPass.Final
+                        }
                         val event = awaitPointerEvent(pass)
                         val change = event.changes.firstOrNull { it.id == down.id } ?: break
                         if (!change.pressed) {
-                            if (engaged) {
+                            if (lockState == GestureAxisLock.HORIZONTAL_DRAWER) {
                                 change.consume()
                                 val width = size.width.coerceAtLeast(1).toFloat()
                                 val finalFraction = (startProgress + totalDx / width).coerceIn(0f, 1f)
+                                val vx = runCatching { velocityTracker.calculateVelocity().x }.getOrDefault(0f)
+                                val predictedFraction = (startProgress + (totalDx + vx * 0.16f) / width).coerceIn(0f, 1f)
                                 val openTarget = when {
-                                    vx > 480f -> 1f
-                                    vx < -480f -> 0f
-                                    startProgress < 0.5f -> if (finalFraction > 0.25f) 1f else 0f
-                                    else -> if (finalFraction < 0.75f) 0f else 1f
+                                    startProgress < 0.5f -> if (finalFraction > 0.24f || predictedFraction > 0.42f) 1f else 0f
+                                    else -> if (finalFraction < 0.76f || predictedFraction < 0.58f) 0f else 1f
                                 }
                                 scope.launch {
                                     drawerProgress.snapTo(finalFraction)
@@ -135,31 +176,37 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                             break
                         }
 
-                        val dx = change.position.x - lastPosX
-                        val dt = (change.uptimeMillis - lastTimeMs).coerceAtLeast(1L)
-                        lastPosX = change.position.x
-                        lastTimeMs = change.uptimeMillis
+                        velocityTracker.addPosition(change.uptimeMillis, change.position)
 
-                        if (!engaged) {
-                            if (change.isConsumed) break
+                        if (lockState == GestureAxisLock.UNDECIDED) {
+                            if (change.isConsumed || childScrollActiveForGesture) {
+                                lockState = GestureAxisLock.LOCKED_VERTICAL_OR_CHILD
+                                break
+                            }
                             totalDx = change.position.x - down.position.x
                             val totalDy = change.position.y - down.position.y
                             val absDx = abs(totalDx)
                             val absDy = abs(totalDy)
-                            if (absDy > touchSlop && absDy > absDx * 1.1f) break
+
+                            // Lock out vertical or steep diagonal scrolls early so curving sideways never opens sidebar.
+                            if (absDy > touchSlop * 0.65f && absDy > absDx * 1.1f) {
+                                lockState = GestureAxisLock.LOCKED_VERTICAL_OR_CHILD
+                                break
+                            }
+
                             val validDirection = (startProgress < 0.05f && totalDx > touchSlop) ||
                                 (startProgress > 0.95f && totalDx < -touchSlop)
-                            if (absDx > touchSlop && absDx > absDy * 1.25f && validDirection) {
-                                engaged = true
+                            // Strict ~26.5 degree horizontal cone before engaging drawer.
+                            if (absDx > touchSlop * 1.05f && absDx > absDy * 2.0f && validDirection) {
+                                lockState = GestureAxisLock.HORIZONTAL_DRAWER
                                 change.consume()
                             }
-                        } else {
+                        } else if (lockState == GestureAxisLock.HORIZONTAL_DRAWER) {
                             totalDx = change.position.x - down.position.x
-                            vx = dx / dt * 1000f
                             change.consume()
                         }
 
-                        if (engaged) {
+                        if (lockState == GestureAxisLock.HORIZONTAL_DRAWER) {
                             val width = size.width.coerceAtLeast(1).toFloat()
                             dragFraction = (startProgress + totalDx / width).coerceIn(0f, 1f)
                         }
@@ -250,6 +297,10 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.22f * effectiveProgress))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { animateSidebar(0f) }
             )
         }
 
@@ -320,7 +371,7 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                                 if (vm.sessionSearchQuery.isNotEmpty()) {
                                     IconButton(onClick = {
                                         vm.sessionSearchQuery = ""
-                                        vm.loadSessions()
+                                        if (vm.showArchivedSessions) vm.loadArchivedSessions() else vm.loadSessions()
                                     }) {
                                         Icon(Icons.Rounded.Close, contentDescription = null, modifier = Modifier.size(16.dp))
                                     }
@@ -329,7 +380,9 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                             singleLine = true,
                             shape = RoundedCornerShape(14.dp),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                            keyboardActions = KeyboardActions(onSearch = { vm.loadSessions() }),
+                            keyboardActions = KeyboardActions(onSearch = {
+                                if (vm.showArchivedSessions) vm.loadArchivedSessions() else vm.loadSessions()
+                            }),
                             modifier = Modifier.fillMaxWidth()
                         )
 
@@ -366,7 +419,7 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                         Spacer(Modifier.height(8.dp))
 
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(7.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             LiquidGlassSurface(
@@ -379,13 +432,13 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.5.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.Center
                                 ) {
-                                    Icon(Icons.Rounded.GridView, contentDescription = null, tint = palette.inkPrimary, modifier = Modifier.size(16.dp))
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(tr(lang, "工具台", "Tools"), fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = palette.inkPrimary)
+                                    Icon(Icons.Rounded.GridView, contentDescription = null, tint = palette.inkPrimary, modifier = Modifier.size(15.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(tr(lang, "工具台", "Tools"), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = palette.inkPrimary)
                                 }
                             }
 
@@ -399,13 +452,39 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.5.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.Center
                                 ) {
-                                    Icon(Icons.Rounded.Timeline, contentDescription = null, tint = palette.accentStrong, modifier = Modifier.size(16.dp))
-                                    Spacer(Modifier.width(6.dp))
-                                    Text("KPI / SLA", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = palette.accentStrong)
+                                    Icon(Icons.Rounded.Timeline, contentDescription = null, tint = palette.accentStrong, modifier = Modifier.size(15.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("KPI", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = palette.accentStrong)
+                                }
+                            }
+
+                            LiquidGlassSurface(
+                                shape = RoundedCornerShape(12.dp),
+                                elevation = 3.dp,
+                                onClick = {
+                                    vm.loadSchedules()
+                                    showSchedulesSheet = true
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.5.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(Icons.Rounded.Schedule, contentDescription = null, tint = palette.inkPrimary, modifier = Modifier.size(15.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    val activeCount = vm.schedules.count { it.status == "active" }
+                                    Text(
+                                        if (activeCount > 0) "${tr(lang, "定时", "Tasks")} $activeCount" else tr(lang, "定时", "Tasks"),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = palette.inkPrimary
+                                    )
                                 }
                             }
                         }
@@ -434,6 +513,31 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                         }
 
                         Spacer(Modifier.height(10.dp))
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            listOf(
+                                false to tr(lang, "最近会话", "Active"),
+                                true to tr(lang, "已归档", "Archived")
+                            ).forEach { (archivedTab, label) ->
+                                val selected = vm.showArchivedSessions == archivedTab
+                                Text(
+                                    text = label,
+                                    color = if (selected) palette.accentStrong else palette.inkMuted,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier
+                                        .clip(CircleShape)
+                                        .background(if (selected) palette.accent.copy(alpha = 0.15f) else Color.Transparent)
+                                        .clickable {
+                                            vm.showArchivedSessions = archivedTab
+                                            if (archivedTab) vm.loadArchivedSessions()
+                                        }
+                                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(6.dp))
                         HorizontalDivider(color = palette.hairLine)
                         Spacer(Modifier.height(6.dp))
 
@@ -441,7 +545,34 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                             modifier = Modifier.weight(1f),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            if (vm.sessionGroups.isEmpty()) {
+                            if (vm.showArchivedSessions) {
+                                if (vm.archivedSessions.isEmpty()) {
+                                    item {
+                                        Text(
+                                            text = tr(lang, "暂无已归档会话", "No archived conversations"),
+                                            color = palette.inkMuted,
+                                            fontSize = 11.5.sp,
+                                            modifier = Modifier.padding(vertical = 20.dp, horizontal = 8.dp)
+                                        )
+                                    }
+                                } else {
+                                    items(vm.archivedSessions, key = { "arch_${it.id}" }) { session ->
+                                        SidebarSessionRow(
+                                            session = session,
+                                            isSelected = session.id == vm.currentSessionId,
+                                            isArchived = true,
+                                            language = lang,
+                                            onOpen = {
+                                                vm.openSession(session)
+                                                animateSidebar(0f)
+                                            },
+                                            onToggleArchive = { vm.unarchiveSession(session) },
+                                            onExport = { vm.exportSession(session) },
+                                            onDelete = { vm.deleteSession(session) }
+                                        )
+                                    }
+                                }
+                            } else if (vm.sessionGroups.isEmpty()) {
                                 item {
                                     Text(
                                         text = tr(lang, "暂无历史会话", "No conversation history"),
@@ -462,47 +593,19 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                                         )
                                     }
                                     items(group.items, key = { it.id }) { session ->
-                                        val isSelected = session.id == vm.currentSessionId
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .clip(RoundedCornerShape(12.dp))
-                                                .background(if (isSelected) palette.accent.copy(alpha = 0.15f) else Color.Transparent)
-                                                .clickable {
-                                                    vm.openSession(session)
-                                                    animateSidebar(0f)
-                                                }
-                                                .padding(horizontal = 10.dp, vertical = 8.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Rounded.ChatBubbleOutline,
-                                                contentDescription = null,
-                                                tint = if (isSelected) palette.accentStrong else palette.inkMuted,
-                                                modifier = Modifier.size(15.dp)
-                                            )
-                                            Spacer(Modifier.width(8.dp))
-                                            Text(
-                                                text = session.displayTitle(lang),
-                                                color = if (isSelected) palette.accentStrong else palette.inkPrimary,
-                                                fontSize = 12.5.sp,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                                modifier = Modifier.weight(1f)
-                                            )
-                                            Spacer(Modifier.width(8.dp))
-                                            IconButton(
-                                                onClick = { vm.deleteSession(session) },
-                                                modifier = Modifier.size(28.dp)
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Rounded.DeleteOutline,
-                                                    contentDescription = tr(lang, "删除", "Delete"),
-                                                    tint = palette.inkMuted,
-                                                    modifier = Modifier.size(16.dp)
-                                                )
-                                            }
-                                        }
+                                        SidebarSessionRow(
+                                            session = session,
+                                            isSelected = session.id == vm.currentSessionId,
+                                            isArchived = false,
+                                            language = lang,
+                                            onOpen = {
+                                                vm.openSession(session)
+                                                animateSidebar(0f)
+                                            },
+                                            onToggleArchive = { vm.archiveSession(session) },
+                                            onExport = { vm.exportSession(session) },
+                                            onDelete = { vm.deleteSession(session) }
+                                        )
                                     }
                                 }
                             }
@@ -604,5 +707,209 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                 TextButton(onClick = { showServerDialog = false }) { Text(tr(lang, "取消", "Cancel")) }
             }
         )
+    }
+
+    if (showSchedulesSheet) {
+        AlertDialog(
+            onDismissRequest = { showSchedulesSheet = false },
+            title = { Text(tr(lang, "定时指令 (/schedule)", "Scheduled Tasks")) },
+            text = {
+                Column(modifier = Modifier.fillMaxWidth().heightIn(max = 380.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(
+                            value = scheduleDraft,
+                            onValueChange = { scheduleDraft = it },
+                            placeholder = { Text(tr(lang, "每天 9:00 汇总告警", "Daily 9:00 summary"), fontSize = 12.sp) },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        FilledIconButton(
+                            onClick = {
+                                val text = scheduleDraft
+                                scheduleDraft = ""
+                                vm.createSchedule(text)
+                            },
+                            enabled = scheduleDraft.isNotBlank()
+                        ) {
+                            Icon(Icons.Rounded.Add, contentDescription = "Add")
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    if (vm.isLoadingSchedules && vm.schedules.isEmpty()) {
+                        Box(Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(modifier = Modifier.size(22.dp))
+                        }
+                    } else if (vm.schedules.isEmpty()) {
+                        Text(
+                            tr(lang, "暂无定时任务（也可直接在对话中输入 /schedule）", "No scheduled tasks yet."),
+                            color = palette.inkMuted,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(vertical = 12.dp)
+                        )
+                    } else {
+                        Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            vm.schedules.forEach { item ->
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = palette.chipSurface,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(item.instruction, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = palette.inkPrimary)
+                                            if (!item.nextRunAt.isNullOrBlank()) {
+                                                Text(item.nextRunAt!!, fontSize = 10.5.sp, color = palette.inkMuted)
+                                            }
+                                            if (item.lastError.isNotBlank()) {
+                                                Text(item.lastError, fontSize = 10.5.sp, color = palette.danger, maxLines = 2)
+                                            }
+                                        }
+                                        IconButton(onClick = { vm.deleteSchedule(item) }, modifier = Modifier.size(28.dp)) {
+                                            Icon(Icons.Rounded.DeleteOutline, contentDescription = "Cancel", tint = palette.inkMuted, modifier = Modifier.size(16.dp))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showSchedulesSheet = false }) {
+                    Text(tr(lang, "关闭", "Close"))
+                }
+            }
+        )
+    }
+
+    vm.exportedSessionJson?.let { rawJson ->
+        AlertDialog(
+            onDismissRequest = { vm.exportedSessionJson = null },
+            title = { Text(tr(lang, "导出对话日志", "Exported Chat Log")) },
+            text = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 260.dp)
+                        .verticalScroll(rememberScrollState())
+                        .background(palette.chipSurface, RoundedCornerShape(10.dp))
+                        .padding(10.dp)
+                ) {
+                    Text(rawJson.take(4000), fontSize = 10.5.sp, fontFamily = FontFamily.Monospace, color = palette.inkPrimary)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "application/json"
+                        putExtra(Intent.EXTRA_TEXT, rawJson)
+                    }
+                    context.startActivity(Intent.createChooser(shareIntent, tr(lang, "分享对话日志", "Share Chat Log")))
+                }) { Text(tr(lang, "分享", "Share")) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    clipboard.setText(AnnotatedString(rawJson))
+                    vm.exportedSessionJson = null
+                }) { Text(tr(lang, "复制", "Copy")) }
+            }
+        )
+    }
+}
+
+@Composable
+private fun SidebarSessionRow(
+    session: AiSessionSummary,
+    isSelected: Boolean,
+    isArchived: Boolean,
+    language: String,
+    onOpen: () -> Unit,
+    onToggleArchive: () -> Unit,
+    onExport: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val palette = LocalDragonClawPalette.current
+    var showMenu by remember { mutableStateOf(false) }
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (isSelected) palette.accent.copy(alpha = 0.15f) else Color.Transparent)
+            .clickable(onClick = onOpen)
+            .padding(horizontal = 10.dp, vertical = 7.dp)
+    ) {
+        Icon(
+            imageVector = if (isArchived) Icons.Rounded.Inventory2 else Icons.Rounded.ChatBubbleOutline,
+            contentDescription = null,
+            tint = if (isSelected) palette.accentStrong else palette.inkMuted,
+            modifier = Modifier.size(15.dp)
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = session.displayTitle(language),
+            color = if (isSelected) palette.accentStrong else palette.inkPrimary,
+            fontSize = 12.5.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        Box {
+            IconButton(
+                onClick = { showMenu = true },
+                modifier = Modifier.size(28.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.MoreHoriz,
+                    contentDescription = "More",
+                    tint = palette.inkMuted,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            DropdownMenu(
+                expanded = showMenu,
+                onDismissRequest = { showMenu = false }
+            ) {
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            if (isArchived) tr(language, "恢复会话", "Unarchive")
+                            else tr(language, "归档会话", "Archive")
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            if (isArchived) Icons.Rounded.Unarchive else Icons.Rounded.Archive,
+                            contentDescription = null
+                        )
+                    },
+                    onClick = {
+                        showMenu = false
+                        onToggleArchive()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text(tr(language, "导出日志 (JSON)", "Export Log")) },
+                    leadingIcon = { Icon(Icons.Rounded.IosShare, contentDescription = null) },
+                    onClick = {
+                        showMenu = false
+                        onExport()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text(tr(language, "删除会话", "Delete"), color = palette.danger) },
+                    leadingIcon = { Icon(Icons.Rounded.DeleteOutline, contentDescription = null, tint = palette.danger) },
+                    onClick = {
+                        showMenu = false
+                        onDelete()
+                    }
+                )
+            }
+        }
     }
 }

@@ -1,16 +1,28 @@
 package com.example.newapp.ui.screens
 
-import android.app.Activity
+import android.Manifest
 import android.content.Intent
-import android.speech.RecognizerIntent
+import android.content.pm.PackageManager
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,6 +31,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -26,8 +39,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -43,12 +59,15 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.newapp.R
+import com.example.newapp.shared.model.AgentSkillItem
 import com.example.newapp.shared.model.ChatMessage
 import com.example.newapp.state.DragonClawViewModel
 import com.example.newapp.ui.components.LiquidGlassSurface
 import com.example.newapp.ui.theme.DragonClawPalette
 import com.example.newapp.ui.theme.LocalDragonClawPalette
 import com.example.newapp.ui.theme.tr
+import java.io.File
+import java.util.UUID
 
 @Composable
 fun ChatScreen(vm: DragonClawViewModel) {
@@ -57,6 +76,10 @@ fun ChatScreen(vm: DragonClawViewModel) {
     val context = LocalContext.current
     val listState = rememberLazyListState()
     var showModelMenu by remember { mutableStateOf(false) }
+    var showPlusMenu by remember { mutableStateOf(false) }
+    var showSkillsDialog by remember { mutableStateOf(false) }
+    var skillSearch by remember { mutableStateOf("") }
+    var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments()
@@ -66,14 +89,55 @@ fun ChatScreen(vm: DragonClawViewModel) {
         }
     }
 
-    val speechLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            val spoken = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
-            if (!spoken.isNullOrBlank()) {
-                vm.composerText = if (vm.composerText.isBlank()) spoken else "${vm.composerText} $spoken"
-            }
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickMultipleVisualMedia(5)
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            vm.uploadUris(context.contentResolver, uris)
+        }
+    }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        val uri = pendingCameraUri
+        pendingCameraUri = null
+        if (success && uri != null) {
+            vm.uploadUris(context.contentResolver, listOf(uri))
+        }
+    }
+
+    val audioPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            vm.startVoiceRecording(context)
+        } else {
+            vm.chatErrorBanner = tr(lang, "请在系统设置中允许麦克风权限以使用语音输入", "Microphone permission is required")
+        }
+    }
+
+    fun triggerVoiceRecording() {
+        val granted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+        if (granted) {
+            vm.startVoiceRecording(context)
+        } else {
+            audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    fun launchCameraCapture() {
+        runCatching {
+            val dir = File(context.cacheDir, "camera").apply { mkdirs() }
+            val photo = File(dir, "capture_${UUID.randomUUID()}.jpg")
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", photo)
+            pendingCameraUri = uri
+            cameraLauncher.launch(uri)
+        }.onFailure {
+            vm.chatErrorBanner = tr(lang, "无法打开相机：${it.message ?: ""}", "Unable to open camera")
         }
     }
 
@@ -230,7 +294,7 @@ fun ChatScreen(vm: DragonClawViewModel) {
                             }
                         }
                     }
-                    items(vm.messages, key = { it.renderKey }) { msg ->
+                    items(vm.messages, key = { it.id }) { msg ->
                         ChatBubbleItem(
                             message = msg,
                             language = lang,
@@ -242,190 +306,517 @@ fun ChatScreen(vm: DragonClawViewModel) {
         }
 
         // Floating Liquid Glass Composer Bar
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            contentAlignment = Alignment.BottomStart
         ) {
-            vm.chatErrorBanner?.let { err ->
-                LiquidGlassSurface(
-                    shape = CircleShape,
-                    tint = palette.danger,
-                    tintAlpha = 0.14f,
-                    elevation = 3.dp,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                    ) {
-                        Icon(Icons.Rounded.Error, contentDescription = null, tint = palette.danger, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(err, color = palette.danger, fontSize = 12.sp, maxLines = 2, modifier = Modifier.weight(1f))
-                        IconButton(onClick = { vm.chatErrorBanner = null }, modifier = Modifier.size(24.dp)) {
-                            Icon(Icons.Rounded.Close, contentDescription = null, tint = palette.inkMuted, modifier = Modifier.size(15.dp))
-                        }
-                    }
-                }
-            }
-
-            if (vm.pendingAttachments.isNotEmpty() || vm.isUploadingFiles) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                ) {
-                    if (vm.isUploadingFiles) {
-                        LiquidGlassSurface(shape = CircleShape, elevation = 2.dp) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(12.dp))
-                                Spacer(Modifier.width(6.dp))
-                                Text(tr(lang, "上传中...", "Uploading..."), fontSize = 11.sp, color = palette.inkSecondary)
-                            }
-                        }
-                    }
-                    vm.pendingAttachments.forEach { file ->
-                        LiquidGlassSurface(shape = CircleShape, elevation = 2.dp) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Icon(Icons.Rounded.AttachFile, contentDescription = null, modifier = Modifier.size(13.dp), tint = palette.inkSecondary)
-                                Spacer(Modifier.width(4.dp))
-                                Text(file.name, fontSize = 11.sp, color = palette.inkPrimary, maxLines = 1)
-                                Spacer(Modifier.width(4.dp))
-                                Icon(
-                                    imageVector = Icons.Rounded.Close,
-                                    contentDescription = "Remove",
-                                    tint = palette.inkMuted,
-                                    modifier = Modifier
-                                        .size(14.dp)
-                                        .clickable { vm.removePendingAttachment(file) }
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            LiquidGlassSurface(
-                shape = RoundedCornerShape(24.dp),
-                elevation = 10.dp,
-                modifier = Modifier.fillMaxWidth()
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 10.dp)
-                ) {
-                    Box(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
-                        if (vm.composerText.isEmpty()) {
-                            Text(
-                                text = tr(lang, "有什么我可以帮你？", "How can I help you?"),
-                                color = palette.inkMuted,
-                                fontSize = 13.5.sp
-                            )
-                        }
-                        BasicTextField(
-                            value = vm.composerText,
-                            onValueChange = { vm.composerText = it },
-                            textStyle = TextStyle(color = palette.inkPrimary, fontSize = 13.5.sp, lineHeight = 19.sp),
-                            cursorBrush = SolidColor(palette.accentStrong),
-                            maxLines = 5,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-
-                    Spacer(Modifier.height(8.dp))
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                vm.chatErrorBanner?.let { err ->
+                    LiquidGlassSurface(
+                        shape = CircleShape,
+                        tint = palette.danger,
+                        tintAlpha = 0.14f,
+                        elevation = 3.dp,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        LiquidGlassSurface(
-                            shape = CircleShape,
-                            elevation = 3.dp,
-                            onClick = { filePickerLauncher.launch(arrayOf("*/*")) },
-                            modifier = Modifier.size(34.dp)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                         ) {
-                            Icon(Icons.Rounded.Add, contentDescription = "Attach", tint = palette.inkPrimary, modifier = Modifier.size(18.dp).align(Alignment.Center))
-                        }
-
-                        LiquidGlassSurface(
-                            shape = CircleShape,
-                            elevation = 3.dp,
-                            onClick = { vm.enhanceDraftPrompt() }
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp)
-                            ) {
-                                if (vm.isEnhancingPrompt) {
-                                    CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(13.dp))
-                                } else {
-                                    Icon(Icons.Rounded.AutoAwesome, contentDescription = null, tint = palette.accentStrong, modifier = Modifier.size(14.dp))
-                                }
-                                Spacer(Modifier.width(4.dp))
-                                Text(tr(lang, "优化", "Enhance"), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = palette.inkPrimary)
+                            Icon(Icons.Rounded.Error, contentDescription = null, tint = palette.danger, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(err, color = palette.danger, fontSize = 12.sp, maxLines = 2, modifier = Modifier.weight(1f))
+                            IconButton(onClick = { vm.chatErrorBanner = null }, modifier = Modifier.size(24.dp)) {
+                                Icon(Icons.Rounded.Close, contentDescription = null, tint = palette.inkMuted, modifier = Modifier.size(15.dp))
                             }
                         }
+                    }
+                }
 
-                        LiquidGlassSurface(
-                            shape = CircleShape,
-                            elevation = 3.dp,
-                            onClick = {
-                                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, if (lang == "en") "en-US" else "zh-CN")
-                                }
-                                runCatching { speechLauncher.launch(intent) }
-                                    .onFailure {
-                                        vm.chatErrorBanner = tr(lang, "当前设备未安装系统语音识别服务", "System speech recognition unavailable")
-                                    }
-                            },
-                            modifier = Modifier.size(34.dp)
+                vm.chatStatusBanner?.let { status ->
+                    LiquidGlassSurface(
+                        shape = CircleShape,
+                        tint = palette.accent,
+                        tintAlpha = 0.14f,
+                        elevation = 3.dp,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
                         ) {
-                            Icon(Icons.Rounded.Mic, contentDescription = "Voice", tint = palette.inkPrimary, modifier = Modifier.size(17.dp).align(Alignment.Center))
-                        }
-
-                        Spacer(Modifier.weight(1f))
-
-                        if (vm.isStreaming) {
-                            LiquidGlassSurface(
-                                shape = CircleShape,
-                                tint = palette.danger,
-                                tintAlpha = 0.28f,
-                                elevation = 4.dp,
-                                onClick = { vm.stopStreaming() },
-                                modifier = Modifier.size(38.dp)
-                            ) {
-                                Icon(Icons.Rounded.Stop, contentDescription = "Stop", tint = palette.danger, modifier = Modifier.size(18.dp).align(Alignment.Center))
+                            CircularProgressIndicator(strokeWidth = 1.8.dp, color = palette.accentStrong, modifier = Modifier.size(13.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(status, color = palette.accentStrong, fontSize = 12.sp, maxLines = 1, modifier = Modifier.weight(1f))
+                            IconButton(onClick = { vm.chatStatusBanner = null }, modifier = Modifier.size(24.dp)) {
+                                Icon(Icons.Rounded.Close, contentDescription = null, tint = palette.inkMuted, modifier = Modifier.size(15.dp))
                             }
-                        } else {
-                            val canSend = vm.composerText.isNotBlank() || vm.pendingAttachments.isNotEmpty()
-                            Surface(
-                                shape = CircleShape,
-                                color = if (canSend) palette.accentStrong else palette.chipSurface,
-                                onClick = { if (canSend) vm.sendPrompt() },
-                                modifier = Modifier.size(38.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
+                        }
+                    }
+                }
+
+                if (vm.pendingAttachments.isNotEmpty() || vm.isUploadingFiles) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                    ) {
+                        if (vm.isUploadingFiles) {
+                            LiquidGlassSurface(shape = CircleShape, elevation = 2.dp) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                ) {
+                                    CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(12.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(tr(lang, "上传中...", "Uploading..."), fontSize = 11.sp, color = palette.inkSecondary)
+                                }
+                            }
+                        }
+                        vm.pendingAttachments.forEach { file ->
+                            LiquidGlassSurface(shape = CircleShape, elevation = 2.dp) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                ) {
+                                    Icon(Icons.Rounded.AttachFile, contentDescription = null, modifier = Modifier.size(13.dp), tint = palette.inkSecondary)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(file.name, fontSize = 11.sp, color = palette.inkPrimary, maxLines = 1)
+                                    Spacer(Modifier.width(4.dp))
                                     Icon(
-                                        imageVector = Icons.Rounded.ArrowUpward,
-                                        contentDescription = "Send",
-                                        tint = if (canSend) Color.White else palette.inkMuted,
-                                        modifier = Modifier.size(18.dp)
+                                        imageVector = Icons.Rounded.Close,
+                                        contentDescription = "Remove",
+                                        tint = palette.inkMuted,
+                                        modifier = Modifier
+                                            .size(14.dp)
+                                            .clickable { vm.removePendingAttachment(file) }
                                     )
                                 }
                             }
                         }
                     }
+                }
+
+                if (vm.isRecordingVoice) {
+                    InlineVoiceWaveformBar(
+                        samples = vm.voiceWaveformSamples,
+                        elapsedSeconds = vm.voiceElapsedSeconds,
+                        onCancel = { vm.cancelVoiceRecording() },
+                        onStopToDraft = { vm.finishVoiceRecording(sendImmediately = false) },
+                        onStopAndSend = { vm.finishVoiceRecording(sendImmediately = true) }
+                    )
+                } else {
+                    val trimmed = vm.composerText.trim()
+                    val canSend = trimmed.isNotEmpty() || vm.pendingAttachments.isNotEmpty()
+                    val plusRotation by animateFloatAsState(
+                        targetValue = if (showPlusMenu) 45f else 0f,
+                        animationSpec = tween(220),
+                        label = "plusRot"
+                    )
+
+                    LiquidGlassSurface(
+                        shape = RoundedCornerShape(24.dp),
+                        elevation = 10.dp,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 10.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.Bottom,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Box(modifier = Modifier.weight(1f).padding(vertical = 3.dp)) {
+                                    if (vm.composerText.isEmpty()) {
+                                        Text(
+                                            text = tr(lang, "与 ${vm.identity.localizedName(lang)} 协作", "Collaborate with ${vm.identity.localizedName(lang)}"),
+                                            color = palette.inkMuted,
+                                            fontSize = 14.sp
+                                        )
+                                    }
+                                    BasicTextField(
+                                        value = vm.composerText,
+                                        onValueChange = { vm.composerText = it },
+                                        textStyle = TextStyle(color = palette.inkPrimary, fontSize = 14.sp, lineHeight = 20.sp),
+                                        cursorBrush = SolidColor(palette.accentStrong),
+                                        maxLines = 5,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                                if (trimmed.isNotEmpty()) {
+                                    IconButton(
+                                        onClick = { vm.enhanceDraftPrompt() },
+                                        enabled = !vm.isEnhancingPrompt,
+                                        modifier = Modifier.size(30.dp)
+                                    ) {
+                                        if (vm.isEnhancingPrompt) {
+                                            CircularProgressIndicator(strokeWidth = 2.dp, color = palette.accentStrong, modifier = Modifier.size(14.dp))
+                                        } else {
+                                            Icon(Icons.Rounded.AutoAwesome, contentDescription = "Enhance", tint = palette.accentStrong, modifier = Modifier.size(16.dp))
+                                        }
+                                    }
+                                }
+                            }
+
+                            Spacer(Modifier.height(8.dp))
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = palette.chipSurface,
+                                    onClick = { showPlusMenu = !showPlusMenu },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Add,
+                                            contentDescription = "More",
+                                            tint = palette.inkPrimary,
+                                            modifier = Modifier.size(18.dp).rotate(plusRotation)
+                                        )
+                                    }
+                                }
+
+                                Spacer(Modifier.weight(1f))
+
+                                Box {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .clip(CircleShape)
+                                            .clickable { showModelMenu = true }
+                                            .padding(horizontal = 8.dp, vertical = 6.dp)
+                                    ) {
+                                        Text(
+                                            text = vm.activeModelDisplayName,
+                                            color = palette.inkSecondary,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.widthIn(max = 128.dp)
+                                        )
+                                        Spacer(Modifier.width(3.dp))
+                                        Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null, tint = palette.inkMuted, modifier = Modifier.size(15.dp))
+                                    }
+                                    DropdownMenu(
+                                        expanded = showModelMenu,
+                                        onDismissRequest = { showModelMenu = false }
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = { Text(tr(lang, "默认模型", "Default")) },
+                                            onClick = {
+                                                vm.selectModel("")
+                                                showModelMenu = false
+                                            }
+                                        )
+                                        vm.models.forEach { m ->
+                                            DropdownMenuItem(
+                                                text = { Text(m.name) },
+                                                onClick = {
+                                                    vm.selectModel(m.id)
+                                                    showModelMenu = false
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+
+                                IconButton(
+                                    onClick = {
+                                        showPlusMenu = false
+                                        triggerVoiceRecording()
+                                    },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(Icons.Rounded.MicNone, contentDescription = "Voice", tint = palette.inkPrimary, modifier = Modifier.size(19.dp))
+                                }
+
+                                if (vm.isStreaming) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = palette.danger,
+                                        onClick = { vm.stopStreaming() },
+                                        modifier = Modifier.width(40.dp).height(32.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(Icons.Rounded.Stop, contentDescription = "Stop", tint = Color.White, modifier = Modifier.size(16.dp))
+                                        }
+                                    }
+                                } else if (canSend) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = palette.accentStrong,
+                                        onClick = {
+                                            showPlusMenu = false
+                                            vm.sendPrompt()
+                                        },
+                                        modifier = Modifier.width(40.dp).height(32.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(Icons.Rounded.ArrowUpward, contentDescription = "Send", tint = Color.White, modifier = Modifier.size(17.dp))
+                                        }
+                                    }
+                                } else {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = palette.accentStrong,
+                                        onClick = {
+                                            showPlusMenu = false
+                                            triggerVoiceRecording()
+                                        },
+                                        modifier = Modifier.width(42.dp).height(32.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(Icons.Rounded.GraphicEq, contentDescription = "Voice Bar", tint = Color.White, modifier = Modifier.size(17.dp))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            androidx.compose.animation.AnimatedVisibility(
+                visible = showPlusMenu,
+                enter = fadeIn(tween(150)) + scaleIn(initialScale = 0.88f, transformOrigin = TransformOrigin(0f, 1f)),
+                exit = fadeOut(tween(120)) + scaleOut(targetScale = 0.9f, transformOrigin = TransformOrigin(0f, 1f)),
+                modifier = Modifier.padding(bottom = 104.dp)
+            ) {
+                LiquidGlassSurface(
+                    shape = RoundedCornerShape(24.dp),
+                    elevation = 14.dp,
+                    modifier = Modifier.width(196.dp)
+                ) {
+                    Column(modifier = Modifier.padding(vertical = 8.dp, horizontal = 6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        PlusActionRow(
+                            icon = Icons.Rounded.PhotoCamera,
+                            title = tr(lang, "相机", "Camera")
+                        ) {
+                            showPlusMenu = false
+                            launchCameraCapture()
+                        }
+                        PlusActionRow(
+                            icon = Icons.Rounded.Image,
+                            title = tr(lang, "照片", "Photos")
+                        ) {
+                            showPlusMenu = false
+                            photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        }
+                        PlusActionRow(
+                            icon = Icons.Rounded.AttachFile,
+                            title = tr(lang, "文件", "Files")
+                        ) {
+                            showPlusMenu = false
+                            filePickerLauncher.launch(arrayOf("*/*"))
+                        }
+                        PlusActionRow(
+                            icon = Icons.Rounded.AlternateEmail,
+                            title = tr(lang, "技能", "Skills")
+                        ) {
+                            showPlusMenu = false
+                            vm.loadSkills()
+                            showSkillsDialog = true
+                        }
+                        if (vm.currentSessionId != null && vm.messages.isNotEmpty()) {
+                            HorizontalDivider(color = palette.hairLine, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
+                            PlusActionRow(
+                                icon = Icons.Rounded.Compress,
+                                title = tr(lang, "压缩上下文", "Compact")
+                            ) {
+                                showPlusMenu = false
+                                vm.compactCurrentSession()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showSkillsDialog) {
+        val filteredSkills = remember(vm.skills, skillSearch, lang) {
+            val q = skillSearch.trim().lowercase()
+            if (q.isEmpty()) vm.skills
+            else vm.skills.filter {
+                it.localizedName(lang).lowercase().contains(q) ||
+                    it.localizedDescription(lang).lowercase().contains(q) ||
+                    it.id.lowercase().contains(q)
+            }
+        }
+        AlertDialog(
+            onDismissRequest = { showSkillsDialog = false },
+            title = { Text(tr(lang, "技能与能力", "Skills")) },
+            text = {
+                Column(modifier = Modifier.fillMaxWidth().heightIn(max = 380.dp)) {
+                    OutlinedTextField(
+                        value = skillSearch,
+                        onValueChange = { skillSearch = it },
+                        placeholder = { Text(tr(lang, "搜索技能...", "Search skills..."), fontSize = 12.sp) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    if (filteredSkills.isEmpty()) {
+                        Text(tr(lang, "暂无匹配技能", "No matching skills"), color = palette.inkMuted, fontSize = 12.sp)
+                    } else {
+                        Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            filteredSkills.forEach { skill ->
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = palette.chipSurface,
+                                    onClick = {
+                                        vm.applySkill(skill)
+                                        showSkillsDialog = false
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp)) {
+                                        Text("@${skill.localizedName(lang)}", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = palette.inkPrimary)
+                                        val desc = skill.localizedDescription(lang)
+                                        if (desc.isNotBlank()) {
+                                            Text(desc, fontSize = 11.sp, color = palette.inkSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showSkillsDialog = false }) { Text(tr(lang, "关闭", "Close")) }
+            }
+        )
+    }
+}
+
+@Composable
+private fun PlusActionRow(
+    icon: ImageVector,
+    title: String,
+    onClick: () -> Unit
+) {
+    val palette = LocalDragonClawPalette.current
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 7.dp)
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(34.dp)
+                .background(palette.chipSurface, CircleShape)
+        ) {
+            Icon(icon, contentDescription = null, tint = palette.inkPrimary, modifier = Modifier.size(16.dp))
+        }
+        Spacer(Modifier.width(12.dp))
+        Text(title, color = palette.inkPrimary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+@Composable
+private fun InlineVoiceWaveformBar(
+    samples: List<Float>,
+    elapsedSeconds: Int,
+    onCancel: () -> Unit,
+    onStopToDraft: () -> Unit,
+    onStopAndSend: () -> Unit
+) {
+    val palette = LocalDragonClawPalette.current
+    LiquidGlassSurface(
+        shape = CircleShape,
+        elevation = 10.dp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(0.8.dp, palette.accentStrong.copy(alpha = 0.35f), CircleShape)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 8.dp)
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = palette.chipSurface,
+                onClick = onCancel,
+                modifier = Modifier.size(34.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.Close, contentDescription = "Cancel", tint = palette.inkPrimary, modifier = Modifier.size(16.dp))
+                }
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.5.dp),
+                modifier = Modifier.weight(1f).height(26.dp)
+            ) {
+                val count = samples.size
+                samples.forEachIndexed { idx, level ->
+                    val h by animateDpAsState(
+                        targetValue = (3f + level * 21f).dp,
+                        animationSpec = tween(durationMillis = 70),
+                        label = "bar_$idx"
+                    )
+                    val color = if (idx >= count - 8) palette.inkPrimary else palette.inkMuted.copy(alpha = 0.6f)
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(h)
+                            .clip(CircleShape)
+                            .background(color)
+                    )
+                }
+            }
+
+            val mins = elapsedSeconds / 60
+            val secs = elapsedSeconds % 60
+            Text(
+                text = "%d:%02d".format(mins, secs),
+                color = palette.inkMuted,
+                fontSize = 11.sp,
+                fontFamily = FontFamily.Monospace
+            )
+
+            Surface(
+                shape = CircleShape,
+                color = palette.chipSurface,
+                onClick = onStopToDraft,
+                modifier = Modifier.size(34.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.Stop, contentDescription = "Transcribe", tint = palette.inkPrimary, modifier = Modifier.size(15.dp))
+                }
+            }
+
+            Surface(
+                shape = CircleShape,
+                color = palette.accentStrong,
+                onClick = onStopAndSend,
+                modifier = Modifier.size(34.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.ArrowUpward, contentDescription = "Send Voice", tint = Color.White, modifier = Modifier.size(17.dp))
                 }
             }
         }
