@@ -49,13 +49,25 @@ test('backend code never uses the fatal TextDecoder that crashes the desktop app
     assert.deepEqual(offenders, [], '改用 backend/models/safe-utf8.js');
 });
 
+function resolveElectronBinary() {
+    try {
+        const electronPath = require('electron');
+        if (typeof electronPath === 'string' && fs.existsSync(electronPath)) return electronPath;
+    } catch (_) {
+        return null;
+    }
+    return null;
+}
+
+const electronBin = resolveElectronBinary();
+
 // 桌面端实际用的运行时：同样的非法字节，在这里不会让进程崩溃
-test('the desktop runtime survives invalid bytes through the safe decoder', { skip: !fs.existsSync(path.join(__dirname, '..', 'node_modules', 'electron')) }, () => {
+test('the desktop runtime survives invalid bytes through the safe decoder', { skip: !electronBin }, () => {
     const script = `const { decodeUtf8Strict } = require(${JSON.stringify(path.join(__dirname, '..', 'backend', 'models', 'safe-utf8.js'))});
         const crypto = require('crypto'); let bad = 0;
         for (let i = 0; i < 1500; i += 1) if (decodeUtf8Strict(crypto.randomBytes(1 + Math.floor(Math.random() * 65536))) === null) bad += 1;
         console.log('ok ' + bad);`;
-    const result = spawnSync(require('electron'), ['-e', script], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, encoding: 'utf8', timeout: 60000 });
+    const result = spawnSync(electronBin, ['-e', script], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, encoding: 'utf8', timeout: 60000 });
     assert.equal(result.status, 0, `signal=${result.signal} ${result.stderr}`);
     assert.match(result.stdout, /^ok 1500/);
 });
