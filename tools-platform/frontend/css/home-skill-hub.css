@@ -28,25 +28,29 @@ html[data-ui="v2"] body.v2-hub-open .home-main {
 .v2-hub-legend-item[hidden] { display: none; }
 .v2-hub-legend-label { color: var(--v2-ink2); }
 .v2-hub-legend-swatch {
+    --swatch-c: var(--v2-line-strong, #94a3b8);
     flex: none;
     display: inline-block;
     width: 14px;
     height: 10px;
-    border: 1.5px solid var(--v2-line);
+    border: 1.5px solid color-mix(in srgb, var(--swatch-c) 85%, var(--v2-line));
     border-radius: 3px;
-    background: var(--v2-bg);
+    background: color-mix(in srgb, var(--swatch-c) 14%, var(--v2-bg));
     box-sizing: border-box;
+    box-shadow: 0 0 4px color-mix(in srgb, var(--swatch-c) 35%, transparent);
     transition: border-color var(--v2-ease), box-shadow var(--v2-ease);
 }
-.v2-hub-legend-swatch.is-shared-access {
-    border-color: color-mix(in srgb, var(--v2-accent, #10a37f) 85%, var(--v2-line));
-    background: color-mix(in srgb, var(--v2-accent, #10a37f) 14%, var(--v2-bg));
-    box-shadow: 0 0 4px color-mix(in srgb, var(--v2-accent, #10a37f) 35%, transparent);
+.v2-hub-legend-swatch:is([data-src="builtin"], .is-built-in) {
+    --swatch-c: #10b981;
 }
-.v2-hub-legend-swatch.is-built-in {
-    border-color: color-mix(in srgb, #6366f1 85%, var(--v2-line));
-    background: color-mix(in srgb, #6366f1 14%, var(--v2-bg));
-    box-shadow: 0 0 4px color-mix(in srgb, #6366f1 35%, transparent);
+.v2-hub-legend-swatch:is([data-src="shared"], .is-shared-access, [data-src="external"], [data-src="float"]) {
+    --swatch-c: #0ea5e9;
+}
+.v2-hub-legend-swatch:is([data-src="custom"], [data-src="chat"], .is-custom) {
+    --swatch-c: #8b5cf6;
+}
+.v2-hub-legend-swatch[data-src="import"] {
+    --swatch-c: #f59e0b;
 }
 .v2-hub-source-legend .skill-src-dot { margin: 0; }
 .v2-hub-source-fallback { margin-bottom: 14px; }
@@ -155,47 +159,49 @@ html[data-ui="v2"] body.v2-hub-open .home-main {
 }
 .v2-hub-card:hover { border-color: var(--v2-line-strong); box-shadow: var(--v2-shadow-hover); }
 
-/* 内置工具 / 技能卡片外框：外框颜色与微弱光晕区分，便于识别 */
+/* 内置工具 / 技能卡片外框：外框颜色与微弱光晕区分，与绿色圆点 #10b981 统一保持一致 */
 .v2-hub-card.is-built-in {
-    border-color: color-mix(in srgb, #6366f1 40%, var(--v2-line));
-    box-shadow: 0 0 0 1px color-mix(in srgb, #6366f1 20%, transparent),
-                0 3px 14px color-mix(in srgb, #6366f1 14%, transparent);
+    border-color: color-mix(in srgb, #10b981 40%, var(--v2-line));
+    box-shadow: 0 0 0 1px color-mix(in srgb, #10b981 20%, transparent),
+                0 3px 14px color-mix(in srgb, #10b981 14%, transparent);
 }
 .v2-hub-card.is-built-in:hover {
-    border-color: color-mix(in srgb, #6366f1 65%, var(--v2-line));
-    box-shadow: 0 0 0 1px color-mix(in srgb, #6366f1 32%, transparent),
-                0 6px 20px color-mix(in srgb, #6366f1 22%, transparent);
+    border-color: color-mix(in srgb, #10b981 65%, var(--v2-line));
+    box-shadow: 0 0 0 1px color-mix(in srgb, #10b981 32%, transparent),
+                0 6px 20px color-mix(in srgb, #10b981 22%, transparent);
 }
 html[data-theme="dark"] .v2-hub-card.is-built-in {
-    border-color: color-mix(in srgb, #818cf8 46%, var(--v2-line));
-    box-shadow: 0 0 0 1px color-mix(in srgb, #818cf8 26%, transparent),
-                0 3px 16px color-mix(in srgb, #818cf8 18%, transparent);
+    border-color: color-mix(in srgb, #10b981 46%, var(--v2-line));
+    box-shadow: 0 0 0 1px color-mix(in srgb, #10b981 26%, transparent),
+                0 3px 16px color-mix(in srgb, #10b981 18%, transparent);
 }
 html[data-theme="dark"] .v2-hub-card.is-built-in:hover {
-    border-color: color-mix(in srgb, #818cf8 75%, var(--v2-line));
-    box-shadow: 0 0 0 1px color-mix(in srgb, #818cf8 38%, transparent),
-                0 6px 22px color-mix(in srgb, #818cf8 26%, transparent);
+    border-color: color-mix(in srgb, #10b981 75%, var(--v2-line));
+    box-shadow: 0 0 0 1px color-mix(in srgb, #10b981 38%, transparent),
+                0 6px 22px color-mix(in srgb, #10b981 26%, transparent);
 }
 
-/* 超管视角下全员开放的工具卡片：微弱光晕效果，便于识别 */
-:is(.v2-hub-card, .v2-hub-legend-swatch).is-shared-access {
-    border-color: color-mix(in srgb, var(--v2-accent, #10a37f) 42%, var(--v2-line));
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--v2-accent, #10a37f) 22%, transparent),
-                0 3px 14px color-mix(in srgb, var(--v2-accent, #10a37f) 18%, transparent);
+/* 超管视角下全员开放的工具卡片：微弱光晕效果，与蓝色圆点 #0ea5e9 统一保持一致 */
+.v2-hub-card.is-shared-access {
+    border-color: color-mix(in srgb, #0ea5e9 42%, var(--v2-line));
+    box-shadow: 0 0 0 1px color-mix(in srgb, #0ea5e9 22%, transparent),
+                0 3px 14px color-mix(in srgb, #0ea5e9 18%, transparent);
 }
 .v2-hub-card.is-shared-access:hover {
-    border-color: color-mix(in srgb, var(--v2-accent, #10a37f) 68%, var(--v2-line));
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--v2-accent, #10a37f) 35%, transparent),
-                0 6px 20px color-mix(in srgb, var(--v2-accent, #10a37f) 26%, transparent);
+    border-color: color-mix(in srgb, #0ea5e9 68%, var(--v2-line));
+    box-shadow: 0 0 0 1px color-mix(in srgb, #0ea5e9 35%, transparent),
+                0 6px 20px color-mix(in srgb, #0ea5e9 26%, transparent);
 }
-html[data-theme="dark"] :is(.v2-hub-card, .v2-hub-legend-swatch).is-shared-access {
-    border-color: color-mix(in srgb, var(--v2-accent, #3ecf9e) 48%, var(--v2-line));
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--v2-accent, #3ecf9e) 26%, transparent),
-                0 3px 16px color-mix(in srgb, var(--v2-accent, #3ecf9e) 22%, transparent);
+html[data-theme="dark"] .v2-hub-card.is-shared-access {
+    border-color: color-mix(in srgb, #0ea5e9 48%, var(--v2-line));
+    box-shadow: 0 0 0 1px color-mix(in srgb, #0ea5e9 26%, transparent),
+                0 3px 16px color-mix(in srgb, #0ea5e9 22%, transparent);
 }
 html[data-theme="dark"] .v2-hub-card.is-shared-access:hover {
-    border-color: color-mix(in srgb, var(--v2-accent, #3ecf9e) 75%, var(--v2-line));
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--v2-accent, #3ecf9e) 40%, transparent),
+    border-color: color-mix(in srgb, #0ea5e9 75%, var(--v2-line));
+    box-shadow: 0 0 0 1px color-mix(in srgb, #0ea5e9 40%, transparent),
+                0 6px 22px color-mix(in srgb, #0ea5e9 30%, transparent);
+}
                 0 6px 22px color-mix(in srgb, var(--v2-accent, #3ecf9e) 30%, transparent);
 }
 .v2-hub-cards.is-featured .v2-hub-card { min-height: 112px; }
