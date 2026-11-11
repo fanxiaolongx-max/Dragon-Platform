@@ -126,8 +126,18 @@ class DragonClawSdk(
     fun groupSessionsByDate(sessions: List<AiSessionSummary>): List<SessionGroup> =
         SessionGrouping.groupSessions(sessions, currentEpochMillis())
 
+    fun groupSidebarSessions(
+        aiSessions: List<AiSessionSummary>,
+        desktopSessions: List<DesktopAgentSessionSummary>,
+        searchQuery: String = ""
+    ): List<UnifiedSessionGroup> =
+        SessionGrouping.groupSidebarSessions(aiSessions, desktopSessions, searchQuery, currentEpochMillis())
+
     fun mapHistoryMessages(items: List<SessionMessageItem>): List<ChatMessage> =
         DragonClawHelpers.mapStoredMessages(items)
+
+    fun mapDesktopAgentMessages(items: List<DesktopAgentMessageItem>): List<ChatMessage> =
+        DragonClawHelpers.mapDesktopAgentMessages(items)
 
     fun appendFilesToPrompt(text: String, files: List<UploadedFileInfo>, language: String): String =
         DragonClawHelpers.appendUploadedFilesPrompt(text, files, language)
@@ -603,6 +613,54 @@ class DragonClawSdk(
         onError: (String) -> Unit
     ): TaskHandle = runAsync(
         block = { api.recordRecentNav(token, toolId) },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
+    // --- Desktop Agent Connectors (Codex / Claude Code / Antigravity / WorkBuddy) ---
+
+    fun fetchDesktopAgentSessions(
+        token: String,
+        query: String = "",
+        onSuccess: (DesktopAgentsSessionsResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = { api.getDesktopAgentSessions(token, query) },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
+    fun fetchDesktopAgentMessages(
+        token: String,
+        provider: String,
+        sessionId: String,
+        passive: Boolean = false,
+        onSuccess: (DesktopAgentMessagesResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = { api.getDesktopAgentMessages(token, provider, sessionId, passive) },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
+    fun sendDesktopAgentMessage(
+        token: String,
+        provider: String,
+        sessionId: String,
+        text: String,
+        requestId: String,
+        mode: String? = null,
+        onSuccess: (DesktopAgentSendResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = {
+            api.sendDesktopAgentMessage(
+                token = token,
+                provider = provider,
+                sessionId = sessionId,
+                request = DesktopAgentSendRequest(text = text, requestId = requestId, mode = mode)
+            )
+        },
         onSuccess = onSuccess,
         onError = onError
     )

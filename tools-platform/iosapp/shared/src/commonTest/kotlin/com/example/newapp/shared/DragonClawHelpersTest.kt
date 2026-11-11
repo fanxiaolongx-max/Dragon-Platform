@@ -138,4 +138,54 @@ class DragonClawHelpersTest {
         val nav = json.decodeFromString<NavToolIdsResponse>("""{"ids":["native-kpi-monitor","report"]}""")
         assertEquals(listOf("native-kpi-monitor", "report"), nav.ids)
     }
+
+    @Test
+    fun serializeChatRequestEncodesStreamDefaultsAndParsesArchivedSnakeCase() {
+        val json = DragonClawHelpers.lenientJson
+        val reqBody = json.encodeToString(
+            ChatStreamRequest.serializer(),
+            ChatStreamRequest(
+                messages = listOf(ChatHistoryMessageDto(role = "user", content = "1+1"))
+            )
+        )
+        assertTrue(reqBody.contains(""""stream":true"""))
+        assertTrue(reqBody.contains(""""agent":"dragon-claw-home""""))
+
+        // Non-streaming JSON fallback returned if a proxy omits NDJSON framing
+        val directReply = NdjsonStreamParser.parseLine(
+            """{"reply":"2","sessionId":"sess_2","usage":{"inputTokens":10,"outputTokens":2},"model":"gemini-3.1-flash-lite"}"""
+        )
+        assertEquals(StreamEventType.DONE, directReply?.type)
+        assertEquals("2", directReply?.text)
+        assertEquals("sess_2", directReply?.sessionId)
+        assertEquals(2, directReply?.outputTokens)
+        assertEquals("gemini-3.1-flash-lite", directReply?.modelName)
+
+        // Archived sessions endpoint historically returned snake_case fields without "title"
+        val archived = json.decodeFromString<AiSessionsResponse>(
+            """{"items":[{"id":"s_arc","is_archived":1,"message_count":4,"created_at":"2026-11-10T10:00:00Z","updated_at":"2026-11-10T11:00:00Z","last_question":"排查埃及SLA延迟原因"}]}"""
+        )
+        val firstArchived = archived.items.first()
+        assertTrue(firstArchived.isArchivedSession)
+        assertEquals(4, firstArchived.messageCount)
+        assertEquals("排查埃及SLA延迟原因", firstArchived.displayTitle("zh"))
+
+        // Unified sidebar grouping merges active AI & desktop agent sessions cleanly
+        val desktopRes = json.decodeFromString<DesktopAgentsSessionsResponse>(
+            """{"items":[{"id":"uuid-1","provider":"codex","title":"修复登录闪烁","updatedAt":"2026-11-11T09:00:00Z","busy":true}]}"""
+        )
+        val nowMs = SessionGrouping.parseTimestampMs("2026-11-11T10:00:00Z")!!
+        val unified = SessionGrouping.groupSidebarSessions(
+            aiSessions = listOf(
+                firstArchived,
+                AiSessionSummary(id = "ai_1", updatedAt = "2026-11-11T08:00:00Z", title = "SLA 早报", discussionMode = "group")
+            ),
+            desktopSessions = desktopRes.items,
+            nowEpochMs = nowMs
+        )
+        assertEquals(1, unified.size)
+        assertEquals(2, unified.first().items.size)
+        assertEquals("Codex", unified.first().items[0].badgeLabel("zh"))
+        assertEquals("群聊", unified.first().items[1].badgeLabel("zh"))
+    }
 }

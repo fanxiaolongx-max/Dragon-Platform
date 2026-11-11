@@ -362,6 +362,50 @@ class DragonClawApiClient(
         return decodeOrThrow(response, "Failed to record recent tool")
     }
 
+    // --- Desktop Agent Connectors (Codex / Claude Code / Antigravity / WorkBuddy) ---
+
+    suspend fun getDesktopAgentSessions(token: String, query: String = ""): DesktopAgentsSessionsResponse {
+        val response = client.get("$baseUrl/api/desktop-agents/sessions") {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+            timeout { requestTimeoutMillis = 20_000L }
+            url {
+                if (query.isNotBlank()) parameters.append("q", query.trim())
+            }
+        }
+        return decodeOrThrow(response, "Failed to load desktop agent sessions")
+    }
+
+    suspend fun getDesktopAgentMessages(
+        token: String,
+        provider: String,
+        sessionId: String,
+        passive: Boolean = false
+    ): DesktopAgentMessagesResponse {
+        val response = client.get("$baseUrl/api/desktop-agents/${provider.trim()}/sessions/${sessionId.trim()}/messages") {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+            timeout { requestTimeoutMillis = 25_000L }
+            url {
+                if (passive) parameters.append("passive", "1")
+            }
+        }
+        return decodeOrThrow(response, "Failed to load desktop agent messages")
+    }
+
+    suspend fun sendDesktopAgentMessage(
+        token: String,
+        provider: String,
+        sessionId: String,
+        request: DesktopAgentSendRequest
+    ): DesktopAgentSendResponse {
+        val response = client.post("$baseUrl/api/desktop-agents/${provider.trim()}/sessions/${sessionId.trim()}/messages") {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+            timeout { requestTimeoutMillis = 35_000L }
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
+        return decodeOrThrow(response, "Failed to send message to desktop agent")
+    }
+
     // --- Tool Hub ---
 
     suspend fun getCustomTools(token: String): List<CustomToolDto> {

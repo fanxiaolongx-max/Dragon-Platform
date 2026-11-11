@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.newapp.R
 import com.example.newapp.shared.model.AiSessionSummary
+import com.example.newapp.shared.model.SidebarSessionEntry
 import com.example.newapp.state.AppWorkMode
 import com.example.newapp.state.DragonClawViewModel
 import com.example.newapp.ui.components.DragonClawBackdrop
@@ -93,6 +94,9 @@ fun RootShellScreen(vm: DragonClawViewModel) {
         }
     }
     BackHandler(enabled = effectiveProgress > 0.45f) { animateSidebar(0f) }
+    LaunchedEffect(drawerProgress.value > 0.85f) {
+        if (drawerProgress.value > 0.85f) vm.loadSessions()
+    }
     var showServerDialog by remember { mutableStateOf(false) }
     var showSchedulesSheet by remember { mutableStateOf(false) }
     var scheduleDraft by remember { mutableStateOf("") }
@@ -363,7 +367,10 @@ fun RootShellScreen(vm: DragonClawViewModel) {
 
                         OutlinedTextField(
                             value = vm.sessionSearchQuery,
-                            onValueChange = { vm.sessionSearchQuery = it },
+                            onValueChange = {
+                                vm.sessionSearchQuery = it
+                                if (!vm.showArchivedSessions) vm.regroupSessions()
+                            },
                             textStyle = LocalTextStyle.current.copy(fontSize = 13.sp),
                             placeholder = { Text(tr(lang, "搜索历史会话...", "Search sessions..."), fontSize = 12.sp) },
                             leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
@@ -557,9 +564,13 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                                     }
                                 } else {
                                     items(vm.archivedSessions, key = { "arch_${it.id}" }) { session ->
+                                        val entry = SidebarSessionEntry(
+                                            stableKey = "ai:${session.id}",
+                                            aiSession = session
+                                        )
                                         SidebarSessionRow(
-                                            session = session,
-                                            isSelected = session.id == vm.currentSessionId,
+                                            entry = entry,
+                                            isSelected = vm.currentSidebarSelectionKey == entry.stableKey,
                                             isArchived = true,
                                             language = lang,
                                             onOpen = {
@@ -572,7 +583,7 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                                         )
                                     }
                                 }
-                            } else if (vm.sessionGroups.isEmpty()) {
+                            } else if (vm.unifiedSessionGroups.isEmpty()) {
                                 item {
                                     Text(
                                         text = tr(lang, "暂无历史会话", "No conversation history"),
@@ -582,7 +593,7 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                                     )
                                 }
                             } else {
-                                vm.sessionGroups.forEach { group ->
+                                vm.unifiedSessionGroups.forEach { group ->
                                     item(key = "hdr_${group.bucket}") {
                                         Text(
                                             text = group.localizedTitle(lang),
@@ -592,19 +603,19 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
                                         )
                                     }
-                                    items(group.items, key = { it.id }) { session ->
+                                    items(group.items, key = { it.stableKey }) { entry ->
                                         SidebarSessionRow(
-                                            session = session,
-                                            isSelected = session.id == vm.currentSessionId,
+                                            entry = entry,
+                                            isSelected = entry.stableKey == vm.currentSidebarSelectionKey,
                                             isArchived = false,
                                             language = lang,
                                             onOpen = {
-                                                vm.openSession(session)
+                                                vm.openSidebarEntry(entry)
                                                 animateSidebar(0f)
                                             },
-                                            onToggleArchive = { vm.archiveSession(session) },
-                                            onExport = { vm.exportSession(session) },
-                                            onDelete = { vm.deleteSession(session) }
+                                            onToggleArchive = { entry.aiSession?.let { vm.archiveSession(it) } },
+                                            onExport = { entry.aiSession?.let { vm.exportSession(it) } },
+                                            onDelete = { entry.aiSession?.let { vm.deleteSession(it) } }
                                         )
                                     }
                                 }
@@ -823,7 +834,7 @@ fun RootShellScreen(vm: DragonClawViewModel) {
 
 @Composable
 private fun SidebarSessionRow(
-    session: AiSessionSummary,
+    entry: SidebarSessionEntry,
     isSelected: Boolean,
     isArchived: Boolean,
     language: String,
@@ -834,6 +845,23 @@ private fun SidebarSessionRow(
 ) {
     val palette = LocalDragonClawPalette.current
     var showMenu by remember { mutableStateOf(false) }
+    val badge = entry.badgeLabel(language)
+    val iconVector = when {
+        isArchived -> Icons.Rounded.Inventory2
+        entry.desktopSession?.provider?.lowercase() == "codex" -> Icons.Rounded.Terminal
+        entry.desktopSession?.provider?.lowercase() == "claudecode" -> Icons.Rounded.AutoAwesome
+        entry.desktopSession?.provider?.lowercase() == "antigravity" -> Icons.Rounded.Memory
+        entry.desktopSession?.provider?.lowercase() == "workbuddy" -> Icons.Rounded.DesktopMac
+        entry.aiSession?.isGroupSession == true -> Icons.Rounded.Groups
+        entry.aiSession?.isWorkspaceAgent == true -> Icons.Rounded.Build
+        else -> Icons.Rounded.ChatBubbleOutline
+    }
+    val badgeColor = when (entry.desktopSession?.provider?.lowercase()) {
+        "codex" -> Color(0xFF16A34A)
+        "claudecode" -> Color(0xFFEA580C)
+        "workbuddy" -> Color(0xFF0891B2)
+        else -> if (badge == "群聊" || badge == "Group") Color(0xFF4F46E5) else palette.accentStrong
+    }
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -845,70 +873,93 @@ private fun SidebarSessionRow(
             .padding(horizontal = 10.dp, vertical = 7.dp)
     ) {
         Icon(
-            imageVector = if (isArchived) Icons.Rounded.Inventory2 else Icons.Rounded.ChatBubbleOutline,
+            imageVector = iconVector,
             contentDescription = null,
             tint = if (isSelected) palette.accentStrong else palette.inkMuted,
             modifier = Modifier.size(15.dp)
         )
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(7.dp))
         Text(
-            text = session.displayTitle(language),
+            text = entry.displayTitle(language),
             color = if (isSelected) palette.accentStrong else palette.inkPrimary,
             fontSize = 12.5.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
         )
-        Box {
-            IconButton(
-                onClick = { showMenu = true },
-                modifier = Modifier.size(28.dp)
+        if (!badge.isNullOrBlank()) {
+            Spacer(Modifier.width(5.dp))
+            Box(
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(badgeColor.copy(alpha = 0.14f))
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Rounded.MoreHoriz,
-                    contentDescription = "More",
-                    tint = palette.inkMuted,
-                    modifier = Modifier.size(16.dp)
+                Text(
+                    text = badge,
+                    color = badgeColor,
+                    fontSize = 9.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1
                 )
             }
-            DropdownMenu(
-                expanded = showMenu,
-                onDismissRequest = { showMenu = false }
-            ) {
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            if (isArchived) tr(language, "恢复会话", "Unarchive")
-                            else tr(language, "归档会话", "Archive")
-                        )
-                    },
-                    leadingIcon = {
-                        Icon(
-                            if (isArchived) Icons.Rounded.Unarchive else Icons.Rounded.Archive,
-                            contentDescription = null
-                        )
-                    },
-                    onClick = {
-                        showMenu = false
-                        onToggleArchive()
-                    }
-                )
-                DropdownMenuItem(
-                    text = { Text(tr(language, "导出日志 (JSON)", "Export Log")) },
-                    leadingIcon = { Icon(Icons.Rounded.IosShare, contentDescription = null) },
-                    onClick = {
-                        showMenu = false
-                        onExport()
-                    }
-                )
-                DropdownMenuItem(
-                    text = { Text(tr(language, "删除会话", "Delete"), color = palette.danger) },
-                    leadingIcon = { Icon(Icons.Rounded.DeleteOutline, contentDescription = null, tint = palette.danger) },
-                    onClick = {
-                        showMenu = false
-                        onDelete()
-                    }
-                )
+        }
+        if (entry.busy) {
+            Spacer(Modifier.width(5.dp))
+            CircularProgressIndicator(strokeWidth = 1.6.dp, color = palette.accentStrong, modifier = Modifier.size(12.dp))
+        }
+        if (entry.aiSession != null) {
+            Box {
+                IconButton(
+                    onClick = { showMenu = true },
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.MoreHoriz,
+                        contentDescription = "More",
+                        tint = palette.inkMuted,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false }
+                ) {
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                if (isArchived) tr(language, "恢复会话", "Unarchive")
+                                else tr(language, "归档会话", "Archive")
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                if (isArchived) Icons.Rounded.Unarchive else Icons.Rounded.Archive,
+                                contentDescription = null
+                            )
+                        },
+                        onClick = {
+                            showMenu = false
+                            onToggleArchive()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(tr(language, "导出日志 (JSON)", "Export Log")) },
+                        leadingIcon = { Icon(Icons.Rounded.IosShare, contentDescription = null) },
+                        onClick = {
+                            showMenu = false
+                            onExport()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(tr(language, "删除会话", "Delete"), color = palette.danger) },
+                        leadingIcon = { Icon(Icons.Rounded.DeleteOutline, contentDescription = null, tint = palette.danger) },
+                        onClick = {
+                            showMenu = false
+                            onDelete()
+                        }
+                    )
+                }
             }
         }
     }

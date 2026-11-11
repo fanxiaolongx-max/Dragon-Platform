@@ -10,9 +10,16 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -172,7 +179,9 @@ fun ChatScreen(vm: DragonClawViewModel) {
             .imePadding()
     ) {
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-            if (vm.messages.isEmpty()) {
+            if (vm.messages.isEmpty() && vm.isLoadingSessionMessages) {
+                ChatShimmerSkeleton(modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 18.dp))
+            } else if (vm.messages.isEmpty()) {
                 LazyColumn(
                     contentPadding = PaddingValues(horizontal = 18.dp, vertical = 20.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -289,9 +298,7 @@ fun ChatScreen(vm: DragonClawViewModel) {
                 ) {
                     if (vm.isLoadingSessionMessages) {
                         item {
-                            Box(Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator(color = palette.accentStrong, strokeWidth = 2.dp)
-                            }
+                            ChatShimmerSkeleton(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp))
                         }
                     }
                     items(vm.messages, key = { it.id }) { msg ->
@@ -316,6 +323,49 @@ fun ChatScreen(vm: DragonClawViewModel) {
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                vm.activeDesktopSession?.let { desktop ->
+                    LiquidGlassSurface(
+                        shape = CircleShape,
+                        elevation = 2.dp,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(CircleShape)
+                                    .background(palette.accent.copy(alpha = 0.16f))
+                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = desktop.providerDisplayName(),
+                                    color = palette.accentStrong,
+                                    fontSize = 10.5.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = desktop.displayTitle(lang),
+                                color = palette.inkPrimary,
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (vm.activeDesktopBusy) {
+                                CircularProgressIndicator(strokeWidth = 2.dp, color = palette.accentStrong, modifier = Modifier.size(12.dp))
+                                Spacer(Modifier.width(5.dp))
+                                Text(tr(lang, "运行中", "Running"), color = palette.accentStrong, fontSize = 11.sp)
+                            } else if (!vm.activeDesktopCanSend) {
+                                Text(tr(lang, "只读", "Read-only"), color = palette.inkMuted, fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
+
                 vm.chatErrorBanner?.let { err ->
                     LiquidGlassSurface(
                         shape = CircleShape,
@@ -413,7 +463,12 @@ fun ChatScreen(vm: DragonClawViewModel) {
                     )
                 } else {
                     val trimmed = vm.composerText.trim()
-                    val canSend = trimmed.isNotEmpty() || vm.pendingAttachments.isNotEmpty()
+                    val hasPayload = trimmed.isNotEmpty() || vm.pendingAttachments.isNotEmpty()
+                    val canSend = if (vm.activeDesktopSession != null) {
+                        trimmed.isNotEmpty() && vm.activeDesktopCanSend
+                    } else {
+                        hasPayload
+                    }
                     val plusRotation by animateFloatAsState(
                         targetValue = if (showPlusMenu) 45f else 0f,
                         animationSpec = tween(220),
@@ -506,7 +561,7 @@ fun ChatScreen(vm: DragonClawViewModel) {
                                             fontWeight = FontWeight.Medium,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.widthIn(max = 128.dp)
+                                            modifier = Modifier.widthIn(max = 156.dp)
                                         )
                                         Spacer(Modifier.width(3.dp))
                                         Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null, tint = palette.inkMuted, modifier = Modifier.size(15.dp))
@@ -1176,4 +1231,98 @@ private fun splitMarkdownCodeSections(raw: String): List<Triple<Boolean, String,
     }
     if (inCode) flushCode() else flushText()
     return result
+}
+
+@Composable
+private fun ChatShimmerSkeleton(modifier: Modifier = Modifier) {
+    val palette = LocalDragonClawPalette.current
+    val transition = rememberInfiniteTransition(label = "chatShimmer")
+    val shift by transition.animateFloat(
+        initialValue = -320f,
+        targetValue = 980f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1250, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "shimmerShift"
+    )
+    val baseColor = palette.inkMuted.copy(alpha = if (palette.isDark) 0.22f else 0.14f)
+    val highlightColor = Color.White.copy(alpha = if (palette.isDark) 0.22f else 0.70f)
+    val shimmerBrush = Brush.linearGradient(
+        colors = listOf(baseColor, highlightColor, baseColor),
+        start = Offset(shift - 220f, 0f),
+        end = Offset(shift + 220f, 180f)
+    )
+
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(18.dp)
+    ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            Box(
+                modifier = Modifier
+                    .width(172.dp)
+                    .height(40.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(shimmerBrush)
+            )
+        }
+        AssistantSkeletonCard(shimmerBrush, listOf(0.92f, 0.78f, 0.54f))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            Box(
+                modifier = Modifier
+                    .width(134.dp)
+                    .height(36.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(shimmerBrush)
+            )
+        }
+        AssistantSkeletonCard(shimmerBrush, listOf(0.86f, 0.62f))
+    }
+}
+
+@Composable
+private fun AssistantSkeletonCard(shimmerBrush: Brush, lineRatios: List<Float>) {
+    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .clip(CircleShape)
+                .background(shimmerBrush)
+        )
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(92.dp)
+                    .height(12.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(shimmerBrush)
+            )
+            LiquidGlassSurface(shape = RoundedCornerShape(18.dp), elevation = 2.dp) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(9.dp)
+                ) {
+                    lineRatios.forEach { ratio ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(ratio)
+                                .height(14.dp)
+                                .clip(RoundedCornerShape(7.dp))
+                                .background(shimmerBrush)
+                        )
+                    }
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(modifier = Modifier.width(64.dp).height(26.dp).clip(CircleShape).background(shimmerBrush))
+                Box(modifier = Modifier.width(64.dp).height(26.dp).clip(CircleShape).background(shimmerBrush))
+            }
+        }
+    }
 }

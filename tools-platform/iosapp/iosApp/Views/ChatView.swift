@@ -38,7 +38,12 @@ struct ChatView: View {
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                if store.messages.isEmpty {
+                if store.messages.isEmpty && store.isLoadingSessionMessages {
+                    ChatShimmerSkeletonView(palette: palette)
+                        .padding(.horizontal, 14)
+                        .padding(.top, 20)
+                        .padding(.bottom, 20)
+                } else if store.messages.isEmpty {
                     heroEmptyState
                         .padding(.horizontal, 18)
                         .padding(.top, 24)
@@ -46,8 +51,8 @@ struct ChatView: View {
                 } else {
                     LazyVStack(spacing: 16) {
                         if store.isLoadingSessionMessages {
-                            ProgressView()
-                                .padding(.vertical, 24)
+                            ChatShimmerSkeletonView(palette: palette)
+                                .padding(.vertical, 8)
                         }
 
                         ForEach(store.messages, id: \.id) { message in
@@ -226,45 +231,86 @@ struct ChatView: View {
         }
     }
 
-    private var modelSelectorPill: some View {
-        Menu {
-            Button {
-                store.selectModel("")
-            } label: {
-                Label(
-                    L10n.tr(lang, zh: "系统推荐模型", en: "Default Model"),
-                    systemImage: store.selectedModelId.isEmpty ? "checkmark" : "cpu"
-                )
-            }
-            ForEach(store.models, id: \.id) { model in
-                Button {
-                    store.selectModel(model.id)
-                } label: {
-                    Label(model.name, systemImage: store.selectedModelId == model.id ? "checkmark" : "cpu")
-                }
-            }
+    @ViewBuilder
+    private func modelMenuItems() -> some View {
+        Button {
+            store.selectModel("")
         } label: {
-            HStack(spacing: 6) {
+            Label(
+                L10n.tr(lang, zh: "系统推荐模型", en: "Default Model"),
+                systemImage: store.selectedModelId.isEmpty ? "checkmark" : "cpu"
+            )
+        }
+        ForEach(store.models, id: \.id) { model in
+            Button {
+                store.selectModel(model.id)
+            } label: {
+                Label(model.name, systemImage: store.selectedModelId == model.id ? "checkmark" : "cpu")
+            }
+        }
+    }
+
+    private func modelPickerButton(
+        maxWidth: CGFloat?,
+        font: Font,
+        foreground: Color,
+        showCpuIcon: Bool,
+        horizontalPadding: CGFloat,
+        verticalPadding: CGFloat
+    ) -> some View {
+        HStack(spacing: showCpuIcon ? 6 : 4) {
+            if showCpuIcon {
                 Image(systemName: "cpu")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(palette.accentStrong)
-                Text(store.activeModelDisplayName)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(palette.inkPrimary)
-                Image(systemName: "chevron.down")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(palette.inkMuted)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
+            Text(store.activeModelDisplayName)
+                .font(font)
+                .foregroundStyle(foreground)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .contentTransition(.identity)
+                .fixedSize(horizontal: false, vertical: true)
+            Image(systemName: "chevron.down")
+                .font(.system(size: showCpuIcon ? 10 : 9, weight: .semibold))
+                .foregroundStyle(palette.inkMuted)
         }
-        .buttonStyle(.plain)
+        .frame(maxWidth: maxWidth, alignment: maxWidth == nil ? .center : .trailing)
+        .padding(.horizontal, horizontalPadding)
+        .padding(.vertical, verticalPadding)
+        .transaction { $0.animation = nil }
+        .animation(nil, value: store.activeModelDisplayName)
+        .overlay {
+            Menu {
+                modelMenuItems()
+            } label: {
+                Rectangle()
+                    .fill(Color.clear)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(store.activeModelDisplayName)
+        }
+    }
+
+    private var modelSelectorPill: some View {
+        modelPickerButton(
+            maxWidth: nil,
+            font: .caption.weight(.semibold),
+            foreground: palette.inkPrimary,
+            showCpuIcon: true,
+            horizontalPadding: 14,
+            verticalPadding: 8
+        )
         .glassEffect(.regular.interactive(), in: .capsule)
     }
 
     private var floatingLiquidComposer: some View {
         let trimmed = store.composerText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let canSend = !trimmed.isEmpty || !store.pendingAttachments.isEmpty
+        let hasPayload = !trimmed.isEmpty || !store.pendingAttachments.isEmpty
+        let canSend = store.activeDesktopSession != nil
+            ? (!trimmed.isEmpty && store.activeDesktopCanSend)
+            : hasPayload
 
         return ZStack(alignment: .bottomLeading) {
             if showPlusMenu {
@@ -301,6 +347,35 @@ struct ChatView: View {
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .glassEffect(.regular.tint(palette.danger.opacity(0.12)), in: Capsule())
+                }
+
+                if let desktop = store.activeDesktopSession {
+                    HStack(spacing: 8) {
+                        Text(desktop.providerDisplayName())
+                            .font(.system(size: 10.5, weight: .semibold))
+                            .foregroundStyle(palette.accentStrong)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(palette.accent.opacity(0.14), in: Capsule())
+                        Text(desktop.displayTitle(language: lang))
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(palette.inkPrimary)
+                            .lineLimit(1)
+                        Spacer(minLength: 4)
+                        if store.activeDesktopBusy {
+                            ProgressView().controlSize(.mini)
+                            Text(L10n.tr(lang, zh: "运行中", en: "Running"))
+                                .font(.caption2)
+                                .foregroundStyle(palette.accentStrong)
+                        } else if !store.activeDesktopCanSend {
+                            Text(L10n.tr(lang, zh: "只读", en: "Read-only"))
+                                .font(.caption2)
+                                .foregroundStyle(palette.inkMuted)
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .glassEffect(.regular, in: Capsule())
                 }
 
                 if let status = store.chatStatusBanner {
@@ -434,32 +509,14 @@ struct ChatView: View {
 
                 Spacer(minLength: 4)
 
-                Menu {
-                    Button { store.selectModel("") } label: {
-                        Label(L10n.tr(lang, zh: "默认模型", en: "Default Model"), systemImage: store.selectedModelId.isEmpty ? "checkmark" : "cpu")
-                    }
-                    ForEach(store.models, id: \.id) { m in
-                        Button {
-                            store.selectModel(m.id)
-                        } label: {
-                            Label(m.name, systemImage: store.selectedModelId == m.id ? "checkmark" : "cpu")
-                        }
-                    }
-                } label: {
-                    HStack(spacing: 4) {
-                        Text(store.activeModelDisplayName)
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(palette.inkSecondary)
-                            .lineLimit(1)
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(palette.inkMuted)
-                    }
-                    .frame(maxWidth: 132, alignment: .trailing)
-                    .padding(.horizontal, 8)
-                    .frame(height: 30)
-                }
-                .buttonStyle(.plain)
+                modelPickerButton(
+                    maxWidth: 164,
+                    font: .system(size: 12, weight: .medium),
+                    foreground: palette.inkSecondary,
+                    showCpuIcon: false,
+                    horizontalPadding: 8,
+                    verticalPadding: 6
+                )
 
                 Button {
                     showPlusMenu = false
@@ -923,5 +980,91 @@ private struct ChatBubbleRow: View {
             }
             .padding(.trailing, 18)
         }
+    }
+}
+
+private struct ChatShimmerSkeletonView: View {
+    let palette: DragonClawPalette
+    @State private var phase: CGFloat = -0.7
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack {
+                Spacer(minLength: 80)
+                skeletonBlock(width: 176, height: 40, radius: 18)
+            }
+
+            assistantSkeletonCard(lineWidths: [0.92, 0.78, 0.52])
+
+            HStack {
+                Spacer(minLength: 100)
+                skeletonBlock(width: 138, height: 38, radius: 18)
+            }
+
+            assistantSkeletonCard(lineWidths: [0.88, 0.64])
+        }
+        .onAppear {
+            withAnimation(.linear(duration: 1.25).repeatForever(autoreverses: false)) {
+                phase = 1.7
+            }
+        }
+    }
+
+    private func assistantSkeletonCard(lineWidths: [CGFloat]) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Circle()
+                .fill(palette.chipSurface)
+                .frame(width: 28, height: 28)
+                .overlay(shimmerSweep(in: Circle()))
+
+            VStack(alignment: .leading, spacing: 10) {
+                skeletonBlock(width: 96, height: 12, radius: 6)
+
+                GeometryReader { geo in
+                    VStack(alignment: .leading, spacing: 9) {
+                        ForEach(Array(lineWidths.enumerated()), id: \.offset) { _, ratio in
+                            skeletonBlock(width: max(60, geo.size.width * ratio), height: 14, radius: 7)
+                        }
+                    }
+                }
+                .frame(height: CGFloat(lineWidths.count) * 23)
+                .padding(14)
+                .background(palette.cardSurface.opacity(0.75), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay(shimmerSweep(in: RoundedRectangle(cornerRadius: 18, style: .continuous)))
+
+                HStack(spacing: 8) {
+                    skeletonBlock(width: 66, height: 26, radius: 13)
+                    skeletonBlock(width: 66, height: 26, radius: 13)
+                }
+            }
+        }
+    }
+
+    private func skeletonBlock(width: CGFloat, height: CGFloat, radius: CGFloat) -> some View {
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        return shape
+            .fill(palette.inkMuted.opacity(palette.isDark ? 0.22 : 0.14))
+            .frame(width: width, height: height)
+            .overlay(shimmerSweep(in: shape))
+            .clipShape(shape)
+    }
+
+    private func shimmerSweep<S: Shape>(in shape: S) -> some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            LinearGradient(
+                colors: [
+                    Color.clear,
+                    palette.isDark ? Color.white.opacity(0.24) : Color.white.opacity(0.75),
+                    Color.clear
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .frame(width: max(w * 0.65, 60))
+            .offset(x: phase * max(w, 180))
+        }
+        .clipShape(shape)
+        .allowsHitTesting(false)
     }
 }

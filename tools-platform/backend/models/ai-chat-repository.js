@@ -543,8 +543,13 @@ async function listArchivedSessions({ query = '', limit = 60, offset = 0, archiv
         params
     );
     const rows = await all(
-        `SELECT s.id, s.page_path, s.page_title, s.is_archived, s.created_at, s.updated_at, s.archived_at,
+        `SELECT s.id, s.page_path, s.page_title, s.auto_title, s.agent_session_id, s.agent_root, s.is_archived, s.created_at, s.updated_at, s.archived_at,
                 COUNT(m.id) AS message_count,
+                (
+                    SELECT content FROM ai_chat_messages um
+                    WHERE um.session_id = s.id AND um.role = 'user'
+                    ORDER BY um.created_at ASC, um.rowid ASC LIMIT 1
+                ) AS first_question,
                 (
                     SELECT content FROM ai_chat_messages um
                     WHERE um.session_id = s.id AND um.role = 'user'
@@ -563,6 +568,15 @@ async function listArchivedSessions({ query = '', limit = 60, offset = 0, archiv
         items: rows.map(row => ({
             ...row,
             is_archived: Number(row.is_archived) || 0,
+            archived: Boolean(Number(row.is_archived)),
+            title: row.auto_title || conversationTitle(row.first_question || row.last_question),
+            firstQuestion: String(row.first_question || '').slice(0, 160),
+            lastQuestion: String(row.last_question || '').slice(0, 160),
+            createdAt: row.created_at,
+            updatedAt: row.updated_at,
+            archivedAt: row.archived_at,
+            messageCount: Number(row.message_count) || 0,
+            agent: row.agent_session_id && row.agent_root ? { agentSessionId: row.agent_session_id, root: row.agent_root } : null,
             last_question: String(row.last_question || '').slice(0, 160)
         }))
     };

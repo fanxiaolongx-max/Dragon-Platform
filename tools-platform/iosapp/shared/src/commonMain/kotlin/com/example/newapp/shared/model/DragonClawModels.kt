@@ -1,7 +1,9 @@
 package com.example.newapp.shared.model
 
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNames
 import kotlinx.serialization.json.JsonObject
 
 @Serializable
@@ -77,17 +79,37 @@ data class ChatStreamRequest(
 )
 
 @Serializable
+data class SessionAgentRef(
+    val agentSessionId: String = "",
+    val root: String = ""
+)
+
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
 data class AiSessionSummary(
     val id: String,
-    val createdAt: String? = null,
-    val updatedAt: String? = null,
+    @JsonNames("created_at") val createdAt: String? = null,
+    @JsonNames("updated_at") val updatedAt: String? = null,
+    @JsonNames("archived_at") val archivedAt: String? = null,
     val archived: Boolean = false,
-    val messageCount: Int = 0,
-    val title: String = "",
-    val firstQuestion: String? = null,
-    val lastQuestion: String? = null,
+    val is_archived: Int? = null,
+    @JsonNames("message_count") val messageCount: Int = 0,
+    @JsonNames("auto_title") val title: String = "",
+    @JsonNames("first_question") val firstQuestion: String? = null,
+    @JsonNames("last_question") val lastQuestion: String? = null,
+    val discussionMode: String? = null,
+    val agent: SessionAgentRef? = null,
     val busy: Boolean = false
 ) {
+    val isArchivedSession: Boolean
+        get() = archived || (is_archived ?: 0) != 0
+
+    val isGroupSession: Boolean
+        get() = discussionMode == "group"
+
+    val isWorkspaceAgent: Boolean
+        get() = agent?.root?.isNotBlank() == true
+
     fun displayTitle(language: String): String {
         val candidate = title.ifBlank { firstQuestion.orEmpty() }.ifBlank { lastQuestion.orEmpty() }.trim()
         return candidate.ifEmpty { if (language == "en") "New conversation" else "新对话" }
@@ -222,20 +244,22 @@ enum class SessionBucket {
     YESTERDAY,
     LAST_7_DAYS,
     LAST_30_DAYS,
-    OLDER
+    OLDER;
+
+    fun localizedTitle(language: String): String = when (this) {
+        TODAY -> if (language == "en") "Today" else "今天"
+        YESTERDAY -> if (language == "en") "Yesterday" else "昨天"
+        LAST_7_DAYS -> if (language == "en") "Previous 7 Days" else "近 7 天"
+        LAST_30_DAYS -> if (language == "en") "Previous 30 Days" else "近 30 天"
+        OLDER -> if (language == "en") "Older" else "更早"
+    }
 }
 
 data class SessionGroup(
     val bucket: SessionBucket,
     val items: List<AiSessionSummary>
 ) {
-    fun localizedTitle(language: String): String = when (bucket) {
-        SessionBucket.TODAY -> if (language == "en") "Today" else "今天"
-        SessionBucket.YESTERDAY -> if (language == "en") "Yesterday" else "昨天"
-        SessionBucket.LAST_7_DAYS -> if (language == "en") "Previous 7 Days" else "近 7 天"
-        SessionBucket.LAST_30_DAYS -> if (language == "en") "Previous 30 Days" else "近 30 天"
-        SessionBucket.OLDER -> if (language == "en") "Older" else "更早"
-    }
+    fun localizedTitle(language: String): String = bucket.localizedTitle(language)
 }
 
 class UploadAttachmentDraft(
@@ -360,3 +384,132 @@ data class SaveFavoriteNavRequest(
 data class RecordRecentNavRequest(
     val toolId: String
 )
+
+// --- Desktop Agent Connectors (Codex / Claude Code / Antigravity / WorkBuddy) ---
+
+@Serializable
+data class DesktopAgentProviderState(
+    val id: String = "",
+    val enabled: Boolean = false,
+    val connected: Boolean = false,
+    val canRead: Boolean = false,
+    val canSend: Boolean = false,
+    val count: Int = 0,
+    val reason: String? = null
+)
+
+@Serializable
+data class DesktopAgentSessionSummary(
+    val id: String = "",
+    val provider: String = "",
+    val title: String = "",
+    val fullTitle: String? = null,
+    val updatedAt: String? = null,
+    val observedAt: String? = null,
+    val source: String? = null,
+    val busy: Boolean = false
+) {
+    val stableKey: String
+        get() = "desktop:$provider:$id"
+
+    fun displayTitle(language: String): String {
+        val clean = title.trim().ifBlank { fullTitle.orEmpty().trim() }
+        return clean.ifEmpty { providerDisplayName() }
+    }
+
+    fun providerDisplayName(): String = when (provider.lowercase()) {
+        "codex" -> "Codex"
+        "claudecode" -> "Claude"
+        "antigravity" -> "Antigravity"
+        "workbuddy" -> "WorkBuddy"
+        else -> provider.ifBlank { "Agent" }
+    }
+}
+
+@Serializable
+data class DesktopAgentsSessionsResponse(
+    val items: List<DesktopAgentSessionSummary> = emptyList(),
+    val providers: List<DesktopAgentProviderState> = emptyList(),
+    val syncedAt: String? = null
+)
+
+@Serializable
+data class DesktopAgentRoundUsage(
+    val model: String? = null,
+    val inputTokens: Int? = null,
+    val outputTokens: Int? = null
+)
+
+@Serializable
+data class DesktopAgentAttachmentItem(
+    val path: String = "",
+    val name: String = ""
+)
+
+@Serializable
+data class DesktopAgentMessageItem(
+    val id: String = "",
+    val role: String = "user",
+    val content: String = "",
+    val createdAt: String? = null,
+    val channel: String? = null,
+    val rounds: List<DesktopAgentRoundUsage> = emptyList(),
+    val attachments: List<DesktopAgentAttachmentItem> = emptyList()
+)
+
+@Serializable
+data class DesktopAgentMessagesResponse(
+    val items: List<DesktopAgentMessageItem>? = null,
+    val available: Boolean = true,
+    val stale: Boolean = false,
+    val busy: Boolean = false,
+    val canSend: Boolean = false,
+    val canSteer: Boolean = false,
+    val reason: String? = null,
+    val selectedModel: String? = null,
+    val session: DesktopAgentSessionSummary? = null,
+    val error: String? = null
+)
+
+@Serializable
+data class DesktopAgentSendRequest(
+    val text: String,
+    val requestId: String,
+    val mode: String? = null,
+    val model: String? = null
+)
+
+@Serializable
+data class DesktopAgentSendResponse(
+    val status: String? = null,
+    val error: String? = null
+)
+
+data class SidebarSessionEntry(
+    val stableKey: String,
+    val aiSession: AiSessionSummary? = null,
+    val desktopSession: DesktopAgentSessionSummary? = null,
+    val sortTimestampMs: Long = 0L
+) {
+    val isDesktopAgent: Boolean get() = desktopSession != null
+    val busy: Boolean get() = desktopSession?.busy ?: aiSession?.busy ?: false
+
+    fun displayTitle(language: String): String =
+        desktopSession?.displayTitle(language)
+            ?: aiSession?.displayTitle(language)
+            ?: if (language == "en") "New conversation" else "新对话"
+
+    fun badgeLabel(language: String): String? = when {
+        desktopSession != null -> desktopSession.providerDisplayName()
+        aiSession?.isGroupSession == true -> if (language == "en") "Group" else "群聊"
+        aiSession?.isWorkspaceAgent == true -> "Agent"
+        else -> null
+    }
+}
+
+data class UnifiedSessionGroup(
+    val bucket: SessionBucket,
+    val items: List<SidebarSessionEntry>
+) {
+    fun localizedTitle(language: String): String = bucket.localizedTitle(language)
+}

@@ -99,6 +99,9 @@ struct RootShellView: View {
             sidebarProgress = store.isDrawerOpen ? 1 : 0
         }
         .onChange(of: store.isDrawerOpen) { _, open in
+            if open {
+                store.loadSessions()
+            }
             withAnimation(.spring(response: 0.34, dampingFraction: 0.88)) {
                 sidebarProgress = open ? 1 : 0
             }
@@ -222,6 +225,11 @@ struct RootShellView: View {
                     )
                     .font(.system(size: 13))
                     .textInputAutocapitalization(.never)
+                    .onChange(of: store.sessionSearchQuery) { _, _ in
+                        if !store.showArchivedSessions {
+                            store.regroupSessions()
+                        }
+                    }
                     .onSubmit {
                         if store.showArchivedSessions {
                             store.loadArchivedSessions()
@@ -374,25 +382,25 @@ struct RootShellView: View {
                                     .frame(maxWidth: .infinity)
                             } else {
                                 ForEach(store.archivedSessions, id: \.id) { session in
-                                    sessionRowView(session, isArchived: true)
+                                    archivedSessionRowView(session)
                                 }
                             }
-                        } else if store.sessionGroups.isEmpty {
+                        } else if store.unifiedSessionGroups.isEmpty {
                             Text(L10n.tr(lang, zh: "暂无历史会话", en: "No conversation history"))
                                 .font(.system(size: 11.5))
                                 .foregroundStyle(palette.inkMuted)
                                 .padding(.vertical, 20)
                                 .frame(maxWidth: .infinity)
                         } else {
-                            ForEach(store.sessionGroups, id: \.bucket) { group in
+                            ForEach(store.unifiedSessionGroups, id: \.bucket) { group in
                                 VStack(alignment: .leading, spacing: 5) {
                                     Text(group.localizedTitle(language: lang))
                                         .font(.system(size: 10.5, weight: .semibold))
                                         .foregroundStyle(palette.inkMuted)
                                         .padding(.horizontal, 6)
 
-                                    ForEach(group.items, id: \.id) { session in
-                                        sessionRowView(session, isArchived: false)
+                                    ForEach(group.items, id: \.stableKey) { entry in
+                                        unifiedSessionRowView(entry)
                                     }
                                 }
                             }
@@ -475,22 +483,97 @@ struct RootShellView: View {
         .buttonStyle(.plain)
     }
 
-    private func sessionRowView(_ session: AiSessionSummary, isArchived: Bool) -> some View {
-        let isSelected = session.id == store.currentSessionId
-        return HStack(spacing: 8) {
-            Button {
-                store.openSession(session)
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: isArchived ? "archivebox" : "bubble.left")
+    private func unifiedSessionRowView(_ entry: SidebarSessionEntry) -> some View {
+        let isSelected = entry.stableKey == store.currentSidebarSelectionKey
+        let iconName: String = {
+            if let d = entry.desktopSession {
+                switch d.provider.lowercased() {
+                case "codex": return "terminal"
+                case "claudecode": return "sparkles"
+                case "antigravity": return "cpu"
+                case "workbuddy": return "person.crop.circle.badge.checkmark"
+                default: return "desktopcomputer"
+                }
+            }
+            if entry.aiSession?.isGroupSession == true { return "person.2" }
+            if entry.aiSession?.isWorkspaceAgent == true { return "hammer" }
+            return "bubble.left"
+        }()
+
+        return sidebarRowContainer(
+            title: entry.displayTitle(language: lang),
+            badge: entry.badgeLabel(language: lang),
+            providerKey: entry.desktopSession?.provider,
+            iconName: iconName,
+            isSelected: isSelected,
+            isBusy: entry.busy,
+            aiSession: entry.aiSession,
+            isArchived: false
+        ) {
+            store.openSidebarEntry(entry)
+        }
+    }
+
+    private func archivedSessionRowView(_ session: AiSessionSummary) -> some View {
+        let badge = session.isGroupSession
+            ? L10n.tr(lang, zh: "群聊", en: "Group")
+            : (session.isWorkspaceAgent ? "Agent" : nil)
+        return sidebarRowContainer(
+            title: session.displayTitle(language: lang),
+            badge: badge,
+            providerKey: nil,
+            iconName: "archivebox",
+            isSelected: store.currentSidebarSelectionKey == "ai:\(session.id)",
+            isBusy: session.busy,
+            aiSession: session,
+            isArchived: true
+        ) {
+            store.openSession(session)
+        }
+    }
+
+    private func badgeTintColor(providerKey: String?, label: String) -> Color {
+        switch providerKey?.lowercased() {
+        case "codex": return .green
+        case "claudecode": return .orange
+        case "workbuddy": return .cyan
+        default:
+            return label == "群聊" || label == "Group" ? .indigo : palette.accentStrong
+        }
+    }
+
+    private func sidebarRowContainer(
+        title: String,
+        badge: String?,
+        providerKey: String?,
+        iconName: String,
+        isSelected: Bool,
+        isBusy: Bool,
+        aiSession: AiSessionSummary?,
+        isArchived: Bool,
+        onTap: @escaping () -> Void
+    ) -> some View {
+        HStack(spacing: 8) {
+            Button(action: onTap) {
+                HStack(spacing: 7) {
+                    Image(systemName: iconName)
                         .font(.system(size: 12))
                         .foregroundStyle(isSelected ? palette.accentStrong : palette.inkMuted)
-                    Text(session.displayTitle(language: lang))
+                    Text(title)
                         .font(.system(size: 12.5))
                         .foregroundStyle(isSelected ? palette.accentStrong : palette.inkPrimary)
                         .lineLimit(1)
-                    Spacer()
-                    if session.busy {
+                    if let badge, !badge.isEmpty {
+                        let tint = badgeTintColor(providerKey: providerKey, label: badge)
+                        Text(badge)
+                            .font(.system(size: 9.5, weight: .semibold))
+                            .foregroundStyle(tint)
+                            .padding(.horizontal, 5.5)
+                            .padding(.vertical, 2)
+                            .background(tint.opacity(0.14), in: Capsule())
+                    }
+                    Spacer(minLength: 4)
+                    if isBusy {
                         ProgressView().controlSize(.mini)
                     }
                 }
@@ -498,37 +581,16 @@ struct RootShellView: View {
             }
             .buttonStyle(.plain)
 
-            Menu {
-                if isArchived {
-                    Button {
-                        store.unarchiveSession(session)
-                    } label: {
-                        Label(L10n.tr(lang, zh: "恢复会话", en: "Unarchive"), systemImage: "tray.and.arrow.up")
-                    }
-                } else {
-                    Button {
-                        store.archiveSession(session)
-                    } label: {
-                        Label(L10n.tr(lang, zh: "归档会话", en: "Archive"), systemImage: "archivebox")
-                    }
-                }
-                Button {
-                    store.exportSession(session)
+            if let session = aiSession {
+                Menu {
+                    sessionActionsMenu(session: session, isArchived: isArchived)
                 } label: {
-                    Label(L10n.tr(lang, zh: "导出日志 (JSON)", en: "Export Log"), systemImage: "square.and.arrow.up")
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(palette.inkMuted)
+                        .frame(width: 26, height: 26)
+                        .contentShape(Rectangle())
                 }
-                Divider()
-                Button(role: .destructive) {
-                    store.removeSession(session)
-                } label: {
-                    Label(L10n.tr(lang, zh: "删除会话", en: "Delete"), systemImage: "trash")
-                }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(palette.inkMuted)
-                    .frame(width: 26, height: 26)
-                    .contentShape(Rectangle())
             }
         }
         .padding(.horizontal, 10)
@@ -538,29 +600,37 @@ struct RootShellView: View {
             in: RoundedRectangle(cornerRadius: 12, style: .continuous)
         )
         .contextMenu {
-            if isArchived {
-                Button {
-                    store.unarchiveSession(session)
-                } label: {
-                    Label(L10n.tr(lang, zh: "恢复会话", en: "Unarchive"), systemImage: "tray.and.arrow.up")
-                }
-            } else {
-                Button {
-                    store.archiveSession(session)
-                } label: {
-                    Label(L10n.tr(lang, zh: "归档会话", en: "Archive"), systemImage: "archivebox")
-                }
+            if let session = aiSession {
+                sessionActionsMenu(session: session, isArchived: isArchived)
             }
+        }
+    }
+
+    @ViewBuilder
+    private func sessionActionsMenu(session: AiSessionSummary, isArchived: Bool) -> some View {
+        if isArchived {
             Button {
-                store.exportSession(session)
+                store.unarchiveSession(session)
             } label: {
-                Label(L10n.tr(lang, zh: "导出日志 (JSON)", en: "Export Log"), systemImage: "square.and.arrow.up")
+                Label(L10n.tr(lang, zh: "恢复会话", en: "Unarchive"), systemImage: "tray.and.arrow.up")
             }
-            Button(role: .destructive) {
-                store.removeSession(session)
+        } else {
+            Button {
+                store.archiveSession(session)
             } label: {
-                Label(L10n.tr(lang, zh: "删除会话", en: "Delete"), systemImage: "trash")
+                Label(L10n.tr(lang, zh: "归档会话", en: "Archive"), systemImage: "archivebox")
             }
+        }
+        Button {
+            store.exportSession(session)
+        } label: {
+            Label(L10n.tr(lang, zh: "导出日志 (JSON)", en: "Export Log"), systemImage: "square.and.arrow.up")
+        }
+        Divider()
+        Button(role: .destructive) {
+            store.removeSession(session)
+        } label: {
+            Label(L10n.tr(lang, zh: "删除会话", en: "Delete"), systemImage: "trash")
         }
     }
 

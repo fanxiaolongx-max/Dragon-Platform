@@ -9,10 +9,13 @@ import kotlinx.serialization.json.jsonObject
 
 /** Pure Kotlin helpers shared by iOS and Android (stream parsing, timestamps, grouping, error extraction). */
 object DragonClawHelpers {
+    @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
     val lenientJson = Json {
         ignoreUnknownKeys = true
         coerceInputValues = true
         isLenient = true
+        encodeDefaults = true
+        explicitNulls = false
     }
 
     fun normalizeBaseUrl(rawUrl: String): String {
@@ -87,6 +90,32 @@ object DragonClawHelpers {
                 outputTokens = item.output_tokens,
                 modelName = item.model_name,
                 interrupted = item.interrupted,
+                isStreaming = false
+            )
+        }
+    }
+
+    fun mapDesktopAgentMessages(items: List<DesktopAgentMessageItem>): List<ChatMessage> {
+        return items.mapNotNull { item ->
+            val attachmentSuffix = if (item.attachments.isNotEmpty()) {
+                "\n\n" + item.attachments.joinToString("\n") { "[${it.name.ifBlank { it.path }}]" }
+            } else {
+                ""
+            }
+            val text = (item.content + attachmentSuffix).trim()
+            if (text.isEmpty()) return@mapNotNull null
+            val role = if (item.role == "user") "user" else "model"
+            val lastRound = item.rounds.lastOrNull()
+            val totalIn = item.rounds.mapNotNull { it.inputTokens }.takeIf { it.isNotEmpty() }?.sum()
+            val totalOut = item.rounds.mapNotNull { it.outputTokens }.takeIf { it.isNotEmpty() }?.sum()
+            ChatMessage(
+                id = item.id.ifBlank { "${item.createdAt.orEmpty()}_${role}_${text.hashCode()}" },
+                role = role,
+                content = text,
+                createdAt = item.createdAt,
+                inputTokens = totalIn,
+                outputTokens = totalOut,
+                modelName = lastRound?.model?.takeIf { it.isNotBlank() },
                 isStreaming = false
             )
         }
@@ -184,34 +213,46 @@ object NdjsonStreamParser {
             )
             "model_round" -> ChatStreamEvent(type = StreamEventType.MODEL_ROUND)
             "compaction" -> ChatStreamEvent(type = StreamEventType.COMPACTION, text = env.phase)
-            "done" -> {
-                val modelName = when (val m = env.model) {
-                    is JsonPrimitive -> m.contentOrNull
-                    is JsonObject -> (m["name"] as? JsonPrimitive)?.contentOrNull ?: (m["id"] as? JsonPrimitive)?.contentOrNull
-                    else -> null
-                }
-                ChatStreamEvent(
+            "done" -> ChatStreamEvent(
+                type = StreamEventType.DONE,
+                sessionId = env.sessionId,
+                text = env.reply ?: env.text,
+                inputTokens = env.usage?.inputTokens,
+                outputTokens = env.usage?.outputTokens,
+                modelName = extractModelName(env.model)
+            )
+            "error" -> ChatStreamEvent(
+                type = StreamEventType.ERROR,
+                errorMessage = extractErrorText(env.error) ?: "Unknown stream error"
+            )
+            else -> when {
+                env.type.isBlank() && (!env.reply.isNullOrBlank() || !env.text.isNullOrBlank()) -> ChatStreamEvent(
                     type = StreamEventType.DONE,
                     sessionId = env.sessionId,
                     text = env.reply ?: env.text,
                     inputTokens = env.usage?.inputTokens,
                     outputTokens = env.usage?.outputTokens,
-                    modelName = modelName
+                    modelName = extractModelName(env.model)
                 )
-            }
-            "error" -> {
-                val errText = when (val e = env.error) {
-                    is JsonPrimitive -> e.contentOrNull
-                    is JsonObject -> (e["message"] as? JsonPrimitive)?.contentOrNull ?: (e["error"] as? JsonPrimitive)?.contentOrNull
-                    else -> null
-                } ?: "Unknown stream error"
-                ChatStreamEvent(
+                env.type.isBlank() && env.error != null -> ChatStreamEvent(
                     type = StreamEventType.ERROR,
-                    errorMessage = errText
+                    errorMessage = extractErrorText(env.error) ?: "Unknown stream error"
                 )
+                else -> null
             }
-            else -> null
         }
+    }
+
+    private fun extractModelName(model: kotlinx.serialization.json.JsonElement?): String? = when (model) {
+        is JsonPrimitive -> model.contentOrNull
+        is JsonObject -> (model["name"] as? JsonPrimitive)?.contentOrNull ?: (model["id"] as? JsonPrimitive)?.contentOrNull
+        else -> null
+    }
+
+    private fun extractErrorText(error: kotlinx.serialization.json.JsonElement?): String? = when (error) {
+        is JsonPrimitive -> error.contentOrNull
+        is JsonObject -> (error["message"] as? JsonPrimitive)?.contentOrNull ?: (error["error"] as? JsonPrimitive)?.contentOrNull
+        else -> null
     }
 
     private fun formatStatusText(element: kotlinx.serialization.json.JsonElement?): String {
@@ -231,32 +272,83 @@ object NdjsonStreamParser {
 object SessionGrouping {
     private const val DAY_MS = 86_400_000L
 
+    private fun bucketForTimestamp(rawTimestamp: String?, nowEpochMs: Long): SessionBucket {
+        val ts = parseTimestampMs(rawTimestamp) ?: return SessionBucket.TODAY
+        val nowDay = nowEpochMs / DAY_MS
+        val itemDay = ts / DAY_MS
+        val diffDays = (nowDay - itemDay).coerceAtLeast(0L)
+        return when {
+            diffDays == 0L -> SessionBucket.TODAY
+            diffDays == 1L -> SessionBucket.YESTERDAY
+            diffDays <= 7L -> SessionBucket.LAST_7_DAYS
+            diffDays <= 30L -> SessionBucket.LAST_30_DAYS
+            else -> SessionBucket.OLDER
+        }
+    }
+
     fun groupSessions(sessions: List<AiSessionSummary>, nowEpochMs: Long): List<SessionGroup> {
         if (sessions.isEmpty()) return emptyList()
-        val nowDay = nowEpochMs / DAY_MS
         val buckets = linkedMapOf<SessionBucket, MutableList<AiSessionSummary>>()
-
         for (session in sessions) {
-            val ts = parseTimestampMs(session.updatedAt ?: session.createdAt)
-            val bucket = if (ts == null) {
-                SessionBucket.TODAY
-            } else {
-                val itemDay = ts / DAY_MS
-                val diffDays = (nowDay - itemDay).coerceAtLeast(0L)
-                when {
-                    diffDays == 0L -> SessionBucket.TODAY
-                    diffDays == 1L -> SessionBucket.YESTERDAY
-                    diffDays <= 7L -> SessionBucket.LAST_7_DAYS
-                    diffDays <= 30L -> SessionBucket.LAST_30_DAYS
-                    else -> SessionBucket.OLDER
-                }
-            }
+            val bucket = bucketForTimestamp(session.updatedAt ?: session.createdAt, nowEpochMs)
             buckets.getOrPut(bucket) { mutableListOf() }.add(session)
         }
-
         return SessionBucket.entries.mapNotNull { bucket ->
             val items = buckets[bucket]
             if (items.isNullOrEmpty()) null else SessionGroup(bucket, items)
+        }
+    }
+
+    fun groupSidebarSessions(
+        aiSessions: List<AiSessionSummary>,
+        desktopSessions: List<DesktopAgentSessionSummary>,
+        searchQuery: String = "",
+        nowEpochMs: Long
+    ): List<UnifiedSessionGroup> {
+        val keyword = searchQuery.trim().lowercase()
+        val entries = buildList {
+            for (s in aiSessions) {
+                if (s.isArchivedSession) continue
+                val matches = keyword.isEmpty() ||
+                    s.title.lowercase().contains(keyword) ||
+                    s.firstQuestion.orEmpty().lowercase().contains(keyword) ||
+                    s.lastQuestion.orEmpty().lowercase().contains(keyword)
+                if (!matches) continue
+                val rawTs = s.updatedAt ?: s.createdAt
+                add(
+                    SidebarSessionEntry(
+                        stableKey = "ai:${s.id}",
+                        aiSession = s,
+                        desktopSession = null,
+                        sortTimestampMs = parseTimestampMs(rawTs) ?: 0L
+                    ) to bucketForTimestamp(rawTs, nowEpochMs)
+                )
+            }
+            for (d in desktopSessions) {
+                val matches = keyword.isEmpty() ||
+                    d.title.lowercase().contains(keyword) ||
+                    d.fullTitle.orEmpty().lowercase().contains(keyword) ||
+                    d.providerDisplayName().lowercase().contains(keyword)
+                if (!matches) continue
+                val rawTs = d.updatedAt ?: d.observedAt
+                add(
+                    SidebarSessionEntry(
+                        stableKey = d.stableKey,
+                        aiSession = null,
+                        desktopSession = d,
+                        sortTimestampMs = parseTimestampMs(rawTs) ?: 0L
+                    ) to bucketForTimestamp(rawTs, nowEpochMs)
+                )
+            }
+        }
+        if (entries.isEmpty()) return emptyList()
+        val buckets = linkedMapOf<SessionBucket, MutableList<SidebarSessionEntry>>()
+        for ((entry, bucket) in entries.sortedByDescending { it.first.sortTimestampMs }) {
+            buckets.getOrPut(bucket) { mutableListOf() }.add(entry)
+        }
+        return SessionBucket.entries.mapNotNull { bucket ->
+            val items = buckets[bucket]
+            if (items.isNullOrEmpty()) null else UnifiedSessionGroup(bucket, items)
         }
     }
 

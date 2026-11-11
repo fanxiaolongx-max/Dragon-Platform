@@ -1,14 +1,14 @@
 {
   "zh": [
-    "移动端真流式输出上线：iOS 切换为基于 URLSession 增量代理的无缓冲 NDJSON 流，搭配稳定消息主键实现真打字机逐字刷新。",
-    "手势方向锁与触控防误触优化：参考业界交互规范在 iOS 与 Android 双端引入方向锁定手势识别，彻底避免上下滚动与左右抽屉滑动同时触发。",
-    "对话输入区重构与语音波形条：采用极简无边框输入框与“+”悬浮功能菜单（相机/照片/文件/技能/压缩上下文），新增内嵌 32 通道动态点阵波形语音转写与直发。",
-    "移动端能力全量对齐与更名：iOS 展示名正式升级为 Dragon Claw，全面补齐会话归档/导出、定时任务管理及常用/最近工具双向同步。"
+    "修复移动端发送消息流式回复丢失：序列化请求显式携带 stream 与 agent 参数并保障主线程按序刷新，发完即见完整回答与耗时 token。",
+    "修复模型切换半截裁剪与会话扫光骨架：重构 SwiftUI 模型菜单触发层避免文字裁剪，点击会话直接跳转聊天页并展示动态扫光骨架屏。",
+    "修复已归档会话标题与后台对齐：支持 snake_case 与首句提问/自动摘要标题解码，归档列表真实呈现原对话名称。",
+    "侧边栏打通 Agent 对话生态：移动端合并展示 Codex、Claude Code、Antigravity、WorkBuddy 桌面端连接器与工作区群聊会话，支持查看与续聊。"
   ],
   "en": [
-    "True token-by-token mobile streaming: iOS now uses an incremental URLSession delegate for unbuffered NDJSON streaming with stable message identity.",
-    "Directional gesture axis-lock on iOS & Android: disambiguates vertical scrolling from horizontal drawer swipes to prevent simultaneous accidental drags.",
-    "Minimalist chat composer & dotted-waveform voice bar: redesigned borderless composer with a vertical '+' popover (Camera, Photos, Files, Skills, Compact) and inline 32-bar audio transcription.",
-    "Full mobile feature parity & Dragon Claw branding: renamed iOS app to Dragon Claw and added session archive/export, scheduled tasks, context compaction, and pinned/recent tool sync."
+    "Fix missing streaming replies on mobile send: explicitly serialize stream and agent defaults with FIFO main-thread delivery so replies and token metadata render immediately.",
+    "Fix model switcher clipping & add chat shimmer skeleton: decouple SwiftUI label from UIKit menu animation and switch straight into a shimmer loading state when opening sessions.",
+    "Fix archived session titles in backend & mobile: return auto titles and first-question fallbacks and decode snake_case archive metadata instead of falling back to generic placeholders.",
+    "Unify Agent conversations in mobile sidebar: merge Codex, Claude Code, Antigravity, WorkBuddy, workspace agent, and group discussions with provider badges and interactive replies."
   ]
 }
