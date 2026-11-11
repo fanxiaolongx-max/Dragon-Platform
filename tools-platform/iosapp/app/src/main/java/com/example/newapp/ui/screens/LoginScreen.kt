@@ -1,11 +1,10 @@
 package com.example.newapp.ui.screens
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -14,6 +13,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -35,6 +37,9 @@ fun LoginScreen(vm: DragonClawViewModel) {
     val palette = LocalDragonClawPalette.current
     val lang = vm.language
 
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+
     var username by remember { mutableStateOf(vm.sdk.getSavedUsername()) }
     var password by remember { mutableStateOf(vm.sdk.getSavedPassword()) }
     var rememberMe by remember { mutableStateOf(vm.rememberMe) }
@@ -44,97 +49,109 @@ fun LoginScreen(vm: DragonClawViewModel) {
     var serverDraft by remember { mutableStateOf(vm.baseUrl) }
 
     DragonClawBackdrop {
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .imePadding()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 14.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .pointerInput(Unit) {
+                    detectTapGestures(onTap = {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                    })
+                }
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .imePadding()
+                    .padding(horizontal = 20.dp, vertical = 10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
-                GlassCircleIconButton(
-                    icon = if (vm.isDark) Icons.Rounded.LightMode else Icons.Rounded.DarkMode,
-                    contentDescription = tr(lang, "切换主题", "Toggle theme"),
-                    onClick = { vm.toggleTheme() }
-                )
-                Spacer(Modifier.width(8.dp))
-                LiquidGlassSurface(
-                    shape = RoundedCornerShape(50),
-                    elevation = 4.dp,
-                    onClick = { vm.toggleLanguage() }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = if (lang == "zh") "EN" else "中文",
-                        color = palette.inkPrimary,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp)
+                    GlassCircleIconButton(
+                        icon = if (vm.isDark) Icons.Rounded.LightMode else Icons.Rounded.DarkMode,
+                        contentDescription = tr(lang, "切换主题", "Toggle theme"),
+                        onClick = { vm.toggleTheme() }
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    LiquidGlassSurface(
+                        shape = RoundedCornerShape(50),
+                        elevation = 4.dp,
+                        onClick = { vm.toggleLanguage() }
+                    ) {
+                        Text(
+                            text = if (lang == "zh") "EN" else "中文",
+                            color = palette.inkPrimary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    GlassCircleIconButton(
+                        icon = Icons.Rounded.Dns,
+                        contentDescription = tr(lang, "服务器设置", "Server config"),
+                        onClick = {
+                            serverDraft = vm.baseUrl
+                            showServerDialog = true
+                        }
                     )
                 }
-                Spacer(Modifier.width(8.dp))
-                GlassCircleIconButton(
-                    icon = Icons.Rounded.Dns,
-                    contentDescription = tr(lang, "服务器设置", "Server config"),
-                    onClick = {
-                        serverDraft = vm.baseUrl
-                        showServerDialog = true
+
+                Column(
+                    modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    LiquidGlassSurface(
+                        modifier = Modifier.size(76.dp),
+                        shape = RoundedCornerShape(22.dp),
+                        elevation = 8.dp
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.dragon_claw_mascot),
+                            contentDescription = "Dragon Claw",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(6.dp)
+                                .clip(RoundedCornerShape(18.dp))
+                        )
                     }
-                )
-            }
 
-            Spacer(Modifier.height(20.dp))
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        text = vm.identity.localizedName(lang),
+                        color = palette.inkPrimary,
+                        fontSize = 23.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = vm.identity.localizedSubtitle(lang),
+                        color = palette.inkSecondary,
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = vm.identity.localizedSlogan(lang),
+                        color = palette.inkMuted,
+                        fontSize = 11.sp,
+                        textAlign = TextAlign.Center
+                    )
 
-            LiquidGlassSurface(
-                modifier = Modifier.size(94.dp),
-                shape = RoundedCornerShape(26.dp),
-                elevation = 8.dp
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.dragon_claw_mascot),
-                    contentDescription = "Dragon Claw",
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(8.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                )
-            }
+                    Spacer(Modifier.height(14.dp))
 
-            Spacer(Modifier.height(14.dp))
-            Text(
-                text = vm.identity.localizedName(lang),
-                color = palette.inkPrimary,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(Modifier.height(3.dp))
-            Text(
-                text = vm.identity.localizedSubtitle(lang),
-                color = palette.inkSecondary,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium
-            )
-            Spacer(Modifier.height(3.dp))
-            Text(
-                text = vm.identity.localizedSlogan(lang),
-                color = palette.inkMuted,
-                fontSize = 11.5.sp,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(Modifier.height(20.dp))
-
-            LiquidGlassSurface(
-                modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth(),
-                shape = RoundedCornerShape(26.dp),
-                elevation = 10.dp
-            ) {
+                    LiquidGlassSurface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(24.dp),
+                        elevation = 10.dp
+                    ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -293,7 +310,7 @@ fun LoginScreen(vm: DragonClawViewModel) {
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(10.dp))
             Text(
                 text = "Dragon Claw Mobile v${vm.appVersion} · ${vm.baseUrl}",
                 color = palette.inkMuted,
@@ -301,6 +318,7 @@ fun LoginScreen(vm: DragonClawViewModel) {
             )
         }
     }
+}
 
     if (showServerDialog) {
         AlertDialog(
@@ -333,4 +351,5 @@ fun LoginScreen(vm: DragonClawViewModel) {
             }
         )
     }
+}
 }

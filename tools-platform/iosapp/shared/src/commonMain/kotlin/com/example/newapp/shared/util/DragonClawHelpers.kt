@@ -164,7 +164,10 @@ object NdjsonStreamParser {
                 text = formatStatusText(env.status)
             )
             "thinking" -> ChatStreamEvent(type = StreamEventType.THINKING, text = env.delta.orEmpty())
-            "delta" -> ChatStreamEvent(type = StreamEventType.DELTA, text = env.delta.orEmpty())
+            "delta" -> {
+                val chunk = env.delta ?: env.text.orEmpty()
+                ChatStreamEvent(type = StreamEventType.DELTA, text = chunk)
+            }
             "tool_start" -> ChatStreamEvent(
                 type = StreamEventType.TOOL_START,
                 callId = env.callId ?: env.tool.orEmpty(),
@@ -181,18 +184,32 @@ object NdjsonStreamParser {
             )
             "model_round" -> ChatStreamEvent(type = StreamEventType.MODEL_ROUND)
             "compaction" -> ChatStreamEvent(type = StreamEventType.COMPACTION, text = env.phase)
-            "done" -> ChatStreamEvent(
-                type = StreamEventType.DONE,
-                sessionId = env.sessionId,
-                text = env.reply,
-                inputTokens = env.usage?.inputTokens,
-                outputTokens = env.usage?.outputTokens,
-                modelName = env.model?.name ?: env.model?.id
-            )
-            "error" -> ChatStreamEvent(
-                type = StreamEventType.ERROR,
-                errorMessage = env.error ?: "Unknown stream error"
-            )
+            "done" -> {
+                val modelName = when (val m = env.model) {
+                    is JsonPrimitive -> m.contentOrNull
+                    is JsonObject -> (m["name"] as? JsonPrimitive)?.contentOrNull ?: (m["id"] as? JsonPrimitive)?.contentOrNull
+                    else -> null
+                }
+                ChatStreamEvent(
+                    type = StreamEventType.DONE,
+                    sessionId = env.sessionId,
+                    text = env.reply ?: env.text,
+                    inputTokens = env.usage?.inputTokens,
+                    outputTokens = env.usage?.outputTokens,
+                    modelName = modelName
+                )
+            }
+            "error" -> {
+                val errText = when (val e = env.error) {
+                    is JsonPrimitive -> e.contentOrNull
+                    is JsonObject -> (e["message"] as? JsonPrimitive)?.contentOrNull ?: (e["error"] as? JsonPrimitive)?.contentOrNull
+                    else -> null
+                } ?: "Unknown stream error"
+                ChatStreamEvent(
+                    type = StreamEventType.ERROR,
+                    errorMessage = errText
+                )
+            }
             else -> null
         }
     }

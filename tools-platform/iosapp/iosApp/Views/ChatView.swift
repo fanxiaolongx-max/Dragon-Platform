@@ -46,7 +46,7 @@ struct ChatView: View {
                                 .padding(.vertical, 24)
                         }
 
-                        ForEach(store.messages, id: \.id) { message in
+                        ForEach(store.messages, id: \.renderKey) { message in
                             ChatBubbleRow(
                                 message: message,
                                 palette: palette,

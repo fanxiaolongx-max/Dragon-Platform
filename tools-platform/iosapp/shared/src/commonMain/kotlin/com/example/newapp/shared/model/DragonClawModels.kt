@@ -144,6 +144,7 @@ data class RawStreamEnvelope(
     val title: String? = null,
     val status: kotlinx.serialization.json.JsonElement? = null,
     val delta: String? = null,
+    val text: String? = null,
     val callId: String? = null,
     val tool: String? = null,
     val args: JsonObject? = null,
@@ -154,8 +155,8 @@ data class RawStreamEnvelope(
     val reply: String? = null,
     val tokens: Int? = null,
     val usage: AiUsageDto? = null,
-    val model: AiDoneModelDto? = null,
-    val error: String? = null
+    val model: kotlinx.serialization.json.JsonElement? = null,
+    val error: kotlinx.serialization.json.JsonElement? = null
 )
 
 enum class StreamEventType {
@@ -213,6 +214,7 @@ data class ChatMessage(
     val isStreaming: Boolean = false
 ) {
     val isUser: Boolean get() = role == "user"
+    val renderKey: String get() = "${id}_${content.length}_${thinking.length}_${statusText.orEmpty()}_${isStreaming}_${toolCalls.size}"
 }
 
 enum class SessionBucket {

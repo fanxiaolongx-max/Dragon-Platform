@@ -556,6 +556,13 @@ final class DragonClawStore {
         sendPrompt(lastUser.content)
     }
 
+    private func updateMessage(at idx: Int, with message: ChatMessage) {
+        guard messages.indices.contains(idx) else { return }
+        var updated = messages
+        updated[idx] = message
+        self.messages = updated
+    }
+
     private func applyStreamEvent(_ event: ChatStreamEvent, assistantId: String) {
         if let sid = event.sessionId, !sid.isEmpty {
             currentSessionId = sid
@@ -569,17 +576,20 @@ final class DragonClawStore {
         case .title:
             loadSessions()
         case .status:
-            messages[idx] = copyMessage(cur, statusText: event.text ?? cur.statusText)
+            updateMessage(at: idx, with: copyMessage(cur, statusText: event.text ?? cur.statusText))
         case .thinking:
             let nextThinking = cur.thinking + (event.text ?? "")
-            messages[idx] = copyMessage(
-                cur,
-                thinking: nextThinking,
-                statusText: L10n.tr(language, zh: "深度思考中...", en: "Reasoning...")
+            updateMessage(
+                at: idx,
+                with: copyMessage(
+                    cur,
+                    thinking: nextThinking,
+                    statusText: L10n.tr(language, zh: "深度思考中...", en: "Reasoning...")
+                )
             )
         case .delta:
             let nextContent = cur.content + (event.text ?? "")
-            messages[idx] = copyMessage(cur, content: nextContent, statusText: nil)
+            updateMessage(at: idx, with: copyMessage(cur, content: nextContent, statusText: nil))
         case .toolStart:
             let callId = event.callId ?? UUID().uuidString
             let trace = ToolCallTrace(
@@ -597,10 +607,13 @@ final class DragonClawStore {
             } else {
                 nextTools.append(trace)
             }
-            messages[idx] = copyMessage(
-                cur,
-                statusText: L10n.tr(language, zh: "正在调用 \(trace.toolName)...", en: "Running \(trace.toolName)..."),
-                toolCalls: nextTools
+            updateMessage(
+                at: idx,
+                with: copyMessage(
+                    cur,
+                    statusText: L10n.tr(language, zh: "正在调用 \(trace.toolName)...", en: "Running \(trace.toolName)..."),
+                    toolCalls: nextTools
+                )
             )
         case .toolResult:
             let callId = event.callId ?? (event.toolName ?? "tool")
@@ -629,14 +642,14 @@ final class DragonClawStore {
                     )
                 )
             }
-            messages[idx] = copyMessage(cur, statusText: nil, toolCalls: nextTools)
+            updateMessage(at: idx, with: copyMessage(cur, statusText: nil, toolCalls: nextTools))
         case .modelRound, .compaction:
             if let text = event.text, !text.isEmpty {
-                messages[idx] = copyMessage(cur, statusText: text)
+                updateMessage(at: idx, with: copyMessage(cur, statusText: text))
             }
         case .done:
             let finalText = (cur.content.isEmpty ? (event.text ?? "") : cur.content)
-            messages[idx] = ChatMessage(
+            let doneMsg = ChatMessage(
                 id: cur.id,
                 role: cur.role,
                 content: finalText,
@@ -650,11 +663,12 @@ final class DragonClawStore {
                 interrupted: false,
                 isStreaming: false
             )
+            updateMessage(at: idx, with: doneMsg)
         case .error:
             let errText = event.errorMessage ?? L10n.tr(language, zh: "响应异常", en: "Stream error")
             chatErrorBanner = errText
             let content = cur.content.isEmpty ? "[\(errText)]" : cur.content
-            messages[idx] = copyMessage(cur, content: content, statusText: nil, interrupted: true, isStreaming: false)
+            updateMessage(at: idx, with: copyMessage(cur, content: content, statusText: nil, interrupted: true, isStreaming: false))
         default:
             break
         }
@@ -666,12 +680,15 @@ final class DragonClawStore {
         if let idx = messages.firstIndex(where: { $0.id == assistantId }) {
             let cur = messages[idx]
             let fallbackContent = cur.content.isEmpty && errorNote != nil ? "[\(errorNote!)]" : cur.content
-            messages[idx] = copyMessage(
-                cur,
-                content: fallbackContent,
-                statusText: nil,
-                interrupted: cur.interrupted || interrupted,
-                isStreaming: false
+            updateMessage(
+                at: idx,
+                with: copyMessage(
+                    cur,
+                    content: fallbackContent,
+                    statusText: nil,
+                    interrupted: cur.interrupted || interrupted,
+                    isStreaming: false
+                )
             )
         }
         loadSessions()

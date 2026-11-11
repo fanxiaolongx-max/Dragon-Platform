@@ -19,27 +19,32 @@ struct LoginView: View {
         ZStack {
             DragonClawBackdrop(palette: palette)
 
-            ScrollView {
-                VStack(spacing: 24) {
-                    topUtilityBar
+            VStack {
+                topUtilityBar
+                    .padding(.top, 8)
 
+                Spacer(minLength: 8)
+
+                VStack(spacing: 16) {
                     brandHero
-
                     loginGlassCard
-
-                    if !store.appVersion.isEmpty {
-                        Text("Dragon Claw Mobile v\(store.appVersion) · \(store.baseUrl)")
-                            .font(.caption2)
-                            .foregroundStyle(palette.inkMuted)
-                            .multilineTextAlignment(.center)
-                            .padding(.top, 4)
-                    }
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
-                .padding(.bottom, 32)
+
+                Spacer(minLength: 8)
+
+                if !store.appVersion.isEmpty {
+                    Text("Dragon Claw Mobile v\(store.appVersion) · \(store.baseUrl)")
+                        .font(.caption2)
+                        .foregroundStyle(palette.inkMuted)
+                        .multilineTextAlignment(.center)
+                        .padding(.bottom, 12)
+                }
             }
-            .scrollDismissesKeyboard(.interactively)
+            .padding(.horizontal, 20)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+            }
         }
         .onAppear {
             usernameInput = store.sdk.getSavedUsername()

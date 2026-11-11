@@ -230,7 +230,7 @@ fun ChatScreen(vm: DragonClawViewModel) {
                             }
                         }
                     }
-                    items(vm.messages, key = { it.id }) { msg ->
+                    items(vm.messages, key = { it.renderKey }) { msg ->
                         ChatBubbleItem(
                             message = msg,
                             language = lang,

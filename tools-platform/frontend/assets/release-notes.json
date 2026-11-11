@@ -1,12 +1,12 @@
 {
   "zh": [
-    "桌面端新增运行黑盒：程序异常消失后，下次启动的日志会说明上次未正常退出，并在本地保存崩溃转储，便于定位闪退原因。",
-    "Dragon Claw 执行的每条命令的开始与结束都会写入运行日志；页面渲染进程崩溃后主窗口自动重新加载。",
-    "桌面宠物已全面停用：不再创建宠物窗口，也不再加载全局键盘监听；托盘里的 Agent 额度侧栏可独立开关。"
+    "移动端升级为原生液态玻璃架构：支持 iOS 与 Android 双端原生渲染，重构 100% 全宽平滑手势侧栏与紧凑版式。",
+    "优化对话渲染与流式响应：新增实时打字机流式刷新机制，修复会话重入重绘，全面提升移动端交互流畅度。",
+    "登录与网络自适应增强：解决登录页非滚动专业布局与空白处轻触收起键盘，强化多节点容灾与快速建连能力。"
   ],
   "en": [
-    "Desktop now keeps a run black box: after the app disappears unexpectedly, the next launch logs that the previous run ended abnormally and keeps crash dumps locally to help locate the cause.",
-    "Every command Dragon Claw runs is logged at start and end, and the main window reloads itself after a renderer crash.",
-    "The desktop pet is fully disabled: no pet window is created and the global keyboard listener is no longer loaded; the agent quota sidebar can still be toggled from the tray."
+    "Mobile apps upgraded to native liquid glass architecture with full-screen gesture sidebar and compact responsive layout on iOS and Android.",
+    "Real-time streaming and chat rendering improved: added instant typewriter streaming updates and view refresh reliability.",
+    "Login and network resilience enhanced: fixed non-scrollable native login page, dismiss keyboard on background tap, and smart multi-node failover."
   ]
 }

@@ -41,7 +41,7 @@ class ApiHttpException(val statusCode: Int, override val message: String) : Exce
 class DragonClawApiClient(
     private val settings: SettingsManager = SettingsManager()
 ) {
-    val client = HttpClient {
+    val client = createPlatformHttpClient {
         install(ContentNegotiation) {
             json(DragonClawHelpers.lenientJson)
         }
