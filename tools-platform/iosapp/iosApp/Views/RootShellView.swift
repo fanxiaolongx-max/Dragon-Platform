@@ -6,6 +6,8 @@ struct RootShellView: View {
     @Bindable var store: DragonClawStore
     @State private var showServerSheet = false
     @State private var showSchedulesSheet = false
+    @State private var showAlertCenterSheet = false
+    @State private var expandedAlertId: String? = nil
     @State private var scheduleDraft = ""
     @State private var serverDraft = ""
     @State private var sidebarProgress: CGFloat = 0
@@ -66,7 +68,7 @@ struct RootShellView: View {
             .background(
                 DirectionalDrawerPanInstaller(
                     isDrawerOpen: sidebarProgress >= 0.5,
-                    isDisabled: store.activeWebTool != nil || store.showNativeMetrics || showServerSheet || showSchedulesSheet || store.exportedSessionJson != nil,
+                    isDisabled: store.activeWebTool != nil || store.showNativeMetrics || showServerSheet || showSchedulesSheet || showAlertCenterSheet || store.exportedSessionJson != nil,
                     onDragChanged: { tx in
                         if sidebarProgress < 0.5 && tx > 0 {
                             dragDeltaX = tx
@@ -120,6 +122,9 @@ struct RootShellView: View {
         }
         .sheet(isPresented: $showSchedulesSheet) {
             schedulesSheet
+        }
+        .sheet(isPresented: $showAlertCenterSheet) {
+            alertCenterSheet
         }
         .sheet(item: Binding(
             get: { store.exportedSessionJson.map { ExportedLogIdentifiable(json: $0) } },
@@ -188,9 +193,19 @@ struct RootShellView: View {
                         .clipShape(Circle())
 
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(store.displayPlatformName)
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundStyle(palette.inkPrimary)
+                        HStack(spacing: 6) {
+                            Text(store.displayPlatformName)
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundStyle(palette.inkPrimary)
+                                .lineLimit(1)
+                            Text("v\(store.appVersion)")
+                                .font(.system(size: 9.5, weight: .semibold))
+                                .foregroundStyle(palette.inkMuted)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(palette.chipSurface, in: Capsule())
+                                .lineLimit(1)
+                        }
                         Text(store.identity.localizedSubtitle(language: lang))
                             .font(.system(size: 10.5))
                             .foregroundStyle(palette.inkMuted)
@@ -328,17 +343,28 @@ struct RootShellView: View {
                 }
 
                 if store.alertUnreadCount > 0 {
-                    HStack(spacing: 8) {
-                        Image(systemName: "bell.badge.fill")
-                            .foregroundStyle(palette.danger)
-                        Text(L10n.tr(lang, zh: "告警中心有 \(store.alertUnreadCount) 条未读告警", en: "\(store.alertUnreadCount) unread system alerts"))
-                            .font(.system(size: 11.5, weight: .medium))
-                            .foregroundStyle(palette.inkPrimary)
-                        Spacer()
+                    Button {
+                        expandedAlertId = nil
+                        store.loadAlertCenter(filter: "all")
+                        showAlertCenterSheet = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "bell.badge.fill")
+                                .foregroundStyle(palette.danger)
+                            Text(L10n.tr(lang, zh: "告警中心有 \(store.alertUnreadCount) 条未读告警", en: "\(store.alertUnreadCount) unread system alerts"))
+                                .font(.system(size: 11.5, weight: .medium))
+                                .foregroundStyle(palette.inkPrimary)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(palette.inkMuted)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7.5)
+                        .background(palette.danger.opacity(0.10), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 7.5)
-                    .background(palette.danger.opacity(0.10), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .buttonStyle(.plain)
                 }
 
                 // Active vs Archived sessions segmented strip
@@ -648,6 +674,234 @@ struct RootShellView: View {
             .navigationBarTitleDisplayMode(.inline)
         }
         .presentationDetents([.fraction(0.35)])
+    }
+
+    private var alertCenterSheet: some View {
+        NavigationStack {
+            VStack(spacing: 12) {
+                if let summary = store.alertSummary {
+                    HStack(spacing: 8) {
+                        alertStatCard(title: L10n.tr(lang, zh: "总计", en: "Total"), value: "\(summary.total)", color: palette.inkPrimary)
+                        alertStatCard(
+                            title: L10n.tr(lang, zh: "未读", en: "Unread"),
+                            value: "\(summary.unread)",
+                            color: summary.unread > 0 ? palette.danger : palette.inkPrimary
+                        )
+                        alertStatCard(
+                            title: L10n.tr(lang, zh: "预警+", en: "Warn+"),
+                            value: "\(summary.warnOrAbove)",
+                            color: summary.warnOrAbove > 0 ? .orange : palette.inkPrimary
+                        )
+                    }
+                    .padding(.horizontal, 16)
+                }
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 7) {
+                        ForEach([
+                            ("all", L10n.tr(lang, zh: "全部", en: "All")),
+                            ("unread", L10n.tr(lang, zh: "未读", en: "Unread")),
+                            ("config", L10n.tr(lang, zh: "配置", en: "Config")),
+                            ("security", L10n.tr(lang, zh: "安全", en: "Security")),
+                            ("user_action", L10n.tr(lang, zh: "操作", en: "Action")),
+                            ("system", L10n.tr(lang, zh: "系统", en: "System"))
+                        ], id: \.0) { key, label in
+                            let active = store.alertFilter == key
+                            Button {
+                                store.setAlertCenterFilter(key)
+                            } label: {
+                                Text(label)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(active ? .white : palette.inkPrimary)
+                                    .padding(.horizontal, 11)
+                                    .padding(.vertical, 6)
+                                    .background(active ? palette.accentStrong : palette.chipSurface, in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+
+                if let err = store.alertError, !err.isEmpty {
+                    Text(err)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(palette.danger)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(palette.danger.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
+                        .padding(.horizontal, 16)
+                }
+
+                if store.isLoadingAlertEvents && store.alertEvents.isEmpty {
+                    Spacer()
+                    ProgressView()
+                    Spacer()
+                } else if store.alertEvents.isEmpty {
+                    Spacer()
+                    Text(L10n.tr(lang, zh: "当前筛选下暂无告警记录", en: "No alerts in this filter"))
+                        .font(.callout)
+                        .foregroundStyle(palette.inkMuted)
+                    Spacer()
+                } else {
+                    ScrollView {
+                        LazyVStack(spacing: 9) {
+                            ForEach(store.alertEvents, id: \.id) { ev in
+                                alertEventCard(ev)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 16)
+                    }
+                }
+            }
+            .padding(.top, 8)
+            .navigationTitle(L10n.tr(lang, zh: "告警中心", en: "Alert Center"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    if store.alertUnreadCount > 0 {
+                        Button(L10n.tr(lang, zh: "全部已读", en: "Read All")) {
+                            store.markAllAlertsRead()
+                        }
+                        .font(.system(size: 13, weight: .semibold))
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(L10n.tr(lang, zh: "关闭", en: "Close")) {
+                        showAlertCenterSheet = false
+                    }
+                }
+            }
+        }
+        .presentationDetents([.large, .medium])
+    }
+
+    private func alertStatCard(title: String, value: String, color: Color) -> some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(color)
+            Text(title)
+                .font(.system(size: 10.5))
+                .foregroundStyle(palette.inkMuted)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 7)
+        .background(palette.chipSurface, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private func alertEventCard(_ ev: AlertCenterEvent) -> some View {
+        let isExpanded = expandedAlertId == ev.id
+        let sevLower = ev.severity.lowercased()
+        let sevColor: Color = (sevLower == "critical" || sevLower == "error")
+            ? palette.danger
+            : ((sevLower == "warn" || sevLower == "warning") ? .orange : palette.accentStrong)
+        let formattedTime = String(ev.created_at.prefix(16)).replacingOccurrences(of: "T", with: " ")
+
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                if ev.isUnread {
+                    Circle()
+                        .fill(palette.danger)
+                        .frame(width: 7, height: 7)
+                }
+                Text(ev.severityLabel(language: lang))
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(sevColor)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(sevColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 5))
+                Text(ev.typeLabel(language: lang))
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(palette.inkMuted)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(palette.chipSurface, in: RoundedRectangle(cornerRadius: 5))
+                Spacer()
+                Text(formattedTime)
+                    .font(.system(size: 10))
+                    .foregroundStyle(palette.inkMuted)
+            }
+
+            Text(ev.title.isEmpty ? String(ev.message.prefix(60)) : ev.title)
+                .font(.system(size: 13.5, weight: .semibold))
+                .foregroundStyle(palette.inkPrimary)
+
+            if !ev.message.isEmpty {
+                Text(ev.message)
+                    .font(.system(size: 12))
+                    .foregroundStyle(palette.inkMuted)
+                    .lineLimit(isExpanded ? nil : 2)
+            }
+
+            if isExpanded {
+                if !ev.actor.isEmpty || !ev.source.isEmpty {
+                    let parts = [
+                        ev.actor.isEmpty ? nil : "\(L10n.tr(lang, zh: "触发者", en: "Actor")): \(ev.actor)",
+                        ev.source.isEmpty ? nil : "\(L10n.tr(lang, zh: "来源", en: "Source")): \(ev.source)"
+                    ].compactMap { $0 }.joined(separator: " · ")
+                    Text(parts)
+                        .font(.system(size: 11))
+                        .foregroundStyle(palette.inkMuted)
+                }
+                let details = ev.detailEntries()
+                if !details.isEmpty {
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(details, id: \.self) { entry in
+                            Text(entry)
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(palette.inkPrimary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(8)
+                    .background(palette.chipSurface, in: RoundedRectangle(cornerRadius: 8))
+                }
+                if !ev.ai_summary.isEmpty {
+                    Text("AI: \(ev.ai_summary)")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(palette.accentStrong)
+                }
+                HStack(spacing: 8) {
+                    if ev.isUnread {
+                        Button {
+                            store.markAlertRead(ev.id)
+                        } label: {
+                            Text(L10n.tr(lang, zh: "标为已读", en: "Mark Read"))
+                                .font(.system(size: 11.5, weight: .semibold))
+                                .foregroundStyle(palette.accentStrong)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(palette.accentStrong.opacity(0.14), in: RoundedRectangle(cornerRadius: 8))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    Button {
+                        store.archiveAlert(ev.id)
+                    } label: {
+                        Text(L10n.tr(lang, zh: "归档", en: "Archive"))
+                            .font(.system(size: 11.5, weight: .medium))
+                            .foregroundStyle(palette.inkMuted)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(palette.chipSurface, in: RoundedRectangle(cornerRadius: 8))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.top, 2)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(palette.cardSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .onTapGesture {
+            withAnimation(.easeInOut(duration: 0.16)) {
+                expandedAlertId = isExpanded ? nil : ev.id
+            }
+        }
     }
 
     private var schedulesSheet: some View {

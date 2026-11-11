@@ -10,6 +10,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -56,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.newapp.R
 import com.example.newapp.shared.model.AiSessionSummary
+import com.example.newapp.shared.model.AlertCenterEvent
 import com.example.newapp.shared.model.SidebarSessionEntry
 import com.example.newapp.state.AppWorkMode
 import com.example.newapp.state.DragonClawViewModel
@@ -74,6 +76,7 @@ private enum class GestureAxisLock {
     LOCKED_VERTICAL_OR_CHILD
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RootShellScreen(vm: DragonClawViewModel) {
     val palette = LocalDragonClawPalette.current
@@ -96,12 +99,15 @@ fun RootShellScreen(vm: DragonClawViewModel) {
             )
         }
     }
-    BackHandler(enabled = effectiveProgress > 0.45f) { animateSidebar(0f) }
+    var showServerDialog by remember { mutableStateOf(false) }
+    var showSchedulesSheet by remember { mutableStateOf(false) }
+    var showAlertCenterSheet by remember { mutableStateOf(false) }
+    BackHandler(enabled = effectiveProgress > 0.45f && !showAlertCenterSheet && !showServerDialog && !showSchedulesSheet) {
+        animateSidebar(0f)
+    }
     LaunchedEffect(drawerProgress.value > 0.85f) {
         if (drawerProgress.value > 0.85f) vm.loadSessions()
     }
-    var showServerDialog by remember { mutableStateOf(false) }
-    var showSchedulesSheet by remember { mutableStateOf(false) }
     var scheduleDraft by remember { mutableStateOf("") }
     var serverDraft by remember { mutableStateOf(vm.baseUrl) }
     var childScrollActiveForGesture by remember { mutableStateOf(false) }
@@ -143,7 +149,7 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                 val touchSlop = viewConfiguration.touchSlop
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                    if (dragFraction >= 0f) return@awaitEachGesture
+                    if (vm.isVoiceChatActive || dragFraction >= 0f) return@awaitEachGesture
                     childScrollActiveForGesture = false
                     val startProgress = drawerProgress.value
                     var lockState = GestureAxisLock.UNDECIDED
@@ -342,12 +348,32 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                             )
                             Spacer(Modifier.width(10.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = vm.identity.localizedName(lang),
-                                    color = palette.inkPrimary,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = vm.identity.localizedName(lang),
+                                        color = palette.inkPrimary,
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = palette.chipSurface
+                                    ) {
+                                        Text(
+                                            text = "v${vm.appVersion}",
+                                            color = palette.inkMuted,
+                                            fontSize = 9.5.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1,
+                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
+                                        )
+                                    }
+                                }
                                 Text(
                                     text = vm.identity.localizedSubtitle(lang),
                                     color = palette.inkMuted,
@@ -538,6 +564,10 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                             Surface(
                                 color = palette.danger.copy(alpha = 0.12f),
                                 shape = RoundedCornerShape(12.dp),
+                                onClick = {
+                                    vm.loadAlertCenter("all")
+                                    showAlertCenterSheet = true
+                                },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Row(
@@ -550,7 +580,14 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                                         text = tr(lang, "告警中心有 ${vm.alertUnreadCount} 条未读", "${vm.alertUnreadCount} unread alerts"),
                                         color = palette.inkPrimary,
                                         fontSize = 11.5.sp,
-                                        fontWeight = FontWeight.Medium
+                                        fontWeight = FontWeight.Medium,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Icon(
+                                        Icons.Rounded.ChevronRight,
+                                        contentDescription = null,
+                                        tint = palette.inkMuted,
+                                        modifier = Modifier.size(16.dp)
                                     )
                                 }
                             }
@@ -730,7 +767,14 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                 }
             }
         }
-    }
+        }
+
+        if (vm.isVoiceChatActive) {
+            BackHandler(enabled = true) {
+                vm.endVoiceConversation()
+            }
+            VoiceConversationOverlay(vm = vm)
+        }
     }
 
     if (showServerDialog) {
@@ -866,6 +910,349 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                 }) { Text(tr(lang, "复制", "Copy")) }
             }
         )
+    }
+
+    if (showAlertCenterSheet) {
+        AlertCenterModalSheet(
+            vm = vm,
+            onDismiss = { showAlertCenterSheet = false }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AlertCenterModalSheet(
+    vm: DragonClawViewModel,
+    onDismiss: () -> Unit
+) {
+    val palette = LocalDragonClawPalette.current
+    val lang = vm.language
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var expandedId by remember { mutableStateOf<String?>(null) }
+
+    val filters = listOf(
+        "all" to tr(lang, "全部", "All"),
+        "unread" to tr(lang, "未读", "Unread"),
+        "config" to tr(lang, "配置", "Config"),
+        "security" to tr(lang, "安全", "Security"),
+        "user_action" to tr(lang, "操作", "Action"),
+        "system" to tr(lang, "系统", "System")
+    )
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = if (palette.isDark) Color(0xFF151E2B) else Color(0xFFF6F9FC),
+        dragHandle = { BottomSheetDefaults.DragHandle() }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 620.dp)
+                .navigationBarsPadding()
+                .padding(horizontal = 18.dp)
+                .padding(bottom = 18.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    Icons.Rounded.NotificationsActive,
+                    contentDescription = null,
+                    tint = palette.danger,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = tr(lang, "告警中心", "Alert Center"),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = palette.inkPrimary,
+                    modifier = Modifier.weight(1f)
+                )
+                if (vm.alertUnreadCount > 0) {
+                    TextButton(onClick = { vm.markAllAlertsRead() }) {
+                        Text(
+                            text = tr(lang, "全部已读", "Mark all read"),
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = palette.accentStrong
+                        )
+                    }
+                }
+                IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+                    Icon(
+                        Icons.Rounded.Close,
+                        contentDescription = tr(lang, "关闭", "Close"),
+                        tint = palette.inkMuted,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            vm.alertSummary?.let { summary ->
+                Spacer(Modifier.height(6.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    AlertSummaryPill(
+                        label = tr(lang, "总计", "Total"),
+                        value = summary.total.toString(),
+                        accent = palette.inkPrimary,
+                        modifier = Modifier.weight(1f)
+                    )
+                    AlertSummaryPill(
+                        label = tr(lang, "未读", "Unread"),
+                        value = summary.unread.toString(),
+                        accent = if (summary.unread > 0) palette.danger else palette.inkPrimary,
+                        modifier = Modifier.weight(1f)
+                    )
+                    AlertSummaryPill(
+                        label = tr(lang, "预警以上", "Warn+"),
+                        value = summary.warnOrAbove.toString(),
+                        accent = if (summary.warnOrAbove > 0) Color(0xFFD97706) else palette.inkPrimary,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(bottom = 8.dp)
+            ) {
+                filters.forEach { (key, title) ->
+                    val active = vm.alertFilter == key
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (active) palette.accentStrong else palette.chipSurface,
+                        onClick = { vm.setAlertCenterFilter(key) }
+                    ) {
+                        Text(
+                            text = title,
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (active) Color.White else palette.inkPrimary,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+            }
+
+            vm.alertError?.takeIf { it.isNotBlank() }?.let { err ->
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = palette.danger.copy(alpha = 0.12f),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                ) {
+                    Text(
+                        text = err,
+                        color = palette.danger,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+                }
+            }
+
+            if (vm.isLoadingAlertEvents && vm.alertEvents.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(180.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(26.dp), color = palette.accentStrong)
+                }
+            } else if (vm.alertEvents.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(160.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = tr(lang, "当前筛选下暂无告警记录", "No alerts in this filter"),
+                        color = palette.inkMuted,
+                        fontSize = 13.sp
+                    )
+                }
+            } else {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth().weight(1f, fill = false)
+                ) {
+                    items(vm.alertEvents, key = { it.id }) { ev ->
+                        val isExpanded = expandedId == ev.id
+                        val sevColor = when (ev.severity.lowercase()) {
+                            "critical", "error" -> palette.danger
+                            "warn", "warning" -> Color(0xFFD97706)
+                            else -> palette.accentStrong
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = palette.cardSurface,
+                            onClick = { expandedId = if (isExpanded) null else ev.id },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (ev.isUnread) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(7.dp)
+                                                .clip(CircleShape)
+                                                .background(palette.danger)
+                                        )
+                                        Spacer(Modifier.width(6.dp))
+                                    }
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = sevColor.copy(alpha = 0.14f)
+                                    ) {
+                                        Text(
+                                            text = ev.severityLabel(lang),
+                                            color = sevColor,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                    Spacer(Modifier.width(6.dp))
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = palette.chipSurface
+                                    ) {
+                                        Text(
+                                            text = ev.typeLabel(lang),
+                                            color = palette.inkMuted,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                    Spacer(Modifier.weight(1f))
+                                    Text(
+                                        text = ev.created_at.take(16).replace("T", " "),
+                                        fontSize = 10.sp,
+                                        color = palette.inkMuted
+                                    )
+                                }
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    text = ev.title.ifBlank { ev.message.take(60) },
+                                    fontSize = 13.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = palette.inkPrimary
+                                )
+                                if (ev.message.isNotBlank()) {
+                                    Spacer(Modifier.height(3.dp))
+                                    Text(
+                                        text = ev.message,
+                                        fontSize = 12.sp,
+                                        color = palette.inkMuted,
+                                        maxLines = if (isExpanded) Int.MAX_VALUE else 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+
+                                if (isExpanded) {
+                                    if (ev.actor.isNotBlank() || ev.source.isNotBlank()) {
+                                        Spacer(Modifier.height(6.dp))
+                                        Text(
+                                            text = listOfNotNull(
+                                                ev.actor.takeIf { it.isNotBlank() }?.let { "${tr(lang, "触发者", "Actor")}: $it" },
+                                                ev.source.takeIf { it.isNotBlank() }?.let { "${tr(lang, "来源", "Source")}: $it" }
+                                            ).joinToString(" · "),
+                                            fontSize = 11.sp,
+                                            color = palette.inkMuted
+                                        )
+                                    }
+                                    val details = ev.detailEntries()
+                                    if (details.isNotEmpty()) {
+                                        Spacer(Modifier.height(6.dp))
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .background(palette.chipSurface, RoundedCornerShape(8.dp))
+                                                .padding(8.dp),
+                                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                                        ) {
+                                            details.forEach { entry ->
+                                                Text(entry, fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = palette.inkPrimary)
+                                            }
+                                        }
+                                    }
+                                    if (ev.ai_summary.isNotBlank()) {
+                                        Spacer(Modifier.height(6.dp))
+                                        Text(
+                                            text = "AI: ${ev.ai_summary}",
+                                            fontSize = 11.5.sp,
+                                            color = palette.accentStrong
+                                        )
+                                    }
+                                    Spacer(Modifier.height(8.dp))
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        if (ev.isUnread) {
+                                            Surface(
+                                                shape = RoundedCornerShape(8.dp),
+                                                color = palette.accentStrong.copy(alpha = 0.14f),
+                                                onClick = { vm.markAlertRead(ev.id) }
+                                            ) {
+                                                Text(
+                                                    text = tr(lang, "标为已读", "Mark Read"),
+                                                    fontSize = 11.5.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = palette.accentStrong,
+                                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                                                )
+                                            }
+                                        }
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = palette.chipSurface,
+                                            onClick = { vm.archiveAlert(ev.id) }
+                                        ) {
+                                            Text(
+                                                text = tr(lang, "归档", "Archive"),
+                                                fontSize = 11.5.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                color = palette.inkMuted,
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AlertSummaryPill(
+    label: String,
+    value: String,
+    accent: Color,
+    modifier: Modifier = Modifier
+) {
+    val palette = LocalDragonClawPalette.current
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = palette.chipSurface,
+        modifier = modifier
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(vertical = 7.dp, horizontal = 6.dp)
+        ) {
+            Text(value, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = accent)
+            Text(label, fontSize = 10.sp, color = palette.inkMuted)
+        }
     }
 }
 

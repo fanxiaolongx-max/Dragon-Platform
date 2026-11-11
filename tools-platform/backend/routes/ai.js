@@ -592,6 +592,8 @@ router.get('/connector-status', checkAuth, async (req, res) => {
     } catch { res.status(503).json({ code: 'CONNECTOR_STATUS_UNAVAILABLE', error: '无法确认连接器状态' }); }
 });
 
+const { buildChatPresentationRules } = require('../models/ai-presentation-rules');
+
 // 对话处理函数单独命名导出：频道对接（如 WeLink）用虚拟请求复用同一套 Dragon Claw 对话链路。
 let activeAiRequests = 0;
 function getActiveAiRequests() {
@@ -696,6 +698,7 @@ async function handleChatRequest(req, res) {
         sensitiveValues = await aiSettingsRepo.getRedactionSecrets();
         req.body = redactValue(req.body, { secrets: sensitiveValues });
         const { messages, context, pageTitle, pagePath, sessionId, persist, uiLanguage, stream, codeAnalysis, agent, toolSlug, clientToolData, workspace } = req.body;
+        const voiceMode = req.body?.voiceMode === true;
         // 首页 Dragon Claw 是全能智能体：不限于平台问题，context 为平台工具目录而非页面文本。
         const homeAgent = agent === 'dragon-claw-home';
         const currentView = !homeAgent && !channelTurn && req.body.currentView === true;
@@ -995,9 +998,7 @@ ${expertGrounding.dataPrompt ? `\n只读报表分析工具结果：\n---\n${expe
 ${expertGrounding.metricGraphPrompt ? `\n与本次问题相关的运营指标体系图谱节点：\n---\n${expertGrounding.metricGraphPrompt}\n---\n` : ''}
 ${sessionSummary ? `\n历史会话滚动摘要：\n---\n${sessionSummary}\n---\n` : ''}${followupSetup ? `${followupSetup.prompt}\n` : ''}${opsSetup ? `${opsSetup.prompt}\n` : ''}${welinkCliSetup ? `${welinkCliSetup.prompt}\n` : ''}${netcareSetup ? `${netcareSetup.prompt}\n` : ''}${memoryPrompt}
 **核心要求**：
-1. 默认使用${responseLanguage}回答，并与当前界面语言保持一致；用户明确指定其他语言时遵从用户要求。先直接回答结论，再根据问题难度给出必要细节；保持专业、清晰，不强制所有回答都极端简短。
-1.1 默认优先使用 Markdown 表格组织适合结构化展示的内容，尤其是指标与客户群对比、目标与实际值、历史趋势、配置清单、问题排查、方案比较和整改建议。先用一两句话给出结论，再用表格列出依据或行动；避免把同一组信息写成长段落。简单问答、单一事实和需要连贯解释的内容可使用简短文字；用户明确指定其他格式时遵从用户要求。
-1.2 表格使用清晰的表头和标准的表头分隔行，不要放入代码块；普通表格优先控制在 3–5 列，单元格保持简短，较长的解释和来源放在表格后。字段按问题选择，例如“指标/客户群｜实际值｜目标｜差距/状态”或“问题｜依据｜建议动作｜优先级”；没有数据的字段明确标注“无值”“未配置”或“待核查”，不得为了填满表格编造原因、责任人、时限或数值。完整目标规则列表仍按第 3.3 条保留全部月份和记录，必要时按指标拆表。
+${buildChatPresentationRules(responseLanguage, voiceMode)}
 2. 项目实现类结论必须优先依据检索到的文件，并用“来源：文件路径:行号”标注关键依据。不要声称读过未提供的文件。
 ${currentView ? '2.1 用户问“这个页面”“这段代码”“我现在看到的内容”或其追问时，优先依据本轮页面快照，即使历史会话或项目知识不同。快照是有限的页面文字和当前编辑器片段，不是截图、页面源码或完整仓库。解释当前代码时注明活动文件和实际覆盖的行号，区分已保存内容与未保存缓冲区。项目知识只作补充，标明来源，不得冒充屏幕上所见。宽泛问题先简要概括，再给出可追问的部分。快照未覆盖所问内容时，明确说明，并请用户打开对应文件、滚动或选择相关代码后再问。只解释和总结，不执行页面、文件或数据操作。' : ''}
 3. 脚本配置、指标目标、权重、月份规则、子指标、字典和平台配置必须优先依据“只读业务配置”结果，并标注“来源：数据库:表#记录（更新时间）”。配置检索无结果时，不得用代码默认值冒充当前数据库配置。
@@ -1019,7 +1020,7 @@ ${currentView ? '2.1 用户问“这个页面”“这段代码”“我现在�
 6. 把事实、基于数据的解读和可能原因分开。没有证据的原因必须标记为“可能”或“建议进一步核查”。
 ${agentMode ? (agentSession.readOnly ? '7. 当前账号只读，没有修改平台业务数据或本地文件的权限。' : '7. 当前管理员可通过数据库工具对当前租户和所选项目的业务数据增删改查，并可通过文件工具修改工作目录；遵循工作区权限模式。只有工具返回提交成功后才能声称数据已修改；修改后重新查询验证，写入前的检索摘要不能作为修改后状态。凭据与平台控制面数据不开放。') : databaseMode ? '7. 当前管理员可通过数据库工具直接对当前租户的平台业务数据增删改查，无需选择工作目录。按用户明确要求执行修改，提交成功后重新查询验证。凭据与平台控制面数据不开放。' : opsSetup ? '7. 你没有修改业务数据的权限；唯一例外是用 ops_* 工具管理自动化运营（运营群组、计划、草稿、运营规范），只有工具返回成功后才能说已保存或已发送。' : followupSetup ? '7. 你没有修改业务数据的权限；唯一例外是用 followup_* 工具保存本会话的跟进任务，只有工具返回成功后才能说已记录。' : '7. 你没有修改业务数据的权限，不得声称已修改、删除或入库任何数据。'}
 ${scopeRule}
-${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.systemPrompt}` : ''}`;
+${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.systemPrompt}` : ''}${voiceMode ? '\n**实时语音回复要求（最高优先级）**：直奔主题、简短干练、口语化表达；禁止客套寒暄、禁止反问收尾、禁止 Markdown 表格或符号。' : ''}`;
 
         const fullTargetListRequested = expertGrounding.businessConfig?.mode === 'full-target-list';
         const generateResponse = async analysisContent => runAiWithRetry(async () => {
@@ -1031,7 +1032,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                         : effectiveMessages,
                     maxOutputTokens: fullTargetListRequested
                         ? Math.min(Math.max(Number(aiSettings.maxOutputTokens) || 2048, 8192), 8192)
-                        : aiSettings.maxOutputTokens,
+                        : (voiceMode ? Math.min(Number(aiSettings.maxOutputTokens) || 2048, 768) : aiSettings.maxOutputTokens),
                     temperature: aiSettings.temperature,
                     signal: providerAbortController?.signal,
                     onDelta: streamRequested ? delta => {
@@ -2250,4 +2251,5 @@ CRITICAL FORMATTING & STYLE PRESERVATION RULES:
 
 router.handleChatRequest = handleChatRequest;
 router.getActiveAiRequests = getActiveAiRequests;
+router.buildChatPresentationRules = buildChatPresentationRules;
 module.exports = router;

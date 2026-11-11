@@ -63,6 +63,11 @@ final class DragonClawStore {
     var workMode: AppWorkMode = .chat
     var isDrawerOpen = false
     var alertUnreadCount: Int = 0
+    var alertSummary: AlertCenterSummary? = nil
+    var alertEvents: [AlertCenterEvent] = []
+    var alertFilter: String = "all"
+    var isLoadingAlertEvents = false
+    var alertError: String? = nil
 
     // Chat State
     var models: [AiModelInfo] = []
@@ -533,9 +538,135 @@ final class DragonClawStore {
     func loadAlertSummary() {
         let handle = sdk.fetchAlertSummary(token: token) { [weak self] summary in
             Task { @MainActor [weak self] in
+                self?.alertSummary = summary
                 self?.alertUnreadCount = Int(summary.unread)
             }
         } onError: { _ in }
+        activeTaskHandles.append(handle)
+    }
+
+    func loadAlertCenter(filter: String? = nil) {
+        guard !token.isEmpty else { return }
+        let targetFilter = filter ?? alertFilter
+        alertFilter = targetFilter
+        isLoadingAlertEvents = true
+        alertError = nil
+        loadAlertSummary()
+        let handle = sdk.fetchAlertEvents(token: token, filter: targetFilter) { [weak self] res in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.alertEvents = res.events
+                self.isLoadingAlertEvents = false
+            }
+        } onError: { [weak self] err in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.alertError = err
+                self.isLoadingAlertEvents = false
+            }
+        }
+        activeTaskHandles.append(handle)
+    }
+
+    func setAlertCenterFilter(_ filter: String) {
+        loadAlertCenter(filter: filter)
+    }
+
+    func markAlertRead(_ eventId: String) {
+        guard !token.isEmpty, !eventId.isEmpty else { return }
+        let wasUnread = alertEvents.first(where: { $0.id == eventId })?.isUnread == true
+        alertEvents = alertEvents.map { ev in
+            if ev.id == eventId {
+                return AlertCenterEvent(
+                    id: ev.id,
+                    event_type: ev.event_type,
+                    severity: ev.severity,
+                    status: "read",
+                    title: ev.title,
+                    message: ev.message,
+                    actor: ev.actor,
+                    source: ev.source,
+                    object_type: ev.object_type,
+                    object_id: ev.object_id,
+                    detail: ev.detail,
+                    ai_summary: ev.ai_summary,
+                    ai_status: ev.ai_status,
+                    created_at: ev.created_at
+                )
+            }
+            return ev
+        }
+        if alertFilter == "unread" {
+            alertEvents.removeAll { !$0.isUnread }
+        }
+        if wasUnread {
+            alertUnreadCount = max(0, alertUnreadCount - 1)
+        }
+        let handle = sdk.markAlertEventsRead(token: token, ids: [eventId]) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.loadAlertCenter()
+            }
+        } onError: { [weak self] err in
+            Task { @MainActor [weak self] in
+                self?.alertError = err
+            }
+        }
+        activeTaskHandles.append(handle)
+    }
+
+    func markAllAlertsRead() {
+        guard !token.isEmpty else { return }
+        if alertFilter == "unread" {
+            alertEvents = []
+        } else {
+            alertEvents = alertEvents.map { ev in
+                AlertCenterEvent(
+                    id: ev.id,
+                    event_type: ev.event_type,
+                    severity: ev.severity,
+                    status: "read",
+                    title: ev.title,
+                    message: ev.message,
+                    actor: ev.actor,
+                    source: ev.source,
+                    object_type: ev.object_type,
+                    object_id: ev.object_id,
+                    detail: ev.detail,
+                    ai_summary: ev.ai_summary,
+                    ai_status: ev.ai_status,
+                    created_at: ev.created_at
+                )
+            }
+        }
+        alertUnreadCount = 0
+        let handle = sdk.markAllAlertEventsRead(token: token) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.loadAlertCenter()
+            }
+        } onError: { [weak self] err in
+            Task { @MainActor [weak self] in
+                self?.alertError = err
+            }
+        }
+        activeTaskHandles.append(handle)
+    }
+
+    func archiveAlert(_ eventId: String) {
+        guard !token.isEmpty, !eventId.isEmpty else { return }
+        let wasUnread = alertEvents.first(where: { $0.id == eventId })?.isUnread == true
+        alertEvents.removeAll { $0.id == eventId }
+        if wasUnread {
+            alertUnreadCount = max(0, alertUnreadCount - 1)
+        }
+        let handle = sdk.archiveAlertEvent(token: token, eventId: eventId) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.loadAlertCenter()
+            }
+        } onError: { [weak self] err in
+            Task { @MainActor [weak self] in
+                self?.alertError = err
+            }
+        }
         activeTaskHandles.append(handle)
     }
 
@@ -921,7 +1052,8 @@ final class DragonClawStore {
         dispatchRegularChatPrompt(
             finalContent: next.text,
             cleanedUserText: next.displayText,
-            resolvedAttachments: displayAtts
+            resolvedAttachments: displayAtts,
+            voiceMode: next.voiceMode
         )
     }
 
@@ -947,7 +1079,7 @@ final class DragonClawStore {
         activeTaskHandles.append(handle)
     }
 
-    func sendPrompt(_ overridePrompt: String? = nil) {
+    func sendPrompt(_ overridePrompt: String? = nil, voiceMode: Bool = false) {
         if let desktop = activeDesktopSession {
             guard activeDesktopCanSend else {
                 chatErrorBanner = activeDesktopReason ?? L10n.tr(language, zh: "当前桌面连接只读，请在电脑端开启发送权限", en: "Desktop agent session is currently read-only")
@@ -1134,7 +1266,8 @@ final class DragonClawStore {
                     displayText: preview,
                     attachments: usedFiles,
                     status: "queued",
-                    error: ""
+                    error: "",
+                    voiceMode: voiceMode
                 )
             )
             return
@@ -1143,14 +1276,16 @@ final class DragonClawStore {
         dispatchRegularChatPrompt(
             finalContent: finalContent,
             cleanedUserText: cleanDisplay,
-            resolvedAttachments: displayAttachments
+            resolvedAttachments: displayAttachments,
+            voiceMode: voiceMode
         )
     }
 
     private func dispatchRegularChatPrompt(
         finalContent: String,
         cleanedUserText: String,
-        resolvedAttachments: [ChatAttachment]
+        resolvedAttachments: [ChatAttachment],
+        voiceMode: Bool = false
     ) {
         let userMsgId = UUID().uuidString
         let userMsg = ChatMessage(
@@ -1200,7 +1335,8 @@ final class DragonClawStore {
             messages: Array(payloadHistory),
             sessionId: currentSessionId,
             language: language,
-            modelId: selectedModelId.isEmpty ? nil : selectedModelId
+            modelId: selectedModelId.isEmpty ? nil : selectedModelId,
+            voiceMode: voiceMode
         ) { [weak self] event in
             dispatchToMain { [weak self] in
                 self?.applyStreamEvent(event, assistantId: assistantId)
@@ -1226,7 +1362,8 @@ final class DragonClawStore {
                             displayText: cleanedUserText,
                             attachments: [],
                             status: "queued",
-                            error: ""
+                            error: "",
+                            voiceMode: voiceMode
                         ),
                         at: 0
                     )
@@ -1529,7 +1666,7 @@ final class DragonClawStore {
                 }
                 self.voiceTurnCompletion = onReplyDone
                 onRecognized(text)
-                self.sendPrompt(text)
+                self.sendPrompt(text, voiceMode: true)
             }
         } onError: { err in
             Task { @MainActor in

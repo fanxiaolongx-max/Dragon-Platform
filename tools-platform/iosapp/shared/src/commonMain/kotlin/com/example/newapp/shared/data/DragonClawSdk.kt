@@ -314,6 +314,7 @@ class DragonClawSdk(
         sessionId: String?,
         language: String,
         modelId: String?,
+        voiceMode: Boolean = false,
         onEvent: (ChatStreamEvent) -> Unit,
         onComplete: () -> Unit,
         onError: (String) -> Unit
@@ -327,7 +328,8 @@ class DragonClawSdk(
             sessionId = sessionId?.takeIf { it.isNotBlank() },
             agent = "dragon-claw-home",
             stream = true,
-            modelId = modelId?.takeIf { it.isNotBlank() }
+            modelId = modelId?.takeIf { it.isNotBlank() },
+            voiceMode = if (voiceMode) true else null
         )
         val job = scope.launch {
             try {
@@ -370,6 +372,49 @@ class DragonClawSdk(
         onError: (String) -> Unit
     ): TaskHandle = runAsync(
         block = { api.getAlertCenterSummary(token) },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
+    fun fetchAlertEvents(
+        token: String,
+        filter: String = "all",
+        onSuccess: (AlertCenterEventsResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = { api.getAlertCenterEvents(token, filter) },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
+    fun markAlertEventsRead(
+        token: String,
+        ids: List<String>,
+        onSuccess: (AlertCenterMutationResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = { api.markAlertEventsRead(token, ids) },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
+    fun markAllAlertEventsRead(
+        token: String,
+        onSuccess: (AlertCenterMutationResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = { api.markAllAlertEventsRead(token) },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
+    fun archiveAlertEvent(
+        token: String,
+        eventId: String,
+        onSuccess: (AlertCenterMutationResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = { api.archiveAlertEvent(token, eventId) },
         onSuccess = onSuccess,
         onError = onError
     )

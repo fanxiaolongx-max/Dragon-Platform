@@ -1,6 +1,8 @@
 package com.example.newapp.shared.model
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 
 @Serializable
 data class LoginRequest(
@@ -63,4 +65,57 @@ data class AlertCenterSummary(
     val unread: Int = 0,
     val critical: Int = 0,
     val warnOrAbove: Int = 0
+)
+
+@Serializable
+data class AlertCenterEvent(
+    val id: String = "",
+    val event_type: String = "system",
+    val severity: String = "info",
+    val status: String = "unread",
+    val title: String = "",
+    val message: String = "",
+    val actor: String = "",
+    val source: String = "",
+    val object_type: String = "",
+    val object_id: String = "",
+    val detail: JsonObject? = null,
+    val ai_summary: String = "",
+    val ai_status: String = "",
+    val created_at: String = ""
+) {
+    val isUnread: Boolean get() = status == "unread"
+
+    fun detailEntries(): List<String> = detail?.entries?.take(4)?.map { (k, v) ->
+        val clean = if (v is JsonPrimitive && v.isString) v.content else v.toString()
+        "$k: $clean"
+    } ?: emptyList()
+
+    fun severityLabel(language: String): String = when (severity.lowercase()) {
+        "critical", "error" -> if (language == "en") "Critical" else "严重"
+        "warn", "warning" -> if (language == "en") "Warning" else "预警"
+        else -> if (language == "en") "Info" else "提示"
+    }
+
+    fun typeLabel(language: String): String = when (event_type.lowercase()) {
+        "config" -> if (language == "en") "Config" else "配置"
+        "security" -> if (language == "en") "Security" else "安全"
+        "user_action" -> if (language == "en") "Action" else "操作"
+        else -> if (language == "en") "System" else "系统"
+    }
+}
+
+@Serializable
+data class AlertCenterEventsResponse(
+    val events: List<AlertCenterEvent> = emptyList()
+)
+
+@Serializable
+data class AlertCenterMarkReadRequest(
+    val ids: List<String> = emptyList()
+)
+
+@Serializable
+data class AlertCenterMutationResponse(
+    val changed: Int = 0
 )

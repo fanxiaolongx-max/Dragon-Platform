@@ -13,9 +13,9 @@ android {
         applicationId = "com.example.newapp"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
+        versionCode = 2
         val runNumber = System.getenv("GITHUB_RUN_NUMBER")
-        versionName = if (runNumber != null) "1.0.$runNumber" else "1.0.0-dev"
+        versionName = if (runNumber != null) "1.1.$runNumber" else "1.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

@@ -3,8 +3,12 @@ package com.example.newapp.state
 import android.content.ContentResolver
 import android.content.Context
 import android.media.AudioAttributes
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
 import android.media.MediaPlayer
 import android.net.Uri
+import android.os.Build
+import android.os.Bundle
 import android.provider.OpenableColumns
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
@@ -48,6 +52,18 @@ enum class VoiceChatPhase {
     THINKING,
     SPEAKING,
     PAUSED
+}
+
+enum class VoiceAudioRoute {
+    SPEAKER,
+    EARPIECE,
+    MUTED;
+
+    fun next(): VoiceAudioRoute = when (this) {
+        SPEAKER -> EARPIECE
+        EARPIECE -> MUTED
+        MUTED -> SPEAKER
+    }
 }
 
 sealed interface MetricsRoute {
@@ -195,8 +211,12 @@ class DragonClawViewModel : ViewModel() {
         private set
     var voiceChatPhase by mutableStateOf(VoiceChatPhase.IDLE)
         private set
-    var isVoiceChatSpeechMuted by mutableStateOf(false)
+    var voiceAudioRoute by mutableStateOf(VoiceAudioRoute.SPEAKER)
         private set
+    var hasExternalVoiceHeadset by mutableStateOf(false)
+        private set
+    val isVoiceChatSpeechMuted: Boolean
+        get() = voiceAudioRoute == VoiceAudioRoute.MUTED
     var voiceChatAudioLevel by mutableFloatStateOf(0.14f)
         private set
     var voiceChatHasSpeech by mutableStateOf(false)
@@ -208,6 +228,18 @@ class DragonClawViewModel : ViewModel() {
     var voiceChatErrorText by mutableStateOf<String?>(null)
         private set
     var voiceChatModelLabel by mutableStateOf("")
+        private set
+
+    // Alert Center Drawer Modal State
+    var alertSummary by mutableStateOf<AlertCenterSummary?>(null)
+        private set
+    var alertEvents by mutableStateOf<List<AlertCenterEvent>>(emptyList())
+        private set
+    var alertFilter by mutableStateOf("all")
+        private set
+    var isLoadingAlertEvents by mutableStateOf(false)
+        private set
+    var alertError by mutableStateOf<String?>(null)
         private set
 
     // Skills, Archived Sessions, Schedules & Tool Nav Sync (P1)
@@ -269,6 +301,7 @@ class DragonClawViewModel : ViewModel() {
     override fun onCleared() {
         voiceResumeJob?.cancel()
         stopAllVoicePlayback()
+        voiceAppContext?.let { resetVoiceAudioRoute(it) }
         ttsEngine?.shutdown()
         ttsEngine = null
         speechRecorder?.cancel()
@@ -597,7 +630,76 @@ class DragonClawViewModel : ViewModel() {
     fun loadAlertSummary() {
         viewModelScope.launch {
             runCatching { sdk.api.getAlertCenterSummary(token) }
-                .onSuccess { alertUnreadCount = it.unread }
+                .onSuccess {
+                    alertSummary = it
+                    alertUnreadCount = it.unread
+                }
+        }
+    }
+
+    fun loadAlertCenter(filter: String = alertFilter) {
+        if (token.isBlank()) return
+        alertFilter = filter
+        isLoadingAlertEvents = true
+        alertError = null
+        loadAlertSummary()
+        viewModelScope.launch {
+            runCatching { sdk.api.getAlertCenterEvents(token, filter = filter) }
+                .onSuccess { res ->
+                    alertEvents = res.events
+                    isLoadingAlertEvents = false
+                }
+                .onFailure { err ->
+                    alertError = err.message ?: tr(language, "告警加载失败", "Failed to load alerts")
+                    isLoadingAlertEvents = false
+                }
+        }
+    }
+
+    fun setAlertCenterFilter(filter: String) {
+        loadAlertCenter(filter)
+    }
+
+    fun markAlertRead(eventId: String) {
+        if (token.isBlank() || eventId.isBlank()) return
+        val wasUnread = alertEvents.firstOrNull { it.id == eventId }?.isUnread == true
+        alertEvents = alertEvents.map { ev ->
+            if (ev.id == eventId) ev.copy(status = "read") else ev
+        }.let { list ->
+            if (alertFilter == "unread") list.filter { it.isUnread } else list
+        }
+        if (wasUnread) {
+            alertUnreadCount = (alertUnreadCount - 1).coerceAtLeast(0)
+        }
+        viewModelScope.launch {
+            runCatching { sdk.api.markAlertEventsRead(token, listOf(eventId)) }
+                .onSuccess { loadAlertCenter(alertFilter) }
+                .onFailure { err -> alertError = err.message }
+        }
+    }
+
+    fun markAllAlertsRead() {
+        if (token.isBlank()) return
+        alertEvents = if (alertFilter == "unread") emptyList() else alertEvents.map { it.copy(status = "read") }
+        alertUnreadCount = 0
+        viewModelScope.launch {
+            runCatching { sdk.api.markAllAlertEventsRead(token) }
+                .onSuccess { loadAlertCenter(alertFilter) }
+                .onFailure { err -> alertError = err.message }
+        }
+    }
+
+    fun archiveAlert(eventId: String) {
+        if (token.isBlank() || eventId.isBlank()) return
+        val wasUnread = alertEvents.firstOrNull { it.id == eventId }?.isUnread == true
+        alertEvents = alertEvents.filterNot { it.id == eventId }
+        if (wasUnread) {
+            alertUnreadCount = (alertUnreadCount - 1).coerceAtLeast(0)
+        }
+        viewModelScope.launch {
+            runCatching { sdk.api.archiveAlertEvent(token, eventId) }
+                .onSuccess { loadAlertCenter(alertFilter) }
+                .onFailure { err -> alertError = err.message }
         }
     }
 
@@ -990,7 +1092,8 @@ class DragonClawViewModel : ViewModel() {
         dispatchRegularChatPrompt(
             finalContent = next.text,
             cleanedUserText = next.displayText,
-            resolvedAttachments = displayAtts.ifEmpty { rawAttachments }
+            resolvedAttachments = displayAtts.ifEmpty { rawAttachments },
+            voiceMode = next.voiceMode
         )
     }
 
@@ -1014,7 +1117,7 @@ class DragonClawViewModel : ViewModel() {
         }
     }
 
-    fun sendPrompt(overridePrompt: String? = null) {
+    fun sendPrompt(overridePrompt: String? = null, voiceMode: Boolean = false) {
         val desktop = activeDesktopSession
         if (desktop != null) {
             if (!activeDesktopCanSend) {
@@ -1196,7 +1299,8 @@ class DragonClawViewModel : ViewModel() {
                 id = UUID.randomUUID().toString(),
                 text = finalContent,
                 displayText = preview,
-                attachments = pendingSnapshot
+                attachments = pendingSnapshot,
+                voiceMode = voiceMode
             )
             return
         }
@@ -1204,14 +1308,16 @@ class DragonClawViewModel : ViewModel() {
         dispatchRegularChatPrompt(
             finalContent = finalContent,
             cleanedUserText = cleanedUserText,
-            resolvedAttachments = resolvedAttachments
+            resolvedAttachments = resolvedAttachments,
+            voiceMode = voiceMode
         )
     }
 
     private fun dispatchRegularChatPrompt(
         finalContent: String,
         cleanedUserText: String,
-        resolvedAttachments: List<ChatAttachment>
+        resolvedAttachments: List<ChatAttachment>,
+        voiceMode: Boolean = false
     ) {
         val userId = UUID.randomUUID().toString()
         val userMsg = ChatMessage(
@@ -1242,6 +1348,7 @@ class DragonClawViewModel : ViewModel() {
             sessionId = currentSessionId,
             language = language,
             modelId = selectedModelId.ifBlank { null },
+            voiceMode = voiceMode,
             onEvent = { applyStreamEvent(it, assistantId) },
             onComplete = { finishStreaming(assistantId, interrupted = false) },
             onError = { err ->
@@ -1259,7 +1366,8 @@ class DragonClawViewModel : ViewModel() {
                             id = UUID.randomUUID().toString(),
                             text = finalContent,
                             displayText = cleanedUserText,
-                            status = "queued"
+                            status = "queued",
+                            voiceMode = voiceMode
                         )
                     ) + regularQueue
                     chatErrorBanner = null
@@ -1518,6 +1626,8 @@ class DragonClawViewModel : ViewModel() {
         if (isRecordingVoice) cancelVoiceRecording()
         if (activeDesktopSession != null) startNewChat()
 
+        voiceAudioRoute = VoiceAudioRoute.SPEAKER
+        applyVoiceAudioRoute(appCtx)
         isVoiceChatActive = true
         voiceChatErrorText = null
         voiceChatUserTranscript = ""
@@ -1536,11 +1646,13 @@ class DragonClawViewModel : ViewModel() {
         voiceChatPhase = VoiceChatPhase.IDLE
         voiceChatAudioLevel = 0.14f
         voiceChatHasSpeech = false
+        voiceAppContext?.let { resetVoiceAudioRoute(it) }
     }
 
     fun toggleVoiceChatPause() {
         voiceResumeJob?.cancel()
         if (voiceChatPhase == VoiceChatPhase.PAUSED) {
+            voiceAppContext?.let { applyVoiceAudioRoute(it) }
             beginVoiceConversationListening()
         } else {
             stopAllVoicePlayback()
@@ -1551,11 +1663,80 @@ class DragonClawViewModel : ViewModel() {
         }
     }
 
-    fun toggleVoiceChatMute() {
-        isVoiceChatSpeechMuted = !isVoiceChatSpeechMuted
-        if (isVoiceChatSpeechMuted && voiceChatPhase == VoiceChatPhase.SPEAKING) {
+    fun cycleVoiceAudioRoute(context: Context? = voiceAppContext) {
+        val next = voiceAudioRoute.next()
+        voiceAudioRoute = next
+        val ctx = context?.applicationContext ?: voiceAppContext
+        if (ctx != null) {
+            voiceAppContext = ctx
+        }
+        if (next == VoiceAudioRoute.MUTED) {
             stopAllVoicePlayback()
-            scheduleNextVoiceChatListening()
+            if (voiceChatPhase == VoiceChatPhase.SPEAKING) {
+                scheduleNextVoiceChatListening()
+            }
+            return
+        }
+        ctx?.let { applyVoiceAudioRoute(it) }
+    }
+
+    fun toggleVoiceChatMute() {
+        cycleVoiceAudioRoute()
+    }
+
+    private fun detectExternalVoiceHeadset(am: AudioManager): Boolean {
+        val outputs = am.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+        return outputs.any { dev ->
+            when (dev.type) {
+                AudioDeviceInfo.TYPE_WIRED_HEADSET,
+                AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+                AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+                AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+                AudioDeviceInfo.TYPE_USB_HEADSET -> true
+                else -> Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                    (dev.type == AudioDeviceInfo.TYPE_BLE_HEADSET || dev.type == AudioDeviceInfo.TYPE_BLE_SPEAKER)
+            }
+        }
+    }
+
+    private fun applyVoiceAudioRoute(appCtx: Context) {
+        val am = appCtx.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
+        runCatching {
+            hasExternalVoiceHeadset = detectExternalVoiceHeadset(am)
+            if (voiceAudioRoute == VoiceAudioRoute.MUTED) return@runCatching
+            am.mode = AudioManager.MODE_IN_COMMUNICATION
+            val useSpeaker = voiceAudioRoute == VoiceAudioRoute.SPEAKER
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val devices = am.availableCommunicationDevices
+                val target = if (useSpeaker) {
+                    devices.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
+                } else {
+                    devices.firstOrNull {
+                        it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
+                            it.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES ||
+                            it.type == AudioDeviceInfo.TYPE_USB_HEADSET ||
+                            it.type == AudioDeviceInfo.TYPE_BLE_HEADSET ||
+                            it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+                    } ?: devices.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE }
+                }
+                if (target != null) {
+                    am.setCommunicationDevice(target)
+                }
+            }
+            @Suppress("DEPRECATION")
+            runCatching { am.isSpeakerphoneOn = useSpeaker }
+        }
+    }
+
+    private fun resetVoiceAudioRoute(appCtx: Context) {
+        val am = appCtx.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                am.clearCommunicationDevice()
+            }
+            @Suppress("DEPRECATION")
+            am.isSpeakerphoneOn = false
+            am.mode = AudioManager.MODE_NORMAL
         }
     }
 
@@ -1680,7 +1861,7 @@ class DragonClawViewModel : ViewModel() {
                     voiceTurnCompletion = { reply ->
                         if (isVoiceChatActive) handleVoiceReplyCompleted(reply)
                     }
-                    sendPrompt(spoken)
+                    sendPrompt(spoken, voiceMode = true)
                 }
                 .onFailure { err ->
                     if (!isVoiceChatActive) return@onFailure
@@ -1752,10 +1933,11 @@ class DragonClawViewModel : ViewModel() {
         }
 
         return runCatching {
+            applyVoiceAudioRoute(appCtx)
             val player = MediaPlayer().apply {
                 setAudioAttributes(
                     AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
                         .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                         .build()
                 )
@@ -1787,11 +1969,15 @@ class DragonClawViewModel : ViewModel() {
 
     private fun fallbackDeviceSpeechOrAdvance(speechText: String) {
         voiceChatModelLabel = ""
+        voiceAppContext?.let { applyVoiceAudioRoute(it) }
         val engine = ttsEngine
         if (engine != null && ttsReady) {
             val locale = if (language == "en") Locale.US else Locale.SIMPLIFIED_CHINESE
             runCatching { engine.language = locale }
-            val result = engine.speak(speechText, TextToSpeech.QUEUE_FLUSH, null, "dc_voice_${System.currentTimeMillis()}")
+            val ttsParams = Bundle().apply {
+                putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_VOICE_CALL)
+            }
+            val result = engine.speak(speechText, TextToSpeech.QUEUE_FLUSH, ttsParams, "dc_voice_${System.currentTimeMillis()}")
             if (result != TextToSpeech.SUCCESS) {
                 scheduleNextVoiceChatListening()
             }

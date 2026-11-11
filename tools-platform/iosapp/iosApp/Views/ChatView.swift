@@ -1720,16 +1720,16 @@ private struct VoiceConversationModal: View {
         switch voiceChat.phase {
         case .listening:
             return voiceChat.speechRecorder.hasDetectedSpeech
-                ? L10n.tr(lang, zh: "正在听你说话…", en: "Listening to you...")
-                : L10n.tr(lang, zh: "请开始说话", en: "Speak anytime")
+                ? L10n.tr(lang, zh: "正在聆听…", en: "Listening…")
+                : L10n.tr(lang, zh: "请开始说话", en: "Speak now")
         case .transcribing:
-            return L10n.tr(lang, zh: "正在识别语音…", en: "Transcribing speech...")
+            return L10n.tr(lang, zh: "正在识别…", en: "Transcribing…")
         case .thinking:
-            return L10n.tr(lang, zh: "AI 正在思考…", en: "Dragon Claw is thinking...")
+            return L10n.tr(lang, zh: "思考中…", en: "Thinking…")
         case .speaking:
-            return L10n.tr(lang, zh: "正在语音回复…", en: "Speaking...")
+            return L10n.tr(lang, zh: "正在回复…", en: "Speaking…")
         case .paused, .idle:
-            return L10n.tr(lang, zh: "语音对话已暂停", en: "Voice chat paused")
+            return L10n.tr(lang, zh: "已暂停", en: "Paused")
         }
     }
 
@@ -1774,16 +1774,22 @@ private struct VoiceConversationModal: View {
                     Spacer()
 
                     Button {
-                        voiceChat.toggleSpeechMute()
+                        voiceChat.cycleAudioRoute()
                     } label: {
-                        Image(systemName: voiceChat.isSpeechMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(voiceChat.isSpeechMuted ? palette.inkMuted : palette.accentStrong)
-                            .frame(width: 38, height: 38)
-                            .contentShape(Circle())
+                        HStack(spacing: 5) {
+                            Image(systemName: voiceChat.audioRoute.systemIconName(hasExternalOutput: voiceChat.hasExternalAudioOutput))
+                                .font(.system(size: 13, weight: .semibold))
+                            Text(voiceChat.audioRoute.title(language: lang, hasExternalOutput: voiceChat.hasExternalAudioOutput))
+                                .font(.caption.weight(.semibold))
+                                .lineLimit(1)
+                        }
+                        .foregroundStyle(voiceChat.audioRoute == .muted ? palette.inkMuted : palette.accentStrong)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
-                    .glassEffect(.regular.interactive(), in: .circle)
+                    .glassEffect(.regular.interactive(), in: Capsule())
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
@@ -1839,12 +1845,8 @@ private struct VoiceConversationModal: View {
                         .font(.system(size: 17, weight: .bold, design: .rounded))
                         .foregroundStyle(palette.inkPrimary)
 
-                    if voiceChat.phase == .listening {
-                        Text(L10n.tr(lang, zh: "说完停顿 1.4 秒自动发送，也可点击上方发送", en: "Pauses auto-send after 1.4s, or tap Send"))
-                            .font(.caption)
-                            .foregroundStyle(palette.inkMuted)
-                    } else if voiceChat.phase == .speaking || voiceChat.phase == .thinking {
-                        Text(L10n.tr(lang, zh: "轻触龙爪头像可随时打断插话", en: "Tap avatar anytime to interrupt"))
+                    if voiceChat.phase == .speaking || voiceChat.phase == .thinking {
+                        Text(L10n.tr(lang, zh: "轻触头像可打断", en: "Tap avatar to interrupt"))
                             .font(.caption)
                             .foregroundStyle(palette.inkMuted)
                     }

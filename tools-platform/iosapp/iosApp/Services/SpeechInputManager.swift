@@ -17,6 +17,8 @@ final class SpeechInputManager {
     var audioLevel: CGFloat = 0.14
     var hasDetectedSpeech = false
     var errorMessage: String?
+    var preferSpeakerOutput = true
+    var shouldDeactivateSessionOnStop = true
 
     private var recorder: AVAudioRecorder?
     private var recordingURL: URL?
@@ -107,7 +109,15 @@ final class SpeechInputManager {
 
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth])
+            let categoryOptions: AVAudioSession.CategoryOptions = preferSpeakerOutput
+                ? [.defaultToSpeaker, .allowBluetooth, .duckOthers]
+                : [.allowBluetooth]
+            try session.setCategory(
+                .playAndRecord,
+                mode: preferSpeakerOutput ? .default : .voiceChat,
+                options: categoryOptions
+            )
+            try session.overrideOutputAudioPort(preferSpeakerOutput ? .speaker : .none)
             try session.setActive(true)
 
             let rec = try AVAudioRecorder(url: url, settings: settings)
@@ -208,7 +218,44 @@ final class SpeechInputManager {
     }
 
     private func deactivateSession() {
+        guard shouldDeactivateSessionOnStop else { return }
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+}
+
+enum VoiceAudioRoute: String, CaseIterable {
+    case speaker
+    case earpiece
+    case muted
+
+    func next() -> VoiceAudioRoute {
+        switch self {
+        case .speaker: return .earpiece
+        case .earpiece: return .muted
+        case .muted: return .speaker
+        }
+    }
+
+    func title(language: String, hasExternalOutput: Bool) -> String {
+        switch self {
+        case .speaker:
+            return language == "en" ? "Speaker" : "免提"
+        case .earpiece:
+            if hasExternalOutput {
+                return language == "en" ? "Headset" : "耳机"
+            }
+            return language == "en" ? "Earpiece" : "听筒"
+        case .muted:
+            return language == "en" ? "Muted" : "静音"
+        }
+    }
+
+    func systemIconName(hasExternalOutput: Bool) -> String {
+        switch self {
+        case .speaker: return "speaker.wave.2.fill"
+        case .earpiece: return hasExternalOutput ? "headphones" : "phone.arrow.down.left.fill"
+        case .muted: return "speaker.slash.fill"
+        }
     }
 }
 
@@ -227,7 +274,9 @@ enum VoiceChatPhase: Equatable {
 final class VoiceChatController: NSObject, AVSpeechSynthesizerDelegate, AVAudioPlayerDelegate {
     var isPresented = false
     var phase: VoiceChatPhase = .idle
-    var isSpeechMuted = false
+    var audioRoute: VoiceAudioRoute = .speaker
+    var hasExternalAudioOutput = false
+    var isSpeechMuted: Bool { audioRoute == .muted }
     var userTranscript = ""
     var assistantTranscript = ""
     var activeVoiceModelLabel = ""
@@ -240,10 +289,31 @@ final class VoiceChatController: NSObject, AVSpeechSynthesizerDelegate, AVAudioP
     private var synthesisTaskHandle: TaskHandle?
     private weak var boundStore: DragonClawStore?
     private var resumeListeningTask: Task<Void, Never>?
+    private nonisolated(unsafe) var routeObserver: NSObjectProtocol?
 
     override init() {
         super.init()
         synthesizer.delegate = self
+        speechRecorder.shouldDeactivateSessionOnStop = false
+        routeObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.routeChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, self.isPresented else { return }
+                self.refreshExternalRouteState()
+                if self.audioRoute != .muted {
+                    self.configureActiveAudioRoute()
+                }
+            }
+        }
+    }
+
+    deinit {
+        if let observer = routeObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
     }
 
     func startSession(store: DragonClawStore) {
@@ -253,6 +323,10 @@ final class VoiceChatController: NSObject, AVSpeechSynthesizerDelegate, AVAudioP
         assistantTranscript = ""
         userTranscript = ""
         activeVoiceModelLabel = ""
+        audioRoute = .speaker
+        speechRecorder.preferSpeakerOutput = true
+        refreshExternalRouteState()
+        configureActiveAudioRoute()
         store.prepareVoiceConversationSessionIfNeeded()
         beginListeningTurn()
     }
@@ -266,6 +340,7 @@ final class VoiceChatController: NSObject, AVSpeechSynthesizerDelegate, AVAudioP
         if boundStore?.isStreaming == true {
             boundStore?.stopStreaming()
         }
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         phase = .idle
         isPresented = false
     }
@@ -282,14 +357,27 @@ final class VoiceChatController: NSObject, AVSpeechSynthesizerDelegate, AVAudioP
         }
     }
 
-    func toggleSpeechMute() {
-        isSpeechMuted.toggle()
-        if isSpeechMuted && (phase == .speaking || phase == .thinking) {
-            stopPlayback()
+    func cycleAudioRoute() {
+        let nextRoute = audioRoute.next()
+        audioRoute = nextRoute
+        speechRecorder.preferSpeakerOutput = (nextRoute == .speaker)
+        refreshExternalRouteState()
+
+        if nextRoute == .muted {
             if phase == .speaking {
+                stopPlayback()
                 scheduleNextListeningTurn()
+            } else {
+                stopPlayback()
             }
+            return
         }
+
+        configureActiveAudioRoute()
+    }
+
+    func toggleSpeechMute() {
+        cycleAudioRoute()
     }
 
     func submitCurrentListeningTurn() {
@@ -385,7 +473,7 @@ final class VoiceChatController: NSObject, AVSpeechSynthesizerDelegate, AVAudioP
         }
 
         phase = .speaking
-        configureSpeakerPlaybackSession()
+        configureActiveAudioRoute()
 
         let truncatedForVoice = speakable.count > 1200 ? String(speakable.prefix(1200)) : speakable
         synthesisTaskHandle?.cancel()
@@ -401,6 +489,7 @@ final class VoiceChatController: NSObject, AVSpeechSynthesizerDelegate, AVAudioP
                 self.activeVoiceModelLabel = audio.model
                 let nsData = IosInteropKt.byteArrayToNSData(bytes: audio.bytes)
                 do {
+                    self.configureActiveAudioRoute()
                     let player = try AVAudioPlayer(data: nsData as Data)
                     player.delegate = self
                     player.prepareToPlay()
@@ -422,12 +511,40 @@ final class VoiceChatController: NSObject, AVSpeechSynthesizerDelegate, AVAudioP
         }
     }
 
-    private func configureSpeakerPlaybackSession() {
+    private func refreshExternalRouteState() {
+        let outputs = AVAudioSession.sharedInstance().currentRoute.outputs
+        hasExternalAudioOutput = outputs.contains { out in
+            switch out.portType {
+            case .headphones, .bluetoothA2DP, .bluetoothHFP, .bluetoothLE, .usbAudio, .carAudio, .airPlay:
+                return true
+            default:
+                return false
+            }
+        }
+    }
+
+    private func configureActiveAudioRoute() {
+        guard audioRoute != .muted else { return }
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth, .duckOthers])
-            try session.overrideOutputAudioPort(.speaker)
+            if audioRoute == .speaker {
+                try session.setCategory(
+                    .playAndRecord,
+                    mode: .default,
+                    options: [.defaultToSpeaker, .allowBluetooth, .duckOthers]
+                )
+                try session.overrideOutputAudioPort(.speaker)
+            } else {
+                // Earpiece / wired or Bluetooth headset route (exclude defaultToSpeaker so iOS uses headset or receiver)
+                try session.setCategory(
+                    .playAndRecord,
+                    mode: .voiceChat,
+                    options: [.allowBluetooth]
+                )
+                try session.overrideOutputAudioPort(.none)
+            }
             try session.setActive(true)
+            refreshExternalRouteState()
         } catch {
             // Continue with default playback route if session override is constrained
         }

@@ -100,6 +100,49 @@ class DragonClawApiClient(
         return decodeOrThrow(response, "Failed to load alert summary")
     }
 
+    suspend fun getAlertCenterEvents(
+        token: String,
+        filter: String = "all",
+        limit: Int = 80
+    ): AlertCenterEventsResponse {
+        val response = client.get("$baseUrl/api/alert-center/events") {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+            url {
+                parameters.append("limit", limit.toString())
+                when (filter.lowercase()) {
+                    "unread" -> parameters.append("status", "unread")
+                    "config", "security", "user_action", "system" -> parameters.append("type", filter.lowercase())
+                }
+            }
+        }
+        return decodeOrThrow(response, "Failed to load alert events")
+    }
+
+    suspend fun markAlertEventsRead(token: String, ids: List<String>): AlertCenterMutationResponse {
+        val response = client.put("$baseUrl/api/alert-center/events/read") {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+            contentType(ContentType.Application.Json)
+            setBody(AlertCenterMarkReadRequest(ids = ids))
+        }
+        return decodeOrThrow(response, "Failed to mark alert read")
+    }
+
+    suspend fun markAllAlertEventsRead(token: String): AlertCenterMutationResponse {
+        val response = client.put("$baseUrl/api/alert-center/events/read-all") {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+            contentType(ContentType.Application.Json)
+            setBody("{}")
+        }
+        return decodeOrThrow(response, "Failed to mark all alerts read")
+    }
+
+    suspend fun archiveAlertEvent(token: String, eventId: String): AlertCenterMutationResponse {
+        val response = client.delete("$baseUrl/api/alert-center/events/$eventId") {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+        }
+        return decodeOrThrow(response, "Failed to archive alert event")
+    }
+
     // --- DragonClaw AI Chat ---
 
     suspend fun getModels(token: String): AiModelsResponse {

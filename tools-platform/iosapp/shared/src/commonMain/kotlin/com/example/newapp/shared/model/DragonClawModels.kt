@@ -75,7 +75,8 @@ data class ChatStreamRequest(
     val sessionId: String? = null,
     val agent: String = "dragon-claw-home",
     val stream: Boolean = true,
-    val modelId: String? = null
+    val modelId: String? = null,
+    val voiceMode: Boolean? = null
 )
 
 @Serializable
@@ -545,7 +546,8 @@ data class QueuedChatPrompt(
     val displayText: String,
     val attachments: List<UploadedFileInfo> = emptyList(),
     val status: String = "queued",
-    val error: String = ""
+    val error: String = "",
+    val voiceMode: Boolean = false
 )
 
 @Serializable

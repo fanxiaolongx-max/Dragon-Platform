@@ -87,6 +87,7 @@ import com.example.newapp.shared.util.MdBlockKind
 import com.example.newapp.shared.util.MdSpan
 import com.example.newapp.shared.util.MdSpanKind
 import com.example.newapp.state.DragonClawViewModel
+import com.example.newapp.state.VoiceAudioRoute
 import com.example.newapp.state.VoiceChatPhase
 import com.example.newapp.ui.components.AuthenticatedRemoteImageCard
 import com.example.newapp.ui.components.ChatAttachmentGallery
@@ -1248,10 +1249,6 @@ fun ChatScreen(vm: DragonClawViewModel) {
         )
     }
 
-    if (vm.isVoiceChatActive) {
-        VoiceConversationDialog(vm = vm)
-    }
-
     lightboxPayload?.let { payload ->
         ImageLightboxDialog(
             payload = payload,
@@ -2235,10 +2232,13 @@ private fun AssistantSkeletonCard(shimmerBrush: Brush, lineRatios: List<Float>) 
 }
 
 @Composable
-private fun VoiceConversationDialog(vm: DragonClawViewModel) {
+fun VoiceConversationOverlay(vm: DragonClawViewModel) {
     val palette = LocalDragonClawPalette.current
+    val context = LocalContext.current
     val lang = vm.language
     val phase = vm.voiceChatPhase
+    val audioRoute = vm.voiceAudioRoute
+    val hasHeadset = vm.hasExternalVoiceHeadset
 
     val liveAssistantText = remember(vm.messages.lastOrNull()?.content, vm.voiceChatAssistantTranscript, phase) {
         val lastModel = vm.messages.lastOrNull()?.takeIf { !it.isUser }?.content.orEmpty()
@@ -2251,12 +2251,23 @@ private fun VoiceConversationDialog(vm: DragonClawViewModel) {
 
     val statusTitle = when (phase) {
         VoiceChatPhase.LISTENING ->
-            if (vm.voiceChatHasSpeech) tr(lang, "正在听你说话…", "Listening to you...")
-            else tr(lang, "请开始说话", "Speak anytime")
-        VoiceChatPhase.TRANSCRIBING -> tr(lang, "正在识别语音…", "Transcribing speech...")
-        VoiceChatPhase.THINKING -> tr(lang, "AI 正在思考…", "Dragon Claw is thinking...")
-        VoiceChatPhase.SPEAKING -> tr(lang, "正在语音回复…", "Speaking...")
-        VoiceChatPhase.PAUSED, VoiceChatPhase.IDLE -> tr(lang, "语音对话已暂停", "Voice chat paused")
+            if (vm.voiceChatHasSpeech) tr(lang, "正在聆听…", "Listening…")
+            else tr(lang, "请开始说话", "Speak now")
+        VoiceChatPhase.TRANSCRIBING -> tr(lang, "正在识别…", "Transcribing…")
+        VoiceChatPhase.THINKING -> tr(lang, "思考中…", "Thinking…")
+        VoiceChatPhase.SPEAKING -> tr(lang, "正在回复…", "Speaking…")
+        VoiceChatPhase.PAUSED, VoiceChatPhase.IDLE -> tr(lang, "已暂停", "Paused")
+    }
+
+    val routeIcon = when (audioRoute) {
+        VoiceAudioRoute.SPEAKER -> Icons.AutoMirrored.Rounded.VolumeUp
+        VoiceAudioRoute.EARPIECE -> if (hasHeadset) Icons.Rounded.Headphones else Icons.Rounded.PhoneInTalk
+        VoiceAudioRoute.MUTED -> Icons.AutoMirrored.Rounded.VolumeOff
+    }
+    val routeLabel = when (audioRoute) {
+        VoiceAudioRoute.SPEAKER -> tr(lang, "免提", "Speaker")
+        VoiceAudioRoute.EARPIECE -> if (hasHeadset) tr(lang, "耳机", "Headset") else tr(lang, "听筒", "Earpiece")
+        VoiceAudioRoute.MUTED -> tr(lang, "静音", "Muted")
     }
 
     val pulseTransition = rememberInfiniteTransition(label = "voiceOrbPulse")
@@ -2281,18 +2292,22 @@ private fun VoiceConversationDialog(vm: DragonClawViewModel) {
         VoiceChatPhase.PAUSED, VoiceChatPhase.IDLE -> 0.92f
     }
 
-    Dialog(
-        onDismissRequest = { vm.endVoiceConversation() },
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) {}
     ) {
         DragonClawBackdrop {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
                     .fillMaxSize()
-                    .statusBarsPadding()
-                    .navigationBarsPadding()
-                    .padding(horizontal = 20.dp, vertical = 14.dp)
+                    .windowInsetsPadding(WindowInsets.systemBars)
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 14.dp, bottom = 26.dp)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -2317,7 +2332,7 @@ private fun VoiceConversationDialog(vm: DragonClawViewModel) {
                                 fontWeight = FontWeight.SemiBold,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.widthIn(max = 160.dp)
+                                modifier = Modifier.widthIn(max = 185.dp)
                             )
                             if (vm.voiceChatModelLabel.isNotBlank()) {
                                 Spacer(Modifier.width(6.dp))
@@ -2337,15 +2352,25 @@ private fun VoiceConversationDialog(vm: DragonClawViewModel) {
                     LiquidGlassSurface(
                         shape = CircleShape,
                         elevation = 3.dp,
-                        onClick = { vm.toggleVoiceChatMute() },
-                        modifier = Modifier.size(38.dp)
+                        onClick = { vm.cycleVoiceAudioRoute(context) }
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
                             Icon(
-                                imageVector = if (vm.isVoiceChatSpeechMuted) Icons.AutoMirrored.Rounded.VolumeOff else Icons.AutoMirrored.Rounded.VolumeUp,
-                                contentDescription = "Toggle speech audio",
-                                tint = if (vm.isVoiceChatSpeechMuted) palette.inkMuted else palette.accentStrong,
-                                modifier = Modifier.size(18.dp)
+                                imageVector = routeIcon,
+                                contentDescription = routeLabel,
+                                tint = if (audioRoute == VoiceAudioRoute.MUTED) palette.inkMuted else palette.accentStrong,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = routeLabel,
+                                color = if (audioRoute == VoiceAudioRoute.MUTED) palette.inkMuted else palette.accentStrong,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1
                             )
                         }
                     }
@@ -2386,7 +2411,7 @@ private fun VoiceConversationDialog(vm: DragonClawViewModel) {
                             .size(132.dp)
                             .scale(orbScale)
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                             Image(
                                 painter = painterResource(id = R.drawable.dragon_claw_avatar),
                                 contentDescription = "Dragon Claw Voice Orb",
@@ -2406,23 +2431,23 @@ private fun VoiceConversationDialog(vm: DragonClawViewModel) {
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Bold
                 )
-                Spacer(Modifier.height(4.dp))
-                val hint = when (phase) {
-                    VoiceChatPhase.LISTENING -> tr(lang, "说完停顿 1.4 秒自动发送，也可点击下方发送", "Pauses auto-send after 1.4s, or tap Send")
-                    VoiceChatPhase.SPEAKING, VoiceChatPhase.THINKING -> tr(lang, "轻触龙爪头像可随时打断插话", "Tap avatar anytime to interrupt")
-                    else -> ""
-                }
-                if (hint.isNotEmpty()) {
-                    Text(text = hint, color = palette.inkMuted, fontSize = 11.5.sp, textAlign = TextAlign.Center)
+                if (phase == VoiceChatPhase.SPEAKING || phase == VoiceChatPhase.THINKING) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = tr(lang, "轻触头像可打断", "Tap avatar to interrupt"),
+                        color = palette.inkMuted,
+                        fontSize = 11.5.sp,
+                        textAlign = TextAlign.Center
+                    )
                 }
 
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(14.dp))
 
                 Column(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = 210.dp)
+                        .heightIn(max = 200.dp)
                         .verticalScroll(rememberScrollState())
                 ) {
                     vm.voiceChatErrorText?.takeIf { it.isNotBlank() }?.let { err ->
@@ -2471,11 +2496,12 @@ private fun VoiceConversationDialog(vm: DragonClawViewModel) {
                 }
 
                 Spacer(Modifier.weight(1f))
+                Spacer(Modifier.height(12.dp))
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(24.dp),
-                    modifier = Modifier.padding(bottom = 18.dp)
+                    modifier = Modifier.padding(bottom = 8.dp)
                 ) {
                     LiquidGlassSurface(
                         shape = CircleShape,
@@ -2483,7 +2509,7 @@ private fun VoiceConversationDialog(vm: DragonClawViewModel) {
                         onClick = { vm.toggleVoiceChatPause() },
                         modifier = Modifier.size(56.dp)
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                             Icon(
                                 imageVector = if (phase == VoiceChatPhase.PAUSED) Icons.Rounded.Mic else Icons.Rounded.Pause,
                                 contentDescription = "Pause or resume",
@@ -2501,7 +2527,7 @@ private fun VoiceConversationDialog(vm: DragonClawViewModel) {
                                 onClick = { vm.submitVoiceConversationTurn() },
                                 modifier = Modifier.size(66.dp)
                             ) {
-                                Box(contentAlignment = Alignment.Center) {
+                                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                                     Icon(Icons.Rounded.ArrowUpward, contentDescription = "Send speech", tint = Color.White, modifier = Modifier.size(24.dp))
                                 }
                             }
@@ -2513,14 +2539,14 @@ private fun VoiceConversationDialog(vm: DragonClawViewModel) {
                                 onClick = { vm.interruptAndListenInVoiceChat() },
                                 modifier = Modifier.size(66.dp)
                             ) {
-                                Box(contentAlignment = Alignment.Center) {
+                                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                                     Icon(Icons.Rounded.FrontHand, contentDescription = "Interrupt", tint = Color.White, modifier = Modifier.size(24.dp))
                                 }
                             }
                         }
                         else -> {
                             LiquidGlassSurface(shape = CircleShape, elevation = 4.dp, modifier = Modifier.size(66.dp)) {
-                                Box(contentAlignment = Alignment.Center) {
+                                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                                     CircularProgressIndicator(strokeWidth = 2.5.dp, color = palette.accentStrong, modifier = Modifier.size(24.dp))
                                 }
                             }
@@ -2533,7 +2559,7 @@ private fun VoiceConversationDialog(vm: DragonClawViewModel) {
                         onClick = { vm.endVoiceConversation() },
                         modifier = Modifier.size(56.dp)
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                             Icon(Icons.Rounded.Close, contentDescription = "End voice call", tint = Color.White, modifier = Modifier.size(22.dp))
                         }
                     }

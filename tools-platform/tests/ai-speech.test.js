@@ -84,3 +84,13 @@ test('natural TTS wraps Gemini PCM L16 into valid RIFF WAV and POST /speech/synt
   s.close();
  }finally{speech.synthesizeSpeech=beforeSynth;}
 });
+
+test('buildChatPresentationRules switches cleanly between standard chat and concise voiceMode', () => {
+ const { buildChatPresentationRules } = require('../backend/models/ai-presentation-rules');
+ const normal = buildChatPresentationRules('简体中文', false);
+ const voice = buildChatPresentationRules('English', true);
+ assert.match(normal, /Markdown 表格/);
+ assert.match(voice, /实时语音通话/);
+ assert.match(voice, /English/);
+ assert.doesNotMatch(voice, /默认优先使用 Markdown 表格/);
+});
