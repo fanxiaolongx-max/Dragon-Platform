@@ -67,6 +67,17 @@ html.desktop-win:not(.desktop-fullscreen) .dc-browser-panel{padding-top:38px}
 .dc-browser-navigation,.dc-browser-toolbar-actions{display:flex;align-items:center;gap:2px;flex-shrink:0;border-radius:18px;background:var(--v2-side,#94a3b811)}
 .dc-browser-toolbar-actions .has-downloads{position:relative}
 .dc-browser-toolbar-actions .has-downloads::after{content:"";position:absolute;top:3px;right:3px;width:6px;height:6px;border-radius:50%;background:#3b82f6;pointer-events:none}
+/* 下载开始/完成：按钮弹性放大 + 外圈涟漪 + 箭头下坠一下；下载进行中右上角小蓝点呼吸 */
+.dc-browser-toolbar-actions [data-browser=downloads]{position:relative;transform-origin:50% 50%;transition:color .3s ease,background-color .3s ease}
+.dc-browser-toolbar-actions [data-browser=downloads].is-download-pulse{color:#2563eb;background:#3b82f61f;animation:dcBrowserDownloadPulse .72s cubic-bezier(.25,.8,.35,1) both,dcBrowserDownloadRing .9s ease-out both}
+.dc-browser-toolbar-actions [data-browser=downloads].is-download-pulse svg{animation:dcBrowserDownloadArrow .72s cubic-bezier(.3,.7,.4,1) both}
+.dc-browser-toolbar-actions [data-browser=downloads].is-downloading::after{content:"";position:absolute;top:3px;right:3px;width:6px;height:6px;border-radius:50%;background:#3b82f6;pointer-events:none;animation:dcBrowserDownloadDot 1.4s ease-in-out infinite}
+html[data-theme=dark] .dc-browser-toolbar-actions [data-browser=downloads].is-download-pulse{color:#93c5fd;background:#60a5fa26}
+@keyframes dcBrowserDownloadPulse{0%{transform:scale(1)}30%{transform:scale(1.26)}58%{transform:scale(.95)}80%{transform:scale(1.04)}100%{transform:scale(1)}}
+@keyframes dcBrowserDownloadRing{0%{box-shadow:0 0 0 0 #3b82f659}100%{box-shadow:0 0 0 9px #3b82f600}}
+@keyframes dcBrowserDownloadArrow{0%,100%{transform:translateY(0)}35%{transform:translateY(2.5px)}65%{transform:translateY(-1px)}}
+@keyframes dcBrowserDownloadDot{0%,100%{opacity:.45;transform:scale(.8)}50%{opacity:1;transform:scale(1.1)}}
+@media(prefers-reduced-motion:reduce){.dc-browser-toolbar-actions [data-browser=downloads].is-download-pulse,.dc-browser-toolbar-actions [data-browser=downloads].is-download-pulse svg,.dc-browser-toolbar-actions [data-browser=downloads].is-downloading::after{animation:none}}
 .dc-browser-url-wrap{position:relative;flex:1;min-width:0;display:flex;align-items:center}
 .dc-browser-address input{width:100%;height:34px;box-sizing:border-box;border-radius:20px;padding:7px 14px;background:var(--v2-side,#94a3b811);border:1px solid transparent;font-size:12px;text-align:center;color:inherit}
 .dc-browser-address input:focus{outline:2px solid #60a5fa66;text-align:left}

@@ -1113,17 +1113,20 @@
         const nativeAll = all.filter(r => r.timingSource === 'native-metadata' && r.nativeStreamMs > 0 && r.nativeStreamTokens > 0 && Number.isFinite(r.nativeStreamTps));
         const reportedNative = nativeAll.filter(r => r.nativeStreamScope !== 'visible-output-observed');
         const native = reportedNative.length ? reportedNative : nativeAll;
+        const estimatedList = all.filter(r => Number(r.tps) > 0);
         const nativeOnly = !list.length && native.length > 0;
-        const speeds = nativeOnly ? native.map(r => r.nativeStreamTps) : list.map(r => Number(r.tps));
-        const tokens = nativeOnly ? native.reduce((n,r)=>n+r.nativeStreamTokens,0) : list.reduce((n,r) => n + (r.decodeTokens ?? Math.max(0, r.outputTokens - 1)), 0);
-        const ms = nativeOnly ? native.reduce((n,r)=>n+r.nativeStreamMs,0) : list.reduce((n,r) => n + (Number(r.generationMs) || 0), 0);
+        const isEstimated = !list.length && !native.length && estimatedList.length > 0;
+        const effectiveList = list.length ? list : (native.length ? native : estimatedList);
+        const speeds = nativeOnly ? native.map(r => r.nativeStreamTps) : effectiveList.map(r => Number(r.tps));
+        const tokens = nativeOnly ? native.reduce((n,r)=>n+r.nativeStreamTokens,0) : (isEstimated ? estimatedList.reduce((n,r)=>n+Number(r.outputTokens||0),0) : list.reduce((n,r) => n + (r.decodeTokens ?? Math.max(0, r.outputTokens - 1)), 0));
+        const ms = nativeOnly ? native.reduce((n,r)=>n+r.nativeStreamMs,0) : (isEstimated ? estimatedList.reduce((n,r)=>n+Number(r.generationMs||0),0) : list.reduce((n,r) => n + (Number(r.generationMs) || 0), 0));
         const first = all.find(r => typeof r.ttftMs === 'number' && Number.isFinite(r.ttftMs) && r.ttftMs >= 0);
         const observed = all.find(r => r.firstTextSource === 'workbuddy-native-sdk-log' && Number.isFinite(r.observedFirstTextMs) && r.observedFirstTextMs >= 0);
         const turn = all.find(r => typeof r.turnTtftMs === 'number' && Number.isFinite(r.turnTtftMs) && r.turnTtftMs >= 0);
-        return { rounds: all.length, rateSamples:nativeOnly?native.length:list.length, nativeOnly, observedStream: nativeOnly && native.some(r=>r.nativeStreamScope==='visible-output-observed'), min: speeds.length ? Math.min(...speeds) : null, max: speeds.length ? Math.max(...speeds) : null,
+        return { rounds: all.length, rateSamples: effectiveList.length, nativeOnly, isEstimated, observedStream: nativeOnly && native.some(r=>r.nativeStreamScope==='visible-output-observed'), min: speeds.length ? Math.min(...speeds) : null, max: speeds.length ? Math.max(...speeds) : null,
             avg: ms > 0 ? tokens * 1000 / ms : null, ttft: first?.ttftMs ?? turn?.turnTtftMs ?? observed?.observedFirstTextMs ?? null,
             observedTiming: !first && !turn && Boolean(observed),
-            turnTiming: !first && Boolean(turn), estimated: all.some(r => r.estimated) };
+            turnTiming: !first && Boolean(turn), estimated: isEstimated || all.some(r => r.estimated) };
     }
     const fmtTps = value => (value >= 100 ? Math.round(value) : Math.round(value * 10) / 10).toString();
 
@@ -1194,19 +1197,19 @@
             tx('usageTitle', {input:input.toLocaleString(),output:output.toLocaleString()}),
             `${en?'Total tokens':'总 Token'}: ${(input+output).toLocaleString()}`,
             ...(cacheLine ? [cacheLine] : []),
-            `TPS${speed.nativeOnly ? (speed.observedStream ? (en?' (observed text)':'（文字观测）') : (en?' (native stream)':'（原生流）')) : ''} ${en?'min / avg / max':'最低 / 平均 / 最高'}: ${rate(speed.min)} / ${rate(speed.avg)} / ${rate(speed.max)}`,
-            `${speed.observedTiming ? (en?'First text (observed)':'首文字（观测）') : 'TTFT'}${speed.turnTiming ? (en?' (turn)':'（轮次级）') : ''}: ${timing}`,
+            `TPS${speed.nativeOnly ? (speed.observedStream ? (en?' (observed text)':'（文字观测）') : (en?' (native stream)':'（原生流）')) : speed.isEstimated ? (en ? ' (estimated)' : '（估算）') : ''} ${en?'min / avg / max':'最低 / 平均 / 最高'}: ${rate(speed.min)} / ${rate(speed.avg)} / ${rate(speed.max)}`,
+            `${speed.observedTiming ? (en?'First text (observed)':'首文字（观测）') : 'TTFT'}${speed.turnTiming ? (en?' (turn)':'（轮次级）') : speed.isEstimated ? (en ? ' (estimated)' : '（估算）') : ''}: ${timing}`,
             speed.rounds ? `${speed.rounds} ${en?'model calls':'次模型调用'} · ${en?'rate samples':'流速样本'} ${speed.rateSamples}` : (en?'Per-call records unavailable':'未提供逐次调用记录'),
-            speed.avg === null ? (speed.observedTiming ? (en?'First text is measured from the recorded user turn to native SDK text arrival. It is not per-model-request TTFT; decode TPS remains unavailable.':'首文字为用户本轮消息到原生 SDK 收到文字的观测延迟，包含工具等等待，不是单次模型请求 TTFT；解码 TPS 仍未提供。') : unavailable) : speed.nativeOnly ? (speed.observedStream ? (en?'Observed text rate: visible output tokens (reasoning excluded) divided by native message start-to-end time. Only final text-only model calls are counted; chunk buffering may affect this rate.':'文字观测速率：扣除推理后的输出 Token ÷ 原生消息起止时长；仅统计最终纯文字调用，分块缓冲可能影响数值。') : (en?'Native reported output ÷ native streaming duration; includes reasoning tokens. Chunk buffering may affect this rate; it is not pure visible-text decode.':'原生输出 Token ÷ 原生 streamingDuration，包含推理 Token；分块缓冲可能影响数值，不等同于纯可见文字解码速度。')) : (en?'Decode only; duration-weighted average, excluding the first token.':'仅统计解码；平均按解码时长加权，排除首个 Token。'),
+            speed.avg === null ? (speed.observedTiming ? (en?'First text is measured from the recorded user turn to native SDK text arrival. It is not per-model-request TTFT; decode TPS remains unavailable.':'首文字为用户本轮消息到原生 SDK 收到文字的观测延迟，包含工具等等待，不是单次模型请求 TTFT；解码 TPS 仍未提供。') : unavailable) : speed.nativeOnly ? (speed.observedStream ? (en?'Observed text rate: visible output tokens (reasoning excluded) divided by native message start-to-end time. Only final text-only model calls are counted; chunk buffering may affect this rate.':'文字观测速率：扣除推理后的输出 Token ÷ 原生消息起止时长；仅统计最终纯文字调用，分块缓冲可能影响数值。') : (en?'Native reported output ÷ native streaming duration; includes reasoning tokens. Chunk buffering may affect this rate; it is not pure visible-text decode.':'原生输出 Token ÷ 原生 streamingDuration，包含推理 Token；分块缓冲可能影响数值，不等同于纯可见文字解码速度。')) : speed.isEstimated ? (en ? 'Rough estimation based on event timestamps and provider output tokens.' : '根据事件时间戳和供应商输出 Token 进行粗略估算。') : (en?'Decode only; duration-weighted average, excluding the first token.':'仅统计解码；平均按解码时长加权，排除首个 Token。'),
             ...(speed.estimated ? [tx('speedEstimated')] : []),
             ...(records.length > 3 ? [en ? 'Latest 3 calls:' : '最近 3 次调用：'] : []),
-            ...records.slice(-3).map((r,i) => `#${Math.max(0,records.length-3)+i+1} ${r.model || ''}: ${en?'in':'输入'} ${r.inputTokens ?? '—'} / ${en?'out':'输出'} ${r.outputTokens ?? '—'}; ${en?'cache read':'缓存读取'} ${r.cachedInputTokens ?? '—'}; TPS ${r.timingSource === 'native-metadata' && r.nativeStreamTps > 0 ? fmtTps(r.nativeStreamTps)+' ('+(en?'native':'原生流')+')' : !r.timingEstimated && r.timingSource === 'request-stream' && r.tps > 0 ? fmtTps(r.tps) : '—'}; TTFT ${typeof r.ttftMs === 'number' ? (r.ttftMs/1000).toFixed(2)+' s' : '—'}`)
+            ...records.slice(-3).map((r,i) => `#${Math.max(0,records.length-3)+i+1} ${r.model || ''}: ${en?'in':'输入'} ${r.inputTokens ?? '—'} / ${en?'out':'输出'} ${r.outputTokens ?? '—'}; ${en?'cache read':'缓存读取'} ${r.cachedInputTokens ?? '—'}; TPS ${r.timingSource === 'native-metadata' && r.nativeStreamTps > 0 ? fmtTps(r.nativeStreamTps)+' ('+(en?'native':'原生流')+')' : (!r.timingEstimated && r.timingSource === 'request-stream' && r.tps > 0) || (r.timingEstimated && r.tps > 0) ? fmtTps(r.tps)+(r.timingEstimated ? (en?' (est.)':'（估）') : '') : '—'}; TTFT ${typeof r.ttftMs === 'number' ? (r.ttftMs/1000).toFixed(2)+' s'+(r.timingEstimated ? (en?' (est.)':'（估）') : '') : '—'}`)
         ].join('\n');
         if (Array.isArray(rounds) && rounds.length) message.dcRounds = rounds;
         bar.innerHTML = `${iconButton('copy', tx('copy'), 'data-dc-copy')}
             ${modelName ? `<span class="dc-msg-model" title="${escapeHtml(tx('modelCurrent', { name: modelName }))}">${escapeHtml(modelName)}</span>` : ''}
             ${records.length || input || output ? `<span class="dc-msg-usage" tabindex="0" data-dc-metric-tip="${escapeHtml(details)}">${escapeHtml(tx('usageText', { input: formatTokenCount(input) + cacheBadge, output: formatTokenCount(output) }))}${speed.estimated ? ' ≈' : ''}</span>` : ''}
-            ${records.length || modelName || input || output ? `<span class="dc-msg-speed" tabindex="0" data-dc-metric-tip="${escapeHtml(details)}">${escapeHtml(`TPS${speed.nativeOnly ? (speed.observedStream ? (en?' (observed text)':'（文字观测）') : (en?' (native)':'（原生流）')) : ''} ${rate(speed.min)}/${rate(speed.avg)}/${rate(speed.max)} · ${speed.observedTiming ? (en?'First text (observed)':'首文字（观测）') : 'TTFT'} ${timing}${speed.turnTiming ? (en ? ' (turn)' : '（轮次）') : ''}${speed.rounds ? ' · '+tx('speedRounds', {n:speed.rounds}) : ''}`)}</span>` : ''}`;
+            ${records.length || modelName || input || output ? `<span class="dc-msg-speed" tabindex="0" data-dc-metric-tip="${escapeHtml(details)}">${escapeHtml(`TPS${speed.nativeOnly ? (speed.observedStream ? (en?' (observed text)':'（文字观测）') : (en?' (native)':'（原生流）')) : speed.isEstimated ? (en ? ' (est.)' : '（估）') : ''} ${rate(speed.min)}/${rate(speed.avg)}/${rate(speed.max)} · ${speed.observedTiming ? (en?'First text (observed)':'首文字（观测）') : 'TTFT'}${speed.turnTiming ? (en ? ' (turn)' : '（轮次）') : speed.isEstimated ? (en ? ' (est.)' : '（估）') : ''} ${timing}${speed.rounds ? ' · '+tx('speedRounds', {n:speed.rounds}) : ''}`)}</span>` : ''}`;
         bar.querySelector('[data-dc-copy]').dataset.dcCopy = text;
         message.querySelector('.dc-msg-main').appendChild(bar);
     }

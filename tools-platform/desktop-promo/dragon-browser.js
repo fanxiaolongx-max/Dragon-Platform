@@ -4,6 +4,7 @@ const path = require('path');
 const pageLayoutScript=require('../backend/models/browser-page-layout').script;
 const { savedUrl } = require('./browser-library');
 const { captureSite, loginOrigin, attachBrowserLogin } = require('./browser-credentials');
+const { createDownloadToast } = require('./download-toast');
 const TAB_HEIGHT = 34;
 const TOOLBAR_HEIGHT = 40;
 const PANEL_HEIGHT = 240, FIND_HEIGHT = 38;
@@ -29,6 +30,12 @@ function createDragonBrowser({ onOpenAppUrl = () => false, partition, whenReady,
         if(tab.page.webContents.getURL()==='about:blank')tab.page.webContents.executeJavaScript(`(()=>{if(location.href!=='about:blank')return;document.documentElement.style.cssText='background:${color};color:${dark?'#e2e8f0':'#172033'};color-scheme:${dark?'dark':'light'}';document.body.style.background='${color}';})()`).catch(()=>{});
     }
     let sidebarHost = null, sidebarBounds = null, sidebarMode = false, attachedHost = null;
+    // 侧栏模式没有下载面板/提示条：在「下载」按钮下方用置顶透明视图显示下载横幅。
+    const downloadToast = createDownloadToast({
+        getHost: () => sidebarMode && shown ? sidebarHost : null,
+        getTheme: () => sidebarTheme, getLanguage,
+        onAction: (id, action) => getDownloads()?.action(id, action)
+    });
     let panel = '', bookmarks = [], history = [], libraryError = false;
     let notice = null, noticeTimer = null;
     let find = { open: false, text: '', matches: 0, activeMatch: 0 }, findRequest = null;
@@ -113,6 +120,7 @@ function createDragonBrowser({ onOpenAppUrl = () => false, partition, whenReady,
                 if (tab) { sidebarHost.addBrowserView(tab.page); attached = tab.page; attachedHost = sidebarHost; }
             }
             if (tab) { tab.page.setBounds(sidebarBounds); tab.onLayout?.();layoutOperator(tab); }
+            downloadToast.raise();
             return;
         }
         const [width, height] = win.getContentSize();
@@ -132,7 +140,7 @@ function createDragonBrowser({ onOpenAppUrl = () => false, partition, whenReady,
     function visibility(next) {
         if (shown === next) return;
         shown = next;
-        if (!shown) detach();
+        if (!shown) { detach(); downloadToast.reset(); }
         tabs.forEach(tab => tab.onModeChange?.(shown));
         if (shown) layout();
         onVisibilityChange();
@@ -503,7 +511,8 @@ function createDragonBrowser({ onOpenAppUrl = () => false, partition, whenReady,
     function handleAction(sender, action, payload) {
         const fromSidebar = sidebarMode && sidebarHost && !sidebarHost.isDestroyed() && sender === sidebarHost.webContents;
         if(fromSidebar&&action==='sidebar-menu'){sidebarMenu(payload);return true;}
-        if(fromSidebar&&action==='theme'){if(['light','dark'].includes(payload)){sidebarTheme=payload;tabs.forEach(themePage);}return true;}
+        if(fromSidebar&&action==='theme'){if(['light','dark'].includes(payload)){sidebarTheme=payload;tabs.forEach(themePage);downloadToast.refreshConfig();}return true;}
+        if(fromSidebar&&action==='download-anchor'){downloadToast.setAnchor(payload);return true;}
         if (!win && fromSidebar && action === 'new-tab') { open({ link: { name: T('新标签页', 'New tab'), url: 'about:blank' } }); return true; }
         if (!win || (sender !== win.webContents && !fromSidebar)) return false;
         if (fromSidebar && !['tab-select','tab-close','tab-move','tab-menu','new-tab','reopen-tab','navigate','back','forward','reload','external','plugins','downloads','downloads-folder','download-action','history','bookmarks','library-open','zoom-in','zoom-out','zoom-reset','find-open','find','find-close','print','devtools','screenshot'].includes(action)) return false;
@@ -571,7 +580,7 @@ function createDragonBrowser({ onOpenAppUrl = () => false, partition, whenReady,
     return {
         setSidebar(host) {
             if(sidebarMode&&sidebarHost===host){layout();pushState();return;}
-            detach(); sidebarHost = host; sidebarBounds = null; sidebarMode = Boolean(host);
+            detach(); downloadToast.reset(); sidebarHost = host; sidebarBounds = null; sidebarMode = Boolean(host);
             if (host && win && !win.isDestroyed()) win.hide();
             if (tabs.length) visibility(true);
             layout(); pushState();
@@ -585,6 +594,7 @@ function createDragonBrowser({ onOpenAppUrl = () => false, partition, whenReady,
         open, showTab, closeTab, handleAction, list: () => [...tabs], isVisible: () => shown,
         refreshLibrary, libraryFailed() { libraryError = true; pushState(); },
         downloadsChanged(change) {
+            if (sidebarMode && shown) downloadToast.push(change);
             if (change?.started) { panel = 'downloads'; closeFind(); layout(); }
             if (change?.finished && panel !== 'downloads' && change.item.state !== 'cancelled' && win && !win.isDestroyed()) {
                 notice = { name: change.item.name, state: change.item.state };
@@ -595,7 +605,7 @@ function createDragonBrowser({ onOpenAppUrl = () => false, partition, whenReady,
             pushState();
         },
         getWindow: () => sidebarMode && sidebarHost && !sidebarHost.isDestroyed() ? sidebarHost : win, pushState,
-        destroy() { disposeAll(); if (win && !win.isDestroyed()) win.destroy(); },
+        destroy() { disposeAll(); downloadToast.destroy(); if (win && !win.isDestroyed()) win.destroy(); },
         findContext: context => tabs.find(tab => tab.context === context)
     };
 }

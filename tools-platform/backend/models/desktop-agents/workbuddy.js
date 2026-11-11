@@ -150,6 +150,7 @@ async function transcript(session) {
     const widgetCalls = new Map(),modelUsage=new Map(),requestStarts=new Map();
     let userStartedAt = null;
     let lastEvent = null, lastAssistant = -1;
+    let lastTriggerStamp = null, firstModelStamp = null;
     const turnUsage = new Map();
     const finishUsage = () => {
         if (lastAssistant >= 0 && turnUsage.size) items[lastAssistant].rounds = [...turnUsage.values()];
@@ -159,8 +160,40 @@ async function transcript(session) {
         let event;
         try { event = JSON.parse(line); } catch { continue; }
         if (!event.isSidechain) lastEvent = event;
-        if (!event.isSidechain && event.type === 'message' && event.role === 'user') { finishUsage(); userStartedAt = Number.isFinite(Number(event.timestamp)) && Number(event.timestamp)>0 ? Number(event.timestamp) : null; }
-        const usage=workbuddyUsage(event);if(usage){usage.model=safe(usage.model,200);modelUsage.set(usage.requestId,usage);turnUsage.set(usage.requestId,usage);if(usage.turnId&&userStartedAt&&!requestStarts.has(usage.turnId))requestStarts.set(usage.turnId,userStartedAt);}
+        if (!event.isSidechain && event.type === 'message' && event.role === 'user') {
+            finishUsage();
+            userStartedAt = Number.isFinite(Number(event.timestamp)) && Number(event.timestamp)>0 ? Number(event.timestamp) : null;
+            lastTriggerStamp = userStartedAt;
+            firstModelStamp = null;
+        } else if (!event.isSidechain && event.type === 'function_call_result') {
+            const evStamp = Number.isFinite(Number(event.timestamp)) && Number(event.timestamp)>0 ? Number(event.timestamp) : null;
+            if (evStamp) { lastTriggerStamp = evStamp; firstModelStamp = null; }
+        } else if (!event.isSidechain && (event.type === 'reasoning' || (event.type === 'message' && event.role === 'assistant') || event.type === 'function_call')) {
+            const evStamp = Number.isFinite(Number(event.timestamp)) && Number(event.timestamp)>0 ? Number(event.timestamp) : null;
+            if (!firstModelStamp && evStamp) firstModelStamp = evStamp;
+        }
+        const usage=workbuddyUsage(event);
+        if(usage){
+            usage.model=safe(usage.model,200);
+            const curStamp = Number.isFinite(Number(event.timestamp)) && Number(event.timestamp)>0 ? Number(event.timestamp) : null;
+            if (lastTriggerStamp && curStamp && curStamp >= lastTriggerStamp) {
+                const totalMs = curStamp - lastTriggerStamp;
+                const modelStart = (firstModelStamp && firstModelStamp >= lastTriggerStamp && firstModelStamp <= curStamp) ? firstModelStamp : lastTriggerStamp;
+                const ttftMs = modelStart - lastTriggerStamp;
+                const genMs = totalMs;
+                if (genMs > 0 && usage.outputTokens > 0) {
+                    usage.ttftMs = ttftMs;
+                    usage.generationMs = genMs;
+                    usage.tps = Math.round((usage.outputTokens / (genMs / 1000)) * 10) / 10;
+                    usage.timingEstimated = true;
+                    usage.timingSource = 'workbuddy-jsonl-events';
+                }
+            }
+            modelUsage.set(usage.requestId,usage);
+            turnUsage.set(usage.requestId,usage);
+            if(usage.turnId&&userStartedAt&&!requestStarts.has(usage.turnId))requestStarts.set(usage.turnId,userStartedAt);
+            if (curStamp) { lastTriggerStamp = curStamp; firstModelStamp = null; }
+        }
         const stamp = Number.isFinite(Number(event.timestamp)) && event.timestamp ? new Date(Number(event.timestamp)).toISOString() : null;
         if (stamp) lastStamp = stamp;
         // 可视化是独立的工具回执，不在 assistant 的 output_text 中。只展示主会话成功返回的 widget。

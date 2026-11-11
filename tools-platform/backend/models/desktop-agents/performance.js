@@ -11,6 +11,7 @@ function aggregate(items=[],turns=[],usageRecords=[]){
     const rounds=[...unique.values()];const reportedModels=rounds.map(round=>round.model).filter(model=>typeof model==='string'&&model),models=[...new Set(reportedModels)];let input=0,output=0,reasoning=0,cached=0,cacheInput=0,cacheCalls=0,decodeTokens=0,decodeMs=0,decodeCalls=0;
     let observedFirstTextTotal=0,observedFirstTextSamples=0;
     let requestTtftTotal=0,requestTtftSamples=0,nativeStreamMs=0,nativeStreamTokens=0,nativeStreamCalls=0,observedStreamMs=0,observedStreamTokens=0,observedStreamCalls=0;
+    let estimatedStreamMs=0,estimatedStreamTokens=0,estimatedStreamCalls=0,estimatedTtftTotal=0,estimatedTtftSamples=0;
     const byTurn=new Map();
     for(const round of rounds){
         const i=count(round.inputTokens),o=count(round.outputTokens),c=count(round.cachedInputTokens),r=count(round.reasoningOutputTokens);
@@ -18,6 +19,10 @@ function aggregate(items=[],turns=[],usageRecords=[]){
         if(round.timingSource==='native-metadata'&&!round.timingEstimated){
             if(finite(round.ttftMs)&&round.ttftMs>=0){requestTtftTotal+=round.ttftMs;requestTtftSamples++;}
             if(finite(round.nativeStreamMs)&&round.nativeStreamMs>0&&count(round.nativeStreamTokens)>0){if(round.nativeStreamScope==='visible-output-observed'){observedStreamMs+=round.nativeStreamMs;observedStreamTokens+=round.nativeStreamTokens;observedStreamCalls++;}else{nativeStreamMs+=round.nativeStreamMs;nativeStreamTokens+=round.nativeStreamTokens;nativeStreamCalls++;}}
+        }
+        if(round.timingSource==='workbuddy-jsonl-events'&&round.timingEstimated){
+            if(finite(round.ttftMs)&&round.ttftMs>=0){estimatedTtftTotal+=round.ttftMs;estimatedTtftSamples++;}
+            if(finite(round.generationMs)&&round.generationMs>0&&o>0){estimatedStreamMs+=round.generationMs;estimatedStreamTokens+=o;estimatedStreamCalls++;}
         }
         input+=i||0;output+=o||0;reasoning+=r||0;
         if(i!==null&&i>0&&c!==null&&c<=i){cached+=c;cacheInput+=i;cacheCalls++;}
@@ -48,6 +53,8 @@ function aggregate(items=[],turns=[],usageRecords=[]){
         nativeStreamTps:nativeStreamMs>0?nativeStreamTokens*1000/nativeStreamMs:observedStreamMs>0?observedStreamTokens*1000/observedStreamMs:null,nativeStreamCalls:nativeStreamCalls||observedStreamCalls,nativeStreamObserved:!nativeStreamCalls&&observedStreamCalls>0,
         turnTtftMs:ttftSamples?ttftTotal/ttftSamples:null,ttftSamples,
         decodeTps:decodeMs>0?decodeTokens/(decodeMs/1000):null,decodeCalls,
+        estimatedTps:decodeMs===0&&estimatedStreamMs>0?estimatedStreamTokens/(estimatedStreamMs/1000):null,estimatedCalls:decodeCalls?0:estimatedStreamCalls,
+        estimatedTtftMs:!ttftSamples&&estimatedTtftSamples>0?estimatedTtftTotal/estimatedTtftSamples:null,
         processingTps:wallMs>0?processingTokens/(wallMs/1000):null,processingTokens,wallMs,completedTurns:completed.size};
 }
 // WorkBuddy normalizes usage under providerData, including tool-call events.
