@@ -510,6 +510,45 @@ data class DesktopAgentMessageItem(
 )
 
 @Serializable
+data class DesktopAgentModelItem(
+    val id: String = "",
+    val name: String = ""
+)
+
+@Serializable
+data class DesktopAgentModelsResponse(
+    val models: List<DesktopAgentModelItem> = emptyList()
+)
+
+@Serializable
+data class DesktopAgentSetModelRequest(
+    val model: String = ""
+)
+
+@Serializable
+data class DesktopAgentSetModelResponse(
+    val selectedModel: String? = null
+)
+
+@Serializable
+data class DesktopAgentQueuedItem(
+    val requestId: String = "",
+    val text: String = "",
+    val status: String = "queued",
+    val error: String = "",
+    val createdAt: String? = null
+)
+
+data class QueuedChatPrompt(
+    val id: String,
+    val text: String,
+    val displayText: String,
+    val attachments: List<UploadedFileInfo> = emptyList(),
+    val status: String = "queued",
+    val error: String = ""
+)
+
+@Serializable
 data class DesktopAgentMessagesResponse(
     val items: List<DesktopAgentMessageItem>? = null,
     val available: Boolean = true,
@@ -520,6 +559,10 @@ data class DesktopAgentMessagesResponse(
     val reason: String? = null,
     val selectedModel: String? = null,
     val session: DesktopAgentSessionSummary? = null,
+    val queue: List<DesktopAgentQueuedItem> = emptyList(),
+    val total: Int = 0,
+    val hasMore: Boolean = false,
+    val nextBefore: String? = null,
     val error: String? = null
 )
 
@@ -534,6 +577,8 @@ data class DesktopAgentSendRequest(
 @Serializable
 data class DesktopAgentSendResponse(
     val status: String? = null,
+    val requestId: String? = null,
+    val queue: List<DesktopAgentQueuedItem> = emptyList(),
     val error: String? = null
 )
 

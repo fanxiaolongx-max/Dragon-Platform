@@ -3,12 +3,18 @@
     "修复 iOS 与 Android 输入框润色按钮及悬浮输入区点击透传到首页推荐问题的问题，点击反馈更清晰。",
     "精简对话主页「快速提问」为 2–3 条短提示词，避免冗长指令占屏并提升首屏可读性。",
     "实时语音对话升级为云端大模型自然语音合成（Gemini 2.5 Flash TTS 主用、系统语音兜底），语调自然流畅。",
-    "普通对话与三方桌面智能体全面支持发送/回复图片气泡内预览，并提供全屏缩放、左右滑切换与保存分享灯箱。"
+    "普通对话与三方桌面智能体全面支持发送/回复图片气泡内预览，并提供全屏缩放、左右滑切换与保存分享灯箱。",
+    "重做移动端模型选择器（Android 底部弹出面板 / iOS 磨砂抽屉），支持垂直滚动、搜索筛选与三方桌面智能体专属模型隔离切换。",
+    "普通对话与三方桌面智能体支持从最新 25 条消息首屏直达底部，并向上渐进加载历史记录（保持当前阅读位置不跳动）。",
+    "Android 与 iOS 同步支持对话中自动排队（及支持桌面端运行中排队/插队切换）与同一轮连续回复气泡智能合并，并收紧侧栏搜索栏布局。"
   ],
   "en": [
     "Prevent touch pass-through from the floating composer and refine the prompt-enhance button hit area on both iOS and Android.",
     "Curate home starter prompts down to 2–3 crisp, concise suggestions for cleaner first-screen readability.",
     "Upgrade live AI voice conversation from robotic device TTS to natural cloud neural voice synthesis (Gemini 2.5 Flash TTS with device fallback).",
-    "Render user and assistant images inline across both regular chats and desktop agent sessions, with a full-screen zoomable, swipeable image lightbox."
+    "Render user and assistant images inline across both regular chats and desktop agent sessions, with a full-screen zoomable, swipeable image lightbox.",
+    "Redesign mobile model pickers into scrollable bottom sheets with search and isolate 3rd-party desktop agent models from regular Dragon Claw chat models.",
+    "Load the latest 25 messages anchored at the bottom on session open and progressively fetch older messages upward without losing scroll position.",
+    "Support automatic follow-up message queuing (plus Queue/Steer toggle on desktop agents), merge consecutive assistant turn replies into a single block, and compact the Android drawer search bar."
   ]
 }

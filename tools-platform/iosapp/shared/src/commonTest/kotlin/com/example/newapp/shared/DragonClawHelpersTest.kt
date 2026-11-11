@@ -311,4 +311,61 @@ class DragonClawHelpersTest {
         assertEquals("KPI 趋势", imgBlock.imageAlt)
         assertFalse(MarkdownParser.toSpeechText("![KPI 趋势](https://example.com/kpi.png) 完毕").contains("example.com"))
     }
+
+    @Test
+    fun consecutiveAssistantMessagesMergeAndDesktopTailStitchesCleanly() {
+        val unmerged = listOf(
+            ChatMessage(id = "u1", role = "user", content = "构建进展呢"),
+            ChatMessage(
+                id = "a1",
+                role = "model",
+                content = "Gradle 单元测试正在收尾",
+                thinking = "检查编译日志",
+                inputTokens = 100,
+                outputTokens = 40,
+                modelName = "codex-mini"
+            ),
+            ChatMessage(
+                id = "a2",
+                role = "model",
+                content = "Android APK 已安装到真机",
+                inputTokens = 120,
+                outputTokens = 60,
+                modelName = "gpt-5.4"
+            ),
+            ChatMessage(id = "u2", role = "user", content = "再跑一下 iOS"),
+            ChatMessage(id = "a3", role = "model", content = "iOS 真机安装成功")
+        )
+        val merged = DragonClawHelpers.mergeConsecutiveAssistantMessages(unmerged)
+        assertEquals(4, merged.size)
+        assertEquals("u1", merged[0].id)
+        assertEquals("a1", merged[1].id)
+        assertTrue(merged[1].content.contains("Gradle 单元测试正在收尾"))
+        assertTrue(merged[1].content.contains("Android APK 已安装到真机"))
+        assertEquals("检查编译日志", merged[1].thinking)
+        assertEquals(220, merged[1].inputTokens)
+        assertEquals(100, merged[1].outputTokens)
+        assertEquals("gpt-5.4", merged[1].modelName)
+        assertEquals("iOS 真机安装成功", merged[3].content)
+
+        val olderAndTail = listOf(
+            DesktopAgentMessageItem(id = "d1", role = "user", content = "first"),
+            DesktopAgentMessageItem(id = "d2", role = "assistant", content = "reply1"),
+            DesktopAgentMessageItem(id = "d3", role = "user", content = "second"),
+            DesktopAgentMessageItem(id = "d4", role = "assistant", content = "reply2")
+        )
+        val polledTail = listOf(
+            DesktopAgentMessageItem(id = "d3", role = "user", content = "second"),
+            DesktopAgentMessageItem(id = "d4", role = "assistant", content = "reply2 updated"),
+            DesktopAgentMessageItem(id = "d5", role = "assistant", content = "reply3")
+        )
+        // Update d4 matches overlap starting at d3
+        val stitched = DragonClawHelpers.mergeDesktopTailItems(olderAndTail, polledTail)
+        assertEquals(listOf("d1", "d2", "d3", "d4", "d5"), stitched.map { it.id })
+        assertEquals("reply2 updated", stitched[3].content)
+
+        assertTrue(DragonClawHelpers.isBusyQueueableError("原会话正在运行，请等待当前回复结束"))
+        assertTrue(DragonClawHelpers.isBusyQueueableError("当前对话正在执行，请先停止"))
+        assertFalse(DragonClawHelpers.isBusyQueueableError("Network timeout"))
+    }
 }

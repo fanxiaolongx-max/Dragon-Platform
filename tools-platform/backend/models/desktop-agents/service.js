@@ -104,13 +104,26 @@ async function selected(owner, provider, id) { if (!providers.includes(provider)
     row = current.rows.find(s => s.provider === provider && s.id === id);
 } if (!row)
     throw repo.error('会话已移除或不属于当前桌面连接', 404); return { state, row }; }
-async function messages(owner, provider, id, { passive = false } = {}) { const { state, row } = await selected(owner, provider, id), queue = queued(owner, provider, id); let content = provider === 'antigravity' ? await ag.messages(id, { passive }) : await readTranscript(row); if (Array.isArray(content.items)) { content = await require('./telemetry').enrich(owner,provider,row.nativeId||id,content); if(provider==='codex'){const timing=require('./codex-timing');content=timing.enrich(content,await timing.read(id));} } const status = state.providers.find(p => p.id === provider);
+function sliceDesktopMessagesPage(items, limit, before) {
+    const total = items.length;
+    if (limit === undefined || limit === null || String(limit).trim() === '')
+        return { items, total, hasMore: false, nextBefore: null };
+    const size = Math.min(200, Math.max(1, Math.floor(Number(limit)) || 30));
+    const rawBefore = before === undefined || before === null ? '' : String(before).trim();
+    const end = /^\d+$/.test(rawBefore) ? Math.min(total, Math.max(0, Number(rawBefore))) : total;
+    const start = Math.max(0, end - size);
+    const hasMore = start > 0;
+    return { items: items.slice(start, end), total, hasMore, nextBefore: hasMore ? String(start) : null };
+}
+async function messages(owner, provider, id, { passive = false, limit, before } = {}) { const { state, row } = await selected(owner, provider, id), queue = queued(owner, provider, id); let content = provider === 'antigravity' ? await ag.messages(id, { passive }) : await readTranscript(row); if (Array.isArray(content.items)) { content = await require('./telemetry').enrich(owner,provider,row.nativeId||id,content); if(provider==='codex'){const timing=require('./codex-timing');content=timing.enrich(content,await timing.read(id));} } const status = state.providers.find(p => p.id === provider);
     let interaction = {};
     if (provider === 'claudecode' && state.settings.claudeAutomation && state.rows.filter(r => r.provider === provider && r.title === row.title).length === 1) {
         try { interaction = redactValue(await claude.interaction(row)); }
         catch { interaction = { interaction: null, interactionAvailable: false }; }
     }
-    return { ...content, selectedModel: await repo.model(owner,provider,id), ...interaction, ...(interaction.interaction ? { busy: true } : {}),...(Array.isArray(content.items)?{performance:require('./performance').aggregate(content.items,content.performanceTurns,content.modelUsage)}:{}), session: publicSession(row), canSend: status?.canSend || false, canSteer: provider === 'codex' && Boolean(status?.canSend), reason: content.reason || status?.reason || '', queue }; }
+    const performance = Array.isArray(content.items) ? { performance: require('./performance').aggregate(content.items, content.performanceTurns, content.modelUsage) } : {};
+    const paged = Array.isArray(content.items) ? sliceDesktopMessagesPage(content.items, limit, before) : {};
+    return { ...content, ...paged, selectedModel: await repo.model(owner,provider,id), ...interaction, ...(interaction.interaction ? { busy: true } : {}), ...performance, session: publicSession(row), canSend: status?.canSend || false, canSteer: provider === 'codex' && Boolean(status?.canSend), reason: content.reason || status?.reason || '', queue }; }
 async function availableModels(owner,provider,{force=false,cached=false,day}={}) {
     const cfg=await repo.access(owner);
     if(!providers.includes(provider)||!cfg.providers[provider])throw repo.error('连接器未启用',409);
@@ -357,4 +370,4 @@ async function drain(k, { read = (row) => row.provider === 'antigravity' ? ag.me
         }
     }
 }
-module.exports = { availableModels, setModel, list, messages, chooseInteraction, exportConversation, send, create, save, discover, publicSession, waitForReply, enqueue, cancelQueued, queued, drain, queueKey };
+module.exports = { availableModels, setModel, list, messages, sliceDesktopMessagesPage, chooseInteraction, exportConversation, send, create, save, discover, publicSession, waitForReply, enqueue, cancelQueued, queued, drain, queueKey };

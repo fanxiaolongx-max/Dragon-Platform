@@ -136,6 +136,18 @@ class DragonClawSdk(
     fun mapHistoryMessages(items: List<SessionMessageItem>): List<ChatMessage> =
         DragonClawHelpers.mapStoredMessages(items, baseUrl = getBaseUrl())
 
+    fun mergeMessages(messages: List<ChatMessage>): List<ChatMessage> =
+        DragonClawHelpers.mergeConsecutiveAssistantMessages(messages)
+
+    fun mergeDesktopTailItems(
+        existing: List<DesktopAgentMessageItem>,
+        incomingTail: List<DesktopAgentMessageItem>
+    ): List<DesktopAgentMessageItem> =
+        DragonClawHelpers.mergeDesktopTailItems(existing, incomingTail)
+
+    fun isBusyQueueableError(errorText: String?): Boolean =
+        DragonClawHelpers.isBusyQueueableError(errorText)
+
     fun mapDesktopAgentMessages(items: List<DesktopAgentMessageItem>): List<ChatMessage> =
         DragonClawHelpers.mapDesktopAgentMessages(items, baseUrl = getBaseUrl())
 
@@ -663,10 +675,47 @@ class DragonClawSdk(
         provider: String,
         sessionId: String,
         passive: Boolean = false,
+        limit: Int = 0,
+        before: String? = null,
         onSuccess: (DesktopAgentMessagesResponse) -> Unit,
         onError: (String) -> Unit
     ): TaskHandle = runAsync(
-        block = { api.getDesktopAgentMessages(token, provider, sessionId, passive) },
+        block = {
+            api.getDesktopAgentMessages(
+                token = token,
+                provider = provider,
+                sessionId = sessionId,
+                passive = passive,
+                limit = limit.takeIf { it > 0 },
+                before = before
+            )
+        },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
+    fun fetchDesktopAgentModels(
+        token: String,
+        provider: String,
+        cached: Boolean = false,
+        force: Boolean = false,
+        onSuccess: (DesktopAgentModelsResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = { api.getDesktopAgentModels(token, provider, cached = cached, force = force) },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
+    fun setDesktopAgentModel(
+        token: String,
+        provider: String,
+        sessionId: String,
+        model: String,
+        onSuccess: (DesktopAgentSetModelResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = { api.setDesktopAgentModel(token, provider, sessionId, model) },
         onSuccess = onSuccess,
         onError = onError
     )
@@ -678,6 +727,7 @@ class DragonClawSdk(
         text: String,
         requestId: String,
         mode: String? = null,
+        model: String? = null,
         onSuccess: (DesktopAgentSendResponse) -> Unit,
         onError: (String) -> Unit
     ): TaskHandle = runAsync(
@@ -686,9 +736,22 @@ class DragonClawSdk(
                 token = token,
                 provider = provider,
                 sessionId = sessionId,
-                request = DesktopAgentSendRequest(text = text, requestId = requestId, mode = mode)
+                request = DesktopAgentSendRequest(text = text, requestId = requestId, mode = mode, model = model)
             )
         },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
+    fun cancelDesktopAgentQueuedMessage(
+        token: String,
+        provider: String,
+        sessionId: String,
+        requestId: String,
+        onSuccess: (DesktopAgentSendResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = { api.cancelDesktopAgentQueuedMessage(token, provider, sessionId, requestId) },
         onSuccess = onSuccess,
         onError = onError
     )

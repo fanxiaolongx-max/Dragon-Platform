@@ -19,9 +19,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.rounded.*
@@ -362,37 +365,72 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                             }
                         }
 
-                        Spacer(Modifier.height(12.dp))
-
-                        OutlinedTextField(
-                            value = vm.sessionSearchQuery,
-                            onValueChange = {
-                                vm.sessionSearchQuery = it
-                                if (!vm.showArchivedSessions) vm.regroupSessions()
-                            },
-                            textStyle = LocalTextStyle.current.copy(fontSize = 13.sp),
-                            placeholder = { Text(tr(lang, "搜索历史会话...", "Search sessions..."), fontSize = 12.sp) },
-                            leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                            trailingIcon = {
-                                if (vm.sessionSearchQuery.isNotEmpty()) {
-                                    IconButton(onClick = {
-                                        vm.sessionSearchQuery = ""
-                                        if (vm.showArchivedSessions) vm.loadArchivedSessions() else vm.loadSessions()
-                                    }) {
-                                        Icon(Icons.Rounded.Close, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    }
-                                }
-                            },
-                            singleLine = true,
-                            shape = RoundedCornerShape(14.dp),
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                            keyboardActions = KeyboardActions(onSearch = {
-                                if (vm.showArchivedSessions) vm.loadArchivedSessions() else vm.loadSessions()
-                            }),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
                         Spacer(Modifier.height(10.dp))
+
+                        LiquidGlassSurface(
+                            shape = RoundedCornerShape(12.dp),
+                            elevation = 2.dp,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 38.dp)
+                                    .padding(horizontal = 11.dp, vertical = 7.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Search,
+                                    contentDescription = null,
+                                    tint = palette.inkMuted,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(Modifier.width(7.dp))
+                                Box(modifier = Modifier.weight(1f)) {
+                                    if (vm.sessionSearchQuery.isEmpty()) {
+                                        Text(
+                                            text = tr(lang, "搜索历史会话...", "Search sessions..."),
+                                            color = palette.inkMuted,
+                                            fontSize = 12.5.sp,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    BasicTextField(
+                                        value = vm.sessionSearchQuery,
+                                        onValueChange = {
+                                            vm.sessionSearchQuery = it
+                                            if (!vm.showArchivedSessions) vm.regroupSessions()
+                                        },
+                                        singleLine = true,
+                                        textStyle = TextStyle(color = palette.inkPrimary, fontSize = 12.5.sp),
+                                        cursorBrush = SolidColor(palette.accentStrong),
+                                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                        keyboardActions = KeyboardActions(onSearch = {
+                                            if (vm.showArchivedSessions) vm.loadArchivedSessions() else vm.loadSessions()
+                                        }),
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                                if (vm.sessionSearchQuery.isNotEmpty()) {
+                                    Spacer(Modifier.width(4.dp))
+                                    Icon(
+                                        imageVector = Icons.Rounded.Close,
+                                        contentDescription = tr(lang, "清除搜索", "Clear search"),
+                                        tint = palette.inkMuted,
+                                        modifier = Modifier
+                                            .size(16.dp)
+                                            .clip(CircleShape)
+                                            .clickable {
+                                                vm.sessionSearchQuery = ""
+                                                if (vm.showArchivedSessions) vm.loadArchivedSessions() else vm.loadSessions()
+                                            }
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(8.dp))
 
                         LiquidGlassSurface(
                             shape = RoundedCornerShape(14.dp),

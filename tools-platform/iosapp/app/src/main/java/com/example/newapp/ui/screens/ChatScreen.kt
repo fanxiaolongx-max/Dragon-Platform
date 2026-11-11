@@ -98,9 +98,11 @@ import com.example.newapp.ui.components.LiquidGlassSurface
 import com.example.newapp.ui.theme.DragonClawPalette
 import com.example.newapp.ui.theme.LocalDragonClawPalette
 import com.example.newapp.ui.theme.tr
+import kotlinx.coroutines.flow.collectLatest
 import java.io.File
 import java.util.UUID
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(vm: DragonClawViewModel) {
     val palette = LocalDragonClawPalette.current
@@ -186,9 +188,80 @@ fun ChatScreen(vm: DragonClawViewModel) {
         }
     }
 
-    LaunchedEffect(vm.messages.size, vm.messages.lastOrNull()?.content) {
-        if (vm.messages.size > 2) {
-            listState.animateScrollToItem(vm.messages.lastIndex)
+    var lastAnchoredSessionGen by remember { mutableIntStateOf(-1) }
+    var lastMessageCount by remember { mutableIntStateOf(0) }
+    var lastHeadMessageId by remember { mutableStateOf<String?>(null) }
+    var savedAnchorMsgId by remember { mutableStateOf<String?>(null) }
+    var savedAnchorOffsetPx by remember { mutableIntStateOf(0) }
+
+    // 1. Instant non-animated anchor to latest message when opening a conversation
+    LaunchedEffect(vm.chatOpenScrollGeneration, vm.messages.size) {
+        if (vm.chatOpenScrollGeneration != lastAnchoredSessionGen && vm.messages.isNotEmpty()) {
+            val headerCount = if (vm.hasMoreOlderMessages || vm.isLoadingOlderMessages) 1 else 0
+            val targetIndex = (headerCount + vm.messages.lastIndex).coerceAtLeast(0)
+            listState.scrollToItem(targetIndex, 100_000)
+            lastAnchoredSessionGen = vm.chatOpenScrollGeneration
+            lastHeadMessageId = vm.messages.firstOrNull()?.id
+            lastMessageCount = vm.messages.size
+        } else if (vm.messages.isEmpty()) {
+            lastHeadMessageId = null
+            lastMessageCount = 0
+        }
+    }
+
+    // 2. Preserve scroll offset when older messages prepend; auto-follow tail only when near bottom
+    LaunchedEffect(vm.messages.firstOrNull()?.id, vm.messages.size, vm.messages.lastOrNull()?.content) {
+        val currentIds = vm.messages.map { it.id }
+        val newHeadId = currentIds.firstOrNull()
+        val headerCount = if (vm.hasMoreOlderMessages || vm.isLoadingOlderMessages) 1 else 0
+        val anchorId = savedAnchorMsgId
+
+        if (anchorId != null && newHeadId != lastHeadMessageId) {
+            val newMsgIndex = currentIds.indexOf(anchorId)
+            if (newMsgIndex >= 0) {
+                listState.scrollToItem(headerCount + newMsgIndex, savedAnchorOffsetPx)
+            }
+            savedAnchorMsgId = null
+            lastHeadMessageId = newHeadId
+            lastMessageCount = currentIds.size
+            return@LaunchedEffect
+        }
+
+        val wasAppendedOrStreamed = vm.messages.isNotEmpty() &&
+            lastAnchoredSessionGen == vm.chatOpenScrollGeneration &&
+            (currentIds.size >= lastMessageCount || newHeadId == lastHeadMessageId)
+
+        if (wasAppendedOrStreamed) {
+            val totalCount = listState.layoutInfo.totalItemsCount
+            val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            val isNearBottom = totalCount == 0 || lastVisible >= (totalCount - 4)
+            val tailJustChanged = currentIds.size > lastMessageCount && vm.messages.lastOrNull()?.isUser == true
+            if (isNearBottom || tailJustChanged) {
+                val targetIndex = (headerCount + vm.messages.lastIndex).coerceAtLeast(0)
+                listState.scrollToItem(targetIndex, 100_000)
+            }
+        }
+        lastHeadMessageId = newHeadId
+        lastMessageCount = currentIds.size
+    }
+
+    // 3. Progressive upward loading when user scrolls near top of message history
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            val firstIdx = listState.firstVisibleItemIndex
+            val total = listState.layoutInfo.totalItemsCount
+            Triple(firstIdx, total, vm.hasMoreOlderMessages && !vm.isLoadingOlderMessages && !vm.isLoadingSessionMessages)
+        }.collectLatest { (firstIdx, total, eligible) ->
+            if (eligible && total > 0 && firstIdx <= 1 && lastAnchoredSessionGen == vm.chatOpenScrollGeneration) {
+                val firstMsgItem = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key != "__older_history_header__" }
+                savedAnchorMsgId = firstMsgItem?.key as? String
+                savedAnchorOffsetPx = if (firstMsgItem != null && firstMsgItem.index == listState.firstVisibleItemIndex) {
+                    listState.firstVisibleItemScrollOffset
+                } else {
+                    (-(firstMsgItem?.offset ?: 0)).coerceAtLeast(0)
+                }
+                vm.loadOlderMessages()
+            }
         }
     }
 
@@ -249,40 +322,23 @@ fun ChatScreen(vm: DragonClawViewModel) {
                         )
                         Spacer(Modifier.height(12.dp))
 
-                        Box {
-                            LiquidGlassSurface(
-                                shape = CircleShape,
-                                elevation = 4.dp,
-                                onClick = { showModelMenu = true }
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
-                                ) {
-                                    Icon(Icons.Rounded.Memory, contentDescription = null, tint = palette.accentStrong, modifier = Modifier.size(15.dp))
-                                    Spacer(Modifier.width(5.dp))
-                                    Text(vm.activeModelDisplayName, color = palette.inkPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
-                                    Spacer(Modifier.width(4.dp))
-                                    Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null, tint = palette.inkMuted, modifier = Modifier.size(15.dp))
-                                }
+                        LiquidGlassSurface(
+                            shape = CircleShape,
+                            elevation = 4.dp,
+                            onClick = {
+                                vm.prepareActiveModelPicker()
+                                showModelMenu = true
                             }
-                            DropdownMenu(expanded = showModelMenu, onDismissRequest = { showModelMenu = false }) {
-                                DropdownMenuItem(
-                                    text = { Text(tr(lang, "系统推荐模型", "Default Model")) },
-                                    onClick = {
-                                        vm.selectModel("")
-                                        showModelMenu = false
-                                    }
-                                )
-                                vm.models.forEach { model ->
-                                    DropdownMenuItem(
-                                        text = { Text(model.name) },
-                                        onClick = {
-                                            vm.selectModel(model.id)
-                                            showModelMenu = false
-                                        }
-                                    )
-                                }
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                            ) {
+                                Icon(Icons.Rounded.Memory, contentDescription = null, tint = palette.accentStrong, modifier = Modifier.size(15.dp))
+                                Spacer(Modifier.width(5.dp))
+                                Text(vm.activeModelDisplayName, color = palette.inkPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                                Spacer(Modifier.width(4.dp))
+                                Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null, tint = palette.inkMuted, modifier = Modifier.size(15.dp))
                             }
                         }
                         Spacer(Modifier.height(12.dp))
@@ -332,17 +388,66 @@ fun ChatScreen(vm: DragonClawViewModel) {
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
+                    if (vm.hasMoreOlderMessages || vm.isLoadingOlderMessages) {
+                        item(key = "__older_history_header__") {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                            ) {
+                                if (vm.isLoadingOlderMessages) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        CircularProgressIndicator(strokeWidth = 1.8.dp, color = palette.accentStrong, modifier = Modifier.size(14.dp))
+                                        Text(
+                                            text = tr(lang, "正在加载更早消息...", "Loading earlier messages..."),
+                                            color = palette.inkMuted,
+                                            fontSize = 11.5.sp
+                                        )
+                                    }
+                                } else {
+                                    TextButton(onClick = {
+                                        val firstMsgItem = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key != "__older_history_header__" }
+                                        savedAnchorMsgId = firstMsgItem?.key as? String
+                                        savedAnchorOffsetPx = if (firstMsgItem != null && firstMsgItem.index == listState.firstVisibleItemIndex) {
+                                            listState.firstVisibleItemScrollOffset
+                                        } else {
+                                            (-(firstMsgItem?.offset ?: 0)).coerceAtLeast(0)
+                                        }
+                                        vm.loadOlderMessages()
+                                    }) {
+                                        Text(
+                                            text = tr(lang, "加载更早消息", "Load earlier messages"),
+                                            color = palette.accentStrong,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                     if (vm.isLoadingSessionMessages) {
                         item {
                             ChatShimmerSkeleton(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp))
                         }
                     }
-                    items(vm.messages, key = { it.id }) { msg ->
+                    items(vm.messages.size, key = { idx -> vm.messages[idx].id }) { idx ->
+                        val msg = vm.messages[idx]
+                        val isActiveDesktopLastTurn = vm.activeDesktopSession != null &&
+                            vm.activeDesktopBusy &&
+                            idx == vm.messages.lastIndex &&
+                            !msg.isUser
                         ChatBubbleItem(
                             message = msg,
                             token = vm.token,
                             baseUrl = vm.baseUrl,
                             language = lang,
+                            senderLabel = if (!msg.isUser) vm.activeDesktopSession?.providerDisplayName() else null,
+                            suppressActionFooter = isActiveDesktopLastTurn,
+                            showTurnWorkingIndicator = isActiveDesktopLastTurn,
                             onRetry = { vm.retryLastPrompt() },
                             onOpenLightbox = { items, index ->
                                 lightboxPayload = LightboxPayload(
@@ -420,6 +525,163 @@ fun ChatScreen(vm: DragonClawViewModel) {
                                 Text(tr(lang, "运行中", "Running"), color = palette.accentStrong, fontSize = 11.sp)
                             } else if (!vm.activeDesktopCanSend) {
                                 Text(tr(lang, "只读", "Read-only"), color = palette.inkMuted, fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
+
+                if (vm.activeDesktopSession != null && (vm.activeDesktopBusy && vm.activeDesktopCanSteer || vm.desktopQueue.isNotEmpty())) {
+                    LiquidGlassSurface(
+                        shape = RoundedCornerShape(16.dp),
+                        tint = palette.accent,
+                        tintAlpha = 0.08f,
+                        elevation = 2.dp,
+                        consumeTouches = true,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            if (vm.activeDesktopBusy && vm.activeDesktopCanSteer) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = tr(lang, "运行中发送方式", "While running"),
+                                        color = palette.inkSecondary,
+                                        fontSize = 11.sp,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    listOf(
+                                        "queue" to tr(lang, "排队", "Queue"),
+                                        "steer" to tr(lang, "引导", "Steer")
+                                    ).forEach { (modeKey, modeLabel) ->
+                                        val selected = vm.desktopBusyMode == modeKey
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(CircleShape)
+                                                .background(if (selected) palette.accentStrong else palette.chipSurface)
+                                                .clickable { vm.desktopBusyMode = modeKey }
+                                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                                        ) {
+                                            Text(
+                                                text = modeLabel,
+                                                color = if (selected) Color.White else palette.inkSecondary,
+                                                fontSize = 10.5.sp,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            vm.desktopQueue.forEach { qItem ->
+                                val badgeText = when (qItem.status) {
+                                    "sending" -> tr(lang, "投递中", "Sending")
+                                    "failed" -> tr(lang, "未发送", "Failed")
+                                    else -> tr(lang, "排队中", "Queued")
+                                }
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = badgeText,
+                                        color = if (qItem.status == "failed") palette.danger else palette.accentStrong,
+                                        fontSize = 10.5.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        text = qItem.text,
+                                        color = palette.inkPrimary,
+                                        fontSize = 11.5.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    if (qItem.status != "sending") {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Close,
+                                            contentDescription = tr(lang, "取消排队", "Cancel queued"),
+                                            tint = palette.inkMuted,
+                                            modifier = Modifier
+                                                .size(16.dp)
+                                                .clickable { vm.cancelQueuedDesktopPrompt(qItem.requestId) }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else if (vm.activeDesktopSession == null && vm.regularQueue.isNotEmpty()) {
+                    LiquidGlassSurface(
+                        shape = RoundedCornerShape(16.dp),
+                        tint = palette.accent,
+                        tintAlpha = 0.08f,
+                        elevation = 2.dp,
+                        consumeTouches = true,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(5.dp),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = tr(lang, "消息队列 (${vm.regularQueue.size}) · 当前回复完成后自动发送", "Queued (${vm.regularQueue.size}) · Auto-sends next"),
+                                    color = palette.accentStrong,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                if (!vm.isStreaming) {
+                                    Text(
+                                        text = tr(lang, "立即发送", "Send now"),
+                                        color = palette.accentStrong,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier
+                                            .clip(CircleShape)
+                                            .clickable { vm.flushRegularQueueIfIdle() }
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            vm.regularQueue.forEachIndexed { idx, qItem ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = "#${idx + 1}",
+                                        color = palette.inkMuted,
+                                        fontSize = 10.5.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        text = qItem.displayText,
+                                        color = palette.inkPrimary,
+                                        fontSize = 11.5.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Rounded.Close,
+                                        contentDescription = tr(lang, "取消排队", "Cancel queued"),
+                                        tint = palette.inkMuted,
+                                        modifier = Modifier
+                                            .size(16.dp)
+                                            .clickable { vm.cancelQueuedRegularPrompt(qItem.id) }
+                                    )
+                                }
                             }
                         }
                     }
@@ -616,47 +878,27 @@ fun ChatScreen(vm: DragonClawViewModel) {
 
                                 Spacer(Modifier.weight(1f))
 
-                                Box {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier
-                                            .clip(CircleShape)
-                                            .clickable { showModelMenu = true }
-                                            .padding(horizontal = 8.dp, vertical = 6.dp)
-                                    ) {
-                                        Text(
-                                            text = vm.activeModelDisplayName,
-                                            color = palette.inkSecondary,
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Medium,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.widthIn(max = 136.dp)
-                                        )
-                                        Spacer(Modifier.width(3.dp))
-                                        Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null, tint = palette.inkMuted, modifier = Modifier.size(15.dp))
-                                    }
-                                    DropdownMenu(
-                                        expanded = showModelMenu,
-                                        onDismissRequest = { showModelMenu = false }
-                                    ) {
-                                        DropdownMenuItem(
-                                            text = { Text(tr(lang, "默认模型", "Default")) },
-                                            onClick = {
-                                                vm.selectModel("")
-                                                showModelMenu = false
-                                            }
-                                        )
-                                        vm.models.forEach { m ->
-                                            DropdownMenuItem(
-                                                text = { Text(m.name) },
-                                                onClick = {
-                                                    vm.selectModel(m.id)
-                                                    showModelMenu = false
-                                                }
-                                            )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .clip(CircleShape)
+                                        .clickable {
+                                            vm.prepareActiveModelPicker()
+                                            showModelMenu = true
                                         }
-                                    }
+                                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                                ) {
+                                    Text(
+                                        text = vm.activeModelDisplayName,
+                                        color = palette.inkSecondary,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.widthIn(max = 136.dp)
+                                    )
+                                    Spacer(Modifier.width(3.dp))
+                                    Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null, tint = palette.inkMuted, modifier = Modifier.size(15.dp))
                                 }
 
                                 Surface(
@@ -678,10 +920,25 @@ fun ChatScreen(vm: DragonClawViewModel) {
                                         shape = CircleShape,
                                         color = palette.danger,
                                         onClick = { vm.stopStreaming() },
-                                        modifier = Modifier.width(40.dp).height(34.dp)
+                                        modifier = Modifier.size(34.dp)
                                     ) {
                                         Box(contentAlignment = Alignment.Center) {
                                             Icon(Icons.Rounded.Stop, contentDescription = "Stop", tint = Color.White, modifier = Modifier.size(16.dp))
+                                        }
+                                    }
+                                    if (canSend) {
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = palette.accentStrong,
+                                            onClick = {
+                                                showPlusMenu = false
+                                                vm.sendPrompt()
+                                            },
+                                            modifier = Modifier.width(38.dp).height(34.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(Icons.Rounded.ArrowUpward, contentDescription = "Queue message", tint = Color.White, modifier = Modifier.size(17.dp))
+                                            }
                                         }
                                     }
                                 } else if (canSend) {
@@ -770,6 +1027,164 @@ fun ChatScreen(vm: DragonClawViewModel) {
                                 showPlusMenu = false
                                 vm.compactCurrentSession()
                             }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showModelMenu) {
+        val desktopSession = vm.activeDesktopSession
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { showModelMenu = false },
+            sheetState = sheetState,
+            containerColor = palette.elevatedSurface,
+            shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp),
+            dragHandle = {
+                Box(
+                    modifier = Modifier
+                        .padding(top = 10.dp, bottom = 4.dp)
+                        .width(36.dp)
+                        .height(4.dp)
+                        .clip(CircleShape)
+                        .background(palette.inkMuted.copy(alpha = 0.35f))
+                )
+            }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 18.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp, vertical = 6.dp)
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (desktopSession != null) {
+                                tr(lang, "${desktopSession.providerDisplayName()} 原生模型", "${desktopSession.providerDisplayName()} Models")
+                            } else {
+                                tr(lang, "选择模型", "Select Model")
+                            },
+                            color = palette.inkPrimary,
+                            fontSize = 15.5.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = if (desktopSession != null) {
+                                tr(lang, "下一条消息生效 · 仅用于当前 ${desktopSession.providerDisplayName()} 会话", "Applies from next message")
+                            } else {
+                                tr(lang, "用于 Dragon Claw 对话与任务执行", "Used for Dragon Claw chat and tools")
+                            },
+                            color = palette.inkMuted,
+                            fontSize = 11.5.sp
+                        )
+                    }
+                    if (desktopSession != null) {
+                        IconButton(
+                            onClick = { vm.loadDesktopModels(desktopSession.provider, forceLive = true) },
+                            enabled = !vm.desktopModelsLoading
+                        ) {
+                            if (vm.desktopModelsLoading) {
+                                CircularProgressIndicator(strokeWidth = 2.dp, color = palette.accentStrong, modifier = Modifier.size(16.dp))
+                            } else {
+                                Icon(Icons.Rounded.Refresh, contentDescription = "Refresh models", tint = palette.accentStrong, modifier = Modifier.size(20.dp))
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(6.dp))
+
+                if (desktopSession != null && !vm.desktopModelsError.isNullOrBlank()) {
+                    LiquidGlassSurface(
+                        shape = RoundedCornerShape(12.dp),
+                        tint = palette.danger,
+                        tintAlpha = 0.1f,
+                        elevation = 0.dp,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                    ) {
+                        Text(
+                            text = vm.desktopModelsError!!,
+                            color = palette.danger,
+                            fontSize = 11.5.sp,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        )
+                    }
+                }
+
+                val isDesktopMode = desktopSession != null
+                val desktopOptions = if (desktopSession != null) {
+                    vm.desktopModelsByProvider[desktopSession.provider].orEmpty()
+                } else {
+                    emptyList()
+                }
+                val activeId = if (isDesktopMode) vm.activeDesktopSelectedModel else vm.selectedModelId
+
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 360.dp)
+                ) {
+                    item(key = "__default__") {
+                        val selected = activeId.isBlank()
+                        ModelOptionSheetRow(
+                            title = if (isDesktopMode) tr(lang, "默认（沿用客户端）", "Default (inherit client)") else tr(lang, "系统推荐模型", "Default Model"),
+                            subtitle = if (isDesktopMode) tr(lang, "跟随电脑端当前所选模型", "Use active desktop client setting") else tr(lang, "平台自动调度最佳模型", "Auto-selected by platform"),
+                            selected = selected,
+                            onClick = {
+                                vm.selectActiveModel("")
+                                showModelMenu = false
+                            }
+                        )
+                    }
+                    if (isDesktopMode) {
+                        if (vm.desktopModelsLoading && desktopOptions.isEmpty()) {
+                            item(key = "__loading__") {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 14.dp)
+                                ) {
+                                    CircularProgressIndicator(strokeWidth = 2.dp, color = palette.accentStrong, modifier = Modifier.size(15.dp))
+                                    Text(tr(lang, "正在读取原生模型列表...", "Loading native models..."), color = palette.inkSecondary, fontSize = 12.5.sp)
+                                }
+                            }
+                        }
+                        items(desktopOptions.size, key = { idx -> desktopOptions[idx].id }) { idx ->
+                            val item = desktopOptions[idx]
+                            val duplicateName = desktopOptions.count { it.name == item.name } > 1
+                            ModelOptionSheetRow(
+                                title = item.name,
+                                subtitle = if (duplicateName || !item.id.equals(item.name, ignoreCase = true)) item.id else null,
+                                selected = activeId == item.id,
+                                onClick = {
+                                    vm.selectActiveModel(item.id)
+                                    showModelMenu = false
+                                }
+                            )
+                        }
+                    } else {
+                        items(vm.models.size, key = { idx -> vm.models[idx].id }) { idx ->
+                            val item = vm.models[idx]
+                            val badge = item.provider.takeIf { !it.isNullOrBlank() }
+                            ModelOptionSheetRow(
+                                title = item.name,
+                                subtitle = badge ?: item.id.takeIf { !it.equals(item.name, ignoreCase = true) },
+                                selected = activeId == item.id,
+                                onClick = {
+                                    vm.selectActiveModel(item.id)
+                                    showModelMenu = false
+                                }
+                            )
                         }
                     }
                 }
@@ -966,11 +1381,72 @@ private fun InlineVoiceWaveformBar(
 }
 
 @Composable
+private fun ModelOptionSheetRow(
+    title: String,
+    subtitle: String? = null,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val palette = LocalDragonClawPalette.current
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = if (selected) palette.accent.copy(alpha = 0.14f) else palette.chipSurface.copy(alpha = 0.45f),
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 13.dp, vertical = 11.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Memory,
+                contentDescription = null,
+                tint = if (selected) palette.accentStrong else palette.inkMuted,
+                modifier = Modifier.size(16.dp)
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    color = palette.inkPrimary,
+                    fontSize = 13.5.sp,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (!subtitle.isNullOrBlank()) {
+                    Text(
+                        text = subtitle,
+                        color = palette.inkMuted,
+                        fontSize = 10.5.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            if (selected) {
+                Icon(
+                    imageVector = Icons.Rounded.Check,
+                    contentDescription = "Selected",
+                    tint = palette.accentStrong,
+                    modifier = Modifier.size(17.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun ChatBubbleItem(
     message: ChatMessage,
     token: String,
     baseUrl: String,
     language: String,
+    senderLabel: String? = null,
+    suppressActionFooter: Boolean = false,
+    showTurnWorkingIndicator: Boolean = false,
     onRetry: () -> Unit,
     onOpenLightbox: (List<LightboxImageItem>, Int) -> Unit
 ) {
@@ -1068,7 +1544,12 @@ private fun ChatBubbleItem(
                     modifier = Modifier.size(24.dp).clip(CircleShape)
                 )
                 Spacer(Modifier.width(8.dp))
-                Text("Dragon Claw", color = palette.inkPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    text = senderLabel?.takeIf { it.isNotBlank() } ?: "Dragon Claw",
+                    color = palette.inkPrimary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
                 if (!message.statusText.isNullOrBlank()) {
                     Spacer(Modifier.width(8.dp))
                     LiquidGlassSurface(shape = CircleShape, tint = palette.accent, tintAlpha = 0.12f, elevation = 2.dp) {
@@ -1081,7 +1562,7 @@ private fun ChatBubbleItem(
                             Text(message.statusText!!, color = palette.accentStrong, fontSize = 11.sp)
                         }
                     }
-                } else if (message.isStreaming) {
+                } else if (message.isStreaming || showTurnWorkingIndicator) {
                     Spacer(Modifier.width(8.dp))
                     CircularProgressIndicator(strokeWidth = 1.8.dp, color = palette.accentStrong, modifier = Modifier.size(12.dp))
                 }
@@ -1197,7 +1678,7 @@ private fun ChatBubbleItem(
                 )
             }
 
-            if (!message.isStreaming) {
+            if (!message.isStreaming && !suppressActionFooter) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)

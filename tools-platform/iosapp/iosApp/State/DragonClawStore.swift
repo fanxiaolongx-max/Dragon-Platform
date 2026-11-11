@@ -79,6 +79,16 @@ final class DragonClawStore {
     var activeDesktopCanSteer = false
     var activeDesktopBusy = false
     var activeDesktopReason: String? = nil
+    var activeDesktopSelectedModel: String = ""
+    var desktopModelsByProvider: [String: [DesktopAgentModelItem]] = [:]
+    var desktopModelsLoading = false
+    var desktopModelsError: String? = nil
+    var desktopQueue: [DesktopAgentQueuedItem] = []
+    var desktopBusyMode: String = "queue"
+    var regularQueue: [QueuedChatPrompt] = []
+    var hasMoreOlderMessages = false
+    var isLoadingOlderMessages = false
+    var chatOpenScrollGeneration: Int = 0
     var messages: [ChatMessage] = []
     var composerText: String = ""
     var isStreaming = false
@@ -120,9 +130,15 @@ final class DragonClawStore {
 
     private var activeStreamHandle: TaskHandle? = nil
     private var activeSessionLoadHandle: TaskHandle? = nil
+    private var activeOlderLoadHandle: TaskHandle? = nil
     private var desktopPollTask: Task<Void, Never>? = nil
     private var activeTaskHandles: [TaskHandle] = []
     private var voiceTurnCompletion: ((String) -> Void)? = nil
+    private var regularBeforeCursor: String? = nil
+    private var desktopBeforeCursor: String? = nil
+    private var desktopLoadedRawItems: [DesktopAgentMessageItem] = []
+    private let historyPageSize: Int32 = 25
+    private let uiCatalogProviders: Set<String> = ["claudecode", "antigravity"]
 
     var currentSidebarSelectionKey: String? {
         if let desktop = activeDesktopSession {
@@ -143,6 +159,16 @@ final class DragonClawStore {
     }
 
     var activeModelDisplayName: String {
+        if let desktop = activeDesktopSession {
+            let chosen = activeDesktopSelectedModel.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !chosen.isEmpty {
+                if let matched = desktopModelsByProvider[desktop.provider]?.first(where: { $0.id == chosen }) {
+                    return matched.name
+                }
+                return chosen
+            }
+            return L10n.tr(language, zh: "默认模型", en: "Default")
+        }
         if !selectedModelId.isEmpty,
            let matched = models.first(where: { $0.id == selectedModelId }) {
             return matched.name
@@ -205,6 +231,73 @@ final class DragonClawStore {
     func selectModel(_ modelId: String) {
         selectedModelId = modelId
         sdk.saveSelectedModelId(modelId: modelId)
+    }
+
+    func loadDesktopModels(provider: String, forceLive: Bool = false) {
+        let cleanProvider = provider.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !cleanProvider.isEmpty, !token.isEmpty else { return }
+        let cachedOnly = uiCatalogProviders.contains(cleanProvider) && !forceLive
+        desktopModelsLoading = true
+        desktopModelsError = nil
+        let handle = sdk.fetchDesktopAgentModels(
+            token: token,
+            provider: cleanProvider,
+            cached: cachedOnly,
+            force: forceLive
+        ) { [weak self] res in
+            dispatchToMain { [weak self] in
+                guard let self else { return }
+                self.desktopModelsLoading = false
+                self.desktopModelsByProvider[cleanProvider] = res.models
+            }
+        } onError: { [weak self] err in
+            dispatchToMain { [weak self] in
+                guard let self else { return }
+                self.desktopModelsLoading = false
+                if !cachedOnly || (self.desktopModelsByProvider[cleanProvider]?.isEmpty ?? true) {
+                    self.desktopModelsError = err
+                }
+            }
+        }
+        activeTaskHandles.append(handle)
+    }
+
+    func prepareActiveModelPicker() {
+        guard let desktop = activeDesktopSession else { return }
+        let existing = desktopModelsByProvider[desktop.provider] ?? []
+        if existing.isEmpty && !desktopModelsLoading {
+            loadDesktopModels(provider: desktop.provider, forceLive: true)
+        }
+    }
+
+    func selectActiveModel(_ modelId: String) {
+        guard let desktop = activeDesktopSession else {
+            selectModel(modelId)
+            return
+        }
+        let cleanModel = modelId.trimmingCharacters(in: .whitespacesAndNewlines)
+        let targetKey = desktop.stableKey
+        let prev = activeDesktopSelectedModel
+        activeDesktopSelectedModel = cleanModel
+        desktopModelsError = nil
+        let handle = sdk.setDesktopAgentModel(
+            token: token,
+            provider: desktop.provider,
+            sessionId: desktop.id,
+            model: cleanModel
+        ) { [weak self] res in
+            dispatchToMain { [weak self] in
+                guard let self, self.activeDesktopSession?.stableKey == targetKey else { return }
+                self.activeDesktopSelectedModel = res.selectedModel ?? ""
+            }
+        } onError: { [weak self] err in
+            dispatchToMain { [weak self] in
+                guard let self, self.activeDesktopSession?.stableKey == targetKey else { return }
+                self.activeDesktopSelectedModel = prev
+                self.chatErrorBanner = err
+            }
+        }
+        activeTaskHandles.append(handle)
     }
 
     // MARK: - Auth
@@ -306,6 +399,8 @@ final class DragonClawStore {
         stopStreaming()
         activeSessionLoadHandle?.cancel()
         activeSessionLoadHandle = nil
+        activeOlderLoadHandle?.cancel()
+        activeOlderLoadHandle = nil
         desktopPollTask?.cancel()
         desktopPollTask = nil
         activeTaskHandles.forEach { $0.cancel() }
@@ -330,6 +425,17 @@ final class DragonClawStore {
         activeDesktopCanSteer = false
         activeDesktopBusy = false
         activeDesktopReason = nil
+        activeDesktopSelectedModel = ""
+        desktopModelsByProvider.removeAll()
+        desktopModelsLoading = false
+        desktopModelsError = nil
+        desktopQueue.removeAll()
+        regularQueue.removeAll()
+        regularBeforeCursor = nil
+        desktopBeforeCursor = nil
+        desktopLoadedRawItems.removeAll()
+        hasMoreOlderMessages = false
+        isLoadingOlderMessages = false
         pendingAttachments.removeAll()
         skills.removeAll()
         schedules.removeAll()
@@ -443,6 +549,8 @@ final class DragonClawStore {
         stopStreaming()
         activeSessionLoadHandle?.cancel()
         activeSessionLoadHandle = nil
+        activeOlderLoadHandle?.cancel()
+        activeOlderLoadHandle = nil
         desktopPollTask?.cancel()
         desktopPollTask = nil
         currentSessionId = nil
@@ -451,6 +559,15 @@ final class DragonClawStore {
         activeDesktopCanSteer = false
         activeDesktopBusy = false
         activeDesktopReason = nil
+        activeDesktopSelectedModel = ""
+        desktopModelsError = nil
+        desktopQueue.removeAll()
+        regularQueue.removeAll()
+        regularBeforeCursor = nil
+        desktopBeforeCursor = nil
+        desktopLoadedRawItems.removeAll()
+        hasMoreOlderMessages = false
+        isLoadingOlderMessages = false
         isLoadingSessionMessages = false
         messages.removeAll()
         pendingAttachments.removeAll()
@@ -475,6 +592,8 @@ final class DragonClawStore {
         stopStreaming()
         activeSessionLoadHandle?.cancel()
         activeSessionLoadHandle = nil
+        activeOlderLoadHandle?.cancel()
+        activeOlderLoadHandle = nil
         desktopPollTask?.cancel()
         desktopPollTask = nil
 
@@ -484,6 +603,15 @@ final class DragonClawStore {
         activeDesktopCanSteer = false
         activeDesktopBusy = false
         activeDesktopReason = nil
+        activeDesktopSelectedModel = ""
+        desktopModelsError = nil
+        desktopQueue.removeAll()
+        regularQueue.removeAll()
+        regularBeforeCursor = nil
+        desktopBeforeCursor = nil
+        desktopLoadedRawItems.removeAll()
+        hasMoreOlderMessages = false
+        isLoadingOlderMessages = false
 
         // Clear immediately so opening a session shows shimmer skeleton instead of previous chat or hero screen.
         messages.removeAll()
@@ -496,11 +624,15 @@ final class DragonClawStore {
         isLoadingSessionMessages = true
 
         let targetId = session.id
-        let handle = sdk.fetchSessionMessages(token: token, sessionId: targetId, limit: 60, before: nil) { [weak self] res in
+        let handle = sdk.fetchSessionMessages(token: token, sessionId: targetId, limit: historyPageSize, before: nil) { [weak self] res in
             dispatchToMain { [weak self] in
                 guard let self, self.currentSessionId == targetId, self.activeDesktopSession == nil else { return }
                 self.isLoadingSessionMessages = false
+                let firstRawId = res.items.first?.id
+                self.regularBeforeCursor = firstRawId
+                self.hasMoreOlderMessages = res.hasMore && !(firstRawId?.isEmpty ?? true)
                 self.messages = self.sdk.mapHistoryMessages(items: res.items)
+                self.chatOpenScrollGeneration += 1
             }
         } onError: { [weak self] err in
             dispatchToMain { [weak self] in
@@ -517,6 +649,8 @@ final class DragonClawStore {
         stopStreaming()
         activeSessionLoadHandle?.cancel()
         activeSessionLoadHandle = nil
+        activeOlderLoadHandle?.cancel()
+        activeOlderLoadHandle = nil
         desktopPollTask?.cancel()
         desktopPollTask = nil
 
@@ -526,6 +660,15 @@ final class DragonClawStore {
         activeDesktopCanSteer = false
         activeDesktopBusy = session.busy
         activeDesktopReason = nil
+        activeDesktopSelectedModel = ""
+        desktopModelsError = nil
+        desktopQueue.removeAll()
+        regularQueue.removeAll()
+        regularBeforeCursor = nil
+        desktopBeforeCursor = nil
+        desktopLoadedRawItems.removeAll()
+        hasMoreOlderMessages = false
+        isLoadingOlderMessages = false
 
         messages.removeAll()
         pendingAttachments.removeAll()
@@ -536,6 +679,7 @@ final class DragonClawStore {
         chatErrorBanner = nil
         isLoadingSessionMessages = true
 
+        loadDesktopModels(provider: session.provider, forceLive: false)
         fetchDesktopMessages(for: session, passive: false)
     }
 
@@ -545,7 +689,9 @@ final class DragonClawStore {
             token: token,
             provider: session.provider,
             sessionId: session.id,
-            passive: passive
+            passive: passive,
+            limit: historyPageSize,
+            before: nil
         ) { [weak self] res in
             dispatchToMain { [weak self] in
                 guard let self, self.activeDesktopSession?.stableKey == targetKey else { return }
@@ -554,13 +700,29 @@ final class DragonClawStore {
                 self.activeDesktopCanSteer = res.canSteer
                 self.activeDesktopBusy = res.busy
                 self.activeDesktopReason = res.reason
-                if let rawItems = res.items {
-                    self.messages = self.sdk.mapDesktopAgentMessages(items: rawItems)
+                self.desktopQueue = res.queue
+                if let srvModel = res.selectedModel {
+                    self.activeDesktopSelectedModel = srvModel
+                }
+                if let incomingTail = res.items {
+                    let mergedRaw: [DesktopAgentMessageItem]
+                    if !passive || self.desktopLoadedRawItems.isEmpty {
+                        self.desktopBeforeCursor = res.nextBefore
+                        self.hasMoreOlderMessages = res.hasMore && !(res.nextBefore?.isEmpty ?? true)
+                        mergedRaw = incomingTail
+                    } else {
+                        mergedRaw = self.sdk.mergeDesktopTailItems(existing: self.desktopLoadedRawItems, incomingTail: incomingTail)
+                    }
+                    self.desktopLoadedRawItems = mergedRaw
+                    self.messages = self.sdk.mapDesktopAgentMessages(items: mergedRaw)
+                    if !passive {
+                        self.chatOpenScrollGeneration += 1
+                    }
                 }
                 if !res.available, let err = res.error ?? res.reason, !err.isEmpty, self.messages.isEmpty {
                     self.chatStatusBanner = err
                 }
-                if res.busy {
+                if res.busy || !res.queue.isEmpty {
                     self.scheduleDesktopAgentPoll(for: session)
                 } else {
                     self.desktopPollTask?.cancel()
@@ -576,7 +738,9 @@ final class DragonClawStore {
                 }
             }
         }
-        activeSessionLoadHandle = handle
+        if !passive {
+            activeSessionLoadHandle = handle
+        }
         activeTaskHandles.append(handle)
     }
 
@@ -589,13 +753,79 @@ final class DragonClawStore {
                 guard !Task.isCancelled,
                       let self,
                       self.activeDesktopSession?.stableKey == targetKey,
-                      self.activeDesktopBusy else {
+                      (self.activeDesktopBusy || !self.desktopQueue.isEmpty) else {
                     break
                 }
                 self.fetchDesktopMessages(for: session, passive: true)
             }
             self?.desktopPollTask = nil
+            self?.loadSessions()
         }
+    }
+
+    func loadOlderMessages() {
+        guard !isLoadingOlderMessages, hasMoreOlderMessages, !isLoadingSessionMessages else { return }
+        if let desktop = activeDesktopSession {
+            guard let cursor = desktopBeforeCursor, !cursor.isEmpty else { return }
+            let targetKey = desktop.stableKey
+            isLoadingOlderMessages = true
+            let handle = sdk.fetchDesktopAgentMessages(
+                token: token,
+                provider: desktop.provider,
+                sessionId: desktop.id,
+                passive: false,
+                limit: historyPageSize,
+                before: cursor
+            ) { [weak self] res in
+                dispatchToMain { [weak self] in
+                    guard let self, self.activeDesktopSession?.stableKey == targetKey else { return }
+                    self.isLoadingOlderMessages = false
+                    let olderItems = res.items ?? []
+                    self.desktopBeforeCursor = res.nextBefore
+                    self.hasMoreOlderMessages = res.hasMore && !(res.nextBefore?.isEmpty ?? true) && !olderItems.isEmpty
+                    if !olderItems.isEmpty {
+                        self.desktopLoadedRawItems = olderItems + self.desktopLoadedRawItems
+                        self.messages = self.sdk.mapDesktopAgentMessages(items: self.desktopLoadedRawItems)
+                    }
+                }
+            } onError: { [weak self] _ in
+                dispatchToMain { [weak self] in
+                    guard let self, self.activeDesktopSession?.stableKey == targetKey else { return }
+                    self.isLoadingOlderMessages = false
+                }
+            }
+            activeOlderLoadHandle = handle
+            activeTaskHandles.append(handle)
+            return
+        }
+
+        guard let sessionId = currentSessionId, let cursor = regularBeforeCursor, !cursor.isEmpty else { return }
+        isLoadingOlderMessages = true
+        let handle = sdk.fetchSessionMessages(
+            token: token,
+            sessionId: sessionId,
+            limit: historyPageSize,
+            before: cursor
+        ) { [weak self] res in
+            dispatchToMain { [weak self] in
+                guard let self, self.currentSessionId == sessionId, self.activeDesktopSession == nil else { return }
+                self.isLoadingOlderMessages = false
+                let nextCursor = res.items.first?.id
+                self.regularBeforeCursor = nextCursor
+                self.hasMoreOlderMessages = res.hasMore && !(nextCursor?.isEmpty ?? true) && !res.items.isEmpty
+                if !res.items.isEmpty {
+                    let olderMapped = self.sdk.mapHistoryMessages(items: res.items)
+                    self.messages = self.sdk.mergeMessages(messages: olderMapped + self.messages)
+                }
+            }
+        } onError: { [weak self] _ in
+            dispatchToMain { [weak self] in
+                guard let self, self.currentSessionId == sessionId, self.activeDesktopSession == nil else { return }
+                self.isLoadingOlderMessages = false
+            }
+        }
+        activeOlderLoadHandle = handle
+        activeTaskHandles.append(handle)
     }
 
     func removeSession(_ session: AiSessionSummary) {
@@ -678,8 +908,46 @@ final class DragonClawStore {
         pendingAttachments.removeAll { $0.path == file.path }
     }
 
+    func cancelQueuedRegularPrompt(_ id: String) {
+        regularQueue.removeAll { $0.id == id }
+    }
+
+    func flushRegularQueueIfIdle() {
+        guard !isStreaming, activeDesktopSession == nil, !regularQueue.isEmpty else { return }
+        let next = regularQueue.removeFirst()
+        let rawAttachments = sdk.attachmentsFromUploadedFiles(files: next.attachments)
+        let extracted = sdk.extractMessageAttachmentsAndCleanText(rawContent: next.text, existingAttachments: rawAttachments)
+        let displayAtts = (extracted.second as? [ChatAttachment]) ?? rawAttachments
+        dispatchRegularChatPrompt(
+            finalContent: next.text,
+            cleanedUserText: next.displayText,
+            resolvedAttachments: displayAtts
+        )
+    }
+
+    func cancelQueuedDesktopPrompt(_ requestId: String) {
+        guard let desktop = activeDesktopSession else { return }
+        let targetKey = desktop.stableKey
+        let handle = sdk.cancelDesktopAgentQueuedMessage(
+            token: token,
+            provider: desktop.provider,
+            sessionId: desktop.id,
+            requestId: requestId
+        ) { [weak self] res in
+            dispatchToMain { [weak self] in
+                guard let self, self.activeDesktopSession?.stableKey == targetKey else { return }
+                self.desktopQueue = res.queue
+            }
+        } onError: { [weak self] err in
+            dispatchToMain { [weak self] in
+                guard let self, self.activeDesktopSession?.stableKey == targetKey else { return }
+                self.chatErrorBanner = err
+            }
+        }
+        activeTaskHandles.append(handle)
+    }
+
     func sendPrompt(_ overridePrompt: String? = nil) {
-        guard !isStreaming else { return }
         if let desktop = activeDesktopSession {
             guard activeDesktopCanSend else {
                 chatErrorBanner = activeDesktopReason ?? L10n.tr(language, zh: "当前桌面连接只读，请在电脑端开启发送权限", en: "Desktop agent session is currently read-only")
@@ -691,7 +959,7 @@ final class DragonClawStore {
                 ? basePrompt
                 : sdk.appendFilesToPrompt(text: basePrompt, files: usedFiles, language: language)
                     .trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !finalPrompt.isEmpty else { return }
+            guard !finalPrompt.isEmpty || !usedFiles.isEmpty else { return }
             chatErrorBanner = nil
             if overridePrompt == nil {
                 composerText = ""
@@ -701,8 +969,57 @@ final class DragonClawStore {
             let extractedPair = sdk.extractMessageAttachmentsAndCleanText(rawContent: finalPrompt, existingAttachments: uploadedAttachments)
             let cleanDisplay = (extractedPair.first as String? ?? finalPrompt)
             let displayAttachments = (extractedPair.second as? [ChatAttachment]) ?? uploadedAttachments
+
+            let shouldQueue = activeDesktopBusy || !desktopQueue.isEmpty
+            let useSteer = activeDesktopBusy &&
+                activeDesktopCanSteer &&
+                desktopBusyMode == "steer" &&
+                activeDesktopSelectedModel.isEmpty
+            let desiredMode: String? = shouldQueue ? (useSteer ? "steer" : "queue") : nil
+            let targetKey = desktop.stableKey
+            let modelToSend: String? = activeDesktopSelectedModel.isEmpty ? nil : activeDesktopSelectedModel
+            let reqId = UUID().uuidString
+
+            if desiredMode == "queue" {
+                let optimisticItem = DesktopAgentQueuedItem(
+                    requestId: reqId,
+                    text: cleanDisplay.isEmpty ? finalPrompt : cleanDisplay,
+                    status: "queued",
+                    error: "",
+                    createdAt: nil
+                )
+                desktopQueue.append(optimisticItem)
+                let handle = sdk.sendDesktopAgentMessage(
+                    token: token,
+                    provider: desktop.provider,
+                    sessionId: desktop.id,
+                    text: finalPrompt,
+                    requestId: reqId,
+                    mode: "queue",
+                    model: modelToSend
+                ) { [weak self] res in
+                    dispatchToMain { [weak self] in
+                        guard let self, self.activeDesktopSession?.stableKey == targetKey else { return }
+                        if !res.queue.isEmpty {
+                            self.desktopQueue = res.queue
+                        }
+                        self.scheduleDesktopAgentPoll(for: desktop)
+                        self.loadSessions()
+                    }
+                } onError: { [weak self] err in
+                    dispatchToMain { [weak self] in
+                        guard let self, self.activeDesktopSession?.stableKey == targetKey else { return }
+                        self.desktopQueue.removeAll { $0.requestId == reqId }
+                        self.chatErrorBanner = err
+                    }
+                }
+                activeTaskHandles.append(handle)
+                return
+            }
+
+            let optimisticMsgId = UUID().uuidString
             let userMsg = ChatMessage(
-                id: UUID().uuidString,
+                id: optimisticMsgId,
                 role: "user",
                 content: cleanDisplay,
                 thinking: "",
@@ -718,28 +1035,69 @@ final class DragonClawStore {
                 isStreaming: false
             )
             messages.append(userMsg)
-            let wasBusy = activeDesktopBusy
             activeDesktopBusy = true
-            let mode = (wasBusy && activeDesktopCanSteer) ? "steer" : nil
             let handle = sdk.sendDesktopAgentMessage(
                 token: token,
                 provider: desktop.provider,
                 sessionId: desktop.id,
                 text: finalPrompt,
-                requestId: UUID().uuidString,
-                mode: mode
-            ) { [weak self] _ in
+                requestId: reqId,
+                mode: desiredMode,
+                model: modelToSend
+            ) { [weak self] res in
                 dispatchToMain { [weak self] in
-                    guard let self, self.activeDesktopSession?.stableKey == desktop.stableKey else { return }
+                    guard let self, self.activeDesktopSession?.stableKey == targetKey else { return }
+                    if !res.queue.isEmpty {
+                        self.desktopQueue = res.queue
+                    }
                     self.fetchDesktopMessages(for: desktop, passive: true)
                     self.scheduleDesktopAgentPoll(for: desktop)
                     self.loadSessions()
                 }
             } onError: { [weak self] err in
                 dispatchToMain { [weak self] in
-                    guard let self else { return }
-                    self.activeDesktopBusy = false
-                    self.chatErrorBanner = err
+                    guard let self, self.activeDesktopSession?.stableKey == targetKey else { return }
+                    if self.sdk.isBusyQueueableError(errorText: err) {
+                        self.messages.removeAll { $0.id == optimisticMsgId }
+                        let fallbackReqId = UUID().uuidString
+                        self.desktopQueue.append(
+                            DesktopAgentQueuedItem(
+                                requestId: fallbackReqId,
+                                text: cleanDisplay.isEmpty ? finalPrompt : cleanDisplay,
+                                status: "queued",
+                                error: "",
+                                createdAt: nil
+                            )
+                        )
+                        let retryHandle = self.sdk.sendDesktopAgentMessage(
+                            token: self.token,
+                            provider: desktop.provider,
+                            sessionId: desktop.id,
+                            text: finalPrompt,
+                            requestId: fallbackReqId,
+                            mode: "queue",
+                            model: modelToSend
+                        ) { [weak self] res in
+                            dispatchToMain { [weak self] in
+                                guard let self, self.activeDesktopSession?.stableKey == targetKey else { return }
+                                if !res.queue.isEmpty {
+                                    self.desktopQueue = res.queue
+                                }
+                                self.scheduleDesktopAgentPoll(for: desktop)
+                            }
+                        } onError: { [weak self] qErr in
+                            dispatchToMain { [weak self] in
+                                guard let self, self.activeDesktopSession?.stableKey == targetKey else { return }
+                                self.desktopQueue.removeAll { $0.requestId == fallbackReqId }
+                                self.activeDesktopBusy = false
+                                self.chatErrorBanner = qErr
+                            }
+                        }
+                        self.activeTaskHandles.append(retryHandle)
+                    } else {
+                        self.activeDesktopBusy = false
+                        self.chatErrorBanner = err
+                    }
                 }
             }
             activeTaskHandles.append(handle)
@@ -752,7 +1110,7 @@ final class DragonClawStore {
             ? basePrompt
             : sdk.appendFilesToPrompt(text: basePrompt, files: usedFiles, language: language)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !finalContent.isEmpty else { return }
+        guard !finalContent.isEmpty || !usedFiles.isEmpty else { return }
 
         chatErrorBanner = nil
         if overridePrompt == nil {
@@ -765,15 +1123,45 @@ final class DragonClawStore {
         let cleanDisplay = (extractedPair.first as String? ?? finalContent)
         let displayAttachments = (extractedPair.second as? [ChatAttachment]) ?? uploadedAttachments
 
+        if isStreaming {
+            let preview = cleanDisplay.isEmpty
+                ? displayAttachments.map { $0.displayName }.joined(separator: ", ")
+                : cleanDisplay
+            regularQueue.append(
+                QueuedChatPrompt(
+                    id: UUID().uuidString,
+                    text: finalContent,
+                    displayText: preview,
+                    attachments: usedFiles,
+                    status: "queued",
+                    error: ""
+                )
+            )
+            return
+        }
+
+        dispatchRegularChatPrompt(
+            finalContent: finalContent,
+            cleanedUserText: cleanDisplay,
+            resolvedAttachments: displayAttachments
+        )
+    }
+
+    private func dispatchRegularChatPrompt(
+        finalContent: String,
+        cleanedUserText: String,
+        resolvedAttachments: [ChatAttachment]
+    ) {
+        let userMsgId = UUID().uuidString
         let userMsg = ChatMessage(
-            id: UUID().uuidString,
+            id: userMsgId,
             role: "user",
-            content: cleanDisplay,
+            content: cleanedUserText,
             thinking: "",
             createdAt: nil,
             statusText: nil,
             toolCalls: [],
-            attachments: displayAttachments,
+            attachments: resolvedAttachments,
             rawContent: finalContent,
             inputTokens: nil,
             outputTokens: nil,
@@ -824,8 +1212,34 @@ final class DragonClawStore {
         } onError: { [weak self] err in
             dispatchToMain { [weak self] in
                 guard let self else { return }
-                self.chatErrorBanner = err
-                self.finishStreaming(assistantId: assistantId, interrupted: true, errorNote: err)
+                let placeholder = self.messages.first(where: { $0.id == assistantId })
+                let noPartial = placeholder == nil ||
+                    (placeholder!.content.isEmpty && placeholder!.thinking.isEmpty && placeholder!.toolCalls.isEmpty)
+                if noPartial && self.sdk.isBusyQueueableError(errorText: err) {
+                    self.activeStreamHandle = nil
+                    self.isStreaming = false
+                    self.messages.removeAll { $0.id == userMsgId || $0.id == assistantId }
+                    self.regularQueue.insert(
+                        QueuedChatPrompt(
+                            id: UUID().uuidString,
+                            text: finalContent,
+                            displayText: cleanedUserText,
+                            attachments: [],
+                            status: "queued",
+                            error: ""
+                        ),
+                        at: 0
+                    )
+                    self.chatErrorBanner = nil
+                    Task { @MainActor [weak self] in
+                        try? await Task.sleep(nanoseconds: 800_000_000)
+                        guard let self, !self.isStreaming, self.activeDesktopSession == nil else { return }
+                        self.flushRegularQueueIfIdle()
+                    }
+                } else {
+                    self.chatErrorBanner = err
+                    self.finishStreaming(assistantId: assistantId, interrupted: true, errorNote: err)
+                }
             }
         }
     }
@@ -1019,6 +1433,13 @@ final class DragonClawStore {
         voiceTurnCompletion = nil
         completion?(finalContent)
         loadSessions()
+        if !interrupted, !regularQueue.isEmpty, activeDesktopSession == nil {
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(nanoseconds: 160_000_000)
+                guard let self, !self.isStreaming, self.activeDesktopSession == nil, !self.regularQueue.isEmpty else { return }
+                self.flushRegularQueueIfIdle()
+            }
+        }
     }
 
     private func copyMessage(

@@ -134,11 +134,36 @@ class DragonClawViewModel : ViewModel() {
         private set
     var activeDesktopReason by mutableStateOf<String?>(null)
         private set
+    var activeDesktopSelectedModel by mutableStateOf("")
+        private set
+    var desktopModelsByProvider by mutableStateOf<Map<String, List<DesktopAgentModelItem>>>(emptyMap())
+        private set
+    var desktopModelsLoading by mutableStateOf(false)
+        private set
+    var desktopModelsError by mutableStateOf<String?>(null)
+        private set
+    var desktopQueue by mutableStateOf<List<DesktopAgentQueuedItem>>(emptyList())
+        private set
+    var desktopBusyMode by mutableStateOf("queue")
+    var regularQueue by mutableStateOf<List<QueuedChatPrompt>>(emptyList())
+        private set
+    var hasMoreOlderMessages by mutableStateOf(false)
+        private set
+    var isLoadingOlderMessages by mutableStateOf(false)
+        private set
+    var chatOpenScrollGeneration by mutableIntStateOf(0)
+        private set
     val currentSidebarSelectionKey: String?
         get() = activeDesktopSession?.stableKey ?: currentSessionId?.let { "ai:$it" }
 
     private var sessionLoadJob: Job? = null
+    private var olderLoadJob: Job? = null
     private var desktopPollJob: Job? = null
+    private var regularBeforeCursor: String? = null
+    private var desktopBeforeCursor: String? = null
+    private var desktopLoadedRawItems: List<DesktopAgentMessageItem> = emptyList()
+    private val historyPageSize = 25
+    private val uiCatalogProviders = setOf("claudecode", "antigravity")
     var messages by mutableStateOf<List<ChatMessage>>(emptyList())
         private set
     var composerText by mutableStateOf("")
@@ -258,6 +283,17 @@ class DragonClawViewModel : ViewModel() {
 
     val activeModelDisplayName: String
         get() {
+            val desktop = activeDesktopSession
+            if (desktop != null) {
+                val chosen = activeDesktopSelectedModel.trim()
+                if (chosen.isNotEmpty()) {
+                    desktopModelsByProvider[desktop.provider]
+                        ?.firstOrNull { it.id == chosen }
+                        ?.let { return it.name }
+                    return chosen
+                }
+                return tr(language, "默认模型", "Default")
+            }
             if (selectedModelId.isNotBlank()) {
                 models.firstOrNull { it.id == selectedModelId }?.let { return it.name }
             }
@@ -297,6 +333,68 @@ class DragonClawViewModel : ViewModel() {
     fun selectModel(modelId: String) {
         selectedModelId = modelId
         sdk.saveSelectedModelId(modelId)
+    }
+
+    fun loadDesktopModels(provider: String, forceLive: Boolean = false) {
+        val cleanProvider = provider.trim().lowercase()
+        if (cleanProvider.isEmpty() || token.isBlank()) return
+        val cachedOnly = cleanProvider in uiCatalogProviders && !forceLive
+        desktopModelsLoading = true
+        desktopModelsError = null
+        viewModelScope.launch {
+            runCatching {
+                sdk.api.getDesktopAgentModels(
+                    token = token,
+                    provider = cleanProvider,
+                    cached = cachedOnly,
+                    force = forceLive
+                )
+            }
+                .onSuccess { res ->
+                    desktopModelsLoading = false
+                    desktopModelsByProvider = desktopModelsByProvider + (cleanProvider to res.models)
+                }
+                .onFailure { err ->
+                    desktopModelsLoading = false
+                    if (!cachedOnly || desktopModelsByProvider[cleanProvider].isNullOrEmpty()) {
+                        desktopModelsError = err.message
+                    }
+                }
+        }
+    }
+
+    fun prepareActiveModelPicker() {
+        val desktop = activeDesktopSession ?: return
+        val cachedList = desktopModelsByProvider[desktop.provider].orEmpty()
+        if (cachedList.isEmpty() && !desktopModelsLoading) {
+            loadDesktopModels(desktop.provider, forceLive = true)
+        }
+    }
+
+    fun selectActiveModel(modelId: String) {
+        val desktop = activeDesktopSession
+        if (desktop == null) {
+            selectModel(modelId)
+            return
+        }
+        val cleanModel = modelId.trim()
+        val prev = activeDesktopSelectedModel
+        activeDesktopSelectedModel = cleanModel
+        desktopModelsError = null
+        viewModelScope.launch {
+            runCatching { sdk.api.setDesktopAgentModel(token, desktop.provider, desktop.id, cleanModel) }
+                .onSuccess { res ->
+                    if (activeDesktopSession?.stableKey == desktop.stableKey) {
+                        activeDesktopSelectedModel = res.selectedModel.orEmpty()
+                    }
+                }
+                .onFailure { err ->
+                    if (activeDesktopSession?.stableKey == desktop.stableKey) {
+                        activeDesktopSelectedModel = prev
+                        chatErrorBanner = err.message
+                    }
+                }
+        }
     }
 
     fun loadPlatformIdentity() {
@@ -389,6 +487,8 @@ class DragonClawViewModel : ViewModel() {
         stopStreaming()
         sessionLoadJob?.cancel()
         sessionLoadJob = null
+        olderLoadJob?.cancel()
+        olderLoadJob = null
         desktopPollJob?.cancel()
         desktopPollJob = null
         sdk.clearSessionAuth(keepUsername = rememberMe)
@@ -410,6 +510,17 @@ class DragonClawViewModel : ViewModel() {
         activeDesktopCanSteer = false
         activeDesktopBusy = false
         activeDesktopReason = null
+        activeDesktopSelectedModel = ""
+        desktopModelsByProvider = emptyMap()
+        desktopModelsLoading = false
+        desktopModelsError = null
+        desktopQueue = emptyList()
+        regularQueue = emptyList()
+        regularBeforeCursor = null
+        desktopBeforeCursor = null
+        desktopLoadedRawItems = emptyList()
+        hasMoreOlderMessages = false
+        isLoadingOlderMessages = false
         pendingAttachments = emptyList()
         skills = emptyList()
         schedules = emptyList()
@@ -498,6 +609,8 @@ class DragonClawViewModel : ViewModel() {
         stopStreaming()
         sessionLoadJob?.cancel()
         sessionLoadJob = null
+        olderLoadJob?.cancel()
+        olderLoadJob = null
         desktopPollJob?.cancel()
         desktopPollJob = null
         currentSessionId = null
@@ -506,6 +619,15 @@ class DragonClawViewModel : ViewModel() {
         activeDesktopCanSteer = false
         activeDesktopBusy = false
         activeDesktopReason = null
+        activeDesktopSelectedModel = ""
+        desktopModelsError = null
+        desktopQueue = emptyList()
+        regularQueue = emptyList()
+        regularBeforeCursor = null
+        desktopBeforeCursor = null
+        desktopLoadedRawItems = emptyList()
+        hasMoreOlderMessages = false
+        isLoadingOlderMessages = false
         isLoadingSessionMessages = false
         messages = emptyList()
         pendingAttachments = emptyList()
@@ -525,6 +647,8 @@ class DragonClawViewModel : ViewModel() {
     fun openSession(session: AiSessionSummary) {
         stopStreaming()
         sessionLoadJob?.cancel()
+        olderLoadJob?.cancel()
+        olderLoadJob = null
         desktopPollJob?.cancel()
         desktopPollJob = null
         currentSessionId = session.id
@@ -533,6 +657,15 @@ class DragonClawViewModel : ViewModel() {
         activeDesktopCanSteer = false
         activeDesktopBusy = false
         activeDesktopReason = null
+        activeDesktopSelectedModel = ""
+        desktopModelsError = null
+        desktopQueue = emptyList()
+        regularQueue = emptyList()
+        regularBeforeCursor = null
+        desktopBeforeCursor = null
+        desktopLoadedRawItems = emptyList()
+        hasMoreOlderMessages = false
+        isLoadingOlderMessages = false
         messages = emptyList()
         pendingAttachments = emptyList()
         showNativeMetrics = false
@@ -542,11 +675,14 @@ class DragonClawViewModel : ViewModel() {
         isLoadingSessionMessages = true
         val targetId = session.id
         sessionLoadJob = viewModelScope.launch {
-            runCatching { sdk.api.getSessionMessages(token, targetId, limit = 60) }
+            runCatching { sdk.api.getSessionMessages(token, targetId, limit = historyPageSize) }
                 .onSuccess { res ->
                     if (currentSessionId == targetId && activeDesktopSession == null) {
                         isLoadingSessionMessages = false
+                        regularBeforeCursor = res.items.firstOrNull()?.id
+                        hasMoreOlderMessages = res.hasMore && !regularBeforeCursor.isNullOrBlank()
                         messages = sdk.mapHistoryMessages(res.items)
+                        chatOpenScrollGeneration += 1
                     }
                 }
                 .onFailure { err ->
@@ -561,6 +697,8 @@ class DragonClawViewModel : ViewModel() {
     fun openDesktopSession(session: DesktopAgentSessionSummary) {
         stopStreaming()
         sessionLoadJob?.cancel()
+        olderLoadJob?.cancel()
+        olderLoadJob = null
         desktopPollJob?.cancel()
         desktopPollJob = null
         currentSessionId = null
@@ -569,6 +707,15 @@ class DragonClawViewModel : ViewModel() {
         activeDesktopCanSteer = false
         activeDesktopBusy = session.busy
         activeDesktopReason = null
+        activeDesktopSelectedModel = ""
+        desktopModelsError = null
+        desktopQueue = emptyList()
+        regularQueue = emptyList()
+        regularBeforeCursor = null
+        desktopBeforeCursor = null
+        desktopLoadedRawItems = emptyList()
+        hasMoreOlderMessages = false
+        isLoadingOlderMessages = false
         messages = emptyList()
         pendingAttachments = emptyList()
         showNativeMetrics = false
@@ -576,13 +723,23 @@ class DragonClawViewModel : ViewModel() {
         workMode = AppWorkMode.CHAT
         chatErrorBanner = null
         isLoadingSessionMessages = true
+        loadDesktopModels(session.provider, forceLive = false)
         fetchDesktopMessages(session, passive = false)
     }
 
     private fun fetchDesktopMessages(session: DesktopAgentSessionSummary, passive: Boolean) {
         val targetKey = session.stableKey
-        sessionLoadJob = viewModelScope.launch {
-            runCatching { sdk.api.getDesktopAgentMessages(token, session.provider, session.id, passive = passive) }
+        val job = viewModelScope.launch {
+            runCatching {
+                sdk.api.getDesktopAgentMessages(
+                    token = token,
+                    provider = session.provider,
+                    sessionId = session.id,
+                    passive = passive,
+                    limit = historyPageSize,
+                    before = null
+                )
+            }
                 .onSuccess { res ->
                     if (activeDesktopSession?.stableKey != targetKey) return@onSuccess
                     isLoadingSessionMessages = false
@@ -590,8 +747,21 @@ class DragonClawViewModel : ViewModel() {
                     activeDesktopCanSteer = res.canSteer
                     activeDesktopBusy = res.busy
                     activeDesktopReason = res.reason
-                    res.items?.let { items ->
-                        messages = sdk.mapDesktopAgentMessages(items)
+                    desktopQueue = res.queue
+                    res.selectedModel?.let { activeDesktopSelectedModel = it }
+                    res.items?.let { incomingTail ->
+                        val mergedRaw = if (!passive || desktopLoadedRawItems.isEmpty()) {
+                            desktopBeforeCursor = res.nextBefore
+                            hasMoreOlderMessages = res.hasMore && !res.nextBefore.isNullOrBlank()
+                            incomingTail
+                        } else {
+                            sdk.mergeDesktopTailItems(desktopLoadedRawItems, incomingTail)
+                        }
+                        desktopLoadedRawItems = mergedRaw
+                        messages = sdk.mapDesktopAgentMessages(mergedRaw)
+                        if (!passive) {
+                            chatOpenScrollGeneration += 1
+                        }
                     }
                     if (!res.available) {
                         val note = res.error ?: res.reason
@@ -599,7 +769,7 @@ class DragonClawViewModel : ViewModel() {
                             chatStatusBanner = note
                         }
                     }
-                    if (res.busy) {
+                    if (res.busy || res.queue.isNotEmpty()) {
                         scheduleDesktopPoll(session)
                     } else {
                         desktopPollJob?.cancel()
@@ -612,6 +782,7 @@ class DragonClawViewModel : ViewModel() {
                     if (!passive) chatErrorBanner = err.message
                 }
         }
+        if (!passive) sessionLoadJob = job
     }
 
     private fun scheduleDesktopPoll(session: DesktopAgentSessionSummary) {
@@ -620,22 +791,102 @@ class DragonClawViewModel : ViewModel() {
         desktopPollJob = viewModelScope.launch {
             while (isActive) {
                 delay(2500L)
-                if (activeDesktopSession?.stableKey != targetKey || !activeDesktopBusy) break
-                runCatching { sdk.api.getDesktopAgentMessages(token, session.provider, session.id, passive = true) }
+                if (activeDesktopSession?.stableKey != targetKey || (!activeDesktopBusy && desktopQueue.isEmpty())) break
+                runCatching {
+                    sdk.api.getDesktopAgentMessages(
+                        token = token,
+                        provider = session.provider,
+                        sessionId = session.id,
+                        passive = true,
+                        limit = historyPageSize,
+                        before = null
+                    )
+                }
                     .onSuccess { res ->
                         if (activeDesktopSession?.stableKey != targetKey) return@onSuccess
                         activeDesktopCanSend = res.canSend
                         activeDesktopCanSteer = res.canSteer
                         activeDesktopBusy = res.busy
                         activeDesktopReason = res.reason
-                        res.items?.let { items ->
-                            messages = sdk.mapDesktopAgentMessages(items)
+                        desktopQueue = res.queue
+                        res.selectedModel?.let { activeDesktopSelectedModel = it }
+                        res.items?.let { incomingTail ->
+                            val mergedRaw = if (desktopLoadedRawItems.isEmpty()) {
+                                desktopBeforeCursor = res.nextBefore
+                                hasMoreOlderMessages = res.hasMore && !res.nextBefore.isNullOrBlank()
+                                incomingTail
+                            } else {
+                                sdk.mergeDesktopTailItems(desktopLoadedRawItems, incomingTail)
+                            }
+                            desktopLoadedRawItems = mergedRaw
+                            messages = sdk.mapDesktopAgentMessages(mergedRaw)
                         }
                     }
-                if (!activeDesktopBusy) break
+                if (!activeDesktopBusy && desktopQueue.isEmpty()) break
             }
             desktopPollJob = null
             loadSessions()
+        }
+    }
+
+    fun loadOlderMessages() {
+        if (isLoadingOlderMessages || !hasMoreOlderMessages || isLoadingSessionMessages) return
+        val desktop = activeDesktopSession
+        if (desktop != null) {
+            val cursor = desktopBeforeCursor?.takeIf { it.isNotBlank() } ?: return
+            val targetKey = desktop.stableKey
+            isLoadingOlderMessages = true
+            olderLoadJob = viewModelScope.launch {
+                runCatching {
+                    sdk.api.getDesktopAgentMessages(
+                        token = token,
+                        provider = desktop.provider,
+                        sessionId = desktop.id,
+                        passive = false,
+                        limit = historyPageSize,
+                        before = cursor
+                    )
+                }
+                    .onSuccess { res ->
+                        if (activeDesktopSession?.stableKey != targetKey) return@onSuccess
+                        isLoadingOlderMessages = false
+                        val olderItems = res.items.orEmpty()
+                        desktopBeforeCursor = res.nextBefore
+                        hasMoreOlderMessages = res.hasMore && !res.nextBefore.isNullOrBlank() && olderItems.isNotEmpty()
+                        if (olderItems.isNotEmpty()) {
+                            desktopLoadedRawItems = olderItems + desktopLoadedRawItems
+                            messages = sdk.mapDesktopAgentMessages(desktopLoadedRawItems)
+                        }
+                    }
+                    .onFailure {
+                        if (activeDesktopSession?.stableKey == targetKey) {
+                            isLoadingOlderMessages = false
+                        }
+                    }
+            }
+            return
+        }
+
+        val sessionId = currentSessionId ?: return
+        val cursor = regularBeforeCursor?.takeIf { it.isNotBlank() } ?: return
+        isLoadingOlderMessages = true
+        olderLoadJob = viewModelScope.launch {
+            runCatching { sdk.api.getSessionMessages(token, sessionId, limit = historyPageSize, before = cursor) }
+                .onSuccess { res ->
+                    if (currentSessionId != sessionId || activeDesktopSession != null) return@onSuccess
+                    isLoadingOlderMessages = false
+                    regularBeforeCursor = res.items.firstOrNull()?.id
+                    hasMoreOlderMessages = res.hasMore && !regularBeforeCursor.isNullOrBlank() && res.items.isNotEmpty()
+                    if (res.items.isNotEmpty()) {
+                        val olderMapped = sdk.mapHistoryMessages(res.items)
+                        messages = sdk.mergeMessages(olderMapped + messages)
+                    }
+                }
+                .onFailure {
+                    if (currentSessionId == sessionId && activeDesktopSession == null) {
+                        isLoadingOlderMessages = false
+                    }
+                }
         }
     }
 
@@ -723,8 +974,47 @@ class DragonClawViewModel : ViewModel() {
         pendingAttachments = pendingAttachments.filterNot { it.path == file.path }
     }
 
+    fun cancelQueuedRegularPrompt(id: String) {
+        regularQueue = regularQueue.filterNot { it.id == id }
+    }
+
+    fun flushRegularQueueIfIdle() {
+        if (isStreaming || activeDesktopSession != null) return
+        val next = regularQueue.firstOrNull() ?: return
+        regularQueue = regularQueue.drop(1)
+        val rawAttachments = sdk.attachmentsFromUploadedFiles(next.attachments)
+        val (_, displayAtts) = sdk.extractMessageAttachmentsAndCleanText(
+            rawContent = next.text,
+            existingAttachments = rawAttachments
+        )
+        dispatchRegularChatPrompt(
+            finalContent = next.text,
+            cleanedUserText = next.displayText,
+            resolvedAttachments = displayAtts.ifEmpty { rawAttachments }
+        )
+    }
+
+    fun cancelQueuedDesktopPrompt(requestId: String) {
+        val desktop = activeDesktopSession ?: return
+        val targetKey = desktop.stableKey
+        viewModelScope.launch {
+            runCatching {
+                sdk.api.cancelDesktopAgentQueuedMessage(token, desktop.provider, desktop.id, requestId)
+            }
+                .onSuccess { res ->
+                    if (activeDesktopSession?.stableKey == targetKey) {
+                        desktopQueue = res.queue
+                    }
+                }
+                .onFailure { err ->
+                    if (activeDesktopSession?.stableKey == targetKey) {
+                        chatErrorBanner = err.message
+                    }
+                }
+        }
+    }
+
     fun sendPrompt(overridePrompt: String? = null) {
-        if (isStreaming) return
         val desktop = activeDesktopSession
         if (desktop != null) {
             if (!activeDesktopCanSend) {
@@ -748,17 +1038,68 @@ class DragonClawViewModel : ViewModel() {
                 composerText = ""
                 pendingAttachments = emptyList()
             }
+            val shouldQueue = activeDesktopBusy || desktopQueue.isNotEmpty()
+            val useSteer = activeDesktopBusy &&
+                activeDesktopCanSteer &&
+                desktopBusyMode == "steer" &&
+                activeDesktopSelectedModel.isBlank()
+            val desiredMode = when {
+                !shouldQueue -> null
+                useSteer -> "steer"
+                else -> "queue"
+            }
+            val targetKey = desktop.stableKey
+            val modelToSend = activeDesktopSelectedModel.ifBlank { null }
+            val reqId = UUID.randomUUID().toString()
+
+            if (desiredMode == "queue") {
+                val optimisticQueueItem = DesktopAgentQueuedItem(
+                    requestId = reqId,
+                    text = cleanedText.ifBlank { rawSendText },
+                    status = "queued"
+                )
+                desktopQueue = desktopQueue + optimisticQueueItem
+                viewModelScope.launch {
+                    runCatching {
+                        sdk.api.sendDesktopAgentMessage(
+                            token = token,
+                            provider = desktop.provider,
+                            sessionId = desktop.id,
+                            request = DesktopAgentSendRequest(
+                                text = rawSendText,
+                                requestId = reqId,
+                                mode = "queue",
+                                model = modelToSend
+                            )
+                        )
+                    }
+                        .onSuccess { res ->
+                            if (activeDesktopSession?.stableKey != targetKey) return@onSuccess
+                            if (res.queue.isNotEmpty()) {
+                                desktopQueue = res.queue
+                            }
+                            scheduleDesktopPoll(desktop)
+                            loadSessions()
+                        }
+                        .onFailure { err ->
+                            if (activeDesktopSession?.stableKey != targetKey) return@onFailure
+                            desktopQueue = desktopQueue.filterNot { it.requestId == reqId }
+                            chatErrorBanner = err.message
+                        }
+                }
+                return
+            }
+
+            val optimisticId = UUID.randomUUID().toString()
             messages = messages + ChatMessage(
-                id = UUID.randomUUID().toString(),
+                id = optimisticId,
                 role = "user",
                 content = cleanedText,
                 attachments = resolvedAttachments,
                 rawContent = rawSendText,
                 modelName = desktop.providerDisplayName()
             )
-            val wasBusy = activeDesktopBusy
             activeDesktopBusy = true
-            val mode = if (wasBusy && activeDesktopCanSteer) "steer" else null
             viewModelScope.launch {
                 runCatching {
                     sdk.api.sendDesktopAgentMessage(
@@ -767,29 +1108,72 @@ class DragonClawViewModel : ViewModel() {
                         sessionId = desktop.id,
                         request = DesktopAgentSendRequest(
                             text = rawSendText,
-                            requestId = UUID.randomUUID().toString(),
-                            mode = mode
+                            requestId = reqId,
+                            mode = desiredMode,
+                            model = modelToSend
                         )
                     )
                 }
-                    .onSuccess {
+                    .onSuccess { res ->
+                        if (activeDesktopSession?.stableKey != targetKey) return@onSuccess
+                        if (res.queue.isNotEmpty()) desktopQueue = res.queue
                         fetchDesktopMessages(desktop, passive = true)
                         scheduleDesktopPoll(desktop)
                         loadSessions()
                     }
                     .onFailure { err ->
-                        activeDesktopBusy = false
-                        chatErrorBanner = err.message
+                        if (activeDesktopSession?.stableKey != targetKey) return@onFailure
+                        if (sdk.isBusyQueueableError(err.message)) {
+                            // Race condition where desktop started between polls: enqueue transparently.
+                            messages = messages.filterNot { it.id == optimisticId }
+                            val fallbackReqId = UUID.randomUUID().toString()
+                            desktopQueue = desktopQueue + DesktopAgentQueuedItem(
+                                requestId = fallbackReqId,
+                                text = cleanedText.ifBlank { rawSendText },
+                                status = "queued"
+                            )
+                            runCatching {
+                                sdk.api.sendDesktopAgentMessage(
+                                    token = token,
+                                    provider = desktop.provider,
+                                    sessionId = desktop.id,
+                                    request = DesktopAgentSendRequest(
+                                        text = rawSendText,
+                                        requestId = fallbackReqId,
+                                        mode = "queue",
+                                        model = modelToSend
+                                    )
+                                )
+                            }
+                                .onSuccess { res ->
+                                    if (activeDesktopSession?.stableKey == targetKey) {
+                                        if (res.queue.isNotEmpty()) desktopQueue = res.queue
+                                        scheduleDesktopPoll(desktop)
+                                    }
+                                }
+                                .onFailure { qErr ->
+                                    if (activeDesktopSession?.stableKey == targetKey) {
+                                        desktopQueue = desktopQueue.filterNot { it.requestId == fallbackReqId }
+                                        activeDesktopBusy = false
+                                        chatErrorBanner = qErr.message
+                                    }
+                                }
+                        } else {
+                            activeDesktopBusy = false
+                            chatErrorBanner = err.message
+                        }
                     }
             }
             return
         }
+
         val base = (overridePrompt ?: composerText).trim()
-        val attachedInfos = if (overridePrompt == null) sdk.attachmentsFromUploadedFiles(pendingAttachments) else emptyList()
+        val pendingSnapshot = if (overridePrompt == null) pendingAttachments else emptyList()
+        val attachedInfos = if (overridePrompt == null) sdk.attachmentsFromUploadedFiles(pendingSnapshot) else emptyList()
         val finalContent = if (overridePrompt != null) {
             base
         } else {
-            sdk.appendFilesToPrompt(base, pendingAttachments, language).trim()
+            sdk.appendFilesToPrompt(base, pendingSnapshot, language).trim()
         }
         if (finalContent.isEmpty() && attachedInfos.isEmpty()) return
 
@@ -804,8 +1188,34 @@ class DragonClawViewModel : ViewModel() {
             pendingAttachments = emptyList()
         }
 
+        if (isStreaming) {
+            val preview = cleanedUserText.ifBlank {
+                resolvedAttachments.joinToString(", ") { it.displayName }
+            }
+            regularQueue = regularQueue + QueuedChatPrompt(
+                id = UUID.randomUUID().toString(),
+                text = finalContent,
+                displayText = preview,
+                attachments = pendingSnapshot
+            )
+            return
+        }
+
+        dispatchRegularChatPrompt(
+            finalContent = finalContent,
+            cleanedUserText = cleanedUserText,
+            resolvedAttachments = resolvedAttachments
+        )
+    }
+
+    private fun dispatchRegularChatPrompt(
+        finalContent: String,
+        cleanedUserText: String,
+        resolvedAttachments: List<ChatAttachment>
+    ) {
+        val userId = UUID.randomUUID().toString()
         val userMsg = ChatMessage(
-            id = UUID.randomUUID().toString(),
+            id = userId,
             role = "user",
             content = cleanedUserText,
             attachments = resolvedAttachments,
@@ -835,8 +1245,34 @@ class DragonClawViewModel : ViewModel() {
             onEvent = { applyStreamEvent(it, assistantId) },
             onComplete = { finishStreaming(assistantId, interrupted = false) },
             onError = { err ->
-                chatErrorBanner = err
-                finishStreaming(assistantId, interrupted = true, errorNote = err)
+                val activePlaceholder = messages.firstOrNull { it.id == assistantId }
+                val noPartialOutput = activePlaceholder == null ||
+                    (activePlaceholder.content.isBlank() &&
+                        activePlaceholder.thinking.isBlank() &&
+                        activePlaceholder.toolCalls.isEmpty())
+                if (noPartialOutput && sdk.isBusyQueueableError(err)) {
+                    activeStreamHandle = null
+                    isStreaming = false
+                    messages = messages.filterNot { it.id == userId || it.id == assistantId }
+                    regularQueue = listOf(
+                        QueuedChatPrompt(
+                            id = UUID.randomUUID().toString(),
+                            text = finalContent,
+                            displayText = cleanedUserText,
+                            status = "queued"
+                        )
+                    ) + regularQueue
+                    chatErrorBanner = null
+                    viewModelScope.launch {
+                        delay(800L)
+                        if (!isStreaming && activeDesktopSession == null) {
+                            flushRegularQueueIfIdle()
+                        }
+                    }
+                } else {
+                    chatErrorBanner = err
+                    finishStreaming(assistantId, interrupted = true, errorNote = err)
+                }
             }
         )
     }
@@ -976,6 +1412,14 @@ class DragonClawViewModel : ViewModel() {
         voiceTurnCompletion = null
         callback?.invoke(finalContent)
         loadSessions()
+        if (!interrupted && regularQueue.isNotEmpty() && activeDesktopSession == null) {
+            viewModelScope.launch {
+                delay(160L)
+                if (!isStreaming && activeDesktopSession == null && regularQueue.isNotEmpty()) {
+                    flushRegularQueueIfIdle()
+                }
+            }
+        }
     }
 
     // --- Tool Hub & KPI Monitor Navigation ---

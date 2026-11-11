@@ -14,6 +14,12 @@ struct ChatView: View {
     @State private var showCameraPicker = false
     @State private var showSkillsSheet = false
     @State private var skillQuery = ""
+    @State private var showModelSheet = false
+    @State private var modelQuery = ""
+    @State private var lastAnchoredSessionGen = -1
+    @State private var initialOpenSettled = false
+    @State private var isNearBottom = true
+    @State private var anchorBeforePrependId: String? = nil
     @State private var selectedPhotoItems: [PhotosPickerItem] = []
     @State private var lightboxPayload: LightboxPayload? = nil
 
@@ -43,17 +49,67 @@ struct ChatView: View {
                         .padding(.bottom, 24)
                 } else {
                     LazyVStack(spacing: 16) {
+                        if store.hasMoreOlderMessages || store.isLoadingOlderMessages {
+                            HStack(spacing: 8) {
+                                if store.isLoadingOlderMessages {
+                                    ProgressView().controlSize(.small)
+                                    Text(L10n.tr(lang, zh: "正在加载更早消息...", en: "Loading earlier messages..."))
+                                        .font(.caption)
+                                        .foregroundStyle(palette.inkMuted)
+                                } else {
+                                    Button {
+                                        guard anchorBeforePrependId == nil else { return }
+                                        anchorBeforePrependId = store.messages.first?.id
+                                        store.loadOlderMessages()
+                                    } label: {
+                                        Label(
+                                            L10n.tr(lang, zh: "加载更早消息", en: "Load earlier messages"),
+                                            systemImage: "arrow.up.circle"
+                                        )
+                                        .font(.caption.weight(.medium))
+                                        .foregroundStyle(palette.inkSecondary)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 6)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .glassEffect(.regular.interactive(), in: Capsule())
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 4)
+                            .id("__older_history_sentinel__")
+                            .onScrollVisibilityChange(threshold: 0.1) { visible in
+                                guard visible,
+                                      initialOpenSettled,
+                                      lastAnchoredSessionGen == store.chatOpenScrollGeneration,
+                                      anchorBeforePrependId == nil,
+                                      store.hasMoreOlderMessages,
+                                      !store.isLoadingOlderMessages,
+                                      !store.isLoadingSessionMessages else { return }
+                                anchorBeforePrependId = store.messages.first?.id
+                                store.loadOlderMessages()
+                            }
+                        }
+
                         if store.isLoadingSessionMessages {
                             ChatShimmerSkeletonView(palette: palette)
                                 .padding(.vertical, 8)
                         }
 
-                        ForEach(store.messages, id: \.id) { message in
+                        ForEach(Array(store.messages.enumerated()), id: \.element.id) { index, message in
+                            let isLastMessage = index == store.messages.count - 1
+                            let isDesktopActiveTurn = store.activeDesktopSession != nil &&
+                                store.activeDesktopBusy &&
+                                isLastMessage &&
+                                !message.isUser
                             ChatBubbleRow(
                                 message: message,
                                 renderToken: message.renderKey,
                                 token: store.token,
                                 baseUrl: store.baseUrl,
+                                senderLabel: !message.isUser ? store.activeDesktopSession?.providerDisplayName() : nil,
+                                suppressActionFooter: isDesktopActiveTurn,
+                                showTurnWorkingIndicator: isDesktopActiveTurn,
                                 isThinkingExpanded: Binding(
                                     get: { store.expandedThinkingIds.contains(message.id) },
                                     set: { expanded in
@@ -77,23 +133,76 @@ struct ChatView: View {
                             )
                             .id(message.id)
                         }
+
+                        Color.clear
+                            .frame(height: 1)
+                            .id("__chat_bottom_anchor__")
+                            .onScrollVisibilityChange(threshold: 0.1) { visible in
+                                isNearBottom = visible
+                            }
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
                 }
             }
+            .defaultScrollAnchor(.bottom)
             .scrollDismissesKeyboard(.interactively)
-            .onChange(of: store.messages.last?.content) { _, _ in
-                if store.messages.count > 2, let lastId = store.messages.last?.id {
-                    withAnimation(.easeOut(duration: 0.16)) {
-                        proxy.scrollTo(lastId, anchor: .bottom)
+            .onAppear {
+                if !store.messages.isEmpty, lastAnchoredSessionGen != store.chatOpenScrollGeneration {
+                    let gen = store.chatOpenScrollGeneration
+                    lastAnchoredSessionGen = gen
+                    initialOpenSettled = false
+                    isNearBottom = true
+                    proxy.scrollTo("__chat_bottom_anchor__", anchor: .bottom)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        if lastAnchoredSessionGen == gen {
+                            initialOpenSettled = true
+                        }
                     }
                 }
             }
-            .onChange(of: store.messages.count) { _, newCount in
-                if newCount > 2, let lastId = store.messages.last?.id {
+            .onChange(of: store.chatOpenScrollGeneration) { _, newGen in
+                anchorBeforePrependId = nil
+                lastAnchoredSessionGen = newGen
+                initialOpenSettled = false
+                isNearBottom = true
+                DispatchQueue.main.async {
+                    proxy.scrollTo("__chat_bottom_anchor__", anchor: .bottom)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        if lastAnchoredSessionGen == newGen {
+                            initialOpenSettled = true
+                        }
+                    }
+                }
+            }
+            .onChange(of: store.messages.first?.id) { _, _ in
+                if let anchorId = anchorBeforePrependId {
+                    DispatchQueue.main.async {
+                        proxy.scrollTo(anchorId, anchor: .top)
+                        anchorBeforePrependId = nil
+                    }
+                }
+            }
+            .onChange(of: store.messages.last?.content) { _, _ in
+                if anchorBeforePrependId == nil,
+                   !store.messages.isEmpty,
+                   (isNearBottom || store.messages.last?.isUser == true) {
                     withAnimation(.easeOut(duration: 0.16)) {
-                        proxy.scrollTo(lastId, anchor: .bottom)
+                        proxy.scrollTo("__chat_bottom_anchor__", anchor: .bottom)
+                    }
+                }
+            }
+            .onChange(of: store.messages.last?.id) { _, _ in
+                if anchorBeforePrependId == nil,
+                   !store.messages.isEmpty,
+                   (isNearBottom || store.messages.last?.isUser == true) {
+                    if lastAnchoredSessionGen != store.chatOpenScrollGeneration {
+                        lastAnchoredSessionGen = store.chatOpenScrollGeneration
+                        proxy.scrollTo("__chat_bottom_anchor__", anchor: .bottom)
+                    } else {
+                        withAnimation(.easeOut(duration: 0.16)) {
+                            proxy.scrollTo("__chat_bottom_anchor__", anchor: .bottom)
+                        }
                     }
                 }
             }
@@ -184,6 +293,9 @@ struct ChatView: View {
         .sheet(isPresented: $showSkillsSheet) {
             skillsPickerSheet
         }
+        .sheet(isPresented: $showModelSheet) {
+            modelSelectorSheet
+        }
         .fullScreenCover(isPresented: $voiceChat.isPresented) {
             VoiceConversationModal(voiceChat: voiceChat, store: store)
         }
@@ -259,23 +371,232 @@ struct ChatView: View {
         }
     }
 
-    @ViewBuilder
-    private func modelMenuItems() -> some View {
-        Button {
-            store.selectModel("")
-        } label: {
-            Label(
-                L10n.tr(lang, zh: "系统推荐模型", en: "Default Model"),
-                systemImage: store.selectedModelId.isEmpty ? "checkmark" : "cpu"
-            )
+    private var modelSelectorSheet: some View {
+        let desktop = store.activeDesktopSession
+        let desktopModels = desktop.flatMap { store.desktopModelsByProvider[$0.provider] } ?? []
+        let trimmedQuery = modelQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let filteredDesktopModels = desktopModels.filter { item in
+            trimmedQuery.isEmpty ||
+            item.name.lowercased().contains(trimmedQuery) ||
+            item.id.lowercased().contains(trimmedQuery)
         }
-        ForEach(store.models, id: \.id) { model in
-            Button {
-                store.selectModel(model.id)
-            } label: {
-                Label(model.name, systemImage: store.selectedModelId == model.id ? "checkmark" : "cpu")
+        let filteredRegularModels = store.models.filter { item in
+            trimmedQuery.isEmpty ||
+            item.name.lowercased().contains(trimmedQuery) ||
+            item.id.lowercased().contains(trimmedQuery)
+        }
+        let defaultTitle = desktop != nil
+            ? L10n.tr(lang, zh: "默认（沿用客户端）", en: "Default (Agent Client)")
+            : L10n.tr(lang, zh: "系统推荐模型", en: "Default Model")
+        let defaultSubtitle = desktop != nil
+            ? L10n.tr(lang, zh: "跟随桌面端当前激活配置", en: "Follow active desktop client setting")
+            : L10n.tr(lang, zh: "由 Dragon Claw 自动挑选可用模型", en: "Let Dragon Claw pick automatically")
+        let isDefaultSelected = desktop != nil
+            ? store.activeDesktopSelectedModel.isEmpty
+            : store.selectedModelId.isEmpty
+
+        return NavigationStack {
+            VStack(spacing: 12) {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 13.5))
+                        .foregroundStyle(palette.inkMuted)
+                    TextField(
+                        L10n.tr(lang, zh: "搜索模型...", en: "Search models..."),
+                        text: $modelQuery
+                    )
+                    .font(.subheadline)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled(true)
+                    if !modelQuery.isEmpty {
+                        Button {
+                            modelQuery = ""
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 14))
+                                .foregroundStyle(palette.inkMuted)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+                .glassEffect(.regular, in: Capsule())
+                .padding(.horizontal, 16)
+
+                ScrollView {
+                    LazyVStack(spacing: 8) {
+                        Button {
+                            store.selectActiveModel("")
+                            showModelSheet = false
+                        } label: {
+                            modelSheetOptionRow(
+                                title: defaultTitle,
+                                subtitle: defaultSubtitle,
+                                isSelected: isDefaultSelected
+                            )
+                        }
+                        .buttonStyle(.plain)
+
+                        if let desktop {
+                            if store.desktopModelsLoading && desktopModels.isEmpty {
+                                HStack(spacing: 8) {
+                                    ProgressView().controlSize(.small)
+                                    Text(L10n.tr(lang, zh: "正在加载客户端可用模型...", en: "Loading agent models..."))
+                                        .font(.caption)
+                                        .foregroundStyle(palette.inkMuted)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 20)
+                            } else if let err = store.desktopModelsError, !err.isEmpty, desktopModels.isEmpty {
+                                VStack(spacing: 8) {
+                                    Text(err)
+                                        .font(.caption)
+                                        .foregroundStyle(palette.danger)
+                                        .multilineTextAlignment(.center)
+                                    Button {
+                                        store.loadDesktopModels(provider: desktop.provider, forceLive: true)
+                                    } label: {
+                                        Label(
+                                            L10n.tr(lang, zh: "重试获取模型", en: "Retry loading"),
+                                            systemImage: "arrow.clockwise"
+                                        )
+                                        .font(.caption.weight(.semibold))
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 6)
+                                    }
+                                    .buttonStyle(.glass)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                            } else if filteredDesktopModels.isEmpty {
+                                Text(
+                                    desktopModels.isEmpty
+                                        ? L10n.tr(lang, zh: "未检测到额外模型，将使用桌面端默认配置", en: "No additional models detected; agent default will be used")
+                                        : L10n.tr(lang, zh: "没有匹配的模型", en: "No matching models")
+                                )
+                                .font(.caption)
+                                .foregroundStyle(palette.inkMuted)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 20)
+                            } else {
+                                ForEach(filteredDesktopModels, id: \.id) { item in
+                                    Button {
+                                        store.selectActiveModel(item.id)
+                                        showModelSheet = false
+                                    } label: {
+                                        modelSheetOptionRow(
+                                            title: item.name.isEmpty ? item.id : item.name,
+                                            subtitle: item.name == item.id || item.name.isEmpty ? nil : item.id,
+                                            isSelected: store.activeDesktopSelectedModel == item.id
+                                        )
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        } else {
+                            if filteredRegularModels.isEmpty {
+                                Text(L10n.tr(lang, zh: "没有匹配的模型", en: "No matching models"))
+                                    .font(.caption)
+                                    .foregroundStyle(palette.inkMuted)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 20)
+                            } else {
+                                ForEach(filteredRegularModels, id: \.id) { item in
+                                    Button {
+                                        store.selectActiveModel(item.id)
+                                        showModelSheet = false
+                                    } label: {
+                                        modelSheetOptionRow(
+                                            title: item.name,
+                                            subtitle: item.name == item.id ? nil : item.id,
+                                            isSelected: store.selectedModelId == item.id
+                                        )
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 20)
+                }
+            }
+            .padding(.top, 10)
+            .navigationTitle(
+                desktop.map {
+                    L10n.tr(
+                        lang,
+                        zh: "\($0.providerDisplayName()) 模型",
+                        en: "\($0.providerDisplayName()) Models"
+                    )
+                } ?? L10n.tr(lang, zh: "选择模型", en: "Choose Model")
+            )
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                if let desktop {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            store.loadDesktopModels(provider: desktop.provider, forceLive: true)
+                        } label: {
+                            if store.desktopModelsLoading {
+                                ProgressView().controlSize(.small)
+                            } else {
+                                Image(systemName: "arrow.clockwise")
+                            }
+                        }
+                        .disabled(store.desktopModelsLoading)
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(L10n.tr(lang, zh: "完成", en: "Done")) {
+                        showModelSheet = false
+                    }
+                }
             }
         }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    private func modelSheetOptionRow(title: String, subtitle: String?, isSelected: Bool) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: isSelected ? "checkmark.circle.fill" : "cpu")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(isSelected ? palette.accentStrong : palette.inkMuted)
+                .frame(width: 24)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(isSelected ? .semibold : .medium))
+                    .foregroundStyle(palette.inkPrimary)
+                    .lineLimit(1)
+                if let subtitle, !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.caption2)
+                        .foregroundStyle(palette.inkMuted)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer(minLength: 6)
+
+            if isSelected {
+                Text(L10n.tr(lang, zh: "当前", en: "Active"))
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(palette.accentStrong)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(palette.accent.opacity(0.14), in: Capsule())
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassEffect(
+            isSelected ? .regular.tint(palette.accent.opacity(0.14)) : .regular,
+            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+        )
     }
 
     private func modelPickerButton(
@@ -309,8 +630,10 @@ struct ChatView: View {
         .transaction { $0.animation = nil }
         .animation(nil, value: store.activeModelDisplayName)
         .overlay {
-            Menu {
-                modelMenuItems()
+            Button {
+                store.prepareActiveModelPicker()
+                modelQuery = ""
+                showModelSheet = true
             } label: {
                 Rectangle()
                     .fill(Color.clear)
@@ -426,6 +749,153 @@ struct ChatView: View {
                     .padding(.horizontal, 12)
                     .padding(.vertical, 7)
                     .glassEffect(.regular.tint(palette.accent.opacity(0.12)), in: Capsule())
+                }
+
+                if store.activeDesktopSession != nil &&
+                    ((store.activeDesktopBusy && store.activeDesktopCanSteer) || !store.desktopQueue.isEmpty) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        if store.activeDesktopBusy && store.activeDesktopCanSteer {
+                            HStack(spacing: 6) {
+                                Text(L10n.tr(lang, zh: "运行中追加策略", en: "Busy follow-up mode"))
+                                    .font(.caption2.weight(.medium))
+                                    .foregroundStyle(palette.inkSecondary)
+                                Spacer()
+                                ForEach(
+                                    [
+                                        ("queue", L10n.tr(lang, zh: "排队", en: "Queue")),
+                                        ("steer", L10n.tr(lang, zh: "插队", en: "Steer"))
+                                    ],
+                                    id: \.0
+                                ) { modeKey, label in
+                                    let active = store.desktopBusyMode == modeKey
+                                    Button {
+                                        store.desktopBusyMode = modeKey
+                                    } label: {
+                                        Text(label)
+                                            .font(.caption2.weight(active ? .bold : .medium))
+                                            .foregroundStyle(active ? palette.accentStrong : palette.inkMuted)
+                                            .padding(.horizontal, 9)
+                                            .padding(.vertical, 3.5)
+                                            .background(
+                                                active ? palette.accent.opacity(0.16) : Color.clear,
+                                                in: Capsule()
+                                            )
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .padding(.horizontal, 4)
+                        }
+
+                        ForEach(store.desktopQueue, id: \.requestId) { qItem in
+                            let badgeText: String = switch qItem.status {
+                            case "sending": L10n.tr(lang, zh: "发送中", en: "Sending")
+                            case "failed": L10n.tr(lang, zh: "失败", en: "Failed")
+                            default: L10n.tr(lang, zh: "排队中", en: "Queued")
+                            }
+                            let badgeColor: Color = switch qItem.status {
+                            case "failed": palette.danger
+                            default: palette.accentStrong
+                            }
+
+                            HStack(spacing: 8) {
+                                Text(badgeText)
+                                    .font(.caption2.weight(.bold))
+                                    .foregroundStyle(badgeColor)
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 2.5)
+                                    .background(badgeColor.opacity(0.14), in: Capsule())
+
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(qItem.text)
+                                        .font(.caption.weight(.medium))
+                                        .foregroundStyle(palette.inkPrimary)
+                                        .lineLimit(1)
+                                    if !qItem.error.isEmpty {
+                                        Text(qItem.error)
+                                            .font(.caption2)
+                                            .foregroundStyle(palette.danger)
+                                            .lineLimit(1)
+                                    }
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+
+                                Button {
+                                    store.cancelQueuedDesktopPrompt(qItem.requestId)
+                                } label: {
+                                    Image(systemName: "xmark")
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundStyle(palette.inkMuted)
+                                        .frame(width: 24, height: 24)
+                                        .contentShape(Circle())
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .glassEffect(.regular.tint(palette.accent.opacity(0.08)), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                    }
+                } else if store.activeDesktopSession == nil && !store.regularQueue.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "text.line.first.and.arrowtriangle.forward")
+                                .font(.caption2)
+                                .foregroundStyle(palette.accentStrong)
+                            Text(
+                                L10n.tr(
+                                    lang,
+                                    zh: "消息队列 (\(store.regularQueue.count)) · 当前回复完成后自动发送",
+                                    en: "Queued (\(store.regularQueue.count)) · Auto-sends next"
+                                )
+                            )
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(palette.inkSecondary)
+                            Spacer()
+                            if !store.isStreaming {
+                                Button {
+                                    store.flushRegularQueueIfIdle()
+                                } label: {
+                                    Text(L10n.tr(lang, zh: "立即发送", en: "Send now"))
+                                        .font(.caption2.weight(.bold))
+                                        .foregroundStyle(palette.accentStrong)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.horizontal, 4)
+
+                        ForEach(Array(store.regularQueue.enumerated()), id: \.element.id) { idx, qItem in
+                            HStack(spacing: 8) {
+                                Text("#\(idx + 1)")
+                                    .font(.caption2.weight(.bold))
+                                    .foregroundStyle(palette.accentStrong)
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 2.5)
+                                    .background(palette.accent.opacity(0.14), in: Capsule())
+
+                                Text(qItem.displayText)
+                                    .font(.caption.weight(.medium))
+                                    .foregroundStyle(palette.inkPrimary)
+                                    .lineLimit(1)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                                Button {
+                                    store.cancelQueuedRegularPrompt(qItem.id)
+                                } label: {
+                                    Image(systemName: "xmark")
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundStyle(palette.inkMuted)
+                                        .frame(width: 24, height: 24)
+                                        .contentShape(Circle())
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .glassEffect(.regular.tint(palette.accent.opacity(0.08)), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                    }
                 }
 
                 if !store.pendingAttachments.isEmpty || store.isUploadingFiles {
@@ -564,31 +1034,41 @@ struct ChatView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel(L10n.tr(lang, zh: "语音转文字", en: "Speech to text"))
 
-                if store.isStreaming {
-                    Button {
-                        store.stopStreaming()
-                    } label: {
-                        Image(systemName: "stop.fill")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 38, height: 32)
-                            .background(palette.danger, in: Capsule())
-                            .contentShape(Capsule())
+                if store.isStreaming || canSend {
+                    HStack(spacing: 6) {
+                        if store.isStreaming {
+                            Button {
+                                store.stopStreaming()
+                            } label: {
+                                Image(systemName: "stop.fill")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .frame(width: canSend ? 34 : 38, height: 32)
+                                    .background(palette.danger, in: Capsule())
+                                    .contentShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        if canSend {
+                            Button {
+                                showPlusMenu = false
+                                store.sendPrompt()
+                            } label: {
+                                Image(systemName: "arrow.up")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .frame(width: store.isStreaming ? 34 : 38, height: 32)
+                                    .background(palette.accentStrong, in: Capsule())
+                                    .contentShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(
+                                (store.isStreaming || store.activeDesktopBusy)
+                                    ? L10n.tr(lang, zh: "加入消息队列", en: "Queue message")
+                                    : L10n.tr(lang, zh: "发送", en: "Send")
+                            )
+                        }
                     }
-                    .buttonStyle(.plain)
-                } else if canSend {
-                    Button {
-                        showPlusMenu = false
-                        store.sendPrompt()
-                    } label: {
-                        Image(systemName: "arrow.up")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 38, height: 32)
-                            .background(palette.accentStrong, in: Capsule())
-                            .contentShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
                 } else {
                     Button {
                         showPlusMenu = false
@@ -881,6 +1361,9 @@ private struct ChatBubbleRow: View {
     let renderToken: String
     let token: String
     let baseUrl: String
+    var senderLabel: String? = nil
+    var suppressActionFooter: Bool = false
+    var showTurnWorkingIndicator: Bool = false
     @Binding var isThinkingExpanded: Bool
     let palette: DragonClawPalette
     let language: String
@@ -977,7 +1460,7 @@ private struct ChatBubbleRow: View {
                         .scaledToFill()
                         .frame(width: 26, height: 26)
                         .clipShape(Circle())
-                    Text("Dragon Claw")
+                    Text(senderLabel.flatMap { $0.isEmpty ? nil : $0 } ?? "Dragon Claw")
                         .font(.caption.weight(.bold))
                         .foregroundStyle(palette.inkPrimary)
 
@@ -991,7 +1474,7 @@ private struct ChatBubbleRow: View {
                         .padding(.horizontal, 9)
                         .padding(.vertical, 4)
                         .glassEffect(.regular.tint(palette.accent.opacity(0.10)), in: Capsule())
-                    } else if message.isStreaming {
+                    } else if message.isStreaming || showTurnWorkingIndicator {
                         ProgressView().controlSize(.mini)
                     }
                     Spacer()
@@ -1087,7 +1570,7 @@ private struct ChatBubbleRow: View {
                     )
                 }
 
-                if !message.isStreaming {
+                if !message.isStreaming && !suppressActionFooter {
                     HStack(spacing: 8) {
                         Button {
                             UIPasteboard.general.string = message.content

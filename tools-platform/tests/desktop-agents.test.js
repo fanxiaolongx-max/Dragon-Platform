@@ -435,3 +435,28 @@ test('Antigravity cache and tool-only usage are reported independently of visibl
     assert.equal(metrics.cacheReadRatio, .9);
     assert.equal(metrics.decodeTps, null);
 });
+
+test('sliceDesktopMessagesPage supports optional tail and before pagination cleanly', () => {
+    const sample = Array.from({ length: 12 }, (_, idx) => ({ id: `m${idx}`, role: idx % 2 === 0 ? 'user' : 'assistant', content: `msg ${idx}` }));
+    const full = service.sliceDesktopMessagesPage(sample);
+    assert.equal(full.items.length, 12);
+    assert.equal(full.total, 12);
+    assert.equal(full.hasMore, false);
+    assert.equal(full.nextBefore, null);
+
+    const p1 = service.sliceDesktopMessagesPage(sample, 5, '');
+    assert.deepEqual(p1.items.map(i => i.id), ['m7', 'm8', 'm9', 'm10', 'm11']);
+    assert.equal(p1.total, 12);
+    assert.equal(p1.hasMore, true);
+    assert.equal(p1.nextBefore, '7');
+
+    const p2 = service.sliceDesktopMessagesPage(sample, 5, p1.nextBefore);
+    assert.deepEqual(p2.items.map(i => i.id), ['m2', 'm3', 'm4', 'm5', 'm6']);
+    assert.equal(p2.hasMore, true);
+    assert.equal(p2.nextBefore, '2');
+
+    const p3 = service.sliceDesktopMessagesPage(sample, 5, p2.nextBefore);
+    assert.deepEqual(p3.items.map(i => i.id), ['m0', 'm1']);
+    assert.equal(p3.hasMore, false);
+    assert.equal(p3.nextBefore, null);
+});

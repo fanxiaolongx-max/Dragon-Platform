@@ -292,7 +292,7 @@ object DragonClawHelpers {
     }
 
     fun mapStoredMessages(items: List<SessionMessageItem>, baseUrl: String = ""): List<ChatMessage> {
-        return items.map { item ->
+        val mapped = items.map { item ->
             val role = if (item.role == "user") "user" else "model"
             val traces = extractToolTracesFromEvents(item.events)
             val thinking = extractThinkingFromEvents(item.events)
@@ -316,11 +316,12 @@ object DragonClawHelpers {
                 isStreaming = false
             )
         }
+        return mergeConsecutiveAssistantMessages(mapped)
     }
 
     fun mapDesktopAgentMessages(items: List<DesktopAgentMessageItem>, baseUrl: String = ""): List<ChatMessage> {
         val cleanBase = normalizeBaseUrl(baseUrl)
-        return items.mapNotNull { item ->
+        val mapped = items.mapNotNull { item ->
             val structuredAttachments = item.attachments.mapNotNull { att ->
                 val rawPath = att.path.trim()
                 if (rawPath.isEmpty()) return@mapNotNull null
@@ -352,6 +353,130 @@ object DragonClawHelpers {
                 isStreaming = false
             )
         }
+        return mergeConsecutiveAssistantMessages(mapped)
+    }
+
+    /**
+     * Merges consecutive non-user assistant segments within a single turn into one unified
+     * turn message while preserving chronological thinking, tools, text, attachments, and totals.
+     */
+    fun mergeConsecutiveAssistantMessages(messages: List<ChatMessage>): List<ChatMessage> {
+        if (messages.size <= 1) return messages
+        val merged = ArrayList<ChatMessage>(messages.size)
+        for (msg in messages) {
+            val prev = merged.lastOrNull()
+            if (prev == null || msg.isUser || prev.isUser) {
+                merged.add(msg)
+                continue
+            }
+            val mergedContents = mutableListOf<String>()
+            prev.content.trim().takeIf { it.isNotEmpty() }?.let { mergedContents.add(it) }
+            val nextText = msg.content.trim()
+            if (nextText.isNotEmpty() && mergedContents.lastOrNull() != nextText) {
+                mergedContents.add(nextText)
+            }
+
+            val mergedThinking = listOf(prev.thinking.trim(), msg.thinking.trim())
+                .filter { it.isNotEmpty() }
+                .distinct()
+                .joinToString("\n\n")
+
+            val traceMap = linkedMapOf<String, ToolCallTrace>()
+            for (t in prev.toolCalls) {
+                traceMap[t.callId.ifBlank { t.toolName + ":" + traceMap.size }] = t
+            }
+            for (t in msg.toolCalls) {
+                traceMap[t.callId.ifBlank { t.toolName + ":" + traceMap.size }] = t
+            }
+
+            val attSeen = linkedSetOf<String>()
+            val mergedAtts = mutableListOf<ChatAttachment>()
+            for (att in prev.attachments + msg.attachments) {
+                val key = (att.url.ifBlank { att.path }).lowercase()
+                if (key.isEmpty() || attSeen.add(key)) {
+                    mergedAtts.add(att)
+                }
+            }
+
+            val rawParts = mutableListOf<String>()
+            prev.rawContent?.trim()?.takeIf { it.isNotEmpty() }?.let { rawParts.add(it) }
+            val nextRaw = msg.rawContent?.trim().orEmpty()
+            if (nextRaw.isNotEmpty() && rawParts.lastOrNull() != nextRaw) {
+                rawParts.add(nextRaw)
+            }
+
+            val sumIn = listOfNotNull(prev.inputTokens, msg.inputTokens).takeIf { it.isNotEmpty() }?.sum()
+            val sumOut = listOfNotNull(prev.outputTokens, msg.outputTokens).takeIf { it.isNotEmpty() }?.sum()
+
+            merged[merged.lastIndex] = prev.copy(
+                content = mergedContents.joinToString("\n\n"),
+                thinking = mergedThinking,
+                createdAt = prev.createdAt ?: msg.createdAt,
+                statusText = msg.statusText ?: prev.statusText.takeIf { msg.isStreaming },
+                toolCalls = traceMap.values.toList(),
+                attachments = mergedAtts,
+                rawContent = rawParts.joinToString("\n\n").ifBlank { null },
+                inputTokens = sumIn,
+                outputTokens = sumOut,
+                modelName = msg.modelName?.takeIf { it.isNotBlank() } ?: prev.modelName,
+                interrupted = msg.interrupted,
+                isStreaming = prev.isStreaming || msg.isStreaming
+            )
+        }
+        return merged
+    }
+
+    /**
+     * Stitches newly polled desktop tail items onto an already-loaded older transcript list
+     * without duplicating overlapping items or losing older pages scrolled into view.
+     */
+    fun mergeDesktopTailItems(
+        existing: List<DesktopAgentMessageItem>,
+        incomingTail: List<DesktopAgentMessageItem>
+    ): List<DesktopAgentMessageItem> {
+        if (existing.isEmpty() || incomingTail.isEmpty()) return incomingTail
+        val anchor = incomingTail.first()
+        val searchStart = (existing.size - incomingTail.size - 16).coerceAtLeast(0)
+        for (i in searchStart until existing.size) {
+            if (!sameDesktopAnchorItem(existing[i], anchor)) continue
+            if (anchor.id.isNotBlank() && existing[i].id == anchor.id) {
+                return if (i == 0) incomingTail else existing.subList(0, i) + incomingTail
+            }
+            // For ID-less transcripts (e.g. Antigravity DOM), verify at least 1-2 leading stable items align.
+            val checkCount = minOf(2, incomingTail.size, existing.size - i)
+            var matched = true
+            for (k in 0 until checkCount) {
+                if (!sameDesktopAnchorItem(existing[i + k], incomingTail[k])) {
+                    matched = false
+                    break
+                }
+            }
+            if (matched) {
+                return if (i == 0) incomingTail else existing.subList(0, i) + incomingTail
+            }
+        }
+        return if (existing.size <= incomingTail.size) incomingTail else existing
+    }
+
+    private fun sameDesktopAnchorItem(a: DesktopAgentMessageItem, b: DesktopAgentMessageItem): Boolean {
+        if (a.id.isNotBlank() && b.id.isNotBlank()) {
+            return a.id == b.id && a.role == b.role
+        }
+        return a.role == b.role &&
+            a.content == b.content &&
+            a.createdAt == b.createdAt
+    }
+
+    fun isBusyQueueableError(errorText: String?): Boolean {
+        val raw = errorText?.trim().orEmpty()
+        if (raw.isEmpty()) return false
+        return raw.contains("正在运行") ||
+            raw.contains("正在执行") ||
+            raw.contains("请等待") ||
+            raw.contains("请先停止") ||
+            raw.contains("DESKTOP_BUSY", ignoreCase = true) ||
+            raw.contains("AI_CHAT_BUSY", ignoreCase = true) ||
+            raw.contains("AGENT_RUN_BUSY", ignoreCase = true)
     }
 
     private fun extractThinkingFromEvents(events: kotlinx.serialization.json.JsonArray?): String {

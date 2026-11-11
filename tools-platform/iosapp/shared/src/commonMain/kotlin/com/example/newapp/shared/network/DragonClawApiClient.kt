@@ -408,16 +408,51 @@ class DragonClawApiClient(
         token: String,
         provider: String,
         sessionId: String,
-        passive: Boolean = false
+        passive: Boolean = false,
+        limit: Int? = null,
+        before: String? = null
     ): DesktopAgentMessagesResponse {
         val response = client.get("$baseUrl/api/desktop-agents/${provider.trim()}/sessions/${sessionId.trim()}/messages") {
             header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
             timeout { requestTimeoutMillis = 25_000L }
             url {
                 if (passive) parameters.append("passive", "1")
+                if (limit != null && limit > 0) parameters.append("limit", limit.toString())
+                if (!before.isNullOrBlank()) parameters.append("before", before.trim())
             }
         }
         return decodeOrThrow(response, "Failed to load desktop agent messages")
+    }
+
+    suspend fun getDesktopAgentModels(
+        token: String,
+        provider: String,
+        cached: Boolean = false,
+        force: Boolean = false
+    ): DesktopAgentModelsResponse {
+        val response = client.get("$baseUrl/api/desktop-agents/${provider.trim()}/models") {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+            timeout { requestTimeoutMillis = 30_000L }
+            url {
+                if (cached && !force) parameters.append("cached", "1")
+                if (force) parameters.append("refresh", "1")
+            }
+        }
+        return decodeOrThrow(response, "Failed to load desktop agent models")
+    }
+
+    suspend fun setDesktopAgentModel(
+        token: String,
+        provider: String,
+        sessionId: String,
+        model: String
+    ): DesktopAgentSetModelResponse {
+        val response = client.put("$baseUrl/api/desktop-agents/${provider.trim()}/sessions/${sessionId.trim()}/model") {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+            contentType(ContentType.Application.Json)
+            setBody(DesktopAgentSetModelRequest(model = model))
+        }
+        return decodeOrThrow(response, "Failed to set desktop agent model")
     }
 
     suspend fun sendDesktopAgentMessage(
@@ -433,6 +468,18 @@ class DragonClawApiClient(
             setBody(request)
         }
         return decodeOrThrow(response, "Failed to send message to desktop agent")
+    }
+
+    suspend fun cancelDesktopAgentQueuedMessage(
+        token: String,
+        provider: String,
+        sessionId: String,
+        requestId: String
+    ): DesktopAgentSendResponse {
+        val response = client.delete("$baseUrl/api/desktop-agents/${provider.trim()}/sessions/${sessionId.trim()}/queue/${requestId.trim()}") {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+        }
+        return decodeOrThrow(response, "Failed to cancel queued desktop message")
     }
 
     // --- Tool Hub ---

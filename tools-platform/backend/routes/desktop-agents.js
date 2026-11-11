@@ -30,7 +30,7 @@ router.get('/:provider/sessions/:id/export', route(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.json(log);
 }));
-router.get('/:provider/sessions/:id/messages', route(async (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.json(await service.messages(req.user.username, req.params.provider, req.params.id, { passive: req.query.passive === '1' })); }));
+router.get('/:provider/sessions/:id/messages', route(async (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.json(await service.messages(req.user.username, req.params.provider, req.params.id, { passive: req.query.passive === '1', limit: req.query.limit, before: req.query.before })); }));
 router.post('/:provider/sessions/:id/interaction', route(async (req, res) => res.json(await service.chooseInteraction(req.user.username, req.params.provider, req.params.id, req.body || {}))));
 router.post('/:provider/sessions/:id/messages', route(async (req, res) => { const body = req.body || {}; res.status(202).json(body.mode === 'queue' ? await service.enqueue(req.user.username, req.params.provider, req.params.id, body) : await service.send(req.user.username, req.params.provider, req.params.id, body)); }));
 router.post('/:provider/new', route(async (req, res) => res.status(202).json(await service.create(req.user.username, req.params.provider, req.body || {}))));
