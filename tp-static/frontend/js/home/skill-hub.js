@@ -44,7 +44,7 @@
         tools: { title: 'toolSource', labels: { builtin: 'builtin', shared: 'shared', custom: 'custom' } }
     };
     const STORE_KEY = 'tools_v2_hub';
-    const state = { open: false, tab: 'skills', cat: 'all', sort: 'mixed', query: '', seed: 0, mine: false, filterSource: 'all', filterIndicator: 'all' };
+    const state = { open: false, tab: 'skills', cat: 'all', sort: 'mixed', query: '', seed: 0, mine: false, filterSource: 'all' };
     let root;
 
     const lang = () => (window.ToolsI18n?.getLanguage?.() === 'en-US' ? 'en-US' : 'zh-CN');
@@ -206,21 +206,23 @@
         if (sourceLabel) sourceLabel.textContent = t(sourceMeta.title);
         const sourceSort = root.querySelector('[data-hub-filter-sort="source"]');
         if (sourceSort) {
-            const dot = source => (window.SkillSource?.indicator ? window.SkillSource.indicator(source) : '');
             const allBtn = `<button type="button" data-hub-filter-source="all" aria-pressed="${state.filterSource === 'all'}">${esc(t('all'))}</button>`;
             const items = Object.entries(sourceMeta.labels).map(([source, labelKey]) => {
                 const pressed = state.filterSource === source;
-                return `<button type="button" data-hub-filter-source="${esc(source)}" aria-pressed="${pressed}">${dot(source)}<span>${esc(t(labelKey))}</span></button>`;
+                const swatchClass = source === 'builtin' ? ' is-built-in' : (source === 'shared' ? ' is-shared-access' : (source === 'custom' ? ' is-custom' : ''));
+                const badge = `<i class="v2-hub-legend-swatch${swatchClass}" data-src="${esc(source)}" aria-hidden="true"></i>`;
+                let labelText = t(labelKey);
+                let extraAttr = '';
+                if (state.tab === 'tools' && source === 'shared') {
+                    labelText = t('sharedWithAll');
+                    extraAttr = ' data-hub-shared-filter';
+                    if (!isSuperAdmin() && !entries().some(e => e.source === 'shared' || e.sharedAccess || e.shared)) {
+                        extraAttr += ' hidden';
+                    }
+                }
+                return `<button type="button" data-hub-filter-source="${esc(source)}"${extraAttr} aria-pressed="${pressed}">${badge}<span>${esc(labelText)}</span></button>`;
             }).join('');
             sourceSort.innerHTML = allBtn + items;
-        }
-        const indicatorSort = root.querySelector('[data-hub-filter-sort="indicator"]');
-        if (indicatorSort) {
-            const sharedBtn = indicatorSort.querySelector('[data-hub-shared-filter]');
-            if (sharedBtn) sharedBtn.hidden = !isSuperAdmin() || state.tab !== 'tools';
-            indicatorSort.querySelectorAll('[data-hub-filter-indicator]').forEach(btn => {
-                btn.setAttribute('aria-pressed', String(btn.dataset.hubFilterIndicator === state.filterIndicator));
-            });
         }
     }
 
@@ -235,7 +237,7 @@
         const sharedClass = (isSuperAdmin() && isShared) ? ' is-shared-access' : '';
         const builtInClass = item.builtIn ? ' is-built-in' : '';
         const title = window.SkillSource?.label(item.title, item.src, { source: item.source, meaning: t(SOURCES[state.tab].labels[item.source]) }) || esc(item.title);
-        return `<a class="v2-hub-card${sharedClass}${builtInClass}" href="${esc(item.href)}" data-hub-key="${esc(item.key)}" style="--hub-c:${esc(item.color)}" title="${esc(item.title)}">
+        return `<a class="v2-hub-card${sharedClass}${builtInClass}" data-src="${esc(item.source)}" href="${esc(item.href)}" data-hub-key="${esc(item.key)}" style="--hub-c:${esc(item.color)}" title="${esc(item.title)}">
             <span class="v2-hub-icon">${iconHtml(item.icon)}</span>
             <span class="v2-hub-body">
                 <span class="v2-hub-card-title"><strong>${title}</strong>${action}</span>
@@ -270,14 +272,6 @@
                     <div class="v2-hub-filter-group" data-hub-filter-group="source">
                         <span class="v2-hub-filter-label" data-hub-filter-label="source"></span>
                         <div class="v2-hub-sort" role="group" data-hub-filter-sort="source"></div>
-                    </div>
-                    <div class="v2-hub-filter-group" data-hub-filter-group="indicator">
-                        <span class="v2-hub-filter-label">${esc(t('cardLegend'))}</span>
-                        <div class="v2-hub-sort" role="group" data-hub-filter-sort="indicator">
-                            <button type="button" data-hub-filter-indicator="all" aria-pressed="${state.filterIndicator === 'all'}">${esc(t('all'))}</button>
-                            <button type="button" data-hub-filter-indicator="sharedAccess" data-hub-shared-filter hidden aria-pressed="${state.filterIndicator === 'sharedAccess'}"><i class="v2-hub-legend-swatch is-shared-access" aria-hidden="true"></i><span>${esc(t('sharedWithAll'))}</span></button>
-                            <button type="button" data-hub-filter-indicator="builtIn" aria-pressed="${state.filterIndicator === 'builtIn'}"><i class="v2-hub-legend-swatch is-built-in" aria-hidden="true"></i><span>${esc(t('builtin'))}</span></button>
-                        </div>
                     </div>
                 </div>
                 <div class="v2-hub-sort" role="group">
@@ -347,12 +341,16 @@
             if (state.cat !== 'all' && item.cat !== state.cat && !(item.extraCats || []).includes(state.cat)) {
                 return false;
             }
-            if (state.filterSource !== 'all' && item.source !== state.filterSource) {
-                return false;
-            }
-            if (state.filterIndicator !== 'all') {
-                if (state.filterIndicator === 'sharedAccess' && !item.sharedAccess) return false;
-                if (state.filterIndicator === 'builtIn' && !item.builtIn) return false;
+            if (state.filterSource !== 'all') {
+                if (state.filterSource === 'builtin') {
+                    if (!item.builtIn && item.source !== 'builtin') return false;
+                } else if (state.filterSource === 'shared') {
+                    if (item.source !== 'shared' && !item.sharedAccess && !item.shared) return false;
+                } else if (state.filterSource === 'custom') {
+                    if (item.source !== 'custom') return false;
+                } else if (item.source !== state.filterSource) {
+                    return false;
+                }
             }
             return true;
         });
@@ -429,7 +427,7 @@
         const tab = event.target.closest('[data-hub-tab]');
         if (!event.target.closest('.v2-hub-add')) toggleMenu(false);
         if (tab) {
-            state.tab = tab.dataset.hubTab; state.cat = 'all'; state.query = ''; state.mine = false; state.filterSource = 'all'; state.filterIndicator = 'all';
+            state.tab = tab.dataset.hubTab; state.cat = 'all'; state.query = ''; state.mine = false; state.filterSource = 'all';
             if (state.tab !== 'tools' && (location.hash === '#tools' || location.hash === 'tools')) {
                 try { history.replaceState(history.state, '', location.pathname + location.search); } catch { /* noop */ }
             }
@@ -441,14 +439,6 @@
         if (filterSourceBtn) {
             const val = filterSourceBtn.dataset.hubFilterSource;
             state.filterSource = state.filterSource === val && val !== 'all' ? 'all' : val;
-            renderFilters();
-            renderList();
-            return;
-        }
-        const filterIndicatorBtn = event.target.closest('[data-hub-filter-indicator]');
-        if (filterIndicatorBtn) {
-            const val = filterIndicatorBtn.dataset.hubFilterIndicator;
-            state.filterIndicator = state.filterIndicator === val && val !== 'all' ? 'all' : val;
             renderFilters();
             renderList();
             return;

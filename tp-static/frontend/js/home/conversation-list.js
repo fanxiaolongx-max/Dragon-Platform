@@ -139,7 +139,7 @@
             const index=Number(main.dataset[config.index]),item=config.items[index];if(!item)continue;
             const row=main.closest('.home-chat-owned')||main,wrapper=document.createElement('div');wrapper.className='conversation-list-row';wrapper.dataset.conversationIndex=index;
             row.before(wrapper);wrapper.append(row);const more=document.createElement('button');more.type='button';more.className='conversation-list-more';more.dataset.conversationMore='';more.textContent='···';more.title=L('对话操作','Conversation actions');more.setAttribute('aria-label',more.title);more.setAttribute('aria-haspopup','menu');wrapper.append(more);
-            if(get(config.source,config.id(item)).pinned){const pin=document.createElement('span');pin.className='conversation-pin';pin.innerHTML=icon('pin');pin.title=L('已置顶','Pinned');wrapper.append(pin);}
+            if(get(config.source,config.id(item)).pinned){wrapper.classList.add('is-pinned');const pin=document.createElement('span');pin.className='conversation-pin';pin.innerHTML=icon('pin');pin.title=L('已置顶','Pinned');wrapper.append(pin);}
         }
         if(document.documentElement.dataset.ui==='v2')renderBatch(list);
     }

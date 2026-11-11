@@ -53,6 +53,15 @@
         /* 对话和内嵌工具标题栏与 Windows 三键同排，右侧预留 138px + 14px。 */
         html.desktop-win .dc-chat-head,
         html.desktop-win .v2-tool-frame-bar { padding-right: 152px; }
+        html.desktop-win:not(.desktop-fullscreen) .v2-tool-frame-bar { height: 32px; padding-right: 370px; }
+        html.desktop-win.desktop-fullscreen .v2-tool-frame-bar { padding-right: 12px; }
+        html.desktop-win:not(.desktop-fullscreen) .v2-tool-frame-actions {
+            position: fixed; top: 0; right: 138px; height: 32px; gap: 0;
+            z-index: 2147483000; -webkit-app-region: no-drag;
+        }
+        html.desktop-win:not(.desktop-fullscreen) .v2-tool-frame-actions [data-frame-act="close"] { display: none; }
+        html.desktop-win .v2-tool-frame-actions button[hidden] { display: none !important; }
+        html.desktop-win .v2-tool-frame-actions .v2-ico { width: 14px; height: 14px; }
         /* Windows 右侧边栏（工作区、桌面 Agent 会话、文件预览）贴着窗口右上角：顶部留出三键高度（32px）的标题行，
            面板自己的关闭等按钮下移到三键下方，不再和窗口关闭键挨在一起；留出的标题行可拖动窗口。
            展开的文件卡片与浮动文件预览同样从三键下方开始。全屏时没有三键，不必让位。 */
@@ -104,7 +113,7 @@
             user-select: none;
         }
         html.desktop-mac .desktop-controls { display: none !important; }
-        .desktop-controls button {
+        :is(.desktop-controls, html.desktop-win:not(.desktop-fullscreen) .v2-tool-frame-actions) button {
             position: relative;
             width: 46px;
             height: 32px;
@@ -122,19 +131,20 @@
             transition: background-color .1s ease, color .1s ease;
             -webkit-app-region: no-drag;
         }
-        html[data-theme="dark"] .desktop-controls button { color: #d1d5db; }
-        .desktop-controls button:hover {
+        html.desktop-win:not(.desktop-fullscreen) .v2-tool-frame-actions .v2-tool-browser-btn { width: auto; min-width: 46px; padding: 0 12px; font-size: 12px; }
+        html[data-theme="dark"] :is(.desktop-controls, html.desktop-win:not(.desktop-fullscreen) .v2-tool-frame-actions) button { color: #d1d5db; }
+        :is(.desktop-controls, html.desktop-win:not(.desktop-fullscreen) .v2-tool-frame-actions) button:hover {
             background: rgba(0, 0, 0, 0.08);
             color: #111827;
         }
-        html[data-theme="dark"] .desktop-controls button:hover {
+        html[data-theme="dark"] :is(.desktop-controls, html.desktop-win:not(.desktop-fullscreen) .v2-tool-frame-actions) button:hover {
             background: rgba(255, 255, 255, 0.12);
             color: #ffffff;
         }
-        .desktop-controls button:active {
+        :is(.desktop-controls, html.desktop-win:not(.desktop-fullscreen) .v2-tool-frame-actions) button:active {
             background: rgba(0, 0, 0, 0.15);
         }
-        html[data-theme="dark"] .desktop-controls button:active {
+        html[data-theme="dark"] :is(.desktop-controls, html.desktop-win:not(.desktop-fullscreen) .v2-tool-frame-actions) button:active {
             background: rgba(255, 255, 255, 0.2);
         }
         .desktop-controls [data-act="close"]:hover {
@@ -154,7 +164,7 @@
         .desktop-controls.is-blurred:not(:hover) button {
             color: #9ca3af;
         }
-        .desktop-controls button:focus-visible {
+        :is(.desktop-controls, html.desktop-win:not(.desktop-fullscreen) .v2-tool-frame-actions) button:focus-visible {
             outline: 1px solid #0a84ff;
             outline-offset: -1px;
         }
@@ -193,11 +203,22 @@
             <button type="button" data-act="close" title="${L('关闭', 'Close')}" aria-label="${L('关闭', 'Close')}">${ICONS.close}</button>`;
         controls.addEventListener('click', event => {
             const act = event.target.closest('[data-act]')?.dataset.act;
-            if (act === 'close') api.close();
+            if (act === 'close') {
+                if (window.HomeToolFrame?.isOpen()) window.HomeToolFrame.close();
+                else api.close();
+            }
             else if (act === 'minimize') api.minimize();
             else if (act === 'maximize') api.toggleMaximize();
         });
         document.body.appendChild(controls);
+        const syncCloseLabel = () => {
+            const label = window.HomeToolFrame?.isOpen() ? L('关闭工具', 'Close tool') : L('关闭窗口', 'Close window');
+            const button = controls.querySelector('[data-act="close"]');
+            button.title = label;button.setAttribute('aria-label', label);
+        };
+        window.addEventListener('home:tool-frame', syncCloseLabel);
+        window.addEventListener('tools:languagechange', syncCloseLabel);
+        syncCloseLabel();
     }
 
     function applyState(state = {}) {

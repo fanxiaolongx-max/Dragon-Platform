@@ -97,11 +97,13 @@
         root.innerHTML = `<header class="v2-tool-frame-bar">
                 <span class="v2-tool-frame-icon"></span><strong class="v2-tool-frame-title"></strong>
                 <span class="v2-tool-frame-spacer"></span>
+                <div class="v2-tool-frame-actions">
                 <button type="button" class="v2-tool-frame-btn v2-tool-browser-btn" data-frame-act="browser" aria-controls="dcBrowserPanel" aria-pressed="false" hidden></button>
                 <button type="button" class="v2-tool-frame-btn" data-frame-act="more" title="${esc(L('更多操作', 'More options'))}" aria-haspopup="menu" aria-label="${esc(L('更多操作', 'More options'))}"><span class="v2-ico" data-icon="more"></span></button>
                 <button type="button" class="v2-tool-frame-btn" data-frame-act="reload" title="${esc(L('刷新', 'Reload'))}"><span class="v2-ico" data-icon="refresh"></span></button>
                 <button type="button" class="v2-tool-frame-btn" data-frame-act="external" title="${esc(staticNav ? L('独立页面打开', 'Open standalone page') : L('在新标签页打开', 'Open in new tab'))}"><span class="v2-ico" data-icon="external"></span></button>
                 <button type="button" class="v2-tool-frame-btn" data-frame-act="close" title="${esc(L('关闭', 'Close'))}"><span class="v2-ico" data-icon="close"></span></button>
+                </div>
             </header>
             <iframe class="v2-tool-frame-view" title="" allow="clipboard-read; clipboard-write; fullscreen; microphone; camera; display-capture"></iframe>
             <div class="v2-tool-surface" hidden>

@@ -1341,6 +1341,7 @@ html[data-ui="v2"] .home-panel .conversation-list-row .home-chat-meta,
 html[data-ui="v2"] .home-panel .conversation-list-row .desktop-agent-chat time { opacity: 1; animation: none; font-size: 11px; font-weight: 400; }
 html[data-ui="v2"] .home-panel .conversation-list-row .home-chat-title,
 html[data-ui="v2"] .home-panel .conversation-list-row .desktop-agent-chat b { padding-right: 50px; }
+html[data-ui="v2"] .home-panel .conversation-list-row:is(:has(.conversation-pin), .is-pinned) :is(.home-chat-title, .desktop-agent-chat b) { padding-right: 72px; }
 html[data-ui="v2"] .home-panel .conversation-list-row:is(:hover, :focus-within, .is-menu-open) .home-chat-meta,
 html[data-ui="v2"] .home-panel .conversation-list-row:is(:hover, :focus-within, .is-menu-open) .desktop-agent-chat time { opacity: 0; }
 html[data-ui="v2"] .home-panel .conversation-list-row:is(:hover, :focus-within) .conversation-list-more { opacity: .7; visibility: visible; transition-delay: 0s; }
