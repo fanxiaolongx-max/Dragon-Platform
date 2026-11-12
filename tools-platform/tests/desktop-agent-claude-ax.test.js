@@ -35,6 +35,15 @@ test('parse finds the session heading, sidebar rows, composer and the stop butto
         { role: 'AXHeading', title: 'Claude 已回复：done', desc: '' }, { role: 'AXTextArea', title: '', desc: '提示词', value: '\n' }, { role: 'AXButton', title: '', desc: '停止' }
     ] });
     assert.deepEqual(view, { frontmost: true, current: 'Chat A', rows: ['Chat A'], composers: ['\n'], busy: true, model: '' });
+
+    // Newer Claude sets title === desc on the session heading
+    const newerView = claude.parse({ frontmost: true, elements: [
+        { role: 'AXHeading', title: '导航', desc: '' }, { role: 'AXButton', title: 'Chat A', desc: '' },
+        { role: 'AXHeading', title: 'Chat A', desc: 'Chat A' }, { role: 'AXButton', title: '', desc: 'Chat A，重命名会话' },
+        { role: 'AXHeading', title: 'Claude 已回复：done', desc: '' }, { role: 'AXTextArea', title: '', desc: '提示词', value: '\n' }
+    ] });
+    assert.equal(newerView.current, 'Chat A');
+
     assert.equal(claude.rowFor(['Chat A', 'Chat A 由 Claude 从 X 发起'].slice(1), 'Chat A'), 'Chat A 由 Claude 从 X 发起');
     assert.throws(() => claude.rowFor(['Chat A', 'Chat A 由 Claude 从 X 发起'], 'Chat A'), { code: 'DESKTOP_TARGET_UNCONFIRMED' });
     assert.throws(() => claude.rowFor(['Chat B'], 'Chat A'), { code: 'DESKTOP_TARGET_UNCONFIRMED' });

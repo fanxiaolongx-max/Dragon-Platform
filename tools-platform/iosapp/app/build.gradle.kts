@@ -29,7 +29,31 @@ android {
                 keyAlias = System.getenv("ANDROID_KEY_ALIAS") ?: ""
                 keyPassword = System.getenv("ANDROID_KEY_PASSWORD") ?: ""
             } else {
-                initWith(getByName("debug"))
+                val fallbackStore = file(System.getProperty("user.home") + "/.android/debug.keystore")
+                if (!fallbackStore.exists()) {
+                    fallbackStore.parentFile.mkdirs()
+                    try {
+                        ProcessBuilder(
+                            "keytool", "-genkey", "-v",
+                            "-keystore", fallbackStore.absolutePath,
+                            "-storepass", "android",
+                            "-alias", "androiddebugkey",
+                            "-keypass", "android",
+                            "-keyalg", "RSA",
+                            "-keysize", "2048",
+                            "-validity", "10000",
+                            "-dname", "CN=Android Debug,O=Android,C=US"
+                        ).start().waitFor()
+                    } catch (_: Exception) {}
+                }
+                if (fallbackStore.exists()) {
+                    storeFile = fallbackStore
+                    storePassword = "android"
+                    keyAlias = "androiddebugkey"
+                    keyPassword = "android"
+                } else {
+                    initWith(getByName("debug"))
+                }
             }
         }
     }

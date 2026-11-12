@@ -27,6 +27,16 @@ struct ChatView: View {
     private var palette: DragonClawPalette { store.palette }
     private var lang: String { store.language }
 
+    private var isWaitingForAiReply: Bool {
+        let isGenerating = store.isStreaming || (store.activeDesktopBusy && store.activeDesktopSession != nil)
+        guard isGenerating else { return false }
+        guard let last = store.messages.last else { return true }
+        if last.isUser { return true }
+        return last.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            last.thinking.isEmpty &&
+            last.toolCalls.isEmpty
+    }
+
     private var starterPrompts: [String] {
         DragonClawHelpers.shared.filterStarterPrompts(
             suggestions: store.suggestions,
@@ -141,6 +151,16 @@ struct ChatView: View {
                                 .id(message.id)
                             }
 
+                            if isWaitingForAiReply {
+                                AssistantThinkingBubbleRow(
+                                    senderLabel: store.activeDesktopSession?.providerDisplayName() ?? "Dragon Claw",
+                                    palette: palette,
+                                    language: lang
+                                )
+                                .id("__assistant_thinking_bubble__")
+                                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                            }
+
                             Color.clear
                                 .frame(height: 1)
                                 .id("__chat_bottom_anchor__")
@@ -206,6 +226,13 @@ struct ChatView: View {
                                 withAnimation(.easeOut(duration: 0.16)) {
                                     proxy.scrollTo("__chat_bottom_anchor__", anchor: .bottom)
                                 }
+                            }
+                        }
+                    }
+                    .onChange(of: isWaitingForAiReply) { _, waiting in
+                        if waiting {
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                proxy.scrollTo("__chat_bottom_anchor__", anchor: .bottom)
                             }
                         }
                     }
@@ -1380,6 +1407,80 @@ private struct CameraCapturePicker: UIViewControllerRepresentable {
     }
 }
 
+private struct AssistantThinkingBubbleRow: View {
+    let senderLabel: String
+    let palette: DragonClawPalette
+    let language: String
+
+    @State private var pulsePhase: CGFloat = 0
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image("DragonClawAvatar")
+                .resizable()
+                .scaledToFill()
+                .frame(width: 32, height: 32)
+                .clipShape(Circle())
+                .overlay(
+                    Circle()
+                        .strokeBorder(
+                            palette.accent.opacity(0.35 + 0.35 * sin(Double(pulsePhase) * Double.pi)),
+                            lineWidth: 1.5
+                        )
+                )
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(senderLabel)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(palette.inkSecondary)
+
+                HStack(spacing: 8) {
+                    HStack(spacing: 4) {
+                        ForEach(0..<3) { i in
+                            Circle()
+                                .fill(palette.accentStrong)
+                                .frame(width: 6, height: 6)
+                                .scaleEffect(0.72 + 0.38 * sin(Double(pulsePhase) * Double.pi * 2.0 - Double(i) * 0.75))
+                                .opacity(0.40 + 0.60 * sin(Double(pulsePhase) * Double.pi * 2.0 - Double(i) * 0.75))
+                        }
+                    }
+
+                    Text(L10n.tr(language, zh: "正在思考中...", en: "Thinking..."))
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(palette.inkPrimary)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [
+                                    palette.accent.opacity(0.40),
+                                    palette.accentStrong.opacity(0.12),
+                                    Color.clear
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                )
+            }
+
+            Spacer(minLength: 48)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 4)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                pulsePhase = 1.0
+            }
+        }
+    }
+}
+
 private struct ChatBubbleRow: View {
     let message: ChatMessage
     let renderToken: String
@@ -1730,6 +1831,16 @@ private struct VoiceConversationModal: View {
 
     private var palette: DragonClawPalette { store.palette }
     private var lang: String { store.language }
+
+    private var isWaitingForAiReply: Bool {
+        let isGenerating = store.isStreaming || (store.activeDesktopBusy && store.activeDesktopSession != nil)
+        guard isGenerating else { return false }
+        guard let last = store.messages.last else { return true }
+        if last.isUser { return true }
+        return last.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            last.thinking.isEmpty &&
+            last.toolCalls.isEmpty
+    }
 
     private var liveAssistantText: String {
         if let streamingMsg = store.messages.last(where: { !$0.isUser }), !streamingMsg.content.isEmpty,

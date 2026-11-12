@@ -12,6 +12,7 @@ struct RootShellView: View {
     @State private var serverDraft = ""
     @State private var sidebarProgress: CGFloat = 0
     @State private var dragDeltaX: CGFloat = 0
+    @State private var tabDragDeltaX: CGFloat = 0
 
     private var palette: DragonClawPalette { store.palette }
     private var lang: String { store.language }
@@ -38,14 +39,15 @@ struct RootShellView: View {
                         .padding(.top, 8)
                         .padding(.bottom, 6)
 
-                    Group {
-                        switch store.workMode {
-                        case .chat:
-                            ChatView(store: store)
-                        case .tools:
-                            ToolsHubView(store: store)
-                        }
+                    HStack(spacing: 0) {
+                        ChatView(store: store)
+                            .frame(width: width)
+                        ToolsHubView(store: store)
+                            .frame(width: width)
                     }
+                    .frame(width: width * 2, alignment: .leading)
+                    .offset(x: (store.workMode == .chat ? 0 : -width) + tabDragDeltaX)
+                    .animation(.spring(response: 0.32, dampingFraction: 0.88), value: store.workMode)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
                 .offset(x: progress * width * 0.24)
@@ -68,29 +70,85 @@ struct RootShellView: View {
             .background(
                 DirectionalDrawerPanInstaller(
                     isDrawerOpen: sidebarProgress >= 0.5,
+                    workMode: store.workMode,
                     isDisabled: store.activeWebTool != nil || store.showNativeMetrics || showServerSheet || showSchedulesSheet || showAlertCenterSheet || store.exportedSessionJson != nil,
                     onDragChanged: { tx in
-                        if sidebarProgress < 0.5 && tx > 0 {
-                            dragDeltaX = tx
-                        } else if sidebarProgress >= 0.5 && tx < 0 {
-                            dragDeltaX = tx
+                        if sidebarProgress >= 0.5 {
+                            // Drawer is open: dragging left closes it
+                            if tx < 0 {
+                                dragDeltaX = tx
+                                tabDragDeltaX = 0
+                            }
                         } else {
-                            dragDeltaX = 0
+                            // Drawer is closed
+                            if store.workMode == .chat {
+                                if tx > 0 {
+                                    // Swipe right in chat -> slide open drawer
+                                    dragDeltaX = tx
+                                    tabDragDeltaX = 0
+                                } else {
+                                    // Swipe left in chat -> slide to tools
+                                    dragDeltaX = 0
+                                    tabDragDeltaX = tx
+                                }
+                            } else if store.workMode == .tools {
+                                if tx > 0 {
+                                    // Swipe right in tools -> slide back to chat
+                                    dragDeltaX = 0
+                                    tabDragDeltaX = tx
+                                } else {
+                                    dragDeltaX = 0
+                                    tabDragDeltaX = 0
+                                }
+                            }
                         }
                     },
                     onDragEnded: { tx, vx in
-                        let currentFraction = min(max(sidebarProgress + tx / width, 0), 1)
-                        let predictedFraction = min(max(sidebarProgress + (tx + vx * 0.16) / width, 0), 1)
-                        let shouldOpen: Bool
-                        if sidebarProgress < 0.5 {
-                            shouldOpen = currentFraction > 0.24 || predictedFraction > 0.42
+                        if sidebarProgress >= 0.5 || (store.workMode == .chat && tx > 0 && dragDeltaX > 0) {
+                            let currentFraction = min(max(sidebarProgress + tx / width, 0), 1)
+                            let predictedFraction = min(max(sidebarProgress + (tx + vx * 0.16) / width, 0), 1)
+                            let shouldOpen: Bool
+                            if sidebarProgress < 0.5 {
+                                shouldOpen = currentFraction > 0.20 || predictedFraction > 0.38
+                            } else {
+                                shouldOpen = !(currentFraction < 0.80 || predictedFraction < 0.62)
+                            }
+                            sidebarProgress = currentFraction
+                            tabDragDeltaX = 0
+                            setSidebarOpen(shouldOpen)
                         } else {
-                            shouldOpen = !(currentFraction < 0.76 || predictedFraction < 0.58)
+                            if store.workMode == .chat {
+                                let shouldSwitchToTools = tx < -48 || (tx < -15 && vx < -260)
+                                if shouldSwitchToTools {
+                                    withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
+                                        store.workMode = .tools
+                                        tabDragDeltaX = 0
+                                    }
+                                } else {
+                                    withAnimation(.spring(response: 0.30, dampingFraction: 0.88)) {
+                                        tabDragDeltaX = 0
+                                    }
+                                }
+                            } else if store.workMode == .tools {
+                                let shouldSwitchToChat = tx > 48 || (tx > 15 && vx > 260)
+                                if shouldSwitchToChat {
+                                    withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
+                                        store.workMode = .chat
+                                        tabDragDeltaX = 0
+                                    }
+                                } else {
+                                    withAnimation(.spring(response: 0.30, dampingFraction: 0.88)) {
+                                        tabDragDeltaX = 0
+                                    }
+                                }
+                            }
+                            dragDeltaX = 0
                         }
-                        sidebarProgress = currentFraction
-                        setSidebarOpen(shouldOpen)
                     },
                     onDragCancelled: {
+                        withAnimation(.spring(response: 0.30, dampingFraction: 0.88)) {
+                            tabDragDeltaX = 0
+                        }
                         setSidebarOpen(sidebarProgress >= 0.5)
                     }
                 )
@@ -1050,6 +1108,7 @@ struct RootShellView: View {
 /// (~27 degree cone + UIGestureRecognizerDelegate failing vertical UIScrollView pans).
 private struct DirectionalDrawerPanInstaller: UIViewRepresentable {
     var isDrawerOpen: Bool
+    var workMode: AppWorkMode
     var isDisabled: Bool
     var onDragChanged: (CGFloat) -> Void
     var onDragEnded: (CGFloat, CGFloat) -> Void
@@ -1155,6 +1214,12 @@ private struct DirectionalDrawerPanInstaller: UIViewRepresentable {
                 if view.tag == ChatDeckGestureTags.horizontalDeckViewTag {
                     return false
                 }
+                if let scroll = view as? UIScrollView, scroll.contentSize.width > (scroll.bounds.width + 4) {
+                    return false
+                }
+                if view is UISlider {
+                    return false
+                }
                 cursor = view.superview
             }
             return true
@@ -1172,11 +1237,19 @@ private struct DirectionalDrawerPanInstaller: UIViewRepresentable {
             let velocity = pan.velocity(in: view)
             let absVx = abs(velocity.x)
             let absVy = abs(velocity.y)
-            // Strict horizontal cone (~27 degrees): abs(vx) > abs(vy) * 1.9
-            guard absVx > 35 && absVx > absVy * 1.9 else {
+            // Responsive horizontal cone (~37 degrees): abs(vx) > abs(vy) * 1.30
+            guard absVx > 28 && absVx > absVy * 1.30 else {
                 return false
             }
-            return parent.isDrawerOpen ? (velocity.x < 0) : (velocity.x > 0)
+            if parent.isDrawerOpen {
+                return velocity.x < 0
+            } else {
+                if parent.workMode == .chat {
+                    return true
+                } else {
+                    return velocity.x > 0
+                }
+            }
         }
 
         func gestureRecognizer(
@@ -1193,9 +1266,9 @@ private struct DirectionalDrawerPanInstaller: UIViewRepresentable {
             guard let otherView = otherGestureRecognizer.view as? UIScrollView else {
                 return false
             }
-            // Yield horizontal gestures inside horizontally scrollable containers (e.g. attachments / filter chips).
-            let canScrollHorizontally = otherView.contentSize.width > (otherView.bounds.width + 2)
-            return !canScrollHorizontally
+            // Yield ONLY inside horizontally scrollable containers (e.g. image carousel / horizontal chips).
+            let canScrollHorizontally = otherView.contentSize.width > (otherView.bounds.width + 4)
+            return canScrollHorizontally
         }
     }
 }

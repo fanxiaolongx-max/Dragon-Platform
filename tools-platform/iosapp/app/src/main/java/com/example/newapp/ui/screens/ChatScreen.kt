@@ -58,6 +58,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -201,6 +202,18 @@ fun ChatScreen(vm: DragonClawViewModel) {
     var lastHeadMessageId by remember { mutableStateOf<String?>(null) }
     var savedAnchorMsgId by remember { mutableStateOf<String?>(null) }
     var savedAnchorOffsetPx by remember { mutableIntStateOf(0) }
+
+    val isWaitingForAiReply = (vm.isStreaming || (vm.activeDesktopBusy && vm.activeDesktopSession != null)) &&
+        (vm.messages.isEmpty() || vm.messages.last().isUser ||
+         (vm.messages.last().role != "user" && vm.messages.last().content.isBlank() && vm.messages.last().toolCalls.isEmpty() && vm.messages.last().thinking.isNullOrBlank()))
+
+    LaunchedEffect(isWaitingForAiReply) {
+        if (isWaitingForAiReply && vm.messages.isNotEmpty()) {
+            val headerCount = if (vm.hasMoreOlderMessages || vm.isLoadingOlderMessages) 1 else 0
+            val targetIndex = (headerCount + vm.messages.size).coerceAtLeast(0)
+            listState.scrollToItem(targetIndex, 100_000)
+        }
+    }
 
     // 1. Instant non-animated anchor to latest message when opening a conversation
     LaunchedEffect(vm.chatOpenScrollGeneration, vm.messages.size) {
