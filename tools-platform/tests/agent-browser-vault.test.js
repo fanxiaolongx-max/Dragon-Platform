@@ -54,7 +54,16 @@ test.after(async () => {
 
 const run = (owner, name, args = {}) => browser.execute({ owner }, name, args);
 const activePage = owner => { const state = browser._internal.owners.get(owner); return state.tabs.get(state.active); };
-const until = async (check, ms = 8000) => { const end = Date.now() + ms; for (;;) { if (await check()) return true; if (Date.now() > end) return false; await new Promise(resolve => setTimeout(resolve, 100)); } };
+const until = async (check, ms = 8000) => {
+    const end = Date.now() + ms;
+    for (;;) {
+        try {
+            if (await check()) return true;
+        } catch (_) {}
+        if (Date.now() > end) return false;
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+};
 /** 像用户一样输入并回车（CDP 的输入事件是可信事件） */
 async function typeLogin(owner, username, password) {
     const tab = activePage(owner);
@@ -74,7 +83,7 @@ test('typing a login into the page saves it to that account\'s vault only', { sk
     assert.equal(await vault().reveal('alice', (await vault().find('alice', base))[0].id), PASSWORD);
     assert.deepEqual(await vault().find('bob', base), []);
     assert.deepEqual(await vault().find('default::alice', base), [], 'keyed by account, not by tenant::account');
-    assert.ok(await until(async () => /欢迎/.test(await activePage(ALICE).evaluate('document.body.innerText'))));
+    assert.ok(await until(async () => /欢迎/.test(await activePage(ALICE).evaluate('(document.body?.innerText) || ""'))));
     const seen = await browser.view(ALICE);
     assert.deepEqual([seen.vault?.kind, seen.vault?.username], ['saved', 'al***@example.com']);
     assert.equal(JSON.stringify({ ...seen, image: '' }).includes(PASSWORD), false);
@@ -98,7 +107,7 @@ test('right after signing in by hand the form is only filled; browser_login sign
     assert.match(result.content, /已提交登录/);
     assert.equal(JSON.stringify(result).includes(PASSWORD), false);
     assert.deepEqual(posted, [{ username: 'alice@example.com', password: PASSWORD }]);
-    assert.ok(await until(async () => /欢迎 alice@example.com/.test(await activePage(ALICE).evaluate('document.body.innerText'))));
+    assert.ok(await until(async () => /欢迎 alice@example.com/.test(await activePage(ALICE).evaluate('(document.body?.innerText) || ""'))));
     const preview = await browser.preview({ owner: ALICE }, 'browser_login', {});
     assert.equal(JSON.stringify(preview).includes(PASSWORD), false);
     assert.match(JSON.stringify(preview), /al\*\*\*@example\.com/);
@@ -125,7 +134,7 @@ test('a saved login is filled and signed in automatically when the sign-in page 
     posted = [];
     await vault().save('carol', { url: `${base}/anything`, username: 'carol', password: PASSWORD });
     await run(CAROL, 'browser_navigate', { url: `${base}/login` });
-    assert.ok(await until(async () => /欢迎 carol/.test(await activePage(CAROL).evaluate('document.body.innerText'))), 'auto filled and submitted');
+    assert.ok(await until(async () => /欢迎 carol/.test(await activePage(CAROL).evaluate('(document.body?.innerText) || ""'))), 'auto filled and submitted');
     assert.deepEqual(posted, [{ username: 'carol', password: PASSWORD }]);
     assert.equal((await browser.view(CAROL)).vault?.kind, 'filled');
 
@@ -158,7 +167,7 @@ test('never-save sites are not captured; several accounts need a choice', { skip
     await run(BOB, 'browser_navigate', { url: `${base}/login` });
     await new Promise(resolve => setTimeout(resolve, 600));
     await typeLogin(BOB, 'bob', PASSWORD);
-    assert.ok(await until(async () => /欢迎 bob/.test(await activePage(BOB).evaluate('document.body.innerText'))));
+    assert.ok(await until(async () => /欢迎 bob/.test(await activePage(BOB).evaluate('(document.body?.innerText) || ""'))));
     assert.deepEqual(await vault().find('bob', base), []);
 
     await vault().save('alice', { url: base, username: 'ops', password: 'another-secret-pw' });

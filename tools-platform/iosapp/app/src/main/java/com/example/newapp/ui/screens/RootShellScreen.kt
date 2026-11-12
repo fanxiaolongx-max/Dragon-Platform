@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -73,6 +74,7 @@ import kotlinx.coroutines.launch
 private enum class GestureAxisLock {
     UNDECIDED,
     HORIZONTAL_DRAWER,
+    HORIZONTAL_TAB,
     LOCKED_VERTICAL_OR_CHILD
 }
 
@@ -86,6 +88,8 @@ fun RootShellScreen(vm: DragonClawViewModel) {
     val scope = rememberCoroutineScope()
     val drawerProgress = remember { Animatable(0f) }
     var dragFraction by remember { mutableFloatStateOf(-1f) }
+    val tabOffsetAnim = remember { Animatable(0f) }
+    var dragTabDeltaX by remember { mutableFloatStateOf(0f) }
     val effectiveProgress = if (dragFraction >= 0f) dragFraction else drawerProgress.value
     fun animateSidebar(target: Float) {
         scope.launch {
@@ -159,12 +163,7 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                     }
 
                     while (true) {
-                        val pass = if (lockState == GestureAxisLock.HORIZONTAL_DRAWER) {
-                            PointerEventPass.Initial
-                        } else {
-                            PointerEventPass.Final
-                        }
-                        val event = awaitPointerEvent(pass)
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
                         val change = event.changes.firstOrNull { it.id == down.id } ?: break
                         if (!change.pressed) {
                             if (lockState == GestureAxisLock.HORIZONTAL_DRAWER) {
@@ -174,8 +173,8 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                                 val vx = runCatching { velocityTracker.calculateVelocity().x }.getOrDefault(0f)
                                 val predictedFraction = (startProgress + (totalDx + vx * 0.16f) / width).coerceIn(0f, 1f)
                                 val openTarget = when {
-                                    startProgress < 0.5f -> if (finalFraction > 0.24f || predictedFraction > 0.42f) 1f else 0f
-                                    else -> if (finalFraction < 0.76f || predictedFraction < 0.58f) 0f else 1f
+                                    startProgress < 0.5f -> if (finalFraction > 0.20f || predictedFraction > 0.38f) 1f else 0f
+                                    else -> if (finalFraction < 0.80f || predictedFraction < 0.62f) 0f else 1f
                                 }
                                 scope.launch {
                                     drawerProgress.snapTo(finalFraction)
@@ -185,6 +184,40 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                                         animationSpec = spring(dampingRatio = 0.88f, stiffness = Spring.StiffnessMediumLow)
                                     )
                                 }
+                            } else if (lockState == GestureAxisLock.HORIZONTAL_TAB) {
+                                change.consume()
+                                val vx = runCatching { velocityTracker.calculateVelocity().x }.getOrDefault(0f)
+                                val width = size.width.coerceAtLeast(1).toFloat()
+                                val currentOffset = tabOffsetAnim.value
+                                val delta = dragTabDeltaX
+                                dragTabDeltaX = 0f
+                                if (vm.workMode == AppWorkMode.CHAT) {
+                                    val shouldSwitch = delta < -width * 0.15f || (delta < -15f && vx < -450f)
+                                    if (shouldSwitch) {
+                                        vm.workMode = AppWorkMode.TOOLS
+                                    } else {
+                                        scope.launch {
+                                            tabOffsetAnim.snapTo(currentOffset + delta)
+                                            tabOffsetAnim.animateTo(
+                                                targetValue = 0f,
+                                                animationSpec = spring(dampingRatio = 0.88f, stiffness = Spring.StiffnessMediumLow)
+                                            )
+                                        }
+                                    }
+                                } else if (vm.workMode == AppWorkMode.TOOLS) {
+                                    val shouldSwitch = delta > width * 0.15f || (delta > 15f && vx > 450f)
+                                    if (shouldSwitch) {
+                                        vm.workMode = AppWorkMode.CHAT
+                                    } else {
+                                        scope.launch {
+                                            tabOffsetAnim.snapTo(currentOffset + delta)
+                                            tabOffsetAnim.animateTo(
+                                                targetValue = -width,
+                                                animationSpec = spring(dampingRatio = 0.88f, stiffness = Spring.StiffnessMediumLow)
+                                            )
+                                        }
+                                    }
+                                }
                             }
                             break
                         }
@@ -192,42 +225,65 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                         velocityTracker.addPosition(change.uptimeMillis, change.position)
 
                         if (lockState == GestureAxisLock.UNDECIDED) {
-                            if (change.isConsumed || childScrollActiveForGesture) {
-                                lockState = GestureAxisLock.LOCKED_VERTICAL_OR_CHILD
-                                break
-                            }
                             totalDx = change.position.x - down.position.x
                             val totalDy = change.position.y - down.position.y
                             val absDx = abs(totalDx)
                             val absDy = abs(totalDy)
 
-                            // Lock out vertical or steep diagonal scrolls early so curving sideways never opens sidebar.
-                            if (absDy > touchSlop * 0.65f && absDy > absDx * 1.1f) {
+                            // Yield early to vertical scroll if vertical motion dominates
+                            if (absDy > touchSlop * 0.70f && absDy > absDx * 1.15f) {
                                 lockState = GestureAxisLock.LOCKED_VERTICAL_OR_CHILD
                                 break
                             }
 
-                            val validDirection = (startProgress < 0.05f && totalDx > touchSlop) ||
-                                (startProgress > 0.95f && totalDx < -touchSlop)
-                            // Strict ~26.5 degree horizontal cone before engaging drawer.
-                            if (absDx > touchSlop * 1.05f && absDx > absDy * 2.0f && validDirection) {
-                                lockState = GestureAxisLock.HORIZONTAL_DRAWER
-                                change.consume()
+                            // Capture if horizontal motion dominates
+                            if (absDx > touchSlop * 0.90f && absDx > absDy * 1.30f) {
+                                if (startProgress > 0.95f) {
+                                    if (totalDx < -touchSlop) {
+                                        lockState = GestureAxisLock.HORIZONTAL_DRAWER
+                                        change.consume()
+                                    }
+                                } else {
+                                    if (vm.workMode == AppWorkMode.CHAT) {
+                                        if (totalDx > touchSlop) {
+                                            lockState = GestureAxisLock.HORIZONTAL_DRAWER
+                                            change.consume()
+                                        } else if (totalDx < -touchSlop) {
+                                            lockState = GestureAxisLock.HORIZONTAL_TAB
+                                            change.consume()
+                                        }
+                                    } else if (vm.workMode == AppWorkMode.TOOLS) {
+                                        if (totalDx > touchSlop) {
+                                            lockState = GestureAxisLock.HORIZONTAL_TAB
+                                            change.consume()
+                                        }
+                                    }
+                                }
                             }
                         } else if (lockState == GestureAxisLock.HORIZONTAL_DRAWER) {
                             totalDx = change.position.x - down.position.x
                             change.consume()
-                        }
-
-                        if (lockState == GestureAxisLock.HORIZONTAL_DRAWER) {
                             val width = size.width.coerceAtLeast(1).toFloat()
                             dragFraction = (startProgress + totalDx / width).coerceIn(0f, 1f)
+                        } else if (lockState == GestureAxisLock.HORIZONTAL_TAB) {
+                            totalDx = change.position.x - down.position.x
+                            change.consume()
+                            dragTabDeltaX = totalDx
                         }
                     }
                 }
             }
     ) {
-        val widthPx = with(LocalDensity.current) { maxWidth.toPx().coerceAtLeast(1f) }
+        val screenWidth = maxWidth
+        val widthPx = with(LocalDensity.current) { screenWidth.toPx().coerceAtLeast(1f) }
+
+        LaunchedEffect(vm.workMode, widthPx) {
+            val target = if (vm.workMode == AppWorkMode.CHAT) 0f else -widthPx
+            tabOffsetAnim.animateTo(
+                targetValue = target,
+                animationSpec = spring(dampingRatio = 0.88f, stiffness = Spring.StiffnessMediumLow)
+            )
+        }
         val contentBlur by animateDpAsState(
             targetValue = if (effectiveProgress > 0.35f) 8.dp else 0.dp,
             label = "drawerBlur"
@@ -295,10 +351,26 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                     }
                 }
 
-                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                    when (vm.workMode) {
-                        AppWorkMode.CHAT -> ChatScreen(vm)
-                        AppWorkMode.TOOLS -> ToolsHubScreen(vm)
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .clipToBounds()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .width(screenWidth * 2)
+                            .graphicsLayer {
+                                translationX = tabOffsetAnim.value + dragTabDeltaX
+                            }
+                    ) {
+                        Box(modifier = Modifier.width(screenWidth).fillMaxHeight()) {
+                            ChatScreen(vm)
+                        }
+                        Box(modifier = Modifier.width(screenWidth).fillMaxHeight()) {
+                            ToolsHubScreen(vm)
+                        }
                     }
                 }
             }

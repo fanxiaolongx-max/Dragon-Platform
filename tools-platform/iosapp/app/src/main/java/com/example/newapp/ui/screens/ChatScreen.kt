@@ -505,6 +505,15 @@ fun ChatScreen(vm: DragonClawViewModel) {
                             }
                         )
                     }
+                    if (isWaitingForAiReply) {
+                        item(key = "__assistant_thinking__") {
+                            AssistantThinkingBubbleItem(
+                                senderLabel = vm.activeDesktopSession?.providerDisplayName() ?: "Dragon Claw",
+                                palette = palette,
+                                language = lang
+                            )
+                        }
+                    }
                 }
             }
 
@@ -1475,6 +1484,102 @@ private fun ModelOptionSheetRow(
                     contentDescription = "Selected",
                     tint = palette.accentStrong,
                     modifier = Modifier.size(17.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AssistantThinkingBubbleItem(
+    senderLabel: String,
+    palette: com.example.newapp.ui.theme.DragonClawPalette,
+    language: String
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "thinkingPulse")
+    val pulse by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseFloat"
+    )
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.Start,
+        verticalAlignment = Alignment.Top
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.dragon_claw_avatar),
+            contentDescription = null,
+            modifier = Modifier
+                .size(32.dp)
+                .clip(CircleShape)
+                .border(
+                    width = 1.5.dp,
+                    color = palette.accent.copy(alpha = 0.35f + 0.35f * pulse),
+                    shape = CircleShape
+                )
+        )
+
+        Spacer(modifier = Modifier.width(10.dp))
+
+        Column(horizontalAlignment = Alignment.Start) {
+            Text(
+                text = senderLabel,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = palette.inkSecondary,
+                modifier = Modifier.padding(bottom = 4.dp, start = 2.dp)
+            )
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(palette.cardSurface.copy(alpha = if (palette.isDark) 0.58f else 0.72f))
+                    .border(
+                        width = 1.dp,
+                        brush = Brush.linearGradient(
+                            listOf(
+                                palette.accent.copy(alpha = 0.4f),
+                                palette.accentStrong.copy(alpha = 0.15f),
+                                Color.Transparent
+                            )
+                        ),
+                        shape = RoundedCornerShape(18.dp)
+                    )
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    for (i in 0..2) {
+                        val dotPhase = (pulse + i * 0.33f) % 1f
+                        val scale = 0.72f + 0.38f * kotlin.math.sin(dotPhase * Math.PI.toFloat())
+                        val alpha = 0.40f + 0.60f * kotlin.math.sin(dotPhase * Math.PI.toFloat())
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .graphicsLayer {
+                                    scaleX = scale
+                                    scaleY = scale
+                                    this.alpha = alpha
+                                }
+                                .background(palette.accentStrong, CircleShape)
+                        )
+                    }
+                }
+
+                Text(
+                    text = tr(language, "正在思考中...", "Thinking..."),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = palette.inkPrimary
                 )
             }
         }
