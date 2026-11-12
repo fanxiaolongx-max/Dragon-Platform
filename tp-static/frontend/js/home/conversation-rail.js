@@ -14,18 +14,20 @@
         preview.id = 'conversationRailPreview';
         preview.setAttribute('role', 'tooltip');
         document.body.append(rail, preview);
-        let questions = [], buttons = [], active = -1, frame = 0, timer = 0, hovered = false;
+        let questions = [], buttons = [], active = -1, shown = -1, frame = 0, timer = 0, hovered = false;
         const english = () => window.ToolsI18n?.getLanguage?.() === 'en-US';
         function label() {
             rail.setAttribute('aria-label', english() ? 'Conversation navigation · Latest 100 loaded questions' : '对话导航 · 最多最近 100 个已加载提问');
         }
         function dismiss() {
+            shown = -1;
             preview.hidden = true;
             buttons.forEach(button => button.style.removeProperty('--rail-scale'));
         }
         function show(index) {
             const button = buttons[index];
             if (!button) return;
+            shown = index;
             const box = button.getBoundingClientRect();
             const boundary = thread.getBoundingClientRect();
             preview.textContent = button.getAttribute('aria-label');
@@ -43,15 +45,19 @@
                 behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
         }
         function update() {
-            frame = 0;
+            if (frame) { cancelAnimationFrame(frame); frame = 0; }
             const box = thread.getBoundingClientRect();
-            rail.hidden = questions.length < 2 || !box.width || box.height < 100 || !thread.getClientRects().length;
-            if (rail.hidden) { dismiss(); return; }
+            const visible = questions.length >= 2 && box.width > 0 && box.height >= 100 && thread.getClientRects().length > 0;
+            let next = 0;
+            if (visible) {
+                const threshold = box.top + box.height * .35;
+                questions.forEach((question, index) => { if (question.getBoundingClientRect().top <= threshold) next = index; });
+            }
+            rail.hidden = !visible;
+            if (!visible) { dismiss(); return; }
             rail.style.left = `${box.left + 3}px`;
             rail.style.top = `${box.top + box.height / 2}px`;
             rail.style.maxHeight = `${Math.min(240, box.height - 48)}px`;
-            let next = 0;
-            questions.forEach((question, index) => { if (question.getBoundingClientRect().top <= box.top + box.height * .35) next = index; });
             buttons.forEach((button, index) => {
                 button.classList.toggle('is-active', index === next);
                 if (index === next) button.setAttribute('aria-current', 'true');
@@ -61,6 +67,7 @@
                 rail.scrollTop = Math.max(0, buttons[next].offsetTop - rail.clientHeight / 2);
             }
             active = next;
+            if (shown >= 0 && !preview.hidden) show(shown);
         }
         function schedule() { if (!frame) frame = requestAnimationFrame(update); }
         function rebuild() {
@@ -102,12 +109,18 @@
             else dismiss();
         }, { passive: true });
         thread.addEventListener('scroll', schedule, { passive: true });
-        window.addEventListener('resize', schedule);
+        window.addEventListener('resize', update);
+        window.addEventListener('dragon-claw:sidebar-layout', update);
         window.addEventListener('scroll', schedule, { passive: true, capture: true });
-        new ResizeObserver(schedule).observe(thread);
+        // Update synchronously before paint when layout containers resize or shift.
+        const resizeObserver = new ResizeObserver(update);
+        resizeObserver.observe(thread);
+        for (const container of [thread.closest('.home-main'), document.querySelector('.home-sidebar')]) {
+            if (container && container !== thread) resizeObserver.observe(container);
+        }
         // Coalesce streaming DOM updates. Never request or load older history here.
         new MutationObserver(() => { if (!timer) timer = setTimeout(() => { timer = 0; rebuild(); }, 100); }).observe(thread, { childList: true, subtree: true });
-        new MutationObserver(schedule).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+        new MutationObserver(update).observe(document.body, { attributes: true, attributeFilter: ['class'] });
         window.addEventListener('tools:languagechange', () => { label(); questions = []; rebuild(); });
         label(); rebuild();
     }
