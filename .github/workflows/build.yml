@@ -413,13 +413,13 @@ jobs:
           chmod +x gradlew
           mkdir -p build-output
 
-          cat <<EOF > exportOptions.plist
+          cat <<EOF > exportOptions-appstore.plist
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
               <key>method</key>
-              <string>app-store</string>
+              <string>app-store-connect</string>
               <key>teamID</key>
               <string>${{ secrets.APPLE_TEAM_ID || '7FTVBB945U' }}</string>
               <key>destination</key>
@@ -428,6 +428,23 @@ jobs:
               <string>automatic</string>
               <key>manageAppVersionAndBuildNumber</key>
               <false/>
+          </dict>
+          </plist>
+          EOF
+
+          cat <<EOF > exportOptions-dev.plist
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>development</string>
+              <key>teamID</key>
+              <string>${{ secrets.APPLE_TEAM_ID || '7FTVBB945U' }}</string>
+              <key>destination</key>
+              <string>export</string>
+              <key>signingStyle</key>
+              <string>automatic</string>
           </dict>
           </plist>
           EOF
@@ -445,14 +462,25 @@ jobs:
             MARKETING_VERSION="${{ needs.prepare-release.outputs.release_version }}" \
             CURRENT_PROJECT_VERSION="${{ github.run_number }}"
 
-          xcodebuild -exportArchive \
+          echo "Attempting App Store distribution export..."
+          if ! xcodebuild -exportArchive \
             -archivePath build-output/iosApp.xcarchive \
             -exportPath build-output/export \
-            -exportOptionsPlist exportOptions.plist \
+            -exportOptionsPlist exportOptions-appstore.plist \
             -allowProvisioningUpdates \
             -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8 \
             -authenticationKeyID ${{ secrets.APP_STORE_CONNECT_KEY_ID }} \
-            -authenticationKeyIssuerID ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+            -authenticationKeyIssuerID ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}; then
+            echo "App Store export failed (API key has Developer role or missing Cloud distribution profile). Falling back to Development export..."
+            xcodebuild -exportArchive \
+              -archivePath build-output/iosApp.xcarchive \
+              -exportPath build-output/export \
+              -exportOptionsPlist exportOptions-dev.plist \
+              -allowProvisioningUpdates \
+              -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8 \
+              -authenticationKeyID ${{ secrets.APP_STORE_CONNECT_KEY_ID }} \
+              -authenticationKeyIssuerID ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          fi
 
           mkdir -p ../dist-ios
           find build-output/export -name "*.ipa" -exec cp {} ../dist-ios/Dragon-Claw-${{ needs.prepare-release.outputs.release_version }}.ipa \;

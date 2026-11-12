@@ -1,0 +1,59 @@
+#!/bin/bash
+# wechat-vault：DragonClaw @wechat-vault 技能的统一入口（只读查询 + 实时解密服务管理）。
+set -euo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+YICHEN="${YICHEN_WECHAT_DIR:-/Volumes/512G/repos/yichen-skills/yichen-wechat-local-vault}"
+PY="$YICHEN/.venv/bin/python"
+CLI="$YICHEN/scripts/vault_cli.py"
+VAULT=/Volumes/512G/wechat-local-vault
+SERVICE=wechat-realtime
+export PATH="/opt/homebrew/bin:$HOME/.local/bin:$PATH"
+cmd="${1:-help}"; shift || true
+if [ "$cmd" = recent ] || [ "$cmd" = latest ]; then
+  # 顺手补一次增量（与常驻服务用文件锁互斥；本进程无权限读微信容器时静默跳过）
+  "$PY" "$HERE/realtime_sync.py" --once >/dev/null 2>&1 || true
+fi
+case "$cmd" in
+  recent)  m="${1:-10}"; [ $# -gt 0 ] && shift; exec "$PY" "$HERE/wv_query.py" recent --minutes "$m" "$@" ;;
+  latest)  exec "$PY" "$HERE/wv_query.py" latest "$@" ;;
+  unread)  exec "$PY" "$CLI" unread --format text "$@" ;;
+  sessions) exec "$PY" "$CLI" sessions --format text "$@" ;;
+  search|history|contacts|members|stats|pending|favorites|moments)
+           exec "$PY" "$CLI" "$cmd" "$@" ;;
+  export)  exec "$PY" "$CLI" export "$@" ;;
+  status)
+    pm2 describe "$SERVICE" 2>/dev/null | grep -E "status|uptime|restarts|out log|error log" || echo "pm2 里没有 $SERVICE"
+    pm2 jlist 2>/dev/null | "$PY" -c "import json,sys;[print(f\"cpu={p['monit']['cpu']}% mem={p['monit']['memory']//1048576}MB pid={p['pid']}\") for p in json.load(sys.stdin) if p['name']=='$SERVICE']" || true
+    "$PY" - "$VAULT/realtime/status.json" <<'PYEOF'
+import json, sys
+try:
+    s = json.load(open(sys.argv[1]))
+except Exception as e:
+    sys.exit(f"没有状态文件: {e}")
+print(f"密钥来源: {s.get('key_source')}  启动: {s.get('started_at')}  状态更新: {s.get('updated_at')}")
+for rel, d in sorted(s.get("databases", {}).items(), key=lambda kv: kv[1].get("at", ""), reverse=True)[:6]:
+    print(f"  {d.get('at')} {rel} {d.get('mode','')} 变化页 {d.get('changed','-')}/{d.get('pages','-')} {d.get('error','')}")
+PYEOF
+    "$PY" "$HERE/wv_query.py" latest --limit 0 | head -1 ;;
+  sync)    exec "$PY" "$HERE/realtime_sync.py" --once ;;
+  resync)  pm2 stop "$SERVICE" >/dev/null 2>&1 || true; "$PY" "$HERE/realtime_sync.py" --once --resync; pm2 start "$SERVICE" >/dev/null 2>&1 || true; echo "已整库重建并重启服务" ;;
+  restart) exec pm2 restart "$SERVICE" ;;
+  logs)    exec tail -n "${1:-50}" "$VAULT/realtime/logs/realtime.out.log" ;;
+  keys)    sub="${1:-list}"; [ $# -gt 0 ] && shift
+           case "$sub" in list|verify|import) exec node "$HERE/vault_keys.js" "$sub" "$@" ;;
+             *) echo "keys 只开放 list / verify / import；export 只给解密进程内部使用" >&2; exit 2 ;; esac ;;
+  help|*)
+    cat <<'HELP'
+用法: wechat-vault <命令>
+  recent [分钟] [--format json]   最近 N 分钟新消息（默认 10），时间为开罗 UTC+2
+  latest [--limit N]              库里最新消息时间 + 最近会话
+  unread | sessions [--limit N]   未读会话 / 最近会话
+  search 关键词 [--chat 名称] [--start-time ..] [--format text]
+  history 会话名 [--limit N] [--start-time ..] [--format text]
+  export 会话名 [--start-time ..] [--limit N]   导出 Markdown 到 /Volumes/512G/wechat-local-vault/exports
+  contacts --query 名称 | members 群名 | stats 会话名 | pending
+  status | logs [N] | restart | sync | resync   实时服务
+  keys list | keys verify                     保险箱里的密钥条目（不显示密钥）
+HELP
+    ;;
+esac

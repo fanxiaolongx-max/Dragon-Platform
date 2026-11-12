@@ -1,12 +1,12 @@
 {
   "zh": [
-    "优化 Android CI 构建流程，自动生成与配置发布签名密钥，确保 APK 流水线开箱即用稳定出包。",
-    "移动端界面深度打磨：新增 AI 思考状态脉冲动效与自动吸底，优化抽屉滑动手势与模式切换交互体验。",
-    "完善内置工具使用指引文档，并增强桌面智能体对新版 Claude Desktop 会话标题与无障碍树的适配兼容。"
+    "iOS 自动化流水线支持 App Store 与 Development 双模自动签名导出，确保 IPA 稳定产出与发布。",
+    "解决无头 CI 环境与真实 Chrome 在快速跳转场景下的 DOM 判定竞态，测试套件稳定性进一步提升。",
+    "新增微信本地库只读查询智能体技能，支持离线会话历史检索与安全消息查看。"
   ],
   "en": [
-    "Streamline Android CI build workflow with automatic release keystore generation for reliable headless APK packaging.",
-    "Refine mobile shell UX: add pulsing AI thinking status bubble with auto-scroll anchor, and improve drawer gesture handling between chat and tools.",
-    "Enhance builtin tool guides and improve desktop agent accessibility tree parsing for newer Claude Desktop session headers."
+    "Support dual-mode automatic iOS signing with App Store Connect and development fallback for reliable IPA exports.",
+    "Eliminate CDP DOM timing races during rapid page redirects to ensure rock-solid headless CI test runs.",
+    "Add read-only WeChat local vault agent skill for offline chat history inspection and secure message search."
   ]
 }
