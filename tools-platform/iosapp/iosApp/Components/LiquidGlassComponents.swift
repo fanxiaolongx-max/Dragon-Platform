@@ -317,24 +317,29 @@ struct MarkdownMessageView: View {
 
     @ViewBuilder
     private func tableBlockView(rows: [[[MdSpan]]]) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        let columnCount = rows.map { $0.count }.max() ?? 0
+        let columnWidths: [CGFloat] = (0..<columnCount).map { column in
+            let longest = rows.map { row in
+                row.indices.contains(column) ? row[column].map { $0.text.count }.reduce(0, +) : 0
+            }.max() ?? 0
+            return min(220, max(100, CGFloat(longest) * 10 + 20))
+        }
+        ScrollView(.horizontal, showsIndicators: true) {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(rows.enumerated()), id: \.offset) { rowIdx, row in
                     HStack(alignment: .top, spacing: 0) {
                         ForEach(Array(row.enumerated()), id: \.offset) { colIdx, cell in
                             Text(attributedSpans(cell, baseSize: 13, forceBold: rowIdx == 0))
                                 .foregroundStyle(palette.inkPrimary)
-                                .frame(minWidth: 88, maxWidth: 220, alignment: .leading)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 7)
-                            if colIdx < row.count - 1 {
-                                Rectangle()
-                                    .fill(palette.hairLine)
-                                    .frame(width: 0.75)
-                            }
+                                .frame(width: columnWidths[colIdx], alignment: .leading)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .textSelection(.enabled)
                         }
                     }
-                    .background(rowIdx == 0 ? palette.hairLine.opacity(0.65) : .clear)
+                    .background(rowIdx == 0 ? palette.hairLine.opacity(0.65)
+                                : (rowIdx.isMultiple(of: 2) ? palette.hairLine.opacity(0.2) : .clear))
                     if rowIdx < rows.count - 1 {
                         Rectangle()
                             .fill(palette.hairLine)

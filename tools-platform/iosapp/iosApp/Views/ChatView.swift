@@ -1808,6 +1808,14 @@ private struct VoiceConversationModal: View {
                 Spacer(minLength: 10)
 
                 ZStack {
+                    if voiceChat.phase == .listening {
+                        VoiceInputHalo(samples: voiceChat.speechRecorder.waveformSamples,
+                                       level: voiceChat.speechRecorder.audioLevel,
+                                       color: palette.accentStrong)
+                            .frame(width: 280, height: 280)
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
+                    }
                     Circle()
                         .fill(
                             RadialGradient(
@@ -1840,6 +1848,7 @@ private struct VoiceConversationModal: View {
                                 .clipShape(Circle())
                         }
                         .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: pulseRing)
+                        .animation(.easeOut(duration: 0.055), value: voiceChat.speechRecorder.audioLevel)
                         .onTapGesture {
                             if voiceChat.phase == .speaking || voiceChat.phase == .thinking {
                                 voiceChat.interruptAndSpeak()
@@ -1973,6 +1982,35 @@ private struct VoiceConversationModal: View {
         }
         .onAppear {
             pulseRing = true
+        }
+    }
+}
+
+/// A mirrored history of the microphone envelope; silence stays quiet without a timer.
+private struct VoiceInputHalo: View {
+    let samples: [CGFloat]
+    let level: CGFloat
+    let color: Color
+
+    var body: some View {
+        Canvas { context, size in
+            let center = CGPoint(x: size.width / 2, y: size.height / 2)
+            let radius = min(size.width, size.height) * 0.32
+            for index in 0..<64 {
+                let sampleIndex = index < 32 ? index : 63 - index
+                let sample = samples[min(sampleIndex, samples.count - 1)]
+                let amplitude = max(0, min(1, (sample - 0.12) / 0.88))
+                let current = max(0, min(1, (level - 0.12) / 0.88))
+                let angle = Double(index) * .pi * 2 / 64 - .pi / 2
+                let length = 3 + amplitude * 26 + current * 12
+                var path = Path()
+                path.move(to: CGPoint(x: center.x + CGFloat(cos(angle)) * radius,
+                                      y: center.y + CGFloat(sin(angle)) * radius))
+                path.addLine(to: CGPoint(x: center.x + CGFloat(cos(angle)) * (radius + length),
+                                         y: center.y + CGFloat(sin(angle)) * (radius + length)))
+                context.stroke(path, with: .color(color.opacity(0.22 + amplitude * 0.55)),
+                               style: StrokeStyle(lineWidth: 3, lineCap: .round))
+            }
         }
     }
 }

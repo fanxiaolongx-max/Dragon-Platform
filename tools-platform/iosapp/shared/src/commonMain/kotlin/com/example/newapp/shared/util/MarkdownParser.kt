@@ -56,11 +56,15 @@ object MarkdownParser {
     private val inlineDividerRegex = Regex("""([^\n\s-])\s+---+\s+(\S)""")
     private val markdownImageRegex = Regex("""!\[([^\]]*)]\(([^)\s]+)(?:\s+["'][^"']*["'])?\)""")
 
-    private val headingLineRegex = Regex("""^(#{1,4})\s+(.+)$""")
-    private val bulletLineRegex = Regex("""^(\s*)([-*•])\s+(.*)$""")
-    private val orderedLineRegex = Regex("""^(\s*)(\d{1,3})\.\s+(.*)$""")
+    private val headingLineRegex = Regex("""^(#{1,6})\s+(.+)$""")
+    private val bulletLineRegex = Regex("""^(\s*)([-*+•])\s+(.*)$""")
+    private val orderedLineRegex = Regex("""^(\s*)(\d{1,3})[.)]\s+(.*)$""")
     private val dividerLineRegex = Regex("""^\s*(?:-{3,}|\*{3,}|_{3,})\s*$""")
-    private val tableDividerRegex = Regex("""^\s*\|?(?:\s*:?-{2,}:?\s*\|)+\s*:?-{2,}:?\s*\|?\s*$""")
+    private val tableDividerCellRegex = Regex("""^:?-{2,}:?$""")
+
+    private fun isTableDivider(line: String): Boolean =
+        line.contains('|') && splitTableRow(line).all { tableDividerCellRegex.matches(it) }
+
 
     fun parse(raw: String): List<MdBlock> {
         if (raw.isEmpty()) return emptyList()
@@ -122,6 +126,8 @@ object MarkdownParser {
         val codeBuf = mutableListOf<String>()
         var inCode = false
         var codeLang = ""
+        var fenceChar = '`'
+        var fenceLength = 0
 
         fun flushText() {
             val joined = textBuf.joinToString("\n")
@@ -137,15 +143,18 @@ object MarkdownParser {
 
         for (line in raw.lines()) {
             val trimmed = line.trimStart()
-            if (trimmed.startsWith("```")) {
-                if (inCode) {
-                    flushCode()
-                    inCode = false
-                } else {
-                    flushText()
-                    codeLang = trimmed.removePrefix("```").trim()
-                    inCode = true
-                }
+            val fence = trimmed.takeWhile { it == trimmed.firstOrNull() }
+            val isFence = fence.length >= 3 && fence.firstOrNull() in listOf('`', '~')
+            if (inCode && isFence && fence.first() == fenceChar && fence.length >= fenceLength
+                && trimmed.drop(fence.length).isBlank()) {
+                flushCode()
+                inCode = false
+            } else if (!inCode && isFence) {
+                flushText()
+                fenceChar = fence.first()
+                fenceLength = fence.length
+                codeLang = trimmed.drop(fence.length).trim()
+                inCode = true
             } else if (inCode) {
                 codeBuf.add(line)
             } else {
@@ -159,6 +168,11 @@ object MarkdownParser {
     internal fun normalizeStructure(segment: String): String {
         val intermediate = mutableListOf<String>()
         for (rawLine in segment.lines()) {
+            // Protect table cells and separators from the prose repair heuristics.
+            if (rawLine.contains('|')) {
+                intermediate.add(rawLine)
+                continue
+            }
             var line = rawLine
             // Split inline headings like "内容 --- ### 2. 标题" or "...。 ### 2. 标题"
             while (true) {
@@ -266,16 +280,24 @@ object MarkdownParser {
             }
 
             // Markdown table detection: header row + divider row + body rows
-            if (trimmed.contains('|') && i + 1 < lines.size && tableDividerRegex.matches(lines[i + 1].trim())) {
+            if (trimmed.contains('|') && i + 1 < lines.size && isTableDivider(lines[i + 1].trim())) {
                 flushParagraph()
                 flushQuote()
                 val rows = mutableListOf<List<List<MdSpan>>>()
-                rows.add(splitTableRow(trimmed).map { parseInline(it) })
+                val header = splitTableRow(trimmed)
+                val columnCount = header.size
+                if (splitTableRow(lines[i + 1]).size != columnCount) {
+                    paragraphBuf.add(line)
+                    i++
+                    continue
+                }
+                rows.add(header.map { parseInline(it) })
                 i += 2
                 while (i < lines.size) {
                     val rowTrimmed = lines[i].trim()
                     if (rowTrimmed.isEmpty() || !rowTrimmed.contains('|')) break
-                    rows.add(splitTableRow(rowTrimmed).map { parseInline(it) })
+                    val cells = splitTableRow(rowTrimmed)
+                    rows.add(List(columnCount) { column -> parseInline(cells.getOrElse(column) { "" }) })
                     i++
                 }
                 out.add(
@@ -301,7 +323,7 @@ object MarkdownParser {
             val headingMatch = headingLineRegex.matchEntire(trimmed)
             if (headingMatch != null) {
                 flushParagraph()
-                val level = headingMatch.groupValues[1].length.coerceIn(1, 4)
+                val level = headingMatch.groupValues[1].length.coerceIn(1, 6)
                 val body = headingMatch.groupValues[2].trim()
                 out.add(
                     MdBlock(
@@ -393,8 +415,28 @@ object MarkdownParser {
     }
 
     private fun splitTableRow(row: String): List<String> {
-        val stripped = row.trim().trim('|')
-        return stripped.split('|').map { it.trim() }
+        val cells = mutableListOf<String>()
+        val cell = StringBuilder()
+        val text = row.trim()
+        var index = 0
+        while (index < text.length) {
+            if (text[index] == '\\' && index + 1 < text.length && text[index + 1] == '|') {
+                cell.append('|')
+                index += 2
+                continue
+            }
+            if (text[index] == '|') {
+                cells.add(cell.toString().trim())
+                cell.clear()
+            } else {
+                cell.append(text[index])
+            }
+            index++
+        }
+        cells.add(cell.toString().trim())
+        if (text.startsWith('|')) cells.removeAt(0)
+        if (text.endsWith('|') && !text.endsWith("\\|")) cells.removeAt(cells.lastIndex)
+        return cells
     }
 
     fun parseInline(

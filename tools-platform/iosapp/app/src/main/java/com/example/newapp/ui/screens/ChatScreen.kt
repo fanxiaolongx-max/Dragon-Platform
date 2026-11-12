@@ -24,6 +24,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -1963,6 +1965,15 @@ private fun MdBlockItemView(
         }
 
         MdBlockKind.TABLE -> {
+            val columnWidths = remember(block.tableRows) {
+                val count = block.tableRows.maxOfOrNull { it.size } ?: 0
+                List(count) { column ->
+                    val longest = block.tableRows.maxOfOrNull { row ->
+                        row.getOrNull(column)?.sumOf { it.text.length } ?: 0
+                    } ?: 0
+                    (longest * 10 + 20).coerceIn(100, 220).dp
+                }
+            }
             val hScroll = rememberScrollState()
             Column(
                 modifier = Modifier
@@ -1974,9 +1985,13 @@ private fun MdBlockItemView(
                 block.tableRows.forEachIndexed { rIdx, row ->
                     Row(
                         modifier = Modifier
-                            .background(if (rIdx == 0) palette.hairLine.copy(alpha = 0.65f) else Color.Transparent)
+                            .background(when {
+                                rIdx == 0 -> palette.hairLine.copy(alpha = 0.65f)
+                                rIdx % 2 == 0 -> palette.hairLine.copy(alpha = 0.2f)
+                                else -> Color.Transparent
+                            })
                     ) {
-                        row.forEach { cellSpans ->
+                        row.forEachIndexed { column, cellSpans ->
                             MdSpanText(
                                 spans = cellSpans,
                                 baseSizeSp = 13f,
@@ -1984,7 +1999,7 @@ private fun MdBlockItemView(
                                 forceBold = rIdx == 0,
                                 palette = palette,
                                 modifier = Modifier
-                                    .widthIn(min = 90.dp, max = 210.dp)
+                                    .width(columnWidths[column])
                                     .padding(horizontal = 10.dp, vertical = 7.dp)
                             )
                         }
@@ -2446,6 +2461,28 @@ fun VoiceConversationOverlay(vm: DragonClawViewModel) {
                     contentAlignment = Alignment.Center,
                     modifier = Modifier.size(220.dp)
                 ) {
+                    if (phase == VoiceChatPhase.LISTENING) {
+                        val samples = vm.voiceWaveformSamples
+                        val level = vm.voiceChatAudioLevel
+                        val haloColor = palette.accentStrong
+                        Canvas(Modifier.size(280.dp)) {
+                            val radius = size.minDimension * 0.32f
+                            val current = ((level - 0.12f) / 0.88f).coerceIn(0f, 1f)
+                            repeat(64) { index ->
+                                val sampleIndex = if (index < 32) index else 63 - index
+                                val amplitude = ((samples[sampleIndex] - 0.12f) / 0.88f).coerceIn(0f, 1f)
+                                val angle = index * kotlin.math.PI * 2 / 64 - kotlin.math.PI / 2
+                                val direction = Offset(kotlin.math.cos(angle).toFloat(), kotlin.math.sin(angle).toFloat())
+                                val length = (3 + amplitude * 26 + current * 12).dp.toPx()
+                                drawLine(
+                                    color = haloColor.copy(alpha = 0.22f + amplitude * 0.55f),
+                                    start = center + direction * radius,
+                                    end = center + direction * (radius + length),
+                                    strokeWidth = 3.dp.toPx(), cap = StrokeCap.Round
+                                )
+                            }
+                        }
+                    }
                     Box(
                         modifier = Modifier
                             .size(210.dp)

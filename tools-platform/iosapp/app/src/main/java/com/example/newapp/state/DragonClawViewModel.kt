@@ -1871,9 +1871,10 @@ class DragonClawViewModel : ViewModel() {
                 if (target != null) {
                     am.setCommunicationDevice(target)
                 }
+            } else {
+                @Suppress("DEPRECATION")
+                runCatching { am.isSpeakerphoneOn = useSpeaker }
             }
-            @Suppress("DEPRECATION")
-            runCatching { am.isSpeakerphoneOn = useSpeaker }
         }
     }
 
@@ -2174,49 +2175,49 @@ class DragonClawViewModel : ViewModel() {
         }
 
         return suspendCancellableCoroutine { cont ->
-            val startedPlayer = runCatching {
-                applyVoiceAudioRoute(appCtx)
-                MediaPlayer().apply {
-                    setAudioAttributes(
-                        AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
-                            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                            .build()
-                    )
-                    setDataSource(audioFile.absolutePath)
-                    setOnCompletionListener { mp ->
-                        runCatching { mp.release() }
-                        if (voiceMediaPlayer === mp) voiceMediaPlayer = null
-                        if (voiceAudioTempFile === audioFile) voiceAudioTempFile = null
-                        runCatching { audioFile.delete() }
-                        if (cont.isActive) cont.resume(true)
-                    }
-                    setOnErrorListener { mp, _, _ ->
-                        runCatching { mp.release() }
-                        if (voiceMediaPlayer === mp) voiceMediaPlayer = null
-                        if (voiceAudioTempFile === audioFile) voiceAudioTempFile = null
-                        runCatching { audioFile.delete() }
-                        if (cont.isActive) cont.resume(false)
-                        true
-                    }
-                    prepare()
-                    start()
-                }
-            }.getOrNull()
-
-            if (startedPlayer == null) {
+            val player = MediaPlayer()
+            voiceAudioTempFile = audioFile
+            voiceMediaPlayer = player
+            fun releasePlayer() {
+                runCatching { player.release() }
+                if (voiceMediaPlayer === player) voiceMediaPlayer = null
+                if (voiceAudioTempFile === audioFile) voiceAudioTempFile = null
                 runCatching { audioFile.delete() }
-                if (cont.isActive) cont.resume(false)
-            } else {
-                voiceAudioTempFile = audioFile
-                voiceMediaPlayer = startedPlayer
-                cont.invokeOnCancellation {
-                    runCatching { startedPlayer.stop() }
-                    runCatching { startedPlayer.release() }
-                    if (voiceMediaPlayer === startedPlayer) voiceMediaPlayer = null
-                    if (voiceAudioTempFile === audioFile) voiceAudioTempFile = null
-                    runCatching { audioFile.delete() }
+            }
+            cont.invokeOnCancellation { releasePlayer() }
+            try {
+                applyVoiceAudioRoute(appCtx)
+                player.setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build()
+                )
+                player.setDataSource(audioFile.absolutePath)
+                player.setOnCompletionListener {
+                    releasePlayer()
+                    if (cont.isActive) cont.resume(true)
                 }
+                player.setOnErrorListener { _, _, _ ->
+                    releasePlayer()
+                    if (cont.isActive) cont.resume(false)
+                    true
+                }
+                player.setOnPreparedListener {
+                    if (cont.isActive) {
+                        try {
+                            it.start()
+                        } catch (_: Exception) {
+                            releasePlayer()
+                            if (cont.isActive) cont.resume(false)
+                        }
+                    }
+                }
+                // Decoding/initialization must not block the UI and microphone animation.
+                player.prepareAsync()
+            } catch (_: Exception) {
+                releasePlayer()
+                if (cont.isActive) cont.resume(false)
             }
         }
     }

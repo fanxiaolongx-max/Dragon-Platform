@@ -1,12 +1,12 @@
 {
   "zh": [
-    "移动端（iOS & Android）更新至 v1.1.0 (4)：实时语音通话升级为流式分句并行合成与无缝排队播报，端到端尾音检测收紧至约 715ms，首字播报延迟大幅降低。",
-    "锁定跨轮次一致的 AI 声线与语调，支持 5 种预设音色随心切换（默认沉稳 Kore），并新增进退语音模式的高品质双音微提示与触感反馈。",
-    "修复安卓应用名称与启动图标配置为 Dragon Claw，并新增后台服务日志导出及桌面首页侧栏拖拽优化。"
+    "移动端（iOS & Android）新增语音通话收音波形光环动效，并统一音频会话与播放器生命周期管理，切换扬声器/听筒及中断播报更稳定。",
+    "修复移动端 Markdown 表格分隔行、转义竖线与列宽对齐渲染，补充代码块围栏、六级标题与有序/无序列表解析并新增共享单元测试。",
+    "优化桌面端对话右侧快速预览导航条在拖拽侧栏时的实时跟随与稳定性。"
   ],
   "en": [
-    "Bump iOS & Android apps to v1.1.0 (4): upgrade live voice conversations with streaming clause pipelining, concurrent ordered TTS synthesis, gapless playback, and 715ms VAD turn-taking.",
-    "Lock consistent cross-turn voice tone and speaking persona (default Kore) with a 5-voice persona selector and distinct studio chimes for starting and ending voice calls.",
-    "Update the Android app name and adaptive launcher icons to Dragon Claw, alongside service log export and home conversation rail drag polish."
+    "Add a live microphone waveform halo to mobile voice calls and unify iOS/Android audio session and MediaPlayer lifecycle handling across route switches and interruptions.",
+    "Fix mobile Markdown table parsing, escaped pipes, column sizing, fenced code blocks, level-6 headings, and list variants with shared unit test coverage.",
+    "Polish desktop quick-navigation rail tracking and automated test verification."
   ]
 }

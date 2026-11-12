@@ -10,7 +10,6 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.File
 import java.util.UUID
-import kotlin.math.ln
 
 /**
  * Native MediaRecorder wrapper capturing MPEG-4 AAC (.m4a) audio and real-time
@@ -81,12 +80,7 @@ class AudioSpeechRecorder(
                             noiseFloor = (baselineAcc / baselineSamples).toInt().coerceIn(220, 1400)
                         }
                     }
-                    val normalized = if (amp <= 0) {
-                        0.14f
-                    } else {
-                        val logScaled = (ln((amp + 1).toDouble()) / ln(32768.0)).toFloat()
-                        logScaled.coerceIn(0.14f, 1.0f)
-                    }
+                    val normalized = (amp / 14000f).coerceIn(0.12f, 1.0f)
                     if (ring.isNotEmpty()) ring.removeAt(0)
                     ring.add(normalized)
                     val secs = ((System.currentTimeMillis() - startedMs) / 1000L).toInt().coerceAtLeast(0)
@@ -104,7 +98,7 @@ class AudioSpeechRecorder(
                         }
                     }
 
-                    val orbLevel = (amp / 14000f).coerceIn(0.12f, 1.0f)
+                    val orbLevel = normalized
                     onLevel?.invoke(orbLevel, hasSpeech)
 
                     if (onSilenceDetected != null && !silenceFired) {

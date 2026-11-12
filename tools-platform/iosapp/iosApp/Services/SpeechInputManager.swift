@@ -4,6 +4,29 @@ import Observation
 import UIKit
 import shared
 
+/// Keep recording and playback on the same session policy. Re-applying an output
+/// override for every chunk (or from its own route notification) disrupts playback.
+private enum VoiceAudioSession {
+    static func configure(speaker: Bool, forceRoute: Bool = false) throws {
+        let session = AVAudioSession.sharedInstance()
+        let mode: AVAudioSession.Mode = speaker ? .default : .voiceChat
+        let options: AVAudioSession.CategoryOptions = speaker
+            ? [.defaultToSpeaker, .allowBluetooth] : [.allowBluetooth]
+        let changed = session.category != .playAndRecord || session.mode != mode || session.categoryOptions != options
+        if changed {
+            try session.setCategory(.playAndRecord, mode: mode, options: options)
+        }
+        try session.setActive(true)
+        if speaker {
+            if !session.currentRoute.outputs.contains(where: { $0.portType == .builtInSpeaker }) {
+                try session.overrideOutputAudioPort(.speaker)
+            }
+        } else if changed || forceRoute {
+            try session.overrideOutputAudioPort(.none)
+        }
+    }
+}
+
 /// Native AVAudioRecorder with live metering + optional auto-silence VAD for both
 /// inline speech-to-text dictation and live hands-free AI voice conversation.
 @Observable
@@ -109,17 +132,7 @@ final class SpeechInputManager {
         ]
 
         do {
-            let session = AVAudioSession.sharedInstance()
-            let categoryOptions: AVAudioSession.CategoryOptions = preferSpeakerOutput
-                ? [.defaultToSpeaker, .allowBluetooth, .duckOthers]
-                : [.allowBluetooth]
-            try session.setCategory(
-                .playAndRecord,
-                mode: preferSpeakerOutput ? .default : .voiceChat,
-                options: categoryOptions
-            )
-            try session.overrideOutputAudioPort(preferSpeakerOutput ? .speaker : .none)
-            try session.setActive(true)
+            try VoiceAudioSession.configure(speaker: preferSpeakerOutput)
 
             let rec = try AVAudioRecorder(url: url, settings: settings)
             rec.isMeteringEnabled = true
@@ -314,12 +327,17 @@ final class VoiceChatController: NSObject, AVSpeechSynthesizerDelegate, AVAudioP
             forName: AVAudioSession.routeChangeNotification,
             object: nil,
             queue: .main
-        ) { [weak self] _ in
+        ) { [weak self] notification in
+            // Category/override notifications are caused by our own configuration.
+            // Only hardware changes should trigger a fresh routing decision.
+            let reason = (notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? NSNumber)?.uintValue
+            let hardwareChanged = reason == AVAudioSession.RouteChangeReason.newDeviceAvailable.rawValue
+                || reason == AVAudioSession.RouteChangeReason.oldDeviceUnavailable.rawValue
             Task { @MainActor [weak self] in
                 guard let self, self.isPresented else { return }
                 self.refreshExternalRouteState()
-                if self.audioRoute != .muted {
-                    self.configureActiveAudioRoute()
+                if hardwareChanged, self.audioRoute != .muted {
+                    self.configureActiveAudioRoute(forceRoute: true)
                 }
             }
         }
@@ -404,7 +422,7 @@ final class VoiceChatController: NSObject, AVSpeechSynthesizerDelegate, AVAudioP
             return
         }
 
-        configureActiveAudioRoute()
+        configureActiveAudioRoute(forceRoute: true)
     }
 
     func toggleSpeechMute() {
@@ -686,30 +704,15 @@ final class VoiceChatController: NSObject, AVSpeechSynthesizerDelegate, AVAudioP
         }
     }
 
-    private func configureActiveAudioRoute() {
+    private func configureActiveAudioRoute(forceRoute: Bool = false) {
         guard audioRoute != .muted else { return }
         do {
-            let session = AVAudioSession.sharedInstance()
-            if audioRoute == .speaker {
-                try session.setCategory(
-                    .playAndRecord,
-                    mode: .default,
-                    options: [.defaultToSpeaker, .allowBluetooth, .duckOthers]
-                )
-                try session.overrideOutputAudioPort(.speaker)
-            } else {
-                // Earpiece / wired or Bluetooth headset route (exclude defaultToSpeaker so iOS uses headset or receiver)
-                try session.setCategory(
-                    .playAndRecord,
-                    mode: .voiceChat,
-                    options: [.allowBluetooth]
-                )
-                try session.overrideOutputAudioPort(.none)
-            }
-            try session.setActive(true)
+            try VoiceAudioSession.configure(speaker: audioRoute == .speaker, forceRoute: forceRoute)
             refreshExternalRouteState()
         } catch {
-            // Continue with default playback route if session override is constrained
+            errorText = L10n.tr(boundStore?.language ?? "zh",
+                zh: "音频输出初始化失败：\(error.localizedDescription)",
+                en: "Unable to configure audio output: \(error.localizedDescription)")
         }
     }
 
