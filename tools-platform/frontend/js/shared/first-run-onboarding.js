@@ -252,6 +252,7 @@
                 showResult(t.skipped);
                 setTimeout(() => {
                     modal.remove();
+                    window.__tpOnboardingPending = false;
                     if (previousFocus && previousFocus.isConnected) previousFocus.focus({ preventScroll: true });
                     if (typeof window.checkBuiltinToolsSync === 'function') window.checkBuiltinToolsSync();
                 }, 650);
@@ -264,20 +265,30 @@
 
     let checking = false;
     let retryCount = 0;
+    window.__tpOnboardingPending = true;
     async function check() {
         if (checking || document.getElementById(MODAL_ID)) return;
         checking = true;
+        let willRetry = false;
         try {
             // The authenticated server role is authoritative; local role sync may still be pending.
             const status = await API.get('/api/onboarding/defaults/status');
-            if (status && status.required) openModal(status);
+            if (status && status.required) {
+                openModal(status);
+                return;
+            }
+            window.__tpOnboardingPending = false;
         } catch (error) {
             console.warn('[quick-start] 读取首次启动状态失败：', error.message);
             if (error.status !== 401 && error.status !== 403 && retryCount < 2) {
+                willRetry = true;
                 setTimeout(check, 1000 * ++retryCount);
+            } else {
+                window.__tpOnboardingPending = false;
             }
         } finally {
             checking = false;
+            if (!willRetry && !document.getElementById(MODAL_ID)) window.__tpOnboardingPending = false;
         }
     }
 

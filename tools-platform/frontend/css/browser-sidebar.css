@@ -132,3 +132,11 @@ html.is-desktop-app .dc-browser-panel :is(button,input,[role=tab]){-webkit-app-r
 .dc-browser-native .dc-browser-surface { margin-left: 8px; }
 
 .dc-browser-operator.is-ai:not([hidden]){display:contents}
+.dc-browser-zoom-hud{position:absolute;top:10px;right:10px;z-index:8;display:inline-flex;align-items:center;gap:4px;padding:4px 6px;border:1px solid var(--v2-line,rgba(15,23,42,.14));border-radius:999px;background:rgba(255,255,255,.92);color:var(--v2-ink,#0f172a);font-size:12px;font-weight:600;box-shadow:0 6px 20px rgba(15,23,42,.14);backdrop-filter:blur(14px);user-select:none}
+.dc-browser-zoom-hud[hidden]{display:none!important}
+html[data-theme=dark] .dc-browser-zoom-hud{background:rgba(15,23,42,.92);border-color:rgba(148,163,184,.28);color:#f1f5f9;box-shadow:0 6px 22px rgba(0,0,0,.42)}
+.dc-browser-zoom-hud button{border:0;background:transparent;color:inherit;font:inherit;min-width:22px;height:22px;padding:0 6px;border-radius:999px;cursor:pointer}
+.dc-browser-zoom-hud button:hover{background:rgba(100,116,139,.16)}
+.dc-browser-zoom-pct{padding:0 4px;font-variant-numeric:tabular-nums;font-weight:700}
+.dc-browser-zoom-reset{font-size:11px;padding:0 8px;background:rgba(15,23,42,.06)!important}
+html[data-theme=dark] .dc-browser-zoom-reset{background:rgba(255,255,255,.1)!important}

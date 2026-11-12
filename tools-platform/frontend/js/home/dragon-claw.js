@@ -3304,7 +3304,7 @@
         chatList.deleting.add(item.id);
         try {
             const message = tx('chatDeleteConfirm', { title });
-            const ok = window.AppDialog ? await window.AppDialog.confirm(message, { title: tx('chatDelete'), confirmText: tx('chatDelete'), tone: 'danger' }) : window.confirm(message);
+            const ok = window.AppDialog?.confirm ? await window.AppDialog.confirm(message, { title: tx('chatDelete'), confirmText: tx('chatDelete'), tone: 'danger' }) : false;
             if (!ok || account !== identity()) return;
             const response = await fetch(`/api/ai/sessions/${encodeURIComponent(item.id)}`, { method: 'DELETE', headers: authHeaders() });
             const data = await response.json().catch(() => ({}));

@@ -34,8 +34,9 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -103,6 +104,7 @@ import com.example.newapp.ui.components.LiquidGlassSurface
 import com.example.newapp.ui.theme.DragonClawPalette
 import com.example.newapp.ui.theme.LocalDragonClawPalette
 import com.example.newapp.ui.theme.tr
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import java.io.File
 import java.util.UUID
@@ -113,7 +115,7 @@ fun ChatScreen(vm: DragonClawViewModel) {
     val palette = LocalDragonClawPalette.current
     val lang = vm.language
     val context = LocalContext.current
-    val listState = rememberLazyListState()
+    val listState = remember(vm.chatOpenScrollGeneration) { LazyListState() }
     var showModelMenu by remember { mutableStateOf(false) }
     var showPlusMenu by remember { mutableStateOf(false) }
     var showSkillsDialog by remember { mutableStateOf(false) }
@@ -194,6 +196,7 @@ fun ChatScreen(vm: DragonClawViewModel) {
     }
 
     var lastAnchoredSessionGen by remember { mutableIntStateOf(-1) }
+    var initialOpenSettled by remember(vm.chatOpenScrollGeneration) { mutableStateOf(false) }
     var lastMessageCount by remember { mutableIntStateOf(0) }
     var lastHeadMessageId by remember { mutableStateOf<String?>(null) }
     var savedAnchorMsgId by remember { mutableStateOf<String?>(null) }
@@ -202,15 +205,43 @@ fun ChatScreen(vm: DragonClawViewModel) {
     // 1. Instant non-animated anchor to latest message when opening a conversation
     LaunchedEffect(vm.chatOpenScrollGeneration, vm.messages.size) {
         if (vm.chatOpenScrollGeneration != lastAnchoredSessionGen && vm.messages.isNotEmpty()) {
+            initialOpenSettled = false
             val headerCount = if (vm.hasMoreOlderMessages || vm.isLoadingOlderMessages) 1 else 0
             val targetIndex = (headerCount + vm.messages.lastIndex).coerceAtLeast(0)
             listState.scrollToItem(targetIndex, 100_000)
+            withFrameNanos { }
+            if (!listState.isScrollInProgress && vm.messages.isNotEmpty()) {
+                val updatedHeaderCount = if (vm.hasMoreOlderMessages || vm.isLoadingOlderMessages) 1 else 0
+                val updatedTargetIndex = (updatedHeaderCount + vm.messages.lastIndex).coerceAtLeast(0)
+                listState.scrollToItem(updatedTargetIndex, 100_000)
+            }
             lastAnchoredSessionGen = vm.chatOpenScrollGeneration
             lastHeadMessageId = vm.messages.firstOrNull()?.id
             lastMessageCount = vm.messages.size
         } else if (vm.messages.isEmpty()) {
+            initialOpenSettled = false
             lastHeadMessageId = null
             lastMessageCount = 0
+        }
+    }
+
+    // 1b. Re-anchor once after async item measurements settle, then unlock upward pagination
+    LaunchedEffect(lastAnchoredSessionGen) {
+        if (lastAnchoredSessionGen >= 0) {
+            initialOpenSettled = false
+            delay(180)
+            if (!listState.isScrollInProgress &&
+                lastAnchoredSessionGen == vm.chatOpenScrollGeneration &&
+                vm.messages.isNotEmpty()
+            ) {
+                val headerCount = if (vm.hasMoreOlderMessages || vm.isLoadingOlderMessages) 1 else 0
+                val targetIndex = (headerCount + vm.messages.lastIndex).coerceAtLeast(0)
+                listState.scrollToItem(targetIndex, 100_000)
+            }
+            delay(170)
+            if (lastAnchoredSessionGen == vm.chatOpenScrollGeneration) {
+                initialOpenSettled = true
+            }
         }
     }
 
@@ -255,9 +286,15 @@ fun ChatScreen(vm: DragonClawViewModel) {
         snapshotFlow {
             val firstIdx = listState.firstVisibleItemIndex
             val total = listState.layoutInfo.totalItemsCount
-            Triple(firstIdx, total, vm.hasMoreOlderMessages && !vm.isLoadingOlderMessages && !vm.isLoadingSessionMessages)
+            val eligible = initialOpenSettled &&
+                lastAnchoredSessionGen == vm.chatOpenScrollGeneration &&
+                vm.hasMoreOlderMessages &&
+                !vm.isLoadingOlderMessages &&
+                !vm.isLoadingSessionMessages &&
+                vm.messages.size >= 4
+            Triple(firstIdx, total, eligible)
         }.collectLatest { (firstIdx, total, eligible) ->
-            if (eligible && total > 0 && firstIdx <= 1 && lastAnchoredSessionGen == vm.chatOpenScrollGeneration) {
+            if (eligible && total > 0 && firstIdx <= 1) {
                 val firstMsgItem = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key != "__older_history_header__" }
                 savedAnchorMsgId = firstMsgItem?.key as? String
                 savedAnchorOffsetPx = if (firstMsgItem != null && firstMsgItem.index == listState.firstVisibleItemIndex) {

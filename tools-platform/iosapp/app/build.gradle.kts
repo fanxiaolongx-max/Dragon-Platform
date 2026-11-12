@@ -13,16 +13,31 @@ android {
         applicationId = "com.example.newapp"
         minSdk = 24
         targetSdk = 35
-        versionCode = 4
         val runNumber = System.getenv("GITHUB_RUN_NUMBER")
-        versionName = if (runNumber != null) "1.1.$runNumber" else "1.1.0"
+        versionCode = System.getenv("APP_VERSION_CODE")?.toIntOrNull() ?: (runNumber?.toIntOrNull() ?: 4)
+        versionName = System.getenv("APP_VERSION_NAME") ?: (if (runNumber != null) "1.1.$runNumber" else "1.1.0")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        create("release") {
+            val keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+            if (keystorePath != null && file(keystorePath).exists()) {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: ""
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS") ?: ""
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD") ?: ""
+            } else {
+                initWith(getByName("debug"))
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

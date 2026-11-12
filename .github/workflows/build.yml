@@ -1,4 +1,4 @@
-name: Build Desktop App
+name: Build Desktop & Mobile Apps
 
 on:
   push:
@@ -14,7 +14,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: desktop-release-${{ github.ref }}
+  group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -323,5 +323,165 @@ jobs:
             tools-platform/dist/*.zip
             tools-platform/dist/latest-mac.yml
             tools-platform/dist/*.blockmap
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-android:
+    needs: prepare-release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare-release.outputs.release_tag }}
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('tools-platform/iosapp/**/*.gradle*', 'tools-platform/iosapp/gradle.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Build Android APK
+        working-directory: tools-platform/iosapp
+        env:
+          APP_VERSION_NAME: ${{ needs.prepare-release.outputs.release_version }}
+          APP_VERSION_CODE: ${{ github.run_number }}
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleRelease --no-daemon
+          mkdir -p ../dist-android
+          cp app/build/outputs/apk/release/*.apk ../dist-android/Dragon-Claw-${{ needs.prepare-release.outputs.release_version }}.apk
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: built-app-android
+          path: tools-platform/dist-android/*.apk
+
+      - name: Release Android
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.prepare-release.outputs.release_tag }}
+          name: ${{ needs.prepare-release.outputs.release_tag }}
+          body: ${{ needs.prepare-release.outputs.release_notes }}
+          files: |
+            tools-platform/dist-android/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-ios:
+    needs: prepare-release
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare-release.outputs.release_tag }}
+
+      - name: Setup Java (for Kotlin Multiplatform Gradle build)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup App Store Connect API Key
+        env:
+          API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "$API_KEY_P8" > ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8
+
+      - name: Build and Archive iOS
+        working-directory: tools-platform/iosapp
+        run: |
+          chmod +x gradlew
+          mkdir -p build-output
+
+          cat <<EOF > exportOptions.plist
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>app-store</string>
+              <key>teamID</key>
+              <string>${{ secrets.APPLE_TEAM_ID || '7FTVBB945U' }}</string>
+              <key>destination</key>
+              <string>export</string>
+              <key>signingStyle</key>
+              <string>automatic</string>
+              <key>manageAppVersionAndBuildNumber</key>
+              <false/>
+          </dict>
+          </plist>
+          EOF
+
+          xcodebuild archive \
+            -project iosApp.xcodeproj \
+            -scheme iosApp \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build-output/iosApp.xcarchive \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8 \
+            -authenticationKeyID ${{ secrets.APP_STORE_CONNECT_KEY_ID }} \
+            -authenticationKeyIssuerID ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }} \
+            MARKETING_VERSION="${{ needs.prepare-release.outputs.release_version }}" \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}"
+
+          xcodebuild -exportArchive \
+            -archivePath build-output/iosApp.xcarchive \
+            -exportPath build-output/export \
+            -exportOptionsPlist exportOptions.plist \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8 \
+            -authenticationKeyID ${{ secrets.APP_STORE_CONNECT_KEY_ID }} \
+            -authenticationKeyIssuerID ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+
+          mkdir -p ../dist-ios
+          find build-output/export -name "*.ipa" -exec cp {} ../dist-ios/Dragon-Claw-${{ needs.prepare-release.outputs.release_version }}.ipa \;
+
+      - name: Upload to TestFlight / App Store (Optional)
+        continue-on-error: true
+        run: |
+          IPA_FILE=$(find tools-platform/dist-ios -name "*.ipa" | head -n 1)
+          if [ -n "$IPA_FILE" ]; then
+            echo "Uploading $IPA_FILE to App Store Connect / TestFlight..."
+            xcrun altool --upload-app -f "$IPA_FILE" -t ios \
+              --apiKey "${{ secrets.APP_STORE_CONNECT_KEY_ID }}" \
+              --apiIssuer "${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}"
+          fi
+
+      - name: Clean up API Key
+        if: always()
+        run: |
+          rm -rf ~/.appstoreconnect
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: built-app-ios
+          path: tools-platform/dist-ios/*.ipa
+
+      - name: Release iOS
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.prepare-release.outputs.release_tag }}
+          name: ${{ needs.prepare-release.outputs.release_tag }}
+          body: ${{ needs.prepare-release.outputs.release_notes }}
+          files: |
+            tools-platform/dist-ios/*.ipa
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

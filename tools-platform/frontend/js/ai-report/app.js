@@ -1066,9 +1066,14 @@
     reportRoot.addEventListener('dblclick',event=>{const handle=event.target.closest('[data-resize]');if(!handle)return;const cell=find(handle.dataset.resize)?.cell;if(cell){checkpoint();cell.height=0;cell.fit=false;render();}});
 
     async function loadReports(){try{state.reports=await API.get('/api/ai-report/documents');}catch(error){state.reports=[];status(error.message);}}
-    async function confirmDiscard(){return !dirty()||AppDialog.confirm(t('当前月报有未保存的修改，确定放弃吗？','This report has unsaved changes. Discard them?'),{tone:'danger',confirmText:t('放弃修改','Discard')});}
+    async function confirmDiscard(hostConfirm){
+        if(!dirty())return true;
+        const message=t('当前月报有未保存的修改，确定放弃并返回吗？','This report has unsaved changes. Discard them?');
+        if(typeof hostConfirm==='function')return hostConfirm(message);
+        return AppDialog.confirm(message,{title:t('未保存的修改','Unsaved changes'),tone:'warning',confirmText:t('放弃修改','Discard'),cancelText:t('继续编辑','Stay')});
+    }
     async function openReport(id){if(!await confirmDiscard())return;state.doc=M.normalize(await API.get('/api/ai-report/documents/'+encodeURIComponent(id)));state.saved=snapshot();state.undo=[];state.selected=null;render();}
-    async function newReport(month=previousMonth()){if(!await confirmDiscard())return;state.doc=M.normalize(await API.get('/api/ai-report/template?month='+month));state.saved='';state.undo=[];state.selected=null;render();}
+    async function newReport(month=previousMonth()){if(!await confirmDiscard())return;state.doc=M.normalize(await API.get('/api/ai-report/template?month='+month));state.saved=snapshot();state.undo=[];state.selected=null;render();}
     async function save(){
         if(!state.doc||state.saving)return;
         state.saving=true;status();
@@ -1130,7 +1135,8 @@
         else if((event.metaKey||event.ctrlKey)&&!event.shiftKey&&event.key.toLowerCase()==='z'&&!editing){event.preventDefault();undo();}
         else if(event.key==='Escape'&&state.selected&&!editing)select(null);
     });
-    addEventListener('beforeunload',event=>{if(!window.__TP_STATIC_DEMO__&&dirty()){event.preventDefault();event.returnValue='';}});
+    window.__dhIsDirty=()=>!window.__TP_STATIC_DEMO__&&dirty();
+    window.__dhConfirmLeave=hostConfirm=>window.__TP_STATIC_DEMO__?true:confirmDiscard(hostConfirm);
 
     AiReportRunner.useReport(()=>({doc:state.doc,lang:state.lang}));
     // The platform bar and the report toolbar can be folded away for more room; the choice is remembered per browser.

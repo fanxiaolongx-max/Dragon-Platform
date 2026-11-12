@@ -13,6 +13,42 @@
     const staticNav = window.ToolsStaticNavigation;
     let root, frame, titleEl, iconEl, surface, skeleton, surfaceMessage, retry;
     let assistantObserver, surfaceObserver, resizeObserver, surfaceFrame, surfaceId = 0, activeSurface = 0;
+    let leaveConfirming = false, leaveBypass = false;
+
+    function toolConfirmLeaveHook() {
+        if (!root || root.hidden || activeSurface) return null;
+        try {
+            const win = frame?.contentWindow;
+            if (!win) return null;
+            if (typeof win.__dhIsDirty === 'function' && !win.__dhIsDirty()) return null;
+            return typeof win.__dhConfirmLeave === 'function' ? win.__dhConfirmLeave : null;
+        } catch { return null; }
+    }
+    function hasDirtyTool() {
+        return !leaveBypass && Boolean(toolConfirmLeaveHook());
+    }
+    async function confirmLeaveTool() {
+        if (leaveBypass) return true;
+        const hook = toolConfirmLeaveHook();
+        if (!hook) return true;
+        if (leaveConfirming) return false;
+        leaveConfirming = true;
+        try {
+            const hostConfirm = message => window.AppDialog?.confirm
+                ? window.AppDialog.confirm(message, {
+                    title: L('有未保存的修改', 'Unsaved changes'),
+                    tone: 'warning',
+                    confirmText: L('放弃并离开', 'Discard & Leave'),
+                    cancelText: L('留在本页', 'Stay')
+                })
+                : Promise.resolve(true);
+            return Boolean(await hook(hostConfirm));
+        } catch {
+            return true;
+        } finally {
+            leaveConfirming = false;
+        }
+    }
 
     function toolAssistant() {
         if (!root || root.hidden) return null;
@@ -240,9 +276,13 @@
         history[replace ? 'replaceState' : 'pushState']({ ...(history.state || {}), app: href || null, toolReturn: href ? state.returnTo : null }, '', next);
     }
 
-    function open(href, { push = true } = {}) {
+    function open(href, { push = true, skipConfirm = false } = {}) {
         let url;
         try { url = new URL(href, location.origin); } catch { return false; }
+        if (url.pathname === '/' || url.pathname === '/index.html') {
+            close({ push: false, skipConfirm });
+            return true;
+        }
         if (staticNav) {
             const tool = staticNav.resolveTool(url);
             if (!tool) {
@@ -252,6 +292,18 @@
             url = tool.url;
         }
         url.searchParams.delete('standalone');
+        if (!skipConfirm && hasDirtyTool()) {
+            const nextPath = url.pathname + url.search + url.hash;
+            if (nextPath !== state.href) {
+                confirmLeaveTool().then(ok => {
+                    if (!ok) return;
+                    leaveBypass = true;
+                    try { open(href, { push, skipConfirm: true }); }
+                    finally { leaveBypass = false; }
+                });
+                return false;
+            }
+        }
         if (desktop && url.origin === location.origin && /^\/custom-tools\/datacom-protocol-expert\/(?:index\.html)?$/.test(url.pathname)) url.pathname = datacom;
         const useSurface = desktop && url.origin === location.origin && url.pathname === datacom;
         if (!root) render();
@@ -290,8 +342,17 @@
         if (push) writeUrl(path, false);
         return true;
     }
-    function close({ push = true, restore = true } = {}) {
+    function close({ push = true, restore = true, skipConfirm = false } = {}) {
         if (!root || root.hidden) return;
+        if (!skipConfirm && hasDirtyTool()) {
+            confirmLeaveTool().then(ok => {
+                if (!ok) return;
+                leaveBypass = true;
+                try { close({ push, restore, skipConfirm: true }); }
+                finally { leaveBypass = false; }
+            });
+            return;
+        }
         const returnTo = state.returnTo;
         state.returnTo = null;
         root.hidden = true;
@@ -336,13 +397,25 @@
             if (next && next.startsWith('/')) open(next, { push: false });
             else close({ push: false });
         };
+        const onPopState = () => {
+            if (!hasDirtyTool()) { restore(); return; }
+            const stayedHref = state.href;
+            confirmLeaveTool().then(ok => {
+                if (ok) {
+                    leaveBypass = true;
+                    try { restore(); } finally { leaveBypass = false; }
+                } else if (stayedHref) {
+                    writeUrl(stayedHref, false);
+                }
+            });
+        };
         if (staticNav) staticNav.ready.then(() => {
             restore();
-            window.addEventListener('popstate', restore);
+            window.addEventListener('popstate', onPopState);
         }).catch(() => {});
         else {
             restore();
-            window.addEventListener('popstate', restore);
+            window.addEventListener('popstate', onPopState);
         }
         // 直接打开 ?app= 时工具列表可能还没加载：加载后补上名称和图标
         window.addEventListener('home:tools-updated', () => {
@@ -350,14 +423,25 @@
             const info = toolInfo(new URL(state.href, location.origin));
             if (info.title) { titleEl.textContent = info.title; frame.title = info.title; iconEl.innerHTML = iconHtml(info.icon); }
         });
-        // 打开技能中心、切换对话或点侧栏其他入口时收起
+        // 打开技能中心、切换对话或点侧栏其他入口时先确认再离开，点击取消则保持在当前工具页面
         window.addEventListener('home:hub', event => { if (event.detail?.open) close({ restore: false }); });
         window.addEventListener('home:mode', () => close({ restore: false }));
         document.getElementById('homeSidebar')?.addEventListener('click', event => {
-            // 打开弹窗或侧栏菜单时保留 iframe 及其当前状态。
-            if (!window.HomeToolFrame.isOpen() || event.target.closest('.v2-userbar, .v2-side-tools, [aria-haspopup], #friendLinksManageBtn, a[href]')) return;
-            if (event.target.closest('button, [role="button"], [data-conversation-id]')) close({ restore: false });
-        });
+            if (!window.HomeToolFrame.isOpen() || event.target.closest('.v2-userbar, .v2-side-tools, [aria-haspopup], #friendLinksManageBtn')) return;
+            const trigger = event.target.closest('button, [role="button"], [data-conversation-id], a[href]');
+            if (!trigger) return;
+            if (hasDirtyTool()) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                confirmLeaveTool().then(ok => {
+                    if (!ok) return;
+                    leaveBypass = true;
+                    try { trigger.click(); } finally { leaveBypass = false; }
+                });
+                return;
+            }
+            if (!event.target.closest('a[href]')) close({ restore: false });
+        }, true);
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
     else init();

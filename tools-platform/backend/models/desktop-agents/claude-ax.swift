@@ -170,7 +170,7 @@ func sessionWindow(_ title: String) -> AXUIElement? {
     let windows = (attr(root, kAXWindowsAttribute) as? [AXUIElement]) ?? []
     let matches = windows.filter { window in
         collect(window).contains { _, item in
-            item["role"] as? String == "AXHeading" && item["desc"] as? String == title && (item["title"] as? String ?? "").isEmpty
+            item["role"] as? String == "AXHeading" && item["desc"] as? String == title && ((item["title"] as? String ?? "").isEmpty || (item["title"] as? String ?? "") == title)
         }
     }
     return matches.count == 1 ? matches[0] : nil
@@ -389,7 +389,7 @@ case "clear":
     let expectedHash = argument["hash"] as? String ?? ""
     let items = collect(window)
     let heading = items.first {
-        $0.1["role"] as? String == "AXHeading" && $0.1["title"] as? String == "" && $0.1["desc"] as? String != ""
+        $0.1["role"] as? String == "AXHeading" && $0.1["desc"] as? String == expectedTitle && (($0.1["title"] as? String ?? "").isEmpty || ($0.1["title"] as? String ?? "") == expectedTitle)
     }
     let composers = items.filter { $0.1["role"] as? String == "AXTextArea" }
     guard !expectedTitle.isEmpty, !expectedHash.isEmpty,

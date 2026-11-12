@@ -74,12 +74,13 @@ async function choose(row, { interactionId: expected, option } = {}, { driver: d
     return d.choose({ title: row.title, prompt: pending.prompt, option });
 }
 // Reads the parts of the window the flow relies on. The session heading is the
-// only heading with a description but no title; sidebar rows are titled buttons.
+// only heading with a description; sidebar rows are titled buttons. Older Claude
+// left title empty, newer versions populate title === desc.
 function parse(snapshot) {
     const elements = snapshot.elements || [];
     return {
         frontmost: Boolean(snapshot.frontmost),
-        current: elements.find(e => e.role === 'AXHeading' && !e.title && e.desc)?.desc || '',
+        current: elements.find(e => e.role === 'AXHeading' && Boolean(e.desc) && (!e.title || e.title === e.desc))?.desc || '',
         rows: elements.filter(e => e.role === 'AXButton' && e.title).map(e => e.title),
         composers: elements.filter(e => e.role === 'AXTextArea').map(e => e.value || ''),
         busy: elements.some(e => e.role === 'AXButton' && STOP.has(e.desc)),

@@ -44,6 +44,36 @@
             .app-dialog-btn:focus-visible, .app-dialog-input:focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
             @media (max-width: 520px) { .app-dialog { align-items: end; padding: 0; } .app-dialog-card { width: 100%; border-radius: 18px 18px 0 0; } .app-dialog-actions .app-dialog-btn { flex: 1; } }
             @media (prefers-reduced-motion: reduce) { .app-dialog, .app-dialog-card { transition: none; } }
+            html[data-theme="light"] .app-dialog,
+            body.theme-light .app-dialog { background: rgba(15, 23, 42, .38); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+            html[data-theme="light"] .app-dialog-card,
+            body.theme-light .app-dialog-card { border-color: #e2e8f0; background: linear-gradient(180deg, #ffffff, #f8fafc); color: #0f172a; box-shadow: 0 24px 64px rgba(15, 23, 42, .18); }
+            html[data-theme="light"] .app-dialog-icon,
+            body.theme-light .app-dialog-icon { background: rgba(37, 99, 235, .10); color: #2563eb; }
+            html[data-theme="light"] .app-dialog[data-tone="warning"] .app-dialog-icon,
+            body.theme-light .app-dialog[data-tone="warning"] .app-dialog-icon { background: rgba(245, 158, 11, .14); color: #d97706; }
+            html[data-theme="light"] .app-dialog[data-tone="danger"] .app-dialog-icon,
+            html[data-theme="light"] .app-dialog[data-tone="error"] .app-dialog-icon,
+            body.theme-light .app-dialog[data-tone="danger"] .app-dialog-icon,
+            body.theme-light .app-dialog[data-tone="error"] .app-dialog-icon { background: rgba(220, 38, 38, .12); color: #dc2626; }
+            html[data-theme="light"] .app-dialog[data-tone="success"] .app-dialog-icon,
+            body.theme-light .app-dialog[data-tone="success"] .app-dialog-icon { background: rgba(16, 185, 129, .14); color: #059669; }
+            html[data-theme="light"] .app-dialog-eyebrow,
+            body.theme-light .app-dialog-eyebrow { color: #2563eb; }
+            html[data-theme="light"] .app-dialog-title,
+            body.theme-light .app-dialog-title { color: #0f172a; }
+            html[data-theme="light"] .app-dialog-message,
+            body.theme-light .app-dialog-message { color: #475569; }
+            html[data-theme="light"] .app-dialog-details,
+            html[data-theme="light"] .app-dialog-input,
+            body.theme-light .app-dialog-details,
+            body.theme-light .app-dialog-input { background: #f8fafc; border-color: #cbd5e1; color: #0f172a; }
+            html[data-theme="light"] .app-dialog-btn,
+            body.theme-light .app-dialog-btn { background: #ffffff; border-color: #cbd5e1; color: #334155; }
+            html[data-theme="light"] .app-dialog-btn:hover,
+            body.theme-light .app-dialog-btn:hover { background: #f1f5f9; border-color: #94a3b8; color: #0f172a; }
+            html[data-theme="light"] .app-dialog-btn.primary,
+            body.theme-light .app-dialog-btn.primary { border-color: transparent; background: #2563eb; color: #ffffff; }
             .app-dialog-host { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; overflow: visible; }
             .app-dialog-host::backdrop { background: transparent; }
         `;

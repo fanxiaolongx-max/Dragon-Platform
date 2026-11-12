@@ -412,12 +412,23 @@
             }
         });
 
-        window.addEventListener('beforeunload', event => {
-            if (isDirty) {
-                event.preventDefault();
-                event.returnValue = '';
+        window.__dhIsDirty = () => Boolean(isDirty);
+        window.__dhConfirmLeave = async hostConfirm => {
+            if (!isDirty) return true;
+            const message = isChinese()
+                ? '值班表有未保存的修改，确定放弃并返回吗？'
+                : 'Duty roster has unsaved changes. Discard them?';
+            if (typeof hostConfirm === 'function') return hostConfirm(message);
+            if (window.AppDialog?.confirm) {
+                return window.AppDialog.confirm(message, {
+                    title: isChinese() ? '未保存的修改' : 'Unsaved changes',
+                    tone: 'warning',
+                    confirmText: isChinese() ? '放弃并离开' : 'Discard & Leave',
+                    cancelText: isChinese() ? '继续编辑' : 'Stay'
+                });
             }
-        });
+            return true;
+        };
     }
 
     function updateLanguageUI() {

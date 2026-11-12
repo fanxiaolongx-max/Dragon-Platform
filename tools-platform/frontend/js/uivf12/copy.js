@@ -1609,8 +1609,12 @@ function buildUivProgressPanelScript(state) {
                 stopButton.textContent = '全部任务已停止';
                 stopButton.style.opacity = '.6';
             }
-            stopButton.onclick = function () {
-                if (!window.confirm('确定停止全部批量任务？未执行的任务将不再运行。')) return;
+            stopButton.onclick = async function () {
+                const msg = '确定停止全部批量任务？未执行的任务将不再运行。';
+                const ok = window.AppDialog?.confirm
+                    ? await window.AppDialog.confirm(msg, { title: '停止批量任务', tone: 'danger', confirmText: '停止全部', cancelText: '取消' })
+                    : (typeof window.showNavbarConfirm === 'function' ? await window.showNavbarConfirm({ title: '停止批量任务', message: msg, tone: 'danger' }) : false);
+                if (!ok) return;
                 writeControl({ stopRequested: true, stoppedAt: Date.now() });
                 appendControlLog('已请求停止全部任务');
                 stopButton.disabled = true;

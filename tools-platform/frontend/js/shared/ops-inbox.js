@@ -207,7 +207,7 @@
     function reviewNotice(message) {
         const title = L('运维待办', 'Ops drafts');
         if (window.AppDialog?.alert) return window.AppDialog.alert(message, { title });
-        window.alert(`${title}\n${message}`);
+        if (typeof window.showNavbarNotice === 'function') return window.showNavbarNotice({ title, message });
     }
 
     async function openReview(target) {
@@ -240,7 +240,7 @@
         const options = { tone: 'danger', confirmText: L('丢弃', 'Discard'), cancelText: L('取消', 'Cancel') };
         if (window.AppDialog?.confirm) return window.AppDialog.confirm(message, options);
         if (window.showNavbarConfirm) return window.showNavbarConfirm({ message, ...options });
-        return Promise.resolve(window.confirm(message));
+        return Promise.resolve(false);
     }
 
     async function action(event) {

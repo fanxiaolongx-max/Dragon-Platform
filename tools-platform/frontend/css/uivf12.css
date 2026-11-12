@@ -28,6 +28,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px 14px;
 }
 .uiv-title .tag { font-size: 11px; background: #e81123; color: #fff; padding: 3px 8px; border-radius: 12px; font-weight: bold; }
 
@@ -314,8 +316,10 @@
     overflow: auto;
     min-width: 0;
 }
-.panel-label { font-weight: 600; margin-bottom: 8px; display: block; font-size: 13px; color: #569cd6; }
-.input-row { display: flex; gap: 10px; margin-bottom: 14px; }
+.panel-label { font-weight: 600; margin-bottom: 8px; display: block; font-size: 13px; color: #569cd6; flex-wrap: wrap; gap: 4px 10px; }
+.input-row { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+#urlPreset { flex: 0 0 35%; max-width: 240px; min-width: 130px; }
+#requestUrl { flex: 1 1 200px; min-width: 0; }
 select, input[type="text"], textarea {
     width: 100%;
     background: #121212;
@@ -455,11 +459,12 @@ textarea { flex: 1; resize: none; white-space: pre; overflow: auto; line-height:
     flex: 0 0 auto;
     align-items: stretch;
     margin-bottom: 0;
+    flex-wrap: wrap;
 }
 
 .file-name-glow {
     position: relative;
-    flex: 1 1 300px;
+    flex: 1 1 220px;
     min-width: 0;
     overflow: hidden;
     padding: 2px;
@@ -509,7 +514,9 @@ textarea { flex: 1; resize: none; white-space: pre; overflow: auto; line-height:
 }
 
 .file-name-guide {
-    flex: 0 0 290px;
+    flex: 1 1 240px;
+    max-width: 100%;
+    min-width: 0;
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
@@ -1167,13 +1174,18 @@ textarea { flex: 1; resize: none; white-space: pre; overflow: auto; line-height:
 .controls label { margin-bottom: 0; color: #d4d4d4; display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal; font-size: 12px; }
 
 /* 底部按钮组 */
-.btn-group { display: flex; gap: 10px; }
-.btn-group button { flex: 1; }
+.btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn-group button { flex: 1 1 108px; min-width: 0; white-space: nowrap; }
+.left-panel > .btn-group .btn-primary { flex: 1.5 1 160px; }
 
 /* 右侧面板输出区标题 */
-.output-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
-.output-label { color: var(--accent); font-size: 13px; font-weight: 600; }
+.output-header { display: flex; justify-content: space-between; align-items: center; gap: 8px 12px; flex-wrap: wrap; margin-bottom: 6px; }
+.output-label { color: var(--accent); font-size: 13px; font-weight: 600; flex: 1 1 170px; min-width: 0; line-height: 1.35; }
 .output-label.console-label { color: var(--console); }
+.output-header .btn-group { gap: 8px; margin: 0; flex: 0 1 auto; align-items: center; justify-content: flex-end; min-width: 0; }
+.output-header .btn-group button { flex: 0 0 auto; }
+.output-header .save-category-select { flex: 0 1 auto; width: auto; max-width: 150px; min-width: 96px; }
+#btnCopyConsole { flex: 0 0 auto; margin-left: auto; }
 
 .error-msg { color: #ff6b6b; font-size: 12px; margin-top: 6px; min-height: 16px; }
 
@@ -4172,4 +4184,217 @@ body.uiv-modal-open { overflow: hidden; }
     #uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-site-script-item { grid-template-columns: 1fr; gap: 10px; }
     #uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-site-script-buttons { flex-wrap: wrap; }
     #uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-site-script-buttons button { flex: 1; }
+}
+
+/* ── 响应式自适应布局（右侧边栏挤压 / 半屏 / 窄窗体） ─────────────── */
+#uiv-page .uiv-title-left,
+#uiv-page .uiv-title-actions {
+    min-width: 0;
+}
+#uiv-page .uiv-title-actions {
+    flex-wrap: wrap;
+}
+#uiv-page .response-focus-controls {
+    flex-wrap: wrap;
+}
+#uiv-page .response-focus-input-wrap {
+    flex: 1 1 200px;
+    min-width: 0;
+}
+
+@media (max-width: 1320px) {
+    #uiv-page .page-content {
+        padding: 14px 16px;
+        padding-top: calc(var(--navbar-h) + 12px);
+    }
+    #uiv-page .uiv-title {
+        font-size: 18px;
+        padding-bottom: 8px;
+        margin-bottom: 12px;
+    }
+    #uiv-page .uiv-container {
+        gap: 12px;
+    }
+    #uiv-page .sidebar {
+        width: 256px;
+        padding: 12px;
+    }
+    #uiv-page .left-panel,
+    #uiv-page .right-panel {
+        padding: 14px;
+    }
+    #uiv-page #urlPreset {
+        flex-basis: 38%;
+        min-width: 115px;
+    }
+}
+
+@media (max-width: 1120px) {
+    #uiv-page {
+        height: auto;
+        min-height: 100vh;
+    }
+    #uiv-page .page-content {
+        flex: 0 0 auto;
+    }
+    #uiv-page .uiv-container {
+        display: grid;
+        grid-template-columns: 250px minmax(0, 1fr);
+        gap: 14px;
+        align-items: start;
+        flex: 0 0 auto;
+    }
+    #uiv-page .sidebar {
+        width: 100%;
+        grid-column: 1;
+        grid-row: 1 / span 2;
+        position: sticky;
+        top: calc(var(--navbar-h) + 12px);
+        max-height: calc(100vh - var(--navbar-h) - 26px);
+    }
+    #uiv-page #scriptList {
+        min-height: 120px;
+    }
+    #uiv-page .left-panel {
+        grid-column: 2;
+        grid-row: 1;
+        overflow: visible;
+    }
+    #uiv-page .right-panel {
+        grid-column: 2;
+        grid-row: 2;
+        overflow: visible;
+    }
+    #uiv-page #jsonInput,
+    #uiv-page #payloadViewer,
+    #uiv-page #responseSampleInput,
+    #uiv-page #responseSampleViewer {
+        flex: 0 0 auto;
+        min-height: 136px;
+        max-height: 360px;
+        resize: vertical;
+    }
+    #uiv-page #codeOutput {
+        flex: 0 0 auto !important;
+        min-height: 220px;
+        resize: vertical;
+    }
+    #uiv-page #consoleOutput {
+        flex: 0 0 auto !important;
+        min-height: 180px;
+        resize: vertical;
+    }
+    #uiv-page .controls {
+        gap: 8px 12px;
+        padding: 9px 10px;
+    }
+}
+
+@media (max-width: 860px) {
+    #uiv-page .page-content {
+        padding: 12px 14px;
+        padding-top: calc(var(--navbar-h) + 10px);
+    }
+    #uiv-page .uiv-title {
+        font-size: 17px;
+    }
+    #uiv-page .uiv-container {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 12px;
+    }
+    #uiv-page .sidebar {
+        grid-column: auto;
+        grid-row: auto;
+        position: static;
+        max-height: none;
+        overflow: visible;
+        padding: 12px;
+    }
+    #uiv-page #scriptList {
+        flex: 0 0 auto !important;
+        max-height: 220px;
+        min-height: 0;
+        overflow-y: auto;
+        padding-right: 4px !important;
+        padding-bottom: 6px !important;
+        margin-bottom: 8px;
+    }
+    #uiv-page .left-panel,
+    #uiv-page .right-panel {
+        grid-column: auto;
+        grid-row: auto;
+        padding: 14px;
+    }
+    #uiv-page .input-row {
+        gap: 8px;
+    }
+    #uiv-page #urlPreset {
+        flex: 0 0 185px;
+        max-width: 46%;
+        min-width: 140px;
+    }
+    #uiv-page .output-header .btn-group {
+        justify-content: flex-start;
+    }
+}
+
+@media (min-width: 600px) and (max-width: 860px) {
+    #uiv-page #scriptList {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+        gap: 8px;
+        align-items: start;
+    }
+    #uiv-page #scriptList .category-group {
+        margin-bottom: 0;
+    }
+    #uiv-page #scriptList > :not(.category-group) {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 560px) {
+    #uiv-page .page-content {
+        padding: 10px;
+        padding-top: calc(var(--navbar-h) + 8px);
+    }
+    #uiv-page .uiv-title {
+        font-size: 16px;
+    }
+    #uiv-page #urlPreset {
+        flex: 1 1 100%;
+        max-width: none;
+        width: 100%;
+    }
+    #uiv-page #requestUrl {
+        flex: 1 1 100%;
+    }
+    #uiv-page .btn-group {
+        gap: 8px;
+    }
+    #uiv-page .left-panel > .btn-group button {
+        flex: 1 1 calc(50% - 4px);
+    }
+    #uiv-page .left-panel > .btn-group .btn-primary {
+        flex: 1 1 100%;
+    }
+    #uiv-page .output-header .btn-group {
+        width: 100%;
+    }
+    #uiv-page .output-header .save-category-select {
+        max-width: none;
+        flex: 1 1 120px;
+    }
+    #uiv-page #jsonInput,
+    #uiv-page #payloadViewer,
+    #uiv-page #responseSampleInput,
+    #uiv-page #responseSampleViewer {
+        min-height: 120px;
+    }
+    #uiv-page #codeOutput {
+        min-height: 190px;
+    }
+    #uiv-page #consoleOutput {
+        min-height: 150px;
+    }
 }

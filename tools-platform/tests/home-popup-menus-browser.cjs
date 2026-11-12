@@ -157,6 +157,16 @@ app.whenReady().then(async () => {
     await until(`!document.querySelector('.v2-discover').classList.contains('is-open')`);
     assert.equal(await evaluate(`document.querySelector('.v2-discover').classList.contains('is-open')`), false, 'clicking a tool in discover menu closes the popover');
     await evaluate(`HomeToolFrame?.close?.(); true`);
+    // 左下角用户栏：普通用户不展示流光与标识；管理员展示流光与管理员标识；超级管理员叠加专属皇冠与流光渐变徽章
+    await evaluate(`localStorage.setItem('tools_role','readonly');window.dispatchEvent(new CustomEvent('tools:authchange'));true`);
+    assert.deepEqual(await evaluate(`({a:v2UserBtn.classList.contains('is-admin'),s:v2UserBtn.classList.contains('is-superadmin'),b:v2RoleBadge.hidden,c:v2AvatarCrest.hidden})`), { a: false, s: false, b: true, c: true });
+    await evaluate(`localStorage.setItem('tools_role','admin');localStorage.setItem('tools_super','0');ToolsI18n.setLanguage('zh-CN');window.dispatchEvent(new CustomEvent('tools:authchange'));true`);
+    assert.deepEqual(await evaluate(`({a:v2UserBtn.classList.contains('is-admin'),s:v2UserBtn.classList.contains('is-superadmin'),b:v2RoleBadge.hidden,t:v2RoleBadge.textContent.trim(),c:v2AvatarCrest.hidden})`), { a: true, s: false, b: false, t: '管理员', c: true });
+    await evaluate(`localStorage.setItem('tools_super','1');window.dispatchEvent(new CustomEvent('tools:authchange'));v2UserBtn.click();true`);
+    assert.deepEqual(await evaluate(`({a:v2UserBtn.classList.contains('is-admin'),s:v2UserBtn.classList.contains('is-superadmin'),t:v2RoleBadge.textContent.trim(),c:v2AvatarCrest.hidden,pt:document.querySelector('.v2-account-head.is-superadmin .v2-role-badge')?.textContent.trim()})`), { a: true, s: true, t: '超级管理员', c: false, pt: '超级管理员' });
+    await evaluate(`ToolsI18n.setLanguage('en-US');true`);
+    assert.equal(await evaluate(`v2RoleBadge.textContent.trim()`), 'Super Admin');
+    await evaluate(`HomeV2.closePop();true`);
     assert.deepEqual(await evaluate('fixtureErrors'),[]);
     await win.loadURL(`http://127.0.0.1:${server.address().port}/requirements`);
     await until(`Array.from(document.querySelectorAll('.req-title')).some(node => node.textContent === 'Test feedback')`);

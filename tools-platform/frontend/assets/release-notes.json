@@ -1,12 +1,12 @@
 {
   "zh": [
-    "移动端（iOS & Android）新增语音通话收音波形光环动效，并统一音频会话与播放器生命周期管理，切换扬声器/听筒及中断播报更稳定。",
-    "修复移动端 Markdown 表格分隔行、转义竖线与列宽对齐渲染，补充代码块围栏、六级标题与有序/无序列表解析并新增共享单元测试。",
-    "优化桌面端对话右侧快速预览导航条在拖拽侧栏时的实时跟随与稳定性。"
+    "首页新增交互式新手引导与遮罩管理，支持跳过与随时在个人菜单重放，并与自动导入弹窗及工具模式深度隔离。",
+    "离开未保存工具页面统一采用 AppDialog 对话框守卫并支持浅色主题；同步优化管理员与超级管理员身份徽章和导航路由去重。",
+    "新增 Android 与 iOS 移动端多架构并行自动构建工作流，打通 App Store Connect API 凭据并保持全端版本号对齐。"
   ],
   "en": [
-    "Add a live microphone waveform halo to mobile voice calls and unify iOS/Android audio session and MediaPlayer lifecycle handling across route switches and interruptions.",
-    "Fix mobile Markdown table parsing, escaped pipes, column sizing, fenced code blocks, level-6 headings, and list variants with shared unit test coverage.",
-    "Polish desktop quick-navigation rail tracking and automated test verification."
+    "Add an interactive homepage product tour with backdrop isolation, modal evasion, and replay from the user menu.",
+    "Unify unsaved leave-page guards with AppDialog, add light-theme surface styles, polish admin and superadmin badges, and normalize sidebar shortcut paths.",
+    "Integrate automated Android APK and iOS build jobs into GitHub Actions with App Store Connect API credentials and aligned release versions."
   ]
 }

@@ -10,7 +10,7 @@ const targetsRepo = require('./sla-targets-repository');
 const SAMPLE_ROWS = 30;
 const MAX_ROWS = 50000;
 
-const toNumber = value => { const number = typeof value === 'number' ? value : Number(String(value ?? '').replace(/[,%\s]/g, '')); return value === null || value === undefined || String(value).trim() === '' || !Number.isFinite(number) ? null : number; };
+const toNumber = value => { const number = typeof value === 'number' ? value : Number(String(value ?? '').replace(/^[≥≤><=\s]+/, '').replace(/[,%％\s]/g, '')); return value === null || value === undefined || String(value).trim() === '' || !Number.isFinite(number) ? null : number; };
 const sourceKey = file => rules.identity(rules.tableName(file.source_key || file.name));
 const monthStart = (month, offset = 0) => rules.shift(month, offset) + '-01T00:00:00Z';
 

@@ -307,8 +307,26 @@ object DragonClawHelpers {
         }
     }
 
+    private fun ensureUniqueMessageId(
+        rawId: String,
+        fallbackPrefix: String,
+        index: Int,
+        seenIds: MutableSet<String>
+    ): String {
+        val baseId = rawId.trim().ifBlank { "${fallbackPrefix}_$index" }
+        if (seenIds.add(baseId)) return baseId
+        var suffix = 2
+        var candidate = "${baseId}_#$suffix"
+        while (!seenIds.add(candidate)) {
+            suffix += 1
+            candidate = "${baseId}_#$suffix"
+        }
+        return candidate
+    }
+
     fun mapStoredMessages(items: List<SessionMessageItem>, baseUrl: String = ""): List<ChatMessage> {
-        val mapped = items.map { item ->
+        val seenIds = HashSet<String>(items.size)
+        val mapped = items.mapIndexed { index, item ->
             val role = if (item.role == "user") "user" else "model"
             val traces = extractToolTracesFromEvents(item.events)
             val thinking = extractThinkingFromEvents(item.events)
@@ -316,8 +334,14 @@ object DragonClawHelpers {
                 rawContent = item.content,
                 baseUrl = baseUrl
             )
+            val uniqueId = ensureUniqueMessageId(
+                rawId = item.id,
+                fallbackPrefix = "${item.created_at.orEmpty()}_${role}_${item.content.hashCode()}",
+                index = index,
+                seenIds = seenIds
+            )
             ChatMessage(
-                id = item.id.ifBlank { "${item.created_at.orEmpty()}_${role}_${item.content.hashCode()}" },
+                id = uniqueId,
                 role = role,
                 content = cleanedText,
                 thinking = thinking,
@@ -337,7 +361,8 @@ object DragonClawHelpers {
 
     fun mapDesktopAgentMessages(items: List<DesktopAgentMessageItem>, baseUrl: String = ""): List<ChatMessage> {
         val cleanBase = normalizeBaseUrl(baseUrl)
-        val mapped = items.mapNotNull { item ->
+        val seenIds = HashSet<String>(items.size)
+        val mapped = items.mapIndexedNotNull { index, item ->
             val structuredAttachments = item.attachments.mapNotNull { att ->
                 val rawPath = att.path.trim()
                 if (rawPath.isEmpty()) return@mapNotNull null
@@ -352,13 +377,19 @@ object DragonClawHelpers {
                 baseUrl = cleanBase,
                 existingAttachments = structuredAttachments
             )
-            if (cleanedText.isEmpty() && mergedAttachments.isEmpty()) return@mapNotNull null
+            if (cleanedText.isEmpty() && mergedAttachments.isEmpty()) return@mapIndexedNotNull null
             val role = if (item.role == "user") "user" else "model"
             val lastRound = item.rounds.lastOrNull()
             val totalIn = item.rounds.mapNotNull { it.inputTokens }.takeIf { it.isNotEmpty() }?.sum()
             val totalOut = item.rounds.mapNotNull { it.outputTokens }.takeIf { it.isNotEmpty() }?.sum()
+            val uniqueId = ensureUniqueMessageId(
+                rawId = item.id,
+                fallbackPrefix = "${item.createdAt.orEmpty()}_${role}_${cleanedText.hashCode()}_${mergedAttachments.size}",
+                index = index,
+                seenIds = seenIds
+            )
             ChatMessage(
-                id = item.id.ifBlank { "${item.createdAt.orEmpty()}_${role}_${cleanedText.hashCode()}_${mergedAttachments.size}" },
+                id = uniqueId,
                 role = role,
                 content = cleanedText,
                 createdAt = item.createdAt,

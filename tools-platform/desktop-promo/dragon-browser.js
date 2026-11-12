@@ -50,6 +50,33 @@ function createDragonBrowser({ onOpenAppUrl = () => false, partition, whenReady,
     }
     const T = (zh, en) => getLanguage() === 'en-US' ? en : zh;
 
+    function tabZoomFactor(tab = active()) {
+        const wc = tab?.page?.webContents;
+        if (!wc || wc.isDestroyed()) return 1;
+        const pageZoom = wc.getZoomFactor() || 1;
+        const visualScale = Number.isFinite(tab.visualScale) && tab.visualScale > 0 ? tab.visualScale : 1;
+        return pageZoom * visualScale;
+    }
+    function tabZoomPercent(tab = active()) {
+        return Math.max(10, Math.round(tabZoomFactor(tab) * 100));
+    }
+    function sendZoomState(tab = active(), { announce = false } = {}) {
+        if (!tab || tab.closed || tab.page.webContents.isDestroyed()) return;
+        const wc = tab.page.webContents;
+        const factor = wc.getZoomFactor() || 1;
+        const visualScale = Number.isFinite(tab.visualScale) && tab.visualScale > 0 ? tab.visualScale : 1;
+        const percent = Math.max(10, Math.round(factor * visualScale * 100));
+        tab.lastZoomPercent = percent;
+        wc.send('dragon-browser:zoom-state', {
+            percent,
+            factor,
+            visualScale,
+            lang: getLanguage(),
+            theme: sidebarTheme,
+            announce
+        });
+    }
+
     function pushState() {
         if (!win || win.isDestroyed()) return;
         const tab = active();
@@ -62,7 +89,7 @@ function createDragonBrowser({ onOpenAppUrl = () => false, partition, whenReady,
             name: english ? 'Dragon Browser' : 'Dragon 浏览器', badge: 'Dragon', color: tab.link.color || 'teal',
             title: wc.getTitle() || tab.link.name, url: wc.getURL(), layout:tab.readingLayout||null,
             canBack: wc.canGoBack(), canForward: wc.canGoForward(), maximized: win.isMaximized(), activeId,
-            zoom: Math.round(wc.getZoomFactor() * 100), bookmarked: bookmarks.some(item => item.url === savedUrl(wc.getURL())),
+            zoom: tabZoomPercent(tab), bookmarked: bookmarks.some(item => item.url === savedUrl(wc.getURL())),
             find, panel, notice, bookmarks, history, libraryError, extensions:getExtensions().map(item=>({id:item.id,name:item.name,version:item.version,enabled:!item.error})), downloads: getDownloads()?.list() || [],
             tabs: tabs.map(item => ({ id: item.id, title: item.page.webContents.getTitle() || item.link.name || (english ? 'New tab' : '新标签页'), url: item.page.webContents.getURL(), loading: item.page.webContents.isLoading(), muted: item.page.webContents.isAudioMuted() }))
         };
@@ -155,6 +182,7 @@ function createDragonBrowser({ onOpenAppUrl = () => false, partition, whenReady,
         layout();
         if (sidebarMode && sidebarHost && !sidebarHost.isDestroyed()) sidebarHost.webContents.send('dragon-browser:reveal');
         else { win.show(); win.focus(); active().page.webContents.focus(); }
+        sendZoomState(active(), { announce: tabZoomPercent(active()) !== 100 });
         pushState();
     }
 
@@ -204,13 +232,21 @@ function createDragonBrowser({ onOpenAppUrl = () => false, partition, whenReady,
         const url = webUrl(tab.page.webContents.getURL());
         if (url) open({ link: { ...tab.link, url }, captureLogin: tab.captureLogin, tool: tab.tool ? { ...tab.tool, timer: undefined } : undefined });
     }
-    function zoom(direction) {
-        const wc = active()?.page.webContents; if (!wc) return;
-        const value = wc.getZoomFactor();
+    function zoom(direction, target = active()) {
+        const wc = target?.page.webContents; if (!wc || wc.isDestroyed()) return;
+        const value = tabZoomFactor(target);
         const next = direction === 'reset' ? 1 : direction === 'in'
             ? ZOOM_LEVELS.find(level => level > value + .01) || 5
             : [...ZOOM_LEVELS].reverse().find(level => level < value - .01) || .25;
-        wc.setZoomFactor(next); pushState();
+        if (target.visualScale && Math.abs(target.visualScale - 1) > .005) {
+            target.visualScale = 1;
+            wc.setVisualZoomLevelLimits(1, 1).then(() => {
+                if (!target.closed && !wc.isDestroyed()) wc.setVisualZoomLevelLimits(1, 4).catch(() => {});
+            }).catch(() => {});
+        }
+        wc.setZoomFactor(next);
+        sendZoomState(target, { announce: true });
+        pushState();
     }
     function closeFind() {
         if (find.open) active()?.page.webContents.stopFindInPage('clearSelection');
@@ -285,20 +321,22 @@ function createDragonBrowser({ onOpenAppUrl = () => false, partition, whenReady,
         const managed = tab && loginContext(tab), store = getCredentialStore();
         let loginEnabled = false;
         try { loginEnabled = managed && store ? await store.enabled(url) : false; } catch (_) {}
-        popup([
-            ...(!sidebarMode?[{ label: T('新建标签页', 'New tab'), accelerator: 'CmdOrCtrl+T', click: () => open({ link: { name: T('新标签页', 'New tab'), url: 'about:blank' } }) }]:[]),
-            { label: T('恢复关闭的标签页', 'Reopen closed tab'), accelerator: 'CmdOrCtrl+Shift+T', enabled: closedTabs.length > 0, click: reopenTab },
-            { type: 'separator' },
-            { label: T('收藏夹', 'Bookmarks'), click: () => showPanel('bookmarks') },
-            { label: T('历史记录', 'History'), click: () => showPanel('history') },
-            { label: T('下载内容', 'Downloads'), click: () => showPanel('downloads') },
-            { label: T('打开下载文件夹', 'Open Downloads folder'), click: () => shell.openPath(app.getPath('downloads')).catch(() => {}) },
-            { label: T('此登录站点：记住密码并自动登录', 'This login site: remember password and sign in'), type: 'checkbox', checked: loginEnabled, enabled: !!(managed && store), click: () => store.toggle(url).catch(() => {}) },
-            { label: T('清除此登录站点的密码并关闭自动登录', 'Forget this login and disable auto sign-in'), enabled: !!(managed && store), click: () => store.remove(url).catch(() => {}) },
-            { type: 'separator' },
-            { label: T('放大', 'Zoom in'), click: () => zoom('in') },
-            { label: T('缩小', 'Zoom out'), click: () => zoom('out') },
-            { label: T('重置缩放 (100%)', 'Reset zoom (100%)'), click: () => zoom('reset') },
+            const zoomPercent = tabZoomPercent(tab);
+            popup([
+                ...(!sidebarMode?[{ label: T('新建标签页', 'New tab'), accelerator: 'CmdOrCtrl+T', click: () => open({ link: { name: T('新标签页', 'New tab'), url: 'about:blank' } }) }]:[]),
+                { label: T('恢复关闭的标签页', 'Reopen closed tab'), accelerator: 'CmdOrCtrl+Shift+T', enabled: closedTabs.length > 0, click: reopenTab },
+                { type: 'separator' },
+                { label: T('收藏夹', 'Bookmarks'), click: () => showPanel('bookmarks') },
+                { label: T('历史记录', 'History'), click: () => showPanel('history') },
+                { label: T('下载内容', 'Downloads'), click: () => showPanel('downloads') },
+                { label: T('打开下载文件夹', 'Open Downloads folder'), click: () => shell.openPath(app.getPath('downloads')).catch(() => {}) },
+                { label: T('此登录站点：记住密码并自动登录', 'This login site: remember password and sign in'), type: 'checkbox', checked: loginEnabled, enabled: !!(managed && store), click: () => store.toggle(url).catch(() => {}) },
+                { label: T('清除此登录站点的密码并关闭自动登录', 'Forget this login and disable auto sign-in'), enabled: !!(managed && store), click: () => store.remove(url).catch(() => {}) },
+                { type: 'separator' },
+                { label: T(`当前缩放：${zoomPercent}%`, `Current zoom: ${zoomPercent}%`), enabled: false },
+                { label: T('放大', 'Zoom in'), accelerator: 'CmdOrCtrl+=', click: () => zoom('in') },
+                { label: T('缩小', 'Zoom out'), accelerator: 'CmdOrCtrl+-', click: () => zoom('out') },
+                { label: zoomPercent === 100 ? T('重置缩放 (100%)', 'Reset zoom (100%)') : T(`重置缩放 (${zoomPercent}% → 100%)`, `Reset zoom (${zoomPercent}% → 100%)`), click: () => zoom('reset') },
             { label: T('在页面中查找', 'Find in page'), accelerator: 'CmdOrCtrl+F', click: openFind },
             { label: T('打印…', 'Print…'), accelerator: 'CmdOrCtrl+P', click: () => active()?.page.webContents.print({}) },
             { label: T('全屏', 'Full screen'), accelerator: 'F11', click: () => {const host=sidebarMode?sidebarHost:win;host?.setFullScreen(!host.isFullScreen());} },
@@ -388,7 +426,7 @@ function createDragonBrowser({ onOpenAppUrl = () => false, partition, whenReady,
         else if (key === 'h') { event.preventDefault(); showPanel('history'); }
         else if (key === 'j') { event.preventDefault(); showPanel('downloads'); }
         else if (key === 'p') { event.preventDefault(); wc.print({}); }
-        else if (['+', '=', '-', '0'].includes(key)) { event.preventDefault(); zoom(key === '0' ? 'reset' : key === '-' ? 'out' : 'in'); }
+        else if (['+', '=', '-', '_', '0'].includes(key) || ['Equal', 'Minus', 'Digit0', 'NumpadAdd', 'NumpadSubtract', 'Numpad0'].includes(input.code)) { event.preventDefault(); zoom(key === '0' || input.code === 'Digit0' || input.code === 'Numpad0' ? 'reset' : key === '-' || key === '_' || input.code === 'Minus' || input.code === 'NumpadSubtract' ? 'out' : 'in'); }
         else if (/^[1-9]$/.test(key)) { event.preventDefault(); showTab(tabs[key === '9' ? tabs.length - 1 : Number(key) - 1]?.id); }
         else if (key === 'tab' && tabs.length) {
             event.preventDefault();
@@ -423,12 +461,13 @@ function createDragonBrowser({ onOpenAppUrl = () => false, partition, whenReady,
     function open(options) {
         ensureWindow();
         const page = options.page || new BrowserView({ webPreferences: { partition, preload: path.join(__dirname, 'page-preload.js'), contextIsolation: true, sandbox: true, nodeIntegration: false, backgroundThrottling: false } });
-        const tab = { ...options, id: `dragon-tab-${++sequence}`, page, win };
+        const tab = { ...options, id: `dragon-tab-${++sequence}`, page, win, visualScale: 1, lastZoomPercent: 100 };
         tab.setOperatorState=value=>{tab.operatorState={...value,lang:getLanguage()};if(!wc.isDestroyed())wc.send('dragon-browser:operator-state',tab.operatorState);if(activeId===tab.id)layout();};
         tabs.push(tab);
         if (shown) tab.onModeChange?.(true);
         const wc = page.webContents;
-        themePage(tab);wc.on('did-finish-load',()=>themePage(tab));
+        wc.setVisualZoomLevelLimits(1, 4).catch(() => {});
+        themePage(tab);wc.on('did-finish-load',()=>{themePage(tab);sendZoomState(tab,{announce:tabZoomPercent(tab)!==100});});
         const loginNavigation = (_event, url, _inPlace, isMainFrame) => {
             if (isMainFrame && captureSite(url)) tab.captureLogin = true;
         };
@@ -458,10 +497,33 @@ function createDragonBrowser({ onOpenAppUrl = () => false, partition, whenReady,
         const events = ['did-navigate', 'did-navigate-in-page', 'page-title-updated', 'did-start-loading', 'did-stop-loading'];
         events.forEach(event => wc.on(event, changed));
         wc.on('before-input-event', keyboard);
-        const wheelZoom = (_event, direction) => { if (shown && activeId === tab.id) zoom(direction); };
+        const wheelZoom = (_event, direction) => { if (shown && activeId === tab.id) zoom(direction, tab); };
         const pageMessage = (event, channel, direction) => {
-            if(event.senderFrame===wc.mainFrame&&channel==='dragon-browser:operator-action'&&direction==='activity')tab.operatorAction?.('activity');
-            if (event.senderFrame === wc.mainFrame && channel === 'dragon-browser:zoom-wheel' && ['in', 'out'].includes(direction)) wheelZoom(event, direction);
+            if (event.senderFrame !== wc.mainFrame) return;
+            if (channel === 'dragon-browser:operator-action' && direction === 'activity') tab.operatorAction?.('activity');
+            if (channel === 'dragon-browser:zoom-wheel' && ['in', 'out'].includes(direction)) wheelZoom(event, direction);
+            if (channel === 'dragon-browser:zoom-command' && ['in', 'out', 'reset'].includes(direction)) wheelZoom(event, direction);
+            if (channel === 'dragon-browser:visual-zoom') {
+                const scale = Number(direction);
+                if (!Number.isFinite(scale) || scale < .2 || scale > 10) return;
+                const nextScale = Math.abs(scale - 1) < .005 ? 1 : scale;
+                const before = tab.lastZoomPercent || tabZoomPercent(tab);
+                tab.visualScale = nextScale;
+                const after = tabZoomPercent(tab);
+                if (after !== before) {
+                    sendZoomState(tab, { announce: true });
+                    pushState();
+                } else {
+                    sendZoomState(tab, { announce: false });
+                }
+            }
+            if (channel === 'dragon-browser:zoom-query') {
+                const before = tab.lastZoomPercent;
+                const current = tabZoomPercent(tab);
+                const changed = Number.isFinite(before) && current !== before;
+                sendZoomState(tab, { announce: changed || current !== 100 });
+                if (changed) pushState();
+            }
         };
         const found = (_event, result) => {
             if (activeId !== tab.id || !find.open || result.requestId !== findRequest) return;
@@ -511,7 +573,7 @@ function createDragonBrowser({ onOpenAppUrl = () => false, partition, whenReady,
     function handleAction(sender, action, payload) {
         const fromSidebar = sidebarMode && sidebarHost && !sidebarHost.isDestroyed() && sender === sidebarHost.webContents;
         if(fromSidebar&&action==='sidebar-menu'){sidebarMenu(payload);return true;}
-        if(fromSidebar&&action==='theme'){if(['light','dark'].includes(payload)){sidebarTheme=payload;tabs.forEach(themePage);downloadToast.refreshConfig();}return true;}
+        if(fromSidebar&&action==='theme'){if(['light','dark'].includes(payload)){sidebarTheme=payload;tabs.forEach(tab=>{themePage(tab);sendZoomState(tab,{announce:false});});downloadToast.refreshConfig();}return true;}
         if(fromSidebar&&action==='download-anchor'){downloadToast.setAnchor(payload);return true;}
         if (!win && fromSidebar && action === 'new-tab') { open({ link: { name: T('新标签页', 'New tab'), url: 'about:blank' } }); return true; }
         if (!win || (sender !== win.webContents && !fromSidebar)) return false;

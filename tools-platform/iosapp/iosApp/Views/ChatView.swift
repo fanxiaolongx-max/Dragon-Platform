@@ -18,6 +18,7 @@ struct ChatView: View {
     @State private var modelQuery = ""
     @State private var lastAnchoredSessionGen = -1
     @State private var initialOpenSettled = false
+    @State private var userInteractedSinceOpen = false
     @State private var isNearBottom = true
     @State private var anchorBeforePrependId: String? = nil
     @State private var selectedPhotoItems: [PhotosPickerItem] = []
@@ -59,7 +60,7 @@ struct ChatView: View {
             } else {
                 ScrollViewReader { proxy in
                     ScrollView {
-                        LazyVStack(spacing: 16) {
+                        VStack(spacing: 16) {
                             if store.hasMoreOlderMessages || store.isLoadingOlderMessages {
                                 HStack(spacing: 8) {
                                     if store.isLoadingOlderMessages {
@@ -150,34 +151,27 @@ struct ChatView: View {
                         .padding(.horizontal, 14)
                         .padding(.vertical, 12)
                     }
-                    .defaultScrollAnchor(.bottom)
+                    .id(store.chatOpenScrollGeneration)
                     .scrollDismissesKeyboard(.interactively)
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 4).onChanged { _ in
+                            userInteractedSinceOpen = true
+                        }
+                    )
                     .onAppear {
                         if !store.messages.isEmpty, lastAnchoredSessionGen != store.chatOpenScrollGeneration {
-                            let gen = store.chatOpenScrollGeneration
-                            lastAnchoredSessionGen = gen
-                            initialOpenSettled = false
-                            isNearBottom = true
-                            proxy.scrollTo("__chat_bottom_anchor__", anchor: .bottom)
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                                if lastAnchoredSessionGen == gen {
-                                    initialOpenSettled = true
-                                }
-                            }
+                            anchorToBottomOnOpen(proxy: proxy, generation: store.chatOpenScrollGeneration)
                         }
                     }
                     .onChange(of: store.chatOpenScrollGeneration) { _, newGen in
                         anchorBeforePrependId = nil
-                        lastAnchoredSessionGen = newGen
-                        initialOpenSettled = false
-                        isNearBottom = true
-                        DispatchQueue.main.async {
-                            proxy.scrollTo("__chat_bottom_anchor__", anchor: .bottom)
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                                if lastAnchoredSessionGen == newGen {
-                                    initialOpenSettled = true
-                                }
-                            }
+                        if !store.messages.isEmpty {
+                            anchorToBottomOnOpen(proxy: proxy, generation: newGen)
+                        } else {
+                            lastAnchoredSessionGen = newGen
+                            initialOpenSettled = false
+                            userInteractedSinceOpen = false
+                            isNearBottom = true
                         }
                     }
                     .onChange(of: store.messages.first?.id) { _, _ in
@@ -192,8 +186,12 @@ struct ChatView: View {
                         if anchorBeforePrependId == nil,
                            !store.messages.isEmpty,
                            (isNearBottom || store.messages.last?.isUser == true) {
-                            withAnimation(.easeOut(duration: 0.16)) {
+                            if !initialOpenSettled {
                                 proxy.scrollTo("__chat_bottom_anchor__", anchor: .bottom)
+                            } else {
+                                withAnimation(.easeOut(duration: 0.16)) {
+                                    proxy.scrollTo("__chat_bottom_anchor__", anchor: .bottom)
+                                }
                             }
                         }
                     }
@@ -201,7 +199,7 @@ struct ChatView: View {
                         if anchorBeforePrependId == nil,
                            !store.messages.isEmpty,
                            (isNearBottom || store.messages.last?.isUser == true) {
-                            if lastAnchoredSessionGen != store.chatOpenScrollGeneration {
+                            if lastAnchoredSessionGen != store.chatOpenScrollGeneration || !initialOpenSettled {
                                 lastAnchoredSessionGen = store.chatOpenScrollGeneration
                                 proxy.scrollTo("__chat_bottom_anchor__", anchor: .bottom)
                             } else {
@@ -1306,6 +1304,38 @@ struct ChatView: View {
             }
         }
         .presentationDetents([.medium, .large])
+    }
+
+    private func anchorToBottomOnOpen(proxy: ScrollViewProxy, generation: Int) {
+        lastAnchoredSessionGen = generation
+        initialOpenSettled = false
+        userInteractedSinceOpen = false
+        isNearBottom = true
+
+        let jumpIfStillOpening = {
+            guard lastAnchoredSessionGen == generation,
+                  !userInteractedSinceOpen,
+                  anchorBeforePrependId == nil,
+                  !store.messages.isEmpty else { return }
+            proxy.scrollTo("__chat_bottom_anchor__", anchor: .bottom)
+        }
+
+        // Re-anchor across initial layout frames while markdown/images settle.
+        jumpIfStillOpening()
+        DispatchQueue.main.async {
+            jumpIfStillOpening()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+            jumpIfStillOpening()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+            jumpIfStillOpening()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+            if lastAnchoredSessionGen == generation {
+                initialOpenSettled = true
+            }
+        }
     }
 
     private func formatSeconds(_ totalSeconds: Int) -> String {

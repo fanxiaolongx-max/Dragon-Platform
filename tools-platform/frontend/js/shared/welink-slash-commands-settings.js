@@ -137,7 +137,11 @@
     }
 
     async function handleDelete(name) {
-        if (!confirm(L(`确定从 WeLink 网关注销并下架斜杠命令 /${name} 吗？`, `Unpublish slash command /${name}?`))) return;
+        const msg = L(`确定从 WeLink 网关注销并下架斜杠命令 /${name} 吗？`, `Unpublish slash command /${name}?`);
+        const ok = window.AppDialog?.confirm
+            ? await window.AppDialog.confirm(msg, { title: L('下架斜杠命令', 'Unpublish command'), tone: 'danger', confirmText: L('下架', 'Unpublish'), cancelText: L('取消', 'Cancel') })
+            : (typeof window.showNavbarConfirm === 'function' ? await window.showNavbarConfirm({ title: L('下架斜杠命令', 'Unpublish command'), message: msg, tone: 'danger' }) : false);
+        if (!ok) return;
         state.busy = true;
         render();
         try {

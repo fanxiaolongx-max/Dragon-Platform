@@ -162,8 +162,9 @@
     }
 
     async function confirmDialog(options) {
+        if (window.AppDialog?.confirm) return window.AppDialog.confirm(options.message, options);
         if (typeof window.showNavbarConfirm === 'function') return window.showNavbarConfirm(options);
-        return window.confirm(options.message);
+        return false;
     }
 
     function storeGet(key) { try { return localStorage.getItem(key); } catch { return null; } }

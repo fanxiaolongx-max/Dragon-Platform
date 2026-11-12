@@ -273,7 +273,12 @@ app.whenReady().then(async()=>{
  assert.equal(await wc.executeJavaScript('JSON.stringify({width:innerWidth,height:innerHeight})'),nativeViewportBefore);
  assert.equal(host.getBrowserViews().length,1);
  nativeItem(/^(放大|Zoom in)$/).click();await until(()=>wc.getZoomFactor()>1);
+ const zoomedPct=Math.round(wc.getZoomFactor()*100);
+ await until(()=>wc.executeJavaScript(`document.querySelector('[data-dragon-zoom-hud]')?.dataset.dragonZoomPercent==='${zoomedPct}'&&document.querySelector('[data-dragon-zoom-hud]')?.dataset.dragonZoomVisible==='true'`));
+ await evaluate('document.querySelector("[data-browser=more]").click()');await until(()=>nativeItem(new RegExp(`当前缩放：${zoomedPct}%|Current zoom: ${zoomedPct}%`)));
+ assert.ok(nativeItem(new RegExp(`^重置缩放 \\(${zoomedPct}%|^Reset zoom \\(${zoomedPct}%`)));
  nativeItem(/^(重置缩放|Reset zoom)/).click();await until(()=>wc.getZoomFactor()===1);
+ await until(()=>wc.executeJavaScript("document.querySelector('[data-dragon-zoom-hud]')?.dataset.dragonZoomPercent==='100'"));
  nativeItem(/^(在页面中查找|Find in page)$/).click();await until(()=>evaluate('!document.querySelector(".dc-browser-find").hidden'));
  await evaluate('document.querySelector("[data-find-input]").value="next";document.querySelector("[data-find-input]").dispatchEvent(new Event("input"))');
  await until(()=>evaluate('document.querySelector("[data-find-count]").textContent.endsWith(" / 1")'));

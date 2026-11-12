@@ -263,7 +263,9 @@ function renderTopStickyBar() {
     if (!keys.length) {
         if (window.expandedSubMetrics) window.expandedSubMetrics.clear();
         syncStickyBarSubExpandedState();
-        content.innerHTML = `<span style="color:#888;">${SLAT('sla.sticky.noData')}</span>`;
+        const hasLoadedSections = typeof AppState === 'object' && Object.keys(AppState).some(id => AppState[id] && !AppState[id].archiveSupplementary);
+        const emptyKey = hasLoadedSections ? 'sla.sticky.noMatchedRules' : 'sla.sticky.noData';
+        content.innerHTML = `<span style="color:#888;">${SLAT(emptyKey)}</span>`;
         btnExpand.style.display = 'none'; 
         return;
     }

@@ -4,7 +4,7 @@
     const bridge=window.DragonBrowser;
     const L=(zh,en)=>/^en/.test(window.ToolsI18n?.getLanguage?.()||localStorage.getItem('tools_lang')||'')?en:zh;
     const esc=value=>String(value||'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-    let panel,surface,toggle,address,tabsNode,hint,image,status,statusBadge,statusTextNode,agentStatusNode,controlBox,textInput,operatorBanner,aiPresence,aiPointer;
+    let panel,surface,toggle,address,tabsNode,hint,image,status,statusBadge,statusTextNode,agentStatusNode,controlBox,textInput,operatorBanner,aiPresence,aiPointer,zoomHud,zoomHudTimer=null,lastZoomPercent=100;
     let menu='',menuSignature='',closedTabs=[],draggedTab=null,lastTheme='',pendingTab=null,tabSequence=0,tabScrollTimer=null,lastVisibleTab='';
     let intentUntil=0,lastActivity=0,activitySent=0,idleRelease=false;
     let open=false,connected=false,docked=false,raf=0,readingVisible=false,previousMenu=null;
@@ -278,6 +278,7 @@
         if(!bridge&&Date.now()<vaultNotice.until){hint.hidden=false;hint.textContent=vaultNotice.text;}
         const blank=!url||url==='about:blank';surface.classList.toggle('is-empty',blank);if(!bridge&&blank){image.hidden=true;status.textContent=L('输入网址或搜索关键词开始浏览','Enter a URL or search to start browsing');}
         renderOperator();
+        renderZoomHud();
         controlBox.hidden=Boolean(bridge)||!manualToken||menu!=='keyboard';
         controlBox.querySelector('label').textContent=L('先点网页输入框，再在这里输入','Click a page field, then type here');
         textInput.placeholder=L('内容直接发送到网页','Send directly to the page');textInput.setAttribute('aria-label',L('网页输入','Page input'));textInput.disabled=busy;
@@ -293,6 +294,22 @@
         panel.querySelector('[data-find-input]').placeholder=L('在页面中查找','Find in page');panel.querySelector('[data-find-input]').setAttribute('aria-label',L('在页面中查找','Find in page'));
         if(bridge&&state.find?.open)panel.querySelector('[data-find-count]').textContent=`${state.find.activeMatch||0} / ${state.find.matches||0}`;
         panel.querySelector('[data-browser=keyboard]').hidden=Boolean(bridge)||blank;layout();
+    }
+    function renderZoomHud(){
+        if(!zoomHud)return;
+        if(bridge||!state.available){zoomHud.hidden=true;return;}
+        const percent=Math.max(10,Math.round((state.zoom||1)*100));
+        zoomHud.querySelector('.dc-browser-zoom-pct').textContent=`${percent}%`;
+        zoomHud.querySelector('[data-browser="zoom-out"]').setAttribute('aria-label',L('缩小','Zoom out'));
+        zoomHud.querySelector('[data-browser="zoom-in"]').setAttribute('aria-label',L('放大','Zoom in'));
+        const resetBtn=zoomHud.querySelector('[data-browser="zoom-reset"]');
+        resetBtn.textContent=L('重置','Reset');resetBtn.hidden=percent===100;
+        clearTimeout(zoomHudTimer);
+        if(percent!==100){lastZoomPercent=percent;zoomHud.hidden=false;}
+        else if(lastZoomPercent!==100){
+            lastZoomPercent=100;zoomHud.hidden=false;
+            zoomHudTimer=setTimeout(()=>{if(zoomHud&&Math.round((state.zoom||1)*100)===100)zoomHud.hidden=true;},1400);
+        }else{zoomHud.hidden=true;}
     }
     function renderOperator(){
         if(!operatorBanner||bridge)return;
@@ -542,6 +559,7 @@
         aiPresence=document.createElement('div');aiPresence.className='browser-ai-presence';aiPresence.setAttribute('aria-hidden','true');aiPresence.innerHTML='<div class="browser-ai-halo"></div><div class="browser-ai-orb"><i></i></div>';surface.append(aiPresence);
         operatorBanner=document.createElement('div');operatorBanner.className='dc-browser-operator';operatorBanner.hidden=true;operatorBanner.setAttribute('role','status');operatorBanner.innerHTML='<span></span><button type="button" data-browser="stop-and-control"></button>';surface.append(operatorBanner);
         aiPointer=document.createElement('div');aiPointer.className='dc-browser-ai-pointer';aiPointer.hidden=true;aiPointer.innerHTML='<svg width="24" height="28" viewBox="0 0 24 28" aria-hidden="true"><path d="M2 2L20 17L12 18L8 26Z" fill="currentColor" stroke="white" stroke-width="2"/></svg><span>AI</span>';surface.append(aiPointer);
+        zoomHud=document.createElement('div');zoomHud.className='dc-browser-zoom-hud';zoomHud.hidden=true;zoomHud.setAttribute('role','status');zoomHud.innerHTML='<button type="button" data-browser="zoom-out">−</button><span class="dc-browser-zoom-pct">100%</span><button type="button" data-browser="zoom-in">+</button><button type="button" class="dc-browser-zoom-reset" data-browser="zoom-reset"></button>';surface.append(zoomHud);
         setInterval(()=>{
             if(bridge||!open)return;renderOperator();
             if(manualToken&&!busy&&!keySending&&!keyQueue.length&&!gesture&&!idleRelease&&Date.now()-lastActivity>=5000){idleRelease=true;api('release').then(()=>refresh(true)).catch(()=>{}).finally(()=>{idleRelease=false;});}
@@ -570,6 +588,7 @@
             if(key==='t'){event.preventDefault();action(event.shiftKey?'reopen-tab':'new-tab');}
             if(key==='w'){event.preventDefault();const tab=state.tabs.find(tab=>tab.id===state.activeId);if(tab)panel.querySelector(`[data-close-tab="${CSS.escape(tab.id)}"]`)?.click();}
             if(key==='f'&&bridge){event.preventDefault();bridge.action('find-open');panel.querySelector('[data-find-input]').focus();}
+            if(bridge&&(['+','=','-','_','0'].includes(key)||['Equal','Minus','Digit0','NumpadAdd','NumpadSubtract','Numpad0'].includes(event.code))){event.preventDefault();bridge.action(key==='0'||event.code==='Digit0'||event.code==='Numpad0'?'zoom-reset':key==='-'||key==='_'||event.code==='Minus'||event.code==='NumpadSubtract'?'zoom-out':'zoom-in');}
         });
         document.addEventListener('pointerdown',event=>{if(menu&&!event.target.closest('.dc-browser-popup,.dc-browser-toolbar-actions,[data-browser=tabs]')){menu='';renderMenu();layout();}});
         new MutationObserver(()=>{syncTheme();render();}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
