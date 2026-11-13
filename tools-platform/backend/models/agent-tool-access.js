@@ -14,7 +14,7 @@ function groupFor(name) {
     if (['find_platform_tools', 'read_tool_guide'].includes(name)) return 'platform_tools';
     if (['read_skill', 'save_skill'].includes(name)) return 'agent_skills';
     if (['calculate', 'update_plan', 'ask_user', 'view_image', 'task', 'tool_search', 'load_skill'].includes(name)) return 'builtin';
-    const prefixes = { mcp__: 'mcp', browser_: 'browser', netcare_: 'netcare-data', ops_: 'ops-group', welink_: 'welink-office', open_autoglm_: 'open-autoglm', followup_: 'followup' };
+    const prefixes = { mcp__: 'mcp', browser_: 'browser', netcare_: 'netcare-data', ops_: 'ops-group', welink_: 'welink-office', open_autoglm: 'open-autoglm', followup_: 'followup' };
     return Object.entries(prefixes).find(([prefix]) => name.startsWith(prefix))?.[1] || 'other';
 }
 

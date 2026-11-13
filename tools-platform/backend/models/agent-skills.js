@@ -94,6 +94,36 @@ function autoSelect(content, { pagePath = '', extraIds = [], contextMessages = [
         selected.push('welink-slash-command');
     }
 
+    // Open-AutoGLM 手机端自动化控制：
+    // 1. 本轮显式提及手机操作、屏幕截图、自动化控制等
+    // 2. 本会话历史中已使用过 @open-autoglm，后续的动作指令（如“打卡设置 截图看看”、“打开设置”、“查看当前屏幕”、“点击确认”等）自动保持 open-autoglm 激活
+    if (byId.has('open-autoglm')) {
+        const autoglmDirect = /(?:open[-_]?autoglm|autoglm|查看.{0,8}(?:屏幕|截屏|截图|画面)|截取.{0,8}(?:屏幕|截屏|截图|画面)|截个?屏|截图看看|看下?屏幕|手机屏幕|手机截屏|手机端自动化|安卓手机)/i.test(text)
+            || /(?:在手机上|在安卓上|手机端).{0,20}(?:打开|运行|点击|操作|设置|查看|打卡)/i.test(text)
+            || /(?:打卡|打开).{0,10}(?:设置|应用|app|微信|钉钉|系统|界面).{0,20}(?:截图|看看|截屏)?/i.test(text);
+
+        const sessionHadAutoGLM = (Array.isArray(contextMessages) ? contextMessages : []).some(item => {
+            const c = String(item?.content || '');
+            if (/@open-autoglm\b|open-autoglm|autoglm/i.test(c)) return true;
+            if (Array.isArray(item?.toolCalls) && item.toolCalls.some(call => String(call?.name || '').startsWith('open_autoglm'))) return true;
+            try {
+                const events = typeof item?.events === 'string' ? JSON.parse(item.events) : item?.events;
+                if (Array.isArray(events) && events.some(e => (e.type === 'skills' && Array.isArray(e.skills) && e.skills.includes('open-autoglm')) || (e.tool && String(e.tool).startsWith('open_autoglm')))) return true;
+            } catch (_) {}
+            return false;
+        });
+
+        const autoglmFollowup = sessionHadAutoGLM && (
+            autoglmDirect
+            || /(?:打卡|打开|点击|滑动|输入|按键|按|返回|桌面|截图|截屏|看|设置|微信|钉钉|应用|app|运行|执行|继续|再试|确认|关闭|搜索)/i.test(text)
+            || text.trim().length <= 30 // 短动作指令在 autoglm 对话中通常是手机端操作
+        );
+
+        if (autoglmDirect || autoglmFollowup) {
+            selected.push('open-autoglm');
+        }
+    }
+
     const improveSkill = /(?:完善|优化|改进|升级).{0,20}(?:skill\b|技能)|(?:skill\b|技能).{0,16}(?:完善|优化|改进|升级)|\b(?:improve|refine|update)\s+(?:the\s+|this\s+|an?\s+)?skill\b/i.test(text);
     const createSkill = !improveSkill && (/(?:做成|生成|创建|新建|制作|写(?:一?个|个|份)?|整理成|封装成|总结成|保存(?:成|为)|沉淀(?:成|为)|转(?:成|为)).{0,24}(?:skill\b|技能)|(?:skill\b|技能).{0,16}(?:草稿|模板|怎么写|如何写)|\b(?:create|make|build|draft|turn\b[\s\S]{0,40}\binto|save\s+as)\s+(?:a\s+|an\s+)?skill\b/i.test(text));
     const skillFollowup = /^(?:确认|继续|好(?:的)?|可以|行|保存|按这个|就按这个|生成草稿|输出草稿)/i.test(text.trim());

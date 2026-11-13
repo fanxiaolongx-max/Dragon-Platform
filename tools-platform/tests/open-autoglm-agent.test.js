@@ -12,9 +12,30 @@ test('open-autoglm-agent definitions and prompt satisfy tool registry contract',
     assert.ok(names.has('open_autoglm_list_devices'));
     assert.ok(names.has('open_autoglm_run_task'));
     assert.ok(names.has('open_autoglm_action'));
+    assert.ok(names.has('open_autoglm'));
 
     const prompt = autoglmAgent.buildPrompt();
     assert.ok(typeof prompt === 'string' && prompt.includes('open_autoglm_get_screenshot'));
+    assert.ok(prompt.includes('打卡设置 截图看看') || prompt.includes('复合指令'));
+});
+
+test('open-autoglm autoSelect recognizes direct queries and session followups', () => {
+    const skills = require('../backend/models/agent-skills');
+    
+    // 1. Direct keywords
+    assert.deepEqual(skills.autoSelect('打卡设置 截图看看'), ['open-autoglm']);
+    assert.deepEqual(skills.autoSelect('查看一下当前屏幕'), ['open-autoglm']);
+    assert.deepEqual(skills.autoSelect('在手机上打开微信'), ['open-autoglm']);
+    assert.deepEqual(skills.autoSelect('截个屏看看手机'), ['open-autoglm']);
+
+    // 2. Follow-up in session that used open-autoglm
+    const sessionHistory = [
+        { role: 'user', content: '@open-autoglm 查看一下当前屏幕' },
+        { role: 'assistant', content: '![手机实时屏幕](phone.png)' }
+    ];
+    assert.deepEqual(skills.autoSelect('打卡设置', { contextMessages: sessionHistory }), ['open-autoglm']);
+    assert.deepEqual(skills.autoSelect('点击确定', { contextMessages: sessionHistory }), ['open-autoglm']);
+    assert.deepEqual(skills.autoSelect('向下滑动一点', { contextMessages: sessionHistory }), ['open-autoglm']);
 });
 
 test('open-autoglm toolset attaches without requiring workspace', async () => {

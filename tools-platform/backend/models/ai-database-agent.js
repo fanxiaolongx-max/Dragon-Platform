@@ -49,7 +49,7 @@ async function runTurn({ client, systemInstruction, messages, ctx, signal, onDel
             const args = safe(call.args && typeof call.args === 'object' ? call.args : {});
             start({ args });
             if (files?.names.has(call.name)) return files.execute(call.name, args);
-            if (call.name.startsWith('open_autoglm_')) {
+            if (call.name.startsWith('open_autoglm') || call.name.startsWith('open-autoglm')) {
                 const autoglm = require('./open-autoglm-agent');
                 return autoglm.execute(call.name, args);
             }

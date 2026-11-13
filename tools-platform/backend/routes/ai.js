@@ -790,7 +790,7 @@ async function handleChatRequest(req, res) {
                     extraIds: [
                         ...(homeConnector ? [connectorSkills[homeConnector]] : []),
                         ...(fullWeLink && agentSession.loadedSkills instanceof Set ? [...agentSession.loadedSkills] : []),
-                        ...((!channelTurn || fullWeLink) && (agentMode || req.user?.role === 'admin')
+                        ...((!channelTurn || fullWeLink)
                             ? require('../models/agent-skills').autoSelect(lastMessage.content, { pagePath, extraIds: req.body?.skills, contextMessages: skillContextMessages }) : []),
                         // 微信机器人主人：「完善 / 创建技能」自动带上对应技能，保存时回复确认码
                         ...(channelSkillOwner ? require('../models/agent-skills').autoSelect(lastMessage.content, { pagePath, contextMessages: skillContextMessages }).filter(id => ['improve-skill', 'create-skill'].includes(id)) : []),
@@ -1147,7 +1147,12 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 temperature: aiSettings.temperature,
                 model: aiSettings.model,
                 // 思考过程、工具行随流下发（工具行随会话记录入库）
-                onEvent: event => writeStreamEvent(event),
+                onEvent: event => {
+                    writeStreamEvent(event);
+                    if (event && (event.type === 'tool' || event.type === 'tool_result')) {
+                        recordedEvents.push(event);
+                    }
+                },
                 onDelta: streamRequested ? delta => {
                     streamHasDelta = true;
                     writeStreamEvent({ type: 'delta', delta });
@@ -1167,7 +1172,12 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 temperature: aiSettings.temperature,
                 model: aiSettings.model,
                 // 每条 welink-cli 命令显示为对话里的工具行（随会话记录入库）；写操作的审批卡也走这条流，非流式请求不能审批
-                onEvent: event => writeStreamEvent(event),
+                onEvent: event => {
+                    writeStreamEvent(event);
+                    if (event && (event.type === 'tool' || event.type === 'tool_result')) {
+                        recordedEvents.push(event);
+                    }
+                },
                 canApprove: Boolean(streamRequested),
                 onDelta: streamRequested ? delta => {
                     streamHasDelta = true;
@@ -1186,7 +1196,12 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 maxOutputTokens: aiSettings.maxOutputTokens,
                 temperature: aiSettings.temperature,
                 model: aiSettings.model,
-                onEvent: event => writeStreamEvent(event),
+                onEvent: event => {
+                    writeStreamEvent(event);
+                    if (event && (event.type === 'tool' || event.type === 'tool_result')) {
+                        recordedEvents.push(event);
+                    }
+                },
                 onDelta: streamRequested ? delta => {
                     streamHasDelta = true;
                     writeStreamEvent({ type: 'delta', delta });
@@ -1204,7 +1219,12 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 maxOutputTokens: aiSettings.maxOutputTokens,
                 temperature: aiSettings.temperature,
                 model: aiSettings.model,
-                onEvent: event => writeStreamEvent(event),
+                onEvent: event => {
+                    writeStreamEvent(event);
+                    if (event && (event.type === 'tool' || event.type === 'tool_result')) {
+                        recordedEvents.push(event);
+                    }
+                },
                 onDelta: streamRequested ? delta => {
                     streamHasDelta = true;
                     writeStreamEvent({ type: 'delta', delta });
@@ -1295,6 +1315,8 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                         : `（WeLink 查询：${welinkCliResult.toolLog.slice(0, 8).map(item => `${item.summary || item.tool}${item.ok ? '' : '✗'}`).join('；')}）`)
                     : netcareResult && netcareResult.toolLog.length
                         ? `${result.text}\n\n（NetCare 查询：${netcareResult.toolLog.slice(0, 8).map(item => `${item.summary || item.tool}${item.ok ? '' : '✗'}`).join('；')}）`
+                        : autoglmResult && autoglmResult.toolLog.length
+                            ? `${result.text}\n\n（Open-AutoGLM：${autoglmResult.toolLog.slice(0, 8).map(item => `\`${item.tool}\`${item.ok ? '' : '✗'} ${item.summary || ''}`.trim()).join('；')}）`
                         : databaseResult && databaseResult.toolLog.length
                             ? `${result.text}\n\n（工具：${databaseResult.toolLog.slice(0, 8).map(item => `\`${item.tool}\`${item.ok ? '' : '✗'} ${item.summary || ''}`.trim()).join('；')}）`
                             : result.text, { secrets: sensitiveValues });

@@ -1,12 +1,12 @@
 {
   "zh": [
-    "Open-AutoGLM 技能原生工具化：解除工作空间目录限制，全平台（移动端 App 与 Web 对话）直接调用原生手机控制与屏幕抓取工具。",
-    "平台会话执行调度增强：普通对话与移动端对话原生集成 Android 自动化工具循环，支持实时截屏与任务自动化。",
-    "完善智能体工具沙箱防护与异常处理，优化断开恢复与会话工具状态一致性。"
+    "Open-AutoGLM 会话延续与意图自动路由：多轮对话中自动保持手机控制技能激活，免除每条消息手动输入 @ 标识。",
+    "复合指令智能编排与容错：支持“打卡设置/打开设置 截图看看”等操作+截屏复合任务，自动执行端到端手机任务并获取最新屏幕。",
+    "兼容通用工具别名调度（open_autoglm），防止模型调用泛化工具名时出现工具不可用异常。"
   ],
   "en": [
-    "Transform Open-AutoGLM into a native toolset: eliminate workspace folder requirements for seamless mobile App and web-based Android automation.",
-    "Upgrade conversational agent execution loop with native Android screen capture and autonomous mobile task orchestration across clients.",
-    "Harden agent tool access control and runtime crash recovery for consistent tool availability."
+    "Seamless Open-AutoGLM session persistence and intent auto-routing: maintain phone automation active across conversation turns without re-typing @ chips.",
+    "Compound instruction orchestration & typo tolerance: automatically execute tasks and take real-time screenshots for instructions like 'open settings & screenshot'.",
+    "Universal tool alias dispatch (open_autoglm) preventing tool unavailability when models call generic skill aliases."
   ]
 }
