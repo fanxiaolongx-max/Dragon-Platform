@@ -455,6 +455,7 @@ jobs:
           echo "Setting iOS Version to $RELEASE_VER (build $BUILD_NUM)..."
           plutil -replace CFBundleShortVersionString -string "$RELEASE_VER" iosApp/Info.plist
           plutil -replace CFBundleVersion -string "$BUILD_NUM" iosApp/Info.plist
+          plutil -replace ITSAppUsesNonExemptEncryption -bool NO iosApp/Info.plist
 
           xcodebuild archive \
             -project iosApp.xcodeproj \

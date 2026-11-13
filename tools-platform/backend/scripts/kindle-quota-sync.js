@@ -7,6 +7,25 @@ const { normalizeTenantId } = require('../models/tenant-context');
 
 const PROVIDERS = ['codex', 'claudecode', 'antigravity'];
 const MAX_AGE = 15 * 60 * 1000;
+const FALLBACK_AGE = 5 * 60 * 1000;
+const FALLBACK_INTERVAL = 10 * 60 * 1000;
+
+function createFallbackCollector({ collect, now = Date.now }) {
+    let lastAttempt = 0;
+    return async (rows, tenant, owner) => {
+        const time = now();
+        if (rows.some(row => row.sampled_at <= time + 60000 && time - row.sampled_at < FALLBACK_AGE) ||
+            (lastAttempt && time - lastAttempt < FALLBACK_INTERVAL)) return false;
+        lastAttempt = time;
+        await collect(tenant, owner);
+        return true;
+    };
+}
+
+const collectFallback = createFallbackCollector({ collect: (tenant, owner) => {
+    const { runWithTenant } = require('../models/tenant-context');
+    return runWithTenant(tenant, () => require('../models/desktop-agents/quota').read(owner));
+} });
 
 function buildPayload(rows, now = Date.now()) {
     const quotas = {};
@@ -106,7 +125,11 @@ async function sync() {
     if (!owner || tenant !== normalizeTenantId(tenant)) throw new Error('Set a valid KINDLE_QUOTA_OWNER and KINDLE_QUOTA_TENANT');
     const results = await Promise.allSettled([
         (async () => {
-            const payload = buildPayload(await readSamples(getDbPath(tenant), owner));
+            let rows = await readSamples(getDbPath(tenant), owner);
+            try {
+                if (await collectFallback(rows, tenant, owner)) rows = await readSamples(getDbPath(tenant), owner);
+            } catch (error) { console.error('Kindle quota fallback:', error.message); }
+            const payload = buildPayload(rows);
             await send(payload, 'agent-quotas.json');
             console.log(`Kindle quota sync completed; ${Object.values(payload.quotas).filter(q => q.status === 'cached').length} providers have recent samples`);
         })(),
@@ -135,4 +158,4 @@ if (require.main === module) {
     tick();
     setInterval(tick, 180000);
 }
-module.exports = { buildPayload, readSamples, pm2Payload };
+module.exports = { buildPayload, readSamples, pm2Payload, createFallbackCollector };

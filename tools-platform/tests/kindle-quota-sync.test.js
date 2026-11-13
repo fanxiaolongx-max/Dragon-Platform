@@ -5,7 +5,20 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const sqlite3 = require('../backend/node_modules/sqlite3');
-const { buildPayload, readSamples, pm2Payload } = require('../backend/scripts/kindle-quota-sync');
+const { buildPayload, readSamples, pm2Payload, createFallbackCollector } = require('../backend/scripts/kindle-quota-sync');
+
+test('fallback collects only when samples are stale and throttles failures', async () => {
+    let now = 2000000, calls = 0;
+    const collect = createFallbackCollector({ now: () => now, collect: async (tenant, owner) => {
+        assert.equal(tenant, 'default'); assert.equal(owner, 'admin'); calls++; throw new Error('offline');
+    } });
+    assert.equal(await collect([{sampled_at: now - 60000}], 'default', 'admin'), false);
+    await assert.rejects(collect([], 'default', 'admin'), /offline/);
+    assert.equal(await collect([], 'default', 'admin'), false);
+    now += 10 * 60000;
+    await assert.rejects(collect([], 'default', 'admin'), /offline/);
+    assert.equal(calls, 2);
+});
 
 test('PM2 export includes status metrics only and omits environment, paths and arguments', () => {
     const data = pm2Payload([{name:'app',pm_id:2,pid:123,pm2_env:{status:'online',pm_uptime:1000,restart_time:3,secret:'do-not-export',pm_exec_path:'/private'},monit:{cpu:2.5,memory:4096},args:['secret']}], 2000);
