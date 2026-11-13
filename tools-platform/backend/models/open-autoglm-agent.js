@@ -319,10 +319,33 @@ async function execute(name, args = {}) {
     }
 }
 
+const agentLoop = require('./agent-loop');
+const SKILL_ID = 'open-autoglm';
+
+async function runTurn({ client: aiClient, systemInstruction, messages, signal, onDelta, onEvent, maxOutputTokens, temperature, model, extras = null, vision = null }) {
+    const result = await agentLoop.runToolLoop({
+        extras,
+        vision,
+        client: aiClient, model, systemPrompt: `${systemInstruction}\n${buildPrompt()}`, messages, tools: definitions(),
+        write: event => (event.type === 'delta' ? onDelta?.(event.delta) : onEvent?.(event)),
+        signal, maxOutputTokens, temperature, task: String(messages.at(-1)?.content || ''), callIdPrefix: 'autoglm',
+        executeCall: async (call, { start }) => {
+            const args = call.args && typeof call.args === 'object' ? call.args : {};
+            start({ tool: call.name, args });
+            const outcome = await execute(call.name, args);
+            return { ...outcome, output: String(outcome.content || '').slice(0, 4000) };
+        },
+        toolsUnsupported: () => ({ note: '（当前模型不支持工具调用，Open-AutoGLM 工具不可用。）' })
+    });
+    return { text: result.text, usage: result.usage, toolLog: result.toolLog, ...(result.toolsUnsupported ? { toolsUnsupported: true } : {}) };
+}
+
 module.exports = {
+    SKILL_ID,
     definitions,
     buildPrompt,
     execute,
+    runTurn,
     listDevices,
     getScreenshot,
     runTask,

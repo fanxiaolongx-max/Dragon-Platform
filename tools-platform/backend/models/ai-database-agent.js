@@ -49,6 +49,10 @@ async function runTurn({ client, systemInstruction, messages, ctx, signal, onDel
             const args = safe(call.args && typeof call.args === 'object' ? call.args : {});
             start({ args });
             if (files?.names.has(call.name)) return files.execute(call.name, args);
+            if (call.name.startsWith('open_autoglm_')) {
+                const autoglm = require('./open-autoglm-agent');
+                return autoglm.execute(call.name, args);
+            }
             const outcome = TOOL_NAMES.has(call.name)
                 ? await toolsService.execute(toolCtx, call.name, args)
                 : { content: '当前对话不提供该工具', summary: '工具不可用', isError: true };

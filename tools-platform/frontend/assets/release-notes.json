@@ -1,12 +1,12 @@
 {
   "zh": [
-    "平台全局审计日志升级：支持 iOS/Android/桌面端/Web 端多维分类筛选、真实客户端 IP 解析、设备型号识别与服务端自动分页。",
-    "左侧会话侧边栏全面升级：支持所有类型会话（普通任务、空间对话、三方桌面 Agent 及外部渠道）统一置顶，并自动在顶部置顶分组集中展示。",
-    "增强移动设备与智能体生态：集成 Open-AutoGLM Android 自动化控制技能，完善移动端 App 请求特征精准识别。"
+    "Open-AutoGLM 技能原生工具化：解除工作空间目录限制，全平台（移动端 App 与 Web 对话）直接调用原生手机控制与屏幕抓取工具。",
+    "平台会话执行调度增强：普通对话与移动端对话原生集成 Android 自动化工具循环，支持实时截屏与任务自动化。",
+    "完善智能体工具沙箱防护与异常处理，优化断开恢复与会话工具状态一致性。"
   ],
   "en": [
-    "Upgrade platform audit logs with multi-platform filtering (iOS, Android, Desktop, Web), proxy-aware client IP extraction, device detection, and pagination.",
-    "Introduce universal pinned conversations across sidebar sections for standard chats, space projects, desktop agents, and external channel threads.",
-    "Expand agent mobile automation with the Open-AutoGLM Android control skill and improved mobile application client identification."
+    "Transform Open-AutoGLM into a native toolset: eliminate workspace folder requirements for seamless mobile App and web-based Android automation.",
+    "Upgrade conversational agent execution loop with native Android screen capture and autonomous mobile task orchestration across clients.",
+    "Harden agent tool access control and runtime crash recovery for consistent tool availability."
   ]
 }
