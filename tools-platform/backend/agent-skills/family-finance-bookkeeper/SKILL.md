@@ -11,31 +11,34 @@ order: 25
 
 目标：连接 WISE 家庭财务管理系统，直接记账、转账、查流水、查余额和财务概况。
 
-## 🔐 密钥与安全规范
-- 服务地址：`https://wise.fanxiaolong.uk`
-- 本机安全存储：密钥保存在本机 `~/.config/wise-finance/api_key`（权限 0600，只有本机当前用户可读），也可通过环境变量 `WISE_API_KEY` 注入。
-- **绝不在聊天回复、日志或临时文件中打印输出明文密钥。**
-- 辅助脚本 `quick_record.py` 会自动读取本地凭据，推荐优先使用脚本执行。
+## ⚠️ 智能体执行指令与工具调用铁律（务必严格遵守）
+1. **必须且只能通过 `run_command` 工具调用 CLI 脚本** 执行记账与查询。
+2. **严禁调用 `insert_database_row` / `update_database_rows` / `read_database_table`**：WISE 记账系统是独立的外部系统，本地平台的 `tools.db` 中不存在任何账本数据，调用数据库工具必会报错！
+3. **严禁尝试打开浏览器或要求用户浏览器登录**：所有操作通过下方 CLI 命令在后台 1 秒内静默完成。
 
----
-
-## 🛠️ CLI 常用入口（推荐）
-
-统一入口脚本路径（任何工作目录下均可直接调用）：
+统一入口脚本：
 ```bash
 W=/Volumes/512G/06-工具开发/privacy-policy/tools-platform/backend/agent-skills/family-finance-bookkeeper/scripts/quick_record.py
 ```
 
-| 操作需求 | CLI 命令 |
+| 场景 | run_command 示例 |
 | --- | --- |
-| 查所有账户余额 | `python3 "$W" --accounts` |
-| 查财务总览（净资产、本月收支结余） | `python3 "$W" --summary` |
-| 查最近流水明细 | `python3 "$W" --transactions 20` |
-| 查某个账户的流水 | `python3 "$W" --transactions 20 微信` |
-| 记一笔支出 | `python3 "$W" 微信 35 餐饮 麻辣烫` |
-| 记一笔收入 | `python3 "$W" --income 招商银行 8000 工资 11月薪水` |
-| 账户间转账 | `python3 "$W" --transfer 招商银行 微信 1000 生活费转账` |
-| 撤销/删除流水 | `python3 "$W" --delete 123` |
+| 记支出 | `python3 "$W" CIB 1181 购物 超市购物` |
+| 记支出（带空格分类） | `python3 "$W" 微信 35 餐饮 麻辣烫` |
+| 记收入 | `python3 "$W" --income 招商银行 8000 工资 11月薪水` |
+| 查余额 | `python3 "$W" --accounts` |
+| 查财务总览 | `python3 "$W" --summary` |
+| 查流水 | `python3 "$W" --transactions 20 CIB` |
+| 转账 | `python3 "$W" --transfer 招商银行 微信 1000 生活费` |
+| 撤销/删除流水 | `python3 "$W" --delete 168` |
+
+---
+
+## 🔐 密钥与安全规范
+- 服务地址：`https://wise.fanxiaolong.uk`
+- 本机安全存储：密钥保存在本机 `~/.config/wise-finance/api_key`（权限 0600，只有本机当前用户可读），也可通过环境变量 `WISE_API_KEY` 注入。
+- **绝不在聊天回复、日志或临时文件中打印输出明文密钥。**
+- 脚本 `quick_record.py` 会自动从本地受保护文件读取凭据，调用方直接运行即可。
 
 ---
 
