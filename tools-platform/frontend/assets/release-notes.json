@@ -1,12 +1,12 @@
 {
   "zh": [
-    "iOS 自动化流水线支持 App Store 与 Development 双模自动签名导出，确保 IPA 稳定产出与发布。",
-    "解决无头 CI 环境与真实 Chrome 在快速跳转场景下的 DOM 判定竞态，测试套件稳定性进一步提升。",
-    "新增微信本地库只读查询智能体技能，支持离线会话历史检索与安全消息查看。"
+    "升级 iOS CI 自动化凭证至管理级 App Store Connect API，打通 TestFlight 自动化分发链路。",
+    "优化 Xcode 自动化导出与私钥路径装配，支持多目录兼容及自动证书分发。",
+    "持续稳固全端发布流，保持 Windows、macOS、Android 与 iOS 四端构建全量对齐。"
   ],
   "en": [
-    "Support dual-mode automatic iOS signing with App Store Connect and development fallback for reliable IPA exports.",
-    "Eliminate CDP DOM timing races during rapid page redirects to ensure rock-solid headless CI test runs.",
-    "Add read-only WeChat local vault agent skill for offline chat history inspection and secure message search."
+    "Upgrade iOS CI credentials with Admin-level App Store Connect API to enable automated TestFlight distribution.",
+    "Refine xcodebuild export and private key path resolution with multi-directory compatibility for seamless provisioning.",
+    "Streamline cross-platform release pipelines to maintain synchronized builds across Windows, macOS, Android, and iOS."
   ]
 }

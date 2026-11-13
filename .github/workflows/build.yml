@@ -404,8 +404,9 @@ jobs:
         env:
           API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
         run: |
-          mkdir -p ~/.appstoreconnect/private_keys
+          mkdir -p ~/.appstoreconnect/private_keys ~/.private_keys
           echo "$API_KEY_P8" > ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8
+          cp ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8 ~/.private_keys/
 
       - name: Build and Archive iOS
         working-directory: tools-platform/iosapp
@@ -499,7 +500,7 @@ jobs:
       - name: Clean up API Key
         if: always()
         run: |
-          rm -rf ~/.appstoreconnect
+          rm -rf ~/.appstoreconnect ~/.private_keys
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
