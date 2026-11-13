@@ -147,6 +147,16 @@ test('admin tools perform real insert, update, delete and read back the committe
     const deleted = await tools.execute(adminCtx, 'delete_database_rows', { ...target, filters: [eq('id', id)] });
     assert.equal(JSON.parse(deleted.content).changes, 1);
     assert.deepEqual((await service.readTable(ctx, target)).rows, []);
+    // 每次写入都在告警台留痕：删除是警告级，带上条件
+    await new Promise(resolve => setTimeout(resolve, 50));
+    const events = await require('../backend/models/alert-center-repository').listEvents({ limit: 20 });
+    const writes = events.filter(event => event.source === 'dragon_claw_chat');
+    assert.deepEqual(writes.map(event => event.title).sort(), [
+        '对话里修改了数据：local:edits.db / items（1 行）', '对话里删除了数据：local:edits.db / items（1 行）', '对话里新增了数据：local:edits.db / items（1 行）'
+    ].sort());
+    const del = writes.find(event => /删除/.test(event.title));
+    assert.equal(del.severity, 'warn');
+    assert.match(del.message, /条件：.*"id"/);
 });
 
 test('writes fail closed for non-admin contexts, sensitive data, malformed input and unbounded edits', async () => {

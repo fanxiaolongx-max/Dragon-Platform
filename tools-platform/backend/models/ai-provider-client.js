@@ -1250,30 +1250,74 @@ function isAutoSwitchableError(error, emitted) {
     return /timeout|timed out|fetch failed|network|socket|connection|ECONN|ENOTFOUND|EAI_AGAIN/i.test(String(error?.message || ''));
 }
 
+// 模型熔断（与基座 Web 版 src/agent/failover.js 同一规则）：某个模型配置连续 3 次可切换的失败后，60 秒内排到候选最后，
+// 让对话直接走备用模型，不必每轮都先在坏掉的模型上等超时；所有候选都熔断时仍按原顺序尝试。
+const MODEL_BREAKER_FAILS = 3;
+const MODEL_BREAKER_OPEN_MS = 60 * 1000;
+const modelBreakers = new Map();
+const SWITCH_NOTICE_MS = 10 * 60 * 1000;
+const switchNotices = new Map();
+const breakerKey = settings => String(settings.profileId || `${normalizeProvider(settings.provider)}|${settings.baseUrl || ''}|${settings.model || ''}`);
+const breakerOpen = key => (modelBreakers.get(key)?.openUntil || 0) > Date.now();
+function recordModelFailure(key) {
+    const state = modelBreakers.get(key) || { fails: 0, openUntil: 0 };
+    state.fails += 1;
+    if (state.fails >= MODEL_BREAKER_FAILS) Object.assign(state, { fails: 0, openUntil: Date.now() + MODEL_BREAKER_OPEN_MS });
+    modelBreakers.set(key, state);
+}
+const recordModelSuccess = key => modelBreakers.delete(key);
+
+// 切到备用模型时在告警台留一条（同一对「主 → 备」10 分钟内只记一次），让管理员知道主模型出了问题
+function noticeSwitch(from, to, error) {
+    const key = `${from.label}→${to.label}`;
+    if (Date.now() - (switchNotices.get(key) || 0) < SWITCH_NOTICE_MS) return;
+    switchNotices.set(key, Date.now());
+    try {
+        require('./alert-center-repository').addEvent({
+            eventType: 'system',
+            severity: 'warn',
+            title: `模型已自动切换：${from.label} → ${to.label}`,
+            message: `${from.label} 暂时不可用（${redactText(String(error?.message || error || ''), { secrets: [from.apiKey, to.apiKey] }).slice(0, 300)}），本轮已改用 ${to.label}。连续失败 ${MODEL_BREAKER_FAILS} 次的模型会在 ${MODEL_BREAKER_OPEN_MS / 1000} 秒内被跳过。`,
+            actor: 'system',
+            source: 'ai_auto_switch',
+            objectType: 'ai_model',
+            objectId: from.label,
+            detail: { from: from.label, to: to.label, status: error?.status || error?.statusCode || null },
+            aiStatus: 'not_applicable'
+        }).catch(() => {});
+    } catch (_) { /* 告警台不可用不影响对话 */ }
+}
+
 class AutoSwitchAiClient {
     constructor(settings = {}) {
         this.settings = settings;
         this.provider = normalizeProvider(settings.provider);
         this.model = settings.model;
-        this.candidates = [settings, ...(Array.isArray(settings.fallbackProfiles) ? settings.fallbackProfiles : [])]
+        const configured = [settings, ...(Array.isArray(settings.fallbackProfiles) ? settings.fallbackProfiles : [])]
             .filter(item => item && item.hasApiKey && item.keyLooksValid)
-            .map(item => new AiProviderClient(item));
+            .map(item => ({ client: new AiProviderClient(item), key: breakerKey(item), label: `${normalizeProvider(item.provider)}/${item.model}`, apiKey: item.apiKey }));
+        // 熔断中的放到最后（全部熔断时保持原顺序）
+        const healthy = configured.filter(item => !breakerOpen(item.key));
+        this.entries = healthy.length ? [...healthy, ...configured.filter(item => breakerOpen(item.key))] : configured;
+        this.candidates = this.entries.map(item => item.client);
     }
 
     async generateText(options = {}) {
         let lastError;
-        for (let index = 0; index < this.candidates.length; index += 1) {
-            const client = this.candidates[index];
+        for (let index = 0; index < this.entries.length; index += 1) {
+            const entry = this.entries[index];
+            const client = entry.client;
             let emitted = false;
             const attemptOptions = typeof options.onDelta === 'function'
                 ? { ...options, onDelta: delta => { emitted = true; options.onDelta(delta); } }
                 : options;
             try {
                 const result = await client.generateText(attemptOptions);
+                recordModelSuccess(entry.key);
                 if (index > 0) {
                     result.autoSwitch = {
                         used: true,
-                        from: `${this.candidates[0].provider}/${this.candidates[0].model}`,
+                        from: `${this.provider}/${this.model}`,
                         to: `${client.provider}/${client.model}`,
                         attempts: index + 1
                     };
@@ -1281,8 +1325,11 @@ class AutoSwitchAiClient {
                 return result;
             } catch (error) {
                 lastError = error;
-                if (index >= this.candidates.length - 1 || !isAutoSwitchableError(error, emitted)) throw error;
+                const switchable = isAutoSwitchableError(error, emitted);
+                if (switchable) recordModelFailure(entry.key);
+                if (index >= this.entries.length - 1 || !switchable) throw error;
                 console.warn(`[AI] ${client.provider}/${client.model} unavailable; auto-switching to the next configured model: ${redactText(error.message, { secrets: [client.apiKey] })}`);
+                noticeSwitch(entry, this.entries[index + 1], error);
             }
         }
         throw lastError || new Error('没有可用的 AI 模型配置');
@@ -1306,5 +1353,8 @@ module.exports = {
     normalizeMessages,
     stripReasoningText,
     isAutoSwitchableError,
-    createClient
+    createClient,
+    resetModelBreakers: () => { modelBreakers.clear(); switchNotices.clear(); },
+    // 平台自检用：每个模型配置的连续失败次数和是否在熔断中
+    modelBreakerStatus: () => [...modelBreakers.entries()].map(([key, state]) => ({ key, fails: state.fails, open: state.openUntil > Date.now(), openUntil: state.openUntil ? new Date(state.openUntil).toISOString() : null }))
 };

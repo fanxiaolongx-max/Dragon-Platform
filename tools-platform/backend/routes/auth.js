@@ -74,6 +74,11 @@ router.post('/login', async (req, res) => {
                 success: false,
                 reason: user ? 'bad_password' : 'unknown_user'
             });
+            auditLog.record(req, {
+                actor: typeof username === 'string' ? username.slice(0, 80) : 'unknown',
+                action: 'login_failed',
+                detail: user ? '密码错误' : '账号不存在'
+            });
             return res.status(401).json({ error: '用户名或密码错误' });
         }
         // 旧 sha256 哈希登录成功后透明升级成 scrypt
@@ -107,6 +112,7 @@ router.post('/login', async (req, res) => {
 router.post('/logout', checkAuth, async (req, res) => {
     try {
         await authSessionsRepo.deleteSession(req.authToken);
+        auditLog.record(req, { actor: req.user?.username, action: 'logout', tenantId: req.user?.tenantId });
         res.clearCookie('tools_token', getAuthCookieOptions(req));
         res.json({ success: true });
     } catch (err) {
@@ -185,8 +191,19 @@ router.delete('/security/locks/:lockKey', checkAuth, requireSuperAdmin, async (r
 // GET /api/auth/audit：审计日志（超级管理员）
 router.get('/audit', checkAuth, requireSuperAdmin, async (req, res) => {
     try {
-        res.json({ items: await auditLog.list({ limit: req.query.limit, before: req.query.before, actor: req.query.actor, action: req.query.action }) });
+        const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+        const limit = Math.min(500, Math.max(1, parseInt(req.query.limit, 10) || 20));
+        const result = await auditLog.list({
+            page,
+            limit,
+            before: req.query.before,
+            actor: req.query.actor,
+            action: req.query.action,
+            platform: req.query.platform
+        });
+        res.json(result);
     } catch (err) {
+        console.error('[auth] 读取审计日志失败：', err);
         res.status(500).json({ error: '读取审计日志失败' });
     }
 });

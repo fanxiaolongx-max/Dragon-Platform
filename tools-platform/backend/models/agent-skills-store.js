@@ -373,7 +373,9 @@ async function getSkill(id) {
     };
 }
 
-/** 备份当前技能状态到 agent_skill_backups */
+const MAX_BACKUPS_PER_SKILL = 10;
+
+/** 备份当前技能状态到 agent_skill_backups（只留最近 10 份） */
 async function createBackup(skillId, { createdBy = '', summary = '' } = {}) {
     await ensureReady();
     const cleanId = String(skillId || '').toLowerCase();
@@ -386,6 +388,9 @@ async function createBackup(skillId, { createdBy = '', summary = '' } = {}) {
         [cleanId, current.name, current.nameEn || current.name, current.description || '', current.descriptionEn || '', current.icon || '✨',
          current.workspace ? 1 : 0, current.body || '', JSON.stringify(current.files || []), current.source || '', createdBy, now, summary || '技能备份']
     );
+    // 每个技能最多保留最近 10 份（与基座 Web 版一致），更早的自动清掉
+    await run(`DELETE FROM agent_skill_backups WHERE skill_id = ? AND id NOT IN (
+        SELECT id FROM agent_skill_backups WHERE skill_id = ? ORDER BY created_at DESC, id DESC LIMIT ?)`, [cleanId, cleanId, MAX_BACKUPS_PER_SKILL]);
     return { id: res?.lastID, skillId: cleanId, createdAt: now, summary: summary || '技能备份' };
 }
 

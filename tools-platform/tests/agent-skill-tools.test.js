@@ -65,8 +65,8 @@ test('skills that store or fetch credentials are refused', () => {
     assert.equal(skillTools.credentialProblem('遇到登录页停下来，提示用户手动登录后回复「已登录」'), '');
 });
 
-test('save_skill asks every time even with full access, shows the diff, and keeps a backup', async () => {
-    const session = manager.ensureSession({ agentSessionId: `skill-${process.pid}`, user, tenantId: 'default', root, permissionMode: 'full' });
+test('save_skill asks in ask mode, shows the diff, and keeps a backup', async () => {
+    const session = manager.ensureSession({ agentSessionId: `skill-${process.pid}`, user, tenantId: 'default', root, permissionMode: 'ask' });
     const first = saveTurn(session, skillMd('1. 打开页面\n2. 读表格'));
     const approval = await waitFor(() => first.events.find(event => event.type === 'approval'));
     assert.equal(approval.tool, 'save_skill');
@@ -89,6 +89,16 @@ test('save_skill asks every time even with full access, shows the diff, and keep
     await third.turn;
     assert.equal(third.events.some(event => event.type === 'approval'), false);
     assert.match((await store.getSkill('demo-report')).markdown, /4\. 导出/);
+});
+
+test('save_skill does not ask again when the user chose full access (backup still kept)', async () => {
+    const session = manager.ensureSession({ agentSessionId: `skill-full-${process.pid}`, user, tenantId: 'default', root, permissionMode: 'full' });
+    const before = (await store.listBackups('demo-report')).length;
+    const turn = saveTurn(session, skillMd('1. 打开页面\n2. 等表格加载完\n3. 读表格\n4. 导出\n5. 完全访问下保存'));
+    assert.equal((await turn.turn).denied, 0);
+    assert.equal(turn.events.some(event => event.type === 'approval'), false);
+    assert.match((await store.getSkill('demo-report')).markdown, /完全访问下保存/);
+    assert.equal((await store.listBackups('demo-report')).length, before + 1, 'overwriting still keeps a backup');
 });
 
 test('a skill with credentials is refused before any approval card, and channels never save', async () => {

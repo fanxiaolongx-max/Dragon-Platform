@@ -113,6 +113,7 @@ function ensureWeLinkSession({ user, tenantId, chatSessionId, isSuperAdmin = fal
     const session = ensureSession({ agentSessionId: `welink-${hash(`${owner}\n${chatSessionId}`)}`, user, tenantId, root, permissionMode: 'full' });
     session.unattended = !isSuperAdmin; // 超级管理员私聊豁免无人值守阻断，直接自主完全执行；群聊/普通同事无人审批直接不执行
     session.isSuperAdmin = Boolean(isSuperAdmin);
+    session.channelSession = true; // 完全访问是系统设的，不是用户的选择
     return session;
 }
 
@@ -459,7 +460,10 @@ function classifyDecision(session, toolName, args = null, kind = toolsService.ki
     if (session.readOnly) return 'readonly';
     // 危险类别在任何模式下都要审批（包括完全访问），除非用户已选择不再询问；无人值守的对话直接不执行
     if (dangerHits(session, toolName, args).length) return session.unattended ? 'unattended' : 'ask';
-    // 每次都要用户确认的操作（如保存技能）：完全访问也询问，可选本对话不再询问
+    // 用户自己选了「完全访问」：普通写操作和需确认的操作（如保存技能）都不再逐项询问（与基座 Web 版「本次会话不再询问」同一口径）。
+    // 频道对话（WeLink / 微信）是系统设成完全访问的，不算用户的选择，需确认的操作仍走回复确认码。
+    if (session.permissionMode === 'full' && !session.channelContext && !session.channelSession) return 'allow';
+    // 每次都要用户确认的操作：可选本对话不再询问
     if (kind === 'confirm') return session.alwaysAllow.has(toolName) ? 'allow' : session.unattended ? 'unattended' : 'ask';
     // 完全访问是管理员明确授权的自主执行模式；风险标记不再把它降级为逐项审批。
     if (session.permissionMode === 'full') return 'allow';

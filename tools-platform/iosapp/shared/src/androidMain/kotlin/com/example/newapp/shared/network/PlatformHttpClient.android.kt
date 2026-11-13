@@ -40,6 +40,13 @@ actual fun createPlatformHttpClient(block: HttpClientConfig<*>.() -> Unit): Http
         config {
             connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
             dns(SmartAndroidDns)
+            addInterceptor { chain ->
+                val req = chain.request().newBuilder()
+                    .header("X-Client-Platform", "android")
+                    .header("X-Client-Version", "1.0.614")
+                    .build()
+                chain.proceed(req)
+            }
         }
     }
     block()

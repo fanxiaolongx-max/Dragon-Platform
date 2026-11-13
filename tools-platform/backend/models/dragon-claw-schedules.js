@@ -376,6 +376,18 @@ async function claim(row, next) {
     return Boolean(result?.changes);
 }
 
+// 每次执行完在告警台留一条（与基座 Web 版的消息中心一致）：成功是 info，失败是 warn；告警台出问题不影响任务
+function noticeRun(row, schedule, { ok, text }) {
+    const title = `定时任务${ok ? '已完成' : '执行失败'}：${String(schedule.instruction || row.instruction || '').replace(/\s+/g, ' ').slice(0, 40)}`;
+    try {
+        require('./alert-center-repository').addEvent({
+            eventType: 'system', severity: ok ? 'info' : 'warn', title, message: String(text || '').slice(0, 600),
+            actor: row.owner || 'schedule', source: 'dragon_claw_schedule', objectType: 'schedule', objectId: row.id,
+            ...(ok ? { aiStatus: 'not_applicable' } : {})
+        }).catch(() => {});
+    } catch (_) { /* ignore */ }
+}
+
 async function execute(row, firedAt = new Date(), { push = options => require('./channels').push(options) } = {}) {
     const schedule = toSchedule(row);
     const next = row.kind === 'recurring' ? parser.nextRecurring(schedule.rule, firedAt, schedule.timezone, await workdays()) : null;
@@ -387,6 +399,7 @@ async function execute(row, firedAt = new Date(), { push = options => require('.
         await run(`UPDATE dragon_claw_schedules SET session_id = ?, last_run_at = ?, last_status = 'ok', last_error = NULL, last_reply = ?,
             run_count = run_count + 1, status = CASE WHEN status = 'running' THEN 'done' ELSE status END, updated_at = ? WHERE id = ?`,
         [result.sessionId || row.session_id, now(), result.reply.slice(0, 600), now(), row.id]);
+        noticeRun(row, schedule, { ok: true, text: result.reply });
         return { ran: true };
     } catch (error) {
         if (error.busy) {
@@ -398,6 +411,7 @@ async function execute(row, firedAt = new Date(), { push = options => require('.
         await run(`UPDATE dragon_claw_schedules SET session_id = COALESCE(?, session_id), last_run_at = ?, last_status = 'failed', last_error = ?,
             run_count = run_count + 1, status = CASE WHEN status = 'running' THEN 'failed' ELSE status END, updated_at = ? WHERE id = ?`,
         [error.sessionId || null, now(), String(error.message || error).slice(0, 500), now(), row.id]);
+        noticeRun(row, schedule, { ok: false, text: String(error.message || error) });
         return { failed: true, error: error.message };
     }
 }

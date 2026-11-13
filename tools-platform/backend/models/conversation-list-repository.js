@@ -10,7 +10,8 @@ async function save(owner,input={}){
  const {source,id}=input;if(!owner||!sources.has(source)||typeof id!=='string'||!id.trim()||id.length>300||/[\x00-\x1f]/.test(id))throw invalid();
  const keys=['pinned','archived','hidden','title'];if(Object.keys(input).some(k=>!['source','id',...keys].includes(k)))throw invalid();
  for(const key of keys){if(input[key]!==undefined&&(key==='title'?typeof input[key]!=='string'||input[key].length>160:typeof input[key]!=='boolean'))throw invalid()}
- if(source==='mine'&&!await chat.assertSessionOwner(id,owner))throw Object.assign(new Error('会话不存在'),{statusCode:404});
+ const isExternalId = id.startsWith('desktop:') || id.startsWith('weixin:') || id.startsWith('welink:');
+ if(source==='mine'&&!isExternalId&&!await chat.assertSessionOwner(id,owner))throw Object.assign(new Error('会话不存在'),{statusCode:404});
  await ensure();
  // Only supplied columns are updated, so simultaneous independent actions do not
  // overwrite one another through a stale read/merge/write cycle.

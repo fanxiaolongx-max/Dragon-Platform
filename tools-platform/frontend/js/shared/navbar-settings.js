@@ -4948,9 +4948,174 @@ window.unlockSecurityLock = async function (lockKey) {
 // 账号页：所有账号都能改自己的密码；超级管理员另外管理账号（一个账号 = 一个独立团队空间）、进入团队排障、查看审计日志。
 const accountText = (zh, en) => navLocaleText(zh, en);
 const AUDIT_ACTION_LABELS = {
-    login: ['登录', 'Sign in'], user_create: ['新建账号', 'Create account'], user_delete: ['删除账号（保留数据）', 'Delete account (data kept)'],
-    user_delete_purge: ['删除账号及数据', 'Delete account and data'], password_reset: ['重置密码', 'Reset password'],
-    password_change: ['修改本人密码', 'Change own password'], team_enter: ['进入团队', 'Enter team'], team_leave: ['返回本人空间', 'Back to own space']
+    login: ['登录成功', 'Signed in'],
+    login_failed: ['登录失败', 'Sign in failed'],
+    logout: ['登出', 'Signed out'],
+    session_resume: ['会话恢复', 'Session resumed'],
+    user_create: ['新建账号', 'Create account'],
+    user_delete: ['删除账号（保留数据）', 'Delete account (data kept)'],
+    user_delete_purge: ['删除账号及数据', 'Delete account and data'],
+    password_reset: ['重置密码', 'Reset password'],
+    password_change: ['修改本人密码', 'Change own password'],
+    team_enter: ['进入团队', 'Enter team'],
+    team_leave: ['返回本人空间', 'Back to own space']
+};
+
+const auditLogState = {
+    page: 1,
+    limit: 20,
+    platform: 'all',
+    total: 0,
+    totalPages: 1,
+    items: []
+};
+
+function renderPlatformBadge(platform) {
+    const p = String(platform || 'web').toLowerCase();
+    switch (p) {
+        case 'ios':
+            return `<span class="nav-account-role" style="background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap;">📱 iOS App</span>`;
+        case 'android':
+            return `<span class="nav-account-role" style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap;">🤖 Android App</span>`;
+        case 'desktop':
+            return `<span class="nav-account-role" style="background:#f5f3ff;color:#6d28d9;border:1px solid #ddd6fe;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap;">💻 桌面端</span>`;
+        case 'mobile_web':
+            return `<span class="nav-account-role" style="background:#fef3c7;color:#b45309;border:1px solid #fde68a;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap;">📱 移动 Web</span>`;
+        case 'web':
+        default:
+            return `<span class="nav-account-role" style="background:#f3f4f6;color:#374151;border:1px solid #e5e7eb;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap;">🌐 Web 端</span>`;
+    }
+}
+
+function renderAuditPlatformTabs() {
+    const platforms = [
+        { id: 'all', zh: '全部', en: 'All' },
+        { id: 'ios', zh: '📱 iOS App', en: '📱 iOS App' },
+        { id: 'android', zh: '🤖 Android App', en: '🤖 Android App' },
+        { id: 'desktop', zh: '💻 桌面端', en: '💻 Desktop' },
+        { id: 'web', zh: '🌐 Web 端', en: '🌐 Web' },
+        { id: 'mobile_web', zh: '📱 移动 Web', en: '📱 Mobile Web' }
+    ];
+    return platforms.map(p => {
+        const active = auditLogState.platform === p.id;
+        const style = active
+            ? 'background:#2563eb;color:#fff;border-color:#2563eb;font-weight:600;'
+            : 'background:var(--nav-surface,#fff);color:var(--nav-text-sub,#555);border-color:var(--nav-border,#d1d5db);';
+        return `<button type="button" onclick="window.setAuditPlatform('${p.id}')" style="padding:4px 10px;border-radius:6px;border:1px solid;cursor:pointer;font-size:12px;transition:all .15s;${style}">${navEscape(accountText(p.zh, p.en))}</button>`;
+    }).join('');
+}
+
+function renderAuditTableRows() {
+    const tbody = document.getElementById('audit_log_tbody');
+    if (!tbody) return;
+    if (!auditLogState.items || auditLogState.items.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:#888;">${navEscape(accountText('暂无审计记录', 'No audit records'))}</td></tr>`;
+        return;
+    }
+    tbody.innerHTML = auditLogState.items.map(item => {
+        const label = AUDIT_ACTION_LABELS[item.action];
+        const actionText = label ? accountText(label[0], label[1]) : item.action;
+        const platformBadge = renderPlatformBadge(item.platform);
+        const deviceAndVer = [item.device, item.clientVersion].filter(Boolean).join(' · ') || '-';
+        const targetDetail = [item.target, item.detail].filter(Boolean).join(' - ') || item.tenantId || '-';
+        return `
+            <tr>
+                <td style="white-space:nowrap;font-size:12px;">${navEscape(new Date(item.at).toLocaleString())}</td>
+                <td><strong>${navEscape(item.actor)}</strong></td>
+                <td>${navEscape(actionText)}</td>
+                <td>${platformBadge}</td>
+                <td title="${navEscape(deviceAndVer)}"><span style="display:inline-block;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom;font-size:12px;">${navEscape(deviceAndVer)}</span></td>
+                <td style="font-family:monospace;font-size:12px;">${navEscape(item.ip || '-')}</td>
+                <td title="${navEscape(targetDetail)}"><span style="display:inline-block;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom;font-size:12px;">${navEscape(targetDetail)}</span></td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function renderAuditPagination() {
+    const container = document.getElementById('audit_log_pagination');
+    if (!container) return;
+    const { page, totalPages, total, limit } = auditLogState;
+    const prevDisabled = page <= 1 ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : '';
+    const nextDisabled = page >= totalPages ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : '';
+
+    container.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-top:12px;font-size:13px;color:var(--nav-text-sub,#555);">
+            <div>
+                ${navEscape(accountText(`共 ${total} 条记录，第 ${page} / ${totalPages} 页`, `Total ${total} records, page ${page} of ${totalPages}`))}
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <label style="display:flex;align-items:center;gap:4px;font-size:12px;">
+                    <span>${navEscape(accountText('每页', 'Per page'))}:</span>
+                    <select onchange="window.setAuditPageSize(this.value)" style="padding:3px 6px;border-radius:4px;border:1px solid var(--nav-border,#ccc);background:var(--nav-surface,#fff);color:inherit;font-size:12px;">
+                        <option value="20"${limit === 20 ? ' selected' : ''}>20</option>
+                        <option value="50"${limit === 50 ? ' selected' : ''}>50</option>
+                        <option value="100"${limit === 100 ? ' selected' : ''}>100</option>
+                    </select>
+                </label>
+                <button type="button" ${prevDisabled} onclick="window.changeAuditPage(${page - 1})" style="padding:3px 8px;border-radius:4px;border:1px solid var(--nav-border,#ccc);background:var(--nav-surface,#fff);cursor:pointer;font-size:12px;">${navEscape(accountText('上一页', 'Previous'))}</button>
+                <span style="font-weight:600;padding:0 4px;font-size:12px;">${page}</span>
+                <button type="button" ${nextDisabled} onclick="window.changeAuditPage(${page + 1})" style="padding:3px 8px;border-radius:4px;border:1px solid var(--nav-border,#ccc);background:var(--nav-surface,#fff);cursor:pointer;font-size:12px;">${navEscape(accountText('下一页', 'Next'))}</button>
+                <div style="display:flex;align-items:center;gap:4px;margin-left:6px;">
+                    <input id="audit_page_jump" type="number" min="1" max="${totalPages}" value="${page}" style="width:48px;padding:3px 4px;border:1px solid var(--nav-border,#ccc);border-radius:4px;text-align:center;font-size:12px;background:var(--nav-surface,#fff);color:inherit;">
+                    <button type="button" onclick="window.jumpAuditPage()" style="padding:3px 8px;border-radius:4px;border:1px solid var(--nav-border,#ccc);background:var(--nav-surface,#fff);cursor:pointer;font-size:12px;">${navEscape(accountText('跳转', 'Go'))}</button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+window.reloadAuditLogTable = async function() {
+    const tbody = document.getElementById('audit_log_tbody');
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:#888;">${navEscape(accountText('正在加载审计日志…', 'Loading audit log…'))}</td></tr>`;
+    try {
+        const query = new URLSearchParams({
+            page: String(auditLogState.page),
+            limit: String(auditLogState.limit)
+        });
+        if (auditLogState.platform && auditLogState.platform !== 'all') {
+            query.set('platform', auditLogState.platform);
+        }
+        const res = await API.get(`/api/auth/audit?${query.toString()}`);
+        auditLogState.items = res.items || [];
+        auditLogState.total = res.total || 0;
+        auditLogState.totalPages = res.totalPages || 1;
+        auditLogState.page = res.page || 1;
+        renderAuditTableRows();
+        renderAuditPagination();
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#ef4444;padding:24px;">${navEscape(err.message || '加载失败')}</td></tr>`;
+    }
+};
+
+window.changeAuditPage = function(p) {
+    if (p < 1 || p > auditLogState.totalPages || p === auditLogState.page) return;
+    auditLogState.page = p;
+    window.reloadAuditLogTable();
+};
+
+window.setAuditPlatform = function(platform) {
+    auditLogState.platform = platform;
+    auditLogState.page = 1;
+    const bar = document.getElementById('audit_platform_tabs');
+    if (bar) bar.innerHTML = renderAuditPlatformTabs();
+    window.reloadAuditLogTable();
+};
+
+window.setAuditPageSize = function(size) {
+    auditLogState.limit = Number(size) || 20;
+    auditLogState.page = 1;
+    window.reloadAuditLogTable();
+};
+
+window.jumpAuditPage = function() {
+    const input = document.getElementById('audit_page_jump');
+    if (!input) return;
+    const p = parseInt(input.value, 10);
+    if (p >= 1 && p <= auditLogState.totalPages) {
+        window.changeAuditPage(p);
+    }
 };
 
 function renderMyAccountCard() {
@@ -4985,9 +5150,8 @@ async function renderAccountSettings(content) {
     }
     content.innerHTML = `<div class="nav-settings-empty">${navEscape(navT('nav.acc.empty'))}</div>`;
     try {
-        const [users, audit, teamTools] = await Promise.all([
+        const [users, teamTools] = await Promise.all([
             API.get('/api/auth/users'),
-            API.get('/api/auth/audit?limit=60').catch(() => ({ items: [] })),
             API.get('/api/custom-tools/team-tools').catch(() => ({ items: [] }))
         ]);
         const teamToolRows = (teamTools.items || []).map(tool => `<tr><td>${navEscape(tool.teamName || tool.tenantId)}</td><td>${navEscape(tool.icon || '🧩')} ${navEscape(tool.name || tool.slug)}</td><td>${navEscape(tool.updatedAt ? new Date(tool.updatedAt).toLocaleString() : '')}</td><td class="nav-account-actions"><a href="${navEscape(tool.href)}" target="_blank" rel="noopener">${navEscape(accountText('打开', 'Open'))}</a></td></tr>`).join('');
@@ -5012,10 +5176,6 @@ async function renderAccountSettings(content) {
                         ${u.isSuper ? '' : `<button onclick="deleteUser(decodeURIComponent('${name}'))">${navEscape(navT('nav.acc.btnDel'))}</button>`}
                     </td>
                 </tr>`;
-        }).join('');
-        const auditRows = (audit.items || []).map(item => {
-            const label = AUDIT_ACTION_LABELS[item.action];
-            return `<tr><td>${navEscape(new Date(item.at).toLocaleString())}</td><td>${navEscape(item.actor)}</td><td>${navEscape(label ? accountText(label[0], label[1]) : item.action)}</td><td>${navEscape(item.target || item.tenantId || '')}</td><td>${navEscape(item.ip || '')}</td></tr>`;
         }).join('');
 
         content.innerHTML = `
@@ -5042,14 +5202,39 @@ async function renderAccountSettings(content) {
                     <tbody>${teamToolRows || `<tr><td colspan="4">${navEscape(accountText('还没有团队上传工具', 'No team uploads yet'))}</td></tr>`}</tbody>
                 </table>
             </div>
-            <div class="nav-settings-help" style="margin-top:18px">${navEscape(accountText('审计日志（最近 60 条）', 'Audit log (latest 60)'))}</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-top:24px;margin-bottom:10px;">
+                <div style="font-weight:600;font-size:14px;color:var(--nav-text,#111);">
+                    ${navEscape(accountText('平台审计日志', 'Platform Audit Log'))}
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <span style="font-size:12px;color:var(--nav-text-sub,#666);">${navEscape(accountText('客户端筛选:', 'Platform:'))}</span>
+                    <div id="audit_platform_tabs" style="display:inline-flex;gap:4px;flex-wrap:wrap;">
+                        ${renderAuditPlatformTabs()}
+                    </div>
+                    <button type="button" onclick="window.reloadAuditLogTable()" title="${navEscape(accountText('刷新', 'Refresh'))}" style="padding:4px 8px;border-radius:6px;border:1px solid var(--nav-border,#ccc);background:var(--nav-surface,#fff);cursor:pointer;font-size:12px;">🔄</button>
+                </div>
+            </div>
             <div class="nav-account-table-wrap">
                 <table class="nav-account-table">
-                    <thead><tr><th>${navEscape(accountText('时间', 'Time'))}</th><th>${navEscape(accountText('操作人', 'Actor'))}</th><th>${navEscape(accountText('操作', 'Action'))}</th><th>${navEscape(accountText('对象', 'Target'))}</th><th>IP</th></tr></thead>
-                    <tbody>${auditRows || `<tr><td colspan="5">${navEscape(accountText('暂无记录', 'No records'))}</td></tr>`}</tbody>
+                    <thead>
+                        <tr>
+                            <th style="min-width:130px;">${navEscape(accountText('时间', 'Time'))}</th>
+                            <th>${navEscape(accountText('操作人', 'Actor'))}</th>
+                            <th>${navEscape(accountText('操作', 'Action'))}</th>
+                            <th>${navEscape(accountText('客户端', 'Platform'))}</th>
+                            <th style="min-width:160px;">${navEscape(accountText('设备与版本', 'Device & Version'))}</th>
+                            <th>IP</th>
+                            <th>${navEscape(accountText('对象/详情', 'Target / Detail'))}</th>
+                        </tr>
+                    </thead>
+                    <tbody id="audit_log_tbody">
+                        <tr><td colspan="7" style="text-align:center;padding:20px;color:#888;">${navEscape(accountText('正在加载审计日志…', 'Loading audit log…'))}</td></tr>
+                    </tbody>
                 </table>
             </div>
+            <div id="audit_log_pagination"></div>
         `;
+        window.reloadAuditLogTable();
     } catch (e) {
         content.innerHTML = `<div class="nav-settings-empty">${navEscape(navT('nav.acc.fail'))}${navEscape(e.message)}</div>`;
     }

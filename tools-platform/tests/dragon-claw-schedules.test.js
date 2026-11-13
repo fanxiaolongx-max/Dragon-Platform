@@ -204,6 +204,13 @@ test('周期任务推进下一次；对话忙时稍后重试，失败记录原�
     assert.equal(row.lastStatus, 'failed');
     assert.equal(row.lastError, '模型不可用');
     nextResponse = 'ok';
+    // 每次执行在告警台留一条：成功 info、失败 warn（带原因）
+    await new Promise(resolve => setTimeout(resolve, 50));
+    const notices = (await require('../backend/models/alert-center-repository').listEvents({ limit: 50 })).filter(event => event.object_id === item.id);
+    assert.ok(notices.some(event => event.severity === 'info' && /^定时任务已完成：/.test(event.title)));
+    const failed = notices.find(event => /^定时任务执行失败：/.test(event.title));
+    assert.equal(failed.severity, 'warn');
+    assert.equal(failed.message, '模型不可用');
 }));
 
 test('推送到 WeLink/微信：校验对象与权限，执行成功后推送并记录结果', async () => inTenant(async () => {

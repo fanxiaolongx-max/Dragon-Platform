@@ -81,6 +81,24 @@ router.get('/service-status/logs/export', requireAdmin, async (req, res) => {
     }
 });
 
+// 平台自检：数据库、模型、磁盘、进程，以及出站探针（仅管理员）
+router.get('/diagnostics', requireAdmin, async (_req, res) => {
+    try {
+        res.setHeader('Cache-Control', 'no-store');
+        res.json(await require('../models/platform-diagnostics').runDiagnostics());
+    } catch (err) {
+        res.status(500).json({ error: err.message || '平台自检失败' });
+    }
+});
+
+router.post('/diagnostics/probe', requireAdmin, async (req, res) => {
+    try {
+        res.json(await require('../models/platform-diagnostics').probeUrl(req.body && req.body.url));
+    } catch (err) {
+        res.status(err.status || 500).json({ error: err.message || '出站探测失败' });
+    }
+});
+
 router.get('/summary', async (req, res) => {
     try {
         res.setHeader('Cache-Control', 'no-store');

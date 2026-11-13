@@ -118,6 +118,7 @@ const { checkAuth, requireAdmin, checkHtmlAuth, inSuperAdminSpace } = require('.
 const hostedAppsProxy = require('./models/hosted-apps/proxy');
 
 const app = express();
+app.set('trust proxy', true);
 
 // ============================================================
 // 中间件

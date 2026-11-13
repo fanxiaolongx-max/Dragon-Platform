@@ -64,12 +64,12 @@
             prRunning: '正在创建 PR…', prDone: 'PR 已创建', prOpen: '打开 PR', prFailedAt: '「{step}」失败，流程已停止', prDeniedAt: '「{step}」被拒绝，流程已停止', prAborted: '创建 PR 已中止', prRetry: '重试', prClose: '关闭',
             tool_list_uiv_scripts: '查找抓取脚本', tool_read_uiv_script: '读取抓取脚本', tool_save_uiv_script: '保存抓取脚本', tool_delete_uiv_script: '删除抓取脚本',
             tool_list_uiv_categories: '查看脚本分类与站点', tool_move_uiv_script: '移动脚本分类', tool_manage_uiv_category: '管理脚本分类',
-            categoryTasks: '任务', categorySpaces: '空间', newChatInWorkspace: '新建任务',
+            categoryPinned: '置顶', categoryTasks: '任务', categorySpaces: '空间', newChatInWorkspace: '新建任务',
             workspaceDisabled: '工作区仅在本机或管理员账号下可用'
         },
         'en-US': {
             messageExpand: 'Show more', messageCollapse: 'Show less',
-            categoryTasks: 'Tasks', categorySpaces: 'Workspaces', newChatInWorkspace: 'New task',
+            categoryPinned: 'Pinned', categoryTasks: 'Tasks', categorySpaces: 'Workspaces', newChatInWorkspace: 'New task',
             ctxCompacted: 'Context compacted. Usage updates after the next reply.',
             slashCompact: 'Compact context while keeping the full history', compactRunning: 'Compacting context…', compactEmpty: 'Start a conversation before compacting its context', compactSmall: 'The context is already compact', compactDone: 'Context compacted. Full chat and tool history kept.', compactFailed: 'Could not compact context. History was not deleted.',
             slashSchedule: 'Run an instruction later or on a schedule (no args: list tasks)', slashPlan: 'Draft a step plan first, run it after you confirm', slashBtw: 'Quick side question that stays out of this chat',
@@ -2875,8 +2875,10 @@
         // 2. 桌面 Agent 会话 (Codex, Claude Code, Antigravity)
         const desktopItems = window.HomeDesktopAgents?.getItems?.() || [];
         for (const item of desktopItems) {
+            const uid = 'desktop:' + item.provider + ':' + item.id;
             unified.push({
-                _id: 'desktop:' + item.provider + ':' + item.id,
+                id: uid,
+                _id: uid,
                 _sourceType: item.provider, // 'codex', 'claudecode', 'antigravity'
                 _raw: item,
                 title: item.title || item.id,
@@ -2891,8 +2893,10 @@
         const channelThreads = ['weixin', 'welink'].includes(sourceFilter) ? (window.HomeWelinkThreads?.getAllThreads?.() || []) : [];
         for (const thread of channelThreads) {
             const ch = thread.channel || 'welink';
+            const uid = ch + ':' + thread.kind + ':' + thread.id;
             unified.push({
-                _id: ch + ':' + thread.kind + ':' + thread.id,
+                id: uid,
+                _id: uid,
                 _sourceType: ch, // 'weixin', 'welink'
                 _raw: thread,
                 title: thread.name || thread.id,
@@ -3105,22 +3109,29 @@
                 return timeB - timeA || a.index - b.index;
             }
 
+            const pinnedEntries = [];
             const taskEntries = [];
             const projectMap = new Map();
 
             for (let i = 0; i < allItems.length; i++) {
                 const item = allItems[i];
                 if (!passesFilter(item)) continue;
-                const root = getChatDirectory(item);
+                const pref = window.HomeConversationList?.get?.('mine', item.id || item._id) || {};
                 const entry = { item, index: i, running: isItemRunning(item) };
-                if (root) {
-                    if (!projectMap.has(root)) projectMap.set(root, []);
-                    projectMap.get(root).push(entry);
+                if (pref.pinned) {
+                    pinnedEntries.push(entry);
                 } else {
-                    taskEntries.push(entry);
+                    const root = getChatDirectory(item);
+                    if (root) {
+                        if (!projectMap.has(root)) projectMap.set(root, []);
+                        projectMap.get(root).push(entry);
+                    } else {
+                        taskEntries.push(entry);
+                    }
                 }
             }
 
+            pinnedEntries.sort(sortEntries);
             taskEntries.sort(sortEntries);
             for (const entries of projectMap.values()) {
                 entries.sort(sortEntries);
@@ -3142,7 +3153,7 @@
                 }
             }
 
-            if (taskEntries.length === 0 && sortedProjects.length === 0) {
+            if (pinnedEntries.length === 0 && taskEntries.length === 0 && sortedProjects.length === 0) {
                 el.chatList.innerHTML = `<div class="home-chat-empty">${escapeHtml(tx('chatNoMatch'))}</div>`;
                 window.HomeConversationList?.enhance(el.chatList, config);
                 return;
@@ -3151,9 +3162,19 @@
             // 保持一个隐藏的 .home-chat-group 占位，供自动化测试与样式选择器向下兼容
             html.push('<div class="home-chat-group" hidden style="display:none;" aria-hidden="true"></div>');
 
-            // 1. 任务 (未选目录)：顶级分类，可折叠，「展开更多」只作用于本分类（conversation-list.js 按 data-batch-scope 分别计数）
             const searching = Boolean(query);
-            if (taskEntries.length > 0 || sortedProjects.length === 0) {
+
+            // 0. 置顶 (全部类型的置顶会话：第三方 Agent、空间对话、普通任务)：顶级独立分类；没有置顶项时不显示
+            if (pinnedEntries.length > 0) {
+                const open = searching || !collapsedSections.has('pinned');
+                html.push(`<section class="home-chat-section" data-section="pinned">${sectionHead('pinned', tx('categoryPinned'), pinnedEntries.length)}
+                    <div class="home-chat-section-body" data-batch-scope="pinned"${open ? '' : ' hidden'}>
+                        ${pinnedEntries.map(({ item, index }) => renderItemHtml(item, index, false)).join('')}
+                    </div></section>`);
+            }
+
+            // 1. 任务 (未选目录)：顶级分类，可折叠，「展开更多」只作用于本分类（conversation-list.js 按 data-batch-scope 分别计数）
+            if (taskEntries.length > 0 || (sortedProjects.length === 0 && pinnedEntries.length === 0)) {
                 const open = searching || !collapsedSections.has('tasks');
                 html.push(`<section class="home-chat-section" data-section="tasks">${sectionHead('tasks', tx('categoryTasks'), taskEntries.length)}
                     <div class="home-chat-section-body" data-batch-scope="tasks" data-batch-remote${open ? '' : ' hidden'}>

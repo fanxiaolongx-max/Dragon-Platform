@@ -39,6 +39,8 @@ actual fun createPlatformHttpClient(block: HttpClientConfig<*>.() -> Unit): Http
     engine {
         configureRequest {
             setTimeoutInterval(300.0)
+            setValue("ios", forHTTPHeaderField = "X-Client-Platform")
+            setValue("DragonClaw/1.0.614", forHTTPHeaderField = "X-Client-Version")
         }
     }
     block()

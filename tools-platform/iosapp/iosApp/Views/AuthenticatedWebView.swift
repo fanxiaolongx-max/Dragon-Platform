@@ -193,6 +193,8 @@ private struct AuthenticatedWKWebView: UIViewRepresentable {
             }
         }
         var request = URLRequest(url: url)
+        request.setValue("ios", forHTTPHeaderField: "X-Client-Platform")
+        request.setValue("DragonClaw/1.0.614", forHTTPHeaderField: "X-Client-Version")
         if !token.isEmpty {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }

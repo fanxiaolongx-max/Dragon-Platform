@@ -1142,6 +1142,7 @@ const EXECUTORS = {
         .map(([name, operation]) => [name, async (ctx, args) => {
             assertScriptTool(args);
             const result = await databaseService.writeTable(ctx, { ...args, operation });
+            noticeDatabaseWrite(ctx, args, operation, result);
             return { content: JSON.stringify(result), summary: `${operation} ${args.database} / ${args.table}: ${result.changes} 行` };
         }])),
     write_file: writeFile,
@@ -1187,6 +1188,20 @@ async function sendWeLinkMessage(ctx, args = {}) {
 }
 
 /** 审批卡片用的预览：对写操作提前算 diff，之后执行时复用同一计划。 */
+// 对话里改了数据库：在告警台留痕（谁、哪张表、影响几行、条件），与基座 Web 版「对话里执行的写操作发给管理员」一致
+function noticeDatabaseWrite(ctx, args, operation, result) {
+    const label = { insert: '新增', update: '修改', delete: '删除' }[operation] || operation;
+    try {
+        require('./alert-center-repository').addEvent({
+            eventType: 'user_action', severity: operation === 'delete' ? 'warn' : 'info',
+            title: `对话里${label}了数据：${args.database} / ${args.table}（${Number(result?.changes) || 0} 行）`,
+            message: redactText(Array.isArray(args.filters) && args.filters.length ? `条件：${JSON.stringify(args.filters)}`.slice(0, 600) : (args.allowAllRows ? '条件：全部行' : '')),
+            actor: ctx?.username || '', source: 'dragon_claw_chat', objectType: 'database', objectId: `${args.database}/${args.table}`,
+            detail: { operation, changes: Number(result?.changes) || 0 }, aiStatus: 'not_applicable'
+        }).catch(() => {});
+    } catch (_) { /* ignore */ }
+}
+
 async function buildPreview(ctx, name, args = {}) {
     if (name === 'delete_uiv_script') scriptService.assertDeletionRequested(ctx);
     if (name === 'move_uiv_script') return scriptService.move(ctx, args, true);

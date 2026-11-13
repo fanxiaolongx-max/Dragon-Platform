@@ -75,6 +75,7 @@ async function toolsets({ owner, user, readOnly, channel = null }) {
     sets.push(...await require('./agent-mcp').toolsets().catch(error => { console.warn('[agent] MCP 工具不可用：', error.message || error); return []; }));
     if (readOnly) return sets;
     sets.push(require('./agent-skill-tools').toolset({ owner, user })); // 技能自我进化：保存前用户审批
+    sets.push(require('./agent-publish-tools').toolset({ owner, user })); // 发布 HTML 工具、推送通知：都要过审批卡
     const where = browser.available();
     if (where) {
         const ctx = { owner };
