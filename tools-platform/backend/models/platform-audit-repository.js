@@ -76,6 +76,14 @@ function parseClientInfo(req) {
         platform = /DragonClaw/i.test(ua) ? 'ios' : 'mobile_web';
     } else if (/Android/i.test(ua)) {
         platform = /DragonClaw/i.test(ua) ? 'android' : 'mobile_web';
+    } else if (/Ktor/i.test(ua)) {
+        // Ktor client 来自移动端 App（iOS Darwin 或 Android OkHttp）
+        // iOS 引擎基于 NSURLSession，会注入 accept-language 或在 accept-encoding 声明 deflate/br
+        // Android 引擎基于 OkHttp，默认仅请求 gzip，无 accept-language
+        const acceptLang = String(req.headers?.['accept-language'] || '');
+        const acceptEnc = String(req.headers?.['accept-encoding'] || '');
+        const isIos = Boolean(acceptLang || acceptEnc.includes('deflate') || acceptEnc.includes('br'));
+        platform = isIos ? 'ios' : 'android';
     } else if (/Mobile|HarmonyOS/i.test(ua)) {
         platform = 'mobile_web';
     } else {
@@ -99,6 +107,8 @@ function parseClientInfo(req) {
             device = model ? `${model} (Android ${osVer})` : (osVer ? `Android ${osVer}` : 'Android Device');
         } else if (/okhttp/i.test(ua)) {
             device = 'Android Device';
+        } else if (/Ktor/i.test(ua)) {
+            device = platform === 'ios' ? 'iPhone / iPad' : 'Android Device';
         } else if (/(iosApp|CFNetwork|Darwin)/i.test(ua) && !/Macintosh/i.test(ua)) {
             device = 'Apple Device';
         } else if (/Macintosh|Mac OS X/i.test(ua)) {
@@ -135,6 +145,8 @@ function parseClientInfo(req) {
             clientVersion = `CFNetwork ${ua.match(/CFNetwork\/([\d.]+)/i)[1]}`;
         } else if (/okhttp\/([\d.]+)/i.test(ua)) {
             clientVersion = `OkHttp ${ua.match(/okhttp\/([\d.]+)/i)[1]}`;
+        } else if (/Ktor/i.test(ua)) {
+            clientVersion = 'Dragon Claw Mobile (v1.0)';
         } else {
             clientVersion = ua ? ua.slice(0, 40) : '-';
         }

@@ -66,6 +66,29 @@ test('parseClientInfo classifies platforms, devices, and client versions accurat
     assert.equal(androidOkHttp.device, 'Android Device');
     assert.equal(androidOkHttp.clientVersion, 'OkHttp 4.12.0');
 
+    // Ktor client iOS App
+    const ktorIos = auditRepo.parseClientInfo({
+        headers: {
+            'user-agent': 'Ktor client',
+            'accept-language': 'zh-Hans-CN,zh-CN;q=0.9',
+            'accept-encoding': 'gzip, deflate, br'
+        }
+    });
+    assert.equal(ktorIos.platform, 'ios');
+    assert.equal(ktorIos.device, 'iPhone / iPad');
+    assert.equal(ktorIos.clientVersion, 'Dragon Claw Mobile (v1.0)');
+
+    // Ktor client Android App
+    const ktorAndroid = auditRepo.parseClientInfo({
+        headers: {
+            'user-agent': 'Ktor client',
+            'accept-encoding': 'gzip'
+        }
+    });
+    assert.equal(ktorAndroid.platform, 'android');
+    assert.equal(ktorAndroid.device, 'Android Device');
+    assert.equal(ktorAndroid.clientVersion, 'Dragon Claw Mobile (v1.0)');
+
     // Desktop App (Electron)
     const electronUa = auditRepo.parseClientInfo({
         headers: {

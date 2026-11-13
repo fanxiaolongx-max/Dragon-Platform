@@ -1,12 +1,12 @@
 {
   "zh": [
-    "保险箱（Vault）新增通用 API Key 与 Secret 凭据安全托管，支持独立密文加密存储、界面操作与环境解析。",
-    "完善 iOS App Store 审核与移动端体验，脱敏并优雅格式化网络异常提示，补充合规隐私政策规范与 iPad 适配支持。",
-    "增强智能体技能生态，集成家庭记账账本技能并增加本地执行降级与命令超时保护机制。"
+    "平台全局审计日志升级：支持 iOS/Android/桌面端/Web 端多维分类筛选、真实客户端 IP 解析、设备型号识别与服务端自动分页。",
+    "左侧会话侧边栏全面升级：支持所有类型会话（普通任务、空间对话、三方桌面 Agent 及外部渠道）统一置顶，并自动在顶部置顶分组集中展示。",
+    "增强移动设备与智能体生态：集成 Open-AutoGLM Android 自动化控制技能，完善移动端 App 请求特征精准识别。"
   ],
   "en": [
-    "Introduce native API Key and Secret credential vault support with encrypted storage, management UI, and runtime injection.",
-    "Improve mobile network resilience and App Store compliance with elegant error masking, privacy policy documentation, and iPad layout support.",
-    "Enhance the agent skills ecosystem with family finance bookkeeper automation, local execution fallbacks, and command timeout protections."
+    "Upgrade platform audit logs with multi-platform filtering (iOS, Android, Desktop, Web), proxy-aware client IP extraction, device detection, and pagination.",
+    "Introduce universal pinned conversations across sidebar sections for standard chats, space projects, desktop agents, and external channel threads.",
+    "Expand agent mobile automation with the Open-AutoGLM Android control skill and improved mobile application client identification."
   ]
 }
