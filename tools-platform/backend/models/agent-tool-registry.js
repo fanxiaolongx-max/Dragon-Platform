@@ -13,6 +13,7 @@ const GROUPS = {
     database: { label: '平台数据库', names: ['list_databases', 'database_schema', 'read_database_table', 'insert_database_row', 'update_database_rows', 'delete_database_rows'] },
     uiv: { label: 'UIVF12 抓取脚本仓库', names: ['list_uiv_scripts', 'list_uiv_categories', 'read_uiv_script', 'save_uiv_script', 'move_uiv_script', 'manage_uiv_category', 'delete_uiv_script'] },
     'welink-channel': { label: 'WeLink 频道消息', names: ['welink_list_targets', 'welink_send_message'] },
+    'open-autoglm': { label: 'Open-AutoGLM Android 手机控制', names: ['open_autoglm_get_screenshot', 'open_autoglm_list_devices', 'open_autoglm_run_task', 'open_autoglm_action', 'open_autoglm_task_status'] },
     toolkit: { label: '常用文件工具（Office 文档、表格 SQL 查询、比较差异、批量修改、压缩解压、长期记忆）', names: ['read_document', 'query_data', 'diff_files', 'multi_edit', 'zip_files', 'unzip_file', 'memory'] }
 };
 const GROUP_OF = new Map(Object.entries(GROUPS).flatMap(([group, item]) => item.names.map(name => [name, group])));
@@ -44,6 +45,17 @@ const TOOLSETS = {
             try { allowWrite = Boolean(require('./channels/welink-cli-runner').readConfig().allowWrite); } catch (_error) { /* 未配置 welink-cli 时只读 */ }
             return { definitions: welink.definitions({ write: allowWrite, permissionMode: session.permissionMode }), prompt: await welink.buildPrompt({ permissionMode: session.permissionMode }).catch(() => ''),
                 execute: (call, { signal, write }) => welink.execute({ actor: session.username, permissionMode: session.permissionMode, signal, callId: call.id, canApprove: true, onEvent: event => write(event) }, call.name, call.args) };
+        }
+    },
+    'open-autoglm': {
+        skillId: 'open-autoglm', selfLoad: true,
+        build: async () => {
+            const autoglm = require('./open-autoglm-agent');
+            return {
+                definitions: autoglm.definitions(),
+                prompt: autoglm.buildPrompt(),
+                execute: call => autoglm.execute(call.name, call.args)
+            };
         }
     }
 };
