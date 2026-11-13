@@ -93,22 +93,22 @@
             if (isDesktopAgent) {
                 const message = L('第三方 Agent 对话名称由原客户端管理，暂不支持重命名', 'Desktop agent conversations are managed by the original client and cannot be renamed.');
                 if (window.AppDialog?.alert) await window.AppDialog.alert(message, { title: L('无法重命名', 'Cannot rename'), tone: 'info' });
-                else window.alert(message);
+                else if (typeof window.showNavbarNotice === 'function') await window.showNavbarNotice({ title: L('无法重命名', 'Cannot rename'), message, tone: 'info' });
                 return;
             }
             const isChannel = Boolean(item?._sourceType && ['weixin','welink'].includes(item._sourceType)) || ['weixin','welink'].includes(config.source);
             if (isChannel) {
                 const message = L('外部频道对话名称由原客户端管理，暂不支持重命名', 'Channel conversations are managed by the original client and cannot be renamed.');
                 if (window.AppDialog?.alert) await window.AppDialog.alert(message, { title: L('无法重命名', 'Cannot rename'), tone: 'info' });
-                else window.alert(message);
+                else if (typeof window.showNavbarNotice === 'function') await window.showNavbarNotice({ title: L('无法重命名', 'Cannot rename'), message, tone: 'info' });
                 return;
             }
-            const value=window.AppDialog?await window.AppDialog.prompt(L('修改在平台列表中显示的名称','Change the name shown in this platform'),{title:L('重命名','Rename'),defaultValue:title,maxLength:160}):window.prompt(L('重命名','Rename'),title);
+            const value=window.AppDialog?.prompt?await window.AppDialog.prompt(L('修改在平台列表中显示的名称','Change the name shown in this platform'),{title:L('重命名','Rename'),defaultValue:title,maxLength:160}):null;
             if(current!==identity()||value===null||value===undefined||!String(value).trim())return;return save(source,id,{title:String(value).trim()});
         }
         if(config.onDelete)return config.onDelete(item);
         const message=L(`从平台列表移除「${title}」？原客户端的对话和消息会保留。`,`Remove “${title}” from this platform list? The original client's conversation and messages are kept.`);
-        const ok=window.AppDialog?await window.AppDialog.confirm(message,{title:L('移除对话','Remove conversation'),confirmText:L('移除','Remove'),tone:'danger'}):window.confirm(message);
+        const ok=window.AppDialog?.confirm?await window.AppDialog.confirm(message,{title:L('移除对话','Remove conversation'),confirmText:L('移除','Remove'),tone:'danger'}):false;
         if(ok&&current===identity())await save(source,id,{hidden:true});
     }
     function open(row,config,item,x,y){
@@ -116,7 +116,7 @@
         const pref=get(config.source,config.id(item));menu=document.createElement('div');menu.className='conversation-context-menu';menu.setAttribute('role','menu');menu.setAttribute('aria-label',L('对话操作','Conversation actions'));
         const actions=[['pin',pref.pinned?L('取消置顶','Unpin'):L('置顶','Pin')],['rename',L('重命名','Rename')],['archive',pref.archived?L('取消归档','Unarchive'):L('归档','Archive')],['remove',L('删除','Delete')]];
         menu.innerHTML=actions.map(([id,label])=>`<button type="button" role="menuitem" data-conversation-action="${id}"${id==='remove'?' class="is-danger"':''}>${icon(id)}<span>${label}</span></button>`).join('');
-        menu.addEventListener('click',async event=>{const button=event.target.closest('[data-conversation-action]');if(!button)return;const operation=button.dataset.conversationAction;close();try{await action(config,item,operation);}catch(error){if(window.AppDialog)window.AppDialog.alert(error.message,{title:L('操作失败','Action failed'),tone:'error'});else window.alert(error.message);}});
+        menu.addEventListener('click',async event=>{const button=event.target.closest('[data-conversation-action]');if(!button)return;const operation=button.dataset.conversationAction;close();try{await action(config,item,operation);}catch(error){if(window.AppDialog?.alert)window.AppDialog.alert(error.message,{title:L('操作失败','Action failed'),tone:'error'});}});
         menu.addEventListener('keydown',event=>{const buttons=[...menu.querySelectorAll('button')],index=buttons.indexOf(document.activeElement);if(event.key==='Escape'){event.preventDefault();close(true);}else if(['ArrowDown','ArrowUp','Home','End'].includes(event.key)){event.preventDefault();buttons[event.key==='Home'?0:event.key==='End'?buttons.length-1:(index+(event.key==='ArrowDown'?1:-1)+buttons.length)%buttons.length].focus();}else if(event.key==='Tab')close();});
         document.body.append(menu);const rect=menu.getBoundingClientRect();menu.style.left=Math.max(8,Math.min(x,innerWidth-rect.width-8))+'px';menu.style.top=Math.max(8,Math.min(y,innerHeight-rect.height-8))+'px';menu.querySelector('button')?.focus({preventScroll:true});
     }

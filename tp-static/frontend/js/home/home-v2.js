@@ -109,7 +109,10 @@
             scanRelogin: '重新扫码', scanLogout: '退出登录', scanChannelSettings: '频道设置',
             scanAdminOnly: '仅系统管理员可用',
             channelDisabledNoChannel: '当前未对接任何频道（WeLink / 微信），可在全局设置中对接',
-            channelDisabledNotEnabled: '已配置频道凭据但尚未启用，请在全局设置中开启'
+            channelDisabledNotEnabled: '已配置频道凭据但尚未启用，请在全局设置中开启',
+            roleAdmin: '管理员',
+            roleSuperAdmin: '超级管理员',
+            tour: '新手引导'
         },
         'en-US': {
             discover: 'Discover', newChat: 'New chat', channels: 'Channels', skills: 'Skills · plugins', schedule: 'Scheduled', library: 'Library',
@@ -138,7 +141,10 @@
             scanRelogin: 'Re-scan', scanLogout: 'Sign out', scanChannelSettings: 'Channel settings',
             scanAdminOnly: 'System administrators only',
             channelDisabledNoChannel: 'No channels configured (WeLink / WeChat). Configure them in Global Settings.',
-            channelDisabledNotEnabled: 'Channels configured but not enabled. Please enable them in Global Settings.'
+            channelDisabledNotEnabled: 'Channels configured but not enabled. Please enable them in Global Settings.',
+            roleAdmin: 'Admin',
+            roleSuperAdmin: 'Super Admin',
+            tour: 'Product tour'
         }
     };
     const lang = () => (window.ToolsI18n?.getLanguage?.() === 'en-US' ? 'en-US' : 'zh-CN');
@@ -171,16 +177,17 @@
         if (openPop?.pop === pop && openPop?.anchor === anchor) return;
         closePop();
         const rect = anchor.getBoundingClientRect();
-        if (place === 'right') { pop.style.left = `${rect.right + 6}px`; pop.style.top = `${rect.top - 6}px`; pop.style.bottom = ''; }
+        if (place === 'right') { pop.style.left = `${rect.right + 6}px`; pop.style.top = `${Math.max(8, rect.top - 6)}px`; pop.style.bottom = ''; }
         else if (place === 'up') { pop.style.left = `${rect.left}px`; pop.style.bottom = `${window.innerHeight - rect.top + 8}px`; pop.style.top = ''; }
         else { pop.style.left = `${rect.left}px`; pop.style.top = `${rect.bottom + 6}px`; pop.style.bottom = ''; }
         pop.classList.add('is-open');
         anchor.setAttribute('aria-expanded', 'true');
         openPop = { pop, anchor };
-        // 超出视口底部时向上收
+        // 超出视口边界时自动收进视口内
         const box = pop.getBoundingClientRect();
         if (box.right > window.innerWidth - 8) pop.style.left = `${Math.max(8, window.innerWidth - box.width - 8)}px`;
         if (box.bottom > window.innerHeight - 8 && place !== 'up') pop.style.top = `${Math.max(8, window.innerHeight - box.height - 8)}px`;
+        if (pop.getBoundingClientRect().top < 8 && place !== 'up') pop.style.top = '8px';
     }
     function makePop(className = '') {
         const pop = document.createElement('div');
@@ -191,6 +198,7 @@
     }
     function closeOutsidePop(event) {
         if (!openPop) return;
+        if (event.target?.closest?.('.v2-tour-root')) return;
         // 捕获阶段处理，避免正文/工具自身的 stopPropagation 阻止菜单关闭。
         const path = event.composedPath();
         if (path.includes(openPop.pop) || path.includes(openPop.anchor) || path.includes(linksPanel)) return;
@@ -279,6 +287,7 @@
         compare() { click('builtinToolsCompareBtn'); },
         links() { openLinks(); },
         alerts() { openMessages(); },
+        tour() { window.HomeProductTour?.replay?.(); },
         checkUpdate() { window.ToolsDialogs?.checkUpdate(); },
         feedback() { window.ToolsDialogs?.feedback(); },
         settings() { window.openNavSettingsModal?.(); },
@@ -313,11 +322,28 @@
     // ── 二级菜单：技能·插件·工具 / 更多（悬停或点击展开） ──
     const flyouts = {
         more: () => {
+            const normalizeNavPath = raw => {
+                if (!raw) return '';
+                try {
+                    const u = new URL(raw, location.origin);
+                    return u.pathname.replace(/\.html$/i, '').replace(/\/+$/, '') || '/';
+                } catch {
+                    return String(raw).split(/[?#]/)[0].replace(/\.html$/i, '').replace(/\/+$/, '') || '/';
+                }
+            };
             const workflow = window.NavWorkflow?.links() || [];
-            const workflowPaths = new Set(workflow.map(item => item.href));
+            const workflowIds = new Set([...(window.NavWorkflow?.ids || []), 'home']);
+            const seenPaths = new Set(workflow.map(item => normalizeNavPath(item.href)));
             const toolLink = (href, label) => `<a class="v2-pop-item" role="menuitem" href="${esc(href)}"><span class="v2-ico v2-app-glyph" data-icon="${appGlyph(href)}"></span><span>${esc(label)}</span></a>`;
             const links = [...document.querySelectorAll('#app-navbar .nav-links a[href]')]
-                .filter(a => isNavSidebarShortcut(a.getAttribute('href')) && !workflowPaths.has(a.getAttribute('href')))
+                .filter(a => {
+                    const href = a.getAttribute('href');
+                    const navId = a.dataset.navId || a.getAttribute('data-nav-id') || '';
+                    const pathKey = normalizeNavPath(href);
+                    if (!isNavSidebarShortcut(href) || workflowIds.has(navId) || seenPaths.has(pathKey)) return false;
+                    seenPaths.add(pathKey);
+                    return true;
+                })
                 .map(a => toolLink(a.getAttribute('href'), (a.querySelector('.nav-text, .nav-link-text')?.textContent || a.getAttribute('title') || a.textContent || '').trim().replace(/^\S+\s+/, m => (/^[\p{Extended_Pictographic}️]+\s+$/u.test(m) ? '' : m))));
             const personal = window.HomeSidebarMenu;
             return [
@@ -566,12 +592,50 @@
     const serviceDown = () => Boolean(document.querySelector('#app-navbar .nav-server-status')?.matches('.offline, .is-offline, .warning, .error, .is-down'));
     const serviceText = () => $('server-status-text')?.textContent?.trim() || t('online');
     const versionText = () => ($('nav-resource-version-display')?.textContent?.trim() || '').split(' · ')[0];
+    const ROLE_BADGE_ICONS = {
+        admin: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.8 13 3.8v3.9c0 3.2-2.1 5.6-5 6.5-2.9-.9-5-3.3-5-6.5V3.8L8 1.8Z"/><path d="m5.8 8.1 1.5 1.5 3-3"/></svg>',
+        super: '<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M2.2 12.2 1.4 5.3a.6.6 0 0 1 1-.5L5.3 7.6 7.5 3.4a.58.58 0 0 1 1 0l2.2 4.2 2.9-2.8a.6.6 0 0 1 1 .5l-.8 6.9a.7.7 0 0 1-.7.6H2.9a.7.7 0 0 1-.7-.6Z"/><rect x="2.6" y="13.5" width="10.8" height="1.3" rx=".65"/></svg>'
+    };
+    const userRoleTier = () => {
+        try {
+            if (localStorage.getItem('tools_role') !== 'admin') return '';
+            if (typeof window.isNavSuperAdmin === 'function') return window.isNavSuperAdmin() ? 'super' : 'admin';
+            const flag = localStorage.getItem('tools_super');
+            return flag === null || flag === '1' ? 'super' : 'admin';
+        } catch {
+            return '';
+        }
+    };
+    const applyUserTierClasses = (el, tier) => {
+        if (!el) return;
+        el.classList.toggle('is-admin', tier === 'admin' || tier === 'super');
+        el.classList.toggle('is-superadmin', tier === 'super');
+    };
+    const renderRoleBadgeHtml = tier => {
+        if (!tier) return '';
+        const label = tier === 'super' ? t('roleSuperAdmin') : t('roleAdmin');
+        return `${ROLE_BADGE_ICONS[tier] || ''}<span>${esc(label)}</span>`;
+    };
     function renderUser() {
         const name = localStorage.getItem('tools_user') || '';
+        const tier = userRoleTier();
+        applyUserTierClasses($('v2UserBtn'), tier);
         $('v2UserName').textContent = name;
         if (!$('v2Avatar').firstChild) $('v2Avatar').innerHTML = '<img src="./tp-static/frontend/assets/logo.png" alt="">';
         $('v2UserMeta').textContent = serviceText();
         $('v2StatusDot').classList.toggle('is-down', serviceDown());
+        const crest = $('v2AvatarCrest');
+        if (crest) {
+            crest.hidden = tier !== 'super';
+            if (tier === 'super' && !crest.firstChild) crest.innerHTML = ROLE_BADGE_ICONS.super;
+        }
+        const badge = $('v2RoleBadge');
+        if (badge) {
+            badge.hidden = !tier;
+            badge.classList.toggle('is-admin', tier === 'admin');
+            badge.classList.toggle('is-superadmin', tier === 'super');
+            badge.innerHTML = renderRoleBadgeHtml(tier);
+        }
     }
     const rowItem = (icon, label, action, hint = '', arrow = false) => `<button type="button" class="v2-pop-item" role="menuitem" data-v2-do="${action}"><span class="v2-ico" data-icon="${icon}"></span><span>${esc(label)}</span>${hint ? `<span class="v2-pop-hint">${esc(hint)}</span>` : ''}${arrow ? '<span class="v2-ico v2-pop-arrow" data-icon="chevronRight"></span>' : ''}</button>`;
     const switchItem = (icon, label, action, on) => `<button type="button" class="v2-pop-item" role="menuitemcheckbox" aria-checked="${on}" data-v2-do="${action}"><span class="v2-ico" data-icon="${icon}"></span><span>${esc(label)}</span><span class="v2-pop-switch" aria-hidden="true"></span></button>`;
@@ -583,11 +647,14 @@
     }
     function renderUserMenu() {
         const name = localStorage.getItem('tools_user') || '';
-        const admin = localStorage.getItem('tools_role') === 'admin';
+        const tier = userRoleTier();
+        const tierClass = tier === 'super' ? ' is-admin is-superadmin' : (tier === 'admin' ? ' is-admin' : '');
+        const headCrest = tier === 'super' ? `<span class="v2-avatar-crest" aria-hidden="true">${ROLE_BADGE_ICONS.super}</span>` : '<span class="v2-avatar-crest" aria-hidden="true" hidden></span>';
+        const headBadge = tier ? `<span class="v2-role-badge ${tier === 'super' ? 'is-superadmin' : 'is-admin'}">${renderRoleBadgeHtml(tier)}</span>` : '';
         const dark = root.getAttribute('data-theme') === 'dark';
         const mac = /Mac/i.test(navigator.platform || '');
         userPop.innerHTML = `
-            <div class="v2-account-card v2-account-head"><span class="v2-avatar v2-avatar-lg"><img src="./tp-static/frontend/assets/logo.png" alt=""></span><strong>${esc(name)}</strong></div>
+            <div class="v2-account-card v2-account-head${tierClass}"><span class="v2-avatar-wrap"><span class="v2-avatar v2-avatar-lg"><img src="./tp-static/frontend/assets/logo.png" alt=""></span>${headCrest}</span><div class="v2-account-identity"><strong>${esc(name)}</strong>${headBadge}</div></div>
             <div class="v2-account-card v2-account-stats">
                 <div><small>${esc(t('version'))}</small><strong>${esc(versionText() || '—')}</strong></div>
                 <div><small>${esc(t('service'))}</small><button type="button" class="v2-account-service" data-v2-do="serviceStatus" title="${esc(t('serviceStatus'))}" aria-label="${esc(t('serviceStatus'))}"><span class="v2-status-dot${serviceDown() ? ' is-down' : ''}"></span>${esc(serviceText())}</button></div>
@@ -599,6 +666,7 @@
                 ${rowItem('language', t('language'), 'language')}
                 ${rowItem('target', t('requirements'), 'requirements')}
                 ${rowItem('chat', lang() === 'en-US' ? 'Feedback' : '意见反馈', 'feedback')}
+                ${rowItem('sparkles', t('tour'), 'tour')}
                 ${rowItem('refresh', t('checkUpdate'), 'checkUpdate')}
                 <div class="v2-pop-sep"></div>
                 ${rowItem('logout', t('logout'), 'logout')}
@@ -1538,9 +1606,11 @@
                 }
                 if (event.target.closest('[data-msg-clear]')) {
                     const confirmMsg = lang() === 'en-US' ? 'Clear all alert messages?' : '确定清空所有告警消息？';
-                    const ok = window.AppDialog
+                    const ok = window.AppDialog?.confirm
                         ? await window.AppDialog.confirm(confirmMsg, { title: lang() === 'en-US' ? 'Clear all' : '全部清除', tone: 'danger', confirmText: lang() === 'en-US' ? 'Clear' : '清空', cancelText: lang() === 'en-US' ? 'Cancel' : '取消' })
-                        : confirm(confirmMsg);
+                        : (typeof window.showNavbarConfirm === 'function'
+                            ? await window.showNavbarConfirm(confirmMsg, { title: lang() === 'en-US' ? 'Clear all' : '全部清除', danger: true })
+                            : false);
                     if (!ok) return;
                     await fetch('/api/alert-center/events/clear-all', { method: 'POST', headers: msgHeaders(true), body: '{}' }).catch(() => {});
                     window.refreshAlertCenterBadge?.(); loadMessages(); return;
@@ -2374,6 +2444,16 @@
         renderModes();
         queueGroups();
     });
+    window.addEventListener('tools:authchange', () => {
+        renderUser();
+        if (openPop?.pop === userPop) renderUserMenu();
+    });
+    window.addEventListener('storage', event => {
+        if (!event.key || ['tools_user', 'tools_role', 'tools_super'].includes(event.key)) {
+            renderUser();
+            if (openPop?.pop === userPop) renderUserMenu();
+        }
+    });
     window.addEventListener('tools:languagechange', () => {
         applyText();
         mirrorNavbar();
@@ -2382,9 +2462,10 @@
         updateChannelsNavState();
         if (openPop?.pop === discover.pop) renderDiscover();
         if (openPop?.pop === scan.pop) renderScan();
+        if (openPop?.pop === userPop) renderUserMenu();
     });
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
     else init();
 
-    window.HomeV2 = { setSideCollapsed, isSideCollapsed, setTheme, closePop, fillIcons, openLinks, updateChannelsNavState };
+    window.HomeV2 = { setSideCollapsed, isSideCollapsed, setTheme, closePop, fillIcons, openLinks, updateChannelsNavState, renderUser };
 })();

@@ -283,7 +283,7 @@
             const server = view.servers.find(item => item.id === id);
             if (action === 'guide-generate') { generateGuides({}); return; }
             if (action === 'guide-regenerate') {
-                const ok = window.AppDialog ? await window.AppDialog.confirm(L(`重新生成全部 ${view.guides?.total || 0} 个工具的说明？每个工具会调用一次模型。`, `Regenerate guides for all ${view.guides?.total || 0} tools? Each tool costs one model call.`), { cancelText: L('取消', 'Cancel') }) : window.confirm('?');
+                const ok = window.AppDialog?.confirm ? await window.AppDialog.confirm(L(`重新生成全部 ${view.guides?.total || 0} 个工具的说明？每个工具会调用一次模型。`, `Regenerate guides for all ${view.guides?.total || 0} tools? Each tool costs one model call.`), { cancelText: L('取消', 'Cancel') }) : false;
                 if (ok) generateGuides({ force: true });
                 return;
             }
@@ -313,7 +313,7 @@
             if (action === 'cancel') { view.editing = null; render(); return; }
             if (action === 'edit' && server) { view.editing = JSON.parse(JSON.stringify(server)); view.notice = null; render(); return; }
             if (action === 'remove' && server) {
-                const ok = window.AppDialog ? await window.AppDialog.confirm(L(`删除 MCP 服务「${server.name}」？`, `Delete MCP server "${server.name}"?`), { cancelText: L('取消', 'Cancel'), danger: true }) : window.confirm(server.name);
+                const ok = window.AppDialog?.confirm ? await window.AppDialog.confirm(L(`删除 MCP 服务「${server.name}」？`, `Delete MCP server "${server.name}"?`), { cancelText: L('取消', 'Cancel'), danger: true }) : false;
                 if (ok) persist(view.servers.filter(item => item.id !== id), L('已删除', 'Deleted'));
                 return;
             }

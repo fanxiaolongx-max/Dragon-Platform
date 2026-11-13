@@ -863,6 +863,41 @@ html.is-embedded-tool #app-navbar { display: none !important; }
     overflow: hidden;
     text-overflow: ellipsis;
 }
+.nav-user-chip:is(.is-admin, .is-super) {
+    width: auto;
+    max-width: 196px;
+    padding: 0 9px;
+    gap: 5px;
+}
+.nav-user-chip.is-admin {
+    color: #c7d2fe;
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.16), rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.16));
+    border-color: rgba(129, 140, 248, 0.45);
+}
+.nav-user-chip.is-super {
+    color: #fde68a;
+    background: linear-gradient(125deg, rgba(245, 158, 11, 0.22), rgba(236, 72, 153, 0.14), rgba(139, 92, 246, 0.20));
+    border-color: rgba(251, 191, 36, 0.55);
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
+}
+.nav-user-chip .nav-action-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.nav-user-role {
+    flex: none;
+    padding: 2px 5px;
+    border-radius: 999px;
+    font-size: 9.5px;
+    font-weight: 700;
+    line-height: 1;
+    background: rgba(255, 255, 255, 0.12);
+    color: inherit;
+}
+.nav-user-chip.is-super .nav-user-role {
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.28), rgba(245, 158, 11, 0.22));
+    color: #fef3c7;
+}
 
 .alert-center-modal {
     position: fixed;
@@ -5076,7 +5111,8 @@ body.service-status-open { overflow: hidden; }
         gap: 0;
     }
     .nav-lang-current,
-    .nav-action-text {
+    .nav-action-text,
+    .nav-user-role {
         display: none;
     }
     .nav-lang-icon,

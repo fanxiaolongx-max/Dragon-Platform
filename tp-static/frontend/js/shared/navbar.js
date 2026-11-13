@@ -2258,7 +2258,9 @@ async function switchNavTeam(tenantId) {
     const response = await fetch('/api/tenants/switch', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaderForNav() }, body: JSON.stringify({ tenantId }) });
     if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        alert(data.error || '切换失败');
+        const msg = data.error || '切换失败';
+        if (window.AppDialog?.alert) await window.AppDialog.alert(msg, { title: '切换失败', tone: 'error' });
+        else if (typeof showNavbarNotice === 'function') await showNavbarNotice({ title: '切换失败', message: msg, tone: 'error' });
         return;
     }
     const previous = localStorage.getItem('tools_tenant_id') || 'default';
@@ -2271,7 +2273,12 @@ function activeTenantName() { return navState.settings?.platformName || 'Dragon 
 
 function renderNavbar() {
     const role = localStorage.getItem('tools_role');
+    const isAdmin = role === 'admin';
+    const isSuper = isAdmin && isNavSuperAdmin();
     const user = localStorage.getItem('tools_user');
+    const en = window.ToolsI18n?.getLanguage?.() === 'en-US';
+    const chipTier = isAdmin ? (isSuper ? 'is-super' : 'is-admin') : '';
+    const chipRoleLabel = isAdmin ? (isSuper ? (en ? 'Super Admin' : '超级管理员') : (en ? 'Admin' : '管理员')) : '';
 
     // Hide all buttons that edit/add stuff if readonly
     if (role === 'readonly') {
@@ -2318,7 +2325,7 @@ function renderNavbar() {
                     <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-4v-.09A1.7 1.7 0 0 0 9 19.36a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.64 15a1.7 1.7 0 0 0-1.55-1.03H3v-4h.09A1.7 1.7 0 0 0 4.64 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.64a1.7 1.7 0 0 0 1.03-1.55V3h4v.09A1.7 1.7 0 0 0 15 4.64a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.36 9a1.7 1.7 0 0 0 1.55 1.03H21v4h-.09A1.7 1.7 0 0 0 19.4 15z"></path>
                 </svg>
             </button>` : ''}
-            <span class="nav-user-chip"><span class="nav-action-icon">👤</span><span class="nav-action-text">${navEscape(user || '未登录')}</span></span>
+            <span class="nav-user-chip${chipTier ? ` ${chipTier}` : ''}"><span class="nav-action-icon">${isSuper ? '👑' : (isAdmin ? '🛡️' : '👤')}</span><span class="nav-action-text">${navEscape(user || '未登录')}</span>${chipRoleLabel ? `<span class="nav-user-role">${navEscape(chipRoleLabel)}</span>` : ''}</span>
             <a href="#" class="nav-logout-link" onclick="doLogout()" title="${navEscape(navT('nav.logout'))}"><span class="nav-action-icon">↩</span><span class="nav-action-text">${navEscape(navT('nav.logout'))}</span></a>
         </div>
 
@@ -2360,6 +2367,25 @@ document.addEventListener('click', (event) => {
     if (link) {
         const itemId = link.getAttribute('data-nav-item-id');
         if (itemId) recordRecentNavTool(itemId);
+    }
+    if (window.parent === window
+        && event.button === 0
+        && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey
+        && typeof window.__dhIsDirty === 'function'
+        && typeof window.__dhConfirmLeave === 'function'
+        && window.__dhIsDirty()) {
+        const navAnchor = event.target.closest('#app-navbar a[href], a.nav-brand[href], a[data-nav-item-id][href]');
+        if (navAnchor && navAnchor.getAttribute('href') && navAnchor.getAttribute('href') !== '#') {
+            const href = navAnchor.href;
+            const target = navAnchor.getAttribute('target');
+            if (!target || target === '_self') {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                window.__dhConfirmLeave().then(ok => {
+                    if (ok) location.href = href;
+                });
+            }
+        }
     }
 }, true);
 
@@ -2493,7 +2519,9 @@ function hasHomeSidebarMenu() {
 }
 
 function isNavSidebarShortcut(href) {
-    return Boolean(href && href !== '/' && !href.startsWith('#'));
+    if (!href || href.startsWith('#')) return false;
+    const clean = String(href).split(/[?#]/)[0].replace(/\/+$/, '') || '/';
+    return clean !== '/' && clean !== '/index.html';
 }
 
 function getPrimarySettingsTitle() {
@@ -4481,7 +4509,12 @@ window.inspectChannelsNow = async function () {
         await serviceStatusRequest('/api/platform-metrics/service-status/channels/inspect', { method: 'POST' });
         await window.loadServiceStatusHistory();
     } catch (err) {
-        alert(serviceStatusBi('频道抽查失败：', 'Channel inspection failed: ') + err.message);
+        const msg = serviceStatusBi('频道抽查失败：', 'Channel inspection failed: ') + err.message;
+        if (window.AppDialog && typeof window.AppDialog.alert === 'function') {
+            window.AppDialog.alert(msg, { title: serviceStatusBi('频道抽查失败', 'Inspection failed'), tone: 'danger' });
+        } else if (typeof showNavbarNotice === 'function') {
+            showNavbarNotice(msg, { tone: 'error' });
+        }
         if (btn) {
             btn.disabled = false;
             btn.innerHTML = `↻ <span>${serviceStatusBi('立即抽查', 'Inspect Now')}</span>`;
@@ -5567,17 +5600,22 @@ async function syncNavUserSession() {
             if (data && data.username) {
                 const previousRole = localStorage.getItem('tools_role');
                 const previousUser = localStorage.getItem('tools_user');
+                const previousSuper = localStorage.getItem('tools_super');
                 localStorage.setItem('tools_user', data.username);
                 if (data.role) localStorage.setItem('tools_role', data.role);
                 if (await syncTenantWorkspace(data)) return;
+                const currentSuper = localStorage.getItem('tools_super');
                 // 导航栏按本地角色渲染管理员入口（设置、租户管理）；服务端角色与渲染时不同就整条重绘。
-                if ((data.role && data.role !== previousRole) || data.username !== previousUser) {
+                if ((data.role && data.role !== previousRole) || data.username !== previousUser || currentSuper !== previousSuper) {
                     renderNavbar();
                 } else {
                     const userChipText = document.querySelector('.nav-user-chip .nav-action-text');
                     if (userChipText) {
                         userChipText.textContent = data.username;
                     }
+                }
+                if (typeof window?.dispatchEvent === 'function' && typeof CustomEvent === 'function') {
+                    try { window.dispatchEvent(new CustomEvent('tools:authchange')); } catch (_) {}
                 }
                 // 服务端 cookie 仍有效但浏览器本地没有 token（换了端口/清过站点数据）：依赖 token 的功能会失效，引导重新登录。
                 if (!hasNavAuthToken()) promptNavRelogin();

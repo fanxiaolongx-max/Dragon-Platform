@@ -320,9 +320,9 @@
         else if (action === 'upgrade-cli') runAction('upgrade-cli', async () => { const res = await request('POST', '/upgrade'); state.notice = { kind: 'ok', text: L(`welink-cli 已成功更新至 v${res.version || ''}`, `welink-cli upgraded to v${res.version || ''}`) }; await load({ refresh: true }); });
         else if (action === 'save-path') runAction('save-path', async () => { await saveConfig({ cliPath: state.draftPath ?? state.config?.cliPath ?? '', downloadDir: state.draftDownload ?? state.config?.downloadDir ?? '' }); if (state.install?.available) loadAuth(); });
         else if (action === 'logout') {
-            const confirmed = window.AppDialog
+            const confirmed = window.AppDialog?.confirm
                 ? window.AppDialog.confirm(L('注销后会清除本机 welink-cli 的全部凭据，需要重新扫码登录。', 'This clears all welink-cli credentials on this machine.'), { title: L('注销 welink-cli', 'Sign out'), tone: 'danger', confirmText: L('注销', 'Sign out'), cancelText: L('取消', 'Cancel') })
-                : Promise.resolve(window.confirm(L('注销 welink-cli？', 'Sign out of welink-cli?')));
+                : Promise.resolve(false);
             confirmed.then(ok => ok && runAction('logout', async () => {
                 await request('POST', '/logout');
                 state.login = null;

@@ -170,7 +170,7 @@
         finally { view.busy = false; render(); }
     }
 
-    function onClick(event) {
+    async function onClick(event) {
         const allow = event.target.closest('[data-vault-allow]');
         if (allow) return act(L('已恢复自动保存', 'Saving re-enabled'), () => api('POST', '/sites/never-save', { origin: allow.dataset.vaultAllow, never: false }));
         const button = event.target.closest('[data-vault]');
@@ -190,7 +190,11 @@
             return;
         }
         if (name === 'remove') {
-            if (!confirm(L(`删除 ${entry.host} 的账号「${entry.username}」？删除后无法恢复。`, `Delete "${entry.username}" for ${entry.host}? This cannot be undone.`))) return;
+            const msg = L(`删除 ${entry.host} 的账号「${entry.username}」？删除后无法恢复。`, `Delete "${entry.username}" for ${entry.host}? This cannot be undone.`);
+            const ok = window.AppDialog?.confirm
+                ? await window.AppDialog.confirm(msg, { title: L('删除账号', 'Delete account'), tone: 'danger', confirmText: L('删除', 'Delete'), cancelText: L('取消', 'Cancel') })
+                : (typeof window.showNavbarConfirm === 'function' ? await window.showNavbarConfirm({ title: L('删除账号', 'Delete account'), message: msg, tone: 'danger' }) : false);
+            if (!ok) return;
             if (view.revealed?.id === entry.id) hideRevealed();
             return act(L('已删除', 'Deleted'), () => api('DELETE', `/${encodeURIComponent(entry.id)}`));
         }
