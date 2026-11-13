@@ -15,7 +15,7 @@ const authUsersRepo = require('../backend/models/auth-users-repository');
 const { vault } = require('../backend/models/password-vault');
 const { createVaultCredentials, attachBrowserLogin } = require('../desktop-promo/browser-credentials');
 
-const accounts = { alice: 'alice-platform-pw', root: 'root-platform-pw' };
+const accounts = { alice: 'alice-platform-pw', root: 'root-platform-pw', bob: 'bob-platform-pw' };
 authUsersRepo.getUser = async username => accounts[username] ? { username, passwordHash: hashUserPassword(accounts[username]) } : null;
 
 let server, base;
@@ -119,4 +119,41 @@ test('desktop browser store: tied to the signed-in account, any site, legacy pas
     await new Promise(resolve => setTimeout(resolve, 100));
     assert.deepEqual(sent[0].credentials, { username: 'old-user', password: 'old-secret' });
     assert.equal(sent[0].autoSubmit, false);
+});
+
+test('secrets route: list without secrets, save, update, reveal with platform password, and delete', async () => {
+    assert.equal((await call('', 'GET', '/secrets')).status, 401);
+
+    const created = await call('bob', 'POST', '/secrets', { name: 'OPENAI_API_KEY', value: 'sk-proj-xyz123', category: 'api_key', label: '测试 API' });
+    assert.equal(created.status, 200);
+    assert.equal(created.data.created, true);
+    assert.equal(created.data.secret.name, 'OPENAI_API_KEY');
+    assert.equal(JSON.stringify(created.data).includes('sk-proj-xyz123'), false);
+    const secretId = created.data.secret.id;
+
+    const listRes = await call('bob', 'GET', '/secrets');
+    assert.equal(listRes.status, 200);
+    assert.equal(listRes.data.secrets.length, 1);
+    assert.equal(JSON.stringify(listRes.data).includes('sk-proj-xyz123'), false);
+
+    const rootList = await call('root', 'GET', '/secrets');
+    assert.deepEqual(rootList.data.secrets, []);
+
+    const badPw = await call('bob', 'POST', `/secrets/${encodeURIComponent(secretId)}/reveal`, { accountPassword: 'wrong-password' });
+    assert.equal(badPw.status, 403);
+
+    const goodPw = await call('bob', 'POST', `/secrets/${encodeURIComponent(secretId)}/reveal`, { accountPassword: 'bob-platform-pw' });
+    assert.equal(goodPw.status, 200);
+    assert.equal(goodPw.data.value, 'sk-proj-xyz123');
+
+    const rootReveal = await call('root', 'POST', `/secrets/${encodeURIComponent(secretId)}/reveal`, { accountPassword: 'root-platform-pw' });
+    assert.equal(rootReveal.status, 404);
+
+    const updated = await call('bob', 'PUT', `/secrets/${encodeURIComponent(secretId)}`, { label: '已修改备注' });
+    assert.equal(updated.status, 200);
+    assert.equal(updated.data.secret.label, '已修改备注');
+
+    const del = await call('bob', 'DELETE', `/secrets/${encodeURIComponent(secretId)}`);
+    assert.equal(del.status, 200);
+    assert.deepEqual((await call('bob', 'GET', '/secrets')).data.secrets, []);
 });

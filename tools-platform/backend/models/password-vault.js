@@ -15,7 +15,7 @@ const path = require('path');
 const sqlite3 = require('sqlite3');
 const tenantContext = require('./tenant-context');
 
-const LIMITS = { username: 512, password: 4096, label: 120, entriesPerOwner: 2000 };
+const LIMITS = { username: 512, password: 4096, label: 120, entriesPerOwner: 2000, secretName: 128, secretValue: 65536, secretsPerOwner: 1000 };
 const AUTO_SUBMIT_COOLDOWN_MS = 5 * 60 * 1000;
 const FORMAT = 1;
 
@@ -74,6 +74,7 @@ function createVault({ directory = path.join(tenantContext.BASE_DATA_DIR, 'vault
     }
     const ownerKey = owner => Buffer.from(crypto.hkdfSync('sha256', loadMasterKey(), Buffer.from(owner, 'utf8'), Buffer.from('dragon-vault-v1', 'utf8'), 32));
     const binding = (owner, origin, username) => Buffer.from(`${owner}\n${origin}\n${username}`, 'utf8');
+    const secretBinding = (owner, name) => Buffer.from(`${owner}\nsecret\n${name}`, 'utf8');
     function seal(owner, origin, username, password) {
         const iv = crypto.randomBytes(12), cipher = crypto.createCipheriv('aes-256-gcm', ownerKey(owner), iv);
         cipher.setAAD(binding(owner, origin, username));
@@ -89,6 +90,21 @@ function createVault({ directory = path.join(tenantContext.BASE_DATA_DIR, 'vault
         try { return Buffer.concat([decipher.update(blob.subarray(29)), decipher.final()]).toString('utf8'); }
         catch (_error) { throw vaultError('VAULT_CORRUPT', '保险箱条目无法解密，请删除后重新保存'); }
     }
+    function sealSecret(owner, name, value) {
+        const iv = crypto.randomBytes(12), cipher = crypto.createCipheriv('aes-256-gcm', ownerKey(owner), iv);
+        cipher.setAAD(secretBinding(owner, name));
+        const body = Buffer.concat([cipher.update(String(value), 'utf8'), cipher.final()]);
+        return Buffer.concat([Buffer.from([FORMAT]), iv, cipher.getAuthTag(), body]);
+    }
+    function openSecret(owner, name, secret) {
+        const blob = Buffer.isBuffer(secret) ? secret : Buffer.from(secret || []);
+        if (blob.length < 29 || blob[0] !== FORMAT) throw vaultError('VAULT_CORRUPT', '保密密钥条目已损坏，请删除后重新保存');
+        const decipher = crypto.createDecipheriv('aes-256-gcm', ownerKey(owner), blob.subarray(1, 13));
+        decipher.setAAD(secretBinding(owner, name));
+        decipher.setAuthTag(blob.subarray(13, 29));
+        try { return Buffer.concat([decipher.update(blob.subarray(29)), decipher.final()]).toString('utf8'); }
+        catch (_error) { throw vaultError('VAULT_CORRUPT', '保密密钥条目无法解密，请删除后重新保存'); }
+    }
 
     function init() {
         ready ||= (async () => {
@@ -102,6 +118,11 @@ function createVault({ directory = path.join(tenantContext.BASE_DATA_DIR, 'vault
                 created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, last_used_at INTEGER NOT NULL DEFAULT 0, use_count INTEGER NOT NULL DEFAULT 0,
                 UNIQUE(owner, origin, username))`);
             await run('CREATE TABLE IF NOT EXISTS vault_sites (owner TEXT NOT NULL, origin TEXT NOT NULL, never_save INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(owner, origin))');
+            await run(`CREATE TABLE IF NOT EXISTS vault_secrets (
+                id TEXT PRIMARY KEY, owner TEXT NOT NULL, name TEXT NOT NULL, secret BLOB NOT NULL,
+                category TEXT NOT NULL DEFAULT 'api_key', label TEXT NOT NULL DEFAULT '',
+                created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, last_used_at INTEGER NOT NULL DEFAULT 0, use_count INTEGER NOT NULL DEFAULT 0,
+                UNIQUE(owner, name))`);
             try { fs.chmodSync(filename, 0o600); } catch (_error) { /* Windows 没有这套权限位 */ }
             loadMasterKey();
         })().catch(error => { ready = null; throw error; });
@@ -113,6 +134,10 @@ function createVault({ directory = path.join(tenantContext.BASE_DATA_DIR, 'vault
         id: row.id, origin: row.origin, host: new URL(row.origin).host, username: row.username, label: row.label || '',
         autoFill: !!row.auto_fill, autoSubmit: !!row.auto_submit, createdAt: row.created_at, updatedAt: row.updated_at, lastUsedAt: row.last_used_at, useCount: row.use_count
     });
+    const publicSecret = row => ({
+        id: row.id, name: row.name, category: row.category || 'api_key', label: row.label || '',
+        createdAt: row.created_at, updatedAt: row.updated_at, lastUsedAt: row.last_used_at, useCount: row.use_count
+    });
     function checkFields({ username, password, label }, { partial = false } = {}) {
         if (username !== undefined || !partial) {
             if (typeof username !== 'string' || !username.trim() || username.length > LIMITS.username) throw vaultError('VAULT_INVALID', '请填写用户名');
@@ -121,6 +146,17 @@ function createVault({ directory = path.join(tenantContext.BASE_DATA_DIR, 'vault
             if (typeof password !== 'string' || !password || password.length > LIMITS.password) throw vaultError('VAULT_INVALID', '请填写密码');
         }
         if (label !== undefined && (typeof label !== 'string' || label.length > LIMITS.label)) throw vaultError('VAULT_INVALID', '备注过长');
+    }
+    function checkSecretFields({ name, value, label, category }, { partial = false } = {}) {
+        if (name !== undefined || !partial) {
+            if (typeof name !== 'string' || !name.trim() || name.length > LIMITS.secretName) throw vaultError('VAULT_INVALID', '请填写密钥名称（最长 128 字符）');
+            if (!/^[a-zA-Z0-9_.-]+$/.test(name.trim())) throw vaultError('VAULT_INVALID', '密钥名称只能包含字母、数字、下划线、中划线或点');
+        }
+        if (value !== undefined || !partial) {
+            if (typeof value !== 'string' || !value || value.length > LIMITS.secretValue) throw vaultError('VAULT_INVALID', '请填写密钥内容（最长 64KB）');
+        }
+        if (label !== undefined && (typeof label !== 'string' || label.length > 500)) throw vaultError('VAULT_INVALID', '备注过长');
+        if (category !== undefined && (typeof category !== 'string' || category.length > 32)) throw vaultError('VAULT_INVALID', '分类名称过长');
     }
 
     const api = {
@@ -215,6 +251,71 @@ function createVault({ directory = path.join(tenantContext.BASE_DATA_DIR, 'vault
             const site = originOf(url);
             if (!site) throw vaultError('VAULT_INVALID', '请填写 http(s) 网址');
             await run('INSERT INTO vault_sites (owner, origin, never_save) VALUES (?, ?, ?) ON CONFLICT(owner, origin) DO UPDATE SET never_save = excluded.never_save', [owner, site, Number(!!never)]);
+        },
+        // ── Secrets (API Keys, Tokens, etc.) ───────────────────────
+        async listSecrets(owner) {
+            requireOwner(owner); await init();
+            const rows = await all('SELECT * FROM vault_secrets WHERE owner = ? ORDER BY name ASC', [owner]);
+            return { secrets: rows.map(publicSecret) };
+        },
+        async saveSecret(owner, { name, value, category = 'api_key', label = '' } = {}) {
+            requireOwner(owner); await init();
+            checkSecretFields({ name, value, label, category });
+            const sName = name.trim(), now = Date.now(), sCategory = String(category || 'api_key').trim();
+            const existing = await get('SELECT id FROM vault_secrets WHERE owner = ? AND name = ?', [owner, sName]);
+            if (existing) {
+                await run(`UPDATE vault_secrets SET secret = ?, category = ?, label = ?, updated_at = ? WHERE id = ? AND owner = ?`,
+                    [sealSecret(owner, sName, value), sCategory, String(label || '').trim(), now, existing.id, owner]);
+            } else {
+                const count = await get('SELECT COUNT(*) AS total FROM vault_secrets WHERE owner = ?', [owner]);
+                if (count.total >= LIMITS.secretsPerOwner) throw vaultError('VAULT_LIMIT', `每个账号最多保存 ${LIMITS.secretsPerOwner} 个 API 密钥`);
+                await run('INSERT INTO vault_secrets (id, owner, name, secret, category, label, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                    [crypto.randomUUID(), owner, sName, sealSecret(owner, sName, value), sCategory, String(label || '').trim(), now, now]);
+            }
+            const row = await get('SELECT * FROM vault_secrets WHERE owner = ? AND name = ?', [owner, sName]);
+            return { secret: publicSecret(row), created: !existing };
+        },
+        async updateSecret(owner, id, changes = {}) {
+            requireOwner(owner); await init();
+            const row = await get('SELECT * FROM vault_secrets WHERE id = ? AND owner = ?', [String(id || ''), owner]);
+            if (!row) throw vaultError('VAULT_NOT_FOUND', '密钥条目不存在', 404);
+            checkSecretFields(changes, { partial: true });
+            const name = changes.name === undefined ? row.name : changes.name.trim();
+            let secret = row.secret;
+            if (changes.value !== undefined || name !== row.name) {
+                const plain = changes.value !== undefined ? changes.value : openSecret(owner, row.name, row.secret);
+                secret = sealSecret(owner, name, plain);
+            }
+            if (name !== row.name && await get('SELECT 1 FROM vault_secrets WHERE owner = ? AND name = ? AND id <> ?', [owner, name, row.id])) {
+                throw vaultError('VAULT_DUPLICATE', '已经存在同名密钥');
+            }
+            await run('UPDATE vault_secrets SET name = ?, secret = ?, category = ?, label = ?, updated_at = ? WHERE id = ? AND owner = ?', [
+                name, secret, changes.category === undefined ? row.category : String(changes.category).trim(),
+                changes.label === undefined ? row.label : String(changes.label).trim(),
+                Date.now(), row.id, owner
+            ]);
+            return publicSecret(await get('SELECT * FROM vault_secrets WHERE id = ? AND owner = ?', [row.id, owner]));
+        },
+        async removeSecret(owner, id) {
+            requireOwner(owner); await init();
+            const result = await run('DELETE FROM vault_secrets WHERE id = ? AND owner = ?', [String(id || ''), owner]);
+            if (!result.changes) throw vaultError('VAULT_NOT_FOUND', '密钥条目不存在', 404);
+        },
+        async revealSecret(owner, id) {
+            requireOwner(owner); await init();
+            const row = await get('SELECT * FROM vault_secrets WHERE id = ? AND owner = ?', [String(id || ''), owner]);
+            if (!row) throw vaultError('VAULT_NOT_FOUND', '密钥条目不存在', 404);
+            return openSecret(owner, row.name, row.secret);
+        },
+        async getSecret(owner, name) {
+            if (!owner || !name) return null;
+            await init();
+            const row = await get('SELECT * FROM vault_secrets WHERE owner = ? AND name = ?', [owner, String(name).trim()]);
+            if (!row) return null;
+            const value = openSecret(owner, row.name, row.secret);
+            const now = Date.now(), useCount = (row.use_count || 0) + 1;
+            await run('UPDATE vault_secrets SET last_used_at = ?, use_count = ? WHERE id = ? AND owner = ?', [now, useCount, row.id, owner]);
+            return { id: row.id, name: row.name, category: row.category, label: row.label, value, lastUsedAt: now, useCount };
         },
         /** 同一站点 5 分钟内只自动提交一次：密码错了不会反复提交把账号锁掉。 */
         claimAutoSubmit(owner, url) {

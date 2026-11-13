@@ -31,6 +31,37 @@ router.post('/', handle(async req => {
     return vault().save(req.vaultOwner, { url, username, password, label: label === undefined ? '' : label });
 }));
 
+// ── Secrets (API Keys, Tokens, etc.) ───────────────────────
+router.get('/secrets', handle(req => vault().listSecrets(req.vaultOwner)));
+
+router.post('/secrets', handle(async req => {
+    const { name, value, category, label } = req.body || {};
+    return vault().saveSecret(req.vaultOwner, { name, value, category, label });
+}));
+
+router.put('/secrets/:id', handle(async req => {
+    const { name, value, category, label } = req.body || {};
+    return { secret: await vault().updateSecret(req.vaultOwner, req.params.id, { name, value: value === '' ? undefined : value, category, label }) };
+}));
+
+router.delete('/secrets/:id', handle(async req => {
+    await vault().removeSecret(req.vaultOwner, req.params.id);
+    return { success: true };
+}));
+
+router.post('/secrets/:id/reveal', handle(async req => {
+    const owner = req.vaultOwner, now = Date.now();
+    const failures = (revealFailures.get(owner) || []).filter(at => now - at < REVEAL_WINDOW_MS);
+    if (failures.length >= REVEAL_LIMIT) throw Object.assign(new Error('尝试次数过多，请 10 分钟后再试'), { code: 'VAULT_REVEAL_LIMIT', statusCode: 429 });
+    const account = await authUsersRepo.getUser(req.user.username);
+    if (!account || !verifyUserPassword(String(req.body?.accountPassword || ''), account.passwordHash)) {
+        revealFailures.set(owner, [...failures, now]);
+        throw Object.assign(new Error('平台登录密码不正确'), { code: 'VAULT_REAUTH_FAILED', statusCode: 403 });
+    }
+    revealFailures.delete(owner);
+    return { value: await vault().revealSecret(owner, req.params.id) };
+}));
+
 router.put('/:id', handle(async req => {
     const { username, password, label, autoFill, autoSubmit } = req.body || {};
     // 空密码表示不改密码

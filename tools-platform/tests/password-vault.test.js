@@ -122,3 +122,35 @@ test('data survives a restart', async () => {
     vault = createVault({ directory, protector: () => null });
     assert.equal((await vault.credentials('alice', 'https://example.com', { username: 'alice@example.com' })).password, 'changed-pw');
 });
+
+test('secrets (API keys, tokens) are encrypted at rest, isolated per owner, and readable via getSecret/revealSecret', async () => {
+    const { secret, created } = await vault.saveSecret('alice', { name: 'WISE_API_KEY', value: 'wise_sk_secret_123', category: 'api_key', label: 'WISE 记账' });
+    assert.equal(created, true);
+    assert.equal(secret.name, 'WISE_API_KEY');
+    assert.equal(secret.category, 'api_key');
+    assert.equal(secret.label, 'WISE 记账');
+
+    const list = await vault.listSecrets('alice');
+    assert.equal(list.secrets.length, 1);
+    assert.equal(JSON.stringify(list).includes('wise_sk_secret_123'), false);
+
+    assert.equal(await vault.revealSecret('alice', secret.id), 'wise_sk_secret_123');
+
+    const item = await vault.getSecret('alice', 'WISE_API_KEY');
+    assert.equal(item.value, 'wise_sk_secret_123');
+    assert.equal(item.useCount, 1);
+    assert.ok(item.lastUsedAt > 0);
+
+    const rootList = await vault.listSecrets('root-admin');
+    assert.deepEqual(rootList.secrets, []);
+    assert.equal(await vault.getSecret('root-admin', 'WISE_API_KEY'), null);
+    await assert.rejects(vault.revealSecret('root-admin', secret.id), { code: 'VAULT_NOT_FOUND' });
+
+    const updated = await vault.updateSecret('alice', secret.id, { value: 'wise_sk_new_456', label: '新备注' });
+    assert.equal(updated.label, '新备注');
+    assert.equal(await vault.revealSecret('alice', secret.id), 'wise_sk_new_456');
+
+    await vault.removeSecret('alice', secret.id);
+    assert.deepEqual((await vault.listSecrets('alice')).secrets, []);
+    await assert.rejects(vault.revealSecret('alice', secret.id), { code: 'VAULT_NOT_FOUND' });
+});

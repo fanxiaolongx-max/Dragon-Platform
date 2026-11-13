@@ -17,7 +17,17 @@ def get_api_key():
     key = os.environ.get("WISE_API_KEY")
     if key and key.strip():
         return key.strip()
-    # 2. 从本地受保护的文件读取（权限 0600，只有本机用户可读）
+    # 2. 从 Dragon Claw 密码保险箱 (vault.db) 安全读取
+    vault_script = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../bin/vault-secret.js"))
+    if os.path.exists(vault_script):
+        try:
+            import subprocess
+            res = subprocess.run(["node", vault_script, "get", "WISE_API_KEY"], capture_output=True, text=True, timeout=5)
+            if res.returncode == 0 and res.stdout.strip():
+                return res.stdout.strip()
+        except Exception:
+            pass
+    # 3. 从本地受保护的文件读取（权限 0600，只有本机用户可读）
     candidate_paths = [
         os.path.expanduser("~/.config/wise-finance/api_key"),
         os.path.expanduser("~/.wise_finance_key"),
