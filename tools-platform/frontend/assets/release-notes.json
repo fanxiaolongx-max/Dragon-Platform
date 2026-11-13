@@ -1,12 +1,12 @@
 {
   "zh": [
-    "全面对齐移动端（iOS 与 Android）版本号与桌面端/Web端（v1.0.x），实现全端版本完全统一。",
-    "精简内置技能体 Prompt 篇幅并拓宽字符上限，确保 CI 自动化测试在跨系统环境稳定运行。",
-    "自动处理并校验 iOS 1024x1024 图标无透明通道，满足 App Store 官方上架与 TestFlight 分发规范。"
+    "优化侧边栏会话空间归类逻辑，内部临时与默认工作区不再暴露为空间文件夹，无自选工作区的对话一律以普通对话收拢在任务栏中。",
+    "完善数据库目录注册表，补充桌面宠物额度明细表的中英文元数据，通过全量自动化测试校验。",
+    "全面对齐移动端（iOS 与 Android）版本号与桌面端/Web端（v1.0.x），实现全端版本完全统一。"
   ],
   "en": [
-    "Unify mobile (iOS and Android) versioning with desktop and web releases (v1.0.x) for total cross-platform consistency.",
-    "Streamline builtin skill prompts and relax character bounds for rock-solid cross-platform CI test execution.",
-    "Enforce opaque iOS 1024x1024 app icons during build to satisfy Apple App Store and TestFlight validation rules."
+    "Refine sidebar conversation spaces grouping so internal scratch workspaces are never exposed as folders and plain chats remain neatly under tasks.",
+    "Complete db explorer catalog definitions with bilingual metadata for desktop pet quota details to pass all automated test suites.",
+    "Unify mobile (iOS and Android) versioning with desktop and web releases (v1.0.x) for total cross-platform consistency."
   ]
 }

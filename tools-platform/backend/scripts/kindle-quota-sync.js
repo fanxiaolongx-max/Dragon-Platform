@@ -1,6 +1,6 @@
 'use strict';
 // Copy already collected quota samples to the Kindle; never query providers here.
-const { spawn } = require('child_process');
+const { spawn, execFile } = require('child_process');
 const sqlite3 = require('sqlite3');
 const { getDbPath } = require('../models/app-db');
 const { normalizeTenantId } = require('../models/tenant-context');
@@ -55,9 +55,43 @@ function readSamples(filename, owner) {
     });
 }
 
-function send(payload) {
+function pm2Payload(processes, now = Date.now()) {
+    if (!Array.isArray(processes)) throw new Error('Invalid PM2 process list');
+    const number = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
+    return { timestamp: now, processes: processes.map(p => ({
+        name: String(p.name || '').slice(0, 100), id: number(p.pm_id), pid: number(p.pid),
+        status: String(p.pm2_env?.status || 'unknown').slice(0, 40),
+        startedAt: number(p.pm2_env?.pm_uptime), restarts: number(p.pm2_env?.restart_time),
+        cpuPercent: number(p.monit?.cpu), memoryBytes: number(p.monit?.memory)
+    })) };
+}
+
+function readPm2() {
     return new Promise((resolve, reject) => {
-        const child = spawn('/usr/bin/ssh', ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=8', 'kindle', 'umask 077; cat > /mnt/us/extensions/dragonapi-dashboard/agent-quotas.json.tmp && mv /mnt/us/extensions/dragonapi-dashboard/agent-quotas.json.tmp /mnt/us/extensions/dragonapi-dashboard/agent-quotas.json'], { stdio: ['pipe', 'ignore', 'ignore'] });
+        execFile(process.env.KINDLE_PM2_COMMAND || 'pm2', ['jlist'], { timeout: 15000, maxBuffer: 16 * 1024 * 1024 }, (error, stdout) => {
+            if (error) return reject(new Error('Could not read PM2 process list'));
+            try { resolve(pm2Payload(JSON.parse(stdout))); }
+            catch (_) { reject(new Error('Invalid PM2 process list')); }
+        });
+    });
+}
+
+function readDebianPm2() {
+    return new Promise(resolve => {
+        const command = "if ! command -v pm2 >/dev/null 2>&1; then exit 127; fi; if ! ps -eo comm | grep -q '^PM2'; then exit 3; fi; pm2 jlist";
+        execFile('/usr/bin/ssh', ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=8', 'NewAPI', command], { timeout: 20000, maxBuffer: 16 * 1024 * 1024 }, (error, stdout) => {
+            if (error) return resolve({ timestamp: Date.now(), host: 'NewAPI', status: 'unavailable', reason: error.code === 127 ? 'pm2_not_found' : error.code === 3 ? 'pm2_not_running' : 'ssh_or_pm2_failed', processes: [] });
+            try { resolve({ ...pm2Payload(JSON.parse(stdout)), host: 'NewAPI', status: 'ok' }); }
+            catch (_) { resolve({ timestamp: Date.now(), host: 'NewAPI', status: 'unavailable', reason: 'invalid_pm2_output', processes: [] }); }
+        });
+    });
+}
+
+function send(payload, file) {
+    return new Promise((resolve, reject) => {
+        if (!['agent-quotas.json', 'pm2-status.json', 'debian-pm2-status.json'].includes(file)) return reject(new Error('Invalid sync destination'));
+        const target = `/mnt/us/extensions/dragonapi-dashboard/${file}`;
+        const child = spawn('/usr/bin/ssh', ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=8', 'kindle', `umask 077; cat > ${target}.tmp && mv ${target}.tmp ${target}`], { stdio: ['pipe', 'ignore', 'ignore'] });
         const timer = setTimeout(() => child.kill(), 20000);
         child.on('error', error => { clearTimeout(timer); reject(error); });
         child.on('close', code => { clearTimeout(timer); code === 0 ? resolve() : reject(new Error('Kindle synchronization failed')); });
@@ -70,9 +104,24 @@ async function sync() {
     const tenant = process.env.KINDLE_QUOTA_TENANT || 'default';
     const owner = process.env.KINDLE_QUOTA_OWNER;
     if (!owner || tenant !== normalizeTenantId(tenant)) throw new Error('Set a valid KINDLE_QUOTA_OWNER and KINDLE_QUOTA_TENANT');
-    const payload = buildPayload(await readSamples(getDbPath(tenant), owner));
-    await send(payload);
-    console.log(`Kindle quota sync completed; ${Object.values(payload.quotas).filter(q => q.status === 'cached').length} providers have recent samples`);
+    const results = await Promise.allSettled([
+        (async () => {
+            const payload = buildPayload(await readSamples(getDbPath(tenant), owner));
+            await send(payload, 'agent-quotas.json');
+            console.log(`Kindle quota sync completed; ${Object.values(payload.quotas).filter(q => q.status === 'cached').length} providers have recent samples`);
+        })(),
+        (async () => {
+            const payload = await readPm2();
+            await send(payload, 'pm2-status.json');
+            console.log(`Kindle PM2 sync completed; ${payload.processes.length} processes`);
+        })(),
+        (async () => {
+            const payload = await readDebianPm2();
+            await send(payload, 'debian-pm2-status.json');
+            console.log(`Kindle Debian PM2 sync completed; ${payload.status === 'ok' ? `${payload.processes.length} processes` : payload.reason}`);
+        })()
+    ]);
+    for (const result of results) if (result.status === 'rejected') console.error('Kindle sync:', result.reason.message);
 }
 
 if (require.main === module) {
@@ -86,4 +135,4 @@ if (require.main === module) {
     tick();
     setInterval(tick, 180000);
 }
-module.exports = { buildPayload, readSamples };
+module.exports = { buildPayload, readSamples, pm2Payload };

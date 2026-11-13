@@ -92,6 +92,8 @@ async function ensureReady() {
             await run('CREATE INDEX IF NOT EXISTS idx_ai_chat_sessions_page ON ai_chat_sessions(page_path, updated_at)');
             await run('CREATE INDEX IF NOT EXISTS idx_ai_chat_sessions_archive ON ai_chat_sessions(is_archived, archived_at, updated_at)');
             await run('CREATE INDEX IF NOT EXISTS idx_ai_question_suggestions_page ON ai_question_suggestions(page_path, enabled, hit_count, last_used_at)');
+            // 清理历史残留的临时目录/沙箱目录，避免作为工作空间污染空间列表
+            await run("UPDATE ai_chat_sessions SET agent_root = '' WHERE agent_root LIKE '%dragon-claw-scratch%' OR agent_root LIKE '%/scratch/%'");
         })().catch(err => {
             readyByDb.delete(dbKey);
             throw err;
@@ -177,12 +179,22 @@ async function getOrCreateSession({ sessionId, pagePath, pageTitle, owner = '' }
     return id;
 }
 
+function isScratchDirectory(dir) {
+    if (!dir || typeof dir !== 'string') return false;
+    const trimmed = dir.trim();
+    if (!trimmed) return false;
+    if (trimmed.includes('dragon-claw-scratch')) return true;
+    if (/[\\/]scratch[\\/][a-f0-9]+$/i.test(trimmed)) return true;
+    return false;
+}
+
 /** 记录该对话最近使用的工作区智能体会话与目录 */
 async function setSessionAgent(sessionId, { agentSessionId, root, owner }) {
     await ensureReady();
-    if (!sessionId || !agentSessionId || !root) return;
+    if (!sessionId || !agentSessionId) return;
     if (owner !== undefined) await assertSessionOwner(sessionId, owner);
-    await run('UPDATE ai_chat_sessions SET agent_session_id = ?, agent_root = ? WHERE id = ?', [String(agentSessionId).slice(0, 100), String(root).slice(0, 1000), sessionId]);
+    const safeRoot = isScratchDirectory(root) ? '' : String(root || '').slice(0, 1000);
+    await run('UPDATE ai_chat_sessions SET agent_session_id = ?, agent_root = ? WHERE id = ?', [String(agentSessionId).slice(0, 100), safeRoot, sessionId]);
 }
 
 /**
@@ -237,7 +249,7 @@ async function listOwnedSessions({ owner, pagePath, query = '', limit = 30, offs
         firstQuestion: String(row.first_question || '').slice(0, 160),
         discussionMode: groupIds.has(row.id) ? 'group' : null,
         lastQuestion: String(row.last_question || '').slice(0, 160),
-        agent: row.agent_session_id && row.agent_root ? { agentSessionId: row.agent_session_id, root: row.agent_root } : null
+        agent: row.agent_session_id && row.agent_root && !isScratchDirectory(row.agent_root) ? { agentSessionId: row.agent_session_id, root: row.agent_root } : null
     }));
 }
 
@@ -727,5 +739,6 @@ module.exports = {
     updateSessionSummary,
     getRecentMessagesForContext,
     normalizePagePath,
-    assertSessionOwner
+    assertSessionOwner,
+    isScratchDirectory
 };

@@ -383,6 +383,7 @@ def main() -> int:
     ap.add_argument("--pick", type=int, default=1, help="匹配到多个时取第 N 个（1 = 最新）")
     ap.add_argument("--list", action="store_true", help="只列出会话里的文件，不读内容")
     ap.add_argument("--scan", type=int, default=300, help="最多扫描最近多少条文件消息")
+    ap.add_argument("--limit", type=int, default=0, help="--list 时最多列出多少个（默认全部）")
     ap.add_argument("--max-chars", type=int, default=20000)
     ap.add_argument("--offset", type=int, default=0, help="从第几个字开始（分页）")
     ap.add_argument("--rows", type=int, default=50, help="表格每个 sheet 最多列出多少行")
@@ -407,6 +408,8 @@ def main() -> int:
         if not rows:
             print(f"{chat['display_name']}：没找到{('名字含「' + a.name + '」的') if a.name else ''}文件消息（可放宽 --since/--name，或先 media \"{a.target}\" --type file）")
             return 1
+        if a.limit > 0:
+            rows = rows[: a.limit] if a.list else rows
         if a.list:
             if a.format == "json":
                 print(json.dumps({"chat": chat["display_name"], "files": [{**{k: r.get(k) for k in ("time_cairo", "sender", "name", "size")},
@@ -425,7 +428,9 @@ def main() -> int:
                 print(json.dumps({"ok": False, **meta}, ensure_ascii=False, indent=1))
             else:
                 print(f"文件: {meta['name']}（{human(meta['size'])}）  {meta['time_cairo']} {meta['sender']} 发在「{meta['chat']}」\n预期路径: {p}\n{meta['error']}")
-            return 1
+                if others:
+                    print("同会话其他匹配文件（--pick N 切换，或 --list 看全部）: " + "；".join(f"{x.get('name')}（{x['time_cairo'][:10]}，{'本地有' if file_item_path(x)[1] else '未下载'}）" for x in others))
+            return 0  # 正常结果（不是命令出错），让 agent 照常转述
         path = Path(p)
 
     st = path.stat()

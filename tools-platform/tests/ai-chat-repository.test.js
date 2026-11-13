@@ -106,3 +106,21 @@ test('ai-chat-repository: global cross-page session archive and retrieval', asyn
     const session1Restored = await repo.getSession(session1Id);
     assert.equal(session1Restored.is_archived, 0);
 });
+
+test('ai-chat-repository: scratch directories are never exposed or persisted as session workspace', async () => {
+    assert.equal(repo.isScratchDirectory('/private/var/folders/24/T/dragon-claw-scratch/5926f323fced0775'), true);
+    assert.equal(repo.isScratchDirectory('/tmp/dragon-claw-scratch/5926f323fced0775'), true);
+    assert.equal(repo.isScratchDirectory('/data/tenant/scratch/5926f323fced0775'), true);
+    assert.equal(repo.isScratchDirectory('/Volumes/512G/my-project'), false);
+
+    const normalId = await repo.addMessage({ pagePath: '/', role: 'user', content: 'Normal chat', owner: 'testuser' });
+    await repo.setSessionAgent(normalId, { agentSessionId: 'scratch-1', root: '/tmp/dragon-claw-scratch/12345', owner: 'testuser' });
+    let sessions = await repo.listOwnedSessions({ owner: 'testuser', pagePath: '/' });
+    let session = sessions.find(s => s.id === normalId);
+    assert.equal(session?.agent, null, 'scratch directory was not saved to session');
+
+    await repo.setSessionAgent(normalId, { agentSessionId: 'real-1', root: '/Users/dragon/project', owner: 'testuser' });
+    sessions = await repo.listOwnedSessions({ owner: 'testuser', pagePath: '/' });
+    session = sessions.find(s => s.id === normalId);
+    assert.deepEqual(session?.agent, { agentSessionId: 'real-1', root: '/Users/dragon/project' });
+});

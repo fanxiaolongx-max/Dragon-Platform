@@ -648,7 +648,8 @@ async function handleChatRequest(req, res) {
         historySaved = true;
         try {
             if (agentRunId && agentSession) {
-                await aiChatRepo.upsertAgentTurn({ ...historyContext, runId: agentRunId, agentSessionId: agentSession.id, root: agentSession.root,
+                const wsRoot = (agentSession.scratch || aiChatRepo.isScratchDirectory?.(agentSession.root)) ? '' : agentSession.root;
+                await aiChatRepo.upsertAgentTurn({ ...historyContext, runId: agentRunId, agentSessionId: agentSession.id, root: wsRoot,
                     userEvents: channelUserEvents, transcript: [{ role: 'user', content: historyContext.question }],
                     content: `${streamedText.trim()}${streamedText.trim() ? '\n\n' : ''}> ${redactText(note, { secrets: sensitiveValues })}`, events: recordedEvents, final: true });
                 return;
@@ -1292,8 +1293,9 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
             try {
                 historySaved = true;
                 if (agentRunId && agentSession) {
+                    const wsRoot = (agentSession.scratch || aiChatRepo.isScratchDirectory?.(agentSession.root)) ? '' : agentSession.root;
                     await aiChatRepo.upsertAgentTurn({ sessionId: savedSessionId, owner: req.user.username, runId: agentRunId,
-                        agentSessionId: agentSession.id, root: agentSession.root, userEvents: channelUserEvents, transcript: [{ role: 'user', content: persistedQuestion }],
+                        agentSessionId: agentSession.id, root: wsRoot, userEvents: channelUserEvents, transcript: [{ role: 'user', content: persistedQuestion }],
                         content: responseText, events: recordedEvents, tokens: totalTokens, cost: costMao, final: true,
                         inputTokens, outputTokens, modelName: replyModelName });
                 } else {
@@ -1322,7 +1324,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                     });
                 }
                 // 隐藏临时目录不记到对话上：恢复这个对话时不能把它当成用户选过的目录
-                if (agentSession && !agentSession.scratch) await aiChatRepo.setSessionAgent(savedSessionId, { agentSessionId: agentSession.id, root: agentSession.root, owner: req.user.username });
+                if (agentSession && !agentSession.scratch && !aiChatRepo.isScratchDirectory?.(agentSession.root)) await aiChatRepo.setSessionAgent(savedSessionId, { agentSessionId: agentSession.id, root: agentSession.root, owner: req.user.username });
                 await aiChatRepo.recordQuestion({
                     owner: req.user.username,
                     pagePath: normalizedPath,

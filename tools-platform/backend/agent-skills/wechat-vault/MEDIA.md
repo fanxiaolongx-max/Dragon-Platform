@@ -37,7 +37,7 @@ $W media-stats
 **读文件内容：`read-file`（实现 `scripts/wv_readfile.py`，只读，不改原文件）**
 
 ```bash
-$W read-file "会话" [--name 关键词] [--since 7d|2026-11-01] [--until ..] [--pick N] [--list] [--scan 300]
+$W read-file "会话" [--name 关键词] [--since 7d|2026-11-01] [--until ..] [--pick N] [--list [--limit N]] [--scan 300]
 $W read-file "/绝对路径/文件.xlsx"
 #   公共选项：--max-chars 20000 --offset 0 --rows 50 --sheet 名称 --ocr auto|on|off --ocr-pages 10 --format text|json
 ```
@@ -55,7 +55,7 @@ $W read-file "/绝对路径/文件.xlsx"
   | txt/md/json/xml/html/log/代码等 | 自动识别 UTF-8/GB18030；html 去标签，json 美化 |
   | jpg/png 等图片 | tesseract OCR（`--ocr off` 关闭；看版式用 `view_image`） |
   | 其余（zip/rar/7z/apk/ipa/dmg/exe/音视频/WPS 私有格式/ppt/heic/未知二进制） | 不解析，只给绝对路径和说明；无扩展名的 zip 容器会按内容识别 docx/xlsx/pptx，无扩展名的纯文本按文本读 |
-- 没下载：输出「预期路径: `$A/msg/file/<消息月份>/<原文件名>`」+「未下载，请在微信点开下载」，退出码 1。微信下载后真实文件名重名时会变 `名(1).ext`，以下载后再查到的路径为准。
+- 没下载：输出「预期路径: `$A/msg/file/<消息月份>/<原文件名>`」+「未下载，请在微信点开下载」（退出码 0，属正常结果；文件路径不存在时退出码 1）。微信下载后真实文件名重名时会变 `名(1).ext`，以下载后再查到的路径为准。
 - 缓存：提取结果存 `/Volumes/512G/wechat-local-vault/file-text-cache/<md5(路径|大小|mtime|参数)>.json`（目录 700、文件 600），分页时不重复解析；文件变了自动失效。OCR 临时图在 `media-work/tmp/`，用完删除。
 - 依赖：yichen `.venv`（pypdf、python-docx、openpyxl、xlrd、python-pptx），Homebrew poppler（pdftotext/pdfinfo/pdftoppm）、tesseract；中文模型 `/Volumes/512G/models/tessdata/chi_sim.traineddata`（tessdata_fast，环境变量 `WV_TESSDATA` 可改）。
 - `history`/`recent`/`latest` 里文件消息显示 `〔文件 · 名 · 大小〕 文件: <绝对路径>（可用 read-file 读取内容）`，没下载显示 `预期路径: ... （未下载，请在微信点开下载）`；JSON 的 `media` 有 `name size size_h path local file expected_path read`。`media --type file` 同样每条给路径和大小。

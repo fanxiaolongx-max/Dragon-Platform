@@ -2272,11 +2272,29 @@
         }
     }
 
+    function isScratchDirectory(dir) {
+        if (!dir || typeof dir !== 'string') return false;
+        const trimmed = dir.trim();
+        if (!trimmed) return false;
+        if (trimmed.includes('dragon-claw-scratch')) return true;
+        if (/[\\/]scratch[\\/][a-f0-9]+$/i.test(trimmed)) return true;
+        return false;
+    }
+
+    function getChatDirectory(item) {
+        if (item?.scratch || item?.agent?.scratch || item?._raw?.agent?.scratch || item?._raw?.scratch) return '';
+        const root = item?.agent?.root || item?._raw?.agent?.root || item?.cwd || item?._raw?.cwd || '';
+        const trimmed = typeof root === 'string' ? root.trim() : '';
+        if (isScratchDirectory(trimmed)) return '';
+        return trimmed;
+    }
+
     // agent：这次对话用过的工作区智能体会话 { agentSessionId, root }，续接时一并接回，模型才记得做过的工具操作
     function rememberLastChat(sessionId, agent = null) {
         if (!sessionId) return;
         const previous = readLastChat();
-        const keptAgent = agent?.agentSessionId && agent?.root ? agent : (previous?.sessionId === sessionId ? previous.agent : null);
+        const validAgent = agent && !isScratchDirectory(agent.root) ? agent : null;
+        const keptAgent = validAgent?.agentSessionId && validAgent?.root ? validAgent : (previous?.sessionId === sessionId && !isScratchDirectory(previous?.agent?.root) ? previous.agent : null);
         try {
             localStorage.setItem(LAST_CHAT_KEY, JSON.stringify({ sessionId, user: currentUser(), updatedAt: Date.now(), ...(keptAgent ? { agent: keptAgent } : {}) }));
         } catch { /* 存储不可用时不提供续接 */ }
@@ -2703,7 +2721,8 @@
         }
         list.innerHTML = sessionPicker.items.map((item, index) => {
             const title = item.title || item.firstQuestion || item.lastQuestion || item.id;
-            const folder = item.agent?.root ? item.agent.root.split(/[\\/]/).filter(Boolean).pop() : '';
+            const dir = getChatDirectory(item);
+            const folder = dir ? dir.split(/[\\/]/).filter(Boolean).pop() : '';
             return `<button type="button" class="dc-session-item${index === sessionPicker.active ? ' is-active' : ''}" role="option" aria-selected="${index === sessionPicker.active}" data-dc-session="${index}">
                 <span class="dc-session-title">${escapeHtml(title)}${item.id === state.sessionId ? `<em class="dc-session-tag is-current">${escapeHtml(tx('sessionCurrent'))}</em>` : ''}${item.archived ? `<em class="dc-session-tag">${escapeHtml(tx('sessionArchived'))}</em>` : ''}</span>
                 ${item.lastQuestion && item.lastQuestion !== item.firstQuestion ? `<span class="dc-session-last">${escapeHtml(item.lastQuestion)}</span>` : ''}
@@ -2973,11 +2992,6 @@
     function sectionHead(id, label, count) {
         const collapsed = collapsedSections.has(id);
         return `<button type="button" class="home-chat-category" data-chat-section="${id}" aria-expanded="${!collapsed}"><span class="home-chat-category-chevron" aria-hidden="true"></span><span class="home-chat-category-title">${escapeHtml(label)}</span><span class="home-chat-category-count">(${count})</span></button>`;
-    }
-
-    function getChatDirectory(item) {
-        const root = item?.agent?.root || item?._raw?.agent?.root || item?.cwd || item?._raw?.cwd || '';
-        return typeof root === 'string' ? root.trim() : '';
     }
 
     function getDirectoryBaseName(fullPath) {

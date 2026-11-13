@@ -52,7 +52,7 @@ W=/Volumes/512G/06-工具开发/privacy-policy/tools-platform/backend/agent-skil
 1. 找文件：`$W history "会话" --limit 30` 或 `$W read-file "会话" --list [--name 关键词] [--since 7d]`。
 2. 读内容：`$W read-file "会话" --name 关键词`（取最新匹配，`--pick 2` 换第 2 个）或 `$W read-file "绝对路径"`（路径加引号）。基于输出的内容回答，不要编。
 3. 默认最多 20000 字，输出会写总字数；没读完用提示里的 `--offset N` 续读。表格每个工作表列行列数和前 50 行（`--rows 200`、`--sheet 名称`）。扫描件 PDF 自动 OCR（`--ocr on/off`）。
-4. **路径必须给用户**：任何文件（含 zip/apk/rar 等不支持的格式）都把输出里的本地绝对路径原样写出；不支持的格式说明只能给路径。显示「未下载」时写出预期路径，并请用户在微信里点开下载后再问。
+4. **回答末尾必须单独一行写 `本地文件：<绝对路径>`**（输出里的路径原样照抄），任何文件都要，包括 zip/apk/rar 等不支持的格式（说明只能给路径）。显示「未下载」时写 `预期路径：<路径>`，并请用户在微信里点开下载后再问。
 5. 支持 PDF、docx/doc/rtf、xlsx/xls/csv、pptx、文本、图片 OCR；细节见 `MEDIA.md`。
 
 示例问法：「小鼻嘎发的那个 Excel 里写了什么」→ `$W read-file "小鼻嘎" --name xlsx`；「康家郡发的合同第 3 条是什么」→ `$W read-file "康家郡" --name docx`；「土耳其群里的 PDF 讲了啥」→ `$W read-file "土耳其公路自驾" --name pdf`。

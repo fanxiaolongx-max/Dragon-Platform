@@ -5,7 +5,14 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const sqlite3 = require('../backend/node_modules/sqlite3');
-const { buildPayload, readSamples } = require('../backend/scripts/kindle-quota-sync');
+const { buildPayload, readSamples, pm2Payload } = require('../backend/scripts/kindle-quota-sync');
+
+test('PM2 export includes status metrics only and omits environment, paths and arguments', () => {
+    const data = pm2Payload([{name:'app',pm_id:2,pid:123,pm2_env:{status:'online',pm_uptime:1000,restart_time:3,secret:'do-not-export',pm_exec_path:'/private'},monit:{cpu:2.5,memory:4096},args:['secret']}], 2000);
+    assert.deepEqual(data, {timestamp:2000,processes:[{name:'app',id:2,pid:123,status:'online',startedAt:1000,restarts:3,cpuPercent:2.5,memoryBytes:4096}]});
+    assert.doesNotMatch(JSON.stringify(data), /secret|private/);
+    assert.throws(() => pm2Payload({}), /Invalid PM2/);
+});
 
 test('uses only the latest fresh provider sample and invalidates expired windows', () => {
     const now = Date.now();

@@ -53,6 +53,8 @@ test('source filters combine with status and time across unified, desktop and ch
  assert.equal(api.passesFilter(item,{},{}),true);
  assert.equal(api.passesFilter({...item,_sourceType:'mine'},{},{}),false);
  assert.equal(api.passesFilter({...item,cwd:''},{},{}),false);
+ assert.equal(api.passesFilter({...item,cwd:'/tmp/dragon-claw-scratch/5926f323fced0775'},{},{}),false);
+ assert.equal(api.passesFilter({...item,agent:{root:'/data/scratch/abc'}},{},{}),false);
  assert.equal(api.passesFilter({...item,updatedAt:'2000-01-01T00:00:00Z'},{},{}),false);
  api.setFilter({status:'all',time:'all'});
  assert.equal(api.passesFilter({}, {}, {source:'desktop:codex'}),true);
