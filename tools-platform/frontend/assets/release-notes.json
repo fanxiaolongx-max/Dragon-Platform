@@ -1,12 +1,12 @@
 {
   "zh": [
-    "升级 iOS CI 自动化凭证至管理级 App Store Connect API，打通 TestFlight 自动化分发链路。",
-    "优化 Xcode 自动化导出与私钥路径装配，支持多目录兼容及自动证书分发。",
-    "持续稳固全端发布流，保持 Windows、macOS、Android 与 iOS 四端构建全量对齐。"
+    "修复 iOS 应用图标 Alpha 通道限制，确保 App 成功通过 App Store / TestFlight 验证。",
+    "增强微信本地库媒体检索与解码功能，支持会话图片、视频、文件及语音导出。",
+    "优化移动端抽屉手势控制器结构，提升交互响应流畅度与代码可维护性。"
   ],
   "en": [
-    "Upgrade iOS CI credentials with Admin-level App Store Connect API to enable automated TestFlight distribution.",
-    "Refine xcodebuild export and private key path resolution with multi-directory compatibility for seamless provisioning.",
-    "Streamline cross-platform release pipelines to maintain synchronized builds across Windows, macOS, Android, and iOS."
+    "Fix iOS app icon alpha channel to comply with App Store and TestFlight validation requirements.",
+    "Enhance WeChat vault media queries with support for session image decoding, video, file, and voice exports.",
+    "Refactor mobile shell drawer gesture controller to improve touch responsiveness and maintainability."
   ]
 }

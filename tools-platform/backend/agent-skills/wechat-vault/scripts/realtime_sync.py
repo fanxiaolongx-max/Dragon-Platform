@@ -41,7 +41,8 @@ RESERVE = 80
 CONFIG_FILE = Path("~/.config/wechat-local-vault.json").expanduser()
 KEYS_FILE = Path("~/.config/wechat-keys.json").expanduser()
 DEFAULT_VAULT_DIR = Path("/Volumes/512G/wechat-local-vault")
-WATCH_RE = re.compile(r"^(message/message_\d+\.db|session/session\.db|contact/contact\.db)$")
+WATCH_RE = re.compile(r"^(message/message_\d+\.db|session/session\.db|contact/contact\.db"
+                      r"|message/media_\d+\.db|message/message_resource\.db|hardlink/hardlink\.db)$")  # 后三类给 media 命令用
 DEBOUNCE = float(os.environ.get("WV_DEBOUNCE", "1.5"))
 MAX_DELAY = 5.0
 POLL_EVERY = 60.0

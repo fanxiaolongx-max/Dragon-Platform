@@ -25,6 +25,76 @@ struct RootShellView: View {
         }
     }
 
+    private func handleDragChanged(tx: CGFloat) {
+        if sidebarProgress >= 0.5 {
+            if tx < 0 {
+                dragDeltaX = tx
+                tabDragDeltaX = 0
+            }
+        } else {
+            if store.workMode == .chat {
+                if tx > 0 {
+                    dragDeltaX = tx
+                    tabDragDeltaX = 0
+                } else {
+                    dragDeltaX = 0
+                    tabDragDeltaX = tx
+                }
+            } else if store.workMode == .tools {
+                if tx > 0 {
+                    dragDeltaX = 0
+                    tabDragDeltaX = tx
+                } else {
+                    dragDeltaX = 0
+                    tabDragDeltaX = 0
+                }
+            }
+        }
+    }
+
+    private func handleDragEnded(tx: CGFloat, vx: CGFloat, width: CGFloat) {
+        if sidebarProgress >= 0.5 || (store.workMode == .chat && tx > 0 && dragDeltaX > 0) {
+            let currentFraction = min(max(sidebarProgress + tx / width, 0), 1)
+            let predictedFraction = min(max(sidebarProgress + (tx + vx * 0.16) / width, 0), 1)
+            let shouldOpen: Bool
+            if sidebarProgress < 0.5 {
+                shouldOpen = currentFraction > 0.20 || predictedFraction > 0.38
+            } else {
+                shouldOpen = !(currentFraction < 0.80 || predictedFraction < 0.62)
+            }
+            sidebarProgress = currentFraction
+            tabDragDeltaX = 0
+            setSidebarOpen(shouldOpen)
+        } else {
+            if store.workMode == .chat {
+                let shouldSwitchToTools = tx < -48 || (tx < -15 && vx < -260)
+                if shouldSwitchToTools {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
+                        store.workMode = .tools
+                        tabDragDeltaX = 0
+                    }
+                } else {
+                    withAnimation(.spring(response: 0.30, dampingFraction: 0.88)) {
+                        tabDragDeltaX = 0
+                    }
+                }
+            } else if store.workMode == .tools {
+                let shouldSwitchToChat = tx > 48 || (tx > 15 && vx > 260)
+                if shouldSwitchToChat {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
+                        store.workMode = .chat
+                        tabDragDeltaX = 0
+                    }
+                } else {
+                    withAnimation(.spring(response: 0.30, dampingFraction: 0.88)) {
+                        tabDragDeltaX = 0
+                    }
+                }
+            }
+            dragDeltaX = 0
+        }
+    }
+
     var body: some View {
         GeometryReader { geo in
             let width = max(geo.size.width, 1)
@@ -33,25 +103,9 @@ struct RootShellView: View {
             ZStack(alignment: .leading) {
                 DragonClawBackdrop(palette: palette)
 
-                VStack(spacing: 0) {
-                    topFloatingHeader
-                        .padding(.horizontal, 14)
-                        .padding(.top, 8)
-                        .padding(.bottom, 6)
-
-                    HStack(spacing: 0) {
-                        ChatView(store: store)
-                            .frame(width: width)
-                        ToolsHubView(store: store)
-                            .frame(width: width)
-                    }
-                    .frame(width: width * 2, alignment: .leading)
-                    .offset(x: (store.workMode == .chat ? 0 : -width) + tabDragDeltaX)
-                    .animation(.spring(response: 0.32, dampingFraction: 0.88), value: store.workMode)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-                .offset(x: progress * width * 0.24)
-                .scaleEffect(1 - 0.025 * progress)
+                mainPageContent(width: width)
+                    .offset(x: progress * width * 0.24)
+                    .scaleEffect(1 - 0.025 * progress)
 
                 if progress > 0.005 {
                     Color.black.opacity((palette.isDark ? 0.35 : 0.18) * progress)
@@ -67,93 +121,7 @@ struct RootShellView: View {
                         .zIndex(10)
                 }
             }
-            .background(
-                DirectionalDrawerPanInstaller(
-                    isDrawerOpen: sidebarProgress >= 0.5,
-                    workMode: store.workMode,
-                    isDisabled: store.activeWebTool != nil || store.showNativeMetrics || showServerSheet || showSchedulesSheet || showAlertCenterSheet || store.exportedSessionJson != nil,
-                    onDragChanged: { tx in
-                        if sidebarProgress >= 0.5 {
-                            // Drawer is open: dragging left closes it
-                            if tx < 0 {
-                                dragDeltaX = tx
-                                tabDragDeltaX = 0
-                            }
-                        } else {
-                            // Drawer is closed
-                            if store.workMode == .chat {
-                                if tx > 0 {
-                                    // Swipe right in chat -> slide open drawer
-                                    dragDeltaX = tx
-                                    tabDragDeltaX = 0
-                                } else {
-                                    // Swipe left in chat -> slide to tools
-                                    dragDeltaX = 0
-                                    tabDragDeltaX = tx
-                                }
-                            } else if store.workMode == .tools {
-                                if tx > 0 {
-                                    // Swipe right in tools -> slide back to chat
-                                    dragDeltaX = 0
-                                    tabDragDeltaX = tx
-                                } else {
-                                    dragDeltaX = 0
-                                    tabDragDeltaX = 0
-                                }
-                            }
-                        }
-                    },
-                    onDragEnded: { tx, vx in
-                        if sidebarProgress >= 0.5 || (store.workMode == .chat && tx > 0 && dragDeltaX > 0) {
-                            let currentFraction = min(max(sidebarProgress + tx / width, 0), 1)
-                            let predictedFraction = min(max(sidebarProgress + (tx + vx * 0.16) / width, 0), 1)
-                            let shouldOpen: Bool
-                            if sidebarProgress < 0.5 {
-                                shouldOpen = currentFraction > 0.20 || predictedFraction > 0.38
-                            } else {
-                                shouldOpen = !(currentFraction < 0.80 || predictedFraction < 0.62)
-                            }
-                            sidebarProgress = currentFraction
-                            tabDragDeltaX = 0
-                            setSidebarOpen(shouldOpen)
-                        } else {
-                            if store.workMode == .chat {
-                                let shouldSwitchToTools = tx < -48 || (tx < -15 && vx < -260)
-                                if shouldSwitchToTools {
-                                    withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
-                                        store.workMode = .tools
-                                        tabDragDeltaX = 0
-                                    }
-                                } else {
-                                    withAnimation(.spring(response: 0.30, dampingFraction: 0.88)) {
-                                        tabDragDeltaX = 0
-                                    }
-                                }
-                            } else if store.workMode == .tools {
-                                let shouldSwitchToChat = tx > 48 || (tx > 15 && vx > 260)
-                                if shouldSwitchToChat {
-                                    withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
-                                        store.workMode = .chat
-                                        tabDragDeltaX = 0
-                                    }
-                                } else {
-                                    withAnimation(.spring(response: 0.30, dampingFraction: 0.88)) {
-                                        tabDragDeltaX = 0
-                                    }
-                                }
-                            }
-                            dragDeltaX = 0
-                        }
-                    },
-                    onDragCancelled: {
-                        withAnimation(.spring(response: 0.30, dampingFraction: 0.88)) {
-                            tabDragDeltaX = 0
-                        }
-                        setSidebarOpen(sidebarProgress >= 0.5)
-                    }
-                )
-                .allowsHitTesting(false)
-            )
+            .background(drawerPanBackground(width: width))
         }
         .onAppear {
             sidebarProgress = store.isDrawerOpen ? 1 : 0
@@ -190,6 +158,51 @@ struct RootShellView: View {
         )) { payload in
             exportLogSheet(payload.json)
         }
+    }
+
+    @ViewBuilder
+    private func mainPageContent(width: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            topFloatingHeader
+                .padding(.horizontal, 14)
+                .padding(.top, 8)
+                .padding(.bottom, 6)
+                .frame(width: width)
+
+            HStack(spacing: 0) {
+                ChatView(store: store)
+                    .frame(width: width)
+                ToolsHubView(store: store)
+                    .frame(width: width)
+            }
+            .frame(width: width, alignment: .leading)
+            .offset(x: (store.workMode == .chat ? 0 : -width) + tabDragDeltaX)
+            .animation(.spring(response: 0.32, dampingFraction: 0.88), value: store.workMode)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .frame(width: width, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    @ViewBuilder
+    private func drawerPanBackground(width: CGFloat) -> some View {
+        DirectionalDrawerPanInstaller(
+            isDrawerOpen: sidebarProgress >= 0.5,
+            workMode: store.workMode,
+            isDisabled: store.activeWebTool != nil || store.showNativeMetrics || showServerSheet || showSchedulesSheet || showAlertCenterSheet || store.exportedSessionJson != nil,
+            onDragChanged: { tx in
+                handleDragChanged(tx: tx)
+            },
+            onDragEnded: { tx, vx in
+                handleDragEnded(tx: tx, vx: vx, width: width)
+            },
+            onDragCancelled: {
+                withAnimation(.spring(response: 0.30, dampingFraction: 0.88)) {
+                    tabDragDeltaX = 0
+                }
+                setSidebarOpen(sidebarProgress >= 0.5)
+            }
+        )
+        .allowsHitTesting(false)
     }
 
     private var topFloatingHeader: some View {

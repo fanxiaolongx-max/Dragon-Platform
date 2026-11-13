@@ -14,6 +14,9 @@
 //   verify [--against FILE]    逐条读回并与文件比对，只输出比对结果
 //   export                     把 {相对路径: 密钥} JSON 打到 stdout —— 仅供管道给解密进程，禁止重定向到日志或发给模型
 //   export-file --out FILE     还原成 wechat-keys.json 格式（权限 600），用于重建 ~/.config/wechat-keys.json
+//   image-save                 从 stdin 读 {"aes":"16位","xor":0-255}，存为 <wxid>/image_aes 与 <wxid>/image_xor 两条（图片 .dat 密钥）
+//   image-export               把 {"aes":..,"xor":..} 打到 stdout —— 仅供管道给 wv_media.py，禁止给模型/日志
+//   image-status               只显示图片密钥条目是否存在、更新时间
 'use strict';
 const fs = require('fs');
 const os = require('os');
@@ -62,9 +65,11 @@ async function vaultEntries(vault, account) {
     const { entries } = await vault.list(OWNER);
     return entries.filter(e => e.origin === ORIGIN && e.username.startsWith(prefix));
 }
+const IMAGE_NAMES = ['image_aes', 'image_xor'];
 async function readAll(vault) {
     const account = wxid(), out = {};
     for (const entry of await vaultEntries(vault, account)) {
+        if (!entry.username.endsWith('.db')) continue; // 只要数据库密钥；image_aes/image_xor 另走 image-export
         out[entry.username.slice(account.length + 1)] = await vault.reveal(OWNER, entry.id);
     }
     return out;
@@ -107,8 +112,30 @@ async function main() {
             fs.writeFileSync(out, JSON.stringify(stored, null, 2), { mode: 0o600 });
             fs.chmodSync(out, 0o600);
             console.log(JSON.stringify({ written: out, count: Object.keys(stored).length }));
+        } else if (cmd === 'image-save') {
+            const input = JSON.parse(fs.readFileSync(0, 'utf8'));
+            const aes = String(input.aes || ''), xor = Number(input.xor);
+            if (!/^[0-9a-zA-Z]{16}$/.test(aes) || !Number.isInteger(xor) || xor < 0 || xor > 255) throw new Error('图片密钥格式不对');
+            const account = wxid(), res = {};
+            for (const [name, value, label] of [['image_aes', aes, '微信图片 .dat AES-128 密钥（V2，16 字符）'], ['image_xor', String(xor), '微信图片 .dat XOR 字节（十进制）']]) {
+                const r = await vault.save(OWNER, { origin: ORIGIN, username: `${account}/${name}`, password: value, label });
+                await vault.update(OWNER, r.entry.id, { autoFill: false, autoSubmit: false });
+                res[name] = r.created ? 'created' : 'updated';
+            }
+            console.log(JSON.stringify({ ok: true, owner: OWNER, origin: ORIGIN, account, ...res }));
+        } else if (cmd === 'image-export' || cmd === 'image-status') {
+            const account = wxid(), found = {}, meta = {};
+            for (const entry of await vaultEntries(vault, account)) {
+                const name = entry.username.slice(account.length + 1);
+                if (!IMAGE_NAMES.includes(name)) continue;
+                meta[name] = new Date(entry.updatedAt).toISOString();
+                if (cmd === 'image-export') found[name] = await vault.reveal(OWNER, entry.id);
+            }
+            if (cmd === 'image-status') { console.log(JSON.stringify({ account, origin: ORIGIN, entries: meta })); return; }
+            if (!found.image_aes || found.image_xor === undefined) { console.error('保险箱里没有图片密钥'); process.exitCode = 3; return; }
+            process.stdout.write(JSON.stringify({ aes: found.image_aes, xor: Number(found.image_xor) }));
         } else {
-            console.error('用法: vault_keys.js list|import|verify|export|export-file');
+            console.error('用法: vault_keys.js list|import|verify|export|export-file|image-save|image-export|image-status');
             process.exitCode = 2;
         }
     } finally {

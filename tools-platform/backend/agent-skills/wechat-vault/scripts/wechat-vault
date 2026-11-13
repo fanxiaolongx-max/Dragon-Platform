@@ -35,6 +35,9 @@ for rel, d in sorted(s.get("databases", {}).items(), key=lambda kv: kv[1].get("a
     print(f"  {d.get('at')} {rel} {d.get('mode','')} 变化页 {d.get('changed','-')}/{d.get('pages','-')} {d.get('error','')}")
 PYEOF
     "$PY" "$HERE/wv_query.py" latest --limit 0 | head -1 ;;
+  media|export-media|decode-image|image-key|media-stats)
+           exec "$PY" "$HERE/wv_media.py" "$cmd" "$@" ;;
+  voice-mp3) exec "$PY" "$HERE/wv_media.py" export-media "$@" --type voice ;;
   sync)    exec "$PY" "$HERE/realtime_sync.py" --once ;;
   resync)  pm2 stop "$SERVICE" >/dev/null 2>&1 || true; "$PY" "$HERE/realtime_sync.py" --once --resync; pm2 start "$SERVICE" >/dev/null 2>&1 || true; echo "已整库重建并重启服务" ;;
   restart) exec pm2 restart "$SERVICE" ;;
@@ -54,6 +57,14 @@ PYEOF
   contacts --query 名称 | members 群名 | stats 会话名 | pending
   status | logs [N] | restart | sync | resync   实时服务
   keys list | keys verify                     保险箱里的密钥条目（不显示密钥）
+  media 会话 [--type image|video|file|voice] [--since 48h|2026-11-01] [--until ..] [--limit N] [--format json]
+                                  列出会话里的图片/视频/文件/语音及本地路径
+  export-media 会话 [目标目录] [同上过滤] [--transcribe] [--no-thumb]
+                                  导出：图片解码成 jpg/png、视频/文件复制、语音转 mp3（默认 /Volumes/512G/wechat-local-vault/exports/media/<会话>）
+  voice-mp3 会话 [目标目录] [...]  只导出语音为 mp3（加 --transcribe 本地转文字）
+  decode-image 文件.dat [--out 路径]  解码单个图片 .dat
+  image-key status | image-key derive [--save]   图片密钥（保险箱 image_aes/image_xor）
+  media-stats                     账号媒体目录统计
 HELP
     ;;
 esac
