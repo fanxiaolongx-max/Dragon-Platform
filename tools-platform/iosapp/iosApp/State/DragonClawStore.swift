@@ -404,10 +404,32 @@ final class DragonClawStore {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.isAuthenticating = false
-                self.loginError = err
+                self.loginError = self.humanReadableNetworkError(err)
             }
         }
         activeTaskHandles.append(handle)
+    }
+
+    func humanReadableNetworkError(_ raw: String) -> String {
+        if raw.contains("Code=-1003") || raw.contains("hostname could not be found") {
+            return L10n.tr(language, zh: "无法连接服务器：域名解析失败，请检查网络或更换网络环境后重试", en: "Cannot resolve server hostname. Please check your network connection.")
+        }
+        if raw.contains("Code=-1009") || raw.contains("offline") || raw.contains("not connected to the internet") {
+            return L10n.tr(language, zh: "当前无网络连接，请检查蜂窝网络或 Wi-Fi 设置", en: "No internet connection. Please verify cellular or Wi-Fi settings.")
+        }
+        if raw.contains("Code=-1001") || raw.contains("timed out") {
+            return L10n.tr(language, zh: "连接服务器超时，请检查网络稳定性或稍后重试", en: "Connection timed out. Please try again later.")
+        }
+        if raw.contains("Code=-1004") || raw.contains("Could not connect to the server") {
+            return L10n.tr(language, zh: "无法连接到服务器，请确认后端服务已正常启动", en: "Could not connect to server. Please verify backend service is running.")
+        }
+        if raw.contains("Code=-1200") || raw.contains("SSL") {
+            return L10n.tr(language, zh: "SSL 安全证书验证异常，请确认服务器域名配置", en: "SSL certificate error. Please verify server domain.")
+        }
+        if raw.hasPrefix("Exception") || raw.contains("NSURLErrorDomain") {
+            return L10n.tr(language, zh: "网络连接失败，请检查手机网络设置或稍后重试", en: "Network connection failed. Please check your network and retry.")
+        }
+        return raw
     }
 
     func logout() {

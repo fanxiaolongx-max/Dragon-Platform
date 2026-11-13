@@ -1,12 +1,12 @@
 {
   "zh": [
-    "优化侧边栏会话空间归类逻辑，内部临时与默认工作区不再暴露为空间文件夹，无自选工作区的对话一律以普通对话收拢在任务栏中。",
-    "完善数据库目录注册表，补充桌面宠物额度明细表的中英文元数据，通过全量自动化测试校验。",
-    "全面对齐移动端（iOS 与 Android）版本号与桌面端/Web端（v1.0.x），实现全端版本完全统一。"
+    "保险箱（Vault）新增通用 API Key 与 Secret 凭据安全托管，支持独立密文加密存储、界面操作与环境解析。",
+    "完善 iOS App Store 审核与移动端体验，脱敏并优雅格式化网络异常提示，补充合规隐私政策规范与 iPad 适配支持。",
+    "增强智能体技能生态，集成家庭记账账本技能并增加本地执行降级与命令超时保护机制。"
   ],
   "en": [
-    "Refine sidebar conversation spaces grouping so internal scratch workspaces are never exposed as folders and plain chats remain neatly under tasks.",
-    "Complete db explorer catalog definitions with bilingual metadata for desktop pet quota details to pass all automated test suites.",
-    "Unify mobile (iOS and Android) versioning with desktop and web releases (v1.0.x) for total cross-platform consistency."
+    "Introduce native API Key and Secret credential vault support with encrypted storage, management UI, and runtime injection.",
+    "Improve mobile network resilience and App Store compliance with elegant error masking, privacy policy documentation, and iPad layout support.",
+    "Enhance the agent skills ecosystem with family finance bookkeeper automation, local execution fallbacks, and command timeout protections."
   ]
 }
