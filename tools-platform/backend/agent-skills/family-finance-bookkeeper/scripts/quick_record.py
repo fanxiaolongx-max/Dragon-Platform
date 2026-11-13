@@ -9,7 +9,8 @@ import urllib.request
 import urllib.parse
 from datetime import datetime
 
-BASE_URL = "https://wise.fanxiaolong.uk"
+BASE_URL = os.environ.get("WISE_BASE_URL", "https://wise.fanxiaolong.uk")
+FALLBACK_URL = "http://127.0.0.1:8000"
 
 def get_api_key():
     # 1. 优先从环境变量读取
@@ -37,8 +38,8 @@ API_KEY = get_api_key()
 if not API_KEY:
     sys.exit("WISE_API_KEY 未设置：请先把 WISE API Key 保存到 ~/.config/wise-finance/api_key 或环境变量 WISE_API_KEY")
 
-def api_call(method, path, data=None, params=None):
-    url = f"{BASE_URL}{path}"
+def _do_request(base, method, path, data=None, params=None):
+    url = f"{base}{path}"
     if params:
         url += "?" + urllib.parse.urlencode({k: v for k, v in params.items() if v is not None})
     headers = {
@@ -48,16 +49,29 @@ def api_call(method, path, data=None, params=None):
     }
     body = json.dumps(data, ensure_ascii=False).encode('utf-8') if data else None
     req = urllib.request.Request(url, data=body, headers=headers, method=method)
+    with urllib.request.urlopen(req, timeout=8) as resp:
+        return json.loads(resp.read().decode('utf-8'))
+
+def api_call(method, path, data=None, params=None):
     try:
-        with urllib.request.urlopen(req) as resp:
-            return json.loads(resp.read().decode('utf-8'))
+        return _do_request(BASE_URL, method, path, data, params)
     except urllib.error.HTTPError as e:
+        if e.code >= 500 and FALLBACK_URL and BASE_URL != FALLBACK_URL:
+            try:
+                return _do_request(FALLBACK_URL, method, path, data, params)
+            except Exception:
+                pass
         err_msg = e.read().decode('utf-8', errors='ignore')
         try:
             return json.loads(err_msg)
         except Exception:
             return {"ok": False, "status": e.code, "error": err_msg or str(e)}
     except Exception as e:
+        if FALLBACK_URL and BASE_URL != FALLBACK_URL:
+            try:
+                return _do_request(FALLBACK_URL, method, path, data, params)
+            except Exception:
+                pass
         return {"ok": False, "error": str(e)}
 
 if __name__ == "__main__":
