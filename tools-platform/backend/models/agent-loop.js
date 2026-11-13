@@ -204,8 +204,10 @@ async function runToolLoop({
     const resolveImage = target => {
         const file = String(target || '');
         if (require('path').isAbsolute(file) && artifacts.ownsFile(artifactOwner, file)) return file;
+        // 本机/管理员对话：额外放行配置的只读图片目录（如微信图片缓存 media-cache）
+        if (require('path').isAbsolute(file) && typeof vision?.canReadExtra === 'function' && vision.canReadExtra(file)) return file;
         if (root) return require('./agent-path-guard').resolveInsideRoot(root, file);
-        throw Object.assign(new Error('只能看本人上传的图片、浏览器截图或工作目录里的图片（用工具结果里给出的完整路径）'), { code: 'VISION_PATH' });
+        throw Object.assign(new Error('只能看本人上传的图片、浏览器截图、工作目录或允许的图片目录里的图片（用工具结果里给出的完整路径）'), { code: 'VISION_PATH' });
     };
     const runBuiltin = async call => {
         const args = call.args && typeof call.args === 'object' ? call.args : {};

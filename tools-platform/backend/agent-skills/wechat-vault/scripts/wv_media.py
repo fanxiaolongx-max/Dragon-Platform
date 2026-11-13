@@ -454,6 +454,25 @@ def cmd_media(a) -> int:
     chat, rows = collect(a.chat, set(a.type or TYPES.values()), parse_when(a.since), parse_when(a.until, True), a.limit)
     for r in rows:
         r.pop("_voice", None)
+    if a.view:  # 图片解码到 media-cache、视频封面复制过去，给出可直接显示的 view 路径
+        import wv_view
+        budget = [a.view_limit]
+        for r in sorted(rows, key=lambda x: x["timestamp"], reverse=True):
+            md5 = None
+            files = r.get("files") or {}
+            if r["type"] == "image" and files:
+                label = next(k for k in ("hd", "mid", "thumb") if k in files)
+                md5 = re.search(r"([0-9a-f]{32})", Path(files[label]).name)
+                if md5 and (budget[0] > 0 or wv_view._cached(f"{md5.group(1)}_{label}")):
+                    path, fresh, err = wv_view.view_image(files[label], md5.group(1), label)
+                    budget[0] -= int(fresh)
+                    if path:
+                        files["view"] = path
+            elif r["type"] == "video" and files.get("thumb"):
+                md5 = re.search(r"([0-9a-f]{32})", Path(files["thumb"]).name)
+                cover = wv_view.copy_cover(files["thumb"], md5.group(1)) if md5 else None
+                if cover:
+                    files["view"] = cover
     if a.format == "json":
         print(json.dumps({"chat": chat["display_name"], "items": rows}, ensure_ascii=False, indent=2))
     else:
@@ -517,7 +536,7 @@ def cmd_export(a) -> int:
 
 def cmd_decode(a) -> int:
     src = Path(a.dat).expanduser()
-    out = Path(a.out).expanduser() if a.out else DEFAULT_EXPORT / "decoded"
+    out = Path(a.out).expanduser() if a.out else VAULT / "media-cache"
     if a.out is None or out.is_dir() or not out.suffix:
         secure_dir(out)
         out = out / src.stem
@@ -580,7 +599,9 @@ def main() -> int:
         p.add_argument("--type", action="append", choices=list(TYPES.values()))
         p.add_argument("--since"); p.add_argument("--until")
         p.add_argument("--limit", type=int, default=50)
-    p = sp.add_parser("media"); filters(p); p.add_argument("--format", choices=["text", "json"], default="text"); p.set_defaults(fn=cmd_media)
+    p = sp.add_parser("media"); filters(p); p.add_argument("--format", choices=["text", "json"], default="text")
+    p.add_argument("--view", action="store_true", help="图片解码到 media-cache 并给出可直接显示的路径")
+    p.add_argument("--view-limit", type=int, default=20); p.set_defaults(fn=cmd_media)
     p = sp.add_parser("export-media"); filters(p, True); p.add_argument("--transcribe", action="store_true"); p.add_argument("--no-thumb", action="store_true"); p.set_defaults(fn=cmd_export)
     p = sp.add_parser("decode-image"); p.add_argument("dat"); p.add_argument("--out"); p.set_defaults(fn=cmd_decode)
     p = sp.add_parser("image-key"); p.add_argument("action", choices=["status", "derive"]); p.add_argument("--save", action="store_true"); p.set_defaults(fn=cmd_key)

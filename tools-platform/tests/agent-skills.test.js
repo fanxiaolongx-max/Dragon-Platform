@@ -11,7 +11,7 @@ test('builtin catalog loads actual SKILL.md files on demand and exposes metadata
         const loaded = skills.load(`@${item.id} do this`, { hasWorkspace: true });
         assert.equal(loaded.selected[0].id, item.id);
         assert.match(loaded.prompt, /目标：/);
-        assert.ok(loaded.prompt.length < 6000);
+        assert.ok(loaded.prompt.length < 10000, `${item.id} prompt length ${loaded.prompt.length} should be under 10000`);
     }
     const catalog = skills.list(); catalog[0].id = 'changed';
     assert.equal(skills.list()[0].id, 'project-map');

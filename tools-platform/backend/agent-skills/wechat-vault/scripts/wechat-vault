@@ -9,16 +9,17 @@ VAULT=/Volumes/512G/wechat-local-vault
 SERVICE=wechat-realtime
 export PATH="/opt/homebrew/bin:$HOME/.local/bin:$PATH"
 cmd="${1:-help}"; shift || true
-if [ "$cmd" = recent ] || [ "$cmd" = latest ]; then
+if [ "$cmd" = recent ] || [ "$cmd" = latest ] || [ "$cmd" = history ]; then
   # 顺手补一次增量（与常驻服务用文件锁互斥；本进程无权限读微信容器时静默跳过）
   "$PY" "$HERE/realtime_sync.py" --once >/dev/null 2>&1 || true
 fi
 case "$cmd" in
   recent)  m="${1:-10}"; [ $# -gt 0 ] && shift; exec "$PY" "$HERE/wv_query.py" recent --minutes "$m" "$@" ;;
   latest)  exec "$PY" "$HERE/wv_query.py" latest "$@" ;;
+  history) exec "$PY" "$HERE/wv_query.py" history "$@" ;;
   unread)  exec "$PY" "$CLI" unread --format text "$@" ;;
   sessions) exec "$PY" "$CLI" sessions --format text "$@" ;;
-  search|history|contacts|members|stats|pending|favorites|moments)
+  search|contacts|members|stats|pending|favorites|moments)
            exec "$PY" "$CLI" "$cmd" "$@" ;;
   export)  exec "$PY" "$CLI" export "$@" ;;
   status)
@@ -50,6 +51,8 @@ PYEOF
 用法: wechat-vault <命令>
   recent [分钟] [--format json]   最近 N 分钟新消息（默认 10），时间为开罗 UTC+2
   latest [--limit N]              库里最新消息时间 + 最近会话
+    （recent/latest/history 默认给图片/视频/文件/语音附本地信息，图片解码到 media-cache 可直接显示；
+     --media-limit N 本次最多新解 N 张（默认 8），--no-media 关闭）
   unread | sessions [--limit N]   未读会话 / 最近会话
   search 关键词 [--chat 名称] [--start-time ..] [--format text]
   history 会话名 [--limit N] [--start-time ..] [--format text]
@@ -57,12 +60,12 @@ PYEOF
   contacts --query 名称 | members 群名 | stats 会话名 | pending
   status | logs [N] | restart | sync | resync   实时服务
   keys list | keys verify                     保险箱里的密钥条目（不显示密钥）
-  media 会话 [--type image|video|file|voice] [--since 48h|2026-11-01] [--until ..] [--limit N] [--format json]
+  media 会话 [--type image|video|file|voice] [--since 48h|2026-11-01] [--until ..] [--limit N] [--format json] [--view]
                                   列出会话里的图片/视频/文件/语音及本地路径
   export-media 会话 [目标目录] [同上过滤] [--transcribe] [--no-thumb]
                                   导出：图片解码成 jpg/png、视频/文件复制、语音转 mp3（默认 /Volumes/512G/wechat-local-vault/exports/media/<会话>）
   voice-mp3 会话 [目标目录] [...]  只导出语音为 mp3（加 --transcribe 本地转文字）
-  decode-image 文件.dat [--out 路径]  解码单个图片 .dat
+  decode-image 文件.dat [--out 路径]  解码单个图片 .dat（默认放 media-cache）
   image-key status | image-key derive [--save]   图片密钥（保险箱 image_aes/image_xor）
   media-stats                     账号媒体目录统计
 HELP

@@ -36,7 +36,7 @@ actual class SettingsManager actual constructor() {
 
     actual fun getAppVersion(): String {
         val bundle = platform.Foundation.NSBundle.mainBundle
-        val shortName = (bundle.objectForInfoDictionaryKey("CFBundleShortVersionString") as? String)?.trim()?.takeIf { it.isNotEmpty() } ?: "1.1.0"
+        val shortName = (bundle.objectForInfoDictionaryKey("CFBundleShortVersionString") as? String)?.trim()?.takeIf { it.isNotEmpty() } ?: "1.0.614"
         val build = (bundle.objectForInfoDictionaryKey("CFBundleVersion") as? String)?.trim()?.takeIf { it.isNotEmpty() }
         return if (build != null && build != shortName) "$shortName ($build)" else shortName
     }

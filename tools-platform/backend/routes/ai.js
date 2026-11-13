@@ -954,7 +954,8 @@ async function handleChatRequest(req, res) {
         const uploadFiles = homeAgent && !channelTurn
             ? agentArtifacts.uploadsIn(agentRunManager.ownerKey(req.user, getTenantId()), effectiveMessages.map(item => item.content)) : [];
         // 看图：对话模型能看图时，本条消息里的图片附件直接附给它；不能看图时先用绘图模型识别成文字附在消息末尾
-        const vision = homeAgent && (!channelTurn || fullWeLink) ? await require('../models/agent-vision').forTurn({ chatSettings: aiSettings, signal: providerAbortController?.signal }) : null;
+        const vision = homeAgent && (!channelTurn || fullWeLink) ? await require('../models/agent-vision').forTurn({ chatSettings: aiSettings, signal: providerAbortController?.signal,
+            allowExtraImageRoots: agentWorkspaceAccess.isAgentWorkspaceAllowed(req) && !require('../models/team-boundary').isConfined(req.user) }) : null;
         const currentImages = vision ? agentArtifacts.uploadsIn(agentRunManager.ownerKey(req.user, getTenantId()), [lastMessage.content]).filter(require('../models/agent-vision').isImagePath) : [];
         if (currentImages.length && effectiveMessages.at(-1)?.role === 'user') {
             if (!vision.capable) writeStreamEvent({ type: 'status', status: '当前对话模型不能看图，正在用绘图模型识别图片…' });

@@ -39,7 +39,7 @@ actual class SettingsManager actual constructor() {
     actual fun getAppVersion(): String {
         return try {
             val pInfo = AppContext.context.packageManager.getPackageInfo(AppContext.context.packageName, 0)
-            val shortName = (pInfo.versionName ?: "1.1.0").trim()
+            val shortName = (pInfo.versionName ?: "1.0.614").trim()
             val code = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
                 pInfo.longVersionCode
             } else {
@@ -48,7 +48,7 @@ actual class SettingsManager actual constructor() {
             }
             if (code > 0L) "$shortName ($code)" else shortName
         } catch (e: Exception) {
-            "1.1.0"
+            "1.0.614"
         }
     }
 }

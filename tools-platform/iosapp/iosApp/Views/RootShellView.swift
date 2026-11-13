@@ -180,7 +180,8 @@ struct RootShellView: View {
             .animation(.spring(response: 0.32, dampingFraction: 0.88), value: store.workMode)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(width: width, maxHeight: .infinity, alignment: .topLeading)
+        .frame(width: width)
+        .frame(maxHeight: .infinity, alignment: .topLeading)
     }
 
     @ViewBuilder

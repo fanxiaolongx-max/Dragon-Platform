@@ -14,8 +14,17 @@ android {
         minSdk = 24
         targetSdk = 35
         val runNumber = System.getenv("GITHUB_RUN_NUMBER")
+        val packageJsonFile = file("../../package.json")
+        val pkgVersion = if (packageJsonFile.exists()) {
+            try {
+                val match = Regex("\"version\"\\s*:\\s*\"([^\"]+)\"").find(packageJsonFile.readText())
+                match?.groupValues?.get(1)
+            } catch (_: Exception) { null }
+        } else null
+
+        val releaseVersion = System.getenv("APP_VERSION_NAME") ?: (pkgVersion ?: "1.0.614")
+        versionName = releaseVersion
         versionCode = System.getenv("APP_VERSION_CODE")?.toIntOrNull() ?: (runNumber?.toIntOrNull() ?: 4)
-        versionName = System.getenv("APP_VERSION_NAME") ?: (if (runNumber != null) "1.1.$runNumber" else "1.1.0")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

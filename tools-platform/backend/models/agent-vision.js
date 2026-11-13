@@ -68,7 +68,40 @@ async function describeWithImageModel(settings, images, { question = '', signal 
  * 一轮对话的看图能力：{ capable, imageModel, describe(images, opts), prepare(message, files) }。
  * chatSettings 为当前对话模型的运行配置。
  */
-async function forTurn({ chatSettings, signal } = {}) {
+/**
+ * view_image 额外可读的只读图片目录（如 @wechat-vault 解码出的微信图片缓存）。
+ * 来源：环境变量 TOOLS_AGENT_IMAGE_ROOTS（按系统路径分隔符分隔）+ 数据目录 agent-image-roots.json 的 { "roots": [...] }。
+ * 只放行这些目录里的 png/jpg/webp/gif；目录本身不存在时忽略。每次调用现读，改配置不用重启。
+ */
+function extraImageRoots() {
+    const roots = String(process.env.TOOLS_AGENT_IMAGE_ROOTS || '').split(path.delimiter);
+    try {
+        const file = path.join(process.env.TOOLS_DATA_DIR || path.join(__dirname, '../data'), 'agent-image-roots.json');
+        const config = JSON.parse(fs.readFileSync(file, 'utf8'));
+        if (Array.isArray(config?.roots)) roots.push(...config.roots);
+    } catch (_error) { /* 没有配置文件就只用环境变量 */ }
+    return roots.map(item => String(item || '').trim()).filter(item => item && path.isAbsolute(item))
+        .map(item => { try { return fs.realpathSync(item); } catch (_error) { return null; } })
+        .filter(item => item && item !== path.parse(item).root);
+}
+
+/** 文件（解析链接后）是否在额外图片目录里且是图片 */
+function inExtraImageRoots(file) {
+    if (!isImagePath(file) || !path.isAbsolute(String(file || ''))) return false;
+    let real;
+    try { real = fs.realpathSync(file); } catch (_error) { return false; }
+    if (!isImagePath(real)) return false;
+    return extraImageRoots().some(root => {
+        const rel = path.relative(root, real);
+        return rel && !rel.startsWith('..') && !path.isAbsolute(rel);
+    });
+}
+
+/**
+ * allowExtraImageRoots：仅本机/管理员（工作区门禁通过、非团队账号）的对话为 true，
+ * 这时 view_image 还能读 extraImageRoots() 里的图片。
+ */
+async function forTurn({ chatSettings, signal, allowExtraImageRoots = false } = {}) {
     const capable = supportsVision(chatSettings || {});
     let imageSettings;
     const imageModel = async () => {
@@ -78,6 +111,7 @@ async function forTurn({ chatSettings, signal } = {}) {
     return {
         capable,
         imageModel,
+        canReadExtra: file => Boolean(allowExtraImageRoots) && inExtraImageRoots(file),
         describe: async (images, opts = {}) => describeWithImageModel(await imageModel(), images, { signal, ...opts }),
         /**
          * 本轮用户消息附带的图片：能看图时附到消息上；不能看图时用绘图模型识别成文字附在消息末尾。
@@ -104,4 +138,4 @@ async function forTurn({ chatSettings, signal } = {}) {
     };
 }
 
-module.exports = { MAX_IMAGE_BYTES, supportsVision, isImagePath, loadImage, describeWithImageModel, forTurn };
+module.exports = { MAX_IMAGE_BYTES, supportsVision, isImagePath, loadImage, describeWithImageModel, forTurn, extraImageRoots, inExtraImageRoots };

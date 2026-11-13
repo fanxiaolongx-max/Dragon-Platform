@@ -126,3 +126,39 @@ test('a text-only model gets the image model\'s description of each screenshot',
     assert.match(result, /看图模型对截图的识别结果）\n深色背景，居中文字（shot\.png）/);
     assert.equal(requests[1].messages.some(message => message.images), false, 'no image data for a text-only model');
 });
+
+test('view_image may read configured extra image folders, only for local/admin turns', async () => {
+    const cache = path.join(sandbox, 'media-cache');
+    fs.mkdirSync(cache, { recursive: true });
+    fs.mkdirSync(process.env.TOOLS_DATA_DIR, { recursive: true });
+    const inside = path.join(cache, 'abc_hd.png');
+    fs.writeFileSync(inside, PNG);
+    fs.writeFileSync(path.join(cache, 'note.txt'), 'x');
+    const outside = path.join(sandbox, 'other.png');
+    fs.writeFileSync(outside, PNG);
+    fs.symlinkSync(outside, path.join(cache, 'link.png'));
+    const configFile = path.join(process.env.TOOLS_DATA_DIR, 'agent-image-roots.json');
+    fs.writeFileSync(configFile, JSON.stringify({ roots: [cache, '/', 'relative/dir'] }));
+    try {
+        assert.deepEqual(vision.extraImageRoots(), [fs.realpathSync(cache)], 'filesystem root and relative entries are ignored');
+        const allowed = await vision.forTurn({ chatSettings: { provider: 'gemini', model: 'gemini-3.1-flash-lite' }, allowExtraImageRoots: true });
+        const denied = await vision.forTurn({ chatSettings: { provider: 'gemini', model: 'gemini-3.1-flash-lite' } });
+        assert.equal(allowed.canReadExtra(inside), true);
+        assert.equal(denied.canReadExtra(inside), false, 'remote viewers never get the extra folders');
+        assert.equal(allowed.canReadExtra(path.join(cache, 'note.txt')), false, 'only pictures');
+        assert.equal(allowed.canReadExtra(path.join(cache, 'link.png')), false, 'links pointing outside are refused');
+        assert.equal(allowed.canReadExtra(outside), false);
+
+        const script = [{ toolCalls: [{ id: 'w', name: 'view_image', args: { path: inside } }] }, { toolCalls: [{ id: 'o', name: 'view_image', args: { path: outside } }] }, { text: 'ok' }];
+        const requests = [];
+        const events = [];
+        await agentLoop.runToolLoop({ write: event => events.push(event), root: path.join(sandbox, 'ws'),
+            client: { generateText: async options => { requests.push({ ...options, messages: options.messages.map(item => ({ ...item })) }); return script.shift(); } },
+            systemPrompt: 'sys', messages: [{ role: 'user', content: '看图' }], tools: [], vision: allowed, artifactOwner: 'default::alice', executeCall: async () => null });
+        assert.deepEqual(events.find(event => event.type === 'tool_result' && event.callId === 'w').images, [inside]);
+        assert.equal(requests[1].messages.filter(message => message.images?.length).length, 1, 'the cached WeChat picture is attached for the model');
+        assert.match(requests[2].messages.at(-1).toolResults[0].content, /错误/);
+    } finally {
+        fs.rmSync(configFile, { force: true });
+    }
+});
