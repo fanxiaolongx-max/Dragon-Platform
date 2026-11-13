@@ -46,6 +46,23 @@ test('history is isolated by tenant, owner and installation',async()=>{
     await assert.rejects(repo.history('owner','machine-a','unknown'),/INVALID_QUOTA_QUERY/);
     await assert.rejects(repo.history('owner','machine-a','codex',91),/INVALID_QUOTA_QUERY/);
 });
+test('persists validated balance details per tenant, owner and device, without recording cached results',async()=>{
+    const now=Date.now();
+    const data=quota(now);
+    Object.assign(data.codex,{creditsBalance:0,extraUsage:{enabled:true,used:24.88,limit:120,currency:'USD',secret:'must-not-save'}});
+    await repo.record('details-owner','details-device',data,now);
+    await repo.record('details-owner','details-device',{codex:{...data.codex,status:'cached',updatedAt:now+1}},now);
+    await runWithTenant('details-other',()=>repo.record('details-owner','details-device',quota(now),now));
+    const rows=await db.all('SELECT * FROM desktop_pet_quota_details WHERE owner=?',['details-owner']);
+    assert.equal(rows.length,1);
+    assert.equal(rows[0].credits_balance,0);
+    assert.equal(rows[0].extra_enabled,1);
+    assert.equal(rows[0].extra_used,24.88);
+    assert.equal(rows[0].extra_limit,120);
+    assert.equal(rows[0].extra_currency,'USD');
+    assert.doesNotMatch(JSON.stringify(rows),/must-not-save/);
+    assert.equal((await runWithTenant('details-other',()=>db.get('SELECT credits_balance FROM desktop_pet_quota_details WHERE owner=?',['details-owner']))).credits_balance,null);
+});
 test('range downsampling keeps reset periods and retention removes only this installation’s old samples',async()=>{
     const now=Date.now(),old=now-91*DAY;
     await repo.record('retention','one',quota(old),old);

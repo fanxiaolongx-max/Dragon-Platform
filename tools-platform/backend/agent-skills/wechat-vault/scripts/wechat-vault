@@ -38,6 +38,7 @@ PYEOF
     "$PY" "$HERE/wv_query.py" latest --limit 0 | head -1 ;;
   media|export-media|decode-image|image-key|media-stats)
            exec "$PY" "$HERE/wv_media.py" "$cmd" "$@" ;;
+  read-file) exec "$PY" "$HERE/wv_readfile.py" "$@" ;;
   voice-mp3) exec "$PY" "$HERE/wv_media.py" export-media "$@" --type voice ;;
   sync)    exec "$PY" "$HERE/realtime_sync.py" --once ;;
   resync)  pm2 stop "$SERVICE" >/dev/null 2>&1 || true; "$PY" "$HERE/realtime_sync.py" --once --resync; pm2 start "$SERVICE" >/dev/null 2>&1 || true; echo "已整库重建并重启服务" ;;
@@ -68,6 +69,9 @@ PYEOF
   decode-image 文件.dat [--out 路径]  解码单个图片 .dat（默认放 media-cache）
   image-key status | image-key derive [--save]   图片密钥（保险箱 image_aes/image_xor）
   media-stats                     账号媒体目录统计
+  read-file 会话 [--name 关键词] [--since 7d] [--pick N] [--list] | read-file "文件绝对路径"
+            [--max-chars 20000] [--offset N] [--rows 50] [--sheet 名称] [--ocr auto|on|off] [--format json]
+                                  把聊天里的文件转成文字（PDF/Word/Excel/CSV/PPT/文本/图片 OCR）；任何文件都给本地绝对路径
 HELP
     ;;
 esac

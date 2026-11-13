@@ -456,19 +456,6 @@ jobs:
           plutil -replace CFBundleShortVersionString -string "$RELEASE_VER" iosApp/Info.plist
           plutil -replace CFBundleVersion -string "$BUILD_NUM" iosApp/Info.plist
 
-          python3 -c "
-from PIL import Image
-p = 'iosApp/Assets.xcassets/AppIcon.appiconset/app-icon-1024.png'
-im = Image.open(p)
-if im.mode != 'RGB':
-    bg = Image.new('RGB', im.size, (248, 250, 252))
-    if im.mode in ('RGBA', 'LA'):
-        bg.paste(im, mask=im.split()[-1])
-    else:
-        bg.paste(im)
-    bg.save(p, 'PNG')
-"
-
           xcodebuild archive \
             -project iosApp.xcodeproj \
             -scheme iosApp \

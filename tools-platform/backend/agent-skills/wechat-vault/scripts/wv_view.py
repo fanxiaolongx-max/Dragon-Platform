@@ -125,11 +125,14 @@ def describe(dec: Path, chat_user: str, row: dict, budget: list[int], hardlink) 
         if not app:
             return None  # 链接、引用等，不是文件
         p = wm.file_path(acct(), ts, app, hardlink)
-        info = {"kind": "文件", "name": app["title"], "size": app["size"], "local": bool(p)}
+        info = {"kind": "文件", "name": app["title"], "size": app["size"], "size_h": wm.human_size(app["size"]), "local": bool(p),
+                "path": p or wm.expected_file_path(acct(), ts, app)}
         if p:
             info["file"] = p
+            info["read"] = f'wechat-vault read-file "{p}"'
         else:
-            info["note"] = "本机没有这个文件，请在微信里下载后再查"
+            info["expected_path"] = info["path"]
+            info["note"] = "未下载，请在微信点开下载"
         return info
     m = wm.re.search(r'voicelength="(\d+)"', content)
     return {"kind": "语音", "seconds": round(int(m.group(1)) / 1000, 1) if m else None, "local": True,
@@ -161,15 +164,25 @@ def suffix(media: dict | None) -> str:
         bits.append(media["quality"])
     if media.get("name"):
         bits.append(media["name"])
+    if media["kind"] == "文件":
+        bits.append(media.get("size_h") or wm.human_size(media.get("size")))
     if media.get("seconds"):
         bits.append(f"{media['seconds']}秒")
-    if not media.get("local") and media["kind"] != "语音":
+    if not media.get("local") and media["kind"] == "文件":
+        bits.append("未下载")
+    elif not media.get("local") and media["kind"] != "语音":
         bits.append("本机没有")
     out = f"  〔{' · '.join(bits)}〕"
     if media.get("view"):
         out += f" 查看: {media['view']} "
     if media.get("file") and media["kind"] in ("视频", "文件"):
         out += f" 文件: {media['file']} "
+    if media["kind"] == "文件":
+        if media.get("file"):
+            out += " （可用 read-file 读取内容：wechat-vault read-file 加上面的路径，路径要加引号）"
+        elif media.get("expected_path"):
+            out += f" 预期路径: {media['expected_path']} （未下载，请在微信点开下载）"
+            return out
     if media.get("note") and media["kind"] != "语音":
         out += f" （{media['note']}）"
     return out

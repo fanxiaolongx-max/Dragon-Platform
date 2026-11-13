@@ -18,6 +18,13 @@ async function ensureReady() {
         )`);
         await db.run(`CREATE INDEX IF NOT EXISTS pet_quota_history_time
             ON desktop_pet_quota_samples(owner,device,provider,sampled_at)`);
+        await db.run(`CREATE TABLE IF NOT EXISTS desktop_pet_quota_details (
+            owner TEXT NOT NULL, device TEXT NOT NULL, provider TEXT NOT NULL, sampled_at INTEGER NOT NULL,
+            credits_balance REAL, extra_enabled INTEGER, extra_used REAL, extra_limit REAL, extra_currency TEXT,
+            PRIMARY KEY (owner,device,provider,sampled_at)
+        )`);
+        await db.run(`CREATE INDEX IF NOT EXISTS pet_quota_details_time
+            ON desktop_pet_quota_details(owner,device,provider,sampled_at)`);
     })().catch(error => { ready.delete(connection); throw error; }));
     return ready.get(connection);
 }
@@ -49,11 +56,24 @@ function samples(quotas, now = Date.now()) {
 async function record(owner, device, quotas, now = Date.now()) {
     const keys = scope(owner, device), rows = samples(quotas, now);
     await ensureReady();
+    const number = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
+    for (const provider of PROVIDERS) {
+        const data = quotas?.[provider];
+        if (data?.status !== 'live' || !Number.isSafeInteger(data.updatedAt) ||
+            data.updatedAt < now - 15 * 60000 || data.updatedAt > now + 60000) continue;
+        const extra = data.extraUsage && typeof data.extraUsage === 'object' ? data.extraUsage : null;
+        await db.run(`INSERT OR IGNORE INTO desktop_pet_quota_details
+            (owner,device,provider,sampled_at,credits_balance,extra_enabled,extra_used,extra_limit,extra_currency)
+            VALUES (?,?,?,?,?,?,?,?,?)`, [...keys, provider, data.updatedAt, number(data.creditsBalance),
+            extra && typeof extra.enabled === 'boolean' ? Number(extra.enabled) : null,
+            number(extra?.used), number(extra?.limit), /^[A-Z]{3}$/.test(extra?.currency || '') ? extra.currency : null]);
+    }
     for (const row of rows) await db.run(`INSERT OR IGNORE INTO desktop_pet_quota_samples
         (owner,device,provider,group_id,group_label,window_id,window_label,sampled_at,remaining,resets_at,duration_minutes)
         VALUES (?,?,?,?,?,?,?,?,?,?,?)`, [...keys, ...row]);
     // Retention is limited to this caller's installation, inside its current tenant.
     await db.run('DELETE FROM desktop_pet_quota_samples WHERE owner=? AND device=? AND sampled_at<?', [...keys, now - 90 * DAY]);
+    await db.run('DELETE FROM desktop_pet_quota_details WHERE owner=? AND device=? AND sampled_at<?', [...keys, now - 90 * DAY]);
     return rows.length;
 }
 // device 为 ANY_DEVICE 时合并本账号所有安装的采样（同一账号的额度，网页额度栏用）；按时间桶取最后一点，重复采样自然合并

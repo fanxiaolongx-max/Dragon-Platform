@@ -8,7 +8,7 @@
 | --- | --- | --- | --- |
 | 图片 | 3 | `$A/msg/attach/<md5(会话username)>/<YYYY-MM>/Img/<M>.dat`，`<M>_h.dat` 高清（点开过才有）、`<M>_t.dat` 缩略图 | `M` = 消息 `packed_info_data` 里那串 32 位十六进制；`YYYY-MM` = 消息本地月份（找不到就扫该会话所有月份）。`Rec/` 子目录是合并转发里的图 |
 | 视频 | 43 | `$A/msg/video/<YYYY-MM>/<M>.mp4` + `<M>_thumb.jpg` | 同上，`M` 来自 `packed_info_data`。多数视频没点开过，只有封面，导出时退回封面并在清单注明 |
-| 文件 | 49 且 `<appmsg><type>6` | `$A/msg/file/<YYYY-MM>/<title>`，重名会变 `title(1).ext` | 按 `title` + `appattach/totallen` 大小匹配；兜底用 `hardlink.db` 的 `file_hardlink_info_v4.md5 = appmsg/md5` |
+| 文件 | 49 且 `<appmsg><type>6` | `$A/msg/file/<YYYY-MM>/<title>`，重名会变 `title(1).ext` | 按 `title` + `appattach/totallen` 大小匹配；兜底用 `hardlink.db` 的 `file_hardlink_info_v4.md5 = appmsg/md5`；都没有 = 未下载，预期路径 `msg/file/<消息月份>/<title>` |
 | 语音 | 34 | 不在磁盘，在 `message/media_*.db` 的 `VoiceInfo.voice_data`（SILK） | `Name2Id.user_name = 会话` 且 `local_id`、`create_time` 与消息一致（兜底 `svr_id`） |
 
 **图片 .dat 格式**：本账号全部是 4.x **V2**（头 `07 08 56 32 08 07`）：头 15 字节里含 AES 段长度和 XOR 段长度；前段 AES-128-ECB（PKCS7），中段明文，尾段单字节 XOR。也兼容 V1（固定 AES 密钥 `md5("0")[:16]`）和老版整文件 XOR（用 jpg/png/gif 文件头推算 XOR 字节）。解出 `wxgf` 的是微信 HEVC 图，自动用 ffmpeg 转 jpg。
@@ -33,6 +33,32 @@ $W media-stats
 - `export-media` 默认目录 `/Volumes/512G/wechat-local-vault/exports/media/<会话名>/`，按 `image/ video/ file/ voice/` 分子目录，文件名 `YYYYmmdd-HHMMSS_<local_id>`；图片取最高清那份解码成 jpg/png（`--no-thumb` 跳过只有缩略图的）；视频复制 mp4，没下载的复制封面；文件原样复制；语音 SILK → PCM（pilk）→ mp3（ffmpeg，24 kHz 64 kbps）。目录 700、文件 600，`manifest.json` 记录每条结果，同目录多次导出会合并。
 - `--transcribe`：本地 whisper.cpp（`/opt/homebrew/bin/whisper-cli`，模型 `/Volumes/512G/models/whisper/ggml-large-v3-turbo-q5_0.bin`，中文），文字写在同名 `.txt`。完全离线；一条几秒的语音约 10 秒。
 - 每次 `media`/`export-media` 前自动做一次增量同步，保证 hardlink/语音库是最新的。
+
+**读文件内容：`read-file`（实现 `scripts/wv_readfile.py`，只读，不改原文件）**
+
+```bash
+$W read-file "会话" [--name 关键词] [--since 7d|2026-11-01] [--until ..] [--pick N] [--list] [--scan 300]
+$W read-file "/绝对路径/文件.xlsx"
+#   公共选项：--max-chars 20000 --offset 0 --rows 50 --sheet 名称 --ocr auto|on|off --ocr-pages 10 --format text|json
+```
+
+- 会话模式：先增量同步，再按文件消息（49/type 6）找，`--name` 不区分大小写匹配文件名，默认取最新的；`--list` 只列出，每条都带绝对路径（没下载的写「预期路径」）。
+- 输出头：文件名、类型、大小、来自哪个会话/谁/何时（开罗 UTC+2）、**本地绝对路径**、文字总长和本次显示范围、说明（页数、工作表名、OCR 等）、同会话其他匹配文件。没读完时给出 `--offset N` 续读命令。JSON 字段：`ok kind kind_label path downloaded total_chars offset end truncated next notes text others`。
+- 格式：
+  | 格式 | 方式 |
+  | --- | --- |
+  | PDF | `pdftotext -layout`，失败用 pypdf；平均每页不到 20 个字视为扫描件，`pdftoppm -r 200` + `tesseract chi_sim+eng`（前 `--ocr-pages` 页，默认 10） |
+  | docx | python-docx，按正文顺序输出段落（标题加 `#`）和表格 |
+  | doc / rtf / odt | macOS `textutil -convert txt` |
+  | xlsx/xlsm、xls、csv/tsv | openpyxl（只读、取公式计算值）/ xlrd / csv；每个工作表写「N 行 × M 列」（不计空行）+ 前 `--rows` 行，单元格超 80 字截断 |
+  | pptx | python-pptx，每页文字、表格、备注 |
+  | txt/md/json/xml/html/log/代码等 | 自动识别 UTF-8/GB18030；html 去标签，json 美化 |
+  | jpg/png 等图片 | tesseract OCR（`--ocr off` 关闭；看版式用 `view_image`） |
+  | 其余（zip/rar/7z/apk/ipa/dmg/exe/音视频/WPS 私有格式/ppt/heic/未知二进制） | 不解析，只给绝对路径和说明；无扩展名的 zip 容器会按内容识别 docx/xlsx/pptx，无扩展名的纯文本按文本读 |
+- 没下载：输出「预期路径: `$A/msg/file/<消息月份>/<原文件名>`」+「未下载，请在微信点开下载」，退出码 1。微信下载后真实文件名重名时会变 `名(1).ext`，以下载后再查到的路径为准。
+- 缓存：提取结果存 `/Volumes/512G/wechat-local-vault/file-text-cache/<md5(路径|大小|mtime|参数)>.json`（目录 700、文件 600），分页时不重复解析；文件变了自动失效。OCR 临时图在 `media-work/tmp/`，用完删除。
+- 依赖：yichen `.venv`（pypdf、python-docx、openpyxl、xlrd、python-pptx），Homebrew poppler（pdftotext/pdfinfo/pdftoppm）、tesseract；中文模型 `/Volumes/512G/models/tessdata/chi_sim.traineddata`（tessdata_fast，环境变量 `WV_TESSDATA` 可改）。
+- `history`/`recent`/`latest` 里文件消息显示 `〔文件 · 名 · 大小〕 文件: <绝对路径>（可用 read-file 读取内容）`，没下载显示 `预期路径: ... （未下载，请在微信点开下载）`；JSON 的 `media` 有 `name size size_h path local file expected_path read`。`media --type file` 同样每条给路径和大小。
 
 **在对话里看图（`history` / `recent` / `latest` 自动附带，实现 `scripts/wv_view.py`）**
 

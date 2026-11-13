@@ -306,6 +306,22 @@ def file_path(acct: Path, ts: int, info: dict, hardlink: sqlite3.Connection | No
     return None
 
 
+def expected_file_path(acct: Path, ts: int, info: dict) -> str:
+    """文件没下载时微信会把它放到这里（消息所在月份目录 + 原文件名）。"""
+    return str(acct / "msg/file" / _months(ts)[0] / (info.get("title") or "未知文件名"))
+
+
+def human_size(n) -> str:
+    if n is None:
+        return "大小未知"
+    n = float(n)
+    for unit in ("B", "KB", "MB", "GB"):
+        if n < 1024 or unit == "GB":
+            return f"{n:.0f} {unit}" if unit == "B" else f"{n:.1f} {unit}"
+        n /= 1024
+    return ""
+
+
 class Voices:
     def __init__(self, dec: Path):
         self.cons = []
@@ -372,7 +388,11 @@ def collect(chat_query: str, types: set[str], since: int | None, until: int | No
                     if not info:
                         continue
                     p = file_path(acct, ts, info, hardlink)
-                    item.update(name=info["title"], size=info["size"], files={"file": p} if p else {})
+                    item.update(name=info["title"], size=info["size"], size_h=human_size(info["size"]), files={"file": p} if p else {},
+                                downloaded=bool(p), path=p or expected_file_path(acct, ts, info))
+                    if not p:
+                        item["expected_path"] = item["path"]
+                        item["note"] = "未下载，请在微信点开下载"
                 elif base == 34:
                     m = re.search(r'voicelength="(\d+)"', content)
                     item["seconds"] = round(int(m.group(1)) / 1000, 1) if m else None
@@ -442,10 +462,17 @@ def render_list(chat: dict, rows: list[dict]) -> str:
     for r in rows:
         extra = r.get("name") or (f"{r['seconds']} 秒" if r.get("seconds") else "")
         files = r.get("files") or {}
-        state = "本地有" if files else "本地没有（未下载/已清理）"
+        if r["type"] == "file":
+            extra += f"（{r.get('size_h') or human_size(r.get('size'))}）"
+        state = "本地有" if files else ("未下载，请在微信点开下载" if r["type"] == "file" else "本地没有（未下载/已清理）")
         out.append(f"[{r['time_cairo']}] {r['sender']} {label[r['type']]} {extra} — {state}")
         for k, v in files.items():
             out.append(f"    {k}: {v}")
+        if r["type"] == "file":
+            if files.get("file"):
+                out.append(f'    读内容: wechat-vault read-file "{files["file"]}"')
+            elif r.get("expected_path"):
+                out.append(f"    预期路径: {r['expected_path']}（未下载，请在微信点开下载）")
     return "\n".join(out)
 
 
