@@ -1,12 +1,12 @@
 {
   "zh": [
-    "技能与工具中心（Skill Hub）在「插件与脚本」和「工具」分类下全面上线全员开放/未全员开放标识与分类筛选标签，超级管理员可快速把控开放范围，普通成员更清晰辨识共享资产。",
-    "登录页右上角新增浅色/深色主题切换功能，支持一键切换昼夜色调，实时跟随系统偏好与跨页面持久化存储。",
-    "移动端全面支持对话列表置顶功能：支持长按会话或点击操作菜单快速置顶/取消置顶，置顶会话常驻列表顶部专区并展示置顶标识，与 Web 端及桌面端会话偏好实时双向云同步。"
+    "优化 iOS 自动化打包发布机制：在云端构建流水线中加入 Apple 开发者证书智能自动清理功能，构建前自动巡检并清理 CI 临时证书，彻底解决证书配额占满导致的构建中断。",
+    "移动端多图卡片滑动交互重构：全面优化 iOS 与 Android 端多图层叠轮播交互，实现自然的滑出飞行过渡与轻量触感反馈，彻底消除滑动切换时图片弹回原位的视觉错觉。",
+    "移动端会话列表支持长按置顶与多端同步：长按或点击操作菜单即可一键置顶/取消置顶，置顶会话聚合展示在专区顶部，与 Web 端及桌面端实时双向云同步。"
   ],
   "en": [
-    "Introduce shared access badges and quick category filters (Shared with all / Not shared) across 'Plugins & scripts' and 'Tools' in Skill Hub, allowing superadmins to clearly inspect distribution coverage at a glance.",
-    "Add light and dark theme toggle to the login page top bar, supporting one-click day/night switching with cross-page persistence.",
-    "Add conversation pinning to mobile apps: support long-press context menu and action button to pin/unpin conversations to the top, fully synchronized in real-time with Web and Desktop clients."
+    "Optimize iOS automated release pipeline: introduce automated Apple development certificate pruning before builds, revoking stale ephemeral CI certificates to prevent quota exhaustion.",
+    "Refactor mobile stacked image deck swipe physics: implement smooth continuous flight dismissal and subtle haptic feedback across iOS and Android, eliminating the return illusion on card drag.",
+    "Support conversation pinning and multi-device cloud synchronization: long-press or tap action menu to pin/unpin conversations to the top section, kept in continuous sync with Web and Desktop."
   ]
 }

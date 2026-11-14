@@ -371,7 +371,37 @@ html[data-ui="v2"].v2-wide body.home-mode-chat .dc { --dc-col: min(1320px, 100%)
 .v2-app-icon { width: 32px; height: 32px; flex: none; border-radius: 9px; background: var(--v2-chip); display: flex; align-items: center; justify-content: center; font-size: 16px; overflow: hidden; }
 .v2-app-icon img { width: 100%; height: 100%; object-fit: cover; }
 .v2-app-text { flex: 1; min-width: 0; }
-.v2-app-text strong { display: block; font-size: 13px; font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v2-app-text strong { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v2-badge-shared-pill {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 5px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 550;
+    line-height: 1.4;
+}
+.v2-badge-shared-pill.is-shared {
+    color: #0284c7;
+    background: rgba(14, 165, 233, 0.12);
+    border: 1px solid rgba(14, 165, 233, 0.28);
+}
+.v2-badge-shared-pill.is-unshared {
+    color: #d97706;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.28);
+}
+html[data-theme="dark"] .v2-badge-shared-pill.is-shared {
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.18);
+    border-color: rgba(56, 189, 248, 0.32);
+}
+html[data-theme="dark"] .v2-badge-shared-pill.is-unshared {
+    color: #fbbf24;
+    background: rgba(251, 191, 36, 0.18);
+    border-color: rgba(251, 191, 36, 0.32);
+}
 .v2-app-text small { display: block; font-size: 11.5px; color: var(--v2-ink3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .v2-app-go { flex: none; height: 24px; padding: 0 10px; border: 1px solid var(--v2-line-strong); border-radius: 999px; font-size: 12px; line-height: 22px; color: var(--v2-ink); background: var(--v2-bg); opacity: 0; transition: opacity var(--v2-ease); }
 .v2-app:hover .v2-app-go, .v2-app:focus-visible .v2-app-go { opacity: 1; }
