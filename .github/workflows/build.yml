@@ -408,6 +408,15 @@ jobs:
           echo "$API_KEY_P8" > ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8
           cp ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8 ~/.private_keys/
 
+      - name: Prune Stale Apple Development Certificates
+        working-directory: tools-platform
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_KEY_FILE: /Users/runner/.private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8
+        run: |
+          node scripts/prune-apple-dev-certs.js || true
+
       - name: Build and Archive iOS
         working-directory: tools-platform/iosapp
         run: |
