@@ -836,15 +836,20 @@
             background: rgba(255, 255, 255, 0.2);
         }
 
-        /* 语言切换按钮 Glassmorphism */
-        .login-lang-switch {
+        /* 语言与主题切换按钮 Glassmorphism */
+        .login-lang-switch,
+        .login-top-actions {
             position: fixed;
             top: 20px;
             right: 20px;
             z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
-        .btn-lang-toggle {
+        .btn-lang-toggle,
+        .btn-theme-toggle {
             height: 34px;
             min-width: 82px;
             display: inline-flex;
@@ -863,9 +868,12 @@
             cursor: pointer;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
             transition: all 0.25s ease;
+            user-select: none;
+            -webkit-user-select: none;
         }
 
-        .btn-lang-toggle:hover {
+        .btn-lang-toggle:hover,
+        .btn-theme-toggle:hover {
             transform: translateY(-1px);
             border-color: rgba(165, 180, 252, 0.5);
             background: rgba(30, 41, 59, 0.7);
@@ -873,19 +881,41 @@
             box-shadow: 0 6px 16px rgba(99, 102, 241, 0.25);
         }
 
-        .btn-lang-icon {
+        .btn-lang-icon,
+        .btn-theme-icon {
             font-size: 15px;
             line-height: 1;
         }
 
-        .btn-lang-current {
+        .btn-lang-current,
+        .btn-theme-current {
             letter-spacing: 0.5px;
+        }
+
+        @media (max-width: 480px) {
+            .login-lang-switch,
+            .login-top-actions {
+                top: 14px;
+                right: 14px;
+                gap: 6px;
+            }
+            .btn-lang-toggle,
+            .btn-theme-toggle {
+                height: 32px;
+                min-width: 72px;
+                padding: 0 10px;
+                font-size: 12.5px;
+            }
         }
     </style>
 </head>
 
 <body>
-    <div class="login-lang-switch">
+    <div class="login-lang-switch login-top-actions">
+        <button type="button" class="btn-lang-toggle btn-theme-toggle" id="loginThemeBtn" onclick="toggleLoginTheme()" title="切换浅色/深色主题 / Toggle Light/Dark Theme" data-i18n-title="login.themeToggleTitle" aria-label="切换浅色/深色主题 / Toggle Light/Dark Theme" data-i18n-aria-label="login.themeToggleTitle">
+            <span class="btn-theme-icon" id="loginThemeIcon">🌙</span>
+            <span class="btn-theme-current" id="loginThemeCurrent">深色</span>
+        </button>
         <button type="button" class="btn-lang-toggle" id="loginLangBtn" onclick="toggleLoginLanguage()" title="切换语言 / Switch Language" data-i18n-title="login.langToggleTitle" aria-label="切换语言 / Switch Language" data-i18n-aria-label="login.langToggleTitle">
             <span class="btn-lang-icon">🌐</span>
             <span class="btn-lang-current" id="loginLangCurrent">中文</span>
@@ -1507,6 +1537,11 @@
                 'login.exitGame': '退出游戏',
                 'login.close': '关闭',
                 'login.langToggleTitle': '切换语言 / Switch Language',
+                'login.themeToggleTitle': '切换浅色/深色主题 / Toggle Light/Dark Theme',
+                'login.themeToggleLight': '切换为浅色模式',
+                'login.themeToggleDark': '切换为深色模式',
+                'login.themeDark': '深色',
+                'login.themeLight': '浅色',
                 'login.privacyTitle': '隐私政策 (Privacy Policy)',
                 'login.termsTitle': '服务条款 (Terms of Service)'
             },
@@ -1532,6 +1567,11 @@
                 'login.exitGame': 'Exit Game',
                 'login.close': 'Close',
                 'login.langToggleTitle': 'Switch Language / 切换语言',
+                'login.themeToggleTitle': 'Toggle Light/Dark Theme / 切换浅色/深色主题',
+                'login.themeToggleLight': 'Switch to Light Mode',
+                'login.themeToggleDark': 'Switch to Dark Mode',
+                'login.themeDark': 'Dark',
+                'login.themeLight': 'Light',
                 'login.privacyTitle': 'Privacy Policy (隐私政策)',
                 'login.termsTitle': 'Terms of Service (服务条款)'
             }
@@ -1761,9 +1801,56 @@
             } catch (_) {}
         }
 
+        function getLoginTheme() {
+            try {
+                const rootTheme = document.documentElement.getAttribute('data-theme');
+                if (rootTheme === 'dark' || rootTheme === 'light') return rootTheme;
+                return localStorage.getItem('tools_theme') === 'dark' ? 'dark' : 'light';
+            } catch (_) {
+                return 'light';
+            }
+        }
+
+        function updateLoginThemeUI(theme) {
+            const currentTheme = theme || getLoginTheme();
+            const isDark = currentTheme === 'dark';
+            const isEn = (window.ToolsI18n?.getLanguage?.() || document.documentElement.lang || '').startsWith('en');
+            const iconSpan = document.getElementById('loginThemeIcon');
+            const textSpan = document.getElementById('loginThemeCurrent');
+            const btn = document.getElementById('loginThemeBtn');
+
+            if (iconSpan) iconSpan.textContent = isDark ? '☀️' : '🌙';
+            if (textSpan) {
+                textSpan.textContent = isDark
+                    ? (window.ToolsI18n?.t('login.themeLight') || (isEn ? 'Light' : '浅色'))
+                    : (window.ToolsI18n?.t('login.themeDark') || (isEn ? 'Dark' : '深色'));
+            }
+            if (btn) {
+                const titleText = isDark
+                    ? (window.ToolsI18n?.t('login.themeToggleLight') || (isEn ? 'Switch to Light Mode' : '切换为浅色模式'))
+                    : (window.ToolsI18n?.t('login.themeToggleDark') || (isEn ? 'Switch to Dark Mode' : '切换为深色模式'));
+                btn.setAttribute('title', titleText);
+                btn.setAttribute('aria-label', titleText);
+            }
+        }
+
+        function toggleLoginTheme() {
+            const currentTheme = getLoginTheme();
+            const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', nextTheme);
+            if (document.documentElement.getAttribute('data-ui') !== 'v2' && localStorage.getItem('tools_home_ui') !== 'v1') {
+                document.documentElement.setAttribute('data-ui', 'v2');
+            }
+            try {
+                localStorage.setItem('tools_theme', nextTheme);
+            } catch (_) {}
+            updateLoginThemeUI(nextTheme);
+        }
+
         function updateLoginLanguageUI() {
             const lang = window.ToolsI18n?.getLanguage?.() || 'zh-CN';
             renderLoginIdentityUI();
+            updateLoginThemeUI();
             const currentSpan = document.getElementById('loginLangCurrent');
             if (currentSpan) currentSpan.textContent = lang === 'en-US' ? 'EN' : '中文';
             const modal = document.getElementById('legalModal');
@@ -1790,6 +1877,13 @@
             });
             updateLoginLanguageUI();
         }
+        updateLoginThemeUI();
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'tools_theme' && (e.newValue === 'light' || e.newValue === 'dark')) {
+                document.documentElement.setAttribute('data-theme', e.newValue);
+                updateLoginThemeUI(e.newValue);
+            }
+        });
         loadPlatformIdentity();
         checkDesktopAutoLogin();
     </script>

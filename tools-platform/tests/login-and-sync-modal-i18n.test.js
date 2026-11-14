@@ -156,6 +156,12 @@ test('login.html contains valid i18n structure and translations', () => {
     assert.match(loginHtml, /id="loginLangCurrent"/);
     assert.match(loginHtml, /toggleLoginLanguage\(\)/);
 
+    // Has theme toggle button
+    assert.match(loginHtml, /id="loginThemeBtn"/);
+    assert.match(loginHtml, /id="loginThemeCurrent"/);
+    assert.match(loginHtml, /id="loginThemeIcon"/);
+    assert.match(loginHtml, /toggleLoginTheme\(\)/);
+
     // Has data-i18n bindings
     assert.match(loginHtml, /data-i18n="login\.subtitle"/);
     assert.match(loginHtml, /data-i18n="login\.usernameLabel"/);
