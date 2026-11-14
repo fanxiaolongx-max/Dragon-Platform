@@ -1,12 +1,12 @@
 {
   "zh": [
+    "Dragon Claw 2.0 Web 基座与技能中心全面支持全员开放/未全员开放权限标识：输入框 @ 技能联想浮层、侧栏「发现应用」搜索弹窗、+ 附加菜单及技能中心卡片均增加双色开放徽章与快捷分类筛选，超级管理员可全链路把控资产可见范围。",
     "优化 iOS 自动化打包发布机制：在云端构建流水线中加入 Apple 开发者证书智能自动清理功能，构建前自动巡检并清理 CI 临时证书，彻底解决证书配额占满导致的构建中断。",
-    "移动端多图卡片滑动交互重构：全面优化 iOS 与 Android 端多图层叠轮播交互，实现自然的滑出飞行过渡与轻量触感反馈，彻底消除滑动切换时图片弹回原位的视觉错觉。",
-    "移动端会话列表支持长按置顶与多端同步：长按或点击操作菜单即可一键置顶/取消置顶，置顶会话聚合展示在专区顶部，与 Web 端及桌面端实时双向云同步。"
+    "移动端多图卡片滑动交互重构：全面优化 iOS 与 Android 端多图层叠轮播交互，实现自然的滑出飞行过渡与轻量触感反馈，彻底消除滑动切换时图片弹回原位的视觉错觉。"
   ],
   "en": [
+    "Dragon Claw 2.0 Web base and Skill Hub now fully support shared access indicators: chat composer @ skill autocomplete, sidebar Discover Apps modal, plus menu, and Skill Hub cards all display shared/unshared badges and quick category filters for comprehensive distribution control.",
     "Optimize iOS automated release pipeline: introduce automated Apple development certificate pruning before builds, revoking stale ephemeral CI certificates to prevent quota exhaustion.",
-    "Refactor mobile stacked image deck swipe physics: implement smooth continuous flight dismissal and subtle haptic feedback across iOS and Android, eliminating the return illusion on card drag.",
-    "Support conversation pinning and multi-device cloud synchronization: long-press or tap action menu to pin/unpin conversations to the top section, kept in continuous sync with Web and Desktop."
+    "Refactor mobile stacked image deck swipe physics: implement smooth continuous flight dismissal and subtle haptic feedback across iOS and Android, eliminating the return illusion on card drag."
   ]
 }

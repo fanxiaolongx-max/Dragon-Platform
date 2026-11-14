@@ -112,12 +112,15 @@
             channelDisabledNotEnabled: '已配置频道凭据但尚未启用，请在全局设置中开启',
             roleAdmin: '管理员',
             roleSuperAdmin: '超级管理员',
+            sharedWithAll: '全员开放',
+            unsharedOnly: '未全员开放',
             tour: '新手引导'
         },
         'en-US': {
             discover: 'Discover', newChat: 'New chat', channels: 'Channels', skills: 'Skills · plugins', schedule: 'Scheduled', library: 'Library',
             opsDrafts: 'Ops drafts', more: 'More', heroTitle: 'Dragon Claw, from idea to done', modeChat: 'Chat', modeTools: 'Tools', alerts: 'Alerts', settings: 'Settings',
             skillList: 'Skills', plugins: 'Plugins and scripts', market: 'Tool market', importTool: 'Import tool', compare: 'Compare built-ins', links: 'Links',
+            sharedWithAll: 'Shared with all', unsharedOnly: 'Not shared',
             searchApps: 'Search apps, pinyin works too', recommended: 'For you', all: 'All', recent: 'Recent', popular: 'Popular', results: 'Results',
             noApps: 'No apps match “{q}”', appCount: '{n} apps', found: '{n} found', open: 'Open',
             language: '中文', themeLight: 'Light mode', themeDark: 'Dark mode', serviceStatus: 'Service status', requirements: 'Requirements',             logout: 'Sign out', classic: 'Back to classic layout', online: 'Online', loadingApps: 'Loading apps…',
@@ -489,7 +492,25 @@
     fillIcons(discover.pop);
     const dInput = discover.pop.querySelector('input');
     const apps = () => {
-        const workspaceTools = (window.HomeWorkspace?.getTools?.() || []).filter(item => item && item.href && item.title);
+        const customTools = Array.isArray(window.__homeCustomTools) ? window.__homeCustomTools : [];
+        const workspaceTools = (window.HomeWorkspace?.getTools?.() || [])
+            .filter(item => item && item.href && item.title)
+            .map(tool => {
+                let sharedAccess = tool.sharedAccess === true;
+                let shared = tool.shared === true;
+                let builtIn = tool.builtIn === true;
+                if (customTools.length) {
+                    const slug = String(tool.id || '').startsWith('custom:') ? String(tool.id).slice(7) : null;
+                    const match = (slug ? customTools.find(t => t.slug === slug) : null) || customTools.find(t => tool.href && t.href === tool.href);
+                    if (match) {
+                        builtIn = match.builtIn === true;
+                        if (match.sharedAccess !== undefined) sharedAccess = match.sharedAccess === true;
+                        if (match.shared !== undefined) shared = match.shared === true;
+                    }
+                }
+                const isShared = Boolean(shared || sharedAccess || (!String(tool.id || '').startsWith('custom:') && builtIn));
+                return { ...tool, builtIn, sharedAccess, shared: isShared };
+            });
         const seenHrefs = new Set(workspaceTools.map(t => t.href).filter(Boolean));
         const isAdmin = localStorage.getItem('tools_role') === 'admin';
         const isSuper = typeof window.isNavSuperAdmin === 'function' ? window.isNavSuperAdmin() : (localStorage.getItem('tools_super') === '1');
@@ -503,6 +524,9 @@
                 href: item.href,
                 icon: item.icon || '🧩',
                 tags: item.tags || [],
+                builtIn: true,
+                sharedAccess: true,
+                shared: true,
                 group: (typeof getNavCategoryByItem === 'function' ? getNavCategoryByItem(item.id) : null)?.name || item.defaultCategory || 'business'
             }));
         return [...workspaceTools, ...extraBuiltins];
@@ -513,7 +537,14 @@
         const hrefs = ids.map(id => nav.find(item => item.id === id)?.href || id);
         return hrefs.map(href => all.find(app => app.href === href || app.id === href)).filter(Boolean).slice(0, 5);
     }
-    const appRow = app => `<a class="v2-app" href="${esc(app.href)}"><span class="v2-app-icon v2-app-glyph">${svg(appGlyph(app.href))}</span><span class="v2-app-text"><strong>${esc(app.title)}</strong><small>${esc(app.description || app.group || '')}</small></span><span class="v2-app-go">${esc(t('open'))}</span></a>`;
+    const appRow = app => {
+        const isSuper = typeof window.isNavSuperAdmin === 'function' ? window.isNavSuperAdmin() : (localStorage.getItem('tools_super') === '1');
+        const isShared = Boolean(app.shared || app.sharedAccess || app.builtIn);
+        const badge = (isSuper || isShared)
+            ? `<span class="v2-badge-shared-pill ${isShared ? 'is-shared' : 'is-unshared'}">${isShared ? (lang() === 'en-US' ? 'Shared' : '全员开放') : (lang() === 'en-US' ? 'Not shared' : '未全员开放')}</span>`
+            : '';
+        return `<a class="v2-app" href="${esc(app.href)}"><span class="v2-app-icon v2-app-glyph">${svg(appGlyph(app.href))}</span><span class="v2-app-text"><strong>${esc(app.title)}${badge}</strong><small>${esc(app.description || app.group || '')}</small></span><span class="v2-app-go">${esc(t('open'))}</span></a>`;
+    };
     const section = (title, list) => (list.length ? `<div class="v2-pop-cap">${esc(title)}</div>${list.map(appRow).join('')}` : '');
     function matches(app, query) {
         const text = `${app.title} ${app.description || ''} ${app.group || ''} ${(app.tags || []).join(' ')}`.toLowerCase();
@@ -523,7 +554,11 @@
     function renderDiscover() {
         const all = apps();
         const groups = [...new Set(all.map(app => app.group).filter(Boolean))];
-        const chips = [['recommended', t('recommended')], ['all', t('all')], ...groups.map(g => [g, g])];
+        const isSuper = typeof window.isNavSuperAdmin === 'function' ? window.isNavSuperAdmin() : (localStorage.getItem('tools_super') === '1');
+        const sharedChips = isSuper
+            ? [['sharedWithAll', t('sharedWithAll')], ['unsharedOnly', t('unsharedOnly')]]
+            : [['sharedWithAll', t('sharedWithAll')]];
+        const chips = [['recommended', t('recommended')], ['all', t('all')], ...sharedChips, ...groups.map(g => [g, g])];
         discover.pop.querySelector('.v2-discover-chips').innerHTML = chips.map(([id, label]) => `<button type="button" class="v2-chip${discover.cat === id && !discover.query ? ' is-active' : ''}" data-cat="${esc(id)}">${esc(label)}</button>`).join('');
         const query = discover.query.trim().toLowerCase();
         let html = '';
@@ -538,7 +573,15 @@
             const pinned = all.filter(app => !recent.includes(app)).slice(0, 8);
             html = section(t('recent'), recent) + section(t('popular'), pinned);
         } else if (discover.cat === 'all') html = groups.map(g => section(g, all.filter(app => app.group === g))).join('');
-        else {
+        else if (discover.cat === 'sharedWithAll') {
+            const list = all.filter(app => Boolean(app.shared || app.sharedAccess || app.builtIn));
+            count = list.length;
+            html = section(t('sharedWithAll'), list);
+        } else if (discover.cat === 'unsharedOnly') {
+            const list = all.filter(app => !Boolean(app.shared || app.sharedAccess || app.builtIn));
+            count = list.length;
+            html = section(t('unsharedOnly'), list);
+        } else {
             const list = all.filter(app => app.group === discover.cat);
             count = list.length;
             html = section(discover.cat, list);

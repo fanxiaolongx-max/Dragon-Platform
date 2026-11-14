@@ -157,4 +157,20 @@ test('Skill Hub shared badges & category filter chips for Plugins and Tools', as
         assert.ok(!unsharedTool.badges.includes('未全员开放'), 'non-superadmin must not see 未全员开放 badge');
         assert.equal(unsharedTool.extraCats.length, 0, 'non-superadmin must not have unsharedOnly in extraCats');
     });
+
+    await t.test('dragon-claw-skills.js optionNode renders dc-skill-share-badge for superadmin and non-superadmin', () => {
+        const skillsCode = fs.readFileSync(path.join(__dirname, '../frontend/js/home/dragon-claw-skills.js'), 'utf8');
+        assert.match(skillsCode, /dc-skill-share-badge/, 'must define dc-skill-share-badge');
+        assert.match(skillsCode, /isSuperAdminUser\(\)/, 'must check isSuperAdminUser');
+        assert.match(skillsCode, /isShared \? '全员开放' : '未全员开放'/, 'must support i18n for shared');
+    });
+
+    await t.test('home-v2.js discover popup defines shared and unshared category chips and badges', () => {
+        const homeV2Code = fs.readFileSync(path.join(__dirname, '../frontend/js/home/home-v2.js'), 'utf8');
+        assert.match(homeV2Code, /sharedWithAll:\s*'全员开放'/, 'must define sharedWithAll translation in zh-CN');
+        assert.match(homeV2Code, /unsharedOnly:\s*'未全员开放'/, 'must define unsharedOnly translation in zh-CN');
+        assert.match(homeV2Code, /v2-badge-shared-pill/, 'must render v2-badge-shared-pill in appRow');
+        assert.match(homeV2Code, /discover\.cat === 'sharedWithAll'/, 'must handle sharedWithAll filter');
+        assert.match(homeV2Code, /discover\.cat === 'unsharedOnly'/, 'must handle unsharedOnly filter');
+    });
 });
