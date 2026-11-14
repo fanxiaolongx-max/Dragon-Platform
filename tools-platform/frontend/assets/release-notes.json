@@ -1,12 +1,12 @@
 {
   "zh": [
-    "技能中心新增全员开放与未全员开放状态徽标与分类筛选，超管可清晰查看并快速过滤团队共享技能。",
-    "强化微信聊天记录与通道访问隔离，非超级管理员用户严禁查看微信会话、聊天历史或执行通道调用。",
-    "完善 AutoGLM 与第三方 Agent 连接器权限管控，未向全员开放的功能在 iOS 端、Mac 桌面端与 Web 端对非超管用户全面隐匿。"
+    "家庭财务记账助手全面升级：支持 @家庭财务记账助手 中文技能直接调用，多轮对话自动保持记账会话状态。",
+    "新增原生家庭财务记账工具集（finance_*），支持账单小票与餐饮消费直接录入、查余额、查明细与转账，杜绝数据库工具冲突。",
+    "修复移动端与 Web 端多轮会话中技能上下文丢失问题，智能识别餐饮小票与记账确认，无需重复触发技能。"
   ],
   "en": [
-    "Add shared-with-all and unshared badges and category filters to Skill Hub for immediate team visibility.",
-    "Enforce strict privacy isolation on WeChat chat threads and history, completely blocking access from non-superadmin users.",
-    "Fortify access controls on AutoGLM and third-party agent connectors, keeping unshared skills and desktop bridges invisible across iOS, macOS, and Web."
+    "Family Finance Bookkeeper upgrade: supports direct Chinese @ mention and seamlessly preserves bookkeeping skill context across multi-turn chats.",
+    "Add native first-class finance tools (finance_*) for expense recording, balance checks, transactions and transfers without database tool conflicts.",
+    "Fix skill context loss across conversation turns in mobile and web apps, automatically routing dining receipts and confirmations to bookkeeping."
   ]
 }

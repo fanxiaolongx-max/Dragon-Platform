@@ -40,6 +40,7 @@ function parseSkillFile(id, raw) {
 // 启动时读取；「转为内置 / 取消内置」（builtin-promotion.js）改动目录后调用 reload() 重新读取
 let catalog = [];
 let byId = new Map();
+let byName = new Map();
 
 function reload() {
     catalog = fs.readdirSync(SKILLS_DIR, { withFileTypes: true })
@@ -47,6 +48,10 @@ function reload() {
         .map(entry => parseSkillFile(entry.name, fs.readFileSync(path.join(SKILLS_DIR, entry.name, 'SKILL.md'), 'utf8')))
         .sort((a, b) => a.order - b.order || a.meta.id.localeCompare(b.meta.id));
     byId = new Map(catalog.map(item => [item.meta.id, item]));
+    byName = new Map();
+    for (const item of catalog) {
+        if (item.meta.name && /[\u4e00-\u9fa5]/.test(item.meta.name)) byName.set(item.meta.name.trim().toLowerCase(), item.meta.id);
+    }
     return catalog.length;
 }
 reload();
@@ -57,14 +62,23 @@ function list() { return catalog.map(item => ({ ...item.meta })); }
  * 解析消息中独立的 @名称。中文可以紧贴前后（“请用@debug看看”）；
  * 前面是字母数字、路径分隔符或 @ 时不算（邮箱 a@debug.com、路径 /tmp/@debug、x@debug），
  * 后面紧跟字母数字、连字符、路径或扩展名时也不算（@debugger、@debug/x、@debug.js）。
+ * 支持中文技能名（如 @家庭财务记账助手），中文人名（如 @张三）不计入未知技能。
  */
 function mentions(content) {
     const ids = new Set();
+    const unknown = [];
+    // 1. ASCII 标识：@debug, @family-finance-bookkeeper
     for (const match of String(content || '').matchAll(/(?<![A-Za-z0-9_.\\/@-])@([A-Za-z][A-Za-z0-9-]*)(?![A-Za-z0-9_\\/-]|\.[A-Za-z0-9])/g)) {
-        ids.add(match[1].toLowerCase());
+        const id = match[1].toLowerCase();
+        if (byId.has(id)) ids.add(id);
+        else unknown.push(id);
     }
-    const known = [...ids].filter(id => byId.has(id));
-    const unknown = [...ids].filter(id => !byId.has(id));
+    // 2. 本地化/中文技能名：@家庭财务记账助手、@排查故障（未命中的中文人名如 @张三 不记入 unknown）
+    for (const match of String(content || '').matchAll(/(?<![A-Za-z0-9_.\\/@-])@([\u4e00-\u9fa5][\u4e00-\u9fa5A-Za-z0-9_-]{0,29})(?![A-Za-z0-9_\\/-]|\.[A-Za-z0-9])/g)) {
+        const name = match[1].trim().toLowerCase();
+        if (byName.has(name)) ids.add(byName.get(name));
+    }
+    const known = [...ids];
     return { known, unknown };
 }
 
@@ -121,6 +135,37 @@ function autoSelect(content, { pagePath = '', extraIds = [], contextMessages = [
 
         if (autoglmDirect || autoglmFollowup) {
             selected.push('open-autoglm');
+        }
+    }
+
+    // WISE 家庭财务记账助手：
+    // 1. 本轮显式提及记账、支出、开销、消费、账单、小票、发票、报销、查账、查余额、财务概况、转账
+    // 2. 本会话历史中已使用过 family-finance-bookkeeper，后续的数字、账户名、确认等短指令自动保持激活
+    if (byId.has('family-finance-bookkeeper')) {
+        const financeDirect = /(?:记[一两123456789]?笔?账?|录入|支出|开销|消费|账单|小票|发票|报销|查账|查余额|账户余额|财务概况|财务总览|今日支出|本月支出|家庭财务)/.test(text)
+            || /(?:转账|从.{1,10}转(?:入|到|给).{1,10})/.test(text);
+
+        const sessionHadFinance = (Array.isArray(contextMessages) ? contextMessages : []).some(item => {
+            const c = String(item?.content || '');
+            if (/@(?:family-finance-bookkeeper|家庭财务|记账助手)\b|family-finance-bookkeeper|quick_record\.py|wise\.fanxiaolong\.uk/i.test(c)) return true;
+            if (Array.isArray(item?.toolCalls) && item.toolCalls.some(call => String(call?.name || '').startsWith('finance_'))) return true;
+            try {
+                const events = typeof item?.events === 'string' ? JSON.parse(item.events) : item?.events;
+                if (Array.isArray(events) && events.some(e => (e.type === 'skills' && Array.isArray(e.skills) && e.skills.includes('family-finance-bookkeeper')) || (e.tool && String(e.tool).startsWith('finance_')))) return true;
+            } catch (_) {}
+            return false;
+        });
+
+        const financeFollowup = sessionHadFinance && (
+            financeDirect
+            || /(?:确认|记入|记吧|好的|行|可以|录入|撤销|删除|查询|余额)/.test(text)
+            || /(?:CIB|微信|支付宝|现金|招商|银行|账户|钱包|生活费|餐饮|交通|购物|房租)/i.test(text)
+            || /^\d+(?:\.\d{1,2})?$/.test(text.trim()) // 纯数字金额
+            || text.trim().length <= 30
+        );
+
+        if (financeDirect || financeFollowup) {
+            selected.push('family-finance-bookkeeper');
         }
     }
 

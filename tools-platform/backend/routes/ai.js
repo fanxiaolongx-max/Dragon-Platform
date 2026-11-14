@@ -789,7 +789,7 @@ async function handleChatRequest(req, res) {
                     redactionSecrets: sensitiveValues,
                     extraIds: [
                         ...(homeConnector ? [connectorSkills[homeConnector]] : []),
-                        ...(fullWeLink && agentSession.loadedSkills instanceof Set ? [...agentSession.loadedSkills] : []),
+                        ...(agentSession && agentSession.loadedSkills instanceof Set ? [...agentSession.loadedSkills] : []),
                         ...((!channelTurn || fullWeLink)
                             ? require('../models/agent-skills').autoSelect(lastMessage.content, { pagePath, extraIds: req.body?.skills, contextMessages: skillContextMessages }) : []),
                         // 微信机器人主人：「完善 / 创建技能」自动带上对应技能，保存时回复确认码
@@ -813,8 +813,8 @@ async function handleChatRequest(req, res) {
                 if (skillError.code === 'SKILL_WORKSPACE_REQUIRED') return res.status(400).json({ code: skillError.code, error: skillError.message, skills: skillError.skills });
                 throw skillError;
             }
-            // 随回复入库，恢复历史时仍能显示「已加载 Skill」
-            if (fullWeLink) {
+            // 随回复入库，恢复历史时仍能显示「已加载 Skill」；在 agentSession 上跨轮保持技能
+            if (agentSession) {
                 if (!(agentSession.loadedSkills instanceof Set)) agentSession.loadedSkills = new Set();
                 loadedSkills.selected.forEach(skill => agentSession.loadedSkills.add(skill.id));
             }

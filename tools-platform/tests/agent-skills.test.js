@@ -83,3 +83,16 @@ test('natural language requests to create or improve a skill auto-select @create
         ['create-skill']
     );
 });
+
+test('Chinese skill names are resolved and family-finance-bookkeeper is auto-selected', () => {
+    assert.deepEqual(skills.select('@家庭财务记账助手 帮我记一笔').map(item => item.id), ['family-finance-bookkeeper']);
+    assert.deepEqual(skills.autoSelect('帮我把这张餐饮小票记账 1485 元'), ['family-finance-bookkeeper']);
+    assert.deepEqual(
+        skills.autoSelect('CIB账户', { contextMessages: [{ role: 'assistant', content: '请告诉我你要录入的支付账户', events: [{ type: 'skills', skills: ['family-finance-bookkeeper'] }] }] }),
+        ['family-finance-bookkeeper']
+    );
+    assert.deepEqual(
+        skills.autoSelect('确认', { contextMessages: [{ role: 'assistant', content: '请问是否确认将此笔账目记入？', toolCalls: [{ name: 'finance_record_expense' }] }] }),
+        ['family-finance-bookkeeper']
+    );
+});

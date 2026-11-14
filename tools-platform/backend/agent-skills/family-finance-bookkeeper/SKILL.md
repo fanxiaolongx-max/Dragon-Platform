@@ -12,25 +12,34 @@ order: 25
 目标：连接 WISE 家庭财务管理系统，直接记账、转账、查流水、查余额和财务概况。
 
 ## ⚠️ 智能体执行指令与工具调用铁律（务必严格遵守）
-1. **必须且只能通过 `run_command` 工具调用 CLI 脚本** 执行记账与查询。
-2. **严禁调用 `insert_database_row` / `update_database_rows` / `read_database_table`**：WISE 记账系统是独立的外部系统，本地平台的 `tools.db` 中不存在任何账本数据，调用数据库工具必会报错！
-3. **严禁尝试打开浏览器或要求用户浏览器登录**：所有操作通过下方 CLI 命令在后台 1 秒内静默完成。
+1. **优先直接调用 `finance_*` 原生专用工具**（或通过 `run_command` 调用 CLI 脚本）：
+   - `finance_record_expense`: 记支出（参数：account 账户名如 CIB/微信/现金/生活费，amount 金额正数，category 分类，description 备注）
+   - `finance_record_income`: 记收入（参数：account 账户名，amount 金额正数，category 分类，description 备注）
+   - `finance_query_accounts`: 查各账户余额及币种
+   - `finance_query_summary`: 查财务总览（今日支出、本月收支、结余、净资产）
+   - `finance_query_transactions`: 查流水明细（参数：limit 数量，account 筛选账户）
+   - `finance_transfer`: 账户间转账（参数：from_account，to_account，amount，description）
+   - `finance_delete_transaction`: 撤销流水（参数：transaction_id）
+2. **严禁调用 `insert_database_row` / `update_database_rows` / `read_database_table` / `list_databases`**：WISE 记账系统是独立的外部系统 (https://wise.fanxiaolong.uk)，本地平台 SQLite `tools.db` 中不存在任何账本数据，调用数据库工具必会报错！
+3. **严禁尝试打开浏览器或要求用户浏览器登录**：所有操作通过 `finance_*` 工具在后台 1 秒内静默完成。
 
+---
+
+## 🛠️ CLI 备用脚本（通过 run_command 调用）
 统一入口脚本：
 ```bash
 W=/Volumes/512G/06-工具开发/privacy-policy/tools-platform/backend/agent-skills/family-finance-bookkeeper/scripts/quick_record.py
 ```
 
-| 场景 | run_command 示例 |
+| 场景 | 工具 / CLI 示例 |
 | --- | --- |
-| 记支出 | `python3 "$W" CIB 1181 购物 超市购物` |
-| 记支出（带空格分类） | `python3 "$W" 微信 35 餐饮 麻辣烫` |
-| 记收入 | `python3 "$W" --income 招商银行 8000 工资 11月薪水` |
-| 查余额 | `python3 "$W" --accounts` |
-| 查财务总览 | `python3 "$W" --summary` |
-| 查流水 | `python3 "$W" --transactions 20 CIB` |
-| 转账 | `python3 "$W" --transfer 招商银行 微信 1000 生活费` |
-| 撤销/删除流水 | `python3 "$W" --delete 168` |
+| 记支出 | `finance_record_expense(account="CIB", amount=1485, category="餐饮", description="亚辛新疆炒米粉")`<br>或 `python3 "$W" CIB 1485 餐饮 亚辛新疆炒米粉` |
+| 记收入 | `finance_record_income(account="招商银行", amount=8000, category="工资", description="11月薪水")`<br>或 `python3 "$W" --income 招商银行 8000 工资 11月薪水` |
+| 查余额 | `finance_query_accounts()` 或 `python3 "$W" --accounts` |
+| 查财务总览 | `finance_query_summary()` 或 `python3 "$W" --summary` |
+| 查流水 | `finance_query_transactions(limit=20, account="CIB")` 或 `python3 "$W" --transactions 20 CIB` |
+| 转账 | `finance_transfer(from_account="招商银行", to_account="微信", amount=1000, description="生活费")`<br>或 `python3 "$W" --transfer 招商银行 微信 1000 生活费` |
+| 撤销流水 | `finance_delete_transaction(transaction_id=168)` 或 `python3 "$W" --delete 168` |
 
 ---
 

@@ -164,7 +164,12 @@ async function tables(all) {
 }
 
 async function columns(all, table) {
-    if (!(await tables(all)).some(row => row.name === table)) throw fail('该表不可供 AI 读取（不存在、凭据/会话表、视图或虚拟表）');
+    if (!(await tables(all)).some(row => row.name === table)) {
+        if (/finance|bookkeep|账|财务|流水|消费|收支/i.test(String(table || ''))) {
+            throw fail(`平台 SQLite 库中不存在“${table}”表。WISE 家庭财务是独立外部系统，请勿使用 database 数据库工具，直接使用家庭财务工具（finance_record_expense / finance_query_accounts 等）或运行 quick_record.py。`);
+        }
+        throw fail('该表不可供 AI 读取（不存在、凭据/会话表、视图或虚拟表）');
+    }
     const rows = await all(`PRAGMA table_info(${quote(table)})`);
     return rows.filter(row => !PRIVATE_COLUMN.test(row.name));
 }

@@ -57,6 +57,17 @@ const TOOLSETS = {
                 execute: call => autoglm.execute(call.name, call.args)
             };
         }
+    },
+    finance: {
+        skillId: 'family-finance-bookkeeper', selfLoad: true,
+        build: async () => {
+            const finance = require('./family-finance-agent');
+            return {
+                definitions: finance.definitions(),
+                prompt: finance.buildPrompt(),
+                execute: call => finance.execute(call.name, call.args)
+            };
+        }
     }
 };
 const TOOLSET_OF_SKILL = new Map(Object.entries(TOOLSETS).map(([group, item]) => [item.skillId, group]));
