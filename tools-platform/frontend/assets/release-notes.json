@@ -2,11 +2,11 @@
   "zh": [
     "优化移动端多图片堆交互体验：全面重构 iOS 与 Android 卡片滑动手势与离场物理动效，卡片划走平滑飞出并伴随触感震动反馈，彻底解决误以为图片“回到原位”的视觉错觉。",
     "移动端全面支持对话列表置顶功能：支持长按会话或点击操作菜单快速置顶/取消置顶，置顶会话常驻列表顶部专区并展示置顶标识，与 Web 端及桌面端会话偏好实时双向云同步。",
-    "修复家庭财务记账助手多轮确认时的重复执行问题，录入小票并确认后准确返回扣款与账户余额，避免冲突提示。"
+    "保持会话自生成标题与偏好显示名称严格分层，保证历史对话标题生成与检索兼容性。"
   ],
   "en": [
     "Optimize multi-image card stack interaction on iOS and Android: overhauled swipe-away physics and smooth exit transitions with subtle haptic feedback, eliminating visual rubber-band return illusions.",
     "Add conversation pinning to mobile apps: support long-press context menu and action button to pin/unpin conversations to the top, fully synchronized in real-time with Web and Desktop clients.",
-    "Fix multi-turn confirmation duplicate engine execution in family finance assistant, accurately returning balance deductions and receipts without contradictory prompts."
+    "Strictly layer session auto-generated titles and manual preferences, ensuring reliable history titling and search compatibility."
   ]
 }
