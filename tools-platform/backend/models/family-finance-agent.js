@@ -118,7 +118,22 @@ function buildPrompt() {
 - 记账或转账成功后，清晰告知用户记账详情及受影响账户的最新余额。`;
 }
 
-async function execute(name, args = {}) {
+async function canUseFinance(user) {
+    if (!user) return true;
+    const { isSuperAdmin } = require('../middleware/auth');
+    if (isSuperAdmin(user)) return true;
+    const { hasEntryAccess } = require('./tool-distribution');
+    return hasEntryAccess('skill:family-finance-bookkeeper');
+}
+
+async function execute(name, args = {}, options = {}) {
+    if (options?.user && !(await canUseFinance(options.user))) {
+        return {
+            content: 'WISE 家庭财务记账助手未向全员开放，仅超级管理员可用。',
+            summary: '未开放访问',
+            isError: true
+        };
+    }
     try {
         if (name === 'finance_record_expense') {
             const acc = String(args.account || '').trim();
@@ -214,5 +229,6 @@ module.exports = {
     definitions,
     buildPrompt,
     execute,
-    runTurn
+    runTurn,
+    canUseFinance
 };

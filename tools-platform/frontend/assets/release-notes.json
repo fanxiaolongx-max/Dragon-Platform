@@ -1,12 +1,12 @@
 {
   "zh": [
+    "家庭财务记账助手（WISE）安全权限加固与全员隔离：彻底关闭未授权全员开放状态，普通用户与团队成员默认不可见、不可调用；后端工具执行链路增加超级管理员身份严格校验与双重访问防护，确保个人与家庭财务流水及账户余额绝对隔离保密。",
     "优化 TestFlight 全自动分发链路：iOS 构建包转码就绪后，同步自动分发至 G1（内部测试）与 G2（外部测试），内部测试员无需等待审核即刻秒收最新版本，外部测试群组自动注入更新说明并提交 Beta 审核，两级测试人员全流程 100% 自动化闭环。",
-    "上线 TestFlight 外部测试（G2）全自动挂载与审核提审流水线：iOS 云端上传完成后自动轮询等待苹果后台转码就绪，自动挂载至外部测试群组 G2，同步写入更新说明并自动触发 Beta 审核，通过后全自动推送至外部测试员，实现 100% 零人工干预闭环。",
     "Open-AutoGLM 手机端自动化 API 密钥安全托管至平台保险箱（Vault）：彻底移除代码库与文档中的明文 Key，运行时由 Node 后端与 Python 客户端通过 AES-256-GCM 本地加密按需动态提取，敏感凭据绝不入库、绝不泄露至 AI 上下文，技能无需重新安装即可即时无感生效。"
   ],
   "en": [
+    "Harden security access control for Family Finance Bookkeeper (WISE): revoke accidental shared-with-all distribution, isolating financial assets from regular users and team members; enforce strict superadmin checks at runtime tool boundaries to ensure personal accounts and transactions remain strictly confidential.",
     "Upgrade TestFlight automated distribution: concurrently distribute to both G1 (internal testing) and G2 (external testing) once build processing completes, allowing internal testers to install new builds instantly while external testing automatically submits for Beta App Review.",
-    "Introduce automated TestFlight G2 external distribution and review submission pipeline: automatically polls until Apple finishes processing, binds the build to external group G2, populates localized release notes, and submits for Beta App Review for 100% hands-free release.",
     "Securely migrate Open-AutoGLM mobile automation API credentials into the platform Vault: all plaintext keys are stripped from codebase and documentation, resolved dynamically at runtime via AES-256-GCM encryption without leaking to LLM context, and skills operate seamlessly without manual refreshes."
   ]
 }

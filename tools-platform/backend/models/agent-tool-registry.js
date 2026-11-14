@@ -49,23 +49,23 @@ const TOOLSETS = {
     },
     'open-autoglm': {
         skillId: 'open-autoglm', selfLoad: true,
-        build: async () => {
+        build: async (options = {}) => {
             const autoglm = require('./open-autoglm-agent');
             return {
                 definitions: autoglm.definitions(),
                 prompt: autoglm.buildPrompt(),
-                execute: call => autoglm.execute(call.name, call.args)
+                execute: call => autoglm.execute(call.name, call.args, options)
             };
         }
     },
     finance: {
         skillId: 'family-finance-bookkeeper', selfLoad: true,
-        build: async () => {
+        build: async (options = {}) => {
             const finance = require('./family-finance-agent');
             return {
                 definitions: finance.definitions(),
                 prompt: finance.buildPrompt(),
-                execute: call => finance.execute(call.name, call.args)
+                execute: call => finance.execute(call.name, call.args, options)
             };
         }
     }
