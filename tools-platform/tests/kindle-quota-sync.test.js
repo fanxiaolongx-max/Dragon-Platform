@@ -34,6 +34,8 @@ test('uses only the latest fresh provider sample and invalidates expired windows
     assert.equal(payload.quotas.claudecode.groups[0].windows[0].remainingPercent, 80);
     assert.equal(payload.quotas.codex.status, 'unavailable');
     assert.equal(payload.timestamp, row.sampled_at);
+    assert.equal(payload.syncedAt, now);
+    assert.equal(payload.quotas.claudecode.updatedAt, row.sampled_at);
     assert.equal(payload.quotas.claudecode.creditsBalance, 0);
     assert.deepEqual(payload.quotas.claudecode.extraUsage, {enabled:true, used:24.88, limit:120, currency:'USD'});
     assert.equal(buildPayload([{...row, extra_enabled:null}], now).quotas.claudecode.extraUsage, null);

@@ -1,5 +1,5 @@
 'use strict';
-// Copy already collected quota samples to the Kindle; never query providers here.
+// Copy quota samples to the Kindle, with a throttled fallback when collection stops.
 const { spawn, execFile } = require('child_process');
 const sqlite3 = require('sqlite3');
 const { getDbPath } = require('../models/app-db');
@@ -46,11 +46,11 @@ function buildPayload(rows, now = Date.now()) {
             enabled: latestRow.extra_enabled === 1, used: latestRow.extra_used, limit: latestRow.extra_limit,
             currency: latestRow.extra_currency || 'USD'
         } : null;
-        quotas[provider] = { status: fresh ? 'cached' : 'unavailable', groups: fresh ? [...groups.values()] : [],
+        quotas[provider] = { status: fresh ? 'cached' : 'unavailable', updatedAt: fresh ? latest : null, groups: fresh ? [...groups.values()] : [],
             creditsBalance: fresh ? (latestRow.credits_balance ?? null) : null, extraUsage };
         if (fresh) times.push(latest);
     }
-    return { timestamp: times.length ? Math.min(...times) : null, quotas };
+    return { timestamp: times.length ? Math.min(...times) : null, syncedAt: now, quotas };
 }
 
 function readSamples(filename, owner) {
