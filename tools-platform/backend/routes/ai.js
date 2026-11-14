@@ -33,6 +33,7 @@ const databaseAgent = require('../models/ai-database-agent');
 const { planProjectKnowledgeSearch } = require('../models/ai-knowledge-plan');
 const filesAgent = require('../models/ai-files-agent');
 const autoglmAgent = require('../models/open-autoglm-agent');
+const familyFinanceAgent = require('../models/family-finance-agent');
 const agentArtifacts = require('../models/agent-artifacts');
 const multer = require('multer');
 
@@ -961,9 +962,20 @@ async function handleChatRequest(req, res) {
             }
         }
 
+        // @family-finance-bookkeeper：用户在手机 App 端或首页普通对话中进行家庭财务记账（无需工作空间目录）
+        let financeSetup = null;
+        if (homeAgent && !agentMode && !channelTurn && !opsSetup && !welinkCliSetup && !netcareSetup && !autoglmSetup
+            && loadedSkills.selected.some(item => item.id === familyFinanceAgent.SKILL_ID)) {
+            try {
+                financeSetup = { prompt: familyFinanceAgent.buildPrompt() };
+            } catch (financeError) {
+                console.warn('[AI] finance setup failed:', financeError.message || financeError);
+            }
+        }
+
         // 首页管理员无需选择目录即可使用平台业务库；频道、页面助手及专用 Skill 保持各自权限。
         const databaseMode = homeAgent && !agentMode && !channelTurn && req.user?.role === 'admin'
-            && !opsSetup && !welinkCliSetup && !netcareSetup && !autoglmSetup && !analysisCode;
+            && !opsSetup && !welinkCliSetup && !netcareSetup && !autoglmSetup && !financeSetup && !analysisCode;
         // 对话附件：消息里引用的、属于本人的上传文件（频道对话不带）
         const uploadFiles = homeAgent && !channelTurn
             ? agentArtifacts.uploadsIn(agentRunManager.ownerKey(req.user, getTenantId()), effectiveMessages.map(item => item.content)) : [];
@@ -1011,7 +1023,7 @@ ${expertGrounding.businessConfigPrompt ? `\n与用户问题相关的只读业务
 ${expertGrounding.toolDataPrompt ? `\n平台工具业务数据（只读；来自工具保存的快照、状态、数据库或用户浏览器本地存储，已压缩为字段统计与汇总）：\n---\n${expertGrounding.toolDataPrompt}\n---\n` : ''}
 ${expertGrounding.dataPrompt ? `\n只读报表分析工具结果：\n---\n${expertGrounding.dataPrompt}\n---\n` : ''}
 ${expertGrounding.metricGraphPrompt ? `\n与本次问题相关的运营指标体系图谱节点：\n---\n${expertGrounding.metricGraphPrompt}\n---\n` : ''}
-${sessionSummary ? `\n历史会话滚动摘要：\n---\n${sessionSummary}\n---\n` : ''}${followupSetup ? `${followupSetup.prompt}\n` : ''}${opsSetup ? `${opsSetup.prompt}\n` : ''}${welinkCliSetup ? `${welinkCliSetup.prompt}\n` : ''}${netcareSetup ? `${netcareSetup.prompt}\n` : ''}${autoglmSetup ? `${autoglmSetup.prompt}\n` : ''}${memoryPrompt}
+${sessionSummary ? `\n历史会话滚动摘要：\n---\n${sessionSummary}\n---\n` : ''}${followupSetup ? `${followupSetup.prompt}\n` : ''}${opsSetup ? `${opsSetup.prompt}\n` : ''}${welinkCliSetup ? `${welinkCliSetup.prompt}\n` : ''}${netcareSetup ? `${netcareSetup.prompt}\n` : ''}${autoglmSetup ? `${autoglmSetup.prompt}\n` : ''}${financeSetup ? `${financeSetup.prompt}\n` : ''}${memoryPrompt}
 **核心要求**：
 ${buildChatPresentationRules(responseLanguage, voiceMode)}
 2. 项目实现类结论必须优先依据检索到的文件，并用“来源：文件路径:行号”标注关键依据。不要声称读过未提供的文件。
@@ -1232,6 +1244,29 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 } : undefined
             })
             : null;
+        const financeResult = !agentResult && !analysisResult && !followupResult && !opsResult && !welinkCliResult && !netcareResult && !autoglmResult && financeSetup
+            ? await familyFinanceAgent.runTurn({
+                extras: chatExtras,
+                vision,
+                client: aiClient,
+                systemInstruction: redactText(systemInstruction, { secrets: sensitiveValues }),
+                messages: effectiveMessages,
+                signal: providerAbortController?.signal,
+                maxOutputTokens: aiSettings.maxOutputTokens,
+                temperature: aiSettings.temperature,
+                model: aiSettings.model,
+                onEvent: event => {
+                    writeStreamEvent(event);
+                    if (event && (event.type === 'tool' || event.type === 'tool_result')) {
+                        recordedEvents.push(event);
+                    }
+                },
+                onDelta: streamRequested ? delta => {
+                    streamHasDelta = true;
+                    writeStreamEvent({ type: 'delta', delta });
+                } : undefined
+            })
+            : null;
         if (followupResult?.events?.length) {
             recordedEvents.push(...followupResult.events);
             if (streamRequested) followupResult.events.forEach(event => writeStreamEvent(event));
@@ -1279,7 +1314,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 } : undefined
             })
             : null;
-        const result = agentResult || followupResult || opsResult || welinkCliResult || netcareResult || autoglmResult || databaseResult || filesResult || extraResult || (analysisResult ? analysisResult.result : await generateResponse());
+        const result = agentResult || followupResult || opsResult || welinkCliResult || netcareResult || autoglmResult || financeResult || databaseResult || filesResult || extraResult || (analysisResult ? analysisResult.result : await generateResponse());
         const skillReferenceAudit = homeAgent ? skillCatalogContract.guardReply(result.text, loadedSkills.catalog || [], {
             language: uiLanguage, loadedIds: loadedSkills.selected.map(item => item.id)
         }) : null;

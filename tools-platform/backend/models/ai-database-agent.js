@@ -31,7 +31,7 @@ async function runTurn({ client, systemInstruction, messages, ctx, signal, onDel
     if (ctx.readOnly !== false) throw Object.assign(new Error('数据库写入仅对管理员开放'), { code: 'AGENT_DATABASE_FORBIDDEN' });
     // 对话里上传过附件时，带上只读的附件工具（read_file / read_document / query_data / diff_files）
     const files = filesAgent.toolset({ ...ctx, signal });
-    const tools = [...toolsService.definitions().filter(tool => TOOL_NAMES.has(tool.name)), ...(files ? files.definitions : [])];
+    const tools = [...toolsService.definitions().filter(tool => TOOL_NAMES.has(tool.name)), ...(files ? files.definitions : []), ...require('./family-finance-agent').definitions()];
     const sensitiveValues = ctx.sensitiveValues || [];
     // 普通对话不接受客户端提供的文件根目录或其他执行上下文。
     const toolCtx = { readOnly: false, sensitiveValues, signal, fullResults: Boolean(ctx.owner), username: ctx.username || '',
@@ -52,6 +52,10 @@ async function runTurn({ client, systemInstruction, messages, ctx, signal, onDel
             if (call.name.startsWith('open_autoglm') || call.name.startsWith('open-autoglm')) {
                 const autoglm = require('./open-autoglm-agent');
                 return autoglm.execute(call.name, args);
+            }
+            if (call.name.startsWith('finance_')) {
+                const finance = require('./family-finance-agent');
+                return finance.execute(call.name, args);
             }
             const outcome = TOOL_NAMES.has(call.name)
                 ? await toolsService.execute(toolCtx, call.name, args)

@@ -3,6 +3,7 @@
 // 供智能体自主记支出、记收入、转账、查余额与查流水
 const path = require('path');
 const { execFile } = require('child_process');
+const agentLoop = require('./agent-loop');
 
 const SCRIPT_PATH = path.resolve(__dirname, '../agent-skills/family-finance-bookkeeper/scripts/quick_record.py');
 
@@ -190,9 +191,28 @@ async function execute(name, args = {}) {
     }
 }
 
+async function runTurn({ client: aiClient, systemInstruction, messages, signal, onDelta, onEvent, maxOutputTokens, temperature, model, extras = null, vision = null }) {
+    const result = await agentLoop.runToolLoop({
+        extras,
+        vision,
+        client: aiClient, model, systemPrompt: `${systemInstruction}\n${buildPrompt()}`, messages, tools: definitions(),
+        write: event => (event.type === 'delta' ? onDelta?.(event.delta) : onEvent?.(event)),
+        signal, maxOutputTokens, temperature, task: String(messages.at(-1)?.content || ''), callIdPrefix: 'finance',
+        executeCall: async (call, { start }) => {
+            const args = call.args && typeof call.args === 'object' ? call.args : {};
+            start({ tool: call.name, args });
+            const outcome = await execute(call.name, args);
+            return { ...outcome, output: String(outcome.content || '').slice(0, 4000) };
+        },
+        toolsUnsupported: () => ({ note: '（当前模型不支持工具调用，家庭财务记账工具不可用。）' })
+    });
+    return { text: result.text, usage: result.usage, toolLog: result.toolLog, ...(result.toolsUnsupported ? { toolsUnsupported: true } : {}) };
+}
+
 module.exports = {
     SKILL_ID: 'family-finance-bookkeeper',
     definitions,
     buildPrompt,
-    execute
+    execute,
+    runTurn
 };
