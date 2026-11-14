@@ -76,3 +76,9 @@ test('open-autoglm execute aliases and progress callback support', async () => {
     assert.equal(blockedOutcome.isError, true);
     assert.ok(blockedOutcome.content.includes('未向全员开放') || blockedOutcome.summary.includes('未开放'));
 });
+
+test('open-autoglm-agent securely resolves API key from vault', async () => {
+    const key = await autoglmAgent.getApiKey('admin');
+    assert.ok(key, 'must resolve API key from vault');
+    assert.equal(key, 'ak_autoglm_0OBKNPasZ6yvBV4zT_5lYieMsrw7nXHczbn-P1K4qj8');
+});

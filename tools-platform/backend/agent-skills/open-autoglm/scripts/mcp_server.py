@@ -14,10 +14,47 @@ import urllib.request
 import urllib.error
 
 DEFAULT_BASE_URL = "https://yutang.fanxiaolong.uk"
-DEFAULT_API_KEY = "ak_autoglm_0OBKNPasZ6yvBV4zT_5lYieMsrw7nXHczbn-P1K4qj8"
+
+
+def resolve_api_key() -> str:
+    """从环境变量或 Dragon Claw 保险箱 (vault.db) 安全读取 API Key"""
+    if os.environ.get("AUTOGLM_API_KEY") and os.environ.get("AUTOGLM_API_KEY").strip():
+        return os.environ.get("AUTOGLM_API_KEY").strip()
+
+    for candidate in [
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../bin/vault-secret.js")),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "../../bin/vault-secret.js")),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../bin/vault-secret.js")),
+    ]:
+        if os.path.exists(candidate):
+            try:
+                import subprocess
+                for owner in ["admin", "f84300033"]:
+                    res = subprocess.run(["node", candidate, "get", "AUTOGLM_API_KEY", owner], capture_output=True, text=True, timeout=5)
+                    if res.returncode == 0 and res.stdout.strip():
+                        return res.stdout.strip()
+            except Exception:
+                pass
+
+    for p in [
+        os.path.expanduser("~/.config/open-autoglm/api_key"),
+        os.path.expanduser("~/.autoglm_key"),
+        os.path.join(os.path.dirname(__file__), ".api_key")
+    ]:
+        if os.path.isfile(p):
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    val = f.read().strip()
+                    if val:
+                        return val
+            except Exception:
+                pass
+
+    return ""
+
 
 BASE_URL = os.environ.get("AUTOGLM_BASE_URL", DEFAULT_BASE_URL).rstrip("/")
-API_KEY = os.environ.get("AUTOGLM_API_KEY", DEFAULT_API_KEY).strip()
+API_KEY = resolve_api_key()
 
 
 def api_request(method: str, path: str, data: dict = None) -> dict:

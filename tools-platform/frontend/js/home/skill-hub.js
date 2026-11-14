@@ -56,11 +56,10 @@
     const isAdmin = () => { try { return localStorage.getItem('tools_role') === 'admin'; } catch { return false; } };
     const isSuperAdmin = () => {
         try {
-            const isSuper = localStorage.getItem('tools_super') === '1';
+            if (typeof window.isNavSuperAdmin === 'function' && window.isNavSuperAdmin() === true) return true;
+            const isSuper = localStorage.getItem('tools_super') === '1' || localStorage.getItem('tools_role') === 'admin';
             const isTenantDefault = (localStorage.getItem('tools_tenant_id') || 'default') === 'default';
-            if (!isSuper || !isTenantDefault) return false;
-            if (typeof window.isNavSuperAdmin === 'function') return window.isNavSuperAdmin() === true;
-            return true;
+            return Boolean(isSuper && isTenantDefault);
         } catch { return false; }
     };
     const ico = name => `<span class="v2-ico" data-icon="${name}"></span>`;

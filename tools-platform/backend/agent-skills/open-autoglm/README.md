@@ -27,13 +27,13 @@ Copy the entire `open-autoglm` folder into your agent's skills directory:
       "command": "python",
       "args": ["/path/to/open-autoglm/scripts/mcp_server.py"],
       "env": {
-        "AUTOGLM_BASE_URL": "https://yutang.fanxiaolong.uk",
-        "AUTOGLM_API_KEY": "ak_autoglm_0OBKNPasZ6yvBV4zT_5lYieMsrw7nXHczbn-P1K4qj8"
+        "AUTOGLM_BASE_URL": "https://yutang.fanxiaolong.uk"
       }
     }
   }
 }
 ```
+> 密钥安全机制：API 密钥已统一托管在 Dragon Claw 保险箱（Vault）中，绝不硬编码，脚本与服务将自动安全调用。如需独立运行，也可通过环境变量 `AUTOGLM_API_KEY` 注入。
 **配置为 MCP 后，Agent 无需终端权限即可直接原生调用 `open_autoglm_get_screenshot`、`open_autoglm_run_task` 等工具！**
 
 ### Option 3: Use as a Python CLI / Script

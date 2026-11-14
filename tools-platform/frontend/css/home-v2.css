@@ -392,13 +392,43 @@ html[data-ui="v2"].v2-wide body.home-mode-chat .dc { --dc-col: min(1320px, 100%)
     background: rgba(245, 158, 11, 0.12);
     border: 1px solid rgba(245, 158, 11, 0.28);
 }
-html[data-theme="dark"] .v2-badge-shared-pill.is-shared {
-    color: #38bdf8;
+.v2-badge-shared {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: rgba(14, 165, 233, 0.12);
+    color: #0284c7 !important;
+    font-size: 11px;
+    font-weight: 550;
+    line-height: 1.4;
+    border: 1px solid rgba(14, 165, 233, 0.28);
+}
+.v2-badge-unshared {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: rgba(245, 158, 11, 0.12);
+    color: #d97706 !important;
+    font-size: 11px;
+    font-weight: 550;
+    line-height: 1.4;
+    border: 1px solid rgba(245, 158, 11, 0.28);
+}
+html[data-theme="dark"] .v2-badge-shared-pill.is-shared,
+html[data-theme="dark"] .v2-badge-shared {
+    color: #38bdf8 !important;
     background: rgba(56, 189, 248, 0.18);
     border-color: rgba(56, 189, 248, 0.32);
 }
-html[data-theme="dark"] .v2-badge-shared-pill.is-unshared {
-    color: #fbbf24;
+html[data-theme="dark"] .v2-badge-shared-pill.is-unshared,
+html[data-theme="dark"] .v2-badge-unshared {
+    color: #fbbf24 !important;
     background: rgba(251, 191, 36, 0.18);
     border-color: rgba(251, 191, 36, 0.32);
 }

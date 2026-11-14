@@ -1,5 +1,9 @@
 // 全局设置 › 保险箱：本人保存的网站账号密码与 API 密钥/环境变量 Secret。
 // 由 navbar.js 在切换到 vault 标签时按需加载；数据来自 /api/vault（backend/routes/vault.js），只返回当前登录账号自己的条目。
+// 后端可在 GET /api/vault 里带 features 说明自己支持什么（都缺省为支持）：
+//   logins: false      没有网站登录凭据（没有内置浏览器的部署），只显示密钥页；
+//   reauth: false      没有平台登录密码可复核（登录由外部门户负责），查看明文改为一次确认；
+//   secretNotes: []    密钥页的说明要点，替换默认文案。
 (function () {
     'use strict';
     if (window.ToolsVaultSettings) return;
@@ -9,7 +13,7 @@
     const view = {
         content: null, tab: 'logins', entries: [], secrets: [], neverSave: [],
         editing: null, editingSecret: null, reveal: null, revealed: null,
-        revealSecret: null, revealedSecret: null, query: '', notice: null, busy: false, loadError: ''
+        revealSecret: null, revealedSecret: null, query: '', notice: null, busy: false, loadError: '', features: {}
     };
     let revealTimer = null, revealSecretTimer = null;
 
@@ -192,8 +196,10 @@
                 <button type="button" class="nvt-btn is-danger" data-vault="remove-secret">${L('删除', 'Delete')}</button>
             </div>
             ${revealing ? `<form class="nvt-inline" data-vault-secret-reveal autocomplete="off">
-                <span>${L('输入平台登录密码以查看：', 'Enter your platform password to view:')}</span>
-                <input type="password" name="accountPassword" autocomplete="current-password" required>
+                ${view.features.reauth === false
+                    ? `<span>${L('确认查看这条密钥的明文？查看会记入审计日志。', 'Show this secret in plain text? Viewing is recorded in the audit log.')}</span>`
+                    : `<span>${L('输入平台登录密码以查看：', 'Enter your platform password to view:')}</span>
+                <input type="password" name="accountPassword" autocomplete="current-password" required>`}
                 <button type="submit" class="nvt-btn is-primary">${L('确认', 'Confirm')}</button>
                 <button type="button" class="nvt-btn" data-vault="cancel-secret-reveal">${L('取消', 'Cancel')}</button>
             </form>` : ''}
@@ -243,8 +249,10 @@
             <h4>🔑 ${L('API 密钥与 Secret', 'API Keys & Secrets')}</h4>
             <p class="nvt-desc">${L('集中安全管理各类第三方平台 API Key（如 WISE 记账密钥、OpenAI Key、GitHub Token 等）。', 'Centrally manage third-party API Keys and tokens.')}</p>
             <ul class="nvt-points">
-                <li>${L('由宿主机 AES-256-GCM 独立加密存储，绝不进入 Git 仓库，绝不泄漏在 AI 上下文与 Prompt 提示词中。', 'Stored with local AES-256-GCM; never committed to git or exposed to LLM context.')}</li>
-                <li>${L('技能与后端脚本在执行时自动安全调用，无需在 SKILL.md 或环境变量中硬编码明文密钥。', 'Skills fetch credentials dynamically at runtime without hardcoded keys in SKILL.md.')}</li>
+                ${Array.isArray(view.features.secretNotes) && view.features.secretNotes.length
+                    ? view.features.secretNotes.map(note => `<li>${esc(note)}</li>`).join('')
+                    : `<li>${L('由宿主机 AES-256-GCM 独立加密存储，绝不进入 Git 仓库，绝不泄漏在 AI 上下文与 Prompt 提示词中。', 'Stored with local AES-256-GCM; never committed to git or exposed to LLM context.')}</li>
+                <li>${L('技能与后端脚本在执行时自动安全调用，无需在 SKILL.md 或环境变量中硬编码明文密钥。', 'Skills fetch credentials dynamically at runtime without hardcoded keys in SKILL.md.')}</li>`}
             </ul>
             <div class="nvt-toolbar">
                 <input type="search" data-vault-search placeholder="${esc(L('搜索密钥名称、分类或备注', 'Search key name, category or note'))}" value="${esc(view.query)}">
@@ -263,10 +271,10 @@
         if (!content || !content.isConnected) return;
         content.innerHTML = `<div class="nvt">
             ${view.notice ? `<div class="nvt-notice ${view.notice.ok ? 'is-ok' : 'is-error'}">${esc(view.notice.text)}</div>` : ''}
-            <div class="nvt-tabs">
+            ${view.features.logins === false ? '' : `<div class="nvt-tabs">
                 <button type="button" class="nvt-tab ${view.tab === 'logins' ? 'is-active' : ''}" data-vault-tab="logins">🌐 ${L('网站登录凭据', 'Web Logins')} (${view.entries.length})</button>
                 <button type="button" class="nvt-tab ${view.tab === 'secrets' ? 'is-active' : ''}" data-vault-tab="secrets">🔑 ${L('API 密钥与 Secret', 'API Keys & Secrets')} (${view.secrets.length})</button>
-            </div>
+            </div>`}
             ${view.tab === 'secrets' ? renderSecretsView() : renderLoginsView()}
         </div>`;
     }
@@ -284,6 +292,8 @@
             view.entries = data.entries || [];
             view.neverSave = data.neverSave || [];
             view.secrets = secretsData.secrets || [];
+            view.features = data.features && typeof data.features === 'object' ? data.features : {};
+            if (view.features.logins === false) view.tab = 'secrets';
             view.loadError = '';
         } catch (error) {
             view.entries = []; view.neverSave = []; view.secrets = [];
@@ -421,7 +431,7 @@
         if (form.matches('[data-vault-secret-reveal]')) {
             event.preventDefault();
             const id = form.closest('[data-secret-id]')?.dataset.secretId, accountPassword = new FormData(form).get('accountPassword');
-            api('POST', `/secrets/${encodeURIComponent(id)}/reveal`, { accountPassword }).then(data => {
+            api('POST', `/secrets/${encodeURIComponent(id)}/reveal`, accountPassword == null ? {} : { accountPassword }).then(data => {
                 view.revealedSecret = { id, value: data.value }; view.revealSecret = null; view.notice = null;
                 clearTimeout(revealSecretTimer); revealSecretTimer = setTimeout(() => { hideRevealed(); render(); }, 30000);
             }).catch(error => { view.notice = { ok: false, text: error.message }; }).finally(render);

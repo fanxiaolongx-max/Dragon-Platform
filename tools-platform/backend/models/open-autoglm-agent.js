@@ -3,9 +3,9 @@
 // 控制 Android 手机：查设备、实时截屏并在对话中回显图片、运行手机端 AI 任务、模拟点击滑动输入按键手势。
 const fs = require('fs');
 const path = require('path');
+const { vault } = require('./password-vault');
 
 const DEFAULT_BASE_URL = 'https://yutang.fanxiaolong.uk';
-const DEFAULT_API_KEY = 'ak_autoglm_0OBKNPasZ6yvBV4zT_5lYieMsrw7nXHczbn-P1K4qj8';
 
 const PLATFORM_ROOT = path.resolve(__dirname, '../..');
 const MEDIA_OUTPUT_DIR = path.join(PLATFORM_ROOT, 'outputs', 'autoglm');
@@ -14,15 +14,43 @@ function getBaseUrl() {
     return (process.env.AUTOGLM_BASE_URL || DEFAULT_BASE_URL).replace(/\/+$/, '');
 }
 
-function getApiKey() {
-    return process.env.AUTOGLM_API_KEY || DEFAULT_API_KEY;
+let cachedVaultKey = null;
+let lastVaultCheck = 0;
+
+/** 从环境变量或 Dragon Claw 保险箱安全获取 API Key */
+async function getApiKey(owner = 'admin') {
+    if (process.env.AUTOGLM_API_KEY && process.env.AUTOGLM_API_KEY.trim()) {
+        return process.env.AUTOGLM_API_KEY.trim();
+    }
+    const now = Date.now();
+    if (cachedVaultKey && (now - lastVaultCheck < 30000)) {
+        return cachedVaultKey;
+    }
+    try {
+        const v = vault();
+        const owners = [owner, 'admin', 'f84300033'].filter(Boolean);
+        for (const o of owners) {
+            const secret = await v.getSecret(o, 'AUTOGLM_API_KEY');
+            if (secret && secret.value && secret.value.trim()) {
+                cachedVaultKey = secret.value.trim();
+                lastVaultCheck = now;
+                return cachedVaultKey;
+            }
+        }
+    } catch (_) {}
+    return cachedVaultKey || '';
 }
 
-function authHeaders() {
-    return {
-        'Authorization': `Bearer ${getApiKey()}`,
+async function authHeaders(owner) {
+    const key = await getApiKey(owner);
+    const headers = {
         'Content-Type': 'application/json'
     };
+    if (key) {
+        headers['Authorization'] = `Bearer ${key}`;
+        headers['X-API-Key'] = key;
+    }
+    return headers;
 }
 
 function ensureMediaDir() {
@@ -32,9 +60,9 @@ function ensureMediaDir() {
 }
 
 /** 获取设备列表 */
-async function listDevices() {
+async function listDevices(options = {}) {
     const url = `${getBaseUrl()}/api/v1/devices`;
-    const res = await fetch(url, { headers: authHeaders() });
+    const res = await fetch(url, { headers: await authHeaders(options.owner) });
     if (!res.ok) {
         const text = await res.text().catch(() => '');
         throw new Error(`获取设备列表失败 (${res.status}): ${text || res.statusText}`);
@@ -43,11 +71,11 @@ async function listDevices() {
 }
 
 /** 截取屏幕并保存到 outputs 目录，返回给前端展示 */
-async function getScreenshot(deviceId, retryOnBlack = true) {
+async function getScreenshot(deviceId, retryOnBlack = true, options = {}) {
     ensureMediaDir();
     let targetId = deviceId;
     if (!targetId) {
-        const devs = await listDevices();
+        const devs = await listDevices(options);
         if (!devs.devices || devs.devices.length === 0) {
             throw new Error('未检测到任何已连接的 Android 设备，请先确认手机通过 USB/WiFi 接入 Open-AutoGLM');
         }
@@ -55,7 +83,7 @@ async function getScreenshot(deviceId, retryOnBlack = true) {
     }
 
     const url = `${getBaseUrl()}/api/v1/devices/${encodeURIComponent(targetId)}/screenshot?format=raw`;
-    const res = await fetch(url, { headers: authHeaders() });
+    const res = await fetch(url, { headers: await authHeaders(options.owner) });
     if (!res.ok) {
         const text = await res.text().catch(() => '');
         throw new Error(`截取手机屏幕失败 (${res.status}): ${text || res.statusText}`);
@@ -91,11 +119,11 @@ async function getScreenshot(deviceId, retryOnBlack = true) {
 }
 
 /** 运行自动化 AI 任务 */
-async function runTask({ task, deviceId, timeout = 1800, forceRun = true, wait = false, onProgress = null }) {
+async function runTask({ task, deviceId, timeout = 1800, forceRun = true, wait = false, onProgress = null }, options = {}) {
     if (!task) throw new Error('任务描述不能为空');
     let targetId = deviceId;
     if (!targetId) {
-        const devs = await listDevices();
+        const devs = await listDevices(options);
         if (devs.devices && devs.devices.length > 0) {
             targetId = devs.devices[0].id;
         }
@@ -104,7 +132,7 @@ async function runTask({ task, deviceId, timeout = 1800, forceRun = true, wait =
     const url = `${getBaseUrl()}/api/v1/tasks/run`;
     const res = await fetch(url, {
         method: 'POST',
-        headers: authHeaders(),
+        headers: await authHeaders(options.owner),
         body: JSON.stringify({
             task,
             device_id: targetId,
@@ -131,7 +159,7 @@ async function runTask({ task, deviceId, timeout = 1800, forceRun = true, wait =
         await new Promise(r => setTimeout(r, 2000));
         let status;
         try {
-            status = await getTaskStatus(taskId);
+            status = await getTaskStatus(taskId, options);
             lastStatus = status;
         } catch (pollErr) {
             console.warn('[autoglm] 轮询任务状态异常:', pollErr.message);
@@ -178,10 +206,10 @@ async function runTask({ task, deviceId, timeout = 1800, forceRun = true, wait =
 }
 
 /** 查询任务状态 */
-async function getTaskStatus(taskId) {
+async function getTaskStatus(taskId, options = {}) {
     if (!taskId) throw new Error('taskId 不能为空');
     const url = `${getBaseUrl()}/api/v1/tasks/${encodeURIComponent(taskId)}`;
-    const res = await fetch(url, { headers: authHeaders() });
+    const res = await fetch(url, { headers: await authHeaders(options.owner) });
     if (!res.ok) {
         const text = await res.text().catch(() => '');
         throw new Error(`查询任务状态失败 (${res.status}): ${text || res.statusText}`);
@@ -190,11 +218,11 @@ async function getTaskStatus(taskId) {
 }
 
 /** 模拟手势或按键操作 */
-async function performAction({ action, deviceId, x, y, x1, y1, x2, y2, durationMs = 300, text, key, command, pin }) {
+async function performAction({ action, deviceId, x, y, x1, y1, x2, y2, durationMs = 300, text, key, command, pin }, options = {}) {
     if (!action) throw new Error('action 不能为空');
     let targetId = deviceId;
     if (!targetId) {
-        const devs = await listDevices();
+        const devs = await listDevices(options);
         if (devs.devices && devs.devices.length > 0) {
             targetId = devs.devices[0].id;
         }
@@ -228,7 +256,7 @@ async function performAction({ action, deviceId, x, y, x1, y1, x2, y2, durationM
     const url = `${getBaseUrl()}/api/v1/devices/${encodeURIComponent(targetId)}/action`;
     const res = await fetch(url, {
         method: 'POST',
-        headers: authHeaders(),
+        headers: await authHeaders(options.owner),
         body: JSON.stringify(body)
     });
     if (!res.ok) {
@@ -362,7 +390,7 @@ async function execute(name, args = {}, options = {}) {
     try {
         const cleanName = String(name || '').toLowerCase().replace(/-/g, '_');
         if (cleanName === 'open_autoglm_get_screenshot' || cleanName === 'open_autoglm_screenshot' || cleanName === 'screenshot') {
-            const result = await getScreenshot(args.device_id);
+            const result = await getScreenshot(args.device_id, true, options);
             return {
                 content: `手机实时屏幕已成功截取！\n本地图片路径：${result.imagePath}\n展示图片语法：${result.markdown}\n\n请在回复中包含 ${result.markdown} 以便用户在界面上直接看到该画面。`,
                 summary: `截取屏幕 ${path.basename(result.imagePath)}`,
@@ -370,7 +398,7 @@ async function execute(name, args = {}, options = {}) {
             };
         }
         if (cleanName === 'open_autoglm_list_devices' || cleanName === 'open_autoglm_devices') {
-            const data = await listDevices();
+            const data = await listDevices(options);
             return {
                 content: JSON.stringify(data, null, 2),
                 summary: `已查询设备列表 (${data.count || 0} 台)`,
@@ -386,14 +414,14 @@ async function execute(name, args = {}, options = {}) {
                 forceRun: args.force_run !== false, // 默认强制执行接管设备，清理旧卡死任务
                 wait: args.wait !== false,
                 onProgress
-            });
+            }, options);
             let extraScreenshotText = '';
             // 如果用户指令中包含“截图/截屏/看/瞧”等期望看到屏幕的词，或者任务处于 waiting_for_user（需要用户登录/确认），自动截一张最新屏幕附上
             const wantsScreenshot = taskText && /截图|截屏|看|瞧|瞧瞧|屏幕/.test(taskText);
             const needsAction = res.needsUserAction || res.status === 'waiting_for_user';
             if ((wantsScreenshot && res.status !== 'failed') || needsAction) {
                 try {
-                    const snap = await getScreenshot(args.device_id);
+                    const snap = await getScreenshot(args.device_id, true, options);
                     const promptNotice = res.userActionPrompt ? `\n\n⚠️ **需要用户协助**：${res.userActionPrompt}` : '';
                     extraScreenshotText = `${promptNotice}\n\n已自动获取当前手机屏幕：\n本地路径：${snap.imagePath}\n展示语法：${snap.markdown}\n请务必在回复中包含 ${snap.markdown}`;
                 } catch (snapErr) {
@@ -407,7 +435,7 @@ async function execute(name, args = {}, options = {}) {
             };
         }
         if (cleanName === 'open_autoglm_action') {
-            const res = await performAction(args);
+            const res = await performAction(args, options);
             return {
                 content: JSON.stringify(res, null, 2),
                 summary: `手势执行: ${args.action}`,
@@ -415,7 +443,7 @@ async function execute(name, args = {}, options = {}) {
             };
         }
         if (cleanName === 'open_autoglm_task_status') {
-            const res = await getTaskStatus(args.task_id);
+            const res = await getTaskStatus(args.task_id, options);
             return {
                 content: JSON.stringify(res, null, 2),
                 summary: `任务状态: ${res.status || 'unknown'}`,
@@ -484,5 +512,6 @@ module.exports = {
     getScreenshot,
     runTask,
     performAction,
-    getTaskStatus
+    getTaskStatus,
+    getApiKey
 };
