@@ -1,6 +1,6 @@
 {
   "name": "tools-platform",
-  "version": "1.0.618",
+  "version": "1.0.619",
   "description": "Dragon Claw Desktop App",
   "repository": "github:fanxiaolongx-max/Dragon-Platform",
   "main": "electron-main.js",
