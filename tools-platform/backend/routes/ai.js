@@ -1888,6 +1888,36 @@ router.post('/sessions/:sessionId/unarchive', checkAuth, async (req, res) => {
     }
 });
 
+router.put('/sessions/:sessionId/pin', checkAuth, async (req, res) => {
+    try {
+        const repo = require('../models/conversation-list-repository');
+        const pinned = req.body?.pinned !== undefined ? Boolean(req.body.pinned) : true;
+        const item = await repo.save(req.user.username, {
+            source: 'mine',
+            id: req.params.sessionId,
+            pinned
+        });
+        res.json({ ok: true, pinned: Boolean(item.pinned) });
+    } catch (err) {
+        res.status(err.statusCode || 500).json({ code: err.code, error: '置顶会话失败: ' + err.message });
+    }
+});
+
+router.post('/sessions/:sessionId/pin', checkAuth, async (req, res) => {
+    try {
+        const repo = require('../models/conversation-list-repository');
+        const pinned = req.body?.pinned !== undefined ? Boolean(req.body.pinned) : true;
+        const item = await repo.save(req.user.username, {
+            source: 'mine',
+            id: req.params.sessionId,
+            pinned
+        });
+        res.json({ ok: true, pinned: Boolean(item.pinned) });
+    } catch (err) {
+        res.status(err.statusCode || 500).json({ code: err.code, error: '置顶会话失败: ' + err.message });
+    }
+});
+
 router.delete('/sessions/:sessionId', checkAuth, async (req, res) => {
     const key = chatLockKey(req.params.sessionId);
     let locked = false;

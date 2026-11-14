@@ -618,6 +618,18 @@ class DragonClawSdk(
         onError = onError
     )
 
+    fun pinSession(
+        token: String,
+        sessionId: String,
+        pinned: Boolean,
+        onSuccess: (PinSessionResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = { api.pinSession(token, sessionId, pinned) },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
     fun exportSessionJson(
         token: String,
         sessionId: String,

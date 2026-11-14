@@ -1860,6 +1860,42 @@ final class DragonClawStore {
         activeTaskHandles.append(handle)
     }
 
+    func togglePinSession(_ session: AiSessionSummary) {
+        let targetId = session.id
+        let nextPinned = !session.isPinned
+        if let idx = sessions.firstIndex(where: { $0.id == targetId }) {
+            let old = sessions[idx]
+            sessions[idx] = AiSessionSummary(
+                id: old.id,
+                createdAt: old.createdAt,
+                updatedAt: old.updatedAt,
+                archivedAt: old.archivedAt,
+                archived: old.archived,
+                is_archived: old.is_archived,
+                messageCount: old.messageCount,
+                title: old.title,
+                firstQuestion: old.firstQuestion,
+                lastQuestion: old.lastQuestion,
+                discussionMode: old.discussionMode,
+                agent: old.agent,
+                busy: old.busy,
+                pinned: nextPinned
+            )
+            regroupSessions()
+        }
+        let handle = sdk.pinSession(token: token, sessionId: targetId, pinned: nextPinned) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.loadSessions()
+            }
+        } onError: { [weak self] err in
+            Task { @MainActor [weak self] in
+                self?.loadSessions()
+                self?.chatErrorBanner = err
+            }
+        }
+        activeTaskHandles.append(handle)
+    }
+
     func exportSession(_ session: AiSessionSummary) {
         chatErrorBanner = nil
         let handle = sdk.exportSessionJson(token: token, sessionId: session.id) { [weak self] raw in

@@ -100,8 +100,11 @@ data class AiSessionSummary(
     @JsonNames("last_question") val lastQuestion: String? = null,
     val discussionMode: String? = null,
     val agent: SessionAgentRef? = null,
-    val busy: Boolean = false
+    val busy: Boolean = false,
+    val pinned: Boolean = false
 ) {
+    val isPinned: Boolean get() = pinned
+
     val isArchivedSession: Boolean
         get() = archived || (is_archived ?: 0) != 0
 
@@ -279,6 +282,7 @@ data class ChatMessage(
 }
 
 enum class SessionBucket {
+    PINNED,
     TODAY,
     YESTERDAY,
     LAST_7_DAYS,
@@ -286,6 +290,7 @@ enum class SessionBucket {
     OLDER;
 
     fun localizedTitle(language: String): String = when (this) {
+        PINNED -> if (language == "en") "Pinned" else "置顶"
         TODAY -> if (language == "en") "Today" else "今天"
         YESTERDAY -> if (language == "en") "Yesterday" else "昨天"
         LAST_7_DAYS -> if (language == "en") "Previous 7 Days" else "近 7 天"
@@ -596,11 +601,18 @@ data class DesktopAgentSendResponse(
     val error: String? = null
 )
 
+@Serializable
+data class PinSessionResponse(
+    val ok: Boolean = true,
+    val pinned: Boolean = false
+)
+
 data class SidebarSessionEntry(
     val stableKey: String,
     val aiSession: AiSessionSummary? = null,
     val desktopSession: DesktopAgentSessionSummary? = null,
-    val sortTimestampMs: Long = 0L
+    val sortTimestampMs: Long = 0L,
+    val isPinned: Boolean = false
 ) {
     val isDesktopAgent: Boolean get() = desktopSession != null
     val busy: Boolean get() = desktopSession?.busy ?: aiSession?.busy ?: false

@@ -366,6 +366,15 @@ class DragonClawApiClient(
         return decodeOrThrow(response, "Failed to unarchive session")
     }
 
+    suspend fun pinSession(token: String, sessionId: String, pinned: Boolean): PinSessionResponse {
+        val response = client.put("$baseUrl/api/ai/sessions/$sessionId/pin") {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+            header("Content-Type", "application/json")
+            setBody("""{"pinned":$pinned}""")
+        }
+        return decodeOrThrow(response, "Failed to update session pin status")
+    }
+
     suspend fun exportSessionRawJson(token: String, sessionId: String): String {
         val response = client.get("$baseUrl/api/ai/sessions/$sessionId/export") {
             header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))

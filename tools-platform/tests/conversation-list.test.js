@@ -6,6 +6,7 @@ test('list preferences persist independent fields and enforce owner, source and 
  const id=await chat.addMessage({owner:'alice',role:'user',content:'question'});
  await repo.save('alice',{source:'mine',id,pinned:true,title:'My title'});await repo.save('alice',{source:'mine',id,archived:true});
  const saved=(await repo.list('alice'))[0];assert.equal(saved.pinned,1);assert.equal(saved.archived,1);assert.equal(saved.title,'My title');
+ const owned=await chat.listOwnedSessions({owner:'alice'});assert.equal(owned[0]?.pinned,true);assert.equal(owned[0]?.title,'My title');
  await assert.rejects(repo.save('bob',{source:'mine',id,pinned:true}),e=>e.statusCode===403);
  for(const source of ['welink','weixin','desktop:codex','desktop:claudecode','desktop:antigravity'])await repo.save('alice',{source,id:'same',hidden:true});
  await repo.save('alice',{source:'mine',id:'desktop:codex:test-session',pinned:true});

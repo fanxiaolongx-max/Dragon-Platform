@@ -1130,7 +1130,7 @@ object SessionGrouping {
         if (sessions.isEmpty()) return emptyList()
         val buckets = linkedMapOf<SessionBucket, MutableList<AiSessionSummary>>()
         for (session in sessions) {
-            val bucket = bucketForTimestamp(session.updatedAt ?: session.createdAt, nowEpochMs)
+            val bucket = if (session.isPinned) SessionBucket.PINNED else bucketForTimestamp(session.updatedAt ?: session.createdAt, nowEpochMs)
             buckets.getOrPut(bucket) { mutableListOf() }.add(session)
         }
         return SessionBucket.entries.mapNotNull { bucket ->
@@ -1155,13 +1155,16 @@ object SessionGrouping {
                     s.lastQuestion.orEmpty().lowercase().contains(keyword)
                 if (!matches) continue
                 val rawTs = s.updatedAt ?: s.createdAt
+                val isPinned = s.isPinned
+                val bucket = if (isPinned) SessionBucket.PINNED else bucketForTimestamp(rawTs, nowEpochMs)
                 add(
                     SidebarSessionEntry(
                         stableKey = "ai:${s.id}",
                         aiSession = s,
                         desktopSession = null,
-                        sortTimestampMs = parseTimestampMs(rawTs) ?: 0L
-                    ) to bucketForTimestamp(rawTs, nowEpochMs)
+                        sortTimestampMs = parseTimestampMs(rawTs) ?: 0L,
+                        isPinned = isPinned
+                    ) to bucket
                 )
             }
             for (d in desktopSessions) {
@@ -1176,7 +1179,8 @@ object SessionGrouping {
                         stableKey = d.stableKey,
                         aiSession = null,
                         desktopSession = d,
-                        sortTimestampMs = parseTimestampMs(rawTs) ?: 0L
+                        sortTimestampMs = parseTimestampMs(rawTs) ?: 0L,
+                        isPinned = false
                     ) to bucketForTimestamp(rawTs, nowEpochMs)
                 )
             }

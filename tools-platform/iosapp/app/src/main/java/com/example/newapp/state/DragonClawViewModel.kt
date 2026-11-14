@@ -2368,6 +2368,20 @@ class DragonClawViewModel : ViewModel() {
         }
     }
 
+    fun togglePinSession(session: AiSessionSummary) {
+        val nextPinned = !session.isPinned
+        val targetId = session.id
+        sessions = sessions.map {
+            if (it.id == targetId) it.copy(pinned = nextPinned) else it
+        }
+        regroupSessions()
+        viewModelScope.launch {
+            runCatching { sdk.api.pinSession(token, targetId, nextPinned) }
+                .onSuccess { loadSessions() }
+                .onFailure { loadSessions() }
+        }
+    }
+
     fun exportSession(session: AiSessionSummary) {
         viewModelScope.launch {
             runCatching { sdk.api.exportSessionRawJson(token, session.id) }

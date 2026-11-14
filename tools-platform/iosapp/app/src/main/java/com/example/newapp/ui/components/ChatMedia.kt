@@ -10,9 +10,12 @@ import android.provider.MediaStore
 import android.util.Base64
 import android.util.LruCache
 import android.widget.Toast
+import android.view.HapticFeedbackConstants
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -57,6 +60,7 @@ import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -306,6 +310,7 @@ fun ChatStackedImageDeck(
     val dragOffsetPx = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
+    val view = LocalView.current
 
     val cardWidth = 204.dp
     val cardHeight = 248.dp
@@ -347,14 +352,24 @@ fun ChatStackedImageDeck(
                             if (!change.pressed) {
                                 if (lockedHorizontal) {
                                     val vx = runCatching { tracker.calculateVelocity().x }.getOrDefault(0f)
-                                    val threshold = cardWidthPx * 0.24f
+                                    val threshold = cardWidthPx * 0.22f
                                     scope.launch {
                                         when {
                                             dragX < -threshold || vx < -340f -> {
+                                                runCatching { view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK) }
+                                                dragOffsetPx.animateTo(
+                                                    -cardWidthPx * 1.35f,
+                                                    animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing)
+                                                )
                                                 activeIndex = (currentActiveState + 1) % count
                                                 dragOffsetPx.snapTo(0f)
                                             }
                                             dragX > threshold || vx > 340f -> {
+                                                runCatching { view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK) }
+                                                dragOffsetPx.animateTo(
+                                                    cardWidthPx * 0.65f,
+                                                    animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing)
+                                                )
                                                 activeIndex = (currentActiveState - 1 + count) % count
                                                 dragOffsetPx.snapTo(0f)
                                             }
@@ -442,14 +457,14 @@ fun ChatStackedImageDeck(
                         else -> 0.88f + 0.06f * leftProgress
                     }
                     rotZ = when (depth) {
-                        0 -> -4.2f * leftProgress
+                        0 -> -5.8f * ((-dragX) / (cardWidthPx * 0.62f)).coerceIn(0f, 1.4f)
                         1 -> 1.4f * (1f - leftProgress)
                         else -> 2.4f - 1.0f * leftProgress
                     }
                     cardAlpha = when (depth) {
-                        0 -> 1f - 0.14f * leftProgress
-                        1 -> 0.95f + 0.05f * leftProgress
-                        else -> 0.88f + 0.07f * leftProgress
+                        0 -> (1f - ((-dragX) / (cardWidthPx * 1.15f)) * 1.12f).coerceIn(0f, 1f)
+                        1 -> (0.95f + 0.05f * leftProgress).coerceIn(0f, 1f)
+                        else -> (0.88f + 0.07f * leftProgress).coerceIn(0f, 1f)
                     }
                 }
 
@@ -459,7 +474,7 @@ fun ChatStackedImageDeck(
                         token = token,
                         palette = palette,
                         isFront = isFront && !draggingRight,
-                        frontCounterLabel = if (isFront && !draggingRight) "${safeActive + 1} / $count" else null,
+                        frontCounterLabel = if (isFront && !draggingRight) "${idx + 1} / $count" else null,
                         modifier = Modifier
                             .size(width = cardWidth, height = cardHeight)
                             .zIndex((visibleDepths - depth).toFloat())

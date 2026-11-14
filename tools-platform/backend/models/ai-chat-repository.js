@@ -239,18 +239,27 @@ async function listOwnedSessions({ owner, pagePath, query = '', limit = 30, offs
             try { if (JSON.parse(group.settings)?.mode === 'group') groupIds.add(group.session_id); } catch { /* Ignore corrupt optional metadata. */ }
         }
     }
-    return rows.map(row => ({
-        id: row.id,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-        archived: Boolean(row.is_archived),
-        messageCount: Number(row.message_count) || 0,
-        title: row.auto_title || conversationTitle(row.first_question || row.last_question),
-        firstQuestion: String(row.first_question || '').slice(0, 160),
-        discussionMode: groupIds.has(row.id) ? 'group' : null,
-        lastQuestion: String(row.last_question || '').slice(0, 160),
-        agent: row.agent_session_id && row.agent_root && !isScratchDirectory(row.agent_root) ? { agentSessionId: row.agent_session_id, root: row.agent_root } : null
-    }));
+    const prefMap = new Map();
+    if (rows.length && await get("SELECT 1 FROM sqlite_master WHERE type='table' AND name='conversation_list_preferences'")) {
+        const prefs = await all(`SELECT item_id, pinned, archived, hidden, title FROM conversation_list_preferences WHERE owner=? AND source='mine' AND item_id IN (${rows.map(() => '?').join(',')})`, [owner, ...rows.map(row => row.id)]);
+        for (const p of prefs) prefMap.set(p.item_id, p);
+    }
+    return rows.map(row => {
+        const pref = prefMap.get(row.id);
+        return {
+            id: row.id,
+            createdAt: row.created_at,
+            updatedAt: row.updated_at,
+            archived: pref?.archived !== undefined ? Boolean(pref.archived) : Boolean(row.is_archived),
+            pinned: Boolean(pref?.pinned),
+            messageCount: Number(row.message_count) || 0,
+            title: pref?.title || row.auto_title || conversationTitle(row.first_question || row.last_question),
+            firstQuestion: String(row.first_question || '').slice(0, 160),
+            discussionMode: groupIds.has(row.id) ? 'group' : null,
+            lastQuestion: String(row.last_question || '').slice(0, 160),
+            agent: row.agent_session_id && row.agent_root && !isScratchDirectory(row.agent_root) ? { agentSessionId: row.agent_session_id, root: row.agent_root } : null
+        };
+    });
 }
 
 async function getTitleSource(sessionId, owner) {

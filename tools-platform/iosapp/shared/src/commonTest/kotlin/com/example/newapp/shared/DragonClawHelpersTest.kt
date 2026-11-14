@@ -196,6 +196,29 @@ class DragonClawHelpersTest {
     }
 
     @Test
+    fun sessionGroupingPlacesPinnedSessionsAtTop() {
+        val nowMs = SessionGrouping.parseTimestampMs("2026-11-11T10:00:00Z")!!
+        val unified = SessionGrouping.groupSidebarSessions(
+            aiSessions = listOf(
+                AiSessionSummary(id = "s_normal", updatedAt = "2026-11-11T09:30:00Z", title = "今天普通会话", pinned = false),
+                AiSessionSummary(id = "s_pinned", updatedAt = "2026-11-01T08:00:00Z", title = "重要置顶会话", pinned = true)
+            ),
+            desktopSessions = emptyList(),
+            nowEpochMs = nowMs
+        )
+        assertEquals(2, unified.size)
+        assertEquals(SessionBucket.PINNED, unified[0].bucket)
+        assertEquals("置顶", unified[0].localizedTitle("zh"))
+        assertEquals("Pinned", unified[0].localizedTitle("en"))
+        assertEquals(1, unified[0].items.size)
+        assertEquals("s_pinned", unified[0].items[0].aiSession?.id)
+        assertTrue(unified[0].items[0].isPinned)
+
+        assertEquals(SessionBucket.TODAY, unified[1].bucket)
+        assertEquals("s_normal", unified[1].items[0].aiSession?.id)
+    }
+
+    @Test
     fun markdownParserHandlesCollapsedHeadingsListsAndFileLinks() {
         val sample = """
             目前只支持部分基础按键，完整文字/符号/中文输入还不支持。

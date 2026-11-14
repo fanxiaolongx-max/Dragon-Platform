@@ -759,6 +759,7 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                                                 vm.openSidebarEntry(entry)
                                                 animateSidebar(0f)
                                             },
+                                            onTogglePin = { entry.aiSession?.let { vm.togglePinSession(it) } },
                                             onToggleArchive = { entry.aiSession?.let { vm.archiveSession(it) } },
                                             onExport = { entry.aiSession?.let { vm.exportSession(it) } },
                                             onDelete = { entry.aiSession?.let { vm.deleteSession(it) } }
@@ -1335,6 +1336,7 @@ private fun SidebarSessionRow(
     isArchived: Boolean,
     language: String,
     onOpen: () -> Unit,
+    onTogglePin: (() -> Unit)? = null,
     onToggleArchive: () -> Unit,
     onExport: () -> Unit,
     onDelete: () -> Unit
@@ -1400,6 +1402,15 @@ private fun SidebarSessionRow(
                 )
             }
         }
+        if (entry.isPinned) {
+            Spacer(Modifier.width(4.dp))
+            Icon(
+                imageVector = Icons.Rounded.PushPin,
+                contentDescription = "Pinned",
+                tint = palette.accentStrong,
+                modifier = Modifier.size(13.dp)
+            )
+        }
         if (entry.busy) {
             Spacer(Modifier.width(5.dp))
             CircularProgressIndicator(strokeWidth = 1.6.dp, color = palette.accentStrong, modifier = Modifier.size(12.dp))
@@ -1421,6 +1432,23 @@ private fun SidebarSessionRow(
                     expanded = showMenu,
                     onDismissRequest = { showMenu = false }
                 ) {
+                    if (!isArchived && onTogglePin != null) {
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    if (entry.isPinned) tr(language, "取消置顶", "Unpin")
+                                    else tr(language, "置顶会话", "Pin")
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Rounded.PushPin, contentDescription = null)
+                            },
+                            onClick = {
+                                showMenu = false
+                                onTogglePin()
+                            }
+                        )
+                    }
                     DropdownMenuItem(
                         text = {
                             Text(

@@ -721,6 +721,7 @@ struct ChatStackedImageDeckView: View {
 
     @State private var activeIndex: Int = 0
     @State private var dragOffsetX: CGFloat = 0
+    @State private var isCommitting: Bool = false
 
     private let cardWidth: CGFloat = 204
     private let cardHeight: CGFloat = 248
@@ -769,7 +770,7 @@ struct ChatStackedImageDeckView: View {
                             deckCard(
                                 item: items[idx],
                                 isFront: isFront && !draggingRight,
-                                counterText: (isFront && !draggingRight) ? "\(current + 1) / \(count)" : nil
+                                counterText: (isFront && !draggingRight) ? "\(idx + 1) / \(count)" : nil
                             )
                             .frame(width: cardWidth, height: cardHeight)
                             .scaleEffect(metrics.scale)
@@ -798,23 +799,50 @@ struct ChatStackedImageDeckView: View {
                 .overlay(
                     InteractiveDeckGestureOverlay(
                         onTap: {
+                            guard !isCommitting else { return }
                             onOpenLightbox(items, safeActive)
                         },
                         onDragChanged: { tx in
+                            guard !isCommitting else { return }
                             dragOffsetX = min(cardWidth * 0.95, max(-cardWidth * 0.95, tx))
                         },
                         onDragEnded: { tx, vx in
+                            guard !isCommitting else { return }
                             let clamped = min(cardWidth * 0.95, max(-cardWidth * 0.95, tx))
-                            let threshold = cardWidth * 0.24
+                            let threshold = cardWidth * 0.22
                             if clamped < -threshold || vx < -340 {
-                                withAnimation(.spring(response: 0.30, dampingFraction: 0.84)) {
-                                    activeIndex = (safeActive + 1) % count
-                                    dragOffsetX = 0
+                                isCommitting = true
+                                let haptic = UIImpactFeedbackGenerator(style: .light)
+                                haptic.prepare()
+                                haptic.impactOccurred()
+                                withAnimation(.easeOut(duration: 0.20)) {
+                                    dragOffsetX = -cardWidth * 1.35
+                                }
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.21) {
+                                    var transaction = Transaction()
+                                    transaction.disablesAnimations = true
+                                    withTransaction(transaction) {
+                                        activeIndex = (safeActive + 1) % count
+                                        dragOffsetX = 0
+                                        isCommitting = false
+                                    }
                                 }
                             } else if clamped > threshold || vx > 340 {
-                                withAnimation(.spring(response: 0.30, dampingFraction: 0.84)) {
-                                    activeIndex = (safeActive - 1 + count) % count
-                                    dragOffsetX = 0
+                                isCommitting = true
+                                let haptic = UIImpactFeedbackGenerator(style: .light)
+                                haptic.prepare()
+                                haptic.impactOccurred()
+                                withAnimation(.easeOut(duration: 0.20)) {
+                                    dragOffsetX = cardWidth * 0.65
+                                }
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.21) {
+                                    var transaction = Transaction()
+                                    transaction.disablesAnimations = true
+                                    withTransaction(transaction) {
+                                        activeIndex = (safeActive - 1 + count) % count
+                                        dragOffsetX = 0
+                                        isCommitting = false
+                                    }
                                 }
                             } else {
                                 withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
@@ -823,6 +851,7 @@ struct ChatStackedImageDeckView: View {
                             }
                         },
                         onDragCancelled: {
+                            guard !isCommitting else { return }
                             withAnimation(.spring(response: 0.26, dampingFraction: 0.84)) {
                                 dragOffsetX = 0
                             }
@@ -831,11 +860,15 @@ struct ChatStackedImageDeckView: View {
                 )
 
                 HStack(spacing: 5) {
+                    let targetIdx = isCommitting
+                        ? (dragOffsetX < 0 ? (current + 1) % count : (current - 1 + count) % count)
+                        : current
                     ForEach(0..<min(count, 8), id: \.self) { dotIdx in
-                        let active = dotIdx == current
+                        let active = dotIdx == targetIdx
                         Capsule()
                             .fill(active ? palette.accentStrong : palette.inkMuted.opacity(0.34))
                             .frame(width: active ? 14 : 5, height: 5)
+                            .animation(.spring(response: 0.26, dampingFraction: 0.82), value: active)
                     }
                 }
                 .frame(width: cardWidth)
@@ -843,6 +876,7 @@ struct ChatStackedImageDeckView: View {
             .onChange(of: items.map(\.urlString)) { _, _ in
                 activeIndex = 0
                 dragOffsetX = 0
+                isCommitting = false
             }
         }
     }
@@ -883,14 +917,15 @@ struct ChatStackedImageDeckView: View {
             default: 0.88 + 0.06 * leftProgress
             }
             let rotation: Double = switch depth {
-            case 0: Double(-4.2 * leftProgress)
+            case 0: Double(-5.8 * min(1.4, max(0, -dragOffsetX / (cardWidth * 0.62))))
             case 1: Double(1.4 * (1 - leftProgress))
             default: Double(2.4 - 1.0 * leftProgress)
             }
+            let dismissRatio = max(0, -dragOffsetX / (cardWidth * 1.15))
             let opacity: Double = switch depth {
-            case 0: Double(1.0 - 0.14 * leftProgress)
-            case 1: Double(0.95 + 0.05 * leftProgress)
-            default: Double(0.88 + 0.07 * leftProgress)
+            case 0: Double(max(0, 1.0 - dismissRatio * 1.12))
+            case 1: Double(min(1.0, 0.95 + 0.05 * leftProgress))
+            default: Double(min(1.0, 0.88 + 0.07 * leftProgress))
             }
             return (offsetX, scale, rotation, opacity)
         }

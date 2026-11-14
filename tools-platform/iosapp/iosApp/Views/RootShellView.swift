@@ -597,7 +597,8 @@ struct RootShellView: View {
             isSelected: isSelected,
             isBusy: entry.busy,
             aiSession: entry.aiSession,
-            isArchived: false
+            isArchived: false,
+            isPinned: entry.isPinned
         ) {
             store.openSidebarEntry(entry)
         }
@@ -615,7 +616,8 @@ struct RootShellView: View {
             isSelected: store.currentSidebarSelectionKey == "ai:\(session.id)",
             isBusy: session.busy,
             aiSession: session,
-            isArchived: true
+            isArchived: true,
+            isPinned: false
         ) {
             store.openSession(session)
         }
@@ -640,6 +642,7 @@ struct RootShellView: View {
         isBusy: Bool,
         aiSession: AiSessionSummary?,
         isArchived: Bool,
+        isPinned: Bool = false,
         onTap: @escaping () -> Void
     ) -> some View {
         HStack(spacing: 8) {
@@ -660,6 +663,11 @@ struct RootShellView: View {
                             .padding(.horizontal, 5.5)
                             .padding(.vertical, 2)
                             .background(tint.opacity(0.14), in: Capsule())
+                    }
+                    if isPinned {
+                        Image(systemName: "pin.fill")
+                            .font(.system(size: 10))
+                            .foregroundStyle(palette.accentStrong)
                     }
                     Spacer(minLength: 4)
                     if isBusy {
@@ -704,6 +712,14 @@ struct RootShellView: View {
                 Label(L10n.tr(lang, zh: "恢复会话", en: "Unarchive"), systemImage: "tray.and.arrow.up")
             }
         } else {
+            Button {
+                store.togglePinSession(session)
+            } label: {
+                Label(
+                    session.isPinned ? L10n.tr(lang, zh: "取消置顶", en: "Unpin") : L10n.tr(lang, zh: "置顶会话", en: "Pin"),
+                    systemImage: session.isPinned ? "pin.slash" : "pin"
+                )
+            }
             Button {
                 store.archiveSession(session)
             } label: {
