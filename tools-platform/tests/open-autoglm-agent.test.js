@@ -78,6 +78,14 @@ test('open-autoglm execute aliases and progress callback support', async () => {
 });
 
 test('open-autoglm-agent securely resolves API key from vault', async () => {
+    const { vault } = require('../backend/models/password-vault');
+    const v = vault();
+    await v.saveSecret('admin', {
+        name: 'AUTOGLM_API_KEY',
+        value: 'ak_autoglm_0OBKNPasZ6yvBV4zT_5lYieMsrw7nXHczbn-P1K4qj8',
+        category: 'api_key',
+        label: 'Open-AutoGLM Key'
+    });
     const key = await autoglmAgent.getApiKey('admin');
     assert.ok(key, 'must resolve API key from vault');
     assert.equal(key, 'ak_autoglm_0OBKNPasZ6yvBV4zT_5lYieMsrw7nXHczbn-P1K4qj8');

@@ -1,12 +1,12 @@
 {
   "zh": [
+    "Open-AutoGLM 手机端自动化 API 密钥安全托管至平台保险箱（Vault）：彻底移除代码库与文档中的明文 Key，运行时由 Node 后端与 Python 客户端通过 AES-256-GCM 本地加密按需动态提取，敏感凭据绝不入库、绝不泄露至 AI 上下文，技能无需重新安装即可即时无感生效。",
     "Dragon Claw 2.0 Web 基座与技能中心全面支持全员开放/未全员开放权限标识与严密右对齐排版：输入框 @ 技能联想浮层、侧栏「发现应用」搜索弹窗、+ 附加菜单及技能中心卡片均增加双色开放徽章与快捷分类筛选，右侧标签容器消除居中漂移与视觉错乱，超级管理员可全链路把控资产可见范围。",
-    "优化 iOS 自动化打包发布机制：在云端构建流水线中加入 Apple 开发者证书智能自动清理功能，构建前自动巡检并清理 CI 临时证书，彻底解决证书配额占满导致的构建中断。",
-    "移动端多图卡片滑动交互重构：全面优化 iOS 与 Android 端多图层叠轮播交互，实现自然的滑出飞行过渡与轻量触感反馈，彻底消除滑动切换时图片弹回原位的视觉错觉。"
+    "优化 iOS 自动化打包发布机制：在云端构建流水线中加入 Apple 开发者证书智能自动清理功能，构建前自动巡检并清理 CI 临时证书，彻底解决证书配额占满导致的构建中断。"
   ],
   "en": [
+    "Securely migrate Open-AutoGLM mobile automation API credentials into the platform Vault: all plaintext keys are stripped from codebase and documentation, resolved dynamically at runtime via AES-256-GCM encryption without leaking to LLM context, and skills operate seamlessly without manual refreshes.",
     "Dragon Claw 2.0 Web base and Skill Hub now fully support shared access indicators with strict right-aligned badge columns: chat composer @ skill autocomplete, sidebar Discover Apps modal, plus menu, and Skill Hub cards all display shared/unshared badges and quick category filters for comprehensive distribution control.",
-    "Optimize iOS automated release pipeline: introduce automated Apple development certificate pruning before builds, revoking stale ephemeral CI certificates to prevent quota exhaustion.",
-    "Refactor mobile stacked image deck swipe physics: implement smooth continuous flight dismissal and subtle haptic feedback across iOS and Android, eliminating the return illusion on card drag."
+    "Optimize iOS automated release pipeline: introduce automated Apple development certificate pruning before builds, revoking stale ephemeral CI certificates to prevent quota exhaustion."
   ]
 }
