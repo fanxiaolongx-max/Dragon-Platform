@@ -513,6 +513,18 @@ jobs:
               --apiIssuer "${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}"
           fi
 
+      - name: Distribute to External TestFlight (G2) and Submit Review
+        continue-on-error: true
+        working-directory: tools-platform
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_KEY_FILE: /Users/runner/.private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8
+          BUILD_NUMBER: ${{ github.run_number }}
+          TEST_GROUP_NAME: G2
+        run: |
+          node scripts/submit-testflight-external.js
+
       - name: Clean up API Key
         if: always()
         run: |
