@@ -173,9 +173,16 @@ struct ChatView: View {
                     }
                     .id(store.chatOpenScrollGeneration)
                     .scrollDismissesKeyboard(.interactively)
-                    .simultaneousGesture(
-                        DragGesture(minimumDistance: 4).onChanged { _ in
+                    .onScrollPhaseChange { _, newPhase in
+                        if newPhase.isScrolling {
                             userInteractedSinceOpen = true
+                        }
+                    }
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 12).onChanged { value in
+                            if abs(value.translation.height) > abs(value.translation.width) {
+                                userInteractedSinceOpen = true
+                            }
                         }
                     )
                     .onAppear {

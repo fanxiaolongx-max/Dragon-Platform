@@ -1228,8 +1228,12 @@ private struct DirectionalDrawerPanInstaller: UIViewRepresentable {
                 if view.tag == ChatDeckGestureTags.horizontalDeckViewTag {
                     return false
                 }
-                if let scroll = view as? UIScrollView, scroll.contentSize.width > (scroll.bounds.width + 4) {
-                    return false
+                if let scroll = view as? UIScrollView {
+                    let isPurelyHorizontal = scroll.contentSize.width > (scroll.bounds.width + 12) &&
+                                             scroll.contentSize.height <= (scroll.bounds.height + 12)
+                    if isPurelyHorizontal {
+                        return false
+                    }
                 }
                 if view is UISlider {
                     return false
@@ -1251,8 +1255,8 @@ private struct DirectionalDrawerPanInstaller: UIViewRepresentable {
             let velocity = pan.velocity(in: view)
             let absVx = abs(velocity.x)
             let absVy = abs(velocity.y)
-            // Responsive horizontal cone (~37 degrees): abs(vx) > abs(vy) * 1.30
-            guard absVx > 28 && absVx > absVy * 1.30 else {
+            // Responsive horizontal cone (~35 degrees): abs(vx) > abs(vy) * 1.25
+            guard absVx > 22 && absVx > absVy * 1.25 else {
                 return false
             }
             if parent.isDrawerOpen {
@@ -1270,7 +1274,12 @@ private struct DirectionalDrawerPanInstaller: UIViewRepresentable {
             _ gestureRecognizer: UIGestureRecognizer,
             shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
         ) -> Bool {
-            false
+            if let otherScroll = otherGestureRecognizer.view as? UIScrollView {
+                let isPurelyHorizontal = otherScroll.contentSize.width > (otherScroll.bounds.width + 12) &&
+                                         otherScroll.contentSize.height <= (otherScroll.bounds.height + 12)
+                return !isPurelyHorizontal
+            }
+            return true
         }
 
         func gestureRecognizer(
@@ -1280,9 +1289,10 @@ private struct DirectionalDrawerPanInstaller: UIViewRepresentable {
             guard let otherView = otherGestureRecognizer.view as? UIScrollView else {
                 return false
             }
-            // Yield ONLY inside horizontally scrollable containers (e.g. image carousel / horizontal chips).
-            let canScrollHorizontally = otherView.contentSize.width > (otherView.bounds.width + 4)
-            return canScrollHorizontally
+            // Yield ONLY inside purely horizontal containers (e.g. image carousel / horizontal code block).
+            let isPurelyHorizontal = otherView.contentSize.width > (otherView.bounds.width + 12) &&
+                                     otherView.contentSize.height <= (otherView.bounds.height + 12)
+            return isPurelyHorizontal
         }
     }
 }

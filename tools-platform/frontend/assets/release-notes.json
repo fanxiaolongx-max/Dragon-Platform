@@ -1,12 +1,12 @@
 {
   "zh": [
-    "Open-AutoGLM 防复锁与画面保全：执行手机任务默认保持屏幕解锁状态（no_auto_lock），防止任务完成后设备自动重新锁屏导致复合截屏截到锁屏界面。",
-    "移动端持续秒级流式心跳：任务轮询期间每 2 秒下发动态耗时与执行进度，彻底防止 iOS CFNetwork 与云代理触发 60 秒闲置超时（The request timed out）。",
-    "息屏全黑帧智能唤醒与重试：截屏捕获息屏全黑画面时自动调用设备唤醒与 PIN 码解锁，并在 CI 测试套件中强化浏览器沙箱清理稳定性。"
+    "修复移动端打开具体会话后无法左右滑动手势切换界面问题，重构消息滚动视图与横向滑动手势层级联动。",
+    "保险箱（Vault）新增通用 API Key 与 Secret 凭据安全托管，支持独立密文加密存储、界面操作与环境解析。",
+    "完善 iOS App Store 审核与移动端体验，脱敏并优雅格式化网络异常提示，补充合规隐私政策规范与 iPad 适配支持。"
   ],
   "en": [
-    "Open-AutoGLM auto-lock prevention: keep target screen unlocked after task completion (no_auto_lock), preventing compound instructions from capturing lock-screen frames.",
-    "Mobile continuous per-second streaming heartbeats: emit live execution duration every 2s during polling, eliminating 60s iOS CFNetwork and proxy idle request timeouts.",
-    "Black screen auto-wake & unlock retry: automatically wake and unlock device via PIN when black frames are detected during screenshots, plus enhanced CI sandbox cleanup resilience."
+    "Fix mobile gesture navigation inside chat conversations by resolving vertical ScrollView and horizontal drawer/tab pan arbitration.",
+    "Introduce native API Key and Secret credential vault support with encrypted storage, management UI, and runtime injection.",
+    "Improve mobile network resilience and App Store compliance with elegant error masking, privacy policy documentation, and iPad layout support."
   ]
 }
