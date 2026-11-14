@@ -43,7 +43,7 @@ async function listDevices() {
 }
 
 /** 截取屏幕并保存到 outputs 目录，返回给前端展示 */
-async function getScreenshot(deviceId) {
+async function getScreenshot(deviceId, retryOnBlack = true) {
     ensureMediaDir();
     let targetId = deviceId;
     if (!targetId) {
@@ -62,6 +62,21 @@ async function getScreenshot(deviceId) {
     }
 
     const buffer = Buffer.from(await res.arrayBuffer());
+
+    // 智能黑屏/息屏检测：当截取的 PNG 极小（< 15KB，通常为息屏全黑帧）且允许重试时，
+    // 自动调用对端唤醒并使用已配置的 PIN 码解锁手机，重新截取正常页面
+    if (retryOnBlack && buffer.length < 15000) {
+        try {
+            console.log(`[autoglm] 截取画面呈现息屏/黑屏状态 (${buffer.length} bytes)，自动唤醒并解锁设备: ${targetId}`);
+            await performAction({ deviceId: targetId, action: 'unlock' });
+            // 等待渲染完成
+            await new Promise(r => setTimeout(r, 1200));
+            return await getScreenshot(targetId, false);
+        } catch (unlockErr) {
+            console.warn('[autoglm] 截屏自动唤醒解锁失败，保留当前截屏:', unlockErr.message);
+        }
+    }
+
     const filename = `phone_screen_${Date.now()}.png`;
     const savePath = path.join(MEDIA_OUTPUT_DIR, filename);
     fs.writeFileSync(savePath, buffer);
@@ -172,7 +187,7 @@ async function getTaskStatus(taskId) {
 }
 
 /** 模拟手势或按键操作 */
-async function performAction({ action, deviceId, x, y, x1, y1, x2, y2, durationMs = 300, text, key, command }) {
+async function performAction({ action, deviceId, x, y, x1, y1, x2, y2, durationMs = 300, text, key, command, pin }) {
     if (!action) throw new Error('action 不能为空');
     let targetId = deviceId;
     if (!targetId) {
@@ -184,6 +199,7 @@ async function performAction({ action, deviceId, x, y, x1, y1, x2, y2, durationM
     if (!targetId) throw new Error('未检测到可用 Android 设备');
 
     const body = { action };
+    if (pin) body.pin = String(pin);
     if (action === 'tap') {
         if (x === undefined || y === undefined) throw new Error('tap 动作需要 x 和 y 坐标');
         body.x = Math.round(Number(x));
