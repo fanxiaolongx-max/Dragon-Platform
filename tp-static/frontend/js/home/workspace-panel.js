@@ -948,7 +948,17 @@
         }
     }
 
+    function isScratchDirectory(dir) {
+        if (!dir || typeof dir !== 'string') return false;
+        const trimmed = dir.trim();
+        if (!trimmed) return false;
+        if (trimmed.includes('dragon-claw-scratch')) return true;
+        if (/[\\/]scratch[\\/][a-f0-9]+$/i.test(trimmed)) return true;
+        return false;
+    }
+
     async function selectDirectory(fullPath, ticket = ++state.selectionEpoch, { openPanel = true } = {}) {
+        if (!fullPath || isScratchDirectory(fullPath)) return;
         const data = await request('POST', `${API}/select`, { path: fullPath });
         if (ticket !== state.selectionEpoch) throw Object.assign(new Error('Directory selection superseded'), { name: 'AbortError' });
         state.root = data.root;
@@ -1880,7 +1890,7 @@
             if (state.pr?.phase === 'running') throw new Error(tx('prRunning'));
             const ticket = ++state.selectionEpoch;
             // 切到没有关联目录的对话：工作区与这个对话无关，自动收起
-            if (!state.enabled || !agentSessionId || !root) { clearDirectory(); this.resetSession(); if (!state.external && !state.filePreview) setOpen(false, { remember: false }); return false; }
+            if (!state.enabled || !agentSessionId || !root || isScratchDirectory(root)) { clearDirectory(); this.resetSession(); if (!state.external && !state.filePreview) setOpen(false, { remember: false }); return false; }
             if (state.root !== root) {
                 try {
                     await selectDirectory(root, ticket);

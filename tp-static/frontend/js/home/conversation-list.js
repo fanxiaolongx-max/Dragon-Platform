@@ -50,8 +50,9 @@
             if(!isGroup)return false;
         }
         if(filter.status==='workspace'){
-            const hasWs = Boolean(item?.agent?.root||item?._raw?.agent?.root||item?.cwd||item?._raw?.cwd||item?.workspaceDir||item?._raw?.workspaceDir);
-            if(!hasWs)return false;
+            const root = item?.agent?.root||item?._raw?.agent?.root||item?.cwd||item?._raw?.cwd||item?.workspaceDir||item?._raw?.workspaceDir||'';
+            const isScratch = item?.scratch||item?.agent?.scratch||item?._raw?.agent?.scratch||item?._raw?.scratch||typeof root !== 'string'||!root.trim()||root.includes('dragon-claw-scratch')||/[\\/]scratch[\\/][a-f0-9]+$/i.test(root.trim());
+            if (isScratch) return false;
         }
         if(filter.time==='all')return true;
         const dateVal = config?.date ? config.date(item) : (item?.updatedAt||item?.updated_at||item?.lastActiveAt||item?.created_at||item?._raw?.updatedAt||item?._raw?.lastActiveAt);

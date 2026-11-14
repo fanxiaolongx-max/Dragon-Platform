@@ -83,6 +83,11 @@ function getAuthHeaders() {
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
     }
+    if (typeof window !== 'undefined' && typeof navigator !== 'undefined') {
+        const isDesktop = Boolean(window.electronAPI || window.process?.type === 'renderer' || navigator.userAgent.includes('Electron'));
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        headers['X-Client-Platform'] = isDesktop ? 'desktop' : (isMobile ? 'mobile_web' : 'web');
+    }
     return headers;
 }
 

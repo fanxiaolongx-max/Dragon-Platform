@@ -4171,6 +4171,7 @@ function ensureServiceStatusModal() {
                 <div class="service-status-tabs">
                     <button type="button" id="serviceStatusOverviewTab" onclick="setServiceStatusView('overview')">${serviceStatusBi('状态概览', 'Overview')}</button>
                     <button type="button" id="serviceStatusLogsTab" onclick="setServiceStatusView('logs')">${serviceStatusBi('运行日志', 'Runtime logs')}</button>
+                    <button type="button" id="serviceStatusDiagTab" onclick="setServiceStatusView('diagnostics')">${serviceStatusBi('平台自检', 'Self-check')}</button>
                 </div>
                 <div class="service-status-toolbar-actions">
                     <div class="service-status-range" id="serviceStatusRange"></div>
@@ -4275,6 +4276,8 @@ window.openServiceStatusModal = function () {
     document.getElementById('serviceStatusSubtitle').textContent = serviceStatusBi('基于平台真实 API 请求返回结果生成', 'Generated from actual platform API responses');
     const runtimeLogsTab = document.getElementById('serviceStatusLogsTab');
     if (runtimeLogsTab) runtimeLogsTab.hidden = !canInspectServiceFailures();
+    const diagTab = document.getElementById('serviceStatusDiagTab');
+    if (diagTab) diagTab.hidden = !canInspectServiceFailures();
     window.setServiceStatusView('overview');
 };
 
@@ -4287,9 +4290,18 @@ window.closeServiceStatusModal = function () {
 };
 
 window.setServiceStatusView = function (view) {
-    serviceStatusView = view === 'logs' && canInspectServiceFailures() ? 'logs' : 'overview';
+    serviceStatusView = ['logs', 'diagnostics'].includes(view) && canInspectServiceFailures() ? view : 'overview';
     document.getElementById('serviceStatusOverviewTab')?.classList.toggle('active', serviceStatusView === 'overview');
     document.getElementById('serviceStatusLogsTab')?.classList.toggle('active', serviceStatusView === 'logs');
+    document.getElementById('serviceStatusDiagTab')?.classList.toggle('active', serviceStatusView === 'diagnostics');
+    if (serviceStatusView === 'diagnostics') {
+        const subtitle = document.getElementById('serviceStatusSubtitle');
+        if (subtitle) subtitle.textContent = serviceStatusBi('数据库、模型、磁盘、进程与出站网络的即时检查', 'Live checks of database, models, disk, process and outbound network');
+        window.clearServiceStatusPolling();
+        window.clearServiceRuntimeLogPolling();
+        window.loadPlatformDiagnostics();
+        return;
+    }
     const subtitle = document.getElementById('serviceStatusSubtitle');
     if (subtitle) subtitle.textContent = serviceStatusView === 'logs'
         ? serviceStatusBi('后台全量控制台日志 · 自动脱敏', 'Complete backend console · automatically redacted')
@@ -4306,6 +4318,7 @@ window.setServiceStatusView = function (view) {
 };
 
 window.refreshServiceStatusView = function () {
+    if (serviceStatusView === 'diagnostics') return window.loadPlatformDiagnostics();
     if (serviceStatusView === 'logs') window.loadServiceRuntimeLogs(serviceRuntimeLogPage);
     else window.loadServiceStatusHistory();
 };
@@ -4573,6 +4586,47 @@ function renderChannelsWatchdogHtml(channelsData, canInspectFailures) {
             <div class="service-status-channels-grid">${cards}</div>
         </section>`;
 }
+
+// ── 平台自检（仅管理员）：与基座 Web 版的调试面板对应，检查项按主线版的运行环境取舍 ──
+window.loadPlatformDiagnostics = async function () {
+    const content = document.getElementById('serviceStatusContent');
+    if (!content) return;
+    content.innerHTML = `<div class="service-status-loading"><span></span>${serviceStatusBi('正在自检…', 'Running checks…')}</div>`;
+    try {
+        const data = await serviceStatusRequest('/api/platform-metrics/diagnostics');
+        if (serviceStatusView !== 'diagnostics') return;
+        const rows = (data.checks || []).map(item => `
+            <article class="service-status-card platform-diag-item ${item.ok ? 'ok' : 'bad'}">
+                <div class="service-status-card-head"><span class="service-state-icon ${item.ok ? 'operational' : 'incident'}">${item.ok ? '✓' : '!'}</span><strong>${navEscape(item.label)}</strong><small>${Number(item.durationMs || 0)} ms</small></div>
+                <p class="platform-diag-summary">${navEscape(item.summary || '')}</p>
+            </article>`).join('');
+        content.innerHTML = `
+            <div class="service-status-notice">${serviceStatusBi('检查时间', 'Checked at')} ${navEscape(new Date(data.at).toLocaleString())} · ${data.ok ? serviceStatusBi('全部正常', 'All checks passed') : serviceStatusBi('有项目需要关注', 'Some checks need attention')}</div>
+            <section class="service-status-grid">${rows}</section>
+            <section class="service-status-card platform-diag-probe">
+                <div class="service-status-card-head"><strong>${serviceStatusBi('出站探针', 'Outbound probe')}</strong><small>${serviceStatusBi('从平台服务器访问一个地址，查看域名解析、连接与状态码', 'Reach a URL from the platform server: DNS, connection and status code')}</small></div>
+                <form onsubmit="event.preventDefault(); runPlatformProbe(this.elements.url.value)">
+                    <input name="url" type="url" required placeholder="https://" style="width:100%;box-sizing:border-box;margin:8px 0;padding:8px 10px;border:1px solid var(--border-color,#d0d7de);border-radius:8px">
+                    <button type="submit" class="service-status-refresh">${serviceStatusBi('探测', 'Probe')}</button>
+                </form>
+                <pre id="platformProbeResult" class="platform-diag-summary" style="white-space:pre-wrap;margin:8px 0 0"></pre>
+            </section>`;
+    } catch (error) {
+        content.innerHTML = `<div class="service-status-error"><strong>${serviceStatusBi('自检失败', 'Self-check failed')}</strong><p>${navEscape(error.message)}</p></div>`;
+    }
+};
+
+window.runPlatformProbe = async function (url) {
+    const out = document.getElementById('platformProbeResult');
+    if (!out) return;
+    out.textContent = serviceStatusBi('探测中…', 'Probing…');
+    try {
+        const r = await serviceStatusRequest('/api/platform-metrics/diagnostics/probe', { method: 'POST', body: { url } });
+        out.textContent = `${r.ok ? '✓' : '✗'} ${r.message} · ${r.durationMs} ms\n${serviceStatusBi('解析到', 'Resolved to')}：${(r.addresses || []).join(', ') || '—'}`;
+    } catch (error) {
+        out.textContent = `✗ ${error.message}`;
+    }
+};
 
 function renderServiceStatusHistory(data) {
     const content = document.getElementById('serviceStatusContent');
