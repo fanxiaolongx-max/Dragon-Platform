@@ -166,7 +166,7 @@ async function main() {
   const buildId = targetBuild.id;
   console.log(`[TestFlightAuto] Build ${targetBuild.attributes?.version} (ID: ${buildId}) is VALID and ready!`);
 
-  // 3. Find target Beta Group (e.g. G2)
+  // 3. Find Beta Groups (Attach to BOTH G1 internal and G2 external)
   console.log(`[TestFlightAuto] Fetching Beta Groups for App ${appId}...`);
   const groupsRes = await apiRequest(`/v1/apps/${appId}/betaGroups?limit=50`, token);
   if (!groupsRes.ok || !groupsRes.data?.data) {
@@ -175,31 +175,48 @@ async function main() {
   }
 
   const groups = groupsRes.data.data;
-  const targetGroup = groups.find(g => (g.attributes?.name || '').trim().toLowerCase() === targetGroupName);
+  console.log(`[TestFlightAuto] Available beta groups: ${groups.map(g => `${g.attributes?.name} (Internal: ${g.attributes?.isInternalGroup})`).join(', ')}`);
 
-  if (!targetGroup) {
-    console.warn(`[TestFlightAuto] Beta group matching "${targetGroupName}" not found. Available groups: ${groups.map(g => g.attributes?.name).join(', ')}`);
-    return;
+  // Target G1 (internal) and G2 (external)
+  const g1Group = groups.find(g => (g.attributes?.name || '').trim().toLowerCase() === 'g1' || g.attributes?.isInternalGroup);
+  const g2Group = groups.find(g => (g.attributes?.name || '').trim().toLowerCase() === targetGroupName);
+
+  // 4a. Attach Build to G1 (Internal Testing - Instant 0-wait distribution to developers!)
+  if (g1Group) {
+    console.log(`[TestFlightAuto] Attaching Build ${buildId} to Internal Group "${g1Group.attributes?.name}" (ID: ${g1Group.id})...`);
+    const linkG1Res = await apiRequest(`/v1/betaGroups/${g1Group.id}/relationships/builds`, token, {
+      method: 'POST',
+      body: JSON.stringify({
+        data: [{ type: 'builds', id: buildId }]
+      })
+    });
+    if (linkG1Res.ok) {
+      console.log(`[TestFlightAuto] -> Build successfully linked to Internal Group "${g1Group.attributes?.name}" (INSTANT DISTRIBUTION)!`);
+    } else if (linkG1Res.status === 409) {
+      console.log(`[TestFlightAuto] -> Build is already linked to Internal Group "${g1Group.attributes?.name}".`);
+    } else {
+      console.warn(`[TestFlightAuto] Warning linking to G1: ${linkG1Res.status} ${linkG1Res.rawText}`);
+    }
   }
 
-  const groupId = targetGroup.id;
-  console.log(`[TestFlightAuto] Found Beta Group "${targetGroup.attributes?.name}" (ID: ${groupId})`);
-
-  // 4. Attach Build to Beta Group (G2)
-  console.log(`[TestFlightAuto] Attaching Build ${buildId} to Group ${groupId} (${targetGroup.attributes?.name})...`);
-  const linkRes = await apiRequest(`/v1/betaGroups/${groupId}/relationships/builds`, token, {
-    method: 'POST',
-    body: JSON.stringify({
-      data: [{ type: 'builds', id: buildId }]
-    })
-  });
-
-  if (linkRes.ok) {
-    console.log(`[TestFlightAuto] -> Build successfully linked to group "${targetGroup.attributes?.name}"!`);
-  } else if (linkRes.status === 409) {
-    console.log(`[TestFlightAuto] -> Build is already linked to group "${targetGroup.attributes?.name}".`);
+  // 4b. Attach Build to G2 (External Testing)
+  if (g2Group) {
+    console.log(`[TestFlightAuto] Attaching Build ${buildId} to External Group "${g2Group.attributes?.name}" (ID: ${g2Group.id})...`);
+    const linkG2Res = await apiRequest(`/v1/betaGroups/${g2Group.id}/relationships/builds`, token, {
+      method: 'POST',
+      body: JSON.stringify({
+        data: [{ type: 'builds', id: buildId }]
+      })
+    });
+    if (linkG2Res.ok) {
+      console.log(`[TestFlightAuto] -> Build successfully linked to External Group "${g2Group.attributes?.name}"!`);
+    } else if (linkG2Res.status === 409) {
+      console.log(`[TestFlightAuto] -> Build is already linked to External Group "${g2Group.attributes?.name}".`);
+    } else {
+      console.warn(`[TestFlightAuto] Warning linking to G2: ${linkG2Res.status} ${linkG2Res.rawText}`);
+    }
   } else {
-    console.warn(`[TestFlightAuto] Failed to link build to group: ${linkRes.status} ${linkRes.rawText}`);
+    console.warn(`[TestFlightAuto] Beta group matching "${targetGroupName}" not found.`);
   }
 
   // 5. Update Beta Build Localization (What to test / What's new)
