@@ -990,7 +990,7 @@ async function handleChatRequest(req, res) {
             if (prepared.note) writeStreamEvent({ type: 'status', status: prepared.note });
         }
         // 不选目录、没有其他工具的首页对话（如非管理员）有附件时，用只读的附件工具读取
-        const filesMode = homeAgent && !agentMode && !channelTurn && !databaseMode && !opsSetup && !welinkCliSetup && !netcareSetup && !analysisCode && uploadFiles.length > 0;
+        const filesMode = homeAgent && !agentMode && !channelTurn && !databaseMode && !opsSetup && !welinkCliSetup && !netcareSetup && !autoglmSetup && !financeSetup && !analysisCode && uploadFiles.length > 0;
         // 长期记忆：管理员在首页对话（工作区或普通对话）里让智能体记住的偏好与约定；频道对话是多人场景，不带
         const memoryPrompt = homeAgent && !channelTurn && req.user?.role === 'admin' && (agentMode || databaseMode)
             ? await require('../models/agent-memory-repository').promptFor(req.user.username).catch(() => '') : '';
@@ -1301,7 +1301,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 } : undefined
             })
             : null;
-        const extraResult = !agentResult && !analysisResult && !followupResult && !opsResult && !welinkCliResult && !netcareResult && !autoglmResult
+        const extraResult = !agentResult && !analysisResult && !followupResult && !opsResult && !welinkCliResult && !netcareResult && !autoglmResult && !financeResult
             && !databaseResult && !filesResult && (channelExtras || chatExtras)
             ? await require('../models/agent-extra-tools').runChannelTurn({
                 extras: channelExtras || chatExtras, bufferText: channelTurn?.channel === 'weixin', client: aiClient, systemInstruction: redactText(systemInstruction, { secrets: sensitiveValues }), messages: effectiveMessages,
