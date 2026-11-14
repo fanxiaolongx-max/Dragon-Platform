@@ -68,4 +68,11 @@ test('open-autoglm execute aliases and progress callback support', async () => {
     const outcome = await autoglmAgent.execute('open_autoglm_nonexistent_xyz');
     assert.equal(outcome.isError, true);
     assert.ok(outcome.content.includes('未知的 Open-AutoGLM 工具'));
+
+    // 3. Non-superadmin user without access should be blocked
+    const blockedOutcome = await autoglmAgent.execute('open_autoglm_get_screenshot', {}, {
+        user: { username: 'normal_user', role: 'admin', isSuper: false }
+    });
+    assert.equal(blockedOutcome.isError, true);
+    assert.ok(blockedOutcome.content.includes('未向全员开放') || blockedOutcome.summary.includes('未开放'));
 });

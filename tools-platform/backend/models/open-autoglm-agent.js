@@ -342,7 +342,22 @@ function buildPrompt() {
 【铁律】：当用户说“查看一下当前屏幕”或“帮我操作手机”时，直接调用上述原生工具，严禁向用户输出终端命令行让他们自己去运行！`;
 }
 
+async function canUseAutoglm(user) {
+    if (!user) return true;
+    const { isSuperAdmin } = require('../middleware/auth');
+    if (isSuperAdmin(user)) return true;
+    const { hasEntryAccess } = require('./tool-distribution');
+    return hasEntryAccess('skill:open-autoglm');
+}
+
 async function execute(name, args = {}, options = {}) {
+    if (options?.user && !(await canUseAutoglm(options.user))) {
+        return {
+            content: 'Open-AutoGLM 手机端控制功能未全员开放，仅超级管理员可用。',
+            summary: '未开放访问',
+            isError: true
+        };
+    }
     const onProgress = options?.onProgress;
     try {
         const cleanName = String(name || '').toLowerCase().replace(/-/g, '_');
@@ -460,6 +475,7 @@ async function runTurn({ client: aiClient, systemInstruction, messages, signal, 
 
 module.exports = {
     SKILL_ID,
+    canUseAutoglm,
     definitions,
     buildPrompt,
     execute,

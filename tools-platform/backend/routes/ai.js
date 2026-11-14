@@ -2,7 +2,7 @@ const { getUsageVideoFooter } = require('../models/platform-usage-video');
 const express = require('express');
 const router = express.Router();
 router.use('/speech',require('./ai-speech'));
-const { checkAuth } = require('../middleware/auth');
+const { checkAuth, isSuperAdmin } = require('../middleware/auth');
 const aiSettingsRepo = require('../models/ai-settings-repository');
 const aiChatRepo = require('../models/ai-chat-repository');
 const aiProviderClient = require('../models/ai-provider-client');
@@ -764,8 +764,8 @@ async function handleChatRequest(req, res) {
             if (previous.length && homeConnector && homeConnector !== bound) return res.status(409).json({ code: 'CONNECTOR_BOUND', error: '此对话已开始，不能更改连接器，请新建对话' });
             homeConnector = bound || homeConnector;
         }
-        if (homeConnector && (!Object.hasOwn(connectorSkills, homeConnector) || !homeAgent || channelTurn || req.user?.role !== 'admin')) {
-            return res.status(403).json({ code: 'CONNECTOR_FORBIDDEN', error: '当前请求不能使用此连接器' });
+        if (homeConnector && (!Object.hasOwn(connectorSkills, homeConnector) || !homeAgent || channelTurn || !isSuperAdmin(req.user))) {
+            return res.status(403).json({ code: 'CONNECTOR_FORBIDDEN', error: '第三方 Agent 连接器仅超级管理员可用' });
         }
         if (homeConnector) {
             const ready = (await require('../models/home-connectors').status(req.user, homeConnector)).find(item => item.id === homeConnector);
@@ -952,6 +952,7 @@ async function handleChatRequest(req, res) {
         // @open-autoglm：用户在手机 App 端或首页普通对话中控制 Android 手机（无需工作空间目录）
         let autoglmSetup = null;
         if (homeAgent && !agentMode && !channelTurn && !opsSetup && !welinkCliSetup && !netcareSetup
+            && (await autoglmAgent.canUseAutoglm(req.user))
             && loadedSkills.selected.some(item => item.id === autoglmAgent.SKILL_ID)) {
             try {
                 autoglmSetup = { prompt: autoglmAgent.buildPrompt() };

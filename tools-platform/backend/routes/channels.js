@@ -72,12 +72,13 @@ router.use((req, res, next) => {
 });
 
 /** 已对接（已启用且已配置凭据）的频道，首页对话侧栏据此显示频道分类；所有登录用户可读。 */
-router.get('/available', handle(async (_req, res) => {
+router.get('/available', handle(async (req, res) => {
     res.setHeader('Cache-Control','no-store');
     const items = [];
     const summary = {};
     const weixinCheck = await welinkNetwork.isWeixinDisabled();
     for (const [id, { service, label }] of Object.entries(CHANNELS)) {
+        if (id === 'weixin' && !inSuperAdminSpace(req.user)) continue;
         try {
             const status = await service.getStatus(getTenantId());
             const disabledByIntranet = id === 'weixin' && weixinCheck.disabled;

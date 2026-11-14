@@ -1,12 +1,12 @@
 {
   "zh": [
-    "修复移动端打开具体会话后无法左右滑动手势切换界面问题，重构消息滚动视图与横向滑动手势层级联动。",
-    "保险箱（Vault）新增通用 API Key 与 Secret 凭据安全托管，支持独立密文加密存储、界面操作与环境解析。",
-    "完善 iOS App Store 审核与移动端体验，脱敏并优雅格式化网络异常提示，补充合规隐私政策规范与 iPad 适配支持。"
+    "技能中心新增全员开放与未全员开放状态徽标与分类筛选，超管可清晰查看并快速过滤团队共享技能。",
+    "强化微信聊天记录与通道访问隔离，非超级管理员用户严禁查看微信会话、聊天历史或执行通道调用。",
+    "完善 AutoGLM 与第三方 Agent 连接器权限管控，未向全员开放的功能在 iOS 端、Mac 桌面端与 Web 端对非超管用户全面隐匿。"
   ],
   "en": [
-    "Fix mobile gesture navigation inside chat conversations by resolving vertical ScrollView and horizontal drawer/tab pan arbitration.",
-    "Introduce native API Key and Secret credential vault support with encrypted storage, management UI, and runtime injection.",
-    "Improve mobile network resilience and App Store compliance with elegant error masking, privacy policy documentation, and iPad layout support."
+    "Add shared-with-all and unshared badges and category filters to Skill Hub for immediate team visibility.",
+    "Enforce strict privacy isolation on WeChat chat threads and history, completely blocking access from non-superadmin users.",
+    "Fortify access controls on AutoGLM and third-party agent connectors, keeping unshared skills and desktop bridges invisible across iOS, macOS, and Web."
   ]
 }

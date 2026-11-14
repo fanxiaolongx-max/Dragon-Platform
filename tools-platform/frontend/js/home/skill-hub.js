@@ -11,7 +11,7 @@
             sortMixed: '综合', sortNewest: '最新', sortName: '名称',
             featuredSkills: '精选技能', featuredTools: '最近使用', featuredPlugins: '常用插件', shuffle: '换一批',
             builtin: '内置', custom: '自定义', imported: '导入', external: '外部', workspace: '需工作目录', customized: '已自定义',
-            cardLegend: '外框标识', sharedFrame: '卡片外框', iconRing: '图标内圈', sharedWithAll: '全员开放', shared: '全员共享',
+            cardLegend: '外框标识', sharedFrame: '卡片外框', iconRing: '图标内圈', sharedWithAll: '全员开放', unsharedOnly: '未全员开放', shared: '全员共享',
             skillSource: '技能来源', createdInChat: '对话创建', externalCommand: '外部命令',
             pluginSource: '插件与脚本标识', toolSource: '工具来源', floatingScripts: '浮窗脚本',
             use: '使用', open: '打开', improve: '完善技能', history: '版本历史',
@@ -26,7 +26,7 @@
             sortMixed: 'Default', sortNewest: 'Newest', sortName: 'Name',
             featuredSkills: 'Featured skills', featuredTools: 'Recently used', featuredPlugins: 'Popular plugins', shuffle: 'Shuffle',
             builtin: 'Built-in', custom: 'Custom', imported: 'Imported', external: 'External', workspace: 'Needs a folder', customized: 'Customized',
-            cardLegend: 'Border style', sharedFrame: 'Card border', iconRing: 'Icon ring', sharedWithAll: 'Shared with all', shared: 'Shared',
+            cardLegend: 'Border style', sharedFrame: 'Card border', iconRing: 'Icon ring', sharedWithAll: 'Shared with all', unsharedOnly: 'Not shared', shared: 'Shared',
             skillSource: 'Skill source', createdInChat: 'Created in chat', externalCommand: 'External command',
             pluginSource: 'Plugin & script indicators', toolSource: 'Tool source', floatingScripts: 'Floating scripts',
             use: 'Use', open: 'Open', improve: 'Improve Skill', history: 'History',
@@ -75,17 +75,28 @@
     // ── 三类条目统一成 { key, title, desc, icon, color, cat, catLabel, badges, updatedAt, href, kind } ──
     function skillEntries() {
         const en = lang() === 'en-US';
+        const superAdmin = isSuperAdmin();
         return (window.HomeSkills?.items?.() || []).filter(item => !item.hidden).map(item => {
             const source = window.SkillSource?.kind(item) || 'chat';
             const cat = { builtin: 'builtin', import: 'imported', external: 'external' }[source] || 'custom';
+            const isShared = item.sharedAccess === true;
+            const extraCats = [item.workspace ? 'workspace' : null, superAdmin ? (isShared ? 'sharedWithAll' : 'unsharedOnly') : null].filter(Boolean);
+            const badges = [`@${item.id}`];
+            if (superAdmin) {
+                badges.push(isShared ? t('sharedWithAll') : t('unsharedOnly'));
+            } else if (isShared) {
+                badges.push(t('sharedWithAll'));
+            }
+            if (item.customized) badges.push(t('customized'));
+            if (item.workspace) badges.push(t('workspace'));
             return {
                 key: `skill:${item.id}`, kind: 'skill', shared: item.shared, personal: item.personal, id: item.id, src: item, source,
-                sharedAccess: item.sharedAccess === true, builtIn: cat === 'builtin',
+                sharedAccess: isShared, builtIn: cat === 'builtin',
                 title: (en ? item.nameEn : '') || item.name || item.id,
                 desc: (en ? item.descriptionEn : '') || item.description || t('defaultSkillDesc'),
                 icon: item.icon || '✨', color: item.builtIn ? '#10a37f' : '#f472b6',
-                cat, catLabel: t(cat), mine: !item.builtIn, extraCats: item.workspace ? ['workspace'] : [],
-                badges: [`@${item.id}`, item.customized ? t('customized') : '', item.workspace ? t('workspace') : ''].filter(Boolean),
+                cat, catLabel: t(cat), mine: !item.builtIn, extraCats,
+                badges,
                 updatedAt: item.updatedAt || '', href: `/?skill=${encodeURIComponent(item.id)}`
             };
         });
@@ -237,12 +248,17 @@
         const sharedClass = (isSuperAdmin() && isShared) ? ' is-shared-access' : '';
         const builtInClass = item.builtIn ? ' is-built-in' : '';
         const title = window.SkillSource?.label(item.title, item.src, { source: item.source, meaning: t(SOURCES[state.tab].labels[item.source]) }) || esc(item.title);
+        const metaBadges = item.badges.slice(0, 4).map(b => {
+            if (b === t('sharedWithAll')) return `<span class="v2-badge-shared">${esc(b)}</span>`;
+            if (b === t('unsharedOnly')) return `<span class="v2-badge-unshared">${esc(b)}</span>`;
+            return `<span>${esc(b)}</span>`;
+        }).join('');
         return `<a class="v2-hub-card${sharedClass}${builtInClass}" data-src="${esc(item.source)}" href="${esc(item.href)}" data-hub-key="${esc(item.key)}" style="--hub-c:${esc(item.color)}" title="${esc(item.title)}">
             <span class="v2-hub-icon">${iconHtml(item.icon)}</span>
             <span class="v2-hub-body">
                 <span class="v2-hub-card-title"><strong>${title}</strong>${action}</span>
                 <small>${esc(item.desc)}</small>
-                <span class="v2-hub-meta">${item.badges.slice(0, 3).map(b => `<span>${esc(b)}</span>`).join('')}</span>
+                <span class="v2-hub-meta">${metaBadges}</span>
             </span>
             ${extra}
         </a>`;
