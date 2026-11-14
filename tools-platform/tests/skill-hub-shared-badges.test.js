@@ -161,6 +161,8 @@ test('Skill Hub shared badges & category filter chips for Plugins and Tools', as
     await t.test('dragon-claw-skills.js optionNode renders dc-skill-share-badge for superadmin and non-superadmin', () => {
         const skillsCode = fs.readFileSync(path.join(__dirname, '../frontend/js/home/dragon-claw-skills.js'), 'utf8');
         assert.match(skillsCode, /dc-skill-share-badge/, 'must define dc-skill-share-badge');
+        assert.match(skillsCode, /dc-skill-option-tags/, 'must wrap option tags in a right-aligned container');
+        assert.match(skillsCode, /dc-skill-tag-workspace/, 'must give workspace requirement a distinct tag class');
         assert.match(skillsCode, /isSuperAdminUser\(\)/, 'must check isSuperAdminUser');
         assert.match(skillsCode, /isShared \? '全员开放' : '未全员开放'/, 'must support i18n for shared');
     });

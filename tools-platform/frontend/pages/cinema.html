@@ -531,20 +531,49 @@
 
         .card-title {
             font-size: 14.5px;
-            font-weight: 500;
-            line-height: 1.4;
+            font-weight: 600;
+            line-height: 1.35;
             color: var(--text-main);
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
             text-overflow: ellipsis;
-            min-height: 40px;
+            min-height: 20px;
             transition: color 0.2s ease;
         }
 
         .video-card:hover .card-title {
             color: var(--primary);
+        }
+
+        /* 标题下方优雅展示小字本课视频概述 */
+        .card-desc {
+            font-size: 12px;
+            color: var(--text-sub);
+            line-height: 1.45;
+            margin-top: 5px;
+            margin-bottom: 2px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            word-break: break-word;
+            opacity: 0.9;
+            min-height: 35px;
+            transition: color 0.2s ease, opacity 0.2s ease;
+        }
+
+        .card-desc:empty {
+            display: none;
+            min-height: 0;
+            margin: 0;
+        }
+
+        .video-card:hover .card-desc {
+            color: var(--text-main);
+            opacity: 1;
         }
 
         .card-meta {
@@ -553,7 +582,7 @@
             gap: 6px;
             font-size: 12px;
             color: var(--text-muted);
-            margin-top: 6px;
+            margin-top: 4px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -586,8 +615,48 @@
         }
 
         /* 隐藏但保留以通过旧样式引用的类名 */
-        .card-desc, .card-footer, .card-tag, .card-status {
+        .card-footer, .card-tag, .card-status {
             display: none;
+        }
+
+        /* 分类专属小字简介横幅 */
+        .category-summary-banner {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 8px 0 16px;
+            padding: 10px 16px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-left: 3.5px solid var(--primary);
+            border-radius: var(--radius-sm);
+            box-shadow: var(--shadow-card);
+            animation: fadeIn 0.25s ease;
+        }
+
+        .category-summary-icon {
+            font-size: 22px;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        .category-summary-content {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+        }
+
+        .category-summary-title {
+            font-size: 13.5px;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .category-summary-desc {
+            font-size: 12.5px;
+            line-height: 1.45;
+            color: var(--text-sub);
         }
 
         /* ========================================================
@@ -651,12 +720,32 @@
             gap: 16px;
         }
 
+        .watch-title-wrap {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex: 1;
+            min-width: 0;
+        }
+
         .watch-video-title {
             font-size: 21px;
             font-weight: 700;
             line-height: 1.35;
             color: var(--text-main);
             letter-spacing: 0.2px;
+        }
+
+        .watch-video-subtitle {
+            font-size: 13px;
+            color: var(--text-sub);
+            line-height: 1.5;
+            padding: 5px 12px;
+            background: var(--tag-bg);
+            border-left: 3px solid var(--primary);
+            border-radius: var(--radius-xs);
+            max-width: 960px;
+            animation: fadeIn 0.25s ease;
         }
 
         .watch-video-meta {
@@ -1614,6 +1703,19 @@
             transition: color 0.15s;
         }
 
+        .side-desc {
+            font-size: 11.5px;
+            color: var(--text-sub);
+            line-height: 1.35;
+            margin: 2px 0 3px;
+            display: -webkit-box;
+            -webkit-line-clamp: 1;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            opacity: 0.85;
+        }
+
         .side-video-card:hover .side-title {
             color: var(--primary);
         }
@@ -1987,6 +2089,15 @@
                 </div>
             </div>
 
+            <!-- 分类专属小字简介横幅 -->
+            <div class="category-summary-banner" id="categorySummaryBanner" style="display: none;">
+                <div class="category-summary-icon" id="categorySummaryIcon">🔤</div>
+                <div class="category-summary-content">
+                    <h3 class="category-summary-title" id="categorySummaryTitle">阿语字母</h3>
+                    <p class="category-summary-desc" id="categorySummaryDesc">阿拉伯语字母与读音基础全系列：涵盖 28 个字母发音书写、开口/齐齿/合口三短元音、长元音、静符、鼻音符、叠音符与太阳/太阴字母等 65 讲系统精讲与词句例读。</p>
+                </div>
+            </div>
+
             <!-- 视频作品卡片网格 -->
             <div class="video-grid" id="videoGrid">
                 <!-- 动态卡片 -->
@@ -2009,7 +2120,10 @@
                     <span class="meta-chip-badge" id="watchCategoryBadge">🚀 平台类</span>
                 </div>
                 <div class="watch-title-row">
-                    <h1 class="watch-video-title" id="watchVideoTitle">视频标题</h1>
+                    <div class="watch-title-wrap">
+                        <h1 class="watch-video-title" id="watchVideoTitle">视频标题</h1>
+                        <p class="watch-video-subtitle" id="watchVideoSubtitle" style="display: none;"></p>
+                    </div>
                 </div>
                 <div class="watch-video-meta">
                     <span class="meta-stat-item">
@@ -2547,6 +2661,89 @@
             return item.categoryName || 'Tools 官方';
         }
 
+        // --- 阿语字母 65 讲精细概述映射（优雅展示小字本课视频简介） ---
+        const ARABIC_LESSON_OVERVIEWS = {
+            '01_购课须知': '本系列课程学习指南、授课体系与教材说明，学习建议及课件社群配套服务。',
+            '02_阿语诵读（28个字母）上': '28个阿拉伯语字母标准发音领读（前14个字母：أ 到 ص，认识字母独立形与发音要领）。',
+            '03_阿语诵读（28个字母）下': '28个阿拉伯语字母标准发音领读（后14个字母：ض 到 ي，认识字母独立形与发音要领）。',
+            '04_开口符（一）': '短元音开口符(Fatḥa)：认识开口符号与字母أ(Hamza)、ب(Ba)、ت(Ta)在词首/词中/词尾的读音与拼写。',
+            '05_开口符（二）': '短元音开口符(Fatḥa)：字母ن(Nun)、هـ(Ha)、و(Waw)、ي(Ya)等在各词位上的开口拼读与词例。',
+            '06_开口符（三）': '短元音开口符(Fatḥa)：形似易混字母对比辨析（ب/ت/ث、د/ذ、ف/ق、ق/ك、ض/د）。',
+            '07_开口符（四）': '短元音开口符(Fatḥa)：相近发音字母听音辨析与音准训练（ح/خ/هـ、ت/ط、س/ص、ذ/ظ）。',
+            '08_开口符（五）': '短元音开口符(Fatḥa)：双字母与三字母拆拼成词拼读入门（如 دَرَسَ、سَجَدَ、زَرَعَ）。',
+            '09_开口符（六）': '短元音开口符(Fatḥa)：不相连字母组合词连读实训（如 رَزَقَ、وَرَعَ、دَرَجَ、دَأَبَ）。',
+            '10_开口符（七）': '短元音开口符(Fatḥa)：三字母整词流利朗读与巩固（如 كَتَبَ、شَكَرَ、سَأَلَ、جَلَسَ）。',
+            '11_齐齿符（一）': '短元音齐齿符(Kasra)：齐齿符发音原理与全字母带齐齿符读音（إِ、بِ、تِ、ثِ...发短音[i]）。',
+            '12_齐齿符（二）': '短元音齐齿符(Kasra)：齐齿符与开口符混合对比辨析（如 دَ/دِ、أَ/إِ、خَشِيَ、خَطِبَ）。',
+            '13_齐齿符（三）': '短元音齐齿符(Kasra)：三字母含齐齿符常用动词与名词拼读（如 شَرِبَ、يَئِسَ、حَذِرَ、شَهِدَ、قَدِمَ）。',
+            '14_齐齿符（四）': '短元音齐齿符(Kasra)：复杂齐齿符词组与连读进阶实训（如 خَصِبَ、دَسِمَ、وَوَرِثَ、فَطَفِقَ）。',
+            '15_合口符（一）': '短元音合口符(Ḍamma)：合口符发音原理与全字母带合口符基础读音（أُ、بُ、تُ、ثُ...发短音[u]）。',
+            '16_合口符（二）': '短元音合口符(Ḍamma)：动词被动语态等三音符（开口、齐齿、合口）混合词拼读（如 أُذِنَ、قُتِلَ、ظُلِمَ）。',
+            '17_合口符（三）': '短元音合口符(Ḍamma)：多音节复合词拼读强化与句例连读（如 عُتِقَ、مُنِعَ、وُضِعَ、عُمُرِكَ）。',
+            '18_开口长音（一）': '长元音开口长音(Alif madd)：Alif长音发音规则与各字母开口长音（ءَا、بَا、تَا、ثَا...发双倍长音[a:]）。',
+            '19_开口长音（二）': '长元音开口长音：短音与长音对照辨析精练（如 قَمَ 对比 قَامَ、عَدَ 对比 عَادَ、سَدَ 对比 سَادَ）。',
+            '20_开口长音（三）': '长元音开口长音：含开口长音的多音节词汇精读（如 كَاتِبُ、طَاقَةُ、دَاعِي、يُدَافِعُ、أَصَابَهَا）。',
+            '21_开口长音（四）': '长元音开口长音：小Alif(الألف الخنجرية)认读与含长音的短语/句子拼读（如 مَلِكِ、ذَٰلِكَ）。',
+            '22_齐齿长音（一）': '长元音齐齿长音(Yā madd)：Yā长音发音规则与字母齐齿长音（إِي、بِي、تِي、ثِي...发双倍长音[i:]）。',
+            '23_齐齿长音（二）': '长元音齐齿长音：含齐齿长音的经典词汇拼读训练（如 قِيلَ、حِينَ、نَعِيمُ、رَفِيعُ、أَمِينُ、فِيهَا）。',
+            '24_齐齿长音（三）': '长元音齐齿长音：齐齿长音在多音节词与复杂结构中的发音（如 يُقِيمَا、أُحِيطَ、أَبَابِيلَ、هَٰذِهِ）。',
+            '25_合口长音（一）': '长元音合口长音(Wāw madd)：Wāw长音发音规则与全字母合口长音（أُو、بُو、تُو、ثُو...发双倍长音[u:]）。',
+            '26_合口长音（二）': '长元音合口长音：含合口长音的重点词汇拼读练习（如 أُوتِيَ、نُودِيَ、دُونِ、حُدُودُ、تُوبُوا、سَاهُونَ）。',
+            '27_合口长音（三）': '长元音合口长音：合口长音在短语与完整语句中的流畅连读（如 دَاوُدُ、فَقَعُواْ لَهُ سَاجِدِينَ）。',
+            '28_静符（一）': '静符(Sukūn)：静符概念与停顿发音要领，双字母辅音闭音节拼读（如 أَبْ、أَتْ、أَكْ、أَزْ）。',
+            '29_静符（二）': '静符(Sukūn)：各字母带静符在三字母词中闭音节拼读（如 شِئْتَ、يَهْبِطُ、نَفْسٌ）。',
+            '30_静符（三）': '静符(Sukūn)：定冠词(ال)带静符与后续元音连接拼读规则（如 الْيَوْمُ、الْفُؤَادَ、الْأَتْقَى）。',
+            '31_静符（四）': '静符(Sukūn)：复杂静符词语与短句停顿朗读训练（如 حَلْ、فَوْقَ、قُرْبُ、الْفَوْزُ الْعَظِيمُ）。',
+            '32_静符（五）': '静符(Sukūn)：包含多个静符的长句与短文连贯朗读实践。',
+            '33_三单元复习（一）': '第一阶段短元音综合复习：开口符短音与常见三字母词听辨朗读（如 كَتَبَ、قَرَأَ）。',
+            '34_三单元复习（二）': '第一阶段短元音综合复习：齐齿符与合口符对比认读（如 زُرِعَ、كُتِبَ、لَعِبَ、ضَحِكَ）。',
+            '35_三单元复习（三）': '短元音与静符混合复习：含闭音节单词拼读强化（如 أَغْصَانٌ、مُسْلِمٌ、شَمْسٌ）。',
+            '36_三单元复习（四）': '长元音(Alif/Yā/Wāw)综合复习：三大长音辨析与发音对比（如 يَقولُ、إِي）。',
+            '37_开口鼻音（一）': '鼻音符(Tanwīn)：开口鼻音(Tanwīn Fatḥ)规则与各字母鼻音读法（发-an音，带有Alif辅助）。',
+            '38_开口鼻音（二）': '开口鼻音(Tanwīn Fatḥ)：含开口鼻音词汇精讲与辨读（如 أَبَدًا、بَلَاغًا、ثِقَالًا、لَهْوًا、وَاحِدًا）。',
+            '39_开口鼻音（三）': '开口鼻音(Tanwīn Fatḥ)：开口鼻音在短语与句子中的连读训练（如 كَانَ لَطِيفًا خَبِيرًا）。',
+            '40_齐齿鼻音（一）': '鼻音符(Tanwīn)：齐齿鼻音(Tanwīn Kasr)发音要领与全字母齐齿鼻音读法（发-in音）。',
+            '41_齐齿鼻音（二）': '齐齿鼻音(Tanwīn Kasr)：含齐齿鼻音词语与短句朗读练习（如 شُعَبٍ、مُكْثٍ、كَاهِنٍ、لِيَوْمٍ）。',
+            '42_合口鼻音（一）': '鼻音符(Tanwīn)：合口鼻音(Tanwīn Ḍamm)发音要领与全字母合口鼻音读法（发-un音，如 كُتُبٌ、مَرَضٌ）。',
+            '43_合口鼻音（二）': '合口鼻音(Tanwīn Ḍamm)：含合口鼻音的词语与经典名句朗读实践（如 قُلُوبٌ、سَلَامٌ عَلَىٰ نُوحٍ）。',
+            '44_叠音（一）': '叠音符(Shaddah)：叠音概念、双辅音发音原理（静音+动音结合）与基础单音练习（أَقَّ、حَيَّ）。',
+            '45_叠音（二）': '带开口符的叠音词拆分与合并拼读规则（如 بَدَّ、دَعَّ、رَدَّ、قَدَّرَ）。',
+            '46_叠音（三）': '叠音与齐齿符结合发音与词例（如 سَبِّحْ、رَبِّ、بَشِّرْ、جَدِّي）。',
+            '47_叠音（四）': '叠音与合口符结合发音与词例（如 أَفُّ、عَدُّو、يَبُثُّ、أَهُشُّ）。',
+            '48_叠音（五）': '叠音与太阳字母定冠词同化拼读（如 الطَّارِق、الثَّوَاب、التَّقْوَى）。',
+            '49_叠音（六）': '叠音符与鼻音符(Tanwīn)结合的词汇与朗读（如 أَدًّا、أَصًّا、صَكٍّ、غَمٍّ）。',
+            '50_叠音（七）': '双叠音及复杂词形精准发音练习（如 يُبَتِّكُنَّ、مُدَّثِّرُ、ذُرِّيَّةٌ、سَيَذَّكَّرُ）。',
+            '51_叠音（八）': '叠音在长短句与经文中的流利连读实践（如 إِذَا الشَّمْسُ كُوِّرَتْ）。',
+            '52_太阴太阳字母（一）': '太阴字母(الحروف القمرية)：14个太阴字母与定冠词ال拼读，Lām清楚发音规则。',
+            '53_太阴太阳字母（二）': '太阳字母(الحروف الشمسية)：14个太阳字母与定冠词ال拼读，同化叠音发音规则。',
+            '54_特殊读法和短文例读（一）': '圆形Tā(Ta Marbutah ة)特殊读法：停顿念Hā、连读念Tā规则与词例。',
+            '55_特殊读法和短文例读（二）': '经典短句精读（一）：三字母词构成的名言与启蒙短句认读（اللهُ رَبِّي、الْإِسْلَامُ دِينِي）。',
+            '56_特殊读法和短文例读（三）': '经典短句精读（二）：开端章常用祈祷词精读（بِسْمِ اللهِ الرَّحْمَنِ الرَّحِيمِ）。',
+            '57_特殊读法和短文例读（四）': '经典句子流利朗读：多从句及复杂元音连接实践。',
+            '58_特殊读法和短文例读（五）': '阿语短文综合朗读：信仰与品德篇短文全文流利朗读。',
+            '59_总复习（一）': '全阶段大总复习：28个字母与开口符全面复盘与词例抽测。',
+            '60_总复习（二）': '全阶段大总复习：齐齿符与合口符多词型拼读综合巩固。',
+            '61_总复习（三）': '全阶段大总复习：长元音(Alif/Yā/Wāw)长短音对照快速反应。',
+            '62_总复习（四）': '全阶段大总复习：静音符与定冠词连读实训短文。',
+            '63_总复习（五）': '全阶段大总复习：三大鼻音符(Tanwīn)综合辨识与朗读。',
+            '64_总复习（六）': '全阶段大总复习：叠音符(Shaddah)及其复合音变强化练习。',
+            '65_总复习（七）': '全阶段大总复习：名篇短文通读结业考核（《安拉的恩典》《造化的伟大》）。'
+        };
+
+        function getVideoDescription(item) {
+            if (!item) return '';
+            const t = String(item.title || item.fileName || '').trim();
+            const cleanTitle = t.replace(/\.[a-zA-Z0-9]+$/, '');
+            if (ARABIC_LESSON_OVERVIEWS[cleanTitle]) return ARABIC_LESSON_OVERVIEWS[cleanTitle];
+            for (const [key, val] of Object.entries(ARABIC_LESSON_OVERVIEWS)) {
+                if (cleanTitle === key || cleanTitle.startsWith(key) || key.startsWith(cleanTitle)) return val;
+            }
+            if (item.description && !item.description.startsWith(item.categoryName + '：') && !item.description.startsWith((item.folder || '') + '：')) {
+                return item.description;
+            }
+            return item.description || '';
+        }
+
         function formatPublishDate(item) {
             if (item.publishDate) return item.publishDate;
             let hash = 0;
@@ -2689,6 +2886,17 @@
         // --- 更新播放页头部与交互栏数据 ---
         function updateWatchViewDetails(item) {
             document.getElementById('watchVideoTitle').textContent = item.title;
+            const subtitleEl = document.getElementById('watchVideoSubtitle');
+            if (subtitleEl) {
+                const desc = getVideoDescription(item);
+                if (desc) {
+                    subtitleEl.textContent = desc;
+                    subtitleEl.style.display = 'block';
+                } else {
+                    subtitleEl.textContent = '';
+                    subtitleEl.style.display = 'none';
+                }
+            }
             document.getElementById('watchCategoryBadge').textContent = item.categoryName || '影视作品';
             document.getElementById('watchViewCount').textContent = getVideoViews(item);
             document.getElementById('watchPublishDate').textContent = `${item.year || '2026'}-${formatPublishDate(item)}`;
@@ -2751,6 +2959,7 @@
                         </div>
                         <div class="side-info">
                             <h5 class="side-title" title="${escapeCinemaHtml(item.title)}">${escapeCinemaHtml(item.title)}</h5>
+                            ${getVideoDescription(item) ? `<p class="side-desc" title="${escapeCinemaHtml(getVideoDescription(item))}">${escapeCinemaHtml(getVideoDescription(item))}</p>` : ''}
                             <div class="side-meta">
                                 <span class="side-author">${escapeCinemaHtml(getAuthorName(item))}</span>
                                 <span class="meta-dot">·</span>
@@ -2885,6 +3094,7 @@
                     </div>
                     <div class="card-body">
                         <h4 class="card-title" title="${escapeCinemaHtml(item.title)}">${escapeCinemaHtml(item.title)}</h4>
+                        <p class="card-desc" title="${escapeCinemaHtml(getVideoDescription(item))}">${escapeCinemaHtml(getVideoDescription(item))}</p>
                         <div class="card-meta">
                             <span class="card-author">
                                 <svg viewBox="0 0 24 24"><path d="M19 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-7 3a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zm5 10H7v-1c0-1.66 2.33-2.5 5-2.5s5 .84 5 2.5v1z"/></svg>
@@ -2893,8 +3103,6 @@
                             <span class="meta-dot">·</span>
                             <span class="card-date">${formatPublishDate(item)}</span>
                         </div>
-                        <!-- 保留类名以通过历史测试与断言 -->
-                        <p class="card-desc">${item.description || ''}</p>
                         <div class="card-footer">
                             <span class="card-tag">${(item.tags && item.tags[0]) || '超清'}</span>
                             <span class="card-status">▶ 立即点播</span>
@@ -3546,6 +3754,32 @@
             }
         }
 
+        function updateCategorySummaryBanner(catId) {
+            const banner = document.getElementById('categorySummaryBanner');
+            if (!banner) return;
+            if (!catId || catId === 'all') {
+                banner.style.display = 'none';
+                return;
+            }
+            const category = mediaCategories.find(item => item.id === catId || item.folder === catId);
+            let desc = (category && category.description) || '';
+            const isAyLetters = catId === 'ay-letters' || catId === '阿语字母' || (category && (category.folder === '阿语字母' || category.id === 'ay-letters'));
+            if (isAyLetters && !desc) {
+                desc = '阿拉伯语字母与读音基础全系列：涵盖 28 个字母发音书写、开口/齐齿/合口三短元音、长元音、静符、鼻音符、叠音符与太阳/太阴字母等 65 讲系统精讲与词句例读。';
+            }
+            if (!desc) {
+                banner.style.display = 'none';
+                return;
+            }
+            const iconEl = document.getElementById('categorySummaryIcon');
+            const titleEl = document.getElementById('categorySummaryTitle');
+            const descEl = document.getElementById('categorySummaryDesc');
+            if (iconEl) iconEl.textContent = category?.protected ? '🔒' : (category?.icon || (isAyLetters ? '🔤' : '📁'));
+            if (titleEl) titleEl.textContent = `${(category?.name || category?.folder || (isAyLetters ? '阿语字母' : '分类'))} 课程体系概述`;
+            if (descEl) descEl.textContent = desc;
+            banner.style.display = 'flex';
+        }
+
         // --- 搜索筛选 ---
         function handleSearch(query) {
             const q = query.trim().toLowerCase();
@@ -3554,7 +3788,9 @@
                 return;
             }
             const filtered = allVideos.filter(item => {
+                const desc = getVideoDescription(item);
                 return (item.title && item.title.toLowerCase().includes(q)) ||
+                       (desc && desc.toLowerCase().includes(q)) ||
                        (item.description && item.description.toLowerCase().includes(q)) ||
                        (item.categoryName && item.categoryName.toLowerCase().includes(q)) ||
                        (item.tags && item.tags.some(t => t.toLowerCase().includes(q)));
@@ -3640,6 +3876,7 @@
                 const targetButton = pendingProtectedCategoryButton;
                 closeCategoryPinModal();
                 activateCategoryTab(targetButton);
+                updateCategorySummaryBanner(category.id);
                 renderVideoGrid(videos);
             } catch (error) {
                 errorElement.textContent = error.message;
@@ -3651,13 +3888,14 @@
 
         // --- 分类切换 ---
         async function filterCategory(cat, btn) {
-            const category = mediaCategories.find(item => item.id === cat);
+            const category = mediaCategories.find(item => item.id === cat || item.folder === cat);
             if (category?.protected) {
                 const access = readCategoryAccessTokens()[category.id];
                 if (access) {
                     try {
                         const videos = await loadProtectedCategory(category, access);
                         activateCategoryTab(btn);
+                        updateCategorySummaryBanner(category.id);
                         renderVideoGrid(videos);
                         return;
                     } catch (error) {
@@ -3669,6 +3907,7 @@
             }
 
             activateCategoryTab(btn);
+            updateCategorySummaryBanner(cat);
 
             if (cat === 'all') {
                 renderVideoGrid(allVideos);

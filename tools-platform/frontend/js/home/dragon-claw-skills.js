@@ -70,17 +70,24 @@
         const text = `${item.icon ? `${item.icon} ` : ''}@${item.id} · ${en() ? item.nameEn : item.name}`;
         if (window.SkillSource?.label) label.innerHTML = window.SkillSource.label(text, item); else label.textContent = text;
         head.appendChild(label);
+        const tags = document.createElement('span');
+        tags.className = 'dc-skill-option-tags';
+        if (item.workspace && !window.DragonClawWorkspace?.getWorkspacePayload?.()) {
+            const tag = document.createElement('small');
+            tag.className = 'dc-skill-tag-workspace';
+            tag.textContent = words('需工作目录', 'Needs folder');
+            tags.appendChild(tag);
+        }
         const superAdmin = isSuperAdminUser();
         const isShared = item.sharedAccess === true;
         if (superAdmin || isShared) {
             const shareTag = document.createElement('small');
             shareTag.className = `dc-skill-share-badge ${isShared ? 'is-shared' : 'is-unshared'}`;
             shareTag.textContent = words(isShared ? '全员开放' : '未全员开放', isShared ? 'Shared' : 'Not shared');
-            head.appendChild(shareTag);
+            tags.appendChild(shareTag);
         }
-        if (item.workspace && !window.DragonClawWorkspace?.getWorkspacePayload?.()) {
-            const tag = document.createElement('small');
-            tag.textContent = words('需工作目录', 'Needs folder'); head.appendChild(tag);
+        if (tags.hasChildNodes()) {
+            head.appendChild(tags);
         }
         description.textContent = window.SkillSource?.brief(item, en()) || full || '';
         option.append(head, description);
