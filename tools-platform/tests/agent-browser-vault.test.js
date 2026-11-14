@@ -49,7 +49,10 @@ test.after(async () => {
     await browser.shutdownAll();
     await vault().close();
     await new Promise(resolve => server.close(resolve));
-    fs.rmSync(sandbox, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    await new Promise(resolve => setTimeout(resolve, 500));
+    try {
+        fs.rmSync(sandbox, { recursive: true, force: true, maxRetries: 15, retryDelay: 300 });
+    } catch (_) {}
 });
 
 const run = (owner, name, args = {}) => browser.execute({ owner }, name, args);

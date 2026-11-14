@@ -1,12 +1,12 @@
 {
   "zh": [
-    "Open-AutoGLM 任务状态机与超时优化：完整支持 completed 与 waiting_for_user（等待用户在手机登录/确认）状态，杜绝轮询死锁。",
-    "移动端流式心跳与实时进度保活：手机端自动化执行过程中实时下发阶段进度，防止 iOS/Android 网络连接空闲断开抛出 cannot parse response 异常。",
-    "设备并发接管与自动恢复：支持任务强制执行接管，前序挂起或等待任务自动终止，复合指令执行完成后自动回传最新手机屏幕画面。"
+    "Open-AutoGLM 防复锁与画面保全：执行手机任务默认保持屏幕解锁状态（no_auto_lock），防止任务完成后设备自动重新锁屏导致复合截屏截到锁屏界面。",
+    "移动端持续秒级流式心跳：任务轮询期间每 2 秒下发动态耗时与执行进度，彻底防止 iOS CFNetwork 与云代理触发 60 秒闲置超时（The request timed out）。",
+    "息屏全黑帧智能唤醒与重试：截屏捕获息屏全黑画面时自动调用设备唤醒与 PIN 码解锁，并在 CI 测试套件中强化浏览器沙箱清理稳定性。"
   ],
   "en": [
-    "Open-AutoGLM task state machine and lifecycle fix: full support for 'completed' and 'waiting_for_user' states, eliminating polling deadlocks.",
-    "Mobile streaming heartbeats and live progress events: continuous status updates during phone task execution to prevent iOS/Android idle connection drops.",
-    "Device takeover and automatic recovery: auto-terminate orphaned or blocked tasks when submitting new mobile instructions, auto-capturing screenshots upon completion."
+    "Open-AutoGLM auto-lock prevention: keep target screen unlocked after task completion (no_auto_lock), preventing compound instructions from capturing lock-screen frames.",
+    "Mobile continuous per-second streaming heartbeats: emit live execution duration every 2s during polling, eliminating 60s iOS CFNetwork and proxy idle request timeouts.",
+    "Black screen auto-wake & unlock retry: automatically wake and unlock device via PIN when black frames are detected during screenshots, plus enhanced CI sandbox cleanup resilience."
   ]
 }

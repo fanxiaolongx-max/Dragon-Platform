@@ -109,7 +109,8 @@ async function runTask({ task, deviceId, timeout = 1800, forceRun = true, wait =
             task,
             device_id: targetId,
             timeout,
-            force_run: forceRun !== false
+            force_run: forceRun !== false,
+            no_auto_lock: true
         })
     });
     if (!res.ok) {
@@ -125,7 +126,7 @@ async function runTask({ task, deviceId, timeout = 1800, forceRun = true, wait =
     const terminalStatuses = ['completed', 'finished', 'success', 'failed', 'stopped', 'error', 'cancelled', 'expired', 'paused', 'interrupted', 'waiting_for_user'];
 
     let lastStatus = null;
-    let lastReportedStatus = '';
+    const startTime = Date.now();
     while (Date.now() < deadline) {
         await new Promise(r => setTimeout(r, 2000));
         let status;
@@ -139,15 +140,15 @@ async function runTask({ task, deviceId, timeout = 1800, forceRun = true, wait =
 
         const currentStatus = String(status.status || '').toLowerCase();
         const stepMsg = status.executions?.[0]?.message || '';
+        const elapsedSec = Math.max(1, Math.round((Date.now() - startTime) / 1000));
         const statusSummary = currentStatus === 'running'
-            ? (stepMsg ? `正在手机执行: ${stepMsg}` : 'AutoGLM 正在手机端自动化执行…')
+            ? (stepMsg ? `正在手机执行: ${stepMsg} (${elapsedSec}s)` : `AutoGLM 正在手机端自动化执行中… (${elapsedSec}s)`)
             : currentStatus === 'waiting_for_user'
                 ? `等待用户操作: ${stepMsg || '需要用户在手机上确认'}`
-                : `手机任务: ${currentStatus}`;
+                : `手机任务: ${currentStatus} (${elapsedSec}s)`;
 
-        // 持续向流输出进度，保持连接活跃，防止客户端超时报 cannot parse response
-        if (onProgress && statusSummary !== lastReportedStatus) {
-            lastReportedStatus = statusSummary;
+        // 每轮轮询都持续向流输出进度与心跳，保持网络连接活跃，彻底防止 iOS CFNetwork 与网关超时（The request timed out）
+        if (onProgress) {
             try { onProgress({ type: 'status', status: statusSummary }); } catch (_) {}
         }
 
@@ -166,11 +167,13 @@ async function runTask({ task, deviceId, timeout = 1800, forceRun = true, wait =
         }
     }
 
+    const totalElapsed = Math.round((Date.now() - startTime) / 1000);
     return {
         ...data,
         status: lastStatus?.status || 'running',
         executions: lastStatus?.executions || [],
-        note: '任务仍在手机后台持续运行中，可通过 open_autoglm_task_status 查询最新进度'
+        stillRunning: true,
+        note: `任务仍在手机后台持续运行中（已执行 ${totalElapsed} 秒），可通过 open_autoglm_task_status 查询最新进度，请向用户汇报正在执行，不要在运行中立即截屏`
     };
 }
 
@@ -330,7 +333,7 @@ function buildPrompt() {
 【执行复合指令规范】：
 当用户指令同时包含操作与截图（例如“打卡设置 截图看看”、“打开系统设置看一眼”、“搜索某内容并截图”等）：
 1. 第一步：先调用 open_autoglm_run_task（例如 task: "打开设置" 或 "打卡设置"）在手机上执行该任务；
-2. 第二步：任务完成后，紧接着调用 open_autoglm_get_screenshot 截取手机操作后的最新画面；
+2. 第二步：若任务已完成，紧接着调用 open_autoglm_get_screenshot 截取手机操作后的最新画面；若任务仍在后台持续运行中（running），直接向用户汇报任务正在手机端执行中，切勿在未完成时截取中间画面；
 3. 第三步：在回复中以 Markdown 图片格式 \`![手机实时屏幕](imagePath)\` 展示截图，并向用户汇报操作进展。
 
 【容错说明】：
