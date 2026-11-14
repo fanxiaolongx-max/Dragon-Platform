@@ -1,12 +1,12 @@
 {
   "zh": [
-    "Open-AutoGLM 会话延续与意图自动路由：多轮对话中自动保持手机控制技能激活，免除每条消息手动输入 @ 标识。",
-    "复合指令智能编排与容错：支持“打卡设置/打开设置 截图看看”等操作+截屏复合任务，自动执行端到端手机任务并获取最新屏幕。",
-    "兼容通用工具别名调度（open_autoglm），防止模型调用泛化工具名时出现工具不可用异常。"
+    "Open-AutoGLM 任务状态机与超时优化：完整支持 completed 与 waiting_for_user（等待用户在手机登录/确认）状态，杜绝轮询死锁。",
+    "移动端流式心跳与实时进度保活：手机端自动化执行过程中实时下发阶段进度，防止 iOS/Android 网络连接空闲断开抛出 cannot parse response 异常。",
+    "设备并发接管与自动恢复：支持任务强制执行接管，前序挂起或等待任务自动终止，复合指令执行完成后自动回传最新手机屏幕画面。"
   ],
   "en": [
-    "Seamless Open-AutoGLM session persistence and intent auto-routing: maintain phone automation active across conversation turns without re-typing @ chips.",
-    "Compound instruction orchestration & typo tolerance: automatically execute tasks and take real-time screenshots for instructions like 'open settings & screenshot'.",
-    "Universal tool alias dispatch (open_autoglm) preventing tool unavailability when models call generic skill aliases."
+    "Open-AutoGLM task state machine and lifecycle fix: full support for 'completed' and 'waiting_for_user' states, eliminating polling deadlocks.",
+    "Mobile streaming heartbeats and live progress events: continuous status updates during phone task execution to prevent iOS/Android idle connection drops.",
+    "Device takeover and automatic recovery: auto-terminate orphaned or blocked tasks when submitting new mobile instructions, auto-capturing screenshots upon completion."
   ]
 }

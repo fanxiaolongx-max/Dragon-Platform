@@ -76,7 +76,7 @@ async function getScreenshot(deviceId) {
 }
 
 /** 运行自动化 AI 任务 */
-async function runTask({ task, deviceId, timeout = 1800, forceRun = false, wait = false }) {
+async function runTask({ task, deviceId, timeout = 1800, forceRun = true, wait = false, onProgress = null }) {
     if (!task) throw new Error('任务描述不能为空');
     let targetId = deviceId;
     if (!targetId) {
@@ -94,7 +94,7 @@ async function runTask({ task, deviceId, timeout = 1800, forceRun = false, wait 
             task,
             device_id: targetId,
             timeout,
-            force_run: forceRun
+            force_run: forceRun !== false
         })
     });
     if (!res.ok) {
@@ -106,15 +106,57 @@ async function runTask({ task, deviceId, timeout = 1800, forceRun = false, wait 
 
     // 如果需要等待任务执行完成，轮询状态
     const taskId = data.task_id;
-    const deadline = Date.now() + (Math.min(timeout, 300) * 1000);
+    const deadline = Date.now() + (Math.min(timeout, 60) * 1000); // 最多同步轮询 60 秒，避免长连接超时
+    const terminalStatuses = ['completed', 'finished', 'success', 'failed', 'stopped', 'error', 'cancelled', 'expired', 'paused', 'interrupted', 'waiting_for_user'];
+
+    let lastStatus = null;
+    let lastReportedStatus = '';
     while (Date.now() < deadline) {
         await new Promise(r => setTimeout(r, 2000));
-        const status = await getTaskStatus(taskId);
-        if (['finished', 'success', 'failed', 'stopped', 'error'].includes(status.status)) {
+        let status;
+        try {
+            status = await getTaskStatus(taskId);
+            lastStatus = status;
+        } catch (pollErr) {
+            console.warn('[autoglm] 轮询任务状态异常:', pollErr.message);
+            continue;
+        }
+
+        const currentStatus = String(status.status || '').toLowerCase();
+        const stepMsg = status.executions?.[0]?.message || '';
+        const statusSummary = currentStatus === 'running'
+            ? (stepMsg ? `正在手机执行: ${stepMsg}` : 'AutoGLM 正在手机端自动化执行…')
+            : currentStatus === 'waiting_for_user'
+                ? `等待用户操作: ${stepMsg || '需要用户在手机上确认'}`
+                : `手机任务: ${currentStatus}`;
+
+        // 持续向流输出进度，保持连接活跃，防止客户端超时报 cannot parse response
+        if (onProgress && statusSummary !== lastReportedStatus) {
+            lastReportedStatus = statusSummary;
+            try { onProgress({ type: 'status', status: statusSummary }); } catch (_) {}
+        }
+
+        // 终态或需要人工协助立即返回
+        if (terminalStatuses.includes(currentStatus)) {
+            if (currentStatus === 'waiting_for_user') {
+                const userPrompt = stepMsg || '当前页面需要您在手机上手动协助操作（如登录账号、授权或验证）。';
+                return {
+                    ...status,
+                    needsUserAction: true,
+                    userActionPrompt: userPrompt,
+                    note: `任务暂停：${userPrompt}`
+                };
+            }
             return status;
         }
     }
-    return { ...data, note: '任务仍在后台执行中，可通过 open_autoglm_task_status 查询' };
+
+    return {
+        ...data,
+        status: lastStatus?.status || 'running',
+        executions: lastStatus?.executions || [],
+        note: '任务仍在手机后台持续运行中，可通过 open_autoglm_task_status 查询最新进度'
+    };
 }
 
 /** 查询任务状态 */
@@ -281,7 +323,8 @@ function buildPrompt() {
 【铁律】：当用户说“查看一下当前屏幕”或“帮我操作手机”时，直接调用上述原生工具，严禁向用户输出终端命令行让他们自己去运行！`;
 }
 
-async function execute(name, args = {}) {
+async function execute(name, args = {}, options = {}) {
+    const onProgress = options?.onProgress;
     try {
         const cleanName = String(name || '').toLowerCase().replace(/-/g, '_');
         if (cleanName === 'open_autoglm_get_screenshot' || cleanName === 'open_autoglm_screenshot' || cleanName === 'screenshot') {
@@ -306,23 +349,27 @@ async function execute(name, args = {}) {
                 task: taskText,
                 deviceId: args.device_id,
                 timeout: args.timeout,
-                forceRun: args.force_run,
-                wait: args.wait !== false
+                forceRun: args.force_run !== false, // 默认强制执行接管设备，清理旧卡死任务
+                wait: args.wait !== false,
+                onProgress
             });
             let extraScreenshotText = '';
-            // 如果用户指令中包含“截图/截屏/看/瞧”等期望看到屏幕的词，且任务已完成，自动截一张最新屏幕附上
-            if (taskText && /截图|截屏|看|瞧|瞧瞧|屏幕/.test(taskText) && res.status !== 'failed') {
+            // 如果用户指令中包含“截图/截屏/看/瞧”等期望看到屏幕的词，或者任务处于 waiting_for_user（需要用户登录/确认），自动截一张最新屏幕附上
+            const wantsScreenshot = taskText && /截图|截屏|看|瞧|瞧瞧|屏幕/.test(taskText);
+            const needsAction = res.needsUserAction || res.status === 'waiting_for_user';
+            if ((wantsScreenshot && res.status !== 'failed') || needsAction) {
                 try {
                     const snap = await getScreenshot(args.device_id);
-                    extraScreenshotText = `\n\n已自动获取操作完成后的最新手机屏幕：\n本地路径：${snap.imagePath}\n展示语法：${snap.markdown}\n请务必在回复中包含 ${snap.markdown}`;
+                    const promptNotice = res.userActionPrompt ? `\n\n⚠️ **需要用户协助**：${res.userActionPrompt}` : '';
+                    extraScreenshotText = `${promptNotice}\n\n已自动获取当前手机屏幕：\n本地路径：${snap.imagePath}\n展示语法：${snap.markdown}\n请务必在回复中包含 ${snap.markdown}`;
                 } catch (snapErr) {
                     console.warn('[autoglm] 任务后自动截屏失败:', snapErr.message);
                 }
             }
             return {
                 content: `${JSON.stringify(res, null, 2)}${extraScreenshotText}`,
-                summary: `手机任务 ${res.task_id ? res.task_id.slice(0, 10) : '已完成'}: ${res.status || 'success'}${extraScreenshotText ? ' (已附截图)' : ''}`,
-                isError: false
+                summary: `手机任务 ${res.task_id ? res.task_id.slice(0, 10) : '已处理'}: ${res.status || 'success'}${extraScreenshotText ? ' (已附截图)' : ''}`,
+                isError: res.status === 'failed' || res.status === 'error'
             };
         }
         if (cleanName === 'open_autoglm_action') {
@@ -344,16 +391,16 @@ async function execute(name, args = {}) {
         if (cleanName === 'open_autoglm') {
             // 通用别名调度：根据参数智能分发到截屏、执行任务或手势
             if (args.screenshot === true || args.action === 'screenshot' || (args.task && /截屏|截图|当前屏幕/.test(args.task) && !/打开|点击|滑动|打卡/.test(args.task))) {
-                return execute('open_autoglm_get_screenshot', args);
+                return execute('open_autoglm_get_screenshot', args, options);
             }
             if (args.action && ['tap', 'swipe', 'text', 'key', 'shell'].includes(args.action)) {
-                return execute('open_autoglm_action', args);
+                return execute('open_autoglm_action', args, options);
             }
             const taskText = args.task || args.instruction || args.command || args.text || (typeof args === 'string' ? args : '');
             if (taskText) {
-                return execute('open_autoglm_run_task', { task: taskText, device_id: args.device_id, wait: args.wait !== false });
+                return execute('open_autoglm_run_task', { task: taskText, device_id: args.device_id, wait: args.wait !== false }, options);
             }
-            return execute('open_autoglm_get_screenshot', args);
+            return execute('open_autoglm_get_screenshot', args, options);
         }
         return {
             content: `未知的 Open-AutoGLM 工具: ${name}`,
@@ -382,7 +429,9 @@ async function runTurn({ client: aiClient, systemInstruction, messages, signal, 
         executeCall: async (call, { start }) => {
             const args = call.args && typeof call.args === 'object' ? call.args : {};
             start({ tool: call.name, args });
-            const outcome = await execute(call.name, args);
+            const outcome = await execute(call.name, args, {
+                onProgress: event => onEvent?.(event)
+            });
             return { ...outcome, output: String(outcome.content || '').slice(0, 4000) };
         },
         toolsUnsupported: () => ({ note: '（当前模型不支持工具调用，Open-AutoGLM 工具不可用。）' })

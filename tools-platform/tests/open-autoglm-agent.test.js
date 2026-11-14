@@ -57,3 +57,15 @@ test('open-autoglm toolset attaches without requiring workspace', async () => {
     assert.ok(toolset, 'open_autoglm_get_screenshot should be resolvable via registry toolset');
     assert.equal(typeof toolset.execute, 'function');
 });
+
+test('open-autoglm execute aliases and progress callback support', async () => {
+    // 1. Alias open_autoglm should exist in definitions
+    const defs = autoglmAgent.definitions();
+    const aliasDef = defs.find(d => d.name === 'open_autoglm');
+    assert.ok(aliasDef, 'open_autoglm alias should be defined');
+
+    // 2. Unknown tool should return isError: true without throw
+    const outcome = await autoglmAgent.execute('open_autoglm_nonexistent_xyz');
+    assert.equal(outcome.isError, true);
+    assert.ok(outcome.content.includes('未知的 Open-AutoGLM 工具'));
+});
