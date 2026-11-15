@@ -444,6 +444,8 @@ struct ChatView: View {
                         text: $modelQuery
                     )
                     .font(.subheadline)
+                    .foregroundStyle(palette.inkPrimary)
+                    .tint(palette.accentStrong)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled(true)
                     if !modelQuery.isEmpty {
@@ -991,6 +993,7 @@ struct ChatView: View {
                 .lineLimit(1...5)
                 .font(.system(size: 14))
                 .foregroundStyle(palette.inkPrimary)
+                .tint(palette.accentStrong)
                 .padding(.horizontal, 4)
                 .padding(.top, 2)
 
@@ -1280,6 +1283,8 @@ struct ChatView: View {
             VStack(spacing: 10) {
                 TextField(L10n.tr(lang, zh: "搜索平台技能...", en: "Search skills..."), text: $skillQuery)
                     .font(.system(size: 13.5))
+                    .foregroundStyle(palette.inkPrimary)
+                    .tint(palette.accentStrong)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 9)
                     .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 14, style: .continuous))

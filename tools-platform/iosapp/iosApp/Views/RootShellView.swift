@@ -211,6 +211,7 @@ struct RootShellView: View {
             HStack(spacing: 10) {
                 GlassCircleIconButton(
                     systemImage: "sidebar.left",
+                    palette: palette,
                     accessibilityLabel: L10n.tr(lang, zh: "打开历史侧边栏", en: "Open sidebar")
                 ) {
                     setSidebarOpen(!store.isDrawerOpen)
@@ -232,6 +233,7 @@ struct RootShellView: View {
                 if store.workMode == .chat {
                     GlassCircleIconButton(
                         systemImage: "square.and.pencil",
+                        palette: palette,
                         accessibilityLabel: L10n.tr(lang, zh: "新对话", en: "New Chat")
                     ) {
                         store.startNewChat()
@@ -240,6 +242,7 @@ struct RootShellView: View {
                     GlassCircleIconButton(
                         systemImage: "chart.xyaxis.line",
                         tint: palette.accentStrong,
+                        palette: palette,
                         accessibilityLabel: L10n.tr(lang, zh: "KPI 监控", en: "KPI Monitor")
                     ) {
                         store.openMetricsModule()
@@ -286,7 +289,11 @@ struct RootShellView: View {
 
                     Spacer()
 
-                    GlassCircleIconButton(systemImage: "xmark") {
+                    GlassCircleIconButton(
+                        systemImage: "xmark",
+                        palette: palette,
+                        accessibilityLabel: L10n.tr(lang, zh: "关闭侧边栏", en: "Close sidebar")
+                    ) {
                         setSidebarOpen(false)
                     }
                 }
@@ -302,6 +309,8 @@ struct RootShellView: View {
                         text: $store.sessionSearchQuery
                     )
                     .font(.system(size: 13))
+                    .foregroundStyle(palette.inkPrimary)
+                    .tint(palette.accentStrong)
                     .textInputAutocapitalization(.never)
                     .onChange(of: store.sessionSearchQuery) { _, _ in
                         if !store.showArchivedSessions {
@@ -328,6 +337,8 @@ struct RootShellView: View {
                             Image(systemName: "xmark.circle.fill")
                                 .font(.caption)
                                 .foregroundStyle(palette.inkMuted)
+                                .frame(minWidth: 28, minHeight: 28)
+                                .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                     }
@@ -340,23 +351,30 @@ struct RootShellView: View {
                 GlassEffectContainer(spacing: 8) {
                     VStack(spacing: 8) {
                         Button {
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                             store.startNewChat()
+                            setSidebarOpen(false)
                         } label: {
-                            HStack {
+                            HStack(spacing: 8) {
                                 Image(systemName: "plus.message.fill")
+                                    .foregroundStyle(palette.accentStrong)
                                 Text(L10n.tr(lang, zh: "开启新对话", en: "New Chat"))
-                                Spacer()
+                                    .foregroundStyle(palette.inkPrimary)
+                                Spacer(minLength: 0)
                             }
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(palette.inkPrimary)
                             .padding(.horizontal, 12)
-                            .padding(.vertical, 9.5)
+                            .padding(.vertical, 10)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                         }
                         .buttonStyle(.plain)
                         .glassEffect(.regular.tint(palette.accent.opacity(0.14)).interactive(), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
                         HStack(spacing: 7) {
                             Button {
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                 withAnimation(.snappy) {
                                     store.workMode = .tools
                                 }
@@ -367,13 +385,17 @@ struct RootShellView: View {
                                     Text(L10n.tr(lang, zh: "工具台", en: "Tools"))
                                 }
                                 .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(palette.inkPrimary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 8.5)
+                                .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                             }
                             .buttonStyle(.plain)
                             .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
                             Button {
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                 store.openMetricsModule()
                             } label: {
                                 HStack(spacing: 5) {
@@ -384,11 +406,14 @@ struct RootShellView: View {
                                 .foregroundStyle(palette.accentStrong)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 8.5)
+                                .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                             }
                             .buttonStyle(.plain)
                             .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
                             Button {
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                 store.loadSchedules()
                                 showSchedulesSheet = true
                             } label: {
@@ -405,11 +430,14 @@ struct RootShellView: View {
                                     }
                                 }
                                 .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(palette.inkPrimary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 8.5)
+                                .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                             }
                             .buttonStyle(.plain)
                             .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                         }
                     }
                 }
@@ -518,10 +546,20 @@ struct RootShellView: View {
                         }
                         Spacer()
 
-                        GlassCircleIconButton(systemImage: store.themeMode == "dark" ? "sun.max.fill" : "moon.fill") {
-                            store.toggleTheme()
+                        GlassCircleIconButton(
+                            systemImage: store.themeMode == "dark" ? "sun.max.fill" : "moon.fill",
+                            palette: palette,
+                            accessibilityLabel: L10n.tr(lang, zh: "切换明暗主题", en: "Toggle theme")
+                        ) {
+                            withAnimation(.easeInOut(duration: 0.22)) {
+                                store.toggleTheme()
+                            }
                         }
-                        GlassCircleIconButton(systemImage: "globe") {
+                        GlassCircleIconButton(
+                            systemImage: "globe",
+                            palette: palette,
+                            accessibilityLabel: L10n.tr(lang, zh: "切换语言", en: "Toggle language")
+                        ) {
                             store.toggleLanguage()
                         }
                     }

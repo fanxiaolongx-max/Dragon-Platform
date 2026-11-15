@@ -40,23 +40,29 @@ struct DragonClawBackdrop: View {
     }
 }
 
-/// Top or floating circular Liquid Glass icon button.
+/// Top or floating circular Liquid Glass icon button with Apple HIG 44pt touch-target compliance.
 struct GlassCircleIconButton: View {
     let systemImage: String
     var tint: Color? = nil
+    var palette: DragonClawPalette? = nil
     var accessibilityLabel: String = ""
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            action()
+        } label: {
             Image(systemName: systemImage)
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(tint ?? .primary)
+                .foregroundStyle(tint ?? (palette?.inkPrimary ?? .primary))
                 .frame(width: 34, height: 34)
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
         .glassEffect(.regular.interactive(), in: .circle)
+        .frame(minWidth: 44, minHeight: 44)
+        .contentShape(Rectangle())
         .accessibilityLabel(accessibilityLabel)
     }
 }

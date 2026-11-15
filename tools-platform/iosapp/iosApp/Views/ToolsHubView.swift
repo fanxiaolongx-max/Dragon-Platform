@@ -143,6 +143,8 @@ struct ToolsHubView: View {
                     text: $store.toolSearchQuery
                 )
                 .font(.system(size: 13))
+                .foregroundStyle(palette.inkPrimary)
+                .tint(palette.accentStrong)
                 .textInputAutocapitalization(.never)
 
                 if !store.toolSearchQuery.isEmpty {

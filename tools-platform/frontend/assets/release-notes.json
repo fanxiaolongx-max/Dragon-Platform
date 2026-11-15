@@ -1,12 +1,12 @@
 {
   "zh": [
-    "家庭财务记账助手（WISE）安全权限加固与全员隔离：彻底关闭未授权全员开放状态，普通用户与团队成员默认不可见、不可调用；后端工具执行链路增加超级管理员身份严格校验与双重访问防护，确保个人与家庭财务流水及账户余额绝对隔离保密。",
-    "优化 TestFlight 全自动分发链路：iOS 构建包转码就绪后，同步自动分发至 G1（内部测试）与 G2（外部测试），内部测试员无需等待审核即刻秒收最新版本，外部测试群组自动注入更新说明并提交 Beta 审核，两级测试人员全流程 100% 自动化闭环。",
-    "Open-AutoGLM 手机端自动化 API 密钥安全托管至平台保险箱（Vault）：彻底移除代码库与文档中的明文 Key，运行时由 Node 后端与 Python 客户端通过 AES-256-GCM 本地加密按需动态提取，敏感凭据绝不入库、绝不泄露至 AI 上下文，技能无需重新安装即可即时无感生效。"
+    "修复 iOS 移动端侧边栏「开启新对话」按钮右半区域点击无响应问题：规范化 HStack 点击热区为完整卡片轮廓（RoundedRectangle），全宽 100% 灵敏响应触控交互，并在轻点后自动收起抽屉与触发中度触觉震动反馈。",
+    "消除主题明暗切换时的界面视觉延迟：为侧边栏搜索框、工具台/KPI/定时快捷按钮及底部操作栏全面注入主题感知前景色与强调色，联动全局 220ms 平滑动画曲线，彻底根除局部输入框滞后 1 秒刷新问题。",
+    "移动端人机交互与触控目标合规优化：严格遵循 Apple 人机界面规范（HIG），所有头部图标、关闭按钮与快捷操作栏全面达标 44x44pt 最小点击热区，并加入细腻触觉反馈（Haptic Feedback），大幅提升单手操作流畅度。"
   ],
   "en": [
-    "Harden security access control for Family Finance Bookkeeper (WISE): revoke accidental shared-with-all distribution, isolating financial assets from regular users and team members; enforce strict superadmin checks at runtime tool boundaries to ensure personal accounts and transactions remain strictly confidential.",
-    "Upgrade TestFlight automated distribution: concurrently distribute to both G1 (internal testing) and G2 (external testing) once build processing completes, allowing internal testers to install new builds instantly while external testing automatically submits for Beta App Review.",
-    "Securely migrate Open-AutoGLM mobile automation API credentials into the platform Vault: all plaintext keys are stripped from codebase and documentation, resolved dynamically at runtime via AES-256-GCM encryption without leaking to LLM context, and skills operate seamlessly without manual refreshes."
+    "Fix asymmetric hit testing on iOS mobile drawer 'New Chat' button: standardize the touch target across the entire card boundary with RoundedRectangle and infinity width, ensuring 100% responsive clicks with automatic sidebar dismissal and medium haptic feedback.",
+    "Eliminate theme transition latency: explicitly bind theme-aware foreground styles and tint colors across drawer search field, quick action buttons, and footer controls, synchronized with a smooth 220ms easeInOut transition to remove the 1s delay.",
+    "Mobile interaction and Apple HIG touch-target compliance: ensure all header icons, close buttons, and navigation controls satisfy the 44x44pt minimum touch target, accompanied by subtle haptic feedback for a fluid single-handed mobile experience."
   ]
 }

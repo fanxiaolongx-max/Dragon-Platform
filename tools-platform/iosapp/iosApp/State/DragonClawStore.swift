@@ -221,7 +221,9 @@ final class DragonClawStore {
     // MARK: - Preferences
 
     func toggleTheme() {
-        themeMode = themeMode == "dark" ? "light" : "dark"
+        withAnimation(.easeInOut(duration: 0.22)) {
+            themeMode = themeMode == "dark" ? "light" : "dark"
+        }
         sdk.saveThemeMode(mode: themeMode)
     }
 
