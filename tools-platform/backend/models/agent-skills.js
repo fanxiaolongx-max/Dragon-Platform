@@ -200,6 +200,33 @@ function autoSelect(content, { pagePath = '', extraIds = [], contextMessages = [
         }
     }
 
+    // Fish Audio 声音创建与高拟真语音合成 (Voice Creator)
+    if (byId.has('voice-creator')) {
+        const voiceDirect = /(?:创建.{0,6}声音|生成.{0,6}(?:声音|语音|音频)|合成.{0,6}语音|文字转语音|转(?:成|为).{0,4}语音|语音合成|配音|朗读|读出?来|念出?来|读一下|音频生成|fish[-_\s]?audio|\btts\b)/i.test(text)
+            || /(?:用|换成|选).{0,10}(?:语彤|梓轩|晓彤|建国|詩涵|诗涵|浩然|冰冰|承翰|雨薇|家豪|雅婷|柏翰).{0,10}(?:的声音|音色|读|念|说)?/i.test(text);
+
+        const sessionHadVoice = (Array.isArray(contextMessages) ? contextMessages : []).some(item => {
+            const c = String(item?.content || '');
+            if (/@(?:voice-creator|创建声音|fish-audio)\b|voice-creator|quick_tts\.py/i.test(c)) return true;
+            if (Array.isArray(item?.toolCalls) && item.toolCalls.some(call => String(call?.name || '').startsWith('voice_creator'))) return true;
+            try {
+                const events = typeof item?.events === 'string' ? JSON.parse(item.events) : item?.events;
+                if (Array.isArray(events) && events.some(e => (e.type === 'skills' && Array.isArray(e.skills) && e.skills.includes('voice-creator')) || (e.tool && String(e.tool).startsWith('voice_creator')))) return true;
+            } catch (_) {}
+            return false;
+        });
+
+        const voiceFollowup = sessionHadVoice && (
+            voiceDirect
+            || /(?:语彤|梓轩|晓彤|建国|詩涵|诗涵|浩然|冰冰|承翰|雨薇|家豪|雅婷|柏翰|女声|男声|声音|音色|语气|台湾腔|普通话|生成|开始|确认)/.test(text)
+            || text.trim().length <= 30
+        );
+
+        if (voiceDirect || voiceFollowup) {
+            selected.push('voice-creator');
+        }
+    }
+
     const improveSkill = /(?:完善|优化|改进|升级).{0,20}(?:skill\b|技能)|(?:skill\b|技能).{0,16}(?:完善|优化|改进|升级)|\b(?:improve|refine|update)\s+(?:the\s+|this\s+|an?\s+)?skill\b/i.test(text);
     const createSkill = !improveSkill && (/(?:做成|生成|创建|新建|制作|写(?:一?个|个|份)?|整理成|封装成|总结成|保存(?:成|为)|沉淀(?:成|为)|转(?:成|为)).{0,24}(?:skill\b|技能)|(?:skill\b|技能).{0,16}(?:草稿|模板|怎么写|如何写)|\b(?:create|make|build|draft|turn\b[\s\S]{0,40}\binto|save\s+as)\s+(?:a\s+|an\s+)?skill\b/i.test(text));
     const skillFollowup = /^(?:确认|继续|好(?:的)?|可以|行|保存|按这个|就按这个|生成草稿|输出草稿)/i.test(text.trim());

@@ -1,12 +1,12 @@
 {
   "zh": [
+    "全新上线「创建声音」（Voice Creator）受控高拟真语音创作技能：集成 Fish Audio 官方 12 款无版权安全音色（语彤、梓轩、晓彤、建国、雨薇等），支持自然语言多轮交互选音色与情感副语言标记（耳语、叹气、微情绪），生成的音频直出播放器并支持原样下载，API Key 安全托管至保险箱独立加密存储。",
     "全新上线 AI-BI 智能敏捷看板与交互式报表大屏：集成图表组件库、取数查询引擎与可视化参数面板，支持自然语言对话即时生成敏捷数据看板，实时联动平台业务数据与图表视图渲染。",
-    "移动端底层通信与设置持久化架构重构：全面优化 Android 与 iOS 双端平台网络客户端（PlatformHttpClient）与本地配置管理器（SettingsManager），支持流式会话保持、凭据无缝同步与离线存储保护。",
-    "云端构建流水线与发布签名增强：Android 构建工作流全面接入稳定 Release 密钥签名机制与单元测试自动化校验，确保客户端发布包跨版本平滑无缝升级。"
+    "移动端底层通信与设置持久化架构重构：全面优化 Android 与 iOS 双端平台网络客户端（PlatformHttpClient）与本地配置管理器（SettingsManager），支持流式会话保持、凭据无缝同步与离线存储保护。"
   ],
   "en": [
+    "Introduce 'Voice Creator' high-fidelity TTS & voice crafting skill: integrate 12 official copyright-safe Fish Audio voices (Yutong, Zixuan, Xiaotong, Jianguo, Yuwei, etc.), supporting interactive voice selection and expressive paralinguistic emotion tags with embedded audio playback, while API credentials remain securely vaulted.",
     "Introduce AI-BI intelligent agile dashboards and interactive reporting: integrate chart component library, query compute engine, and visual parameter panel to generate agile business dashboards from conversational prompts in real time.",
-    "Refactor mobile cross-platform networking and settings persistence: overhaul PlatformHttpClient and SettingsManager across Android and iOS, supporting persistent streaming sessions, secure credential synchronization, and offline storage protection.",
-    "Enhance cloud CI/CD release signing and automated testing: integrate stable Android release keystore signing and automated unit tests into the GitHub Actions workflow, ensuring smooth seamless cross-release app upgrades."
+    "Refactor mobile cross-platform networking and settings persistence: overhaul PlatformHttpClient and SettingsManager across Android and iOS, supporting persistent streaming sessions, secure credential synchronization, and offline storage protection."
   ]
 }

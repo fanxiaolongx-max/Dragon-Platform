@@ -80,6 +80,17 @@ const TOOLSETS = {
                 execute: call => ppo.execute(call.name, call.args, options)
             };
         }
+    },
+    voice_creator: {
+        skillId: 'voice-creator', selfLoad: true,
+        build: async (options = {}) => {
+            const voiceCreator = require('./voice-creator-agent');
+            return {
+                definitions: voiceCreator.definitions(),
+                prompt: voiceCreator.buildPrompt(),
+                execute: call => voiceCreator.execute(call.name, call.args, options)
+            };
+        }
     }
 };
 const TOOLSET_OF_SKILL = new Map(Object.entries(TOOLSETS).map(([group, item]) => [item.skillId, group]));

@@ -14,7 +14,7 @@ function groupFor(name) {
     if (['find_platform_tools', 'read_tool_guide'].includes(name)) return 'platform_tools';
     if (['read_skill', 'save_skill'].includes(name)) return 'agent_skills';
     if (['calculate', 'update_plan', 'ask_user', 'view_image', 'task', 'tool_search', 'load_skill'].includes(name)) return 'builtin';
-    const prefixes = { mcp__: 'mcp', browser_: 'browser', netcare_: 'netcare-data', ops_: 'ops-group', welink_: 'welink-office', open_autoglm: 'open-autoglm', followup_: 'followup', finance_: 'family-finance-bookkeeper', ppo_: 'ppo-traffic' };
+    const prefixes = { mcp__: 'mcp', browser_: 'browser', netcare_: 'netcare-data', ops_: 'ops-group', welink_: 'welink-office', open_autoglm: 'open-autoglm', followup_: 'followup', finance_: 'family-finance-bookkeeper', ppo_: 'ppo-traffic', voice_creator_: 'voice-creator' };
     return Object.entries(prefixes).find(([prefix]) => name.startsWith(prefix))?.[1] || 'other';
 }
 
@@ -23,7 +23,7 @@ function groupFor(name) {
 // 团队账号默认不开放，超级管理员在「智能体工具」里明确开启后才可用。其余工具默认开放、可单独关闭。
 // 浏览器不在此列：团队账号的浏览器进程在团队沙箱里、只能经出口代理上网（见 agent-browser.js 的 teamLaunch）。
 // 超级管理员空间里的其他账号与频道对话不受这条默认规则影响（仍可被单独关闭）。
-const DEFAULT_OFF_GROUPS = ['mcp', 'welink-channel', 'open-autoglm', 'family-finance-bookkeeper'];
+const DEFAULT_OFF_GROUPS = ['mcp', 'welink-channel', 'open-autoglm', 'family-finance-bookkeeper', 'voice-creator'];
 
 /** 对团队账号关闭的工具 / 分组；teamDefaults=false 时只返回超级管理员明确关闭的 */
 async function deniedKeys({ teamDefaults = true } = {}) {

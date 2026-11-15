@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import fcntl
+import gc
 import hashlib
 import json
 import os
@@ -178,7 +179,11 @@ class Syncer:
             self._record(rel, error="快照大小异常")
             return
         n = len(merged) // PAGE
-        ivs = b"".join(merged[i * PAGE + PAGE - RESERVE: i * PAGE + PAGE - RESERVE + 16] for i in range(n))
+        ivs_ba = bytearray(n * 16)
+        for i in range(n):
+            iv_p = i * PAGE + PAGE - RESERVE
+            ivs_ba[i * 16:(i + 1) * 16] = merged[iv_p:iv_p + 16]
+        ivs = bytes(ivs_ba)
         ck = bytes.fromhex(key)
         st = self._load_state(rel)
         full = (st is None or not dst.exists() or st.get("key_sha256") != hashlib.sha256(key.encode()).hexdigest()
@@ -195,6 +200,9 @@ class Syncer:
                     pages.insert(0, 0)  # 总是重写第 1 页：更新变更计数器与库大小
                 self._patch(dst, merged, pages, n, ck)
         self._save_state(rel, ivs, dst, key, fp)
+        del merged
+        if n > 2000:
+            gc.collect()
         ms = int((time.time() - t0) * 1000)
         self._record(rel, pages=n, changed=changed, mode="full" if full else "incremental", ms=ms)
         if changed:
