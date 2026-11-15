@@ -183,19 +183,23 @@ async function main() {
 
   // 4a. Attach Build to G1 (Internal Testing - Instant 0-wait distribution to developers!)
   if (g1Group) {
-    console.log(`[TestFlightAuto] Attaching Build ${buildId} to Internal Group "${g1Group.attributes?.name}" (ID: ${g1Group.id})...`);
-    const linkG1Res = await apiRequest(`/v1/betaGroups/${g1Group.id}/relationships/builds`, token, {
-      method: 'POST',
-      body: JSON.stringify({
-        data: [{ type: 'builds', id: buildId }]
-      })
-    });
-    if (linkG1Res.ok) {
-      console.log(`[TestFlightAuto] -> Build successfully linked to Internal Group "${g1Group.attributes?.name}" (INSTANT DISTRIBUTION)!`);
-    } else if (linkG1Res.status === 409) {
-      console.log(`[TestFlightAuto] -> Build is already linked to Internal Group "${g1Group.attributes?.name}".`);
+    if (g1Group.attributes?.hasAccessToAllBuilds) {
+      console.log(`[TestFlightAuto] Internal Group "${g1Group.attributes?.name}" already has automatic access to all builds (hasAccessToAllBuilds: true).`);
     } else {
-      console.warn(`[TestFlightAuto] Warning linking to G1: ${linkG1Res.status} ${linkG1Res.rawText}`);
+      console.log(`[TestFlightAuto] Attaching Build ${buildId} to Internal Group "${g1Group.attributes?.name}" (ID: ${g1Group.id})...`);
+      const linkG1Res = await apiRequest(`/v1/betaGroups/${g1Group.id}/relationships/builds`, token, {
+        method: 'POST',
+        body: JSON.stringify({
+          data: [{ type: 'builds', id: buildId }]
+        })
+      });
+      if (linkG1Res.ok) {
+        console.log(`[TestFlightAuto] -> Build successfully linked to Internal Group "${g1Group.attributes?.name}" (INSTANT DISTRIBUTION)!`);
+      } else if (linkG1Res.status === 409) {
+        console.log(`[TestFlightAuto] -> Build is already linked to Internal Group "${g1Group.attributes?.name}".`);
+      } else {
+        console.warn(`[TestFlightAuto] Warning linking to G1: ${linkG1Res.status} ${linkG1Res.rawText}`);
+      }
     }
   }
 
@@ -263,7 +267,7 @@ async function main() {
   if (existingSubmission && existingSubmission.attributes?.betaReviewState) {
     console.log(`[TestFlightAuto] -> Build review already exists with state: ${existingSubmission.attributes.betaReviewState}`);
   } else {
-    const submitRes = await apiRequest('/v1/betaAppReviewSubmissions', token, {
+    let submitRes = await apiRequest('/v1/betaAppReviewSubmissions', token, {
       method: 'POST',
       body: JSON.stringify({
         data: {
@@ -276,6 +280,55 @@ async function main() {
         }
       })
     });
+
+    if (submitRes.status === 422 && submitRes.rawText?.includes('SUBMISSION_LIMIT_REACHED')) {
+      console.log('[TestFlightAuto] Another older build is currently waiting in review queue. Setting older waiting builds to expired to free up review slot...');
+      try {
+        const recentBuildsRes = await apiRequest(`/v1/builds?filter[app]=${appId}&sort=-uploadedDate&limit=25`, token);
+        if (recentBuildsRes.ok && recentBuildsRes.data?.data) {
+          for (const oldBuild of recentBuildsRes.data.data) {
+            if (oldBuild.id === buildId) continue;
+            if (oldBuild.attributes?.expired) continue;
+            const oldSubRes = await apiRequest(`/v1/builds/${oldBuild.id}/betaAppReviewSubmission`, token);
+            const oldSub = oldSubRes.data?.data;
+            if (oldSub?.id && oldSub.attributes?.betaReviewState === 'WAITING_FOR_REVIEW') {
+              console.log(`[TestFlightAuto] Found older waiting review submission on Build ${oldBuild.attributes?.version}. Expiring it to clear review queue...`);
+              const expRes = await apiRequest(`/v1/builds/${oldBuild.id}`, token, {
+                method: 'PATCH',
+                body: JSON.stringify({
+                  data: {
+                    type: 'builds',
+                    id: oldBuild.id,
+                    attributes: { expired: true }
+                  }
+                })
+              });
+              if (expRes.ok) {
+                console.log(`[TestFlightAuto] -> Successfully expired older Build ${oldBuild.attributes?.version} and cleared review queue!`);
+              }
+            }
+          }
+        }
+      } catch (cancelErr) {
+        console.warn('[TestFlightAuto] Warning during older build expiration:', cancelErr.message);
+      }
+
+      // Retry submission for the newest build
+      console.log('[TestFlightAuto] Retrying review submission for the newest build...');
+      submitRes = await apiRequest('/v1/betaAppReviewSubmissions', token, {
+        method: 'POST',
+        body: JSON.stringify({
+          data: {
+            type: 'betaAppReviewSubmissions',
+            relationships: {
+              build: {
+                data: { type: 'builds', id: buildId }
+              }
+            }
+          }
+        })
+      });
+    }
 
     if (submitRes.ok || submitRes.status === 201) {
       console.log('[TestFlightAuto] -> SUCCESS: Build is now submitted for Beta App Review (WAITING_FOR_REVIEW)!');
