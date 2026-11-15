@@ -749,6 +749,13 @@
                         <label for="customToolTags" id="customToolTagsLabel">标签</label>
                         <input class="tool-import-input" id="customToolTags" name="tags" autocomplete="off">
                     </div>
+                    <div class="tool-import-field full tool-import-share-field" id="customToolShareField" hidden>
+                        <label class="tool-import-checkbox-label">
+                            <input type="checkbox" id="customToolShareCheckbox" name="sharedAccess">
+                            <span id="customToolShareLabel">全员开放（共享给所有团队和普通成员）</span>
+                        </label>
+                        <p class="tool-import-field-hint" id="customToolShareHint">默认不勾选（未全员开放），仅超级管理员可见；勾选后导入成功立即向全平台所有成员开放。</p>
+                    </div>
                 </div>
                 <div class="tool-import-error" id="customToolImportError" role="alert"></div>
                 <div class="tool-import-progress" id="customToolImportProgress" hidden>

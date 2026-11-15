@@ -168,7 +168,7 @@ function rowToSkill(row) {
         builtIn: false,
         customized: false,
         hidden: false,
-        source: row.source,
+        source: row.source === 'builtin' ? 'chat' : row.source,
         fileCount: files.length,
         createdBy: row.created_by,
         createdAt: row.created_at,
@@ -325,7 +325,7 @@ async function insertDemoted(skill, files, createdBy = '') {
     await ensureReady();
     const now = new Date().toISOString();
     await run(`INSERT OR REPLACE INTO agent_skills (id, name, name_en, description, description_en, icon, workspace, body, files_json, source, created_by, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'builtin', ?, ?, ?)`,
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'chat', ?, ?, ?)`,
     [skill.id, skill.name, skill.nameEn, skill.description, skill.descriptionEn, skill.icon || '✨', skill.workspace ? 1 : 0, skill.body, JSON.stringify(files || []), createdBy, now, now]);
 }
 

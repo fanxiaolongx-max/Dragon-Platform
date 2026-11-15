@@ -1,12 +1,12 @@
 {
   "zh": [
-    "家庭财务记账升级为纯原生通信与快速环境预检：重构底层通信架构彻底去除 Python 依赖，跨 Windows/macOS/Linux 原生运行；增加 2.5 秒快速网络与保险箱 API Key 预检，杜绝失败时无谓执行终端命令行探测。",
-    "Open-AutoGLM 手机端控制增加服务连通性预检与防刷约束：新增 2.5 秒端口存活探测与鉴权检查，服务端未就绪时直接向用户输出诊断指引，严禁模型在终端执行网络或进程命令探测。",
-    "微信本地库查询技能新增操作系统与解密库环境预检：仅限 macOS 宿主机且本地解密库目录就绪时启用，非 macOS 或目录缺失环境下自动停用并给出清晰状态说明，避免无意义的命令行报错。"
+    "修复技能、工具与脚本卡片取消内置后卡片外框微弱光晕未同步移除以及技能来源过滤仍显示已取消内置条目的问题，并统一各类目卡片菜单的内置切换体验。",
+    "超级管理员上传自定义工具或导入技能时新增可选「全员开放」开关：默认保持未全员开放（仅创建者/管理员可见），勾选后导入成功即可直接共享给所有团队成员。",
+    "基座 Digital Human Web 同步内置状态判断、来源过滤规则与全员开放导入选项，确保多端平台行为与视觉效果完全一致。"
   ],
   "en": [
-    "Family Finance Bookkeeper upgraded to 100% native Node.js API with fast preflight check: completely eliminated Python dependency for cross-platform compatibility on Windows/macOS/Linux, added 2.5s connectivity probe and Vault API key check to prevent terminal command probing loops.",
-    "Open-AutoGLM mobile control enhanced with fast preflight connectivity validation: added 2.5s port health probe and authentication verification, outputting direct diagnostic instructions and preventing runaway command diagnostics when offline.",
-    "WeChat Vault skill updated with OS and decrypted database directory prerequisites: strictly enabled only on macOS hosts with local vault directories mounted, automatically disabled with clear diagnostic status on non-macOS environments."
+    "Fixed built-in demotion visual styling and source filtering across Skills, Tools, and Plugins/Scripts, ensuring borders and category filters accurately reflect demoted status.",
+    "Added optional 'Share with all' toggle in custom tool and skill import modal for superadmins: defaults to unshared, allowing one-click publishing upon import.",
+    "Synchronized built-in state detection, source filtering, and import sharing toggle to Digital Human Web base project for identical behavior across platforms."
   ]
 }

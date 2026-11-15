@@ -180,7 +180,7 @@ async function demoteTool(slug) {
         delete manifest.system;
         writeJsonAtomic(manifestPath, manifest);
     }
-    if (installedNow) await customTools.reconcileToolsFromDisk(); // 刚补装的副本按磁盘清单登记到工具列表
+    await customTools.reconcileToolsFromDisk(); // 无论是否补装，均按最新清单刷新工具列表与内置状态
     return { kind: 'tool', id: slug, builtIn: false, backup };
 }
 

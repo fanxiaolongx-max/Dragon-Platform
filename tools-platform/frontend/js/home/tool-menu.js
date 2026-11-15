@@ -146,11 +146,15 @@
                     kind: 'plugin',
                     id: item.key,
                     capabilityId: item.capabilityId,
+                    promoteId: item.promoteId || item.capabilityId,
+                    builtInLocked: item.builtInLocked === true,
+                    builtIn: item.builtIn === true,
                     badge: item.capabilityBadge,
                     capabilityKind: item.capabilityKind,
                     sharedAccess: item.sharedAccess,
                     name: item.title,
-                    href: item.href
+                    href: item.href,
+                    card
                 };
             }
             // item.kind === 'tool'
@@ -712,6 +716,22 @@
                 const accept = target.badge === 'extension' ? '.zip' : target.capabilityKind === 'python' ? '.py,.zip' : '.js,.json,.zip';
                 const capReview = reviewAction('cap', target.capabilityId, accept, target);
                 if (capReview) actions.push(capReview);
+                if (isSuperAdmin() && !isReadonly() && window.BuiltinPromotion?.toggle && ['f12', 'python'].includes(target.capabilityKind)) {
+                    const isLocked = target.builtInLocked || (target.capabilityId && window.BuiltinPromotion.isLocked?.(target.capabilityId));
+                    if (!isLocked) {
+                        actions.push({
+                            id: 'promote',
+                            label: target.builtIn ? t('demote') : t('promote'),
+                            icon: 'cube',
+                            run: async () => {
+                                await window.BuiltinPromotion.toggle(target.capabilityKind, target.promoteId || target.capabilityId, {
+                                    builtIn: target.builtIn,
+                                    name: target.name
+                                });
+                            }
+                        });
+                    }
+                }
                 if (canPersonalize()) {
                     actions.push(...personalActions('cap', target.capabilityId, target, () => window.HomeCapabilities?.reload?.(), options));
                 }

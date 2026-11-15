@@ -134,6 +134,8 @@
                 'home.import.descriptionEn': '英文简介',
                 'home.import.tags': '标签',
                 'home.import.tagsPlaceholder': '用逗号分隔，最多 8 个',
+                'home.import.shareLabel': '全员开放（共享给所有团队和普通成员）',
+                'home.import.shareHint': '默认不勾选（未全员开放），仅超级管理员可见；勾选后导入成功立即向全平台所有成员开放。',
                 'home.import.cancel': '取消',
                 'home.import.done': '完成',
                 'home.import.submit': '导入工具',
@@ -380,6 +382,8 @@
                 'home.import.descriptionEn': 'English description',
                 'home.import.tags': 'Tags',
                 'home.import.tagsPlaceholder': 'Comma-separated, up to 8 tags',
+                'home.import.shareLabel': 'Share with all (make accessible to all teams and members)',
+                'home.import.shareHint': 'Default unchecked (unshared). Only visible to superadmins. If checked, immediately shared with all members upon import.',
                 'home.import.cancel': 'Cancel',
                 'home.import.done': 'Done',
                 'home.import.submit': 'Import Tool',
@@ -1202,6 +1206,8 @@
             setText('#customToolDescriptionLabel', t('home.import.description'));
             setText('#customToolDescriptionEnLabel', t('home.import.descriptionEn'));
             setText('#customToolTagsLabel', t('home.import.tags'));
+            setText('#customToolShareLabel', t('home.import.shareLabel'));
+            setText('#customToolShareHint', t('home.import.shareHint'));
             setText('#customToolImportCancel', t('home.import.cancel'));
             const importSubmit = document.getElementById('customToolImportSubmit');
             if (importSubmit && !importSubmit.disabled) importSubmit.textContent = t(importSubmit.dataset.completed === 'true' ? 'home.import.done' : 'home.import.submit');
@@ -1542,6 +1548,8 @@
             const descriptionInput = document.getElementById('customToolDescription');
             const descriptionEnInput = document.getElementById('customToolDescriptionEn');
             const tagsInput = document.getElementById('customToolTags');
+            const shareField = document.getElementById('customToolShareField');
+            const shareCheckbox = document.getElementById('customToolShareCheckbox');
             const errorBox = document.getElementById('customToolImportError');
             const submitBtn = document.getElementById('customToolImportSubmit');
             const aiStatus = document.getElementById('customToolAiStatus');
@@ -1844,6 +1852,7 @@
                 nameInput.dataset.autoValue = '';
                 fileName.textContent = '';
                 filePicker.classList.remove('has-file');
+                if (shareCheckbox) shareCheckbox.checked = false;
                 setAiStatus();
                 setSkillMode(null);
                 setPythonMode(null);
@@ -1855,6 +1864,11 @@
                 }
                 resetImportForm();
                 updateFileHint();
+                if (shareField && shareCheckbox) {
+                    const isSuper = isSuperAdminUser();
+                    shareField.hidden = !isSuper || Boolean(updateTarget?.slug);
+                    shareCheckbox.checked = false;
+                }
                 currentUpdateTarget = updateTarget && updateTarget.slug ? updateTarget : null;
                 if (currentUpdateTarget) {
                     const customTool = currentUpdateTarget.customTool || (window.__homeCustomTools || []).find(t => t.slug === currentUpdateTarget.slug);
@@ -1972,6 +1986,13 @@
                         submitBtn.disabled = true;
                         submitBtn.textContent = t('home.import.submitting');
                         const skill = await importSkill();
+                        if (shareCheckbox && shareCheckbox.checked && isSuperAdminUser() && skill?.id) {
+                            try {
+                                await API.patch('/api/distribution', { kind: 'skill', id: skill.id, sharedAccess: true });
+                            } catch (e) {
+                                console.warn('[import] auto share skill failed:', e);
+                            }
+                        }
                         submitBtn.dataset.completed = 'true';
                         showToast(t('home.import.skillImported', { id: skill.id }));
                         window.dispatchEvent(new CustomEvent('skills:changed', { detail: { id: skill.id } }));
@@ -2018,7 +2039,15 @@
                         payload.htmlContent = await file.text();
                     }
                     uploadLogs.length = 0;
-                    await CustomToolUpload.upload(payload, { onProgress: logUpload });
+                    const uploadResult = await CustomToolUpload.upload(payload, { onProgress: logUpload });
+                    const createdSlug = currentUpdateTarget?.slug || uploadResult?.tool?.slug || payload.slug;
+                    if (shareCheckbox && shareCheckbox.checked && isSuperAdminUser() && createdSlug) {
+                        try {
+                            await API.patch(`/api/custom-tools/${encodeURIComponent(createdSlug)}/distribution`, { sharedAccess: true });
+                        } catch (e) {
+                            console.warn('[import] auto share tool failed:', e);
+                        }
+                    }
                     try { window.CatalogUpdateAudit?.markUpdated?.('tool', currentUpdateTarget?.slug || payload.slug || name); } catch (_) {}
                     submitBtn.dataset.completed = 'true';
                     showToast(t(pythonImport ? (pythonImport.updateSlug ? 'home.import.pyUpdated' : 'home.import.pyImported') : isToolUpdate ? 'home.import.toolUpdated' : 'home.toast.imported', { name }));

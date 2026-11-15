@@ -752,6 +752,9 @@
         .tool-import-field.full { grid-column: 1 / -1; }
         .tool-import-field label { color: #cbd5e1; font-size: 12px; font-weight: 750; }
         .tool-import-field label span { color: #fb7185; }
+        .tool-import-checkbox-label { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; font-weight: 600; color: #e2e8f0; user-select: none; }
+        .tool-import-checkbox-label input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: #38bdf8; margin: 0; }
+        .tool-import-field-hint { margin: 2px 0 0; font-size: 11px; color: #94a3b8; line-height: 1.4; }
         .tool-import-input, .tool-import-textarea {
             width: 100%;
             box-sizing: border-box;

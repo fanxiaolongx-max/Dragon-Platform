@@ -1683,6 +1683,9 @@ html[data-ui="v2"] #customToolImportModal .tool-import-file-name { color: var(--
 html[data-ui="v2"] #customToolImportModal .tool-import-fields { grid-template-columns: 68px 1fr; gap: 12px 14px; }
 html[data-ui="v2"] #customToolImportModal .tool-import-field { gap: 5px; }
 html[data-ui="v2"] #customToolImportModal .tool-import-field label { color: var(--v2-ink2); font-weight: 550; }
+html[data-ui="v2"] #customToolImportModal .tool-import-checkbox-label { color: var(--v2-ink); }
+html[data-ui="v2"] #customToolImportModal .tool-import-checkbox-label input[type="checkbox"] { accent-color: var(--v2-accent, #38bdf8); }
+html[data-ui="v2"] #customToolImportModal .tool-import-field-hint { color: var(--v2-ink3); }
 html[data-ui="v2"] #customToolImportModal .tool-import-field label span { color: var(--v2-danger); }
 html[data-ui="v2"] #customToolImportModal :is(.tool-import-input, .tool-import-textarea) {
     border-color: var(--v2-line-strong); border-radius: 9px; padding: 8px 10px;
