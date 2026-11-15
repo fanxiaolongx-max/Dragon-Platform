@@ -10,12 +10,13 @@
     let open=false,connected=false,docked=false,raf=0,readingVisible=false,previousMenu=null;
     const ZOOM_LEVELS=[.5,.67,.75,.8,.9,1,1.1,1.25,1.5,1.75,2,2.5,3];
     let vaultNotice={at:0,until:0,text:''};
+    let webBookmarks=[],bookmarkBusy=false;
     let state={tabs:[]},displayedFrame=null,autoFit=true,pageWidth=0,zoomed=false,viewScale=1,tabSignature='';
     let keyQueue=[],keySending=false,keyTimer=null,keyEpoch=0;
     let busy=false,refreshing=false,controller=null,viewEpoch=0,timer=null,lastHeartbeat=0,manualToken='';
     const suspended=new Set();
     let toolAllowsBrowser=false;
-    const icons={back:'<path d="m12 4-6 6 6 6M6 10h11"/>',forward:'<path d="m8 4 6 6-6 6M3 10h11"/>',reload:'<path d="M16 7a7 7 0 1 0 1 6M16 3v5h-5"/>',extensions:'<path d="M7 3h3a2 2 0 1 1 4 0h3v5a2 2 0 1 0 0 4v5h-5a2 2 0 1 0-4 0H3v-5a2 2 0 1 1 0-4V3z"/>',downloads:'<path d="M10 2v10m-4-4 4 4 4-4M3 12v5h14v-5"/>',more:'<circle cx="4" cy="10" r="1"/><circle cx="10" cy="10" r="1"/><circle cx="16" cy="10" r="1"/>',tabs:'<path d="m5 8 5 5 5-5"/>',external:'<path d="M11 3h6v6M17 3 8 12M8 4H3v13h13v-5"/>',close:'<path d="m5 5 10 10M15 5 5 15"/>','new-tab':'<path d="M10 3v14M3 10h14"/>',keyboard:'<rect x="2" y="4" width="16" height="12" rx="2"/><path d="M5 7h1m3 0h1m3 0h2M5 10h1m3 0h1m3 0h2M6 13h8"/>'};
+    const icons={bookmark:'<path d="m10 2 2.5 5 5.5.8-4 3.9 1 5.5-5-2.6-5 2.6 1-5.5-4-3.9 5.5-.8Z"/>',back:'<path d="m12 4-6 6 6 6M6 10h11"/>',forward:'<path d="m8 4 6 6-6 6M3 10h11"/>',reload:'<path d="M16 7a7 7 0 1 0 1 6M16 3v5h-5"/>',extensions:'<path d="M7 3h3a2 2 0 1 1 4 0h3v5a2 2 0 1 0 0 4v5h-5a2 2 0 1 0-4 0H3v-5a2 2 0 1 1 0-4V3z"/>',downloads:'<path d="M10 2v10m-4-4 4 4 4-4M3 12v5h14v-5"/>',more:'<circle cx="4" cy="10" r="1"/><circle cx="10" cy="10" r="1"/><circle cx="16" cy="10" r="1"/>',tabs:'<path d="m5 8 5 5 5-5"/>',external:'<path d="M11 3h6v6M17 3 8 12M8 4H3v13h13v-5"/>',close:'<path d="m5 5 10 10M15 5 5 15"/>','new-tab':'<path d="M10 3v14M3 10h14"/>',keyboard:'<rect x="2" y="4" width="16" height="12" rx="2"/><path d="M5 7h1m3 0h1m3 0h2M5 10h1m3 0h1m3 0h2M6 13h8"/>'};
     const icon=name=>`<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name]||icons.more}</svg>`;
     function menuButton(action,label,disabled=false){return `<button type="button" data-browser="${action}"${disabled?' disabled':''}>${esc(label)}</button>`;}
     function syncTheme(force=false){
@@ -35,6 +36,7 @@
             const name=['downloads','extensions','tabs'].includes(next)?next:'more',r=panel.querySelector(`[data-browser="${name}"]`).getBoundingClientRect();
             bridge.action('sidebar-menu',{name:next,x:Math.round(r.left),y:Math.round(r.bottom+4)});return;
         }
+        if(next==='bookmarks'&&!bridge)loadBookmarks();
         menu=menu===next?'':next;menuSignature='';renderMenu();layout();
     }
     function renderMenu(){
@@ -68,7 +70,7 @@
             title=L('扩展程序','Extensions');body=bridge?((state.extensions||[]).map(item=>`<div class="dc-browser-download"><div><b>${esc(item.name)}</b><small>${esc(item.version)} · ${item.enabled?L('已加载','Loaded'):L('加载失败','Failed to load')}</small></div></div>`).join(''))+'<p>'+L('管理已加载的扩展，导入 ZIP 或文件夹，或启用本机 Chrome / Edge 扩展。','Manage loaded extensions, import a ZIP or folder, or enable local Chrome / Edge extensions.')+'</p>'+menuButton('plugins',L('管理扩展程序…','Manage extensions…')):'<p>'+L('扩展管理适用于 Dragon 桌面版。Web 侧栏无法访问或安装你当前 Chrome / Safari 的扩展。','Extension management is available in Dragon desktop. The web sidebar cannot access or install your Chrome / Safari extensions.')+'</p>';
         }else if(menu==='history'||menu==='bookmarks'){
             title=menu==='history'?L('历史记录','History'):L('收藏夹','Bookmarks');
-            body=bridge?(state[menu]||[]).slice(0,80).map(item=>`<button type="button" class="dc-browser-library-item" data-library-url="${esc(item.url)}"><b>${esc(item.title||item.url)}</b><small>${esc(item.url)}</small></button>`).join('')||'<p>'+L('暂无记录','No entries yet')+'</p>':'<p>'+L('历史与收藏管理目前在 Dragon 桌面版提供。','History and bookmarks are available in Dragon desktop.')+'</p>';
+            body=(bridge||menu==='bookmarks')?(bridge?state[menu]||[]:webBookmarks).slice(0,80).map(item=>`<button type="button" class="dc-browser-library-item" data-library-url="${esc(item.url)}"><b>${esc(item.title||item.url)}</b><small>${esc(item.url)}</small></button>`).join('')||'<p>'+L('暂无记录','No entries yet')+'</p>':'<p>'+L('历史与收藏管理目前在 Dragon 桌面版提供。','History and bookmarks are available in Dragon desktop.')+'</p>';
             if(state.libraryError)body='<p>'+L('记录暂时不可用，请重试。','Records are unavailable. Try again.')+'</p>';
         }else if(menu==='tabs'){
             title=L('所有标签页','All tabs');body=state.tabs.map(tab=>`<button type="button" data-tab="${esc(tab.id)}">${tab.id===state.activeId?'✓ ':''}<span aria-hidden="true" class="dc-browser-tab-icon">◎</span>${esc(tab.url==='about:blank'?L('新标签页','New tab'):tab.title||L('新标签页','New tab'))}</button>`).join('')||'<p>'+L('暂无标签页，点击 + 开始浏览。','No tabs yet. Click + to start browsing.')+'</p>';
@@ -191,6 +193,7 @@
         if(!liveCanvas&&panel?.classList.contains('is-swarm-canvas'))window.DragonHtmlSwarm?.deactivate?.();
         // 普通桌面工具与侧栏并排显示；独立原生工具视图仍暂停挂载，避免互相覆盖。
         if(toolAllowsBrowser)suspended.delete('tool');
+        if(!bridge)loadBookmarks();
         const fresh=!open;if(fresh)collapseMenu();open=true;
         if(!liveCanvas&&bridge&&(!connected||!docked)){connected=await bridge.connect().catch(()=>false);docked=connected;}
         syncTheme(true);visibility();if(fresh)requestAnimationFrame(fit);
@@ -262,7 +265,10 @@
         const signature=JSON.stringify([tabs,activeId,L('中','en')]);
         if(signature!==tabSignature){tabSignature=signature;paintTabs(tabs,activeId);}
         for(const button of tabsNode.querySelectorAll('button'))button.disabled=busy||elsewhere||creating||button.closest('.is-leaving')!==null;
-        const labels={more:L('更多选项','More options'),downloads:L('下载','Downloads'),extensions:L('扩展程序','Extensions'),tabs:L('搜索标签页','All tabs'),keyboard:L('网页输入与上传','Page input and upload'),close:L('关闭浏览器','Close browser'),external:bridge?L('在系统默认浏览器打开','Open in default browser'):L('在新标签页打开','Open in new tab'),back:L('后退','Back'),forward:L('前进','Forward'),reload:L('刷新','Refresh'), 'new-tab':L('新标签页','New tab')};
+        const saved=bridge?state.bookmarked:webBookmarks.some(item=>item.url===bookmarkUrl(url));
+        const bookmarkButton=panel.querySelector('[data-browser=bookmark]');
+        bookmarkButton.classList.toggle('is-bookmarked',Boolean(saved));bookmarkButton.setAttribute('aria-pressed',String(Boolean(saved)));bookmarkButton.disabled=bookmarkBusy||!bookmarkUrl(url);
+        const labels={bookmark:saved?L('取消收藏此网页','Remove bookmark'):L('收藏此网页','Bookmark this page'),more:L('更多选项','More options'),downloads:L('下载','Downloads'),extensions:L('扩展程序','Extensions'),tabs:L('搜索标签页','All tabs'),keyboard:L('网页输入与上传','Page input and upload'),close:L('关闭浏览器','Close browser'),external:bridge?L('在系统默认浏览器打开','Open in default browser'):L('在新标签页打开','Open in new tab'),back:L('后退','Back'),forward:L('前进','Forward'),reload:L('刷新','Refresh'), 'new-tab':L('新标签页','New tab')};
         const hasDownloads=!bridge&&Boolean(state.downloads?.length);
         panel.querySelector('.dc-browser-toolbar-actions [data-browser=downloads]').classList.toggle('has-downloads',hasDownloads);
         if(hasDownloads)labels.downloads=L('下载（有记录）','Downloads available');
@@ -498,7 +504,23 @@
         let url;try{url=normalizeUrl(address.value);}catch{status.textContent=L('请输入有效的 HTTP 或 HTTPS 网址。','Enter a valid HTTP or HTTPS URL.');return;}
         autoFit=true;pageWidth=0;command('open',{url});
     }
+    function bookmarkUrl(value){
+        try{const url=new URL(value);if(!['http:','https:'].includes(url.protocol))return '';url.username='';url.password='';for(const key of [...url.searchParams.keys()])if(/token|password|secret|authorization|api.?key|signature|^code$|^state$/i.test(key))url.searchParams.delete(key);if(/token|password|secret|authorization|api.?key|signature/i.test(url.hash))url.hash='';return url.href;}catch{return '';}
+    }
+    async function bookmarkRequest(payload){
+        const response=await fetch('/api/agent-workspace/browser/bookmarks',{method:payload?'POST':'GET',cache:'no-store',headers:{...headers(),'Content-Type':'application/json'},...(payload?{body:JSON.stringify(payload)}:{})});
+        const result=await response.json();if(!response.ok)throw Error(result.error||`HTTP ${response.status}`);webBookmarks=result.items||[];menuSignature='';render();return webBookmarks;
+    }
+    async function loadBookmarks(){try{await bookmarkRequest();}catch(error){if(menu==='bookmarks')showError(error.message);}}
+    async function toggleBookmark(){
+        if(bridge)return bridge.action('bookmark');
+        if(bookmarkBusy)return;
+        const tab=state.tabs.find(item=>item.id===state.activeId),url=bookmarkUrl(state.url||tab?.url);if(!url)return;
+        bookmarkBusy=true;render();
+        try{await bookmarkRequest({url,title:state.title||tab?.title||url,remove:webBookmarks.some(item=>item.url===url)});}catch(error){showError(error.message);}finally{bookmarkBusy=false;render();}
+    }
     function action(name){
+        if(name==='bookmark')return toggleBookmark();
         if(name==='close')return close();
         if(name==='dismiss-menu'){menu='';renderMenu();return layout();}
         if(['more','downloads','extensions','tabs','keyboard','history','bookmarks'].includes(name)){
@@ -546,7 +568,7 @@
         toggle=document.getElementById('dcBrowserToggle');const workspace=document.getElementById('dcWorkspacePanel');if(!toggle||!workspace)return;
         panel=document.createElement('aside');panel.className='dc-browser-panel';panel.classList.toggle('dc-browser-native',Boolean(bridge));panel.id='dcBrowserPanel';panel.hidden=true;
         const button=(name)=>`<button type="button" data-browser="${name}">${icon(name)}</button>`;
-        panel.innerHTML=`<header class="dc-browser-head"><strong>Dragon 浏览器</strong><div class="dc-browser-tabbar"><div class="dc-browser-tabs" role="tablist"></div>${button('new-tab')}${button('tabs')}</div><div class="dc-browser-window-actions">${button('external')}${button('close')}</div></header><form class="dc-browser-address"><div class="dc-browser-navigation">${button('back')}${button('forward')}${button('reload')}</div><div class="dc-browser-url-wrap"><input autocomplete="off" spellcheck="false" enterkeyhint="go"><div class="dc-browser-status-badge" role="status" aria-live="polite" hidden><span class="dc-browser-status-dot" aria-hidden="true"></span><span class="dc-browser-status-text"></span></div></div><button type="submit" class="dc-browser-go" aria-label="Go">↵</button><div class="dc-browser-toolbar-actions">${button('keyboard')}${button('extensions')}${button('downloads')}${button('more')}</div></form><div class="dc-browser-hint" hidden></div><section class="dc-browser-popup" hidden><div class="dc-browser-popup-content"></div></section><div class="dc-browser-find" hidden><input data-find-input><span data-find-count></span><button type="button" data-find-forward="false">↑</button><button type="button" data-find-forward="true">↓</button><button type="button" data-browser="find-close">×</button></div><div class="dc-browser-control" hidden><label></label><div class="dc-browser-type"><input data-remote-text autocomplete="off" autocapitalize="off" spellcheck="false"><button type="button" data-browser="send-text"></button></div><div class="dc-browser-control-options"><label><input type="checkbox" data-replace><span data-label="replace"></span></label><label><input type="checkbox" data-mask><span data-label="mask"></span></label><label><input type="checkbox" data-drag-mode><span data-label="drag"></span></label></div><div class="dc-browser-upload"><button type="button" data-browser="upload"></button><input type="file" data-local-files hidden></div><div class="dc-browser-control-keys"><button type="button" data-browser="remote-up"></button><button type="button" data-browser="remote-down"></button><button type="button" data-browser="remote-tab"></button><button type="button" data-browser="remote-backspace"></button><button type="button" data-browser="remote-enter"></button><button type="button" data-browser="remote-zoom"></button></div></div><div class="dc-browser-surface"><div class="dc-browser-agent-view"><div class="dc-browser-agent-status" role="status"></div><img hidden></div></div>`;
+        panel.innerHTML=`<header class="dc-browser-head"><strong>Dragon 浏览器</strong><div class="dc-browser-tabbar"><div class="dc-browser-tabs" role="tablist"></div>${button('new-tab')}${button('tabs')}</div><div class="dc-browser-window-actions">${button('external')}${button('close')}</div></header><form class="dc-browser-address"><div class="dc-browser-navigation">${button('back')}${button('forward')}${button('reload')}</div><div class="dc-browser-url-wrap"><input autocomplete="off" spellcheck="false" enterkeyhint="go"><div class="dc-browser-status-badge" role="status" aria-live="polite" hidden><span class="dc-browser-status-dot" aria-hidden="true"></span><span class="dc-browser-status-text"></span></div></div><button type="submit" class="dc-browser-go" aria-label="Go">↵</button><div class="dc-browser-toolbar-actions">${button('bookmark')}${button('keyboard')}${button('extensions')}${button('downloads')}${button('more')}</div></form><div class="dc-browser-hint" hidden></div><section class="dc-browser-popup" hidden><div class="dc-browser-popup-content"></div></section><div class="dc-browser-find" hidden><input data-find-input><span data-find-count></span><button type="button" data-find-forward="false">↑</button><button type="button" data-find-forward="true">↓</button><button type="button" data-browser="find-close">×</button></div><div class="dc-browser-control" hidden><label></label><div class="dc-browser-type"><input data-remote-text autocomplete="off" autocapitalize="off" spellcheck="false"><button type="button" data-browser="send-text"></button></div><div class="dc-browser-control-options"><label><input type="checkbox" data-replace><span data-label="replace"></span></label><label><input type="checkbox" data-mask><span data-label="mask"></span></label><label><input type="checkbox" data-drag-mode><span data-label="drag"></span></label></div><div class="dc-browser-upload"><button type="button" data-browser="upload"></button><input type="file" data-local-files hidden></div><div class="dc-browser-control-keys"><button type="button" data-browser="remote-up"></button><button type="button" data-browser="remote-down"></button><button type="button" data-browser="remote-tab"></button><button type="button" data-browser="remote-backspace"></button><button type="button" data-browser="remote-enter"></button><button type="button" data-browser="remote-zoom"></button></div></div><div class="dc-browser-surface"><div class="dc-browser-agent-view"><div class="dc-browser-agent-status" role="status"></div><img hidden></div></div>`;
         workspace.after(panel);surface=panel.querySelector('.dc-browser-surface');address=panel.querySelector('.dc-browser-address input');tabsNode=panel.querySelector('.dc-browser-tabs');hint=panel.querySelector('.dc-browser-hint');image=panel.querySelector('.dc-browser-agent-view img');statusBadge=panel.querySelector('.dc-browser-status-badge');statusTextNode=panel.querySelector('.dc-browser-status-text');agentStatusNode=panel.querySelector('.dc-browser-agent-status');controlBox=panel.querySelector('.dc-browser-control');textInput=panel.querySelector('[data-remote-text]');
         status={
             get textContent(){return statusTextNode?.textContent||agentStatusNode?.textContent||'';},
@@ -572,7 +594,7 @@
             const button=event.target.closest('button');if(!button)return;
             if(button.dataset.download&&bridge)bridge.action('download-action',{id:button.dataset.download,action:button.dataset.downloadAction});
             if(!bridge&&button.dataset.downloadAction==='save')saveDownload(button);
-            if(button.dataset.libraryUrl&&bridge){bridge.action('library-open',button.dataset.libraryUrl);setMenu(menu);}
+            if(button.dataset.libraryUrl){if(bridge)bridge.action('library-open',button.dataset.libraryUrl);else command('open',{url:button.dataset.libraryUrl});setMenu(menu);}
             if(button.dataset.findForward&&bridge)bridge.action('find',{text:panel.querySelector('[data-find-input]').value,forward:button.dataset.findForward==='true'});
         });
         panel.querySelector('[data-find-input]').addEventListener('input',event=>bridge?.action('find',{text:event.target.value}));

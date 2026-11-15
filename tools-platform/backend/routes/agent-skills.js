@@ -92,7 +92,7 @@ router.get('/:id', async (req, res) => {
     try {
         const skill = await store.withSkillForUser(req.params.id, req.user, async item => ({ ...await store.getSkill(item.id), name: item.name, shared: item.shared, personal: item.personal }));
         if (!skill) return res.status(404).json({ error: '技能不存在' });
-        res.json({ skill });
+        res.json({ skill: { ...skill, files: require('../models/agent-skill-files').publicFiles(skill.files) } });
     } catch (error) {
         sendError(res, error, '读取技能详情失败');
     }
@@ -128,7 +128,7 @@ router.get('/:id/backups', async (req, res) => {
 router.get('/:id/backups/:backupId', async (req, res) => {
     try {
         const backup = await store.getBackup(req.params.id, req.params.backupId);
-        res.json({ backup });
+        res.json({ backup: backup ? { ...backup, files: require('../models/agent-skill-files').publicFiles(backup.files) } : backup });
     } catch (error) {
         sendError(res, error, '读取备份详情失败');
     }

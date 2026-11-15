@@ -26,7 +26,11 @@
         const keys=new Set(rows.slice(0,200).flatMap(row=>row&&typeof row==='object'?Object.keys(row):[]));
         return field=>{
             if(typeof field!=='string'||!field)fail('字段名不能为空');
-            if(rows.length&&!keys.has(field))fail(`「${from}」里没有字段「${field}」，实际字段：${[...keys].slice(0,40).join('、')}`);
+            if(rows.length&&!keys.has(field)){
+                const metric=rows.find(row=>row&&row.label===field&&'value' in row);
+                const hint=metric?`。「${field}」是指标名称，不是字段名；读取整体值用 where:[${JSON.stringify({field:'label',op:'=',value:field})}] 和 value:"value"；整体与运营商分项不能相加或取平均来替代整体值`:'';
+                fail(`「${from}」里没有字段「${field}」，实际字段：${[...keys].slice(0,40).join('、')}${hint}`);
+            }
             return field;
         };
     }
@@ -84,11 +88,13 @@
         if(typeof spec==='string')spec={field:spec};
         if(typeof spec!=='object')return spec;
         if('const' in spec)return spec.const;
+        // Report unknown fields before row ambiguity, otherwise a metric name mistaken for a column
+        // sends the compiler toward an aggregation that still cannot read that column.
+        if(spec.agg!=='count')check(spec.field);
         // Several rows and no agg is ambiguous (adding up rates across periods gives 296%): say which column differs.
-        if(!spec.agg&&rows.length>1)fail(`「${spec.field}」${where?`在「${where}」`:''}对应 ${rows.length} 行，没写怎么汇总。${differing(rows,spec.field)}请在 where 里再筛选到一行，或写 agg（sum/avg/max/min/first）`);
+        if(!spec.agg&&rows.length>1)fail(`「${spec.field}」${where?`在「${where}」`:''}对应 ${rows.length} 行，没写怎么汇总。${differing(rows,spec.field)}请在 where 里再筛选到一行；指标整体与运营商分项共存时，整体按 label 精确匹配、分项另查，不要相加、取平均或任取第一行。确需汇总的明细再写 agg（sum/avg/max/min/first）`);
         const agg=spec.agg||'first';
         if(!AGGS.includes(agg))fail(`不支持的汇总 ${agg}，可用：${AGGS.join(' ')}`);
-        if(agg!=='count')check(spec.field);
         let value=aggregate(rows,agg,spec.field);
         if(spec.divideBy){const base=aggregate(rows,spec.divideAgg||agg,check(spec.divideBy));value=num(value)!==null&&num(base)?num(value)/num(base):null;}
         if(value!==null&&spec.scale!==undefined&&num(value)!==null)value=num(value)*Number(spec.scale);
@@ -158,6 +164,8 @@ query 写法（严格 JSON）：
 - 公共：from = sources 里的 id；where = [{"field":"列名","op":"= != > >= < <= in notIn contains notEmpty","value":值}]；sort = {"by":"value","dir":"desc|asc"}；limit = 数量；exclude = [要去掉的分类]。
 - 分类对比 shape "items"（配 bar / bar-target / pie 等 items 模板）：{"shape":"items","from":"d1","where":[...],"label":"分类列","value":"数值列" 或 {"field":"列","agg":"sum|avg|count|min|max|first","scale":100,"divideBy":"分母列","digits":1},"target":{"const":95}}；同一分类多行时按 label 汇总（groupBy 可另指定分组列）。
 - 指标卡 shape "kpis"：{"shape":"kpis","from":"d1","where":[...],"cards":[{"label":"SR 总量","value":"sr_total"},{"label":"FRT 达成率","value":{"field":"sr_frt","scale":100,"digits":1},"unit":"%"}]}（多行时 value 写 agg 汇总）。
+- metrics 来源每行是一个指标，字段是 key、label、value、target 等；指标名称是 label 的取值，绝不能把“整改”等名称写成 value/field。同一来源可能同时包含整体和各运营商分项，整体值必须按 label 精确筛选，不能对整体和分项 sum/avg，也不能用 first 掩盖遗漏的筛选。
+- 例如整体指标卡加运营商表格可用独立查询：{"overall":{"shape":"kpis","from":"m1","where":[{"field":"label","op":"=","value":"整改"}],"cards":[{"label":"整体达成率","value":"value","unit":"%"}]},"operators":{"shape":"rows","from":"m1","where":[{"field":"label","op":"in","value":["整改 / TE","整改 / ORG","整改 / ET","整改 / VDF"]}],"columns":{"name":"label","rate":"value","target":"target"}}}。名称必须替换为 list_metrics 返回的真实名称；同源不同分区分别写 where，指标卡的显示 label 不会自动筛选数据。
 - 趋势 shape "series"：{"shape":"series","from":"d1","x":"月份列","series":[{"name":"工单量","field":"cnt","agg":"sum"}],"limit":6}，横轴按 x 排序（或 order 指定顺序）。
 - 明细表 shape "rows"：{"shape":"rows","from":"d1","where":[...],"columns":{"输出列":"原列名"},"sort":{...},"limit":20}；加 groupBy 时 columns 的值写 {"field","agg"}。
 - 一句话 shape "text"：{"shape":"text","from":"d1","where":[...],"parts":["本月工单 ",{"field":"cnt"}," 单"]}。

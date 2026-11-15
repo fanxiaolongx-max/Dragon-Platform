@@ -1185,6 +1185,142 @@ function buildLoginProbeStatusScript(loginVar, siteUrl) {
     })();`;
 }
 
+// In-page "waiting for login" card, styled like the batch console panel. Non-blocking (unlike
+// alert(), which froze the page every 10 s), built in a shadow root with CSSOM styles only so
+// site CSS and strict CSPs can't break it. Generated code avoids `${` so no macro variable can
+// be substituted into it.
+function buildUivLoginWaitScript(siteUrl, taskCount) {
+    const cfg = JSON.stringify({ url: String(siteUrl || ''), count: Number(taskCount) || 0, intervalMs: 10000 });
+    return `return (function (cfg) {
+        var ID = 'uivf12-login-wait';
+        var state = window.__uivf12LoginWait || (window.__uivf12LoginWait = { checks: 0, collapsed: false });
+        if (state.url !== cfg.url) { state.url = cfg.url; state.checks = 0; }
+        state.checks += 1;
+        window.__uivf12LoginWaitRender = render;
+        render();
+        return 'waiting-login';
+
+        function render() {
+        var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var host = document.getElementById(ID);
+        var fresh = !host;
+        if (!host) {
+            host = document.createElement('div');
+            host.id = ID;
+            (document.body || document.documentElement).appendChild(host);
+        }
+        host.style.cssText = 'all:initial;position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:2147483646;width:min(440px,calc(100vw - 32px));font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",Arial,sans-serif;';
+        var root = host.shadowRoot || (host.attachShadow ? host.attachShadow({ mode: 'open' }) : host);
+        while (root.firstChild) root.removeChild(root.firstChild);
+        var siteHost = cfg.url;
+        try { siteHost = new URL(cfg.url).host; } catch (e) {}
+        function el(tag, css, text) {
+            var node = document.createElement(tag);
+            if (css) node.style.cssText = css;
+            if (text !== undefined) node.textContent = text;
+            return node;
+        }
+        function dot(size) {
+            var wrap = el('span', 'position:relative;display:inline-block;flex:none;width:' + size + 'px;height:' + size + 'px;');
+            var ring = el('span', 'position:absolute;inset:0;border-radius:50%;background:#fbbf24;opacity:.55;');
+            wrap.appendChild(ring);
+            wrap.appendChild(el('span', 'position:absolute;inset:0;border-radius:50%;background:#fbbf24;box-shadow:0 0 10px rgba(251,191,36,.7);'));
+            if (!still && ring.animate) ring.animate([{ transform: 'scale(1)', opacity: .55 }, { transform: 'scale(2.6)', opacity: 0 }], { duration: 1400, iterations: Infinity, easing: 'ease-out' });
+            return wrap;
+        }
+        var glass = 'box-sizing:border-box;color:#e5f7ff;background:linear-gradient(145deg,rgba(6,18,32,.96),rgba(8,47,73,.94));border:1px solid rgba(56,189,248,.38);box-shadow:0 18px 60px rgba(8,47,73,.38),inset 0 0 0 1px rgba(255,255,255,.05);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);';
+
+        if (state.collapsed) {
+            var pill = el('button', glass + 'display:flex;align-items:center;gap:8px;margin:0 auto;padding:7px 14px;border-radius:999px;font:inherit;font-size:12px;cursor:pointer;');
+            pill.type = 'button';
+            pill.title = '展开登录提示';
+            pill.appendChild(dot(8));
+            pill.appendChild(el('span', 'font-weight:700;color:#f8fafc;', '等待登录'));
+            pill.appendChild(el('span', 'color:#93c5fd;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;', siteHost));
+            pill.addEventListener('click', function () { state.collapsed = false; render(); });
+            root.appendChild(pill);
+            return;
+        }
+
+        var card = el('div', glass + 'padding:16px 16px 14px;border-radius:14px;');
+        var head = el('div', 'display:flex;align-items:flex-start;gap:12px;');
+        var badge = el('div', 'position:relative;flex:none;width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:rgba(8,145,178,.18);border:1px solid rgba(103,232,249,.32);color:#67e8f9;');
+        badge.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+        var badgeDot = dot(9);
+        badgeDot.style.position = 'absolute';
+        badgeDot.style.top = '-3px';
+        badgeDot.style.right = '-3px';
+        badge.appendChild(badgeDot);
+        head.appendChild(badge);
+
+        var text = el('div', 'flex:1;min-width:0;');
+        var titleRow = el('div', 'display:flex;align-items:center;gap:8px;min-width:0;');
+        titleRow.appendChild(el('div', 'flex:none;font-size:14px;font-weight:800;letter-spacing:.2px;color:#f8fafc;', '等待登录'));
+        titleRow.appendChild(el('div', 'min-width:0;font-size:11px;color:#67e8f9;border:1px solid rgba(103,232,249,.28);border-radius:999px;padding:2px 8px;background:rgba(8,145,178,.14);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;', siteHost));
+        text.appendChild(titleRow);
+        var body = el('div', 'margin-top:6px;font-size:12.5px;line-height:1.6;color:#cbd5e1;');
+        body.appendChild(document.createTextNode('该站点有 '));
+        body.appendChild(el('b', 'color:#fde68a;font-weight:700;', String(cfg.count)));
+        body.appendChild(document.createTextNode(' 个抓取任务在排队。请在此页面完成登录，检测到登录后会自动继续，无需其他操作。'));
+        text.appendChild(body);
+        head.appendChild(text);
+
+        var close = el('button', 'flex:none;width:26px;height:26px;border-radius:7px;border:1px solid rgba(148,163,184,.28);background:rgba(15,23,42,.72);color:#cbd5e1;cursor:pointer;font-size:16px;line-height:1;padding:0;', '×');
+        close.type = 'button';
+        close.title = '收起（任务继续等待登录）';
+        close.addEventListener('click', function () { state.collapsed = true; render(); });
+        head.appendChild(close);
+        card.appendChild(head);
+
+        var foot = el('div', 'margin-top:12px;');
+        var track = el('div', 'height:4px;border-radius:999px;background:rgba(148,163,184,.18);overflow:hidden;');
+        var fill = el('div', 'height:100%;width:100%;border-radius:999px;background:linear-gradient(90deg,#0ea5e9,#22d3ee);box-shadow:0 0 12px rgba(34,211,238,.42);transform-origin:left center;');
+        track.appendChild(fill);
+        foot.appendChild(track);
+        var meta = el('div', 'display:flex;justify-content:space-between;gap:10px;margin-top:7px;font-size:11px;color:#93c5fd;');
+        meta.appendChild(el('span', '', '第 ' + state.checks + ' 次检测'));
+        meta.appendChild(el('span', '', '每 ' + Math.round(cfg.intervalMs / 1000) + ' 秒自动检测'));
+        foot.appendChild(meta);
+        card.appendChild(foot);
+        root.appendChild(card);
+
+        if (fill.animate) {
+            if (still) fill.style.transform = 'scaleX(1)';
+            else fill.animate([{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], { duration: cfg.intervalMs, easing: 'linear', fill: 'forwards' });
+        }
+        if (fresh && !still && card.animate) {
+            card.animate([{ transform: 'translateY(-10px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 260, easing: 'cubic-bezier(.2,.8,.2,1)' });
+        }
+        }
+    })(${cfg});`;
+}
+
+// Turns the waiting card into a short "logged in" confirmation, then removes it.
+function buildUivLoginWaitDoneScript(stopped = false) {
+    return `return (function (stopped) {
+        var host = document.getElementById('uivf12-login-wait');
+        try { delete window.__uivf12LoginWait; } catch (e) { window.__uivf12LoginWait = undefined; }
+        if (!host) return 'no-card';
+        var root = host.shadowRoot || host;
+        if (stopped || !root.firstChild) { host.remove(); return 'removed'; }
+        while (root.firstChild) root.removeChild(root.firstChild);
+        var card = document.createElement('div');
+        card.style.cssText = 'box-sizing:border-box;display:flex;align-items:center;gap:10px;margin:0 auto;width:max-content;max-width:100%;padding:10px 16px;border-radius:999px;color:#ecfdf5;font-size:12.5px;font-weight:700;background:linear-gradient(145deg,rgba(6,32,24,.96),rgba(6,78,59,.94));border:1px solid rgba(52,211,153,.45);box-shadow:0 14px 40px rgba(6,78,59,.35);';
+        var tick = document.createElement('span');
+        tick.textContent = '✓';
+        tick.style.cssText = 'display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#34d399;color:#052e24;font-size:12px;';
+        card.appendChild(tick);
+        card.appendChild(document.createTextNode('已检测到登录，开始执行任务'));
+        root.appendChild(card);
+        var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        setTimeout(function () {
+            if (still || !card.animate) { host.remove(); return; }
+            card.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-8px)' }], { duration: 240, easing: 'ease-in', fill: 'forwards' }).onfinish = function () { host.remove(); };
+        }, 1400);
+        return 'login-ok';
+    })(${stopped ? 'true' : 'false'});`;
+}
+
 function buildAppendPanelLogScript(loginVar, siteUrl) {
     return `return (function () {
         const raw = ${'${' + loginVar + '}'} || '';
@@ -2441,7 +2577,7 @@ function buildUivBatchMacro(scriptsToRun, groupName, options = {}) {
             { Command: 'executeScript', Target: buildAppendPanelLogScript(loginVar, group.openUrl), Value: loginDetailVar, Description: 'Append login probe detail to floating panel.' },
             { Command: 'echo', Target: `[Site ${groupProgress}] Login probe: ${'${' + loginDetailVar + '}'}`, Value: '', Description: '' },
             { Command: 'while_v2', Target: '${' + loginStatusVar + '} != "true" && ${' + siteControlVar + '} != "stop"', Value: '', Description: '' },
-            { Command: 'executeScript', Target: `alert("UIVF12 批量任务等待登录：${group.openUrl}\\n\\n该站点共有 ${group.scripts.length} 个任务等待执行。请在当前页面完成登录。UI.Vision 会每 10 秒自动检测一次，检测到登录后继续执行。"); return "waiting-login";`, Value: '', Description: '' },
+            { Command: 'executeScript', Target: buildUivLoginWaitScript(group.openUrl, group.scripts.length), Value: '', Description: 'Show the non-blocking waiting-for-login card.' },
             { Command: 'pause', Target: '10000', Value: '', Description: '' },
             { Command: 'executeScript', Target: buildUivBatchControlReadScript(), Value: siteControlVar, Description: 'Allow Stop All to leave the login wait loop.' },
             { Command: 'executeScript', Target: group.loginProbe, Value: loginVar, Description: 'Re-check login token.' },
@@ -2450,6 +2586,7 @@ function buildUivBatchMacro(scriptsToRun, groupName, options = {}) {
             { Command: 'echo', Target: `[Site ${groupProgress}] Login probe: ${'${' + loginDetailVar + '}'}`, Value: '', Description: '' },
             { Command: 'endWhile', Target: '', Value: '', Description: '' },
             { Command: 'gotoIf_v2', Target: '${' + siteControlVar + '} == "stop"', Value: 'UIVF12_BATCH_STOPPED', Description: '' },
+            { Command: 'executeScript', Target: buildUivLoginWaitDoneScript(), Value: '', Description: 'Confirm login and dismiss the waiting card.' },
             { Command: 'echo', Target: `[Site ${groupProgress}] Login detected for ${group.openUrl}`, Value: '', Description: '' }
         );
         pushPanelCommand('站点执行中', `${group.openUrl} 已登录，开始执行 ${group.scripts.length} 个任务`);
@@ -2518,6 +2655,11 @@ function buildUivBatchMacro(scriptsToRun, groupName, options = {}) {
         Target: 'UIVF12_BATCH_STOPPED',
         Value: '',
         Description: ''
+    }, {
+        Command: 'executeScript',
+        Target: buildUivLoginWaitDoneScript(true),
+        Value: '',
+        Description: 'Remove the waiting-for-login card if the batch stopped while waiting.'
     }, {
         Command: 'echo',
         Target: 'UIVF12 batch stopped by user. Remaining tasks were skipped.',

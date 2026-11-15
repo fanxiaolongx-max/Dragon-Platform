@@ -26,7 +26,7 @@
     function checkpoint(){state.undo.push(snapshotOf(state.doc));if(state.undo.length>60)state.undo.shift();}
     function undo(){const previous=state.undo.pop();if(!previous)return status(t('没有可撤销的操作','Nothing to undo'));state.doc=JSON.parse(previous);render();status(t('已撤销','Undone'));}
     let statusTimer=null;
-    function status(message){const node=$('#airStatus'),unsaved=dirty();$('[data-air=save]').disabled=!!state.saving||!unsaved;node.classList.toggle('is-dirty',unsaved);clearTimeout(statusTimer);if(message){node.textContent=message;statusTimer=setTimeout(()=>status(),3500);return;}node.textContent=state.busy.size?t(`AI 正在处理 ${state.busy.size} 个格子…`,`AI working on ${state.busy.size} cell(s)…`):unsaved?t('● 未保存','● Unsaved'):t('已保存','Saved');}
+    function status(message,{persist=false}={}){const node=$('#airStatus'),unsaved=dirty();$('[data-air=save]').disabled=!!state.saving||!unsaved;node.classList.toggle('is-dirty',unsaved);clearTimeout(statusTimer);if(message){node.textContent=message;if(!persist)statusTimer=setTimeout(()=>status(),3500);return;}node.textContent=state.busy.size?t(`AI 正在处理 ${state.busy.size} 个格子…`,`AI working on ${state.busy.size} cell(s)…`):unsaved?t('● 未保存','● Unsaved'):t('已保存','Saved');}
 
     // The whole report is one more conversation target: its style chat lives on doc.style and only changes the look.
     const REPORT='__report__';
@@ -1145,7 +1145,10 @@
             // Saving updates the toolbar; keep live cells, focus and unsent chat text in place.
             await loadReports();toolbar();status(dirty()?t('已保存；还有新的修改待保存','Saved; newer changes are still unsaved'):t('已保存到服务器','Saved to server'));
         }
-        catch(error){status(t('保存失败：','Save failed: ')+error.message);}
+        catch(error){
+            const message=error.status===403&&!error.body?.error?t('保存请求被服务器或访问网关拒绝（HTTP 403），当前修改尚未保存。','The server or gateway rejected saving (HTTP 403). Changes are still unsaved.'):error.message;
+            status(t('保存失败：','Save failed: ')+message,{persist:true});
+        }
         finally{state.saving=false;$('[data-air=save]').disabled=!dirty();}
     }
     async function setMonth(month){

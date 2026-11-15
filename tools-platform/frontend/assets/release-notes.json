@@ -1,12 +1,12 @@
 {
   "zh": [
-    "多用户与会话管理全面升级：支持多端/跨标签页会话实时同步与统一账号登出拦截，隔离租户级与账号级侧栏偏好设置，重登弹窗与过期跳转体验更平滑。",
-    "前端首页与平台架构模块化重构：拆分为轻量化 home-shell 与 home-tools 核心，移除冗余历史双套布局，设置中心与业务弹窗按需加载提升首屏加载性能。",
-    "完善平台级服务与诊断生命周期：平台告警、服务自检与内置工具比对支持无 DOM 依赖的标准化事件总线与后台轮询守护。"
+    "多用户与智能体技能（Agent Skills）深度隔离与资产管理升级：全面支持标准技能包完整导入与二进制/脚本生命周期打包，新增用户级浏览器书签与独立工作区持久化隔离，支持跨端多会话无缝续跑与凭据安全脱敏。",
+    "TestFlight 外部测试全自动审核队列置换：自动化检测苹果后台待审槽位，当检测到审核限制时自动将排队中的旧版本设为过期释放名额，确保最新版本永远全自动顶进审核第一顺位，彻底杜绝中间版本堆积。",
+    "iOS 移动端交互体验与视觉响应重构：修复侧边栏「开启新对话」触控热区穿透问题并支持全卡片高灵敏点击与轻点震动，消除明暗主题切换延迟并实现全局 220ms 平滑渐变，全面遵循 Apple HIG 44pt 最小点击规范。"
   ],
   "en": [
-    "Upgraded multi-user session lifecycle: seamless cross-tab synchronization, scoped tenant/account preference isolation, graceful re-login prompts, and clean logout handling.",
-    "Modular frontend architecture refactoring: decoupled into home-shell and home-tools cores, eliminated legacy dual-layout runtime overhead, and enabled on-demand settings loading.",
-    "Hardened platform diagnostics and alerts: standardized event bus and background lifecycle guards for health probes, alerts, and tool updates without DOM dependencies."
+    "Multi-user and Agent Skills isolation and asset management overhaul: full support for importing standard skill packages with associated scripts and binary assets, dedicated per-user browser bookmark repository, and isolated workspace state with credentials redaction.",
+    "Automated TestFlight Beta App Review queue displacement: intelligently detects Apple submission limit and automatically expires stale waiting builds to release review slots, ensuring newest builds always enter the review queue automatically without manual intervention.",
+    "iOS mobile UX and theme responsiveness redesign: resolved asymmetric touch-target penetration on 'New Chat' button with 100% card responsiveness and haptic feedback, synchronized instant 220ms theme transitions across all inputs, and enforced Apple HIG 44pt minimum touch-target compliance."
   ]
 }

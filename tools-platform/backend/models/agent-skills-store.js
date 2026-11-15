@@ -8,15 +8,16 @@ const JSZip = require('jszip');
 const { run, get, all, getDatabase } = require('./app-db');
 const builtinSkills = require('./agent-skills');
 const skillCatalogContract = require('./ai-skill-catalog-contract');
+const skillFiles = require('./agent-skill-files');
 
 const { ID_RE, MAX_SELECTED } = builtinSkills;
 const LIMITS = {
     name: 80,
     description: 500,
     body: 60000,
-    files: 40,
-    fileBytes: 100 * 1024,
-    totalFileBytes: 400 * 1024,
+    files: 200,
+    fileBytes: 2 * 1024 * 1024,
+    totalFileBytes: 5 * 1024 * 1024,
     archiveBytes: 5 * 1024 * 1024,
     promptFiles: 20000
 };
@@ -123,6 +124,15 @@ function normalizeSkillMarkdown(raw, { fallbackId = '', overrides = {} } = {}) {
 }
 
 /** 解析 SKILL 压缩包：取最浅一层的 SKILL.md，同目录下的文本文件作为附带资料 */
+// 技能包里的一个文件：文本类原样保存，其余（图片、表格、可执行文件等）按 base64 保存，落盘时还原
+function packageFile(relative, buffer) {
+    if (TEXT_FILE_RE.test(relative) && !buffer.includes(0)) {
+        const content = buffer.toString('utf8');
+        if (Buffer.from(content, 'utf8').equals(buffer)) return { path: relative, content };
+    }
+    return { path: relative, base64: buffer.toString('base64') };
+}
+
 async function parseSkillArchive(buffer, { archiveName = '' } = {}) {
     if (!buffer?.length) throw httpError('压缩包为空');
     if (buffer.length > LIMITS.archiveBytes) throw httpError(`SKILL 压缩包不能超过 ${LIMITS.archiveBytes / 1024 / 1024} MB`);
@@ -144,12 +154,12 @@ async function parseSkillArchive(buffer, { archiveName = '' } = {}) {
         const name = entry.name.replace(/\\/g, '/');
         if (entry === skillEntry || !name.startsWith(root)) continue;
         const relative = name.slice(root.length);
-        if (!TEXT_FILE_RE.test(relative) || files.length >= LIMITS.files) { skipped += 1; continue; }
-        const content = await entry.async('string');
-        const bytes = Buffer.byteLength(content);
-        if (bytes > LIMITS.fileBytes || total + bytes > LIMITS.totalFileBytes) { skipped += 1; continue; }
-        total += bytes;
-        files.push({ path: relative, content });
+        const safe = skillFiles.safeRelative(relative);
+        if (!safe || files.length >= LIMITS.files) { skipped += 1; continue; }
+        const buffer = await entry.async('nodebuffer');
+        if (buffer.length > LIMITS.fileBytes || total + buffer.length > LIMITS.totalFileBytes) { skipped += 1; continue; }
+        total += buffer.length;
+        files.push(packageFile(safe, buffer));
     }
     return { markdown: await skillEntry.async('string'), fallbackId: folder, files, skipped };
 }
@@ -318,6 +328,7 @@ async function deleteRows(id) {
     const cleanId = String(id || '').toLowerCase();
     await run('DELETE FROM agent_skills WHERE id = ?', [cleanId]);
     await run('DELETE FROM agent_skill_overrides WHERE id = ?', [cleanId]);
+    skillFiles.remove(cleanId);
 }
 
 /** 以给定内容写入自定义 Skill（取消内置后调用），不做内置标识冲突检查 */
@@ -495,16 +506,20 @@ async function resetToBuiltin(id, { createdBy = '' } = {}) {
     if (custom) {
         await createBackup(cleanId, { createdBy, summary: '恢复内置初始版本前自动备份' });
         await run('DELETE FROM agent_skills WHERE id = ?', [cleanId]);
+        skillFiles.remove(cleanId);
     }
     await run('DELETE FROM agent_skill_overrides WHERE id = ?', [cleanId]);
     return getSkill(cleanId);
 }
 
-async function saveSkill(skill, { files = [], source = 'chat', createdBy = '', overwrite = false } = {}) {
+async function saveSkill(skill, { files: incomingFiles, source = 'chat', createdBy = '', overwrite = false } = {}) {
     await ensureReady();
     const cleanId = skill.id;
     const isBuiltin = Boolean(builtinSkills.builtin(cleanId));
     const existingCustom = await getCustom(cleanId);
+    // Saving only SKILL.md text (save_skill / @improve-skill / single-file upload) must keep the
+    // package's scripts and data; only an explicit file list (archive import, publish) replaces them.
+    const files = Array.isArray(incomingFiles) ? incomingFiles : (existingCustom?.files || []);
 
     // 未指定 overwrite 时做冲突检查
     if (isBuiltin && !overwrite) {
@@ -580,13 +595,12 @@ function readSkillFolder(dir) {
             const full = path.join(current, entry.name);
             if (entry.isDirectory()) { walk(full, depth + 1); continue; }
             const relative = path.relative(dir, full).split(path.sep).join('/');
-            if (relative.toLowerCase() === 'skill.md' || !TEXT_FILE_RE.test(relative) || files.length >= LIMITS.files) continue;
-            let content;
-            try { content = fs.readFileSync(full, 'utf8'); } catch { continue; }
-            const bytes = Buffer.byteLength(content);
-            if (bytes > LIMITS.fileBytes || total + bytes > LIMITS.totalFileBytes) continue;
-            total += bytes;
-            files.push({ path: relative, content });
+            if (relative.toLowerCase() === 'skill.md' || !skillFiles.safeRelative(relative) || files.length >= LIMITS.files) continue;
+            let buffer;
+            try { if (fs.statSync(full).size > LIMITS.fileBytes) continue; buffer = fs.readFileSync(full); } catch { continue; }
+            if (total + buffer.length > LIMITS.totalFileBytes) continue;
+            total += buffer.length;
+            files.push(packageFile(relative, buffer));
         }
     };
     walk(dir, 0);
@@ -673,6 +687,7 @@ async function remove(id) {
         if (custom) {
             await createBackup(cleanId, { summary: '删除自定义修改前备份' });
             await run('DELETE FROM agent_skills WHERE id = ?', [cleanId]);
+            skillFiles.remove(cleanId);
             return { builtIn: true, revertedCustomization: true };
         }
         await run(`INSERT INTO agent_skill_overrides (id, name, hidden, updated_at) VALUES (?, NULL, 1, ?)
@@ -685,6 +700,7 @@ async function remove(id) {
     }
     const result = await run('DELETE FROM agent_skills WHERE id = ?', [cleanId]);
     if (!result?.changes) throw httpError('技能不存在', 404, 'SKILL_NOT_FOUND');
+    skillFiles.remove(cleanId);
     return { builtIn: false };
 }
 
@@ -710,7 +726,7 @@ async function exportZip(id) {
     if (builtin) {
         if (custom) {
             folder.file('SKILL.md', skillMarkdown(custom, custom.body));
-            custom.files.forEach(file => folder.file(file.path, file.content));
+            custom.files.forEach(file => folder.file(file.path, skillFiles.isBinary(file) ? skillFiles.bytesOf(file) : file.content));
         } else {
             const override = (await overrides()).get(cleanId);
             folder.file('SKILL.md', skillMarkdown({ ...builtin.meta, name: override?.name || builtin.meta.name }, builtin.body));
@@ -718,28 +734,60 @@ async function exportZip(id) {
     } else {
         if (!custom) throw httpError('技能不存在', 404, 'SKILL_NOT_FOUND');
         folder.file('SKILL.md', skillMarkdown(custom, custom.body));
-        custom.files.forEach(file => folder.file(file.path, file.content));
+        custom.files.forEach(file => folder.file(file.path, skillFiles.isBinary(file) ? skillFiles.bytesOf(file) : file.content));
     }
     return { buffer: await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' }), filename: `${cleanId}.zip` };
 }
 
 // 一个技能在系统提示中的段落：自定义正文优先（含附带文件，受 promptFiles 预算限制），否则用内置正文
-async function skillSection(item) {
+async function skillSection(item, tenantId = require('./tenant-context').getTenantId()) {
     if (item.shared && !item.personal) {
         const { DEFAULT_TENANT_ID, runWithTenant } = require('./tenant-context');
-        return runWithTenant(DEFAULT_TENANT_ID, () => skillSection({ ...item, shared: false }));
+        return runWithTenant(DEFAULT_TENANT_ID, () => skillSection({ ...item, shared: false }, tenantId));
     }
     const custom = await getCustom(item.id);
     if (item.builtIn && !custom) return `### @${item.id}\n${builtinSkills.builtin(item.id).body}`;
     if (!custom) return '';
     let section = `### @${item.id}\n${custom.body}`;
     let budget = LIMITS.promptFiles;
+    const inlined = new Set();
     for (const file of custom.files) {
+        if (skillFiles.isBinary(file)) continue;
         if (file.content.length > budget) break;
         budget -= file.content.length;
+        inlined.add(file.path);
         section += `\n\n#### 附带文件：${file.path}\n\`\`\`\n${file.content}\n\`\`\``;
     }
-    return section;
+    return section + packageNote(custom, inlined, tenantId);
+}
+
+const sizeText = bytes => (bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`);
+
+// 技能包落到调用方团队的用户空间，并告诉模型目录在哪、里面有什么、怎么读和怎么执行
+function packageNote(custom, inlined, tenantId) {
+    if (!custom.files.length) { skillFiles.remove(custom.id, tenantId); return ''; }
+    let dir = '';
+    try { dir = skillFiles.sync(custom.id, { markdown: skillMarkdown(custom, custom.body), files: custom.files }, tenantId); } catch { return ''; }
+    const lines = skillFiles.publicFiles(custom.files).map(file => `- ${file.path}（${file.binary ? '二进制，' : ''}${sizeText(file.size)}${inlined.has(file.path) ? '，内容已在上方' : ''}）`);
+    return `\n\n#### 技能包目录\n本技能的全部文件已原样放在：${dir}\n${lines.join('\n')}\n`
+        + `需要上方没有给出的文件内容时，调用 load_skill（id 填 ${custom.id}，file 填清单里的路径）读取；`
+        + `要运行其中的脚本时，用命令工具在该目录下执行，例如 cd "${dir}" && python3 scripts/xxx.py。脚本读写数据用自己目录下的相对路径，不要改动包内文件。`;
+}
+
+/** load_skill 带 file 参数：读取技能包里的一个文件（文本直接返回，二进制给出硬盘路径） */
+async function readPackageFile(id, user, filePath, tenantId = require('./tenant-context').getTenantId()) {
+    const cleanId = String(id || '').toLowerCase();
+    const item = (await listForUser(user)).find(entry => entry.id === cleanId);
+    if (!item) return null;
+    const read = async () => getCustom(cleanId);
+    const custom = item.shared && !item.personal
+        ? await require('./tenant-context').runWithTenant(require('./tenant-context').DEFAULT_TENANT_ID, read) : await read();
+    const wanted = skillFiles.safeRelative(filePath);
+    const file = custom?.files.find(entry => entry.path === wanted);
+    if (!file) return { missing: true, files: (custom?.files || []).map(entry => entry.path) };
+    const dir = skillFiles.sync(cleanId, { markdown: skillMarkdown(custom, custom.body), files: custom.files }, tenantId);
+    if (skillFiles.isBinary(file)) return { path: wanted, binary: true, location: require('path').join(dir, wanted) };
+    return { path: wanted, content: file.content.slice(0, LIMITS.body), truncated: file.content.length > LIMITS.body, location: require('path').join(dir, wanted) };
 }
 
 // 只影响对话能力推荐；管理列表仍保留未启用的技能，方便配置与维护。
@@ -792,7 +840,7 @@ async function loadAll(content, { hasWorkspace = false, language = 'zh', extraId
     if (missing.length) throw Object.assign(new Error(language === 'en'
         ? `Choose a workspace folder before using ${missing.map(item => `@${item.id}`).join(', ')}.`
         : `请先选择工作目录，再使用 ${missing.map(item => `@${item.id}`).join('、')}。`), { code: 'SKILL_WORKSPACE_REQUIRED', statusCode: 400, skills: missing.map(item => item.id) });
-    const sections = (await Promise.all(selected.map(skillSection))).filter(Boolean);
+    const sections = (await Promise.all(selected.map(item => skillSection(item)))).filter(Boolean);
     return {
         selected: selected.map(({ builtIn, customized, hidden, renamed, fileCount, updatedAt, source, createdBy, createdAt, ...meta }) => meta),
         unknown,
@@ -812,6 +860,7 @@ module.exports = {
     publishSnapshot,
     LIMITS,
     loadSection,
+    readPackageFile,
     unavailableReason,
     parseFrontMatter,
     normalizeSkillMarkdown,

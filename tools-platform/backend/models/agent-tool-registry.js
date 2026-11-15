@@ -111,8 +111,8 @@ const META = [
     },
     {
         name: 'load_skill',
-        description: '加载技能目录中某个技能的完整流程说明；带专用工具的技能会一并加载工具。用户已选择（系统提示里已有 ### @id 段落）的技能不必再加载。',
-        parameters: { type: 'object', properties: { id: { type: 'string', description: '技能目录中的 ID' } }, required: ['id'] }
+        description: '加载技能目录中某个技能的完整流程说明；带专用工具的技能会一并加载工具。用户已选择（系统提示里已有 ### @id 段落）的技能不必再加载。技能说明里列出“技能包目录”时，带上 file 可读取其中一个文件的内容。',
+        parameters: { type: 'object', properties: { id: { type: 'string', description: '技能目录中的 ID' }, file: { type: 'string', description: '可选：技能包内的文件路径（如 references/guide.md），只读取这个文件' } }, required: ['id'] }
     }
 ];
 const META_NAMES = new Set(META.map(item => item.name));
@@ -253,12 +253,19 @@ async function create({ session, user, skillIds = [], messages = [], skillCatalo
         return { content: lines.join('\n\n'), summary, isError: !tools.length, added };
     };
 
-    const loadSkill = async ({ id } = {}) => {
+    const loadSkill = async ({ id, file } = {}) => {
         const cleanId = String(id || '').replace(/^@/, '').trim().toLowerCase();
         if (!builtinSkills.ID_RE.test(cleanId)) return { content: '技能 ID 无效。', summary: '技能 ID 无效', isError: true };
         if (!isVisibleSkill(cleanId)) return { content: '技能不存在或未开放。', summary: '技能未开放', isError: true };
         const unavailable = await skillStore.unavailableReason(cleanId);
         if (unavailable) return { content: unavailable, summary: 'NetCare 连接未启用' };
+        if (file) {
+            const found = await skillStore.readPackageFile(cleanId, actor, file);
+            if (!found) return { content: `技能目录中没有 @${cleanId}。`, summary: `没有 @${cleanId}`, isError: true };
+            if (found.missing) return { content: `@${cleanId} 的技能包里没有 ${file}。${found.files.length ? `包内文件：${found.files.join('、')}` : '这个技能没有附带文件。'}`, summary: '文件不存在', isError: true };
+            if (found.binary) return { content: `${found.path} 是二进制文件，不能按文本读取；它在硬盘上的位置：${found.location}`, summary: `${found.path}（二进制）` };
+            return { content: redactText(`#### @${cleanId} / ${found.path}\n\`\`\`\n${found.content}\n\`\`\`${found.truncated ? '\n（内容过长，已截断；完整文件在 ' + found.location + '）' : ''}`, { secrets: sensitiveValues }), summary: `已读取 ${found.path}`, isError: false };
+        }
         if (userSkills.has(cleanId)) return { content: `@${cleanId} 已在系统提示中加载，直接按其中的流程执行。`, summary: `@${cleanId} 已加载` };
         const loaded = await skillStore.loadSection(cleanId, actor);
         if (!loaded) return { content: `技能目录中没有 @${cleanId}。只能加载目录中列出的技能。`, summary: `没有 @${cleanId}`, isError: true };

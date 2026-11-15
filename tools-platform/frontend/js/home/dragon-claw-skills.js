@@ -319,12 +319,51 @@
     }
 
     // ── @create-skill 生成的草稿：识别回复里的 ```skill 代码块，在回复下方提供「保存为技能」 ──
-    // 兼容模型误用 markdown/yaml 或不标语言，但只接受有 id、名称和正文的完整 SKILL.md。
-    const DRAFT_RE = /^(`{3,}|~{3,})(?:skill|markdown|md|ya?ml)?[^\S\r\n]*\r?\n([\s\S]*?)^\1[ \t]*$/gim;
+    // 兼容 markdown/yaml、SKILL.md 标签及通用 name 标识；仍要求完整 front-matter 和正文。
+    function draftBlocks(text) {
+        const blocks = [];
+        let outer = null, nested = [], lines = [];
+        for (const line of String(text || '').split(/\r?\n/)) {
+            const fence = line.match(/^[ \t]{0,3}(`{3,}|~{3,})([^\r\n]*)$/);
+            if (!outer) {
+                if (fence) {
+                    outer = { fence: fence[1], explicit: /^skill(?:\.md)?$/i.test(fence[2].trim()),
+                        eligible: /^(?:skill(?:\.md)?|markdown|md|ya?ml)?$/i.test(fence[2].trim()) };
+                    nested = []; lines = [];
+                }
+                continue;
+            }
+            if (fence) {
+                const current = nested.at(-1) || outer.fence;
+                const closes = !fence[2].trim() && fence[1][0] === current[0] && fence[1].length >= current.length;
+                if (closes) {
+                    if (nested.length) nested.pop();
+                    else {
+                        if (outer.eligible) blocks.push({ markdown: lines.join('\n').trim(), explicit: outer.explicit });
+                        outer = null; continue;
+                    }
+                } else if (fence[2].trim()) {
+                    // 模型可能在三反引号 skill 块内再嵌套 bash；保留内层代码及后续步骤。
+                    nested.push(fence[1]);
+                }
+            }
+            lines.push(line);
+        }
+        return blocks;
+    }
 
     function draftFrom(text) {
-        const blocks = Array.from(String(text || '').matchAll(DRAFT_RE), match => match[2].trim()).filter(Boolean);
-        for (const markdown of blocks.reverse()) {
+        for (const block of draftBlocks(text).reverse()) {
+            let markdown = block.markdown;
+            // 仅对明确标为 skill 的代码块修复缺失的 YAML 分隔线，不把普通文档当作技能。
+            if (block.explicit && !markdown.startsWith('---')) {
+                const lines = markdown.split('\n');
+                const separator = lines.findIndex(line => !line.trim());
+                const header = lines.slice(0, separator);
+                if (separator > 0 && header.every(line => /^[a-z_]+:\s*.*$/i.test(line) || /^[ \t]+\S/.test(line))) {
+                    markdown = `---\n${header.join('\n')}\n---\n${lines.slice(separator + 1).join('\n')}`;
+                }
+            }
             const head = markdown.match(/^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/);
             if (!head || !markdown.slice(head[0].length).trim()) continue;
             const fields = {};
@@ -332,7 +371,8 @@
                 const pair = line.match(/^([a-z_]+):\s*(.*)$/i);
                 if (pair) fields[pair[1].toLowerCase()] = pair[2].trim().replace(/^(['"])(.*)\1$/, '$2');
             });
-            const id = String(fields.id || '').toLowerCase();
+            // 通用 Agent Skills 用 name 作标识，与保存接口保持一致，不从说明文字猜目标。
+            const id = String(fields.id || fields.name || '').toLowerCase();
             if (!/^[a-z][a-z0-9-]{0,40}$/.test(id) || !(fields.name || fields.name_en)) continue;
             return { markdown, id, name: fields.name || fields.name_en || id, nameEn: fields.name_en || fields.name || id,
                 description: fields.description || '', descriptionEn: fields.description_en || fields.description || '', icon: fields.icon || '✨' };
@@ -409,22 +449,32 @@
             // 旧回复可能只有“已创建并激活”的文字。实际目录不存在时给出恢复入口，绝不把说明文字自动入库。
             const claimed = /(?:技能|skill)[^\n。]{0,100}(?:已[^\n。]{0,12}(?:创建|保存|激活|更新)|(?:created|saved|activated|updated)\b)|(?:已[^\n。]{0,12}(?:创建|保存|激活|更新)|(?:created|saved|activated|updated)\b)[^\n。]{0,100}(?:技能|skill)/i.test(text);
             const mentioned = mentionIds(text).filter(id => !['create-skill', 'improve-skill'].includes(id));
-            if (!claimed || !mentioned.length) return;
+            const pendingDraft = /(?:点击|单击)[^\n。]{0,60}(?:保存为技能|完善(?:此)?技能)|click[^\n.]{0,80}(?:save as skill|improve (?:this )?skill)/i.test(text);
+            if (!pendingDraft && (!claimed || !mentioned.length)) return;
             await load();
             if (!loaded || !main.isConnected || main.querySelector('.dc-skill-draft')) return;
             const missing = mentioned.filter(id => !metaOf(id));
-            if (!missing.length) return;
+            if (!pendingDraft && !missing.length) return;
             const note = document.createElement('div'); note.className = 'dc-skill-draft';
             note.setAttribute('role', 'status');
             const icon = document.createElement('span'); icon.className = 'dc-skill-draft-icon'; icon.textContent = '⚠️';
             const body = document.createElement('div'); body.className = 'dc-skill-draft-body';
-            const title = document.createElement('b'); title.textContent = words('技能尚未保存', 'Skill has not been saved');
+            const title = document.createElement('b'); title.textContent = pendingDraft
+                ? words('未识别到可保存的技能草稿', 'No saveable Skill draft detected')
+                : words('技能尚未保存', 'Skill has not been saved');
             const detail = document.createElement('span');
-            detail.textContent = words(`当前技能目录中没有 ${missing.map(id => `@${id}`).join('、')}。这条回复未提供可保存的草稿；AI 的成功文字不代表实际保存。`, `The catalog has no ${missing.map(id => `@${id}`).join(', ')}. This reply contains no saveable draft; the AI's success message does not confirm a save.`);
+            detail.textContent = pendingDraft
+                ? words('回复提到了保存按钮，但没有提供可识别的完整 SKILL.md。请重新生成草稿后再保存；当前回复尚未更新技能。', 'This reply mentions a save button but contains no recognizable complete SKILL.md. Generate a complete draft before saving; this reply has not updated the Skill.')
+                : words(`当前技能目录中没有 ${missing.map(id => `@${id}`).join('、')}。这条回复未提供可保存的草稿；AI 的成功文字不代表实际保存。`, `The catalog has no ${missing.map(id => `@${id}`).join(', ')}. This reply contains no saveable draft; the AI's success message does not confirm a save.`);
             body.append(title, detail);
             const action = document.createElement('button'); action.type = 'button'; action.className = 'dc-action dc-action--primary';
             action.textContent = words('生成可保存草稿', 'Generate a saveable draft');
-            action.dataset.dcAsk = words(
+            const improve = pendingDraft && (/(?:完善(?:此)?技能|improve (?:this )?skill)/i.test(text) || mentioned.some(id => metaOf(id)));
+            const targets = (pendingDraft ? mentioned : missing).map(id => `@${id}`).join('、');
+            action.dataset.dcAsk = improve ? words(
+                `@improve-skill 请根据上文约定，为 ${targets || '上文要完善的技能'} 重新生成完整可保存草稿。先读取原技能，保留目标 id，输出完整的 skill 代码块，包含 front-matter（id、name、name_en、description、description_en、workspace）和执行步骤；目标不明确时先询问，不要猜测。草稿尚未保存，请不要声称已经更新。`,
+                `@improve-skill Regenerate a complete saveable draft for ${targets || 'the Skill discussed above'}. Read the current Skill first, preserve its id and output a complete skill code fence with front-matter and steps. Ask if the target is unclear. It has not been saved or updated.`
+            ) : words(
                 `@create-skill 请根据上文约定，为 ${missing.map(id => `@${id}`).join('、')} 补全可保存的技能草稿。请输出完整的 skill 代码块，包含 front-matter（id、name、name_en、description、description_en、workspace）和执行步骤。尚未保存，不要声称已经创建或激活；提醒我点击「保存为技能」。`,
                 `@create-skill Based on the agreed workflow above, provide a complete saveable draft for ${missing.map(id => `@${id}`).join(', ')} in a skill code fence, including front-matter (id, name, name_en, description, description_en, workspace) and steps. It has not been saved. Ask me to click Save as Skill.`
             );
@@ -432,6 +482,8 @@
             note.append(icon, body, actions); main.appendChild(note);
             return;
         }
+        await load();
+        if (!main.isConnected) return;
         main.querySelector('.dc-skill-draft')?.remove();
         const existing = metaOf(draft.id);
         draft.isExisting = Boolean(existing);

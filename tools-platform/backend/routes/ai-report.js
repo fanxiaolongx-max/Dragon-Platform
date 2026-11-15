@@ -485,6 +485,16 @@ function compileTurn(client, { month, prompt, recipe, error, style = '', outline
             // Made-up sources would only ever show "no data"; send them back while the model can still look them up.
             const unknown = await data.unknownSources(month, normalized.sources).catch(() => []);
             if (unknown.length) return { retry: `这些数据来源在系统里不存在：${unknown.join('；')}。不要编造 sourceKey、指标名称或数据集 id，只能用 list_sources、list_datasets 返回的值和 list_metrics 返回的指标名称；提示词里的名称可能和实际名称不同，请按含义在导入表、指标和数据集里查找。确实找不到就回复 ask 说明。` };
+            // JSON queries are safe to run here; catch bad fields/filters while this model conversation
+            // still has its tool results. Never execute AI-authored JavaScript in the server process.
+            const storedQuery = Query.queryFromCompute(normalized.compute);
+            if (storedQuery && !normalized.sources.some(source => source.kind === 'report')) {
+                const { input, missing } = await data.recipeInput(month, normalized.sources.filter(source => source.kind !== 'tool'));
+                if (!missing.length) {
+                    try { Query.run(storedQuery, input); }
+                    catch (problem) { return { retry: `查询试运行失败：${problem.message}\n${Templates.dataHint(input)}\n请修正 query 的字段和 where，整体指标与分项分别取数，不要用汇总掩盖筛选错误。只输出完整配方 JSON。` }; }
+                }
+            }
             return { result: { type: 'recipe', reply: String(reply.reply || '').slice(0, 2000), recipe: model.presentationRecipe(normalized,prompt), tools: toolLog } };
         }
         return { retry: '请只输出约定的 JSON 对象（type 为 recipe 或 ask）。' };

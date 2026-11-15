@@ -11,7 +11,7 @@ let navLayout = {
     categoryByItem: { uivf12: 'audit', frt: 'audit', praudit: 'audit' },
     itemOrder: ['report', 'uivf12', 'frt', 'praudit']
 };
-const run = code => win.webContents.executeJavaScript(code, true);
+const run = code => (win.webContents.executeJavaScript(code, true)).catch(error => { console.error('RUN FAILED:', code.slice(0, 200)); throw error; });
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function until(code) { for (let i = 0; i < 200; i++) { if (await run(`Boolean(${code})`)) return; await wait(25); } throw Error('Timed out: ' + code); }
 const primary = () => run(`Array.from(document.querySelectorAll('#homeSidebar .v2-nav > [data-v2-action]'),b=>b.dataset.v2Action)`);
@@ -131,7 +131,7 @@ app.whenReady().then(async () => {
     assert.equal(await run('navSettingsMobileSection.selectedOptions[0].textContent'), 'More Menu');
     assert.ok(await run('navSettingsContent.scrollWidth <= navSettingsContent.clientWidth + 2'));
     assert.equal(await run(`!!navSettingsContent.querySelector('[onchange*="home"]')`), false);
-    const workflow = ['uivf12', 'sla', 'report', 'expedite', 'monthly', 'bigscreen'];
+    const workflow = ['uivf12', 'sla', 'report', 'expedite', 'monthly', 'ai-bi', 'bigscreen'];
     const shortcuts = () => run(`Array.from(document.querySelectorAll('.v2-flyout.is-open a.v2-pop-item:has(.v2-app-glyph)'), a => a.getAttribute('href'))`);
     assert.equal(await run(`!!navSettingsContent.querySelector('[onchange*="uivf12"]')`), false);
     await run(`togglePrimaryNavItem('frt', true)`);
@@ -139,13 +139,37 @@ app.whenReady().then(async () => {
     const savedPrimary = ['home', 'uivf12', 'custom:uninstalled', 'report', 'frt'];
     assert.deepEqual(navLayout.primaryIds, savedPrimary);
     await run(`closeNavSettingsModal(); document.querySelector('[data-v2-flyout="more"]').click()`);
-    assert.deepEqual(await shortcuts(), [...workflow, 'frt'].map(id => '/' + id));
+    assert.deepEqual(await shortcuts(), workflow.map(id => '/' + id), 'shortcuts sit behind their category, not in the flat list');
+    assert.deepEqual(await run(`Array.from(document.querySelectorAll('.v2-flyout.is-open [data-v2-cat]'), b => b.children[1].textContent)`), ['Business', 'Audit', 'Other'], 'categories follow the configured order');
+    await run(`document.querySelectorAll('.v2-flyout.is-open [data-v2-cat]')[1].click(); true`);
+    assert.deepEqual(await run(`Array.from(document.querySelectorAll('.v2-cat-submenu.is-open a'), a => a.getAttribute('href'))`), ['/frt', '/praudit'], 'tools follow the configured order inside a category');
+    assert.equal(await run(`document.querySelectorAll('.v2-flyout [data-v2-cat]')[1].getAttribute('aria-expanded')`), 'true');
+    // 390px: the cascade stacks over the flyout and offers a way back.
+    const stacked = await run(`(()=>{const b=document.querySelector('.v2-cat-submenu').getBoundingClientRect();return {left:b.left,right:b.right,w:innerWidth,back:getComputedStyle(document.querySelector('.v2-cat-back')).display}})()`);
+    assert.ok(stacked.left >= 0 && stacked.right <= stacked.w && stacked.back === 'block', JSON.stringify(stacked));
+    await run(`document.querySelector('.v2-cat-back').click(); true`);
+    assert.equal(await run(`document.querySelector('.v2-cat-submenu').classList.contains('is-open')`), false);
+    await run('HomeShell.closePop()');
+    win.setContentSize(1200, 850);
+    await until('innerWidth===1200');
+    await wait(200);
+    await run(`document.querySelector('[data-v2-flyout="more"]').click(); document.querySelectorAll('.v2-flyout.is-open [data-v2-cat]')[1].click(); true`);
+    const cascade = await run(`(()=>{const a=document.querySelector('.v2-flyout').getBoundingClientRect(),b=document.querySelector('.v2-cat-submenu').getBoundingClientRect();return {gap:b.left-a.right,right:b.right,w:innerWidth}})()`);
+    assert.ok(cascade.gap >= 0 && cascade.right <= cascade.w, JSON.stringify(cascade));
+    await wait(200);
+    fs.writeFileSync(path.join(temp, 'shortcut-cascade.png'), (await win.webContents.capturePage()).toPNG());
+    await run(`document.addEventListener('click', e => e.preventDefault(), { once: true, capture: true }); document.querySelector('.v2-cat-submenu a').click(); true`);
+    assert.equal(await run(`!!document.querySelector('.v2-pop.is-open')`), false, 'choosing a tool closes both levels');
+    win.setContentSize(390, 850);
+    await until('innerWidth===390');
+    await wait(200); // the resize handler closes open menus
+    await run(`document.querySelector('[data-v2-flyout="more"]').click(); true`);
     assert.match(await run(`document.querySelector('.v2-flyout.is-open').textContent`), /System tools/);
     await run(`HomeShell.closePop(); ToolsI18n.setLanguage('zh-CN'); void openNavSettingsModal(); switchNavSettingsTab('items')`);
     await until(`navSettingsHeading.textContent === '分类与顺序' && !!navSettingsContent.querySelector('select')`);
     assert.deepEqual(await run(`Array.from(navSettingsContent.querySelectorAll('.nav-settings-fixed-category'), el => el.textContent)`), workflow.map(() => '系统工具'));
     assert.equal(await run(`!!navSettingsContent.querySelector('select[onchange*="uivf12"]')`), false);
-    assert.deepEqual(await run(`HomeWorkspace.getTools().slice(0, 6).map(tool => tool.id)`), workflow);
+    assert.deepEqual(await run(`HomeWorkspace.getTools().slice(0, ${workflow.length}).map(tool => tool.id)`), workflow);
     assert.equal(await run(`HomeWorkspace.getTools()[0].group`), '系统工具');
     await run(`const category = navSettingsContent.querySelector('select[onchange*="frt"]'); category.value = 'business'; category.dispatchEvent(new Event('change', { bubbles: true }));`);
     await until(`HomeWorkspace.getTools().find(tool => tool.id === 'frt')?.group === '业务工具'`);
@@ -165,7 +189,7 @@ app.whenReady().then(async () => {
     await run(`closeNavSettingsModal(); document.querySelector('[data-v2-action="skillHub"]').click()`);
     await until(`!!document.querySelector('[data-hub-tab="tools"]')`);
     await run(`document.querySelector('[data-hub-tab="tools"]').click(); document.querySelector('[data-hub-sort="mixed"]').click()`);
-    assert.deepEqual(await run(`Array.from(document.querySelectorAll('.v2-hub-grid [data-hub-key]')).slice(0, 6).map(card => card.dataset.hubKey)`), workflow.map(id => 'tool:' + id));
+    assert.deepEqual(await run(`Array.from(document.querySelectorAll('.v2-hub-grid [data-hub-key]')).slice(0, ${workflow.length}).map(card => card.dataset.hubKey)`), workflow.map(id => 'tool:' + id));
     assert.deepEqual(await run('fixtureErrors'), []);
     console.log('PASS: personal sidebar drag and save, global shortcuts and tool categories, separate layouts, Chinese/English and 390px. Previews: ' + temp);
     win.destroy(); server.close(); app.exit(0);

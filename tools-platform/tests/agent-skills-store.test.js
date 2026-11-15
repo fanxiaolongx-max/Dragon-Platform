@@ -50,25 +50,59 @@ test('ids are validated: built-in ids are reserved and duplicates need an explic
     assert.equal(slugged.id, 'my-fancy-skill');
 });
 
-test('standard Agent Skill packages import with reference files; binaries and metadata files are skipped', async () => {
+test('standard Agent Skill packages import whole: scripts, references and binary assets land in the skill folder and follow the skill', async () => {
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 1, 2, 3, 255]);
     const buffer = await skillZip({
         'pdf-tools/SKILL.md': '---\nname: pdf-tools\ndescription: >\n  Extract text from PDFs\n  and fill forms.\n---\n\n# PDF\nSee references/guide.md',
         'pdf-tools/references/guide.md': '# Guide\nstep 1',
-        'pdf-tools/logo.png': 'binary',
+        'pdf-tools/scripts/run.py': 'print("ok")\n',
+        'pdf-tools/assets/logo.png': png,
         '__MACOSX/._SKILL.md': 'junk'
     });
     const preview = await store.previewArchive(buffer, { archiveName: 'pdf-tools.zip' });
-    assert.deepEqual([preview.id, preview.description, preview.fileCount, preview.skippedFiles, preview.exists], ['pdf-tools', 'Extract text from PDFs and fill forms.', 1, 1, false]);
+    assert.deepEqual([preview.id, preview.description, preview.fileCount, preview.skippedFiles, preview.exists], ['pdf-tools', 'Extract text from PDFs and fill forms.', 3, 0, false]);
     const imported = await store.importArchive(buffer, { overrides: { name: 'PDF 助手' } });
     assert.deepEqual([imported.id, imported.name, imported.source], ['pdf-tools', 'PDF 助手', 'import']);
+
+    // Loading the skill puts the package on disk in the team's user space and tells the model where it is.
+    const files = require('../backend/models/agent-skill-files');
+    const dir = files.dirOf('pdf-tools');
+    assert.ok(dir.startsWith(path.join(temp, 'home')));
     const loaded = await store.loadAll('@pdf-tools 提取文字');
     assert.match(loaded.prompt, /附带文件：references\/guide\.md/);
+    assert.ok(loaded.prompt.includes(`本技能的全部文件已原样放在：${dir}`));
+    assert.match(loaded.prompt, /- assets\/logo\.png（二进制，9 B）/);
+    assert.equal(fs.readFileSync(path.join(dir, 'scripts/run.py'), 'utf8'), 'print("ok")\n');
+    assert.ok(fs.readFileSync(path.join(dir, 'assets/logo.png')).equals(png));
+    assert.match(fs.readFileSync(path.join(dir, 'SKILL.md'), 'utf8'), /^---\nid: pdf-tools/);
+    if (process.platform !== 'win32') assert.ok(fs.statSync(path.join(dir, 'scripts/run.py')).mode & 0o100);
+
+    // One file on demand: text comes back, a binary is pointed to on disk, anything outside the package is refused.
+    assert.equal((await store.readPackageFile('pdf-tools', null, 'scripts/run.py')).content, 'print("ok")\n');
+    assert.deepEqual([(await store.readPackageFile('pdf-tools', null, 'assets/logo.png')).binary, (await store.readPackageFile('pdf-tools', null, '../../etc/passwd')).missing], [true, true]);
+    assert.equal(files.publicFiles((await store.getSkill('pdf-tools')).files).find(file => file.binary).content, '');
 
     const exported = await store.exportZip('pdf-tools');
     const back = await JSZip.loadAsync(exported.buffer);
-    assert.deepEqual(Object.keys(back.files).filter(name => !name.endsWith('/')).sort(), ['pdf-tools/SKILL.md', 'pdf-tools/references/guide.md']);
+    assert.deepEqual(Object.keys(back.files).filter(name => !name.endsWith('/')).sort(), ['pdf-tools/SKILL.md', 'pdf-tools/assets/logo.png', 'pdf-tools/references/guide.md', 'pdf-tools/scripts/run.py']);
+    assert.ok((await back.file('pdf-tools/assets/logo.png').async('nodebuffer')).equals(png));
     const roundTrip = await store.previewArchive(exported.buffer, { archiveName: exported.filename });
     assert.deepEqual([roundTrip.id, roundTrip.name, roundTrip.exists], ['pdf-tools', 'PDF 助手', true]);
+
+    // Improving only the SKILL.md text (save_skill / @improve-skill) keeps the package's scripts and data.
+    await store.createFromMarkdown('---\nid: pdf-tools\nname: PDF 助手\n---\n\n# PDF 改进版\n先运行 scripts/run.py', { overwrite: true, source: 'agent' });
+    const improved = await store.getSkill('pdf-tools');
+    assert.match(improved.markdown, /PDF 改进版/);
+    assert.deepEqual(improved.files.map(file => file.path).sort(), ['assets/logo.png', 'references/guide.md', 'scripts/run.py']);
+    await store.loadAll('@pdf-tools');
+    assert.equal(fs.readFileSync(path.join(dir, 'scripts/run.py'), 'utf8'), 'print("ok")\n');
+
+    // The folder follows the skill: a new version replaces it on the next load, deleting the skill removes it.
+    await store.importArchive(await skillZip({ 'pdf-tools/SKILL.md': '---\nname: pdf-tools\ndescription: v2\n---\n# PDF v2', 'pdf-tools/scripts/new.sh': '#!/bin/sh\necho 2\n' }), { overwrite: true });
+    await store.loadAll('@pdf-tools');
+    assert.deepEqual([fs.existsSync(path.join(dir, 'scripts/new.sh')), fs.existsSync(path.join(dir, 'scripts/run.py')), fs.existsSync(path.join(dir, 'assets'))], [true, false, false]);
+    await store.remove('pdf-tools');
+    assert.equal(fs.existsSync(dir), false);
 
     await assert.rejects(store.importArchive(await skillZip({ 'index.html': '<p>x</p>' })), { code: 'SKILL_MD_MISSING' });
     await assert.rejects(store.importArchive(Buffer.from('not a zip')), /无法读取压缩包/);

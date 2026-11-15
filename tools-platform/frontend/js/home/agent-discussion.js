@@ -141,6 +141,12 @@
  const providerNames=DESKTOP_AGENTS;
 
  const connectorName=key=>providerNames[key]||({weixin:L('微信','WeChat'),welink:L('WeLink 助手','WeLink Assistant'),'welink-cli':L('WeLink 官方','WeLink Official'),netcare:L('数字人 NetCare','NetCare Digital Human')})[key]||key;
+ const connectorDescription=key=>({
+  welink:L('以已连接的 WeLink 助手身份查看会话、向联系人或群聊发送消息。发送前选择接收方，点选即发送；群聊需先使用过助手，并有发送权限。此入口直接发送原文，不会先让 AI 总结消息。','View conversations and send messages to contacts or groups as the connected WeLink assistant. Select a recipient to send immediately. Groups must have used the assistant first, and sending permission is required. This sends your text directly, without an AI summary.'),
+  'welink-cli':L('使用本人 WeLink 账号，让 AI 查询消息、会议与邮件；可执行的操作以账号权限和连接器支持为准。','Use your personal WeLink account for AI-assisted message, meeting and email queries. Available actions depend on account permissions and connector support.'),
+  weixin:L('查看微信助手会话，并以已连接的助手身份向联系人直接发送消息；暂不支持群推送。','View WeChat assistant conversations and send directly to contacts as the connected assistant. Group sending is not supported.'),
+  netcare:L('让 AI 只读查询已配置的 NetCare 业务数据，用于了解数据和辅助分析。','Ask AI to query configured NetCare business data with read-only access for exploration and analysis.')
+ })[key]||'';
 
  const NETCARE_SVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="6" width="16" height="14" rx="4"/><path d="M12 3v3M8 14h.01M16 14h.01M9 17h6" stroke-linecap="round"/></svg>';
  const WX_SVG = `<svg viewBox="0 0 24 24"><path d="M9.5 4C5.36 4 2 6.91 2 10.5c0 1.93.9 3.68 2.34 4.88-.13.62-.51 2.05-.62 2.45-.16.58.26.47.53.33.45-.24 2.1-1.39 2.53-1.68.73.22 1.48.32 2.22.32h.5c-.13-.42-.2-.86-.2-1.3 0-3.31 3.13-6 7-6 .17 0 .33 0 .5.02C16.14 6.27 13.06 4 9.5 4zm-2.25 4a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5zm5 0a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5zm3.75 3.5c-3.31 0-6 2.24-6 5s2.69 5 6 5c.61 0 1.22-.08 1.8-.25.35.24 1.7 1.17 2.07 1.36.22.11.56.2.43-.27-.09-.33-.4-1.48-.5-1.98 1.18-.97 1.9-2.39 1.9-3.86 0-2.76-2.69-5-6-5zm-1.75 3a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3.75 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/></svg>`;
@@ -181,6 +187,8 @@
   button.dataset.available = String(availability.available);
   button.setAttribute('aria-pressed', String(enabled));
   button.title = locked ? L('此对话已绑定连接器；新建对话后可重新选择','Connectors are fixed for this conversation. Start a new chat to change them.') : L('选择下一段新对话使用的智能体或渠道','Choose agents or a channel for your new conversation');
+  const selectedDescription=connectorDescription(getSelectedConnector());
+  if(selectedDescription)button.title+='\n\n'+selectedDescription;
   button.setAttribute('aria-label', button.title);
 
   const label=root.querySelector('.dc-connector-label');
@@ -209,6 +217,7 @@
         const row=input.closest('.dc-connector-item');
         row.classList.toggle('is-unavailable',!readiness[key].ready&&!locked);
         row.title=locked?L('对话已开始，连接器不可修改','Conversation started; connectors cannot be changed'):readiness[key].ready?L('已就绪','Ready'):connectorReason(key);
+        const description=connectorDescription(key);if(description)row.title+='\n\n'+description;
 
         const isEnabled = Boolean(readiness[key]?.ready || connectors[key]);
         const showRow = superAdmin || isEnabled;

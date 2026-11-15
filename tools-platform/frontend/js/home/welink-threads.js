@@ -496,7 +496,9 @@
         const account = identity();
         const dialog = document.createElement('dialog');
         draftPicker = dialog;dialog.className = 'dc-channel-recipient';
-        dialog.innerHTML = `<header><strong>${escapeHtml(lang() === 'en-US' ? 'Choose a recipient' : '选择接收方')}</strong><button type="button" data-recipient-close aria-label="${escapeHtml(lang() === 'en-US' ? 'Cancel' : '取消')}">×</button></header><p>${escapeHtml(lang() === 'en-US' ? 'Your message will be sent only to the recipient you choose.' : '选择接收方后发送这条消息。')}</p><input type="search" data-recipient-search placeholder="${escapeHtml(lang() === 'en-US' ? 'Search contacts or groups' : '搜索联系人或群聊')}" aria-label="${escapeHtml(lang() === 'en-US' ? 'Search recipients' : '搜索接收方')}"><div data-recipient-list role="list"><p role="status">${escapeHtml(tx('loading'))}</p></div>`;
+        dialog.setAttribute('aria-labelledby','dc-recipient-title');
+        dialog.setAttribute('aria-describedby','dc-recipient-description');
+        dialog.innerHTML = `<header><div><small>${escapeHtml(channel === 'welink' ? 'WeLink' : tx('weixin'))}</small><h2 id="dc-recipient-title">${escapeHtml(lang() === 'en-US' ? 'Choose a recipient' : '选择接收方')}</h2></div><button type="button" data-recipient-close aria-label="${escapeHtml(lang() === 'en-US' ? 'Cancel' : '取消')}">×</button></header><p id="dc-recipient-description">${escapeHtml(lang() === 'en-US' ? 'Send directly as the connected assistant. Only conversations available to you are listed.' : '以已连接的助手身份直接发送，仅列出你有权限发送的已有会话。')}</p><div class="dc-recipient-preview"><small>${escapeHtml(lang() === 'en-US' ? 'Message to send' : '待发送消息')}</small><p>${escapeHtml(String(text || '').slice(0,200))}${String(text || '').length>200?'…':''}</p></div><input type="search" data-recipient-search placeholder="${escapeHtml(lang() === 'en-US' ? 'Search contacts or groups' : '搜索联系人或群聊')}" aria-label="${escapeHtml(lang() === 'en-US' ? 'Search recipients' : '搜索接收方')}"><div data-recipient-list role="list"><p role="status">${escapeHtml(tx('loading'))}</p></div><footer>${escapeHtml(lang() === 'en-US' ? 'Selecting a recipient sends this message. Cancel to keep editing.' : '点选接收方即发送；取消可继续编辑。')}</footer>`;
         const close = () => { dialog.close();dialog.remove();if (draftPicker === dialog) draftPicker = null; };
         dialog.querySelector('[data-recipient-close]').onclick = close;
         dialog.addEventListener('cancel', event => { event.preventDefault();close(); });
@@ -508,8 +510,12 @@
             const list = dialog.querySelector('[data-recipient-list]');
             const render = () => {
                 const query = dialog.querySelector('[data-recipient-search]').value.trim().toLowerCase();
-                const rows = targets.map((item,index) => ({item,index})).filter(({item}) => (item.name || item.id).toLowerCase().includes(query));
-                list.innerHTML = rows.length ? rows.map(({item,index}) => `<button type="button" data-recipient="${index}">${escapeHtml((lang() === 'en-US' ? 'Send to ' : '发送给 ') + (item.name || item.id))}</button>`).join('') : `<p role="status">${escapeHtml(lang() === 'en-US' ? 'No available recipients. Check channel permissions and contacts.' : '暂无可发送的接收方，请检查渠道权限和联系人。')}</p>`;
+                const rows = targets.map((item,index) => ({item,index})).filter(({item}) => `${item.name || ''} ${item.id} ${item.kind==='group'?tx('group'):tx('person')}`.toLowerCase().includes(query));
+                list.innerHTML = rows.length ? rows.map(({item,index}) => {
+                    const group=item.kind==='group',kind=group?tx('group'):tx('person');
+                    const name=item.name&&item.name!==item.id?item.name:group?(lang()==='en-US'?'Unnamed group':'未命名群聊'):item.id;
+                    return `<div role="listitem"><button type="button" data-recipient="${index}"><span class="dc-recipient-kind">${escapeHtml(kind)}</span><span class="dc-recipient-info"><strong>${escapeHtml(name)}</strong><small>${escapeHtml(item.id)}</small></span><span class="dc-recipient-send" aria-hidden="true">→</span></button></div>`;
+                }).join('') : `<p role="status">${escapeHtml(lang() === 'en-US' ? 'No matching recipients. Groups must have used the assistant first; check the search and sending permissions.' : '没有匹配的接收方。群聊需先在群里使用过助手；请检查搜索条件和发送权限。')}</p>`;
             };
             render();dialog.querySelector('[data-recipient-search]').addEventListener('input', render);
             list.addEventListener('click', async event => {

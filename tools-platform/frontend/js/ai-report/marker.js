@@ -5,9 +5,18 @@
     'use strict';
     const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
     function create({root,t,onMark,onChange=()=>{}}){
-        let active=false,popover=null,pin=null,count=0;
+        let active=false,popover=null,pin=null,count=0,hint=null;
         const clear=()=>{popover?.remove();popover=null;pin?.remove();pin=null;};
-        function set(on){active=!!on;document.documentElement.classList.toggle('air-marking',active);if(!active)clear();onChange(active);}
+        function set(on){
+            active=!!on;document.documentElement.classList.toggle('air-marking',active);
+            hint?.remove();hint=null;
+            if(active){
+                hint=document.createElement('div');hint.className='air-mark-hint';hint.setAttribute('role','status');
+                hint.textContent=t('标记模式：点击格子中要修改的位置，填写意见后点“交给 AI”。按 Esc 或“完成标记”退出。','Marking: click a spot in a cell, describe the change, then choose “Send to AI”. Press Esc or “Done marking” to exit.');
+                document.body.append(hint);
+            }else clear();
+            onChange(active);
+        }
         // What the mark points at: the slot (named sub-block of a template cell) and a short piece of nearby text.
         function targetOf(node){
             const slot=node.closest('[data-slot]')?.dataset.slot||'';

@@ -105,7 +105,7 @@
             if(label===undefined||label===null||String(label).trim()==='')fail(template,`第 ${index+1} 项缺少 label（分类名称）`);
             return {label:String(label),value:num(pick(row,'value')),target:num(pick(row,'target')),previous:num(pick(row,'previous')),total:pick(row,'total')===true,tone:pick(row,'tone'),note:pick(row,'note')};
         });
-        if(items.length&&items.every(item=>item.value===null))fail(template,'每一项的 value 都不是数字（"95%" 这类文字要先在 compute 里转成数字 95）');
+        if(items.length&&items.every(item=>item.value===null))fail(template,'每一项的 value 都为空或无法转成数字；请检查 compute 读取的字段和筛选名称是否存在。指标源优先按真实名称读取 input.<来源id>.values[指标名称]；不要把缺失值填成 0');
         return items;
     }
     function readSeries(template,data){
@@ -895,7 +895,11 @@ const P = kit.params({"title":{"label":"标题","type":"text","value":"各运营
         for(const [id,source] of Object.entries(input||{})){
             if(!source||typeof source!=='object'||id.startsWith('$'))continue;
             if(Array.isArray(source.rows)){const keys=[...new Set(source.rows.slice(0,20).flatMap(row=>row&&typeof row==='object'?Object.keys(row):[]))].slice(0,30);parts.push(`input.${id}.rows 共 ${source.rows.length} 行${keys.length?`，字段：${keys.join('、')}`:''}`);}
-            else if(Array.isArray(source.metrics))parts.push(`input.${id}.metrics 共 ${source.metrics.length} 条（按 label / metricName 筛选，数值用 numValue）`);
+            else if(Array.isArray(source.metrics)){
+                const keys=[...new Set(source.metrics.slice(0,20).flatMap(row=>row&&typeof row==='object'?Object.keys(row):[]))].slice(0,20);
+                const names=Object.keys(source.values||{}).slice(0,12);
+                parts.push(`input.${id}.metrics 共 ${source.metrics.length} 条${keys.length?`，实际字段：${keys.join('、')}`:''}；优先用 input.${id}.values[指标名称] 读取已转换的数字（如 "95%" → 95），缺失值保留 null${names.length?`；可用名称：${names.join('、')}`:''}`);
+            }
             else parts.push(`input.${id} 的键：${Object.keys(source).slice(0,20).join('、')}`);
         }
         const text=parts.join('；');

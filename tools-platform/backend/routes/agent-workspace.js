@@ -68,6 +68,17 @@ router.post('/account-directory', async (req, res) => {
     }
 });
 
+router.get('/browser/bookmarks', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try { res.json({ items: await require('../models/browser-bookmarks-repository').list(req.user.username) }); }
+    catch (error) { res.status(500).json({ error: error.message }); }
+});
+router.post('/browser/bookmarks', async (req, res) => {
+    if (!runManager.isAdminUser(req.user)) return res.status(403).json({ code: 'ADMIN_REQUIRED', error: '仅管理员可维护浏览器收藏' });
+    try { res.json({ items: await require('../models/browser-bookmarks-repository').update(req.user.username, req.body || {}) }); }
+    catch (error) { res.status(error.status || 500).json({ error: error.message }); }
+});
+
 router.get('/browser/view', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     if (!runManager.isAdminUser(req.user)) return res.status(403).json({ code: 'ADMIN_REQUIRED', error: '浏览器画面仅管理员可查看' });

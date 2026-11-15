@@ -657,55 +657,57 @@
                 <button type="button" class="tool-import-close" id="customToolImportClose" aria-label="关闭">×</button>
             </div>
             <form class="tool-import-form" id="customToolImportForm" novalidate>
-                <label class="tool-import-file" id="customToolFilePicker">
-                    <input type="file" id="customToolFileInput" accept=".html,.htm,.zip,.md,text/html,application/zip,text/markdown" hidden>
-                    <span class="tool-import-file-icon">📦</span>
-                    <span class="tool-import-file-main">
-                        <span class="tool-import-file-title" id="customToolFileTitle">选择 HTML / ZIP 文件</span>
-                        <span class="tool-import-file-hint" id="customToolFileHint">HTML 或 ZIP，ZIP 最大 35 MB</span>
-                        <span class="tool-import-file-name" id="customToolFileName"></span>
-                    </span>
-                </label>
-                <div class="tool-import-ai-status" id="customToolAiStatus" aria-live="polite"></div>
-                <div class="tool-import-fields">
-                    <div class="tool-import-locked-hint" id="customToolImportLockedHint" role="status" hidden>🔒 更新模式下工具中英文名称保持锁定，上传的新内容将直接覆盖此工具。</div>
-                    <div class="tool-import-field">
-                        <label for="customToolIcon" id="customToolIconLabel">图标</label>
-                        <input class="tool-import-input" id="customToolIcon" name="icon" value="🧩" maxlength="8">
+                <div class="tool-import-body">
+                    <label class="tool-import-file" id="customToolFilePicker">
+                        <input type="file" id="customToolFileInput" accept=".html,.htm,.zip,.md,text/html,application/zip,text/markdown" hidden>
+                        <span class="tool-import-file-icon">📦</span>
+                        <span class="tool-import-file-main">
+                            <span class="tool-import-file-title" id="customToolFileTitle">选择 HTML / ZIP 文件</span>
+                            <span class="tool-import-file-hint" id="customToolFileHint">HTML 或 ZIP，ZIP 最大 35 MB</span>
+                            <span class="tool-import-file-name" id="customToolFileName"></span>
+                        </span>
+                    </label>
+                    <div class="tool-import-ai-status" id="customToolAiStatus" aria-live="polite"></div>
+                    <div class="tool-import-fields">
+                        <div class="tool-import-locked-hint" id="customToolImportLockedHint" role="status" hidden>🔒 更新模式下工具中英文名称保持锁定，上传的新内容将直接覆盖此工具。</div>
+                        <div class="tool-import-field">
+                            <label for="customToolIcon" id="customToolIconLabel">图标</label>
+                            <input class="tool-import-input" id="customToolIcon" name="icon" value="🧩" maxlength="8">
+                        </div>
+                        <div class="tool-import-field">
+                            <label for="customToolName" id="customToolNameLabel">中文工具名 <span>*</span></label>
+                            <input class="tool-import-input" id="customToolName" name="name" maxlength="80" autocomplete="off" required>
+                        </div>
+                        <div class="tool-import-field full">
+                            <label for="customToolNameEn" id="customToolNameEnLabel">英文工具名</label>
+                            <input class="tool-import-input" id="customToolNameEn" name="nameEn" maxlength="120" autocomplete="off">
+                        </div>
+                        <div class="tool-import-field full">
+                            <label for="customToolDescription" id="customToolDescriptionLabel">中文简介</label>
+                            <textarea class="tool-import-textarea" id="customToolDescription" name="description" maxlength="500"></textarea>
+                        </div>
+                        <div class="tool-import-field full">
+                            <label for="customToolDescriptionEn" id="customToolDescriptionEnLabel">英文简介</label>
+                            <textarea class="tool-import-textarea" id="customToolDescriptionEn" name="descriptionEn" maxlength="1000"></textarea>
+                        </div>
+                        <div class="tool-import-field full">
+                            <label for="customToolTags" id="customToolTagsLabel">标签</label>
+                            <input class="tool-import-input" id="customToolTags" name="tags" autocomplete="off">
+                        </div>
+                        <div class="tool-import-field full tool-import-share-field" id="customToolShareField" hidden>
+                            <label class="tool-import-checkbox-label">
+                                <input type="checkbox" id="customToolShareCheckbox" name="sharedAccess">
+                                <span id="customToolShareLabel">全员开放（共享给所有团队和普通成员）</span>
+                            </label>
+                            <p class="tool-import-field-hint" id="customToolShareHint">默认不勾选（未全员开放），仅超级管理员可见；勾选后导入成功立即向全平台所有成员开放。</p>
+                        </div>
                     </div>
-                    <div class="tool-import-field">
-                        <label for="customToolName" id="customToolNameLabel">中文工具名 <span>*</span></label>
-                        <input class="tool-import-input" id="customToolName" name="name" maxlength="80" autocomplete="off" required>
+                    <div class="tool-import-error" id="customToolImportError" role="alert"></div>
+                    <div class="tool-import-progress" id="customToolImportProgress" hidden>
+                        <div id="customToolImportStatus" role="status" aria-live="polite"></div>
+                        <progress id="customToolImportBar" aria-labelledby="customToolImportStatus" max="100" value="0"></progress>
+                        <div class="tool-import-log" id="customToolImportLog"></div>
                     </div>
-                    <div class="tool-import-field full">
-                        <label for="customToolNameEn" id="customToolNameEnLabel">英文工具名</label>
-                        <input class="tool-import-input" id="customToolNameEn" name="nameEn" maxlength="120" autocomplete="off">
-                    </div>
-                    <div class="tool-import-field full">
-                        <label for="customToolDescription" id="customToolDescriptionLabel">中文简介</label>
-                        <textarea class="tool-import-textarea" id="customToolDescription" name="description" maxlength="500"></textarea>
-                    </div>
-                    <div class="tool-import-field full">
-                        <label for="customToolDescriptionEn" id="customToolDescriptionEnLabel">英文简介</label>
-                        <textarea class="tool-import-textarea" id="customToolDescriptionEn" name="descriptionEn" maxlength="1000"></textarea>
-                    </div>
-                    <div class="tool-import-field full">
-                        <label for="customToolTags" id="customToolTagsLabel">标签</label>
-                        <input class="tool-import-input" id="customToolTags" name="tags" autocomplete="off">
-                    </div>
-                    <div class="tool-import-field full tool-import-share-field" id="customToolShareField" hidden>
-                        <label class="tool-import-checkbox-label">
-                            <input type="checkbox" id="customToolShareCheckbox" name="sharedAccess">
-                            <span id="customToolShareLabel">全员开放（共享给所有团队和普通成员）</span>
-                        </label>
-                        <p class="tool-import-field-hint" id="customToolShareHint">默认不勾选（未全员开放），仅超级管理员可见；勾选后导入成功立即向全平台所有成员开放。</p>
-                    </div>
-                </div>
-                <div class="tool-import-error" id="customToolImportError" role="alert"></div>
-                <div class="tool-import-progress" id="customToolImportProgress" hidden>
-                    <div id="customToolImportStatus" role="status" aria-live="polite"></div>
-                    <progress id="customToolImportBar" aria-labelledby="customToolImportStatus" max="100" value="0"></progress>
-                    <div class="tool-import-log" id="customToolImportLog"></div>
                 </div>
                 <div class="tool-import-actions">
                     <button type="button" class="tool-import-btn" id="customToolImportCancel">取消</button>

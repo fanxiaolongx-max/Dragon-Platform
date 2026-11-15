@@ -577,7 +577,7 @@ function createDragonBrowser({ onOpenAppUrl = () => false, partition, whenReady,
         if(fromSidebar&&action==='download-anchor'){downloadToast.setAnchor(payload);return true;}
         if (!win && fromSidebar && action === 'new-tab') { open({ link: { name: T('新标签页', 'New tab'), url: 'about:blank' } }); return true; }
         if (!win || (sender !== win.webContents && !fromSidebar)) return false;
-        if (fromSidebar && !['tab-select','tab-close','tab-move','tab-menu','new-tab','reopen-tab','navigate','back','forward','reload','external','plugins','downloads','downloads-folder','download-action','history','bookmarks','library-open','zoom-in','zoom-out','zoom-reset','find-open','find','find-close','print','devtools','screenshot'].includes(action)) return false;
+        if (fromSidebar && !['tab-select','tab-close','tab-move','tab-menu','new-tab','reopen-tab','navigate','back','forward','reload','external','plugins','downloads','downloads-folder','download-action','history','bookmarks','bookmark','library-open','zoom-in','zoom-out','zoom-reset','find-open','find','find-close','print','devtools','screenshot'].includes(action)) return false;
         const tab = active();
         if (!tab) { if (action === 'new-tab') open({ link: { name: T('新标签页', 'New tab'), url: 'about:blank' } }); return true; }
         const wc = tab.page.webContents;

@@ -131,6 +131,39 @@ test('compile sends made-up sources back: unknown tables and metric keys are nam
     assert.deepEqual(await data.unknownSources('2026-11', model.normalizeRecipe(recipe()).sources), [], 'a real table without this month\'s file is missing data, not unknown');
 });
 
+test('metric queries separate the overall KPI from operator rows and are repaired before compile succeeds', async () => {
+    const query = require('../frontend/js/ai-report/query');
+    const labels = ['整改', '整改 / TE', '整改 / ORG', '整改 / ET', '整改 / VDF'];
+    const values = ['98%', '99%', '96%', '93%', '97%'];
+    await repo.registerSnapshot({ id: 'query-rectification', timestamp: '2026-07-02T00:00:00Z', target_period: '2026-06', topMetrics: labels.map((label, index) => ({ key: `query_rectification_${index}`, label, value: values[index], target: '≥ 90%' })) }, { allowMissingBatch: true });
+    const sources = [{ id: 'm1', kind: 'metrics', names: labels }];
+    const { input } = await data.recipeInput('2026-06', model.normalizeRecipe(recipe({ sources })).sources);
+    assert.equal(input.m1.metrics.length, 5);
+    const wrongField = { shape: 'kpis', from: 'm1', cards: [{ label: '整体达成率', value: '整改' }] };
+    assert.throws(() => query.run(wrongField, input), /整改.*是指标名称，不是字段名/);
+    const unfiltered = { ...wrongField, cards: [{ label: '整体达成率', value: 'value' }] };
+    assert.throws(() => query.run(unfiltered, input), /对应 5 行.*整体按 label 精确匹配/);
+    const correct = {
+        overall: { ...unfiltered, where: [{ field: 'label', op: '=', value: '整改' }] },
+        operators: { shape: 'rows', from: 'm1', where: [{ field: 'label', op: 'in', value: labels.slice(1) }], columns: { name: 'label', rate: 'value', target: 'target' } }
+    };
+    const result = query.run(correct, input);
+    assert.equal(result.overall[0].value, '98%');
+    assert.deepEqual(result.operators.map(row => row.rate), values.slice(1));
+    assert.deepEqual(result.operators.map(row => row.name), labels.slice(1));
+    const seen = [], replies = [wrongField, unfiltered, correct];
+    const client = { async generateChat({ messages }) {
+        seen.push(messages.at(-1).content);
+        return { text: JSON.stringify({ type: 'recipe', recipe: { ...recipe({ sources }), query: replies.shift() } }), toolCalls: [] };
+    } };
+    const compiled = await route.compileTurn(client, { month: '2026-06', prompt: '仅展示整改，使用整体指标卡和运营商表格' });
+    assert.equal(compiled.type, 'recipe');
+    assert.equal(seen.length, 3);
+    assert.match(seen[1], /查询试运行失败.*是指标名称，不是字段名/);
+    assert.match(seen[2], /对应 5 行/);
+    assert.deepEqual(query.run(query.queryFromCompute(compiled.recipe.compute), input), result);
+});
+
 test('text edited in a cell is sent with the changed words and comes back as the updated prompt', async () => {
     const seen = [];
     const replies = [{ text: 'not json', toolCalls: [] }, { text: JSON.stringify({ mode: 'refine', note: '月份写成 X月', prompt: 'p\n总结里月份写成“X月”。' }), toolCalls: [] }];
@@ -165,6 +198,13 @@ test('metrics are found by name each month, and keys that changed between months
     const sources = sources => model.normalizeRecipe(recipe({ sources })).sources;
     const byName = await data.recipeInput('2026-09', sources([{ id: 'cur', kind: 'metrics', names: ['事故', '延期补授权'] }, { id: 'prev', kind: 'metrics', names: ['事故'], monthOffset: -1 }]));
     assert.deepEqual([byName.input.cur.values, byName.input.prev.values, byName.missing], [{ 事故: 5, 延期补授权: 95 }, { 事故: 3 }, []]);
+    const templates = require('../frontend/js/ai-report/templates');
+    const hint = templates.dataHint(byName.input);
+    assert.match(hint, /实际字段：key、label、value、target/);
+    assert.match(hint, /input\.cur\.values\[指标名称\]/);
+    assert.match(hint, /可用名称：事故、延期补授权/);
+    assert.doesNotMatch(hint, /numValue|metricName/);
+    assert.throws(() => templates.render({ rows: [[{ id: 'chart', template: 'bar-target' }]] }, [{ label: 'TE', value: null }], {}), /字段和筛选名称/);
     const unlisted = await data.recipeInput('2026-09', sources([{ id: 'cur', kind: 'metrics', names: ['事故'] }]));
     assert.deepEqual([unlisted.input.cur.metrics.map(metric => metric.label), unlisted.input.cur.values['延期补授权']], [['事故'], 95], 'names left out of the list can still be read');
     const byOldKey = await data.recipeInput('2026-09', sources([{ id: 'prev', kind: 'metrics', keys: ['other_x_m_1'], monthOffset: -1 }]));

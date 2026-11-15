@@ -10,7 +10,7 @@
     const t=(zh,en)=>lang()==='en'?en:zh;
     const BOARD='bi-board';
     const previousMonth=()=>{const date=new Date();date.setUTCDate(1);date.setUTCMonth(date.getUTCMonth()-1);return date.toISOString().slice(0,7);};
-    const state={board:null,boards:[],selected:null,busy:new Map(),planning:false,saved:'',undo:[],zoom:'fit',focus:null,presenting:false};
+    const state={board:null,boards:[],selected:null,busy:new Map(),planning:false,saved:'',undo:[],zoom:'fit',focus:null,presenting:false,advanced:false};
     const dataCache=new Map();
     const fresh=new Set(); // cells whose content just landed: they fade in once
     const canvasNode=$('#biCanvas'),scaler=$('#biScaler'),stage=$('#biStage'),side=$('#biSide');
@@ -87,7 +87,7 @@
         const busy=state.busy.get(entry.id),error=entry.output?.error,selected=state.selected===entry.id;
         const stateHtml=busy?`<div class="bi-item-state is-busy"><span class="bi-spin"></span>${esc(busy)}</div>`
             :error?`<div class="bi-item-state is-error"><strong>${t('这个格子没有生成成功','This cell failed')}</strong><span>${esc(error.slice(0,240))}</span><button type="button" data-item-build="${esc(entry.id)}">${t('重新生成','Rebuild')}</button></div>`
-            :!entry.output?.html?`<div class="bi-item-state is-idle">${entry.prompt?`<span>${esc(entry.prompt.slice(0,120))}</span><button type="button" data-item-build="${esc(entry.id)}">${t('生成','Build')}</button>`:`<span>${t('选中后在右边写下这个格子要展示什么','Select and describe what this cell shows')}</span>`}</div>`:'';
+            :!entry.output?.html?`<div class="bi-item-state is-idle">${entry.prompt?`<span>${esc(entry.prompt.slice(0,120))}</span><button type="button" data-item-build="${esc(entry.id)}">${t('生成','Build')}</button>`:`<span>${t('选中后在右边说说这个格子要展示什么','Select and describe what this cell shows')}</span>`}</div>`:'';
         return `<div class="bi-item${selected?' is-selected':''}${entry.frame===false?' is-frameless':''}${entry.y<28?' is-top':''}${fresh.has(entry.id)&&!busy&&!error?' is-fresh':''}" data-cell="${esc(entry.id)}" style="left:${entry.x}px;top:${entry.y}px;width:${entry.w}px;height:${entry.h}px">
             <div class="bi-item-body air-output" data-zoom="${B.scaleOf(entry,state.board.canvas)}" style="zoom:${B.scaleOf(entry,state.board.canvas)}">${entry.output?.html&&!error?entry.output.html:''}</div>${stateHtml}
             <div class="bi-grip" data-grip title="${esc(t('拖动移动','Drag to move'))}">⠿ ${esc(entry.title||t('格子','Cell'))}</div><span class="bi-handle" data-resize title="${esc(t('拖动调整大小','Drag to resize'))}"></span></div>`;
@@ -145,7 +145,7 @@
         const box=canvasNode.getBoundingClientRect(),k=scale(),size=state.board.canvas;
         checkpoint();
         const entry=B.item({x:B.snap((event.clientX-box.left)/k-240),y:B.snap((event.clientY-box.top)/k-160),w:480,h:320},size);
-        state.board.items.push(entry);state.selected=entry.id;state.focus=entry.id;paint();side.querySelector('[data-item-prompt]')?.focus();
+        state.board.items.push(entry);state.selected=entry.id;state.focus=entry.id;paint();side.querySelector('.bi-composer textarea')?.focus();
     });
     canvasNode.addEventListener('click',event=>{
         const pick=event.target.closest('.bi-empty [data-choice]');if(pick)return send(pick.dataset.choice);
@@ -159,17 +159,39 @@
         const entry=item(id);if(!entry)return;state.selected=id;state.focus=id;
         const where=[mark.slot&&t(`分区 ${mark.slot}`,`slot ${mark.slot}`),mark.kind==='chart'?t('图表','chart'):mark.text&&`“${mark.text}”`].filter(Boolean).join(' · ');
         const text=`📍 ${entry.title||t('格子','Cell')}${where?`（${where}）`:''}：${mark.note}`;
-        const view=viewOf(entry),free=!view&&entry.recipe?T.freeParams(entry.recipe.render):null;
-        if(!view&&!free)return send(text);
         state.board.chat.push({role:'user',text});
-        await work(entry,t('正在按标记调整…','Adjusting…'),async()=>{
-            const reply=await window.AiReportTrace.post(id,t('标记调整','Adjust from mark'),'/api/ai-report/cell/adjust',{...(view?{view}:{params:free.defs}),prompt:entry.prompt,note:mark.note,target:{slot:mark.slot,text:mark.text,kind:mark.kind,title:mark.title}});
+        if(await adjust(entry,mark.note,{slot:mark.slot,text:mark.text,kind:mark.kind,title:mark.title}))return;
+        state.board.chat.pop();window.setTimeout(()=>send(text),0);
+    }
+    // One sentence → new display settings (template and parameters), without rebuilding the cell. False when the
+    // request needs more than display settings; the caller then hands it to the board conversation.
+    async function adjust(entry,note,target={}){
+        const view=viewOf(entry),free=!view&&entry.recipe?T.freeParams(entry.recipe.render):null;
+        if(!view&&!free)return false;
+        let done=false;
+        await work(entry,t('正在调整…','Adjusting…'),async()=>{
+            const reply=await window.AiReportTrace.post(entry.id,t('调整展示','Adjust display'),'/api/ai-report/cell/adjust',{...(view?{view}:{params:free.defs}),prompt:entry.prompt,note,target}).catch(()=>null);
             let change=null;
-            if(reply.type==='view'&&reply.view&&view)change={render:T.renderSource(reply.view),prompt:T.withDescription(entry.prompt,reply.view)};
-            else if(reply.type==='params'&&reply.values&&free){const code=T.setFreeParams(entry.recipe.render,reply.values);change={render:code,prompt:T.withFreeDescription(entry.prompt,T.freeParams(code).defs)};}
-            if(change){checkpoint();applyChange(entry,change,false);state.board.chat.push({role:'ai',text:reply.reply||t('已按标记调整。','Adjusted.')});await runItem(entry);}
-            else{state.board.chat.pop();window.setTimeout(()=>send(text),0);}
+            if(reply?.type==='view'&&reply.view&&view)change={render:T.renderSource(reply.view),prompt:T.withDescription(entry.prompt,reply.view)};
+            else if(reply?.type==='params'&&reply.values&&free){const code=T.setFreeParams(entry.recipe.render,reply.values);change={render:code,prompt:T.withFreeDescription(entry.prompt,T.freeParams(code).defs)};}
+            if(!change||change.render===entry.recipe.render)return;
+            checkpoint();applyChange(entry,change,false);done=true;
+            state.board.chat.push({role:'ai',text:reply.reply||t('已调整。','Adjusted.')});
+            // The new settings are in; a cell whose data step fails anyway is rebuilt from that error.
+            try{await runItem(entry);}catch(error){entry.output={...(entry.output||{html:'',widgets:[]}),error:error.message||String(error)};await compileItem(entry);}
         });
+        return done;
+    }
+    // "字大一点 / 缩小一些": the cell's size factor moves one step, no AI involved.
+    const SIZE_WORDS=/^(请|帮我|把|将|让)?(这个|这格|格子|整体|内容|字号|字体|文字|字|图表|图|的|都|再|稍微|稍|调|放|变|改|弄|得)*(大|小)(一点点|一点|一些|点|些|一号|一档)?[。.!！~～]*$/;
+    function resize(entry,text){
+        const match=String(text).trim().match(SIZE_WORDS);if(!match||!entry.recipe)return false;
+        const steps=window.AiReportParamPanel.SCALES,now=B.scaleOf(entry,state.board.canvas),up=match[3]==='大';
+        const next=up?steps.find(value=>value>now+0.001):[...steps].reverse().find(value=>value<now-0.001);
+        if(!next){state.board.chat.push({role:'ai',kind:'note',text:up?t('已经是最大了。','Already the largest.'):t('已经是最小了。','Already the smallest.')});return true;}
+        checkpoint();entry.scale=next;
+        state.board.chat.push({role:'ai',text:t(`字号和图表调到 ${next}×。`,`Size set to ${next}×.`)});
+        rerun(entry);return true;
     }
     function applyChange(entry,change,run=true){
         const synced=entry.recipePrompt===entry.prompt;
@@ -191,18 +213,24 @@
         extracting.delete(entry.id);paintSide();
     }
 
-    // ── Side panel: the selected cell (prompt, display settings) above the board conversation ───────────────────
-    function itemPanel(entry){
-        const busy=state.busy.has(entry.id),changed=entry.prompt&&entry.prompt!==entry.recipePrompt;
-        return `<div class="bi-side-section bi-item-panel">
-            <h3>${t('选中的格子','Selected cell')}<span class="bi-pos">${entry.x}, ${entry.y} · ${entry.w}×${entry.h}</span></h3>
-            <label>${t('名称（只在编辑时显示）','Name (editor only)')}<input data-item-title value="${esc(entry.title)}" maxlength="80"></label>
-            <label>${t('格子提示词：这个格子展示什么','Prompt: what this cell shows')}<textarea data-item-prompt rows="4" ${busy?'disabled':''}>${esc(entry.prompt)}</textarea></label>
+    // ── Side panel: one conversation. A selected cell shows as a slim bar above the message box; everything
+    //    else about it (name, prompt, display settings, copy, delete) sits behind "设置" and is closed by default.
+    function cellBar(entry){
+        const busy=state.busy.has(entry.id),changed=entry.prompt&&entry.prompt!==entry.recipePrompt,open=state.advanced;
+        const chips=entry.recipe?[['say',t('字大一点','Bigger text')],['say',t('字小一点','Smaller text')],['fill',t('标题改成：','Change the title to: '),t('改标题','Rename title')],['say',t('换一种图表样式','Try another chart style'),t('换个样式','Another style')]]:[];
+        const settings=!open?'':`<div class="bi-adv">
+            <label>${t('名称','Name')}<input data-item-title value="${esc(entry.title)}" maxlength="80"></label>
+            <label>${t('提示词','Prompt')}<textarea data-item-prompt rows="3" ${busy?'disabled':''} placeholder="${esc(t('这个格子展示什么','What this cell shows'))}">${esc(entry.prompt)}</textarea></label>
+            ${entry.recipe?`<div class="bi-view">${window.AiReportParamPanel.html({recipe:entry.recipe,scale:entry.scale||null,autoScale:B.autoScale(state.board.canvas),t,lang:lang(),busy,skip:['height'],extracting:extracting.has(entry.id)})}</div>`:''}
             <div class="bi-row"><button type="button" class="bi-primary" data-item-action="build" ${busy||!entry.prompt?'disabled':''}>${entry.recipe?(changed?t('按提示词重新生成','Rebuild from prompt'):t('重新生成','Rebuild')):t('生成','Build')}</button>
                 <button type="button" data-item-action="frame">${entry.frame===false?t('显示卡片底','Show card'):t('去掉卡片底','No card')}</button>
                 <button type="button" data-item-action="duplicate">${t('复制','Duplicate')}</button><button type="button" data-item-action="delete" class="bi-danger">${t('删除','Delete')}</button></div>
-            ${entry.recipe?`<h3>${t('展示设置（不用 AI，立即重画）','Display settings (no AI)')}</h3><div class="bi-view">${window.AiReportParamPanel.html({recipe:entry.recipe,scale:entry.scale||null,autoScale:B.autoScale(state.board.canvas),t,lang:lang(),busy,skip:['height'],extracting:extracting.has(entry.id)})}</div>`:''}
-        </div>`;
+            <p class="bi-pos">${entry.x}, ${entry.y} · ${entry.w}×${entry.h}　${t('方向键微调位置','Arrow keys nudge')}</p></div>`;
+        return `<div class="bi-cell${open?' is-open':''}">
+            <div class="bi-cell-head"><span class="bi-cell-name" title="${esc(t('接下来说的话只改这个格子','What you say next changes only this cell'))}">${esc(entry.title||t('选中的格子','Selected cell'))}</span>
+                <button type="button" class="bi-link" data-advanced aria-expanded="${open}">${t('设置','Settings')}<i aria-hidden="true"></i></button>
+                <button type="button" class="bi-x" data-unfocus aria-label="${esc(t('取消选中，改为说整个看板','Deselect and talk about the whole board'))}" title="${esc(t('取消选中','Deselect'))}">✕</button></div>
+            ${settings}${chips.length&&!open?`<div class="bi-chips">${chips.map(([mode,text,label])=>`<button type="button" data-${mode}="${esc(text)}" ${busy?'disabled':''}>${esc(label||text)}</button>`).join('')}</div>`:''}</div>`;
     }
     const EXAMPLES=()=>[
         t('做一个 16:9 的运维质量看板：顶部核心指标，中间近 6 个月趋势和各运营商达标对比，底部未达标明细','A 16:9 operations dashboard: KPIs on top, 6-month trends and per-operator targets, failing items below'),
@@ -214,24 +242,30 @@
         const log=state.board.chat.map((entry,index)=>{
             const choices=entry.choices?.length&&index===state.board.chat.length-1?`<div class="bi-choices">${entry.choices.map(choice=>`<button type="button" data-choice="${esc(choice)}">${esc(choice)}</button>`).join('')}</div>`:'';
             return `<div class="bi-msg is-${entry.kind==='note'?'note':entry.role}${index>=shownMessages?' is-new':''}">${esc(entry.text)}${choices}</div>`;}).join('');
-        const empty=state.board.chat.length?'':`<div class="bi-examples"><p class="bi-pos">${t('说说想看什么，AI 会定画布大小、排好格子，再逐个取数生成。比如：','Say what you want to see; the AI sizes the canvas, lays out cells and builds them. For example:')}</p>${EXAMPLES().map(text=>`<button type="button" data-choice="${esc(text)}">${esc(text)}</button>`).join('')}</div>`;
-        const focus=state.focus&&item(state.focus);
-        return `<div class="bi-chat"><div class="bi-side-section"><h3>${t('看板对话','Board conversation')}<button type="button" class="bi-btn" data-bi-clear title="${esc(t('清空对话记录（看板不变）','Clear the conversation (the board stays)'))}">${t('清空','Clear')}</button></h3></div>
-            <div class="bi-log">${empty}${log}${state.planning?`<div class="bi-msg is-ai">${t('AI 正在设计看板','Designing the board')}<span class="bi-typing" aria-hidden="true"><i></i><i></i><i></i></span></div>`:''}</div>
-            ${focus?`<div class="bi-focus">${t('正在说：','Talking about: ')}${esc(focus.title||t('选中的格子','the selected cell'))}<button type="button" data-unfocus aria-label="${esc(t('改为说整个看板','Talk about the whole board'))}">✕</button></div>`:''}
-            <form class="bi-composer" data-composer><textarea rows="2" maxlength="4000" placeholder="${esc(focus?t('说说这个格子要怎么改…','How should this cell change…'):t('说说想做什么看板，或要怎么改…','Describe the board, or what to change…'))}" ${state.planning?'disabled':''}></textarea><button type="submit" ${state.planning?'disabled':''}>${t('发送','Send')}</button></form>
-            <div class="bi-hint">${t('<kbd>Enter</kbd> 发送 · 选中格子后 <kbd>←↑→↓</kbd> 微调位置（<kbd>Shift</kbd> 大步）· <kbd>⌘/Ctrl+Z</kbd> 撤销 · <kbd>⌘/Ctrl+S</kbd> 保存','<kbd>Enter</kbd> send · arrows nudge the selected cell · <kbd>⌘/Ctrl+Z</kbd> undo')}</div></div>`;
+        const empty=state.board.chat.length?'':`<div class="bi-examples"><p>${t('说说想看什么，AI 会排好看板并取数生成。','Say what you want to see; the AI lays out the board and builds it.')}</p>${EXAMPLES().map(text=>`<button type="button" data-choice="${esc(text)}">${esc(text)}</button>`).join('')}</div>`;
+        const entry=state.selected&&item(state.selected);
+        const hint=entry?(entry.recipe?t('说说这个格子要怎么改…','How should this cell change…'):t('这个格子要展示什么…','What should this cell show…')):t('说说想做什么看板，或要怎么改…','Describe the board, or what to change…');
+        return `<div class="bi-chat"><div class="bi-side-head"><span>${t('对话','Conversation')}</span>${state.board.chat.length?`<button type="button" class="bi-link" data-bi-clear title="${esc(t('清空对话记录（看板不变）','Clear the conversation (the board stays)'))}">${t('清空','Clear')}</button>`:''}</div>
+            <div class="bi-log">${empty}${log}${state.planning?`<div class="bi-msg is-ai">${t('AI 正在处理','Working')}<span class="bi-typing" aria-hidden="true"><i></i><i></i><i></i></span></div>`:''}</div>
+            <div class="bi-dock">${entry?cellBar(entry):''}<form class="bi-chat-form" data-composer><div class="bi-composer"><textarea rows="1" maxlength="4000" aria-label="${esc(t('消息','Message'))}" placeholder="${esc(hint)}" ${state.planning?'disabled':''}></textarea><div class="bi-composer-bar"><small>${t('Enter 发送 · Shift+Enter 换行','Enter to send · Shift+Enter for a new line')}</small><button type="submit" class="bi-send" disabled aria-label="${esc(t('发送','Send'))}" title="${esc(t('发送','Send'))}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div></div></form></div></div>`;
     }
     // Only messages and panels that are new animate in; redraws of what is already shown stay still.
     let shownMessages=Infinity,shownPanel='';
+    function fitComposer(input){
+        if(!input)return;
+        input.style.height='auto';
+        input.style.height=Math.min(input.scrollHeight,200)+'px';
+        const button=side.querySelector('.bi-send');
+        if(button)button.disabled=state.planning||!input.value.trim()||input.disabled;
+    }
     function paintSide(){
         if(!state.board){side.innerHTML='';return;}
         const keep=side.querySelector('.bi-composer textarea')?.value||'',log=side.querySelector('.bi-log'),bottom=log?log.scrollHeight-log.scrollTop-log.clientHeight<40:true;
         const entry=state.selected&&item(state.selected);
-        side.innerHTML=(entry?itemPanel(entry):'')+chatHtml();
+        side.innerHTML=chatHtml();
         shownMessages=state.board.chat.length;
-        const panel=side.querySelector('.bi-item-panel');if(panel&&entry&&shownPanel!==entry.id)panel.classList.add('is-new');shownPanel=entry?.id||'';
-        const input=side.querySelector('.bi-composer textarea');if(input&&keep)input.value=keep;
+        const panel=side.querySelector('.bi-cell');if(panel&&entry&&shownPanel!==entry.id)panel.classList.add('is-new');shownPanel=entry?.id||'';
+        const input=side.querySelector('.bi-composer textarea');if(input){if(keep)input.value=keep;fitComposer(input);}
         const nextLog=side.querySelector('.bi-log');if(nextLog&&bottom)nextLog.scrollTop=nextLog.scrollHeight;
     }
     side.addEventListener('change',event=>{
@@ -245,9 +279,13 @@
     });
     side.addEventListener('click',event=>{
         const choice=event.target.closest('[data-choice]');if(choice)return send(choice.dataset.choice);
-        if(event.target.closest('[data-unfocus]')){state.focus=null;return paintSide();}
+        if(event.target.closest('[data-unfocus]')){state.selected=null;state.focus=null;return paint();}
+        if(event.target.closest('[data-advanced]')){state.advanced=!state.advanced;return paintSide();}
+        const say=event.target.closest('[data-say]');if(say)return send(say.dataset.say);
+        const fill=event.target.closest('[data-fill]');if(fill){const input=side.querySelector('.bi-composer textarea');input.value=fill.dataset.fill;fitComposer(input);input.focus();return;}
         if(event.target.closest('[data-bi-clear]')){checkpoint();state.board.chat=[];return paintSide();}
         if(event.target.closest('[data-pp-extract]')){const entry=state.selected&&item(state.selected);if(entry?.recipe)extractItem(entry);return;}
+        if(event.target.closest('.bi-composer')&&!event.target.closest('button')){side.querySelector('.bi-composer textarea')?.focus();return;}
         const action=event.target.closest('[data-item-action]')?.dataset.itemAction,entry=state.selected&&item(state.selected);if(!action||!entry)return;
         if(action==='build'){const prompt=side.querySelector('[data-item-prompt]')?.value.trim();if(prompt&&prompt!==entry.prompt){checkpoint();entry.prompt=prompt;}if(entry.prompt)build(entry);return;}
         checkpoint();
@@ -256,16 +294,31 @@
         if(action==='delete'){state.board.items=state.board.items.filter(other=>other.id!==entry.id);state.selected=null;state.focus=null;return paint();}
     });
     // Build is usable as soon as there is something to build from, before the prompt field loses focus.
-    side.addEventListener('input',event=>{if(!event.target.matches('[data-item-prompt]'))return;const button=side.querySelector('[data-item-action="build"]'),entry=state.selected&&item(state.selected);if(button&&entry)button.disabled=state.busy.has(entry.id)||!event.target.value.trim();});
-    side.addEventListener('submit',event=>{if(!event.target.matches('[data-composer]'))return;event.preventDefault();const input=event.target.querySelector('textarea'),text=input.value.trim();if(text){input.value='';send(text);}});
-    side.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing&&event.target.matches('.bi-composer textarea')){event.preventDefault();event.target.form.requestSubmit();}});
+    side.addEventListener('input',event=>{
+        if(event.target.matches('.bi-composer textarea'))fitComposer(event.target);
+        if(!event.target.matches('[data-item-prompt]'))return;
+        const button=side.querySelector('[data-item-action="build"]'),entry=state.selected&&item(state.selected);
+        if(button&&entry)button.disabled=state.busy.has(entry.id)||!event.target.value.trim();
+    });
+    side.addEventListener('submit',event=>{if(!event.target.matches('[data-composer]'))return;event.preventDefault();const input=event.target.querySelector('textarea'),text=input.value.trim();if(text){input.value='';fitComposer(input);send(text);}});
+    side.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing&&event.keyCode!==229&&event.target.matches('.bi-composer textarea')){event.preventDefault();event.target.form.requestSubmit();}});
 
     // ── Conversation → plan → only new or changed cells are built ─────────────────────────────────────────────
     const brief=()=>({name:state.board.name,canvas:state.board.canvas,items:state.board.items.map(entry=>({id:entry.id,title:entry.title,x:entry.x,y:entry.y,w:entry.w,h:entry.h,prompt:entry.prompt}))});
     async function send(text){
         if(state.planning||!state.board)return;
         const focusId=state.focus||'';
-        state.board.chat.push({role:'user',text});state.planning=true;paintSide();
+        state.board.chat.push({role:'user',text});
+        const target=focusId&&item(focusId);
+        if(target&&!state.busy.has(target.id)){
+            // An empty cell takes the sentence as its prompt; size words and display settings need no rebuild.
+            if(!target.recipe&&!target.prompt){checkpoint();target.prompt=text.slice(0,4000);paintSide();return build(target);}
+            if(resize(target,text))return paintSide();
+            state.planning=true;paintSide();
+            const done=await adjust(target,text);
+            if(done){state.planning=false;return paint();}
+        }
+        state.planning=true;paintSide();
         let plan=null;
         try{
             const reply=await window.AiReportTrace.post(BOARD,t('看板对话','Board conversation'),'/api/ai-report/bi/plan',{month:month(),message:text,chat:state.board.chat.slice(0,-1),board:brief(),focus:state.focus||''});
@@ -288,7 +341,7 @@
         if(state.selected&&!item(state.selected)){state.selected=null;state.focus=null;}
         paint();
         await Promise.all([queue(toBuild,build),queue(toFit,rerun)]);
-        if(toBuild.length){const failed=toBuild.filter(entry=>entry.output?.error).length;state.board.chat.push({role:'ai',kind:'note',text:failed?t(`${toBuild.length-failed} 个格子已生成，${failed} 个没成功（点格子上的“重新生成”，或在对话里补充说明）`,`${toBuild.length-failed} built, ${failed} failed`):t(`${toBuild.length>1?`${toBuild.length} 个格子都`:'格子'}生成好了。拖动 ⠿ 可移动，右下角可调大小；选中格子可以直接改展示设置。`,`All ${toBuild.length} cells built.`)});paintSide();}
+        if(toBuild.length){const failed=toBuild.filter(entry=>entry.output?.error).length;state.board.chat.push({role:'ai',kind:'note',text:failed?t(`${toBuild.length-failed} 个格子已生成，${failed} 个没成功（点格子上的“重新生成”，或在对话里补充说明）`,`${toBuild.length-failed} built, ${failed} failed`):t(`${toBuild.length>1?`${toBuild.length} 个格子都`:'格子'}生成好了。拖动 ⠿ 可移动，右下角可调大小；选中格子后直接说要怎么改。`,`All ${toBuild.length} cells built.`)});paintSide();}
     }
 
     // ── Boards: list, open, save, new, copy, rename, delete ──────────────────────────────────────────────────
@@ -356,7 +409,7 @@
             if(!nudging){checkpoint();nudging=true;}clearTimeout(nudgeTimer);nudgeTimer=setTimeout(()=>{nudging=false;},600);
             entry.x=Math.max(0,Math.min(size.width-entry.w,entry.x+dx));entry.y=Math.max(0,Math.min(size.height-entry.h,entry.y+dy));
             const node=canvasNode.querySelector(`[data-cell="${CSS.escape(entry.id)}"]`);if(node){node.style.left=entry.x+'px';node.style.top=entry.y+'px';}
-            const pos=side.querySelector('.bi-item-panel .bi-pos');if(pos)pos.textContent=`${entry.x}, ${entry.y} · ${entry.w}×${entry.h}`;status('');
+            const pos=side.querySelector('.bi-adv .bi-pos');if(pos)pos.textContent=`${entry.x}, ${entry.y} · ${entry.w}×${entry.h}　${t('方向键微调位置','Arrow keys nudge')}`;status('');
         }
         else if((event.key==='Delete'||event.key==='Backspace')&&!editing&&state.selected){checkpoint();state.board.items=state.board.items.filter(entry=>entry.id!==state.selected);state.selected=null;state.focus=null;paint();}
     });

@@ -8,6 +8,7 @@ const names={codex:'Codex',claudecode:'Claude Code',antigravity:'Antigravity'};
 const providers=Object.keys(names).map(id=>({id,enabled:true,connected:id!=='antigravity',canSend:id!=='antigravity'}));
 const nativeItems=[{provider:'codex',id:'old-codex',title:'Existing Codex chat',updatedAt:new Date().toISOString()},{provider:'antigravity',id:'old-antigravity',title:'Existing Antigravity chat',updatedAt:new Date().toISOString()}];
 const localItems=[{id:'ordinary',firstQuestion:'Ordinary history',title:'Ordinary history',updatedAt:new Date().toISOString()},{id:'group-history',firstQuestion:'Group history',title:'Group history',discussionMode:'group',updatedAt:new Date().toISOString()}];
+let browserBookmarks=[];
 const evaluate=code=>win.webContents.executeJavaScript(code,true);
 async function until(code){for(let i=0;i<250;i++){if(await evaluate(`Boolean(${code})`))return;await new Promise(r=>setTimeout(r,20));}throw Error(code);}
 const select=id=>evaluate(`document.querySelector('[data-connector=${id}]').click()`);
@@ -33,12 +34,17 @@ app.whenReady().then(async()=>{
  });
  web.post('/api/desktop-agents/discussion-runs',(req,res)=>{groupRequests.push(req.body);res.status(202).json({id:req.body.requestId,sessionId:'new-group',status:'done',settings:{mode:'group',version:2,providers:req.body.providers},reports:req.body.providers.map(provider=>({provider,agent:names[provider],status:'done',text:provider+' response'}))});});
  web.get('/api/ai/models',(_,res)=>res.json({models:[]}));
+ web.get('/api/terminal/sessions',(_,res)=>res.json({sessions:[],shells:[],pty:false}));
+ web.get('/api/agent-workspace/browser/view',(_,res)=>res.json({available:true,url:'https://example.test/',title:'Example',tabs:[{id:'example',url:'https://example.test/',title:'Example'}],activeId:'example'}));
+ web.get('/api/agent-workspace/browser/bookmarks',(_,res)=>res.json({items:browserBookmarks}));
+ web.post('/api/agent-workspace/browser/bookmarks',(req,res)=>{browserBookmarks=browserBookmarks.filter(item=>item.url!==req.body.url);if(!req.body.remove)browserBookmarks.unshift({url:req.body.url,title:req.body.title});res.json({items:browserBookmarks});});
+ web.post('/api/terminal/sessions',(_,res)=>res.status(503).json({error:'Fixture: shell creation disabled'}));
  web.get('/api/ai/sessions',(_,res)=>res.json({items:localItems}));
  web.get('/api/ai/sessions/:id/messages',(req,res)=>res.json({items:[{id:'history-user',role:'user',content:'History question',created_at:new Date().toISOString(),events:req.params.id.startsWith('tool-')?[{type:'connector',id:req.params.id.slice(5)}]:[]}],total:1,hasMore:false}));
  web.get('/api/ai/connector-status',(req,res)=>res.json({items:Object.entries(toolStatus).filter(([id])=>!req.query.id||req.query.id===id).map(([id,ready])=>({id,ready,reason:ready?'':'untested'}))}));
  web.get('/api/channels/available',(_,res)=>res.json({items:[{id:'weixin',connected:true},{id:'welink',connected:sdkReady}]}));
  web.get('/api/channels/:channel/threads',(_,res)=>res.json({items:[{kind:'user',id:'recipient',name:'Intended recipient',lastActiveAt:new Date().toISOString()}]}));
- web.get('/api/channels/:channel/targets',(_,res)=>res.json({items:[{kind:'user',id:'recipient',name:'Intended recipient',canPush:true}]}));
+ web.get('/api/channels/:channel/targets',(req,res)=>res.json({items:[{kind:'user',id:'recipient',name:'Intended recipient',canPush:true},...(req.params.channel==='welink'?Array.from({length:7},(_,i)=>({kind:'group',id:`im-group-${100000000000000000+i}#dig_fixture_account_long_identifier`,name:i?'项目协作群 '+i:'',canPush:true})):[])]}));
  web.get('/api/channels/:channel/threads/:kind/:id/messages',(_,res)=>res.json({thread:{name:'Intended recipient'},items:[{id:'channel-history',direction:'inbound',content:'Channel history',createdAt:new Date().toISOString()}],segments:[],hasMore:false,canSend:true}));
  web.post('/api/channels/:channel/push',(req,res)=>{pushes.push({channel:req.params.channel,...req.body});res.json({results:req.body.targets.map(target=>({...target,ok:true}))});});
  web.get(['/api/friend-links','/api/recent-nav','/api/upload/history'],(_,res)=>res.json([]));
@@ -107,6 +113,52 @@ app.whenReady().then(async()=>{
  assert.equal(await evaluate('toolPayloads.at(-1).homeConnector'),'netcare');assert.equal(await allDisabled(),true);
  await evaluate('DragonClaw.openChat({id:"tool-netcare"})');await until('!dcInput.disabled&&DragonClaw.currentSessionId()==="tool-netcare"');
  assert.deepEqual(await checked(),['netcare']);assert.equal(await allDisabled(),true);
+ await evaluate('DragonClaw.newChat();HomeAgentDiscussion.refreshAvailability(true)');await select('welink');
+ assert.match(await evaluate('document.querySelector("[data-key=welink]").title'),/群聊.*发送消息/);
+ assert.match(await evaluate('document.querySelector("[data-tac-start]").title'),/直接发送原文/);
+ await send('请关注本周项目进度，确认后回复。');await until('document.querySelector(\'.dc-channel-recipient [data-recipient="7"]\')');
+ const recipientLayout=()=>evaluate(`(()=>{const d=document.querySelector('.dc-channel-recipient'),r=d.getBoundingClientRect();return {centered:Math.abs(r.x+r.width/2-document.documentElement.clientWidth/2)<2&&Math.abs(r.y+r.height/2-innerHeight/2)<2,fits:r.x>=0&&r.y>=0&&r.right<=innerWidth&&r.bottom<=innerHeight,noHorizontalScroll:d.scrollWidth<=d.clientWidth};})()`);
+ assert.deepEqual(await recipientLayout(),{centered:true,fits:true,noHorizontalScroll:true});
+ assert.equal(await evaluate('document.querySelector(\'[data-recipient="1"] strong\').textContent'),'未命名群聊');
+ await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
+ fs.writeFileSync(path.join(temp,'welink-recipients-light.png'),(await win.webContents.capturePage()).toPNG());
+ await evaluate('document.querySelector("[data-recipient-search]").value="dig_fixture";document.querySelector("[data-recipient-search]").dispatchEvent(new Event("input"))');
+ assert.equal(await evaluate('document.querySelectorAll("[data-recipient]").length'),7,'search matches IDs even when groups have a friendly name');
+ await evaluate('document.documentElement.dataset.theme="dark"');win.setContentSize(390,844);await new Promise(r=>setTimeout(r,80));
+ assert.deepEqual(await recipientLayout(),{centered:true,fits:true,noHorizontalScroll:true});
+ fs.writeFileSync(path.join(temp,'welink-recipients-mobile-dark.png'),(await win.webContents.capturePage()).toPNG());
+ await evaluate('document.querySelector("[data-recipient-close]").click()');assert.equal(pushes.length,1,'layout checks never send a real or fixture group message');
+ await evaluate('ToolsI18n.setLanguage("en-US")');await send('Please check the project update.');await until('document.querySelector(\'.dc-channel-recipient [data-recipient="7"]\')');
+ assert.equal(await evaluate('document.querySelector("#dc-recipient-title").textContent'),'Choose a recipient');
+ assert.match(await evaluate('document.querySelector(".dc-channel-recipient footer").textContent'),/Selecting a recipient sends/);
+ await evaluate('document.querySelector("[data-recipient-close]").click();ToolsI18n.setLanguage("zh-CN")');
+ win.setContentSize(1440,960);await evaluate('document.documentElement.dataset.theme="light"');
+ // An open panel must be beside the chat, not in a second grid row below the viewport.
+ for(const kind of ['browser','terminal']){
+  await evaluate(`document.querySelector('#dc${kind==='browser'?'Browser':'Terminal'}Toggle').click()`);
+  if(kind==='browser'){
+   await until('!document.querySelector("[data-browser=bookmark]").disabled');
+   await evaluate('document.querySelector("[data-browser=bookmark]").click()');
+   await until('document.querySelector("[data-browser=bookmark]").getAttribute("aria-pressed")==="true"');
+   assert.deepEqual(browserBookmarks,[{url:'https://example.test/',title:'Example'}]);
+   await evaluate('document.querySelector("[data-browser=more]").click();document.querySelector("[data-browser=bookmarks]").click()');
+   await until('document.querySelector("[data-library-url]")');
+   assert.equal(await evaluate('document.querySelector("[data-library-url]").textContent'),'Examplehttps://example.test/');
+   await evaluate('document.querySelector("[data-browser=bookmark]").click()');
+   await until('document.querySelector("[data-browser=bookmark]").getAttribute("aria-pressed")==="false"');
+   assert.deepEqual(browserBookmarks,[]);
+   await evaluate('document.querySelector("[data-browser=dismiss-menu]").click()');
+  }
+  for(const collapsed of [false,true]){
+   await evaluate(`document.body.classList.toggle('v2-side-collapsed',${collapsed});window.dispatchEvent(new Event('resize'))`);
+   await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
+   const layout=await evaluate(`(()=>{const p=document.querySelector('#dc${kind==='browser'?'Browser':'Terminal'}Panel'),r=p.getBoundingClientRect(),m=document.querySelector('.home-main').getBoundingClientRect();return {visible:!p.hidden&&r.width>100,top:r.top,right:r.right,height:innerHeight,width:innerWidth,beside:m.right<=r.left+1};})()`);
+   assert.ok(layout.visible&&layout.beside&&layout.top>=0&&layout.top<layout.height&&layout.right<=layout.width,JSON.stringify({kind,collapsed,...layout}));
+  }
+  fs.writeFileSync(path.join(temp,kind+'-panel.png'),(await win.webContents.capturePage()).toPNG());
+  await evaluate(`window.Dragon${kind==='browser'?'Browser':'Terminal'}Sidebar.close()`);
+ }
+ await evaluate('document.body.classList.remove("v2-side-collapsed")');
  await evaluate('if(document.querySelector(".dc-connector-popover").hidden)document.querySelector("[data-tac-start]").click()');await new Promise(r=>setTimeout(r,240));fs.writeFileSync(path.join(temp,'bound-connectors.png'),(await win.webContents.capturePage()).toPNG());
  await evaluate('DragonClaw.newChat();document.documentElement.dataset.theme="dark";ToolsI18n.setLanguage("en-US")');win.setContentSize(390,844);await new Promise(r=>setTimeout(r,80));await evaluate('document.querySelector("[data-tac-start]").click()');assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true);
  assert.deepEqual(await evaluate('fixtureErrors'),[]);

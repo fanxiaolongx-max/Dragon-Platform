@@ -640,6 +640,12 @@ html.platform-home #dcSpotlight { display: none !important; }
 
 html.platform-home .v2-flyout:has(#homeSidebarShortcuts:not([hidden])) { width: min(330px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto; }
 
+/* 更多 → 快捷工具的分类二级菜单 */
+html.platform-home .v2-cat-submenu { width: min(260px, calc(100vw - 16px)); max-height: calc(100dvh - 16px); overflow-y: auto; overscroll-behavior: contain; }
+.v2-cat-submenu .v2-cat-back { display: none; }
+.v2-cat-submenu.is-stacked .v2-cat-back { display: block; width: 100%; padding: 8px; margin-bottom: 5px; border: 0; border-bottom: 1px solid var(--v2-line); background: transparent; color: var(--v2-ink2); font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
+.v2-flyout [data-v2-cat][aria-expanded="true"] { background: var(--v2-hover); }
+
 html.platform-home .v2-links-submenu { width: min(276px, calc(100vw - 16px)); max-height: calc(100dvh - 16px); overflow-y: auto; overscroll-behavior: contain; }
 
 html.platform-home .v2-links-submenu .friend-links { display: block; width: 100%; min-width: 0; padding: 0; margin: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
@@ -1801,21 +1807,38 @@ html.platform-home .home-panel .conversation-list-row:is(:hover, :focus-within) 
 
 .dc-switch input:disabled + .dc-switch-track { cursor: not-allowed; }
 
-.dc-channel-recipient { width: min(420px, calc(100vw - 32px)); max-height: min(560px, 80dvh); padding: 18px; border: 1px solid var(--v2-line, #334155); border-radius: 16px; background: var(--v2-pop, #172031); color: var(--v2-ink, #e2e8f0); box-shadow: var(--v2-shadow-pop, 0 16px 50px #0003); }
+.dc-channel-recipient { position: fixed; inset: 0; margin: auto; height: fit-content; box-sizing: border-box; width: min(500px, calc(100vw - 32px)); max-height: min(680px, calc(100dvh - 32px)); padding: 24px; overflow: auto; border: 1px solid var(--v2-line, #334155); border-radius: 20px; background: var(--v2-pop, #172031); color: var(--v2-ink, #e2e8f0); box-shadow: var(--v2-shadow-pop, 0 16px 50px #0003); }
+.dc-channel-recipient[open] { display: flex; flex-direction: column; gap: 14px; }
+.dc-channel-recipient > * { flex: none; min-width: 0; }
 
 .dc-channel-recipient::backdrop { background: #0f172a40; backdrop-filter: blur(3px); }
 
-.dc-channel-recipient header { display: flex; align-items: center; justify-content: space-between; }
+.dc-channel-recipient header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.dc-channel-recipient header small { font-size: 11px; color: var(--v2-ink3); }
+.dc-channel-recipient h2 { margin: 4px 0 0; font-size: 20px; line-height: 1.35; font-weight: 650; }
+.dc-channel-recipient [data-recipient-close] { display: grid; place-items: center; flex: none; width: 32px; height: 32px; padding: 0; border: 1px solid var(--v2-line); border-radius: 50%; font-size: 22px; line-height: 1; }
 
-.dc-channel-recipient p { font-size: 12px; line-height: 1.6; color: var(--v2-ink3, #94a3b8); }
+.dc-channel-recipient p { margin: 0; font-size: 13px; line-height: 1.65; color: var(--v2-ink3, #94a3b8); }
+.dc-recipient-preview { padding: 12px 14px; border-radius: 12px; background: var(--v2-side); }
+.dc-recipient-preview small { display: block; margin-bottom: 4px; font-size: 11px; color: var(--v2-ink3); }
+.dc-recipient-preview p { color: var(--v2-ink); overflow-wrap: anywhere; white-space: pre-wrap; }
 
-.dc-channel-recipient input { width: 100%; padding: 9px 10px; border: 1px solid var(--v2-line, #334155); border-radius: 8px; background: var(--v2-side, #0f172a); color: inherit; font: inherit; font-size: 13px; }
+.dc-channel-recipient input { box-sizing: border-box; width: 100%; min-width: 0; padding: 11px 12px; border: 1px solid var(--v2-line, #334155); border-radius: 10px; background: var(--v2-side, #0f172a); color: inherit; font: inherit; font-size: 13px; }
 
 .dc-channel-recipient button { padding: 9px 10px; border: 0; border-radius: 8px; background: transparent; color: inherit; font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
 
 .dc-channel-recipient button:hover { background: var(--v2-hover, #334155); }
 
-.dc-channel-recipient [data-recipient-list] { display: flex; flex-direction: column; gap: 3px; max-height: 340px; overflow: auto; margin-top: 10px; }
+.dc-channel-recipient [data-recipient-list] { display: flex; flex: 0 1 auto; flex-direction: column; gap: 6px; min-height: 72px; max-height: 340px; overflow: auto; }
+.dc-channel-recipient [data-recipient] { display: flex; align-items: center; gap: 12px; width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid var(--v2-line); border-radius: 12px; }
+.dc-recipient-kind { flex: none; padding: 4px 6px; border-radius: 6px; background: var(--v2-side); color: var(--v2-ink3); font-size: 11px; }
+.dc-recipient-info { flex: 1; min-width: 0; }
+.dc-recipient-info strong { display: block; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.dc-recipient-info small { display: block; margin-top: 4px; font-size: 11px; line-height: 1.5; color: var(--v2-ink3); overflow-wrap: anywhere; }
+.dc-recipient-send { flex: none; color: var(--v2-accent); font-size: 18px; }
+.dc-channel-recipient :is(button,input):focus-visible { outline: 2px solid var(--v2-accent); outline-offset: 2px; }
+.dc-channel-recipient footer { padding-top: 12px; border-top: 1px solid var(--v2-line); color: var(--v2-ink3); font-size: 11px; line-height: 1.6; }
+@media(max-width:480px) { .dc-channel-recipient { padding: 18px; gap: 12px; border-radius: 16px; } }
 
 .dc-switch:has(input:disabled:checked) { opacity: .85; }
 
@@ -2339,7 +2362,12 @@ html.platform-home #customToolImportModal .tool-import-title { color: var(--v2-i
 
 html.platform-home #customToolImportModal .tool-import-subtitle { color: var(--v2-ink2); font-size: 12px; line-height: 1.5; margin-top: 6px; }
 
-html.platform-home #customToolImportModal .tool-import-form { min-height: 0; padding: 16px 20px 20px; overflow-y: auto; scrollbar-width: thin; }
+/* Only the fields scroll; actions stay visible as metadata and upload logs grow. */
+html.platform-home #customToolImportModal .tool-import-form { display: flex; flex-direction: column; min-height: 0; min-width: 0; padding: 0; overflow: hidden; }
+
+html.platform-home #customToolImportModal .tool-import-body { min-height: 0; padding: 16px 20px 20px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+
+html.platform-home #customToolImportModal .tool-import-ai-status { overflow-wrap: anywhere; }
 
 html.platform-home #customToolImportModal .tool-import-close { width: 28px; height: 28px; border-radius: 8px; border-color: var(--v2-line); background: transparent; color: var(--v2-ink2); font-size: 19px; }
 
@@ -2398,7 +2426,7 @@ html.platform-home #customToolImportModal .tool-import-locked-hint {
 
 html.platform-home #customToolImportModal .tool-import-textarea { min-height: 56px; height: 56px; }
 
-html.platform-home #customToolImportModal .tool-import-actions { gap: 8px; margin-top: 16px; }
+html.platform-home #customToolImportModal .tool-import-actions { flex: none; gap: 8px; margin: 0; padding: 12px 20px max(16px, env(safe-area-inset-bottom)); border-top: 1px solid var(--v2-line); background: var(--v2-pop); }
 
 html.platform-home #customToolImportModal .tool-import-btn { min-width: 80px; padding: 8px 14px; border-radius: 9px; border-color: var(--v2-line-strong); background: color-mix(in srgb, var(--v2-bg) 65%, transparent); color: var(--v2-ink2); }
 
@@ -2425,7 +2453,7 @@ html.platform-home #customToolImportModal { padding: 12px; }
 
 html.platform-home #customToolImportModal .tool-import-dialog { max-height: calc(100dvh - 24px); border-radius: 16px; }
 
-html.platform-home #customToolImportModal :is(.tool-import-head, .tool-import-form) { padding-left: 16px; padding-right: 16px; }
+html.platform-home #customToolImportModal :is(.tool-import-head, .tool-import-body, .tool-import-actions) { padding-left: 16px; padding-right: 16px; }
 }
 /* 新对话首页在深色模式同样使用平台底色，避免旧蓝色面板与插画区域形成色块。 */
 html.platform-home[data-theme="dark"] body:not(.dc-chatting) #dragonClaw.dc {

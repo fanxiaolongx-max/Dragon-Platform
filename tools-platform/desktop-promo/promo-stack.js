@@ -62,6 +62,9 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
         if(!getSidebarHost)return;
         const host=getSidebarHost();if(!host||host.isDestroyed())throw Error(T('主窗口尚未就绪，请打开平台后重试','Open the platform main window and try again'));
         pendingSidebarReveal=true;browser.setSidebar(host);
+        // A page that already connected never calls setBrowserSidebar again, so the pending
+        // reveal would wait forever and the new tab (e.g. a batch run's login page) stays hidden.
+        if(!host.webContents.isLoading())host.webContents.send('dragon-browser:reveal');
     }
     function openBrowser(options){ensureSession();prepareSidebar();return browser.open(options);}
     function rebuildSidebarPromotions(){

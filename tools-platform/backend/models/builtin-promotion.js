@@ -212,7 +212,7 @@ async function promoteSkill(id) {
             const relative = safeRelative(file.path);
             if (!relative) continue;
             fs.mkdirSync(path.dirname(path.join(staging, relative)), { recursive: true });
-            fs.writeFileSync(path.join(staging, relative), file.content, 'utf8');
+            fs.writeFileSync(path.join(staging, relative), require('./agent-skill-files').bytesOf(file));
         }
         builtinSkills.parseSkillFile(skill.id, fs.readFileSync(path.join(staging, 'SKILL.md'), 'utf8')); // 校验内置格式
         fs.renameSync(staging, dir);

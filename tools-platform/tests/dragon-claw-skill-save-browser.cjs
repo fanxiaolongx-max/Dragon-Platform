@@ -10,7 +10,11 @@ app.disableHardwareAcceleration();
 app.on('window-all-closed', () => {}); // 后端子进程关闭完成后再主动退出
 setTimeout(() => { child?.kill(); app.exit(1); }, 60000).unref();
 const { fork } = require('node:child_process');
-const read = file => fs.readFileSync(path.join(root, file), 'utf8');
+// Optional web frontend exercises the same save contract against the isolated backend fixture.
+const read = file => {
+    const webFrontend = file.startsWith('frontend/') && process.env.SKILL_FRONTEND_DIR;
+    return fs.readFileSync(path.join(webFrontend || root, webFrontend ? file.slice('frontend/'.length) : file), 'utf8');
+};
 const home = read('frontend/index.html'), start = home.indexOf('<section class="dc"');
 const section = home.slice(start, home.indexOf('</section>', start) + 10);
 const markdown = '---\nid: meeting-summarizer\nname: 会议纪要助手\nname_en: Meeting Summarizer\ndescription: 提取待办、决策和风险\ndescription_en: Extract actions, decisions and risks\nworkspace: false\n---\n\n# 会议纪要\n\n目标：整理会议记录。\n1. 提取待办、责任人和截止日期。\n2. 总结决策与风险，不虚构缺失信息。';
@@ -47,6 +51,7 @@ async function boot(role = 'admin') {
         window.sendText=text=>{const input=document.getElementById('dcInput');input.value=text;input.dispatchEvent(new Event('input',{bubbles:true}));document.getElementById('dcComposer').requestSubmit();};
         window.typeText=text=>{const input=document.getElementById('dcInput');input.value=text;input.focus();input.setSelectionRange(text.length,text.length);input.dispatchEvent(new Event('input',{bubbles:true}));};
         window.fixtureDraft=${JSON.stringify(draft)};
+        window.fixtureUndelimited=${JSON.stringify(draft.replace('```markdown\n---\n', '```skill\n').replace('\n---\n', '\n').slice(0, -3) + '\n```bash\nprintf skill-check\n```\n\n## 核验结果\n保留嵌套代码后的步骤。\n```')};
         ${read('frontend/js/home/dragon-claw.js')}
         ${read('frontend/js/home/dragon-claw-skills.js')}
         void 0;
@@ -65,17 +70,25 @@ app.whenReady().then(async () => {
         requests.delete(message.id); message.error ? request.reject(new Error(message.error)) : request.resolve(message.result);
     });
     child.on('exit', code => { for (const request of requests.values()) request.reject(new Error(`Backend fixture exited: ${code}`)); requests.clear(); });
-    baseUrl = await backend('start', `<style>${read('frontend/css/dragon-claw.css')}${read('frontend/css/dragon-claw-skills.css')}body{margin:0;background:#101b30;font-family:system-ui}.dc{margin:20px;--navbar-h:0px}.dc-quick,.dc-scroll-hint{display:none}</style>${section}`);
+    baseUrl = await backend('start', `<style>${read('frontend/css/dragon-claw.css')}${read('frontend/css/dragon-claw-skills.css')}${read('frontend/css/home-shell.css')}body{margin:0;background:#101b30;font-family:system-ui}.dc{margin:20px;--navbar-h:0px}.dc-quick,.dc-scroll-hint{display:none}</style>${section}`);
     win = new BrowserWindow({ show: false, width: 1100, height: 900, webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false } });
     win.webContents.on('console-message', (_event, level, message) => { if (level >= 2) console.error('Renderer:', message); });
     await boot();
     assert.deepEqual(await evaluate(async () => {
         const sample = fixtureDraft.slice(fixtureDraft.indexOf('---'), fixtureDraft.lastIndexOf('```')).trim();
         const results = [];
-        for (const tag of ['skill', 'SKILL', 'markdown', 'yaml', '']) {
+        for (const tag of ['skill', 'SKILL', 'SKILL.md', 'markdown', 'yaml', '']) {
             const message = document.createElement('div'); message.innerHTML = '<div class="dc-msg-main"></div>';
             document.getElementById('dcThread').appendChild(message);
             await DragonClawSkills.offerSave(message, '```' + tag + '\n' + sample + '\n```');
+            results.push(!!message.querySelector('[data-draft-save]')); message.remove();
+        }
+        // Standard imported SKILL.md identifies the Skill by name, without an id field.
+        const standard = sample.replace('id: meeting-summarizer\n', '').replace('name: 会议纪要助手', 'name: meeting-summarizer');
+        for (const fence of ['```skill\n' + standard + '\n```', ('  ~~~SKILL.md\n' + standard + '\n  ~~~').replaceAll('\n', '\r\n')]) {
+            const message = document.createElement('div'); message.innerHTML = '<div class="dc-msg-main"></div>';
+            document.getElementById('dcThread').appendChild(message);
+            await DragonClawSkills.offerSave(message, fence);
             results.push(!!message.querySelector('[data-draft-save]')); message.remove();
         }
         for (const sample of ['---\nid: invalid\nname: Invalid\n---', '---\nname: Generic document\n---\nBody']) {
@@ -84,8 +97,14 @@ app.whenReady().then(async () => {
             await DragonClawSkills.offerSave(message, '```markdown\n' + sample + '\n```');
             results.push(!!message.querySelector('[data-draft-save]')); message.remove();
         }
+        for (const text of [fixtureUndelimited, '```bash\nprintf example\n```\n' + fixtureUndelimited, fixtureUndelimited.replace('```skill', '```markdown')]) {
+            const message = document.createElement('div'); message.innerHTML = '<div class="dc-msg-main"></div>';
+            document.getElementById('dcThread').appendChild(message);
+            await DragonClawSkills.offerSave(message, text);
+            results.push(!!message.querySelector('[data-draft-save]')); message.remove();
+        }
         return results;
-    }), [true, true, true, true, true, false, false]);
+    }), [true, true, true, true, true, true, true, true, false, false, true, true, false]);
     await evaluate(() => sendText('@create-skill 创建会议纪要技能'));
     await until('!!document.querySelector(".dc-skill-draft [data-dc-ask]")&&!document.querySelector(".dc-composer.is-generating")');
     assert.match(await evaluate(() => document.querySelector('.dc-skill-draft').textContent), /技能尚未保存/);
@@ -120,12 +139,24 @@ app.whenReady().then(async () => {
     await evaluate(() => new Promise(resolve => setTimeout(resolve, 30)));
     assert.equal(await evaluate(() => !!document.querySelector('.dc-skill-draft')), false, 'existing Skill is not falsely reported as missing');
 
-    await evaluate(() => { modelReply = fixtureDraft.replace('总结决策与风险', '标记关键决策与风险'); sendText('完善已有技能'); });
+    // A promised button with malformed front-matter must offer repair even when the Skill exists.
+    await evaluate(() => { modelReply = '针对 @meeting-summarizer 的更新草稿：\n```skill\n---\nname: 会议纪要助手\n---\n# 更新步骤\n核对责任人。\n```\n草稿尚未保存，请点击回复下方的「完善技能」按钮完成更新。'; sendText('完善已有技能'); });
+    await until('!!document.querySelector(".dc-skill-draft [data-dc-ask]")&&!document.querySelector(".dc-composer.is-generating")');
+    assert.match(await evaluate(() => document.querySelector('.dc-skill-draft').textContent), /未识别到可保存/);
+    assert.equal(await evaluate(() => !!document.querySelector('[data-draft-save]')), false);
+    assert.match(await evaluate(() => document.querySelector('.dc-skill-draft [data-dc-ask]').dataset.dcAsk), /@improve-skill.*@meeting-summarizer/);
+    assert.equal(await backend('saveCount'), 1, 'repair card must not save partial text');
+    // Click recovery, then save a standard name-only draft to the existing id.
+    await evaluate(() => {
+        modelReply = fixtureUndelimited.replace('id: meeting-summarizer\n', '').replace('name: 会议纪要助手', 'name: meeting-summarizer').replace('总结决策与风险', '标记关键决策与风险');
+        document.querySelector('.dc-skill-draft [data-dc-ask]').click();
+    });
     await until('!!document.querySelector("[data-draft-save]")&&!document.querySelector(".dc-composer.is-generating")');
     assert.match(await evaluate(() => document.querySelector('[data-draft-save]').textContent), /完善此技能/);
     await evaluate(() => document.querySelector('[data-draft-save]').click());
     await until('!!document.querySelector("[data-draft-use]")');
     assert.match((await store.getSkill('meeting-summarizer')).body, /标记关键决策与风险/);
+    assert.match((await store.getSkill('meeting-summarizer')).body, /```bash\nprintf skill-check\n```[\s\S]*保留嵌套代码后的步骤/);
 
     // Save errors stay unsaved, and a retry uses the same button.
     await evaluate(() => { modelReply = fixtureDraft.replaceAll('meeting-summarizer', 'meeting-retry'); sendText('再创建一个技能'); });
@@ -140,15 +171,17 @@ app.whenReady().then(async () => {
     // Light theme, narrow Electron container, and English recovery copy.
     await evaluate(() => { locale = 'en-US'; modelReply = 'Skill @missing-meeting has been created and activated.'; sendText('Create another skill'); });
     await until('!!document.querySelector(".dc-skill-draft [data-dc-ask]")&&!document.querySelector(".dc-composer.is-generating")');
-    assert.match(await evaluate(() => document.querySelector('.dc-skill-draft [data-dc-ask]').closest('.dc-skill-draft').textContent), /Skill has not been saved/);
+    assert.match(await evaluate(() => Array.from(document.querySelectorAll('.dc-skill-draft [data-dc-ask]')).at(-1).closest('.dc-skill-draft').textContent), /Skill has not been saved/);
     nativeTheme.themeSource = 'light'; win.setContentSize(430, 850);
     await evaluate(() => { document.documentElement.dataset.theme = 'light'; });
     await evaluate(() => { const thread = document.getElementById('dcThread'); thread.style.scrollBehavior = 'auto'; thread.scrollTop = thread.scrollHeight; window.scrollTo(0, 0); });
     await evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     await evaluate(() => new Promise(resolve => setTimeout(resolve, 350))); // 等消息入场动画绘制完成再截图
     assert.equal(await evaluate(() => document.getElementById('dcThread').scrollWidth <= document.getElementById('dcThread').clientWidth), true);
-    assert.equal(await evaluate(() => getComputedStyle(document.querySelector('.dc-skill-draft [data-dc-ask]').closest('.dc-skill-draft').querySelector('b')).color), 'rgb(36, 52, 71)');
-    assert.equal(await evaluate(() => { const card = document.querySelector('.dc-skill-draft [data-dc-ask]').getBoundingClientRect(), thread = document.getElementById('dcThread').getBoundingClientRect(); return card.top >= thread.top && card.bottom <= thread.bottom; }), true);
+    assert.equal(await evaluate(() => getComputedStyle(Array.from(document.querySelectorAll('.dc-skill-draft [data-dc-ask]')).at(-1).closest('.dc-skill-draft').querySelector('b')).color), 'rgb(36, 52, 71)');
+    await evaluate(() => { const thread = document.getElementById('dcThread'); thread.scrollTop = thread.scrollHeight; });
+    const bounds = await evaluate(() => { const card = Array.from(document.querySelectorAll('.dc-skill-draft [data-dc-ask]')).at(-1).getBoundingClientRect(), thread = document.getElementById('dcThread').getBoundingClientRect(); return {card:card.toJSON(),thread:thread.toJSON()}; });
+    assert.ok(bounds.card.top >= bounds.thread.top && bounds.card.bottom <= bounds.thread.bottom, JSON.stringify(bounds));
     fs.writeFileSync(path.join(temp, 'save-recovery-light-narrow.png'), (await win.webContents.capturePage()).toPNG());
 
     await boot('viewer'); await evaluate(() => { modelReply = fixtureDraft.replaceAll('meeting-summarizer', 'viewer-draft'); sendText('创建技能'); });
@@ -157,6 +190,6 @@ app.whenReady().then(async () => {
     assert.ok(await evaluate(() => !!document.querySelector('[data-draft-download]')));
     const denied = await fetch(`${baseUrl}/api/agent-skills`, { method: 'POST', headers: { Authorization: 'Bearer fixture-viewer', 'Content-Type': 'application/json' }, body: JSON.stringify({ skillMd: markdown.replaceAll('meeting-summarizer', 'viewer-draft') }) });
     assert.equal(denied.status, 403); assert.equal(await store.getSkill('viewer-draft'), null);
-    console.log(`PASS: false success recovery, real draft/save/catalog/load, stale catalog race, reload persistence, save failure/retry, English, light/narrow, admin permissions. Preview: ${temp}`);
+    console.log(`PASS: name-only drafts, SKILL.md/CRLF fences, missing improve button recovery, real draft/save/catalog/load, stale catalog race, reload persistence, save failure/retry, English, light/narrow, admin permissions. Preview: ${temp}`);
     await cleanup(); app.exit(0);
 }).catch(async error => { console.error(error); await cleanup(); app.exit(1); });
