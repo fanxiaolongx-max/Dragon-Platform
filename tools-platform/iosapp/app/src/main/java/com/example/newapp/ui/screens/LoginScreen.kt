@@ -259,6 +259,27 @@ fun LoginScreen(vm: DragonClawViewModel) {
                         )
                     }
 
+                    if (vm.baseUrl.startsWith("http://", ignoreCase = true)) {
+                        Spacer(Modifier.height(8.dp))
+                        Surface(
+                            color = palette.warning.copy(alpha = 0.14f),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = tr(
+                                    vm.language,
+                                    "当前服务器使用未加密的 HTTP，账号密码会以明文传输，仅建议在可信内网使用。",
+                                    "This server uses unencrypted HTTP. Your credentials are sent in clear text; use it only on a trusted network."
+                                ),
+                                color = palette.inkSecondary,
+                                fontSize = 12.sp,
+                                lineHeight = 17.sp,
+                                modifier = Modifier.padding(12.dp)
+                            )
+                        }
+                    }
+
                     vm.loginError?.let { error ->
                         Spacer(Modifier.height(8.dp))
                         Surface(

@@ -74,7 +74,11 @@
         input.$month=month;
         for(const source of cell.recipe.sources)if(source.kind==='report')input[source.id]=reportInput(cell,source);
         // Overviews quote other cells' conclusions on purpose, so the one-summary check does not apply to them.
-        const {result,html,widgets}=await AiReportTrace.local(cell.id,'sandbox',()=>AiReportSandbox.run({compute:cell.recipe.compute,render:cell.recipe.render,input,summary:!!cell.recipe.narrative&&!readsResults(cell)}));
+        const {result,html,widgets}=await AiReportTrace.local(cell.id,'sandbox',()=>AiReportSandbox.run({compute:cell.recipe.compute,render:cell.recipe.render,input,summary:!!cell.recipe.narrative&&!readsResults(cell)})).catch(error=>{
+            // The real field names travel with the error, so the next compile (or the user) can fix a guessed name.
+            const hint=window.AiReportTemplates?.dataHint?.(input)||'';
+            throw hint&&!String(error.message).includes('【实际数据】')?Object.assign(new Error(`${error.message}\n${hint}`),{cause:error}):error;
+        });
         // A recipe without narrative must not keep the summary box of an earlier recipe (two summaries on screen).
         // Same content in the same month can retain manual adjustments; new content/months start from the recipe.
         if(cell.output?.month===month&&cell.recipePrompt===cell.prompt)for(const widget of widgets||[]){

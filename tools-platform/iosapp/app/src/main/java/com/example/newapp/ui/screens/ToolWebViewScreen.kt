@@ -133,17 +133,21 @@ fun ToolWebViewScreen(
                     val originUrl = if (host.isNotBlank()) "$scheme://$host$portSuffix" else targetUrl
                     val secureFlag = if (scheme.equals("https", ignoreCase = true)) "; Secure" else ""
 
+                    // Only the platform's own origin ever receives the session token.
+                    val trusted = vm.sdk.isPlatformOrigin(targetUrl)
+                    val sessionToken = if (trusted) vm.token else ""
+
                     val cm = CookieManager.getInstance()
                     cm.setAcceptCookie(true)
-                    if (vm.token.isNotBlank()) {
-                        val cookieHeader = "tools_token=${vm.token}; Path=/; SameSite=Lax$secureFlag"
+                    if (sessionToken.isNotBlank()) {
+                        val cookieHeader = "tools_token=$sessionToken; Path=/; SameSite=Lax$secureFlag"
                         cm.setCookie(originUrl, cookieHeader)
                         cm.setCookie(targetUrl, cookieHeader)
                         cm.flush()
                     }
                     val seedScript = buildStorageSeedScript(
                         expectedOrigin = null,
-                        token = vm.token,
+                        token = sessionToken,
                         username = vm.username,
                         role = vm.role,
                         tenantId = vm.tenantId,
@@ -152,7 +156,7 @@ fun ToolWebViewScreen(
                     )
                     val originGuardedScript = buildStorageSeedScript(
                         expectedOrigin = originUrl,
-                        token = vm.token,
+                        token = sessionToken,
                         username = vm.username,
                         role = vm.role,
                         tenantId = vm.tenantId,
@@ -167,11 +171,31 @@ fun ToolWebViewScreen(
                         settings.useWideViewPort = true
                         settings.builtInZoomControls = true
                         settings.displayZoomControls = false
-                        cm.setAcceptThirdPartyCookies(this, true)
+                        settings.allowFileAccess = false
+                        settings.allowContentAccess = false
+                        cm.setAcceptThirdPartyCookies(this, false)
                         webViewClient = object : WebViewClient() {
+                            override fun shouldOverrideUrlLoading(
+                                view: WebView?,
+                                request: android.webkit.WebResourceRequest?
+                            ): Boolean {
+                                val next = request?.url ?: return false
+                                if (request.isForMainFrame.not()) return false
+                                val nextScheme = next.scheme?.lowercase().orEmpty()
+                                val sameHost = next.host.equals(host, ignoreCase = true)
+                                if ((nextScheme == "http" || nextScheme == "https") && sameHost) return false
+                                // Anything leaving the tool's own site (or a custom scheme) opens outside the app.
+                                runCatching {
+                                    ctx.startActivity(
+                                        Intent(Intent.ACTION_VIEW, next).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    )
+                                }
+                                return true
+                            }
+
                             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                                 super.onPageStarted(view, url, favicon)
-                                if (vm.token.isNotBlank() && originGuardedScript.isNotBlank()) {
+                                if (sessionToken.isNotBlank() && originGuardedScript.isNotBlank()) {
                                     view?.evaluateJavascript(originGuardedScript, null)
                                 }
                             }
@@ -181,7 +205,7 @@ fun ToolWebViewScreen(
                                 loadProgress = newProgress
                             }
                         }
-                        if (vm.token.isNotBlank() && host.isNotBlank()) {
+                        if (sessionToken.isNotBlank() && host.isNotBlank()) {
                             val bootstrapHtml = """
                                 <!DOCTYPE html><html><head><meta charset="utf-8"><script>
                                 $seedScript

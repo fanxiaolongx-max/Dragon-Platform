@@ -12,7 +12,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /** Cancellation token returned to Swift / Android callers for async operations and SSE/NDJSON streams. */
@@ -20,6 +23,16 @@ class TaskHandle(private val job: Job) {
     fun cancel() {
         job.cancel()
     }
+}
+
+/** How a cold-start check of the saved token ended. */
+enum class SessionRestoreOutcome {
+    /** Server confirmed the token. */
+    VALID,
+    /** Server could not be reached; the token may still be good. */
+    OFFLINE,
+    /** Server rejected the token (401 / 403). */
+    EXPIRED
 }
 
 /**
@@ -57,7 +70,7 @@ class DragonClawSdk(
     fun saveRememberMe(remember: Boolean) {
         settings.saveBoolean(KEY_REMEMBER_ME, remember)
         if (!remember) {
-            settings.removeKey(KEY_SAVED_PASSWORD)
+            settings.removeSecret(KEY_SAVED_PASSWORD)
             settings.saveBoolean(KEY_AUTO_LOGIN, false)
         }
     }
@@ -70,9 +83,13 @@ class DragonClawSdk(
 
     fun getSavedUsername(): String = settings.getString(KEY_USERNAME, "")
 
-    fun getSavedPassword(): String = settings.getString(KEY_SAVED_PASSWORD, "")
+    fun getSavedPassword(): String = settings.getSecret(KEY_SAVED_PASSWORD)
 
-    fun getSavedToken(): String = settings.getString(KEY_TOKEN, "")
+    fun getSavedToken(): String = settings.getSecret(KEY_TOKEN)
+
+    /** True when a silent re-login is possible after the token expires. */
+    fun canReauthenticate(): Boolean =
+        getRememberMe() && getSavedUsername().isNotBlank() && getSavedPassword().isNotEmpty()
 
     fun getSavedRole(): String = settings.getString(KEY_ROLE, "user")
 
@@ -105,23 +122,23 @@ class DragonClawSdk(
         val cleanToken = DragonClawHelpers.stripBearerPrefix(token)
         settings.saveBoolean(KEY_REMEMBER_ME, rememberMe)
         settings.saveBoolean(KEY_AUTO_LOGIN, autoLogin)
-        settings.saveString(KEY_TOKEN, cleanToken)
+        settings.saveSecret(KEY_TOKEN, cleanToken)
         settings.saveString(KEY_USERNAME, username)
         settings.saveString(KEY_ROLE, role.ifBlank { "user" })
         if (rememberMe && password != null) {
-            settings.saveString(KEY_SAVED_PASSWORD, password)
+            settings.saveSecret(KEY_SAVED_PASSWORD, password)
         } else {
-            settings.removeKey(KEY_SAVED_PASSWORD)
+            settings.removeSecret(KEY_SAVED_PASSWORD)
         }
     }
 
     fun clearSessionAuth(keepUsername: Boolean = true) {
-        settings.removeKey(KEY_TOKEN)
+        settings.removeSecret(KEY_TOKEN)
         settings.removeKey(KEY_ROLE)
         settings.saveBoolean(KEY_AUTO_LOGIN, false)
         if (!keepUsername) {
             settings.removeKey(KEY_USERNAME)
-            settings.removeKey(KEY_SAVED_PASSWORD)
+            settings.removeSecret(KEY_SAVED_PASSWORD)
         }
     }
 
@@ -134,6 +151,19 @@ class DragonClawSdk(
         if (clean.startsWith("http://") || clean.startsWith("https://")) return clean
         val path = if (clean.startsWith("/")) clean else "/$clean"
         return "${getBaseUrl()}$path"
+    }
+
+    /**
+     * True only when [url] points at the configured platform server (same scheme, host and port).
+     * Credentials must never be attached to, or seeded into, any other origin.
+     */
+    fun isPlatformOrigin(url: String): Boolean {
+        val target = runCatching { io.ktor.http.Url(url) }.getOrNull() ?: return false
+        val base = runCatching { io.ktor.http.Url(getBaseUrl()) }.getOrNull() ?: return false
+        return target.host.isNotEmpty() &&
+            target.host.equals(base.host, ignoreCase = true) &&
+            target.port == base.port &&
+            target.protocol.name == base.protocol.name
     }
 
     fun groupSessionsByDate(sessions: List<AiSessionSummary>): List<SessionGroup> =
@@ -230,6 +260,39 @@ class DragonClawSdk(
         onSuccess = onSuccess,
         onError = onError
     )
+
+    /** Registers the session-expired hook; [handler] always runs on the main thread. */
+    fun setUnauthorizedHandler(handler: () -> Unit) {
+        api.onUnauthorized = {
+            scope.launch(Dispatchers.Main) { handler() }
+        }
+    }
+
+    /**
+     * Cold-start verification that tells a rejected token apart from a network failure,
+     * so being offline never triggers a password re-login or a bounce to the login screen.
+     */
+    fun restoreSession(
+        token: String,
+        onResult: (SessionRestoreOutcome, UserProfile?) -> Unit
+    ): TaskHandle {
+        val job = scope.launch {
+            val (outcome, profile) = try {
+                SessionRestoreOutcome.VALID to api.getMe(token)
+            } catch (ce: CancellationException) {
+                throw ce
+            } catch (e: com.example.newapp.shared.network.ApiHttpException) {
+                val rejected = e.statusCode == 401 || e.statusCode == 403
+                (if (rejected) SessionRestoreOutcome.EXPIRED else SessionRestoreOutcome.OFFLINE) to null
+            } catch (t: Throwable) {
+                SessionRestoreOutcome.OFFLINE to null
+            }
+            withContext(Dispatchers.Main) {
+                onResult(outcome, profile)
+            }
+        }
+        return TaskHandle(job)
+    }
 
     fun fetchPlatformIdentity(
         onSuccess: (PlatformIdentity) -> Unit,
@@ -345,18 +408,21 @@ class DragonClawSdk(
             voiceMode = if (voiceMode) true else null
         )
         val job = scope.launch {
-            try {
-                api.streamChat(token, request) { evt ->
-                    withContext(Dispatchers.Main) {
-                        onEvent(evt)
-                    }
+            val coalescer = StreamCoalescer(this, STREAM_FLUSH_INTERVAL_MS) { evt ->
+                withContext(Dispatchers.Main) {
+                    onEvent(evt)
                 }
+            }
+            try {
+                api.streamChat(token, request) { evt -> coalescer.offer(evt) }
+                coalescer.finish()
                 withContext(Dispatchers.Main) {
                     onComplete()
                 }
             } catch (ce: CancellationException) {
                 throw ce
             } catch (t: Throwable) {
+                runCatching { coalescer.finish() }
                 val msg = t.message?.takeIf { it.isNotBlank() } ?: "Stream interrupted"
                 withContext(Dispatchers.Main) {
                     onError(msg)
@@ -828,6 +894,8 @@ class DragonClawSdk(
     )
 
     companion object {
+        /** UI refresh budget while streaming: ~20 fps instead of one full re-render per token. */
+        private const val STREAM_FLUSH_INTERVAL_MS = 50L
         private const val DEFAULT_BASE_URL = "https://cs.fanxiaolong.uk"
         private const val KEY_BASE_URL = "api_base_url"
         private const val KEY_LANGUAGE = "app_language"
@@ -839,5 +907,67 @@ class DragonClawSdk(
         private const val KEY_TOKEN = "auth_token"
         private const val KEY_ROLE = "user_role"
         private const val KEY_SELECTED_MODEL = "selected_model_id"
+    }
+}
+
+/**
+ * Merges bursts of DELTA / THINKING tokens into one event per [intervalMs] so the UI rebuilds
+ * (and re-parses Markdown) at a bounded rate. Other events are delivered immediately and in order.
+ */
+internal class StreamCoalescer(
+    private val scope: CoroutineScope,
+    private val intervalMs: Long,
+    private val deliver: suspend (ChatStreamEvent) -> Unit
+) {
+    private val mutex = Mutex()
+    private val buffer = StringBuilder()
+    private var pendingType: StreamEventType? = null
+    private var pendingSessionId: String? = null
+    private var lastFlushAtMs = 0L
+    private var timer: Job? = null
+
+    suspend fun offer(event: ChatStreamEvent) = mutex.withLock {
+        val mergeable = event.type == StreamEventType.DELTA || event.type == StreamEventType.THINKING
+        if (!mergeable) {
+            flushLocked()
+            deliver(event)
+            return@withLock
+        }
+        if (pendingType != null && pendingType != event.type) flushLocked()
+        pendingType = event.type
+        buffer.append(event.text.orEmpty())
+        if (!event.sessionId.isNullOrBlank()) pendingSessionId = event.sessionId
+
+        val elapsed = currentEpochMillis() - lastFlushAtMs
+        if (elapsed >= intervalMs) {
+            flushLocked()
+        } else if (timer == null) {
+            timer = scope.launch {
+                delay(intervalMs - elapsed)
+                mutex.withLock {
+                    timer = null
+                    flushLocked()
+                }
+            }
+        }
+    }
+
+    suspend fun finish() = mutex.withLock {
+        timer?.cancel()
+        timer = null
+        flushLocked()
+    }
+
+    private suspend fun flushLocked() {
+        val type = pendingType ?: return
+        val text = buffer.toString()
+        val sessionId = pendingSessionId
+        buffer.clear()
+        pendingType = null
+        pendingSessionId = null
+        lastFlushAtMs = currentEpochMillis()
+        if (text.isNotEmpty() || sessionId != null) {
+            deliver(ChatStreamEvent(type = type, sessionId = sessionId, text = text))
+        }
     }
 }

@@ -32,6 +32,12 @@ private func dispatchToMain(_ work: @escaping @MainActor () -> Void) {
 final class DragonClawStore {
     let sdk = DragonClawSdk(settings: SettingsManager(), api: DragonClawApiClient(settings: SettingsManager()))
 
+    @ObservationIgnored private var needsWorkspaceRefresh = false
+    @ObservationIgnored private var reauthInFlight = false
+    @ObservationIgnored private var lastReauthAt: Date? = nil
+    @ObservationIgnored private var appIsActive = true
+    @ObservationIgnored private var backgroundGraceTask: UIBackgroundTaskIdentifier = .invalid
+
     // Preferences & Session
     var baseUrl: String
     var language: String
@@ -214,6 +220,11 @@ final class DragonClawStore {
         self.tools = ToolCatalogMerger.shared.merge(remoteTools: [])
         self.username = sdk.getSavedUsername()
 
+        sdk.setUnauthorizedHandler { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.handleUnauthorized()
+            }
+        }
         loadPlatformIdentity()
         restoreSessionIfPossible()
     }
@@ -331,38 +342,121 @@ final class DragonClawStore {
     private func restoreSessionIfPossible() {
         let savedToken = sdk.getSavedToken()
         let savedUser = sdk.getSavedUsername()
-        let savedPass = sdk.getSavedPassword()
+        guard !savedToken.isEmpty, autoLogin else { return }
 
-        if !savedToken.isEmpty && autoLogin {
-            isAuthenticating = true
-            let handle = sdk.verifySession(token: savedToken) { [weak self] profile in
-                Task { @MainActor [weak self] in
-                    guard let self else { return }
-                    self.token = savedToken
-                    self.username = profile.username.isEmpty ? savedUser : profile.username
-                    self.role = profile.role
-                    self.tenantId = (profile.tenantId?.isEmpty == false ? profile.tenantId : profile.homeTenantId) ?? "default"
-                    self.isSuper = profile.isSuper
-                    self.isAuthenticated = true
-                    self.isAuthenticating = false
-                    self.bootstrapWorkspace()
-                }
-            } onError: { [weak self] _ in
-                Task { @MainActor [weak self] in
-                    guard let self else { return }
-                    self.isAuthenticating = false
-                    if !savedUser.isEmpty && !savedPass.isEmpty {
+        isAuthenticating = true
+        let handle = sdk.restoreSession(token: savedToken) { [weak self] outcome, profile in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.isAuthenticating = false
+                if outcome == SessionRestoreOutcome.expired {
+                    if self.sdk.canReauthenticate() {
                         self.performLogin(
                             username: savedUser,
-                            password: savedPass,
+                            password: self.sdk.getSavedPassword(),
                             remember: self.rememberMe,
                             autoLogin: true
                         )
+                    } else {
+                        self.sdk.clearSessionAuth(keepUsername: self.rememberMe)
+                        self.loginError = L10n.tr(self.language, zh: "登录已过期，请重新登录", en: "Session expired. Please sign in again.")
                     }
+                    return
+                }
+                // Valid, or the server is unreachable: trust the saved session.
+                // A later 401 goes through handleUnauthorized().
+                let profileName = profile?.username ?? ""
+                self.token = savedToken
+                self.username = profileName.isEmpty ? savedUser : profileName
+                self.role = profile?.role ?? self.sdk.getSavedRole()
+                let tenant = profile?.tenantId ?? ""
+                let homeTenant = profile?.homeTenantId ?? ""
+                self.tenantId = !tenant.isEmpty ? tenant : (!homeTenant.isEmpty ? homeTenant : "default")
+                self.isSuper = profile?.isSuper ?? false
+                self.isAuthenticated = true
+                self.needsWorkspaceRefresh = outcome == SessionRestoreOutcome.offline
+                self.bootstrapWorkspace()
+            }
+        }
+        activeTaskHandles.append(handle)
+    }
+
+    // MARK: - Session expiry & app lifecycle
+
+    /// Called (via the API client) whenever an authenticated request comes back 401.
+    private func handleUnauthorized() {
+        guard isAuthenticated, !reauthInFlight else { return }
+        // A 401 right after a fresh login is a permission problem, not an expired token: don't loop.
+        if let last = lastReauthAt, Date().timeIntervalSince(last) < 60 { return }
+        guard sdk.canReauthenticate() else {
+            expireSession()
+            return
+        }
+        reauthInFlight = true
+        let savedPass = sdk.getSavedPassword()
+        let handle = sdk.login(username: sdk.getSavedUsername(), password: savedPass) { [weak self] response in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.reauthInFlight = false
+                if response.success, let newToken = response.token, !newToken.isEmpty {
+                    self.lastReauthAt = Date()
+                    self.sdk.saveSessionAuth(
+                        token: newToken,
+                        username: response.username ?? self.username,
+                        password: savedPass,
+                        role: response.role ?? self.role,
+                        rememberMe: self.rememberMe,
+                        autoLogin: self.autoLogin
+                    )
+                    self.token = self.sdk.getSavedToken()
+                    self.bootstrapWorkspace()
+                } else {
+                    self.expireSession()
                 }
             }
-            activeTaskHandles.append(handle)
+        } onError: { [weak self] _ in
+            // Network failure: keep the session and retry on the next 401.
+            Task { @MainActor [weak self] in
+                self?.reauthInFlight = false
+            }
         }
+        activeTaskHandles.append(handle)
+    }
+
+    private func expireSession() {
+        logout()
+        loginError = L10n.tr(language, zh: "登录已过期，请重新登录", en: "Session expired. Please sign in again.")
+    }
+
+    func appDidBecomeActive() {
+        guard !appIsActive else { return }
+        appIsActive = true
+        endBackgroundGrace()
+        guard isAuthenticated else { return }
+        loadAlertSummary()
+        if needsWorkspaceRefresh || sessions.isEmpty {
+            needsWorkspaceRefresh = false
+            bootstrapWorkspace()
+        } else if !isStreaming {
+            loadSessions()
+        }
+    }
+
+    func appDidEnterBackground() {
+        appIsActive = false
+        // Ask iOS for a short grace period so an in-flight reply can finish instead of being cut off.
+        guard isStreaming, backgroundGraceTask == .invalid else { return }
+        backgroundGraceTask = UIApplication.shared.beginBackgroundTask(withName: "DragonClawStream") { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.endBackgroundGrace()
+            }
+        }
+    }
+
+    private func endBackgroundGrace() {
+        guard backgroundGraceTask != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(backgroundGraceTask)
+        backgroundGraceTask = .invalid
     }
 
     func performLogin(username: String, password: String, remember: Bool, autoLogin: Bool) {
@@ -921,6 +1015,8 @@ final class DragonClawStore {
                       (self.activeDesktopBusy || !self.desktopQueue.isEmpty) else {
                     break
                 }
+                // No network chatter while the app is not visible.
+                guard self.appIsActive else { continue }
                 self.fetchDesktopMessages(for: session, passive: true)
             }
             self?.desktopPollTask = nil
@@ -1577,6 +1673,7 @@ final class DragonClawStore {
     }
 
     private func finishStreaming(assistantId: String, interrupted: Bool, errorNote: String? = nil) {
+        endBackgroundGrace()
         activeStreamHandle = nil
         isStreaming = false
         var finalContent = ""

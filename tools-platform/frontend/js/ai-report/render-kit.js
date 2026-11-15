@@ -154,5 +154,12 @@
     // **…** marks words or numbers to stand out (bold, theme colour), so recipes never have to build HTML for it.
     const emphasis=html=>html.replace(/\*\*([^*\n]{1,80}?)\*\*/g,'<strong class="kit-em">$1</strong>');
     function text(value){return String(value??'').split(/\n{2,}/).map(paragraph=>`<p class="kit-text">${emphasis(esc(paragraph)).replace(/\n/g,'<br>')}</p>`).join('');}
-    scope.AiReportKit={table,kpi,extremes,link,inlineLink,nav,bar,line,pie,list,text,esc,fmt,num,chart,interactive,datatable,tabs,layout,PALETTE,_resetWidgets:resetWidgets,_takeWidgets:takeWidgets};
+    // Tunable display values of free render code: {key:{label,type,value,…}} → {key:value}. The settings panel edits the
+    // JSON block passed here (see AiReportTemplates.freeParams), so the values stay visible to users without any AI.
+    function params(defs){
+        const out={};
+        for(const [key,def] of Object.entries(defs&&typeof defs==='object'?defs:{}))out[key]=def&&typeof def==='object'&&'value' in def?def.value:def;
+        return out;
+    }
+    scope.AiReportKit={params,table,kpi,extremes,link,inlineLink,nav,bar,line,pie,list,text,esc,fmt,num,chart,interactive,datatable,tabs,layout,PALETTE,_resetWidgets:resetWidgets,_takeWidgets:takeWidgets};
 })(typeof self!=='undefined'?self:this);

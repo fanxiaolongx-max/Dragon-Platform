@@ -357,12 +357,24 @@ jobs:
         env:
           APP_VERSION_NAME: ${{ needs.prepare-release.outputs.release_version }}
           APP_VERSION_CODE: ${{ github.run_number }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           chmod +x gradlew
           mkdir -p ~/.android
-          if [ ! -f ~/.android/debug.keystore ]; then
-            keytool -genkey -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            # Stable release key: installs can be upgraded in place across releases.
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            export ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/release.keystore"
+          else
+            echo "::warning::ANDROID_KEYSTORE_BASE64 is not set. This APK is signed with a throwaway key generated for this run, so it cannot upgrade a previously installed build."
+            if [ ! -f ~/.android/debug.keystore ]; then
+              keytool -genkey -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+            fi
           fi
+          ./gradlew :shared:testDebugUnitTest --no-daemon
           ./gradlew :app:assembleRelease --no-daemon
           mkdir -p ../dist-android
           cp app/build/outputs/apk/release/*.apk ../dist-android/Dragon-Claw-${{ needs.prepare-release.outputs.release_version }}.apk

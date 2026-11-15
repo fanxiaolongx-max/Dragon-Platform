@@ -50,6 +50,7 @@ import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -196,6 +197,7 @@ fun ChatScreen(vm: DragonClawViewModel) {
         }
     }
 
+    val jumpScope = rememberCoroutineScope()
     var lastAnchoredSessionGen by remember { mutableIntStateOf(-1) }
     var initialOpenSettled by remember(vm.chatOpenScrollGeneration) { mutableStateOf(false) }
     var lastMessageCount by remember { mutableIntStateOf(0) }
@@ -513,6 +515,53 @@ fun ChatScreen(vm: DragonClawViewModel) {
                                 language = lang
                             )
                         }
+                    }
+                }
+            }
+
+            // Jump back to the newest message after scrolling up through history.
+            val showJumpToLatest by remember(listState) {
+                derivedStateOf {
+                    val info = listState.layoutInfo
+                    val last = info.visibleItemsInfo.lastOrNull()
+                    when {
+                        last == null || !listState.canScrollForward -> false
+                        last.index < info.totalItemsCount - 1 -> true
+                        // A single long reply: measure how much of it is still below the fold.
+                        else -> last.offset + last.size - info.viewportEndOffset > info.viewportSize.height / 2
+                    }
+                }
+            }
+            androidx.compose.animation.AnimatedVisibility(
+                visible = showJumpToLatest && vm.messages.isNotEmpty(),
+                enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.scaleIn(initialScale = 0.8f),
+                exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.scaleOut(targetScale = 0.8f),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 10.dp)
+            ) {
+                // Solid, not glass: it has to stay legible on top of message text.
+                Surface(
+                    onClick = {
+                        jumpScope.launch {
+                            val last = (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
+                            // Long threads: snap close first so the animated part stays short.
+                            if (last - listState.firstVisibleItemIndex > 12) listState.scrollToItem((last - 4).coerceAtLeast(0))
+                            listState.animateScrollToItem(last, 100_000)
+                        }
+                    },
+                    shape = CircleShape,
+                    color = palette.accentStrong,
+                    shadowElevation = 6.dp,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Rounded.KeyboardArrowDown,
+                            contentDescription = tr(lang, "回到最新消息", "Jump to latest"),
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
                     }
                 }
             }

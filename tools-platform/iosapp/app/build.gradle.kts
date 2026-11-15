@@ -22,7 +22,7 @@ android {
             } catch (_: Exception) { null }
         } else null
 
-        val releaseVersion = System.getenv("APP_VERSION_NAME") ?: (pkgVersion ?: "1.0.614")
+        val releaseVersion = System.getenv("APP_VERSION_NAME") ?: (pkgVersion ?: "0.0.0-dev")
         versionName = releaseVersion
         versionCode = System.getenv("APP_VERSION_CODE")?.toIntOrNull() ?: (runNumber?.toIntOrNull() ?: 4)
 
@@ -69,7 +69,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

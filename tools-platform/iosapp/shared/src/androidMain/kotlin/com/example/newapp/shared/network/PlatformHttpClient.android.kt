@@ -40,10 +40,12 @@ actual fun createPlatformHttpClient(block: HttpClientConfig<*>.() -> Unit): Http
         config {
             connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
             dns(SmartAndroidDns)
+            val clientVersion = runCatching { com.example.newapp.shared.SettingsManager().getAppVersionName() }
+                .getOrDefault("0.0.0")
             addInterceptor { chain ->
                 val req = chain.request().newBuilder()
                     .header("X-Client-Platform", "android")
-                    .header("X-Client-Version", "1.0.614")
+                    .header("X-Client-Version", clientVersion)
                     .build()
                 chain.proceed(req)
             }
@@ -54,11 +56,15 @@ actual fun createPlatformHttpClient(block: HttpClientConfig<*>.() -> Unit): Http
 
 internal object SmartAndroidDns : Dns {
     private const val CACHE_TTL_MS = 120_000L
-    private const val DOH_TIMEOUT_MS = 4_000
+    private const val DOH_TIMEOUT_MS = 2_000
 
     private data class CachedEntry(val addresses: List<InetAddress>, val expiresAtMs: Long)
 
     private val cache = ConcurrentHashMap<String, CachedEntry>()
+    private val refreshing: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    private val refreshExecutor = java.util.concurrent.Executors.newCachedThreadPool { runnable ->
+        Thread(runnable, "dragonclaw-dns").apply { isDaemon = true }
+    }
     private val dohEndpoints = listOf(
         "https://8.8.8.8/resolve",
         "https://223.5.5.5/resolve"
@@ -74,10 +80,24 @@ internal object SmartAndroidDns : Dns {
         }
 
         val now = System.currentTimeMillis()
-        cache[cleanHost]?.takeIf { it.expiresAtMs > now && it.addresses.isNotEmpty() }?.let {
-            return it.addresses
+        val cached = cache[cleanHost]?.takeIf { it.addresses.isNotEmpty() }
+        if (cached != null) {
+            // Stale-while-revalidate: never make a request wait on DoH when we already know a working route.
+            if (cached.expiresAtMs <= now && refreshing.add(cleanHost)) {
+                refreshExecutor.execute {
+                    try {
+                        runCatching { resolveFresh(cleanHost) }
+                    } finally {
+                        refreshing.remove(cleanHost)
+                    }
+                }
+            }
+            return cached.addresses
         }
+        return resolveFresh(cleanHost)
+    }
 
+    private fun resolveFresh(cleanHost: String): List<InetAddress> {
         val systemAddresses = runCatching { Dns.SYSTEM.lookup(cleanHost) }.getOrDefault(emptyList())
         val hasPreferredSystemIpv4 = systemAddresses.any { addr ->
             addr is Inet4Address && !isBlackholedEdgeIp(addr.hostAddress)
@@ -89,32 +109,47 @@ internal object SmartAndroidDns : Dns {
         if (ordered.isEmpty()) {
             throw UnknownHostException("Unable to resolve host: $cleanHost")
         }
-        cache[cleanHost] = CachedEntry(ordered, now + CACHE_TTL_MS)
+        cache[cleanHost] = CachedEntry(ordered, System.currentTimeMillis() + CACHE_TTL_MS)
         return ordered
     }
 
+    /** Races every DoH endpoint and takes the first usable answer, bounded by [DOH_TIMEOUT_MS] overall. */
     private fun lookupViaDoh(hostname: String): List<InetAddress> {
         val encoded = runCatching { URLEncoder.encode(hostname, "UTF-8") }.getOrDefault(hostname)
-        for (endpoint in dohEndpoints) {
-            val resolved = runCatching {
-                val conn = (URL("$endpoint?name=$encoded&type=A").openConnection() as HttpURLConnection).apply {
-                    requestMethod = "GET"
-                    setRequestProperty("Accept", "application/dns-json")
-                    connectTimeout = DOH_TIMEOUT_MS
-                    readTimeout = DOH_TIMEOUT_MS
-                    useCaches = false
-                }
-                try {
-                    if (conn.responseCode !in 200..299) return@runCatching emptyList()
-                    val body = conn.inputStream.bufferedReader().use { it.readText() }
-                    parseDohIpv4Answers(hostname, body)
-                } finally {
-                    conn.disconnect()
-                }
-            }.getOrDefault(emptyList())
-            if (resolved.isNotEmpty()) return resolved
+        val completion = java.util.concurrent.ExecutorCompletionService<List<InetAddress>>(refreshExecutor)
+        val futures = dohEndpoints.map { endpoint ->
+            completion.submit { runCatching { queryDohEndpoint(endpoint, hostname, encoded) }.getOrDefault(emptyList()) }
         }
-        return emptyList()
+        try {
+            val deadline = System.currentTimeMillis() + DOH_TIMEOUT_MS
+            repeat(futures.size) {
+                val remaining = deadline - System.currentTimeMillis()
+                if (remaining <= 0) return emptyList()
+                val done = completion.poll(remaining, TimeUnit.MILLISECONDS) ?: return emptyList()
+                val resolved = runCatching { done.get() }.getOrDefault(emptyList())
+                if (resolved.isNotEmpty()) return resolved
+            }
+            return emptyList()
+        } finally {
+            futures.forEach { it.cancel(true) }
+        }
+    }
+
+    private fun queryDohEndpoint(endpoint: String, hostname: String, encoded: String): List<InetAddress> {
+        val conn = (URL("$endpoint?name=$encoded&type=A").openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            setRequestProperty("Accept", "application/dns-json")
+            connectTimeout = DOH_TIMEOUT_MS
+            readTimeout = DOH_TIMEOUT_MS
+            useCaches = false
+        }
+        try {
+            if (conn.responseCode !in 200..299) return emptyList()
+            val body = conn.inputStream.bufferedReader().use { it.readText() }
+            return parseDohIpv4Answers(hostname, body)
+        } finally {
+            conn.disconnect()
+        }
     }
 
     internal fun parseDohIpv4Answers(hostname: String, jsonBody: String): List<InetAddress> {
@@ -196,7 +231,10 @@ actual suspend fun streamNdjsonPost(
     }.execute { response ->
         if (!response.status.isSuccess()) {
             val raw = runCatching { response.bodyAsText() }.getOrDefault("")
-            throw IllegalStateException(DragonClawHelpers.parseErrorMessage(response.status.value, raw, "AI request failed"))
+            throw ApiHttpException(
+                response.status.value,
+                DragonClawHelpers.parseErrorMessage(response.status.value, raw, "AI request failed")
+            )
         }
         val channel: ByteReadChannel = response.bodyAsChannel()
         while (!channel.isClosedForRead) {

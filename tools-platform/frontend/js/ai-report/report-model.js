@@ -71,7 +71,7 @@
         return sentences.length>rule.maxSentences?'总结超过用户确认的 '+rule.maxSentences+' 句上限':'';
     }
     function cell(input={}){
-        return {id:id(input.id,'cell'),span:clamp(input.span,1,12,6),height:input.height?clamp(input.height,60,1600,0):0,fit:input.fit===true&&!!input.height,abbreviation:str(input.abbreviation,500),layout:normalizeLayout(input.layout),prompt:str(input.prompt,LIMITS.prompt),recipePrompt:str(input.recipePrompt,LIMITS.prompt),chat:normalizeChat(input.chat),recipe:input.recipe?normalizeRecipe(input.recipe):null,output:input.output?normalizeOutput(input.output):null};
+        return {id:id(input.id,'cell'),span:clamp(input.span,1,12,6),height:input.height?clamp(input.height,60,1600,0):0,fit:input.fit===true&&!!input.height,abbreviation:str(input.abbreviation,500),layout:normalizeLayout(input.layout),...(Number(input.scale)>=0.5&&Number(input.scale)<=3&&Number(input.scale)!==1?{scale:Math.round(Number(input.scale)*100)/100}:{}),prompt:str(input.prompt,LIMITS.prompt),recipePrompt:str(input.recipePrompt,LIMITS.prompt),chat:normalizeChat(input.chat),recipe:input.recipe?normalizeRecipe(input.recipe):null,output:input.output?normalizeOutput(input.output):null};
     }
     function chapter(input={}){
         const cells=Array.isArray(input.cells)?input.cells.slice(0,LIMITS.cells).map(cell):[];

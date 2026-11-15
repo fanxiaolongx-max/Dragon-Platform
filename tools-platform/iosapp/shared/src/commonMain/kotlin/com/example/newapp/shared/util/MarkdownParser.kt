@@ -66,8 +66,26 @@ object MarkdownParser {
         line.contains('|') && splitTableRow(line).all { tableDividerCellRegex.matches(it) }
 
 
+    private const val CACHE_LIMIT = 64
+
+    // Immutable snapshot swapped on write: safe to read from any thread without locking.
+    @kotlin.concurrent.Volatile
+    private var cache: Map<String, List<MdBlock>> = emptyMap()
+
+    /** Memoized entry point: SwiftUI re-evaluates message bodies on every redraw. */
     fun parse(raw: String): List<MdBlock> {
         if (raw.isEmpty()) return emptyList()
+        cache[raw]?.let { return it }
+        val parsed = parseUncached(raw)
+        val snapshot = cache
+        val next = LinkedHashMap<String, List<MdBlock>>(CACHE_LIMIT + 1)
+        snapshot.entries.drop((snapshot.size + 1 - CACHE_LIMIT).coerceAtLeast(0)).forEach { next[it.key] = it.value }
+        next[raw] = parsed
+        cache = next
+        return parsed
+    }
+
+    private fun parseUncached(raw: String): List<MdBlock> {
         val blocks = mutableListOf<MdBlock>()
         var nextId = 0
 

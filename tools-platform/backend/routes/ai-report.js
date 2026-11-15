@@ -3,6 +3,10 @@ const express = require('express');
 const reports = require('../models/ai-report-repository');
 const data = require('../models/ai-report-data');
 const model = require('../../frontend/js/ai-report/report-model');
+// 内置模板库（前端同一份文件）：编译时优先让模型挑模板、写 compute、填参数，展示代码由模板库生成
+const Templates = require('../../frontend/js/ai-report/templates');
+const BiBoard = require('../../frontend/js/ai-bi/model');
+const Query = require('../../frontend/js/ai-report/query');
 const aiSettingsRepo = require('../models/ai-settings-repository');
 const aiProviderClient = require('../models/ai-provider-client');
 const images = require('../models/ai-report-images');
@@ -452,17 +456,32 @@ function tidyRecipe(recipe) {
 }
 
 // Compiles the confirmed prompt; an error from a previous run is passed back so the model can fix it.
+const TEMPLATE_GUIDE = `
+【展示优先用平台内置模板】你只写 compute 把数据算成模板要的形状，再在 recipe 里给出 view（选模板、填参数），不写 render——平台按 view 生成展示，配色、坐标轴、打印和邮件都由模板保证。
+- 一个模板：view = {"template":"模板 id","params":{只写和默认不同的参数}}，compute 直接返回该模板的数据形状。
+- 多个模板（格子里要放几张图 / 图加表 / 指标卡加趋势）：view = {"title":"可选总标题","rows":[[{"id":"英文短名","template":"模板 id","data":"compute 结果里的字段名","width":占这一行的百分比,"params":{}}],[...]]}，compute 返回 {字段名: 对应形状, ...}。最多 4 行、每行最多 4 个。
+- 用户提到的标题、单位、目标值、排序、高度、是否显示数值等都写进 params；提示词里的【展示参数】行是用户手动调好的设置，必须原样保留（同样的模板、数据字段名和参数）。
+- 所有模板都做不到用户要的效果时，才不写 view、改写 render（这时下面关于 render 和 kit 的要求适用）。
+${Templates.FREE_GUIDE}
+${Query.GUIDE}
+recipe 可以写 {"summary","sources","query":{...},"view":{...},"narrative":null}：有 query 时不写 compute，有 view 时不写 render。
+${Templates.catalog()}`;
+
 function compileTurn(client, { month, prompt, recipe, error, style = '', outline = null, previousPrompt = '', presentation = null, interactive = false }) {
     // A working recipe from an earlier prompt is the base, so a small prompt change does not reroll the title or layout.
     const base = recipe && !error && previousPrompt && previousPrompt !== prompt ? `之前的提示词：\n${previousPrompt}\n\n按之前提示词做出、能正常运行的配方：${JSON.stringify(recipe).slice(0, 4000)}\n在这个配方基础上按提示词的变化修改：没有被新要求替换的部分保持原样；展示形式变化时，旧 render、图表/卡片及小格子布局必须重建，旧配方只作数据与计算参考；提示词里有而这个配方还没做到的要求（例如要显示的标题）必须补上；数据来源换了时重新用工具查清新来源的准确名称。` : '';
     const content = [`报告月份：${month}`, `最终提示词：\n${prompt}`, styleLine(style), Array.isArray(presentation)&&presentation.length?'当前交互格子的实际展示与用户调整（用户调整是已确认的展示要求，必须落实；有相对锚点时按锚点关系而不是机械叠加像素；只可优化未被调整的部分）：'+JSON.stringify(presentation).slice(0,24000):'', recipe && error ? `上一次的配方：${JSON.stringify(recipe).slice(0, 4000)}\n运行出错：${error}\n请修正。` : base].filter(Boolean).join('\n\n');
-    return runWithTools(client, { system: COMPILE_PROMPT+(interactive?"\n本次展示协议：所有内容必须在 kit.interactive 内，默认自由拖动和编辑，图表使用 SVG，narrative:null。旧 kit.layout/命名小格子尺寸要求只作内容、比例参考，内部 HTML/CSS 自由实现；纯文字也用交互 HTML，不添加图表。":""), month, messages: [{ role: 'user', content }], context: { outline }, fallback: { type: 'ask', question: '这个提示词我还没能编译成可运行的配方，能在对话里补充一下用哪张表、哪些列吗？', choices: [] }, accept: async (reply, toolLog) => {
+    return runWithTools(client, { system: COMPILE_PROMPT+TEMPLATE_GUIDE+(interactive?"\n不用模板（不写 view）时的展示协议：所有内容必须在 kit.interactive 内，默认自由拖动和编辑，图表使用 SVG，narrative:null。旧 kit.layout/命名小格子尺寸要求只作内容、比例参考，内部 HTML/CSS 自由实现；纯文字也用交互 HTML，不添加图表。":""), month, messages: [{ role: 'user', content }], context: { outline }, fallback: { type: 'ask', question: '这个提示词我还没能编译成可运行的配方，能在对话里补充一下用哪张表、哪些列吗？', choices: [] }, accept: async (reply, toolLog) => {
         if (reply?.type === 'ask' && reply.question) return { result: askResult(reply, toolLog) };
         if (reply?.type === 'recipe') {
             let normalized;
-            try { normalized = model.normalizeRecipe(tidyRecipe(reply.recipe)); }
+            const view = reply.recipe && typeof reply.recipe === 'object' && reply.recipe.view ? Templates.normalizeView(reply.recipe.view) : null;
+            if (reply.recipe?.view && !view) return { retry: 'view 无效：template 必须是模板目录里的 id。请修正后只输出 JSON。' };
+            // A query becomes the stored compute (it only hands the query to the query library, which checks names at run time).
+            const query = reply.recipe && typeof reply.recipe.query === 'object' && reply.recipe.query ? reply.recipe.query : null;
+            try { normalized = model.normalizeRecipe(tidyRecipe({ ...reply.recipe, ...(view ? { render: Templates.renderSource(view) } : {}), ...(query ? { compute: Query.computeSource(query) } : {}) })); }
             catch (problem) { return { retry: `配方无效：${problem.message}。请修正后只输出 JSON。` }; }
-            if(interactive&&!/\bkit\s*\.\s*interactive\s*\(/.test(normalized.render))return {retry:'本次必须生成默认自由编辑的交互 HTML：render 返回 kit.interactive({html,css,script},{id:"content"})，所有标题、图表、表格和总结放在它内部，图表使用 SVG，narrative:null。保留原数据来源和 compute；旧【格子内部布局】的小格子 id、kit.layout 要求仅作内容与比例参考，用内部 HTML/CSS 实现，不得退回 kit.chart/kit.layout 静态格子。'};
+            if(interactive&&!view&&!/\bkit\s*\.\s*interactive\s*\(/.test(normalized.render))return {retry:'本次必须生成默认自由编辑的交互 HTML：render 返回 kit.interactive({html,css,script},{id:"content"})，所有标题、图表、表格和总结放在它内部，图表使用 SVG，narrative:null。保留原数据来源和 compute；旧【格子内部布局】的小格子 id、kit.layout 要求仅作内容与比例参考，用内部 HTML/CSS 实现，不得退回 kit.chart/kit.layout 静态格子。'};
             // Made-up sources would only ever show "no data"; send them back while the model can still look them up.
             const unknown = await data.unknownSources(month, normalized.sources).catch(() => []);
             if (unknown.length) return { retry: `这些数据来源在系统里不存在：${unknown.join('；')}。不要编造 sourceKey、指标名称或数据集 id，只能用 list_sources、list_datasets 返回的值和 list_metrics 返回的指标名称；提示词里的名称可能和实际名称不同，请按含义在导入表、指标和数据集里查找。确实找不到就回复 ask 说明。` };
@@ -700,11 +719,77 @@ const RESTYLE_TASK = `这是一次章节样式统一，不是重新做格子：
 - 章节样式作为统一默认；格子已有明确的组件类型、展示数量或局部例外时必须保留，不得借样式调整新增组件或改回旧展示形式；最终提示词要求显示的标题文字照样显示。
 - narrative 不为 null 时可以按章节样式调整总结的写法要求，但总结依据的数据不变；只有用户明确调整总结的位置或写法时才可在 narrative 和 render 之间迁移总结，不能凭空新增总结，不能重复显示。`;
 
+// 画面标记 → 只改模板格子的展示设置（模板、参数、分区宽度），不改数据；需要改数据或计算时交回格子对话
+const ADJUST_PROMPT = `你调整月报格子的展示设置 view（JSON），不改数据和计算。用户在格子画面上某处做了标记并写了修改意见。
+- 只能改：各分区的 template（只能换成数据形状相同的模板）、params、width、view.title；分区的 id 和 data 不变，不增删分区。
+- 参数只能用下面列出的键和取值；颜色、字体等列表里没有的设置做不到时，回复 data。
+- 意见需要不同的数据、筛选、计算、新增内容或新增分区时，回复 data，由格子对话处理。
+只输出 JSON，二选一：
+{"type":"view","reply":"一句话说明改了什么","view":{完整的新 view}}
+{"type":"data","reply":"为什么需要交给格子对话"}`;
+
+const markWhere = (target = {}) => [target.slot && `分区 ${target.slot}`, target.title && `标题“${target.title}”`, target.kind === 'chart' ? '图表上' : target.text && `文字“${String(target.text).slice(0, 40)}”附近`].filter(Boolean).join('，');
+router.post('/cell/adjust', handle(async (req, res) => {
+    const { view, params, prompt = '', note = '', target = {} } = req.body || {};
+    if (!String(note).trim()) return res.status(400).json({ error: '请写下要怎么改' });
+    // 自己写代码的格子：只改参数块（kit.params）里的值
+    if (!view && params && typeof params === 'object') {
+        const defs = Templates.freeParams(`kit.params(${JSON.stringify(params)})`)?.defs;
+        if (!defs) return res.status(400).json({ error: '这个格子没有可调参数' });
+        const content = `当前参数：\n${JSON.stringify(defs)}\n\n格子提示词：\n${String(prompt).slice(0, 1500)}\n\n标记位置：${markWhere(target) || '格子内'}\n修改意见：${String(note).slice(0, 600)}`;
+        const result = await (await aiClient()).generateChat({ systemInstruction: Templates.ADJUST_PARAMS_PROMPT, messages: [{ role: 'user', content }], maxOutputTokens: 1500, temperature: 0.1 });
+        const reply = parseReply(result.text);
+        const values = reply?.type === 'params' && reply.values && typeof reply.values === 'object' ? Object.fromEntries(Object.entries(reply.values).filter(([key]) => key in defs)) : null;
+        if (!values || !Object.keys(values).length) return res.json({ type: 'data', reply: String(reply?.reply || '').slice(0, 300) });
+        return res.json({ type: 'params', values, reply: String(reply.reply || '').slice(0, 300) });
+    }
+    const current = Templates.normalizeView(view);
+    if (!current) return res.status(400).json({ error: '这个格子不是模板格子' });
+    const content = `当前 view：\n${JSON.stringify(current)}\n\n可用模板与参数：\n${Templates.paramGuide(current)}\n\n格子提示词：\n${String(prompt).slice(0, 1500)}\n\n标记位置：${markWhere(target) || '格子内'}\n修改意见：${String(note).slice(0, 600)}`;
+    const result = await (await aiClient()).generateChat({ systemInstruction: ADJUST_PROMPT, messages: [{ role: 'user', content }], maxOutputTokens: 2000, temperature: 0.1 });
+    const reply = parseReply(result.text);
+    const next = reply?.type === 'view' ? Templates.normalizeView(reply.view) : null;
+    const shape = item => Templates.slots(item).map(slot => [slot.id, slot.data || '', Templates.get(slot.template).kind]);
+    if (!next || JSON.stringify(shape(next)) !== JSON.stringify(shape(current))) return res.json({ type: 'data', reply: String(reply?.reply || '').slice(0, 300) });
+    res.json({ type: 'view', view: next, reply: String(reply.reply || '').slice(0, 300) });
+}));
+
+// 旧格子或没写参数块的格子：让 AI 只把展示值提到 kit.params 参数块里，其余代码不变
+router.post('/cell/params', handle(async (req, res) => {
+    const code = String(req.body?.render || ''), prompt = String(req.body?.prompt || '');
+    if (!code.trim() || code.length > 30000) return res.status(400).json({ error: '这个格子没有可以整理的展示代码' });
+    if (Templates.isTemplateRender(code)) return res.status(400).json({ error: '模板格子已经有展示设置' });
+    if (Templates.freeParams(code)) return res.json({ render: code });
+    const result = await (await aiClient()).generateChat({ systemInstruction: Templates.EXTRACT_PARAMS_PROMPT, messages: [{ role: 'user', content: `格子提示词：\n${prompt.slice(0, 1500)}\n\n当前展示代码：\n${code}` }], maxOutputTokens: 12000, temperature: 0.1 });
+    const next = String(parseReply(result.text)?.render || '').trim();
+    if (!next || !Templates.freeParams(next) || !/function\s+render\s*\(/.test(next)) return res.status(422).json({ error: '没能整理出可调设置，可以在格子对话里直接说要改什么' });
+    try { new Function(`${next}\n;return render;`); } catch (problem) { return res.status(422).json({ error: `整理后的代码有语法错误：${problem.message}` }); }
+    res.json({ render: next.slice(0, 30000) });
+}));
+
+// AI BI：对话 → 画布大小与格子布局。模型可以先用数据工具看看有哪些数据，再给出每个格子的提示词。
+router.post('/bi/plan', handle(async (req, res) => {
+    const { month, message = '', chat = [], board = {}, focus = '' } = req.body || {};
+    if (!model.validMonth(month)) return res.status(400).json({ error: 'A valid report month is required' });
+    if (!String(message).trim()) return res.status(400).json({ error: '请说说想做什么样的看板' });
+    const history = (Array.isArray(chat) ? chat : []).slice(-12).map(item => `${item.role === 'user' ? '用户' : 'AI'}：${String(item.text || '').slice(0, 800)}`).join('\n');
+    const content = [`报告月份：${month}`, BiBoard.planCatalog(Templates), `当前看板：${BiBoard.boardBrief(board, focus)}`, history ? `之前的对话：\n${history}` : '', focus ? `用户正在说的格子：${focus}` : '', `用户：${String(message).slice(0, 4000)}`].filter(Boolean).join('\n\n');
+    const result = await runWithTools(await aiClient(), { system: BiBoard.PLAN_PROMPT + '\n' + DATA_TOOLS_GUIDE + ' 设计前先用工具了解有哪些数据。', month, messages: [{ role: 'user', content }], fallback: { type: 'answer', text: '抱歉，这次没能设计出看板，请换个说法再试一次。' }, accept: reply => {
+        if (reply?.type === 'plan' && Array.isArray(reply.items)) return { result: { type: 'plan', reply: String(reply.reply || '').slice(0, 1000), ...BiBoard.fromPlan(reply, board) } };
+        if (reply?.type === 'ask' && reply.question) return { result: { type: 'ask', question: String(reply.question).slice(0, 1000), choices: (Array.isArray(reply.choices) ? reply.choices : []).slice(0, 4).map(choice => String(choice).slice(0, 200)) } };
+        if (reply?.type === 'answer' && reply.text) return { result: { type: 'answer', text: String(reply.text).slice(0, 4000) } };
+        return { retry: '请只输出约定的 JSON 对象（type 为 plan、ask 或 answer）。' };
+    } });
+    res.json(result);
+}));
+
 router.post('/cell/restyle', handle(async (req, res) => {
     const { month, prompt = '', recipe = null, attempt = null, error = '' } = req.body || {};
     if (!model.validMonth(month)) return res.status(400).json({ error: 'A valid report month is required' });
     if (!String(prompt).trim() || !recipe) return res.status(400).json({ error: '这个格子还没有生成过' });
     const original = model.normalizeRecipe(recipe), style = String(req.body.style || '').slice(0, 8000);
+    // Restyling keeps the cell's form: interactive cells stay interactive, others use kit / templates.
+    const interactive = /\bkit\s*\.\s*interactive\s*\(/.test(original.render || '');
     const content = [`报告月份：${month}`, `最终提示词：\n${String(prompt).slice(0, 4000)}`, styleLine(style), RESTYLE_TASK, `当前配方：${JSON.stringify(original).slice(0, 14000)}`, attempt && error ? `上一次改出来的配方：${JSON.stringify(attempt).slice(0, 12000)}\n运行出错：${String(error).slice(0, 2000)}\n请修正展示层，仍须保留 sources 和 compute。` : ''].filter(Boolean).join('\n\n');
     const reply = await runWithTools(await aiClient(), { system: COMPILE_PROMPT+(interactive?"\n本次展示协议：所有内容必须在 kit.interactive 内，默认自由拖动和编辑，图表使用 SVG，narrative:null。旧 kit.layout/命名小格子尺寸要求只作内容、比例参考，内部 HTML/CSS 自由实现；纯文字也用交互 HTML，不添加图表。":""), month, messages: [{ role: 'user', content }], tools: false, fallback: null, accept: async (value) => {
         if (value?.type !== 'recipe') return { retry: '请只输出 {"type":"recipe","reply":"…","recipe":{…}}，sources 和 compute 照抄，只改展示层（render 及必要的 narrative），不要改 sources 和 compute。' };

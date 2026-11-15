@@ -35,12 +35,16 @@ import platform.Foundation.setValue
 import platform.darwin.NSObject
 import platform.posix.memcpy
 
+private val iosClientVersion: String by lazy {
+    "DragonClaw/" + com.example.newapp.shared.SettingsManager().getAppVersionName()
+}
+
 actual fun createPlatformHttpClient(block: HttpClientConfig<*>.() -> Unit): HttpClient = HttpClient(Darwin) {
     engine {
         configureRequest {
             setTimeoutInterval(300.0)
             setValue("ios", forHTTPHeaderField = "X-Client-Platform")
-            setValue("DragonClaw/1.0.614", forHTTPHeaderField = "X-Client-Version")
+            setValue(iosClientVersion, forHTTPHeaderField = "X-Client-Version")
         }
     }
     block()
@@ -133,7 +137,7 @@ private class IncrementalNdjsonDelegate(
             val raw = runCatching { errorBytes.decodeToString() }.getOrDefault("")
             channel.trySend(
                 StreamPacket.Failure(
-                    IllegalStateException(DragonClawHelpers.parseErrorMessage(statusCode, raw, "AI request failed"))
+                    ApiHttpException(statusCode, DragonClawHelpers.parseErrorMessage(statusCode, raw, "AI request failed"))
                 )
             )
             channel.close()
@@ -165,6 +169,8 @@ actual suspend fun streamNdjsonPost(
         setValue("application/json", forHTTPHeaderField = "Content-Type")
         setValue("application/x-ndjson, text/event-stream, */*", forHTTPHeaderField = "Accept")
         setValue("identity", forHTTPHeaderField = "Accept-Encoding")
+        setValue("ios", forHTTPHeaderField = "X-Client-Platform")
+        setValue(iosClientVersion, forHTTPHeaderField = "X-Client-Version")
         setCachePolicy(NSURLRequestReloadIgnoringLocalCacheData)
         setTimeoutInterval(300.0)
         val bodyBytes = jsonBody.encodeToByteArray()

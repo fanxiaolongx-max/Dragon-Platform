@@ -1,12 +1,12 @@
 {
   "zh": [
-    "修复 iOS 移动端侧边栏「开启新对话」按钮右半区域点击无响应问题：规范化 HStack 点击热区为完整卡片轮廓（RoundedRectangle），全宽 100% 灵敏响应触控交互，并在轻点后自动收起抽屉与触发中度触觉震动反馈。",
-    "消除主题明暗切换时的界面视觉延迟：为侧边栏搜索框、工具台/KPI/定时快捷按钮及底部操作栏全面注入主题感知前景色与强调色，联动全局 220ms 平滑动画曲线，彻底根除局部输入框滞后 1 秒刷新问题。",
-    "移动端人机交互与触控目标合规优化：严格遵循 Apple 人机界面规范（HIG），所有头部图标、关闭按钮与快捷操作栏全面达标 44x44pt 最小点击热区，并加入细腻触觉反馈（Haptic Feedback），大幅提升单手操作流畅度。"
+    "全新上线 AI-BI 智能敏捷看板与交互式报表大屏：集成图表组件库、取数查询引擎与可视化参数面板，支持自然语言对话即时生成敏捷数据看板，实时联动平台业务数据与图表视图渲染。",
+    "移动端底层通信与设置持久化架构重构：全面优化 Android 与 iOS 双端平台网络客户端（PlatformHttpClient）与本地配置管理器（SettingsManager），支持流式会话保持、凭据无缝同步与离线存储保护。",
+    "云端构建流水线与发布签名增强：Android 构建工作流全面接入稳定 Release 密钥签名机制与单元测试自动化校验，确保客户端发布包跨版本平滑无缝升级。"
   ],
   "en": [
-    "Fix asymmetric hit testing on iOS mobile drawer 'New Chat' button: standardize the touch target across the entire card boundary with RoundedRectangle and infinity width, ensuring 100% responsive clicks with automatic sidebar dismissal and medium haptic feedback.",
-    "Eliminate theme transition latency: explicitly bind theme-aware foreground styles and tint colors across drawer search field, quick action buttons, and footer controls, synchronized with a smooth 220ms easeInOut transition to remove the 1s delay.",
-    "Mobile interaction and Apple HIG touch-target compliance: ensure all header icons, close buttons, and navigation controls satisfy the 44x44pt minimum touch target, accompanied by subtle haptic feedback for a fluid single-handed mobile experience."
+    "Introduce AI-BI intelligent agile dashboards and interactive reporting: integrate chart component library, query compute engine, and visual parameter panel to generate agile business dashboards from conversational prompts in real time.",
+    "Refactor mobile cross-platform networking and settings persistence: overhaul PlatformHttpClient and SettingsManager across Android and iOS, supporting persistent streaming sessions, secure credential synchronization, and offline storage protection.",
+    "Enhance cloud CI/CD release signing and automated testing: integrate stable Android release keystore signing and automated unit tests into the GitHub Actions workflow, ensuring smooth seamless cross-release app upgrades."
   ]
 }

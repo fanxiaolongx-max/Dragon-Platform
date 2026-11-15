@@ -67,7 +67,9 @@
     }
     const widgetLookup=(cellId,widgetId)=>find(cellId)?.cell?.output?.widgets?.find(item=>item.id===widgetId);
     const imageLibrary=AiReportImageLibrary.create({API,t,find,render,aiStep,actions:record=>withUndo(record,IMAGE_ACTIONS())});
-    const chat=AiReportChat.create({root:chatRoot,t,lang:()=>state.lang,find,send:(cellId,text)=>converse(cellId,text),retry:(cellId,index)=>retryMessage(cellId,index),makePrompt:cellId=>makePrompt(cellId),tryPrompt:cellId=>tryPrompt(cellId),revert:cellId=>revertPrompt(cellId),savePrompt:(cellId,text)=>savePromptEdit(cellId,text),close:()=>select(null),pickImage:(cellId,url,index)=>pickImage(cellId,url,index),imagePage:imageLibrary.page,removeImage:imageLibrary.remove,imageDeletion:imageLibrary.decide});
+    const chat=AiReportChat.create({root:chatRoot,t,lang:()=>state.lang,find,send:(cellId,text)=>converse(cellId,text),retry:(cellId,index)=>retryMessage(cellId,index),makePrompt:cellId=>makePrompt(cellId),tryPrompt:cellId=>tryPrompt(cellId),revert:cellId=>revertPrompt(cellId),savePrompt:(cellId,text)=>savePromptEdit(cellId,text),close:()=>select(null),setView:(cellId,change)=>applyView(cellId,change),setScale:(cellId,value)=>setCellScale(cellId,value),extract:cellId=>extractParams(cellId),pickImage:(cellId,url,index)=>pickImage(cellId,url,index),imagePage:imageLibrary.page,removeImage:imageLibrary.remove,imageDeletion:imageLibrary.decide});
+    // Marking: click a spot in a cell, say what should change; template cells adjust their settings directly.
+    const marker=window.AiReportMarker?.create({root:reportRoot,t,onMark:(cellId,mark)=>markCell(cellId,mark),onChange:on=>{const button=$('[data-air=mark]');if(button){button.classList.toggle('is-active',on);button.textContent=on?t('完成标记','Done marking'):t('📍 标记','📍 Mark');}}});
     focusEditor=AiReportFocus.create({root:reportRoot,pane:$('#airReportPane'),chat:chatRoot,select,t});
 
     function staleCells(){return M.cells(state.doc).filter(cell=>AiReportRunner.needsNarrative(cell,state.doc.reportMonth));}
@@ -247,7 +249,7 @@
         const before={recipe:cell.recipe,recipePrompt:cell.recipePrompt,output:cell.output,missing:cell.missing};
         for(let attempt=0;attempt<3;attempt++){
             state.busy.set(cellId,t('正在把提示词变成配方…','Turning the prompt into a recipe…'));render();
-            const reply=await AiReportTrace.post(cellId,t(`编译配方（第 ${attempt+1} 次）`,`Compile recipe (attempt ${attempt+1})`),'/api/ai-report/cell/compile',{month,interactive:true,prompt:cell.prompt,recipe:cell.recipe,previousPrompt:attempt?'':cell.recipePrompt||'',error,style:styleOf(cell),outline:AiReportRunner.outline(cell),presentation:AiReportInteractive.context(cell.output?.widgets)});
+            const reply=await AiReportTrace.post(cellId,t(`编译配方（第 ${attempt+1} 次）`,`Compile recipe (attempt ${attempt+1})`),'/api/ai-report/cell/compile',{month,interactive:wantsInteractive(cell),prompt:cell.prompt,recipe:cell.recipe,previousPrompt:attempt?'':cell.recipePrompt||'',error,style:styleOf(cell),outline:AiReportRunner.outline(cell),presentation:AiReportInteractive.context(cell.output?.widgets)});
             if(reply.type==='ask'){
                 // A cell that ran before and now cannot find its data after a wording change can keep its data and rename only.
                 const keep=before.recipe&&/找不到|没有找到|未找到|不存在|找到以下|哪一个/.test(reply.question||'')?[t('数据不变，只改显示文字','Keep the data, rename the text only')]:[];
@@ -262,6 +264,14 @@
         if(usable){cell.recipe=usable.recipe;cell.recipePrompt=cell.prompt;cell.output=usable.output;cell.missing=usable.missing;reconcileLayout(cell);rememberResult(cell);}
         else if(before.output&&!before.output.error){cell.recipe=before.recipe;cell.recipePrompt=before.recipePrompt;cell.output=before.output;cell.missing=before.missing;}
         cell.chat.push({role:'ai',kind:'note',text:t(`生成失败：${error}。${usable?'格子先显示这次生成的内容。':before.output&&!before.output.error?'格子保持原来的内容。':''}可以在对话里补充说明后重新生成提示词再试。`,`Run failed: ${error}. Add details in the chat, regenerate the prompt and try again.`)});
+    }
+    // Cells are templates or platform charts by default: they size, theme, print and export reliably and have settings.
+    // Free interactive HTML is used only when the prompt asks for interaction, or the cell already carries hand-made
+    // adjustments of an interactive widget (dropping them would lose the user's work).
+    function wantsInteractive(cell){
+        const prompt=String(cell.prompt||'');
+        if(/交互|可拖动|拖拽|拖动排序|可点击|点击.{0,6}(切换|展开|查看|筛选)|可编辑|筛选器|下拉选择|悬停|轮播|动画|interactive|clickable|drag/i.test(prompt.replace(/【[^】]*】[^\n]*/g,'')))return true;
+        return /\bkit\s*\.\s*interactive\s*\(/.test(cell.recipe?.render||'')&&prompt.includes('【手工展示调整】');
     }
     // The names a recipe reads data by (metric names, tables, sheets, datasets) — kept intact when only text is renamed.
     function dataNamesOf(recipe){
@@ -597,6 +607,55 @@
         // Collect the current iframe edits before aiStep re-renders it. No server save is needed to regenerate.
         await AiReportInteractive.flush(cellId);
         return aiStep(cellId,t('正在把提示词变成配方…','Turning the prompt into a recipe…'),cell=>cellId===REPORT?applyStyle(cell):imageSlotOf(cellId)?drawImage(cellId,cell):fieldKeyOf(cellId)?generateField(fieldKeyOf(cellId)):chapterOf(cellId)?applyChapterStyle(cellId,cell):compileAndRun(cellId,cell));
+    }
+    // A mark on a cell with settings (template or kit.params) first asks the AI for new settings only (fast, no data
+    // work); when the change needs other data, calculations or code, it goes to the cell conversation like a typed message.
+    async function markCell(cellId,mark){
+        const found=find(cellId);if(!found||state.busy.has(cellId))return;
+        const T=window.AiReportTemplates,recipe=found.cell.recipe,view=recipe?T.viewFromRender(recipe.render):null,free=!view&&recipe?T.freeParams(recipe.render):null;
+        const where=[mark.slot&&t(`分区 ${mark.slot}`,`slot ${mark.slot}`),mark.kind==='chart'?t('图表','chart'):mark.text&&`“${mark.text}”`].filter(Boolean).join(' · ');
+        const text=`📍 ${t('标记','Mark')}${where?`（${where}）`:''}：${mark.note}`;
+        select(cellId);
+        if(!view&&!free)return converse(cellId,text);
+        let next=null,toChat=false;
+        await aiStep(cellId,t('正在按标记调整展示…','Adjusting from your mark…'),async cell=>{
+            cell.chat.push({role:'user',text});render();
+            const reply=await AiReportTrace.post(cellId,t('标记调整','Adjust from mark'),'/api/ai-report/cell/adjust',{...(view?{view}:{params:free.defs}),prompt:cell.prompt,note:mark.note,target:{slot:mark.slot,text:mark.text,kind:mark.kind,title:mark.title}});
+            if(reply.type==='view'&&reply.view&&view)next={render:T.renderSource(reply.view),prompt:T.withDescription(cell.prompt,reply.view)};
+            else if(reply.type==='params'&&reply.values&&free){const code=T.setFreeParams(cell.recipe.render,reply.values);next={render:code,prompt:T.withFreeDescription(cell.prompt,T.freeParams(code).defs)};}
+            if(next)cell.chat.push({role:'ai',kind:'answer',text:reply.reply||t('已按标记调整展示设置。','Display settings adjusted.')});
+            else{cell.chat.pop();toChat=true;}
+        });
+        if(next){const cell=find(cellId)?.cell;if(cell){const synced=cell.recipePrompt===cell.prompt;cell.recipe={...cell.recipe,render:next.render};cell.prompt=next.prompt;if(synced)cell.recipePrompt=cell.prompt;await runCell(cellId,{withNarrative:false});}}
+        else if(toChat)converse(cellId,text);
+    }
+    // Settings panel changes (template views or kit.params values): only the render code and the prompt's 【展示参数】
+    // line change, so the cell redraws with the same data and no AI call.
+    function applyView(cellId,change){
+        const cell=find(cellId)?.cell;if(!cell?.recipe||state.busy.has(cellId)||!change?.render)return;
+        checkpoint();
+        const synced=cell.recipePrompt===cell.prompt;
+        cell.recipe={...cell.recipe,render:change.render};
+        cell.prompt=change.prompt;if(synced)cell.recipePrompt=cell.prompt;
+        runCell(cellId,{withNarrative:false});
+    }
+    // Text and chart size of one cell: a zoom on its content, no recompute.
+    function setCellScale(cellId,value){
+        const cell=find(cellId)?.cell;if(!cell)return;
+        checkpoint();cell.scale=value&&value!==1?value:1;render();
+    }
+    // A cell whose code has no kit.params block: one AI step moves its display values into one, nothing else changes.
+    async function extractParams(cellId){
+        const cell=find(cellId)?.cell;if(!cell?.recipe||state.busy.has(cellId))return;
+        const before=cell.recipe;
+        await aiStep(cellId,t('正在整理可调设置…','Making settings…'),async current=>{
+            const reply=await AiReportTrace.post(cellId,t('整理可调设置','Make settings'),'/api/ai-report/cell/params',{render:current.recipe.render,prompt:current.prompt});
+            if(!reply.render||!window.AiReportTemplates.freeParams(reply.render))throw new Error(t('没能整理出可调设置，可以在对话里直接说要改什么','No settings found; describe the change in the conversation'));
+            current.recipe={...current.recipe,render:reply.render};
+            try{await AiReportRunner.run(current,state.doc.reportMonth,{withNarrative:false,style:styleOf(current)});}
+            catch(error){current.recipe=before;throw error;}
+            const synced=current.recipePrompt===current.prompt;current.prompt=window.AiReportTemplates.withFreeDescription(current.prompt,window.AiReportTemplates.freeParams(reply.render).defs);if(synced)current.recipePrompt=current.prompt;
+        });
     }
     async function runCell(cellId,{withNarrative=true}={}){
         const cell=find(cellId)?.cell;if(!cell?.recipe)return;
@@ -1123,7 +1182,8 @@
         if(action==='rename')return renameOrCopy(false);
         if(action==='delete')return removeReport();
         if(action==='save')return save();
-        if(action==='preview'){state.preview=!state.preview;state.selected=null;return render();}
+        if(action==='mark')return marker?.toggle();
+        if(action==='preview'){marker?.set(false);state.preview=!state.preview;state.selected=null;return render();}
         if(action==='language'){state.lang=state.lang==='en'?'zh':'en';return render();}
         if(action==='narratives')return updateNarratives();
         if(action&&action.startsWith('export-'))return exportAs(action.slice(7));

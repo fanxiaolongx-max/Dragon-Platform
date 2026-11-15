@@ -6,6 +6,7 @@ import com.example.newapp.shared.util.DragonClawHelpers
 import com.example.newapp.shared.util.NdjsonStreamParser
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.plugins.HttpResponseValidator
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.logging.LogLevel
@@ -32,6 +33,12 @@ import io.ktor.serialization.kotlinx.json.json
 
 class ApiHttpException(val statusCode: Int, override val message: String) : Exception(message)
 
+/** Process-wide switches set by the host app before the first client is created. */
+object DragonClawNetworkConfig {
+    /** Debug builds only. Even when on, credentials are redacted from the log output. */
+    var verboseLogging: Boolean = false
+}
+
 /** Unified Ktor client for DragonClaw Auth, AI Chat NDJSON Streaming, Tool Hub & External Metrics. */
 class DragonClawApiClient(
     private val settings: SettingsManager = SettingsManager()
@@ -47,9 +54,37 @@ class DragonClawApiClient(
         }
         install(Logging) {
             logger = Logger.SIMPLE
-            level = LogLevel.HEADERS
+            level = if (DragonClawNetworkConfig.verboseLogging) LogLevel.INFO else LogLevel.NONE
+            sanitizeHeader { name ->
+                name.equals(HttpHeaders.Authorization, ignoreCase = true) ||
+                    name.equals(HttpHeaders.Cookie, ignoreCase = true) ||
+                    name.equals(HttpHeaders.SetCookie, ignoreCase = true)
+            }
+        }
+        HttpResponseValidator {
+            validateResponse { response ->
+                if (response.status.value == 401 &&
+                    response.call.request.headers.contains(HttpHeaders.Authorization)
+                ) {
+                    notifyUnauthorized()
+                }
+            }
         }
         expectSuccess = false
+    }
+
+    /**
+     * Invoked (on an arbitrary thread, at most once per second) when an authenticated request
+     * is rejected with 401, so the host can refresh the session or return to the login screen.
+     */
+    var onUnauthorized: (() -> Unit)? = null
+    private var lastUnauthorizedAtMs = 0L
+
+    private fun notifyUnauthorized() {
+        val now = com.example.newapp.shared.currentEpochMillis()
+        if (now - lastUnauthorizedAtMs < 1_000L) return
+        lastUnauthorizedAtMs = now
+        onUnauthorized?.invoke()
     }
 
     val baseUrl: String
@@ -240,6 +275,20 @@ class DragonClawApiClient(
         onEvent: suspend (ChatStreamEvent) -> Unit
     ) {
         val bodyJson = DragonClawHelpers.lenientJson.encodeToString(ChatStreamRequest.serializer(), request)
+        try {
+            streamChatLines(token, bodyJson, onEvent)
+        } catch (e: ApiHttpException) {
+            // The iOS stream bypasses Ktor, so the response validator above never sees it.
+            if (e.statusCode == 401) notifyUnauthorized()
+            throw e
+        }
+    }
+
+    private suspend fun streamChatLines(
+        token: String,
+        bodyJson: String,
+        onEvent: suspend (ChatStreamEvent) -> Unit
+    ) {
         streamNdjsonPost(
             client = client,
             url = "$baseUrl/api/ai/chat",

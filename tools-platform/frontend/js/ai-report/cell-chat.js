@@ -7,7 +7,7 @@
     const multiline=value=>esc(value).replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>').replace(/^#{1,6}\s+/gm,'').replace(/\n/g,'<br>');
     const PAGE=10;
 
-    function create({root,t,lang,find,send,retry,makePrompt,tryPrompt,revert,savePrompt,close,pickImage=()=>{},imagePage=()=>{},removeImage=()=>{},imageDeletion=()=>{}}){
+    function create({root,t,lang,find,send,retry,makePrompt,tryPrompt,revert,savePrompt,close,setView=()=>{},setScale=()=>{},extract=async()=>{},pickImage=()=>{},imagePage=()=>{},removeImage=()=>{},imageDeletion=()=>{}}){
         let cellId=null,editing=null,kind='cell';const starts=new Map(),openTraces=new Set();
         const Trace=window.AiReportTrace;
         // Image chat: the current picture with the platform's base prompt (folded), and the fixed steps as buttons.
@@ -114,6 +114,27 @@
             const choices=item.choices?.length&&index===cell.chat.length-1&&!busy?`<div class="air-choices">${item.choices.map(choice=>`<button type="button" data-choice="${esc(choice)}">${esc(choice)}</button>`).join('')}</div>`:'';
             return `<div class="air-msg air-msg-${item.role}${item.kind==='note'?' air-msg-note':''}${pictures?' air-msg-pictures':''}" data-msg="${index}">${multiline(item.text)}${pictures}${choices}</div>`;
         }
+        // Display settings of any generated cell (shared with AI BI): text size for every cell, plus template or kit.params
+        // settings. Changes redraw at once with no AI call. Slot sizes stay with the drag handles on the cell itself.
+        const panelOpen=new Set(),extracting=new Set();
+        function viewPanel(cell,busy){
+            const P=window.AiReportParamPanel;if(!P||!cell.recipe)return '';
+            const open=panelOpen.has(cellId)?' open':'',kind=P.kind(cell.recipe);
+            const hint=kind==='code'?t('每个格子都能调字号；AI 自己写的格子可以一键整理出可调设置','Every cell can change its text size'):t('改这里不用 AI，立即重画；格子里的分区可以直接拖动调大小','No AI needed: changes redraw at once. Drag the slots in the cell to resize them.');
+            return `<details class="air-view-panel" data-view-panel${open}><summary>${t('展示设置','Display settings')}<small>${hint}</small></summary>${P.html({recipe:cell.recipe,scale:cell.scale&&cell.scale!==1?cell.scale:1,t,lang:lang(),busy,extracting:extracting.has(cellId)})}</details>`;
+        }
+        root.addEventListener('change',event=>{
+            const P=window.AiReportParamPanel,found=cellId&&find(cellId);if(!P||!found?.cell?.recipe)return;
+            if(P.isScale(event.target))return setScale(cellId,P.readScale(root)||1);
+            if(!P.isInput(event.target))return;
+            const change=P.read(root,found.cell.recipe,found.cell.prompt);if(change)setView(cellId,change);
+        });
+        root.addEventListener('click',async event=>{
+            if(!event.target.closest('[data-pp-extract]')||!cellId||extracting.has(cellId))return;
+            const id=cellId;extracting.add(id);panelOpen.add(id);render(id,{keepScroll:true});
+            try{await extract(id);}finally{extracting.delete(id);if(cellId===id)render(id,{keepScroll:true});}
+        });
+        root.addEventListener('toggle',event=>{if(event.target.matches?.('[data-view-panel]')&&cellId)event.target.open?panelOpen.add(cellId):panelOpen.delete(cellId);},true);
         function render(id=cellId,{keepScroll=false}={}){
             const opened=id!==cellId;if(opened)editing=null;cellId=id;const found=id&&find(id);
             if(!found){root.hidden=true;root.innerHTML='';return;}
@@ -124,7 +145,7 @@
             const hasUser=cell.chat.some(item=>item.role==='user');
             const log=cell.chat.slice(start).map((item,offset)=>message(item,start+offset,cell,busy,latestPrompt,report)).join('');
             root.hidden=false;
-            root.innerHTML=`<header><div><strong>${kind==='image'?t('图片对话','Image conversation'):kind==='field'?t('字段对话','Field conversation'):kind==='chapter'?t('章节样式对话','Chapter style'):report?t('整体风格对话','Report style'):t('格子对话','Cell conversation')}</strong><small>${esc(AiReportModel.text(chapter.title,lang()))}</small></div><button type="button" class="air-dev-toggle" data-dev-toggle aria-pressed="${Trace?.enabled()?'true':'false'}" title="${esc(t('开发者模式：显示和 AI 来回的完整过程（提示词、上下文、模型返回、工具调用、出错重试）','Developer mode: show every exchange with the AI'))}">${t('调用记录','Call log')}</button>${Trace?.enabled()?`<button type="button" class="air-dev-export" data-dev-export>${t('导出日志','Export log')}</button>`:''}<button type="button" data-chat-close aria-label="${esc(t('关闭','Close'))}">×</button></header>
+            root.innerHTML=`<header><div><strong>${kind==='image'?t('图片对话','Image conversation'):kind==='field'?t('字段对话','Field conversation'):kind==='chapter'?t('章节样式对话','Chapter style'):report?t('整体风格对话','Report style'):t('格子对话','Cell conversation')}</strong><small>${esc(AiReportModel.text(chapter.title,lang()))}</small></div><button type="button" class="air-dev-toggle" data-dev-toggle aria-pressed="${Trace?.enabled()?'true':'false'}" title="${esc(t('开发者模式：显示和 AI 来回的完整过程（提示词、上下文、模型返回、工具调用、出错重试）','Developer mode: show every exchange with the AI'))}">${t('调用记录','Call log')}</button>${Trace?.enabled()?`<button type="button" class="air-dev-export" data-dev-export>${t('导出日志','Export log')}</button>`:''}<button type="button" data-chat-close aria-label="${esc(t('关闭','Close'))}">×</button></header>${kind==='cell'?viewPanel(cell,busy):''}
                 <div class="air-chat-log"><div class="air-pull" aria-hidden="true"><span class="air-pull-icon">↓</span><span class="air-pull-text"></span></div><div class="air-chat-track">${start>0?`<button type="button" class="air-chat-earlier" data-earlier>${t(`下拉查看更早的 ${start} 条对话`,`Pull down for ${start} earlier messages`)}</button>`:''}${kind==='image'?imageIntro(found):''}${log||`<p class="air-chat-empty">${kind==='image'?t('换一张图片：上传本地文件、从以前用过的图片里挑，或者直接描述想要的样子让 AI 画一张。','Change the picture: upload, pick an earlier one, or describe a new one for the AI to draw.'):kind==='field'?t('说说这段开头文字想怎么写：可以给一段固定不变的文字，也可以让它每月自动生成，例如“报告时间写成报告月份的下一个月 YYYYMM”“报告目标结合本月未达标的格子写三段”。也可以先问问现在能怎么写。','Describe how this header text should read: fixed text, or generated every month.'):kind==='chapter'?t('说说这个章节里的格子要统一成什么样式，例如“标题统一 14px 加粗、柱状图统一深蓝色、目标线统一红色虚线、总结统一放在图表下方一到两句”。这里只改样式和风格，不改各格子的数据和计算。','Describe how this chapter\'s cells should look alike. This changes style only, not data or calculations.'):report?t('说说整份月报想要的主题、色调和语气，例如“沉稳的深蓝商务风，图表用蓝绿色系，措辞正式简洁”。这里只改样式和风格，不改章节和格子。','Describe the theme, colours and tone for the whole report. This changes style only, not chapters or cells.'):t('说说这个格子要展示什么，也可以先问问数据，比如“整改详单有哪些列”。想清楚后点下面的“生成最终提示词”。','Describe what this cell should show, or ask about the data first. When it is settled, use “Generate final prompt” below.')}</p>`}${failureBanner(cell)}${traceSection(id)}${busy?`<div class="air-msg air-msg-ai air-msg-busy"><span class="air-spinner" aria-hidden="true"></span>${esc(busy)}<small class="air-live-progress" data-live-progress role="status">${Trace?.progressText(id,/^en/.test(lang()))?'（'+esc(Trace.progressText(id,/^en/.test(lang())))+'）':''}</small></div>`:''}
                 ${hasUser&&!busy?`<a href="#" class="air-make-prompt" data-make-prompt>${kind==='image'?'':kind==='field'?(latestPrompt>=0?t('根据对话重新生成字段提示词','Regenerate the field prompt'):t('生成字段提示词','Generate the field prompt')):kind==='chapter'?(latestPrompt>=0?t('根据对话重新生成章节样式提示词','Regenerate the chapter style prompt'):t('生成章节样式提示词','Generate the chapter style prompt')):report?(latestPrompt>=0?t('根据对话重新生成风格提示词','Regenerate the style prompt'):t('生成整体风格提示词','Generate the style prompt')):latestPrompt>=0?t('根据对话重新生成最终提示词','Regenerate final prompt from the conversation'):t('生成最终提示词','Generate final prompt')}</a>`:''}</div></div>
                 <form class="air-chat-form"><div class="air-composer"><textarea rows="1" maxlength="6000" aria-label="${esc(t('消息','Message'))}" placeholder="${esc(kind==='image'?t('描述想要的图片，或说“大一点”“换回上一张”…','Describe the picture you want…'):kind==='field'?t('说说这段文字想怎么写，或问问能怎么写…','Describe how this text should read…'):kind==='chapter'?t('说说本章节格子要统一的样式…','Describe the style to unify in this chapter…'):report?t('说说要加、删、改哪条要求，或想要的风格…','Say which rule to add, remove or change, or the style you want…'):t('问问数据，或说说想要的内容…','Ask about the data or describe what you want…'))}" ${busy?'disabled':''}></textarea><div class="air-composer-bar"><small>${t('Enter 发送 · Shift+Enter 换行','Enter to send · Shift+Enter for a new line')}</small><button type="submit" class="air-send" disabled aria-label="${esc(t('发送','Send'))}" title="${esc(t('发送','Send'))}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div></div></form>`;

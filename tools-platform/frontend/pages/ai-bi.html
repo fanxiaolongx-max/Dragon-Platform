@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI BI - Dragon Claw</title><script src="/js/ai-report/light-theme.js"></script><link rel="stylesheet" href="/css/shared.css"><link rel="stylesheet" href="/css/ai-report.css"><link rel="stylesheet" href="/css/ai-bi.css"></head>
+<body class="ai-bi-page">
+<div id="navbar-container"></div>
+<script src="/js/shared/api.js"></script><script src="/js/shared/i18n.js"></script><script src="/js/shared/navbar.js"></script><script src="/js/shared/app-dialog.js"></script>
+<header class="bi-toolbar">
+    <strong class="bi-brand">AI BI</strong>
+    <details class="bi-menu"><summary><span id="biName">—</span></summary>
+        <div class="bi-menu-panel"><div id="biList" class="bi-list"></div><hr>
+            <button type="button" data-bi="new">＋ 新建看板</button><button type="button" data-bi="copy">另存为…</button><button type="button" data-bi="rename">重命名…</button><button type="button" data-bi="delete" class="bi-danger">删除此看板</button></div></details>
+    <label class="bi-field"><span>数据月份</span><input type="month" id="biMonth"></label>
+    <label class="bi-field"><span>画布</span><select id="biPreset"></select></label>
+    <span class="bi-size"><input type="number" id="biWidth" min="320" max="7680" step="8" aria-label="画布宽度">×<input type="number" id="biHeight" min="240" max="8000" step="8" aria-label="画布高度"></span>
+    <label class="bi-field"><span>缩放</span><select id="biZoom"><option value="fit">适应窗口</option><option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option></select></label>
+    <span class="bi-spacer"></span>
+    <span id="biStatus" class="bi-status" role="status"></span>
+    <button type="button" data-bi="mark" title="点画布上的某个位置，写下要怎么改">📍 标记</button>
+    <button type="button" data-bi="refresh" title="用当前数据月份重新计算所有格子（不调用 AI）">⟳ 刷新数据</button>
+    <button type="button" data-bi="present">▶ 演示</button>
+    <button type="button" data-bi="export">导出 HTML</button>
+    <button type="button" data-bi="save" class="bi-primary">保存</button>
+</header>
+<main class="bi-layout">
+    <section class="bi-stage" id="biStage"><div class="bi-scaler" id="biScaler"><div class="bi-canvas" id="biCanvas"></div></div></section>
+    <aside class="bi-side" id="biSide"></aside>
+</main>
+<script src="/js/vendor/echarts.min.js"></script><script src="/js/ai-report/render-kit.js"></script><script src="/js/ai-report/templates.js"></script><script src="/js/ai-report/query.js"></script><script src="/js/ai-report/report-model.js"></script><script src="/js/ai-report/element-editor.js"></script><script src="/js/ai-report/interactive.js"></script><script src="/js/ai-report/widgets.js"></script><script src="/js/ai-report/sanitize.js"></script><script src="/js/ai-report/sandbox.js"></script><script src="/js/ai-report/trace.js"></script><script src="/js/ai-report/marker.js"></script><script src="/js/ai-report/param-panel.js"></script><script src="/js/ai-bi/model.js"></script><script src="/js/ai-bi/app.js"></script>
+</body></html>

@@ -8,7 +8,14 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -125,11 +132,24 @@ fun LiquidGlassSurface(
         )
     }
 
+    // Tactile press: glass controls sink slightly under the finger and tick on release.
+    val pressSource = remember { MutableInteractionSource() }
+    val pressed by pressSource.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(
+        targetValue = if (onClick != null && pressed) 0.955f else 1f,
+        animationSpec = spring(dampingRatio = 0.62f, stiffness = Spring.StiffnessMedium),
+        label = "glassPress"
+    )
+    val haptics = LocalHapticFeedback.current
+
     val clickableModifier = if (onClick != null) {
         Modifier.clickable(
-            interactionSource = remember { MutableInteractionSource() },
+            interactionSource = pressSource,
             indication = null,
-            onClick = onClick
+            onClick = {
+                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onClick()
+            }
         )
     } else if (consumeTouches) {
         // Absorb stray taps inside overlay containers (e.g. composer) so nothing behind can receive them
@@ -144,6 +164,10 @@ fun LiquidGlassSurface(
 
     Box(
         modifier = modifier
+            .graphicsLayer {
+                scaleX = pressScale
+                scaleY = pressScale
+            }
             .shadow(
                 elevation = elevation,
                 shape = shape,

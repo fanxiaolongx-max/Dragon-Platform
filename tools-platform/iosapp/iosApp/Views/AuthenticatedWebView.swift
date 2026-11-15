@@ -23,7 +23,9 @@ struct AuthenticatedToolWebScreen: View {
                 if let url = targetUrl {
                     AuthenticatedWKWebView(
                         url: url,
-                        token: store.token,
+                        // Only the platform's own origin ever receives the session token.
+                        token: store.sdk.isPlatformOrigin(url: url.absoluteString) ? store.token : "",
+                        clientVersion: store.sdk.settings.getAppVersionName(),
                         username: store.username,
                         role: store.role,
                         tenantId: store.tenantId,
@@ -74,6 +76,7 @@ struct AuthenticatedToolWebScreen: View {
 private struct AuthenticatedWKWebView: UIViewRepresentable {
     let url: URL
     let token: String
+    let clientVersion: String
     let username: String
     let role: String
     let tenantId: String
@@ -194,7 +197,7 @@ private struct AuthenticatedWKWebView: UIViewRepresentable {
         }
         var request = URLRequest(url: url)
         request.setValue("ios", forHTTPHeaderField: "X-Client-Platform")
-        request.setValue("DragonClaw/1.0.614", forHTTPHeaderField: "X-Client-Version")
+        request.setValue("DragonClaw/\(clientVersion)", forHTTPHeaderField: "X-Client-Version")
         if !token.isEmpty {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
@@ -215,6 +218,43 @@ private struct AuthenticatedWKWebView: UIViewRepresentable {
                     self?.parent.progress = view.estimatedProgress
                 }
             }
+        }
+
+        /// Keeps the web view on the tool's own site; everything else opens in the system browser.
+        func webView(
+            _ webView: WKWebView,
+            decidePolicyFor navigationAction: WKNavigationAction,
+            decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+        ) {
+            guard let target = navigationAction.request.url else {
+                decisionHandler(.allow)
+                return
+            }
+            let opensNewWindow = navigationAction.targetFrame == nil
+            let isMainFrame = navigationAction.targetFrame?.isMainFrame ?? true
+            guard isMainFrame else {
+                decisionHandler(.allow)
+                return
+            }
+            let scheme = (target.scheme ?? "").lowercased()
+            if scheme == "about" || scheme == "blob" || scheme == "data" {
+                decisionHandler(.allow)
+                return
+            }
+            let isWeb = scheme == "http" || scheme == "https"
+            let sameHost = (target.host ?? "").lowercased() == (parent.url.host ?? "").lowercased()
+            if isWeb && sameHost {
+                if opensNewWindow {
+                    // target="_blank" links have no frame to load into; reuse this one.
+                    webView.load(navigationAction.request)
+                    decisionHandler(.cancel)
+                } else {
+                    decisionHandler(.allow)
+                }
+                return
+            }
+            UIApplication.shared.open(target)
+            decisionHandler(.cancel)
         }
 
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {

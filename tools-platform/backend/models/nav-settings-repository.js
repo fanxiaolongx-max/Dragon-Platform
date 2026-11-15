@@ -86,6 +86,7 @@ const FALLBACK_NAV_LAYOUT = Object.freeze({
         'custom-report',
         'expedite',
         'monthly',
+        'ai-bi',
         'bigscreen',
         'topic-analysis',
         'custom:network_safety_meeting_summary'

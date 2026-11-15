@@ -6,8 +6,11 @@
     let kitSource=null;
     // The page's own <script> tag carries the content-versioned URL (?v=hash); fetching the bare path could return a
     // copy cached by the browser or a CDN from before the kit gained helpers (kit.nav "is not a function").
-    const kitUrl=()=>document.querySelector('script[src*="/js/ai-report/render-kit.js"]')?.getAttribute('src')||'/js/ai-report/render-kit.js';
-    const loadKit=()=>kitSource||=fetch(kitUrl(),{cache:'no-cache'}).then(response=>{if(!response.ok)throw new Error('Render kit unavailable');return response.text();}).catch(error=>{kitSource=null;throw error;});
+    const scriptUrl=name=>document.querySelector(`script[src*="/js/ai-report/${name}"]`)?.getAttribute('src')||`/js/ai-report/${name}`;
+    const fetchScript=name=>fetch(scriptUrl(name),{cache:'no-cache'}).then(response=>{if(!response.ok)throw new Error('Render kit unavailable');return response.text();});
+    // The kit, the template library and the query library (template cells call AiReportTemplates.render from their
+    // render code, query cells AiReportQuery.run from their compute).
+    const loadKit=()=>kitSource||=Promise.all([fetchScript('render-kit.js'),fetchScript('templates.js'),fetchScript('query.js')]).then(parts=>parts.join('\n')).catch(error=>{kitSource=null;throw error;});
     const WORKER=`for(const name of ['fetch','XMLHttpRequest','WebSocket','EventSource','importScripts','indexedDB','caches','BroadcastChannel'])try{self[name]=undefined;}catch(_){}
 // Numbers must come from the data: random values would quietly fabricate a report.
 Math.random=()=>{throw new Error('配方不能使用 Math.random 等随机数，数字必须从数据中计算');};

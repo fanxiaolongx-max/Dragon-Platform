@@ -1,0 +1,146 @@
+/* AI BI: a free canvas of AI cells, a side panel for the conversation and the selected cell. */
+body.ai-bi-page{margin:0;background:#eef1f5;color:#1d2b3a;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.bi-toolbar{margin-top:var(--navbar-h,52px);display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 14px;background:#fff;border-bottom:1px solid #dde4ec;font-size:13px;flex:none}
+.bi-brand{font-size:15px;letter-spacing:.02em}
+.bi-toolbar button,.bi-toolbar select,.bi-toolbar input,.bi-menu>summary{font:inherit;font-size:13px;padding:5px 10px;border:1px solid #d3dce6;border-radius:7px;background:#fff;color:inherit;cursor:pointer}
+.bi-toolbar button.is-active{background:#2f6fae;color:#fff;border-color:transparent}
+.bi-primary{background:#2f6fae!important;color:#fff!important;border-color:transparent!important}
+.bi-primary:disabled{opacity:.5;cursor:default}
+.bi-field{display:inline-flex;align-items:center;gap:6px;color:#5b6b7d}
+.bi-size{display:inline-flex;align-items:center;gap:4px;color:#5b6b7d}.bi-size input{width:74px}
+.bi-spacer{flex:1}
+.bi-status{color:#6b7c8f;font-size:12px}.bi-status.is-dirty{color:#b7791f}
+.bi-menu{position:relative}.bi-menu>summary{list-style:none}.bi-menu>summary::after{content:' ▾';color:#8a99a8}
+.bi-menu-panel{position:absolute;z-index:30;top:calc(100% + 4px);left:0;min-width:260px;max-height:420px;overflow:auto;background:#fff;border:1px solid #d9e2ec;border-radius:10px;box-shadow:0 12px 32px #102b4722;padding:6px;display:flex;flex-direction:column;gap:2px}
+.bi-menu-panel button{text-align:left;border:0!important;background:transparent!important;padding:7px 10px!important;border-radius:6px!important;display:flex;justify-content:space-between;gap:10px}
+.bi-menu-panel button:hover{background:#f1f5f9!important}.bi-menu-panel button[aria-current=true]{font-weight:600;color:#2f6fae}
+.bi-menu-panel small{color:#8a99a8}.bi-menu-panel hr{border:0;border-top:1px solid #edf1f5;margin:4px 0}.bi-danger{color:#c0392b}
+.bi-layout{flex:1;min-height:0;display:flex}
+.bi-stage{flex:1;min-width:0;overflow:auto;position:relative;padding:24px;box-sizing:border-box}
+.bi-scaler{position:relative;margin:0 auto}
+.bi-canvas{position:absolute;left:0;top:0;transform-origin:0 0;box-shadow:0 8px 30px #102b471f;border-radius:4px;overflow:hidden;
+  background-image:linear-gradient(#0000000a 1px,transparent 1px),linear-gradient(90deg,#0000000a 1px,transparent 1px);background-size:32px 32px}
+.bi-canvas.is-presenting,.bi-canvas.is-clean{background-image:none}
+.bi-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#7a8a9b;font-size:22px;text-align:center;pointer-events:none}
+.bi-empty small{font-size:15px}
+.bi-item{position:absolute;box-sizing:border-box;background:#fff;border:1px solid #e1e7ee;border-radius:10px;box-shadow:0 1px 3px #102b470f;overflow:hidden}
+.bi-item.is-frameless{background:transparent;border-color:transparent;box-shadow:none}
+.bi-item.is-selected{outline:2px solid #2f6fae;outline-offset:1px}
+.bi-item-body{position:absolute;inset:0;padding:12px;overflow:hidden;box-sizing:border-box}
+.bi-item-body .kit-widget{max-width:100%}
+.bi-grip{position:absolute;z-index:4;left:0;top:-26px;max-width:calc(100% - 12px);display:none;align-items:center;gap:6px;padding:2px 8px;border-radius:6px;background:#1d2b3acc;color:#fff;font-size:11px;cursor:move;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:none}
+.bi-item:hover .bi-grip,.bi-item.is-selected .bi-grip{display:flex}
+/* The name tag sits above the cell so it never covers the cell's own title; cells at the top edge keep it inside. */
+.bi-item.is-top .bi-grip{top:6px;left:6px}
+.bi-handle{position:absolute;z-index:3;right:0;bottom:0;width:16px;height:16px;cursor:nwse-resize;display:none;background:linear-gradient(135deg,transparent 50%,#2f6fae 50%);border-bottom-right-radius:9px}
+.bi-item:hover .bi-handle,.bi-item.is-selected .bi-handle{display:block}
+.bi-item-state{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:16px;text-align:center;font-size:13px;color:#5b6b7d;background:#ffffffd9}
+.bi-item-state.is-error{color:#b23a35}
+.bi-item-state button{font:inherit;font-size:12px;padding:4px 10px;border-radius:6px;border:1px solid #d3dce6;background:#fff;cursor:pointer}
+.bi-spin{width:22px;height:22px;border-radius:50%;border:3px solid #d6e2ef;border-top-color:#2f6fae;animation:bi-spin .9s linear infinite}
+@keyframes bi-spin{to{transform:rotate(360deg)}}
+.bi-guide{position:absolute;z-index:4;pointer-events:none;background:#2f6fae}
+/* Side panel */
+.bi-side{width:380px;flex:none;display:flex;flex-direction:column;background:#fff;border-left:1px solid #dde4ec;min-height:0}
+.bi-side h3{margin:0;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.bi-side-section{padding:12px 14px;border-bottom:1px solid #edf1f5}
+.bi-item-panel{display:flex;flex-direction:column;gap:8px;max-height:52%;overflow:auto}
+.bi-item-panel label{display:flex;flex-direction:column;gap:3px;font-size:11px;color:#6b7c8f}
+.bi-item-panel input,.bi-item-panel textarea,.bi-item-panel select{font:inherit;font-size:13px;padding:6px 8px;border:1px solid #d3dce6;border-radius:6px;color:#1d2b3a;background:#fff}
+.bi-item-panel textarea{resize:vertical;min-height:90px}
+.bi-row{display:flex;gap:6px;flex-wrap:wrap}
+.bi-row button,.bi-side button.bi-btn{font:inherit;font-size:12px;padding:5px 10px;border-radius:6px;border:1px solid #d3dce6;background:#fff;cursor:pointer}
+.bi-row button.bi-primary{border-color:transparent}
+.bi-pos{font-size:11px;color:#8a99a8}
+.bi-chat{flex:1;min-height:0;display:flex;flex-direction:column}
+.bi-log{flex:1;min-height:0;overflow:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.bi-msg{max-width:92%;padding:8px 11px;border-radius:10px;font-size:13px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
+.bi-msg.is-user{align-self:flex-end;background:#2f6fae;color:#fff;border-bottom-right-radius:3px}
+.bi-msg.is-ai{align-self:flex-start;background:#f1f5f9;border-bottom-left-radius:3px}
+.bi-msg.is-note{align-self:center;background:transparent;color:#8a99a8;font-size:12px;padding:0}
+.bi-choices{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.bi-choices button,.bi-examples button{font:inherit;font-size:12px;padding:5px 10px;border-radius:14px;border:1px solid #c9d8e8;background:#fff;color:#2f6fae;cursor:pointer;text-align:left}
+.bi-examples{display:flex;flex-direction:column;gap:6px}
+.bi-focus{display:flex;align-items:center;gap:6px;font-size:12px;color:#2f6fae;padding:0 14px 6px}
+.bi-focus button{border:0;background:transparent;color:#8a99a8;cursor:pointer;font-size:14px}
+.bi-composer{padding:10px 12px 12px;border-top:1px solid #edf1f5;display:flex;gap:8px;align-items:flex-end}
+.bi-composer textarea{flex:1;font:inherit;font-size:13px;padding:8px 10px;border:1px solid #d3dce6;border-radius:8px;resize:none;min-height:40px;max-height:160px}
+.bi-composer button{font:inherit;font-size:13px;padding:8px 14px;border-radius:8px;border:0;background:#2f6fae;color:#fff;cursor:pointer}
+.bi-composer button:disabled,.bi-composer textarea:disabled{opacity:.55;cursor:default}
+.bi-view .air-view-slot,.bi-view .air-view-common,.bi-view .air-view-extract{margin:0 0 8px}
+.bi-view .air-view-grid{grid-template-columns:1fr 1fr}
+.bi-view-slot{border:1px solid #e3e9f0;border-radius:8px;padding:6px 8px 8px}
+.bi-view-slot legend{font-size:11px;padding:0 4px}
+.bi-view-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 8px}
+.bi-view-check{flex-direction:row!important;align-items:center;gap:6px!important;color:#1d2b3a!important;font-size:12px!important}
+/* Present mode: only the canvas, fitted to the screen */
+body.bi-presenting .bi-toolbar,body.bi-presenting .air-debug-fab,body.bi-presenting .bi-side,body.bi-presenting #navbar-container{display:none!important}
+body.bi-presenting .bi-stage{padding:0;background:#0f1720;display:flex;align-items:center;justify-content:center}
+body.bi-presenting .bi-canvas{box-shadow:none;border-radius:0}
+body.bi-presenting .bi-grip,body.bi-presenting .bi-handle{display:none!important}
+body.bi-presenting .bi-item.is-selected{outline:none}
+@media(max-width:900px){.bi-layout{flex-direction:column}.bi-side{width:auto;height:46vh;border-left:0;border-top:1px solid #dde4ec}}
+
+/* ── Look and motion ─────────────────────────────────────────────────────────────────────────────────── */
+:root{--bi-accent:#2f6fae;--bi-ease:cubic-bezier(.2,.8,.2,1)}
+.bi-toolbar{box-shadow:0 1px 0 #dde4ec,0 4px 12px #102b470a;position:relative;z-index:5}
+.bi-toolbar button,.bi-toolbar select,.bi-toolbar input,.bi-menu>summary{transition:background .15s,border-color .15s,box-shadow .15s,color .15s}
+.bi-toolbar button:hover:not(:disabled),.bi-menu>summary:hover{border-color:#9fb6cf;background:#f6f9fc}
+.bi-toolbar button:focus-visible,.bi-toolbar select:focus-visible,.bi-toolbar input:focus-visible,.bi-side :is(button,input,select,textarea):focus-visible{outline:none;box-shadow:0 0 0 3px #2f6fae33;border-color:var(--bi-accent)}
+.bi-primary{box-shadow:0 2px 6px #2f6fae40}
+.bi-primary:hover:not(:disabled){filter:brightness(1.08)}
+.bi-status{padding:2px 8px;border-radius:10px;transition:background .2s,color .2s}
+.bi-status:not(:empty){background:#eef3f8}.bi-status.is-dirty{background:#fdf3e1}
+.bi-menu-panel{animation:bi-pop .16s var(--bi-ease)}
+.bi-stage{background:radial-gradient(circle at 50% 0,#f7f9fc,#e9eef4 70%)}
+/* Cells: a soft lift on hover, a ring when selected, a deeper shadow while dragged, and a fade-in when new content lands */
+.bi-item{transition:box-shadow .2s var(--bi-ease),outline-color .2s,transform .2s var(--bi-ease)}
+.bi-item:not(.is-frameless):hover{box-shadow:0 6px 18px #102b4714}
+.bi-item.is-selected{outline:2px solid var(--bi-accent);outline-offset:2px;box-shadow:0 0 0 6px #2f6fae14,0 8px 22px #102b471a}
+.bi-item.is-dragging{transition:none;box-shadow:0 18px 40px #102b4733;z-index:20;cursor:grabbing}
+.bi-item.is-fresh .bi-item-body{animation:bi-rise .45s var(--bi-ease)}
+.bi-grip{transition:opacity .15s;animation:bi-fade .15s}
+.bi-grip:active{cursor:grabbing}
+/* Building: a shimmering skeleton under the progress label */
+.bi-item-state.is-busy{background:linear-gradient(100deg,#f3f6fa 30%,#e6edf5 50%,#f3f6fa 70%);background-size:300% 100%;animation:bi-shimmer 1.6s linear infinite;color:#3d5168}
+.bi-item-state.is-busy::before{content:'';position:absolute;left:16px;right:40%;top:18px;height:10px;border-radius:5px;background:#dfe7f0}
+.bi-item-state.is-busy::after{content:'';position:absolute;left:16px;right:16px;bottom:16px;height:42%;border-radius:8px;background:#e3eaf2}
+.bi-item-state.is-busy>*{position:relative;z-index:1}
+.bi-item-state.is-error{background:#fff7f6}
+.bi-item-state.is-error strong{font-size:14px}
+.bi-item-state.is-error span{max-width:90%;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;font-size:12px;color:#9a4a45}
+.bi-item-state button{transition:background .15s,border-color .15s}
+.bi-item-state button:hover{background:#f1f6fb;border-color:#9fb6cf}
+.bi-item-state.is-idle{background:repeating-linear-gradient(135deg,#fbfcfe,#fbfcfe 10px,#f4f7fb 10px,#f4f7fb 20px);border:1px dashed #c9d6e4;border-radius:10px}
+/* Empty canvas: a friendly start with examples that work on click */
+.bi-empty{pointer-events:auto;font-size:26px;font-weight:600;color:#3d5168;animation:bi-fade .4s}
+.bi-empty-icon{font-size:56px;line-height:1;animation:bi-float 3s ease-in-out infinite}
+.bi-empty-picks{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-top:8px;max-width:80%}
+.bi-empty-picks button{font:inherit;font-size:17px;font-weight:400;padding:10px 18px;border-radius:22px;border:1px solid #c9d8e8;background:#fff;color:var(--bi-accent);cursor:pointer;box-shadow:0 2px 8px #102b470d;transition:transform .15s var(--bi-ease),box-shadow .15s}
+.bi-empty-picks button:hover{transform:translateY(-2px);box-shadow:0 8px 18px #102b4719}
+/* Side panel and conversation */
+.bi-side{box-shadow:-4px 0 16px #102b470a}
+.bi-item-panel.is-new{animation:bi-slide .2s var(--bi-ease)}
+.bi-row button{transition:background .15s,border-color .15s}
+.bi-row button:not(.bi-primary):hover{background:#f6f9fc;border-color:#9fb6cf}
+.bi-msg.is-new{animation:bi-rise .25s var(--bi-ease)}
+.bi-msg.is-user{box-shadow:0 2px 6px #2f6fae33}
+.bi-typing{display:inline-flex;gap:4px;margin-left:6px;vertical-align:middle}
+.bi-typing i{width:6px;height:6px;border-radius:50%;background:#8aa4c0;animation:bi-dot 1.2s infinite}
+.bi-typing i:nth-child(2){animation-delay:.15s}.bi-typing i:nth-child(3){animation-delay:.3s}
+.bi-choices button,.bi-examples button{transition:background .15s,transform .15s var(--bi-ease)}
+.bi-choices button:hover,.bi-examples button:hover{background:#f1f6fb;transform:translateX(2px)}
+.bi-composer textarea{transition:border-color .15s,box-shadow .15s}
+.bi-composer button{transition:filter .15s,transform .1s}
+.bi-composer button:hover:not(:disabled){filter:brightness(1.08)}
+.bi-composer button:active:not(:disabled){transform:scale(.97)}
+.bi-hint{font-size:11px;color:#9aa8b6;padding:0 14px 8px}
+.bi-hint kbd{font:inherit;font-size:10px;padding:0 4px;border:1px solid #d3dce6;border-radius:4px;background:#f6f9fc}
+@keyframes bi-rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes bi-fade{from{opacity:0}to{opacity:1}}
+@keyframes bi-pop{from{opacity:0;transform:translateY(-4px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes bi-slide{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:none}}
+@keyframes bi-shimmer{to{background-position:-300% 0}}
+@keyframes bi-float{50%{transform:translateY(-6px)}}
+@keyframes bi-dot{0%,60%,100%{opacity:.3;transform:none}30%{opacity:1;transform:translateY(-3px)}}
+@media (prefers-reduced-motion:reduce){.ai-bi-page *,.ai-bi-page *::before,.ai-bi-page *::after{animation:none!important;transition:none!important}}

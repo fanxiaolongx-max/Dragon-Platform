@@ -25,6 +25,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.newapp.services.AudioSpeechRecorder
 import com.example.newapp.shared.SettingsManager
 import com.example.newapp.shared.data.DragonClawSdk
+import com.example.newapp.shared.data.SessionRestoreOutcome
 import com.example.newapp.shared.data.TaskHandle
 import com.example.newapp.shared.model.*
 import com.example.newapp.shared.network.DragonClawApiClient
@@ -360,6 +361,7 @@ class DragonClawViewModel : ViewModel() {
     }
 
     init {
+        sdk.setUnauthorizedHandler { handleUnauthorized() }
         loadPlatformIdentity()
         restoreSessionIfPossible()
     }
@@ -496,31 +498,98 @@ class DragonClawViewModel : ViewModel() {
     private fun restoreSessionIfPossible() {
         val savedToken = sdk.getSavedToken()
         val savedUser = sdk.getSavedUsername()
-        val savedPass = sdk.getSavedPassword()
-        if (savedToken.isNotBlank() && autoLogin) {
-            isAuthenticating = true
-            viewModelScope.launch {
-                runCatching { sdk.api.getMe(savedToken) }
-                    .onSuccess { profile ->
-                        token = savedToken
-                        username = profile.username.ifBlank { savedUser }
-                        role = profile.role
-                        tenantId = profile.tenantId?.takeIf { it.isNotBlank() }
-                            ?: profile.homeTenantId?.takeIf { it.isNotBlank() }
-                            ?: "default"
-                        isSuper = profile.isSuper
-                        isAuthenticated = true
-                        isAuthenticating = false
-                        bootstrapWorkspace()
+        if (savedToken.isBlank() || !autoLogin) return
+        isAuthenticating = true
+        sdk.restoreSession(savedToken) { outcome, profile ->
+            isAuthenticating = false
+            when (outcome) {
+                SessionRestoreOutcome.VALID, SessionRestoreOutcome.OFFLINE -> {
+                    // Offline: trust the saved session; a later 401 goes through handleUnauthorized().
+                    token = savedToken
+                    username = profile?.username?.ifBlank { savedUser } ?: savedUser
+                    role = profile?.role ?: sdk.getSavedRole()
+                    tenantId = profile?.tenantId?.takeIf { it.isNotBlank() }
+                        ?: profile?.homeTenantId?.takeIf { it.isNotBlank() }
+                        ?: "default"
+                    isSuper = profile?.isSuper == true
+                    isAuthenticated = true
+                    needsWorkspaceRefresh = outcome == SessionRestoreOutcome.OFFLINE
+                    bootstrapWorkspace()
+                }
+                SessionRestoreOutcome.EXPIRED -> {
+                    if (sdk.canReauthenticate()) {
+                        performLogin(savedUser, sdk.getSavedPassword(), rememberMe, true)
+                    } else {
+                        sdk.clearSessionAuth(keepUsername = rememberMe)
+                        loginError = tr(language, "登录已过期，请重新登录", "Session expired. Please sign in again.")
                     }
-                    .onFailure {
-                        isAuthenticating = false
-                        if (savedUser.isNotBlank() && savedPass.isNotBlank()) {
-                            performLogin(savedUser, savedPass, rememberMe, true)
-                        }
-                    }
+                }
             }
         }
+    }
+
+    // --- Session expiry & app lifecycle ---
+
+    private var needsWorkspaceRefresh = false
+    private var reauthInFlight = false
+    private var lastReauthAtMs = 0L
+    private var appInForeground = true
+
+    /** Called (via the API client) whenever an authenticated request comes back 401. */
+    private fun handleUnauthorized() {
+        if (!isAuthenticated || reauthInFlight) return
+        // A 401 right after a fresh login is a permission problem, not an expired token: don't loop.
+        if (System.currentTimeMillis() - lastReauthAtMs < 60_000L) return
+        if (!sdk.canReauthenticate()) {
+            expireSession()
+            return
+        }
+        reauthInFlight = true
+        viewModelScope.launch {
+            val result = runCatching {
+                sdk.api.login(LoginRequest(sdk.getSavedUsername(), sdk.getSavedPassword()))
+            }
+            reauthInFlight = false
+            val res = result.getOrNull() ?: return@launch // network failure: keep the session, retry on next 401
+            val newToken = res.token.orEmpty()
+            if (res.success && newToken.isNotBlank()) {
+                lastReauthAtMs = System.currentTimeMillis()
+                sdk.saveSessionAuth(
+                    token = newToken,
+                    username = res.username ?: username,
+                    password = sdk.getSavedPassword(),
+                    role = res.role ?: role,
+                    rememberMe = rememberMe,
+                    autoLogin = autoLogin
+                )
+                token = sdk.getSavedToken()
+                bootstrapWorkspace()
+            } else {
+                expireSession()
+            }
+        }
+    }
+
+    private fun expireSession() {
+        logout()
+        loginError = tr(language, "登录已过期，请重新登录", "Session expired. Please sign in again.")
+    }
+
+    fun onAppForeground() {
+        if (appInForeground) return
+        appInForeground = true
+        if (!isAuthenticated) return
+        loadAlertSummary()
+        if (needsWorkspaceRefresh || sessions.isEmpty()) {
+            needsWorkspaceRefresh = false
+            bootstrapWorkspace()
+        } else if (!isStreaming) {
+            loadSessions()
+        }
+    }
+
+    fun onAppBackground() {
+        appInForeground = false
     }
 
     fun performLogin(
@@ -950,6 +1019,7 @@ class DragonClawViewModel : ViewModel() {
             while (isActive) {
                 delay(2500L)
                 if (activeDesktopSession?.stableKey != targetKey || (!activeDesktopBusy && desktopQueue.isEmpty())) break
+                if (!appInForeground) continue // no network chatter while the app is not visible
                 runCatching {
                     sdk.api.getDesktopAgentMessages(
                         token = token,

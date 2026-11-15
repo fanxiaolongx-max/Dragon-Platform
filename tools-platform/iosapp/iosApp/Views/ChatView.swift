@@ -1582,9 +1582,14 @@ private struct ChatBubbleRow: View {
                             .textSelection(.enabled)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
-                            .glassEffect(
-                                .regular.tint(palette.accent.opacity(palette.isDark ? 0.22 : 0.14)),
+                            // Flat fill, not glassEffect: one live glass layer per message makes long threads stutter.
+                            .background(
+                                palette.accent.opacity(palette.isDark ? 0.24 : 0.14),
                                 in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                    .strokeBorder(palette.hairLine, lineWidth: 0.5)
                             )
                     }
                 }
@@ -1694,7 +1699,14 @@ private struct ChatBubbleRow: View {
                     )
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
-                    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .background(
+                        palette.cardSurface.opacity(palette.isDark ? 0.72 : 0.82),
+                        in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .strokeBorder(palette.hairLine, lineWidth: 0.5)
+                    )
                 }
 
                 if !trailingAttachments.isEmpty {

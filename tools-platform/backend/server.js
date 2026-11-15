@@ -453,6 +453,8 @@ app.use('/api', (req, res, next) => {
     if (req.method === 'POST' && req.path === '/db/config/monthly_report_titles') return next(); // 登录用户可编辑月报中英文标题，路由内继续校验数据
     if (/^\/monthly-snapshots(?:\/[^/]+)?$/.test(req.path)) return next(); // 登录用户可维护各月份月报快照
     if (/^\/ai-report(?:\/.*)?$/.test(req.path)) return next(); // 登录用户可编辑 AI 月报、与格子 AI 对话
+    if (req.method === 'POST' && req.path === '/ai-bi/boards') return next(); // 登录用户可编辑 AI BI 看板（删除仅管理员，路由内校验）
+    if (req.method === 'DELETE' && /^\/ai-bi\/boards\/[^/]+$/.test(req.path)) return next();
     if (/^\/duty-roster(?:\/.*)?$/.test(req.path)) return next(); // 登录用户可维护各月份值班表
     if (/^\/meeting-snapshots(?:\/.*)?$/.test(req.path)) return next(); // 登录用户可维护会议考勤历史快照与名单设置
     if (/^\/(?:operation-incentive-snapshots|incentive-snapshots)(?:\/[^/]+)?$/.test(req.path)) return next(); // 登录用户可维护操作激励历史快照
@@ -515,6 +517,7 @@ app.use('/api/operation-incentive-snapshots', operationIncentiveSnapshotsRoutes)
 app.use('/api/incentive-snapshots', operationIncentiveSnapshotsRoutes); // 别名路由
 app.use('/api/report-msg', require('./routes/report-msg')); // 月报 Outlook 邮件文件导出
 app.use('/api/ai-report', require('./routes/ai-report')); // AI 月报：格子对话、配方数据与报告文档
+app.use('/api/ai-bi', require('./routes/ai-bi')); // AI BI：自由画布看板
 app.use('/api/praudit', prauditRoutes); // PR审计配置 API
 app.use('/api/chat-history', chatHistoryRoutes); // 租户隔离的聊天记录中心
 app.use('/api/custom-tools', customToolsRoutes); // 自定义 HTML 工具注册 API
@@ -596,6 +599,7 @@ app.get('/monthly', (req, res) => {
     sendFrontendHtml(res, 'pages/ai-report.html'); // AI 月报编辑器（旧编辑器已归档于 backups/monthly-designer-classic-2026-10-21）
 });
 app.get(['/monthly/legacy', '/pages/monthly.html'], (req, res) => sendFrontendHtml(res, 'pages/monthly.html'));
+app.get(['/ai-bi', '/pages/ai-bi.html'], (req, res) => sendFrontendHtml(res, 'pages/ai-bi.html')); // AI BI：对话生成的自由画布看板
 // 旧三栏设计器已归档；固定版月报保留独立入口。
 app.get(['/ai-report', '/pages/monthly-designer.html'], (req, res) => {
     const queryAt = req.originalUrl.indexOf('?');
