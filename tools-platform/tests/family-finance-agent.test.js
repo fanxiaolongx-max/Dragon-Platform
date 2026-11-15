@@ -43,3 +43,20 @@ test('skillsStore listForUser isolates family-finance-bookkeeper from normal use
     assert.equal(superAdminFinance.sharedAccess, false, 'should be marked as unshared (sharedAccess: false)');
     assert.equal(normalFinance, undefined, 'normal user must NOT see unshared family-finance-bookkeeper');
 });
+
+test('family-finance-agent checkPrerequisites provides fast structured preflight validation', async () => {
+    assert.equal(typeof financeAgent.checkPrerequisites, 'function');
+    assert.equal(typeof financeAgent.getApiKey, 'function');
+    assert.equal(typeof financeAgent.getBaseUrl, 'function');
+
+    const savedEnv = process.env.WISE_API_KEY;
+    delete process.env.WISE_API_KEY;
+    try {
+        const prereq = await financeAgent.checkPrerequisites({ owner: 'user_definitely_no_key_test' });
+        if (!prereq.ok && prereq.code === 'MISSING_API_KEY') {
+            assert.ok(prereq.error.includes('WISE_API_KEY'));
+        }
+    } finally {
+        if (savedEnv) process.env.WISE_API_KEY = savedEnv;
+    }
+});

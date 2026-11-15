@@ -1,12 +1,12 @@
 {
   "zh": [
-    "修复音频文件在线试听与一键下载：支持 `/api/agent-files/view` 与 `/download` 专用路由并补齐音频 MIME 类型，确保声音创作成果直出播放器与文件下载。",
-    "全面支持「创建声音」免选工作目录直接调用：修复首页无工作目录普通对话下的技能路由与 Extra 工具集异常，无需关联本地文件夹即可即时合成声音。",
-    "全新上线「创建声音」（Voice Creator）受控高拟真语音创作技能：集成 Fish Audio 官方 12 款无版权安全音色，支持多轮交互选音色与情感副语言标记，API Key 保险箱加密托管。"
+    "家庭财务记账升级为纯原生通信与快速环境预检：重构底层通信架构彻底去除 Python 依赖，跨 Windows/macOS/Linux 原生运行；增加 2.5 秒快速网络与保险箱 API Key 预检，杜绝失败时无谓执行终端命令行探测。",
+    "Open-AutoGLM 手机端控制增加服务连通性预检与防刷约束：新增 2.5 秒端口存活探测与鉴权检查，服务端未就绪时直接向用户输出诊断指引，严禁模型在终端执行网络或进程命令探测。",
+    "微信本地库查询技能新增操作系统与解密库环境预检：仅限 macOS 宿主机且本地解密库目录就绪时启用，非 macOS 或目录缺失环境下自动停用并给出清晰状态说明，避免无意义的命令行报错。"
   ],
   "en": [
-    "Fix audio streaming preview and one-click download: add `/api/agent-files/view` and `/download` routes with complete audio MIME types, enabling direct playback and instant downloading.",
-    "Support Voice Creator without requiring workspace directory: fix skill routing and extra toolsets in root conversations, allowing instant voice generation without picking a local folder.",
-    "Introduce 'Voice Creator' high-fidelity TTS & voice crafting skill: integrate 12 official copyright-safe Fish Audio voices with interactive selection and vaulted credentials."
+    "Family Finance Bookkeeper upgraded to 100% native Node.js API with fast preflight check: completely eliminated Python dependency for cross-platform compatibility on Windows/macOS/Linux, added 2.5s connectivity probe and Vault API key check to prevent terminal command probing loops.",
+    "Open-AutoGLM mobile control enhanced with fast preflight connectivity validation: added 2.5s port health probe and authentication verification, outputting direct diagnostic instructions and preventing runaway command diagnostics when offline.",
+    "WeChat Vault skill updated with OS and decrypted database directory prerequisites: strictly enabled only on macOS hosts with local vault directories mounted, automatically disabled with clear diagnostic status on non-macOS environments."
   ]
 }

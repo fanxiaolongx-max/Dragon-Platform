@@ -90,3 +90,14 @@ test('open-autoglm-agent securely resolves API key from vault', async () => {
     assert.ok(key, 'must resolve API key from vault');
     assert.equal(key, 'ak_autoglm_0OBKNPasZ6yvBV4zT_5lYieMsrw7nXHczbn-P1K4qj8');
 });
+
+test('open-autoglm-agent checkPrerequisites provides fast structured preflight validation', async () => {
+    assert.equal(typeof autoglmAgent.checkPrerequisites, 'function');
+    const prereq = await autoglmAgent.checkPrerequisites({ owner: 'admin' });
+    assert.ok(prereq);
+    assert.equal(typeof prereq.ok, 'boolean');
+    if (!prereq.ok) {
+        assert.ok(prereq.code);
+        assert.ok(typeof prereq.error === 'string');
+    }
+});

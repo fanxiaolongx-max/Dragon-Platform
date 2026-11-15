@@ -9,19 +9,25 @@ order: 25
 
 # 💰 WISE 家庭财务记账助手
 
+> [!IMPORTANT]
+> **原生 API 架构与环境约束**：
+> - `finance_*` 工具已升级为 100% 原生 Node.js API 通信，**宿主机无需安装 Python、curl 或任何外部运行环境**，跨平台（Windows / macOS / Linux）通用。
+> - **严禁在工具报错或环境未就绪时，在终端调用 ping、curl、where、nslookup 等命令行进行探测**！请直接将错误信息与指引原样告知用户。
+
 目标：连接 WISE 家庭财务管理系统，直接记账、转账、查流水、查余额和财务概况。
 
 ## ⚠️ 智能体执行指令与工具调用铁律（务必严格遵守）
-1. **优先直接调用 `finance_*` 原生专用工具**（或通过 `run_command` 调用 CLI 脚本）：
+1. **优先直接调用 `finance_*` 原生专用工具**：
    - `finance_record_expense`: 记支出（参数：account 账户名如 CIB/微信/现金/生活费，amount 金额正数，category 分类，description 备注）
    - `finance_record_income`: 记收入（参数：account 账户名，amount 金额正数，category 分类，description 备注）
    - `finance_query_accounts`: 查各账户余额及币种
-   - `finance_query_summary`: 查财务总览（今日支出、本月收支、结余、净资产）
-   - `finance_query_transactions`: 查流水明细（参数：limit 数量，account 筛选账户）
-   - `finance_transfer`: 账户间转账（参数：from_account，to_account，amount，description）
-   - `finance_delete_transaction`: 撤销流水（参数：transaction_id）
+   - finance_query_summary: 查财务总览（今日支出、本月收支、结余、净资产）
+   - finance_query_transactions: 查流水明细（参数：limit 数量，account 筛选账户）
+   - finance_transfer: 账户间转账（参数：from_account，to_account，amount，description）
+   - finance_delete_transaction: 撤销流水（参数：transaction_id）
 2. **严禁调用 `insert_database_row` / `update_database_rows` / `read_database_table` / `list_databases`**：WISE 记账系统是独立的外部系统 (https://wise.fanxiaolong.uk)，本地平台 SQLite `tools.db` 中不存在任何账本数据，调用数据库工具必会报错！
 3. **严禁尝试打开浏览器或要求用户浏览器登录**：所有操作通过 `finance_*` 工具在后台 1 秒内静默完成。
+4. **严禁在终端尝试调用命令行诊断网络或环境**：若工具返回未配置 API Key 或服务端不可达，直接将提示反馈给用户，切勿执行 ping、curl 或 where 命令。
 
 ---
 

@@ -231,6 +231,17 @@ test('NetCare recommendations follow the shared platform configuration without h
     }
 });
 
+test('wechat-vault checks OS and directory prerequisites in unavailableReason', async () => {
+    const reason = await store.unavailableReason('wechat-vault');
+    const isDarwin = process.platform === 'darwin';
+    const hasVaultDir = fs.existsSync('/Volumes/512G/wechat-local-vault');
+    if (!isDarwin || !hasVaultDir) {
+        assert.ok(reason.includes('微信本地库查询技能仅支持在 macOS 宿主机'));
+    } else {
+        assert.equal(reason, '');
+    }
+});
+
 test('skills that a command writes into local AI-tool skill folders are copied into the platform store', async () => {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-capture-home-'));
     const write = (dir, id, body, extra = {}) => {

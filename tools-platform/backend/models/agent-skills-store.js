@@ -3,6 +3,7 @@
 // - 支持完善内置技能与自定义技能，完善覆盖前自动备份历史版本；支持查看历史版本并随时一键回退。
 // - 内置 Skill 的改名、删除（隐藏）记在 agent_skill_overrides，不改动源文件，可随时恢复。
 // - 对话加载时合并两者：@id 只在白名单（当前租户可见的 Skill）中匹配，不读取任何用户路径。
+const fs = require('fs');
 const JSZip = require('jszip');
 const { run, get, all, getDatabase } = require('./app-db');
 const builtinSkills = require('./agent-skills');
@@ -743,9 +744,18 @@ async function skillSection(item) {
 
 // 只影响对话能力推荐；管理列表仍保留未启用的技能，方便配置与维护。
 async function unavailableReason(id) {
-    if (id !== 'netcare-data') return '';
-    const config = await require('./digital-human/config-repository').getConfig();
-    return config.enabled ? '' : 'NetCare 数据连接尚未启用；如需查询，请到「全局设置 › 频道对接 › 数字人」配置并启用。平台已入库的 SQLite 数据仍可正常查询。';
+    if (id === 'netcare-data') {
+        const config = await require('./digital-human/config-repository').getConfig();
+        return config.enabled ? '' : 'NetCare 数据连接尚未启用；如需查询，请到「全局设置 › 频道对接 › 数字人」配置并启用。平台已入库的 SQLite 数据仍可正常查询。';
+    }
+    if (id === 'wechat-vault') {
+        const isDarwin = process.platform === 'darwin';
+        const hasVaultDir = fs.existsSync('/Volumes/512G/wechat-local-vault');
+        if (!isDarwin || !hasVaultDir) {
+            return '微信本地库查询技能仅支持在 macOS 宿主机且本地解密库目录（/Volumes/512G/wechat-local-vault）就绪时使用；当前环境不满足（非 macOS 宿主或缺少解密库目录），已自动停用以避免无谓探测。';
+        }
+    }
+    return '';
 }
 
 /** 模型在工作区或对话里用 load_skill 自行加载：只接受当前租户目录中可见的技能 */

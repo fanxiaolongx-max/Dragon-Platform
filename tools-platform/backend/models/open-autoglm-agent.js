@@ -367,6 +367,39 @@ function definitions() {
     ];
 }
 
+/** 环境与服务快速预检：验证 API Key 与服务端口存活性（2.5 秒超时） */
+async function checkPrerequisites({ owner = 'admin' } = {}) {
+    const key = await getApiKey(owner);
+    const baseUrl = getBaseUrl();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2500);
+    try {
+        const res = await fetch(`${baseUrl}/api/v1/devices`, {
+            method: 'GET',
+            headers: key ? { 'Authorization': `Bearer ${key}`, 'X-API-Key': key } : {},
+            signal: controller.signal
+        });
+        if (res.status === 401 || res.status === 403) {
+            return {
+                ok: false,
+                code: 'INVALID_API_KEY',
+                error: `Open-AutoGLM 服务端鉴权失败 (${res.status})。请确认在「全局设置 › 保险箱」中配置的 AUTOGLM_API_KEY 是否有效。`
+            };
+        }
+        return { ok: true, baseUrl, hasKey: Boolean(key) };
+    } catch (err) {
+        const isTimeout = err.name === 'AbortError' || err.message?.includes('timeout') || err.message?.includes('aborted');
+        const reason = isTimeout ? '连接超时 (2.5s)' : (err.cause?.message || err.message || '连接失败');
+        return {
+            ok: false,
+            code: 'SERVICE_UNREACHABLE',
+            error: `无法连接到 Open-AutoGLM 服务端（${baseUrl}，${reason}）。请确认本机已启动 Open-AutoGLM GUI 或后台服务（默认端口 8080），且网络端口可达。`
+        };
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
 function buildPrompt() {
     return `## Open-AutoGLM 手机自动化控制原生工具
 你拥有以下原生工具，可直接与用户的 Android 手机交互，无需在终端中运行外部命令，亦无需选择工作空间目录：
@@ -376,6 +409,10 @@ function buildPrompt() {
 - open_autoglm_action：点击坐标、滑动、输入文字、按返回/Home键。
 - open_autoglm_task_status：查询任务进度与结果。
 - open_autoglm：通用快捷调用工具。
+
+【重要环境与安全约束】：
+- 本技能直接与 Open-AutoGLM REST API 通信。
+- **严禁在工具返回错误或环境预检失败时调用 run_command、terminal 执行 ping、curl、nslookup、netstat、ps、adb 等命令行进行探测！** 若服务未启动或未连接设备，直接向用户展示明确的诊断结论与操作指引即可。
 
 【执行复合指令规范】：
 当用户指令同时包含操作与截图（例如“打卡设置 截图看看”、“打开系统设置看一眼”、“搜索某内容并截图”等）：
@@ -397,11 +434,38 @@ async function canUseAutoglm(user) {
     return hasEntryAccess('skill:open-autoglm');
 }
 
+const KNOWN_AUTOGLM_TOOLS = new Set([
+    'open_autoglm_get_screenshot', 'open_autoglm_screenshot', 'screenshot',
+    'open_autoglm_list_devices', 'open_autoglm_devices',
+    'open_autoglm_run_task', 'open_autoglm_run',
+    'open_autoglm_action',
+    'open_autoglm_task_status',
+    'open_autoglm'
+]);
+
 async function execute(name, args = {}, options = {}) {
     if (options?.user && !(await canUseAutoglm(options.user))) {
         return {
             content: 'Open-AutoGLM 手机端控制功能未全员开放，仅超级管理员可用。',
             summary: '未开放访问',
+            isError: true
+        };
+    }
+    const cleanName = String(name || '').toLowerCase().replace(/-/g, '_');
+    if (!KNOWN_AUTOGLM_TOOLS.has(cleanName)) {
+        return {
+            content: `未知的 Open-AutoGLM 工具: ${name}`,
+            summary: `未知工具 ${name}`,
+            isError: true
+        };
+    }
+
+    const owner = options?.user?.username || options?.owner || 'admin';
+    const prereq = await checkPrerequisites({ owner });
+    if (!prereq.ok) {
+        return {
+            content: `❌ 环境预检未通过：\n${prereq.error}\n\n⚠️ 提示：严禁在终端尝试调用 ping/curl/netstat/where/adb 等命令行进行探测，请先按上述提示启动服务或在「全局设置 › 保险箱」中配置 AUTOGLM_API_KEY。`,
+            summary: `预检失败: ${prereq.code}`,
             isError: true
         };
     }
@@ -500,7 +564,19 @@ async function execute(name, args = {}, options = {}) {
 const agentLoop = require('./agent-loop');
 const SKILL_ID = 'open-autoglm';
 
-async function runTurn({ client: aiClient, systemInstruction, messages, signal, onDelta, onEvent, maxOutputTokens, temperature, model, extras = null, vision = null }) {
+async function runTurn({ client: aiClient, systemInstruction, messages, signal, onDelta, onEvent, maxOutputTokens, temperature, model, extras = null, vision = null, user = null }) {
+    const owner = user?.username || 'admin';
+    const prereq = await checkPrerequisites({ owner });
+    if (!prereq.ok) {
+        const notice = `⚠️ **Open-AutoGLM 手机端环境预检未通过**\n\n${prereq.error}\n\n> 💡 **解决指引**：\n> 1. 请确认已启动本机 Open-AutoGLM GUI 或后台服务（默认端口 8080）。\n> 2. 确认手机已通过 USB 或 WiFi 连接并已开启开发者模式及 USB 调试。\n> 3. 若服务端设置了访问密钥，请在「全局设置 › 保险箱 › API 密钥与 Secret」中填入 \`AUTOGLM_API_KEY\`。`;
+        onDelta?.(notice);
+        return {
+            text: notice,
+            usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+            toolLog: []
+        };
+    }
+
     const result = await agentLoop.runToolLoop({
         extras,
         vision,
@@ -511,6 +587,7 @@ async function runTurn({ client: aiClient, systemInstruction, messages, signal, 
             const args = call.args && typeof call.args === 'object' ? call.args : {};
             start({ tool: call.name, args });
             const outcome = await execute(call.name, args, {
+                user,
                 onProgress: event => onEvent?.(event)
             });
             return { ...outcome, output: String(outcome.content || '').slice(0, 4000) };
@@ -527,6 +604,7 @@ module.exports = {
     buildPrompt,
     execute,
     runTurn,
+    checkPrerequisites,
     listDevices,
     getScreenshot,
     runTask,
