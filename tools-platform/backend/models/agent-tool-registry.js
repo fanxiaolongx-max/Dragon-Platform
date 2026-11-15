@@ -88,6 +88,7 @@ const TOOLSETS = {
             return {
                 definitions: voiceCreator.definitions(),
                 prompt: voiceCreator.buildPrompt(),
+                kindOf: voiceCreator.kindOf,
                 execute: call => voiceCreator.execute(call.name, call.args, options)
             };
         }

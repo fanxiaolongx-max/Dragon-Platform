@@ -169,6 +169,13 @@
             const attrs = parseAttrs(body);
             return attrs.path ? keep(chipHtml(attrs.path, attrs.title || attrs.label || '')) : match;
         });
+        // 安全保留行内音频播放器 <audio controls ... src="..."></audio>
+        text = text.replace(/<audio\b([^>]*)\bsrc="([^">]+)"([^>]*)>(?:\s*<\/audio>)?/gi, (_match, _before, src, _after) => {
+            const cleanSrc = unwrap(src);
+            const safeSrc = isLocalFile(cleanSrc) ? fileUrl(cleanSrc) : (/^(?:\/(?!\/)|https?:\/\/)/.test(cleanSrc) ? cleanSrc : '');
+            if (!safeSrc) return '';
+            return keep(`<audio class="ai-audio-player" controls preload="none" src="${esc(safeSrc)}"></audio>`);
+        });
         // 反引号先整体占位：路径变卡片，其余保持代码样式，免得里面的 [..](..) 被当成链接
         text = text.replace(/`([^`\n]+)`/g, (_match, code) => keep(isLocalFile(code.trim()) ? chipHtml(code.trim()) : `<code>${esc(code)}</code>`));
         text = text.replace(/!\[([^\]\n]*)\]\((<[^>\n]+>|[^\s)]+)(?:\s+"[^"\n]*")?\)/g, (match, alt, src) => {

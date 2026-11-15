@@ -114,8 +114,9 @@ async function forChat({ owner, user, chatSessionId, readOnly, write, signal, se
             start();
             if (registry.isMeta(call.name)) return registry.runMeta(call);
             const set = registry.toolset(call.name);
+            if (!set) return { content: `工具 ${call.name} 不可用。`, summary: '工具不可用', isError: true };
             registry.noteCall(call.name);
-            const kind = set.kindOf(call.name, call.args);
+            const kind = typeof set.kindOf === 'function' ? set.kindOf(call.name, call.args) : 'read';
             // 频道里显示不了审批卡：需要确认的操作挂起，用户回复确认码后再执行
             if (channel && kind === 'confirm' && !session.alwaysAllow.has(set.alwaysKey?.(call.name, call.args) || call.name)) {
                 let preview;

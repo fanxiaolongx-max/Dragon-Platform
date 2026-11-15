@@ -1,12 +1,12 @@
 {
   "zh": [
-    "全新上线「创建声音」（Voice Creator）受控高拟真语音创作技能：集成 Fish Audio 官方 12 款无版权安全音色（语彤、梓轩、晓彤、建国、雨薇等），支持自然语言多轮交互选音色与情感副语言标记（耳语、叹气、微情绪），生成的音频直出播放器并支持原样下载，API Key 安全托管至保险箱独立加密存储。",
-    "全新上线 AI-BI 智能敏捷看板与交互式报表大屏：集成图表组件库、取数查询引擎与可视化参数面板，支持自然语言对话即时生成敏捷数据看板，实时联动平台业务数据与图表视图渲染。",
-    "移动端底层通信与设置持久化架构重构：全面优化 Android 与 iOS 双端平台网络客户端（PlatformHttpClient）与本地配置管理器（SettingsManager），支持流式会话保持、凭据无缝同步与离线存储保护。"
+    "修复音频文件在线试听与一键下载：支持 `/api/agent-files/view` 与 `/download` 专用路由并补齐音频 MIME 类型，确保声音创作成果直出播放器与文件下载。",
+    "全面支持「创建声音」免选工作目录直接调用：修复首页无工作目录普通对话下的技能路由与 Extra 工具集异常，无需关联本地文件夹即可即时合成声音。",
+    "全新上线「创建声音」（Voice Creator）受控高拟真语音创作技能：集成 Fish Audio 官方 12 款无版权安全音色，支持多轮交互选音色与情感副语言标记，API Key 保险箱加密托管。"
   ],
   "en": [
-    "Introduce 'Voice Creator' high-fidelity TTS & voice crafting skill: integrate 12 official copyright-safe Fish Audio voices (Yutong, Zixuan, Xiaotong, Jianguo, Yuwei, etc.), supporting interactive voice selection and expressive paralinguistic emotion tags with embedded audio playback, while API credentials remain securely vaulted.",
-    "Introduce AI-BI intelligent agile dashboards and interactive reporting: integrate chart component library, query compute engine, and visual parameter panel to generate agile business dashboards from conversational prompts in real time.",
-    "Refactor mobile cross-platform networking and settings persistence: overhaul PlatformHttpClient and SettingsManager across Android and iOS, supporting persistent streaming sessions, secure credential synchronization, and offline storage protection."
+    "Fix audio streaming preview and one-click download: add `/api/agent-files/view` and `/download` routes with complete audio MIME types, enabling direct playback and instant downloading.",
+    "Support Voice Creator without requiring workspace directory: fix skill routing and extra toolsets in root conversations, allowing instant voice generation without picking a local folder.",
+    "Introduce 'Voice Creator' high-fidelity TTS & voice crafting skill: integrate 12 official copyright-safe Fish Audio voices with interactive selection and vaulted credentials."
   ]
 }

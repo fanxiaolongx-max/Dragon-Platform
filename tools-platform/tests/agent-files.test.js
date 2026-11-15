@@ -196,6 +196,10 @@ test('chat markdown turns local files into download cards and images into zoomab
 
     const hostile = render('![x](javascript:alert(1)) [y](/Volumes/a/"><img onerror=1>.pdf)');
     assert.ok(!hostile.tokens.some(html => /javascript:|<img onerror/.test(html)));
+
+    const audio = render('试听：<audio controls preload="none" src="/api/agent-files/view?path=%2FVolumes%2Fsample.mp3"></audio>');
+    assert.equal(audio.out, '试听：#0#');
+    assert.match(audio.tokens[0], /<audio class="ai-audio-player" controls preload="none" src="\/api\/agent-files\/view\?path=%2FVolumes%2Fsample\.mp3"><\/audio>/);
 });
 
 test('agent result files are readable only by their owner, even for admins', async () => {
@@ -221,4 +225,28 @@ test('chat attachments are stored per account and readable only by their owner',
     await assert.rejects(artifacts.saveUpload('default::alice', { originalname: 'tool.exe', buffer: Buffer.from('x') }), /不支持上传/);
     assert.deepEqual(artifacts.uploadsIn('default::alice', [`看看 📎 附件：\n- [a](<${saved.path}>)`, '- [x](</etc/hosts>)']), [saved.path]);
     assert.deepEqual(artifacts.uploadsIn('default::bob', [`- [a](<${saved.path}>)`]), [], 'another account cannot reference it');
+});
+
+test('audio files can be viewed inline via /view and downloaded via /download', async () => {
+    const audioPath = path.join(outputsRoot, 'sample.mp3');
+    fs.writeFileSync(audioPath, Buffer.from([0xff, 0xfb, 0x90, 0x64])); // dummy mp3 bytes
+
+    // 1. /view route serves inline with audio/mpeg
+    const viewRes = await get('/view', audioPath, { 'x-test-role': 'admin' });
+    assert.equal(viewRes.status, 200);
+    assert.equal(viewRes.headers.get('content-type'), 'audio/mpeg');
+    assert.match(viewRes.headers.get('content-disposition'), /^inline/);
+
+    // 2. /download route serves attachment
+    const downloadRes = await get('/download', audioPath, { 'x-test-role': 'admin' });
+    assert.equal(downloadRes.status, 200);
+    assert.match(downloadRes.headers.get('content-disposition'), /^attachment/);
+    assert.match(downloadRes.headers.get('content-disposition'), /sample\.mp3/);
+
+    // 3. /stat identifies audio kind and previewable
+    const statRes = await get('/stat', audioPath, { 'x-test-role': 'admin' });
+    assert.equal(statRes.status, 200);
+    const statData = await statRes.json();
+    assert.equal(statData.kind, 'audio');
+    assert.equal(statData.previewable, true);
 });

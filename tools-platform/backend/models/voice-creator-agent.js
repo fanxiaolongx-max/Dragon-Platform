@@ -410,5 +410,6 @@ module.exports = {
     getApiKey,
     canUseVoiceCreator,
     generateSpeech,
-    findVoice
+    findVoice,
+    kindOf: () => 'read'
 };

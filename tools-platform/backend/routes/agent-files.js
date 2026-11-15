@@ -22,11 +22,13 @@ const ANTIGRAVITY_MEDIA_ROOT = process.env.ANTIGRAVITY_APP_DATA_DIR?.trim() || p
 AGENT_MEDIA_DIRS.push(path.join(ANTIGRAVITY_MEDIA_ROOT, 'brain'));
 
 const IMAGE_TYPES = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.bmp': 'image/bmp', '.avif': 'image/avif', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
+const AUDIO_TYPES = { '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.m4a': 'audio/mp4', '.aac': 'audio/aac', '.ogg': 'audio/ogg', '.flac': 'audio/flac' };
+const MEDIA_TYPES = { ...IMAGE_TYPES, ...AUDIO_TYPES, '.mp4': 'video/mp4', '.webm': 'video/webm', '.mov': 'video/quicktime' };
 const TEXT_TYPES = new Set(['.txt', '.md', '.csv', '.tsv', '.json', '.log', '.yaml', '.yml', '.xml', '.sql', '.css', '.jsx', '.tsx', '.vue', '.svelte', '.toml', '.ini', '.cfg', '.conf', '.c', '.h', '.cpp', '.hpp', '.java', '.kt', '.kts', '.swift', '.rb', '.go', '.rs', '.r', '.lua', '.bash', '.zsh']);
 const DOWNLOAD_TYPES = new Set(['.pdf', '.xlsx', '.xls', '.xlsm', '.csv', '.docx', '.doc', '.pptx', '.ppt', '.zip', '.7z', '.rar', '.gz', '.tgz', '.tar', '.html', '.htm', '.mp4', '.mov', '.webm', '.mp3', '.wav', '.m4a', '.ndjson', '.py', '.js', '.ts', '.sh', '.ps1']);
 
 function allowedExtension(ext) {
-    return Boolean(IMAGE_TYPES[ext]) || TEXT_TYPES.has(ext) || DOWNLOAD_TYPES.has(ext);
+    return Boolean(MEDIA_TYPES[ext]) || TEXT_TYPES.has(ext) || DOWNLOAD_TYPES.has(ext);
 }
 
 function extraRoots() {
@@ -94,22 +96,23 @@ router.get('/stat', async (req, res) => {
     try {
         const file = await resolveFile(req, req.query.path);
         res.setHeader('Cache-Control', 'no-store');
-        res.json({ name: file.name, size: file.stat.size, mtimeMs: file.stat.mtimeMs, kind: IMAGE_TYPES[file.ext] ? 'image' : 'file', previewable: Boolean(IMAGE_TYPES[file.ext]) || TEXT_TYPES.has(file.ext) || file.ext === '.pdf' });
+        res.json({ name: file.name, size: file.stat.size, mtimeMs: file.stat.mtimeMs, kind: IMAGE_TYPES[file.ext] ? 'image' : AUDIO_TYPES[file.ext] ? 'audio' : 'file', previewable: Boolean(MEDIA_TYPES[file.ext]) || TEXT_TYPES.has(file.ext) || file.ext === '.pdf' });
     } catch (error) { sendError(res, error); }
 });
 
-router.get('/raw', async (req, res) => {
+router.get(['/raw', '/view', '/download'], async (req, res) => {
     try {
         const file = await resolveFile(req, req.query.path);
-        const download = req.query.download === '1';
-        const inline = !download && (Boolean(IMAGE_TYPES[file.ext]) || TEXT_TYPES.has(file.ext) || file.ext === '.pdf');
+        const isDownloadRoute = req.path.endsWith('/download');
+        const download = isDownloadRoute || req.query.download === '1';
+        const inline = !download && (Boolean(MEDIA_TYPES[file.ext]) || TEXT_TYPES.has(file.ext) || file.ext === '.pdf');
         const encoded = encodeURIComponent(file.name);
         res.setHeader('Content-Disposition', `${inline ? 'inline' : 'attachment'}; filename="${encoded}"; filename*=UTF-8''${encoded}`);
         res.setHeader('X-Content-Type-Options', 'nosniff');
         res.setHeader('Cache-Control', 'private, no-cache');
         // 同源直接打开时不让文件里的脚本运行（SVG、HTML 等）；PDF 交给浏览器自带查看器
-        if (file.ext !== '.pdf') res.setHeader('Content-Security-Policy', "sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'");
-        const type = IMAGE_TYPES[file.ext] || (TEXT_TYPES.has(file.ext) ? 'text/plain; charset=utf-8' : file.ext === '.pdf' ? 'application/pdf' : 'application/octet-stream');
+        if (file.ext !== '.pdf') res.setHeader('Content-Security-Policy', "sandbox; default-src 'none'; img-src 'self' data:; media-src 'self' data:; style-src 'unsafe-inline'");
+        const type = MEDIA_TYPES[file.ext] || (TEXT_TYPES.has(file.ext) ? 'text/plain; charset=utf-8' : file.ext === '.pdf' ? 'application/pdf' : 'application/octet-stream');
         res.setHeader('Content-Type', type);
         res.sendFile(file.real, { headers: { 'Content-Type': type }, dotfiles: file.agentMedia ? 'allow' : 'deny' }, error => {
             if (error && !res.headersSent) sendError(res, fileError(500, 'AGENT_FILE_ERROR', '读取文件失败'));

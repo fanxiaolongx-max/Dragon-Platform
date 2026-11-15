@@ -35,6 +35,7 @@ const filesAgent = require('../models/ai-files-agent');
 const autoglmAgent = require('../models/open-autoglm-agent');
 const familyFinanceAgent = require('../models/family-finance-agent');
 const ppoTrafficAgent = require('../models/ppo-traffic-agent');
+const voiceCreatorAgent = require('../models/voice-creator-agent');
 const agentArtifacts = require('../models/agent-artifacts');
 const multer = require('multer');
 
@@ -985,9 +986,21 @@ async function handleChatRequest(req, res) {
             }
         }
 
+        // @voice-creator：非公开技能，超级管理员在普通对话或移动端直接创作语音（无需工作空间目录）
+        let voiceCreatorSetup = null;
+        if (homeAgent && !agentMode && !channelTurn && !opsSetup && !welinkCliSetup && !netcareSetup && !autoglmSetup && !financeSetup && !ppoSetup
+            && (await voiceCreatorAgent.canUseVoiceCreator(req.user))
+            && loadedSkills.selected.some(item => item.id === voiceCreatorAgent.SKILL_ID)) {
+            try {
+                voiceCreatorSetup = { prompt: voiceCreatorAgent.buildPrompt() };
+            } catch (voiceError) {
+                console.warn('[AI] voice creator setup failed:', voiceError.message || voiceError);
+            }
+        }
+
         // 首页管理员无需选择目录即可使用平台业务库；频道、页面助手及专用 Skill 保持各自权限。
         const databaseMode = homeAgent && !agentMode && !channelTurn && req.user?.role === 'admin'
-            && !opsSetup && !welinkCliSetup && !netcareSetup && !autoglmSetup && !financeSetup && !ppoSetup && !analysisCode;
+            && !opsSetup && !welinkCliSetup && !netcareSetup && !autoglmSetup && !financeSetup && !ppoSetup && !voiceCreatorSetup && !analysisCode;
         // 对话附件：消息里引用的、属于本人的上传文件（频道对话不带）
         const uploadFiles = homeAgent && !channelTurn
             ? agentArtifacts.uploadsIn(agentRunManager.ownerKey(req.user, getTenantId()), effectiveMessages.map(item => item.content)) : [];
@@ -1057,7 +1070,7 @@ ${currentView ? '2.1 用户问“这个页面”“这段代码”“我现在�
 4.9 用户询问某个平台工具里的数据（人次、数量、金额、记录、趋势等）时，必须依据“平台工具业务数据”作答，并写明工具名、快照名或数据来源、数据期间。快照摘要（如 totalTransactions）和“表内合计行”是工具自身算出的口径，回答总数时优先采用；按日/按字段的统计只是辅助拆解，二者不一致时说明差异而不是自行改算。用户要的时间段没有对应快照时，明确说“没有覆盖该期间的数据”，并列出已有快照的期间；工具没有可读数据时如实说明，可建议打开工具导入后保存快照。不得编造任何数值。
 5. 历史报表使用入库时保存的得分和计分状态，不得用当前目标或计分规则重算。
 6. 把事实、基于数据的解读和可能原因分开。没有证据的原因必须标记为“可能”或“建议进一步核查”。
-${agentMode ? (agentSession.readOnly ? '7. 当前账号只读，没有修改平台业务数据或本地文件的权限。' : '7. 当前管理员可通过数据库工具对当前租户和所选项目的业务数据增删改查，并可通过文件工具修改工作目录；遵循工作区权限模式。只有工具返回提交成功后才能声称数据已修改；修改后重新查询验证，写入前的检索摘要不能作为修改后状态。凭据与平台控制面数据不开放。') : databaseMode ? '7. 当前管理员可通过数据库工具直接对当前租户的平台业务数据增删改查，无需选择工作目录。按用户明确要求执行修改，提交成功后重新查询验证。凭据与平台控制面数据不开放。' : opsSetup ? '7. 你没有修改业务数据的权限；唯一例外是用 ops_* 工具管理自动化运营（运营群组、计划、草稿、运营规范），只有工具返回成功后才能说已保存或已发送。' : followupSetup ? '7. 你没有修改业务数据的权限；唯一例外是用 followup_* 工具保存本会话的跟进任务，只有工具返回成功后才能说已记录。' : '7. 你没有修改业务数据的权限，不得声称已修改、删除或入库任何数据。'}
+${agentMode ? (agentSession.readOnly ? '7. 当前账号只读，没有修改平台业务数据或本地文件的权限。' : '7. 当前管理员可通过数据库工具对当前租户和所选项目的业务数据增删改查，并可通过文件工具修改工作目录；遵循工作区权限模式。只有工具返回提交成功后才能声称数据已修改；修改后重新查询验证，写入前的检索摘要不能作为修改后状态。凭据与平台控制面数据不开放。') : databaseMode ? '7. 当前管理员可通过数据库工具直接对当前租户的平台业务数据增删改查，无需选择工作目录。按用户明确要求执行修改，提交成功后重新查询验证。凭据与平台控制面数据不开放。' : opsSetup ? '7. 你没有修改业务数据的权限；唯一例外是用 ops_* 工具管理自动化运营（运营群组、计划、草稿、运营规范），只有工具返回成功后才能说已保存或已发送。' : followupSetup ? '7. 你没有修改业务数据的权限；唯一例外是用 followup_* 工具保存本会话的跟进任务，只有工具返回成功后才能说已记录。' : voiceCreatorSetup ? '7. 你没有修改业务数据的权限；唯一例外是用 voice_creator_* 工具进行高拟真语音合成与声音创作。' : '7. 你没有修改业务数据的权限，不得声称已修改、删除或入库任何数据。'}
 ${scopeRule}
 ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.systemPrompt}` : ''}${voiceMode ? '\n**实时语音回复要求（最高优先级）**：直奔主题、简短干练、口语化表达；禁止客套寒暄、禁止反问收尾、禁止 Markdown 表格或符号。' : ''}`;
 
@@ -1302,6 +1315,29 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 } : undefined
             })
             : null;
+        const voiceCreatorResult = !agentResult && !analysisResult && !followupResult && !opsResult && !welinkCliResult && !netcareResult && !autoglmResult && !financeResult && !ppoResult && voiceCreatorSetup
+            ? await voiceCreatorAgent.runTurn({
+                extras: chatExtras,
+                vision,
+                client: aiClient,
+                systemInstruction: redactText(systemInstruction, { secrets: sensitiveValues }),
+                messages: effectiveMessages,
+                signal: providerAbortController?.signal,
+                maxOutputTokens: aiSettings.maxOutputTokens,
+                temperature: aiSettings.temperature,
+                model: aiSettings.model,
+                onEvent: event => {
+                    writeStreamEvent(event);
+                    if (event && (event.type === 'tool' || event.type === 'tool_result')) {
+                        recordedEvents.push(event);
+                    }
+                },
+                onDelta: streamRequested ? delta => {
+                    streamHasDelta = true;
+                    writeStreamEvent({ type: 'delta', delta });
+                } : undefined
+            })
+            : null;
         if (followupResult?.events?.length) {
             recordedEvents.push(...followupResult.events);
             if (streamRequested) followupResult.events.forEach(event => writeStreamEvent(event));
@@ -1336,7 +1372,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 } : undefined
             })
             : null;
-        const extraResult = !agentResult && !analysisResult && !followupResult && !opsResult && !welinkCliResult && !netcareResult && !autoglmResult && !financeResult && !ppoResult
+        const extraResult = !agentResult && !analysisResult && !followupResult && !opsResult && !welinkCliResult && !netcareResult && !autoglmResult && !financeResult && !ppoResult && !voiceCreatorResult
             && !databaseResult && !filesResult && (channelExtras || chatExtras)
             ? await require('../models/agent-extra-tools').runChannelTurn({
                 extras: channelExtras || chatExtras, bufferText: channelTurn?.channel === 'weixin', client: aiClient, systemInstruction: redactText(systemInstruction, { secrets: sensitiveValues }), messages: effectiveMessages,
@@ -1349,7 +1385,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 } : undefined
             })
             : null;
-        const result = agentResult || followupResult || opsResult || welinkCliResult || netcareResult || autoglmResult || financeResult || ppoResult || databaseResult || filesResult || extraResult || (analysisResult ? analysisResult.result : await generateResponse());
+        const result = agentResult || followupResult || opsResult || welinkCliResult || netcareResult || autoglmResult || financeResult || ppoResult || voiceCreatorResult || databaseResult || filesResult || extraResult || (analysisResult ? analysisResult.result : await generateResponse());
         const skillReferenceAudit = homeAgent ? skillCatalogContract.guardReply(result.text, loadedSkills.catalog || [], {
             language: uiLanguage, loadedIds: loadedSkills.selected.map(item => item.id)
         }) : null;
