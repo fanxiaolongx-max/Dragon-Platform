@@ -1643,6 +1643,19 @@ html.platform-home body.v2-side-collapsed.dc-workspace-open .home-content.home-w
 
 
 /* Sidebar fills the viewport beside the workspace panel. */
+/* Keep browser/terminal panels in the first grid row, alongside the chat.
+   The home shell's navigation rules otherwise override the panels' own column definitions. */
+@media (min-width: 861px) {
+    html.platform-home body.dc-browser-open { --home-right-panel-width: var(--browser-panel-width, 480px); }
+    html.platform-home body.dc-terminal-open { --home-right-panel-width: var(--terminal-panel-width, 560px); }
+    html.platform-home body:not(.v2-side-collapsed):is(.dc-browser-open, .dc-terminal-open) .home-content.home-workspace {
+        grid-template-columns: var(--v2-side-width, 240px) minmax(0, 1fr) var(--home-right-panel-width);
+    }
+    html.platform-home body.v2-side-collapsed:is(.dc-browser-open, .dc-terminal-open) .home-content.home-workspace {
+        grid-template-columns: minmax(0, 1fr) var(--home-right-panel-width);
+    }
+}
+
 html.platform-home .home-content.home-workspace > .home-sidebar {
     flex-direction: column;
     align-items: stretch;

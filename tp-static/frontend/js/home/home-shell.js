@@ -163,9 +163,11 @@
 
     // ── 浮层：同一时间只开一个，点外面或 Esc 关闭 ──
     let openPop = null, linksPanel = null, linksAnchor = null, linksTimer = 0;
+    let catPanel = null, catAnchor = null, catTimer = 0, shortcutGroups = [];
     function closePop() {
         clearTimeout(hoverTimer);
         closeLinks();
+        closeCat();
         if (openPop?.pop.classList.contains('v2-flyout')) window.HomeSidebarMenu?.restoreMore();
         if (typeof scan !== 'undefined' && scan?.abortAll) scan.abortAll();
         if (!openPop) return;
@@ -203,7 +205,7 @@
         if (event.target?.closest?.('.v2-tour-root')) return;
         // 捕获阶段处理，避免正文/工具自身的 stopPropagation 阻止菜单关闭。
         const path = event.composedPath();
-        if (path.includes(openPop.pop) || path.includes(openPop.anchor) || path.includes(linksPanel)) return;
+        if (path.includes(openPop.pop) || path.includes(openPop.anchor) || path.includes(linksPanel) || path.includes(catPanel)) return;
         closePop();
     }
     document.addEventListener('pointerdown', closeOutsidePop, true);
@@ -337,20 +339,25 @@
             const workflowIds = new Set([...(window.NavWorkflow?.ids || []), 'home']);
             const seenPaths = new Set(workflow.map(item => normalizeNavPath(item.href)));
             const toolLink = (href, label) => `<a class="v2-pop-item" role="menuitem" href="${esc(href)}"><span class="v2-ico v2-app-glyph" data-icon="${appGlyph(href)}"></span><span>${esc(label)}</span></a>`;
-            const links = (window.ToolsPlatform?.catalog() || [])
+            const shortcutItems = (window.ToolsPlatform?.catalog() || [])
                 .filter(item => {
                     const pathKey = normalizeNavPath(item.href);
                     if (!isNavSidebarShortcut(item.href) || workflowIds.has(item.id) || seenPaths.has(pathKey)) return false;
                     seenPaths.add(pathKey);
                     return true;
-                }).map(item => toolLink(item.href, getNavLabel(item)));
+                });
+            // One cascade row per category, in the order set under 全局设置 → 分类与排序.
+            shortcutGroups = groupShortcuts(shortcutItems).map(group => ({
+                name: group.name,
+                html: group.items.map(item => toolLink(item.href, getNavLabel(item))).join(''),
+                count: group.items.length
+            }));
+            const links = shortcutGroups.map((group, index) => `<button type="button" class="v2-pop-item" role="menuitem" aria-haspopup="menu" aria-controls="v2ShortcutSubmenu" aria-expanded="false" data-v2-cat="${index}"><span class="v2-ico" data-icon="grid"></span><span>${esc(group.name)}</span><span class="v2-pop-hint">${group.count} ›</span></button>`);
             const personal = window.HomeSidebarMenu;
             return [
                 workflow.length ? `<div class="v2-pop-cap">${esc(window.NavWorkflow.label())}</div>${workflow.map(item => toolLink(item.href, getNavLabel(item))).join('')}` : '',
                 personal ? '<div class="v2-sidebar-more-items"></div>' : [
-                    menuItem('link', t('links'), 'links', '›').replace('role="menuitem"', 'role="menuitem" aria-haspopup="menu" aria-controls="v2LinksSubmenu" aria-expanded="false"'),
-                    menuItem('target', t('requirements'), 'requirements'),
-                    menuItem('compass', lang() === 'en-US' ? 'Promotions' : '平台推广', 'promotions')
+                    menuItem('link', t('links'), 'links', '›').replace('role="menuitem"', 'role="menuitem" aria-haspopup="menu" aria-controls="v2LinksSubmenu" aria-expanded="false"')
                 ].join(''),
                 links.length ? `<div class="v2-pop-cap">${esc(navT('nav.sidebarShortcuts'))}</div>${links.join('')}` : ''
             ].join('');
@@ -398,15 +405,105 @@
     document.querySelectorAll('[data-v2-flyout]').forEach(anchor => {
         anchor.addEventListener('click', () => { clearTimeout(hoverTimer); if (openPop?.anchor === anchor) closePop(); else openFlyout(anchor); });
         anchor.addEventListener('mouseenter', () => { clearTimeout(hoverTimer); hoverTimer = setTimeout(() => openFlyout(anchor), 120); });
-        anchor.addEventListener('mouseleave', () => { clearTimeout(hoverTimer); hoverTimer = setTimeout(() => { if (openPop?.pop === flyPop && !flyPop.matches(':hover') && !linksPanel?.matches(':hover')) closePop(); }, 220); });
+        anchor.addEventListener('mouseleave', () => { clearTimeout(hoverTimer); hoverTimer = setTimeout(() => { if (openPop?.pop === flyPop && !flyPop.matches(':hover') && !linksPanel?.matches(':hover') && !catPanel?.matches(':hover')) closePop(); }, 220); });
     });
-    flyPop.addEventListener('mouseleave', () => { hoverTimer = setTimeout(() => { if (openPop?.pop === flyPop && !openPop.anchor.matches(':hover') && !linksPanel?.matches(':hover')) closePop(); }, 220); });
+    flyPop.addEventListener('mouseleave', () => { hoverTimer = setTimeout(() => { if (openPop?.pop === flyPop && !openPop.anchor.matches(':hover') && !linksPanel?.matches(':hover') && !catPanel?.matches(':hover')) closePop(); }, 220); });
     flyPop.addEventListener('mouseenter', () => clearTimeout(hoverTimer));
     flyPop.addEventListener('click', event => {
         const item = event.target.closest('a[href], [data-v2-do]');
         if (!item || item.dataset.v2Do === 'links') return;
         closePop();
     });
+
+    // ── 快捷工具：按「分类与排序」里的分类做二级菜单 ──
+    function groupShortcuts(items) {
+        const settings = (typeof navState !== 'undefined' && navState.settings) || {};
+        const categories = settings.categories || [];
+        const workspaceIds = (window.HomeWorkspace?.getTools?.() || []).map(tool => tool.id);
+        const order = [...new Set([...(settings.itemOrder || []), ...workspaceIds])];
+        const sorted = typeof sortNavItems === 'function' ? sortNavItems(items, order) : items;
+        const categoryName = cat => (typeof getNavCategoryName === 'function' ? getNavCategoryName(cat) : cat.name) || cat.id;
+        const groups = new Map(categories.map(cat => [cat.id, { name: categoryName(cat), items: [] }]));
+        groups.set('', { name: navT('nav.set.otherTools'), items: [] });
+        // Same resolution as the settings page, so a tool always lands where the admin put it.
+        sorted.forEach(item => {
+            const preferred = settings.categoryByItem?.[item.id] || item.defaultCategory;
+            const fallback = String(item.id).startsWith('custom:') && groups.has('custom') ? 'custom' : '';
+            groups.get(groups.has(preferred) ? preferred : fallback).items.push(item);
+        });
+        return [...groups.values()].filter(group => group.items.length);
+    }
+    function closeCat(focus = false) {
+        clearTimeout(catTimer);
+        catPanel?.classList.remove('is-open');
+        catAnchor?.setAttribute('aria-expanded', 'false');
+        if (focus) catAnchor?.focus({ preventScroll: true });
+        catAnchor = null;
+    }
+    function positionCat() {
+        if (!catAnchor || !catPanel?.classList.contains('is-open')) return;
+        const anchor = catAnchor.getBoundingClientRect(), parent = flyPop.getBoundingClientRect(), pad = 8, gap = 6;
+        const width = catPanel.offsetWidth;
+        let left = parent.right + gap;
+        if (left + width > innerWidth - pad) left = parent.left - width - gap;
+        const stacked = left < pad;
+        if (stacked) left = Math.max(pad, Math.min(parent.left, innerWidth - width - pad));
+        catPanel.classList.toggle('is-stacked', stacked);
+        catPanel.style.left = `${left}px`;
+        catPanel.style.top = `${Math.max(pad, Math.min(anchor.top - 7, innerHeight - catPanel.offsetHeight - pad))}px`;
+    }
+    function openCat(anchor, focus = true) {
+        const group = shortcutGroups[Number(anchor?.dataset.v2Cat)];
+        if (!group) return;
+        if (catAnchor === anchor && catPanel?.classList.contains('is-open')) {
+            if (focus) catPanel.querySelector('a')?.focus({ preventScroll: true });
+            return;
+        }
+        closeLinks();
+        if (!catPanel) {
+            catPanel = makePop('v2-cat-submenu'); catPanel.id = 'v2ShortcutSubmenu';
+            catPanel.addEventListener('mouseenter', () => { clearTimeout(hoverTimer); clearTimeout(catTimer); });
+            catPanel.addEventListener('mouseleave', () => { catTimer = setTimeout(() => { if (!flyPop.matches(':hover')) closeCat(); }, 250); });
+            catPanel.addEventListener('click', event => {
+                if (event.target.closest('.v2-cat-back')) { closeCat(true); return; }
+                if (event.target.closest('a[href]')) closePop();
+            });
+            catPanel.addEventListener('keydown', event => {
+                if (event.key === 'ArrowLeft' || event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeCat(true); return; }
+                if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+                const options = [...catPanel.querySelectorAll('a')];
+                const index = options.indexOf(document.activeElement);
+                const next = event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length;
+                event.preventDefault(); options[next]?.focus({ preventScroll: true }); options[next]?.scrollIntoView({ block: 'nearest' });
+            });
+        }
+        catAnchor?.setAttribute('aria-expanded', 'false');
+        catPanel.innerHTML = `<button type="button" class="v2-cat-back">${esc(lang() === 'en-US' ? '‹ Back to More' : '‹ 返回更多')}</button><div class="v2-pop-cap">${esc(group.name)}</div>${group.html}`;
+        fillIcons(catPanel);
+        catPanel.scrollTop = 0;
+        catAnchor = anchor; anchor.setAttribute('aria-expanded', 'true');
+        catPanel.classList.add('is-open'); positionCat();
+        clearTimeout(hoverTimer); clearTimeout(catTimer);
+        if (focus) catPanel.querySelector('a')?.focus({ preventScroll: true });
+    }
+    flyPop.addEventListener('pointerover', event => {
+        const item = event.target.closest('[data-v2-cat]');
+        if (!item) { if (event.target.closest('.v2-pop-item, #homeSidebarShortcuts')) { clearTimeout(catTimer); catTimer = setTimeout(() => closeCat(), 120); } return; }
+        if (event.pointerType === 'touch') return;
+        clearTimeout(catTimer); catTimer = setTimeout(() => openCat(item, false), 120);
+    });
+    flyPop.addEventListener('click', event => {
+        const item = event.target.closest('[data-v2-cat]');
+        if (!item) return;
+        // Mouse users already have it open from hover; a click must not toggle it shut again.
+        if (catAnchor === item && catPanel?.classList.contains('is-open') && event.detail === 0) { closeCat(true); return; }
+        openCat(item, event.detail === 0);
+    });
+    flyPop.addEventListener('keydown', event => {
+        const item = event.target.closest('[data-v2-cat]');
+        if (item && event.key === 'ArrowRight') { event.preventDefault(); openCat(item); }
+    });
+    flyPop.addEventListener('scroll', positionCat);
 
     // Keep the original live link list and its status / admin handlers inside a cascade.
     // Moving the node avoids a second copy of the configured URLs or click behavior.
@@ -473,7 +570,7 @@
         const item = event.target.closest('[data-v2-do="links"]');
         if (!item) { if (event.target.closest('.v2-pop-item')) closeLinks(); return; }
         if (event.pointerType === 'touch') return;
-        clearTimeout(linksTimer); linksTimer = setTimeout(() => openLinks(item, false), 120);
+        closeCat(); clearTimeout(linksTimer); linksTimer = setTimeout(() => openLinks(item, false), 120);
     });
     flyPop.addEventListener('keydown', event => {
         const item = event.target.closest('[data-v2-do="links"]');
