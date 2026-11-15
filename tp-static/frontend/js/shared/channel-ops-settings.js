@@ -41,7 +41,7 @@
     function confirmDialog(message, options = {}) {
         return window.AppDialog
             ? window.AppDialog.confirm(message, { cancelText: L('取消', 'Cancel'), ...options })
-            : window.showNavbarConfirm({ message, cancelText: L('取消', 'Cancel'), ...options });
+            : window.showPlatformConfirm({ message, cancelText: L('取消', 'Cancel'), ...options });
     }
 
     function targetLabel(target) {

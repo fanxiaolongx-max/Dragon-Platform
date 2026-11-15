@@ -180,7 +180,7 @@
     function init() {
         if (document.getElementById('nrvStack')) return;
         // 首页新版界面：推广固定为右下角一张卡片，不收起成侧边标签、不自动播放视频，定时轮换下一条
-        const compactCard = document.documentElement.getAttribute('data-ui') === 'v2';
+        const compactCard = true;
         const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         const stack = document.createElement('div');
         stack.className = 'nrv-stack'; stack.id = 'nrvStack';

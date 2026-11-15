@@ -84,21 +84,6 @@
         });
     }
 
-    // ── 侧栏入口 ──
-    function renderNav() {
-        if (!el.nav) return;
-        el.nav.hidden = !state.groups.length;
-        el.nav.innerHTML = state.groups.length ? [
-            `<div class="home-cat-label">${escapeHtml(tx('title'))}</div>`,
-            ...state.groups.map(group => `
-                <button type="button" class="home-cat-item" data-cap-kind="${escapeHtml(group.kind)}" title="${escapeHtml(groupLabel(group))}" style="--group-color:${escapeHtml(group.color || '#64ffda')}">
-                    <span class="home-cat-icon home-cap-icon" aria-hidden="true">${escapeHtml(group.icon)}</span>
-                    <span class="home-cat-name">${escapeHtml(groupLabel(group))}</span>
-                    <span class="home-cat-count">${group.count}</span>
-                </button>`)
-        ].join('') : '';
-    }
-
     // ── 主区分组卡片 ──
     function renderSection() {
         if (!el.section) return;
@@ -186,29 +171,8 @@
         return (Number.isFinite(value) ? value : 52) + 16;
     }
 
-    function scrollToGroup(kind) {
-        document.body.classList.add('home-mode-tools');
-        if (document.documentElement.dataset.ui === 'v2' && window.HomeSkillHub) { window.HomeSkillHub.open('plugins'); return; }
-        window.HomeMode?.set?.('tools');
-        window.HomeWorkspace?.showAll?.();
-        requestAnimationFrame(() => {
-            const target = kind ? el.section?.querySelector(`[data-cap-group="${CSS.escape(kind)}"]`) : el.section;
-            if (!target || el.section.hidden) return;
-            const top = target.getBoundingClientRect().top + window.scrollY - navbarOffset();
-            window.scrollTo({ top: Math.max(0, top), behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-        });
-    }
-
-    // 滚动到插件与脚本区块时，侧栏高亮对应类别（工具分类的高亮由 workspace.js 维护，这里接管区块范围内的部分）
-    function syncCurrentGroup() {
-        if (!el.nav || !el.section || el.section.hidden || !document.body.classList.contains('home-mode-tools')) return;
-        const offset = navbarOffset() + 24;
-        let current = '';
-        el.section.querySelectorAll('[data-cap-group]:not([hidden])').forEach(node => {
-            if (node.getBoundingClientRect().top <= offset) current = node.dataset.capGroup;
-        });
-        el.nav.querySelectorAll('[data-cap-kind]').forEach(button => button.classList.toggle('is-current', button.dataset.capKind === current));
-        if (current) document.querySelectorAll('#homeCategoryNav .is-current').forEach(button => button.classList.remove('is-current'));
+    function scrollToGroup() {
+        window.HomeSkillHub?.open?.('plugins');
     }
 
     async function load() {
@@ -221,7 +185,6 @@
             state.groups = []; // 目录是辅助信息，读取失败时首页照常显示
         }
         state.loaded = true;
-        renderNav();
         renderSection();
         renderEntry();
         readyResolve(state.groups);
@@ -249,7 +212,6 @@
     };
 
     function init() {
-        el.nav = document.getElementById('homeCapsNav');
         el.section = document.getElementById('homeCaps');
         el.entry = document.getElementById('homeCapsEntry');
         el.entry?.addEventListener('click', () => scrollToGroup(''));
@@ -271,19 +233,6 @@
         el.section?.addEventListener('click', openMenu);
         el.section?.addEventListener('contextmenu', openMenu);
         state.filter = window.HomeWorkspace?.getFilter?.() || state.filter;
-        el.nav?.addEventListener('click', event => {
-            const button = event.target.closest('[data-cap-kind]');
-            if (button) scrollToGroup(button.dataset.capKind);
-        });
-        let scrollQueued = false;
-        window.addEventListener('scroll', () => {
-            if (scrollQueued) return;
-            scrollQueued = true;
-            requestAnimationFrame(() => {
-                scrollQueued = false;
-                syncCurrentGroup();
-            });
-        }, { passive: true });
         window.addEventListener('home:tools-filtered', event => {
             state.filter = { view: event.detail?.view || 'all', query: event.detail?.query || '' };
             applyFilter();

@@ -1,5 +1,5 @@
 // 全局设置 › 保险箱：本人保存的网站账号密码与 API 密钥/环境变量 Secret。
-// 由 navbar.js 在切换到 vault 标签时按需加载；数据来自 /api/vault（backend/routes/vault.js），只返回当前登录账号自己的条目。
+// 由 platform-core.js 在切换到 vault 标签时按需加载；数据来自 /api/vault（backend/routes/vault.js），只返回当前登录账号自己的条目。
 // 后端可在 GET /api/vault 里带 features 说明自己支持什么（都缺省为支持）：
 //   logins: false      没有网站登录凭据（没有内置浏览器的部署），只显示密钥页；
 //   reauth: false      没有平台登录密码可复核（登录由外部门户负责），查看明文改为一次确认；
@@ -319,7 +319,7 @@
 
         const allow = event.target.closest('[data-vault-allow]');
         if (allow) return act(L('已恢复自动保存', 'Saving re-enabled'), () => api('POST', '/sites/never-save', { origin: allow.dataset.vaultAllow, never: false }));
-        
+
         const button = event.target.closest('[data-vault]');
         if (!button) return;
         const name = button.dataset.vault;
@@ -343,7 +343,7 @@
                 const msg = L(`删除 ${entry.host} 的账号「${entry.username}」？删除后无法恢复。`, `Delete "${entry.username}" for ${entry.host}? This cannot be undone.`);
                 const ok = window.AppDialog?.confirm
                     ? await window.AppDialog.confirm(msg, { title: L('删除账号', 'Delete account'), tone: 'danger', confirmText: L('删除', 'Delete'), cancelText: L('取消', 'Cancel') })
-                    : (typeof window.showNavbarConfirm === 'function' ? await window.showNavbarConfirm({ title: L('删除账号', 'Delete account'), message: msg, tone: 'danger' }) : false);
+                    : (typeof window.showPlatformConfirm === 'function' ? await window.showPlatformConfirm({ title: L('删除账号', 'Delete account'), message: msg, tone: 'danger' }) : false);
                 if (!ok) return;
                 if (view.revealed?.id === entry.id) hideRevealed();
                 return act(L('已删除', 'Deleted'), () => api('DELETE', `/${encodeURIComponent(entry.id)}`));
@@ -372,7 +372,7 @@
                 const msg = L(`删除密钥「${secret.name}」？删除后依赖此密钥的技能可能无法正常调用。`, `Delete secret "${secret.name}"? Skills depending on it may stop working.`);
                 const ok = window.AppDialog?.confirm
                     ? await window.AppDialog.confirm(msg, { title: L('删除密钥', 'Delete secret'), tone: 'danger', confirmText: L('删除', 'Delete'), cancelText: L('取消', 'Cancel') })
-                    : (typeof window.showNavbarConfirm === 'function' ? await window.showNavbarConfirm({ title: L('删除密钥', 'Delete secret'), message: msg, tone: 'danger' }) : false);
+                    : (typeof window.showPlatformConfirm === 'function' ? await window.showPlatformConfirm({ title: L('删除密钥', 'Delete secret'), message: msg, tone: 'danger' }) : false);
                 if (!ok) return;
                 if (view.revealedSecret?.id === secret.id) hideRevealed();
                 return act(L('已删除密钥', 'Secret deleted'), () => api('DELETE', `/secrets/${encodeURIComponent(secret.id)}`));

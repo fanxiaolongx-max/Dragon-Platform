@@ -1,5 +1,5 @@
-/* 首页工作台布局：左侧图标栏 + 面板（对话 / 工具两种模式，见 home-mode.css）+ 右侧主区（配合 js/home/workspace.js）。
-   覆盖 index.html 内联样式中的旧版大卡片布局，因此在其之后加载。 */
+/* 首页工作台基础布局，具体外框由 home-shell.css 定义。
+   工具目录数据与分类由 js/home/workspace.js 提供。 */
 
 .home-workspace .tool-card[hidden] { display: none; }
 
@@ -18,7 +18,7 @@
     grid-template-columns: var(--ws-side) minmax(0, 1fr);
     gap: clamp(18px, 1.1vw, 30px);
     align-items: start;
-    max-width: none; /* 覆盖 index.html 旧版内联的 1100px 上限 */
+    max-width: none; /* 首页随视口展开 */
     margin: 0;
     padding: calc(var(--navbar-h) + 18px) clamp(16px, 1.4vw, 40px) 48px;
 }

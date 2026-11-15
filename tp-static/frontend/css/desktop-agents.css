@@ -26,7 +26,7 @@ body.dc-external-compose #dcComposer #dcEnhance[hidden] ~ #dcModel[hidden] ~ #dc
 /* ── 工作区「Agent 会话」卡：运行态、指标、权限与诊断 ─────────────── */
 /* 颜色统一走 --daw-* 桥接：经典主题落 --wsp-*，v2 主题经 home-theme.css 映射到 --v2-*，亮/暗都正确 */
 .desktop-agent-ws{--daw-text:var(--wsp-text,var(--text-primary,#dbeafe));--daw-muted:var(--wsp-muted,var(--text-secondary,#94a3b8));--daw-faint:var(--wsp-faint,#64748b);--daw-line:var(--wsp-border,rgba(148,163,184,.2));--daw-soft:rgba(148,163,184,.09);--daw-accent:var(--wsp-accent,#64ffda);--daw-danger:var(--v2-danger,#f2a5a0);--daw-warning:#e0a83b;display:grid;gap:12px;color:var(--daw-text);font-size:12px;line-height:1.6}
-html[data-ui="v2"]:not([data-theme="dark"]) .desktop-agent-ws{--daw-danger:#dc2626;--daw-warning:#b45309}
+html.platform-home:not([data-theme="dark"]) .desktop-agent-ws{--daw-danger:#dc2626;--daw-warning:#b45309}
 .daw-dot{display:inline-block;flex:none;width:7px;height:7px;border-radius:50%;background:var(--daw-faint)}
 .daw-dot[data-level=ok]{background:#3ecf9e}
 .daw-dot[data-level=warning]{background:var(--daw-warning,#e0a83b)}
@@ -181,9 +181,9 @@ body.dc-external-view .dc-agent-discussion{display:none}
 body.dc-native-models #dcModel{min-width:0;max-width:220px;flex:0 1 auto;margin-left:auto}
 body.dc-native-models #dcComposer #dcModel:not([hidden]) ~ #dcVoice,
 body.dc-native-models #dcComposer #dcModel:not([hidden]) ~ #dcSend{margin-left:0}
-html[data-ui="v2"] body.dc-native-models #dcComposer #dcModel{min-width:0;flex:0 1 auto;margin-left:0}
-html[data-ui="v2"] body.dc-native-models #dcComposer #dcEnhance{margin-left:auto}
-html[data-ui="v2"] body.dc-native-models #dcComposer #dcEnhance[hidden] ~ #dcModel:not([hidden]){margin-left:auto}
-html[data-ui="v2"] body.dc-native-models #dcComposer #dcModel:not([hidden]) ~ #dcVoice,
-html[data-ui="v2"] body.dc-native-models #dcComposer #dcModel:not([hidden]) ~ #dcSend{margin-left:0}
+html.platform-home body.dc-native-models #dcComposer #dcModel{min-width:0;flex:0 1 auto;margin-left:0}
+html.platform-home body.dc-native-models #dcComposer #dcEnhance{margin-left:auto}
+html.platform-home body.dc-native-models #dcComposer #dcEnhance[hidden] ~ #dcModel:not([hidden]){margin-left:auto}
+html.platform-home body.dc-native-models #dcComposer #dcModel:not([hidden]) ~ #dcVoice,
+html.platform-home body.dc-native-models #dcComposer #dcModel:not([hidden]) ~ #dcSend{margin-left:0}
 @media(max-width:640px){#dcComposer .dc-connector-label{display:none}#dcComposer .dc-model-name{max-width:30vw}}

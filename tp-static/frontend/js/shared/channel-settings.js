@@ -1,19 +1,19 @@
 // 全局设置 › 频道对接：WeLink / 微信助理的连接配置、扫码授权、连通性测试、黑白名单、推送范围、联系人与日志；
 // WeLink 另有个人身份（welink-cli）卡片，见 welink-cli-settings.js；「数字人」标签是基座对接配置，见 digital-human-settings.js。
 // 两个频道只有「运行状态」「连接配置」不同，助理行为、访问控制、主动推送、联系人、日志共用同一套卡片。
-// 由 navbar.js 在切换到 channels 标签时按需加载；依赖 channels.js（目标选择器与 API）与 qr-code.js。
+// 由 platform-core.js 在切换到 channels 标签时按需加载；依赖 channels.js（目标选择器与 API）与 qr-code.js。
 (function () {
     'use strict';
     if (window.ToolsChannelSettings) return;
 
     const L = (zh, en) => (window.ToolsI18n?.getLanguage?.() === 'en-US' ? en : zh);
-    // 本文件由 navbar.js 按需加载：优先用统一弹窗 AppDialog，未加载时直接复用导航栏弹窗（同一套样式）
+    // 本文件由 platform-core.js 按需加载：优先用统一弹窗 AppDialog，未加载时直接复用导航栏弹窗（同一套样式）
     const confirmDialog = (message, options = {}) => (window.AppDialog
         ? window.AppDialog.confirm(message, { cancelText: L('取消', 'Cancel'), ...options })
-        : window.showNavbarConfirm({ message, cancelText: L('取消', 'Cancel'), ...options }));
+        : window.showPlatformConfirm({ message, cancelText: L('取消', 'Cancel'), ...options }));
     const promptDialog = (message, options = {}) => (window.AppDialog
         ? window.AppDialog.prompt(message, { cancelText: L('取消', 'Cancel'), ...options })
-        : window.showNavbarFormDialog({ title: options.title, message, cancelText: L('取消', 'Cancel'), fields: [{ name: 'value', value: options.defaultValue || '', maxLength: options.maxLength }] })
+        : window.showPlatformFormDialog({ title: options.title, message, cancelText: L('取消', 'Cancel'), fields: [{ name: 'value', value: options.defaultValue || '', maxLength: options.maxLength }] })
             .then(values => (values ? String(values.value ?? '') : null)));
     const STATE_LABEL = {
         idle: ['未连接', 'Disconnected'],

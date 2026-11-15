@@ -76,8 +76,9 @@
         const en = lang() === 'en-US';
         const superAdmin = isSuperAdmin();
         return (window.HomeSkills?.items?.() || []).filter(item => !item.hidden).map(item => {
-            const source = window.SkillSource?.kind(item) || 'chat';
-            const cat = { builtin: 'builtin', import: 'imported', external: 'external' }[source] || 'custom';
+            const isBuiltIn = item.builtIn === true;
+            const source = isBuiltIn ? 'builtin' : (window.SkillSource?.kind(item) === 'builtin' ? 'chat' : (window.SkillSource?.kind(item) || 'chat'));
+            const cat = isBuiltIn ? 'builtin' : ({ import: 'imported', external: 'external' }[source] || 'custom');
             const isShared = item.sharedAccess === true;
             const extraCats = [item.workspace ? 'workspace' : null, superAdmin ? (isShared ? 'sharedWithAll' : 'unsharedOnly') : null].filter(Boolean);
             const badges = [`@${item.id}`];
@@ -90,11 +91,11 @@
             if (item.workspace) badges.push(t('workspace'));
             return {
                 key: `skill:${item.id}`, kind: 'skill', shared: item.shared, personal: item.personal, id: item.id, src: item, source,
-                sharedAccess: isShared, builtIn: cat === 'builtin',
+                sharedAccess: isShared, builtIn: isBuiltIn,
                 title: (en ? item.nameEn : '') || item.name || item.id,
                 desc: (en ? item.descriptionEn : '') || item.description || t('defaultSkillDesc'),
-                icon: item.icon || '✨', color: item.builtIn ? '#10a37f' : '#f472b6',
-                cat, catLabel: t(cat), mine: !item.builtIn, extraCats,
+                icon: item.icon || '✨', color: isBuiltIn ? '#10a37f' : '#f472b6',
+                cat, catLabel: t(cat), mine: !isBuiltIn, extraCats,
                 badges,
                 updatedAt: item.updatedAt || '', href: `/?skill=${encodeURIComponent(item.id)}`
             };
@@ -114,12 +115,14 @@
             }
             const baseHref = item.href || group.href || '';
             const href = baseHref ? `${baseHref}${baseHref.includes('?') ? '&' : '?'}capability=${encodeURIComponent(item.id)}` : '';
+            const isBuiltIn = item.builtIn === true;
             return {
                 key: `cap:${group.kind}:${item.id || index}`, kind: 'plugin', capabilityId: item.id, capabilityBadge: item.badge, capabilityKind: item.kind,
-                sharedAccess: isShared, builtIn: item.builtIn === true,
-                source: item.builtIn === true ? 'builtin' : group.kind === 'float' ? 'float' : 'custom',
+                promoteId: item.promoteId || item.id, builtInLocked: item.builtInLocked === true,
+                sharedAccess: isShared, builtIn: isBuiltIn,
+                source: isBuiltIn ? 'builtin' : (group.kind === 'float' ? 'float' : 'custom'),
                 title: (en ? item.nameEn : '') || item.name, desc: item.description || '',
-                icon: item.icon || group.icon || '🧩', color: group.color || '#38bdf8',
+                icon: item.icon || group.icon || '🧩', color: isBuiltIn ? '#10a37f' : (group.color || '#38bdf8'),
                 cat: group.kind, catLabel: (en ? group.labelEn : '') || group.label, extraCats,
                 badges,
                 updatedAt: item.updatedAt || '', href
@@ -178,7 +181,7 @@
                 if (updatedText) badges.push(updatedText);
                 return {
                     key: `tool:${tool.id}`, kind: 'tool', id: tool.id, slug, title: tool.title, desc: tool.description || '',
-                    icon: tool.icon || '🧩', color: tool.color || '#64748b', cat: tool.group, catLabel: tool.group,
+                    icon: tool.icon || '🧩', color: builtIn ? '#10a37f' : (tool.color || '#64748b'), cat: tool.group, catLabel: tool.group,
                     badges, mine: favorites.has(tool.id), updatedAt, href: tool.href,
                     sharedAccess: isShared, shared: Boolean(shared || sharedAccess), builtIn, source, extraCats
                 };
@@ -317,7 +320,7 @@
                 </div>
             </div>
             <div class="v2-hub-grid"></div>`;
-        window.HomeV2?.fillIcons?.(root);
+        window.HomeShell?.fillIcons?.(root);
         renderFilters();
         renderList();
     }
@@ -381,12 +384,14 @@
             }
             if (state.filterSource !== 'all') {
                 if (state.filterSource === 'builtin') {
-                    if (!item.builtIn && item.source !== 'builtin') return false;
+                    if (!item.builtIn || item.source !== 'builtin') return false;
                 } else if (state.filterSource === 'shared') {
-                    if (item.source !== 'shared' && !item.sharedAccess && !item.shared) return false;
+                    if (item.builtIn || (item.source !== 'shared' && !item.sharedAccess && !item.shared)) return false;
                 } else if (state.filterSource === 'custom') {
-                    if (item.source !== 'custom') return false;
-                } else if (item.source !== state.filterSource) {
+                    if (item.builtIn || item.source === 'builtin' || item.source !== 'custom') return false;
+                } else if (state.filterSource === 'chat') {
+                    if (item.builtIn || (item.source !== 'chat' && item.source !== 'custom')) return false;
+                } else if (item.builtIn || item.source !== state.filterSource) {
                     return false;
                 }
             }
@@ -422,7 +427,7 @@
         root.querySelector('.v2-hub-grid').innerHTML = list.length
             ? `<div class="v2-hub-cards">${list.map(card).join('')}</div>`
             : `<div class="v2-hub-empty">${esc(emptyText)}</div>`;
-        window.HomeV2?.fillIcons?.(root);
+        window.HomeShell?.fillIcons?.(root);
         window.SkillSource?.fit?.(root);
     }
 
@@ -533,7 +538,7 @@
 
     function init() {
         const main = document.querySelector('.home-main');
-        if (!main || document.documentElement.dataset.ui !== 'v2') return;
+        if (!main) return;
         root = document.createElement('section');
         root.className = 'v2-hub';
         root.id = 'v2SkillHub';
@@ -563,7 +568,7 @@
             });
         });
         document.addEventListener('click', event => { if (state.open && !root.contains(event.target)) toggleMenu(false); });
-        // 菜单里的 data-v2-do（工具市场、上传）由 home-v2.js 执行，这里只负责收起菜单
+        // 菜单里的 data-v2-do（工具市场、上传）由 home-shell.js 执行，这里只负责收起菜单
         root.addEventListener('input', event => {
             if (!event.target.matches('.v2-hub-search input')) return;
             state.query = event.target.value;

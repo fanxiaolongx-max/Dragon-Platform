@@ -121,18 +121,18 @@
         window.SidebarResize?.setWidth(panel,width);
     }
     function collapseMenu(){
-        const v2=document.documentElement.dataset.ui==='v2';
-        previousMenu={v2,collapsed:document.body.classList.contains(v2?'v2-side-collapsed':'home-sidebar-collapsed')};
-        if(v2&&window.HomeV2?.setSideCollapsed)window.HomeV2.setSideCollapsed(true,{remember:false});
-        else document.body.classList.add(v2?'v2-side-collapsed':'home-sidebar-collapsed');
+
+        previousMenu={collapsed:document.body.classList.contains('v2-side-collapsed')};
+        if(window.HomeShell?.setSideCollapsed)window.HomeShell.setSideCollapsed(true,{remember:false});
+        else document.body.classList.add('v2-side-collapsed');
         autoFit=true;
     }
     function restoreMenu(){
         if(!previousMenu)return;
-        const {v2,collapsed}=previousMenu,key=v2?'v2-side-collapsed':'home-sidebar-collapsed';
-        const next=innerWidth<=860&&v2?true:collapsed;
+        const {collapsed}=previousMenu,key='v2-side-collapsed';
+        const next=innerWidth<=860?true:collapsed;
         if(document.body.classList.contains(key)){
-            if(v2&&window.HomeV2?.setSideCollapsed)window.HomeV2.setSideCollapsed(next,{remember:false});
+            if(window.HomeShell?.setSideCollapsed)window.HomeShell.setSideCollapsed(next,{remember:false});
             else{document.body.classList.toggle(key,next);document.body.classList.remove('v2-mobile-side-open');}
         }
         previousMenu=null;

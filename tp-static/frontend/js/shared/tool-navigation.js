@@ -49,7 +49,7 @@
         }
     }
 
-    const toolPath = /^\/(?:uivf12|sla|report|expedite|monthly|ai-report|duty-roster|bigscreen|topic-analysis|frt|praudit|storage|db-explorer|netcare-explorer|requirements|cinema|cinama|project-evolution|python-updater|desktop-license-admin)(?:\/|\.html$|$)|^\/(?:tools|apps)\/[^/]+(?:\/|$)|^\/pages\/(?:uivf12|sla|report|expedite|ai-report|monthly|monthly-designer|duty-roster|bigscreen|topic-analysis|frt|praudit|storage|db-explorer|netcare-explorer|requirements|custom-tool|cinema|project-evolution|python-updater|desktop-license-admin)\.html$/;
+    const toolPath = /^\/(?:uivf12|sla|report|expedite|monthly|ai-bi|ai-report|duty-roster|bigscreen|topic-analysis|frt|praudit|storage|db-explorer|netcare-explorer|requirements|cinema|cinama|project-evolution|python-updater|desktop-license-admin)(?:\/|\.html$|$)|^\/(?:tools|apps)\/[^/]+(?:\/|$)|^\/pages\/(?:uivf12|sla|report|expedite|ai-report|ai-bi|monthly|monthly-designer|duty-roster|bigscreen|topic-analysis|frt|praudit|storage|db-explorer|netcare-explorer|requirements|custom-tool|cinema|project-evolution|python-updater|desktop-license-admin)\.html$/;
     const originals = new WeakMap();
     function resolveTool(href) {
         if (!href || String(href).startsWith('#')) return null;
@@ -71,6 +71,8 @@
     function toolUrl(href) {
         const url = resolveTool(href);
         if (!url) return href;
+        const custom = url.pathname.match(/^\/tools\/([^/]+)\/?$/);
+        if (custom) url.pathname = '/custom-tools/' + custom[1] + '/index.html';
         url.searchParams.set('standalone', '1');
         return url.pathname + url.search + url.hash;
     }
@@ -105,7 +107,7 @@
         const href = originals.get(link) || link.getAttribute('href'), url = resolveTool(href);
         if (!url || url.searchParams.get('standalone') === '1') return;
         event.preventDefault(); event.stopPropagation();
-        window.HomeV2?.closePop?.();
+        window.HomeShell?.closePop?.();
         const path = url.pathname + url.search + url.hash;
         if (document.documentElement.classList.contains('is-clean-tool')) { location.assign(toolUrl(path)); return; }
         if (!window.HomeToolFrame?.open?.(path)) location.assign(shellUrl(path));
@@ -122,7 +124,10 @@
     const publicPath = /^\/(?:cinema|cinama|project-evolution|privacy|terms)(?:\/|\.html$|$)|^\/pages\/(?:cinema|cinama|project-evolution|privacy|terms)\.html$/i;
     const isPublic = publicPath.test(location.pathname);
     const current = location.pathname !== '/' ? resolveTool(location.href) : null;
-    let clean = current?.searchParams.get('standalone') === '1' || (isPublic && window.top === window);
+    // Raw tool documents use their own access policy, including anonymous access.
+    // Sending them through the platform shell would require a login again.
+    const rawTool = location.pathname.startsWith('/custom-tools/');
+    let clean = current?.searchParams.get('standalone') === '1' || ((isPublic || rawTool) && window.top === window);
     try { if (window.top !== window) clean ||= window.top.document.documentElement.classList.contains('is-clean-tool'); } catch { /* Cross-origin host. */ }
     if (current || clean) {
         if (!isPublic || window.top !== window) {
@@ -134,7 +139,7 @@
             location.replace(shellUrl(location.href));
         }
         const style = document.createElement('style');
-        style.textContent = 'html.is-embedded-tool{--navbar-h:0px}html.is-embedded-tool #app-navbar,html.is-embedded-tool #navbar-container{display:none!important}html.is-clean-tool :is(.ai-fab,.ai-panel,.ai-proactive-alert,.ops-inbox-banner,.ops-home-inbox,.custom-tool-head){display:none!important}html.is-clean-tool .custom-tool-shell{grid-template-rows:1fr}';
+        style.textContent = 'html.is-embedded-tool{--navbar-h:0px}html.is-clean-tool :is(.ai-fab,.ai-panel,.ai-proactive-alert,.ops-inbox-banner,.ops-home-inbox,.custom-tool-head){display:none!important}html.is-clean-tool .custom-tool-shell{grid-template-rows:1fr}';
         document.head.append(style);
     }
     scan(document);

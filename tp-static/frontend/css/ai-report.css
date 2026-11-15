@@ -383,17 +383,16 @@ html:has(body.air-moving){overflow-anchor:none}
 .air-chrome-toggle{position:fixed;top:calc(var(--navbar-h,52px) + var(--air-toolbar-h));left:50%;z-index:31;transform:translateX(-50%);width:44px;height:16px;display:grid;place-items:center;padding:0;border:0;border-radius:0 0 9px 9px;background:#102b47;color:#c9d9ea;box-shadow:0 3px 8px #102b4726;opacity:.75;transition:top .32s cubic-bezier(.2,.8,.2,1),opacity .15s,background .15s}
 .air-chrome-toggle:hover,.air-chrome-toggle:focus-visible{opacity:1;background:#1b4268;color:#fff}
 .air-chrome-toggle svg{transition:transform .32s cubic-bezier(.2,.8,.2,1)}
-#app-navbar{transition:transform .32s cubic-bezier(.2,.8,.2,1)}
+
 .air-toolbar{transition:height .32s cubic-bezier(.2,.8,.2,1),margin-top .32s cubic-bezier(.2,.8,.2,1),opacity .2s}
 .air-chat{transition:top .32s cubic-bezier(.2,.8,.2,1),height .32s cubic-bezier(.2,.8,.2,1)}
-html.air-chrome-hidden #app-navbar{transform:translateY(-105%);box-shadow:none}
 html.air-chrome-hidden .air-toolbar{height:0;margin-top:0;opacity:0;overflow:hidden;pointer-events:none}
 html.air-chrome-hidden .air-chat{top:20px;height:calc(100vh - 32px)}
 html.air-chrome-hidden .air-chrome-toggle{top:0}
 html.air-chrome-hidden .air-chrome-toggle svg{transform:rotate(180deg)}
 body.air-export .air-chrome-toggle,.air-preview-print .air-chrome-toggle{display:none}
 @media print{.air-chrome-toggle{display:none!important}}
-@media(prefers-reduced-motion:reduce){.air-chrome-toggle,.air-chrome-toggle svg,#app-navbar,.air-toolbar,.air-chat,.air-layout{transition:none}}
+@media(prefers-reduced-motion:reduce){.air-chrome-toggle,.air-chrome-toggle svg,.air-toolbar,.air-chat,.air-layout{transition:none}}
 /* Narrow cells stack their blocks top to bottom, whatever widths the recipe gave them (the cell is the container). */
 @container (max-width:480px){
     .air-output:not([data-horizontal]) .kit-row{flex-direction:column;align-items:stretch}
@@ -670,6 +669,11 @@ html.air-chrome-hidden .air-focus-open .air-layout{height:100vh}
 .air-view-field{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--air-muted);min-width:0}
 .air-view-field input,.air-view-field select{font-size:12px;padding:4px 6px;border:1px solid var(--air-line);border-radius:6px;background:var(--air-card,#fff);color:var(--air-ink,#1d2b3a);min-width:0}
 .air-view-check{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--air-ink,#1d2b3a);align-self:end;padding-bottom:4px}
+.air-view-field input[type=color]{padding:1px 2px;height:28px;cursor:pointer}
+.air-view-common{margin:0 12px 10px}
+.air-view-extract{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 12px 10px;padding:8px 10px;border:1px dashed var(--air-line);border-radius:8px;font-size:12px;color:var(--air-muted)}
+.air-view-extract button{font-size:12px;padding:4px 10px;border:1px solid var(--air-accent,#2f6fae);border-radius:6px;background:var(--air-card,#fff);color:var(--air-accent,#2f6fae);cursor:pointer}
+.air-view-extract button:disabled{opacity:.6;cursor:default}
 
 /* Marking mode */
 html.air-marking .air-cell-body{cursor:crosshair}
@@ -684,3 +688,24 @@ html.air-marking .air-cell-body *{cursor:crosshair}
 .air-mark-pop div{display:flex;justify-content:flex-end;gap:6px}
 .air-mark-pop button{font-size:12px;padding:4px 10px;border-radius:6px;border:1px solid var(--air-line,#d9e2ec);background:var(--air-card,#fff)}
 .air-mark-pop button.air-primary{background:var(--air-accent,#2f6fae);color:#fff;border-color:transparent}
+
+/* Settings panel and marking: quiet motion, clear focus, friendly hovers (shared by the monthly report and AI BI) */
+.air-view-panel>summary{transition:background .15s}
+.air-view-panel>summary:hover{background:#eef3f8}
+.air-view-panel[open]>summary~*{animation:air-panel-in .2s cubic-bezier(.2,.8,.2,1)}
+.air-view-slot{transition:border-color .15s,box-shadow .15s}
+.air-view-slot:focus-within{border-color:#9fb6cf;box-shadow:0 0 0 3px #2f6fae14}
+.air-view-field input,.air-view-field select{transition:border-color .15s,box-shadow .15s}
+.air-view-field input:hover,.air-view-field select:hover{border-color:#9fb6cf}
+.air-view-field input:focus,.air-view-field select:focus{outline:none;border-color:var(--air-accent,#2f6fae);box-shadow:0 0 0 3px #2f6fae26}
+.air-view-check input{accent-color:var(--air-accent,#2f6fae);width:15px;height:15px}
+.air-view-extract button{transition:background .15s,color .15s,transform .1s}
+.air-view-extract button:hover:not(:disabled){background:var(--air-accent,#2f6fae);color:#fff}
+.air-view-extract button:active:not(:disabled){transform:scale(.97)}
+.air-view-extract button:disabled{animation:air-breathe 1.2s ease-in-out infinite}
+.air-mark-pop{animation:air-panel-in .18s cubic-bezier(.2,.8,.2,1)}
+@keyframes air-panel-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@keyframes air-breathe{50%{opacity:.45}}
+@media (prefers-reduced-motion:reduce){.air-view-panel *,.air-mark-pop,.air-view-extract button{animation:none!important;transition:none!important}}
+.air-mark-pin{animation:air-pin-drop .28s cubic-bezier(.2,.8,.2,1)}
+@keyframes air-pin-drop{from{opacity:0;transform:translateY(-12px) rotate(-45deg)}to{opacity:1;transform:rotate(-45deg)}}

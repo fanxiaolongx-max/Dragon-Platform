@@ -1,5 +1,5 @@
 // 首页两种互斥模式：对话（Dragon Claw + 历史对话 + 右侧工作区）与工具（分类 + 卡片网格）。
-// 左侧图标栏切换模式；同一图标再点一次收起/展开侧栏面板；友情链接以弹层展示。
+// 首页外框由 home-shell.js 负责；本模块协调工具中心、会话模式及侧栏宽度。
 // 模式写在地址栏（#tools），刷新后保持；body 上的 home-mode-chat / home-mode-tools 决定各区块显隐。
 (function () {
     'use strict';
@@ -17,18 +17,14 @@
         }
     };
     const MODES = ['chat', 'tools'];
-    const SIDEBAR_KEY = 'home_sidebar_mode';
-    const AUTO_COLLAPSE = 1280; // 窄于此宽度默认只显示图标栏
-    const WORKSPACE_COLLAPSE = 1600; // 右侧工作区打开且窄于此宽度时，左侧自动收成图标栏
     const MOBILE = 860;
     const WIDTH_KEY = 'home_sidebar_width';
-    const MIN_WIDTH = document.documentElement.dataset.ui === 'v2' ? 208 : 280;
+    const MIN_WIDTH = 208;
     const MAX_WIDTH = 560;
 
     const el = {};
     let mode = 'chat';
     // 工作区打开期间用户手动展开/收起的选择；工作区开关变化时清空，回到自动规则
-    let workspaceOverride = null;
     let lastWorkspaceOpen = false;
     let widthScope = '';
     let widths = {};
@@ -67,9 +63,9 @@
         el.layout.style.setProperty('--ws-side-max', `${bounds.max}px`);
         if (widths[mode] !== undefined) el.layout.style.setProperty('--ws-side-preferred', `${widths[mode]}px`);
         else el.layout.style.removeProperty('--ws-side-preferred');
-        if(document.documentElement.dataset.ui==='v2')document.documentElement.style.setProperty('--v2-side-width', `${Math.max(bounds.min,Math.min(bounds.max,widths[mode] || 240))}px`);
+        document.documentElement.style.setProperty('--v2-side-width', `${Math.max(bounds.min,Math.min(bounds.max,widths[mode] || 240))}px`);
         if (el.resizer) {
-            el.resizer.hidden = isMobile() || (document.documentElement.dataset.ui==='v2' ? document.body.classList.contains('v2-side-collapsed') : isCollapsed());
+            el.resizer.hidden = isMobile() || (document.body.classList.contains('v2-side-collapsed'));
             el.resizer.setAttribute('aria-valuemin', String(bounds.min));
             el.resizer.setAttribute('aria-valuemax', String(bounds.max));
             if (!el.resizer.hidden) el.resizer.setAttribute('aria-valuenow', String(Math.round(el.sidebar.getBoundingClientRect().width)));
@@ -116,7 +112,7 @@
             applySidebarWidth();
         };
         el.resizer.addEventListener('pointerdown', event => {
-            if (drag || event.button !== 0 || !event.isPrimary || isMobile() || (document.documentElement.dataset.ui==='v2' ? document.body.classList.contains('v2-side-collapsed') : isCollapsed())) return;
+            if (drag || event.button !== 0 || !event.isPrimary || isMobile() || (document.body.classList.contains('v2-side-collapsed'))) return;
             event.preventDefault();
             loadWidths();
             drag = { pointerId: event.pointerId, x: event.clientX, width: el.sidebar.getBoundingClientRect().width, preferred: widths[mode], mode, scope: widthScope };
@@ -172,42 +168,11 @@
         return mode === 'chat' && document.body.classList.contains('dc-workspace-open');
     }
 
-    function storedSidebarMode() {
-        try { return localStorage.getItem(SIDEBAR_KEY); } catch { return null; }
-    }
-
-    function isCollapsed() {
-        return document.body.classList.contains('home-sidebar-collapsed');
-    }
-
     function applySidebarMode() {
-        let collapsed = false;
-        if (!isMobile()) {
-            const stored = storedSidebarMode();
-            collapsed = stored ? stored === 'collapsed' : window.innerWidth < AUTO_COLLAPSE;
-            if (workspaceOpen() && window.innerWidth < WORKSPACE_COLLAPSE) collapsed = workspaceOverride ?? true;
-            else if (workspaceOpen() && workspaceOverride !== null) collapsed = workspaceOverride;
-        }
-        if (collapsed || isMobile()) finishResize(false);
-        document.body.classList.toggle('home-sidebar-collapsed', collapsed);
-        el.toggles.forEach(button => {
-            const label = tx(collapsed ? 'expand' : 'collapse');
-            button.setAttribute('aria-expanded', String(!collapsed));
-            button.setAttribute('aria-label', label);
-            button.title = label;
-        });
+        if (isMobile() || document.body.classList.contains('v2-side-collapsed')) finishResize(false);
         applySidebarWidth();
     }
 
-    function setCollapsed(collapsed) {
-        if (workspaceOpen()) workspaceOverride = collapsed;
-        else {
-            try { localStorage.setItem(SIDEBAR_KEY, collapsed ? 'collapsed' : 'expanded'); } catch { /* 无痕模式下仅本次生效 */ }
-        }
-        applySidebarMode();
-    }
-
-    // 新版界面不再有旧的「工具」模式（左侧分类 + 卡片网格）：所有进入工具的入口都打开「技能·插件·工具」中心的工具页（js/home/skill-hub.js）
     let hubToolsRequest = 0;
     function openHubTools() {
         const version = ++hubToolsRequest;
@@ -220,10 +185,10 @@
         finishResize(false);
         if (!MODES.includes(next)) next = 'chat';
         if (!document.getElementById('dragonClaw')) next = 'tools'; // 没有智能体区域时只有工具
-        const hubTools = document.documentElement.dataset.ui === 'v2' && next === 'tools' && Boolean(document.getElementById('dragonClaw'));
-        // 工具中心复用主区，侧栏继续保留对话列表，不激活旧版工具分类。
+        const hubTools = next === 'tools' && Boolean(document.getElementById('dragonClaw'));
+        // 工具中心复用主区，侧栏继续保留对话列表。
         if (hubTools) next = 'chat';
-        else if (document.documentElement.dataset.ui === 'v2') { ++hubToolsRequest; window.HomeSkillHub?.close?.(); }
+        else { ++hubToolsRequest; window.HomeSkillHub?.close?.(); }
         const changed = next !== mode || !document.body.classList.contains(`home-mode-${next}`);
         mode = next;
         document.body.classList.toggle('home-mode-chat', mode === 'chat');
@@ -255,66 +220,11 @@
         return Boolean(el.linksPop && !el.linksPop.hidden);
     }
 
-    function positionLinks() {
-        if (!linksOpen() || isMobile()) {
-            el.linksPop?.style.removeProperty('left');
-            el.linksPop?.style.removeProperty('top');
-            return;
-        }
-        const anchor = el.linksBtn.getBoundingClientRect();
-        const rail = el.rail.getBoundingClientRect();
-        const pop = el.linksPop.getBoundingClientRect();
-        const top = Math.max(12, Math.min(anchor.bottom - pop.height, window.innerHeight - pop.height - 12));
-        el.linksPop.style.left = `${Math.round(rail.right + 10)}px`;
-        el.linksPop.style.top = `${Math.round(top)}px`;
-    }
-
-    function toggleLinks(open = !linksOpen(), { focus = true } = {}) {
-        if (document.documentElement.dataset.ui === 'v2') { if (open) window.HomeV2?.openLinks?.(null, focus); else if (el.linksPop) el.linksPop.hidden = true; return; }
-        if (!el.linksPop) return;
-        clearTimeout(hoverTimer);
-        el.linksPop.hidden = !open;
-        el.linksBtn.setAttribute('aria-expanded', String(open));
-        el.linksBtn.classList.toggle('is-open', open);
-        if (open) {
-            positionLinks();
-            if (focus) el.linksPop.querySelector('.friend-link:not([hidden])')?.focus({ preventScroll: true });
-        }
-    }
-
-    // 鼠标悬停即展开（触屏仍为点击）：移开后稍作停留再收起，便于把鼠标移进弹层
-    let hoverTimer = 0;
-    const HOVER_OPEN_DELAY = 120;
-    const HOVER_CLOSE_DELAY = 280;
-
-    function hoverCapable(event) {
-        return event.pointerType === 'mouse' && !isMobile();
-    }
-
-    function scheduleLinks(open, delay) {
-        clearTimeout(hoverTimer);
-        hoverTimer = setTimeout(() => {
-            if (open !== linksOpen()) toggleLinks(open, { focus: false });
-        }, delay);
-    }
-
-    function bindLinksHover() {
-        if (!el.linksBtn || !el.linksPop) return;
-        el.linksBtn.addEventListener('pointerenter', event => { if (hoverCapable(event)) scheduleLinks(true, HOVER_OPEN_DELAY); });
-        el.linksBtn.addEventListener('pointerleave', event => { if (hoverCapable(event)) scheduleLinks(false, HOVER_CLOSE_DELAY); });
-        el.linksPop.addEventListener('pointerenter', event => { if (hoverCapable(event)) clearTimeout(hoverTimer); });
-        el.linksPop.addEventListener('pointerleave', event => {
-            // 弹层里打开了管理对话框等焦点仍在弹层内时不自动收起
-            if (hoverCapable(event) && !el.linksPop.contains(document.activeElement)) scheduleLinks(false, HOVER_CLOSE_DELAY);
-        });
-    }
-
     function applyTexts() {
         document.querySelectorAll('[data-home-mode-i18n]').forEach(node => {
             node.textContent = tx(node.dataset.homeModeI18n);
         });
         el.modeButtons.forEach(button => { button.title = tx(button.dataset.homeMode); });
-        if (el.linksBtn) el.linksBtn.title = tx('linksTitle');
         const chatSearch = document.getElementById('homeChatSearch');
         if (chatSearch) chatSearch.placeholder = tx('chatSearch');
         if (el.resizer) {
@@ -326,33 +236,6 @@
 
     function bindEvents() {
         bindSidebarResize();
-        el.modeButtons.forEach(button => button.addEventListener('click', () => {
-            toggleLinks(false);
-            const next = button.dataset.homeMode;
-            // 点当前模式的图标：收起/展开侧栏面板
-            if (next === mode && !isMobile()) return setCollapsed(!isCollapsed());
-            setMode(next, { focus: next === 'tools' && !isCollapsed() });
-        }));
-        el.toggles.forEach(button => button.addEventListener('click', () => setCollapsed(!isCollapsed())));
-
-        el.linksBtn?.addEventListener('click', event => {
-            event.stopPropagation();
-            // 悬停已展开时点击不再收起（避免“移上去展开、一点又关上”）；键盘或触屏点击照常切换
-            if (event.detail > 0 && linksOpen() && el.linksBtn.matches(':hover') && !isMobile()) return;
-            toggleLinks();
-        });
-        bindLinksHover();
-        document.addEventListener('pointerdown', event => {
-            if (linksOpen() && !el.linksPop.contains(event.target) && !el.linksBtn.contains(event.target)) toggleLinks(false);
-        });
-        document.addEventListener('keydown', event => {
-            if (event.key === 'Escape' && linksOpen()) {
-                toggleLinks(false);
-                el.linksBtn.focus();
-            }
-        });
-
-        // 旧入口（对话头部「浏览工具」、侧栏 Dragon Claw 等）沿用的事件
         window.addEventListener('home:show-tools', () => setMode('tools'));
         window.addEventListener('home:show-agent', () => setMode('chat'));
         window.addEventListener('hashchange', () => setMode(modeFromHash(), { updateHash: false }));
@@ -364,7 +247,6 @@
             cancelAnimationFrame(raf);
             raf = requestAnimationFrame(() => {
                 applySidebarMode();
-                positionLinks();
             });
         }, { passive: true });
 
@@ -373,7 +255,6 @@
             const open = document.body.classList.contains('dc-workspace-open');
             if (open === lastWorkspaceOpen) return;
             lastWorkspaceOpen = open;
-            workspaceOverride = null;
             applySidebarMode();
         }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
     }
@@ -383,11 +264,9 @@
         if (!el.sidebar) return;
         el.layout = el.sidebar.closest('.home-workspace');
         el.resizer = document.getElementById('homeSidebarResizer');
-        el.rail = el.sidebar.querySelector('.home-rail');
         el.modeButtons = [...el.sidebar.querySelectorAll('[data-home-mode]')];
         el.panels = [...el.sidebar.querySelectorAll('[data-home-panel]')];
         el.toggles = [...el.sidebar.querySelectorAll('.home-sidebar-toggle')];
-        el.linksBtn = document.getElementById('homeLinksBtn');
         el.linksPop = document.getElementById('homeLinksPop');
         // 侧栏带 backdrop-filter，会成为 fixed 子元素的定位容器；弹层挂到 body 下才能贴着图标栏定位
         if (el.linksPop && el.linksPop.parentElement !== document.body) document.body.appendChild(el.linksPop);
@@ -399,7 +278,7 @@
         requestAnimationFrame(() => requestAnimationFrame(() => document.body.classList.remove('home-booting')));
     }
 
-    // 只有工具区用到的数据（统计、操作历史、友链、页面更新时间）不和对话区抢首屏请求：
+    // 只有工具区用到的数据（友链、页面更新时间）不和对话区抢首屏请求：
     // 切到工具区时立即加载，否则等页面加载完、浏览器空闲后再补上。
     function whenTools(task) {
         let done = false;

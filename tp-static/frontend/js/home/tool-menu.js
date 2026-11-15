@@ -146,11 +146,15 @@
                     kind: 'plugin',
                     id: item.key,
                     capabilityId: item.capabilityId,
+                    promoteId: item.promoteId || item.capabilityId,
+                    builtInLocked: item.builtInLocked === true,
+                    builtIn: item.builtIn === true,
                     badge: item.capabilityBadge,
                     capabilityKind: item.capabilityKind,
                     sharedAccess: item.sharedAccess,
                     name: item.title,
-                    href: item.href
+                    href: item.href,
+                    card
                 };
             }
             // item.kind === 'tool'
@@ -410,8 +414,8 @@
                 if (!CatalogUpdateAudit.hasUsedAfterUpdate(kind, id, target)) {
                     if (window.AppDialog?.alert) {
                         await window.AppDialog.alert(t('mustUseBeforeSubmit', { kind: kindText }), { title: label, tone: 'warning' });
-                    } else if (typeof window.showNavbarNotice === 'function') {
-                        await window.showNavbarNotice({ title: label, message: t('mustUseBeforeSubmit', { kind: kindText }), tone: 'warning' });
+                    } else if (typeof window.showPlatformNotice === 'function') {
+                        await window.showPlatformNotice({ title: label, message: t('mustUseBeforeSubmit', { kind: kindText }), tone: 'warning' });
                     }
                     return;
                 }
@@ -419,7 +423,7 @@
                 // 4. 提交前也会提示用户自己得好好用用再提
                 const confirmed = window.AppDialog?.confirm
                     ? await window.AppDialog.confirm(t('confirmSubmitPrompt', { kind: kindText }), { title: label, confirmText: t('confirmSubmitBtn') })
-                    : (typeof window.showNavbarConfirm === 'function' ? await window.showNavbarConfirm({ title: label, message: t('confirmSubmitPrompt', { kind: kindText }), confirmText: t('confirmSubmitBtn') }) : false);
+                    : (typeof window.showPlatformConfirm === 'function' ? await window.showPlatformConfirm({ title: label, message: t('confirmSubmitPrompt', { kind: kindText }), confirmText: t('confirmSubmitBtn') }) : false);
                 if (!confirmed) return;
 
                 if (accept) pickUpdateFile(accept, submit);
@@ -712,6 +716,22 @@
                 const accept = target.badge === 'extension' ? '.zip' : target.capabilityKind === 'python' ? '.py,.zip' : '.js,.json,.zip';
                 const capReview = reviewAction('cap', target.capabilityId, accept, target);
                 if (capReview) actions.push(capReview);
+                if (isSuperAdmin() && !isReadonly() && window.BuiltinPromotion?.toggle && ['f12', 'python'].includes(target.capabilityKind)) {
+                    const isLocked = target.builtInLocked || (target.capabilityId && window.BuiltinPromotion.isLocked?.(target.capabilityId));
+                    if (!isLocked) {
+                        actions.push({
+                            id: 'promote',
+                            label: target.builtIn ? t('demote') : t('promote'),
+                            icon: 'cube',
+                            run: async () => {
+                                await window.BuiltinPromotion.toggle(target.capabilityKind, target.promoteId || target.capabilityId, {
+                                    builtIn: target.builtIn,
+                                    name: target.name
+                                });
+                            }
+                        });
+                    }
+                }
                 if (canPersonalize()) {
                     actions.push(...personalActions('cap', target.capabilityId, target, () => window.HomeCapabilities?.reload?.(), options));
                 }
@@ -817,7 +837,7 @@
         });
 
         document.body.appendChild(menu);
-        window.HomeV2?.fillIcons?.(menu);
+        window.HomeShell?.fillIcons?.(menu);
         activeMenu = menu;
 
         // 定位计算

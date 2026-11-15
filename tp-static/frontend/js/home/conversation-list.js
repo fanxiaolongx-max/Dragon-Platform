@@ -94,14 +94,14 @@
             if (isDesktopAgent) {
                 const message = L('第三方 Agent 对话名称由原客户端管理，暂不支持重命名', 'Desktop agent conversations are managed by the original client and cannot be renamed.');
                 if (window.AppDialog?.alert) await window.AppDialog.alert(message, { title: L('无法重命名', 'Cannot rename'), tone: 'info' });
-                else if (typeof window.showNavbarNotice === 'function') await window.showNavbarNotice({ title: L('无法重命名', 'Cannot rename'), message, tone: 'info' });
+                else if (typeof window.showPlatformNotice === 'function') await window.showPlatformNotice({ title: L('无法重命名', 'Cannot rename'), message, tone: 'info' });
                 return;
             }
             const isChannel = Boolean(item?._sourceType && ['weixin','welink'].includes(item._sourceType)) || ['weixin','welink'].includes(config.source);
             if (isChannel) {
                 const message = L('外部频道对话名称由原客户端管理，暂不支持重命名', 'Channel conversations are managed by the original client and cannot be renamed.');
                 if (window.AppDialog?.alert) await window.AppDialog.alert(message, { title: L('无法重命名', 'Cannot rename'), tone: 'info' });
-                else if (typeof window.showNavbarNotice === 'function') await window.showNavbarNotice({ title: L('无法重命名', 'Cannot rename'), message, tone: 'info' });
+                else if (typeof window.showPlatformNotice === 'function') await window.showPlatformNotice({ title: L('无法重命名', 'Cannot rename'), message, tone: 'info' });
                 return;
             }
             const value=window.AppDialog?.prompt?await window.AppDialog.prompt(L('修改在平台列表中显示的名称','Change the name shown in this platform'),{title:L('重命名','Rename'),defaultValue:title,maxLength:160}):null;
@@ -133,7 +133,7 @@
         binding.config=config;
         let bar=binding.bar;if(!bar){bar=document.createElement('div');bar.className='conversation-list-toolbar';bar.setAttribute('role','group');binding.bar=bar;bar.addEventListener('click',event=>{const button=event.target.closest('[data-conversation-view]');if(!button)return;const source=bindings.get(list).config.source;views.set(source,button.dataset.conversationView);close();signal(source);});}
         list.before(bar);
-        bar.hidden=document.documentElement.dataset.ui==='v2';
+        bar.hidden=true;
         const count=config.items.filter(item=>{const p=get(config.source,config.id(item));return p.archived&&!p.hidden;}).length,archived=views.get(config.source)==='archived';
         bar.innerHTML=`<button type="button" data-conversation-view="active" aria-pressed="${!archived}">${L('对话','Chats')}</button><button type="button" data-conversation-view="archived" aria-pressed="${archived}">${L('已归档','Archived')}${count?' · '+count:''}</button>`;
         for(const main of list.querySelectorAll(config.selector)){
@@ -142,7 +142,7 @@
             row.before(wrapper);wrapper.append(row);const more=document.createElement('button');more.type='button';more.className='conversation-list-more';more.dataset.conversationMore='';more.textContent='···';more.title=L('对话操作','Conversation actions');more.setAttribute('aria-label',more.title);more.setAttribute('aria-haspopup','menu');wrapper.append(more);
             if(get(config.source,config.id(item)).pinned){wrapper.classList.add('is-pinned');const pin=document.createElement('span');pin.className='conversation-pin';pin.innerHTML=icon('pin');pin.title=L('已置顶','Pinned');wrapper.append(pin);}
         }
-        if(document.documentElement.dataset.ui==='v2')renderBatch(list);
+        renderBatch(list);
     }
     function renderBatch(list){
         const binding=bindings.get(list);if(!binding)return;
@@ -187,15 +187,8 @@
     const pagers=new WeakMap();
     function scroller(node){for(let el=node;el&&el!==document.body;el=el.parentElement){const y=getComputedStyle(el).overflowY;if((y==='auto'||y==='scroll')&&el.scrollHeight>el.clientHeight)return el;}return null;}
     function pager(list,{hasMore=false,loading=false,onMore}={}){
-        if(document.documentElement.dataset.ui==='v2'){const binding=bindings.get(list);if(binding){binding.paging={hasMore,loading,onMore};renderBatch(list);}return;}
-        if(!list)return;const old=pagers.get(list);old?.observer?.disconnect();old?.node?.remove();pagers.delete(list);
-        if(!hasMore)return;
-        const node=document.createElement('button');node.type='button';node.className='conversation-list-pager';node.textContent=loading?L('正在加载…','Loading…'):L('加载更多','Load more');node.disabled=loading;
-        node.addEventListener('click',()=>onMore?.());list.append(node);
-        const entry={node,observer:null};pagers.set(list,entry);
-        if(loading||!('IntersectionObserver' in window))return;
-        entry.observer=new IntersectionObserver(items=>{if(items.some(item=>item.isIntersecting)){entry.observer.disconnect();onMore?.();}},{root:scroller(list),rootMargin:'0px 0px 300px 0px'});
-        entry.observer.observe(node);
+        {const binding=bindings.get(list);if(binding){binding.paging={hasMore,loading,onMore};renderBatch(list);}return;}
+
     }
     window.HomeConversationList={stamp,sections,getFilter,setFilter,getSources,matchesSource,passesFilter,enhance,bucket,get,latest,healthDot,close,refresh:load,pager,reset:list=>{const binding=bindings.get(list);if(binding){binding.limit=6;binding.limits?.clear();renderBatch(list);}},
         // 分区「展开更多」计数清零：match(key) 为真的分区（如 'spaces' 及其下的 'project:…'）回到默认条数

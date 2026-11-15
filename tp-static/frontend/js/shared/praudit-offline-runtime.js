@@ -367,7 +367,6 @@
     }
 
     window.showToast = showToast;
-    window.renderNavbar = function () {};
     window.API = {
         get: offlineApiGet,
         post: offlineApiPost,

@@ -2461,24 +2461,7 @@ textarea { flex: 1; resize: none; white-space: pre; overflow: auto; line-height:
         linear-gradient(180deg, #f7f9fc 0%, #eef3f8 100%);
 }
 
-/* 顶部共享导航继续保持原有深色品牌视觉。 */
-#uiv-page.uiv-light-theme #app-navbar {
-    --primary: #0078d7;
-    --accent: #4caf50;
-    --danger: #c53030;
-    --warning: #d7ba7d;
-    --console: #e67e22;
-    --cyber: #64ffda;
-    --blue: #3498db;
-    --purple: #8e44ad;
-    --panel: #252526;
-    --panel2: #2d2d2d;
-    --border: #444;
-    --text: #d4d4d4;
-    --text-muted: #888;
-    --highlight: #dcdcaa;
-    color-scheme: dark;
-}
+
 
 #uiv-page.uiv-light-theme .page-content {
     position: relative;

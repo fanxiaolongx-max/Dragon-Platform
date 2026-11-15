@@ -368,7 +368,7 @@
 
     // 技能来源：内置 / 对话里创建 / 导入 / 外部命令生成（如 thcli +connect），名字后用小圆点区分
     window.SkillSource = {
-        kind: item => item?.builtIn || item?.source === 'builtin' ? 'builtin' : ['import', 'external', 'shared', 'float', 'custom'].includes(item?.source) ? item.source : (item?.shared || item?.sharedAccess) ? 'shared' : 'chat',
+        kind: item => (item?.builtIn === true ? 'builtin' : (['import', 'external', 'shared', 'float', 'custom'].includes(item?.source) ? item.source : ((item?.shared || item?.sharedAccess) ? 'shared' : 'chat'))),
         indicator: (source, meaning = '') => `<i class="skill-src-dot" data-src="${escapeHtml(source)}"${meaning ? ` role="img" aria-label="${escapeHtml(meaning)}" title="${escapeHtml(meaning)}"` : ' aria-hidden="true"'}></i>`,
         dot: item => window.SkillSource.indicator(window.SkillSource.kind(item)),
         // 名字 + 来源圆点：名字过长时在自己的轨道里来回滚动，圆点始终露在外面（插入页面后调用 fit 量一下）

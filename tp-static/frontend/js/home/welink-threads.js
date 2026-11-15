@@ -163,7 +163,7 @@
 
     async function confirmDialog(options) {
         if (window.AppDialog?.confirm) return window.AppDialog.confirm(options.message, options);
-        if (typeof window.showNavbarConfirm === 'function') return window.showNavbarConfirm(options);
+        if (typeof window.showPlatformConfirm === 'function') return window.showPlatformConfirm(options);
         return false;
     }
 
@@ -298,17 +298,13 @@
             window.dispatchEvent(new CustomEvent('tools:channels-updated', { detail: { items: state.channels, summary: state.channelSummary || null } }));
             return; // 读取失败保持现状
         }
-        const isV2 = document.documentElement.dataset.ui === 'v2';
+
         const hashChannel = ['#channels', '#welink', '#weixin'].includes(location.hash);
         const stored = storeGet(SOURCE_KEY);
-        if (isV2) {
+        {
             if (hashChannel && sources().includes('welink')) setSource('welink');
             else if (location.hash === '#weixin' && sources().includes('weixin')) setSource('weixin');
             else setSource('mine', { remember: false });
-        } else {
-            if (state.source === 'mine' && stored && stored !== 'mine' && sources().includes(stored)) setSource(stored);
-            else if (!sources().includes(state.source)) setSource('mine', { remember: false });
-            else renderTabs();
         }
         loadAllChannelThreads();
     }

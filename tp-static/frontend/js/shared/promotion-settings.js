@@ -1,5 +1,5 @@
 // 全局设置 › 平台推广：首页右上角推广区的显示设置、内置视频开关、推广链接增删改。
-// 由 navbar.js 在切换到 promotions 标签时按需加载；保存后派发 tools:platform-promotions-changed，首页即时生效。
+// 由 platform-core.js 在切换到 promotions 标签时按需加载；保存后派发 tools:platform-promotions-changed，首页即时生效。
 (function () {
     'use strict';
     if (window.ToolsPromotionSettings) return;
@@ -9,7 +9,7 @@
     const clone = value => JSON.parse(JSON.stringify(value));
     const confirmDialog = (message, options = {}) => (window.AppDialog
         ? window.AppDialog.confirm(message, { cancelText: L('取消', 'Cancel'), ...options })
-        : window.showNavbarConfirm({ message, cancelText: L('取消', 'Cancel'), ...options }));
+        : window.showPlatformConfirm({ message, cancelText: L('取消', 'Cancel'), ...options }));
     const COLORS = [
         ['teal', '青绿', 'Teal', '#14b8a6'], ['blue', '蓝', 'Blue', '#3b82f6'], ['violet', '紫', 'Violet', '#8b5cf6'],
         ['orange', '橙', 'Orange', '#f97316'], ['rose', '玫红', 'Rose', '#f43f5e'], ['green', '绿', 'Green', '#10b981']

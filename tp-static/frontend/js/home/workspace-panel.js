@@ -578,8 +578,8 @@
 
     async function confirmRevertConflict(filePath) {
         const options = { title: tx('revertConflictTitle'), message: tx('revertConflictMessage', { path: filePath }), confirmText: tx('revertConflictConfirm'), tone: 'danger' };
-        if (typeof window.showNavbarConfirm === 'function') return window.showNavbarConfirm(options);
-        if (typeof showNavbarConfirm === 'function') return showNavbarConfirm(options); // eslint-disable-line no-undef
+        if (typeof window.showPlatformConfirm === 'function') return window.showPlatformConfirm(options);
+        if (typeof showPlatformConfirm === 'function') return showPlatformConfirm(options); // eslint-disable-line no-undef
         return window.AppDialog.confirm(options.message, options);
     }
 
@@ -642,7 +642,7 @@
         const laterCount = later.slice(index + 1).filter(node => node.querySelector('.dc-rewind-btn')).length;
         const files = run.paths.slice(0, 8).join('\n') + (run.paths.length > 8 ? `\n${tx('rewindMoreFiles', { count: run.paths.length - 8 })}` : '');
         const options = { title: tx('rewindConfirmTitle'), message: `${tx(laterCount ? 'rewindConfirmLater' : 'rewindConfirm', { count: laterCount })}\n\n${files}`, confirmText: tx('rewindAction'), tone: 'danger' };
-        const ok = typeof window.showNavbarConfirm === 'function' ? await window.showNavbarConfirm(options) : await window.AppDialog.confirm(options.message, options);
+        const ok = typeof window.showPlatformConfirm === 'function' ? await window.showPlatformConfirm(options) : await window.AppDialog.confirm(options.message, options);
         if (!ok) return;
         try {
             const data = await request('POST', `${API}/checkpoints/${encodeURIComponent(target.id)}/rewind`, { root: target.root, runId: run.runId });
@@ -749,7 +749,7 @@
         if (!el.chip) return;
         el.chip.hidden = !state.enabled;
         if (!state.enabled) return;
-        if (document.documentElement.dataset.ui === 'v2') {
+        {
             const en = window.ToolsI18n?.getLanguage?.() === 'en-US';
             const label = (zh, english) => en ? english : zh;
             const folder = wsIcon('folder');
@@ -777,20 +777,8 @@
                 </details>`}`;
             return;
         }
-        if (!state.root) {
-            const last = state.prefs.lastDirectory;
-            el.chip.innerHTML = `
-                <button type="button" class="dc-ws-chip dc-ws-chip--empty" data-wsp-action="change"><span aria-hidden="true">📂</span>${escapeHtml(tx('chooseDirShort'))}</button>
-                ${last ? `<button type="button" class="dc-ws-chip dc-ws-chip--last" data-wsp-select="${escapeHtml(last)}" title="${escapeHtml(last)}"><span aria-hidden="true">↺</span>${escapeHtml(tx('useLastDir', { name: baseName(last) }))}</button>` : ''}`;
-            return;
-        }
-        el.chip.innerHTML = `
-            <button type="button" class="dc-ws-chip dc-ws-chip--active" data-wsp-action="panel" title="${escapeHtml(state.root)}">
-                <span aria-hidden="true">📁</span><b>${escapeHtml(state.rootName)}</b>
-                ${state.gitBranch ? `<i>⎇ ${escapeHtml(state.gitBranch)}</i>` : ''}
-                <em>${escapeHtml(isReadOnly() ? tx('readOnlyMode') : tx(`mode${state.permissionMode[0].toUpperCase()}${state.permissionMode.slice(1)}`))}</em>
-            </button>
-            <button type="button" class="dc-ws-chip-x" data-wsp-action="clear" aria-label="${escapeHtml(tx('clearDir'))}">×</button>`;
+
+
     }
 
     function renderAll() {
@@ -981,7 +969,7 @@
         }
         try { sessionStorage.setItem(SESSION_ROOT_KEY, data.root); } catch { /* ignore */ }
         renderAll();
-        if (openPanel && document.documentElement.dataset.ui !== 'v2') setOpen(true);
+
         refreshGit();
         toast(tx('workspaceReady', { name: state.rootName }));
         window.dispatchEvent(new CustomEvent('dragon-claw:workspace-change', { detail: { root: state.root } }));

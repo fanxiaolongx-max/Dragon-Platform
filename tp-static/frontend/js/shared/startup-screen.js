@@ -24,7 +24,7 @@
   const tr=(zh,en)=>window.ToolsI18n?.getLanguage()==='en-US'?en:zh;
   let closed=false,finishing=false,slow=false,fatal='',bar=null;const started=performance.now();
   const resize=new ResizeObserver(position),mutation=new MutationObserver(position);
-  function position(){if(closed)return;const nav=document.getElementById('app-navbar');if(nav&&nav!==bar){bar=nav;resize.observe(nav);}screen.style.setProperty('--startup-top',Math.max(0,nav?.getBoundingClientRect().bottom||parseFloat(getComputedStyle(document.body).getPropertyValue('--navbar-h'))||60)+'px');}
+  function position(){if(!closed)screen.style.setProperty('--startup-top','0px');}
   function paint(){
    if(closed)return;const settled=[...tasks.values()].filter(task=>['ready','error'].includes(task.state)).length,percent=Math.floor(settled/tasks.size*100);
    screen.style.setProperty('--startup-progress',percent+'%');screen.querySelector('[role=progressbar]').setAttribute('aria-valuenow',String(percent));screen.querySelector('[role=progressbar]').setAttribute('aria-label',tr('页面加载进度（按步骤）','Page loading progress (by step)'));
@@ -50,7 +50,7 @@
   const watchdog=setTimeout(()=>{slow=true;fail(tr('加载时间较长。可查看加载详情、继续等待，或进入页面。','Loading is taking longer. Check the details, keep waiting, or open the page.'));},30000);
   screen.querySelector('[data-startup-continue]').onclick=dismiss;screen.querySelector('[data-startup-retry]').onclick=()=>location.reload();
   window.addEventListener('resize',position);window.addEventListener('scroll',position,{passive:true});window.addEventListener('tools:languagechange',paint);mutation.observe(document.body,{childList:true});position();paint();
-  window.addEventListener('error',event=>{if(closed)return;const src=event.target?.src||event.filename||'';if(src.includes('./tp-static/frontend/js/')&&!src.includes('./tp-static/frontend/js/shared/navbar'))fail(tr('页面脚本未能启动，请重新加载。','A page script could not start. Reload the page.'));},{capture:true});
+  window.addEventListener('error',event=>{if(closed)return;const src=event.target?.src||event.filename||'';if(src.includes('./tp-static/frontend/js/')&&!src.includes('./tp-static/frontend/js/shared/platform-'))fail(tr('页面脚本未能启动，请重新加载。','A page script could not start. Reload the page.'));},{capture:true});
   return {run,step,issue,finish,fail,dismiss};
  }
  window.ToolsStartup={feather,create};const page=document.currentScript?.dataset.startupPage;if(page)window.ToolsPageStartup=create(page);

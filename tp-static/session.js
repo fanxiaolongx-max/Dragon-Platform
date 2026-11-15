@@ -6,7 +6,7 @@
     const style = document.createElement('style');
     style.textContent = `
         html.is-embedded-tool { --navbar-h: 0px; }
-        html.is-clean-tool :is(#tp-demo-nav, #app-navbar, #navbar-container, .custom-tool-head,
+        html.is-clean-tool :is(#tp-demo-nav, .custom-tool-head,
             .ai-fab, .ai-panel, .ai-proactive-alert, .ops-inbox-banner, .ops-home-inbox) { display: none !important; }
         html.is-clean-tool .custom-tool-shell { grid-template-rows: 1fr; }
     `;

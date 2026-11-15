@@ -3,7 +3,7 @@
  *   await AppDialog.alert('已保存', { title: '提示', tone: 'success' });
  *   if (await AppDialog.confirm('确认删除？', { tone: 'danger', confirmText: '删除' })) { ... }
  *   const reason = await AppDialog.prompt('请输入原因', { defaultValue: '' });  // 取消返回 null
- * 已加载导航栏（navbar.js）的页面直接复用 showNavbarConfirm / showNavbarFormDialog，保持全站一致；
+ * 已加载导航栏（platform-core.js）的页面直接复用 showPlatformConfirm / showPlatformFormDialog，保持全站一致；
  * 独立页面（如 License 签发页）使用本文件自带的同风格弹窗。 */
 (function () {
     'use strict';
@@ -162,7 +162,7 @@
         catch (_) { return Boolean(document.querySelector('dialog[open]')); }
     }
     // 导航栏弹窗是普通层级的 div，无法盖住 showModal() 的顶层 <dialog>，此时改用自带弹窗
-    const hasNavbarDialogs = () => typeof window.showNavbarConfirm === 'function' && !hasOpenModalDialog();
+    const hasNavbarDialogs = () => typeof window.showPlatformConfirm === 'function' && !hasOpenModalDialog();
 
     // 原生弹窗总在最上层；部分页面自有模态框（如 UIVF12、月报）层级高于导航栏弹窗，委托期间临时抬高到顶层
     function liftWhileOpen(modalId, promise) {
@@ -181,19 +181,19 @@
     window.AppDialog = {
         alert(message, options = {}) {
             if (hasNavbarDialogs()) {
-                return liftWhileOpen('navbarConfirmModal', window.showNavbarNotice({ title: options.title || '提示', message, hint: options.hint, tone: options.tone || 'info', confirmText: options.confirmText })).then(() => undefined);
+                return liftWhileOpen('platformConfirmModal', window.showPlatformNotice({ title: options.title || '提示', message, hint: options.hint, tone: options.tone || 'info', confirmText: options.confirmText })).then(() => undefined);
             }
             return open('alert', message, options);
         },
         confirm(message, options = {}) {
             if (hasNavbarDialogs() && !options.details) {
-                return liftWhileOpen('navbarConfirmModal', window.showNavbarConfirm({ title: options.title || '确认操作', message, hint: options.hint, tone: options.tone || 'warning', confirmText: options.confirmText, cancelText: options.cancelText }));
+                return liftWhileOpen('platformConfirmModal', window.showPlatformConfirm({ title: options.title || '确认操作', message, hint: options.hint, tone: options.tone || 'warning', confirmText: options.confirmText, cancelText: options.cancelText }));
             }
             return open('confirm', message, options);
         },
         prompt(message, options = {}) {
-            if (typeof window.showNavbarFormDialog === 'function' && !hasOpenModalDialog()) {
-                return liftWhileOpen('navbarFormDialogModal', window.showNavbarFormDialog({
+            if (typeof window.showPlatformFormDialog === 'function' && !hasOpenModalDialog()) {
+                return liftWhileOpen('platformFormDialogModal', window.showPlatformFormDialog({
                     title: options.title || '请输入', message, hint: options.hint, tone: options.tone || 'info',
                     confirmText: options.confirmText, cancelText: options.cancelText,
                     fields: [{ name: 'value', label: options.label || '', value: options.defaultValue || '', placeholder: options.placeholder || '', multiline: Boolean(options.multiline), maxLength: options.maxLength }]

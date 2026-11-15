@@ -3,7 +3,7 @@
 // 卡片右上角星标收藏；拖到收藏区即收藏；管理员可拖动卡片调整工具分类和顺序。
 // 卡片仍由 index.html 渲染（内置为静态 HTML，自定义工具由 renderCustomToolCards 生成）；
 // 这里只做增强：分组排序、筛选、更新时间，不改动卡片自身的数据和事件。
-// 分类沿用导航设置（navbar.js 的 navState.settings），在导航中调整分类后首页同步变化。
+// 工具目录分类来自 platform-core.js 的 navState.settings，供工具中心使用。
 (function () {
     'use strict';
 
@@ -39,7 +39,6 @@
     const state = { view: 'all', query: '', currentGroup: '' };
     const updates = { pages: {}, tools: {}, toolsLoaded: false, toolsLoading: null };
     let grid;
-    let sidebarNav;
     let searchInput;
     let emptyEl;
     let headTitle;
@@ -363,44 +362,9 @@
         }
     }
 
-    function renderSidebar() {
-        if (!sidebarNav) return;
-        const total = groups.reduce((sum, group) => sum + group.cards.length, 0);
-        const cardIds = new Set(groups.flatMap(group => group.cards.map(cardItemId)));
-        const recentCount = recentIds().filter(id => cardIds.has(id)).length;
-        const favoriteCount = favoriteIds().filter(id => cardIds.has(id)).length;
-        const item = (attrs, icon, name, count) => `
-            <button type="button" class="home-cat-item" title="${escapeHtml(name)}" ${attrs}>
-                <span class="home-cat-icon" aria-hidden="true">${icon}</span>
-                <span class="home-cat-name">${escapeHtml(name)}</span>
-                <span class="home-cat-count">${count}</span>
-            </button>`;
-        sidebarNav.innerHTML = [
-            item('data-view="all"', '<svg viewBox="0 0 16 16"><path d="M2.5 2.5h4.5v4.5H2.5zM9 2.5h4.5v4.5H9zM2.5 9h4.5v4.5H2.5zM9 9h4.5v4.5H9z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>', tx('all'), total),
-            item('data-view="recent"', CLOCK_SVG, tx('recent'), recentCount),
-            item('data-view="favorites"', STAR_SVG, tx('favorites'), favoriteCount),
-            `<div class="home-cat-label">${escapeHtml(tx('groups'))}</div>`,
-            ...groups.map(group => item(`data-group="${escapeHtml(group.id)}" style="--group-color:${group.color}"`, '<span class="home-cat-dot"></span>', group.name, group.cards.length))
-        ].join('');
-        syncSidebarState();
-    }
-
     // 首页分对话 / 工具两种互斥模式（js/home/home-mode.js），工具区只在工具模式下显示。
     function isToolsMode() {
         return document.body.classList.contains('home-mode-tools');
-    }
-
-    function syncSidebarState() {
-        if (!sidebarNav) return;
-        const browsing = state.view === 'all' && !state.query;
-        sidebarNav.querySelectorAll('[data-view]').forEach(button => {
-            const active = button.dataset.view === state.view && !state.query;
-            button.classList.toggle('is-active', active);
-            button.setAttribute('aria-pressed', String(active));
-        });
-        sidebarNav.querySelectorAll('[data-group]').forEach(button => {
-            button.classList.toggle('is-current', browsing && button.dataset.group === state.currentGroup);
-        });
     }
 
     function renderToolsHead(visible) {
@@ -442,7 +406,6 @@
             if (text) text.textContent = recent ? tx(state.view === 'favorites' ? 'emptyFavorites' : 'emptyRecent') : tx('empty');
         }
         renderToolsHead(visible);
-        syncSidebarState();
         // 插件与脚本区块（js/home/capabilities.js）跟随同一个搜索与视图过滤
         window.dispatchEvent(new CustomEvent('home:tools-filtered', { detail: { view: state.view, query, visible } }));
     }
@@ -458,7 +421,6 @@
         renderGroupHeads();
         renderShortcuts();
         syncFavoriteButtons();
-        renderSidebar();
         applyFilter();
         if (!updates.toolsLoaded || cards.some(card => card.dataset.customToolCard === '1' && card.dataset.skillCard !== '1' && !updates.tools[card.dataset.toolSlug])) {
             loadToolUpdates();
@@ -491,7 +453,7 @@
     }
 
     window.HomeWorkspace = {
-        getTools, recentIds, syncSidebar: () => syncSidebarState(), scrollToTools,
+        getTools, recentIds, scrollToTools,
         getFilter: () => ({ view: state.view, query: state.query.trim() }),
         // 侧栏其它区块（插件与脚本）被点击时，退出「最近使用」/搜索，回到全部视图
         showAll: () => { if (state.view !== 'all' || state.query) setView('all'); },
@@ -517,7 +479,6 @@
         if (!group?.head) return;
         const top = group.head.getBoundingClientRect().top + window.scrollY - navbarOffset();
         state.currentGroup = groupId;
-        syncSidebarState();
         window.scrollTo({ top: Math.max(0, top), behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     }
 
@@ -530,7 +491,6 @@
         });
         if (current !== state.currentGroup) {
             state.currentGroup = current;
-            syncSidebarState();
         }
     }
 
@@ -639,46 +599,13 @@
     }
 
     function bindEvents() {
-        sidebarNav?.addEventListener('click', event => {
-            const button = event.target.closest('.home-cat-item');
-            if (!button) return;
-            showTools();
-            if (button.dataset.view) {
-                setView(button.dataset.view);
-                return;
-            }
-            if (state.view !== 'all' || state.query) setView('all');
-            scrollToGroup(button.dataset.group);
-        });
-
-        searchInput?.addEventListener('input', () => {
-            showTools();
-            onSearch();
-        });
-        searchInput?.addEventListener('keydown', event => {
-            if (event.key === 'Escape') {
-                searchInput.value = '';
-                onSearch();
-                searchInput.blur();
-            } else if (event.key === 'Enter') {
-                const first = visibleCards()[0];
-                if (first) first.click();
-            } else if (event.key === 'ArrowDown') {
-                const first = visibleCards()[0];
-                if (first) {
-                    event.preventDefault();
-                    first.focus();
-                }
-            }
-        });
-
         document.addEventListener('keydown', event => {
             if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey) return;
             const target = event.target;
             if (target.closest?.('input, textarea, select, [contenteditable="true"], dialog[open]')) return;
             event.preventDefault();
             // 工具模式聚焦工具搜索，对话模式聚焦历史对话搜索
-            const field = isToolsMode() ? searchInput : document.getElementById('homeChatSearch');
+            const field = window.HomeSkillHub?.isOpen?.() ? document.querySelector('.v2-hub-search input') : document.getElementById('homeChatSearch');
             field?.focus();
             field?.select();
         });
@@ -1102,8 +1029,7 @@
     function init() {
         grid = document.getElementById('toolsGrid');
         if (!grid) return;
-        sidebarNav = document.getElementById('homeCategoryNav');
-        searchInput = document.getElementById('homeToolSearch');
+        searchInput = document.querySelector('.v2-hub-search input');
         emptyEl = document.getElementById('homeToolsEmpty');
         headTitle = document.getElementById('homeToolsTitle');
         headCount = document.getElementById('homeToolsCount');

@@ -160,7 +160,7 @@
     }
 
     function isHomeChatContext() {
-        if (!document.documentElement.matches('[data-ui="v2"]')) return false;
+
         const cleanPath = (location.pathname || '/').replace(/\/+$/, '') || '/';
         if (cleanPath !== '/' && cleanPath !== '/index.html') return false;
         const params = new URLSearchParams(location.search);
@@ -494,7 +494,7 @@
         const manual = Boolean(options.manual);
         if (state.active) return true;
         if (!manual && !canAutoStart()) return false;
-        if (!document.documentElement.matches('[data-ui="v2"]')) return false;
+
 
         clearTimeout(state.scheduleTimer);
         state.manual = manual;
