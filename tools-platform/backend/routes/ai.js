@@ -34,6 +34,7 @@ const { planProjectKnowledgeSearch } = require('../models/ai-knowledge-plan');
 const filesAgent = require('../models/ai-files-agent');
 const autoglmAgent = require('../models/open-autoglm-agent');
 const familyFinanceAgent = require('../models/family-finance-agent');
+const ppoTrafficAgent = require('../models/ppo-traffic-agent');
 const agentArtifacts = require('../models/agent-artifacts');
 const multer = require('multer');
 
@@ -973,9 +974,20 @@ async function handleChatRequest(req, res) {
             }
         }
 
+        // @ppo-traffic：全员可用，在普通对话或移动端直接查询埃及车辆交通违章（无需工作空间目录）
+        let ppoSetup = null;
+        if (homeAgent && !agentMode && !channelTurn && !opsSetup && !welinkCliSetup && !netcareSetup && !autoglmSetup && !financeSetup
+            && loadedSkills.selected.some(item => item.id === ppoTrafficAgent.SKILL_ID)) {
+            try {
+                ppoSetup = { prompt: ppoTrafficAgent.buildPrompt() };
+            } catch (ppoError) {
+                console.warn('[AI] ppo setup failed:', ppoError.message || ppoError);
+            }
+        }
+
         // 首页管理员无需选择目录即可使用平台业务库；频道、页面助手及专用 Skill 保持各自权限。
         const databaseMode = homeAgent && !agentMode && !channelTurn && req.user?.role === 'admin'
-            && !opsSetup && !welinkCliSetup && !netcareSetup && !autoglmSetup && !financeSetup && !analysisCode;
+            && !opsSetup && !welinkCliSetup && !netcareSetup && !autoglmSetup && !financeSetup && !ppoSetup && !analysisCode;
         // 对话附件：消息里引用的、属于本人的上传文件（频道对话不带）
         const uploadFiles = homeAgent && !channelTurn
             ? agentArtifacts.uploadsIn(agentRunManager.ownerKey(req.user, getTenantId()), effectiveMessages.map(item => item.content)) : [];
@@ -1267,6 +1279,29 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 } : undefined
             })
             : null;
+        const ppoResult = !agentResult && !analysisResult && !followupResult && !opsResult && !welinkCliResult && !netcareResult && !autoglmResult && !financeResult && ppoSetup
+            ? await ppoTrafficAgent.runTurn({
+                extras: chatExtras,
+                vision,
+                client: aiClient,
+                systemInstruction: redactText(systemInstruction, { secrets: sensitiveValues }),
+                messages: effectiveMessages,
+                signal: providerAbortController?.signal,
+                maxOutputTokens: aiSettings.maxOutputTokens,
+                temperature: aiSettings.temperature,
+                model: aiSettings.model,
+                onEvent: event => {
+                    writeStreamEvent(event);
+                    if (event && (event.type === 'tool' || event.type === 'tool_result')) {
+                        recordedEvents.push(event);
+                    }
+                },
+                onDelta: streamRequested ? delta => {
+                    streamHasDelta = true;
+                    writeStreamEvent({ type: 'delta', delta });
+                } : undefined
+            })
+            : null;
         if (followupResult?.events?.length) {
             recordedEvents.push(...followupResult.events);
             if (streamRequested) followupResult.events.forEach(event => writeStreamEvent(event));
@@ -1301,7 +1336,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 } : undefined
             })
             : null;
-        const extraResult = !agentResult && !analysisResult && !followupResult && !opsResult && !welinkCliResult && !netcareResult && !autoglmResult && !financeResult
+        const extraResult = !agentResult && !analysisResult && !followupResult && !opsResult && !welinkCliResult && !netcareResult && !autoglmResult && !financeResult && !ppoResult
             && !databaseResult && !filesResult && (channelExtras || chatExtras)
             ? await require('../models/agent-extra-tools').runChannelTurn({
                 extras: channelExtras || chatExtras, bufferText: channelTurn?.channel === 'weixin', client: aiClient, systemInstruction: redactText(systemInstruction, { secrets: sensitiveValues }), messages: effectiveMessages,
@@ -1314,7 +1349,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 } : undefined
             })
             : null;
-        const result = agentResult || followupResult || opsResult || welinkCliResult || netcareResult || autoglmResult || financeResult || databaseResult || filesResult || extraResult || (analysisResult ? analysisResult.result : await generateResponse());
+        const result = agentResult || followupResult || opsResult || welinkCliResult || netcareResult || autoglmResult || financeResult || ppoResult || databaseResult || filesResult || extraResult || (analysisResult ? analysisResult.result : await generateResponse());
         const skillReferenceAudit = homeAgent ? skillCatalogContract.guardReply(result.text, loadedSkills.catalog || [], {
             language: uiLanguage, loadedIds: loadedSkills.selected.map(item => item.id)
         }) : null;
@@ -1353,6 +1388,8 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                         ? `${result.text}\n\n（NetCare 查询：${netcareResult.toolLog.slice(0, 8).map(item => `${item.summary || item.tool}${item.ok ? '' : '✗'}`).join('；')}）`
                         : autoglmResult && autoglmResult.toolLog.length
                             ? `${result.text}\n\n（Open-AutoGLM：${autoglmResult.toolLog.slice(0, 8).map(item => `\`${item.tool}\`${item.ok ? '' : '✗'} ${item.summary || ''}`.trim()).join('；')}）`
+                        : ppoResult && ppoResult.toolLog && ppoResult.toolLog.length
+                            ? `${result.text}\n\n（埃及车辆违章查询：${ppoResult.toolLog.slice(0, 8).map(item => `\`${item.tool}\`${item.ok ? '' : '✗'} ${item.summary || ''}`.trim()).join('；')}）`
                         : databaseResult && databaseResult.toolLog.length
                             ? `${result.text}\n\n（工具：${databaseResult.toolLog.slice(0, 8).map(item => `\`${item.tool}\`${item.ok ? '' : '✗'} ${item.summary || ''}`.trim()).join('；')}）`
                             : result.text, { secrets: sensitiveValues });

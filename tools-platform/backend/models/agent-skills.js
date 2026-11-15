@@ -169,6 +169,37 @@ function autoSelect(content, { pagePath = '', extraIds = [], contextMessages = [
         }
     }
 
+    // 埃及车辆违章查询 (PPO Traffic Violations)
+    // 1. 本轮显式提及违章、车牌查违章、埃及车牌、交警罚单、PPO 查询等
+    // 2. 本会话历史中已使用过 ppo-traffic，后续的车牌、护照号、查询等简短追问保持激活
+    if (byId.has('ppo-traffic')) {
+        const ppoDirect = /(?:违章|罚金|罚单|交通违章|车辆违章|查违章|违章记录|埃及车牌|车牌违章|机动车违章|ppo[-_]?traffic|مخالفات|和解金|罚款金额)/i.test(text)
+            || (/(?:查|查询|看下|看看).{0,10}(?:车牌|车辆|违章|罚款|车)/.test(text) && /(?:护照|身份证|[A-Za-z]\d{8}|\d{14}|[\u0600-\u06FF])/.test(text));
+
+        const sessionHadPpo = (Array.isArray(contextMessages) ? contextMessages : []).some(item => {
+            const c = String(item?.content || '');
+            if (/@(?:ppo-traffic|埃及车辆违章查询|车辆违章查询)\b|ppo-traffic|ppo_cli\.py|17654/i.test(c)) return true;
+            if (Array.isArray(item?.toolCalls) && item.toolCalls.some(call => String(call?.name || '').startsWith('ppo_'))) return true;
+            try {
+                const events = typeof item?.events === 'string' ? JSON.parse(item.events) : item?.events;
+                if (Array.isArray(events) && events.some(e => (e.type === 'skills' && Array.isArray(e.skills) && e.skills.includes('ppo-traffic')) || (e.tool && String(e.tool).startsWith('ppo_')))) return true;
+            } catch (_) {}
+            return false;
+        });
+
+        const ppoFollowup = sessionHadPpo && (
+            ppoDirect
+            || /(?:继续|再查|换个|重新查|再试|状态|详情|记录|历史|结果)/.test(text)
+            || /[\u0600-\u06FF]/.test(text)
+            || /^[A-Z][0-9]{8}$/i.test(text.trim())
+            || text.trim().length <= 30
+        );
+
+        if (ppoDirect || ppoFollowup) {
+            selected.push('ppo-traffic');
+        }
+    }
+
     const improveSkill = /(?:完善|优化|改进|升级).{0,20}(?:skill\b|技能)|(?:skill\b|技能).{0,16}(?:完善|优化|改进|升级)|\b(?:improve|refine|update)\s+(?:the\s+|this\s+|an?\s+)?skill\b/i.test(text);
     const createSkill = !improveSkill && (/(?:做成|生成|创建|新建|制作|写(?:一?个|个|份)?|整理成|封装成|总结成|保存(?:成|为)|沉淀(?:成|为)|转(?:成|为)).{0,24}(?:skill\b|技能)|(?:skill\b|技能).{0,16}(?:草稿|模板|怎么写|如何写)|\b(?:create|make|build|draft|turn\b[\s\S]{0,40}\binto|save\s+as)\s+(?:a\s+|an\s+)?skill\b/i.test(text));
     const skillFollowup = /^(?:确认|继续|好(?:的)?|可以|行|保存|按这个|就按这个|生成草稿|输出草稿)/i.test(text.trim());
