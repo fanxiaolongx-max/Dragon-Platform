@@ -16,7 +16,7 @@ import urllib.error
 import urllib.parse
 from typing import Optional, Dict, Any, List
 
-DEFAULT_BASE_URL = "https://yutang.fanxiaolong.uk"
+DEFAULT_BASE_URL = "http://127.0.0.1:8080"
 
 
 def resolve_api_key(explicit_key: Optional[str] = None) -> str:

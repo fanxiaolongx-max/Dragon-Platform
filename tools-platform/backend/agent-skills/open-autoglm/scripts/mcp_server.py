@@ -13,7 +13,7 @@ import os
 import urllib.request
 import urllib.error
 
-DEFAULT_BASE_URL = "https://yutang.fanxiaolong.uk"
+DEFAULT_BASE_URL = "http://127.0.0.1:8080"
 
 
 def resolve_api_key() -> str:

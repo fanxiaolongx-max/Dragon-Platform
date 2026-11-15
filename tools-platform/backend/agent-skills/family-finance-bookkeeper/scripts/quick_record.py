@@ -9,8 +9,8 @@ import urllib.request
 import urllib.parse
 from datetime import datetime
 
-BASE_URL = os.environ.get("WISE_BASE_URL", "https://wise.fanxiaolong.uk")
-FALLBACK_URL = "http://127.0.0.1:8000"
+BASE_URL = os.environ.get("WISE_BASE_URL", "http://127.0.0.1:8000")
+FALLBACK_URL = "https://wise.fanxiaolong.uk"
 
 def get_api_key():
     # 1. 优先从环境变量读取

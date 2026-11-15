@@ -5,13 +5,28 @@ const fs = require('fs');
 const path = require('path');
 const { vault } = require('./password-vault');
 
-const DEFAULT_BASE_URL = 'https://yutang.fanxiaolong.uk';
+const DEFAULT_BASE_URL = 'http://127.0.0.1:8080';
+const PUBLIC_TUNNEL_URL = 'https://yutang.fanxiaolong.uk';
 
 const PLATFORM_ROOT = path.resolve(__dirname, '../..');
 const MEDIA_OUTPUT_DIR = path.join(PLATFORM_ROOT, 'outputs', 'autoglm');
 
 function getBaseUrl() {
     return (process.env.AUTOGLM_BASE_URL || DEFAULT_BASE_URL).replace(/\/+$/, '');
+}
+
+/** 安全解析 JSON 响应，防止 Cloudflare Access / Nginx 重定向返回 HTML 页面抛出 Unexpected token '<' */
+async function safeJson(res, context = 'API') {
+    const text = await res.text();
+    const contentType = res.headers?.get?.('content-type') || '';
+    if (text.trim().startsWith('<') || contentType.includes('text/html')) {
+        throw new Error(`${context} 返回了 HTML 页面而非预期 JSON（可能触发了 Cloudflare 拦截、重定向或身份验证）：${text.slice(0, 150)}`);
+    }
+    try {
+        return JSON.parse(text);
+    } catch (e) {
+        throw new Error(`${context} 解析 JSON 失败 (${e.message}): ${text.slice(0, 150)}`);
+    }
 }
 
 let cachedVaultKey = null;
@@ -67,7 +82,7 @@ async function listDevices(options = {}) {
         const text = await res.text().catch(() => '');
         throw new Error(`获取设备列表失败 (${res.status}): ${text || res.statusText}`);
     }
-    return res.json();
+    return safeJson(res, '获取设备列表');
 }
 
 /** 截取屏幕并保存到 outputs 目录，返回给前端展示 */
@@ -89,7 +104,11 @@ async function getScreenshot(deviceId, retryOnBlack = true, options = {}) {
         throw new Error(`截取手机屏幕失败 (${res.status}): ${text || res.statusText}`);
     }
 
+    const contentType = res.headers?.get?.('content-type') || '';
     const buffer = Buffer.from(await res.arrayBuffer());
+    if (contentType.includes('text/html') || buffer.subarray(0, 50).toString('utf8').trim().startsWith('<')) {
+        throw new Error(`截取手机屏幕失败：服务返回了 HTML 页面而非预期图片数据（可能触发了 Cloudflare 拦截或鉴权重定向）`);
+    }
 
     // 智能黑屏/息屏检测：当截取的 PNG 极小（< 15KB，通常为息屏全黑帧）且允许重试时，
     // 自动调用对端唤醒并使用已配置的 PIN 码解锁手机，重新截取正常页面
@@ -145,7 +164,7 @@ async function runTask({ task, deviceId, timeout = 1800, forceRun = true, wait =
         const text = await res.text().catch(() => '');
         throw new Error(`启动任务失败 (${res.status}): ${text || res.statusText}`);
     }
-    const data = await res.json();
+    const data = await safeJson(res, '启动任务');
     if (!wait || !data.task_id) return data;
 
     // 如果需要等待任务执行完成，轮询状态
@@ -214,7 +233,7 @@ async function getTaskStatus(taskId, options = {}) {
         const text = await res.text().catch(() => '');
         throw new Error(`查询任务状态失败 (${res.status}): ${text || res.statusText}`);
     }
-    return res.json();
+    return safeJson(res, '查询任务状态');
 }
 
 /** 模拟手势或按键操作 */
@@ -263,7 +282,7 @@ async function performAction({ action, deviceId, x, y, x1, y1, x2, y2, durationM
         const respText = await res.text().catch(() => '');
         throw new Error(`执行手势动作失败 (${res.status}): ${respText || res.statusText}`);
     }
-    return res.json();
+    return safeJson(res, '执行手势动作');
 }
 
 function definitions() {
