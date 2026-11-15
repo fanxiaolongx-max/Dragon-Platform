@@ -3,6 +3,15 @@
     'use strict';
     const en = () => window.ToolsI18n?.getLanguage?.() === 'en-US';
     const words = (zh, english) => en() ? english : zh;
+    const isSuperAdminUser = () => {
+        try {
+            const isSuper = localStorage.getItem('tools_super') === '1';
+            const isTenantDefault = (localStorage.getItem('tools_tenant_id') || 'default') === 'default';
+            if (!isSuper || !isTenantDefault) return false;
+            if (typeof window.isNavSuperAdmin === 'function') return window.isNavSuperAdmin() === true;
+            return true;
+        } catch { return false; }
+    };
     let input, menu, items = [], matches = [], active = 0, loading = false, loaded = false, failed = false, composing = false;
     let catalogPromise = null, catalogVersion = 0;
     // 会话内保持的 Skill：发送过的 @id 之后的消息继续生效，显示为输入框上方的标签，可移除
@@ -61,9 +70,24 @@
         const text = `${item.icon ? `${item.icon} ` : ''}@${item.id} · ${en() ? item.nameEn : item.name}`;
         if (window.SkillSource?.label) label.innerHTML = window.SkillSource.label(text, item); else label.textContent = text;
         head.appendChild(label);
+        const tags = document.createElement('span');
+        tags.className = 'dc-skill-option-tags';
         if (item.workspace && !window.DragonClawWorkspace?.getWorkspacePayload?.()) {
             const tag = document.createElement('small');
-            tag.textContent = words('需工作目录', 'Needs folder'); head.appendChild(tag);
+            tag.className = 'dc-skill-tag-workspace';
+            tag.textContent = words('需工作目录', 'Needs folder');
+            tags.appendChild(tag);
+        }
+        const superAdmin = isSuperAdminUser();
+        const isShared = item.sharedAccess === true;
+        if (superAdmin || isShared) {
+            const shareTag = document.createElement('small');
+            shareTag.className = `dc-skill-share-badge ${isShared ? 'is-shared' : 'is-unshared'}`;
+            shareTag.textContent = words(isShared ? '全员开放' : '未全员开放', isShared ? 'Shared' : 'Not shared');
+            tags.appendChild(shareTag);
+        }
+        if (tags.hasChildNodes()) {
+            head.appendChild(tags);
         }
         description.textContent = window.SkillSource?.brief(item, en()) || full || '';
         option.append(head, description);

@@ -1493,6 +1493,9 @@
                         ${tool.hostedApp
                             ? `<span class="tool-kind-badge tool-kind-badge--python" title="${escapeHtml(isEnglish ? 'Python web app hosted by the platform' : '平台托管运行的 Python Web 应用')}">Python</span>`
                             : tool.builtIn === false ? `<span class="tool-kind-badge">${isEnglish ? 'CUSTOM' : '自定义'}</span>` : ''}
+                        ${isSuperAdminUser
+                            ? `<span class="tool-kind-badge ${isSharedAccess || tool.shared ? 'tool-kind-badge--shared' : 'tool-kind-badge--unshared'}">${isSharedAccess || tool.shared ? (isEnglish ? 'Shared' : '全员开放') : (isEnglish ? 'Not shared' : '未全员开放')}</span>`
+                            : (isSharedAccess || tool.shared ? `<span class="tool-kind-badge tool-kind-badge--shared">${isEnglish ? 'Shared' : '全员开放'}</span>` : '')}
                     </div>
                     <div class="card-desc">${escapeHtml(displayDescription || t('home.custom.defaultDesc'))}</div>
                     <div class="card-features">

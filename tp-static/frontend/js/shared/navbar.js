@@ -26,6 +26,7 @@ const NAV_BUILTIN_LINKS = [
     { id: 'report', href: '/report', icon: '📈', label: '报表看板', labelKey: 'nav.report', defaultCategory: 'business', match: p => p.startsWith('/report') },
     { id: 'expedite', href: '/expedite', icon: '⚡', label: '一键催办', labelKey: 'nav.expedite', defaultCategory: 'business', match: p => p.startsWith('/expedite') },
     { id: 'monthly', href: '/monthly', icon: '📅', label: '月报页面', labelKey: 'nav.monthly', defaultCategory: 'business', match: p => p.startsWith('/monthly') || p === '/pages/ai-report.html' },
+    { id: 'ai-bi', href: '/ai-bi', icon: '🧩', label: 'AI BI', labelEn: 'AI BI', labelKey: 'nav.aiBi', defaultCategory: 'business', match: p => p.startsWith('/ai-bi') || p === '/pages/ai-bi.html' || p.endsWith('/ai-bi.html') },
     { id: 'duty-roster', href: '/duty-roster', icon: '🌙', label: '值班表', labelEn: 'Duty Roster', labelKey: 'nav.dutyRoster', defaultCategory: 'business', match: p => p.startsWith('/duty-roster') },
     { id: 'bigscreen', href: '/bigscreen', icon: '🖥️', label: '大屏看板', labelKey: 'nav.bigscreen', defaultCategory: 'business', match: p => p.startsWith('/bigscreen') },
     { id: 'topic-analysis', href: '/topic-analysis', icon: '📊', label: '专题分析', labelKey: 'nav.topicAnalysis', defaultCategory: 'cat_mshv1h0m', match: p => p.startsWith('/topic-analysis') },
@@ -48,7 +49,7 @@ window.NavWorkflow = {
 const NAV_DEFAULT_SETTINGS = {
     // 与服务端首次安装预设保持一致；接口返回已有配置后会立即替换此启动默认值。
     primaryIds: [
-        'home', 'uivf12', 'sla', 'report', 'custom-report', 'expedite', 'monthly', 'duty-roster', 'bigscreen',
+        'home', 'uivf12', 'sla', 'report', 'custom-report', 'expedite', 'monthly', 'ai-bi', 'duty-roster', 'bigscreen',
         'custom:network_safety_meeting_summary'
     ],
     categories: [
@@ -319,6 +320,7 @@ function registerNavbarI18n() {
             'nav.report': '报表看板',
             'nav.expedite': '一键催办',
             'nav.monthly': '月报页面',
+            'nav.aiBi': 'AI BI',
             'nav.dutyRoster': '值班表',
             'nav.bigscreen': '大屏看板',
             'nav.topicAnalysis': '专题分析',
@@ -863,6 +865,7 @@ function registerNavbarI18n() {
             'nav.report': 'Reports',
             'nav.expedite': 'Expedite',
             'nav.monthly': 'Monthly',
+            'nav.aiBi': 'AI BI',
             'nav.dutyRoster': 'Duty Roster',
             'nav.bigscreen': 'Big Screen',
             'nav.topicAnalysis': 'Topic Analysis',
@@ -1422,6 +1425,15 @@ function hasNavAuthToken() {
     return Boolean(localStorage.getItem('tools_token') || sessionStorage.getItem('tools_token'));
 }
 
+// AI BI 是后加的入口：布局里还没有它时（AI BI 上线前保存的设置），放在“月报页面”后面。
+// 布局里出现过它（快捷入口或排序里）就说明管理员已经安排过，不再自动插入。
+function withAiBiAfterMonthly(ids, settings = {}, always = false) {
+    const known = [...(settings.primaryIds || []), ...(settings.itemOrder || [])].map(String);
+    if (ids.includes('ai-bi') || (!always && known.includes('ai-bi'))) return ids;
+    const at = ids.indexOf('monthly');
+    return at < 0 ? ids : [...ids.slice(0, at + 1), 'ai-bi', ...ids.slice(at + 1)];
+}
+
 function normalizeNavSettings(settings = {}) {
     const cats = Array.isArray(settings.categories) && settings.categories.length ? settings.categories.map(cat => {
         const defCat = NAV_DEFAULT_SETTINGS.categories.find(c => c.id === cat.id);
@@ -1459,7 +1471,7 @@ function normalizeNavSettings(settings = {}) {
         platformSubtitleEn,
         platformSlogan,
         platformSloganEn,
-        primaryIds: Array.isArray(settings.primaryIds) ? settings.primaryIds.map(String) : NAV_DEFAULT_SETTINGS.primaryIds.slice(),
+        primaryIds: withAiBiAfterMonthly(Array.isArray(settings.primaryIds) ? settings.primaryIds.map(String) : NAV_DEFAULT_SETTINGS.primaryIds.slice(), settings),
         categories: cats,
         categoryByItem: settings.categoryByItem && typeof settings.categoryByItem === 'object' ? { ...settings.categoryByItem } : { ...NAV_DEFAULT_SETTINGS.categoryByItem },
         f12QuickDownloads: Array.isArray(settings.f12QuickDownloads)
@@ -1467,7 +1479,7 @@ function normalizeNavSettings(settings = {}) {
                 .filter(item => item && typeof item.scriptId === 'string' && /^(builtin|server):[a-zA-Z0-9_-]+$/.test(item.scriptId))
                 .map(item => ({ scriptId: item.scriptId, target: item.target === 'local' ? 'local' : 'store' }))
             : [],
-        itemOrder: Array.isArray(settings.itemOrder) ? settings.itemOrder.map(String) : NAV_DEFAULT_SETTINGS.itemOrder.slice()
+        itemOrder: withAiBiAfterMonthly(Array.isArray(settings.itemOrder) ? settings.itemOrder.map(String) : NAV_DEFAULT_SETTINGS.itemOrder.slice(), settings, true)
     };
 }
 

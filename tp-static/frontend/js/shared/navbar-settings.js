@@ -4958,7 +4958,9 @@ const AUDIT_ACTION_LABELS = {
     password_reset: ['重置密码', 'Reset password'],
     password_change: ['修改本人密码', 'Change own password'],
     team_enter: ['进入团队', 'Enter team'],
-    team_leave: ['返回本人空间', 'Back to own space']
+    team_leave: ['返回本人空间', 'Back to own space'],
+    admins_update: ['修改管理员名单', 'Admin list changed'],
+    vault_reveal: ['查看密钥明文', 'Secret viewed']
 };
 
 const auditLogState = {
@@ -5118,6 +5120,43 @@ window.jumpAuditPage = function() {
     }
 };
 
+// 审计日志区块（标题、客户端筛选、表格、分页）。账号页末尾用它；没有账号管理的部署可以单独渲染这一块，再调 reloadAuditLogTable()。
+function renderAuditLogSection() {
+    return `
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-top:24px;margin-bottom:10px;">
+                <div style="font-weight:600;font-size:14px;color:var(--nav-text,#111);">
+                    ${navEscape(accountText('平台审计日志', 'Platform Audit Log'))}
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <span style="font-size:12px;color:var(--nav-text-sub,#666);">${navEscape(accountText('客户端筛选:', 'Platform:'))}</span>
+                    <div id="audit_platform_tabs" style="display:inline-flex;gap:4px;flex-wrap:wrap;">
+                        ${renderAuditPlatformTabs()}
+                    </div>
+                    <button type="button" onclick="window.reloadAuditLogTable()" title="${navEscape(accountText('刷新', 'Refresh'))}" style="padding:4px 8px;border-radius:6px;border:1px solid var(--nav-border,#ccc);background:var(--nav-surface,#fff);cursor:pointer;font-size:12px;">🔄</button>
+                </div>
+            </div>
+            <div class="nav-account-table-wrap">
+                <table class="nav-account-table">
+                    <thead>
+                        <tr>
+                            <th style="min-width:130px;">${navEscape(accountText('时间', 'Time'))}</th>
+                            <th>${navEscape(accountText('操作人', 'Actor'))}</th>
+                            <th>${navEscape(accountText('操作', 'Action'))}</th>
+                            <th>${navEscape(accountText('客户端', 'Platform'))}</th>
+                            <th style="min-width:160px;">${navEscape(accountText('设备与版本', 'Device & Version'))}</th>
+                            <th>IP</th>
+                            <th>${navEscape(accountText('对象/详情', 'Target / Detail'))}</th>
+                        </tr>
+                    </thead>
+                    <tbody id="audit_log_tbody">
+                        <tr><td colspan="7" style="text-align:center;padding:20px;color:#888;">${navEscape(accountText('正在加载审计日志…', 'Loading audit log…'))}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id="audit_log_pagination"></div>
+        `;
+}
+
 function renderMyAccountCard() {
     const user = localStorage.getItem('tools_user') || '';
     return `
@@ -5202,37 +5241,7 @@ async function renderAccountSettings(content) {
                     <tbody>${teamToolRows || `<tr><td colspan="4">${navEscape(accountText('还没有团队上传工具', 'No team uploads yet'))}</td></tr>`}</tbody>
                 </table>
             </div>
-            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-top:24px;margin-bottom:10px;">
-                <div style="font-weight:600;font-size:14px;color:var(--nav-text,#111);">
-                    ${navEscape(accountText('平台审计日志', 'Platform Audit Log'))}
-                </div>
-                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                    <span style="font-size:12px;color:var(--nav-text-sub,#666);">${navEscape(accountText('客户端筛选:', 'Platform:'))}</span>
-                    <div id="audit_platform_tabs" style="display:inline-flex;gap:4px;flex-wrap:wrap;">
-                        ${renderAuditPlatformTabs()}
-                    </div>
-                    <button type="button" onclick="window.reloadAuditLogTable()" title="${navEscape(accountText('刷新', 'Refresh'))}" style="padding:4px 8px;border-radius:6px;border:1px solid var(--nav-border,#ccc);background:var(--nav-surface,#fff);cursor:pointer;font-size:12px;">🔄</button>
-                </div>
-            </div>
-            <div class="nav-account-table-wrap">
-                <table class="nav-account-table">
-                    <thead>
-                        <tr>
-                            <th style="min-width:130px;">${navEscape(accountText('时间', 'Time'))}</th>
-                            <th>${navEscape(accountText('操作人', 'Actor'))}</th>
-                            <th>${navEscape(accountText('操作', 'Action'))}</th>
-                            <th>${navEscape(accountText('客户端', 'Platform'))}</th>
-                            <th style="min-width:160px;">${navEscape(accountText('设备与版本', 'Device & Version'))}</th>
-                            <th>IP</th>
-                            <th>${navEscape(accountText('对象/详情', 'Target / Detail'))}</th>
-                        </tr>
-                    </thead>
-                    <tbody id="audit_log_tbody">
-                        <tr><td colspan="7" style="text-align:center;padding:20px;color:#888;">${navEscape(accountText('正在加载审计日志…', 'Loading audit log…'))}</td></tr>
-                    </tbody>
-                </table>
-            </div>
-            <div id="audit_log_pagination"></div>
+            ${renderAuditLogSection()}
         `;
         window.reloadAuditLogTable();
     } catch (e) {

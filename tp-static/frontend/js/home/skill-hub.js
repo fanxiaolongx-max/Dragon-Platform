@@ -56,11 +56,10 @@
     const isAdmin = () => { try { return localStorage.getItem('tools_role') === 'admin'; } catch { return false; } };
     const isSuperAdmin = () => {
         try {
-            const isSuper = localStorage.getItem('tools_super') === '1';
+            if (typeof window.isNavSuperAdmin === 'function' && window.isNavSuperAdmin() === true) return true;
+            const isSuper = localStorage.getItem('tools_super') === '1' || localStorage.getItem('tools_role') === 'admin';
             const isTenantDefault = (localStorage.getItem('tools_tenant_id') || 'default') === 'default';
-            if (!isSuper || !isTenantDefault) return false;
-            if (typeof window.isNavSuperAdmin === 'function') return window.isNavSuperAdmin() === true;
-            return true;
+            return Boolean(isSuper && isTenantDefault);
         } catch { return false; }
     };
     const ico = name => `<span class="v2-ico" data-icon="${name}"></span>`;
@@ -103,15 +102,29 @@
     }
     function pluginEntries() {
         const en = lang() === 'en-US';
-        return (window.HomeCapabilities?.groups?.() || []).flatMap(group => group.items.map((item, index) => ({
-            key: `cap:${group.kind}:${item.id || index}`, kind: 'plugin', capabilityId: item.id, capabilityBadge: item.badge, capabilityKind: item.kind, sharedAccess: item.sharedAccess, builtIn: item.builtIn === true,
-            source: item.builtIn === true ? 'builtin' : group.kind === 'float' ? 'float' : 'custom',
-            title: (en ? item.nameEn : '') || item.name, desc: item.description || '',
-            icon: item.icon || group.icon || '🧩', color: group.color || '#38bdf8',
-            cat: group.kind, catLabel: (en ? group.labelEn : '') || group.label,
-            badges: [t('where', { where: (en ? group.whereEn : '') || group.where })].filter(Boolean),
-            updatedAt: item.updatedAt || '', href: `${item.href || group.href}${(item.href || group.href).includes('?') ? '&' : '?'}capability=${encodeURIComponent(item.id)}`
-        })));
+        const superAdmin = isSuperAdmin();
+        return (window.HomeCapabilities?.groups?.() || []).flatMap(group => group.items.map((item, index) => {
+            const isShared = item.sharedAccess === true;
+            const extraCats = [superAdmin ? (isShared ? 'sharedWithAll' : 'unsharedOnly') : (isShared ? 'sharedWithAll' : null)].filter(Boolean);
+            const badges = [t('where', { where: (en ? group.whereEn : '') || group.where })].filter(Boolean);
+            if (superAdmin) {
+                badges.push(isShared ? t('sharedWithAll') : t('unsharedOnly'));
+            } else if (isShared) {
+                badges.push(t('sharedWithAll'));
+            }
+            const baseHref = item.href || group.href || '';
+            const href = baseHref ? `${baseHref}${baseHref.includes('?') ? '&' : '?'}capability=${encodeURIComponent(item.id)}` : '';
+            return {
+                key: `cap:${group.kind}:${item.id || index}`, kind: 'plugin', capabilityId: item.id, capabilityBadge: item.badge, capabilityKind: item.kind,
+                sharedAccess: isShared, builtIn: item.builtIn === true,
+                source: item.builtIn === true ? 'builtin' : group.kind === 'float' ? 'float' : 'custom',
+                title: (en ? item.nameEn : '') || item.name, desc: item.description || '',
+                icon: item.icon || group.icon || '🧩', color: group.color || '#38bdf8',
+                cat: group.kind, catLabel: (en ? group.labelEn : '') || group.label, extraCats,
+                badges,
+                updatedAt: item.updatedAt || '', href
+            };
+        }));
     }
     function parseTime(iso) {
         if (!iso) return 0;
@@ -120,6 +133,7 @@
     }
 
     function toolEntries() {
+        const superAdmin = isSuperAdmin();
         const favorites = new Set((() => { try { return window.NavFavorites?.get?.() || []; } catch { return []; } })());
         const customTools = Array.isArray(window.__homeCustomTools) ? window.__homeCustomTools : [];
         return (window.HomeWorkspace?.getTools?.() || [])
@@ -152,13 +166,21 @@
                         }
                     }
                 }
-                const isShared = !builtIn && Boolean(shared || sharedAccess);
-                const source = builtIn ? 'builtin' : (isShared ? 'shared' : 'custom');
+                const isShared = Boolean(shared || sharedAccess || (!slug && builtIn));
+                const source = builtIn ? 'builtin' : (Boolean(shared || sharedAccess) ? 'shared' : 'custom');
+                const extraCats = [superAdmin ? (isShared ? 'sharedWithAll' : 'unsharedOnly') : (isShared ? 'sharedWithAll' : null)].filter(Boolean);
+                const badges = [tool.group];
+                if (superAdmin) {
+                    badges.push(isShared ? t('sharedWithAll') : t('unsharedOnly'));
+                } else if (isShared) {
+                    badges.push(t('sharedWithAll'));
+                }
+                if (updatedText) badges.push(updatedText);
                 return {
                     key: `tool:${tool.id}`, kind: 'tool', id: tool.id, slug, title: tool.title, desc: tool.description || '',
                     icon: tool.icon || '🧩', color: tool.color || '#64748b', cat: tool.group, catLabel: tool.group,
-                    badges: [tool.group, updatedText].filter(Boolean), mine: favorites.has(tool.id), updatedAt, href: tool.href,
-                    sharedAccess, shared: isShared, builtIn, source
+                    badges, mine: favorites.has(tool.id), updatedAt, href: tool.href,
+                    sharedAccess: isShared, shared: Boolean(shared || sharedAccess), builtIn, source, extraCats
                 };
             });
     }
@@ -578,7 +600,10 @@
         window.dispatchEvent(new Event('home:skill-hub-ready'));
     }
 
-    window.HomeSkillHub = { open, close, isOpen: () => state.open, tab: () => state.tab };
+    window.HomeSkillHub = {
+        open, close, isOpen: () => state.open, tab: () => state.tab,
+        entries: (tab) => (tab ? (tab === 'skills' ? skillEntries() : tab === 'plugins' ? pluginEntries() : toolEntries()) : entries())
+    };
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
     else init();
