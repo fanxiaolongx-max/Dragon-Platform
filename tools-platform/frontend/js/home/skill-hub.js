@@ -320,7 +320,7 @@
                 </div>
             </div>
             <div class="v2-hub-grid"></div>`;
-        window.HomeV2?.fillIcons?.(root);
+        window.HomeShell?.fillIcons?.(root);
         renderFilters();
         renderList();
     }
@@ -427,7 +427,7 @@
         root.querySelector('.v2-hub-grid').innerHTML = list.length
             ? `<div class="v2-hub-cards">${list.map(card).join('')}</div>`
             : `<div class="v2-hub-empty">${esc(emptyText)}</div>`;
-        window.HomeV2?.fillIcons?.(root);
+        window.HomeShell?.fillIcons?.(root);
         window.SkillSource?.fit?.(root);
     }
 
@@ -538,7 +538,7 @@
 
     function init() {
         const main = document.querySelector('.home-main');
-        if (!main || document.documentElement.dataset.ui !== 'v2') return;
+        if (!main) return;
         root = document.createElement('section');
         root.className = 'v2-hub';
         root.id = 'v2SkillHub';
@@ -568,7 +568,7 @@
             });
         });
         document.addEventListener('click', event => { if (state.open && !root.contains(event.target)) toggleMenu(false); });
-        // 菜单里的 data-v2-do（工具市场、上传）由 home-v2.js 执行，这里只负责收起菜单
+        // 菜单里的 data-v2-do（工具市场、上传）由 home-shell.js 执行，这里只负责收起菜单
         root.addEventListener('input', event => {
             if (!event.target.matches('.v2-hub-search input')) return;
             state.query = event.target.value;

@@ -18,7 +18,7 @@ const data=require('../backend/models/ai-report-data');data.unknownSources=async
 const wait=ms=>new Promise(r=>setTimeout(r,ms)),ev=code=>win.webContents.executeJavaScript(code,true);
 async function until(code){for(let i=0;i<300;i++){if(await ev(code))return;await wait(20);}throw Error('Timeout '+code);}
 app.whenReady().then(async()=>{
- const web=express();web.use(express.json());web.get('/js/shared/navbar.js',(_q,r)=>r.type('js').send(''));web.use((q,_r,n)=>{q.user={username:'fixture',role:'admin'};n();});web.use('/api/ai-report',require('../backend/routes/ai-report'));web.use(express.static(path.join(__dirname,'../frontend')));
+ const web=express();web.use(express.json());web.get(/^\/js\/shared\/platform-(?:core|dialogs|settings-controller|alerts|services|tool-updates|runtime)\.js$/,(_q,r)=>r.type('js').send(''));web.use((q,_r,n)=>{q.user={username:'fixture',role:'admin'};n();});web.use('/api/ai-report',require('../backend/routes/ai-report'));web.use(express.static(path.join(__dirname,'../frontend')));
  server=await new Promise(r=>{const s=web.listen(0,'127.0.0.1',()=>r(s));});win=new BrowserWindow({show:false,width:1920,height:1080,webPreferences:{backgroundThrottling:false}});await win.loadURL('http://127.0.0.1:'+server.address().port+'/pages/ai-report.html');
  await until('window.AiReportApp?.state.doc&&!document.body.classList.contains("air-booting")');
  await ev(`(()=>{const form=document.querySelector('[data-ask]');form.querySelector('textarea').value='只呈现一句话，不需要图表和指标卡';form.requestSubmit();})()`);

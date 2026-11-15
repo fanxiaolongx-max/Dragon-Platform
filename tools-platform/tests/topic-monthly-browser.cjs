@@ -49,7 +49,7 @@ async function importProject(project, name) {
 app.whenReady().then(async () => {
     const web = express();
     web.use(express.json({ limit: '45mb' }));
-    web.get('/js/shared/navbar.js', (_, res) => res.type('js').send('/* navigation excluded from this focused test */'));
+    web.get(/^\/js\/shared\/platform-(?:core|dialogs|settings-controller|alerts|services|tool-updates|runtime)\.js$/, (_, res) => res.type('js').send('/* navigation excluded from this focused test */'));
     web.get('/api/topic-snapshots', async (_, res) => { await delay(150); res.json({ items: [], total: 0 }); });
     web.get('/api/topic-snapshots/mapping-config', (_, res) => res.json({ config: null }));
     web.put('/api/topic-snapshots/mapping-config', (_, res) => res.json({ success: true }));

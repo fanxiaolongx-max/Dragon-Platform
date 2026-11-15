@@ -1613,7 +1613,7 @@ function buildUivProgressPanelScript(state) {
                 const msg = '确定停止全部批量任务？未执行的任务将不再运行。';
                 const ok = window.AppDialog?.confirm
                     ? await window.AppDialog.confirm(msg, { title: '停止批量任务', tone: 'danger', confirmText: '停止全部', cancelText: '取消' })
-                    : (typeof window.showNavbarConfirm === 'function' ? await window.showNavbarConfirm({ title: '停止批量任务', message: msg, tone: 'danger' }) : false);
+                    : (typeof window.showPlatformConfirm === 'function' ? await window.showPlatformConfirm({ title: '停止批量任务', message: msg, tone: 'danger' }) : false);
                 if (!ok) return;
                 writeControl({ stopRequested: true, stoppedAt: Date.now() });
                 appendControlLog('已请求停止全部任务');

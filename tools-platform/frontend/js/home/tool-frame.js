@@ -1,9 +1,9 @@
 // 新版首页：工具在主区（侧栏右侧）内嵌打开，不再跳转到带旧顶部导航的整页。
 // 首页里的工具链接在这里打开。Mac 上的数通协议专家使用独立的桌面视图。
-// 工具页通过 js/shared/navbar.js 的 NAV_EMBEDDED 隐藏自己的顶部导航。地址栏记为 ?app=<路径>，刷新和前进后退都能还原。
+// 工具页通过 js/shared/platform-core.js 的 PLATFORM_EMBEDDED 隐藏自己的顶部导航。地址栏记为 ?app=<路径>，刷新和前进后退都能还原。
 (function () {
     'use strict';
-    if (document.documentElement.dataset.ui !== 'v2') return;
+
 
     const L = (zh, en) => (/^en/.test(window.ToolsI18n?.getLanguage?.() || localStorage.getItem('tools_lang') || '') ? en : zh);
     const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -170,7 +170,7 @@
                     : L('工具加载失败，请重试。', 'The tool could not load. Please retry.');
             });
         }
-        window.HomeV2?.fillIcons?.(root);
+        window.HomeShell?.fillIcons?.(root);
         const browserButton = root.querySelector('[data-frame-act=browser]');
         const syncBrowserButton = () => {
             browserButton.textContent = L('浏览器', 'Browser');
@@ -317,7 +317,7 @@
                     mainScroll: document.querySelector('.home-main')?.scrollTop || 0, windowScroll: window.scrollY };
         }
         window.HomeSkillHub?.close?.();
-        window.HomeV2?.closePop?.();
+        window.HomeShell?.closePop?.();
         const path = url.pathname + url.search + url.hash;
         const info = toolInfo(url);
         closeSurface();
@@ -387,7 +387,7 @@
         try { url = new URL(link.getAttribute('href'), location.href); } catch { return; }
         if (!isToolUrl(url)) return;
         event.preventDefault();
-        window.HomeV2?.closePop?.();
+        window.HomeShell?.closePop?.();
         open(url.pathname + url.search + url.hash);
     });
 

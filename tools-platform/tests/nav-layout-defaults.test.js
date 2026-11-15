@@ -86,8 +86,8 @@ test('nav-layout-defaults: setAsDefaultLayout writes defaults/nav-layout.json an
     assert.deepEqual(restored.settings.primaryIds, customLayout.primaryIds);
 });
 
-test('nav-layout-defaults: frontend navbar.js and shared.css contain set-as-default bindings', () => {
-    const navbarJs = ['navbar.js', 'navbar-settings.js'].map(file => fs.readFileSync(path.join(__dirname, '../frontend/js/shared', file), 'utf8')).join('\n');
+test('nav-layout-defaults: frontend platform-core.js and shared.css contain set-as-default bindings', () => {
+    const navbarJs = [...['platform-core.js', 'platform-dialogs.js', 'platform-settings-controller.js', 'platform-alerts.js', 'platform-services.js', 'platform-tool-updates.js', 'platform-runtime.js'], 'platform-settings.js'].map(file => fs.readFileSync(path.join(__dirname, '../frontend/js/shared', file), 'utf8')).join('\n');
     const sharedCss = fs.readFileSync(path.join(__dirname, '../frontend/css/shared.css'), 'utf8');
 
     // UI elements

@@ -4063,7 +4063,7 @@
     });
     window.AIKnowledgeGraph = {
         open(options = {}) {
-            const host = document.documentElement.dataset.ui === 'v2' && document.querySelector('.home-main');
+            const host = document.documentElement.classList.contains('platform-home') && document.querySelector('.home-main');
             if (host) {
                 window.HomeToolFrame?.close?.();
                 window.HomeSkillHub?.close?.();

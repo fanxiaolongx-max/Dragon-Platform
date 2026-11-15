@@ -65,7 +65,7 @@ test('home page hosts Dragon Claw above the tool grid and wires it to the agent 
     const agent = read('frontend/js/home/dragon-claw.js');
     assert.match(html, /<section class="dc" id="dragonClaw"/);
     assert.ok(html.indexOf('id="dragonClaw"') < html.indexOf('id="toolsGrid"'));
-    ['dcThread', 'dcComposer', 'dcInput', 'dcSpotlight', 'dcPrompts', 'dcNewChat', 'dcBackToTools', 'homeKnowledgeGraphEntry', 'homeF12QuickDownloads']
+    ['dcThread', 'dcComposer', 'dcInput', 'dcPrompts', 'dcNewChat', 'dcBackToTools', 'homeKnowledgeGraphEntry', 'homeF12QuickDownloads']
         .forEach(id => assert.match(html, new RegExp(`id="${id}"`), `${id} exists`));
     assert.match(html, /href="\/css\/dragon-claw\.css"/);
     assert.ok(html.indexOf('src="/js/home/workspace.js"') < html.indexOf('src="/js/home/dragon-claw.js"'));
@@ -73,11 +73,13 @@ test('home page hosts Dragon Claw above the tool grid and wires it to the agent 
     assert.match(agent, /requestStreamingChat/);
 });
 
-test('navbar version badge shows the platform release instead of asset hashes', () => {
-    const navbar = read('frontend/js/shared/navbar.js');
-    const block = navbar.slice(navbar.indexOf("getElementById('nav-resource-version-display')"), navbar.indexOf('renderNavLinksFromState();', navbar.indexOf("getElementById('nav-resource-version-display')")));
-    assert.match(block, /ToolsAppVersion\?\.get|\/api\/app-version/);
-    assert.doesNotMatch(block, /v1\.1\.0|\?v=/);
+test('home release version comes from shared platform state instead of hidden navigation', () => {
+    const runtime = read('frontend/js/shared/platform-runtime.js');
+    const shell = read('frontend/js/home/home-shell.js');
+    assert.match(runtime, /ToolsAppVersion\?\.get|\/api\/app-version/);
+    assert.match(runtime, /publishPlatformStatus\(\{ version:/);
+    assert.match(shell, /ToolsPlatform\?\.status\(\).version/);
+    assert.doesNotMatch(shell, /nav-resource-version-display|watchNavbar|mirrorNavbar/);
 });
 
 test('dragon-claw styles grounding basis chips for dark theme and prevents light hover wash out', () => {

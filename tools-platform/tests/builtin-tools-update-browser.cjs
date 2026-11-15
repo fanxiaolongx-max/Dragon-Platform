@@ -65,7 +65,7 @@ app.whenReady().then(async () => {
     web.get('/shared.css', (_req, res) => res.sendFile(path.join(__dirname, '../frontend/css/shared.css')));
     web.get('/home-mode.css', (_req, res) => res.sendFile(path.join(__dirname, '../frontend/css/home-mode.css')));
     web.get('/fixture.js', (_req, res) => {
-        const source = fs.readFileSync(path.join(__dirname, '../frontend/js/shared/navbar.js'), 'utf8');
+        const source = require('./helpers/platform-source.cjs').readPlatformSource();
         const section = source.slice(source.indexOf('let builtinToolsSyncChecking ='), source.indexOf('let pageScrollbarIdleTimer;'));
         res.type('js').send(`let lastBuiltinToolsSyncPreview; window.language='zh-CN';
             function navLocaleText(zh,en){return window.language==='en-US'?en:zh;}
@@ -203,7 +203,7 @@ app.whenReady().then(async () => {
         localStorage.setItem('tools_role', 'admin');
         snoozeBuiltinToolsSyncForToday();
         document.getElementById('toolMarketBtn').dataset.opened = '1';
-        document.getElementById('builtinToolsCompareBtn').click();
+        openBuiltinToolsComparison();
     });
     assert.equal(await evaluate(() => document.getElementById('builtinToolsSyncModal')?.dataset.loading), '1', 'comparison modal appears immediately in loading mode');
     assert.ok(await evaluate(() => document.querySelector('.builtin-sync-loading') !== null), 'loading skeleton and progress view are visible right away');

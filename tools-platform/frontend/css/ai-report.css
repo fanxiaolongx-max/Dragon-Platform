@@ -383,17 +383,16 @@ html:has(body.air-moving){overflow-anchor:none}
 .air-chrome-toggle{position:fixed;top:calc(var(--navbar-h,52px) + var(--air-toolbar-h));left:50%;z-index:31;transform:translateX(-50%);width:44px;height:16px;display:grid;place-items:center;padding:0;border:0;border-radius:0 0 9px 9px;background:#102b47;color:#c9d9ea;box-shadow:0 3px 8px #102b4726;opacity:.75;transition:top .32s cubic-bezier(.2,.8,.2,1),opacity .15s,background .15s}
 .air-chrome-toggle:hover,.air-chrome-toggle:focus-visible{opacity:1;background:#1b4268;color:#fff}
 .air-chrome-toggle svg{transition:transform .32s cubic-bezier(.2,.8,.2,1)}
-#app-navbar{transition:transform .32s cubic-bezier(.2,.8,.2,1)}
+
 .air-toolbar{transition:height .32s cubic-bezier(.2,.8,.2,1),margin-top .32s cubic-bezier(.2,.8,.2,1),opacity .2s}
 .air-chat{transition:top .32s cubic-bezier(.2,.8,.2,1),height .32s cubic-bezier(.2,.8,.2,1)}
-html.air-chrome-hidden #app-navbar{transform:translateY(-105%);box-shadow:none}
 html.air-chrome-hidden .air-toolbar{height:0;margin-top:0;opacity:0;overflow:hidden;pointer-events:none}
 html.air-chrome-hidden .air-chat{top:20px;height:calc(100vh - 32px)}
 html.air-chrome-hidden .air-chrome-toggle{top:0}
 html.air-chrome-hidden .air-chrome-toggle svg{transform:rotate(180deg)}
 body.air-export .air-chrome-toggle,.air-preview-print .air-chrome-toggle{display:none}
 @media print{.air-chrome-toggle{display:none!important}}
-@media(prefers-reduced-motion:reduce){.air-chrome-toggle,.air-chrome-toggle svg,#app-navbar,.air-toolbar,.air-chat,.air-layout{transition:none}}
+@media(prefers-reduced-motion:reduce){.air-chrome-toggle,.air-chrome-toggle svg,.air-toolbar,.air-chat,.air-layout{transition:none}}
 /* Narrow cells stack their blocks top to bottom, whatever widths the recipe gave them (the cell is the container). */
 @container (max-width:480px){
     .air-output:not([data-horizontal]) .kit-row{flex-direction:column;align-items:stretch}

@@ -46,7 +46,7 @@ app.whenReady().then(async () => {
             localStorage.setItem('tools_lang','zh-CN');
             const nativeInterval=window.setInterval;
             window.taskRefreshes=[];
-            window.showNavbarConfirm=async()=>true;
+            window.showPlatformConfirm=async()=>true;
             window.setInterval=(fn,ms)=>{if(ms===20000)taskRefreshes.push(fn);return nativeInterval(fn,ms);};
             window.DragonClawWorkspace={
                 resetSession(){},hideExternal(){},

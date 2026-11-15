@@ -142,29 +142,29 @@ app.whenReady().then(async () => {
         fw.__dhConfirmLeave = hostConfirm => hostConfirm('Unsaved fixture changes?');
         window.HomeToolFrame.close();
     })()`);
-    await until('!!document.querySelector("#navbarConfirmModal.open, .app-dialog")');
+    await until('!!document.querySelector("#platformConfirmModal.open, .app-dialog")');
     // Cancel leave -> stays in tool frame
-    await evaluate('document.querySelector("#navbarConfirmModal.open .nav-confirm-cancel, .app-dialog [data-dialog=\\"cancel\\"]").click(); true');
-    await until('!document.querySelector("#navbarConfirmModal.open, .app-dialog")');
+    await evaluate('document.querySelector("#platformConfirmModal.open .nav-confirm-cancel, .app-dialog [data-dialog=\\"cancel\\"]").click(); true');
+    await until('!document.querySelector("#platformConfirmModal.open, .app-dialog")');
     assert.equal(await evaluate('window.HomeToolFrame.isOpen()'), true, 'cancel keeps tool frame open');
     // Confirm leave -> closes tool frame
     await evaluate('window.HomeToolFrame.close(); true');
-    await until('!!document.querySelector("#navbarConfirmModal.open .nav-confirm-submit, .app-dialog [data-dialog=\\"ok\\"]")');
-    await evaluate('document.querySelector("#navbarConfirmModal.open .nav-confirm-submit, .app-dialog [data-dialog=\\"ok\\"]").click(); true');
+    await until('!!document.querySelector("#platformConfirmModal.open .nav-confirm-submit, .app-dialog [data-dialog=\\"ok\\"]")');
+    await evaluate('document.querySelector("#platformConfirmModal.open .nav-confirm-submit, .app-dialog [data-dialog=\\"ok\\"]").click(); true');
     await until('!window.HomeToolFrame.isOpen()');
     assert.deepEqual(await evaluate('window.__nativeDialogs'), [], 'no native alert/confirm/prompt was called');
 
     // Verify AppDialog light-theme CSS renders light card in html[data-theme="light"]
     await evaluate(`(() => {
         document.documentElement.dataset.theme = 'light';
-        window.__savedNavConfirm = window.showNavbarConfirm;
-        window.showNavbarConfirm = null;
+        window.__savedNavConfirm = window.showPlatformConfirm;
+        window.showPlatformConfirm = null;
         window.AppDialog.alert('Light check', { title: 'Theme' });
     })()`);
     await until('!!document.querySelector(".app-dialog-card")');
     const cardStyle = await evaluate(`(() => { const s = getComputedStyle(document.querySelector(".app-dialog-card")); return { bgImg: s.backgroundImage, color: s.color }; })()`);
     assert.ok(cardStyle.bgImg.includes('255, 255, 255') && cardStyle.color === 'rgb(15, 23, 42)', `AppDialog card renders light surface on light theme: ${JSON.stringify(cardStyle)}`);
-    await evaluate('document.querySelector(".app-dialog [data-dialog=\\"ok\\"]").click(); window.showNavbarConfirm = window.__savedNavConfirm; true');
+    await evaluate('document.querySelector(".app-dialog [data-dialog=\\"ok\\"]").click(); window.showPlatformConfirm = window.__savedNavConfirm; true');
     await until('!document.querySelector(".app-dialog")');
 
     // 6. Navbar user chip & More flyout normalization dedup check.

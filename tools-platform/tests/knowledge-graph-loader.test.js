@@ -1,5 +1,5 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
-const source=fs.readFileSync(path.join(__dirname,'../frontend/js/shared/navbar.js'),'utf8');
+const source=require('./helpers/platform-source.cjs').readPlatformSource();
 const helper=source.slice(source.indexOf('async function loadNavLazyScript('),source.indexOf('\nconst SNAPSHOT_API'));
 const loader=source.slice(source.indexOf('let toolsKnowledgeGraphLoader ='),source.indexOf('// 对话里的文件卡片与图片放大'));
 function fixture(fail=false){

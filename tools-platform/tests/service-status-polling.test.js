@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const acorn = require('acorn');
 
-const source = fs.readFileSync(path.join(__dirname, '../frontend/js/shared/navbar.js'), 'utf8');
+const source = require('./helpers/platform-source.cjs').readPlatformSource();
 const variables = new Set(['serviceStatusDays', 'serviceStatusView', 'serviceStatusTimer', 'serviceStatusRequestSeq', 'serviceStatusRequestPending']);
 const methods = new Set(['setServiceStatusView', 'closeServiceStatusModal', 'startServiceStatusPolling', 'clearServiceStatusPolling', 'loadServiceStatusHistory', 'setServiceStatusDays']);
 const script = acorn.parse(source, { ecmaVersion: 'latest' }).body.filter(node => {

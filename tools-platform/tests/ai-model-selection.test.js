@@ -137,7 +137,7 @@ test('Dragon Claw composer offers a remembered model picker that applies from th
 });
 
 test('global settings removes editable model mappings in both languages', () => {
-    const navbar = read('frontend/js/shared/navbar.js') + '\n' + read('frontend/js/shared/navbar-settings.js');
+    const navbar = require('./helpers/platform-source.cjs').readPlatformSource() + '\n' + read('frontend/js/shared/platform-settings.js');
     assert.doesNotMatch(navbar, /navAiAliasPanel|addAiModelAlias|resetAiModelAliases/);
     assert.equal((navbar.match(/'nav\.ai\.modelIdentityHelp':/g) || []).length, 2);
 });

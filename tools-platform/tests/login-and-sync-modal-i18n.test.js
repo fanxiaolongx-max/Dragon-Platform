@@ -211,12 +211,12 @@ test('login.html contains valid i18n structure and translations', () => {
     }
 });
 
-test('navbar.js builtin tools sync modal helpers support English and Chinese', () => {
-    const navbarCode = fs.readFileSync(path.join(__dirname, '../frontend/js/shared/navbar.js'), 'utf8');
+test('platform-core.js builtin tools sync modal helpers support English and Chinese', () => {
+    const navbarCode = require('./helpers/platform-source.cjs').readPlatformSource();
 
     // Extract helper functions including formatBuiltinToolBytes
     const helpersMatch = navbarCode.match(/(function formatBuiltinToolBytes[\s\S]*?)(function closeBuiltinToolsSyncModal)/);
-    assert.ok(helpersMatch, 'Helper functions found in navbar.js');
+    assert.ok(helpersMatch, 'Helper functions found in platform-core.js');
 
     const helpersCode = `
         function navLocaleText(zh, en) {

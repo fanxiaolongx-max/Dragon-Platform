@@ -207,7 +207,7 @@
     function reviewNotice(message) {
         const title = L('运维待办', 'Ops drafts');
         if (window.AppDialog?.alert) return window.AppDialog.alert(message, { title });
-        if (typeof window.showNavbarNotice === 'function') return window.showNavbarNotice({ title, message });
+        if (typeof window.showPlatformNotice === 'function') return window.showPlatformNotice({ title, message });
     }
 
     async function openReview(target) {
@@ -239,7 +239,7 @@
         const message = L('丢弃后这条草稿不会发送给任何对象，且无法恢复。确定丢弃？', 'This draft will not be sent to anyone and cannot be restored. Discard it?');
         const options = { tone: 'danger', confirmText: L('丢弃', 'Discard'), cancelText: L('取消', 'Cancel') };
         if (window.AppDialog?.confirm) return window.AppDialog.confirm(message, options);
-        if (window.showNavbarConfirm) return window.showNavbarConfirm({ message, ...options });
+        if (window.showPlatformConfirm) return window.showPlatformConfirm({ message, ...options });
         return Promise.resolve(false);
     }
 

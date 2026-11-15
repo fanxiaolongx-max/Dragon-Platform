@@ -1164,7 +1164,7 @@
 }
 
 .nav-confirm-modal,
-#navbarConfirmModal,
+#platformConfirmModal,
 .app-dialog,
 .app-dialog-host {
     z-index: 200000 !important;

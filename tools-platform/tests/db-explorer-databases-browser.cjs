@@ -41,7 +41,7 @@ app.whenReady().then(async () => {
     const web = express();
     web.use(express.json());
     web.use((req, _res, next) => { req.user = { role: 'admin' }; next(); });
-    web.get('/js/shared/navbar.js', (_req, res) => res.type('js').send(''));
+    web.get(/^\/js\/shared\/platform-(?:core|dialogs|settings-controller|alerts|services|tool-updates|runtime)\.js$/, (_req, res) => res.type('js').send(''));
     web.use('/api/db-explorer', async (req, _res, next) => {
         if (req.query.database === 'report' && ((delayTables && req.path === '/catalog') || (delayRows && req.path.startsWith('/tables/')))) await wait(200);
         next();

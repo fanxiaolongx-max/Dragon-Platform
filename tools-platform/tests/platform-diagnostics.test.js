@@ -49,7 +49,7 @@ test('outbound probe resolves, connects, reports status and rejects bad input', 
 });
 
 test('the panel has an admin-only self-check tab wired to the endpoints', () => {
-    const navbar = fs.readFileSync(path.join(__dirname, '../frontend/js/shared/navbar.js'), 'utf8');
+    const navbar = require('./helpers/platform-source.cjs').readPlatformSource();
     const route = fs.readFileSync(path.join(__dirname, '../backend/routes/platform-metrics.js'), 'utf8');
     assert.match(navbar, /id="serviceStatusDiagTab"/);
     assert.match(navbar, /diagTab\.hidden = !canInspectServiceFailures\(\)/);

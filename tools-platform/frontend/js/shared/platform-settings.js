@@ -1,9 +1,6 @@
 /**
- * shared/navbar-settings.js - 全局设置各页签的渲染与操作（从 navbar.js 拆出）
- *
- * 由 navbar.js 的 ensureNavSettingsPack() 在首次打开全局设置时按需加载；
- * 与 navbar.js 同为普通脚本，共用全局作用域里的状态与工具函数（navState、navT、navEscape…）。
- * 这里只放打开设置后才会用到的代码：页面加载时执行的逻辑必须留在 navbar.js。
+ * Platform settings panels, loaded lazily by platform-settings-controller.js.
+ * Uses platform-core.js state and platform-dialogs.js; contains no navigation bar.
  */
 
 function moveArrayItem(arr, index, delta) {
@@ -31,7 +28,7 @@ function renderNavigationRestorePanel() {
 }
 
 window.restoreSystemNavigationDefaults = async function () {
-    const confirmed = await showNavbarConfirm({
+    const confirmed = await showPlatformConfirm({
         title: navT('nav.set.restore.confirmTitle'),
         message: navT('nav.set.restore.confirmMessage'),
         hint: navT('nav.set.restore.confirmHint'),
@@ -53,7 +50,7 @@ window.restoreSystemNavigationDefaults = async function () {
         if (!res.ok || !payload.settings) throw new Error(payload.error || `HTTP ${res.status}`);
         navState.settings = normalizeNavSettings(payload.settings);
         writeNavigationBootstrapCache();
-        renderNavLinksFromState();
+        publishPlatformCatalog();
         window.dispatchEvent(new Event('tools:nav-layout-change'));
         renderNavSettingsContent();
         const nextIndicator = document.getElementById('navSettingsSaveState');
@@ -70,7 +67,7 @@ window.restoreSystemNavigationDefaults = async function () {
 };
 
 window.setCurrentNavigationAsDefault = async function () {
-    const confirmed = await showNavbarConfirm({
+    const confirmed = await showPlatformConfirm({
         title: navT('nav.set.default.confirmTitle'),
         message: navT('nav.set.default.confirmMessage'),
         hint: navT('nav.set.default.confirmHint'),
@@ -94,7 +91,7 @@ window.setCurrentNavigationAsDefault = async function () {
             navState.settings = normalizeNavSettings(payload.settings);
         }
         writeNavigationBootstrapCache();
-        renderNavLinksFromState();
+        publishPlatformCatalog();
         window.dispatchEvent(new Event('tools:nav-layout-change'));
         renderNavSettingsContent();
         const nextIndicator = document.getElementById('navSettingsSaveState');
@@ -519,7 +516,7 @@ window.savePlatformName = async function () {
         if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
         navState.settings = normalizeNavSettings(data);
         writeNavigationBootstrapCache();
-        renderNavLinksFromState();
+        publishPlatformCatalog();
         input.value = navState.settings.platformName;
         if (zhInput) zhInput.value = navState.settings.platformNameZh;
         if (enInput) enInput.value = navState.settings.platformNameEn;
@@ -548,7 +545,7 @@ window.handleLogoFileSelect = function (event) {
 window.submitLogoUpload = async function () {
     const file = window._selectedLogoFile || document.getElementById('logoFileInput')?.files?.[0];
     if (!file) {
-        await showNavbarNotice({ title: navLocaleText('选择图片', 'Choose an image'), message: navLocaleText('请先选择 Logo 图片。', 'Select a logo image first.') });
+        await showPlatformNotice({ title: navLocaleText('选择图片', 'Choose an image'), message: navLocaleText('请先选择 Logo 图片。', 'Select a logo image first.') });
         return;
     }
     const button = document.getElementById('logoUploadSubmitBtn');
@@ -583,7 +580,7 @@ window.submitLogoUpload = async function () {
     } catch (error) {
         const message = logoUploadError(error);
         if (status) status.textContent = navLocaleText('处理失败：', 'Failed: ') + message;
-        await showNavbarNotice({ title: navLocaleText('图标更新失败', 'Logo update failed'), message, tone: 'error' });
+        await showPlatformNotice({ title: navLocaleText('图标更新失败', 'Logo update failed'), message, tone: 'error' });
     } finally {
         if (button) { button.disabled = false; button.textContent = navLocaleText('生成并应用图标', 'Generate and apply icons'); }
     }
@@ -662,7 +659,7 @@ window.downloadLogoBundle = async function () {
         setTimeout(() => URL.revokeObjectURL(url), 1000);
         if (status) status.textContent = `${navLocaleText('下载完成：', 'Downloaded: ')}${filename} (${(blob.size / 1024).toFixed(1)} KB)`;
     } catch (error) {
-        await showNavbarNotice({
+        await showPlatformNotice({
             title: navLocaleText('物料包下载失败', 'Download failed'),
             message: error.message || navLocaleText('无法下载运营物料资产包', 'Could not download brand assets bundle'),
             tone: 'error'
@@ -777,7 +774,7 @@ window.setAiUsageModel = function (key) {
 };
 
 window.clearSpecificModelUsage = async function (key, displayName, tokens, costCny) {
-    const confirmed = await showNavbarConfirm({
+    const confirmed = await showPlatformConfirm({
         title: navLocaleText('清空模型统计信息', 'Clear Model Statistics'),
         message: navLocaleText(
             `确定清空模型 “${displayName}” 的全部历史 Token 用量与计费统计吗？`,
@@ -806,7 +803,7 @@ window.clearSpecificModelUsage = async function (key, displayName, tokens, costC
         await loadAiUsageDashboard(navState.aiUsageDimension);
     } catch (err) {
         if (indicator) indicator.textContent = navT('nav.ai.clearFail') + err.message;
-        showNavbarNotice({ title: navT('nav.dialog.error'), message: navT('nav.ai.clearStatsFail') + err.message, tone: 'error' });
+        showPlatformNotice({ title: navT('nav.dialog.error'), message: navT('nav.ai.clearStatsFail') + err.message, tone: 'error' });
     }
 };
 
@@ -820,7 +817,7 @@ window.clearSelectedModelAiUsage = async function () {
 
 window.promptClearAllAiUsage = async function () {
     const totals = navState.aiUsageData?.totals || {};
-    const confirmed = await showNavbarConfirm({
+    const confirmed = await showPlatformConfirm({
         title: navLocaleText('清空全部模型统计信息', 'Clear All Models Statistics'),
         message: navLocaleText(
             '确定清空全部模型的历史 Token 用量与计费统计吗？',
@@ -849,7 +846,7 @@ window.promptClearAllAiUsage = async function () {
         await loadAiUsageDashboard(navState.aiUsageDimension);
     } catch (err) {
         if (indicator) indicator.textContent = navT('nav.ai.clearFail') + err.message;
-        showNavbarNotice({ title: navT('nav.dialog.error'), message: navT('nav.ai.clearFail') + err.message, tone: 'error' });
+        showPlatformNotice({ title: navT('nav.dialog.error'), message: navT('nav.ai.clearFail') + err.message, tone: 'error' });
     }
 };
 
@@ -1347,7 +1344,7 @@ window.activateAiProfile = async function () {
 window.deleteAiProfile = async function () {
     const profile = currentAiProfile();
     if (!profile) return;
-    const confirmed = await showNavbarConfirm({
+    const confirmed = await showPlatformConfirm({
         title: navLocaleText('删除 AI 配置', 'Delete AI profile'),
         message: navLocaleText(`确定删除 AI 配置“${profile.name}”吗？`, `Delete the AI profile “${profile.name}”?`),
         hint: navLocaleText('删除后无法恢复，当前业务调用不会自动切换到该配置。', 'This cannot be undone. Active requests will no longer use this profile.'),
@@ -2257,7 +2254,7 @@ function setInitializationStatus(message, tone = '') {
 }
 
 window.enableQuickStartMode = async function () {
-    const confirmed = await showNavbarConfirm({
+    const confirmed = await showPlatformConfirm({
         title: navT('nav.init.quickConfirmTitle'),
         message: navT('nav.init.quickConfirmMessage'),
         hint: navT('nav.init.quickConfirmHint'),
@@ -2294,7 +2291,7 @@ window.enableQuickStartMode = async function () {
 };
 
 window.factoryResetProgramData = async function () {
-    const confirmed = await showNavbarTypedConfirm({
+    const confirmed = await showPlatformTypedConfirm({
         title: navT('nav.init.resetConfirmTitle'),
         message: navT('nav.init.resetConfirmMessage'),
         hint: navT('nav.init.resetConfirmHint'),
@@ -2568,7 +2565,7 @@ function renderMediaSettingsHtml(content, overview, videos, categories) {
                     <button type="button" onclick="openImportLocalMediaModal()" style="height:36px; padding:0 14px; background:linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); color:#fff; border:1px solid #0284c7; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 1px 3px rgba(14,165,233,0.25); white-space:nowrap; box-sizing:border-box; margin:0 !important; transition:all 0.15s ease;" onmouseover="this.style.filter='brightness(1.08)'" onmouseout="this.style.filter='none'">
                         <span>📥</span> 本地目录一键导入
                     </button>
-                    <a href="${navToolShellUrl('/cinema')}" target="_blank" style="height:36px; padding:0 14px; background:var(--v2-card, #fff); color:var(--v2-ink, #334155); border:1px solid var(--v2-line, #cbd5e1); border-radius:8px; font-size:13px; font-weight:600; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 1px 2px rgba(0,0,0,0.04); white-space:nowrap; box-sizing:border-box; margin:0 !important; transition:all 0.15s ease;" onmouseover="this.style.borderColor='#6366f1';this.style.color='#4f46e5';this.style.background='#f5f3ff'" onmouseout="this.style.borderColor='var(--v2-line, #cbd5e1)';this.style.color='var(--v2-ink, #334155)';this.style.background='var(--v2-card, #fff)'">
+                    <a href="${window.ToolsNavigation.toolUrl('/cinema')}" target="_blank" style="height:36px; padding:0 14px; background:var(--v2-card, #fff); color:var(--v2-ink, #334155); border:1px solid var(--v2-line, #cbd5e1); border-radius:8px; font-size:13px; font-weight:600; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 1px 2px rgba(0,0,0,0.04); white-space:nowrap; box-sizing:border-box; margin:0 !important; transition:all 0.15s ease;" onmouseover="this.style.borderColor='#6366f1';this.style.color='#4f46e5';this.style.background='#f5f3ff'" onmouseout="this.style.borderColor='var(--v2-line, #cbd5e1)';this.style.color='var(--v2-ink, #334155)';this.style.background='var(--v2-card, #fff)'">
                         <span>🎬</span> 预览点播大厅 ↗
                     </a>
                 </div>
@@ -2775,7 +2772,7 @@ window.saveFeiniuMediaConfig = async function (btn) {
             throw new Error(data.error || `HTTP ${res.status}`);
         }
         await renderMediaSettings(document.getElementById('navSettingsContent'));
-        showNavbarNotice({
+        showPlatformNotice({
             title: '飞牛影视对接成功',
             message: data.message || '飞牛影视配置已保存并完成影片同步。',
             tone: 'success'
@@ -2785,7 +2782,7 @@ window.saveFeiniuMediaConfig = async function (btn) {
             btn.disabled = false;
             btn.textContent = origText || '🔗 保存并对接';
         }
-        showNavbarNotice({
+        showPlatformNotice({
             title: '飞牛影视对接失败',
             message: error.message || '请检查飞牛影视地址、账号与密码是否正确。',
             tone: 'error'
@@ -2810,7 +2807,7 @@ window.syncFeiniuMediaCatalog = async function (btn) {
             throw new Error(data.error || `HTTP ${res.status}`);
         }
         await renderMediaSettings(document.getElementById('navSettingsContent'));
-        showNavbarNotice({
+        showPlatformNotice({
             title: '飞牛片库已同步',
             message: data.message || '已同步最新飞牛影视列表。',
             tone: 'success'
@@ -2820,7 +2817,7 @@ window.syncFeiniuMediaCatalog = async function (btn) {
             btn.disabled = false;
             btn.textContent = origText || '🔄 同步片库';
         }
-        showNavbarNotice({
+        showPlatformNotice({
             title: '同步失败',
             message: error.message || '无法从飞牛影视拉取最新列表。',
             tone: 'error'
@@ -2856,7 +2853,7 @@ window.handleMediaSearchInput = function (val) {
 window.setMediaPriority = async function (videoId, value, input) {
     const order = Number(value);
     if (!Number.isSafeInteger(order)) {
-        showNavbarNotice({
+        showPlatformNotice({
             title: '输入提示',
             message: '优先级请输入整数；数字越小，展播顺序越靠前。',
             tone: 'info'
@@ -2875,7 +2872,7 @@ window.setMediaPriority = async function (videoId, value, input) {
         await renderMediaSettings(document.getElementById('navSettingsContent'));
     } catch (error) {
         if (input) input.disabled = false;
-        showNavbarNotice({
+        showPlatformNotice({
             title: '保存失败',
             message: `优先级保存失败：${error.message}`,
             tone: 'error'
@@ -3145,7 +3142,7 @@ function openMediaForm(importing) {
 
                 forceClose();
                 await renderMediaSettings(document.getElementById('navSettingsContent'));
-                showNavbarNotice({
+                showPlatformNotice({
                     title: '分类创建成功',
                     message: `已成功创建分类“${folderName}”。`,
                     tone: 'success'
@@ -3316,7 +3313,7 @@ window.setMediaCategoryPriority = async function (categoryId, value, input) {
     const category = (navState.mediaCategoriesCache || []).find(item => item.id === categoryId);
     const order = Number(value);
     if (!category || !Number.isSafeInteger(order)) {
-        showNavbarNotice({ title: '输入提示', message: '分类优先级请输入整数；数字越小排名越靠前。', tone: 'info' });
+        showPlatformNotice({ title: '输入提示', message: '分类优先级请输入整数；数字越小排名越靠前。', tone: 'info' });
         return;
     }
     if (input) input.disabled = true;
@@ -3331,14 +3328,14 @@ window.setMediaCategoryPriority = async function (categoryId, value, input) {
         await renderMediaSettings(document.getElementById('navSettingsContent'));
     } catch (error) {
         if (input) input.disabled = false;
-        showNavbarNotice({ title: '保存失败', message: `分类优先级保存失败：${error.message}`, tone: 'error' });
+        showPlatformNotice({ title: '保存失败', message: `分类优先级保存失败：${error.message}`, tone: 'error' });
     }
 };
 
 window.openEditMediaCategoryModal = async function (categoryId) {
     const category = (navState.mediaCategoriesCache || []).find(item => item.id === categoryId);
     if (!category) return;
-    const values = await showNavbarFormDialog({
+    const values = await showPlatformFormDialog({
         title: `分类设置：${category.name}`,
         eyebrow: '媒体库访问保护',
         icon: category.protected ? '🔒' : '📁',
@@ -3379,13 +3376,13 @@ window.openEditMediaCategoryModal = async function (categoryId) {
     const order = Number(values.order);
     const pin = String(values.pin || '').trim();
     if (!Number.isSafeInteger(order)) {
-        return showNavbarNotice({ title: '优先级格式不正确', message: '分类优先级必须是整数。', tone: 'error' });
+        return showPlatformNotice({ title: '优先级格式不正确', message: '分类优先级必须是整数。', tone: 'error' });
     }
     if (shouldProtect && !category.protected && !/^\d{4}$/.test(pin)) {
-        return showNavbarNotice({ title: 'PIN 格式不正确', message: '请输入 4 位数字 PIN。', tone: 'error' });
+        return showPlatformNotice({ title: 'PIN 格式不正确', message: '请输入 4 位数字 PIN。', tone: 'error' });
     }
     if (pin && !/^\d{4}$/.test(pin)) {
-        return showNavbarNotice({ title: 'PIN 格式不正确', message: 'PIN 必须是 4 位数字。', tone: 'error' });
+        return showPlatformNotice({ title: 'PIN 格式不正确', message: 'PIN 必须是 4 位数字。', tone: 'error' });
     }
     try {
         const response = await fetch(`/api/media/admin/folders/${encodeURIComponent(category.id)}`, {
@@ -3396,19 +3393,19 @@ window.openEditMediaCategoryModal = async function (categoryId) {
         const data = await response.json().catch(() => ({}));
         if (!response.ok || !data.success) throw new Error(data.error || '保存失败');
         await renderMediaSettings(document.getElementById('navSettingsContent'));
-        showNavbarNotice({
+        showPlatformNotice({
             title: '分类设置已更新',
             message: shouldProtect ? `“${category.name}”现在需要 4 位 PIN 才能查看。` : `“${category.name}”已设为公开分类。`,
             tone: 'success'
         });
     } catch (error) {
-        showNavbarNotice({ title: '保存失败', message: error.message, tone: 'error' });
+        showPlatformNotice({ title: '保存失败', message: error.message, tone: 'error' });
     }
 };
 
 // 删除分类文件夹
 window.deleteMediaFolder = async function (folderName) {
-    const confirmed = await showNavbarConfirm({
+    const confirmed = await showPlatformConfirm({
         title: '删除分类文件夹',
         eyebrow: '危险操作 · 分类删除',
         message: `确定彻底删除分类文件夹“${folderName}”吗？`,
@@ -3428,20 +3425,20 @@ window.deleteMediaFolder = async function (folderName) {
         const data = await response.json();
         if (data.success) {
             await renderMediaSettings(document.getElementById('navSettingsContent'));
-            showNavbarNotice({
+            showPlatformNotice({
                 title: '删除成功',
                 message: data.message || `分类“${folderName}”已成功删除。`,
                 tone: 'success'
             });
         } else {
-            showNavbarNotice({
+            showPlatformNotice({
                 title: '删除失败',
                 message: data.error || '未能删除该分类',
                 tone: 'error'
             });
         }
     } catch (e) {
-        showNavbarNotice({
+        showPlatformNotice({
             title: '请求失败',
             message: e.message || '网络连接异常，请重试',
             tone: 'error'
@@ -3461,7 +3458,7 @@ window.openEditMediaModal = async function (videoId) {
         .filter(category => category.id !== 'all')
         .map(category => ({ value: category.id, label: `${category.icon || '📁'} ${category.name || category.folder || '未命名分类'}` }));
 
-    const values = await showNavbarFormDialog({
+    const values = await showPlatformFormDialog({
         title: '编辑视频展示信息',
         eyebrow: '媒体库管理',
         icon: '✎',
@@ -3488,20 +3485,20 @@ window.openEditMediaModal = async function (videoId) {
         const data = await response.json();
         if (data.success) {
             await renderMediaSettings(document.getElementById('navSettingsContent'));
-            showNavbarNotice({
+            showPlatformNotice({
                 title: '修改成功',
                 message: '视频信息已更新。',
                 tone: 'success'
             });
         } else {
-            showNavbarNotice({
+            showPlatformNotice({
                 title: '修改失败',
                 message: data.error || '保存失败',
                 tone: 'error'
             });
         }
     } catch (e) {
-        showNavbarNotice({
+        showPlatformNotice({
             title: '请求失败',
             message: e.message || '网络连接异常，请重试',
             tone: 'error'
@@ -3511,7 +3508,7 @@ window.openEditMediaModal = async function (videoId) {
 
 // 抽取封面帧
 window.extractMediaPoster = async function (videoId) {
-    const values = await showNavbarFormDialog({
+    const values = await showPlatformFormDialog({
         title: '重新截取封面帧',
         message: '请输入抽取封面的时间点（格式如 00:00:06 或 00:01:20）：',
         eyebrow: '媒体库管理',
@@ -3533,20 +3530,20 @@ window.extractMediaPoster = async function (videoId) {
         const data = await response.json();
         if (data.success) {
             await renderMediaSettings(document.getElementById('navSettingsContent'));
-            showNavbarNotice({
+            showPlatformNotice({
                 title: '封面抽帧成功',
                 message: '视频高清封面帧已更新！',
                 tone: 'success'
             });
         } else {
-            showNavbarNotice({
+            showPlatformNotice({
                 title: '抽帧失败',
                 message: data.error || '截取失败',
                 tone: 'error'
             });
         }
     } catch (e) {
-        showNavbarNotice({
+        showPlatformNotice({
             title: '请求失败',
             message: e.message || '网络连接异常，请重试',
             tone: 'error'
@@ -3556,7 +3553,7 @@ window.extractMediaPoster = async function (videoId) {
 
 // 删除单个视频
 window.deleteMediaVideo = async function (videoId, title) {
-    const confirmed = await showNavbarConfirm({
+    const confirmed = await showPlatformConfirm({
         title: '删除视频',
         eyebrow: '不可逆操作',
         message: `确定彻底删除视频“${title}”吗？`,
@@ -3576,20 +3573,20 @@ window.deleteMediaVideo = async function (videoId, title) {
         const data = await response.json();
         if (data.success) {
             await renderMediaSettings(document.getElementById('navSettingsContent'));
-            showNavbarNotice({
+            showPlatformNotice({
                 title: '删除成功',
                 message: '视频已成功删除。',
                 tone: 'success'
             });
         } else {
-            showNavbarNotice({
+            showPlatformNotice({
                 title: '删除失败',
                 message: data.error || '未能删除该视频',
                 tone: 'error'
             });
         }
     } catch (e) {
-        showNavbarNotice({
+        showPlatformNotice({
             title: '请求失败',
             message: e.message || '网络连接异常，请重试',
             tone: 'error'
@@ -3624,7 +3621,7 @@ function collectCustomToolBrowserState(selectedSlugs) {
 
 window.exportCustomToolBackup = async function () {
     const slugs = Array.from(document.querySelectorAll('[data-custom-backup-slug]:checked')).map(box => box.dataset.customBackupSlug);
-    if (!slugs.length) return showNavbarNotice({ title: navT('nav.dialog.notice'), message: navT('nav.ctbk.noSelection'), tone: 'info' });
+    if (!slugs.length) return showPlatformNotice({ title: navT('nav.dialog.notice'), message: navT('nav.ctbk.noSelection'), tone: 'info' });
     await runGlobalBackupAction(navT('nav.ctbk.exporting'), async () => {
         const res = await fetch('/api/custom-tools/backup/export', {
             method: 'POST',
@@ -3654,11 +3651,11 @@ window.exportCustomToolBackup = async function () {
 window.restoreCustomToolBackup = async function () {
     const input = document.getElementById('customToolBackupRestoreInput');
     const file = input?.files?.[0];
-    if (!file) return showNavbarNotice({ title: navT('nav.dialog.notice'), message: navT('nav.ctbk.noFile'), tone: 'info' });
+    if (!file) return showPlatformNotice({ title: navT('nav.dialog.notice'), message: navT('nav.ctbk.noFile'), tone: 'info' });
     const strategy = document.getElementById('customToolBackupConflictStrategy')?.value === 'skip' ? 'skip' : 'replace';
     const strategyLabel = strategy === 'skip' ? navT('nav.ctbk.strategySkip') : navT('nav.ctbk.strategyReplace');
     const message = customToolBackupText('nav.ctbk.restoreConfirm', { file: file.name, strategy: strategyLabel });
-    const confirmed = await showNavbarConfirm({
+    const confirmed = await showPlatformConfirm({
         title: navLocaleText('恢复自定义工具备份', 'Restore custom-tool backup'),
         message,
         hint: navLocaleText('请确认冲突处理策略和备份文件无误后继续。', 'Verify the backup file and conflict strategy before continuing.'),
@@ -3686,7 +3683,7 @@ window.restoreCustomToolBackup = async function () {
             skipped: data.skipped?.length || 0
         });
         if (dependencyCount) done += `\n\n${customToolBackupText('nav.ctbk.dependencyWarn', { count: dependencyCount })}`;
-        await showNavbarNotice({ title: navT('nav.dialog.success'), message: done, tone: 'success' });
+        await showPlatformNotice({ title: navT('nav.dialog.success'), message: done, tone: 'success' });
         return data;
     });
     if (result) {
@@ -3833,7 +3830,7 @@ window.checkRemoteBackupNow = async function () {
         return data;
     });
     const latest = result.latest || {};
-    await showNavbarNotice({
+    await showPlatformNotice({
         title: navLocaleText('远端连接成功', 'Remote connection successful'),
         message: `${result.remoteCreatedBackup?.name ? `${navLocaleText('已请求主站生成新备份', 'Requested a new remote backup')}：${result.remoteCreatedBackup.name}\n` : ''}${navLocaleText('备份数量', 'Backups')}：${result.backups?.length || 0}\n${navLocaleText('最新备份', 'Latest backup')}：${latest.name || '-'}\n${navLocaleText('时间', 'Time')}：${formatBackupTime(latest.modifiedAt || latest.createdAt)}`,
         tone: 'success'
@@ -3844,7 +3841,7 @@ window.checkRemoteBackupNow = async function () {
 window.pullRemoteBackupNow = async function (force) {
     clearTimeout(navState.remoteBackupSaveTimer);
     await saveRemoteBackupSettingsNow();
-    const ok = await showNavbarConfirm({
+    const ok = await showPlatformConfirm({
         title: force ? navLocaleText('强制恢复远端备份', 'Force remote restore') : navLocaleText('拉取并恢复远端备份', 'Pull and restore remote backup'),
         message: force ? navLocaleText('确定要强制恢复远端最新备份吗？', 'Force restore the latest remote backup?') : navLocaleText('确定要按规则拉取并恢复远端备份吗？', 'Pull and restore a remote backup using the configured rules?'),
         hint: navLocaleText('此操作只会覆盖当前平台的本地业务数据，不影响其他数据空间。恢复成功后服务会自动重启，手动启动方式可能需要重新启动服务。', 'This only overwrites local business data for the current platform and does not affect other data spaces. The service restarts automatically when possible; manual deployments may need a restart.'),
@@ -3864,13 +3861,13 @@ window.pullRemoteBackupNow = async function (force) {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
         if (data.restored) {
-            await showNavbarNotice({
+            await showPlatformNotice({
                 title: navLocaleText('远端备份恢复完成', 'Remote backup restored'),
                 message: `${data.latest?.name || '-'}\n\n${navLocaleText('服务将自动重启；如果是手动 npm start，请重新启动服务。', 'The service will restart automatically. If it was started manually with npm start, restart it yourself.')}`,
                 tone: 'success'
             });
         } else {
-            await showNavbarNotice({
+            await showPlatformNotice({
                 title: navT('nav.dialog.notice'),
                 message: data.message || navLocaleText('远端备份未更新，未执行恢复。', 'The remote backup is unchanged; no restore was performed.'),
                 tone: 'info'
@@ -3898,7 +3895,7 @@ async function runGlobalBackupAction(actionText, action) {
             setBackupConsoleProgress(100, 'FAILED');
         }
         if (e.code !== 'BACKUP_TENANT_MISMATCH') {
-            await showNavbarNotice({ title: navT('nav.dialog.error'), message: e.message, tone: 'error' });
+            await showPlatformNotice({ title: navT('nav.dialog.error'), message: e.message, tone: 'error' });
         }
         throw e;
     }
@@ -3912,7 +3909,7 @@ function createBackupApiError(data = {}, status = 500) {
 }
 
 async function confirmCrossTenantRestore() {
-    await showNavbarNotice({ title: navLocaleText('无法恢复此备份', 'Cannot restore this backup'), message: navLocaleText('备份的数据范围与当前平台不一致，请选择本平台的备份。', 'This backup belongs to a different data scope. Select a backup from this platform.'), tone: 'error' });
+    await showPlatformNotice({ title: navLocaleText('无法恢复此备份', 'Cannot restore this backup'), message: navLocaleText('备份的数据范围与当前平台不一致，请选择本平台的备份。', 'This backup belongs to a different data scope. Select a backup from this platform.'), tone: 'error' });
     return false;
 }
 
@@ -4100,7 +4097,7 @@ window.downloadGlobalBackup = async function (name) {
 };
 
 window.deleteGlobalBackup = async function (name) {
-    const ok = await showNavbarConfirm({
+    const ok = await showPlatformConfirm({
         title: navLocaleText('永久删除备份', 'Permanently delete backup'),
         message: name,
         hint: navLocaleText('删除后无法恢复，请确认该备份已经不再需要。', 'This cannot be undone. Make sure this backup is no longer needed.'),
@@ -4145,13 +4142,13 @@ async function performServerBackupRestore(name, forceCrossTenant = false) {
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw createBackupApiError(data, res.status);
-        await showNavbarNotice({ title: navT('nav.dialog.success'), message: getGlobalRestoreCompletionMessage(data), tone: 'success' });
+        await showPlatformNotice({ title: navT('nav.dialog.success'), message: getGlobalRestoreCompletionMessage(data), tone: 'success' });
         return data;
     });
 }
 
 window.restoreGlobalBackupFromServer = async function (name) {
-    const ok = await showNavbarConfirm({
+    const ok = await showPlatformConfirm({
         title: navLocaleText('从服务器备份恢复', 'Restore server backup'),
         message: name,
         hint: navLocaleText('此操作只会覆盖当前平台的业务数据，不影响其他数据空间。系统会先自动生成当前平台的恢复前安全备份。', 'This only overwrites business data for the current platform and does not affect other data spaces. A safety backup for the current platform is created first.'),
@@ -4171,9 +4168,9 @@ window.restoreGlobalBackupFromServer = async function (name) {
 window.restoreGlobalBackupFromUpload = async function (forceCrossTenant = false, skipInitialConfirm = false) {
     const input = document.getElementById('globalBackupUploadInput');
     const file = input && input.files && input.files[0];
-    if (!file) return showNavbarNotice({ title: navT('nav.dialog.notice'), message: navLocaleText('请先选择备份 zip 包。', 'Select a backup ZIP package first.'), tone: 'info' });
+    if (!file) return showPlatformNotice({ title: navT('nav.dialog.notice'), message: navLocaleText('请先选择备份 zip 包。', 'Select a backup ZIP package first.'), tone: 'info' });
     if (!skipInitialConfirm) {
-        const ok = await showNavbarConfirm({
+        const ok = await showPlatformConfirm({
             title: navLocaleText('上传并恢复备份', 'Upload and restore backup'),
             message: file.name,
             hint: navLocaleText('系统会先校验备份数据空间 ID；如与当前平台不同，会在不修改数据的情况下暂停并要求再次确认。', 'The data scope ID is checked first. If it differs from the current platform, the restore pauses without changing data and asks for another confirmation.'),
@@ -4234,7 +4231,7 @@ window.restoreGlobalBackupFromUpload = async function (forceCrossTenant = false,
         if (indicator) indicator.textContent = '操作完成';
         appendBackupConsoleEntry('客户端已收到恢复完成响应', 'success');
         setBackupConsoleProgress(100, 'COMPLETED');
-        await showNavbarNotice({ title: navT('nav.dialog.success'), message: getGlobalRestoreCompletionMessage(data), tone: 'success' });
+        await showPlatformNotice({ title: navT('nav.dialog.success'), message: getGlobalRestoreCompletionMessage(data), tone: 'success' });
     } catch (e) {
         if (indicator) indicator.textContent = `操作失败: ${e.message}`;
         appendBackupConsoleEntry(`恢复失败：${e.message}`, 'error');
@@ -4244,7 +4241,7 @@ window.restoreGlobalBackupFromUpload = async function (forceCrossTenant = false,
                 return window.restoreGlobalBackupFromUpload(true, true);
             }
         } else {
-            await showNavbarNotice({ title: navT('nav.dialog.error'), message: e.message, tone: 'error' });
+            await showPlatformNotice({ title: navT('nav.dialog.error'), message: e.message, tone: 'error' });
         }
     }
     renderNavSettingsContent();
@@ -4357,7 +4354,7 @@ function renderDutyRosterPageSettings(content) {
                 <div class="nav-page-config-title">${navEscape(text('夜间运维值班表管理', 'Night Operation Duty Roster Management'))}</div>
                 <div class="nav-page-config-desc">${navEscape(text('值班表采用专属独立编辑工作区，支持月份切换、一键引入上月人员、中英文切换及快捷保存。', 'The duty roster has a dedicated editing workspace supporting month switching, last-month import, bilingual toggles, and server sync.'))}</div>
                 <div style="margin-top: 14px;">
-                    <a href="${navToolShellUrl('/duty-roster')}" target="_blank" class="nav-settings-add" style="display:inline-flex;align-items:center;text-decoration:none;padding:6px 14px;font-size:13px;font-weight:600;border-radius:6px;background:#312e81;color:#fff;border:none;">
+                    <a href="${window.ToolsNavigation.toolUrl('/duty-roster')}" target="_blank" class="nav-settings-add" style="display:inline-flex;align-items:center;text-decoration:none;padding:6px 14px;font-size:13px;font-weight:600;border-radius:6px;background:#312e81;color:#fff;border:none;">
                         🌙 ${navEscape(text('打开夜间运维值班表编辑器 ↗', 'Open Duty Roster Editor ↗'))}
                     </a>
                 </div>
@@ -4549,7 +4546,7 @@ window.importReportDataBackup = async function (input) {
     let confirmationText = '';
     try {
         if (mode === 'replace') {
-            const confirmed = await showNavbarTypedConfirm({
+            const confirmed = await showPlatformTypedConfirm({
                 title: navT('nav.page.report.replaceConfirmTitle'),
                 message: navT('nav.page.report.replaceConfirmWarning'),
                 hint: navT('nav.page.report.replaceConfirmHint'),
@@ -4654,11 +4651,11 @@ window.runReportSnapshotCleanup = async function () {
     const mode = getReportSnapshotCleanupMode();
     const preview = await requestReportSnapshotCleanup(true);
     renderReportSnapshotCleanupResult(preview);
-    if (!preview.removedCount) return showNavbarNotice({ title: navT('nav.dialog.notice'), message: navT('nav.page.report.res.empty'), tone: 'info' });
+    if (!preview.removedCount) return showPlatformNotice({ title: navT('nav.dialog.notice'), message: navT('nav.page.report.res.empty'), tone: 'info' });
     let confirmationText = '';
     let ok = false;
     if (mode === 'latest-only') {
-        ok = await showNavbarTypedConfirm({
+        ok = await showPlatformTypedConfirm({
             title: navT('nav.page.report.confirmLatestTitle'),
             message: navT('nav.page.report.confirmLatestWarning', { count: preview.removedCount }).replace('{count}', preview.removedCount),
             hint: navT('nav.page.report.confirmLatestHint'),
@@ -4672,7 +4669,7 @@ window.runReportSnapshotCleanup = async function () {
         const confirmText = navT('nav.page.report.confirmRetain', { count: preview.removedCount, days })
             .replace('{count}', preview.removedCount)
             .replace('{days}', days);
-        ok = await showNavbarConfirm({
+        ok = await showPlatformConfirm({
             title: navLocaleText('清理报表快照', 'Clean report snapshots'),
             message: confirmText,
             hint: navLocaleText('系统将按照当前保留策略删除冗余快照。', 'Redundant snapshots will be deleted using the current retention policy.'),
@@ -4720,7 +4717,7 @@ function ensureNavbarTypedConfirmDialog() {
     return modal;
 }
 
-function showNavbarTypedConfirm({ title, message, hint, placeholder, requiredText, cancelText, confirmText }) {
+function showPlatformTypedConfirm({ title, message, hint, placeholder, requiredText, cancelText, confirmText }) {
     const modal = ensureNavbarTypedConfirmDialog();
     if (navTypedConfirmResolver) {
         navTypedConfirmResolver(false);
@@ -5171,14 +5168,14 @@ function renderMyAccountCard() {
 window.changeMyPassword = async function () {
     const currentPassword = document.getElementById('me_pwd_current')?.value || '';
     const newPassword = document.getElementById('me_pwd_new')?.value || '';
-    if (!currentPassword || !newPassword) return showNavbarNotice({ title: navT('nav.dialog.notice'), message: accountText('请填写当前密码和新密码。', 'Enter your current and new password.'), tone: 'info' });
+    if (!currentPassword || !newPassword) return showPlatformNotice({ title: navT('nav.dialog.notice'), message: accountText('请填写当前密码和新密码。', 'Enter your current and new password.'), tone: 'info' });
     try {
         await API.put('/api/auth/me/password', { currentPassword, newPassword });
         document.getElementById('me_pwd_current').value = '';
         document.getElementById('me_pwd_new').value = '';
-        await showNavbarNotice({ title: navT('nav.acc.resetDone'), message: accountText('密码已修改，其他设备上的登录已下线。', 'Password changed. Other signed-in devices were signed out.'), tone: 'success' });
+        await showPlatformNotice({ title: navT('nav.acc.resetDone'), message: accountText('密码已修改，其他设备上的登录已下线。', 'Password changed. Other signed-in devices were signed out.'), tone: 'success' });
     } catch (e) {
-        await showNavbarNotice({ title: navT('nav.dialog.error'), message: e.message, tone: 'error' });
+        await showPlatformNotice({ title: navT('nav.dialog.error'), message: e.message, tone: 'error' });
     }
 };
 
@@ -5260,22 +5257,22 @@ window.addUser = async function () {
     const username = document.getElementById('nu_name').value.trim();
     const password = document.getElementById('nu_pwd').value;
     const displayName = document.getElementById('nu_display')?.value.trim() || '';
-    if (!username || !password) return showNavbarNotice({ title: navT('nav.dialog.notice'), message: navT('nav.acc.required'), tone: 'info' });
+    if (!username || !password) return showPlatformNotice({ title: navT('nav.dialog.notice'), message: navT('nav.acc.required'), tone: 'info' });
     try {
         await API.post('/api/auth/users', { username, password, displayName });
-        await showNavbarNotice({
+        await showPlatformNotice({
             title: navT('nav.acc.added'),
             message: navT('nav.acc.addedDesc').replace('{user}', username),
             tone: 'success'
         });
         renderNavSettingsContent();
     } catch (e) {
-        await showNavbarNotice({ title: navT('nav.dialog.error'), message: e.message, tone: 'error' });
+        await showPlatformNotice({ title: navT('nav.dialog.error'), message: e.message, tone: 'error' });
     }
 };
 
 window.deleteUser = async function (u) {
-    const confirmed = await showNavbarConfirm({
+    const confirmed = await showPlatformConfirm({
         title: navT('nav.acc.deleteTitle'),
         message: navT('nav.acc.deleteDesc').replace('{user}', u),
         hint: accountText('该账号的团队数据会归档保留，下一步可选择是否彻底删除。', 'The account’s team data is archived; next you can choose to purge it.'),
@@ -5283,7 +5280,7 @@ window.deleteUser = async function (u) {
         confirmText: navT('nav.acc.btnDel')
     });
     if (!confirmed) return;
-    const purge = await showNavbarConfirm({
+    const purge = await showPlatformConfirm({
         title: accountText('同时彻底删除团队数据？', 'Also purge the team data?'),
         message: accountText(`选择「彻底删除」会永久删除账号“${u}”的全部对话、文件、模型与工具数据，无法恢复；选择「保留」则只删除账号、数据归档保留。`, `Purging permanently deletes all chats, files, models and tool data of “${u}” and cannot be undone. Keep archives the data and only removes the account.`),
         tone: 'danger',
@@ -5294,12 +5291,12 @@ window.deleteUser = async function (u) {
         await API.delete('/api/auth/users/' + encodeURIComponent(u) + (purge ? '?purge=1' : ''));
         renderNavSettingsContent();
     } catch (e) {
-        await showNavbarNotice({ title: navT('nav.dialog.error'), message: e.message, tone: 'error' });
+        await showPlatformNotice({ title: navT('nav.dialog.error'), message: e.message, tone: 'error' });
     }
 };
 
 window.resetPwd = async function (u) {
-    const values = await showNavbarFormDialog({
+    const values = await showPlatformFormDialog({
         title: navT('nav.acc.resetTitle'),
         message: navT('nav.acc.resetDesc').replace('{user}', u),
         fields: [{
@@ -5317,13 +5314,13 @@ window.resetPwd = async function (u) {
     if (!values?.password) return;
     try {
         await API.put('/api/auth/users/' + encodeURIComponent(u) + '/password', { password: values.password });
-        await showNavbarNotice({
+        await showPlatformNotice({
             title: navT('nav.acc.resetDone'),
             message: navT('nav.acc.resetDoneDesc').replace('{user}', u),
             tone: 'success'
         });
     } catch (e) {
-        await showNavbarNotice({ title: navT('nav.dialog.error'), message: e.message, tone: 'error' });
+        await showPlatformNotice({ title: navT('nav.dialog.error'), message: e.message, tone: 'error' });
     }
 };
 

@@ -32,7 +32,7 @@ app.whenReady().then(async()=>{
  win=new BrowserWindow({show:false,width:1600,height:1000,webPreferences:{sandbox:true,contextIsolation:true,nodeIntegration:false,backgroundThrottling:false}});
  win.webContents.session.on('will-download',(_event,item)=>{downloads++;item.cancel()});
  await win.loadURL(`http://127.0.0.1:${server.address().port}/`);
- await until('!!window.HomeV2&&!!window.HomePromoPlayer&&!nrvFloat.hidden&&document.querySelectorAll("#homeF12QuickDownloads button").length===2');
+ await until('!!window.HomeShell&&!!window.HomePromoPlayer&&!nrvFloat.hidden&&document.querySelectorAll("#homeF12QuickDownloads button").length===2');
  assert.equal(await evaluate('document.querySelector(".home-main #homeKnowledgeGraphEntry,.home-main #homeCapsEntry,.home-main #homeF12QuickDownloads")'),null);
  assert.equal(await evaluate('dcSpotlight.hidden&&dcSpotlight.childElementCount===0'),true);
  assert.equal(await evaluate('Math.round(nrvFloat.getBoundingClientRect().width)'),280);
@@ -78,7 +78,7 @@ app.whenReady().then(async()=>{
   const menu=await evaluate('(()=>{const r=document.querySelector(".v2-flyout").getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:innerWidth,height:innerHeight}})()');
   assert.ok(menu.left>=0&&menu.right<=menu.width&&menu.top>=0&&menu.bottom<=menu.height,JSON.stringify(menu));
   await shot('shortcuts-'+width+'-'+theme);
-  await evaluate('HomeV2.closePop()');
+  await evaluate('HomeShell.closePop()');
  }
  assert.deepEqual(await evaluate('errors'),[]);
  console.log('PASS: clean welcome; real sidebar entry relocation; preserved F12 download workflow; popup switching; hover/keyboard video controls, working enlarged playback; themes/languages and 390px menu bounds. Screenshots: '+temp);

@@ -263,7 +263,7 @@ app.whenReady().then(async () => {
         await evaluate(`(async()=>{
             AIKnowledgeGraph.close();
             document.documentElement.dataset.ui='v2';
-            const css=document.createElement('link');css.rel='stylesheet';css.href='/css/home-v2.css';
+            const css=document.createElement('link');css.rel='stylesheet';css.href='/css/home-shell.css';
             await new Promise(resolve=>{css.onload=resolve;document.head.append(css)});
             const host=document.createElement('main');host.className='home-main';
             host.style.cssText='margin-left:240px;width:calc(100% - 240px);box-sizing:border-box';

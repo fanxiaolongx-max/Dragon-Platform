@@ -181,7 +181,7 @@ test('config API: everyone reads, only admins write; desktop controls are local-
 });
 
 test('lazily loaded settings scripts are fetched with a content version', () => {
-    const navbar = ['navbar.js', 'navbar-settings.js'].map(file => fs.readFileSync(path.join(__dirname, '../frontend/js/shared', file), 'utf8')).join('\n');
+    const navbar = [...['platform-core.js', 'platform-dialogs.js', 'platform-settings-controller.js', 'platform-alerts.js', 'platform-services.js', 'platform-tool-updates.js', 'platform-runtime.js'], 'platform-settings.js'].map(file => fs.readFileSync(path.join(__dirname, '../frontend/js/shared', file), 'utf8')).join('\n');
     assert.match(navbar, /loadNavLazyScript\('\/js\/shared\/promotion-settings\.js'/);
     assert.match(navbar, /\/api\/asset-version\?path=/);
     const server = fs.readFileSync(path.join(__dirname, '../backend/server.js'), 'utf8');

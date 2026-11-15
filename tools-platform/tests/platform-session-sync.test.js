@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const acorn = require('acorn');
 
-const source = fs.readFileSync(path.join(__dirname, '..', 'frontend', 'js', 'shared', 'navbar.js'), 'utf8');
+const source = require('./helpers/platform-source.cjs').readPlatformSource();
 const ast = acorn.parse(source, { ecmaVersion: 'latest' });
 const wanted = new Set(['syncNavUserSession', 'promptNavRelogin']);
 const isolated = ast.body.filter(node => (node.type === 'FunctionDeclaration' && wanted.has(node.id.name))
@@ -14,21 +14,21 @@ const isolated = ast.body.filter(node => (node.type === 'FunctionDeclaration' &&
 
 function createPage({ local = {}, me = { status: 200, body: { username: 'admin', role: 'admin', tenantId: 'default' } }, confirm = true } = {}) {
     const store = new Map(Object.entries(local));
-    const calls = { render: 0, prompts: [], chip: '' };
+    const calls = { events: [], prompts: [] };
     const context = {
         localStorage: { getItem: key => (store.has(key) ? store.get(key) : null), setItem: (key, value) => store.set(key, String(value)) },
         sessionStorage: { getItem: () => null },
         fetch: async () => ({ ok: me.status === 200, status: me.status, json: async () => me.body }),
-        renderNavbar() { calls.render += 1; },
+        CustomEvent: class { constructor(type) { this.type = type; } },
         syncTenantWorkspace: async () => false,
         hasNavAuthToken: () => store.has('tools_token'),
-        showNavbarConfirm: async options => { calls.prompts.push(options); return confirm; },
+        showPlatformConfirm: async options => { calls.prompts.push(options); return confirm; },
         navT: key => key,
         navEscape: value => String(value),
         activeTenantName: () => '默认租户',
         stopAlertCenterPolling() {},
         document: { querySelector: () => ({ set innerHTML(value) { calls.chip = value; }, set textContent(value) { calls.chip = value; } }) },
-        window: { location: { pathname: '/', href: '/', replace(url) { this.href = url; } } }
+        window: { dispatchEvent(event) { calls.events.push(event.type); }, location: { pathname: '/', href: '/', replace(url) { this.href = url; } } }
     };
     vm.createContext(context);
     vm.runInContext(`${isolated}\nthis.sync = syncNavUserSession;`, context);
@@ -37,21 +37,21 @@ function createPage({ local = {}, me = { status: 200, body: { username: 'admin',
 
 const settle = () => new Promise(resolve => setImmediate(resolve));
 
-test('a role learned from the server re-renders the navbar so admin buttons appear', async () => {
+test('a role learned from the server notifies the home shell', async () => {
     const page = createPage({ local: { tools_token: 't' } });
     await page.context.sync();
     await settle();
-    assert.equal(page.calls.render, 1);
+    assert.deepEqual(page.calls.events, ['tools:authchange']);
     assert.equal(page.store.get('tools_role'), 'admin');
     assert.equal(page.calls.prompts.length, 0);
 });
 
-test('an unchanged session only refreshes the user chip', async () => {
+test('an unchanged session refreshes shell account state through an event', async () => {
     const page = createPage({ local: { tools_token: 't', tools_role: 'admin', tools_user: 'admin' } });
     await page.context.sync();
     await settle();
-    assert.equal(page.calls.render, 0);
-    assert.match(page.calls.chip, /admin/);
+    assert.deepEqual(page.calls.events, ['tools:authchange']);
+    assert.equal(page.store.get('tools_user'), 'admin');
 });
 
 test('a cookie-only session (no local token) asks once to sign in again and goes to the login page', async () => {
@@ -101,7 +101,7 @@ function preferencePage() {
             removeItem: key => store.delete(key), clear: () => store.clear()
         },
         sessionStorage: { clear() {} }, console, fetch: async () => ({}), stopAlertCenterPolling() {},
-        window: { location: { href: '/' } }, document: { cookie: '' }, NAV_BOOTSTRAP_CACHE_KEY: 'nav-cache'
+        window: { dispatchEvent(event) { calls.events.push(event.type); }, location: { href: '/' } }, document: { cookie: '' }, NAV_BOOTSTRAP_CACHE_KEY: 'nav-cache'
     };
     const nodes = ast.body.filter(node =>
         (node.type === 'FunctionDeclaration' && node.id.name === 'switchTenantBrowserState')

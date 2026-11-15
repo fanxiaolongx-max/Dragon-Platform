@@ -128,7 +128,7 @@ function collectPublicFiles(identity, promotions, appVersion) {
     let promo = files.get('js/home/promo-video.js').toString();
     promo = promo.replace(/const media = [^\n]+;/, () => `const STATIC_MEDIA=${safeJson(media)};\n    const media = (key,kind) => {const file=isEnglish()&&EN_FILES[key]?EN_FILES[key][kind]:VIDEOS[key][kind].split('/').pop().split('?')[0];return STATIC_MEDIA[file]||('./tp-static/frontend/assets/promotions/'+file);};`);
     files.set('js/home/promo-video.js', promo);
-    for (const name of ['js/shared/navbar.js', 'js/shared/api.js']) {
+    for (const name of ['js/shared/platform-core.js', 'js/shared/platform-runtime.js', 'js/shared/api.js']) {
         files.set(name, files.get(name).toString().replaceAll('window.location.pathname', '(window.__TP_STATIC_PATH__ || window.location.pathname)'));
     }
     files.set('js/project-evolution.js', rewrite(read('js/project-evolution.js').replace('/assets/promotions/project-evolution-galaxy-hd.mp4', media['project-evolution-galaxy-hd.mp4'])));

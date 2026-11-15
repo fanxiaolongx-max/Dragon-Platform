@@ -95,7 +95,7 @@ test('a failing provider only empties its own group', async () => {
 test('home page and tool pages wire the capability catalog and deep links', () => {
     const read = rel => fs.readFileSync(path.join(root, rel), 'utf8');
     const index = read('frontend/index.html');
-    assert.match(index, /id="homeCapsNav"/);
+    assert.doesNotMatch(index, /id="homeCapsNav"/);
     assert.match(index, /id="homeCaps"/);
     assert.match(index, /id="homeCapsEntry"/);
     assert.match(index, /\/js\/home\/capabilities\.js/);

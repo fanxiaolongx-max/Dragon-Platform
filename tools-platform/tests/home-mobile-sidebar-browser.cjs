@@ -28,7 +28,7 @@ app.whenReady().then(async()=>{
  server=await new Promise(resolve=>{const s=web.listen(0,'127.0.0.1',()=>resolve(s));});
  const base=`http://127.0.0.1:${server.address().port}`;
  win=new BrowserWindow({show:false,width:390,height:844,webPreferences:{contextIsolation:true,nodeIntegration:false,backgroundThrottling:false}});
- await win.loadURL(base);await until('!!window.HomeV2&&!!document.querySelector("[data-chat-index]")');
+ await win.loadURL(base);await until('!!window.HomeShell&&!!document.querySelector("[data-chat-index]")');
  assert.equal(await evaluate('getComputedStyle(homeSidebar).display'),'none','mobile starts closed despite desktop open preference');
  assert.equal(await evaluate('localStorage.getItem("tools_v2_side")'),'open');
  const openDrawer=async()=>{await evaluate('document.querySelector("[data-v2-float=toggle]").click()');await until('document.body.classList.contains("v2-mobile-side-open")');};
@@ -56,9 +56,9 @@ app.whenReady().then(async()=>{
  assert.equal(await evaluate('document.body.classList.contains("v2-mobile-side-open")'),false,'closing browser does not restore a persistent mobile menu');
 
  await openDrawer();await evaluate('document.querySelector("[data-v2-action=newChat]").click()');assert.equal(await evaluate('document.body.classList.contains("v2-mobile-side-open")'),false,'new chat closes drawer');
- await openDrawer();await win.loadURL(base);await until('!!window.HomeV2');assert.equal(await evaluate('getComputedStyle(homeSidebar).display'),'none','reload does not retain temporary drawer');
+ await openDrawer();await win.loadURL(base);await until('!!window.HomeShell');assert.equal(await evaluate('getComputedStyle(homeSidebar).display'),'none','reload does not retain temporary drawer');
  for(const [width,height] of [[430,760],[844,390]]){win.setContentSize(width,height);await wait(120);await openDrawer();await assertGeometry();await evaluate('document.querySelector(".v2-mobile-side-backdrop").click()');}
- win.setContentSize(1440,950);await wait(150);assert.equal(await evaluate('HomeV2.isSideCollapsed()'),false,'desktop open preference restored');
+ win.setContentSize(1440,950);await wait(150);assert.equal(await evaluate('HomeShell.isSideCollapsed()'),false,'desktop open preference restored');
  await evaluate('DragonBrowserSidebar.open()');await until('DragonBrowserSidebar.isOpen()');
  win.setContentSize(390,844);await wait(150);assert.equal(await evaluate('getComputedStyle(homeSidebar).display'),'none','entering mobile closes navigation');
  assert.equal(await evaluate('DragonBrowserSidebar.isOpen()'),false,'desktop browser closes when entering a mobile viewport');

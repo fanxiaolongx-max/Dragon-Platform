@@ -39,8 +39,8 @@ test('skill-hub.js and tool-frame.js prevent default card navigation when clicki
     );
 });
 
-test('navbar-settings.js, home-theme.css, and shared.css properly adapt AI auto-switch and settings cards to dark mode', () => {
-    const navbarSettingsPath = path.join(__dirname, '../frontend/js/shared/navbar-settings.js');
+test('platform-settings.js, home-theme.css, and shared.css properly adapt AI auto-switch and settings cards to dark mode', () => {
+    const navbarSettingsPath = path.join(__dirname, '../frontend/js/shared/platform-settings.js');
     const homeThemePath = path.join(__dirname, '../frontend/css/home-theme.css');
     const sharedCssPath = path.join(__dirname, '../frontend/css/shared.css');
 
@@ -48,32 +48,32 @@ test('navbar-settings.js, home-theme.css, and shared.css properly adapt AI auto-
     const homeThemeCss = fs.readFileSync(homeThemePath, 'utf8');
     const sharedCss = fs.readFileSync(sharedCssPath, 'utf8');
 
-    // 1. Verify navbar-settings.js uses theme CSS variables for auto-switch check
+    // 1. Verify platform-settings.js uses theme CSS variables for auto-switch check
     assert.match(
         navbarSettingsCode,
         /nav-ai-autoswitch-check/,
-        'navbar-settings.js should include nav-ai-autoswitch-check class'
+        'platform-settings.js should include nav-ai-autoswitch-check class'
     );
     assert.match(
         navbarSettingsCode,
         /background:var\(--v2-chip,\s*rgba\(255,255,255,\.68\)\)/,
-        'navbar-settings.js should use var(--v2-chip) for auto switch card'
+        'platform-settings.js should use var(--v2-chip) for auto switch card'
     );
     assert.match(
         navbarSettingsCode,
         /background:var\(--v2-side,\s*rgba\(248,250,252,0\.78\)\)/,
-        'navbar-settings.js should use var(--v2-side) for usage history panel'
+        'platform-settings.js should use var(--v2-side) for usage history panel'
     );
 
     // 2. Verify home-theme.css has dark mode styles for auto-switch and media tabs
     assert.match(
         homeThemeCss,
-        /html\[data-ui="v2"\]\[data-theme="dark"\] \.nav-ai-profile-panel \.nav-settings-check/,
+        /html\.platform-home\[data-theme="dark"\] \.nav-ai-profile-panel \.nav-settings-check/,
         'home-theme.css must style nav-settings-check in dark mode'
     );
     assert.match(
         homeThemeCss,
-        /html\[data-ui="v2"\]\[data-theme="dark"\] \.nav-ai-usage-panel \.nav-ai-usage-history/,
+        /html\.platform-home\[data-theme="dark"\] \.nav-ai-usage-panel \.nav-ai-usage-history/,
         'home-theme.css must style usage history in dark mode'
     );
 

@@ -4,7 +4,7 @@ const fs = require('node:fs'), path = require('node:path'), os = require('node:o
 const acorn = require('acorn');
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'snapshot-publish-ui-'));
 app.setPath('userData', path.join(temp, 'profile'));
-const source = ['navbar.js', 'navbar-settings.js'].map(name =>
+const source = [...['platform-core.js', 'platform-dialogs.js', 'platform-settings-controller.js', 'platform-alerts.js', 'platform-services.js', 'platform-tool-updates.js', 'platform-runtime.js'], 'platform-settings.js'].map(name =>
     fs.readFileSync(path.join(__dirname, '../frontend/js/shared', name), 'utf8')).join('\n');
 const names = new Set(['snapshotApi', 'applyToolEstimateResult', 'markSnapshotEstimatePending', 'failSnapshotEstimate', 'renderSnapshotProgress', 'pollSnapshotProgress']);
 const assignments = new Set(['toggleAllSnapshotTools', 'openSnapshotPublishProgress', 'closeSnapshotPublishProgress', 'saveSnapshotPublishSettings']);

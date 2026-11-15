@@ -29,7 +29,7 @@ app.whenReady().then(async () => {
     const web = express();
     const frontend = path.join(__dirname, '../frontend');
     const page = title => `<!doctype html><html data-ui="v2" lang="zh-CN"><head><meta charset="utf-8"><title>${title}</title>
-        <link rel="stylesheet" href="/css/home-v2.css"></head>
+        <link rel="stylesheet" href="/css/home-shell.css"></head>
         <body><aside class="home-sidebar" style="position:fixed;left:0;top:0;bottom:0;width:240px;background:#f7f7f8">
         <div class="v2-side-top"><div class="v2-side-tools"><button class="v2-icon-btn" id="sideBtn">▤</button></div></div></aside>
         <main style="margin-left:240px;padding:60px"><h1 id="title">${title}</h1><input id="field" value="text"><a id="out" href="https://example.com/">out</a></main>

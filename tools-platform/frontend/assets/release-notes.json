@@ -1,12 +1,12 @@
 {
   "zh": [
-    "修复技能、工具与脚本卡片取消内置后卡片外框微弱光晕未同步移除以及技能来源过滤仍显示已取消内置条目的问题，并统一各类目卡片菜单的内置切换体验。",
-    "超级管理员上传自定义工具或导入技能时新增可选「全员开放」开关：默认保持未全员开放（仅创建者/管理员可见），勾选后导入成功即可直接共享给所有团队成员。",
-    "基座 Digital Human Web 同步内置状态判断、来源过滤规则与全员开放导入选项，确保多端平台行为与视觉效果完全一致。"
+    "多用户与会话管理全面升级：支持多端/跨标签页会话实时同步与统一账号登出拦截，隔离租户级与账号级侧栏偏好设置，重登弹窗与过期跳转体验更平滑。",
+    "前端首页与平台架构模块化重构：拆分为轻量化 home-shell 与 home-tools 核心，移除冗余历史双套布局，设置中心与业务弹窗按需加载提升首屏加载性能。",
+    "完善平台级服务与诊断生命周期：平台告警、服务自检与内置工具比对支持无 DOM 依赖的标准化事件总线与后台轮询守护。"
   ],
   "en": [
-    "Fixed built-in demotion visual styling and source filtering across Skills, Tools, and Plugins/Scripts, ensuring borders and category filters accurately reflect demoted status.",
-    "Added optional 'Share with all' toggle in custom tool and skill import modal for superadmins: defaults to unshared, allowing one-click publishing upon import.",
-    "Synchronized built-in state detection, source filtering, and import sharing toggle to Digital Human Web base project for identical behavior across platforms."
+    "Upgraded multi-user session lifecycle: seamless cross-tab synchronization, scoped tenant/account preference isolation, graceful re-login prompts, and clean logout handling.",
+    "Modular frontend architecture refactoring: decoupled into home-shell and home-tools cores, eliminated legacy dual-layout runtime overhead, and enabled on-demand settings loading.",
+    "Hardened platform diagnostics and alerts: standardized event bus and background lifecycle guards for health probes, alerts, and tool updates without DOM dependencies."
   ]
 }

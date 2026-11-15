@@ -36,7 +36,7 @@ app.whenReady().then(async()=>{
  const base=`http://127.0.0.1:${server.address().port}`;
  win=new BrowserWindow({show:false,width:390,height:844,webPreferences:{contextIsolation:true,nodeIntegration:false,backgroundThrottling:false}});
  win.webContents.on('console-message',(_event,level,message)=>{if(level>=3)console.error('Renderer:',message)});
- await win.loadURL(base);await until('!!window.HomeV2&&!!document.querySelector("[data-chat-index]")');
+ await win.loadURL(base);await until('!!window.HomeShell&&!!document.querySelector("[data-chat-index]")');
  assert.equal(await evaluate('getComputedStyle(homeSidebar).display'),'none','mobile starts closed despite desktop open preference');
  assert.equal(await evaluate('localStorage.getItem("tools_v2_side")'),'open');
  const geometry=async()=>{

@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const acorn = require('acorn');
-const source = fs.readFileSync(path.join(__dirname, '../frontend/js/shared/navbar.js'), 'utf8');
+const source = require('./helpers/platform-source.cjs').readPlatformSource();
 const methods = new Set(['exportServiceRuntimeLogs', 'renderServiceRuntimeLogShell']);
 const script = acorn.parse(source, { ecmaVersion: 'latest' }).body.filter(node => {
     const left = node.type === 'ExpressionStatement' && node.expression.type === 'AssignmentExpression' && node.expression.left;

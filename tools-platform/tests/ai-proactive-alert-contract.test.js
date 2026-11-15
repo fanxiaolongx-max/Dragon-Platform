@@ -7,7 +7,7 @@ const root = path.join(__dirname, '..');
 const assistant = fs.readFileSync(path.join(root, 'frontend/js/shared/ai-assistant.js'), 'utf8');
 const routes = fs.readFileSync(path.join(root, 'backend/routes/ai.js'), 'utf8');
 const server = fs.readFileSync(path.join(root, 'backend/server.js'), 'utf8');
-const navbar = fs.readFileSync(path.join(root, 'frontend/js/shared/navbar.js'), 'utf8');
+const navbar = require('./helpers/platform-source.cjs').readPlatformSource();
 
 async function runProactiveMessageRoute(result) {
     const vm = require('node:vm');

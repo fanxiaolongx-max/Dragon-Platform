@@ -414,8 +414,8 @@
                 if (!CatalogUpdateAudit.hasUsedAfterUpdate(kind, id, target)) {
                     if (window.AppDialog?.alert) {
                         await window.AppDialog.alert(t('mustUseBeforeSubmit', { kind: kindText }), { title: label, tone: 'warning' });
-                    } else if (typeof window.showNavbarNotice === 'function') {
-                        await window.showNavbarNotice({ title: label, message: t('mustUseBeforeSubmit', { kind: kindText }), tone: 'warning' });
+                    } else if (typeof window.showPlatformNotice === 'function') {
+                        await window.showPlatformNotice({ title: label, message: t('mustUseBeforeSubmit', { kind: kindText }), tone: 'warning' });
                     }
                     return;
                 }
@@ -423,7 +423,7 @@
                 // 4. 提交前也会提示用户自己得好好用用再提
                 const confirmed = window.AppDialog?.confirm
                     ? await window.AppDialog.confirm(t('confirmSubmitPrompt', { kind: kindText }), { title: label, confirmText: t('confirmSubmitBtn') })
-                    : (typeof window.showNavbarConfirm === 'function' ? await window.showNavbarConfirm({ title: label, message: t('confirmSubmitPrompt', { kind: kindText }), confirmText: t('confirmSubmitBtn') }) : false);
+                    : (typeof window.showPlatformConfirm === 'function' ? await window.showPlatformConfirm({ title: label, message: t('confirmSubmitPrompt', { kind: kindText }), confirmText: t('confirmSubmitBtn') }) : false);
                 if (!confirmed) return;
 
                 if (accept) pickUpdateFile(accept, submit);
@@ -837,7 +837,7 @@
         });
 
         document.body.appendChild(menu);
-        window.HomeV2?.fillIcons?.(menu);
+        window.HomeShell?.fillIcons?.(menu);
         activeMenu = menu;
 
         // 定位计算

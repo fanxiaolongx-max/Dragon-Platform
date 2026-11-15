@@ -127,29 +127,17 @@ app.whenReady().then(async () => {
     await until('!!document.getElementById("loginPanel")');
     assert.equal(await evaluate('document.documentElement.getAttribute("data-theme")'), 'dark', 'Dark theme remembered and applied');
 
-    // --- 5. Switch to v1 via ?ui=v1 and remember ---
+    // Old bookmarks cannot restore the removed layout or save a home UI preference.
     await win.loadURL(origin + '/login?ui=v1');
     await until('!!document.getElementById("loginPanel")');
-    const stateV1 = await evaluate(`({
-        ui: document.documentElement.getAttribute('data-ui'),
-        savedUi: localStorage.getItem('tools_home_ui'),
-        v2HeadDisplay: getComputedStyle(document.querySelector('.v2-login-head')).display,
-        brandHeaderDisplay: getComputedStyle(document.querySelector('.login-brand-header')).display,
-        btnPlayGameDisplay: getComputedStyle(document.querySelector('.btn-play-game')).display,
-        footerEntertainmentDisplay: getComputedStyle(document.querySelector('.footer-entertainment-item')).display
-    })`);
-    assert.equal(stateV1.ui, null, 'v1 UI does not have data-ui="v2"');
-    assert.equal(stateV1.savedUi, 'v1', 'Remembered ui=v1 in localStorage');
-    assert.equal(stateV1.v2HeadDisplay, 'none', 'v2 head is hidden in v1');
-    assert.notEqual(stateV1.brandHeaderDisplay, 'none', 'Original brand header is visible in v1');
-    assert.notEqual(stateV1.btnPlayGameDisplay, 'none', 'Original big button is visible on web in v1');
-    assert.equal(stateV1.footerEntertainmentDisplay, 'none', 'Footer entertainment is hidden in v1');
+    assert.equal(await evaluate('document.documentElement.getAttribute("data-ui")'), 'v2');
+    assert.equal(await evaluate('localStorage.getItem("tools_home_ui")'), null);
 
     // --- 6. Switch back to v2 via ?ui=v2 ---
     await win.loadURL(origin + '/login?ui=v2');
     await until('!!document.getElementById("loginPanel")');
     assert.equal(await evaluate('document.documentElement.getAttribute("data-ui")'), 'v2');
-    assert.equal(await evaluate('localStorage.getItem("tools_home_ui")'), 'v2');
+    assert.equal(await evaluate('localStorage.getItem("tools_home_ui")'), null);
 
     // --- 7. Empty fields validation ---
     await evaluate(`document.getElementById('username').value = ''; document.getElementById('password').value = '';`);

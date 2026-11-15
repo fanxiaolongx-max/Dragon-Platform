@@ -12,12 +12,12 @@ test('home-theme.css and desktop-agents.css ensure voice and send buttons stay d
     // Verify home-theme.css handles hidden enhance + hidden model, keeping voice/send docked right
     assert.match(
         homeTheme,
-        /html\[data-ui="v2"\] #dcComposer #dcEnhance\[hidden\] ~ #dcModel\[hidden\] ~ #dcVoice:not\(\[hidden\]\)/,
+        /html\.platform-home #dcComposer #dcEnhance\[hidden\] ~ #dcModel\[hidden\] ~ #dcVoice:not\(\[hidden\]\)/,
         'home-theme.css should anchor #dcVoice to margin-left: auto when both #dcEnhance and #dcModel are hidden'
     );
     assert.match(
         homeTheme,
-        /html\[data-ui="v2"\] body\.dc-external-compose #dcComposer #dcEnhance\[hidden\] ~ #dcModel\[hidden\] ~ #dcVoice:not\(\[hidden\]\)/,
+        /html\.platform-home body\.dc-external-compose #dcComposer #dcEnhance\[hidden\] ~ #dcModel\[hidden\] ~ #dcVoice:not\(\[hidden\]\)/,
         'home-theme.css should anchor #dcVoice to margin-left: auto in body.dc-external-compose when enhance and model are hidden'
     );
 

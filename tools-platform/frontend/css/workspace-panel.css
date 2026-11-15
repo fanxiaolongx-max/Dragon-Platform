@@ -545,10 +545,6 @@ body.dc-chatting .dc-todo-dock.is-visible { grid-template-rows: 1fr; opacity: 1;
 .dc-todo-dock .dc-todo-list li { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 8px; align-items: baseline; overflow-wrap: anywhere; line-height: 1.5; }
 .dc-todo-dock .dc-todo-list li.is-in_progress { color: var(--v2-ink, #0f172a); font-weight: 500; }
 .dc-todo-dock .dc-todo-mark { display: inline-grid; place-items: center; width: 13px; height: 13px; border: 1px solid var(--dc-content-line-strong, #cbd5e1); border-radius: 4px; background: var(--dc-content-raised, #f8fafc); }
-html:not([data-ui="v2"]) .dc-todo-dock-card { border-color: rgba(148, 163, 184, 0.2); background: rgba(15, 23, 39, 0.92); color: #cbd5e1; box-shadow: 0 -8px 22px rgba(2, 6, 23, 0.18); }
-html:not([data-ui="v2"]) .dc-todo-dock-title, html:not([data-ui="v2"]) .dc-todo-dock .dc-todo-list li.is-in_progress { color: #f1f5f9; }
-html:not([data-ui="v2"]) .dc-todo-dock-progress { background: rgba(148, 163, 184, 0.18); }
-html:not([data-ui="v2"]) .dc-todo-dock .dc-todo-mark { border-color: rgba(148, 163, 184, 0.4); background: rgba(148, 163, 184, 0.08); }
 /* 停靠时输入框上沿与清单相接，形成一个整体 */
 body.dc-chatting .dc-todo-dock.is-visible + .dc-composer { margin-top: 0; }
 
@@ -764,16 +760,16 @@ body.dc-workspace-enabled .wsp-fab:not([hidden]) { display: inline-flex; }
 .dc-file-code .tok-tag { color: #7ee787; font-weight: 500; }
 .dc-file-code .tok-attr { color: #79c0ff; }
 .dc-file-code .tok-key { color: #7ee787; }
-html[data-ui="v2"]:not([data-theme="dark"]) .dc-file-code .tok-keyword { color: #cf222e; }
-html[data-ui="v2"]:not([data-theme="dark"]) .dc-file-code .tok-builtin { color: #0550ae; }
-html[data-ui="v2"]:not([data-theme="dark"]) .dc-file-code .tok-string { color: #0a3069; }
-html[data-ui="v2"]:not([data-theme="dark"]) .dc-file-code .tok-comment { color: #6e7781; }
-html[data-ui="v2"]:not([data-theme="dark"]) .dc-file-code .tok-number { color: #8250df; }
-html[data-ui="v2"]:not([data-theme="dark"]) .dc-file-code .tok-decorator { color: #953800; }
-html[data-ui="v2"]:not([data-theme="dark"]) .dc-file-code .tok-operator { color: #cf222e; }
-html[data-ui="v2"]:not([data-theme="dark"]) .dc-file-code .tok-tag { color: #116329; }
-html[data-ui="v2"]:not([data-theme="dark"]) .dc-file-code .tok-attr { color: #0550ae; }
-html[data-ui="v2"]:not([data-theme="dark"]) .dc-file-code .tok-key { color: #116329; }
+html.platform-home:not([data-theme="dark"]) .dc-file-code .tok-keyword { color: #cf222e; }
+html.platform-home:not([data-theme="dark"]) .dc-file-code .tok-builtin { color: #0550ae; }
+html.platform-home:not([data-theme="dark"]) .dc-file-code .tok-string { color: #0a3069; }
+html.platform-home:not([data-theme="dark"]) .dc-file-code .tok-comment { color: #6e7781; }
+html.platform-home:not([data-theme="dark"]) .dc-file-code .tok-number { color: #8250df; }
+html.platform-home:not([data-theme="dark"]) .dc-file-code .tok-decorator { color: #953800; }
+html.platform-home:not([data-theme="dark"]) .dc-file-code .tok-operator { color: #cf222e; }
+html.platform-home:not([data-theme="dark"]) .dc-file-code .tok-tag { color: #116329; }
+html.platform-home:not([data-theme="dark"]) .dc-file-code .tok-attr { color: #0550ae; }
+html.platform-home:not([data-theme="dark"]) .dc-file-code .tok-key { color: #116329; }
 .dc-file-line { display: block; padding-right: 12px; white-space: pre; }
 .dc-file-line::before { display: inline-block; width: 3.2em; margin-right: 12px; padding-right: 8px; border-right: 1px solid rgba(148, 163, 184, 0.14); color: #475569; text-align: right; content: counter(dc-line); counter-increment: dc-line; user-select: none; }
 /* 放大：铺满窗口，Esc 或再次点击还原 */

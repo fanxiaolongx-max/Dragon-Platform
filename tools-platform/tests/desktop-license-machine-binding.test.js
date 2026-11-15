@@ -184,5 +184,5 @@ test('License 签发页不再使用浏览器原生弹窗，统一走 AppDialog /
     assert.match(page, /<script src="\/js\/shared\/app-dialog\.js"><\/script>/);
     const dialog = fs.readFileSync(path.join(__dirname, '../frontend/js/shared/app-dialog.js'), 'utf8');
     assert.match(dialog, /window\.AppDialog = \{/);
-    assert.match(dialog, /typeof window\.showNavbarConfirm === 'function'/, '平台页面复用导航栏弹窗，保持全站风格一致');
+    assert.match(dialog, /typeof window\.showPlatformConfirm === 'function'/, '平台页面复用导航栏弹窗，保持全站风格一致');
 });

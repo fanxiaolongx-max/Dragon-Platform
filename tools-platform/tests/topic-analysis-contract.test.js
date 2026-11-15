@@ -9,7 +9,7 @@ const server = read('backend/server.js');
 const routes = read('backend/routes/topic-snapshots.js');
 const page = read('frontend/pages/topic-analysis.html');
 const script = read('frontend/js/topic-analysis.js');
-const navbar = read('frontend/js/shared/navbar.js');
+const navbar = require('./helpers/platform-source.cjs').readPlatformSource();
 const navRepository = read('backend/models/nav-settings-repository.js');
 const indexHtml = read('frontend/index.html');
 

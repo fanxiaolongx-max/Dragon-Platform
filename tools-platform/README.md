@@ -2192,3 +2192,7 @@ node_modules/.bin/electron --disable-gpu tests/builtin-tools-update-browser.cjs
 - [阿语音频](backend/builtin-tools/tool-mtakhxqm/audio/README.md)、[发音示意底图](backend/builtin-tools/tool-mtakhxqm/assets/articulation/README.md)、[会议工具图标许可](backend/builtin-tools/network_safety_meeting_summary/vendor/phosphor/README.md)
 
 图屿（Picture Island）为内置图库工具，附带 9 组、11 个版本的示例图片。安装包仅带约 426 KB 缩略图，原图按需从独立媒体仓库获取并校验，详见 [图屿使用说明](docs/picture-island.md)。
+
+### 前端代码入口
+
+首页采用唯一布局，首页外框、工具管理与平台设置/告警/服务状态已分离。入口、模块加载顺序和维护边界见 [前端架构说明](docs/frontend-architecture.md)。

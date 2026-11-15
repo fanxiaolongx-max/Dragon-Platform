@@ -15,9 +15,9 @@
     style.textContent = `
         html.is-desktop-app { --desktop-controls-w: 0px; }
         /* 首页使用整窗背景，隐藏整页滚动条槽，避免启动遮罩右侧留下 8px 白边；保留页面滚动。 */
-        html.is-desktop-app[data-ui="v2"], html.is-desktop-app[data-ui="v2"] body { scrollbar-width: none !important; }
-        html.is-desktop-app[data-ui="v2"]::-webkit-scrollbar,
-        html.is-desktop-app[data-ui="v2"] body::-webkit-scrollbar { display: none; width: 0 !important; height: 0 !important; }
+        html.is-desktop-app.platform-home, html.is-desktop-app.platform-home body { scrollbar-width: none !important; }
+        html.is-desktop-app.platform-home::-webkit-scrollbar,
+        html.is-desktop-app.platform-home body::-webkit-scrollbar { display: none; width: 0 !important; height: 0 !important; }
         html.desktop-mac { --desktop-controls-w: 76px; }
         html.desktop-win { --desktop-controls-w: 0px; }
         html.is-desktop-app .desktop-drag, html.is-desktop-app .v2-side-tools, html.is-desktop-app .v2-tool-frame-bar,
@@ -77,7 +77,7 @@
             content: ""; display: none; position: fixed; top: 10px; left: var(--v2-side-width, 240px); right: 140px; height: 18px;
             -webkit-app-region: drag;
         }
-        html.is-desktop-app[data-ui="v2"] body:not(.v2-hub-open):not(.v2-tool-open):not(.ai-kg-open) .desktop-drag-welcome::after { display: block; }
+        html.is-desktop-app.platform-home body:not(.v2-hub-open):not(.v2-tool-open):not(.ai-kg-open) .desktop-drag-welcome::after { display: block; }
         html.desktop-mac .desktop-drag-welcome::after { right: 0; }
         /* 收起后左上角是「侧边栏 + 新建对话」两个浮动按钮，拖动区从它们右侧开始 */
         html.desktop-mac body.v2-side-collapsed .desktop-drag-welcome::after { left: calc(var(--desktop-controls-w) + 92px); }
@@ -85,9 +85,9 @@
         /* Keep the hub header below the window controls and use the gap for dragging. */
         .desktop-drag-hub { display: none; position: fixed; top: 8px; left: var(--v2-side-width, 240px); right: 140px; height: 28px; z-index: 2147482000; -webkit-app-region: drag; }
         html.desktop-mac .desktop-drag-hub { right: 0; }
-        html.is-desktop-app[data-ui="v2"] body.v2-hub-open .desktop-drag-hub { display: block; }
-        html.is-desktop-app[data-ui="v2"] body.v2-hub-open .home-main { padding-top: 44px; }
-        html.is-desktop-app[data-ui="v2"] body.v2-side-collapsed.v2-hub-open .home-main { padding-top: 56px; }
+        html.is-desktop-app.platform-home body.v2-hub-open .desktop-drag-hub { display: block; }
+        html.is-desktop-app.platform-home body.v2-hub-open .home-main { padding-top: 44px; }
+        html.is-desktop-app.platform-home body.v2-side-collapsed.v2-hub-open .home-main { padding-top: 56px; }
         html.desktop-mac body.v2-side-collapsed .desktop-drag-hub { left: calc(var(--desktop-controls-w) + 92px); }
         html.desktop-win body.v2-side-collapsed .desktop-drag-hub { left: calc(var(--v2-float-end) + 8px); }
 

@@ -62,7 +62,7 @@ test('tool-menu: resolveTarget resolves slug across id, key, href, and fallback 
 });
 
 test('home-page: update tool modal locks name inputs and disallows editing tool names', () => {
-    const homePageJs = fs.readFileSync(path.join(__dirname, '../frontend/js/home/home-page.js'), 'utf8');
+    const homePageJs = fs.readFileSync(path.join(__dirname, '../frontend/js/home/home-tools.js'), 'utf8');
 
     // 1. Verifies that nameInput and nameEnInput are made readOnly and given is-locked class
     assert.ok(homePageJs.includes('nameInput.readOnly = true'), 'nameInput must be marked readOnly in update mode');
@@ -84,12 +84,12 @@ test('home-page: update tool modal locks name inputs and disallows editing tool 
     assert.ok(homePageJs.includes('lockedHintEl.hidden = false'), 'Locked notice should be shown in update mode');
 });
 
-test('home-theme.css & home-page.css: is-locked input styles and locked hint styles are defined', () => {
+test('home-theme.css & home-tools.css: is-locked input styles and locked hint styles are defined', () => {
     const themeCss = fs.readFileSync(path.join(__dirname, '../frontend/css/home-theme.css'), 'utf8');
-    const homeCss = fs.readFileSync(path.join(__dirname, '../frontend/css/home-page.css'), 'utf8');
+    const homeCss = fs.readFileSync(path.join(__dirname, '../frontend/css/home-tools.css'), 'utf8');
 
     assert.ok(themeCss.includes('.tool-import-locked-hint'), 'home-theme.css should style .tool-import-locked-hint');
     assert.ok(themeCss.includes('.is-locked'), 'home-theme.css should style .is-locked');
-    assert.ok(homeCss.includes('.tool-import-locked-hint'), 'home-page.css should style .tool-import-locked-hint');
-    assert.ok(homeCss.includes('.is-locked'), 'home-page.css should style .is-locked');
+    assert.ok(homeCss.includes('.tool-import-locked-hint'), 'home-tools.css should style .tool-import-locked-hint');
+    assert.ok(homeCss.includes('.is-locked'), 'home-tools.css should style .is-locked');
 });

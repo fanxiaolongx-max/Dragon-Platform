@@ -3,17 +3,17 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const navbarPath = path.join(__dirname, '../frontend/js/shared/navbar.js');
-const navbarSettingsPath = path.join(__dirname, '../frontend/js/shared/navbar-settings.js');
+const navbarPath = path.join(__dirname, '../frontend/js/shared/platform-core.js');
+const navbarSettingsPath = path.join(__dirname, '../frontend/js/shared/platform-settings.js');
 const sharedCssPath = path.join(__dirname, '../frontend/css/shared.css');
 const homeThemePath = path.join(__dirname, '../frontend/css/home-theme.css');
 
-const navbarCode = fs.readFileSync(navbarPath, 'utf8');
+const navbarCode = require('./helpers/platform-source.cjs').readPlatformSource();
 const navbarSettingsCode = fs.readFileSync(navbarSettingsPath, 'utf8');
 const sharedCss = fs.readFileSync(sharedCssPath, 'utf8');
 const homeThemeCss = fs.readFileSync(homeThemePath, 'utf8');
 
-test('navbar.js initializes aiUsageExpanded to false and includes expand/collapse i18n keys', () => {
+test('platform-core.js initializes aiUsageExpanded to false and includes expand/collapse i18n keys', () => {
     // 1. navState default: aiUsageExpanded should default to false (collapsed)
     assert.match(navbarCode, /aiUsageExpanded:\s*false/, 'navState must default aiUsageExpanded to false');
 
@@ -26,7 +26,7 @@ test('navbar.js initializes aiUsageExpanded to false and includes expand/collaps
     assert.match(navbarCode, /'nav\.ai\.usageCollapse':\s*'Collapse Trend'/, 'English dictionary must include nav.ai.usageCollapse');
 });
 
-test('navbar-settings.js supports collapsible Token & cost trend panel and defines toggleAiUsagePanel', () => {
+test('platform-settings.js supports collapsible Token & cost trend panel and defines toggleAiUsagePanel', () => {
     // 1. Toggle function must be attached to window
     assert.match(navbarSettingsCode, /window\.toggleAiUsagePanel\s*=\s*function/, 'toggleAiUsagePanel must be defined on window');
 
@@ -55,7 +55,7 @@ test('shared.css and home-theme.css contain folding and expansion styles for Tok
 
     // 4. Dark mode styling
     assert.match(sharedCss, /:is\(html\[data-theme="dark"\],\s*html\[data-platform-theme="dark"\]\)\s*\.nav-ai-usage-toggle-btn/);
-    assert.match(homeThemeCss, /html\[data-ui="v2"\]\[data-theme="dark"\]\s*\.nav-ai-usage-toggle-btn/);
+    assert.match(homeThemeCss, /html\.platform-home\[data-theme="dark"\]\s*\.nav-ai-usage-toggle-btn/);
 });
 
 test('DOM runtime simulation: toggleAiUsagePanel expands and collapses panel correctly', () => {

@@ -67,7 +67,7 @@ app.whenReady().then(async () => {
     server = await new Promise(resolve => { const s = web.listen(0, '127.0.0.1', () => resolve(s)); });
     win = new BrowserWindow({ show: false, width: 1200, height: 950, webPreferences: { backgroundThrottling: false } });
     await win.loadURL(`http://127.0.0.1:${server.address().port}/`);
-    await until('!!window.HomeSidebarMenu && !!window.HomeV2');
+    await until('!!window.HomeSidebarMenu && !!window.HomeShell');
     await open();
     assert.equal(await run('document.querySelectorAll("[data-menu-id]").length'), 8);
     const initial = await primary();
@@ -103,14 +103,14 @@ app.whenReady().then(async () => {
     assert.ok(expected.includes('links') && !expected.includes('library'));
     await run(`document.querySelector('#homeSidebar [data-v2-action="links"]').click()`);
     assert.equal(await run('!!document.querySelector(".v2-links-submenu.is-open")'), true, 'links work when promoted to the main menu');
-    await run('HomeV2.closePop()');
+    await run('HomeShell.closePop()');
     await win.reload();
     await until(`document.querySelector('#homeSidebar .v2-nav > [data-v2-action="schedule"]')===document.querySelector('#homeSidebar .v2-nav > [data-v2-action="newChat"]').nextElementSibling`);
     assert.deepEqual(await primary(), expected, 'reload reads the layout from the server');
     await run(`document.querySelector('[data-v2-flyout="more"]').click()`);
     assert.deepEqual(await run(`Array.from(document.querySelectorAll('.v2-sidebar-more-items > button'),b=>b.dataset.v2Action)`), layout.more);
     assert.ok(await run('!!document.getElementById("v2OpsCount")'), 'moving a menu retains the live badge');
-    await run('HomeV2.closePop()');
+    await run('HomeShell.closePop()');
     for (const [width, theme, language] of [[1200, 'light', 'zh-CN'], [390, 'dark', 'en-US']]) {
         win.setContentSize(width, 850);
         await until(`innerWidth===${width}`);
@@ -141,7 +141,7 @@ app.whenReady().then(async () => {
     await run(`closeNavSettingsModal(); document.querySelector('[data-v2-flyout="more"]').click()`);
     assert.deepEqual(await shortcuts(), [...workflow, 'frt'].map(id => '/' + id));
     assert.match(await run(`document.querySelector('.v2-flyout.is-open').textContent`), /System tools/);
-    await run(`HomeV2.closePop(); ToolsI18n.setLanguage('zh-CN'); void openNavSettingsModal(); switchNavSettingsTab('items')`);
+    await run(`HomeShell.closePop(); ToolsI18n.setLanguage('zh-CN'); void openNavSettingsModal(); switchNavSettingsTab('items')`);
     await until(`navSettingsHeading.textContent === '分类与顺序' && !!navSettingsContent.querySelector('select')`);
     assert.deepEqual(await run(`Array.from(navSettingsContent.querySelectorAll('.nav-settings-fixed-category'), el => el.textContent)`), workflow.map(() => '系统工具'));
     assert.equal(await run(`!!navSettingsContent.querySelector('select[onchange*="uivf12"]')`), false);
@@ -157,7 +157,7 @@ app.whenReady().then(async () => {
     await until(`navSettingsSaveState.textContent === navT('nav.set.saved')`);
     await run(`closeNavSettingsModal(); document.getElementById('v2DiscoverBtn').click()`);
     assert.ok(await run(`!!document.querySelector('.v2-discover.is-open [data-cat="质量审计"]')`));
-    await run(`HomeV2.closePop(); void openNavSettingsModal(); switchNavSettingsTab('primary');`);
+    await run(`HomeShell.closePop(); void openNavSettingsModal(); switchNavSettingsTab('primary');`);
     assert.equal(await run(`!!navSettingsContent.querySelector('button[onclick*="HomeSidebarMenu.open"]')`), false);
     await run(`switchNavSettingsTab('items')`);
     assert.equal(await run(`!!navSettingsContent.querySelector('h3')`), false);

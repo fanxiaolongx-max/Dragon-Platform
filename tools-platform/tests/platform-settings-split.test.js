@@ -4,10 +4,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const acorn = require('acorn');
 
-// 全局设置各页签的代码在 navbar-settings.js，首次打开设置时才加载；navbar.js 在 19 个页面上随页面加载。
+// 全局设置各页签的代码在 platform-settings.js，首次打开设置时才加载；platform-core.js 在 19 个页面上随页面加载。
 const dir = path.join(__dirname, '../frontend/js/shared');
-const coreSource = fs.readFileSync(path.join(dir, 'navbar.js'), 'utf8');
-const packSource = fs.readFileSync(path.join(dir, 'navbar-settings.js'), 'utf8');
+const coreSource = require('./helpers/platform-source.cjs').readPlatformSource();
+const packSource = fs.readFileSync(path.join(dir, 'platform-settings.js'), 'utf8');
 const parse = source => acorn.parse(source, { ecmaVersion: 'latest', sourceType: 'script', locations: true });
 
 function topLevelNames(ast) {
@@ -38,7 +38,7 @@ function enclosingFunctions(ast, name) {
 }
 
 test('settings pack loads on demand with a content version and marks itself loaded', () => {
-    assert.match(coreSource, /loadNavLazyScript\('\/js\/shared\/navbar-settings\.js'/);
+    assert.match(coreSource, /loadNavLazyScript\('\/js\/shared\/platform-settings\.js'/);
     assert.match(packSource, /window\.__navSettingsPackLoaded = true;\s*$/);
 });
 
@@ -53,11 +53,11 @@ test('core and settings pack declare disjoint names, and only the dispatcher cal
     const allowedCallers = new Set(['renderNavSettingsContent', 'pollSnapshotProgress']);
     for (const name of packNames) {
         const owners = enclosingFunctions(core, name);
-        assert.deepEqual(owners.filter(owner => !allowedCallers.has(owner)), [], `${name} is used by navbar.js before the settings pack loads`);
+        assert.deepEqual(owners.filter(owner => !allowedCallers.has(owner)), [], `${name} is used by platform-core.js before the settings pack loads`);
     }
     const dispatched = [...coreSource.matchAll(/return (render\w+Settings)\(content\)/g)].map(match => match[1]);
     assert.ok(dispatched.length >= 15);
-    dispatched.forEach(name => assert.ok(packNames.has(name), `${name} lives in navbar-settings.js`));
+    dispatched.forEach(name => assert.ok(packNames.has(name), `${name} lives in platform-settings.js`));
 });
 
 test('settings pack runs no page-load work beyond defining functions and state', () => {
@@ -66,6 +66,6 @@ test('settings pack runs no page-load work beyond defining functions and state',
         if (allowed.has(node.type)) continue;
         const isWindowAssignment = node.type === 'ExpressionStatement' && node.expression.type === 'AssignmentExpression'
             && node.expression.left.type === 'MemberExpression' && node.expression.left.object.name === 'window';
-        assert.ok(isWindowAssignment, `unexpected top-level statement at navbar-settings.js:${node.loc.start.line}`);
+        assert.ok(isWindowAssignment, `unexpected top-level statement at platform-settings.js:${node.loc.start.line}`);
     }
 });

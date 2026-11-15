@@ -394,9 +394,9 @@ button:disabled { cursor: default; }
         const doc = document.implementation.createHTMLDocument(title || 'Dragon Claw');
         doc.documentElement.lang = document.documentElement.lang || (lang() === 'en' ? 'en' : 'zh-CN');
         doc.documentElement.className = document.documentElement.className;
-        // Preserve selector context before collectCss prunes unused rules. Without data-ui
+        // Preserve selector context before collectCss prunes unused rules. Without the theme
         // and #dragonClaw, the v2 theme bridge is discarded and legacy dark rules win.
-        for (const name of ['data-ui', 'data-theme']) {
+        for (const name of ['data-theme']) {
             if (document.documentElement.hasAttribute(name)) doc.documentElement.setAttribute(name, document.documentElement.getAttribute(name));
         }
         doc.body.className = document.body.className;

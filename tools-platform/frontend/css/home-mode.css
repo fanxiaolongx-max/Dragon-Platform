@@ -57,67 +57,7 @@ body.home-mode-chat:not(.dc-chatting) .dc {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.home-tools-count { flex: none; color: var(--ws-faint); font-size: 12px; font-variant-numeric: tabular-nums; }
-
-/* ── 侧栏：图标栏 + 面板 ───────────────────────── */
-.home-rail {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    flex: none;
-    width: var(--ws-rail);
-    padding: 10px 0;
-    border-right: 1px solid rgba(148, 163, 184, 0.1);
-    background: rgba(2, 6, 23, 0.28);
-}
-.home-rail-spacer { flex: 1; }
-.home-rail-actions {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    flex: none;
-}
-.home-rail-actions[hidden] { display: none; }
-.home-rail-btn {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    width: 46px;
-    height: 52px;
-    padding: 0;
-    border: 0;
-    border-radius: 12px;
-    background: transparent;
-    color: #7d8ca3;
-    font: inherit;
-    font-size: 10.5px;
-    font-weight: 650;
-    line-height: 1;
-    cursor: pointer;
-    transition: background 0.15s ease, color 0.15s ease;
-}
-.home-rail-btn svg { width: 20px; height: 20px; }
-.home-rail-btn:hover { background: rgba(148, 163, 184, 0.08); color: #e2e8f0; }
-.home-rail-btn:focus-visible { outline: 2px solid var(--ws-accent); outline-offset: -2px; }
-.home-rail-btn.is-active,
-.home-rail-btn.is-open { background: rgba(100, 255, 218, 0.1); color: #e6fffa; }
-.home-rail-btn.is-active::before {
-    content: '';
-    position: absolute;
-    left: -7px;
-    top: 14px;
-    bottom: 14px;
-    width: 3px;
-    border-radius: 0 3px 3px 0;
-    background: var(--ws-accent);
-    box-shadow: 0 0 10px rgba(100, 255, 218, 0.45);
-}
-.home-rail-history { display: none; } /* 只在手机上出现 */
+.home-tools-count { flex: none; color: var(--ws-faint); font-size: 12px; font-variant-numeric: tabular-nums; } /* 只在手机上出现 */
 
 .home-panel {
     display: flex;
@@ -375,23 +315,15 @@ body.home-sidebar-resizing * { cursor: col-resize !important; user-select: none 
         overflow: hidden;
     }
     .home-sidebar > * { flex-shrink: 1; }
-    .home-rail { flex-shrink: 0; }
 
     body .home-content.home-workspace { grid-template-columns: var(--ws-side) minmax(0, 1fr); }
     body.home-mode-chat.dc-workspace-open .home-content.home-workspace { grid-template-columns: var(--ws-side) minmax(0, 1fr) var(--ws-panel-w); }
-    body.home-sidebar-collapsed .home-content.home-workspace { grid-template-columns: var(--ws-rail) minmax(0, 1fr); }
-    body.home-sidebar-collapsed.home-mode-chat.dc-workspace-open .home-content.home-workspace { grid-template-columns: var(--ws-rail) minmax(0, 1fr) var(--ws-panel-w); }
     /* 工作区只属于对话模式：工具模式下即使工作区仍处于打开状态也不占列 */
     body.home-mode-tools.dc-workspace-open .home-content.home-workspace { grid-template-columns: var(--ws-side) minmax(0, 1fr); }
-    body.home-sidebar-collapsed.home-mode-tools.dc-workspace-open .home-content.home-workspace { grid-template-columns: var(--ws-rail) minmax(0, 1fr); }
-
-    body.home-sidebar-collapsed .home-panel { display: none; }
-    body.home-sidebar-collapsed .home-rail { border-right: 0; background: transparent; }
 }
 
 @media (min-width: 861px) and (max-width: 1280px) {
     body.home-mode-chat.dc-workspace-open .home-content.home-workspace { grid-template-columns: var(--ws-side) minmax(0, 1fr) 300px; }
-    body.home-sidebar-collapsed.home-mode-chat.dc-workspace-open .home-content.home-workspace { grid-template-columns: var(--ws-rail) minmax(0, 1fr) 300px; }
 }
 @media (min-width: 861px) and (max-width: 1100px) {
     .home-content.home-workspace { --ws-side-default: 320px; }
@@ -400,36 +332,6 @@ body.home-sidebar-resizing * { cursor: col-resize !important; user-select: none 
 /* ── 手机：图标栏变为顶部分段标签；历史对话改为弹窗 ── */
 @media (max-width: 860px) {
     .home-sidebar { gap: 10px; }
-    /* 等宽分段标签：对话 / 工具 /（对话模式下的）历史 / 链接 */
-    .home-rail {
-        display: grid;
-        grid-auto-flow: column;
-        grid-auto-columns: minmax(0, 1fr);
-        gap: 6px;
-        width: auto;
-        padding: 0;
-        border-right: 0;
-        background: transparent;
-    }
-    .home-rail-spacer { display: none; }
-    .home-rail-actions:not([hidden]) { display: contents; }
-    .home-rail-btn {
-        flex-direction: row;
-        gap: 5px;
-        width: auto;
-        min-width: 0;
-        height: 36px;
-        padding: 0 6px;
-        border: 1px solid rgba(148, 163, 184, 0.16);
-        border-radius: 999px;
-        font-size: 12.5px;
-        white-space: nowrap;
-    }
-    .home-rail-btn svg { flex: none; width: 15px; height: 15px; }
-    .home-rail-label { overflow: hidden; text-overflow: ellipsis; }
-    .home-rail-btn.is-active::before { display: none; }
-    .home-rail-btn.is-active { border-color: rgba(100, 255, 218, 0.35); }
-    body.home-mode-chat .home-rail-history { display: flex; }
     .home-panel-view { padding: 0; overflow: visible; }
     .home-panel-head { display: none; }
     body.home-mode-chat .home-panel { display: none; }
@@ -448,14 +350,6 @@ body.home-sidebar-resizing * { cursor: col-resize !important; user-select: none 
 
 /* 小屏上的管理员入口较多，图标与短文字上下排列，保持可读和可点击。 */
 @media (max-width: 640px) {
-    .home-rail-btn {
-        flex-direction: column;
-        gap: 4px;
-        height: 48px;
-        padding: 0 2px;
-        border-radius: 10px;
-        font-size: 10.5px;
-    }
 }
 
 @media (prefers-reduced-motion: reduce) {

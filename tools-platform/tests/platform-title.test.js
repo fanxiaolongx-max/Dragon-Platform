@@ -42,7 +42,7 @@ test('live navigation settings replace a cached custom name and language changes
     let language = 'zh-CN';
     context.window.ToolsI18n = { getLanguage: () => language };
     context.navState = { settings: { platformNameZh: '新平台 <中心>', platformNameEn: 'New Platform' } };
-    const navbar = read('frontend/js/shared/navbar.js');
+    const navbar = require('./helpers/platform-source.cjs').readPlatformSource();
     vm.runInContext(navbar.slice(navbar.indexOf('let platformTitleOriginal'), navbar.indexOf('function applyPlatformIdentity()')), context);
     context.applyPlatformTitle();
     assert.equal(document.title, '新平台 <中心> - 工具中台');

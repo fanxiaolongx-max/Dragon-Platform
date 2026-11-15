@@ -15,7 +15,7 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms)),ev=fn=>win.webContents.executeJa
 async function until(fn){for(let i=0;i<200;i++){if(await ev(fn))return;await wait(25);}throw Error('Timeout: '+fn);}
 setTimeout(()=>{console.error('Progress fixture timeout');app.exit(1);},60000).unref();
 app.whenReady().then(async()=>{
-    const web=express();web.use(express.json({limit:'50mb'}));web.get('/js/shared/navbar.js',(_,res)=>res.type('js').send(''));
+    const web=express();web.use(express.json({limit:'50mb'}));web.get(/^\/js\/shared\/platform-(?:core|dialogs|settings-controller|alerts|services|tool-updates|runtime)\.js$/,(_,res)=>res.type('js').send(''));
     web.use((req,_res,next)=>{req.user={username:'tester',role:'admin'};req.requestId='ui-fixture-request';next();});web.use('/api/ai-report',require('../backend/routes/ai-report'));web.use(express.static(path.join(__dirname,'../frontend')));
     server=await new Promise(r=>{const s=web.listen(0,'127.0.0.1',()=>r(s));});
     win=new BrowserWindow({show:false,width:1920,height:1080,webPreferences:{backgroundThrottling:false}});

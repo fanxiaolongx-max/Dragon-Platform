@@ -73,7 +73,7 @@ app.whenReady().then(async () => {
     await evaluate(`document.querySelector('.v2-account [data-v2-do="wide"]').click();true`);await wait(50);
     assert.equal(await evaluate(`!document.documentElement.classList.contains('v2-wide')&&localStorage.getItem('tools_home_wide')==='0'`),true,'wide mode turns back off');
     assert.match(await evaluate(`getComputedStyle(document.querySelector('.dc')).getPropertyValue('--dc-col')`),/960px/,'non-wide home column returns to 960px');
-    await evaluate(`HomeV2.closePop();true`);
+    await evaluate(`HomeShell.closePop();true`);
     await win.webContents.debugger.attach('1.3');
     await win.webContents.debugger.sendCommand('Emulation.setFocusEmulationEnabled',{enabled:true});
     await evaluate(`new Promise(resolve=>{const f=document.createElement('iframe');f.id='outsideMenuFrame';f.style.cssText='position:fixed;right:20px;top:120px;width:240px;height:120px;z-index:100';f.srcdoc='<button style="width:200px;height:80px">Embedded tool</button>';f.onload=resolve;document.body.append(f)})`);
@@ -115,17 +115,17 @@ app.whenReady().then(async () => {
     assert.ok(await visible('#v2LinksSubmenu'),'expanded live list also stays in viewport');
     await evaluate(`v2LinksSubmenu.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));true`);
     assert.equal(await evaluate('v2LinksSubmenu.classList.contains("is-open")'),false);assert.equal(await evaluate('!!document.querySelector(".v2-flyout.is-open")'),true);
-    await evaluate('HomeV2.closePop();document.documentElement.dataset.theme="dark";ToolsI18n.setLanguage("en-US");HomeV2.openLinks();true');await wait(100);
+    await evaluate('HomeShell.closePop();document.documentElement.dataset.theme="dark";ToolsI18n.setLanguage("en-US");HomeShell.openLinks();true');await wait(100);
     assert.ok(await visible('#v2LinksSubmenu'));assert.notEqual(await evaluate('getComputedStyle(v2LinksSubmenu).backgroundColor'),light);
     await capture('friend-links-dark');
     win.setContentSize(390,844);await wait(180);
-    await evaluate('document.body.classList.add("v2-side-collapsed");HomeV2.openLinks();true');await wait(180);
+    await evaluate('document.body.classList.add("v2-side-collapsed");HomeShell.openLinks();true');await wait(180);
     assert.ok(await visible('#v2LinksSubmenu'));assert.equal(await evaluate('v2LinksSubmenu.classList.contains("is-stacked")'),true);
     await capture('friend-links-narrow');
     await evaluate('v2LinksSubmenu.querySelector(".v2-links-back").click()');
     assert.equal(await evaluate('v2LinksSubmenu.classList.contains("is-open")'),false);
     assert.equal(await evaluate('!!document.querySelector(".v2-flyout.is-open")'),true);
-    await evaluate(`HomeV2.closePop();localStorage.setItem('tools_role','readonly');document.getElementById('v2UserBtn').click();true`);
+    await evaluate(`HomeShell.closePop();localStorage.setItem('tools_role','readonly');document.getElementById('v2UserBtn').click();true`);
     assert.equal(await evaluate(`document.querySelectorAll('.v2-account [data-v2-do="checkUpdate"]').length`),1,'manual update entry is available to every desktop user');
     assert.equal(await evaluate(`document.querySelectorAll('.v2-account [data-v2-do="feedback"]').length`),1);
     await capture('account-update-feedback');
@@ -147,7 +147,7 @@ app.whenReady().then(async () => {
     await until(`document.querySelector('.tools-dialog-status').textContent.includes('Posted to the requests board')`);
     await evaluate(`document.querySelector('.tools-dialog-close').click();document.getElementById('v2UserBtn').click();document.querySelector('.v2-account [data-v2-do="checkUpdate"]').click();true`);
     assert.ok(await evaluate(`document.querySelector('.tools-dialog').textContent.includes('desktop app')`));
-    await evaluate(`document.querySelector('.tools-dialog-close')?.click();HomeV2.closePop();true`);
+    await evaluate(`document.querySelector('.tools-dialog-close')?.click();HomeShell.closePop();true`);
     // 发现应用菜单：点击菜单内的工具后，浮层必须自动关闭
     await evaluate(`window.HomeWorkspace = window.HomeWorkspace || {}; window.HomeWorkspace.getTools = () => [{ id: 'f12', title: 'F12扩展打包', href: '/tools/f12-to-extension', group: '推荐' }]; true`);
     await evaluate(`document.getElementById('v2DiscoverBtn').click(); true`);
@@ -166,7 +166,7 @@ app.whenReady().then(async () => {
     assert.deepEqual(await evaluate(`({a:v2UserBtn.classList.contains('is-admin'),s:v2UserBtn.classList.contains('is-superadmin'),t:v2RoleBadge.textContent.trim(),c:v2AvatarCrest.hidden,pt:document.querySelector('.v2-account-head.is-superadmin .v2-role-badge')?.textContent.trim()})`), { a: true, s: true, t: '超级管理员', c: false, pt: '超级管理员' });
     await evaluate(`ToolsI18n.setLanguage('en-US');true`);
     assert.equal(await evaluate(`v2RoleBadge.textContent.trim()`), 'Super Admin');
-    await evaluate(`HomeV2.closePop();true`);
+    await evaluate(`HomeShell.closePop();true`);
     assert.deepEqual(await evaluate('fixtureErrors'),[]);
     await win.loadURL(`http://127.0.0.1:${server.address().port}/requirements`);
     await until(`Array.from(document.querySelectorAll('.req-title')).some(node => node.textContent === 'Test feedback')`);

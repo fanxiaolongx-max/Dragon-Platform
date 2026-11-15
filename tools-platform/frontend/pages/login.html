@@ -7,14 +7,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>登录 - Dragon Claw</title>
     <script>
-        // 新版浅色样式（与首页一致，默认开启）；?ui=v1 或首页“切回旧版界面”后保留原星空登录页
+        // 登录页使用固定布局；首页布局不再有版本偏好。
         (function () {
             var root = document.documentElement;
+            root.setAttribute('data-ui', 'v2');
             try {
-                var query = new URLSearchParams(location.search).get('ui');
-                if (query === 'v2' || query === 'v1') localStorage.setItem('tools_home_ui', query);
-                if (localStorage.getItem('tools_home_ui') === 'v1') return;
-                root.setAttribute('data-ui', 'v2');
                 root.setAttribute('data-theme', localStorage.getItem('tools_theme') === 'dark' ? 'dark' : 'light');
             } catch (e) { /* 读不到存储时保持原样式 */ }
         })();
@@ -1838,9 +1835,6 @@
             const currentTheme = getLoginTheme();
             const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
             document.documentElement.setAttribute('data-theme', nextTheme);
-            if (document.documentElement.getAttribute('data-ui') !== 'v2' && localStorage.getItem('tools_home_ui') !== 'v1') {
-                document.documentElement.setAttribute('data-ui', 'v2');
-            }
             try {
                 localStorage.setItem('tools_theme', nextTheme);
             } catch (_) {}

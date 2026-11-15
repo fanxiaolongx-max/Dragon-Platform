@@ -74,13 +74,13 @@ test('failed directory reads can retry and a successful tool write invalidates p
 });
 
 test('a failed shared directory request still applies fresh navigation settings and retains existing tools', async () => {
-    const source = read('js/shared/navbar.js');
+    const source = require('./helpers/platform-source.cjs').readPlatformSource();
     const context = {
         navState: { settings: {}, customTools: [{ slug: 'existing' }] },
         fetch: async () => ({ ok: true, json: async () => ({ primaryIds: ['home'] }) }),
         API: { get: async () => { throw new Error('offline'); } },
         getAuthHeaderForNav: () => ({}), normalizeNavSettings: value => value,
-        writeNavigationBootstrapCache() {}, notifyRequirementPageCategoriesChanged() {}, renderNavLinksFromState() {},
+        writeNavigationBootstrapCache() {}, notifyRequirementPageCategoriesChanged() {}, publishPlatformCatalog() {},
         loadRecentNavTools: async () => {}, loadFavoriteNavTools: async () => {}, trackCurrentPageAsRecentNavTool() {},
         document: { getElementById: () => null }, console
     };
@@ -92,7 +92,7 @@ test('a failed shared directory request still applies fresh navigation settings 
 });
 
 function syncPage(sessionStorage = storage()) {
-    const source = read('js/shared/navbar.js');
+    const source = require('./helpers/platform-source.cjs').readPlatformSource();
     let count = 0, now = 1000000, version = '1';
     const context = {
         window: { ToolsAppVersion: { get: async () => version } },
@@ -133,11 +133,11 @@ test('automatic results do not replace a dialog opened while the scan was pendin
 });
 
 test('embedded manual comparisons delegate to the platform window', async () => {
-    const source = read('js/shared/navbar.js');
+    const source = require('./helpers/platform-source.cjs').readPlatformSource();
     let calls = 0;
     const context = { window: { top: { openBuiltinToolsComparison: () => { calls++; } } } };
     vm.createContext(context);
-    vm.runInContext(source.slice(source.indexOf('window.openBuiltinToolsComparison ='), source.indexOf("document.addEventListener('click', event =>", source.indexOf('window.openBuiltinToolsComparison ='))), context);
+    vm.runInContext(source.slice(source.indexOf('window.openBuiltinToolsComparison ='), source.indexOf('const BUILTIN_SYNC_CHECK_TTL_MS', source.indexOf('window.openBuiltinToolsComparison ='))), context);
     await context.window.openBuiltinToolsComparison();
     assert.equal(calls, 1);
     context.window.top = new Proxy({}, { get() { throw new Error('cross-origin'); } });
@@ -188,7 +188,7 @@ test('automatic check storage/version failures do not prevent scanning; manual p
     page.context.window.ToolsAppVersion.get = async () => { throw new Error('offline'); };
     await page.run();
     assert.equal(page.count(), 4);
-    const source = read('js/shared/navbar.js');
+    const source = require('./helpers/platform-source.cjs').readPlatformSource();
     const ast = acorn.parse(source, { ecmaVersion: 'latest' });
     const manual = ast.body.find(node => node.type === 'FunctionDeclaration' && node.id.name === 'fetchBuiltinToolsPreviewWithProgress');
     assert.ok(manual, 'manual comparison loader exists');

@@ -48,7 +48,7 @@ app.whenReady().then(async()=>{
         const batch=await repo.createBatch({targetMonth:month});const file=await repo.saveFile(batch.id,{name:`整改详单-2026-${String(month).padStart(2,'0')}.csv`,buffer:Buffer.from('级别\n'+levels.join('\n'))});
         await repo.saveSheets(file.id,[{name:'Sheet1',headers:['级别'],rows:levels.map(level=>({级别:level}))}]);
     }
-    const web=express();web.use(express.json({limit:'50mb'}));web.get('/js/shared/navbar.js',(_,res)=>res.type('js').send(''));
+    const web=express();web.use(express.json({limit:'50mb'}));web.get(/^\/js\/shared\/platform-(?:core|dialogs|settings-controller|alerts|services|tool-updates|runtime)\.js$/,(_,res)=>res.type('js').send(''));
     web.use((req,_res,next)=>{req.user={username:'tester',role:'user'};next();});web.use('/api/ai-report',require('../backend/routes/ai-report'));web.use(express.static(path.join(__dirname,'../frontend')));
     server=await new Promise(resolve=>{const listener=web.listen(0,'127.0.0.1',()=>resolve(listener));});
     win=new BrowserWindow({show:false,width:1600,height:1100,webPreferences:{contextIsolation:true,nodeIntegration:false}});

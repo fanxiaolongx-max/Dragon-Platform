@@ -1,13 +1,5 @@
-// 首页主逻辑（原 index.html 内联脚本，移出后可长期缓存；仍是普通脚本，与其他首页脚本共用全局作用域）
-        const historyState = {
-            items: [],
-            filtered: [],
-            query: '',
-            page: 1,
-            pageSize: 10
-        };
-        let customToolsCount = 0;
-        let platformSummary = null;
+window.HomeTools = { marketOpened: false };
+// 首页工具管理：卡片、导入、应用市场、友情链接与 API 中转。
         const friendLinksState = {
             snapshot: null,
             editorLinks: [],
@@ -22,7 +14,6 @@
             'zh-CN': {
                 'home.title': '工具中台',
                 'home.description': '统一工具平台入口：UIVF12 抓取引擎 & Task SLA 风险监控台',
-                'home.hero.desc': '统一工具中台 · 前后端分离架构 · 数据持久化存储<br>让每一个工具都更强大、更稳定、更易扩展',
                 'home.graph.title': '项目知识图谱',
                 'home.graph.subtitle': '探索模块、工具、代码与数据关系',
                 'home.links.title': '友情链接',
@@ -90,7 +81,7 @@
                 'home.apiRelay.installed': '已添加到 Claude Code：{path}',
                 'home.apiRelay.installFailed': '自动添加失败：{message}',
                 'home.apiRelay.saveBeforeInstall': '配置已修改，请先保存后再自动添加。',
-                'home.custom.note': '导入 HTML 或 ZIP 工具包后，会自动生成首页模块和顶部导航入口，并默认支持静态快照与 Pages 推送',
+                'home.custom.note': '导入 HTML 或 ZIP 工具包后，会自动生成首页模块和工具中心入口，并默认支持静态快照与 Pages 推送',
                 'home.custom.upload': '导入 HTML / ZIP / SKILL',
                 'home.market.button': '工具市场',
                 'home.market.short': '市场',
@@ -154,81 +145,6 @@
                 'home.import.zipHtmlMissing': 'ZIP 中没有找到 HTML 入口文件',
                 'home.arrow.tool': '进入工具 →',
                 'home.arrow.module': '进入模块 →',
-                'home.stats.scripts': '脚本仓库数量',
-                'home.stats.history': '历史操作记录',
-                'home.stats.tools': '在线工具模块',
-                'home.stats.title': '🚀 平台效能总览',
-                'home.stats.badge': '基于真实业务数据动态计算',
-                'home.stats.checks': '已完成指标检查',
-                'home.stats.service': '累计服务次数',
-                'home.stats.manual': '等效人工工时',
-                'home.stats.saved': '累计节约工时',
-                'home.stats.automation': '自动化脚本沉淀',
-                'home.stats.efficiency': '提效率约 {rate}%',
-                'home.stats.method': '查看效能估算口径',
-                'home.stats.note.checks': '自动核对与评分',
-                'home.stats.note.service': '业务操作 + 工具访问',
-                'home.stats.note.manual': '按保守口径折算',
-                'home.stats.note.tools': '统一入口稳定服务',
-                'home.stats.note.scripts': '可复用生产力资产',
-                'home.stats.methodology': '指标检查 2 分钟/项、脚本手工编制 90 分钟/个、数据导入整理 30 分钟/次、报表整理 45 分钟/份；AI 问答 8 分钟/次、告警研判 3 分钟/次。节约工时已扣除平台操作和人工复核时间，属管理口径估算值。',
-                'home.ai.title': '✨ AI 智能应用',
-                'home.ai.badge': '已融入核心业务流程',
-                'home.ai.scenarios': 'AI 应用场景',
-                'home.ai.tasks': '智能任务完成',
-                'home.ai.tokens': 'Token 处理量',
-                'home.ai.alerts': '告警智能研判',
-                'home.ai.pages': '业务页面覆盖',
-                'home.ai.saved': 'AI 节约分析时间',
-                'home.ai.taskNote': '含 {questions} 次 AI 问答',
-                'home.ai.note.scenarios': '助手·适配·告警·PPT',
-                'home.ai.note.tokens': '大模型语义处理',
-                'home.ai.note.alerts': '模型 + 智能规则兜底',
-                'home.ai.note.pages': '已产生真实 AI 会话',
-                'home.ai.note.saved': '按保守人工分析口径',
-                'home.impact.automationScripts': '自动化脚本',
-                'home.impact.hoursSaved': '已节约小时',
-                'home.impact.dataImports': '数据导入',
-                'home.impact.snapshotsStored': '快照沉淀',
-                'home.impact.metricChecks': '指标检查',
-                'home.impact.reportSnapshots': '报表快照',
-                'home.impact.weaknessesFound': '短板自动识别',
-                'home.impact.traceableSnapshots': '可追溯快照',
-                'home.impact.monthsStored': '个月数据沉淀',
-                'home.impact.historySnapshots': '历史快照',
-                'home.impact.customerGroups': '客户群覆盖',
-                'home.impact.metricResults': '指标结果',
-                'home.impact.autoCalculations': '自动核算',
-                'home.impact.requirementsManaged': '需求统一管理',
-                'home.impact.workflowTransitions': '流程流转',
-                'home.impact.auditRules': '稽查规则',
-                'home.impact.auditTemplates': '审计模板',
-                'home.impact.tablesProtected': '数据表守护',
-                'home.impact.databasesGoverned': '数据库统一治理',
-                'home.impact.tablesVisible': '数据表可视',
-                'home.impact.coreDatabases': '核心数据库',
-                'home.impact.totalOpens': '累计打开',
-                'home.impact.onlineTool': '在线工具',
-                'home.history.title': '最近操作历史',
-                'home.history.allTools': '全部工具',
-                'home.history.search': '搜索操作、详情或工具',
-                'home.history.count': '{n} 条记录',
-                'home.history.justNow': '刚刚',
-                'home.history.minutes': '{n} 分钟前',
-                'home.history.hours': '{n} 小时前',
-                'home.history.yesterday': '昨天 {time}',
-                'home.history.refresh': '刷新历史',
-                'home.history.loading': '正在加载最近操作历史...',
-                'home.history.refreshing': '正在刷新操作历史...',
-                'home.history.empty': '当前筛选条件下暂无操作记录。',
-                'home.history.none': '当前无可展示记录',
-                'home.history.defaultPage': '默认显示最近 10 条',
-                'home.history.page': '显示第 {from}-{to} 条，共 {total} 条 · 第 {page}/{pages} 页',
-                'home.history.prev': '上一页',
-                'home.history.next': '下一页',
-                'home.history.failed': '加载失败：{message}',
-                'home.history.sourceFailed': '加载失败',
-                'home.history.noDetail': '无附加说明',
                 'home.tool.uiv': '数据抓取',
                 'home.tool.sla': '数据导入',
                 'home.tool.custom': '工具管理',
@@ -253,7 +169,7 @@
                 'home.validation.nameRequired': '工具名称不能为空',
                 'home.validation.nameTooLong': '工具名称不能超过 80 个字符',
                 'home.custom.defaultName': '自定义工具',
-                'home.custom.defaultDesc': '由独立 HTML 导入的平台工具，可在统一入口和顶部导航中访问。',
+                'home.custom.defaultDesc': '由独立 HTML 导入的平台工具，可在统一入口和工具中心中访问。',
                 'home.custom.defaultTag1': '自定义 HTML',
                 'home.custom.defaultTag2': '平台入口',
                 'home.custom.download': '下载完整工具包',
@@ -270,7 +186,6 @@
             'en-US': {
                 'home.title': 'Tool Hub',
                 'home.description': 'Unified tool hub for data capture, SLA import, reporting, and operations workflows.',
-                'home.hero.desc': 'A unified tool hub · Decoupled frontend/backend · Persistent data storage<br>Make every tool stronger, steadier, and easier to extend',
                 'home.graph.title': 'Project Knowledge Graph',
                 'home.graph.subtitle': 'Explore modules, tools, code, and data relationships',
                 'home.links.title': 'Links',
@@ -402,81 +317,6 @@
                 'home.import.zipHtmlMissing': 'No HTML entry file was found in the ZIP package',
                 'home.arrow.tool': 'Open Tool →',
                 'home.arrow.module': 'Open Module →',
-                'home.stats.scripts': 'Script Repository Items',
-                'home.stats.history': 'Operation History Items',
-                'home.stats.tools': 'Online Tool Modules',
-                'home.stats.title': '🚀 Platform Efficiency Overview',
-                'home.stats.badge': 'Calculated dynamically from real business data',
-                'home.stats.checks': 'Metric Checks Completed',
-                'home.stats.service': 'Cumulative Services',
-                'home.stats.manual': 'Manual-equivalent Hours',
-                'home.stats.saved': 'Hours Saved',
-                'home.stats.automation': 'Automation Scripts',
-                'home.stats.efficiency': 'Approx. {rate}% efficiency gain',
-                'home.stats.method': 'View estimation methodology',
-                'home.stats.note.checks': 'Automated validation and scoring',
-                'home.stats.note.service': 'Business actions + tool visits',
-                'home.stats.note.manual': 'Conservative workload estimate',
-                'home.stats.note.tools': 'Stable service through one hub',
-                'home.stats.note.scripts': 'Reusable productivity assets',
-                'home.stats.methodology': 'Estimates use 2 minutes per metric check, 90 minutes per manually built script, 30 minutes per data import, and 45 minutes per report; AI estimates use 8 minutes per Q&A request and 3 minutes per alert review. Saved time excludes platform operation and manual review time and is intended as a management estimate.',
-                'home.ai.title': '✨ AI Applications',
-                'home.ai.badge': 'Embedded into core workflows',
-                'home.ai.scenarios': 'AI Use Cases',
-                'home.ai.tasks': 'Intelligent Tasks',
-                'home.ai.tokens': 'Tokens Processed',
-                'home.ai.alerts': 'AI Alert Reviews',
-                'home.ai.pages': 'Business Pages Covered',
-                'home.ai.saved': 'Analysis Hours Saved',
-                'home.ai.taskNote': 'Includes {questions} AI Q&A requests',
-                'home.ai.note.scenarios': 'Assistant · Adaptation · Alerts · PPT',
-                'home.ai.note.tokens': 'LLM semantic processing',
-                'home.ai.note.alerts': 'Model + intelligent rule fallback',
-                'home.ai.note.pages': 'Pages with real AI conversations',
-                'home.ai.note.saved': 'Conservative manual-analysis estimate',
-                'home.impact.automationScripts': 'automation scripts',
-                'home.impact.hoursSaved': 'hours saved',
-                'home.impact.dataImports': 'data imports',
-                'home.impact.snapshotsStored': 'snapshots stored',
-                'home.impact.metricChecks': 'metric checks',
-                'home.impact.reportSnapshots': 'report snapshots',
-                'home.impact.weaknessesFound': 'weaknesses identified',
-                'home.impact.traceableSnapshots': 'traceable snapshots',
-                'home.impact.monthsStored': 'months of data',
-                'home.impact.historySnapshots': 'history snapshots',
-                'home.impact.customerGroups': 'customer groups covered',
-                'home.impact.metricResults': 'metric results',
-                'home.impact.autoCalculations': 'automated calculations',
-                'home.impact.requirementsManaged': 'requirements managed',
-                'home.impact.workflowTransitions': 'workflow transitions',
-                'home.impact.auditRules': 'audit rules',
-                'home.impact.auditTemplates': 'audit templates',
-                'home.impact.tablesProtected': 'data tables protected',
-                'home.impact.databasesGoverned': 'databases governed',
-                'home.impact.tablesVisible': 'data tables visible',
-                'home.impact.coreDatabases': 'core databases',
-                'home.impact.totalOpens': 'total opens',
-                'home.impact.onlineTool': 'online tool',
-                'home.history.title': 'Recent Operation History',
-                'home.history.allTools': 'All Tools',
-                'home.history.search': 'Search actions, details or tools',
-                'home.history.count': '{n} records',
-                'home.history.justNow': 'just now',
-                'home.history.minutes': '{n}m ago',
-                'home.history.hours': '{n}h ago',
-                'home.history.yesterday': 'Yesterday {time}',
-                'home.history.refresh': 'Refresh History',
-                'home.history.loading': 'Loading recent operation history...',
-                'home.history.refreshing': 'Refreshing operation history...',
-                'home.history.empty': 'No operation records for the current filter.',
-                'home.history.none': 'No records to show',
-                'home.history.defaultPage': 'Showing the latest 10 by default',
-                'home.history.page': 'Showing {from}-{to} of {total} · Page {page}/{pages}',
-                'home.history.prev': 'Previous',
-                'home.history.next': 'Next',
-                'home.history.failed': 'Load failed: {message}',
-                'home.history.sourceFailed': 'Load failed',
-                'home.history.noDetail': 'No extra details',
                 'home.tool.uiv': 'Data Capture',
                 'home.tool.sla': 'Data Import',
                 'home.tool.custom': 'Tool Management',
@@ -546,6 +386,12 @@
                 title: { 'zh-CN': '月报页面', 'en-US': 'Monthly Report' },
                 desc: { 'zh-CN': '基于过往历史快照数据，深度挖掘指标长期演进趋势。支持动态多月比对、趋势折线分析，为月度工作复盘提供宏观上帝视角。', 'en-US': 'Explore long-term metric trends from historical snapshots with dynamic multi-month comparison and trend analysis for monthly reviews.' },
                 tags: { 'zh-CN': ['📈 跨月趋势对比', '🔍 同比环比分析', '📥 月报快速归档'], 'en-US': ['📈 Cross-month trends', '🔍 YoY/MoM analysis', '📥 Fast monthly archiving'] },
+                arrow: 'home.arrow.tool'
+            },
+            '/ai-bi': {
+                title: { 'zh-CN': 'AI BI', 'en-US': 'AI BI' },
+                desc: { 'zh-CN': '说一句话就生成看板：AI 定画布大小、排好格子，再逐个取数出图。拖动调整布局，参数直接改，不用再等 AI；可全屏演示、导出静态 HTML。', 'en-US': 'Describe a board in one sentence: the AI sizes the canvas, lays out cells and builds each chart from your data. Drag to arrange, tune settings without AI, present full screen or export static HTML.' },
+                tags: { 'zh-CN': ['💬 对话生成看板', '🧱 59 个内置模板', '📍 画面标记修改', '🖥️ 大屏 / A4 / 手机画布'], 'en-US': ['💬 Boards from conversation', '🧱 59 built-in templates', '📍 Mark to change', '🖥️ Wall / A4 / phone canvases'] },
                 arrow: 'home.arrow.tool'
             },
             '/bigscreen': {
@@ -1161,8 +1007,6 @@
             if (!window.ToolsPlatformTitle?.apply(null, lang)) document.title = t('home.title');
             const metaDesc = document.querySelector('meta[name="description"]');
             if (metaDesc) metaDesc.setAttribute('content', t('home.description'));
-            const heroDesc = document.querySelector('.hero p');
-            if (heroDesc) heroDesc.innerHTML = t('home.hero.desc');
             document.querySelectorAll('[data-home-i18n]').forEach(el => {
                 el.textContent = t(el.dataset.homeI18n);
             });
@@ -1187,19 +1031,6 @@
             setText('#apiRelaySaveBtn', t('home.apiRelay.save'));
             renderApiRelayExample();
             updateApiRelayRuntimeState();
-            [['customToolUploadBtn', 'home.custom.upload'], ['toolMarketBtn', 'home.market.button'], ['builtinToolsCompareBtn', 'home.builtin.compare']].forEach(([id, key]) => {
-                const button = document.getElementById(id);
-                if (!button) return;
-                button.title = t(key);
-                button.setAttribute('aria-label', t(key));
-            });
-            setText('#toolMarketTitle', t('home.market.title'));
-            setText('#toolMarketSubtitle', t('home.market.subtitle'));
-            setText('#customToolImportTitle', t('home.import.title'));
-            setText('#customToolImportSubtitle', t('home.import.subtitle'));
-            setText('#customToolFileTitle', t('home.import.fileTitle'));
-            setText('#customToolFileHint', (localStorage.getItem('tools_super') === '1' && (typeof window.isNavSuperAdmin === 'function' ? window.isNavSuperAdmin() === true : true) && (localStorage.getItem('tools_tenant_id') || 'default') === 'default') ? t('home.import.fileHint') : t('home.import.fileHintNonSuper'));
-            setText('#customToolIconLabel', t('home.import.icon'));
             const importNameLabel = document.getElementById('customToolNameLabel');
             if (importNameLabel) importNameLabel.innerHTML = `${escapeHtml(t('home.import.name'))} <span>*</span>`;
             setText('#customToolNameEnLabel', t('home.import.nameEn'));
@@ -1218,32 +1049,6 @@
                 if (!data) return;
                 setTextForCard(card, data, lang);
             });
-            setText('.stats-title', t('home.stats.title'));
-            setText('.stats-subtitle', t('home.stats.badge'));
-            const statLabels = document.querySelectorAll('.stat-label');
-            const statLabelKeys = ['home.stats.checks', 'home.stats.service', 'home.stats.manual', 'home.stats.saved', 'home.stats.tools', 'home.stats.automation'];
-            statLabels.forEach((label, index) => { if (statLabelKeys[index]) label.textContent = t(statLabelKeys[index]); });
-            const statNoteKeys = ['home.stats.note.checks', 'home.stats.note.service', 'home.stats.note.manual', null, 'home.stats.note.tools', 'home.stats.note.scripts'];
-            document.querySelectorAll('.stat-note').forEach((note, index) => { if (statNoteKeys[index]) note.textContent = t(statNoteKeys[index]); });
-            setText('.methodology summary', t('home.stats.method'));
-            setText('#methodologyText', t('home.stats.methodology'));
-            setText('.ai-impact-title', t('home.ai.title'));
-            setText('.ai-impact-badge', t('home.ai.badge'));
-            const aiLabelKeys = ['home.ai.scenarios', 'home.ai.tasks', 'home.ai.tokens', 'home.ai.alerts', 'home.ai.pages', 'home.ai.saved'];
-            document.querySelectorAll('.ai-metric-label').forEach((label, index) => { if (aiLabelKeys[index]) label.textContent = t(aiLabelKeys[index]); });
-            const aiNoteKeys = ['home.ai.note.scenarios', null, 'home.ai.note.tokens', 'home.ai.note.alerts', 'home.ai.note.pages', 'home.ai.note.saved'];
-            document.querySelectorAll('.ai-metric-note').forEach((note, index) => { if (aiNoteKeys[index]) note.textContent = t(aiNoteKeys[index]); });
-            if (platformSummary) renderPlatformStats(platformSummary);
-            setText('.history-title', t('home.history.title'));
-            const countEl = document.getElementById('history-source');
-            if (countEl && historyState.items.length) countEl.textContent = t('home.history.count', { n: historyState.items.length });
-            setText('#history-refresh', t('home.history.refresh'));
-            setText('#history-prev', t('home.history.prev'));
-            setText('#history-next', t('home.history.next'));
-            renderHistoryFilterOptions();
-            const historySearch = document.getElementById('history-search');
-            if (historySearch) historySearch.placeholder = t('home.history.search');
-            if (!historyState.items.length) setText('#history-page-info', t('home.history.defaultPage'));
         }
 
         function setTextForCard(card, data, lang) {
@@ -1259,209 +1064,6 @@
                     .join('');
             }
             if (arrow) arrow.textContent = t(data.arrow);
-        }
-
-        function formatToolLabel(tool) {
-            if (tool === 'uiv') return t('home.tool.uiv');
-            if (tool === 'sla') return t('home.tool.sla');
-            if (tool === 'custom') return t('home.tool.custom');
-            if (tool === 'builtin') return t('home.tool.builtin');
-            return tool || t('home.tool.unknown');
-        }
-
-        function renderHistoryList(history) {
-            const listEl = document.getElementById('history-list');
-            const infoEl = document.getElementById('history-page-info');
-            const prevBtn = document.getElementById('history-prev');
-            const nextBtn = document.getElementById('history-next');
-            if (!listEl) return;
-
-            if (!Array.isArray(history) || history.length === 0) {
-                listEl.innerHTML = `<div class="history-empty">${escapeHtml(t('home.history.empty'))}</div>`;
-                if (infoEl) infoEl.textContent = t('home.history.none');
-                if (prevBtn) prevBtn.disabled = true;
-                if (nextBtn) nextBtn.disabled = true;
-                return;
-            }
-
-            const totalPages = Math.max(1, Math.ceil(history.length / historyState.pageSize));
-            if (historyState.page > totalPages) historyState.page = totalPages;
-            const start = (historyState.page - 1) * historyState.pageSize;
-            const pagedItems = history.slice(start, start + historyState.pageSize);
-
-            listEl.innerHTML = pagedItems.map(item => {
-                const fullTime = item.time
-                    ? new Date(item.time).toLocaleString(window.ToolsI18n?.getLanguage?.() || 'zh-CN', { hour12: false })
-                    : '-';
-                const detail = item.detail || t('home.history.noDetail');
-                return `
-                    <div class="history-row">
-                        <div><span class="history-tool">${escapeHtml(formatToolLabel(item.tool))}</span></div>
-                        <div class="history-action" title="${escapeHtml(item.action || '')}">${escapeHtml(item.action || '-')}</div>
-                        <div class="history-detail" title="${escapeHtml(detail)}">${escapeHtml(detail)}</div>
-                        <div class="history-time" title="${escapeHtml(fullTime)}">${escapeHtml(formatHistoryTime(item.time))}</div>
-                    </div>
-                `;
-            }).join('');
-
-            const from = history.length === 0 ? 0 : start + 1;
-            const to = Math.min(start + historyState.pageSize, history.length);
-            if (infoEl) {
-                infoEl.textContent = t('home.history.page', {
-                    from,
-                    to,
-                    total: history.length,
-                    page: historyState.page,
-                    pages: totalPages
-                });
-            }
-            if (prevBtn) prevBtn.disabled = historyState.page <= 1;
-            if (nextBtn) nextBtn.disabled = historyState.page >= totalPages;
-        }
-
-        // 近 7 天显示相对时间（刚刚 / N 分钟前 / N 小时前 / 昨天 HH:mm），更早显示日期；完整时间放在悬停提示里
-        function formatHistoryTime(value) {
-            if (!value) return '-';
-            const date = new Date(value);
-            if (Number.isNaN(date.getTime())) return '-';
-            const lang = window.ToolsI18n?.getLanguage?.() || 'zh-CN';
-            const diffMinutes = Math.floor((Date.now() - date.getTime()) / 60000);
-            if (diffMinutes < 1) return t('home.history.justNow');
-            if (diffMinutes < 60) return t('home.history.minutes', { n: diffMinutes });
-            const now = new Date();
-            const sameDay = date.toDateString() === now.toDateString();
-            if (sameDay) return t('home.history.hours', { n: Math.floor(diffMinutes / 60) });
-            const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-            const clock = date.toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit', hour12: false });
-            if (date.toDateString() === yesterday.toDateString()) return t('home.history.yesterday', { time: clock });
-            const sameYear = date.getFullYear() === now.getFullYear();
-            return date.toLocaleDateString(lang, sameYear ? { month: '2-digit', day: '2-digit' } : { year: 'numeric', month: '2-digit', day: '2-digit' }) + ' ' + clock;
-        }
-
-        // 筛选项按实际记录动态生成（带条数），新工具开始写历史后自动出现
-        function renderHistoryFilterOptions() {
-            const select = document.getElementById('history-filter');
-            if (!select) return;
-            const current = select.value;
-            const counts = new Map();
-            historyState.items.forEach(item => counts.set(item.tool || '', (counts.get(item.tool || '') || 0) + 1));
-            const options = [`<option value="">${escapeHtml(t('home.history.allTools'))} (${historyState.items.length})</option>`];
-            [...counts.entries()]
-                .sort((a, b) => b[1] - a[1])
-                .forEach(([tool, count]) => options.push(`<option value="${escapeHtml(tool)}">${escapeHtml(formatToolLabel(tool))} (${count})</option>`));
-            select.innerHTML = options.join('');
-            select.value = counts.has(current) ? current : '';
-        }
-
-        function applyHistoryFilters(resetPage = true) {
-            const tool = document.getElementById('history-filter')?.value || '';
-            const query = historyState.query.trim().toLowerCase();
-            historyState.filtered = historyState.items.filter(item => {
-                if (tool && (item.tool || '') !== tool) return false;
-                if (!query) return true;
-                return [item.action, item.detail, formatToolLabel(item.tool)].some(value => String(value || '').toLowerCase().includes(query));
-            });
-            if (resetPage) historyState.page = 1;
-            renderHistoryList(historyState.filtered);
-        }
-
-        async function loadOperationHistory(resetPage = true) {
-            const listEl = document.getElementById('history-list');
-            const countEl = document.getElementById('history-source');
-            if (!listEl) return;
-
-            if (resetPage) historyState.page = 1;
-            if (listEl) {
-                listEl.innerHTML = `<div class="history-empty">${escapeHtml(t('home.history.refreshing'))}</div>`;
-            }
-
-            try {
-                // 历史上限 200 条（upload-history-repository MAX_HISTORY），一次取全，筛选与搜索在前端完成
-                const history = await API.get('/api/upload/history?limit=200');
-                historyState.items = Array.isArray(history) ? history : [];
-                renderHistoryFilterOptions();
-                applyHistoryFilters(resetPage);
-                if (countEl) countEl.textContent = t('home.history.count', { n: historyState.items.length });
-            } catch (e) {
-                if (listEl) {
-                    listEl.innerHTML = `<div class="history-empty" style="color:#fca5a5;">${escapeHtml(t('home.history.failed', { message: e.message }))}</div>`;
-                }
-                if (countEl) countEl.textContent = t('home.history.sourceFailed');
-            }
-        }
-
-        function changeHistoryPage(delta) {
-            historyState.page += delta;
-            renderHistoryList(historyState.filtered);
-        }
-
-        function formatStatNumber(value) {
-            return Number(value || 0).toLocaleString(window.ToolsI18n?.getLanguage?.() || 'zh-CN');
-        }
-
-        function formatCompactNumber(value) {
-            const number = Number(value || 0);
-            if (number < 10000) return formatStatNumber(number);
-            return new Intl.NumberFormat(window.ToolsI18n?.getLanguage?.() || 'zh-CN', {
-                notation: 'compact',
-                maximumFractionDigits: 1
-            }).format(number);
-        }
-
-        function renderToolImpact(card, stat) {
-            if (!card || !stat) return;
-            let impact = card.querySelector('.card-impact');
-            if (!impact) {
-                impact = document.createElement('div');
-                impact.className = 'card-impact';
-                card.querySelector('.card-features')?.insertAdjacentElement('afterend', impact);
-            }
-            const primaryLabel = stat.labelKey ? t(stat.labelKey) : (stat.label || '');
-            const secondaryLabel = stat.secondaryLabelKey ? t(stat.secondaryLabelKey) : (stat.secondaryLabel || '');
-            impact.innerHTML = `<span class="card-impact-primary"><strong>${escapeHtml(formatStatNumber(stat.primary))}</strong> ${escapeHtml(primaryLabel)}</span> <span class="card-impact-sep">·</span> <span class="card-impact-secondary"><strong>${escapeHtml(formatStatNumber(stat.secondary))}</strong> ${escapeHtml(secondaryLabel)}</span>`;
-            impact.title = `${formatStatNumber(stat.primary)} ${primaryLabel} · ${formatStatNumber(stat.secondary)} ${secondaryLabel}`;
-        }
-
-        function renderPlatformStats(summary) {
-            const totals = summary?.totals || {};
-            setText('#stat-checks', formatStatNumber(totals.metricChecks));
-            setText('#stat-service', formatStatNumber(totals.serviceCount));
-            setText('#stat-manual', `≈${formatStatNumber(totals.manualEquivalentHours)}h`);
-            setText('#stat-saved', `≈${formatStatNumber(totals.savedHours)}h`);
-            setText('#stat-tools', formatStatNumber(totals.onlineTools));
-            setText('#stat-scripts', formatStatNumber(totals.scripts));
-            setText('#stat-efficiency', t('home.stats.efficiency', { rate: totals.efficiencyRate || 0 }));
-            const ai = summary?.ai || {};
-            setText('#ai-scenarios', formatStatNumber(ai.applicationScenarios));
-            setText('#ai-tasks', formatStatNumber(ai.completedTasks));
-            setText('#ai-tokens', formatCompactNumber(ai.tokens));
-            setText('#ai-alerts', formatStatNumber(ai.analyzedAlerts));
-            setText('#ai-pages', formatStatNumber(ai.coveredPages));
-            setText('#ai-saved', `≈${formatStatNumber(ai.savedHours)}h`);
-            setText('#ai-task-note', t('home.ai.taskNote', { questions: ai.questions || 0 }));
-
-            document.querySelectorAll('#toolsGrid > a.tool-card:not([data-custom-tool-card="1"]):not([data-skill-card="1"])').forEach(card => {
-                const key = card.getAttribute('href').replace(/^\//, '');
-                renderToolImpact(card, summary.toolStats?.[key]);
-            });
-            document.querySelectorAll('#toolsGrid > a[data-custom-tool-card="1"]').forEach(card => {
-                renderToolImpact(card, summary.customToolStats?.[card.dataset.toolSlug]);
-            });
-        }
-
-        const getStaticToolCount = () => {
-            const grid = document.getElementById('toolsGrid');
-            return grid ? grid.querySelectorAll(':scope > a.tool-card:not([data-custom-tool-card="1"])').length : 12;
-        };
-
-        async function loadStats() {
-            if (!document.getElementById('statsBar')) return;
-            try {
-                platformSummary = await API.get('/api/platform-metrics/summary');
-                renderPlatformStats(platformSummary);
-            } catch (e) {
-                if (document.getElementById('stat-tools')) document.getElementById('stat-tools').textContent = String(getStaticToolCount() + customToolsCount);
-            }
         }
 
         function renderCustomToolCards(tools) {
@@ -1507,16 +1109,9 @@
                     <div class="card-features">
                         ${tags.map(tag => `<span class="feature-tag${hasTags ? '' : ' is-default'}">${escapeHtml(tag)}</span>`).join('')}
                     </div>
-                    <div class="card-impact"></div>
                     <div class="card-arrow">${escapeHtml(t('home.arrow.module'))}</div>
                 `;
                 grid.appendChild(card);
-                renderToolImpact(card, platformSummary?.customToolStats?.[tool.slug] || {
-                    primary: 0,
-                    labelKey: 'home.impact.totalOpens',
-                    secondary: 1,
-                    secondaryLabelKey: 'home.impact.onlineTool'
-                });
             });
             window.HomeWorkspace?.syncToolUpdates?.(tools);
         }
@@ -1524,19 +1119,13 @@
         async function loadCustomTools() {
             try {
                 const tools = await API.get('/api/custom-tools');
-                customToolsCount = Array.isArray(tools) ? tools.length : 0;
                 renderCustomToolCards(tools);
-                if (document.getElementById('stat-tools')) document.getElementById('stat-tools').textContent = String(getStaticToolCount() + customToolsCount);
             } catch (e) {
-                customToolsCount = 0;
-                if (document.getElementById('stat-tools')) document.getElementById('stat-tools').textContent = String(getStaticToolCount());
             }
         }
 
         function setupCustomToolUpload() {
             const role = localStorage.getItem('tools_role');
-            const panel = document.getElementById('customToolsPanel');
-            const btn = document.getElementById('customToolUploadBtn');
             const modal = document.getElementById('customToolImportModal');
             const form = document.getElementById('customToolImportForm');
             const input = document.getElementById('customToolFileInput');
@@ -1567,8 +1156,7 @@
                 progressLog.textContent = uploadLogs.join('\n');
                 progressLog.scrollTop = progressLog.scrollHeight;
             };
-            if (!panel || !btn || !modal || !form || !input) return;
-            panel.hidden = role !== 'admin';
+            if (role !== 'admin' || !modal || !form || !input) return;
             const isSuperAdminUser = () => localStorage.getItem('tools_super') === '1' && (typeof window.isNavSuperAdmin === 'function' ? window.isNavSuperAdmin() === true : true) && (localStorage.getItem('tools_tenant_id') || 'default') === 'default';
             const updateFileHint = () => {
                 const hintEl = document.getElementById('customToolFileHint');
@@ -1913,7 +1501,7 @@
                 modal.classList.remove('open');
                 document.body.style.overflow = '';
                 resetImportForm();
-                btn.focus();
+                document.getElementById('v2UserBtn')?.focus();
             };
             const updateSelectedFile = () => {
                 const file = input.files && input.files[0];
@@ -1963,7 +1551,7 @@
                 void detectSkill(file);
             };
 
-            btn.addEventListener('click', () => openImportModal(null));
+            window.HomeTools.openImport = () => openImportModal(null);
             input.addEventListener('change', updateSelectedFile);
             document.getElementById('customToolImportClose')?.addEventListener('click', closeImportModal);
             document.getElementById('customToolImportCancel')?.addEventListener('click', closeImportModal);
@@ -2078,7 +1666,6 @@
         }
 
         function setupToolMarket() {
-            const button = document.getElementById('toolMarketBtn');
             const modal = document.getElementById('toolMarketModal');
             const list = document.getElementById('toolMarketList');
             const platformList = document.getElementById('toolMarketPlatformList');
@@ -2093,7 +1680,7 @@
             const details = document.getElementById('toolMarketDetails');
             const applyButton = document.getElementById('toolMarketApply');
             const refreshButton = document.getElementById('toolMarketRefresh');
-            if (!button || !modal || !list || !applyButton) return;
+            if (!modal || !list || !applyButton) return;
             let preview = null;
             let loading = false;
             const settingsPanel = document.getElementById('toolMarketSettings');
@@ -2539,15 +2126,15 @@
                 if (loading) return;
                 modal.classList.remove('open');
                 document.body.style.overflow = '';
-                button.focus();
+                document.getElementById('v2UserBtn')?.focus();
             };
-            button.addEventListener('click', () => {
-                button.dataset.opened = '1';
+            window.HomeTools.openMarket = () => {
+                window.HomeTools.marketOpened = true;
                 modal.classList.add('open');
                 details.open = false;
                 document.body.style.overflow = 'hidden';
                 void load(true);
-            });
+            };
             document.getElementById('toolMarketClose')?.addEventListener('click', close);
             modal.addEventListener('click', event => { if (event.target === modal) close(); });
             refreshButton.addEventListener('click', () => void load(true));
@@ -2809,7 +2396,6 @@
 
         window.addEventListener('tools:languagechange', () => {
             applyHomeI18n();
-            applyHistoryFilters(false);
             loadCustomTools();
         });
 
@@ -2837,23 +2423,6 @@
             setupCustomToolUpload();
             setupToolMarket();
             loadCustomTools();
-            // 统计和操作历史只在工具区显示，不占首屏请求
-            (window.HomeMode?.whenTools || (task => task()))(() => {
-                loadStats();
-                loadOperationHistory();
-            });
 
-            document.getElementById('history-filter')?.addEventListener('change', () => applyHistoryFilters(true));
-            let historySearchTimer = 0;
-            document.getElementById('history-search')?.addEventListener('input', event => {
-                clearTimeout(historySearchTimer);
-                historySearchTimer = setTimeout(() => {
-                    historyState.query = event.target.value || '';
-                    applyHistoryFilters(true);
-                }, 120);
-            });
-            document.getElementById('history-refresh')?.addEventListener('click', () => loadOperationHistory(true));
-            document.getElementById('history-prev')?.addEventListener('click', () => changeHistoryPage(-1));
-            document.getElementById('history-next')?.addEventListener('click', () => changeHistoryPage(1));
         });
     

@@ -129,11 +129,9 @@
         }
     };
     const AVATAR = '/assets/logo.png';
-    const SPOTLIGHT_SIZE = 8;
     const CONTEXT_MAX_CHARS = 11000;
     const MODEL_STORAGE_KEY = 'dragon_claw_model';
     const LAST_CHAT_KEY = 'dragon_claw_last_chat'; // 本浏览器里当前用户最近一次对话的 sessionId（服务端会话不分用户，不能从列表里猜）
-    const SPOTLIGHT_DISMISSED_KEY = 'dragon_claw_spotlight_dismissed'; // 登录成功时清除；刷新和同次登录的其他标签页继续隐藏。
 
     const state = {
         messages: [],
@@ -142,10 +140,6 @@
         controller: null,
         restoring: false,
         focusedTool: null,
-        spotlight: [],
-        spotIndex: 0,
-        spotSignature: '',
-        spotDismissed: false,
         models: [],
         defaultModelId: '',
         modelId: '',
@@ -176,7 +170,7 @@
         return window.ToolsAIAssistant?.requestStreamingChat ? window.ToolsAIAssistant : null;
     }
 
-    // 全局助手由 navbar.js 异步加载；对话前等待其就绪。
+    // 全局助手由 platform-core.js 异步加载；对话前等待其就绪。
     function waitForAssistant(timeoutMs = 10000) {
         if (assistant()) return Promise.resolve(assistant());
         return new Promise(resolve => {
@@ -217,29 +211,6 @@
         }));
     }
 
-    // 每次进入首页轮播第一张是一个「隐藏小功能」，优先挑最近没展示过的，轮完一遍再从头
-    const GEM_SEEN_KEY = 'dragon_claw_gem_seen';
-
-    function pickGem(caps) {
-        if (!caps.length) return null;
-        if (state.gemId) {
-            const kept = caps.find(item => item.id === state.gemId);
-            if (kept) return kept;
-        }
-        let seen = [];
-        try { seen = JSON.parse(localStorage.getItem(GEM_SEEN_KEY) || '[]'); } catch { seen = []; }
-        if (!Array.isArray(seen)) seen = [];
-        let pool = caps.filter(item => !seen.includes(item.id));
-        if (!pool.length) {
-            seen = [];
-            pool = caps;
-        }
-        const gem = shuffle(pool)[0];
-        state.gemId = gem.id;
-        try { localStorage.setItem(GEM_SEEN_KEY, JSON.stringify([...seen, gem.id].slice(-60))); } catch { /* 无痕模式下每次随机 */ }
-        return gem;
-    }
-
     function prefersReducedMotion() {
         return matchMedia('(prefers-reduced-motion: reduce)').matches;
     }
@@ -261,11 +232,10 @@
         applyPlaceholder();
         updateSendButton();
         renderPrompts();
-        renderSpotlight();
     }
 
     function renderPrompts() {
-        const featured = state.spotlight.find(item => !item.capability); // 「解释代码逻辑」只针对工具
+        const featured = tools().find(item => item.href && item.title);
         const prompts = [
             featured ? { label: tx('promptLogic', { name: featured.title }), prompt: tx('askLogic', { name: featured.title, href: featured.href }), tool: featured.id } : null,
             { label: tx('promptMetrics') },
@@ -276,110 +246,6 @@
     }
 
     // ── 工具推荐轮播 ───────────────────────────
-    function shuffle(list) {
-        const copy = list.slice();
-        for (let index = copy.length - 1; index > 0; index -= 1) {
-            const swap = Math.floor(Math.random() * (index + 1));
-            [copy[index], copy[swap]] = [copy[swap], copy[index]];
-        }
-        return copy;
-    }
-
-    function buildSpotlight() {
-        if (document.documentElement.dataset.ui === 'v2') { renderSpotlight(); return; }
-        const all = tools().filter(tool => tool.href && tool.title);
-        const caps = capabilityTools().filter(tool => tool.href && tool.title);
-        const signature = [...all, ...caps].map(tool => tool.id).sort().join('|');
-        if (!all.length || signature === state.spotSignature) return;
-        state.spotSignature = signature;
-        const byId = new Map(all.map(tool => [tool.id, tool]));
-        const recent = (window.HomeWorkspace?.recentIds?.() || []).map(id => byId.get(id)).filter(Boolean);
-        const frequent = recent.slice(0, 3).map(tool => ({ ...tool, frequent: true }));
-        const frequentIds = new Set(frequent.map(tool => tool.id));
-        const gem = pickGem(caps);
-        // 其余位置以工具为主，穿插两个小功能
-        const rest = shuffle(all.filter(tool => !frequentIds.has(tool.id)));
-        const extraCaps = shuffle(caps.filter(item => item !== gem)).slice(0, 2);
-        extraCaps.forEach((item, index) => rest.splice(Math.min(rest.length, 2 + index * 3), 0, item));
-        state.spotlight = [...(gem ? [gem] : []), ...frequent, ...rest].slice(0, SPOTLIGHT_SIZE);
-        state.spotIndex = 0;
-        renderPrompts();
-        renderSpotlight();
-    }
-
-    function isSpotlightDismissed() {
-        try { return localStorage.getItem(SPOTLIGHT_DISMISSED_KEY) === '1'; }
-        catch { return state.spotDismissed; }
-    }
-
-    function dismissSpotlight() {
-        state.spotDismissed = true;
-        try { localStorage.setItem(SPOTLIGHT_DISMISSED_KEY, '1'); } catch { /* 存储不可用时仍可关闭当前页面。 */ }
-        renderSpotlight();
-        el.input.focus({ preventScroll: true });
-    }
-
-    function renderSpotlight() {
-        const items = state.spotlight;
-        if (document.documentElement.dataset.ui === 'v2' || !items.length || isSpotlightDismissed()) {
-            el.spotlight.hidden = true;
-            el.spotlight.replaceChildren(); // 同时停止轮播动画，避免关闭后继续切换。
-            return;
-        }
-        const tool = items[state.spotIndex % items.length];
-        const others = [1, 2, 3].map(step => items[(state.spotIndex + step) % items.length]).filter(item => item && item.id !== tool.id);
-        el.spotlight.hidden = false;
-        el.spotlight.style.setProperty('--spot-color', tool.color || '#64ffda');
-        el.spotlight.innerHTML = `
-            <button type="button" class="dc-spot-dismiss" data-spot-dismiss aria-label="${escapeHtml(tx('spotDismiss'))}" title="${escapeHtml(tx('spotDismiss'))}"><span aria-hidden="true">×</span></button>
-            <div class="dc-spot-blob" aria-hidden="true"><span></span><span></span></div>
-            <div class="dc-spot-card">
-                <div class="dc-spot-icon" aria-hidden="true">${escapeHtml(tool.icon || '✨')}</div>
-                <div class="dc-spot-copy">
-                    ${tool.capability
-                        ? `<div class="dc-spot-kicker is-gem"><span class="dc-spot-gem">✦ ${escapeHtml(tx('spotGem'))}</span><span>${escapeHtml(tool.group)}</span></div>
-                    <div class="dc-spot-title">${escapeHtml(tx('spotGemAsk', { name: tool.title }))}</div>`
-                        : `<div class="dc-spot-kicker">${escapeHtml(tool.frequent ? tx('spotFrequent') : tx('spotRandom'))} · ${escapeHtml(tool.group)}</div>
-                    <div class="dc-spot-title">${escapeHtml(tx('spotAsk', { name: tool.title }))}</div>`}
-                    <div class="dc-spot-desc">${escapeHtml(tool.description)}</div>
-                    ${tool.capability && tool.where ? `<div class="dc-spot-where" title="${escapeHtml(tool.where)}"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 14s4.5-4.1 4.5-7.4A4.5 4.5 0 0 0 3.5 6.6C3.5 9.9 8 14 8 14Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><circle cx="8" cy="6.6" r="1.6" fill="currentColor"/></svg><span>${escapeHtml(tool.where)}</span></div>` : ''}
-                </div>
-                <div class="dc-spot-actions">
-                    <button type="button" class="dc-spot-go" data-spot-go="${escapeHtml(tool.id)}">${escapeHtml(tx('spotGo'))}</button>
-                    <a class="dc-spot-open" href="${escapeHtml(tool.href)}">${escapeHtml(tx(tool.capability ? 'spotGemOpen' : 'spotOpen'))} <span aria-hidden="true">↗</span></a>
-                </div>
-            </div>
-            <div class="dc-spot-foot">
-                <div class="dc-spot-nav">
-                    <button type="button" class="dc-spot-arrow" data-spot-step="-1" aria-label="${escapeHtml(tx('spotPrev'))}">‹</button>
-                    <div class="dc-spot-dots">${items.map((item, index) => `<button type="button" class="dc-spot-dot${index === state.spotIndex % items.length ? ' is-active' : ''}" data-spot-index="${index}" aria-label="${escapeHtml(item.title)}"></button>`).join('')}</div>
-                    <button type="button" class="dc-spot-arrow" data-spot-step="1" aria-label="${escapeHtml(tx('spotNext'))}">›</button>
-                </div>
-                <div class="dc-spot-more"><span>${escapeHtml(tx('spotMore'))}</span>${others.map(item => `<button type="button" class="dc-spot-chip" data-spot-go="${escapeHtml(item.id)}">${escapeHtml(item.icon || '')} ${escapeHtml(item.title)}</button>`).join('')}</div>
-            </div>
-            <div class="dc-spot-progress" aria-hidden="true"><span></span></div>`;
-        // 进度条动画结束即切到下一个；悬停/聚焦时 CSS 暂停动画，等于暂停轮播。
-        el.spotlight.querySelector('.dc-spot-progress span')?.addEventListener('animationend', () => stepSpotlight(1));
-    }
-
-    function stepSpotlight(step, absoluteIndex) {
-        if (isSpotlightDismissed()) return;
-        const count = state.spotlight.length;
-        if (!count) return;
-        const next = absoluteIndex ?? (state.spotIndex + step + count) % count;
-        if (prefersReducedMotion()) {
-            state.spotIndex = next;
-            renderSpotlight();
-            return;
-        }
-        const card = el.spotlight.querySelector('.dc-spot-card');
-        card?.classList.add('is-leaving');
-        setTimeout(() => {
-            state.spotIndex = next;
-            renderSpotlight();
-            el.spotlight.querySelector('.dc-spot-card')?.classList.add('is-entering');
-        }, card ? 320 : 0);
-    }
 
     // ── 模型选择（参考 ChatGPT / Claude Code：输入框旁弹出菜单，切换从下一条消息生效）──
     function readStoredModel() {
@@ -1255,7 +1121,7 @@
     }
 
     async function introduceTool(toolId) {
-        const tool = tools().find(item => item.id === toolId) || state.spotlight.find(item => item.id === toolId)
+        const tool = tools().find(item => item.id === toolId)
             || capabilityTools().find(item => item.id === toolId);
         if (!tool || state.controller) return;
         state.focusedTool = tool;
@@ -2850,10 +2716,8 @@
     const TAC_ICON_SVG = '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="3" r="2"/><circle cx="3" cy="12" r="2"/><circle cx="13" cy="12" r="2"/><path d="M7 5 4 10m5-5 3 5M5 12h6" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>';
 
     function isUnifiedMode() {
-        if (document.documentElement.dataset.ui === 'v2') return true;
-        const tabs = document.querySelector('.home-chat-tabs');
-        if (tabs && !tabs.hidden && getComputedStyle(tabs).display !== 'none') return false;
         return true;
+
     }
 
     function buildUnifiedChatItems() {
@@ -3058,7 +2922,7 @@
 
         if (isUnifiedMode()) {
             const query = el.chatSearch?.value.trim().toLowerCase() || '';
-            const isArchived = window.HomeConversationList?.isArchived?.('mine') || false;
+            const isArchived = window.HomeConversationList?.isArchived?.('mine');
             const activeFilter = window.HomeConversationList?.getFilter?.() || { status: 'all', time: 'all' };
 
             function passesFilter(item) {
@@ -3460,11 +3324,6 @@
                 }
             }
         });
-        document.getElementById('homeChatNew')?.addEventListener('click', () => {
-            window.HomeMode?.set?.('chat');
-            if (document.documentElement.dataset.ui !== 'v2' && window.HomeDesktopAgents?.newChat?.()) return; // 「桌面 Agent」分类下：在选中的那家新建原生会话
-            newChat();
-        });
         renderChatList();
         loadChatList();
     }
@@ -3634,7 +3493,7 @@
     }
 
     function autoResize() {
-        if (document.documentElement.dataset.ui === 'v2' && !document.body.classList.contains('dc-chatting')) {
+        if (!document.body.classList.contains('dc-chatting')) {
             // The welcome composer has a fixed editing area; long drafts scroll inside it.
             el.input.style.removeProperty('height');
             if (!el.input.value) el.input.scrollTop = 0;
@@ -3772,13 +3631,6 @@
                 }
                 return;
             }
-            if (target.closest('[data-spot-dismiss]')) return dismissSpotlight();
-            const go = target.closest('[data-spot-go]');
-            if (go) return introduceTool(go.dataset.spotGo);
-            const stepBtn = target.closest('[data-spot-step]');
-            if (stepBtn) return stepSpotlight(Number(stepBtn.dataset.spotStep));
-            const dot = target.closest('[data-spot-index]');
-            if (dot) return stepSpotlight(0, Number(dot.dataset.spotIndex));
             if (target.closest('[data-dc-resume-dismiss]')) return dismissResumeCard();
             if (target.closest('[data-dc-resume]')) return resumeChat();
             const slash = target.closest('[data-dc-slash]');
@@ -3851,8 +3703,6 @@
             if (state.messages.length) setChatting(true);
             scheduleChatListRefresh(0);
         });
-        window.addEventListener('home:tools-updated', buildSpotlight);
-        window.addEventListener('home:capabilities', buildSpotlight);
         window.addEventListener('tools:languagechange', () => {
             applyTexts();
             const loading = el.thread.querySelector('.dc-history-loading');
@@ -3875,7 +3725,6 @@
         el.attach = document.getElementById('dcAttach');
         el.attachInput = document.getElementById('dcAttachInput');
         el.prompts = document.getElementById('dcPrompts');
-        el.spotlight = document.getElementById('dcSpotlight');
         el.greeting = document.getElementById('dcGreeting');
         el.newChat = document.getElementById('dcNewChat');
         el.back = document.getElementById('dcBackToTools');
@@ -3915,12 +3764,6 @@
         el.form.insertAdjacentElement('afterend', el.resume);
         anchorThreadToComposer();
         bindEvents();
-        window.addEventListener('storage', event => {
-            if (event.key === SPOTLIGHT_DISMISSED_KEY || event.key === null) {
-                state.spotDismissed = false;
-                renderSpotlight();
-            }
-        });
         bindChatList();
         window.addEventListener('home:conversation-list-changed',()=>renderChatList());
         window.addEventListener('home:agent-discussion-changed',event=>{
@@ -3942,7 +3785,6 @@
         window.addEventListener('tools:ai-models-changed', loadModels);
         loadModels();
         applyTexts();
-        buildSpotlight();
         refreshResumeCard();
     }
 

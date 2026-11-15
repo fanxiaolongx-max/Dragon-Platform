@@ -3,7 +3,7 @@
 html[data-theme=dark] .dc-terminal-panel{--dc-term-bg:#0d1117;--dc-term-head:#161b22;--dc-term-line:#30363d;--dc-term-muted:#8b949e;--dc-term-active:#0d1117;--dc-term-hover:#21262d;color:#e6edf3}
 @media(prefers-color-scheme:dark){html:not([data-theme]) .dc-terminal-panel{--dc-term-bg:#0d1117;--dc-term-head:#161b22;--dc-term-line:#30363d;--dc-term-muted:#8b949e;--dc-term-active:#0d1117;--dc-term-hover:#21262d;color:#e6edf3}}
 .dc-terminal-panel[hidden],.dc-terminal-panel [hidden]{display:none!important}
-html[data-ui=v2] .dc-terminal-panel{top:0;height:100dvh;max-height:100dvh;border-radius:0;border:0;border-left:1px solid var(--dc-term-line)}
+html.platform-home .dc-terminal-panel{top:0;height:100dvh;max-height:100dvh;border-radius:0;border:0;border-left:1px solid var(--dc-term-line)}
 html.desktop-win:not(.desktop-fullscreen) .dc-terminal-panel{padding-top:38px}
 .dc-terminal-panel button{font:inherit;color:inherit;border:0;background:transparent;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:5px 7px}
 .dc-terminal-panel button:hover{background:var(--dc-term-hover)}
@@ -49,10 +49,7 @@ html.desktop-win:not(.desktop-fullscreen) .dc-terminal-panel{padding-top:38px}
 
 @media(min-width:861px){
  body.dc-terminal-open .home-content.home-workspace{grid-template-columns:var(--ws-side) minmax(0,1fr) var(--terminal-panel-width,560px)}
- body.home-sidebar-collapsed.dc-terminal-open .home-content.home-workspace{grid-template-columns:var(--ws-rail) minmax(0,1fr) var(--terminal-panel-width,560px)}
- html[data-ui=v2] body:is(.home-sidebar-collapsed,:not(.home-sidebar-collapsed)):not(.v2-side-collapsed).dc-terminal-open .home-content.home-workspace{grid-template-columns:var(--v2-side-width,240px) minmax(0,1fr) var(--terminal-panel-width,560px)}
- html[data-ui=v2] body.v2-side-collapsed:is(.home-sidebar-collapsed,:not(.home-sidebar-collapsed)).dc-terminal-open .home-content.home-workspace{grid-template-columns:minmax(0,1fr) var(--terminal-panel-width,560px)}
 }
 @media(max-width:860px){
- .dc-terminal-panel,html[data-ui=v2] .dc-terminal-panel{position:fixed;inset:0 0 0 auto;width:min(var(--terminal-panel-width,560px),calc(100vw - 32px));z-index:1050;height:100dvh;border-radius:0}
+ .dc-terminal-panel,html.platform-home .dc-terminal-panel{position:fixed;inset:0 0 0 auto;width:min(var(--terminal-panel-width,560px),calc(100vw - 32px));z-index:1050;height:100dvh;border-radius:0}
 }

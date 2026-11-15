@@ -2,7 +2,7 @@
 (function () {
     'use strict';
     function init() {
-        if (document.documentElement.dataset.ui !== 'v2') return;
+
         const button = document.getElementById('dcAttach'), form = document.getElementById('dcComposer'), input = document.getElementById('dcInput');
         if (!button || !form || !input) return;
         const menu = document.createElement('div'), sub = document.createElement('div');

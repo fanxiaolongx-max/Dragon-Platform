@@ -1,5 +1,5 @@
 // 全局设置 › 智能体工具：共享 MCP、空间审批规则、工具说明与工具权限。
-// 由 navbar.js 在切换到 agentTools 标签时按需加载；数据来自 /api/agent-mcp（backend/routes/agent-mcp.js）。
+// 由 platform-core.js 在切换到 agentTools 标签时按需加载；数据来自 /api/agent-mcp（backend/routes/agent-mcp.js）。
 (function () {
     'use strict';
     if (window.ToolsAgentToolsSettings) return;

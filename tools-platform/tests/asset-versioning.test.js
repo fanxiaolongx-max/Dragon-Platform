@@ -19,7 +19,7 @@ function makeSandbox(t) {
     fs.mkdirSync(path.join(dir, 'js/shared'), { recursive: true });
     fs.mkdirSync(path.join(dir, 'css'), { recursive: true });
     fs.mkdirSync(path.join(dir, 'pages'), { recursive: true });
-    fs.writeFileSync(path.join(dir, 'js/shared/navbar.js'), 'console.log(1);');
+    fs.writeFileSync(path.join(dir, 'js/shared/platform-core.js'), 'console.log(1);');
     fs.writeFileSync(path.join(dir, 'css/shared.css'), 'body{}');
     fs.writeFileSync(path.join(dir, 'pages/local.js'), 'void 0;');
     return dir;
@@ -40,10 +40,10 @@ function fakeRes() {
 
 test('versionAssetUrls appends content hashes and replaces stale manual versions', t => {
     const dir = makeSandbox(t);
-    const navHash = fileHash(path.join(dir, 'js/shared/navbar.js'));
+    const navHash = fileHash(path.join(dir, 'js/shared/platform-core.js'));
     const html = [
         '<link rel="stylesheet" href="/css/shared.css">',
-        '<script src="/js/shared/navbar.js?v=20261013-02"></script>',
+        '<script src="/js/shared/platform-core.js?v=20261013-02"></script>',
         "<script src='local.js'></script>",
         '<script src="https://cdnjs.cloudflare.com/x.js"></script>',
         '<script src="/js/missing.js"></script>',
@@ -51,7 +51,7 @@ test('versionAssetUrls appends content hashes and replaces stale manual versions
     ].join('\n');
     const out = versionAssetUrls(html, { publicDir: dir, baseDir: path.join(dir, 'pages') });
 
-    assert.match(out, new RegExp(`/js/shared/navbar\\.js\\?v=${navHash}"`));
+    assert.match(out, new RegExp(`/js/shared/platform-core\\.js\\?v=${navHash}"`));
     assert.match(out, /href="\/css\/shared\.css\?v=[0-9a-f]{10}"/);
     assert.match(out, /src='local\.js\?v=[0-9a-f]{10}'/);
     assert.match(out, /src="https:\/\/cdnjs\.cloudflare\.com\/x\.js"/);
@@ -61,7 +61,7 @@ test('versionAssetUrls appends content hashes and replaces stale manual versions
 
 test('content hash changes when the file changes', t => {
     const dir = makeSandbox(t);
-    const file = path.join(dir, 'js/shared/navbar.js');
+    const file = path.join(dir, 'js/shared/platform-core.js');
     const before = fileHash(file);
     fs.writeFileSync(file, 'console.log("changed, longer");');
     assert.notEqual(fileHash(file), before);
@@ -96,11 +96,11 @@ test('module dependency maps version nested imports, re-exports, dynamic imports
 test('dependency maps preserve authored import maps and leave external, bare, missing and out-of-root imports alone', t => {
     const dir = makeSandbox(t);
     const baseDir = path.join(dir, 'pages');
-    fs.writeFileSync(path.join(baseDir, 'entry.js'), "import 'bare-package'; import 'https://example.test/module.js'; import './missing.js'; import '../../outside.js'; import '/js/shared/navbar.js';");
+    fs.writeFileSync(path.join(baseDir, 'entry.js'), "import 'bare-package'; import 'https://example.test/module.js'; import './missing.js'; import '../../outside.js'; import '/js/shared/platform-core.js';");
     const html = '<script src="./entry.js" type="module"></script>';
     const map = importMap(versionAssetUrls(html, { publicDir: dir, baseDir }));
-    assert.deepEqual(Object.keys(map).filter(key => !key.includes('entry.js')), ['/js/shared/navbar.js']);
-    assert.equal(map['/js/shared/navbar.js'], `/js/shared/navbar.js?v=${fileHash(path.join(dir, 'js/shared/navbar.js'))}`);
+    assert.deepEqual(Object.keys(map).filter(key => !key.includes('entry.js')), ['/js/shared/platform-core.js']);
+    assert.equal(map['/js/shared/platform-core.js'], `/js/shared/platform-core.js?v=${fileHash(path.join(dir, 'js/shared/platform-core.js'))}`);
     const authored = '<script type="importmap">{"imports":{"bare-package":"/vendor.js"}}</script>' + html;
     const served = versionAssetUrls(authored, { publicDir: dir, baseDir });
     assert.equal((served.match(/type="importmap"/g) || []).length, 1);
@@ -118,16 +118,16 @@ test('datacom entry and its note video dependency are versioned together when se
 
 test('frontend html middleware serves versioned pages and skips non-html paths', t => {
     const dir = makeSandbox(t);
-    fs.writeFileSync(path.join(dir, 'pages/a.html'), '<script src="/js/shared/navbar.js"></script>');
+    fs.writeFileSync(path.join(dir, 'pages/a.html'), '<script src="/js/shared/platform-core.js"></script>');
     const middleware = createFrontendHtmlMiddleware(dir);
 
     const res = fakeRes();
     middleware({ method: 'GET', path: '/pages/a.html' }, res, () => assert.fail('should serve'));
-    assert.match(res.body, /navbar\.js\?v=[0-9a-f]{10}/);
+    assert.match(res.body, /platform-core\.js\?v=[0-9a-f]{10}/);
     assert.equal(res.headers['cache-control'], 'no-cache');
 
     let passed = 0;
-    middleware({ method: 'GET', path: '/js/shared/navbar.js' }, fakeRes(), () => passed++);
+    middleware({ method: 'GET', path: '/js/shared/platform-core.js' }, fakeRes(), () => passed++);
     middleware({ method: 'GET', path: '/pages/missing.html' }, fakeRes(), () => passed++);
     middleware({ method: 'POST', path: '/pages/a.html' }, fakeRes(), () => passed++);
     assert.equal(passed, 3);
@@ -136,14 +136,14 @@ test('frontend html middleware serves versioned pages and skips non-html paths',
 test('only requests carrying the current hash get long-lived caching', t => {
     const dir = makeSandbox(t);
     const middleware = createImmutableAssetMiddleware(dir);
-    const hash = fileHash(path.join(dir, 'js/shared/navbar.js'));
+    const hash = fileHash(path.join(dir, 'js/shared/platform-core.js'));
 
     const fresh = fakeRes();
-    middleware({ method: 'GET', path: '/js/shared/navbar.js', query: { v: hash } }, fresh, () => {});
+    middleware({ method: 'GET', path: '/js/shared/platform-core.js', query: { v: hash } }, fresh, () => {});
     assert.match(fresh.headers['cache-control'], /immutable/);
 
     const stale = fakeRes();
-    middleware({ method: 'GET', path: '/js/shared/navbar.js', query: { v: '20261013-02' } }, stale, () => {});
+    middleware({ method: 'GET', path: '/js/shared/platform-core.js', query: { v: '20261013-02' } }, stale, () => {});
     assert.equal(stale.headers['cache-control'], undefined);
 });
 

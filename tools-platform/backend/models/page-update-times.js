@@ -13,6 +13,7 @@ const PAGE_FILES = {
     '/report': 'pages/report.html',
     '/expedite': 'pages/expedite.html',
     '/monthly': 'pages/ai-report.html',
+    '/ai-bi': 'pages/ai-bi.html',
     '/duty-roster': 'pages/duty-roster.html',
     '/bigscreen': 'pages/bigscreen.html',
     '/topic-analysis': 'pages/topic-analysis.html',

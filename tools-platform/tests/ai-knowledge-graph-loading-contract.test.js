@@ -46,14 +46,14 @@ test('custom tool shell reports stages, times out, and offers retry', () => {
 });
 
 test('shared navbar checks built-in tools after page load unless the market was opened', () => {
-    const navbarSource = read('frontend/js/shared/navbar.js');
+    const navbarSource = require('./helpers/platform-source.cjs').readPlatformSource();
     const customToolsRouteSource = read('backend/routes/custom-tools.js');
     assert.doesNotMatch(navbarSource, /BUILTIN_TOOLS_SYNC_SESSION_KEY/);
     assert.match(navbarSource, /isBuiltinToolsSyncSnoozedToday\(\)/);
     assert.match(navbarSource, /requestIdleCallback/);
     assert.match(navbarSource, /setTimeout\(checkBuiltinToolsSync, 8000\)/);
     assert.match(navbarSource, /toolMarketOpened\(\)/);
-    assert.match(read('frontend/js/home/home-page.js'), /button\.dataset\.opened = '1'/);
+    assert.match(read('frontend/js/home/home-tools.js'), /window\.HomeTools\.marketOpened = true/);
     assert.match(customToolsRouteSource, /new Worker\(/);
     assert.match(customToolsRouteSource, /previewBuiltinToolsOffMainThread/);
 
@@ -64,9 +64,9 @@ test('shared navbar checks built-in tools after page load unless the market was 
             .map(name => path.join(root, 'frontend/pages', name))
     ];
     // Versions are appended by the server from file content (backend/models/asset-versioning.js);
-    // pages must reference navbar.js without a hand-maintained ?v=.
+    // pages must reference platform-core.js without a hand-maintained ?v=.
     const navbarReferences = htmlFiles
-        .map(filePath => fs.readFileSync(filePath, 'utf8').match(/navbar\.js(\?[^"']*)?["']/))
+        .map(filePath => fs.readFileSync(filePath, 'utf8').match(/platform-core\.js(\?[^"']*)?["']/))
         .filter(Boolean);
     assert.ok(navbarReferences.length > 1);
     assert.deepEqual(navbarReferences.filter(match => match[1]).map(match => match[0]), []);

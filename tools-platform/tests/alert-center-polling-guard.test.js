@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.join(__dirname, '..');
-const navbar = fs.readFileSync(path.join(root, 'frontend/js/shared/navbar.js'), 'utf8');
+const navbar = require('./helpers/platform-source.cjs').readPlatformSource();
 const assistant = fs.readFileSync(path.join(root, 'frontend/js/shared/ai-assistant.js'), 'utf8');
 
 test('navbar manages alert-center polling lifecycle and stops on 401 or logout', () => {

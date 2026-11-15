@@ -37,7 +37,7 @@
         layout.more.forEach(id => stash.append(buttons.get(id)));
     }
     function applyLayout() {
-        window.HomeV2?.closePop();
+        window.HomeShell?.closePop();
         layout.primary.forEach(id => {
             const button = buttons.get(id);
             button.classList.remove('v2-pop-item'); button.removeAttribute('role');
@@ -49,7 +49,7 @@
             button.classList.add('v2-pop-item'); button.setAttribute('role', 'menuitem');
             stash.append(button);
         });
-        window.HomeV2?.updateChannelsNavState();
+        window.HomeShell?.updateChannelsNavState();
     }
     function mountMore(host) {
         if (host) layout.more.forEach(id => host.append(buttons.get(id)));
@@ -85,7 +85,7 @@
                 </div>`;
             }).join('');
         }
-        window.HomeV2?.fillIcons(overlay);
+        window.HomeShell?.fillIcons(overlay);
         if (focusId) overlay.querySelector(`[data-menu-id="${focusId}"] [data-menu-handle]`)?.focus();
     }
     function move(id, action) {
@@ -249,7 +249,7 @@
         overlay.addEventListener('lostpointercapture', finishDrag);
     }
     async function open() {
-        window.HomeV2?.closePop();
+        window.HomeShell?.closePop();
         if (overlay) return;
         createDialog();
         draft = structuredClone(layout); renderLists();
@@ -285,7 +285,7 @@
             if (id === 'links') { button.setAttribute('aria-haspopup', 'menu'); button.setAttribute('aria-controls', 'v2LinksSubmenu'); }
             buttons.set(id, button);
         }
-        applyLayout(); window.HomeV2?.fillIcons(document);
+        applyLayout(); window.HomeShell?.fillIcons(document);
         void load().catch(() => {});
     }
     window.addEventListener('blur', cancelDrag);

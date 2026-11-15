@@ -1,9 +1,8 @@
-// 首页新版界面（html[data-ui="v2"]）：左侧导航、发现应用、二级菜单、底部用户栏、主题切换。
-// 只负责外框与入口，具体功能仍交给原有模块（Dragon Claw、频道会话、工具区、导航栏里的告警台 / 设置 / 租户）。
+// 唯一首页外框：左侧导航、发现应用、二级菜单、底部用户栏、主题切换。
+// 只负责外框与入口，具体功能仍交给原有模块（Dragon Claw、频道会话、工具区、共享平台模块中的告警台 / 设置 / 租户）。
 (function () {
     'use strict';
     const root = document.documentElement;
-    if (root.getAttribute('data-ui') !== 'v2') return;
 
     const ICONS = {
         wide: '<path d="M3.5 5v14M20.5 5v14"/><path d="M7 12h10M9.5 9 6.5 12l3 3m5-6 3 3-3 3"/>',
@@ -71,11 +70,11 @@
     };
     const svg = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
     const fillIcons = scope => scope.querySelectorAll('.v2-ico[data-icon]').forEach(el => { if (!el.firstChild) el.innerHTML = svg(el.dataset.icon); });
-    // Route-based glyphs stay consistent across language changes and navbar markup.
+    // Route-based glyphs stay consistent across language changes and platform catalog.
     function appGlyph(href) {
         let path = '';
         try { path = new URL(href, location.href).pathname.replace(/^\/pages\//, '/').replace(/\.html$/, '').replace(/\/$/, ''); } catch { /* Use a generic application glyph. */ }
-        const routes = { '/uivf12': 'capture', '/sla': 'importData', '/report': 'chart', '/custom-report': 'chart', '/expedite': 'bolt', '/monthly': 'calendar', '/ai-report': 'calendar', '/duty-roster': 'moon', '/bigscreen': 'dashboard', '/topic-analysis': 'analytics', '/topical-analysis': 'analytics', '/frt': 'calculator', '/praudit': 'checklist', '/storage': 'server', '/db-explorer': 'database', '/netcare-explorer': 'compass' };
+        const routes = { '/uivf12': 'capture', '/sla': 'importData', '/report': 'chart', '/custom-report': 'chart', '/expedite': 'bolt', '/monthly': 'calendar', '/ai-report': 'calendar', '/ai-bi': 'dashboard', '/duty-roster': 'moon', '/bigscreen': 'dashboard', '/topic-analysis': 'analytics', '/topical-analysis': 'analytics', '/frt': 'calculator', '/praudit': 'checklist', '/storage': 'server', '/db-explorer': 'database', '/netcare-explorer': 'compass' };
         if (routes[path]) return routes[path];
         if (/network_safety_meeting_summary|nis_2026h1_summary|slide|presentation|ppt/i.test(path)) return 'presentation';
         return path.startsWith('/custom-tools/') ? 'puzzle' : 'grid';
@@ -88,7 +87,7 @@
             skillList: '技能 Skill', plugins: '插件与脚本', market: '工具市场', importTool: '导入工具', compare: '内置工具比对', links: '友情链接',
             searchApps: '搜索应用，支持拼音，如 hykq', recommended: '推荐', all: '全部', recent: '最近使用', popular: '常用推荐', results: '搜索结果',
             noApps: '没有找到“{q}”，试试拼音首字母', appCount: '共 {n} 个应用', found: '找到 {n} 个', open: '进入',
-            language: 'English', themeLight: '浅色模式', themeDark: '深色模式', serviceStatus: '服务状态', requirements: '需求管理',             logout: '退出登录', classic: '切回旧版界面', online: '服务在线', loadingApps: '正在读取应用…',
+            language: 'English', themeLight: '浅色模式', themeDark: '深色模式', serviceStatus: '服务状态', requirements: '需求管理',             logout: '退出登录', online: '服务在线', loadingApps: '正在读取应用…',
             recentAsked: '最近问过', suggested: '试试这样问',
             collapse: '收起侧栏', expand: '展开侧栏', search: '搜索', sortFilter: '排序与筛选',
             searchPlaceholder: '搜索对话、频道、桌面 Agent、应用和技能', searchTabsAll: '全部', searchChats: '对话', searchChannels: '频道', searchAgents: '桌面 Agent', searchApps: '应用', searchSkills: '技能',
@@ -123,7 +122,7 @@
             sharedWithAll: 'Shared with all', unsharedOnly: 'Not shared',
             searchApps: 'Search apps, pinyin works too', recommended: 'For you', all: 'All', recent: 'Recent', popular: 'Popular', results: 'Results',
             noApps: 'No apps match “{q}”', appCount: '{n} apps', found: '{n} found', open: 'Open',
-            language: '中文', themeLight: 'Light mode', themeDark: 'Dark mode', serviceStatus: 'Service status', requirements: 'Requirements',             logout: 'Sign out', classic: 'Back to classic layout', online: 'Online', loadingApps: 'Loading apps…',
+            language: '中文', themeLight: 'Light mode', themeDark: 'Dark mode', serviceStatus: 'Service status', requirements: 'Requirements',             logout: 'Sign out', online: 'Online', loadingApps: 'Loading apps…',
             recentAsked: 'Asked recently', suggested: 'Try asking',
             collapse: 'Collapse sidebar', expand: 'Expand sidebar', search: 'Search', sortFilter: 'Sort and filter',
             searchPlaceholder: 'Search chats, channels, desktop agents, apps and skills', searchTabsAll: 'All', searchChats: 'Chats', searchChannels: 'Channels', searchAgents: 'Desktop agents', searchApps: 'Apps', searchSkills: 'Skills',
@@ -255,7 +254,7 @@
                 try { history.replaceState(history.state, '', location.pathname + location.search); } catch { location.hash = ''; }
             }
             window.HomeWelinkThreads?.setSource?.('mine');
-            click('homeChatNew');
+            window.DragonClaw?.newChat?.();
             $('dcInput')?.focus();
             renderModes();
             queueGroups();
@@ -285,9 +284,9 @@
         skillHub() { window.HomeSkillHub?.open?.(); },
         skillList() { window.HomeSkillHub?.open?.('skills'); },
         plugins() { window.HomeSkillHub?.open?.('plugins'); },
-        market() { click('toolMarketBtn'); },
-        importTool() { click('customToolUploadBtn'); },
-        compare() { click('builtinToolsCompareBtn'); },
+        market() { window.HomeTools?.openMarket?.(); },
+        importTool() { window.HomeTools?.openImport?.(); },
+        compare() { window.openBuiltinToolsComparison?.(); },
         links() { openLinks(); },
         alerts() { openMessages(); },
         tour() { window.HomeProductTour?.replay?.(); },
@@ -338,16 +337,13 @@
             const workflowIds = new Set([...(window.NavWorkflow?.ids || []), 'home']);
             const seenPaths = new Set(workflow.map(item => normalizeNavPath(item.href)));
             const toolLink = (href, label) => `<a class="v2-pop-item" role="menuitem" href="${esc(href)}"><span class="v2-ico v2-app-glyph" data-icon="${appGlyph(href)}"></span><span>${esc(label)}</span></a>`;
-            const links = [...document.querySelectorAll('#app-navbar .nav-links a[href]')]
-                .filter(a => {
-                    const href = a.getAttribute('href');
-                    const navId = a.dataset.navId || a.getAttribute('data-nav-id') || '';
-                    const pathKey = normalizeNavPath(href);
-                    if (!isNavSidebarShortcut(href) || workflowIds.has(navId) || seenPaths.has(pathKey)) return false;
+            const links = (window.ToolsPlatform?.catalog() || [])
+                .filter(item => {
+                    const pathKey = normalizeNavPath(item.href);
+                    if (!isNavSidebarShortcut(item.href) || workflowIds.has(item.id) || seenPaths.has(pathKey)) return false;
                     seenPaths.add(pathKey);
                     return true;
-                })
-                .map(a => toolLink(a.getAttribute('href'), (a.querySelector('.nav-text, .nav-link-text')?.textContent || a.getAttribute('title') || a.textContent || '').trim().replace(/^\S+\s+/, m => (/^[\p{Extended_Pictographic}️]+\s+$/u.test(m) ? '' : m))));
+                }).map(item => toolLink(item.href, getNavLabel(item)));
             const personal = window.HomeSidebarMenu;
             return [
                 workflow.length ? `<div class="v2-pop-cap">${esc(window.NavWorkflow.label())}</div>${workflow.map(item => toolLink(item.href, getNavLabel(item))).join('')}` : '',
@@ -632,9 +628,9 @@
 
     // ── 底部用户栏：账号卡片菜单 ──
     const userPop = makePop('v2-account');
-    const serviceDown = () => Boolean(document.querySelector('#app-navbar .nav-server-status')?.matches('.offline, .is-offline, .warning, .error, .is-down'));
-    const serviceText = () => $('server-status-text')?.textContent?.trim() || t('online');
-    const versionText = () => ($('nav-resource-version-display')?.textContent?.trim() || '').split(' · ')[0];
+    const serviceDown = () => window.ToolsPlatform?.status().online === false;
+    const serviceText = () => navT(serviceDown() ? 'nav.offline' : 'nav.online');
+    const versionText = () => window.ToolsPlatform?.status().version || '';
     const ROLE_BADGE_ICONS = {
         admin: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.8 13 3.8v3.9c0 3.2-2.1 5.6-5 6.5-2.9-.9-5-3.3-5-6.5V3.8L8 1.8Z"/><path d="m5.8 8.1 1.5 1.5 3-3"/></svg>',
         super: '<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M2.2 12.2 1.4 5.3a.6.6 0 0 1 1-.5L5.3 7.6 7.5 3.4a.58.58 0 0 1 1 0l2.2 4.2 2.9-2.8a.6.6 0 0 1 1 .5l-.8 6.9a.7.7 0 0 1-.7.6H2.9a.7.7 0 0 1-.7-.6Z"/><rect x="2.6" y="13.5" width="10.8" height="1.3" rx=".65"/></svg>'
@@ -1651,8 +1647,8 @@
                     const confirmMsg = lang() === 'en-US' ? 'Clear all alert messages?' : '确定清空所有告警消息？';
                     const ok = window.AppDialog?.confirm
                         ? await window.AppDialog.confirm(confirmMsg, { title: lang() === 'en-US' ? 'Clear all' : '全部清除', tone: 'danger', confirmText: lang() === 'en-US' ? 'Clear' : '清空', cancelText: lang() === 'en-US' ? 'Cancel' : '取消' })
-                        : (typeof window.showNavbarConfirm === 'function'
-                            ? await window.showNavbarConfirm(confirmMsg, { title: lang() === 'en-US' ? 'Clear all' : '全部清除', danger: true })
+                        : (typeof window.showPlatformConfirm === 'function'
+                            ? await window.showPlatformConfirm(confirmMsg, { title: lang() === 'en-US' ? 'Clear all' : '全部清除', danger: true })
                             : false);
                     if (!ok) return;
                     await fetch('/api/alert-center/events/clear-all', { method: 'POST', headers: msgHeaders(true), body: '{}' }).catch(() => {});
@@ -1690,27 +1686,16 @@
     }, true);
 
 
-    // 告警数、服务状态、版本号沿用导航栏（导航栏隐藏但仍在运行），这里只做镜像
-    function mirrorNavbar() {
-        const count = $('navAlertCount');
+    function renderPlatformStatus() {
+        const status = window.ToolsPlatform?.status() || {};
         const badge = $('v2AlertCount');
-        if (count && badge) { badge.hidden = count.hidden || !Number(count.textContent); badge.textContent = count.textContent; }
-        const version = $('nav-resource-version-display')?.textContent?.trim();
-        if (version) $('v2Version').textContent = version.split(' · ')[0];
+        if (badge) { badge.hidden = !status.unread; badge.textContent = status.unread > 99 ? '99+' : String(status.unread || 0); }
+        const version = $('v2Version');
+        if (version) version.textContent = status.version || '';
         renderUser();
+        if (openPop?.pop === userPop) renderUserMenu();
     }
-    let navObserver = null;
-    function watchNavbar() {
-        const nav = $('app-navbar');
-        if (!nav || nav.__v2Watched) return;
-        nav.__v2Watched = true;
-        navObserver?.disconnect();
-        navObserver = new MutationObserver(mirrorNavbar);
-        navObserver.observe(nav, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['hidden', 'class'] });
-        mirrorNavbar();
-    }
-    // 导航栏会整体重绘（语言、数据空间切换后），重绘后重新挂监听
-    new MutationObserver(watchNavbar).observe(document.body, { childList: true });
+    window.addEventListener('tools:platform-status', renderPlatformStatus);
 
     window.addEventListener('tools:ops-inbox-total', event => {
         const total = Number(event.detail?.total) || 0;
@@ -2460,8 +2445,7 @@
         fillIcons(document);
         try { if (window.matchMedia('(max-width: 860px)').matches || localStorage.getItem(SIDE_KEY) === 'collapsed') setSideCollapsed(true, { remember:false }); } catch { /* 无痕模式 */ }
         applyText();
-        watchNavbar();
-        mirrorNavbar();
+        renderPlatformStatus();
         renderModes();
         updateChannelsNavState();
         getJson('/api/channels/available').then(data => { if (data) updateChannelsNavState(data); }).catch(() => {});
@@ -2499,7 +2483,7 @@
     });
     window.addEventListener('tools:languagechange', () => {
         applyText();
-        mirrorNavbar();
+        renderPlatformStatus();
         renderQuick();
         if (!quick.scene) loadRecentQuestions();
         updateChannelsNavState();
@@ -2510,5 +2494,5 @@
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
     else init();
 
-    window.HomeV2 = { setSideCollapsed, isSideCollapsed, setTheme, closePop, fillIcons, openLinks, updateChannelsNavState, renderUser };
+    window.HomeShell = { setSideCollapsed, isSideCollapsed, setTheme, closePop, fillIcons, openLinks, updateChannelsNavState, renderUser };
 })();

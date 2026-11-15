@@ -27,7 +27,7 @@ app.whenReady().then(async()=>{
     window.fetch = (url, options) => String(url).startsWith('/api/ai/sessions?')
       ? Promise.resolve(new Response(JSON.stringify({items:window.testRecentQuestions.map(firstQuestion=>({firstQuestion}))}), {status:200}))
       : originalFetch(url, options);
-    const script=document.createElement('script');script.src='/js/home/home-v2.js';
+    const script=document.createElement('script');script.src='/js/home/home-shell.js';
     await new Promise((resolve,reject)=>{script.onload=resolve;script.onerror=reject;document.body.append(script)});
   })()`);
   await run(`document.querySelector('.v2-mascot').decode()`);

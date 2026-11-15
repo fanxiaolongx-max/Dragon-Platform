@@ -167,8 +167,8 @@ test('Skill Hub shared badges & category filter chips for Plugins and Tools', as
         assert.match(skillsCode, /isShared \? '全员开放' : '未全员开放'/, 'must support i18n for shared');
     });
 
-    await t.test('home-v2.js discover popup defines shared and unshared category chips and badges', () => {
-        const homeV2Code = fs.readFileSync(path.join(__dirname, '../frontend/js/home/home-v2.js'), 'utf8');
+    await t.test('home-shell.js discover popup defines shared and unshared category chips and badges', () => {
+        const homeV2Code = fs.readFileSync(path.join(__dirname, '../frontend/js/home/home-shell.js'), 'utf8');
         assert.match(homeV2Code, /sharedWithAll:\s*'全员开放'/, 'must define sharedWithAll translation in zh-CN');
         assert.match(homeV2Code, /unsharedOnly:\s*'未全员开放'/, 'must define unsharedOnly translation in zh-CN');
         assert.match(homeV2Code, /v2-badge-shared-pill/, 'must render v2-badge-shared-pill in appRow');

@@ -59,9 +59,9 @@ test('legacy, invalid, blank and oversized names have stable defaults and limits
     assert.equal(repo.normalizeSettings({ platformName: 'a'.repeat(100) }).platformName.length, 80);
 });
 
-const source = fs.readFileSync(path.join(__dirname, '../frontend/js/shared/navbar.js'), 'utf8');
-// 全局设置里的名称保存逻辑在按需加载的 navbar-settings.js
-const settingsSource = fs.readFileSync(path.join(__dirname, '../frontend/js/shared/navbar-settings.js'), 'utf8');
+const source = require('./helpers/platform-source.cjs').readPlatformSource();
+// 全局设置里的名称保存逻辑在按需加载的 platform-settings.js
+const settingsSource = fs.readFileSync(path.join(__dirname, '../frontend/js/shared/platform-settings.js'), 'utf8');
 function fixture() {
     const nodes = [{}, {}], images = new Map([['navBrandLogo', {}], ['homeHeroLogo', {}]]);
     const document = {
@@ -138,7 +138,7 @@ test('successful name save applies canonical server value and keeps other settin
         window: {}, clearTimeout, navT: key => key, getAuthHeaderForNav: () => ({}),
         normalizeNavSettings: data => data,
         writeNavigationBootstrapCache: () => { cached = true; },
-        renderNavLinksFromState: () => { applied = true; context.applyPlatformIdentity(); },
+        publishPlatformCatalog: () => { applied = true; context.applyPlatformIdentity(); },
         fetch: async (_url, options) => {
             payload = JSON.parse(options.body);
             return { ok: true, json: async () => payload };

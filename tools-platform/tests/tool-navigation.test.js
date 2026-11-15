@@ -16,8 +16,8 @@ test('registered core and all bundled tool windows are clean; shell URLs remain 
         assert.equal(new URL(api.shellUrl(clean.href), clean).searchParams.get('app'), '/' + name + '?month=09#chart');
     }
     for (const slug of fs.readdirSync(path.join(__dirname, '../backend/builtin-tools'), { withFileTypes: true }).filter(e => e.isDirectory()).map(e => e.name)) {
-        assert.equal(api.toolUrl('/tools/' + slug), '/tools/' + slug + '?standalone=1');
-        assert.equal(api.toolUrl('/custom-tools/' + slug + '/index.html?_t=12&script=a%26b#item'), '/tools/' + slug + '?script=a%26b&standalone=1#item');
+        assert.equal(api.toolUrl('/tools/' + slug), '/custom-tools/' + slug + '/index.html?standalone=1');
+        assert.equal(api.toolUrl('/custom-tools/' + slug + '/index.html?_t=12&script=a%26b#item'), '/custom-tools/' + slug + '/index.html?script=a%26b&standalone=1#item');
     }
     assert.equal(api.toolUrl('/?app=%2Fmonthly'), '/monthly?standalone=1');
 });
@@ -29,6 +29,17 @@ test('direct old routes migrate to shell; clean windows and embeds never redirec
     assert.deepEqual(runtime('https://platform.test/?app=%2Fmonthly').redirects, []);
     assert.ok(runtime('https://platform.test/custom-tools/demo/subpage.html', 'clean').classes.has('is-clean-tool'), 'nested documents inherit the clean window policy');
 });
+test('public raw tools stay outside the authenticated platform shell', () => {
+    for (const suffix of ['index.html', '', 'subpage.html']) {
+        const { redirects, classes } = runtime('https://platform.test/custom-tools/demo/' + suffix);
+        assert.deepEqual(redirects, []);
+        assert.ok(classes.has('is-clean-tool'));
+    }
+    const { api, win, opened } = runtime();
+    win.open(api.toolUrl('/tools/demo?x=1#cake'), '_blank', 'noopener');
+    assert.deepEqual(opened[0], ['/custom-tools/demo/index.html?x=1&standalone=1#cake', '_blank', 'noopener']);
+    assert.equal(api.shellUrl('/custom-tools/demo/index.html'), '/?app=%2Ftools%2Fdemo');
+});
 test('downloads, runners, external pages and attachments retain their purpose', () => {
     const { api, win, opened } = runtime();
     for (const href of ['https://external.test/report', '/api/files/a.pdf', '/custom-tools/demo/manual.pdf', 'blob:https://platform.test/id', '#chart', '/pages/uivision-runner-local.html#run', 'about:blank']) assert.equal(api.toolUrl(href), href);
@@ -37,7 +48,7 @@ test('downloads, runners, external pages and attachments retain their purpose', 
 });
 test('modified clicks are clean; ordinary clicks still embed after a context menu', () => {
     const { handlers, win } = runtime(); let href = '/report?month=9#row', embedded = '', closedPop = false;
-    win.HomeV2 = { closePop: () => { closedPop = true; } };
+    win.HomeShell = { closePop: () => { closedPop = true; } };
     const link = { target: '', matches: () => true, hasAttribute: () => false, getAttribute: () => href, setAttribute: (_, value) => { href = value; } };
     handlers.contextmenu({ target: { closest: () => link } }); assert.equal(href, '/report?month=9&standalone=1#row');
     win.HomeToolFrame = { open: path => { embedded = path; return true; } };

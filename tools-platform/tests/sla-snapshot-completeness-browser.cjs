@@ -43,7 +43,7 @@ app.whenReady().then(async () => {
     const web = express();
     let permanentFailure = null;
     web.use(express.json({ limit: '50mb' }));
-    web.get('/js/shared/navbar.js', (_, res) => res.type('js').send(''));
+    web.get(/^\/js\/shared\/platform-(?:core|dialogs|settings-controller|alerts|services|tool-updates|runtime)\.js$/, (_, res) => res.type('js').send(''));
     // Eight initial rule requests fail transiently: the old code silently saved only 42 metrics.
     const failures = new Map(Object.keys(prefs).slice(0, 8).map(key => [key, 2]));
     web.get('/api/sla/prefs/:key', (req, res, next) => {

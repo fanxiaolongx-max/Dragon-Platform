@@ -1,18 +1,14 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="platform-home">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-platform-page-title="工具中台" data-platform-page-title-en="Tool Hub">工具中台</title>
     <script>
-        // 首页统一新版，旧书签和旧偏好也不再恢复旧导航。
         // 主题默认浅色，可在账号菜单“外观”里切到深色
         (function () {
             var root = document.documentElement;
-            root.setAttribute('data-ui', 'v2');
             try {
-                localStorage.setItem('tools_home_ui', 'v2');
-                root.setAttribute('data-ui', 'v2');
                 root.setAttribute('data-theme', localStorage.getItem('tools_theme') === 'dark' ? 'dark' : 'light');
             } catch (e) { /* 存储不可用时仍使用新版默认界面 */ }
         })();
@@ -50,7 +46,7 @@
     <link rel="stylesheet" href="/css/shared.css">
     <link rel="stylesheet" href="/css/home-promotions.css">
     <link rel="stylesheet" href="/css/home-promo-video.css">
-    <link rel="stylesheet" href="/css/home-page.css">
+    <link rel="stylesheet" href="/css/home-tools.css">
     <link rel="stylesheet" href="/css/home-workspace.css">
     <link rel="stylesheet" href="/css/dragon-claw.css">
     <link rel="stylesheet" href="/css/dragon-claw-skills.css">
@@ -60,7 +56,7 @@
     <link rel="stylesheet" href="/css/desktop-quota-bar.css">
     <link rel="stylesheet" href="/css/home-mode.css">
     <link rel="stylesheet" href="/css/home-capabilities.css">
-    <link rel="stylesheet" href="/css/home-v2.css">
+    <link rel="stylesheet" href="/css/home-shell.css">
     <link rel="stylesheet" href="/css/home-theme.css">
     <link rel="stylesheet" href="/css/home-sidebar-menu.css">
     <link rel="stylesheet" href="/css/browser-sidebar.css">
@@ -80,10 +76,6 @@
             if (window.innerWidth <= 860) body.classList.add('v2-side-collapsed');
             try {
                 if (localStorage.getItem('tools_home_wide') === '1') document.documentElement.classList.add('v2-wide');
-                if (window.innerWidth > 860) {
-                    var stored = localStorage.getItem('home_sidebar_mode');
-                    if (stored ? stored === 'collapsed' : window.innerWidth < 1280) body.classList.add('home-sidebar-collapsed');
-                }
             } catch (e) { /* 无痕模式等读不到存储时按默认展开 */ }
             setTimeout(function () { body.classList.remove('home-booting'); }, 1500); // 兜底：侧栏脚本未运行时也恢复动画
         })();
@@ -110,7 +102,7 @@
     </script>
     <div class="home-content home-workspace">
         <aside class="home-sidebar" id="homeSidebar" aria-label="首页导航">
-            <!-- 新版界面侧边栏（js/home/home-v2.js），旧版界面隐藏 -->
+            <!-- 首页侧边栏（js/home/home-shell.js） -->
             <div class="v2-side-top" data-v2>
                 <div class="v2-side-tools">
                     <button type="button" class="v2-icon-btn" id="v2SideToggle" data-v2-i18n-title="collapse"><span class="v2-ico" data-icon="sidebar"></span></button>
@@ -132,54 +124,10 @@
                 </nav>
             </div>
             <!-- 图标栏：对话 / 工具两种模式互斥（js/home/home-mode.js），友情链接以弹层展示 -->
-            <nav class="home-rail" aria-label="首页模式">
-                <button type="button" class="home-rail-btn" data-home-mode="chat" aria-pressed="true">
-                    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 4.5h11a1.5 1.5 0 0 1 1.5 1.5v6.5a1.5 1.5 0 0 1-1.5 1.5H9l-3.5 2.8V14h-1A1.5 1.5 0 0 1 3 12.5V6a1.5 1.5 0 0 1 1.5-1.5Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M7 8.3h6M7 10.8h3.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                    <span class="home-rail-label" data-home-mode-i18n="chat">对话</span>
-                </button>
-                <button type="button" class="home-rail-btn" data-home-mode="tools" aria-pressed="false">
-                    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 3.5h5v5h-5zM11.5 3.5h5v5h-5zM3.5 11.5h5v5h-5zM11.5 11.5h5v5h-5z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
-                    <span class="home-rail-label" data-home-mode-i18n="tools">工具</span>
-                </button>
-                <!-- 手机：侧栏不显示历史列表，改为弹窗 -->
-                <button type="button" class="home-rail-btn home-rail-history" id="homeHistoryBtn">
-                    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.8 10a6.2 6.2 0 1 0 1.9-4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M3.5 3.8v2.6h2.6M10 6.6V10l2.4 1.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                    <span class="home-rail-label" data-home-mode-i18n="history">历史</span>
-                </button>
-                <span class="home-rail-spacer" aria-hidden="true"></span>
-                <div class="home-rail-actions" id="customToolsPanel" hidden>
-                    <button type="button" class="home-rail-btn" id="toolMarketBtn" title="工具市场" aria-label="工具市场" aria-haspopup="dialog" aria-controls="toolMarketModal">
-                        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 7h12l1 9.5H3L4 7Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M7 7V5a3 3 0 0 1 6 0v2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                        <span class="home-rail-label" data-home-i18n="home.market.short">市场</span>
-                    </button>
-                    <button type="button" class="home-rail-btn" id="builtinToolsCompareBtn" title="内置工具差异比对与回退" aria-label="内置工具差异比对与回退" aria-haspopup="dialog" aria-controls="builtinToolsSyncModal">
-                        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h12m-3-3 3 3-3 3M17 15H5m3-3-3 3 3 3M3 9v6m14-10v6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                        <span class="home-rail-label" data-home-i18n="home.builtin.compareShort">比对</span>
-                    </button>
-                    <button type="button" class="home-rail-btn" id="customToolUploadBtn" title="导入 HTML / ZIP / SKILL" aria-label="导入 HTML / ZIP / SKILL" aria-haspopup="dialog" aria-controls="customToolImportModal">
-                        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m-3-3 3 3 3-3M4 12v4.5h12V12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                        <span class="home-rail-label" data-home-i18n="home.custom.uploadShort">导入</span>
-                    </button>
-                </div>
-                <button type="button" class="home-rail-btn" id="homeLinksBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="homeLinksPop">
-                    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8.6 11.4a3 3 0 0 0 4.2 0l2.6-2.6a3 3 0 0 0-4.2-4.2l-1 1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M11.4 8.6a3 3 0 0 0-4.2 0l-2.6 2.6a3 3 0 0 0 4.2 4.2l1-1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                    <span class="home-rail-label" data-home-mode-i18n="links">链接</span>
-                </button>
-            </nav>
 
             <div class="home-panel">
                 <!-- 对话模式：历史对话（js/home/dragon-claw.js 渲染列表） -->
                 <section class="home-panel-view" data-home-panel="chat" aria-label="历史对话">
-                    <div class="home-panel-head">
-                        <span class="home-panel-title" data-home-mode-i18n="chatTitle">对话</span>
-                        <button type="button" class="home-sidebar-toggle" aria-label="收起侧栏" title="收起侧栏">
-                            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                        </button>
-                    </div>
-                    <button type="button" class="home-chat-new" id="homeChatNew">
-                        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
-                        <span data-home-mode-i18n="newChat">新对话</span>
-                    </button>
                     <label class="home-search home-search--compact">
                         <span class="home-search-icon" aria-hidden="true">⌕</span>
                         <input type="search" id="homeChatSearch" placeholder="搜索对话" autocomplete="off" spellcheck="false">
@@ -187,23 +135,7 @@
                     <div class="home-chat-list" id="homeChatList" role="list"></div>
                 </section>
 
-                <!-- 工具模式：搜索 + 分类（js/home/workspace.js） -->
-                <section class="home-panel-view" data-home-panel="tools" aria-label="工具分类">
-                    <div class="home-panel-head">
-                        <span class="home-panel-title" data-home-mode-i18n="toolsTitle">工具</span>
-                        <button type="button" class="home-sidebar-toggle" aria-label="收起侧栏" title="收起侧栏">
-                            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                        </button>
-                    </div>
-                    <label class="home-search home-search--compact">
-                        <span class="home-search-icon" aria-hidden="true">⌕</span>
-                        <input type="search" id="homeToolSearch" placeholder="搜索工具 / 拼音首字母" autocomplete="off" spellcheck="false">
-                        <kbd class="home-search-kbd" aria-hidden="true">/</kbd>
-                    </label>
-                    <nav class="home-cat-nav" id="homeCategoryNav" aria-label="工具分类"></nav>
-                    <!-- 插件与脚本：F12 插件 / Python 脚本 / 浮窗脚本等（js/home/capabilities.js，新增后自动出现） -->
-                    <nav class="home-cat-nav home-caps-nav" id="homeCapsNav" aria-label="插件与脚本" hidden></nav>
-                </section>
+
             </div>
 
             <div class="home-sidebar-resizer" id="homeSidebarResizer" role="separator" tabindex="0" aria-orientation="vertical" aria-controls="homeSidebar" aria-label="调整侧栏宽度" hidden></div>
@@ -342,7 +274,6 @@
                 <div class="dc-workspace-chip dc-composer-context" id="dcWorkspaceChip" hidden></div>
             </form>
             <div class="dc-prompts" id="dcPrompts"></div>
-            <div class="dc-spotlight" id="dcSpotlight" hidden></div>
             <div class="v2-agent-illustration" data-v2 aria-hidden="true"><img src="/assets/agent-collaboration.png" alt="" width="1536" height="1024"></div>
         </section>
 
@@ -415,6 +346,19 @@
                     <span class="feature-tag">📈 跨月趋势对比</span>
                     <span class="feature-tag">🔍 同比环比分析</span>
                     <span class="feature-tag">📥 月报快速归档</span>
+                </div>
+                <div class="card-arrow">进入工具 →</div>
+            </a>
+
+            <a href="/ai-bi" class="tool-card" style="--card-accent: #2f6fae;">
+                <div class="card-icon">🧩</div>
+                <div class="card-title">AI BI</div>
+                <div class="card-desc">说一句话就生成看板：AI 定画布大小、排好格子，再逐个取数出图。拖动调整布局，参数直接改，不用再等 AI；可全屏演示、导出静态 HTML。</div>
+                <div class="card-features">
+                    <span class="feature-tag">💬 对话生成看板</span>
+                    <span class="feature-tag">🧱 59 个内置模板</span>
+                    <span class="feature-tag">📍 画面标记修改</span>
+                    <span class="feature-tag">🖥️ 大屏 / A4 / 手机画布</span>
                 </div>
                 <div class="card-arrow">进入工具 →</div>
             </a>
@@ -826,7 +770,13 @@
     <script src="/js/shared/f12-quick-downloads.js"></script>
     <script src="/js/shared/platform-logo-upload.js"></script>
     <script src="/js/shared/tool-navigation.js"></script>
-    <script src="/js/shared/navbar.js"></script>
+    <script src="/js/shared/platform-core.js"></script>
+<script src="/js/shared/platform-dialogs.js"></script>
+<script src="/js/shared/platform-settings-controller.js"></script>
+<script src="/js/shared/platform-alerts.js"></script>
+<script src="/js/shared/platform-services.js"></script>
+<script src="/js/shared/platform-tool-updates.js"></script>
+<script src="/js/shared/platform-runtime.js"></script>
     <script src="/js/shared/app-dialog.js"></script>
     <script src="/js/home/builtin-promotion.js"></script>
     <script src="/js/home/home-mode.js"></script>
@@ -854,8 +804,8 @@
     <script src="/js/home/agent-discussion.js"></script>
     <script src="/js/home/desktop-agent-models.js"></script>
     <script src="/js/home/dragon-claw-skills.js"></script>
-    <script src="/js/home/home-page.js"></script>
-    <script src="/js/home/home-v2.js"></script>
+    <script src="/js/home/home-tools.js"></script>
+    <script src="/js/home/home-shell.js"></script>
     <script src="/js/home/sidebar-menu.js"></script>
     <script src="/js/home/tool-menu.js"></script>
     <script src="/js/home/skill-hub.js"></script>

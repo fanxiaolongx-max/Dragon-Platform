@@ -119,7 +119,7 @@ app.whenReady().then(async () => {
     assert.deepEqual(cycle.sort(), expectedCycle.sort(), 'static homepage refreshes cycle through links and videos without repeats: ' + JSON.stringify(cycle));
     assert.equal(await evaluate(() => ['homeSidebar', 'dragonClaw', 'toolsGrid'].every(id => document.getElementById(id))), true);
     assert.equal(await evaluate(() => document.querySelector('#dcDatacomPromo .dc-feature-new')?.textContent), 'NEW');
-    await evaluate(() => document.getElementById('builtinToolsCompareBtn').click());
+    await evaluate(() => openBuiltinToolsComparison());
     await until(() => document.body.textContent.includes('无权限，请联系管理员添加'));
     assert.equal(await evaluate(() => !!document.getElementById('builtinToolsSyncModal')), false, 'read-only exports cannot offer a forced tool replacement');
     if (process.env.PORTAL_CHAT_SCREENSHOT) {

@@ -10,8 +10,8 @@ const frontendDir = path.join(root, 'frontend');
 
 test('shared asset churn (version bumps, shared script tags, favicons) is not a page update', () => {
     assert.equal(isSharedChurnOnly([
-        '-    <script src="/js/shared/navbar.js?v=20261005-01"></script>',
-        '+    <script src="/js/shared/navbar.js?v=20261006-04"></script>'
+        '-    <script src="/js/shared/platform-core.js?v=20261005-01"></script>',
+        '+    <script src="/js/shared/platform-core.js?v=20261006-04"></script>'
     ]), true);
     assert.equal(isSharedChurnOnly([
         '+    <script src="/js/shared/platform-logo-upload.js?v=20261006-02"></script>',
@@ -43,13 +43,16 @@ test('home page wires the workspace sidebar, grid and update-time API', () => {
     const html = fs.readFileSync(path.join(frontendDir, 'index.html'), 'utf8');
     const server = fs.readFileSync(path.join(root, 'backend/server.js'), 'utf8');
     assert.match(html, /<aside class="home-sidebar" id="homeSidebar"/);
-    assert.match(html, /id="homeToolSearch"/);
-    assert.match(html, /id="homeCategoryNav"/);
+    assert.doesNotMatch(html, /id="homeToolSearch"/);
+    assert.doesNotMatch(html, /id="homeCategoryNav"/);
     assert.match(html, /href="\/css\/home-workspace\.css"/);
     assert.match(html, /src="\/js\/home\/workspace\.js"/);
     // 侧栏内仍保留管理员导入入口与友情链接管理
     const sidebar = html.slice(html.indexOf('<aside class="home-sidebar"'), html.indexOf('</aside>'));
-    assert.match(sidebar, /id="customToolsPanel"/);
+    assert.doesNotMatch(sidebar, /class="home-rail"|id="customToolsPanel"/);
+    const shell = fs.readFileSync(path.join(frontendDir, 'js/home/home-shell.js'), 'utf8');
+    assert.match(shell, /HomeTools\?\.openImport/);
+    assert.match(shell, /HomeTools\?\.openMarket/);
     assert.match(sidebar, /id="friendLinksManageBtn"/);
     // 更新时间 API 位于鉴权之后
     assert.ok(server.indexOf("app.get('/api/home/page-updates'") > server.indexOf("app.use('/api', checkAuth)"));

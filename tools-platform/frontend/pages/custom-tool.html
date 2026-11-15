@@ -144,7 +144,7 @@
         .custom-tool-loader.is-error .custom-tool-loader-head { color: #b33a3a; }
         .custom-tool-loader.is-error .custom-tool-progress i { background: #d45a5a; }
         .custom-tool-loader.is-error .custom-tool-retry { display: inline-flex; align-items: center; }
-        /* 首页内嵌打开时（js/shared/navbar.js NAV_EMBEDDED）：标题、刷新、新窗口由首页的工具栏提供，这里只保留只读页面操作 */
+        /* 首页内嵌打开时（js/shared/platform-core.js PLATFORM_EMBEDDED）：标题、刷新、新窗口由首页的工具栏提供，这里只保留只读页面操作 */
         html.is-embedded-tool .custom-tool-title, html.is-embedded-tool .custom-tool-actions { display: none; }
         html.is-embedded-tool .custom-tool-head:not(:has(.tool-action-wrap:not([hidden]))) { display: none; }
         html.is-embedded-tool .custom-tool-shell:not(:has(.tool-action-wrap:not([hidden]))) { grid-template-rows: 1fr; }
@@ -211,7 +211,13 @@
     <script src="/js/shared/gallery-viewer-host.js"></script>
     <script src="/js/shared/toast.js"></script>
     <script src="/js/shared/platform-logo-upload.js"></script>
-    <script src="/js/shared/navbar.js"></script>
+    <script src="/js/shared/platform-core.js"></script>
+<script src="/js/shared/platform-dialogs.js"></script>
+<script src="/js/shared/platform-settings-controller.js"></script>
+<script src="/js/shared/platform-alerts.js"></script>
+<script src="/js/shared/platform-services.js"></script>
+<script src="/js/shared/platform-tool-updates.js"></script>
+<script src="/js/shared/platform-runtime.js"></script>
     <script>
         let currentCustomTool = null;
         let toolLoadSequence = 0;

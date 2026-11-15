@@ -202,7 +202,7 @@ const DEFAULT_SETTINGS = {
     get itemOrder() { return getDefaultNavLayout().itemOrder; }
 };
 
-const WORKFLOW_IDS = new Set(['uivf12', 'sla', 'report', 'expedite', 'monthly', 'bigscreen']);
+const WORKFLOW_IDS = new Set(['uivf12', 'sla', 'report', 'expedite', 'monthly', 'ai-bi', 'bigscreen']);
 const WORKFLOW_CATEGORY = '__workflow';
 
 function normalizeSettings(input = {}) {

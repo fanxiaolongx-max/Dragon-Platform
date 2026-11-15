@@ -29,8 +29,8 @@ test('Dragon Claw floating avatar drawer matches modern light homepage theme', (
     assert.match(assistantJs, /\.ai-msg\.user\s*\{[^}]*background:\s*linear-gradient\(135deg,\s*#10a37f/);
 });
 
-test('home-v2.css allows .ai-fab to be visible globally across the homepage', () => {
-    const homeV2Css = read('frontend/css/home-v2.css');
+test('home-shell.css allows .ai-fab to be visible globally across the homepage', () => {
+    const homeV2Css = read('frontend/css/home-shell.css');
     // .ai-fab 不在 display: none !important 的列表中
     assert.doesNotMatch(homeV2Css, /:is\(.*\.ai-fab.*\) \{\s*display:\s*none !important/);
 });
@@ -103,8 +103,8 @@ test('desktop-window.js implements Windows caption controls at top-right with st
 });
 
 test('home-v2 implements bottom-left direct channel QR login with black-white ring spinner', () => {
-    const homeV2Js = read('frontend/js/home/home-v2.js');
-    const homeV2Css = read('frontend/css/home-v2.css');
+    const homeV2Js = read('frontend/js/home/home-shell.js');
+    const homeV2Css = read('frontend/css/home-shell.css');
     const welinkRunner = read('backend/models/channels/welink-cli-runner.js');
 
     // 扫码弹窗直连 welink-cli 与 微信 接口
@@ -126,25 +126,25 @@ test('home-v2 implements bottom-left direct channel QR login with black-white ri
 });
 
 test('dc-history-banner matches modern light theme with high contrast text and emerald icon', () => {
-    const homeV2Css = read('frontend/css/home-v2.css');
+    const homeV2Css = read('frontend/css/home-shell.css');
     const homeThemeCss = read('frontend/css/home-theme.css');
 
     // 历史恢复条在浅色主题下文字清晰高对比度，不泛白
-    assert.match(homeV2Css, /html\[data-ui="v2"\]\s*\.dc-history-banner\s*\{[^}]*background:\s*#f1f5f9/);
-    assert.match(homeV2Css, /html\[data-ui="v2"\]\s*\.dc-history-banner\s*\{[^}]*color:\s*#334155/);
-    assert.match(homeV2Css, /html\[data-ui="v2"\]\s*\.dc-history-banner\s+span\[aria-hidden="true"\]\s*\{[^}]*color:\s*#059669/);
+    assert.match(homeV2Css, /html\.platform-home\s*\.dc-history-banner\s*\{[^}]*background:\s*#f1f5f9/);
+    assert.match(homeV2Css, /html\.platform-home\s*\.dc-history-banner\s*\{[^}]*color:\s*#334155/);
+    assert.match(homeV2Css, /html\.platform-home\s*\.dc-history-banner\s+span\[aria-hidden="true"\]\s*\{[^}]*color:\s*#059669/);
 
     // 深色主题下优雅融合
-    assert.match(homeV2Css, /html\[data-ui="v2"\]\[data-theme="dark"\]\s*\.dc-history-banner/);
+    assert.match(homeV2Css, /html\.platform-home\[data-theme="dark"\]\s*\.dc-history-banner/);
 
     // 历史分割线样式
-    assert.match(homeV2Css, /html\[data-ui="v2"\]\s*\.dc-history-divider/);
+    assert.match(homeV2Css, /html\.platform-home\s*\.dc-history-divider/);
     assert.match(homeThemeCss, /\.dc-history-banner/);
 });
 
 test('channels nav item disables when unconfigured or not enabled and shows tooltip explanation', () => {
-    const homeV2Js = read('frontend/js/home/home-v2.js');
-    const homeV2Css = read('frontend/css/home-v2.css');
+    const homeV2Js = read('frontend/js/home/home-shell.js');
+    const homeV2Css = read('frontend/css/home-shell.css');
     const channelsRoute = read('backend/routes/channels.js');
 
     // 后端 /available 返回 channels summary（区分未对接与已对接未启用）
@@ -168,7 +168,7 @@ test('channels nav item disables when unconfigured or not enabled and shows tool
 });
 
 test('alert center popup replaces fullAlerts button with clearAll button and API', () => {
-    const homeV2Js = read('frontend/js/home/home-v2.js');
+    const homeV2Js = read('frontend/js/home/home-shell.js');
     const alertRoutes = read('backend/routes/alert-center.js');
     const alertRepo = read('backend/models/alert-center-repository.js');
 
@@ -190,7 +190,7 @@ test('alert center popup replaces fullAlerts button with clearAll button and API
 
 test('Dragon Claw floating avatar supports vertical edge dragging, position persistence and idle opacity fade', () => {
     const assistantJs = read('frontend/js/shared/ai-assistant.js');
-    const homeV2Css = read('frontend/css/home-v2.css');
+    const homeV2Css = read('frontend/css/home-shell.css');
     const dlManager = read('frontend/js/shared/desktop-download-manager.js');
 
     // 1. .ai-fab 样式定义：手形光标 grab、不活动淡出 .is-idle、拖动状态 .is-dragging
@@ -217,7 +217,7 @@ test('Dragon Claw floating avatar supports vertical edge dragging, position pers
     assert.match(assistantJs, /function scheduleFabIdle/);
     assert.match(assistantJs, /FAB_IDLE_DELAY_MS\s*=\s*3500/);
 
-    // 4. home-v2.css 支持 CSS 变量定位与覆盖
+    // 4. home-shell.css 支持 CSS 变量定位与覆盖
     assert.match(homeV2Css, /top:\s*var\(--ai-fab-top,\s*auto\)/);
     assert.match(homeV2Css, /bottom:\s*var\(--ai-fab-bottom,\s*270px\)/);
 
@@ -265,7 +265,7 @@ test('electron-main.js, preload and login.html integrate desktop auto-login cred
     const electronMain = read('electron-main.js');
     const preload = read('electron-preload.js');
     const loginHtml = read('frontend/pages/login.html');
-    const navbarJs = read('frontend/js/shared/navbar.js');
+    const navbarJs = require('./helpers/platform-source.cjs').readPlatformSource();
 
     // 1. electron-main 注册 desktop-auth IPC 处理程序
     assert.match(electronMain, /ipcMain\.handle\('desktop-auth:get-credentials'/);
