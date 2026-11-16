@@ -773,10 +773,10 @@
         }
         const badge = $('v2RoleBadge');
         if (badge) {
-            badge.hidden = !tier;
-            badge.classList.toggle('is-admin', tier === 'admin');
-            badge.classList.toggle('is-superadmin', tier === 'super');
-            badge.innerHTML = renderRoleBadgeHtml(tier);
+            // Role badge is shown at the top of the expanded account popover; keep bottom trigger uncluttered.
+            badge.hidden = true;
+            badge.classList.remove('is-admin', 'is-superadmin');
+            badge.innerHTML = '';
         }
     }
     const rowItem = (icon, label, action, hint = '', arrow = false) => `<button type="button" class="v2-pop-item" role="menuitem" data-v2-do="${action}"><span class="v2-ico" data-icon="${icon}"></span><span>${esc(label)}</span>${hint ? `<span class="v2-pop-hint">${esc(hint)}</span>` : ''}${arrow ? '<span class="v2-ico v2-pop-arrow" data-icon="chevronRight"></span>' : ''}</button>`;

@@ -1,12 +1,10 @@
 {
   "zh": [
-    "审批中心并入消息中心与焦点体验优化：将「需要你」待审批操作与「审批推送」抽屉合并进左下角消息中心并汇总角标计数；优化鼠标或触控关闭弹层后按 Esc 返回时的焦点框显示。",
-    "修复运维待办刷新自动弹窗与提示标签问题：修复空草稿点击或刷新 /#ops-drafts 时反复弹出「当前没有待确认消息」提示框的问题，无待办时自动清理残留 URL 哈希；补全 nav.dialog.info 中英文词条，解决弹窗标题上方显示 NAV.DIALOG.INFO 的问题。",
-    "TestFlight 审核队列主动置换与 Kindle 网关流量同步：升级 iOS 外测分发脚本，跨版本主动清理 G2 组中排队等待审核的旧构建并防止旧版本覆盖新版本；新增 kindle-traffic-sync 进程与单测，定期汇总 Debian 网关请求量与 5xx 异常至 Kindle 看板。"
+    "隐藏左下角用户栏重复角色徽章：左下角账户触发区仅保留用户名、在线状态与头像流光/皇冠效果，「超级管理员 / 管理员」徽章统一在点击展开的菜单顶部展示，界面更简洁。",
+    "新增内置技能 @sv-menu-stats（SV 餐厅餐单速查）：内置 SV 餐厅历史餐单离线数据集与查询作图 CLI，支持 N 天/按月频次重复率统计、高清横向柱状图 PNG 生成及按需导出，并补全内置技能规范与脚本可执行权限。"
   ],
   "en": [
-    "Integrated agent approval inbox into Message Center and refined focus outlines: merged 'Needs You' pending approvals and the approval push drawer into the bottom-left Message Center with unified badge counts, and suppressed spurious focus rings after pointer interactions.",
-    "Fixed ops drafts refresh popup and dialog eyebrow localization: cleared stale #ops-drafts hashes on page reload when no drafts are pending so empty notices no longer reappear on refresh, and added missing nav.dialog.info translations so dialogs no longer show raw NAV.DIALOG.INFO.",
-    "Proactive TestFlight review queue cleanup and Kindle gateway traffic sync: upgraded iOS external distribution to proactively unlink and expire superseded WAITING_FOR_REVIEW builds across versions, and added the kindle-traffic-sync PM2 worker and unit tests to summarize Debian gateway rates and 5xx errors for the Kindle dashboard."
+    "Removed duplicate role badge in bottom-left account button: kept the 'Super Admin / Admin' pill at the top of the expanded account popover while keeping avatar aura and crown styling in the collapsed bar.",
+    "Promoted @sv-menu-stats (SV Canteen Menu Stats) to built-in Agent Skills: bundled offline dataset and CLI for rolling/monthly dish frequency, repeat rates, PNG bar charts, and Excel export with executable permissions."
   ]
 }

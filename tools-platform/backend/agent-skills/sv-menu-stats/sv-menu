@@ -1,0 +1,1379 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""SV 餐厅餐单速查。默认读缓存，refresh 从实时仓库重新解析。"""
+from __future__ import annotations
+
+import argparse
+import collections
+import datetime
+import hashlib
+import json
+import os
+import sqlite3
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+CAIRO = ZoneInfo("Africa/Cairo")
+DEFAULT_HOME = Path("/Volumes/512G/wechat-local-vault/exports/meal-analysis")
+DEFAULT_VAULT = Path("/Volumes/512G/wechat-local-vault")
+VENV_PY = Path("/Volumes/512G/repos/yichen-skills/yichen-wechat-local-vault/.venv/bin/python")
+TABLE = "Msg_d990cc47422e19de4b256c3c854d7fc4"
+WD = "一二三四五六日"
+MEALS = ["早餐", "午餐", "晚餐", "夜宵"]
+
+
+def menu_home() -> Path:
+    env = os.environ.get("SV_MENU_HOME")
+    if env:
+        return Path(env).expanduser().resolve()
+    script_dir = Path(__file__).resolve().parent
+    # 连着微信实时仓库的机器优先用实时数据；否则用技能包自带的数据（script_dir/work）
+    if script_dir == DEFAULT_HOME or (
+        (DEFAULT_HOME / "work" / "slots.json").is_file()
+        and (DEFAULT_VAULT / "decrypted" / "current").is_dir()
+    ) or (DEFAULT_HOME.is_dir() and not (script_dir / "work").is_dir()):
+        return DEFAULT_HOME
+    return script_dir
+
+
+def vault_dir() -> Path:
+    env = os.environ.get("SV_MENU_VAULT")
+    if env:
+        return Path(env).expanduser().resolve()
+    home = menu_home()
+    guess = home.parent.parent
+    if (guess / "decrypted" / "current").is_dir():
+        return guess
+    if home == DEFAULT_HOME and (DEFAULT_VAULT / "decrypted" / "current").is_dir():
+        return DEFAULT_VAULT
+    return guess
+
+
+def init_paths() -> None:
+    global ROOT, WORK, SCRIPT_WORK, VAULT, DECRYPTED, STATUS_PATH, DOWNLOADS
+    ROOT = menu_home()
+    SCRIPT_WORK = ROOT / "work"
+    WORK = SCRIPT_WORK
+    VAULT = vault_dir()
+    DECRYPTED = VAULT / "decrypted" / "current"
+    STATUS_PATH = WORK / "sv-menu-status.json"
+    DOWNLOADS = Path.home() / "Downloads"
+    unpack_bundled()
+
+
+def unpack_bundled() -> None:
+    """技能包里只放 slots.json.xz，首次使用或包内快照更新时自动解压成 slots.json"""
+    global WORK, STATUS_PATH
+    xz_path = SCRIPT_WORK / "slots.json.xz"
+    if not xz_path.is_file():
+        return
+    import lzma
+    import shutil
+
+    xz_bytes = xz_path.read_bytes()
+    digest = hashlib.sha256(xz_bytes).hexdigest()[:12]
+    hash_file = SCRIPT_WORK / ".unpacked-hash"
+    if (SCRIPT_WORK / "slots.json").is_file() and hash_file.is_file():
+        try:
+            if hash_file.read_text().strip() == digest:
+                return
+        except OSError:
+            pass
+
+    raw = lzma.decompress(xz_bytes)
+    target = SCRIPT_WORK
+    try:
+        (target / "slots.json").write_bytes(raw)
+        (target / ".unpacked-hash").write_text(digest + "\n")
+    except OSError:  # 技能目录不可写时放到带内容指纹的临时缓存
+        target = Path(tempfile.gettempdir()) / f"sv-menu-cache-{digest}" / "work"
+        target.mkdir(parents=True, exist_ok=True)
+        slots_tmp = target / "slots.json"
+        mark_tmp = target / ".unpacked-hash"
+        if not slots_tmp.is_file() or not mark_tmp.is_file() or mark_tmp.read_text().strip() != digest:
+            slots_tmp.write_bytes(raw)
+            for name in ("stats.json", "analyze_meta.json"):
+                if (SCRIPT_WORK / name).is_file():
+                    shutil.copy2(SCRIPT_WORK / name, target / name)
+            mark_tmp.write_text(digest + "\n")
+        WORK = target
+        STATUS_PATH = WORK / "sv-menu-status.json"
+
+    if not STATUS_PATH.is_file():
+        try:
+            snap = json.loads((WORK / "stats.json").read_text())
+        except Exception:
+            snap = {}
+        snap_dt = datetime.datetime.fromtimestamp(xz_path.stat().st_mtime, CAIRO)
+        st = dict(
+            last_refresh=snap_dt.strftime("%Y-%m-%d %H:%M"),
+            source="embedded-skill-snapshot",
+            snapshot=snap.get("d1") or snap_dt.strftime("%Y-%m-%d"),
+            offline=True,
+            home=str(ROOT),
+            **{k: snap.get(k) for k in ("d0", "d1", "rows", "msgs", "slots", "dates")},
+        )
+        try:
+            STATUS_PATH.write_text(json.dumps(st, ensure_ascii=False, indent=2) + "\n")
+        except OSError:
+            pass
+
+
+init_paths()
+
+USAGE = """用法: sv-menu [--refresh] [--json] <命令> [参数]
+
+SV 餐厅餐单速查。默认读本地缓存，加 --refresh 会先从微信库更新缓存（默认不生成 Excel、不拷贝到 Downloads）。可用环境变量 SV_MENU_HOME 指定目录。
+
+命令:
+  refresh              有微信库时重新解析并刷新缓存；加 --export-xlsx 生成 Excel，加 --downloads 复制到 ~/Downloads
+  export               基于当前缓存显式生成 Excel（--out PATH 指定路径；--downloads 复制到 ~/Downloads）
+  month [YYYY-MM]      某月概况（默认最新月）和当月 Top 10
+  months [--last N]    按月一览（默认全部）
+  dish <关键词>        按菜名搜索
+  top [N]              出现次数排行（默认 15；--all 返回全部符合条件菜品）
+                       --meal 早餐|午餐|晚餐|夜宵
+                       --no-staple   排除常备项和饮品
+                       --month YYYY-MM
+                       --days N      只统计截止最新日期的最近 N 个自然日
+                       --min-count N 只保留至少出现 N 次的菜品
+                       --chart PNG   直接绘制横向柱状图 PNG（或传 auto 自动保存）
+                       --json        输出结构化 JSON（便于作图与二次分析）
+  today                今天各餐菜单
+  date YYYY-MM-DD      指定日期各餐菜单
+  new [YYYY-MM]        某月首次出现的菜（默认最新月）
+  status               数据截止日期、文件路径、上次刷新时间
+
+示例:
+  sv-menu status
+  sv-menu top 30 --days 30 --min-count 2 --no-staple --json
+  sv-menu month
+  sv-menu month 2024-07
+  sv-menu months --last 6
+  sv-menu dish 油条
+  sv-menu top 20 --no-staple --meal 午餐
+  sv-menu today
+  sv-menu date 2026-11-12
+  sv-menu new 2026-11
+  sv-menu export --downloads
+"""
+
+
+def now_cairo() -> datetime.datetime:
+    return datetime.datetime.now(CAIRO)
+
+
+def now_str() -> str:
+    return now_cairo().strftime("%Y-%m-%d %H:%M")
+
+
+def python_bin() -> str:
+    if VENV_PY.is_file() and os.access(VENV_PY, os.X_OK):
+        return str(VENV_PY)
+    return sys.executable
+
+
+def die(msg: str, code: int = 1) -> None:
+    print(msg, file=sys.stderr)
+    raise SystemExit(code)
+
+
+def fmt_int(n: int) -> str:
+    return f"{n:,}"
+
+
+def fmt_pct(x: float | None) -> str:
+    if x is None:
+        return "—"
+    return f"{x * 100:.1f}%"
+
+
+def weekday_cn(date_s: str) -> str:
+    return "周" + WD[datetime.date.fromisoformat(date_s).weekday()]
+
+
+def atomic_write_text(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=path.name + ".", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.replace(tmp, path)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+def open_db(path: Path) -> sqlite3.Connection:
+    uri = f"file:{path}?mode=ro"
+    try:
+        con = sqlite3.connect(uri, uri=True, timeout=20)
+        con.execute("select 1").fetchone()
+        return con
+    except sqlite3.Error:
+        return sqlite3.connect(str(path), timeout=20)
+
+
+def load_names() -> dict[str, str]:
+    names: dict[str, str] = {}
+    contact = DECRYPTED / "contact" / "contact.db"
+    if not contact.is_file():
+        return names
+    con = open_db(contact)
+    try:
+        for tb in ("stranger", "contact"):
+            try:
+                for u, r, n in con.execute(f"select username,remark,nick_name from {tb}"):
+                    names[u] = r or n or u
+            except sqlite3.Error:
+                continue
+    finally:
+        con.close()
+    return names
+
+
+def dec_text(v, flag, zstd) -> str:
+    if v is None:
+        return ""
+    if isinstance(v, str):
+        return v
+    b = bytes(v)
+    if b[:4] == b"\x28\xb5\x2f\xfd" or flag == 4:
+        try:
+            b = zstd.decompress(b, max_output_size=2_000_000)
+        except Exception:
+            return ""
+    return b.decode("utf-8", "replace")
+
+
+def message_dbs() -> list[Path]:
+    msgdir = DECRYPTED / "message"
+    if not msgdir.is_dir():
+        die(f"找不到解密库目录：{msgdir}。请确认实时同步在运行。")
+    dbs = sorted(
+        p
+        for p in msgdir.glob("message_*.db")
+        if p.is_file() and "fts" not in p.name and "resource" not in p.name
+    )
+    if not dbs:
+        die(f"{msgdir} 里没有 message_*.db")
+    return dbs
+
+
+def dump_messages() -> dict:
+    import zstandard
+
+    z = zstandard.ZstdDecompressor()
+    names = load_names()
+    out: dict[str, dict] = {}
+    shards = 0
+    for db in message_dbs():
+        con = open_db(db)
+        try:
+            tabs = {r[0] for r in con.execute("select name from sqlite_master where type='table'")}
+            if TABLE not in tabs or "Name2Id" not in tabs:
+                continue
+            shards += 1
+            n2i = {r: u for r, u in con.execute("select rowid, user_name from Name2Id")}
+            sql = (
+                f"select local_id,server_id,local_type,real_sender_id,"
+                f"create_time,message_content,WCDB_CT_message_content from {TABLE}"
+            )
+            for lid, sid, lt, rs, ct, mc, cf in con.execute(sql):
+                txt = dec_text(mc, cf, z)
+                u = n2i.get(rs, "")
+                if u and txt.startswith(u + ":\n"):
+                    txt = txt[len(u) + 2 :]
+                key = str(sid or f"{db.name}:{lid}")
+                dt = datetime.datetime.fromtimestamp(ct, CAIRO)
+                typ = lt & 0xFFFFFFFF
+                body = txt if typ in (1, 49, 10000) else ""
+                out[key] = dict(
+                    t=dt.strftime("%Y-%m-%d %H:%M:%S"),
+                    type=typ,
+                    sender=names.get(u, u),
+                    wxid=u,
+                    text=body,
+                )
+        finally:
+            con.close()
+    if not out:
+        die("没有读到 SV 群消息。请确认实时仓库已解密，且群表仍在。")
+    rows = sorted(out.values(), key=lambda r: r["t"])
+    buf = "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows)
+    atomic_write_text(WORK / "all.jsonl", buf)
+    return {
+        "rows": len(rows),
+        "d0": rows[0]["t"][:10],
+        "d1": rows[-1]["t"][:10],
+        "t0": rows[0]["t"],
+        "t1": rows[-1]["t"],
+        "shards": shards,
+    }
+
+
+def run_analyze() -> dict:
+    py = python_bin()
+    r = subprocess.run(
+        [py, "analyze.py"],
+        cwd=str(WORK),
+        capture_output=True,
+        text=True,
+    )
+    if r.returncode != 0:
+        err = (r.stderr or r.stdout or "").strip() or f"exit {r.returncode}"
+        die("解析餐单失败：\n" + err[:2000])
+    meta_path = WORK / "analyze_meta.json"
+    if meta_path.is_file():
+        return json.loads(meta_path.read_text())
+    return {}
+
+
+def write_stats(dump_info: dict, meta: dict, slots: list) -> dict:
+    dates = sorted({s["date"] for s in slots})
+    mealslots = collections.Counter(s["meal"] for s in slots)
+    mealdays = {m: len({s["date"] for s in slots if s["meal"] == m}) for m in MEALS}
+    avgd = {}
+    for m in MEALS:
+        n = mealslots[m]
+        avgd[m] = round(sum(len(s["dishes"]) for s in slots if s["meal"] == m) / max(1, n), 1)
+    d0, d1 = dump_info["d0"], dump_info["d1"]
+    ndays = (datetime.date.fromisoformat(d1) - datetime.date.fromisoformat(d0)).days + 1
+    st = dict(
+        rows=dump_info["rows"],
+        d0=d0,
+        d1=d1,
+        ndays=ndays,
+        msgs=meta.get("msgs", 0),
+        slots=len(slots),
+        dates=len(dates),
+        imgonly=meta.get("imgonly", 0),
+        mealslots=dict(mealslots),
+        mealdays=mealdays,
+        avgd=avgd,
+        src=meta.get("src", {}),
+    )
+    atomic_write_text(WORK / "stats.json", json.dumps(st, ensure_ascii=False, indent=1))
+    return st
+
+
+def xlsx_name(d0: str, d1: str) -> str:
+    y0, y1 = d0[:4], d1[:4]
+    return f"SV餐厅菜品频次清单_{y0}-{y1}.xlsx"
+
+
+def write_status(info: dict) -> None:
+    atomic_write_text(STATUS_PATH, json.dumps(info, ensure_ascii=False, indent=2))
+
+
+def import_bf():
+    os.environ["SV_MENU_HOME"] = str(menu_home())
+    for p in (SCRIPT_WORK, WORK):
+        sp = str(p)
+        if sp not in sys.path:
+            sys.path.insert(0, sp)
+    import importlib
+    import build_freq as bf  # type: ignore
+
+    if Path(getattr(bf, "ROOT", "")) != ROOT or Path(getattr(bf, "WORK", "")) != WORK:
+        importlib.reload(bf)
+        bf.ROOT = ROOT
+        bf.WORK = WORK
+        bf.OUT = ROOT / Path(getattr(bf, "OUT", ROOT / "out.xlsx")).name
+    return bf
+
+
+def vault_ok() -> bool:
+    return DECRYPTED.is_dir()
+
+
+def copy_xlsx(dest: Path) -> str:
+    dl = DOWNLOADS / dest.name
+    try:
+        import shutil
+
+        DOWNLOADS.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(dest, dl)
+        return str(dl)
+    except OSError as e:
+        return f"（复制到 Downloads 失败：{e}）"
+
+
+def resolved_excel_path(d0: str, d1: str, out_path: str | Path | None = None) -> Path:
+    fname = xlsx_name(d0, d1)
+    if out_path:
+        p = Path(out_path).expanduser()
+        if p.is_dir() or str(out_path).endswith(("/", os.sep)):
+            p = p / fname
+        p.parent.mkdir(parents=True, exist_ok=True)
+        return p.resolve()
+    if os.access(ROOT, os.W_OK):
+        return ROOT / fname
+    fallback_dir = WORK.parent if os.access(WORK.parent, os.W_OK) else Path(tempfile.gettempdir())
+    return fallback_dir / fname
+
+
+def build_excel_from_cache(out_path: str | Path | None = None, downloads: bool = False) -> dict:
+    slots_path = WORK / "slots.json"
+    if not slots_path.is_file():
+        die("没有实时仓库，也没有本地缓存。请先安装带数据的 SKILL，或在有微信库的机器上跑 sv-menu refresh。")
+    if not (WORK / "stats.json").is_file():
+        die("缓存不完整（缺少 stats.json）。请重新安装 SKILL 数据包，或在有微信库时跑 sv-menu refresh。")
+    bf = import_bf()
+    data = bf.load_and_aggregate()
+    d0, d1 = data["d0"], data["d1"]
+    dest = resolved_excel_path(d0, d1, out_path)
+    info = bf.build(data, out_path=dest)
+    dest = Path(info["out"])
+    copied = copy_xlsx(dest) if downloads else None
+    prev = {}
+    if STATUS_PATH.is_file():
+        try:
+            prev = json.loads(STATUS_PATH.read_text())
+        except json.JSONDecodeError:
+            prev = {}
+    stats = json.loads((WORK / "stats.json").read_text())
+    is_offline = not vault_ok()
+    status = {
+        "last_refresh": prev.get("last_refresh"),
+        "last_excel_build": now_str(),
+        "d0": d0,
+        "d1": d1,
+        "rows": prev.get("rows") or stats.get("rows"),
+        "msgs": prev.get("msgs") or stats.get("msgs"),
+        "slots": stats.get("slots") or len(data.get("nslots") or []),
+        "dates": stats.get("dates"),
+        "occ": info["total_occ"],
+        "dishes": info["n_dish"],
+        "xlsx": str(dest),
+        "downloads": copied if copied and copied.startswith("/") else prev.get("downloads"),
+        "slots_path": str(slots_path),
+        "home": str(ROOT),
+        "offline": is_offline,
+        "source": prev.get("source") or ("wechat-vault" if not is_offline else "cache"),
+        "dump_last_message": prev.get("dump_last_message"),
+    }
+    if is_offline:
+        status["note"] = "未连接微信实时仓库，仅基于本地缓存导出 Excel，数据未更新。"
+    write_status(status)
+    return {**status, "copied": copied}
+
+
+def do_refresh(export_xlsx: bool = False, downloads: bool = False) -> dict:
+    if not vault_ok():
+        if export_xlsx or downloads:
+            res = build_excel_from_cache(downloads=downloads)
+            res["note"] = "未连接微信实时仓库，已用本地缓存重建 Excel，数据本身没有更新。"
+            return res
+        slots_path = WORK / "slots.json"
+        if not slots_path.is_file() or not (WORK / "stats.json").is_file():
+            die("没有实时仓库，也没有本地缓存。请先安装带数据的 SKILL，或在有微信库的机器上跑 sv-menu refresh。")
+        bf = import_bf()
+        data = bf.load_and_aggregate()
+        stats = json.loads((WORK / "stats.json").read_text())
+        prev = {}
+        if STATUS_PATH.is_file():
+            try:
+                prev = json.loads(STATUS_PATH.read_text())
+            except json.JSONDecodeError:
+                prev = {}
+        return {
+            "last_refresh": prev.get("last_refresh"),
+            "last_excel_build": prev.get("last_excel_build"),
+            "d0": data["d0"],
+            "d1": data["d1"],
+            "rows": prev.get("rows") or stats.get("rows"),
+            "msgs": prev.get("msgs") or stats.get("msgs"),
+            "slots": stats.get("slots") or len(data.get("nslots") or []),
+            "dates": stats.get("dates"),
+            "occ": sum(r["n"] for r in data["rows"]),
+            "dishes": len(data["rows"]),
+            "xlsx": prev.get("xlsx"),
+            "downloads": prev.get("downloads"),
+            "slots_path": str(slots_path),
+            "home": str(ROOT),
+            "offline": True,
+            "source": prev.get("source") or "cache",
+            "dump_last_message": prev.get("dump_last_message"),
+            "note": "未连接微信实时仓库，仅检查本地缓存（默认不生成 Excel、不拷贝到 Downloads）。",
+        }
+
+    WORK.mkdir(parents=True, exist_ok=True)
+    dump_info = dump_messages()
+    meta = run_analyze()
+    slots_path = WORK / "slots.json"
+    if not slots_path.is_file():
+        die("解析完成但没有生成 slots.json")
+    slots = json.loads(slots_path.read_text())["slots"]
+    st = write_stats(dump_info, meta, slots)
+    bf = import_bf()
+    data = bf.load_and_aggregate()
+    occ = sum(r["n"] for r in data["rows"])
+    n_dish = len(data["rows"])
+
+    prev = {}
+    if STATUS_PATH.is_file():
+        try:
+            prev = json.loads(STATUS_PATH.read_text())
+        except json.JSONDecodeError:
+            prev = {}
+
+    dest_str = prev.get("xlsx")
+    last_excel_build = prev.get("last_excel_build")
+    copied = None
+    downloads_path = prev.get("downloads")
+
+    if export_xlsx or downloads:
+        dest = resolved_excel_path(st["d0"], st["d1"])
+        info = bf.build(data, out_path=dest)
+        dest = Path(info["out"])
+        dest_str = str(dest)
+        last_excel_build = now_str()
+        if downloads:
+            copied = copy_xlsx(dest)
+            if copied.startswith("/"):
+                downloads_path = copied
+
+    status = {
+        "last_refresh": now_str(),
+        "last_excel_build": last_excel_build,
+        "d0": st["d0"],
+        "d1": st["d1"],
+        "rows": st["rows"],
+        "msgs": st["msgs"],
+        "slots": st["slots"],
+        "dates": st["dates"],
+        "occ": occ,
+        "dishes": n_dish,
+        "xlsx": dest_str,
+        "downloads": downloads_path,
+        "slots_path": str(slots_path),
+        "home": str(ROOT),
+        "offline": False,
+        "source": "wechat-vault",
+        "dump_last_message": dump_info["t1"],
+    }
+    write_status(status)
+    return {**status, "copied": copied}
+
+
+def do_export(out_path: str | Path | None = None, downloads: bool = False, refresh: bool = False) -> dict:
+    if refresh and vault_ok():
+        do_refresh(export_xlsx=False, downloads=False)
+    return build_excel_from_cache(out_path=out_path, downloads=downloads)
+
+
+def load_cached(refresh: bool = False):
+    if refresh:
+        do_refresh()
+    if not (WORK / "slots.json").is_file():
+        die("还没有缓存。请先运行：sv-menu refresh")
+    bf = import_bf()
+    data = bf.load_and_aggregate()
+    return bf, data
+
+
+def month_row(data, month: str | None):
+    rows = data["month_rows"]
+    if not rows:
+        die("没有按月数据。")
+    if month is None:
+        return rows[-1]
+    for mr in rows:
+        if mr["month"] == month:
+            return mr
+    die(f"没有 {month} 的餐单数据。有数据的月份：{rows[0]['month']} ～ {rows[-1]['month']}")
+
+
+def parse_month(s: str | None) -> str | None:
+    if s is None:
+        return None
+    try:
+        datetime.datetime.strptime(s, "%Y-%m")
+    except ValueError:
+        die(f"月份格式应为 YYYY-MM，收到：{s}")
+    return s
+
+
+def parse_date(s: str) -> str:
+    try:
+        datetime.date.fromisoformat(s)
+    except ValueError:
+        die(f"日期格式应为 YYYY-MM-DD，收到：{s}")
+    return s
+
+
+def month_tops(data, month: str, n: int = 10, no_staple: bool = False):
+    bf = import_bf()
+    cnt = collections.Counter()
+    for s in data.get("nslots") or []:
+        if s["date"][:7] != month:
+            continue
+        for d in s["dishes"]:
+            if no_staple and bf.is_staple_or_drink(d):
+                continue
+            cnt[d] += 1
+    return cnt.most_common(n)
+
+
+def row_by_name(data) -> dict:
+    return {r["name"]: r for r in data["rows"]}
+
+
+def want_json(args) -> bool:
+    return bool(getattr(args, "json", False))
+
+
+def as_json(obj) -> str:
+    return json.dumps(obj, ensure_ascii=False, indent=2)
+
+
+def cmd_refresh(args) -> str:
+    info = do_refresh(export_xlsx=bool(args.export_xlsx), downloads=bool(args.downloads))
+    if want_json(args):
+        return as_json(info)
+    if info.get("offline"):
+        note = info.get("note") or "未连接微信实时仓库，仅使用本地缓存，数据本身没有更新。"
+        lines = [
+            note,
+            f"数据范围：{info['d0']} 至 {info['d1']}（开罗时间）",
+        ]
+    else:
+        lines = [
+            "已更新缓存",
+            f"数据范围：{info['d0']} 至 {info['d1']}（开罗时间）",
+        ]
+    bits = []
+    if info.get("rows"):
+        bits.append(f"群消息 {fmt_int(info['rows'])}")
+    if info.get("msgs"):
+        bits.append(f"餐单文字 {fmt_int(info['msgs'])}")
+    if info.get("slots"):
+        bits.append(f"餐次 {fmt_int(info['slots'])}")
+    if info.get("dates"):
+        bits.append(f"覆盖 {fmt_int(info['dates'])} 天")
+    if bits:
+        lines.append(" ｜ ".join(bits))
+    lines.append(f"菜品出现 {fmt_int(info['occ'])} 次 ｜ 不同菜 {fmt_int(info['dishes'])} 道")
+    if (args.export_xlsx or args.downloads) and info.get("xlsx"):
+        lines.append(f"表格：{info['xlsx']}")
+    if info.get("copied"):
+        lines.append(f"已复制到：{info['copied']}")
+    if info.get("last_refresh"):
+        lines.append(f"数据刷新：{info['last_refresh']}（开罗时间）")
+    if info.get("last_excel_build") and (args.export_xlsx or args.downloads):
+        lines.append(f"表格生成：{info['last_excel_build']}（开罗时间）")
+    return "\n".join(lines)
+
+
+def cmd_export(args) -> str:
+    info = do_export(out_path=args.out, downloads=bool(args.downloads), refresh=args.refresh)
+    if want_json(args):
+        return as_json(info)
+    lines = [
+        "已生成 Excel" + ("（离线缓存，数据未从微信更新）" if info.get("offline") else ""),
+        f"数据范围：{info['d0']} 至 {info['d1']}（开罗时间）",
+        f"菜品出现 {fmt_int(info['occ'])} 次 ｜ 不同菜 {fmt_int(info['dishes'])} 道",
+        f"表格：{info['xlsx']}",
+    ]
+    if info.get("copied"):
+        lines.append(f"已复制到：{info['copied']}")
+    return "\n".join(lines)
+
+
+def cmd_month(args) -> str:
+    _bf, data = load_cached(args.refresh)
+    mr = month_row(data, parse_month(args.month))
+    mo = mr["month"]
+    tops = month_tops(data, mo, 10)
+    if want_json(args):
+        return as_json({"month": mr, "top": [{"rank": i, "name": name, "count": n} for i, (name, n) in enumerate(tops, 1)]})
+    tag = "，不足月" if mr.get("partial") else ""
+    lines = [
+        f"{mo}{tag}",
+        f"餐次 {fmt_int(mr['slots'])} ｜ 出现 {fmt_int(mr['occ'])} 次 ｜ 不同菜 {fmt_int(mr['unique'])} 道 ｜ 重复率 {fmt_pct(mr['repeat'])} ｜ 新菜 {fmt_int(mr['new'])}",
+        "",
+        "当月 Top 10",
+    ]
+    if not tops:
+        lines.append("（无）")
+    else:
+        for i, (name, n) in enumerate(tops, 1):
+            lines.append(f"{i}. {name}  {n}")
+    return "\n".join(lines)
+
+
+def cmd_months(args) -> str:
+    _bf, data = load_cached(args.refresh)
+    rows = data["month_rows"]
+    if args.last:
+        rows = rows[-args.last :]
+    if want_json(args):
+        return as_json({"months": rows})
+    header = f"{'月份':<12}{'餐次':>6}{'出现':>8}{'不同菜':>8}{'重复率':>8}{'新菜':>6}"
+    lines = [header]
+    for mr in rows:
+        label = mr["month"] + ("*" if mr.get("partial") else "")
+        lines.append(
+            f"{label:<12}{mr['slots']:>6}{mr['occ']:>8}{mr['unique']:>8}{fmt_pct(mr['repeat']):>8}{mr['new']:>6}"
+        )
+    if any(mr.get("partial") for mr in rows):
+        lines.append("* 不足月（数据窗口首尾，不宜与整月直接比）")
+    return "\n".join(lines)
+
+
+def cmd_dish(args) -> str:
+    _bf, data = load_cached(args.refresh)
+    q = (args.keyword or "").strip()
+    if not q:
+        die("请给出菜名关键词，例如：sv-menu dish 油条")
+    rows = [r for r in data["rows"] if q in r["name"]]
+    if not rows:
+        if want_json(args):
+            return as_json({"keyword": q, "count": 0, "items": []})
+        return f"没有找到含「{q}」的菜。"
+    rows.sort(key=lambda r: -r["n"])
+    d1 = data["d1"]
+    # last 6 months ending at d1
+    y, m = int(d1[:4]), int(d1[5:7])
+    last6 = []
+    for _ in range(6):
+        last6.append(f"{y:04d}-{m:02d}")
+        m -= 1
+        if m <= 0:
+            m = 12
+            y -= 1
+    last6.reverse()
+
+    # monthly counts for shown dishes
+    want = {r["name"] for r in rows[:20]}
+    monthly = {name: collections.Counter() for name in want}
+    for s in data.get("nslots") or []:
+        mo = s["date"][:7]
+        if mo not in last6:
+            continue
+        for d in s["dishes"]:
+            if d in monthly:
+                monthly[d][mo] += 1
+
+    def detail(r) -> list[str]:
+        meal_s = "  ".join(f"{m} {r['meals'][m]}" for m in MEALS if r["meals"][m])
+        staple = " ｜ 常备项" if r["staple"] == "是" else ""
+        trend = "  ".join(f"{mo[5:]}月 {monthly[r['name']][mo]}" for mo in last6)
+        return [
+            r["name"],
+            f"出现 {fmt_int(r['n'])} 次 ｜ {fmt_int(r['days'])} 天 ｜ 日覆盖 {fmt_pct(r['day_cover'])} ｜ 主餐次 {r['main_meal']}{staple}",
+            f"{r['cat']} ｜ {r['hs']} ｜ {r['first']}～{r['last']} ｜ {r['status']}",
+            f"餐次：{meal_s}" if meal_s else "餐次：—",
+            f"近 6 个月：{trend}",
+        ]
+
+    # exact match first if any
+    exact = [r for r in rows if r["name"] == q]
+    others = [r for r in rows if r["name"] != q]
+    ordered = exact + others
+    if want_json(args):
+        return as_json({
+            "keyword": q,
+            "count": len(ordered),
+            "last6_months": last6,
+            "items": [
+                {**r, "last6": {mo: monthly[r["name"]][mo] for mo in last6}}
+                if r["name"] in monthly else r
+                for r in ordered[:20]
+            ],
+        })
+    lines: list[str] = []
+    if len(ordered) == 1:
+        return "\n".join(detail(ordered[0]))
+    lines.append(f"共 {len(ordered)} 道菜名含「{q}」，按次数排序" + ("（只列前 20）" if len(ordered) > 20 else ""))
+    for r in ordered[:20]:
+        if r["name"] == q or len(exact) == 0 and r is ordered[0]:
+            if lines and lines[-1] != "":
+                lines.append("")
+            lines.extend(detail(r))
+            lines.append("")
+        else:
+            lines.append(f"· {r['name']}  {r['n']} 次  {r['first']}～{r['last']}  {r['main_meal']}")
+    if len(ordered) > 20:
+        lines.append(f"另有 {len(ordered) - 20} 道未列出")
+    return "\n".join(lines).rstrip()
+
+
+ZH_FONT_CANDIDATES = [
+    "/System/Library/Fonts/Hiragino Sans GB.ttc",
+    "/System/Library/Fonts/STHeiti Medium.ttc",
+    "/System/Library/Fonts/STHeiti Light.ttc",
+    "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+    "/Library/Fonts/Arial Unicode.ttf",
+    "/System/Library/Fonts/Supplemental/Songti.ttc",
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+    "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+    "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+    "C:/Windows/Fonts/msyh.ttc",
+    "C:/Windows/Fonts/simhei.ttf",
+]
+PLATFORM_OUTPUTS = Path("/Volumes/512G/06-工具开发/privacy-policy/tools-platform/outputs/sv-menu")
+
+
+def find_zh_font() -> str | None:
+    for p in ZH_FONT_CANDIDATES:
+        if os.path.isfile(p):
+            return p
+    return None
+
+
+def resolved_chart_path(chart_arg: str, tag: str) -> Path:
+    arg = (chart_arg or "").strip()
+    fname = f"{tag}_{now_cairo().strftime('%Y%m%d_%H%M%S')}.png"
+    if not arg or arg.lower() == "auto":
+        if PLATFORM_OUTPUTS.parent.is_dir() and os.access(PLATFORM_OUTPUTS.parent, os.W_OK):
+            base = PLATFORM_OUTPUTS
+        elif not any(part.startswith(".") for part in Path.cwd().parts if part not in (".", "/")) and os.access(Path.cwd(), os.W_OK):
+            base = Path.cwd()
+        else:
+            base = WORK.parent if os.access(WORK.parent, os.W_OK) else Path(tempfile.gettempdir())
+        base.mkdir(parents=True, exist_ok=True)
+        return (base / fname).resolve()
+    p = Path(arg).expanduser()
+    if p.is_dir() or arg.endswith(("/", os.sep)):
+        p = p / fname
+    elif not p.suffix:
+        p = p.with_suffix(".png")
+    p.parent.mkdir(parents=True, exist_ok=True)
+    return p.resolve()
+
+
+def _render_top_chart_pillow(items: list[dict], title: str, subtitle: str, out_path: Path, font_path: str | None) -> Path:
+    from PIL import Image, ImageDraw, ImageFont
+
+    def load_font(sz: int):
+        if font_path:
+            try:
+                return ImageFont.truetype(font_path, sz)
+            except OSError:
+                pass
+        return ImageFont.load_default()
+
+    f_title = load_font(28)
+    f_sub = load_font(16)
+    f_label = load_font(18)
+    f_val = load_font(17)
+
+    w = 1280
+    top_pad, row_h, bot_pad = 115, 44, 48
+    h = top_pad + len(items) * row_h + bot_pad
+    img = Image.new("RGB", (w, h), "#FFFFFF")
+    draw = ImageDraw.Draw(img)
+
+    draw.text((48, 28), title, fill="#0F172A", font=f_title)
+    draw.text((48, 68), subtitle, fill="#475569", font=f_sub)
+
+    left_x, right_x = 290, w - 110
+    bar_span = right_x - left_x
+    max_val = max(x["count"] for x in items) or 1
+
+    for idx, item in enumerate(items):
+        y0 = top_pad + idx * row_h
+        cy = y0 + row_h // 2
+        label = f"{item['rank']}. {item['name']}"
+        draw.text((left_x - 16, cy), label, fill="#1E293B", font=f_label, anchor="rm")
+        bw = max(6, int(bar_span * item["count"] / max_val))
+        color = "#1D4ED8" if idx < 3 else "#3B82F6"
+        draw.rounded_rectangle([left_x, y0 + 8, left_x + bw, y0 + row_h - 8], radius=5, fill=color)
+        draw.text((left_x + bw + 10, cy), f"{item['count']} 次", fill="#1E293B", font=f_val, anchor="lm")
+
+    img.save(out_path, format="PNG")
+    return out_path
+
+
+def render_top_chart(items: list[dict], *, title: str, subtitle: str, out_path: Path) -> Path:
+    font_path = find_zh_font()
+    try:
+        import logging
+        import matplotlib
+
+        logging.getLogger("matplotlib.font_manager").setLevel(logging.ERROR)
+        matplotlib.use("Agg")
+        import matplotlib.font_manager as fm
+        import matplotlib.pyplot as plt
+    except ImportError:
+        return _render_top_chart_pillow(items, title, subtitle, out_path, font_path)
+
+    fp_title = fm.FontProperties(fname=font_path, size=15) if font_path else None
+    fp_sub = fm.FontProperties(fname=font_path, size=10.5) if font_path else None
+    fp_tick = fm.FontProperties(fname=font_path, size=11) if font_path else None
+    fp_val = fm.FontProperties(fname=font_path, size=10.5) if font_path else None
+    if font_path:
+        plt.rcParams["font.sans-serif"] = [fm.FontProperties(fname=font_path).get_name(), "sans-serif"]
+    plt.rcParams["axes.unicode_minus"] = False
+
+    n = len(items)
+    fig_h = max(4.2, 1.65 + 0.44 * n)
+    fig, ax = plt.subplots(figsize=(10.5, fig_h), dpi=180)
+    fig.patch.set_facecolor("#FFFFFF")
+    ax.set_facecolor("#FFFFFF")
+
+    labels = [f"{it['rank']}. {it['name']}" for it in items]
+    vals = [it["count"] for it in items]
+    y_pos = list(range(n))
+    colors = ["#1D4ED8" if i < 3 else ("#2563EB" if i < 6 else "#60A5FA") for i in range(n)]
+
+    bars = ax.barh(y_pos, vals, height=0.66, color=colors, edgecolor="none", zorder=3)
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(labels, fontproperties=fp_tick, color="#0F172A")
+    ax.invert_yaxis()
+
+    max_v = max(vals) or 1
+    ax.set_xlim(0, max_v * 1.18)
+    ax.xaxis.grid(True, linestyle="--", alpha=0.55, color="#CBD5E1", zorder=0)
+    ax.set_axisbelow(True)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_color("#CBD5E1")
+    ax.spines["bottom"].set_color("#CBD5E1")
+    ax.tick_params(axis="x", colors="#475569", labelsize=10)
+    ax.tick_params(axis="y", length=0, pad=8)
+
+    for bar, it in zip(bars, items):
+        v = it["count"]
+        ax.text(
+            v + max_v * 0.015,
+            bar.get_y() + bar.get_height() / 2,
+            f"{v} 次",
+            va="center",
+            ha="left",
+            color="#1E293B",
+            fontproperties=fp_val,
+        )
+
+    ax.set_xlabel("出现餐次数", fontproperties=fp_sub, color="#475569", labelpad=8)
+    fig.suptitle(title, x=0.04, y=0.985, ha="left", va="top", color="#0F172A", fontproperties=fp_title)
+    fig.text(0.04, 0.985 - (0.38 / fig_h), subtitle, ha="left", va="top", color="#64748B", fontproperties=fp_sub)
+
+    fig.tight_layout(rect=[0.02, 0.02, 0.98, max(0.75, 1.0 - (0.88 / fig_h))])
+    fig.savefig(out_path, dpi=180, facecolor="#FFFFFF")
+    plt.close(fig)
+    return out_path
+
+
+def cmd_top(args) -> str:
+    bf, data = load_cached(args.refresh)
+    month = parse_month(args.month) if args.month else None
+    days = args.days
+    if month and days is not None:
+        die("--month 和 --days 不能同时使用")
+    if days is not None and days < 1:
+        die("--days 必须大于等于 1")
+    min_count = args.min_count if args.min_count is not None else 1
+    if min_count < 1:
+        die("--min-count 必须大于等于 1")
+    meal = args.meal
+    limit = None if (args.all or (args.n is not None and args.n <= 0)) else (args.n or 15)
+
+    meta_map = row_by_name(data)
+    d0_all, d1_all = data["d0"], data["d1"]
+    win_start = d0_all
+    win_end = d1_all
+    win_slots = 0
+    win_dates: set[str] = set()
+    total_occ = 0
+
+    if month or days is not None:
+        if days is not None:
+            end_dt = datetime.date.fromisoformat(d1_all)
+            win_end = end_dt.isoformat()
+            win_start = (end_dt - datetime.timedelta(days=days - 1)).isoformat()
+        counts = collections.Counter()
+        dish_dates: dict[str, set[str]] = collections.defaultdict(set)
+        dish_meals: dict[str, collections.Counter] = collections.defaultdict(collections.Counter)
+        dish_first: dict[str, str] = {}
+        dish_last: dict[str, str] = {}
+
+        for s in data.get("nslots") or []:
+            dt = s["date"]
+            if month and dt[:7] != month:
+                continue
+            if days is not None and not (win_start <= dt <= win_end):
+                continue
+            if meal and s["meal"] != meal:
+                continue
+            win_slots += 1
+            win_dates.add(dt)
+            for d in s["dishes"]:
+                if args.no_staple and bf.is_staple_or_drink(d):
+                    continue
+                counts[d] += 1
+                total_occ += 1
+                dish_dates[d].add(dt)
+                dish_meals[d][s["meal"]] += 1
+                if d not in dish_first or dt < dish_first[d]:
+                    dish_first[d] = dt
+                if d not in dish_last or dt > dish_last[d]:
+                    dish_last[d] = dt
+
+        if month and win_dates:
+            win_start, win_end = min(win_dates), max(win_dates)
+        elif month:
+            win_start = win_end = month
+
+        matched = []
+        for name, c in counts.items():
+            if c < min_count:
+                continue
+            info = meta_map.get(name, {})
+            matched.append({
+                "name": name,
+                "count": c,
+                "days": len(dish_dates[name]),
+                "meals": {m: dish_meals[name][m] for m in MEALS if dish_meals[name][m]},
+                "first": dish_first[name],
+                "last": dish_last[name],
+                "cat": info.get("cat") or "其他/未识别",
+                "staple": info.get("staple") == "是",
+            })
+        matched.sort(key=lambda x: (-x["count"], -x["days"], x["name"]))
+    else:
+        matched = []
+        for s in data.get("nslots") or []:
+            if meal and s["meal"] != meal:
+                continue
+            win_slots += 1
+            win_dates.add(s["date"])
+        for r in data["rows"]:
+            if args.no_staple and bf.is_staple_or_drink(r["name"]):
+                continue
+            c = r["meals"][meal] if meal else r["n"]
+            if c > 0:
+                total_occ += c
+            if c < min_count:
+                continue
+            matched.append({
+                "name": r["name"],
+                "count": c,
+                "days": r["days"] if not meal else None,
+                "meals": {m: r["meals"][m] for m in MEALS if r["meals"][m]},
+                "first": r["first"],
+                "last": r["last"],
+                "cat": r["cat"],
+                "staple": r["staple"] == "是",
+            })
+        matched.sort(key=lambda x: (-x["count"], -(x["days"] or 0), x["name"]))
+
+    unique_in_window = len(matched) if min_count == 1 else sum(
+        1 for _ in (counts if (month or days is not None) else matched)
+    )
+    shown = matched if limit is None else matched[:limit]
+    for idx, item in enumerate(shown, 1):
+        item["rank"] = idx
+
+    chart_path_str: str | None = None
+    if getattr(args, "chart", None) and shown:
+        scope_bits = [meal or "全餐次", "已排除常备项与饮品" if args.no_staple else "含全部菜品"]
+        if min_count > 1:
+            scope_bits.append(f"出现>={min_count}次")
+        if days is not None:
+            c_title = f"SV 餐厅近 {days} 天高频菜品排行 Top {len(shown)}"
+            tag = f"sv_top_{days}d"
+        elif month:
+            c_title = f"SV 餐厅 {month} 高频菜品排行 Top {len(shown)}"
+            tag = f"sv_top_{month}"
+        else:
+            c_title = f"SV 餐厅历史高频菜品排行 Top {len(shown)}"
+            tag = "sv_top_all"
+        if meal:
+            tag += f"_{meal}"
+        c_sub = f"统计区间：{win_start} 至 {win_end} | {win_slots} 餐次 | " + " | ".join(scope_bits)
+        c_dest = resolved_chart_path(args.chart, tag)
+        render_top_chart(shown, title=c_title, subtitle=c_sub, out_path=c_dest)
+        chart_path_str = str(c_dest)
+
+    if want_json(args):
+        payload = {
+            "query": {
+                "month": month,
+                "days": days,
+                "meal": meal,
+                "no_staple": bool(args.no_staple),
+                "min_count": min_count,
+                "limit": limit,
+            },
+            "window": {
+                "d0": d0_all,
+                "d1": d1_all,
+                "start": win_start,
+                "end": win_end,
+                "slots": win_slots,
+                "dates": len(win_dates),
+                "total_occ": total_occ,
+                "matched_dishes": len(matched),
+                "returned_count": len(shown),
+            },
+            "items": shown,
+        }
+        if chart_path_str:
+            payload["chart"] = chart_path_str
+        return as_json(payload)
+
+    title_bits = []
+    if days is not None:
+        title_bits.append(f"近 {days} 天（{win_start} ～ {win_end}）")
+    elif month:
+        title_bits.append(month)
+    title_bits.append(meal or "全部")
+    title_bits.append("全部" if limit is None else f"Top {limit}")
+    if args.no_staple:
+        title_bits.append("不含常备项与饮品")
+    if min_count > 1:
+        title_bits.append(f"出现≥{min_count}次")
+    title_bits.append(f"（匹配 {len(matched)} 道 / {win_slots} 餐次）")
+    lines = [" ".join(title_bits)]
+
+    if not shown:
+        lines.append("（无）")
+        return "\n".join(lines)
+    for item in shown:
+        lines.append(f"{item['rank']}. {item['name']}  {item['count']}")
+    if chart_path_str:
+        lines.append(f"图表：{chart_path_str}")
+    return "\n".join(lines)
+
+
+def menu_for_date(data, day: str, json_mode: bool = False) -> str:
+    by_meal = {m: [] for m in MEALS}
+    found = False
+    for s in data.get("nslots") or []:
+        if s["date"] == day:
+            found = True
+            by_meal[s["meal"]] = s["dishes"]
+    label = f"{day}（{weekday_cn(day)}）"
+    if json_mode:
+        return as_json({
+            "date": day,
+            "weekday": weekday_cn(day),
+            "found": found,
+            "meals": {m: by_meal[m] for m in MEALS},
+        })
+    if not found:
+        dates = sorted({s["date"] for s in data.get("nslots") or []})
+        prev = max((d for d in dates if d < day), default=None)
+        extra = f"最近一次文字餐单在 {prev}。" if prev else ""
+        return f"{label} 暂无文字餐单。{extra}".rstrip()
+    lines = [label]
+    for m in MEALS:
+        ds = by_meal[m]
+        if not ds:
+            lines.append(f"{m}：无文字餐单")
+        else:
+            lines.append(f"{m}（{len(ds)} 道）：{'、'.join(ds)}")
+    return "\n".join(lines)
+
+
+def cmd_today(args) -> str:
+    _bf, data = load_cached(args.refresh)
+    return menu_for_date(data, now_cairo().strftime("%Y-%m-%d"), json_mode=want_json(args))
+
+
+def cmd_date(args) -> str:
+    _bf, data = load_cached(args.refresh)
+    return menu_for_date(data, parse_date(args.day), json_mode=want_json(args))
+
+
+def cmd_new(args) -> str:
+    _bf, data = load_cached(args.refresh)
+    mr = month_row(data, parse_month(args.month))
+    mo = mr["month"]
+    news = [r for r in data["rows"] if r["first"][:7] == mo]
+    news.sort(key=lambda r: (-r["n"], r["first"], r["name"]))
+    if want_json(args):
+        return as_json({"month": mr, "count": len(news), "items": news})
+    tag = "，不足月" if mr.get("partial") else ""
+    lines = [f"{mo}{tag} 新菜 {fmt_int(len(news))} 道（当月首次出现，按已出现次数排序，最多列 40）"]
+    if not news:
+        lines.append("（无）")
+        return "\n".join(lines)
+    for i, r in enumerate(news[:40], 1):
+        lines.append(f"{i}. {r['name']}  首次 {r['first']}  已出现 {r['n']} 次  {r['main_meal']}")
+    if len(news) > 40:
+        lines.append(f"另有 {len(news) - 40} 道未列出")
+    return "\n".join(lines)
+
+
+def cmd_status(args) -> str:
+    if args.refresh:
+        do_refresh(export_xlsx=False, downloads=False)
+    st = {}
+    if STATUS_PATH.is_file():
+        try:
+            st = json.loads(STATUS_PATH.read_text())
+        except json.JSONDecodeError:
+            st = {}
+    slots_p = WORK / "slots.json"
+    xlsx_guess = st.get("xlsx")
+    if not xlsx_guess:
+        cands = sorted(ROOT.glob("SV餐厅菜品频次清单_*.xlsx"))
+        xlsx_guess = str(cands[-1]) if cands else None
+    d0 = st.get("d0")
+    d1 = st.get("d1")
+    if not d1 and (WORK / "stats.json").is_file():
+        stats = json.loads((WORK / "stats.json").read_text())
+        d0, d1 = stats.get("d0"), stats.get("d1")
+        st.setdefault("slots", stats.get("slots"))
+        st.setdefault("msgs", stats.get("msgs"))
+        st.setdefault("dates", stats.get("dates"))
+        st.setdefault("rows", stats.get("rows"))
+    if not d1 and slots_p.is_file():
+        slots = json.loads(slots_p.read_text())["slots"]
+        dates = sorted(s["date"] for s in slots)
+        d0, d1 = dates[0], dates[-1]
+        st.setdefault("slots", len(slots))
+
+    if want_json(args):
+        return as_json({
+            **st,
+            "d0": d0,
+            "d1": d1,
+            "mode": "online" if vault_ok() else "offline",
+            "offline": not vault_ok(),
+            "home": str(ROOT),
+            "work": str(WORK),
+            "slots_path": str(slots_p) if slots_p.is_file() else None,
+            "xlsx": xlsx_guess,
+        })
+
+    last = st.get("last_refresh")
+    if not last and slots_p.is_file():
+        mtime = datetime.datetime.fromtimestamp(slots_p.stat().st_mtime, CAIRO)
+        last = f"{mtime.strftime('%Y-%m-%d %H:%M')}（缓存文件时间，尚无 refresh 记录）"
+    else:
+        last = f"{last}（开罗时间）" if last else "尚无记录"
+
+    mode = "在线（已连接微信实时仓库）" if vault_ok() else "离线（仅本地缓存）"
+    lines = [
+        f"数据截至：{d1 or '未知'}（开罗时间）" + (f"  起始 {d0}" if d0 else ""),
+        f"上次刷新：{last}",
+        f"模式：{mode}",
+        f"目录：{ROOT}",
+    ]
+    bits = []
+    if st.get("msgs"):
+        bits.append(f"餐单文字 {fmt_int(st['msgs'])}")
+    if st.get("slots"):
+        bits.append(f"餐次 {fmt_int(st['slots'])}")
+    if st.get("dates"):
+        bits.append(f"覆盖 {fmt_int(st['dates'])} 天")
+    if st.get("occ"):
+        bits.append(f"出现 {fmt_int(st['occ'])} 次")
+    if st.get("dishes"):
+        bits.append(f"不同菜 {fmt_int(st['dishes'])} 道")
+    if bits:
+        lines.append(" ｜ ".join(bits))
+    lines.append(f"表格：{xlsx_guess or '按需生成（运行 export 生成）'}")
+    lines.append(f"缓存：{slots_p if slots_p.is_file() else '无 slots.json'}")
+    if st.get("downloads"):
+        lines.append(f"Downloads 副本：{st['downloads']}")
+    return "\n".join(lines)
+
+
+def build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        prog="sv-menu",
+        description="SV 餐厅餐单速查。默认读本地缓存，加 --refresh 会先从微信库更新缓存。",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""示例:
+  sv-menu status
+  sv-menu top 30 --days 30 --min-count 2 --no-staple --json
+  sv-menu month
+  sv-menu month 2024-07
+  sv-menu months --last 6
+  sv-menu dish 油条
+  sv-menu top 20 --no-staple --meal 午餐
+  sv-menu today
+  sv-menu date 2026-11-12
+  sv-menu new 2026-11
+  sv-menu export --downloads""",
+    )
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--refresh", action="store_true", default=argparse.SUPPRESS, help="查询前先从实时仓库更新缓存")
+    common.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="输出 JSON 格式")
+    p.add_argument("--refresh", action="store_true", default=argparse.SUPPRESS, help="查询前先从实时仓库更新缓存")
+    p.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="输出 JSON 格式")
+    sub = p.add_subparsers(dest="cmd")
+
+    p_ref = sub.add_parser("refresh", help="从实时仓库重新解析并刷新缓存（默认不生成 Excel）", parents=[common])
+    p_ref.add_argument("--export-xlsx", action="store_true", help="刷新后同时生成 Excel 频次清单")
+    p_ref.add_argument("--downloads", action="store_true", help="将生成的 Excel 复制一份到 ~/Downloads")
+
+    p_exp = sub.add_parser("export", help="基于缓存生成 Excel 频次清单", parents=[common])
+    p_exp.add_argument("--out", help="指定导出文件路径或目录（默认项目目录）")
+    p_exp.add_argument("--downloads", action="store_true", help="同时复制一份到 ~/Downloads")
+
+    p_month = sub.add_parser("month", help="某月概况和 Top 10", parents=[common])
+    p_month.add_argument("month", nargs="?", help="YYYY-MM，默认最新月")
+
+    p_months = sub.add_parser("months", help="按月一览", parents=[common])
+    p_months.add_argument("--last", type=int, metavar="N", help="只显示最近 N 个月")
+
+    p_dish = sub.add_parser("dish", help="按菜名搜索", parents=[common])
+    p_dish.add_argument("keyword", help="菜名关键词")
+
+    p_top = sub.add_parser("top", help="出现次数排行", parents=[common])
+    p_top.add_argument("n", nargs="?", type=int, default=15, help="条数，默认 15；传 0 或配合 --all 返回全部")
+    p_top.add_argument("--meal", choices=MEALS, help="按餐次筛选")
+    p_top.add_argument("--no-staple", action="store_true", help="排除常备项和饮品")
+    p_top.add_argument("--month", help="只统计某月，YYYY-MM")
+    p_top.add_argument("--days", type=int, metavar="N", help="只统计截止最新日期的最近 N 个自然日")
+    p_top.add_argument("--min-count", type=int, default=1, metavar="N", help="只保留至少出现 N 次的菜品")
+    p_top.add_argument("--all", action="store_true", help="返回全部符合条件的菜品")
+    p_top.add_argument("--chart", metavar="PNG|auto", help="直接生成横向柱状图 PNG（传文件路径，或传 auto 自动保存）")
+
+    sub.add_parser("today", help="今天各餐菜单", parents=[common])
+
+    p_date = sub.add_parser("date", help="指定日期各餐菜单", parents=[common])
+    p_date.add_argument("day", help="YYYY-MM-DD")
+
+    p_new = sub.add_parser("new", help="某月新菜", parents=[common])
+    p_new.add_argument("month", nargs="?", help="YYYY-MM，默认最新月")
+
+    sub.add_parser("status", help="数据截止日期与文件路径", parents=[common])
+    return p
+
+
+def main(argv=None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    args.refresh = bool(getattr(args, "refresh", False))
+    args.json = bool(getattr(args, "json", False))
+    if not args.cmd:
+        sys.stdout.write(USAGE)
+        return 0
+    handlers = {
+        "refresh": cmd_refresh,
+        "export": cmd_export,
+        "month": cmd_month,
+        "months": cmd_months,
+        "dish": cmd_dish,
+        "top": cmd_top,
+        "today": cmd_today,
+        "date": cmd_date,
+        "new": cmd_new,
+        "status": cmd_status,
+    }
+    try:
+        text = handlers[args.cmd](args)
+        print(text)
+        return 0
+    except BrokenPipeError:
+        return 0
+    except KeyboardInterrupt:
+        return 130
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
