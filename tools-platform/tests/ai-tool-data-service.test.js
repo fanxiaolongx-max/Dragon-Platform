@@ -122,7 +122,7 @@ test('browser-local data is digested, but secret-looking keys are never used', a
 
 test('chat route feeds tool data into grounding and the prompt', () => {
     const source = fs.readFileSync(path.join(__dirname, '../backend/routes/ai.js'), 'utf8');
-    assert.match(source, /aiToolDataService\.analyzeQuestion\(question, \{ contextQuestion, toolSlug, clientToolData \}\)/);
+    assert.match(source, /aiToolDataService\.analyzeQuestion\(question, \{ contextQuestion, toolSlug, clientToolData, user \}\)/);
     assert.match(source, /平台工具业务数据（只读/);
     assert.match(source, /4\.9 用户询问某个平台工具里的数据/);
     assert.match(source, /router\.get\('\/tool-local-keys', checkAuth/);

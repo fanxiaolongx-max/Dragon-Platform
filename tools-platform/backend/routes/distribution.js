@@ -5,10 +5,14 @@ const { runWithTenant, getTenantId, DEFAULT_TENANT_ID } = require('../models/ten
 
 router.patch('/', requireSuperAdmin, async (req, res, next) => {
     const { kind, id, sharedAccess } = req.body || {};
-    if (!['skill', 'cap'].includes(kind) || typeof id !== 'string' || id.length > 350 || typeof sharedAccess !== 'boolean') {
+    if (!['skill', 'cap', 'page'].includes(kind) || typeof id !== 'string' || id.length > 350 || typeof sharedAccess !== 'boolean') {
         return res.status(400).json({ error: '开放设置无效' });
     }
     try {
+        if (kind === 'page') {
+            const page = await require('../models/page-distribution').setPageAccess(id, sharedAccess);
+            return res.json({ sharedAccess: page.sharedAccess, page });
+        }
         const exists = await runWithTenant(DEFAULT_TENANT_ID, async () => {
             if (kind === 'skill') return (await require('../models/agent-skills-store').listAll()).some(item => item.id === id);
             const { groups } = await require('../models/home-capabilities').listCapabilities({ isAdmin: true });
@@ -17,6 +21,16 @@ router.patch('/', requireSuperAdmin, async (req, res, next) => {
         if (!exists) return res.status(404).json({ error: '系统空间中不存在该条目' });
         await setEntryAccess(`${kind}:${id}`, sharedAccess);
         res.json({ sharedAccess });
+    } catch (error) {
+        if (error.status) return res.status(error.status).json({ error: error.message });
+        next(error);
+    }
+});
+
+router.get('/pages', async (req, res, next) => {
+    try {
+        res.setHeader('Cache-Control', 'private, no-store');
+        res.json({ pages: await require('../models/page-distribution').listPages(req.user) });
     } catch (error) { next(error); }
 });
 

@@ -114,7 +114,8 @@ const remoteBackupSyncRepo = require('./models/remote-backup-sync-repository');
 const legacyJsonMigration = require('./models/legacy-json-migration');
 const configChangeMonitor = require('./models/config-change-monitor');
 const alertAiAnalyzer = require('./models/alert-ai-analyzer');
-const { checkAuth, requireAdmin, checkHtmlAuth, inSuperAdminSpace } = require('./middleware/auth');
+const { checkAuth, requireAdmin, checkHtmlAuth, inSuperAdminSpace, isSuperAdmin } = require('./middleware/auth');
+const pageDistribution = require('./models/page-distribution');
 const hostedAppsProxy = require('./models/hosted-apps/proxy');
 
 const app = express();
@@ -311,7 +312,18 @@ function shouldProtectHtmlEntry(req) {
 
 app.use((req, res, next) => {
     if (!shouldProtectHtmlEntry(req)) return next();
-    return checkHtmlAuth(req, res, next);
+    return checkHtmlAuth(req, res, async err => {
+        if (err) return next(err);
+        try {
+            if (req.user && !isSuperAdmin(req.user)) {
+                const pageId = pageDistribution.pageIdForPath(req.path);
+                if (pageId && !await pageDistribution.canAccessPage(pageId, req.user, { siteScripts: req.query?.siteScripts === '1' })) {
+                    return res.status(403).send('此工具未开放使用');
+                }
+            }
+            next();
+        } catch (gateError) { next(gateError); }
+    });
 });
 
 // Desktop builds keep uploaded media outside app.asar. Preserve the public URL
@@ -494,6 +506,16 @@ app.use('/api', (req, res, next) => {
         return requireAdmin(req, res, next);
     }
     next();
+});
+app.use('/api', async (req, res, next) => {
+    if (req.path.startsWith('/auth/')) return next();
+    if (!req.user || isSuperAdmin(req.user)) return next();
+    try {
+        if (!await pageDistribution.canAccessApi(req.path, req.method, req.user)) {
+            return res.status(403).json({ code: 'TOOL_NOT_SHARED', error: '此工具未开放使用' });
+        }
+        next();
+    } catch (error) { next(error); }
 });
 app.use('/api/uiv', uivRoutes);         // UIV12 脚本仓库 API
 app.use('/api/uiv-ai-adapter', uivAiAdapterRoutes); // UIVF12 AI 网站适配器
@@ -791,6 +813,7 @@ async function startServer() {
     }
 
     try {
+        await pageDistribution.ensureDefaults();
         await initializeTenantBuiltinTools(DEFAULT_TENANT_ID);
     } catch (error) {
         console.warn(`[custom-tools] 系统工具初始化失败，继续使用现有用户工具：${error.message}`);

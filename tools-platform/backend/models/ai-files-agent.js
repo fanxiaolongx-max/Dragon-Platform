@@ -19,8 +19,10 @@ function describeSize(bytes) {
 function toolset(ctx) {
     const uploads = Array.isArray(ctx.uploads) ? ctx.uploads : [];
     if (!uploads.length || !ctx.owner) return null;
-    const names = new Set(FILE_TOOLS);
-    const definitions = toolsService.definitions({ readOnly: true }).filter(tool => names.has(tool.name));
+    const allowed = typeof ctx.toolAccess === 'function' ? ctx.toolAccess : () => true;
+    const definitions = toolsService.definitions({ readOnly: true }).filter(tool => FILE_TOOLS.includes(tool.name) && allowed(tool.name));
+    if (!definitions.length) return null;
+    const names = new Set(definitions.map(tool => tool.name));
     const fs = require('fs');
     const lines = uploads.map(file => {
         const size = (() => { try { return describeSize(fs.statSync(file).size); } catch (_error) { return ''; } })();
@@ -43,12 +45,14 @@ ${lines.join('\n')}
  * @returns {Promise<{text, usage, toolLog}>}
  */
 async function runTurn({ client, systemInstruction, messages, ctx, signal, onDelta, onEvent, maxOutputTokens, temperature, model, extras = null, vision = null }) {
-    const files = toolset({ ...ctx, signal });
+    const allowed = ctx.toolAccess || await require('./agent-tool-access').forActor(ctx.user, ctx.owner);
+    const files = toolset({ ...ctx, signal, toolAccess: allowed });
     if (!files) throw Object.assign(new Error('没有可读取的附件'), { code: 'AGENT_UPLOAD_MISSING' });
     const sensitiveValues = ctx.sensitiveValues || [];
     const result = await agentLoop.runToolLoop({
         extras, // 附加工具组：浏览器、MCP（管理员的首页对话）
         vision, // 看图：view_image 与工具取得的图片
+        toolAccess: allowed,
         client, model, systemPrompt: redactText(`${systemInstruction}\n${files.prompt}`, { secrets: sensitiveValues }), messages, tools: files.definitions,
         write: event => (event.type === 'delta' ? onDelta?.(event.delta) : onEvent?.(event)),
         signal, maxOutputTokens, temperature, sensitiveValues, task: String(messages.at(-1)?.content || ''), callIdPrefix: 'files',

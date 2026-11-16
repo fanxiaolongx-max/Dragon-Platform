@@ -80,6 +80,9 @@ function rowToTool(row) {
         description: row.description || '',
         descriptionEn: row.description_en || i18nFallback.descriptionEn || '',
         tags,
+        mobileLayout: require('./tool-mobile-layout').classifyToolMobileLayoutFile(
+            path.join(getCustomToolsDir(), row.slug, 'index.html')
+        ),
         href: row.href,
         filePath: row.file_path,
         publicAccess: Number(row.public_access || 0) === 1,

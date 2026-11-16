@@ -137,7 +137,7 @@ fun RootShellScreen(vm: DragonClawViewModel) {
     var showServerDialog by remember { mutableStateOf(false) }
     var showSchedulesSheet by remember { mutableStateOf(false) }
     var showAlertCenterSheet by remember { mutableStateOf(false) }
-    BackHandler(enabled = effectiveProgress > 0.45f && !showSettingsSheet && !showAlertCenterSheet && !showServerDialog && !showSchedulesSheet) {
+    BackHandler(enabled = vm.activeWebTool == null && !vm.showNativeMetrics && effectiveProgress > 0.45f && !showSettingsSheet && !showAlertCenterSheet && !showServerDialog && !showSchedulesSheet) {
         animateSidebar(0f)
     }
     LaunchedEffect(drawerProgress.value > 0.85f) {
@@ -164,24 +164,9 @@ fun RootShellScreen(vm: DragonClawViewModel) {
         }
     }
 
-    when {
-        vm.activeWebTool != null -> {
-            ToolWebViewScreen(
-                vm = vm,
-                tool = vm.activeWebTool!!,
-                onClose = { vm.activeWebTool = null }
-            )
-            return
-        }
-        vm.showNativeMetrics -> {
-            MetricsMonitorRootScreen(
-                vm = vm,
-                onClose = { vm.showNativeMetrics = false }
-            )
-            return
-        }
-    }
-
+    // Keep the shell mounted behind full-screen tool/metrics overlays so closing returns
+    // directly to the exact ToolsHub scroll offset and filter state.
+    Box(modifier = Modifier.fillMaxSize()) {
     CompositionLocalProvider(LocalSuppressShellHorizontalGesture provides suppressHorizontalGesture) {
     BoxWithConstraints(
         modifier = Modifier
@@ -191,7 +176,7 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                 val touchSlop = viewConfiguration.touchSlop
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Main)
-                    if (vm.isVoiceChatActive || dragFraction >= 0f || suppressHorizontalGesture.value) return@awaitEachGesture
+                    if (vm.activeWebTool != null || vm.showNativeMetrics || vm.isVoiceChatActive || dragFraction >= 0f || suppressHorizontalGesture.value) return@awaitEachGesture
                     childScrollActiveForGesture = false
                     val startProgress = drawerProgress.value
                     var lockState = GestureAxisLock.UNDECIDED
@@ -1034,6 +1019,23 @@ fun RootShellScreen(vm: DragonClawViewModel) {
             vm = vm,
             onDismiss = { showAlertCenterSheet = false }
         )
+    }
+
+    when {
+        vm.activeWebTool != null -> {
+            ToolWebViewScreen(
+                vm = vm,
+                tool = vm.activeWebTool!!,
+                onClose = { vm.activeWebTool = null }
+            )
+        }
+        vm.showNativeMetrics -> {
+            MetricsMonitorRootScreen(
+                vm = vm,
+                onClose = { vm.showNativeMetrics = false }
+            )
+        }
+    }
     }
     }
 }

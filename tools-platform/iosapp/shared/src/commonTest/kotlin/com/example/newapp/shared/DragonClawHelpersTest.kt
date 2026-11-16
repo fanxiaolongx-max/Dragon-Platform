@@ -589,4 +589,30 @@ class DragonClawHelpersTest {
         )
         assertEquals(listOf("desktop:codex:d_pin", "ai:s_pin_old", "ai:s_pin_unranked"), reorderedGroups[0].items.map { it.stableKey })
     }
+
+    @Test
+    fun alertCenterEventWithStatusPreservesDetailEntries() {
+        val raw = """
+            {
+              "events": [
+                {
+                  "id": "evt_1",
+                  "event_type": "system",
+                  "severity": "info",
+                  "status": "unread",
+                  "title": "告警台已启用",
+                  "detail": {"version": 1, "source": "boot"}
+                }
+              ]
+            }
+        """.trimIndent()
+        val parsed = DragonClawHelpers.lenientJson.decodeFromString(AlertCenterEventsResponse.serializer(), raw)
+        val ev = parsed.events.single()
+        assertTrue(ev.isUnread)
+        assertEquals(listOf("version: 1", "source: boot"), ev.detailEntries())
+
+        val readCopy = ev.withStatus("read")
+        assertFalse(readCopy.isUnread)
+        assertEquals(listOf("version: 1", "source: boot"), readCopy.detailEntries())
+    }
 }

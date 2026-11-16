@@ -224,6 +224,16 @@ test('metrics are found by name each month, and keys that changed between months
     await require('../backend/models/sla-targets-repository').replaceTargets({});
     assert.deepEqual((await data.findMetrics('2026-09', '延期 补授权')).metrics, ['延期补授权 = 95%']);
     assert.equal((await data.findMetrics('2026-09', 'SR FRT')).found, 0);
+    // Negative exclusion modifiers avoid recalling unwanted metrics such as EOS
+    await repo.registerSnapshot({ id: 'snap-oct-eos', timestamp: '2026-11-02T00:00:00Z', target_period: '2026-10', topMetrics: [
+        { key: 'm_fix', label: '存储整改', value: '92%' },
+        { key: 'm_fix_exec', label: '整改确认', value: '95%' },
+        { key: 'm_eos_all', label: '全量EOS-产品整改', value: '80%' },
+        { key: 'm_eos_crit', label: '重急EOS收编2026', value: '88%' }
+    ] }, { allowMissingBatch: true });
+    assert.deepEqual((await data.findMetrics('2026-10', '整改 不需要显示EOS相关的指标')).metrics, ['存储整改 = 92%', '整改确认 = 95%']);
+    assert.deepEqual((await data.findMetrics('2026-10', '整改 -eos')).metrics, ['存储整改 = 92%', '整改确认 = 95%']);
+    assert.deepEqual((await data.findMetrics('2026-10', '不需要EOS')).excluded, ['eos']);
 });
 
 test('the report prompt holds the style and the rules for every cell; chat edits change only the items they name', async () => {

@@ -17,6 +17,7 @@ object ToolNavigation {
         val custom = Regex("^/tools/([^/]+)/?$").matchEntire(target.encodedPath)
         if (custom != null) builder.encodedPath = "/custom-tools/${custom.groupValues[1]}/index.html"
         builder.parameters["standalone"] = "1"
+        builder.parameters["tools_mobile"] = "1"
         return builder.buildString()
     }
 }

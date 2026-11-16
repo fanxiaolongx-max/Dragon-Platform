@@ -1,3 +1,5 @@
+import AVFoundation
+import CryptoKit
 import SwiftUI
 import UIKit
 import shared
@@ -168,6 +170,20 @@ struct MarkdownMessageView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .environment(\.openURL, OpenURLAction { url in
+            let urlStr = url.absoluteString
+            if DragonClawHelpers.shared.isPlatformAgentFileUrl(rawUrlOrPath: urlStr, baseUrl: baseUrl) {
+                Task { @MainActor in
+                    await PlatformAssetDownloader.shared.downloadAndPresentShareSheet(
+                        urlString: urlStr,
+                        token: token,
+                        baseUrl: baseUrl
+                    )
+                }
+                return .handled
+            }
+            return .systemAction
+        })
     }
 
     @ViewBuilder
@@ -271,6 +287,20 @@ struct MarkdownMessageView: View {
                 ) { _ in
                     onTapImage?(finalUrl, block.imageAlt)
                 }
+                .padding(.vertical, 2)
+            }
+
+        case .audio:
+            let resolved = DragonClawHelpers.shared.resolveImageSourceUrl(baseUrl: baseUrl, rawSrc: block.audioUrl)
+            let finalUrl = resolved.isEmpty ? block.audioUrl : resolved
+            if !finalUrl.isEmpty {
+                AuthenticatedAudioPlayerCard(
+                    urlString: finalUrl,
+                    title: block.audioTitle,
+                    token: token,
+                    baseUrl: baseUrl,
+                    palette: palette
+                )
                 .padding(.vertical, 2)
             }
 
@@ -414,8 +444,11 @@ struct MarkdownMessageView: View {
                 piece.font = .system(size: baseSize, weight: bold ? .semibold : .medium)
                 piece.foregroundColor = palette.accentStrong
                 piece.underlineStyle = .single
-                if let urlStr = span.url, let url = URL(string: urlStr) {
-                    piece.link = url
+                if let urlStr = span.url {
+                    let resolved = DragonClawHelpers.shared.resolveImageSourceUrl(baseUrl: baseUrl, rawSrc: urlStr)
+                    if let url = URL(string: resolved.isEmpty ? urlStr : resolved) {
+                        piece.link = url
+                    }
                 }
                 result += piece
 
@@ -1350,4 +1383,450 @@ private struct ActivityShareController: UIViewControllerRepresentable {
         UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
     }
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
+/// Authenticated media cache & downloader for inline chat audio and `/api/agent-files/` links.
+@MainActor
+final class PlatformAssetDownloader {
+    static let shared = PlatformAssetDownloader()
+    private init() {}
+
+    func fetchCachedFile(urlString: String, token: String, baseUrl: String) async throws -> URL {
+        let resolvedStr = DragonClawHelpers.shared.resolveImageSourceUrl(baseUrl: baseUrl, rawSrc: urlString)
+        let targetStr = resolvedStr.isEmpty ? urlString.trimmingCharacters(in: .whitespacesAndNewlines) : resolvedStr
+        guard !targetStr.isEmpty else {
+            throw URLError(.badURL)
+        }
+
+        if targetStr.lowercased().hasPrefix("data:"),
+           let commaIdx = targetStr.firstIndex(of: ",") {
+            let meta = targetStr[..<commaIdx].lowercased()
+            let ext = inferAudioExtension(mimeOrName: meta, fallbackUrl: targetStr)
+            let dataPart = String(targetStr[targetStr.index(after: commaIdx)...])
+            guard let data = Data(base64Encoded: dataPart, options: .ignoreUnknownCharacters) else {
+                throw URLError(.cannotDecodeContentData)
+            }
+            let dest = try cacheFileURL(forKey: "\(targetStr.prefix(64))#\(data.count)", ext: ext)
+            if !FileManager.default.fileExists(atPath: dest.path) {
+                try data.write(to: dest, options: .atomic)
+            }
+            return dest
+        }
+
+        let displayName = DragonClawHelpers.shared.extractAgentFileDisplayName(urlOrPath: targetStr, fallback: "audio.mp3")
+        let ext = inferAudioExtension(mimeOrName: displayName, fallbackUrl: targetStr)
+        let cacheKey = "\(targetStr)#\(token.prefix(12))"
+        let cachedURL = try cacheFileURL(forKey: cacheKey, ext: ext)
+        if FileManager.default.fileExists(atPath: cachedURL.path),
+           let attrs = try? FileManager.default.attributesOfItem(atPath: cachedURL.path),
+           let size = attrs[.size] as? NSNumber,
+           size.intValue > 0 {
+            return cachedURL
+        }
+
+        guard let url = URL(string: targetStr) else {
+            throw URLError(.badURL)
+        }
+        var req = URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad, timeoutInterval: 45)
+        if !token.isEmpty,
+           DragonClawHelpers.shared.shouldAttachBearerAuth(urlString: targetStr, baseUrl: baseUrl) {
+            req.setValue(DragonClawHelpers.shared.normalizeBearerHeader(rawToken: token), forHTTPHeaderField: "Authorization")
+        }
+
+        let (data, response) = try await URLSession.shared.data(for: req)
+        if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+            throw NSError(
+                domain: "PlatformAssetDownloader",
+                code: http.statusCode,
+                userInfo: [NSLocalizedDescriptionKey: "HTTP \(http.statusCode)"]
+            )
+        }
+        guard !data.isEmpty else {
+            throw URLError(.zeroByteResource)
+        }
+        try data.write(to: cachedURL, options: .atomic)
+        return cachedURL
+    }
+
+    func downloadAndPresentShareSheet(urlString: String, token: String, baseUrl: String) async {
+        do {
+            let cachedURL = try await fetchCachedFile(urlString: urlString, token: token, baseUrl: baseUrl)
+            let suggestedName = sanitizedFilename(
+                DragonClawHelpers.shared.extractAgentFileDisplayName(urlOrPath: urlString, fallback: cachedURL.lastPathComponent)
+            )
+            let exportDir = FileManager.default.temporaryDirectory.appendingPathComponent("dragonclaw_exports", isDirectory: true)
+            try? FileManager.default.createDirectory(at: exportDir, withIntermediateDirectories: true)
+            let exportURL = exportDir.appendingPathComponent(suggestedName)
+            try? FileManager.default.removeItem(at: exportURL)
+            try FileManager.default.copyItem(at: cachedURL, to: exportURL)
+            presentShareSheet(items: [exportURL])
+        } catch {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        }
+    }
+
+    private func presentShareSheet(items: [Any]) {
+        guard let topVC = Self.topMostViewController() else { return }
+        let activity = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        if let pop = activity.popoverPresentationController {
+            pop.sourceView = topVC.view
+            pop.sourceRect = CGRect(x: topVC.view.bounds.midX, y: topVC.view.bounds.maxY - 60, width: 1, height: 1)
+        }
+        topVC.present(activity, animated: true)
+    }
+
+    private static func topMostViewController() -> UIViewController? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let keyWindow = scenes.flatMap { $0.windows }.first(where: { $0.isKeyWindow }) ?? scenes.first?.windows.first
+        var current = keyWindow?.rootViewController
+        while let presented = current?.presentedViewController {
+            current = presented
+        }
+        return current
+    }
+
+    private func cacheFileURL(forKey key: String, ext: String) throws -> URL {
+        let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        let folder = base.appendingPathComponent("dragonclaw_media", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let digest = SHA256.hash(data: Data(key.utf8)).map { String(format: "%02x", $0) }.joined()
+        return folder.appendingPathComponent("\(digest).\(ext)")
+    }
+
+    private func inferAudioExtension(mimeOrName: String, fallbackUrl: String) -> String {
+        let lower = (mimeOrName + " " + fallbackUrl).lowercased()
+        for ext in ["mp3", "wav", "m4a", "aac", "ogg", "flac", "opus", "webm"] {
+            if lower.contains(".\(ext)") || lower.contains("audio/\(ext)") {
+                return ext
+            }
+        }
+        if lower.contains("audio/mpeg") { return "mp3" }
+        if lower.contains("audio/mp4") { return "m4a" }
+        return "mp3"
+    }
+
+    private func sanitizedFilename(_ raw: String) -> String {
+        let cleaned = raw.replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: ":", with: "_")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return cleaned.isEmpty ? "audio.mp3" : cleaned
+    }
+}
+
+/// Shared inline audio playback controller so only one chat audio clip plays at a time.
+@Observable
+@MainActor
+final class ChatAudioPlayerController: NSObject, AVAudioPlayerDelegate {
+    static let shared = ChatAudioPlayerController()
+
+    var activeUrl: String?
+    var loadingUrl: String?
+    var isPlaying: Bool = false
+    var currentTime: TimeInterval = 0
+    var duration: TimeInterval = 0
+    var errorByUrl: [String: String] = [:]
+
+    private var player: AVAudioPlayer?
+    private var progressTimer: Timer?
+    private var loadTask: Task<Void, Never>?
+    private var requestSerial: Int = 0
+
+    private override init() {
+        super.init()
+    }
+
+    func togglePlay(urlString: String, token: String, baseUrl: String) {
+        if loadingUrl == urlString {
+            stop()
+            return
+        }
+        if activeUrl == urlString, let existing = player {
+            if existing.isPlaying {
+                existing.pause()
+                isPlaying = false
+                stopProgressTimer()
+            } else {
+                do {
+                    try configurePlaybackAudioSession()
+                    existing.play()
+                    isPlaying = true
+                    startProgressTimer()
+                } catch {
+                    errorByUrl[urlString] = error.localizedDescription
+                }
+            }
+            return
+        }
+
+        stop()
+        requestSerial += 1
+        let expectedSerial = requestSerial
+        activeUrl = urlString
+        loadingUrl = urlString
+        errorByUrl[urlString] = nil
+
+        loadTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                let fileURL = try await PlatformAssetDownloader.shared.fetchCachedFile(
+                    urlString: urlString,
+                    token: token,
+                    baseUrl: baseUrl
+                )
+                guard expectedSerial == self.requestSerial, !Task.isCancelled else { return }
+                let audioPlayer = try AVAudioPlayer(contentsOf: fileURL)
+                audioPlayer.delegate = self
+                audioPlayer.prepareToPlay()
+                try self.configurePlaybackAudioSession()
+                self.player = audioPlayer
+                self.loadingUrl = nil
+                self.duration = audioPlayer.duration
+                self.currentTime = audioPlayer.currentTime
+                if audioPlayer.play() {
+                    self.isPlaying = true
+                    self.startProgressTimer()
+                } else {
+                    self.isPlaying = false
+                    self.errorByUrl[urlString] = "播放启动失败"
+                }
+            } catch is CancellationError {
+                // Superseded by a newer tap or stop
+            } catch {
+                guard expectedSerial == self.requestSerial else { return }
+                self.loadingUrl = nil
+                self.isPlaying = false
+                self.errorByUrl[urlString] = error.localizedDescription
+            }
+        }
+    }
+
+    func seek(urlString: String, toFraction fraction: Double) {
+        guard activeUrl == urlString, let existing = player, existing.duration > 0 else { return }
+        let clamped = min(max(fraction, 0), 1)
+        existing.currentTime = existing.duration * clamped
+        currentTime = existing.currentTime
+    }
+
+    func stop() {
+        loadTask?.cancel()
+        loadTask = nil
+        stopProgressTimer()
+        player?.stop()
+        player = nil
+        loadingUrl = nil
+        isPlaying = false
+        currentTime = 0
+        duration = 0
+        activeUrl = nil
+    }
+
+    private func configurePlaybackAudioSession() throws {
+        let session = AVAudioSession.sharedInstance()
+        try session.setCategory(.playback, mode: .default, options: [])
+        try session.setActive(true)
+    }
+
+    private func startProgressTimer() {
+        stopProgressTimer()
+        progressTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, let p = self.player else { return }
+                self.currentTime = p.currentTime
+                self.duration = p.duration
+                self.isPlaying = p.isPlaying
+                if !p.isPlaying {
+                    self.stopProgressTimer()
+                }
+            }
+        }
+    }
+
+    private func stopProgressTimer() {
+        progressTimer?.invalidate()
+        progressTimer = nil
+    }
+
+    nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        Task { @MainActor [weak self] in
+            guard let self, self.player === player else { return }
+            self.stopProgressTimer()
+            self.isPlaying = false
+            player.currentTime = 0
+            self.currentTime = 0
+        }
+    }
+
+    nonisolated func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
+        Task { @MainActor [weak self] in
+            guard let self, self.player === player else { return }
+            self.stopProgressTimer()
+            self.isPlaying = false
+            if let key = self.activeUrl {
+                self.errorByUrl[key] = error?.localizedDescription ?? "音频解码失败"
+            }
+        }
+    }
+}
+
+struct AuthenticatedAudioPlayerCard: View {
+    let urlString: String
+    let title: String
+    let token: String
+    let baseUrl: String
+    let palette: DragonClawPalette
+
+    @State private var isExporting = false
+    private let controller = ChatAudioPlayerController.shared
+
+    private var displayTitle: String {
+        if !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return title
+        }
+        return DragonClawHelpers.shared.extractAgentFileDisplayName(urlOrPath: urlString, fallback: "语音音频.mp3")
+    }
+
+    private var isActive: Bool {
+        controller.activeUrl == urlString
+    }
+
+    private var isLoading: Bool {
+        controller.loadingUrl == urlString
+    }
+
+    private var isPlayingNow: Bool {
+        isActive && controller.isPlaying
+    }
+
+    private var progress: Double {
+        guard isActive, controller.duration > 0 else { return 0 }
+        return min(max(controller.currentTime / controller.duration, 0), 1)
+    }
+
+    private var timeLabel: String {
+        guard isActive, controller.duration > 0 else {
+            return "点击播放"
+        }
+        return "\(Self.formatClock(controller.currentTime)) / \(Self.formatClock(controller.duration))"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 11) {
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    controller.togglePlay(urlString: urlString, token: token, baseUrl: baseUrl)
+                } label: {
+                    ZStack {
+                        Circle()
+                            .fill(palette.accentStrong)
+                            .frame(width: 38, height: 38)
+                        if isLoading {
+                            ProgressView()
+                                .tint(.white)
+                                .scaleEffect(0.8)
+                        } else {
+                            Image(systemName: isPlayingNow ? "pause.fill" : "play.fill")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .offset(x: isPlayingNow ? 0 : 1)
+                        }
+                    }
+                    .frame(width: 44, height: 44)
+                    .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "waveform")
+                            .font(.system(size: 11.5, weight: .semibold))
+                            .foregroundStyle(palette.accentStrong)
+                        Text(displayTitle)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(palette.inkPrimary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+
+                    GeometryReader { geo in
+                        let width = max(geo.size.width, 1)
+                        ZStack(alignment: .leading) {
+                            Capsule()
+                                .fill(palette.hairLine.opacity(palette.isDark ? 0.9 : 1))
+                                .frame(height: 5)
+                            Capsule()
+                                .fill(palette.accentStrong)
+                                .frame(width: max(width * progress, isActive && controller.duration > 0 ? 6 : 0), height: 5)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                        .contentShape(Rectangle())
+                        .gesture(
+                            DragGesture(minimumDistance: 0)
+                                .onChanged { value in
+                                    guard isActive, controller.duration > 0 else { return }
+                                    controller.seek(urlString: urlString, toFraction: Double(value.location.x / width))
+                                }
+                        )
+                    }
+                    .frame(height: 16)
+
+                    HStack {
+                        if let err = controller.errorByUrl[urlString], !err.isEmpty {
+                            Text(err)
+                                .font(.system(size: 11))
+                                .foregroundStyle(.red)
+                                .lineLimit(1)
+                        } else {
+                            Text(timeLabel)
+                                .font(.system(size: 11, weight: .medium).monospacedDigit())
+                                .foregroundStyle(palette.inkMuted)
+                        }
+                        Spacer()
+                    }
+                }
+
+                Button {
+                    guard !isExporting else { return }
+                    isExporting = true
+                    Task { @MainActor in
+                        await PlatformAssetDownloader.shared.downloadAndPresentShareSheet(
+                            urlString: urlString,
+                            token: token,
+                            baseUrl: baseUrl
+                        )
+                        isExporting = false
+                    }
+                } label: {
+                    Group {
+                        if isExporting {
+                            ProgressView()
+                                .scaleEffect(0.75)
+                        } else {
+                            Image(systemName: "arrow.down.circle")
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundStyle(palette.inkSecondary)
+                        }
+                    }
+                    .frame(width: 36, height: 36)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("下载音频")
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(palette.elevatedSurface.opacity(palette.isDark ? 0.85 : 0.92), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(isPlayingNow ? palette.accentStrong.opacity(0.45) : palette.hairLine, lineWidth: isPlayingNow ? 1 : 0.75)
+        )
+    }
+
+    private static func formatClock(_ seconds: TimeInterval) -> String {
+        guard seconds.isFinite && seconds >= 0 else { return "00:00" }
+        let total = Int(seconds.rounded(.down))
+        return String(format: "%02d:%02d", total / 60, total % 60)
+    }
 }

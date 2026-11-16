@@ -29,10 +29,17 @@ const productScopeRepo = require('../models/product-scope-repository');
 const { DEFAULT_TENANT_ID, getTenantId, runWithTenant } = require('../models/tenant-context');
 const productUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 1 } });
 
-router.use('/python-updater', require('./python-updater'));
-router.use('/tool-mv9strpn/warehouse', require('./ezscan-warehouse'));
+const requireDistributedTool = slug => async (req, res, next) => {
+    try {
+        if (!req.user || isSuperAdmin(req.user) || await distribution.resolveTool(slug, req.user)) return next();
+        return res.status(403).json({ error: '此工具未开放使用', code: 'TOOL_NOT_SHARED' });
+    } catch (error) { next(error); }
+};
 
-router.get('/tool-mumxi3px/products', async (req, res, next) => {
+router.use('/python-updater', require('./python-updater'));
+router.use('/tool-mv9strpn/warehouse', requireDistributedTool('tool-mv9strpn'), require('./ezscan-warehouse'));
+
+router.get('/tool-mumxi3px/products', requireDistributedTool('tool-mumxi3px'), async (req, res, next) => {
     try { res.json(await productScopeRepo.loadProducts()); } catch (err) { next(err); }
 });
 // GET /api/custom-tools/team-tools：超级管理员查看各团队自己上传的工具（不含平台内置工具），打开地址为沙箱化的 /team-tools/…
@@ -57,7 +64,7 @@ router.get('/team-tools', async (req, res) => {
     }
 });
 
-router.post('/tool-mumxi3px/products/import', requireAdmin, (req, res, next) => {
+router.post('/tool-mumxi3px/products/import', requireAdmin, requireDistributedTool('tool-mumxi3px'), (req, res, next) => {
     req.suppressBodyLog = true;
     const tenantId = getTenantId();
     productUpload.single('file')(req, res, err => {
@@ -290,6 +297,9 @@ router.post('/f12-to-extension/scripts', requireAdmin, async (req, res) => {
     try {
         const admin = isSuperAdmin(req.user);
         if (!admin && getTenantId() === DEFAULT_TENANT_ID) return res.status(403).json({ error: '不能修改系统空间的脚本' });
+        if (!admin && !await distribution.resolveTool('f12-to-extension', req.user)) {
+            return res.status(403).json({ error: '打包工具未开放', code: 'TOOL_NOT_SHARED' });
+        }
         const script = await f12ScriptPresetsRepository.savePreset(req.body || {});
         if (!admin) await distribution.setPersonalEntry(req.user, `cap:f12:server:${script.id}`, { local: true });
         res.status(201).json({ success: true, script });
@@ -405,7 +415,7 @@ function nextLicenseMonth(month) {
     return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
-router.post('/f12-to-extension/licenses/:licenseId/renew', requireAdmin, (req, res) => {
+router.post('/f12-to-extension/licenses/:licenseId/renew', requireSuperAdmin, (req, res) => {
     try {
         const previous = f12LicenseRegistry.getRecord(req.params.licenseId);
         if (!previous) return res.status(404).json({ error: '未找到 License 记录' });

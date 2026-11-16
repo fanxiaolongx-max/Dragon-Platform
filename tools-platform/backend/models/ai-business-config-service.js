@@ -386,16 +386,16 @@ async function loadDocuments() {
     const reportDb = await openReadOnlyDatabase(getReportDbPath());
     try {
         const [scripts, scriptCategories, toolRegistry, targets, groups, groupItems, prefs, categories, dictionaries, platformConfig] = await Promise.all([
-            dbAll(toolsDb, 'SELECT id, name, category, url, payload_json, updated_at FROM uiv_scripts ORDER BY updated_at DESC, rowid DESC'),
+            dbAllOptional(toolsDb, 'SELECT id, name, category, url, payload_json, updated_at FROM uiv_scripts ORDER BY updated_at DESC, rowid DESC'),
             dbAllOptional(toolsDb, 'SELECT name, created_at FROM uiv_categories ORDER BY rowid'),
             dbAllOptional(toolsDb, 'SELECT slug, name, description, tags_json, href, file_path, public_access, updated_at FROM custom_tools ORDER BY sort_order, slug'),
-            dbAll(toolsDb, 'SELECT target_key, label, target_type, weight, auto_fill, is_percent, exceed_by, bonus, extra_config_json, updated_at FROM sla_targets ORDER BY label, target_key'),
-            dbAll(toolsDb, 'SELECT id, group_key, name, sort_order, updated_at FROM sla_groups ORDER BY sort_order, id'),
-            dbAll(toolsDb, 'SELECT group_id, item_name, item_sort_order FROM sla_group_items ORDER BY group_id, item_sort_order, id'),
-            dbAll(toolsDb, 'SELECT pref_key, pref_kind, payload_json, updated_at FROM sla_prefs ORDER BY updated_at DESC'),
-            dbAll(toolsDb, 'SELECT name, created_at FROM sla_categories ORDER BY rowid'),
-            dbAll(toolsDb, "SELECT dict_key, dict_value, category, updated_at FROM sys_dictionaries WHERE category = 'i18n' ORDER BY dict_key"),
-            dbAll(reportDb, 'SELECT key_name, value_json, updated_at FROM PlatformConfig ORDER BY key_name')
+            dbAllOptional(toolsDb, 'SELECT target_key, label, target_type, weight, auto_fill, is_percent, exceed_by, bonus, extra_config_json, updated_at FROM sla_targets ORDER BY label, target_key'),
+            dbAllOptional(toolsDb, 'SELECT id, group_key, name, sort_order, updated_at FROM sla_groups ORDER BY sort_order, id'),
+            dbAllOptional(toolsDb, 'SELECT group_id, item_name, item_sort_order FROM sla_group_items ORDER BY group_id, item_sort_order, id'),
+            dbAllOptional(toolsDb, 'SELECT pref_key, pref_kind, payload_json, updated_at FROM sla_prefs ORDER BY updated_at DESC'),
+            dbAllOptional(toolsDb, 'SELECT name, created_at FROM sla_categories ORDER BY rowid'),
+            dbAllOptional(toolsDb, "SELECT dict_key, dict_value, category, updated_at FROM sys_dictionaries WHERE category = 'i18n' ORDER BY dict_key"),
+            dbAllOptional(reportDb, 'SELECT key_name, value_json, updated_at FROM PlatformConfig ORDER BY key_name')
         ]);
         const documents = [
             ...buildScriptDocuments(scripts, scriptCategories),
@@ -450,8 +450,36 @@ function wantsFullTargetList(query, documents) {
 // 问题里的外部网址不是业务配置的检索词：脚本正文里到处是 https 链接，留着会把无关脚本排到前面
 const EXTERNAL_URL_RE = /https?:\/\/\S+/gi;
 
-async function search(question, { limit = 7 } = {}) {
+async function visibleDocumentsForUser(documents, user) {
+    if (!user || require('../middleware/auth').isSuperAdmin(user)) return documents;
+    const pageDistribution = require('./page-distribution');
+    const distribution = require('./tool-distribution');
+    const [canUiv, canMetrics, availableTools] = await Promise.all([
+        pageDistribution.canAccessUivScripts(user),
+        pageDistribution.canAccessAnyPage(['report', 'sla', 'monthly', 'bigscreen', 'expedite', 'frt'], user),
+        distribution.listAvailable(user)
+    ]);
+    const allowedSlugs = new Set(availableTools.map(tool => tool.slug));
+    const metricKinds = new Set(['metric-group', 'metric-target', 'metric-target-all', 'custom-metric', 'sla-pref', 'metric-catalog', 'dictionary', 'platform-config']);
+    return documents.flatMap(doc => {
+        if (doc.kind.startsWith('uiv-') && !canUiv) return [];
+        if (metricKinds.has(doc.kind) && !canMetrics) return [];
+        if (doc.kind === 'tool-registry') {
+            const slug = String(doc.source || '').split('#')[1] || '';
+            return allowedSlugs.has(slug) ? [doc] : [];
+        }
+        if (doc.kind === 'tool-catalog') {
+            if (!availableTools.length) return [];
+            const content = availableTools.map(tool => `${tool.name || tool.slug} · ${tool.slug} · ${tool.publicAccess ? '公开' : '登录后访问'} · ${tool.href || ''}`).join('\n');
+            return [makeDocument({ kind: 'tool-catalog', source: doc.source, title: `HTML 工具注册目录（${availableTools.length} 个）`, updatedAt: doc.updatedAt, content })];
+        }
+        return [doc];
+    });
+}
+
+async function search(question, { limit = 7, user = null } = {}) {
     const loaded = await loadDocuments();
+    const visibleDocs = await visibleDocumentsForUser(loaded.documents, user);
     const raw = String(question || '').toLowerCase();
     const query = raw.replace(EXTERNAL_URL_RE, ' ').replace(/\s+/g, ' ').trim();
     const terms = extractTerms(query);
@@ -459,8 +487,8 @@ async function search(question, { limit = 7 } = {}) {
     if (!terms.length && !broadIntent) return { results: [], status: loaded.status };
     // 讲外部网页（打开 / 抓取某个网址）且没有业务配置意图：不检索平台配置
     if (!broadIntent && query !== raw.trim()) return { results: [], status: loaded.status };
-    if (wantsFullTargetList(query, loaded.documents)) {
-        const document = loaded.documents.find(item => item.kind === 'metric-target-all');
+    if (wantsFullTargetList(query, visibleDocs)) {
+        const document = visibleDocs.find(item => item.kind === 'metric-target-all');
         if (document) {
             return {
                 mode: 'full-target-list',
@@ -476,7 +504,7 @@ async function search(question, { limit = 7 } = {}) {
             };
         }
     }
-    const ranked = loaded.documents.filter(document => document.kind !== 'metric-target-all').map(document => {
+    const ranked = visibleDocs.filter(document => document.kind !== 'metric-target-all').map(document => {
         let score = intentBoost(query, document.kind);
         if (['metric-target', 'custom-metric'].includes(document.kind)) {
             const metricName = document.title.replace(/^(?:指标目标规则|自定义指标)：/, '').trim().toLowerCase();

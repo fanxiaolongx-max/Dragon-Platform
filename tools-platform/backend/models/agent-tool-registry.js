@@ -140,7 +140,9 @@ async function create({ session, user, skillIds = [], messages = [], skillCatalo
     if (!(session.loadedTools instanceof Set)) session.loadedTools = new Set();
     if (!(session.loadedSkills instanceof Set)) session.loadedSkills = new Set();
     const actor = user ?? await require('./tool-distribution').actorForOwner(session.owner);
-    const allowed = await require('./agent-tool-access').forActor(actor);
+    const accessCheck = await require('./agent-tool-access').forActor(actor);
+    const allowUivScripts = !actor || require('../middleware/auth').isSuperAdmin(actor) || await require('./page-distribution').canAccessUivScripts(actor);
+    const allowed = name => accessCheck(name) && (allowUivScripts || !GROUPS.uiv.names.includes(name));
     const core = withCore ? toolsService.definitions({ readOnly }).filter(tool => allowed(tool.name)) : [];
     const coreByName = new Map(core.map(item => [item.name, item]));
     // 附加工具组（浏览器、MCP 服务）：整组按需加载，执行与审批由各组自己的 kindOf / preview / execute 提供

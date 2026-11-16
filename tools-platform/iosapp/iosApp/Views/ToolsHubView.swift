@@ -3,10 +3,14 @@ import shared
 
 struct ToolsHubView: View {
     @Bindable var store: DragonClawStore
-    @State private var selectedCategory: ToolCategoryFilter = .all
+    @State private var scrollPosition = ScrollPosition(edge: .top)
+    @State private var isRestoringScroll = false
 
     private var palette: DragonClawPalette { store.palette }
     private var lang: String { store.language }
+    private var selectedCategory: ToolCategoryFilter {
+        ToolCategoryFilter(rawValue: store.toolsCategoryFilterRaw) ?? .all
+    }
 
     private enum ToolCategoryFilter: String, CaseIterable {
         case all, native, data, analytics, workflow, custom
@@ -79,13 +83,56 @@ struct ToolsHubView: View {
             .padding(.vertical, 10)
             .padding(.bottom, 24)
         }
+        .scrollPosition($scrollPosition)
+        .onScrollGeometryChange(for: CGFloat.self) { geo in
+            max(0, geo.contentOffset.y + geo.contentInsets.top)
+        } action: { _, newY in
+            if store.activeWebTool == nil && !store.showNativeMetrics && !isRestoringScroll {
+                store.toolsScrollOffsetY = newY
+            }
+        }
+        .onChange(of: store.activeWebTool == nil) { _, isClosed in
+            if isClosed {
+                restoreSavedToolsScroll()
+            }
+        }
+        .onChange(of: store.showNativeMetrics) { _, isOpen in
+            if !isOpen {
+                restoreSavedToolsScroll()
+            }
+        }
         .onAppear {
-            store.loadToolNavState()
+            if store.toolsScrollOffsetY > 0 {
+                restoreSavedToolsScroll()
+            }
+            if store.favoriteToolIds.isEmpty && store.recentToolIds.isEmpty {
+                store.loadToolNavState()
+            }
         }
         .refreshable {
             store.loadToolsCatalog()
             store.loadAlertSummary()
             store.loadToolNavState()
+        }
+    }
+
+    private func restoreSavedToolsScroll() {
+        let targetY = store.toolsScrollOffsetY
+        guard targetY > 0 else { return }
+        isRestoringScroll = true
+        let applyOffset = {
+            var tx = Transaction()
+            tx.disablesAnimations = true
+            withTransaction(tx) {
+                scrollPosition.scrollTo(y: targetY)
+            }
+        }
+        applyOffset()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            applyOffset()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) {
+            isRestoringScroll = false
         }
     }
 
@@ -169,7 +216,9 @@ struct ToolsHubView: View {
                             let isSelected = selectedCategory == cat
                             Button {
                                 withAnimation(.snappy(duration: 0.22)) {
-                                    selectedCategory = cat
+                                    store.toolsCategoryFilterRaw = cat.rawValue
+                                    store.toolsScrollOffsetY = 0
+                                    scrollPosition.scrollTo(edge: .top)
                                 }
                             } label: {
                                 Text(cat.label(lang))

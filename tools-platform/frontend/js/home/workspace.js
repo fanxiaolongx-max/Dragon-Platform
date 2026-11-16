@@ -254,11 +254,25 @@
     }
 
     function originalCards() {
+        const superAdmin = typeof window.isNavSuperAdmin === 'function'
+            ? window.isNavSuperAdmin()
+            : (localStorage.getItem('tools_role') === 'admin' && localStorage.getItem('tools_super') !== '0');
         return [...grid.querySelectorAll(CARD_SELECTOR)].filter(card => {
-            const builtin = typeof NAV_BUILTIN_LINKS !== 'undefined' ? NAV_BUILTIN_LINKS.find(item => item.id === cardItemId(card)) : null;
-            if (!builtin?.adminOnly) return true;
-            card.hidden = !isAdmin();
-            return !card.hidden;
+            const itemId = cardItemId(card);
+            const builtin = typeof NAV_BUILTIN_LINKS !== 'undefined' ? NAV_BUILTIN_LINKS.find(item => item.id === itemId) : null;
+            if (builtin?.adminOnly && !isAdmin()) {
+                card.hidden = true;
+                return false;
+            }
+            if (!card.dataset.customToolCard && !card.dataset.skillCard) {
+                const isShared = typeof window.isPlatformPageShared === 'function' ? window.isPlatformPageShared(itemId) : true;
+                if (!superAdmin && !isShared) {
+                    card.hidden = true;
+                    return false;
+                }
+            }
+            card.hidden = false;
+            return true;
         });
     }
 
@@ -646,6 +660,7 @@
         });
         // 导航数据加载和布局编辑后同步工具分类与顺序。
         window.addEventListener('tools:requirement-page-categories-change', scheduleLayout);
+        window.addEventListener('tools:catalog-change', scheduleLayout);
         window.addEventListener('tools:nav-layout-change', scheduleLayout);
         window.addEventListener('tools:favorites-change', scheduleLayout);
         bindFavoritesAndDrag();

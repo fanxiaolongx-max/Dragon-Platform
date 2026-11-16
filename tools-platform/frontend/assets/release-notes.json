@@ -1,10 +1,12 @@
 {
   "zh": [
-    "移动端工具内置页独立打开优化：KMP `ToolNavigation` 将平台自定义工具路由统一切换为独立无框文档入口并附加 `standalone=1`，iOS / Android 打开工具页体验与 Web 端保持一致，同时移除 Android 工具页顶部重复路径文字并补齐离开页面时的 WebView 资源销毁。",
-    "Android 工具内嵌浏览器内置加密 DNS 代理：新增 `WebViewDnsProxy` 本地环回 SOCKS 隧道并通过 `androidx.webkit` `ProxyController` 接入工具 WebView，复用智能 DNS 解析，同时保留端到端 TLS 证书校验、Cookie 与表单提交。"
+    "补齐技能、插件脚本与内置工具全链路服务端及对话真控制：12 个业务页面按当前状态默认开放且超管可随时收回/恢复，基础设施页持续锁定仅超管可用，导航、首页、Skill Hub、API、数据库工具与指南检索同步生效。",
+    "修复 AI 月报非交互格子在 validateInteractive 环节无条件拦截导致死循环重试的故障，兼容顶层配方 JSON、排除“不需要/排除 EOS”等否定词反向召回，并精简 /run-data 诊断日志冗余体积与补全 TPS/模型统计。",
+    "移动端（iOS / Android）新增工具自适应桌面/窄屏视口与缩放支持、Markdown 解析与媒体组件增强，同步优化移动端工具页独立加载与快捷方式体验。"
   ],
   "en": [
-    "Standalone custom tool loading on mobile: shared KMP ToolNavigation rewrites platform custom tool routes to standalone document URLs with standalone=1 for both iOS and Android, cleans up redundant header subtitle text on Android, and disposes WebView cleanly on exit.",
-    "Android WebView smart DNS tunnel: added loopback WebViewDnsProxy wired via androidx.webkit ProxyController to resolve tool hosts with SmartAndroidDns while preserving end-to-end TLS, cookies, redirects, POST, and WebSockets."
+    "Enforced real server-side, UI, and Dragon Claw AI access control across Skills, Plugins & Scripts, and built-in tools: preserves existing open state for the 12 business pages while allowing super-admins to revoke or re-open any item at any time.",
+    "Fixed AI Monthly Report infinite retry loops on non-interactive cells in validateInteractive, added top-level recipe JSON compatibility, excluded negated terms (e.g. 'exclude EOS') from metric recall, and trimmed duplicated /run-data trace bloat.",
+    "Mobile (iOS / Android) updates: adaptive tool viewport scaling via detected mobile layout, enhanced Markdown parser and chat media components, and streamlined standalone tool navigation."
   ]
 }

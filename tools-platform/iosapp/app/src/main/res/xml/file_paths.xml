@@ -3,4 +3,5 @@
     <cache-path name="camera_captures" path="camera/" />
     <cache-path name="audio_captures" path="audio/" />
     <cache-path name="shared_images" path="shared_images/" />
+    <cache-path name="shared_files" path="shared_files/" />
 </paths>

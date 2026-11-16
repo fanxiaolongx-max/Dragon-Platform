@@ -168,7 +168,7 @@ object DragonClawHelpers {
         if (trimmed.isEmpty()) return ""
         if (trimmed.startsWith("https://", ignoreCase = true) ||
             trimmed.startsWith("http://", ignoreCase = true) ||
-            trimmed.startsWith("data:image/", ignoreCase = true)
+            trimmed.startsWith("data:", ignoreCase = true)
         ) {
             return trimmed
         }
@@ -177,6 +177,86 @@ object DragonClawHelpers {
         }
         val cleanPath = cleanFilePath(trimmed)
         return "$cleanBase/api/agent-files/raw?path=${cleanPath.encodeURLParameter(spaceToPlus = false)}"
+    }
+
+    /** Returns true when a URL targets the platform's authenticated `/api/agent-files/` endpoint. */
+    fun isPlatformAgentFileUrl(rawUrlOrPath: String, baseUrl: String = ""): Boolean {
+        val trimmed = rawUrlOrPath.trim()
+        if (trimmed.isEmpty()) return false
+        val lower = trimmed.lowercase()
+        if (!lower.contains("/api/agent-files/")) return false
+        if (lower.startsWith("/api/agent-files/")) return true
+        val origin = extractOrigin(normalizeBaseUrl(baseUrl))
+        return origin.isEmpty() || lower.startsWith("$origin/")
+    }
+
+    /** Only attach the platform Bearer token to relative URLs or URLs matching the configured server origin. */
+    fun shouldAttachBearerAuth(urlString: String, baseUrl: String): Boolean {
+        val trimmed = urlString.trim()
+        if (trimmed.isEmpty()) return false
+        if (trimmed.startsWith("/")) return true
+        val origin = extractOrigin(normalizeBaseUrl(baseUrl))
+        return origin.isNotEmpty() && trimmed.lowercase().startsWith("$origin/")
+    }
+
+    /** Extracts a human-friendly filename from an `/api/agent-files/...?path=...` URL or plain file URL. */
+    fun extractAgentFileDisplayName(urlOrPath: String, fallback: String = "audio.mp3"): String {
+        val trimmed = urlOrPath.trim()
+        if (trimmed.isEmpty()) return fallback
+        val query = trimmed.substringAfter('?', "")
+        if (query.isNotEmpty()) {
+            val rawPathParam = query.split('&')
+                .firstOrNull { it.startsWith("path=", ignoreCase = true) }
+                ?.substringAfter('=')
+                ?.trim()
+                .orEmpty()
+            if (rawPathParam.isNotEmpty()) {
+                val decoded = percentDecodeUtf8(rawPathParam)
+                val name = basename(decoded)
+                if (name.isNotBlank()) return name
+            }
+        }
+        val base = basename(percentDecodeUtf8(trimmed))
+        if (base.isNotBlank() && base !in setOf("view", "raw", "download", "stat")) {
+            return base
+        }
+        return fallback
+    }
+
+    private fun extractOrigin(normalizedBaseUrl: String): String {
+        val schemeIdx = normalizedBaseUrl.indexOf("://")
+        if (schemeIdx < 0) return ""
+        val pathIdx = normalizedBaseUrl.indexOf('/', schemeIdx + 3)
+        return (if (pathIdx >= 0) normalizedBaseUrl.substring(0, pathIdx) else normalizedBaseUrl).lowercase()
+    }
+
+    private fun percentDecodeUtf8(input: String): String {
+        if (!input.contains('%') && !input.contains('+')) return input
+        val bytes = ByteArray(maxOf(input.length * 3, 32))
+        var byteLen = 0
+        var i = 0
+        while (i < input.length) {
+            val ch = input[i]
+            if (ch == '%' && i + 2 < input.length) {
+                val hi = input[i + 1].digitToIntOrNull(16)
+                val lo = input[i + 2].digitToIntOrNull(16)
+                if (hi != null && lo != null) {
+                    bytes[byteLen++] = ((hi shl 4) or lo).toByte()
+                    i += 3
+                    continue
+                }
+            }
+            if (ch == '+') {
+                bytes[byteLen++] = ' '.code.toByte()
+                i++
+                continue
+            }
+            val utf8 = ch.toString().encodeToByteArray()
+            utf8.copyInto(bytes, byteLen)
+            byteLen += utf8.size
+            i++
+        }
+        return bytes.copyOf(byteLen).decodeToString()
     }
 
     fun resolveAttachmentUrl(baseUrl: String, attachment: ChatAttachment): String {

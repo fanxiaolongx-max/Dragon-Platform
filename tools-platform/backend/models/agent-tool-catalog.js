@@ -52,7 +52,9 @@ async function build({ user }) {
     const skillSets = [
         ['netcare-data', 'NetCare 数据（@netcare-data）', () => require('./digital-human/netcare-agent').definitions(), name => (name === 'netcare_sql' ? 'write' : 'read')],
         ['ops-group', '自动化运营（@ops-group）', () => require('./channels/ops-agent').definitions(), name => require('./channels/ops-agent').kindOf(name)],
-        ['welink-office', 'WeLink 办公（@welink-office）', () => require('./channels/welink-cli-agent').definitions({ write: true }), name => (name === 'welink_action' ? 'external' : 'read')]
+        ['welink-office', 'WeLink 办公（@welink-office）', () => require('./channels/welink-cli-agent').definitions({ write: true }), name => (name === 'welink_action' ? 'external' : 'read')],
+        ['family-finance-bookkeeper', '家庭财务记账（@family-finance-bookkeeper）', () => require('./family-finance-agent').definitions(), () => 'external'],
+        ['voice-creator', '高拟真语音创作（@voice-creator）', () => require('./voice-creator-agent').definitions(), name => (name === 'voice_creator_list_voices' ? 'read' : 'external')]
     ];
     const skillStore = require('./agent-skills-store');
     const visibleSkills = manage || !user ? null : new Set((await skillStore.listForUser(user)).map(skill => skill.id));

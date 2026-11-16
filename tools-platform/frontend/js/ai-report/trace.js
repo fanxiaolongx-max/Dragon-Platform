@@ -22,6 +22,22 @@
         const list=traces.get(cellId)||[],entry={id:'t'+(++seq),at:new Date().toISOString(),...safe(item)};list.push(entry);
         if(list.length>LIMIT)list.splice(0,list.length-LIMIT);traces.set(cellId,list);changed(cellId);return entry;
     }
+    // Shrink large /run-data dictionaries inside trace logs only; live Worker input remains untouched.
+    function compactTraceResponse(path,value){
+        if(path!=='/api/ai-report/run-data'||!value||typeof value!=='object'||!value.input||typeof value.input!=='object')return value;
+        const pickKeys=(dict,keep)=>{if(!dict||typeof dict!=='object')return dict;const keys=Object.keys(dict);if(keys.length<=60)return dict;const out={};for(const k of keys)if(keep.has(k))out[k]=dict[k];const omitted=keys.length-Object.keys(out).length;if(omitted>0)out.__omittedOtherMetrics=omitted;return out;};
+        const input=Object.fromEntries(Object.entries(value.input).map(([id,src])=>{
+            if(!src||typeof src!=='object')return [id,src];
+            const keep=new Set((src.metrics||[]).flatMap(m=>[m?.label,m?.key]).filter(Boolean));
+            const next={...src};
+            if(Array.isArray(next.rows)&&next.rows.length>30)next.rows=[...next.rows.slice(0,30),{__truncatedRows:next.rows.length-30}];
+            if(next.values)next.values=pickKeys(next.values,keep);
+            if(next.targets)next.targets=pickKeys(next.targets,keep);
+            if(next.rules)next.rules=pickKeys(next.rules,keep);
+            return [id,next];
+        }));
+        return {...value,input};
+    }
     async function post(cellId,label,path,body){
         const record=enabled,started=Date.now(),run={stage:'connecting',name:'',started};
         active.set(cellId,run);progressChanged(cellId);
@@ -36,10 +52,11 @@
         try{
             const reply=await API.post(path,{...body,_stream:true,...(record?{_debug:true}:{})},{onEvent});
             const steps=reply?._trace,request=reply?._request;
+            const rounds=Array.isArray(reply?._rounds)&&reply._rounds.length?safe(reply._rounds):undefined;
             // 每轮模型调用的耗时与速度：攒到这个格子上，由 app.js 的 aiStep 挂到本次 AI 回复（回复下方显示 最低/平均/最高 tok/s）
-            if(Array.isArray(reply?._rounds)&&reply._rounds.length)pendingRounds.set(cellId,[...(pendingRounds.get(cellId)||[]),...reply._rounds]);
+            if(rounds)pendingRounds.set(cellId,[...(pendingRounds.get(cellId)||[]),...reply._rounds]);
             if(reply&&typeof reply==='object'){delete reply._trace;delete reply._request;delete reply._rounds;}
-            if(entry)Object.assign(entry,{status:'success',ms:Date.now()-started,steps:Array.isArray(steps)?steps:entry.steps,request:request??entry.request,response:safe(reply),result:pretty(safe(reply))});
+            if(entry)Object.assign(entry,{status:'success',ms:Date.now()-started,steps:Array.isArray(steps)?steps:entry.steps,request:request??entry.request,response:safe(compactTraceResponse(path,reply)),...(rounds?{rounds}:{})});
             return reply;
         }catch(error){
             if(entry)Object.assign(entry,{status:'error',ms:Date.now()-started,steps:Array.isArray(error.body?._trace)?error.body._trace:entry.steps,request:error.body?._request??entry.request,response:safe(error.body??null),httpStatus:error.status,error:safe(error.message||String(error))});
@@ -82,20 +99,27 @@
         return {rounds:rounds.length,minTps:round1(Math.min(...speeds)),avgTps:round1(gen>0?out/(gen/1000):speeds.reduce((a,b)=>a+b,0)/speeds.length),maxTps:round1(Math.max(...speeds)),inputTokens:rounds.reduce((sum,round)=>sum+(Number(round.inputTokens)||0),0),outputTokens:out,totalMs:rounds.reduce((sum,round)=>sum+(Number(round.ms)||0),0)};
     }
     // 导出开头的统计表：每条带速度的 AI 回复一行（问题、轮次、token、最低/平均/最高 tok/s、耗时），附每一轮明细
-    function modelStats(chat=[]){
+    function modelStats(chat=[],entries=[]){
         const rows=[];let question='';
+        const toRow=(label,rounds,indexOffset=0)=>{
+            const summary=speedSummary(rounds);
+            if(summary)rows.push({question:label,...summary,calls:rounds.map((round,idx)=>({index:round.index??(indexOffset+idx+1),at:round.at,model:round.model,inputTokens:round.inputTokens,outputTokens:round.outputTokens,estimated:Boolean(round.estimated),ttftMs:round.ttftMs,ms:round.ms,tps:round.tps}))});
+        };
         for(const item of chat||[]){
             if(item?.role==='user'){question=String(item.text||'').slice(0,200);continue;}
-            const summary=speedSummary(item?.rounds);
-            if(summary)rows.push({question,...summary,calls:item.rounds.map(round=>({index:round.index,at:round.at,model:round.model,inputTokens:round.inputTokens,outputTokens:round.outputTokens,estimated:Boolean(round.estimated),ttftMs:round.ttftMs,ms:round.ms,tps:round.tps}))});
+            toRow(question,item?.rounds);
+        }
+        if(!rows.length){
+            for(const entry of entries||[])if(Array.isArray(entry?.rounds)&&entry.rounds.length)toRow(String(entry.label||'').slice(0,200),entry.rounds);
         }
         return rows.length?{replies:rows,total:speedSummary(rows.flatMap(row=>row.calls.map(call=>({...call,generationMs:call.tps>0?call.outputTokens/call.tps*1000:0}))))}:null;
     }
     function exportLog(cellId,context={}){
         if(!enabled)return;
         const {chat,...rest}=context;
-        const stats=modelStats(chat);
-        const content={format:'aiops-report-diagnostics',version:1,activeStage:active.get(cellId)?.stage||null,exportedAt:new Date().toISOString(),cellId,...(stats?{modelStats:stats}:{}),context:safe({page:window.location?.pathname||'',...rest}),retention:{perCell:LIMIT,pageOnly:true},entries:safe(traces.get(cellId)||[])};
+        const list=traces.get(cellId)||[];
+        const stats=modelStats(chat,list);
+        const content={format:'aiops-report-diagnostics',version:1,activeStage:active.get(cellId)?.stage||null,exportedAt:new Date().toISOString(),cellId,...(stats?{modelStats:stats}:{}),context:safe({page:window.location?.pathname||'',...rest}),retention:{perCell:LIMIT,pageOnly:true},entries:safe(list)};
         const blob=new Blob([JSON.stringify(content,null,2)],{type:'application/json;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');
         link.href=url;link.download='aiops-report-'+String(cellId).replace(/[^a-z0-9_-]/gi,'_')+'-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
         return content;

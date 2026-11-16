@@ -14,6 +14,8 @@ import android.os.Bundle
 import android.provider.OpenableColumns
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -285,6 +287,9 @@ class DragonClawViewModel : ViewModel() {
     var recentToolIds by mutableStateOf<List<String>>(emptyList())
         private set
     var toolSearchQuery by mutableStateOf("")
+    var selectedToolCategoryKey by mutableStateOf("ALL")
+    val toolsGridState = LazyGridState()
+    val toolsCategoryScrollState = ScrollState(0)
     var activeWebTool by mutableStateOf<PlatformTool?>(null)
     var showNativeMetrics by mutableStateOf(false)
     var metricsBackStack by mutableStateOf<List<MetricsRoute>>(listOf(MetricsRoute.Dashboard))
@@ -699,6 +704,8 @@ class DragonClawViewModel : ViewModel() {
         schedules = emptyList()
         favoriteToolIds = emptyList()
         recentToolIds = emptyList()
+        toolSearchQuery = ""
+        selectedToolCategoryKey = "ALL"
         showArchivedSessions = false
         exportedSessionJson = null
         chatStatusBanner = null

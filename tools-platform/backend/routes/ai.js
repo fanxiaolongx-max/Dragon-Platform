@@ -184,23 +184,33 @@ async function buildExpertGrounding(question, {
     contextQuestion = '',
     contextTimeQuestion = '',
     toolSlug = '',
-    clientToolData = []
+    clientToolData = [],
+    user = null
 } = {}) {
     const knowledgePlan = planProjectKnowledgeSearch(question, pagePath);
     const knowledgeQuery = String(question || '').trim();
-    const [knowledgeResult, dataResult, businessConfigResult, toolDataResult] = await Promise.allSettled([
+    const restrictedUser = Boolean(user && !isSuperAdmin(user));
+    const canReportAnalysis = !restrictedUser || await require('../models/page-distribution').canAccessAnyPage(['report', 'sla', 'monthly', 'bigscreen', 'expedite', 'frt'], user);
+    const [knowledgeResult, dataResult, businessConfigResult, toolDataResult, visibleGuidePaths] = await Promise.allSettled([
         knowledgePlan.performed
             ? aiKnowledgeService.search(knowledgeQuery, { limit: 10, pathHints: knowledgePlan.pathHints })
             : Promise.resolve([]),
-        aiReportAnalysisService.analyzeQuestion(question, { contextQuestion, contextTimeQuestion }),
-        aiBusinessConfigService.search(question, { limit: 7 }),
-        aiToolDataService.analyzeQuestion(question, { contextQuestion, toolSlug, clientToolData })
+        canReportAnalysis
+            ? aiReportAnalysisService.analyzeQuestion(question, { contextQuestion, contextTimeQuestion })
+            : Promise.resolve(null),
+        aiBusinessConfigService.search(question, { limit: 7, user }),
+        aiToolDataService.analyzeQuestion(question, { contextQuestion, toolSlug, clientToolData, user }),
+        restrictedUser ? require('../models/platform-tool-guides').visibleGuideDocPaths(user) : Promise.resolve(null)
     ]);
     const toolData = toolDataResult.status === 'fulfilled' ? toolDataResult.value : null;
     if (toolDataResult.status === 'rejected') {
         console.warn('[AI] tool data retrieval skipped:', toolDataResult.reason?.message || toolDataResult.reason);
     }
-    const knowledgeCandidates = knowledgeResult.status === 'fulfilled' ? knowledgeResult.value : [];
+    const allowedGuides = visibleGuidePaths.status === 'fulfilled' ? visibleGuidePaths.value : null;
+    const rawKnowledgeCandidates = knowledgeResult.status === 'fulfilled' ? knowledgeResult.value : [];
+    const knowledgeCandidates = allowedGuides
+        ? rawKnowledgeCandidates.filter(item => !String(item.document_path || '').startsWith('tool-guides/') || allowedGuides.has(item.document_path))
+        : rawKnowledgeCandidates;
     const selectedKnowledge = selectRelevantKnowledge(knowledgeCandidates);
     const knowledge = selectedKnowledge.items;
     const dataAnalysis = dataResult.status === 'fulfilled' ? dataResult.value : null;
@@ -832,7 +842,25 @@ async function handleChatRequest(req, res) {
             if (loadedSkills.selected.length) recordedEvents.push({ type: 'skills', skills: loadedSkills.selected.map(item => item.id) });
         }
 
-        const normalizedPath = aiChatRepo.normalizePagePath(pagePath || req.get('referer') || '');
+        const rawPageSource = String(pagePath || req.get('referer') || '');
+        const normalizedPath = aiChatRepo.normalizePagePath(rawPageSource);
+        let safeToolSlug = typeof toolSlug === 'string' ? toolSlug.slice(0, 120) : '';
+        if (req.user && !isSuperAdmin(req.user)) {
+            const pageDistribution = require('../models/page-distribution');
+            const toolDistribution = require('../models/tool-distribution');
+            const pageId = pageDistribution.pageIdForPath(normalizedPath);
+            if (pageId && !await pageDistribution.canAccessPage(pageId, req.user, { siteScripts: /[?&]siteScripts=1(?:&|$)/.test(rawPageSource) })) {
+                return res.status(403).json({ code: 'TOOL_NOT_SHARED', error: '此工具未开放使用' });
+            }
+            const customPathMatch = /^\/(?:tools|custom-tools)\/([^/?#]+)/.exec(normalizedPath);
+            if (customPathMatch && !await toolDistribution.resolveTool(decodeURIComponent(customPathMatch[1]), req.user)) {
+                return res.status(403).json({ code: 'TOOL_NOT_SHARED', error: '此工具未开放使用' });
+            }
+            if (safeToolSlug) {
+                const cleanSlug = safeToolSlug.replace(/^custom:/, '');
+                if (!await toolDistribution.resolveTool(cleanSlug, req.user)) safeToolSlug = '';
+            }
+        }
         let savedSessionId = sessionId || null;
         if (persist !== false) {
             savedSessionId = await aiChatRepo.getOrCreateSession({
@@ -903,8 +931,9 @@ async function handleChatRequest(req, res) {
                 pagePath: normalizedPath,
                 contextQuestion: followUpContext.matchingContext,
                 contextTimeQuestion: followUpContext.timeContext,
-                toolSlug: typeof toolSlug === 'string' ? toolSlug.slice(0, 120) : '',
-                clientToolData: Array.isArray(clientToolData) ? clientToolData.slice(0, 12) : []
+                toolSlug: safeToolSlug,
+                clientToolData: Array.isArray(clientToolData) ? clientToolData.slice(0, 12) : [],
+                user: req.user
             });
 
         // 频道对话的跟进任务：本会话已有任务与工具使用规则拼进系统提示
@@ -922,9 +951,14 @@ async function handleChatRequest(req, res) {
             }
         }
 
+        const chatAllowed = homeAgent
+            ? await require('../models/agent-tool-access').forActor(req.user, agentRunManager.ownerKey(req.user, getTenantId()))
+            : () => false;
+        const hasAllowedTool = defs => Array.isArray(defs) && defs.some(def => chatAllowed(def.name));
+
         // @ops-group：管理员在首页普通对话里配置自动化运营（工作区与频道对话不启用）
         let opsSetup = null;
-        if (homeAgent && !agentMode && !channelTurn && req.user?.role === 'admin' && loadedSkills.selected.some(item => item.id === opsAgent.SKILL_ID)) {
+        if (homeAgent && !agentMode && !channelTurn && req.user?.role === 'admin' && loadedSkills.selected.some(item => item.id === opsAgent.SKILL_ID) && hasAllowedTool(opsAgent.definitions())) {
             try {
                 opsSetup = { ctx: { actor: req.user?.username || '' }, prompt: await opsAgent.buildPrompt() };
             } catch (opsError) {
@@ -934,7 +968,7 @@ async function handleChatRequest(req, res) {
 
         // @welink-office：管理员在首页普通对话里以本人身份查询 WeLink（welink-cli，只读）
         let welinkCliSetup = null;
-        if (homeAgent && !agentMode && !channelTurn && !opsSetup && req.user?.role === 'admin' && loadedSkills.selected.some(item => item.id === welinkCliAgent.SKILL_ID)) {
+        if (homeAgent && !agentMode && !channelTurn && !opsSetup && req.user?.role === 'admin' && loadedSkills.selected.some(item => item.id === welinkCliAgent.SKILL_ID) && hasAllowedTool(welinkCliAgent.definitions({ write: false }))) {
             try {
                 welinkCliSetup = { ctx: { actor: req.user?.username || '' }, prompt: await welinkCliAgent.buildPrompt() };
             } catch (welinkCliError) {
@@ -944,7 +978,7 @@ async function handleChatRequest(req, res) {
 
         // @netcare-data：管理员在首页普通对话里经数字人基座只读查询 NetCare 业务库
         let netcareSetup = null;
-        if (homeAgent && !agentMode && !channelTurn && !opsSetup && !welinkCliSetup && req.user?.role === 'admin' && loadedSkills.selected.some(item => item.id === netcareAgent.SKILL_ID)) {
+        if (homeAgent && !agentMode && !channelTurn && !opsSetup && !welinkCliSetup && req.user?.role === 'admin' && loadedSkills.selected.some(item => item.id === netcareAgent.SKILL_ID) && hasAllowedTool(netcareAgent.definitions())) {
             try {
                 netcareSetup = { prompt: await netcareAgent.buildPrompt() };
             } catch (netcareError) {
@@ -956,7 +990,8 @@ async function handleChatRequest(req, res) {
         let autoglmSetup = null;
         if (homeAgent && !agentMode && !channelTurn && !opsSetup && !welinkCliSetup && !netcareSetup
             && (await autoglmAgent.canUseAutoglm(req.user))
-            && loadedSkills.selected.some(item => item.id === autoglmAgent.SKILL_ID)) {
+            && loadedSkills.selected.some(item => item.id === autoglmAgent.SKILL_ID)
+            && hasAllowedTool(autoglmAgent.definitions())) {
             try {
                 autoglmSetup = { prompt: autoglmAgent.buildPrompt() };
             } catch (autoglmError) {
@@ -967,7 +1002,9 @@ async function handleChatRequest(req, res) {
         // @family-finance-bookkeeper：用户在手机 App 端或首页普通对话中进行家庭财务记账（无需工作空间目录）
         let financeSetup = null;
         if (homeAgent && !agentMode && !channelTurn && !opsSetup && !welinkCliSetup && !netcareSetup && !autoglmSetup
-            && loadedSkills.selected.some(item => item.id === familyFinanceAgent.SKILL_ID)) {
+            && (await familyFinanceAgent.canUseFinance(req.user))
+            && loadedSkills.selected.some(item => item.id === familyFinanceAgent.SKILL_ID)
+            && hasAllowedTool(familyFinanceAgent.definitions())) {
             try {
                 financeSetup = { prompt: familyFinanceAgent.buildPrompt() };
             } catch (financeError) {
@@ -978,7 +1015,8 @@ async function handleChatRequest(req, res) {
         // @ppo-traffic：全员可用，在普通对话或移动端直接查询埃及车辆交通违章（无需工作空间目录）
         let ppoSetup = null;
         if (homeAgent && !agentMode && !channelTurn && !opsSetup && !welinkCliSetup && !netcareSetup && !autoglmSetup && !financeSetup
-            && loadedSkills.selected.some(item => item.id === ppoTrafficAgent.SKILL_ID)) {
+            && loadedSkills.selected.some(item => item.id === ppoTrafficAgent.SKILL_ID)
+            && hasAllowedTool(ppoTrafficAgent.definitions())) {
             try {
                 ppoSetup = { prompt: ppoTrafficAgent.buildPrompt() };
             } catch (ppoError) {
@@ -990,7 +1028,8 @@ async function handleChatRequest(req, res) {
         let voiceCreatorSetup = null;
         if (homeAgent && !agentMode && !channelTurn && !opsSetup && !welinkCliSetup && !netcareSetup && !autoglmSetup && !financeSetup && !ppoSetup
             && (await voiceCreatorAgent.canUseVoiceCreator(req.user))
-            && loadedSkills.selected.some(item => item.id === voiceCreatorAgent.SKILL_ID)) {
+            && loadedSkills.selected.some(item => item.id === voiceCreatorAgent.SKILL_ID)
+            && hasAllowedTool(voiceCreatorAgent.definitions())) {
             try {
                 voiceCreatorSetup = { prompt: voiceCreatorAgent.buildPrompt() };
             } catch (voiceError) {
@@ -1019,7 +1058,29 @@ async function handleChatRequest(req, res) {
         // 长期记忆：管理员在首页对话（工作区或普通对话）里让智能体记住的偏好与约定；频道对话是多人场景，不带
         const memoryPrompt = homeAgent && !channelTurn && req.user?.role === 'admin' && (agentMode || databaseMode)
             ? await require('../models/agent-memory-repository').promptFor(req.user.username).catch(() => '') : '';
-        const dataIdentity = databaseMode || (agentMode && !agentSession.readOnly) ? '数据管理与分析专家' : '只读数据分析专家';
+        const canMutateDatabase = databaseMode && hasAllowedTool([
+            { name: 'insert_database_row' },
+            { name: 'update_database_rows' },
+            { name: 'delete_database_rows' }
+        ]);
+        const canQueryDatabase = databaseMode && hasAllowedTool([
+            { name: 'list_databases' },
+            { name: 'database_schema' },
+            { name: 'read_database_table' }
+        ]);
+        const canEditWorkspaceFiles = agentMode && !agentSession.readOnly && hasAllowedTool([
+            { name: 'write_file' },
+            { name: 'edit_file' },
+            { name: 'delete_file' }
+        ]);
+        const canMutateInWorkspace = agentMode && !agentSession.readOnly && hasAllowedTool([
+            { name: 'insert_database_row' },
+            { name: 'update_database_rows' },
+            { name: 'delete_database_rows' }
+        ]);
+        const dataIdentity = (databaseMode && canMutateDatabase) || canEditWorkspaceFiles || canMutateInWorkspace
+            ? '数据管理与分析专家'
+            : '只读数据分析专家';
         // 简介过短的工具附上生成的说明摘要，帮模型按需求匹配
         const toolGuideNotes = homeAgent ? await require('../models/platform-tool-guides').shortDescriptionNotes(req.user).catch(() => '') : '';
         // 构造 System Instruction
@@ -1070,7 +1131,7 @@ ${currentView ? '2.1 用户问“这个页面”“这段代码”“我现在�
 4.9 用户询问某个平台工具里的数据（人次、数量、金额、记录、趋势等）时，必须依据“平台工具业务数据”作答，并写明工具名、快照名或数据来源、数据期间。快照摘要（如 totalTransactions）和“表内合计行”是工具自身算出的口径，回答总数时优先采用；按日/按字段的统计只是辅助拆解，二者不一致时说明差异而不是自行改算。用户要的时间段没有对应快照时，明确说“没有覆盖该期间的数据”，并列出已有快照的期间；工具没有可读数据时如实说明，可建议打开工具导入后保存快照。不得编造任何数值。
 5. 历史报表使用入库时保存的得分和计分状态，不得用当前目标或计分规则重算。
 6. 把事实、基于数据的解读和可能原因分开。没有证据的原因必须标记为“可能”或“建议进一步核查”。
-${agentMode ? (agentSession.readOnly ? '7. 当前账号只读，没有修改平台业务数据或本地文件的权限。' : '7. 当前管理员可通过数据库工具对当前租户和所选项目的业务数据增删改查，并可通过文件工具修改工作目录；遵循工作区权限模式。只有工具返回提交成功后才能声称数据已修改；修改后重新查询验证，写入前的检索摘要不能作为修改后状态。凭据与平台控制面数据不开放。') : databaseMode ? '7. 当前管理员可通过数据库工具直接对当前租户的平台业务数据增删改查，无需选择工作目录。按用户明确要求执行修改，提交成功后重新查询验证。凭据与平台控制面数据不开放。' : opsSetup ? '7. 你没有修改业务数据的权限；唯一例外是用 ops_* 工具管理自动化运营（运营群组、计划、草稿、运营规范），只有工具返回成功后才能说已保存或已发送。' : followupSetup ? '7. 你没有修改业务数据的权限；唯一例外是用 followup_* 工具保存本会话的跟进任务，只有工具返回成功后才能说已记录。' : voiceCreatorSetup ? '7. 你没有修改业务数据的权限；唯一例外是用 voice_creator_* 工具进行高拟真语音合成与声音创作。' : '7. 你没有修改业务数据的权限，不得声称已修改、删除或入库任何数据。'}
+${agentMode ? ((agentSession.readOnly || (!canEditWorkspaceFiles && !canMutateInWorkspace)) ? '7. 当前账号只读，没有修改平台业务数据或本地文件的权限。' : `7. 当前管理员${canMutateInWorkspace ? '可通过数据库工具对当前租户和所选项目的业务数据增删改查' : '当前未开放数据库写入工具'}${canEditWorkspaceFiles ? '，并可通过文件工具修改工作目录' : ''}；遵循工作区权限模式。只有工具返回提交成功后才能声称数据已修改；修改后重新查询验证，写入前的检索摘要不能作为修改后状态。凭据与平台控制面数据不开放。`) : databaseMode ? (canMutateDatabase ? '7. 当前管理员可通过数据库工具直接对当前租户的平台业务数据增删改查，无需选择工作目录。按用户明确要求执行修改，提交成功后重新查询验证。凭据与平台控制面数据不开放。' : canQueryDatabase ? '7. 当前管理员可只读查询当前租户的平台业务数据库（数据库写入未开放），不得声称已修改、删除或入库任何数据。' : '7. 当前未开放数据库工具，你没有修改业务数据的权限，不得声称已修改、删除或入库任何数据。') : opsSetup ? '7. 你没有修改业务数据的权限；唯一例外是用 ops_* 工具管理自动化运营（运营群组、计划、草稿、运营规范），只有工具返回成功后才能说已保存或已发送。' : followupSetup ? '7. 你没有修改业务数据的权限；唯一例外是用 followup_* 工具保存本会话的跟进任务，只有工具返回成功后才能说已记录。' : voiceCreatorSetup ? '7. 你没有修改业务数据的权限；唯一例外是用 voice_creator_* 工具进行高拟真语音合成与声音创作。' : '7. 你没有修改业务数据的权限，不得声称已修改、删除或入库任何数据。'}
 ${scopeRule}
 ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.systemPrompt}` : ''}${voiceMode ? '\n**实时语音回复要求（最高优先级）**：直奔主题、简短干练、口语化表达；禁止客套寒暄、禁止反问收尾、禁止 Markdown 表格或符号。' : ''}`;
 
@@ -1362,7 +1423,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 vision,
                 client: aiClient, systemInstruction, messages: effectiveMessages,
                 // 大结果存成本人的文件（按租户::账号隔离），模型可按行读取
-                ctx: { readOnly: false, sensitiveValues, owner: agentRunManager.ownerKey(req.user, getTenantId()), chatSessionId: savedSessionId || '', username: req.user?.username || '', uploads: uploadFiles },
+                ctx: { readOnly: false, sensitiveValues, user: req.user, owner: agentRunManager.ownerKey(req.user, getTenantId()), chatSessionId: savedSessionId || '', username: req.user?.username || '', uploads: uploadFiles },
                 signal: providerAbortController?.signal,
                 maxOutputTokens: aiSettings.maxOutputTokens, temperature: aiSettings.temperature, model: aiSettings.model,
                 onEvent: writeStreamEvent,
@@ -1377,7 +1438,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 extras: chatExtras,
                 vision,
                 client: aiClient, systemInstruction: redactText(systemInstruction, { secrets: sensitiveValues }), messages: effectiveMessages,
-                ctx: { owner: agentRunManager.ownerKey(req.user, getTenantId()), uploads: uploadFiles, sensitiveValues, chatSessionId: savedSessionId || '' },
+                ctx: { user: req.user, owner: agentRunManager.ownerKey(req.user, getTenantId()), uploads: uploadFiles, sensitiveValues, chatSessionId: savedSessionId || '' },
                 signal: providerAbortController?.signal, maxOutputTokens: aiSettings.maxOutputTokens, temperature: aiSettings.temperature, model: aiSettings.model,
                 onEvent: writeStreamEvent,
                 onDelta: streamRequested ? delta => {

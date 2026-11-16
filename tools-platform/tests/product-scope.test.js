@@ -22,6 +22,14 @@ app.use((req, res, next) => {
 app.use('/api/custom-tools', router);
 const endpoint = '/api/custom-tools/tool-mumxi3px/products';
 
+test.before(async () => {
+    await runWithTenant('default', async () => {
+        const customToolsRepo = require('../backend/models/custom-tools-repository');
+        const dist = require('../backend/models/tool-distribution');
+        await customToolsRepo.createTool({ slug: 'tool-mumxi3px', name: 'Products', htmlContent: '<html><body>p</body></html>' });
+        await dist.setSharedAccess('tool-mumxi3px', true);
+    });
+});
 test.after(async () => { await db.closeDatabase(); fs.rmSync(temp, { recursive: true, force: true }); });
 
 test('imports bilingual Excel headers, quoted CSV and exported JSON without losing fields', async () => {

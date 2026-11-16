@@ -145,9 +145,12 @@ function toolThemeForPath(toolPath = '', html = '') {
 function injectPlatformTheme(html, { toolPath = '' } = {}) {
     let source = String(html);
     const theme = toolThemeForPath(toolPath, source);
+    const mobileLayout = require('./tool-mobile-layout').classifyToolMobileLayout(source);
     // 已自行引用运行时的页面也要传入主题，并统一提前到 head 首部，避免旧偏好先影响首屏。
-    source = source.replace(/<script\b[^>]*src=["'][^"']*\/js\/shared\/platform-theme\.js(?:\?[^"']*)?["'][^>]*>\s*<\/script>/gi, '');
-    const tags = versionAssetUrls(`<script src="/js/shared/platform-theme.js" data-tool-theme="${theme}"></script>` +
+    source = source
+        .replace(/<script\b[^>]*src=["'][^"']*\/js\/shared\/platform-theme\.js(?:\?[^"']*)?["'][^>]*>\s*<\/script>/gi, '')
+        .replace(/<meta\b[^>]*name=["']tools-detected-mobile-layout["'][^>]*>/gi, '');
+    const tags = versionAssetUrls(`<meta name="tools-detected-mobile-layout" content="${mobileLayout}"><script src="/js/shared/platform-theme.js" data-tool-theme="${theme}"></script>` +
         (source.includes('/js/shared/tool-navigation.js') ? '' : '<script src="/js/shared/tool-navigation.js"></script>') +
         (source.includes('/js/shared/elegant-scrollbars.js') ? '' : '<script src="/js/shared/elegant-scrollbars.js"></script>'),
         { publicDir: path.join(__dirname, '../../frontend') });

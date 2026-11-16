@@ -27,7 +27,8 @@ enum class MdBlockKind {
     BLOCKQUOTE,
     DIVIDER,
     TABLE,
-    IMAGE
+    IMAGE,
+    AUDIO
 }
 
 data class MdBlock(
@@ -40,7 +41,9 @@ data class MdBlock(
     val codeText: String = "",
     val tableRows: List<List<List<MdSpan>>> = emptyList(),
     val imageUrl: String = "",
-    val imageAlt: String = ""
+    val imageAlt: String = "",
+    val audioUrl: String = "",
+    val audioTitle: String = ""
 )
 
 /**
@@ -55,6 +58,15 @@ object MarkdownParser {
     private val inlineOrderedListRegex = Regex("""([。！？.!?:：；;)）\]`*])\s+(\d{1,2}\.\s+(?:\*\*|\[|`|[\u4E00-\u9FFFA-Z]))""")
     private val inlineDividerRegex = Regex("""([^\n\s-])\s+---+\s+(\S)""")
     private val markdownImageRegex = Regex("""!\[([^\]]*)]\(([^)\s]+)(?:\s+["'][^"']*["'])?\)""")
+    private val htmlAudioRegex = Regex(
+        """(?is)<audio\b[^>]*>[\s\S]*?</audio>|<audio\b[^>]*\bsrc\s*=\s*(?:"[^"]+"|'[^']+'|[^\s"'=<>`]+)[^>]*/?>"""
+    )
+    private val htmlSrcAttrRegex = Regex(
+        """(?is)\bsrc\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s"'=<>`]+))"""
+    )
+    private val htmlTitleAttrRegex = Regex(
+        """(?is)\b(?:title|aria-label|data-title)\s*=\s*(?:"([^"]+)"|'([^']+)')"""
+    )
 
     private val headingLineRegex = Regex("""^(#{1,6})\s+(.+)$""")
     private val bulletLineRegex = Regex("""^(\s*)([-*+•])\s+(.*)$""")
@@ -102,7 +114,8 @@ object MarkdownParser {
                     )
                 )
             } else {
-                val prepared = normalizeStructure(langOrRaw)
+                val collapsedAudio = collapseMultilineAudioTags(langOrRaw)
+                val prepared = normalizeStructure(collapsedAudio)
                 parseTextBlocks(prepared, blocks) { nextId++ }
             }
         }
@@ -116,7 +129,7 @@ object MarkdownParser {
         val parts = mutableListOf<String>()
         for (block in blocks) {
             when (block.kind) {
-                MdBlockKind.DIVIDER, MdBlockKind.IMAGE -> Unit
+                MdBlockKind.DIVIDER, MdBlockKind.IMAGE, MdBlockKind.AUDIO -> Unit
                 MdBlockKind.CODE_BLOCK -> {
                     val trimmed = block.codeText.trim()
                     if (trimmed.isNotEmpty() && trimmed.lines().size <= 3 && trimmed.length <= 120) {
@@ -361,14 +374,35 @@ object MarkdownParser {
                 val indentSpaces = bulletMatch.groupValues[1].count { it == ' ' } + bulletMatch.groupValues[1].count { it == '\t' } * 2
                 val level = (indentSpaces / 2).coerceIn(0, 3)
                 val body = bulletMatch.groupValues[3].trim()
-                out.add(
-                    MdBlock(
-                        id = nextId(),
-                        kind = MdBlockKind.BULLET_ITEM,
-                        level = level,
-                        spans = parseInline(body)
+                val audioMatches = findNonCodeAudioMatches(body)
+                if (audioMatches.isNotEmpty()) {
+                    emitTextWithAudioMatches(
+                        line = body,
+                        matches = audioMatches,
+                        out = out,
+                        nextId = nextId,
+                        emitLeadingText = { leading ->
+                            out.add(
+                                MdBlock(
+                                    id = nextId(),
+                                    kind = MdBlockKind.BULLET_ITEM,
+                                    level = level,
+                                    spans = parseInline(leading)
+                                )
+                            )
+                        },
+                        emitTrailingText = { trailing -> paragraphBuf.add(trailing) }
                     )
-                )
+                } else {
+                    out.add(
+                        MdBlock(
+                            id = nextId(),
+                            kind = MdBlockKind.BULLET_ITEM,
+                            level = level,
+                            spans = parseInline(body)
+                        )
+                    )
+                }
                 i++
                 continue
             }
@@ -380,14 +414,57 @@ object MarkdownParser {
                 val level = (indentSpaces / 2).coerceIn(0, 3)
                 val marker = "${orderedMatch.groupValues[2]}."
                 val body = orderedMatch.groupValues[3].trim()
-                out.add(
-                    MdBlock(
-                        id = nextId(),
-                        kind = MdBlockKind.ORDERED_ITEM,
-                        level = level,
-                        marker = marker,
-                        spans = parseInline(body)
+                val audioMatches = findNonCodeAudioMatches(body)
+                if (audioMatches.isNotEmpty()) {
+                    emitTextWithAudioMatches(
+                        line = body,
+                        matches = audioMatches,
+                        out = out,
+                        nextId = nextId,
+                        emitLeadingText = { leading ->
+                            out.add(
+                                MdBlock(
+                                    id = nextId(),
+                                    kind = MdBlockKind.ORDERED_ITEM,
+                                    level = level,
+                                    marker = marker,
+                                    spans = parseInline(leading)
+                                )
+                            )
+                        },
+                        emitTrailingText = { trailing -> paragraphBuf.add(trailing) }
                     )
+                } else {
+                    out.add(
+                        MdBlock(
+                            id = nextId(),
+                            kind = MdBlockKind.ORDERED_ITEM,
+                            level = level,
+                            marker = marker,
+                            spans = parseInline(body)
+                        )
+                    )
+                }
+                i++
+                continue
+            }
+
+            val audioMatches = findNonCodeAudioMatches(line)
+            if (audioMatches.isNotEmpty()) {
+                emitTextWithAudioMatches(
+                    line = line,
+                    matches = audioMatches,
+                    out = out,
+                    nextId = nextId,
+                    emitLeadingText = { leading ->
+                        paragraphBuf.add(leading)
+                        flushParagraph()
+                    },
+                    emitTrailingText = { trailing -> paragraphBuf.add(trailing) },
+                    beforeEachAudio = {
+                        flushParagraph()
+                        flushQuote()
+                    }
                 )
                 i++
                 continue
@@ -681,9 +758,86 @@ object MarkdownParser {
         return -1
     }
 
+    private fun collapseMultilineAudioTags(segment: String): String {
+        if (!segment.contains("<audio", ignoreCase = true) || !segment.contains('\n')) return segment
+        return htmlAudioRegex.replace(segment) { match ->
+            if (!match.value.contains('\n') || isInsideInlineCode(segment, match.range.first)) {
+                match.value
+            } else {
+                match.value.replace(Regex("""\s*\n\s*"""), " ").trim()
+            }
+        }
+    }
+
+    private fun findNonCodeAudioMatches(line: String): List<MatchResult> {
+        if (!line.contains("<audio", ignoreCase = true)) return emptyList()
+        return htmlAudioRegex.findAll(line)
+            .filter { !isInsideInlineCode(line, it.range.first) }
+            .toList()
+    }
+
+    private fun isInsideInlineCode(text: String, targetIndex: Int): Boolean {
+        val lineStart = text.lastIndexOf('\n', (targetIndex - 1).coerceAtLeast(0)).let { if (it < 0) 0 else it + 1 }
+        val lineEnd = text.indexOf('\n', targetIndex).let { if (it < 0) text.length else it }
+        var inCode = false
+        var idx = lineStart
+        while (idx < targetIndex) {
+            if (text[idx] == '`') inCode = !inCode
+            idx++
+        }
+        return inCode && text.indexOf('`', targetIndex) in (targetIndex + 1) until lineEnd
+    }
+
+    private fun extractAudioBlock(htmlSnippet: String, id: Int): MdBlock? {
+        val srcMatch = htmlSrcAttrRegex.find(htmlSnippet) ?: return null
+        val src = (srcMatch.groupValues[1].ifEmpty { srcMatch.groupValues[2] }.ifEmpty { srcMatch.groupValues[3] }).trim()
+        if (src.isEmpty()) return null
+        val titleMatch = htmlTitleAttrRegex.find(htmlSnippet)
+        val title = titleMatch?.let { (it.groupValues[1].ifEmpty { it.groupValues[2] }).trim() }.orEmpty()
+        return MdBlock(
+            id = id,
+            kind = MdBlockKind.AUDIO,
+            audioUrl = src,
+            audioTitle = title
+        )
+    }
+
+    private fun emitTextWithAudioMatches(
+        line: String,
+        matches: List<MatchResult>,
+        out: MutableList<MdBlock>,
+        nextId: () -> Int,
+        emitLeadingText: (String) -> Unit,
+        emitTrailingText: (String) -> Unit,
+        beforeEachAudio: () -> Unit = {}
+    ) {
+        var cursor = 0
+        var emittedLeading = false
+        for (match in matches) {
+            val before = line.substring(cursor, match.range.first).trim()
+            if (before.isNotEmpty()) {
+                if (!emittedLeading) {
+                    emitLeadingText(before)
+                    emittedLeading = true
+                } else {
+                    emitTrailingText(before)
+                }
+            }
+            beforeEachAudio()
+            extractAudioBlock(match.value, nextId())?.let { out.add(it) }
+            cursor = match.range.last + 1
+        }
+        val trailing = line.substring(cursor).trim()
+        if (trailing.isNotEmpty()) {
+            emitTrailingText(trailing)
+        }
+    }
+
     private fun isWebUrl(url: String): Boolean {
         val lower = url.trim().lowercase()
-        return lower.startsWith("https://") || lower.startsWith("http://")
+        return lower.startsWith("https://") ||
+            lower.startsWith("http://") ||
+            lower.startsWith("/api/")
     }
 
     private fun cleanLocalSymbolLabel(label: String, url: String): String {

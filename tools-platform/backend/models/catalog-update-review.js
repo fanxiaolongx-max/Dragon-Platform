@@ -59,7 +59,8 @@ async function prepare(body, user) {
         formats = tool.hostedApp ? ['zip'] : ['html', 'htm', 'zip'];
     } else {
         const { PAGE_FILES } = require('./page-update-times');
-        if (!Object.hasOwn(PAGE_FILES, id) || (!isSuperAdmin(user) && ['/storage', '/db-explorer', '/netcare-explorer'].includes(id))) {
+        const pageDistribution = require('./page-distribution');
+        if (!Object.hasOwn(PAGE_FILES, id) || !await pageDistribution.canAccessPage(id, user)) {
             throw fail('工具不存在或未开放', 404);
         }
         name = id;

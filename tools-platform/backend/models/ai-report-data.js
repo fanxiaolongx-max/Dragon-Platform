@@ -143,9 +143,44 @@ async function listMetrics(month) {
 // What the AI sees of the metrics: one short line per metric ("名称 = 值（目标 …）"), searchable by name. The full
 // records (keys, origins, timestamps) are four times larger and got cut off, hiding metrics late in the list.
 const METRIC_TEXT_LIMIT = 12000;
+const NEGATION_CLAUSE_RE = /(?:不需要|不要|不含|不包含|排除|剔除|去掉|不显示|不展示|勿含|无需|without\b|exclude\b)\s*(?:显示|展示|包含|统计|列出|出)?\s*([^\n，。；;！？!?]{1,40})|除(?:了)?\s*([^\n，。；;！？!?]{1,40}?)\s*(?:外|以外|之外)/gi;
+const METRIC_FILLER_RE = /^(?:任何|所有|全部|相关|关联|有关|同类|这些|那些|以下|的|类|型|项|指标|数据|内容|字段)+|(?:相关|关联|的|类|型|项|指标|数据|内容|字段)+$/g;
+
+function extractNegatedTerms(rawText) {
+    const exclude = [];
+    const positive = String(rawText || '').replace(NEGATION_CLAUSE_RE, (_match, body, exceptBody) => {
+        const segment = String(body || exceptBody || '');
+        for (const piece of segment.split(/[\s、,，/和及与]+/)) {
+            const clean = piece.toLowerCase().replace(METRIC_FILLER_RE, '').replace(METRIC_FILLER_RE, '').trim();
+            if (clean && (clean.length >= 2 || /^[a-z0-9]{2,}$/i.test(clean))) exclude.push(clean);
+        }
+        return ' ';
+    });
+    return { positive, exclude: [...new Set(exclude)] };
+}
+
+function parseMetricQuery(query = '') {
+    const { positive, exclude } = extractNegatedTerms(query);
+    const include = [];
+    for (const token of positive.toLowerCase().split(/\s+/).filter(Boolean)) {
+        if (/^[-!！].+/.test(token)) {
+            const term = token.slice(1).replace(METRIC_FILLER_RE, '').trim();
+            if (term) exclude.push(term);
+        } else {
+            include.push(token);
+        }
+    }
+    return { include, exclude: [...new Set(exclude)] };
+}
+
 async function findMetrics(month, query = '') {
-    const all = await listMetrics(month), words = String(query || '').toLowerCase().split(/\s+/).filter(Boolean);
-    const matches = words.length ? all.filter(metric => words.every(word => metric.label.toLowerCase().includes(word))) : all;
+    const all = await listMetrics(month), { include, exclude } = parseMetricQuery(query);
+    const matches = (include.length || exclude.length)
+        ? all.filter(metric => {
+            const lower = metric.label.toLowerCase();
+            return include.every(word => lower.includes(word)) && !exclude.some(word => lower.includes(word));
+        })
+        : all;
     const lines = [];
     let size = 0;
     for (const metric of matches) {
@@ -158,15 +193,16 @@ async function findMetrics(month, query = '') {
     return {
         month,
         total: all.length,
-        ...(words.length ? { query, found: matches.length } : {}),
+        ...(include.length || exclude.length ? { query, found: matches.length, ...(exclude.length ? { excluded: exclude } : {}) } : {}),
         note: '名称就是取数用的名称（recipe 的 names）；“名称 / TE”这类是按运营商等拆分的分项，“TE / 名称”是考核结果。' + (hidden ? `还有 ${hidden} 条没列出，请用 query 按名称搜索。` : ''),
         metrics: lines
     };
 }
 
-async function searchToolData(question) {
-    const tools = await customToolsRepo.listTools().catch(() => []);
-    const result = await toolData.analyzeQuestion(`${question} 本月 数据`, {});
+async function searchToolData(question, user = null) {
+    const distribution = require('./tool-distribution');
+    const tools = user ? await distribution.listAvailable(user).catch(() => []) : await customToolsRepo.listTools().catch(() => []);
+    const result = await toolData.analyzeQuestion(`${question} 本月 数据`, { user });
     return {
         tools: result.tools || [],
         available: tools.slice(0, 80).map(tool => ({ slug: tool.slug, name: tool.name })),
@@ -186,7 +222,7 @@ function findSheet(files, match) {
 }
 
 // Resolves every recipe source for a report month and returns the compute input.
-async function recipeInput(month, sources = []) {
+async function recipeInput(month, sources = [], { user = null } = {}) {
     const offsets = sources.map(source => Number(source.monthOffset) || 0);
     const catalog = await catalogFrom(month, Math.min(0, ...offsets)), names = metricNames(catalog), book = sources.some(source => source.kind === 'metrics') ? await targetBook() : { byKey: new Map(), byName: new Map() };
     const input = {};
@@ -209,7 +245,7 @@ async function recipeInput(month, sources = []) {
             if (!dataset) { missing.push({ id: source.id, label: source.label, month: sourceMonth }); input[source.id] = null; continue; }
             input[source.id] = { month: sourceMonth, source: dataset.source, name: dataset.name, period: dataset.period, headers: dataset.headers, rows: dataset.rows };
         } else if (source.kind === 'tool') {
-            const data = await searchToolData(source.question || source.label);
+            const data = await searchToolData(source.question || source.label, user);
             toolContext.push(`【${source.label || source.slug}】\n${data.text}`.slice(0, 8000));
         }
     }

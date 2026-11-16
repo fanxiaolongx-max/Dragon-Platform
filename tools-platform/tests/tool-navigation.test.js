@@ -76,3 +76,27 @@ test('captured clicks on card controls reach the card handler without opening th
     });
     assert.deepEqual(redirects, []);
 });
+
+test('mobile app WebView keeps pinch zoom, applies detected layout viewport, and forwards tools_mobile=1', () => {
+    const appendedStyles = [];
+    const viewports = [{ name: 'viewport', content: 'width=device-width, initial-scale=1.0, viewport-fit=cover', remove() { const idx = viewports.indexOf(this); if (idx >= 0) viewports.splice(idx, 1); } }];
+    const doc = {
+        nodeType: 9,
+        readyState: 'loading',
+        querySelector: sel => sel === 'meta[name="tools-detected-mobile-layout"]' ? { content: 'desktop' } : viewports[0] || null,
+        querySelectorAll: sel => sel === 'meta[name="viewport"]' ? [...viewports] : [],
+        addEventListener: () => {},
+        documentElement: { classList: { add() {}, contains: () => false } },
+        head: { append: node => { if (node.textContent) appendedStyles.push(node.textContent); else if (node.name === 'viewport') viewports.push(node); } },
+        createElement: tag => ({ tagName: tag.toUpperCase() })
+    };
+    const win = { open() {}, navigator: { userAgent: 'Mozilla/5.0 (Linux; Android 14)' } };
+    win.top = win;
+    vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../frontend/js/shared/tool-navigation.js'), 'utf8'), {
+        window: win, document: doc, location: new URL('https://platform.test/custom-tools/eos_tool-v8/index.html?standalone=1&tools_mobile=1'), URL, MutationObserver: class { observe() {} disconnect() {} }
+    });
+    assert.equal(viewports.length, 1);
+    assert.equal(viewports[0].content, 'width=1200, user-scalable=yes, viewport-fit=cover');
+    assert.ok(appendedStyles.some(css => css.includes('touch-action: manipulation;') && !css.includes('touch-action: pan-x pan-y')));
+    assert.equal(win.ToolsNavigation.toolUrl('/tools/other'), '/custom-tools/other/index.html?standalone=1&tools_mobile=1');
+});

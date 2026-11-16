@@ -5,7 +5,10 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.media.AudioAttributes
+import android.media.MediaPlayer
 import android.os.Build
+import android.os.Environment
 import android.provider.MediaStore
 import android.util.Base64
 import android.util.LruCache
@@ -26,6 +29,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
@@ -37,7 +41,10 @@ import androidx.compose.material.icons.rounded.BrokenImage
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.OpenInFull
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.CircularProgressIndicator
@@ -58,6 +65,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
@@ -76,11 +84,17 @@ import com.example.newapp.shared.util.DragonClawHelpers
 import com.example.newapp.ui.theme.DragonClawPalette
 import com.example.newapp.ui.theme.LocalDragonClawPalette
 import com.example.newapp.ui.theme.tr
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.security.MessageDigest
 import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.max
@@ -969,4 +983,521 @@ private suspend fun shareBitmap(context: Context, bitmap: Bitmap, rawTitle: Stri
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
     context.startActivity(Intent.createChooser(intent, null))
+}
+
+object AndroidPlatformAssetDownloader {
+    suspend fun fetchCachedFile(
+        context: Context,
+        urlString: String,
+        token: String,
+        baseUrl: String
+    ): Result<File> = withContext(Dispatchers.IO) {
+        runCatching {
+            val resolved = DragonClawHelpers.resolveImageSourceUrl(baseUrl, urlString)
+            val targetUrl = resolved.ifBlank { urlString.trim() }
+            require(targetUrl.isNotEmpty()) { "Empty media URL" }
+
+            val cacheDir = File(context.cacheDir, "audio_media_cache").apply { mkdirs() }
+            if (targetUrl.startsWith("data:", ignoreCase = true)) {
+                val commaIdx = targetUrl.indexOf(',')
+                require(commaIdx > 0) { "Malformed data URI" }
+                val meta = targetUrl.substring(0, commaIdx).lowercase()
+                val ext = inferAudioExtension(meta, targetUrl)
+                val rawBytes = Base64.decode(targetUrl.substring(commaIdx + 1), Base64.DEFAULT)
+                val file = File(cacheDir, "${sha256("${targetUrl.take(64)}#${rawBytes.size}")}.$ext")
+                if (!file.exists() || file.length() == 0L) {
+                    writeAtomically(file, rawBytes)
+                }
+                return@runCatching file
+            }
+
+            val displayName = DragonClawHelpers.extractAgentFileDisplayName(targetUrl, "audio.mp3")
+            val ext = inferAudioExtension(displayName, targetUrl)
+            val key = "${token.takeLast(12)}::$targetUrl"
+            val cachedFile = File(cacheDir, "${sha256(key)}.$ext")
+            if (cachedFile.exists() && cachedFile.length() > 0L) {
+                return@runCatching cachedFile
+            }
+
+            val authToken = if (DragonClawHelpers.shouldAttachBearerAuth(targetUrl, baseUrl)) token else ""
+            val bytes = AndroidBinaryHttpClient.fetchBytes(
+                urlString = targetUrl,
+                token = authToken,
+                maxBytes = 32 * 1024 * 1024
+            )
+            require(bytes.isNotEmpty()) { "Empty media response" }
+            writeAtomically(cachedFile, bytes)
+            cachedFile
+        }
+    }
+
+    suspend fun downloadAndSaveFile(
+        context: Context,
+        urlString: String,
+        token: String,
+        baseUrl: String
+    ): Result<String> {
+        val file = fetchCachedFile(context.applicationContext, urlString, token, baseUrl).getOrElse {
+            return Result.failure(it)
+        }
+        val rawName = DragonClawHelpers.extractAgentFileDisplayName(urlString, file.name)
+        val cleanName = rawName.replace(Regex("[\\\\/:*?\"<>|]"), "_").ifBlank { file.name }
+        val mime = inferMimeType(cleanName)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val savedViaMediaStore = withContext(Dispatchers.IO) {
+                runCatching {
+                    val values = ContentValues().apply {
+                        put(MediaStore.Downloads.DISPLAY_NAME, cleanName)
+                        put(MediaStore.Downloads.MIME_TYPE, mime)
+                        put(MediaStore.Downloads.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/DragonClaw")
+                        put(MediaStore.Downloads.IS_PENDING, 1)
+                    }
+                    val resolver = context.contentResolver
+                    val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                        ?: error("Failed to create Downloads entry")
+                    resolver.openOutputStream(uri)?.use { out ->
+                        file.inputStream().use { input -> input.copyTo(out) }
+                    } ?: error("Failed to open output stream")
+                    values.clear()
+                    values.put(MediaStore.Downloads.IS_PENDING, 0)
+                    resolver.update(uri, values, null, null)
+                    cleanName
+                }
+            }
+            if (savedViaMediaStore.isSuccess) {
+                return savedViaMediaStore
+            }
+        }
+
+        val sharedFile = withContext(Dispatchers.IO) {
+            runCatching {
+                val dir = File(context.cacheDir, "shared_files").apply { mkdirs() }
+                val dest = File(dir, cleanName)
+                file.copyTo(dest, overwrite = true)
+                dest
+            }
+        }.getOrElse { return Result.failure(it) }
+
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", sharedFile)
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = mime
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            if (context !is android.app.Activity) {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        }
+        context.startActivity(Intent.createChooser(intent, cleanName))
+        return Result.success(cleanName)
+    }
+
+    private fun writeAtomically(target: File, bytes: ByteArray) {
+        val tmp = File(target.parentFile, "${target.name}.tmp")
+        FileOutputStream(tmp).use { it.write(bytes) }
+        if (target.exists()) target.delete()
+        if (!tmp.renameTo(target)) {
+            FileOutputStream(target).use { it.write(bytes) }
+            tmp.delete()
+        }
+    }
+
+    private fun sha256(value: String): String {
+        val digest = MessageDigest.getInstance("SHA-256").digest(value.toByteArray(Charsets.UTF_8))
+        return digest.joinToString("") { "%02x".format(it) }
+    }
+
+    private fun inferAudioExtension(mimeOrName: String, fallbackUrl: String): String {
+        val lower = "$mimeOrName $fallbackUrl".lowercase()
+        for (ext in listOf("mp3", "wav", "m4a", "aac", "ogg", "flac", "opus", "webm")) {
+            if (lower.contains(".$ext") || lower.contains("audio/$ext")) return ext
+        }
+        if (lower.contains("audio/mpeg")) return "mp3"
+        if (lower.contains("audio/mp4")) return "m4a"
+        return "mp3"
+    }
+
+    private fun inferMimeType(filename: String): String {
+        val lower = filename.lowercase()
+        return when {
+            lower.endsWith(".mp3") -> "audio/mpeg"
+            lower.endsWith(".wav") -> "audio/wav"
+            lower.endsWith(".m4a") -> "audio/mp4"
+            lower.endsWith(".aac") -> "audio/aac"
+            lower.endsWith(".ogg") -> "audio/ogg"
+            lower.endsWith(".flac") -> "audio/flac"
+            lower.endsWith(".pdf") -> "application/pdf"
+            else -> "application/octet-stream"
+        }
+    }
+}
+
+object ChatAudioPlaybackManager {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    var activeUrl by mutableStateOf<String?>(null)
+        private set
+    var loadingUrl by mutableStateOf<String?>(null)
+        private set
+    var isPlaying by mutableStateOf(false)
+        private set
+    var currentPositionMs by mutableIntStateOf(0)
+        private set
+    var durationMs by mutableIntStateOf(0)
+        private set
+    var errorByUrl by mutableStateOf<Map<String, String>>(emptyMap())
+        private set
+
+    private var mediaPlayer: MediaPlayer? = null
+    private var loadJob: Job? = null
+    private var tickerJob: Job? = null
+    private var requestSerial: Int = 0
+
+    fun togglePlay(context: Context, urlString: String, token: String, baseUrl: String) {
+        if (loadingUrl == urlString) {
+            stop()
+            return
+        }
+        val currentMp = mediaPlayer
+        if (activeUrl == urlString && currentMp != null) {
+            val toggled = runCatching {
+                if (currentMp.isPlaying) {
+                    currentMp.pause()
+                    isPlaying = false
+                    stopTicker()
+                } else {
+                    currentMp.start()
+                    isPlaying = true
+                    startTicker()
+                }
+            }
+            if (toggled.isSuccess) return
+        }
+
+        stop()
+        val expectedSerial = ++requestSerial
+        activeUrl = urlString
+        loadingUrl = urlString
+        errorByUrl = errorByUrl - urlString
+        val appContext = context.applicationContext
+
+        loadJob = scope.launch {
+            val fileResult = AndroidPlatformAssetDownloader.fetchCachedFile(appContext, urlString, token, baseUrl)
+            if (expectedSerial != requestSerial) return@launch
+
+            val file = fileResult.getOrElse { err ->
+                loadingUrl = null
+                isPlaying = false
+                errorByUrl = errorByUrl + (urlString to (err.message ?: "音频加载失败"))
+                return@launch
+            }
+
+            val mp = MediaPlayer().apply {
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build()
+                )
+            }
+            val prepareResult = withContext(Dispatchers.IO) {
+                runCatching {
+                    mp.setDataSource(file.absolutePath)
+                    mp.prepare()
+                    mp
+                }
+            }
+
+            if (expectedSerial != requestSerial) {
+                mp.runCatching { release() }
+                return@launch
+            }
+
+            val player = prepareResult.getOrElse { err ->
+                mp.runCatching { release() }
+                loadingUrl = null
+                isPlaying = false
+                errorByUrl = errorByUrl + (urlString to (err.message ?: "音频解码失败"))
+                return@launch
+            }
+
+            player.setOnCompletionListener { completed ->
+                scope.launch {
+                    if (mediaPlayer !== completed) return@launch
+                    stopTicker()
+                    isPlaying = false
+                    currentPositionMs = 0
+                    runCatching { completed.seekTo(0) }
+                }
+            }
+            player.setOnErrorListener { failed, _, _ ->
+                scope.launch {
+                    if (mediaPlayer === failed) {
+                        stop()
+                        errorByUrl = errorByUrl + (urlString to "音频播放失败")
+                    }
+                }
+                true
+            }
+
+            mediaPlayer = player
+            loadingUrl = null
+            durationMs = player.duration.coerceAtLeast(0)
+            currentPositionMs = 0
+            player.start()
+            isPlaying = true
+            startTicker()
+        }
+    }
+
+    fun seekToFraction(urlString: String, fraction: Float) {
+        val player = mediaPlayer ?: return
+        if (activeUrl != urlString || durationMs <= 0) return
+        val targetMs = (durationMs * fraction.coerceIn(0f, 1f)).toInt()
+        runCatching {
+            player.seekTo(targetMs)
+            currentPositionMs = targetMs
+        }
+    }
+
+    fun stop() {
+        requestSerial += 1
+        loadJob?.cancel()
+        loadJob = null
+        stopTicker()
+        mediaPlayer?.let { mp ->
+            runCatching {
+                if (mp.isPlaying) mp.stop()
+                mp.reset()
+                mp.release()
+            }
+        }
+        mediaPlayer = null
+        loadingUrl = null
+        isPlaying = false
+        currentPositionMs = 0
+        durationMs = 0
+        activeUrl = null
+    }
+
+    private fun startTicker() {
+        tickerJob?.cancel()
+        tickerJob = scope.launch {
+            while (isActive) {
+                val player = mediaPlayer ?: break
+                val playingNow = runCatching { player.isPlaying }.getOrDefault(false)
+                if (!playingNow) {
+                    isPlaying = false
+                    break
+                }
+                currentPositionMs = runCatching { player.currentPosition.coerceAtLeast(0) }.getOrDefault(currentPositionMs)
+                durationMs = runCatching { player.duration.coerceAtLeast(0) }.getOrDefault(durationMs)
+                delay(150L)
+            }
+        }
+    }
+
+    private fun stopTicker() {
+        tickerJob?.cancel()
+        tickerJob = null
+    }
+}
+
+@Composable
+fun AuthenticatedAudioPlayerCard(
+    urlString: String,
+    title: String,
+    token: String,
+    baseUrl: String,
+    palette: DragonClawPalette = LocalDragonClawPalette.current,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var isSaving by remember(urlString) { mutableStateOf(false) }
+    var barWidthPx by remember { mutableIntStateOf(1) }
+
+    val displayTitle = remember(title, urlString) {
+        title.trim().ifEmpty { DragonClawHelpers.extractAgentFileDisplayName(urlString, "语音音频.mp3") }
+    }
+    val isActive = ChatAudioPlaybackManager.activeUrl == urlString
+    val isLoading = ChatAudioPlaybackManager.loadingUrl == urlString
+    val isPlayingNow = isActive && ChatAudioPlaybackManager.isPlaying
+    val durationMs = if (isActive) ChatAudioPlaybackManager.durationMs else 0
+    val currentMs = if (isActive) ChatAudioPlaybackManager.currentPositionMs else 0
+    val progress = if (durationMs > 0) (currentMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
+    val errorText = ChatAudioPlaybackManager.errorByUrl[urlString]
+
+    val timeLabel = remember(isActive, currentMs, durationMs) {
+        if (isActive && durationMs > 0) {
+            "${formatAudioClock(currentMs)} / ${formatAudioClock(durationMs)}"
+        } else {
+            "点击播放"
+        }
+    }
+
+    val shape = RoundedCornerShape(14.dp)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .background(palette.elevatedSurface.copy(alpha = if (palette.isDark) 0.85f else 0.94f), shape)
+            .border(
+                width = if (isPlayingNow) 1.dp else 0.75.dp,
+                color = if (isPlayingNow) palette.accentStrong.copy(alpha = 0.5f) else palette.hairLine,
+                shape = shape
+            )
+            .padding(horizontal = 12.dp, vertical = 10.dp)
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(palette.accentStrong)
+                .clickable {
+                    ChatAudioPlaybackManager.togglePlay(context, urlString, token, baseUrl)
+                }
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(
+                    color = Color.White,
+                    strokeWidth = 2.dp,
+                    modifier = Modifier.size(18.dp)
+                )
+            } else {
+                Icon(
+                    imageVector = if (isPlayingNow) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                    contentDescription = if (isPlayingNow) "Pause audio" else "Play audio",
+                    tint = Color.White,
+                    modifier = Modifier.size(21.dp)
+                )
+            }
+        }
+
+        Column(
+            verticalArrangement = Arrangement.spacedBy(5.dp),
+            modifier = Modifier.weight(1f)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.GraphicEq,
+                    contentDescription = null,
+                    tint = palette.accentStrong,
+                    modifier = Modifier.size(14.dp)
+                )
+                Text(
+                    text = displayTitle,
+                    color = palette.inkPrimary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Box(
+                contentAlignment = Alignment.CenterStart,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(16.dp)
+                    .onSizeChanged { barWidthPx = it.width.coerceAtLeast(1) }
+                    .pointerInput(urlString, isActive, durationMs) {
+                        detectTapGestures { offset ->
+                            if (isActive && durationMs > 0) {
+                                ChatAudioPlaybackManager.seekToFraction(urlString, offset.x / barWidthPx.toFloat())
+                            }
+                        }
+                    }
+                    .pointerInput(urlString, isActive, durationMs) {
+                        detectHorizontalDragGestures { change, _ ->
+                            if (isActive && durationMs > 0) {
+                                change.consume()
+                                ChatAudioPlaybackManager.seekToFraction(urlString, change.position.x / barWidthPx.toFloat())
+                            }
+                        }
+                    }
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(5.dp)
+                        .clip(CircleShape)
+                        .background(palette.hairLine)
+                )
+                if (progress > 0f) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(progress)
+                            .height(5.dp)
+                            .clip(CircleShape)
+                            .background(palette.accentStrong)
+                    )
+                }
+            }
+
+            if (!errorText.isNullOrBlank()) {
+                Text(
+                    text = errorText,
+                    color = palette.danger,
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            } else {
+                Text(
+                    text = timeLabel,
+                    color = palette.inkMuted,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(34.dp)
+                .clip(CircleShape)
+                .clickable(enabled = !isSaving) {
+                    isSaving = true
+                    scope.launch {
+                        AndroidPlatformAssetDownloader.downloadAndSaveFile(context, urlString, token, baseUrl)
+                            .onSuccess { savedName ->
+                                Toast.makeText(context, "已保存到下载：$savedName", Toast.LENGTH_SHORT).show()
+                            }
+                            .onFailure { err ->
+                                Toast.makeText(context, "下载失败：${err.message ?: "未知错误"}", Toast.LENGTH_SHORT).show()
+                            }
+                        isSaving = false
+                    }
+                }
+        ) {
+            if (isSaving) {
+                CircularProgressIndicator(
+                    color = palette.inkSecondary,
+                    strokeWidth = 1.8.dp,
+                    modifier = Modifier.size(16.dp)
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Rounded.Download,
+                    contentDescription = "Download audio",
+                    tint = palette.inkSecondary,
+                    modifier = Modifier.size(19.dp)
+                )
+            }
+        }
+    }
+}
+
+private fun formatAudioClock(ms: Int): String {
+    val totalSec = (ms / 1000).coerceAtLeast(0)
+    val mins = totalSec / 60
+    val secs = totalSec % 60
+    return "%02d:%02d".format(mins, secs)
 }

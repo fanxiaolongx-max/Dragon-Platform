@@ -86,10 +86,24 @@ data class AlertCenterEvent(
 ) {
     val isUnread: Boolean get() = status == "unread"
 
-    fun detailEntries(): List<String> = detail?.entries?.take(4)?.map { (k, v) ->
-        val clean = if (v is JsonPrimitive && v.isString) v.content else v.toString()
-        "$k: $clean"
-    } ?: emptyList()
+    /** Returns a copy with [status] updated inside Kotlin so Swift callers never re-bridge [detail]. */
+    fun withStatus(status: String): AlertCenterEvent = copy(status = status)
+
+    fun detailEntries(): List<String> {
+        // Check runtime type via Any? so a bridged plain Map cannot enter JsonObject.getEntries().
+        val raw = detail as Any? ?: return emptyList()
+        val entries = when (raw) {
+            is JsonObject -> raw.entries
+            is Map<*, *> -> raw.entries
+            else -> return emptyList()
+        }
+        return entries.take(4).mapNotNull { entry ->
+            val key = entry.key?.toString()?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+            val v = entry.value
+            val clean = if (v is JsonPrimitive && v.isString) v.content else v?.toString().orEmpty()
+            "$key: $clean"
+        }
+    }
 
     fun severityLabel(language: String): String = when (severity.lowercase()) {
         "critical", "error" -> if (language == "en") "Critical" else "严重"

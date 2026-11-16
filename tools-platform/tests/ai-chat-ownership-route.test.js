@@ -207,6 +207,12 @@ test('real chat endpoints isolate histories and reject foreign session IDs befor
         assert.equal(options.messages[1].content, 'Overview of the active view.');
         return { text: 'Current editor overview.' };
     } });
+    await require('../backend/models/tenant-context').runWithTenant('default', async () => {
+        const customToolsRepo = require('../backend/models/custom-tools-repository');
+        const dist = require('../backend/models/tool-distribution');
+        await customToolsRepo.createTool({ slug: 'aiops-report', name: 'AiOps-Report', htmlContent: '<html><body>aiops</body></html>' });
+        await dist.setSharedAccess('aiops-report', true);
+    });
     const currentView = await fetch(`${url}/chat`, { method: 'POST', headers, body: JSON.stringify({
         currentView: true, pagePath: '/tools/aiops-report', pageTitle: 'AiOps-Report',
         context: 'def preview():\n  password = "fixture-password"\nAPI Key: fixture-key\n-----BEGIN PRIVATE KEY-----\nfixture-pem-body',

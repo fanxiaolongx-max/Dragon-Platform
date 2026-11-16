@@ -419,11 +419,11 @@ async function collectToolData(tool, window, clientToolData) {
     return sources;
 }
 
-async function analyzeQuestion(question, { contextQuestion = '', toolSlug = '', clientToolData = [], now = new Date() } = {}) {
+async function analyzeQuestion(question, { contextQuestion = '', toolSlug = '', clientToolData = [], user = null, now = new Date() } = {}) {
     const combined = [contextQuestion, question].filter(Boolean).join('\n');
     const preferSlug = String(toolSlug || '').replace(/^custom:/, '');
     if (!DATA_INTENT_RE.test(combined)) return { performed: false, tools: [], prompt: '' };
-    const tools = await customToolsRepo.listTools();
+    const tools = user ? await require('./tool-distribution').listAvailable(user) : await customToolsRepo.listTools();
     const candidates = matchTools(combined, tools, { preferSlug, limit: MAX_MATCHED_TOOLS + 2 });
     if (!candidates.length) return { performed: true, tools: [], prompt: '' };
     const window = parseWindow(question, now) || parseWindow(contextQuestion, now);

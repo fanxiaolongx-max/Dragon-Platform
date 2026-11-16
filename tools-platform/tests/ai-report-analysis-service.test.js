@@ -78,6 +78,18 @@ test('keeps overlapping metric names when the user explicitly lists them', () =>
     assert.deepEqual(findMatchedMetricLabels(labels, '日志回传备案当前值怎么样'), ['日志回传备案']);
 });
 
+test('excludes metrics mentioned in negative clauses like 不需要显示EOS相关的指标', () => {
+    const labels = ['存储整改', '全量EOS-产品', '重疾EOS预案覆盖率'];
+    assert.deepEqual(
+        findMatchedMetricLabels(labels, '分析10月存储整改情况，不需要显示EOS相关的指标'),
+        ['存储整改']
+    );
+    assert.deepEqual(
+        findMatchedMetricLabels(labels, '重疾情况怎么样，排除EOS'),
+        []
+    );
+});
+
 test('ranks proactive KPI alerts by business weight and gap', () => {
     const candidates = buildProactiveAlertCandidates([
         { cat_name: 'TE', metric_label: '收入', weight: 5, target_val: '≥10', raw_val: '6', gap: '4', is_failing: 1 },

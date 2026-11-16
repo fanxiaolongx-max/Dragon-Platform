@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import android.view.ViewGroup
 import androidx.webkit.ProxyConfig
 import androidx.webkit.ProxyController
 import androidx.webkit.WebViewFeature
@@ -167,6 +168,12 @@ fun ToolWebViewScreen(
                     )
 
                     WebView(ctx).apply {
+                        // Explicit MATCH_PARENT avoids Compose WRAP_CONTENT default, which causes
+                        // Android WebView to evaluate 100vh as 0px on desktop-width viewports.
+                        layoutParams = ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        )
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
                         settings.loadWithOverviewMode = true

@@ -57,6 +57,12 @@ test.before(async () => {
     await sessions.saveSession('warehouse-admin', 'admin', 'admin', expiry);
     await sessions.saveSession('warehouse-viewer', 'viewer', 'user', expiry);
     await sessions.saveSession('warehouse-beta', 'admin', 'admin', expiry, 'beta');
+    await runWithTenant('default', async () => {
+        const customToolsRepo = require('../backend/models/custom-tools-repository');
+        const dist = require('../backend/models/tool-distribution');
+        await customToolsRepo.createTool({ slug: 'tool-mv9strpn', name: 'Warehouse', htmlContent: '<html><body>w</body></html>' });
+        await dist.setSharedAccess('tool-mv9strpn', true);
+    });
 });
 
 test.after(async () => {

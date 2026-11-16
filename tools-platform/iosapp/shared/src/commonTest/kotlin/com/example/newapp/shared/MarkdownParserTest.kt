@@ -1,10 +1,12 @@
 package com.example.newapp.shared
 
+import com.example.newapp.shared.util.DragonClawHelpers
 import com.example.newapp.shared.util.MarkdownParser
 import com.example.newapp.shared.util.MdBlockKind
 import com.example.newapp.shared.util.MdSpanKind
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class MarkdownParserTest {
@@ -63,5 +65,79 @@ class MarkdownParserTest {
         val streamed = MarkdownParser.parse("```js\nconst a = 1;").single()
         assertEquals(MdBlockKind.CODE_BLOCK, streamed.kind)
         assertEquals("const a = 1;", streamed.codeText)
+    }
+
+    @Test
+    fun htmlAudioTagsAndAgentFileDownloadLinksRenderWithoutRawHtmlOrCodeChips() {
+        val raw = """
+            🎙️ 声音生成完成！
+
+            - **音色**: 雨薇 Yuwei
+            - **试听**:
+
+            <audio controls preload="none" src="/api/agent-files/view?path=%2FVolumes%2F512G%2Foutputs%2Faudio%2Fvoice_yuwei_20261115090359_fa347b.mp3"></audio>
+
+            - [📥 点击直接下载音频文件](/api/agent-files/download?path=%2FVolumes%2F512G%2Foutputs%2Faudio%2Fvoice_yuwei_20261115090359_fa347b.mp3)
+        """.trimIndent()
+
+        val blocks = MarkdownParser.parse(raw)
+        val audioBlocks = blocks.filter { it.kind == MdBlockKind.AUDIO }
+        assertEquals(1, audioBlocks.size)
+        assertEquals(
+            "/api/agent-files/view?path=%2FVolumes%2F512G%2Foutputs%2Faudio%2Fvoice_yuwei_20261115090359_fa347b.mp3",
+            audioBlocks.first().audioUrl
+        )
+        // Raw HTML <audio ...> tag must not remain as text
+        assertFalse(blocks.filter { it.kind == MdBlockKind.PARAGRAPH }.any { block ->
+            block.spans.any { it.text.contains("<audio") }
+        })
+        assertFalse(MarkdownParser.toSpeechText(raw).contains("<audio"))
+
+        // Relative /api/agent-files/download link becomes clickable WEB_LINK instead of `</>` SYMBOL_CHIP
+        val downloadSpans = blocks.filter { it.kind == MdBlockKind.BULLET_ITEM }.flatMap { it.spans }
+        assertFalse(downloadSpans.any { it.kind == MdSpanKind.SYMBOL_CHIP })
+        val downloadLink = downloadSpans.first { it.kind == MdSpanKind.WEB_LINK }
+        assertEquals("📥 点击直接下载音频文件", downloadLink.text)
+        assertTrue(downloadLink.url?.startsWith("/api/agent-files/download?path=") == true)
+
+        assertEquals(
+            "voice_yuwei_20261115090359_fa347b.mp3",
+            DragonClawHelpers.extractAgentFileDisplayName(audioBlocks.first().audioUrl)
+        )
+        assertTrue(DragonClawHelpers.isPlatformAgentFileUrl(downloadLink.url!!, "https://cs.fanxiaolong.uk"))
+        assertTrue(
+            DragonClawHelpers.shouldAttachBearerAuth(
+                "https://cs.fanxiaolong.uk/api/agent-files/view?path=test.mp3",
+                "https://cs.fanxiaolong.uk"
+            )
+        )
+        assertFalse(
+            DragonClawHelpers.shouldAttachBearerAuth(
+                "https://cdn.example.com/audio/demo.mp3",
+                "https://cs.fanxiaolong.uk"
+            )
+        )
+    }
+
+    @Test
+    fun multilineSourceAudioTagAndInlineCodeAudioAreHandledProperly() {
+        val raw = """
+            - **试听**：<audio controls>
+              <source src="/api/agent-files/view?path=%2Ftmp%2F%E9%9F%B3%E9%A2%91%20demo.mp3" type="audio/mpeg" />
+            </audio>
+
+            说明：示例标签 `<audio controls src="/api/agent-files/view?path=example.mp3"></audio>` 应保持代码样式。
+        """.trimIndent()
+
+        val blocks = MarkdownParser.parse(raw)
+        val audioBlocks = blocks.filter { it.kind == MdBlockKind.AUDIO }
+        assertEquals(1, audioBlocks.size)
+        assertEquals(
+            "/api/agent-files/view?path=%2Ftmp%2F%E9%9F%B3%E9%A2%91%20demo.mp3",
+            audioBlocks.first().audioUrl
+        )
+        assertEquals("音频 demo.mp3", DragonClawHelpers.extractAgentFileDisplayName(audioBlocks.first().audioUrl))
+        val lastParagraph = blocks.last { it.kind == MdBlockKind.PARAGRAPH }
+        assertTrue(lastParagraph.spans.any { it.kind == MdSpanKind.CODE && it.text.contains("<audio controls") })
     }
 }

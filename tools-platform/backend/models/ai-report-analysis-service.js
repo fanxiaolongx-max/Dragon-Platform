@@ -571,10 +571,30 @@ function metricChineseAliases(value) {
     return [...aliases];
 }
 
+const METRIC_NEGATION_RE = /(?:不需要|不要|不含|不包含|排除|剔除|去掉|不显示|不展示|勿含|无需|without\b|exclude\b)\s*(?:显示|展示|包含|统计|列出|出)?\s*([^\n，。；;！？!?]{1,40})|除(?:了)?\s*([^\n，。；;！？!?]{1,40}?)\s*(?:外|以外|之外)/gi;
+const METRIC_FILLER_RE = /^(?:任何|所有|全部|相关|关联|有关|同类|这些|那些|以下|的|类|型|项|指标|数据|内容|字段)+|(?:相关|关联|的|类|型|项|指标|数据|内容|字段)+$/g;
+
+function extractMetricExclusions(question) {
+    const exclude = [];
+    const positiveQuestion = String(question || '').replace(METRIC_NEGATION_RE, (_match, body, exceptBody) => {
+        const segment = String(body || exceptBody || '');
+        for (const piece of segment.split(/[\s、,，/和及与]+/)) {
+            const clean = piece.replace(METRIC_FILLER_RE, '').replace(METRIC_FILLER_RE, '');
+            const normalized = normalizeMetricText(clean);
+            if (normalized.length >= 2) exclude.push(normalized);
+        }
+        return ' ';
+    });
+    return { positiveQuestion, exclude: [...new Set(exclude)] };
+}
+
 function resolveMatchedMetricLabels(labels, question) {
-    const query = normalizeMetricText(question);
+    const { positiveQuestion, exclude } = extractMetricExclusions(question);
+    const isExcluded = label => exclude.length > 0 && exclude.some(term => normalizeMetricText(label).includes(term));
+    const activeLabels = exclude.length ? labels.filter(label => !isExcluded(label)) : labels;
+    const query = normalizeMetricText(positiveQuestion);
     if (!query) return { labels: [], mode: 'none', ambiguous: false, candidates: [] };
-    const queryYears = new Set(String(question || '').match(/20\d{2}/g) || []);
+    const queryYears = new Set(String(positiveQuestion || '').match(/20\d{2}/g) || []);
     const scored = new Map();
     const exactSpans = new Map();
     const add = (label, matchedLength, mode) => {
@@ -592,7 +612,7 @@ function resolveMatchedMetricLabels(labels, question) {
         return spans;
     };
 
-    labels.forEach(label => {
+    activeLabels.forEach(label => {
         const normalized = normalizeMetricText(label);
         const familyBase = metricFamilyBase(label);
         const labelYear = String(label).match(/20\d{2}$/)?.[0] || null;
@@ -624,7 +644,7 @@ function resolveMatchedMetricLabels(labels, question) {
     const ambiguousGroups = [];
     const collectAliases = (aliasFactory, mode) => {
         const owners = new Map();
-        labels.forEach(label => aliasFactory(label).forEach(alias => {
+        activeLabels.forEach(label => aliasFactory(label).forEach(alias => {
             if (!owners.has(alias)) owners.set(alias, []);
             owners.get(alias).push(label);
         }));

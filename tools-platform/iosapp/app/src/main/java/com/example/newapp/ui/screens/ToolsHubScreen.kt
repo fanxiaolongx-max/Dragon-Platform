@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -56,7 +57,8 @@ private enum class ToolFilterChip {
 fun ToolsHubScreen(vm: DragonClawViewModel) {
     val palette = LocalDragonClawPalette.current
     val lang = vm.language
-    var selectedFilter by remember { mutableStateOf(ToolFilterChip.ALL) }
+    val scope = rememberCoroutineScope()
+    val selectedFilter = ToolFilterChip.entries.firstOrNull { it.name == vm.selectedToolCategoryKey } ?: ToolFilterChip.ALL
 
     val gridTools = remember(vm.filteredTools, selectedFilter, vm.toolSearchQuery) {
         vm.filteredTools.filter {
@@ -76,10 +78,13 @@ fun ToolsHubScreen(vm: DragonClawViewModel) {
     }
 
     LaunchedEffect(Unit) {
-        vm.loadToolNavState()
+        if (vm.favoriteToolIds.isEmpty() && vm.recentToolIds.isEmpty()) {
+            vm.loadToolNavState()
+        }
     }
 
     LazyVerticalGrid(
+        state = vm.toolsGridState,
         columns = GridCells.Fixed(2),
         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -111,7 +116,7 @@ fun ToolsHubScreen(vm: DragonClawViewModel) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .excludeFromShellHorizontalGesture()
-                        .horizontalScroll(rememberScrollState())
+                        .horizontalScroll(vm.toolsCategoryScrollState)
                 ) {
                     ToolFilterChip.entries.forEach { chip ->
                         val isSelected = selectedFilter == chip
@@ -120,7 +125,12 @@ fun ToolsHubScreen(vm: DragonClawViewModel) {
                             tint = if (isSelected) palette.accent else null,
                             tintAlpha = 0.20f,
                             elevation = if (isSelected) 5.dp else 3.dp,
-                            onClick = { selectedFilter = chip }
+                            onClick = {
+                                if (vm.selectedToolCategoryKey != chip.name) {
+                                    vm.selectedToolCategoryKey = chip.name
+                                    scope.launch { vm.toolsGridState.scrollToItem(0) }
+                                }
+                            }
                         ) {
                             Text(
                                 text = chip.label(lang),

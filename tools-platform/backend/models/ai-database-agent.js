@@ -29,37 +29,54 @@ filters 精确定位；整表操作需要用户明确要求该范围，并显式
  */
 async function runTurn({ client, systemInstruction, messages, ctx, signal, onDelta, onEvent, maxOutputTokens, temperature, model, extras = null, vision = null }) {
     if (ctx.readOnly !== false) throw Object.assign(new Error('数据库写入仅对管理员开放'), { code: 'AGENT_DATABASE_FORBIDDEN' });
+    const actor = ctx.user ?? await require('./tool-distribution').actorForOwner(ctx.owner);
+    const baseAllowed = ctx.toolAccess || await require('./agent-tool-access').forActor(actor, ctx.owner);
+    const uivAllowed = !actor || require('../middleware/auth').isSuperAdmin(actor) || await require('./page-distribution').canAccessUivScripts(actor);
+    const uivNames = new Set(require('./agent-tool-registry').GROUPS.uiv.names);
+    const skillStore = require('./agent-skills-store');
+    const visibleSkills = actor ? new Set((await skillStore.listForUser(actor)).map(item => item.id)) : null;
+    const isVisibleSkill = id => !visibleSkills || visibleSkills.has(id);
+    const allowed = name => baseAllowed(name)
+        && (uivAllowed || !uivNames.has(name))
+        && (!name.startsWith('finance_') || isVisibleSkill('family-finance-bookkeeper'))
+        && (!(name.startsWith('ppo_') || name.startsWith('ppo-')) || isVisibleSkill('ppo-traffic'));
     // 对话里上传过附件时，带上只读的附件工具（read_file / read_document / query_data / diff_files）
-    const files = filesAgent.toolset({ ...ctx, signal });
-    const tools = [...toolsService.definitions().filter(tool => TOOL_NAMES.has(tool.name)), ...(files ? files.definitions : []), ...require('./family-finance-agent').definitions(), ...require('./ppo-traffic-agent').definitions()];
+    const files = filesAgent.toolset({ ...ctx, signal, toolAccess: allowed });
+    const financeDefs = isVisibleSkill('family-finance-bookkeeper') ? require('./family-finance-agent').definitions() : [];
+    const ppoDefs = isVisibleSkill('ppo-traffic') ? require('./ppo-traffic-agent').definitions() : [];
+    const tools = [...toolsService.definitions().filter(tool => TOOL_NAMES.has(tool.name)), ...(files ? files.definitions : []), ...financeDefs, ...ppoDefs]
+        .filter(tool => allowed(tool.name));
     const sensitiveValues = ctx.sensitiveValues || [];
     // 普通对话不接受客户端提供的文件根目录或其他执行上下文。
     const toolCtx = { readOnly: false, sensitiveValues, signal, fullResults: Boolean(ctx.owner), username: ctx.username || '',
         currentUserMessage: messages.at(-1)?.content || '', userMessages: messages.filter(item => item.role === 'user').map(item => item.content) };
     const safe = value => redactValue(value, { secrets: sensitiveValues });
     let scriptNudged = false;
+    const hasDatabaseTools = tools.some(tool => ['list_databases', 'database_schema', 'read_database_table', 'insert_database_row', 'update_database_rows', 'delete_database_rows'].includes(tool.name));
     const result = await agentLoop.runToolLoop({
         extras, // 附加工具组：浏览器、MCP（管理员的首页对话）
         vision, // 看图：view_image 与工具取得的图片
-        client, model, systemPrompt: redactText(`${systemInstruction}\n${PROMPT}${files ? files.prompt : ''}`, { secrets: sensitiveValues }), messages, tools,
+        toolAccess: allowed,
+        client, model, systemPrompt: redactText(`${systemInstruction}${hasDatabaseTools ? `\n${PROMPT}` : ''}${files ? files.prompt : ''}`, { secrets: sensitiveValues }), messages, tools,
         write: event => (event.type === 'delta' ? onDelta?.(event.delta) : onEvent?.(event)),
         signal, maxOutputTokens, temperature, sensitiveValues, task: String(messages.at(-1)?.content || ''), callIdPrefix: 'database',
         artifactOwner: ctx.owner || '', artifactSession: ctx.chatSessionId || 'home',
         executeCall: async (call, { start }) => {
             const args = safe(call.args && typeof call.args === 'object' ? call.args : {});
             start({ args });
+            if (!allowed(call.name)) return { content: `工具 ${call.name} 未开放或已禁用。`, summary: '工具未开放', isError: true };
             if (files?.names.has(call.name)) return files.execute(call.name, args);
             if (call.name.startsWith('open_autoglm') || call.name.startsWith('open-autoglm')) {
                 const autoglm = require('./open-autoglm-agent');
-                return autoglm.execute(call.name, args);
+                return autoglm.execute(call.name, args, { user: actor });
             }
             if (call.name.startsWith('finance_')) {
                 const finance = require('./family-finance-agent');
-                return finance.execute(call.name, args);
+                return finance.execute(call.name, args, { user: actor });
             }
             if (call.name.startsWith('ppo_') || call.name.startsWith('ppo-')) {
                 const ppo = require('./ppo-traffic-agent');
-                return ppo.execute(call.name, args);
+                return ppo.execute(call.name, args, { user: actor });
             }
             const outcome = TOOL_NAMES.has(call.name)
                 ? await toolsService.execute(toolCtx, call.name, args)

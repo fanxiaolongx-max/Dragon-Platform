@@ -71,7 +71,14 @@ const traced = client => !client || client.__traced ? client : new Proxy(client,
         const started = Date.now(), entry = trace({ kind: 'ai', status: 'running', system: clip(options.systemInstruction || ''), messages: clip((options.messages || []).map(item => ({ role: item.role, content: item.content, ...(item.toolCalls ? { toolCalls: item.toolCalls } : {}), ...(item.toolResults ? { toolResults: item.toolResults } : {}) }))), tools: (options.tools || []).map(tool => tool.name) });
         try {
             const result = await target.generateChat(options);
-            Object.assign(entry, { ms: Date.now() - started, reply: clip(result.text || ''), toolCalls: result.toolCalls?.length ? clip(result.toolCalls.map(call => ({ name: call.name, args: call.args }))) : '' });
+            Object.assign(entry, {
+                ms: Date.now() - started,
+                reply: clip(result.text || ''),
+                toolCalls: result.toolCalls?.length ? clip(result.toolCalls.map(call => ({ name: call.name, args: call.args }))) : '',
+                ...(result.model ? { model: result.model } : {}),
+                ...(result.finishReason ? { finishReason: result.finishReason } : {}),
+                ...(result.usage ? { usage: result.usage } : {})
+            });
             entry.status = 'success'; publishTrace(entry); progress('model_done');
             if (result.providerClient) result.providerClient = traced(trackRounds(result.providerClient, pushRound));
             return result;
@@ -109,7 +116,7 @@ router.get('/sources', handle(async (req, res) => res.json(await data.listSource
 router.post('/run-data', handle(async (req, res) => {
     const recipe = model.normalizeRecipe(req.body?.recipe);
     progress('data');
-    const { input, missing } = await data.recipeInput(req.body?.month, recipe.sources);
+    const { input, missing } = await data.recipeInput(req.body?.month, recipe.sources, { user: req.user });
     res.json({ input, missing });
 }));
 
@@ -313,7 +320,7 @@ async function runTool(call, month, context = {}) {
     if (call.name === 'list_metrics') return data.findMetrics(targetMonth, args.query);
     if (call.name === 'list_datasets') return data.listDatasets(targetMonth);
     if (call.name === 'describe_dataset') return data.describeDataset(args.id, targetMonth);
-    if (call.name === 'search_tool_data') return data.searchToolData(String(args.question || ''));
+    if (call.name === 'search_tool_data') return data.searchToolData(String(args.question || ''), context.user);
     throw new Error('Unknown tool ' + call.name);
 }
 
@@ -426,6 +433,8 @@ async function runWithTools(client, { system, month, messages, accept, fallback,
         trace({ kind: 'retry', text: reason });
         messages.push({ role: 'model', content: result.text || '' }, { role: 'user', content: reason });
     }
+    const reasonSummary = retries.slice(-3).join('；') || '未生成有效 JSON';
+    trace({ kind: 'retry', status: 'error', text: `已达到最大重试次数（${MAX_TOOL_STEPS + 2}）：${reasonSummary}` });
     console.warn('[AI Report] gave up after', MAX_TOOL_STEPS + 2, 'steps:', JSON.stringify({ tools: toolLog, retries }));
     return { ...fallback, tools: toolLog };
 }
@@ -433,11 +442,11 @@ async function runWithTools(client, { system, month, messages, accept, fallback,
 // Conversation turn: answers data questions or asks; never compiles a recipe.
 const styleLine = style => style ? `月报整体风格默认要求（格子已确认的局部例外优先）：\n${String(style).slice(0, 800)}` : '';
 
-function cellTurn(client, { month, prompt, chat, message, style = '', outline = null }) {
+function cellTurn(client, { month, prompt, chat, message, style = '', outline = null, user = null }) {
     const context = [`报告月份：${month}`, prompt ? `这个格子当前的最终提示词：\n${prompt}` : '这个格子还没有最终提示词', styleLine(style)].filter(Boolean).join('\n');
     const recentChat = historyMessages(chat).slice(-6);
     const messages = [{ role: 'user', content: context }, { role: 'model', content: '好的。' }, ...recentChat, { role: 'user', content: message }];
-    return runWithTools(client, { system: CHAT_PROMPT, month, messages, context: { outline }, fallback: { type: 'answer', text: '抱歉，我这次没能整理出回答，请换个说法再试一次。' }, accept: (reply, toolLog) => {
+    return runWithTools(client, { system: CHAT_PROMPT, month, messages, context: { outline, user }, fallback: { type: 'answer', text: '抱歉，我这次没能整理出回答，请换个说法再试一次。' }, accept: (reply, toolLog) => {
         if (asksAboutConflict(reply)) return { retry: CONFLICT_RETRY };
         if (['answer', 'ready'].includes(reply?.type) && reply.text) return { result: { type: reply.type, text: String(reply.text).slice(0, 6000), tools: toolLog, ...reportRuleOf(reply) } };
         if(reply?.type==='ask'&&/交互|拖动|可编辑|编辑文字|编辑模式|开启编辑/.test(reply.question||'')&&!/数据源|指标名称|业务口径|计算公式|筛选条件/.test(reply.question||''))
@@ -467,19 +476,28 @@ ${Query.GUIDE}
 recipe 可以写 {"summary","sources","query":{...},"view":{...},"narrative":null}：有 query 时不写 compute，有 view 时不写 render。
 ${Templates.catalog()}`;
 
-function compileTurn(client, { month, prompt, recipe, error, style = '', outline = null, previousPrompt = '', presentation = null, interactive = false }) {
+function extractCompiledRecipe(reply) {
+    if (reply?.type === 'recipe' && reply.recipe && typeof reply.recipe === 'object') return reply.recipe;
+    if (reply && typeof reply === 'object' && !reply.type && (Array.isArray(reply.sources) || reply.compute || reply.query) && (reply.render || reply.view)) {
+        return reply;
+    }
+    return null;
+}
+
+function compileTurn(client, { month, prompt, recipe, error, style = '', outline = null, previousPrompt = '', presentation = null, interactive = false, user = null }) {
     // A working recipe from an earlier prompt is the base, so a small prompt change does not reroll the title or layout.
     const base = recipe && !error && previousPrompt && previousPrompt !== prompt ? `之前的提示词：\n${previousPrompt}\n\n按之前提示词做出、能正常运行的配方：${JSON.stringify(recipe).slice(0, 4000)}\n在这个配方基础上按提示词的变化修改：没有被新要求替换的部分保持原样；展示形式变化时，旧 render、图表/卡片及小格子布局必须重建，旧配方只作数据与计算参考；提示词里有而这个配方还没做到的要求（例如要显示的标题）必须补上；数据来源换了时重新用工具查清新来源的准确名称。` : '';
     const content = [`报告月份：${month}`, `最终提示词：\n${prompt}`, styleLine(style), Array.isArray(presentation)&&presentation.length?'当前交互格子的实际展示与用户调整（用户调整是已确认的展示要求，必须落实；有相对锚点时按锚点关系而不是机械叠加像素；只可优化未被调整的部分）：'+JSON.stringify(presentation).slice(0,24000):'', recipe && error ? `上一次的配方：${JSON.stringify(recipe).slice(0, 4000)}\n运行出错：${error}\n请修正。` : base].filter(Boolean).join('\n\n');
-    return runWithTools(client, { system: COMPILE_PROMPT+TEMPLATE_GUIDE+(interactive?"\n不用模板（不写 view）时的展示协议：所有内容必须在 kit.interactive 内，默认自由拖动和编辑，图表使用 SVG，narrative:null。旧 kit.layout/命名小格子尺寸要求只作内容、比例参考，内部 HTML/CSS 自由实现；纯文字也用交互 HTML，不添加图表。":""), month, messages: [{ role: 'user', content }], context: { outline }, fallback: { type: 'ask', question: '这个提示词我还没能编译成可运行的配方，能在对话里补充一下用哪张表、哪些列吗？', choices: [] }, accept: async (reply, toolLog) => {
+    return runWithTools(client, { system: COMPILE_PROMPT+TEMPLATE_GUIDE+(interactive?"\n不用模板（不写 view）时的展示协议：所有内容必须在 kit.interactive 内，默认自由拖动和编辑，图表使用 SVG，narrative:null。旧 kit.layout/命名小格子尺寸要求只作内容、比例参考，内部 HTML/CSS 自由实现；纯文字也用交互 HTML，不添加图表。":""), month, messages: [{ role: 'user', content }], context: { outline, user }, fallback: { type: 'ask', question: '这个提示词我还没能编译成可运行的配方，能在对话里补充一下用哪张表、哪些列吗？', choices: [] }, accept: async (reply, toolLog) => {
         if (reply?.type === 'ask' && reply.question) return { result: askResult(reply, toolLog) };
-        if (reply?.type === 'recipe') {
+        const compiledRecipe = extractCompiledRecipe(reply);
+        if (compiledRecipe) {
             let normalized;
-            const view = reply.recipe && typeof reply.recipe === 'object' && reply.recipe.view ? Templates.normalizeView(reply.recipe.view) : null;
-            if (reply.recipe?.view && !view) return { retry: 'view 无效：template 必须是模板目录里的 id。请修正后只输出 JSON。' };
+            const view = compiledRecipe.view ? Templates.normalizeView(compiledRecipe.view) : null;
+            if (compiledRecipe.view && !view) return { retry: 'view 无效：template 必须是模板目录里的 id。请修正后只输出 JSON。' };
             // A query becomes the stored compute (it only hands the query to the query library, which checks names at run time).
-            const query = reply.recipe && typeof reply.recipe.query === 'object' && reply.recipe.query ? reply.recipe.query : null;
-            try { normalized = model.normalizeRecipe(tidyRecipe({ ...reply.recipe, ...(view ? { render: Templates.renderSource(view) } : {}), ...(query ? { compute: Query.computeSource(query) } : {}) })); }
+            const query = compiledRecipe.query && typeof compiledRecipe.query === 'object' ? compiledRecipe.query : null;
+            try { normalized = model.normalizeRecipe(tidyRecipe({ ...compiledRecipe, ...(view ? { render: Templates.renderSource(view) } : {}), ...(query ? { compute: Query.computeSource(query) } : {}) })); }
             catch (problem) { return { retry: `配方无效：${problem.message}。请修正后只输出 JSON。` }; }
             if(interactive&&!view&&!/\bkit\s*\.\s*interactive\s*\(/.test(normalized.render))return {retry:'本次必须生成默认自由编辑的交互 HTML：render 返回 kit.interactive({html,css,script},{id:"content"})，所有标题、图表、表格和总结放在它内部，图表使用 SVG，narrative:null。保留原数据来源和 compute；旧【格子内部布局】的小格子 id、kit.layout 要求仅作内容与比例参考，用内部 HTML/CSS 实现，不得退回 kit.chart/kit.layout 静态格子。'};
             // Made-up sources would only ever show "no data"; send them back while the model can still look them up.
@@ -489,7 +507,7 @@ function compileTurn(client, { month, prompt, recipe, error, style = '', outline
             // still has its tool results. Never execute AI-authored JavaScript in the server process.
             const storedQuery = Query.queryFromCompute(normalized.compute);
             if (storedQuery && !normalized.sources.some(source => source.kind === 'report')) {
-                const { input, missing } = await data.recipeInput(month, normalized.sources.filter(source => source.kind !== 'tool'));
+                const { input, missing } = await data.recipeInput(month, normalized.sources.filter(source => source.kind !== 'tool'), { user });
                 if (!missing.length) {
                     try { Query.run(storedQuery, input); }
                     catch (problem) { return { retry: `查询试运行失败：${problem.message}\n${Templates.dataHint(input)}\n请修正 query 的字段和 where，整体指标与分项分别取数，不要用汇总掩盖筛选错误。只输出完整配方 JSON。` }; }
@@ -542,7 +560,7 @@ router.post('/cell/chat', handle(async (req, res) => {
     if (!model.validMonth(month)) return res.status(400).json({ error: 'A valid report month is required' });
     if (!String(message).trim()) return res.status(400).json({ error: '请输入要问的内容' });
     const client = await aiClient(), style = String(req.body.style || '').slice(0, 8000);
-    const result = await cellTurn(client, { month, prompt: String(prompt).slice(0, 4000), chat, message: String(message).slice(0, 6000), style, outline: reportOutline(req.body.outline) });
+    const result = await cellTurn(client, { month, prompt: String(prompt).slice(0, 4000), chat, message: String(message).slice(0, 6000), style, outline: reportOutline(req.body.outline), user: req.user });
     // “Keep the data, rename only” is a decision the user made, not a new requirement to check.
     res.json(req.body.decided === true ? result : await checkConflict(client, result, { message, chat, sides: [['这个格子的最终提示词', prompt], ['月报整体风格与章节样式提示词', style]] }));
 }));
@@ -581,7 +599,7 @@ router.post('/cell/compile', handle(async (req, res) => {
     const { month, prompt = '', recipe = null, error = '' } = req.body || {};
     if (!model.validMonth(month)) return res.status(400).json({ error: 'A valid report month is required' });
     if (!String(prompt).trim()) return res.status(400).json({ error: '还没有最终提示词' });
-    res.json(await compileTurn(await aiClient(), { month, prompt: String(prompt).slice(0, 4000), recipe, error: String(error).slice(0, 2000), previousPrompt: String(req.body.previousPrompt || '').slice(0, 4000), style: String(req.body.style || '').slice(0, 8000), outline: reportOutline(req.body.outline), presentation: Array.isArray(req.body.presentation)?req.body.presentation.slice(0,4):null, interactive:req.body.interactive===true }));
+    res.json(await compileTurn(await aiClient(), { month, prompt: String(prompt).slice(0, 4000), recipe, error: String(error).slice(0, 2000), previousPrompt: String(req.body.previousPrompt || '').slice(0, 4000), style: String(req.body.style || '').slice(0, 8000), outline: reportOutline(req.body.outline), presentation: Array.isArray(req.body.presentation)?req.body.presentation.slice(0,4):null, interactive:req.body.interactive===true, user: req.user }));
 }));
 
 const STYLE_CHAT_PROMPT = `你是“AI 月报”的整体风格顾问，维护“月报整体风格提示词”。它按分类分条写：【风格与配色】是主题、色调、配色、图表风格、文字语气；其它分类（如【数据与计算】【文字与结论】【排版与图表】）是每个格子生成内容时都要遵守的通用要求，每条一行、以“- ”开头。

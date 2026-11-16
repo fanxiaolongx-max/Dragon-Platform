@@ -105,3 +105,45 @@ test('shared API parses split UTF-8 frames, preserves streamed errors, and refus
     headers={'Content-Type':'application/json'};content=JSON.stringify({text:'legacy JSON'});
     assert.equal((await api.post('/api/ai-report/cell/chat',{})).text,'legacy JSON');
 });
+
+test('trace compacts /run-data dictionaries, drops duplicate result string, and falls back to entry rounds for modelStats', async () => {
+    const bigValues = Object.fromEntries(Array.from({ length: 80 }, (_, idx) => [`指标${idx}`, idx]));
+    const bigTargets = Object.fromEntries(Array.from({ length: 80 }, (_, idx) => [`指标${idx}`, 100]));
+    const context = {
+        localStorage: { getItem: () => null, setItem() {} },
+        window: {},
+        Blob,
+        URL: { createObjectURL: () => 'blob:test', revokeObjectURL() {} },
+        setTimeout: fn => fn(),
+        document: { body: { append() {} }, createElement: () => ({ click() {}, remove() {} }) },
+        API: {
+            post: async path => {
+                if (path === '/api/ai-report/run-data') {
+                    return {
+                        input: { m1: { month: '2026-10', metrics: [{ label: '指标1', value: 1 }], values: bigValues, targets: bigTargets, rules: {} } },
+                        missing: []
+                    };
+                }
+                return {
+                    type: 'recipe',
+                    recipe: { sources: [], compute: 'function compute(){return {};}', render: 'function render(){return "";}' },
+                    _rounds: [{ index: 1, model: 'gemini-2.5-flash', inputTokens: 120, outputTokens: 80, generationMs: 500, ms: 600, tps: 160 }]
+                };
+            }
+        }
+    };
+    vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../frontend/js/ai-report/trace.js'), 'utf8'), context);
+    const trace = context.window.AiReportTrace;
+    trace.setEnabled(true);
+
+    const liveRunData = await trace.post('cell-1', '读取配方数据 / Read recipe data', '/api/ai-report/run-data', {});
+    assert.equal(Object.keys(liveRunData.input.m1.values).length, 80, 'live sandbox input preserves all metric values');
+    await trace.post('cell-1', '编译配方（第 1 次）', '/api/ai-report/cell/compile', {});
+
+    const exported = trace.exportLog('cell-1', { month: '2026-10', chat: [] });
+    assert.equal('result' in exported.entries[0], false, 'entry does not duplicate serialized response into result');
+    assert.equal(exported.entries[0].response.input.m1.values.__omittedOtherMetrics, 79);
+    assert.equal(exported.entries[0].response.input.m1.values['指标1'], 1);
+    assert.ok(exported.modelStats, 'modelStats falls back to call entry rounds when context.chat is empty');
+    assert.equal(exported.modelStats.replies[0].calls[0].model, 'gemini-2.5-flash');
+});

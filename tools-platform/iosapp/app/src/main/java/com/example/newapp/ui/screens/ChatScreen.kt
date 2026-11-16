@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -95,6 +96,8 @@ import com.example.newapp.shared.util.MdSpanKind
 import com.example.newapp.state.DragonClawViewModel
 import com.example.newapp.state.VoiceAudioRoute
 import com.example.newapp.state.VoiceChatPhase
+import com.example.newapp.ui.components.AndroidPlatformAssetDownloader
+import com.example.newapp.ui.components.AuthenticatedAudioPlayerCard
 import com.example.newapp.ui.components.AuthenticatedRemoteImageCard
 import com.example.newapp.ui.components.ChatAttachmentGallery
 import com.example.newapp.ui.components.ChatStackedImageDeck
@@ -2019,6 +2022,8 @@ private fun MdBlockItemView(
                 lineHeightSp = lineHeight.value,
                 forceBold = true,
                 palette = palette,
+                token = token,
+                baseUrl = baseUrl,
                 modifier = Modifier.padding(top = if (isFirst) 0.dp else 5.dp)
             )
         }
@@ -2029,7 +2034,9 @@ private fun MdBlockItemView(
                 baseSizeSp = 14.5f,
                 lineHeightSp = 22f,
                 forceBold = false,
-                palette = palette
+                palette = palette,
+                token = token,
+                baseUrl = baseUrl
             )
         }
 
@@ -2058,6 +2065,8 @@ private fun MdBlockItemView(
                     lineHeightSp = 22f,
                     forceBold = false,
                     palette = palette,
+                    token = token,
+                    baseUrl = baseUrl,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -2083,6 +2092,8 @@ private fun MdBlockItemView(
                     lineHeightSp = 22f,
                     forceBold = false,
                     palette = palette,
+                    token = token,
+                    baseUrl = baseUrl,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -2108,6 +2119,8 @@ private fun MdBlockItemView(
                     lineHeightSp = 21f,
                     forceBold = false,
                     palette = palette,
+                    token = token,
+                    baseUrl = baseUrl,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -2209,6 +2222,8 @@ private fun MdBlockItemView(
                                 lineHeightSp = 18.5f,
                                 forceBold = rIdx == 0,
                                 palette = palette,
+                                token = token,
+                                baseUrl = baseUrl,
                                 modifier = Modifier
                                     .width(columnWidths[column])
                                     .padding(horizontal = 10.dp, vertical = 7.dp)
@@ -2241,6 +2256,21 @@ private fun MdBlockItemView(
                 )
             }
         }
+
+        MdBlockKind.AUDIO -> {
+            val resolved = remember(block.audioUrl, baseUrl) {
+                DragonClawHelpers.resolveImageSourceUrl(baseUrl, block.audioUrl).ifBlank { block.audioUrl }
+            }
+            if (resolved.isNotBlank()) {
+                AuthenticatedAudioPlayerCard(
+                    urlString = resolved,
+                    title = block.audioTitle,
+                    token = token,
+                    baseUrl = baseUrl,
+                    palette = palette
+                )
+            }
+        }
     }
 }
 
@@ -2252,8 +2282,12 @@ private fun MdSpanText(
     lineHeightSp: Float,
     forceBold: Boolean,
     palette: DragonClawPalette,
+    token: String = "",
+    baseUrl: String = "",
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val uriHandler = LocalUriHandler.current
     val hasWebLinks = remember(spans) { spans.any { it.kind == MdSpanKind.WEB_LINK && !it.url.isNullOrBlank() } }
     val annotated = remember(spans, baseSizeSp, forceBold, palette) {
@@ -2273,7 +2307,20 @@ private fun MdSpanText(
             onClick = { offset ->
                 annotated.getStringAnnotations(tag = "URL", start = offset, end = offset)
                     .firstOrNull()?.let { range ->
-                        runCatching { uriHandler.openUri(range.item) }
+                        val resolved = DragonClawHelpers.resolveImageSourceUrl(baseUrl, range.item).ifBlank { range.item }
+                        if (DragonClawHelpers.isPlatformAgentFileUrl(resolved, baseUrl)) {
+                            scope.launch {
+                                AndroidPlatformAssetDownloader.downloadAndSaveFile(context, resolved, token, baseUrl)
+                                    .onSuccess { savedName ->
+                                        Toast.makeText(context, "已保存到下载：$savedName", Toast.LENGTH_SHORT).show()
+                                    }
+                                    .onFailure { err ->
+                                        Toast.makeText(context, "下载失败：${err.message ?: "未知错误"}", Toast.LENGTH_SHORT).show()
+                                    }
+                            }
+                        } else {
+                            runCatching { uriHandler.openUri(resolved) }
+                        }
                     }
             }
         )

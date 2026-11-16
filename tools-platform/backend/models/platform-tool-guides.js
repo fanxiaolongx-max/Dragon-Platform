@@ -124,12 +124,19 @@ async function customTools(user) {
 
 /** 当前租户的工具目录 */
 async function catalog(user) {
+    const pageDistribution = require('./page-distribution');
+    const allowedPages = !user || isSuperAdmin(user) ? null : await pageDistribution.allowedPageSet(user);
     const pages = pageTools().filter(tool => {
-        if (!user || isSuperAdmin(user)) return true;
-        if (['/storage', '/netcare-explorer'].includes(tool.href)) return false;
-        return tool.href !== '/db-explorer' || user.role === 'admin';
+        if (!allowedPages) return true;
+        const pageId = pageDistribution.normalizePageId(tool.href || tool.id);
+        return pageId ? allowedPages.has(pageId) : false;
     });
     return [...pages, ...await customTools(user)];
+}
+
+async function visibleGuideDocPaths(user) {
+    const tools = await catalog(user);
+    return new Set(tools.map(tool => `tool-guides/${tool.id.replace(/[^\w.-]+/g, '_')}.md`));
 }
 
 function walk(dir, files = [], depth = 0, base = dir) {
@@ -538,6 +545,6 @@ async function shortDescriptionNotes(user) {
     return lines.length ? `简介较短的工具补充说明（名称｜路径｜能解决的问题）：\n${lines.join('\n')}` : '';
 }
 
-module.exports = { ensureReady, catalog, status, startGeneration, readGuide, documentsForIndex, findTools, toolGuide, shortDescriptionNotes,
+module.exports = { ensureReady, catalog, visibleGuideDocPaths, status, startGeneration, readGuide, documentsForIndex, findTools, toolGuide, shortDescriptionNotes,
     seedFromBuiltinStore, syncToBuiltinStore, checkAndRunDailyAutoUpdate, startAutoUpdateScheduler, getAutoUpdateStatus,
     _internal: { pageTools, sourceFiles, readSources, parseGuide, terms, jobs, autoUpdateState, BUILTIN_STORE_FILE } };

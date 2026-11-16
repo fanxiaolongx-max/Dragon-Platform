@@ -71,3 +71,36 @@ test('legacy multiline adjustment sections are replaced completely and stay idem
  const widgets=[{type:'interactive',spec:{history:[{element:'title',label:'标题\n多行',action:'move',after:{x:4,y:2}},{element:'body',action:'text',after:'第一行\n第二行'}]}}];
  const next=api.promptWithEdits(prompt,widgets);assert.doesNotMatch(next,/多余旧内容|溢出的旧位移/);assert.match(next,/【尺寸约束】宽度500px/);assert.match(next,/第一行\\n第二行/);assert.equal(api.promptWithEdits(next,widgets),next);assert.equal(next.split('【手工展示调整】').length,2);
 });
+
+test('non-interactive cells allow standard chart/table widgets without infinite validateInteractive retry and compileTurn accepts top-level recipe JSON',async()=>{
+ const appSrc=fs.readFileSync(require.resolve('../frontend/js/ai-report/app.js'),'utf8');
+ new vm.Script(appSrc,{filename:'app.js'});
+ assert.match(appSrc,/await validateInteractive\(cellId,\s*\{requireInteractive:interactiveMode\}\)/);
+ const validateFnMatch=appSrc.match(/async function validateInteractive\([\s\S]*?\n\s{4}\}/);
+ assert.ok(validateFnMatch);
+ let settleCalls=0;
+ const ctx={
+  find:id=>({cell:{output:{widgets:id==='chart-cell'?[{type:'chart'}]:[{type:'interactive'}]}}}),
+  AiReportInteractive:{settle:async()=>{settleCalls++;}},
+  reportRoot:{querySelector:()=>null},
+  CSS:{escape:v=>String(v)}
+ };
+ vm.runInNewContext(validateFnMatch[0],ctx);
+ // Standard chart/table widget succeeds when requireInteractive is false
+ await ctx.validateInteractive('chart-cell',{requireInteractive:false});
+ assert.equal(settleCalls,0);
+ // Interactive mode still rejects non-interactive widgets
+ await assert.rejects(()=>ctx.validateInteractive('chart-cell',{requireInteractive:true}),/kit\.interactive/);
+ // Even when requireInteractive is false, if backend returned interactive widget, settle() still validates it
+ await ctx.validateInteractive('interactive-cell',{requireInteractive:false});
+ assert.equal(settleCalls,1);
+
+ // Unwrapped top-level recipe object in compileTurn succeeds in 1 round
+ const route=require('../backend/routes/ai-report');
+ let compileCalls=0;
+ const client={generateChat:async()=>{compileCalls++;return {text:JSON.stringify({summary:{zh:'表格',en:'Table'},sources:[],compute:'function compute(input){return {rows:[1]};}',render:'function render(r,kit){return kit.text("1");}',narrative:null})};}};
+ const compiled=await route.compileTurn(client,{month:'2026-10',prompt:'展示表格',interactive:false});
+ assert.equal(compileCalls,1);
+ assert.equal(compiled.type,'recipe');
+ assert.match(compiled.recipe.render,/kit\.text/);
+});

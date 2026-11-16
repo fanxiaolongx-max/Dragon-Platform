@@ -135,6 +135,8 @@ final class DragonClawStore {
     var favoriteToolIds: [String] = []
     var recentToolIds: [String] = []
     var toolSearchQuery: String = ""
+    var toolsCategoryFilterRaw: String = "all"
+    var toolsScrollOffsetY: CGFloat = 0
     var activeWebTool: PlatformTool? = nil
     var showNativeMetrics = false
     var metricsPath: [MetricsRoute] = []
@@ -604,6 +606,9 @@ final class DragonClawStore {
         schedules.removeAll()
         favoriteToolIds.removeAll()
         recentToolIds.removeAll()
+        toolSearchQuery = ""
+        toolsCategoryFilterRaw = "all"
+        toolsScrollOffsetY = 0
         expandedThinkingIds.removeAll()
         showArchivedSessions = false
         exportedSessionJson = nil
@@ -792,25 +797,7 @@ final class DragonClawStore {
         guard !token.isEmpty, !eventId.isEmpty else { return }
         let wasUnread = alertEvents.first(where: { $0.id == eventId })?.isUnread == true
         alertEvents = alertEvents.map { ev in
-            if ev.id == eventId {
-                return AlertCenterEvent(
-                    id: ev.id,
-                    event_type: ev.event_type,
-                    severity: ev.severity,
-                    status: "read",
-                    title: ev.title,
-                    message: ev.message,
-                    actor: ev.actor,
-                    source: ev.source,
-                    object_type: ev.object_type,
-                    object_id: ev.object_id,
-                    detail: ev.detail,
-                    ai_summary: ev.ai_summary,
-                    ai_status: ev.ai_status,
-                    created_at: ev.created_at
-                )
-            }
-            return ev
+            ev.id == eventId ? ev.withStatus(status: "read") : ev
         }
         if alertFilter == "unread" {
             alertEvents.removeAll { !$0.isUnread }
@@ -835,24 +822,7 @@ final class DragonClawStore {
         if alertFilter == "unread" {
             alertEvents = []
         } else {
-            alertEvents = alertEvents.map { ev in
-                AlertCenterEvent(
-                    id: ev.id,
-                    event_type: ev.event_type,
-                    severity: ev.severity,
-                    status: "read",
-                    title: ev.title,
-                    message: ev.message,
-                    actor: ev.actor,
-                    source: ev.source,
-                    object_type: ev.object_type,
-                    object_id: ev.object_id,
-                    detail: ev.detail,
-                    ai_summary: ev.ai_summary,
-                    ai_status: ev.ai_status,
-                    created_at: ev.created_at
-                )
-            }
+            alertEvents = alertEvents.map { $0.withStatus(status: "read") }
         }
         alertUnreadCount = 0
         let handle = sdk.markAllAlertEventsRead(token: token) { [weak self] _ in
