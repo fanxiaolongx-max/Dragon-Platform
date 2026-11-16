@@ -226,7 +226,8 @@ test('saving platform name in local environment auto-syncs to defaults/platform-
         assert.equal(updated.platformName, 'Auto Synced Brand');
     } finally {
         fs.writeFileSync(configPath, original, 'utf8');
-        process.env.TOOLS_DATA_DIR = prevDataDir;
+        if (prevDataDir === undefined) delete process.env.TOOLS_DATA_DIR;
+        else process.env.TOOLS_DATA_DIR = prevDataDir;
         await repo.saveSettings({ platformName: repo.getDefaultPlatformName() });
     }
 });

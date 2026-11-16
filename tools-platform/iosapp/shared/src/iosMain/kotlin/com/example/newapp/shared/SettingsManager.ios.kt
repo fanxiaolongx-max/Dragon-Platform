@@ -105,43 +105,77 @@ actual fun currentEpochMillis(): Long = (NSDate().timeIntervalSince1970 * 1000.0
 private object IosKeychain {
     private const val SERVICE = "com.fanxiaolong.dragonclaw.auth"
 
-    private fun baseQuery(account: String): NSMutableDictionary {
-        val query = NSMutableDictionary()
-        query.setObject(CFBridgingRelease(kSecClassGenericPassword)!!, forKey = CFBridgingRelease(kSecClass) as NSString)
-        query.setObject(SERVICE, forKey = CFBridgingRelease(kSecAttrService) as NSString)
-        query.setObject(account, forKey = CFBridgingRelease(kSecAttrAccount) as NSString)
-        return query
-    }
-
-    private inline fun <T> withCf(dictionary: NSMutableDictionary, block: (CFDictionaryRef?) -> T): T {
-        val retained = CFBridgingRetain(dictionary)
+    /**
+     * Build a CoreFoundation mutable dictionary directly rather than bridging an `NSMutableDictionary`
+     * with `CFBridgingRelease(kCFBooleanTrue)`. On iOS, `CFBridgingRelease(kCFBooleanTrue)` unboxes
+     * via Kotlin/Native interop into a `KotlinBoolean` wrapper that `SecItemCopyMatching` rejects
+     * with `errSecParam` (-50), whereas `CFDictionarySetValue` preserves the exact `CFBooleanRef` / `CFStringRef`.
+     */
+    private inline fun <T> withQuery(
+        account: String,
+        configure: (platform.CoreFoundation.CFMutableDictionaryRef) -> Unit = {},
+        block: (CFDictionaryRef) -> T
+    ): T {
+        val query = platform.CoreFoundation.CFDictionaryCreateMutable(
+            null,
+            0,
+            platform.CoreFoundation.kCFTypeDictionaryKeyCallBacks.ptr,
+            platform.CoreFoundation.kCFTypeDictionaryValueCallBacks.ptr
+        ) ?: error("CFDictionaryCreateMutable failed")
+        val cfService = CFBridgingRetain(SERVICE)
+        val cfAccount = CFBridgingRetain(account)
         try {
-            @Suppress("UNCHECKED_CAST")
-            return block(retained as CFDictionaryRef?)
+            platform.CoreFoundation.CFDictionarySetValue(query, kSecClass, kSecClassGenericPassword)
+            platform.CoreFoundation.CFDictionarySetValue(query, kSecAttrService, cfService)
+            platform.CoreFoundation.CFDictionarySetValue(query, kSecAttrAccount, cfAccount)
+            configure(query)
+            return block(query)
         } finally {
-            CFBridgingRelease(retained)
+            cfService?.let { platform.CoreFoundation.CFRelease(it) }
+            cfAccount?.let { platform.CoreFoundation.CFRelease(it) }
+            platform.CoreFoundation.CFRelease(query)
         }
     }
 
     fun save(account: String, value: String): Boolean {
         @Suppress("CAST_NEVER_SUCCEEDS")
         val data = (value as NSString).dataUsingEncoding(NSUTF8StringEncoding) ?: return false
-        val query = baseQuery(account)
-        query.setObject(data, forKey = CFBridgingRelease(kSecValueData) as NSString)
-        query.setObject(
-            CFBridgingRelease(kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly)!!,
-            forKey = CFBridgingRelease(kSecAttrAccessible) as NSString
-        )
-        return withCf(query) { SecItemAdd(it, null) == errSecSuccess }
+        val cfData = CFBridgingRetain(data) ?: return false
+        try {
+            return withQuery(
+                account = account,
+                configure = { query ->
+                    platform.CoreFoundation.CFDictionarySetValue(query, kSecValueData, cfData)
+                    platform.CoreFoundation.CFDictionarySetValue(
+                        query,
+                        kSecAttrAccessible,
+                        kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+                    )
+                }
+            ) { query ->
+                val status = SecItemAdd(query, null)
+                if (status == platform.Security.errSecDuplicateItem) {
+                    delete(account)
+                    SecItemAdd(query, null) == errSecSuccess
+                } else {
+                    status == errSecSuccess
+                }
+            }
+        } finally {
+            platform.CoreFoundation.CFRelease(cfData)
+        }
     }
 
-    fun read(account: String): String? {
-        val query = baseQuery(account)
-        query.setObject(CFBridgingRelease(kCFBooleanTrue)!!, forKey = CFBridgingRelease(kSecReturnData) as NSString)
-        query.setObject(CFBridgingRelease(kSecMatchLimitOne)!!, forKey = CFBridgingRelease(kSecMatchLimit) as NSString)
-        return memScoped {
-            val result = alloc<CFTypeRefVar>()
-            val status = withCf(query) { SecItemCopyMatching(it, result.ptr) }
+    fun read(account: String): String? = memScoped {
+        val result = alloc<CFTypeRefVar>()
+        withQuery(
+            account = account,
+            configure = { query ->
+                platform.CoreFoundation.CFDictionarySetValue(query, kSecReturnData, kCFBooleanTrue)
+                platform.CoreFoundation.CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitOne)
+            }
+        ) { query ->
+            val status = SecItemCopyMatching(query, result.ptr)
             if (status != errSecSuccess) return@memScoped null
             val data = CFBridgingRelease(result.value) as? NSData ?: return@memScoped null
             NSString.create(data = data, encoding = NSUTF8StringEncoding)?.toString()
@@ -149,6 +183,6 @@ private object IosKeychain {
     }
 
     fun delete(account: String) {
-        withCf(baseQuery(account)) { SecItemDelete(it) }
+        withQuery(account) { query -> SecItemDelete(query) }
     }
 }

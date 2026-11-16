@@ -25,6 +25,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.newapp.services.AudioSpeechRecorder
 import com.example.newapp.shared.SettingsManager
 import com.example.newapp.shared.data.DragonClawSdk
+import com.example.newapp.shared.data.SessionCacheDecision
 import com.example.newapp.shared.data.SessionRestoreOutcome
 import com.example.newapp.shared.data.TaskHandle
 import com.example.newapp.shared.model.*
@@ -146,6 +147,12 @@ class DragonClawViewModel : ViewModel() {
         private set
     var desktopAgentSessions by mutableStateOf<List<DesktopAgentSessionSummary>>(emptyList())
         private set
+    var conversationPreferences by mutableStateOf<List<ConversationListPreferenceItem>>(emptyList())
+        private set
+    private var rawAiSessions: List<AiSessionSummary> = emptyList()
+    private var rawCachedAiSessions: List<AiSessionSummary> = emptyList()
+    private var rawDesktopAgentSessions: List<DesktopAgentSessionSummary> = emptyList()
+    private var rawArchivedSessions: List<AiSessionSummary> = emptyList()
     var sessionGroups by mutableStateOf<List<SessionGroup>>(emptyList())
         private set
     var unifiedSessionGroups by mutableStateOf<List<UnifiedSessionGroup>>(emptyList())
@@ -191,6 +198,7 @@ class DragonClawViewModel : ViewModel() {
     private var regularBeforeCursor: String? = null
     private var desktopBeforeCursor: String? = null
     private var desktopLoadedRawItems: List<DesktopAgentMessageItem> = emptyList()
+    private var lastSessionsSyncedAtMs: Long = 0L
     private val historyPageSize = 25
     private val uiCatalogProviders = setOf("claudecode", "antigravity")
     var messages by mutableStateOf<List<ChatMessage>>(emptyList())
@@ -623,7 +631,7 @@ class DragonClawViewModel : ViewModel() {
                             rememberMe = remember,
                             autoLogin = auto
                         )
-                        token = sdk.getSavedToken()
+                        token = sdk.getSavedToken().ifBlank { newToken }
                         username = finalUser
                         role = finalRole
                         tenantId = res.tenantId?.takeIf { it.isNotBlank() } ?: "default"
@@ -649,7 +657,9 @@ class DragonClawViewModel : ViewModel() {
         olderLoadJob = null
         desktopPollJob?.cancel()
         desktopPollJob = null
+        sdk.clearConversationCache()
         sdk.clearSessionAuth(keepUsername = rememberMe)
+        lastSessionsSyncedAtMs = 0L
         token = ""
         tenantId = "default"
         isSuper = false
@@ -658,6 +668,11 @@ class DragonClawViewModel : ViewModel() {
         showNativeMetrics = false
         metricsBackStack = listOf(MetricsRoute.Dashboard)
         messages = emptyList()
+        rawAiSessions = emptyList()
+        rawCachedAiSessions = emptyList()
+        rawDesktopAgentSessions = emptyList()
+        rawArchivedSessions = emptyList()
+        conversationPreferences = emptyList()
         sessions = emptyList()
         desktopAgentSessions = emptyList()
         archivedSessions = emptyList()
@@ -693,6 +708,8 @@ class DragonClawViewModel : ViewModel() {
 
     fun bootstrapWorkspace() {
         if (token.isBlank()) return
+        sdk.syncConversationCacheScope(username)
+        lastSessionsSyncedAtMs = 0L
         loadModels()
         loadSuggestions()
         loadSessions()
@@ -722,27 +739,69 @@ class DragonClawViewModel : ViewModel() {
         }
     }
 
+    fun loadSessionsIfStale(minIntervalMs: Long = 18_000L) {
+        if (token.isBlank()) return
+        if (sdk.shouldRefreshSessions(lastSessionsSyncedAtMs, minIntervalMs)) {
+            loadSessions()
+        }
+    }
+
     fun loadSessions() {
+        if (token.isBlank()) return
         val query = sessionSearchQuery
         viewModelScope.launch {
-            runCatching { sdk.api.getSessions(token, query = query, limit = 40) }
+            runCatching { sdk.api.getSessions(token, query = query, limit = 80) }
                 .onSuccess { res ->
-                    sessions = res.items
+                    lastSessionsSyncedAtMs = sdk.currentTimestampMs()
+                    rawAiSessions = res.items
+                    if (query.trim().isEmpty()) {
+                        rawCachedAiSessions = res.items
+                        sdk.conversationCache.reconcileAiSummaries(res.items)
+                    }
+                    regroupSessions()
+                }
+        }
+        viewModelScope.launch {
+            runCatching { sdk.api.getConversationListPreferences(token) }
+                .onSuccess { res ->
+                    conversationPreferences = res.items
                     regroupSessions()
                 }
         }
         viewModelScope.launch {
             runCatching { sdk.api.getDesktopAgentSessions(token, query = query) }
                 .onSuccess { res ->
-                    desktopAgentSessions = res.items
+                    lastSessionsSyncedAtMs = sdk.currentTimestampMs()
+                    rawDesktopAgentSessions = res.items
                     regroupSessions()
                 }
         }
     }
 
     fun regroupSessions() {
+        val trimmedQuery = sessionSearchQuery.trim()
+        val baseAi = if (trimmedQuery.isEmpty() || rawCachedAiSessions.isEmpty()) {
+            rawAiSessions
+        } else {
+            val seen = rawAiSessions.mapTo(HashSet()) { it.id }
+            rawAiSessions + rawCachedAiSessions.filter { !seen.contains(it.id) }
+        }
+
+        sessions = sdk.applyConversationPreferencesToAi(baseAi, conversationPreferences)
+        desktopAgentSessions = sdk.applyConversationPreferencesToDesktop(rawDesktopAgentSessions, conversationPreferences)
+        activeDesktopSession?.let { active ->
+            desktopAgentSessions.firstOrNull { it.id == active.id && it.provider == active.provider }?.let {
+                activeDesktopSession = it
+            }
+        }
+        archivedSessions = sdk.mergeArchivedAiSessions(
+            archivedApiItems = rawArchivedSessions,
+            activeAiItems = baseAi,
+            preferences = conversationPreferences,
+            searchQuery = sessionSearchQuery
+        )
         sessionGroups = sdk.groupSessionsByDate(sessions)
-        unifiedSessionGroups = sdk.groupSidebarSessions(sessions, desktopAgentSessions, sessionSearchQuery)
+        unifiedSessionGroups = sdk.groupSidebarSessions(sessions, desktopAgentSessions, sessionSearchQuery, conversationPreferences)
     }
 
     fun loadToolsCatalog() {
@@ -871,7 +930,7 @@ class DragonClawViewModel : ViewModel() {
             ?: entry.desktopSession?.let { openDesktopSession(it) }
     }
 
-    fun openSession(session: AiSessionSummary) {
+    fun openSession(session: AiSessionSummary, forceRefresh: Boolean = false) {
         stopStreaming()
         sessionLoadJob?.cancel()
         olderLoadJob?.cancel()
@@ -893,35 +952,76 @@ class DragonClawViewModel : ViewModel() {
         desktopLoadedRawItems = emptyList()
         hasMoreOlderMessages = false
         isLoadingOlderMessages = false
-        messages = emptyList()
         pendingAttachments = emptyList()
         showNativeMetrics = false
         activeWebTool = null
         workMode = AppWorkMode.CHAT
         chatErrorBanner = null
-        isLoadingSessionMessages = true
+
+        sdk.syncConversationCacheScope(username)
+        val cacheEval = sdk.conversationCache.evaluateAiSession(
+            summary = session,
+            lastSessionsSyncMs = lastSessionsSyncedAtMs,
+            forceRefresh = forceRefresh
+        )
+        val cached = cacheEval.cached
+        val hasCachedMessages = cached != null && cached.messages.isNotEmpty()
+        if (cached != null && hasCachedMessages) {
+            regularBeforeCursor = cached.beforeCursor
+            hasMoreOlderMessages = cached.hasMore && !cached.beforeCursor.isNullOrBlank()
+            messages = cached.messages
+            isLoadingSessionMessages = false
+            chatOpenScrollGeneration += 1
+            if (cacheEval.decision == SessionCacheDecision.USE_CACHE_SKIP_NETWORK) {
+                return
+            }
+        } else {
+            messages = emptyList()
+            isLoadingSessionMessages = true
+        }
+
         val targetId = session.id
         sessionLoadJob = viewModelScope.launch {
             runCatching { sdk.api.getSessionMessages(token, targetId, limit = historyPageSize) }
                 .onSuccess { res ->
                     if (currentSessionId == targetId && activeDesktopSession == null) {
                         isLoadingSessionMessages = false
-                        regularBeforeCursor = res.items.firstOrNull()?.id
-                        hasMoreOlderMessages = res.hasMore && !regularBeforeCursor.isNullOrBlank()
-                        messages = sdk.mapHistoryMessages(res.items)
-                        chatOpenScrollGeneration += 1
+                        val firstRawId = res.items.firstOrNull()?.id
+                        val mapped = sdk.mapHistoryMessages(res.items)
+                        val changed = !hasCachedMessages ||
+                            mapped.size != messages.size ||
+                            mapped.lastOrNull()?.id != messages.lastOrNull()?.id ||
+                            mapped.lastOrNull()?.content != messages.lastOrNull()?.content
+                        regularBeforeCursor = firstRawId
+                        hasMoreOlderMessages = res.hasMore && !firstRawId.isNullOrBlank()
+                        messages = mapped
+                        if (changed) {
+                            chatOpenScrollGeneration += 1
+                        }
+                        val latestSummary = sessions.firstOrNull { it.id == targetId } ?: session
+                        sdk.conversationCache.saveAiSession(
+                            sessionId = targetId,
+                            messages = mapped,
+                            sessionUpdatedAt = latestSummary.updatedAt,
+                            sessionMessageCount = if (latestSummary.messageCount > 0) latestSummary.messageCount else res.total,
+                            beforeCursor = firstRawId,
+                            hasMore = res.hasMore,
+                            isLocalWrite = false
+                        )
                     }
                 }
                 .onFailure { err ->
                     if (currentSessionId == targetId && activeDesktopSession == null) {
                         isLoadingSessionMessages = false
-                        chatErrorBanner = err.message
+                        if (!hasCachedMessages || forceRefresh) {
+                            chatErrorBanner = err.message
+                        }
                     }
                 }
         }
     }
 
-    fun openDesktopSession(session: DesktopAgentSessionSummary) {
+    fun openDesktopSession(session: DesktopAgentSessionSummary, forceRefresh: Boolean = false) {
         stopStreaming()
         sessionLoadJob?.cancel()
         olderLoadJob?.cancel()
@@ -943,15 +1043,45 @@ class DragonClawViewModel : ViewModel() {
         desktopLoadedRawItems = emptyList()
         hasMoreOlderMessages = false
         isLoadingOlderMessages = false
-        messages = emptyList()
         pendingAttachments = emptyList()
         showNativeMetrics = false
         activeWebTool = null
         workMode = AppWorkMode.CHAT
         chatErrorBanner = null
-        isLoadingSessionMessages = true
-        loadDesktopModels(session.provider, forceLive = false)
-        fetchDesktopMessages(session, passive = false)
+
+        val cleanProvider = session.provider.trim().lowercase()
+        if (forceRefresh || desktopModelsByProvider[cleanProvider].isNullOrEmpty()) {
+            loadDesktopModels(session.provider, forceLive = false)
+        }
+
+        sdk.syncConversationCacheScope(username)
+        val cacheEval = sdk.conversationCache.evaluateDesktopSession(
+            summary = session,
+            lastSessionsSyncMs = lastSessionsSyncedAtMs,
+            forceRefresh = forceRefresh
+        )
+        val cached = cacheEval.cached
+        val hasCachedMessages = cached != null && cached.rawItems.isNotEmpty()
+        if (cached != null && hasCachedMessages) {
+            desktopLoadedRawItems = cached.rawItems
+            desktopBeforeCursor = cached.beforeCursor
+            hasMoreOlderMessages = cached.hasMore && !cached.beforeCursor.isNullOrBlank()
+            activeDesktopCanSend = cached.canSend
+            activeDesktopCanSteer = cached.canSteer
+            activeDesktopSelectedModel = cached.selectedModel
+            activeDesktopReason = cached.reason
+            messages = sdk.mapDesktopAgentMessages(cached.rawItems)
+            isLoadingSessionMessages = false
+            chatOpenScrollGeneration += 1
+            if (cacheEval.decision == SessionCacheDecision.USE_CACHE_SKIP_NETWORK) {
+                return
+            }
+            fetchDesktopMessages(session, passive = !forceRefresh)
+        } else {
+            messages = emptyList()
+            isLoadingSessionMessages = true
+            fetchDesktopMessages(session, passive = false)
+        }
     }
 
     private fun fetchDesktopMessages(session: DesktopAgentSessionSummary, passive: Boolean) {
@@ -977,6 +1107,9 @@ class DragonClawViewModel : ViewModel() {
                     desktopQueue = res.queue
                     res.selectedModel?.let { activeDesktopSelectedModel = it }
                     res.items?.let { incomingTail ->
+                        val prevCount = messages.size
+                        val prevLastId = messages.lastOrNull()?.id
+                        val prevLastContent = messages.lastOrNull()?.content
                         val mergedRaw = if (!passive || desktopLoadedRawItems.isEmpty()) {
                             desktopBeforeCursor = res.nextBefore
                             hasMoreOlderMessages = res.hasMore && !res.nextBefore.isNullOrBlank()
@@ -985,9 +1118,30 @@ class DragonClawViewModel : ViewModel() {
                             sdk.mergeDesktopTailItems(desktopLoadedRawItems, incomingTail)
                         }
                         desktopLoadedRawItems = mergedRaw
-                        messages = sdk.mapDesktopAgentMessages(mergedRaw)
-                        if (!passive) {
+                        val mapped = sdk.mapDesktopAgentMessages(mergedRaw)
+                        messages = mapped
+                        val changed = prevCount == 0 ||
+                            mapped.size != prevCount ||
+                            mapped.lastOrNull()?.id != prevLastId ||
+                            mapped.lastOrNull()?.content != prevLastContent
+                        if (!passive && changed) {
                             chatOpenScrollGeneration += 1
+                        }
+                        if (!res.busy && res.queue.isEmpty() && mergedRaw.isNotEmpty()) {
+                            val summary = res.session
+                                ?: desktopAgentSessions.firstOrNull { it.stableKey == targetKey }
+                                ?: session
+                            sdk.conversationCache.saveDesktopSession(
+                                session = summary,
+                                rawItems = mergedRaw,
+                                beforeCursor = desktopBeforeCursor,
+                                hasMore = hasMoreOlderMessages,
+                                available = res.available,
+                                canSend = res.canSend,
+                                canSteer = res.canSteer,
+                                selectedModel = res.selectedModel ?: activeDesktopSelectedModel,
+                                reason = res.reason
+                            )
                         }
                     }
                     if (!res.available) {
@@ -1084,6 +1238,20 @@ class DragonClawViewModel : ViewModel() {
                         if (olderItems.isNotEmpty()) {
                             desktopLoadedRawItems = olderItems + desktopLoadedRawItems
                             messages = sdk.mapDesktopAgentMessages(desktopLoadedRawItems)
+                            if (!activeDesktopBusy && desktopQueue.isEmpty()) {
+                                val summary = res.session ?: desktop
+                                sdk.conversationCache.saveDesktopSession(
+                                    session = summary,
+                                    rawItems = desktopLoadedRawItems,
+                                    beforeCursor = desktopBeforeCursor,
+                                    hasMore = hasMoreOlderMessages,
+                                    available = res.available,
+                                    canSend = res.canSend,
+                                    canSteer = res.canSteer,
+                                    selectedModel = activeDesktopSelectedModel,
+                                    reason = res.reason
+                                )
+                            }
                         }
                     }
                     .onFailure {
@@ -1107,7 +1275,18 @@ class DragonClawViewModel : ViewModel() {
                     hasMoreOlderMessages = res.hasMore && !regularBeforeCursor.isNullOrBlank() && res.items.isNotEmpty()
                     if (res.items.isNotEmpty()) {
                         val olderMapped = sdk.mapHistoryMessages(res.items)
-                        messages = sdk.mergeMessages(olderMapped + messages)
+                        val combined = sdk.mergeMessages(olderMapped + messages)
+                        messages = combined
+                        val summary = sessions.firstOrNull { it.id == sessionId }
+                        sdk.conversationCache.saveAiSession(
+                            sessionId = sessionId,
+                            messages = combined,
+                            sessionUpdatedAt = summary?.updatedAt,
+                            sessionMessageCount = summary?.messageCount ?: combined.size,
+                            beforeCursor = regularBeforeCursor,
+                            hasMore = hasMoreOlderMessages,
+                            isLocalWrite = false
+                        )
                     }
                 }
                 .onFailure {
@@ -1122,8 +1301,11 @@ class DragonClawViewModel : ViewModel() {
         viewModelScope.launch {
             runCatching { sdk.api.deleteSession(token, session.id) }
                 .onSuccess {
-                    sessions = sessions.filterNot { it.id == session.id }
-                    archivedSessions = archivedSessions.filterNot { it.id == session.id }
+                    rawAiSessions = rawAiSessions.filterNot { it.id == session.id }
+                    rawCachedAiSessions = rawCachedAiSessions.filterNot { it.id == session.id }
+                    rawArchivedSessions = rawArchivedSessions.filterNot { it.id == session.id }
+                    conversationPreferences = conversationPreferences.filterNot { it.source == "mine" && it.id == session.id }
+                    sdk.conversationCache.removeAiSession(session.id)
                     regroupSessions()
                     if (currentSessionId == session.id) {
                         resetActiveChatState(resetShellSurface = false)
@@ -1663,6 +1845,19 @@ class DragonClawViewModel : ViewModel() {
         val callback = voiceTurnCompletion
         clearVoiceTurnCallbacks()
         callback?.invoke(finalContent)
+        val sid = currentSessionId
+        if (sid != null && activeDesktopSession == null && messages.isNotEmpty()) {
+            val summary = sessions.firstOrNull { it.id == sid }
+            sdk.conversationCache.saveAiSession(
+                sessionId = sid,
+                messages = messages,
+                sessionUpdatedAt = summary?.updatedAt,
+                sessionMessageCount = messages.size,
+                beforeCursor = regularBeforeCursor,
+                hasMore = hasMoreOlderMessages,
+                isLocalWrite = true
+            )
+        }
         loadSessions()
         if (!interrupted && regularQueue.isNotEmpty() && activeDesktopSession == null) {
             viewModelScope.launch {
@@ -2408,49 +2603,173 @@ class DragonClawViewModel : ViewModel() {
         if (token.isBlank()) return
         viewModelScope.launch {
             runCatching { sdk.api.getArchivedSessions(token, query = sessionSearchQuery, limit = 40) }
-                .onSuccess { archivedSessions = it.items }
+                .onSuccess {
+                    rawArchivedSessions = it.items
+                    regroupSessions()
+                }
+        }
+        viewModelScope.launch {
+            runCatching { sdk.api.getConversationListPreferences(token) }
+                .onSuccess {
+                    conversationPreferences = it.items
+                    regroupSessions()
+                }
         }
     }
 
     fun archiveSession(session: AiSessionSummary) {
+        conversationPreferences = sdk.withPreferenceArchived(conversationPreferences, "mine", session.id, true)
+        regroupSessions()
         viewModelScope.launch {
-            runCatching { sdk.api.archiveSession(token, session.id) }
+            runCatching {
+                sdk.api.archiveSession(token, session.id)
+                runCatching {
+                    sdk.api.saveConversationListPreference(
+                        token,
+                        ConversationListSaveRequest(source = "mine", id = session.id, archived = true)
+                    )
+                }
+            }
                 .onSuccess {
-                    sessions = sessions.filterNot { it.id == session.id }
+                    rawAiSessions = rawAiSessions.filterNot { it.id == session.id }
+                    rawCachedAiSessions = rawCachedAiSessions.filterNot { it.id == session.id }
+                    sdk.conversationCache.removeAiSession(session.id)
                     regroupSessions()
                     loadArchivedSessions()
                     if (currentSessionId == session.id) {
                         resetActiveChatState(resetShellSurface = false)
                     }
                 }
-                .onFailure { chatErrorBanner = it.message }
+                .onFailure {
+                    loadSessions()
+                    chatErrorBanner = it.message
+                }
         }
     }
 
     fun unarchiveSession(session: AiSessionSummary) {
+        conversationPreferences = sdk.withPreferenceArchived(conversationPreferences, "mine", session.id, false)
+        rawArchivedSessions = rawArchivedSessions.filterNot { it.id == session.id }
+        regroupSessions()
         viewModelScope.launch {
-            runCatching { sdk.api.unarchiveSession(token, session.id) }
-                .onSuccess {
-                    archivedSessions = archivedSessions.filterNot { it.id == session.id }
-                    loadSessions()
+            runCatching {
+                sdk.api.unarchiveSession(token, session.id)
+                runCatching {
+                    sdk.api.saveConversationListPreference(
+                        token,
+                        ConversationListSaveRequest(source = "mine", id = session.id, archived = false)
+                    )
                 }
-                .onFailure { chatErrorBanner = it.message }
+            }
+                .onSuccess {
+                    loadSessions()
+                    loadArchivedSessions()
+                }
+                .onFailure {
+                    loadArchivedSessions()
+                    chatErrorBanner = it.message
+                }
         }
     }
 
     fun togglePinSession(session: AiSessionSummary) {
         val nextPinned = !session.isPinned
         val targetId = session.id
-        sessions = sessions.map {
-            if (it.id == targetId) it.copy(pinned = nextPinned) else it
-        }
+        conversationPreferences = sdk.withPreferencePinned(conversationPreferences, "mine", targetId, nextPinned)
         regroupSessions()
         viewModelScope.launch {
-            runCatching { sdk.api.pinSession(token, targetId, nextPinned) }
-                .onSuccess { loadSessions() }
+            runCatching {
+                sdk.api.saveConversationListPreference(
+                    token,
+                    ConversationListSaveRequest(source = "mine", id = targetId, pinned = nextPinned)
+                )
+            }
+                .onSuccess { res ->
+                    res.item?.let { item ->
+                        conversationPreferences = sdk.withPreferenceServerItem(conversationPreferences, item)
+                        regroupSessions()
+                    }
+                    loadSessions()
+                }
                 .onFailure { loadSessions() }
         }
     }
+
+    fun togglePinDesktopSession(session: DesktopAgentSessionSummary) {
+        val (source, id) = sdk.preferenceTargetForDesktop(session.provider, session.id, conversationPreferences)
+        val nextPinned = !session.isPinned
+        conversationPreferences = sdk.withPreferencePinned(conversationPreferences, source, id, nextPinned)
+        regroupSessions()
+        viewModelScope.launch {
+            runCatching {
+                sdk.api.saveConversationListPreference(
+                    token,
+                    ConversationListSaveRequest(source = source, id = id, pinned = nextPinned)
+                )
+            }
+                .onSuccess { res ->
+                    res.item?.let { item ->
+                        conversationPreferences = sdk.withPreferenceServerItem(conversationPreferences, item)
+                        regroupSessions()
+                    }
+                    loadSessions()
+                }
+                .onFailure {
+                    loadSessions()
+                    chatErrorBanner = it.message
+                }
+        }
+    }
+
+    fun renameSession(session: AiSessionSummary, newTitle: String) {
+        val clean = newTitle.trim().take(160)
+        if (clean.isEmpty() || token.isBlank()) return
+        conversationPreferences = sdk.withPreferenceTitle(conversationPreferences, "mine", session.id, clean)
+        regroupSessions()
+        viewModelScope.launch {
+            runCatching {
+                sdk.api.saveConversationListPreference(
+                    token,
+                    ConversationListSaveRequest(source = "mine", id = session.id, title = clean)
+                )
+            }
+                .onSuccess { res ->
+                    res.item?.let { item ->
+                        conversationPreferences = sdk.withPreferenceServerItem(conversationPreferences, item)
+                        regroupSessions()
+                    }
+                    loadSessions()
+                }
+                .onFailure {
+                    loadSessions()
+                    chatErrorBanner = it.message
+                }
+        }
+    }
+
+    fun movePinnedEntry(entry: SidebarSessionEntry, moveUp: Boolean) {
+        val nextOrder = sdk.movePinnedEntryOrder(unifiedSessionGroups, conversationPreferences, entry.stableKey, moveUp)
+            ?: return
+        if (nextOrder.size < 2) return
+        conversationPreferences = sdk.applyLocalPinOrder(conversationPreferences, "mine", nextOrder)
+        regroupSessions()
+        viewModelScope.launch {
+            runCatching { sdk.api.reorderPinnedConversations(token, source = "mine", order = nextOrder) }
+                .onSuccess { res ->
+                    res.items?.let { items ->
+                        conversationPreferences = items
+                        regroupSessions()
+                    }
+                }
+                .onFailure {
+                    loadSessions()
+                    chatErrorBanner = it.message
+                }
+        }
+    }
+
+    fun canMovePinnedEntry(entry: SidebarSessionEntry, moveUp: Boolean): Boolean =
+        sdk.movePinnedEntryOrder(unifiedSessionGroups, conversationPreferences, entry.stableKey, moveUp) != null
 
     fun exportSession(session: AiSessionSummary) {
         viewModelScope.launch {

@@ -638,6 +638,87 @@ struct AuthenticatedRemoteImageView: View {
 
 enum ChatDeckGestureTags {
     static let horizontalDeckViewTag = 948271
+    private static let excludedViews = NSHashTable<UIView>.weakObjects()
+
+    @MainActor
+    static func registerExcludedView(_ view: UIView) {
+        if !excludedViews.contains(view) {
+            excludedViews.add(view)
+        }
+    }
+
+    @MainActor
+    static func unregisterExcludedView(_ view: UIView) {
+        excludedViews.remove(view)
+    }
+
+    @MainActor
+    static func isPointInExcludedRegion(_ windowPoint: CGPoint, in window: UIWindow?) -> Bool {
+        guard let window else { return false }
+        for view in excludedViews.allObjects {
+            guard view.window === window,
+                  !view.isHidden,
+                  view.alpha > 0.01,
+                  view.bounds.width > 1,
+                  view.bounds.height > 1 else {
+                continue
+            }
+            var rectInWindow = view.convert(view.bounds, to: window)
+            if rectInWindow.maxX <= 1 || rectInWindow.minX >= window.bounds.width - 1 {
+                continue
+            }
+            var cursor = view.superview
+            while let parent = cursor {
+                if parent.clipsToBounds {
+                    rectInWindow = rectInWindow.intersection(parent.convert(parent.bounds, to: window))
+                    if rectInWindow.isNull || rectInWindow.isEmpty { break }
+                }
+                cursor = parent.superview
+            }
+            if !rectInWindow.isNull && !rectInWindow.isEmpty && rectInWindow.contains(windowPoint) {
+                return true
+            }
+        }
+        return false
+    }
+}
+
+private struct HorizontalGestureExclusionBridge: UIViewRepresentable {
+    func makeUIView(context: Context) -> ProbeView {
+        let view = ProbeView()
+        view.backgroundColor = .clear
+        view.isUserInteractionEnabled = false
+        view.tag = ChatDeckGestureTags.horizontalDeckViewTag
+        return view
+    }
+
+    func updateUIView(_ uiView: ProbeView, context: Context) {
+        uiView.tag = ChatDeckGestureTags.horizontalDeckViewTag
+        if uiView.window != nil {
+            ChatDeckGestureTags.registerExcludedView(uiView)
+        }
+    }
+
+    static func dismantleUIView(_ uiView: ProbeView, coordinator: ()) {
+        ChatDeckGestureTags.unregisterExcludedView(uiView)
+    }
+
+    final class ProbeView: UIView {
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            if window != nil {
+                ChatDeckGestureTags.registerExcludedView(self)
+            } else {
+                ChatDeckGestureTags.unregisterExcludedView(self)
+            }
+        }
+    }
+}
+
+extension View {
+    func dragonClawExcludeHorizontalSwipe() -> some View {
+        background(HorizontalGestureExclusionBridge())
+    }
 }
 
 private struct InteractiveDeckGestureOverlay: UIViewRepresentable {
@@ -707,14 +788,22 @@ private struct InteractiveDeckGestureOverlay: UIViewRepresentable {
         }
 
         func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-            if gestureRecognizer === panRecognizer, let view = gestureRecognizer.view {
-                let v = (gestureRecognizer as? UIPanGestureRecognizer)?.velocity(in: view) ?? .zero
-                let absVx = abs(v.x)
-                let absVy = abs(v.y)
+            if gestureRecognizer === panRecognizer, let view = gestureRecognizer.view,
+               let pan = gestureRecognizer as? UIPanGestureRecognizer {
+                let t = pan.translation(in: view)
+                let absTx = abs(t.x)
+                let absTy = abs(t.y)
                 // Only claim horizontal swipes; leave vertical drags cleanly to parent transcript ScrollView.
-                return absVx > 22 && absVx > absVy * 1.4
+                return absTx >= 3 && absTx > absTy * 1.20
             }
             return true
+        }
+
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+        ) -> Bool {
+            false
         }
     }
 }
@@ -1060,6 +1149,7 @@ struct ChatAttachmentGalleryView: View {
                         }
                     }
                 }
+                .dragonClawExcludeHorizontalSwipe()
             }
         }
     }

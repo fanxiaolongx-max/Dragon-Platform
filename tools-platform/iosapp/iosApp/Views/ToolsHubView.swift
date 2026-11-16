@@ -107,6 +107,7 @@ struct ToolsHubView: View {
                 }
                 .padding(.vertical, 2)
             }
+            .dragonClawExcludeHorizontalSwipe()
         }
     }
 
@@ -186,6 +187,7 @@ struct ToolsHubView: View {
                     }
                 }
             }
+            .dragonClawExcludeHorizontalSwipe()
         }
     }
 

@@ -111,6 +111,29 @@ class DragonClawSdk(
         )
     }
 
+    val conversationCache: ConversationCacheManager by lazy {
+        ConversationCacheManager().also {
+            it.configureScope(getBaseUrl(), getSavedUsername())
+        }
+    }
+
+    fun syncConversationCacheScope(username: String = getSavedUsername()) {
+        conversationCache.configureScope(getBaseUrl(), username)
+    }
+
+    fun clearConversationCache() {
+        syncConversationCacheScope()
+        conversationCache.clearCurrentScope()
+    }
+
+    fun currentTimestampMs(): Long = currentEpochMillis()
+
+    fun shouldRefreshSessions(lastSyncedMs: Long, minIntervalMs: Long = 18_000L): Boolean {
+        if (lastSyncedMs <= 0L) return true
+        val elapsed = currentEpochMillis() - lastSyncedMs
+        return elapsed < 0L || elapsed >= minIntervalMs
+    }
+
     fun saveSessionAuth(
         token: String,
         username: String,
@@ -130,6 +153,7 @@ class DragonClawSdk(
         } else {
             settings.removeSecret(KEY_SAVED_PASSWORD)
         }
+        syncConversationCacheScope(username)
     }
 
     fun clearSessionAuth(keepUsername: Boolean = true) {
@@ -175,6 +199,90 @@ class DragonClawSdk(
         searchQuery: String = ""
     ): List<UnifiedSessionGroup> =
         SessionGrouping.groupSidebarSessions(aiSessions, desktopSessions, searchQuery, currentEpochMillis())
+
+    fun groupSidebarSessions(
+        aiSessions: List<AiSessionSummary>,
+        desktopSessions: List<DesktopAgentSessionSummary>,
+        searchQuery: String = "",
+        preferences: List<ConversationListPreferenceItem> = emptyList()
+    ): List<UnifiedSessionGroup> =
+        SessionGrouping.groupSidebarSessions(aiSessions, desktopSessions, searchQuery, currentEpochMillis(), preferences)
+
+    fun applyConversationPreferencesToAi(
+        sessions: List<AiSessionSummary>,
+        preferences: List<ConversationListPreferenceItem>
+    ): List<AiSessionSummary> =
+        SessionGrouping.applyPreferencesToAiSessions(sessions, preferences)
+
+    fun applyConversationPreferencesToDesktop(
+        sessions: List<DesktopAgentSessionSummary>,
+        preferences: List<ConversationListPreferenceItem>
+    ): List<DesktopAgentSessionSummary> =
+        SessionGrouping.applyPreferencesToDesktopSessions(sessions, preferences)
+
+    fun mergeArchivedAiSessions(
+        archivedApiItems: List<AiSessionSummary>,
+        activeAiItems: List<AiSessionSummary>,
+        preferences: List<ConversationListPreferenceItem>,
+        searchQuery: String = ""
+    ): List<AiSessionSummary> =
+        SessionGrouping.mergeArchivedAiSessions(archivedApiItems, activeAiItems, preferences, searchQuery)
+
+    fun preferenceTargetForDesktop(
+        provider: String,
+        sessionId: String,
+        preferences: List<ConversationListPreferenceItem>
+    ): Pair<String, String> =
+        SessionGrouping.preferenceTargetForDesktop(provider, sessionId, preferences)
+
+    fun withPreferencePinned(
+        preferences: List<ConversationListPreferenceItem>,
+        source: String,
+        id: String,
+        pinned: Boolean
+    ): List<ConversationListPreferenceItem> =
+        SessionGrouping.upsertPreference(preferences, source, id, setPinned = pinned)
+
+    fun withPreferenceArchived(
+        preferences: List<ConversationListPreferenceItem>,
+        source: String,
+        id: String,
+        archived: Boolean
+    ): List<ConversationListPreferenceItem> =
+        SessionGrouping.upsertPreference(preferences, source, id, setArchived = archived)
+
+    fun withPreferenceTitle(
+        preferences: List<ConversationListPreferenceItem>,
+        source: String,
+        id: String,
+        title: String
+    ): List<ConversationListPreferenceItem> =
+        SessionGrouping.upsertPreference(preferences, source, id, setTitle = title)
+
+    fun withPreferenceServerItem(
+        preferences: List<ConversationListPreferenceItem>,
+        item: ConversationListPreferenceItem
+    ): List<ConversationListPreferenceItem> {
+        val list = preferences.toMutableList()
+        val idx = list.indexOfFirst { it.source == item.source && it.id == item.id }
+        if (idx >= 0) list[idx] = item else list.add(item)
+        return list
+    }
+
+    fun movePinnedEntryOrder(
+        groups: List<UnifiedSessionGroup>,
+        preferences: List<ConversationListPreferenceItem>,
+        stableKey: String,
+        moveUp: Boolean
+    ): List<String>? =
+        SessionGrouping.movePinnedEntryOrder(groups, preferences, stableKey, moveUp)
+
+    fun applyLocalPinOrder(
+        preferences: List<ConversationListPreferenceItem>,
+        source: String = "mine",
+        orderedIds: List<String>
+    ): List<ConversationListPreferenceItem> =
+        SessionGrouping.applyLocalPinOrder(preferences, source, orderedIds)
 
     fun mapHistoryMessages(items: List<SessionMessageItem>): List<ChatMessage> =
         DragonClawHelpers.mapStoredMessages(items, baseUrl = getBaseUrl())
@@ -351,11 +459,21 @@ class DragonClawSdk(
     fun fetchSessions(
         token: String,
         query: String = "",
-        limit: Int = 40,
+        limit: Int = 80,
         onSuccess: (AiSessionsResponse) -> Unit,
         onError: (String) -> Unit
     ): TaskHandle = runAsync(
         block = { api.getSessions(token, query = query, limit = limit) },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
+    fun fetchConversationPreferences(
+        token: String,
+        onSuccess: (ConversationListResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = { api.getConversationListPreferences(token) },
         onSuccess = onSuccess,
         onError = onError
     )
@@ -668,7 +786,16 @@ class DragonClawSdk(
         onSuccess: (ArchiveSessionResponse) -> Unit,
         onError: (String) -> Unit
     ): TaskHandle = runAsync(
-        block = { api.archiveSession(token, sessionId) },
+        block = {
+            val res = api.archiveSession(token, sessionId)
+            runCatching {
+                api.saveConversationListPreference(
+                    token,
+                    ConversationListSaveRequest(source = "mine", id = sessionId, archived = true)
+                )
+            }
+            res
+        },
         onSuccess = onSuccess,
         onError = onError
     )
@@ -679,7 +806,16 @@ class DragonClawSdk(
         onSuccess: (ArchiveSessionResponse) -> Unit,
         onError: (String) -> Unit
     ): TaskHandle = runAsync(
-        block = { api.unarchiveSession(token, sessionId) },
+        block = {
+            val res = api.unarchiveSession(token, sessionId)
+            runCatching {
+                api.saveConversationListPreference(
+                    token,
+                    ConversationListSaveRequest(source = "mine", id = sessionId, archived = false)
+                )
+            }
+            res
+        },
         onSuccess = onSuccess,
         onError = onError
     )
@@ -692,6 +828,90 @@ class DragonClawSdk(
         onError: (String) -> Unit
     ): TaskHandle = runAsync(
         block = { api.pinSession(token, sessionId, pinned) },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
+    fun setConversationPinned(
+        token: String,
+        source: String = "mine",
+        id: String,
+        pinned: Boolean,
+        onSuccess: (ConversationListSaveResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = {
+            api.saveConversationListPreference(
+                token,
+                ConversationListSaveRequest(source = source, id = id, pinned = pinned)
+            )
+        },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
+    fun renameConversation(
+        token: String,
+        source: String = "mine",
+        id: String,
+        title: String,
+        onSuccess: (ConversationListSaveResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = {
+            api.saveConversationListPreference(
+                token,
+                ConversationListSaveRequest(source = source, id = id, title = title)
+            )
+        },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
+    fun setConversationHidden(
+        token: String,
+        source: String,
+        id: String,
+        hidden: Boolean,
+        onSuccess: (ConversationListSaveResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = {
+            api.saveConversationListPreference(
+                token,
+                ConversationListSaveRequest(source = source, id = id, hidden = hidden)
+            )
+        },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
+    fun setConversationArchived(
+        token: String,
+        source: String,
+        id: String,
+        archived: Boolean,
+        onSuccess: (ConversationListSaveResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = {
+            api.saveConversationListPreference(
+                token,
+                ConversationListSaveRequest(source = source, id = id, archived = archived)
+            )
+        },
+        onSuccess = onSuccess,
+        onError = onError
+    )
+
+    fun reorderPinnedConversations(
+        token: String,
+        source: String = "mine",
+        order: List<String>,
+        onSuccess: (ConversationListSaveResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = { api.reorderPinnedConversations(token, source = source, order = order) },
         onSuccess = onSuccess,
         onError = onError
     )

@@ -7,9 +7,7 @@
         ['schedule', 'alarm', '定时任务', 'Scheduled'],
         ['library', 'book', '资料库', 'Library'],
         ['opsDrafts', 'inbox', '运维待办', 'Ops drafts'],
-        ['links', 'link', '友情链接', 'Links'],
-        ['requirements', 'target', '需求管理', 'Requirements'],
-        ['promotions', 'compass', '平台推广', 'Promotions']
+        ['links', 'link', '友情链接', 'Links']
     ];
     const defaults = () => ({ primary: entries.slice(0, 5).map(item => item[0]), more: entries.slice(5).map(item => item[0]) });
     const L = (zh, en) => window.ToolsI18n?.getLanguage?.() === 'en-US' ? en : zh;
@@ -49,6 +47,12 @@
             button.classList.add('v2-pop-item'); button.setAttribute('role', 'menuitem');
             stash.append(button);
         });
+        const inboxButton = nav.querySelector('#v2InboxBtn');
+        if (inboxButton) {
+            // Keep extension items anchored after the user's primary order instead of letting applyLayout strand them at index 1.
+            const anchor = layout.primary.includes('opsDrafts') && layout.primary[0] !== 'opsDrafts' ? buttons.get('opsDrafts') : moreButton;
+            nav.insertBefore(inboxButton, anchor);
+        }
         window.HomeShell?.updateChannelsNavState();
     }
     function mountMore(host) {

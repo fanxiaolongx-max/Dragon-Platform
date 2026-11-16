@@ -405,3 +405,12 @@ html[data-theme="light"] .conversation-context-menu,body.light-theme .conversati
 body.home-booting *,
 body.home-booting *::before,
 body.home-booting *::after { transition: none !important; }
+
+/* Pinned conversations move along the Y axis only; siblings ease into their slots. */
+[data-batch-scope="pinned"] > .conversation-list-row.is-pinned,
+[data-batch-scope="pinned"] > .conversation-list-row.is-pinned .home-chat-open { cursor: grab; }
+.is-conversation-dragging, .is-conversation-dragging * { cursor: grabbing !important; user-select: none !important; }
+.is-pin-sorting > .conversation-list-row { transition: transform 180ms cubic-bezier(.2,.8,.2,1); will-change: transform; }
+.is-pin-sorting > .conversation-list-row.is-pin-dragging { transition: none; z-index: 5; border-radius: 8px; background: var(--v2-pop, var(--ws-panel, #fff)); box-shadow: 0 6px 18px rgba(0,0,0,.16); }
+.is-pin-sorting .conversation-list-more { visibility: hidden !important; }
+@media (prefers-reduced-motion: reduce) { .is-pin-sorting > .conversation-list-row { transition: none; } }

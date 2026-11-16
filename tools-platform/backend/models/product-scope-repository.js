@@ -1,6 +1,7 @@
 'use strict';
 const { run, get } = require('./app-db');
 const ExcelJS = require('exceljs');
+const { readWorksheetRows } = require('./excel-sheet-rows');
 const FIELDS = ['scenario', 'productLine', 'productCategory', 'productName', 'creator', 'createTime', 'updator', 'updateTime'];
 const invalid = message => Object.assign(new Error(message), { status: 400 });
 
@@ -62,13 +63,9 @@ async function parseImport(buffer, filename) {
         const workbook = new ExcelJS.Workbook();
         try { await workbook.xlsx.load(buffer); } catch (_) { throw invalid('无法读取 Excel 文件'); }
         const sheet = workbook.worksheets[0];
-        if (!sheet || sheet.rowCount > 50001 || sheet.columnCount > 100) throw invalid('Excel 工作表为空，或超过 50000 条记录 / 100 列');
-        const rows = [];
-        sheet.eachRow(row => {
-            const values = [];
-            for (let i = 1; i <= sheet.columnCount; i++) values.push(row.getCell(i).text);
-            rows.push(values);
-        });
+        const columnCount = sheet ? sheet.columnCount : 0;
+        if (!sheet || sheet.rowCount > 50001 || columnCount > 100) throw invalid('Excel 工作表为空，或超过 50000 条记录 / 100 列');
+        const rows = await readWorksheetRows(sheet, { includeEmptyRows: false, readCell: cell => cell.text ?? '', minColumns: columnCount });
         return productsFromRows(rows);
     }
     if (!/\.(csv|tsv|txt)$/i.test(filename)) throw invalid('支持 XLSX、CSV、TSV、TXT 和 JSON 文件');

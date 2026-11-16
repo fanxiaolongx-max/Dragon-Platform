@@ -233,7 +233,7 @@ class DragonClawApiClient(
         return decodeOrThrow(response, "Failed to upload attachments")
     }
 
-    suspend fun getSessions(token: String, query: String = "", limit: Int = 40): AiSessionsResponse {
+    suspend fun getSessions(token: String, query: String = "", limit: Int = 80): AiSessionsResponse {
         val response = client.get("$baseUrl/api/ai/sessions") {
             header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
             url {
@@ -244,6 +244,38 @@ class DragonClawApiClient(
             }
         }
         return decodeOrThrow(response, "Failed to load sessions")
+    }
+
+    suspend fun getConversationListPreferences(token: String): ConversationListResponse {
+        val response = client.get("$baseUrl/api/ai/conversation-list") {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+        }
+        return decodeOrThrow(response, "Failed to load conversation preferences")
+    }
+
+    suspend fun saveConversationListPreference(
+        token: String,
+        request: ConversationListSaveRequest
+    ): ConversationListSaveResponse {
+        val response = client.put("$baseUrl/api/ai/conversation-list") {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
+        return decodeOrThrow(response, "Failed to save conversation preference")
+    }
+
+    suspend fun reorderPinnedConversations(
+        token: String,
+        source: String = "mine",
+        order: List<String>
+    ): ConversationListSaveResponse {
+        val response = client.put("$baseUrl/api/ai/conversation-list") {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+            contentType(ContentType.Application.Json)
+            setBody(ConversationListReorderRequest(source = source, order = order))
+        }
+        return decodeOrThrow(response, "Failed to reorder pinned conversations")
     }
 
     suspend fun getSessionMessages(

@@ -2869,6 +2869,7 @@
     }
 
     function renderChatList() {
+        if (window.HomeConversationList?.deferRender?.(el.chatList, renderChatList)) return;
         if (!el.chatList) return;
         if (!chatList.loaded) {
             el.chatList.innerHTML = '<div class="home-chat-skeleton" aria-hidden="true"><span></span><span></span><span></span><span></span></div>';
@@ -2995,7 +2996,9 @@
                 }
             }
 
-            pinnedEntries.sort(sortEntries);
+            pinnedEntries.sort((a,b) => window.HomeConversationList.comparePins(
+                window.HomeConversationList.get('mine', a.item.id || a.item._id),
+                window.HomeConversationList.get('mine', b.item.id || b.item._id)) || sortEntries(a,b));
             taskEntries.sort(sortEntries);
             for (const entries of projectMap.values()) {
                 entries.sort(sortEntries);

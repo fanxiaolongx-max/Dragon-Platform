@@ -23,7 +23,7 @@ test.after(async () => { await db.closeDatabase(); fs.rmSync(temp, { recursive: 
 test('sidebar menus are saved for the authenticated account inside its tenant and survive reopening SQLite', async () => {
     await request(app).get('/api/sidebar-menu').expect(401);
     const original = repo.defaults();
-    const layout = { primary: ['requirements', 'skillHub'], more: ['library', 'channels', 'schedule', 'opsDrafts', 'links', 'promotions'] };
+    const layout = { primary: ['library', 'skillHub'], more: ['channels', 'schedule', 'opsDrafts', 'links'] };
     await request(app).put('/api/sidebar-menu').set('x-user', 'alice').send(layout).expect(200, layout);
     await request(app).get('/api/sidebar-menu').set('x-user', 'bob').expect(200, original);
     await request(app).get('/api/sidebar-menu').set('x-user', 'alice').set('x-tenant', 'other').expect(200, original);
@@ -37,10 +37,10 @@ test('sidebar menus are saved for the authenticated account inside its tenant an
 });
 
 test('older layouts discard removed entries and keep newly available entries reachable', async () => {
-    await writeKV('sidebar_menu', 'legacy', { primary: ['schedule', 'removed', 'schedule'], more: ['skillHub'] });
+    await writeKV('sidebar_menu', 'legacy', { primary: ['schedule', 'requirements', 'removed', 'schedule'], more: ['skillHub', 'promotions'] });
     const layout = await repo.getLayout('legacy');
     assert.deepEqual(layout.primary, ['schedule']);
-    assert.equal(new Set([...layout.primary, ...layout.more]).size, 8);
+    assert.equal(new Set([...layout.primary, ...layout.more]).size, 6);
     assert.deepEqual([...layout.primary, ...layout.more].sort(), [...repo.defaults().primary, ...repo.defaults().more].sort());
 });
 

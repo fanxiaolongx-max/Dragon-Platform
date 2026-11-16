@@ -191,6 +191,12 @@ async function runTurnInner({ channel, account, conversation, toolSessionId, tex
         sessionId = await require('../ai-chat-repository').getOrCreateSession({ sessionId, owner: user.username, pagePath: `/channels/${channel}`, pageTitle: `${CHANNEL_LABELS[channel] || channel} 频道` });
     }
     if (persist !== false && conversation && !signal?.aborted) {
+        // 回复「批准 / 拒绝 1234」：结算推送到本会话的 Dragon Claw 审批（「需要你」收件箱）
+        const inboxReply = require('../agent-approval-inbox').handleReply({ channel, conversation, actor: String(account || ''), text });
+        if (inboxReply) {
+            await replyDirectly({ channel, user, sessionId, text, reply: inboxReply, account, conversation, onEvent });
+            return;
+        }
         // 回复「确认 1234」/「取消」：执行或放弃上一轮挂起的操作（频道里显示不了审批卡）
         const confirmed = await require('./channel-pending-actions').handleReply({ channel, conversation, actor: String(account || ''), text });
         if (confirmed) {

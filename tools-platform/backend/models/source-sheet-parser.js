@@ -2,6 +2,7 @@
 // closed after upload). Mirrors the import page (SheetJS sheet_to_json, raw:false, defval:''), then stores the
 // sheets through the normal saveSheets path so table rules and quick metrics still apply.
 const repo = require('./import-source-repository');
+const { readWorksheetRows } = require('./excel-sheet-rows');
 
 const pending = new Map();
 
@@ -59,15 +60,11 @@ async function parseWorkbook(file, buffer) {
     const ExcelJS = require('exceljs');
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(Buffer.from(buffer));
-    return workbook.worksheets.map(sheet => {
-        const matrix = [];
-        sheet.eachRow({ includeEmpty: false }, row => {
-            const cells = [];
-            for (let column = 1; column <= sheet.columnCount; column++) cells.push(row.getCell(column).text ?? '');
-            matrix.push(cells);
-        });
-        return toSheet(sheet.name, matrix);
-    });
+    const sheets = [];
+    for (const sheet of workbook.worksheets) {
+        sheets.push(toSheet(sheet.name, await readWorksheetRows(sheet, { includeEmptyRows: false, readCell: cell => cell.text ?? '' })));
+    }
+    return sheets;
 }
 
 // Parses one pending file once (concurrent callers share the same work). Returns true when sheets were stored.

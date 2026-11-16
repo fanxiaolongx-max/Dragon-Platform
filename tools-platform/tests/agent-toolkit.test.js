@@ -213,3 +213,64 @@ test('without a folder, the files preset reads the owner\'s attachments by full 
     assert.equal(fs.readFileSync(saved.path, 'utf8'), 'region,amount\nEast,10\nEast,5\nSouth,7\n');
     assert.equal(filesAgent.toolset({ owner: 'default::alice', uploads: [] }), null);
 });
+
+test('read_document and query_data stay linear and responsive on wide 10k+ row Excel sheets and sparse rows', async () => {
+    const workbook = new ExcelJS.Workbook();
+    const sparse = workbook.addWorksheet('稀疏表');
+    sparse.getRow(1).values = ['列1', undefined, '列3', '列4'];
+    sparse.getRow(3).values = ['A', undefined, 'C'];
+    const big = workbook.addWorksheet('明细万行');
+    const headers = Array.from({ length: 26 }, (_, i) => `c${i + 1}`);
+    big.addRow(headers);
+    for (let r = 1; r <= 10500; r += 1) {
+        const row = new Array(26).fill('');
+        row[0] = `dish_${r}`;
+        row[1] = r % 7;
+        row[25] = r;
+        big.addRow(row);
+    }
+    const xlsxPath = path.join(root, 'wide-10k.xlsx');
+    await workbook.xlsx.writeFile(xlsxPath);
+
+    const sparseOut = await toolsService.execute(ctx(), 'read_document', { path: 'wide-10k.xlsx', sheet: '稀疏表' });
+    assert.match(sparseOut.content, /共 3 行[\s\S]*1│列1\t\t列3\t列4\n2│\n3│A\t\tC\t/);
+
+    let ticks = 0;
+    let active = true;
+    const pump = () => {
+        if (!active) return;
+        ticks += 1;
+        setImmediate(pump);
+    };
+    setImmediate(pump);
+    const t0 = Date.now();
+    const page = await toolsService.execute(ctx(), 'read_document', { path: 'wide-10k.xlsx', sheet: '明细万行', startRow: 10001, maxRows: 5 });
+    const elapsedMs = Date.now() - t0;
+    active = false;
+
+    assert.ok(elapsedMs < 5000, `expected <5000ms, got ${elapsedMs}ms`);
+    assert.ok(ticks >= 2, `expected event loop to yield >=2 ticks while reading 10k rows, got ${ticks}`);
+    assert.match(page.content, /10001│dish_10000\t/);
+
+    const queried = await toolsService.execute(ctx(), 'query_data', { path: 'wide-10k.xlsx', sheet: '明细万行', sql: 'SELECT COUNT(*) AS n, MAX(c26) AS top FROM data' });
+    assert.match(queried.content, /n\ttop\n10500\t10500/);
+});
+
+test('backend code never calls ExcelJS actualColumnCount or columnCount getters inside row or column loops', () => {
+    const dirs = ['../backend/models', '../backend/routes'].map(rel => path.resolve(__dirname, rel));
+    const walk = dir => fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+        const full = path.join(dir, entry.name);
+        return entry.isDirectory() ? walk(full) : (entry.name.endsWith('.js') && !entry.name.endsWith('.min.js') ? [full] : []);
+    });
+    const offenders = [];
+    for (const file of dirs.flatMap(walk)) {
+        const src = fs.readFileSync(file, 'utf8');
+        if (/\bfor\s*\([^;\n]*;[^;\n]*\.(actualColumnCount|columnCount|actualRowCount)\b/.test(src)) {
+            offenders.push(`${path.relative(__dirname, file)}: loop condition reads ExcelJS getter`);
+        }
+        if (/\.eachRow\s*\([^)]*=>[\s\S]{0,400}\.(actualColumnCount|columnCount|actualRowCount)\b/.test(src)) {
+            offenders.push(`${path.relative(__dirname, file)}: eachRow callback reads ExcelJS getter`);
+        }
+    }
+    assert.deepEqual(offenders, []);
+});

@@ -111,6 +111,14 @@ class DragonClawHelpersTest {
         )
         assertTrue(out.contains("帮我分析表格"))
         assertTrue(out.contains("/tmp/ai/demo.xlsx"))
+        assertTrue(out.contains("- [demo.xlsx](</tmp/ai/demo.xlsx>)"))
+
+        val (cleanText, parsedAttachments) = DragonClawHelpers.extractMessageAttachmentsAndCleanText(
+            rawContent = out,
+            baseUrl = "https://cs.fanxiaolong.uk"
+        )
+        assertEquals("帮我分析表格", cleanText)
+        assertEquals(listOf("/tmp/ai/demo.xlsx"), parsedAttachments.map { it.path })
     }
 
     @Test
@@ -486,5 +494,99 @@ class DragonClawHelpersTest {
         assertEquals("WAVE", closeWav.sliceArray(8..11).decodeToString())
         assertTrue(openWav.size > 4400 && closeWav.size > 4400)
         assertTrue(closeWav.size > openWav.size, "Closing chime should resolve slightly longer than opening chime")
+    }
+
+    @Test
+    fun localizedAccountRoleDistinguishesSuperAdminMember() {
+        assertEquals("超级管理员", DragonClawHelpers.localizedAccountRole(role = "admin", isSuper = true, language = "zh"))
+        assertEquals("Super Admin", DragonClawHelpers.localizedAccountRole(role = "user", isSuper = true, language = "en"))
+        assertEquals("管理员", DragonClawHelpers.localizedAccountRole(role = "admin", isSuper = false, language = "zh"))
+        assertEquals("Admin", DragonClawHelpers.localizedAccountRole(role = "ADMIN", isSuper = false, language = "en"))
+        assertEquals("成员", DragonClawHelpers.localizedAccountRole(role = "user", isSuper = false, language = "zh"))
+        assertEquals("Member", DragonClawHelpers.localizedAccountRole(role = "", isSuper = false, language = "en"))
+    }
+
+    @Test
+    fun conversationListPreferencesSyncCustomTitlesPinsDesktopAgentsAndPinOrder() {
+        val rawJson = """
+            {
+              "items": [
+                {"source":"mine","id":"s_pin_old","pinned":1,"archived":0,"hidden":0,"title":"自定义置顶-第一","pin_order":0},
+                {"source":"mine","id":"desktop:codex:d_pin","pinned":1,"archived":0,"hidden":0,"title":"桌面置顶-第二","pin_order":1},
+                {"source":"mine","id":"s_pin_unranked","pinned":true,"archived":false,"hidden":false,"title":"置顶无序号","pin_order":null},
+                {"source":"mine","id":"s_regular_renamed","pinned":0,"archived":0,"hidden":0,"title":"非置顶改名"},
+                {"source":"mine","id":"s_hidden","pinned":0,"archived":0,"hidden":1,"title":"Hidden"},
+                {"source":"mine","id":"s_web_archived","pinned":0,"archived":1,"hidden":0,"title":"Web归档改名"}
+              ]
+            }
+        """.trimIndent()
+        val prefs = DragonClawHelpers.lenientJson.decodeFromString(ConversationListResponse.serializer(), rawJson).items
+        assertEquals(6, prefs.size)
+        assertTrue(prefs[0].isPinned)
+        assertFalse(prefs[3].isPinned)
+        assertTrue(prefs[4].isHidden)
+        assertTrue(prefs[5].isArchived)
+
+        val nowMs = SessionGrouping.parseTimestampMs("2026-11-16T09:00:00Z")!!
+        val aiSessions = listOf(
+            AiSessionSummary(id = "s_pin_unranked", updatedAt = "2026-11-16T08:50:00Z", title = "Auto unranked"),
+            AiSessionSummary(id = "s_pin_old", updatedAt = "2026-11-01T08:00:00Z", title = "Auto old"),
+            AiSessionSummary(id = "s_regular_renamed", updatedAt = "2026-11-16T07:00:00Z", title = "Auto regular"),
+            AiSessionSummary(id = "s_hidden", updatedAt = "2026-11-16T08:00:00Z", title = "Should hide"),
+            AiSessionSummary(id = "s_web_archived", updatedAt = "2026-11-15T10:00:00Z", title = "Old auto")
+        )
+        val desktopSessions = listOf(
+            DesktopAgentSessionSummary(id = "d_pin", provider = "codex", title = "Codex raw title", updatedAt = "2026-11-10T10:00:00Z"),
+            DesktopAgentSessionSummary(id = "d_reg", provider = "claudecode", title = "Claude task", updatedAt = "2026-11-16T08:30:00Z")
+        )
+
+        val groups = SessionGrouping.groupSidebarSessions(
+            aiSessions = aiSessions,
+            desktopSessions = desktopSessions,
+            searchQuery = "",
+            nowEpochMs = nowMs,
+            preferences = prefs
+        )
+
+        assertEquals(SessionBucket.PINNED, groups[0].bucket)
+        // Pinned items preserve explicit pin_order (0, 1) ahead of null pin_order regardless of updatedAt!
+        assertEquals(listOf("ai:s_pin_old", "desktop:codex:d_pin", "ai:s_pin_unranked"), groups[0].items.map { it.stableKey })
+        assertEquals(listOf("自定义置顶-第一", "桌面置顶-第二", "置顶无序号"), groups[0].items.map { it.displayTitle("zh") })
+
+        assertEquals(SessionBucket.TODAY, groups[1].bucket)
+        // Hidden & Web-archived sessions are excluded from active TODAY bucket, while non-pinned rename shows cleanly.
+        assertEquals(listOf("desktop:claudecode:d_reg", "ai:s_regular_renamed"), groups[1].items.map { it.stableKey })
+        assertEquals("非置顶改名", groups[1].items[1].displayTitle("zh"))
+
+        // Searching matches custom renamed title on non-pinned session too
+        val searchGroups = SessionGrouping.groupSidebarSessions(
+            aiSessions = aiSessions,
+            desktopSessions = desktopSessions,
+            searchQuery = "改名",
+            nowEpochMs = nowMs,
+            preferences = prefs
+        )
+        assertEquals(1, searchGroups.size)
+        assertEquals(listOf("ai:s_regular_renamed"), searchGroups[0].items.map { it.stableKey })
+
+        // Merged archived sessions include items archived via conversation-list prefs with custom title
+        val archived = SessionGrouping.mergeArchivedAiSessions(
+            archivedApiItems = emptyList(),
+            activeAiItems = aiSessions,
+            preferences = prefs
+        )
+        assertEquals(listOf("s_web_archived"), archived.map { it.id })
+        assertEquals("Web归档改名", archived[0].displayTitle("zh"))
+
+        val reordered = SessionGrouping.movePinnedEntryOrder(groups, prefs, "desktop:codex:d_pin", moveUp = true)
+        assertEquals(listOf("desktop:codex:d_pin", "s_pin_old", "s_pin_unranked"), reordered)
+        val updatedPrefs = SessionGrouping.applyLocalPinOrder(prefs, orderedIds = reordered!!)
+        val reorderedGroups = SessionGrouping.groupSidebarSessions(
+            aiSessions = aiSessions,
+            desktopSessions = desktopSessions,
+            nowEpochMs = nowMs,
+            preferences = updatedPrefs
+        )
+        assertEquals(listOf("desktop:codex:d_pin", "ai:s_pin_old", "ai:s_pin_unranked"), reorderedGroups[0].items.map { it.stableKey })
     }
 }

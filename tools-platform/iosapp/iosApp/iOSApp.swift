@@ -9,6 +9,12 @@ struct iOSApp: App {
         WindowGroup {
             ContentView(store: store)
                 .preferredColorScheme(store.colorScheme)
+                .onAppear {
+                    store.syncWindowInterfaceStyle()
+                }
+                .onChange(of: store.themeMode) { _, _ in
+                    store.syncWindowInterfaceStyle()
+                }
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .active {
                         store.appDidBecomeActive()

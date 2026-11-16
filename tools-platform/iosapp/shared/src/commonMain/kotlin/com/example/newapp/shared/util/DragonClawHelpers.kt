@@ -79,7 +79,8 @@ object DragonClawHelpers {
         """(?:file://)?((?:/(?:Users|Volumes|tmp|var|home|app|opt|data|root|private)/|~/|[A-Za-z]:\\)[^\s\r\n"'`()<>|\[\]]+\.(?:png|jpe?g|gif|webp|bmp|avif|heic|svg)(?:[?#][^\s)"'<>]*)?)""",
         RegexOption.IGNORE_CASE
     )
-    private val UPLOAD_BLOCK_HEADER_REGEX = Regex("""^\[(?:已上传附件路径：|Attached files uploaded to server:|已上传附件)]\s*$""")
+    private val UPLOAD_BLOCK_HEADER_REGEX = Regex("""^(?:📎\s*附件[：:]|\[(?:已上传附件路径：|Attached files uploaded to server:|已上传附件)])\s*$""")
+    private val UPLOAD_MD_BULLET_REGEX = Regex("""^-\s+\[([^\]\r\n]*)\]\(<([^>\r\n]+)>\)\s*$""")
     private val UPLOAD_BULLET_LINE_REGEX = Regex("""^-\s+(?:([^:\r\n]{1,120}):\s+)?((?:/|~/|[A-Za-z]:\\)[^\r\n]+)\s*$""")
 
     /** Filters & compacts welcome suggestions down to 2-3 short single-line starter prompts. */
@@ -237,6 +238,13 @@ object DragonClawHelpers {
                 continue
             }
             if (inUploadBlock) {
+                val mdBullet = UPLOAD_MD_BULLET_REGEX.matchEntire(trimmed)
+                if (mdBullet != null) {
+                    val label = mdBullet.groupValues[1].trim()
+                    val filePath = mdBullet.groupValues[2].trim()
+                    addAttachment(path = filePath, name = label.ifBlank { basename(filePath) })
+                    continue
+                }
                 val bullet = UPLOAD_BULLET_LINE_REGEX.matchEntire(trimmed)
                 if (bullet != null) {
                     val label = bullet.groupValues[1].trim()
@@ -294,17 +302,16 @@ object DragonClawHelpers {
         language: String
     ): String {
         if (files.isEmpty()) return draftText
+        // Must emit Markdown link `(<path>)` matching backend `agentArtifacts.uploadsIn` & Web `attachmentBlock()`.
         val pathsBlock = files.joinToString("\n") { file ->
-            val label = file.name.ifBlank { file.path.substringAfterLast('/') }
-            "- $label: ${file.path}"
+            val rawLabel = file.name.ifBlank { file.path.substringAfterLast('/') }
+            val safeLabel = rawLabel.replace("[", "").replace("]", "").ifBlank { "attachment" }
+            "- [$safeLabel](<${file.path}>)"
         }
-        val header = if (language == "en") "[Attached files uploaded to server:]" else "[已上传附件路径：]"
-        val trimmed = draftText.trim()
-        return if (trimmed.isEmpty()) {
-            "$header\n$pathsBlock"
-        } else {
-            "$trimmed\n\n$header\n$pathsBlock"
+        val base = draftText.trim().ifEmpty {
+            if (language == "en") "Please look at the attached files." else "请看一下附件。"
         }
+        return "$base\n\n📎 附件：\n$pathsBlock"
     }
 
     private fun ensureUniqueMessageId(
@@ -782,6 +789,19 @@ object DragonClawHelpers {
         dst[offset] = (value and 0xFF).toByte()
         dst[offset + 1] = ((value ushr 8) and 0xFF).toByte()
     }
+
+    fun localizedAccountRole(role: String, isSuper: Boolean, language: String): String {
+        val isEn = language.equals("en", ignoreCase = true)
+        val normalized = role.trim().lowercase()
+        return when {
+            isSuper || normalized == "super" || normalized == "superadmin" || normalized == "super_admin" ->
+                if (isEn) "Super Admin" else "超级管理员"
+            normalized == "admin" ->
+                if (isEn) "Admin" else "管理员"
+            else ->
+                if (isEn) "Member" else "成员"
+        }
+    }
 }
 
 object VoicePersonaCatalog {
@@ -1112,6 +1132,208 @@ object NdjsonStreamParser {
 object SessionGrouping {
     private const val DAY_MS = 86_400_000L
 
+    private val PINNED_ENTRY_COMPARATOR = Comparator<SidebarSessionEntry> { a, b ->
+        val orderA = a.pinOrder ?: Int.MAX_VALUE
+        val orderB = b.pinOrder ?: Int.MAX_VALUE
+        if (orderA != orderB) return@Comparator orderA.compareTo(orderB)
+        val timeCmp = b.sortTimestampMs.compareTo(a.sortTimestampMs)
+        if (timeCmp != 0) return@Comparator timeCmp
+        a.stableKey.compareTo(b.stableKey)
+    }
+
+    private val RECENCY_ENTRY_COMPARATOR = Comparator<SidebarSessionEntry> { a, b ->
+        val timeCmp = b.sortTimestampMs.compareTo(a.sortTimestampMs)
+        if (timeCmp != 0) return@Comparator timeCmp
+        a.stableKey.compareTo(b.stableKey)
+    }
+
+    private fun prefKey(source: String, id: String): String = "$source::$id"
+
+    private fun buildPreferenceLookup(
+        preferences: List<ConversationListPreferenceItem>
+    ): Map<String, ConversationListPreferenceItem> {
+        if (preferences.isEmpty()) return emptyMap()
+        val map = LinkedHashMap<String, ConversationListPreferenceItem>(preferences.size)
+        for (pref in preferences) {
+            if (pref.id.isBlank()) continue
+            map[prefKey(pref.source, pref.id)] = pref
+        }
+        return map
+    }
+
+    private fun findDesktopPreference(
+        provider: String,
+        sessionId: String,
+        lookup: Map<String, ConversationListPreferenceItem>
+    ): ConversationListPreferenceItem? {
+        if (lookup.isEmpty()) return null
+        val unifiedPref = lookup[prefKey("mine", "desktop:$provider:$sessionId")]
+        val standalonePref = lookup[prefKey("desktop:$provider", sessionId)]
+        if (unifiedPref == null) return standalonePref
+        if (standalonePref == null) return unifiedPref
+        return ConversationListPreferenceItem(
+            source = unifiedPref.source,
+            id = unifiedPref.id,
+            pinned = unifiedPref.pinned ?: standalonePref.pinned,
+            archived = unifiedPref.archived ?: standalonePref.archived,
+            hidden = unifiedPref.hidden ?: standalonePref.hidden,
+            title = unifiedPref.cleanTitle.ifBlank { standalonePref.cleanTitle },
+            pin_order = unifiedPref.pin_order ?: standalonePref.pin_order
+        )
+    }
+
+    /** Returns `(source, id)` used on `/api/ai/conversation-list` for a Desktop Agent session. */
+    fun preferenceTargetForDesktop(
+        provider: String,
+        sessionId: String,
+        preferences: List<ConversationListPreferenceItem>
+    ): Pair<String, String> {
+        val unifiedId = "desktop:$provider:$sessionId"
+        val hasUnified = preferences.any { it.source == "mine" && it.id == unifiedId }
+        val hasStandalone = preferences.any { it.source == "desktop:$provider" && it.id == sessionId }
+        return if (!hasUnified && hasStandalone) {
+            "desktop:$provider" to sessionId
+        } else {
+            "mine" to unifiedId
+        }
+    }
+
+    fun upsertPreference(
+        preferences: List<ConversationListPreferenceItem>,
+        source: String,
+        id: String,
+        setPinned: Boolean? = null,
+        setArchived: Boolean? = null,
+        setHidden: Boolean? = null,
+        setTitle: String? = null
+    ): List<ConversationListPreferenceItem> {
+        if (id.isBlank()) return preferences
+        val list = preferences.toMutableList()
+        val idx = list.indexOfFirst { it.source == source && it.id == id }
+        val existing = if (idx >= 0) list[idx] else ConversationListPreferenceItem(source = source, id = id)
+        val updated = existing.copy(
+            pinned = setPinned?.let { JsonPrimitive(it) } ?: existing.pinned,
+            archived = setArchived?.let { JsonPrimitive(it) } ?: existing.archived,
+            hidden = setHidden?.let { JsonPrimitive(it) } ?: existing.hidden,
+            title = setTitle?.trim() ?: existing.title
+        )
+        if (idx >= 0) list[idx] = updated else list.add(updated)
+        return list
+    }
+
+    /** Returns updated `order` IDs for `/api/ai/conversation-list` (`source = "mine"`) or null if at boundary. */
+    fun movePinnedEntryOrder(
+        groups: List<UnifiedSessionGroup>,
+        preferences: List<ConversationListPreferenceItem>,
+        stableKey: String,
+        moveUp: Boolean
+    ): List<String>? {
+        val pinnedGroup = groups.firstOrNull { it.bucket == SessionBucket.PINNED } ?: return null
+        val paired = pinnedGroup.items.mapNotNull { entry ->
+            when {
+                entry.aiSession != null -> entry.aiSession.id to entry.stableKey
+                entry.desktopSession != null -> {
+                    val target = preferenceTargetForDesktop(entry.desktopSession.provider, entry.desktopSession.id, preferences)
+                    if (target.first == "mine") target.second to entry.stableKey else null
+                }
+                else -> null
+            }
+        }
+        if (paired.size < 2) return null
+        val idx = paired.indexOfFirst { it.second == stableKey }
+        if (idx < 0) return null
+        val swapIdx = if (moveUp) idx - 1 else idx + 1
+        if (swapIdx !in paired.indices) return null
+        val reordered = paired.toMutableList()
+        val tmp = reordered[idx]
+        reordered[idx] = reordered[swapIdx]
+        reordered[swapIdx] = tmp
+        return reordered.map { it.first }
+    }
+
+    fun applyLocalPinOrder(
+        preferences: List<ConversationListPreferenceItem>,
+        source: String = "mine",
+        orderedIds: List<String>
+    ): List<ConversationListPreferenceItem> {
+        if (orderedIds.isEmpty()) return preferences
+        val indexById = orderedIds.withIndex().associate { (i, id) -> id to i }
+        val result = preferences.map { pref ->
+            if (pref.source == source && indexById.containsKey(pref.id)) {
+                pref.copy(pin_order = indexById[pref.id])
+            } else pref
+        }.toMutableList()
+        for ((index, id) in orderedIds.withIndex()) {
+            if (result.none { it.source == source && it.id == id }) {
+                result.add(ConversationListPreferenceItem(source = source, id = id, pinned = JsonPrimitive(true), pin_order = index))
+            }
+        }
+        return result
+    }
+
+    fun applyPreferencesToAiSessions(
+        items: List<AiSessionSummary>,
+        preferences: List<ConversationListPreferenceItem>
+    ): List<AiSessionSummary> {
+        if (items.isEmpty() || preferences.isEmpty()) return items
+        val lookup = buildPreferenceLookup(preferences)
+        return items.map { item ->
+            val pref = lookup[prefKey("mine", item.id)] ?: return@map item
+            item.copy(
+                pinned = if (pref.pinned != null) pref.isPinned else item.pinned,
+                customTitle = pref.cleanTitle.ifBlank { null } ?: item.customTitle,
+                pinOrder = pref.pin_order ?: item.pinOrder,
+                archived = item.archived || pref.isArchived,
+                hidden = item.hidden || pref.isHidden
+            )
+        }
+    }
+
+    fun applyPreferencesToDesktopSessions(
+        items: List<DesktopAgentSessionSummary>,
+        preferences: List<ConversationListPreferenceItem>
+    ): List<DesktopAgentSessionSummary> {
+        if (items.isEmpty() || preferences.isEmpty()) return items
+        val lookup = buildPreferenceLookup(preferences)
+        return items.map { item ->
+            val pref = findDesktopPreference(item.provider, item.id, lookup) ?: return@map item
+            item.copy(
+                customTitle = pref.cleanTitle.ifBlank { null } ?: item.customTitle,
+                pinned = if (pref.pinned != null) pref.isPinned else item.pinned,
+                pinOrder = pref.pin_order ?: item.pinOrder,
+                archived = item.archived || pref.isArchived,
+                hidden = item.hidden || pref.isHidden
+            )
+        }
+    }
+
+    fun mergeArchivedAiSessions(
+        archivedApiItems: List<AiSessionSummary>,
+        activeAiItems: List<AiSessionSummary>,
+        preferences: List<ConversationListPreferenceItem>,
+        searchQuery: String = ""
+    ): List<AiSessionSummary> {
+        val merged = LinkedHashMap<String, AiSessionSummary>()
+        for (item in applyPreferencesToAiSessions(archivedApiItems, preferences)) {
+            if (!item.hidden) merged[item.id] = item.copy(archived = true)
+        }
+        for (item in applyPreferencesToAiSessions(activeAiItems, preferences)) {
+            if (item.isArchivedSession && !item.hidden && !merged.containsKey(item.id)) {
+                merged[item.id] = item
+            }
+        }
+        val keyword = searchQuery.trim().lowercase()
+        return merged.values
+            .filter { item ->
+                keyword.isEmpty() ||
+                    item.displayTitle("zh").lowercase().contains(keyword) ||
+                    item.title.lowercase().contains(keyword) ||
+                    item.firstQuestion.orEmpty().lowercase().contains(keyword) ||
+                    item.lastQuestion.orEmpty().lowercase().contains(keyword)
+            }
+            .sortedByDescending { parseTimestampMs(it.archivedAt ?: it.updatedAt ?: it.createdAt) ?: 0L }
+    }
+
     private fun bucketForTimestamp(rawTimestamp: String?, nowEpochMs: Long): SessionBucket {
         val ts = parseTimestampMs(rawTimestamp) ?: return SessionBucket.TODAY
         val nowDay = nowEpochMs / DAY_MS
@@ -1130,12 +1352,22 @@ object SessionGrouping {
         if (sessions.isEmpty()) return emptyList()
         val buckets = linkedMapOf<SessionBucket, MutableList<AiSessionSummary>>()
         for (session in sessions) {
+            if (session.hidden) continue
             val bucket = if (session.isPinned) SessionBucket.PINNED else bucketForTimestamp(session.updatedAt ?: session.createdAt, nowEpochMs)
             buckets.getOrPut(bucket) { mutableListOf() }.add(session)
         }
         return SessionBucket.entries.mapNotNull { bucket ->
             val items = buckets[bucket]
-            if (items.isNullOrEmpty()) null else SessionGroup(bucket, items)
+            if (items.isNullOrEmpty()) null else {
+                val sorted = if (bucket == SessionBucket.PINNED) {
+                    items.sortedWith { a, b ->
+                        val orderCmp = (a.pinOrder ?: Int.MAX_VALUE).compareTo(b.pinOrder ?: Int.MAX_VALUE)
+                        if (orderCmp != 0) orderCmp
+                        else (parseTimestampMs(b.updatedAt ?: b.createdAt) ?: 0L).compareTo(parseTimestampMs(a.updatedAt ?: a.createdAt) ?: 0L)
+                    }
+                } else items
+                SessionGroup(bucket, sorted)
+            }
         }
     }
 
@@ -1144,12 +1376,29 @@ object SessionGrouping {
         desktopSessions: List<DesktopAgentSessionSummary>,
         searchQuery: String = "",
         nowEpochMs: Long
+    ): List<UnifiedSessionGroup> = groupSidebarSessions(
+        aiSessions = aiSessions,
+        desktopSessions = desktopSessions,
+        searchQuery = searchQuery,
+        nowEpochMs = nowEpochMs,
+        preferences = emptyList()
+    )
+
+    fun groupSidebarSessions(
+        aiSessions: List<AiSessionSummary>,
+        desktopSessions: List<DesktopAgentSessionSummary>,
+        searchQuery: String = "",
+        nowEpochMs: Long,
+        preferences: List<ConversationListPreferenceItem> = emptyList()
     ): List<UnifiedSessionGroup> {
+        val resolvedAi = applyPreferencesToAiSessions(aiSessions, preferences)
+        val resolvedDesktop = applyPreferencesToDesktopSessions(desktopSessions, preferences)
         val keyword = searchQuery.trim().lowercase()
         val entries = buildList {
-            for (s in aiSessions) {
-                if (s.isArchivedSession) continue
+            for (s in resolvedAi) {
+                if (s.isArchivedSession || s.hidden) continue
                 val matches = keyword.isEmpty() ||
+                    s.customTitle.orEmpty().lowercase().contains(keyword) ||
                     s.title.lowercase().contains(keyword) ||
                     s.firstQuestion.orEmpty().lowercase().contains(keyword) ||
                     s.lastQuestion.orEmpty().lowercase().contains(keyword)
@@ -1163,36 +1412,45 @@ object SessionGrouping {
                         aiSession = s,
                         desktopSession = null,
                         sortTimestampMs = parseTimestampMs(rawTs) ?: 0L,
-                        isPinned = isPinned
+                        isPinned = isPinned,
+                        pinOrder = s.pinOrder
                     ) to bucket
                 )
             }
-            for (d in desktopSessions) {
+            for (d in resolvedDesktop) {
+                if (d.archived || d.hidden) continue
                 val matches = keyword.isEmpty() ||
+                    d.customTitle.orEmpty().lowercase().contains(keyword) ||
                     d.title.lowercase().contains(keyword) ||
                     d.fullTitle.orEmpty().lowercase().contains(keyword) ||
                     d.providerDisplayName().lowercase().contains(keyword)
                 if (!matches) continue
                 val rawTs = d.updatedAt ?: d.observedAt
+                val isPinned = d.isPinned
+                val bucket = if (isPinned) SessionBucket.PINNED else bucketForTimestamp(rawTs, nowEpochMs)
                 add(
                     SidebarSessionEntry(
                         stableKey = d.stableKey,
                         aiSession = null,
                         desktopSession = d,
                         sortTimestampMs = parseTimestampMs(rawTs) ?: 0L,
-                        isPinned = false
-                    ) to bucketForTimestamp(rawTs, nowEpochMs)
+                        isPinned = isPinned,
+                        pinOrder = d.pinOrder
+                    ) to bucket
                 )
             }
         }
         if (entries.isEmpty()) return emptyList()
         val buckets = linkedMapOf<SessionBucket, MutableList<SidebarSessionEntry>>()
-        for ((entry, bucket) in entries.sortedByDescending { it.first.sortTimestampMs }) {
+        for ((entry, bucket) in entries) {
             buckets.getOrPut(bucket) { mutableListOf() }.add(entry)
         }
         return SessionBucket.entries.mapNotNull { bucket ->
             val items = buckets[bucket]
-            if (items.isNullOrEmpty()) null else UnifiedSessionGroup(bucket, items)
+            if (items.isNullOrEmpty()) null else {
+                val comparator = if (bucket == SessionBucket.PINNED) PINNED_ENTRY_COMPARATOR else RECENCY_ENTRY_COMPARATOR
+                UnifiedSessionGroup(bucket, items.sortedWith(comparator))
+            }
         }
     }
 

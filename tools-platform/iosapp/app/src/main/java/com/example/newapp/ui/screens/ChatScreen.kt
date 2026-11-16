@@ -843,6 +843,7 @@ fun ChatScreen(vm: DragonClawViewModel) {
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier
                             .fillMaxWidth()
+                            .excludeFromShellHorizontalGesture()
                             .horizontalScroll(rememberScrollState())
                     ) {
                         if (vm.isUploadingFiles) {
@@ -2153,7 +2154,12 @@ private fun MdBlockItemView(
                             .clickable { onCopyCode(block.codeText) }
                     )
                 }
-                Box(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .excludeFromShellHorizontalGesture()
+                        .horizontalScroll(rememberScrollState())
+                ) {
                     SelectionContainer {
                         Text(
                             text = block.codeText,
@@ -2181,6 +2187,7 @@ private fun MdBlockItemView(
             val hScroll = rememberScrollState()
             Column(
                 modifier = Modifier
+                    .excludeFromShellHorizontalGesture()
                     .horizontalScroll(hScroll)
                     .background(palette.elevatedSurface.copy(alpha = 0.7f), RoundedCornerShape(10.dp))
                     .border(0.75.dp, palette.hairLine, RoundedCornerShape(10.dp))

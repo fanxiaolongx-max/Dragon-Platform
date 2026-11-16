@@ -108,7 +108,10 @@ fun ToolsHubScreen(vm: DragonClawViewModel) {
 
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(7.dp),
-                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .excludeFromShellHorizontalGesture()
+                        .horizontalScroll(rememberScrollState())
                 ) {
                     ToolFilterChip.entries.forEach { chip ->
                         val isSelected = selectedFilter == chip
@@ -201,6 +204,7 @@ fun ToolsHubScreen(vm: DragonClawViewModel) {
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier
                             .fillMaxWidth()
+                            .excludeFromShellHorizontalGesture()
                             .horizontalScroll(rememberScrollState())
                     ) {
                         pinnedTools.forEach { tool ->

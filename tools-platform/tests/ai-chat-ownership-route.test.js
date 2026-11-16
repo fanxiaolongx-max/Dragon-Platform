@@ -117,6 +117,14 @@ test('real chat endpoints isolate histories and reject foreign session IDs befor
     assert.equal(listPref.status,200);
     assert.equal((await (await fetch(`${url}/conversation-list`,{headers:prefsHeaders})).json()).items[0].pinned,1);
     assert.deepEqual((await (await fetch(`${url}/conversation-list`,{headers})).json()).items,[]);
+    await fetch(`${url}/conversation-list`,{method:'PUT',headers:prefsHeaders,body:JSON.stringify({source:'mine',id:'weixin:sort-fixture',pinned:true})});
+    const sortBody=JSON.stringify({source:'mine',order:['weixin:sort-fixture',id]});
+    const sorted=await fetch(`${url}/conversation-list`,{method:'PUT',headers:prefsHeaders,body:sortBody});
+    assert.equal(sorted.status,200);
+    assert.deepEqual((await sorted.json()).items.sort((a,b)=>a.pin_order-b.pin_order).map(item=>item.id),['weixin:sort-fixture',id]);
+    assert.equal((await fetch(`${url}/conversation-list`,{method:'PUT',headers,body:sortBody})).status,400,'cannot reorder another account pins');
+    assert.equal((await fetch(`${url}/conversation-list`,{method:'PUT',headers:{'Content-Type':'application/json'},body:sortBody})).status,401);
+
 
     const deniedDelete = await fetch(`${url}/sessions/${id}`, { method: 'DELETE', headers });
     assert.equal(deniedDelete.status, 403, 'deleting another owner is forbidden');

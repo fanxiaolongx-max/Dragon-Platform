@@ -395,7 +395,7 @@ async function execute(name, args = {}, options = {}) {
     }
 }
 
-async function runTurn({ client: aiClient, systemInstruction, messages, signal, onDelta, onEvent, maxOutputTokens, temperature, model, extras = null, vision = null, user = null }) {
+async function runTurn({ client: aiClient, systemInstruction, messages, signal, onDelta, onEvent, maxOutputTokens, temperature, model, extras = null, vision = null, user = null, artifactOwner = '', artifactSession = 'home' }) {
     // 预检前置：如果未配置 API Key 或服务端不通，直接向用户反馈环境状态，避免 LLM 无谓重试与终端探测
     const owner = user?.username || 'admin';
     const prereq = await checkPrerequisites({ owner });
@@ -412,6 +412,8 @@ async function runTurn({ client: aiClient, systemInstruction, messages, signal, 
     const result = await agentLoop.runToolLoop({
         extras,
         vision,
+        artifactOwner,
+        artifactSession: artifactSession || 'home',
         client: aiClient, model, systemPrompt: `${systemInstruction}\n${buildPrompt()}`, messages, tools: definitions(),
         write: event => (event.type === 'delta' ? onDelta?.(event.delta) : onEvent?.(event)),
         signal, maxOutputTokens, temperature, task: String(messages.at(-1)?.content || ''), callIdPrefix: 'finance',

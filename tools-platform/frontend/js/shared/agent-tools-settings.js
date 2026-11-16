@@ -64,6 +64,33 @@
 .nat-table td.nat-num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .nat-table code{font-size:11.5px;overflow-wrap:anywhere}
 .nat-table td:first-child code{white-space:nowrap;overflow-wrap:normal}
+.nat-catalog{min-width:0;--nat-name-width:220px;--nat-kind-width:88px;--nat-access-width:140px}
+.nat-catalog.is-english{--nat-access-width:168px}
+.nat-catalog .nat-group{margin-top:18px;border:1px solid var(--nsw-line,#e2e8f0);border-radius:10px;overflow:hidden}
+.nat-catalog .nat-group-head{padding:12px;align-items:center;gap:8px 12px;background:var(--nsw-side,#f8fafc)}
+.nat-group-title{min-width:0;overflow-wrap:anywhere}
+.nat-catalog .nat-group-head small:empty{display:none}
+.nat-catalog .nat-group-head>.nat-access{margin-left:auto}
+.nat-catalog .nat-table{table-layout:fixed;min-width:850px;margin-top:0}
+.nat-catalog.is-english .nat-table{min-width:890px}
+.nat-catalog.is-readonly .nat-table{min-width:710px}
+.nat-col-name{width:var(--nat-name-width)}.nat-col-kind{width:var(--nat-kind-width)}
+.nat-col-tokens{width:76px}.nat-col-calls{width:94px}.nat-col-access{width:var(--nat-access-width)}
+.nat-catalog .nat-table th,.nat-catalog .nat-table td{padding:10px 12px;vertical-align:middle;line-height:1.55}
+.nat-catalog .nat-table th{background:var(--nsw-side,#f8fafc);font-size:11px;font-weight:650}
+.nat-catalog .nat-table th.nat-num{text-align:right}
+.nat-catalog .nat-table tbody tr:hover{background:var(--nsw-hover,#f8fafc)}
+.nat-catalog .nat-table td:first-child code{display:block;overflow:hidden;text-overflow:ellipsis}
+.nat-kind{white-space:nowrap;color:var(--nsw-ink2,#64748b);font-size:11.5px}
+.nat-tool-summary{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere;color:var(--nsw-ink2,#475569)}
+.nat-access{white-space:nowrap;flex-shrink:0;gap:7px;font-size:12px;font-weight:500;line-height:20px}
+.nat-access input{width:14px;height:14px;margin:0;flex:0 0 14px;accent-color:var(--nsw-accent,#0f766e);cursor:pointer}
+.nat-access:has(input:disabled){opacity:.5;cursor:default}
+.nat-catalog .nat-table td.nat-access-cell{white-space:nowrap}
+.nat-call-count{display:grid;grid-template-columns:minmax(0,1fr) 28px;align-items:center;gap:4px}
+.nat-call-failures{font-size:10px;font-weight:500;color:#b91c1c;text-align:right}
+:is(html[data-theme="dark"],html[data-platform-theme="dark"]) .nat-call-failures{color:#fca5a5}
+.nat-catalog .nat-table th.nat-call-heading{padding-right:44px}
 .nat-summary{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:#475569}
 .nat-summary b{color:#0f172a;font-size:15px}
 .nat-danger{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;padding:10px 0;border-top:1px solid #f1f5f9}
@@ -139,7 +166,7 @@
 
     function accessSwitch(scope, id, enabled, disabled = false) {
         const label = scope === 'group' ? L('整组向团队开放', 'Share group with teams') : L('向团队开放', 'Share with teams');
-        return `<label class="nat-switch"><input type="checkbox" data-access-scope="${scope}" data-access-id="${esc(id)}" ${enabled ? 'checked' : ''} ${disabled || view.busy ? 'disabled' : ''}>${esc(label)}</label>`;
+        return `<label class="nat-switch nat-access"><input type="checkbox" data-access-scope="${scope}" data-access-id="${esc(id)}" ${enabled ? 'checked' : ''} ${disabled || view.busy ? 'disabled' : ''}>${esc(label)}</label>`;
     }
 
     function renderCatalog() {
@@ -147,13 +174,13 @@
         if (!catalog) return `<p class="nat-desc">${esc(L('正在加载…', 'Loading…'))}</p>`;
         const all = catalog.groups.flatMap(group => group.tools);
         const upfront = catalog.groups.filter(group => group.mode === 'always').flatMap(group => group.tools).reduce((sum, tool) => sum + tool.tokens, 0);
-        return `<div class="nat-summary"><span>${esc(L('工具', 'Tools'))} <b>${all.length}</b></span><span>${esc(L('每步固定带上（工作区）约', 'Sent every step (workspace) ~'))} <b>${upfront.toLocaleString()}</b> token</span><span>${esc(L('累计调用', 'Total calls'))} <b>${all.reduce((sum, tool) => sum + tool.calls, 0).toLocaleString()}</b></span></div>
+        return `<div class="nat-catalog${catalog.manage ? '' : ' is-readonly'}${L('', ' is-english')}"><div class="nat-summary"><span>${esc(L('工具', 'Tools'))} <b>${all.length}</b></span><span>${esc(L('每步固定带上（工作区）约', 'Sent every step (workspace) ~'))} <b>${upfront.toLocaleString()}</b> token</span><span>${esc(L('累计调用', 'Total calls'))} <b>${all.reduce((sum, tool) => sum + tool.calls, 0).toLocaleString()}</b></span></div>
             ${catalog.groups.map(group => `<div class="nat-group">
-                <div class="nat-group-head">${esc(group.label)} <small>${esc(group.note || '')}</small>${catalog.manage ? accessSwitch('group', group.id, group.enabled) : ''}</div>
-                ${group.tools.length ? `<div class="nat-table-wrap"><table class="nat-table"><thead><tr><th>${esc(L('工具', 'Tool'))}</th><th>${esc(L('类别', 'Kind'))}</th><th>${esc(L('说明', 'Description'))}</th><th class="nat-num">token</th><th class="nat-num">${esc(L('调用', 'Calls'))}</th>${catalog.manage ? `<th>${esc(L('团队权限', 'Team access'))}</th>` : ''}</tr></thead><tbody>
-                    ${group.tools.map(tool => `<tr><td><code>${esc(tool.name)}</code></td><td>${esc(tool.kindLabel)}</td><td>${esc(tool.summary)}</td><td class="nat-num">${tool.tokens}</td><td class="nat-num" title="${esc(tool.lastUsedAt ? L(`最近 ${tool.lastUsedAt}`, `Last ${tool.lastUsedAt}`) : '')}">${tool.calls}${tool.failures ? ` <small style="color:#b91c1c">✗${tool.failures}</small>` : ''}</td>${catalog.manage ? `<td>${accessSwitch('tool', tool.name, group.enabled && tool.enabled, !group.enabled)}</td>` : ''}</tr>`).join('')}
+                <div class="nat-group-head"><span class="nat-group-title">${esc(group.label)}</span> <small>${esc(group.note || '')}</small>${catalog.manage ? accessSwitch('group', group.id, group.enabled) : ''}</div>
+                ${group.tools.length ? `<div class="nat-table-wrap"><table class="nat-table"><colgroup><col class="nat-col-name"><col class="nat-col-kind"><col><col class="nat-col-tokens"><col class="nat-col-calls">${catalog.manage ? '<col class="nat-col-access">' : ''}</colgroup><thead><tr><th>${esc(L('工具', 'Tool'))}</th><th>${esc(L('类别', 'Kind'))}</th><th>${esc(L('说明', 'Description'))}</th><th class="nat-num">token</th><th class="nat-num nat-call-heading">${esc(L('调用', 'Calls'))}</th>${catalog.manage ? `<th>${esc(L('团队权限', 'Team access'))}</th>` : ''}</tr></thead><tbody>
+                    ${group.tools.map(tool => `<tr><td><code title="${esc(tool.name)}">${esc(tool.name)}</code></td><td class="nat-kind">${esc(tool.kindLabel)}</td><td><span class="nat-tool-summary" title="${esc(tool.summary)}">${esc(tool.summary)}</span></td><td class="nat-num">${tool.tokens}</td><td class="nat-num" title="${esc(tool.lastUsedAt ? L(`最近 ${tool.lastUsedAt}`, `Last ${tool.lastUsedAt}`) : '')}"><span class="nat-call-count"><span>${tool.calls}</span><small class="nat-call-failures">${tool.failures ? `✗${tool.failures}` : ''}</small></span></td>${catalog.manage ? `<td class="nat-access-cell">${accessSwitch('tool', tool.name, group.enabled && tool.enabled, !group.enabled)}</td>` : ''}</tr>`).join('')}
                 </tbody></table></div>` : ''}
-            </div>`).join('')}`;
+            </div>`).join('')}</div>`;
     }
 
     function renderDanger() {

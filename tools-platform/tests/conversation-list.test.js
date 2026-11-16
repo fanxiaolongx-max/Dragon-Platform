@@ -16,6 +16,18 @@ test('list preferences persist independent fields and enforce owner, source and 
  await runWithTenant('list-isolated',async()=>{assert.deepEqual(await repo.list('alice'),[]);await repo.save('alice',{source:'weixin',id:'same',pinned:true});});
  assert.equal((await repo.list('alice')).find(p=>p.source==='weixin').pinned,0);
  for(const patch of [{source:'unknown',id:'x',pinned:true},{source:'weixin',id:'x',pinned:'true'},{source:'weixin',id:'x',owner:'bob',hidden:true},{source:'weixin',id:'x',title:'x'.repeat(161)}])await assert.rejects(repo.save('alice',patch),e=>e.statusCode===400);
+ // Sorting is atomic, account/tenant scoped, and retains filtered-out slots.
+ for(const name of ['sort-a','sort-b','sort-c'])await repo.save('alice',{source:'weixin',id:name,pinned:true});
+ await repo.reorder('alice',{source:'weixin',order:['sort-a','sort-b','sort-c']});
+ await repo.reorder('alice',{source:'weixin',order:['sort-c','sort-a']});
+ const pinOrder=async()=> (await repo.list('alice')).filter(p=>p.source==='weixin'&&p.pinned).sort((a,b)=>a.pin_order-b.pin_order).map(p=>p.id);
+ assert.deepEqual(await pinOrder(),['sort-c','sort-b','sort-a']);
+ await repo.save('alice',{source:'weixin',id:'sort-c',title:'Renamed'});
+ assert.deepEqual(await pinOrder(),['sort-c','sort-b','sort-a']);
+ for(const order of [['sort-a','sort-a'],['sort-a','missing'],['sort-a'],['sort-a',123]])await assert.rejects(repo.reorder('alice',{source:'weixin',order}),e=>e.statusCode===400);
+ await assert.rejects(repo.reorder('bob',{source:'weixin',order:['sort-a','sort-b']}),e=>e.statusCode===400);
+ await runWithTenant('list-isolated',async()=>{await assert.rejects(repo.reorder('alice',{source:'weixin',order:['sort-a','sort-b']}),e=>e.statusCode===400);assert.equal((await repo.list('alice'))[0].pin_order,null);});
+ assert.deepEqual(await pinOrder(),['sort-c','sort-b','sort-a']);
  assert.equal(await chat.deleteSession(id,{owner:'alice'}),true);assert.equal((await repo.list('alice')).some(p=>p.source==='mine'&&p.id===id),false,'deleting an owned chat removes its metadata too');
 });
 test('coarse groups cover calendar day boundaries and keep pins, archives, titles and invalid dates distinct',()=>{

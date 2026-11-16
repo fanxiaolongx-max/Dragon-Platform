@@ -309,6 +309,8 @@ async function runTurn({ client, systemInstruction, messages, ctx, signal, onDel
     const result = await agentLoop.runToolLoop({
         extras, // 附加工具组：浏览器、MCP（管理员的首页对话）
         vision, // 看图：view_image 与工具取得的图片
+        artifactOwner: ctx?.owner || '',
+        artifactSession: ctx?.chatSessionId || 'home',
         client, model, systemPrompt: systemInstruction, messages, tools: definitions(),
         write: event => (event.type === 'delta' ? onDelta?.(event.delta) : onEvent?.(event)),
         signal, maxOutputTokens, temperature, task: String(messages.at(-1)?.content || ''), callIdPrefix: 'ops',

@@ -564,7 +564,7 @@ async function execute(name, args = {}, options = {}) {
 const agentLoop = require('./agent-loop');
 const SKILL_ID = 'open-autoglm';
 
-async function runTurn({ client: aiClient, systemInstruction, messages, signal, onDelta, onEvent, maxOutputTokens, temperature, model, extras = null, vision = null, user = null }) {
+async function runTurn({ client: aiClient, systemInstruction, messages, signal, onDelta, onEvent, maxOutputTokens, temperature, model, extras = null, vision = null, user = null, artifactOwner = '', artifactSession = 'home' }) {
     const owner = user?.username || 'admin';
     const prereq = await checkPrerequisites({ owner });
     if (!prereq.ok) {
@@ -580,6 +580,8 @@ async function runTurn({ client: aiClient, systemInstruction, messages, signal, 
     const result = await agentLoop.runToolLoop({
         extras,
         vision,
+        artifactOwner,
+        artifactSession: artifactSession || 'home',
         client: aiClient, model, systemPrompt: `${systemInstruction}\n${buildPrompt()}`, messages, tools: definitions(),
         write: event => (event.type === 'delta' ? onDelta?.(event.delta) : onEvent?.(event)),
         signal, maxOutputTokens, temperature, task: String(messages.at(-1)?.content || ''), callIdPrefix: 'autoglm',

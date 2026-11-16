@@ -357,9 +357,7 @@
             return [
                 workflow.length ? `<div class="v2-pop-cap">${esc(window.NavWorkflow.label())}</div>${workflow.map(item => toolLink(item.href, getNavLabel(item))).join('')}` : '',
                 personal ? '<div class="v2-sidebar-more-items"></div>' : [
-                    menuItem('link', t('links'), 'links', '›').replace('role="menuitem"', 'role="menuitem" aria-haspopup="menu" aria-controls="v2LinksSubmenu" aria-expanded="false"'),
-                    menuItem('target', t('requirements'), 'requirements'),
-                    menuItem('compass', lang() === 'en-US' ? 'Promotions' : '平台推广', 'promotions')
+                    menuItem('link', t('links'), 'links', '›').replace('role="menuitem"', 'role="menuitem" aria-haspopup="menu" aria-controls="v2LinksSubmenu" aria-expanded="false"')
                 ].join(''),
                 links.length ? `<div class="v2-pop-cap">${esc(navT('nav.sidebarShortcuts'))}</div>${links.join('')}` : ''
             ].join('');

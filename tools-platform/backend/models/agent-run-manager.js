@@ -19,6 +19,7 @@ const commandGuard = require('./agent-command-guard');
 const dangerRules = require('./agent-danger-rules');
 const changeRepo = require('./agent-change-repository');
 const { redactText, redactValue } = require('./ai-sensitive-data');
+const approvalInbox = require('./agent-approval-inbox');
 
 const APPROVAL_TIMEOUT_MS = 5 * 60 * 1000;
 const SESSION_IDLE_MS = 6 * 60 * 60 * 1000;
@@ -496,12 +497,13 @@ function awaitApproval(run, call, preview) {
 function waitApproval(run, call, preview, sharedMcp = false) {
     const id = crypto.randomUUID();
     return new Promise(resolve => {
-        const settle = (decision, scope = '') => {
+        const settle = (decision, scope = '', via = 'web') => {
             const pending = pendingApprovals.get(id);
             if (!pending) return;
             clearTimeout(pending.timer);
             pendingApprovals.delete(id);
             run.pending.delete(id);
+            approvalInbox.remove(id, decision, via);
             resolve({ decision, scope });
         };
         const timer = setTimeout(() => settle('timeout'), APPROVAL_TIMEOUT_MS);
@@ -509,6 +511,9 @@ function waitApproval(run, call, preview, sharedMcp = false) {
         pendingApprovals.set(id, { runId: run.id, sessionId: run.session.id, owner: run.session.owner, sharedMcp, settle, timer, createdAt: Date.now() });
         run.pending.set(id, settle);
         run.write({ type: 'approval', id, runId: run.id, callId: call.id, tool: call.name, args: call.args, preview, ...(sharedMcp ? { noAlways: true } : {}), expiresInMs: APPROVAL_TIMEOUT_MS });
+        // 「需要你」收件箱：跨对话可见，超时未处理按设置推送到频道
+        try { approvalInbox.add({ id, owner: run.session.owner, chatSessionId: run.chatSessionId, tool: call.name, args: call.args, settle, expiresInMs: APPROVAL_TIMEOUT_MS }); }
+        catch (error) { console.warn('[agent] inbox add failed:', error.message || error); }
     });
 }
 
@@ -548,7 +553,7 @@ function chatSession(owner, chatSessionId) {
 }
 
 function beginChatRun({ owner, chatSessionId, write, signal }) {
-    const run = { id: crypto.randomUUID(), session: chatSession(owner, chatSessionId), write, signal, pending: new Map(), processes: new Set() };
+    const run = { id: crypto.randomUUID(), session: chatSession(owner, chatSessionId), chatSessionId: String(chatSessionId || ''), write, signal, pending: new Map(), processes: new Set() };
     const onAbort = () => run.pending.forEach(settle => settle('abort'));
     signal?.addEventListener('abort', onAbort, { once: true });
     run.end = () => {
@@ -616,6 +621,7 @@ async function runAgentTurn({ session, user, client, systemInstruction, historyM
     const emit = write;
     write = event => emit(redactValue(event, { secrets: sensitiveValues }));
     const run = beginRun(session, write, signal);
+    run.chatSessionId = String(chatSessionId || '');
     try { await hydrateSession(session); } catch (error) {
         run.end();
         if (sessions.get(session.id) === session && !session.hydrated) sessions.delete(session.id);

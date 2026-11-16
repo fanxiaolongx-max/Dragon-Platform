@@ -1,7 +1,7 @@
 const { readKV, writeKV } = require('./kv-store');
 
 const PRIMARY = ['channels', 'skillHub', 'schedule', 'library', 'opsDrafts'];
-const MORE = ['links', 'requirements', 'promotions'];
+const MORE = ['links'];
 const IDS = [...PRIMARY, ...MORE];
 const defaults = () => ({ primary: [...PRIMARY], more: [...MORE] });
 

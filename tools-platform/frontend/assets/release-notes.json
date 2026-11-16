@@ -1,12 +1,12 @@
 {
   "zh": [
-    "多用户与智能体技能（Agent Skills）深度隔离与资产管理升级：全面支持标准技能包完整导入与二进制/脚本生命周期打包，新增用户级浏览器书签与独立工作区持久化隔离，支持跨端多会话无缝续跑与凭据安全脱敏。",
-    "TestFlight 外部测试全自动审核队列置换：自动化检测苹果后台待审槽位，当检测到审核限制时自动将排队中的旧版本设为过期释放名额，确保最新版本永远全自动顶进审核第一顺位，彻底杜绝中间版本堆积。",
-    "iOS 移动端交互体验与视觉响应重构：修复侧边栏「开启新对话」触控热区穿透问题并支持全卡片高灵敏点击与轻点震动，消除明暗主题切换延迟并实现全局 220ms 平滑渐变，全面遵循 Apple HIG 44pt 最小点击规范。"
+    "新增智能体「需要你」审批收件箱与多用户跨端通知：汇总当前账号下所有待审批操作与多会话产物隔离，支持按设定超时延迟推送至 WeLink 助理、微信及 welink-cli，在群聊或私聊中回复「批准/拒绝 验证码」即可远程完成结算。",
+    "多用户会话排序、侧边栏精简与移动端离线缓存升级：Web 端支持置顶对话仅纵向拖拽排序并按用户独立持久化、精简侧边栏冗余入口；iOS / Android 端新增按账号隔离的本地会话缓存与历史增量同步，修复 iOS 端 Keychain 凭据读取触发 errSecParam (-50) 导致登录后秒退及主题切换闪跳问题。",
+    "工具权限展示对齐、Excel 线性解析与 AI 导入填表修复：智能体工具配置面板支持多用户团队权限对齐；修复 read_document / query_data 及源码解析器在万行以上 Excel 表格下的 O(R²·C²) 卡死问题；修复导入自定义 HTML 工具时未对 Gemini 数组包装及别名 JSON 解包导致的 AI 自动填表失败。"
   ],
   "en": [
-    "Multi-user and Agent Skills isolation and asset management overhaul: full support for importing standard skill packages with associated scripts and binary assets, dedicated per-user browser bookmark repository, and isolated workspace state with credentials redaction.",
-    "Automated TestFlight Beta App Review queue displacement: intelligently detects Apple submission limit and automatically expires stale waiting builds to release review slots, ensuring newest builds always enter the review queue automatically without manual intervention.",
-    "iOS mobile UX and theme responsiveness redesign: resolved asymmetric touch-target penetration on 'New Chat' button with 100% card responsiveness and haptic feedback, synchronized instant 220ms theme transitions across all inputs, and enforced Apple HIG 44pt minimum touch-target compliance."
+    "Added the cross-conversation 'Needs You' agent approval inbox with per-user artifact isolation, delayed notifications (WeLink bot, WeChat, and welink-cli), and direct chat replies ('approve/deny <code>') to settle pending actions remotely.",
+    "Multi-user conversation sorting, streamlined sidebar, and mobile offline cache isolation: Web pinned chats now support vertical drag-to-reorder persistence per user; iOS and Android add account-scoped local conversation caches, incremental sync, and fixes for iOS Keychain errSecParam (-50) instant session expiry and theme flicker.",
+    "Tool permission UI alignment, linear Excel parsing, and AI import metadata fixes: refined team access controls in agent tool settings, resolved O(R²·C²) ExcelJS column-getter stalls in read_document/query_data and sheet parsers, and unwrapped array-wrapped and aliased JSON responses from Gemini during custom HTML tool metadata extraction."
   ]
 }

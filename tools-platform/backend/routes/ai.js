@@ -1172,6 +1172,8 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 } : undefined
             })
             : null;
+        const homeArtifactOwner = agentRunManager.ownerKey(req.user, getTenantId());
+        const homeArtifactSession = savedSessionId || 'home';
         const opsResult = !agentResult && !analysisResult && !followupResult && opsSetup
             ? await opsAgent.runTurn({
                 extras: chatExtras,
@@ -1179,7 +1181,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 client: aiClient,
                 systemInstruction: redactText(systemInstruction, { secrets: sensitiveValues }),
                 messages: effectiveMessages,
-                ctx: opsSetup.ctx,
+                ctx: { ...opsSetup.ctx, owner: homeArtifactOwner, chatSessionId: homeArtifactSession },
                 signal: providerAbortController?.signal,
                 maxOutputTokens: aiSettings.maxOutputTokens,
                 temperature: aiSettings.temperature,
@@ -1204,7 +1206,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 client: aiClient,
                 systemInstruction: redactText(systemInstruction, { secrets: sensitiveValues }),
                 messages: effectiveMessages,
-                ctx: welinkCliSetup.ctx,
+                ctx: { ...welinkCliSetup.ctx, owner: homeArtifactOwner, chatSessionId: homeArtifactSession },
                 signal: providerAbortController?.signal,
                 maxOutputTokens: aiSettings.maxOutputTokens,
                 temperature: aiSettings.temperature,
@@ -1227,6 +1229,8 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
             ? await netcareAgent.runTurn({
                 extras: chatExtras,
                 vision,
+                artifactOwner: homeArtifactOwner,
+                artifactSession: homeArtifactSession,
                 client: aiClient,
                 systemInstruction: redactText(systemInstruction, { secrets: sensitiveValues }),
                 messages: effectiveMessages,
@@ -1250,6 +1254,9 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
             ? await autoglmAgent.runTurn({
                 extras: chatExtras,
                 vision,
+                user: req.user,
+                artifactOwner: homeArtifactOwner,
+                artifactSession: homeArtifactSession,
                 client: aiClient,
                 systemInstruction: redactText(systemInstruction, { secrets: sensitiveValues }),
                 messages: effectiveMessages,
@@ -1273,6 +1280,9 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
             ? await familyFinanceAgent.runTurn({
                 extras: chatExtras,
                 vision,
+                user: req.user,
+                artifactOwner: homeArtifactOwner,
+                artifactSession: homeArtifactSession,
                 client: aiClient,
                 systemInstruction: redactText(systemInstruction, { secrets: sensitiveValues }),
                 messages: effectiveMessages,
@@ -1296,6 +1306,8 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
             ? await ppoTrafficAgent.runTurn({
                 extras: chatExtras,
                 vision,
+                artifactOwner: homeArtifactOwner,
+                artifactSession: homeArtifactSession,
                 client: aiClient,
                 systemInstruction: redactText(systemInstruction, { secrets: sensitiveValues }),
                 messages: effectiveMessages,
@@ -1319,6 +1331,8 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
             ? await voiceCreatorAgent.runTurn({
                 extras: chatExtras,
                 vision,
+                artifactOwner: homeArtifactOwner,
+                artifactSession: homeArtifactSession,
                 client: aiClient,
                 systemInstruction: redactText(systemInstruction, { secrets: sensitiveValues }),
                 messages: effectiveMessages,
@@ -1892,7 +1906,8 @@ router.get('/conversation-list', checkAuth, async (req,res) => {
     catch(error){res.status(500).json({error:'读取对话列表设置失败'});}
 });
 router.put('/conversation-list', checkAuth, async (req,res) => {
-    try { res.json({item:await require('../models/conversation-list-repository').save(req.user.username,req.body)}); }
+    try { const repo=require('../models/conversation-list-repository');
+        res.json(req.body?.order!==undefined?{items:await repo.reorder(req.user.username,req.body)}:{item:await repo.save(req.user.username,req.body)}); }
     catch(error){res.status(error.statusCode||500).json({code:error.code,error:error.statusCode?error.message:'保存对话列表设置失败'});}
 });
 

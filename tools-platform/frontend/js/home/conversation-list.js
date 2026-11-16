@@ -61,10 +61,11 @@
         return time>=(filter.time==='today'?start.getTime():start.getTime()-(Number(filter.time)-1)*86400000);
     }
     const labels=()=>({pinned:L('置顶','Pinned'),recent:L('最近','Recent'),three:L('3 天前','3+ days ago'),week:L('7 天前','7+ days ago'),month:L('一个月前','A month ago'),unknown:L('时间未知','Date unavailable')});
+    const comparePins=(a,b)=>(Number.isInteger(a.pin_order)?a.pin_order:Number.MAX_SAFE_INTEGER)-(Number.isInteger(b.pin_order)?b.pin_order:Number.MAX_SAFE_INTEGER);
     function sections(items,config){
         const archived=views.get(config.source)==='archived',groups=new Map(),names=labels(),query=(config.query||'').toLowerCase();
         const rows=items.map((item,index)=>({item,index,pref:get(config.source,config.id(item))})).filter(({item,pref})=>!pref.hidden&&Boolean(pref.archived)===archived&&(!query||[config.title(item),pref.title].some(t=>String(t||'').toLowerCase().includes(query))));
-        rows.sort((a,b)=>Number(Boolean(b.pref.pinned))-Number(Boolean(a.pref.pinned))||((stamp(config.date(b.item))||0)-(stamp(config.date(a.item))||0))||a.index-b.index);
+        rows.sort((a,b)=>Number(Boolean(b.pref.pinned))-Number(Boolean(a.pref.pinned))||(a.pref.pinned&&b.pref.pinned?comparePins(a.pref,b.pref):0)||((stamp(config.date(b.item))||0)-(stamp(config.date(a.item))||0))||a.index-b.index);
         for(const row of rows.filter(({item,pref})=>passesFilter(item,pref,config))){row.title=row.pref.title||config.title(row.item);const group=row.pref.pinned?'pinned':bucket(config.date(row.item));if(!groups.has(group))groups.set(group,[]);groups.get(group).push(row);}
         return ['pinned','recent','three','week','month','unknown'].filter(g=>groups.has(g)).map(g=>({key:g,label:names[g],entries:groups.get(g)}));
     }
@@ -125,6 +126,7 @@
         let binding=bindings.get(list);
         if(!binding){binding={};bindings.set(list,binding);
             const show=(event,fromButton=false)=>{const row=event.target.closest('.conversation-list-row');const current=bindings.get(list)?.config;if(!row||!current)return;const item=current.items[Number(row.dataset.conversationIndex)];if(!item)return;event.preventDefault();event.stopPropagation();const r=row.getBoundingClientRect();open(row,current,item,fromButton?r.right-20:event.clientX,fromButton?r.bottom:event.clientY);};
+            bindPinDrag(list,binding);
             list.addEventListener('contextmenu',show);
             list.addEventListener('click',event=>{if(event.target.closest('[data-conversation-more]'))show(event,true);},true);
             list.addEventListener('keydown',event=>{if(event.key==='ContextMenu'||event.key==='F10'&&event.shiftKey)show(event,true);});
@@ -143,6 +145,92 @@
             if(get(config.source,config.id(item)).pinned){wrapper.classList.add('is-pinned');const pin=document.createElement('span');pin.className='conversation-pin';pin.innerHTML=icon('pin');pin.title=L('已置顶','Pinned');wrapper.append(pin);}
         }
         renderBatch(list);
+    }
+    // Pointer sorting keeps every row in its layout slot; only vertical transforms move.
+    // Render requests are replayed after drop so polling cannot replace a captured row.
+    function bindPinDrag(list,binding){
+        let drag=null;
+        const reduced=()=>window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        list.addEventListener('click',event=>{
+            if(Date.now()<(binding.suppressClickUntil||0)){event.preventDefault();event.stopImmediatePropagation();}
+        },true);
+        list.addEventListener('dragstart',event=>{if(event.target.closest('.is-pinned'))event.preventDefault();});
+        list.addEventListener('pointerdown',event=>{
+            if(views.get(binding.config.source)==='archived'||event.button!==0||event.isPrimary===false||event.pointerType==='touch'||binding.sorting||event.target.closest('[data-conversation-more]'))return;
+            const row=event.target.closest('.conversation-list-row.is-pinned');
+            const scope=row?.closest('[data-batch-scope="pinned"]');
+            if(!scope||scope.hidden)return;
+            const rows=[...scope.querySelectorAll(':scope > .conversation-list-row')].filter(node=>!node.hidden);
+            if(rows.length<2)return;
+            drag={row,scope,rows,order:[...rows],startY:event.clientY,y:event.clientY,pointerId:event.pointerId,account:identity(),active:false};
+        });
+        const paint=()=>{
+            if(!drag?.active)return;
+            const d=drag;
+            if(!d.row.isConnected){finish(true);return;}
+            if(d.scroll){
+                const bounds=d.scroll.getBoundingClientRect(),edge=28;
+                const speed=d.y<bounds.top+edge?-Math.min(10,(bounds.top+edge-d.y)/3):d.y>bounds.bottom-edge?Math.min(10,(d.y-bounds.bottom+edge)/3):0;
+                if(speed)d.scroll.scrollTop+=speed;
+            }
+            const original=d.rects[d.rows.indexOf(d.row)];
+            const delta=Math.max(d.rects[0].top-original.top,Math.min(d.rects.at(-1).top-original.top,d.y-d.startY+(d.scroll?d.scroll.scrollTop-d.scrollStart:0)));
+            const center=original.top+delta+original.height/2;
+            const remaining=d.order.filter(node=>node!==d.row);
+            // Compare against fixed slot boundaries, independent of animated sibling positions.
+            const target=d.rects.reduce((best,rect,i)=>Math.abs(center-(rect.top+rect.height/2))<Math.abs(center-(d.rects[best].top+d.rects[best].height/2))?i:best,0);
+            remaining.splice(target,0,d.row);d.order=remaining;
+            d.rows.forEach((node,i)=>{node.style.transform=`translateY(${node===d.row?delta:d.rects[d.order.indexOf(node)].top-d.rects[i].top}px)`;});
+            d.frame=requestAnimationFrame(paint);
+        };
+        list.addEventListener('pointermove',event=>{
+            if(!drag||event.pointerId!==drag.pointerId)return;
+            drag.y=event.clientY;
+            if(!drag.active&&Math.abs(event.clientY-drag.startY)>=5){
+                drag.active=true;binding.sorting=true;close();
+                list.setPointerCapture(event.pointerId);
+                drag.rects=drag.rows.map(node=>node.getBoundingClientRect());
+                drag.scroll=scroller(list);drag.scrollStart=drag.scroll?.scrollTop||0;
+                drag.scope.classList.add('is-pin-sorting');drag.row.classList.add('is-pin-dragging');
+                document.documentElement.classList.add('is-conversation-dragging');
+                paint();
+            }
+            if(drag.active)event.preventDefault();
+        });
+        async function finish(cancel=false){
+            if(!drag)return;
+            const d=drag;drag=null;cancelAnimationFrame(d.frame);
+            if(list.hasPointerCapture(d.pointerId))list.releasePointerCapture(d.pointerId);
+            if(!d.active)return;
+            binding.suppressClickUntil=Date.now()+400;
+            d.row.classList.remove('is-pin-dragging');
+            const finalOrder=cancel?d.rows:d.order;
+            d.rows.forEach((node,i)=>{node.style.transform=`translateY(${d.rects[finalOrder.indexOf(node)].top-d.rects[i].top}px)`;});
+            await new Promise(resolve=>setTimeout(resolve,reduced()?0:180));
+            const current=d.account,config=binding.config;
+            try{
+                if(!cancel&&current===account&&current===identity()&&finalOrder.some((node,i)=>node!==d.rows[i])){
+                    // Include collapsed batch rows as well, preserving their relative order.
+                    const visible=new Set(d.rows);let index=0;
+                    const order=[...d.scope.querySelectorAll(':scope > .conversation-list-row')].map(node=>visible.has(node)?finalOrder[index++]:node).map(node=>String(config.id(config.items[Number(node.dataset.conversationIndex)])));
+                    const data=await request('PUT',{source:config.source,order});
+                    if(current===identity())for(const pref of data.items||[])prefs.set(key(pref.source,pref.id),pref);
+                }
+            }catch(error){
+                if(current===identity())window.AppDialog?.alert?.(error.message,{title:L('排序保存失败','Could not save order'),tone:'error'});
+            }finally{
+                d.rows.forEach(node=>node.style.removeProperty('transform'));
+                d.scope.classList.remove('is-pin-sorting');document.documentElement.classList.remove('is-conversation-dragging');
+                binding.sorting=false;
+                const render=binding.pendingRender;binding.pendingRender=null;
+                if(render)render();else signal(config.source);
+            }
+        }
+        list.addEventListener('pointerup',event=>{if(event.pointerId===drag?.pointerId)finish();});
+        list.addEventListener('pointercancel',()=>finish(true));
+        list.addEventListener('lostpointercapture',()=>finish(true));
+        window.addEventListener('blur',()=>finish(true));
+        window.addEventListener('keydown',event=>{if(event.key==='Escape'&&drag){event.preventDefault();finish(true);}});
     }
     function renderBatch(list){
         const binding=bindings.get(list);if(!binding)return;
@@ -190,7 +278,7 @@
         {const binding=bindings.get(list);if(binding){binding.paging={hasMore,loading,onMore};renderBatch(list);}return;}
 
     }
-    window.HomeConversationList={stamp,sections,getFilter,setFilter,getSources,matchesSource,passesFilter,enhance,bucket,get,latest,healthDot,close,refresh:load,pager,reset:list=>{const binding=bindings.get(list);if(binding){binding.limit=6;binding.limits?.clear();renderBatch(list);}},
+    window.HomeConversationList={stamp,sections,comparePins,deferRender:(list,render)=>{const binding=bindings.get(list);if(!binding?.sorting)return false;binding.pendingRender=render;return true;},getFilter,setFilter,getSources,matchesSource,passesFilter,enhance,bucket,get,latest,healthDot,close,refresh:load,pager,reset:list=>{const binding=bindings.get(list);if(binding){binding.limit=6;binding.limits?.clear();renderBatch(list);}},
         // 分区「展开更多」计数清零：match(key) 为真的分区（如 'spaces' 及其下的 'project:…'）回到默认条数
         resetScopes:(list,match)=>{const binding=bindings.get(list);if(binding?.limits)for(const key of [...binding.limits.keys()])if(match(key))binding.limits.delete(key);},toggleArchived:source=>{views.set(source,views.get(source)==='archived'?'active':'archived');signal(source);},isArchived:source=>views.get(source)==='archived',_action:action};
     document.addEventListener('pointerdown',event=>{if(menu&&!menu.contains(event.target)&&!event.target.closest('[data-conversation-more]'))close();},true);

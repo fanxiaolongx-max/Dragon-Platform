@@ -1,24 +1,37 @@
 import SwiftUI
 import UIKit
+import UIKit.UIGestureRecognizerSubclass
 import shared
+
+private enum ActiveDragTarget {
+    case none
+    case drawer
+    case tab
+}
 
 struct RootShellView: View {
     @Bindable var store: DragonClawStore
+    @State private var showSettingsSheet = false
     @State private var showServerSheet = false
     @State private var showSchedulesSheet = false
     @State private var showAlertCenterSheet = false
     @State private var expandedAlertId: String? = nil
     @State private var scheduleDraft = ""
     @State private var serverDraft = ""
+    @State private var renameTargetSession: AiSessionSummary? = nil
+    @State private var renameDraft = ""
+    @FocusState private var isSidebarSearchFocused: Bool
     @State private var sidebarProgress: CGFloat = 0
     @State private var dragDeltaX: CGFloat = 0
     @State private var tabDragDeltaX: CGFloat = 0
+    @State private var activeDragTarget: ActiveDragTarget = .none
 
     private var palette: DragonClawPalette { store.palette }
     private var lang: String { store.language }
 
     private func setSidebarOpen(_ open: Bool) {
         dragDeltaX = 0
+        activeDragTarget = .none
         withAnimation(.spring(response: 0.34, dampingFraction: 0.88)) {
             sidebarProgress = open ? 1 : 0
             store.isDrawerOpen = open
@@ -26,48 +39,52 @@ struct RootShellView: View {
     }
 
     private func handleDragChanged(tx: CGFloat) {
-        if sidebarProgress >= 0.5 {
-            if tx < 0 {
-                dragDeltaX = tx
+        if activeDragTarget == .none {
+            guard abs(tx) > 0.5 else { return }
+            if sidebarProgress >= 0.5 || (store.workMode == .chat && tx > 0) {
+                activeDragTarget = .drawer
+            } else {
+                activeDragTarget = .tab
+            }
+        }
+        switch activeDragTarget {
+        case .drawer:
+            tabDragDeltaX = 0
+            dragDeltaX = sidebarProgress >= 0.5 ? min(0, tx) : max(0, tx)
+        case .tab:
+            dragDeltaX = 0
+            if store.workMode == .chat {
+                tabDragDeltaX = min(0, tx)
+            } else if store.workMode == .tools {
+                tabDragDeltaX = max(0, tx)
+            } else {
                 tabDragDeltaX = 0
             }
-        } else {
-            if store.workMode == .chat {
-                if tx > 0 {
-                    dragDeltaX = tx
-                    tabDragDeltaX = 0
-                } else {
-                    dragDeltaX = 0
-                    tabDragDeltaX = tx
-                }
-            } else if store.workMode == .tools {
-                if tx > 0 {
-                    dragDeltaX = 0
-                    tabDragDeltaX = tx
-                } else {
-                    dragDeltaX = 0
-                    tabDragDeltaX = 0
-                }
-            }
+        case .none:
+            break
         }
     }
 
     private func handleDragEnded(tx: CGFloat, vx: CGFloat, width: CGFloat) {
-        if sidebarProgress >= 0.5 || (store.workMode == .chat && tx > 0 && dragDeltaX > 0) {
-            let currentFraction = min(max(sidebarProgress + tx / width, 0), 1)
-            let predictedFraction = min(max(sidebarProgress + (tx + vx * 0.16) / width, 0), 1)
+        let target = activeDragTarget
+        activeDragTarget = .none
+        if target == .drawer || (target == .none && (sidebarProgress >= 0.5 || (store.workMode == .chat && tx > 0 && dragDeltaX > 0))) {
+            let clampedTx = sidebarProgress >= 0.5 ? min(0, tx) : max(0, tx)
+            let currentFraction = min(max(sidebarProgress + clampedTx / width, 0), 1)
+            let predictedFraction = min(max(sidebarProgress + (clampedTx + vx * 0.14) / width, 0), 1)
             let shouldOpen: Bool
             if sidebarProgress < 0.5 {
-                shouldOpen = currentFraction > 0.20 || predictedFraction > 0.38
+                shouldOpen = currentFraction > 0.22 || (clampedTx > 34 && vx > 320 && predictedFraction > 0.26)
             } else {
-                shouldOpen = !(currentFraction < 0.80 || predictedFraction < 0.62)
+                shouldOpen = !(currentFraction < 0.78 || (clampedTx < -34 && vx < -320 && predictedFraction < 0.74))
             }
             sidebarProgress = currentFraction
             tabDragDeltaX = 0
             setSidebarOpen(shouldOpen)
         } else {
             if store.workMode == .chat {
-                let shouldSwitchToTools = tx < -48 || (tx < -15 && vx < -260)
+                let clampedTx = min(0, tx)
+                let shouldSwitchToTools = clampedTx < -width * 0.20 || (clampedTx < -36 && vx < -320)
                 if shouldSwitchToTools {
                     withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
                         store.workMode = .tools
@@ -79,7 +96,8 @@ struct RootShellView: View {
                     }
                 }
             } else if store.workMode == .tools {
-                let shouldSwitchToChat = tx > 48 || (tx > 15 && vx > 260)
+                let clampedTx = max(0, tx)
+                let shouldSwitchToChat = clampedTx > width * 0.20 || (clampedTx > 36 && vx > 320)
                 if shouldSwitchToChat {
                     withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
                         store.workMode = .chat
@@ -128,7 +146,9 @@ struct RootShellView: View {
         }
         .onChange(of: store.isDrawerOpen) { _, open in
             if open {
-                store.loadSessions()
+                store.loadSessionsIfStale()
+            } else {
+                isSidebarSearchFocused = false
             }
             withAnimation(.spring(response: 0.34, dampingFraction: 0.88)) {
                 sidebarProgress = open ? 1 : 0
@@ -138,25 +158,49 @@ struct RootShellView: View {
             get: { store.activeWebTool.map { WebToolIdentifiable(tool: $0) } },
             set: { if $0 == nil { store.activeWebTool = nil } }
         )) { wrapper in
-            AuthenticatedToolWebScreen(store: store, tool: wrapper.tool)
+            themedModal(AuthenticatedToolWebScreen(store: store, tool: wrapper.tool))
         }
         .fullScreenCover(isPresented: $store.showNativeMetrics) {
-            MetricsMonitorRootScreen(store: store)
+            themedModal(MetricsMonitorRootScreen(store: store))
+        }
+        .sheet(isPresented: $showSettingsSheet) {
+            themedModal(settingsSheet)
         }
         .sheet(isPresented: $showServerSheet) {
-            serverSettingsSheet
+            themedModal(serverSettingsSheet)
         }
         .sheet(isPresented: $showSchedulesSheet) {
-            schedulesSheet
+            themedModal(schedulesSheet)
         }
         .sheet(isPresented: $showAlertCenterSheet) {
-            alertCenterSheet
+            themedModal(alertCenterSheet)
         }
         .sheet(item: Binding(
             get: { store.exportedSessionJson.map { ExportedLogIdentifiable(json: $0) } },
             set: { if $0 == nil { store.exportedSessionJson = nil } }
         )) { payload in
-            exportLogSheet(payload.json)
+            themedModal(exportLogSheet(payload.json))
+        }
+        .alert(
+            L10n.tr(lang, zh: "重命名对话", en: "Rename Conversation"),
+            isPresented: Binding(
+                get: { renameTargetSession != nil },
+                set: { if !$0 { renameTargetSession = nil } }
+            )
+        ) {
+            TextField(
+                L10n.tr(lang, zh: "输入新的对话名称", en: "Enter new name"),
+                text: $renameDraft
+            )
+            Button(L10n.tr(lang, zh: "取消", en: "Cancel"), role: .cancel) {
+                renameTargetSession = nil
+            }
+            Button(L10n.tr(lang, zh: "保存", en: "Save")) {
+                if let target = renameTargetSession {
+                    store.renameSession(target, newTitle: renameDraft)
+                }
+                renameTargetSession = nil
+            }
         }
     }
 
@@ -189,7 +233,7 @@ struct RootShellView: View {
         DirectionalDrawerPanInstaller(
             isDrawerOpen: sidebarProgress >= 0.5,
             workMode: store.workMode,
-            isDisabled: store.activeWebTool != nil || store.showNativeMetrics || showServerSheet || showSchedulesSheet || showAlertCenterSheet || store.exportedSessionJson != nil,
+            isDisabled: store.activeWebTool != nil || store.showNativeMetrics || showSettingsSheet || showServerSheet || showSchedulesSheet || showAlertCenterSheet || store.exportedSessionJson != nil,
             onDragChanged: { tx in
                 handleDragChanged(tx: tx)
             },
@@ -197,6 +241,7 @@ struct RootShellView: View {
                 handleDragEnded(tx: tx, vx: vx, width: width)
             },
             onDragCancelled: {
+                activeDragTarget = .none
                 withAnimation(.spring(response: 0.30, dampingFraction: 0.88)) {
                     tabDragDeltaX = 0
                 }
@@ -252,222 +297,79 @@ struct RootShellView: View {
         }
     }
 
-    private func sidebarDrawer(width: CGFloat) -> some View {
-        ZStack {
-            DragonClawBackdrop(palette: palette)
+    private var localizedAccountRole: String {
+        DragonClawHelpers.shared.localizedAccountRole(
+            role: store.role,
+            isSuper: store.isSuper,
+            language: lang
+        )
+    }
 
-            palette.cardSurface.opacity(palette.isDark ? 0.56 : 0.64)
+    private func triggerSidebarSearchSubmit() {
+        isSidebarSearchFocused = false
+        if store.showArchivedSessions {
+            store.loadArchivedSessions()
+        } else {
+            store.loadSessions()
+        }
+    }
+
+    private func sidebarDrawer(width: CGFloat) -> some View {
+        ZStack(alignment: .bottom) {
+            DragonClawBackdrop(palette: palette)
                 .ignoresSafeArea()
 
-            VStack(alignment: .leading, spacing: 11) {
-                HStack(spacing: 10) {
-                    Image("DragonClawAvatar")
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 34, height: 34)
-                        .clipShape(Circle())
+            palette.cardSurface.opacity(palette.isDark ? 0.58 : 0.68)
+                .ignoresSafeArea()
 
-                    VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 8) {
+                // Compact User Profile Header + Collapse Button
+                HStack(spacing: 11) {
+                    ZStack {
+                        Circle()
+                            .fill(palette.accent.opacity(palette.isDark ? 0.24 : 0.16))
+                            .frame(width: 38, height: 38)
+                        Text(String(store.username.prefix(1)).uppercased().ifEmpty("U"))
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(palette.accentStrong)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(store.username.ifEmpty("User"))
+                            .font(.system(size: 15.5, weight: .semibold))
+                            .foregroundStyle(palette.inkPrimary)
+                            .lineLimit(1)
+
                         HStack(spacing: 6) {
-                            Text(store.displayPlatformName)
-                                .font(.system(size: 15, weight: .bold))
-                                .foregroundStyle(palette.inkPrimary)
-                                .lineLimit(1)
-                            Text("v\(store.appVersion)")
-                                .font(.system(size: 9.5, weight: .semibold))
+                            Text(localizedAccountRole)
+                                .font(.system(size: 11.5, weight: .medium))
                                 .foregroundStyle(palette.inkMuted)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
+                                .lineLimit(1)
+
+                            Text("v\(store.appVersion)")
+                                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                                .foregroundStyle(palette.inkMuted.opacity(0.9))
+                                .padding(.horizontal, 5.5)
+                                .padding(.vertical, 1.5)
                                 .background(palette.chipSurface, in: Capsule())
                                 .lineLimit(1)
                         }
-                        Text(store.identity.localizedSubtitle(language: lang))
-                            .font(.system(size: 10.5))
-                            .foregroundStyle(palette.inkMuted)
-                            .lineLimit(1)
                     }
 
-                    Spacer()
+                    Spacer(minLength: 6)
 
                     GlassCircleIconButton(
-                        systemImage: "xmark",
+                        systemImage: "chevron.right.2",
                         palette: palette,
-                        accessibilityLabel: L10n.tr(lang, zh: "关闭侧边栏", en: "Close sidebar")
+                        accessibilityLabel: L10n.tr(lang, zh: "收起侧边栏", en: "Close sidebar")
                     ) {
+                        isSidebarSearchFocused = false
                         setSidebarOpen(false)
                     }
                 }
-                .padding(.top, 6)
+                .padding(.top, 4)
 
-                // Search history
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.caption)
-                        .foregroundStyle(palette.inkMuted)
-                    TextField(
-                        L10n.tr(lang, zh: "搜索历史会话...", en: "Search sessions..."),
-                        text: $store.sessionSearchQuery
-                    )
-                    .font(.system(size: 13))
-                    .foregroundStyle(palette.inkPrimary)
-                    .tint(palette.accentStrong)
-                    .textInputAutocapitalization(.never)
-                    .onChange(of: store.sessionSearchQuery) { _, _ in
-                        if !store.showArchivedSessions {
-                            store.regroupSessions()
-                        }
-                    }
-                    .onSubmit {
-                        if store.showArchivedSessions {
-                            store.loadArchivedSessions()
-                        } else {
-                            store.loadSessions()
-                        }
-                    }
-
-                    if !store.sessionSearchQuery.isEmpty {
-                        Button {
-                            store.sessionSearchQuery = ""
-                            if store.showArchivedSessions {
-                                store.loadArchivedSessions()
-                            } else {
-                                store.loadSessions()
-                            }
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.caption)
-                                .foregroundStyle(palette.inkMuted)
-                                .frame(minWidth: 28, minHeight: 28)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8.5)
-                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-
-                // Primary Navigation Actions
-                GlassEffectContainer(spacing: 8) {
-                    VStack(spacing: 8) {
-                        Button {
-                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                            store.startNewChat()
-                            setSidebarOpen(false)
-                        } label: {
-                            HStack(spacing: 8) {
-                                Image(systemName: "plus.message.fill")
-                                    .foregroundStyle(palette.accentStrong)
-                                Text(L10n.tr(lang, zh: "开启新对话", en: "New Chat"))
-                                    .foregroundStyle(palette.inkPrimary)
-                                Spacer(minLength: 0)
-                            }
-                            .font(.system(size: 13, weight: .semibold))
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 10)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        }
-                        .buttonStyle(.plain)
-                        .glassEffect(.regular.tint(palette.accent.opacity(0.14)).interactive(), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-
-                        HStack(spacing: 7) {
-                            Button {
-                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                withAnimation(.snappy) {
-                                    store.workMode = .tools
-                                }
-                                setSidebarOpen(false)
-                            } label: {
-                                HStack(spacing: 5) {
-                                    Image(systemName: "square.grid.2x2")
-                                    Text(L10n.tr(lang, zh: "工具台", en: "Tools"))
-                                }
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(palette.inkPrimary)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8.5)
-                                .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            }
-                            .buttonStyle(.plain)
-                            .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-
-                            Button {
-                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                store.openMetricsModule()
-                            } label: {
-                                HStack(spacing: 5) {
-                                    Image(systemName: "chart.bar.xaxis")
-                                    Text("KPI")
-                                }
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(palette.accentStrong)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8.5)
-                                .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            }
-                            .buttonStyle(.plain)
-                            .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-
-                            Button {
-                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                store.loadSchedules()
-                                showSchedulesSheet = true
-                            } label: {
-                                HStack(spacing: 5) {
-                                    Image(systemName: "clock.arrow.2.circlepath")
-                                    Text(L10n.tr(lang, zh: "定时", en: "Tasks"))
-                                    let activeCount = store.schedules.filter { $0.status == "active" }.count
-                                    if activeCount > 0 {
-                                        Text("\(activeCount)")
-                                            .font(.system(size: 9.5, weight: .bold))
-                                            .padding(.horizontal, 5)
-                                            .padding(.vertical, 1)
-                                            .background(palette.accentStrong.opacity(0.22), in: Capsule())
-                                    }
-                                }
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(palette.inkPrimary)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8.5)
-                                .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            }
-                            .buttonStyle(.plain)
-                            .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        }
-                    }
-                }
-
-                if store.alertUnreadCount > 0 {
-                    Button {
-                        expandedAlertId = nil
-                        store.loadAlertCenter(filter: "all")
-                        showAlertCenterSheet = true
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "bell.badge.fill")
-                                .foregroundStyle(palette.danger)
-                            Text(L10n.tr(lang, zh: "告警中心有 \(store.alertUnreadCount) 条未读告警", en: "\(store.alertUnreadCount) unread system alerts"))
-                                .font(.system(size: 11.5, weight: .medium))
-                                .foregroundStyle(palette.inkPrimary)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(palette.inkMuted)
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 7.5)
-                        .background(palette.danger.opacity(0.10), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-                }
-
-                // Active vs Archived sessions segmented strip
+                // Compact Active / Archived inline scope tabs
                 HStack(spacing: 6) {
                     sessionScopeTab(
                         selected: !store.showArchivedSessions,
@@ -485,17 +387,15 @@ struct RootShellView: View {
                     Spacer()
                 }
 
-                Divider().overlay(palette.hairLine)
-
-                // Session List (Active grouped or Archived)
+                // Session List (Spacious, clean & compact)
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 12) {
+                    LazyVStack(alignment: .leading, spacing: 11) {
                         if store.showArchivedSessions {
                             if store.archivedSessions.isEmpty {
                                 Text(L10n.tr(lang, zh: "暂无已归档会话", en: "No archived conversations"))
-                                    .font(.system(size: 11.5))
+                                    .font(.system(size: 12))
                                     .foregroundStyle(palette.inkMuted)
-                                    .padding(.vertical, 20)
+                                    .padding(.vertical, 28)
                                     .frame(maxWidth: .infinity)
                             } else {
                                 ForEach(store.archivedSessions, id: \.id) { session in
@@ -504,17 +404,18 @@ struct RootShellView: View {
                             }
                         } else if store.unifiedSessionGroups.isEmpty {
                             Text(L10n.tr(lang, zh: "暂无历史会话", en: "No conversation history"))
-                                .font(.system(size: 11.5))
+                                .font(.system(size: 12))
                                 .foregroundStyle(palette.inkMuted)
-                                .padding(.vertical, 20)
+                                .padding(.vertical, 28)
                                 .frame(maxWidth: .infinity)
                         } else {
                             ForEach(store.unifiedSessionGroups, id: \.bucket) { group in
-                                VStack(alignment: .leading, spacing: 5) {
+                                VStack(alignment: .leading, spacing: 3) {
                                     Text(group.localizedTitle(language: lang))
-                                        .font(.system(size: 10.5, weight: .semibold))
+                                        .font(.system(size: 11, weight: .semibold))
                                         .foregroundStyle(palette.inkMuted)
-                                        .padding(.horizontal, 6)
+                                        .padding(.horizontal, 8)
+                                        .padding(.bottom, 1)
 
                                     ForEach(group.items, id: \.stableKey) { entry in
                                         unifiedSessionRowView(entry)
@@ -523,73 +424,125 @@ struct RootShellView: View {
                             }
                         }
                     }
+                    .padding(.bottom, 84)
                 }
+                .scrollIndicators(.hidden)
+                .scrollDismissesKeyboard(.interactively)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
-                // Bottom User & Utility Footer
-                VStack(spacing: 10) {
-                    HStack(spacing: 10) {
-                        ZStack {
-                            Circle()
-                                .fill(palette.accent.opacity(0.18))
-                                .frame(width: 32, height: 32)
-                            Text(String(store.username.prefix(1)).uppercased().ifEmpty("U"))
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundStyle(palette.accentStrong)
-                        }
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(store.username.ifEmpty("User"))
-                                .font(.system(size: 13, weight: .semibold))
+            // Subtle bottom edge gradient under floating dock
+            LinearGradient(
+                colors: [
+                    Color.clear,
+                    (palette.isDark ? Color.black : palette.cardSurface).opacity(0.42)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 88)
+            .allowsHitTesting(false)
+            .ignoresSafeArea(edges: .bottom)
+
+            // Floating Bottom Dock: Settings + Search Pill + New Chat Compose
+            GlassEffectContainer(spacing: 8) {
+                HStack(spacing: 8) {
+                    Button {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        isSidebarSearchFocused = false
+                        serverDraft = store.baseUrl
+                        store.loadSchedules()
+                        store.loadAlertCenter(filter: "all")
+                        showSettingsSheet = true
+                    } label: {
+                        ZStack(alignment: .topTrailing) {
+                            Image(systemName: "gearshape")
+                                .font(.system(size: 16.5, weight: .semibold))
                                 .foregroundStyle(palette.inkPrimary)
-                            Text(store.role.uppercased())
-                                .font(.system(size: 9.5))
-                                .foregroundStyle(palette.inkMuted)
-                        }
-                        Spacer()
+                                .frame(width: 42, height: 42)
+                                .contentShape(Circle())
 
-                        GlassCircleIconButton(
-                            systemImage: store.themeMode == "dark" ? "sun.max.fill" : "moon.fill",
-                            palette: palette,
-                            accessibilityLabel: L10n.tr(lang, zh: "切换明暗主题", en: "Toggle theme")
-                        ) {
-                            withAnimation(.easeInOut(duration: 0.22)) {
-                                store.toggleTheme()
+                            if store.alertUnreadCount > 0 {
+                                Circle()
+                                    .fill(palette.danger)
+                                    .frame(width: 8.5, height: 8.5)
+                                    .overlay(Circle().stroke(palette.cardSurface, lineWidth: 1.5))
+                                    .offset(x: -5, y: 6)
                             }
                         }
-                        GlassCircleIconButton(
-                            systemImage: "globe",
-                            palette: palette,
-                            accessibilityLabel: L10n.tr(lang, zh: "切换语言", en: "Toggle language")
-                        ) {
-                            store.toggleLanguage()
+                    }
+                    .buttonStyle(.plain)
+                    .glassEffect(.regular.interactive(), in: .circle)
+                    .accessibilityLabel(L10n.tr(lang, zh: "设置", en: "Settings"))
+
+                    HStack(spacing: 6) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 13.5, weight: .medium))
+                            .foregroundStyle(palette.inkMuted)
+                        TextField(
+                            L10n.tr(lang, zh: "搜索", en: "Search"),
+                            text: $store.sessionSearchQuery
+                        )
+                        .focused($isSidebarSearchFocused)
+                        .font(.system(size: 13.5))
+                        .foregroundStyle(palette.inkPrimary)
+                        .tint(palette.accentStrong)
+                        .textInputAutocapitalization(.never)
+                        .submitLabel(.search)
+                        .onChange(of: store.sessionSearchQuery) { _, _ in
+                            store.regroupSessions()
+                        }
+                        .onSubmit {
+                            triggerSidebarSearchSubmit()
+                        }
+
+                        if !store.sessionSearchQuery.isEmpty {
+                            Button {
+                                store.sessionSearchQuery = ""
+                                if store.showArchivedSessions {
+                                    store.loadArchivedSessions()
+                                } else {
+                                    store.loadSessions()
+                                }
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 13.5))
+                                    .foregroundStyle(palette.inkMuted)
+                                    .frame(width: 26, height: 26)
+                                    .contentShape(Circle())
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
+                    .padding(.horizontal, 12)
+                    .frame(height: 42)
+                    .frame(maxWidth: .infinity)
+                    .glassEffect(.regular, in: Capsule())
 
-                    HStack(spacing: 8) {
-                        Button {
-                            serverDraft = store.baseUrl
-                            showServerSheet = true
-                        } label: {
-                            Label(L10n.tr(lang, zh: "服务器", en: "Server"), systemImage: "server.rack")
-                                .font(.system(size: 11.5, weight: .medium))
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.glass)
-
-                        Button(role: .destructive) {
-                            store.logout()
-                        } label: {
-                            Label(L10n.tr(lang, zh: "退出登录", en: "Sign Out"), systemImage: "rectangle.portrait.and.arrow.right")
-                                .font(.system(size: 11.5, weight: .medium))
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.glass)
+                    Button {
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        isSidebarSearchFocused = false
+                        store.startNewChat()
+                        setSidebarOpen(false)
+                    } label: {
+                        Image(systemName: "square.and.pencil")
+                            .font(.system(size: 16.5, weight: .semibold))
+                            .foregroundStyle(palette.isDark ? Color.black : Color.white)
+                            .frame(width: 42, height: 42)
+                            .background(
+                                palette.isDark ? Color.white.opacity(0.95) : palette.inkPrimary,
+                                in: Circle()
+                            )
+                            .shadow(color: Color.black.opacity(palette.isDark ? 0.25 : 0.14), radius: 6, y: 2)
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(L10n.tr(lang, zh: "新建对话", en: "New Chat"))
                 }
-                .padding(12)
-                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 12)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 10)
         }
         .frame(width: width)
         .frame(maxHeight: .infinity)
@@ -634,7 +587,9 @@ struct RootShellView: View {
             iconName: iconName,
             isSelected: isSelected,
             isBusy: entry.busy,
+            sidebarEntry: entry,
             aiSession: entry.aiSession,
+            desktopSession: entry.desktopSession,
             isArchived: false,
             isPinned: entry.isPinned
         ) {
@@ -653,7 +608,9 @@ struct RootShellView: View {
             iconName: "archivebox",
             isSelected: store.currentSidebarSelectionKey == "ai:\(session.id)",
             isBusy: session.busy,
+            sidebarEntry: nil,
             aiSession: session,
+            desktopSession: nil,
             isArchived: true,
             isPinned: false
         ) {
@@ -678,7 +635,9 @@ struct RootShellView: View {
         iconName: String,
         isSelected: Bool,
         isBusy: Bool,
+        sidebarEntry: SidebarSessionEntry?,
         aiSession: AiSessionSummary?,
+        desktopSession: DesktopAgentSessionSummary? = nil,
         isArchived: Bool,
         isPinned: Bool = false,
         onTap: @escaping () -> Void
@@ -716,9 +675,13 @@ struct RootShellView: View {
             }
             .buttonStyle(.plain)
 
-            if let session = aiSession {
+            if aiSession != nil || desktopSession != nil {
                 Menu {
-                    sessionActionsMenu(session: session, isArchived: isArchived)
+                    if let session = aiSession {
+                        sessionActionsMenu(session: session, sidebarEntry: sidebarEntry, isArchived: isArchived)
+                    } else if let desktop = desktopSession {
+                        desktopSessionActionsMenu(desktop: desktop, sidebarEntry: sidebarEntry)
+                    }
                 } label: {
                     Image(systemName: "ellipsis")
                         .font(.system(size: 12, weight: .semibold))
@@ -736,13 +699,64 @@ struct RootShellView: View {
         )
         .contextMenu {
             if let session = aiSession {
-                sessionActionsMenu(session: session, isArchived: isArchived)
+                sessionActionsMenu(session: session, sidebarEntry: sidebarEntry, isArchived: isArchived)
+            } else if let desktop = desktopSession {
+                desktopSessionActionsMenu(desktop: desktop, sidebarEntry: sidebarEntry)
             }
         }
     }
 
     @ViewBuilder
-    private func sessionActionsMenu(session: AiSessionSummary, isArchived: Bool) -> some View {
+    private func pinnedReorderActions(for sidebarEntry: SidebarSessionEntry?) -> some View {
+        if let entry = sidebarEntry, entry.isPinned {
+            if store.canMovePinnedEntry(entry, moveUp: true) {
+                Button {
+                    store.movePinnedEntry(entry, moveUp: true)
+                } label: {
+                    Label(L10n.tr(lang, zh: "上移置顶", en: "Move Up"), systemImage: "arrow.up")
+                }
+            }
+            if store.canMovePinnedEntry(entry, moveUp: false) {
+                Button {
+                    store.movePinnedEntry(entry, moveUp: false)
+                } label: {
+                    Label(L10n.tr(lang, zh: "下移置顶", en: "Move Down"), systemImage: "arrow.down")
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func desktopSessionActionsMenu(desktop: DesktopAgentSessionSummary, sidebarEntry: SidebarSessionEntry?) -> some View {
+        Button {
+            store.openDesktopSession(desktop, forceRefresh: true)
+        } label: {
+            Label(L10n.tr(lang, zh: "刷新对话", en: "Refresh"), systemImage: "arrow.clockwise")
+        }
+        Button {
+            store.togglePinDesktopSession(desktop)
+        } label: {
+            Label(
+                desktop.isPinned ? L10n.tr(lang, zh: "取消置顶", en: "Unpin") : L10n.tr(lang, zh: "置顶会话", en: "Pin"),
+                systemImage: desktop.isPinned ? "pin.slash" : "pin"
+            )
+        }
+        pinnedReorderActions(for: sidebarEntry)
+    }
+
+    @ViewBuilder
+    private func sessionActionsMenu(session: AiSessionSummary, sidebarEntry: SidebarSessionEntry?, isArchived: Bool) -> some View {
+        Button {
+            store.openSession(session, forceRefresh: true)
+        } label: {
+            Label(L10n.tr(lang, zh: "刷新对话", en: "Refresh"), systemImage: "arrow.clockwise")
+        }
+        Button {
+            renameDraft = session.displayTitle(language: lang)
+            renameTargetSession = session
+        } label: {
+            Label(L10n.tr(lang, zh: "重命名", en: "Rename"), systemImage: "pencil")
+        }
         if isArchived {
             Button {
                 store.unarchiveSession(session)
@@ -758,6 +772,7 @@ struct RootShellView: View {
                     systemImage: session.isPinned ? "pin.slash" : "pin"
                 )
             }
+            pinnedReorderActions(for: sidebarEntry)
             Button {
                 store.archiveSession(session)
             } label: {
@@ -777,131 +792,329 @@ struct RootShellView: View {
         }
     }
 
+    private var settingsSheet: some View {
+        NavigationStack {
+            List {
+                // Account Profile Summary
+                Section {
+                    HStack(spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(palette.accent.opacity(palette.isDark ? 0.24 : 0.16))
+                                .frame(width: 44, height: 44)
+                            Text(String(store.username.prefix(1)).uppercased().ifEmpty("U"))
+                                .font(.system(size: 17, weight: .bold))
+                                .foregroundStyle(palette.accentStrong)
+                        }
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(store.username.ifEmpty("User"))
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(palette.inkPrimary)
+                            HStack(spacing: 6) {
+                                Text(localizedAccountRole)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(palette.inkMuted)
+                                Text("v\(store.appVersion)")
+                                    .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
+                                    .foregroundStyle(palette.inkMuted)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 1.5)
+                                    .background(palette.chipSurface, in: Capsule())
+                            }
+                        }
+                        Spacer()
+                    }
+                    .padding(.vertical, 4)
+                }
+                .listRowBackground(palette.cardSurface)
+
+                // Workspace & Notifications (Alerts & Schedules relocated from sidebar)
+                Section(L10n.tr(lang, zh: "通知与任务", en: "Alerts & Automation")) {
+                    NavigationLink {
+                        alertCenterBody
+                            .onAppear {
+                                expandedAlertId = nil
+                                store.loadAlertCenter(filter: "all")
+                            }
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "bell.badge")
+                                .foregroundStyle(store.alertUnreadCount > 0 ? palette.danger : palette.accentStrong)
+                                .frame(width: 22)
+                            Text(L10n.tr(lang, zh: "告警中心", en: "Alert Center"))
+                                .foregroundStyle(palette.inkPrimary)
+                            Spacer()
+                            if store.alertUnreadCount > 0 {
+                                Text("\(store.alertUnreadCount)")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 2)
+                                    .background(palette.danger, in: Capsule())
+                            }
+                        }
+                    }
+
+                    NavigationLink {
+                        schedulesBody
+                            .onAppear {
+                                store.loadSchedules()
+                            }
+                    } label: {
+                        let activeCount = store.schedules.filter { $0.status == "active" }.count
+                        HStack(spacing: 10) {
+                            Image(systemName: "clock.arrow.2.circlepath")
+                                .foregroundStyle(palette.accentStrong)
+                                .frame(width: 22)
+                            Text(L10n.tr(lang, zh: "定时任务", en: "Scheduled Tasks"))
+                                .foregroundStyle(palette.inkPrimary)
+                            Spacer()
+                            if activeCount > 0 {
+                                Text("\(activeCount)")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundStyle(palette.accentStrong)
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 2)
+                                    .background(palette.accent.opacity(0.16), in: Capsule())
+                            }
+                        }
+                    }
+                }
+                .listRowBackground(palette.cardSurface)
+                .listRowSeparatorTint(palette.hairLine)
+
+                // Appearance, Language & Server
+                Section(L10n.tr(lang, zh: "偏好与连接", en: "Preferences & Server")) {
+                    HStack(spacing: 10) {
+                        Image(systemName: store.themeMode == "dark" ? "moon.fill" : "sun.max.fill")
+                            .foregroundStyle(palette.accentStrong)
+                            .frame(width: 22)
+                        Text(L10n.tr(lang, zh: "外观主题", en: "Appearance"))
+                            .foregroundStyle(palette.inkPrimary)
+                        Spacer()
+                        Picker("", selection: Binding(
+                            get: { store.themeMode },
+                            set: { next in
+                                if next != store.themeMode {
+                                    withAnimation(.easeInOut(duration: 0.22)) {
+                                        store.toggleTheme()
+                                    }
+                                }
+                            }
+                        )) {
+                            Text(L10n.tr(lang, zh: "浅色", en: "Light")).tag("light")
+                            Text(L10n.tr(lang, zh: "深色", en: "Dark")).tag("dark")
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(width: 132)
+                    }
+
+                    HStack(spacing: 10) {
+                        Image(systemName: "globe")
+                            .foregroundStyle(palette.accentStrong)
+                            .frame(width: 22)
+                        Text(L10n.tr(lang, zh: "界面语言", en: "Language"))
+                            .foregroundStyle(palette.inkPrimary)
+                        Spacer()
+                        Picker("", selection: Binding(
+                            get: { store.language },
+                            set: { next in
+                                if next != store.language {
+                                    store.toggleLanguage()
+                                }
+                            }
+                        )) {
+                            Text("中文").tag("zh")
+                            Text("EN").tag("en")
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(width: 132)
+                    }
+
+                    NavigationLink {
+                        ServerSettingsDestination(store: store, serverDraft: $serverDraft)
+                            .onAppear { serverDraft = store.baseUrl }
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "server.rack")
+                                .foregroundStyle(palette.accentStrong)
+                                .frame(width: 22)
+                            Text(L10n.tr(lang, zh: "服务器", en: "Server"))
+                                .foregroundStyle(palette.inkPrimary)
+                            Spacer(minLength: 8)
+                            Text(store.baseUrl)
+                                .font(.caption)
+                                .foregroundStyle(palette.inkMuted)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        }
+                    }
+                }
+                .listRowBackground(palette.cardSurface)
+                .listRowSeparatorTint(palette.hairLine)
+
+                // Account Sign Out
+                Section {
+                    Button(role: .destructive) {
+                        showSettingsSheet = false
+                        setSidebarOpen(false)
+                        store.logout()
+                    } label: {
+                        HStack {
+                            Spacer()
+                            Label(L10n.tr(lang, zh: "退出登录", en: "Sign Out"), systemImage: "rectangle.portrait.and.arrow.right")
+                                .font(.system(size: 14.5, weight: .semibold))
+                            Spacer()
+                        }
+                    }
+                } footer: {
+                    Text("\(store.displayPlatformName) Mobile v\(store.appVersion)")
+                        .foregroundStyle(palette.inkMuted)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.top, 4)
+                }
+                .listRowBackground(palette.cardSurface)
+            }
+            .listStyle(.insetGrouped)
+            .scrollContentBackground(.hidden)
+            .background(palette.elevatedSurface.ignoresSafeArea())
+            .navigationTitle(L10n.tr(lang, zh: "设置", en: "Settings"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(L10n.tr(lang, zh: "完成", en: "Done")) {
+                        showSettingsSheet = false
+                    }
+                }
+            }
+        }
+        .presentationDetents([.large, .medium])
+        .presentationBackground(palette.elevatedSurface)
+    }
+
+    @ViewBuilder
+    private func themedModal<Content: View>(_ content: Content) -> some View {
+        content
+            .preferredColorScheme(store.colorScheme)
+            .environment(\.colorScheme, store.colorScheme)
+            .tint(palette.accentStrong)
+    }
+
     private var serverSettingsSheet: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 16) {
-                TextField("https://cs.fanxiaolong.uk", text: $serverDraft)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .padding(14)
-                    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                HStack {
-                    Button(L10n.tr(lang, zh: "保存", en: "Save")) {
-                        store.updateServerBaseUrl(serverDraft)
-                        showServerSheet = false
-                    }
-                    .buttonStyle(.glassProminent)
-                    .tint(palette.accentStrong)
-                }
-                Spacer()
-            }
-            .padding(20)
-            .navigationTitle(L10n.tr(lang, zh: "服务器设置", en: "Server URL"))
-            .navigationBarTitleDisplayMode(.inline)
+            ServerSettingsDestination(store: store, serverDraft: $serverDraft)
         }
         .presentationDetents([.fraction(0.35)])
     }
 
     private var alertCenterSheet: some View {
         NavigationStack {
-            VStack(spacing: 12) {
-                if let summary = store.alertSummary {
-                    HStack(spacing: 8) {
-                        alertStatCard(title: L10n.tr(lang, zh: "总计", en: "Total"), value: "\(summary.total)", color: palette.inkPrimary)
-                        alertStatCard(
-                            title: L10n.tr(lang, zh: "未读", en: "Unread"),
-                            value: "\(summary.unread)",
-                            color: summary.unread > 0 ? palette.danger : palette.inkPrimary
-                        )
-                        alertStatCard(
-                            title: L10n.tr(lang, zh: "预警+", en: "Warn+"),
-                            value: "\(summary.warnOrAbove)",
-                            color: summary.warnOrAbove > 0 ? .orange : palette.inkPrimary
-                        )
-                    }
-                    .padding(.horizontal, 16)
-                }
-
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 7) {
-                        ForEach([
-                            ("all", L10n.tr(lang, zh: "全部", en: "All")),
-                            ("unread", L10n.tr(lang, zh: "未读", en: "Unread")),
-                            ("config", L10n.tr(lang, zh: "配置", en: "Config")),
-                            ("security", L10n.tr(lang, zh: "安全", en: "Security")),
-                            ("user_action", L10n.tr(lang, zh: "操作", en: "Action")),
-                            ("system", L10n.tr(lang, zh: "系统", en: "System"))
-                        ], id: \.0) { key, label in
-                            let active = store.alertFilter == key
-                            Button {
-                                store.setAlertCenterFilter(key)
-                            } label: {
-                                Text(label)
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundStyle(active ? .white : palette.inkPrimary)
-                                    .padding(.horizontal, 11)
-                                    .padding(.vertical, 6)
-                                    .background(active ? palette.accentStrong : palette.chipSurface, in: Capsule())
-                            }
-                            .buttonStyle(.plain)
+            alertCenterBody
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(L10n.tr(lang, zh: "关闭", en: "Close")) {
+                            showAlertCenterSheet = false
                         }
                     }
-                    .padding(.horizontal, 16)
                 }
+        }
+        .presentationDetents([.large, .medium])
+    }
 
-                if let err = store.alertError, !err.isEmpty {
-                    Text(err)
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(palette.danger)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(palette.danger.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
-                        .padding(.horizontal, 16)
+    private var alertCenterBody: some View {
+        VStack(spacing: 12) {
+            if let summary = store.alertSummary {
+                HStack(spacing: 8) {
+                    alertStatCard(title: L10n.tr(lang, zh: "总计", en: "Total"), value: "\(summary.total)", color: palette.inkPrimary)
+                    alertStatCard(
+                        title: L10n.tr(lang, zh: "未读", en: "Unread"),
+                        value: "\(summary.unread)",
+                        color: summary.unread > 0 ? palette.danger : palette.inkPrimary
+                    )
+                    alertStatCard(
+                        title: L10n.tr(lang, zh: "预警+", en: "Warn+"),
+                        value: "\(summary.warnOrAbove)",
+                        color: summary.warnOrAbove > 0 ? .orange : palette.inkPrimary
+                    )
                 }
-
-                if store.isLoadingAlertEvents && store.alertEvents.isEmpty {
-                    Spacer()
-                    ProgressView()
-                    Spacer()
-                } else if store.alertEvents.isEmpty {
-                    Spacer()
-                    Text(L10n.tr(lang, zh: "当前筛选下暂无告警记录", en: "No alerts in this filter"))
-                        .font(.callout)
-                        .foregroundStyle(palette.inkMuted)
-                    Spacer()
-                } else {
-                    ScrollView {
-                        LazyVStack(spacing: 9) {
-                            ForEach(store.alertEvents, id: \.id) { ev in
-                                alertEventCard(ev)
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 16)
-                    }
-                }
+                .padding(.horizontal, 16)
             }
-            .padding(.top, 8)
-            .navigationTitle(L10n.tr(lang, zh: "告警中心", en: "Alert Center"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    if store.alertUnreadCount > 0 {
-                        Button(L10n.tr(lang, zh: "全部已读", en: "Read All")) {
-                            store.markAllAlertsRead()
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 7) {
+                    ForEach([
+                        ("all", L10n.tr(lang, zh: "全部", en: "All")),
+                        ("unread", L10n.tr(lang, zh: "未读", en: "Unread")),
+                        ("config", L10n.tr(lang, zh: "配置", en: "Config")),
+                        ("security", L10n.tr(lang, zh: "安全", en: "Security")),
+                        ("user_action", L10n.tr(lang, zh: "操作", en: "Action")),
+                        ("system", L10n.tr(lang, zh: "系统", en: "System"))
+                    ], id: \.0) { key, label in
+                        let active = store.alertFilter == key
+                        Button {
+                            store.setAlertCenterFilter(key)
+                        } label: {
+                            Text(label)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(active ? .white : palette.inkPrimary)
+                                .padding(.horizontal, 11)
+                                .padding(.vertical, 6)
+                                .background(active ? palette.accentStrong : palette.chipSurface, in: Capsule())
                         }
-                        .font(.system(size: 13, weight: .semibold))
+                        .buttonStyle(.plain)
                     }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(L10n.tr(lang, zh: "关闭", en: "Close")) {
-                        showAlertCenterSheet = false
+                .padding(.horizontal, 16)
+            }
+
+            if let err = store.alertError, !err.isEmpty {
+                Text(err)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(palette.danger)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(palette.danger.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
+                    .padding(.horizontal, 16)
+            }
+
+            if store.isLoadingAlertEvents && store.alertEvents.isEmpty {
+                Spacer()
+                ProgressView()
+                Spacer()
+            } else if store.alertEvents.isEmpty {
+                Spacer()
+                Text(L10n.tr(lang, zh: "当前筛选下暂无告警记录", en: "No alerts in this filter"))
+                    .font(.callout)
+                    .foregroundStyle(palette.inkMuted)
+                Spacer()
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 9) {
+                        ForEach(store.alertEvents, id: \.id) { ev in
+                            alertEventCard(ev)
+                        }
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 16)
                 }
             }
         }
-        .presentationDetents([.large, .medium])
+        .padding(.top, 8)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(palette.elevatedSurface.ignoresSafeArea())
+        .navigationTitle(L10n.tr(lang, zh: "告警中心", en: "Alert Center"))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                if store.alertUnreadCount > 0 {
+                    Button(L10n.tr(lang, zh: "全部已读", en: "Read All")) {
+                        store.markAllAlertsRead()
+                    }
+                    .font(.system(size: 13, weight: .semibold))
+                }
+            }
+        }
     }
 
     private func alertStatCard(title: String, value: String, color: Color) -> some View {
@@ -1032,98 +1245,106 @@ struct RootShellView: View {
 
     private var schedulesSheet: some View {
         NavigationStack {
-            VStack(spacing: 12) {
-                HStack(spacing: 8) {
-                    TextField(
-                        L10n.tr(lang, zh: "如：每天 9:00 汇总昨日 SLA 告警", en: "e.g. Daily 9:00 summarize SLA alerts"),
-                        text: $scheduleDraft
-                    )
-                    .font(.system(size: 13))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-
-                    Button {
-                        let text = scheduleDraft
-                        scheduleDraft = ""
-                        store.createSchedule(text: text)
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 14, weight: .bold))
-                            .frame(width: 38, height: 38)
+            schedulesBody
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(L10n.tr(lang, zh: "关闭", en: "Done")) {
+                            showSchedulesSheet = false
+                        }
                     }
-                    .buttonStyle(.glassProminent)
-                    .tint(palette.accentStrong)
-                    .disabled(scheduleDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
+        }
+        .presentationDetents([.medium, .large])
+    }
 
-                if store.isLoadingSchedules && store.schedules.isEmpty {
-                    ProgressView().padding(.top, 30)
-                    Spacer()
-                } else if store.schedules.isEmpty {
-                    VStack(spacing: 8) {
-                        Image(systemName: "calendar.badge.clock")
-                            .font(.title2)
-                            .foregroundStyle(palette.inkMuted)
-                        Text(L10n.tr(lang, zh: "暂无定时任务（也可直接在对话输入 /schedule）", en: "No scheduled tasks yet"))
-                            .font(.system(size: 12.5))
-                            .foregroundStyle(palette.inkMuted)
-                    }
-                    .padding(.top, 40)
-                    Spacer()
-                } else {
-                    List {
-                        ForEach(store.schedules, id: \.id) { item in
-                            VStack(alignment: .leading, spacing: 5) {
-                                HStack {
-                                    Text(item.instruction)
-                                        .font(.system(size: 13.5, weight: .semibold))
-                                        .foregroundStyle(palette.inkPrimary)
-                                    Spacer()
-                                    Text(item.status)
-                                        .font(.caption2.weight(.semibold))
-                                        .foregroundStyle(item.status == "active" ? palette.accentStrong : palette.inkMuted)
-                                        .padding(.horizontal, 7)
-                                        .padding(.vertical, 2)
-                                        .background(palette.accent.opacity(0.12), in: Capsule())
-                                }
-                                if let next = item.nextRunAt, !next.isEmpty {
-                                    Text(L10n.tr(lang, zh: "下次执行: \(next)", en: "Next: \(next)"))
-                                        .font(.caption2)
-                                        .foregroundStyle(palette.inkMuted)
-                                }
-                                if !item.lastError.isEmpty {
-                                    Text(item.lastError)
-                                        .font(.caption2)
-                                        .foregroundStyle(palette.danger)
-                                        .lineLimit(2)
-                                }
+    private var schedulesBody: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 8) {
+                TextField(
+                    L10n.tr(lang, zh: "如：每天 9:00 汇总昨日 SLA 告警", en: "e.g. Daily 9:00 summarize SLA alerts"),
+                    text: $scheduleDraft
+                )
+                .font(.system(size: 13))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                Button {
+                    let text = scheduleDraft
+                    scheduleDraft = ""
+                    store.createSchedule(text: text)
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 14, weight: .bold))
+                        .frame(width: 38, height: 38)
+                }
+                .buttonStyle(.glassProminent)
+                .tint(palette.accentStrong)
+                .disabled(scheduleDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+
+            if store.isLoadingSchedules && store.schedules.isEmpty {
+                ProgressView().padding(.top, 30)
+                Spacer()
+            } else if store.schedules.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "calendar.badge.clock")
+                        .font(.title2)
+                        .foregroundStyle(palette.inkMuted)
+                    Text(L10n.tr(lang, zh: "暂无定时任务（也可直接在对话输入 /schedule）", en: "No scheduled tasks yet"))
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(palette.inkMuted)
+                }
+                .padding(.top, 40)
+                Spacer()
+            } else {
+                List {
+                    ForEach(store.schedules, id: \.id) { item in
+                        VStack(alignment: .leading, spacing: 5) {
+                            HStack {
+                                Text(item.instruction)
+                                    .font(.system(size: 13.5, weight: .semibold))
+                                    .foregroundStyle(palette.inkPrimary)
+                                Spacer()
+                                Text(item.status)
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(item.status == "active" ? palette.accentStrong : palette.inkMuted)
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 2)
+                                    .background(palette.accent.opacity(0.12), in: Capsule())
                             }
-                            .swipeActions(edge: .trailing) {
-                                Button(role: .destructive) {
-                                    store.deleteSchedule(item)
-                                } label: {
-                                    Label(L10n.tr(lang, zh: "取消", en: "Cancel"), systemImage: "trash")
-                                }
+                            if let next = item.nextRunAt, !next.isEmpty {
+                                Text(L10n.tr(lang, zh: "下次执行: \(next)", en: "Next: \(next)"))
+                                    .font(.caption2)
+                                    .foregroundStyle(palette.inkMuted)
+                            }
+                            if !item.lastError.isEmpty {
+                                Text(item.lastError)
+                                    .font(.caption2)
+                                    .foregroundStyle(palette.danger)
+                                    .lineLimit(2)
+                            }
+                        }
+                        .listRowBackground(palette.cardSurface)
+                        .swipeActions(edge: .trailing) {
+                            Button(role: .destructive) {
+                                store.deleteSchedule(item)
+                            } label: {
+                                Label(L10n.tr(lang, zh: "取消", en: "Cancel"), systemImage: "trash")
                             }
                         }
                     }
-                    .listStyle(.plain)
                 }
-            }
-            .navigationTitle(L10n.tr(lang, zh: "定时指令 (/schedule)", en: "Scheduled Tasks"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(L10n.tr(lang, zh: "关闭", en: "Done")) {
-                        showSchedulesSheet = false
-                    }
-                }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             }
         }
-        .presentationDetents([.medium, .large])
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(palette.elevatedSurface.ignoresSafeArea())
+        .navigationTitle(L10n.tr(lang, zh: "定时指令 (/schedule)", en: "Scheduled Tasks"))
+        .navigationBarTitleDisplayMode(.inline)
     }
 
     private func exportLogSheet(_ jsonText: String) -> some View {
@@ -1157,6 +1378,8 @@ struct RootShellView: View {
                 }
             }
             .padding(16)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(palette.elevatedSurface.ignoresSafeArea())
             .navigationTitle(L10n.tr(lang, zh: "导出对话日志", en: "Exported Chat Log"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1171,9 +1394,55 @@ struct RootShellView: View {
     }
 }
 
+/// Directional UIPanGestureRecognizer subclass that avoids one-shot early rejection on curved
+/// horizontal thumb strokes while failing cleanly vertical drags early so UIScrollView feels instant.
+private final class DirectionalDrawerPanGestureRecognizer: UIPanGestureRecognizer {
+    private(set) var initialWindowPoint: CGPoint = .zero
+    var edgeWidth: CGFloat = 40
+    var centerVerticalFailRatio: CGFloat = 1.18
+    var edgeVerticalFailRatio: CGFloat = 1.55
+
+    override func reset() {
+        super.reset()
+        initialWindowPoint = .zero
+    }
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+        if numberOfTouches == 0, let touch = touches.first {
+            initialWindowPoint = touch.location(in: nil)
+        }
+        super.touchesBegan(touches, with: event)
+    }
+
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent) {
+        if state == .possible, let touch = touches.first {
+            let current = touch.location(in: nil)
+            let absDx = abs(current.x - initialWindowPoint.x)
+            let absDy = abs(current.y - initialWindowPoint.y)
+            if max(absDx, absDy) >= 6 {
+                let windowWidth = view?.window?.bounds.width ?? view?.bounds.width ?? 390
+                let isEdge = initialWindowPoint.x <= edgeWidth || initialWindowPoint.x >= (windowWidth - edgeWidth)
+                let verticalFailRatio = isEdge ? edgeVerticalFailRatio : centerVerticalFailRatio
+                // Fail vertical scrolls right away so UIScrollView begins without hesitation.
+                if absDy >= 6 && absDy > absDx * verticalFailRatio {
+                    state = .failed
+                    return
+                }
+            }
+        }
+        super.touchesMoved(touches, with: event)
+    }
+
+    func windowDelta() -> CGPoint? {
+        guard numberOfTouches > 0 else { return nil }
+        let current = location(in: nil)
+        return CGPoint(x: current.x - initialWindowPoint.x, y: current.y - initialWindowPoint.y)
+    }
+}
+
 /// UIKit UIPanGestureRecognizer bridge attached to the hosting UIViewController.view.
 /// Guarantees mutually-exclusive horizontal drawer vs vertical ScrollView axis lock
-/// (~27 degree cone + UIGestureRecognizerDelegate failing vertical UIScrollView pans).
+/// with natural thumb-arc tolerance (~50° center, ~57° edges).
 private struct DirectionalDrawerPanInstaller: UIViewRepresentable {
     var isDrawerOpen: Bool
     var workMode: AppWorkMode
@@ -1219,10 +1488,44 @@ private struct DirectionalDrawerPanInstaller: UIViewRepresentable {
         var parent: DirectionalDrawerPanInstaller
         private weak var attachedView: UIView?
         private weak var hostController: UIViewController?
-        private var panRecognizer: UIPanGestureRecognizer?
+        private weak var lastTouchedView: UIView?
+        private var panRecognizer: DirectionalDrawerPanGestureRecognizer?
 
         init(parent: DirectionalDrawerPanInstaller) {
             self.parent = parent
+        }
+
+        private func isHorizontalScrollView(_ scroll: UIScrollView) -> Bool {
+            let canScrollHorizontally = scroll.contentSize.width > (scroll.bounds.width + 2)
+            let canScrollVertically = scroll.contentSize.height > (scroll.bounds.height + 2)
+            return canScrollHorizontally && !canScrollVertically
+        }
+
+        private func hasActivelyDraggingScrollView(from startView: UIView?) -> Bool {
+            var cursor: UIView? = startView
+            while let view = cursor {
+                if let scroll = view as? UIScrollView {
+                    let panState = scroll.panGestureRecognizer.state
+                    if panState == .began || panState == .changed {
+                        return true
+                    }
+                }
+                cursor = view.superview
+            }
+            return false
+        }
+
+        private func isCompetingMotionGesture(_ recognizer: UIGestureRecognizer) -> Bool {
+            if recognizer is UIPanGestureRecognizer ||
+               recognizer is UISwipeGestureRecognizer ||
+               recognizer is UIPinchGestureRecognizer {
+                return true
+            }
+            if recognizer.view is UIScrollView {
+                return true
+            }
+            let typeName = String(describing: type(of: recognizer))
+            return typeName.contains("Drag") || typeName.contains("Pan") || typeName.contains("Scroll")
         }
 
         func attachIfNeeded(from anchor: UIView) {
@@ -1239,7 +1542,7 @@ private struct DirectionalDrawerPanInstaller: UIViewRepresentable {
             if attachedView === target && panRecognizer != nil { return }
 
             detach()
-            let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
+            let pan = DirectionalDrawerPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
             pan.name = "DragonClawDirectionalDrawerPan"
             pan.maximumNumberOfTouches = 1
             pan.delaysTouchesBegan = false
@@ -1277,19 +1580,24 @@ private struct DirectionalDrawerPanInstaller: UIViewRepresentable {
         }
 
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            lastTouchedView = touch.view
+            if !parent.isDrawerOpen,
+               let window = touch.window,
+               ChatDeckGestureTags.isPointInExcludedRegion(touch.location(in: window), in: window) {
+                return false
+            }
             var cursor: UIView? = touch.view
             while let view = cursor {
                 if view.tag == ChatDeckGestureTags.horizontalDeckViewTag {
                     return false
                 }
-                if let scroll = view as? UIScrollView {
-                    let isPurelyHorizontal = scroll.contentSize.width > (scroll.bounds.width + 12) &&
-                                             scroll.contentSize.height <= (scroll.bounds.height + 12)
-                    if isPurelyHorizontal {
-                        return false
-                    }
+                if let scroll = view as? UIScrollView, isHorizontalScrollView(scroll) {
+                    return false
                 }
-                if view is UISlider {
+                if view is UISlider || view is UITextField {
+                    return false
+                }
+                if let textView = view as? UITextView, textView.isEditable {
                     return false
                 }
                 cursor = view.superview
@@ -1298,7 +1606,7 @@ private struct DirectionalDrawerPanInstaller: UIViewRepresentable {
         }
 
         func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-            guard let pan = gestureRecognizer as? UIPanGestureRecognizer,
+            guard let pan = gestureRecognizer as? DirectionalDrawerPanGestureRecognizer,
                   let view = attachedView,
                   !parent.isDisabled else {
                 return false
@@ -1306,21 +1614,36 @@ private struct DirectionalDrawerPanInstaller: UIViewRepresentable {
             if hostController?.presentedViewController != nil {
                 return false
             }
-            let velocity = pan.velocity(in: view)
-            let absVx = abs(velocity.x)
-            let absVy = abs(velocity.y)
-            // Responsive horizontal cone (~35 degrees): abs(vx) > abs(vy) * 1.25
-            guard absVx > 22 && absVx > absVy * 1.25 else {
+            if hasActivelyDraggingScrollView(from: lastTouchedView) {
+                return false
+            }
+            let viewDelta = pan.translation(in: view)
+            let winDelta = pan.windowDelta()
+            let translation: CGPoint
+            if let winDelta, max(abs(winDelta.x), abs(winDelta.y)) >= max(abs(viewDelta.x), abs(viewDelta.y)) {
+                translation = winDelta
+            } else {
+                translation = viewDelta
+            }
+            let absTx = abs(translation.x)
+            let absTy = abs(translation.y)
+            guard max(absTx, absTy) > 0.5 else { return false }
+
+            let boundsWidth = view.window?.bounds.width ?? view.bounds.width
+            let startX = pan.initialWindowPoint.x > 0
+                ? pan.initialWindowPoint.x
+                : (pan.location(in: view).x - viewDelta.x)
+            let isNearEdge = startX <= 40 || (!parent.isDrawerOpen && parent.workMode == .chat && startX >= boundsWidth - 40)
+            let slopeRatio: CGFloat = isNearEdge ? 0.65 : 0.85
+            guard absTx >= 4 && absTx >= absTy * slopeRatio else {
                 return false
             }
             if parent.isDrawerOpen {
-                return velocity.x < 0
+                return translation.x < 0
+            } else if parent.workMode == .chat {
+                return true
             } else {
-                if parent.workMode == .chat {
-                    return true
-                } else {
-                    return velocity.x > 0
-                }
+                return translation.x > 0
             }
         }
 
@@ -1328,26 +1651,80 @@ private struct DirectionalDrawerPanInstaller: UIViewRepresentable {
             _ gestureRecognizer: UIGestureRecognizer,
             shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
         ) -> Bool {
-            if let otherScroll = otherGestureRecognizer.view as? UIScrollView {
-                let isPurelyHorizontal = otherScroll.contentSize.width > (otherScroll.bounds.width + 12) &&
-                                         otherScroll.contentSize.height <= (otherScroll.bounds.height + 12)
-                return !isPurelyHorizontal
-            }
-            return true
+            // Allow passive press/interactive-glass touch highlights during touch-down (cancelled once pan begins),
+            // while remaining strictly mutually exclusive against any pan, drag, swipe, or ScrollView motion.
+            !isCompetingMotionGesture(otherGestureRecognizer)
         }
 
         func gestureRecognizer(
             _ gestureRecognizer: UIGestureRecognizer,
             shouldBeRequiredToFailBy otherGestureRecognizer: UIGestureRecognizer
         ) -> Bool {
-            guard let otherView = otherGestureRecognizer.view as? UIScrollView else {
+            guard let otherScroll = otherGestureRecognizer.view as? UIScrollView else {
                 return false
             }
-            // Yield ONLY inside purely horizontal containers (e.g. image carousel / horizontal code block).
-            let isPurelyHorizontal = otherView.contentSize.width > (otherView.bounds.width + 12) &&
-                                     otherView.contentSize.height <= (otherView.bounds.height + 12)
-            return isPurelyHorizontal
+            if isHorizontalScrollView(otherScroll) {
+                return false
+            }
+            return otherGestureRecognizer === otherScroll.panGestureRecognizer || otherGestureRecognizer is UIPanGestureRecognizer
         }
+
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRequireFailureOf otherGestureRecognizer: UIGestureRecognizer
+        ) -> Bool {
+            if otherGestureRecognizer.view?.tag == ChatDeckGestureTags.horizontalDeckViewTag {
+                return true
+            }
+            if let otherScroll = otherGestureRecognizer.view as? UIScrollView,
+               otherScroll.panGestureRecognizer === otherGestureRecognizer {
+                return isHorizontalScrollView(otherScroll)
+            }
+            return false
+        }
+    }
+}
+
+private struct ServerSettingsDestination: View {
+    @Bindable var store: DragonClawStore
+    @Binding var serverDraft: String
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        let palette = store.palette
+        let lang = store.language
+        VStack(alignment: .leading, spacing: 16) {
+            Text(L10n.tr(lang, zh: "API 服务地址", en: "API Endpoint"))
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(palette.inkMuted)
+
+            TextField("https://cs.fanxiaolong.uk", text: $serverDraft)
+                .foregroundStyle(palette.inkPrimary)
+                .tint(palette.accentStrong)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(.URL)
+                .padding(14)
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+            Button {
+                store.updateServerBaseUrl(serverDraft)
+                dismiss()
+            } label: {
+                Text(L10n.tr(lang, zh: "保存", en: "Save"))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+            }
+            .buttonStyle(.glassProminent)
+            .tint(palette.accentStrong)
+
+            Spacer()
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(palette.elevatedSurface.ignoresSafeArea())
+        .navigationTitle(L10n.tr(lang, zh: "服务器设置", en: "Server URL"))
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 

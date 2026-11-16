@@ -7,6 +7,7 @@ const acorn = require('acorn');
 const JSZip = require('jszip');
 const guard = require('./agent-path-guard');
 const { unifiedDiff } = require('./agent-change-log');
+const { readWorksheetRows } = require('./excel-sheet-rows');
 
 const LIMITS = {
     documentBytes: 50 * 1024 * 1024,
@@ -227,15 +228,11 @@ async function loadSheets(file) {
         const ExcelJS = require('exceljs');
         const workbook = new ExcelJS.Workbook();
         await workbook.xlsx.readFile(file.abs);
-        return workbook.worksheets.map(sheet => {
-            const rows = [];
-            sheet.eachRow({ includeEmpty: true }, (row, number) => {
-                const values = [];
-                for (let col = 1; col <= sheet.actualColumnCount || col <= row.cellCount; col += 1) values.push(cellText(row.getCell(col).value));
-                rows[number - 1] = values;
-            });
-            return { name: sheet.name, rows: Array.from(rows, row => row || []) };
-        });
+        const sheets = [];
+        for (const sheet of workbook.worksheets) {
+            sheets.push({ name: sheet.name, rows: await readWorksheetRows(sheet, { includeEmptyRows: true, readCell: cell => cellText(cell.value) }) });
+        }
+        return sheets;
     }
     if (['xls', 'et'].includes(file.ext)) throw toolError('AGENT_FORMAT', '旧版 .xls 暂不支持，请另存为 .xlsx 或 .csv');
     return null;

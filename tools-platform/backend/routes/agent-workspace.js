@@ -395,6 +395,29 @@ router.post('/forget', async (req, res) => {
     }
 });
 
+// 「需要你」收件箱：当前账号所有对话里正在等审批的操作 + 推送到频道的设置
+const approvalInbox = require('../models/agent-approval-inbox');
+const inboxHandle = fn => async (req, res) => {
+    try { await fn(req, res); } catch (error) { res.status(error.statusCode || 500).json({ code: error.code, error: error.message }); }
+};
+router.get('/inbox', inboxHandle(async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ items: await approvalInbox.list(runManager.ownerKey(req.user, getTenantId())), canApprove: runManager.isAdminUser(req.user) });
+}));
+router.get('/inbox/settings', inboxHandle(async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const username = req.user?.username || '';
+    res.json({ settings: await approvalInbox.getSettings(username), channels: await approvalInbox.listChannels(), delays: approvalInbox.DELAYS, lastPush: approvalInbox.lastPushOf(username), canConfigure: runManager.isAdminUser(req.user) });
+}));
+router.put('/inbox/settings', inboxHandle(async (req, res) => {
+    if (!runManager.isAdminUser(req.user)) return res.status(403).json({ code: 'INBOX_FORBIDDEN', error: '只读账号没有需要审批的操作，无需配置推送' });
+    res.json({ settings: await approvalInbox.saveSettings(req.user.username, req.body || {}) });
+}));
+router.post('/inbox/test', inboxHandle(async (req, res) => {
+    if (!runManager.isAdminUser(req.user)) return res.status(403).json({ code: 'INBOX_FORBIDDEN', error: '只读账号无需配置推送' });
+    res.json(await approvalInbox.sendTest(req.user.username, req.body || {}));
+}));
+
 router.post('/approvals/:id', (req, res) => {
     try {
         res.json(runManager.resolveApproval(req.params.id, req.body && req.body.decision, req.user, getTenantId(), req.body && req.body.scope));

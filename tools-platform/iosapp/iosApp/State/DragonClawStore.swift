@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import SwiftUI
+import UIKit
 import shared
 
 enum AppWorkMode: String, CaseIterable, Hashable {
@@ -81,8 +82,13 @@ final class DragonClawStore {
     var suggestions: [AiSuggestion] = []
     var sessions: [AiSessionSummary] = []
     var desktopAgentSessions: [DesktopAgentSessionSummary] = []
+    var conversationPreferences: [ConversationListPreferenceItem] = []
     var sessionGroups: [SessionGroup] = []
     var unifiedSessionGroups: [UnifiedSessionGroup] = []
+    private var rawAiSessions: [AiSessionSummary] = []
+    private var rawCachedAiSessions: [AiSessionSummary] = []
+    private var rawDesktopAgentSessions: [DesktopAgentSessionSummary] = []
+    private var rawArchivedSessions: [AiSessionSummary] = []
     var sessionSearchQuery: String = ""
     var currentSessionId: String? = nil
     var activeDesktopSession: DesktopAgentSessionSummary? = nil
@@ -151,6 +157,7 @@ final class DragonClawStore {
     private var regularBeforeCursor: String? = nil
     private var desktopBeforeCursor: String? = nil
     private var desktopLoadedRawItems: [DesktopAgentMessageItem] = []
+    private var lastSessionsSyncedAtMs: Int64 = 0
     private let historyPageSize: Int32 = 25
     private let uiCatalogProviders: Set<String> = ["claudecode", "antigravity"]
 
@@ -227,15 +234,29 @@ final class DragonClawStore {
         }
         loadPlatformIdentity()
         restoreSessionIfPossible()
+        syncWindowInterfaceStyle()
     }
 
     // MARK: - Preferences
+
+    func syncWindowInterfaceStyle() {
+        let style: UIUserInterfaceStyle = themeMode == "dark" ? .dark : .light
+        DispatchQueue.main.async {
+            for scene in UIApplication.shared.connectedScenes {
+                guard let windowScene = scene as? UIWindowScene else { continue }
+                for window in windowScene.windows {
+                    window.overrideUserInterfaceStyle = style
+                }
+            }
+        }
+    }
 
     func toggleTheme() {
         withAnimation(.easeInOut(duration: 0.22)) {
             themeMode = themeMode == "dark" ? "light" : "dark"
         }
         sdk.saveThemeMode(mode: themeMode)
+        syncWindowInterfaceStyle()
     }
 
     func toggleLanguage() {
@@ -408,7 +429,8 @@ final class DragonClawStore {
                         rememberMe: self.rememberMe,
                         autoLogin: self.autoLogin
                     )
-                    self.token = self.sdk.getSavedToken()
+                    let savedToken = self.sdk.getSavedToken()
+                    self.token = savedToken.isEmpty ? newToken : savedToken
                     self.bootstrapWorkspace()
                 } else {
                     self.expireSession()
@@ -485,7 +507,8 @@ final class DragonClawStore {
                         rememberMe: remember,
                         autoLogin: autoLogin
                     )
-                    self.token = self.sdk.getSavedToken()
+                    let savedToken = self.sdk.getSavedToken()
+                    self.token = savedToken.isEmpty ? newToken : savedToken
                     self.username = finalUser
                     self.role = finalRole
                     self.tenantId = (response.tenantId?.isEmpty == false ? response.tenantId : nil) ?? "default"
@@ -538,7 +561,9 @@ final class DragonClawStore {
         desktopPollTask = nil
         activeTaskHandles.forEach { $0.cancel() }
         activeTaskHandles.removeAll()
+        sdk.clearConversationCache()
         sdk.clearSessionAuth(keepUsername: rememberMe)
+        lastSessionsSyncedAtMs = 0
         token = ""
         tenantId = "default"
         isSuper = false
@@ -548,6 +573,11 @@ final class DragonClawStore {
         showNativeMetrics = false
         metricsPath.removeAll()
         messages.removeAll()
+        rawAiSessions.removeAll()
+        rawCachedAiSessions.removeAll()
+        rawDesktopAgentSessions.removeAll()
+        rawArchivedSessions.removeAll()
+        conversationPreferences.removeAll()
         sessions.removeAll()
         desktopAgentSessions.removeAll()
         archivedSessions.removeAll()
@@ -586,6 +616,8 @@ final class DragonClawStore {
 
     func bootstrapWorkspace() {
         guard !token.isEmpty else { return }
+        sdk.syncConversationCacheScope(username: username)
+        lastSessionsSyncedAtMs = 0
         loadModels()
         loadSuggestions()
         loadSessions()
@@ -618,22 +650,45 @@ final class DragonClawStore {
         activeTaskHandles.append(handle)
     }
 
+    func loadSessionsIfStale(minIntervalMs: Int64 = 18_000) {
+        guard !token.isEmpty else { return }
+        if sdk.shouldRefreshSessions(lastSyncedMs: lastSessionsSyncedAtMs, minIntervalMs: minIntervalMs) {
+            loadSessions()
+        }
+    }
+
     func loadSessions() {
         let query = sessionSearchQuery
-        let aiHandle = sdk.fetchSessions(token: token, query: query, limit: 40) { [weak self] res in
+        let aiHandle = sdk.fetchSessions(token: token, query: query, limit: 80) { [weak self] res in
             dispatchToMain { [weak self] in
                 guard let self else { return }
-                self.sessions = res.items
+                self.lastSessionsSyncedAtMs = self.sdk.currentTimestampMs()
+                self.rawAiSessions = res.items
+                if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    self.rawCachedAiSessions = res.items
+                    self.sdk.conversationCache.reconcileAiSummaries(items: res.items)
+                }
                 self.regroupSessions()
             }
         } onError: { _ in }
         activeTaskHandles.append(aiHandle)
 
+        // Fetch Web sidebar presentation preferences (renamed titles, pinned flags, pin_order, archived/hidden)
+        let prefHandle = sdk.fetchConversationPreferences(token: token) { [weak self] res in
+            dispatchToMain { [weak self] in
+                guard let self else { return }
+                self.conversationPreferences = res.items
+                self.regroupSessions()
+            }
+        } onError: { _ in }
+        activeTaskHandles.append(prefHandle)
+
         // Silently ignore 403/503 for non-admin accounts or offline desktop connectors.
         let desktopHandle = sdk.fetchDesktopAgentSessions(token: token, query: query) { [weak self] res in
             dispatchToMain { [weak self] in
                 guard let self else { return }
-                self.desktopAgentSessions = res.items
+                self.lastSessionsSyncedAtMs = self.sdk.currentTimestampMs()
+                self.rawDesktopAgentSessions = res.items
                 self.regroupSessions()
             }
         } onError: { _ in }
@@ -641,11 +696,44 @@ final class DragonClawStore {
     }
 
     func regroupSessions() {
+        let trimmedQuery = sessionSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        let baseAi: [AiSessionSummary]
+        if trimmedQuery.isEmpty || rawCachedAiSessions.isEmpty {
+            baseAi = rawAiSessions
+        } else {
+            var seen = Set(rawAiSessions.map(\.id))
+            var merged = rawAiSessions
+            for cached in rawCachedAiSessions where !seen.contains(cached.id) {
+                seen.insert(cached.id)
+                merged.append(cached)
+            }
+            baseAi = merged
+        }
+
+        sessions = sdk.applyConversationPreferencesToAi(
+            sessions: baseAi,
+            preferences: conversationPreferences
+        )
+        desktopAgentSessions = sdk.applyConversationPreferencesToDesktop(
+            sessions: rawDesktopAgentSessions,
+            preferences: conversationPreferences
+        )
+        if let activeDesktop = activeDesktopSession,
+           let refreshed = desktopAgentSessions.first(where: { $0.id == activeDesktop.id && $0.provider == activeDesktop.provider }) {
+            activeDesktopSession = refreshed
+        }
+        archivedSessions = sdk.mergeArchivedAiSessions(
+            archivedApiItems: rawArchivedSessions,
+            activeAiItems: baseAi,
+            preferences: conversationPreferences,
+            searchQuery: sessionSearchQuery
+        )
         sessionGroups = sdk.groupSessionsByDate(sessions: sessions)
         unifiedSessionGroups = sdk.groupSidebarSessions(
             aiSessions: sessions,
             desktopSessions: desktopAgentSessions,
-            searchQuery: sessionSearchQuery
+            searchQuery: sessionSearchQuery,
+            preferences: conversationPreferences
         )
     }
 
@@ -847,7 +935,7 @@ final class DragonClawStore {
         }
     }
 
-    func openSession(_ session: AiSessionSummary) {
+    func openSession(_ session: AiSessionSummary, forceRefresh: Bool = false) {
         stopStreaming()
         activeSessionLoadHandle?.cancel()
         activeSessionLoadHandle = nil
@@ -872,15 +960,34 @@ final class DragonClawStore {
         hasMoreOlderMessages = false
         isLoadingOlderMessages = false
 
-        // Clear immediately so opening a session shows shimmer skeleton instead of previous chat or hero screen.
-        messages.removeAll()
         pendingAttachments.removeAll()
         showNativeMetrics = false
         activeWebTool = nil
         workMode = .chat
         isDrawerOpen = false
         chatErrorBanner = nil
-        isLoadingSessionMessages = true
+
+        sdk.syncConversationCacheScope(username: username)
+        let cacheEval = sdk.conversationCache.evaluateAiSession(
+            summary: session,
+            lastSessionsSyncMs: lastSessionsSyncedAtMs,
+            forceRefresh: forceRefresh
+        )
+        let hasCachedMessages = (cacheEval.cached?.messages.isEmpty == false)
+        if let cached = cacheEval.cached, hasCachedMessages {
+            regularBeforeCursor = cached.beforeCursor
+            hasMoreOlderMessages = cached.hasMore && !(cached.beforeCursor?.isEmpty ?? true)
+            messages = cached.messages
+            isLoadingSessionMessages = false
+            chatOpenScrollGeneration += 1
+            if cacheEval.decision == .useCacheSkipNetwork {
+                return
+            }
+        } else {
+            // Clear immediately only on cache miss so opening an uncached session shows shimmer skeleton.
+            messages.removeAll()
+            isLoadingSessionMessages = true
+        }
 
         let targetId = session.id
         let handle = sdk.fetchSessionMessages(token: token, sessionId: targetId, limit: historyPageSize, before: nil) { [weak self] res in
@@ -888,23 +995,42 @@ final class DragonClawStore {
                 guard let self, self.currentSessionId == targetId, self.activeDesktopSession == nil else { return }
                 self.isLoadingSessionMessages = false
                 let firstRawId = res.items.first?.id
+                let mapped = self.sdk.mapHistoryMessages(items: res.items)
+                let changed = !hasCachedMessages ||
+                    mapped.count != self.messages.count ||
+                    mapped.last?.id != self.messages.last?.id ||
+                    mapped.last?.content != self.messages.last?.content
                 self.regularBeforeCursor = firstRawId
                 self.hasMoreOlderMessages = res.hasMore && !(firstRawId?.isEmpty ?? true)
-                self.messages = self.sdk.mapHistoryMessages(items: res.items)
-                self.chatOpenScrollGeneration += 1
+                self.messages = mapped
+                if changed {
+                    self.chatOpenScrollGeneration += 1
+                }
+                let latestSummary = self.sessions.first(where: { $0.id == targetId }) ?? session
+                self.sdk.conversationCache.saveAiSession(
+                    sessionId: targetId,
+                    messages: mapped,
+                    sessionUpdatedAt: latestSummary.updatedAt,
+                    sessionMessageCount: latestSummary.messageCount > 0 ? latestSummary.messageCount : res.total,
+                    beforeCursor: firstRawId,
+                    hasMore: res.hasMore,
+                    isLocalWrite: false
+                )
             }
         } onError: { [weak self] err in
             dispatchToMain { [weak self] in
                 guard let self, self.currentSessionId == targetId, self.activeDesktopSession == nil else { return }
                 self.isLoadingSessionMessages = false
-                self.chatErrorBanner = err
+                if !hasCachedMessages || forceRefresh {
+                    self.chatErrorBanner = err
+                }
             }
         }
         activeSessionLoadHandle = handle
         activeTaskHandles.append(handle)
     }
 
-    func openDesktopSession(_ session: DesktopAgentSessionSummary) {
+    func openDesktopSession(_ session: DesktopAgentSessionSummary, forceRefresh: Bool = false) {
         stopStreaming()
         activeSessionLoadHandle?.cancel()
         activeSessionLoadHandle = nil
@@ -929,17 +1055,46 @@ final class DragonClawStore {
         hasMoreOlderMessages = false
         isLoadingOlderMessages = false
 
-        messages.removeAll()
         pendingAttachments.removeAll()
         showNativeMetrics = false
         activeWebTool = nil
         workMode = .chat
         isDrawerOpen = false
         chatErrorBanner = nil
-        isLoadingSessionMessages = true
 
-        loadDesktopModels(provider: session.provider, forceLive: false)
-        fetchDesktopMessages(for: session, passive: false)
+        let cleanProvider = session.provider.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if forceRefresh || (desktopModelsByProvider[cleanProvider]?.isEmpty ?? true) {
+            loadDesktopModels(provider: session.provider, forceLive: false)
+        }
+
+        sdk.syncConversationCacheScope(username: username)
+        let cacheEval = sdk.conversationCache.evaluateDesktopSession(
+            summary: session,
+            lastSessionsSyncMs: lastSessionsSyncedAtMs,
+            forceRefresh: forceRefresh
+        )
+        let hasCachedMessages = (cacheEval.cached?.rawItems.isEmpty == false)
+        if let cached = cacheEval.cached, hasCachedMessages {
+            desktopLoadedRawItems = cached.rawItems
+            desktopBeforeCursor = cached.beforeCursor
+            hasMoreOlderMessages = cached.hasMore && !(cached.beforeCursor?.isEmpty ?? true)
+            activeDesktopCanSend = cached.canSend
+            activeDesktopCanSteer = cached.canSteer
+            activeDesktopSelectedModel = cached.selectedModel
+            activeDesktopReason = cached.reason
+            messages = sdk.mapDesktopAgentMessages(items: cached.rawItems)
+            isLoadingSessionMessages = false
+            chatOpenScrollGeneration += 1
+            if cacheEval.decision == .useCacheSkipNetwork {
+                return
+            }
+            // Background refresh silently updates any delta without blanking out cached history.
+            fetchDesktopMessages(for: session, passive: !forceRefresh)
+        } else {
+            messages.removeAll()
+            isLoadingSessionMessages = true
+            fetchDesktopMessages(for: session, passive: false)
+        }
     }
 
     private func fetchDesktopMessages(for session: DesktopAgentSessionSummary, passive: Bool) {
@@ -964,6 +1119,9 @@ final class DragonClawStore {
                     self.activeDesktopSelectedModel = srvModel
                 }
                 if let incomingTail = res.items {
+                    let prevLastId = self.messages.last?.id
+                    let prevLastContent = self.messages.last?.content
+                    let prevCount = self.messages.count
                     let mergedRaw: [DesktopAgentMessageItem]
                     if !passive || self.desktopLoadedRawItems.isEmpty {
                         self.desktopBeforeCursor = res.nextBefore
@@ -973,9 +1131,28 @@ final class DragonClawStore {
                         mergedRaw = self.sdk.mergeDesktopTailItems(existing: self.desktopLoadedRawItems, incomingTail: incomingTail)
                     }
                     self.desktopLoadedRawItems = mergedRaw
-                    self.messages = self.sdk.mapDesktopAgentMessages(items: mergedRaw)
-                    if !passive {
+                    let mapped = self.sdk.mapDesktopAgentMessages(items: mergedRaw)
+                    self.messages = mapped
+                    let changed = prevCount == 0 ||
+                        mapped.count != prevCount ||
+                        mapped.last?.id != prevLastId ||
+                        mapped.last?.content != prevLastContent
+                    if !passive && changed {
                         self.chatOpenScrollGeneration += 1
+                    }
+                    if !res.busy && res.queue.isEmpty && !mergedRaw.isEmpty {
+                        let summary = res.session ?? self.desktopAgentSessions.first(where: { $0.stableKey == targetKey }) ?? session
+                        self.sdk.conversationCache.saveDesktopSession(
+                            session: summary,
+                            rawItems: mergedRaw,
+                            beforeCursor: self.desktopBeforeCursor,
+                            hasMore: self.hasMoreOlderMessages,
+                            available: res.available,
+                            canSend: res.canSend,
+                            canSteer: res.canSteer,
+                            selectedModel: res.selectedModel ?? self.activeDesktopSelectedModel,
+                            reason: res.reason
+                        )
                     }
                 }
                 if !res.available, let err = res.error ?? res.reason, !err.isEmpty, self.messages.isEmpty {
@@ -1047,6 +1224,20 @@ final class DragonClawStore {
                     if !olderItems.isEmpty {
                         self.desktopLoadedRawItems = olderItems + self.desktopLoadedRawItems
                         self.messages = self.sdk.mapDesktopAgentMessages(items: self.desktopLoadedRawItems)
+                        if !self.activeDesktopBusy && self.desktopQueue.isEmpty {
+                            let summary = res.session ?? desktop
+                            self.sdk.conversationCache.saveDesktopSession(
+                                session: summary,
+                                rawItems: self.desktopLoadedRawItems,
+                                beforeCursor: self.desktopBeforeCursor,
+                                hasMore: self.hasMoreOlderMessages,
+                                available: res.available,
+                                canSend: res.canSend,
+                                canSteer: res.canSteer,
+                                selectedModel: self.activeDesktopSelectedModel,
+                                reason: res.reason
+                            )
+                        }
                     }
                 }
             } onError: { [weak self] _ in
@@ -1076,7 +1267,18 @@ final class DragonClawStore {
                 self.hasMoreOlderMessages = res.hasMore && !(nextCursor?.isEmpty ?? true) && !res.items.isEmpty
                 if !res.items.isEmpty {
                     let olderMapped = self.sdk.mapHistoryMessages(items: res.items)
-                    self.messages = self.sdk.mergeMessages(messages: olderMapped + self.messages)
+                    let combined = self.sdk.mergeMessages(messages: olderMapped + self.messages)
+                    self.messages = combined
+                    let summary = self.sessions.first(where: { $0.id == sessionId })
+                    self.sdk.conversationCache.saveAiSession(
+                        sessionId: sessionId,
+                        messages: combined,
+                        sessionUpdatedAt: summary?.updatedAt,
+                        sessionMessageCount: summary?.messageCount ?? Int32(combined.count),
+                        beforeCursor: self.regularBeforeCursor,
+                        hasMore: self.hasMoreOlderMessages,
+                        isLocalWrite: false
+                    )
                 }
             }
         } onError: { [weak self] _ in
@@ -1094,8 +1296,11 @@ final class DragonClawStore {
         let handle = sdk.deleteSession(token: token, sessionId: targetId) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                self.sessions.removeAll { $0.id == targetId }
-                self.archivedSessions.removeAll { $0.id == targetId }
+                self.rawAiSessions.removeAll { $0.id == targetId }
+                self.rawCachedAiSessions.removeAll { $0.id == targetId }
+                self.rawArchivedSessions.removeAll { $0.id == targetId }
+                self.conversationPreferences.removeAll { $0.source == "mine" && $0.id == targetId }
+                self.sdk.conversationCache.removeAiSession(sessionId: targetId)
                 self.regroupSessions()
                 if self.currentSessionId == targetId {
                     self.resetActiveChatState(closeDrawer: false)
@@ -1715,6 +1920,18 @@ final class DragonClawStore {
         let completion = voiceTurnCompletion
         voiceTurnCompletion = nil
         completion?(finalContent)
+        if let sid = currentSessionId, activeDesktopSession == nil, !messages.isEmpty {
+            let summary = sessions.first(where: { $0.id == sid })
+            sdk.conversationCache.saveAiSession(
+                sessionId: sid,
+                messages: messages,
+                sessionUpdatedAt: summary?.updatedAt,
+                sessionMessageCount: Int32(messages.count),
+                beforeCursor: regularBeforeCursor,
+                hasMore: hasMoreOlderMessages,
+                isLocalWrite: true
+            )
+        }
         loadSessions()
         if !interrupted, !regularQueue.isEmpty, activeDesktopSession == nil {
             Task { @MainActor [weak self] in
@@ -1921,70 +2138,42 @@ final class DragonClawStore {
         guard !token.isEmpty else { return }
         let handle = sdk.fetchArchivedSessions(token: token, query: sessionSearchQuery, limit: 40) { [weak self] res in
             Task { @MainActor [weak self] in
-                self?.archivedSessions = res.items
+                guard let self else { return }
+                self.rawArchivedSessions = res.items
+                self.regroupSessions()
             }
         } onError: { _ in }
         activeTaskHandles.append(handle)
+
+        let prefHandle = sdk.fetchConversationPreferences(token: token) { [weak self] res in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.conversationPreferences = res.items
+                self.regroupSessions()
+            }
+        } onError: { _ in }
+        activeTaskHandles.append(prefHandle)
     }
 
     func archiveSession(_ session: AiSessionSummary) {
         let targetId = session.id
+        conversationPreferences = sdk.withPreferenceArchived(
+            preferences: conversationPreferences,
+            source: "mine",
+            id: targetId,
+            archived: true
+        )
+        regroupSessions()
         let handle = sdk.archiveSession(token: token, sessionId: targetId) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                self.sessions.removeAll { $0.id == targetId }
+                self.rawAiSessions.removeAll { $0.id == targetId }
+                self.rawCachedAiSessions.removeAll { $0.id == targetId }
                 self.regroupSessions()
                 self.loadArchivedSessions()
                 if self.currentSessionId == targetId {
                     self.resetActiveChatState(closeDrawer: false)
                 }
-            }
-        } onError: { [weak self] err in
-            Task { @MainActor [weak self] in self?.chatErrorBanner = err }
-        }
-        activeTaskHandles.append(handle)
-    }
-
-    func unarchiveSession(_ session: AiSessionSummary) {
-        let targetId = session.id
-        let handle = sdk.unarchiveSession(token: token, sessionId: targetId) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                self.archivedSessions.removeAll { $0.id == targetId }
-                self.loadSessions()
-            }
-        } onError: { [weak self] err in
-            Task { @MainActor [weak self] in self?.chatErrorBanner = err }
-        }
-        activeTaskHandles.append(handle)
-    }
-
-    func togglePinSession(_ session: AiSessionSummary) {
-        let targetId = session.id
-        let nextPinned = !session.isPinned
-        if let idx = sessions.firstIndex(where: { $0.id == targetId }) {
-            let old = sessions[idx]
-            sessions[idx] = AiSessionSummary(
-                id: old.id,
-                createdAt: old.createdAt,
-                updatedAt: old.updatedAt,
-                archivedAt: old.archivedAt,
-                archived: old.archived,
-                is_archived: old.is_archived,
-                messageCount: old.messageCount,
-                title: old.title,
-                firstQuestion: old.firstQuestion,
-                lastQuestion: old.lastQuestion,
-                discussionMode: old.discussionMode,
-                agent: old.agent,
-                busy: old.busy,
-                pinned: nextPinned
-            )
-            regroupSessions()
-        }
-        let handle = sdk.pinSession(token: token, sessionId: targetId, pinned: nextPinned) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.loadSessions()
             }
         } onError: { [weak self] err in
             Task { @MainActor [weak self] in
@@ -1993,6 +2182,160 @@ final class DragonClawStore {
             }
         }
         activeTaskHandles.append(handle)
+    }
+
+    func unarchiveSession(_ session: AiSessionSummary) {
+        let targetId = session.id
+        conversationPreferences = sdk.withPreferenceArchived(
+            preferences: conversationPreferences,
+            source: "mine",
+            id: targetId,
+            archived: false
+        )
+        rawArchivedSessions.removeAll { $0.id == targetId }
+        regroupSessions()
+        let handle = sdk.unarchiveSession(token: token, sessionId: targetId) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.loadSessions()
+                self?.loadArchivedSessions()
+            }
+        } onError: { [weak self] err in
+            Task { @MainActor [weak self] in
+                self?.loadArchivedSessions()
+                self?.chatErrorBanner = err
+            }
+        }
+        activeTaskHandles.append(handle)
+    }
+
+    func togglePinSession(_ session: AiSessionSummary) {
+        let targetId = session.id
+        let nextPinned = !session.isPinned
+        conversationPreferences = sdk.withPreferencePinned(
+            preferences: conversationPreferences,
+            source: "mine",
+            id: targetId,
+            pinned: nextPinned
+        )
+        regroupSessions()
+        let handle = sdk.setConversationPinned(token: token, source: "mine", id: targetId, pinned: nextPinned) { [weak self] res in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if let item = res.item {
+                    self.conversationPreferences = self.sdk.withPreferenceServerItem(preferences: self.conversationPreferences, item: item)
+                    self.regroupSessions()
+                }
+                self.loadSessions()
+            }
+        } onError: { [weak self] err in
+            Task { @MainActor [weak self] in
+                self?.loadSessions()
+                self?.chatErrorBanner = err
+            }
+        }
+        activeTaskHandles.append(handle)
+    }
+
+    func togglePinDesktopSession(_ session: DesktopAgentSessionSummary) {
+        let target = sdk.preferenceTargetForDesktop(
+            provider: session.provider,
+            sessionId: session.id,
+            preferences: conversationPreferences
+        )
+        let source = (target.first as String?) ?? "mine"
+        let id = (target.second as String?) ?? session.stableKey
+        let nextPinned = !session.isPinned
+        conversationPreferences = sdk.withPreferencePinned(
+            preferences: conversationPreferences,
+            source: source,
+            id: id,
+            pinned: nextPinned
+        )
+        regroupSessions()
+        let handle = sdk.setConversationPinned(token: token, source: source, id: id, pinned: nextPinned) { [weak self] res in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if let item = res.item {
+                    self.conversationPreferences = self.sdk.withPreferenceServerItem(preferences: self.conversationPreferences, item: item)
+                    self.regroupSessions()
+                }
+                self.loadSessions()
+            }
+        } onError: { [weak self] err in
+            Task { @MainActor [weak self] in
+                self?.loadSessions()
+                self?.chatErrorBanner = err
+            }
+        }
+        activeTaskHandles.append(handle)
+    }
+
+    func renameSession(_ session: AiSessionSummary, newTitle: String) {
+        let trimmed = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !token.isEmpty else { return }
+        let safeTitle = String(trimmed.prefix(160))
+        conversationPreferences = sdk.withPreferenceTitle(
+            preferences: conversationPreferences,
+            source: "mine",
+            id: session.id,
+            title: safeTitle
+        )
+        regroupSessions()
+        let handle = sdk.renameConversation(token: token, source: "mine", id: session.id, title: safeTitle) { [weak self] res in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if let item = res.item {
+                    self.conversationPreferences = self.sdk.withPreferenceServerItem(preferences: self.conversationPreferences, item: item)
+                    self.regroupSessions()
+                }
+                self.loadSessions()
+            }
+        } onError: { [weak self] err in
+            Task { @MainActor [weak self] in
+                self?.loadSessions()
+                self?.chatErrorBanner = err
+            }
+        }
+        activeTaskHandles.append(handle)
+    }
+
+    func movePinnedEntry(_ entry: SidebarSessionEntry, moveUp: Bool) {
+        guard let nextOrder = sdk.movePinnedEntryOrder(
+            groups: unifiedSessionGroups,
+            preferences: conversationPreferences,
+            stableKey: entry.stableKey,
+            moveUp: moveUp
+        ), nextOrder.count >= 2 else { return }
+        conversationPreferences = sdk.applyLocalPinOrder(
+            preferences: conversationPreferences,
+            source: "mine",
+            orderedIds: nextOrder
+        )
+        regroupSessions()
+        let handle = sdk.reorderPinnedConversations(token: token, source: "mine", order: nextOrder) { [weak self] res in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if let items = res.items {
+                    self.conversationPreferences = items
+                    self.regroupSessions()
+                }
+            }
+        } onError: { [weak self] err in
+            Task { @MainActor [weak self] in
+                self?.loadSessions()
+                self?.chatErrorBanner = err
+            }
+        }
+        activeTaskHandles.append(handle)
+    }
+
+    func canMovePinnedEntry(_ entry: SidebarSessionEntry, moveUp: Bool) -> Bool {
+        sdk.movePinnedEntryOrder(
+            groups: unifiedSessionGroups,
+            preferences: conversationPreferences,
+            stableKey: entry.stableKey,
+            moveUp: moveUp
+        ) != nil
     }
 
     func exportSession(_ session: AiSessionSummary) {

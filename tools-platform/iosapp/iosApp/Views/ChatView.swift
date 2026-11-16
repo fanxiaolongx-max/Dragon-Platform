@@ -178,13 +178,6 @@ struct ChatView: View {
                             userInteractedSinceOpen = true
                         }
                     }
-                    .simultaneousGesture(
-                        DragGesture(minimumDistance: 12).onChanged { value in
-                            if abs(value.translation.height) > abs(value.translation.width) {
-                                userInteractedSinceOpen = true
-                            }
-                        }
-                    )
                     .onAppear {
                         if !store.messages.isEmpty, lastAnchoredSessionGen != store.chatOpenScrollGeneration {
                             anchorToBottomOnOpen(proxy: proxy, generation: store.chatOpenScrollGeneration)
@@ -332,9 +325,13 @@ struct ChatView: View {
         }
         .sheet(isPresented: $showSkillsSheet) {
             skillsPickerSheet
+                .preferredColorScheme(store.colorScheme)
+                .environment(\.colorScheme, store.colorScheme)
         }
         .sheet(isPresented: $showModelSheet) {
             modelSelectorSheet
+                .preferredColorScheme(store.colorScheme)
+                .environment(\.colorScheme, store.colorScheme)
         }
         .fullScreenCover(isPresented: $voiceChat.isPresented) {
             VoiceConversationModal(voiceChat: voiceChat, store: store)
@@ -962,6 +959,7 @@ struct ChatView: View {
                         }
                         .padding(.horizontal, 4)
                     }
+                    .dragonClawExcludeHorizontalSwipe()
                 }
 
                 if speechManager.isRecording {

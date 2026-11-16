@@ -162,3 +162,41 @@ test('view_image may read configured extra image folders, only for local/admin t
         fs.rmSync(configFile, { force: true });
     }
 });
+
+test('uploadsIn recognizes Markdown angle-bracket links and finance agent forwards artifactOwner to view_image', async t => {
+    const aliceFile = await artifacts.saveUpload('default::alice', { originalname: 'receipt.jpg', buffer: PNG });
+    const bobFile = await artifacts.saveUpload('default::bob', { originalname: 'secret.jpg', buffer: PNG });
+    const promptWithUpload = `记个账早餐\n\n📎 附件：\n- [receipt.jpg](<${aliceFile.path}>)`;
+    assert.deepEqual(artifacts.uploadsIn('default::alice', [promptWithUpload]), [aliceFile.path]);
+
+    const financeAgent = require('../backend/models/family-finance-agent');
+    const prevKey = process.env.WISE_API_KEY;
+    const prevFetch = global.fetch;
+    process.env.WISE_API_KEY = 'test-wise-key';
+    global.fetch = async () => ({ ok: true, status: 200, text: async () => '{}', headers: { get: () => 'application/json' } });
+    t.after(() => {
+        if (prevKey === undefined) delete process.env.WISE_API_KEY; else process.env.WISE_API_KEY = prevKey;
+        global.fetch = prevFetch;
+    });
+
+    const script = [
+        { toolCalls: [{ id: 'own', name: 'view_image', args: { path: aliceFile.path } }] },
+        { toolCalls: [{ id: 'other', name: 'view_image', args: { path: bobFile.path } }] },
+        { text: '已看到自己的小票，拒绝了别人的图片' }
+    ];
+    const requests = [];
+    const result = await financeAgent.runTurn({
+        client: { generateText: async opts => { requests.push(opts.messages.map(m => ({ ...m }))); return script.shift(); } },
+        systemInstruction: 'sys',
+        messages: [{ role: 'user', content: '看小票记账' }],
+        vision: { capable: true, describe: async () => 'fallback' },
+        user: { username: 'alice', role: 'admin', isSuper: true },
+        artifactOwner: 'default::alice',
+        artifactSession: 's_fin'
+    });
+    assert.equal(result.text, '已看到自己的小票，拒绝了别人的图片');
+    const toolMsgs = requests[2].filter(m => m.role === 'tool' && Array.isArray(m.toolResults));
+    assert.match(toolMsgs[0].toolResults[0].content, /已附在下一条消息里/);
+    assert.equal(requests[1].some(m => m.role === 'user' && m.images?.length === 1), true);
+    assert.match(toolMsgs[1].toolResults[0].content, /只能看本人上传的图片/);
+});

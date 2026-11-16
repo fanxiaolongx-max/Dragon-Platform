@@ -5,6 +5,9 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNames
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.intOrNull
 
 @Serializable
 data class AiModelInfo(
@@ -101,7 +104,10 @@ data class AiSessionSummary(
     val discussionMode: String? = null,
     val agent: SessionAgentRef? = null,
     val busy: Boolean = false,
-    val pinned: Boolean = false
+    val pinned: Boolean = false,
+    val customTitle: String? = null,
+    val pinOrder: Int? = null,
+    val hidden: Boolean = false
 ) {
     val isPinned: Boolean get() = pinned
 
@@ -115,7 +121,8 @@ data class AiSessionSummary(
         get() = agent?.root?.isNotBlank() == true
 
     fun displayTitle(language: String): String {
-        val candidate = title.ifBlank { firstQuestion.orEmpty() }.ifBlank { lastQuestion.orEmpty() }.trim()
+        val manual = customTitle?.trim()?.ifEmpty { null }
+        val candidate = manual ?: title.ifBlank { firstQuestion.orEmpty() }.ifBlank { lastQuestion.orEmpty() }.trim()
         return candidate.ifEmpty { if (language == "en") "New conversation" else "新对话" }
     }
 }
@@ -215,6 +222,7 @@ data class ChatStreamEvent(
     val errorMessage: String? = null
 )
 
+@Serializable
 data class ToolCallTrace(
     val callId: String,
     val toolName: String,
@@ -258,6 +266,7 @@ data class ChatAttachment(
     }
 }
 
+@Serializable
 data class ChatMessage(
     val id: String,
     val role: String,
@@ -477,13 +486,21 @@ data class DesktopAgentSessionSummary(
     val updatedAt: String? = null,
     val observedAt: String? = null,
     val source: String? = null,
-    val busy: Boolean = false
+    val busy: Boolean = false,
+    val customTitle: String? = null,
+    val pinned: Boolean = false,
+    val pinOrder: Int? = null,
+    val archived: Boolean = false,
+    val hidden: Boolean = false
 ) {
+    val isPinned: Boolean get() = pinned
+
     val stableKey: String
         get() = "desktop:$provider:$id"
 
     fun displayTitle(language: String): String {
-        val clean = title.trim().ifBlank { fullTitle.orEmpty().trim() }
+        val manual = customTitle?.trim()?.ifEmpty { null }
+        val clean = manual ?: title.trim().ifBlank { fullTitle.orEmpty().trim() }
         return clean.ifEmpty { providerDisplayName() }
     }
 
@@ -607,12 +624,66 @@ data class PinSessionResponse(
     val pinned: Boolean = false
 )
 
+/** Per-account sidebar presentation preference stored by `/api/ai/conversation-list` (shared across Web & Mobile). */
+@Serializable
+data class ConversationListPreferenceItem(
+    val source: String = "mine",
+    val id: String = "",
+    val pinned: JsonPrimitive? = null,
+    val archived: JsonPrimitive? = null,
+    val hidden: JsonPrimitive? = null,
+    val title: String = "",
+    val pin_order: Int? = null
+) {
+    val isPinned: Boolean get() = parseFlag(pinned)
+    val isArchived: Boolean get() = parseFlag(archived)
+    val isHidden: Boolean get() = parseFlag(hidden)
+    val cleanTitle: String get() = title.trim()
+
+    companion object {
+        private fun parseFlag(raw: JsonPrimitive?): Boolean {
+            if (raw == null) return false
+            raw.booleanOrNull?.let { return it }
+            raw.intOrNull?.let { return it != 0 }
+            return raw.content == "true" || raw.content == "1"
+        }
+    }
+}
+
+@Serializable
+data class ConversationListResponse(
+    val items: List<ConversationListPreferenceItem> = emptyList()
+)
+
+@Serializable
+data class ConversationListSaveRequest(
+    val source: String = "mine",
+    val id: String,
+    val pinned: Boolean? = null,
+    val archived: Boolean? = null,
+    val hidden: Boolean? = null,
+    val title: String? = null
+)
+
+@Serializable
+data class ConversationListReorderRequest(
+    val source: String = "mine",
+    val order: List<String>
+)
+
+@Serializable
+data class ConversationListSaveResponse(
+    val item: ConversationListPreferenceItem? = null,
+    val items: List<ConversationListPreferenceItem>? = null
+)
+
 data class SidebarSessionEntry(
     val stableKey: String,
     val aiSession: AiSessionSummary? = null,
     val desktopSession: DesktopAgentSessionSummary? = null,
     val sortTimestampMs: Long = 0L,
-    val isPinned: Boolean = false
+    val isPinned: Boolean = false,
+    val pinOrder: Int? = null
 ) {
     val isDesktopAgent: Boolean get() = desktopSession != null
     val busy: Boolean get() = desktopSession?.busy ?: aiSession?.busy ?: false

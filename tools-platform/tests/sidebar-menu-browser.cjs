@@ -4,7 +4,7 @@ const fs = require('node:fs'), os = require('node:os'), path = require('node:pat
 const root = path.join(__dirname, '..'), temp = fs.mkdtempSync(path.join(os.tmpdir(), 'sidebar-menu-ui-'));
 app.setPath('userData', path.join(temp, 'profile')); app.disableHardwareAcceleration();
 let win, server, failSave = false, saves = 0;
-let layout = { primary: ['channels', 'skillHub', 'schedule', 'library', 'opsDrafts'], more: ['links', 'requirements', 'promotions'] };
+let layout = { primary: ['channels', 'skillHub', 'schedule', 'library', 'opsDrafts'], more: ['links'] };
 let navLayout = {
     primaryIds: ['home', 'uivf12', 'custom:uninstalled', 'report'],
     categories: [{ id: 'business', name: '业务工具', nameEn: 'Business' }, { id: 'audit', name: '审计', nameEn: 'Audit' }],
@@ -69,7 +69,8 @@ app.whenReady().then(async () => {
     await win.loadURL(`http://127.0.0.1:${server.address().port}/`);
     await until('!!window.HomeSidebarMenu && !!window.HomeShell');
     await open();
-    assert.equal(await run('document.querySelectorAll("[data-menu-id]").length'), 8);
+    assert.equal(await run('document.querySelectorAll("[data-menu-id]").length'), 6);
+    assert.equal(await run(`!!document.querySelector('[data-menu-id="requirements"], [data-menu-id="promotions"]')`), false);
     const initial = await primary();
     const beforeCancel = await run(`Array.from(document.querySelectorAll('[data-menu-id]'),row=>row.dataset.menuId)`);
     const cancelPoint = await run(`(()=>{const r=document.querySelector('[data-menu-id="schedule"] [data-menu-handle]').getBoundingClientRect();return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}})()`);
@@ -84,7 +85,7 @@ app.whenReady().then(async () => {
     assert.ok(await run(`!!document.querySelector('.v2-menu-overlay')`), 'Escape cancels the drag and keeps the editor open');
     await drag('schedule', '[data-menu-id="channels"]');
     assert.equal(await run(`document.querySelector('[data-menu-list="primary"]').firstElementChild.dataset.menuId`), 'schedule');
-    await drag('library', '[data-menu-list="more"] [data-menu-id="requirements"]', true);
+    await drag('library', '[data-menu-list="more"] [data-menu-id="links"]', true);
     assert.equal(await run(`!!document.querySelector('[data-menu-list="more"] [data-menu-id="library"]')`), true);
     await run(`document.querySelector('[data-menu-id="links"] [data-menu-move="group"]').click()`);
     await run(`document.querySelector('[data-menu-id="opsDrafts"] [data-menu-handle]').focus();document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}))`);
@@ -110,6 +111,7 @@ app.whenReady().then(async () => {
     await run(`document.querySelector('[data-v2-flyout="more"]').click()`);
     assert.deepEqual(await run(`Array.from(document.querySelectorAll('.v2-sidebar-more-items > button'),b=>b.dataset.v2Action)`), layout.more);
     assert.ok(await run('!!document.getElementById("v2OpsCount")'), 'moving a menu retains the live badge');
+    assert.equal(await run(`!!document.querySelector('.v2-flyout.is-open [data-v2-do="requirements"], .v2-flyout.is-open [data-v2-do="promotions"]')`), false);
     await run('HomeShell.closePop()');
     for (const [width, theme, language] of [[1200, 'light', 'zh-CN'], [390, 'dark', 'en-US']]) {
         win.setContentSize(width, 850);
