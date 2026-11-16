@@ -47,6 +47,12 @@
             button.classList.add('v2-pop-item'); button.setAttribute('role', 'menuitem');
             stash.append(button);
         });
+        const inboxButton = nav.querySelector('#v2InboxBtn');
+        if (inboxButton) {
+            // Keep extension items anchored after the user's primary order instead of letting applyLayout strand them at index 1.
+            const anchor = layout.primary.includes('opsDrafts') && layout.primary[0] !== 'opsDrafts' ? buttons.get('opsDrafts') : moreButton;
+            nav.insertBefore(inboxButton, anchor);
+        }
         window.HomeShell?.updateChannelsNavState();
     }
     function mountMore(host) {

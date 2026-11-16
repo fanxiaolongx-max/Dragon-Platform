@@ -1,5 +1,5 @@
-// 「需要你」收件箱：侧栏入口 + 角标；面板里列出所有对话中等审批的操作（可直接批准 / 拒绝 / 打开对话），
-// 以及「推送到频道」设置：超过设定时间没处理时，发到已连接的 WeLink / 微信里的指定群组或个人，回复「批准 1234」即可放行。
+// 「需要你」收件箱：并入左下角「消息中心」——角标计入待审批数，消息中心顶部列出所有对话中等审批的操作
+// （可直接批准 / 拒绝 / 打开对话）；「审批推送」抽屉里设置推送到频道：超过设定时间没处理时，发到已连接的 WeLink / 微信里的指定群组或个人，回复「批准 1234」即可放行。
 // 后端：/api/agent-workspace/inbox*（agent-approval-inbox.js）。没有审批权限的账号接口返回 403，入口保持隐藏。
 (function () {
     'use strict';
@@ -11,7 +11,7 @@
     const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
     const toast = message => (window.showToast ? window.showToast(message) : console.info(message));
 
-    const state = { items: [], available: false, open: false, settings: null, channels: [], delays: [], lastPush: null, canConfigure: false, draft: null, busy: false, seen: new Set(), timer: 0 };
+    const state = { items: [], available: false, open: false, host: null, settings: null, channels: [], delays: [], lastPush: null, canConfigure: false, draft: null, busy: false, seen: new Set(), timer: 0 };
 
     function headers(json) {
         const token = localStorage.getItem('tools_token') || sessionStorage.getItem('tools_token');
@@ -31,8 +31,14 @@
         const style = document.createElement('style');
         style.id = 'approvalInboxStyle';
         style.textContent = `
-.v2-nav-count.ai-alert{background:var(--v2-danger,#ef4444);color:#fff;font-weight:600;animation:aiPulse 2s ease-in-out infinite}
-@keyframes aiPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.45)}50%{box-shadow:0 0 0 5px rgba(239,68,68,0)}}
+#v2AlertCount.is-approval{animation:aiPulse 2s ease-in-out infinite}
+@keyframes aiPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.5)}50%{box-shadow:0 0 0 5px rgba(239,68,68,0)}}
+.ai-host{width:min(1060px,100% - 80px);margin:8px auto 4px}
+.ai-host[hidden]{display:none}
+.ai-host-head{display:flex;align-items:center;gap:8px;margin:10px 0 8px;font-size:12.5px;font-weight:500;color:var(--v2-ink3,#8a9099)}
+.ai-host-head b{background:var(--v2-danger,#ef4444);color:#fff;border-radius:999px;padding:0 7px;font-size:11px;line-height:18px}
+.ai-host .ai-card{border-color:color-mix(in srgb,var(--v2-danger,#ef4444) 28%,var(--v2-line,#e7e7ea));background:color-mix(in srgb,var(--v2-danger,#ef4444) 3%,var(--v2-bg,#fff))}
+@media (max-width:700px){.ai-host{width:calc(100% - 32px)}}
 .ai-overlay{position:fixed;inset:0;z-index:2400;background:rgba(15,17,21,.32);display:flex;justify-content:flex-end;opacity:0;transition:opacity .18s ease}
 .ai-overlay.show{opacity:1}
 .ai-panel{width:min(440px,100vw);height:100%;background:var(--v2-bg,#fff);color:var(--v2-ink,#1f2328);border-left:1px solid var(--v2-line,#e7e7ea);display:flex;flex-direction:column;box-shadow:-12px 0 40px rgba(0,0,0,.12);transform:translateX(24px);transition:transform .22s cubic-bezier(.2,.8,.2,1)}
@@ -88,38 +94,9 @@
         document.head.appendChild(style);
     }
 
-    // ── 侧栏入口 ──
-    function ensureNav() {
-        let button = document.getElementById('v2InboxBtn');
-        if (button) return button;
-        const nav = document.querySelector('#homeSidebar .v2-nav');
-        if (!nav) return null;
-        button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'v2-nav-item';
-        button.id = 'v2InboxBtn';
-        button.hidden = true;
-        button.innerHTML = `<span class="v2-ico" data-icon="bell"></span><span>${esc(L('需要你', 'Needs you'))}</span><span class="v2-nav-count" id="v2InboxCount" hidden></span>`;
-        const anchor = nav.querySelector('[data-v2-action="opsDrafts"]') || nav.querySelector('[data-v2-flyout="more"]');
-        nav.insertBefore(button, anchor);
-        window.HomeShell?.renderIcons?.(button);
-        if (!button.querySelector('.v2-ico svg')) {
-            button.querySelector('.v2-ico').innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15L6 16Z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg>';
-        }
-        button.addEventListener('click', () => open());
-        return button;
-    }
-
+    // ── 角标：通知 home-shell 把待审批数计入消息中心角标 ──
     function renderBadge() {
-        const button = ensureNav();
-        if (!button) return;
-        button.hidden = !state.available;
-        const count = document.getElementById('v2InboxCount');
-        const total = state.items.length;
-        count.hidden = !total;
-        count.textContent = total > 99 ? '99+' : String(total);
-        count.classList.toggle('ai-alert', total > 0);
-        button.title = total ? L(`${total} 个操作等你审批`, `${total} approvals waiting`) : L('需要你处理的审批', 'Approvals waiting for you');
+        window.dispatchEvent(new CustomEvent('tools:approval-inbox', { detail: { total: state.available ? state.items.length : 0 } }));
     }
 
     async function refresh() {
@@ -132,12 +109,12 @@
             // 当前不在发起审批的那个对话时提示一下
             const current = window.DragonClaw?.currentSessionId?.();
             const elsewhere = fresh.filter(item => item.chatSessionId && item.chatSessionId !== current);
-            if (elsewhere.length && !state.open) toast(L(`另一个对话里有 ${elsewhere.length} 个操作等你审批，点侧栏「需要你」处理`, `${elsewhere.length} approval(s) waiting in another chat`));
+            if (elsewhere.length && !state.open) toast(L(`另一个对话里有 ${elsewhere.length} 个操作等你审批，点左下角消息中心处理`, `${elsewhere.length} approval(s) waiting in another chat`));
         } catch (error) {
             if (error.status === 401 || error.status === 403) { state.available = false; state.items = []; }
         }
         renderBadge();
-        if (state.open) renderList();
+        renderList();
     }
 
     function schedule() {
@@ -145,7 +122,7 @@
         state.timer = setTimeout(async () => {
             if (!document.hidden) await refresh();
             schedule();
-        }, state.open ? 3000 : POLL_MS);
+        }, state.open || state.host?.isConnected ? 3000 : POLL_MS);
     }
 
     // ── 面板 ──
@@ -161,18 +138,29 @@
         return left >= 60 ? L(`剩 ${Math.ceil(left / 60)} 分钟`, `${Math.ceil(left / 60)}m left`) : L(`剩 ${left} 秒`, `${left}s left`);
     }
     function channelLabel(id) {
-        return state.channels.find(item => item.channel === id)?.label || id;
+        return state.channels.find(item => item.channel === id)?.label || ({ welink: L('WeLink 助理', 'WeLink'), weixin: L('微信', 'WeChat'), 'welink-cli': 'welink-cli' })[id] || id;
+    }
+
+    /** 消息中心顶部的「需要你」区块（home-shell 打开消息中心时传入容器） */
+    function renderInto(host) {
+        if (!host) return;
+        ensureStyle();
+        if (state.host !== host) {
+            state.host = host;
+            host.addEventListener('click', onCardClick);
+            refresh();
+            schedule();
+        }
+        renderList();
     }
 
     function renderList() {
-        const body = overlay?.querySelector('[data-ai="list"]');
-        if (!body) return;
-        overlay.querySelector('[data-ai="count"]').textContent = state.items.length ? L(`${state.items.length} 项`, `${state.items.length}`) : '';
-        if (!state.items.length) {
-            body.innerHTML = `<div class="ai-empty"><b>✓</b>${esc(L('没有等你处理的审批。', 'Nothing is waiting for you.'))}<br>${esc(L('任何对话里出现需要确认的操作，都会集中到这里。', 'Approvals from every chat show up here.'))}</div>`;
-            return;
-        }
-        body.innerHTML = state.items.map(item => {
+        const body = state.host;
+        if (!body?.isConnected) return;
+        body.classList.add('ai-host');
+        body.hidden = !state.available || !state.items.length;
+        if (body.hidden) { body.innerHTML = ''; return; }
+        body.innerHTML = `<div class="ai-host-head">🔔 ${esc(L('需要你审批', 'Needs your approval'))}<b>${state.items.length}</b></div>` + state.items.map(item => {
             const pushed = item.pushed
                 ? `<span class="ok">${esc(L(`已推送到 ${channelLabel(item.pushed.channel)}`, `Sent to ${channelLabel(item.pushed.channel)}`))}${item.pushed.error ? ` · ${esc(item.pushed.error)}` : ''}</span>`
                 : item.pushError ? `<span class="bad">${esc(L('推送失败：', 'Push failed: '))}${esc(item.pushError)}</span>` : '';
@@ -257,16 +245,23 @@
         }
     }
 
-    async function onClick(event) {
-        if (event.target === overlay || event.target.closest('[data-ai="close"]')) return close();
+    function onCardClick(event) {
         const card = event.target.closest('.ai-card');
         const action = event.target.closest('[data-do]');
-        if (card && action) {
-            const item = state.items.find(entry => entry.id === card.dataset.id);
-            if (!item) return;
-            if (action.dataset.do === 'open') { close(); window.HomeMode?.set?.('chat'); window.DragonClaw?.openChat?.({ id: item.chatSessionId }); return; }
-            return decide(item.id, action.dataset.do, action);
+        if (!card || !action) return;
+        const item = state.items.find(entry => entry.id === card.dataset.id);
+        if (!item) return;
+        if (action.dataset.do === 'open') {
+            document.querySelector('.v2-messages [data-msg-close]')?.click();
+            window.HomeMode?.set?.('chat');
+            window.DragonClaw?.openChat?.({ id: item.chatSessionId });
+            return;
         }
+        decide(item.id, action.dataset.do, action);
+    }
+
+    async function onClick(event) {
+        if (event.target === overlay || event.target.closest('[data-ai="close"]')) return close();
         const draft = state.draft;
         if (!draft) return;
         const remove = event.target.closest('[data-remove]');
@@ -326,20 +321,16 @@
         state.open = true;
         overlay = document.createElement('div');
         overlay.className = 'ai-overlay';
-        overlay.innerHTML = `<aside class="ai-panel" role="dialog" aria-modal="true" aria-label="${esc(L('需要你', 'Needs you'))}">
-            <div class="ai-head"><h3>🔔 ${esc(L('需要你', 'Needs you'))}<small data-ai="count"></small></h3><button type="button" class="ai-x" data-ai="close" aria-label="close">×</button></div>
-            <div class="ai-body" data-ai="list"></div>
-            <div class="ai-section" data-ai="settings"></div></aside>`;
+        overlay.innerHTML = `<aside class="ai-panel" role="dialog" aria-modal="true" aria-label="${esc(L('审批推送', 'Approval push'))}">
+            <div class="ai-head"><h3>🔔 ${esc(L('审批推送', 'Approval push'))}</h3><button type="button" class="ai-x" data-ai="close" aria-label="close">×</button></div>
+            <div class="ai-section" data-ai="settings" style="border-top:0;flex:1;overflow:auto"></div></aside>`;
         document.body.appendChild(overlay);
         requestAnimationFrame(() => overlay?.classList.add('show'));
         overlay.addEventListener('click', onClick);
         overlay.addEventListener('change', onChange);
         document.addEventListener('keydown', onKey, true);
-        renderList();
         renderSettings();
         loadSettings();
-        refresh();
-        schedule();
     }
     function onKey(event) { if (event.key === 'Escape' && !document.querySelector('.tch-overlay')) { event.stopPropagation(); close(); } }
     function close() {
@@ -355,13 +346,12 @@
 
     function init() {
         ensureStyle();
-        ensureNav();
         refresh();
         schedule();
         document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
-        if (location.hash === '#needs-you') open();
+        
     }
 
-    window.ApprovalInbox = { open, close, refresh };
+    window.ApprovalInbox = { open, openSettings: open, close, refresh, renderInto, count: () => (state.available ? state.items.length : 0), available: () => state.available };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();

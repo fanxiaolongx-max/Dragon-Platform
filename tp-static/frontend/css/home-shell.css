@@ -154,6 +154,8 @@ html.platform-home .v2-side-top { flex: none; padding: 16px 10px 6px; }
 .v2-icon-btn:focus-visible,
 .v2-discover-btn:focus-visible,
 .v2-user:focus-visible { outline: 2px solid var(--v2-focus); outline-offset: 1px; }
+/* 鼠标/触摸操作后（如点开消息中心再按 Esc 返回）不画焦点框；Tab / 方向键导航时恢复（home-shell.js 维护 data-pointer-focus） */
+html[data-pointer-focus] :is(button, a[href], summary, [role="button"], [role="menuitem"], [role="tab"], [role="option"], [tabindex]:not(input):not(textarea):not([contenteditable])):focus-visible { outline: none; }
 
 .v2-nav-item .v2-ico { color: var(--v2-ink2); }
 
