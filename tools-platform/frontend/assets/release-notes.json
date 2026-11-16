@@ -1,10 +1,10 @@
 {
   "zh": [
-    "隐藏左下角用户栏重复角色徽章：左下角账户触发区仅保留用户名、在线状态与头像流光/皇冠效果，「超级管理员 / 管理员」徽章统一在点击展开的菜单顶部展示，界面更简洁。",
-    "新增内置技能 @sv-menu-stats（SV 餐厅餐单速查）：内置 SV 餐厅历史餐单离线数据集与查询作图 CLI，支持 N 天/按月频次重复率统计、高清横向柱状图 PNG 生成及按需导出，并补全内置技能规范与脚本可执行权限。"
+    "移动端工具内置页独立打开优化：KMP `ToolNavigation` 将平台自定义工具路由统一切换为独立无框文档入口并附加 `standalone=1`，iOS / Android 打开工具页体验与 Web 端保持一致，同时移除 Android 工具页顶部重复路径文字并补齐离开页面时的 WebView 资源销毁。",
+    "Android 工具内嵌浏览器内置加密 DNS 代理：新增 `WebViewDnsProxy` 本地环回 SOCKS 隧道并通过 `androidx.webkit` `ProxyController` 接入工具 WebView，复用智能 DNS 解析，同时保留端到端 TLS 证书校验、Cookie 与表单提交。"
   ],
   "en": [
-    "Removed duplicate role badge in bottom-left account button: kept the 'Super Admin / Admin' pill at the top of the expanded account popover while keeping avatar aura and crown styling in the collapsed bar.",
-    "Promoted @sv-menu-stats (SV Canteen Menu Stats) to built-in Agent Skills: bundled offline dataset and CLI for rolling/monthly dish frequency, repeat rates, PNG bar charts, and Excel export with executable permissions."
+    "Standalone custom tool loading on mobile: shared KMP ToolNavigation rewrites platform custom tool routes to standalone document URLs with standalone=1 for both iOS and Android, cleans up redundant header subtitle text on Android, and disposes WebView cleanly on exit.",
+    "Android WebView smart DNS tunnel: added loopback WebViewDnsProxy wired via androidx.webkit ProxyController to resolve tool hosts with SmartAndroidDns while preserving end-to-end TLS, cookies, redirects, POST, and WebSockets."
   ]
 }

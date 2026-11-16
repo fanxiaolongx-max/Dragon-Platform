@@ -171,10 +171,7 @@ class DragonClawSdk(
     fun getAppVersion(): String = settings.getAppVersion()
 
     fun buildToolUrl(routePath: String): String {
-        val clean = routePath.trim()
-        if (clean.startsWith("http://") || clean.startsWith("https://")) return clean
-        val path = if (clean.startsWith("/")) clean else "/$clean"
-        return "${getBaseUrl()}$path"
+        return com.example.newapp.shared.util.ToolNavigation.buildUrl(getBaseUrl(), routePath)
     }
 
     /**

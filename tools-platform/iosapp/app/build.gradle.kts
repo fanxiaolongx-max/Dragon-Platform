@@ -93,6 +93,7 @@ android {
 
 dependencies {
     implementation(project(":shared"))
+    implementation("androidx.webkit:webkit:1.12.1")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)

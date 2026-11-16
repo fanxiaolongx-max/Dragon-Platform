@@ -4,6 +4,10 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import androidx.webkit.ProxyConfig
+import androidx.webkit.ProxyController
+import androidx.webkit.WebViewFeature
+import com.example.newapp.shared.network.WebViewDnsProxy
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
 import android.webkit.WebView
@@ -45,6 +49,10 @@ fun ToolWebViewScreen(
     var loadProgress by remember { mutableIntStateOf(0) }
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
 
+    DisposableEffect(Unit) {
+        onDispose { webViewRef?.stopLoading(); webViewRef?.destroy(); webViewRef = null }
+    }
+
     BackHandler {
         val wv = webViewRef
         if (wv != null && wv.canGoBack()) {
@@ -81,12 +89,6 @@ fun ToolWebViewScreen(
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = tool.routePath,
-                        color = palette.inkMuted,
-                        fontSize = 11.sp,
-                        maxLines = 1
                     )
                 }
                 GlassCircleIconButton(
@@ -205,18 +207,31 @@ fun ToolWebViewScreen(
                                 loadProgress = newProgress
                             }
                         }
-                        if (sessionToken.isNotBlank() && host.isNotBlank()) {
-                            val bootstrapHtml = """
-                                <!DOCTYPE html><html><head><meta charset="utf-8"><script>
-                                $seedScript
-                                window.location.replace(${JSONObject.quote(targetUrl)});
-                                </script></head><body></body></html>
-                            """.trimIndent()
-                            loadDataWithBaseURL("$originUrl/", bootstrapHtml, "text/html", "utf-8", null)
-                        } else {
-                            loadUrl(targetUrl)
-                        }
                         webViewRef = this
+                        val loadTool = Runnable {
+                            if (webViewRef !== this) return@Runnable
+                            if (sessionToken.isNotBlank() && host.isNotBlank()) {
+                                val bootstrapHtml = """
+                                    <!DOCTYPE html><html><head><meta charset="utf-8"><script>
+                                    $seedScript
+                                    window.location.replace(${JSONObject.quote(targetUrl)});
+                                    </script></head><body></body></html>
+                                """.trimIndent()
+                                loadDataWithBaseURL("$originUrl/", bootstrapHtml, "text/html", "utf-8", null)
+                            } else {
+                                loadUrl(targetUrl)
+                            }
+                        }
+                        if (WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE)) {
+                            val proxy = WebViewDnsProxy.instance
+                            ProxyController.getInstance().setProxyOverride(
+                                ProxyConfig.Builder().addProxyRule("socks://127.0.0.1:${proxy.port}").build(),
+                                androidx.core.content.ContextCompat.getMainExecutor(ctx),
+                                loadTool
+                            )
+                        } else {
+                            loadTool.run()
+                        }
                     }
                 },
                 modifier = Modifier.weight(1f).fillMaxWidth()
