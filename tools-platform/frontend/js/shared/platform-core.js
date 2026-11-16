@@ -763,6 +763,7 @@ function registerPlatformI18n() {
             'nav.acc.resetDoneDesc': '账号“{user}”的新密码已立即生效。',
 
             'nav.dialog.notice': '操作提示',
+            'nav.dialog.info': '操作提示',
             'nav.dialog.success': '操作成功',
             'nav.dialog.warning': '请确认操作',
             'nav.dialog.error': '操作未完成',
@@ -1308,6 +1309,7 @@ function registerPlatformI18n() {
             'nav.acc.resetDoneDesc': 'The new password for “{user}” is now active.',
 
             'nav.dialog.notice': 'Notice',
+            'nav.dialog.info': 'Notice',
             'nav.dialog.success': 'Completed',
             'nav.dialog.warning': 'Confirm action',
             'nav.dialog.error': 'Action failed',

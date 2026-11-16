@@ -86,6 +86,105 @@ function getWhatsNewText() {
   return '常规性能优化与体验改进，支持移动端会话列表置顶及跨设备实时云同步。';
 }
 
+function parseBuildVersionNumber(build) {
+  const raw = String(build?.attributes?.version || '').trim();
+  if (!/^\d+$/.test(raw)) return null;
+  const num = Number(raw);
+  return Number.isSafeInteger(num) ? num : null;
+}
+
+function compareBuildsAscending(a, b) {
+  const numA = parseBuildVersionNumber(a);
+  const numB = parseBuildVersionNumber(b);
+  if (numA !== null && numB !== null && numA !== numB) {
+    return numA - numB;
+  }
+  const timeA = Date.parse(a?.attributes?.uploadedDate || '') || 0;
+  const timeB = Date.parse(b?.attributes?.uploadedDate || '') || 0;
+  if (timeA !== timeB) {
+    return timeA - timeB;
+  }
+  return String(a?.id || '').localeCompare(String(b?.id || ''));
+}
+
+/**
+ * Proactively unlinks (from external group G2) and expires older non-expired builds
+ * that are still WAITING_FOR_REVIEW, so multiple versions (e.g. 1.0.638, 1.0.639, 1.0.640)
+ * never stack in Apple's "Waiting for Review" queue simultaneously.
+ * Returns { hasNewerBuild: boolean, expiredIds: string[] }.
+ */
+async function cleanupSupersededWaitingBuilds({
+  appId,
+  targetBuild,
+  g2GroupId = null,
+  token,
+  request = apiRequest
+}) {
+  const expiredIds = [];
+  const buildsRes = await request(
+    `/v1/builds?filter[app]=${encodeURIComponent(appId)}&filter[expired]=false&sort=-uploadedDate&limit=50`,
+    token
+  );
+  if (!buildsRes.ok || !Array.isArray(buildsRes.data?.data)) {
+    return { hasNewerBuild: false, expiredIds };
+  }
+
+  const activeBuilds = buildsRes.data.data;
+  const targetId = targetBuild.id;
+
+  const newerBuild = activeBuilds.find(b =>
+    b.id !== targetId &&
+    b.attributes?.processingState === 'VALID' &&
+    compareBuildsAscending(targetBuild, b) < 0
+  );
+  if (newerBuild) {
+    return { hasNewerBuild: true, newerBuild, expiredIds };
+  }
+
+  for (const oldBuild of activeBuilds) {
+    if (oldBuild.id === targetId) continue;
+    if (oldBuild.attributes?.expired) continue;
+    if (compareBuildsAscending(oldBuild, targetBuild) >= 0) continue;
+
+    const subRes = await request(`/v1/builds/${oldBuild.id}/betaAppReviewSubmission`, token);
+    const sub = subRes.data?.data;
+    const reviewState = sub?.attributes?.betaReviewState;
+    if (reviewState !== 'WAITING_FOR_REVIEW') {
+      continue;
+    }
+
+    console.log(
+      `[TestFlightAuto] Found superseded waiting build ${oldBuild.attributes?.version} (${oldBuild.id}). Removing from G2 & expiring...`
+    );
+
+    if (g2GroupId) {
+      await request(`/v1/betaGroups/${g2GroupId}/relationships/builds`, token, {
+        method: 'DELETE',
+        body: JSON.stringify({ data: [{ type: 'builds', id: oldBuild.id }] })
+      });
+    }
+
+    const expRes = await request(`/v1/builds/${oldBuild.id}`, token, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        data: {
+          type: 'builds',
+          id: oldBuild.id,
+          attributes: { expired: true }
+        }
+      })
+    });
+    if (expRes.ok) {
+      expiredIds.push(oldBuild.id);
+      console.log(`[TestFlightAuto] -> Expired older waiting Build ${oldBuild.attributes?.version}.`);
+    } else {
+      console.warn(`[TestFlightAuto] Failed to expire older Build ${oldBuild.attributes?.version}: ${expRes.status} ${expRes.rawText}`);
+    }
+  }
+
+  return { hasNewerBuild: false, expiredIds };
+}
+
 async function main() {
   console.log('=== [TestFlightAuto] Starting automated G2 external distribution & review submission ===');
 
@@ -96,7 +195,7 @@ async function main() {
   const buildNumber = String(process.env.BUILD_NUMBER || process.env.GITHUB_RUN_NUMBER || '').trim();
 
   let keyPath = process.env.APP_STORE_CONNECT_KEY_FILE;
-  if (!keyPath) {
+  if (!keyPath || !fs.existsSync(keyPath)) {
     const defaultPath = path.join(os.homedir(), '.private_keys', `AuthKey_${keyId}.p8`);
     const altPath = path.join(os.homedir(), '.appstoreconnect', 'private_keys', `AuthKey_${keyId}.p8`);
     if (fs.existsSync(defaultPath)) {
@@ -166,7 +265,7 @@ async function main() {
   const buildId = targetBuild.id;
   console.log(`[TestFlightAuto] Build ${targetBuild.attributes?.version} (ID: ${buildId}) is VALID and ready!`);
 
-  // 3. Find Beta Groups (Attach to BOTH G1 internal and G2 external)
+  // 3. Find Beta Groups (G1 internal & G2 external)
   console.log(`[TestFlightAuto] Fetching Beta Groups for App ${appId}...`);
   const groupsRes = await apiRequest(`/v1/apps/${appId}/betaGroups?limit=50`, token);
   if (!groupsRes.ok || !groupsRes.data?.data) {
@@ -177,11 +276,30 @@ async function main() {
   const groups = groupsRes.data.data;
   console.log(`[TestFlightAuto] Available beta groups: ${groups.map(g => `${g.attributes?.name} (Internal: ${g.attributes?.isInternalGroup})`).join(', ')}`);
 
-  // Target G1 (internal) and G2 (external)
   const g1Group = groups.find(g => (g.attributes?.name || '').trim().toLowerCase() === 'g1' || g.attributes?.isInternalGroup);
   const g2Group = groups.find(g => (g.attributes?.name || '').trim().toLowerCase() === targetGroupName);
 
-  // 4a. Attach Build to G1 (Internal Testing - Instant 0-wait distribution to developers!)
+  // 4. Proactively expire superseded WAITING_FOR_REVIEW builds BEFORE linking G2 or submitting.
+  // Apple permits concurrent submissions across different marketing versions (1.0.638, 1.0.639, 1.0.640)
+  // without throwing 422 SUBMISSION_LIMIT_REACHED, so cleanup cannot be gated on HTTP 422.
+  try {
+    const cleanup = await cleanupSupersededWaitingBuilds({
+      appId,
+      targetBuild,
+      g2GroupId: g2Group?.id || null,
+      token
+    });
+    if (cleanup.hasNewerBuild) {
+      console.log(
+        `[TestFlightAuto] Newer valid Build ${cleanup.newerBuild?.attributes?.version} already exists. Skipping stale G2 review submission for Build ${targetBuild.attributes?.version}.`
+      );
+      return;
+    }
+  } catch (cleanupErr) {
+    console.warn('[TestFlightAuto] Warning during proactive older waiting build cleanup:', cleanupErr.message);
+  }
+
+  // 5a. Attach Build to G1 (Internal Testing - Instant 0-wait distribution)
   if (g1Group) {
     if (g1Group.attributes?.hasAccessToAllBuilds) {
       console.log(`[TestFlightAuto] Internal Group "${g1Group.attributes?.name}" already has automatic access to all builds (hasAccessToAllBuilds: true).`);
@@ -203,7 +321,7 @@ async function main() {
     }
   }
 
-  // 4b. Attach Build to G2 (External Testing)
+  // 5b. Attach Build to G2 (External Testing)
   if (g2Group) {
     console.log(`[TestFlightAuto] Attaching Build ${buildId} to External Group "${g2Group.attributes?.name}" (ID: ${g2Group.id})...`);
     const linkG2Res = await apiRequest(`/v1/betaGroups/${g2Group.id}/relationships/builds`, token, {
@@ -223,7 +341,7 @@ async function main() {
     console.warn(`[TestFlightAuto] Beta group matching "${targetGroupName}" not found.`);
   }
 
-  // 5. Update Beta Build Localization (What to test / What's new)
+  // 6. Update Beta Build Localization (What to test / What's new)
   const whatsNewText = getWhatsNewText();
   console.log(`[TestFlightAuto] Setting Beta Build What's New notes: "${whatsNewText.slice(0, 80)}..."`);
   try {
@@ -259,7 +377,7 @@ async function main() {
     console.warn('[TestFlightAuto] Note: setting whatsNew had warning:', locErr.message);
   }
 
-  // 6. Submit for Beta App Review
+  // 7. Submit for Beta App Review
   console.log(`[TestFlightAuto] Submitting Build ${buildId} for Apple Beta App Review...`);
   const reviewSubRes = await apiRequest(`/v1/builds/${buildId}/betaAppReviewSubmission`, token);
   const existingSubmission = reviewSubRes.data?.data;
@@ -282,39 +400,18 @@ async function main() {
     });
 
     if (submitRes.status === 422 && submitRes.rawText?.includes('SUBMISSION_LIMIT_REACHED')) {
-      console.log('[TestFlightAuto] Another older build is currently waiting in review queue. Setting older waiting builds to expired to free up review slot...');
+      console.log('[TestFlightAuto] Review slot limit reached on submit. Re-running older waiting build cleanup and retrying...');
       try {
-        const recentBuildsRes = await apiRequest(`/v1/builds?filter[app]=${appId}&sort=-uploadedDate&limit=25`, token);
-        if (recentBuildsRes.ok && recentBuildsRes.data?.data) {
-          for (const oldBuild of recentBuildsRes.data.data) {
-            if (oldBuild.id === buildId) continue;
-            if (oldBuild.attributes?.expired) continue;
-            const oldSubRes = await apiRequest(`/v1/builds/${oldBuild.id}/betaAppReviewSubmission`, token);
-            const oldSub = oldSubRes.data?.data;
-            if (oldSub?.id && oldSub.attributes?.betaReviewState === 'WAITING_FOR_REVIEW') {
-              console.log(`[TestFlightAuto] Found older waiting review submission on Build ${oldBuild.attributes?.version}. Expiring it to clear review queue...`);
-              const expRes = await apiRequest(`/v1/builds/${oldBuild.id}`, token, {
-                method: 'PATCH',
-                body: JSON.stringify({
-                  data: {
-                    type: 'builds',
-                    id: oldBuild.id,
-                    attributes: { expired: true }
-                  }
-                })
-              });
-              if (expRes.ok) {
-                console.log(`[TestFlightAuto] -> Successfully expired older Build ${oldBuild.attributes?.version} and cleared review queue!`);
-              }
-            }
-          }
-        }
+        await cleanupSupersededWaitingBuilds({
+          appId,
+          targetBuild,
+          g2GroupId: g2Group?.id || null,
+          token
+        });
       } catch (cancelErr) {
-        console.warn('[TestFlightAuto] Warning during older build expiration:', cancelErr.message);
+        console.warn('[TestFlightAuto] Warning during retry older build expiration:', cancelErr.message);
       }
 
-      // Retry submission for the newest build
-      console.log('[TestFlightAuto] Retrying review submission for the newest build...');
       submitRes = await apiRequest('/v1/betaAppReviewSubmissions', token, {
         method: 'POST',
         body: JSON.stringify({
@@ -342,8 +439,16 @@ async function main() {
   console.log('=== [TestFlightAuto] Automated TestFlight workflow completed successfully! ===');
 }
 
-main().catch(err => {
-  console.warn('[TestFlightAuto] Unexpected error in automated TestFlight submission:', err.message);
-  // Do not fail CI step on review submission issue
-  process.exit(0);
-});
+if (require.main === module) {
+  main().catch(err => {
+    console.warn('[TestFlightAuto] Unexpected error in automated TestFlight submission:', err.message);
+    // Do not fail CI step on review submission issue
+    process.exit(0);
+  });
+}
+
+module.exports = {
+  parseBuildVersionNumber,
+  compareBuildsAscending,
+  cleanupSupersededWaitingBuilds
+};

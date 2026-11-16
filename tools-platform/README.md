@@ -1163,6 +1163,7 @@ flowchart TD
   - **Kindle 额度同步（可选）**：在已配置 `kindle` SSH 别名和 Kindle 端 dashboard 的 Mac 上，可用 `KINDLE_QUOTA_OWNER=admin KINDLE_QUOTA_TENANT=default pm2 start backend/kindle-quota.ecosystem.config.js` 启动独立的 `kindle-quota-sync`，再用 `pm2 save` 保存进程列表。账号和租户应替换为实际值；通过 `pm2 logs kindle-quota-sync` 查看状态。同步每 3 分钟读取该账号在该租户中的 SQLite 采样；当全部采样超过 5 分钟没有更新时，通过现有桌面 Agent 读取逻辑补采，最多每 10 分钟尝试一次。超过 15 分钟的采样显示为不可用；Credits 和额外消费金额仅在提供方返回时保存并同步，旧采样无法补回。停用旧的 `com.dragon.kindle-agent-quota` LaunchAgent，避免重复采集。
     同一任务还将当前用户的 PM2 进程状态写入 Kindle 的 `dragonapi-dashboard/pm2-status.json`，包含采样时间、进程名称、ID、PID、状态、启动时间、重启次数、CPU 百分比与内存字节数；不包含环境变量、命令参数或路径。若 `pm2` 不在任务的 PATH 中，可在启动时设置 `KINDLE_PM2_COMMAND` 为可执行文件路径。
     另外通过 SSH 别名 `NewAPI` 查询 Debian 登录账号的 PM2，并写入 `dragonapi-dashboard/debian-pm2-status.json`；连接失败、找不到 PM2 或守护进程未运行时，文件以 `status: unavailable` 和 `reason` 标记，不会创建远程 PM2 守护进程。Debian 和本机状态分别采集。
+    可选的 `pm2 start backend/kindle-traffic.ecosystem.config.js` 启动 `kindle-traffic-sync`，每三分钟将 Mac 本机 PM2 进程状态、CPU、内存及可用的 HTTP 请求速率和延迟写入 Kindle `dragonapi-dashboard/traffic-status.json`。PM2 未提供的 HTTP 指标为空，不能视为零；不发送环境变量、请求路径或客户端地址。采集 5 个样本后，请求速率至少 10 次/分钟且达到基线 3 倍并比基线高 10 次/分钟时标为突增；基线保存在进程内，重启或指标中断后重新积累。`pm2 save` 可保存进程列表。
 - **独立毛玻璃 AI 客服视窗 (`pet-chat.html`)**：
   - **防遮挡坐标避让算法 (`calculateChatBounds`)**：根据小宠当前所处的屏幕绝对坐标及主显示器工作区，自动计算对话框的最佳落点（优先放置在空间更充裕的左侧或右侧，底边对齐脚底），杜绝对话框遮挡小宠本身。
   - **毛玻璃粉红极简设计**：视窗采用 24px 高斯模糊 backdrop-filter、圆润卡片设计、猫耳头像呼吸动画，支持按住标题栏自由拖动。

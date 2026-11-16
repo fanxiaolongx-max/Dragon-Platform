@@ -198,9 +198,13 @@
         window.dispatchEvent(new Event('tools:ops-inbox-state'));
     }
 
-    function review(target) {
+    function clearOpsHash() {
+        if (location.hash === '#ops-drafts') history.replaceState(history.state, '', `${location.pathname}${location.search}`);
+    }
+
+    function review(target, options) {
         if (reviewTask) return reviewTask;
-        reviewTask = openReview(target).finally(() => { reviewTask = null; });
+        reviewTask = openReview(target, options).finally(() => { reviewTask = null; });
         return reviewTask;
     }
 
@@ -210,19 +214,34 @@
         if (typeof window.showPlatformNotice === 'function') return window.showPlatformNotice({ title, message });
     }
 
-    async function openReview(target) {
+    async function openReview(target, { quietWhenUnavailable = false } = {}) {
         if (!home) {
             location.assign('/#ops-drafts');
             return;
         }
         await refresh({ force: true });
-        if (refreshError) return reviewNotice(L('暂时无法加载运维待办，请稍后重试：', 'Could not load ops drafts. Please retry: ') + refreshError);
-        if (!state.canManage) return reviewNotice(L('当前账号没有管理运维待办的权限，请使用管理员账号。', 'Your account cannot manage ops drafts. Use an administrator account.'));
-        if (!state.total) return reviewNotice(L('当前没有待确认消息。微信 / WeLink 的运营消息草稿需要你确认时，会显示在这里。', 'No messages need review. WeChat / WeLink operations drafts appear here when they need your confirmation.'));
+        if (refreshError) {
+            clearOpsHash();
+            return quietWhenUnavailable ? undefined : reviewNotice(L('暂时无法加载运维待办，请稍后重试：', 'Could not load ops drafts. Please retry: ') + refreshError);
+        }
+        if (!state.canManage) {
+            clearOpsHash();
+            return quietWhenUnavailable ? undefined : reviewNotice(L('当前账号没有管理运维待办的权限，请使用管理员账号。', 'Your account cannot manage ops drafts. Use an administrator account.'));
+        }
+        if (!state.total) {
+            clearOpsHash();
+            return quietWhenUnavailable ? undefined : reviewNotice(L('当前没有待确认消息。微信 / WeLink 的运营消息草稿需要你确认时，会显示在这里。', 'No messages need review. WeChat / WeLink operations drafts appear here when they need your confirmation.'));
+        }
         const selected = pendingTargets().find(item => targetKey(item) === targetKey(target)) || state.items[0]?.targets[0];
-        if (!selected || !window.HomeWelinkThreads?.open) return reviewNotice(L('会话入口暂不可用，请刷新页面后重试。', 'Conversation access is unavailable. Refresh the page and retry.'));
+        if (!selected || !window.HomeWelinkThreads?.open) {
+            clearOpsHash();
+            return quietWhenUnavailable ? undefined : reviewNotice(L('会话入口暂不可用，请刷新页面后重试。', 'Conversation access is unavailable. Refresh the page and retry.'));
+        }
         const opened = await window.HomeWelinkThreads.open({ ...selected, name: selected.name || selected.id });
-        if (opened !== true) return;
+        if (opened !== true) {
+            clearOpsHash();
+            return;
+        }
         window.HomeMode?.set?.('chat', { updateHash: false });
         history.replaceState(history.state, '', `${location.pathname}${location.search}#ops-drafts`);
         render();
@@ -359,14 +378,14 @@
         state.muted = readMuted();
         state.activeThread = window.HomeWelinkThreads?.active?.() || null;
         state.threadReady = Boolean(state.activeThread && !document.getElementById('dcThread')?.hasAttribute('aria-busy'));
-        refresh({ force: true }).then(() => { if (location.hash === '#ops-drafts') review(); });
-        window.addEventListener('home:channel-threads-ready', () => { if (location.hash === '#ops-drafts') review(); });
+        refresh({ force: true }).then(() => { if (location.hash === '#ops-drafts') review(undefined, { quietWhenUnavailable: true }); });
+        window.addEventListener('home:channel-threads-ready', () => { if (location.hash === '#ops-drafts') review(undefined, { quietWhenUnavailable: true }); });
         window.addEventListener('home:channel-thread', event => {
             const changed = targetKey(state.activeThread) !== targetKey(event.detail.thread);
             const wasReviewing = state.reviewing;
             state.activeThread = event.detail.thread;
             state.threadReady = Boolean(event.detail.ready);
-            if (!state.activeThread && location.hash === '#ops-drafts') history.replaceState(history.state, '', `${location.pathname}${location.search}`);
+            if (!state.activeThread) clearOpsHash();
             if (changed || !wasReviewing) render();
             else mountThreadPanel();
         });

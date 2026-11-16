@@ -4,6 +4,12 @@
     'use strict';
     const root = document.documentElement;
 
+    // 焦点框只给键盘导航：鼠标/触摸点开后按 Esc 关闭弹层时，浏览器会把 Esc 当成键盘操作，
+    // 给仍聚焦的按钮（或弹层关闭后还原焦点的入口按钮）画出焦点框。按 Tab / 方向键时再恢复显示。
+    const NAV_KEYS = new Set(['Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
+    document.addEventListener('pointerdown', () => { root.dataset.pointerFocus = '1'; }, true);
+    document.addEventListener('keydown', event => { if (NAV_KEYS.has(event.key)) delete root.dataset.pointerFocus; }, true);
+
     const ICONS = {
         wide: '<path d="M3.5 5v14M20.5 5v14"/><path d="M7 12h10M9.5 9 6.5 12l3 3m5-6 3 3-3 3"/>',
         capture: '<path d="M8 4H4v4m12-4h4v4M4 16v4h4m12-4v4h-4"/><rect x="8" y="8" width="8" height="8" rx="1.5"/><path d="M8 12h8M12 8v8"/>',
@@ -282,7 +288,7 @@
         schedule() { window.HomeMode?.set('chat'); window.DragonClaw?.openSchedules?.(); },
         library() { window.openToolsKnowledgeGraph?.(); },
         promotions() { window.HomePromoPlayer?.open?.(); },
-        opsDrafts() { window.HomeMode?.set('chat'); if (location.hash !== '#ops-drafts') location.hash = '#ops-drafts'; else window.ToolsOpsInbox?.open?.(); },
+        opsDrafts() { window.HomeMode?.set('chat'); window.ToolsOpsInbox?.open?.(); },
         skillHub() { window.HomeSkillHub?.open?.(); },
         skillList() { window.HomeSkillHub?.open?.('skills'); },
         plugins() { window.HomeSkillHub?.open?.('plugins'); },
@@ -1736,6 +1742,7 @@
                 const filter = event.target.closest('[data-msg-filter]');
                 if (filter) { msg.filter = filter.dataset.msgFilter; loadMessages(); return; }
                 if (event.target.closest('[data-msg-close]')) return closeMessages();
+                if (event.target.closest('[data-msg-approval-push]')) return window.ApprovalInbox?.openSettings?.();
                 if (event.target.closest('[data-msg-all]')) {
                     await fetch('/api/alert-center/events/read-all', { method: 'PUT', headers: msgHeaders(true), body: '{}' }).catch(() => {});
                     window.refreshAlertCenterBadge?.(); loadMessages(); return;
@@ -1760,9 +1767,11 @@
             });
         }
         msg.el.innerHTML = `<header><span></span><h2>${esc(t('messages'))}</h2><button type="button" class="v2-icon-btn" data-msg-close aria-label="×"><span class="v2-ico" data-icon="close"></span></button></header>
-            <div class="v2-msg-toolbar"><div class="v2-seg">${[['all', t('filterAll')], ['unread', t('filterUnread')], ['warn', t('filterWarn')]].map(([id, label]) => `<button type="button" role="tab" data-msg-filter="${id}" aria-selected="${msg.filter === id}">${esc(label)}</button>`).join('')}</div><span></span><button type="button" class="v2-account-btn" data-msg-all>${esc(t('markAllRead'))}</button><button type="button" class="v2-account-btn" data-msg-clear>${esc(t('clearAll'))}</button></div>
+            <div class="v2-msg-toolbar"><div class="v2-seg">${[['all', t('filterAll')], ['unread', t('filterUnread')], ['warn', t('filterWarn')]].map(([id, label]) => `<button type="button" role="tab" data-msg-filter="${id}" aria-selected="${msg.filter === id}">${esc(label)}</button>`).join('')}</div><span></span><button type="button" class="v2-account-btn" data-msg-all>${esc(t('markAllRead'))}</button><button type="button" class="v2-account-btn" data-msg-clear>${esc(t('clearAll'))}</button>${window.ApprovalInbox?.available?.() ? `<button type="button" class="v2-account-btn" data-msg-approval-push>${esc(lang() === 'en-US' ? 'Approval push' : '审批推送')}</button>` : ''}</div>
+            <div class="v2-msg-approvals" hidden></div>
             <div class="v2-msg-list"><div class="v2-discover-empty">…</div></div>`;
         fillIcons(msg.el);
+        window.ApprovalInbox?.renderInto?.(msg.el.querySelector('.v2-msg-approvals'));
         msg.el.classList.add('is-open');
         document.body.classList.add('v2-messages-open');
         loadMessages();
@@ -1786,13 +1795,16 @@
     function renderPlatformStatus() {
         const status = window.ToolsPlatform?.status() || {};
         const badge = $('v2AlertCount');
-        if (badge) { badge.hidden = !status.unread; badge.textContent = status.unread > 99 ? '99+' : String(status.unread || 0); }
+        // 消息中心角标 = 未读告警 + 等你审批的操作（approval-inbox.js）
+        const total = (Number(status.unread) || 0) + (window.ApprovalInbox?.count?.() || 0);
+        if (badge) { badge.hidden = !total; badge.textContent = total > 99 ? '99+' : String(total); badge.classList.toggle('is-approval', (window.ApprovalInbox?.count?.() || 0) > 0); }
         const version = $('v2Version');
         if (version) version.textContent = status.version || '';
         renderUser();
         if (openPop?.pop === userPop) renderUserMenu();
     }
     window.addEventListener('tools:platform-status', renderPlatformStatus);
+    window.addEventListener('tools:approval-inbox', renderPlatformStatus);
 
     window.addEventListener('tools:ops-inbox-total', event => {
         const total = Number(event.detail?.total) || 0;

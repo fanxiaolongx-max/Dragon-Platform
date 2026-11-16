@@ -1,12 +1,12 @@
 {
   "zh": [
-    "新增智能体「需要你」审批收件箱与多用户跨端通知：汇总当前账号下所有待审批操作与多会话产物隔离，支持按设定超时延迟推送至 WeLink 助理、微信及 welink-cli，在群聊或私聊中回复「批准/拒绝 验证码」即可远程完成结算。",
-    "多用户会话排序、侧边栏精简与移动端离线缓存升级：Web 端支持置顶对话仅纵向拖拽排序并按用户独立持久化、精简侧边栏冗余入口；iOS / Android 端新增按账号隔离的本地会话缓存与历史增量同步，修复 iOS 端 Keychain 凭据读取触发 errSecParam (-50) 导致登录后秒退及主题切换闪跳问题。",
-    "工具权限展示对齐、Excel 线性解析与 AI 导入填表修复：智能体工具配置面板支持多用户团队权限对齐；修复 read_document / query_data 及源码解析器在万行以上 Excel 表格下的 O(R²·C²) 卡死问题；修复导入自定义 HTML 工具时未对 Gemini 数组包装及别名 JSON 解包导致的 AI 自动填表失败。"
+    "审批中心并入消息中心与焦点体验优化：将「需要你」待审批操作与「审批推送」抽屉合并进左下角消息中心并汇总角标计数；优化鼠标或触控关闭弹层后按 Esc 返回时的焦点框显示。",
+    "修复运维待办刷新自动弹窗与提示标签问题：修复空草稿点击或刷新 /#ops-drafts 时反复弹出「当前没有待确认消息」提示框的问题，无待办时自动清理残留 URL 哈希；补全 nav.dialog.info 中英文词条，解决弹窗标题上方显示 NAV.DIALOG.INFO 的问题。",
+    "TestFlight 审核队列主动置换与 Kindle 网关流量同步：升级 iOS 外测分发脚本，跨版本主动清理 G2 组中排队等待审核的旧构建并防止旧版本覆盖新版本；新增 kindle-traffic-sync 进程与单测，定期汇总 Debian 网关请求量与 5xx 异常至 Kindle 看板。"
   ],
   "en": [
-    "Added the cross-conversation 'Needs You' agent approval inbox with per-user artifact isolation, delayed notifications (WeLink bot, WeChat, and welink-cli), and direct chat replies ('approve/deny <code>') to settle pending actions remotely.",
-    "Multi-user conversation sorting, streamlined sidebar, and mobile offline cache isolation: Web pinned chats now support vertical drag-to-reorder persistence per user; iOS and Android add account-scoped local conversation caches, incremental sync, and fixes for iOS Keychain errSecParam (-50) instant session expiry and theme flicker.",
-    "Tool permission UI alignment, linear Excel parsing, and AI import metadata fixes: refined team access controls in agent tool settings, resolved O(R²·C²) ExcelJS column-getter stalls in read_document/query_data and sheet parsers, and unwrapped array-wrapped and aliased JSON responses from Gemini during custom HTML tool metadata extraction."
+    "Integrated agent approval inbox into Message Center and refined focus outlines: merged 'Needs You' pending approvals and the approval push drawer into the bottom-left Message Center with unified badge counts, and suppressed spurious focus rings after pointer interactions.",
+    "Fixed ops drafts refresh popup and dialog eyebrow localization: cleared stale #ops-drafts hashes on page reload when no drafts are pending so empty notices no longer reappear on refresh, and added missing nav.dialog.info translations so dialogs no longer show raw NAV.DIALOG.INFO.",
+    "Proactive TestFlight review queue cleanup and Kindle gateway traffic sync: upgraded iOS external distribution to proactively unlink and expire superseded WAITING_FOR_REVIEW builds across versions, and added the kindle-traffic-sync PM2 worker and unit tests to summarize Debian gateway rates and 5xx errors for the Kindle dashboard."
   ]
 }
