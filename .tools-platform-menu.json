@@ -426,8 +426,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./uivf12/index.html",
       "encrypted": false,
-      "fingerprint": "ef09c2f806072e5d20ec561e04a7b901d2ff9d2a4e827dd66653672b491b0c69",
-      "updatedAt": "2026-11-15T22:29:29.780Z"
+      "fingerprint": "b54f12de28a7dd941329acfcddcfd56594edb12410f39ef31be2099388156972",
+      "updatedAt": "2026-11-16T08:29:29.430Z"
     },
     {
       "slug": "sla",
@@ -436,8 +436,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./sla/index.html",
       "encrypted": false,
-      "fingerprint": "bfaff2b4ee21ff5e93eeb60b78743a58b5c1157f9ef6d14479dcad28b0e117d5",
-      "updatedAt": "2026-11-15T22:29:30.672Z"
+      "fingerprint": "61df771a5c93532cabb16e3e3689beeb68c7e4099c336ec3adf738a71fe666b9",
+      "updatedAt": "2026-11-16T08:29:30.336Z"
     },
     {
       "slug": "report",
@@ -446,8 +446,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./report/index.html",
       "encrypted": false,
-      "fingerprint": "9fb2ff26e5a307784ee9e8ead5aefffcf3696674cf23909f47beded0274b5771",
-      "updatedAt": "2026-11-15T22:29:30.934Z"
+      "fingerprint": "0c5fbaefa3da55982767c8484a45b980669065cbba40950721abab18f406674f",
+      "updatedAt": "2026-11-16T08:29:30.562Z"
     },
     {
       "slug": "expedite",
@@ -456,8 +456,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./expedite/index.html",
       "encrypted": false,
-      "fingerprint": "44b8ee192c0871762f7259d48779246b69936b01e9033f70dcb58fe9d036a17e",
-      "updatedAt": "2026-11-15T22:29:31.099Z"
+      "fingerprint": "6ce17a9081a0c322dbc7375ec7006461b1450de6741c62b819b5daf52a45dcf2",
+      "updatedAt": "2026-11-16T08:29:30.690Z"
     },
     {
       "slug": "monthly",
@@ -466,8 +466,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./monthly/index.html",
       "encrypted": false,
-      "fingerprint": "a6d20d7a918f28934a1779e9a11a93abdd8191c4a34aacf342603f9bb95f384d",
-      "updatedAt": "2026-11-15T22:29:31.557Z"
+      "fingerprint": "270fcb697d8445a8a95b2cf18329103aecfcc1fedf70f2a66a679d11b5b335be",
+      "updatedAt": "2026-11-16T08:29:31.145Z"
     },
     {
       "slug": "topic-analysis",
