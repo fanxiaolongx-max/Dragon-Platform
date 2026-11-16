@@ -155,14 +155,31 @@ function maskSecrets(text, secrets) {
     return output;
 }
 
+function isContextGone(error) {
+    return /Cannot find context with specified id|Execution context was destroyed|Inspected target navigated or closed|Target closed/i.test(String(error?.message || ''));
+}
+
 /**
- * 给页面装上自动保存 / 自动填充。
- * cdp(method, params)：不受命令中断影响的 CDP 通道；context()：返回 { owner, secrets, notify } 或 null（页面此刻没有归属时什么都不做）。
+ * 创建页面保险箱会话：同步跟踪主框架与隔离世界元信息，避免表单提交跳走后上下文销毁导致丢失 save。
  */
-async function install(cdp, context) {
-    await cdp('Runtime.addBinding', { name: BINDING, executionContextName: WORLD });
-    await cdp('Page.addScriptToEvaluateOnNewDocument', { source: PAGE_AGENT_SOURCE, worldName: WORLD, runImmediately: true });
-    return async function onBinding(params = {}) {
+function createHook(cdp, context) {
+    let mainFrameId = '';
+    const contexts = new Map();
+
+    function onEvent(method, params = {}) {
+        if (method === 'Page.frameNavigated' && params.frame && !params.frame.parentId) {
+            mainFrameId = params.frame.id || mainFrameId;
+            return;
+        }
+        if (method === 'Runtime.executionContextCreated') {
+            const info = params.context;
+            if (!info?.id || info.name !== WORLD) return;
+            contexts.set(info.id, { frameId: info.auxData?.frameId || '', origin: originOf(info.origin) });
+            if (contexts.size > 120) contexts.delete(contexts.keys().next().value);
+        }
+    }
+
+    async function onBinding(params = {}) {
         if (params.name !== BINDING) return;
         let message;
         try { message = JSON.parse(String(params.payload || '').slice(0, 16 * 1024)); } catch (_error) { return; }
@@ -170,9 +187,13 @@ async function install(cdp, context) {
         const ctx = context();
         const owner = vaultOwnerOf(ctx?.owner);
         if (!owner) return;
+        const tracked = contexts.get(params.executionContextId);
+        // Reject iframe bindings even if the context already tore down during navigation.
+        if (tracked && mainFrameId && tracked.frameId && tracked.frameId !== mainFrameId) return;
         const evaluate = expression => cdp('Runtime.evaluate', { expression, contextId: params.executionContextId, returnByValue: true }).then(result => result.result?.value);
         try {
-            const origin = originOf(await evaluate('window.top === window ? location.href : ""'));
+            const trustedOrigin = mainFrameId && tracked?.frameId === mainFrameId ? tracked.origin : '';
+            const origin = trustedOrigin || originOf(await evaluate('window.top === window ? location.href : ""'));
             if (!origin) return;
             if (message.action === 'probe') {
                 const never = await vault().neverSave(owner, origin);
@@ -196,10 +217,32 @@ async function install(cdp, context) {
                 ctx.notify?.({ kind: known ? 'updated' : 'saved', origin, username: maskUsername(username) });
             }
         } catch (error) {
-            // 绝不把凭据或原始错误带进日志
-            console.warn('[vault] browser hook failed:', error?.code || error?.name || 'error');
+            if (!isContextGone(error)) {
+                // 绝不把凭据或原始错误带进日志
+                console.warn('[vault] browser hook failed:', error?.code || error?.name || 'error');
+            }
         }
-    };
+    }
+
+    async function installHook() {
+        try {
+            const tree = await cdp('Page.getFrameTree', {});
+            if (!mainFrameId) mainFrameId = tree?.frameTree?.frame?.id || '';
+        } catch (_error) {}
+        await cdp('Runtime.addBinding', { name: BINDING, executionContextName: WORLD });
+        await cdp('Page.addScriptToEvaluateOnNewDocument', { source: PAGE_AGENT_SOURCE, worldName: WORLD, runImmediately: true });
+        return onBinding;
+    }
+
+    return { install: installHook, onBinding, onEvent };
+}
+
+/**
+ * 给页面装上自动保存 / 自动填充。
+ * cdp(method, params)：不受命令中断影响的 CDP 通道；context()：返回 { owner, secrets, notify } 或 null（页面此刻没有归属时什么都不做）。
+ */
+async function install(cdp, context) {
+    return createHook(cdp, context).install();
 }
 
 /**
@@ -235,4 +278,4 @@ async function login({ cdp, url, owner, username, submit = true, secrets }) {
     return { status: status === 'username-step' ? 'no-form' : status, origin, username: masked };
 }
 
-module.exports = { install, login, maskSecrets, vaultOwnerOf, WORLD, BINDING, PAGE_AGENT_SOURCE };
+module.exports = { createHook, install, login, maskSecrets, vaultOwnerOf, WORLD, BINDING, PAGE_AGENT_SOURCE };

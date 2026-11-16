@@ -97,14 +97,16 @@ function createPage({ id, send:transport, close, label = '', notify, setZoom, va
             await send('Input.dispatchMouseEvent',{type:'mouseMoved',x,y});await pause(120);
         },
         async init() {
+            if (vault) vaultHook = browserVault.createHook(transport, () => vaultContext(page));
             await Promise.all(['Page.enable', 'Network.enable', 'Runtime.enable', 'Log.enable'].map(method => send(method, method === 'Network.enable' ? { maxTotalBufferSize: 50 * 1024 * 1024, maxResourceBufferSize: 10 * 1024 * 1024 } : {})));
             // 保险箱：登录页自动填充、提交时自动保存。失败不影响浏览器本身可用。
-            if (vault) vaultHook = await browserVault.install(transport, () => vaultContext(page)).catch(() => null);
+            if (vaultHook) await vaultHook.install().catch(() => { vaultHook = null; });
         },
         cdp: (method, params = {}) => transport(method, params),
         setManualControl(active) { if(manualRecordingOff&&!active){chooser=null;manualPrepared=false;send('Page.setInterceptFileChooserDialog',{enabled:false}).catch(()=>{});}manualRecordingOff = active; network.clear(); consoleLog.length = 0; },
         onEvent(method, params = {}) {
-            if (method === 'Runtime.bindingCalled') { vaultHook?.(params); return; }
+            vaultHook?.onEvent?.(method, params);
+            if (method === 'Runtime.bindingCalled') { vaultHook?.onBinding(params); return; }
             if (method === 'Page.fileChooserOpened') chooser = {...params, id:crypto.randomUUID()};
             if (method === 'Page.frameNavigated' && !params.frame?.parentId) {chooser = null;page.documentId=params.frame?.loaderId||crypto.randomUUID();}
             if (method === 'Input.dragIntercepted') dragData = params.data;

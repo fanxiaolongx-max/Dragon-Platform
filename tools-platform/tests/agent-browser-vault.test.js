@@ -12,7 +12,7 @@ process.env.TOOLS_REPORT_DATA_DIR = path.join(sandbox, 'report-data');
 
 const browser = require('../backend/models/agent-browser');
 const { vault } = require('../backend/models/password-vault');
-const { maskSecrets, vaultOwnerOf } = require('../backend/models/agent-browser-vault');
+const { createHook, maskSecrets, vaultOwnerOf, WORLD, BINDING } = require('../backend/models/agent-browser-vault');
 
 const PASSWORD = 'Tr0ub4dor&3-vault';
 const ALICE = 'default::alice', BOB = 'default::bob', CAROL = 'default::carol';
@@ -180,6 +180,35 @@ test('never-save sites are not captured; several accounts need a choice', { skip
     assert.match(choose.content, /多个账号：.*al\*\*\*@example\.com/);
     const picked = await run(ALICE, 'browser_login', { username: 'al***@example.com' });
     assert.match(picked.content, /已用保险箱账号 al\*\*\*@example\.com/);
+});
+
+test('save survives fast form navigation after executionContextCreated and rejects subframe bindings', async () => {
+    const cdp = async method => {
+        if (method === 'Page.getFrameTree') return { frameTree: { frame: { id: 'main-1' } } };
+        if (method === 'Runtime.evaluate') throw Object.assign(new Error('Inspected target navigated or closed'), { code: 'BROWSER_CDP' });
+        return {};
+    };
+    const hook = createHook(cdp, () => ({ owner: 'default::dave', secrets: new Set() }));
+    await hook.install();
+    hook.onEvent('Runtime.executionContextCreated', {
+        context: { id: 11, name: WORLD, origin: 'https://nav-race.example', auxData: { frameId: 'sub-2' } }
+    });
+    await hook.onBinding({
+        name: BINDING, executionContextId: 11,
+        payload: JSON.stringify({ action: 'save', document: 'doc-1', credentials: { username: 'eve', password: 'subframe-pw' } })
+    });
+    assert.deepEqual(await vault().find('dave', 'https://nav-race.example'), []);
+
+    hook.onEvent('Runtime.executionContextCreated', {
+        context: { id: 12, name: WORLD, origin: 'https://nav-race.example', auxData: { frameId: 'main-1' } }
+    });
+    await hook.onBinding({
+        name: BINDING, executionContextId: 12,
+        payload: JSON.stringify({ action: 'save', document: 'doc-2', credentials: { username: 'dave', password: PASSWORD } })
+    });
+    const entries = await vault().find('dave', 'https://nav-race.example');
+    assert.equal(entries.length, 1);
+    assert.equal(await vault().reveal('dave', entries[0].id), PASSWORD);
 });
 
 test('helpers', () => {
