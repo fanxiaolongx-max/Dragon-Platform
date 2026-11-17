@@ -1790,11 +1790,14 @@ private struct ApprovalCardView: View {
     let language: String
     let onResolve: (String, String?) -> Void
 
+    private var isNegativeOutcome: Bool {
+        let decision = approval.chosenDecision ?? ""
+        return decision == "deny" || decision == "timeout" || decision == "aborted" || decision == "abort"
+    }
+
     private var headerAccent: Color {
         if !approval.isPending {
-            return (approval.chosenDecision == "deny" || approval.chosenDecision == "timeout" || approval.chosenDecision == "aborted" || approval.chosenDecision == "abort")
-                ? palette.danger
-                : palette.accentStrong
+            return isNegativeOutcome ? palette.danger : palette.accentStrong
         }
         return approval.isDanger ? palette.danger : palette.warning
     }
@@ -1807,315 +1810,399 @@ private struct ApprovalCardView: View {
         return localized
     }
 
+    private var cardBackground: Color {
+        if approval.isDanger && approval.isPending {
+            return palette.danger.opacity(palette.isDark ? 0.14 : 0.08)
+        }
+        return palette.cardSurface.opacity(palette.isDark ? 0.84 : 0.92)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center, spacing: 8) {
-                Image(systemName: approval.isDanger ? "exclamationmark.shield.fill" : (approval.isPending ? "hand.raised.fill" : "checkmark.shield.fill"))
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(headerAccent)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(toolTitle)
-                        .font(.system(size: 12.5, weight: .bold))
-                        .foregroundStyle(palette.inkPrimary)
-                    if approval.isPending {
-                        Text(approval.isDanger
-                            ? L10n.tr(language, zh: "涉及敏感或高危边界，需要明确确认", en: "Sensitive or high-risk operation requires explicit confirmation")
-                            : L10n.tr(language, zh: "等待你的授权后继续执行", en: "Waiting for your approval to proceed"))
-                            .font(.system(size: 10.5))
-                            .foregroundStyle(approval.isDanger ? palette.danger : palette.inkMuted)
-                    }
-                }
-
-                Spacer(minLength: 6)
-
-                if approval.isPending {
-                    Text(approval.isDanger
-                        ? L10n.tr(language, zh: "高危", en: "Danger")
-                        : L10n.tr(language, zh: "待确认", en: "Pending"))
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(headerAccent)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
-                        .background(headerAccent.opacity(0.14), in: Capsule())
-                } else {
-                    Text(DragonClawHelpers.shared.approvalStatusLabel(
-                        decision: approval.chosenDecision,
-                        scope: approval.chosenScope,
-                        language: language
-                    ))
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(headerAccent)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(headerAccent.opacity(0.12), in: Capsule())
-                }
-            }
-
-            if !approval.impact.isEmpty {
-                Text(approval.impact)
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(palette.inkSecondary)
-            }
-
-            if !approval.command.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(approval.command)
-                        .font(.system(size: 11.5, design: .monospaced))
-                        .foregroundStyle(palette.inkPrimary)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    if !approval.cwd.isEmpty {
-                        Text("\(L10n.tr(language, zh: "目录", en: "cwd")): \(approval.cwd)")
-                            .font(.system(size: 10, design: .monospaced))
-                            .foregroundStyle(palette.inkMuted)
-                            .lineLimit(2)
-                    }
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-                .background(palette.elevatedSurface.opacity(0.9), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            }
-
-            if !approval.filePath.isEmpty {
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "doc.text")
-                            .font(.system(size: 10.5))
-                            .foregroundStyle(palette.inkMuted)
-                        Text(approval.filePath)
-                            .font(.system(size: 11, design: .monospaced))
-                            .foregroundStyle(palette.inkPrimary)
-                            .lineLimit(2)
-                        if approval.added > 0 || approval.removed > 0 {
-                            Spacer(minLength: 4)
-                            Text("+\(approval.added) -\(approval.removed)")
-                                .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
-                                .foregroundStyle(palette.inkSecondary)
-                        }
-                    }
-                    if !approval.renameTo.isEmpty {
-                        Text("→ \(approval.renameTo)")
-                            .font(.system(size: 10.5, design: .monospaced))
-                            .foregroundStyle(palette.accentStrong)
-                    }
-                    if approval.recursive {
-                        Text(L10n.tr(language, zh: "包含子目录（递归）", en: "Recursive directory operation"))
-                            .font(.system(size: 10))
-                            .foregroundStyle(palette.danger)
-                    }
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
-                .background(palette.elevatedSurface.opacity(0.82), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            }
-
-            if !approval.channel.isEmpty || !approval.targets.isEmpty || !approval.message.isEmpty {
-                VStack(alignment: .leading, spacing: 3) {
-                    if !approval.channel.isEmpty || !approval.targets.isEmpty {
-                        Text([approval.channel, approval.targets].filter { !$0.isEmpty }.joined(separator: " → "))
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(palette.inkPrimary)
-                    }
-                    if !approval.message.isEmpty {
-                        Text(approval.message)
-                            .font(.system(size: 11))
-                            .foregroundStyle(palette.inkSecondary)
-                            .lineLimit(3)
-                    }
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
-                .background(palette.elevatedSurface.opacity(0.82), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            }
-
-            if !approval.fields.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    ForEach(Array(approval.fields.enumerated()), id: \.offset) { _, field in
-                        HStack(alignment: .top, spacing: 6) {
-                            if !field.label.isEmpty {
-                                Text("\(field.label):")
-                                    .font(.system(size: 10.5, weight: .semibold))
-                                    .foregroundStyle(palette.inkMuted)
-                            }
-                            Text(field.value)
-                                .font(.system(size: 10.5, design: .monospaced))
-                                .foregroundStyle(palette.inkPrimary)
-                                .lineLimit(2)
-                        }
-                    }
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
-                .background(palette.elevatedSurface.opacity(0.75), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            }
-
-            if !approval.diff.isEmpty && approval.isPending {
-                ScrollView(.vertical) {
-                    Text(approval.diff)
-                        .font(.system(size: 10.5, design: .monospaced))
-                        .foregroundStyle(palette.inkSecondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .frame(maxHeight: 130)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-                .background(palette.elevatedSurface.opacity(0.9), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            }
-
-            if !approval.dangers.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    ForEach(Array(approval.dangers.enumerated()), id: \.offset) { _, item in
-                        HStack(alignment: .top, spacing: 6) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .font(.system(size: 10.5))
-                                .foregroundStyle(palette.danger)
-                                .padding(.top, 1)
-                            VStack(alignment: .leading, spacing: 1) {
-                                let title = item.label.isEmpty ? item.category : item.label
-                                if !title.isEmpty {
-                                    Text(title)
-                                        .font(.system(size: 11, weight: .semibold))
-                                        .foregroundStyle(palette.danger)
-                                }
-                                if !item.reason.isEmpty {
-                                    Text(item.reason)
-                                        .font(.system(size: 10.5))
-                                        .foregroundStyle(palette.inkSecondary)
-                                }
-                            }
-                        }
-                    }
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
-                .background(palette.danger.opacity(0.09), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            }
-
-            if !approval.risks.isEmpty && approval.isPending {
-                VStack(alignment: .leading, spacing: 3) {
-                    ForEach(Array(approval.risks.enumerated()), id: \.offset) { _, risk in
-                        HStack(alignment: .top, spacing: 6) {
-                            Image(systemName: "exclamationmark.circle")
-                                .font(.system(size: 10.5))
-                                .foregroundStyle(palette.warning)
-                                .padding(.top, 1)
-                            Text(risk)
-                                .font(.system(size: 10.5))
-                                .foregroundStyle(palette.inkSecondary)
-                        }
-                    }
-                }
-            }
-
-            if let err = approval.errorMessage, !err.isEmpty {
-                Text(err)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(palette.danger)
-            }
-
-            if approval.isPending {
-                VStack(alignment: .stretch, spacing: 8) {
-                    if approval.isSubmitting {
-                        HStack(spacing: 6) {
-                            ProgressView().controlSize(.small)
-                            Text(L10n.tr(language, zh: "正在提交确认结果...", en: "Submitting decision..."))
-                                .font(.system(size: 11.5, weight: .medium))
-                                .foregroundStyle(palette.inkMuted)
-                        }
-                        .padding(.vertical, 4)
-                    } else {
-                        if approval.canOfferFullAccess {
-                            Button {
-                                onResolve("full", nil)
-                            } label: {
-                                VStack(spacing: 2) {
-                                    HStack(spacing: 6) {
-                                        Image(systemName: "checkmark.shield.fill")
-                                            .font(.system(size: 12))
-                                        Text(L10n.tr(language, zh: "本对话完全访问（后续不再询问）", en: "Full access for this chat"))
-                                            .font(.system(size: 12.5, weight: .semibold))
-                                    }
-                                    Text(L10n.tr(language, zh: "高危操作（删改敏感/系统文件等）仍会单独确认", en: "High-risk operations will still ask for confirmation"))
-                                        .font(.system(size: 9.5))
-                                        .opacity(0.88)
-                                }
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 9)
-                                .padding(.horizontal, 10)
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .tint(palette.accentStrong)
-                        } else if approval.canOfferAlwaysAllow {
-                            Button {
-                                onResolve("always", "session")
-                            } label: {
-                                Label(
-                                    L10n.tr(language, zh: "本对话总是允许同类操作", en: "Always allow in this chat"),
-                                    systemImage: "checkmark.circle"
-                                )
-                                .font(.system(size: 12, weight: .semibold))
-                                .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(.bordered)
-                            .tint(palette.accentStrong)
-                        }
-
-                        if approval.isDanger && !approval.noAlways && (approval.approvalUrl ?? "").isEmpty && !approval.dangerScopes.isEmpty {
-                            let preferredScope = approval.dangerScopes.contains("session") ? "session" : approval.dangerScopes[0]
-                            Button {
-                                onResolve("always", preferredScope)
-                            } label: {
-                                Label(
-                                    preferredScope == "session"
-                                        ? L10n.tr(language, zh: "本对话同类高危操作不再提示", en: "Allow this risk category in this chat")
-                                        : L10n.tr(language, zh: "本次及后续放行此类操作", en: "Allow this risk category"),
-                                    systemImage: "checkmark.shield"
-                                )
-                                .font(.system(size: 11.5, weight: .semibold))
-                                .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(.bordered)
-                            .tint(palette.warning)
-                        }
-
-                        HStack(spacing: 8) {
-                            Button {
-                                onResolve("allow", nil)
-                            } label: {
-                                Text(L10n.tr(language, zh: "允许本次", en: "Allow once"))
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(.bordered)
-                            .tint(approval.isDanger ? palette.danger : palette.accentStrong)
-
-                            Button {
-                                onResolve("deny", nil)
-                            } label: {
-                                Text(L10n.tr(language, zh: "拒绝", en: "Deny"))
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(.bordered)
-                            .tint(palette.inkMuted)
-                        }
-                    }
-                }
-            }
+            headerSection
+            impactSection
+            commandSection
+            fileSection
+            channelSection
+            fieldsSection
+            diffSection
+            dangerSection
+            risksSection
+            errorSection
+            actionsSection
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            approval.isDanger && approval.isPending
-                ? palette.danger.opacity(palette.isDark ? 0.14 : 0.08)
-                : palette.cardSurface.opacity(palette.isDark ? 0.84 : 0.92),
-            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
-        )
+        .background(cardBackground, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .strokeBorder(headerAccent.opacity(approval.isPending ? 0.45 : 0.18), lineWidth: approval.isPending ? 1 : 0.6)
         )
+    }
+
+    @ViewBuilder
+    private var headerSection: some View {
+        let iconName = approval.isDanger ? "exclamationmark.shield.fill" : (approval.isPending ? "hand.raised.fill" : "checkmark.shield.fill")
+        HStack(alignment: .center, spacing: 8) {
+            Image(systemName: iconName)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(headerAccent)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(toolTitle)
+                    .font(.system(size: 12.5, weight: .bold))
+                    .foregroundStyle(palette.inkPrimary)
+                if approval.isPending {
+                    Text(approval.isDanger
+                        ? L10n.tr(language, zh: "涉及敏感或高危边界，需要明确确认", en: "Sensitive or high-risk operation requires explicit confirmation")
+                        : L10n.tr(language, zh: "等待你的授权后继续执行", en: "Waiting for your approval to proceed"))
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(approval.isDanger ? palette.danger : palette.inkMuted)
+                }
+            }
+
+            Spacer(minLength: 6)
+
+            if approval.isPending {
+                Text(approval.isDanger
+                    ? L10n.tr(language, zh: "高危", en: "Danger")
+                    : L10n.tr(language, zh: "待确认", en: "Pending"))
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(headerAccent)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(headerAccent.opacity(0.14), in: Capsule())
+            } else {
+                Text(DragonClawHelpers.shared.approvalStatusLabel(
+                    decision: approval.chosenDecision,
+                    scope: approval.chosenScope,
+                    language: language
+                ))
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(headerAccent)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(headerAccent.opacity(0.12), in: Capsule())
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var impactSection: some View {
+        if !approval.impact.isEmpty {
+            Text(approval.impact)
+                .font(.system(size: 11.5))
+                .foregroundStyle(palette.inkSecondary)
+        }
+    }
+
+    @ViewBuilder
+    private var commandSection: some View {
+        if !approval.command.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(approval.command)
+                    .font(.system(size: 11.5, design: .monospaced))
+                    .foregroundStyle(palette.inkPrimary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if !approval.cwd.isEmpty {
+                    Text("\(L10n.tr(language, zh: "目录", en: "cwd")): \(approval.cwd)")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(palette.inkMuted)
+                        .lineLimit(2)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(palette.elevatedSurface.opacity(0.9), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+    }
+
+    @ViewBuilder
+    private var fileSection: some View {
+        if !approval.filePath.isEmpty {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Image(systemName: "doc.text")
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(palette.inkMuted)
+                    Text(approval.filePath)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(palette.inkPrimary)
+                        .lineLimit(2)
+                    if approval.added > 0 || approval.removed > 0 {
+                        Spacer(minLength: 4)
+                        Text("+\(approval.added) -\(approval.removed)")
+                            .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(palette.inkSecondary)
+                    }
+                }
+                if !approval.renameTo.isEmpty {
+                    Text("→ \(approval.renameTo)")
+                        .font(.system(size: 10.5, design: .monospaced))
+                        .foregroundStyle(palette.accentStrong)
+                }
+                if approval.recursive {
+                    Text(L10n.tr(language, zh: "包含子目录（递归）", en: "Recursive directory operation"))
+                        .font(.system(size: 10))
+                        .foregroundStyle(palette.danger)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(palette.elevatedSurface.opacity(0.82), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+    }
+
+    @ViewBuilder
+    private var channelSection: some View {
+        if !approval.channel.isEmpty || !approval.targets.isEmpty || !approval.message.isEmpty {
+            let route = [approval.channel, approval.targets].filter { !$0.isEmpty }.joined(separator: " → ")
+            VStack(alignment: .leading, spacing: 3) {
+                if !route.isEmpty {
+                    Text(route)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(palette.inkPrimary)
+                }
+                if !approval.message.isEmpty {
+                    Text(approval.message)
+                        .font(.system(size: 11))
+                        .foregroundStyle(palette.inkSecondary)
+                        .lineLimit(3)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(palette.elevatedSurface.opacity(0.82), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+    }
+
+    @ViewBuilder
+    private var fieldsSection: some View {
+        if !approval.fields.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(0..<approval.fields.count, id: \.self) { index in
+                    let field = approval.fields[index]
+                    ApprovalFieldRow(label: field.label, value: field.value, palette: palette)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(palette.elevatedSurface.opacity(0.75), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+    }
+
+    @ViewBuilder
+    private var diffSection: some View {
+        if !approval.diff.isEmpty && approval.isPending {
+            ScrollView(.vertical) {
+                Text(approval.diff)
+                    .font(.system(size: 10.5, design: .monospaced))
+                    .foregroundStyle(palette.inkSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxHeight: 130)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(palette.elevatedSurface.opacity(0.9), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+    }
+
+    @ViewBuilder
+    private var dangerSection: some View {
+        if !approval.dangers.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(0..<approval.dangers.count, id: \.self) { index in
+                    let item = approval.dangers[index]
+                    ApprovalDangerRow(
+                        title: item.label.isEmpty ? item.category : item.label,
+                        reason: item.reason,
+                        palette: palette
+                    )
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(palette.danger.opacity(0.09), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+    }
+
+    @ViewBuilder
+    private var risksSection: some View {
+        if !approval.risks.isEmpty && approval.isPending {
+            VStack(alignment: .leading, spacing: 3) {
+                ForEach(0..<approval.risks.count, id: \.self) { index in
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(systemName: "exclamationmark.circle")
+                            .font(.system(size: 10.5))
+                            .foregroundStyle(palette.warning)
+                            .padding(.top, 1)
+                        Text(approval.risks[index])
+                            .font(.system(size: 10.5))
+                            .foregroundStyle(palette.inkSecondary)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var errorSection: some View {
+        if let err = approval.errorMessage, !err.isEmpty {
+            Text(err)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(palette.danger)
+        }
+    }
+
+    @ViewBuilder
+    private var actionsSection: some View {
+        if approval.isPending {
+            VStack(alignment: .stretch, spacing: 8) {
+                if approval.isSubmitting {
+                    HStack(spacing: 6) {
+                        ProgressView().controlSize(.small)
+                        Text(L10n.tr(language, zh: "正在提交确认结果...", en: "Submitting decision..."))
+                            .font(.system(size: 11.5, weight: .medium))
+                            .foregroundStyle(palette.inkMuted)
+                    }
+                    .padding(.vertical, 4)
+                } else {
+                    primaryActionButton
+                    dangerScopeButton
+                    allowDenyRow
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var primaryActionButton: some View {
+        if approval.canOfferFullAccess {
+            Button {
+                onResolve("full", nil)
+            } label: {
+                VStack(spacing: 2) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.shield.fill")
+                            .font(.system(size: 12))
+                        Text(L10n.tr(language, zh: "本对话完全访问（后续不再询问）", en: "Full access for this chat"))
+                            .font(.system(size: 12.5, weight: .semibold))
+                    }
+                    Text(L10n.tr(language, zh: "高危操作（删改敏感/系统文件等）仍会单独确认", en: "High-risk operations will still ask for confirmation"))
+                        .font(.system(size: 9.5))
+                        .opacity(0.88)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 9)
+                .padding(.horizontal, 10)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(palette.accentStrong)
+        } else if approval.canOfferAlwaysAllow {
+            Button {
+                onResolve("always", "session")
+            } label: {
+                Label(
+                    L10n.tr(language, zh: "本对话总是允许同类操作", en: "Always allow in this chat"),
+                    systemImage: "checkmark.circle"
+                )
+                .font(.system(size: 12, weight: .semibold))
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .tint(palette.accentStrong)
+        }
+    }
+
+    @ViewBuilder
+    private var dangerScopeButton: some View {
+        if approval.isDanger && !approval.noAlways && (approval.approvalUrl ?? "").isEmpty && !approval.dangerScopes.isEmpty {
+            let preferredScope = approval.dangerScopes.contains("session") ? "session" : approval.dangerScopes[0]
+            let labelText = preferredScope == "session"
+                ? L10n.tr(language, zh: "本对话同类高危操作不再提示", en: "Allow this risk category in this chat")
+                : L10n.tr(language, zh: "本次及后续放行此类操作", en: "Allow this risk category")
+            Button {
+                onResolve("always", preferredScope)
+            } label: {
+                Label(labelText, systemImage: "checkmark.shield")
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .tint(palette.warning)
+        }
+    }
+
+    private var allowDenyRow: some View {
+        HStack(spacing: 8) {
+            Button {
+                onResolve("allow", nil)
+            } label: {
+                Text(L10n.tr(language, zh: "允许本次", en: "Allow once"))
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .tint(approval.isDanger ? palette.danger : palette.accentStrong)
+
+            Button {
+                onResolve("deny", nil)
+            } label: {
+                Text(L10n.tr(language, zh: "拒绝", en: "Deny"))
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .tint(palette.inkMuted)
+        }
+    }
+}
+
+private struct ApprovalFieldRow: View {
+    let label: String
+    let value: String
+    let palette: DragonClawPalette
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 6) {
+            if !label.isEmpty {
+                Text("\(label):")
+                    .font(.system(size: 10.5, weight: .semibold))
+                    .foregroundStyle(palette.inkMuted)
+            }
+            Text(value)
+                .font(.system(size: 10.5, design: .monospaced))
+                .foregroundStyle(palette.inkPrimary)
+                .lineLimit(2)
+        }
+    }
+}
+
+private struct ApprovalDangerRow: View {
+    let title: String
+    let reason: String
+    let palette: DragonClawPalette
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 6) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 10.5))
+                .foregroundStyle(palette.danger)
+                .padding(.top, 1)
+            VStack(alignment: .leading, spacing: 1) {
+                if !title.isEmpty {
+                    Text(title)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(palette.danger)
+                }
+                if !reason.isEmpty {
+                    Text(reason)
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(palette.inkSecondary)
+                }
+            }
+        }
     }
 }
 
