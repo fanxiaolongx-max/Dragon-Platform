@@ -76,6 +76,9 @@ async function toolsets({ owner, user, readOnly, channel = null }) {
     if (readOnly) return sets;
     sets.push(require('./agent-skill-tools').toolset({ owner, user })); // 技能自我进化：保存前用户审批
     sets.push(require('./agent-publish-tools').toolset({ owner, user })); // 发布 HTML 工具、推送通知：都要过审批卡
+    // 数据导入指标规则的条件值维护：管理员才有（页面里改规则同样要管理员）；改动每次审批，可回退
+    const actor = user ?? await require('./tool-distribution').actorForOwner(owner);
+    if (require('./agent-sla-rule-tools').isAdmin(actor)) sets.push(require('./agent-sla-rule-tools').toolset({ owner, user: actor }));
     const where = browser.available();
     if (where) {
         const ctx = { owner };

@@ -184,6 +184,7 @@ async function create({ session, user, skillIds = [], messages = [], skillCatalo
         const notes = [];
         for (const group of skillTools(id)) {
             if (GROUPS[group]) loadNames(GROUPS[group].names);
+            else if (extraGroups.has(group)) loadNames(groupNames(group)); // 附加工具组（如数据导入指标规则）随技能一起加载
             else if (TOOLSETS[group]) {
                 if (readOnly) continue;
                 if (!userSkills.has(id) && !TOOLSETS[group].selfLoad) { notes.push(`@${id} 的专用工具需要用户在输入框选择该技能后才提供。`); continue; }

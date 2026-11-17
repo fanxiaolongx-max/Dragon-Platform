@@ -2,11 +2,15 @@
   "zh": [
     "数据量大时数据导入页不再卡顿：明细表先显示 200 行，向下滚动自动续加，也可一键显示全部（排序、筛选、搜索仍覆盖全部数据）；顶部预警指标闪烁 3 次后停住，侧栏头像光环只在加载和悬停时转动，指标栏自动滚动减半帧率。1.1 万行数据实测：页面 DOM 从 3.8 万降到 1.3 万，导入后持续占用的 CPU 从约 97% 降到约 10%。",
     "UIVF12 自动导入改为服务端直接归档抓取到的原始表格，页面不再把全部数据重新上传两遍；导入完成后立即清理临时会话，不再在磁盘上保留 48 小时。",
-    "AI 设置：增强 OpenAI 兼容网关的连接容错，连接测试失败时可展开查看详情。"
+    "AI 设置：增强 OpenAI 兼容网关的连接容错，连接测试失败时可展开查看详情。",
+    "数据导入指标规则支持条件值别名：业务名称改过时把条件值写成 [旧名]|[新名]（如 [e&系统部]|[etisalat系统部]），任一命中即可取数和高亮，新旧数据都能匹配。",
+    "Dragon 对话新增 @指标规则条件维护：可找出最近一次导入里零命中的指标与子指标，并给出数据里的候选新值；批量修改或加别名前，审批卡逐处列出改前改后的命中行数；每次修改都有记录，可按记录回退，之后又被手动改过的地方不会被覆盖。"
   ],
   "en": [
     "The data import page stays responsive with large data: detail tables show 200 rows first, load more as you scroll, and offer Show all (sorting, filters and search still cover every row); metric warnings pulse three times then stay highlighted, the sidebar avatar aura spins only on load and hover, and the metric ticker runs at half the frame rate. Measured on 11,000 rows: page DOM drops from 38k to 13k nodes and steady CPU after import from about 97% to about 10%.",
     "UIVF12 auto import now archives captured tables on the server, so the page no longer re-uploads every row twice; the temporary session is removed as soon as the import finishes instead of staying on disk for 48 hours.",
-    "AI settings: more resilient OpenAI-compatible gateway connections, with expandable details when a connection test fails."
+    "AI settings: more resilient OpenAI-compatible gateway connections, with expandable details when a connection test fails.",
+    "Data-import metric rules accept condition aliases: when a business name changes, write the value as [old]|[new] (e.g. [e&系统部]|[etisalat系统部]) and either name matches for extraction and highlighting, so old and new data both match.",
+    "New @Metric rule conditions skill in Dragon chat: finds metrics and sub-metrics with no match in the latest import and suggests candidate values from the data; the approval card shows match counts before and after each batch edit or alias; every edit is recorded and can be reverted by change ID without overwriting later manual edits."
   ]
 }

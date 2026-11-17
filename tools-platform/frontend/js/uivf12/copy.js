@@ -3422,12 +3422,28 @@ function wrapMasterScriptWithFloatingLauncher(masterCode, options = {}) {
         return best;
     }
 
-    function metricCellMatches(value, pattern) {
-        const text = value === undefined || value === null ? '' : String(value).trim();
-        const expected = pattern === undefined || pattern === null ? '' : String(pattern);
+    // 与 shared/metric-extraction.js 相同：整串为 [a]|[b] 时任一别名命中即满足
+    function metricConditionAliases(expected) {
+        const parts = expected.trim().split('|').map(function (part) { return part.trim(); });
+        const bracketed = function (part) {
+            const inner = part.slice(1, -1);
+            return part.length >= 2 && part.charAt(0) === '[' && part.charAt(part.length - 1) === ']' && inner.indexOf('[') < 0 && inner.indexOf(']') < 0;
+        };
+        if (parts.length < 2 || !parts.every(bracketed)) return null;
+        return parts.map(function (part) { return part.slice(1, -1).trim(); }).filter(Boolean)
+            .map(function (alias) { return alias === '空' || alias === '非空' ? '[' + alias + ']' : alias; });
+    }
+    function metricSingleCellMatches(text, expected) {
         if (expected === '[空]') return text === '';
         if (expected === '[非空]') return text !== '';
         return text.includes(expected);
+    }
+    function metricCellMatches(value, pattern) {
+        const text = value === undefined || value === null ? '' : String(value).trim();
+        const expected = pattern === undefined || pattern === null ? '' : String(pattern);
+        const aliases = metricConditionAliases(expected);
+        if (aliases) return aliases.some(function (alias) { return metricSingleCellMatches(text, alias); });
+        return metricSingleCellMatches(text, expected);
     }
 
     function metricRowMatches(row, rule) {

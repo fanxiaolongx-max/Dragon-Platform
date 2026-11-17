@@ -167,7 +167,7 @@ function renderMetricConditionRows(container, fields, conditions, mode) {
     container.innerHTML = (conditions || []).map((condition, index) => `
         <div class="metric-condition-row" data-condition-index="${index}">
             <select data-field="column" ${changeHandler ? `onchange="${changeHandler}"` : ''}>${buildMetricConditionFieldOptions(fields, condition.column || '')}</select>
-            <input data-field="value" value="${escapeHTML(condition.value || '')}" placeholder="包含内容（支持 [空]/[非空]）" ${changeHandler ? `oninput="${changeHandler}"` : ''}>
+            <input data-field="value" value="${escapeHTML(condition.value || '')}" placeholder="包含内容（支持 [空]/[非空]、[旧名]|[新名]）" ${changeHandler ? `oninput="${changeHandler}"` : ''}>
             <button type="button" title="删除此条件" onclick="${mode === 'editor' ? `removeMetricRuleEditorCondition(${index})` : (mode === 'copy-editor' ? `removeMetricRuleCopyCondition(${index})` : `removeMetricConditionRow('${mode}', ${index})`)}">×</button>
         </div>
     `).join('');

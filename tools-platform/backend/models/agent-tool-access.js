@@ -15,7 +15,7 @@ function groupFor(name) {
     if (['read_skill', 'save_skill'].includes(name)) return 'agent_skills';
     if (['publish_html_tool', 'send_notification'].includes(name)) return 'publish_tools';
     if (['calculate', 'update_plan', 'ask_user', 'view_image', 'task', 'tool_search', 'load_skill'].includes(name)) return 'builtin';
-    const prefixes = { mcp__: 'mcp', browser_: 'browser', netcare_: 'netcare-data', ops_: 'ops-group', welink_: 'welink-office', open_autoglm: 'open-autoglm', followup_: 'followup', finance_: 'family-finance-bookkeeper', ppo_: 'ppo-traffic', voice_creator_: 'voice-creator' };
+    const prefixes = { mcp__: 'mcp', browser_: 'browser', netcare_: 'netcare-data', ops_: 'ops-group', welink_: 'welink-office', open_autoglm: 'open-autoglm', followup_: 'followup', finance_: 'family-finance-bookkeeper', ppo_: 'ppo-traffic', voice_creator_: 'voice-creator', sla_: 'sla_rules' };
     return Object.entries(prefixes).find(([prefix]) => name.startsWith(prefix))?.[1] || 'other';
 }
 

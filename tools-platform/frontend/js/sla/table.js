@@ -41,6 +41,8 @@ function updateView(secId) {
 const monthlyTargets = { 1:0, 2:0, 3:10, 4:20, 5:30, 6:50, 7:60, 8:70, 9:80, 10:90, 11:100, 12:100 };
 
 function metricCellMatches(cellVal, pattern) {
+    // 与指标计算同一套匹配（含 [旧名]|[新名] 别名），高亮才不会和取数结果对不上
+    if (window.MetricExtraction) return window.MetricExtraction.cellMatches(cellVal, pattern);
     const str = (cellVal !== undefined && cellVal !== null) ? cellVal.toString().trim() : '';
     if (pattern === '[空]') return str === '';
     if (pattern === '[非空]') return str !== '';
