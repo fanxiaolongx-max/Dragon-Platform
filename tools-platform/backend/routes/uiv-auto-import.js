@@ -10,14 +10,17 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { ensureDataDir, getDataDir } = require('../models/store');
+const { DEFAULT_TENANT_ID } = require('../models/tenant-context');
 
 const router = express.Router();
 const SESSION_TTL_MS = 48 * 60 * 60 * 1000;
 let lastCleanupAt = 0;
 
+// 抓取页的上传不带登录（挂在租户中间件之前），会话固定放在默认数据目录；
+// 登录后的归档请求也要从这里读，所以不能按当前租户取目录。
 function getRootDir() {
-    ensureDataDir();
-    const root = path.join(getDataDir(), 'tmp/uiv-auto-import');
+    ensureDataDir(DEFAULT_TENANT_ID);
+    const root = path.join(getDataDir(DEFAULT_TENANT_ID), 'tmp/uiv-auto-import');
     fs.mkdirSync(root, { recursive: true });
     cleanupOldSessions(root);
     return root;
@@ -250,4 +253,28 @@ router.get('/:sessionId', (req, res) => {
     });
 });
 
+/** 供服务端直接归档：校验 token 后返回会话里的全部数据集（含行） */
+function readSession(sessionId, token) {
+    if (!isSafeId(sessionId) || !isSafeId(token)) return null;
+    const sessionDir = getSessionDir(sessionId);
+    const meta = readMeta(sessionDir);
+    if (!meta || !timingSafeEqualText(meta.token, token)) return null;
+    return { ...meta, datasets: (meta.datasets || []).map(dataset => ({ id: dataset.id, name: dataset.name, rows: readDatasetRows(sessionDir, dataset) })) };
+}
+
+/** 导入完成后删掉临时会话，不必等 48 小时过期 */
+function removeSession(sessionId, token) {
+    if (!readSession(sessionId, token)) return false;
+    fs.rmSync(getSessionDir(sessionId), { recursive: true, force: true });
+    return true;
+}
+
+router.delete('/:sessionId', (req, res) => {
+    const access = assertSessionAccess(req, res);
+    if (!access) return;
+    res.json({ success: removeSession(access.sessionId, access.token) });
+});
+
 module.exports = router;
+module.exports.readSession = readSession;
+module.exports.removeSession = removeSession;

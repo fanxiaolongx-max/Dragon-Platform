@@ -29,10 +29,25 @@
     async function request(url,options){const headers=getAuthHeaders();if(options?.body instanceof FormData)delete headers['Content-Type'];const response=await fetch(url,{credentials:'same-origin',...options,headers:{...headers,...options?.headers}});return handleResponse(response,{method:options?.method || 'GET',path:url});}
     const json=(method,value)=>({method,headers:{'Content-Type':'application/json'},body:JSON.stringify(value)});
     function csv(rows){const headers=[...new Set(rows.flatMap(row=>Object.keys(row)))];const quote=value=>'"'+String(value??'').replace(/"/g,'""')+'"';return [headers,...rows.map(row=>headers.map(h=>row[h]))].map(row=>row.map(quote).join(',')).join('\r\n');}
+    const uploadsOff=()=>message(label('原始数据上传已关闭：本次不保存原文件及全部工作表，继续提取指标并保存快照。可在全局设置 → 数据导入中重新开启。','Original data uploads are off: original files and full worksheets will not be archived. Metric extraction and snapshots continue. Enable uploads in Global Settings → Data Import.'));
+    function archived(saved,errors){
+        message(label(`已永久保存 ${saved} 个原始表格${errors?`，${errors} 个表格解析失败（原文件仍已保存）`:''}。未配置提取规则的表格也可在月报中引用。`,`Permanently archived ${saved} source tables${errors?`; ${errors} parsing errors (originals retained)`:''}. Tables without extraction rules are available in the report designer.`));
+        const link=document.createElement('a');link.href='/monthly';link.textContent=label(' 打开 AI 月报',' Open AI monthly report');status.append(link);
+        window.updateUploadStatusVisibility();
+        window.MonthlyMetricUpdates?.notify();
+    }
     async function archive(files,meta={}){
+        // 自动导入的数据已在服务端临时会话里：直接在服务端归档，不再把全部行从页面重新上传两遍
+        if(meta.autoImport){
+            message(label('正在服务端保存抓取到的原始表格…','Archiving captured tables on the server…'));
+            const result=await request('/api/upload/source-batches/from-auto-import',json('POST',{sessionId:meta.autoImport.sessionId,token:meta.autoImport.token,source:meta.source||'uivf12',targetMonth:window.SLATargetMonth?.get?.()}));
+            if(!result.uploadOriginals){uploadsOff();return null;}
+            archived(result.files.length,0);
+            return result.batchId;
+        }
         const settings=await request('/api/upload/import-settings',{cache:'no-store'});
         if(!settings.uploadOriginals){
-            message(label('原始数据上传已关闭：本次不保存原文件及全部工作表，继续提取指标并保存快照。可在全局设置 → 数据导入中重新开启。','Original data uploads are off: original files and full worksheets will not be archived. Metric extraction and snapshots continue. Enable uploads in Global Settings → Data Import.'));
+            uploadsOff();
             return null;
         }
         const batch=await request('/api/upload/source-batches',json('POST',{source:meta.source || 'manual',targetMonth:window.SLATargetMonth?.get?.()}));
@@ -56,10 +71,7 @@
                 await request(`/api/upload/source-files/${encodeURIComponent(item.id)}/sheets`,json('PUT',{sheets}));
             }catch(error){errors++;await request(`/api/upload/source-files/${encodeURIComponent(item.id)}/sheets`,json('PUT',{sheets:[],parseError:error.message}));}
         }
-        message(label(`已永久保存 ${saved} 个原始表格${errors?`，${errors} 个表格解析失败（原文件仍已保存）`:''}。未配置提取规则的表格也可在月报中引用。`,`Permanently archived ${saved} source tables${errors?`; ${errors} parsing errors (originals retained)`:''}. Tables without extraction rules are available in the report designer.`));
-        const link=document.createElement('a');link.href='/monthly';link.textContent=label(' 打开 AI 月报',' Open AI monthly report');status.append(link);
-        window.updateUploadStatusVisibility();
-        window.MonthlyMetricUpdates?.notify();
+        archived(saved,errors);
         return batch.id;
     }
     let busy=false;

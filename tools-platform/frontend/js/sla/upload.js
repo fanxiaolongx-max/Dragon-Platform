@@ -765,9 +765,12 @@ async function importUivAutoSession() {
         await processBatchFiles(sources, {
             type: 'uiv-auto-import',
             source: 'uivf12',
+            autoImport: { sessionId: params.sessionId, token: params.token },
             historyAction: 'UIVF12 自动导入',
             summaryTitle: `📊 UIVF12 自动导入成功 (共解析 ${sources.length} 个数据集)`
         });
+        // 已归档并生成快照，临时会话不再需要（否则会在磁盘上留 48 小时）
+        fetch(metaUrl, { method: 'DELETE', cache: 'no-store' }).catch(() => {});
         if (typeof showToast === 'function') showToast(`✅ 已自动导入 UIVF12 抓取数据集：${sources.length} 个`);
         const cleanUrl = `${window.location.pathname}${window.location.hash || ''}`;
         window.history.replaceState({}, document.title, cleanUrl);

@@ -15,6 +15,27 @@ router.post('/source-batches/:id/files',(req,res,next)=>upload.single('file')(re
     if(!req.file)return res.status(400).json({error:'Missing original file'});
     res.json(await repo.saveFile(req.params.id,{...req.file,originalName:req.body.originalName},req.body.kind==='structured'?'structured':'original'));
 }));
+// UIVF12 自动导入：服务端直接把临时会话里的数据集存为一批原始表格，
+// 不必让页面把全部行下载下来再以 CSV 和工作表各上传一遍。存下来的内容与页面上传的一致。
+router.post('/source-batches/from-auto-import',handle(async(req,res)=>{
+    const {sessionId,token,targetMonth,source}=req.body||{};
+    const session=require('./uiv-auto-import').readSession(String(sessionId||''),String(token||''));
+    if(!session)return res.status(404).json({error:'自动导入会话不存在或已过期',code:'AUTO_IMPORT_SESSION_MISSING'});
+    if(!(await repo.getImportSettings()).uploadOriginals)return res.json({batchId:null,uploadOriginals:false,files:[]});
+    const batch=await repo.createBatch({source:source||'uivf12',targetMonth});
+    const quote=value=>'"'+String(value??'').replace(/"/g,'""')+'"';
+    const files=[];
+    for(const dataset of session.datasets){
+        if(!dataset.rows.length)continue;
+        const headers=[...new Set(dataset.rows.flatMap(row=>Object.keys(row)))];
+        const csv=[headers,...dataset.rows.map(row=>headers.map(header=>row[header]))].map(row=>row.map(quote).join(',')).join('\r\n');
+        const name=String(dataset.name||'dataset.csv').replace(/\.[^.]+$/,'')+'.csv';
+        const item=await repo.saveFile(batch.id,{buffer:Buffer.from(csv,'utf8'),originalName:name},'structured');
+        await repo.saveSheets(item.id,[{name:'Captured rows',headers,rows:dataset.rows}]);
+        files.push({id:item.id,name:item.name,rows:dataset.rows.length});
+    }
+    res.json({batchId:batch.id,uploadOriginals:true,files});
+}));
 router.put('/source-files/:id/sheets',handle(async(req,res)=>{await repo.saveSheets(req.params.id,req.body.sheets,req.body.parseError);res.json({success:true});}));
 router.get('/source-search',async(req,res)=>{
     const controller=new AbortController(),stop=()=>{if(!res.writableEnded)controller.abort();};res.once('close',stop);if(res.destroyed)controller.abort();res.setHeader('Cache-Control','no-store');res.setHeader('X-Data-Source','sqlite');

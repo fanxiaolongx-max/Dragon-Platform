@@ -173,3 +173,31 @@ test('the desktop runner forwards only when the page passed an import session, a
     assert.ok(calls.includes('stopped'));
     assert.deepEqual(parseCsvTable('a\n\n').values, [], 'header-only files are not sent');
 });
+
+test('the import page archives an auto-import session on the server instead of re-uploading every row, then removes the session', async () => {
+    const appDb = require('../backend/models/app-db');
+    const pool = require('../backend/models/tenant-sqlite-pool');
+    const { runWithTenant } = require('../backend/models/tenant-context');
+    const app = express();
+    app.use(express.json({ limit: '50mb' }));
+    app.use('/api/uiv-auto-import', require('../backend/routes/uiv-auto-import'));
+    // 归档接口在登录后、租户上下文里；会话却固定在默认目录，命名租户也要能读到
+    app.use('/api/upload', (req, _res, next) => { req.user = { username: 'admin', role: 'admin' }; runWithTenant('team-a', next); }, require('../backend/routes/upload'));
+    const id = 'f'.repeat(32), session = `/api/uiv-auto-import/${id}`;
+    await request(app).post(`${session}/datasets?token=${TOKEN}`).send({ name: 'risk.csv', rows: [{ 名称: '甲', 值: 'a,"b"' }, { 名称: '乙', 备注: 'x' }] }).expect(200);
+    await request(app).post(`${session}/datasets?token=${TOKEN}`).send({ name: 'plain', rows: [{ k: 1 }] }).expect(200);
+
+    await request(app).post('/api/upload/source-batches/from-auto-import').send({ sessionId: id, token: 'b'.repeat(31) + 'c' }).expect(404);
+    const result = (await request(app).post('/api/upload/source-batches/from-auto-import').send({ sessionId: id, token: TOKEN, targetMonth: 11 }).expect(200)).body;
+    assert.equal(result.uploadOriginals, true);
+    assert.deepEqual(result.files.map(file => [file.name, file.rows]), [['risk.csv', 2], ['plain.csv', 1]]);
+
+    const files = await runWithTenant('team-a', () => appDb.all('SELECT f.name, f.kind, f.parse_status, CAST(f.original_blob AS TEXT) AS csv, s.headers_json, s.rows_json FROM import_source_files f JOIN import_source_sheets s ON s.file_id=f.id WHERE f.batch_id=? ORDER BY f.rowid', [result.batchId]));
+    assert.deepEqual(files[0].csv, '"名称","值","备注"\r\n"甲","a,""b""",""\r\n"乙","","x"', 'same CSV the page used to upload');
+    assert.deepEqual([files[0].kind, files[0].parse_status, JSON.parse(files[0].headers_json), JSON.parse(files[0].rows_json).length], ['structured', 'ready', ['名称', '值', '备注'], 2]);
+
+    await request(app).delete(`${session}?token=${TOKEN}`).expect(200);
+    await request(app).get(`${session}?token=${TOKEN}`).expect(404);
+    assert.equal(require('../backend/routes/uiv-auto-import').readSession(id, TOKEN), null);
+    await appDb.closeDatabase(); await pool.closeAll();
+});

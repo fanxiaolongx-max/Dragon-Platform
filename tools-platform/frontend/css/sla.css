@@ -93,7 +93,8 @@ body.sla-page {
     70%  { box-shadow: 0 0 0 6px rgba(239,83,80,0); background: rgba(239,83,80,0.05); }
     100% { box-shadow: 0 0 0 0 rgba(239,83,80,0); background: rgba(239,83,80,0.2); }
 }
-.metric-warn-highlight { border: 1px solid #ef5350 !important; animation: pulse-warn 1.5s infinite; }
+/* 闪 3 次后停住：无限动画会让整页每一帧重绘，数据多时持续占满 CPU */
+.metric-warn-highlight { border: 1px solid #ef5350 !important; background: rgba(239,83,80,0.12); animation: pulse-warn 1.5s 3; }
 .metric-gap { font-size: 11px; color: #ef5350; margin-left: 6px; font-weight: bold; background: #ffebee; padding: 2px 6px; border-radius: 4px; border: 1px solid #ffcdd2; }
 
 /* ── 预警配置弹窗 ──────────────────────────────────────── */
@@ -2509,3 +2510,8 @@ td.frequent-copied-cell {
 .metric-rule-badge.monthly{background:#dcfce7;color:#166534;white-space:nowrap}
 .metric-rule-monthly-row td:first-child{box-shadow:inset 3px 0 #40956a}
 [data-theme="dark"] .metric-rule-badge.monthly{background:#164532;color:#bbf7d0}
+
+/* 明细表渐进加载提示行 */
+.sla-more-rows td { padding: 12px 16px !important; text-align: center; color: #64748b; background: #f8fafc; font-size: 13px; }
+.sla-more-rows .sla-show-all-rows { margin-left: 8px; padding: 3px 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #334155; cursor: pointer; font-size: 12px; }
+.sla-more-rows .sla-show-all-rows:hover { border-color: #94a3b8; background: #f1f5f9; }

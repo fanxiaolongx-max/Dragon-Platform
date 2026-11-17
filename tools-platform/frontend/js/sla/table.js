@@ -302,6 +302,37 @@ function updateDashboard(secId) {
     }
 }
 
+const SLA_TABLE_FIRST_ROWS = 200;
+const SLA_TABLE_MORE_ROWS = 300;
+
+function attachProgressiveRows(secId, data, rendered, rowHtml) {
+    const state = AppState[secId];
+    const sentinel = document.querySelector(`#table-${CSS.escape(secId)} tr.sla-more-rows`);
+    if (!sentinel) return;
+    const cell = sentinel.firstElementChild;
+    const paint = () => {
+        cell.innerHTML = `<span>已显示 ${rendered} / ${data.length} 行，继续向下滚动自动加载</span> <button type="button" class="sla-show-all-rows">显示全部</button>`;
+        cell.querySelector('button').onclick = () => append(data.length - rendered);
+    };
+    function append(count) {
+        if (state.currentDisplayData !== data) return; // 已重新排序/筛选，旧的续加作废
+        const end = Math.min(data.length, rendered + count);
+        let html = '';
+        for (let rowIndex = rendered; rowIndex < end; rowIndex++) html += rowHtml(data[rowIndex], rowIndex);
+        sentinel.insertAdjacentHTML('beforebegin', html);
+        rendered = end;
+        if (rendered >= data.length) { sentinel.remove(); if (state.moreRowsObserver) state.moreRowsObserver.disconnect(); state.moreRowsObserver = null; }
+        else paint();
+    }
+    paint();
+    if (typeof IntersectionObserver === 'function') {
+        state.moreRowsObserver = new IntersectionObserver(entries => {
+            if (entries.some(entry => entry.isIntersecting)) append(SLA_TABLE_MORE_ROWS);
+        }, { rootMargin: '600px 0px' });
+        state.moreRowsObserver.observe(sentinel);
+    }
+}
+
 function renderTable(secId) {
     const state = AppState[secId];
     const data = state.currentDisplayData;
@@ -337,8 +368,8 @@ function renderTable(secId) {
         html += `<th draggable="true" data-header="${safe.replace(/"/g,'&quot;')}" ${wStyle} ${classAttr} ${titleAttr} onclick="handleSortClick('${secId}', '${safe.replace(/'/g,"\\'")}')">${headerDisplay} ${getIcon(header)}</th>`;
     });
     html += '</tr></thead><tbody>';
-    data.forEach((row, rowIndex) => {
-        html += `<tr class="${row._rowClass || ''} sla-data-row" data-sec="${secId}" data-row-idx="${rowIndex}" ondblclick="window.SLARowDetail && window.SLARowDetail.open('${secId}', ${rowIndex})" title="💡 双击可竖排紧凑查看字段详情并一键复制">`;
+    const rowHtml = (row, rowIndex) => {
+        let html = `<tr class="${row._rowClass || ''} sla-data-row" data-sec="${secId}" data-row-idx="${rowIndex}" ondblclick="window.SLARowDetail && window.SLARowDetail.open('${secId}', ${rowIndex})" title="💡 双击可竖排紧凑查看字段详情并一键复制">`;
         if (state.mode !== 'other') {
             const slaW = state.columnWidths['_SLA_'] ? `style="width:${state.columnWidths['_SLA_']}px;min-width:${state.columnWidths['_SLA_']}px;max-width:${state.columnWidths['_SLA_']}px;"` : '';
             html += `<td ${slaW}>${row._slaText}</td>`;
@@ -361,11 +392,20 @@ function renderTable(secId) {
             html += `<td title="${title}" ${classAttr} ${wStyle}>${safe}</td>`;
         });
         html += '</tr>';
-    });
+        return html;
+    };
+    // 渐进式渲染：大表一次性生成几万个单元格会让页面每一帧的重绘都很重（数据越多越卡），
+    // 先渲染一屏多一点，滚到底部再续上；排序、筛选、搜索仍基于内存中的全部数据。
+    const firstChunk = Math.min(data.length, SLA_TABLE_FIRST_ROWS);
+    for (let rowIndex = 0; rowIndex < firstChunk; rowIndex++) html += rowHtml(data[rowIndex], rowIndex);
+    const columnCount = state.visibleHeaders.length + (state.mode !== 'other' ? 1 : 0);
+    if (firstChunk < data.length) html += `<tr class="sla-more-rows" data-sec="${secId}"><td colspan="${columnCount}"></td></tr>`;
     html += '</tbody></table>';
+    if (state.moreRowsObserver) { state.moreRowsObserver.disconnect(); state.moreRowsObserver = null; }
     container.innerHTML = html;
     attachResizers(secId);
     attachDragAndDrop(secId);
+    attachProgressiveRows(secId, data, firstChunk, rowHtml);
     const tableEl = document.getElementById(`table-${secId}`);
     if (tableEl && !tableEl._dblclickBound) {
         tableEl._dblclickBound = true;

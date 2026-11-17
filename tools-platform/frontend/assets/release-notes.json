@@ -1,10 +1,12 @@
 {
   "zh": [
-    "修复数据抓取页「运行批脚本」后自动打开的数据导入页文件变少：站点打开后自己刷新或登录跳转会丢掉下载拦截，现在每个任务前都会重新装上；桌面版还会把运行标签真实下载完成的 CSV 补传给导入页，同名文件只保留一份。",
-    "修复数据导入后桌面版长时间卡顿、打开数据导入页持续占用资源：顶部指标栏自动滚动不再每帧触发全局「回到顶部」按钮重新布局；历史快照摘要列表与单份快照更新不再把全部快照整份解析到内存（50 份快照时内存峰值从约 1.4 GB 降到十几 MB）；桌面版新增窗口无响应与主进程阻塞日志，便于定位卡顿。"
+    "数据量大时数据导入页不再卡顿：明细表先显示 200 行，向下滚动自动续加，也可一键显示全部（排序、筛选、搜索仍覆盖全部数据）；顶部预警指标闪烁 3 次后停住，侧栏头像光环只在加载和悬停时转动，指标栏自动滚动减半帧率。1.1 万行数据实测：页面 DOM 从 3.8 万降到 1.3 万，导入后持续占用的 CPU 从约 97% 降到约 10%。",
+    "UIVF12 自动导入改为服务端直接归档抓取到的原始表格，页面不再把全部数据重新上传两遍；导入完成后立即清理临时会话，不再在磁盘上保留 48 小时。",
+    "AI 设置：增强 OpenAI 兼容网关的连接容错，连接测试失败时可展开查看详情。"
   ],
   "en": [
-    "Fixed the auto-opened data import page missing files after Run batch on the data capture page: the download capture lost when a site reloads or redirects for login is now re-installed before every task, and the desktop app also forwards CSV files the run tab actually downloaded, keeping one copy per file name.",
-    "Fixed long desktop freezes after data import and the data import page draining resources: the auto-scrolling metric bar no longer makes the global back-to-top button re-layout on every frame; the snapshot summary list and single-snapshot updates no longer parse every saved snapshot in memory (peak memory with 50 snapshots drops from about 1.4 GB to under 20 MB); the desktop app now logs unresponsive windows and main-process stalls."
+    "The data import page stays responsive with large data: detail tables show 200 rows first, load more as you scroll, and offer Show all (sorting, filters and search still cover every row); metric warnings pulse three times then stay highlighted, the sidebar avatar aura spins only on load and hover, and the metric ticker runs at half the frame rate. Measured on 11,000 rows: page DOM drops from 38k to 13k nodes and steady CPU after import from about 97% to about 10%.",
+    "UIVF12 auto import now archives captured tables on the server, so the page no longer re-uploads every row twice; the temporary session is removed as soon as the import finishes instead of staying on disk for 48 hours.",
+    "AI settings: more resilient OpenAI-compatible gateway connections, with expandable details when a connection test fails."
   ]
 }

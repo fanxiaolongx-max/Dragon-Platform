@@ -286,6 +286,14 @@ html.platform-home .v2-section-cap { padding: 12px 10px 4px; font-size: 11.5px; 
 
 .v2-user.is-superadmin .v2-avatar-crest:not([hidden]),
 .v2-account-head.is-superadmin .v2-avatar-crest:not([hidden]) { display: flex; }
+/* 侧栏头像光环、超管徽章流光：加载时转两圈，悬停头像时持续。无限循环会让整个应用
+   （包括正在打开的工具页）每一帧重新合成，工具页数据量大时会持续占满 CPU。 */
+html .v2-userbar .v2-user .v2-avatar-wrap::before,
+html .v2-userbar .v2-user .v2-avatar-wrap::after,
+html .v2-userbar .v2-role-badge.is-superadmin::after { animation-iteration-count: 2; }
+html .v2-userbar .v2-user:hover .v2-avatar-wrap::before,
+html .v2-userbar .v2-user:hover .v2-avatar-wrap::after,
+html .v2-userbar .v2-user:hover .v2-role-badge.is-superadmin::after { animation-iteration-count: infinite; }
 @keyframes v2-aura-spin {
 
 to { transform: rotate(360deg); } }
