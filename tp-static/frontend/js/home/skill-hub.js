@@ -190,7 +190,8 @@
                 }
                 const isShared = Boolean(shared || sharedAccess);
                 const source = builtIn ? 'builtin' : (isShared ? 'shared' : 'custom');
-                const extraCats = [superAdmin ? (isShared ? 'sharedWithAll' : 'unsharedOnly') : (isShared ? 'sharedWithAll' : null)].filter(Boolean);
+                // 「工具」标签底部的「工具来源」已有「全员开放」筛选，顶部分类栏仅超管保留「未全员开放」避免重复
+                const extraCats = [superAdmin && !isShared ? 'unsharedOnly' : null].filter(Boolean);
                 const badges = [tool.group];
                 if (superAdmin) {
                     badges.push(isShared ? t('sharedWithAll') : t('unsharedOnly'));
@@ -406,7 +407,7 @@
                 if (state.filterSource === 'builtin') {
                     if (!item.builtIn || item.source !== 'builtin') return false;
                 } else if (state.filterSource === 'shared') {
-                    if (item.builtIn || (item.source !== 'shared' && !item.sharedAccess && !item.shared)) return false;
+                    if (item.source !== 'shared' && !item.sharedAccess && !item.shared) return false;
                 } else if (state.filterSource === 'custom') {
                     if (item.builtIn || item.source === 'builtin' || item.source !== 'custom') return false;
                 } else if (state.filterSource === 'chat') {

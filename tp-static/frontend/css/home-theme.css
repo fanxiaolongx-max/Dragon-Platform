@@ -157,7 +157,7 @@ html.platform-home body.dc-chatting .dc { margin: 0; border-radius: 0; width: 10
 
 html.platform-home body.dc-chatting .dc-chat-head { padding-left: calc(var(--v2-float-end, 70px) + 12px); }
 
-html.platform-home .home-workspace-panel { position: fixed; inset: 0 0 0 auto; width: min(340px, 92vw); z-index: 1050; }
+html.platform-home .home-workspace-panel { position: fixed; inset: 0 0 0 auto; width: min(340px, 92vw); z-index: 1150; }
 }
 /* Composer: the writing surface and context controls form one calm, layered unit. */
 .dc-composer-surface { display: contents; }
@@ -595,6 +595,71 @@ html.platform-home[data-theme="dark"] .nav-ai-usage-toggle-btn {
 html.platform-home[data-theme="dark"] .nav-ai-usage-toggle-btn:hover {
     background: var(--v2-hover, #273449) !important;
     color: var(--v2-ink, #f1f5f9) !important;
+}
+
+html.platform-home[data-theme="dark"] .nav-ai-test-result.ok {
+    background: rgba(16, 185, 129, 0.14);
+    color: #6ee7b7;
+}
+
+html.platform-home[data-theme="dark"] .nav-ai-test-result.testing {
+    background: rgba(59, 130, 246, 0.14);
+    color: #93c5fd;
+}
+
+html.platform-home[data-theme="dark"] .nav-ai-test-result.fail {
+    background: rgba(244, 63, 94, 0.12);
+    border-color: rgba(251, 113, 133, 0.32);
+    color: #fda4af;
+}
+
+html.platform-home[data-theme="dark"] .nav-ai-test-summary-text,
+html.platform-home[data-theme="dark"] .nav-ai-test-hint {
+    color: #fecdd3;
+}
+
+html.platform-home[data-theme="dark"] .nav-ai-test-details-summary,
+html.platform-home[data-theme="dark"] .nav-ai-test-badge {
+    background: var(--v2-chip, #1a1d24);
+    border-color: rgba(251, 113, 133, 0.35);
+    color: #fda4af;
+}
+
+html.platform-home[data-theme="dark"] .nav-ai-test-details-body {
+    background: var(--v2-side, #15181d);
+    border-color: var(--v2-line, #262a31);
+    color: var(--v2-ink, #e6e8eb);
+}
+
+html.platform-home[data-theme="dark"] .nav-ai-test-copy-btn {
+    background: var(--v2-chip, #1a1d24);
+    border-color: var(--v2-line, #262a31);
+    color: var(--v2-ink2, #b3b9c2);
+}
+
+html.platform-home[data-theme="dark"] .nav-ai-test-kv-row dt,
+html.platform-home[data-theme="dark"] .nav-ai-test-raw-label {
+    color: var(--v2-ink3, #7d8590);
+}
+
+html.platform-home[data-theme="dark"] .nav-ai-test-kv-row dd {
+    color: var(--v2-ink, #e6e8eb);
+}
+
+html.platform-home[data-theme="dark"] .nav-ai-test-raw {
+    background: var(--v2-bg, #0f1115);
+    border-color: var(--v2-line, #262a31);
+    color: var(--v2-ink, #e6e8eb);
+}
+
+html.platform-home[data-theme="dark"] .nav-ai-verify-ssl-check {
+    background: var(--v2-chip, #1a1d24);
+    border-color: var(--v2-line, #262a31);
+    color: var(--v2-ink, #e6e8eb);
+}
+
+html.platform-home[data-theme="dark"] .nav-ai-verify-ssl-check small {
+    color: var(--v2-ink3, #7d8590);
 }
 
 html.platform-home[data-theme="dark"] .nav-media-category-tabs .tab-item {
@@ -1798,6 +1863,16 @@ html.platform-home .home-panel .conversation-list-row:is(:hover, :focus-within, 
 html.platform-home .home-panel .conversation-list-row:is(:hover, :focus-within, .is-menu-open) .desktop-agent-chat time { opacity: 0; }
 
 html.platform-home .home-panel .conversation-list-row:is(:hover, :focus-within) .conversation-list-more { opacity: .7; visibility: visible; transition-delay: 0s; }
+/* Touch lists show time, pin and menu together, so each needs its own slot. */
+@media (hover: none) {
+    html.platform-home .home-panel .conversation-list-row :is(.home-chat-actions, .desktop-agent-chat time, .wl-item-side) { right: 36px; }
+    html.platform-home .home-panel .conversation-list-row:is(:has(.conversation-pin), .is-pinned) :is(.home-chat-actions, .desktop-agent-chat time, .wl-item-side) { right: 58px; }
+    html.platform-home .home-panel .conversation-list-row .conversation-pin { right: 38px; visibility: visible; }
+    html.platform-home .home-panel .conversation-list-row :is(.home-chat-title, .desktop-agent-chat b) { padding-right: 82px; }
+    html.platform-home .home-panel .conversation-list-row:is(:has(.conversation-pin), .is-pinned) :is(.home-chat-title, .desktop-agent-chat b) { padding-right: 104px; }
+    html.platform-home .home-panel .conversation-list-row:is(:hover, :focus-within, .is-menu-open) :is(.home-chat-meta, .desktop-agent-chat time) { opacity: 1; }
+}
+
 /* Connector selection is draft-only; established contexts remain readable and locked. */
 .dc-connector-note { padding: 8px 6px 4px; color: var(--v2-ink3, #94a3b8); font-size: 11px; line-height: 1.6; }
 

@@ -640,7 +640,32 @@ function registerPlatformI18n() {
             'nav.ai.testing': '正在测试模型...',
             'nav.ai.testOk': '测试通过',
             'nav.ai.testFail': '测试失败：',
+            'nav.ai.testHintLabel': '排查建议：',
+            'nav.ai.testDetailsExpand': '查看失败详情',
+            'nav.ai.testDetailsCollapse': '收起失败详情',
+            'nav.ai.testCopyDetails': '复制排障详情',
+            'nav.ai.testCopied': '已复制',
+            'nav.ai.testCopyFail': '复制失败',
+            'nav.ai.testRawLabel': '返回细节 / 原始响应',
+            'nav.ai.testMetaProvider': '供应商 / 协议',
+            'nav.ai.testMetaModel': '测试模型',
+            'nav.ai.testMetaEndpoint': '请求地址',
+            'nav.ai.testMetaStatus': 'HTTP 状态',
+            'nav.ai.testMetaCode': '错误码',
+            'nav.ai.testMetaLatency': '耗时',
+            'nav.ai.testMetaParams': '测试参数',
+            'nav.ai.testMetaHeaders': '响应头',
+            'nav.ai.testMetaCause': '底层原因',
+            'nav.ai.testMetaTime': '时间',
             'nav.ai.lblProvider': '供应商协议',
+            'nav.ai.authModeLabel': '认证方式',
+            'nav.ai.customAuthHeaderLabel': '自定义认证头名称',
+            'nav.ai.customAuthHeaderPlaceholder': 'X-API-Key',
+            'nav.ai.verifySslLabel': '校验 HTTPS 证书',
+            'nav.ai.verifySslHelp': '默认开启；仅在接入受信任的企业内网自签证书网关时关闭',
+            'nav.ai.authNoneReady': '免认证就绪 (none)',
+            'nav.ai.authNoneBadge': '● 免认证',
+            'nav.ai.plhTokenNone': '当前认证方式为 none（无需填写 Token）',
             'nav.ai.lblApiUrl': 'API URL',
             'nav.ai.plhApiUrl': '留空使用供应商默认地址；兼容网关填 /v1 基地址',
             'nav.ai.lblModel': '模型名称',
@@ -1186,7 +1211,32 @@ function registerPlatformI18n() {
             'nav.ai.testing': 'Testing model...',
             'nav.ai.testOk': 'Test passed',
             'nav.ai.testFail': 'Test failed: ',
+            'nav.ai.testHintLabel': 'Troubleshooting: ',
+            'nav.ai.testDetailsExpand': 'Show failure details',
+            'nav.ai.testDetailsCollapse': 'Hide failure details',
+            'nav.ai.testCopyDetails': 'Copy details',
+            'nav.ai.testCopied': 'Copied',
+            'nav.ai.testCopyFail': 'Copy failed',
+            'nav.ai.testRawLabel': 'Response / Error Details',
+            'nav.ai.testMetaProvider': 'Provider',
+            'nav.ai.testMetaModel': 'Tested Model',
+            'nav.ai.testMetaEndpoint': 'Endpoint',
+            'nav.ai.testMetaStatus': 'HTTP Status',
+            'nav.ai.testMetaCode': 'Error Code',
+            'nav.ai.testMetaLatency': 'Duration',
+            'nav.ai.testMetaParams': 'Test Params',
+            'nav.ai.testMetaHeaders': 'Response Headers',
+            'nav.ai.testMetaCause': 'Root Cause',
+            'nav.ai.testMetaTime': 'Timestamp',
             'nav.ai.lblProvider': 'Provider Protocol',
+            'nav.ai.authModeLabel': 'Auth Mode',
+            'nav.ai.customAuthHeaderLabel': 'Custom Auth Header',
+            'nav.ai.customAuthHeaderPlaceholder': 'X-API-Key',
+            'nav.ai.verifySslLabel': 'Verify HTTPS certificate',
+            'nav.ai.verifySslHelp': 'Enabled by default; disable only for trusted internal gateways with self-signed certificates',
+            'nav.ai.authNoneReady': 'No auth required (none)',
+            'nav.ai.authNoneBadge': '● No Auth',
+            'nav.ai.plhTokenNone': 'Auth mode is none (API token not required)',
             'nav.ai.lblApiUrl': 'API URL',
             'nav.ai.plhApiUrl': 'Leave empty for provider default; compatible gateways should use the /v1 base URL',
             'nav.ai.lblModel': 'Model Name',
@@ -2238,8 +2288,17 @@ function initBackToTopButton() {
         button.style.setProperty('--global-back-to-top-bottom', `${Math.round(nextBottom)}px`);
     }
 
+    // 横向滚动（如数据导入页顶部每帧自动滚动的指标栏）不改变按钮状态；若照样处理，
+    // 每帧都会查询停靠按钮并强制重排，大页面上会长期占满主线程。
+    const lastScrollTops = new WeakMap();
     function queueVisibilityUpdate(event) {
         const target = event && event.target;
+        if (event && event.type === 'scroll') {
+            const scroller = target && target.nodeType === 1 ? target : document;
+            const top = scroller === document ? getWindowScrollTop() : (target.scrollTop || 0);
+            if (lastScrollTops.get(scroller) === top) return;
+            lastScrollTops.set(scroller, top);
+        }
         if (target && target !== document && target !== window && target !== document.documentElement && target !== document.body) {
             if (target.scrollTop > threshold && isMainScroller(target)) lastScrollElement = target;
         }

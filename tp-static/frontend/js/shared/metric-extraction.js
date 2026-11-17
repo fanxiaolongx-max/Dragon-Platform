@@ -7,12 +7,35 @@ function getMetricRuleConditions(rule) {
         : [];
 }
 
-function metricRuleCellMatches(cellVal, pattern) {
-    const str = cellVal !== undefined && cellVal !== null ? String(cellVal).trim() : '';
-    const expected = String(pattern === undefined || pattern === null ? '' : pattern).trim();
+// 条件值别名：业务名称改过（如「e&系统部」改成「etisalat系统部」）时写成
+// [e&系统部]|[etisalat系统部]，任一别名命中即满足。只有整串都是「[..]|[..]」形式才按别名拆，
+// 普通值里出现的竖线仍按原文匹配；别名里的「空」「非空」与单独的 [空]/[非空] 含义相同。
+const ALIAS_LIST = /^\[[^\[\]|]*\](?:\s*\|\s*\[[^\[\]|]*\])+$/;
+function metricConditionAliases(pattern) {
+    const text = String(pattern === undefined || pattern === null ? '' : pattern).trim();
+    if (!ALIAS_LIST.test(text)) return null;
+    return Array.from(text.matchAll(/\[([^\[\]|]*)\]/g), match => match[1].trim()).filter(Boolean)
+        .map(alias => (alias === '空' || alias === '非空' ? `[${alias}]` : alias));
+}
+
+function singleCellMatches(str, expected) {
     if (expected === '[空]') return str === '';
     if (expected === '[非空]') return str !== '';
     return str.includes(expected);
+}
+
+function metricRuleCellMatches(cellVal, pattern) {
+    const str = cellVal !== undefined && cellVal !== null ? String(cellVal).trim() : '';
+    const aliases = metricConditionAliases(pattern);
+    if (aliases) return aliases.some(alias => singleCellMatches(str, alias));
+    return singleCellMatches(str, String(pattern === undefined || pattern === null ? '' : pattern).trim());
+}
+
+/** 把一组别名写回条件值：只有一个时保持原样，多个时写成 [a]|[b] */
+function formatMetricConditionAliases(aliases) {
+    const list = Array.from(new Set((aliases || []).map(item => String(item ?? '').trim()).filter(Boolean)));
+    if (list.length <= 1) return list[0] || '';
+    return list.map(alias => (/^\[(?:空|非空)\]$/.test(alias) ? alias : `[${alias}]`)).join('|');
 }
 
 function metricRuleRowMatches(row, rule, includePrimary = true) {
@@ -69,5 +92,5 @@ function evaluate(rows,rule){
  else value=aggregateMetricRowValues(matched,rule);
  return {value,indexes,matchedCount:matched.length,numericCount:matched.filter(row=>parseMetricNumericValue(row[rule.colZ])).length};
 }
-return {conditions:getMetricRuleConditions,cellMatches:metricRuleCellMatches,rowMatches:metricRuleRowMatches,parseNumber:parseMetricNumericValue,aggregate:aggregateMetricRowValues,evaluate};
+return {aliases:metricConditionAliases,formatAliases:formatMetricConditionAliases,conditions:getMetricRuleConditions,cellMatches:metricRuleCellMatches,rowMatches:metricRuleRowMatches,parseNumber:parseMetricNumericValue,aggregate:aggregateMetricRowValues,evaluate};
 });
