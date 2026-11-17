@@ -716,6 +716,11 @@ async function handleChatRequest(req, res) {
         const voiceMode = req.body?.voiceMode === true;
         // 首页 Dragon Claw 是全能智能体：不限于平台问题，context 为平台工具目录而非页面文本。
         const homeAgent = agent === 'dragon-claw-home';
+        const isMobileClient = homeAgent && !channelTurn && (
+            pageTitle === 'Dragon Claw · 移动端'
+            || pageTitle === 'Dragon Claw · Mobile'
+            || String(req.get('x-dragon-client') || '').trim().toLowerCase() === 'mobile'
+        );
         const currentView = !homeAgent && !channelTurn && req.body.currentView === true;
         const pageText = typeof context === 'string' ? context.slice(0, PAGE_CONTEXT_MAX_CHARS) : '';
         const streamRequested = stream === true;
@@ -745,6 +750,7 @@ async function handleChatRequest(req, res) {
                     root: workspace.root,
                     permissionMode: workspace.permissionMode
                 });
+                agentRunManager.configureClientExecutionMode(agentSession, { mobileClient: false, permissionMode: workspace.permissionMode });
             } catch (sessionError) {
                 return res.status(sessionError.statusCode || 400).json({ code: sessionError.code, error: sessionError.message });
             }
@@ -752,10 +758,32 @@ async function handleChatRequest(req, res) {
                 return res.status(409).json({ code: 'AGENT_RUN_BUSY', error: '该会话有正在进行的任务，请等待完成或先停止' });
             }
         }
+        // 移动端（iOS/Android App）不提供目录选择器：继续已绑定的会话目录或沿用之前的临时沙箱
+        if (!agentSession && homeAgent && streamRequested && isMobileClient && sessionId && !(workspace && workspace.root) && agentWorkspaceAccess.isAgentWorkspaceAllowed(req)) {
+            await aiChatRepo.assertSessionOwner(sessionId, req.user?.username || '');
+            const savedChat = await aiChatRepo.getSession(sessionId);
+            if (savedChat?.agent_root && !aiChatRepo.isScratchDirectory(savedChat.agent_root)) {
+                agentSession = agentRunManager.resumeSavedSession({
+                    agentSessionId: savedChat.agent_session_id,
+                    root: savedChat.agent_root,
+                    user: req.user,
+                    tenantId: getTenantId(),
+                    chatSessionId: sessionId,
+                    mobileClient: true
+                });
+            }
+            if (!agentSession) {
+                agentSession = agentRunManager.existingScratchSession({ user: req.user, tenantId: getTenantId(), chatSessionId: sessionId });
+                if (agentSession) agentRunManager.configureClientExecutionMode(agentSession, { mobileClient: true });
+            }
+            if (agentSession?.activeRun) {
+                return res.status(409).json({ code: 'AGENT_RUN_BUSY', error: '该会话有正在进行的任务，请等待完成或先停止' });
+            }
+        }
         // 团队账号没选目录：默认在团队工作目录里工作，文件与 Shell 工具随时可用（命令在团队沙箱中执行）
         if (!agentSession && homeAgent && streamRequested && !channelTurn && require('../models/team-boundary').isConfined(req.user)) {
             try {
-                agentSession = agentRunManager.ensureTeamDefaultSession({ user: req.user, tenantId: getTenantId(), chatSessionId: sessionId, permissionMode: workspace?.permissionMode });
+                agentSession = agentRunManager.ensureTeamDefaultSession({ user: req.user, tenantId: getTenantId(), chatSessionId: sessionId, permissionMode: workspace?.permissionMode, mobileClient: isMobileClient });
             } catch (sessionError) {
                 return res.status(sessionError.statusCode || 400).json({ code: sessionError.code, error: sessionError.message });
             }
@@ -823,7 +851,7 @@ async function handleChatRequest(req, res) {
                     // 需要文件 / 命令的 Skill 但用户没选目录：自动使用该账号的隐藏临时目录（用户不可见），走同一套工作区流程
                     if (needWorkspace.code !== 'SKILL_WORKSPACE_REQUIRED' || agentMode || channelTurn || !streamRequested
                         || !agentWorkspaceAccess.isAgentWorkspaceAllowed(req)) throw needWorkspace;
-                    agentSession = agentRunManager.ensureScratchSession({ user: req.user, tenantId: getTenantId(), chatSessionId: sessionId });
+                    agentSession = agentRunManager.ensureScratchSession({ user: req.user, tenantId: getTenantId(), chatSessionId: sessionId, mobileClient: isMobileClient });
                     if (agentSession.activeRun) return res.status(409).json({ code: 'AGENT_RUN_BUSY', error: '该会话有正在进行的任务，请等待完成或先停止' });
                     agentMode = true;
                     loadedSkills = await loadSkills();
@@ -876,6 +904,9 @@ async function handleChatRequest(req, res) {
                 pagePath: normalizedPath,
                 pageTitle
             });
+            if (agentSession?.scratch && savedSessionId) {
+                agentRunManager.bindScratchChatId({ session: agentSession, user: req.user, tenantId: getTenantId(), chatSessionId: savedSessionId });
+            }
         }
 
         if (persist !== false && savedSessionId) {

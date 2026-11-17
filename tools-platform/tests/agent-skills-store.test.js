@@ -308,5 +308,19 @@ test('skills that a command writes into local AI-tool skill folders are copied i
     result = await store.captureExternalSkills({ since, home });
     assert.deepEqual(result.updated, ['cli-demo']);
     assert.match((await store.getSkill('cli-demo')).body, /新版/);
+
+    // 外部 CLI 技能即使 SKILL.md 没写 workspace: true（或历史库里 workspace=0），加载时也应识别为需要工作区执行
+    write('.claude/skills', 'thcli-image', '# thcli +gen · 图片生成\n\n`thcli +gen wand/si-image/generation --prompt "..."`\n\n可引导执行。');
+    write('.claude/skills', 'thcli-shared', '# thcli 公共执行协议\n\n执行前遵循本协议，`thcli doctor` 可直接执行。');
+    write('.claude/skills', 'pure-guide', '# 纯文档\n\n仅阅读说明，不执行任何工具。');
+    const captured = await store.captureExternalSkills({ since, home });
+    assert.ok(captured.added.includes('thcli-image') && captured.added.includes('thcli-shared') && captured.added.includes('pure-guide'));
+    assert.equal((await store.getSkill('thcli-image')).workspace, true);
+    assert.equal((await store.getSkill('pure-guide')).workspace, false);
+    await require('../backend/models/app-db').run("UPDATE agent_skills SET workspace = 0 WHERE id = 'thcli-image'");
+    await assert.rejects(store.loadAll('@thcli-image 画一张图'), { code: 'SKILL_WORKSPACE_REQUIRED', skills: ['thcli-image'] });
+    await assert.rejects(store.loadAll('用 thcli 查一下免费模型'), { code: 'SKILL_WORKSPACE_REQUIRED', skills: ['thcli-shared'] });
+    const pureLoaded = await store.loadAll('@pure-guide 读一下');
+    assert.equal(pureLoaded.selected[0].id, 'pure-guide');
     fs.rmSync(home, { recursive: true, force: true });
 });

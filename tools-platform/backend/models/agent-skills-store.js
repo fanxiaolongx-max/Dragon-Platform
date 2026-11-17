@@ -164,9 +164,20 @@ async function parseSkillArchive(buffer, { archiveName = '' } = {}) {
     return { markdown: await skillEntry.async('string'), fallbackId: folder, files, skipped };
 }
 
+function inferCommandWorkspace({ source = '', body = '', files = [] } = {}) {
+    if (source !== 'external') return false;
+    const text = String(body || '');
+    if (/\brun_command\b|```(?:bash|sh|zsh|shell|powershell|ps1|cmd)\b|(?:^|[\s`])(?:thcli|npx|npm|pnpm|yarn|python3?|pip|curl|wget|gh|kubectl|docker|git)\s+/im.test(text)) {
+        return true;
+    }
+    if (/(?:可直接执行|可引导执行|命令行|终端执行)/.test(text)) return true;
+    return Array.isArray(files) && files.some(file => /\.(?:sh|bash|ps1|py|mjs|cjs|js|ts)$/i.test(String(file?.path || '')));
+}
+
 function rowToSkill(row) {
     let files = [];
     try { files = JSON.parse(row.files_json || '[]'); } catch { files = []; }
+    const source = row.source === 'builtin' ? 'chat' : row.source;
     return {
         id: row.id,
         name: row.name,
@@ -174,11 +185,11 @@ function rowToSkill(row) {
         description: row.description,
         descriptionEn: row.description_en || row.description,
         icon: row.icon || '✨',
-        workspace: Boolean(row.workspace),
+        workspace: Boolean(row.workspace) || inferCommandWorkspace({ source, body: row.body, files }),
         builtIn: false,
         customized: false,
         hidden: false,
-        source: row.source === 'builtin' ? 'chat' : row.source,
+        source,
         fileCount: files.length,
         createdBy: row.created_by,
         createdAt: row.created_at,
@@ -633,13 +644,19 @@ async function captureExternalSkills({ since = 0, home = require('os').homedir()
     const updated = [];
     for (const [folder, item] of found) {
         try {
-            const skill = normalizeSkillMarkdown(fs.readFileSync(item.file, 'utf8'), { fallbackId: folder });
+            const raw = fs.readFileSync(item.file, 'utf8');
+            const parsedFront = parseFrontMatter(raw);
+            const skill = normalizeSkillMarkdown(raw, { fallbackId: folder });
             if (builtinSkills.builtin(skill.id)) continue;
             const existing = await getCustom(skill.id);
             if (existing && existing.source !== 'external') continue; // 用户自己创建 / 导入的同名技能不动
             const files = readSkillFolder(item.dir);
+            if (!Object.prototype.hasOwnProperty.call(parsedFront.fields, 'workspace')) {
+                skill.workspace = inferCommandWorkspace({ source: 'external', body: skill.body, files });
+            }
             if (existing && existing.body === skill.body && JSON.stringify(existing.files || []) === JSON.stringify(files)
-                && existing.description === skill.description && existing.name === skill.name) continue;
+                && existing.description === skill.description && existing.name === skill.name
+                && Boolean(existing.workspace) === Boolean(skill.workspace)) continue;
             await saveSkill(skill, { files, source: 'external', createdBy, overwrite: Boolean(existing) });
             (existing ? updated : added).push(skill.id);
         } catch { /* 格式不对的 SKILL.md 跳过 */ }
@@ -836,7 +853,9 @@ async function loadAll(content, { hasWorkspace = false, language = 'zh', extraId
     const known = [...mentioned, ...notBuiltin].filter(id => visible.has(id));
     const unknown = notBuiltin.filter(id => !visible.has(id));
     const kept = (Array.isArray(extraIds) ? extraIds : []).map(id => String(id || '').toLowerCase()).filter(id => visible.has(id));
-    const wanted = new Set([...known, ...kept].slice(0, MAX_SELECTED));
+    const hasThcli = [...known, ...kept].some(id => /^thcli-/.test(id));
+    const inferredCli = !hasThcli && /\bthcli\b/i.test(String(content || '')) && visible.has('thcli-shared') ? ['thcli-shared'] : [];
+    const wanted = new Set([...known, ...kept, ...inferredCli].slice(0, MAX_SELECTED));
     const selected = catalog.filter(item => wanted.has(item.id));
     const missing = selected.filter(item => item.workspace && !hasWorkspace);
     if (missing.length) throw Object.assign(new Error(language === 'en'

@@ -28,6 +28,7 @@ const PERMISSION_MODES = ['ask', 'auto', 'full'];
 const DIRECTORY_CONTEXT_ENTRIES = 200;
 
 const sessions = new Map();
+const scratchAliases = new Map();
 const runs = new Map();
 const pendingApprovals = new Map();
 
@@ -69,11 +70,65 @@ function isAdminUser(user) {
     return Boolean(user && user.role === 'admin');
 }
 
+function configureClientExecutionMode(session, { mobileClient = false, permissionMode } = {}) {
+    if (!session) return session;
+    if (permissionMode) session.permissionMode = normalizePermissionMode(permissionMode);
+    if (mobileClient) {
+        // 移动端（iOS/Android App）暂无审批弹窗卡片：管理员允许的常规命令走完全访问直接执行，
+        // 但危险操作类别仍按 unattended 立即拦截，既避免 5 分钟等待超时，也保留危险操作防护。
+        if (!session.readOnly) session.permissionMode = 'full';
+        session.mobileClient = true;
+        session.unattended = true;
+    } else if (!session.channelSession) {
+        session.mobileClient = false;
+        session.unattended = false;
+    }
+    return session;
+}
+
+function scratchAgentId(user, tenantId, chatSessionId) {
+    const owner = ownerKey(user, tenantId);
+    const chatHash = crypto.createHash('sha256').update(`${owner}\n${chatSessionId || 'new'}`).digest('hex').slice(0, 24);
+    return `scratch-${chatHash}`;
+}
+
+function existingScratchSession({ user, tenantId, chatSessionId } = {}) {
+    if (!user || !chatSessionId) return null;
+    const owner = ownerKey(user, tenantId);
+    const aliasedId = scratchAliases.get(`${owner}\n${chatSessionId}`);
+    const session = getSession(aliasedId || scratchAgentId(user, tenantId, chatSessionId), user, tenantId);
+    return session?.scratch ? session : null;
+}
+
+function bindScratchChatId({ session, user, tenantId, chatSessionId } = {}) {
+    if (!session?.scratch || !user || !chatSessionId) return;
+    scratchAliases.set(`${ownerKey(user, tenantId)}\n${chatSessionId}`, session.id);
+    if (scratchAliases.size > MAX_CHAT_SESSIONS) scratchAliases.delete(scratchAliases.keys().next().value);
+}
+
+function resumeSavedSession({ agentSessionId = '', root = '', user, tenantId, chatSessionId = '', mobileClient = false, permissionMode } = {}) {
+    if (!root || !user) return null;
+    try {
+        if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) return null;
+    } catch (_error) {
+        return null;
+    }
+    const owner = ownerKey(user, tenantId);
+    const fallbackId = `resume-${crypto.createHash('sha256').update(`${owner}\n${chatSessionId || root}`).digest('hex').slice(0, 24)}`;
+    const sessionId = /^[\w-]{8,100}$/.test(String(agentSessionId || '')) ? String(agentSessionId) : fallbackId;
+    try {
+        const session = ensureSession({ agentSessionId: sessionId, user, tenantId, root, permissionMode });
+        return configureClientExecutionMode(session, { mobileClient });
+    } catch (_error) {
+        return null;
+    }
+}
+
 /**
  * 没选工作目录、但需要文件 / 命令时使用的隐藏临时目录：每个租户账号一个（跨对话保留文件，系统临时目录下，用户不可见），
  * 智能体会话按对话区分。权限模式为「帮我批准」：文件写入自动执行，命令与删除仍弹审批卡。
  */
-function ensureScratchSession({ user, tenantId, chatSessionId }) {
+function ensureScratchSession({ user, tenantId, chatSessionId, permissionMode = 'auto', mobileClient = false }) {
     const owner = ownerKey(user, tenantId);
     const userHash = crypto.createHash('sha256').update(owner).digest('hex').slice(0, 16);
     // 团队账号的临时空间放在团队自己的 tmp 下（沙箱可写、团队边界内）；超级管理员仍用系统临时目录
@@ -81,23 +136,22 @@ function ensureScratchSession({ user, tenantId, chatSessionId }) {
         ? path.join(require('./tenant-context').getTmpDir(tenantId), 'scratch', userHash)
         : path.join(require('os').tmpdir(), 'dragon-claw-scratch', userHash);
     fs.mkdirSync(root, { recursive: true });
-    const chatHash = crypto.createHash('sha256').update(`${owner}\n${chatSessionId || 'new'}`).digest('hex').slice(0, 24);
-    const session = ensureSession({ agentSessionId: `scratch-${chatHash}`, user, tenantId, root, permissionMode: 'auto' });
+    const session = ensureSession({ agentSessionId: scratchAgentId(user, tenantId, chatSessionId), user, tenantId, root, permissionMode });
     session.scratch = true;
-    return session;
+    return configureClientExecutionMode(session, { mobileClient });
 }
 
 /**
  * 团队账号没选目录时的默认工作区：直接用团队工作目录（团队的整个文件空间），命令照常可用、在沙箱里执行。
  * 按对话区分智能体会话；沿用临时目录的前端处理（scratch），不在界面上暴露服务器路径。
  */
-function ensureTeamDefaultSession({ user, tenantId, chatSessionId, permissionMode }) {
+function ensureTeamDefaultSession({ user, tenantId, chatSessionId, permissionMode, mobileClient = false }) {
     const owner = ownerKey(user, tenantId);
     const chatHash = crypto.createHash('sha256').update(`${owner}\n${chatSessionId || 'new'}`).digest('hex').slice(0, 24);
     const session = ensureSession({ agentSessionId: `teamws-${chatHash}`, user, tenantId, root: boundary.workspaceRoot(tenantId), permissionMode: permissionMode || 'auto' });
     session.scratch = true;
     session.teamDefault = true;
-    return session;
+    return configureClientExecutionMode(session, { mobileClient });
 }
 
 /** WeLink / 微信等频道工作区：群聊隔离沙箱，单聊/超级管理员直接映射主机用户目录或专属工作区 */
@@ -584,7 +638,8 @@ async function decideCall(run, call, { kind, preview, key = call.name, sharedMcp
         decision = answer === 'allow' || answer === 'always' ? 'allow' : answer;
     }
     if (decision === 'allow') return {};
-    const reason = decision === 'readonly' ? '当前账号为只读权限，不能执行该操作' : decision === 'unattended' ? '这个操作需要用户确认，这是无人值守的频道对话，没有人能审批，所以没有执行' : decision === 'timeout' ? '审批超时，操作未执行' : decision === 'abort' ? '任务已中止' : '用户拒绝了该操作';
+    const unattendedReason = run.session.mobileClient ? '这个操作需要审批，当前手机端暂不支持审批弹窗，所以没有执行' : '这个操作需要用户确认，这是无人值守的频道对话，没有人能审批，所以没有执行';
+    const reason = decision === 'readonly' ? '当前账号为只读权限，不能执行该操作' : decision === 'unattended' ? unattendedReason : decision === 'timeout' ? '审批超时，操作未执行' : decision === 'abort' ? '任务已中止' : '用户拒绝了该操作';
     // 被拒绝后不要换个写法再试同一件事：用已有结果回答，或说明需要用户做什么
     const hint = decision === 'deny' || decision === 'timeout' ? '。不要换一种写法重试同样的操作；请用已经拿到的结果回答，或说明还需要用户做什么。' : '';
     return { outcome: { content: `${reason}${hint}`, summary: reason, isError: true, denied: true } };
@@ -719,8 +774,9 @@ async function runAgentTurn({ session, user, client, systemInstruction, historyM
         if (!outcome && decision !== 'allow') {
             denied += 1;
             const labels = danger.map(hit => `「${hit.label}」`).join('');
+            const unattendedContext = session.mobileClient ? '当前手机端暂不支持审批弹窗' : '这是无人值守的频道对话，没有人能审批';
             const reason = decision === 'readonly' ? '当前账号为只读权限（非管理员），不能修改文件或执行命令'
-                : decision === 'unattended' ? (labels ? `该命令属于${labels}，这是无人值守的频道对话，没有人能审批，所以没有执行` : '这个操作需要用户确认，这是无人值守的频道对话，没有人能审批，所以没有执行')
+                : decision === 'unattended' ? (labels ? `该命令属于${labels}，${unattendedContext}，所以没有执行` : `这个操作需要用户确认，${unattendedContext}，所以没有执行`)
                     : decision === 'timeout' ? '审批超时，操作未执行' : decision === 'abort' ? '任务已中止' : '用户拒绝了该操作';
             const hint = decision === 'unattended' ? '。不要换一种写法绕过；请告诉用户：可以到 Dragon Claw 网页端执行，或在「全局设置 › 智能体工具 › 危险操作」里把这一类设为永久不再询问。'
                 : decision === 'deny' || decision === 'timeout' ? '。不要换一种写法重试同样的操作；请用已经拿到的结果回答，或说明还需要用户做什么。' : '';
@@ -881,6 +937,10 @@ module.exports = {
     reserveWorkspaceMutation,
     hasActiveRunInDirectory,
     ensureScratchSession,
+    existingScratchSession,
+    bindScratchChatId,
+    resumeSavedSession,
+    configureClientExecutionMode,
     ensureTeamDefaultSession,
     ensureWeLinkSession,
     ownerKey,

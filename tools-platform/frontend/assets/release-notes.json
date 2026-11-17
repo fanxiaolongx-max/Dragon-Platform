@@ -1,12 +1,8 @@
 {
   "zh": [
-    "WeLink 群聊权限分级与群记录总结：在 WeLink 群聊提问自动激活 @welink-office 并直接查询当前群聊记录；超级管理员名单成员与本机 welink-cli 登录用户支持在群聊或单聊中跨群、跨单聊查询与操作，普通群成员严格限制仅可查询当前所在本群；新增 welink-cli 登录态 60 秒缓存减少重复检测开销。",
-    "会话标题智能升级与环境精简：首条消息为「1+1」「你好」「测试」等探活短语时，后续正式提问或发起智能体任务会自动刷新为真实任务标题与最新更新时间；精简子进程继承的 IDE 与 PM2 冗余环境变量。",
-    "Gemini 默认配置自愈与移动端思考动效优化：修复历史 Gemini 配置被误判为 Bearer 鉴权导致的 401 报错（自动恢复为 x-goog-api-key）；移动端对话「思考过程」卡片移除不断递增的字数计数，替换为丝滑渐变扫光与律动呼吸动画。"
+    "移动端支持直接执行外部 CLI 技能并续接会话工作区：识别 @thcli-image 等外部命令行技能自动进入沙箱工作区并开放命令执行；管理员在移动端延续历史会话时自动续接原有工作目录，避免无审批弹窗卡顿，同时继续实时拦截危险操作类别。"
   ],
   "en": [
-    "WeLink group permission scoping and summary: WeLink group questions auto-load @welink-office for the current group ID; super admins and the signed-in local welink-cli user can query across groups and DMs, while regular group members are strictly scoped to the current group; added a 60s auth status cache for welink-cli.",
-    "Smart conversation title upgrade and clean child env: sessions starting with quick probes like '1+1' or 'hi' automatically upgrade their title and updated timestamp once a real task follows; stripped noisy IDE and PM2 environment variables from child commands.",
-    "Gemini legacy auth auto-heal and mobile thinking animation: fixed legacy Gemini profiles misclassified as Bearer auth causing HTTP 401 by restoring x-goog-api-key; replaced the incrementing character counter on mobile 'Thinking Process' cards with a smooth shimmer and wave animation."
+    "Mobile execution for external CLI skills and workspace continuity: automatically enables scratch workspaces with command execution for external CLI skills such as @thcli-image; admins resuming an existing session from mobile keep its saved workspace root and execute non-dangerous commands smoothly without blocking on missing mobile approval prompts, while dangerous rules remain enforced."
   ]
 }
