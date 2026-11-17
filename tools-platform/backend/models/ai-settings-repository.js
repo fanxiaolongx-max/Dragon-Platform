@@ -28,7 +28,8 @@ const DEFAULT_SETTINGS = {
     anthropicAuthType: 'ANTHROPIC_AUTH_TOKEN',
     authMode: 'x-goog-api-key',
     customAuthHeader: '',
-    verifySsl: true,
+    // 默认不校验 HTTPS 证书，兼容内网自签证书网关；需要时在模型方案里勾选
+    verifySsl: false,
     apiBaseUrl: '',
     model: 'gemini-2.5-flash',
     apiKey: '',
@@ -192,13 +193,13 @@ function normalizeCustomAuthHeader(value, fallback = '') {
     return trimmed;
 }
 
-function normalizeVerifySsl(value, fallback = true) {
-    if (value === undefined || value === null || value === '') return fallback !== false;
+function normalizeVerifySsl(value, fallback = false) {
+    if (value === undefined || value === null || value === '') return fallback === true;
     if (typeof value === 'boolean') return value;
     const text = String(value).trim().toLowerCase();
     if (text === 'false' || text === '0' || text === 'off' || text === 'no') return false;
     if (text === 'true' || text === '1' || text === 'on' || text === 'yes') return true;
-    return fallback !== false;
+    return fallback === true;
 }
 
 function clampNumber(value, fallback, min, max) {
@@ -240,7 +241,7 @@ function normalizeSettings(input = {}, previous = {}) {
     const customAuthHeader = normalizeCustomAuthHeader(input.customAuthHeader, previous.customAuthHeader);
     const verifySsl = normalizeVerifySsl(
         Object.prototype.hasOwnProperty.call(input, 'verifySsl') ? input.verifySsl : previous.verifySsl,
-        true
+        false
     );
     const models = normalizeModels(input.models !== undefined ? input.models : previous.models, base.model, provider);
     const primaryModel = String(input.model || base.model || models[0] || DEFAULT_MODELS[provider] || DEFAULT_SETTINGS.model).trim();
@@ -482,7 +483,7 @@ function runtimeSettings(stored) {
     const hasToken = Boolean(apiKey);
     return {
         ...stored,
-        verifySsl: stored.verifySsl !== false,
+        verifySsl: stored.verifySsl === true,
         apiKey,
         apiKeySource: stored.apiKey ? 'stored' : (envKey ? 'env' : 'none'),
         hasToken,
@@ -501,7 +502,7 @@ function publicSettings(runtime) {
         provider: runtime.provider,
         authMode: runtime.authMode || defaultAuthModeForProvider(runtime.provider),
         customAuthHeader: runtime.customAuthHeader || '',
-        verifySsl: runtime.verifySsl !== false,
+        verifySsl: runtime.verifySsl === true,
         anthropicAuthType: runtime.anthropicAuthType || 'ANTHROPIC_AUTH_TOKEN',
         apiBaseUrl: runtime.apiBaseUrl,
         model: runtime.model,

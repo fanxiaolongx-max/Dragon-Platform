@@ -275,3 +275,21 @@ test('frontend home & nav access scripts pass syntax checks and preserve open/cl
     assert.match(coreSrc, /\/api\/distribution\/pages/);
     assert.match(coreSrc, /isPlatformPageShared/);
 });
+
+test('library and monthly-report APIs under /upload stay usable when only the monthly page is shared', async () => {
+    await pageDistribution.setPageAccess('sla', false);
+    await pageDistribution.setPageAccess('monthly', true);
+    try {
+        await tenant.runWithTenant('team1', async () => {
+            assert.equal(await pageDistribution.canAccessApi('/upload/monthly-documents', 'GET', teamAdmin), true);
+            assert.equal(await pageDistribution.canAccessApi('/upload/source-catalog', 'GET', teamAdmin), true);
+        });
+        await pageDistribution.setPageAccess('monthly', false);
+        await tenant.runWithTenant('team1', async () => {
+            assert.equal(await pageDistribution.canAccessApi('/upload/source-catalog', 'GET', teamAdmin), false, 'closed when neither page is shared');
+        });
+    } finally {
+        await pageDistribution.setPageAccess('sla', true);
+        await pageDistribution.setPageAccess('monthly', true);
+    }
+});

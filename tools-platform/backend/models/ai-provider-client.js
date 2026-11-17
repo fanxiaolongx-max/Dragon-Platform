@@ -890,7 +890,7 @@ class AiProviderClient {
             this.authMode = 'bearer';
         }
         this.customAuthHeader = String(settings.customAuthHeader || '').trim();
-        this.verifySsl = settings.verifySsl !== false;
+        this.verifySsl = settings.verifySsl === true;
         this.customHeaders = settings.headers && typeof settings.headers === 'object' && !Array.isArray(settings.headers) ? settings.headers : {};
         this.extraBody = (settings.extraBody && typeof settings.extraBody === 'object' && !Array.isArray(settings.extraBody))
             ? settings.extraBody

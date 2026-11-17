@@ -352,7 +352,7 @@ test('verifySsl=true rejects self-signed HTTPS certificates while verifySsl=fals
     const apiBaseUrl = `https://127.0.0.1:${server.address().port}/v1`;
     const localBase = await startTestApp(t);
 
-    // 1. Strict verifySsl=true (default) rejects self-signed server
+    // 1. Strict verifySsl=true (opt-in; default is off) rejects self-signed server
     const resStrict = await fetch(`${localBase}/api/ai-settings/test`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -162,7 +162,8 @@ const API_PAGE_RULES = [
     { pattern: /^\/uiv-ai-adapter(?:\/|$)/, pages: ['uivf12'] },
     { pattern: /^\/uiv\/(?:extension-download|backup|run-uivision-macro|uivision-runner)(?:\/|$)/, pages: ['uivf12'] },
     { pattern: /^\/uiv(?:\/|$)/, check: user => canAccessUivScripts(user) },
-    { pattern: /^\/upload(?:\/|$)/, pages: ['sla'] },
+    // 上传历史 + 原始文件资料库 + 月报的资料目录、Logo、预设、草稿、文档都挂在 /upload 下：数据导入或月报任一开放即可
+    { pattern: /^\/upload(?:\/|$)/, pages: ['sla', 'monthly'] },
     { pattern: /^\/sla\/(?:snapshot|snapshots\/cleanup-redundant|rule-templates|copied-fields|template-mapping)(?:\/|$)/, pages: ['sla'] },
     { pattern: /^\/sla\/(?:export-yuxiang|preview-yuxiang|rename-metric)(?:\/|$)/, pages: ['sla', 'report'] },
     { pattern: /^\/sla(?:\/|$)/, pages: ['sla', 'report', 'expedite', 'monthly', 'bigscreen', 'uivf12'] },

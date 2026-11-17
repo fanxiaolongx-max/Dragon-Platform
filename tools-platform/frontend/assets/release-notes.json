@@ -1,8 +1,8 @@
 {
   "zh": [
-    "与基座 Web 版双向对齐：AI BI 看板、标记与样式以 Web 版为准同步；AI 报表查询与运行日志合并两边改进（百分比不再重复放大、日志保留模型与用量信息、可中途取消生成）；技能中心可直接上传技能包，会话列表支持查看已归档；修复技能卡片样式里一段残留代码导致精选卡片高度失效、工作空间栏为空时留白、换语言后工具卡片徽标消失、英文界面显示中文默认简介。"
+    "模型方案的「校验 HTTPS 证书」改为默认不校验，新建方案即可直连内网自签证书网关（已保存的方案保持原设置）；只开放了月报、没开放数据导入的成员，现在也能正常使用月报资料库、Logo、预设、草稿和文档。"
   ],
   "en": [
-    "Two-way alignment with the web edition: the AI BI board, markers and styles now follow the web edition; AI report queries and run logs merge improvements from both sides (no double percentage scaling, logs keep model and usage details, generation can be cancelled); skills can be uploaded from the Skill Hub and archived conversations can be viewed; fixed a stray stylesheet fragment that broke featured card height, an empty workspace bar leaving a gap, tool card badges disappearing after switching language, and Chinese default descriptions shown in English."
+    "\"Verify HTTPS certificate\" on model profiles is now off by default, so new profiles reach self-signed internal gateways directly (saved profiles keep their setting); members who only have the monthly report shared, not data import, can now use the monthly library, logos, presets, drafts and documents."
   ]
 }
