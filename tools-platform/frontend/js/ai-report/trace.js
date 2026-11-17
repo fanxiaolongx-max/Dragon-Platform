@@ -6,9 +6,10 @@
     let enabled=read(),seq=0;
     const traces=new Map(),listeners=new Set(),progressListeners=new Set(),active=new Map();
     // Never record authentication headers. Also redact credentials embedded in user text and tool results.
+    const isSensitiveKey=(key,item)=>/password|passwd|secret|authorization|cookie|api[_-]?key|private[_-]?key/i.test(key)||(/token/i.test(key)&&typeof item!=='number'&&!/^(?:input|output|prompt|completion|total|reasoning|cached)_?tokens?$/i.test(key));
     function safe(value){
         if(Array.isArray(value))return value.map(safe);
-        if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).map(([key,item])=>[key,/(?:password|passwd|secret|token|authorization|cookie|api[_-]?key|private[_-]?key)/i.test(key)?'[REDACTED]':safe(item)]));
+        if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).map(([key,item])=>[key,isSensitiveKey(key,item)?'[REDACTED]':safe(item)]));
         if(typeof value!=='string')return value;
         return value.replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g,'[REDACTED]')
             .replace(/\b(?:Bearer|Basic)\s+[A-Za-z0-9._~+\/-]+=*/gi,'[REDACTED]')
@@ -38,7 +39,7 @@
         }));
         return {...value,input};
     }
-    async function post(cellId,label,path,body){
+    async function post(cellId,label,path,body,{signal}={}){
         const record=enabled,started=Date.now(),run={stage:'connecting',name:'',started};
         active.set(cellId,run);progressChanged(cellId);
         const entry=record?add(cellId,{kind:'call',label,path,method:'POST',request:{...body,_stream:true,_debug:true},status:'running',ms:0,steps:[]}):null;
@@ -50,7 +51,7 @@
             if(event.type==='complete'&&entry)Object.assign(entry,{requestId:event.requestId,httpStatus:event.status});
         };
         try{
-            const reply=await API.post(path,{...body,_stream:true,...(record?{_debug:true}:{})},{onEvent});
+            const reply=await API.post(path,{...body,_stream:true,...(record?{_debug:true}:{})},{onEvent,signal});
             const steps=reply?._trace,request=reply?._request;
             const rounds=Array.isArray(reply?._rounds)&&reply._rounds.length?safe(reply._rounds):undefined;
             // 每轮模型调用的耗时与速度：攒到这个格子上，由 app.js 的 aiStep 挂到本次 AI 回复（回复下方显示 最低/平均/最高 tok/s）
@@ -75,7 +76,10 @@
     function setEnabled(value){enabled=!!value;try{localStorage.setItem(KEY,enabled?'1':'0');}catch(_){}changed(null);}
     function emptyResult(value){const rows=Array.isArray(value)?value:[value?.sample,value?.metrics,value?.datasets,value?.chapters].find(Array.isArray);return !!rows&&!rows.length;}
     function stepText(step){
-        if(step.kind==='ai')return [`【发送给模型】${step.tools?.length?'（可用工具：'+step.tools.join('、')+'）':''}`,`— 系统提示词 —\n${step.system||''}`,`— 消息 —\n${pretty(step.messages||'')}`,`【模型返回】${step.ms!==undefined?`（${(step.ms/1000).toFixed(1)} 秒）`:''}`,step.error?`出错：${step.error}`:(step.reply||'（空）')+(step.toolCalls?`\n— 要调用的工具 —\n${pretty(step.toolCalls)}`:'')].join('\n\n');
+        if(step.kind==='ai'){
+            const meta=[step.model&&`模型：${step.model}`,step.provider&&`网关：${step.provider}`,step.finishReason&&`finishReason: ${step.finishReason}`,(step.inputTokens||step.outputTokens)&&`tokens: ${step.inputTokens||0}→${step.outputTokens||0}`,step.tps&&`${step.tps} tok/s`].filter(Boolean).join(' · ');
+            return [`【发送给模型】${step.tools?.length?'（可用工具：'+step.tools.join('、')+'）':''}`,meta,`— 系统提示词 —\n${step.system||''}`,`— 消息 —\n${pretty(step.messages||'')}`,`【模型返回】${step.ms!==undefined?`（${(step.ms/1000).toFixed(1)} 秒）`:''}`,step.error?`出错：${step.error}`:'',step.reply?String(step.reply):(!step.error?'（空）':''),(step.toolCalls?`— 要调用的工具 —\n${pretty(step.toolCalls)}`:'')].filter(Boolean).join('\n\n');
+        }
         if(step.kind==='tool')return `【工具】${step.name} · ${step.status||'success'}${step.ms!==undefined?' · '+step.ms+'ms':''}\n— 实际参数 / Request —\n${pretty(step.args)}\n— 实际返回 / Response —\n${pretty(step.result)}${step.modelTruncated?'\n— 传给模型的结果（已截断 / truncated）—\n'+step.modelResult:''}${step.error?'\n— 错误 / Error —\n'+step.error:''}`;
         if(step.kind==='retry')return `【要求模型重试】\n${step.text||''}`;
         return pretty(step);
@@ -93,33 +97,39 @@
     }
     // 速度汇总：平均 = 总输出 token ÷ 总生成时间（与后端 models/ai-round-tracker.js 一致）
     function speedSummary(rounds=[]){
-        const list=(rounds||[]).filter(round=>round&&Number(round.tps)>0);if(!list.length)return null;
-        const speeds=list.map(round=>Number(round.tps)),out=list.reduce((sum,round)=>sum+(Number(round.outputTokens)||0),0),gen=list.reduce((sum,round)=>sum+(Number(round.generationMs)||0),0);
+        const valid=(rounds||[]).filter(round=>round&&(Number(round.ms)>0||Number(round.tps)>0));if(!valid.length)return null;
+        const speedList=valid.filter(round=>Number(round.tps)>0),speeds=speedList.map(round=>Number(round.tps)),out=valid.reduce((sum,round)=>sum+(Number(round.outputTokens)||0),0),gen=speedList.reduce((sum,round)=>sum+(Number(round.generationMs)||Number(round.ms)||0),0);
         const round1=value=>Math.round(value*10)/10;
-        return {rounds:rounds.length,minTps:round1(Math.min(...speeds)),avgTps:round1(gen>0?out/(gen/1000):speeds.reduce((a,b)=>a+b,0)/speeds.length),maxTps:round1(Math.max(...speeds)),inputTokens:rounds.reduce((sum,round)=>sum+(Number(round.inputTokens)||0),0),outputTokens:out,totalMs:rounds.reduce((sum,round)=>sum+(Number(round.ms)||0),0)};
+        return {rounds:valid.length,minTps:speeds.length?round1(Math.min(...speeds)):0,avgTps:speeds.length?round1(gen>0?out/(gen/1000):speeds.reduce((a,b)=>a+b,0)/speeds.length):0,maxTps:speeds.length?round1(Math.max(...speeds)):0,inputTokens:valid.reduce((sum,round)=>sum+(Number(round.inputTokens)||0),0),outputTokens:out,totalMs:valid.reduce((sum,round)=>sum+(Number(round.ms)||0),0)};
     }
-    // 导出开头的统计表：每条带速度的 AI 回复一行（问题、轮次、token、最低/平均/最高 tok/s、耗时），附每一轮明细
-    function modelStats(chat=[],entries=[]){
-        const rows=[];let question='';
-        const toRow=(label,rounds,indexOffset=0)=>{
-            const summary=speedSummary(rounds);
-            if(summary)rows.push({question:label,...summary,calls:rounds.map((round,idx)=>({index:round.index??(indexOffset+idx+1),at:round.at,model:round.model,inputTokens:round.inputTokens,outputTokens:round.outputTokens,estimated:Boolean(round.estimated),ttftMs:round.ttftMs,ms:round.ms,tps:round.tps}))});
-        };
+    // 导出开头的统计表：每条带速度的 AI 回复一行；没有对话气泡时用每条记录的模型轮次，再不行从 trace 的 AI 步骤兜底统计
+    function modelStats(chat=[],entries=[],fallbackQuestion=''){
+        const rows=[];let question=String(fallbackQuestion||'').slice(0,200);
         for(const item of chat||[]){
             if(item?.role==='user'){question=String(item.text||'').slice(0,200);continue;}
-            toRow(question,item?.rounds);
+            const summary=speedSummary(item?.rounds);
+            if(summary)rows.push({question,...summary,calls:item.rounds.map(round=>({index:round.index,at:round.at,model:round.model,provider:round.provider,finishReason:round.finishReason,inputTokens:round.inputTokens,outputTokens:round.outputTokens,estimated:Boolean(round.estimated),ttftMs:round.ttftMs,ms:round.ms,tps:round.tps}))});
+        }
+        // 没有对话气泡：先用每条记录保存的模型轮次，仍没有再从 AI 步骤统计
+        if(!rows.length){
+            for(const entry of entries||[]){
+                const summary=speedSummary(entry?.rounds);
+                if(summary)rows.push({question:String(entry.label||question||'').slice(0,200),...summary,calls:entry.rounds.map((round,idx)=>({index:round.index??idx+1,at:round.at,model:round.model,provider:round.provider,finishReason:round.finishReason,inputTokens:round.inputTokens,outputTokens:round.outputTokens,estimated:Boolean(round.estimated),ttftMs:round.ttftMs,ms:round.ms,tps:round.tps}))});
+            }
         }
         if(!rows.length){
-            for(const entry of entries||[])if(Array.isArray(entry?.rounds)&&entry.rounds.length)toRow(String(entry.label||'').slice(0,200),entry.rounds);
+            let idx=0;
+            const calls=(entries||[]).flatMap(entry=>(entry?.steps||[]).filter(s=>s?.kind==='ai').map(s=>({index:++idx,at:entry.at,entryId:entry.id,label:entry.label,model:s.model||'default',provider:s.provider||'',finishReason:s.finishReason||'',inputTokens:Number(s.inputTokens)||0,outputTokens:Number(s.outputTokens)||0,ms:Number(s.ms)||0,generationMs:Number(s.ms)||0,tps:Number(s.tps)||0,error:s.error||''})));
+            const summary=speedSummary(calls);
+            if(summary)rows.push({question,...summary,calls});
         }
-        return rows.length?{replies:rows,total:speedSummary(rows.flatMap(row=>row.calls.map(call=>({...call,generationMs:call.tps>0?call.outputTokens/call.tps*1000:0}))))}:null;
+        return rows.length?{replies:rows,total:speedSummary(rows.flatMap(row=>row.calls.map(call=>({...call,generationMs:call.generationMs||(call.tps>0?call.outputTokens/call.tps*1000:call.ms||0)}))))}:null;
     }
     function exportLog(cellId,context={}){
         if(!enabled)return;
-        const {chat,...rest}=context;
-        const list=traces.get(cellId)||[];
-        const stats=modelStats(chat,list);
-        const content={format:'aiops-report-diagnostics',version:1,activeStage:active.get(cellId)?.stage||null,exportedAt:new Date().toISOString(),cellId,...(stats?{modelStats:stats}:{}),context:safe({page:window.location?.pathname||'',...rest}),retention:{perCell:LIMIT,pageOnly:true},entries:safe(list)};
+        const {chat,...rest}=context,entries=safe(traces.get(cellId)||[]);
+        const stats=modelStats(chat,entries,rest.prompt);
+        const content={format:'aiops-report-diagnostics',version:1,activeStage:active.get(cellId)?.stage||null,exportedAt:new Date().toISOString(),cellId,...(stats?{modelStats:stats}:{}),context:safe({page:window.location?.pathname||'',...rest}),retention:{perCell:LIMIT,pageOnly:true},entries};
         const blob=new Blob([JSON.stringify(content,null,2)],{type:'application/json;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');
         link.href=url;link.download='aiops-report-'+String(cellId).replace(/[^a-z0-9_-]/gi,'_')+'-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
         return content;

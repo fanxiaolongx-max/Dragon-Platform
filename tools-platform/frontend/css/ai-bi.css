@@ -41,7 +41,14 @@ body.ai-bi-page{margin:0;background:#eef1f5;color:#1d2b3a;height:100vh;display:f
 @keyframes bi-spin{to{transform:rotate(360deg)}}
 .bi-guide{position:absolute;z-index:4;pointer-events:none;background:#2f6fae}
 /* Side panel: one conversation; the selected cell is a slim bar above the message box */
-.bi-side{width:360px;flex:none;display:flex;flex-direction:column;background:#fff;border-left:1px solid #e6ebf1;min-height:0;font-size:13px;line-height:1.5;color:#1d2b3a}
+.bi-side-resizer{position:relative;flex:none;width:7px;margin:0 -3px;z-index:8;cursor:col-resize;touch-action:none;user-select:none}
+.bi-side-resizer::before{content:'';position:absolute;top:0;bottom:0;left:3px;width:1px;background:#e6ebf1;transition:background .15s,width .15s,left .15s}
+.bi-side-resizer::after{content:'';position:absolute;top:50%;left:50%;width:3px;height:28px;transform:translate(-50%,-50%);border-radius:999px;background:#b9cadb;opacity:0;transition:opacity .15s,background .15s}
+.bi-side-resizer:hover::before,.bi-side-resizer.is-resizing::before{left:2px;width:3px;background:#8fb7dc}
+.bi-side-resizer:hover::after,.bi-side-resizer.is-resizing::after{opacity:1;background:#2f6fae}
+.bi-resizing-side,.bi-resizing-side *{cursor:col-resize!important;user-select:none!important}
+.bi-resizing-side .bi-item iframe{pointer-events:none}
+.bi-side{width:var(--bi-side-w,360px);min-width:280px;max-width:min(680px,55vw);flex:none;display:flex;flex-direction:column;background:#fff;border-left:1px solid #e6ebf1;min-height:0;font-size:13px;line-height:1.5;color:#1d2b3a}
 .bi-side button,.bi-side input,.bi-side select,.bi-side textarea{font:inherit;color:inherit}
 .bi-chat{flex:1;min-height:0;display:flex;flex-direction:column}
 .bi-side-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 4px;font-weight:600}
@@ -75,9 +82,9 @@ body.ai-bi-page{margin:0;background:#eef1f5;color:#1d2b3a;height:100vh;display:f
 .bi-row{display:flex;gap:6px;flex-wrap:wrap}
 .bi-row button{font-size:12px;padding:5px 10px;border-radius:8px;border:1px solid #dbe4ee;background:#fff;cursor:pointer}
 .bi-row button.bi-primary{border-color:transparent}.bi-row button:disabled{opacity:.5;cursor:default}
-.bi-composer{display:flex;flex-direction:column;gap:4px;padding:10px 10px 8px 14px;border:1px solid #cfdcea;border-radius:16px;background:#fff;box-shadow:0 2px 10px #102b470f;cursor:text;transition:border-color .15s,box-shadow .15s}
-.bi-composer:focus-within{border-color:#8fb7dc;box-shadow:0 0 0 3px rgba(47,111,174,0.15),0 2px 10px #102b470f}
-.bi-composer textarea{display:block;width:100%;min-height:24px;max-height:200px;box-sizing:border-box;padding:2px 0;border:0;outline:none;resize:none;background:transparent;font-size:13px;line-height:1.6;color:#1d2b3a;overflow-y:auto}
+.bi-composer{display:flex;flex-direction:column;gap:4px;padding:10px 12px 8px 14px;border:1px solid #cfdcea;border-radius:16px;background:#fff;box-shadow:0 2px 10px #102b470f;cursor:text;transition:border-color .15s,box-shadow .15s}
+.bi-composer:focus-within{border-color:#8fb7dc;box-shadow:0 0 0 3px rgba(47,111,174,0.14),0 2px 10px #102b470f}
+.bi-composer textarea,.bi-side .bi-composer textarea:focus,.bi-side .bi-composer textarea:focus-visible{display:block;width:100%;min-height:24px;max-height:200px;box-sizing:border-box;padding:2px 0;border:0;border-radius:0;outline:none;box-shadow:none;resize:none;background:transparent;font-size:13px;line-height:1.6;color:#1d2b3a;overflow-y:auto}
 .bi-composer textarea::placeholder{color:#9aabbb}
 .bi-composer textarea:disabled{opacity:.55;cursor:default}
 .bi-composer-bar{display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -97,9 +104,31 @@ body.ai-bi-page{margin:0;background:#eef1f5;color:#1d2b3a;height:100vh;display:f
 .bi-view .air-view-check{flex-direction:row;align-items:center;gap:6px;font-size:12px;color:#1d2b3a;padding-bottom:7px}
 .bi-view .air-view-field input[type=color]{width:100%;height:32px;padding:2px;border:1px solid #dbe4ee;border-radius:8px;background:#fff;box-sizing:border-box}
 /* The toolbar's "more" menu: canvas, zoom, refresh, export */
-.bi-more>summary{padding:5px 9px;font-weight:700;letter-spacing:.05em}.bi-more>summary::after{content:none}
-.bi-more .bi-menu-panel{left:auto;right:0;min-width:240px;padding:10px;gap:8px}
-.bi-more .bi-field{justify-content:space-between;white-space:nowrap}.bi-more .bi-field select{min-width:150px}
+.bi-more>summary{display:inline-flex;align-items:center;justify-content:center;width:32px;padding:0;color:#4f6479;border-radius:8px;transition:background .15s,color .15s,border-color .15s}.bi-more>summary::after{content:none}
+.bi-more[open]>summary{background:#edf3fa;border-color:#bfd2e6;color:#1d2b3a}
+.bi-more .bi-menu-panel{left:auto;right:0;min-width:276px;padding:12px;border-radius:12px;gap:10px;border-color:#d8e2ec;box-shadow:0 16px 40px rgba(16,43,71,.16),0 2px 8px rgba(16,43,71,.06)}
+.bi-more .bi-menu-group{display:flex;flex-direction:column;gap:8px}
+.bi-more .bi-menu-title{font-size:11px;font-weight:700;letter-spacing:.03em;color:#748699;padding:0 2px}
+.bi-more .bi-field-col{width:100%}
+.bi-more .bi-field-col select{width:100%;height:32px;padding:0 10px;border:1px solid #d5dfe9;border-radius:8px;background:#f9fbfd;color:#1d2b3a;font-size:12.5px;transition:border-color .15s,background .15s}
+.bi-more .bi-field-col select:hover{background:#fff;border-color:#b7cade}
+.bi-dims{display:flex;align-items:center;gap:6px}
+.bi-dim-box{flex:1;min-width:0;height:32px;display:flex;align-items:center;gap:6px;padding:0 9px;border:1px solid #d5dfe9;border-radius:8px;background:#f9fbfd;transition:border-color .15s,background .15s,box-shadow .15s}
+.bi-dim-box:hover{background:#fff;border-color:#b7cade}
+.bi-dim-box:focus-within{background:#fff;border-color:var(--bi-accent);box-shadow:0 0 0 3px #2f6fae22}
+.bi-dim-box span{font-size:11px;font-weight:700;color:#7a8da1;user-select:none}
+.bi-dim-box input{width:100%;min-width:0;border:0;outline:none;background:transparent;padding:0;color:#1d2b3a;font-size:12.5px;font-variant-numeric:tabular-nums}
+.bi-dim-box input:focus,.bi-dim-box input:focus-visible{box-shadow:none!important;border-color:transparent!important}
+.bi-dim-x{color:#8fa1b4;font-size:13px;flex:none;user-select:none}
+.bi-more hr{margin:2px 0;border:0;border-top:1px solid #edf2f7}
+.bi-more .bi-menu-act{display:flex;align-items:center;gap:9px;width:100%;height:34px;padding:0 10px;border:0;border-radius:8px;background:transparent;color:#1d2b3a;font-size:13px;text-align:left;cursor:pointer;transition:background .15s,color .15s,transform .1s}
+.bi-more .bi-menu-act:hover{background:#f2f6fb;color:#1f5e95}
+.bi-more .bi-menu-act:active{transform:scale(.99)}
+.bi-more .bi-menu-act[hidden]{display:none}
+.bi-more .bi-menu-act svg{flex:none;color:#62778c;transition:color .15s}
+.bi-more .bi-menu-act:hover svg{color:#2f6fae}
+.bi-more .bi-menu-act span{flex:1}
+.bi-more .bi-menu-act small{font-size:11px;color:#8295a8;background:#f1f5f9;padding:1px 6px;border-radius:999px}
 /* Present mode: only the canvas, fitted to the screen */
 body.bi-presenting .bi-toolbar,body.bi-presenting .air-debug-fab,body.bi-presenting .bi-side,body.bi-presenting #navbar-container{display:none!important}
 body.bi-presenting .bi-stage{padding:0;background:#0f1720;display:flex;align-items:center;justify-content:center}
@@ -113,7 +142,45 @@ body.bi-presenting .bi-item.is-selected{outline:none}
 .bi-toolbar{box-shadow:0 1px 0 #dde4ec,0 4px 12px #102b470a;position:relative;z-index:5}
 .bi-toolbar button,.bi-toolbar select,.bi-toolbar input,.bi-menu>summary{transition:background .15s,border-color .15s,box-shadow .15s,color .15s}
 .bi-toolbar button:hover:not(:disabled),.bi-menu>summary:hover{border-color:#9fb6cf;background:#f6f9fc}
-.bi-toolbar button:focus-visible,.bi-toolbar select:focus-visible,.bi-toolbar input:focus-visible,.bi-side :is(button,input,select,textarea):focus-visible{outline:none;box-shadow:0 0 0 3px #2f6fae33;border-color:var(--bi-accent)}
+.bi-toolbar button:focus-visible,.bi-toolbar select:focus-visible,.bi-toolbar input:focus-visible,.bi-side :is(button,input,select,textarea):not(.bi-composer-input):focus-visible{outline:none;box-shadow:0 0 0 3px #2f6fae33;border-color:var(--bi-accent)}
+/* Layout stage wrapper & floating industry-standard canvas zoom bar */
+.bi-stage-wrap{position:relative;flex:1;min-width:0;min-height:0;display:flex;flex-direction:column}
+.bi-stage-wrap>.bi-stage{flex:1;min-width:0;min-height:0;padding-bottom:68px}
+.bi-zoom-bar{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);z-index:25;display:inline-flex;align-items:center;gap:2px;padding:4px 6px;border:1px solid #d6e0ea;border-radius:999px;background:rgba(255,255,255,.92);backdrop-filter:blur(12px);box-shadow:0 8px 26px rgba(16,43,71,.12),0 1px 3px rgba(16,43,71,.06)}
+.bi-zbtn{height:28px;min-width:28px;padding:0 7px;border:0;border-radius:999px;background:transparent;color:#33475b;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;cursor:pointer;transition:background .15s,color .15s,transform .1s}
+.bi-zbtn:hover:not(:disabled){background:#eef3f8;color:#1f5e95}
+.bi-zbtn:active:not(:disabled){transform:scale(.95)}
+.bi-zbtn:disabled{opacity:.38;cursor:default}
+.bi-zbtn.bi-ztext{padding:0 10px}
+.bi-zbtn.is-active,.bi-zoom-panel button.is-active{background:#e6f0fa;color:#1f5e95;font-weight:600}
+.bi-zsep{width:1px;height:16px;margin:0 3px;background:#dfe7ef}
+.bi-zoom-menu{position:relative}
+.bi-zoom-menu>summary{list-style:none;height:28px;min-width:52px;padding:0 8px;border:0;border-radius:999px;background:transparent;color:#1d2b3a;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s,color .15s}
+.bi-zoom-menu>summary::-webkit-details-marker{display:none}
+.bi-zoom-menu>summary::after{content:none}
+.bi-zoom-menu>summary:hover,.bi-zoom-menu[open]>summary{background:#eef3f8;color:#1f5e95}
+.bi-zoom-panel{top:auto!important;bottom:calc(100% + 10px)!important;left:50%!important;right:auto!important;min-width:118px!important;padding:5px!important;transform-origin:bottom center!important;transform:translateX(-50%) translateY(6px) scale(.96)}
+.bi-zoom-menu[open]>.bi-zoom-panel{transform:translateX(-50%) translateY(0) scale(1)}
+.bi-zoom-menu.is-closing>.bi-zoom-panel{transform:translateX(-50%) translateY(6px) scale(.96)}
+.bi-zoom-panel button{width:100%;height:29px;padding:0 10px;border:0;border-radius:7px;background:transparent;color:#1d2b3a;font-size:12px;text-align:center;cursor:pointer;transition:background .12s,color .12s}
+.bi-zoom-panel button:hover{background:#f2f6fb;color:#1f5e95}
+.bi-zoom-panel hr{border:0;border-top:1px solid #edf2f7;margin:3px 4px}
+/* Animated dropdown menus (open & close transitions) */
+.bi-menu[open]>.bi-menu-panel{opacity:1;transform:none;pointer-events:auto;transition:opacity .18s cubic-bezier(.16,1,.3,1),transform .2s cubic-bezier(.16,1,.3,1)}
+.bi-menu.is-closing>.bi-menu-panel{opacity:0!important;transform:translateY(-6px) scale(.97)!important;pointer-events:none!important;transition:opacity .14s ease-in,transform .14s ease-in!important}
+.bi-zoom-menu.is-closing>.bi-zoom-panel{transform:translateX(-50%) translateY(6px) scale(.96)!important}
+/* Toolbar Undo / Redo + Stop button */
+.bi-hist{display:inline-flex;align-items:center;border:1px solid #d5dfe9;border-radius:8px;overflow:hidden;background:#f8fafc}
+.bi-icon-btn{width:30px;height:30px;padding:0;border:0!important;border-radius:0!important;background:transparent;color:#3f546a;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s,color .15s}
+.bi-icon-btn+.bi-icon-btn{border-left:1px solid #e1e8ef!important}
+.bi-icon-btn:hover:not(:disabled){background:#edf3fa;color:#1f5e95}
+.bi-icon-btn:disabled{opacity:.35;cursor:default}
+.bi-send.is-stop{background:#c14d5f;border-color:#c14d5f;color:#fff}
+.bi-send.is-stop:hover{background:#a73c4d}
+.bi-mark-count{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:#eef4fb;color:#1f5e95;font-size:10px;font-weight:700;margin-left:4px}
+[data-bi=mark].is-active .bi-mark-count{background:rgba(255,255,255,.24);color:#fff}
+body.bi-presenting .bi-zoom-bar,body.bi-presenting .bi-side-resizer,body.bi-presenting .air-mark-layer,body.bi-presenting .air-mark-hint,body.bi-presenting .air-mark-pop{display:none!important}
+.bi-side .bi-composer textarea:focus,.bi-side .bi-composer textarea:focus-visible{outline:none!important;border:0!important;box-shadow:none!important;border-radius:0}
 .bi-primary{box-shadow:0 2px 6px #2f6fae40}
 .bi-primary:hover:not(:disabled){filter:brightness(1.08)}
 .bi-status{padding:2px 8px;border-radius:10px;transition:background .2s,color .2s}

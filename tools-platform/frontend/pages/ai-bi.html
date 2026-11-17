@@ -1,13 +1,7 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI BI - Dragon Claw</title><script src="/js/ai-report/light-theme.js"></script><link rel="stylesheet" href="/css/shared.css"><link rel="stylesheet" href="/css/ai-report.css"><link rel="stylesheet" href="/css/ai-bi.css"></head>
 <body class="ai-bi-page">
-<script src="/js/shared/api.js"></script><script src="/js/shared/i18n.js"></script><script src="/js/shared/platform-core.js"></script>
-<script src="/js/shared/platform-dialogs.js"></script>
-<script src="/js/shared/platform-settings-controller.js"></script>
-<script src="/js/shared/platform-alerts.js"></script>
-<script src="/js/shared/platform-services.js"></script>
-<script src="/js/shared/platform-tool-updates.js"></script>
-<script src="/js/shared/platform-runtime.js"></script><script src="/js/shared/app-dialog.js"></script>
+<script src="/js/shared/api.js"></script><script src="/js/shared/i18n.js"></script><script src="/js/shared/platform-core.js"></script><script src="/js/shared/platform-dialogs.js"></script><script src="/js/shared/platform-settings-controller.js"></script><script src="/js/shared/platform-alerts.js"></script><script src="/js/shared/platform-services.js"></script><script src="/js/shared/platform-tool-updates.js"></script><script src="/js/shared/platform-runtime.js"></script><script src="/js/shared/app-dialog.js"></script>
 <header class="bi-toolbar">
     <strong class="bi-brand">AI BI</strong>
     <details class="bi-menu"><summary><span id="biName">—</span></summary>
@@ -18,17 +12,65 @@
     <span id="biStatus" class="bi-status" role="status"></span>
     <button type="button" data-bi="mark" title="点画布上的某个位置，写下要怎么改">📍 标记</button>
     <button type="button" data-bi="present">▶ 演示</button>
+    <div class="bi-hist" role="group" aria-label="历史操作">
+        <button type="button" data-bi="undo" class="bi-icon-btn" title="撤销 (Ctrl+Z)" aria-label="撤销" disabled><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg></button>
+        <button type="button" data-bi="redo" class="bi-icon-btn" title="重做 (Ctrl+Shift+Z)" aria-label="重做" disabled><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5v0A5.5 5.5 0 0 0 9.5 20H13"/></svg></button>
+    </div>
     <button type="button" data-bi="save" class="bi-primary">保存</button>
-    <details class="bi-menu bi-more"><summary aria-label="更多" title="画布、缩放、刷新数据、导出">⋯</summary>
+    <details class="bi-menu bi-more" id="biMoreMenu"><summary aria-label="更多" title="画布尺寸、刷新数据与导出"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></summary>
         <div class="bi-menu-panel">
-            <label class="bi-field"><span>画布</span><select id="biPreset"></select></label>
-            <label class="bi-field"><span>尺寸</span><span class="bi-size"><input type="number" id="biWidth" min="320" max="7680" step="8" aria-label="画布宽度">×<input type="number" id="biHeight" min="240" max="8000" step="8" aria-label="画布高度"></span></label>
-            <label class="bi-field"><span>缩放</span><select id="biZoom"><option value="fit">适应窗口</option><option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option></select></label><hr>
-            <button type="button" data-bi="refresh" title="用当前数据月份重新计算所有格子（不调用 AI）">⟳ 刷新数据</button>
-            <button type="button" data-bi="export">导出 HTML</button></div></details>
+            <div class="bi-menu-group">
+                <div class="bi-menu-title">画布规格</div>
+                <div class="bi-field bi-field-col"><select id="biPreset" aria-label="画布预设"></select></div>
+                <div class="bi-dims" role="group" aria-label="画布宽高">
+                    <label class="bi-dim-box"><span>W</span><input type="number" id="biWidth" min="320" max="7680" step="8" aria-label="画布宽度"></label>
+                    <span class="bi-dim-x" aria-hidden="true">×</span>
+                    <label class="bi-dim-box"><span>H</span><input type="number" id="biHeight" min="240" max="8000" step="8" aria-label="画布高度"></label>
+                </div>
+            </div>
+            <hr>
+            <div class="bi-menu-group">
+                <div class="bi-menu-title">看板操作</div>
+                <button type="button" class="bi-menu-act" data-bi="refresh" title="用当前数据月份重新计算所有格子（不调用 AI）">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
+                    <span>刷新数据</span><small>不调 AI</small>
+                </button>
+                <button type="button" class="bi-menu-act" data-bi="clear-marks" hidden>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s7-4.5 7-11a7 7 0 1 0-14 0c0 6.5 7 11 7 11Z"/><path d="m9.5 9.5 5 5"/><path d="m14.5 9.5-5 5"/></svg>
+                    <span>清空画布标记</span><small id="biMarkCountBadge">0</small>
+                </button>
+                <button type="button" class="bi-menu-act" data-bi="export">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    <span>导出 HTML</span><small>离线可读</small>
+                </button>
+            </div>
+        </div>
+    </details>
 </header>
 <main class="bi-layout">
-    <section class="bi-stage" id="biStage"><div class="bi-scaler" id="biScaler"><div class="bi-canvas" id="biCanvas"></div></div></section>
+    <div class="bi-stage-wrap">
+        <section class="bi-stage" id="biStage"><div class="bi-scaler" id="biScaler"><div class="bi-canvas" id="biCanvas"></div></div></section>
+        <div class="bi-zoom-bar" id="biZoomBar" role="toolbar" aria-label="画布缩放控制">
+            <button type="button" class="bi-zbtn" data-zoom-step="-1" title="缩小 (Ctrl + -)" aria-label="缩小"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+            <details class="bi-menu bi-zoom-menu" id="biZoomMenu">
+                <summary class="bi-zoom-val" aria-label="选择缩放比例" title="点击选择常用缩放比例"><span id="biZoomVal">100%</span></summary>
+                <div class="bi-menu-panel bi-zoom-panel" role="menu">
+                    <button type="button" data-zoom-set="0.5">50%</button>
+                    <button type="button" data-zoom-set="0.75">75%</button>
+                    <button type="button" data-zoom-set="1">100%</button>
+                    <button type="button" data-zoom-set="1.25">125%</button>
+                    <button type="button" data-zoom-set="1.5">150%</button>
+                    <hr>
+                    <button type="button" data-zoom-set="fit">适应屏幕</button>
+                </div>
+            </details>
+            <button type="button" class="bi-zbtn" data-zoom-step="1" title="放大 (Ctrl + +)" aria-label="放大"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+            <span class="bi-zsep" aria-hidden="true"></span>
+            <button type="button" class="bi-zbtn bi-ztext" data-zoom-set="fit" title="缩放到适应屏幕 (Ctrl + 0)">适应屏幕</button>
+            <button type="button" class="bi-zbtn bi-ztext" data-zoom-set="1" title="原始比例 100% (Ctrl + 1)">100%</button>
+        </div>
+    </div>
+    <div class="bi-side-resizer" id="biSideResizer" role="separator" aria-orientation="vertical" tabindex="0" aria-label="拖动调整对话栏宽度" title="拖动调整宽度 · 双击恢复默认"></div>
     <aside class="bi-side" id="biSide"></aside>
 </main>
 <script src="/js/vendor/echarts.min.js"></script><script src="/js/ai-report/render-kit.js"></script><script src="/js/ai-report/templates.js"></script><script src="/js/ai-report/query.js"></script><script src="/js/ai-report/report-model.js"></script><script src="/js/ai-report/element-editor.js"></script><script src="/js/ai-report/interactive.js"></script><script src="/js/ai-report/widgets.js"></script><script src="/js/ai-report/sanitize.js"></script><script src="/js/ai-report/sandbox.js"></script><script src="/js/ai-report/trace.js"></script><script src="/js/ai-report/marker.js"></script><script src="/js/ai-report/param-panel.js"></script><script src="/js/ai-bi/model.js"></script><script src="/js/ai-bi/app.js"></script>

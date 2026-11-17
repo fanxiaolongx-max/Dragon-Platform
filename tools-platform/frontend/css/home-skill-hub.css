@@ -202,8 +202,6 @@ html[data-theme="dark"] .v2-hub-card.is-shared-access:hover {
     box-shadow: 0 0 0 1px color-mix(in srgb, #0ea5e9 40%, transparent),
                 0 6px 22px color-mix(in srgb, #0ea5e9 30%, transparent);
 }
-                0 6px 22px color-mix(in srgb, var(--v2-accent, #3ecf9e) 30%, transparent);
-}
 .v2-hub-cards.is-featured .v2-hub-card { min-height: 112px; }
 .v2-hub-icon {
     flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 11px; font-size: 22px; overflow: hidden;
@@ -334,9 +332,17 @@ html[data-theme="dark"] .v2-badge-unshared {
     background: var(--v2-line, rgba(148, 163, 184, 0.18));
 }
 .tool-context-menu .is-danger {
-    color: var(--danger-color, #f87171);
+    color: var(--v2-danger, #dc2626);
 }
 .tool-context-menu .is-danger:hover, .tool-context-menu .is-danger:focus-visible {
+    background: rgba(239, 68, 68, 0.1);
+    color: #b91c1c;
+}
+html[data-theme="dark"] .tool-context-menu .is-danger {
+    color: #f87171;
+}
+html[data-theme="dark"] .tool-context-menu .is-danger:hover,
+html[data-theme="dark"] .tool-context-menu .is-danger:focus-visible {
     background: rgba(239, 68, 68, 0.15);
     color: #fca5a5;
 }

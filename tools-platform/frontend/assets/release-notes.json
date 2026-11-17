@@ -1,8 +1,8 @@
 {
   "zh": [
-    "优化触屏设备侧边栏会话列表排版（在 hover: none 下分离时间、置顶图标与操作菜单间距，避免重叠）；同时包含移动端交互式审批卡片（支持本对话完全访问授权与高危操作确认）及持久化用户专属工作区。"
+    "与基座 Web 版双向对齐：AI BI 看板、标记与样式以 Web 版为准同步；AI 报表查询与运行日志合并两边改进（百分比不再重复放大、日志保留模型与用量信息、可中途取消生成）；技能中心可直接上传技能包，会话列表支持查看已归档；修复技能卡片样式里一段残留代码导致精选卡片高度失效、工作空间栏为空时留白、换语言后工具卡片徽标消失、英文界面显示中文默认简介。"
   ],
   "en": [
-    "Refined touch-device sidebar conversation row layout (separating timestamps, pin icons, and action menus under hover: none to prevent overlap), alongside interactive mobile approval cards with one-tap chat-level full access and persistent user-owned workspaces."
+    "Two-way alignment with the web edition: the AI BI board, markers and styles now follow the web edition; AI report queries and run logs merge improvements from both sides (no double percentage scaling, logs keep model and usage details, generation can be cancelled); skills can be uploaded from the Skill Hub and archived conversations can be viewed; fixed a stray stylesheet fragment that broke featured card height, an empty workspace bar leaving a gap, tool card badges disappearing after switching language, and Chinese default descriptions shown in English."
   ]
 }

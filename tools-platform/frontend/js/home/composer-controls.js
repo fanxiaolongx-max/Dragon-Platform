@@ -65,10 +65,10 @@
             if (!menu.hidden) return close(true);
             // Close other composer popovers without changing their selection.
             document.querySelectorAll('.dc-context-picker[open]').forEach(item => item.open = false);
-            window.HomeAgentDiscussion?.closePicker?.();
+            try { window.HomeAgentDiscussion?.closePicker?.(); } catch {}
             document.getElementById('dcModelMenu')?.setAttribute('hidden', '');
             document.getElementById('dcModelBtn')?.setAttribute('aria-expanded', 'false');
-            window.DragonClawSkills?.closeSuggestions?.();
+            try { window.DragonClawSkills?.closeSuggestions?.(); } catch {}
             render(); menu.hidden = false; button.setAttribute('aria-expanded', 'true'); position();
             menu.querySelector('button')?.focus({ preventScroll: true });
         }

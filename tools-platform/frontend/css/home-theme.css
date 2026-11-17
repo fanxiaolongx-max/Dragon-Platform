@@ -2113,6 +2113,8 @@ html.platform-home:not([data-theme="dark"]) .home-workspace-panel :is(.wsp-pr--d
 html.platform-home:not([data-theme="dark"]) .home-workspace-panel :is(.wsp-pr--failed, .wsp-pr--blocked) { border-color: #fecaca; }
 /* Workspace context: folder, Git branch, worktree and permissions form one quiet toolbar. */
 html.platform-home #dcWorkspaceChip { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+/* 上面的 display 会盖掉 hidden 属性；没有工作空间内容时这一栏不能留一条空底 */
+html.platform-home #dcWorkspaceChip[hidden] { display: none; }
 
 html.platform-home .dc-workspace-search { display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 10px; margin-bottom: 7px; border: 1px solid transparent; border-radius: 9px; background: var(--v2-side); color: var(--v2-ink3); transition: border-color 140ms ease, box-shadow 140ms ease; }
 
@@ -2914,4 +2916,65 @@ html.platform-home body.v2-mobile-side-open .v2-side-float {visibility:hidden}
 @media(max-width:860px){
 
 html.platform-home .home-sidebar > .v2-side-top {flex:0 1 auto;min-height:0;max-height:calc(100dvh - 144px);overflow-y:auto;overscroll-behavior:contain}
+}
+
+/* ── 侧栏已归档对话模式：顶部状态横幅 + 分类“已归档”徽标 ── */
+html.platform-home .home-chat-archive-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 4px 2px 8px;
+    padding: 6px 10px;
+    border: 1px solid color-mix(in srgb, var(--v2-accent) 32%, var(--v2-line));
+    border-radius: 9px;
+    background: var(--v2-accent-soft);
+    color: var(--v2-ink);
+    font-size: 12px;
+}
+html.platform-home .home-chat-archive-banner-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    font-weight: 550;
+    color: var(--v2-accent);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+html.platform-home .home-chat-archive-dot {
+    width: 6px;
+    height: 6px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--v2-accent);
+}
+html.platform-home .home-chat-archive-exit {
+    flex: none;
+    height: 22px;
+    padding: 0 8px;
+    border: 1px solid color-mix(in srgb, var(--v2-accent) 35%, var(--v2-line));
+    border-radius: 6px;
+    background: var(--v2-bg);
+    color: var(--v2-ink);
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    transition: background var(--v2-ease), border-color var(--v2-ease);
+}
+html.platform-home .home-chat-archive-exit:hover {
+    background: var(--v2-hover);
+    border-color: var(--v2-accent);
+}
+html.platform-home .home-chat-category-badge {
+    margin-left: auto;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--v2-accent-soft);
+    border: 1px solid color-mix(in srgb, var(--v2-accent) 30%, transparent);
+    color: var(--v2-accent);
+    font-size: 10.5px;
+    font-weight: 550;
+    line-height: 1.4;
 }

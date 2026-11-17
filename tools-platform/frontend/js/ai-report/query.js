@@ -97,7 +97,14 @@
         if(!AGGS.includes(agg))fail(`不支持的汇总 ${agg}，可用：${AGGS.join(' ')}`);
         let value=aggregate(rows,agg,spec.field);
         if(spec.divideBy){const base=aggregate(rows,spec.divideAgg||agg,check(spec.divideBy));value=num(value)!==null&&num(base)?num(value)/num(base):null;}
-        if(value!==null&&spec.scale!==undefined&&num(value)!==null)value=num(value)*Number(spec.scale);
+        // 避免 AI 误对本就是 0–100 百分数（如 num_val=99 / raw_val="99%"）再乘 100 变成 9900%
+        const skipPercentScale=Number(spec.scale)===100&&!spec.divideBy&&value!==null&&(
+            rows.some(row=>String(row?.[spec.field]??'').includes('%'))
+            ||(['num_val','numValue','targetValue'].includes(spec.field)&&rows.some(row=>String(row?.raw_val??row?.value??row?.target_val??row?.target??'').includes('%')))
+            ||Math.abs(num(value)??0)>2
+            ||rows.some(row=>{const n=num(row?.[spec.field]);return n!==null&&Math.abs(n)>2;})
+        );
+        if(value!==null&&spec.scale!==undefined&&!skipPercentScale&&num(value)!==null)value=num(value)*Number(spec.scale);
         return typeof value==='number'?round(value,spec.digits??4):value;
     }
     function groups(rows,by,check){
@@ -163,7 +170,7 @@
 query 写法（严格 JSON）：
 - 公共：from = sources 里的 id；where = [{"field":"列名","op":"= != > >= < <= in notIn contains notEmpty","value":值}]；sort = {"by":"value","dir":"desc|asc"}；limit = 数量；exclude = [要去掉的分类]。
 - 分类对比 shape "items"（配 bar / bar-target / pie 等 items 模板）：{"shape":"items","from":"d1","where":[...],"label":"分类列","value":"数值列" 或 {"field":"列","agg":"sum|avg|count|min|max|first","scale":100,"divideBy":"分母列","digits":1},"target":{"const":95}}；同一分类多行时按 label 汇总（groupBy 可另指定分组列）。
-- 指标卡 shape "kpis"：{"shape":"kpis","from":"d1","where":[...],"cards":[{"label":"SR 总量","value":"sr_total"},{"label":"FRT 达成率","value":{"field":"sr_frt","scale":100,"digits":1},"unit":"%"}]}（多行时 value 写 agg 汇总）。
+- 指标卡 shape "kpis"：{"shape":"kpis","from":"d1","where":[...],"cards":[{"label":"SR 总量","value":"sr_total"},{"label":"FRT 达成率","value":{"field":"num_val","digits":1},"unit":"%"}]}（多行时 value 写 agg 汇总；仅当字段确认为 0–1 小数时才写 scale:100）。
 - metrics 来源每行是一个指标，字段是 key、label、value、target 等；指标名称是 label 的取值，绝不能把“整改”等名称写成 value/field。同一来源可能同时包含整体和各运营商分项，整体值必须按 label 精确筛选，不能对整体和分项 sum/avg，也不能用 first 掩盖遗漏的筛选。
 - 例如整体指标卡加运营商表格可用独立查询：{"overall":{"shape":"kpis","from":"m1","where":[{"field":"label","op":"=","value":"整改"}],"cards":[{"label":"整体达成率","value":"value","unit":"%"}]},"operators":{"shape":"rows","from":"m1","where":[{"field":"label","op":"in","value":["整改 / TE","整改 / ORG","整改 / ET","整改 / VDF"]}],"columns":{"name":"label","rate":"value","target":"target"}}}。名称必须替换为 list_metrics 返回的真实名称；同源不同分区分别写 where，指标卡的显示 label 不会自动筛选数据。
 - 趋势 shape "series"：{"shape":"series","from":"d1","x":"月份列","series":[{"name":"工单量","field":"cnt","agg":"sum"}],"limit":6}，横轴按 x 排序（或 order 指定顺序）。
@@ -171,6 +178,6 @@ query 写法（严格 JSON）：
 - 一句话 shape "text"：{"shape":"text","from":"d1","where":[...],"parts":["本月工单 ",{"field":"cnt"}," 单"]}。
 - view 有多个分区读取不同数据时，query 写成 {"分区 data 名": {...}, ...}。
 - 一个分类 / 一张卡 / 一个横轴点对应多行时必须写 agg（计数类用 sum，比率类先用 where 筛到一行，不要把比率相加）；否则平台会报错并说明这些行的区别。
-- 比例字段若本身是 0–1 的小数，用 scale:100 变百分比；不要用除法去猜。字段名和取值必须来自工具返回或数据概况里的真实名称。`;
+- 比例字段若本身是 0–1 的小数才用 scale:100 变百分比；若字段（如 report_metric_data.num_val 或 metrics[].numValue）本身已是 0–100 数值（例如 99 表示 99%），禁止写 scale:100 或乘 100，直接设 unit:"%" 即可。字段名和取值必须来自工具返回或数据概况里的真实名称。`;
     return {OPS,AGGS,SHAPES,run,computeSource,isQueryCompute,queryFromCompute,GUIDE};
 });

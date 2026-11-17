@@ -10,7 +10,7 @@
     const t=(zh,en)=>lang()==='en'?en:zh;
     const BOARD='bi-board';
     const previousMonth=()=>{const date=new Date();date.setUTCDate(1);date.setUTCMonth(date.getUTCMonth()-1);return date.toISOString().slice(0,7);};
-    const state={board:null,boards:[],selected:null,busy:new Map(),planning:false,saved:'',undo:[],zoom:'fit',focus:null,presenting:false,advanced:false};
+    const state={board:null,boards:[],selected:null,busy:new Map(),planning:false,abort:null,saved:'',undo:[],redo:[],zoom:'fit',focus:null,presenting:false,advanced:false};
     const dataCache=new Map();
     const fresh=new Set(); // cells whose content just landed: they fade in once
     const canvasNode=$('#biCanvas'),scaler=$('#biScaler'),stage=$('#biStage'),side=$('#biSide');
@@ -18,8 +18,9 @@
     // ── State helpers ─────────────────────────────────────────────────────────────────────────────────────────
     const snapshot=()=>JSON.stringify(state.board);
     const dirty=()=>!!state.board&&snapshot()!==state.saved;
-    function checkpoint(){state.undo.push(snapshot());if(state.undo.length>50)state.undo.shift();}
-    function undo(){const previous=state.undo.pop();if(!previous)return status(t('没有可撤销的操作','Nothing to undo'));state.board=JSON.parse(previous);render();status(t('已撤销','Undone'));}
+    function checkpoint(){state.undo.push(snapshot());if(state.undo.length>50)state.undo.shift();state.redo=[];}
+    function undo(){const previous=state.undo.pop();if(!previous)return status(t('没有可撤销的操作','Nothing to undo'));state.redo.push(snapshot());state.board=JSON.parse(previous);marker?.load?.(state.board.marks||[],{silent:true});render();status(t('已撤销','Undone'));}
+    function redo(){const next=state.redo.pop();if(!next)return status(t('没有可重做的操作','Nothing to redo'));state.undo.push(snapshot());state.board=JSON.parse(next);marker?.load?.(state.board.marks||[],{silent:true});render();status(t('已重做','Redone'));}
     const item=id=>state.board?.items.find(entry=>entry.id===id)||null;
     let statusTimer=0;
     function status(message){const node=$('#biStatus');node.textContent=message||(dirty()?t('未保存','Unsaved'):'');node.classList.toggle('is-dirty',!message&&dirty());$('[data-bi=save]').disabled=!dirty();clearTimeout(statusTimer);if(message)statusTimer=setTimeout(()=>status(''),3200);}
@@ -44,12 +45,20 @@
     // Compiling asks the AI for a recipe (template first); a failed run goes back once with the error.
     async function compileItem(entry){
         // A rebuild after a failed run starts from that error, so the AI fixes it instead of repeating it.
+        const isFallback=r=>r?.summary?.en==='AI Report Cell';
         let error=entry.recipe&&entry.prompt===entry.recipePrompt?entry.output?.error||'':'';
         for(let attempt=0;attempt<3;attempt++){
             const zoom=B.scaleOf(entry,state.board.canvas);
             const prompt=`${entry.prompt}\n【尺寸约束】格子宽 ${Math.round(entry.w/zoom)}px、高 ${Math.round(entry.h/zoom)}px，全部内容必须在这个范围内完整显示，不出现滚动条。`;
-            const reply=await window.AiReportTrace.post(entry.id,t('生成格子','Build cell'),'/api/ai-report/cell/compile',{month:month(),interactive:false,prompt,recipe:entry.recipe,previousPrompt:entry.recipePrompt||'',error});
+            const ref=isFallback(entry.recipe)?null:entry.recipe;
+            const reply=await window.AiReportTrace.post(entry.id,t('生成格子','Build cell'),'/api/ai-report/cell/compile',{month:month(),interactive:false,prompt,recipe:ref,previousPrompt:isFallback(entry.recipe)?'':entry.recipePrompt||'',error});
             if(reply.type==='ask')throw Object.assign(new Error(reply.question),{ask:true});
+            if(reply.fallback){
+                const reason=reply.fallbackReason||reply.aiError||t('模型未能生成有效配方','AI did not return a valid recipe');
+                window.AiReportTrace.note?.(entry.id,t(`编译回退（第 ${attempt+1} 次）`,`Compile fallback (attempt ${attempt+1})`),reason,{error:true});
+                if(reply.aiError||attempt>=1)throw new Error(reason);
+                error=reason;continue;
+            }
             entry.recipe=reply.recipe;
             try{await runItem(entry);entry.recipePrompt=entry.prompt;return;}catch(problem){error=problem.message||String(problem);}
         }
@@ -68,11 +77,38 @@
     async function queue(list,job){const pending=[...list];const next=async()=>{while(pending.length)await job(pending.shift());};await Promise.all([next(),next()]);}
 
     // ── Canvas ───────────────────────────────────────────────────────────────────────────────────────────────
+    const ZOOM_STOPS=[0.25,0.33,0.5,0.67,0.75,0.9,1,1.1,1.25,1.5,1.75,2];
+    const clampZoom=v=>Math.max(0.15,Math.min(2.5,Math.round(v*100)/100));
     function scale(){
         const size=state.board.canvas;
         if(state.presenting)return Math.min(window.innerWidth/size.width,window.innerHeight/size.height);
         if(state.zoom!=='fit')return Number(state.zoom)||1;
-        return Math.max(0.1,Math.min(1,(stage.clientWidth-48)/size.width,(stage.clientHeight-48)/size.height));
+        return Math.max(0.1,Math.min(1,(stage.clientWidth-48)/size.width,Math.max(120,stage.clientHeight-96)/size.height));
+    }
+    function updateZoomUi(){
+        const bar=$('#biZoomBar');if(!bar||!state.board)return;
+        const k=scale(),pct=Math.round(k*100);
+        const val=$('#biZoomVal');if(val)val.textContent=`${pct}%`;
+        const fitBtn=bar.querySelector('[data-zoom-set="fit"]');
+        const fullBtn=bar.querySelector('[data-zoom-set="1"]');
+        if(fitBtn)fitBtn.classList.toggle('is-active',state.zoom==='fit');
+        if(fullBtn)fullBtn.classList.toggle('is-active',state.zoom!=='fit'&&Math.abs(Number(state.zoom)-1)<0.005);
+        bar.querySelectorAll('.bi-zoom-panel [data-zoom-set]').forEach(btn=>{
+            const v=btn.dataset.zoomSet;
+            btn.classList.toggle('is-active',v==='fit'?state.zoom==='fit':state.zoom!=='fit'&&Math.abs(Number(v)-Number(state.zoom))<0.01);
+        });
+        const minus=bar.querySelector('[data-zoom-step="-1"]'),plus=bar.querySelector('[data-zoom-step="1"]');
+        if(minus)minus.disabled=k<=ZOOM_STOPS[0]+0.005;
+        if(plus)plus.disabled=k>=ZOOM_STOPS[ZOOM_STOPS.length-1]-0.005;
+    }
+    function setZoom(next){
+        state.zoom=next==='fit'?'fit':String(clampZoom(Number(next)||1));
+        layoutCanvas();
+    }
+    function stepZoom(dir){
+        const cur=scale();
+        if(dir>0){const next=ZOOM_STOPS.find(s=>s>cur+0.015)??ZOOM_STOPS[ZOOM_STOPS.length-1];setZoom(next);}
+        else{const next=[...ZOOM_STOPS].reverse().find(s=>s<cur-0.015)??ZOOM_STOPS[0];setZoom(next);}
     }
     function layoutCanvas(){
         if(!state.board)return;
@@ -80,6 +116,8 @@
         Object.assign(canvasNode.style,{width:size.width+'px',height:size.height+'px',transform:`scale(${k})`,background:size.background});
         canvasNode.style.backgroundImage=state.presenting?'none':'';
         Object.assign(scaler.style,{width:size.width*k+'px',height:size.height*k+'px'});
+        updateZoomUi();
+        marker?.sync?.();
         palette().forEach((color,index)=>canvasNode.style.setProperty('--kit-c'+index,color));
         canvasNode.style.setProperty('--air-accent',palette()[0]);
     }
@@ -126,20 +164,52 @@
         drag={id:entry.id,mode:resize?'resize':'move',x:event.clientX,y:event.clientY,start:{x:entry.x,y:entry.y,w:entry.w,h:entry.h},k:scale(),before:snapshot()};
         node.classList.add('is-dragging');canvasNode.setPointerCapture(event.pointerId);
     });
+    const clearGuides=()=>canvasNode.querySelectorAll('.bi-guide').forEach(el=>el.remove());
+    function snapWithGuides(entry,mode,size){
+        clearGuides();
+        const others=state.board.items.filter(o=>o.id!==entry.id);
+        const xs=[0,size.width/2,size.width,...others.flatMap(o=>[o.x,o.x+o.w/2,o.x+o.w])];
+        const ys=[0,size.height/2,size.height,...others.flatMap(o=>[o.y,o.y+o.h/2,o.y+o.h])];
+        const T=8;let gx=null,gy=null;
+        if(mode==='move'){
+            for(const p of xs){
+                if(Math.abs(entry.x-p)<=T){entry.x=Math.round(p);gx=p;break;}
+                if(Math.abs(entry.x+entry.w/2-p)<=T){entry.x=Math.round(p-entry.w/2);gx=p;break;}
+                if(Math.abs(entry.x+entry.w-p)<=T){entry.x=Math.round(p-entry.w);gx=p;break;}
+            }
+            for(const p of ys){
+                if(Math.abs(entry.y-p)<=T){entry.y=Math.round(p);gy=p;break;}
+                if(Math.abs(entry.y+entry.h/2-p)<=T){entry.y=Math.round(p-entry.h/2);gy=p;break;}
+                if(Math.abs(entry.y+entry.h-p)<=T){entry.y=Math.round(p-entry.h);gy=p;break;}
+            }
+            entry.x=Math.max(0,Math.min(size.width-entry.w,entry.x));
+            entry.y=Math.max(0,Math.min(size.height-entry.h,entry.y));
+        }else{
+            for(const p of xs){if(Math.abs(entry.x+entry.w-p)<=T&&p-entry.x>=160){entry.w=Math.round(p-entry.x);gx=p;break;}}
+            for(const p of ys){if(Math.abs(entry.y+entry.h-p)<=T&&p-entry.y>=100){entry.h=Math.round(p-entry.y);gy=p;break;}}
+        }
+        if(gx!==null){const g=document.createElement('div');g.className='bi-guide';Object.assign(g.style,{left:gx+'px',top:'0',width:'1px',height:size.height+'px'});canvasNode.append(g);}
+        if(gy!==null){const g=document.createElement('div');g.className='bi-guide';Object.assign(g.style,{left:'0',top:gy+'px',width:size.width+'px',height:'1px'});canvasNode.append(g);}
+    }
     canvasNode.addEventListener('pointermove',event=>{
         if(!drag)return;
         const entry=item(drag.id),size=state.board.canvas,dx=(event.clientX-drag.x)/drag.k,dy=(event.clientY-drag.y)/drag.k;
         if(drag.mode==='move'){entry.x=Math.max(0,Math.min(size.width-entry.w,B.snap(drag.start.x+dx)));entry.y=Math.max(0,Math.min(size.height-entry.h,B.snap(drag.start.y+dy)));}
         else{entry.w=Math.max(160,Math.min(size.width-entry.x,B.snap(drag.start.w+dx)));entry.h=Math.max(100,Math.min(size.height-entry.y,B.snap(drag.start.h+dy)));}
+        snapWithGuides(entry,drag.mode,size);
         const node=canvasNode.querySelector(`[data-cell="${CSS.escape(entry.id)}"]`);Object.assign(node.style,{left:entry.x+'px',top:entry.y+'px',width:entry.w+'px',height:entry.h+'px'});
+        marker?.sync?.();
     });
-    canvasNode.addEventListener('pointerup',()=>{
-        if(!drag)return;const current=drag;drag=null;const entry=item(current.id);
+    const endDrag=()=>{
+        if(!drag)return;const current=drag;drag=null;clearGuides();const entry=item(current.id);
         canvasNode.querySelector(`[data-cell="${CSS.escape(current.id)}"]`)?.classList.remove('is-dragging');
-        if(entry.x===current.start.x&&entry.y===current.start.y&&entry.w===current.start.w&&entry.h===current.start.h)return;
-        state.undo.push(current.before);
+        marker?.sync?.();
+        if(!entry||(entry.x===current.start.x&&entry.y===current.start.y&&entry.w===current.start.w&&entry.h===current.start.h))return;
+        state.undo.push(current.before);state.redo=[];
         if(current.mode==='resize'&&entry.recipe&&viewOf(entry))rerun(entry);else paint();
-    });
+    };
+    canvasNode.addEventListener('pointerup',endDrag);
+    canvasNode.addEventListener('pointercancel',endDrag);
     canvasNode.addEventListener('dblclick',event=>{
         if(state.presenting||event.target.closest('[data-cell],.bi-empty-picks'))return;
         const box=canvasNode.getBoundingClientRect(),k=scale(),size=state.board.canvas;
@@ -154,7 +224,31 @@
     });
 
     // Marking: template cells get new display settings straight away; anything else goes to the board conversation.
-    const marker=window.AiReportMarker?.create({root:canvasNode,t,onMark:(id,mark)=>markItem(id,mark),onChange:on=>{const button=$('[data-bi=mark]');button.classList.toggle('is-active',on);button.textContent=on?t('完成标记','Done marking'):t('📍 标记','📍 Mark');}});
+    function updateMarkUi(){
+        const button=$('[data-bi=mark]');
+        const count=(state.board?.marks?.length)||0;
+        const on=!!marker?.active?.();
+        if(button){
+            button.classList.toggle('is-active',on);
+            button.innerHTML=`${on?esc(t('完成标记','Done marking')):esc(t('📍 标记','📍 Mark'))}${count?`<span class="bi-mark-count">${count}</span>`:''}`;
+        }
+        const clearBtn=$('[data-bi="clear-marks"]'),badge=$('#biMarkCountBadge');
+        if(clearBtn)clearBtn.hidden=!count;
+        if(badge)badge.textContent=String(count);
+    }
+    const marker=window.AiReportMarker?.create({
+        root:canvasNode,
+        layer:scaler,
+        t,
+        onMark:(id,mark)=>markItem(id,mark),
+        onChange:()=>{updateMarkUi();},
+        onMarksChange:list=>{
+            if(!state.board)return;
+            state.board.marks=list;
+            updateMarkUi();
+            toolbar();
+        }
+    });
     async function markItem(id,mark){
         const entry=item(id);if(!entry)return;state.selected=id;state.focus=id;
         const where=[mark.slot&&t(`分区 ${mark.slot}`,`slot ${mark.slot}`),mark.kind==='chart'?t('图表','chart'):mark.text&&`“${mark.text}”`].filter(Boolean).join(' · ');
@@ -247,7 +341,7 @@
         const hint=entry?(entry.recipe?t('说说这个格子要怎么改…','How should this cell change…'):t('这个格子要展示什么…','What should this cell show…')):t('说说想做什么看板，或要怎么改…','Describe the board, or what to change…');
         return `<div class="bi-chat"><div class="bi-side-head"><span>${t('对话','Conversation')}</span>${state.board.chat.length?`<button type="button" class="bi-link" data-bi-clear title="${esc(t('清空对话记录（看板不变）','Clear the conversation (the board stays)'))}">${t('清空','Clear')}</button>`:''}</div>
             <div class="bi-log">${empty}${log}${state.planning?`<div class="bi-msg is-ai">${t('AI 正在处理','Working')}<span class="bi-typing" aria-hidden="true"><i></i><i></i><i></i></span></div>`:''}</div>
-            <div class="bi-dock">${entry?cellBar(entry):''}<form class="bi-chat-form" data-composer><div class="bi-composer"><textarea rows="1" maxlength="4000" aria-label="${esc(t('消息','Message'))}" placeholder="${esc(hint)}" ${state.planning?'disabled':''}></textarea><div class="bi-composer-bar"><small>${t('Enter 发送 · Shift+Enter 换行','Enter to send · Shift+Enter for a new line')}</small><button type="submit" class="bi-send" disabled aria-label="${esc(t('发送','Send'))}" title="${esc(t('发送','Send'))}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div></div></form></div></div>`;
+            <div class="bi-dock">${entry?cellBar(entry):''}<form class="bi-chat-form" data-composer><div class="bi-composer"><textarea class="bi-composer-input" rows="1" maxlength="4000" aria-label="${esc(t('消息','Message'))}" placeholder="${esc(hint)}" ${state.planning?'disabled':''}></textarea><div class="bi-composer-bar"><small>${t('Enter 发送 · Shift+Enter 换行','Enter to send · Shift+Enter for a new line')}</small><button type="${state.planning?'button':'submit'}" ${state.planning?'data-bi-stop':'disabled'} class="bi-send${state.planning?' is-stop':''}" aria-label="${esc(state.planning?t('停止','Stop'):t('发送','Send'))}" title="${esc(state.planning?t('停止当前回复','Stop generating'):t('发送','Send'))}">${state.planning?'<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2.5"/></svg>':'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>'}</button></div></div></form></div></div>`;
     }
     // Only messages and panels that are new animate in; redraws of what is already shown stay still.
     let shownMessages=Infinity,shownPanel='';
@@ -256,7 +350,7 @@
         input.style.height='auto';
         input.style.height=Math.min(input.scrollHeight,200)+'px';
         const button=side.querySelector('.bi-send');
-        if(button)button.disabled=state.planning||!input.value.trim()||input.disabled;
+        if(button&&!state.planning)button.disabled=!input.value.trim()||input.disabled;
     }
     function paintSide(){
         if(!state.board){side.innerHTML='';return;}
@@ -283,6 +377,7 @@
         if(event.target.closest('[data-advanced]')){state.advanced=!state.advanced;return paintSide();}
         const say=event.target.closest('[data-say]');if(say)return send(say.dataset.say);
         const fill=event.target.closest('[data-fill]');if(fill){const input=side.querySelector('.bi-composer textarea');input.value=fill.dataset.fill;fitComposer(input);input.focus();return;}
+        if(event.target.closest('[data-bi-stop]')){state.abort?.abort();return;}
         if(event.target.closest('[data-bi-clear]')){checkpoint();state.board.chat=[];return paintSide();}
         if(event.target.closest('[data-pp-extract]')){const entry=state.selected&&item(state.selected);if(entry?.recipe)extractItem(entry);return;}
         if(event.target.closest('.bi-composer')&&!event.target.closest('button')){side.querySelector('.bi-composer textarea')?.focus();return;}
@@ -291,7 +386,7 @@
         checkpoint();
         if(action==='frame'){if(entry.frame===false)delete entry.frame;else entry.frame=false;return paint();}
         if(action==='duplicate'){const copy={...JSON.parse(JSON.stringify(entry)),id:B.uid('item'),x:Math.min(state.board.canvas.width-entry.w,entry.x+24),y:Math.min(state.board.canvas.height-entry.h,entry.y+24)};state.board.items.push(copy);state.selected=copy.id;state.focus=copy.id;return paint();}
-        if(action==='delete'){state.board.items=state.board.items.filter(other=>other.id!==entry.id);state.selected=null;state.focus=null;return paint();}
+        if(action==='delete'){state.board.items=state.board.items.filter(other=>other.id!==entry.id);state.board.marks=(state.board.marks||[]).filter(m=>m.cellId!==entry.id);marker?.load?.(state.board.marks,{silent:true});state.selected=null;state.focus=null;return paint();}
     });
     // Build is usable as soon as there is something to build from, before the prompt field loses focus.
     side.addEventListener('input',event=>{
@@ -318,14 +413,19 @@
             const done=await adjust(target,text);
             if(done){state.planning=false;return paint();}
         }
+        const abort=new AbortController();state.abort=abort;
         state.planning=true;paintSide();
         let plan=null;
         try{
-            const reply=await window.AiReportTrace.post(BOARD,t('看板对话','Board conversation'),'/api/ai-report/bi/plan',{month:month(),message:text,chat:state.board.chat.slice(0,-1),board:brief(),focus:state.focus||''});
+            const reply=await window.AiReportTrace.post(BOARD,t('看板对话','Board conversation'),'/api/ai-report/bi/plan',{month:month(),message:text,chat:state.board.chat.slice(0,-1),board:brief(),focus:state.focus||''},{signal:abort.signal});
             if(reply.type==='plan')plan=reply;
             else if(reply.type==='ask')state.board.chat.push({role:'ai',text:reply.question,choices:reply.choices||[]});
             else state.board.chat.push({role:'ai',text:reply.text||t('（没有回答）','(No answer)')});
-        }catch(error){state.board.chat.push({role:'ai',kind:'note',text:t('出错了：','Error: ')+(error.message||error)});}
+        }catch(error){
+            if(error?.name==='AbortError')state.board.chat.push({role:'ai',kind:'note',text:t('已停止本次生成。','Generation stopped.')});
+            else state.board.chat.push({role:'ai',kind:'note',text:t('出错了：','Error: ')+(error.message||error)});
+        }
+        if(state.abort===abort)state.abort=null;
         state.planning=false;
         if(!plan)return paint();
         checkpoint();
@@ -352,12 +452,17 @@
         const size=state.board.canvas,preset=B.PRESETS.find(item=>item.width===size.width&&item.height===size.height);
         $('#biPreset').innerHTML=B.PRESETS.map(item=>`<option value="${item.id}" ${preset?.id===item.id?'selected':''}>${esc(lang()==='en'?item.labelEn:item.label)}</option>`).join('')+`<option value="custom" ${preset?'':'selected'}>${t('自定义','Custom')}</option>`;
         $('#biWidth').value=size.width;$('#biHeight').value=size.height;
+        const undoBtn=$('[data-bi=undo]'),redoBtn=$('[data-bi=redo]');
+        if(undoBtn)undoBtn.disabled=!state.undo.length;
+        if(redoBtn)redoBtn.disabled=!state.redo.length;
+        updateMarkUi();
+        updateZoomUi();
         $('#biList').innerHTML=state.boards.map(entry=>`<button type="button" data-open="${esc(entry.id)}" aria-current="${entry.id===state.board.id}"><span>${esc(entry.name)}</span><small>${entry.canvas?`${entry.canvas.width}×${entry.canvas.height} · `:''}${entry.items||0} ${t('格','cells')}</small></button>`).join('')||`<p class="bi-pos" style="padding:6px 10px">${t('还没有保存的看板','No saved boards yet')}</p>`;
         status('');
     }
     async function loadBoards(){try{state.boards=await API.get('/api/ai-bi/boards');}catch(_){state.boards=[];}}
     async function confirmDiscard(){return !dirty()||await window.AppDialog?.confirm?.(t('当前看板有未保存的修改，放弃这些修改吗？','Discard unsaved changes?'),{confirmText:t('放弃修改','Discard')})===true||(!window.AppDialog&&confirm(t('放弃未保存的修改？','Discard unsaved changes?')));}
-    function adopt(board){shownMessages=Infinity;state.board=B.normalize(board);state.board.month||=previousMonth();state.saved=board.id?JSON.stringify(state.board):'';state.selected=null;state.focus=null;state.undo=[];dataCache.clear();render();}
+    function adopt(board){shownMessages=Infinity;state.board=B.normalize(board);state.board.month||=previousMonth();state.saved=board.id?JSON.stringify(state.board):'';state.selected=null;state.focus=null;state.undo=[];state.redo=[];dataCache.clear();marker?.load?.(state.board.marks||[],{silent:true});render();}
     async function openBoard(id){if(!await confirmDiscard())return;try{adopt(await API.get('/api/ai-bi/boards/'+encodeURIComponent(id)));refreshMissing();}catch(error){status(error.message);}}
     async function newBoard(){if(!await confirmDiscard())return;adopt({name:t('未命名看板','Untitled board'),month:month(),canvas:{width:1920,height:1080}});}
     async function save(){
@@ -369,10 +474,29 @@
     // Cells saved without their output (or from another month) are recomputed locally on open.
     function refreshMissing(){queue(state.board.items.filter(entry=>entry.recipe&&(!entry.output?.html||entry.output.month!==month())&&!entry.output?.error),rerun);}
 
+    // Smooth animated dropdown close helper for all <details class="bi-menu">
+    function closeMenu(menu){
+        if(!menu||!menu.open||menu.classList.contains('is-closing'))return;
+        menu.classList.add('is-closing');
+        window.setTimeout(()=>{menu.open=false;menu.classList.remove('is-closing');},150);
+    }
+    function closeAllMenus(except=null){document.querySelectorAll('.bi-menu[open]').forEach(menu=>{if(menu!==except)closeMenu(menu);});}
+    document.querySelectorAll('.bi-menu > summary').forEach(sum=>{
+        sum.addEventListener('click',event=>{
+            const menu=sum.parentElement;
+            if(!menu)return;
+            if(menu.open){event.preventDefault();closeMenu(menu);}
+            else closeAllMenus(menu);
+        });
+    });
+
     $('.bi-toolbar').addEventListener('click',async event=>{
-        const button=event.target.closest('button');if(!button)return;const menu=button.closest('details');if(menu)menu.open=false;
+        const button=event.target.closest('button');if(!button)return;const menu=button.closest('details');if(menu)closeMenu(menu);
         if(button.dataset.open)return openBoard(button.dataset.open);
         const action=button.dataset.bi;
+        if(action==='undo')return undo();
+        if(action==='redo')return redo();
+        if(action==='clear-marks'){checkpoint();marker?.clearAll();return status(t('已清空画布标记','Cleared all pins'));}
         if(action==='save')return save();
         if(action==='new')return newBoard();
         if(action==='mark')return marker?.toggle();
@@ -393,13 +517,72 @@
     }
     $('#biPreset').addEventListener('change',event=>{const preset=B.PRESETS.find(item=>item.id===event.target.value);if(preset)resizeCanvas(preset.width,preset.height);});
     for(const id of ['#biWidth','#biHeight'])$(id).addEventListener('change',()=>resizeCanvas(Number($('#biWidth').value),Number($('#biHeight').value)));
-    $('#biZoom').addEventListener('change',event=>{state.zoom=event.target.value;layoutCanvas();});
+
+    // Floating canvas zoom bar + wheel zoom
+    $('#biZoomBar')?.addEventListener('click',event=>{
+        const step=event.target.closest('[data-zoom-step]');if(step){stepZoom(Number(step.dataset.zoomStep));return;}
+        const set=event.target.closest('[data-zoom-set]');if(set){setZoom(set.dataset.zoomSet);closeMenu($('#biZoomMenu'));}
+    });
+    stage.addEventListener('wheel',event=>{
+        if(!(event.ctrlKey||event.metaKey)||state.presenting)return;
+        event.preventDefault();
+        const cur=scale(),factor=event.deltaY<0?1.1:0.9;
+        setZoom(cur*factor);
+    },{passive:false});
+    stage.addEventListener('scroll',()=>requestAnimationFrame(()=>marker?.sync?.()),{passive:true});
+
+    // Resizable right sidebar (280px..680px) persisted in localStorage
+    const SIDE_W_KEY='ai_bi_side_width';
+    function setSideWidth(px,{savePref=true,raf=false}={}){
+        const max=Math.min(680,Math.max(320,Math.floor(window.innerWidth*0.55)));
+        const width=Math.max(280,Math.min(max,Math.round(px)));
+        document.documentElement.style.setProperty('--bi-side-w',width+'px');
+        if(savePref)try{localStorage.setItem(SIDE_W_KEY,String(width));}catch(_){}
+        if(raf)requestAnimationFrame(layoutCanvas);else layoutCanvas();
+    }
+    try{const savedW=Number(localStorage.getItem(SIDE_W_KEY));if(Number.isFinite(savedW)&&savedW>=280)document.documentElement.style.setProperty('--bi-side-w',savedW+'px');}catch(_){}
+    const resizer=$('#biSideResizer');
+    if(resizer){
+        let sDrag=null;
+        resizer.addEventListener('pointerdown',event=>{
+            if(event.button!==0||state.presenting)return;
+            sDrag={x:event.clientX,w:side.getBoundingClientRect().width,id:event.pointerId};
+            resizer.classList.add('is-resizing');
+            document.body.classList.add('bi-resizing-side');
+            resizer.setPointerCapture?.(event.pointerId);
+            event.preventDefault();
+        });
+        window.addEventListener('pointermove',event=>{if(!sDrag)return;setSideWidth(sDrag.w+(sDrag.x-event.clientX),{savePref:false,raf:true});});
+        window.addEventListener('pointerup',()=>{
+            if(!sDrag)return;
+            setSideWidth(side.getBoundingClientRect().width,{savePref:true});
+            sDrag=null;resizer.classList.remove('is-resizing');document.body.classList.remove('bi-resizing-side');
+        });
+        window.addEventListener('pointercancel',()=>{if(!sDrag)return;sDrag=null;resizer.classList.remove('is-resizing');document.body.classList.remove('bi-resizing-side');});
+        resizer.addEventListener('dblclick',()=>setSideWidth(360,{savePref:true}));
+        resizer.addEventListener('keydown',event=>{
+            if(event.key!=='ArrowLeft'&&event.key!=='ArrowRight')return;
+            event.preventDefault();
+            const delta=event.key==='ArrowLeft'?(event.shiftKey?40:16):(event.shiftKey?-40:-16);
+            setSideWidth(side.getBoundingClientRect().width+delta,{savePref:true});
+        });
+    }
+
     let resizeTimer=0;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(layoutCanvas,80);});
-    document.addEventListener('click',event=>document.querySelectorAll('.bi-toolbar details[open]').forEach(menu=>{if(!menu.contains(event.target))menu.open=false;}));
+    document.addEventListener('click',event=>document.querySelectorAll('.bi-menu[open]').forEach(menu=>{if(!menu.contains(event.target))closeMenu(menu);}));
     document.addEventListener('keydown',event=>{
         const editing=event.target.closest?.('input,textarea,select,[contenteditable]');
+        if(event.key==='Escape'&&document.querySelector('.bi-menu[open]')){closeAllMenus();return;}
         if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='s'){event.preventDefault();save();}
+        else if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='z'&&event.shiftKey&&!editing){event.preventDefault();redo();}
+        else if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='y'&&!editing){event.preventDefault();redo();}
         else if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='z'&&!editing){event.preventDefault();undo();}
+        else if((event.metaKey||event.ctrlKey)&&(event.key==='='||event.key==='+'||event.key==='-'||event.key==='0'||event.key==='1')&&!editing){
+            event.preventDefault();
+            if(event.key==='0')setZoom('fit');
+            else if(event.key==='1')setZoom(1);
+            else stepZoom(event.key==='-'?-1:1);
+        }
         else if(event.key==='Escape'&&state.presenting)present(false);
         else if(event.key==='Escape'&&!editing&&state.selected&&!marker?.active()){state.selected=null;state.focus=null;paint();}
         else if(event.key.startsWith('Arrow')&&!editing&&state.selected&&!state.presenting){
@@ -409,16 +592,17 @@
             if(!nudging){checkpoint();nudging=true;}clearTimeout(nudgeTimer);nudgeTimer=setTimeout(()=>{nudging=false;},600);
             entry.x=Math.max(0,Math.min(size.width-entry.w,entry.x+dx));entry.y=Math.max(0,Math.min(size.height-entry.h,entry.y+dy));
             const node=canvasNode.querySelector(`[data-cell="${CSS.escape(entry.id)}"]`);if(node){node.style.left=entry.x+'px';node.style.top=entry.y+'px';}
+            marker?.sync?.();
             const pos=side.querySelector('.bi-adv .bi-pos');if(pos)pos.textContent=`${entry.x}, ${entry.y} · ${entry.w}×${entry.h}　${t('方向键微调位置','Arrow keys nudge')}`;status('');
         }
-        else if((event.key==='Delete'||event.key==='Backspace')&&!editing&&state.selected){checkpoint();state.board.items=state.board.items.filter(entry=>entry.id!==state.selected);state.selected=null;state.focus=null;paint();}
+        else if((event.key==='Delete'||event.key==='Backspace')&&!editing&&state.selected){checkpoint();const removed=state.selected;state.board.items=state.board.items.filter(entry=>entry.id!==removed);state.board.marks=(state.board.marks||[]).filter(m=>m.cellId!==removed);marker?.load?.(state.board.marks,{silent:true});state.selected=null;state.focus=null;paint();}
     });
     let nudging=false,nudgeTimer=0;
     window.addEventListener('beforeunload',event=>{if(dirty()){event.preventDefault();event.returnValue='';}});
 
     // Present: only the canvas, fitted to the screen (full screen when the browser allows it).
     function present(on){
-        state.presenting=on;document.body.classList.toggle('bi-presenting',on);marker?.set(false);
+        state.presenting=on;document.body.classList.toggle('bi-presenting',on);marker?.set(false);marker?.setVisible?.(!on);
         if(on){state.selected=null;document.documentElement.requestFullscreen?.().catch(()=>{});}
         else if(document.fullscreenElement)document.exitFullscreen?.().catch(()=>{});
         paint();

@@ -44,11 +44,29 @@
             prompt:str(input.prompt,LIMITS.prompt),recipePrompt:str(input.recipePrompt,LIMITS.prompt),chat:chat(input.chat),recipe:recipe(input.recipe),output:output(input.output),
             ...(input.frame===false?{frame:false}:{}),...(Number(input.scale)>=0.5&&Number(input.scale)<=4?{scale:Math.round(Number(input.scale)*100)/100}:{})};
     }
+    function marks(list,items){
+        const valid=new Set((items||[]).map(entry=>entry.id));
+        return (Array.isArray(list)?list:[]).slice(0,100).filter(m=>m&&typeof m==='object'&&typeof m.cellId==='string'&&(!valid.size||valid.has(m.cellId))&&str(m.note,600)).map((m,i)=>({
+            id:typeof m.id==='string'&&/^[-\w]{1,64}$/.test(m.id)?m.id:uid('m'),
+            number:Math.max(1,Math.min(999,Math.round(Number(m.number)||i+1))),
+            cellId:String(m.cellId),
+            rx:Math.max(0.02,Math.min(0.98,Number(m.rx)||0.5)),
+            ry:Math.max(0.02,Math.min(0.98,Number(m.ry)||0.5)),
+            slot:str(m.slot,80),
+            text:str(m.text,80),
+            kind:['chart','text','area'].includes(m.kind)?m.kind:'area',
+            title:str(m.title,60),
+            note:str(m.note,600),
+            status:m.status==='sent'?'sent':'saved',
+            updatedAt:Number(m.updatedAt)||0,
+        }));
+    }
     function normalize(input={}){
         const size=canvas(input.canvas);
+        const normItems=(Array.isArray(input.items)?input.items:[]).slice(0,LIMITS.items).map(entry=>item(entry,size));
         return {version:1,id:typeof input.id==='string'&&/^[-\w]{1,80}$/.test(input.id)?input.id:'',name:str(input.name,LIMITS.name).trim()||'未命名看板',
             month:validMonth(input.month)?input.month:'',canvas:size,palette:(Array.isArray(input.palette)?input.palette:[]).map(color).filter(Boolean).slice(0,8),
-            items:(Array.isArray(input.items)?input.items:[]).slice(0,LIMITS.items).map(entry=>item(entry,size)),chat:chat(input.chat),updatedAt:str(input.updatedAt,40)};
+            items:normItems,marks:marks(input.marks,normItems),chat:chat(input.chat),updatedAt:str(input.updatedAt,40)};
     }
     // Text and charts grow with big canvases: the short side against 1080 (4K → 2×, 16:9 and 32:9 → 1×), rounded to 0.05.
     const autoScale=size=>Math.max(1,Math.min(3,Math.round(Math.min(size.width,size.height)/1080*20)/20));

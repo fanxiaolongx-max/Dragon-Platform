@@ -118,6 +118,10 @@ window.HomeTools = { marketOpened: false };
                 'home.import.skillExists': '已有技能 @{id}，要用这个技能包覆盖吗？',
                 'home.import.skillReserved': '@{id} 是内置技能的标识，请修改 SKILL.md 里的 id 后再导入',
                 'home.import.skillImported': '已导入技能 @{id}',
+                'home.import.skillSubtitle': '上传 SKILL.md 文件或包含 SKILL.md 的 ZIP 技能包，导入后出现在「技能」列表并可在对话里 @ 使用。',
+                'home.import.skillFileTitle': '选择 SKILL.md / ZIP 技能包',
+                'home.import.skillFileHint': '支持 .md 文件或含 SKILL.md 的 ZIP 压缩包（最大 5 MB）',
+                'home.import.skillRequired': '请先选择 SKILL.md 或 ZIP 技能包',
                 'home.import.icon': '图标',
                 'home.import.name': '中文工具名',
                 'home.import.nameEn': '英文工具名',
@@ -290,6 +294,10 @@ window.HomeTools = { marketOpened: false };
                 'home.import.skillExists': 'Skill @{id} already exists. Replace it with this package?',
                 'home.import.skillReserved': '@{id} belongs to a built-in Skill. Change the id in SKILL.md and import again',
                 'home.import.skillImported': 'Imported Skill @{id}',
+                'home.import.skillSubtitle': 'Upload a SKILL.md file or a ZIP package containing SKILL.md so it appears in Skills and can be used with @ in chat.',
+                'home.import.skillFileTitle': 'Choose a SKILL.md / ZIP package',
+                'home.import.skillFileHint': 'Supports .md files or ZIP packages with SKILL.md (up to 5 MB)',
+                'home.import.skillRequired': 'Choose a SKILL.md or ZIP skill package first',
                 'home.import.icon': 'Icon',
                 'home.import.name': 'Chinese tool name',
                 'home.import.nameEn': 'English tool name',
@@ -1044,7 +1052,7 @@ window.HomeTools = { marketOpened: false };
             if (importSubmit && !importSubmit.disabled) importSubmit.textContent = t(importSubmit.dataset.completed === 'true' ? 'home.import.done' : 'home.import.submit');
             const importTags = document.getElementById('customToolTags');
             if (importTags) importTags.placeholder = t('home.import.tagsPlaceholder');
-            document.querySelectorAll('#toolsGrid > a.tool-card:not([data-custom-tool-card="1"])').forEach(card => {
+            document.querySelectorAll('#toolsGrid > a.tool-card:not([data-custom-tool-card="1"]):not([data-skill-card="1"])').forEach(card => {
                 const data = HOME_CARDS[card.getAttribute('href')];
                 if (!data) return;
                 setTextForCard(card, data, lang);
@@ -1094,7 +1102,12 @@ window.HomeTools = { marketOpened: false };
             const desc = card.querySelector('.card-desc');
             const tags = card.querySelector('.card-features');
             const arrow = card.querySelector('.card-arrow');
-            if (title) title.textContent = data.title[lang] || data.title['zh-CN'];
+            if (title) {
+                // 换语言时保留标题后的「新」「全员开放」等徽标
+                const badges = [...title.querySelectorAll('.new-badge, .tool-kind-badge')];
+                title.textContent = data.title[lang] || data.title['zh-CN'];
+                badges.forEach(badge => title.appendChild(badge));
+            }
             if (desc) desc.textContent = data.desc[lang] || data.desc['zh-CN'];
             if (tags) {
                 tags.innerHTML = (data.tags[lang] || data.tags['zh-CN'])
@@ -1113,9 +1126,14 @@ window.HomeTools = { marketOpened: false };
             (tools || []).forEach((tool, index) => {
                 const isEnglish = window.ToolsI18n?.getLanguage?.() === 'en-US';
                 const displayName = isEnglish && tool.nameEn ? tool.nameEn : tool.name;
-                const displayDescription = isEnglish && tool.descriptionEn ? tool.descriptionEn : tool.description;
-                const hasTags = Array.isArray(tool.tags) && tool.tags.length > 0;
-                const tags = hasTags ? tool.tags : [t('home.custom.defaultTag1'), t('home.custom.defaultTag2')];
+                // 英文界面不显示默认的中文简介；有英文标签时用英文标签
+                const defaultZhDesc = '由独立 HTML 导入的平台工具，可在统一入口和顶部导航中访问。';
+                const displayDescription = isEnglish
+                    ? (tool.descriptionEn || (tool.description && tool.description !== defaultZhDesc ? tool.description : ''))
+                    : tool.description;
+                const rawTags = isEnglish && Array.isArray(tool.tagsEn) && tool.tagsEn.length > 0 ? tool.tagsEn : tool.tags;
+                const hasTags = Array.isArray(rawTags) && rawTags.length > 0;
+                const tags = hasTags ? rawTags : [t('home.custom.defaultTag1'), t('home.custom.defaultTag2')];
                 const card = document.createElement('a');
                 card.href = tool.href;
                 const isSharedAccess = tool.sharedAccess === true;
@@ -1197,8 +1215,20 @@ window.HomeTools = { marketOpened: false };
             };
             if (role !== 'admin' || !modal || !form || !input) return;
             const isSuperAdminUser = () => localStorage.getItem('tools_super') === '1' && (typeof window.isNavSuperAdmin === 'function' ? window.isNavSuperAdmin() === true : true) && (localStorage.getItem('tools_tenant_id') || 'default') === 'default';
+            // 从技能中心点「上传技能」打开时为技能模式：文案、校验都按技能包
+            let importMode = 'tool';
             const updateFileHint = () => {
+                const fileTitleEl = document.getElementById('customToolFileTitle');
                 const hintEl = document.getElementById('customToolFileHint');
+                const subEl = document.getElementById('customToolImportSubtitle');
+                if (importMode === 'skill') {
+                    if (subEl) subEl.textContent = t('home.import.skillSubtitle');
+                    if (fileTitleEl) fileTitleEl.textContent = t('home.import.skillFileTitle');
+                    if (hintEl) hintEl.textContent = t('home.import.skillFileHint');
+                    return;
+                }
+                if (subEl) subEl.textContent = t('home.import.subtitle');
+                if (fileTitleEl) fileTitleEl.textContent = t('home.import.fileTitle');
                 if (hintEl) hintEl.textContent = isSuperAdminUser() ? t('home.import.fileHint') : t('home.import.fileHintNonSuper');
             };
             let metadataGeneration = 0;
@@ -1252,17 +1282,22 @@ window.HomeTools = { marketOpened: false };
                 if (currentUpdateTarget) return;
                 if (!skillImport) submitBtn.textContent = t(app ? (app.updateSlug ? 'home.import.pyUpdateSubmit' : 'home.import.pySubmit') : 'home.import.submit');
             };
-            const setSkillMode = skill => {
+            const setSkillMode = (skill, { keepPreference = false } = {}) => {
                 skillImport = skill;
-                if (tagsField) tagsField.hidden = Boolean(skill);
+                const skillUi = Boolean(skill) || (keepPreference && importMode === 'skill');
+                if (tagsField) tagsField.hidden = skillUi;
                 if (currentUpdateTarget) return;
-                submitBtn.textContent = t(skill ? 'home.import.skillSubmit' : 'home.import.submit');
+                submitBtn.textContent = t(skillUi ? 'home.import.skillSubmit' : 'home.import.submit');
                 const title = document.getElementById('customToolImportTitle');
-                if (title) title.textContent = t(skill ? 'home.import.skillTitle' : 'home.import.title');
+                if (title) title.textContent = t(skillUi ? 'home.import.skillTitle' : 'home.import.title');
                 const nameLabel = document.getElementById('customToolNameLabel');
-                if (nameLabel) nameLabel.innerHTML = `${escapeHtml(t(skill ? 'home.import.skillName' : 'home.import.name'))} <span>*</span>`;
+                if (nameLabel) nameLabel.innerHTML = `${escapeHtml(t(skillUi ? 'home.import.skillName' : 'home.import.name'))} <span>*</span>`;
                 const nameEnLabel = document.getElementById('customToolNameEnLabel');
-                if (nameEnLabel) nameEnLabel.textContent = t(skill ? 'home.import.skillNameEn' : 'home.import.nameEn');
+                if (nameEnLabel) nameEnLabel.textContent = t(skillUi ? 'home.import.skillNameEn' : 'home.import.nameEn');
+                if (!skill && !keepPreference && importMode === 'skill') {
+                    importMode = 'tool';
+                    updateFileHint();
+                }
             };
             const detectSkill = async file => {
                 const generation = ++metadataGeneration;
@@ -1445,6 +1480,7 @@ window.HomeTools = { marketOpened: false };
                 }
             };
             const resetImportForm = () => {
+                importMode = 'tool';
                 delete submitBtn.dataset.completed;
                 submitBtn.textContent = t('home.import.submit');
                 const titleEl = document.getElementById('customToolImportTitle');
@@ -1489,8 +1525,14 @@ window.HomeTools = { marketOpened: false };
                 if (updateTarget instanceof Event || !updateTarget || typeof updateTarget !== 'object') {
                     updateTarget = null;
                 }
+                const preferSkill = !updateTarget?.slug && updateTarget?.kind === 'skill';
                 resetImportForm();
+                importMode = preferSkill ? 'skill' : 'tool';
                 updateFileHint();
+                if (preferSkill) {
+                    setSkillMode(null, { keepPreference: true });
+                    if (iconInput) iconInput.value = '✨';
+                }
                 if (shareField && shareCheckbox) {
                     const isSuper = isSuperAdminUser();
                     shareField.hidden = !isSuper || Boolean(updateTarget?.slug);
@@ -1590,7 +1632,7 @@ window.HomeTools = { marketOpened: false };
                 void detectSkill(file);
             };
 
-            window.HomeTools.openImport = () => openImportModal(null);
+            window.HomeTools.openImport = (options = null) => openImportModal(options);
             input.addEventListener('change', updateSelectedFile);
             document.getElementById('customToolImportClose')?.addEventListener('click', closeImportModal);
             document.getElementById('customToolImportCancel')?.addEventListener('click', closeImportModal);
@@ -1607,7 +1649,7 @@ window.HomeTools = { marketOpened: false };
                 clearImportError();
                 const file = input.files && input.files[0];
                 try {
-                    if (!file) throw new Error(t('home.import.fileRequired'));
+                    if (!file) throw new Error(t(importMode === 'skill' ? 'home.import.skillRequired' : 'home.import.fileRequired'));
                     if (skillImport) {
                         if (!nameInput.value.trim()) throw new Error(t('home.validation.nameRequired'));
                         submitBtn.disabled = true;

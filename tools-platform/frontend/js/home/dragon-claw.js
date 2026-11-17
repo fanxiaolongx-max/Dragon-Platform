@@ -65,11 +65,13 @@
             tool_list_uiv_scripts: '查找抓取脚本', tool_read_uiv_script: '读取抓取脚本', tool_save_uiv_script: '保存抓取脚本', tool_delete_uiv_script: '删除抓取脚本',
             tool_list_uiv_categories: '查看脚本分类与站点', tool_move_uiv_script: '移动脚本分类', tool_manage_uiv_category: '管理脚本分类',
             categoryPinned: '置顶', categoryTasks: '任务', categorySpaces: '空间', newChatInWorkspace: '新建任务',
+            archivedViewBanner: '正在查看已归档对话', archivedExit: '返回', archivedBadge: '已归档', chatArchivedEmpty: '暂无已归档对话',
             workspaceDisabled: '工作区仅在本机或管理员账号下可用'
         },
         'en-US': {
             messageExpand: 'Show more', messageCollapse: 'Show less',
             categoryPinned: 'Pinned', categoryTasks: 'Tasks', categorySpaces: 'Workspaces', newChatInWorkspace: 'New task',
+            archivedViewBanner: 'Viewing archived chats', archivedExit: 'Back', archivedBadge: 'Archived', chatArchivedEmpty: 'No archived chats',
             ctxCompacted: 'Context compacted. Usage updates after the next reply.',
             slashCompact: 'Compact context while keeping the full history', compactRunning: 'Compacting context…', compactEmpty: 'Start a conversation before compacting its context', compactSmall: 'The context is already compact', compactDone: 'Context compacted. Full chat and tool history kept.', compactFailed: 'Could not compact context. History was not deleted.',
             slashSchedule: 'Run an instruction later or on a schedule (no args: list tasks)', slashPlan: 'Draft a step plan first, run it after you confirm', slashBtw: 'Quick side question that stays out of this chat',
@@ -2857,9 +2859,9 @@
         try { localStorage.setItem(SECTION_KEY, JSON.stringify([...collapsedSections])); } catch { /* 无痕模式 */ }
         renderChatList();
     }
-    function sectionHead(id, label, count) {
+    function sectionHead(id, label, count, archived = false) {
         const collapsed = collapsedSections.has(id);
-        return `<button type="button" class="home-chat-category" data-chat-section="${id}" aria-expanded="${!collapsed}"><span class="home-chat-category-chevron" aria-hidden="true"></span><span class="home-chat-category-title">${escapeHtml(label)}</span><span class="home-chat-category-count">(${count})</span></button>`;
+        return `<button type="button" class="home-chat-category" data-chat-section="${id}" aria-expanded="${!collapsed}"><span class="home-chat-category-chevron" aria-hidden="true"></span><span class="home-chat-category-title">${escapeHtml(label)}</span><span class="home-chat-category-count">(${count})</span>${archived ? `<span class="home-chat-category-badge">${escapeHtml(tx('archivedBadge'))}</span>` : ''}</button>`;
     }
 
     function getDirectoryBaseName(fullPath) {
@@ -3020,21 +3022,26 @@
                 }
             }
 
+            const archivedBanner = isArchived
+                ? `<div class="home-chat-archive-banner" role="status"><span class="home-chat-archive-banner-label"><span class="home-chat-archive-dot" aria-hidden="true"></span>${escapeHtml(tx('archivedViewBanner'))}</span><button type="button" class="home-chat-archive-exit" data-chat-exit-archived>${escapeHtml(tx('archivedExit'))}</button></div>`
+                : '';
+
             if (pinnedEntries.length === 0 && taskEntries.length === 0 && sortedProjects.length === 0) {
-                el.chatList.innerHTML = `<div class="home-chat-empty">${escapeHtml(tx('chatNoMatch'))}</div>`;
+                el.chatList.innerHTML = `${archivedBanner}<div class="home-chat-empty">${escapeHtml(tx(query ? 'chatNoMatch' : (isArchived ? 'chatArchivedEmpty' : 'chatEmpty')))}</div>`;
                 window.HomeConversationList?.enhance(el.chatList, config);
                 return;
             }
 
             // 保持一个隐藏的 .home-chat-group 占位，供自动化测试与样式选择器向下兼容
             html.push('<div class="home-chat-group" hidden style="display:none;" aria-hidden="true"></div>');
+            if (archivedBanner) html.push(archivedBanner);
 
             const searching = Boolean(query);
 
             // 0. 置顶 (全部类型的置顶会话：第三方 Agent、空间对话、普通任务)：顶级独立分类；没有置顶项时不显示
             if (pinnedEntries.length > 0) {
                 const open = searching || !collapsedSections.has('pinned');
-                html.push(`<section class="home-chat-section" data-section="pinned">${sectionHead('pinned', tx('categoryPinned'), pinnedEntries.length)}
+                html.push(`<section class="home-chat-section" data-section="pinned">${sectionHead('pinned', tx('categoryPinned'), pinnedEntries.length, isArchived)}
                     <div class="home-chat-section-body" data-batch-scope="pinned"${open ? '' : ' hidden'}>
                         ${pinnedEntries.map(({ item, index }) => renderItemHtml(item, index, false)).join('')}
                     </div></section>`);
@@ -3043,7 +3050,7 @@
             // 1. 任务 (未选目录)：顶级分类，可折叠，「展开更多」只作用于本分类（conversation-list.js 按 data-batch-scope 分别计数）
             if (taskEntries.length > 0 || (sortedProjects.length === 0 && pinnedEntries.length === 0)) {
                 const open = searching || !collapsedSections.has('tasks');
-                html.push(`<section class="home-chat-section" data-section="tasks">${sectionHead('tasks', tx('categoryTasks'), taskEntries.length)}
+                html.push(`<section class="home-chat-section" data-section="tasks">${sectionHead('tasks', tx('categoryTasks'), taskEntries.length, isArchived)}
                     <div class="home-chat-section-body" data-batch-scope="tasks" data-batch-remote${open ? '' : ' hidden'}>
                         ${taskEntries.map(({ item, index }) => renderItemHtml(item, index, false)).join('')}
                     </div></section>`);
@@ -3052,7 +3059,7 @@
             // 2. 空间 (已选目录)：每个项目文件夹下是该目录的对话，文件夹数量与每个文件夹里的对话各自「展开更多」
             if (sortedProjects.length > 0) {
                 const open = searching || !collapsedSections.has('spaces');
-                html.push(`<section class="home-chat-section" data-section="spaces">${sectionHead('spaces', tx('categorySpaces'), sortedProjects.length)}
+                html.push(`<section class="home-chat-section" data-section="spaces">${sectionHead('spaces', tx('categorySpaces'), sortedProjects.length, isArchived)}
                     <div class="home-chat-section-body" data-batch-scope="spaces" data-batch-unit="project" data-batch-step="5"${open ? '' : ' hidden'}>`);
                 for (const [root, entries] of sortedProjects) {
                     const projectName = getDirectoryBaseName(root);
@@ -3228,6 +3235,11 @@
     function bindChatList() {
         if (!el.chatList) return;
         el.chatList.addEventListener('click', event => {
+            if (event.target.closest('[data-chat-exit-archived]')) {
+                event.preventDefault();
+                if (window.HomeConversationList?.isArchived?.('mine')) window.HomeConversationList.toggleArchived('mine');
+                return;
+            }
             if (event.target.closest('[data-chat-retry]')) {
                 chatList.loaded = false;
                 renderChatList();

@@ -1524,6 +1524,8 @@ html.platform-home .home-panel-view.v2-groups-collapsed > :is(.conversation-list
 
 .v2-check-item.is-checked { background: var(--v2-hover); font-weight: 600; }
 
+.v2-filter-archived-btn.is-checked { background: var(--v2-accent-soft); color: var(--v2-accent); }
+
 .v2-check { width: 16px; height: 16px; color: var(--v2-accent); }
 
 .v2-pop-reset { color: var(--v2-ink3); font-size: 12.5px; }

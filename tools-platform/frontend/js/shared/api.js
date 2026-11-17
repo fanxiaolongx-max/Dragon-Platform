@@ -157,11 +157,13 @@ const API = {
         // 调用方仍持有独立的数据副本，避免互相修改目录元数据。
         return JSON.parse(JSON.stringify(await pending));
     },
-    post: async function(path, body, { onEvent } = {}) {
+    post: async function(path, body, { onEvent, signal } = {}) {
+        // signal：调用方可中途取消（如 AI 报表单元格生成）
         const res = await fetch(`${API_BASE}${path}`, {
             method: 'POST',
             headers: getAuthHeaders(),
-            body: JSON.stringify(body)
+            body: JSON.stringify(body),
+            ...(signal ? { signal } : {})
         });
         if (!res.ok || !res.headers.get('Content-Type')?.includes('application/x-ndjson')) return handleResponse(res, { method: 'POST', path });
         const reader = res.body.getReader(), decoder = new TextDecoder();
