@@ -1,8 +1,8 @@
 {
   "zh": [
-    "移动端交互式审批卡片与专属工作区上线：iOS 与 Android 均已内置内联确认卡片（支持允许本次、拒绝、高危分类放行），首次非高危确认提供“本对话完全访问”一键放行后续普通操作，敏感/系统等高危边界仍逐次确认，并为移动端会话自动分配并持久化用户专属工作目录。"
+    "优化触屏设备侧边栏会话列表排版（在 hover: none 下分离时间、置顶图标与操作菜单间距，避免重叠）；同时包含移动端交互式审批卡片（支持本对话完全访问授权与高危操作确认）及持久化用户专属工作区。"
   ],
   "en": [
-    "Interactive mobile approval cards and persistent user workspaces: iOS and Android render inline confirmation cards with Allow once, Deny, risk-category allowance, and a one-tap \"Full access for this chat\" upgrade on the first non-dangerous prompt while preserving explicit confirmation for dangerous rules and persisting a user-owned workspace directory."
+    "Refined touch-device sidebar conversation row layout (separating timestamps, pin icons, and action menus under hover: none to prevent overlap), alongside interactive mobile approval cards with one-tap chat-level full access and persistent user-owned workspaces."
   ]
 }

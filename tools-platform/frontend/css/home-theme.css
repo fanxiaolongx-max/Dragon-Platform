@@ -1863,6 +1863,16 @@ html.platform-home .home-panel .conversation-list-row:is(:hover, :focus-within, 
 html.platform-home .home-panel .conversation-list-row:is(:hover, :focus-within, .is-menu-open) .desktop-agent-chat time { opacity: 0; }
 
 html.platform-home .home-panel .conversation-list-row:is(:hover, :focus-within) .conversation-list-more { opacity: .7; visibility: visible; transition-delay: 0s; }
+/* Touch lists show time, pin and menu together, so each needs its own slot. */
+@media (hover: none) {
+    html.platform-home .home-panel .conversation-list-row :is(.home-chat-actions, .desktop-agent-chat time, .wl-item-side) { right: 36px; }
+    html.platform-home .home-panel .conversation-list-row:is(:has(.conversation-pin), .is-pinned) :is(.home-chat-actions, .desktop-agent-chat time, .wl-item-side) { right: 58px; }
+    html.platform-home .home-panel .conversation-list-row .conversation-pin { right: 38px; visibility: visible; }
+    html.platform-home .home-panel .conversation-list-row :is(.home-chat-title, .desktop-agent-chat b) { padding-right: 82px; }
+    html.platform-home .home-panel .conversation-list-row:is(:has(.conversation-pin), .is-pinned) :is(.home-chat-title, .desktop-agent-chat b) { padding-right: 104px; }
+    html.platform-home .home-panel .conversation-list-row:is(:hover, :focus-within, .is-menu-open) :is(.home-chat-meta, .desktop-agent-chat time) { opacity: 1; }
+}
+
 /* Connector selection is draft-only; established contexts remain readable and locked. */
 .dc-connector-note { padding: 8px 6px 4px; color: var(--v2-ink3, #94a3b8); font-size: 11px; line-height: 1.6; }
 

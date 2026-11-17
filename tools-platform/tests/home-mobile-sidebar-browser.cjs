@@ -39,6 +39,26 @@ app.whenReady().then(async()=>{
   assert.ok(g.mainLeft>=-1&&g.mainRight<=g.w+1,JSON.stringify(g));
  };
  await openDrawer();await assertGeometry();
+ // Emulate touch input: narrow desktop windows alone do not activate hover:none.
+ win.webContents.debugger.attach('1.3');
+ await win.webContents.debugger.sendCommand('Emulation.setEmulatedMedia',{features:[{name:'hover',value:'none'}]});
+ await win.webContents.debugger.sendCommand('Emulation.setTouchEmulationEnabled',{enabled:true});
+ assert.equal(await evaluate('matchMedia("(hover: none)").matches'),true);
+ for (const pinned of [false,true]) {
+  const layout=await evaluate(`(()=>{
+   const row=document.querySelector('.conversation-list-row');
+   if (${pinned}) { row.classList.add('is-pinned');const pin=document.createElement('span');pin.className='conversation-pin';pin.innerHTML='<svg width="12" height="12"></svg>';row.append(pin); }
+   const meta=row.querySelector('.home-chat-meta');meta.textContent='11月16日';
+   const time=meta.getBoundingClientRect(),menu=row.querySelector('.conversation-list-more').getBoundingClientRect(),pin=row.querySelector('.conversation-pin')?.getBoundingClientRect();
+   return {timeRight:time.right,menuLeft:menu.left,pinLeft:pin?.left,pinRight:pin?.right,visible:getComputedStyle(meta).opacity};
+  })()`);
+  assert.equal(layout.visible,'1');
+  assert.ok(layout.timeRight+4<=(pinned?layout.pinLeft:layout.menuLeft),JSON.stringify(layout));
+  if(pinned) assert.ok(layout.pinRight+4<=layout.menuLeft,JSON.stringify(layout));
+ }
+ await evaluate("document.querySelector('.conversation-list-row .conversation-pin').remove();document.querySelector('.conversation-list-row').classList.remove('is-pinned')");
+ await win.webContents.debugger.sendCommand('Emulation.setTouchEmulationEnabled',{enabled:false});
+ win.webContents.debugger.detach();
  assert.equal(await evaluate('getComputedStyle(document.querySelector(".home-panel")).display'),'flex');
  await evaluate('document.querySelector(".v2-mobile-side-backdrop").click()');await until('getComputedStyle(homeSidebar).display==="none"');
  await openDrawer();await evaluate('document.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true}))');assert.equal(await evaluate('document.body.classList.contains("v2-mobile-side-open")'),false);
