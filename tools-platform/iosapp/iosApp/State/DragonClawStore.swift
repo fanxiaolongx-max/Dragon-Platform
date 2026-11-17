@@ -1469,7 +1469,8 @@ final class DragonClawStore {
                 outputTokens: nil,
                 modelName: desktop.providerDisplayName(),
                 interrupted: false,
-                isStreaming: false
+                isStreaming: false,
+                approvals: []
             )
             messages.append(userMsg)
             activeDesktopBusy = true
@@ -1607,7 +1608,8 @@ final class DragonClawStore {
             outputTokens: nil,
             modelName: nil,
             interrupted: false,
-            isStreaming: false
+            isStreaming: false,
+            approvals: []
         )
         let assistantId = UUID().uuidString
         let assistantPlaceholder = ChatMessage(
@@ -1624,7 +1626,8 @@ final class DragonClawStore {
             outputTokens: nil,
             modelName: nil,
             interrupted: false,
-            isStreaming: true
+            isStreaming: true,
+            approvals: []
         )
 
         messages.append(userMsg)
@@ -1707,7 +1710,10 @@ final class DragonClawStore {
                 outputTokens: existing.outputTokens,
                 modelName: existing.modelName,
                 interrupted: true,
-                isStreaming: false
+                isStreaming: false,
+                approvals: existing.approvals.map { ap in
+                    ap.isPending ? copyApproval(ap, status: "settled", chosenDecision: "aborted", isSubmitting: false) : ap
+                }
             )
         }
         isStreaming = false
@@ -1811,6 +1817,39 @@ final class DragonClawStore {
                 )
             }
             updateMessage(at: idx, with: copyMessage(cur, statusText: nil, toolCalls: nextTools))
+        case .approval:
+            guard let ap = event.approval else { break }
+            var nextApprovals = cur.approvals
+            if let existingIdx = nextApprovals.firstIndex(where: { $0.callId == ap.callId || $0.id == ap.id }) {
+                nextApprovals[existingIdx] = ap
+            } else {
+                nextApprovals.append(ap)
+            }
+            updateMessage(
+                at: idx,
+                with: copyMessage(
+                    cur,
+                    statusText: L10n.tr(language, zh: "等待确认...", en: "Awaiting approval..."),
+                    approvals: nextApprovals
+                )
+            )
+        case .approvalResult:
+            let matchKey = event.callId ?? ""
+            let nextApprovals = cur.approvals.map { ap in
+                (ap.callId == matchKey || ap.id == matchKey)
+                    ? copyApproval(
+                        ap,
+                        status: "settled",
+                        chosenDecision: event.approvalDecision ?? ap.chosenDecision ?? "allow",
+                        chosenScope: event.approvalScope,
+                        isSubmitting: false,
+                        errorMessage: "__CLEAR__"
+                    )
+                    : ap
+            }
+            let waitingLabel = L10n.tr(language, zh: "等待确认...", en: "Awaiting approval...")
+            let nextStatus = cur.statusText == waitingLabel ? nil : cur.statusText
+            updateMessage(at: idx, with: copyMessage(cur, statusText: nextStatus, approvals: nextApprovals))
         case .modelRound, .compaction:
             if let text = event.text, !text.isEmpty {
                 updateMessage(at: idx, with: copyMessage(cur, statusText: text))
@@ -1834,7 +1873,10 @@ final class DragonClawStore {
                 outputTokens: event.outputTokens ?? cur.outputTokens,
                 modelName: event.modelName ?? cur.modelName,
                 interrupted: false,
-                isStreaming: false
+                isStreaming: false,
+                approvals: cur.approvals.map { ap in
+                    ap.isPending ? copyApproval(ap, status: "settled", chosenDecision: "aborted", isSubmitting: false) : ap
+                }
             )
             updateMessage(at: idx, with: doneMsg)
         case .error:
@@ -1875,7 +1917,10 @@ final class DragonClawStore {
                     outputTokens: cur.outputTokens,
                     modelName: cur.modelName,
                     interrupted: cur.interrupted || interrupted,
-                    isStreaming: false
+                    isStreaming: false,
+                    approvals: cur.approvals.map { ap in
+                        ap.isPending ? copyApproval(ap, status: "settled", chosenDecision: "aborted", isSubmitting: false) : ap
+                    }
                 )
             )
         }
@@ -1912,6 +1957,106 @@ final class DragonClawStore {
         }
     }
 
+    func submitApproval(messageId: String, approval: PendingApproval, decision: String, scope: String? = nil) {
+        guard approval.isPending, !approval.isSubmitting, !token.isEmpty else { return }
+        updateApprovalState(messageId: messageId, approvalId: approval.id) { ap in
+            copyApproval(ap, isSubmitting: true, errorMessage: "__CLEAR__")
+        }
+        let handle = sdk.resolveApproval(
+            token: token,
+            approvalId: approval.id,
+            decision: decision,
+            scope: scope,
+            approvalUrl: approval.approvalUrl
+        ) { [weak self] res in
+            dispatchToMain { [weak self] in
+                guard let self else { return }
+                let resolvedDecision = res.decision.isEmpty ? decision : res.decision
+                let resolvedScope = res.scope ?? scope
+                self.updateApprovalState(messageId: messageId, approvalId: approval.id) { ap in
+                    self.copyApproval(
+                        ap,
+                        status: "settled",
+                        chosenDecision: resolvedDecision,
+                        chosenScope: resolvedScope,
+                        isSubmitting: false,
+                        errorMessage: "__CLEAR__"
+                    )
+                }
+            }
+        } onError: { [weak self] err in
+            dispatchToMain { [weak self] in
+                guard let self else { return }
+                let expired = err.contains("404") || err.contains("过期") || err.contains("不存在")
+                self.updateApprovalState(messageId: messageId, approvalId: approval.id) { ap in
+                    if expired {
+                        return self.copyApproval(
+                            ap,
+                            status: "settled",
+                            chosenDecision: "timeout",
+                            isSubmitting: false,
+                            errorMessage: "__CLEAR__"
+                        )
+                    }
+                    return self.copyApproval(ap, isSubmitting: false, errorMessage: err)
+                }
+            }
+        }
+        activeTaskHandles.append(handle)
+    }
+
+    private func updateApprovalState(messageId: String, approvalId: String, transform: (PendingApproval) -> PendingApproval) {
+        guard let idx = messages.firstIndex(where: { $0.id == messageId }) else { return }
+        let cur = messages[idx]
+        let nextApprovals = cur.approvals.map { ap in
+            ap.id == approvalId ? transform(ap) : ap
+        }
+        let nextStatus: String? = nextApprovals.contains(where: { $0.isPending }) ? cur.statusText : nil
+        updateMessage(at: idx, with: copyMessage(cur, statusText: nextStatus, approvals: nextApprovals))
+    }
+
+    private func copyApproval(
+        _ ap: PendingApproval,
+        status: String? = nil,
+        chosenDecision: String? = nil,
+        chosenScope: String? = nil,
+        isSubmitting: Bool? = nil,
+        errorMessage: String? = "__KEEP__"
+    ) -> PendingApproval {
+        PendingApproval(
+            id: ap.id,
+            callId: ap.callId,
+            runId: ap.runId,
+            toolName: ap.toolName,
+            approvalUrl: ap.approvalUrl,
+            permissionMode: ap.permissionMode,
+            noAlways: ap.noAlways,
+            command: ap.command,
+            cwd: ap.cwd,
+            filePath: ap.filePath,
+            diff: ap.diff,
+            added: ap.added,
+            removed: ap.removed,
+            renameTo: ap.renameTo,
+            recursive: ap.recursive,
+            channel: ap.channel,
+            targets: ap.targets,
+            message: ap.message,
+            title: ap.title,
+            impact: ap.impact,
+            fields: ap.fields,
+            risks: ap.risks,
+            dangers: ap.dangers,
+            dangerScopes: ap.dangerScopes,
+            status: status ?? ap.status,
+            chosenDecision: chosenDecision ?? ap.chosenDecision,
+            chosenScope: chosenScope ?? ap.chosenScope,
+            isSubmitting: isSubmitting ?? ap.isSubmitting,
+            errorMessage: errorMessage == "__CLEAR__" ? nil : (errorMessage == "__KEEP__" ? ap.errorMessage : errorMessage),
+            expiresInMs: ap.expiresInMs
+        )
+    }
+
     private func copyMessage(
         _ m: ChatMessage,
         content: String? = nil,
@@ -1921,7 +2066,8 @@ final class DragonClawStore {
         attachments: [ChatAttachment]? = nil,
         rawContent: String? = nil,
         interrupted: Bool? = nil,
-        isStreaming: Bool? = nil
+        isStreaming: Bool? = nil,
+        approvals: [PendingApproval]? = nil
     ) -> ChatMessage {
         ChatMessage(
             id: m.id,
@@ -1937,7 +2083,8 @@ final class DragonClawStore {
             outputTokens: m.outputTokens,
             modelName: m.modelName,
             interrupted: interrupted ?? m.interrupted,
-            isStreaming: isStreaming ?? m.isStreaming
+            isStreaming: isStreaming ?? m.isStreaming,
+            approvals: approvals ?? m.approvals
         )
     }
 

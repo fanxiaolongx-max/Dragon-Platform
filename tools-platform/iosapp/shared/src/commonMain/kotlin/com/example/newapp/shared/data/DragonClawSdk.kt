@@ -520,7 +520,8 @@ class DragonClawSdk(
             agent = "dragon-claw-home",
             stream = true,
             modelId = modelId?.takeIf { it.isNotBlank() },
-            voiceMode = if (voiceMode) true else null
+            voiceMode = if (voiceMode) true else null,
+            supportsApproval = true
         )
         val job = scope.launch {
             val coalescer = StreamCoalescer(this, STREAM_FLUSH_INTERVAL_MS) { evt ->
@@ -546,6 +547,28 @@ class DragonClawSdk(
         }
         return TaskHandle(job)
     }
+
+    fun resolveApproval(
+        token: String,
+        approvalId: String,
+        decision: String,
+        scope: String? = null,
+        approvalUrl: String? = null,
+        onSuccess: (ApprovalResolveResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(
+        block = {
+            api.resolveApproval(
+                token = token,
+                approvalId = approvalId,
+                decision = decision,
+                scope = scope,
+                approvalUrl = approvalUrl
+            )
+        },
+        onSuccess = onSuccess,
+        onError = onError
+    )
 
     fun fetchToolCatalog(
         token: String,

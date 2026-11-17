@@ -70,20 +70,61 @@ function isAdminUser(user) {
     return Boolean(user && user.role === 'admin');
 }
 
-function configureClientExecutionMode(session, { mobileClient = false, permissionMode } = {}) {
+function configureClientExecutionMode(session, { mobileClient = false, supportsApproval = false, permissionMode } = {}) {
     if (!session) return session;
     if (permissionMode) session.permissionMode = normalizePermissionMode(permissionMode);
     if (mobileClient) {
-        // 移动端（iOS/Android App）暂无审批弹窗卡片：管理员允许的常规命令走完全访问直接执行，
-        // 但危险操作类别仍按 unattended 立即拦截，既避免 5 分钟等待超时，也保留危险操作防护。
-        if (!session.readOnly) session.permissionMode = 'full';
         session.mobileClient = true;
-        session.unattended = true;
+        session.supportsApproval = Boolean(supportsApproval);
+        if (supportsApproval) {
+            // 新版移动端支持交互式审批卡：保留用户选择的模式（首次默认 auto，确认「本对话完全访问」后升级并保持 full）
+            session.unattended = false;
+        } else {
+            // 兼容旧版移动端（无审批弹窗 UI）：管理员允许的常规命令走完全访问直接执行，危险操作按 unattended 拦截
+            if (!session.readOnly) session.permissionMode = 'full';
+            session.unattended = true;
+        }
     } else if (!session.channelSession) {
         session.mobileClient = false;
+        session.supportsApproval = true;
         session.unattended = false;
     }
     return session;
+}
+
+function userMobileWorkspaceRoot({ user, tenantId } = {}) {
+    const safeUser = String(user?.username || 'user').trim().replace(/[^a-z0-9._-]/gi, '_').slice(0, 64) || 'user';
+    if (boundary.isConfined(user, tenantId)) {
+        return path.join(boundary.workspaceRoot(tenantId), safeUser);
+    }
+    const baseRoot = process.env.TOOLS_MOBILE_WORKSPACE_ROOT
+        ? path.resolve(process.env.TOOLS_MOBILE_WORKSPACE_ROOT)
+        : process.env.TOOLS_DATA_DIR
+            ? path.join(path.dirname(path.resolve(process.env.TOOLS_DATA_DIR)), 'mobile-workspaces')
+            : path.join(require('os').homedir(), 'DragonClaw', 'workspaces');
+    return path.join(baseRoot, safeUser);
+}
+
+function mobileOwnedAgentId(user, tenantId, chatSessionId) {
+    const owner = ownerKey(user, tenantId);
+    const chatHash = crypto.createHash('sha256').update(`${owner}\n${chatSessionId || 'mobile-default'}`).digest('hex').slice(0, 24);
+    return `mobile-${chatHash}`;
+}
+
+function ensureMobileOwnedSession({ user, tenantId, chatSessionId, permissionMode = 'auto', supportsApproval = false } = {}) {
+    const root = userMobileWorkspaceRoot({ user, tenantId });
+    try {
+        fs.mkdirSync(root, { recursive: true });
+        if (!fs.statSync(root).isDirectory()) throw new Error('mobile workspace path is not a directory');
+    } catch (_error) {
+        return ensureScratchSession({ user, tenantId, chatSessionId, permissionMode, mobileClient: true, supportsApproval });
+    }
+    const aliased = scratchAliases.get(`${ownerKey(user, tenantId)}\n${chatSessionId || ''}`);
+    const agentId = aliased || mobileOwnedAgentId(user, tenantId, chatSessionId);
+    const session = ensureSession({ agentSessionId: agentId, user, tenantId, root, permissionMode });
+    session.scratch = false;
+    session.mobileOwnedWorkspace = true;
+    return configureClientExecutionMode(session, { mobileClient: true, supportsApproval });
 }
 
 function scratchAgentId(user, tenantId, chatSessionId) {
@@ -96,17 +137,18 @@ function existingScratchSession({ user, tenantId, chatSessionId } = {}) {
     if (!user || !chatSessionId) return null;
     const owner = ownerKey(user, tenantId);
     const aliasedId = scratchAliases.get(`${owner}\n${chatSessionId}`);
-    const session = getSession(aliasedId || scratchAgentId(user, tenantId, chatSessionId), user, tenantId);
-    return session?.scratch ? session : null;
+    const session = getSession(aliasedId || scratchAgentId(user, tenantId, chatSessionId), user, tenantId)
+        || getSession(mobileOwnedAgentId(user, tenantId, chatSessionId), user, tenantId);
+    return (session?.scratch || session?.mobileOwnedWorkspace) ? session : null;
 }
 
 function bindScratchChatId({ session, user, tenantId, chatSessionId } = {}) {
-    if (!session?.scratch || !user || !chatSessionId) return;
+    if ((!session?.scratch && !session?.mobileOwnedWorkspace) || !user || !chatSessionId) return;
     scratchAliases.set(`${ownerKey(user, tenantId)}\n${chatSessionId}`, session.id);
     if (scratchAliases.size > MAX_CHAT_SESSIONS) scratchAliases.delete(scratchAliases.keys().next().value);
 }
 
-function resumeSavedSession({ agentSessionId = '', root = '', user, tenantId, chatSessionId = '', mobileClient = false, permissionMode } = {}) {
+async function resumeSavedSession({ agentSessionId = '', root = '', user, tenantId, chatSessionId = '', mobileClient = false, supportsApproval = false, permissionMode } = {}) {
     if (!root || !user) return null;
     try {
         if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) return null;
@@ -117,8 +159,18 @@ function resumeSavedSession({ agentSessionId = '', root = '', user, tenantId, ch
     const fallbackId = `resume-${crypto.createHash('sha256').update(`${owner}\n${chatSessionId || root}`).digest('hex').slice(0, 24)}`;
     const sessionId = /^[\w-]{8,100}$/.test(String(agentSessionId || '')) ? String(agentSessionId) : fallbackId;
     try {
-        const session = ensureSession({ agentSessionId: sessionId, user, tenantId, root, permissionMode });
-        return configureClientExecutionMode(session, { mobileClient });
+        let session = await restoreSession(sessionId, user, tenantId, root);
+        if (!session) {
+            let savedMode = permissionMode;
+            if (!savedMode) {
+                const savedTranscript = await transcriptRepo.load(sessionId).catch(() => null);
+                if (savedTranscript && savedTranscript.owner === owner && savedTranscript.root === guard.normalizeRoot(root)) {
+                    savedMode = savedTranscript.permissionMode;
+                }
+            }
+            session = ensureSession({ agentSessionId: sessionId, user, tenantId, root, permissionMode: savedMode });
+        }
+        return configureClientExecutionMode(session, { mobileClient, supportsApproval, permissionMode });
     } catch (_error) {
         return null;
     }
@@ -128,7 +180,7 @@ function resumeSavedSession({ agentSessionId = '', root = '', user, tenantId, ch
  * 没选工作目录、但需要文件 / 命令时使用的隐藏临时目录：每个租户账号一个（跨对话保留文件，系统临时目录下，用户不可见），
  * 智能体会话按对话区分。权限模式为「帮我批准」：文件写入自动执行，命令与删除仍弹审批卡。
  */
-function ensureScratchSession({ user, tenantId, chatSessionId, permissionMode = 'auto', mobileClient = false }) {
+function ensureScratchSession({ user, tenantId, chatSessionId, permissionMode = 'auto', mobileClient = false, supportsApproval = false }) {
     const owner = ownerKey(user, tenantId);
     const userHash = crypto.createHash('sha256').update(owner).digest('hex').slice(0, 16);
     // 团队账号的临时空间放在团队自己的 tmp 下（沙箱可写、团队边界内）；超级管理员仍用系统临时目录
@@ -138,20 +190,20 @@ function ensureScratchSession({ user, tenantId, chatSessionId, permissionMode = 
     fs.mkdirSync(root, { recursive: true });
     const session = ensureSession({ agentSessionId: scratchAgentId(user, tenantId, chatSessionId), user, tenantId, root, permissionMode });
     session.scratch = true;
-    return configureClientExecutionMode(session, { mobileClient });
+    return configureClientExecutionMode(session, { mobileClient, supportsApproval });
 }
 
 /**
  * 团队账号没选目录时的默认工作区：直接用团队工作目录（团队的整个文件空间），命令照常可用、在沙箱里执行。
  * 按对话区分智能体会话；沿用临时目录的前端处理（scratch），不在界面上暴露服务器路径。
  */
-function ensureTeamDefaultSession({ user, tenantId, chatSessionId, permissionMode, mobileClient = false }) {
+function ensureTeamDefaultSession({ user, tenantId, chatSessionId, permissionMode, mobileClient = false, supportsApproval = false }) {
     const owner = ownerKey(user, tenantId);
     const chatHash = crypto.createHash('sha256').update(`${owner}\n${chatSessionId || 'new'}`).digest('hex').slice(0, 24);
     const session = ensureSession({ agentSessionId: `teamws-${chatHash}`, user, tenantId, root: boundary.workspaceRoot(tenantId), permissionMode: permissionMode || 'auto' });
     session.scratch = true;
     session.teamDefault = true;
-    return configureClientExecutionMode(session, { mobileClient });
+    return configureClientExecutionMode(session, { mobileClient, supportsApproval });
 }
 
 /** WeLink / 微信等频道工作区：群聊隔离沙箱，单聊/超级管理员直接映射主机用户目录或专属工作区 */
@@ -564,7 +616,7 @@ function waitApproval(run, call, preview, sharedMcp = false) {
         if (typeof timer.unref === 'function') timer.unref();
         pendingApprovals.set(id, { runId: run.id, sessionId: run.session.id, owner: run.session.owner, sharedMcp, settle, timer, createdAt: Date.now() });
         run.pending.set(id, settle);
-        run.write({ type: 'approval', id, runId: run.id, callId: call.id, tool: call.name, args: call.args, preview, ...(sharedMcp ? { noAlways: true } : {}), expiresInMs: APPROVAL_TIMEOUT_MS });
+        run.write({ type: 'approval', id, runId: run.id, callId: call.id, tool: call.name, args: call.args, preview, permissionMode: run.session.permissionMode, ...(sharedMcp ? { noAlways: true } : {}), expiresInMs: APPROVAL_TIMEOUT_MS });
         // 「需要你」收件箱：跨对话可见，超时未处理按设置推送到频道
         try { approvalInbox.add({ id, owner: run.session.owner, chatSessionId: run.chatSessionId, tool: call.name, args: call.args, settle, expiresInMs: APPROVAL_TIMEOUT_MS }); }
         catch (error) { console.warn('[agent] inbox add failed:', error.message || error); }
@@ -582,7 +634,9 @@ function resolveApproval(approvalId, decision, user, tenantId, scope = '') {
     const pending = pendingApprovals.get(String(approvalId || ''));
     if (!pending) throw managerError('AGENT_APPROVAL_NOT_FOUND', '审批已过期或不存在', 404);
     if (pending.owner !== ownerKey(user, tenantId)) throw managerError('AGENT_SESSION_FORBIDDEN', '无权处理该审批', 403);
-    const normalized = decision === 'always' && pending.sharedMcp ? 'allow' : ['allow', 'deny', 'always'].includes(decision) ? decision : 'deny';
+    const normalized = (decision === 'always' || decision === 'full') && pending.sharedMcp
+        ? 'allow'
+        : ['allow', 'deny', 'always', 'full'].includes(decision) ? decision : 'deny';
     const normalizedScope = normalized === 'always' && dangerRules.SCOPES.includes(scope) ? scope : '';
     pending.settle(normalized, normalizedScope);
     return { ok: true, decision: normalized, ...(normalizedScope ? { scope: normalizedScope } : {}) };
@@ -633,9 +687,12 @@ async function decideCall(run, call, { kind, preview, key = call.name, sharedMcp
             return { outcome: { content: `错误（${error.code || 'ERROR'}）：${error.message}`, summary: String(error.message || '').slice(0, 120), isError: true } };
         }
         const { decision: answer } = await waitApproval(run, call, shown, sharedMcp);
+        if (answer === 'full' && !run.session.readOnly && !run.session.channelContext && !run.session.channelSession) {
+            run.session.permissionMode = 'full';
+        }
         if (answer === 'always') run.session.alwaysAllow.add(key);
         run.write({ type: 'approval_result', runId: run.id, callId: call.id, decision: answer });
-        decision = answer === 'allow' || answer === 'always' ? 'allow' : answer;
+        decision = answer === 'allow' || answer === 'always' || answer === 'full' ? 'allow' : answer;
     }
     if (decision === 'allow') return {};
     const unattendedReason = run.session.mobileClient ? '这个操作需要审批，当前手机端暂不支持审批弹窗，所以没有执行' : '这个操作需要用户确认，这是无人值守的频道对话，没有人能审批，所以没有执行';
@@ -762,7 +819,10 @@ async function runAgentTurn({ session, user, client, systemInstruction, historyM
             const { decision: answer, scope } = await waitApproval(run, call, preview);
             if (answer === 'always' && danger.length) await allowDanger(session, danger, scope || 'session');
             else if (answer === 'always') session.alwaysAllow.add(allowKey);
-            decision = answer === 'allow' || answer === 'always' ? 'allow' : answer;
+            else if (answer === 'full' && !session.readOnly && !session.channelContext && !session.channelSession) {
+                session.permissionMode = 'full';
+            }
+            decision = answer === 'allow' || answer === 'always' || answer === 'full' ? 'allow' : answer;
             write({ type: 'approval_result', runId: run.id, callId: call.id, decision: answer, ...(danger.length && answer === 'always' ? { scope: scope || 'session' } : {}) });
         }
         // 频道里显示不了审批卡：需要确认的附加工具操作（如保存技能）挂起，用户在频道里回复确认码后再执行
@@ -787,7 +847,7 @@ async function runAgentTurn({ session, user, client, systemInstruction, historyM
             // run_command 的输出实时推给界面（右侧终端面板），结果仍按原样交给模型
             const live = call.name === 'run_command' ? commandStream(write, { runId: run.id, callId: call.id, command: call.args?.command, cwd: toolCtx.root }) : null;
             // 交互式命令（interactive=true）：只在有人看着界面的对话里提供终端；频道 / 定时等无人值守对话没有
-            const interactive = live && interactiveTerminal && !session.unattended && !session.channelContext ? {
+            const interactive = live && interactiveTerminal && !session.unattended && !session.channelContext && !session.mobileClient ? {
                 owner: session.owner,
                 onStart: view => write({ type: 'command_terminal', runId: run.id, callId: call.id, terminalId: view.id, title: view.title, cwd: view.cwd, pty: view.pty, shellLabel: view.shellLabel })
             } : null;
@@ -937,6 +997,8 @@ module.exports = {
     reserveWorkspaceMutation,
     hasActiveRunInDirectory,
     ensureScratchSession,
+    ensureMobileOwnedSession,
+    userMobileWorkspaceRoot,
     existingScratchSession,
     bindScratchChatId,
     resumeSavedSession,

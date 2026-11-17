@@ -22,12 +22,43 @@ const pool = require('../backend/models/tenant-sqlite-pool');
 const appDb = require('../backend/models/app-db');
 const platformDb = require('../backend/models/platform-db');
 const router = require('../backend/routes/ai');
+const agentWorkspaceRouter = require('../backend/routes/agent-workspace');
 
 function parseNdjson(raw) {
     return String(raw || '').trim().split('\n').filter(Boolean).map(line => JSON.parse(line));
 }
 
-test('mobile admin runs external CLI skills in scratch workspace without approval hang, resumes saved agent_root, and blocks danger rules', async t => {
+async function readNdjsonStream(response, onEvent) {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    const events = [];
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let nl = buffer.indexOf('\n');
+        while (nl >= 0) {
+            const line = buffer.slice(0, nl).trim();
+            buffer = buffer.slice(nl + 1);
+            if (line) {
+                const evt = JSON.parse(line);
+                events.push(evt);
+                if (onEvent) await onEvent(evt);
+            }
+            nl = buffer.indexOf('\n');
+        }
+    }
+    const tail = buffer.trim();
+    if (tail) {
+        const evt = JSON.parse(tail);
+        events.push(evt);
+        if (onEvent) await onEvent(evt);
+    }
+    return events;
+}
+
+test('mobile admin runs external CLI skills in persistent user-owned workspace, supports interactive approval + full upgrade, resumes saved agent_root, and keeps danger rules', async t => {
     const origGetRuntime = settings.getRuntimeSettings;
     const origGetSecrets = settings.getRedactionSecrets;
     const origCreateClient = provider.createClient;
@@ -37,6 +68,7 @@ test('mobile admin runs external CLI skills in scratch workspace without approva
     app.use(express.json());
     app.use('/api', auth.checkAuth, tenantMiddleware);
     app.use('/api/ai', router);
+    app.use('/api/agent-workspace', agentWorkspaceRouter);
     const server = app.listen(0, '127.0.0.1');
     await new Promise(resolve => server.once('listening', resolve));
 
@@ -66,9 +98,11 @@ test('mobile admin runs external CLI skills in scratch workspace without approva
     await skillsStore.captureExternalSkills({ since: Date.now() - 5000, home: externalHome, createdBy: 'admin' });
     await appDb.run("UPDATE agent_skills SET workspace = 0 WHERE id = 'thcli-image'");
 
-    const endpoint = `http://127.0.0.1:${server.address().port}/api/ai/chat`;
+    const baseUrl = `http://127.0.0.1:${server.address().port}`;
+    const endpoint = `${baseUrl}/api/ai/chat`;
+    const expectedAdminMobileRoot = path.join(sandbox, 'mobile-workspaces', 'admin');
 
-    // 1. Mobile admin calls @thcli-image with no workspace payload -> auto scratch workspace + run_command works, danger rule blocked immediately
+    // 1. Legacy mobile admin (supportsApproval omitted) gets auto persistent user-owned workspace + run_command works, danger rule blocked immediately
     let round = 0;
     provider.createClient = () => ({
         model: 'mock-model',
@@ -106,14 +140,18 @@ test('mobile admin runs external CLI skills in scratch workspace without approva
     const events1 = parseNdjson(await res1.text());
     const toolResults1 = events1.filter(e => e.type === 'tool_result');
     assert.equal(toolResults1.length, 2, `round=${round} events1=${JSON.stringify(events1)}`);
-    assert.equal(toolResults1[0].ok, true, 'safe command executes immediately without mobile approval hang');
-    assert.equal(toolResults1[1].ok, false, 'dangerous system command is still rejected on mobile');
+    assert.equal(toolResults1[0].ok, true, 'legacy mobile safe command executes without approval hang');
+    assert.equal(toolResults1[1].ok, false, 'dangerous system command is still rejected on legacy mobile');
     assert.match(toolResults1[1].summary, /手机端暂不支持审批弹窗/);
-    assert.equal(events1.some(e => e.type === 'approval'), false, 'must not emit blocking approval wait on mobile');
+    assert.equal(events1.some(e => e.type === 'approval'), false, 'legacy mobile must not emit blocking approval wait');
     const done1 = events1.find(e => e.type === 'done');
     assert.match(done1?.reply || '', /手机端命令执行完成/);
 
-    // Follow-up message in the same mobile scratch session retains loaded external skill & run_command
+    const ownedSession = await chat.getSession(done1.sessionId);
+    assert.ok(fs.existsSync(expectedAdminMobileRoot), 'user-owned mobile workspace directory should exist');
+    assert.equal(ownedSession?.agent_root, fs.realpathSync(expectedAdminMobileRoot), 'mobile chat must persist user-owned agent_root');
+
+    // Follow-up message in the same legacy mobile session retains loaded external skill & run_command
     let followRound = 0;
     provider.createClient = () => ({
         model: 'mock-model',
@@ -151,7 +189,130 @@ test('mobile admin runs external CLI skills in scratch workspace without approva
     assert.equal(followEvents.find(e => e.type === 'tool_result')?.ok, true);
     assert.match(followEvents.find(e => e.type === 'done')?.reply || '', /追问续接执行成功/);
 
-    // 2. Mobile admin resuming an existing session that already has saved agent_root uses that folder even when workspace is omitted;
+    // 2. Approval-capable mobile client (supportsApproval: true) starts in 'auto', upgrades whole chat on 'full', and STILL prompts on danger
+    let interactiveRound = 0;
+    provider.createClient = () => ({
+        model: 'mock-model',
+        async generateText(options) {
+            if (!Array.isArray(options.tools)) return { text: '互动授权测试' };
+            interactiveRound += 1;
+            if (interactiveRound === 1) {
+                return {
+                    text: '',
+                    toolCalls: [
+                        { id: 'ci-1', name: 'run_command', args: { command: 'node -p "6 * 7"' } },
+                        { id: 'ci-2', name: 'run_command', args: { command: 'node -p "8 * 9"' } }
+                    ]
+                };
+            }
+            const answer = '完全访问升级完成';
+            options.onDelta?.(answer);
+            return { text: answer, toolCalls: [] };
+        }
+    });
+
+    const interactiveRes = await fetch(endpoint, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer mobile-admin-token', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            agent: 'dragon-claw-home',
+            pageTitle: 'Dragon Claw · Mobile',
+            pagePath: '/',
+            stream: true,
+            supportsApproval: true,
+            messages: [{ role: 'user', content: '@thcli-image 帮我跑两步命令' }]
+        })
+    });
+    assert.equal(interactiveRes.status, 200);
+    const approvalsSeen1 = [];
+    const interactiveEvents1 = await readNdjsonStream(interactiveRes, async evt => {
+        if (evt.type === 'approval') {
+            approvalsSeen1.push(evt);
+            assert.equal(evt.permissionMode, 'auto');
+            assert.ok(!evt.preview?.danger?.length);
+            const resolveRes = await fetch(`${baseUrl}/api/agent-workspace/approvals/${encodeURIComponent(evt.id)}`, {
+                method: 'POST',
+                headers: { Authorization: 'Bearer mobile-admin-token', 'Content-Type': 'application/json' },
+                body: JSON.stringify({ decision: 'full' })
+            });
+            assert.equal(resolveRes.status, 200);
+            const resolveJson = await resolveRes.json();
+            assert.equal(resolveJson.decision, 'full');
+        }
+    });
+    assert.equal(approvalsSeen1.length, 1, 'choosing full on first prompt skips second command approval in the same turn');
+    assert.equal(interactiveEvents1.find(e => e.type === 'approval_result')?.decision, 'full');
+    const interactiveResults1 = interactiveEvents1.filter(e => e.type === 'tool_result');
+    assert.equal(interactiveResults1.length, 2);
+    assert.equal(interactiveResults1[0].ok, true);
+    assert.equal(interactiveResults1[1].ok, true);
+    const interactiveDone1 = interactiveEvents1.find(e => e.type === 'done');
+    assert.match(interactiveDone1?.reply || '', /完全访问升级完成/);
+
+    // Follow-up turn in the same interactive session keeps permissionMode === 'full' for normal commands,
+    // while danger rules STILL prompt for explicit confirmation.
+    let interactiveFollowRound = 0;
+    provider.createClient = () => ({
+        model: 'mock-model',
+        async generateText(options) {
+            if (!Array.isArray(options.tools)) return { text: '测试对话' };
+            interactiveFollowRound += 1;
+            if (interactiveFollowRound === 1) {
+                return {
+                    text: '',
+                    toolCalls: [
+                        { id: 'ci-3', name: 'run_command', args: { command: 'node -p "3 * 9"' } },
+                        { id: 'ci-4', name: 'run_command', args: { command: 'pm2 restart tools-platform' } }
+                    ]
+                };
+            }
+            const answer = '高危操作仍需确认';
+            options.onDelta?.(answer);
+            return { text: answer, toolCalls: [] };
+        }
+    });
+    const interactiveRes2 = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+            Authorization: 'Bearer mobile-admin-token',
+            'Content-Type': 'application/json',
+            'X-Dragon-Approvals': '1'
+        },
+        body: JSON.stringify({
+            agent: 'dragon-claw-home',
+            pageTitle: 'Dragon Claw · Mobile',
+            pagePath: '/',
+            sessionId: interactiveDone1.sessionId,
+            stream: true,
+            supportsApproval: true,
+            messages: [
+                { role: 'user', content: '@thcli-image 帮我跑两步命令' },
+                { role: 'model', content: interactiveDone1.reply },
+                { role: 'user', content: '继续测试高危命令' }
+            ]
+        })
+    });
+    assert.equal(interactiveRes2.status, 200);
+    const approvalsSeen2 = [];
+    const interactiveEvents2 = await readNdjsonStream(interactiveRes2, async evt => {
+        if (evt.type === 'approval') {
+            approvalsSeen2.push(evt);
+            assert.ok(Array.isArray(evt.preview?.danger) && evt.preview.danger.length > 0, 'only danger command triggers prompt in full mode');
+            const denyRes = await fetch(`${baseUrl}/api/agent-workspace/approvals/${encodeURIComponent(evt.id)}`, {
+                method: 'POST',
+                headers: { Authorization: 'Bearer mobile-admin-token', 'Content-Type': 'application/json' },
+                body: JSON.stringify({ decision: 'deny' })
+            });
+            assert.equal(denyRes.status, 200);
+        }
+    });
+    assert.equal(approvalsSeen2.length, 1);
+    const interactiveResults2 = interactiveEvents2.filter(e => e.type === 'tool_result');
+    assert.equal(interactiveResults2.length, 2);
+    assert.equal(interactiveResults2[0].ok, true, 'safe command runs without prompt after full upgrade');
+    assert.equal(interactiveResults2[1].ok, false, 'denied danger command is blocked');
+
+    // 3. Mobile admin resuming an existing session that already has saved agent_root uses that folder even when workspace is omitted;
     //    switching back to web with workspace clears mobileClient/unattended flags.
     const savedRoot = path.join(sandbox, 'saved-project');
     fs.mkdirSync(savedRoot, { recursive: true });

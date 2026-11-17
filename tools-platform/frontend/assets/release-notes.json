@@ -1,8 +1,8 @@
 {
   "zh": [
-    "移动端支持直接执行外部 CLI 技能并续接会话工作区：识别 @thcli-image 等外部命令行技能自动进入沙箱工作区并开放命令执行；管理员在移动端延续历史会话时自动续接原有工作目录，避免无审批弹窗卡顿，同时继续实时拦截危险操作类别。"
+    "移动端上线交互式操作审批与自动专属工作区：移动端发起工具或命令操作时直接弹出确认卡片，支持“允许本次 / 拒绝 / 高危分类放行”，并在首次非高危确认时提供“本对话完全访问”一键授权，后续普通操作不再打断，高危规则（敏感文件、平台数据、系统服务控制等）依然逐次确认；同时为移动端会话自动分配并持久化用户专属工作目录（不再使用临时空目录）。"
   ],
   "en": [
-    "Mobile execution for external CLI skills and workspace continuity: automatically enables scratch workspaces with command execution for external CLI skills such as @thcli-image; admins resuming an existing session from mobile keep its saved workspace root and execute non-dangerous commands smoothly without blocking on missing mobile approval prompts, while dangerous rules remain enforced."
+    "Interactive mobile approval cards and persistent user-owned workspaces: iOS and Android now render inline confirmation cards for commands and file operations, featuring a one-tap \"Full access for this chat\" upgrade on the first non-dangerous prompt while preserving explicit confirmation for dangerous rules, and automatically assign and persist a user-owned workspace directory for mobile chats."
   ]
 }

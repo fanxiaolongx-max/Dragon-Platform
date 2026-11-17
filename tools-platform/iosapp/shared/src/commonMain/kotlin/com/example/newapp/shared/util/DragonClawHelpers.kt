@@ -3,10 +3,14 @@ package com.example.newapp.shared.util
 import com.example.newapp.shared.model.*
 import io.ktor.http.encodeURLParameter
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.longOrNull
 import kotlin.math.PI
 import kotlin.math.exp
 import kotlin.math.roundToInt
@@ -44,6 +48,8 @@ object DragonClawHelpers {
             "https://$trimmed"
         }
     }
+
+    fun urlEncodeSegment(raw: String): String = raw.encodeURLParameter()
 
     fun normalizeBearerHeader(rawToken: String): String {
         val t = rawToken.trim()
@@ -416,6 +422,7 @@ object DragonClawHelpers {
         val mapped = items.mapIndexed { index, item ->
             val role = if (item.role == "user") "user" else "model"
             val traces = extractToolTracesFromEvents(item.events)
+            val approvals = extractApprovalsFromEvents(item.events)
             val thinking = extractThinkingFromEvents(item.events)
             val (cleanedText, extractedAttachments) = extractMessageAttachmentsAndCleanText(
                 rawContent = item.content,
@@ -440,7 +447,8 @@ object DragonClawHelpers {
                 outputTokens = item.output_tokens,
                 modelName = item.model_name,
                 interrupted = item.interrupted,
-                isStreaming = false
+                isStreaming = false,
+                approvals = approvals
             )
         }
         return mergeConsecutiveAssistantMessages(mapped)
@@ -541,6 +549,9 @@ object DragonClawHelpers {
 
             val sumIn = listOfNotNull(prev.inputTokens, msg.inputTokens).takeIf { it.isNotEmpty() }?.sum()
             val sumOut = listOfNotNull(prev.outputTokens, msg.outputTokens).takeIf { it.isNotEmpty() }?.sum()
+            val approvalMap = linkedMapOf<String, PendingApproval>()
+            for (ap in prev.approvals) approvalMap[ap.callId.ifBlank { ap.id }] = ap
+            for (ap in msg.approvals) approvalMap[ap.callId.ifBlank { ap.id }] = ap
 
             merged[merged.lastIndex] = prev.copy(
                 content = mergedContents.joinToString("\n\n"),
@@ -554,7 +565,8 @@ object DragonClawHelpers {
                 outputTokens = sumOut,
                 modelName = msg.modelName?.takeIf { it.isNotBlank() } ?: prev.modelName,
                 interrupted = msg.interrupted,
-                isStreaming = prev.isStreaming || msg.isStreaming
+                isStreaming = prev.isStreaming || msg.isStreaming,
+                approvals = approvalMap.values.toList()
             )
         }
         return merged
@@ -656,6 +668,169 @@ object DragonClawHelpers {
                         durationMs = durationMs,
                         isFinished = true
                     )
+                }
+            }
+        }
+        return ordered.values.toList()
+    }
+
+    fun toolDisplayName(toolName: String, language: String): String {
+        val en = language.lowercase().startsWith("en")
+        return when (toolName) {
+            "run_command" -> if (en) "Run command" else "执行命令"
+            "write_file" -> if (en) "Write file" else "写入文件"
+            "edit_file" -> if (en) "Edit file" else "修改文件"
+            "multi_edit" -> if (en) "Edit files" else "批量修改文件"
+            "delete_path" -> if (en) "Delete path" else "删除文件/目录"
+            "rename_path" -> if (en) "Rename path" else "重命名"
+            "zip_files" -> if (en) "Archive files" else "打包压缩"
+            "unzip_file" -> if (en) "Extract archive" else "解压文件"
+            "save_skill" -> if (en) "Save skill" else "保存技能"
+            "publish_html_tool" -> if (en) "Publish tool" else "发布工具"
+            "send_notification", "welink_send_message" -> if (en) "Send notification" else "发送通知"
+            "welink_action" -> if (en) "WeLink action" else "WeLink 写操作"
+            "browser_navigate", "browser_click", "browser_type", "browser_login" -> if (en) "Browser action" else "浏览器操作"
+            "insert_database_row", "update_database_rows", "delete_database_rows" -> if (en) "Modify database" else "修改数据库"
+            "save_uiv_script", "move_uiv_script", "delete_uiv_script", "manage_uiv_category" -> if (en) "Manage script" else "脚本变更"
+            "sla_update_metric_conditions", "sla_revert_metric_rule_change" -> if (en) "Update SLA rules" else "修改指标规则"
+            else -> toolName
+        }
+    }
+
+    fun approvalStatusLabel(decision: String?, scope: String?, language: String): String {
+        val en = language.lowercase().startsWith("en")
+        return when (decision) {
+            "allow" -> if (en) "Allowed" else "已允许"
+            "full" -> if (en) "Full access enabled for this chat" else "本对话已开启完全访问"
+            "always" -> when (scope) {
+                "global" -> if (en) "Allowed permanently" else "已永久放行此类操作"
+                "workspace" -> if (en) "Allowed in this workspace" else "本工作目录此类操作已放行"
+                "session" -> if (en) "Allowed in this chat" else "本对话此类操作已放行"
+                else -> if (en) "Always allowed in this chat" else "本对话已总是允许"
+            }
+            "deny" -> if (en) "Denied" else "已拒绝"
+            "timeout" -> if (en) "Approval timed out" else "审批已超时，未执行"
+            "abort", "aborted" -> if (en) "Stopped" else "已中止"
+            else -> if (en) "Settled" else "已处理"
+        }
+    }
+
+    internal fun parsePendingApproval(
+        id: String,
+        callId: String,
+        runId: String,
+        toolName: String,
+        preview: JsonObject?,
+        approvalUrl: String?,
+        permissionMode: String?,
+        noAlways: Boolean?,
+        expiresInMs: Long?,
+        status: String = "pending",
+        chosenDecision: String? = null,
+        chosenScope: String? = null
+    ): PendingApproval {
+        fun str(key: String): String = (preview?.get(key) as? JsonPrimitive)?.contentOrNull.orEmpty()
+        fun intVal(key: String): Int = (preview?.get(key) as? JsonPrimitive)?.intOrNull ?: 0
+        fun boolVal(key: String): Boolean = (preview?.get(key) as? JsonPrimitive)?.booleanOrNull ?: false
+
+        val fields = (preview?.get("fields") as? JsonArray)?.mapNotNull { el ->
+            val obj = el as? JsonObject ?: return@mapNotNull null
+            val label = (obj["label"] as? JsonPrimitive)?.contentOrNull
+                ?: (obj["name"] as? JsonPrimitive)?.contentOrNull
+                ?: ""
+            val value = (obj["value"] as? JsonPrimitive)?.contentOrNull ?: obj["value"]?.toString().orEmpty()
+            if (label.isBlank() && value.isBlank()) null else ApprovalPreviewField(label = label, value = value)
+        }.orEmpty()
+
+        val risks = (preview?.get("risk") as? JsonArray)?.mapNotNull {
+            (it as? JsonPrimitive)?.contentOrNull?.takeIf { s -> s.isNotBlank() }
+        }.orEmpty()
+
+        val dangers = (preview?.get("danger") as? JsonArray)?.mapNotNull { el ->
+            val obj = el as? JsonObject ?: return@mapNotNull null
+            ApprovalDangerItem(
+                category = (obj["category"] as? JsonPrimitive)?.contentOrNull.orEmpty(),
+                label = (obj["label"] as? JsonPrimitive)?.contentOrNull.orEmpty(),
+                reason = (obj["reason"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+            )
+        }.orEmpty()
+
+        val dangerScopes = (preview?.get("dangerScopes") as? JsonArray)?.mapNotNull {
+            (it as? JsonPrimitive)?.contentOrNull?.takeIf { s -> s.isNotBlank() }
+        }.orEmpty()
+
+        return PendingApproval(
+            id = id.ifBlank { callId },
+            callId = callId.ifBlank { id },
+            runId = runId,
+            toolName = toolName.ifBlank { "tool" },
+            approvalUrl = approvalUrl?.takeIf { it.isNotBlank() },
+            permissionMode = permissionMode?.takeIf { it.isNotBlank() } ?: "auto",
+            noAlways = noAlways == true,
+            command = str("command"),
+            cwd = str("cwd"),
+            filePath = str("path"),
+            diff = str("diff"),
+            added = intVal("added"),
+            removed = intVal("removed"),
+            renameTo = str("to"),
+            recursive = boolVal("recursive"),
+            channel = str("channel"),
+            targets = str("targets"),
+            message = str("message"),
+            title = str("title"),
+            impact = str("impact"),
+            fields = fields,
+            risks = risks,
+            dangers = dangers,
+            dangerScopes = dangerScopes,
+            status = status,
+            chosenDecision = chosenDecision,
+            chosenScope = chosenScope,
+            expiresInMs = expiresInMs
+        )
+    }
+
+    private fun extractApprovalsFromEvents(events: kotlinx.serialization.json.JsonArray?): List<PendingApproval> {
+        if (events == null) return emptyList()
+        val ordered = linkedMapOf<String, PendingApproval>()
+        var seq = 0
+        for (el in events) {
+            val obj = el as? JsonObject ?: continue
+            val type = (obj["type"] as? JsonPrimitive)?.contentOrNull ?: continue
+            when (type) {
+                "approval" -> {
+                    val tool = (obj["tool"] as? JsonPrimitive)?.contentOrNull ?: "tool"
+                    val callId = (obj["callId"] as? JsonPrimitive)?.contentOrNull ?: "ap_${seq++}_$tool"
+                    val id = (obj["id"] as? JsonPrimitive)?.contentOrNull ?: callId
+                    val preview = obj["preview"] as? JsonObject
+                    val ap = parsePendingApproval(
+                        id = id,
+                        callId = callId,
+                        runId = (obj["runId"] as? JsonPrimitive)?.contentOrNull.orEmpty(),
+                        toolName = tool,
+                        preview = preview,
+                        approvalUrl = (obj["approvalUrl"] as? JsonPrimitive)?.contentOrNull,
+                        permissionMode = (obj["permissionMode"] as? JsonPrimitive)?.contentOrNull,
+                        noAlways = (obj["noAlways"] as? JsonPrimitive)?.booleanOrNull,
+                        expiresInMs = (obj["expiresInMs"] as? JsonPrimitive)?.longOrNull,
+                        status = "settled",
+                        chosenDecision = "aborted"
+                    )
+                    ordered[callId] = ap
+                }
+                "approval_result" -> {
+                    val callId = (obj["callId"] as? JsonPrimitive)?.contentOrNull ?: continue
+                    val decision = (obj["decision"] as? JsonPrimitive)?.contentOrNull
+                    val scope = (obj["scope"] as? JsonPrimitive)?.contentOrNull
+                    val existing = ordered[callId]
+                    if (existing != null) {
+                        ordered[callId] = existing.copy(
+                            status = "settled",
+                            chosenDecision = decision,
+                            chosenScope = scope
+                        )
+                    }
                 }
             }
         }
@@ -1150,6 +1325,34 @@ object NdjsonStreamParser {
                 text = env.summary.orEmpty(),
                 toolOk = env.ok ?: true,
                 durationMs = env.durationMs
+            )
+            "approval" -> {
+                val toolName = env.tool.orEmpty().ifBlank { "tool" }
+                val callId = env.callId ?: env.id ?: toolName
+                val approvalId = env.id ?: callId
+                val approval = DragonClawHelpers.parsePendingApproval(
+                    id = approvalId,
+                    callId = callId,
+                    runId = env.runId.orEmpty(),
+                    toolName = toolName,
+                    preview = env.preview,
+                    approvalUrl = env.approvalUrl,
+                    permissionMode = env.permissionMode,
+                    noAlways = env.noAlways,
+                    expiresInMs = env.expiresInMs
+                )
+                ChatStreamEvent(
+                    type = StreamEventType.APPROVAL,
+                    callId = callId,
+                    toolName = toolName,
+                    approval = approval
+                )
+            }
+            "approval_result" -> ChatStreamEvent(
+                type = StreamEventType.APPROVAL_RESULT,
+                callId = env.callId ?: env.id,
+                approvalDecision = env.decision,
+                approvalScope = env.scope
             )
             "model_round" -> ChatStreamEvent(type = StreamEventType.MODEL_ROUND)
             "compaction" -> ChatStreamEvent(type = StreamEventType.COMPACTION, text = env.phase)

@@ -316,6 +316,29 @@ class DragonClawApiClient(
         }
     }
 
+    suspend fun resolveApproval(
+        token: String,
+        approvalId: String,
+        decision: String,
+        scope: String? = null,
+        approvalUrl: String? = null
+    ): ApprovalResolveResponse {
+        val targetUrl = if (!approvalUrl.isNullOrBlank() && approvalUrl.startsWith("/api/channels/welink-cli/approvals/")) {
+            "$baseUrl$approvalUrl"
+        } else {
+            "$baseUrl/api/agent-workspace/approvals/${approvalId.encodeUrlPathSegment()}"
+        }
+        val response = client.post(targetUrl) {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+            contentType(ContentType.Application.Json)
+            setBody(ApprovalResolveRequest(decision = decision, scope = scope?.takeIf { it.isNotBlank() }))
+        }
+        return decodeOrThrow(response, "Failed to submit approval")
+    }
+
+    private fun String.encodeUrlPathSegment(): String =
+        DragonClawHelpers.urlEncodeSegment(this)
+
     private suspend fun streamChatLines(
         token: String,
         bodyJson: String,

@@ -1706,7 +1706,28 @@ class DragonClawViewModel : ViewModel() {
         activeStreamHandle = null
         if (!isStreaming) return
         messages = messages.map {
-            if (!it.isUser && it.isStreaming) it.copy(statusText = null, interrupted = true, isStreaming = false) else it
+            if (!it.isUser && it.isStreaming) {
+                val settledApprovals = it.approvals.map { ap ->
+                    if (ap.isPending) {
+                        ap.copy(
+                            status = "settled",
+                            chosenDecision = "aborted",
+                            isSubmitting = false,
+                            errorMessage = null
+                        )
+                    } else {
+                        ap
+                    }
+                }
+                it.copy(
+                    statusText = null,
+                    interrupted = true,
+                    isStreaming = false,
+                    approvals = settledApprovals
+                )
+            } else {
+                it
+            }
         }
         isStreaming = false
     }
@@ -1779,6 +1800,37 @@ class DragonClawViewModel : ViewModel() {
                     }
                     cur.copy(statusText = null, toolCalls = updated)
                 }
+                StreamEventType.APPROVAL -> {
+                    val ap = event.approval ?: return@map cur
+                    val nextApprovals = if (cur.approvals.any { it.callId == ap.callId || it.id == ap.id }) {
+                        cur.approvals.map { if (it.callId == ap.callId || it.id == ap.id) ap else it }
+                    } else {
+                        cur.approvals + ap
+                    }
+                    cur.copy(
+                        statusText = tr(language, "等待确认...", "Awaiting approval..."),
+                        approvals = nextApprovals
+                    )
+                }
+                StreamEventType.APPROVAL_RESULT -> {
+                    val matchKey = event.callId.orEmpty()
+                    val nextApprovals = cur.approvals.map { ap ->
+                        if (ap.callId == matchKey || ap.id == matchKey) {
+                            ap.copy(
+                                status = "settled",
+                                chosenDecision = event.approvalDecision ?: ap.chosenDecision ?: "allow",
+                                chosenScope = event.approvalScope,
+                                isSubmitting = false,
+                                errorMessage = null
+                            )
+                        } else {
+                            ap
+                        }
+                    }
+                    val waitingLabel = tr(language, "等待确认...", "Awaiting approval...")
+                    val nextStatus = if (cur.statusText == waitingLabel) null else cur.statusText
+                    cur.copy(statusText = nextStatus, approvals = nextApprovals)
+                }
                 StreamEventType.MODEL_ROUND, StreamEventType.COMPACTION -> {
                     if (!event.text.isNullOrBlank()) cur.copy(statusText = event.text) else cur
                 }
@@ -1788,6 +1840,13 @@ class DragonClawViewModel : ViewModel() {
                         rawContent = rawFinal,
                         existingAttachments = cur.attachments
                     )
+                    val settledApprovals = cur.approvals.map { ap ->
+                        if (ap.isPending) {
+                            ap.copy(status = "settled", chosenDecision = "timeout", isSubmitting = false, errorMessage = null)
+                        } else {
+                            ap
+                        }
+                    }
                     cur.copy(
                         content = cleanedText,
                         attachments = extractedAtts,
@@ -1796,17 +1855,26 @@ class DragonClawViewModel : ViewModel() {
                         inputTokens = event.inputTokens ?: cur.inputTokens,
                         outputTokens = event.outputTokens ?: cur.outputTokens,
                         modelName = event.modelName ?: cur.modelName,
-                        isStreaming = false
+                        isStreaming = false,
+                        approvals = settledApprovals
                     )
                 }
                 StreamEventType.ERROR -> {
                     val err = event.errorMessage ?: tr(language, "响应异常", "Stream error")
                     chatErrorBanner = err
+                    val settledApprovals = cur.approvals.map { ap ->
+                        if (ap.isPending) {
+                            ap.copy(status = "settled", chosenDecision = "aborted", isSubmitting = false, errorMessage = null)
+                        } else {
+                            ap
+                        }
+                    }
                     cur.copy(
                         content = cur.content.ifBlank { "[$err]" },
                         statusText = null,
                         interrupted = true,
-                        isStreaming = false
+                        isStreaming = false,
+                        approvals = settledApprovals
                     )
                 }
             }
@@ -1832,13 +1900,26 @@ class DragonClawViewModel : ViewModel() {
                 )
                 finalRawContent = rawFinal
                 finalContent = cleanedText
+                val settledApprovals = cur.approvals.map { ap ->
+                    if (ap.isPending) {
+                        ap.copy(
+                            status = "settled",
+                            chosenDecision = if (cur.interrupted || interrupted) "aborted" else "timeout",
+                            isSubmitting = false,
+                            errorMessage = null
+                        )
+                    } else {
+                        ap
+                    }
+                }
                 cur.copy(
                     content = cleanedText,
                     attachments = extractedAtts,
                     rawContent = rawFinal,
                     statusText = null,
                     interrupted = cur.interrupted || interrupted,
-                    isStreaming = false
+                    isStreaming = false,
+                    approvals = settledApprovals
                 )
             }
         }
@@ -1872,6 +1953,66 @@ class DragonClawViewModel : ViewModel() {
                 if (!isStreaming && activeDesktopSession == null && regularQueue.isNotEmpty()) {
                     flushRegularQueueIfIdle()
                 }
+            }
+        }
+    }
+
+    fun submitApproval(messageId: String, approval: PendingApproval, decision: String, scope: String? = null) {
+        if (!approval.isPending || approval.isSubmitting || token.isBlank()) return
+        updateApprovalState(messageId = messageId, approvalId = approval.id) { ap ->
+            ap.copy(isSubmitting = true, errorMessage = null)
+        }
+        sdk.resolveApproval(
+            token = token,
+            approvalId = approval.id,
+            decision = decision,
+            scope = scope,
+            approvalUrl = approval.approvalUrl,
+            onSuccess = { res ->
+                val resolvedDecision = res.decision.ifBlank { decision }
+                val resolvedScope = res.scope ?: scope
+                updateApprovalState(messageId = messageId, approvalId = approval.id) { ap ->
+                    ap.copy(
+                        status = "settled",
+                        chosenDecision = resolvedDecision,
+                        chosenScope = resolvedScope,
+                        isSubmitting = false,
+                        errorMessage = null
+                    )
+                }
+            },
+            onError = { err ->
+                val expired = err.contains("404") || err.contains("过期") || err.contains("不存在")
+                updateApprovalState(messageId = messageId, approvalId = approval.id) { ap ->
+                    if (expired) {
+                        ap.copy(
+                            status = "settled",
+                            chosenDecision = "timeout",
+                            isSubmitting = false,
+                            errorMessage = null
+                        )
+                    } else {
+                        ap.copy(isSubmitting = false, errorMessage = err)
+                    }
+                }
+            }
+        )
+    }
+
+    private fun updateApprovalState(
+        messageId: String,
+        approvalId: String,
+        transform: (PendingApproval) -> PendingApproval
+    ) {
+        messages = messages.map { msg ->
+            if (msg.id != messageId || msg.approvals.none { it.id == approvalId }) {
+                msg
+            } else {
+                msg.copy(
+                    approvals = msg.approvals.map { ap ->
+                        if (ap.id == approvalId) transform(ap) else ap
+                    }
+                )
             }
         }
     }

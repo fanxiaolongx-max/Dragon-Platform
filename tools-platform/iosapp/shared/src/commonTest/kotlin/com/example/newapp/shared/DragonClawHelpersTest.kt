@@ -9,6 +9,8 @@ import com.example.newapp.shared.util.NdjsonStreamParser
 import com.example.newapp.shared.util.SessionGrouping
 import com.example.newapp.shared.util.StreamingSpeechSegmenter
 import com.example.newapp.shared.util.VoicePersonaCatalog
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -614,5 +616,61 @@ class DragonClawHelpersTest {
         val readCopy = ev.withStatus("read")
         assertFalse(readCopy.isUnread)
         assertEquals(listOf("version: 1", "source: boot"), readCopy.detailEntries())
+    }
+
+    @Test
+    fun approvalNdjsonParsingAndStoredMessageSettlementWorkCleanly() {
+        val reqJson = Json.encodeToString(
+            ChatStreamRequest.serializer(),
+            ChatStreamRequest(
+                messages = listOf(ChatHistoryMessageDto(role = "user", content = "hi")),
+                supportsApproval = true
+            )
+        )
+        assertTrue(reqJson.contains("\"supportsApproval\":true"))
+
+        val approvalLine = """{"type":"approval","id":"ap_1","callId":"c1","runId":"r1","tool":"run_command","permissionMode":"auto","noAlways":false,"expiresInMs":300000,"preview":{"command":"node -v","cwd":"/tmp/ws","risk":["执行本地命令"]}}"""
+        val apEvt = NdjsonStreamParser.parseLine(approvalLine)!!
+        assertEquals(StreamEventType.APPROVAL, apEvt.type)
+        val ap = apEvt.approval!!
+        assertEquals("ap_1", ap.id)
+        assertEquals("c1", ap.callId)
+        assertEquals("node -v", ap.command)
+        assertEquals("/tmp/ws", ap.cwd)
+        assertTrue(ap.isPending)
+        assertFalse(ap.isDanger)
+        assertTrue(ap.hasRisk)
+        assertTrue(ap.canOfferFullAccess)
+        assertFalse(ap.canOfferAlwaysAllow)
+
+        val dangerLine = """{"type":"approval","id":"ap_2","callId":"c2","tool":"run_command","permissionMode":"full","preview":{"command":"pm2 restart tools-platform","danger":[{"category":"system","label":"系统服务控制","reason":"将重启服务"}],"dangerScopes":["session","workspace"]}}"""
+        val dangerAp = NdjsonStreamParser.parseLine(dangerLine)!!.approval!!
+        assertTrue(dangerAp.isDanger)
+        assertFalse(dangerAp.canOfferFullAccess)
+        assertFalse(dangerAp.canOfferAlwaysAllow)
+        assertEquals(listOf("session", "workspace"), dangerAp.dangerScopes)
+
+        val resLine = """{"type":"approval_result","id":"ap_1","callId":"c1","decision":"full"}"""
+        val resEvt = NdjsonStreamParser.parseLine(resLine)!!
+        assertEquals(StreamEventType.APPROVAL_RESULT, resEvt.type)
+        assertEquals("c1", resEvt.callId)
+        assertEquals("full", resEvt.approvalDecision)
+        assertEquals("本对话已开启完全访问", DragonClawHelpers.approvalStatusLabel("full", null, "zh"))
+        assertEquals("Full access enabled for this chat", DragonClawHelpers.approvalStatusLabel("full", null, "en"))
+        assertEquals("执行命令", DragonClawHelpers.toolDisplayName("run_command", "zh"))
+
+        val storedEvents = Json.parseToJsonElement(
+            """[{"type":"approval","id":"ap_1","callId":"c1","tool":"run_command","permissionMode":"auto","preview":{"command":"node -v"}},{"type":"approval_result","id":"ap_1","callId":"c1","decision":"full"}]"""
+        ) as JsonArray
+        val mapped = DragonClawHelpers.mapStoredMessages(
+            listOf(
+                SessionMessageItem(id = "m_u", session_id = "s_ap_1", role = "user", content = "运行命令"),
+                SessionMessageItem(id = "m_a", session_id = "s_ap_1", role = "model", content = "已完成", events = storedEvents)
+            )
+        )
+        assertEquals(2, mapped.size)
+        assertEquals(1, mapped[1].approvals.size)
+        assertFalse(mapped[1].approvals[0].isPending)
+        assertEquals("full", mapped[1].approvals[0].chosenDecision)
     }
 }

@@ -42,7 +42,7 @@ private val iosClientVersion: String by lazy {
 actual fun createPlatformHttpClient(block: HttpClientConfig<*>.() -> Unit): HttpClient = HttpClient(Darwin) {
     engine {
         configureRequest {
-            setTimeoutInterval(300.0)
+            setTimeoutInterval(360.0)
             setValue("ios", forHTTPHeaderField = "X-Client-Platform")
             setValue(iosClientVersion, forHTTPHeaderField = "X-Client-Version")
         }
@@ -172,7 +172,7 @@ actual suspend fun streamNdjsonPost(
         setValue("ios", forHTTPHeaderField = "X-Client-Platform")
         setValue(iosClientVersion, forHTTPHeaderField = "X-Client-Version")
         setCachePolicy(NSURLRequestReloadIgnoringLocalCacheData)
-        setTimeoutInterval(300.0)
+        setTimeoutInterval(360.0)
         val bodyBytes = jsonBody.encodeToByteArray()
         if (bodyBytes.isNotEmpty()) {
             val nsData = bodyBytes.usePinned { pinned ->
@@ -188,8 +188,8 @@ actual suspend fun streamNdjsonPost(
         maxConcurrentOperationCount = 1
     }
     val config = NSURLSessionConfiguration.ephemeralSessionConfiguration().apply {
-        timeoutIntervalForRequest = 300.0
-        timeoutIntervalForResource = 300.0
+        timeoutIntervalForRequest = 360.0
+        timeoutIntervalForResource = 600.0
         requestCachePolicy = NSURLRequestReloadIgnoringLocalCacheData
     }
     val session = NSURLSession.sessionWithConfiguration(config, delegate = delegate, delegateQueue = queue)

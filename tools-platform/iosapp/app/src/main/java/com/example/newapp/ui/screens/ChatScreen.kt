@@ -25,6 +25,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.foundation.Image
@@ -86,6 +87,7 @@ import com.example.newapp.R
 import com.example.newapp.shared.model.AgentSkillItem
 import com.example.newapp.shared.model.ChatAttachment
 import com.example.newapp.shared.model.ChatMessage
+import com.example.newapp.shared.model.PendingApproval
 import com.example.newapp.shared.util.DragonClawHelpers
 import com.example.newapp.shared.util.MarkdownParser
 import com.example.newapp.shared.util.VoicePersonaCatalog
@@ -503,6 +505,14 @@ fun ChatScreen(vm: DragonClawViewModel) {
                             suppressActionFooter = isActiveDesktopLastTurn,
                             showTurnWorkingIndicator = isActiveDesktopLastTurn,
                             onRetry = { vm.retryLastPrompt() },
+                            onResolveApproval = { ap, decision, scope ->
+                                vm.submitApproval(
+                                    messageId = msg.id,
+                                    approval = ap,
+                                    decision = decision,
+                                    scope = scope
+                                )
+                            },
                             onOpenLightbox = { items, index ->
                                 lightboxPayload = LightboxPayload(
                                     items = items,
@@ -1651,6 +1661,7 @@ private fun ChatBubbleItem(
     suppressActionFooter: Boolean = false,
     showTurnWorkingIndicator: Boolean = false,
     onRetry: () -> Unit,
+    onResolveApproval: (PendingApproval, String, String?) -> Unit,
     onOpenLightbox: (List<LightboxImageItem>, Int) -> Unit
 ) {
     val palette = LocalDragonClawPalette.current
@@ -1898,6 +1909,21 @@ private fun ChatBubbleItem(
                 }
             }
 
+            if (message.approvals.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    message.approvals.forEach { approval ->
+                        ApprovalCard(
+                            approval = approval,
+                            palette = palette,
+                            language = language,
+                            onResolve = { decision, scope ->
+                                onResolveApproval(approval, decision, scope)
+                            }
+                        )
+                    }
+                }
+            }
+
             if (message.content.isNotEmpty()) {
                 LiquidGlassSurface(
                     shape = RoundedCornerShape(18.dp),
@@ -1976,6 +2002,449 @@ private fun ChatBubbleItem(
                     }
                     message.outputTokens?.let {
                         Text("${it} tok", color = palette.inkMuted, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ApprovalCard(
+    approval: PendingApproval,
+    palette: DragonClawPalette,
+    language: String,
+    onResolve: (String, String?) -> Unit
+) {
+    val isNegativeOutcome = approval.chosenDecision == "deny" ||
+        approval.chosenDecision == "timeout" ||
+        approval.chosenDecision == "aborted" ||
+        approval.chosenDecision == "abort"
+    val headerAccent = when {
+        !approval.isPending -> if (isNegativeOutcome) palette.danger else palette.accentStrong
+        approval.isDanger -> palette.danger
+        else -> palette.warning
+    }
+    val localizedName = DragonClawHelpers.toolDisplayName(approval.toolName, language)
+    val toolTitle = if (approval.title.isNotBlank() && approval.title != localizedName) {
+        "$localizedName · ${approval.title}"
+    } else {
+        localizedName
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(
+                if (approval.isDanger && approval.isPending) {
+                    palette.danger.copy(alpha = 0.10f)
+                } else {
+                    palette.elevatedSurface.copy(alpha = 0.94f)
+                }
+            )
+            .border(
+                width = if (approval.isPending) 1.dp else 0.7.dp,
+                color = headerAccent.copy(alpha = if (approval.isPending) 0.45f else 0.22f),
+                shape = RoundedCornerShape(16.dp)
+            )
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(9.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(
+                imageVector = when {
+                    approval.isDanger -> Icons.Rounded.Warning
+                    approval.isPending -> Icons.Rounded.Security
+                    else -> Icons.Rounded.VerifiedUser
+                },
+                contentDescription = null,
+                tint = headerAccent,
+                modifier = Modifier.size(18.dp)
+            )
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = toolTitle,
+                    color = palette.inkPrimary,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                if (approval.isPending) {
+                    Text(
+                        text = if (approval.isDanger) {
+                            tr(language, "涉及敏感或高危边界，需要明确确认", "Sensitive or high-risk operation requires confirmation")
+                        } else {
+                            tr(language, "等待你的授权后继续执行", "Waiting for your approval to proceed")
+                        },
+                        color = if (approval.isDanger) palette.danger else palette.inkMuted,
+                        fontSize = 10.5.sp
+                    )
+                }
+            }
+            Box(
+                modifier = Modifier
+                    .background(headerAccent.copy(alpha = 0.14f), CircleShape)
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
+            ) {
+                Text(
+                    text = if (approval.isPending) {
+                        if (approval.isDanger) tr(language, "高危", "Danger") else tr(language, "待确认", "Pending")
+                    } else {
+                        DragonClawHelpers.approvalStatusLabel(approval.chosenDecision, approval.chosenScope, language)
+                    },
+                    color = headerAccent,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+
+        if (approval.impact.isNotBlank()) {
+            Text(
+                text = approval.impact,
+                color = palette.inkSecondary,
+                fontSize = 11.5.sp
+            )
+        }
+
+        if (approval.command.isNotBlank()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(palette.cardSurface.copy(alpha = 0.9f), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = approval.command,
+                    color = palette.inkPrimary,
+                    fontSize = 11.5.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+                if (approval.cwd.isNotBlank()) {
+                    Text(
+                        text = "${tr(language, "目录", "cwd")}: ${approval.cwd}",
+                        color = palette.inkMuted,
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+
+        if (approval.filePath.isNotBlank()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(palette.cardSurface.copy(alpha = 0.85f), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 10.dp, vertical = 7.dp),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Description,
+                        contentDescription = null,
+                        tint = palette.inkMuted,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Text(
+                        text = approval.filePath,
+                        color = palette.inkPrimary,
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (approval.added > 0 || approval.removed > 0) {
+                        Text(
+                            text = "+${approval.added} -${approval.removed}",
+                            color = palette.inkSecondary,
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+                if (approval.renameTo.isNotBlank()) {
+                    Text(
+                        text = "-> ${approval.renameTo}",
+                        color = palette.accentStrong,
+                        fontSize = 10.5.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+                if (approval.recursive) {
+                    Text(
+                        text = tr(language, "包含子目录（递归）", "Recursive directory operation"),
+                        color = palette.danger,
+                        fontSize = 10.sp
+                    )
+                }
+            }
+        }
+
+        if (approval.channel.isNotBlank() || approval.targets.isNotBlank() || approval.message.isNotBlank()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(palette.cardSurface.copy(alpha = 0.85f), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 10.dp, vertical = 7.dp),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                val route = listOf(approval.channel, approval.targets).filter { it.isNotBlank() }.joinToString(" -> ")
+                if (route.isNotBlank()) {
+                    Text(route, color = palette.inkPrimary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                }
+                if (approval.message.isNotBlank()) {
+                    Text(
+                        text = approval.message,
+                        color = palette.inkSecondary,
+                        fontSize = 11.sp,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+
+        if (approval.fields.isNotEmpty()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(palette.cardSurface.copy(alpha = 0.8f), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 10.dp, vertical = 7.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                approval.fields.forEach { field ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (field.label.isNotBlank()) {
+                            Text(
+                                text = "${field.label}:",
+                                color = palette.inkMuted,
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        Text(
+                            text = field.value,
+                            color = palette.inkPrimary,
+                            fontSize = 10.5.sp,
+                            fontFamily = FontFamily.Monospace,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
+
+        if (approval.diff.isNotBlank() && approval.isPending) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 130.dp)
+                    .background(palette.cardSurface.copy(alpha = 0.92f), RoundedCornerShape(10.dp))
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 10.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    text = approval.diff,
+                    color = palette.inkSecondary,
+                    fontSize = 10.5.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+        }
+
+        if (approval.dangers.isNotEmpty()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(palette.danger.copy(alpha = 0.09f), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 10.dp, vertical = 7.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                approval.dangers.forEach { item ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Top) {
+                        Icon(
+                            imageVector = Icons.Rounded.Warning,
+                            contentDescription = null,
+                            tint = palette.danger,
+                            modifier = Modifier.size(13.dp).padding(top = 1.dp)
+                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                            val title = item.label.ifBlank { item.category }
+                            if (title.isNotBlank()) {
+                                Text(title, color = palette.danger, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                            if (item.reason.isNotBlank()) {
+                                Text(item.reason, color = palette.inkSecondary, fontSize = 10.5.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (approval.risks.isNotEmpty() && approval.isPending) {
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                approval.risks.forEach { risk ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Top) {
+                        Icon(
+                            imageVector = Icons.Rounded.Info,
+                            contentDescription = null,
+                            tint = palette.warning,
+                            modifier = Modifier.size(13.dp).padding(top = 1.dp)
+                        )
+                        Text(risk, color = palette.inkSecondary, fontSize = 10.5.sp)
+                    }
+                }
+            }
+        }
+
+        approval.errorMessage?.takeIf { it.isNotBlank() }?.let { err ->
+            Text(
+                text = err,
+                color = palette.danger,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
+
+        if (approval.isPending) {
+            if (approval.isSubmitting) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(vertical = 4.dp)
+                ) {
+                    CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(14.dp), color = palette.accentStrong)
+                    Text(
+                        text = tr(language, "正在提交确认结果...", "Submitting decision..."),
+                        color = palette.inkMuted,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (approval.canOfferFullAccess) {
+                        Button(
+                            onClick = { onResolve("full", null) },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = palette.accentStrong,
+                                contentColor = Color.White
+                            ),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 9.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.VerifiedUser,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Text(
+                                        text = tr(language, "本对话完全访问（后续不再询问）", "Full access for this chat"),
+                                        fontSize = 12.5.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                                Text(
+                                    text = tr(language, "高危操作（删改敏感/系统文件等）仍会单独确认", "High-risk operations still ask for confirmation"),
+                                    fontSize = 9.5.sp,
+                                    color = Color.White.copy(alpha = 0.88f)
+                                )
+                            }
+                        }
+                    } else if (approval.canOfferAlwaysAllow) {
+                        OutlinedButton(
+                            onClick = { onResolve("always", "session") },
+                            shape = RoundedCornerShape(11.dp),
+                            border = BorderStroke(1.dp, palette.accentStrong.copy(alpha = 0.55f)),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = tr(language, "本对话总是允许同类操作", "Always allow in this chat"),
+                                color = palette.accentStrong,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+
+                    if (approval.isDanger && !approval.noAlways && approval.approvalUrl.isNullOrBlank() && approval.dangerScopes.isNotEmpty()) {
+                        val preferredScope = if ("session" in approval.dangerScopes) "session" else approval.dangerScopes.first()
+                        OutlinedButton(
+                            onClick = { onResolve("always", preferredScope) },
+                            shape = RoundedCornerShape(11.dp),
+                            border = BorderStroke(1.dp, palette.warning.copy(alpha = 0.65f)),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = if (preferredScope == "session") {
+                                    tr(language, "本对话同类高危操作不再提示", "Allow this risk category in this chat")
+                                } else {
+                                    tr(language, "本次及后续放行此类操作", "Allow this risk category")
+                                },
+                                color = palette.warning,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        val allowTint = if (approval.isDanger) palette.danger else palette.accentStrong
+                        OutlinedButton(
+                            onClick = { onResolve("allow", null) },
+                            shape = RoundedCornerShape(11.dp),
+                            border = BorderStroke(1.dp, allowTint.copy(alpha = 0.55f)),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = tr(language, "允许本次", "Allow once"),
+                                color = allowTint,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = { onResolve("deny", null) },
+                            shape = RoundedCornerShape(11.dp),
+                            border = BorderStroke(1.dp, palette.inkMuted.copy(alpha = 0.45f)),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = tr(language, "拒绝", "Deny"),
+                                color = palette.inkSecondary,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     }
                 }
             }

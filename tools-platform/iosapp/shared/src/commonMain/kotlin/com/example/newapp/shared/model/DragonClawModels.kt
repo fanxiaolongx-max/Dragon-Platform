@@ -79,7 +79,8 @@ data class ChatStreamRequest(
     val agent: String = "dragon-claw-home",
     val stream: Boolean = true,
     val modelId: String? = null,
-    val voiceMode: Boolean? = null
+    val voiceMode: Boolean? = null,
+    val supportsApproval: Boolean? = null
 )
 
 @Serializable
@@ -178,6 +179,8 @@ data class RawStreamEnvelope(
     val status: kotlinx.serialization.json.JsonElement? = null,
     val delta: String? = null,
     val text: String? = null,
+    val id: String? = null,
+    val runId: String? = null,
     val callId: String? = null,
     val tool: String? = null,
     val args: JsonObject? = null,
@@ -189,7 +192,14 @@ data class RawStreamEnvelope(
     val tokens: Int? = null,
     val usage: AiUsageDto? = null,
     val model: kotlinx.serialization.json.JsonElement? = null,
-    val error: kotlinx.serialization.json.JsonElement? = null
+    val error: kotlinx.serialization.json.JsonElement? = null,
+    val preview: JsonObject? = null,
+    val approvalUrl: String? = null,
+    val permissionMode: String? = null,
+    val noAlways: Boolean? = null,
+    val expiresInMs: Long? = null,
+    val decision: String? = null,
+    val scope: String? = null
 )
 
 enum class StreamEventType {
@@ -200,11 +210,81 @@ enum class StreamEventType {
     DELTA,
     TOOL_START,
     TOOL_RESULT,
+    APPROVAL,
+    APPROVAL_RESULT,
     MODEL_ROUND,
     COMPACTION,
     DONE,
     ERROR
 }
+
+@Serializable
+data class ApprovalPreviewField(
+    val label: String = "",
+    val value: String = ""
+)
+
+@Serializable
+data class ApprovalDangerItem(
+    val category: String = "",
+    val label: String = "",
+    val reason: String = ""
+)
+
+@Serializable
+data class PendingApproval(
+    val id: String,
+    val callId: String,
+    val runId: String = "",
+    val toolName: String,
+    val approvalUrl: String? = null,
+    val permissionMode: String = "auto",
+    val noAlways: Boolean = false,
+    val command: String = "",
+    val cwd: String = "",
+    val filePath: String = "",
+    val diff: String = "",
+    val added: Int = 0,
+    val removed: Int = 0,
+    val renameTo: String = "",
+    val recursive: Boolean = false,
+    val channel: String = "",
+    val targets: String = "",
+    val message: String = "",
+    val title: String = "",
+    val impact: String = "",
+    val fields: List<ApprovalPreviewField> = emptyList(),
+    val risks: List<String> = emptyList(),
+    val dangers: List<ApprovalDangerItem> = emptyList(),
+    val dangerScopes: List<String> = emptyList(),
+    val status: String = "pending",
+    val chosenDecision: String? = null,
+    val chosenScope: String? = null,
+    val isSubmitting: Boolean = false,
+    val errorMessage: String? = null,
+    val expiresInMs: Long? = null
+) {
+    val isPending: Boolean get() = status == "pending"
+    val isDanger: Boolean get() = dangers.isNotEmpty()
+    val hasRisk: Boolean get() = risks.isNotEmpty()
+    val canOfferFullAccess: Boolean
+        get() = isPending && !isDanger && !noAlways && permissionMode != "full" && approvalUrl.isNullOrBlank()
+    val canOfferAlwaysAllow: Boolean
+        get() = isPending && !isDanger && !hasRisk && !noAlways && permissionMode == "full" && approvalUrl.isNullOrBlank()
+}
+
+@Serializable
+data class ApprovalResolveRequest(
+    val decision: String,
+    val scope: String? = null
+)
+
+@Serializable
+data class ApprovalResolveResponse(
+    val ok: Boolean = false,
+    val decision: String = "",
+    val scope: String? = null
+)
 
 data class ChatStreamEvent(
     val type: StreamEventType,
@@ -219,7 +299,10 @@ data class ChatStreamEvent(
     val inputTokens: Int? = null,
     val outputTokens: Int? = null,
     val modelName: String? = null,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val approval: PendingApproval? = null,
+    val approvalDecision: String? = null,
+    val approvalScope: String? = null
 )
 
 @Serializable
@@ -281,13 +364,15 @@ data class ChatMessage(
     val outputTokens: Int? = null,
     val modelName: String? = null,
     val interrupted: Boolean = false,
-    val isStreaming: Boolean = false
+    val isStreaming: Boolean = false,
+    val approvals: List<PendingApproval> = emptyList()
 ) {
     val isUser: Boolean get() = role == "user"
     val historyContent: String get() = rawContent?.takeIf { it.isNotBlank() } ?: content
     val imageAttachments: List<ChatAttachment> get() = attachments.filter { it.isImage }
     val fileAttachments: List<ChatAttachment> get() = attachments.filter { !it.isImage }
-    val renderKey: String get() = "${id}_${content.length}_${thinking.length}_${statusText.orEmpty()}_${isStreaming}_${toolCalls.size}_${attachments.size}"
+    val approvalSignature: String get() = approvals.joinToString(",") { "${it.id}:${it.status}:${it.isSubmitting}:${it.chosenDecision.orEmpty()}" }
+    val renderKey: String get() = "${id}_${content.length}_${thinking.length}_${statusText.orEmpty()}_${isStreaming}_${toolCalls.size}_${attachments.size}_${approvalSignature}"
 }
 
 enum class SessionBucket {

@@ -225,8 +225,8 @@ actual suspend fun streamNdjsonPost(
         contentType(ContentType.Application.Json)
         setBody(jsonBody)
         timeout {
-            requestTimeoutMillis = 300_000L
-            socketTimeoutMillis = 300_000L
+            requestTimeoutMillis = 600_000L
+            socketTimeoutMillis = 360_000L
         }
     }.execute { response ->
         if (!response.status.isSuccess()) {
