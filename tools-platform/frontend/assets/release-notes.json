@@ -1,8 +1,10 @@
 {
   "zh": [
-    "修复数据抓取页「运行批脚本」后自动打开的数据导入页文件变少：站点打开后自己刷新或登录跳转会丢掉下载拦截，现在每个任务前都会重新装上；桌面版还会把运行标签真实下载完成的 CSV 补传给导入页，同名文件只保留一份。"
+    "修复数据抓取页「运行批脚本」后自动打开的数据导入页文件变少：站点打开后自己刷新或登录跳转会丢掉下载拦截，现在每个任务前都会重新装上；桌面版还会把运行标签真实下载完成的 CSV 补传给导入页，同名文件只保留一份。",
+    "修复数据导入后桌面版长时间卡顿、打开数据导入页持续占用资源：顶部指标栏自动滚动不再每帧触发全局「回到顶部」按钮重新布局；历史快照摘要列表与单份快照更新不再把全部快照整份解析到内存（50 份快照时内存峰值从约 1.4 GB 降到十几 MB）；桌面版新增窗口无响应与主进程阻塞日志，便于定位卡顿。"
   ],
   "en": [
-    "Fixed the auto-opened data import page missing files after Run batch on the data capture page: the download capture lost when a site reloads or redirects for login is now re-installed before every task, and the desktop app also forwards CSV files the run tab actually downloaded, keeping one copy per file name."
+    "Fixed the auto-opened data import page missing files after Run batch on the data capture page: the download capture lost when a site reloads or redirects for login is now re-installed before every task, and the desktop app also forwards CSV files the run tab actually downloaded, keeping one copy per file name.",
+    "Fixed long desktop freezes after data import and the data import page draining resources: the auto-scrolling metric bar no longer makes the global back-to-top button re-layout on every frame; the snapshot summary list and single-snapshot updates no longer parse every saved snapshot in memory (peak memory with 50 snapshots drops from about 1.4 GB to under 20 MB); the desktop app now logs unresponsive windows and main-process stalls."
   ]
 }

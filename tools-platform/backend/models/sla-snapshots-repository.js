@@ -86,7 +86,32 @@ function summarizeSnapshot(snapshot) {
     return summary;
 }
 
+// 摘要在 SQLite 里去掉明细再取出：桌面端后端跑在应用主进程里，在 JS 里整份解析
+// 最多 50 份、每份数 MB 的快照会让内存涨到 GB 级并卡住整个应用。
+async function listSnapshotSummariesFromDb(options={}) {
+    await ensureReady();
+    const rows = await all(`
+        SELECT json_remove(payload_json, '$.sourceSections', '$.expiringTickets') AS payload_json,
+               CASE json_type(payload_json, '$.sourceSections') WHEN 'array' THEN json_array_length(payload_json, '$.sourceSections') END AS sourceSectionsCount,
+               CASE json_type(payload_json, '$.expiringTickets') WHEN 'array' THEN json_array_length(payload_json, '$.expiringTickets') END AS expiringTicketsCount
+        FROM sla_snapshots
+        ${options.since?'WHERE julianday(timestamp)>=julianday(?)':''}
+        ORDER BY timestamp DESC, id DESC
+    `,options.since?[options.since]:[]);
+    return rows.map(row => {
+        const summary = JSON.parse(row.payload_json);
+        if (row.sourceSectionsCount !== null && row.sourceSectionsCount !== undefined) summary.sourceSectionsCount = row.sourceSectionsCount;
+        if (row.expiringTicketsCount !== null && row.expiringTicketsCount !== undefined) summary.expiringTicketsCount = row.expiringTicketsCount;
+        summary.summaryView = true;
+        return summary;
+    });
+}
+
 async function listSnapshots(options={}) {
+    if (options.view === 'summary') {
+        try { return { items: await listSnapshotSummariesFromDb(options), source: 'sqlite' }; }
+        catch (err) { console.warn('[sla-snapshots] SQL summary failed, falling back:', err.message); }
+    }
     const items = await listFromDb(options);
     return { items: options.view === 'summary' ? items.map(summarizeSnapshot) : items, source: 'sqlite' };
 }
@@ -148,16 +173,17 @@ async function deleteSnapshot(id, options = {}) {
 }
 
 async function updateSnapshot(id, patch) {
-    const items = await listFromDb();
-    const idx = items.findIndex(s => s.id === id);
-    if (idx === -1) return null;
+    // 只读这一份，不把全部快照都解析一遍
+    await ensureReady();
+    const row = await get('SELECT payload_json FROM sla_snapshots WHERE id = ?', [id]);
+    if (!row) return null;
 
-    items[idx] = { ...items[idx], ...patch };
+    const item = { ...JSON.parse(row.payload_json), ...patch };
 
-    await sources.registerSnapshot(items[idx]);
-    await upsertSnapshotInDb(items[idx]);
+    await sources.registerSnapshot(item);
+    await upsertSnapshotInDb(item);
 
-    return items[idx];
+    return item;
 }
 
 async function replaceSnapshots(items) {

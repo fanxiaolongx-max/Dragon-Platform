@@ -2395,6 +2395,23 @@ app.on('before-quit', () => {
     } catch (_) {}
 });
 
+// 卡顿诊断：窗口页面无响应、主进程（内置后端也在这里）事件循环被占住时写日志，
+// 只记路径和时长，不记查询参数（里面可能有导入会话 token）。
+app.on('browser-window-created', (_event, win) => {
+    let since = 0;
+    const where = () => { try { return new URL(win.webContents.getURL()).pathname; } catch { return ''; } };
+    win.on('unresponsive', () => { since = Date.now(); console.warn(`[Electron] Window unresponsive: ${where()}`); });
+    win.on('responsive', () => { if (since) console.warn(`[Electron] Window responsive again after ${Date.now() - since}ms: ${where()}`); since = 0; });
+});
+{
+    let lastTick = Date.now();
+    setInterval(() => {
+        const now = Date.now(), lag = now - lastTick - 1000;
+        if (lag > 2000) console.warn(`[Electron] Main process blocked for ${lag}ms`);
+        lastTick = now;
+    }, 1000).unref();
+}
+
 app.whenReady().then(() => {
     // Match the desktop launch and activation pages, including native title bars and form controls.
     nativeTheme.themeSource = 'light';
