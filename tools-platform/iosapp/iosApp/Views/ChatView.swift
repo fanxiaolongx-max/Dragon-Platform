@@ -2058,7 +2058,7 @@ private struct ApprovalCardView: View {
     @ViewBuilder
     private var actionsSection: some View {
         if approval.isPending {
-            VStack(alignment: .stretch, spacing: 8) {
+            VStack(alignment: .leading, spacing: 8) {
                 if approval.isSubmitting {
                     HStack(spacing: 6) {
                         ProgressView().controlSize(.small)
