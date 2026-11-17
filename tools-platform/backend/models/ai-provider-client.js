@@ -21,7 +21,100 @@ function trimSlash(value) {
 
 function getBaseUrl(settings = {}) {
     const provider = normalizeProvider(settings.provider);
-    return trimSlash(settings.apiBaseUrl || DEFAULT_BASE_URLS[provider]);
+    let base = trimSlash(settings.apiBaseUrl || DEFAULT_BASE_URLS[provider]);
+    if ((provider === 'openai' || provider === 'openai-compatible' || provider === 'minimax') && /\/chat\/completions$/i.test(base)) {
+        base = trimSlash(base.replace(/\/chat\/completions$/i, ''));
+    } else if (provider === 'anthropic' && /\/messages$/i.test(base)) {
+        base = trimSlash(base.replace(/\/messages$/i, ''));
+    }
+    return base;
+}
+
+const SAFE_DIAGNOSTIC_HEADERS = new Set([
+    'content-type',
+    'x-request-id',
+    'request-id',
+    'x-trace-id',
+    'trace-id',
+    'x-amzn-requestid',
+    'cf-ray',
+    'via',
+    'server',
+    'retry-after',
+    'date'
+]);
+
+function sanitizeEndpointUrl(url = '', secrets = []) {
+    let raw = String(url || '').trim();
+    if (!raw) return '';
+    try {
+        const parsed = new URL(raw);
+        let masked = parsed.toString();
+        for (const param of ['key', 'api_key', 'apikey', 'token', 'access_token']) {
+            if (parsed.searchParams.has(param)) {
+                masked = masked.replace(new RegExp(`([?&]${param}=)[^&#\\s]+`, 'gi'), '$1[REDACTED]');
+            }
+        }
+        raw = masked;
+    } catch {
+        raw = raw.replace(/([?&](?:key|api_key|apikey|token|access_token)=)[^&#\s]+/gi, '$1[REDACTED]');
+    }
+    return redactText(raw, { secrets });
+}
+
+function pickResponseHeaders(res) {
+    const out = {};
+    if (!res || !res.headers || typeof res.headers.forEach !== 'function') return out;
+    res.headers.forEach((value, key) => {
+        const lower = String(key || '').toLowerCase();
+        if (SAFE_DIAGNOSTIC_HEADERS.has(lower) && Object.keys(out).length < 12) {
+            out[lower] = String(value || '').slice(0, 300);
+        }
+    });
+    return out;
+}
+
+function extractStructuredGatewayError(body = '') {
+    const text = String(body || '').trim();
+    if (!text || !/^\s*\{/.test(text)) return {};
+    try {
+        const data = JSON.parse(text);
+        if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
+        const nested = data.error && typeof data.error === 'object' ? data.error : null;
+        const message = String(
+            nested?.message || nested?.msg || data.message || data.msg || data.detail
+            || (typeof data.error === 'string' ? data.error : '') || ''
+        ).trim();
+        const code = String(nested?.code ?? nested?.type ?? data.code ?? data.type ?? '').trim();
+        const source = String(data.source || nested?.source || '').trim();
+        return {
+            ...(message ? { providerMessage: message.slice(0, 800) } : {}),
+            ...(code ? { providerCode: code.slice(0, 120) } : {}),
+            ...(source ? { gatewaySource: source.slice(0, 120) } : {})
+        };
+    } catch {
+        return {};
+    }
+}
+
+function attachHttpResponseMeta(error, { res, rawBody = '', endpoint = '' } = {}) {
+    if (!error || typeof error !== 'object') return error;
+    const status = Number(res && res.status) || 0;
+    if (status) {
+        error.status = error.status || status;
+        error.statusCode = error.statusCode || status;
+        error.upstreamStatus = error.upstreamStatus || status;
+        error.upstreamStatusText = String(res?.statusText || '');
+    }
+    error.endpoint = error.endpoint || sanitizeEndpointUrl(res?.url || endpoint || '');
+    error.responseContentType = String(res?.headers?.get?.('content-type') || '');
+    error.responseHeaders = pickResponseHeaders(res);
+    error.rawBody = String(rawBody || '').slice(0, 4000);
+    const parsed = extractStructuredGatewayError(rawBody);
+    if (parsed.providerMessage) error.providerMessage = parsed.providerMessage;
+    if (parsed.providerCode) error.providerCode = parsed.providerCode;
+    if (parsed.gatewaySource) error.gatewaySource = parsed.gatewaySource;
+    return error;
 }
 
 // 统一消息模型：
@@ -380,44 +473,66 @@ function isGeminiThinkingCapable(model = '') {
     return /gemini-(?:2\.|[3-9]\.|\d{2,}\.|.*thinking)/i.test(m);
 }
 
-async function parseErrorResponse(res, { toolsSent = false } = {}) {
+async function parseErrorResponse(res, { toolsSent = false, endpoint = '' } = {}) {
     let body = '';
     try {
         body = await res.text();
     } catch (_err) {}
-    const error = new Error(buildProviderErrorMessage(res, body));
-    error.status = res.status;
-    error.statusCode = res.status;
+    const error = new Error(buildProviderErrorMessage(res, body, endpoint));
+    attachHttpResponseMeta(error, { res, rawBody: body, endpoint });
     throw markToolsUnsupported(error, toolsSent);
 }
 
-function buildProviderErrorMessage(res, body = '') {
+function buildProviderErrorMessage(res, body = '', endpoint = '') {
     const contentType = res && res.headers && res.headers.get ? String(res.headers.get('content-type') || '') : '';
     const text = String(body || '').trim();
     const preview = text.replace(/\s+/g, ' ').slice(0, 220);
+    const displayUrl = sanitizeEndpointUrl(res?.url || endpoint || '') || '未知地址';
     if (/<!doctype|<html/i.test(text) || contentType.includes('text/html')) {
-        return `AI 接口返回了 HTML 页面，不是 JSON。通常是供应商协议或 API URL 配错：当前请求到 ${res.url || '未知地址'}，请检查是否应选择 OpenAI Compatible，并填写正确的 /v1 基地址。返回片段：${preview}`;
+        return `AI 接口返回了 HTML 页面，不是 JSON。通常是供应商协议或 API URL 配错：当前请求到 ${displayUrl}，请检查是否应选择 OpenAI Compatible，并填写正确的 /v1 基地址。返回片段：${preview}`;
     }
     return `AI provider request failed (${res.status}): ${preview}`;
 }
 
-async function readProviderJson(res) {
+function assertValidGatewayEnvelope(data, rawText, { res, endpoint = '' } = {}) {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return;
+    const hasChoices = Array.isArray(data.choices);
+    const hasStandardPayload = hasChoices || Array.isArray(data.candidates) || Array.isArray(data.content);
+    if (hasStandardPayload) return;
+    if (data.error || Number(data.code) >= 400 || Number(data.status) >= 400 || (data.msg && !data.id) || (data.base_resp && Number(data.base_resp.status_code) > 0)) {
+        const error = new Error(buildProviderErrorMessage(res, rawText, endpoint));
+        attachHttpResponseMeta(error, { res, rawBody: rawText, endpoint });
+        error.status = 502;
+        error.statusCode = 502;
+        throw error;
+    }
+}
+
+async function readProviderJson(res, { endpoint = '' } = {}) {
     const text = await res.text();
     const contentType = String(res.headers.get('content-type') || '');
     if (/<!doctype|<html/i.test(text) || contentType.includes('text/html')) {
-        const error = new Error(buildProviderErrorMessage(res, text));
-        error.status = res.status;
-        error.statusCode = res.status;
+        const error = new Error(buildProviderErrorMessage(res, text, endpoint));
+        attachHttpResponseMeta(error, { res, rawBody: text, endpoint });
         throw error;
     }
     try {
-        return JSON.parse(text);
+        const parsed = JSON.parse(text);
+        assertValidGatewayEnvelope(parsed, text, { res, endpoint });
+        return parsed;
     } catch (err) {
+        if (err && err.rawBody !== undefined) throw err;
         const error = new Error(`AI 接口返回内容不是合法 JSON。请检查供应商协议/API URL/模型名称。返回片段：${text.replace(/\s+/g, ' ').slice(0, 220)}`);
-        error.status = res.status;
-        error.statusCode = res.status;
+        attachHttpResponseMeta(error, { res, rawBody: text, endpoint });
         throw error;
     }
+}
+
+function extractSseBlockData(block) {
+    return String(block || '').split(/\r?\n/)
+        .filter(line => line.startsWith('data:'))
+        .map(line => line.slice(5).trimStart())
+        .join('\n');
 }
 
 async function readSseResponse(res, onData) {
@@ -430,10 +545,7 @@ async function readSseResponse(res, onData) {
     const decoder = new TextDecoder();
     let buffer = '';
     const consumeBlock = block => {
-        const data = block.split(/\r?\n/)
-            .filter(line => line.startsWith('data:'))
-            .map(line => line.slice(5).trimStart())
-            .join('\n');
+        const data = extractSseBlockData(block);
         if (data) onData(data);
     };
     try {
@@ -448,6 +560,88 @@ async function readSseResponse(res, onData) {
         if (buffer.trim()) consumeBlock(buffer);
     } finally {
         reader.releaseLock();
+    }
+}
+
+function createOpenAiSseReducer({ onDelta = null, onReasoning = null } = {}) {
+    let text = '';
+    let reasoning = '';
+    let finishReason = '';
+    let usage = {};
+    let streamErrorPayload = null;
+    const toolCallAccumulator = createOpenAiToolCallAccumulator();
+    const splitter = (onReasoning && typeof onDelta === 'function') ? createThinkSplitter(onDelta, onReasoning) : null;
+    return {
+        pushPayload(payload) {
+            if (payload === '[DONE]') return;
+            let data;
+            try { data = JSON.parse(payload); } catch (_error) { return; }
+            if (data && data.error && !Array.isArray(data.choices)) streamErrorPayload = data;
+            if (data && data.usage) usage = data.usage;
+            const choice = data && data.choices && data.choices[0];
+            if (choice && choice.finish_reason) finishReason = String(choice.finish_reason);
+            if (choice && choice.delta && choice.delta.tool_calls) toolCallAccumulator.push(choice.delta.tool_calls);
+            const thought = openAiDeltaReasoning(choice && choice.delta);
+            if (thought) {
+                reasoning += thought;
+                if (typeof onReasoning === 'function') onReasoning(thought);
+            }
+            const delta = openAiDeltaText(choice && choice.delta);
+            if (delta) {
+                text += delta;
+                if (splitter) splitter.push(delta);
+                else if (typeof onDelta === 'function') onDelta(delta);
+            }
+        },
+        finish() {
+            splitter?.flush();
+            return {
+                text,
+                reasoning,
+                finishReason,
+                usage,
+                toolCalls: toolCallAccumulator.finish(),
+                streamErrorPayload
+            };
+        }
+    };
+}
+
+async function parseOpenAiBufferedOrSse(res, { endpoint = '' } = {}) {
+    const rawText = await res.text();
+    const contentType = String(res.headers.get('content-type') || '').toLowerCase();
+    if (/<!doctype|<html/i.test(rawText) || contentType.includes('text/html')) {
+        const error = new Error(buildProviderErrorMessage(res, rawText, endpoint));
+        attachHttpResponseMeta(error, { res, rawBody: rawText, endpoint });
+        throw error;
+    }
+    const looksLikeSse = contentType.includes('text/event-stream')
+        || (/^\s*data:\s*(?:\{|\[DONE\])/m.test(rawText) && !/^\s*\{/.test(rawText));
+    if (looksLikeSse) {
+        const reducer = createOpenAiSseReducer();
+        for (const block of rawText.split(/\r?\n\r?\n/)) {
+            const payload = extractSseBlockData(block);
+            if (payload) reducer.pushPayload(payload);
+        }
+        const sse = reducer.finish();
+        if (sse.streamErrorPayload && !sse.text && !sse.reasoning && !sse.toolCalls.length) {
+            const error = new Error(buildProviderErrorMessage(res, rawText, endpoint));
+            attachHttpResponseMeta(error, { res, rawBody: rawText, endpoint });
+            error.status = 502;
+            error.statusCode = 502;
+            throw error;
+        }
+        return { kind: 'sse', ...sse, rawText };
+    }
+    try {
+        const data = JSON.parse(rawText);
+        assertValidGatewayEnvelope(data, rawText, { res, endpoint });
+        return { kind: 'json', data, rawText };
+    } catch (err) {
+        if (err && err.rawBody !== undefined) throw err;
+        const error = new Error(`AI 接口返回内容不是合法 JSON。请检查供应商协议/API URL/模型名称。返回片段：${rawText.replace(/\s+/g, ' ').slice(0, 220)}`);
+        attachHttpResponseMeta(error, { res, rawBody: rawText, endpoint });
+        throw error;
     }
 }
 
@@ -590,6 +784,45 @@ class AiProviderClient {
         this.reasoningKey = `${this.baseUrl}|${this.model}`;
     }
 
+    async fetchUpstream(url, init) {
+        const headerSecrets = Object.values(this.customHeaders || {}).filter(v => typeof v === 'string' && v.trim().length >= 4);
+        const safeEndpoint = sanitizeEndpointUrl(url, [this.apiKey, ...headerSecrets]);
+        try {
+            return await fetch(url, init);
+        } catch (err) {
+            if (err && typeof err === 'object') {
+                err.endpoint = err.endpoint || safeEndpoint;
+                err.provider = err.provider || this.provider;
+                err.model = err.model || this.model;
+                if (!err.causeCode && err.cause && typeof err.cause === 'object') {
+                    err.causeCode = String(err.cause.code || '');
+                    err.causeMessage = String(err.cause.message || '');
+                }
+            }
+            throw err;
+        }
+    }
+
+    buildOpenAiBody({ messages, systemInstruction, maxOutputTokens, temperature, responseMimeType, json, tools, toolChoice, stream = false } = {}) {
+        const isReasoning = /^(o[13]|kimi-k3)/i.test(this.model) || /tokenhub\.tencentmaas\.com/i.test(this.baseUrl);
+        const resolvedMaxTokens = Math.round(Number(maxOutputTokens || this.settings.maxOutputTokens || 2048));
+        const body = {
+            model: this.model,
+            messages: toOpenAiMessages(messages, systemInstruction, { model: this.model }),
+            max_tokens: isReasoning ? Math.max(resolvedMaxTokens, 512) : resolvedMaxTokens,
+            temperature: isReasoning ? 1 : Number(temperature ?? this.settings.temperature ?? 0.7),
+            stream: Boolean(stream)
+        };
+        if (stream && this.provider === 'openai') body.stream_options = { include_usage: true };
+        if (!stream && isJsonMode({ responseMimeType, json })) body.response_format = { type: 'json_object' };
+        const openAiTools = toOpenAiTools(tools);
+        if (openAiTools.length) {
+            body.tools = openAiTools;
+            body.tool_choice = toolChoice === 'none' ? 'none' : 'auto';
+        }
+        return { body, openAiTools };
+    }
+
     applyExtraHeaders(baseHeaders = {}) {
         const headers = { ...baseHeaders };
         const forbidden = new Set(['host', 'content-length', 'transfer-encoding', 'connection']);
@@ -652,7 +885,16 @@ class AiProviderClient {
                 return this.generateMiniMax({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, onRetry, signal, ...toolOptions });
             }
             if (this.provider === 'openai' || this.provider === 'openai-compatible') {
-                return this.generateOpenAi({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, responseMimeType, json, signal, ...toolOptions });
+                try {
+                    return await this.generateOpenAi({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, responseMimeType, json, signal, ...toolOptions });
+                } catch (error) {
+                    const status = Number(error && (error.status || error.statusCode));
+                    const streamRequired = !signal?.aborted && !['AI_TOOLS_UNSUPPORTED', 'AI_TOOL_SIGNATURE_MISSING', 'AI_TOOL_HISTORY_INVALID'].includes(error?.code)
+                        && [400, 422].includes(status)
+                        && /only support(?:s)? stream|stream(?:ing)?\s+(?:is\s+)?(?:required|mandatory|only)|must be stream|stream\s*=\s*true/i.test(String(error?.message || error?.rawBody || ''));
+                    if (!streamRequired) throw error;
+                    return this.generateOpenAiStream({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, onDelta: () => {}, signal, ...toolOptions });
+                }
             }
             if (this.provider === 'anthropic') {
                 return this.generateAnthropic({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, signal, ...toolOptions });
@@ -753,8 +995,9 @@ class AiProviderClient {
             throw error;
         }
         const url = `${this.baseUrl}/models/${encodeURIComponent(this.model)}:generateContent?key=${encodeURIComponent(this.apiKey)}`;
+        const safeEndpoint = sanitizeEndpointUrl(url, [this.apiKey]);
         const parts = [...images.filter(image => image && image.data && /^image\//.test(image.mimeType)).slice(0, 4).map(image => ({ inlineData: { mimeType: image.mimeType, data: image.data } })), { text: String(prompt || '') }];
-        const request = withRatio => fetch(url, {
+        const request = withRatio => this.fetchUpstream(url, {
             method: 'POST',
             headers: this.applyExtraHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify(this.applyExtraBody({ contents: [{ role: 'user', parts }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'], ...(withRatio && aspectRatio ? { imageConfig: { aspectRatio } } : {}) } })),
@@ -763,8 +1006,8 @@ class AiProviderClient {
         let res = await request(true);
         // Older image models reject imageConfig; the ratio then only lives in the prompt.
         if (res.status === 400 && aspectRatio) res = await request(false);
-        if (!res.ok) await parseErrorResponse(res, {});
-        const data = await readProviderJson(res);
+        if (!res.ok) await parseErrorResponse(res, { endpoint: safeEndpoint });
+        const data = await readProviderJson(res, { endpoint: safeEndpoint });
         const out = (data.candidates?.[0]?.content?.parts || []);
         const usage = data.usageMetadata || {};
         return {
@@ -777,6 +1020,7 @@ class AiProviderClient {
 
     async generateGemini({ messages, systemInstruction, maxOutputTokens, temperature, responseMimeType, json, thinkingBudget, signal, tools, toolChoice }) {
         const url = `${this.baseUrl}/models/${encodeURIComponent(this.model)}:generateContent?key=${encodeURIComponent(this.apiKey)}`;
+        const safeEndpoint = sanitizeEndpointUrl(url, [this.apiKey]);
         const body = {
             contents: toGeminiContents(messages, { model: this.model }),
             generationConfig: {
@@ -793,14 +1037,14 @@ class AiProviderClient {
         if (geminiTools.length) body.tools = geminiTools;
         if (geminiTools.length && toolChoice === 'none') body.toolConfig = { functionCallingConfig: { mode: 'NONE' } };
 
-        const res = await fetch(url, {
+        const res = await this.fetchUpstream(url, {
             method: 'POST',
             headers: this.applyExtraHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify(this.applyExtraBody(body)),
             signal
         });
-        if (!res.ok) await parseErrorResponse(res, { toolsSent: geminiTools.length > 0 });
-        const data = await readProviderJson(res);
+        if (!res.ok) await parseErrorResponse(res, { toolsSent: geminiTools.length > 0, endpoint: safeEndpoint });
+        const data = await readProviderJson(res, { endpoint: safeEndpoint });
         const usage = data.usageMetadata || {};
         const candidate = data.candidates && data.candidates[0];
         return {
@@ -808,27 +1052,16 @@ class AiProviderClient {
             toolCalls: extractGeminiToolCalls(data),
             usage: usageFromGemini(usage),
             finishReason: String(candidate && candidate.finishReason || ''),
+            endpoint: safeEndpoint,
             raw: data
         };
     }
 
     async generateOpenAi({ messages, systemInstruction, maxOutputTokens, temperature, responseMimeType, json, signal, tools, toolChoice }) {
-        const isReasoning = /^(o[13]|kimi-k3)/i.test(this.model) || /tokenhub\.tencentmaas\.com/i.test(this.baseUrl);
-        const resolvedMaxTokens = Math.round(Number(maxOutputTokens || this.settings.maxOutputTokens || 2048));
-        const body = {
-            model: this.model,
-            messages: toOpenAiMessages(messages, systemInstruction, { model: this.model }),
-            max_tokens: isReasoning ? Math.max(resolvedMaxTokens, 512) : resolvedMaxTokens,
-            temperature: isReasoning ? 1 : Number(temperature ?? this.settings.temperature ?? 0.7)
-        };
-        if (isJsonMode({ responseMimeType, json })) body.response_format = { type: 'json_object' };
-        const openAiTools = toOpenAiTools(tools);
-        if (openAiTools.length) {
-            body.tools = openAiTools;
-            body.tool_choice = toolChoice === 'none' ? 'none' : 'auto';
-        }
+        const endpoint = `${this.baseUrl}/chat/completions`;
+        const { body, openAiTools } = this.buildOpenAiBody({ messages, systemInstruction, maxOutputTokens, temperature, responseMimeType, json, tools, toolChoice, stream: false });
 
-        const res = await fetch(`${this.baseUrl}/chat/completions`, {
+        const res = await this.fetchUpstream(endpoint, {
             method: 'POST',
             headers: this.applyExtraHeaders({
                 'Content-Type': 'application/json',
@@ -837,8 +1070,21 @@ class AiProviderClient {
             body: JSON.stringify(this.applyExtraBody(body)),
             signal
         });
-        if (!res.ok) await parseErrorResponse(res, { toolsSent: openAiTools.length > 0 });
-        const data = await readProviderJson(res);
+        if (!res.ok) await parseErrorResponse(res, { toolsSent: openAiTools.length > 0, endpoint });
+        const parsed = await parseOpenAiBufferedOrSse(res, { endpoint });
+        if (parsed.kind === 'sse') {
+            const settled = settleReasoningOnly(this.reasoningKey, { text: stripReasoningText(parsed.text), reasoning: parsed.reasoning, toolCalls: parsed.toolCalls, finishReason: parsed.finishReason });
+            return {
+                text: settled.text,
+                reasoningOnly: settled.reasoningOnly,
+                toolCalls: parsed.toolCalls,
+                usage: usageFromOpenAi(parsed.usage),
+                finishReason: parsed.finishReason,
+                endpoint: sanitizeEndpointUrl(res.url || endpoint, [this.apiKey]),
+                raw: null
+            };
+        }
+        const data = parsed.data;
         const usage = data.usage || {};
         const choice = data.choices && data.choices[0];
         const msg = choice && choice.message;
@@ -854,27 +1100,15 @@ class AiProviderClient {
             toolCalls,
             usage: usageFromOpenAi(usage),
             finishReason,
+            endpoint: sanitizeEndpointUrl(res.url || endpoint, [this.apiKey]),
             raw: data
         };
     }
 
     async generateOpenAiStream({ messages, systemInstruction, maxOutputTokens, temperature, onDelta, onReasoning, signal, tools, toolChoice }) {
-        const isReasoning = /^(o[13]|kimi-k3)/i.test(this.model) || /tokenhub\.tencentmaas\.com/i.test(this.baseUrl);
-        const resolvedMaxTokens = Math.round(Number(maxOutputTokens || this.settings.maxOutputTokens || 2048));
-        const body = {
-            model: this.model,
-            messages: toOpenAiMessages(messages, systemInstruction, { model: this.model }),
-            max_tokens: isReasoning ? Math.max(resolvedMaxTokens, 512) : resolvedMaxTokens,
-            temperature: isReasoning ? 1 : Number(temperature ?? this.settings.temperature ?? 0.7),
-            stream: true
-        };
-        if (this.provider === 'openai') body.stream_options = { include_usage: true };
-        const openAiTools = toOpenAiTools(tools);
-        if (openAiTools.length) {
-            body.tools = openAiTools;
-            body.tool_choice = toolChoice === 'none' ? 'none' : 'auto';
-        }
-        const res = await fetch(`${this.baseUrl}/chat/completions`, {
+        const endpoint = `${this.baseUrl}/chat/completions`;
+        const { body, openAiTools } = this.buildOpenAiBody({ messages, systemInstruction, maxOutputTokens, temperature, tools, toolChoice, stream: true });
+        const res = await this.fetchUpstream(endpoint, {
             method: 'POST',
             headers: this.applyExtraHeaders({
                 'Content-Type': 'application/json',
@@ -884,35 +1118,18 @@ class AiProviderClient {
             body: JSON.stringify(this.applyExtraBody(body)),
             signal
         });
-        if (!res.ok) await parseErrorResponse(res, { toolsSent: openAiTools.length > 0 });
-        let text = '';
-        let reasoning = '';
-        let finishReason = '';
-        let usage = {};
-        const toolCallAccumulator = createOpenAiToolCallAccumulator();
-        const splitter = onReasoning ? createThinkSplitter(onDelta, onReasoning) : null;
-        await readSseResponse(res, payload => {
-            if (payload === '[DONE]') return;
-            let data;
-            try { data = JSON.parse(payload); } catch (_error) { return; }
-            if (data.usage) usage = data.usage;
-            const choice = data.choices && data.choices[0];
-            if (choice && choice.finish_reason) finishReason = String(choice.finish_reason);
-            if (choice && choice.delta && choice.delta.tool_calls) toolCallAccumulator.push(choice.delta.tool_calls);
-            const thought = openAiDeltaReasoning(choice && choice.delta);
-            if (thought) {
-                reasoning += thought;
-                if (onReasoning) onReasoning(thought);
-            }
-            const delta = openAiDeltaText(choice && choice.delta);
-            if (delta) {
-                text += delta;
-                if (splitter) splitter.push(delta);
-                else onDelta(delta);
-            }
-        });
-        splitter?.flush();
-        const toolCalls = toolCallAccumulator.finish();
+        if (!res.ok) await parseErrorResponse(res, { toolsSent: openAiTools.length > 0, endpoint });
+        const reducer = createOpenAiSseReducer({ onDelta, onReasoning });
+        await readSseResponse(res, payload => reducer.pushPayload(payload));
+        const { text, reasoning, finishReason, usage, toolCalls, streamErrorPayload } = reducer.finish();
+        if (streamErrorPayload && !text && !reasoning && !toolCalls.length) {
+            const rawError = JSON.stringify(streamErrorPayload);
+            const error = new Error(buildProviderErrorMessage(res, rawError, endpoint));
+            attachHttpResponseMeta(error, { res, rawBody: rawError, endpoint });
+            error.status = 502;
+            error.statusCode = 502;
+            throw error;
+        }
         // 只有思考、没有正文不算「流式不可用」：不能回退去重发一遍请求，更不能把思考当正文
         if (!reasoning) assertStreamProducedText(text, toolCalls);
         const settled = settleReasoningOnly(this.reasoningKey, { text: stripReasoningText(text), reasoning, toolCalls, finishReason });
@@ -923,12 +1140,14 @@ class AiProviderClient {
             toolCalls,
             usage: usageFromOpenAi(usage),
             finishReason,
+            endpoint: sanitizeEndpointUrl(res.url || endpoint, [this.apiKey]),
             raw: null
         };
     }
 
     async generateGeminiStream({ messages, systemInstruction, maxOutputTokens, temperature, thinkingBudget, onDelta, onReasoning, signal, tools, toolChoice }) {
         const url = `${this.baseUrl}/models/${encodeURIComponent(this.model)}:streamGenerateContent?alt=sse&key=${encodeURIComponent(this.apiKey)}`;
+        const safeEndpoint = sanitizeEndpointUrl(url, [this.apiKey]);
         const body = {
             contents: toGeminiContents(messages, { model: this.model }),
             generationConfig: {
@@ -945,13 +1164,13 @@ class AiProviderClient {
         const geminiTools = toGeminiTools(tools);
         if (geminiTools.length) body.tools = geminiTools;
         if (geminiTools.length && toolChoice === 'none') body.toolConfig = { functionCallingConfig: { mode: 'NONE' } };
-        const res = await fetch(url, {
+        const res = await this.fetchUpstream(url, {
             method: 'POST',
             headers: this.applyExtraHeaders({ 'Content-Type': 'application/json', Accept: 'text/event-stream' }),
             body: JSON.stringify(this.applyExtraBody(body)),
             signal
         });
-        if (!res.ok) await parseErrorResponse(res, { toolsSent: geminiTools.length > 0 });
+        if (!res.ok) await parseErrorResponse(res, { toolsSent: geminiTools.length > 0, endpoint: safeEndpoint });
         let text = '';
         let finishReason = '';
         let usage = {};
@@ -978,11 +1197,13 @@ class AiProviderClient {
             toolCalls,
             usage: usageFromGemini(usage),
             finishReason,
+            endpoint: safeEndpoint,
             raw: null
         };
     }
 
     async generateMiniMaxStream({ messages, systemInstruction, maxOutputTokens, temperature, onDelta, onReasoning, signal, tools, toolChoice }) {
+        const endpoint = `${this.baseUrl}/chat/completions`;
         const configuredLimit = Math.round(Number(maxOutputTokens || this.settings.maxOutputTokens || 2048));
         const body = {
             model: this.model,
@@ -997,7 +1218,7 @@ class AiProviderClient {
             body.tools = openAiTools;
             body.tool_choice = toolChoice === 'none' ? 'none' : 'auto';
         }
-        const res = await fetch(`${this.baseUrl}/chat/completions`, {
+        const res = await this.fetchUpstream(endpoint, {
             method: 'POST',
             headers: this.applyExtraHeaders({
                 'Content-Type': 'application/json',
@@ -1007,35 +1228,18 @@ class AiProviderClient {
             body: JSON.stringify(this.applyExtraBody(body)),
             signal
         });
-        if (!res.ok) await parseErrorResponse(res, { toolsSent: openAiTools.length > 0 });
-        let text = '';
-        let reasoning = '';
-        let finishReason = '';
-        let usage = {};
-        const toolCallAccumulator = createOpenAiToolCallAccumulator();
-        const splitter = onReasoning ? createThinkSplitter(onDelta, onReasoning) : null;
-        await readSseResponse(res, payload => {
-            if (payload === '[DONE]') return;
-            let data;
-            try { data = JSON.parse(payload); } catch (_error) { return; }
-            if (data.usage) usage = data.usage;
-            const choice = data.choices && data.choices[0];
-            if (choice && choice.finish_reason) finishReason = String(choice.finish_reason);
-            if (choice && choice.delta && choice.delta.tool_calls) toolCallAccumulator.push(choice.delta.tool_calls);
-            const thought = openAiDeltaReasoning(choice && choice.delta);
-            if (thought) {
-                reasoning += thought;
-                if (onReasoning) onReasoning(thought);
-            }
-            const delta = openAiDeltaText(choice && choice.delta);
-            if (delta) {
-                text += delta;
-                if (splitter) splitter.push(delta);
-                else onDelta(delta);
-            }
-        });
-        splitter?.flush();
-        const toolCalls = toolCallAccumulator.finish();
+        if (!res.ok) await parseErrorResponse(res, { toolsSent: openAiTools.length > 0, endpoint });
+        const reducer = createOpenAiSseReducer({ onDelta, onReasoning });
+        await readSseResponse(res, payload => reducer.pushPayload(payload));
+        const { text, reasoning, finishReason, usage, toolCalls, streamErrorPayload } = reducer.finish();
+        if (streamErrorPayload && !text && !reasoning && !toolCalls.length) {
+            const rawError = JSON.stringify(streamErrorPayload);
+            const error = new Error(buildProviderErrorMessage(res, rawError, endpoint));
+            attachHttpResponseMeta(error, { res, rawBody: rawError, endpoint });
+            error.status = 502;
+            error.statusCode = 502;
+            throw error;
+        }
         // 只有思考、没有正文不算「流式不可用」：不能回退去重发一遍请求，更不能把思考当正文
         if (!reasoning) assertStreamProducedText(text, toolCalls);
         const settled = settleReasoningOnly(this.reasoningKey, { text: stripReasoningText(text), reasoning, toolCalls, finishReason });
@@ -1046,6 +1250,7 @@ class AiProviderClient {
             toolCalls,
             usage: usageFromOpenAi(usage),
             finishReason,
+            endpoint: sanitizeEndpointUrl(res.url || endpoint, [this.apiKey]),
             raw: null
         };
     }
@@ -1076,7 +1281,8 @@ class AiProviderClient {
                 body.tools = openAiTools;
                 body.tool_choice = toolChoice === 'none' ? 'none' : 'auto';
             }
-            const res = await fetch(`${this.baseUrl}/chat/completions`, {
+            const endpoint = `${this.baseUrl}/chat/completions`;
+            const res = await this.fetchUpstream(endpoint, {
                 method: 'POST',
                 headers: this.applyExtraHeaders({
                     'Content-Type': 'application/json',
@@ -1085,8 +1291,8 @@ class AiProviderClient {
                 body: JSON.stringify(this.applyExtraBody(body)),
                 signal
             });
-            if (!res.ok) await parseErrorResponse(res, { toolsSent: openAiTools.length > 0 });
-            const data = await readProviderJson(res);
+            if (!res.ok) await parseErrorResponse(res, { toolsSent: openAiTools.length > 0, endpoint });
+            const data = await readProviderJson(res, { endpoint });
             const choice = data.choices && data.choices[0];
             const message = choice && choice.message;
             const toolCalls = collectOpenAiToolCalls(message && message.tool_calls);
@@ -1110,6 +1316,7 @@ class AiProviderClient {
                     usage: aggregateUsage,
                     finishReason: lastFinishReason,
                     reasoningTokens: aggregateUsage.reasoningTokens,
+                    endpoint: sanitizeEndpointUrl(res.url || endpoint, [this.apiKey]),
                     raw: data
                 };
             }
@@ -1151,20 +1358,22 @@ class AiProviderClient {
             if (toolChoice === 'none') body.tool_choice = { type: 'none' };
         }
 
-        const res = await fetch(`${this.baseUrl}/messages`, {
+        const endpoint = `${this.baseUrl}/messages`;
+        const res = await this.fetchUpstream(endpoint, {
             method: 'POST',
             headers: this.applyExtraHeaders(this.getAnthropicHeaders(false)),
             body: JSON.stringify(this.applyExtraBody(body)),
             signal
         });
-        if (!res.ok) await parseErrorResponse(res, { toolsSent: anthropicTools.length > 0 });
-        const data = await readProviderJson(res);
+        if (!res.ok) await parseErrorResponse(res, { toolsSent: anthropicTools.length > 0, endpoint });
+        const data = await readProviderJson(res, { endpoint });
         const usage = data.usage || {};
         return {
             text: stripReasoningText(extractAnthropicText(data)),
             toolCalls: extractAnthropicToolCalls(data),
             usage: usageFromAnthropic(usage),
             finishReason: String(data.stop_reason || ''),
+            endpoint: sanitizeEndpointUrl(res.url || endpoint, [this.apiKey]),
             raw: data
         };
     }
@@ -1183,13 +1392,14 @@ class AiProviderClient {
             body.tools = anthropicTools;
             if (toolChoice === 'none') body.tool_choice = { type: 'none' };
         }
-        const res = await fetch(`${this.baseUrl}/messages`, {
+        const endpoint = `${this.baseUrl}/messages`;
+        const res = await this.fetchUpstream(endpoint, {
             method: 'POST',
             headers: this.applyExtraHeaders(this.getAnthropicHeaders(true)),
             body: JSON.stringify(this.applyExtraBody(body)),
             signal
         });
-        if (!res.ok) await parseErrorResponse(res, { toolsSent: anthropicTools.length > 0 });
+        if (!res.ok) await parseErrorResponse(res, { toolsSent: anthropicTools.length > 0, endpoint });
         let text = '';
         let thought = false;
         let finishReason = '';
@@ -1238,6 +1448,7 @@ class AiProviderClient {
             toolCalls,
             usage: usageFromAnthropic(streamUsage),
             finishReason,
+            endpoint: sanitizeEndpointUrl(res.url || endpoint, [this.apiKey]),
             raw: null
         };
     }
@@ -1349,6 +1560,8 @@ function createClient(settings = {}) {
 
 module.exports = {
     DEFAULT_BASE_URLS,
+    getBaseUrl,
+    sanitizeEndpointUrl,
     normalizeProvider,
     normalizeMessages,
     stripReasoningText,

@@ -1485,10 +1485,135 @@ window.updateAiModelAuthVisibility = function () {
     }
 };
 
+function formatAiTestFailureReport(failure) {
+    if (!failure) return '';
+    const d = failure.details || {};
+    const rows = [
+        [navLocaleText('测试摘要', 'Summary'), failure.summaryLine || ''],
+        [navT('nav.ai.testHintLabel').replace(/[:：]\s*$/, ''), d.hint || ''],
+        [navT('nav.ai.testMetaProvider'), d.provider || ''],
+        [navT('nav.ai.testMetaModel'), d.model || ''],
+        [navT('nav.ai.testMetaEndpoint'), d.endpoint || ''],
+        [navT('nav.ai.testMetaStatus'), d.upstreamStatus && d.upstreamStatus !== d.httpStatus ? `${d.httpStatus} (upstream ${d.upstreamStatus})` : (d.httpStatus || '')],
+        [navT('nav.ai.testMetaCode'), d.errorCode || ''],
+        [navT('nav.ai.testMetaCause'), d.cause || ''],
+        [navT('nav.ai.testMetaLatency'), Number.isFinite(Number(d.durationMs)) ? `${d.durationMs}ms` : ''],
+        [navT('nav.ai.testMetaParams'), d.requestSummaryText || ''],
+        [navT('nav.ai.testMetaHeaders'), d.headersText || ''],
+        [navT('nav.ai.testMetaTime'), d.timestamp || '']
+    ];
+    const lines = rows.filter(([, value]) => String(value || '').trim()).map(([label, value]) => `${label}: ${value}`);
+    if (d.rawDetail) {
+        lines.push('', `--- ${navT('nav.ai.testRawLabel')} ---`, d.rawDetail);
+    }
+    return lines.join('\n');
+}
+
+function summarizeAiTestParams(reqMeta) {
+    if (!reqMeta || typeof reqMeta !== 'object') return '';
+    const parts = [];
+    if (reqMeta.stream === false) parts.push('stream=false');
+    else if (reqMeta.stream === true) parts.push('stream=true');
+    if (reqMeta.maxOutputTokens) parts.push(`max_tokens=${reqMeta.maxOutputTokens}`);
+    if (reqMeta.temperature !== null && reqMeta.temperature !== undefined) parts.push(`temp=${reqMeta.temperature}`);
+    if (reqMeta.hasCustomHeaders) parts.push(navLocaleText('含自定义请求头', 'custom headers'));
+    if (reqMeta.hasExtraBody) parts.push(navLocaleText('含附加请求参数', 'extra body'));
+    return parts.join(', ');
+}
+
+function renderAiTestFailureResult(resultEl, { modelTag = '', message = '', details = null } = {}) {
+    if (!resultEl) return;
+    const summaryLine = `${modelTag}${navT('nav.ai.testFail')}${message}`;
+    const meta = details && typeof details === 'object' ? { ...details } : {};
+    const statusText = meta.upstreamStatus && meta.upstreamStatus !== meta.httpStatus
+        ? `HTTP ${meta.httpStatus} / ${navLocaleText('上游', 'Upstream')} ${meta.upstreamStatus}${meta.upstreamStatusText ? ` (${meta.upstreamStatusText})` : ''}`
+        : (meta.httpStatus ? `HTTP ${meta.httpStatus}${meta.upstreamStatusText ? ` (${meta.upstreamStatusText})` : ''}` : '');
+    const requestSummaryText = summarizeAiTestParams(meta.request);
+    const headersText = meta.responseHeaders && typeof meta.responseHeaders === 'object' && Object.keys(meta.responseHeaders).length
+        ? Object.entries(meta.responseHeaders).map(([k, v]) => `${k}: ${v}`).join(' | ')
+        : '';
+    meta.requestSummaryText = requestSummaryText;
+    meta.headersText = headersText;
+    navState.aiLastTestFailure = { summaryLine, details: meta };
+
+    const badges = [];
+    if (meta.upstreamStatus) badges.push(`Upstream ${meta.upstreamStatus}`);
+    else if (meta.httpStatus) badges.push(`HTTP ${meta.httpStatus}`);
+    if (meta.errorCode) badges.push(meta.errorCode);
+    if (Number.isFinite(Number(meta.durationMs))) badges.push(`${meta.durationMs}ms`);
+
+    const kvRows = [
+        [navT('nav.ai.testMetaProvider'), meta.provider],
+        [navT('nav.ai.testMetaModel'), meta.model],
+        [navT('nav.ai.testMetaEndpoint'), meta.endpoint],
+        [navT('nav.ai.testMetaStatus'), statusText],
+        [navT('nav.ai.testMetaCode'), meta.errorCode],
+        [navT('nav.ai.testMetaCause'), meta.cause],
+        [navT('nav.ai.testMetaLatency'), Number.isFinite(Number(meta.durationMs)) ? `${meta.durationMs}ms` : ''],
+        [navT('nav.ai.testMetaParams'), requestSummaryText],
+        [navT('nav.ai.testMetaHeaders'), headersText],
+        [navT('nav.ai.testMetaTime'), meta.timestamp]
+    ].filter(([, val]) => String(val ?? '').trim());
+
+    resultEl.className = 'nav-ai-test-result fail';
+    resultEl.innerHTML = `
+        <div class="nav-ai-test-summary-row">
+            <span class="nav-ai-test-summary-text">${navEscape(summaryLine)}</span>
+            ${badges.length ? `<span class="nav-ai-test-badges">${badges.map(badge => `<span class="nav-ai-test-badge">${navEscape(badge)}</span>`).join('')}</span>` : ''}
+        </div>
+        ${meta.hint ? `<div class="nav-ai-test-hint"><strong>${navEscape(navT('nav.ai.testHintLabel'))}</strong><span>${navEscape(meta.hint)}</span></div>` : ''}
+        <details class="nav-ai-test-details">
+            <summary class="nav-ai-test-details-summary">
+                <span class="nav-ai-test-details-arrow" aria-hidden="true">▸</span>
+                <span class="nav-ai-test-details-label-open">${navEscape(navT('nav.ai.testDetailsExpand'))}</span>
+                <span class="nav-ai-test-details-label-close">${navEscape(navT('nav.ai.testDetailsCollapse'))}</span>
+            </summary>
+            <div class="nav-ai-test-details-body">
+                <div class="nav-ai-test-details-toolbar">
+                    <button type="button" class="nav-ai-test-copy-btn" onclick="copyAiTestFailureDetails(this)">${navEscape(navT('nav.ai.testCopyDetails'))}</button>
+                </div>
+                ${kvRows.length ? `<dl class="nav-ai-test-kv">${kvRows.map(([k, v]) => `<div class="nav-ai-test-kv-row"><dt>${navEscape(k)}</dt><dd>${navEscape(String(v))}</dd></div>`).join('')}</dl>` : ''}
+                ${meta.rawDetail ? `<div class="nav-ai-test-raw-wrap"><div class="nav-ai-test-raw-label">${navEscape(navT('nav.ai.testRawLabel'))}</div><pre class="nav-ai-test-raw">${navEscape(meta.rawDetail)}</pre></div>` : ''}
+            </div>
+        </details>
+    `;
+}
+
+window.copyAiTestFailureDetails = async function (btn) {
+    const text = formatAiTestFailureReport(navState.aiLastTestFailure);
+    if (!text) return;
+    const originalLabel = navT('nav.ai.testCopyDetails');
+    let copied = false;
+    try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            await navigator.clipboard.writeText(text);
+            copied = true;
+        }
+    } catch { }
+    if (!copied && typeof document.execCommand === 'function') {
+        try {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.setAttribute('readonly', '');
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            copied = document.execCommand('copy');
+            ta.remove();
+        } catch { }
+    }
+    if (btn) {
+        btn.textContent = navT(copied ? 'nav.ai.testCopied' : 'nav.ai.testCopyFail');
+        setTimeout(() => { if (btn.isConnected) btn.textContent = originalLabel; }, 1800);
+    }
+};
+
 window.testAiSettingsNow = async function (specificModel) {
     const resultEl = document.getElementById('navAiTestResult');
     const indicator = document.getElementById('navSettingsSaveState');
     clearTimeout(navState.aiSaveTimer);
+    navState.aiLastTestFailure = null;
     const targetModel = specificModel || document.getElementById('navAiModel')?.value;
     const testingLabel = targetModel ? `${navT('nav.ai.testing')} [${targetModel}]` : navT('nav.ai.testing');
     if (resultEl) {
@@ -1496,9 +1621,11 @@ window.testAiSettingsNow = async function (specificModel) {
         resultEl.textContent = testingLabel;
     }
     if (indicator) indicator.textContent = testingLabel;
+    const startedAt = Date.now();
+    let payload = null;
     try {
         const profileId = navState.aiSelectedProfileId;
-        const payload = collectAiSettingsPayload();
+        payload = collectAiSettingsPayload();
         if (specificModel) payload.model = specificModel;
         const res = await fetch(`/api/ai-settings/profiles/${encodeURIComponent(profileId)}/test`, {
             method: 'POST',
@@ -1508,22 +1635,49 @@ window.testAiSettingsNow = async function (specificModel) {
             },
             body: JSON.stringify(payload)
         });
-        const data = await res.json().catch(() => ({}));
+        const rawText = await res.text().catch(() => '');
+        let data = {};
+        if (rawText) {
+            try { data = JSON.parse(rawText); } catch { data = {}; }
+        }
         if (!res.ok || !data.success) {
-            throw new Error(data.error || `HTTP ${res.status}`);
+            const err = new Error(data.error || `HTTP ${res.status}${res.statusText ? ` (${res.statusText})` : ''}`);
+            err.details = data.details || {
+                provider: payload.provider,
+                model: payload.model,
+                endpoint: payload.apiBaseUrl || '',
+                httpStatus: res.status,
+                upstreamStatusText: res.statusText || '',
+                durationMs: Date.now() - startedAt,
+                contentType: res.headers?.get?.('content-type') || '',
+                hint: navLocaleText('服务端返回了非预期错误或非 JSON 响应，请展开查看返回细节。', 'Unexpected server error or non-JSON response. Expand details below to inspect.'),
+                rawDetail: rawText ? rawText.slice(0, 4000) : '',
+                timestamp: new Date().toISOString()
+            };
+            throw err;
         }
         const reply = data.reply ? `：${data.reply}` : '';
         const modelTag = data.model ? `[${data.model}] ` : '';
+        const durationTag = Number.isFinite(Number(data.durationMs)) ? ` (${data.durationMs}ms)` : '';
         if (resultEl) {
             resultEl.className = 'nav-ai-test-result ok';
-            resultEl.textContent = `${modelTag}${navT('nav.ai.testOk')}${reply}`;
+            resultEl.textContent = `${modelTag}${navT('nav.ai.testOk')}${reply}${durationTag}`;
         }
-        if (indicator) indicator.textContent = `${modelTag}${navT('nav.ai.testOk')}`;
+        if (indicator) indicator.textContent = `${modelTag}${navT('nav.ai.testOk')}${durationTag}`;
     } catch (e) {
         const modelTag = targetModel ? `[${targetModel}] ` : '';
-        if (resultEl) {
-            resultEl.className = 'nav-ai-test-result fail';
-            resultEl.textContent = `${modelTag}${navT('nav.ai.testFail')}${e.message}`;
+        const fallbackDetails = e.details || {
+            provider: payload?.provider || document.getElementById('navAiProvider')?.value || '',
+            model: targetModel || '',
+            endpoint: payload?.apiBaseUrl || document.getElementById('navAiApiBaseUrl')?.value || '',
+            durationMs: Date.now() - startedAt,
+            hint: navLocaleText('请求未能完成，可能是配置参数格式有误、本地服务未就绪或网络连接中断。', 'Request could not complete. Check form fields, local service status, or network connectivity.'),
+            rawDetail: String(e.stack || e.message || ''),
+            timestamp: new Date().toISOString()
+        };
+        renderAiTestFailureResult(resultEl, { modelTag, message: e.message, details: fallbackDetails });
+        if (resultEl && typeof resultEl.scrollIntoView === 'function') {
+            resultEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
         if (indicator) indicator.textContent = `${modelTag}${navT('nav.ai.testFail')}${e.message}`;
     }

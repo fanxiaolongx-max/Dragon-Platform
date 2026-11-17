@@ -597,6 +597,61 @@ html.platform-home[data-theme="dark"] .nav-ai-usage-toggle-btn:hover {
     color: var(--v2-ink, #f1f5f9) !important;
 }
 
+html.platform-home[data-theme="dark"] .nav-ai-test-result.ok {
+    background: rgba(16, 185, 129, 0.14);
+    color: #6ee7b7;
+}
+
+html.platform-home[data-theme="dark"] .nav-ai-test-result.testing {
+    background: rgba(59, 130, 246, 0.14);
+    color: #93c5fd;
+}
+
+html.platform-home[data-theme="dark"] .nav-ai-test-result.fail {
+    background: rgba(244, 63, 94, 0.12);
+    border-color: rgba(251, 113, 133, 0.32);
+    color: #fda4af;
+}
+
+html.platform-home[data-theme="dark"] .nav-ai-test-summary-text,
+html.platform-home[data-theme="dark"] .nav-ai-test-hint {
+    color: #fecdd3;
+}
+
+html.platform-home[data-theme="dark"] .nav-ai-test-details-summary,
+html.platform-home[data-theme="dark"] .nav-ai-test-badge {
+    background: var(--v2-chip, #1a1d24);
+    border-color: rgba(251, 113, 133, 0.35);
+    color: #fda4af;
+}
+
+html.platform-home[data-theme="dark"] .nav-ai-test-details-body {
+    background: var(--v2-side, #15181d);
+    border-color: var(--v2-line, #262a31);
+    color: var(--v2-ink, #e6e8eb);
+}
+
+html.platform-home[data-theme="dark"] .nav-ai-test-copy-btn {
+    background: var(--v2-chip, #1a1d24);
+    border-color: var(--v2-line, #262a31);
+    color: var(--v2-ink2, #b3b9c2);
+}
+
+html.platform-home[data-theme="dark"] .nav-ai-test-kv-row dt,
+html.platform-home[data-theme="dark"] .nav-ai-test-raw-label {
+    color: var(--v2-ink3, #7d8590);
+}
+
+html.platform-home[data-theme="dark"] .nav-ai-test-kv-row dd {
+    color: var(--v2-ink, #e6e8eb);
+}
+
+html.platform-home[data-theme="dark"] .nav-ai-test-raw {
+    background: var(--v2-bg, #0f1115);
+    border-color: var(--v2-line, #262a31);
+    color: var(--v2-ink, #e6e8eb);
+}
+
 html.platform-home[data-theme="dark"] .nav-media-category-tabs .tab-item {
     background: var(--v2-chip) !important;
     border-color: var(--v2-line) !important;
