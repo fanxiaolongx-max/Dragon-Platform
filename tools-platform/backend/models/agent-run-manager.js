@@ -676,6 +676,9 @@ async function runAgentTurn({ session, user, client, systemInstruction, historyM
         if (registry.isMeta(call.name)) outcome = await registry.runMeta(call);
         const misnamed = call.name === 'run_command' && registry.commandNamingTool(call.args?.command);
         if (misnamed) outcome = { content: `${misnamed} 是工具名，不是 Shell 命令。请直接调用 ${misnamed} 工具（已加载它的参数说明），不要用 run_command 执行。`, summary: `${misnamed} 是工具，不是命令`, isError: true };
+        if (!outcome && call.name === 'run_command' && session.channelContext && !session.channelContext.isSuperAdminSender && /\bwelink-cli\b|@welink[\\/]welink-cli/i.test(String(call.args?.command || ''))) {
+            outcome = { content: '权限受限：频道对话中非超级管理员禁止通过 run_command 直接调用 welink-cli；如需查询当前所在本群的聊天记录，请调用 welink_query 工具（仅限当前群 ID）。', summary: '禁止直接调用 welink-cli', isError: true };
+        }
         const toolset = !outcome && registry.toolset(call.name);
         const toolsetKind = toolset?.kindOf?.(call.name) || null;
         if (toolset?.sharedMcp) {

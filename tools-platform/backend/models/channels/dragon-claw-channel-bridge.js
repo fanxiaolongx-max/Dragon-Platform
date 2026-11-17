@@ -58,14 +58,16 @@ function safeId(value) {
 }
 
 /**
- * 精确识别当前单聊是否为机器人超级管理员（本人或配置的特权管理员）：
- * 1. 必须是单聊（conversation.kind === 'user'）；
- * 2. 微信渠道：匹配当前 Bot 扫码绑定的 ownerUserId，或在 config.superAdmins 中配置的 ID；
- * 3. WeLink 渠道：匹配当前本机 welink-cli 登录工号（authStatus().uid），或在 config.superAdmins 中配置的工号。
+ * 判断发送人账号是否属于超级管理员（本人或配置的特权管理员名单）：
+ * 1. 微信渠道：匹配当前 Bot 扫码绑定的 ownerUserId，或在 config.superAdmins 中配置的 ID；
+ * 2. WeLink 渠道：匹配在 config.superAdmins 中配置的工号，或当前本机已启用的 welink-cli 登录工号（authStatus().uid）。
+ * 在单聊中：超级管理员直接获得宿主机完整工作区权限；
+ * 在群聊或单聊中：超级管理员均可通过助理调用 welink-cli 查询任意群聊、任意单聊内容（普通群成员仅限查询本群内容）。
  */
-async function isSuperAdminAccount(channel, conversation, account) {
-    if (!conversation || conversation.kind !== 'user' || !account) return false;
+async function isSuperAdminUser(channel, account) {
+    if (!account) return false;
     const actor = String(account).trim().toLowerCase();
+    if (!actor) return false;
     try {
         if (channel === 'weixin') {
             const config = await require('./weixin-config-repository').getConfig().catch(() => null);
@@ -79,9 +81,9 @@ async function isSuperAdminAccount(channel, conversation, account) {
             const config = await require('./welink-config-repository').getConfig().catch(() => null);
             const admins = (config?.superAdmins || []).map(a => String(a).trim().toLowerCase());
             if (admins.includes(actor)) return true;
-            // 自动感知 welink-cli 本机登录 UID
+            // 自动感知已启用的 welink-cli 本机登录 UID
             const cliRunner = require('./welink-cli-runner');
-            if (cliRunner && typeof cliRunner.authStatus === 'function') {
+            if (cliRunner && typeof cliRunner.readConfig === 'function' && cliRunner.readConfig()?.enabled && typeof cliRunner.authStatus === 'function') {
                 const status = await cliRunner.authStatus().catch(() => null);
                 const cliUid = String(status?.uid || '').trim().toLowerCase();
                 if (cliUid && actor === cliUid) return true;
@@ -91,6 +93,11 @@ async function isSuperAdminAccount(channel, conversation, account) {
         // 出错安全回退
     }
     return false;
+}
+
+async function isSuperAdminAccount(channel, conversation, account) {
+    if (!conversation || conversation.kind !== 'user' || !account) return false;
+    return isSuperAdminUser(channel, account);
 }
 
 function channelUser(channel, account) {
@@ -173,7 +180,8 @@ async function runTurn(options) {
 async function runTurnInner({ channel, account, conversation, toolSessionId, text, aiSessionId, modelId, contextNote, persist = true, signal, onEvent }) {
     const user = conversation ? conversationUser(channel, conversation, account) : channelUser(channel, account);
     let sessionId = await usableSessionId(aiSessionId, user.username);
-    const isSuperAdmin = await isSuperAdminAccount(channel, conversation, account);
+    const isSuperAdminSender = await isSuperAdminUser(channel, account);
+    const isSuperAdmin = Boolean(conversation && conversation.kind === 'user' && isSuperAdminSender);
     const fullAccess = (channel === 'welink' && persist !== false && Boolean(conversation?.id)) || isSuperAdmin;
     if (fullAccess) {
         if (channel === 'welink') {
@@ -217,7 +225,7 @@ async function runTurnInner({ channel, account, conversation, toolSessionId, tex
         path: '/chat',
         headers: {},
         user,
-        channelTurn: conversation ? { channel, conversation, toolSessionId: toolSessionId || '', actor: String(account || ''), fullAccess, isSuperAdmin } : null,
+        channelTurn: conversation ? { channel, conversation, toolSessionId: toolSessionId || '', actor: String(account || ''), fullAccess, isSuperAdmin, isSuperAdminSender } : null,
         get: () => '',
         body: {
             messages: [{ role: 'user', content: String(text || '') }],
@@ -239,4 +247,4 @@ async function runTurnInner({ channel, account, conversation, toolSessionId, tex
     await aiRouter.handleChatRequest(req, res);
 }
 
-module.exports = { runTurn, busyThreads, channelUser, conversationUser, createVirtualResponse };
+module.exports = { runTurn, busyThreads, channelUser, conversationUser, createVirtualResponse, isSuperAdminUser, isSuperAdminAccount };

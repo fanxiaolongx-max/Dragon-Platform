@@ -57,4 +57,24 @@ test('new and legacy titles persist without changing questions, timestamps, manu
         assert.equal((await chat.listOwnedSessions({ owner: 'alice', pagePath: '/' }))[0].title, '计算 7+7');
     });
     assert.equal((await chat.listOwnedSessions({ owner: 'alice', pagePath: '/' }))[0].title, '通信厂商新闻搜索');
+
+    // 首条为 1+1 等探活消息时，后续真正任务自动更新会话标题；upsertAgentTurn 同步刷新 updated_at
+    const probeSession = await chat.addMessage({ owner: 'alice', pagePath: '/', role: 'user', content: '1+1' });
+    assert.equal((await db.get('SELECT auto_title FROM ai_chat_sessions WHERE id=?', [probeSession])).auto_title, '计算 1+1');
+    await db.run("UPDATE ai_chat_sessions SET auto_title='数学加法计算', auto_title_source='ai', updated_at='2025-01-01 00:00:00' WHERE id=?", [probeSession]);
+    assert.equal(await chat.getTitleSource(probeSession, 'alice'), '', '探活消息生成的标题允许后续真正任务升级');
+    await chat.upsertAgentTurn({
+        sessionId: probeSession,
+        owner: 'alice',
+        runId: 'run-probe-upgrade',
+        agentSessionId: 'agent-probe-1',
+        root: '/tmp',
+        transcript: [{ role: 'user', content: '@thcli-image 你能创建一个可爱清纯楚楚可怜的女生图片吗' }],
+        content: '已处理',
+        final: true
+    });
+    const upgraded = await db.get('SELECT auto_title, updated_at FROM ai_chat_sessions WHERE id=?', [probeSession]);
+    assert.NotEqual?.(upgraded.auto_title, '数学加法计算');
+    assert.notEqual(upgraded.auto_title, '数学加法计算');
+    assert.notEqual(upgraded.updated_at, '2025-01-01 00:00:00', 'upsertAgentTurn 刷新会话 updated_at');
 });

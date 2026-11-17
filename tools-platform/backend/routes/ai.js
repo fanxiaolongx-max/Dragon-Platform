@@ -722,8 +722,15 @@ async function handleChatRequest(req, res) {
         const isChannelSuperAdmin = Boolean(channelTurn?.isSuperAdmin);
         const fullChannelAdmin = channelTurn && channelTurn.fullAccess === true && req.user?.role === 'admin';
         const fullWeLink = (channelTurn?.channel === 'welink' && fullChannelAdmin) || isChannelSuperAdmin;
+        const channelContext = channelTurn ? {
+            channel: channelTurn.channel,
+            conversation: channelTurn.conversation,
+            actor: channelTurn.actor || '',
+            isSuperAdminSender: Boolean(channelTurn.isSuperAdmin || channelTurn.isSuperAdminSender)
+        } : null;
         if (homeAgent && streamRequested && fullWeLink) {
             agentSession = agentRunManager.ensureWeLinkSession({ user: req.user, tenantId: getTenantId(), chatSessionId: sessionId, isSuperAdmin: isChannelSuperAdmin });
+            agentSession.channelContext = channelContext; // 完全访问的 WeLink 对话：保存技能等确认操作改为回复确认码，并携带当前发言人超管标识
         }
         // 工作区模式：用户选了本地目录，走工具调用循环（仅流式、仅本机/桌面/管理员）。
         if (homeAgent && streamRequested && workspace && workspace.root) {
@@ -1206,8 +1213,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
             ? await require('../models/agent-extra-tools').forChat({ owner: agentRunManager.ownerKey(req.user, getTenantId()), user: req.user, chatSessionId: savedSessionId || '', readOnly: req.user?.role !== 'admin',
                 write: event => writeStreamEvent(event), signal: providerAbortController?.signal, sensitiveValues }).catch(error => { console.warn('[AI] extra tools unavailable:', error.message || error); return null; })
             : null;
-        const channelContext = channelTurn ? { channel: channelTurn.channel, conversation: channelTurn.conversation, actor: channelTurn.actor || '' } : null;
-        if (fullWeLink && agentSession) agentSession.channelContext = channelContext; // 完全访问的 WeLink 对话：保存技能等确认操作改为回复确认码
+        if (fullWeLink && agentSession) agentSession.channelContext = channelContext;
         // 频道对话（微信、WeLink 非完全访问）：没人能审批，只带只读的技能目录、平台工具向导和受信任的 MCP 服务，让模型能按技能目录加载技能并调用（如搜索新闻）
         const channelExtras = !chatExtras && !agentMode && homeAgent && channelTurn && streamRequested && !analysisCode && !opsSetup && !welinkCliSetup && !netcareSetup
             ? await require('../models/agent-extra-tools').forChat({ owner: agentRunManager.ownerKey(req.user, getTenantId()), user: req.user, chatSessionId: savedSessionId || '', readOnly: req.user?.role !== 'admin', channel: { ...channelContext, canSaveSkills: channelSkillOwner },

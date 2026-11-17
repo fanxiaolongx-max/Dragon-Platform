@@ -1,8 +1,12 @@
 {
   "zh": [
-    "历史快照明细去重存储：数据导入保存的快照不再每份都内嵌全部源表行，相同内容的表只按内容压缩保存一份，两张快照表共用；按 30 天每日导入模拟，快照占用从约 349 MB 降到约 20 MB。旧快照在后台逐条转换，每条先校验能完整还原再写回；读取、月报资料库、指标溯源与导出备份包的数据与以前一致。"
+    "WeLink 群聊权限分级与群记录总结：在 WeLink 群聊提问自动激活 @welink-office 并直接查询当前群聊记录；超级管理员名单成员与本机 welink-cli 登录用户支持在群聊或单聊中跨群、跨单聊查询与操作，普通群成员严格限制仅可查询当前所在本群；新增 welink-cli 登录态 60 秒缓存减少重复检测开销。",
+    "会话标题智能升级与环境精简：首条消息为「1+1」「你好」「测试」等探活短语时，后续正式提问或发起智能体任务会自动刷新为真实任务标题与最新更新时间；精简子进程继承的 IDE 与 PM2 冗余环境变量。",
+    "Gemini 默认配置自愈与移动端思考动效优化：修复历史 Gemini 配置被误判为 Bearer 鉴权导致的 401 报错（自动恢复为 x-goog-api-key）；移动端对话「思考过程」卡片移除不断递增的字数计数，替换为丝滑渐变扫光与律动呼吸动画。"
   ],
   "en": [
-    "Deduplicated snapshot detail storage: data-import snapshots no longer embed every source row in each copy; identical tables are compressed and stored once, shared by both snapshot tables. In a 30-day daily-import simulation snapshot storage dropped from about 349 MB to about 20 MB. Older snapshots are converted in the background one at a time after verifying they restore exactly; reads, the monthly report library, metric lineage and exported backup packages return the same data as before."
+    "WeLink group permission scoping and summary: WeLink group questions auto-load @welink-office for the current group ID; super admins and the signed-in local welink-cli user can query across groups and DMs, while regular group members are strictly scoped to the current group; added a 60s auth status cache for welink-cli.",
+    "Smart conversation title upgrade and clean child env: sessions starting with quick probes like '1+1' or 'hi' automatically upgrade their title and updated timestamp once a real task follows; stripped noisy IDE and PM2 environment variables from child commands.",
+    "Gemini legacy auth auto-heal and mobile thinking animation: fixed legacy Gemini profiles misclassified as Bearer auth causing HTTP 401 by restoring x-goog-api-key; replaced the incrementing character counter on mobile 'Thinking Process' cards with a smooth shimmer and wave animation."
   ]
 }

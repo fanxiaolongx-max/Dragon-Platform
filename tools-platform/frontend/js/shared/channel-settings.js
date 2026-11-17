@@ -558,8 +558,8 @@
             <p class="nch-desc">${esc(L('消息需同时通过人员规则与群组规则（群聊时）才会被处理；主动推送同样遵守。白名单模式下只有名单内可用，黑名单模式下名单内被禁止。不知道账号或群 ID 时，可让对方给助理发送 /whoami 查看。', 'A message must pass the people rule and, in groups, the group rule. Pushes follow the same rules. Ask someone to send /whoami to the assistant to find their account or group ID.'))}</p>
             <div class="nch-access">${renderAccessColumn('users')}${renderAccessColumn('groups')}</div>
             <div style="margin-top:16px;padding-top:14px;border-top:1px dashed #e2e8f0">
-                <h5>👑 ${esc(L('超级管理员名单（单聊完全访问）', 'Super Admins (Full DM Access)'))}</h5>
-                <p class="nch-desc">${esc(L('名单内的用户与助理单聊时，直接获得宿主机超级管理员权限（完全访问系统、工作区及磁盘文件，如查看下载目录等）。群聊不受影响，群聊依然执行严格沙箱隔离。', 'Super admins in direct chat have full host access (system files, download directories, command execution). Group chats remain strictly sandboxed.'))}</p>
+                <h5>👑 ${esc(L('超级管理员名单（单聊完全访问 & 跨群/单聊查询特权）', 'Super Admins (Full DM Access & Cross-Chat Query)'))}</h5>
+                <p class="nch-desc">${esc(L('名单内的用户（及本机 welink-cli 登录本人）与助理单聊时，直接获得宿主机超级管理员权限（完全访问系统、工作区及磁盘文件）；无论在群聊还是单聊中 @助理，均可通过助理查询任何群聊、任何单聊的聊天记录及个人办公内容。群内非名单普通成员仅限查询当前所在本群的内容，无法查询其他群或任何单聊。', 'Super admins (and the local welink-cli signed-in user) get full host access in direct chats, and can ask the assistant in any group or DM to query messages across any group or direct chat. Regular group members can only query messages within their current group.'))}</p>
                 <div class="nch-chips" style="margin-bottom:8px">${chips}</div>
                 <div class="nch-row">
                     <button type="button" class="nch-btn" data-action="super-admin-pick">${esc(L('从历史选择', 'Pick from history'))}</button>

@@ -39,7 +39,10 @@ icon: 💼
 `welink_query` 的参数名与 welink-cli 一致（不带 `--`），例如：
 
 - 找人：`{"command":"search person","options":{"text":"张三","page-size":10}}`，结果里 `w3account` 是账号、`welinkId` 是消息 ID。
-- 聊天记录：`{"command":"im query-history-message","options":{"user-account":"a00123456","query-count":30}}`；群聊用 `group-id`（二选一）。先用 `im query-recent-conversation` 或 `search group` 拿到群 ID。
+- 聊天记录：`{"command":"im query-history-message","options":{"user-account":"a00123456","query-count":100}}`；群聊用 `group-id`（二选一，单次 `query-count` 最大 100）。
+  - **在 WeLink 群聊中回顾本群**：若系统上下文已给出「当前所在群聊 ID（`group-id`）」，且用户说「本群 / 群里 / 这个群」，**直接传该 `group-id` 调用 `im query-history-message`**，无需先调 `search group` 或 `im query-recent-conversation`。
+  - **按时间跨度回顾（如“最近一周 / 最近三天”）**：`im query-history-message` 按条数返回最新消息（单次最多 100 条）。回顾较长时间范围时，先传 `"query-count": 100` 拉取第一页；检查返回结果中最早一条消息的时间是否已覆盖目标起始时间；若尚未覆盖，取最早一条消息的 `message-id` 配合 `"query-direction": 0` 继续向前翻页（最多翻 3~5 页），筛选出目标时间段内的消息后再汇总总结。
+  - **群聊权限边界**：只有超级管理员（本机 `welink-cli` 登录工号及「全局设置 › 频道对接 › WeLink › 超级管理员名单」指定成员）可通过助理查询任意群聊或任意单聊（`user-account`）内容；群内其他普通成员仅限查询当前所在本群（`group-id` 必须等于当前群 ID）的内容，禁止查询其他群或任何单聊。
 - 联系人详情：`{"command":"contact detail","accounts":["welinkId1","welinkId2"]}`。
 - 会议列表：`meeting query-list` 的 `meeting-start-time` / `meeting-end-time` 是 **13 位毫秒时间戳**，`type`：0 公开、1 待参加（默认）、2 已结束、3 我预定、4 所有、5 我管理；`size` ≤ 30。平台已内置默认值（默认查今天待参加、按时间升序、第 1 页 10 条），查今天待参加会议直接调用即可，无需必填参数。
 - 建会：`{"command":"meeting create","options":{"subject":"测试会议","start-time":1777100400000,"end-time":1777102200000,"meeting-user-list":["a00123456","b00234567"]}}`。开始时间必须在未来且 31 天内，时长 15 分钟 ~ 7 天；与会人用工号。只能修改 / 取消通过 CLI 创建的会议。
@@ -57,7 +60,7 @@ icon: 💼
 1. **会前准备**：`meeting query-list`（type=1，时间取今天到明天）→ 选中会议 `meeting info` + `meeting topic` → 需要时 `meeting topic-materials`，汇总议题、汇报人和材料清单。
 2. **邮件速览**：`mail list`（`is-read`=0，按需 `start`）→ 对重要邮件 `mail get` → 按「需要我回复 / 需要我知悉 / 可忽略」分组，给出建议回复要点（不代发）。
 3. **今日日程**：`calendar list`（今天到明天）+ `meeting query-list`（type=1）合并去重，按时间排出今天的安排和冲突；**务必在最终回答中列出清晰的时间、主题、地点和参会人清单**，严禁留空或只回复已查询。
-4. **群聊回顾**：`search group` 找到群 → `im query-history-message`（group-id，query-count 50）→ 总结结论、待办和 @我 的事项。
+4. **群聊回顾**：若上下文已有当前群 `group-id` 且查本群，直接用该 `group-id`（查其他群仅限超级管理员，先 `search group` 找到群 ID）→ `im query-history-message`（`group-id`，`query-count: 100`；若按“最近一周”等时间跨度回顾且首屏未覆盖，取最早一条 `message-id` + `query-direction: 0` 向前翻页）→ 按时间范围过滤后总结核心结论、讨论话题、待办和 @ 相关事项。
 5. **约会议**：`search person` 确认每位与会人的工号 → 按用户给的时间算出毫秒时间戳 → `welink_action` `meeting create`（审批）→ 成功后告诉用户会议主题、时间、与会人和返回的 meetingId；需要议题再 `meeting topic-create`。
 6. **代发消息 / 邮件**：查到对方账号或邮箱 → 写好内容 → `welink_action`（审批）→ 用户允许并成功后再确认已发送。
 

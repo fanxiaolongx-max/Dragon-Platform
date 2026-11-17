@@ -254,6 +254,7 @@ async function listForUser(user, { includeHidden = false } = {}) {
     }
     const preferences = await personalEntries(user);
     const local = getTenantId() === DEFAULT_TENANT_ID ? [] : await listAll({ includeHidden: true });
+    const isWelinkChannelAdmin = getTenantId() === DEFAULT_TENANT_ID && user?.role === 'admin' && /^welink(?:-group)?:/.test(String(user.username || ''));
     const own = local.filter(item => !item.builtIn && !preferences.get(`skill:${item.id}`)?.origin);
     const ids = new Set(own.map(item => item.id));
     const copies = new Map(local.map(item => [item.id, item]));
@@ -261,7 +262,8 @@ async function listForUser(user, { includeHidden = false } = {}) {
     return [...own, ...shared.flatMap(item => {
         const prefs = preferences.get(`skill:${item.id}`) || {};
         const hidden = Boolean(prefs.hidden);
-        if (ids.has(item.id) || !allowed.has(`skill:${item.id}`) || (hidden && !includeHidden)) return [];
+        const canUseSkill = allowed.has(`skill:${item.id}`) || (isWelinkChannelAdmin && item.id === 'welink-office');
+        if (ids.has(item.id) || !canUseSkill || (hidden && !includeHidden)) return [];
         const personal = prefs.fork && prefs.baseRevision === (item.updatedAt || '') && copies.get(item.id);
         return [{ ...item, ...(personal || {}), name: prefs.name || (personal || item).name, nameEn: prefs.name || (personal || item).nameEn,
             shared: true, personal: Boolean(personal), hidden, sharedAccess: true }];

@@ -32,7 +32,7 @@ const DEFAULT_CONFIG = {
         defaultTargets: [],
         allowUserPush: false
     },
-    // 超级管理员名单：拥有本单聊的完全访问与系统最高权限（含本地磁盘与命令），未填写时自动以 welink-cli 本机登录用户为准
+    // 超级管理员名单：单聊时拥有宿主机完全访问权限；在群聊或单聊中均可通过助理查询任意群聊、任意单聊内容（普通群成员仅限查本群内容）。未填写时自动包含 welink-cli 本机登录用户
     superAdmins: [],
     // 跟进任务：对话中记下的任务按工作日历在原会话 @ 提醒
     followup: {

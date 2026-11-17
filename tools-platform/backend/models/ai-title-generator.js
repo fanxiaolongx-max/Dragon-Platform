@@ -72,10 +72,11 @@ function retryable(key) {
     return !at || Date.now() - at > RETRY_AFTER_MS;
 }
 
-// 新对话：与回答并行请求一次；已经是模型标题的会话直接返回空
+// 新对话：与回答并行请求一次；已经是模型标题的会话直接返回空（若首条只是 1+1/你好 等探活，后续真正任务可重生成）
+const TRIVIAL_PROBE_RE = /^(?:1\s*\+\s*1(?:\s*=\s*\??)?|你好|您好|hi|hello|hey|在吗|在不在|测试|test|ping|喂|哈喽)[!！?？。.\s]*$/i;
 function titleForSession({ sessionId, owner, question }) {
     const key = `chat:${sessionId}`;
-    if (!sessionId || !question || inFlight.has(key) || !retryable(key)) return inFlight.get(key) || Promise.resolve('');
+    if (!sessionId || !question || TRIVIAL_PROBE_RE.test(String(question).trim()) || inFlight.has(key) || !retryable(key)) return inFlight.get(key) || Promise.resolve('');
     const task = (async () => {
         const repo = require('./ai-chat-repository');
         if (await repo.getTitleSource(sessionId, owner) === 'ai') return '';

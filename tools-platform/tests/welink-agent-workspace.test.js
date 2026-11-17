@@ -127,3 +127,79 @@ test('专用目录及工具会话按租户、单聊/群聊隔离，路径不接�
     assert.throws(() => manager.getSession(a.id, { username: 'welink:bob' }, 'default'), /无权/);
     assert.throws(() => manager.getSession(a.id, { username: 'welink:alice' }, 'team-b'), /无权/);
 });
+
+test('WeLink 群聊自动加载 @welink-office 总结本群记录，且严格区分普通群成员（仅限本群）与超级管理员名单（可查任意群/单聊）', async t => {
+    const welinkCliAgent = require('../backend/models/channels/welink-cli-agent');
+    const welinkCliRunner = require('../backend/models/channels/welink-cli-runner');
+    const originals = [settings.getRuntimeSettings, settings.getRedactionSecrets, provider.createClient, welinkCliRunner.readConfig, welinkCliRunner.tenantAllowed, welinkCliRunner.run];
+    t.after(() => {
+        [settings.getRuntimeSettings, settings.getRedactionSecrets, provider.createClient, welinkCliRunner.readConfig, welinkCliRunner.tenantAllowed, welinkCliRunner.run] = originals;
+    });
+    settings.getRuntimeSettings = async () => ({ hasApiKey: true, keyLooksValid: true, model: 'fake', maxOutputTokens: 2048, temperature: 0.2 });
+    settings.getRedactionSecrets = async () => [];
+    welinkCliRunner.readConfig = () => ({ enabled: true, allowWrite: false, verbose: false });
+    welinkCliRunner.tenantAllowed = () => true;
+    welinkCliRunner.run = async args => ({ ok: true, code: 0, json: { argv: args, messages: [{ sender: 'alice', content: '本周发布 v1.2' }] }, text: 'ok', stderr: '', raw: 'ok', error: '' });
+
+    await runWithTenant('default', () => config.saveConfig({
+        access: { users: { mode: 'all', whitelist: [], blacklist: [] }, groups: { mode: 'all', whitelist: [], blacklist: [] } },
+        superAdmins: ['boss']
+    }));
+
+    // 1. 普通群成员 bob 在群 team 里说“总结下群里最近一周都说啥了”：
+    // 自动激活 @welink-office，查本群 team 成功，尝试查其他群 other-grp、单聊 alice 或用 run_command 调 welink-cli 均被拦截
+    const bobCalls = [
+        { name: 'welink_query', args: { command: 'im query-history-message', options: { 'group-id': 'team', 'query-count': 100 } } },
+        { name: 'welink_query', args: { command: 'im query-history-message', options: { 'group-id': 'other-grp', 'query-count': 50 } } },
+        { name: 'welink_query', args: { command: 'im query-history-message', options: { 'user-account': 'alice', 'query-count': 50 } } },
+        { name: 'run_command', args: { command: 'welink-cli im query-history-message --user-account alice' } }
+    ];
+    const bobRequests = [];
+    provider.createClient = () => ({
+        model: 'fake',
+        async generateText(options) {
+            bobRequests.push(options);
+            const next = bobCalls.shift();
+            if (next) return { text: '', toolCalls: [{ id: `bob-${bobRequests.length}`, ...next }] };
+            options.onDelta?.('本群本周总结：发布 v1.2');
+            return { text: '本群本周总结：发布 v1.2', toolCalls: [] };
+        }
+    });
+
+    const bobEvents = await turn('default', {
+        account: 'bob',
+        conversation: { kind: 'group', id: 'team' },
+        text: '总结下群里最近一周都说啥了'
+    });
+    assert.match(bobRequests[0].systemInstruction, /### @welink-office/, '群聊总结请求自动挂载 @welink-office');
+    assert.ok(bobRequests[0].tools.some(tool => tool.name === 'welink_query'), '第一轮即提供 welink_query 工具');
+    const bobToolResults = bobEvents.filter(e => e.type === 'tool_result');
+    assert.equal(bobToolResults[0].ok, true, '普通群成员查本群聊天记录通过');
+    assert.equal(bobToolResults[1].ok, false, '普通群成员跨群查询被拦截');
+    assert.equal(bobToolResults[2].ok, false, '普通群成员查单聊被拦截');
+    assert.equal(bobToolResults[3].ok, false, '普通群成员通过 run_command 绕过调 welink-cli 被拦截');
+
+    // 2. 超级管理员名单成员 boss 在同一个群 team 里询问其他群和单聊：全部放行
+    const bossCalls = [
+        { name: 'welink_query', args: { command: 'im query-history-message', options: { 'group-id': 'other-grp', 'query-count': 50 } } },
+        { name: 'welink_query', args: { command: 'im query-history-message', options: { 'user-account': 'alice', 'query-count': 50 } } }
+    ];
+    provider.createClient = () => ({
+        model: 'fake',
+        async generateText(options) {
+            const next = bossCalls.shift();
+            if (next) return { text: '', toolCalls: [{ id: `boss-${bossCalls.length}`, ...next }] };
+            options.onDelta?.('跨群与单聊查询完成');
+            return { text: '跨群与单聊查询完成', toolCalls: [] };
+        }
+    });
+    const bossEvents = await turn('default', {
+        account: 'boss',
+        conversation: { kind: 'group', id: 'team' },
+        text: '总结下群里最近一周都说啥了，顺便看下 other-grp 和 alice 的记录'
+    });
+    const bossToolResults = bossEvents.filter(e => e.type === 'tool_result');
+    assert.equal(bossToolResults.length, 2);
+    assert.equal(bossToolResults[0].ok, true, '超级管理员在群里跨群查询通过');
+    assert.equal(bossToolResults[1].ok, true, '超级管理员在群里查单聊通过');
+});

@@ -454,9 +454,58 @@ test('im send-to-group supports --atAll, --atuserList and --en', () => {
 
 test('runner upgrade executes update and reports newly installed version', async () => {
     runner.setOverridesForTest({
+        configFile: path.join(sandbox, 'welink-cli.json'),
+        logFile: path.join(sandbox, 'logs', 'welink-cli.log'),
         upgrade: async () => ({ ok: true, version: '1.0.20' })
     });
     const res = await inDefault(() => runner.upgrade());
     assert.equal(res.ok, true);
     assert.equal(res.version, '1.0.20');
+});
+
+test('channel group scope restricts non-super-admins to current group while superAdmins can query any group or DM', async () => {
+    runner.setOverridesForTest({ configFile: path.join(sandbox, 'welink-cli.json'), logFile: path.join(sandbox, 'logs', 'welink-cli.log') });
+    runner.saveConfig({ cliPath: packageDir, enabled: true, allowWrite: true });
+    const memberCtx = {
+        actor: 'welink-group:grp-100',
+        permissionMode: 'full',
+        channelContext: { channel: 'welink', conversation: { kind: 'group', id: 'grp-100' }, actor: 'bob', isSuperAdminSender: false }
+    };
+    const superCtx = {
+        actor: 'welink-group:grp-100',
+        permissionMode: 'full',
+        channelContext: { channel: 'welink', conversation: { kind: 'group', id: 'grp-100' }, actor: 'boss', isSuperAdminSender: true }
+    };
+    await inDefault(async () => {
+        // 1. 普通群成员查本群（甚至省略 group-id 时自动补全本群 ID）允许执行
+        const ownGroup = await agent.execute(memberCtx, 'welink_query', { command: 'im query-history-message', options: { 'query-count': 50 } });
+        assert.equal(ownGroup.isError, undefined);
+        assert.deepEqual(JSON.parse(ownGroup.content).argv, ['im', 'query-history-message', '--query-count', '50', '--group-id', 'grp-100']);
+
+        // 2. 普通群成员查其他群、查单聊、搜索群或执行写操作均被拒绝
+        const otherGroup = await agent.execute(memberCtx, 'welink_query', { command: 'im query-history-message', options: { 'group-id': 'grp-999', 'query-count': 20 } });
+        assert.equal(otherGroup.isError, true);
+        assert.match(otherGroup.content, /仅可查询当前所在本群.*grp-100/);
+
+        const dmQuery = await agent.execute(memberCtx, 'welink_query', { command: 'im query-history-message', options: { 'user-account': 'alice', 'query-count': 20 } });
+        assert.equal(dmQuery.isError, true);
+        assert.match(dmQuery.content, /禁止查询任何单聊/);
+
+        const searchGroup = await agent.execute(memberCtx, 'welink_query', { command: 'search group', options: { text: '研发' } });
+        assert.equal(searchGroup.isError, true);
+        assert.match(searchGroup.content, /超级管理员名单/);
+
+        const writeAttempt = await agent.execute(memberCtx, 'welink_action', { command: 'im send-to-group', options: { 'group-id': 'grp-100', text: 'hi' } });
+        assert.equal(writeAttempt.isError, true);
+        assert.match(writeAttempt.content, /不在超级管理员名单/);
+
+        // 3. 超级管理员名单成员在群聊中可查本群、其他任意群、任意单聊
+        const superOtherGroup = await agent.execute(superCtx, 'welink_query', { command: 'im query-history-message', options: { 'group-id': 'grp-999', 'query-count': 20 } });
+        assert.equal(superOtherGroup.isError, undefined);
+        assert.deepEqual(JSON.parse(superOtherGroup.content).argv, ['im', 'query-history-message', '--group-id', 'grp-999', '--query-count', '20']);
+
+        const superDm = await agent.execute(superCtx, 'welink_query', { command: 'im query-history-message', options: { 'user-account': 'alice', 'query-count': 20 } });
+        assert.equal(superDm.isError, undefined);
+        assert.deepEqual(JSON.parse(superDm.content).argv, ['im', 'query-history-message', '--user-account', 'alice', '--query-count', '20']);
+    });
 });

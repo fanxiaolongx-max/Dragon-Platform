@@ -35,6 +35,7 @@ const LIMITS = {
 };
 
 const SECRET_ENV_RE = /KEY|TOKEN|SECRET|PASSWORD|PASS\b|COOKIE|AUTH|CREDENTIAL/i;
+const NOISE_ENV_RE = /^(?:ANTIGRAVITY_|VSCODE_|CODEX_|CHROME_DEVTOOLS_|NODE_REPL_|NODE_APP_INSTANCE$|pm_id$|axm_|vizion_|km_|instance_var$|exec_interpreter$|node_args$)/i;
 
 const DATABASE_WRITE_PARAMETERS = {
     type: 'object',
@@ -815,7 +816,7 @@ async function renamePath(ctx, args = {}) {
 function scrubbedEnv() {
     const env = {};
     Object.entries(process.env).forEach(([key, value]) => {
-        if (SECRET_ENV_RE.test(key)) return;
+        if (SECRET_ENV_RE.test(key) || NOISE_ENV_RE.test(key)) return;
         env[key] = value;
     });
     env.DRAGON_CLAW_AGENT = '1';

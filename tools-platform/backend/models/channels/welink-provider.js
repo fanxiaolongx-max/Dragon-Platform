@@ -233,6 +233,11 @@ class WeLinkProvider {
         let failure = null;
         let usage = null;
         const conversationRef = { kind: conversation.kind === 'group' ? 'group' : 'user', id: conversation.kind === 'group' ? conversation.groupId : conversation.senderAccount };
+        const groupTarget = conversation.kind === 'group' && conversation.groupId ? await targetsRepo.getTarget(this.channel, 'group', conversation.groupId).catch(() => null) : null;
+        const groupName = stored?.title || (groupTarget && groupTarget.name !== conversation.groupId ? groupTarget.name : '');
+        const groupContext = conversation.kind === 'group' && conversation.groupId
+            ? `当前所在群聊 ID（group-id）：${conversation.groupId}${groupName ? `（群名称：${groupName}）` : ''}。`
+            : '';
         // 运营群组：叠加群画像、互动要求与运营话术规范（延迟加载，避免与运营服务循环依赖）
         const opsNote = await require('./ops-service').interactionNote(this.channel, conversationRef.kind, conversationRef.id).catch(() => '');
         await dragonClawBridge.runTurn({
@@ -244,7 +249,7 @@ class WeLinkProvider {
             aiSessionId: stored?.aiSessionId || '',
             modelId: config.modelId,
             signal,
-            contextNote: `本次对话来自 ${this.label} ${conversation.kind === 'group' ? '群聊' : '单聊'}，发送人：${conversation.senderName || '未设置备注'}（账号 ${conversation.senderAccount || '未知'}）。${this.accountIsReadable ? '' : '称呼对方时用备注名或直接说「你」，不要在回复里复述账号 ID。'}回复会显示在 ${this.label} 聊天窗口中，请使用简洁的 Markdown；${this.channel === 'welink' ? '可以按用户要求调用实际可用的工具和 Skill，只有工具成功后才能报告完成。' : '不要输出平台内部相对链接以外的可执行内容。'}${opsNote ? `\n\n${opsNote}` : ''}`,
+            contextNote: `本次对话来自 ${this.label} ${conversation.kind === 'group' ? '群聊' : '单聊'}，${groupContext}发送人：${conversation.senderName || '未设置备注'}（账号 ${conversation.senderAccount || '未知'}）。${this.accountIsReadable ? '' : '称呼对方时用备注名或直接说「你」，不要在回复里复述账号 ID。'}回复会显示在 ${this.label} 聊天窗口中，请使用简洁的 Markdown；${this.channel === 'welink' ? `可以按用户要求调用实际可用的工具和 Skill（如用户在群里要求回顾/总结本群聊天记录时，直接用当前群聊 ID ${conversation.groupId || ''} 调用 @welink-office 的 welink_query im query-history-message，无需先搜索群），只有工具成功后才能报告完成。` : '不要输出平台内部相对链接以外的可执行内容。'}${opsNote ? `\n\n${opsNote}` : ''}`,
             onEvent: event => {
                 if (event.type === 'start' && event.sessionId) {
                     if (event.sessionId !== stored?.aiSessionId) targetsRepo.bindAiSession(this.channel, toolSessionId, event.sessionId).catch(() => {});

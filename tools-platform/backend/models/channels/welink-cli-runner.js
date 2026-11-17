@@ -29,7 +29,10 @@ const LOG_STDERR_CHARS = 2000;
 let cachedInstall = null;
 let cachedUserInfo = null;
 let cachedUserInfoAt = 0;
+let cachedAuthStatus = null;
+let cachedAuthStatusAt = 0;
 const USER_INFO_CACHE_TTL_MS = 15 * 60 * 1000;
+const AUTH_STATUS_CACHE_TTL_MS = 60 * 1000;
 let queue = Promise.resolve();
 let logSeq = 0;
 let recentLogs = [];
@@ -41,6 +44,8 @@ function clearCache() {
     cachedInstall = null;
     cachedUserInfo = null;
     cachedUserInfoAt = 0;
+    cachedAuthStatus = null;
+    cachedAuthStatusAt = 0;
 }
 
 function cliError(code, message, statusCode = 400) {
@@ -485,11 +490,20 @@ function interpretAuthStatus(result) {
     };
 }
 
-async function authStatus() {
-    return interpretAuthStatus(await run(['auth', 'status'], { timeoutMs: 30000 }));
+async function authStatus({ refresh = false } = {}) {
+    if (!refresh && cachedAuthStatus && Date.now() - cachedAuthStatusAt < AUTH_STATUS_CACHE_TTL_MS) {
+        return cachedAuthStatus;
+    }
+    const status = interpretAuthStatus(await run(['auth', 'status'], { timeoutMs: 30000 }));
+    if (status && status.loggedIn && status.uid) {
+        cachedAuthStatus = status;
+        cachedAuthStatusAt = Date.now();
+    }
+    return status;
 }
 
 async function logout() {
+    clearCache();
     const result = await run(['auth', 'logout'], { timeoutMs: 30000 });
     if (!result.ok) throw cliError('WELINK_CLI_LOGOUT_FAILED', `注销失败：${result.error}`, 502);
     return { ok: true, text: result.text };

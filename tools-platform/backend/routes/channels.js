@@ -21,7 +21,7 @@ const router = express.Router();
 const CHANNEL = 'welink';
 const KIND_RE = /^(user|group)$/;
 const CH = ':channel(welink|weixin)';
-const BEHAVIOR_KEYS = ['enabled', 'replyEngine', 'modelId', 'slashCommandsEnabled', 'deniedReply', 'access', 'push'];
+const BEHAVIOR_KEYS = ['enabled', 'replyEngine', 'modelId', 'slashCommandsEnabled', 'deniedReply', 'access', 'push', 'superAdmins'];
 const CHANNELS = {
     welink: {
         service: welink,

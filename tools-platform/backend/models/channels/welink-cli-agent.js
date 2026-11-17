@@ -321,7 +321,7 @@ function checkMeetingTimes(values, now = Date.now()) {
  * mode：'read' 只接受查询/下载命令，'write' 只接受写操作命令。
  * 返回 { command, args, label, spec, fields（审批卡展示用）, bodyFile（长正文改走 --body-path 时的内容）, downloadTarget }。
  */
-function buildArgs(input = {}, { mode = 'read', now, root = null } = {}) {
+function buildArgs(input = {}, { mode = 'read', now, root = null, defaultGroupId = '' } = {}) {
     const command = String(input.command || '').trim().replace(/\s+/g, ' ');
     const spec = COMMANDS[command];
     const allowed = mode === 'write' ? WRITE_COMMANDS : READ_COMMANDS;
@@ -349,6 +349,9 @@ function buildArgs(input = {}, { mode = 'read', now, root = null } = {}) {
     }
     for (const [name, defaultValue] of Object.entries(defaults)) {
         if (values[name] === undefined) values[name] = defaultValue;
+    }
+    if ((command === 'im query-history-message' || command === 'im query-group-member') && defaultGroupId && values['group-id'] === undefined && values['user-account'] === undefined) {
+        values['group-id'] = String(defaultGroupId);
     }
     if (command === 'meeting query-list' && values['meeting-start-time'] && !values['meeting-end-time']) {
         const s = Number(values['meeting-start-time']);
@@ -627,6 +630,42 @@ async function autodiscoverMailbox(signal) {
     }
 }
 
+const GROUP_MEMBER_ALLOWED_COMMANDS = new Set(['im query-history-message', 'im query-group-member', 'contact detail']);
+
+/**
+ * 频道对话（WeLink 群聊/单聊）中的 welink-cli 权限边界：
+ * - 超级管理员（本机 welink-cli 登录工号或「全局设置 › 频道对接 › 超级管理员名单」指定成员）：
+ *   在群聊或单聊中均可查询任何群聊、任何单聊内容；
+ * - 群内其他普通成员：在群聊中仅允许查询当前所在本群（group-id === 当前群 ID）的聊天记录与群成员，
+ *   禁止查询其他任何群聊、禁止查询任何单聊（--user-account）及个人邮件/日程/云空间。
+ */
+function enforceChannelScope(channelContext, write, built) {
+    if (!channelContext) return;
+    if (channelContext.isSuperAdminSender) return;
+    const actor = channelContext.actor || '未知';
+    if (write) {
+        throw toolError('WELINK_CHANNEL_SCOPE_FORBIDDEN', `权限受限：当前发言人（${actor}）不在超级管理员名单中，无权通过助理执行 WeLink 写操作。`);
+    }
+    const conv = channelContext.conversation;
+    if (!conv || conv.kind !== 'group' || !conv.id) {
+        throw toolError('WELINK_CHANNEL_SCOPE_FORBIDDEN', `权限受限：当前用户（${actor}）不在超级管理员名单中，无权通过助理调用 welink-cli 查询群聊、单聊或个人办公数据。如需开放，请管理员在「全局设置 › 频道对接 › WeLink › 超级管理员名单」中添加该账号。`);
+    }
+    const currentGroupId = String(conv.id).trim();
+    if (!GROUP_MEMBER_ALLOWED_COMMANDS.has(built.command)) {
+        throw toolError('WELINK_CHANNEL_SCOPE_FORBIDDEN', `权限受限：群内非超级管理员（${actor}）仅可查询当前所在本群（${currentGroupId}）的内容，无权调用 ${built.command} 查询其他群聊、任何单聊或个人办公数据。只有超级管理员及「超级管理员名单」内的成员可通过助理询问任何群或单聊内容。`);
+    }
+    if (built.command === 'im query-history-message' || built.command === 'im query-group-member') {
+        if (built.args.includes('--user-account')) {
+            throw toolError('WELINK_CHANNEL_SCOPE_FORBIDDEN', `权限受限：群内非超级管理员（${actor}）仅可查询当前所在本群（${currentGroupId}）的内容，禁止查询任何单聊记录（--user-account）。只有超级管理员及「超级管理员名单」内的成员可查询单聊内容。`);
+        }
+        const gIdx = built.args.indexOf('--group-id');
+        const targetGroupId = gIdx >= 0 ? String(built.args[gIdx + 1] || '').trim() : '';
+        if (targetGroupId !== currentGroupId) {
+            throw toolError('WELINK_CHANNEL_SCOPE_FORBIDDEN', `权限受限：群内非超级管理员（${actor}）仅可查询当前所在本群（${currentGroupId}）的内容，禁止跨群查询其他群聊（${targetGroupId || '未知'}）。只有超级管理员及「超级管理员名单」内的成员可查询任意群聊内容。`);
+        }
+    }
+}
+
 /**
  * 执行一次工具调用。ctx.onEvent 用于写操作的审批卡（approval / approval_result 事件）；
  * ctx.canApprove 为 false（非流式请求）时写操作直接拒绝。
@@ -636,7 +675,10 @@ async function execute(ctx, name, args = {}) {
     const write = name === 'welink_action';
     try {
         guard({ write });
-        const built = buildArgs(args && typeof args === 'object' ? args : {}, { mode: write ? 'write' : 'read', root: ctx.root });
+        const defaultGroupId = !ctx.channelContext?.isSuperAdminSender && ctx.channelContext?.conversation?.kind === 'group'
+            ? String(ctx.channelContext.conversation.id || '') : '';
+        const built = buildArgs(args && typeof args === 'object' ? args : {}, { mode: write ? 'write' : 'read', root: ctx.root, defaultGroupId });
+        enforceChannelScope(ctx.channelContext, write, built);
         if (write && ctx.permissionMode !== 'full') {
             if (!ctx.canApprove || typeof ctx.onEvent !== 'function') throw toolError('WELINK_APPROVAL_UNAVAILABLE', '写操作需要在 Dragon Claw 对话里审批确认，当前请求无法弹出审批卡');
             const { id, promise } = waitForApproval({ owner: ctx.actor || '', signal: ctx.signal });
@@ -671,7 +713,7 @@ async function execute(ctx, name, args = {}) {
     }
 }
 
-async function buildPrompt({ permissionMode = 'ask' } = {}) {
+async function buildPrompt({ permissionMode = 'ask', channelContext = null } = {}) {
     const config = runner.readConfig();
     const lines = ['', '【WeLink 个人身份工具（@welink-office）】'];
     if (!runner.tenantAllowed()) {
@@ -679,11 +721,19 @@ async function buildPrompt({ permissionMode = 'ask' } = {}) {
     } else if (!config.enabled) {
         lines.push('welink-cli 尚未启用。请告诉用户到「全局设置 › 频道对接 › WeLink › 个人身份（welink-cli）」检测安装、扫码登录并启用。');
     } else {
+        const channelScopeHint = channelContext?.conversation?.kind === 'group' && channelContext.conversation.id
+            ? (channelContext.isSuperAdminSender
+                ? `当前在 WeLink 群聊中（本群 group-id 为 ${channelContext.conversation.id}），发言人（${channelContext.actor}）属于超级管理员名单：查本群记录时直接传 group-id="${channelContext.conversation.id}"（无需先 search group）；同时允许按该管理员要求查询任何其他群聊（search group + im query-history-message）或任何单聊（search person + im query-history-message --user-account）及个人办公数据。`
+                : `当前在 WeLink 群聊中（本群 group-id 为 ${channelContext.conversation.id}），发言人（${channelContext.actor || '未知'}）为群内普通成员（不在超级管理员名单中）：【权限边界】仅允许查询当前所在本群（group-id="${channelContext.conversation.id}"）的聊天记录（im query-history-message）和群成员（im query-group-member）；严禁查询其他任何群聊、严禁查询任何单聊（--user-account）或个人邮件/日程/云空间。若对方要求查其他群或单聊，请直接说明仅超级管理员及超级管理员名单成员可查询其他群或单聊内容。`)
+            : (channelContext?.conversation?.kind === 'user' && !channelContext.isSuperAdminSender
+                ? `当前单聊用户（${channelContext.actor || '未知'}）不在超级管理员名单中，无权通过 welink-cli 查询任何群聊、单聊或个人办公数据。`
+                : '');
         lines.push(
             '用 welink_query 以用户本人身份查询 WeLink，或把云空间文件 / 分享外链 / 邮件附件下载到本机下载目录。结果以工具返回为准，不要编造人员、消息、会议或邮件内容。',
+            ...(channelScopeHint ? [channelScopeHint] : []),
             `今天是 ${new Date().toLocaleDateString('sv-SE')}，现在是 ${new Date().toLocaleTimeString('zh-CN', { hour12: false })}（平台服务器本地时间），当前 13 位毫秒时间戳约为 ${Date.now()}；meeting query-list 默认自动查询今日待参加会议（参数已内置智能默认值），mail/calendar 的 --end 不包含当天（查某天要写次日），calendar create 的 start/end 写 YYYY-MM-DDTHH:mm:ss。查询日程或会议完成后，务必在正文中按时间顺序列出清晰的事项、时间、地点与参会人清单。`,
             `查邮件 / 日历时直接调用即可：CLI 提示未发现邮箱服务器时，平台会自动用${config.email ? ` ${config.email}` : '云空间资料里的邮箱'}执行 mail autodiscover 并重试，不需要先手动 autodiscover。`,
-            config.allowWrite
+            config.allowWrite && (!channelContext || channelContext.isSuperAdminSender)
                 ? `用户明确要求发消息、建群、撤回、建会/改会/取消、议题、云空间增删改与外链、发/回/转/移邮件、建日程、特别关注时，用 welink_action：${permissionMode === 'full' ? '当前是完全访问模式，按明确要求直接执行，无需逐项审批。' : '每次调用都会弹出审批卡，用户允许后才真正执行。'}调用前把收件人/成员换成查询到的真实账号或邮箱（不知道就先用 search person / contact detail 查，查不到就问用户），不要猜；工具返回成功前不要说「已发送 / 已创建」，被拒绝时如实说明未执行。`
                 : '写操作（发消息、发邮件、建会、删除等）当前未开启：请告诉用户管理员可在「全局设置 › 频道对接 › WeLink › 个人身份（welink-cli）」开启「允许写操作」，开启后每次执行前都会在对话里请他确认。',
             '需要查询或执行时在本轮直接调用工具，不要只回复「请稍等 / 正在查询」就结束；工具结果出来后再回答。'

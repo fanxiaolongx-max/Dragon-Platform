@@ -108,6 +108,33 @@ function autoSelect(content, { pagePath = '', extraIds = [], contextMessages = [
         selected.push('welink-slash-command');
     }
 
+    // WeLink 办公（个人身份 welink-cli）：
+    // 1. 显式提及群聊记录回顾、总结群里/本群最近说了啥、查询群聊/单聊历史记录、welink-cli 办公等
+    // 2. 在 WeLink 频道（/channels/welink）对话中询问群消息、单聊记录、总结讨论内容、查会议/邮件/日程/云空间
+    // 3. 本会话历史中已使用过 welink-office，后续追问保持激活
+    if (byId.has('welink-office') && !selected.includes('welink-slash-command')) {
+        const isWelinkChannel = /\/channels\/welink\b/i.test(String(pagePath || ''));
+        const welinkDirect = /(?:welink[-_\s]?cli|welink\s*办公|群聊记录|群聊天记录|历史聊天记录|(?:群里|本群|这个群).{0,16}(?:最近|今天|昨天|本周|这周|上周|一周|几天|刚才).{0,12}(?:说|聊|讨论|总结|汇总|回顾|发了)|(?:总结|汇总|回顾|看看|查一下|查下|拉取).{0,12}(?:群里|本群|这个群|群聊|单聊).{0,12}(?:最近|今天|昨天|本周|这周|一周|几天|说|聊|消息|记录|内容|讨论))/i.test(text)
+            || (isWelinkChannel && /(?:群里|本群|这个群|聊天记录|历史消息|群消息|单聊记录|单聊消息|(?:最近|今天|昨天|本周|这周|一周).{0,8}(?:说了?啥|说了?什么|聊了?啥|聊了?什么|讨论了?啥|讨论了?什么)|(?:总结|汇总|回顾).{0,10}(?:群|消息|聊天|讨论|记录)|(?:查|看|搜).{0,8}(?:群|单聊|聊天记录|历史消息|会议|邮件|日程|日历|云空间|onebox))/i.test(text));
+        const sessionHadWelink = (Array.isArray(contextMessages) ? contextMessages : []).some(item => {
+            const c = String(item?.content || '');
+            if (/@(?:welink-office|welink\s*办公)\b|welink_query|welink_action/i.test(c)) return true;
+            if (Array.isArray(item?.toolCalls) && item.toolCalls.some(call => /^welink_(?:query|action)$/.test(String(call?.name || '')))) return true;
+            try {
+                const events = typeof item?.events === 'string' ? JSON.parse(item.events) : item?.events;
+                if (Array.isArray(events) && events.some(e => (e.type === 'skills' && Array.isArray(e.skills) && e.skills.includes('welink-office')) || /^welink_(?:query|action)$/.test(String(e.tool || '')))) return true;
+            } catch (_) {}
+            return false;
+        });
+        const welinkFollowup = sessionHadWelink && (
+            welinkDirect
+            || /(?:继续|再查|往前|更早|上一页|详情|总结|汇总|那.{0,6}呢|还有吗)/.test(text)
+        );
+        if (welinkDirect || welinkFollowup) {
+            selected.push('welink-office');
+        }
+    }
+
     // Open-AutoGLM 手机端自动化控制：
     // 1. 本轮显式提及手机操作、屏幕截图、自动化控制等
     // 2. 本会话历史中已使用过 @open-autoglm，后续的动作指令（如“打卡设置 截图看看”、“打开设置”、“查看当前屏幕”、“点击确认”等）自动保持 open-autoglm 激活

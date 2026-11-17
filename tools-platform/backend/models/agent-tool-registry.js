@@ -44,8 +44,9 @@ const TOOLSETS = {
             const welink = require('./channels/welink-cli-agent');
             let allowWrite = false;
             try { allowWrite = Boolean(require('./channels/welink-cli-runner').readConfig().allowWrite); } catch (_error) { /* 未配置 welink-cli 时只读 */ }
-            return { definitions: welink.definitions({ write: allowWrite, permissionMode: session.permissionMode }), prompt: await welink.buildPrompt({ permissionMode: session.permissionMode }).catch(() => ''),
-                execute: (call, { signal, write }) => welink.execute({ actor: session.username, permissionMode: session.permissionMode, signal, callId: call.id, canApprove: true, onEvent: event => write(event) }, call.name, call.args) };
+            if (session.channelContext && !session.channelContext.isSuperAdminSender) allowWrite = false;
+            return { definitions: welink.definitions({ write: allowWrite, permissionMode: session.permissionMode }), prompt: await welink.buildPrompt({ permissionMode: session.permissionMode, channelContext: session.channelContext || null }).catch(() => ''),
+                execute: (call, { signal, write }) => welink.execute({ actor: session.username, permissionMode: session.permissionMode, channelContext: session.channelContext || null, root: session.root, signal, callId: call.id, canApprove: !session.unattended, onEvent: event => write(event) }, call.name, call.args) };
         }
     },
     'open-autoglm': {

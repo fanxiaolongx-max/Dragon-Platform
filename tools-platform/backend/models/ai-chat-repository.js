@@ -264,7 +264,14 @@ async function listOwnedSessions({ owner, pagePath, query = '', limit = 30, offs
 
 async function getTitleSource(sessionId, owner) {
     await ensureReady();
-    return (await get('SELECT auto_title_source FROM ai_chat_sessions WHERE id=? AND owner=?', [sessionId, String(owner || '')]))?.auto_title_source || '';
+    const row = await get(`SELECT s.auto_title, s.auto_title_source,
+        (SELECT content FROM ai_chat_messages m WHERE m.session_id=s.id AND m.role='user' ORDER BY m.created_at,m.rowid LIMIT 1) AS first_question
+        FROM ai_chat_sessions s WHERE id=? AND owner=?`, [sessionId, String(owner || '')]);
+    if (!row) return '';
+    if (row.auto_title_source === 'ai' && isTrivialProbe(row.first_question) && (row.auto_title === '数学加法计算' || row.auto_title === conversationTitle(row.first_question))) {
+        return '';
+    }
+    return row.auto_title_source || '';
 }
 
 async function setAiTitle({ sessionId, owner, title }) {
@@ -290,6 +297,24 @@ async function listTitleCandidates({ owner, pagePath, limit = 8 } = {}) {
 }
 
 const tokenCount = value => Math.max(0, Math.round(Number(value) || 0));
+const TRIVIAL_PROBE_RE = /^(?:1\s*\+\s*1(?:\s*=\s*\??)?|你好|您好|hi|hello|hey|在吗|在不在|测试|test|ping|喂|哈喽)[!！?？。.\s]*$/i;
+const isTrivialProbe = text => TRIVIAL_PROBE_RE.test(String(text || '').trim());
+
+async function syncAutoTitleOnUserMessage(sessionId, owner, currentQuestion) {
+    const cleanOwner = String(owner || '');
+    const row = await get(`SELECT s.auto_title, s.auto_title_source,
+        (SELECT content FROM ai_chat_messages m WHERE m.session_id=s.id AND m.role='user' ORDER BY m.created_at,m.rowid LIMIT 1) AS first_question
+        FROM ai_chat_sessions s WHERE s.id=? AND s.owner=?`, [sessionId, cleanOwner]);
+    if (!row) return;
+    if (!row.auto_title) {
+        const q = currentQuestion && !isTrivialProbe(currentQuestion) ? currentQuestion : (row.first_question || currentQuestion);
+        if (q) await run("UPDATE ai_chat_sessions SET auto_title=? WHERE id=? AND owner=? AND auto_title=''", [conversationTitle(q), sessionId, cleanOwner]);
+        return;
+    }
+    if (currentQuestion && !isTrivialProbe(currentQuestion) && isTrivialProbe(row.first_question) && (row.auto_title === conversationTitle(row.first_question) || row.auto_title === '数学加法计算')) {
+        await run("UPDATE ai_chat_sessions SET auto_title=?, auto_title_source='' WHERE id=? AND owner=?", [conversationTitle(currentQuestion), sessionId, cleanOwner]);
+    }
+}
 
 async function addMessage({ sessionId, pagePath, pageTitle, role, content, tokens = 0, cost = 0, events = null, owner = '', inputTokens = 0, outputTokens = 0, modelName = '' }) {
     await ensureReady();
@@ -316,9 +341,7 @@ async function addMessage({ sessionId, pagePath, pageTitle, role, content, token
         ]
     );
     if (role !== 'model') {
-        const untitled = await get(`SELECT (SELECT content FROM ai_chat_messages m WHERE m.session_id=s.id AND m.role='user' ORDER BY m.created_at,m.rowid LIMIT 1) AS question
-            FROM ai_chat_sessions s WHERE s.id=? AND s.owner=? AND s.auto_title=''`, [finalSessionId, String(owner || '')]);
-        if (untitled?.question) await run("UPDATE ai_chat_sessions SET auto_title=? WHERE id=? AND owner=? AND auto_title=''", [conversationTitle(untitled.question), finalSessionId, String(owner || '')]);
+        await syncAutoTitleOnUserMessage(finalSessionId, owner, content);
     }
     await run('UPDATE ai_chat_sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [finalSessionId]);
     await autoArchiveSessions();
@@ -356,6 +379,8 @@ async function upsertAgentTurn({ sessionId, owner, runId, agentSessionId, root, 
             model ? cost : 0, JSON.stringify(redactValue(savedEvents)), Number(final),
             model ? tokenCount(inputTokens) : 0, model ? tokenCount(outputTokens) : 0, model ? String(modelName || '').slice(0, 120) : '']);
     }
+    if (question) await syncAutoTitleOnUserMessage(sessionId, owner, question);
+    await run('UPDATE ai_chat_sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [sessionId]);
     await setSessionAgent(sessionId, { agentSessionId, root, owner });
 }
 
