@@ -169,10 +169,12 @@
                 || (window.__homeCustomTools || []).find(t => (itemHref && t.href === itemHref))
                 || null;
             const resolvedSlug = slug || customTool?.slug || null;
+            const pageMeta = pageTargetMeta(itemHref || toolId, resolvedSlug, customTool);
             return {
                 kind: 'tool',
                 id: toolId,
                 slug: resolvedSlug,
+                ...pageMeta,
                 isCustom: Boolean(resolvedSlug || customTool),
                 name: item.title || customTool?.name || toolId,
                 href: itemHref || (resolvedSlug ? `/tools/${resolvedSlug}` : ''),
@@ -205,6 +207,7 @@
                 || null;
             const resolvedSlug = slug || customTool?.slug || null;
             const toolId = card.dataset.originId || (resolvedSlug ? `custom:${resolvedSlug}` : cardHref.replace(/^\//, ''));
+            const pageMeta = pageTargetMeta(cardHref || toolId, resolvedSlug, customTool);
             const titleEl = card.querySelector('.card-title')?.cloneNode(true) || card.querySelector('strong')?.cloneNode(true);
             titleEl?.querySelectorAll('.new-badge, .tool-kind-badge, span')?.forEach(n => n.remove());
             const name = customTool?.name || titleEl?.textContent?.trim() || resolvedSlug || toolId;
@@ -212,6 +215,7 @@
                 kind: 'tool',
                 id: toolId,
                 slug: resolvedSlug,
+                ...pageMeta,
                 isCustom: Boolean(isCustomCard || resolvedSlug || customTool),
                 name,
                 href: cardHref || (resolvedSlug ? `/tools/${resolvedSlug}` : ''),
@@ -246,10 +250,12 @@
                 || null;
             const resolvedSlug = slug || customTool?.slug || null;
             const toolId = resolvedSlug ? `custom:${resolvedSlug}` : pathname.replace(/^\//, '');
+            const pageMeta = pageTargetMeta(pathname || toolId, resolvedSlug, customTool);
             return {
                 kind: 'tool',
                 id: toolId,
                 slug: resolvedSlug,
+                ...pageMeta,
                 isCustom: Boolean(resolvedSlug || customTool),
                 name: customTool?.name || title || resolvedSlug || toolId,
                 href,
@@ -260,33 +266,55 @@
         return null;
     }
 
+    function pageTargetMeta(idOrHref, resolvedSlug, customTool) {
+        if (resolvedSlug || customTool) return { pageId: '', builtInLocked: false, pageSharedAccess: undefined };
+        const pageId = window.normalizePlatformPageId?.(idOrHref) || '';
+        const pageAccess = pageId ? window.getPlatformPageAccess?.(pageId) : null;
+        return {
+            pageId,
+            builtInLocked: pageAccess?.locked === true,
+            pageSharedAccess: pageAccess ? pageAccess.sharedAccess === true : undefined
+        };
+    }
+
     function distributionAction(target) {
         if (localStorage.getItem('tools_super') !== '1' || !window.isNavSuperAdmin?.() || (localStorage.getItem('tools_tenant_id') || 'default') !== 'default') return null;
-        let endpoint, payload, entry;
+        let endpoint, payload, entry, currentShared;
         if (target.kind === 'tool' && target.slug && target.customTool) {
             entry = target.customTool;
             endpoint = `/api/custom-tools/${encodeURIComponent(target.slug)}/distribution`;
             payload = {};
+            currentShared = entry?.sharedAccess === true;
+        } else if (target.kind === 'tool' && target.pageId && !target.builtInLocked) {
+            endpoint = '/api/distribution';
+            payload = { kind: 'page', id: target.pageId };
+            currentShared = target.pageSharedAccess === true;
         } else if (target.kind === 'skill' || target.capabilityId) {
             const skill = target.kind === 'skill';
             entry = skill ? target.skill : target;
             endpoint = '/api/distribution';
             payload = { kind: skill ? 'skill' : 'cap', id: skill ? target.id : target.capabilityId };
+            currentShared = entry?.sharedAccess === true;
         } else return null;
-        const sharedAccess = entry?.sharedAccess !== true;
+        const sharedAccess = !currentShared;
         return {
             id: 'distribution', label: t(sharedAccess ? 'shareAll' : 'unshareAll'), icon: 'external',
             run: async () => {
                 try {
-                    await API.patch(endpoint, { ...payload, sharedAccess });
+                    const res = await API.patch(endpoint, { ...payload, sharedAccess });
                     if (entry) entry.sharedAccess = sharedAccess;
+                    if (target.pageId) {
+                        window.updatePlatformPageAccessEntry?.(res?.page || { id: target.pageId, sharedAccess, locked: false });
+                    }
                     if (target.card) {
                         target.card.classList.toggle('is-shared-access', sharedAccess);
                     }
                     if (target.kind === 'skill') window.dispatchEvent(new CustomEvent('skills:changed'));
                     if (target.kind === 'plugin') await window.HomeCapabilities?.reload?.();
                     if (target.kind === 'tool') {
-                        if (typeof window.reloadHomeCustomTools === 'function') {
+                        if (target.pageId) {
+                            window.syncPlatformPageCards?.();
+                        } else if (typeof window.reloadHomeCustomTools === 'function') {
                             await window.reloadHomeCustomTools();
                         } else if (typeof window.loadCustomTools === 'function') {
                             await window.loadCustomTools();

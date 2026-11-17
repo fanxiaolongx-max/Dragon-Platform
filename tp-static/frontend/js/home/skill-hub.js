@@ -152,10 +152,12 @@
                 let sharedAccess = tool.sharedAccess === true;
                 let shared = tool.shared === true;
                 let builtIn = tool.builtIn === true;
+                let matchedCustom = false;
                 if (customTools.length) {
                     const match = (slug ? customTools.find(t => t.slug === slug) : null)
                         || customTools.find(t => tool.href && t.href === tool.href);
                     if (match) {
+                        matchedCustom = true;
                         builtIn = match.builtIn === true;
                         if (match.sharedAccess !== undefined) {
                             sharedAccess = match.sharedAccess === true;
@@ -169,8 +171,25 @@
                         }
                     }
                 }
-                const isShared = Boolean(shared || sharedAccess || (!slug && builtIn));
-                const source = builtIn ? 'builtin' : (Boolean(shared || sharedAccess) ? 'shared' : 'custom');
+                let pageId = '';
+                let builtInLocked = false;
+                if (!slug && !matchedCustom) {
+                    if (typeof window.getPlatformPageAccess === 'function') {
+                        pageId = window.normalizePlatformPageId?.(tool.id || tool.href) || '';
+                        const pageAccess = pageId ? window.getPlatformPageAccess(pageId) : null;
+                        if (pageAccess) {
+                            builtIn = true;
+                            sharedAccess = pageAccess.sharedAccess === true;
+                            builtInLocked = pageAccess.locked === true;
+                        }
+                    } else if (builtIn) {
+                        const rawId = String(tool.id || tool.href || '').replace(/^\/+|\/+$/g, '');
+                        builtInLocked = ['storage', 'db-explorer', 'netcare-explorer'].includes(rawId);
+                        sharedAccess = !builtInLocked;
+                    }
+                }
+                const isShared = Boolean(shared || sharedAccess);
+                const source = builtIn ? 'builtin' : (isShared ? 'shared' : 'custom');
                 const extraCats = [superAdmin ? (isShared ? 'sharedWithAll' : 'unsharedOnly') : (isShared ? 'sharedWithAll' : null)].filter(Boolean);
                 const badges = [tool.group];
                 if (superAdmin) {
@@ -180,12 +199,13 @@
                 }
                 if (updatedText) badges.push(updatedText);
                 return {
-                    key: `tool:${tool.id}`, kind: 'tool', id: tool.id, slug, title: tool.title, desc: tool.description || '',
+                    key: `tool:${tool.id}`, kind: 'tool', id: tool.id, slug, pageId, builtInLocked, title: tool.title, desc: tool.description || '',
                     icon: tool.icon || '🧩', color: builtIn ? '#10a37f' : (tool.color || '#64748b'), cat: tool.group, catLabel: tool.group,
                     badges, mine: favorites.has(tool.id), updatedAt, href: tool.href,
-                    sharedAccess: isShared, shared: Boolean(shared || sharedAccess), builtIn, source, extraCats
+                    sharedAccess: isShared, shared: Boolean(shared || (!pageId && sharedAccess)), builtIn, source, extraCats
                 };
-            });
+            })
+            .filter(entry => entry && (superAdmin || !entry.pageId || entry.sharedAccess));
     }
     const entries = () => (state.tab === 'skills' ? skillEntries() : state.tab === 'plugins' ? pluginEntries() : toolEntries());
 
@@ -593,7 +613,10 @@
             if (root.querySelector('.v2-hub-menu:not([hidden])')) { toggleMenu(false); return; }
             close();
         }, true);
-        ['skills:changed', 'skills:loaded', 'home:tools-updated', 'home:capabilities'].forEach(name => window.addEventListener(name, () => { if (state.open) setTimeout(renderList, 0); }));
+        ['skills:changed', 'skills:loaded', 'home:tools-updated', 'home:capabilities', 'tools:catalog-change'].forEach(name => window.addEventListener(name, () => {
+            if (!state.open) return;
+            setTimeout(() => { renderFilters(); renderList(); }, 0);
+        }));
         window.addEventListener('tools:languagechange', () => { if (state.open) render(); });
         const syncHash = () => {
             const h = location.hash.replace(/^#/, '');

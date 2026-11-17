@@ -2,6 +2,10 @@
 (function () {
     'use strict';
     if (window.ToolsNavigation?.installed) return;
+    const appTool = (() => {
+        try { return new URL(location.href).searchParams.get('tools_mobile') === '1'; }
+        catch { return false; }
+    })();
     configureMobileViewport();
 
     function configureMobileViewport() {
@@ -10,37 +14,67 @@
         if (/Electron/i.test(userAgent) || (!ios && !/Android/i.test(userAgent) &&
             !window.matchMedia?.('(hover: none) and (pointer: coarse)').matches)) return;
 
+        function detectedLayout() {
+            return document.querySelector?.('meta[name="tools-detected-mobile-layout"]')?.content || '';
+        }
         function lockViewport() {
-            let viewport = document.querySelector('meta[name="viewport"]');
+            const viewports = [...(document.querySelectorAll?.('meta[name="viewport"]') || [])];
+            const rawSettings = viewports
+                .flatMap(node => String(node.content || '').split(','))
+                .map(value => value.trim())
+                .filter(value => value && !/^(?:width|initial-scale|minimum-scale|maximum-scale|user-scalable)\s*=/i.test(value));
+            const settings = [...new Set(rawSettings)];
+            let viewport = viewports[0];
+            for (const extra of viewports.slice(1)) extra.remove?.();
             if (!viewport) {
                 viewport = document.createElement('meta');
                 viewport.name = 'viewport';
-                document.head.prepend(viewport);
+                (document.head?.prepend || document.head?.append)?.call(document.head, viewport);
             }
-            const settings = viewport.content.split(',').map(value => value.trim()).filter(value =>
-                value && !/^(?:width|initial-scale|minimum-scale|maximum-scale|user-scalable)\s*=/i.test(value));
-            viewport.content = ['width=device-width', 'initial-scale=1', 'minimum-scale=1', 'maximum-scale=1',
-                'user-scalable=no', ...settings].join(', ');
+            const layout = detectedLayout();
+            if (appTool && layout === 'desktop') {
+                viewport.content = ['width=1200', 'user-scalable=yes', ...settings].join(', ');
+            } else if (appTool) {
+                viewport.content = ['width=device-width', 'initial-scale=1', 'user-scalable=yes', ...settings].join(', ');
+            } else {
+                viewport.content = ['width=device-width', 'initial-scale=1', 'minimum-scale=1', 'maximum-scale=1',
+                    'user-scalable=no', ...settings].join(', ');
+            }
         }
-        // Some routes inject this script before the page's own viewport tag.
-        if (document.readyState === 'loading' && !document.querySelector('meta[name="viewport"]')) {
-            document.addEventListener('DOMContentLoaded', lockViewport, { once: true });
-        } else {
-            lockViewport();
+        // Apply immediately and observe <head> during parsing so page-native viewport tags are
+        // rewritten before initial body layout instead of waiting until DOMContentLoaded.
+        lockViewport();
+        if (document.readyState === 'loading') {
+            let headObserver = null;
+            if (document.head && typeof MutationObserver === 'function') {
+                headObserver = new MutationObserver(() => lockViewport());
+                headObserver.observe(document.head, { childList: true });
+            }
+            document.addEventListener('DOMContentLoaded', () => {
+                headObserver?.disconnect?.();
+                lockViewport();
+            }, { once: true });
         }
 
         const style = document.createElement('style');
-        style.textContent = `
-            :where(html, body, body *) { touch-action: manipulation; touch-action: pan-x pan-y; }
-            ${ios ? `:is(textarea, select, input:not([type]), input:is([type="text"], [type="search"],
+        // Allow pinch-zoom inside mobile app tool WebViews; block pinch only on outer shell.
+        const touchActionRule = appTool
+            ? 'touch-action: manipulation;'
+            : 'touch-action: manipulation; touch-action: pan-x pan-y;';
+        const inputZoomRule = ios && (!appTool || detectedLayout() !== 'desktop')
+            ? `:is(textarea, select, input:not([type]), input:is([type="text"], [type="search"],
                 [type="password"], [type="email"], [type="tel"], [type="url"], [type="number"]),
                 [contenteditable="true"], [contenteditable="plaintext-only"], [contenteditable=""]) {
                 font-size: 16px !important;
-            }` : ''}
+            }`
+            : '';
+        style.textContent = `
+            :where(html, body, body *) { ${touchActionRule} }
+            ${inputZoomRule}
         `;
         document.head.append(style);
 
-        if (ios) {
+        if (ios && !appTool) {
             // Safari can ignore the viewport's scale limits for pinch gestures.
             const preventZoom = event => event.preventDefault();
             for (const type of ['gesturestart', 'gesturechange']) {
@@ -74,6 +108,7 @@
         const custom = url.pathname.match(/^\/tools\/([^/]+)\/?$/);
         if (custom) url.pathname = '/custom-tools/' + custom[1] + '/index.html';
         url.searchParams.set('standalone', '1');
+        if (appTool) url.searchParams.set('tools_mobile', '1');
         return url.pathname + url.search + url.hash;
     }
     function shellUrl(href) {

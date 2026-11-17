@@ -32,9 +32,12 @@ function renderNavSettingsTabLabel(icon, label) {
 }
 
 function renderPageSettingsTabs() {
-    // 「工具中台」页配置的是工具免密访问，属于超级管理员
-    // 迁移状态、NetCare 数据探查依赖超级管理员专属接口
-    return NAV_BUILTIN_LINKS.filter(item => !['home', 'storage', 'netcare-explorer'].includes(item.id) || isNavSuperAdmin()).map(item => `
+    // 「工具中台」页配置的是工具免密访问，属于超级管理员；未向全员开放的内置页面对非超管同样隐藏
+    return NAV_BUILTIN_LINKS.filter(item => {
+        if (isNavSuperAdmin()) return true;
+        if (['home', 'storage', 'db-explorer', 'netcare-explorer'].includes(item.id)) return false;
+        return typeof isPlatformPageShared === 'function' ? isPlatformPageShared(item.id) : true;
+    }).map(item => `
         <button class="nav-settings-tab nav-settings-tab-page ${navState.settingsTab === `page:${item.id}` ? 'active' : ''}" data-tab="page:${navEscape(item.id)}" onclick="switchNavSettingsTab('page:${navEscape(item.id)}')">${renderNavSettingsTabLabel(item.icon, getNavLabel(item))}</button>
     `).join('');
 }
