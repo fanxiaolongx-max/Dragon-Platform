@@ -135,13 +135,14 @@ test('Skill Hub shared badges & category filter chips for Plugins and Tools', as
         const unsharedTool = tools.find(t => t.id === 'custom:tool-unshared');
 
         assert.ok(staticTool.badges.includes('全员开放'), 'static built-in tool must have 全员开放 badge');
-        assert.ok(staticTool.extraCats.includes('sharedWithAll'), 'static built-in tool must have sharedWithAll extraCat');
+        assert.ok(!staticTool.extraCats.includes('sharedWithAll'), 'tools tab must not duplicate sharedWithAll in top category chips');
 
         assert.ok(sharedTool.badges.includes('全员开放'), 'shared custom tool must have 全员开放 badge');
-        assert.ok(sharedTool.extraCats.includes('sharedWithAll'), 'shared custom tool must have sharedWithAll extraCat');
+        assert.ok(!sharedTool.extraCats.includes('sharedWithAll'), 'tools tab must not duplicate sharedWithAll in top category chips');
 
         assert.ok(unsharedTool.badges.includes('未全员开放'), 'unshared custom tool must have 未全员开放 badge for superadmin');
         assert.ok(unsharedTool.extraCats.includes('unsharedOnly'), 'unshared custom tool must have unsharedOnly extraCat for superadmin');
+        assert.match(hubCode, /else if \(state\.filterSource === 'shared'\) \{\s*if \(item\.source !== 'shared' && !item\.sharedAccess && !item\.shared\) return false;/, 'bottom shared source filter must include built-in shared tools too');
     });
 
     await t.test('non-superadmin only receives sharedWithAll badge, never unsharedOnly', () => {

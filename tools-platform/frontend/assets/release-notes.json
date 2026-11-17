@@ -1,8 +1,10 @@
 {
   "zh": [
+    "移除「技能·插件·工具」中「工具」页签顶部分类栏里重复的「全员开放」筛选标签，统一仅在底部「工具来源」栏保留「全员开放」并同步覆盖全部已向全员开放的工具。",
     "修复工作区右侧边栏（工作区、外部会话卡及文件预览）无法手动调整宽度的问题：补全桌面端三列/两列布局中的 `--workspace-panel-width` 优先级回退、恢复窄屏抽屉高于遮罩层的层级、作用域限定旧版折叠状态规则，并将侧栏拖拽手柄纳入桌面端不可拖拽标题区域。"
   ],
   "en": [
+    "Removed the duplicate 'Shared with all' category chip from the Tools tab in Skill Hub so it appears only once in the bottom Tool source filter row and includes all shared tools.",
     "Fixed manual width resizing for right-hand workspace sidebars (Workspace, external session cards, and file preview): restored `--workspace-panel-width` in desktop grid rules, raised the narrow-screen drawer z-index above its backdrop, scoped legacy collapsed preview grid rules away from `platform-home`, and excluded resize handles from desktop titlebar drag regions."
   ]
 }
