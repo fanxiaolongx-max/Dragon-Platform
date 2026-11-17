@@ -2,6 +2,8 @@
 // No Node evaluation of script content; all JavaScript runs in the sandboxed page.
 'use strict';
 
+const { forwardRunDownloads } = require('./uiv-download-import');
+
 const SUPPORTED = new Set(['echo', 'store', 'open', 'pause', 'executeScript', 'gotoIf_v2', 'gotoLabel', 'label', 'while_v2', 'endWhile']);
 
 function prepareMacro(macro) {
@@ -102,21 +104,29 @@ async function runMacro(macro, page, { wait = ms => new Promise(resolve => setTi
     }
 }
 
-function createUivBatchRunner({ openPage, onError }) {
+function createUivBatchRunner({ openPage, onError, getAppBaseUrl = null, forwardDownloads = forwardRunDownloads }) {
     let active = null;
     return {
-        async start(macro) {
+        async start(macro, { autoImport = null } = {}) {
             prepareMacro(macro);
             if (active) throw new Error('已有批脚本正在运行，请先停止或关闭运行标签 / A batch is already running');
             const job = {};
             active = job;
             try {
                 const page = await openPage({ name: macro.Name || 'UIVF12', url: 'about:blank' });
-                page.webContents.once('destroyed', () => { if (active === job) active = null; });
+                const stopForwarding = forwardDownloads({
+                    webContents: page.webContents, autoImport, baseUrl: autoImport && getAppBaseUrl ? getAppBaseUrl() : '',
+                    onError: () => console.warn('[UIVF12] 下载文件补传自动导入失败')
+                });
+                page.webContents.once('destroyed', () => { stopForwarding(); if (active === job) active = null; });
                 job.done = runMacro(macro, page).catch(() => {
                     // Do not surface raw page errors: they may contain tokens.
                     if (!page.webContents.isDestroyed()) onError(page);
-                }).finally(() => { if (active === job) active = null; });
+                }).finally(() => {
+                    if (active === job) active = null;
+                    // 最后一个文件可能还在写盘；之后用户在这个标签里手动下载的不再算进本次导入
+                    setTimeout(stopForwarding, 60000).unref?.();
+                });
                 return { mode: 'desktop-native', success: true };
             } catch (error) { if (active === job) active = null; throw error; }
         }

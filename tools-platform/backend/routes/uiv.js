@@ -400,7 +400,11 @@ router.post('/run-uivision-macro', async (req, res) => {
             if (!desktop || typeof desktop.runUivMacro !== 'function') {
                 return res.status(409).json({ error: '桌面浏览器不可用，请重新启动桌面应用 / Desktop browser unavailable' });
             }
-            return res.json(await desktop.runUivMacro(macro));
+            const autoImport = req.body.autoImport || {};
+            const hex32 = /^[a-f0-9]{32}$/;
+            const importSession = hex32.test(autoImport.sessionId || '') && hex32.test(autoImport.token || '')
+                ? { sessionId: autoImport.sessionId, token: autoImport.token } : null;
+            return res.json(await desktop.runUivMacro(macro, { autoImport: importSession }));
         }
         const runDir = getUiVisionRunDir();
         const runId = crypto.randomBytes(16).toString('hex');

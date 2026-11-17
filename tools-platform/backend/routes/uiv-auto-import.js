@@ -152,6 +152,20 @@ function upsertDataset(meta, body, rows, now, sessionDir) {
     let dataset = append
         ? meta.datasets.find(item => item && item.clientUploadId === clientUploadId)
         : null;
+    // 桌面端会把真实下载完成的文件再补传一次（fallback）。同名文件页面内已经上传过就跳过；
+    // 反过来补传先到、页面内上传后到时，以页面内的为准替换掉补传的那份。
+    if (!dataset && !append) {
+        const name = safeName(body?.name);
+        const sameName = meta.datasets.filter(item => item && item.name === name);
+        if (body?.fallback === true && sameName.length) return { dataset: sameName[0], skipped: true };
+        sameName.filter(item => item.fallback).forEach(item => {
+            (item.chunks || []).forEach(chunk => {
+                const file = String(chunk && chunk.file || '');
+                if (/^[a-f0-9]{16}-\d{5}\.json$/.test(file)) fs.rmSync(path.join(getDatasetsDir(sessionDir), file), { force: true });
+            });
+            meta.datasets.splice(meta.datasets.indexOf(item), 1);
+        });
+    }
     if (!dataset) {
         dataset = {
             id: crypto.randomBytes(8).toString('hex'),
@@ -159,7 +173,8 @@ function upsertDataset(meta, body, rows, now, sessionDir) {
             name: safeName(body?.name),
             chunks: [],
             rowCount: 0,
-            uploadedAt: now
+            uploadedAt: now,
+            fallback: body?.fallback === true || undefined
         };
         meta.datasets.push(dataset);
     }
@@ -176,7 +191,7 @@ function upsertDataset(meta, body, rows, now, sessionDir) {
     }
     dataset.uploadedAt = dataset.uploadedAt || now;
     dataset.updatedAt = now;
-    return dataset;
+    return { dataset };
 }
 
 router.post('/:sessionId/datasets', (req, res) => {
@@ -198,12 +213,13 @@ router.post('/:sessionId/datasets', (req, res) => {
         meta.updatedAt = now;
         meta.origin = req.body?.origin || meta.origin || '';
         meta.groupName = req.body?.groupName || meta.groupName || '';
-        const dataset = upsertDataset(meta, req.body, rows, now, sessionDir);
+        const { dataset, skipped } = upsertDataset(meta, req.body, rows, now, sessionDir);
         writeMeta(sessionDir, meta);
 
         res.json({
             success: true,
             sessionId: access.sessionId,
+            skipped: !!skipped,
             dataset: { id: dataset.id, name: dataset.name, rowCount: dataset.rowCount, uploadedAt: dataset.uploadedAt, updatedAt: dataset.updatedAt },
             count: meta.datasets.length
         });

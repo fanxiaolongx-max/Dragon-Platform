@@ -46,6 +46,7 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
     let browserCredentials = null;
     let state = readState();
     const uivBatchRunner = createUivBatchRunner({
+        getAppBaseUrl,
         openPage: async options => {
             ensureSession();
             await extensions.whenReady();
@@ -658,7 +659,7 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
         },
         handleAction,
         init() { ensureSession(); return extensions.whenReady(); },
-        runUivMacro: macro => uivBatchRunner.start(macro),
+        runUivMacro: (macro, options) => uivBatchRunner.start(macro, options),
         // 数据抓取页「🖥 Dragon 浏览器」：缓存脚本；run 为 true 时打开站点窗口，登录完成后自动运行
         putSiteScript(site, { run = true } = {}) {
             const saved = siteScripts.put(site);
