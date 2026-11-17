@@ -30,6 +30,7 @@ async function until(code) {
 
 app.whenReady().then(async () => {
     let mode = 'fail';
+    let lastTestBody = null;
     const web = express();
     web.use(express.json());
     web.get('/', (_req, res) => {
@@ -76,6 +77,7 @@ app.whenReady().then(async () => {
     }));
     web.put('/api/ai-settings/profiles/:id', (_req, res) => res.status(200).json({ ok: true }));
     web.post('/api/ai-settings/profiles/:id/test', (req, res) => {
+        lastTestBody = req.body;
         if (mode === 'fail') {
             return res.status(500).json({
                 success: false,
@@ -141,6 +143,36 @@ app.whenReady().then(async () => {
     await until('typeof switchNavSettingsTab === "function"');
     await evaluate('switchNavSettingsTab("ai"); void 0');
     await until('!!document.getElementById("navAiTestResult") && !!document.getElementById("navAiProfileName")');
+
+    // 0. Check authMode (6 options), dynamic customAuthHeader field, and verifySsl checkbox
+    const authControls = await evaluate(`(() => {
+        const select = document.getElementById('navAiAuthMode');
+        const opts = [...select.options].map(o => o.value);
+        const customWrap = document.getElementById('navAiCustomAuthHeaderWrap');
+        const verifySsl = document.getElementById('navAiVerifySsl');
+        const initial = { opts, value: select.value, customHidden: customWrap.style.display === 'none', verifyChecked: verifySsl.checked };
+        select.value = 'custom';
+        handleAiAuthModeChange();
+        const customShown = customWrap.style.display !== 'none';
+        document.getElementById('navAiCustomAuthHeader').value = 'X-API-Key';
+        verifySsl.checked = false;
+        const payloadCustom = {
+            mode: select.value,
+            customHeader: document.getElementById('navAiCustomAuthHeader').value,
+            verifyChecked: verifySsl.checked
+        };
+        select.value = 'bearer';
+        handleAiAuthModeChange();
+        const hiddenAgain = customWrap.style.display === 'none';
+        select.value = 'custom';
+        handleAiAuthModeChange();
+        return { initial, customShown, payloadCustom, hiddenAgain };
+    })()`);
+    assert.deepEqual(authControls.initial.opts, ['bearer', 'x-api-key', 'api-key', 'x-goog-api-key', 'none', 'custom']);
+    assert.equal(authControls.initial.customHidden, true);
+    assert.equal(authControls.initial.verifyChecked, true);
+    assert.equal(authControls.customShown, true);
+    assert.equal(authControls.hiddenAgain, true);
 
     // Stub clipboard so copy button works reliably in headless Electron
     await evaluate(`
@@ -227,6 +259,9 @@ app.whenReady().then(async () => {
     })()`);
     assert.match(passState.text, /测试通过：OK \(215ms\)/);
     assert.equal(passState.hasDetails, false);
+    assert.equal(lastTestBody.authMode, 'custom');
+    assert.equal(lastTestBody.customAuthHeader, 'X-API-Key');
+    assert.equal(lastTestBody.verifySsl, false);
 
     win.destroy();
     server.close();

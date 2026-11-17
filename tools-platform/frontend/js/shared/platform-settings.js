@@ -307,9 +307,18 @@ function sourceLabelForAiSettings(source) {
 }
 
 function keyHealthLabelForAiSettings(settings) {
+    if (settings.authMode === 'none' && !settings.maskedApiKey) return navT('nav.ai.authNoneReady');
     if (!settings.hasApiKey) return navT('nav.ai.keyNone');
     if (!settings.keyLooksValid) return navT('nav.ai.keyInvalid') + (settings.maskedApiKey || '');
     return navT('nav.ai.keyValid') + (settings.maskedApiKey || '');
+}
+
+function resolveAiAuthModeForUi(settings = {}) {
+    const mode = String(settings.authMode || '').trim().toLowerCase();
+    if (['bearer', 'x-api-key', 'api-key', 'x-goog-api-key', 'none', 'custom'].includes(mode)) return mode;
+    if (settings.provider === 'anthropic' && settings.anthropicAuthType === 'ANTHROPIC_API_KEY') return 'x-api-key';
+    if (settings.provider === 'gemini') return 'x-goog-api-key';
+    return 'bearer';
 }
 
 async function fetchAiSettingsForNav() {
@@ -978,6 +987,10 @@ async function renderAiSettings(content) {
             content.innerHTML = `${tabs}<div class="nav-ai-tab-empty"><strong>${navEscape(navT('nav.ai.imageEmpty'))}</strong><span>${navEscape(navT('nav.ai.imageEmptyHelp'))}</span><button type="button" class="nav-settings-add" onclick="createAiProfile()">${navEscape(navT('nav.ai.imageNew'))}</button></div>`;
             return;
         }
+        const effectiveAuthMode = resolveAiAuthModeForUi(settings);
+        const tokenPlaceholder = settings.maskedApiKey
+            ? `${navT('nav.ai.plhKeep')}${settings.maskedApiKey}`
+            : (effectiveAuthMode === 'none' ? navT('nav.ai.plhTokenNone') : navT('nav.ai.plhToken'));
         content.innerHTML = `
             ${tabs}
             <div class="nav-settings-help">${isImage ? navT('nav.ai.imageHelp') : navEscape(navT('nav.ai.help'))}</div>
@@ -1001,9 +1014,9 @@ async function renderAiSettings(content) {
                         return `
                         <button type="button" class="nav-ai-profile-card ${profile.id === settings.id ? 'selected' : ''} ${profile.isActive ? 'active' : ''}" onclick="selectAiProfile('${navEscape(profile.id)}')">
                             <span class="nav-ai-profile-card-top"><b>${navEscape(profile.name)}</b>${profile.isActive ? `<em>${navEscape(navT('nav.ai.profileActive'))}</em>` : ''}${profile.shared ? `<em title="${navEscape(profile.locked ? navLocaleText('超级管理员提供的公共模型，只读', 'Public model from the super admin (read-only)') : navLocaleText('已分配给所有团队', 'Shared with all teams'))}">${navEscape(profile.locked ? navLocaleText('公共', 'Public') : navLocaleText('已共享', 'Shared'))}</em>` : ''}</span>
-                            <span>${navEscape(profile.provider)}${navEscape(countStr)}${profile.provider === 'anthropic' || /claude/i.test(profile.model) ? ` · ${profile.anthropicAuthType === 'ANTHROPIC_API_KEY' ? 'API_KEY' : 'AUTH_TOKEN'}` : ''}</span>
+                            <span>${navEscape(profile.provider)}${navEscape(countStr)}${profile.authMode && profile.authMode !== 'bearer' ? ` · ${navEscape(profile.authMode)}` : (profile.provider === 'anthropic' || /claude/i.test(profile.model) ? ` · ${profile.anthropicAuthType === 'ANTHROPIC_API_KEY' ? 'x-api-key' : 'bearer'}` : '')}</span>
                             <div class="nav-ai-card-models">${profileModels.map(m => `<span class="nav-ai-model-tag${m === profile.model ? ' is-primary' : ''}">${navEscape(m)}</span>`).join('')}</div>
-                            <small class="${profile.keyLooksValid ? 'ready' : ''}">${profile.keyLooksValid ? navT('nav.ai.tokenReady') : navT('nav.ai.tokenNotReady')}</small>
+                            <small class="${profile.keyLooksValid ? 'ready' : ''}">${profile.authMode === 'none' && !profile.maskedApiKey ? navEscape(navT('nav.ai.authNoneBadge')) : (profile.keyLooksValid ? navT('nav.ai.tokenReady') : navT('nav.ai.tokenNotReady'))}</small>
                         </button>
                     `;}).join('')}
                 </div>
@@ -1069,21 +1082,33 @@ async function renderAiSettings(content) {
                         <option value="openai-compatible" ${settings.provider === 'openai-compatible' ? 'selected' : ''}>OpenAI Compatible</option>
                     </select>
                 </label>
-                <label class="nav-ai-field nav-ai-field-wide" id="navAiAnthropicAuthWrap" style="${(settings.provider === 'anthropic' || /claude|anthropic/i.test(settings.model)) ? '' : 'display:none;'}">
-                    <span>${navEscape(navT('nav.ai.anthropicAuthField'))}</span>
-                    <select id="navAiAnthropicAuthType" class="nav-settings-input" onchange="scheduleAiSettingsSave()">
-                        <option value="ANTHROPIC_AUTH_TOKEN" ${settings.anthropicAuthType !== 'ANTHROPIC_API_KEY' ? 'selected' : ''}>${navEscape(navT('nav.ai.anthropicAuthToken'))}</option>
-                        <option value="ANTHROPIC_API_KEY" ${settings.anthropicAuthType === 'ANTHROPIC_API_KEY' ? 'selected' : ''}>${navEscape(navT('nav.ai.anthropicApiKey'))}</option>
+                <label class="nav-ai-field ${effectiveAuthMode === 'custom' ? '' : 'nav-ai-field-wide'}" id="navAiAuthModeWrap">
+                    <span>${navEscape(navT('nav.ai.authModeLabel'))}</span>
+                    <select id="navAiAuthMode" class="nav-settings-input" onchange="handleAiAuthModeChange()">
+                        <option value="bearer" ${effectiveAuthMode === 'bearer' ? 'selected' : ''}>bearer</option>
+                        <option value="x-api-key" ${effectiveAuthMode === 'x-api-key' ? 'selected' : ''}>x-api-key</option>
+                        <option value="api-key" ${effectiveAuthMode === 'api-key' ? 'selected' : ''}>api-key</option>
+                        <option value="x-goog-api-key" ${effectiveAuthMode === 'x-goog-api-key' ? 'selected' : ''}>x-goog-api-key</option>
+                        <option value="none" ${effectiveAuthMode === 'none' ? 'selected' : ''}>none</option>
+                        <option value="custom" ${effectiveAuthMode === 'custom' ? 'selected' : ''}>custom</option>
                     </select>
+                </label>
+                <label class="nav-ai-field" id="navAiCustomAuthHeaderWrap" style="${effectiveAuthMode === 'custom' ? '' : 'display:none;'}">
+                    <span>${navEscape(navT('nav.ai.customAuthHeaderLabel'))}</span>
+                    <input id="navAiCustomAuthHeader" class="nav-settings-input" maxlength="80" value="${navEscape(settings.customAuthHeader || '')}" placeholder="${navEscape(navT('nav.ai.customAuthHeaderPlaceholder'))}" oninput="scheduleAiSettingsSave()">
                 </label>
                 <label class="nav-ai-field nav-ai-field-wide">
                     <span>${navEscape(navT('nav.ai.lblApiUrl'))}</span>
                     <input id="navAiApiBaseUrl" class="nav-settings-input" value="${navEscape(settings.apiBaseUrl || '')}" placeholder="${navEscape(navT('nav.ai.plhApiUrl'))}" oninput="scheduleAiSettingsSave()">
                 </label>
+                <label class="nav-settings-check nav-ai-verify-ssl-check nav-ai-field-wide">
+                    <input id="navAiVerifySsl" type="checkbox" ${settings.verifySsl !== false ? 'checked' : ''} onchange="scheduleAiSettingsSave()">
+                    <span><b>${navEscape(navT('nav.ai.verifySslLabel'))}</b><small>${navEscape(navT('nav.ai.verifySslHelp'))}</small></span>
+                </label>
                 <label class="nav-ai-field nav-ai-field-wide">
                     <span>${navEscape(navT('nav.ai.lblToken'))}</span>
                     <div class="nav-ai-token-row">
-                        <input id="navAiApiKey" type="text" inputmode="text" class="nav-settings-input nav-ai-token-input" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" placeholder="${settings.hasApiKey ? `${navEscape(navT('nav.ai.plhKeep'))}${navEscape(settings.maskedApiKey)}` : navEscape(navT('nav.ai.plhToken'))}" onfocus="this.dataset.userTouched='1'" oninput="scheduleAiSettingsSave({ tokenTouched: this.dataset.userTouched === '1' })">
+                        <input id="navAiApiKey" type="text" inputmode="text" class="nav-settings-input nav-ai-token-input" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" placeholder="${navEscape(tokenPlaceholder)}" onfocus="this.dataset.userTouched='1'" oninput="scheduleAiSettingsSave({ tokenTouched: this.dataset.userTouched === '1' })">
                         <button type="button" class="nav-settings-add" onclick="clearAiApiKey()">${navEscape(navT('nav.ai.btnClear'))}</button>
                     </div>
                 </label>
@@ -1176,14 +1201,21 @@ async function renderAiSettings(content) {
 
 function collectAiSettingsPayload(options = {}) {
     const tokenInput = document.getElementById('navAiApiKey');
-    const authTypeSelect = document.getElementById('navAiAnthropicAuthType');
+    const provider = document.getElementById('navAiProvider')?.value || 'gemini';
+    const authMode = document.getElementById('navAiAuthMode')?.value || (provider === 'gemini' ? 'x-goog-api-key' : 'bearer');
+    const customAuthHeader = document.getElementById('navAiCustomAuthHeader')?.value?.trim() || '';
+    const verifySslInput = document.getElementById('navAiVerifySsl');
+    const verifySsl = verifySslInput ? verifySslInput.checked !== false : true;
     const models = getNavAiEditingModels();
     const primaryModel = document.getElementById('navAiModel')?.value || models[0] || 'gemini-2.5-flash';
     const payload = {
         profileId: navState.aiSelectedProfileId,
         name: document.getElementById('navAiProfileName')?.value || 'AI 配置',
-        provider: document.getElementById('navAiProvider')?.value || 'gemini',
-        anthropicAuthType: authTypeSelect?.value || 'ANTHROPIC_AUTH_TOKEN',
+        provider,
+        authMode,
+        customAuthHeader,
+        verifySsl,
+        anthropicAuthType: authMode === 'x-api-key' ? 'ANTHROPIC_API_KEY' : 'ANTHROPIC_AUTH_TOKEN',
         apiBaseUrl: document.getElementById('navAiApiBaseUrl')?.value || '',
         model: primaryModel,
         models: models,
@@ -1446,13 +1478,35 @@ window.navAiSetPrimaryModel = function (modelName) {
     scheduleAiSettingsSave();
 };
 
+function syncAiAuthModeControls() {
+    const modeSelect = document.getElementById('navAiAuthMode');
+    const mode = modeSelect?.value || 'bearer';
+    const modeWrap = document.getElementById('navAiAuthModeWrap');
+    const customWrap = document.getElementById('navAiCustomAuthHeaderWrap');
+    if (customWrap) customWrap.style.display = mode === 'custom' ? '' : 'none';
+    if (modeWrap) modeWrap.classList.toggle('nav-ai-field-wide', mode !== 'custom');
+    const tokenInput = document.getElementById('navAiApiKey');
+    const saved = currentAiProfile();
+    if (tokenInput && !tokenInput.value.trim()) {
+        tokenInput.placeholder = saved?.maskedApiKey
+            ? `${navT('nav.ai.plhKeep')}${saved.maskedApiKey}`
+            : (mode === 'none' ? navT('nav.ai.plhTokenNone') : navT('nav.ai.plhToken'));
+    }
+}
+
+window.handleAiAuthModeChange = function () {
+    syncAiAuthModeControls();
+    scheduleAiSettingsSave();
+};
+
 window.handleAiProviderChange = function () {
     const provider = document.getElementById('navAiProvider')?.value || 'gemini';
     const modelInput = document.getElementById('navAiModel');
-    const authWrap = document.getElementById('navAiAnthropicAuthWrap');
-    if (authWrap) {
-        authWrap.style.display = (provider === 'anthropic' || /claude|anthropic/i.test(modelInput?.value || '')) ? '' : 'none';
+    const authSelect = document.getElementById('navAiAuthMode');
+    if (authSelect) {
+        authSelect.value = provider === 'gemini' ? 'x-goog-api-key' : 'bearer';
     }
+    syncAiAuthModeControls();
     const defaults = {
         gemini: 'gemini-2.5-flash',
         openai: 'gpt-4o-mini',
@@ -1464,9 +1518,6 @@ window.handleAiProviderChange = function () {
         navState.currentEditingModels = [defaults[provider]];
         if (modelInput) modelInput.value = defaults[provider];
         renderNavAiModelChips();
-        if (authWrap) {
-            authWrap.style.display = (provider === 'anthropic' || /claude|anthropic/i.test(defaults[provider])) ? '' : 'none';
-        }
     }
     const apiBaseUrlInput = document.getElementById('navAiApiBaseUrl');
     if (apiBaseUrlInput) {
@@ -1477,12 +1528,7 @@ window.handleAiProviderChange = function () {
 };
 
 window.updateAiModelAuthVisibility = function () {
-    const provider = document.getElementById('navAiProvider')?.value || 'gemini';
-    const model = document.getElementById('navAiModel')?.value || '';
-    const authWrap = document.getElementById('navAiAnthropicAuthWrap');
-    if (authWrap) {
-        authWrap.style.display = (provider === 'anthropic' || /claude|anthropic/i.test(model)) ? '' : 'none';
-    }
+    syncAiAuthModeControls();
 };
 
 function formatAiTestFailureReport(failure) {
@@ -1512,6 +1558,12 @@ function formatAiTestFailureReport(failure) {
 function summarizeAiTestParams(reqMeta) {
     if (!reqMeta || typeof reqMeta !== 'object') return '';
     const parts = [];
+    if (reqMeta.authMode) {
+        parts.push(reqMeta.authMode === 'custom' && reqMeta.customAuthHeader
+            ? `auth=custom(${reqMeta.customAuthHeader})`
+            : `auth=${reqMeta.authMode}`);
+    }
+    if (reqMeta.verifySsl === false) parts.push('verifySsl=false');
     if (reqMeta.stream === false) parts.push('stream=false');
     else if (reqMeta.stream === true) parts.push('stream=true');
     if (reqMeta.maxOutputTokens) parts.push(`max_tokens=${reqMeta.maxOutputTokens}`);
@@ -1710,9 +1762,10 @@ async function saveAiSettingsNow(options = {}) {
     const tokenInput = document.getElementById('navAiApiKey');
     if (tokenInput) {
         tokenInput.value = '';
-        tokenInput.placeholder = savedProfile?.hasApiKey
+        const mode = savedProfile?.authMode || document.getElementById('navAiAuthMode')?.value || 'bearer';
+        tokenInput.placeholder = savedProfile?.maskedApiKey
             ? `${navT('nav.ai.plhKeep')}${savedProfile.maskedApiKey}`
-            : navT('nav.ai.plhToken');
+            : (mode === 'none' ? navT('nav.ai.plhTokenNone') : navT('nav.ai.plhToken'));
     }
     const headersInput = document.getElementById('navAiExtraHeaders');
     if (headersInput && headersInput.value.trim()) {

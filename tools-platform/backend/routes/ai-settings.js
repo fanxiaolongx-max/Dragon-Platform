@@ -11,7 +11,7 @@ function expectedEndpointForSettings(settings = {}) {
     const provider = aiProviderClient.normalizeProvider(settings.provider);
     const base = aiProviderClient.getBaseUrl(settings);
     if (provider === 'anthropic') return `${base}/messages`;
-    if (provider === 'gemini') return `${base}/models/${encodeURIComponent(settings.model || 'gemini-2.5-flash')}:generateContent?key=[REDACTED]`;
+    if (provider === 'gemini') return `${base}/models/${encodeURIComponent(settings.model || 'gemini-2.5-flash')}:generateContent`;
     return `${base}/chat/completions`;
 }
 
@@ -35,8 +35,8 @@ function buildConnectionHint({ httpStatus, upstreamStatus, causeCode, isTimeout,
     if (isTimeout) {
         return '连接或等待模型首包响应超过 30 秒。请确认本机能否直连网关地址、是否需要内网 VPN/代理，或网关当前负载是否过高。';
     }
-    if (/SELF_SIGNED_CERT_IN_CHAIN|UNABLE_TO_VERIFY_LEAF_SIGNATURE|CERT_|ERR_TLS_/i.test(String(causeCode || '') + ' ' + raw)) {
-        return 'HTTPS/TLS 证书校验失败（常见于企业内网自签或内部 CA 证书）。请联系管理员安装根证书或配置系统信任链 / NODE_EXTRA_CA_CERTS。';
+    if (/DEPTH_ZERO_SELF_SIGNED_CERT|SELF_SIGNED_CERT_IN_CHAIN|UNABLE_TO_VERIFY_LEAF_SIGNATURE|CERT_|ERR_TLS_/i.test(String(causeCode || '') + ' ' + raw)) {
+        return 'HTTPS/TLS 证书校验失败（常见于企业内网自签或内部 CA 证书）。如确认内网网关可信，可取消勾选上方的「校验 HTTPS 证书」后重试，或联系管理员安装根证书 / 配置 NODE_EXTRA_CA_CERTS。';
     }
     if (/ENOTFOUND|EAI_AGAIN/i.test(String(causeCode || '') + ' ' + raw)) {
         return '域名解析失败，当前环境无法解析网关主机名。请检查 API URL 拼写，以及是否已接入对应的内网/VPN 网络。';
@@ -48,7 +48,7 @@ function buildConnectionHint({ httpStatus, upstreamStatus, causeCode, isTimeout,
         return '接口返回了 HTML 页面或非 JSON 内容（例如网关拦截/登录页或路径错配）。请确认供应商协议、API URL 是否填至 /v1 基地址，以及是否需要附加认证请求头。';
     }
     if (upstreamStatus === 401 || upstreamStatus === 403 || httpStatus === 401 || httpStatus === 403) {
-        return '鉴权失败或无权访问当前模型。请核对 API Token 是否正确且未过期、是否有目标模型权限；若为 Anthropic 网关，可尝试切换认证方式（Bearer Token / x-api-key）。';
+        return '鉴权失败或无权访问当前模型。请核对 API Token 是否正确且未过期、是否有目标模型权限，也可按网关要求切换「认证方式」（bearer / x-api-key / api-key / x-goog-api-key / custom）。';
     }
     if (upstreamStatus === 404 || httpStatus === 404) {
         return '网关返回 404（路径或模型不存在）。请检查 API URL（OpenAI 兼容接口通常填到 /v1 即可，无需手动拼接 /chat/completions）与模型名称拼写。';
@@ -234,7 +234,24 @@ async function runConnectionTest(req, res, { profileId = null } = {}) {
     try {
         const input = profileId ? { ...(req.body || {}), profileId } : (req.body || {});
         settings = await repo.buildRuntimeSettings(input);
-        if (!settings.hasApiKey || !settings.keyLooksValid) {
+        if (settings.authMode === 'custom' && !settings.customAuthHeader) {
+            return res.status(400).json({
+                success: false,
+                error: '选择 custom 认证方式时，请填写自定义认证头名称（如 X-API-Key）。',
+                details: {
+                    provider: settings.provider,
+                    model: settings.model,
+                    endpoint: expectedEndpointForSettings(settings),
+                    httpStatus: 400,
+                    upstreamStatus: null,
+                    errorCode: 'CUSTOM_AUTH_HEADER_MISSING',
+                    durationMs: Date.now() - startedAt,
+                    hint: '请在「自定义认证头名称」中填入网关要求的 HTTP 请求头名称（例如 X-API-Key），或改用 bearer / x-api-key 等预设方式。',
+                    timestamp: new Date().toISOString()
+                }
+            });
+        }
+        if (settings.authMode !== 'none' && (!settings.hasApiKey || !settings.keyLooksValid)) {
             const missing = !settings.hasApiKey;
             return res.status(400).json({
                 success: false,
@@ -248,7 +265,7 @@ async function runConnectionTest(req, res, { profileId = null } = {}) {
                     errorCode: missing ? 'API_KEY_MISSING' : 'API_KEY_INVALID',
                     durationMs: Date.now() - startedAt,
                     hint: missing
-                        ? '请填写当前供应商对应的 API Token，或确认服务端环境变量已配置。'
+                        ? '请填写当前供应商对应的 API Token；若网关无需认证，可将「认证方式」切换为 none。'
                         : '请核对 API Token 是否复制完整，避免包含多余空格、换行或占位文本。',
                     timestamp: new Date().toISOString()
                 }
@@ -258,6 +275,9 @@ async function runConnectionTest(req, res, { profileId = null } = {}) {
         const testTemperature = Number.isFinite(Number(settings.temperature)) ? Number(settings.temperature) : undefined;
         requestSummary = {
             protocol: settings.provider,
+            authMode: settings.authMode,
+            ...(settings.customAuthHeader ? { customAuthHeader: settings.customAuthHeader } : {}),
+            verifySsl: settings.verifySsl !== false,
             model: settings.model,
             stream: (settings.provider === 'openai' || settings.provider === 'openai-compatible') ? false : undefined,
             maxOutputTokens: testMaxTokens,
@@ -300,6 +320,9 @@ async function runConnectionTest(req, res, { profileId = null } = {}) {
         res.json({
             success: true,
             provider: settings.provider,
+            authMode: settings.authMode,
+            customAuthHeader: settings.customAuthHeader || '',
+            verifySsl: settings.verifySsl !== false,
             anthropicAuthType: settings.anthropicAuthType,
             apiBaseUrl: settings.apiBaseUrl,
             model: settings.model,

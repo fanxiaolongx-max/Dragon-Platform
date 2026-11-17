@@ -652,6 +652,16 @@ html.platform-home[data-theme="dark"] .nav-ai-test-raw {
     color: var(--v2-ink, #e6e8eb);
 }
 
+html.platform-home[data-theme="dark"] .nav-ai-verify-ssl-check {
+    background: var(--v2-chip, #1a1d24);
+    border-color: var(--v2-line, #262a31);
+    color: var(--v2-ink, #e6e8eb);
+}
+
+html.platform-home[data-theme="dark"] .nav-ai-verify-ssl-check small {
+    color: var(--v2-ink3, #7d8590);
+}
+
 html.platform-home[data-theme="dark"] .nav-media-category-tabs .tab-item {
     background: var(--v2-chip) !important;
     border-color: var(--v2-line) !important;

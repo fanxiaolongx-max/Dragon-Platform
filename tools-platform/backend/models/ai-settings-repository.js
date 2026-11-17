@@ -26,6 +26,9 @@ const MAX_MODEL_ALIASES = 20;
 const DEFAULT_SETTINGS = {
     provider: 'gemini',
     anthropicAuthType: 'ANTHROPIC_AUTH_TOKEN',
+    authMode: 'x-goog-api-key',
+    customAuthHeader: '',
+    verifySsl: true,
     apiBaseUrl: '',
     model: 'gemini-2.5-flash',
     apiKey: '',
@@ -40,6 +43,8 @@ const DEFAULT_SETTINGS = {
     headers: {},
     extraBody: {}
 };
+
+const VALID_AUTH_MODES = ['bearer', 'x-api-key', 'api-key', 'x-goog-api-key', 'none', 'custom'];
 
 const FORBIDDEN_HEADERS = new Set(['host', 'content-length', 'transfer-encoding', 'connection', 'cookie', 'proxy-authorization']);
 
@@ -150,6 +155,50 @@ function normalizeAnthropicAuthType(value) {
     return type === 'ANTHROPIC_API_KEY' ? 'ANTHROPIC_API_KEY' : 'ANTHROPIC_AUTH_TOKEN';
 }
 
+function defaultAuthModeForProvider(provider) {
+    return provider === 'gemini' ? 'x-goog-api-key' : 'bearer';
+}
+
+function normalizeAuthMode(input = {}, previous = {}, provider = DEFAULT_SETTINGS.provider) {
+    const explicitMode = String(input.authMode ?? '').trim().toLowerCase();
+    if (VALID_AUTH_MODES.includes(explicitMode)) return explicitMode;
+
+    if (Object.prototype.hasOwnProperty.call(input, 'anthropicAuthType') && input.anthropicAuthType !== undefined) {
+        return normalizeAnthropicAuthType(input.anthropicAuthType) === 'ANTHROPIC_API_KEY' ? 'x-api-key' : 'bearer';
+    }
+
+    const prevMode = String(previous.authMode ?? '').trim().toLowerCase();
+    if (VALID_AUTH_MODES.includes(prevMode) && (!input.provider || normalizeProvider(input.provider) === normalizeProvider(previous.provider))) {
+        return prevMode;
+    }
+
+    if (provider === 'anthropic' && normalizeAnthropicAuthType(previous.anthropicAuthType) === 'ANTHROPIC_API_KEY') {
+        return 'x-api-key';
+    }
+    return defaultAuthModeForProvider(provider);
+}
+
+function normalizeCustomAuthHeader(value, fallback = '') {
+    if (value === undefined) return String(fallback || '').trim().slice(0, 80);
+    const trimmed = String(value || '').trim();
+    if (!trimmed) return '';
+    if (!/^[A-Za-z0-9-_]{1,80}$/.test(trimmed) || FORBIDDEN_HEADERS.has(trimmed.toLowerCase())) {
+        const err = new Error('自定义认证头名称仅支持字母、数字、-、_，且不能使用受限系统头');
+        err.statusCode = 400;
+        throw err;
+    }
+    return trimmed;
+}
+
+function normalizeVerifySsl(value, fallback = true) {
+    if (value === undefined || value === null || value === '') return fallback !== false;
+    if (typeof value === 'boolean') return value;
+    const text = String(value).trim().toLowerCase();
+    if (text === 'false' || text === '0' || text === 'off' || text === 'no') return false;
+    if (text === 'true' || text === '1' || text === 'on' || text === 'yes') return true;
+    return fallback !== false;
+}
+
 function clampNumber(value, fallback, min, max) {
     const num = Number(value);
     if (!Number.isFinite(num)) return fallback;
@@ -182,6 +231,15 @@ function normalizeModels(input, fallbackModel, provider) {
 function normalizeSettings(input = {}, previous = {}) {
     const base = { ...DEFAULT_SETTINGS, ...previous, ...input };
     const provider = normalizeProvider(base.provider);
+    const authMode = normalizeAuthMode(input, previous, provider);
+    const anthropicAuthType = authMode === 'x-api-key'
+        ? 'ANTHROPIC_API_KEY'
+        : (authMode === 'bearer' ? 'ANTHROPIC_AUTH_TOKEN' : normalizeAnthropicAuthType(base.anthropicAuthType));
+    const customAuthHeader = normalizeCustomAuthHeader(input.customAuthHeader, previous.customAuthHeader);
+    const verifySsl = normalizeVerifySsl(
+        Object.prototype.hasOwnProperty.call(input, 'verifySsl') ? input.verifySsl : previous.verifySsl,
+        true
+    );
     const models = normalizeModels(input.models !== undefined ? input.models : previous.models, base.model, provider);
     const primaryModel = String(input.model || base.model || models[0] || DEFAULT_MODELS[provider] || DEFAULT_SETTINGS.model).trim();
     const remaining = models.filter(m => m !== primaryModel);
@@ -190,7 +248,10 @@ function normalizeSettings(input = {}, previous = {}) {
     const extraBody = normalizeExtraBody(input.extraBody !== undefined ? input.extraBody : (input.extra_body !== undefined ? input.extra_body : previous.extraBody), previous.extraBody);
     return {
         provider,
-        anthropicAuthType: normalizeAnthropicAuthType(base.anthropicAuthType),
+        authMode,
+        customAuthHeader,
+        verifySsl,
+        anthropicAuthType,
         apiBaseUrl: String(base.apiBaseUrl || '').trim().slice(0, 500),
         model: allModels[0] || DEFAULT_MODELS[provider],
         models: allModels,
@@ -400,12 +461,16 @@ function runtimeSettings(stored) {
     // 服务器环境变量里的 Key 只给超级管理员的默认团队用：团队自建配置不能借用它（否则可指向自己的 Base URL 套走 Key）
     const envKey = inDefaultTenant() ? getEnvKeyForProvider(stored.provider, stored.anthropicAuthType) : '';
     const apiKey = stored.apiKey || envKey;
+    const noAuth = stored.authMode === 'none';
+    const hasToken = Boolean(apiKey);
     return {
         ...stored,
+        verifySsl: stored.verifySsl !== false,
         apiKey,
         apiKeySource: stored.apiKey ? 'stored' : (envKey ? 'env' : 'none'),
-        hasApiKey: Boolean(apiKey),
-        keyLooksValid: isLikelyValidApiKey(apiKey)
+        hasToken,
+        hasApiKey: noAuth ? true : hasToken,
+        keyLooksValid: noAuth ? true : isLikelyValidApiKey(apiKey)
     };
 }
 
@@ -417,6 +482,9 @@ function publicSettings(runtime) {
     const hasExtraBody = Boolean(runtime.extraBody && typeof runtime.extraBody === 'object' && Object.keys(runtime.extraBody).length > 0);
     return {
         provider: runtime.provider,
+        authMode: runtime.authMode || defaultAuthModeForProvider(runtime.provider),
+        customAuthHeader: runtime.customAuthHeader || '',
+        verifySsl: runtime.verifySsl !== false,
         anthropicAuthType: runtime.anthropicAuthType || 'ANTHROPIC_AUTH_TOKEN',
         apiBaseUrl: runtime.apiBaseUrl,
         model: runtime.model,
@@ -429,10 +497,11 @@ function publicSettings(runtime) {
         usdToCny: runtime.usdToCny,
         systemPrompt: runtime.systemPrompt,
         pptCopilotRules: runtime.pptCopilotRules,
+        hasToken: Boolean(runtime.hasToken),
         hasApiKey: runtime.hasApiKey,
         keyLooksValid: runtime.hasApiKey ? runtime.keyLooksValid : false,
         apiKeySource: runtime.apiKeySource,
-        maskedApiKey: maskApiKey(runtime.apiKey),
+        maskedApiKey: runtime.hasToken ? maskApiKey(runtime.apiKey) : '',
         hasHeaders,
         hasExtraBody
     };

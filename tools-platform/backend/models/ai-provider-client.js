@@ -1,3 +1,6 @@
+const https = require('node:https');
+const { Readable } = require('node:stream');
+const NATIVE_FETCH = typeof globalThis.fetch === 'function' ? globalThis.fetch : null;
 const { parseToolArgs } = require('./ai-tool-arguments');
 const DEFAULT_BASE_URLS = {
     gemini: 'https://generativelanguage.googleapis.com/v1beta',
@@ -6,8 +9,109 @@ const DEFAULT_BASE_URLS = {
     minimax: 'https://api.minimax.io/v1',
     'openai-compatible': 'https://api.openai.com/v1'
 };
+const VALID_AUTH_MODES = new Set(['bearer', 'x-api-key', 'api-key', 'x-goog-api-key', 'none', 'custom']);
 const aiUsageRepo = require('./ai-usage-repository');
 const { redactText, redactValue } = require('./ai-sensitive-data');
+
+function httpsInsecureFetch(url, init = {}, redirectsLeft = 3) {
+    return new Promise((resolve, reject) => {
+        let parsed;
+        try {
+            parsed = new URL(String(url));
+        } catch (err) {
+            return reject(err);
+        }
+        if (init.signal?.aborted) {
+            const abortErr = new Error('The operation was aborted.');
+            abortErr.name = 'AbortError';
+            return reject(abortErr);
+        }
+        const headers = {};
+        if (init.headers) {
+            for (const [k, v] of Object.entries(init.headers)) {
+                if (v !== undefined && v !== null) headers[k] = String(v);
+            }
+        }
+        const bodyBuf = init.body !== undefined && init.body !== null
+            ? (Buffer.isBuffer(init.body) ? init.body : Buffer.from(String(init.body), 'utf8'))
+            : null;
+        if (bodyBuf && !Object.keys(headers).some(k => k.toLowerCase() === 'content-length')) {
+            headers['Content-Length'] = String(bodyBuf.length);
+        }
+        let settled = false;
+        let onAbort = null;
+        const cleanup = () => {
+            if (init.signal && onAbort) {
+                init.signal.removeEventListener('abort', onAbort);
+                onAbort = null;
+            }
+        };
+        const req = https.request({
+            protocol: parsed.protocol,
+            hostname: parsed.hostname,
+            port: parsed.port || 443,
+            path: `${parsed.pathname}${parsed.search}`,
+            method: init.method || 'GET',
+            headers,
+            rejectUnauthorized: false
+        }, incomingRes => {
+            const status = Number(incomingRes.statusCode || 500);
+            const location = incomingRes.headers?.location;
+            if ([301, 302, 307, 308].includes(status) && location && redirectsLeft > 0) {
+                incomingRes.resume();
+                cleanup();
+                const nextUrl = new URL(location, parsed);
+                const nextHeaders = { ...headers };
+                if (nextUrl.origin !== parsed.origin) {
+                    for (const key of Object.keys(nextHeaders)) {
+                        if (/^(?:authorization|x-api-key|api-key|x-goog-api-key|cookie)$/i.test(key)) delete nextHeaders[key];
+                    }
+                }
+                const nextMethod = [307, 308].includes(status) ? (init.method || 'GET') : 'GET';
+                const nextBody = [307, 308].includes(status) ? bodyBuf : undefined;
+                settled = true;
+                httpsInsecureFetch(nextUrl.toString(), { ...init, method: nextMethod, headers: nextHeaders, body: nextBody }, redirectsLeft - 1)
+                    .then(resolve, reject);
+                return;
+            }
+            const responseHeaders = new Headers();
+            for (const [k, v] of Object.entries(incomingRes.headers || {})) {
+                if (Array.isArray(v)) v.forEach(item => responseHeaders.append(k, String(item)));
+                else if (v !== undefined) responseHeaders.set(k, String(v));
+            }
+            incomingRes.once('end', cleanup);
+            incomingRes.once('close', cleanup);
+            settled = true;
+            const stream = status === 204 || status === 304 ? null : Readable.toWeb(incomingRes);
+            resolve(new Response(stream, {
+                status,
+                statusText: incomingRes.statusMessage || '',
+                headers: responseHeaders
+            }));
+        });
+        req.on('error', err => {
+            cleanup();
+            if (settled) return;
+            settled = true;
+            reject(err);
+        });
+        if (init.signal) {
+            onAbort = () => {
+                cleanup();
+                const abortErr = new Error('The operation was aborted.');
+                abortErr.name = 'AbortError';
+                req.destroy(abortErr);
+                if (!settled) {
+                    settled = true;
+                    reject(abortErr);
+                }
+            };
+            init.signal.addEventListener('abort', onAbort, { once: true });
+        }
+        if (bodyBuf) req.write(bodyBuf);
+        req.end();
+    });
+}
 
 function normalizeProvider(provider) {
     const value = String(provider || '').trim().toLowerCase();
@@ -775,6 +879,18 @@ class AiProviderClient {
         };
         this.model = settings.model || defaultModels[this.provider];
         this.anthropicAuthType = settings.anthropicAuthType === 'ANTHROPIC_API_KEY' ? 'ANTHROPIC_API_KEY' : 'ANTHROPIC_AUTH_TOKEN';
+        const rawAuthMode = String(settings.authMode || '').trim().toLowerCase();
+        if (VALID_AUTH_MODES.has(rawAuthMode)) {
+            this.authMode = rawAuthMode;
+        } else if (this.provider === 'anthropic' && this.anthropicAuthType === 'ANTHROPIC_API_KEY') {
+            this.authMode = 'x-api-key';
+        } else if (this.provider === 'gemini') {
+            this.authMode = 'x-goog-api-key';
+        } else {
+            this.authMode = 'bearer';
+        }
+        this.customAuthHeader = String(settings.customAuthHeader || '').trim();
+        this.verifySsl = settings.verifySsl !== false;
         this.customHeaders = settings.headers && typeof settings.headers === 'object' && !Array.isArray(settings.headers) ? settings.headers : {};
         this.extraBody = (settings.extraBody && typeof settings.extraBody === 'object' && !Array.isArray(settings.extraBody))
             ? settings.extraBody
@@ -788,6 +904,9 @@ class AiProviderClient {
         const headerSecrets = Object.values(this.customHeaders || {}).filter(v => typeof v === 'string' && v.trim().length >= 4);
         const safeEndpoint = sanitizeEndpointUrl(url, [this.apiKey, ...headerSecrets]);
         try {
+            if (this.verifySsl === false && /^https:/i.test(String(url)) && global.fetch === NATIVE_FETCH) {
+                return await httpsInsecureFetch(url, init);
+            }
             return await fetch(url, init);
         } catch (err) {
             if (err && typeof err === 'object') {
@@ -797,10 +916,32 @@ class AiProviderClient {
                 if (!err.causeCode && err.cause && typeof err.cause === 'object') {
                     err.causeCode = String(err.cause.code || '');
                     err.causeMessage = String(err.cause.message || '');
+                } else if (!err.causeCode && err.code) {
+                    err.causeCode = String(err.code);
+                    err.causeMessage = String(err.message || '');
                 }
             }
             throw err;
         }
+    }
+
+    buildAuthHeaders(baseHeaders = {}) {
+        const headers = { ...baseHeaders };
+        const key = String(this.apiKey || '').trim();
+        if (this.authMode === 'none' || !key) return headers;
+        if (this.authMode === 'bearer') {
+            headers['Authorization'] = `Bearer ${key}`;
+        } else if (this.authMode === 'x-api-key') {
+            headers['x-api-key'] = key;
+        } else if (this.authMode === 'api-key') {
+            headers['api-key'] = key;
+        } else if (this.authMode === 'x-goog-api-key') {
+            headers['x-goog-api-key'] = key;
+        } else if (this.authMode === 'custom') {
+            const name = String(this.customAuthHeader || '').trim();
+            if (name) headers[name] = key;
+        }
+        return headers;
     }
 
     buildOpenAiBody({ messages, systemInstruction, maxOutputTokens, temperature, responseMimeType, json, tools, toolChoice, stream = false } = {}) {
@@ -863,13 +1004,7 @@ class AiProviderClient {
             'anthropic-version': '2023-06-01'
         };
         if (isStream) headers['Accept'] = 'text/event-stream';
-        if (this.anthropicAuthType === 'ANTHROPIC_API_KEY') {
-            headers['x-api-key'] = this.apiKey;
-        } else {
-            // ANTHROPIC_AUTH_TOKEN (默认 Bearer Token / OAuth / Claude Code / Proxy)
-            headers['Authorization'] = `Bearer ${this.apiKey}`;
-        }
-        return headers;
+        return this.buildAuthHeaders(headers);
     }
 
     async generateText({ prompt, systemInstruction = '', messages = null, maxOutputTokens, temperature, responseMimeType, json, thinkingBudget, onRetry, onDelta, onReasoning, signal, tools = null, toolChoice } = {}) {
@@ -994,12 +1129,12 @@ class AiProviderClient {
             error.status = 400;
             throw error;
         }
-        const url = `${this.baseUrl}/models/${encodeURIComponent(this.model)}:generateContent?key=${encodeURIComponent(this.apiKey)}`;
+        const url = `${this.baseUrl}/models/${encodeURIComponent(this.model)}:generateContent`;
         const safeEndpoint = sanitizeEndpointUrl(url, [this.apiKey]);
         const parts = [...images.filter(image => image && image.data && /^image\//.test(image.mimeType)).slice(0, 4).map(image => ({ inlineData: { mimeType: image.mimeType, data: image.data } })), { text: String(prompt || '') }];
         const request = withRatio => this.fetchUpstream(url, {
             method: 'POST',
-            headers: this.applyExtraHeaders({ 'Content-Type': 'application/json' }),
+            headers: this.applyExtraHeaders(this.buildAuthHeaders({ 'Content-Type': 'application/json' })),
             body: JSON.stringify(this.applyExtraBody({ contents: [{ role: 'user', parts }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'], ...(withRatio && aspectRatio ? { imageConfig: { aspectRatio } } : {}) } })),
             signal
         });
@@ -1019,7 +1154,7 @@ class AiProviderClient {
     }
 
     async generateGemini({ messages, systemInstruction, maxOutputTokens, temperature, responseMimeType, json, thinkingBudget, signal, tools, toolChoice }) {
-        const url = `${this.baseUrl}/models/${encodeURIComponent(this.model)}:generateContent?key=${encodeURIComponent(this.apiKey)}`;
+        const url = `${this.baseUrl}/models/${encodeURIComponent(this.model)}:generateContent`;
         const safeEndpoint = sanitizeEndpointUrl(url, [this.apiKey]);
         const body = {
             contents: toGeminiContents(messages, { model: this.model }),
@@ -1039,7 +1174,7 @@ class AiProviderClient {
 
         const res = await this.fetchUpstream(url, {
             method: 'POST',
-            headers: this.applyExtraHeaders({ 'Content-Type': 'application/json' }),
+            headers: this.applyExtraHeaders(this.buildAuthHeaders({ 'Content-Type': 'application/json' })),
             body: JSON.stringify(this.applyExtraBody(body)),
             signal
         });
@@ -1063,10 +1198,9 @@ class AiProviderClient {
 
         const res = await this.fetchUpstream(endpoint, {
             method: 'POST',
-            headers: this.applyExtraHeaders({
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${this.apiKey}`
-            }),
+            headers: this.applyExtraHeaders(this.buildAuthHeaders({
+                'Content-Type': 'application/json'
+            })),
             body: JSON.stringify(this.applyExtraBody(body)),
             signal
         });
@@ -1110,11 +1244,10 @@ class AiProviderClient {
         const { body, openAiTools } = this.buildOpenAiBody({ messages, systemInstruction, maxOutputTokens, temperature, tools, toolChoice, stream: true });
         const res = await this.fetchUpstream(endpoint, {
             method: 'POST',
-            headers: this.applyExtraHeaders({
+            headers: this.applyExtraHeaders(this.buildAuthHeaders({
                 'Content-Type': 'application/json',
-                Accept: 'text/event-stream',
-                Authorization: `Bearer ${this.apiKey}`
-            }),
+                Accept: 'text/event-stream'
+            })),
             body: JSON.stringify(this.applyExtraBody(body)),
             signal
         });
@@ -1146,7 +1279,7 @@ class AiProviderClient {
     }
 
     async generateGeminiStream({ messages, systemInstruction, maxOutputTokens, temperature, thinkingBudget, onDelta, onReasoning, signal, tools, toolChoice }) {
-        const url = `${this.baseUrl}/models/${encodeURIComponent(this.model)}:streamGenerateContent?alt=sse&key=${encodeURIComponent(this.apiKey)}`;
+        const url = `${this.baseUrl}/models/${encodeURIComponent(this.model)}:streamGenerateContent?alt=sse`;
         const safeEndpoint = sanitizeEndpointUrl(url, [this.apiKey]);
         const body = {
             contents: toGeminiContents(messages, { model: this.model }),
@@ -1166,7 +1299,7 @@ class AiProviderClient {
         if (geminiTools.length && toolChoice === 'none') body.toolConfig = { functionCallingConfig: { mode: 'NONE' } };
         const res = await this.fetchUpstream(url, {
             method: 'POST',
-            headers: this.applyExtraHeaders({ 'Content-Type': 'application/json', Accept: 'text/event-stream' }),
+            headers: this.applyExtraHeaders(this.buildAuthHeaders({ 'Content-Type': 'application/json', Accept: 'text/event-stream' })),
             body: JSON.stringify(this.applyExtraBody(body)),
             signal
         });
@@ -1220,11 +1353,10 @@ class AiProviderClient {
         }
         const res = await this.fetchUpstream(endpoint, {
             method: 'POST',
-            headers: this.applyExtraHeaders({
+            headers: this.applyExtraHeaders(this.buildAuthHeaders({
                 'Content-Type': 'application/json',
-                Accept: 'text/event-stream',
-                Authorization: `Bearer ${this.apiKey}`
-            }),
+                Accept: 'text/event-stream'
+            })),
             body: JSON.stringify(this.applyExtraBody(body)),
             signal
         });
@@ -1284,10 +1416,9 @@ class AiProviderClient {
             const endpoint = `${this.baseUrl}/chat/completions`;
             const res = await this.fetchUpstream(endpoint, {
                 method: 'POST',
-                headers: this.applyExtraHeaders({
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${this.apiKey}`
-                }),
+                headers: this.applyExtraHeaders(this.buildAuthHeaders({
+                    'Content-Type': 'application/json'
+                })),
                 body: JSON.stringify(this.applyExtraBody(body)),
                 signal
             });

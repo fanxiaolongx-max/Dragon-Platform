@@ -9,8 +9,10 @@ const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'tools-platform-ai-conn-te
 process.env.TOOLS_DATA_DIR = path.join(sandbox, 'data');
 process.env.TOOLS_REPORT_DATA_DIR = path.join(sandbox, 'report-data');
 
+const { execFileSync } = require('node:child_process');
+const https = require('node:https');
 const repo = require('../backend/models/ai-settings-repository');
-const { createClient, getBaseUrl } = require('../backend/models/ai-provider-client');
+const { createClient, getBaseUrl, sanitizeEndpointUrl } = require('../backend/models/ai-provider-client');
 const tenantPool = require('../backend/models/tenant-sqlite-pool');
 const appDb = require('../backend/models/app-db');
 
@@ -190,13 +192,13 @@ test('POST /api/ai-settings/profiles/:profileId/test returns redacted structured
         assert.match(data.details.hint, /NODE_EXTRA_CA_CERTS|证书/);
     });
 
-    // 4. Gemini endpoint redacts ?key= in failure details and thinking-model success returns durationMs
+    // 4. Gemini sends x-goog-api-key header by default without leaking keys in endpoint URLs; manual ?key= URLs still redact
     await withUpstreamMock(localBase, async () => {
         return new Response(JSON.stringify({ error: { code: 403, message: 'API key invalid' } }), {
             status: 403,
             headers: { 'content-type': 'application/json' }
         });
-    }, async (_outbound, realFetch) => {
+    }, async (outbound, realFetch) => {
         const res = await realFetch(`${localBase}/api/ai-settings/test`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -207,9 +209,11 @@ test('POST /api/ai-settings/profiles/:profileId/test returns redacted structured
             })
         });
         assert.equal(res.status, 403);
+        assert.equal(outbound[0].headers['x-goog-api-key'], 'AIzaSyFakeSecretGeminiKey1234567890');
         const data = await res.json();
         assert.doesNotMatch(JSON.stringify(data), /AIzaSyFakeSecretGeminiKey1234567890/);
-        assert.match(data.details.endpoint, /key=\[REDACTED\]/);
+        assert.equal(data.details.endpoint, 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent');
+        assert.match(sanitizeEndpointUrl('https://example.test/v1beta?key=secret-value-12345'), /key=\[REDACTED\]/);
     });
 
     // 5. Success returns durationMs and cleaned reply
@@ -233,4 +237,165 @@ test('POST /api/ai-settings/profiles/:profileId/test returns redacted structured
         assert.equal(data.reply, 'OK dfa_self_deepseek_v4_flash');
         assert.ok(Number.isFinite(data.durationMs));
     });
+});
+
+test('authMode supports bearer, x-api-key, api-key, x-goog-api-key, none and custom header names cleanly', async t => {
+    const localBase = await startTestApp(t);
+    const cases = [
+        { mode: 'bearer', headerName: 'Authorization', expected: 'Bearer sk-auth-mode-token-12345' },
+        { mode: 'x-api-key', headerName: 'x-api-key', expected: 'sk-auth-mode-token-12345' },
+        { mode: 'api-key', headerName: 'api-key', expected: 'sk-auth-mode-token-12345' },
+        { mode: 'x-goog-api-key', headerName: 'x-goog-api-key', expected: 'sk-auth-mode-token-12345' },
+        { mode: 'custom', customAuthHeader: 'X-API-Key', headerName: 'X-API-Key', expected: 'sk-auth-mode-token-12345' }
+    ];
+
+    for (const item of cases) {
+        await withUpstreamMock(localBase, async () => {
+            return new Response(JSON.stringify({ choices: [{ message: { content: 'OK' }, finish_reason: 'stop' }] }), {
+                status: 200,
+                headers: { 'content-type': 'application/json' }
+            });
+        }, async (outbound, realFetch) => {
+            const res = await realFetch(`${localBase}/api/ai-settings/test`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    provider: 'openai-compatible',
+                    apiBaseUrl: 'https://auth-mode.example/v1',
+                    model: 'demo-model',
+                    authMode: item.mode,
+                    customAuthHeader: item.customAuthHeader || '',
+                    apiKey: 'sk-auth-mode-token-12345'
+                })
+            });
+            assert.equal(res.status, 200);
+            assert.equal(outbound[0].headers[item.headerName], item.expected, `${item.mode} sets ${item.headerName}`);
+        });
+    }
+
+    // authMode=none works without any token and sends no auth headers
+    await withUpstreamMock(localBase, async () => {
+        return new Response(JSON.stringify({ choices: [{ message: { content: 'OK' }, finish_reason: 'stop' }] }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+        });
+    }, async (outbound, realFetch) => {
+        const res = await realFetch(`${localBase}/api/ai-settings/test`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                provider: 'openai-compatible',
+                apiBaseUrl: 'https://noauth.example/v1',
+                model: 'local-vllm',
+                authMode: 'none',
+                apiKey: ''
+            })
+        });
+        assert.equal(res.status, 200);
+        const hdrs = outbound[0].headers;
+        assert.equal(hdrs.Authorization || hdrs.authorization, undefined);
+        assert.equal(hdrs['x-api-key'], undefined);
+        assert.equal(hdrs['api-key'], undefined);
+    });
+
+    // authMode=custom without header name gives explicit 400 guidance
+    const resMissingHeader = await fetch(`${localBase}/api/ai-settings/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            provider: 'openai-compatible',
+            apiBaseUrl: 'https://custom-missing.example/v1',
+            model: 'demo-model',
+            authMode: 'custom',
+            customAuthHeader: '',
+            apiKey: 'sk-auth-mode-token-12345'
+        })
+    });
+    assert.equal(resMissingHeader.status, 400);
+    const missingData = await resMissingHeader.json();
+    assert.equal(missingData.details.errorCode, 'CUSTOM_AUTH_HEADER_MISSING');
+});
+
+test('verifySsl=true rejects self-signed HTTPS certificates while verifySsl=false connects and streams cleanly', async t => {
+    const keyPath = path.join(sandbox, 'self.key');
+    const certPath = path.join(sandbox, 'self.crt');
+    execFileSync('openssl', [
+        'req', '-x509', '-newkey', 'rsa:2048', '-keyout', keyPath, '-out', certPath,
+        '-days', '1', '-nodes', '-subj', '/CN=127.0.0.1'
+    ], { stdio: 'ignore' });
+
+    const server = https.createServer({
+        key: fs.readFileSync(keyPath),
+        cert: fs.readFileSync(certPath)
+    }, (req, res) => {
+        let raw = '';
+        req.on('data', chunk => { raw += chunk; });
+        req.on('end', () => {
+            const parsed = JSON.parse(raw || '{}');
+            if (parsed.stream) {
+                res.writeHead(200, { 'content-type': 'text/event-stream' });
+                res.write(`data: ${JSON.stringify({ choices: [{ index: 0, delta: { content: 'OK ' } }] })}\n\n`);
+                res.write(`data: ${JSON.stringify({ choices: [{ index: 0, delta: { content: 'TLS' }, finish_reason: 'stop' }] })}\n\n`);
+                res.end('data: [DONE]\n\n');
+                return;
+            }
+            res.writeHead(200, { 'content-type': 'application/json' });
+            res.end(JSON.stringify({
+                choices: [{ message: { role: 'assistant', content: `OK header=${req.headers['x-custom-gw'] || ''}` }, finish_reason: 'stop' }]
+            }));
+        });
+    });
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    t.after(() => new Promise(resolve => server.close(resolve)));
+
+    const apiBaseUrl = `https://127.0.0.1:${server.address().port}/v1`;
+    const localBase = await startTestApp(t);
+
+    // 1. Strict verifySsl=true (default) rejects self-signed server
+    const resStrict = await fetch(`${localBase}/api/ai-settings/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            provider: 'openai-compatible',
+            apiBaseUrl,
+            model: 'self-signed-model',
+            verifySsl: true,
+            apiKey: 'sk-self-signed-123456'
+        })
+    });
+    assert.equal(resStrict.status, 502);
+    const strictData = await resStrict.json();
+    assert.match(strictData.details.hint, /校验 HTTPS 证书/);
+
+    // 2. verifySsl=false + custom header connects cleanly over buffered HTTPS
+    const resRelaxed = await fetch(`${localBase}/api/ai-settings/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            provider: 'openai-compatible',
+            apiBaseUrl,
+            model: 'self-signed-model',
+            authMode: 'custom',
+            customAuthHeader: 'X-Custom-Gw',
+            verifySsl: false,
+            apiKey: 'sk-self-signed-123456'
+        })
+    });
+    assert.equal(resRelaxed.status, 200);
+    const relaxedData = await resRelaxed.json();
+    assert.equal(relaxedData.success, true);
+    assert.equal(relaxedData.reply, 'OK header=sk-self-signed-123456');
+
+    // 3. Streaming client also works with verifySsl=false
+    const streamClient = createClient({
+        provider: 'openai-compatible',
+        apiBaseUrl,
+        model: 'self-signed-model',
+        verifySsl: false,
+        apiKey: 'sk-self-signed-123456'
+    });
+    const deltas = [];
+    const streamed = await streamClient.generateText({ prompt: 'hi', onDelta: d => deltas.push(d) });
+    assert.equal(streamed.text, 'OK TLS');
+    assert.deepEqual(deltas, ['OK ', 'TLS']);
 });
