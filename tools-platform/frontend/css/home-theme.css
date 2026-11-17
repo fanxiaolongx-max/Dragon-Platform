@@ -157,7 +157,7 @@ html.platform-home body.dc-chatting .dc { margin: 0; border-radius: 0; width: 10
 
 html.platform-home body.dc-chatting .dc-chat-head { padding-left: calc(var(--v2-float-end, 70px) + 12px); }
 
-html.platform-home .home-workspace-panel { position: fixed; inset: 0 0 0 auto; width: min(340px, 92vw); z-index: 1050; }
+html.platform-home .home-workspace-panel { position: fixed; inset: 0 0 0 auto; width: min(340px, 92vw); z-index: 1150; }
 }
 /* Composer: the writing surface and context controls form one calm, layered unit. */
 .dc-composer-surface { display: contents; }

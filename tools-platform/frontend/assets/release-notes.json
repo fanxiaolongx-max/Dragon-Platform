@@ -1,12 +1,8 @@
 {
   "zh": [
-    "补齐技能、插件脚本与内置工具全链路服务端及对话真控制：12 个业务页面按当前状态默认开放且超管可随时收回/恢复，基础设施页持续锁定仅超管可用，导航、首页、Skill Hub、API、数据库工具与指南检索同步生效。",
-    "修复 AI 月报非交互格子在 validateInteractive 环节无条件拦截导致死循环重试的故障，兼容顶层配方 JSON、排除“不需要/排除 EOS”等否定词反向召回，并精简 /run-data 诊断日志冗余体积与补全 TPS/模型统计。",
-    "移动端（iOS / Android）新增工具自适应桌面/窄屏视口与缩放支持、Markdown 解析与媒体组件增强，同步优化移动端工具页独立加载与快捷方式体验。"
+    "修复工作区右侧边栏（工作区、外部会话卡及文件预览）无法手动调整宽度的问题：补全桌面端三列/两列布局中的 `--workspace-panel-width` 优先级回退、恢复窄屏抽屉高于遮罩层的层级、作用域限定旧版折叠状态规则，并将侧栏拖拽手柄纳入桌面端不可拖拽标题区域。"
   ],
   "en": [
-    "Enforced real server-side, UI, and Dragon Claw AI access control across Skills, Plugins & Scripts, and built-in tools: preserves existing open state for the 12 business pages while allowing super-admins to revoke or re-open any item at any time.",
-    "Fixed AI Monthly Report infinite retry loops on non-interactive cells in validateInteractive, added top-level recipe JSON compatibility, excluded negated terms (e.g. 'exclude EOS') from metric recall, and trimmed duplicated /run-data trace bloat.",
-    "Mobile (iOS / Android) updates: adaptive tool viewport scaling via detected mobile layout, enhanced Markdown parser and chat media components, and streamlined standalone tool navigation."
+    "Fixed manual width resizing for right-hand workspace sidebars (Workspace, external session cards, and file preview): restored `--workspace-panel-width` in desktop grid rules, raised the narrow-screen drawer z-index above its backdrop, scoped legacy collapsed preview grid rules away from `platform-home`, and excluded resize handles from desktop titlebar drag regions."
   ]
 }

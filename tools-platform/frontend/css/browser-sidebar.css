@@ -107,7 +107,7 @@ html[data-theme=dark] .dc-browser-status-badge.is-error{color:#f87171;border-col
 /* Windows caption buttons occupy y=0..32; browser tabs start on their own row below. */
 .dc-browser-panel{box-sizing:border-box}
 html.desktop-win:not(.desktop-fullscreen) .dc-browser-panel::before{content:"";position:absolute;top:0;left:0;right:140px;height:32px;-webkit-app-region:drag}
-html.is-desktop-app .dc-browser-panel :is(button,input,[role=tab]){-webkit-app-region:no-drag}
+html.is-desktop-app .dc-browser-panel :is(button,input,[role=tab],.dc-sidebar-resize){-webkit-app-region:no-drag}
 
 /* Floating browser menus never participate in the webpage layout. */
 .dc-browser-surface.is-empty,.dc-browser-surface.is-empty .dc-browser-agent-view{background:var(--v2-bg,#fff)}

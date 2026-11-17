@@ -22,7 +22,7 @@
         html.desktop-win { --desktop-controls-w: 0px; }
         html.is-desktop-app .desktop-drag, html.is-desktop-app .v2-side-tools, html.is-desktop-app .v2-tool-frame-bar,
         html.is-desktop-app .dc-chat-head, html.is-desktop-app .v2-hub-top { -webkit-app-region: drag; }
-        html.is-desktop-app :is(button, a, input, select, textarea, label, summary, iframe, [role="button"], [role="tab"], [role="menuitem"], [contenteditable="true"], .v2-hub-card, .v2-hub-grid, .v2-hub-featured, .v2-hub-bar, .v2-hub-menu, .v2-pop, .dc-find) { -webkit-app-region: no-drag; }
+        html.is-desktop-app :is(button, a, input, select, textarea, label, summary, iframe, [role="button"], [role="tab"], [role="menuitem"], [role="separator"], .dc-sidebar-resize, .ai-file-preview-resize, [contenteditable="true"], .v2-hub-card, .v2-hub-grid, .v2-hub-featured, .v2-hub-bar, .v2-hub-menu, .v2-pop, .dc-find) { -webkit-app-region: no-drag; }
         html.desktop-mac .v2-side-tools { min-height: 32px; padding-left: var(--desktop-controls-w); }
         html.desktop-mac .v2-side-float { left: calc(var(--desktop-controls-w) + 10px); }
         html.desktop-mac { --v2-float-end: calc(var(--desktop-controls-w) + 84px); }
