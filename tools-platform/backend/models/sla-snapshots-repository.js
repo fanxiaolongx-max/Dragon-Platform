@@ -1,6 +1,7 @@
 const { run, get, all } = require('./app-db');
 const { randomUUID } = require('node:crypto');
-const { getDataDir } = require('./tenant-context');
+const { getDataDir, getTenantId, runWithTenant } = require('./tenant-context');
+const rowStore = require('./snapshot-row-store');
 const sources = require('./import-source-repository');
 const { checkDemoSize } = require('./snapshot-size-policy');
 
@@ -13,10 +14,13 @@ function normalizeSnapshots(items) {
 }
 
 async function replaceSnapshotsInDbRaw(items) {
+    // 明细行先写进去重表（事务外），快照里只留引用
+    const stored = [];
+    for (const item of items) stored.push(await rowStore.dehydrate(item));
     await run('BEGIN TRANSACTION');
     try {
         await run('DELETE FROM sla_snapshots');
-        for (const item of items) {
+        for (const item of stored) {
             await run(
                 `INSERT OR REPLACE INTO sla_snapshots (id, timestamp, payload_json, updated_at)
                  VALUES (?, ?, ?, CURRENT_TIMESTAMP)`,
@@ -48,10 +52,13 @@ async function ensureReady() {
                 )
             `);
 
-            const row = await get('SELECT COUNT(1) AS count FROM sla_snapshots');
-            if (row && row.count > 0) return;
-
-            
+            // 旧快照里内嵌的明细行：启动后在后台逐条转成去重存储（每个租户一次）
+            const tenantId = getTenantId();
+            const timer = setTimeout(() => runWithTenant(tenantId, () => rowStore.compact())
+                .then(summary => { if (summary.converted || summary.failed) console.log('[snapshot-rows] 旧快照转换：', JSON.stringify(summary)); })
+                .then(() => runWithTenant(tenantId, () => rowStore.collectGarbage()))
+                .catch(error => console.warn('[snapshot-rows] 旧快照转换失败：', error.message)), Number(process.env.SNAPSHOT_ROWS_COMPACT_DELAY_MS ?? 90_000));
+            timer.unref?.();
         })().catch(err => {
             initPromises.delete(key);
             throw err;
@@ -70,7 +77,7 @@ async function listFromDb(options={}) {
         ${options.since?'WHERE julianday(timestamp)>=julianday(?)':''}
         ORDER BY timestamp DESC, id DESC
     `,options.since?[options.since]:[]);
-    return rows.map(row => JSON.parse(row.payload_json));
+    return rowStore.hydrateAll(rows.map(row => JSON.parse(row.payload_json)));
 }
 
 // 摘要视图：去掉明细数据（sourceSections 表格行、到期工单），保留标识、时间、汇总与指标，只需元数据的页面不必下载整份快照
@@ -128,12 +135,17 @@ async function getLatestSnapshot({ demoBudget } = {}) {
                 length(CAST(payload_json AS BLOB)) AS payload_bytes
             FROM sla_snapshots ORDER BY timestamp DESC, id DESC LIMIT 1`, [demoBudget])
         : await get('SELECT payload_json FROM sla_snapshots ORDER BY timestamp DESC, id DESC LIMIT 1');
-    if (row) checkDemoSize(row.payload_bytes, demoBudget);
-    return row ? JSON.parse(row.payload_json) : null;
+    if (!row) return null;
+    checkDemoSize(row.payload_bytes, demoBudget);
+    const payload = JSON.parse(row.payload_json);
+    // 去重后载荷里只有引用：预算按还原后的大小算
+    if (demoBudget) checkDemoSize(Number(row.payload_bytes || 0) + await rowStore.referencedRawBytes(payload), demoBudget);
+    return rowStore.hydrate(payload);
 }
 
 async function upsertSnapshotInDb(item) {
     await ensureReady();
+    const stored = await rowStore.dehydrate(item);
     await run(
         `INSERT INTO sla_snapshots (id, timestamp, payload_json, updated_at)
          VALUES (?, ?, ?, CURRENT_TIMESTAMP)
@@ -141,7 +153,7 @@ async function upsertSnapshotInDb(item) {
             timestamp = excluded.timestamp,
             payload_json = excluded.payload_json,
             updated_at = CURRENT_TIMESTAMP`,
-        [item.id, item.timestamp || '', JSON.stringify(item)]
+        [stored.id, stored.timestamp || '', JSON.stringify(stored)]
     );
 }
 
@@ -156,6 +168,12 @@ async function trimDbSnapshots() {
             LIMIT ?
         )
     `, [MAX_SNAPSHOTS]);
+    scheduleRowGarbageCollection();
+}
+
+function scheduleRowGarbageCollection() {
+    const tenantId = getTenantId();
+    rowStore.scheduleGarbageCollection(tenantId, fn => runWithTenant(tenantId, fn));
 }
 
 async function addSnapshot(payload) {
@@ -169,7 +187,9 @@ async function addSnapshot(payload) {
 }
 
 async function deleteSnapshot(id, options = {}) {
-    return require('./sla-snapshot-delete').remove(id, options);
+    const result = await require('./sla-snapshot-delete').remove(id, options);
+    scheduleRowGarbageCollection();
+    return result;
 }
 
 async function updateSnapshot(id, patch) {
@@ -178,7 +198,7 @@ async function updateSnapshot(id, patch) {
     const row = await get('SELECT payload_json FROM sla_snapshots WHERE id = ?', [id]);
     if (!row) return null;
 
-    const item = { ...JSON.parse(row.payload_json), ...patch };
+    const item = { ...await rowStore.hydrate(JSON.parse(row.payload_json)), ...patch };
 
     await sources.registerSnapshot(item);
     await upsertSnapshotInDb(item);

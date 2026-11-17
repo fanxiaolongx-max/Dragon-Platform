@@ -104,7 +104,9 @@ async function registerSnapshot(snapshot, { allowMissingBatch = false } = {}) {
     const sourceSections = (Array.isArray(snapshot.sourceSections) ? snapshot.sourceSections : []).map(section => ({ ...section, fileIds:files.filter(file => (section.sourceFiles || []).includes(file.name)).map(file => file.id) }));
     const metrics = (Array.isArray(snapshot.topMetrics)?snapshot.topMetrics:[]).map((metric,index) => linkMetric({...metric,key:metric.key || `legacy:${metric.label || index}`},sourceSections,files,snapshot.files||[],normalizeFileName));
     const payload = { ...(snapshot.quickMetricFileId?{quickMetricFileId:snapshot.quickMetricFileId}:{}),...(snapshot.target_period?{target_period:snapshot.target_period}:{}),id:snapshot.id, timestamp:snapshot.timestamp, sourceBatchId:batchId, files:snapshot.files || [], topMetrics:metrics, sourceSections, expiringTickets:snapshot.expiringTickets || [] };
-    await run(`INSERT INTO import_source_snapshots (id,batch_id,captured_at,target_month,payload_json) VALUES (?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET batch_id=excluded.batch_id,captured_at=excluded.captured_at,target_month=excluded.target_month,payload_json=excluded.payload_json`,[snapshot.id,batchId,snapshot.timestamp || new Date().toISOString(),snapshot.selectedTargetMonth || null,json(payload)]);
+    // 明细行存进去重表（与 sla_snapshots 同一份），这里只留引用
+    const stored = await require('./snapshot-row-store').dehydrate(payload);
+    await run(`INSERT INTO import_source_snapshots (id,batch_id,captured_at,target_month,payload_json) VALUES (?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET batch_id=excluded.batch_id,captured_at=excluded.captured_at,target_month=excluded.target_month,payload_json=excluded.payload_json`,[snapshot.id,batchId,snapshot.timestamp || new Date().toISOString(),snapshot.selectedTargetMonth || null,json(stored)]);
     return payload;
 }
 async function catalog(options = {}) {
@@ -128,7 +130,7 @@ async function catalog(options = {}) {
         const batchFiles=lineageFiles.filter(file=>file.batch_id===row.batch_id);
         const linked=names=>batchFiles.filter(file=>(names||[]).map(normalizeFileName).includes(file.name)).map(file=>file.id);
         const sections=payload.sourceSections.map(section=>({...section,fileIds:linked(section.sourceFiles)}));
-        return {...row,...(payload.target_period?{target_period:payload.target_period}:{}),...(payload.quickMetricFileId?{quickMetricFileId:payload.quickMetricFileId}:{}),kind:'extraction',payload_json:undefined,metrics:payload.topMetrics.map(metric=>({...linkMetric(metric,sections,batchFiles,payload.files||[],normalizeFileName),sourceSelections:undefined})),sections:sections.map(section=>({key:section.key,title:section.title,...(section.sheetName?{sheetName:section.sheetName}:{}),fileIds:section.fileIds,headers:section.headers,rowCount:section.rows?.length || 0}))};
+        return {...row,...(payload.target_period?{target_period:payload.target_period}:{}),...(payload.quickMetricFileId?{quickMetricFileId:payload.quickMetricFileId}:{}),kind:'extraction',payload_json:undefined,metrics:payload.topMetrics.map(metric=>({...linkMetric(metric,sections,batchFiles,payload.files||[],normalizeFileName),sourceSelections:undefined})),sections:sections.map(section=>({key:section.key,title:section.title,...(section.sheetName?{sheetName:section.sheetName}:{}),fileIds:section.fileIds,headers:section.headers,rowCount:section.rows?.length ?? section.rowCount ?? 0}))};
         }catch(_){errors.push({stage:'extraction',id:row.id,code:'INVALID_SNAPSHOT'});return null;}
     }).filter(Boolean);
     mark('extraction',archived.length);const savedReports = await reportMetrics(files, archived,options);mark('assessment',savedReports.length);
@@ -207,11 +209,15 @@ async function updateSheet(sheetId,input){
 }
 async function getSection(snapshotId, key) {
     await ensureReady(); const row=await get('SELECT payload_json FROM import_source_snapshots WHERE id=?',[snapshotId]);
-    return row ? JSON.parse(row.payload_json).sourceSections.find(section=>section.key===key) || null : null;
+    if(!row)return null;
+    const payload=JSON.parse(row.payload_json);
+    // 只还原要的这一张表
+    const section=payload.sourceSections.find(section=>section.key===key);
+    return section ? (await require('./snapshot-row-store').hydrate({sourceSections:[section]})).sourceSections[0] : null;
 }
 async function getArchivedSnapshot(snapshotId) {
     await ensureReady();const row=await get('SELECT payload_json,target_month FROM import_source_snapshots WHERE id=?',[snapshotId]);
-    if(!row)return null;const snapshot=JSON.parse(row.payload_json);
+    if(!row)return null;const snapshot=await require('./snapshot-row-store').hydrate(JSON.parse(row.payload_json));
     return {...snapshot,selectedTargetMonth:row.target_month,files:(snapshot.files||[]).map(normalizeFileName),sourceSections:snapshot.sourceSections.map(section=>({...section,sourceFiles:(section.sourceFiles||[]).map(normalizeFileName)}))};
 }
 async function getSnapshotArchiveBytes(snapshotId, batchId) {
@@ -221,11 +227,15 @@ async function getSnapshotArchiveBytes(snapshotId, batchId) {
         COALESCE((SELECT SUM(length(CAST(s.headers_json AS BLOB)) + length(CAST(s.rows_json AS BLOB)))
             FROM import_source_sheets s JOIN import_source_files f ON f.id=s.file_id WHERE f.batch_id=?), 0) AS bytes`,
     [snapshotId, batchId || null]);
-    return row.bytes;
+    // 去重后快照载荷里只有引用：加上引用数据还原后的大小
+    const payloadRow = await get('SELECT payload_json FROM import_source_snapshots WHERE id=?', [snapshotId]);
+    const refBytes = payloadRow ? await require('./snapshot-row-store').referencedRawBytes(JSON.parse(payloadRow.payload_json)) : 0;
+    return Number(row.bytes || 0) + refBytes;
 }
 async function getMetricTable(snapshotId, metricKey) {
     await ensureReady();const row=await get('SELECT payload_json FROM import_source_snapshots WHERE id=?',[snapshotId]);
-    if(!row)return null;const snapshot=JSON.parse(row.payload_json);const metric=snapshot.topMetrics.find(metric=>metric.key===metricKey);if(!metric)return null;
+    if(!row)return null;const stored=JSON.parse(row.payload_json);const metric=stored.topMetrics.find(metric=>metric.key===metricKey);if(!metric)return null;
+    const snapshot=await require('./snapshot-row-store').hydrate(stored);
     const selections=Array.isArray(metric.sourceSelections)?metric.sourceSelections:[];
     const sections=snapshot.sourceSections;
     const result=[];const headers=new Set();

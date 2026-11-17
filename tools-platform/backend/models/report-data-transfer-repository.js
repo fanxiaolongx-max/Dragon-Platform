@@ -113,6 +113,12 @@ async function collectData() {
         dbAll(reportDb, 'SELECT snapshot_id, month, cat_name, base_score, manual_score, final_score FROM ReportCategoryScores ORDER BY id'),
         dbAll(reportDb, 'SELECT snapshot_id, month, cat_name, metric_label, weight, target_val, raw_val, num_val, is_failing, gap, earned_score, proportional_scoring, completion_ratio FROM ReportMetricData ORDER BY id')
     ]);
+    // 导出包要能独立使用：去重存储的明细行还原回快照里
+    const rowStore = require('./snapshot-row-store');
+    const memo = new Map();
+    for (const row of snapshotRows) {
+        try { row.payload_json = JSON.stringify(await rowStore.hydrate(JSON.parse(row.payload_json), memo)); } catch (_) { /* 非法 JSON 原样导出 */ }
+    }
     return {
         slaSnapshots: snapshotRows,
         reportSnapshots,
