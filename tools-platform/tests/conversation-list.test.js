@@ -190,7 +190,10 @@ test('Antigravity local storage catalog reads conversation list, busy status, an
  const steps = [
   { step_index: 1, type: 'USER_INPUT', created_at: '2026-11-07T12:00:00Z', content: '<USER_REQUEST>\n检查这段代码\n</USER_REQUEST>\n<USER_SETTINGS_CHANGE>\nThe user changed `Model Selection` from Gemini 3.0 Flash to Gemini 3.1 Pro (High).\n</USER_SETTINGS_CHANGE>', media: [{ mime_type: 'image/png', uri: imgPath }] },
   { step_index: 2, type: 'PLANNER_RESPONSE', status: 'DONE', created_at: '2026-11-07T12:00:01Z', thinking: '先读取文件', input_tokens: 1000, cache_read_tokens: 500, output_tokens: 200, tool_calls: [{ name: 'read_file' }] },
-  { step_index: 3, type: 'PLANNER_RESPONSE', status: 'DONE', created_at: '2026-11-07T12:00:05Z', content: '已经修复完成。', input_tokens: 1600, cache_read_tokens: 400, output_tokens: 100 }
+  { step_index: 3, type: 'PLANNER_RESPONSE', status: 'DONE', created_at: '2026-11-07T12:00:05Z', content: '已经修复完成。', input_tokens: 1600, cache_read_tokens: 400, output_tokens: 100 },
+  // 真实日志里出现过空的旧值（"from  to X"），不能把后面的 "No need to comment ..." 当成模型名
+  { step_index: 4, type: 'USER_INPUT', created_at: '2026-11-07T12:01:00Z', content: '<USER_REQUEST>\n继续\n</USER_REQUEST>\n<USER_SETTINGS_CHANGE>\nThe user changed setting `Model Selection` from  to Gemini 3.8 Flash (High). No need to comment on this change if the user doesn\'t ask about it. If reporting what model you are, please use a human readable name instead of the exact string.\n</USER_SETTINGS_CHANGE>' },
+  { step_index: 5, type: 'PLANNER_RESPONSE', status: 'DONE', created_at: '2026-11-07T12:01:02Z', content: '好的。', input_tokens: 900, output_tokens: 50 }
  ];
  fs.writeFileSync(path.join(logDir, 'transcript_full.jsonl'), steps.map(s => JSON.stringify(s)).join('\n') + '\n');
 
@@ -206,7 +209,7 @@ test('Antigravity local storage catalog reads conversation list, busy status, an
  const res = await antigravityTranscript(list[0]);
  assert.equal(res.available, true);
  const messages = res.items;
- assert.equal(messages.length, 2);
+ assert.equal(messages.length, 4);
  assert.equal(messages[0].role, 'user');
  assert.equal(messages[0].content, '检查这段代码');
  assert.equal(messages[0].attachments.length, 1);
@@ -219,4 +222,5 @@ test('Antigravity local storage catalog reads conversation list, busy status, an
  assert.equal(messages[1].rounds[0].tps, null);
  assert.equal(messages[1].rounds[0].timingEstimated, true);
  assert.equal(messages[1].rounds[0].cachedInputTokens, 500);
+ assert.equal(messages[3].rounds[0].model, 'Gemini 3.8 Flash (High)');
 });

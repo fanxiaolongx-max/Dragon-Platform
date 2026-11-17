@@ -377,3 +377,55 @@ test('AI report images accept plain vector SVG and refuse scripts, handlers, emb
         '<div>not svg</div>'
     ]) assert.throws(() => checkSvg(bad), /SVG/);
 });
+
+test('default report persists across updates, prioritizes list order, and exposes HTTP toggle endpoint', async () => {
+    const first = await reports.save({ name: '护网与网络安全月报', reportMonth: '2026-09', chapters: [{ title: '一', cells: [] }] }, 'tester');
+    await new Promise(resolve => setTimeout(resolve, 15));
+    const second = await reports.save({ name: '边界与八向缩放验收 2026-11-05', reportMonth: '2026-10', chapters: [{ title: '二', cells: [] }] }, 'tester');
+
+    let items = await reports.list();
+    assert.equal(items[0].id, second.id, 'without default, newest updated report lists first');
+    assert.equal(items.every(item => item.isDefault === false), true);
+
+    const express = require('../backend/node_modules/express');
+    const app = express();
+    app.use(express.json());
+    app.use((req, _res, next) => { req.user = { username: 'tester', role: 'user' }; next(); });
+    app.use('/api/ai-report', route);
+    const server = await new Promise(resolve => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
+    try {
+        const base = `http://127.0.0.1:${server.address().port}/api/ai-report/documents`;
+        const setRes = await fetch(`${base}/${encodeURIComponent(first.id)}/default`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ isDefault: true })
+        });
+        assert.equal(setRes.status, 200);
+        assert.deepEqual(await setRes.json(), { id: first.id, isDefault: true });
+
+        items = await reports.list();
+        assert.equal(items[0].id, first.id, 'default report is sorted first');
+        assert.equal(items[0].isDefault, true);
+        assert.equal(items[1].isDefault, false);
+
+        const updatedFirst = await reports.save({ ...await reports.read(first.id), name: '护网与网络安全月报-更新' }, 'tester');
+        assert.equal(updatedFirst.isDefault, true, 'saving content preserves default flag');
+
+        const clearRes = await fetch(`${base}/${encodeURIComponent(first.id)}/default`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ isDefault: false })
+        });
+        assert.equal(clearRes.status, 200);
+        assert.deepEqual(await clearRes.json(), { id: first.id, isDefault: false });
+        assert.equal((await reports.read(first.id)).isDefault, false);
+
+        const missingRes = await fetch(`${base}/missing-report-id/default`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        assert.equal(missingRes.status, 404);
+    } finally {
+        server.closeAllConnections();
+        await new Promise(resolve => server.close(resolve));
+        await reports.remove(first.id);
+        await reports.remove(second.id);
+    }
+});

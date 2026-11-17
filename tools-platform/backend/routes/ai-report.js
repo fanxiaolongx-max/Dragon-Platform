@@ -99,6 +99,10 @@ const user = req => String(req.user?.username || req.user?.id || '');
 router.get('/documents', handle(async (_req, res) => res.json(await reports.list())));
 router.get('/documents/:id', handle(async (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.json(await reports.read(req.params.id)); }));
 router.post('/documents', handle(async (req, res) => res.json(await reports.save(req.body, user(req)))));
+router.post('/documents/:id/default', handle(async (req, res) => {
+    const nextDefault = req.body?.isDefault !== false;
+    res.json(await reports.setDefault(req.params.id, { isDefault: nextDefault }));
+}));
 router.delete('/documents/:id', handle(async (req, res) => {
     if (req.user?.role !== 'admin') return res.status(403).json({ error: '只有管理员可以删除月报' });
     res.json(await reports.remove(req.params.id));

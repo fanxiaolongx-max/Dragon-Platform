@@ -6,6 +6,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -62,8 +63,10 @@ import androidx.compose.ui.unit.sp
 import com.example.newapp.R
 import com.example.newapp.shared.model.AiSessionSummary
 import com.example.newapp.shared.model.AlertCenterEvent
+import com.example.newapp.shared.model.SessionBucket
 import com.example.newapp.shared.model.SidebarSessionEntry
 import com.example.newapp.shared.util.DragonClawHelpers
+import com.example.newapp.shared.util.SessionGrouping
 import com.example.newapp.state.AppWorkMode
 import com.example.newapp.state.DragonClawViewModel
 import com.example.newapp.ui.components.DragonClawBackdrop
@@ -602,50 +605,101 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                                     }
                                 } else {
                                     vm.unifiedSessionGroups.forEach { group ->
+                                        val isPinnedGroup = group.bucket == SessionBucket.PINNED
+                                        val isCollapsed = SessionGrouping.shouldCollapseGroup(
+                                            bucket = group.bucket,
+                                            isPinnedCollapsed = vm.isPinnedCollapsed,
+                                            searchQuery = vm.sessionSearchQuery
+                                        )
                                         item(key = "hdr_${group.bucket}") {
-                                            Text(
-                                                text = group.localizedTitle(lang),
-                                                color = palette.inkMuted,
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                            )
+                                            if (isPinnedGroup) {
+                                                val chevronRotation by animateFloatAsState(
+                                                    targetValue = if (isCollapsed) -90f else 0f,
+                                                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                                                    label = "pinnedChevronRotation"
+                                                )
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .clip(RoundedCornerShape(8.dp))
+                                                        .clickable { vm.togglePinnedCollapsed() }
+                                                        .padding(horizontal = 8.dp, vertical = 5.dp)
+                                                ) {
+                                                    Text(
+                                                        text = group.localizedTitle(lang),
+                                                        color = palette.inkMuted,
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.SemiBold
+                                                    )
+                                                    Spacer(Modifier.width(4.dp))
+                                                    Text(
+                                                        text = "(${group.items.size})",
+                                                        color = palette.inkMuted.copy(alpha = 0.78f),
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Medium
+                                                    )
+                                                    Spacer(Modifier.weight(1f))
+                                                    Icon(
+                                                        imageVector = Icons.Rounded.KeyboardArrowDown,
+                                                        contentDescription = if (isCollapsed) {
+                                                            tr(lang, "展开置顶", "Expand pinned")
+                                                        } else {
+                                                            tr(lang, "收起置顶", "Collapse pinned")
+                                                        },
+                                                        tint = palette.inkMuted,
+                                                        modifier = Modifier
+                                                            .size(16.dp)
+                                                            .graphicsLayer { rotationZ = chevronRotation }
+                                                    )
+                                                }
+                                            } else {
+                                                Text(
+                                                    text = group.localizedTitle(lang),
+                                                    color = palette.inkMuted,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                                )
+                                            }
                                         }
-                                        items(group.items, key = { it.stableKey }) { entry ->
-                                            SidebarSessionRow(
-                                                entry = entry,
-                                                isSelected = entry.stableKey == vm.currentSidebarSelectionKey,
-                                                isArchived = false,
-                                                language = lang,
-                                                onOpen = {
-                                                    vm.openSidebarEntry(entry)
-                                                    animateSidebar(0f)
-                                                },
-                                                onRefresh = {
-                                                    entry.aiSession?.let { vm.openSession(it, forceRefresh = true) }
-                                                        ?: entry.desktopSession?.let { vm.openDesktopSession(it, forceRefresh = true) }
-                                                    animateSidebar(0f)
-                                                },
-                                                onRename = entry.aiSession?.let { session ->
-                                                    {
-                                                        renameDraft = session.displayTitle(lang)
-                                                        renameTargetSession = session
-                                                    }
-                                                },
-                                                onTogglePin = {
-                                                    entry.aiSession?.let { vm.togglePinSession(it) }
-                                                        ?: entry.desktopSession?.let { vm.togglePinDesktopSession(it) }
-                                                },
-                                                onMovePinnedUp = if (entry.isPinned && vm.canMovePinnedEntry(entry, moveUp = true)) {
-                                                    { vm.movePinnedEntry(entry, moveUp = true) }
-                                                } else null,
-                                                onMovePinnedDown = if (entry.isPinned && vm.canMovePinnedEntry(entry, moveUp = false)) {
-                                                    { vm.movePinnedEntry(entry, moveUp = false) }
-                                                } else null,
-                                                onToggleArchive = entry.aiSession?.let { session -> { vm.archiveSession(session) } },
-                                                onExport = entry.aiSession?.let { session -> { vm.exportSession(session) } },
-                                                onDelete = entry.aiSession?.let { session -> { vm.deleteSession(session) } }
-                                            )
+                                        if (!isCollapsed) {
+                                            items(group.items, key = { it.stableKey }) { entry ->
+                                                SidebarSessionRow(
+                                                    entry = entry,
+                                                    isSelected = entry.stableKey == vm.currentSidebarSelectionKey,
+                                                    isArchived = false,
+                                                    language = lang,
+                                                    onOpen = {
+                                                        vm.openSidebarEntry(entry)
+                                                        animateSidebar(0f)
+                                                    },
+                                                    onRefresh = {
+                                                        entry.aiSession?.let { vm.openSession(it, forceRefresh = true) }
+                                                            ?: entry.desktopSession?.let { vm.openDesktopSession(it, forceRefresh = true) }
+                                                        animateSidebar(0f)
+                                                    },
+                                                    onRename = entry.aiSession?.let { session ->
+                                                        {
+                                                            renameDraft = session.displayTitle(lang)
+                                                            renameTargetSession = session
+                                                        }
+                                                    },
+                                                    onTogglePin = {
+                                                        entry.aiSession?.let { vm.togglePinSession(it) }
+                                                            ?: entry.desktopSession?.let { vm.togglePinDesktopSession(it) }
+                                                    },
+                                                    onMovePinnedUp = if (entry.isPinned && vm.canMovePinnedEntry(entry, moveUp = true)) {
+                                                        { vm.movePinnedEntry(entry, moveUp = true) }
+                                                    } else null,
+                                                    onMovePinnedDown = if (entry.isPinned && vm.canMovePinnedEntry(entry, moveUp = false)) {
+                                                        { vm.movePinnedEntry(entry, moveUp = false) }
+                                                    } else null,
+                                                    onToggleArchive = entry.aiSession?.let { session -> { vm.archiveSession(session) } },
+                                                    onExport = entry.aiSession?.let { session -> { vm.exportSession(session) } },
+                                                    onDelete = entry.aiSession?.let { session -> { vm.deleteSession(session) } }
+                                                )
+                                            }
                                         }
                                     }
                                 }

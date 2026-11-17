@@ -3012,16 +3012,6 @@
                 return timeB - timeA;
             });
 
-            if (query) {
-                for (const root of projectMap.keys()) collapsedProjects.delete(root);
-            } else {
-                for (const [root, entries] of sortedProjects) {
-                    if (entries.some(e => isItemActive(e.item))) {
-                        collapsedProjects.delete(root);
-                    }
-                }
-            }
-
             const archivedBanner = isArchived
                 ? `<div class="home-chat-archive-banner" role="status"><span class="home-chat-archive-banner-label"><span class="home-chat-archive-dot" aria-hidden="true"></span>${escapeHtml(tx('archivedViewBanner'))}</span><button type="button" class="home-chat-archive-exit" data-chat-exit-archived>${escapeHtml(tx('archivedExit'))}</button></div>`
                 : '';
@@ -3067,7 +3057,7 @@
                     const hasActive = entries.some(e => isItemActive(e.item));
                     html.push(`
                         <div class="home-chat-project${isCollapsed ? ' is-collapsed' : ''}${hasActive ? ' is-active-project' : ''}" data-project-root="${escapeHtml(root)}">
-                            <div class="home-chat-project-head" role="button" tabindex="0" title="${escapeHtml(root)}" data-project-toggle>
+                            <div class="home-chat-project-head" role="button" tabindex="0" aria-expanded="${!isCollapsed}" title="${escapeHtml(root)}" data-project-toggle>
                                 <span class="home-chat-project-chevron" aria-hidden="true">${isCollapsed ? '›' : '⌄'}</span>
                                 <span class="home-chat-project-icon" aria-hidden="true">
                                     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 6V5a1.5 1.5 0 0 1 1.5-1.5h4l2 2h6A1.5 1.5 0 0 1 17.5 7v8a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 15V6Z"/></svg>

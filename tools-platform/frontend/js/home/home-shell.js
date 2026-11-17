@@ -233,26 +233,33 @@
     navTip.setAttribute('role', 'tooltip');
     document.body.appendChild(navTip);
     let navTipTimer = 0;
+    let navTipAnchor = null;
     function showNavTip(text, anchor) {
         clearTimeout(navTipTimer);
+        navTipAnchor = anchor;
         navTip.textContent = text;
         const rect = anchor.getBoundingClientRect();
         navTip.style.left = `${rect.right + 8}px`;
         navTip.style.top = `${rect.top + (rect.height / 2)}px`;
         navTip.classList.add('is-open');
+        navTipTimer = setTimeout(hideNavTip, 3000);
     }
     function hideNavTip() {
         clearTimeout(navTipTimer);
+        navTipAnchor = null;
         navTip.classList.remove('is-open');
     }
     document.addEventListener('mouseover', event => {
         const item = event.target.closest('.v2-nav-item.is-disabled');
-        if (item && item.dataset.disabledReason) showNavTip(item.dataset.disabledReason, item);
+        if (item && !item.contains(event.relatedTarget) && item.dataset.disabledReason) showNavTip(item.dataset.disabledReason, item);
     });
     document.addEventListener('mouseout', event => {
-        const item = event.target.closest('.v2-nav-item.is-disabled');
-        if (item) hideNavTip();
+        if (navTipAnchor?.contains(event.target) && !navTipAnchor.contains(event.relatedTarget)) hideNavTip();
     });
+    window.addEventListener('blur', hideNavTip);
+    window.addEventListener('resize', hideNavTip);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) hideNavTip(); });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape') hideNavTip(); });
 
     // ── 主导航动作 ──
     const ACTIONS = {
@@ -272,8 +279,6 @@
             if (navItem?.classList.contains('is-disabled')) {
                 const reason = navItem.dataset.disabledReason || navItem.title || t('channelDisabledNoChannel');
                 showNavTip(reason, navItem);
-                clearTimeout(navTipTimer);
-                navTipTimer = setTimeout(hideNavTip, 3000);
                 return;
             }
             window.HomeMode?.set('chat');
@@ -320,8 +325,6 @@
             const reason = el.dataset.disabledReason || el.title;
             if (reason) {
                 showNavTip(reason, el);
-                clearTimeout(navTipTimer);
-                navTipTimer = setTimeout(hideNavTip, 3000);
             }
             return;
         }
@@ -1874,6 +1877,7 @@
         const hasConfigured = Object.values(summary).some(s => s && s.configured);
 
         if (hasEnabled) {
+            if (navTipAnchor === navItem) hideNavTip();
             navItem.classList.remove('is-disabled');
             navItem.removeAttribute('aria-disabled');
             delete navItem.dataset.disabledReason;

@@ -5,7 +5,7 @@ body.ai-report-page{margin:0;background:var(--air-page);color:var(--air-ink);fon
 .air-booting .air-layout{visibility:hidden}
 
 /* Toolbar: month, report, status, then the few actions. */
-.air-toolbar{position:sticky;top:var(--navbar-h,52px);z-index:30;margin-top:var(--navbar-h,52px);height:var(--air-toolbar-h);box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:0 18px;background:#102b47;color:#e6eef7;box-shadow:0 2px 8px #102b4718}
+.air-toolbar{position:sticky;top:var(--navbar-h,52px);z-index:35;margin-top:var(--navbar-h,52px);height:var(--air-toolbar-h);box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:0 18px;background:#102b47;color:#e6eef7;box-shadow:0 2px 8px #102b4718}
 .air-brand{font-size:14px;letter-spacing:.3px;margin-right:6px;white-space:nowrap}
 .air-month{display:flex;align-items:center;gap:6px;font-size:12px;color:#b9cadb}
 /* 月份输入与编辑器表单统一亮色，包括原生月份选择器。 */

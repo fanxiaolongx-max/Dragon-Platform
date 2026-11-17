@@ -41,6 +41,7 @@ app.whenReady().then(async () => {
     web.get('/api/ai-settings', (_, res) => res.json({ activeProfileId: 'main', profiles: [{ id: 'main', name: '主连接', model: 'gpt-4o', provider: 'openai', category: 'chat', isActive: true, hasApiKey: true, keyLooksValid: true, maskedApiKey: '****', maxOutputTokens: 2048, temperature: 0.7 }] }));
     web.get('/api/ai/models', (_, res) => res.json({ models: [{ id: 'main', name: 'GPT-4o' }], defaultId: 'main', mode: 'direct' }));
     web.get('/api/ai/conversation-list', (_, res) => res.json({ items: [] }));
+    web.get('/api/ai/sessions/chat-project-1/messages', (_, res) => res.json({ items: [{ role: 'user', content: '查看项目用途', created_at: '2026-11-02T11:00:00Z' }], hasMore: false }));
     web.get('/api/ai/sessions', (_, res) => res.json({
         items: [
             { id: 'chat-1', title: '普通对话 1: SLA 报表分析', messageCount: 2, updatedAt: '2026-11-02T10:00:00Z', firstQuestion: '查看本月 SLA 达标情况' },
@@ -143,6 +144,18 @@ app.whenReady().then(async () => {
     await wait(100);
     const isExpandedAgain = !await evaluate('document.querySelector(".home-chat-project").classList.contains("is-collapsed")');
     assert.equal(isExpandedAgain, true, 'Project should expand again');
+
+    // The active conversation must not force its folder open on every render.
+    await evaluate('document.querySelector(".home-chat-project [data-chat-index]").click()');
+    await until('document.querySelector(".home-chat-project").classList.contains("is-active-project")');
+    await evaluate('document.querySelector("[data-project-toggle]").click()');
+    assert.equal(await evaluate('document.querySelector(".home-chat-project-items").hidden'), true, 'Active project collapses');
+    assert.equal(await evaluate('document.querySelector("[data-project-toggle]").getAttribute("aria-expanded")'), 'false');
+    await evaluate('window.dispatchEvent(new Event("home:desktop-agents-updated"))');
+    assert.equal(await evaluate('document.querySelector(".home-chat-project-items").hidden'), true, 'Refresh preserves the collapsed state');
+    await evaluate(`document.querySelector('[data-project-toggle]').focus(); document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));`);
+    assert.equal(await evaluate('document.querySelector(".home-chat-project-items").hidden'), false, 'Keyboard expands the active project');
+    assert.equal(await evaluate('document.querySelector("[data-project-toggle]").getAttribute("aria-expanded")'), 'true');
 
     // Click project add button to create a new session under this directory
     await evaluate('document.querySelector("[data-project-add]").click()');

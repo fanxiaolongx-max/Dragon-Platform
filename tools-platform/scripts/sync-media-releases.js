@@ -9,9 +9,30 @@ const gallery = require('./prepare-gallery-examples');
 const REPO_MEDIA = 'fanxiaolongx-max/Dragon-Platform-Media';
 const root = path.resolve(__dirname, '..');
 
+const TRANSIENT_GH_NETWORK = /i\/o timeout|TLS handshake timeout|connection reset|unexpected EOF|HTTP 50[234]/i;
+
+function isTransientReadFailure(args, error) {
+    const isRead = args[0] === 'api' || (args[0] === 'release' && (args[1] === 'view' || args[1] === 'download'));
+    if (!isRead) return false;
+    const msg = `${error.stderr?.toString() || ''}\n${error.message || ''}`;
+    return TRANSIENT_GH_NETWORK.test(msg);
+}
+
 function gh(args, binary = false) {
-    return execFileSync('gh', args, { cwd: root, encoding: binary ? undefined : 'utf8',
-        stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 512 * 1024 * 1024 });
+    const maxAttempts = 4;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            return execFileSync('gh', args, {
+                cwd: root,
+                encoding: binary ? undefined : 'utf8',
+                stdio: ['ignore', 'pipe', 'pipe'],
+                maxBuffer: 512 * 1024 * 1024
+            });
+        } catch (error) {
+            if (attempt >= maxAttempts || !isTransientReadFailure(args, error)) throw error;
+            Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, attempt * 600);
+        }
+    }
 }
 function release(tag) {
     try { return JSON.parse(gh(['api', `repos/${REPO_MEDIA}/releases/tags/${encodeURIComponent(tag)}`])); }

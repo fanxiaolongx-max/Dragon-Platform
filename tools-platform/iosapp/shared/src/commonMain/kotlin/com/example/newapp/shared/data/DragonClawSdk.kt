@@ -111,6 +111,12 @@ class DragonClawSdk(
         )
     }
 
+    fun isPinnedSessionsCollapsed(): Boolean = settings.getBoolean(KEY_PINNED_COLLAPSED, false)
+
+    fun setPinnedSessionsCollapsed(collapsed: Boolean) {
+        settings.saveBoolean(KEY_PINNED_COLLAPSED, collapsed)
+    }
+
     val conversationCache: ConversationCacheManager by lazy {
         ConversationCacheManager().also {
             it.configureScope(getBaseUrl(), getSavedUsername())
@@ -1147,6 +1153,7 @@ class DragonClawSdk(
         private const val KEY_TOKEN = "auth_token"
         private const val KEY_ROLE = "user_role"
         private const val KEY_SELECTED_MODEL = "selected_model_id"
+        private const val KEY_PINNED_COLLAPSED = "pinned_sessions_collapsed"
     }
 }
 

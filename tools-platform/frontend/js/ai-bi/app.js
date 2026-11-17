@@ -457,7 +457,7 @@
         if(redoBtn)redoBtn.disabled=!state.redo.length;
         updateMarkUi();
         updateZoomUi();
-        $('#biList').innerHTML=state.boards.map(entry=>`<button type="button" data-open="${esc(entry.id)}" aria-current="${entry.id===state.board.id}"><span>${esc(entry.name)}</span><small>${entry.canvas?`${entry.canvas.width}×${entry.canvas.height} · `:''}${entry.items||0} ${t('格','cells')}</small></button>`).join('')||`<p class="bi-pos" style="padding:6px 10px">${t('还没有保存的看板','No saved boards yet')}</p>`;
+        $('#biList').innerHTML=state.boards.map(entry=>`<button type="button" data-open="${esc(entry.id)}" aria-current="${entry.id===state.board.id}" title="${esc(entry.name)}"><span>${esc(entry.name)}</span><small>${entry.canvas?`${entry.canvas.width}×${entry.canvas.height} · `:''}${entry.items||0} ${t('格','cells')}</small></button>`).join('')||`<p class="bi-pos" style="padding:6px 10px">${t('还没有保存的看板','No saved boards yet')}</p>`;
         status('');
     }
     async function loadBoards(){try{state.boards=await API.get('/api/ai-bi/boards');}catch(_){state.boards=[];}}

@@ -31,7 +31,10 @@ app.whenReady().then(async () => {
     const mockQuotas = {
         codex: { creditsBalance: 2476.957975, status: 'live', updatedAt: Date.now(), membership: { label: 'Plus' }, groups: [{ id: 'codex', windows: [{ id: '5h', remainingPercent: 80 }, { id: 'weekly', remainingPercent: 65 }] }] },
         claudecode: { extraUsage: { enabled: true, used: 24.88, limit: 120, currency: 'USD', percent: 21 }, status: 'live', updatedAt: Date.now(), membership: { label: 'Max' }, groups: [{ id: 'claudecode', windows: [{ id: '5h', remainingPercent: 50 }, { id: 'weekly', remainingPercent: 40 }] }] },
-        antigravity: { status: 'live', updatedAt: Date.now(), membership: { label: 'Ultra' }, groups: [{ id: 'gemini', windows: [{ id: '5h', remainingPercent: 90 }, { id: 'weekly', remainingPercent: 70 }] }] }
+        antigravity: { creditsBalance: 1743, status: 'live', updatedAt: Date.now(), membership: { label: 'Ultra' }, groups: [
+            { id: 'gemini', windows: [{ id: '5h', remainingPercent: 90 }, { id: 'weekly', remainingPercent: 0 }] },
+            { id: 'third-party', windows: [{ id: '5h', remainingPercent: 80 }, { id: 'weekly', remainingPercent: 0 }] }
+        ] }
     };
 
     web.get('/api/desktop-agents/settings', (_req, res) => res.json({ owned: true, settings: mockSettings }));
@@ -71,6 +74,10 @@ app.whenReady().then(async () => {
     await evaluate('document.querySelector(".dqb-row.codex").dispatchEvent(new PointerEvent("pointerenter"))');
     await until('!document.querySelector(".dqb-peek").hidden');
     assert.match(await evaluate('document.querySelector(".dqb-peek-extra").textContent'), /剩余充值额度.*2,476 credits/);
+    await evaluate('document.querySelector(".dqb-row.antigravity").dispatchEvent(new PointerEvent("pointerenter"))');
+    await until('document.querySelector(".dqb-peek[data-provider=antigravity]")');
+    assert.equal(await evaluate('document.querySelectorAll(".dqb-peek-group").length'), 2);
+    assert.match(await evaluate('document.querySelector(".dqb-peek-groups + .dqb-peek-extra").textContent'), /剩余 AI 点数.*1,743 点/);
 
     // 2. Open menu
     await evaluate('document.querySelector("[data-dqb-menu]").click()');
@@ -136,6 +143,7 @@ app.whenReady().then(async () => {
 
     const extraSelector = '.dqb-row[data-provider="claudecode"] .dqb-row-extra';
     const creditsSelector = '.dqb-row.codex .dqb-row-extra';
+    const antigravityCredits = '.dqb-row.antigravity .dqb-row-extra';
     assert.match(await evaluate(`document.querySelector('${creditsSelector}').textContent`), /剩余充值额度.*2,476 credits/);
     assert.equal(await evaluate(`document.querySelector('${extraSelector}').hidden`), false);
     assert.match(await evaluate(`document.querySelector('${extraSelector}').textContent`), /24\.88.*120\.00/);
@@ -148,13 +156,16 @@ app.whenReady().then(async () => {
         assert.ok(geometry.left >= 0 && geometry.right <= geometry.width, JSON.stringify(geometry));
     }
     assert.match(await evaluate(`document.querySelector('${creditsSelector}').textContent`), /Remaining credits.*2,476 credits/);
+    assert.match(await evaluate(`document.querySelector('${antigravityCredits}').textContent`), /Available AI Credits.*1,743 credits/);
     mockQuotas.codex.creditsBalance = null;
+    mockQuotas.antigravity.creditsBalance = 0;
     mockQuotas.claudecode.extraUsage.percent = null;
     mockQuotas.claudecode.extraUsage.limit = null;
     mockQuotas.claudecode.extraUsage.currency = '<img src=x onerror=bad>';
     await evaluate(`document.querySelector('[data-dqb-menu]').click();[...document.querySelectorAll('.dqb-menu button')].find(b=>b.textContent.includes('Refresh quotas')).click()`);
     await until(`document.querySelector('${extraSelector}').textContent.includes('<img')`);
     assert.equal(await evaluate(`document.querySelector('${creditsSelector}').hidden`), true);
+    assert.equal(await evaluate(`document.querySelector('${antigravityCredits}').hidden`), true);
     assert.equal(await evaluate(`document.querySelector('${extraSelector} img') === null`), true, 'currency is displayed as text');
     assert.equal(await evaluate(`document.querySelector('${extraSelector} .dqb-extra-track') === null`), true, 'missing percentages do not imply zero usage');
     const storedBeforeReading = await evaluate('localStorage.getItem("tools_desktop_quota_bar_v2")');

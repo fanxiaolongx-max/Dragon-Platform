@@ -56,6 +56,24 @@ test('Codex reads finite purchased credits from its account bucket or legacy sna
     assert.equal(parseCodexQuota(data).creditsBalance, undefined);
 });
 
+test('Antigravity reads the Google AI credit balance without using subscription quotas or purchase limits', () => {
+    const credit = { creditType: 'GOOGLE_ONE_AI', creditAmount: '1743', minimumCreditAmountForUsage: '50' };
+    const details = availableCredits => ({ userStatus: {
+        planStatus: { availablePromptCredits: 500, planInfo: { monthlyFlexCreditPurchaseAmount: 25000 } },
+        userTier: { availableCredits }
+    } });
+    const quota = parseAntigravityQuota(agData(), details([{ creditType: 'CREDIT_TYPE_UNSPECIFIED', creditAmount: '123' }, credit]));
+    assert.equal(quota.creditsBalance, 1743);
+    assert.equal(quota.gemini5h, 0);
+    const balanceOnly = parseAntigravityQuota({ response: {} }, { response: details([{ ...credit, creditType: 1, creditAmount: 49 }]) });
+    assert.equal(balanceOnly.active, true);
+    assert.equal(balanceOnly.creditsBalance, 49);
+    for (const amount of [undefined, null, '0', '-1', '1e3', '1.5', Infinity, '9007199254740993']) {
+        assert.equal(parseAntigravityQuota(agData(), details([{ ...credit, creditAmount: amount }])).creditsBalance, undefined);
+    }
+    assert.equal(parseAntigravityQuota(agData(), details([])).creditsBalance, undefined);
+});
+
 test('cache coalesces concurrent reads, preserves timestamps, expires reset windows and clears on sign-out',async()=>{
     let now=1000,count=0,fail=false,status='unavailable';
     const read=cachedReader('codex',async()=>{count++;if(fail)return unavailable('codex',status);return{...parseCodexQuota(codexData()),updatedAt:now};},100,()=>now);
@@ -136,8 +154,14 @@ test('Antigravity discovers Windows and Mac listening ports and never forwards l
         assert.equal(parseProcesses(process,platform)[0].pid,123);
         const requests=[];
         const reader=createAntigravityReader({platform,run:async(_file,args)=>args.join(' ').includes('ps')||args.includes('pid=,args=')?process:args.join(' ').includes('Get-CimInstance')?process:platform==='win32'?'[54321]':'p123\nn127.0.0.1:54321\n',
-            requestJson:async(url,options)=>{requests.push({url,options});return agData();}});
+            requestJson:async(url,options)=>{
+                requests.push({url,options});
+                return url.endsWith('/GetUserStatus')
+                    ? { userStatus: { userTier: { availableCredits: [{ creditType: 'GOOGLE_ONE_AI', creditAmount: '1743' }] } } }
+                    : agData();
+            }});
         const q=await reader();assert.equal(q.status,'live');assert.equal(requests[0].url,'https://127.0.0.1:54321/exa.language_server_pb.LanguageServerService/RetrieveUserQuotaSummary');
+        assert.equal(q.creditsBalance, 1743);
         assert.equal(requests[0].options.headers['x-codeium-csrf-token'],csrf);assert.doesNotMatch(JSON.stringify(q),/test-csrf/);
     }
 });

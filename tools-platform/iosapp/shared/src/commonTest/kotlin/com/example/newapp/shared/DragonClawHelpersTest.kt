@@ -673,4 +673,13 @@ class DragonClawHelpersTest {
         assertFalse(mapped[1].approvals[0].isPending)
         assertEquals("full", mapped[1].approvals[0].chosenDecision)
     }
+
+    @Test
+    fun pinnedGroupCollapsesOnlyWhenPinnedPrefIsSetAndNotSearching() {
+        assertFalse(SessionGrouping.shouldCollapseGroup(SessionBucket.PINNED, isPinnedCollapsed = false, searchQuery = ""))
+        assertTrue(SessionGrouping.shouldCollapseGroup(SessionBucket.PINNED, isPinnedCollapsed = true, searchQuery = ""))
+        assertTrue(SessionGrouping.shouldCollapseGroup(SessionBucket.PINNED, isPinnedCollapsed = true, searchQuery = "   "))
+        assertFalse(SessionGrouping.shouldCollapseGroup(SessionBucket.PINNED, isPinnedCollapsed = true, searchQuery = "语音"))
+        assertFalse(SessionGrouping.shouldCollapseGroup(SessionBucket.TODAY, isPinnedCollapsed = true, searchQuery = ""))
+    }
 }

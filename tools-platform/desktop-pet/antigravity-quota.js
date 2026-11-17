@@ -15,6 +15,15 @@ function parseAntigravityQuota(data, details) {
     const user = details?.userStatus || details?.response?.userStatus;
     const plan = user?.planStatus?.planInfo;
     value.membership=membership(plan?.planName || plan?.teamsTier);
+    const credits = user?.userTier?.availableCredits;
+    if (Array.isArray(credits)) {
+        const amount = credits.find(credit => credit?.creditType === 'GOOGLE_ONE_AI' || credit?.creditType === 1)?.creditAmount;
+        const balance = typeof amount === 'string' && /^\d+$/.test(amount) ? Number(amount) : amount;
+        if (Number.isSafeInteger(balance) && balance > 0) {
+            value.creditsBalance = balance;
+            value.active = true;
+        }
+    }
     if (!value.active) return unavailable('antigravity','unsupported');
     // Compatibility with the pre-existing desktop renderer. Missing values stay null.
     for (const [id,prefix] of [['gemini','gemini'],['third-party','claude']]) {
@@ -53,7 +62,7 @@ function createAntigravityReader(options = {}) {
                 method:'POST',body:{},rejectUnauthorized:false,
                 headers:{'Connect-Protocol-Version':'1','x-codeium-csrf-token':endpoint.csrf}
             });
-        } catch (_) { /* Membership can be unavailable while quota still succeeds. */ }
+        } catch (_) { /* Quota is still available if membership and credits cannot be read. */ }
         const result = parseAntigravityQuota(data, details);
         if (!result.active) throw new Error('unsupported');
         return result;

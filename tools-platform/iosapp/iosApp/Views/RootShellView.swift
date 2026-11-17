@@ -410,15 +410,59 @@ struct RootShellView: View {
                                 .frame(maxWidth: .infinity)
                         } else {
                             ForEach(store.unifiedSessionGroups, id: \.bucket) { group in
+                                let isPinnedGroup = group.bucket == .pinned
+                                let isCollapsed = SessionGrouping.shared.shouldCollapseGroup(
+                                    bucket: group.bucket,
+                                    isPinnedCollapsed: store.isPinnedCollapsed,
+                                    searchQuery: store.sessionSearchQuery
+                                )
                                 VStack(alignment: .leading, spacing: 3) {
-                                    Text(group.localizedTitle(language: lang))
-                                        .font(.system(size: 11, weight: .semibold))
-                                        .foregroundStyle(palette.inkMuted)
-                                        .padding(.horizontal, 8)
-                                        .padding(.bottom, 1)
+                                    if isPinnedGroup {
+                                        Button {
+                                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                            withAnimation(.snappy(duration: 0.24)) {
+                                                store.togglePinnedCollapsed()
+                                            }
+                                        } label: {
+                                            HStack(spacing: 5) {
+                                                Text(group.localizedTitle(language: lang))
+                                                    .font(.system(size: 11, weight: .semibold))
+                                                    .foregroundStyle(palette.inkMuted)
 
-                                    ForEach(group.items, id: \.stableKey) { entry in
-                                        unifiedSessionRowView(entry)
+                                                Text("(\(group.items.count))")
+                                                    .font(.system(size: 11, weight: .medium).monospacedDigit())
+                                                    .foregroundStyle(palette.inkMuted.opacity(0.78))
+
+                                                Spacer()
+
+                                                Image(systemName: "chevron.down")
+                                                    .font(.system(size: 10, weight: .semibold))
+                                                    .foregroundStyle(palette.inkMuted)
+                                                    .rotationEffect(.degrees(isCollapsed ? -90 : 0))
+                                                    .animation(.snappy(duration: 0.22), value: isCollapsed)
+                                            }
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                            .contentShape(Rectangle())
+                                        }
+                                        .buttonStyle(.plain)
+                                        .accessibilityLabel(
+                                            isCollapsed
+                                                ? L10n.tr(lang, zh: "展开置顶会话", en: "Expand pinned conversations")
+                                                : L10n.tr(lang, zh: "收起置顶会话", en: "Collapse pinned conversations")
+                                        )
+                                    } else {
+                                        Text(group.localizedTitle(language: lang))
+                                            .font(.system(size: 11, weight: .semibold))
+                                            .foregroundStyle(palette.inkMuted)
+                                            .padding(.horizontal, 8)
+                                            .padding(.bottom, 1)
+                                    }
+
+                                    if !isCollapsed {
+                                        ForEach(group.items, id: \.stableKey) { entry in
+                                            unifiedSessionRowView(entry)
+                                        }
                                     }
                                 }
                             }

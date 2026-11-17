@@ -137,6 +137,16 @@ struct ChatView: View {
                                             }
                                         }
                                     ),
+                                    isUserExpanded: Binding(
+                                        get: { store.expandedUserMessageIds.contains(message.id) },
+                                        set: { expanded in
+                                            if expanded {
+                                                store.expandedUserMessageIds.insert(message.id)
+                                            } else {
+                                                store.expandedUserMessageIds.remove(message.id)
+                                            }
+                                        }
+                                    ),
                                     palette: palette,
                                     language: lang,
                                     onRetry: { store.retryLastPrompt() },
@@ -1508,6 +1518,7 @@ private struct ChatBubbleRow: View {
     var suppressActionFooter: Bool = false
     var showTurnWorkingIndicator: Bool = false
     @Binding var isThinkingExpanded: Bool
+    @Binding var isUserExpanded: Bool
     let palette: DragonClawPalette
     let language: String
     let onRetry: () -> Void
@@ -1591,22 +1602,12 @@ private struct ChatBubbleRow: View {
                     }
 
                     if !message.content.isEmpty {
-                        Text(message.content)
-                            .font(.system(size: 12.5))
-                            .lineSpacing(1.5)
-                            .foregroundStyle(palette.inkPrimary)
-                            .textSelection(.enabled)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            // Flat fill, not glassEffect: one live glass layer per message makes long threads stutter.
-                            .background(
-                                palette.accent.opacity(palette.isDark ? 0.24 : 0.14),
-                                in: RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                    .strokeBorder(palette.hairLine, lineWidth: 0.5)
-                            )
+                        CollapsibleUserTextBubble(
+                            text: message.content,
+                            language: language,
+                            palette: palette,
+                            isExpanded: $isUserExpanded
+                        )
                     }
                 }
             }
@@ -1780,6 +1781,104 @@ private struct ChatBubbleRow: View {
                 }
             }
             .padding(.trailing, 4)
+        }
+    }
+}
+
+private struct CollapsibleUserTextBubble: View {
+    let text: String
+    let language: String
+    let palette: DragonClawPalette
+    @Binding var isExpanded: Bool
+
+    @State private var collapsedHeight: CGFloat = 0
+    @State private var overflowProbeHeight: CGFloat = 0
+
+    private var foldLineCount: Int {
+        Int(DragonClawHelpers.shared.USER_MESSAGE_FOLD_MAX_LINES)
+    }
+
+    private var isLongMessage: Bool {
+        overflowProbeHeight > collapsedHeight + 1.5
+    }
+
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 4) {
+            Text(text)
+                .font(.system(size: 12.5))
+                .lineSpacing(1.5)
+                .foregroundStyle(palette.inkPrimary)
+                .lineLimit(isExpanded ? nil : foldLineCount)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+                .background {
+                    // Compare 6-line vs 7-line wrapped heights at the exact bubble width without rendering full payload.
+                    ZStack(alignment: .topLeading) {
+                        Text(text)
+                            .font(.system(size: 12.5))
+                            .lineSpacing(1.5)
+                            .lineLimit(foldLineCount)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .hidden()
+                            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { h in
+                                if abs(collapsedHeight - h) > 0.5 { collapsedHeight = h }
+                            }
+                        Text(text)
+                            .font(.system(size: 12.5))
+                            .lineSpacing(1.5)
+                            .lineLimit(foldLineCount + 1)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .hidden()
+                            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { h in
+                                if abs(overflowProbeHeight - h) > 0.5 { overflowProbeHeight = h }
+                            }
+                    }
+                    .allowsHitTesting(false)
+                }
+                .mask {
+                    if isLongMessage && !isExpanded {
+                        VStack(spacing: 0) {
+                            Color.black
+                            LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+                                .frame(height: 18)
+                        }
+                    } else {
+                        Color.black
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                // Flat fill, not glassEffect: one live glass layer per message makes long threads stutter.
+                .background(
+                    palette.accent.opacity(palette.isDark ? 0.24 : 0.14),
+                    in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .strokeBorder(palette.hairLine, lineWidth: 0.5)
+                )
+
+            if isLongMessage {
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    withAnimation(.snappy(duration: 0.24)) {
+                        isExpanded.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 3) {
+                        Text(L10n.tr(language, zh: isExpanded ? "收起全文" : "展开全文", en: isExpanded ? "Show less" : "Show more"))
+                            .font(.system(size: 11.5, weight: .medium))
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 9.5, weight: .semibold))
+                            .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                    }
+                    .foregroundStyle(palette.inkSecondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
         }
     }
 }

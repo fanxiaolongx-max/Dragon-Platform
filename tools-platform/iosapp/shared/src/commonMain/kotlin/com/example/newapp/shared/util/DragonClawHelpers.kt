@@ -30,6 +30,9 @@ data class MarkdownRenderRun(
 
 /** Pure Kotlin helpers shared by iOS and Android (stream parsing, timestamps, grouping, error extraction). */
 object DragonClawHelpers {
+    /** Line threshold before folding long user prompt bubbles (matches Web `.dc-msg--user`). */
+    const val USER_MESSAGE_FOLD_MAX_LINES = 6
+
     @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
     val lenientJson = Json {
         ignoreUnknownKeys = true
@@ -1736,6 +1739,13 @@ object SessionGrouping {
             }
         }
     }
+
+    /** Collapses only the PINNED sidebar bucket when enabled, auto-expanding during active search. */
+    fun shouldCollapseGroup(
+        bucket: SessionBucket,
+        isPinnedCollapsed: Boolean,
+        searchQuery: String
+    ): Boolean = bucket == SessionBucket.PINNED && isPinnedCollapsed && searchQuery.isBlank()
 
     /** Parses ISO-8601 (`2026-11-11T08:00:00Z`) or SQLite (`2026-11-11 08:00:00`) UTC timestamps to epoch ms. */
     fun parseTimestampMs(raw: String?): Long? {

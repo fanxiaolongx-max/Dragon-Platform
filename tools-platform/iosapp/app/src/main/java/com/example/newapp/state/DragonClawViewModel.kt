@@ -160,6 +160,8 @@ class DragonClawViewModel : ViewModel() {
     var unifiedSessionGroups by mutableStateOf<List<UnifiedSessionGroup>>(emptyList())
         private set
     var sessionSearchQuery by mutableStateOf("")
+    var isPinnedCollapsed by mutableStateOf(sdk.isPinnedSessionsCollapsed())
+        private set
     var currentSessionId by mutableStateOf<String?>(null)
         private set
     var activeDesktopSession by mutableStateOf<DesktopAgentSessionSummary?>(null)
@@ -218,6 +220,8 @@ class DragonClawViewModel : ViewModel() {
         private set
     var chatErrorBanner by mutableStateOf<String?>(null)
     var chatStatusBanner by mutableStateOf<String?>(null)
+    var expandedUserMessageIds by mutableStateOf<Set<String>>(emptySet())
+        private set
 
     // Voice Recording & Waveform State
     var isRecordingVoice by mutableStateOf(false)
@@ -673,6 +677,7 @@ class DragonClawViewModel : ViewModel() {
         showNativeMetrics = false
         metricsBackStack = listOf(MetricsRoute.Dashboard)
         messages = emptyList()
+        expandedUserMessageIds = emptySet()
         rawAiSessions = emptyList()
         rawCachedAiSessions = emptyList()
         rawDesktopAgentSessions = emptyList()
@@ -2918,6 +2923,20 @@ class DragonClawViewModel : ViewModel() {
 
     fun canMovePinnedEntry(entry: SidebarSessionEntry, moveUp: Boolean): Boolean =
         sdk.movePinnedEntryOrder(unifiedSessionGroups, conversationPreferences, entry.stableKey, moveUp) != null
+
+    fun togglePinnedCollapsed() {
+        val next = !isPinnedCollapsed
+        isPinnedCollapsed = next
+        sdk.setPinnedSessionsCollapsed(next)
+    }
+
+    fun toggleUserMessageExpanded(messageId: String) {
+        expandedUserMessageIds = if (messageId in expandedUserMessageIds) {
+            expandedUserMessageIds - messageId
+        } else {
+            expandedUserMessageIds + messageId
+        }
+    }
 
     fun exportSession(session: AiSessionSummary) {
         viewModelScope.launch {

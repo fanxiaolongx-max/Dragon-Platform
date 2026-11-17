@@ -11,16 +11,22 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -504,6 +510,8 @@ fun ChatScreen(vm: DragonClawViewModel) {
                             senderLabel = if (!msg.isUser) vm.activeDesktopSession?.providerDisplayName() else null,
                             suppressActionFooter = isActiveDesktopLastTurn,
                             showTurnWorkingIndicator = isActiveDesktopLastTurn,
+                            isUserExpanded = msg.id in vm.expandedUserMessageIds,
+                            onToggleUserExpanded = { vm.toggleUserMessageExpanded(msg.id) },
                             onRetry = { vm.retryLastPrompt() },
                             onResolveApproval = { ap, decision, scope ->
                                 vm.submitApproval(
@@ -1660,6 +1668,8 @@ private fun ChatBubbleItem(
     senderLabel: String? = null,
     suppressActionFooter: Boolean = false,
     showTurnWorkingIndicator: Boolean = false,
+    isUserExpanded: Boolean = false,
+    onToggleUserExpanded: () -> Unit = {},
     onRetry: () -> Unit,
     onResolveApproval: (PendingApproval, String, String?) -> Unit,
     onOpenLightbox: (List<LightboxImageItem>, Int) -> Unit
@@ -1729,20 +1739,14 @@ private fun ChatBubbleItem(
                 }
 
                 if (message.content.isNotEmpty()) {
-                    LiquidGlassSurface(
-                        shape = RoundedCornerShape(18.dp),
-                        tint = palette.accent,
-                        tintAlpha = 0.16f,
-                        elevation = 4.dp
-                    ) {
-                        Text(
-                            text = message.content,
-                            color = palette.inkPrimary,
-                            fontSize = 12.5.sp,
-                            lineHeight = 17.5.sp,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                        )
-                    }
+                    CollapsibleUserTextBubble(
+                        text = message.content,
+                        messageKey = message.id,
+                        language = language,
+                        palette = palette,
+                        isExpanded = isUserExpanded,
+                        onToggleExpand = onToggleUserExpanded
+                    )
                 }
             }
         }
@@ -2004,6 +2008,98 @@ private fun ChatBubbleItem(
                         Text("${it} tok", color = palette.inkMuted, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CollapsibleUserTextBubble(
+    text: String,
+    messageKey: String,
+    language: String,
+    palette: DragonClawPalette,
+    isExpanded: Boolean,
+    onToggleExpand: () -> Unit
+) {
+    val foldLines = DragonClawHelpers.USER_MESSAGE_FOLD_MAX_LINES
+    var exceedsFoldLimit by remember(messageKey, text) { mutableStateOf(false) }
+
+    Column(
+        horizontalAlignment = Alignment.End,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        LiquidGlassSurface(
+            shape = RoundedCornerShape(18.dp),
+            tint = palette.accent,
+            tintAlpha = 0.16f,
+            elevation = 4.dp,
+            modifier = Modifier.animateContentSize(
+                animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
+            )
+        ) {
+            val shouldCollapseVisual = exceedsFoldLimit && !isExpanded
+            val textModifier = if (shouldCollapseVisual) {
+                Modifier
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                    .drawWithContent {
+                        drawContent()
+                        drawRect(
+                            brush = Brush.verticalGradient(
+                                0.68f to Color.Black,
+                                1.0f to Color.Transparent
+                            ),
+                            blendMode = BlendMode.DstIn
+                        )
+                    }
+            } else {
+                Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+            }
+
+            SelectionContainer {
+                Text(
+                    text = text,
+                    color = palette.inkPrimary,
+                    fontSize = 12.5.sp,
+                    lineHeight = 17.5.sp,
+                    maxLines = if (isExpanded) Int.MAX_VALUE else foldLines,
+                    overflow = TextOverflow.Ellipsis,
+                    onTextLayout = { layoutResult ->
+                        if (layoutResult.lineCount > foldLines || layoutResult.hasVisualOverflow) {
+                            exceedsFoldLimit = true
+                        }
+                    },
+                    modifier = textModifier
+                )
+            }
+        }
+
+        if (exceedsFoldLimit) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(3.dp),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = onToggleExpand)
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
+            ) {
+                Text(
+                    text = tr(
+                        language,
+                        if (isExpanded) "收起全文" else "展开全文",
+                        if (isExpanded) "Show less" else "Show more"
+                    ),
+                    color = palette.inkSecondary,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Icon(
+                    imageVector = if (isExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = palette.inkSecondary,
+                    modifier = Modifier.size(14.dp)
+                )
             }
         }
     }

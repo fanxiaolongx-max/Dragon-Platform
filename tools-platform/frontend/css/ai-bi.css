@@ -15,6 +15,11 @@ body.ai-bi-page{margin:0;background:#eef1f5;color:#1d2b3a;height:100vh;display:f
 .bi-menu-panel button{text-align:left;border:0!important;background:transparent!important;padding:7px 10px!important;border-radius:6px!important;display:flex;justify-content:space-between;gap:10px}
 .bi-menu-panel button:hover{background:#f1f5f9!important}.bi-menu-panel button[aria-current=true]{font-weight:600;color:#2f6fae}
 .bi-menu-panel small{color:#8a99a8}.bi-menu-panel hr{border:0;border-top:1px solid #edf1f5;margin:4px 0;width:100%}.bi-danger{color:#c0392b}
+.bi-toolbar>.bi-menu:first-of-type>.bi-menu-panel{box-sizing:border-box;width:min(360px,calc(100vw - 90px));min-width:0}
+.bi-list{min-width:0}
+.bi-list button{box-sizing:border-box;width:100%;align-items:center}
+.bi-list button span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bi-list button small{flex:none;white-space:nowrap}
 .bi-layout{flex:1;min-height:0;display:flex}
 .bi-stage{flex:1;min-width:0;overflow:auto;position:relative;padding:24px;box-sizing:border-box}
 .bi-scaler{position:relative;margin:0 auto}

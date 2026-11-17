@@ -509,7 +509,7 @@ async function antigravityTranscript(sessionOrId) {
         if (ev.type === 'USER_INPUT' && ev.source !== 'SYSTEM') {
             finishTurn();
             const raw = String(ev.content || '');
-            const mMatch = raw.match(/<USER_SETTINGS_CHANGE>[\s\S]*?Model Selection` from [^\n]+? to ([^\n]+?)\.(?:\s|$)/);
+            const mMatch = raw.match(/<USER_SETTINGS_CHANGE>[\s\S]*?Model Selection` from [^\n]*? to ([^\n]+?)\.(?:\s|$)/);
             if (mMatch) currentModel = mMatch[1].trim();
             const content = antigravityUserText(raw);
             const attachments = [];

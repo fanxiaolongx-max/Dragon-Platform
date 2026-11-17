@@ -45,6 +45,7 @@ final class DragonClawStore {
     var themeMode: String
     var rememberMe: Bool
     var autoLogin: Bool
+    var isPinnedCollapsed: Bool
 
     var token: String = ""
     var username: String = ""
@@ -117,6 +118,7 @@ final class DragonClawStore {
 
     var chatStatusBanner: String? = nil
     var expandedThinkingIds: Set<String> = []
+    var expandedUserMessageIds: Set<String> = []
 
     // Voice & Skills State
     var skills: [AgentSkillItem] = []
@@ -222,6 +224,7 @@ final class DragonClawStore {
         self.themeMode = sdk.getThemeMode()
         self.rememberMe = sdk.getRememberMe()
         self.autoLogin = sdk.getAutoLogin()
+        self.isPinnedCollapsed = sdk.isPinnedSessionsCollapsed()
         self.selectedModelId = sdk.getSelectedModelId()
         self.selectedVoicePersona = sdk.getVoicePersonaId()
         self.appVersion = sdk.getAppVersion()
@@ -259,6 +262,11 @@ final class DragonClawStore {
         }
         sdk.saveThemeMode(mode: themeMode)
         syncWindowInterfaceStyle()
+    }
+
+    func togglePinnedCollapsed() {
+        isPinnedCollapsed.toggle()
+        sdk.setPinnedSessionsCollapsed(collapsed: isPinnedCollapsed)
     }
 
     func toggleLanguage() {
@@ -610,6 +618,7 @@ final class DragonClawStore {
         toolsCategoryFilterRaw = "all"
         toolsScrollOffsetY = 0
         expandedThinkingIds.removeAll()
+        expandedUserMessageIds.removeAll()
         showArchivedSessions = false
         exportedSessionJson = nil
         chatStatusBanner = nil
