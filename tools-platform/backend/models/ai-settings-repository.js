@@ -163,7 +163,9 @@ function normalizeAuthMode(input = {}, previous = {}, provider = DEFAULT_SETTING
     const explicitMode = String(input.authMode ?? '').trim().toLowerCase();
     if (VALID_AUTH_MODES.includes(explicitMode)) return explicitMode;
 
-    if (Object.prototype.hasOwnProperty.call(input, 'anthropicAuthType') && input.anthropicAuthType !== undefined) {
+    // 历史库中所有配置都带有 anthropicAuthType 默认值；仅当目标协议确实是 anthropic 时才用它兼容推导 authMode，
+    // 避免把旧版已保存的 gemini / openai 配置误判成 bearer / x-api-key。
+    if (provider === 'anthropic' && Object.prototype.hasOwnProperty.call(input, 'anthropicAuthType') && input.anthropicAuthType !== undefined) {
         return normalizeAnthropicAuthType(input.anthropicAuthType) === 'ANTHROPIC_API_KEY' ? 'x-api-key' : 'bearer';
     }
 
@@ -369,16 +371,31 @@ async function getProfileStore() {
     const shared = await sharedProfiles();
     const meta = raw ? { activeProfileId: raw.activeProfileId, activeImageProfileId: raw.activeImageProfileId, autoSwitchEnabled: raw.autoSwitchEnabled === true } : {};
     if (raw && Array.isArray(raw.profiles) && raw.profiles.length) {
-        const profiles = [...shared, ...raw.profiles.map(normalizeProfile).map(profile => ({ ...profile, locked: false }))];
-        return withActiveIds({ version: 3, ...meta, profiles });
+        let healedLegacyGemini = false;
+        const rawVersion = Number(raw.version || 0);
+        const mapped = raw.profiles.map((item, idx) => {
+            const norm = normalizeProfile(item, idx);
+            if (rawVersion < 4 && norm.provider === 'gemini' && norm.authMode === 'bearer'
+                && (!norm.apiBaseUrl || /generativelanguage\.googleapis\.com/i.test(norm.apiBaseUrl))) {
+                norm.authMode = 'x-goog-api-key';
+                healedLegacyGemini = true;
+            }
+            return { ...norm, locked: false };
+        });
+        const profiles = [...shared, ...mapped];
+        const store = withActiveIds({ version: 4, ...meta, profiles });
+        if (healedLegacyGemini) {
+            await writeProfileStore(store).catch(() => {});
+        }
+        return store;
     }
     // 新团队还没有自己的配置：直接使用公共模型，不生成空白配置
-    if (shared.length) return withActiveIds({ version: 3, ...meta, profiles: shared });
+    if (shared.length) return withActiveIds({ version: 4, ...meta, profiles: shared });
 
     // 无感迁移：历史单配置原样成为第一套方案，Token 不会丢失。
     const legacy = normalizeSettings(await readKV('sys', LEGACY_SETTINGS_KEY, DEFAULT_SETTINGS));
     const first = createProfileRecord(legacy, defaultProfileName(legacy), 'default');
-    const migrated = { version: 3, activeProfileId: first.id, autoSwitchEnabled: false, profiles: [first] };
+    const migrated = { version: 4, activeProfileId: first.id, autoSwitchEnabled: false, profiles: [first] };
     // 团队还没有任何模型（超级管理员也没分配公共模型）：只给一套空白方案用于编辑，不落盘；
     // 否则之后分配的公共模型不会成为团队的默认模型
     if (!inDefaultTenant() && !await readKV('sys', LEGACY_SETTINGS_KEY, null)) return migrated;
@@ -413,7 +430,7 @@ async function writeProfileStore(store) {
         return p;
     });
     const normalized = {
-        version: 3,
+        version: 4,
         activeProfileId: active.id,
         activeImageProfileId: ids.activeImageProfileId,
         autoSwitchEnabled: store.autoSwitchEnabled === true,

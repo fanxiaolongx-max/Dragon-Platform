@@ -1507,6 +1507,15 @@ private struct ChatBubbleRow: View {
 
     @State private var copied = false
 
+    private var isActivelyThinking: Bool {
+        guard message.isStreaming || showTurnWorkingIndicator else { return false }
+        let status = (message.statusText ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if status == "深度思考中..." || status == "Reasoning..." {
+            return true
+        }
+        return !message.thinking.isEmpty && message.content.isEmpty && message.toolCalls.allSatisfy { $0.isFinished }
+    }
+
     private var markdownBlocks: [MdBlock] {
         MarkdownParser.shared.parse(raw: message.content)
     }
@@ -1606,7 +1615,11 @@ private struct ChatBubbleRow: View {
 
                     if let status = message.statusText, !status.isEmpty {
                         HStack(spacing: 5) {
-                            ProgressView().controlSize(.mini)
+                            if status == "深度思考中..." || status == "Reasoning..." {
+                                SilkyThinkingWave(palette: palette, barCount: 3, maxBarHeight: 9)
+                            } else {
+                                ProgressView().controlSize(.mini)
+                            }
                             Text(status)
                                 .font(.caption2.weight(.medium))
                                 .foregroundStyle(palette.accentStrong)
@@ -1621,25 +1634,13 @@ private struct ChatBubbleRow: View {
                 }
 
                 if !message.thinking.isEmpty {
-                    DisclosureGroup(isExpanded: $isThinkingExpanded) {
-                        Text(message.thinking)
-                            .font(.system(size: 11.5))
-                            .foregroundStyle(palette.inkSecondary)
-                            .textSelection(.enabled)
-                            .padding(.top, 6)
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "brain.head.profile")
-                                .font(.system(size: 11.5))
-                                .foregroundStyle(palette.accentStrong)
-                            Text(L10n.tr(language, zh: "思考过程 (\(message.thinking.count) 字)", en: "Thinking Process"))
-                                .font(.system(size: 11.5, weight: .semibold))
-                                .foregroundStyle(palette.inkSecondary)
-                        }
-                    }
-                    .padding(.horizontal, 11)
-                    .padding(.vertical, 8)
-                    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    ThinkingProcessCard(
+                        thinking: message.thinking,
+                        isActivelyThinking: isActivelyThinking,
+                        isExpanded: $isThinkingExpanded,
+                        palette: palette,
+                        language: language
+                    )
                 }
 
                 if !message.toolCalls.isEmpty {
@@ -1756,6 +1757,127 @@ private struct ChatBubbleRow: View {
             }
             .padding(.trailing, 4)
         }
+    }
+}
+
+private struct ThinkingProcessCard: View {
+    let thinking: String
+    let isActivelyThinking: Bool
+    @Binding var isExpanded: Bool
+    let palette: DragonClawPalette
+    let language: String
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $isExpanded) {
+            Text(thinking)
+                .font(.system(size: 11.5))
+                .foregroundStyle(palette.inkSecondary)
+                .textSelection(.enabled)
+                .padding(.top, 6)
+        } label: {
+            if isActivelyThinking && !reduceMotion {
+                TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { context in
+                    let t = context.date.timeIntervalSinceReferenceDate
+                    let breath = (sin(t * 3.0) + 1.0) * 0.5
+                    let sweep = (t * 0.62).truncatingRemainder(dividingBy: 1.0)
+                    let shimmerStart = -0.6 + sweep * 2.2
+                    let shimmerEnd = shimmerStart + 0.55
+
+                    HStack(spacing: 7) {
+                        Image(systemName: "brain.head.profile")
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(palette.accentStrong.opacity(0.68 + 0.32 * breath))
+                            .scaleEffect(0.96 + 0.06 * breath)
+
+                        Text(L10n.tr(language, zh: "思考过程", en: "Thinking Process"))
+                            .font(.system(size: 11.5, weight: .semibold))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [
+                                        palette.inkSecondary,
+                                        palette.accentStrong,
+                                        palette.isDark ? Color.white.opacity(0.92) : palette.accentStrong,
+                                        palette.inkSecondary
+                                    ],
+                                    startPoint: UnitPoint(x: shimmerStart, y: 0.5),
+                                    endPoint: UnitPoint(x: shimmerEnd, y: 0.5)
+                                )
+                            )
+
+                        Spacer(minLength: 4)
+
+                        SilkyThinkingWaveBars(t: t, palette: palette, barCount: 4, maxBarHeight: 11)
+                    }
+                }
+            } else {
+                HStack(spacing: 6) {
+                    Image(systemName: "brain.head.profile")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(palette.accentStrong)
+                    Text(L10n.tr(language, zh: "思考过程", en: "Thinking Process"))
+                        .font(.system(size: 11.5, weight: .semibold))
+                        .foregroundStyle(palette.inkSecondary)
+                    if isActivelyThinking {
+                        Spacer(minLength: 4)
+                        Circle()
+                            .fill(palette.accentStrong.opacity(0.8))
+                            .frame(width: 6, height: 6)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 8)
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+}
+
+private struct SilkyThinkingWave: View {
+    let palette: DragonClawPalette
+    var barCount: Int = 3
+    var maxBarHeight: CGFloat = 10
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        if reduceMotion {
+            Circle()
+                .fill(palette.accentStrong.opacity(0.8))
+                .frame(width: 6, height: 6)
+        } else {
+            TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { context in
+                SilkyThinkingWaveBars(
+                    t: context.date.timeIntervalSinceReferenceDate,
+                    palette: palette,
+                    barCount: barCount,
+                    maxBarHeight: maxBarHeight
+                )
+            }
+        }
+    }
+}
+
+private struct SilkyThinkingWaveBars: View {
+    let t: TimeInterval
+    let palette: DragonClawPalette
+    let barCount: Int
+    let maxBarHeight: CGFloat
+
+    var body: some View {
+        HStack(spacing: 2.5) {
+            ForEach(0..<barCount, id: \.self) { index in
+                let wave = (sin(t * 4.4 - Double(index) * 0.85) + 1.0) * 0.5
+                let minBarHeight: CGFloat = 3.5
+                let height = minBarHeight + (maxBarHeight - minBarHeight) * CGFloat(wave)
+                Capsule(style: .continuous)
+                    .fill(palette.accentStrong.opacity(0.45 + 0.55 * wave))
+                    .frame(width: 2.5, height: height)
+            }
+        }
+        .frame(height: maxBarHeight)
+        .accessibilityHidden(true)
     }
 }
 

@@ -12,6 +12,7 @@ process.env.TOOLS_REPORT_DATA_DIR = path.join(sandbox, 'report-data');
 const { execFileSync } = require('node:child_process');
 const https = require('node:https');
 const repo = require('../backend/models/ai-settings-repository');
+const { readKV, writeKV } = require('../backend/models/kv-store');
 const { createClient, getBaseUrl, sanitizeEndpointUrl } = require('../backend/models/ai-provider-client');
 const tenantPool = require('../backend/models/tenant-sqlite-pool');
 const appDb = require('../backend/models/app-db');
@@ -398,4 +399,46 @@ test('verifySsl=true rejects self-signed HTTPS certificates while verifySsl=fals
     const streamed = await streamClient.generateText({ prompt: 'hi', onDelta: d => deltas.push(d) });
     assert.equal(streamed.text, 'OK TLS');
     assert.deepEqual(deltas, ['OK ', 'TLS']);
+});
+
+test('legacy Gemini profiles with anthropicAuthType default or v3 bearer accident auto-heal to x-goog-api-key while v4 preserves explicit bearer', async () => {
+    const legacyNormalized = await repo.buildRuntimeSettings({
+        provider: 'gemini',
+        anthropicAuthType: 'ANTHROPIC_AUTH_TOKEN',
+        model: 'gemini-3.1-flash-lite',
+        apiKey: 'AQ.FakeLegacyGeminiKey123456'
+    });
+    assert.equal(legacyNormalized.authMode, 'x-goog-api-key');
+
+    const snapshot = await readKV('sys', 'ai_settings_profiles', null);
+    await writeKV('sys', 'ai_settings_profiles', {
+        version: 3,
+        activeProfileId: 'legacy-gem',
+        profiles: [{
+            id: 'legacy-gem',
+            name: 'Legacy Gemini',
+            category: 'chat',
+            provider: 'gemini',
+            authMode: 'bearer',
+            anthropicAuthType: 'ANTHROPIC_AUTH_TOKEN',
+            apiBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+            model: 'gemini-3.1-flash-lite',
+            models: ['gemini-3.1-flash-lite'],
+            apiKey: 'AQ.FakeLegacyGeminiKey123456'
+        }]
+    });
+    try {
+        const healedRuntime = await repo.getRuntimeSettings({ profileId: 'legacy-gem' });
+        assert.equal(healedRuntime.authMode, 'x-goog-api-key');
+        const healedClient = createClient(healedRuntime);
+        assert.equal(healedClient.buildAuthHeaders({})['x-goog-api-key'], 'AQ.FakeLegacyGeminiKey123456');
+        assert.equal(healedClient.buildAuthHeaders({}).Authorization, undefined);
+
+        // On v4+, explicit bearer for Gemini stays respected
+        await repo.saveSettings({ profileId: 'legacy-gem', authMode: 'bearer' });
+        const explicitRuntime = await repo.getRuntimeSettings({ profileId: 'legacy-gem' });
+        assert.equal(explicitRuntime.authMode, 'bearer');
+    } finally {
+        if (snapshot) await writeKV('sys', 'ai_settings_profiles', snapshot);
+    }
 });

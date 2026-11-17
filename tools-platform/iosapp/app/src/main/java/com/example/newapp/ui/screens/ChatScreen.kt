@@ -113,6 +113,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import java.io.File
 import java.util.UUID
+import kotlin.math.PI
+import kotlin.math.sin
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1734,6 +1736,13 @@ private fun ChatBubbleItem(
             }
         }
     } else {
+        val trimmedStatus = message.statusText?.trim().orEmpty()
+        val isThinkingStatus = trimmedStatus == "深度思考中..." || trimmedStatus == "Reasoning..."
+        val isActivelyThinking = (message.isStreaming || showTurnWorkingIndicator) && (
+            isThinkingStatus ||
+                (message.thinking.isNotEmpty() && message.content.isEmpty() && message.toolCalls.all { it.isFinished })
+            )
+
         Column(
             modifier = Modifier.fillMaxWidth().padding(end = 4.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -1758,7 +1767,11 @@ private fun ChatBubbleItem(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(horizontal = 9.dp, vertical = 3.dp)
                         ) {
-                            CircularProgressIndicator(strokeWidth = 1.8.dp, color = palette.accentStrong, modifier = Modifier.size(11.dp))
+                            if (isThinkingStatus) {
+                                SilkyThinkingWaveBars(color = palette.accentStrong, barCount = 3, maxBarHeight = 10f)
+                            } else {
+                                CircularProgressIndicator(strokeWidth = 1.8.dp, color = palette.accentStrong, modifier = Modifier.size(11.dp))
+                            }
                             Spacer(Modifier.width(5.dp))
                             Text(message.statusText!!, color = palette.accentStrong, fontSize = 11.sp)
                         }
@@ -1778,15 +1791,57 @@ private fun ChatBubbleItem(
                 ) {
                     Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Rounded.Psychology, contentDescription = null, tint = palette.accentStrong, modifier = Modifier.size(14.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                text = tr(language, "思考过程 (${message.thinking.length} 字)", "Thinking Process"),
-                                color = palette.inkSecondary,
-                                fontSize = 11.5.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.weight(1f)
-                            )
+                            if (isActivelyThinking) {
+                                val transition = rememberInfiniteTransition(label = "thinkingCard")
+                                val phase by transition.animateFloat(
+                                    initialValue = 0f,
+                                    targetValue = 1f,
+                                    animationSpec = infiniteRepeatable(
+                                        animation = tween(durationMillis = 1600, easing = LinearEasing),
+                                        repeatMode = RepeatMode.Restart
+                                    ),
+                                    label = "thinkingShimmer"
+                                )
+                                val breath = ((sin(phase * 2.0 * PI) + 1.0) * 0.5).toFloat()
+                                val shimmerX = -80f + phase * 320f
+                                val shimmerBrush = Brush.linearGradient(
+                                    colors = listOf(
+                                        palette.inkSecondary,
+                                        palette.accentStrong,
+                                        palette.inkSecondary
+                                    ),
+                                    start = Offset(shimmerX, 0f),
+                                    end = Offset(shimmerX + 110f, 0f)
+                                )
+                                Icon(
+                                    Icons.Rounded.Psychology,
+                                    contentDescription = null,
+                                    tint = palette.accentStrong.copy(alpha = 0.68f + 0.32f * breath),
+                                    modifier = Modifier.size(14.dp).scale(0.95f + 0.07f * breath)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    text = tr(language, "思考过程", "Thinking Process"),
+                                    style = TextStyle(
+                                        brush = shimmerBrush,
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    ),
+                                    modifier = Modifier.weight(1f)
+                                )
+                                SilkyThinkingWaveBars(color = palette.accentStrong, barCount = 4, maxBarHeight = 11f)
+                                Spacer(Modifier.width(6.dp))
+                            } else {
+                                Icon(Icons.Rounded.Psychology, contentDescription = null, tint = palette.accentStrong, modifier = Modifier.size(14.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    text = tr(language, "思考过程", "Thinking Process"),
+                                    color = palette.inkSecondary,
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
                             Icon(
                                 imageVector = if (showThinking) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
                                 contentDescription = null,
@@ -2425,6 +2480,42 @@ private fun buildMdAnnotatedString(
                     append(span.text)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SilkyThinkingWaveBars(
+    color: Color,
+    barCount: Int = 4,
+    maxBarHeight: Float = 11f
+) {
+    val transition = rememberInfiniteTransition(label = "thinkingWave")
+    val phase by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = (2.0 * PI).toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1400, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "thinkingWavePhase"
+    )
+    val minBarHeight = 3.5f
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(2.5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.height(maxBarHeight.dp)
+    ) {
+        for (index in 0 until barCount) {
+            val wave = ((sin(phase.toDouble() - index * 0.85) + 1.0) * 0.5).toFloat()
+            val barHeight = minBarHeight + (maxBarHeight - minBarHeight) * wave
+            Box(
+                modifier = Modifier
+                    .width(2.5.dp)
+                    .height(barHeight.dp)
+                    .clip(CircleShape)
+                    .background(color.copy(alpha = 0.45f + 0.55f * wave))
+            )
         }
     }
 }
