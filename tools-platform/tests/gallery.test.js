@@ -8,6 +8,7 @@ process.env.TOOLS_REPORT_DATA_DIR = path.join(sandbox, 'reports');
 const express = require('../backend/node_modules/express'), request = require('supertest');
 const { PNG } = require('pngjs');
 const jpeg = require('jpeg-js');
+const { setTimeout: delay } = require('node:timers/promises');
 const db = require('../backend/models/app-db');
 const context = require('../backend/models/tenant-context');
 const repo = require('../backend/models/gallery-repository');
@@ -190,6 +191,83 @@ test('invalid uploads and unknown assets do not create incomplete groups', async
     await request(server).get('/api/gallery/versions/missing/preview').expect(404);
     await request(server).get('/api/gallery/versions/missing/ai_balanced').expect(404);
     assert.equal((await repo.list()).total,before);
+});
+
+test('batch recognition is tenant-scoped, serial, paced and preserves existing metadata', async t => {
+    const tenant = 'gallery-batch';
+    const url = '/api/gallery/batch-recognition';
+    const status = async () => (await request(server).get(url).set('x-tenant', tenant).expect(200)).body;
+    const start = () => request(server).post(url).set('x-tenant', tenant).send({ confirmed: true }).expect(202);
+    const first = (await upload(png(141), { title: 'Manual title' }, tenant).expect(201)).body;
+    const latest = (await upload(png(142), { itemId: first.item.id }, tenant).expect(201)).body;
+    const second = (await upload(png(143), { note: 'Manual note', manualFields: '["note"]' }, tenant).expect(201)).body;
+    const archived = (await upload(png(144), {}, tenant).expect(201)).body;
+    const trashed = (await upload(png(145), {}, tenant).expect(201)).body;
+    const other = (await upload(png(146), {}, 'gallery-batch-other').expect(201)).body;
+    await context.runWithTenant(tenant, async () => {
+        await repo.saveAnalysis(latest.versionId, 'precise', { title: 'Existing result' });
+        await repo.update(archived.item.id, { revision: archived.item.revision, archived: true });
+        await repo.trash([{ id: trashed.item.id, revision: trashed.item.revision }]);
+    });
+    const starts = [];
+    let releaseFirst;
+    let rateLimited = false;
+    t.mock.method(require('../backend/models/ai-settings-repository'), 'getRuntimeSettings', async () => ({ hasApiKey: true, keyLooksValid: true }));
+    t.mock.method(require('../backend/models/ai-provider-client'), 'createClient', () => ({
+        async generateChat({ messages }) {
+            assert.equal(context.getTenantId(), tenant);
+            assert.equal(messages[0].images.length, 1);
+            starts.push(Date.now());
+            if (starts.length === 1) await new Promise(resolve => { releaseFirst = resolve; });
+            if (rateLimited) throw Object.assign(new Error('Limited'), { status: 429, responseHeaders: { 'retry-after': '30' } });
+            return { text: JSON.stringify({ title: 'Recognized', summary: 'AI summary', albumName: 'Suggested album', storageMode: 'album' }) };
+        }
+    }));
+    await request(server).post(url).set('x-tenant', tenant).send({}).expect(400);
+    await request(server).post(url).set('x-role', 'viewer').send({ confirmed: true }).expect(403);
+    await request(server).get(url).set('x-role', 'viewer').expect(403);
+    await start();
+    for (let count = 0; !releaseFirst && count < 100; count++) await delay(20);
+    assert.ok(releaseFirst);
+    try {
+        assert.equal((await start()).body.total, 2);
+        assert.equal((await request(server).get(url).set('x-tenant', 'gallery-batch-other').expect(200)).body, null);
+        assert.equal(starts.length, 1);
+    } finally { releaseFirst(); }
+    async function completed() {
+        for (let count = 0; count < 150; count++) {
+            const job = await status();
+            if (!job.running) return job;
+            await delay(20);
+        }
+        assert.fail('Batch did not finish');
+    }
+    assert.equal((await completed()).succeeded, 2);
+    assert.equal(starts.length, 2);
+    assert.ok(starts[1] - starts[0] >= 1000);
+    await context.runWithTenant(tenant, async () => {
+        const item = await repo.read(first.item.id);
+        assert.equal(item.title, 'Manual title');
+        assert.equal(item.note, '');
+        assert.equal(item.versions[0].analysis.title, 'Existing result');
+        assert.equal(item.versions[1].ai_status, 'ready');
+        const recognizedItem = await repo.read(second.item.id);
+        assert.equal(recognizedItem.title, 'Recognized');
+        assert.equal(recognizedItem.note, 'Manual note');
+        assert.equal(recognizedItem.album_id, '');
+        assert.equal((await repo.readVersion(archived.versionId)).ai_status, 'pending');
+        assert.equal((await repo.readVersion(trashed.versionId)).ai_status, 'pending');
+    });
+    assert.equal(await context.runWithTenant('gallery-batch-other', async () => (await repo.readVersion(other.versionId)).ai_status), 'pending');
+
+    const retry = (await upload(png(147), {}, tenant).expect(201)).body;
+    rateLimited = true;
+    await start();
+    const stopped = await completed();
+    assert.equal(stopped.reason, 'rate-limited');
+    assert.ok(stopped.retryAt - Date.now() > 25000);
+    assert.equal((await start()).body.running, false);
+    assert.deepEqual(await context.runWithTenant(tenant, repo.pendingVersionIds), [retry.versionId]);
 });
 
 test('albums collect independent pages, search by restaurant and keep each page history intact', async () => {

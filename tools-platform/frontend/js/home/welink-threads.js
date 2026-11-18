@@ -9,6 +9,7 @@
     const API_BASE = '/api/channels';
     const CHANNEL_IDS = ['welink', 'weixin'];
     const SOURCE_KEY = 'home_chat_source';
+    const PINNED_COLLAPSED_KEY = 'wl_pinned_collapsed';
     const PAGE_SIZE = 40;
     const REFRESH_MS = 20000;
     const LIVE_MS = 4000; // 打开的会话轮询新消息的间隔
@@ -16,7 +17,7 @@
     const TEXT = {
         'zh-CN': {
             tac_awaiting_approval: '等待原发起人确认', tac_queued: '已排队', tac_running: '处理中', tac_done: '已完成', tac_failed: '未完成', tac_cancelled: '已取消', tac_expired: '确认已过期', tacReports: '成员结果', tacDelivery: '回传未成功', tacHint: '确认升级需由原发起人在原会话回复，并带上任务编号。',
-            mine: '我的对话', welink: 'WeLink', weixin: '微信', group: '群聊', person: '单聊', loading: '正在加载…', empty: '还没有 {ch} 对话', noMatch: '没有匹配的 {ch} 对话',
+            mine: '我的对话', welink: 'WeLink', weixin: '微信', pinned: '置顶', replying: '正在回复…', liveFailed: '生成中断', group: '群聊', person: '单聊', loading: '正在加载…', empty: '还没有 {ch} 对话', noMatch: '没有匹配的 {ch} 对话',
             loadFailed: '加载失败', retry: '重试', openTasks: '{n} 项跟进中', allDone: '跟进已完成', segments: '{n} 段对话', messages: '{n} 条消息',
             readonly: '只读 · 这是 {ch} {kind}「{name}」的对话记录，在 {ch} 里 @助手 即可继续对话。', back: '返回我的对话',
             banner: '{ch} {kind} · {name}', start: '对话开始', newContext: '新的对话上下文', newContextHint: '之前的内容不再作为上下文', loadMore: '加载更早的消息', noMessages: '这个会话还没有对话记录',
@@ -40,7 +41,7 @@
         },
         'en-US': {
             tac_awaiting_approval: 'Awaiting requester approval', tac_queued: 'Queued', tac_running: 'Running', tac_done: 'Completed', tac_failed: 'Failed', tac_cancelled: 'Cancelled', tac_expired: 'Approval expired', tacReports: 'Agent reports', tacDelivery: 'Delivery failed', tacHint: 'The original requester must confirm in the original conversation with the task ID.',
-            mine: 'My chats', welink: 'WeLink', weixin: 'WeChat', group: 'Group', person: 'Direct', loading: 'Loading…', empty: 'No {ch} conversations yet', noMatch: 'No matching {ch} conversations',
+            mine: 'My chats', welink: 'WeLink', weixin: 'WeChat', pinned: 'Pinned', replying: 'Replying…', liveFailed: 'Generation interrupted', group: 'Group', person: 'Direct', loading: 'Loading…', empty: 'No {ch} conversations yet', noMatch: 'No matching {ch} conversations',
             loadFailed: 'Could not load', retry: 'Retry', openTasks: '{n} in follow-up', allDone: 'Follow-ups done', segments: '{n} contexts', messages: '{n} messages',
             readonly: 'Read only · {ch} {kind} "{name}". @mention the assistant in {ch} to continue.', back: 'Back to my chats',
             banner: '{ch} {kind} · {name}', start: 'Conversation start', newContext: 'New conversation context', newContextHint: 'Earlier messages are no longer in context', loadMore: 'Load earlier messages', noMessages: 'No messages in this conversation yet',
@@ -80,6 +81,9 @@
         loaded: false,
         failed: false,
         allThreads: [],
+        threadsByChannel: new Map(),
+        pinnedEntries: [],
+        pinnedCollapsed: storeGet(PINNED_COLLAPSED_KEY) === '1',
         listIdentity: '',
         seq: 0,
         active: null, // { kind, id, name }
@@ -111,6 +115,11 @@
         refreshTimer: null,
         liveTimer: null,
         liveBusy: false,
+        live: null,
+        streamController: null,
+        streamReconnectTimer: null,
+        thinkingCache: new Map(),
+        reconciledTurnIds: new Set(),
         listTimer: null,
         openSeq: 0,
         highlight: ''
@@ -222,6 +231,32 @@
         el.list.setAttribute('role', 'list');
         el.list.hidden = true;
         el.chatList.after(el.list);
+        el.pinnedSection = document.createElement('section');
+        el.pinnedSection.className = 'home-chat-section wl-pinned-section';
+        el.pinnedSection.dataset.section = 'channel-pinned';
+        el.pinnedSection.id = 'homeChannelPinnedSection';
+        el.pinnedSection.hidden = true;
+        el.pinnedHeader = document.createElement('button');
+        el.pinnedHeader.type = 'button';
+        el.pinnedHeader.className = 'home-chat-category';
+        el.pinnedHeader.dataset.wlPinnedToggle = '';
+        el.pinnedHeader.setAttribute('aria-expanded', 'true');
+        el.pinnedList = document.createElement('div');
+        el.pinnedList.className = 'home-chat-section-body wl-pinned-list';
+        el.pinnedList.dataset.batchScope = 'pinned';
+        el.pinnedList.setAttribute('role', 'list');
+        el.pinnedSection.append(el.pinnedHeader, el.pinnedList);
+        el.list.before(el.pinnedSection);
+        el.pinnedSection.addEventListener('click', event => {
+            if (event.target.closest('[data-wl-pinned-toggle]')) {
+                state.pinnedCollapsed = !state.pinnedCollapsed;
+                storeSet(PINNED_COLLAPSED_KEY, state.pinnedCollapsed ? '1' : '0');
+                renderPinnedChannels();
+                return;
+            }
+            const item = event.target.closest('[data-wl-pinned-thread]');
+            if (item) openThread(state.pinnedEntries[Number(item.dataset.wlPinnedThread)]);
+        });
         el.tabs.addEventListener('click', event => {
             const button = event.target.closest('[data-chat-source]');
             if (button) { if(el.search)el.search.value='';setSource(button.dataset.chatSource,{openLatest:true}); }
@@ -277,12 +312,19 @@
         renderTabs();
         el.chatList.hidden = state.source !== 'mine';
         el.list.hidden = state.source === 'mine' || state.source === 'agents';
+        if (el.pinnedSection && !CHANNEL_IDS.includes(state.source)) {
+            el.pinnedSection.hidden = true;
+            state.pinnedEntries = [];
+        }
         window.HomeDesktopAgents?.show?.(state.source === 'agents');
         if(openLatest&&next==='mine'){
             const revision=state.sourceRevision;
             window.DragonClaw?.openLatest?.({isCurrent:()=>state.source==='mine'&&state.sourceRevision===revision});
         }
-        if (CHANNEL_IDS.includes(state.source)) loadThreads();
+        if (CHANNEL_IDS.includes(state.source)) {
+            renderPinnedChannels();
+            loadThreads();
+        }
     }
 
     /** 读取已对接的频道，刷新分类；当前分类的频道被停用时回到「我的对话」。 */
@@ -317,6 +359,7 @@
             const data = await request('GET', `${API_BASE}/${ch}/threads?limit=100`);
                 if (data && Array.isArray(data.items)) {
                     data.items.forEach(item => { item.channel = ch; });
+                    state.threadsByChannel.set(ch, data.items.slice());
                     results.push(...data.items);
                 }
             } catch {}
@@ -326,6 +369,7 @@
         const signature = JSON.stringify(results.map(item => [item.channel, item.kind, item.id, item.name, item.lastActiveAt, item.updatedAt, Boolean(item.busy)]));
         if (signature === state.allChannelSignature) return results;
         state.allChannelSignature = signature;
+        if (CHANNEL_IDS.includes(state.source)) renderThreads();
         window.dispatchEvent(new CustomEvent('home:channel-threads-updated', { detail: { threads: results } }));
         return results;
     }
@@ -344,10 +388,12 @@
             if (seq !== state.seq||source!==state.source||account!==identity()) return;
             if(state.listIdentity!==cacheKey){state.allThreads=[];state.listIdentity=cacheKey;}
             const fetched=Array.isArray(data.items)?data.items:[];
+            fetched.forEach(item => { if (!item.channel) item.channel = source; });
             state.serverCount=fetched.length;
             state.hasMore=Boolean(data.hasMore);
             state.listQuery=query;
-            if(!query)state.allThreads=fetched;
+            if(!query){state.allThreads=fetched;state.threadsByChannel.set(source,fetched.slice());}
+            else if(!state.threadsByChannel.has(source))state.threadsByChannel.set(source,fetched.slice());
             const aliases=query?state.allThreads.filter(t=>window.HomeConversationList?.get(state.source,t.kind+':'+t.id).title?.toLowerCase().includes(query.toLowerCase())):[];
             state.threads=[...fetched,...aliases.filter(t=>!fetched.some(f=>f.kind===t.kind&&f.id===t.id))];
             state.failed = false;
@@ -366,8 +412,96 @@
         }
     }
 
+    function isThreadLiveBusy(thread, channel = state.source) {
+        return Boolean(state.live && !state.live.done && state.active && state.active.channel === (thread.channel || channel) && state.active.kind === thread.kind && state.active.id === thread.id);
+    }
+
+    function threadRowHtml(thread, { channel = state.source, attrName, index, title, showChannel = false }) {
+        const ch = thread.channel || channel;
+        const active = Boolean(state.active && state.active.channel === ch && state.active.kind === thread.kind && state.active.id === thread.id);
+        const open = thread.tasks?.open || 0;
+        const finished = (thread.tasks?.done || 0) + (thread.tasks?.cancelled || 0);
+        const busy = Boolean(thread.busy) || isThreadLiveBusy(thread, ch);
+        const badge = busy
+            ? `<span class="wl-badge is-busy" title="${escapeHtml(tx('replying'))}"><i></i></span>`
+            : open
+                ? `<span class="wl-badge is-open" title="${escapeHtml(tx('openTasks', { n: open }))}"><i></i>${open}</span>`
+                : finished ? `<span class="wl-badge is-done" title="${escapeHtml(tx('allDone'))}">✓</span>` : '';
+        const subtitle = thread.lastMessage || `${kindText(thread.kind)} · ${tx('messages', { n: thread.messageCount })}`;
+        const chTag = showChannel ? `<span class="wl-pin-channel">${escapeHtml(TEXT[lang()][ch] || ch)}</span>` : '';
+        return `<button type="button" class="home-chat-item wl-item${active ? ' is-active' : ''}" role="listitem" ${attrName}="${index}" title="${escapeHtml(title)}"${active ? ' aria-current="true"' : ''}>
+            <span class="wl-avatar wl-avatar--${thread.kind}">${ICONS[thread.kind] || ICONS.user}</span>
+            <span class="wl-item-text"><span class="home-chat-title" data-chat-title="${escapeHtml(title)}">${chTag}${escapeHtml(title)}</span><span class="wl-item-sub">${escapeHtml(subtitle)}</span></span>
+            <span class="wl-item-side"><span class="home-chat-meta">${escapeHtml(shortTime(thread.lastActiveAt))}</span>${badge}</span>
+        </button>`;
+    }
+
+    function renderPinnedChannels() {
+        if (!el.pinnedSection || !el.pinnedHeader || !el.pinnedList) return;
+        if (!CHANNEL_IDS.includes(state.source)) {
+            el.pinnedSection.hidden = true;
+            el.pinnedList.innerHTML = '';
+            state.pinnedEntries = [];
+            return;
+        }
+        if (window.HomeConversationList?.deferRender?.(el.pinnedList, renderPinnedChannels)) return;
+        const isArchived = Boolean(window.HomeConversationList?.isArchived?.(state.source));
+        if (isArchived) {
+            el.pinnedSection.hidden = true;
+            el.pinnedList.innerHTML = '';
+            state.pinnedEntries = [];
+            return;
+        }
+        const query = (el.search?.value || '').trim().toLowerCase();
+        const seen = new Set();
+        const rawEntries = [];
+        for (const ch of CHANNEL_IDS) {
+            if (state.channels.length && !state.channels.some(item => item.id === ch)) continue;
+            const list = ch === state.source && state.allThreads.length ? state.allThreads : (state.threadsByChannel.get(ch) || (ch === state.source ? state.threads : []));
+            for (const thread of list) {
+                const key = `${ch}:${thread.kind}:${thread.id}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                const pref = window.HomeConversationList?.get?.(ch, `${thread.kind}:${thread.id}`) || {};
+                if (!pref.pinned || pref.hidden || pref.archived) continue;
+                const title = pref.title || thread.name || thread.id;
+                if (query && ![title, thread.name, thread.id].some(val => String(val || '').toLowerCase().includes(query))) continue;
+                rawEntries.push({ thread: { ...thread, channel: ch }, channel: ch, title, pref });
+            }
+        }
+        const comparePins = window.HomeConversationList?.comparePins || (() => 0);
+        const stampFn = window.HomeConversationList?.stamp || (val => Date.parse(String(val || '')) || 0);
+        rawEntries.sort((a, b) => comparePins(a.pref, b.pref) || ((stampFn(b.thread.lastActiveAt) || 0) - (stampFn(a.thread.lastActiveAt) || 0)));
+        state.pinnedEntries = rawEntries.map(entry => entry.thread);
+        if (!rawEntries.length) {
+            el.pinnedSection.hidden = true;
+            el.pinnedList.innerHTML = '';
+            return;
+        }
+        const open = Boolean(query) || !state.pinnedCollapsed;
+        const showChannel = new Set(rawEntries.map(e => e.channel)).size > 1 || rawEntries.some(e => e.channel !== state.source);
+        el.pinnedSection.hidden = false;
+        el.pinnedHeader.setAttribute('aria-expanded', String(open));
+        el.pinnedHeader.innerHTML = `<span class="home-chat-category-chevron" aria-hidden="true"></span><span class="home-chat-category-title">${escapeHtml(tx('pinned'))}</span><span class="home-chat-category-count">(${rawEntries.length})</span>`;
+        el.pinnedList.hidden = !open;
+        el.pinnedList.innerHTML = rawEntries.map((entry, idx) => threadRowHtml(entry.thread, { channel: entry.channel, attrName: 'data-wl-pinned-thread', index: idx, title: entry.title, showChannel })).join('');
+        window.HomeConversationList?.enhance?.(el.pinnedList, {
+            source: state.source,
+            itemSource: item => item.channel || state.source,
+            items: state.pinnedEntries,
+            query: el.search?.value.trim() || '',
+            id: t => `${t.kind}:${t.id}`,
+            title: t => t.name,
+            date: t => t.lastActiveAt,
+            selector: '[data-wl-pinned-thread]',
+            index: 'wlPinnedThread'
+        });
+    }
+
     function renderThreads() {
         if (!el.list) return;
+        if (window.HomeConversationList?.deferRender?.(el.list, renderThreads)) return;
+        renderPinnedChannels();
         const config={source:state.source,items:state.threads,id:t=>t.kind+':'+t.id,title:t=>t.name,date:t=>t.lastActiveAt,selector:'[data-wl-thread]',index:'wlThread'};
         if (!state.loaded) {
             el.list.innerHTML = '<div class="home-chat-skeleton" aria-hidden="true"><span></span><span></span><span></span></div>';
@@ -382,21 +516,13 @@
             window.HomeConversationList?.enhance(el.list,config);
             return;
         }
-        const sections=window.HomeConversationList?.sections(state.threads,config)||[{label:'',entries:state.threads.map((item,index)=>({item,index,title:item.name}))}];
-        el.list.innerHTML = sections.map(section=>(section.label?`<div class="home-chat-group">${escapeHtml(section.label)}</div>`:'')+section.entries.map(({item:thread,index,title}) => {
-            const active = state.active && state.active.channel === state.source && state.active.kind === thread.kind && state.active.id === thread.id;
-            const open = thread.tasks?.open || 0;
-            const finished = (thread.tasks?.done || 0) + (thread.tasks?.cancelled || 0);
-            const badge = open
-                ? `<span class="wl-badge is-open" title="${escapeHtml(tx('openTasks', { n: open }))}"><i></i>${open}</span>`
-                : finished ? `<span class="wl-badge is-done" title="${escapeHtml(tx('allDone'))}">✓</span>` : '';
-            const subtitle = thread.lastMessage || `${kindText(thread.kind)} · ${tx('messages', { n: thread.messageCount })}`;
-            return `<button type="button" class="home-chat-item wl-item${active ? ' is-active' : ''}" role="listitem" data-wl-thread="${index}" title="${escapeHtml(title)}"${active ? ' aria-current="true"' : ''}>
-                <span class="wl-avatar wl-avatar--${thread.kind}">${ICONS[thread.kind] || ICONS.user}</span>
-                <span class="wl-item-text"><span class="home-chat-title">${escapeHtml(title)}</span><span class="wl-item-sub">${escapeHtml(subtitle)}</span></span>
-                <span class="wl-item-side"><span class="home-chat-meta">${escapeHtml(shortTime(thread.lastActiveAt))}</span>${badge}</span>
-            </button>`;
-        }).join('')).join('') || `<div class="home-chat-empty">${escapeHtml(tx('noMatch'))}</div>`;
+        const isArchived = Boolean(window.HomeConversationList?.isArchived?.(state.source));
+        const allSections = window.HomeConversationList?.sections(state.threads, config) || [{ key: 'recent', label: '', entries: state.threads.map((item, index) => ({ item, index, title: item.name })) }];
+        const sections = isArchived ? allSections : allSections.filter(section => section.key !== 'pinned');
+        const hasChannelPins = !isArchived && state.pinnedEntries.some(entry => entry.channel === state.source);
+        el.list.innerHTML = sections.map(section => (section.label ? `<div class="home-chat-group">${escapeHtml(section.label)}</div>` : '') + section.entries.map(({ item: thread, index, title }) =>
+            threadRowHtml(thread, { channel: state.source, attrName: 'data-wl-thread', index, title })
+        ).join('')).join('') || (hasChannelPins ? '' : `<div class="home-chat-empty">${escapeHtml(tx('noMatch'))}</div>`);
         window.HomeConversationList?.enhance(el.list,config);
         window.HomeConversationList?.pager(el.list,{hasMore:state.hasMore,loading:state.loadingMore,onMore:loadMoreThreads});
     }
@@ -433,9 +559,17 @@
         if (!api) return false;
         window.HomeAgentDiscussion?.bindExternal?.(channel);
         const seq = ++state.openSeq;
+        stopLiveStream();
+        disposeLiveTurn();
+        state.pendingTurnThinking = null;
         state.api = api;
         state.active = { channel, kind: thread.kind, id: thread.id, name: thread.name };
-        if (state.identity && state.identity !== identity()) state.drafts.clear();
+        if (state.identity && state.identity !== identity()) {
+            state.drafts.clear();
+            state.thinkingCache.clear();
+            state.reconciledTurnIds.clear();
+            state.threadsByChannel.clear();
+        }
         state.identity = identity();
         state.canSend = false;
         state.botMode = false;
@@ -474,6 +608,7 @@
             renderTimeline({ scroll: 'bottom' });
             api.finishLoading();
             notifyThread();
+            connectLiveStream(state.active.channel, state.active.kind, state.active.id, seq);
         } catch (error) {
             if (seq !== state.openSeq) return;
             api.finishLoading(false);
@@ -536,11 +671,16 @@
     }
 
     /** 频道里有新对话时追加到打开的时间线：停在底部则跟随到最新，往上翻看时保持位置。 */
-    async function pollNewMessages() {
-        if (!state.active || !state.api || state.liveBusy || state.loadingMore || document.visibilityState !== 'visible') return;
+    async function pollNewMessages({ force = false } = {}) {
+        if (!state.active || !state.api || state.loadingMore || document.visibilityState !== 'visible') return;
+        if (state.liveBusy) {
+            if (force) state.livePollPending = true;
+            return;
+        }
         if (state.api.thread.hasAttribute('aria-busy')) return; // 首屏还在加载
         const seq = state.openSeq;
         state.liveBusy = true;
+        state.livePollPending = false;
         try {
             const page = await request('GET', `${API_BASE}/${state.active.channel}/threads/${state.active.kind}/${encodeURIComponent(state.active.id)}/messages?limit=${PAGE_SIZE}`);
             if (seq !== state.openSeq) return;
@@ -565,6 +705,10 @@
             /* 轮询失败等下一轮 */
         } finally {
             state.liveBusy = false;
+            if (state.livePollPending && seq === state.openSeq) {
+                state.livePollPending = false;
+                pollNewMessages();
+            }
         }
     }
 
@@ -573,6 +717,9 @@
         state.refreshTimer = null;
         clearInterval(state.liveTimer);
         state.liveTimer = null;
+        stopLiveStream();
+        disposeLiveTurn();
+        state.pendingTurnThinking = null;
         state.openSeq += 1;
         state.canSend = false;
         state.botMode = false;
@@ -700,6 +847,419 @@
         return `<div class="wl-divider is-context" title="${escapeHtml(tx('newContextHint'))}"><span><b>✦</b> ${escapeHtml(tx('newContext'))}${time ? ` · ${escapeHtml(time)}` : ''}</span></div>`;
     }
 
+    // ── 实时频道对话流：SSE 同步用户提问、思考过程、工具状态与瀑布式回复 ──
+    function stopLiveStream() {
+        clearTimeout(state.streamReconnectTimer);
+        state.streamReconnectTimer = null;
+        if (state.streamController) {
+            try { state.streamController.abort(); } catch {}
+            state.streamController = null;
+        }
+    }
+
+    function disposeLiveTurn() {
+        if (!state.live) return;
+        try { state.live.activity?.finish?.(); } catch {}
+        state.live.userEl?.remove();
+        state.live.aiEl?.remove();
+        state.live = null;
+    }
+
+    function itemTimeMs(value) {
+        if (!value) return 0;
+        if (typeof value === 'number') return value;
+        const s = String(value).trim();
+        if (/^\d+$/.test(s)) return Number(s);
+        return Date.parse(/Z$|[+-]\d{2}:?\d{2}$/.test(s) ? s : `${s.replace(' ', 'T')}Z`) || Date.parse(s) || 0;
+    }
+
+    function rememberThinkingCache(messageId, entry) {
+        if (!messageId || !entry?.chunks?.length) return;
+        state.thinkingCache.set(messageId, entry);
+        while (state.thinkingCache.size > 30) {
+            const firstKey = state.thinkingCache.keys().next().value;
+            if (!firstKey) break;
+            state.thinkingCache.delete(firstKey);
+        }
+    }
+
+    function findMatchingDbUser(turn) {
+        const tail = state.items.slice(-12);
+        const startFloor = (Number(turn.startedAt) || 0) - 15000;
+        const text = String(turn.userText || '').trim();
+        for (let i = tail.length - 1; i >= 0; i--) {
+            const item = tail[i];
+            if (item.role !== 'user') continue;
+            if (turn.userMessageId && item.id === turn.userMessageId) return item;
+            if (tail.slice(i + 1).some(later => later.role === 'model')) continue;
+            if (itemTimeMs(item.createdAt) < startFloor) continue;
+            if (item.sessionId && turn.sessionId && item.sessionId === turn.sessionId) {
+                if (!text || String(item.content || '').trim() === text) return item;
+            } else if (text && String(item.content || '').trim() === text) {
+                return item;
+            }
+        }
+        return null;
+    }
+
+    function findMatchingDbModel(turn) {
+        const tail = state.items.slice(-12);
+        const startFloor = (Number(turn.startedAt) || 0) - 15000;
+        const userIdx = turn.userMessageId ? tail.findIndex(item => item.id === turn.userMessageId) : -1;
+        const candidates = userIdx >= 0 ? tail.slice(userIdx + 1) : tail;
+        const content = String(turn.reply ?? turn.content ?? '').trim();
+        for (let i = candidates.length - 1; i >= 0; i--) {
+            const item = candidates[i];
+            if (item.role !== 'model') continue;
+            if (userIdx < 0 && itemTimeMs(item.createdAt) < startFloor) continue;
+            if (item.sessionId && turn.sessionId && item.sessionId !== turn.sessionId) continue;
+            if (!content || String(item.content || '').trim() === content) return item;
+        }
+        return null;
+    }
+
+    function reconcilePendingThinking() {
+        const pending = state.pendingTurnThinking;
+        if (!pending?.chunks?.length) return;
+        const matched = findMatchingDbModel(pending);
+        if (matched) {
+            rememberThinkingCache(matched.id, { chunks: pending.chunks, ms: pending.ms || 0, open: false });
+            state.pendingTurnThinking = null;
+        }
+    }
+
+    function reconcileLiveWithItems() {
+        reconcilePendingThinking();
+        const live = state.live;
+        if (!live) return;
+        if (!live.userMessageId) {
+            const dbUser = findMatchingDbUser(live);
+            if (dbUser) {
+                live.userMessageId = dbUser.id;
+                live.userEl?.remove();
+                live.userEl = null;
+            }
+        }
+        if (live.done) {
+            const dbModel = findMatchingDbModel(live);
+            if (dbModel) {
+                if (live.thinkingChunks.length) {
+                    const isOpen = live.aiEl?.querySelector('.dc-think-head')?.getAttribute('aria-expanded') === 'true';
+                    rememberThinkingCache(dbModel.id, { chunks: live.thinkingChunks.slice(), ms: live.thinkingMs, open: isOpen });
+                }
+                if (live.turnId) state.reconciledTurnIds.add(live.turnId);
+                disposeLiveTurn();
+            }
+        }
+    }
+
+    function updateLiveToolRow(live, ev) {
+        if (!live?.aiEl || !ev?.callId) return;
+        const main = live.aiEl.querySelector('.dc-msg-main');
+        if (!main) return;
+        let log = main.querySelector('.dc-tool-log');
+        if (!log) {
+            log = document.createElement('div');
+            log.className = 'dc-tool-log';
+            const anchor = main.querySelector('.dc-msg-body, .dc-activity');
+            main.insertBefore(log, anchor);
+        }
+        const safeId = String(ev.callId);
+        let row = [...log.querySelectorAll('.dc-tool-row')].find(node => node.dataset.callId === safeId);
+        if (ev.type === 'tool_start' || !row) {
+            if (!row) {
+                row = document.createElement('div');
+                row.className = 'dc-tool-row is-running';
+                row.dataset.callId = safeId;
+                const toolName = String(ev.tool || 'tool');
+                const label = /^mcp__.+?__(.+)$/.exec(toolName)?.[1] ? `MCP · ${/^mcp__.+?__(.+)$/.exec(toolName)[1]}` : toolName;
+                row.innerHTML = `<span>⌘</span><span>${escapeHtml(label)}</span><span></span><span class="dc-tool-state"><i class="dc-tool-spin"></i></span>`;
+                log.appendChild(row);
+            }
+        }
+        if (ev.type === 'tool_result' || ev.finished) {
+            const ok = ev.ok !== false;
+            row.classList.remove('is-running', 'is-ok', 'is-fail');
+            row.classList.add(ok ? 'is-ok' : 'is-fail');
+            const msText = Number.isFinite(Number(ev.durationMs)) && Number(ev.durationMs) > 0 ? ` ${Math.round(Number(ev.durationMs))}ms` : '';
+            row.querySelector('.dc-tool-state').textContent = ok ? `✓${msText}` : `✕${msText}`;
+        }
+    }
+
+    function appendLiveThinkingChunk(live, delta) {
+        const text = String(delta || '');
+        if (!text) return;
+        if (!live.thinkingActive) {
+            if (live.thinkingChunks.length) live.thinkingChunks.push({ sep: true });
+            live.thinkingActive = true;
+            live.thinkingSince = Date.now();
+        }
+        const last = live.thinkingChunks[live.thinkingChunks.length - 1];
+        if (last && typeof last.text === 'string') last.text += text;
+        else live.thinkingChunks.push({ text });
+    }
+
+    function closeLiveThinking(live) {
+        if (!live?.thinkingActive) return;
+        live.thinkingActive = false;
+        live.thinkingMs += Math.max(0, Date.now() - (live.thinkingSince || Date.now()));
+    }
+
+    function syncLiveDomToThread() {
+        const live = state.live;
+        const api = state.api;
+        if (!live || !api?.thread) return;
+        const thread = api.thread;
+        const addons = [...thread.querySelectorAll(':scope > [data-channel-thread-addon]')];
+        const firstAddon = addons[0] || null;
+        if (live.userEl && !live.userMessageId && !thread.contains(live.userEl)) {
+            thread.insertBefore(live.userEl, firstAddon);
+        }
+        if (live.aiEl && !thread.contains(live.aiEl)) {
+            thread.insertBefore(live.aiEl, firstAddon);
+        }
+        thread.querySelector('.wl-thread-loading:not(.is-error)')?.remove();
+    }
+
+    function mountLiveTurnDom(turn) {
+        const api = state.api;
+        if (!api || !state.active) return null;
+        if (state.live && state.live.turnId !== turn.turnId) disposeLiveTurn();
+        const atBottom = api.isNearBottom();
+        const dbUser = findMatchingDbUser(turn);
+        const live = {
+            turnId: turn.turnId,
+            channel: turn.channel || state.active.channel,
+            kind: turn.kind || state.active.kind,
+            id: turn.id || state.active.id,
+            sessionId: turn.sessionId || '',
+            sender: turn.sender || '',
+            userText: String(turn.userText || ''),
+            startedAt: Number(turn.startedAt) || Date.now(),
+            thinkingChunks: Array.isArray(turn.thinkingChunks) ? turn.thinkingChunks.map(c => ({ ...c })) : [],
+            thinkingMs: Number(turn.thinkingMs) || 0,
+            thinkingActive: Boolean(turn.thinkingActive),
+            thinkingSince: turn.thinkingActive ? Date.now() : 0,
+            content: String(turn.content || ''),
+            done: Boolean(turn.done),
+            error: String(turn.error || ''),
+            modelName: turn.modelName || '',
+            usage: turn.usage || null,
+            rounds: turn.rounds || null,
+            userMessageId: dbUser ? dbUser.id : null,
+            userEl: null,
+            aiEl: null,
+            activity: null,
+            renderer: null
+        };
+        state.live = live;
+        if (!live.userMessageId && live.userText) {
+            const userEl = api.addMessage('user', live.userText, {});
+            userEl.classList.add('wl-msg', 'wl-live-user');
+            const uMeta = document.createElement('div');
+            uMeta.className = 'wl-msg-meta';
+            uMeta.textContent = [state.active.kind === 'group' ? live.sender : '', api.formatTime(live.startedAt)].filter(Boolean).join(' · ');
+            userEl.querySelector('.dc-msg-main')?.prepend(uMeta);
+            live.userEl = userEl;
+        }
+        const aiEl = api.addMessage('ai', '', {});
+        aiEl.classList.add('wl-msg', 'wl-live-ai');
+        const main = aiEl.querySelector('.dc-msg-main');
+        const meta = document.createElement('div');
+        meta.className = 'wl-msg-meta';
+        meta.textContent = [tx('replying'), api.formatTime(live.startedAt)].filter(Boolean).join(' · ');
+        main?.prepend(meta);
+        live.aiEl = aiEl;
+        live.activity = api.createThinkingActivity ? api.createThinkingActivity(aiEl) : null;
+        live.renderer = api.createStreamRenderer ? api.createStreamRenderer(aiEl, live.activity) : null;
+        syncLiveDomToThread();
+        if (live.thinkingChunks.length) {
+            live.activity?.seedThinking?.({ chunks: live.thinkingChunks, ms: live.thinkingMs, active: live.thinkingActive, open: false });
+        }
+        if (Array.isArray(turn.tools)) {
+            for (const tool of turn.tools) {
+                updateLiveToolRow(live, tool);
+                if (!tool.finished) live.activity?.event?.({ type: 'tool_start', callId: tool.callId, tool: tool.tool });
+            }
+        }
+        if (live.content) {
+            live.renderer?.seed?.(live.content);
+            if (!live.thinkingActive && !(turn.tools || []).some(t => !t.finished)) {
+                live.activity?.streaming?.();
+            }
+        }
+        if (atBottom) api.scrollToBottom();
+        renderThreads();
+        return live;
+    }
+
+    async function handleLiveEvent(ev, seq) {
+        if (!ev || seq !== state.openSeq || !state.active || !state.api) return;
+        const api = state.api;
+        if (ev.type === 'snapshot') {
+            const turn = ev.turn;
+            if (!turn) {
+                if (state.live && !state.live.done) {
+                    state.live.done = true;
+                    state.live.activity?.finish?.();
+                    pollNewMessages();
+                }
+                return;
+            }
+            if (turn.done) {
+                const dbModel = findMatchingDbModel(turn);
+                if (dbModel) {
+                    if (turn.thinkingChunks?.length && !state.thinkingCache.has(dbModel.id)) {
+                        rememberThinkingCache(dbModel.id, { chunks: turn.thinkingChunks, ms: turn.thinkingMs || 0, open: false });
+                        renderTimeline({ scroll: 'stay' });
+                    }
+                    state.reconciledTurnIds.add(turn.turnId);
+                } else {
+                    if (turn.thinkingChunks?.length) {
+                        state.pendingTurnThinking = {
+                            sessionId: turn.sessionId,
+                            content: turn.content,
+                            startedAt: turn.startedAt,
+                            chunks: turn.thinkingChunks,
+                            ms: turn.thinkingMs || 0
+                        };
+                    }
+                    pollNewMessages();
+                }
+                return;
+            }
+            if (!state.reconciledTurnIds.has(turn.turnId) && (!state.live || state.live.turnId !== turn.turnId)) {
+                mountLiveTurnDom(turn);
+            }
+            return;
+        }
+        if (ev.type === 'turn_start' && ev.turn) {
+            if (!state.reconciledTurnIds.has(ev.turn.turnId)) {
+                mountLiveTurnDom(ev.turn);
+            }
+            return;
+        }
+        const live = state.live;
+        if (!live || (ev.turnId && live.turnId && ev.turnId !== live.turnId)) return;
+        const nearBottom = api.isNearBottom();
+        if (ev.type === 'thinking') {
+            appendLiveThinkingChunk(live, ev.delta);
+            live.activity?.event?.(ev);
+            if (nearBottom) api.scrollToBottom();
+            return;
+        }
+        if (ev.type === 'status') {
+            live.activity?.status?.(ev.status ?? ev.text);
+            return;
+        }
+        if (ev.type === 'compaction') {
+            closeLiveThinking(live);
+            live.activity?.event?.(ev);
+            return;
+        }
+        if (ev.type === 'tool_start' || ev.type === 'tool_result') {
+            closeLiveThinking(live);
+            updateLiveToolRow(live, ev);
+            live.activity?.event?.(ev);
+            if (nearBottom) api.scrollToBottom();
+            return;
+        }
+        if (ev.type === 'model_round') {
+            return;
+        }
+        if (ev.type === 'delta') {
+            closeLiveThinking(live);
+            const chunk = String(ev.delta || '');
+            live.content += chunk;
+            live.renderer?.append?.(chunk);
+            if (nearBottom) api.scrollToBottom();
+            return;
+        }
+        if (ev.type === 'done') {
+            live.done = true;
+            closeLiveThinking(live);
+            const finalText = String(ev.reply ?? live.content ?? '');
+            live.content = finalText;
+            const meta = live.aiEl?.querySelector('.wl-msg-meta');
+            if (meta) meta.textContent = api.formatTime(Date.now());
+            if (live.renderer) {
+                try { await live.renderer.idle(); } catch {}
+                if (seq !== state.openSeq || state.live !== live) return;
+                live.renderer.finish(finalText);
+            } else {
+                live.activity?.finish?.();
+            }
+            live.modelName = ev.modelName || live.modelName;
+            live.usage = ev.usage || live.usage;
+            live.rounds = ev.rounds || live.rounds;
+            api.addCopy?.(live.aiEl, finalText, { modelName: live.modelName, usage: live.usage, rounds: live.rounds });
+            if (nearBottom) api.scrollToBottom();
+            renderThreads();
+            await pollNewMessages({ force: true });
+            if (seq !== state.openSeq) return;
+            loadThreads();
+            loadTasks(seq);
+            return;
+        }
+        if (ev.type === 'error') {
+            live.done = true;
+            closeLiveThinking(live);
+            const meta = live.aiEl?.querySelector('.wl-msg-meta');
+            if (meta) meta.textContent = api.formatTime(Date.now());
+            const errText = live.content ? `${live.content}\n\n> ⚠️ ${tx('liveFailed')}：${ev.error || ''}` : `> ⚠️ ${tx('liveFailed')}：${ev.error || ''}`;
+            live.content = errText;
+            if (live.renderer) live.renderer.finish(errText);
+            else live.activity?.finish?.();
+            renderThreads();
+            loadThreads();
+        }
+    }
+
+    async function connectLiveStream(channel, kind, id, seq) {
+        stopLiveStream();
+        if (!state.active || seq !== state.openSeq) return;
+        const controller = new AbortController();
+        state.streamController = controller;
+        const url = `${API_BASE}/${channel}/threads/${kind}/${encodeURIComponent(id)}/stream`;
+        try {
+            const res = await fetch(url, {
+                method: 'GET',
+                headers: { Accept: 'text/event-stream', ...authHeaders() },
+                cache: 'no-store',
+                signal: controller.signal
+            });
+            const ctype = res.headers?.get?.('content-type') || '';
+            if (!res.ok || !res.body || !/text\/event-stream/i.test(ctype)) return;
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            while (seq === state.openSeq && !controller.signal.aborted) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const frames = buffer.split(/\r?\n\r?\n/);
+                buffer = frames.pop() || '';
+                for (const frame of frames) {
+                    const dataLines = frame.split(/\r?\n/).filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart());
+                    if (!dataLines.length) continue;
+                    let parsed = null;
+                    try { parsed = JSON.parse(dataLines.join('\n')); } catch { continue; }
+                    await handleLiveEvent(parsed, seq);
+                }
+            }
+        } catch (error) {
+            if (controller.signal.aborted || error?.name === 'AbortError') return;
+        } finally {
+            if (state.streamController === controller) state.streamController = null;
+        }
+        if (seq === state.openSeq && state.active && !controller.signal.aborted) {
+            pollNewMessages();
+            state.streamReconnectTimer = setTimeout(() => {
+                if (seq === state.openSeq && state.active) connectLiveStream(channel, kind, id, seq);
+            }, 1500);
+        }
+    }
+
     function renderTimeline({ scroll } = {}) {
         const api = state.api;
         if (!api) return;
@@ -710,9 +1270,12 @@
         const focused = addons.some(node => node.contains(document.activeElement)) ? document.activeElement : null;
         const selection = focused?.tagName === 'TEXTAREA' ? [focused.selectionStart, focused.selectionEnd] : null;
         addons.forEach(node => node.remove());
+        state.live?.userEl?.remove();
+        state.live?.aiEl?.remove();
+        reconcileLiveWithItems();
         thread.innerHTML = `<div class="wl-banner"><span class="wl-avatar wl-avatar--${state.active.kind}">${ICONS[state.active.kind] || ICONS.user}</span><span><b>${escapeHtml(tx('banner', { kind: kindText(state.active.kind), name: state.active.name }))}</b><small>${escapeHtml(tx('segments', { n: state.segments.length }))} · ${escapeHtml(tx('messages', { n: state.items.length }))}${state.hasMore ? '+' : ''}</small></span></div>`;
         if (state.hasMore) thread.insertAdjacentHTML('beforeend', `<button type="button" class="dc-history-more" data-wl-more>${escapeHtml(tx(state.loadingMore ? 'loading' : 'loadMore'))}</button>`);
-        if (!state.items.length) thread.insertAdjacentHTML('beforeend', `<div class="wl-thread-loading">${escapeHtml(tx('noMessages'))}</div>`);
+        if (!state.items.length && !state.live) thread.insertAdjacentHTML('beforeend', `<div class="wl-thread-loading">${escapeHtml(tx('noMessages'))}</div>`);
         let currentSession = null;
         api.batchMessages(() => state.items.forEach((item, position) => {
             if (item.sessionId !== currentSession) {
@@ -728,6 +1291,7 @@
             }
             renderMessage(item);
         }));
+        if (state.live) syncLiveDomToThread();
         addons.forEach(node => thread.append(node));
         notifyThread(!thread.hasAttribute('aria-busy'));
         if (focused?.isConnected) { focused.focus({ preventScroll: true }); if (selection) focused.setSelectionRange(...selection); }
@@ -744,6 +1308,16 @@
         const main = message.querySelector('.dc-msg-main');
         if (item.role === 'model') {
             message.querySelector('.dc-msg-body').innerHTML = api.renderMarkdown(item.content);
+            const cachedThink = state.thinkingCache.get(item.id);
+            if (cachedThink?.chunks?.length && api.createThinkingActivity) {
+                const act = api.createThinkingActivity(message);
+                act.seedThinking({ chunks: cachedThink.chunks, ms: cachedThink.ms, active: false, open: Boolean(cachedThink.open) });
+                act.finish();
+                const head = message.querySelector('.dc-think-head');
+                head?.addEventListener('click', () => {
+                    cachedThink.open = head.getAttribute('aria-expanded') === 'true';
+                });
+            }
             if (item.followups?.length) {
                 const chips = document.createElement('div');
                 chips.className = 'wl-chips';

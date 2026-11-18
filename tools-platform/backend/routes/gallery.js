@@ -4,6 +4,7 @@ const { requireAdmin } = require('../middleware/auth');
 const { getTenantId, runWithTenant } = require('../models/tenant-context');
 const repo = require('../models/gallery-repository');
 const service = require('../models/gallery-service');
+const batchRecognition = require('../models/gallery-batch-recognition');
 const router = express.Router();
 router.use((req, res, next) => {
     req.suppressBodyLog = true;
@@ -40,6 +41,8 @@ router.post('/upload', requireAdmin, (req, res, next) => {
     }));
 }, handle(async (req, res) => res.status(201).json(await service.upload(req.files?.file?.[0], req.files?.raster?.[0], req.body || {}))));
 router.post('/versions/:id/analyze', requireAdmin, handle(async (req, res) => res.json(await service.recognizeAndOrganize(req.params.id, req.body?.mode, req.body?.confirmed === true, undefined, { reidentify: req.body?.force === true }))));
+router.get('/batch-recognition', requireAdmin, handle(async (_req, res) => res.json(batchRecognition.status())));
+router.post('/batch-recognition', requireAdmin, handle(async (req, res) => res.status(202).json(batchRecognition.start(req.body?.confirmed === true))));
 router.get('/versions/:id/:kind', handle(async (req, res) => {
     if (!['thumbnail','preview','original'].includes(req.params.kind)) throw repo.fail('图片类型不存在', 404);
     const image = await repo.asset(req.params.id, req.params.kind);

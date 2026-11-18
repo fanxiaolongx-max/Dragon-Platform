@@ -1761,7 +1761,8 @@
             source = escapeHtml(source)
                 .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
                 .replace(/__([^_]+)__/g, '<strong>$1</strong>')
-                .replace(/~~([^~]+)~~/g, '<del>$1</del>');
+                .replace(/~~([^~]+)~~/g, '<del>$1</del>')
+                .replace(/([0-9#*])\uFE0F?\u20E3/g, '<span class="ai-emoji ai-emoji-keycap">$1\uFE0F\u20E3</span>');
             codeTokens.forEach((html, index) => {
                 source = source.replace(`\u0000CODE${index}\u0000`, () => html);
             });
@@ -1808,6 +1809,7 @@
             const line = lines[index] || '';
             return Boolean(fenceOpen(line))
                 || /^#{1,4}\s+/.test(line)
+                || /^\s*(?:(?:-\s*){3,}|(?:\*\s*){3,}|(?:_\s*){3,})$/.test(line)
                 || /^\s*(?:[-*+]\s+|\d+[.)]\s+)/.test(line)
                 || /^\s*>\s?/.test(line)
                 || (line.includes('|') && isTableSeparator(lines[index + 1] || ''));
@@ -1878,6 +1880,12 @@
             if (heading) {
                 const level = heading[1].length;
                 blocks.push(`<h${level}>${inline(heading[2])}</h${level}>`);
+                index += 1;
+                continue;
+            }
+
+            if (/^\s*(?:(?:-\s*){3,}|(?:\*\s*){3,}|(?:_\s*){3,})$/.test(line)) {
+                blocks.push('<hr>');
                 index += 1;
                 continue;
             }

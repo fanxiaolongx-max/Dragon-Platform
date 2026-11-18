@@ -2123,10 +2123,10 @@
     function renderChatTitle() {
         const name = document.querySelector('.dc-chat-head .dc-chat-name');
         if (!name) return;
-        const active = document.querySelector('#homeChatList .home-chat-item.is-active .home-chat-title, #homeWelinkList .home-chat-item.is-active .home-chat-title, .desktop-agent-list .is-active [class*="title"], #homeChatList .is-active [class*="title"]');
+        const active = document.querySelector('#homeChatList .home-chat-item.is-active .home-chat-title, #homeChannelPinnedSection .home-chat-item.is-active .home-chat-title, #homeWelinkList .home-chat-item.is-active .home-chat-title, .desktop-agent-list .is-active [class*="title"], #homeChatList .is-active [class*="title"]');
         const channel = activeChatSource();
         const fallback = isChannelSource(channel) ? (channel === 'weixin' ? t('scanWeixin') : 'WeLink') : 'Dragon Claw';
-        const title = active?.textContent.trim() || fallback;
+        const title = active?.dataset?.chatTitle || active?.textContent.trim() || fallback;
         if (name.textContent !== title) name.textContent = title;
     }
     function renderGroups() {

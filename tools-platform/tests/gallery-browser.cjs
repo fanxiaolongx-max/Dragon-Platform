@@ -12,7 +12,7 @@ const express = require('express');
 const { runWithTenant } = require('../backend/models/tenant-context');
 const i18n = require('../backend/models/custom-tool-i18n-service');
 const toolDir = path.join(__dirname, '../backend/builtin-tools/picture-island');
-let win, server, role = 'admin', simulatedAi = false, listDelay=0, thumbnailDelay=0;
+let win, server, role = 'admin', tenant = 'batch-browser', simulatedAi = false, listDelay=0, thumbnailDelay=0;
 const settingsRepo = require('../backend/models/ai-settings-repository');
 const provider = require('../backend/models/ai-provider-client');
 const originalSettings = settingsRepo.getRuntimeSettings, originalCreateClient = provider.createClient;
@@ -63,7 +63,7 @@ async function downloadedBy(action) {
 const timeout = setTimeout(() => { console.error('Browser test timed out'); app.exit(1); }, 90000);
 app.whenReady().then(async () => {
     const web = express(); web.use(express.json());
-    web.use((req, _res, next) => { req.user = { username:'fixture', role }; runWithTenant('default', next); });
+    web.use((req, _res, next) => { req.user = { username:'fixture', role }; runWithTenant(tenant, next); });
     web.use((req,res,next)=>{
         if(req.method==='GET'&&req.path==='/api/gallery/items'&&listDelay)return setTimeout(next,listDelay);
         if(req.method==='GET'&&/^\/api\/gallery\/versions\/[^/]+\/thumbnail$/.test(req.path)&&thumbnailDelay)return setTimeout(next,thumbnailDelay);
@@ -85,6 +85,47 @@ app.whenReady().then(async () => {
     win.webContents.on('console-message', (_event,level,message) => { if (level>=3) errors.push(message); });
     const url = `http://127.0.0.1:${server.address().port}/custom-tools/picture-island/index.html`;
     await win.webContents.session.cookies.set({ url, name:'tools_token', value:'fixture-session' });
+    const fixture = require('../backend/models/gallery-service');
+    const png = require('pngjs').PNG;
+    await runWithTenant(tenant, async () => {
+        const image = new png({ width: 8, height: 8 });
+        image.data.fill(255);
+        const first = await fixture.upload({ buffer: png.sync.write(image), originalname: 'batch-first.png' }, null, {});
+        image.data[0] = 0;
+        await fixture.upload({ buffer: png.sync.write(image), originalname: 'batch-latest.png' }, null, { itemId: first.item.id });
+    });
+    simulatedAi = true;
+    win.setSize(390, 844);
+    await win.loadURL(url);
+    await evaluate(() => {
+        localStorage.setItem('tools_lang', 'zh-CN');
+        localStorage.setItem('picture_island_theme', 'dark');
+    });
+    await win.loadURL(url);
+    await until(() => document.querySelectorAll('.card').length === 1, 'batch library ready');
+    assert.equal(await evaluate(() => document.getElementById('batchRecognize').hidden), true);
+    await evaluate(() => document.querySelector('[data-view="pending"]').click());
+    await until(() => !document.getElementById('batchRecognize').hidden, 'batch button visible in pending view');
+    await evaluate(() => document.getElementById('batchRecognize').click());
+    assert.equal(await evaluate(() => document.getElementById('batchRecognitionForm').checkValidity()), false);
+    assert.ok(await evaluate(() => {
+        const dialog = document.getElementById('batchRecognitionDialog');
+        return dialog.open && dialog.getBoundingClientRect().right <= innerWidth
+            && document.documentElement.dataset.theme === 'dark';
+    }));
+    await evaluate(() => {
+        document.getElementById('batchRecognitionConfirm').checked = true;
+        document.getElementById('batchRecognitionForm').requestSubmit();
+    });
+    await until(() => document.getElementById('batchRecognize').disabled, 'duplicate batch launch disabled');
+    await until(() => document.getElementById('batchRecognitionStatus').textContent.includes('成功 2')
+        && !document.querySelector('.card'), 'all pending versions recognized and list refreshed');
+    await evaluate(() => document.getElementById('language').click());
+    assert.match(await evaluate(() => document.getElementById('batchRecognitionStatus').textContent), /2 succeeded/);
+    await evaluate(() => document.getElementById('language').click());
+    tenant = 'default';
+    simulatedAi = false;
+    win.setSize(1440, 1080);
     await win.loadURL(url);
     await evaluate(()=>{ localStorage.setItem('picture_island_theme','light'); });
     await win.loadURL(url);

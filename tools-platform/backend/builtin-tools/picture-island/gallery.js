@@ -7,6 +7,7 @@
     let categories = [], result = { items: [], total: 0, page: 1, pages: 1 }, view = 'all', category = '', page = 1;
     let canWrite = false, selected = [], current = null, uploading = false, listRequest = 0, detailRequest = 0, categoryTarget = '', aiBusy = false;
     let toastTimer, searchTimer, dragDepth = 0;
+    let batchStatus = null, batchStarting = false, batchChecking = false, batchPollTimer;
     let readerVersion = '', readerLayout = 'auto', readerZoom = 100, originalRequest = null, originalUrl = '', originalState = '';
     let albums = [], album = '', albumTarget = '', selectionMode = false;
     const selectedItems = new Map();
@@ -31,6 +32,7 @@
         document.querySelectorAll('[data-write]').forEach(el => {
             el.hidden = !canWrite || (el.id === 'applyAi' && activeVersion()?.ai_status !== 'ready') || (el.id === 'emptyUpload' && !!(category || view !== 'all' || $('search').value));
         });
+        renderBatchRecognition();
         $('metaForm').querySelectorAll('input,select,textarea').forEach(el => { el.disabled = !canWrite; });
         $('metaAlbum').disabled = !canWrite; $('selectPictures').hidden = !canWrite || view === 'albums';
         $('metaForm').querySelectorAll('input,select,textarea,button').forEach(el => { el.disabled = !canWrite || !!current?.deleted_at; });
@@ -124,6 +126,7 @@
         selectionMode = false; await refreshAlbums(); await loadList(); toast(t('图片已恢复', 'Pictures restored'));
     }
     function renderList() {
+        renderBatchRecognition();
         const titles = { all: ['全部图片', 'All pictures'], work: ['工作 · 海报', 'Work & posters'], life: ['生活 · 菜单', 'Life & menus'], favorites: ['我的收藏', 'Favorites'], pending: ['待 AI 识别', 'Awaiting AI'], archived: ['已归档', 'Archived'],trash:['回收站','Trash'] };
         $('viewTitle').textContent = album ? albumName(album) : view === 'albums' ? t('我的相册', 'Albums') : $('search').value ? t('搜索结果','Search results') : category ? categoryName(category) : t(...titles[view]);
         $('grid').hidden = $('pagination').hidden = view === 'albums'; $('sort').hidden = view === 'albums';
@@ -205,10 +208,80 @@
             selectedItems.clear(); result = data; page = data.page; $('error').hidden = true; renderList();trackGalleryImages(request);
         } catch (error) { if (request === listRequest) { endGalleryLoad(galleryLoad,true);$('error').textContent = error.message; $('error').hidden = false; } }
     }
+    function renderBatchRecognition() {
+        const visible = canWrite && view === 'pending';
+        const button = $('batchRecognize'), status = $('batchRecognitionStatus');
+        button.hidden = !visible;
+        button.disabled = batchStarting || batchStatus?.running || batchStatus?.retryAt > Date.now();
+        status.hidden = !visible || (!batchStarting && !batchStatus);
+        if (status.hidden) return;
+        if (batchStarting || (batchStatus.running && !batchStatus.total)) {
+            status.textContent = t('正在准备待识别图片…', 'Preparing pending pictures…');
+            return;
+        }
+        const { running, total, succeeded, failed, skipped, reason, retryAt } = batchStatus;
+        const processed = succeeded + failed + skipped;
+        const outcome = t(`成功 ${succeeded}，失败 ${failed}，跳过 ${skipped}`, `${succeeded} succeeded, ${failed} failed, ${skipped} skipped`);
+        const reasons = {
+            'rate-limited': retryAt > Date.now()
+                ? t('AI 服务限流，冷却后可重试。', 'AI rate limit reached. Retry after the cooldown.')
+                : t('AI 服务限流，本轮已停止。现在可重试。', 'The batch stopped at the AI rate limit. You can retry now.'),
+            unavailable: t('AI 暂不可用，请检查 AI 配置后重试。', 'AI is unavailable. Check your AI settings and retry.'),
+            busy: t('识别服务繁忙，请稍后重试。', 'Recognition is busy. Try again shortly.')
+        };
+        const progress = running ? t(`识别进度 ${processed} / ${total}`, `Recognizing ${processed} / ${total}`)
+            : t(`已处理 ${processed} / ${total} 个版本`, `Processed ${processed} / ${total} versions`);
+        const message = total ? [progress, outcome, reasons[reason]].filter(Boolean).join(' · ')
+            : reasons[reason] || t('没有待识别的图片版本', 'No pending picture versions');
+        if (status.textContent !== message) status.textContent = message;
+    }
+    function scheduleBatchCheck() {
+        clearTimeout(batchPollTimer);
+        if (view !== 'pending') return;
+        if (batchStatus?.running) batchPollTimer = setTimeout(checkBatchRecognition, 1500);
+        else if (batchStatus?.retryAt > Date.now()) {
+            batchPollTimer = setTimeout(scheduleBatchCheck, Math.min(15000, batchStatus.retryAt - Date.now()));
+        }
+        renderBatchRecognition();
+    }
+    async function checkBatchRecognition() {
+        if (!canWrite || view !== 'pending' || batchStarting || batchChecking) return;
+        batchChecking = true;
+        try {
+            const previous = batchStatus;
+            const status = await api('/batch-recognition');
+            if (batchStarting || batchStatus !== previous) return;
+            batchStatus = status;
+            if (view === 'pending' && previous?.running && !status?.running) {
+                try { await refreshAlbums(); }
+                finally { if (view === 'pending') await loadList(); }
+            }
+        } catch (error) {
+            if (view === 'pending' && !batchStatus?.running) toast(error.message);
+        } finally {
+            batchChecking = false;
+            scheduleBatchCheck();
+        }
+    }
+    async function startBatchRecognition(event) {
+        event.preventDefault();
+        if (!canWrite || view !== 'pending' || batchStarting || !$('batchRecognitionConfirm').checked) return;
+        $('batchRecognitionDialog').close();
+        batchStarting = true;
+        renderBatchRecognition();
+        try {
+            batchStatus = await api('/batch-recognition', 'POST', { confirmed: true });
+            if (!batchStatus.running && view === 'pending') await loadList();
+        } finally {
+            batchStarting = false;
+            scheduleBatchCheck();
+        }
+    }
     function navigate(nextView, nextCategory = '', nextAlbum = '') {
         view = nextView; category = nextCategory; album = nextAlbum; page = 1; selectionMode = false; selectedItems.clear();
         document.querySelectorAll('[data-view]').forEach(el => el.classList.toggle('active', el.dataset.view === view && !category && !album));
-        renderCategories(); loadList();
+        renderCategories(); renderBatchRecognition(); loadList();
+        if (view === 'pending') void checkBatchRecognition();
     }
     function chooseFiles(files) {
         const accepted = Array.from(files).filter(file => /image\/(png|jpeg|webp)/.test(file.type));
@@ -908,6 +981,11 @@
         await download(a.previewUrl, file.name); toast(t('当前环境无法系统分享，已下载压缩图，可直接发送给朋友', 'System sharing is unavailable. The compressed picture was downloaded for sharing.'));
     }
     $('navigation').addEventListener('click', event => { const button = event.target.closest('[data-view]'); if (button) navigate(button.dataset.view); });
+    $('batchRecognize').onclick = () => {
+        $('batchRecognitionForm').reset();
+        $('batchRecognitionDialog').showModal();
+    };
+    $('batchRecognitionForm').onsubmit = guarded(startBatchRecognition);
     $('categoryNav').addEventListener('click', event => { const button = event.target.closest('[data-category]'); if (button) navigate('all', category === button.dataset.category ? '' : button.dataset.category); });
     $('search').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { page = 1; loadList(); }, 200); });
     $('sort').addEventListener('change', () => { page = 1; loadList(); });

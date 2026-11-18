@@ -38,7 +38,8 @@ html[data-platform-theme="light"] span.nav-label { color: #334155 !important; }
     <section class="toolbar"><label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" autocomplete="off" placeholder="搜索图片、餐厅、标签或图片中的文字…" data-placeholder-en="Search pictures, restaurants, tags or recognized text…"><kbd>/</kbd></label><select id="sort" aria-label="排序"><option value="recent" data-en="Recently updated">最近更新</option><option value="oldest" data-en="Oldest first">最早收藏</option><option value="title" data-en="Title order">名称顺序</option></select></section>
     <section id="albumSection" class="album-section" hidden><div class="album-section-head"><h2 data-en="Albums · keep related pictures together">相册 · 把相关图片收在一起</h2><button id="addAlbum" class="text-button" data-write data-en="+ New album">＋ 新建相册</button></div><div id="albumGrid" class="album-grid"></div></section>
     <div id="galleryLoad" class="gallery-load" role="status" hidden><progress id="galleryProgress" aria-label="图库加载进度"></progress><span id="galleryLoadText"></span></div>
-    <div class="results-head"><span id="resultCount" role="status"></span><button id="selectPictures" class="text-button" data-write data-en="Select pictures">选择图片</button><button id="backToAlbums" class="text-button" hidden data-en="← All albums">← 全部相册</button></div>
+    <div class="results-head"><span id="resultCount" role="status"></span><button id="batchRecognize" type="button" data-write hidden data-en="✦ Recognize all pending">✦ 一键批量识别</button><button id="selectPictures" class="text-button" data-write data-en="Select pictures">选择图片</button><button id="backToAlbums" class="text-button" hidden data-en="← All albums">← 全部相册</button></div>
+    <div id="batchRecognitionStatus" class="batch-recognition-status" role="status" hidden></div>
     <div id="selectionBar" class="selection-bar" hidden><span id="selectedCount"></span><select id="batchAlbum" aria-label="Album"></select><button id="batchNewAlbum" data-en="+ New album">＋ 新相册</button><button id="assignAlbum" class="primary" data-en="Move into album">归入相册</button><button id="deleteSelected" class="danger" data-en="Delete selected">删除所选</button><button id="restoreSelected" hidden data-en="Restore selected">恢复所选</button></div>
     <div id="error" class="error" role="alert" hidden></div>
     <section id="grid" class="grid" aria-label="Pictures"></section>
@@ -46,6 +47,14 @@ html[data-platform-theme="light"] span.nav-label { color: #334155 !important; }
     <footer id="pagination" class="pagination"><button id="prev" data-en="Previous">上一页</button><span id="pageInfo"></span><button id="next" data-en="Next">下一页</button></footer>
     <p class="home-note" data-en="Drop images anywhere, or paste a screenshot. PNG / JPEG / WebP · up to 25 MB each.">拖拽图片到页面，或直接粘贴截图。PNG / JPEG / WebP · 单张不超过 25 MB。</p>
   </main>
+  <dialog id="batchRecognitionDialog" class="category-dialog" aria-labelledby="batchRecognitionTitle">
+    <form id="batchRecognitionForm">
+      <div class="dialog-head"><h2 id="batchRecognitionTitle" data-en="Recognize all pending pictures?">批量识别所有待处理图片？</h2></div>
+      <p data-en="This sends compressed copies of all pending versions in this library to your configured AI, including versions outside the current page or search.">当前图库中所有待识别版本的压缩图会发送给已配置的 AI，范围包括其他分页及搜索结果之外的图片。</p>
+      <label class="check"><input id="batchRecognitionConfirm" type="checkbox" required><span data-en="I confirm the pictures contain no credentials or secrets.">我确认这些图片不含密码、凭据或密钥。</span></label>
+      <div class="dialog-actions"><button type="button" data-close="batchRecognitionDialog" data-en="Cancel">取消</button><button class="primary" type="submit" data-en="Start recognition">开始识别</button></div>
+    </form>
+  </dialog>
   <div id="dropzone" class="dropzone" hidden><div><strong data-en="Drop to collect">松手，把图片收进图屿</strong><p data-en="Originals stay with their compressed previews">自动保存原图与压缩预览</p></div></div>
   <dialog id="uploadDialog" class="upload-dialog">
     <form id="uploadForm"><div class="dialog-head"><div><p class="eyebrow">ADD TO YOUR ISLAND</p><h2 data-en="Collect pictures">收藏图片</h2></div><button type="button" class="icon" data-close="uploadDialog" aria-label="Close">×</button></div>

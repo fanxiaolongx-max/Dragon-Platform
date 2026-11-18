@@ -3,8 +3,12 @@
 // WeLink 入站消息复核访问名单后使用完整工作区工具；其他频道和后台生成保持原权限。
 // 对话归属：单聊为「welink:<账号>」；群聊为「welink-group:<群 ID>」，群里任何人 @助手 都接着同一个群对话。
 const { EventEmitter } = require('events');
+const { getTenantId } = require('../tenant-context');
 
 const CHANNEL_LABELS = { welink: 'WeLink', weixin: '微信', ops: '运营' };
+const MAX_THINKING_CHARS = 24000;
+const MAX_LIVE_CONTENT_CHARS = 120000;
+const FINISHED_TURN_TTL_MS = 20000;
 
 function createVirtualResponse(onEvent) {
     const res = new EventEmitter();
@@ -159,19 +163,301 @@ async function replyDirectly({ channel, user, sessionId, text, reply, account, c
  * @param {(event:object)=>void} options.onEvent delta / status / done / error / http-json / start
  * @returns {Promise<void>} 本轮结束（含出错）时 resolve
  */
-// 正在回复的频道会话（channel:kind:id → 进行中的轮数），供侧栏对话列表显示转圈
+// 正在回复的频道会话（tenant::channel:kind:id → 进行中的轮数）与实时流状态，供侧栏转圈和实时瀑布流订阅
 const activeTurns = new Map();
-function busyThreads(channel) {
-    const prefix = `${channel}:`;
+const liveTurns = new Map();
+const liveSubscribers = new Map();
+let turnSeq = 0;
+
+function liveThreadKey(channel, kind, id, tenantId = getTenantId()) {
+    return `${tenantId || 'default'}::${channel}:${kind || 'user'}:${id}`;
+}
+
+function busyThreads(channel, tenantId = getTenantId()) {
+    const prefix = `${tenantId || 'default'}::${channel}:`;
     return new Set([...activeTurns.keys()].filter(key => key.startsWith(prefix)).map(key => key.slice(prefix.length)));
 }
+
+function compactMetrics(round) {
+    if (!round || typeof round !== 'object') return null;
+    const out = {};
+    for (const key of ['index', 'inputTokens', 'outputTokens', 'cachedInputTokens', 'reasoningOutputTokens', 'visibleOutputTokens', 'decodeTokens', 'ms', 'ttftMs', 'turnTtftMs', 'generationMs', 'tps']) {
+        if (typeof round[key] === 'number' && Number.isFinite(round[key]) && round[key] >= 0) out[key] = round[key];
+    }
+    out.model = typeof round.model === 'string' ? round.model.slice(0, 200) : '';
+    out.timingSource = ['request-stream', 'buffered', 'log-boundary', 'usage-only'].includes(round.timingSource) ? round.timingSource : '';
+    out.estimated = round.estimated === true;
+    out.timingEstimated = round.timingEstimated === true;
+    return out;
+}
+
+function closeActiveThinking(turn) {
+    if (!turn || !turn.thinkingActive) return;
+    turn.thinkingMs += Math.max(0, Date.now() - turn.thinkingSince);
+    turn.thinkingActive = false;
+    turn.thinkingSince = 0;
+    turn.thinkingGap = true;
+}
+
+function appendThinkingDelta(turn, delta) {
+    const text = String(delta || '');
+    if (!text) return;
+    if (turn.thinkingGap && turn.thinkingChunks.length) {
+        turn.thinkingChunks.push({ sep: true });
+    }
+    turn.thinkingGap = false;
+    if (turn.thinkingChars < MAX_THINKING_CHARS) {
+        const room = MAX_THINKING_CHARS - turn.thinkingChars;
+        const slice = text.slice(0, room);
+        turn.thinkingChars += slice.length;
+        const last = turn.thinkingChunks.at(-1);
+        if (last && !last.sep) last.text += slice;
+        else turn.thinkingChunks.push({ text: slice });
+    }
+    if (!turn.thinkingActive) {
+        turn.thinkingActive = true;
+        turn.thinkingSince = Date.now();
+    }
+}
+
+function snapshotLiveTurn(turn) {
+    if (!turn) return null;
+    const thinkingMs = turn.thinkingMs + (turn.thinkingActive && turn.thinkingSince ? Math.max(0, Date.now() - turn.thinkingSince) : 0);
+    return {
+        turnId: turn.turnId,
+        channel: turn.channel,
+        kind: turn.kind,
+        id: turn.id,
+        sessionId: turn.sessionId,
+        sender: turn.sender,
+        userText: turn.userText,
+        startedAt: turn.startedAt,
+        thinkingChunks: turn.thinkingChunks.map(item => (item.sep ? { sep: true } : { text: item.text })),
+        thinkingMs,
+        thinkingActive: Boolean(turn.thinkingActive),
+        statusText: turn.statusText,
+        tools: turn.tools.map(item => ({ ...item })),
+        compactions: turn.compactions.map(item => ({ ...item })),
+        content: turn.content,
+        modelName: turn.modelName,
+        usage: turn.usage ? { ...turn.usage } : null,
+        rounds: turn.rounds.map(item => ({ ...item })),
+        done: Boolean(turn.done),
+        error: turn.error || ''
+    };
+}
+
+function broadcastLive(key, payload) {
+    const subs = liveSubscribers.get(key);
+    if (!subs?.size) return;
+    for (const listener of [...subs]) {
+        try {
+            listener(payload);
+        } catch {
+            subs.delete(listener);
+        }
+    }
+}
+
+function createLiveTurn({ threadKey, channel, kind, id, sessionId = '', account = '', text = '' }) {
+    const existing = liveTurns.get(threadKey);
+    if (existing?.cleanupTimer) clearTimeout(existing.cleanupTimer);
+    const turn = {
+        turnId: `ch-${Date.now()}-${++turnSeq}`,
+        threadKey,
+        channel,
+        kind: kind || 'user',
+        id,
+        sessionId: sessionId || '',
+        sender: String(account || ''),
+        userText: String(text || ''),
+        startedAt: Date.now(),
+        thinkingChunks: [],
+        thinkingChars: 0,
+        thinkingMs: 0,
+        thinkingSince: 0,
+        thinkingActive: false,
+        thinkingGap: false,
+        statusText: '',
+        tools: [],
+        compactions: [],
+        content: '',
+        modelName: '',
+        usage: null,
+        rounds: [],
+        done: false,
+        error: '',
+        cleanupTimer: null
+    };
+    liveTurns.set(threadKey, turn);
+    broadcastLive(threadKey, { type: 'turn_start', turn: snapshotLiveTurn(turn) });
+    return turn;
+}
+
+function recordAndBroadcastLiveEvent(turn, event) {
+    if (!turn || !event || typeof event !== 'object') return;
+    const turnId = turn.turnId;
+    if (event.type === 'start') {
+        if (event.sessionId) turn.sessionId = String(event.sessionId);
+        broadcastLive(turn.threadKey, { type: 'start', turnId, sessionId: turn.sessionId });
+        return;
+    }
+    if (event.type === 'thinking') {
+        const delta = String(event.delta || '');
+        if (!delta) return;
+        appendThinkingDelta(turn, delta);
+        broadcastLive(turn.threadKey, { type: 'thinking', turnId, delta });
+        return;
+    }
+    if (event.type === 'status') {
+        turn.statusText = String(event.status || '').trim();
+        broadcastLive(turn.threadKey, { type: 'status', turnId, status: turn.statusText });
+        return;
+    }
+    if (event.type === 'compaction') {
+        closeActiveThinking(turn);
+        const item = {
+            type: 'compaction',
+            turnId,
+            phase: String(event.phase || ''),
+            summarized: Number(event.summarized) || 0,
+            beforeTokens: Number(event.beforeTokens) || 0,
+            afterTokens: Number(event.afterTokens) || 0,
+            error: event.error ? String(event.error).slice(0, 200) : ''
+        };
+        turn.compactions.push(item);
+        broadcastLive(turn.threadKey, item);
+        return;
+    }
+    if (event.type === 'tool_start') {
+        closeActiveThinking(turn);
+        const toolEvent = { type: 'tool_start', turnId, callId: String(event.callId || ''), tool: String(event.tool || '') };
+        turn.tools.push({ ...toolEvent, finished: false });
+        broadcastLive(turn.threadKey, toolEvent);
+        return;
+    }
+    if (event.type === 'tool_result') {
+        closeActiveThinking(turn);
+        const callId = String(event.callId || '');
+        const tool = String(event.tool || '');
+        const ok = event.ok !== false;
+        const durationMs = Number(event.durationMs) || 0;
+        const existing = turn.tools.find(item => item.callId === callId);
+        if (existing) Object.assign(existing, { ok, durationMs, finished: true });
+        else turn.tools.push({ type: 'tool_result', callId, tool, ok, durationMs, finished: true });
+        broadcastLive(turn.threadKey, { type: 'tool_result', turnId, callId, tool, ok, durationMs });
+        return;
+    }
+    if (event.type === 'model_round') {
+        const round = compactMetrics(event.round);
+        if (round) {
+            turn.rounds.push(round);
+            broadcastLive(turn.threadKey, { type: 'model_round', turnId, round });
+        }
+        return;
+    }
+    if (event.type === 'delta') {
+        closeActiveThinking(turn);
+        const delta = String(event.delta || '');
+        if (!delta) return;
+        if (turn.content.length < MAX_LIVE_CONTENT_CHARS) {
+            turn.content += delta.slice(0, MAX_LIVE_CONTENT_CHARS - turn.content.length);
+        }
+        broadcastLive(turn.threadKey, { type: 'delta', turnId, delta });
+        return;
+    }
+    if (event.type === 'done') {
+        closeActiveThinking(turn);
+        turn.done = true;
+        if (typeof event.reply === 'string' && event.reply) {
+            turn.content = event.reply.slice(0, MAX_LIVE_CONTENT_CHARS);
+        }
+        if (event.sessionId) turn.sessionId = String(event.sessionId);
+        turn.modelName = typeof event.model?.name === 'string' ? event.model.name : (typeof event.modelName === 'string' ? event.modelName : '');
+        if (event.usage && typeof event.usage === 'object') {
+            turn.usage = { inputTokens: Number(event.usage.inputTokens) || 0, outputTokens: Number(event.usage.outputTokens) || 0 };
+        }
+        if (Array.isArray(event.rounds) && event.rounds.length) {
+            turn.rounds = event.rounds.map(compactMetrics).filter(Boolean);
+        }
+        broadcastLive(turn.threadKey, {
+            type: 'done',
+            turnId,
+            sessionId: turn.sessionId,
+            reply: turn.content,
+            modelName: turn.modelName,
+            usage: turn.usage,
+            rounds: turn.rounds
+        });
+        return;
+    }
+    if (event.type === 'error' || (event.type === 'http-json' && Number(event.status) >= 400)) {
+        closeActiveThinking(turn);
+        turn.done = true;
+        turn.error = String(event.error || event.body?.error || (event.status ? `HTTP ${event.status}` : '回复失败'));
+        broadcastLive(turn.threadKey, { type: 'error', turnId, error: turn.error });
+    }
+}
+
+function finalizeLiveTurn(turn) {
+    if (!turn) return;
+    if (!turn.done) {
+        closeActiveThinking(turn);
+        turn.done = true;
+        turn.error = turn.error || '已停止生成';
+        broadcastLive(turn.threadKey, { type: 'error', turnId: turn.turnId, error: turn.error });
+    }
+    if (turn.cleanupTimer) clearTimeout(turn.cleanupTimer);
+    turn.cleanupTimer = setTimeout(() => {
+        if (liveTurns.get(turn.threadKey) === turn) liveTurns.delete(turn.threadKey);
+    }, FINISHED_TURN_TTL_MS);
+    turn.cleanupTimer.unref?.();
+}
+
+function getLiveTurnSnapshot(channel, kind, id, tenantId = getTenantId()) {
+    return snapshotLiveTurn(liveTurns.get(liveThreadKey(channel, kind, id, tenantId)) || null);
+}
+
+function subscribeLiveTurn(channel, kind, id, listener, tenantId = getTenantId()) {
+    const key = liveThreadKey(channel, kind, id, tenantId);
+    let set = liveSubscribers.get(key);
+    if (!set) {
+        set = new Set();
+        liveSubscribers.set(key, set);
+    }
+    set.add(listener);
+    return () => {
+        const cur = liveSubscribers.get(key);
+        if (!cur) return;
+        cur.delete(listener);
+        if (!cur.size) liveSubscribers.delete(key);
+    };
+}
+
 async function runTurn(options) {
     const { channel, conversation, persist = true } = options;
-    const key = persist !== false && conversation?.id ? `${channel}:${conversation.kind || 'user'}:${conversation.id}` : '';
+    const key = persist !== false && conversation?.id ? liveThreadKey(channel, conversation.kind || 'user', conversation.id) : '';
     if (!key) return runTurnInner(options);
     activeTurns.set(key, (activeTurns.get(key) || 0) + 1);
-    try { return await runTurnInner(options); }
+    const liveTurn = createLiveTurn({
+        threadKey: key,
+        channel,
+        kind: conversation.kind || 'user',
+        id: conversation.id,
+        sessionId: options.aiSessionId || '',
+        account: options.account || '',
+        text: options.text || ''
+    });
+    const wrappedOptions = {
+        ...options,
+        onEvent: event => {
+            recordAndBroadcastLiveEvent(liveTurn, event);
+            options.onEvent?.(event);
+        }
+    };
+    try { return await runTurnInner(wrappedOptions); }
     finally {
+        finalizeLiveTurn(liveTurn);
         const left = (activeTurns.get(key) || 1) - 1;
         if (left > 0) activeTurns.set(key, left);
         else activeTurns.delete(key);
@@ -247,4 +533,4 @@ async function runTurnInner({ channel, account, conversation, toolSessionId, tex
     await aiRouter.handleChatRequest(req, res);
 }
 
-module.exports = { runTurn, busyThreads, channelUser, conversationUser, createVirtualResponse, isSuperAdminUser, isSuperAdminAccount };
+module.exports = { runTurn, busyThreads, getLiveTurnSnapshot, subscribeLiveTurn, channelUser, conversationUser, createVirtualResponse, isSuperAdminUser, isSuperAdminAccount };

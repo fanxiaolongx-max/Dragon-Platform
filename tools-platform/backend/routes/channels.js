@@ -539,6 +539,35 @@ router.get(`/${CH}/threads/:kind/:id/messages`, handle(async (req, res) => {
     res.json({ thread: { ...thread, name: target?.name || thread.id }, ...page, canSend: Boolean(canSend) });
 }));
 
+router.get(`/${CH}/threads/:kind/:id/stream`, handle(async (req, res) => {
+    const thread = threadParams(req, res);
+    if (!thread) return;
+    res.set({
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-store, no-transform',
+        Connection: 'keep-alive',
+        'X-Accel-Buffering': 'no'
+    });
+    res.flushHeaders?.();
+    const tenantId = getTenantId();
+    const channel = req.params.channel;
+    const { getLiveTurnSnapshot, subscribeLiveTurn } = require('../models/channels/dragon-claw-channel-bridge');
+    const writeSse = payload => {
+        if (res.destroyed || res.writableEnded) return;
+        res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    };
+    const unsubscribe = subscribeLiveTurn(channel, thread.kind, thread.id, writeSse, tenantId);
+    writeSse({ type: 'snapshot', turn: getLiveTurnSnapshot(channel, thread.kind, thread.id, tenantId) });
+    const heartbeat = setInterval(() => {
+        if (!res.destroyed && !res.writableEnded) res.write(': ping\n\n');
+    }, 20000);
+    heartbeat.unref?.();
+    req.on('close', () => {
+        clearInterval(heartbeat);
+        unsubscribe();
+    });
+}));
+
 router.get(`/${CH}/threads/:kind/:id/schedules`, handle(async (req, res) => {
     const thread = threadParams(req, res);
     if (!thread) return;

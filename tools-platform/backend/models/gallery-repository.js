@@ -162,6 +162,18 @@ async function list(options = {}) {
         FROM gallery_items i WHERE ${clause} ORDER BY ${order},i.id LIMIT ? OFFSET ?`, [...params, pageSize, (page - 1) * pageSize]);
     return { items: rows.map(item), total, page, pages };
 }
+async function pendingVersionIds() {
+    await init();
+    const rows = await all(`SELECT v.id FROM gallery_versions v JOIN gallery_items i ON i.id=v.item_id
+        WHERE i.archived=0 AND i.deleted_at='' AND v.ai_status!='ready'
+        ORDER BY v.created_at, v.id`);
+    return rows.map(row => row.id);
+}
+async function isPendingVersion(id) {
+    await init();
+    return !!(await get(`SELECT 1 FROM gallery_versions v JOIN gallery_items i ON i.id=v.item_id
+        WHERE v.id=? AND i.archived=0 AND i.deleted_at='' AND v.ai_status!='ready'`, [id]));
+}
 async function read(id) {
     await init();
     const row = item(await get('SELECT * FROM gallery_items WHERE id=?', [id]));
@@ -242,4 +254,4 @@ async function saveAnalysis(id, mode, analysis) {
     return readVersion(id);
 }
 async function failedAnalysis(id) { await run("UPDATE gallery_versions SET ai_status=CASE WHEN ai_status='ready' THEN 'ready' ELSE 'failed' END WHERE id=?", [id]); }
-module.exports = { init, categories, addCategory, albums, addAlbum, assignAlbum, trash, organizationCandidates, findDuplicate, manualFields, list, read, update, saveUpload, readVersion, asset, saveAnalysis, failedAnalysis, tags, fail };
+module.exports = { init, categories, addCategory, albums, addAlbum, assignAlbum, trash, organizationCandidates, findDuplicate, manualFields, list, pendingVersionIds, isPendingVersion, read, update, saveUpload, readVersion, asset, saveAnalysis, failedAnalysis, tags, fail };

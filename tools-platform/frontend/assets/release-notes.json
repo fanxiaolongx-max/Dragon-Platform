@@ -1,8 +1,10 @@
 {
   "zh": [
-    "Dragon 浏览器「⋯」菜单的收藏夹、历史记录、下载内容改为二级菜单：鼠标移上去即展开，按屏幕空间自动在左侧或右侧弹出（桌面版用系统原生子菜单，独立窗口保留「管理…」入口；网页侧栏同样悬停展开，支持方向键）。"
+    "频道会话支持实时同步回复与体验优化：从 WeLink 等频道 @助手时同步呈现瀑布式流式输出、实时工具状态与带呼吸动画的可折叠思考过程；修复频道列表预览文字、状态徽标与「···」菜单重叠；新增频道顶部独立可折叠「置顶」分组（与普通对话置顶严格隔离）；统一键帽数字序号表情与 Markdown 分割线渲染。",
+    "图屿新增批量智能识别待处理图片功能，保留已有标题与描述并支持租户隔离与限速队列，同步更新内置工具指南。"
   ],
   "en": [
-    "Bookmarks, History and Downloads in the Dragon browser ⋯ menu are now submenus that open on hover and flip left or right to fit the screen (native submenus on desktop, with a Manage… entry in the standalone window; hover flyouts with arrow-key support in the web sidebar)."
+    "Real-time channel streaming & sidebar polish: @mentioning the assistant in WeLink/WeChat now streams live waterfall replies, tool states, and a silky collapsible thinking panel; fixed channel sidebar preview/badge/menu overlap; added a dedicated collapsible Pinned section for channels (strictly isolated from personal chats); normalized keycap number emoji and Markdown horizontal rule rendering.",
+    "Picture Island adds tenant-isolated batch AI recognition for pending images while preserving existing manual metadata, alongside updated built-in tool guides."
   ]
 }

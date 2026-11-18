@@ -86,16 +86,19 @@ function parseAnalysis(raw, categories) {
         storageMode:['separate','album','version'].includes(data.storageMode) ? data.storageMode : 'separate',
         versionOf:clean(data.versionOf,64),confidence:Math.max(0,Math.min(1,Number(data.confidence)||0)) };
 }
-async function analyze(id, mode, confirmed, clientOverride, organizationContext, { force = false } = {}) {
+async function analyze(id, mode, confirmed, clientOverride, organizationContext, { force = false, applyPending } = {}) {
     if (!confirmed) throw repo.fail('请确认图片中不含密码、密钥等敏感信息，再发送给 AI');
     mode = mode === 'precise' ? 'precise' : 'balanced';
-    const current = await repo.readVersion(id);
     // A user-requested re-recognition always asks the model again; ordinary requests reuse saved results.
-    if (!force && current.ai_status === 'ready' && current.ai_mode === mode) return { version: current, cached: true };
+    if (!applyPending) {
+        const current = await repo.readVersion(id);
+        if (!force && current.ai_status === 'ready' && current.ai_mode === mode) return { version: current, cached: true };
+    }
     const key = `${getTenantId()}:${id}`;
     if (analyzing.has(key) || analyzing.size >= 2) throw repo.fail('AI 正在识别，请稍后重试', 429);
     analyzing.add(key);
     try {
+        if (applyPending && !await repo.isPendingVersion(id)) return { skipped: true };
         let client = clientOverride;
         if (!client) {
             const settings = await require('./ai-settings-repository').getRuntimeSettings();
@@ -115,7 +118,14 @@ async function analyze(id, mode, confirmed, clientOverride, organizationContext,
                 maxOutputTokens: (mode === 'precise' ? 1000 : 650) + (organizationContext ? 250 : 0), temperature: 0.1, json: true, signal: controller.signal
             });
         } catch (error) {
-            console.error('[gallery-service] AI generateChat failed for version ' + id + ':', error?.message || error);
+            if (applyPending && Number(error?.upstreamStatus || error?.status || error?.statusCode) === 429) {
+                const retryAfter = error.responseHeaders?.['retry-after'];
+                const delay = /^\d+$/.test(retryAfter) ? Number(retryAfter) * 1000 : Date.parse(retryAfter) - Date.now();
+                throw Object.assign(repo.fail('AI 服务限流，请稍后重试', 429), {
+                    retryAt: Date.now() + Math.max(5000, Number.isFinite(delay) ? delay : 0)
+                });
+            }
+            if (!applyPending) console.error('[gallery-service] AI generateChat failed for version ' + id + ':', error?.message || error);
             throw repo.fail('AI 识别暂不可用，图片已保留，可手动整理后重试', 503);
         }
         finally { clearTimeout(timeout); }
@@ -123,13 +133,19 @@ async function analyze(id, mode, confirmed, clientOverride, organizationContext,
         analysis.categoryId = categories[Number.parseInt(analysis.categoryId, 10)]?.id || '';
         analysis.albumId = organizationContext?.albums?.[Number.parseInt(analysis.albumId,10)]?.id || '';
         analysis.versionOf = organizationContext?.candidates?.find?.(candidate => candidate.index === analysis.versionOf && candidate.hasReference)?.id || '';
+        if (applyPending) return await applyPending(analysis, mode);
         return { version: await repo.saveAnalysis(id, mode, analysis), cached: false };
     } catch (error) {
-        console.error('[gallery-service] analyze failed for version ' + id + ':', error);
+        if (!applyPending) console.error('[gallery-service] analyze failed for version ' + id + ':', error);
         await repo.failedAnalysis(id);
         throw error;
     }
     finally { analyzing.delete(key); }
+}
+function recognizePending(id, client) {
+    return analyze(id, 'balanced', true, client, undefined, {
+        applyPending: (analysis, mode) => require('./gallery-organization').apply(id, analysis, { pendingMode: mode, versionLabelLocked: true })
+    });
 }
 async function recognizeAndOrganize(id,mode,confirmed,clientOverride,options = {}) {
     const reidentify = options?.reidentify === true;
@@ -163,4 +179,4 @@ async function recognizeAndOrganize(id,mode,confirmed,clientOverride,options = {
     const organized = await require('./gallery-organization').apply(id,analysis,{...options,reidentify,expectedRevision:item.revision});
     return {...organized,cached:result.cached};
 }
-module.exports = { compress, upload, analyze, recognizeAndOrganize, originalMime, parseAnalysis };
+module.exports = { compress, upload, analyze, recognizePending, recognizeAndOrganize, originalMime, parseAnalysis };

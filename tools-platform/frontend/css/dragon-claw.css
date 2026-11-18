@@ -769,6 +769,20 @@ body.dc-chatting .dc-composer {
     border-left: 3px solid rgba(100, 255, 218, 0.5);
     color: var(--dc-muted);
 }
+.dc-msg-body hr {
+    margin: 14px 0;
+    border: 0;
+    border-top: 1px solid rgba(148, 163, 184, 0.28);
+}
+.ai-emoji-keycap {
+    display: inline-block;
+    font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Twemoji Mozilla', sans-serif;
+    font-variant-emoji: emoji;
+    font-weight: 400;
+    font-style: normal;
+    line-height: 1;
+    vertical-align: -0.03em;
+}
 /* 对话内表格：清爽通透的高质感亮色样式 */
 .dc-msg-body .ai-table-wrap {
     margin: 12px 0;
@@ -824,17 +838,33 @@ body.dc-chatting .dc-composer {
 @keyframes dc-orbit { to { transform: rotate(360deg); } }
 .dc-activity-time { color: var(--dc-faint); font-size: 12px; font-variant-numeric: tabular-nums; }
 
-/* 思考过程：默认收起，点击标题展开；思考中标题旁显示阶段词和用时 */
-.dc-think { margin: 2px 0 10px; }
+/* 思考过程：默认收起，点击标题丝滑展开/收起；思考中标题旁显示呼吸指示、阶段词和用时 */
+.dc-think { margin: 2px 0 10px; border-radius: 10px; }
 .dc-think-head {
     display: inline-flex; align-items: center; gap: 8px; max-width: 100%;
     padding: 3px 10px 3px 6px; border: 1px solid transparent; border-radius: 8px;
     background: none; color: var(--dc-muted); font: inherit; font-size: 13px; cursor: pointer;
+    transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
 }
 .dc-think-head:hover, .dc-think-head:focus-visible { border-color: var(--dc-border); color: var(--dc-text); outline: none; }
-.dc-think-chevron { width: 7px; height: 7px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform 0.18s ease; }
+.dc-think-chevron {
+    width: 7px; height: 7px; flex: none;
+    border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+    transform: rotate(-45deg);
+    transform-origin: 55% 55%;
+    transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
 .dc-think.is-open .dc-think-chevron { transform: rotate(45deg); }
-.dc-think-label { font-weight: 500; }
+.dc-think-dot {
+    display: none;
+    width: 6px; height: 6px; flex: none; border-radius: 50%;
+    background: var(--dc-accent);
+}
+.dc-think.is-active .dc-think-dot {
+    display: inline-block;
+    animation: dc-think-dot-pulse 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+.dc-think-label { font-weight: 500; transition: color 0.2s ease; }
 .dc-think.is-active .dc-think-label {
     background: linear-gradient(90deg, var(--dc-muted) 0%, var(--dc-accent) 50%, var(--dc-muted) 100%);
     background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
@@ -842,8 +872,23 @@ body.dc-chatting .dc-composer {
 }
 .dc-think-phase { padding: 1px 8px; border-radius: 999px; background: rgba(100, 255, 218, 0.1); color: var(--dc-accent); font-size: 12px; }
 .dc-think-phase[hidden] { display: none; }
-.dc-think-phase.is-changed { animation: dc-think-phase-in 0.32s ease; }
+.dc-think-phase.is-changed { animation: dc-think-phase-in 0.32s cubic-bezier(0.22, 1, 0.36, 1); }
 .dc-think-time { color: var(--dc-faint); font-size: 12px; font-variant-numeric: tabular-nums; }
+.dc-think-panel {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+                opacity 0.22s ease,
+                transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.dc-think.is-open .dc-think-panel {
+    grid-template-rows: 1fr;
+    opacity: 1;
+    transform: none;
+}
+.dc-think-panel-inner { overflow: hidden; min-height: 0; }
 .dc-think-body {
     max-height: 280px; overflow-y: auto; margin: 6px 0 0 9px; padding: 4px 0 4px 14px;
     border-left: 2px solid var(--dc-border); color: var(--dc-muted); font-size: 13px; line-height: 1.7;
@@ -851,9 +896,14 @@ body.dc-chatting .dc-composer {
 }
 .dc-think-sep { margin: 8px 0; border: 0; border-top: 1px dashed var(--dc-border); }
 @keyframes dc-think-shimmer { to { background-position: -200% 0; } }
+@keyframes dc-think-dot-pulse {
+    0%, 100% { transform: scale(0.82); opacity: 0.55; box-shadow: 0 0 0 0 rgba(100, 255, 218, 0.45); }
+    50% { transform: scale(1.12); opacity: 1; box-shadow: 0 0 0 4px rgba(100, 255, 218, 0); }
+}
 @keyframes dc-think-phase-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) {
-    .dc-think.is-active .dc-think-label, .dc-think-phase.is-changed { animation: none; }
+    .dc-think.is-active .dc-think-label, .dc-think.is-active .dc-think-dot, .dc-think-phase.is-changed { animation: none; }
+    .dc-think-chevron, .dc-think-panel { transition: none; }
 }
 
 .dc-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }

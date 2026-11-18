@@ -5,16 +5,22 @@ const transaction = require('./gallery-transaction');
 // A re-recognition (reidentify) rewrites the descriptive fields of the same picture, but only when nobody
 // edited it while the model was running; albums, storage and version history are never moved by it.
 const REIDENTIFY_FIELDS = ['title','scope','category_id','tags','note'];
-async function apply(versionId, analysis, { versionLabelLocked = false, reidentify = false, expectedRevision } = {}) {
+async function apply(versionId, analysis, { versionLabelLocked = false, reidentify = false, expectedRevision, pendingMode } = {}) {
     const repo = require('./gallery-repository');
     await repo.init();
     const result = await transaction(async db => {
-        const version = await db.get('SELECT id,item_id,label,sha256 FROM gallery_versions WHERE id=?',[versionId]);
+        const version = await db.get('SELECT id,item_id,label,sha256,ai_status FROM gallery_versions WHERE id=?',[versionId]);
         if (!version) throw repo.fail('图片版本不存在',404);
         const source = await db.get('SELECT * FROM gallery_items WHERE id=?',[version.item_id]);
+        if (pendingMode && (!source || source.deleted_at || source.archived || version.ai_status === 'ready')) return { skipped: true };
         if (!source || source.deleted_at || source.archived) throw repo.fail('图片已归档或删除，未应用 AI 修改',409);
+        if (pendingMode) {
+            await db.execute("UPDATE gallery_versions SET ai_status='ready',ai_mode=?,ai_json=? WHERE id=?",[pendingMode,JSON.stringify(analysis),version.id]);
+            const latest = await db.get('SELECT id FROM gallery_versions WHERE item_id=? ORDER BY version_no DESC LIMIT 1',[source.id]);
+            if (latest.id !== version.id) return { versionId };
+        }
         const sourceLocks = new Set(repo.manualFields(source.manual_fields_json));
-        if (reidentify) sourceLocks.add('storage');
+        if (reidentify || pendingMode) sourceLocks.add('storage');
         const refresh = reidentify && source.revision === expectedRevision;
         let target = source, storage = 'separate', warning = '';
         if (!sourceLocks.has('storage') && analysis.storageMode === 'version' && analysis.versionOf && analysis.confidence >= .9) {
@@ -37,7 +43,7 @@ async function apply(versionId, analysis, { versionLabelLocked = false, reidenti
         }
         const persistedLocks = repo.manualFields(target.manual_fields_json).filter(field => !refresh || !REIDENTIFY_FIELDS.includes(field));
         const locks = new Set(persistedLocks);
-        if (reidentify) { locks.add('storage'); locks.add('album_id'); }
+        if (reidentify || pendingMode) { locks.add('storage'); locks.add('album_id'); }
         let category = target.category_id, album = target.album_id;
         if (!locks.has('category_id')) {
             const existing = analysis.categoryId && await db.get('SELECT id FROM gallery_categories WHERE id=?',[analysis.categoryId]);
@@ -64,6 +70,7 @@ async function apply(versionId, analysis, { versionLabelLocked = false, reidenti
         if (!versionLabelLocked && (!version.label || refresh) && analysis.versionLabel) await db.execute('UPDATE gallery_versions SET label=? WHERE id=?',[analysis.versionLabel,version.id]);
         return {itemId:target.id,versionId:version.id,storageMode:storage,warning};
     });
+    if (pendingMode) return result;
     return { ...result,item:await repo.read(result.itemId),version:await repo.readVersion(result.versionId) };
 }
 module.exports = { apply, REIDENTIFY_FIELDS };
