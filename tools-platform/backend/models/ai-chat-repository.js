@@ -345,7 +345,14 @@ async function addMessage({ sessionId, pagePath, pageTitle, role, content, token
     }
     await run('UPDATE ai_chat_sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [finalSessionId]);
     await autoArchiveSessions();
+    notifyShared(finalSessionId, owner, events);
     return finalSessionId;
+}
+
+// 共享对话（shared-conversations.js）：本地写入后把新消息推到共享中转；拉取进来的他人消息带 shared_author，不再推回去
+function notifyShared(sessionId, owner, events) {
+    if (!owner || (Array.isArray(events) && events.some(event => event?.type === 'shared_author'))) return;
+    try { require('./shared-conversations').schedulePush(require('./tenant-context').getTenantId(), owner, sessionId); } catch (_error) { /* 共享模块不可用不影响对话 */ }
 }
 
 // runId 生成稳定消息 ID；检查点更新同一对消息，正常结束或恢复不会重复追加。
@@ -382,6 +389,7 @@ async function upsertAgentTurn({ sessionId, owner, runId, agentSessionId, root, 
     if (question) await syncAutoTitleOnUserMessage(sessionId, owner, question);
     await run('UPDATE ai_chat_sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [sessionId]);
     await setSessionAgent(sessionId, { agentSessionId, root, owner });
+    if (final) notifyShared(sessionId, owner);
 }
 
 async function recordQuestion({ pagePath, question, owner } = {}) {
@@ -679,6 +687,12 @@ async function listMessagesPage(sessionId, { owner, limit = 30, before = '' } = 
     return { items: rows.slice(0, size).reverse().map(mapMessageRow), hasMore, total };
 }
 
+/** 共享对话同步用：会话里全部消息（含 agent_final），按写入顺序；只给 shared-conversations.js 在已核对归属后调用 */
+async function listMessagesForShare(sessionId) {
+    await ensureReady();
+    return all(`SELECT ${MESSAGE_COLUMNS} FROM ai_chat_messages WHERE session_id = ? ORDER BY created_at ASC, rowid ASC`, [sessionId]);
+}
+
 async function getSession(sessionId) {
     await ensureReady();
     if (!sessionId) return null;
@@ -754,6 +768,7 @@ module.exports = {
     setAiTitle,
     listTitleCandidates,
     listMessagesPage,
+    listMessagesForShare,
     ensureReady,
     getOrCreateSession,
     setSessionAgent,

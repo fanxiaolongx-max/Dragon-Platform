@@ -14,6 +14,11 @@
             try {
                 root.setAttribute('data-theme', localStorage.getItem('tools_theme') === 'dark' ? 'dark' : 'light');
             } catch (e) { /* 读不到存储时保持原样式 */ }
+            // 共享对话链接 /login.html?share=<token>：记下来，登录进入首页后自动打开邀请（shared-conversations.js）
+            try {
+                var share = new URLSearchParams(window.location.search).get('share');
+                if (share) localStorage.setItem('tools_pending_share', share);
+            } catch (e) { /* 无痕模式 */ }
         })();
     </script>
     <script>

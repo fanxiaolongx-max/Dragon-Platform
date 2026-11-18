@@ -73,13 +73,13 @@
             workspaceSelected: '已选择工作区：{path}',
             workspaceTempAllocated: '已分配临时工作区（{hours}小时后自动删除）',
             workspaceChoiceCancelled: '已取消',
-            categoryPinned: '置顶', categoryTasks: '任务', categorySpaces: '空间', newChatInWorkspace: '新建任务',
+            categoryPinned: '置顶', categoryShared: '共享对话', categoryTasks: '任务', categorySpaces: '空间', newChatInWorkspace: '新建任务',
             archivedViewBanner: '正在查看已归档对话', archivedExit: '返回', archivedBadge: '已归档', chatArchivedEmpty: '暂无已归档对话',
             workspaceDisabled: '工作区仅在本机或管理员账号下可用'
         },
         'en-US': {
             messageExpand: 'Show more', messageCollapse: 'Show less',
-            categoryPinned: 'Pinned', categoryTasks: 'Tasks', categorySpaces: 'Workspaces', newChatInWorkspace: 'New task',
+            categoryPinned: 'Pinned', categoryShared: 'Shared', categoryTasks: 'Tasks', categorySpaces: 'Workspaces', newChatInWorkspace: 'New task',
             archivedViewBanner: 'Viewing archived chats', archivedExit: 'Back', archivedBadge: 'Archived', chatArchivedEmpty: 'No archived chats',
             ctxCompacted: 'Context compacted. Usage updates after the next reply.',
             slashCompact: 'Compact context while keeping the full history', compactRunning: 'Compacting context…', compactEmpty: 'Start a conversation before compacting its context', compactSmall: 'The context is already compact', compactDone: 'Context compacted. Full chat and tool history kept.', compactFailed: 'Could not compact context. History was not deleted.',
@@ -2408,6 +2408,7 @@
         if (runId) message.dataset.runId = runId; // 按轮回退用
         const time = item.created_at ? parseChatTime(item.created_at).getTime() : NaN;
         if (Number.isFinite(time)) message.dataset.dcTime = String(time); // 网页快照按时间截取最近的记录
+        if (item.id) message.dataset.msgId = String(item.id);
         if (role === 'model') {
             message.querySelector('.dc-msg-body').innerHTML = renderMarkdown(text);
             const provider=(Array.isArray(events)?events:[]).find(event=>event.type==='desktop-discussion')?.provider||({'Codex Desktop':'codex','Claude Code Desktop':'claudecode','Antigravity Desktop':'antigravity','WorkBuddy Desktop':'workbuddy'})[item.model_name];
@@ -2424,7 +2425,27 @@
             addUserTools(message, text);
             window.DragonClawSkills?.decorateUser?.(message);
         }
+        // 共享对话：别人发的消息标注发送账号（shared-conversations.js）
+        window.HomeSharedConversations?.decorateMessage?.(message, events);
         return message;
+    }
+
+    // 共享对话里其他成员的新消息：拉取入库后直接接在当前对话末尾（正在回复或恢复中时稍后再接）
+    async function appendSharedMessages(sessionId) {
+        if (external.active || state.sessionId !== sessionId || state.controller || state.restoring) return false;
+        let page;
+        try { page = await fetchHistoryPage(sessionId); } catch { return false; }
+        if (external.active || state.sessionId !== sessionId || state.controller || state.restoring) return false;
+        const rendered = new Set([...el.thread.querySelectorAll('[data-msg-id]')].map(node => node.dataset.msgId));
+        const fresh = page.items.filter(item => !rendered.has(String(item.id)) && (item.events || []).some(event => event?.type === 'shared_author'));
+        if (!fresh.length) return true;
+        const nearBottom = el.thread.scrollHeight - el.thread.scrollTop - el.thread.clientHeight < 160;
+        batchMessages(() => fresh.forEach(item => {
+            addHistoryMessage(item.role, String(item.content), item.events, item);
+            state.messages.push({ role: item.role === 'model' ? 'model' : 'user', content: String(item.content) });
+        }));
+        if (nearBottom) scrollThread(true);
+        return true;
     }
 
     // 上一轮因服务重启或崩溃中断（没有结束记录）：在最后一条回答下面提供「继续执行」，接着保存的步骤往下做
@@ -2754,6 +2775,8 @@
         beginHistoryLoading();
         markActiveChat();
         try {
+            await window.HomeSharedConversations?.beforeOpen?.(item.id);
+            if (epoch !== resumeEpoch) return;
             const page = await fetchHistoryPage(item.id);
             if (epoch !== resumeEpoch) return;
             const items = page.items;
@@ -2884,6 +2907,12 @@
                 agent: item.agent
             });
         }
+        // 1b. 共享对话：不在已加载的列表页里也要出现在「共享对话」分类
+        const loadedIds = new Set(chatList.items.map(item => item.id));
+        for (const share of window.HomeSharedConversations?.items?.() || []) {
+            if (loadedIds.has(share.sessionId)) continue;
+            unified.push({ id: share.sessionId, _id: share.sessionId, _sourceType: 'mine', _raw: { id: share.sessionId, title: share.title, updatedAt: share.updatedAt }, title: share.title, updatedAt: share.updatedAt });
+        }
         if (!isUnifiedMode()) return unified;
         // 2. 桌面 Agent 会话 (Codex, Claude Code, Antigravity)
         const desktopItems = window.HomeDesktopAgents?.getItems?.() || [];
@@ -2989,6 +3018,13 @@
             },
             selector: '[data-chat-index]',
             index: 'chatIndex',
+            // 右键「共享」：只有 Dragon Claw 自己的对话（第三方 Agent、频道对话不共享）
+            canShare: item => (!item._sourceType || item._sourceType === 'mine') && Boolean(window.HomeSharedConversations?.available?.()),
+            onShare: item => {
+                const id = item.id || item._id;
+                const pref = window.HomeConversationList?.get?.('mine', id);
+                window.HomeSharedConversations?.openDialog?.({ sessionId: id, title: pref?.title || item.title || item._raw?.title || '' });
+            },
             onDelete: isUnifiedMode() ? handleUnifiedDelete : deleteChatFromList
         };
     }
@@ -3057,11 +3093,14 @@
                 logoHtml = `<span class="home-chat-agent-ico home-chat-agent-svg" title="微信">${WX_ICON_SVG}</span>`;
             } else if (item._sourceType === 'welink') {
                 logoHtml = `<span class="home-chat-agent-ico home-chat-agent-svg" title="WeLink">${WL_ICON_SVG}</span>`;
+            } else if ((!item._sourceType || item._sourceType === 'mine') && window.HomeSharedConversations?.isShared?.(item.id || item._id)) {
+                logoHtml = window.HomeSharedConversations.rowIcon();
             } else if (item.discussionMode === 'group') {
                 logoHtml = `<span class="home-chat-tac" role="img" aria-label="连接器" title="连接器">${TAC_ICON_SVG}</span>`;
             }
 
-            return `<div class="home-chat-item home-chat-owned${active ? ' is-active' : ''}${isIndented ? ' is-indented' : ''}${isItemRunning(item) ? ' is-running' : ''}" role="listitem">
+            const sharedUnread = !active && (window.HomeSharedConversations?.info?.(item.id || item._id)?.unread || 0) > 0;
+            return `<div class="home-chat-item home-chat-owned${active ? ' is-active' : ''}${isIndented ? ' is-indented' : ''}${isItemRunning(item) ? ' is-running' : ''}${sharedUnread ? ' has-shared-unread' : ''}" role="listitem">
                 <button type="button" class="home-chat-open" data-chat-index="${index}" data-question="${escapeHtml(item._sourceType === 'mine' ? item._raw?.firstQuestion || item._raw?.lastQuestion || '' : '')}" title="${escapeHtml(item._raw?.fullTitle || title)}"${active ? ' aria-current="true"' : ''}>${logoHtml}<span class="home-chat-title">${escapeHtml(title)}</span></button>
                 <span class="home-chat-actions"><span class="home-chat-meta"><span>${valid ? escapeHtml(chatItemTime(date, group)) : ''}</span></span><span class="home-chat-spinner" role="img" aria-label="${escapeHtml(tx('chatRunning'))}" title="${escapeHtml(tx('chatRunning'))}"></span>
                 </span>
@@ -3124,6 +3163,7 @@
             }
 
             const pinnedEntries = [];
+            const sharedEntries = [];
             const taskEntries = [];
             const projectMap = new Map();
 
@@ -3132,7 +3172,9 @@
                 if (!passesFilter(item)) continue;
                 const pref = window.HomeConversationList?.get?.('mine', item.id || item._id) || {};
                 const entry = { item, index: i, running: isItemRunning(item) };
-                if (pref.pinned) {
+                if (item._sourceType === 'mine' && window.HomeSharedConversations?.isShared?.(item.id)) {
+                    sharedEntries.push(entry);
+                } else if (pref.pinned) {
                     pinnedEntries.push(entry);
                 } else {
                     const root = getChatDirectory(item);
@@ -3149,6 +3191,7 @@
                 window.HomeConversationList.get('mine', a.item.id || a.item._id),
                 window.HomeConversationList.get('mine', b.item.id || b.item._id)) || sortEntries(a,b));
             taskEntries.sort(sortEntries);
+            sharedEntries.sort(sortEntries);
             for (const entries of projectMap.values()) {
                 entries.sort(sortEntries);
             }
@@ -3163,7 +3206,7 @@
                 ? `<div class="home-chat-archive-banner" role="status"><span class="home-chat-archive-banner-label"><span class="home-chat-archive-dot" aria-hidden="true"></span>${escapeHtml(tx('archivedViewBanner'))}</span><button type="button" class="home-chat-archive-exit" data-chat-exit-archived>${escapeHtml(tx('archivedExit'))}</button></div>`
                 : '';
 
-            if (pinnedEntries.length === 0 && taskEntries.length === 0 && sortedProjects.length === 0) {
+            if (pinnedEntries.length === 0 && sharedEntries.length === 0 && taskEntries.length === 0 && sortedProjects.length === 0) {
                 el.chatList.innerHTML = `${archivedBanner}<div class="home-chat-empty">${escapeHtml(tx(query ? 'chatNoMatch' : (isArchived ? 'chatArchivedEmpty' : 'chatEmpty')))}</div>`;
                 window.HomeConversationList?.enhance(el.chatList, config);
                 return;
@@ -3175,6 +3218,15 @@
 
             const searching = Boolean(query);
 
+            // 共享对话：在置顶之上，可折叠；别人共享给我的和我共享出去的都在这里
+            if (sharedEntries.length > 0) {
+                const open = searching || !collapsedSections.has('shared');
+                html.push(`<section class="home-chat-section" data-section="shared">${sectionHead('shared', tx('categoryShared'), sharedEntries.length, isArchived)}
+                    <div class="home-chat-section-body" data-batch-scope="shared"${open ? '' : ' hidden'}>
+                        ${sharedEntries.map(({ item, index }) => renderItemHtml(item, index, false)).join('')}
+                    </div></section>`);
+            }
+
             // 0. 置顶 (全部类型的置顶会话：第三方 Agent、空间对话、普通任务)：顶级独立分类；没有置顶项时不显示
             if (pinnedEntries.length > 0) {
                 const open = searching || !collapsedSections.has('pinned');
@@ -3185,7 +3237,7 @@
             }
 
             // 1. 任务 (未选目录)：顶级分类，可折叠，「展开更多」只作用于本分类（conversation-list.js 按 data-batch-scope 分别计数）
-            if (taskEntries.length > 0 || (sortedProjects.length === 0 && pinnedEntries.length === 0)) {
+            if (taskEntries.length > 0 || (sortedProjects.length === 0 && pinnedEntries.length === 0 && sharedEntries.length === 0)) {
                 const open = searching || !collapsedSections.has('tasks');
                 html.push(`<section class="home-chat-section" data-section="tasks">${sectionHead('tasks', tx('categoryTasks'), taskEntries.length, isArchived)}
                     <div class="home-chat-section-body" data-batch-scope="tasks" data-batch-remote${open ? '' : ' hidden'}>
@@ -4057,7 +4109,7 @@
         });
         window.addEventListener('home:resume-agent-discussion',event=>{if(!state.controller&&!state.restoring&&event.detail?.sessionId===state.sessionId)sendDesktopDiscussion('',event.detail);});
         watchSchedules();
-        window.DragonClaw = { refreshModelPicker: renderModelPicker, startWithSkill, showTourLanding, startTourDemo, enterExternal, exitExternal, newChat, openSchedules: openSchedulePanel, openChat: openChatFromList, openLatest:openLatestChat, currentSessionId:()=>state.sessionId, lang, isExternal: () => external.active };
+        window.DragonClaw = { refreshModelPicker: renderModelPicker, startWithSkill, showTourLanding, startTourDemo, enterExternal, exitExternal, newChat, openSchedules: openSchedulePanel, openChat: openChatFromList, appendSharedMessages, openLatest:openLatestChat, currentSessionId:()=>state.sessionId, lang, isExternal: () => external.active };
         // 其他页面或新标签打开的 /?skill=<id>：直接进入该技能的新对话
         const linkedSkill = new URLSearchParams(location.search).get('skill');
         if (linkedSkill) {

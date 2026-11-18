@@ -77,6 +77,12 @@ function requireAdmin(req, res, next) {
     }
 }
 
+// 共享对话链接 /?share=<token>：未登录跳登录页时带上令牌，登录后回到首页自动打开邀请（login.html 记下它）
+function loginRedirect(req) {
+    const share = typeof req.query?.share === 'string' && /^[A-Za-z0-9_-]{8,80}$/.test(req.query.share) ? req.query.share : '';
+    return share ? `/login.html?share=${share}` : '/login.html';
+}
+
 async function checkHtmlAuth(req, res, next) {
     let token = null;
     const cookieHeader = req.headers.cookie;
@@ -91,20 +97,20 @@ async function checkHtmlAuth(req, res, next) {
         }
     }
 
-    if (!token) return res.redirect('/login.html');
+    if (!token) return res.redirect(loginRedirect(req));
 
     try {
         const session = await authSessionsRepo.getSession(token);
         if (!session || session.expiresAt < Date.now()) {
             if (session) await authSessionsRepo.deleteSession(token);
-            return res.redirect('/login.html');
+            return res.redirect(loginRedirect(req));
         }
         req.user = session.user;
         const { runWithTenant } = require('../models/tenant-context');
         runWithTenant(session.user.tenantId, next);
     } catch (err) {
         console.error('HTML Auth check error:', err);
-        return res.redirect('/login.html');
+        return res.redirect(loginRedirect(req));
     }
 }
 

@@ -1,10 +1,8 @@
 {
   "zh": [
-    "首页内嵌打开的内置功能页与自定义工具页现在会实时跟随全局中英文切换（含内嵌工具栏标题、按钮提示及深层嵌套页面）。",
-    "在新标签页或独立窗口打开的工具页面（除已有原生语言开关的页面外）统一在右侧边下部提供语言切换抽屉按钮，切换后实时生效并与平台同步。"
+    "新增「共享对话」：在左侧对话上右键选择「共享…」，可按账号名、姓名或拼音搜索并勾选成员，也能用常用群组与最近共享的智能推荐一键选人，底部生成可复制的共享链接；被邀请者登录后收到横幅通知，错过的可在左下角消息中心接受、拒绝或忽略。接受后对话出现在侧栏最上方可折叠的「共享对话」分类里，大家的消息实时同步并标注发送账号。只共享对话上下文（含历史附件与图片），之后的提问、文件与命令都在各自账号下执行。"
   ],
   "en": [
-    "Built-in pages and custom tools embedded inside the home shell now switch languages in real time along with the global language toggle, including the embedded frame toolbar and nested tool frames.",
-    "Standalone tool pages opened in a new tab or window (when no native language toggle is already present) now show a unified right-edge lower language switch drawer button that syncs across the platform."
+    "New shared conversations: right-click a conversation and choose “Share…” to pick people by account, name or pinyin, reuse saved groups and recent suggestions, or copy a share link. Invitees get a banner after signing in and can accept, decline or ignore later from the message center. Accepted conversations appear in a collapsible “Shared” section at the top of the sidebar, with messages synced in real time and labelled by account. Only the conversation context (including earlier attachments and images) is shared; new questions, files and commands always run under each person’s own account."
   ]
 }

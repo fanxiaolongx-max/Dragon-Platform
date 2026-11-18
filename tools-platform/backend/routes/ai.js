@@ -494,9 +494,12 @@ async function buildEffectiveMessages({ sessionId, incomingMessages, lastMessage
     const recent = await aiChatRepo.getRecentMessagesForContext(sessionId, RECENT_CONTEXT_MESSAGES);
     // 频道主动推送（运营推送等）以助手消息存入对话：保留并标注，成员回复时模型知道刚推了什么
     const isPush = msg => String(msg.events || '').includes('"type":"push"');
+    // 共享对话：别人发的提问标注发送账号，模型能分清是谁在说话（shared-conversations.js）
+    const sharedAuthor = msg => msg.role !== 'model' && require('../models/shared-conversations').authorOf(msg.events);
     const items = recent.map(msg => ({
         role: msg.role === 'model' ? 'model' : 'user',
-        content: isPush(msg) ? `【你之前主动推送到这里的消息】\n${msg.content || ''}` : (msg.content || ''),
+        content: isPush(msg) ? `【你之前主动推送到这里的消息】\n${msg.content || ''}`
+            : sharedAuthor(msg) ? `【共享对话成员 ${sharedAuthor(msg).name || sharedAuthor(msg).author} 的提问】\n${msg.content || ''}` : (msg.content || ''),
         push: isPush(msg)
     }));
     while (items.length && items[0].role !== 'user' && !items[0].push) {
@@ -2261,6 +2264,7 @@ router.delete('/sessions/:sessionId', checkAuth, async (req, res) => {
         if (activeChats.has(key) || compactingChats.has(key) || deletingChats.has(key) || agent?.activeRun) return res.status(409).json({ code: 'AI_CHAT_BUSY', error: '对话正在执行，请先停止或等待结束再删除' });
         deletingChats.add(key); locked = true;
         if (!await aiChatRepo.deleteSession(req.params.sessionId, { owner: req.user.username })) return res.status(404).json({ error: '会话不存在' });
+        await require('../models/shared-conversations').onLocalDeleted({ tenantId: getTenantId(), username: req.user.username, sessionId: req.params.sessionId }).catch(() => {});
         res.json({ deleted: true });
     } catch (error) {
         res.status(error.statusCode || 500).json({ code: error.code, error: error.statusCode ? error.message : '删除对话失败' });

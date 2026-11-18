@@ -505,6 +505,7 @@ app.use('/api', (req, res, next) => {
     if (/^\/agent-workspace(?:\/.*)?$/.test(req.path)) return next(); // 路由内按本机/桌面/管理员门禁与会话归属校验
     if (req.path.startsWith('/agent-mcp/')) return next(); // 智能体工具在路由内按操作校验权限
     if (/^\/vault(?:\/.*)?$/.test(req.path)) return next(); // 保险箱：每个登录账号只读写自己的条目，路由内按账号隔离
+    if (/^\/shared-conversations(?:\/.*)?$/.test(req.path)) return next(); // 共享对话：只操作本人的对话、邀请与常用群组，路由内按账号与团队校验
     if (req.method !== 'GET') {
         return requireAdmin(req, res, next);
     }
@@ -565,6 +566,7 @@ app.use('/api/agent-files', require('./routes/agent-files')); // 对话里引用
 app.use('/api/channels', require('./routes/channels')); // 频道对接（WeLink / 微信助理）：配置、连通性、名单、主动推送
 app.use('/api/digital-human', superAdminOnly(), requireAdmin, require('./routes/digital-human')); // 数字人基座对接：NetCare 业务库只读查询、应用库读写、表目录（第一期仅管理员）
 app.use('/api/agent-mcp', require('./routes/agent-mcp'));
+app.use('/api/shared-conversations', require('./routes/shared-conversations')); // 共享对话：跨账号接力同一段对话上下文（控制库中转，各自团队库保存本地副本）
 app.use('/api/vault', require('./routes/vault')); // 保险箱：本人网站登录凭据，Dragon 浏览器自动填充与 AI 代填
 app.use('/api/dragon-tac', superAdminOnly({ '/jobs': { items: [] } }), require('./routes/dragon-tac'));
 app.use('/api/desktop-agents', superAdminOnly({ '/settings': { owned: false, settings: null, reason: '桌面 Agent 仅超级管理员可用' }, '/sessions': { items: [], recent: [] } }), require('./routes/desktop-agents'));
