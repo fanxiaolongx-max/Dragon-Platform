@@ -277,6 +277,9 @@ app.whenReady().then(async()=>{
  await until(()=>wc.executeJavaScript(`document.querySelector('[data-dragon-zoom-hud]')?.dataset.dragonZoomPercent==='${zoomedPct}'&&document.querySelector('[data-dragon-zoom-hud]')?.dataset.dragonZoomVisible==='true'`));
  await evaluate('document.querySelector("[data-browser=more]").click()');await until(()=>nativeItem(new RegExp(`当前缩放：${zoomedPct}%|Current zoom: ${zoomedPct}%`)));
  assert.ok(nativeItem(new RegExp(`^重置缩放 \\(${zoomedPct}%|^Reset zoom \\(${zoomedPct}%`)));
+ // 收藏夹 / 历史记录 / 下载内容是悬停展开的子菜单；侧栏模式不带面板入口
+ for(const label of [/^(收藏夹|Bookmarks)$/,/^(历史记录|History)$/,/^(下载内容|Downloads)$/]){const item=nativeItem(label);assert.ok(Array.isArray(item?.submenu)&&item.submenu.length>0&&!item.click,String(label));assert.ok(!item.submenu.some(sub=>/管理|Manage/.test(sub.label||'')));}
+ assert.ok(nativeItem(/^(下载内容|Downloads)$/).submenu.some(sub=>/打开下载文件夹|Open Downloads folder/.test(sub.label||'')));
  nativeItem(/^(重置缩放|Reset zoom)/).click();await until(()=>wc.getZoomFactor()===1);
  await until(()=>wc.executeJavaScript("document.querySelector('[data-dragon-zoom-hud]')?.dataset.dragonZoomPercent==='100'"));
  nativeItem(/^(在页面中查找|Find in page)$/).click();await until(()=>evaluate('!document.querySelector(".dc-browser-find").hidden'));

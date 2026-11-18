@@ -1,8 +1,10 @@
 {
   "zh": [
-    "优化界面图标与按钮对齐：统一 AI BI 工具栏「更多」按钮为 32×32 像素尺寸及悬停/展开样式并隐藏默认展开三角；将首页输入框左下角附件按钮初始图标更新为「+」并调整提示文案。"
+    "优化界面图标与按钮对齐：统一 AI BI 工具栏「更多」按钮为 32×32 像素尺寸及悬停/展开样式并隐藏默认展开三角；将首页输入框左下角附件按钮初始图标更新为「+」并调整提示文案。",
+    "Dragon 浏览器「⋯」菜单的收藏夹、历史记录、下载内容改为二级菜单：鼠标移上去即展开，按屏幕空间自动在左侧或右侧弹出（桌面版用系统原生子菜单，独立窗口保留「管理…」入口；网页侧栏同样悬停展开，支持方向键）。"
   ],
   "en": [
-    "Refined UI button alignment and icons: standardized the AI BI toolbar More button to 32x32px with hover/open states and hidden summary marker, and updated the home composer attachment button initial icon to '+' with updated tooltip text."
+    "Refined UI button alignment and icons: standardized the AI BI toolbar More button to 32x32px with hover/open states and hidden summary marker, and updated the home composer attachment button initial icon to '+' with updated tooltip text.",
+    "Bookmarks, History and Downloads in the Dragon browser ⋯ menu are now submenus that open on hover and flip left or right to fit the screen (native submenus on desktop, with a Manage… entry in the standalone window; hover flyouts with arrow-key support in the web sidebar)."
   ]
 }

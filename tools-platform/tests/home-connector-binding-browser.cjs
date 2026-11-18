@@ -141,7 +141,16 @@ app.whenReady().then(async()=>{
    await evaluate('document.querySelector("[data-browser=bookmark]").click()');
    await until('document.querySelector("[data-browser=bookmark]").getAttribute("aria-pressed")==="true"');
    assert.deepEqual(browserBookmarks,[{url:'https://example.test/',title:'Example'}]);
-   await evaluate('document.querySelector("[data-browser=more]").click();document.querySelector("[data-browser=bookmarks]").click()');
+   // 「⋯」里的收藏夹悬停即展开二级菜单，并按屏幕空间放在主菜单左侧或右侧
+   await evaluate('document.querySelector("[data-browser=more]").click();document.querySelector(".dc-browser-popup [data-flyout=bookmarks]").dispatchEvent(new PointerEvent("pointerover",{bubbles:true,pointerType:"mouse"}))');
+   await until('!document.querySelector(".dc-browser-flyout").hidden&&document.querySelector(".dc-browser-flyout [data-library-url]")');
+   const fly=JSON.parse(await evaluate('(()=>{const f=document.querySelector(".dc-browser-flyout").getBoundingClientRect(),p=document.querySelector(".dc-browser-popup").getBoundingClientRect();return JSON.stringify({side:document.querySelector(".dc-browser-flyout").dataset.side,fl:f.left,fr:f.right,pl:p.left,pr:p.right,w:innerWidth})})()'));
+   assert.equal(fly.side,'left','the panel sits at the right edge, so the submenu opens to the left');
+   assert.ok(fly.fr<=fly.pl&&fly.fl>=0,JSON.stringify(fly));
+   fs.writeFileSync(path.join(temp,'browser-bookmarks-flyout.png'),(await win.webContents.capturePage()).toPNG());
+   await evaluate('document.querySelector(".dc-browser-popup [data-browser=reload]")?.dispatchEvent(new PointerEvent("pointerover",{bubbles:true,pointerType:"mouse"}));document.querySelector(".dc-browser-popup hr").dispatchEvent(new PointerEvent("pointerover",{bubbles:true,pointerType:"mouse"}))');
+   await until('document.querySelector(".dc-browser-flyout").hidden');
+   await evaluate('document.querySelector("[data-browser=bookmarks]").click()');
    await until('document.querySelector("[data-library-url]")');
    assert.equal(await evaluate('document.querySelector("[data-library-url]").textContent'),'Examplehttps://example.test/');
    await evaluate('document.querySelector("[data-browser=bookmark]").click()');

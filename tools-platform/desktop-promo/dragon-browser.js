@@ -285,14 +285,18 @@ function createDragonBrowser({ onOpenAppUrl = () => false, partition, whenReady,
     }
     let popupPosition=null;
     const popup = template => {const position=popupPosition,host=sidebarMode?sidebarHost:win;popupPosition=null;if(!host||host.isDestroyed())return;Menu.buildFromTemplate(template).popup({window:host,...position});};
-    function downloadMenu(){
+    // 下载 / 收藏 / 历史既能单独弹出，也作为「⋯」菜单的子菜单（悬停展开，系统按屏幕空间自动左右弹出）
+    function downloadItems(){
         const items=getDownloads()?.list()||[],labels={completed:T('已完成','Completed'),progressing:T('下载中','Downloading'),paused:T('已暂停','Paused'),cancelled:T('已取消','Cancelled'),interrupted:T('已中断','Interrupted'),failed:T('失败','Failed')};
-        popup([{label:T('打开下载文件夹','Open Downloads folder'),click:()=>shell.openPath(app.getPath('downloads')).catch(()=>{})},{type:'separator'},...(items.length?items.slice(0,30).map(item=>({label:`${item.name} · ${labels[item.state]||item.state} · ${Math.round((item.received||0)/1024)} KB`,submenu:(item.state==='completed'?['open','show']:item.state==='progressing'?['pause','cancel']:item.state==='paused'?['resume','cancel']:[]).map(action=>({label:({open:T('打开文件','Open file'),show:T('在文件夹中显示','Show in folder'),pause:T('暂停','Pause'),resume:T('继续','Resume'),cancel:T('取消','Cancel')})[action],click:()=>getDownloads()?.action(item.id,action)}))})): [{label:T('暂无下载记录','No downloads yet'),enabled:false}])]);
+        return [{label:T('打开下载文件夹','Open Downloads folder'),click:()=>shell.openPath(app.getPath('downloads')).catch(()=>{})},{type:'separator'},...(items.length?items.slice(0,30).map(item=>({label:`${item.name} · ${labels[item.state]||item.state} · ${Math.round((item.received||0)/1024)} KB`,submenu:(item.state==='completed'?['open','show']:item.state==='progressing'?['pause','cancel']:item.state==='paused'?['resume','cancel']:[]).map(action=>({label:({open:T('打开文件','Open file'),show:T('在文件夹中显示','Show in folder'),pause:T('暂停','Pause'),resume:T('继续','Resume'),cancel:T('取消','Cancel')})[action],click:()=>getDownloads()?.action(item.id,action)}))})): [{label:T('暂无下载记录','No downloads yet'),enabled:false}])];
     }
-    async function libraryMenu(name){
-        await refreshLibrary();const items=name==='history'?history:bookmarks;
-        popup(items.length?items.slice(0,60).map(item=>({label:item.title||item.url,click:()=>open({link:{name:item.title||item.url,url:item.url}})})):[{label:T('暂无记录','No entries yet'),enabled:false}]);
+    function downloadMenu(){popup(downloadItems());}
+    function libraryItems(name){
+        const items=name==='history'?history:bookmarks;
+        if(libraryError)return [{label:T('记录暂时不可用，请重试','Records are unavailable. Try again.'),enabled:false}];
+        return items.length?items.slice(0,60).map(item=>({label:item.title||item.url,click:()=>open({link:{name:item.title||item.url,url:item.url}})})):[{label:T('暂无记录','No entries yet'),enabled:false}];
     }
+    async function libraryMenu(name){await refreshLibrary();popup(libraryItems(name));}
     function sidebarMenu(payload){
         if(!payload||!['more','downloads','extensions','tabs','history','bookmarks'].includes(payload.name))return;
         if(Number.isFinite(payload.x)&&Number.isFinite(payload.y)){const [width,height]=sidebarHost.getContentSize(),zoom=sidebarHost.webContents.getZoomFactor();popupPosition={x:Math.max(0,Math.min(width,Math.round(payload.x*zoom))),y:Math.max(0,Math.min(height,Math.round(payload.y*zoom)))};}
@@ -321,14 +325,17 @@ function createDragonBrowser({ onOpenAppUrl = () => false, partition, whenReady,
         const managed = tab && loginContext(tab), store = getCredentialStore();
         let loginEnabled = false;
         try { loginEnabled = managed && store ? await store.enabled(url) : false; } catch (_) {}
+        await refreshLibrary();
+            // 独立窗口保留面板入口（清空历史、移除收藏在面板里做）；侧栏模式没有面板
+            const manage = (name, label) => sidebarMode ? [] : [{ type: 'separator' }, { label, click: () => showPanel(name) }];
             const zoomPercent = tabZoomPercent(tab);
             popup([
                 ...(!sidebarMode?[{ label: T('新建标签页', 'New tab'), accelerator: 'CmdOrCtrl+T', click: () => open({ link: { name: T('新标签页', 'New tab'), url: 'about:blank' } }) }]:[]),
                 { label: T('恢复关闭的标签页', 'Reopen closed tab'), accelerator: 'CmdOrCtrl+Shift+T', enabled: closedTabs.length > 0, click: reopenTab },
                 { type: 'separator' },
-                { label: T('收藏夹', 'Bookmarks'), click: () => showPanel('bookmarks') },
-                { label: T('历史记录', 'History'), click: () => showPanel('history') },
-                { label: T('下载内容', 'Downloads'), click: () => showPanel('downloads') },
+                { label: T('收藏夹', 'Bookmarks'), submenu: [...libraryItems('bookmarks'), ...manage('bookmarks', T('管理收藏夹…', 'Manage bookmarks…'))] },
+                { label: T('历史记录', 'History'), submenu: [...libraryItems('history'), ...manage('history', T('管理历史记录…', 'Manage history…'))] },
+                { label: T('下载内容', 'Downloads'), submenu: [...downloadItems(), ...manage('downloads', T('管理下载内容…', 'Manage downloads…'))] },
                 { label: T('打开下载文件夹', 'Open Downloads folder'), click: () => shell.openPath(app.getPath('downloads')).catch(() => {}) },
                 { label: T('此登录站点：记住密码并自动登录', 'This login site: remember password and sign in'), type: 'checkbox', checked: loginEnabled, enabled: !!(managed && store), click: () => store.toggle(url).catch(() => {}) },
                 { label: T('清除此登录站点的密码并关闭自动登录', 'Forget this login and disable auto sign-in'), enabled: !!(managed && store), click: () => store.remove(url).catch(() => {}) },
