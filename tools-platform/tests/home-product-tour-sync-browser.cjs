@@ -178,6 +178,15 @@ app.whenReady().then(async () => {
     await wait(600);
     assert.equal(await evaluate('document.body.classList.contains("dc-chatting")'), false, 'the question waits for Send');
     assert.match(await evaluate('document.getElementById("dcInput").value'), /等我确认后再发送。$/);
+    // 文字多时可以用滚轮翻看输入框里的全部内容。
+    const wheelInput = await evaluate(`(() => {
+        const input = document.getElementById('dcInput');
+        input.scrollTop = input.scrollHeight;
+        const before = input.scrollTop;
+        document.querySelector('.v2-tour-backdrop').dispatchEvent(new WheelEvent('wheel', { deltaY: -400, bubbles: true, cancelable: true }));
+        return { overflow: input.scrollHeight > input.clientHeight + 2, before, after: input.scrollTop };
+    })()`);
+    assert.ok(!wheelInput.overflow || wheelInput.after < wheelInput.before, `wheel scrolls the composer text: ${JSON.stringify(wheelInput)}`);
     await next();
     await until('document.body.classList.contains("dc-chatting") && !!document.querySelector("#dcThread .dc-msg--user")');
     assert.match(await evaluate('document.querySelector("#dcThread .dc-msg--user").innerText'), /等我确认后再发送。$/);
@@ -275,6 +284,17 @@ app.whenReady().then(async () => {
             assert.equal(await evaluate('document.querySelector(".v2-tour-root.is-flow .v2-tour-flow li.is-current")?.dataset.flow'), id, `${id} is the current flow step`);
             await until(`(() => { const pins = [...document.querySelectorAll('.v2-tour-pin')]; return pins.length === 2 && pins.every(pin => { const r = pin.getBoundingClientRect(); return r.width > 8 && r.height > 8 && r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight; }); })()`);
             assert.equal(await evaluate('document.querySelectorAll(".v2-tour-points li").length'), 2, `${id} lists its key buttons`);
+            if (id === 'report') {
+                // 长页面停一会后自动慢速向下滚动，高亮框跟着走；滚动滚轮后改为手动。
+                const scrollTop = 'Math.max(...[...document.querySelector(".tm-page").contentDocument.querySelectorAll("html, [data-tour-scroll]")].map(el => el.scrollTop))';
+                const start = await evaluate(scrollTop);
+                await until(`${scrollTop} > ${start} + 20`, 9000);
+                await waitForStage('report');
+                await evaluate('document.querySelector(".v2-tour-backdrop").dispatchEvent(new WheelEvent("wheel", { deltaY: -2000, bubbles: true, cancelable: true }))');
+                const afterWheel = await evaluate(scrollTop);
+                await wait(800);
+                assert.equal(await evaluate(scrollTop), afterWheel, 'manual wheel stops the auto scroll');
+            }
         } else {
             assert.equal(await evaluate('document.querySelector(".v2-tour-root").classList.contains("is-flow") || document.querySelectorAll(".v2-tour-pin").length > 0'), false, 'ops drafts has no flow line or pins');
         }

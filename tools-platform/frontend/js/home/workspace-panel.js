@@ -801,8 +801,28 @@
     }
 
     // ── 目录选择：路径输入 + 后端联想 ────────────────────
+    let pendingPickResolve = null;
+
+    function resolvePendingPick(value) {
+        const resolve = pendingPickResolve;
+        pendingPickResolve = null;
+        if (resolve) resolve(value);
+    }
+
+    function pickDirectory() {
+        resolvePendingPick(null);
+        if (!state.enabled) return Promise.resolve(null);
+        return new Promise(resolve => {
+            pendingPickResolve = resolve;
+            openPicker();
+        });
+    }
+
     async function openPicker() {
-        if (!state.enabled) return;
+        if (!state.enabled) {
+            resolvePendingPick(null);
+            return;
+        }
         const prepareAccountDirectory = state.capability.canPrepareAccountDirectory && !state.root;
         clearTimeout(state.picker.timer);
         const requestId = ++state.picker.requestId;
@@ -839,6 +859,7 @@
         el.picker.hidden = true;
         document.body.classList.remove('dc-picker-open');
         state.picker.active = -1;
+        resolvePendingPick(null);
     }
 
     function renderPickerRecent() {
@@ -930,7 +951,11 @@
         if (!target) return;
         try {
             await selectDirectory(target);
+            const result = state.root ? { root: state.root, agentSessionId: state.agentSessionId } : null;
+            const resolve = pendingPickResolve;
+            pendingPickResolve = null;
             closePicker();
+            if (resolve) resolve(result);
         } catch (error) {
             el.pickerStatus.innerHTML = `<span class="wsp-status-bad">${escapeHtml(error.message)}</span>`;
         }
@@ -1482,7 +1507,7 @@
             renderApproval(messageEl, event);
         } else if (event.type === 'approval_result') {
             const card = approvalCards.get(event.callId);
-            if (card) settleCard(card, event.decision, event.scope);
+            if (card) settleCard(card, event.decision, event.scope, event);
         } else if (event.type === 'change') {
             if (sourceWorkspace === null || (sourceWorkspace && (sourceWorkspace.root !== state.root || sourceWorkspace.agentSessionId !== state.agentSessionId))) return;
             const index = state.changes.findIndex(item => item.path === event.path);
@@ -1492,11 +1517,68 @@
         }
     }
 
+    function renderWorkspaceChoiceApproval(card, event, preview) {
+        const skills = Array.isArray(preview.skills) && preview.skills.length
+            ? preview.skills.map(id => `@${String(id).replace(/^@/, '')}`).join('、')
+            : tx('workspace');
+        const hours = Number(preview.ttlHours) || 24;
+        card.dataset.kind = 'workspace_choice';
+        card.dataset.ttlHours = String(hours);
+        card.innerHTML = `
+            <div class="dc-approval-head"><span class="dc-approval-icon" aria-hidden="true">📂</span><b>${escapeHtml(tx('workspaceChoiceTitle', { skills }))}</b></div>
+            <div class="dc-approval-cwd">${escapeHtml(tx('workspaceChoiceDesc', { hours }))}</div>
+            <div class="dc-approval-actions">
+                <button type="button" class="dc-action dc-action--primary" data-decision="select_workspace">📂 ${escapeHtml(tx('workspaceChoicePick'))}</button>
+                <button type="button" class="dc-action" data-decision="scratch">⏱ ${escapeHtml(tx('workspaceChoiceTemp', { hours }))}</button>
+                <button type="button" class="dc-action dc-action--danger" data-decision="deny">${escapeHtml(tx('workspaceChoiceCancel'))}</button>
+            </div>
+            <div class="dc-approval-status" hidden></div>`;
+        card.addEventListener('click', async clickEvent => {
+            const button = clickEvent.target.closest('[data-decision]');
+            if (!button || card.classList.contains('is-settled')) return;
+            const decision = button.dataset.decision;
+            const buttons = card.querySelectorAll('[data-decision]');
+            buttons.forEach(node => { node.disabled = true; });
+            try {
+                const url = `${API}/approvals/${encodeURIComponent(event.id)}`;
+                if (decision === 'select_workspace') {
+                    const picked = await pickDirectory();
+                    if (!picked?.root) {
+                        if (!card.classList.contains('is-settled')) buttons.forEach(node => { node.disabled = false; });
+                        return;
+                    }
+                    await request('POST', url, { decision: 'select_workspace', root: picked.root, agentSessionId: picked.agentSessionId });
+                    settleCard(card, 'select_workspace', '', { root: picked.root });
+                    return;
+                }
+                if (decision === 'scratch') {
+                    await request('POST', url, { decision: 'scratch' });
+                    settleCard(card, 'scratch', '', { ttlHours: hours });
+                    return;
+                }
+                await request('POST', url, { decision: 'deny' });
+                settleCard(card, 'deny');
+            } catch (error) {
+                if (!card.classList.contains('is-settled')) buttons.forEach(node => { node.disabled = false; });
+                toast(error.message);
+            }
+        });
+    }
+
     function renderApproval(messageEl, event) {
         const card = document.createElement('div');
         card.className = 'dc-approval';
         card.dataset.approvalId = event.id;
         const preview = event.preview || {};
+        if (preview.kind === 'workspace_choice') {
+            renderWorkspaceChoiceApproval(card, event, preview);
+            approvalCards.set(event.callId, card);
+            toolLogFor(messageEl).appendChild(card);
+            messageEl.querySelector('.dc-thinking')?.remove();
+            card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            card.querySelector('[data-decision="select_workspace"]')?.focus({ preventScroll: true });
+            return;
+        }
         const kindLabel = toolLabel(event.tool);
         let detail = '';
         // WeLink 写操作（welink_action）：逐项列出要执行的内容，完整命令折叠在下面
@@ -1542,14 +1624,27 @@
         toolLogFor(messageEl).appendChild(card);
         messageEl.querySelector('.dc-thinking')?.remove();
         card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-        card.querySelector('[data-decision="allow"]').focus({ preventScroll: true });
+        card.querySelector('[data-decision="allow"]')?.focus({ preventScroll: true });
     }
 
-    function settleCard(card, decision, scope = '') {
+    function settleCard(card, decision, scope = '', meta = {}) {
         card.classList.add('is-settled', `is-${decision}`);
         card.querySelector('.dc-approval-actions').hidden = true;
         const status = card.querySelector('.dc-approval-status');
         status.hidden = false;
+        if (decision === 'select_workspace') {
+            status.textContent = tx('workspaceSelected', { path: shorten(meta.root || '') });
+            return;
+        }
+        if (decision === 'scratch') {
+            const hours = Number(meta.ttlHours || card.dataset.ttlHours) || 24;
+            status.textContent = tx('workspaceTempAllocated', { hours });
+            return;
+        }
+        if (decision === 'deny' && card.dataset.kind === 'workspace_choice') {
+            status.textContent = tx('workspaceChoiceCancelled');
+            return;
+        }
         if (decision === 'always' && scope) { status.textContent = tx('approvedDanger', { scope: tx(`scope_${scope}`) }); return; }
         status.textContent = { allow: tx('approved'), always: tx('approvedAlways'), deny: tx('denied'), timeout: tx('approvalTimeout'), abort: tx('approvalAborted') }[decision] || decision;
     }

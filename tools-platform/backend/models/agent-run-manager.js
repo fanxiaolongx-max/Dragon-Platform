@@ -23,12 +23,15 @@ const approvalInbox = require('./agent-approval-inbox');
 
 const APPROVAL_TIMEOUT_MS = 5 * 60 * 1000;
 const SESSION_IDLE_MS = 6 * 60 * 60 * 1000;
+const TEMP_WORKSPACE_TTL_HOURS = 24;
+const TEMP_WORKSPACE_TTL_MS = TEMP_WORKSPACE_TTL_HOURS * 60 * 60 * 1000;
 const MAX_SESSIONS = 50;
 const PERMISSION_MODES = ['ask', 'auto', 'full'];
 const DIRECTORY_CONTEXT_ENTRIES = 200;
 
 const sessions = new Map();
 const scratchAliases = new Map();
+const timedMetaDirs = new Set();
 const runs = new Map();
 const pendingApprovals = new Map();
 
@@ -41,6 +44,40 @@ function managerError(code, message, statusCode = 400) {
     error.code = code;
     error.statusCode = statusCode;
     return error;
+}
+
+function defaultTimedScratchBaseDir() {
+    return path.join(require('os').tmpdir(), 'dragon-claw-scratch', 'timed');
+}
+
+function sweepTimedScratchRoots(now = Date.now()) {
+    const dirsToScan = new Set([defaultTimedScratchBaseDir(), ...timedMetaDirs]);
+    for (const parentDir of dirsToScan) {
+        let entries;
+        try {
+            entries = fs.readdirSync(parentDir, { withFileTypes: true });
+        } catch (_error) {
+            continue;
+        }
+        for (const entry of entries) {
+            if (!entry.isFile() || !entry.name.endsWith('.ttl.json')) continue;
+            const metaPath = path.join(parentDir, entry.name);
+            const targetDir = metaPath.slice(0, -'.ttl.json'.length);
+            let meta;
+            try {
+                meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+            } catch (_error) {
+                continue;
+            }
+            if (!meta || Number(meta.expiresAt) > now) continue;
+            if ([...sessions.values()].some(session => session.activeRun && guard.samePath(session.root, targetDir))) continue;
+            for (const [id, session] of sessions) {
+                if (!session.activeRun && guard.samePath(session.root, targetDir)) sessions.delete(id);
+            }
+            try { fs.rmSync(targetDir, { recursive: true, force: true }); } catch (_error) { /* best effort */ }
+            try { fs.rmSync(metaPath, { force: true }); } catch (_error) { /* best effort */ }
+        }
+    }
 }
 
 function sweepSessions() {
@@ -56,6 +93,7 @@ function sweepSessions() {
             .slice(0, sessions.size - MAX_SESSIONS)
             .forEach(([id]) => sessions.delete(id));
     }
+    sweepTimedScratchRoots(now);
 }
 const sweepTimer = setInterval(sweepSessions, 10 * 60 * 1000);
 if (typeof sweepTimer.unref === 'function') sweepTimer.unref();
@@ -191,6 +229,66 @@ function ensureScratchSession({ user, tenantId, chatSessionId, permissionMode = 
     const session = ensureSession({ agentSessionId: scratchAgentId(user, tenantId, chatSessionId), user, tenantId, root, permissionMode });
     session.scratch = true;
     return configureClientExecutionMode(session, { mobileClient, supportsApproval });
+}
+
+function timedScratchRoot({ user, tenantId, chatSessionId }) {
+    const owner = ownerKey(user, tenantId);
+    const tempHex = crypto.createHash('sha256').update(`timed\n${owner}\n${chatSessionId || 'new'}`).digest('hex').slice(0, 24);
+    const baseDir = boundary.isConfined(user, tenantId)
+        ? path.join(require('./tenant-context').getTmpDir(tenantId), 'scratch')
+        : defaultTimedScratchBaseDir();
+    return path.join(baseDir, tempHex);
+}
+
+/**
+ * 用户明确确认使用的定时临时工作区：按对话隔离并记录到期时间，到期后由 sweepTimedScratchRoots 自动删除磁盘目录。
+ */
+function ensureTemporarySession({ user, tenantId, chatSessionId, ttlMs = TEMP_WORKSPACE_TTL_MS, expiresAt = null, permissionMode = 'auto', mobileClient = false, supportsApproval = false }) {
+    sweepTimedScratchRoots();
+    const owner = ownerKey(user, tenantId);
+    const root = timedScratchRoot({ user, tenantId, chatSessionId });
+    const parentDir = path.dirname(root);
+    fs.mkdirSync(root, { recursive: true });
+    timedMetaDirs.add(parentDir);
+    const safeTtlMs = Math.max(60 * 1000, Number(ttlMs) || TEMP_WORKSPACE_TTL_MS);
+    const deadline = Number.isFinite(Number(expiresAt)) && Number(expiresAt) > Date.now()
+        ? Number(expiresAt)
+        : Date.now() + safeTtlMs;
+    const metaPath = `${root}.ttl.json`;
+    try {
+        fs.writeFileSync(metaPath, JSON.stringify({
+            expiresAt: deadline,
+            owner,
+            chatSessionId: String(chatSessionId || ''),
+            createdAt: Date.now()
+        }));
+    } catch (_error) { /* best effort */ }
+    const session = ensureSession({ agentSessionId: scratchAgentId(user, tenantId, chatSessionId), user, tenantId, root, permissionMode });
+    session.scratch = true;
+    session.temporary = true;
+    session.expiresAt = deadline;
+    bindScratchChatId({ session, user, tenantId, chatSessionId });
+    return configureClientExecutionMode(session, { mobileClient, supportsApproval });
+}
+
+function existingTemporarySession({ user, tenantId, chatSessionId } = {}) {
+    sweepTimedScratchRoots();
+    if (!user || !chatSessionId) return null;
+    const now = Date.now();
+    const inMem = existingScratchSession({ user, tenantId, chatSessionId });
+    if (inMem?.temporary && (!inMem.expiresAt || inMem.expiresAt > now) && fs.existsSync(inMem.root)) {
+        return inMem;
+    }
+    const root = timedScratchRoot({ user, tenantId, chatSessionId });
+    const metaPath = `${root}.ttl.json`;
+    try {
+        if (!fs.existsSync(metaPath) || !fs.statSync(root).isDirectory()) return null;
+        const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+        if (!meta || meta.owner !== ownerKey(user, tenantId) || Number(meta.expiresAt) <= now) return null;
+        return ensureTemporarySession({ user, tenantId, chatSessionId, expiresAt: Number(meta.expiresAt) });
+    } catch (_error) {
+        return null;
+    }
 }
 
 /**
@@ -623,21 +721,127 @@ function waitApproval(run, call, preview, sharedMcp = false) {
     });
 }
 
+/** 等待用户选择工作区目录或确认分配定时临时工作区（在流式通道内弹出类似审批卡的双选项卡片）。 */
+function waitWorkspaceChoice({ user, tenantId, chatSessionId = '', write, signal, skills = [], permissionMode = 'auto', callId = 'workspace_choice:0', ttlHours = TEMP_WORKSPACE_TTL_HOURS } = {}) {
+    const id = crypto.randomUUID();
+    const owner = ownerKey(user, tenantId);
+    const ttlMs = Math.max(1, Number(ttlHours) || TEMP_WORKSPACE_TTL_HOURS) * 60 * 60 * 1000;
+    return new Promise(resolve => {
+        let done = false;
+        const onAbort = () => settle({ decision: 'abort' });
+        const settle = payload => {
+            if (done) return;
+            done = true;
+            const pending = pendingApprovals.get(id);
+            if (pending) {
+                clearTimeout(pending.timer);
+                pendingApprovals.delete(id);
+            }
+            signal?.removeEventListener('abort', onAbort);
+            const result = typeof payload === 'string' ? { decision: payload } : (payload || { decision: 'deny' });
+            write?.({
+                type: 'approval_result',
+                callId,
+                decision: result.decision,
+                ...(result.root ? { root: result.root } : {}),
+                ...(result.agentSessionId ? { agentSessionId: result.agentSessionId } : {}),
+                ...(result.ttlHours ? { ttlHours: result.ttlHours } : {})
+            });
+            resolve(result);
+        };
+        if (signal?.aborted) {
+            settle({ decision: 'abort' });
+            return;
+        }
+        const timer = setTimeout(() => settle({ decision: 'timeout' }), APPROVAL_TIMEOUT_MS);
+        if (typeof timer.unref === 'function') timer.unref();
+        pendingApprovals.set(id, {
+            workspaceChoice: true,
+            owner,
+            user,
+            tenantId,
+            chatSessionId: String(chatSessionId || ''),
+            permissionMode: normalizePermissionMode(permissionMode),
+            ttlHours: Math.max(1, Number(ttlHours) || TEMP_WORKSPACE_TTL_HOURS),
+            ttlMs,
+            prepareWorkspace(rawRoot, requestedAgentSessionId) {
+                const chosenRoot = String(rawRoot || '').trim();
+                if (!chosenRoot) throw managerError('AGENT_ROOT_REQUIRED', '请选择有效的工作目录');
+                const fallbackId = `chat-${crypto.createHash('sha256').update(`${owner}\n${chosenRoot}`).digest('hex').slice(0, 24)}`;
+                const candidateId = /^[\w-]{8,100}$/.test(String(requestedAgentSessionId || '')) ? String(requestedAgentSessionId) : fallbackId;
+                const session = ensureSession({
+                    agentSessionId: candidateId,
+                    user,
+                    tenantId,
+                    root: chosenRoot,
+                    permissionMode
+                });
+                configureClientExecutionMode(session, { mobileClient: false, permissionMode });
+                return session;
+            },
+            prepareScratch() {
+                return ensureTemporarySession({
+                    user,
+                    tenantId,
+                    chatSessionId,
+                    ttlMs,
+                    permissionMode
+                });
+            },
+            settle,
+            timer,
+            createdAt: Date.now()
+        });
+        signal?.addEventListener('abort', onAbort, { once: true });
+        write?.({
+            type: 'approval',
+            id,
+            callId,
+            tool: 'workspace_choice',
+            args: { skills },
+            preview: {
+                kind: 'workspace_choice',
+                skills,
+                ttlHours: Math.max(1, Number(ttlHours) || TEMP_WORKSPACE_TTL_HOURS)
+            },
+            expiresInMs: APPROVAL_TIMEOUT_MS
+        });
+    });
+}
+
 /** 由 POST /api/agent-workspace/approvals/:id 调用；只结算 Promise，不触库。 */
 function isSharedMcpApproval(approvalId, user, tenantId) {
     const pending = pendingApprovals.get(String(approvalId || ''));
     return Boolean(user && pending?.sharedMcp && pending.owner === ownerKey(user, tenantId));
 }
 
-function resolveApproval(approvalId, decision, user, tenantId, scope = '') {
-    if (!isAdminUser(user) && !isSharedMcpApproval(approvalId, user, tenantId)) throw managerError('AGENT_SESSION_FORBIDDEN', '只读账号无权批准写入或命令', 403);
+function resolveApproval(approvalId, decision, user, tenantId, scopeOrOptions = '') {
     const pending = pendingApprovals.get(String(approvalId || ''));
+    if (!isAdminUser(user) && !isSharedMcpApproval(approvalId, user, tenantId) && !pending?.workspaceChoice) {
+        throw managerError('AGENT_SESSION_FORBIDDEN', '只读账号无权批准写入或命令', 403);
+    }
     if (!pending) throw managerError('AGENT_APPROVAL_NOT_FOUND', '审批已过期或不存在', 404);
     if (pending.owner !== ownerKey(user, tenantId)) throw managerError('AGENT_SESSION_FORBIDDEN', '无权处理该审批', 403);
+    const options = typeof scopeOrOptions === 'object' && scopeOrOptions !== null ? scopeOrOptions : { scope: scopeOrOptions };
+    if (pending.workspaceChoice) {
+        const action = String(decision || '').trim();
+        if (action === 'select_workspace' || (action === 'allow' && options.root)) {
+            const session = pending.prepareWorkspace(options.root, options.agentSessionId);
+            pending.settle({ decision: 'select_workspace', session, root: session.root, agentSessionId: session.id });
+            return { ok: true, decision: 'select_workspace', root: session.root, agentSessionId: session.id };
+        }
+        if (action === 'scratch' || action === 'temporary') {
+            const session = pending.prepareScratch();
+            pending.settle({ decision: 'scratch', session, ttlHours: pending.ttlHours });
+            return { ok: true, decision: 'scratch', ttlHours: pending.ttlHours };
+        }
+        pending.settle({ decision: 'deny' });
+        return { ok: true, decision: 'deny' };
+    }
     const normalized = (decision === 'always' || decision === 'full') && pending.sharedMcp
         ? 'allow'
         : ['allow', 'deny', 'always', 'full'].includes(decision) ? decision : 'deny';
-    const normalizedScope = normalized === 'always' && dangerRules.SCOPES.includes(scope) ? scope : '';
+    const normalizedScope = normalized === 'always' && dangerRules.SCOPES.includes(options.scope) ? options.scope : '';
     pending.settle(normalized, normalizedScope);
     return { ok: true, decision: normalized, ...(normalizedScope ? { scope: normalizedScope } : {}) };
 }
@@ -996,7 +1200,13 @@ function reserveWorkspaceMutation(root) {
 module.exports = {
     reserveWorkspaceMutation,
     hasActiveRunInDirectory,
+    TEMP_WORKSPACE_TTL_HOURS,
+    TEMP_WORKSPACE_TTL_MS,
     ensureScratchSession,
+    ensureTemporarySession,
+    existingTemporarySession,
+    sweepTimedScratchRoots,
+    waitWorkspaceChoice,
     ensureMobileOwnedSession,
     userMobileWorkspaceRoot,
     existingScratchSession,

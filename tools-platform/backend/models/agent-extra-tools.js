@@ -99,20 +99,48 @@ async function toolsets({ owner, user, readOnly, channel = null }) {
  * 不选目录的对话：返回 { definitions(), prompt, handles(name), execute(call, { start }), end() }；没有可用工具组时返回 null。
  * 审批：读取类直接执行，其余弹审批卡（「总是允许」在本对话内有效）。
  */
-async function forChat({ owner, user, chatSessionId, readOnly, write, signal, sensitiveValues = [], channel = null }) {
+async function forChat({ owner, user, chatSessionId, readOnly, write, signal, sensitiveValues = [], channel = null, onWorkspaceSkillRequired = null }) {
     const sets = await toolsets({ owner, user, readOnly, channel });
     if (!sets.length) return null;
     const manager = require('./agent-run-manager');
     const session = manager.chatSession(owner, chatSessionId);
     session.readOnly = Boolean(readOnly);
     session.unattended = Boolean(channel); // 频道里没人能点审批卡
-    const registry = await require('./agent-tool-registry').create({ session, user, core: false, skillCatalog: true, extraToolsets: sets, sensitiveValues });
+    let pendingUpgrade = null;
+    const registry = await require('./agent-tool-registry').create({
+        session,
+        user,
+        core: false,
+        skillCatalog: true,
+        extraToolsets: sets,
+        sensitiveValues,
+        onWorkspaceSkillRequired: typeof onWorkspaceSkillRequired === 'function'
+            ? async (skillId, loaded) => {
+                const choice = await onWorkspaceSkillRequired(skillId, loaded);
+                if (choice?.session) {
+                    pendingUpgrade = {
+                        session: choice.session,
+                        skillId,
+                        decision: choice.decision,
+                        ttlHours: choice.ttlHours
+                    };
+                }
+                return choice;
+            }
+            : null
+    });
     const run = manager.beginChatRun({ owner, chatSessionId, write, signal });
     return {
         definitions: () => registry.definitions(),
         allowed: registry.allowed,
         prompt: registry.catalogPrompt(),
         handles: name => registry.isMeta(name) || Boolean(registry.toolset(name)),
+        hasUpgrade: () => Boolean(pendingUpgrade),
+        consumeUpgrade: () => {
+            const next = pendingUpgrade;
+            pendingUpgrade = null;
+            return next;
+        },
         async execute(call, { start }) {
             start();
             if (registry.isMeta(call.name)) return registry.runMeta(call);

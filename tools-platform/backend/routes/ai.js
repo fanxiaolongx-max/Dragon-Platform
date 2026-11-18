@@ -798,6 +798,14 @@ async function handleChatRequest(req, res) {
                 return res.status(409).json({ code: 'AGENT_RUN_BUSY', error: '该会话有正在进行的任务，请等待完成或先停止' });
             }
         }
+        // 网页端续接本对话之前明确确认过的定时临时工作区（未过期前无需重复弹卡）
+        if (!agentSession && homeAgent && !tourReportExample && streamRequested && !channelTurn && !isMobileClient && sessionId && !(workspace && workspace.root) && agentWorkspaceAccess.isAgentWorkspaceAllowed(req)) {
+            await aiChatRepo.assertSessionOwner(sessionId, req.user?.username || '');
+            agentSession = agentRunManager.existingTemporarySession({ user: req.user, tenantId: getTenantId(), chatSessionId: sessionId });
+            if (agentSession?.activeRun) {
+                return res.status(409).json({ code: 'AGENT_RUN_BUSY', error: '该会话有正在进行的任务，请等待完成或先停止' });
+            }
+        }
         // 团队账号没选目录：默认在团队工作目录里工作，文件与 Shell 工具随时可用（命令在团队沙箱中执行）
         if (!agentSession && homeAgent && !tourReportExample && streamRequested && !channelTurn && require('../models/team-boundary').isConfined(req.user)) {
             try {
@@ -841,6 +849,8 @@ async function handleChatRequest(req, res) {
         const channelSkillOwner = homeAgent && !fullWeLink ? await channelCanSaveSkills(channelTurn) : false;
         // Skill：本条消息里的 @id + 会话内保持的标签（req.body.skills，仅接受白名单标识）
         let loadedSkills = { selected: [], unknown: [], prompt: '' };
+        let loadSkills = null;
+        let pendingWorkspaceChoice = null;
         if (homeAgent && !tourReportExample) {
             try {
                 let skillContextMessages = messages.slice(0, -1);
@@ -848,12 +858,13 @@ async function handleChatRequest(req, res) {
                     await aiChatRepo.assertSessionOwner(sessionId, req.user?.username || '');
                     skillContextMessages = [...await aiChatRepo.getRecentMessagesForContext(sessionId, 20), ...skillContextMessages];
                 }
-                const loadSkills = () => agentSkillsStore.loadAll(lastMessage.content, {
+                loadSkills = (extraSkillIds = []) => agentSkillsStore.loadAll(lastMessage.content, {
                     user: req.user,
                     hasWorkspace: agentMode,
                     language: String(uiLanguage || '').startsWith('en') ? 'en' : 'zh',
                     redactionSecrets: sensitiveValues,
                     extraIds: [
+                        ...extraSkillIds,
                         ...(homeConnector ? [connectorSkills[homeConnector]] : []),
                         ...(agentSession && agentSession.loadedSkills instanceof Set ? [...agentSession.loadedSkills] : []),
                         ...((!channelTurn || fullWeLink)
@@ -866,35 +877,39 @@ async function handleChatRequest(req, res) {
                 try {
                     loadedSkills = await loadSkills();
                 } catch (needWorkspace) {
-                    // 需要文件 / 命令的 Skill 但用户没选目录：移动端自动分配用户归属持久化目录，网页端使用隐藏临时目录
+                    // 需要文件 / 命令的 Skill 但用户没选目录：移动端自动分配用户归属持久化目录；网页端在流式响应里弹出选择/临时工作区卡片
                     if (needWorkspace.code !== 'SKILL_WORKSPACE_REQUIRED' || agentMode || channelTurn || !streamRequested
                         || !agentWorkspaceAccess.isAgentWorkspaceAllowed(req)) throw needWorkspace;
-                    agentSession = isMobileClient
-                        ? agentRunManager.ensureMobileOwnedSession({ user: req.user, tenantId: getTenantId(), chatSessionId: sessionId, supportsApproval: mobileSupportsApproval })
-                        : agentRunManager.ensureScratchSession({ user: req.user, tenantId: getTenantId(), chatSessionId: sessionId, mobileClient: false });
-                    if (agentSession.activeRun) return res.status(409).json({ code: 'AGENT_RUN_BUSY', error: '该会话有正在进行的任务，请等待完成或先停止' });
-                    agentMode = true;
-                    loadedSkills = await loadSkills();
+                    if (isMobileClient) {
+                        agentSession = agentRunManager.ensureMobileOwnedSession({ user: req.user, tenantId: getTenantId(), chatSessionId: sessionId, supportsApproval: mobileSupportsApproval });
+                        if (agentSession.activeRun) return res.status(409).json({ code: 'AGENT_RUN_BUSY', error: '该会话有正在进行的任务，请等待完成或先停止' });
+                        agentMode = true;
+                        loadedSkills = await loadSkills();
+                    } else {
+                        pendingWorkspaceChoice = { skills: needWorkspace.skills || [] };
+                    }
                 }
             } catch (skillError) {
                 // 缺少工作目录是可操作的前提提示，不包装成「AI 思考时出现异常」
                 if (skillError.code === 'SKILL_WORKSPACE_REQUIRED') return res.status(400).json({ code: skillError.code, error: skillError.message, skills: skillError.skills });
                 throw skillError;
             }
-            // 随回复入库，恢复历史时仍能显示「已加载 Skill」；在 agentSession 上跨轮保持技能
-            if (agentSession) {
-                if (!(agentSession.loadedSkills instanceof Set)) agentSession.loadedSkills = new Set();
-                loadedSkills.selected.forEach(skill => agentSession.loadedSkills.add(skill.id));
-            }
-            if (homeConnector) {
-                const chosen = connectorSkills[homeConnector];
-                if (!loadedSkills.selected.some(item => item.id === chosen)) return res.status(409).json({ code: 'CONNECTOR_SKILL_UNAVAILABLE', error: '连接器所需技能不可用，请先恢复对应技能' });
-                if (loadedSkills.selected.some(item => item.id !== chosen && ['ops-group', ...Object.values(connectorSkills)].includes(item.id))) {
-                    return res.status(409).json({ code: 'CONNECTOR_SKILL_CONFLICT', error: '当前连接器不能与其他专用场景同时使用' });
+            if (!pendingWorkspaceChoice) {
+                // 随回复入库，恢复历史时仍能显示「已加载 Skill」；在 agentSession 上跨轮保持技能
+                if (agentSession) {
+                    if (!(agentSession.loadedSkills instanceof Set)) agentSession.loadedSkills = new Set();
+                    loadedSkills.selected.forEach(skill => agentSession.loadedSkills.add(skill.id));
                 }
-                recordedEvents.push({ type: 'connector', id: homeConnector });
+                if (homeConnector) {
+                    const chosen = connectorSkills[homeConnector];
+                    if (!loadedSkills.selected.some(item => item.id === chosen)) return res.status(409).json({ code: 'CONNECTOR_SKILL_UNAVAILABLE', error: '连接器所需技能不可用，请先恢复对应技能' });
+                    if (loadedSkills.selected.some(item => item.id !== chosen && ['ops-group', ...Object.values(connectorSkills)].includes(item.id))) {
+                        return res.status(409).json({ code: 'CONNECTOR_SKILL_CONFLICT', error: '当前连接器不能与其他专用场景同时使用' });
+                    }
+                    recordedEvents.push({ type: 'connector', id: homeConnector });
+                }
+                if (loadedSkills.selected.length) recordedEvents.push({ type: 'skills', skills: loadedSkills.selected.map(item => item.id) });
             }
-            if (loadedSkills.selected.length) recordedEvents.push({ type: 'skills', skills: loadedSkills.selected.map(item => item.id) });
         }
 
         const rawPageSource = String(pagePath || req.get('referer') || '');
@@ -962,6 +977,54 @@ async function handleChatRequest(req, res) {
                 if (!res.writableEnded) providerAbortController.abort();
             });
             writeStreamEvent({ type: 'start', sessionId: savedSessionId, skills: loadedSkills.selected, unknownSkills: loadedSkills.unknown });
+        }
+        const activateWorkspaceSession = async (session, extraSkillIds = []) => {
+            agentSession = session;
+            agentMode = true;
+            if ((agentSession.scratch || agentSession.mobileOwnedWorkspace) && savedSessionId) {
+                agentRunManager.bindScratchChatId({ session: agentSession, user: req.user, tenantId: getTenantId(), chatSessionId: savedSessionId });
+            } else if (agentSession && !agentSession.scratch && agentSession.root && !aiChatRepo.isScratchDirectory?.(agentSession.root) && savedSessionId) {
+                await aiChatRepo.setSessionAgent(savedSessionId, { agentSessionId: agentSession.id, root: agentSession.root, owner: req.user?.username || '' }).catch(() => {});
+            }
+            if (typeof loadSkills === 'function') {
+                loadedSkills = await loadSkills(extraSkillIds);
+            }
+            if (!(agentSession.loadedSkills instanceof Set)) agentSession.loadedSkills = new Set();
+            loadedSkills.selected.forEach(skill => agentSession.loadedSkills.add(skill.id));
+            if (loadedSkills.selected.length) recordedEvents.push({ type: 'skills', skills: loadedSkills.selected.map(item => item.id) });
+        };
+        if (pendingWorkspaceChoice) {
+            const choice = await agentRunManager.waitWorkspaceChoice({
+                user: req.user,
+                tenantId: getTenantId(),
+                chatSessionId: savedSessionId || '',
+                write: writeStreamEvent,
+                signal: providerAbortController?.signal,
+                skills: pendingWorkspaceChoice.skills,
+                permissionMode: workspace?.permissionMode || 'auto',
+                ttlHours: agentRunManager.TEMP_WORKSPACE_TTL_HOURS
+            });
+            if (!choice?.session) {
+                const cancelMsg = choice?.decision === 'timeout'
+                    ? '等待选择工作区超时，本次未执行。请在输入框下方选择工作区后重新发送。'
+                    : '已取消选择工作区，本次未执行。';
+                if (persist !== false && savedSessionId) {
+                    await aiChatRepo.addMessage({ sessionId: savedSessionId, pagePath: normalizedPath, pageTitle, owner: req.user?.username || '', role: 'user', content: lastMessage.content, events: channelUserEvents }).catch(() => {});
+                    await aiChatRepo.addMessage({ sessionId: savedSessionId, pagePath: normalizedPath, pageTitle, owner: req.user?.username || '', role: 'model', content: cancelMsg, events: recordedEvents, modelName: modelChoice?.name || aiSettings.model || '' }).catch(() => {});
+                    historySaved = true;
+                }
+                writeStreamEvent({ type: 'delta', delta: cancelMsg });
+                writeStreamEvent({ type: 'done', reply: cancelMsg, sessionId: savedSessionId, tokens: 0, usage: { inputTokens: 0, outputTokens: 0 }, cost: 0 });
+                res.end();
+                return;
+            }
+            if (choice.session.activeRun) {
+                const busyMsg = '该会话有正在进行的任务，请等待完成或先停止';
+                writeStreamEvent({ type: 'error', error: busyMsg });
+                res.end();
+                return;
+            }
+            await activateWorkspaceSession(choice.session, pendingWorkspaceChoice.skills);
         }
         const compressionResult = persist !== false
             ? await compressSessionIfNeeded({
@@ -1099,7 +1162,7 @@ async function handleChatRequest(req, res) {
         }
 
         // 首页管理员无需选择目录即可使用平台业务库；频道、页面助手及专用 Skill 保持各自权限。
-        const databaseMode = homeAgent && !tourReportExample && !agentMode && !channelTurn && req.user?.role === 'admin'
+        let databaseMode = homeAgent && !tourReportExample && !agentMode && !channelTurn && req.user?.role === 'admin'
             && !opsSetup && !welinkCliSetup && !netcareSetup && !autoglmSetup && !financeSetup && !ppoSetup && !voiceCreatorSetup && !analysisCode;
         // 对话附件：消息里引用的、属于本人的上传文件（频道对话不带）
         const uploadFiles = homeAgent && !channelTurn
@@ -1119,41 +1182,41 @@ async function handleChatRequest(req, res) {
         // 长期记忆：管理员在首页对话（工作区或普通对话）里让智能体记住的偏好与约定；频道对话是多人场景，不带
         const memoryPrompt = homeAgent && !channelTurn && req.user?.role === 'admin' && (agentMode || databaseMode)
             ? await require('../models/agent-memory-repository').promptFor(req.user.username).catch(() => '') : '';
-        const canMutateDatabase = databaseMode && hasAllowedTool([
-            { name: 'insert_database_row' },
-            { name: 'update_database_rows' },
-            { name: 'delete_database_rows' }
-        ]);
-        const canQueryDatabase = databaseMode && hasAllowedTool([
-            { name: 'list_databases' },
-            { name: 'database_schema' },
-            { name: 'read_database_table' }
-        ]);
-        const canEditWorkspaceFiles = agentMode && !agentSession.readOnly && hasAllowedTool([
-            { name: 'write_file' },
-            { name: 'edit_file' },
-            { name: 'delete_file' }
-        ]);
-        const canMutateInWorkspace = agentMode && !agentSession.readOnly && hasAllowedTool([
-            { name: 'insert_database_row' },
-            { name: 'update_database_rows' },
-            { name: 'delete_database_rows' }
-        ]);
-        const dataIdentity = (databaseMode && canMutateDatabase) || canEditWorkspaceFiles || canMutateInWorkspace
-            ? '数据管理与分析专家'
-            : '只读数据分析专家';
         // 简介过短的工具附上生成的说明摘要，帮模型按需求匹配
         const toolGuideNotes = homeAgent ? await require('../models/platform-tool-guides').shortDescriptionNotes(req.user).catch(() => '') : '';
-        // 构造 System Instruction
-        const identityPrompt = homeAgent
-            ? `你是 "Dragon Claw"，Dragon Claw 工具中台首页的全能 AI 智能体。
+        const buildTurnSystemInstruction = () => {
+            const canMutateDatabase = databaseMode && hasAllowedTool([
+                { name: 'insert_database_row' },
+                { name: 'update_database_rows' },
+                { name: 'delete_database_rows' }
+            ]);
+            const canQueryDatabase = databaseMode && hasAllowedTool([
+                { name: 'list_databases' },
+                { name: 'database_schema' },
+                { name: 'read_database_table' }
+            ]);
+            const canEditWorkspaceFiles = agentMode && !agentSession.readOnly && hasAllowedTool([
+                { name: 'write_file' },
+                { name: 'edit_file' },
+                { name: 'delete_file' }
+            ]);
+            const canMutateInWorkspace = agentMode && !agentSession.readOnly && hasAllowedTool([
+                { name: 'insert_database_row' },
+                { name: 'update_database_rows' },
+                { name: 'delete_database_rows' }
+            ]);
+            const dataIdentity = (databaseMode && canMutateDatabase) || canEditWorkspaceFiles || canMutateInWorkspace
+                ? '数据管理与分析专家'
+                : '只读数据分析专家';
+            const identityPrompt = homeAgent
+                ? `你是 "Dragon Claw"，Dragon Claw 工具中台首页的全能 AI 智能体。
 你首先是一个通用的高水平助手，能回答任何领域的问题（编程、写作、翻译、学习、分析、生活常识等）；同时你也是本平台的项目实现专家、${dataIdentity}和工具向导，能解释平台中各工具的用途、使用方法和代码实现逻辑。`
-            : `你是一个名为 "Dragon Claw 智能助手" 的 AI，被集成在华为的一个工具中台中。
+                : `你是一个名为 "Dragon Claw 智能助手" 的 AI，被集成在华为的一个工具中台中。
 你同时是项目实现专家、只读数据分析专家、运营分析专家和高级客服助手。`;
-        const scopeRule = homeAgent
-            ? `8. 不要声称自己只专注于本平台：与平台无关的问题，直接以通用助手身份完整、专业地回答，不必引用项目知识。只有问题涉及本平台时才使用上面的项目知识、业务配置和数据结果。推荐或提到平台工具时，使用 Markdown 链接 [工具名](路径)，路径只能取自“平台工具目录”，不得编造路径。用户描述需求时先想平台有没有对应的工具；有 find_platform_tools / read_tool_guide 时，用它们查更准确的匹配和使用说明再回答怎么用。`
-            : `8. 如果用户的提问超出系统功能范畴，礼貌说明你专注于本工具中台。`;
-        const systemInstruction = `${identityPrompt}
+            const scopeRule = homeAgent
+                ? `8. 不要声称自己只专注于本平台：与平台无关的问题，直接以通用助手身份完整、专业地回答，不必引用项目知识。只有问题涉及本平台时才使用上面的项目知识、业务配置和数据结果。推荐或提到平台工具时，使用 Markdown 链接 [工具名](路径)，路径只能取自“平台工具目录”，不得编造路径。用户描述需求时先想平台有没有对应的工具；有 find_platform_tools / read_tool_guide 时，用它们查更准确的匹配和使用说明再回答怎么用。`
+                : `8. 如果用户的提问超出系统功能范畴，礼貌说明你专注于本工具中台。`;
+            return `${identityPrompt}
 ${loadedSkills.catalogPrompt || ''}
 ${loadedSkills.prompt}
 当前页面标题: ${pageTitle || '未知'}
@@ -1197,6 +1260,8 @@ ${currentView ? '2.1 用户问“这个页面”“这段代码”“我现在�
 ${agentMode ? ((agentSession.readOnly || (!canEditWorkspaceFiles && !canMutateInWorkspace)) ? '7. 当前账号只读，没有修改平台业务数据或本地文件的权限。' : `7. 当前管理员${canMutateInWorkspace ? '可通过数据库工具对当前租户和所选项目的业务数据增删改查' : '当前未开放数据库写入工具'}${canEditWorkspaceFiles ? '，并可通过文件工具修改工作目录' : ''}；遵循工作区权限模式。只有工具返回提交成功后才能声称数据已修改；修改后重新查询验证，写入前的检索摘要不能作为修改后状态。凭据与平台控制面数据不开放。`) : databaseMode ? (canMutateDatabase ? '7. 当前管理员可通过数据库工具直接对当前租户的平台业务数据增删改查，无需选择工作目录。按用户明确要求执行修改，提交成功后重新查询验证。凭据与平台控制面数据不开放。' : canQueryDatabase ? '7. 当前管理员可只读查询当前租户的平台业务数据库（数据库写入未开放），不得声称已修改、删除或入库任何数据。' : '7. 当前未开放数据库工具，你没有修改业务数据的权限，不得声称已修改、删除或入库任何数据。') : opsSetup ? '7. 你没有修改业务数据的权限；唯一例外是用 ops_* 工具管理自动化运营（运营群组、计划、草稿、运营规范），只有工具返回成功后才能说已保存或已发送。' : followupSetup ? '7. 你没有修改业务数据的权限；唯一例外是用 followup_* 工具保存本会话的跟进任务，只有工具返回成功后才能说已记录。' : voiceCreatorSetup ? '7. 你没有修改业务数据的权限；唯一例外是用 voice_creator_* 工具进行高拟真语音合成与声音创作。' : '7. 你没有修改业务数据的权限，不得声称已修改、删除或入库任何数据。'}
 ${scopeRule}
 ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.systemPrompt}` : ''}${voiceMode ? '\n**实时语音回复要求（最高优先级）**：直奔主题、简短干练、口语化表达；禁止客套寒暄、禁止反问收尾、禁止 Markdown 表格或符号。' : ''}`;
+        };
+        let systemInstruction = buildTurnSystemInstruction();
 
         const fullTargetListRequested = expertGrounding.businessConfig?.mode === 'full-target-list';
         const generateResponse = async analysisContent => runAiWithRetry(async () => {
@@ -1227,47 +1292,67 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 writeStreamEvent({ type: 'status', status: { kind: 'code-analysis-retry', attempt, limit } });
             })
             : null;
-        const agentResult = agentMode
-            ? await agentRunManager.runAgentTurn({
-                chatSessionId: persist !== false ? savedSessionId : '',
-                // 交互式命令只给浏览器里正在看的对话（定时任务、频道桥接是内部构造的请求，没有 socket）
-                interactiveTerminal: Boolean(req.socket) && !channelTurn && streamRequested,
-                userEvents: channelUserEvents,
-                onRunStarted: runId => { agentRunId = runId; },
-                sensitiveValues,
-                session: agentSession,
-                user: req.user,
-                client: aiClient,
-                systemInstruction: redactText(systemInstruction, { secrets: sensitiveValues }),
-                historyMessages: effectiveMessages,
-                skillCatalog: loadedSkills.catalog,
-                skillLanguage: uiLanguage,
-                skillPrompt: redactText(`${loadedSkills.catalogPrompt || ''}\n${loadedSkills.prompt || ''}`.trim(), { secrets: sensitiveValues }),
-                skillIds: loadedSkills.selected.map(item => item.id),
-                vision,
-                extraToolsets: followupSetup ? [{
-                    id: 'followup', label: '当前频道会话的持续跟进任务', definitions: followupAgent.definitions(),
-                    execute: async call => {
-                        const outcome = await followupAgent.execute(followupSetup.ctx, call.name, call.args, followupSetup.calendar);
-                        if (outcome.event) writeStreamEvent(outcome.event);
-                        return outcome;
-                    }
-                }] : [],
-                write: event => {
-                    if (event.type === 'delta') streamHasDelta = true;
-                    writeStreamEvent(event);
-                },
-                signal: providerAbortController?.signal,
-                maxOutputTokens: aiSettings.maxOutputTokens,
-                temperature: aiSettings.temperature,
-                model: aiSettings.model
-            })
-            : null;
+        const runHomeAgentTurn = () => agentRunManager.runAgentTurn({
+            chatSessionId: persist !== false ? savedSessionId : '',
+            // 交互式命令只给浏览器里正在看的对话（定时任务、频道桥接是内部构造的请求，没有 socket）
+            interactiveTerminal: Boolean(req.socket) && !channelTurn && streamRequested,
+            userEvents: channelUserEvents,
+            onRunStarted: runId => { agentRunId = runId; },
+            sensitiveValues,
+            session: agentSession,
+            user: req.user,
+            client: aiClient,
+            systemInstruction: redactText(systemInstruction, { secrets: sensitiveValues }),
+            historyMessages: effectiveMessages,
+            skillCatalog: loadedSkills.catalog,
+            skillLanguage: uiLanguage,
+            skillPrompt: redactText(`${loadedSkills.catalogPrompt || ''}\n${loadedSkills.prompt || ''}`.trim(), { secrets: sensitiveValues }),
+            skillIds: loadedSkills.selected.map(item => item.id),
+            vision,
+            extraToolsets: followupSetup ? [{
+                id: 'followup', label: '当前频道会话的持续跟进任务', definitions: followupAgent.definitions(),
+                execute: async call => {
+                    const outcome = await followupAgent.execute(followupSetup.ctx, call.name, call.args, followupSetup.calendar);
+                    if (outcome.event) writeStreamEvent(outcome.event);
+                    return outcome;
+                }
+            }] : [],
+            write: event => {
+                if (event.type === 'delta') streamHasDelta = true;
+                writeStreamEvent(event);
+            },
+            signal: providerAbortController?.signal,
+            maxOutputTokens: aiSettings.maxOutputTokens,
+            temperature: aiSettings.temperature,
+            model: aiSettings.model
+        });
+        let agentResult = agentMode ? await runHomeAgentTurn() : null;
         // 无工作目录的首页流式对话也可调用平台共享 MCP。
+        const allowWebWorkspaceUpgrade = !channelTurn && !isMobileClient && streamRequested && homeAgent && agentWorkspaceAccess.isAgentWorkspaceAllowed(req);
         const chatExtras = !agentMode && homeAgent && !tourReportExample && !channelTurn && streamRequested && !analysisCode
             && (databaseMode || opsSetup || welinkCliSetup || netcareSetup || filesMode || await require('../models/agent-mcp').hasEnabledServers())
-            ? await require('../models/agent-extra-tools').forChat({ owner: agentRunManager.ownerKey(req.user, getTenantId()), user: req.user, chatSessionId: savedSessionId || '', readOnly: req.user?.role !== 'admin',
-                write: event => writeStreamEvent(event), signal: providerAbortController?.signal, sensitiveValues }).catch(error => { console.warn('[AI] extra tools unavailable:', error.message || error); return null; })
+            ? await require('../models/agent-extra-tools').forChat({
+                owner: agentRunManager.ownerKey(req.user, getTenantId()),
+                user: req.user,
+                chatSessionId: savedSessionId || '',
+                readOnly: req.user?.role !== 'admin',
+                write: event => writeStreamEvent(event),
+                signal: providerAbortController?.signal,
+                sensitiveValues,
+                onWorkspaceSkillRequired: allowWebWorkspaceUpgrade
+                    ? skillId => agentRunManager.waitWorkspaceChoice({
+                        user: req.user,
+                        tenantId: getTenantId(),
+                        chatSessionId: savedSessionId || '',
+                        write: writeStreamEvent,
+                        signal: providerAbortController?.signal,
+                        skills: [skillId],
+                        permissionMode: workspace?.permissionMode || 'auto',
+                        callId: `workspace_choice:${Date.now().toString(36)}`,
+                        ttlHours: agentRunManager.TEMP_WORKSPACE_TTL_HOURS
+                    })
+                    : null
+            }).catch(error => { console.warn('[AI] extra tools unavailable:', error.message || error); return null; })
             : null;
         if (fullWeLink && agentSession) agentSession.channelContext = channelContext;
         // 频道对话（微信、WeLink 非完全访问）：没人能审批，只带只读的技能目录、平台工具向导和受信任的 MCP 服务，让模型能按技能目录加载技能并调用（如搜索新闻）
@@ -1522,6 +1607,27 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 } : undefined
             })
             : null;
+        const workspaceUpgrade = !agentResult ? chatExtras?.consumeUpgrade?.() : null;
+        const preUpgradeResult = workspaceUpgrade
+            ? (followupResult || opsResult || welinkCliResult || netcareResult || autoglmResult || financeResult || ppoResult || voiceCreatorResult || databaseResult || filesResult || extraResult)
+            : null;
+        if (workspaceUpgrade?.session && !workspaceUpgrade.session.activeRun) {
+            await activateWorkspaceSession(workspaceUpgrade.session, workspaceUpgrade.skillId ? [workspaceUpgrade.skillId] : []);
+            databaseMode = false;
+            systemInstruction = buildTurnSystemInstruction();
+            agentResult = await runHomeAgentTurn();
+            if (preUpgradeResult?.usage && agentResult) {
+                const u = agentResult.usage || {};
+                const p = preUpgradeResult.usage;
+                agentResult.usage = {
+                    promptTokens: Number(u.promptTokens || 0) || Number(p.promptTokens || 0),
+                    inputTokens: Number(u.inputTokens || 0) + Number(p.inputTokens || 0),
+                    outputTokens: Number(u.outputTokens || 0) + Number(p.outputTokens || 0),
+                    totalTokens: Number(u.totalTokens || 0) + Number(p.totalTokens || 0),
+                    cachedTokens: Number(u.cachedTokens || 0) + Number(p.cachedTokens || 0)
+                };
+            }
+        }
         const result = agentResult || followupResult || opsResult || welinkCliResult || netcareResult || autoglmResult || financeResult || ppoResult || voiceCreatorResult || databaseResult || filesResult || extraResult || (analysisResult ? analysisResult.result : await generateResponse());
         const skillReferenceAudit = homeAgent ? skillCatalogContract.guardReply(result.text, loadedSkills.catalog || [], {
             language: uiLanguage, loadedIds: loadedSkills.selected.map(item => item.id)

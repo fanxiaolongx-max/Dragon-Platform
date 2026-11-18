@@ -478,6 +478,10 @@ async function runToolLoop({
             index = end;
         }
         messages.push(toolMessage);
+        if (extras?.hasUpgrade?.()) {
+            finalText = '';
+            break;
+        }
         // 工具取得的图片（view_image、浏览器截图）：模型能看图时作为下一条消息附上；只发给模型，不进转录
         if (vision?.capable && pendingImages.length) {
             const shown = pendingImages.splice(0);

@@ -2184,10 +2184,7 @@
             if (controller.signal.aborted || !reply.isConnected) throw Object.assign(new Error('aborted'), { name: 'AbortError' });
             if (data.sessionId) {
                 state.sessionId = data.sessionId;
-                const doneAgent = data.agent?.root
-                    ? { agentSessionId: data.agentSessionId, root: data.agent.root }
-                    : workspacePayload ? { agentSessionId: data.agentSessionId || workspacePayload.agentSessionId, root: data.agent?.root || workspacePayload.root } : null;
-                rememberLastChat(data.sessionId, doneAgent);
+                rememberLastChat(data.sessionId, workspacePayload ? { agentSessionId: data.agentSessionId || workspacePayload.agentSessionId, root: data.agent?.root || workspacePayload.root } : (data.agent?.root ? { agentSessionId: data.agentSessionId, root: data.agent.root } : null));
             }
             if (data.runId) reply.dataset.runId = data.runId; // 按轮回退用
             if (workspacePayload || data.agent?.root) workspace()?.applyDone(data);

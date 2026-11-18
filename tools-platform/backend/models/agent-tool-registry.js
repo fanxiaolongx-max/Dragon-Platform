@@ -136,7 +136,7 @@ function summaryOf(description) {
  * @param {Array} [input.messages]   送给模型的历史；其中调用过的工具视为已加载，保证历史与工具列表一致
  * @param {boolean} [input.skillCatalog] 系统提示里有技能目录时才提供 load_skill
  */
-async function create({ session, user, skillIds = [], messages = [], skillCatalog = false, sensitiveValues = [], core: withCore = true, extraToolsets = [] }) {
+async function create({ session, user, skillIds = [], messages = [], skillCatalog = false, sensitiveValues = [], core: withCore = true, extraToolsets = [], onWorkspaceSkillRequired = null }) {
     const readOnly = Boolean(session.readOnly);
     if (!(session.loadedTools instanceof Set)) session.loadedTools = new Set();
     if (!(session.loadedSkills instanceof Set)) session.loadedSkills = new Set();
@@ -273,6 +273,32 @@ async function create({ session, user, skillIds = [], messages = [], skillCatalo
         if (userSkills.has(cleanId)) return { content: `@${cleanId} 已在系统提示中加载，直接按其中的流程执行。`, summary: `@${cleanId} 已加载` };
         const loaded = await skillStore.loadSection(cleanId, actor);
         if (!loaded) return { content: `技能目录中没有 @${cleanId}。只能加载目录中列出的技能。`, summary: `没有 @${cleanId}`, isError: true };
+        if (!withCore && loaded.meta?.workspace) {
+            if (typeof onWorkspaceSkillRequired === 'function') {
+                const choice = await onWorkspaceSkillRequired(cleanId, loaded);
+                if (choice?.session) {
+                    return {
+                        content: choice.decision === 'scratch'
+                            ? `已为当前对话分配临时工作区（${choice.ttlHours || 24}小时后自动删除），正在切换至工作区环境执行 @${cleanId}。`
+                            : `已选择工作区，正在切换至工作区环境执行 @${cleanId}。`,
+                        summary: choice.decision === 'scratch' ? '已分配临时工作区' : '已选择工作区',
+                        isError: false
+                    };
+                }
+                return {
+                    content: choice?.decision === 'timeout'
+                        ? `等待选择工作区超时，未能使用 @${cleanId}（该技能需要工作区执行命令行或读写文件）。请提示用户选择工作区后重试，不要调用 run_command，也不要编造结果。`
+                        : `用户取消了选择或分配工作区，无法使用 @${cleanId}（该技能需要工作区执行命令行或读写文件）。请直接告知用户已取消，不要调用 run_command，也不要编造结果。`,
+                    summary: choice?.decision === 'timeout' ? '等待工作区超时' : '已取消分配工作区',
+                    isError: true
+                };
+            }
+            return {
+                content: `技能 @${cleanId} 需要在工作区目录下运行命令行或读写文件工具，当前对话未开启工作区工具，无法直接执行。请如实告知用户需要在桌面或网页端选择工作区后使用，不要调用 run_command，也不要编造结果。`,
+                summary: '需要工作区',
+                isError: true
+            };
+        }
         const alreadyLoaded = session.loadedSkills.has(cleanId);
         session.loadedSkills.add(cleanId);
         const before = new Set(toolsets.keys());

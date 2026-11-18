@@ -406,6 +406,7 @@
             void state.card.offsetWidth;
             state.card.classList.add('is-nudge');
         });
+        root.addEventListener('wheel', onWheel, { passive: false });
         root.querySelector('.v2-tour-skip').addEventListener('click', () => close(true));
         root.querySelector('[data-tour-prev]').addEventListener('click', () => go(state.index - 1));
         root.querySelector('[data-tour-next]').addEventListener('click', forward);
@@ -424,6 +425,8 @@
         const demos = window.HomeProductTourDemos;
         const stage = state.stage;
         renderPins([]);
+        stopAutoScroll();
+        state.pinTargets = null;
         state.chatRun += 1;
         state.chatPhase = '';
         const demo = step.stage === 'tool' && demos?.tools[step.id];
@@ -667,6 +670,7 @@
         if (frame.dataset.layout !== `${width}x${height}`) {
             frame.dataset.layout = `${width}x${height}`;
             alignFocus(doc);
+            startAutoScroll(frame);
         }
         const outer = box.getBoundingClientRect();
         // 快照里的坐标换算到视口，并裁到内嵌页可见范围内。
@@ -677,10 +681,8 @@
             return { left: outer.left + left * PAGE_ZOOM, top: outer.top + top * PAGE_ZOOM,
                 width: (right - left) * PAGE_ZOOM, height: (bottom - top) * PAGE_ZOOM };
         };
-        renderPins((demo.pins || []).map(item => {
-            const el = findPinTarget(doc, item);
-            return el && toViewport(el.getBoundingClientRect());
-        }));
+        state.pinTargets ||= (demo.pins || []).map(item => findPinTarget(doc, item));
+        renderPins(state.pinTargets.map(el => el?.isConnected ? toViewport(el.getBoundingClientRect()) : null));
         return toViewport(focus.getBoundingClientRect());
     }
 
@@ -695,24 +697,91 @@
         return candidates[0]?.el || null;
     }
 
+    // 快照里能滚动的区域：页面本身或内部滚动容器里，可滚动距离最大的那个。
+    function pageScroller(frame) {
+        const doc = frame?.contentDocument;
+        if (!doc?.scrollingElement) return null;
+        const range = el => el.scrollHeight - el.clientHeight;
+        return [doc.scrollingElement, ...doc.querySelectorAll('[data-tour-scroll]')]
+            .sort((a, b) => range(b) - range(a))[0];
+    }
+
+    // 长页面先停一会，再慢慢向下滚到底，停一会后回到开头，循环播放；高亮框和编号跟着移动。
+    function startAutoScroll(frame) {
+        stopAutoScroll();
+        const scroller = pageScroller(frame);
+        if (!scroller || reducedMotion()) return;
+        const SPEED = 34;
+        let phase = 'hold', since = performance.now(), last = since, hold = 1800, top = scroller.scrollTop, pos = top;
+        const auto = { frame, scroller, raf: 0 };
+        const tick = now => {
+            if (state.auto !== auto || !frame.isConnected) return;
+            const dt = Math.min(64, now - last);
+            last = now;
+            const bottom = scroller.scrollHeight - scroller.clientHeight;
+            if (phase === 'hold') {
+                if (now - since > hold) phase = pos >= bottom - 1 ? 'up' : 'down';
+            } else if (phase === 'down') {
+                pos = Math.min(bottom, pos + SPEED * dt / 1000);
+                if (pos >= bottom) { phase = 'hold'; since = now; hold = 2400; }
+            } else {
+                pos = Math.max(top, pos - SPEED * 5 * dt / 1000);
+                if (pos <= top) { phase = 'hold'; since = now; hold = 1800; }
+            }
+            if (Math.abs(scroller.scrollTop - pos) >= 0.5) {
+                scroller.scrollTop = pos;
+                updateSpotlight();
+            }
+            auto.raf = requestAnimationFrame(tick);
+        };
+        if (scroller.scrollHeight - scroller.clientHeight - top < 40) return;
+        state.auto = auto;
+        auto.raf = requestAnimationFrame(tick);
+    }
+
+    function stopAutoScroll() {
+        if (state.auto) cancelAnimationFrame(state.auto.raf);
+        state.auto = null;
+    }
+
+    // 滚轮：第一步翻看输入框里的问题（发送后滚动对话区）；工具步骤改为手动滚动快照。
+    function onWheel(event) {
+        const step = state.steps[state.index];
+        let target = null;
+        if (step?.id === 'composer') target = document.getElementById(state.chatSent ? 'dcThread' : 'dcInput');
+        else if (step?.stage === 'tool') {
+            stopAutoScroll();
+            target = pageScroller(state.stage.querySelector('.tm-page'));
+        }
+        if (!target) return;
+        event.preventDefault();
+        target.scrollTop += step.stage === 'tool' ? event.deltaY / PAGE_ZOOM : event.deltaY;
+        onViewportChange();
+    }
+
     // 重点按钮：遮罩上挖出亮区，并在左上角标编号；编号和卡片里的说明一一对应。
     function renderPins(rects) {
         const layer = state.root.querySelector('.v2-tour-pins');
         const cuts = state.root.querySelector('.v2-tour-pin-cuts');
-        const visible = rects.map((rect, index) => rect && { rect, index }).filter(Boolean);
-        if (layer.children.length !== visible.length) {
-            layer.innerHTML = visible.map(({ index }, order) => `<div class="v2-tour-pin" style="--pin-delay:${260 + order * 140}ms"><b>${index + 1}</b></div>`).join('');
-            cuts.innerHTML = visible.map(() => '<rect rx="8" ry="8" fill="black"></rect>').join('');
+        if (layer.children.length !== rects.length) {
+            layer.innerHTML = rects.map((_, index) => `<div class="v2-tour-pin" style="--pin-delay:${260 + index * 140}ms"><b>${index + 1}</b></div>`).join('');
+            cuts.innerHTML = rects.map(() => '<rect rx="8" ry="8" fill="black"></rect>').join('');
         }
-        visible.forEach(({ rect }, order) => {
+        rects.forEach((rect, order) => {
+            const pinEl = layer.children[order];
+            const cut = cuts.children[order];
+            pinEl.hidden = !rect;
+            if (!rect) {
+                cut.setAttribute('width', '0');
+                cut.setAttribute('height', '0');
+                return;
+            }
             const pad = 4;
             const x = Math.round(rect.left - pad), y = Math.round(rect.top - pad);
             const w = Math.round(rect.width + pad * 2), h = Math.round(rect.height + pad * 2);
-            const pinEl = layer.children[order];
             pinEl.style.transform = `translate3d(${x}px, ${y}px, 0)`;
             pinEl.style.width = `${w}px`;
             pinEl.style.height = `${h}px`;
-            const cut = cuts.children[order];
             cut.setAttribute('x', String(x));
             cut.setAttribute('y', String(y));
             cut.setAttribute('width', String(w));
@@ -882,6 +951,7 @@
         if (!state.active) return;
         state.steps[state.index]?.cleanup?.();
         state.chatRun += 1;
+        stopAutoScroll();
         endChat();
         state.cardObserver?.disconnect();
         state.cardObserver = null;

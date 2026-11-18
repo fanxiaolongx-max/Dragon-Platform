@@ -2318,7 +2318,7 @@ html.platform-home:not([data-theme="dark"]) .dc-approval { border-color: #f3d9a4
 
 html.platform-home:not([data-theme="dark"]) .dc-approval.is-settled { border-color: var(--v2-line); background: var(--v2-side); }
 
-html.platform-home:not([data-theme="dark"]) :is(.dc-approval.is-allow, .dc-approval.is-always) { border-color: #bbe5c8; }
+html.platform-home:not([data-theme="dark"]) :is(.dc-approval.is-allow, .dc-approval.is-always, .dc-approval.is-select_workspace, .dc-approval.is-scratch) { border-color: #bbe5c8; }
 
 html.platform-home:not([data-theme="dark"]) :is(.dc-approval.is-deny, .dc-approval.is-timeout, .dc-approval.is-abort) { border-color: #f5c2c2; }
 
@@ -2332,7 +2332,7 @@ html.platform-home:not([data-theme="dark"]) .dc-approval-path em { color: #b4530
 
 html.platform-home:not([data-theme="dark"]) :is(.dc-approval-cwd, .dc-approval-diff summary, .dc-approval-status) { color: var(--v2-ink3); }
 
-html.platform-home:not([data-theme="dark"]) :is(.dc-approval.is-allow, .dc-approval.is-always) .dc-approval-status { color: #15803d; }
+html.platform-home:not([data-theme="dark"]) :is(.dc-approval.is-allow, .dc-approval.is-always, .dc-approval.is-select_workspace, .dc-approval.is-scratch) .dc-approval-status { color: #15803d; }
 
 html.platform-home:not([data-theme="dark"]) :is(.dc-approval.is-deny, .dc-approval.is-timeout) .dc-approval-status { color: #dc2626; }
 

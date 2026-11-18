@@ -254,6 +254,26 @@ function autoSelect(content, { pagePath = '', extraIds = [], contextMessages = [
         }
     }
 
+    // 微信本地聊天数据库查询：若本会话历史已显式用过 @wechat-vault，后续追问保持激活
+    if (byId.has('wechat-vault')) {
+        const sessionHadWechatVault = (Array.isArray(contextMessages) ? contextMessages : []).some(item => {
+            const c = String(item?.content || '');
+            if (/@wechat-vault\b|wechat-vault|wv_query\.py/i.test(c)) return true;
+            try {
+                const events = typeof item?.events === 'string' ? JSON.parse(item.events) : item?.events;
+                if (Array.isArray(events) && events.some(e => e.type === 'skills' && Array.isArray(e.skills) && e.skills.includes('wechat-vault'))) return true;
+            } catch (_) {}
+            return false;
+        });
+        const wechatFollowup = sessionHadWechatVault && (
+            /(?:微信|消息|聊天|群里|谁找我|联系|未读|汇总|总结|昨天|前天|今天|\d+\s*[号日])/.test(text)
+            || text.trim().length <= 30
+        );
+        if (wechatFollowup) {
+            selected.push('wechat-vault');
+        }
+    }
+
     const improveSkill = /(?:完善|优化|改进|升级).{0,20}(?:skill\b|技能)|(?:skill\b|技能).{0,16}(?:完善|优化|改进|升级)|\b(?:improve|refine|update)\s+(?:the\s+|this\s+|an?\s+)?skill\b/i.test(text);
     const createSkill = !improveSkill && (/(?:做成|生成|创建|新建|制作|写(?:一?个|个|份)?|整理成|封装成|总结成|保存(?:成|为)|沉淀(?:成|为)|转(?:成|为)).{0,24}(?:skill\b|技能)|(?:skill\b|技能).{0,16}(?:草稿|模板|怎么写|如何写)|\b(?:create|make|build|draft|turn\b[\s\S]{0,40}\binto|save\s+as)\s+(?:a\s+|an\s+)?skill\b/i.test(text));
     const skillFollowup = /^(?:确认|继续|好(?:的)?|可以|行|保存|按这个|就按这个|生成草稿|输出草稿)/i.test(text.trim());

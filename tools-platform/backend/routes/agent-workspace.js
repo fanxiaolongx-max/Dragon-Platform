@@ -420,7 +420,17 @@ router.post('/inbox/test', inboxHandle(async (req, res) => {
 
 router.post('/approvals/:id', (req, res) => {
     try {
-        res.json(runManager.resolveApproval(req.params.id, req.body && req.body.decision, req.user, getTenantId(), req.body && req.body.scope));
+        res.json(runManager.resolveApproval(
+            req.params.id,
+            req.body && req.body.decision,
+            req.user,
+            getTenantId(),
+            {
+                scope: req.body && req.body.scope,
+                root: req.body && req.body.root,
+                agentSessionId: req.body && req.body.agentSessionId
+            }
+        ));
     } catch (error) {
         res.status(error.statusCode || 500).json({ code: error.code, error: error.message });
     }
