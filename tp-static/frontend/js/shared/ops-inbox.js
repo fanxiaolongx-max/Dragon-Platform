@@ -1,7 +1,9 @@
 // 运营草稿确认：主页显示提示条，点击后进入对应的微信 / WeLink 会话处理。
 (function () {
     'use strict';
-    if (window.ToolsOpsInbox || window.top !== window.self || window.__TP_STATIC_BASE__ || !/^https?:$/.test(location.protocol)) return;
+    const inTour = window.frameElement?.classList.contains('v2-tour-tool')
+        && new URLSearchParams(location.search).get('opsGuide') === '1';
+    if (window.ToolsOpsInbox || (!inTour && window.top !== window.self) || window.__TP_STATIC_BASE__ || !/^https?:$/.test(location.protocol)) return;
     const API = '/api/channels/ops';
     const PAGE_SIZE = 20;
     const SUCCESS_NOTICE_MS = 2200;
@@ -378,8 +380,12 @@
         state.muted = readMuted();
         state.activeThread = window.HomeWelinkThreads?.active?.() || null;
         state.threadReady = Boolean(state.activeThread && !document.getElementById('dcThread')?.hasAttribute('aria-busy'));
-        refresh({ force: true }).then(() => { if (location.hash === '#ops-drafts') review(undefined, { quietWhenUnavailable: true }); });
-        window.addEventListener('home:channel-threads-ready', () => { if (location.hash === '#ops-drafts') review(undefined, { quietWhenUnavailable: true }); });
+        const openLinkedReview = () => {
+            if (location.hash !== '#ops-drafts') return;
+            return review(undefined, { quietWhenUnavailable: !inTour });
+        };
+        refresh({ force: true }).then(openLinkedReview);
+        window.addEventListener('home:channel-threads-ready', openLinkedReview);
         window.addEventListener('home:channel-thread', event => {
             const changed = targetKey(state.activeThread) !== targetKey(event.detail.thread);
             const wasReviewing = state.reviewing;

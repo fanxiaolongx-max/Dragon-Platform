@@ -233,26 +233,33 @@
     navTip.setAttribute('role', 'tooltip');
     document.body.appendChild(navTip);
     let navTipTimer = 0;
+    let navTipAnchor = null;
     function showNavTip(text, anchor) {
         clearTimeout(navTipTimer);
+        navTipAnchor = anchor;
         navTip.textContent = text;
         const rect = anchor.getBoundingClientRect();
         navTip.style.left = `${rect.right + 8}px`;
         navTip.style.top = `${rect.top + (rect.height / 2)}px`;
         navTip.classList.add('is-open');
+        navTipTimer = setTimeout(hideNavTip, 3000);
     }
     function hideNavTip() {
         clearTimeout(navTipTimer);
+        navTipAnchor = null;
         navTip.classList.remove('is-open');
     }
     document.addEventListener('mouseover', event => {
         const item = event.target.closest('.v2-nav-item.is-disabled');
-        if (item && item.dataset.disabledReason) showNavTip(item.dataset.disabledReason, item);
+        if (item && !item.contains(event.relatedTarget) && item.dataset.disabledReason) showNavTip(item.dataset.disabledReason, item);
     });
     document.addEventListener('mouseout', event => {
-        const item = event.target.closest('.v2-nav-item.is-disabled');
-        if (item) hideNavTip();
+        if (navTipAnchor?.contains(event.target) && !navTipAnchor.contains(event.relatedTarget)) hideNavTip();
     });
+    window.addEventListener('blur', hideNavTip);
+    window.addEventListener('resize', hideNavTip);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) hideNavTip(); });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape') hideNavTip(); });
 
     // ── 主导航动作 ──
     const ACTIONS = {
@@ -272,8 +279,6 @@
             if (navItem?.classList.contains('is-disabled')) {
                 const reason = navItem.dataset.disabledReason || navItem.title || t('channelDisabledNoChannel');
                 showNavTip(reason, navItem);
-                clearTimeout(navTipTimer);
-                navTipTimer = setTimeout(hideNavTip, 3000);
                 return;
             }
             window.HomeMode?.set('chat');
@@ -294,6 +299,7 @@
         plugins() { window.HomeSkillHub?.open?.('plugins'); },
         market() { window.HomeTools?.openMarket?.(); },
         importTool() { window.HomeTools?.openImport?.(); },
+        importSkill() { window.HomeTools?.openImport?.({ kind: 'skill' }); },
         compare() { window.openBuiltinToolsComparison?.(); },
         links() { openLinks(); },
         alerts() { openMessages(); },
@@ -319,8 +325,6 @@
             const reason = el.dataset.disabledReason || el.title;
             if (reason) {
                 showNavTip(reason, el);
-                clearTimeout(navTipTimer);
-                navTipTimer = setTimeout(hideNavTip, 3000);
             }
             return;
         }
@@ -1873,6 +1877,7 @@
         const hasConfigured = Object.values(summary).some(s => s && s.configured);
 
         if (hasEnabled) {
+            if (navTipAnchor === navItem) hideNavTip();
             navItem.classList.remove('is-disabled');
             navItem.removeAttribute('aria-disabled');
             delete navItem.dataset.disabledReason;
@@ -2036,6 +2041,8 @@
         const filter = window.HomeConversationList?.getFilter?.() || { status: 'all', time: 'all' };
         const sources = window.HomeConversationList?.getSources?.() || [];
         const sourceActive = filter.source && filter.source !== 'all';
+        const archiveSource = activeChatSource() === 'agents' ? 'desktop:' + activeProvider() : activeChatSource();
+        const archivedOn = Boolean(window.HomeConversationList?.isArchived?.(archiveSource));
         const option = (label, attr, on) => `<button type="button" class="v2-pop-item v2-check-item${on ? ' is-checked' : ''}" role="menuitemradio" aria-checked="${on}" ${attr}><span>${esc(label)}</span>${on ? '<span class="v2-ico v2-check" data-icon="check"></span>' : ''}</button>`;
         sortPop.innerHTML = `<div class="v2-pop-cap">${esc(t('filterStatus'))}</div>
             ${[['all', 'statusAll'], ['pinned', 'statusPinned'], ['group', 'statusGroup'], ['workspace', 'statusWorkspace']].map(([id, key]) => option(t(key), `data-filter-status="${id}"`, filter.status === id)).join('')}
@@ -2043,9 +2050,9 @@
             ${[{ id: 'all', label: lang() === 'en-US' ? 'All sources' : '全部来源' }, ...sources].map(item => option(item.label, `data-filter-source="${esc(item.id)}"`, (filter.source || 'all') === item.id)).join('')}` : ''}
             <div class="v2-pop-sep"></div><div class="v2-pop-cap">${esc(t('filterTime'))}</div>
             ${[['all', 'timeAll'], ['today', 'timeToday'], ['7', 'time7'], ['30', 'time30']].map(([id, key]) => option(t(key), `data-filter-time="${id}"`, filter.time === id)).join('')}
-            <div class="v2-pop-sep"></div><button type="button" class="v2-pop-item" data-filter-archived>${lang() === 'en-US' ? 'Show / hide archived chats' : '查看 / 收起已归档对话'}</button><button type="button" class="v2-pop-item v2-pop-reset" data-filter-reset${filter.status === 'all' && filter.time === 'all' && !sourceActive ? ' disabled' : ''}>${esc(t('filterReset'))}</button>`;
+            <div class="v2-pop-sep"></div><button type="button" class="v2-pop-item v2-check-item v2-filter-archived-btn${archivedOn ? ' is-checked' : ''}" role="menuitemcheckbox" aria-checked="${archivedOn}" data-filter-archived><span>${lang() === 'en-US' ? 'Show archived chats' : '查看已归档对话'}</span>${archivedOn ? '<span class="v2-ico v2-check" data-icon="check"></span>' : ''}</button><button type="button" class="v2-pop-item v2-pop-reset" data-filter-reset${filter.status === 'all' && filter.time === 'all' && !sourceActive && !archivedOn ? ' disabled' : ''}>${esc(t('filterReset'))}</button>`;
         fillIcons(sortPop);
-        $('v2SortBtn')?.classList.toggle('is-on', filter.status !== 'all' || filter.time !== 'all' || Boolean(sourceActive));
+        $('v2SortBtn')?.classList.toggle('is-on', filter.status !== 'all' || filter.time !== 'all' || Boolean(sourceActive) || archivedOn);
     }
     sortPop.addEventListener('click', event => {
         const status = event.target.closest('[data-filter-status]');
@@ -2062,6 +2069,8 @@
         else if (time) window.HomeConversationList?.setFilter?.({ time: time.dataset.filterTime });
         else if (event.target.closest('[data-filter-archived]')) window.HomeConversationList?.toggleArchived?.(activeChatSource()==='agents' ? 'desktop:'+activeProvider() : activeChatSource());
         else if (event.target.closest('[data-filter-reset]')) {
+            const archiveSource = activeChatSource() === 'agents' ? 'desktop:' + activeProvider() : activeChatSource();
+            if (window.HomeConversationList?.isArchived?.(archiveSource)) window.HomeConversationList.toggleArchived(archiveSource);
             window.HomeConversationList?.setFilter?.({ status: 'all', time: 'all', source: 'all' });
             window.HomeWelinkThreads?.setSource?.('mine');
         }

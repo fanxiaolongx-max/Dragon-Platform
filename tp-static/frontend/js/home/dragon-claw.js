@@ -65,11 +65,13 @@
             tool_list_uiv_scripts: '查找抓取脚本', tool_read_uiv_script: '读取抓取脚本', tool_save_uiv_script: '保存抓取脚本', tool_delete_uiv_script: '删除抓取脚本',
             tool_list_uiv_categories: '查看脚本分类与站点', tool_move_uiv_script: '移动脚本分类', tool_manage_uiv_category: '管理脚本分类',
             categoryPinned: '置顶', categoryTasks: '任务', categorySpaces: '空间', newChatInWorkspace: '新建任务',
+            archivedViewBanner: '正在查看已归档对话', archivedExit: '返回', archivedBadge: '已归档', chatArchivedEmpty: '暂无已归档对话',
             workspaceDisabled: '工作区仅在本机或管理员账号下可用'
         },
         'en-US': {
             messageExpand: 'Show more', messageCollapse: 'Show less',
             categoryPinned: 'Pinned', categoryTasks: 'Tasks', categorySpaces: 'Workspaces', newChatInWorkspace: 'New task',
+            archivedViewBanner: 'Viewing archived chats', archivedExit: 'Back', archivedBadge: 'Archived', chatArchivedEmpty: 'No archived chats',
             ctxCompacted: 'Context compacted. Usage updates after the next reply.',
             slashCompact: 'Compact context while keeping the full history', compactRunning: 'Compacting context…', compactEmpty: 'Start a conversation before compacting its context', compactSmall: 'The context is already compact', compactDone: 'Context compacted. Full chat and tool history kept.', compactFailed: 'Could not compact context. History was not deleted.',
             slashSchedule: 'Run an instruction later or on a schedule (no args: list tasks)', slashPlan: 'Draft a step plan first, run it after you confirm', slashBtw: 'Quick side question that stays out of this chat',
@@ -1991,7 +1993,7 @@
         }
         let started = false;
         try {
-            const clientToolData = await collectClientToolData(`${state.messages.slice(-3, -1).map(item => item.role === 'user' ? item.content : '').join('\n')}\n${content}`);
+            const clientToolData = options.tourReportExample ? [] : await collectClientToolData(`${state.messages.slice(-3, -1).map(item => item.role === 'user' ? item.content : '').join('\n')}\n${content}`);
             const data = await api.requestStreamingChat({
                 toolSlug: state.focusedTool?.id || '',
                 clientToolData,
@@ -2002,6 +2004,7 @@
                 uiLanguage: lang() === 'en-US' ? 'en' : 'zh',
                 sessionId: state.sessionId,
                 agent: 'dragon-claw-home',
+                ...(options.tourReportExample ? { tourReportExample: true } : {}),
                 ...(homeConnector ? { homeConnector } : {}),
                 // 会话内保持的 Skill（输入框上方标签）；本条消息里的 @id 由后端直接解析
                 ...(keptSkills.length ? { skills: keptSkills } : {}),
@@ -2857,9 +2860,9 @@
         try { localStorage.setItem(SECTION_KEY, JSON.stringify([...collapsedSections])); } catch { /* 无痕模式 */ }
         renderChatList();
     }
-    function sectionHead(id, label, count) {
+    function sectionHead(id, label, count, archived = false) {
         const collapsed = collapsedSections.has(id);
-        return `<button type="button" class="home-chat-category" data-chat-section="${id}" aria-expanded="${!collapsed}"><span class="home-chat-category-chevron" aria-hidden="true"></span><span class="home-chat-category-title">${escapeHtml(label)}</span><span class="home-chat-category-count">(${count})</span></button>`;
+        return `<button type="button" class="home-chat-category" data-chat-section="${id}" aria-expanded="${!collapsed}"><span class="home-chat-category-chevron" aria-hidden="true"></span><span class="home-chat-category-title">${escapeHtml(label)}</span><span class="home-chat-category-count">(${count})</span>${archived ? `<span class="home-chat-category-badge">${escapeHtml(tx('archivedBadge'))}</span>` : ''}</button>`;
     }
 
     function getDirectoryBaseName(fullPath) {
@@ -3010,31 +3013,26 @@
                 return timeB - timeA;
             });
 
-            if (query) {
-                for (const root of projectMap.keys()) collapsedProjects.delete(root);
-            } else {
-                for (const [root, entries] of sortedProjects) {
-                    if (entries.some(e => isItemActive(e.item))) {
-                        collapsedProjects.delete(root);
-                    }
-                }
-            }
+            const archivedBanner = isArchived
+                ? `<div class="home-chat-archive-banner" role="status"><span class="home-chat-archive-banner-label"><span class="home-chat-archive-dot" aria-hidden="true"></span>${escapeHtml(tx('archivedViewBanner'))}</span><button type="button" class="home-chat-archive-exit" data-chat-exit-archived>${escapeHtml(tx('archivedExit'))}</button></div>`
+                : '';
 
             if (pinnedEntries.length === 0 && taskEntries.length === 0 && sortedProjects.length === 0) {
-                el.chatList.innerHTML = `<div class="home-chat-empty">${escapeHtml(tx('chatNoMatch'))}</div>`;
+                el.chatList.innerHTML = `${archivedBanner}<div class="home-chat-empty">${escapeHtml(tx(query ? 'chatNoMatch' : (isArchived ? 'chatArchivedEmpty' : 'chatEmpty')))}</div>`;
                 window.HomeConversationList?.enhance(el.chatList, config);
                 return;
             }
 
             // 保持一个隐藏的 .home-chat-group 占位，供自动化测试与样式选择器向下兼容
             html.push('<div class="home-chat-group" hidden style="display:none;" aria-hidden="true"></div>');
+            if (archivedBanner) html.push(archivedBanner);
 
             const searching = Boolean(query);
 
             // 0. 置顶 (全部类型的置顶会话：第三方 Agent、空间对话、普通任务)：顶级独立分类；没有置顶项时不显示
             if (pinnedEntries.length > 0) {
                 const open = searching || !collapsedSections.has('pinned');
-                html.push(`<section class="home-chat-section" data-section="pinned">${sectionHead('pinned', tx('categoryPinned'), pinnedEntries.length)}
+                html.push(`<section class="home-chat-section" data-section="pinned">${sectionHead('pinned', tx('categoryPinned'), pinnedEntries.length, isArchived)}
                     <div class="home-chat-section-body" data-batch-scope="pinned"${open ? '' : ' hidden'}>
                         ${pinnedEntries.map(({ item, index }) => renderItemHtml(item, index, false)).join('')}
                     </div></section>`);
@@ -3043,7 +3041,7 @@
             // 1. 任务 (未选目录)：顶级分类，可折叠，「展开更多」只作用于本分类（conversation-list.js 按 data-batch-scope 分别计数）
             if (taskEntries.length > 0 || (sortedProjects.length === 0 && pinnedEntries.length === 0)) {
                 const open = searching || !collapsedSections.has('tasks');
-                html.push(`<section class="home-chat-section" data-section="tasks">${sectionHead('tasks', tx('categoryTasks'), taskEntries.length)}
+                html.push(`<section class="home-chat-section" data-section="tasks">${sectionHead('tasks', tx('categoryTasks'), taskEntries.length, isArchived)}
                     <div class="home-chat-section-body" data-batch-scope="tasks" data-batch-remote${open ? '' : ' hidden'}>
                         ${taskEntries.map(({ item, index }) => renderItemHtml(item, index, false)).join('')}
                     </div></section>`);
@@ -3052,7 +3050,7 @@
             // 2. 空间 (已选目录)：每个项目文件夹下是该目录的对话，文件夹数量与每个文件夹里的对话各自「展开更多」
             if (sortedProjects.length > 0) {
                 const open = searching || !collapsedSections.has('spaces');
-                html.push(`<section class="home-chat-section" data-section="spaces">${sectionHead('spaces', tx('categorySpaces'), sortedProjects.length)}
+                html.push(`<section class="home-chat-section" data-section="spaces">${sectionHead('spaces', tx('categorySpaces'), sortedProjects.length, isArchived)}
                     <div class="home-chat-section-body" data-batch-scope="spaces" data-batch-unit="project" data-batch-step="5"${open ? '' : ' hidden'}>`);
                 for (const [root, entries] of sortedProjects) {
                     const projectName = getDirectoryBaseName(root);
@@ -3060,7 +3058,7 @@
                     const hasActive = entries.some(e => isItemActive(e.item));
                     html.push(`
                         <div class="home-chat-project${isCollapsed ? ' is-collapsed' : ''}${hasActive ? ' is-active-project' : ''}" data-project-root="${escapeHtml(root)}">
-                            <div class="home-chat-project-head" role="button" tabindex="0" title="${escapeHtml(root)}" data-project-toggle>
+                            <div class="home-chat-project-head" role="button" tabindex="0" aria-expanded="${!isCollapsed}" title="${escapeHtml(root)}" data-project-toggle>
                                 <span class="home-chat-project-chevron" aria-hidden="true">${isCollapsed ? '›' : '⌄'}</span>
                                 <span class="home-chat-project-icon" aria-hidden="true">
                                     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 6V5a1.5 1.5 0 0 1 1.5-1.5h4l2 2h6A1.5 1.5 0 0 1 17.5 7v8a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 15V6Z"/></svg>
@@ -3228,6 +3226,11 @@
     function bindChatList() {
         if (!el.chatList) return;
         el.chatList.addEventListener('click', event => {
+            if (event.target.closest('[data-chat-exit-archived]')) {
+                event.preventDefault();
+                if (window.HomeConversationList?.isArchived?.('mine')) window.HomeConversationList.toggleArchived('mine');
+                return;
+            }
             if (event.target.closest('[data-chat-retry]')) {
                 chatList.loaded = false;
                 renderChatList();
@@ -3508,6 +3511,78 @@
         updateSendButton();
     }
 
+    let submittingTourExample = false;
+
+    function canTypeTourExample(draft) {
+        const connector = window.HomeAgentDiscussion?.getSelectedConnector?.() || 'none';
+        return !state.controller && !state.restoring && !state.sessionId && !state.messages.length && !state.attachments.length
+            && !external.active && !el.input.disabled && el.input.value === draft && connector === 'none';
+    }
+
+    async function typeTourExample(text, signal) {
+        if (signal.aborted || el.input.readOnly || !canTypeTourExample('')) return null;
+        const characters = Array.from(text);
+        const duration = prefersReducedMotion() ? 0 : 2200;
+        let typed = '';
+        const updateInput = value => {
+            el.input.value = value;
+            el.input.scrollTop = el.input.scrollHeight;
+            el.input.dispatchEvent(new Event('input', { bubbles: true }));
+        };
+        function release() {
+            signal.removeEventListener('abort', cancel);
+            el.input.readOnly = false;
+        }
+        function cancel() {
+            release();
+            if (typed && el.input.value === typed) updateInput('');
+        }
+        el.input.readOnly = true;
+        el.input.focus({ preventScroll: true });
+        signal.addEventListener('abort', cancel, { once: true });
+        const started = performance.now() + (duration ? 240 : 0);
+        while (typed !== text) {
+            const time = await new Promise(resolve => requestAnimationFrame(resolve));
+            if (signal.aborted) return null;
+            if (!canTypeTourExample(typed)) {
+                cancel();
+                return null;
+            }
+            const count = duration ? Math.floor(characters.length * (time - started) / duration) : characters.length;
+            if (count <= 0) continue;
+            const next = characters.slice(0, count).join('');
+            if (next !== typed) updateInput(typed = next);
+        }
+        el.input.scrollTop = 0;
+        return {
+            cancel,
+            submit() {
+                if (signal.aborted || !canTypeTourExample(text)) {
+                    cancel();
+                    return false;
+                }
+                release();
+                submittingTourExample = true;
+                try {
+                    el.input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true }));
+                } finally {
+                    submittingTourExample = false;
+                }
+                return Boolean(state.controller);
+            }
+        };
+    }
+
+    function showTourLanding() {
+        if (!document.body.classList.contains('dc-chatting')) return null;
+        const scrollTop = el.thread.scrollTop;
+        setChatting(false);
+        return () => {
+            setChatting(true);
+            el.thread.scrollTop = scrollTop;
+        };
+    }
+
     function openKnowledgeGraphFrom(trigger) {
         const api = window.ToolsAIAssistant;
         if (!api?.openKnowledgeGraph) return;
@@ -3615,7 +3690,9 @@
             }
             if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
                 event.preventDefault();
-                if (!state.controller || isSideCommand(el.input.value)) send(el.input.value, undefined, { fromComposer: true });
+                if (!el.input.readOnly && (!state.controller || isSideCommand(el.input.value))) {
+                    send(el.input.value, undefined, { fromComposer: true, tourReportExample: submittingTourExample });
+                }
             }
         });
 
@@ -3775,7 +3852,7 @@
         });
         window.addEventListener('home:resume-agent-discussion',event=>{if(!state.controller&&!state.restoring&&event.detail?.sessionId===state.sessionId)sendDesktopDiscussion('',event.detail);});
         watchSchedules();
-        window.DragonClaw = { refreshModelPicker: renderModelPicker, startWithSkill, enterExternal, exitExternal, newChat, openSchedules: openSchedulePanel, openChat: openChatFromList, openLatest:openLatestChat, currentSessionId:()=>state.sessionId, lang, isExternal: () => external.active };
+        window.DragonClaw = { refreshModelPicker: renderModelPicker, startWithSkill, typeTourExample, showTourLanding, enterExternal, exitExternal, newChat, openSchedules: openSchedulePanel, openChat: openChatFromList, openLatest:openLatestChat, currentSessionId:()=>state.sessionId, lang, isExternal: () => external.active };
         // 其他页面或新标签打开的 /?skill=<id>：直接进入该技能的新对话
         const linkedSkill = new URLSearchParams(location.search).get('skill');
         if (linkedSkill) {

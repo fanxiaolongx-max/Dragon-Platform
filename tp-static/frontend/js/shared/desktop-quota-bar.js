@@ -51,7 +51,7 @@
         const symbol = currency === 'USD' ? 'US$' : currency === 'CNY' ? '¥' : currency === 'EUR' ? '€' : currency + ' ';
         return symbol + amount.toFixed(2);
     }
-    function extraUsageBlock(source, className) {
+    function extraUsageBlock(id, source, className) {
         if (!['live', 'cached'].includes(source?.status)) return null;
         const balance = source.creditsBalance;
         if (Number.isFinite(balance) && balance > 0) {
@@ -59,8 +59,10 @@
             // 1 以上取整；不足 1 时保留两位小数（向下取），避免"有余额却显示 0"
             const shown = balance >= 1 ? Math.floor(balance) : Math.floor(balance * 100) / 100;
             const amount = shown > 0 ? shown.toLocaleString(english() ? 'en-US' : 'zh-CN', { maximumFractionDigits: 2 }) : '<0.01';
-            head.append(el('span', 'dqb-extra-title', L('剩余充值额度', 'Remaining credits')),
-                el('span', 'dqb-extra-text', amount + ' credits'));
+            const antigravity = id === 'antigravity';
+            head.append(el('span', 'dqb-extra-title', antigravity
+                ? L('剩余 AI 点数', 'Available AI Credits') : L('剩余充值额度', 'Remaining credits')),
+                el('span', 'dqb-extra-text', amount + (antigravity ? L(' 点', ' credits') : ' credits')));
             block.append(head);
             return block;
         }
@@ -180,7 +182,7 @@
             row.setAttribute('aria-label', nameOf(id) + ' · ' + stateText(id));
             row.querySelectorAll('.dqb-cell').forEach(node => paintCell(node, id, windowOf(group, node.dataset.window)));
             const extraBlock = row.querySelector('.dqb-row-extra');
-            const nextExtra = isExpanded() ? extraUsageBlock(source, 'dqb-row-extra') : null;
+            const nextExtra = isExpanded() ? extraUsageBlock(id, source, 'dqb-row-extra') : null;
             extraBlock.hidden = !nextExtra;
             extraBlock.replaceChildren(...(nextExtra ? nextExtra.childNodes : []));
             extraBlock.title = nextExtra?.title || '';
@@ -268,7 +270,7 @@
             block.append(quotasEl); list.append(block);
         }
         const foot = el('div', 'dqb-peek-foot'); foot.append(el('span', '', source?.updatedAt ? t.updated + time(source.updatedAt) : ''), el('span', '', t.trends));
-        const extra = extraUsageBlock(source, 'dqb-peek-extra');
+        const extra = extraUsageBlock(id, source, 'dqb-peek-extra');
         peek.append(top, status, list);
         if (extra) peek.append(extra);
         peek.append(foot);
@@ -351,7 +353,17 @@
             trendsEl.addEventListener('pointerdown', event => { if (event.target === trendsEl) closeTrends(); });
             q('close').addEventListener('click', closeTrends);
             q('provider').addEventListener('change', () => { const p = q('provider').value; Object.assign(trendsState, { provider: p, groupId: groupsOf(p)[0]?.id || p }); loadTrends(); });
-            q('series').addEventListener('change', () => { const [groupId, windowId] = q('series').value.split(':'); if (windowId) Object.assign(trendsState, { groupId, windowId }); else trendsState.compare = true; drawTrends(); });
+            q('series').addEventListener('change', () => {
+                const value = q('series').value;
+                if (value === 'compare') {
+                    trendsState.compare = true;
+                } else {
+                    const [groupId, windowId] = value.split(':');
+                    if (!windowId) return;
+                    Object.assign(trendsState, { groupId, windowId, compare: false });
+                }
+                drawTrends();
+            });
             q('range').addEventListener('change', () => { trendsState.days = Number(q('range').value); loadTrends(); });
             q('metric').addEventListener('change', () => { trendsState.metric = q('metric').value; drawTrends(); });
             document.addEventListener('keydown', event => { if (event.key === 'Escape' && trendsEl && !trendsEl.hidden) { event.stopPropagation(); closeTrends(); } }, true);

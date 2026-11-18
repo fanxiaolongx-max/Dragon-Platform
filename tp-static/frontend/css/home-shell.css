@@ -1524,6 +1524,8 @@ html.platform-home .home-panel-view.v2-groups-collapsed > :is(.conversation-list
 
 .v2-check-item.is-checked { background: var(--v2-hover); font-weight: 600; }
 
+.v2-filter-archived-btn.is-checked { background: var(--v2-accent-soft); color: var(--v2-accent); }
+
 .v2-check { width: 16px; height: 16px; color: var(--v2-accent); }
 
 .v2-pop-reset { color: var(--v2-ink3); font-size: 12.5px; }
@@ -1868,7 +1870,7 @@ html.platform-home body:not(.dc-chatting) .v2-suggest:has(> .v2-agent-illustrati
 body.dc-chatting .v2-agent-illustration { display: none; }
 /* 来源随已启用的渠道增加，窄屏和桌面窗口内仍可滚动访问全部筛选。 */
 .v2-sort-menu { max-height: calc(100dvh - 90px); overflow-y: auto; overscroll-behavior: contain; }
-/* ── 首页新手引导（7 步焦点蒙版 + 浮层卡片，支持亮/暗双主题与减弱动效） ── */
+/* 首页新手引导 */
 html.v2-tour-suspending #v2ToolFrame,
 html.v2-tour-suspending #v2SkillHub { display: none !important; }
 
@@ -1897,10 +1899,26 @@ html.v2-tour-suspending #v2SkillHub { display: none !important; }
     visibility: visible;
 }
 
+.v2-tour-tool {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: var(--v2-bg);
+    pointer-events: none;
+}
+
 .v2-tour-backdrop {
     position: fixed;
     inset: 0;
     pointer-events: none;
+    backdrop-filter: blur(0);
+    transition: backdrop-filter 240ms ease-out;
+}
+
+.v2-tour-root.is-tool-loading .v2-tour-backdrop {
+    backdrop-filter: blur(6px);
 }
 
 .v2-tour-root.is-open .v2-tour-backdrop {
@@ -1946,6 +1964,11 @@ html[data-theme="dark"] .v2-tour-ring {
     top: 0;
     z-index: 2;
     pointer-events: none;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    max-width: calc(100% - 28px);
+    max-height: calc(100dvh - 28px);
     padding: 18px 20px 15px;
     border-radius: 18px;
     border: 1px solid rgba(255, 255, 255, 0.72);
@@ -2041,6 +2064,9 @@ html[data-theme="dark"] .v2-tour-card {
 
 .v2-tour-body {
     margin-top: 10px;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
     transition: opacity 160ms ease, transform 160ms ease;
 }
 
@@ -2069,39 +2095,7 @@ html[data-theme="dark"] .v2-tour-card {
     margin-top: 16px;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-}
-
-.v2-tour-dots {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-
-.v2-tour-dot {
-    width: 6px;
-    height: 6px;
-    padding: 0;
-    border: none;
-    border-radius: 999px;
-    background: var(--v2-line-strong);
-    cursor: pointer;
-    transition: width 240ms cubic-bezier(.22, 1, .36, 1), background 200ms ease;
-}
-
-.v2-tour-dot.is-done {
-    background: rgba(16, 163, 127, 0.45);
-}
-
-.v2-tour-dot.is-active {
-    width: 20px;
-    background: var(--v2-accent);
-}
-
-.v2-tour-actions {
-    display: flex;
-    align-items: center;
+    justify-content: flex-end;
     gap: 8px;
 }
 
@@ -2138,9 +2132,14 @@ html[data-theme="dark"] .v2-tour-card {
     box-shadow: 0 4px 12px rgba(16, 163, 127, 0.28);
 }
 
-.v2-tour-btn.is-primary:hover {
+.v2-tour-btn.is-primary:enabled:hover {
     filter: brightness(1.06);
     box-shadow: 0 6px 16px rgba(16, 163, 127, 0.34);
+}
+
+.v2-tour-btn:disabled {
+    cursor: default;
+    opacity: .55;
 }
 
 .v2-tour-kbd {
@@ -2151,12 +2150,79 @@ html[data-theme="dark"] .v2-tour-card {
     color: var(--v2-ink3);
     text-align: right;
 }
+
+html.platform-home.v2-tour-review body:not(.dc-chatting) #dcInput {
+    height: 122px;
+    max-height: 42dvh;
+}
+
+@media (max-width: 640px) {
+    html.platform-home.v2-tour-review body:not(.dc-chatting) #dcInput {
+        height: min(32dvh, 210px);
+    }
+}
+
+html.v2-tour-chat body.dc-chatting #dragonClaw {
+    min-height: 0;
+}
+
+@media (min-width: 1100px) {
+    html.v2-tour-chat body.dc-chatting #dragonClaw {
+        max-width: calc(100% - 356px);
+    }
+
+    html.v2-tour-data #v2ToolFrame {
+        margin-left: max(0px, 356px - var(--v2-side-width, 240px));
+    }
+
+    .v2-tour-root.is-data-tool .v2-tour-tool {
+        left: auto;
+        width: calc(100% - 356px);
+    }
+
+    .v2-tour-root:is(.is-chat-demo, .is-data-tool) .v2-tour-card {
+        top: 50%;
+        transform: translateY(-50%);
+    }
+
+    .v2-tour-root.is-chat-demo .v2-tour-card {
+        left: auto;
+        right: 14px;
+    }
+
+    .v2-tour-root.is-data-tool .v2-tour-card {
+        left: 14px;
+    }
+}
+
+@media (width < 1100px) {
+    html.v2-tour-chat body.dc-chatting #dragonClaw {
+        padding-bottom: calc(var(--v2-tour-card-height, 200px) + 14px);
+    }
+
+    html.v2-tour-chat body.dc-chatting #dcComposer {
+        display: none;
+    }
+
+    html.v2-tour-data #v2ToolFrame,
+    .v2-tour-root.is-data-tool .v2-tour-tool {
+        height: calc(100% - var(--v2-tour-card-height, 200px) - 28px);
+    }
+
+    .v2-tour-root:is(.is-chat-demo, .is-data-tool) .v2-tour-card {
+        left: 50%;
+        top: auto;
+        bottom: 14px;
+        transform: translateX(-50%);
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
 
 .v2-tour-root,
+.v2-tour-backdrop,
 .v2-tour-card,
 .v2-tour-body,
-.v2-tour-dot,
 .v2-tour-ring {
         transition: none !important;
         animation: none !important;

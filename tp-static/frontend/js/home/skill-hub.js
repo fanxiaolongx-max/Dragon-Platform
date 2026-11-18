@@ -121,7 +121,7 @@
                 promoteId: item.promoteId || item.id, builtInLocked: item.builtInLocked === true,
                 sharedAccess: isShared, builtIn: isBuiltIn,
                 source: isBuiltIn ? 'builtin' : (group.kind === 'float' ? 'float' : 'custom'),
-                title: (en ? item.nameEn : '') || item.name, desc: item.description || '',
+                title: (en ? item.nameEn : '') || item.name, desc: (en ? item.descriptionEn : '') || item.description || '',
                 icon: item.icon || group.icon || '🧩', color: isBuiltIn ? '#10a37f' : (group.color || '#38bdf8'),
                 cat: group.kind, catLabel: (en ? group.labelEn : '') || group.label, extraCats,
                 badges,
@@ -351,7 +351,7 @@
         const row = (icon, label, attr) => `<button type="button" role="menuitem" ${attr}>${ico(icon)}<span>${esc(label)}</span></button>`;
         if (state.tab === 'skills') return [
             row('search', t('findSkill'), 'data-hub-do="find"'),
-            row('upload', t('uploadSkill'), 'data-v2-do="importTool"'),
+            row('upload', t('uploadSkill'), 'data-v2-do="importSkill"'),
             row('sparkles', t('createSkill'), 'data-hub-do="createSkill"')
         ].join('');
         if (state.tab === 'tools') return [
@@ -489,7 +489,7 @@
 
     function onClick(event) {
         const tab = event.target.closest('[data-hub-tab]');
-        if (!event.target.closest('.v2-hub-add')) toggleMenu(false);
+        if (!event.target.closest('.v2-hub-add') || event.target.closest('.v2-hub-menu [data-v2-do], .v2-hub-menu a')) toggleMenu(false);
         if (tab) {
             state.tab = tab.dataset.hubTab; state.cat = 'all'; state.query = ''; state.mine = false; state.filterSource = 'all';
             if (state.tab !== 'tools' && (location.hash === '#tools' || location.hash === 'tools')) {

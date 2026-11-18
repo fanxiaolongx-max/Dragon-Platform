@@ -1102,7 +1102,7 @@ async function renderAiSettings(content) {
                     <input id="navAiApiBaseUrl" class="nav-settings-input" value="${navEscape(settings.apiBaseUrl || '')}" placeholder="${navEscape(navT('nav.ai.plhApiUrl'))}" oninput="scheduleAiSettingsSave()">
                 </label>
                 <label class="nav-settings-check nav-ai-verify-ssl-check nav-ai-field-wide">
-                    <input id="navAiVerifySsl" type="checkbox" ${settings.verifySsl !== false ? 'checked' : ''} onchange="scheduleAiSettingsSave()">
+                    <input id="navAiVerifySsl" type="checkbox" ${settings.verifySsl === true ? 'checked' : ''} onchange="scheduleAiSettingsSave()">
                     <span><b>${navEscape(navT('nav.ai.verifySslLabel'))}</b><small>${navEscape(navT('nav.ai.verifySslHelp'))}</small></span>
                 </label>
                 <label class="nav-ai-field nav-ai-field-wide">
@@ -1205,7 +1205,7 @@ function collectAiSettingsPayload(options = {}) {
     const authMode = document.getElementById('navAiAuthMode')?.value || (provider === 'gemini' ? 'x-goog-api-key' : 'bearer');
     const customAuthHeader = document.getElementById('navAiCustomAuthHeader')?.value?.trim() || '';
     const verifySslInput = document.getElementById('navAiVerifySsl');
-    const verifySsl = verifySslInput ? verifySslInput.checked !== false : true;
+    const verifySsl = verifySslInput ? verifySslInput.checked === true : false;
     const models = getNavAiEditingModels();
     const primaryModel = document.getElementById('navAiModel')?.value || models[0] || 'gemini-2.5-flash';
     const payload = {
