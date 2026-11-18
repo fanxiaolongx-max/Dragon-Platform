@@ -2560,13 +2560,28 @@
     }
 
     // onEvent：接收 delta/status/done/error 之外的事件（工作区模式的 approval / tool_start / tool_result / change 等）。
-    async function requestStreamingChat(payload, { signal, onDelta, onStatus, onEvent }) {
+    async function requestStreamingChat(payload, handlers) {
         const res = await fetch('/api/ai/chat', {
             method: 'POST',
             headers: { ...getAuthHeaders(), Accept: 'application/x-ndjson' },
             body: JSON.stringify({ ...payload, stream: true }),
-            signal
+            signal: handlers.signal
         });
+        return readChatStream(res, handlers);
+    }
+
+    // 接上后台仍在进行的回复（首页多对话并行）：先补放已输出的内容再接着推送；没有进行中的回复返回 null
+    async function requestLiveStream(sessionId, handlers) {
+        const res = await fetch(`/api/ai/sessions/${encodeURIComponent(sessionId)}/live`, {
+            headers: { ...getAuthHeaders(), Accept: 'application/x-ndjson' },
+            signal: handlers.signal
+        });
+        if (res.status === 204) return null;
+        return readChatStream(res, handlers);
+    }
+
+    // run / live：后台回复的编号与开场信息，交给 onMeta，不进 onEvent
+    async function readChatStream(res, { onDelta, onStatus, onEvent, onMeta }) {
         const contentType = String(res.headers.get('content-type') || '');
         if (!res.ok) {
             let message = `${res.status} ${res.statusText}`;
@@ -2598,7 +2613,8 @@
             if (event.type === 'delta') onDelta(event.delta || '');
             else if (event.type === 'status') onStatus?.(event.status || {});
             else if (event.type === 'done') finalPayload = event;
-            else if (event.type === 'error') throw new Error(event.error || 'AI 流式输出失败');
+            else if (event.type === 'error') throw Object.assign(new Error(event.error || 'AI 流式输出失败'), { code: event.code });
+            else if (event.type === 'run' || event.type === 'live') onMeta?.(event);
             else onEvent?.(event);
         };
         while (true) {
@@ -3017,6 +3033,7 @@
         renderMarkdown: renderMarkdownLike,
         renderGrounding,
         requestStreamingChat,
+        requestLiveStream,
         openKnowledgeGraph,
         open: openAssistant,
         ask(prompt, options = {}) {

@@ -17,7 +17,7 @@
             scheduleNew: '新建定时任务', pushTo: '推送到', pushAdd: '+ 选择 WeLink/微信 的人或群（可选）', pushAddMore: '+ 添加', pushRemove: '移除', pushTitle: '推送到', pushSearch: '搜索名称或账号，支持拼音…', pushGroup: '群', pushUser: '联系人', pushSelected: '已选 {count} 个', pushHint: '执行完成后把结果推送给所选对象', pushDone: '完成', pushEmpty: '还没有可推送的对象（联系人需先与助理单聊过，群需在群里用过助理）', pushNoMatch: '没有匹配的对象', pushNoChannel: '还没有对接 WeLink 或微信', pushLimit: '最多选择 10 个对象', scheduleCreatedPush: '，完成后推送给 {names}', schedulePushTo: '推送给 {names}', schedulePushResult: '上次推送：成功 {sent}，失败 {failed}',
             datacomTitle: '数通协议专家', datacomDescription: '协议图解 · 交互实验 · 视频讲解',
             badge: '全能智能体', newChat: '新对话', history: '历史', attach: '添加附件（Excel、CSV、Word、PPT、文本等，单个不超过 20MB）', attachLabel: '附件', attachUploading: '上传中…', attachFailed: '上传失败', attachRemove: '移除', attachTooMany: '一次最多 5 个附件', attachPending: '附件还在上传，请稍候', attachDrop: '松开即可添加附件', exportLog: '导出日志', exportLogEmpty: '当前对话还没有保存的记录，发送一条消息后再导出', exportLogDone: '对话日志已导出', exportLogFailed: '导出失败', exportLogBusy: '回复完成后再导出，日志才完整', exportMenu: '导出方式', exportHtml: '网页快照（HTML）', exportHtmlDesc: '最近 {days} 天、最多 {count} 条消息；与聊天界面一致，含表格、图片和文件，可直接转发', exportJson: '研发日志（JSON）', exportJsonDesc: '完整的工具过程与模型配置，便于研发定位问题', exportAgentJsonDesc: '当前 Agent 的可读取消息、附件信息与会话状态，最多 200 条', exportAgentHtmlDesc: '当前已加载的 Agent 对话快照，含图片、附件和静态预览，最多 200 条消息', exportHtmlWorking: '正在打包网页快照…', exportHtmlDone: '网页快照已导出', exportHtmlSkipped: '网页快照已导出，{count} 个大文件未打包',
-            chatToday: '今天', chatYesterday: '昨天', chatWeek: '7 天内', chatMonth: '30 天内', chatOlder: '更早', chatEmpty: '还没有对话，发一条消息开始吧', chatNoMatch: '没有匹配的对话', chatLoadFailed: '历史对话加载失败', chatRetry: '重试', chatBusy: '正在回复中，请先停止当前回复再切换对话', chatCount: '{count} 条', chatFolderTitle: '本地目录：{root}', chatRunning: '正在回答', chatDelete: '删除对话', chatDeleteConfirm: '删除「{title}」及其聊天记录？此操作无法撤销。', chatDeleteFailed: '删除失败，请稍后重试', chatDeleted: '对话已删除',
+            chatToday: '今天', chatYesterday: '昨天', chatWeek: '7 天内', chatMonth: '30 天内', chatOlder: '更早', chatEmpty: '还没有对话，发一条消息开始吧', chatNoMatch: '没有匹配的对话', chatLoadFailed: '历史对话加载失败', chatRetry: '重试', chatBusy: '正在回复中，请先停止当前回复再切换对话', chatBgDone: '「{title}」已回复完成', chatCount: '{count} 条', chatFolderTitle: '本地目录：{root}', chatRunning: '正在回答', chatDelete: '删除对话', chatDeleteConfirm: '删除「{title}」及其聊天记录？此操作无法撤销。', chatDeleteFailed: '删除失败，请稍后重试', chatDeleted: '对话已删除',
             activityThinking: '正在思考…', activityCompacting: '上下文快满了，正在把较早内容整理成摘要…', compactDone: '已自动压缩上下文：较早的 {count} 条记录整理成摘要（约 {before} → {after} tokens），完整过程仍保留在会话档案中', compactFailed: '自动压缩没有成功（{error}），改为移出较早的轮次', thinkLabel: '思考过程', thinkDone: '已思考', thinkPhase_ponder: '构思', thinkPhase_plan: '规划', thinkPhase_search: '检索', thinkPhase_analyze: '分析', thinkPhase_calc: '计算', thinkPhase_verify: '核对', thinkPhase_code: '推敲代码', thinkPhase_conclude: '归纳', activityTool: '正在{tool}…', activityOrganizing: '正在整理结果…', activityResponding: '正在生成回复…', activityApproval: '等待你的批准…',
             resumeDismiss: '关闭此提示', resumeTitle: '继续上次对话', resumeMeta: '{time} · {count} 条消息', resumeAction: '继续对话', resumeBanner: '已恢复上次对话 · {time}', resumeDivider: '以上是历史记录，继续输入即可接着聊', resumeFailed: '上次对话加载失败，请稍后再试', toolOutput: '查看输出', toolArtifact: '完整结果（{lines} 行）', toolInterrupted: '未完成', sessionTitle: '历史会话', sessionSearch: '搜索会话内容…', sessionEmpty: '还没有历史会话', sessionNoMatch: '没有匹配的会话', sessionLoading: '正在加载…', sessionMeta: '{time} · {count} 条消息', sessionArchived: '已归档', sessionCurrent: '当前', sessionHint: '↑↓ 选择 · Enter 打开 · Esc 关闭', sessionLoadFailed: '历史会话加载失败，请稍后再试', slashSession: '查看并恢复历史会话', slashNew: '开始新对话', slashHint: '↑↓ 选择 · Enter 执行 · Tab 补全', recallTitle: '最近的问题', recallHint: '↑↓ 选择 · Enter 填入 · Esc 关闭', resumeDirMissing: '上次的目录「{name}」无法打开，对话已恢复，请重新选择目录', externalTag: '外部', commandTag: '命令', commandChangeHint: '由智能体执行的命令产生的改动，可撤销', riskTitle: '此命令可能访问工作目录之外或敏感文件，当前审批模式需要你确认', revertConflictTitle: '文件已被再次修改', revertConflictMessage: '{path} 在这次改动之后又被修改过（手动或其他程序）。撤销会把文件恢复到改动前，后续修改将一起丢失。', revertConflictConfirm: '仍然撤销', binaryChange: '二进制', binaryChangeHint: '二进制文件（如数据库、图片）内容有变化，没有可比较的文本行', externalChange: '工作区里的其他改动（手动或其他程序修改），可查看差异，不能在这里撤销', backToTools: '浏览工具', browseTools: '浏览全部工具',
             tagline: '我是 Dragon Claw，你的全能智能体。问我任何问题，或者让我带你用好平台里的工具。',
@@ -81,7 +81,7 @@
             scheduleNew: 'New task', pushTo: 'Push to', pushAdd: '+ Pick WeLink/WeChat people or groups (optional)', pushAddMore: '+ Add', pushRemove: 'Remove', pushTitle: 'Push to', pushSearch: 'Search name or account (pinyin works)…', pushGroup: ' group', pushUser: ' contact', pushSelected: '{count} selected', pushHint: 'The result is pushed to them after it runs', pushDone: 'Done', pushEmpty: 'Nobody can be pushed to yet (contacts must chat with the assistant first; groups must have used it)', pushNoMatch: 'No matches', pushNoChannel: 'WeLink or WeChat is not connected yet', pushLimit: 'Pick up to 10', scheduleCreatedPush: ', then push to {names}', schedulePushTo: 'Push to {names}', schedulePushResult: 'Last push: {sent} sent, {failed} failed',
             datacomTitle: 'Datacom Protocol Expert', datacomDescription: 'Visual guides · Interactive labs · Videos',
             badge: 'All-round agent', newChat: 'New chat', history: 'History', attach: 'Attach files (Excel, CSV, Word, PowerPoint, text…, up to 20 MB each)', attachLabel: 'Attachments', attachUploading: 'Uploading…', attachFailed: 'Upload failed', attachRemove: 'Remove', attachTooMany: 'Up to 5 attachments at a time', attachPending: 'Attachments are still uploading', attachDrop: 'Drop to attach', exportLog: 'Export log', exportLogEmpty: 'Nothing saved in this chat yet. Send a message first.', exportLogDone: 'Chat log exported', exportLogFailed: 'Export failed', exportLogBusy: 'Export after the reply finishes so the log is complete', exportMenu: 'Export as', exportHtml: 'Web page (HTML)', exportHtmlDesc: 'Last {days} days, up to {count} messages. Looks like this chat, with tables, images and files', exportJson: 'Debug log (JSON)', exportJsonDesc: 'Full tool steps and model settings for troubleshooting', exportAgentJsonDesc: 'Available agent messages, attachment metadata and session status, up to 200 messages', exportAgentHtmlDesc: 'Snapshot of the loaded agent conversation, with images, files and static previews, up to 200 messages', exportHtmlWorking: 'Packing the web page…', exportHtmlDone: 'Web page exported', exportHtmlSkipped: 'Web page exported; {count} large file(s) left out',
-            chatToday: 'Today', chatYesterday: 'Yesterday', chatWeek: 'Previous 7 days', chatMonth: 'Previous 30 days', chatOlder: 'Older', chatEmpty: 'No chats yet. Send a message to start.', chatNoMatch: 'No matching chats', chatLoadFailed: 'Could not load chats', chatRetry: 'Retry', chatBusy: 'A reply is still being generated. Stop it before switching chats.', chatCount: '{count}', chatFolderTitle: 'Local folder: {root}', chatRunning: 'Working', chatDelete: 'Delete chat', chatDeleteConfirm: 'Delete “{title}” and its messages? This cannot be undone.', chatDeleteFailed: 'Could not delete this chat. Try again later.', chatDeleted: 'Chat deleted',
+            chatToday: 'Today', chatYesterday: 'Yesterday', chatWeek: 'Previous 7 days', chatMonth: 'Previous 30 days', chatOlder: 'Older', chatEmpty: 'No chats yet. Send a message to start.', chatNoMatch: 'No matching chats', chatLoadFailed: 'Could not load chats', chatRetry: 'Retry', chatBusy: 'A reply is still being generated. Stop it before switching chats.', chatBgDone: '“{title}” has finished replying', chatCount: '{count}', chatFolderTitle: 'Local folder: {root}', chatRunning: 'Working', chatDelete: 'Delete chat', chatDeleteConfirm: 'Delete “{title}” and its messages? This cannot be undone.', chatDeleteFailed: 'Could not delete this chat. Try again later.', chatDeleted: 'Chat deleted',
             activityThinking: 'Thinking…', activityCompacting: 'Context is nearly full; summarizing earlier steps…', compactDone: 'Context compacted automatically: {count} earlier entries were summarized (about {before} → {after} tokens). The full record stays in the session archive.', compactFailed: 'Automatic compaction failed ({error}); dropping the earliest turns instead', thinkLabel: 'Thinking', thinkDone: 'Thought for', thinkPhase_ponder: 'Pondering', thinkPhase_plan: 'Planning', thinkPhase_search: 'Searching', thinkPhase_analyze: 'Analyzing', thinkPhase_calc: 'Calculating', thinkPhase_verify: 'Verifying', thinkPhase_code: 'Coding', thinkPhase_conclude: 'Concluding', activityTool: 'Working: {tool}…', activityOrganizing: 'Putting results together…', activityResponding: 'Composing a reply…', activityApproval: 'Waiting for your approval…',
             resumeDismiss: 'Dismiss this reminder', resumeTitle: 'Continue last chat', resumeMeta: '{time} · {count} messages', resumeAction: 'Continue', resumeBanner: 'Resumed your last chat · {time}', resumeDivider: 'Earlier messages above. Keep typing to continue.', resumeFailed: 'Could not load the last chat. Try again later.', toolOutput: 'Show output', toolArtifact: 'Full result ({lines} lines)', toolInterrupted: 'Not finished', sessionTitle: 'Chat history', sessionSearch: 'Search conversations…', sessionEmpty: 'No previous chats yet', sessionNoMatch: 'No matching chats', sessionLoading: 'Loading…', sessionMeta: '{time} · {count} messages', sessionArchived: 'Archived', sessionCurrent: 'Current', sessionHint: '↑↓ to move · Enter to open · Esc to close', sessionLoadFailed: 'Could not load chat history. Try again later.', slashSession: 'Browse and resume previous chats', slashNew: 'Start a new chat', slashHint: '↑↓ to choose · Enter to run · Tab to complete', recallTitle: 'Recent questions', recallHint: '↑↓ to choose · Enter to fill in · Esc to close', resumeDirMissing: 'The previous folder "{name}" could not be opened. The chat is restored; choose a folder again.', externalTag: 'External', commandTag: 'Command', commandChangeHint: 'Changed by a command the agent ran; can be undone', riskTitle: 'This command may reach outside the folder or touch sensitive files; your current approval mode requires confirmation', revertConflictTitle: 'File changed again', revertConflictMessage: '{path} was modified again after this change (by hand or another program). Undoing restores the earlier version and discards those later edits.', revertConflictConfirm: 'Undo anyway', binaryChange: 'Binary', binaryChangeHint: 'A binary file (such as a database or image) changed; there are no text lines to compare', externalChange: 'Other changes in the working tree (manual or by other programs). You can view the diff but not undo it here.', backToTools: 'Browse tools', browseTools: 'Browse all tools',
             tagline: 'I’m Dragon Claw, your all-round agent. Ask me anything, or let me show you around the tools on this platform.',
@@ -1587,7 +1587,7 @@
             const open = event.target.closest('[data-dc-schedule-open]');
             if (open) {
                 const item = scheduleWatch.items.find(entry => entry.id === open.dataset.dcScheduleOpen);
-                if (!item || state.controller) return;
+                if (!item || !leaveReply()) return;
                 closeSchedulePanel();
                 return openSession({ id: item.sessionId });
             }
@@ -2061,22 +2061,22 @@
             updateSendButton();
             return;
         }
-        const renderer = createRenderer(reply, activity);
         // 发送时锁定模型：生成过程中切换只影响下一条消息。
         const model = currentModel();
         const basePayload = workspace()?.getWorkspacePayload?.() || null;
         const workspacePayload = basePayload && options.workspaceMode ? { ...basePayload, permissionMode: options.workspaceMode } : basePayload;
         const keptSkills = window.DragonClawSkills?.activeIds?.() || [];
         const isNormalChat = !external.active && !homeConnector;
-        const swarmHtmlTools = new Map();
-        let swarmToolPlayed = false;
         if (isNormalChat && window.DragonHtmlSwarm?.isHtmlGenerationPrompt?.(content)) {
             window.DragonHtmlSwarm.startSession({ prompt: content });
         }
-        let started = false;
-        try {
+        // 回复在服务器后台跑：切到别的对话只断开观看，不中止；点停止才中止（models/chat-live-runs.js）
+        const runId = `r${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+        controller.background = true;
+        controller.runId = runId;
+        await streamReply({ reply, activity, controller, api, content, model, workspacePayload, isNormalChat, keptSkills, options, request: async handlers => {
             const clientToolData = options.tourReportExample ? [] : await collectClientToolData(`${state.messages.slice(-3, -1).map(item => item.role === 'user' ? item.content : '').join('\n')}\n${content}`);
-            const data = await api.requestStreamingChat({
+            return api.requestStreamingChat({
                 toolSlug: state.focusedTool?.id || '',
                 clientToolData,
                 messages: state.messages.slice(-12),
@@ -2092,9 +2092,23 @@
                 ...(keptSkills.length ? { skills: keptSkills } : {}),
                 ...(model ? { modelId: model.id } : {}),
                 // 工作区（本地目录）模式：后端走工具调用循环，事件由面板渲染
-                ...(workspacePayload ? { workspace: workspacePayload } : {})
-            }, {
+                ...(workspacePayload ? { workspace: workspacePayload } : {}),
+                background: true,
+                clientRunId: runId
+            }, handlers);
+        } });
+    }
+
+    // 渲染一条流式回复：新发送和切回后台进行中的对话（live）共用
+    async function streamReply({ reply, activity, controller, api, content, model, workspacePayload, isNormalChat, keptSkills = [], options = {}, request }) {
+        const renderer = createRenderer(reply, activity);
+        const swarmHtmlTools = new Map();
+        let swarmToolPlayed = false;
+        let started = false;
+        try {
+            const data = await request({
                 signal: controller.signal,
+                onMeta: meta => { if (meta.runId) controller.runId = meta.runId; },
                 onDelta: delta => {
                     if (!delta || controller.signal.aborted || !reply.isConnected) return;
                     started = true;
@@ -2149,6 +2163,7 @@
                     activity.event(event);
                 }
             });
+            if (data === null) { reply.remove(); return 'gone'; } // 接上时回复已结束（live 返回 204）
             if (controller.signal.aborted || !reply.isConnected) throw Object.assign(new Error('aborted'), { name: 'AbortError' });
             if (data.sessionId) {
                 state.sessionId = data.sessionId;
@@ -2173,6 +2188,7 @@
             options.onDone?.(reply, finalText);
             if (keptSkills.includes('ops-group')) window.ToolsOpsInbox?.refresh();
         } catch (error) {
+            if (controller.detached) return; // 切到了别的对话：回复仍在后台继续，这里不收尾
             const partial = renderer.finish();
             if (isNormalChat && window.DragonHtmlSwarm?.isActive?.() && !swarmToolPlayed) {
                 window.DragonHtmlSwarm?.onStreamFinish?.(partial, { prompt: content });
@@ -2291,7 +2307,8 @@
             items: raw.filter(item => item && (item.role === 'user' || item.role === 'model') && item.content),
             cursor: raw[0]?.id || '', // 游标取原始第一条，空内容行也不会被重复读取
             hasMore: Boolean(data.hasMore),
-            total: Number(data.total) || raw.length
+            total: Number(data.total) || raw.length,
+            live: data.live === true // 这个对话正有回复在后台进行
         };
     }
 
@@ -2701,7 +2718,7 @@
     }
 
     async function openSession(item) {
-        if (!item || state.controller) return;
+        if (!item || !leaveReply()) return;
         const epoch = ++resumeEpoch;
         window.HomeAgentDiscussion?.activateSession?.(item.id,{group:item.discussionMode==='group'});
         closeSessionPicker();
@@ -2723,10 +2740,12 @@
             const page = await fetchHistoryPage(item.id);
             if (epoch !== resumeEpoch) return;
             const items = page.items;
-            if (!items.length) throw new Error('Empty session');
+            // 刚开始就切走的新对话：还没有已保存的消息，但回复正在后台进行
+            if (!items.length && !page.live) throw new Error('Empty session');
             const local = readLastChat();
             const agent = item.agent || (local?.sessionId === item.id ? local.agent : null);
-            await resumeChat({ sessionId: item.id, discussionMode:item.discussionMode, items, cursor: page.cursor, hasMore: page.hasMore, total: page.total, time: formatChatTime(items[items.length - 1].created_at), agent }, epoch);
+            await resumeChat({ sessionId: item.id, discussionMode:item.discussionMode, items, cursor: page.cursor, hasMore: page.hasMore, total: page.total, time: formatChatTime(items.length ? items[items.length - 1].created_at : (item.updatedAt || new Date().toISOString())), agent }, epoch);
+            if (page.live && epoch === resumeEpoch && state.sessionId === item.id) attachLive(item.id);;
         } catch {
             if (epoch !== resumeEpoch) return;
             finishHistoryLoading(false);
@@ -2737,6 +2756,34 @@
             updateSendButton();
             showToast(tx('sessionLoadFailed'));
         }
+    }
+
+    // 接上后台仍在回复的对话：补出提问，回放已生成的内容并继续接收；期间可以再切走，点停止才中止
+    async function attachLive(sessionId) {
+        if (state.controller || state.restoring || state.sessionId !== sessionId) return;
+        const api = await waitForAssistant();
+        if (!api?.requestLiveStream || state.controller || state.restoring || state.sessionId !== sessionId) return;
+        const controller = new AbortController();
+        controller.background = true;
+        state.controller = controller;
+        const reply = addMessage('ai');
+        const activity = showThinking(reply);
+        updateSendButton();
+        let question = '';
+        const result = await streamReply({ reply, activity, controller, api, content: '', model: currentModel(), workspacePayload: workspace()?.getWorkspacePayload?.() || null, isNormalChat: false,
+            request: handlers => api.requestLiveStream(sessionId, { ...handlers, onMeta: meta => {
+                handlers.onMeta(meta);
+                if (meta.type !== 'live' || question || !reply.isConnected) return;
+                question = String(meta.question || '');
+                if (!question) return;
+                const userMessage = addMessage('user', question);
+                reply.before(userMessage);
+                addUserTools(userMessage, question, question);
+                window.DragonClawSkills?.decorateUser?.(userMessage);
+                state.messages.push({ role: 'user', content: question });
+            } }) });
+        // 刚好在打开的间隙里回复完了：重新读一次历史（这时已经入库）
+        if (result === 'gone' && state.sessionId === sessionId && !state.controller) openSession({ id: sessionId });
     }
 
     function openSessionPicker(query = '') {
@@ -3264,7 +3311,7 @@
             el.input.focus({ preventScroll: true });
             return;
         }
-        if (state.controller) return showToast(tx('chatBusy'));
+        if (!leaveReply()) return showToast(tx('chatBusy'));
         openSession(item);
     }
 
@@ -3361,19 +3408,33 @@
         });
         window.addEventListener('home:desktop-agents-updated', () => renderChatList());
         window.addEventListener('home:desktop-agents-busy', markRunningChats);
-        // 每 10 秒核对其他标签页、定时任务等会话的生成状态，状态变化时同步转圈和排序
+        // 核对其他标签页、定时任务、后台并行对话的生成状态：有对话在转圈时每 3 秒查一次，否则每 10 秒。
+        // 后台对话回复完：提示一下并刷新列表（标题、排序）；出现列表里还没有的进行中对话也刷新。
+        let busyPollAt = 0;
         setInterval(async () => {
-            if (document.visibilityState !== 'visible' || !chatList.loaded || chatList.query || !chatList.items.length) return;
+            if (document.visibilityState !== 'visible' || !chatList.loaded || chatList.query) return;
+            const anyBusy = chatList.items.some(item => item.busy);
+            if (!anyBusy && Date.now() - busyPollAt < 10000) return;
+            busyPollAt = Date.now();
             const seq = chatList.seq;
             try {
                 const res = await fetch(`/api/ai/sessions?mine=1&pagePath=%2F&limit=${Math.min(100, Math.max(CHAT_PAGE, chatList.serverCount))}`, { headers: authHeaders() });
                 if (!res.ok || seq !== chatList.seq) return;
                 const busy = new Set((await res.json()).items?.filter(item => item.busy).map(item => item.id) || []);
-                let changed = false;
-                chatList.items.forEach(item => { const next = busy.has(item.id); if (Boolean(item.busy) !== next) { item.busy = next; changed = true; } });
+                let changed = false, reload = [...busy].some(id => !chatList.items.some(item => item.id === id));
+                chatList.items.forEach(item => {
+                    const next = busy.has(item.id);
+                    if (Boolean(item.busy) === next) return;
+                    if (item.busy && !next) {
+                        reload = true;
+                        if (item.id !== state.sessionId) showToast(tx('chatBgDone', { title: String(item.title || item.firstQuestion || '').replace(/\s+/g, ' ').trim().slice(0, 40) || '…' }));
+                    }
+                    item.busy = next; changed = true;
+                });
                 if (changed) markRunningChats();
+                if (reload) scheduleChatListRefresh(0);
             } catch { /* 下次再试 */ }
-        }, 10000);
+        }, 3000);
         window.addEventListener('home:channel-threads-updated', () => renderChatList());
         // ↑↓ 在列表中移动焦点
         el.chatList.addEventListener('keydown', event => {
@@ -3416,6 +3477,33 @@
         loadChatList();
     }
 
+    // 多对话并行：切走时只断开观看（回复在服务器后台继续，侧栏转圈），返回 false 表示当前操作不能切走（如正在压缩上下文）
+    function leaveReply() {
+        const controller = state.controller;
+        if (!controller) return true;
+        if (!controller.background) return false;
+        controller.detached = true;
+        controller.abort();
+        if (state.controller === controller) state.controller = null;
+        updateSendButton();
+        scheduleChatListRefresh(300);
+        return true;
+    }
+
+    // 点停止：通知服务器中止后台回复（已生成的部分照常保存），再断开本页
+    function stopReply() {
+        const controller = state.controller;
+        if (!controller) return;
+        if (controller.background) {
+            const sessionId = state.sessionId;
+            const stop = () => fetch(controller.runId ? `/api/ai/runs/${encodeURIComponent(controller.runId)}/stop` : `/api/ai/sessions/${encodeURIComponent(sessionId)}/stop`, { method: 'POST', headers: authHeaders(), keepalive: true })
+                .then(res => res.ok ? res.json() : null).catch(() => null);
+            // 请求刚发出、服务器还没登记就点了停止：稍后再停一次
+            if (controller.runId || sessionId) stop().then(result => { if (result && !result.stopped) setTimeout(stop, 600); });
+        }
+        controller.abort();
+    }
+
     function newChat({ clearWorkspace = true, root = null } = {}) {
         chatList.latestSeq++;
         state.attachments = [];
@@ -3428,7 +3516,7 @@
         finishHistoryLoading(false);
         state.restoring = false;
         el.input.disabled = false;
-        state.controller?.abort();
+        if (!leaveReply()) state.controller?.abort();
         if (root) {
             // 先重置会话再选目录：resetSession 会让进行中的选择失效，顺序反过来目录就选不上
             workspace()?.resetSession?.({ clearWorkspace: false });
@@ -3457,7 +3545,7 @@
     const external = { active: false, onExit: null, owner: '', composer: null, sending: false, draft: '', entry: 0, exportSession: null };
 
     function enterExternal({ onExit, owner = 'channel', composer = null, exportSession = null } = {}) {
-        if (state.controller) {
+        if (!leaveReply()) {
             showToast(tx('chatBusy'));
             return null;
         }
@@ -3573,7 +3661,7 @@
         const skillId = String(id || '').toLowerCase();
         if (!/^[a-z][a-z0-9-]{0,40}$/.test(skillId)) return;
         window.HomeMode?.set?.('chat');
-        if (state.controller) return showToast(tx('chatBusy'));
+        if (!leaveReply()) return showToast(tx('chatBusy'));
         if (state.messages.length || state.sessionId) newChat();
         el.input.value = `@${skillId} `;
         autoResize();
@@ -3688,7 +3776,7 @@
         el.form.addEventListener('submit', event => {
             event.preventDefault();
             if(external.active){sendExternal(el.input.value.trim());return;}
-            if (state.controller && !isSideCommand(el.input.value)) state.controller.abort();
+            if (state.controller && !isSideCommand(el.input.value)) stopReply();
             else send(el.input.value, undefined, { fromComposer: true });
         });
         // 附件：按钮选择、拖到输入框、粘贴文件

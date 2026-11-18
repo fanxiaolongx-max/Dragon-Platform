@@ -29,7 +29,9 @@ test('chat script sends the workspace payload, forwards events and shares its te
     assert.match(agent, /workspace\(\)\?\.applyDone\(data\)/);
     assert.match(agent, /workspace\(\)\?\.resetSession\?\.\(\)/);
     assert.match(assistant, /onEvent\?\.\(event\)/);
-    assert.match(assistant, /async function requestStreamingChat\(payload, \{ signal, onDelta, onStatus, onEvent \}\)/);
+    assert.match(assistant, /async function requestStreamingChat\(payload, handlers\)/);
+    assert.match(assistant, /async function readChatStream\(res, \{ onDelta, onStatus, onEvent, onMeta \}\)/);
+    assert.match(assistant, /async function requestLiveStream\(sessionId, handlers\)/);
     assert.match(panel, /\/api\/agent-workspace/);
     assert.match(panel, /\/suggest\?input=/);
     assert.match(panel, /approvals\/\$\{encodeURIComponent\(event\.id\)\}/);

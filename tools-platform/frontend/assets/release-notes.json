@@ -1,10 +1,8 @@
 {
   "zh": [
-    "频道会话支持实时同步回复与体验优化：从 WeLink 等频道 @助手时同步呈现瀑布式流式输出、实时工具状态与带呼吸动画的可折叠思考过程；修复频道列表预览文字、状态徽标与「···」菜单重叠；新增频道顶部独立可折叠「置顶」分组（与普通对话置顶严格隔离）；统一键帽数字序号表情与 Markdown 分割线渲染。",
-    "图屿新增批量智能识别待处理图片功能，保留已有标题与描述并支持租户隔离与限速队列，同步更新内置工具指南。"
+    "Dragon Claw 支持多个对话同时进行：回复在服务器后台继续，切换对话、新建对话、刷新页面都不会打断；侧栏正在回复的对话显示转圈，切回去会接上已生成的内容继续显示，后台对话回复完会提示。点「停止」才真正中止。同一账号最多 3 个对话同时进行（可用 AI_MAX_PARALLEL_CHATS 调整）。"
   ],
   "en": [
-    "Real-time channel streaming & sidebar polish: @mentioning the assistant in WeLink/WeChat now streams live waterfall replies, tool states, and a silky collapsible thinking panel; fixed channel sidebar preview/badge/menu overlap; added a dedicated collapsible Pinned section for channels (strictly isolated from personal chats); normalized keycap number emoji and Markdown horizontal rule rendering.",
-    "Picture Island adds tenant-isolated batch AI recognition for pending images while preserving existing manual metadata, alongside updated built-in tool guides."
+    "Dragon Claw now runs several chats in parallel: replies keep going on the server when you switch chats, start a new one or reload the page. Busy chats spin in the sidebar, reopening one picks up the reply where it is, and you get a notice when a background chat finishes. Only Stop ends a reply. Up to 3 chats per account at once (AI_MAX_PARALLEL_CHATS)."
   ]
 }

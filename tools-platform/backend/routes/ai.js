@@ -14,6 +14,7 @@ const aiBusinessConfigService = require('../models/ai-business-config-service');
 const aiToolDataService = require('../models/ai-tool-data-service');
 const customToolsRepo = require('../models/custom-tools-repository');
 const agentRunManager = require('../models/agent-run-manager');
+const chatLiveRuns = require('../models/chat-live-runs');
 const agentWorkspaceAccess = require('../models/agent-workspace-access');
 const agentSkillsStore = require('../models/agent-skills-store');
 const skillCatalogContract = require('../models/ai-skill-catalog-contract');
@@ -1696,7 +1697,15 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
         releaseChat();
     }
 }
-router.post('/chat', checkAuth, handleChatRequest);
+// 首页多对话并行：background:true 的流式请求在后台跑，页面切走不中止（models/chat-live-runs.js）
+router.post('/chat', checkAuth, (req, res) => (req.body?.background === true && req.body?.stream === true && req.user?.username
+    ? chatLiveRuns.start(req, res, handleChatRequest)
+    : handleChatRequest(req, res)));
+// 切回正在回复的对话：补放已输出的内容并接着推送；没有进行中的回复返回 204
+router.get('/sessions/:sessionId/live', checkAuth, (req, res) => chatLiveRuns.attachLive(req, res));
+// 停止后台回复：按 runId（新对话还没有会话号）或会话号
+router.post('/runs/:runId/stop', checkAuth, (req, res) => res.json({ stopped: chatLiveRuns.stop({ runId: req.params.runId, owner: req.user?.username }) }));
+router.post('/sessions/:sessionId/stop', checkAuth, (req, res) => res.json({ stopped: chatLiveRuns.stop({ sessionId: req.params.sessionId, owner: req.user?.username }) }));
 
 // multer 按 latin1 解出文件名：中文名还原成 UTF-8
 function uploadFilename(value) {
@@ -2046,6 +2055,14 @@ router.get('/sessions', checkAuth, async (req, res) => {
             });
             // 侧栏转圈：服务器上仍在生成回复的会话（其他标签页、定时任务、频道桥接等）
             items.forEach(item => { if (activeChats.has(chatLockKey(item.id))) item.busy = true; });
+            // 刚开始就切走的新对话还没有已保存的消息、查不出来：第一页补在最前面，侧栏能看到并点回去
+            if (!req.query.query && !Number(req.query.offset)) {
+                const listed = new Set(items.map(item => item.id));
+                const fresh = chatLiveRuns.runningSessions(req.user?.username).filter(run => !listed.has(run.sessionId))
+                    .map(run => ({ id: run.sessionId, createdAt: new Date(run.startedAt).toISOString().replace('T', ' ').slice(0, 19), updatedAt: new Date(run.startedAt).toISOString().replace('T', ' ').slice(0, 19), archived: false, pinned: false, messageCount: 0,
+                        title: require('../models/ai-chat-repository').conversationTitle?.(run.question) || run.question.slice(0, 40), firstQuestion: run.question.slice(0, 160), lastQuestion: run.question.slice(0, 160), discussionMode: null, agent: null, busy: true }));
+                items.unshift(...fresh);
+            }
             // 旧对话的长标题在后台逐个交给模型精简，下次读取列表时生效
             if (!req.query.query) require('../models/ai-title-generator').backfillSessions(req.user?.username || '', req.query.pagePath || '/');
             return res.json({ items });
@@ -2148,7 +2165,9 @@ router.get('/sessions/:sessionId/messages', checkAuth, async (req, res) => {
     try {
         // 带 limit 时分页（恢复对话渐进加载，before 为更早一页的游标）；不带则返回全部，兼容旧调用方
         if (req.query.limit !== undefined) {
-            return res.json(await aiChatRepo.listMessagesPage(req.params.sessionId, { owner: req.user.username, limit: req.query.limit, before: req.query.before || '' }));
+            const page = await aiChatRepo.listMessagesPage(req.params.sessionId, { owner: req.user.username, limit: req.query.limit, before: req.query.before || '' });
+            // live：这个对话正有回复在后台进行，页面打开后接上 /live
+            return res.json({ ...page, live: chatLiveRuns.isRunning(req.params.sessionId, req.user.username) });
         }
         const items = await aiChatRepo.listMessages(req.params.sessionId, { owner: req.user.username });
         res.json({ items });
