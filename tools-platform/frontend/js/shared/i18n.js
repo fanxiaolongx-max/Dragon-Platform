@@ -99,19 +99,65 @@
             });
         }).catch(() => {});
     }
+    function normalizeLang(value) {
+        const clean = String(value || '').trim().toLowerCase();
+        if (!clean) return '';
+        if (clean.startsWith('en')) return 'en-US';
+        if (clean.startsWith('zh')) return 'zh-CN';
+        return '';
+    }
+
+    function syncExternalLanguage(rawLang) {
+        const next = normalizeLang(rawLang) || getStoredLang();
+        if (!SUPPORTED_LANGS.includes(next)) return;
+        let stored = '';
+        try { stored = localStorage.getItem(STORAGE_KEY) || ''; } catch (_) {}
+        if (stored !== next) {
+            try {
+                localStorage.setItem(STORAGE_KEY, next);
+                localStorage.setItem('tools_language', next);
+            } catch (_) {}
+        }
+        const changed = document.documentElement.lang !== next;
+        applyI18n(document);
+        if (changed) {
+            window.dispatchEvent(new CustomEvent('tools:languagechange', { detail: { lang: next } }));
+        }
+    }
+
     window.addEventListener('tools:languagechange', syncDesktopLanguage);
     window.addEventListener('storage', event => {
-        if (event.key === STORAGE_KEY || event.key === 'tools_language') syncDesktopLanguage();
+        if (event.key === STORAGE_KEY || event.key === 'tools_language') {
+            syncExternalLanguage(event.newValue);
+            syncDesktopLanguage();
+        }
+    });
+    window.addEventListener('message', event => {
+        if (event.origin !== window.location.origin || !event.data || typeof event.data !== 'object') return;
+        if (event.data.type === 'tools-platform-language') {
+            syncExternalLanguage(event.data.lang);
+        } else if (event.data.type === 'tools-custom-tool-language') {
+            const next = normalizeLang(event.data.lang);
+            if (next && getStoredLang() !== next) setLanguage(next);
+        }
     });
     window.addEventListener('pageshow', syncDesktopLanguage);
     syncDesktopLanguage();
 
     function setLanguage(lang) {
-        if (!SUPPORTED_LANGS.includes(lang)) return;
-        localStorage.setItem(STORAGE_KEY, lang);
-        try { localStorage.setItem('tools_language', lang); } catch (e) {}
+        const normalized = normalizeLang(lang) || lang;
+        if (!SUPPORTED_LANGS.includes(normalized)) return;
+        localStorage.setItem(STORAGE_KEY, normalized);
+        try { localStorage.setItem('tools_language', normalized); } catch (e) {}
         applyI18n(document);
-        window.dispatchEvent(new CustomEvent('tools:languagechange', { detail: { lang } }));
+        window.dispatchEvent(new CustomEvent('tools:languagechange', { detail: { lang: normalized } }));
+        try {
+            if (window.parent && window.parent !== window && window.parent.location.origin === window.location.origin) {
+                if (window.parent.ToolsI18n?.getLanguage?.() !== normalized) {
+                    window.parent.ToolsI18n?.setLanguage?.(normalized);
+                }
+            }
+        } catch (_) {}
     }
 
     function toggleLanguage() {

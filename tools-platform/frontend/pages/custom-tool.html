@@ -389,10 +389,39 @@
             }
         }
 
-        window.addEventListener('tools:languagechange', applyCustomToolShellLanguage);
+        function syncCustomToolLanguage(rawLang, { forwardToFrame = true, notifyParent = false } = {}) {
+            const next = String(rawLang || '').toLowerCase().startsWith('en') ? 'en-US' : 'zh-CN';
+            try {
+                if (localStorage.getItem('tools_lang') !== next) {
+                    localStorage.setItem('tools_lang', next);
+                    localStorage.setItem('tools_language', next);
+                }
+            } catch (_) {}
+            document.documentElement.lang = next;
+            applyCustomToolShellLanguage();
+            if (forwardToFrame) {
+                const frame = document.querySelector('.custom-tool-frame');
+                frame?.contentWindow?.postMessage?.({ type: 'tools-platform-language', lang: next }, window.location.origin);
+            }
+            if (notifyParent && window.parent && window.parent !== window) {
+                try {
+                    if (window.parent.location.origin === window.location.origin && window.parent.ToolsI18n?.getLanguage?.() !== next) {
+                        window.parent.ToolsI18n?.setLanguage?.(next);
+                    }
+                } catch (_) {}
+            }
+        }
+        window.addEventListener('tools:languagechange', event => {
+            syncCustomToolLanguage(event?.detail?.lang || localStorage.getItem('tools_lang') || 'zh-CN', { forwardToFrame: true });
+        });
         window.addEventListener('message', event => {
-            if (event.origin !== window.location.origin || event.data?.type !== 'tools-custom-tool-language') return;
-            window.ToolsI18n?.setLanguage?.(event.data.lang);
+            if (event.origin !== window.location.origin || !event.data || typeof event.data !== 'object') return;
+            if (event.data.type === 'tools-platform-language') {
+                syncCustomToolLanguage(event.data.lang, { forwardToFrame: true, notifyParent: false });
+            } else if (event.data.type === 'tools-custom-tool-language') {
+                if (window.ToolsI18n?.setLanguage) window.ToolsI18n.setLanguage(event.data.lang);
+                else syncCustomToolLanguage(event.data.lang, { forwardToFrame: false, notifyParent: true });
+            }
         });
         window.addEventListener('keydown', event => {
             if (event.key === 'Escape') {

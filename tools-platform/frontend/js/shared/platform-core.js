@@ -2001,8 +2001,43 @@ function activeTenantName() { return navState.settings?.platformName || 'Dragon 
 window.refreshCustomToolNavLinks = loadNavigationData;
 
 window.toggleAppLanguage = function () {
-    if (window.ToolsI18n) window.ToolsI18n.toggleLanguage();
+    if (window.ToolsI18n) {
+        window.ToolsI18n.toggleLanguage();
+        return;
+    }
+    const next = String(localStorage.getItem('tools_lang') || localStorage.getItem('tools_language') || document.documentElement.lang || '').toLowerCase().startsWith('en') ? 'zh-CN' : 'en-US';
+    try {
+        localStorage.setItem('tools_lang', next);
+        localStorage.setItem('tools_language', next);
+    } catch (_) {}
+    document.documentElement.lang = next;
+    window.dispatchEvent(new CustomEvent('tools:languagechange', { detail: { lang: next } }));
 };
+
+function syncPlatformCoreExternalLanguage(rawLang) {
+    if (window.ToolsI18n) return;
+    const clean = String(rawLang || '').trim().toLowerCase();
+    if (!clean) return;
+    const next = clean.startsWith('en') ? 'en-US' : 'zh-CN';
+    try {
+        if (localStorage.getItem('tools_lang') !== next) {
+            localStorage.setItem('tools_lang', next);
+            localStorage.setItem('tools_language', next);
+        }
+    } catch (_) {}
+    if (document.documentElement.lang !== next) {
+        document.documentElement.lang = next;
+        window.dispatchEvent(new CustomEvent('tools:languagechange', { detail: { lang: next } }));
+    }
+}
+window.addEventListener('storage', event => {
+    if (event.key === 'tools_lang' || event.key === 'tools_language') syncPlatformCoreExternalLanguage(event.newValue);
+});
+window.addEventListener('message', event => {
+    if (event.origin === window.location.origin && event.data?.type === 'tools-platform-language') {
+        syncPlatformCoreExternalLanguage(event.data.lang);
+    }
+});
 
 window.addEventListener('tools:languagechange', () => {
     registerPlatformI18n();
@@ -2276,9 +2311,9 @@ function initBackToTopButton() {
         button.classList.toggle('visible', getActiveScrollTop() > threshold);
     }
 
-    // 叠放在右侧停靠列（Dragon Claw、下载圆环、工作区标签）最上方，间距与停靠列一致
+    // 叠放在右侧停靠列（Dragon Claw、下载圆环、工作区标签、独立页语言切换抽屉）最上方，间距与停靠列一致
     function updateBackToTopPlacement() {
-        const docked = Array.from(document.querySelectorAll('.ai-fab, #dcWorkspaceFab, #desktopDlFab')).filter(element => {
+        const docked = Array.from(document.querySelectorAll('.ai-fab, #dcWorkspaceFab, #desktopDlFab, #toolsStandaloneLangBtn')).filter(element => {
             if (!element.getClientRects().length) return false;
             const style = getComputedStyle(element);
             return style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity) > 0.05;
@@ -2330,4 +2365,74 @@ function initBackToTopButton() {
     new MutationObserver(() => queueVisibilityUpdate()).observe(document.body, { attributes: true, attributeFilter: ['class'] });
     setTimeout(updateVisibility, 300);
 }
+
+// 独立打开的新标签页 / 独立窗口（无宿主页顶栏且本身没有语言按钮的页面）：统一提供右侧边下部语言切换抽屉按钮
+(function mountStandaloneLanguageDrawer() {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    if (window.self !== window.top) return;
+    const path = window.location.pathname || '/';
+    if (path === '/' || path === '/index.html') return;
+
+    function isVisibleElement(el) {
+        if (!el) return false;
+        const style = window.getComputedStyle(el);
+        return style.display !== 'none' && style.visibility !== 'hidden' && el.getClientRects().length > 0;
+    }
+
+    function hasExistingLanguageSwitch() {
+        if (document.getElementById('toolsCustomLanguageButton') || document.querySelector('.custom-tool-frame')) return true;
+        const selectors = [
+            '#loginLangBtn', '#evolutionLanguage', '.btn-lang-toggle',
+            '#langBtn', '#lang-btn', '#language-toggle', '.lang-toggle',
+            '[data-lang-toggle]', '[onclick*="toggleLanguage"]', '[onclick*="toggleAppLanguage"]', '[onclick*="toggleLoginLanguage"]'
+        ];
+        for (const sel of selectors) {
+            for (const el of document.querySelectorAll(sel)) {
+                if (el.id !== 'toolsStandaloneLangBtn' && isVisibleElement(el)) return true;
+            }
+        }
+        return false;
+    }
+
+    function currentLangCode() {
+        const raw = window.ToolsI18n?.getLanguage?.()
+            || (() => { try { return localStorage.getItem('tools_lang') || localStorage.getItem('tools_language'); } catch (_) { return ''; } })()
+            || document.documentElement.lang
+            || 'zh-CN';
+        return String(raw).toLowerCase().startsWith('en') ? 'en-US' : 'zh-CN';
+    }
+
+    function updateDrawerButton() {
+        const btn = document.getElementById('toolsStandaloneLangBtn');
+        if (!btn) return;
+        const isEn = currentLangCode() === 'en-US';
+        btn.innerHTML = `<span aria-hidden="true" style="font-size:13px;line-height:1">🌐</span><span style="font-weight:700;font-size:11px;letter-spacing:0.5px">${isEn ? '中' : 'EN'}</span>`;
+        btn.title = isEn ? '切换为中文' : 'Switch to English';
+        btn.setAttribute('aria-label', btn.title);
+    }
+
+    function install() {
+        if (!document.body || document.getElementById('toolsStandaloneLangBtn') || hasExistingLanguageSwitch()) return;
+        if (!document.getElementById('toolsStandaloneLangStyle')) {
+            const style = document.createElement('style');
+            style.id = 'toolsStandaloneLangStyle';
+            style.textContent = `#toolsStandaloneLangBtn{position:fixed;right:0;bottom:84px;z-index:2147483000;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:54px;height:38px;padding:0 10px 0 12px;border:1px solid rgba(148,163,184,.38);border-right:none;border-radius:19px 0 0 19px;background:rgba(15,23,42,.88);box-shadow:-4px 6px 20px rgba(2,6,23,.24);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);color:#f8fafc;font:600 12px/1 system-ui,-apple-system,sans-serif;cursor:pointer;user-select:none;touch-action:manipulation;transition:transform .22s cubic-bezier(.2,.8,.2,1),background .22s,border-color .22s,box-shadow .22s;outline:none}#toolsStandaloneLangBtn:hover{border-color:rgba(103,232,249,.65);background:rgba(15,23,42,.98);transform:translateX(-5px);box-shadow:-6px 8px 24px rgba(2,6,23,.32),0 0 16px rgba(103,232,249,.18)}#toolsStandaloneLangBtn:active{transform:translateX(-2px) scale(.97)}@media (max-width:520px){#toolsStandaloneLangBtn{bottom:74px;height:34px;min-width:48px;padding:0 8px 0 10px;border-radius:17px 0 0 17px;font-size:11px}}@media print{#toolsStandaloneLangBtn{display:none!important}}`;
+            document.head.appendChild(style);
+        }
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.id = 'toolsStandaloneLangBtn';
+        btn.addEventListener('click', () => window.toggleAppLanguage?.());
+        document.body.appendChild(btn);
+        updateDrawerButton();
+        window.dispatchEvent(new CustomEvent('tools:ai-fab-position'));
+    }
+
+    window.addEventListener('tools:languagechange', updateDrawerButton);
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => setTimeout(install, 60), { once: true });
+    } else {
+        setTimeout(install, 60);
+    }
+})();
 

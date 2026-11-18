@@ -172,13 +172,49 @@
         }
         window.HomeShell?.fillIcons?.(root);
         const browserButton = root.querySelector('[data-frame-act=browser]');
+        const moreButton = root.querySelector('[data-frame-act="more"]');
+        const reloadButton = root.querySelector('[data-frame-act="reload"]');
+        const externalButton = root.querySelector('[data-frame-act="external"]');
+        const closeButton = root.querySelector('[data-frame-act="close"]');
         const syncBrowserButton = () => {
             browserButton.textContent = L('浏览器', 'Browser');
             browserButton.title = L('显示或收起 Dragon 浏览器', 'Show or hide Dragon Browser');
             browserButton.setAttribute('aria-pressed', String(document.body.classList.contains('dc-browser-open')));
         };
+        const syncFrameLanguage = () => {
+            syncBrowserButton();
+            if (moreButton) {
+                const label = L('更多操作', 'More options');
+                moreButton.title = label;
+                moreButton.setAttribute('aria-label', label);
+            }
+            if (reloadButton) reloadButton.title = L('刷新', 'Reload');
+            if (externalButton) externalButton.title = staticNav ? L('独立页面打开', 'Open standalone page') : L('在新标签页打开', 'Open in new tab');
+            if (closeButton) closeButton.title = L('关闭', 'Close');
+            if (!root.hidden && state.href) {
+                try {
+                    const info = toolInfo(new URL(currentHref(), location.origin));
+                    if (info.title && titleEl) {
+                        titleEl.textContent = info.title;
+                        if (frame) frame.title = info.title;
+                    }
+                } catch (_) {}
+            }
+            if (root.hidden || activeSurface || !frame) return;
+            const lang = window.ToolsI18n?.getLanguage?.() || localStorage.getItem('tools_lang') || 'zh-CN';
+            try {
+                const win = frame.contentWindow;
+                if (!win) return;
+                if (win.ToolsI18n?.getLanguage?.() !== lang) {
+                    win.ToolsI18n?.setLanguage?.(lang);
+                }
+                win.postMessage({ type: 'tools-platform-language', lang }, location.origin);
+                const nestedFrame = frame.contentDocument?.querySelector?.('.custom-tool-frame');
+                nestedFrame?.contentWindow?.postMessage?.({ type: 'tools-platform-language', lang }, location.origin);
+            } catch (_) {}
+        };
         syncBrowserButton();
-        window.addEventListener('tools:languagechange', syncBrowserButton);
+        window.addEventListener('tools:languagechange', syncFrameLanguage);
         window.addEventListener('dragon-claw:browser-reading', syncBrowserButton);
         root.addEventListener('click', event => {
             const act = event.target.closest('[data-frame-act]')?.dataset.frameAct;
@@ -259,6 +295,7 @@
             // 工具页里点回首页（Logo 等）：关掉内嵌而不是在框里再套一个首页
             try { if (new URL(href, location.origin).pathname === '/') { close(); return; } } catch { /* ignore */ }
             if (state.syncUrl) writeUrl(href, true);
+            syncFrameLanguage();
         });
     }
 
