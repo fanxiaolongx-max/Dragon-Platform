@@ -45,15 +45,20 @@ const waitForFocus = (selector, inTool = false) => until(`(() => {
 const waitForStage = (kind, selector = '[data-tour-focus]') => until(`(() => {
     const overlay = document.querySelector('.v2-tour-root.is-staged');
     const stage = overlay?.querySelector('.v2-tour-stage.is-' + ${JSON.stringify(kind)});
-    const img = stage?.querySelector('.tm-shot');
-    const el = img || stage?.querySelector(${JSON.stringify(selector)});
-    if (!el || (!img && !el.hasAttribute('data-tour-focus')) || (img && !img.naturalWidth) || overlay.querySelector('.v2-tour-ring').style.opacity !== '1') return false;
+    const frame = stage?.querySelector('.tm-page');
+    const inner = frame?.contentDocument?.querySelector('[data-tour-focus]');
+    const el = frame ? inner : stage?.querySelector(${JSON.stringify(selector)});
+    if (!el || !el.hasAttribute('data-tour-focus') || overlay.querySelector('.v2-tour-ring').style.opacity !== '1') return false;
     const box = stage.getBoundingClientRect();
     let rect = el.getBoundingClientRect();
-    if (img) {
-        const [l, t, r, b] = window.HomeProductTourDemos.tools[${JSON.stringify(kind)}].focus;
-        if (rect.left < box.left - 1 || rect.right > box.right + 1 || rect.top < box.top - 1 || rect.bottom > box.bottom + 1) return false;
-        rect = { left: rect.left + l * rect.width, right: rect.left + r * rect.width, top: rect.top + t * rect.height, bottom: rect.top + b * rect.height };
+    if (frame) {
+        // 快照在 iframe 里按原尺寸排版后整体缩放，高亮应对准缩放后的重点元素。
+        const outer = frame.parentElement.getBoundingClientRect();
+        const scale = outer.width / frame.offsetWidth;
+        if (outer.left < box.left - 1 || outer.right > box.right + 1 || outer.top < box.top - 1 || outer.bottom > box.bottom + 1) return false;
+        const vw = frame.offsetWidth, vh = frame.offsetHeight;
+        rect = { left: outer.left + Math.max(0, rect.left) * scale, right: outer.left + Math.min(vw, rect.right) * scale,
+            top: outer.top + Math.max(0, rect.top) * scale, bottom: outer.top + Math.min(vh, rect.bottom) * scale };
     }
     const ring = overlay.querySelector('.v2-tour-ring').getBoundingClientRect();
     const card = overlay.querySelector('.v2-tour-card').getBoundingClientRect();
@@ -230,9 +235,13 @@ app.whenReady().then(async () => {
         await next();
         assert.equal(await evaluate('document.querySelector(".v2-tour-title").textContent'), title);
         await waitForStage(id);
-        assert.equal(await evaluate('new URL(document.querySelector(".v2-tour-stage .tm-shot").src).pathname'), `/assets/tour/${id}.webp`, `${id} shows its anonymized screenshot`);
+        if (id === 'opsDrafts') assert.ok(await evaluate('!!document.querySelector(".v2-tour-stage .ops-inbox-panel .ops-card[data-tour-focus]")'), 'ops drafts render the real review panel');
+        else {
+            assert.equal(await evaluate('new URL(document.querySelector(".v2-tour-stage .tm-page").src).pathname'), `/assets/tour/${id}.html`, `${id} shows its anonymized page snapshot`);
+            assert.equal(await evaluate('document.querySelector(".v2-tour-stage .tm-page").contentDocument.querySelectorAll("script").length'), 0, `${id} snapshot runs no scripts`);
+        }
         assert.ok(await evaluate('document.querySelector(".v2-tour-stage .tm-sample")?.textContent === "真实界面 · 数据已匿名"'), `${id} screenshot is labelled as anonymized`);
-        assert.equal(await evaluate('window.HomeToolFrame.isOpen() || Boolean(document.querySelector(".v2-tour-root iframe"))'), false, `${id} does not load the real tool`);
+        assert.equal(await evaluate('window.HomeToolFrame.isOpen() || [...document.querySelectorAll(".v2-tour-root iframe")].some(f => !new URL(f.src).pathname.startsWith("/assets/tour/") || f.getAttribute("sandbox") !== "allow-same-origin")'), false, `${id} does not load the real tool`);
         if (id === 'sla') {
             await evaluate('window.ToolsI18n.setLanguage("en-US"); document.documentElement.dataset.theme = "dark";');
             win.setContentSize(390, 660);

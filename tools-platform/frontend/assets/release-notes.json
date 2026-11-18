@@ -1,8 +1,8 @@
 {
   "zh": [
-    "新手引导的工具步骤改为展示真实界面截图：数据抓取、数据导入、报表看板、一键催办、月报、大屏和运维待办都来自真实数据，运营商名、单号、工号、人名、头像和内部地址已做匿名处理；示范对话也改用同一份匿名数据，高亮框按截图精确框住各页面的重点区域。"
+    "新手引导的工具步骤改为渲染真实页面：数据抓取、数据导入、报表看板、一键催办、月报和大屏用的是真实页面的静态快照（数据已匿名、不运行脚本、不请求接口），文字清晰、秒开；运维待办直接用真实的待确认面板展示示例草稿，高亮框对准每页的重点元素。"
   ],
   "en": [
-    "Product tour tool steps now show real screens: Data Capture, Data Import, Reports, One-Click Follow-Up, Monthly Report, Big Screen and Ops Drafts use real data with operator names, ticket IDs, employee IDs, names, photos and internal addresses anonymized. The sample chat uses the same anonymized data, and the highlight frames the key area of each screenshot."
+    "Product tour tool steps now render real pages: Data Capture, Data Import, Reports, One-Click Follow-Up, Monthly Report and Big Screen use static snapshots of the real pages (anonymized data, no scripts, no API calls), so text is sharp and they open instantly. Ops Drafts shows a sample draft in the real review panel, and the highlight targets the key element on each page."
   ]
 }

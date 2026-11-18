@@ -1,0 +1,1333 @@
+<!doctype html>
+<!-- 新手引导静态快照：来自真实页面，数据已匿名；只用于引导展示，不含脚本。 -->
+<html lang="zh-CN" data-kantu="1" data-platform-theme="light" data-theme="light" style="color-scheme: light;" class="is-embedded-tool" data-tour-anchor="72" data-tour-viewport="1314,783"><head><meta name="tools-detected-mobile-layout" content="desktop"><style id="tools-fixed-tool-theme">:root,body,input,textarea,select,button { color-scheme: light !important; }
+        #themeToggleButton,#themeToggle,#themeToggleBtn,#theme-toggle,#theme-btn,#themeBtn,#themeSwitcher,button#theme,.theme-toggle,.btn-theme-toggle,.theme-switch,[data-theme-toggle] { display:none !important; }</style><style id="elegantScrollbars">
+        *, *::before, *::after { scrollbar-width: auto !important; scrollbar-color: auto !important; }
+        ::-webkit-scrollbar { width: 8px !important; height: 8px !important; background: transparent !important; }
+        ::-webkit-scrollbar-track, ::-webkit-scrollbar-track-piece, ::-webkit-scrollbar-corner { background: transparent !important; border: 0 !important; box-shadow: none !important; }
+        ::-webkit-scrollbar-button { display: none !important; width: 0 !important; height: 0 !important; }
+        ::-webkit-scrollbar-thumb { min-height: 36px; min-width: 36px; border: 2px solid transparent !important; border-radius: 999px !important; background: transparent !important; background-clip: padding-box !important; box-shadow: none !important; }
+        .is-scrolling::-webkit-scrollbar-thumb { background-color: rgba(100, 116, 139, 0.42) !important; }
+        .is-scrolling::-webkit-scrollbar-thumb:hover, .is-scrolling::-webkit-scrollbar-thumb:active { background-color: rgba(100, 116, 139, 0.62) !important; }
+        :is(html[data-theme="dark"], html[data-platform-theme="dark"]) .is-scrolling::-webkit-scrollbar-thumb { background-color: rgba(203, 213, 225, 0.32) !important; }
+    </style><style>html.is-embedded-tool{--navbar-h:0px}html.is-clean-tool :is(.ai-fab,.ai-panel,.ai-proactive-alert,.ops-inbox-banner,.ops-home-inbox,.custom-tool-head){display:none!important}html.is-clean-tool .custom-tool-shell{grid-template-rows:1fr}</style><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>护网与网络安全月报 - AI 月报</title><link rel="stylesheet" href="/css/shared.css"><link rel="stylesheet" href="/css/ai-report.css"><link rel="stylesheet" href="/css/startup-screen.css"><style id="globalBackToTopStyle">
+            /* 右侧停靠列的一员：与 Dragon Claw / 工作区标签同形同材质，小一号，叠在整列最上方 */
+            #globalBackToTop {
+                position: fixed;
+                right: 0;
+                bottom: var(--global-back-to-top-bottom, 156px);
+                z-index: 10050;
+                width: 46px;
+                height: 40px;
+                padding: 0 4px 0 8px;
+                border: 1px solid rgba(100, 255, 218, 0.26);
+                border-right: none;
+                border-radius: 20px 0 0 20px;
+                background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(16, 32, 54, 0.9));
+                color: #99f6e4;
+                box-shadow: -6px 8px 22px rgba(2, 6, 23, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+                cursor: pointer;
+                display: grid;
+                place-items: center;
+                opacity: 0;
+                visibility: hidden;
+                transform: translateX(100%);
+                transition: opacity 0.2s ease, transform 0.24s cubic-bezier(.2,.8,.2,1), visibility 0.2s ease, border-color 0.18s ease, color 0.18s ease;
+                -webkit-tap-highlight-color: transparent;
+            }
+            #globalBackToTop svg { width: 18px; height: 18px; }
+            #globalBackToTop.visible {
+                opacity: 1;
+                visibility: visible;
+                transform: translateX(0);
+            }
+            #globalBackToTop:hover {
+                border-color: rgba(100, 255, 218, 0.55);
+                color: #64ffda;
+            }
+            #globalBackToTop:focus-visible {
+                outline: 2px solid rgba(100, 255, 218, 0.75);
+                outline-offset: 2px;
+            }
+            @media (max-width: 520px) {
+                #globalBackToTop { width: 42px; height: 36px; border-radius: 18px 0 0 18px; }
+            }
+            @media (prefers-reduced-motion: reduce) {
+                #globalBackToTop { transition: none; }
+            }
+            @media print {
+                #globalBackToTop { display: none !important; }
+            }
+        </style><style>
+        .ai-file-chip { display: flex; width: fit-content; align-items: center; gap: 10px; max-width: 100%; margin: 8px 0; padding: 7px 10px 7px 8px; border-radius: 12px; border: 1px solid rgba(148, 163, 184, 0.22); background: rgba(15, 23, 42, 0.55); vertical-align: middle; box-sizing: border-box; line-height: 1.3; transition: border-color .15s, background .15s; }
+        .ai-file-chip:hover { border-color: rgba(148, 163, 184, 0.38); background: rgba(15, 23, 42, 0.75); }
+        .ai-file-chip-icon { flex: none; display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 8px; background: transparent !important; }
+        .ai-file-svg { display: block; width: 34px; height: 34px; overflow: visible; }
+        .ai-file-svg-paper { fill: var(--file-paper-bg, rgba(148, 163, 184, 0.1)); }
+        .ai-file-svg-fold { fill: var(--file-fold-bg, rgba(148, 163, 184, 0.22)); }
+
+        /* Dark Mode 类型微色调（契合深色主题、克制雅致） */
+        .ai-file-svg { color: #94a3b8; --file-paper-bg: rgba(148, 163, 184, 0.1); --file-fold-bg: rgba(148, 163, 184, 0.22); }
+        .ai-file-svg[data-file-cat="sheet"] { color: #34d399; --file-paper-bg: rgba(16, 185, 129, 0.14); --file-fold-bg: rgba(16, 185, 129, 0.26); }
+        .ai-file-svg[data-file-cat="doc"]   { color: #60a5fa; --file-paper-bg: rgba(59, 130, 246, 0.14); --file-fold-bg: rgba(59, 130, 246, 0.26); }
+        .ai-file-svg[data-file-cat="slide"] { color: #fb923c; --file-paper-bg: rgba(249, 115, 22, 0.14); --file-fold-bg: rgba(249, 115, 22, 0.26); }
+        .ai-file-svg[data-file-cat="pdf"]   { color: #f43f5e; --file-paper-bg: rgba(244, 63, 94, 0.14); --file-fold-bg: rgba(244, 63, 94, 0.26); }
+        .ai-file-svg[data-file-cat="md"]    { color: #22d3ee; --file-paper-bg: rgba(6, 182, 212, 0.14); --file-fold-bg: rgba(6, 182, 212, 0.26); }
+        .ai-file-svg[data-file-cat="code"]  { color: #a78bfa; --file-paper-bg: rgba(139, 92, 246, 0.14); --file-fold-bg: rgba(139, 92, 246, 0.26); }
+        .ai-file-svg[data-file-cat="data"]  { color: #fbbf24; --file-paper-bg: rgba(245, 158, 11, 0.14); --file-fold-bg: rgba(245, 158, 11, 0.26); }
+        .ai-file-svg[data-file-cat="db"]    { color: #2dd4bf; --file-paper-bg: rgba(20, 184, 166, 0.14); --file-fold-bg: rgba(20, 184, 166, 0.26); }
+        .ai-file-svg[data-file-cat="zip"]   { color: #f59e0b; --file-paper-bg: rgba(217, 119, 6, 0.14); --file-fold-bg: rgba(217, 119, 6, 0.26); }
+        .ai-file-svg[data-file-cat="image"] { color: #34d399; --file-paper-bg: rgba(16, 185, 129, 0.14); --file-fold-bg: rgba(16, 185, 129, 0.26); }
+        .ai-file-svg[data-file-cat="media"] { color: #f472b6; --file-paper-bg: rgba(236, 72, 153, 0.14); --file-fold-bg: rgba(236, 72, 153, 0.26); }
+        .ai-file-svg[data-file-cat="text"]  { color: #94a3b8; --file-paper-bg: rgba(148, 163, 184, 0.1); --file-fold-bg: rgba(148, 163, 184, 0.22); }
+        .ai-file-svg[data-file-cat="unknown"] { color: #94a3b8; --file-paper-bg: rgba(148, 163, 184, 0.08); --file-fold-bg: rgba(148, 163, 184, 0.2); }
+
+        .ai-file-chip-text { display: flex; flex-direction: column; min-width: 0; }
+        .ai-file-chip a.ai-file-chip-name { color: #f1f5f9; font-weight: 600; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46ch; }
+        .ai-file-chip a.ai-file-chip-name:hover { text-decoration: underline; color: #38bdf8; }
+        .ai-file-chip-meta { font-size: 11.5px; opacity: .7; color: #94a3b8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46ch; }
+        .ai-file-chip-meta:empty { display: none; }
+        .ai-file-chip a.ai-file-chip-download { flex: none; display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px; border-radius: 7px; font-size: 11.5px; font-weight: 600; text-decoration: none; color: #e2e8f0; background: rgba(148, 163, 184, 0.14); border: 1px solid rgba(148, 163, 184, 0.22); }
+        .ai-file-chip a.ai-file-chip-download:hover { background: rgba(148, 163, 184, 0.24); color: #fff; }
+        .ai-file-chip.is-missing { opacity: .6; border-style: dashed; }
+        .ai-file-chip.is-missing a.ai-file-chip-download { pointer-events: none; opacity: .5; }
+        html .ai-file-chip.ai-file-chip--compact,
+        html.platform-home:not([data-theme="dark"]) .ai-file-chip.ai-file-chip--compact {
+            display: inline; width: auto; margin: 0; padding: 0; border: 0; border-radius: 0;
+            background: transparent; box-shadow: none; line-height: inherit; vertical-align: baseline;
+        }
+        .ai-file-chip--compact .ai-file-chip-text { display: inline; }
+        .ai-file-chip--compact .ai-file-chip-icon,
+        .ai-file-chip--compact .ai-file-chip-meta,
+        .ai-file-chip.ai-file-chip--compact a.ai-file-chip-download { display: none; }
+        .ai-file-chip.ai-file-chip--compact a.ai-file-chip-name {
+            display: inline; max-width: none; white-space: normal; overflow-wrap: anywhere;
+            font-size: .95em; font-weight: 500; color: #7dd3fc;
+            text-decoration: underline; text-decoration-color: #7dd3fc55;
+            text-decoration-thickness: 1px; text-underline-offset: 3px;
+        }
+        html.platform-home:not([data-theme="dark"]) .ai-file-chip.ai-file-chip--compact a.ai-file-chip-name { color: #2563a6; text-decoration-color: #2563a64d; }
+        .ai-file-chip.ai-file-chip--compact a.ai-file-chip-name:hover { color: #38bdf8; text-decoration-color: currentColor; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-chip.ai-file-chip--compact a.ai-file-chip-name:hover { color: #1d4ed8; text-decoration-color: currentColor; }
+        .ai-file-chip--compact a.ai-file-chip-name:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; border-radius: 2px; }
+        .ai-md-image { display: block; width: fit-content; max-width: 100%; margin: 6px 0; vertical-align: top; }
+        .ai-md-image img { display: block; max-width: min(100%, 520px); max-height: 360px; border-radius: 10px; border: 1px solid rgba(148, 163, 184, .3); cursor: zoom-in; object-fit: contain; background: rgba(148, 163, 184, .08); }
+        .ai-md-image.is-missing { padding: 8px 12px; border-radius: 10px; border: 1px dashed rgba(148, 163, 184, .5); font-size: 13px; opacity: .7; }
+        .home-workspace-panel.has-file-preview > :not(.ai-file-preview) { display: none !important; }
+        .ai-file-preview { display: flex; flex-direction: column; min-width: 0; position: relative; height: auto; color: var(--wsp-text, var(--text-primary, #e2e8f0)); background: var(--wsp-panel, var(--bg-secondary, #0f172a)); border-radius: 12px; overflow: hidden; }
+        .ai-file-preview--floating { position: fixed; right: 16px; top: calc(var(--navbar-h, 60px) + 16px); bottom: 18px; width: min(var(--ai-preview-width, 560px), calc(100vw - 32px)); max-height: none; z-index: 10010; border: 1px solid #94a3b855; box-shadow: 0 12px 40px #0004; }
+        .home-workspace-panel.has-file-preview { height: calc(100dvh - var(--navbar-h) - 36px); max-height: none; box-sizing: border-box; overflow: hidden; }
+        .home-workspace-panel.has-file-preview > .ai-file-preview { flex: 1 1 auto; min-height: 0; }
+        .ai-file-preview-resize { position: absolute; left: 0; top: 0; bottom: 0; width: 8px; z-index: 2; cursor: col-resize; touch-action: none; border-radius: 5px; }
+        body.ai-preview-resizing { cursor: col-resize; user-select: none; }
+        body.ai-preview-resizing .ai-file-preview iframe { pointer-events: none; }
+        @media (min-width: 861px) {
+            html:not(.platform-home) body.ai-file-preview-open.home-mode-chat.dc-workspace-open .home-content.home-workspace { grid-template-columns: var(--ws-side) minmax(0, 1fr) var(--ai-preview-width, var(--ws-panel-w)); }
+            html:not(.platform-home) body.ai-file-preview-open.home-sidebar-collapsed.home-mode-chat.dc-workspace-open .home-content.home-workspace { grid-template-columns: var(--ws-rail) minmax(0, 1fr) var(--ai-preview-width, var(--ws-panel-w)); }
+        }
+        @media (max-width: 860px) {
+            .home-workspace-panel.has-file-preview,
+            html.platform-home .home-workspace-panel.has-file-preview { height: calc(100dvh - var(--navbar-h)); width: min(var(--ai-preview-width, 360px), calc(100vw - 32px)); }
+        }
+        .ai-file-preview header { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid rgba(148, 163, 184, 0.2); }
+        .ai-file-preview header strong { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 13.5px; }
+        .ai-file-preview header a, .ai-file-preview header button { flex: none; color: inherit; font: inherit; }
+        .ai-file-preview header button { background: transparent; border: 0; cursor: pointer; padding: 6px; font-size: 14px; border-radius: 6px; }
+        .ai-file-preview header button:hover { background: rgba(148, 163, 184, 0.15); }
+        .ai-file-preview-tabs { display: flex; gap: 6px; padding: 6px 14px 10px; border-bottom: 1px solid rgba(148, 163, 184, 0.2); background: rgba(15, 23, 42, 0.25); }
+        .ai-file-preview-tab { background: transparent; border: 1px solid transparent; color: inherit; opacity: .7; padding: 3px 11px; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all .15s ease; font-family: inherit; }
+        .ai-file-preview-tab:hover { opacity: 1; background: rgba(148, 163, 184, 0.12); }
+        .ai-file-preview-tab.is-active { opacity: 1; font-weight: 600; color: #38bdf8; background: rgba(56, 189, 248, 0.14); border-color: rgba(56, 189, 248, 0.3); }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-tabs { background: rgba(241, 245, 249, 0.6); }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-tab.is-active { color: #0284c7; background: rgba(2, 132, 199, 0.12); border-color: rgba(2, 132, 199, 0.25); }
+        .ai-file-preview-body { flex: 1; min-height: 0; overflow: auto; padding: 0; display: flex; flex-direction: column; }
+        .ai-file-preview-view { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+        .ai-file-preview-view[hidden] { display: none !important; }
+        .ai-file-md { padding: 14px 18px; font-size: 13.5px; line-height: 1.7; color: inherit; word-break: break-word; overflow-y: auto; flex: 1; }
+        .ai-file-md h1, .ai-file-md h2, .ai-file-md h3, .ai-file-md h4 { margin: 1.2em 0 0.5em; font-weight: 600; line-height: 1.35; color: inherit; }
+        .ai-file-md h1 { font-size: 1.4em; border-bottom: 1px solid rgba(148, 163, 184, 0.25); padding-bottom: 0.3em; }
+        .ai-file-md h2 { font-size: 1.2em; border-bottom: 1px solid rgba(148, 163, 184, 0.2); padding-bottom: 0.25em; }
+        .ai-file-md h3 { font-size: 1.08em; }
+        .ai-file-md p { margin: 0.6em 0; }
+        .ai-file-md ul, .ai-file-md ol { padding-left: 1.5em; margin: 0.5em 0; }
+        .ai-file-md li { margin: 0.25em 0; }
+        .ai-file-md blockquote { margin: 0.8em 0; padding: 0.4em 1em; border-left: 3px solid #38bdf8; background: rgba(56, 189, 248, 0.08); border-radius: 0 6px 6px 0; }
+        .ai-file-md table { width: 100%; border-collapse: collapse; margin: 0.8em 0; font-size: 12.5px; }
+        .ai-file-md th, .ai-file-md td { border: 1px solid rgba(148, 163, 184, 0.25); padding: 6px 10px; text-align: left; }
+        .ai-file-md th { background: rgba(148, 163, 184, 0.12); font-weight: 600; }
+        .ai-file-md code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.9em; padding: 2px 5px; border-radius: 4px; background: rgba(148, 163, 184, 0.15); }
+        .ai-file-md pre { background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 8px; padding: 10px 12px; margin: 0.8em 0; overflow-x: auto; }
+        .ai-file-md pre code { background: transparent; padding: 0; border-radius: 0; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-md pre { background: rgba(241, 245, 249, 0.9); }
+        .ai-file-code-container { display: flex; min-height: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; line-height: 1.6; overflow-x: auto; flex: 1; }
+        .ai-file-line-numbers { flex: none; padding: 10px 8px; text-align: right; user-select: none; opacity: .45; border-right: 1px solid rgba(148, 163, 184, 0.18); display: flex; flex-direction: column; background: rgba(148, 163, 184, 0.03); }
+        .ai-file-line-numbers span { display: block; min-height: 1.6em; }
+        .ai-file-preview-code { flex: 1; margin: 0; padding: 10px 12px; white-space: pre; overflow-x: auto; font-family: inherit; font-size: inherit; line-height: inherit; background: transparent; }
+        .ai-file-line { display: block; min-height: 1.6em; }
+        .ai-file-preview-frame { width: 100%; height: 100%; min-height: 380px; flex: 1; border: 0; background: white; }
+        .ai-file-preview-view.is-diff { padding: 12px; overflow-y: auto; flex: 1; }
+        .ai-file-diff-status { padding: 24px; text-align: center; opacity: .65; font-size: 13px; }
+        .ai-file-diff-empty { padding: 36px 16px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; opacity: .7; }
+        .ai-file-diff-empty-icon { font-size: 26px; line-height: 1; }
+        .ai-file-diff-empty p { margin: 0; font-size: 13px; }
+        .ai-file-preview-code .tok-keyword { color: #f47067; font-weight: 500; }
+        .ai-file-preview-code .tok-builtin { color: #79c0ff; }
+        .ai-file-preview-code .tok-string { color: #a5d6ff; }
+        .ai-file-preview-code .tok-comment { color: #8b949e; font-style: italic; }
+        .ai-file-preview-code .tok-number { color: #d2a8ff; }
+        .ai-file-preview-code .tok-decorator { color: #ffa657; }
+        .ai-file-preview-code .tok-operator { color: #f47067; }
+        .ai-file-preview-code .tok-tag { color: #7ee787; font-weight: 500; }
+        .ai-file-preview-code .tok-attr { color: #79c0ff; }
+        .ai-file-preview-code .tok-key { color: #7ee787; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-code .tok-keyword { color: #cf222e; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-code .tok-builtin { color: #0550ae; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-code .tok-string { color: #0a3069; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-code .tok-comment { color: #6e7781; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-code .tok-number { color: #8250df; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-code .tok-decorator { color: #953800; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-code .tok-operator { color: #cf222e; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-code .tok-tag { color: #116329; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-code .tok-attr { color: #0550ae; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-code .tok-key { color: #116329; }
+        .ai-file-preview pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.7 ui-monospace, monospace; color: inherit; background: transparent; }
+        .ai-file-preview iframe { width: 100%; height: 100%; border: 0; background: white; }
+        .ai-lightbox { position: fixed; inset: 0; z-index: 2147483000; background: rgba(2, 6, 23, .9); display: flex; flex-direction: column; }
+        .ai-lightbox[hidden] { display: none; }
+        .ai-lightbox-stage { flex: 1; min-height: 0; display: grid; place-items: center; overflow: hidden; cursor: zoom-out; }
+        .ai-lightbox-stage img { max-width: 92vw; max-height: calc(100vh - 96px); object-fit: contain; cursor: grab; user-select: none; touch-action: none; transition: transform .06s linear; border-radius: 6px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+        .ai-lightbox-stage img:active { cursor: grabbing; }
+        .ai-lightbox-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); color: #e2e8f0; font-size: 13px; background: rgba(15, 23, 42, .85); border-top: 1px solid rgba(148, 163, 184, .2); }
+        .ai-lightbox-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ai-lightbox-count { opacity: .7; }
+        .ai-lightbox-bar button, .ai-lightbox-bar a { min-height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid rgba(148, 163, 184, .35); background: rgba(30, 41, 59, .9); color: #e2e8f0; font: inherit; text-decoration: none; display: inline-flex; align-items: center; cursor: pointer; }
+        .ai-lightbox-bar button:hover, .ai-lightbox-bar a:hover { background: rgba(51, 65, 85, .95); }
+        .ai-lightbox-bar a[data-lb="download"] { background: #7dd3fc; color: #0c4a6e; border-color: transparent; font-weight: 600; }
+        .ai-lightbox-bar [hidden] { display: none; }
+    </style><style>
+        /* AI Assistant 样式定义 */
+        /* The active tool owns its contextual drawer; retain the host as fallback. */
+        body.v2-tool-has-assistant > :is(.ai-fab, .ai-panel, .ai-proactive-alert) { display: none !important; }
+        /* AI Assistant 样式定义 */
+        /* 右侧停靠标签：符合主页氛围的现代明亮玻璃风格（翡翠绿/青碧主题色） */
+        .ai-fab {
+            position: fixed;
+            bottom: var(--ai-fab-bottom, 270px);
+            top: var(--ai-fab-top, auto);
+            right: 0;
+            height: 48px;
+            min-width: 54px;
+            box-sizing: border-box;
+            padding: 0 11px 0 10px;
+            border-radius: 24px 0 0 24px;
+            background: rgba(255, 255, 255, 0.94);
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            border-right: none;
+            color: #1f2328;
+            display: flex;
+            align-items: center;
+            box-shadow:
+                -6px 10px 24px rgba(15, 23, 42, 0.08),
+                0 2px 6px rgba(15, 23, 42, 0.04),
+                inset 0 1px 0 #ffffff;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            cursor: grab;
+            z-index: 100000;
+            opacity: 1;
+            transform: translateX(0);
+            transition:
+                opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+                border-color 0.22s,
+                box-shadow 0.22s,
+                background 0.22s;
+            user-select: none;
+            touch-action: none;
+            isolation: isolate;
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+            font-family: inherit;
+        }
+        .ai-fab.is-dragging {
+            cursor: grabbing !important;
+            user-select: none !important;
+            transition: none !important;
+            opacity: 1 !important;
+            transform: translateX(0) scale(1.02) !important;
+            box-shadow:
+                -10px 18px 36px rgba(16, 163, 127, 0.22),
+                0 4px 12px rgba(15, 23, 42, 0.1),
+                inset 0 1px 0 #ffffff !important;
+        }
+        .ai-fab.is-idle {
+            opacity: 0.42;
+            transform: translateX(8px);
+            box-shadow: -3px 4px 12px rgba(15, 23, 42, 0.05);
+        }
+        @media (hover: hover) {
+            .ai-fab.is-idle:hover {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        .ai-fab.is-idle:focus-visible,
+        .ai-fab.is-idle[aria-expanded="true"],
+        .ai-fab.is-idle.is-dragging {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        body:has(.ai-proactive-alert.show) .ai-fab {
+            opacity: 1 !important;
+            transform: translateX(0) !important;
+        }
+        .ai-fab::before {
+            content: "";
+            position: absolute;
+            inset: -2px;
+            z-index: -1;
+            border-radius: inherit;
+            background: radial-gradient(circle at 30% 50%, rgba(16, 163, 127, 0.16), rgba(99, 102, 241, 0.08) 55%, transparent 78%);
+            opacity: 0;
+            transition: opacity 0.22s;
+            pointer-events: none;
+        }
+        .ai-fab-orb {
+            position: relative;
+            flex: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #ffffff;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+            display: grid;
+            place-items: center;
+        }
+        .ai-fab-orb::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: conic-gradient(from 210deg, #10a37f, #06b6d4, #6366f1, #a855f7, #10a37f);
+            -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+            mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+            animation: ai-fab-spin 9s linear infinite;
+        }
+        .ai-fab-avatar {
+            position: absolute;
+            inset: 3px;
+            width: calc(100% - 6px);
+            height: calc(100% - 6px);
+            border-radius: 50%;
+            object-fit: cover;
+            background: #ffffff;
+            box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+            image-rendering: -webkit-optimize-contrast;
+            pointer-events: none;
+        }
+        .ai-fab-dot {
+            position: absolute;
+            right: -1px;
+            bottom: -1px;
+            width: 9px;
+            height: 9px;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            background: #10a37f;
+            box-shadow: 0 0 6px rgba(16, 163, 127, 0.7);
+        }
+        .ai-fab-label {
+            max-width: 0;
+            overflow: hidden;
+            white-space: nowrap;
+            opacity: 0;
+            font-size: 13px;
+            font-weight: 650;
+            color: #1f2328;
+            letter-spacing: 0.01em;
+            transition: max-width 0.26s cubic-bezier(.2,.8,.2,1), opacity 0.2s, margin 0.26s;
+        }
+        @media (hover: hover) {
+            .ai-fab:hover .ai-fab-label,
+            .ai-fab:focus-visible .ai-fab-label {
+                max-width: 120px;
+                margin-left: 9px;
+                opacity: 1;
+            }
+        }
+        .ai-fab:hover,
+        .ai-fab[aria-expanded="true"] {
+            background: linear-gradient(135deg, #ffffff, #f0fdf9);
+            border-color: rgba(16, 163, 127, 0.5);
+            box-shadow:
+                -8px 14px 28px rgba(16, 163, 127, 0.12),
+                0 2px 8px rgba(15, 23, 42, 0.05),
+                inset 0 1px 0 #ffffff;
+        }
+        .ai-fab:hover::before,
+        .ai-fab:focus-visible::before,
+        .ai-fab[aria-expanded="true"]::before { opacity: 1; }
+        .ai-fab:focus-visible {
+            box-shadow:
+                -8px 14px 28px rgba(16, 163, 127, 0.16),
+                0 0 0 2px rgba(16, 163, 127, 0.45);
+        }
+        /* 深色主题下的兼容 */
+        html[data-theme="dark"] .ai-fab {
+            background: linear-gradient(135deg, rgba(21, 24, 29, 0.96), rgba(26, 32, 44, 0.96));
+            border-color: rgba(62, 207, 158, 0.35);
+            color: #e6e8eb;
+            box-shadow: -8px 12px 28px rgba(0, 0, 0, 0.45), 0 0 16px rgba(62, 207, 158, 0.1);
+        }
+        html[data-theme="dark"] .ai-fab-orb {
+            background: #1b1f26;
+        }
+        html[data-theme="dark"] .ai-fab-avatar {
+            background: #1b1f26;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+        }
+        html[data-theme="dark"] .ai-fab-dot {
+            border-color: #15181d;
+            background: #3ecf9e;
+            box-shadow: 0 0 6px rgba(62, 207, 158, 0.8);
+        }
+        html[data-theme="dark"] .ai-fab-label {
+            color: #e6e8eb;
+        }
+        html[data-theme="dark"] .ai-fab:hover,
+        html[data-theme="dark"] .ai-fab[aria-expanded="true"] {
+            border-color: rgba(62, 207, 158, 0.6);
+            background: linear-gradient(135deg, rgba(27, 34, 46, 0.98), rgba(21, 24, 29, 0.98));
+        }
+        html[data-theme="dark"] .ai-fab.is-idle {
+            opacity: 0.46;
+            transform: translateX(8px);
+            box-shadow: -4px 6px 16px rgba(0, 0, 0, 0.3);
+        }
+        html[data-theme="dark"] .ai-fab.is-idle:hover,
+        html[data-theme="dark"] .ai-fab.is-idle:focus-visible,
+        html[data-theme="dark"] .ai-fab.is-idle[aria-expanded="true"],
+        html[data-theme="dark"] .ai-fab.is-idle.is-dragging {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        .ai-fab.is-pulse .ai-fab-orb { animation: ai-fab-pulse 0.6s cubic-bezier(.2,.8,.2,1); }
+        @keyframes ai-fab-spin { to { transform: rotate(360deg); } }
+        @keyframes ai-fab-pulse { 0% { transform: scale(1); } 40% { transform: scale(0.86); } 100% { transform: scale(1); } }
+        .ai-proactive-alert {
+            position: fixed;
+            width: min(360px, calc(100vw - 32px));
+            box-sizing: border-box;
+            padding: 14px 42px 14px 16px;
+            border: 1px solid rgba(129,140,248,0.3);
+            border-radius: 16px;
+            color: #273449;
+            background: rgba(255,255,255,0.97);
+            box-shadow: 0 18px 48px rgba(15,23,42,0.2), inset 0 1px 0 rgba(255,255,255,0.9);
+            z-index: 100020;
+            font-size: 13px;
+            line-height: 1.55;
+            cursor: pointer;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(12px) scale(0.965);
+            transform-origin: bottom right;
+            will-change: transform, opacity, filter;
+        }
+        .ai-proactive-alert.show {
+            opacity:1; pointer-events:auto; transform:translateY(0) scale(1);
+            animation:ai-alert-arrive .48s cubic-bezier(.16,1,.3,1) both;
+        }
+        .ai-proactive-alert[data-placement="below"] { transform-origin:top right; }
+        .ai-proactive-alert.is-leaving { pointer-events:none; animation:ai-alert-depart .28s cubic-bezier(.4,0,1,1) both; }
+        .ai-proactive-alert.is-closing { animation:ai-alert-close-away .34s cubic-bezier(.4,0,.7,.2) both; }
+        @keyframes ai-alert-arrive {
+            0% { opacity:0; transform:translateY(14px) scale(.94); filter:blur(3px); }
+            58% { opacity:1; transform:translateY(-2px) scale(1.012); filter:blur(0); }
+            100% { opacity:1; transform:translateY(0) scale(1); filter:blur(0); }
+        }
+        @keyframes ai-alert-depart {
+            from { opacity:1; transform:translateY(0) scale(1); filter:blur(0); }
+            to { opacity:0; transform:translateY(8px) scale(.975); filter:blur(1.5px); }
+        }
+        @keyframes ai-alert-close-away {
+            0% { opacity:1; transform:translate(0,0) scale(1); filter:blur(0); }
+            100% { opacity:0; transform:translate(12px,10px) scale(.88); filter:blur(2px); }
+        }
+        .ai-proactive-alert::after {
+            content:""; position:absolute; right:var(--ai-alert-arrow-right, 24px); bottom:-8px; width:14px; height:14px;
+            background:#fff; border-right:1px solid rgba(129,140,248,.3); border-bottom:1px solid rgba(129,140,248,.3);
+            transform:rotate(45deg);
+        }
+        .ai-proactive-alert[data-placement="below"]::after {
+            top:-8px; bottom:auto; border:0; border-left:1px solid rgba(129,140,248,.3); border-top:1px solid rgba(129,140,248,.3);
+        }
+        .ai-proactive-alert-kicker { display:flex; align-items:center; gap:7px; margin-bottom:5px; color:#5b63c8; font-size:11px; font-weight:800; letter-spacing:.04em; }
+        .ai-proactive-alert-ai-badge {
+            display:inline-flex; align-items:center; gap:3px; padding:2px 7px; border:1px solid rgba(124,58,237,.25); border-radius:999px;
+            color:#fff; background:linear-gradient(135deg,#6366f1,#8b5cf6 58%,#c026d3); box-shadow:0 3px 10px rgba(109,40,217,.22);
+            font-size:9px; line-height:1.3; letter-spacing:.06em; text-transform:uppercase;
+        }
+        .ai-proactive-alert-text { display:block; overflow-wrap:anywhere; }
+        .ai-proactive-alert-ai-panel {
+            display:none; position:relative; margin-top:10px; padding:9px 10px; overflow:hidden; border:1px solid transparent; border-radius:11px;
+            background:linear-gradient(#f8faff,#f8faff) padding-box,linear-gradient(115deg,#60a5fa,#8b5cf6,#ec4899,#22d3ee,#60a5fa) border-box;
+            background-size:100% 100%,240% 100%; box-shadow:0 5px 18px rgba(99,102,241,.10);
+            animation:ai-polish-flow 4.5s linear infinite;
+        }
+        .ai-proactive-alert.ai-polished .ai-proactive-alert-ai-panel,
+        .ai-proactive-alert.ai-deep-analyzed .ai-proactive-alert-ai-panel { display:block; }
+        .ai-proactive-alert-ai-head { display:flex; align-items:center; gap:7px; margin-bottom:5px; }
+        .ai-proactive-alert-ai-caption { color:#7c3aed; font-size:10px; font-weight:800; letter-spacing:.04em; }
+        .ai-proactive-alert-ai-text { color:#556176; font-size:11px; line-height:1.55; word-break:break-word; }
+        .ai-proactive-alert-ai-char { display:inline-block; opacity:0; transform:translateY(4px); animation:ai-polish-char .32s cubic-bezier(.2,.8,.2,1) forwards; animation-delay:calc(var(--ai-char-index) * 16ms); }
+        @keyframes ai-polish-flow { to { background-position:0 0,240% 0; } }
+        @keyframes ai-polish-char { to { opacity:1; transform:translateY(0); } }
+        .ai-proactive-alert-footer { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:8px; }
+        .ai-proactive-alert-hint { flex:1; min-width:0; color:#7b8799; font-size:11px; }
+        .ai-proactive-alert-actions { display:flex; align-items:center; gap:5px; flex-shrink:0; }
+        .ai-proactive-alert-action {
+            min-height:25px; padding:3px 8px; border:1px solid rgba(129,140,248,.22); border-radius:7px;
+            color:#667085; background:rgba(248,250,252,.88); font-size:10px; line-height:1.2; cursor:pointer;
+            transition:color .16s ease,background .16s ease,border-color .16s ease,transform .16s ease;
+        }
+        .ai-proactive-alert-action:hover { color:#4f46e5; background:#eef2ff; border-color:rgba(99,102,241,.4); transform:translateY(-1px); }
+        .ai-proactive-alert-action:active { transform:translateY(0) scale(.97); }
+        .ai-proactive-alert-close {
+            position:absolute; right:9px; top:8px; width:26px; height:26px; border:0; border-radius:8px;
+            color:#7b8799; background:transparent; cursor:pointer; font-size:18px; line-height:1;
+        }
+        .ai-proactive-alert-close:hover { color:#334155; background:#eef1f8; }
+        .ai-proactive-alert[data-theme="graph"],
+        body.ai-kg-open .ai-proactive-alert { color:#dbe4f3; background:rgba(18,28,47,.98); border-color:rgba(129,140,248,.4); }
+        .ai-proactive-alert[data-theme="graph"]::after,
+        body.ai-kg-open .ai-proactive-alert::after { background:#121c2f; border-color:rgba(129,140,248,.4); }
+        .ai-proactive-alert[data-theme="graph"] .ai-proactive-alert-ai-panel,
+        body.ai-kg-open .ai-proactive-alert .ai-proactive-alert-ai-panel { background:linear-gradient(#111b2e,#111b2e) padding-box,linear-gradient(115deg,#38bdf8,#818cf8,#e879f9,#22d3ee,#38bdf8) border-box; background-size:100% 100%,240% 100%; }
+        .ai-proactive-alert[data-theme="graph"] .ai-proactive-alert-ai-text,
+        body.ai-kg-open .ai-proactive-alert .ai-proactive-alert-ai-text { color:#b8c5dc; }
+        .ai-proactive-alert[data-theme="graph"] .ai-proactive-alert-action,
+        body.ai-kg-open .ai-proactive-alert .ai-proactive-alert-action { color:#aab7cc; background:rgba(30,41,59,.8); border-color:rgba(129,140,248,.28); }
+        .ai-proactive-alert[data-theme="graph"] .ai-proactive-alert-action:hover,
+        body.ai-kg-open .ai-proactive-alert .ai-proactive-alert-action:hover { color:#c7d2fe; background:#26324a; border-color:rgba(129,140,248,.5); }
+        .ai-proactive-alert[data-compact="true"] { padding:11px 12px; border-radius:14px; font-size:12px; line-height:1.5; overscroll-behavior:contain; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-kicker { padding-right:28px; margin-bottom:4px; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-text { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-ai-panel { margin-top:8px; padding:7px 8px; border-radius:9px; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-ai-text { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-footer { flex-wrap:wrap; gap:6px; margin-top:7px; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-hint { flex-basis:100%; font-size:10px; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-actions { margin-left:auto; max-width:100%; flex-wrap:wrap; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-action { min-height:32px; font-size:11px; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-close { right:5px; top:4px; width:30px; height:30px; }
+        @media (prefers-reduced-motion: reduce) {
+            .ai-proactive-alert, .ai-proactive-alert.show, .ai-proactive-alert.is-leaving, .ai-proactive-alert.is-closing, .ai-proactive-alert-ai-panel, .ai-proactive-alert-ai-char { animation:none; transition:opacity .01ms linear; transform:none; filter:none; }
+            .ai-proactive-alert-ai-char { opacity:1; }
+        }
+        .ai-panel {
+            position: fixed;
+            bottom: 80px;
+            right: 62px;
+            width: min(420px, calc(100vw - 24px));
+            max-width: calc(100vw - 24px);
+            height: min(640px, calc(100vh - 120px));
+            background: #f7f9fd !important;
+            color: #334155 !important;
+            border-radius: 20px;
+            border: 1px solid rgba(148,163,184,0.34);
+            box-shadow:
+                0 28px 80px rgba(15,23,42,0.30),
+                0 8px 24px rgba(15,23,42,0.14),
+                inset 0 1px 0 rgba(255,255,255,0.9);
+            z-index: 100000;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transform: translateY(20px) scale(0.95);
+            opacity: 0;
+            pointer-events: none;
+            transition: width 0.28s cubic-bezier(.2,.8,.2,1), height 0.28s cubic-bezier(.2,.8,.2,1), inset 0.28s cubic-bezier(.2,.8,.2,1), border-radius 0.28s, transform 0.28s, opacity 0.2s;
+            transform-origin: bottom right;
+        }
+        .ai-panel.open {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+            pointer-events: auto;
+        }
+        body.ai-kg-open .ai-panel.open { z-index: 100300; }
+        .ai-panel.expanded {
+            width: min(760px, calc(100vw - 80px));
+            height: min(820px, calc(100vh - 80px));
+            max-width: none;
+            max-height: none;
+            bottom: 40px;
+        }
+        .ai-panel.fullscreen {
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            max-width: none;
+            max-height: none;
+            border: 0;
+            border-radius: 0;
+            transform-origin: center;
+        }
+        body.ai-chat-fullscreen {
+            overflow: hidden !important;
+        }
+        .ai-header {
+            min-height: 64px;
+            box-sizing: border-box;
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+            color: #0f172a;
+            padding: 12px 16px 12px 18px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex: 0 0 auto;
+        }
+        .ai-brand {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            min-width: 0;
+        }
+        .ai-brand-mark {
+            width: 34px;
+            height: 34px;
+            border-radius: 11px;
+            display: grid;
+            place-items: center;
+            overflow: hidden;
+            background: #ffffff;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+        }
+        .ai-brand-mark img { width: 90%; height: 90%; display: block; object-fit: contain; image-rendering: -webkit-optimize-contrast; }
+        .ai-brand-copy { min-width: 0; }
+        .ai-brand-title {
+            font-size: 15px;
+            line-height: 1.2;
+            font-weight: 700;
+            color: #0f172a;
+            letter-spacing: 0.01em;
+            white-space: nowrap;
+        }
+        .ai-brand-subtitle {
+            margin-top: 3px;
+            font-size: 11px;
+            line-height: 1.2;
+            color: #64748b;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .ai-brand-title-compact,
+        .ai-brand-subtitle-compact { display:none; }
+        .ai-panel:not(.expanded):not(.fullscreen) .ai-header {
+            min-height: 58px;
+            padding: 9px 12px 9px 14px;
+        }
+        .ai-panel:not(.expanded):not(.fullscreen) .ai-brand { gap: 8px; }
+        .ai-panel:not(.expanded):not(.fullscreen) .ai-brand-mark { width: 30px; height: 30px; border-radius: 9px; }
+        .ai-panel:not(.expanded):not(.fullscreen) .ai-brand-title { font-size: 13px; line-height: 1.05; }
+        .ai-panel:not(.expanded):not(.fullscreen) .ai-brand-subtitle { margin-top: 3px; font-size: 9px; line-height: 1.05; }
+        .ai-panel:not(.expanded):not(.fullscreen) .ai-brand-title-full,
+        .ai-panel:not(.expanded):not(.fullscreen) .ai-brand-subtitle-full { display:none; }
+        .ai-panel:not(.expanded):not(.fullscreen) .ai-brand-title-compact,
+        .ai-panel:not(.expanded):not(.fullscreen) .ai-brand-subtitle-compact { display:inline; }
+        .ai-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .ai-action-btn {
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            color: #475569 !important;
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            border-radius: 9px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.18s, color 0.18s, transform 0.18s, border-color 0.18s;
+        }
+        .ai-action-btn:hover {
+            background: #e2e8f0;
+            border-color: #cbd5e1;
+            color: #0f172a !important;
+            transform: translateY(-1px);
+        }
+        .ai-action-btn svg {
+            width: 16px;
+            height: 16px;
+            pointer-events: none;
+        }
+        .ai-action-btn.ai-close {
+            background: #fef2f2;
+            border-color: #fecaca;
+            color: #ef4444 !important;
+        }
+        .ai-action-btn.ai-close:hover {
+            background: #fee2e2;
+            color: #dc2626 !important;
+        }
+        html[data-theme="dark"] .ai-header {
+            background: linear-gradient(135deg, #15181d 0%, #1c2128 100%);
+            border-bottom: 1px solid #262a31;
+            color: #e6e8eb;
+        }
+        html[data-theme="dark"] .ai-brand-mark {
+            background: #1b1f26;
+            border-color: #353a43;
+        }
+        html[data-theme="dark"] .ai-brand-title { color: #e6e8eb; }
+        html[data-theme="dark"] .ai-brand-subtitle { color: #8b949e; }
+        html[data-theme="dark"] .ai-action-btn {
+            background: #1e2530;
+            border-color: #2e3846;
+            color: #cbd5e1 !important;
+        }
+        html[data-theme="dark"] .ai-action-btn:hover {
+            background: #283344;
+            color: #fff !important;
+            border-color: #3b4759;
+        }
+        html[data-theme="dark"] .ai-action-btn.ai-close {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: rgba(239, 68, 68, 0.3);
+            color: #f87171 !important;
+        }
+        html[data-theme="dark"] .ai-action-btn.ai-close:hover {
+            background: rgba(239, 68, 68, 0.25);
+            color: #fca5a5 !important;
+        }
+        .ai-chat-body {
+            flex: 1;
+            min-height: 0;
+            padding: 22px;
+            overflow-y: auto;
+            background:
+                radial-gradient(circle at 15% 0%, rgba(16,163,127,0.04), transparent 34%),
+                linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            scroll-behavior: smooth;
+        }
+        .ai-msg {
+            max-width: 88%;
+            padding: 13px 16px;
+            border-radius: 16px;
+            font-size: 14px;
+            line-height: 1.6;
+            word-wrap: break-word;
+        }
+        .ai-msg.user {
+            background: linear-gradient(135deg, #10a37f, #0d9488);
+            color: #fff;
+            align-self: flex-end;
+            border-bottom-right-radius: 6px;
+            box-shadow: 0 4px 14px rgba(16, 163, 127, 0.25);
+        }
+        .ai-msg.ai {
+            background: #fff;
+            color: #243247;
+            align-self: flex-start;
+            border-bottom-left-radius: 6px;
+            box-shadow: 0 8px 24px rgba(30,41,59,0.07);
+            border: 1px solid #e6eaf2;
+        }
+        .ai-panel.fullscreen .ai-chat-body {
+            padding-left: max(28px, calc((100vw - 1080px) / 2));
+            padding-right: max(28px, calc((100vw - 1080px) / 2));
+        }
+        .ai-panel.fullscreen .ai-msg { max-width: min(82%, 880px); }
+        .ai-msg p { margin: 0 0 8px 0; }
+        .ai-msg p:last-child { margin: 0; }
+        .ai-msg ul, .ai-msg ol {
+            margin: 0 0 8px 0;
+            padding-left: 20px;
+        }
+        .ai-msg li { margin-bottom: 4px; }
+        .ai-msg pre {
+            background: rgba(226,232,240,0.72);
+            padding: 8px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 13px;
+        }
+        .ai-msg code {
+            background: rgba(226,232,240,0.76);
+            padding: 2px 4px;
+            border-radius: 4px;
+            color: #ef4444;
+            font-family: monospace;
+        }
+        .ai-msg h1, .ai-msg h2, .ai-msg h3, .ai-msg h4 {
+            margin: 16px 0 8px;
+            color: #1f2d44;
+            line-height: 1.35;
+        }
+        .ai-msg h1:first-child, .ai-msg h2:first-child, .ai-msg h3:first-child, .ai-msg h4:first-child { margin-top: 0; }
+        .ai-msg h1 { font-size: 18px; }
+        .ai-msg h2 { font-size: 16px; }
+        .ai-msg h3 { font-size: 15px; }
+        .ai-msg h4 { font-size: 14px; }
+        .ai-msg blockquote {
+            margin: 10px 0;
+            padding: 8px 11px;
+            border-left: 3px solid #8492ec;
+            border-radius: 0 8px 8px 0;
+            background: #f5f7ff;
+            color: #58657b;
+        }
+        .ai-table-wrap {
+            width: 100%;
+            margin: 12px 0 14px;
+            overflow-x: auto;
+            border: 1px solid #e1e6ef;
+            border-radius: 12px;
+            background: #fff;
+            box-shadow: 0 5px 18px rgba(30,41,59,0.055);
+            scrollbar-width: thin;
+        }
+        .ai-markdown-table {
+            width: 100%;
+            min-width: max(520px, calc(var(--ai-table-columns) * 160px));
+            table-layout: fixed;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 12px;
+            line-height: 1.45;
+        }
+        .ai-markdown-table th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            padding: 10px 12px;
+            border-bottom: 1px solid #dce2ed;
+            background: linear-gradient(180deg, #f5f7ff, #eef1fa);
+            color: #36415a;
+            font-weight: 700;
+            overflow-wrap: anywhere;
+        }
+        .ai-markdown-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #edf0f5;
+            color: #46536a;
+            vertical-align: top;
+            overflow-wrap: anywhere;
+        }
+        .ai-markdown-table td code, .ai-markdown-table th code { white-space: normal; overflow-wrap: anywhere; }
+        .ai-markdown-table tbody tr:last-child td { border-bottom: 0; }
+        .ai-markdown-table tbody tr:nth-child(even) td { background: #fafbfe; }
+        .ai-markdown-table tbody tr:hover td { background: #f2f5ff; }
+        .ai-markdown-table .align-center { text-align: center; }
+        .ai-markdown-table .align-right { text-align: right; }
+        .ai-markdown-table td.numeric { font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .ai-panel:not(.expanded):not(.fullscreen) .ai-msg.ai:has(.ai-markdown-table) { max-width: 96%; }
+        .ai-token-usage {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 8px;
+            text-align: right;
+            border-top: 1px dashed #e2e8f0;
+            padding-top: 6px;
+        }
+        .ai-grounding {
+            margin-top: 9px;
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148,163,184,0.48);
+            color: #64748b;
+            font-size: 11px;
+            line-height: 1.45;
+        }
+        .ai-grounding-title {
+            color: #475569;
+            font-weight: 600;
+            margin-bottom: 3px;
+        }
+        .ai-grounding-item {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        button.ai-grounding-item {
+            display: block;
+            width: 100%;
+            padding: 2px 4px;
+            border: 0;
+            border-radius: 5px;
+            background: transparent;
+            color: inherit;
+            font: inherit;
+            line-height: inherit;
+            text-align: left;
+            cursor: pointer;
+        }
+        button.ai-grounding-item:hover {
+            color: #4f5db2;
+            background: #f1f3ff;
+        }
+        .ai-grounding-graph {
+            width: 100%;
+            margin: 0 0 4px;
+            padding: 4px 7px;
+            border: 1px solid #dfe5f3;
+            border-radius: 8px;
+            background: #f7f8fd;
+            color: #5663b4;
+            font: inherit;
+            text-align: left;
+            cursor: pointer;
+            transition: border-color 0.16s, background 0.16s, color 0.16s;
+        }
+        .ai-grounding-graph:hover {
+            border-color: #bfc8ee;
+            background: #eef1ff;
+            color: #4653a4;
+        }
+        .ai-grounding-graph.metric-reference {
+            border-color: #d8ccf6;
+            background: linear-gradient(135deg, #f7f4ff, #f1f3ff);
+            color: #674ca8;
+        }
+        .ai-grounding-graph.metric-reference:hover {
+            border-color: #b9a5ed;
+            background: linear-gradient(135deg, #f0eaff, #e9edff);
+            color: #573b99;
+        }
+        .ai-input-area {
+            display: flex;
+            padding: 14px 16px 16px;
+            background: #fff;
+            border-top: 1px solid #e7ebf2;
+            gap: 10px;
+            align-items: center;
+        }
+        .ai-input {
+            flex: 1;
+            height: 46px;
+            box-sizing: border-box;
+            padding: 12px 17px;
+            border: 1px solid #d9dfeb;
+            border-radius: 14px;
+            outline: none;
+            font-size: 14px;
+            transition: all 0.2s;
+            background: #f7f9fc;
+            color: #1e293b !important;
+        }
+        .ai-input::placeholder {
+            color: #94a3b8 !important;
+        }
+        .ai-input:focus {
+            border-color: #10a37f;
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.15);
+        }
+        .ai-send-btn {
+            background: #10a37f;
+            color: #fff;
+            border: none;
+            width: 46px;
+            height: 46px;
+            flex: 0 0 46px;
+            border-radius: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            box-shadow: 0 6px 16px rgba(16, 163, 127, 0.28);
+        }
+        .ai-send-btn:hover {
+            background: #0d8a6b;
+            transform: scale(1.05);
+        }
+        .ai-send-btn.is-generating {
+            background: #ef6678;
+            box-shadow: 0 7px 18px rgba(239,102,120,0.28);
+        }
+        .ai-send-btn.is-generating .ai-stop-square {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            background: currentColor;
+        }
+        .ai-msg.ai.streaming::after {
+            content: "";
+            display: inline-block;
+            width: 7px;
+            height: 15px;
+            margin-left: 3px;
+            vertical-align: -2px;
+            border-radius: 2px;
+            background: #667eea;
+            animation: ai-stream-caret 0.9s steps(1, end) infinite;
+        }
+        @keyframes ai-stream-caret { 50% { opacity: 0.18; } }
+        .ai-typing {
+            font-size: 12px;
+            color: #94a3b8;
+            font-style: italic;
+            align-self: flex-start;
+            margin-top: -8px;
+            display: none;
+            padding: 0 16px;
+        }
+        .ai-context-notice {
+            align-self: center;
+            max-width: calc(100% - 44px);
+            margin: 2px auto 8px;
+            padding: 7px 12px;
+            border: 1px solid #d9def8;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #f5f7ff, #f0efff);
+            color: #626b91;
+            font-size: 11px;
+            line-height: 1.4;
+            text-align: center;
+            box-shadow: 0 3px 10px rgba(78,70,160,0.07);
+        }
+        .ai-context-notice.is-working { animation: ai-context-pulse 1.25s ease-in-out infinite; }
+        .ai-context-notice.is-done { border-color: #cce7dc; background: #f1fbf6; color: #39745e; }
+        .ai-context-notice.is-failed { border-color: #f0d6b5; background: #fff8ed; color: #94662e; }
+        @keyframes ai-context-pulse { 50% { opacity: 0.62; transform: translateY(-1px); } }
+        .ai-suggestions {
+            display:flex;
+            align-items:center;
+            gap:8px;
+            padding:10px 16px 12px;
+            box-sizing:border-box;
+            background: #fff;
+            border-top: 1px solid #edf0f5;
+            height:50px;
+            max-height:50px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            flex: 0 0 auto;
+            scrollbar-width:none;
+            overscroll-behavior-x: contain;
+            -webkit-overflow-scrolling: touch;
+            opacity: 1;
+            transition: max-height 0.22s ease, height 0.22s ease, padding 0.22s ease, opacity 0.16s ease, border-color 0.16s;
+        }
+        .ai-suggestions::-webkit-scrollbar { display:none; }
+        .ai-suggestions.is-collapsed {
+            height: 0;
+            max-height: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            opacity: 0;
+            overflow: hidden;
+            border-top-color: transparent;
+            pointer-events: none;
+        }
+        .ai-suggestion-chip {
+            flex:0 0 auto;
+            width:auto;
+            max-width:168px;
+            min-width: 0;
+            border: 1px solid #dfe4f4;
+            background: #f6f7fc;
+            color: #5865b8;
+            border-radius: 999px;
+            padding: 7px 10px;
+            font-size: 12px;
+            line-height: 1.2;
+            height: 28px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            cursor: pointer;
+        }
+        .ai-panel:not(.expanded) .ai-suggestion-chip {
+            max-width:138px;
+        }
+        .ai-panel.fullscreen .ai-suggestions,
+        .ai-panel.fullscreen .ai-input-area {
+            padding-left: max(24px, calc((100vw - 1040px) / 2));
+            padding-right: max(24px, calc((100vw - 1040px) / 2));
+        }
+        .ai-suggestions:empty {
+            display: none;
+        }
+        .ai-suggestion-chip:hover {
+            background: rgba(238,242,255,0.92);
+            border-color: #aebcff;
+        }
+        .ai-history-panel {
+            display: none;
+            background: #fff;
+            border-bottom: 1px solid #e7ebf2;
+            max-height: 210px;
+            overflow-y: auto;
+            padding: 10px 14px;
+        }
+        .ai-history-panel.open {
+            display: block;
+        }
+        .ai-history-item {
+            border: 1px solid rgba(148,163,184,0.32);
+            border-radius: 10px;
+            padding: 9px 10px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            background: rgba(248,250,252,0.72);
+        }
+        .ai-history-item:hover {
+            border-color: #aebcff;
+            background: rgba(245,247,255,0.9);
+        }
+        .ai-history-title {
+            font-size: 12px;
+            color: #334155;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .ai-history-meta {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 4px;
+        }
+        .ai-archive-overlay {
+            position:fixed; inset:0; z-index:100500; display:none; place-items:center; padding:20px;
+            box-sizing:border-box; background:rgba(15,23,42,.48); backdrop-filter:blur(10px);
+        }
+        .ai-archive-overlay.open { display:grid; }
+        .ai-archive-window {
+            width:min(1120px,calc(100vw - 40px)); height:min(780px,calc(100vh - 40px));
+            display:flex; flex-direction:column; overflow:hidden; border-radius:20px;
+            border:1px solid #dce2ed; background:#f7f9fd; color:#334155;
+            box-shadow:0 32px 100px rgba(15,23,42,.38);
+        }
+        .ai-archive-header { min-height:66px; padding:0 20px; display:flex; align-items:center; gap:14px; color:#fff; background:linear-gradient(135deg,#25356f,#594394 64%,#684598); }
+        .ai-archive-heading { min-width:0; flex:1; }
+        .ai-archive-title { font-size:17px; font-weight:760; }
+        .ai-archive-subtitle { margin-top:3px; color:rgba(237,242,255,.72); font-size:10px; }
+        .ai-archive-close { width:34px; height:34px; border-radius:10px; border:1px solid rgba(255,255,255,.16); background:rgba(255,255,255,.12); color:#fff; cursor:pointer; font-size:20px; }
+        .ai-archive-toolbar { display:flex; align-items:center; gap:12px; padding:14px 18px; border-bottom:1px solid #e3e8f1; background:#fff; }
+        .ai-archive-search { flex:1; height:40px; padding:0 14px; border:1px solid #d8dfeb; border-radius:11px; outline:none; background:#f7f9fc; color:#243247; }
+        .ai-archive-search:focus { border-color:#7585e8; box-shadow:0 0 0 3px rgba(102,126,234,.11); }
+        .ai-archive-count { color:#7b879b; font-size:11px; white-space:nowrap; }
+        .ai-archive-content { flex:1; min-height:0; display:grid; grid-template-columns:350px minmax(0,1fr); }
+        .ai-archive-list { overflow:auto; padding:12px; border-right:1px solid #e3e8f1; background:#f2f5fa; }
+        .ai-archive-item { width:100%; margin-bottom:9px; padding:12px; border:1px solid #dce2ed; border-radius:12px; background:#fff; color:#334155; text-align:left; cursor:pointer; }
+        .ai-archive-item:hover,.ai-archive-item.active { border-color:#9caaee; background:#f4f6ff; }
+        .ai-archive-item-header { display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:4px; }
+        .ai-archive-item-title { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; font-weight:700; }
+        .ai-archive-badge { display:inline-block; padding:1px 6px; border-radius:4px; font-size:10px; font-weight:600; line-height:1.4; white-space:nowrap; }
+        .ai-archive-badge.active { background:#e0f2fe; color:#0284c7; }
+        .ai-archive-badge.archived { background:#f1f5f9; color:#64748b; }
+        .ai-archive-item-question { margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#64748b; font-size:11px; }
+        .ai-archive-item-meta { margin-top:7px; color:#94a3b8; font-size:9px; }
+        .ai-archive-preview { min-width:0; overflow:auto; padding:22px; background:#f8fafd; }
+        .ai-archive-preview-head { display:flex; align-items:flex-start; gap:12px; margin-bottom:18px; }
+        .ai-archive-preview-heading { min-width:0; flex:1; }
+        .ai-archive-preview-title { color:#1f2d44; font-size:16px; font-weight:740; word-break:break-word; }
+        .ai-archive-preview-path { margin-top:5px; color:#8491a7; font-size:10px; word-break:break-all; }
+        .ai-archive-restore { height:34px; padding:0 12px; border:0; border-radius:10px; background:linear-gradient(135deg,#556ee6,#7259c8); color:#fff; cursor:pointer; font-size:11px; font-weight:700; }
+        .ai-archive-message { max-width:88%; margin-bottom:12px; padding:11px 14px; border-radius:13px; font-size:12px; line-height:1.6; word-break:break-word; }
+        .ai-archive-message.user { margin-left:auto; color:#fff; background:linear-gradient(135deg,#556ee6,#7259c8); border-bottom-right-radius:5px; }
+        .ai-archive-message.ai { color:#334155; background:#fff; border:1px solid #e4e9f1; border-bottom-left-radius:5px; }
+        .ai-archive-message p { margin:0 0 8px; }
+        .ai-archive-message p:last-child { margin-bottom:0; }
+        .ai-archive-message pre { overflow:auto; padding:10px; border-radius:8px; background:#f2f5fa; }
+        .ai-archive-message code { padding:1px 4px; border-radius:4px; background:#edf1f7; }
+        .ai-archive-message ul,.ai-archive-message ol { margin:6px 0; padding-left:20px; }
+        .ai-archive-empty { display:grid; place-items:center; min-height:220px; color:#8491a7; font-size:12px; text-align:center; line-height:1.7; }
+        .ai-archive-overlay[data-theme="graph"] { background:rgba(3,7,15,.66); }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-window { border-color:rgba(137,152,201,.25); background:#0d1422; color:#cbd5e1; box-shadow:0 34px 110px rgba(0,0,0,.68); }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-header { background:radial-gradient(circle at 16% 0%,rgba(91,112,211,.2),transparent 34%),linear-gradient(135deg,#111a2c,#151b30 62%,#211938); }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-toolbar { background:#0f1726; border-color:rgba(132,147,194,.17); }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-search { background:#111a2b; color:#e4e9f5; border-color:rgba(136,152,207,.3); }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-list { background:#0a101b; border-color:rgba(132,147,194,.17); }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-item { background:#151e31; color:#dfe5f2; border-color:rgba(132,147,194,.18); }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-item:hover,.ai-archive-overlay[data-theme="graph"] .ai-archive-item.active { background:#1b2740; border-color:rgba(130,148,232,.5); }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-badge.active { background:#0c4a6e; color:#38bdf8; }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-badge.archived { background:#1e293b; color:#94a3b8; }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-item-question { color:#94a3b8; }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-preview { background:#0d1422; }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-preview-title { color:#edf1fb; }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-message.ai { color:#cbd5e1; background:#151e31; border-color:rgba(132,147,194,.18); }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-message.ai h1,.ai-archive-overlay[data-theme="graph"] .ai-archive-message.ai h2,.ai-archive-overlay[data-theme="graph"] .ai-archive-message.ai h3 { color:#edf1fb; }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-message.ai pre,.ai-archive-overlay[data-theme="graph"] .ai-archive-message.ai code { background:#0d1422; color:#b9c8ff; }
+        .ai-panel[data-theme="graph"] {
+            background:#0d1422 !important; color:#cbd5e1 !important;
+            border-color:rgba(137,152,201,.28); border-radius:16px;
+            box-shadow:0 28px 90px rgba(0,0,0,.58),0 0 0 1px rgba(102,120,194,.12),inset 0 1px 0 rgba(255,255,255,.05);
+        }
+        .ai-panel:not(.fullscreen) .ai-header { cursor:grab; touch-action:none; user-select:none; }
+        .ai-panel.dragging { transition:none; }
+        .ai-panel.dragging .ai-header { cursor:grabbing; }
+        .ai-panel.fullscreen .ai-header { cursor:default; }
+        .ai-panel[data-theme="graph"].dragging { box-shadow:0 34px 100px rgba(0,0,0,.66),0 0 0 1px rgba(126,145,222,.28); }
+        .ai-panel[data-theme="graph"] .ai-header {
+            border-bottom:1px solid rgba(137,152,201,.18);
+            background:radial-gradient(circle at 16% 0%,rgba(91,112,211,.2),transparent 34%),linear-gradient(135deg,#111a2c,#151b30 62%,#211938);
+        }
+        .ai-panel[data-theme="graph"] .ai-brand-mark { background:#151d31; border-color:rgba(153,169,224,.25); }
+        .ai-panel[data-theme="graph"] .ai-chat-body {
+            background:radial-gradient(circle at 14% 0%,rgba(86,104,196,.08),transparent 34%),linear-gradient(180deg,#0d1422,#0a101b);
+        }
+        .ai-panel[data-theme="graph"] .ai-msg.ai { background:#151e31; color:#cbd5e1; border-color:rgba(132,147,194,.18); box-shadow:0 10px 28px rgba(0,0,0,.18); }
+        .ai-panel[data-theme="graph"] .ai-msg.user { background:linear-gradient(135deg,#5065c7,#7653b8); box-shadow:0 9px 24px rgba(54,63,142,.3); }
+        .ai-panel[data-theme="graph"] .ai-msg h1, .ai-panel[data-theme="graph"] .ai-msg h2, .ai-panel[data-theme="graph"] .ai-msg h3, .ai-panel[data-theme="graph"] .ai-msg h4 { color:#edf1fb; }
+        .ai-panel[data-theme="graph"] .ai-msg code { background:rgba(102,119,184,.2); color:#b9c8ff; }
+        .ai-panel[data-theme="graph"] .ai-msg pre, .ai-panel[data-theme="graph"] .ai-msg blockquote { background:#101827; color:#aeb9d0; border-color:#6678cf; }
+        .ai-panel[data-theme="graph"] .ai-token-usage, .ai-panel[data-theme="graph"] .ai-grounding { color:#7886a2; border-color:rgba(137,152,201,.2); }
+        .ai-panel[data-theme="graph"] .ai-grounding-title { color:#aeb9d0; }
+        .ai-panel[data-theme="graph"] .ai-grounding-graph { background:#111a2c; color:#9eaff2; border-color:rgba(132,148,207,.22); }
+        .ai-panel[data-theme="graph"] .ai-grounding-graph:hover, .ai-panel[data-theme="graph"] button.ai-grounding-item:hover { background:#18243c; color:#c6d4ff; border-color:rgba(146,165,245,.45); }
+        .ai-panel[data-theme="graph"] .ai-grounding-graph.metric-reference { background:linear-gradient(135deg,rgba(112,85,189,.22),rgba(80,101,199,.18)); color:#caa9f8; border-color:rgba(168,136,238,.3); }
+        .ai-panel[data-theme="graph"] .ai-grounding-graph.metric-reference:hover { background:linear-gradient(135deg,rgba(112,85,189,.34),rgba(80,101,199,.28)); color:#e5d5fd; border-color:rgba(189,162,247,.55); }
+        .ai-panel[data-theme="graph"] .ai-suggestions, .ai-panel[data-theme="graph"] .ai-input-area, .ai-panel[data-theme="graph"] .ai-history-panel { background:#0f1726; border-color:rgba(132,147,194,.17); }
+        .ai-panel[data-theme="graph"] .ai-suggestion-chip, .ai-panel[data-theme="graph"] .ai-history-item { background:#151e31; color:#aebcf0; border-color:rgba(132,147,194,.2); }
+        .ai-panel[data-theme="graph"] .ai-suggestion-chip:hover, .ai-panel[data-theme="graph"] .ai-history-item:hover { background:#1b2740; border-color:rgba(130,148,232,.48); }
+        .ai-panel[data-theme="graph"] .ai-history-title { color:#dfe5f2; }
+        .ai-panel[data-theme="graph"] .ai-input { background:#111a2b; color:#e4e9f5 !important; border-color:rgba(136,152,207,.3); }
+        .ai-panel[data-theme="graph"] .ai-input:focus { background:#151e31; border-color:#7081e4; box-shadow:0 0 0 3px rgba(99,102,241,.16); }
+        .ai-panel[data-theme="graph"] .ai-send-btn { background:linear-gradient(135deg,#5369d9,#7653bd); }
+        .ai-panel[data-theme="graph"] .ai-table-wrap, .ai-panel[data-theme="graph"] .ai-markdown-table { background:#111a2b; border-color:rgba(132,147,194,.2); }
+        .ai-panel[data-theme="graph"] .ai-markdown-table th { background:#182239; color:#dfe5f2; border-color:rgba(132,147,194,.2); }
+        .ai-panel[data-theme="graph"] .ai-markdown-table td { color:#aeb9d0; border-color:rgba(132,147,194,.13); }
+        .ai-panel[data-theme="graph"] .ai-markdown-table tbody tr:nth-child(even) td, .ai-panel[data-theme="graph"] .ai-markdown-table tbody tr:hover td { background:#141e31; }
+        @media (max-width: 520px) {
+            .ai-fab {
+                right: 0;
+                bottom: 124px;
+                height: 44px;
+                min-width: 50px;
+                padding: 0 9px;
+                border-radius: 22px 0 0 22px;
+            }
+            .ai-fab-orb { width: 30px; height: 30px; }
+            .ai-panel,
+            .ai-panel.expanded {
+                right: 12px;
+                bottom: 130px;
+                width: calc(100vw - 24px);
+                height: min(70vh, 550px);
+                max-width: none;
+            }
+            .ai-panel.fullscreen {
+                inset: 0;
+                width: 100vw;
+                height: 100vh;
+                border-radius: 0;
+            }
+            .ai-brand-subtitle { display: none; }
+            .ai-header { padding-left: 12px; padding-right: 10px; }
+            .ai-header-actions { gap: 4px; }
+            .ai-archive-overlay { padding:0; }
+            .ai-archive-window { width:100vw; height:100vh; border-radius:0; }
+            .ai-archive-content { grid-template-columns:1fr; }
+            .ai-archive-list { max-height:38vh; border-right:0; border-bottom:1px solid #e3e8f1; }
+        }
+        @media (max-width: 400px) {
+            .ai-brand-copy { display:none; }
+            .ai-header-actions { gap:3px; }
+            .ai-action-btn { width:30px; height:30px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .ai-fab,
+            .ai-fab::before,
+            .ai-fab-label,
+            .ai-panel {
+                transition-duration: 0.01ms !important;
+            }
+            .ai-fab-orb::before,
+            .ai-fab.is-pulse .ai-fab-orb { animation: none; }
+        }
+    </style></head>
+<body class="ai-report-page" data-platform-theme="light" data-theme="light">
+
+
+
+
+
+
+
+
+<header class="air-toolbar">
+    <strong class="air-brand">AI 月报</strong>
+    <a class="air-legacy-link" href="/monthly/legacy" id="airLegacyReport">旧月报</a>
+    <label class="air-month"><span>报告月份</span><input type="month" id="airMonth" aria-label="报告月份" value="2026-09"></label>
+    <details class="air-menu air-report-menu"><summary><span id="airReportDefaultFlag" class="air-summary-badge" title="当前为打开页面时默认展示的报告">★ 默认</span><span id="airReportName">护网与网络安全月报</span></summary>
+        <div class="air-menu-panel"><div id="airReportList" class="air-report-list"><div class="air-report-row" data-current="true" data-default="true"><button type="button" class="air-report-open" data-open="report-7c87ae9f-a46e-4c97-8f3a-45201092a0cf" aria-current="true" title="护网与网络安全月报"><span class="air-report-title">护网与网络安全月报</span><span class="air-report-meta"><span class="air-default-tag">默认</span><small class="air-month-tag">2026-09</small></span></button><button type="button" class="air-report-pin" data-set-default="report-7c87ae9f-a46e-4c97-8f3a-45201092a0cf" aria-pressed="true" title="取消默认显示">★</button></div><div class="air-report-row" data-current="false" data-default="false"><button type="button" class="air-report-open" data-open="report-3c0add53-70c9-4f57-8775-e11c8b865921" aria-current="false" title="边界与八向缩放验收 2026-11-05"><span class="air-report-title">边界与八向缩放验收 2026-11-05</span><span class="air-report-meta"><small class="air-month-tag">2026-10</small></span></button><button type="button" class="air-report-pin" data-set-default="report-3c0add53-70c9-4f57-8775-e11c8b865921" aria-pressed="false" title="设为默认显示">☆</button></div><div class="air-report-row" data-current="false" data-default="false"><button type="button" class="air-report-open" data-open="report-af12b362-5e4f-4189-8f4b-0aed159d10dc" aria-current="false" title="层级缩放与表格验收 2026-11-05"><span class="air-report-title">层级缩放与表格验收 2026-11-05</span><span class="air-report-meta"><small class="air-month-tag">2026-09</small></span></button><button type="button" class="air-report-pin" data-set-default="report-af12b362-5e4f-4189-8f4b-0aed159d10dc" aria-pressed="false" title="设为默认显示">☆</button></div><div class="air-report-row" data-current="false" data-default="false"><button type="button" class="air-report-open" data-open="report-751bf9d4-4f1c-4529-81e9-7911f56c02a0" aria-current="false" title="表头拖动回归验收 2026-11-05"><span class="air-report-title">表头拖动回归验收 2026-11-05</span><span class="air-report-meta"><small class="air-month-tag">2026-09</small></span></button><button type="button" class="air-report-pin" data-set-default="report-751bf9d4-4f1c-4529-81e9-7911f56c02a0" aria-pressed="false" title="设为默认显示">☆</button></div><div class="air-report-row" data-current="false" data-default="false"><button type="button" class="air-report-open" data-open="report-153d74ac-bbde-4b55-a909-8e32f928089b" aria-current="false" title="交互月报模型验收 2026-11-05"><span class="air-report-title">交互月报模型验收 2026-11-05</span><span class="air-report-meta"><small class="air-month-tag">2026-09</small></span></button><button type="button" class="air-report-pin" data-set-default="report-153d74ac-bbde-4b55-a909-8e32f928089b" aria-pressed="false" title="设为默认显示">☆</button></div></div><hr>
+            <button type="button" data-air="new">＋ 新建月报</button><button type="button" data-air="toggle-default" id="airToggleDefault">★ 取消默认显示</button><button type="button" data-air="copy">另存为…</button><button type="button" data-air="rename">重命名…</button><button type="button" data-air="delete" class="air-danger">删除此月报</button></div></details>
+    <span class="air-spacer"></span>
+    <span id="airStatus" class="air-status is-dirty" role="status">● 未保存</span>
+    <button type="button" id="airNarratives" data-air="narratives">更新总结（1）</button>
+    <button type="button" data-air="language" title="切换报告语言">EN</button>
+    <button type="button" data-air="mark" title="点格子里的某个位置，写下要怎么改">📍 标记</button>
+    <button type="button" data-air="preview">预览</button>
+    <details class="air-menu"><summary>导出</summary>
+        <div class="air-menu-panel air-menu-right"><button type="button" data-air="export-html">HTML 文件</button><button type="button" data-air="export-print">打印 / 保存 PDF</button><button type="button" data-air="export-msg">Outlook 邮件（MSG）</button></div></details>
+    <button type="button" data-air="save" class="air-primary">保存</button>
+</header>
+<button type="button" class="air-chrome-toggle" data-air="chrome" aria-pressed="false" aria-label="收起顶部栏" title="收起顶部栏"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"></path></svg></button>
+<main class="air-layout"><div class="air-report-pane is-scrolling" id="airReportPane" data-tour-scroll="644,0"><article id="airReport" class="air-report" aria-live="polite" data-frame="double" data-dividers="line" data-panels="box" style="--air-accent: #003366; --air-accent-soft: #e8f0f8; --rep-heading: #003366; --rep-surface: #ffffff; --rep-radius: 0px; --rep-font: inherit; --kit-c0: #1f5fa6; --kit-c1: #6fa3d8; --kit-c2: #b7cde8; --kit-c3: #2e7d32; --kit-c4: #c62828; --kit-c5: #e07b00; --rep-frame-color: #003366; --rep-divider-color: #d1d1d1;"><section class="air-chapter is-unnumbered is-headless" id="air-chapter-chapter-mvkklv97qux2rq" data-chapter="chapter-mvkklv97qux2rq">
+            <h2><span class="air-chapter-tools"><button type="button" class="air-chapter-drag" data-chapter-drag="chapter-mvkklv97qux2rq" title="拖动调整章节位置（拖动时月报会缩小，显示全部章节）" aria-label="拖动章节">⠿</button><button type="button" class="air-chapter-refresh" data-chapter-refresh="chapter-mvkklv97qux2rq" title="用本月数据重新计算本章节的格子，并重写文字总结" aria-label="刷新本章节">⟳</button><button type="button" class="air-chapter-style" data-chapter-style="chapter-mvkklv97qux2rq" title="章节样式提示词：统一本章节格子的样式和风格，不改数据" aria-label="章节样式">✦</button><button type="button" class="air-chapter-heading" data-chapter-heading="chapter-mvkklv97qux2rq" aria-pressed="false" title="这个章节不显示标题（导航、总览），点击恢复标题">T</button><button type="button" class="air-chapter-numbering" data-chapter-numbering="chapter-mvkklv97qux2rq" aria-pressed="false" title="这个章节不编号，点击恢复编号">#</button><button type="button" data-chapter-move="chapter-mvkklv97qux2rq:-1" aria-label="上移章节">↑</button><button type="button" data-chapter-move="chapter-mvkklv97qux2rq:1" aria-label="下移章节">↓</button><button type="button" data-chapter-delete="chapter-mvkklv97qux2rq" aria-label="删除章节">×</button></span></h2>
+            <div class="air-grid" data-grid="chapter-mvkklv97qux2rq"><div class="air-cell" id="air-cell-cell-mvkklv97rkzgm4" data-cell="cell-mvkklv97rkzgm4" style="grid-column:span 12;"><div class="air-cell-tools"><button type="button" data-cell-drag="cell-mvkklv97rkzgm4" title="拖动换位置" aria-label="拖动">⠿</button><button type="button" data-cell-chat="cell-mvkklv97rkzgm4">对话</button><button type="button" data-cell-focus="cell-mvkklv97rkzgm4" title="放大编辑" aria-label="放大编辑" aria-expanded="false"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M9 3H3v6M15 3h6v6M3 15v6h6M21 15v6h-6"></path></svg></button><button type="button" data-cell-copy="cell-mvkklv97rkzgm4" title="复制这个格子（含对话、提示词和内容），放在它后面" aria-label="复制格子">⧉</button><button type="button" data-cell-run="cell-mvkklv97rkzgm4" title="按本月数据重新生成">⟳</button><button type="button" data-cell-delete="cell-mvkklv97rkzgm4" title="删除格子" aria-label="删除格子">×</button></div><div class="air-resize" data-resize="cell-mvkklv97rkzgm4" title="拖动调整宽高，双击恢复自动高度"></div><div class="air-cell-body"><div class="air-narrative is-stale">本月共 16 个格子，其中 4 个有未达标项。未达标的格子包括日志回传与备案（O*G）、日志稽查（T*）、重急EOS收编-产品（E*、V*F）以及重疾EOS收编-软件（T*、E*）。</div><div class="air-output"><div class="kit-title">本月概述</div><ul class="kit-list"><li><span class="kit-tone-bad"><a class="kit-link" href="#air-cell-cell-mvjhql05ugwq7n">日志回传与备案</a>：本月整体回传率 <strong class="kit-em">95%</strong>（目标 ≥ 95%）达标，备案率 <strong class="kit-em">11%</strong>（上限 25%）达标；<strong class="kit-em">O*G</strong> 回传率 <strong class="kit-em">92%</strong> 未达标。</span></li><li><span class="kit-tone-bad"><a class="kit-link" href="#air-cell-cell-mvj64110rgk0f6">日志稽查</a>：本月整体日志稽查率为 <strong class="kit-em">89%</strong>（目标 ≥ 80%），达标。 未达标运营商包括：<strong class="kit-em">T*</strong>。</span></li><li><span class="kit-tone-bad"><a class="kit-link" href="#air-cell-cell-mvj6411045qp11">重急EOS收编-产品</a>：本月整体达成率为 50%（目标 ≥ 55%），整体未达标，需重点关注 E* 和 V*F。</span></li><li><span class="kit-tone-bad"><a class="kit-link" href="#air-cell-cell-mvm1noucb8z42i">重疾EOS收编-软件</a>：本月整体达成率为 10%（目标 ≥ 13%），整体未达标，需关注未达标运营商 T* 和 E*。</span></li><li><a class="kit-link" href="#air-cell-cell-mvj64ibtwsjxcv">运营商拦截分布</a>：本月拦截总量最多的运营商为 O*G，共 <strong class="kit-em">83</strong> 次。各运营商 GUI 拦截与高危命令拦截分布存在差异，其中 O*G 在两类拦截中均处于 <strong class="kit-em">较高</strong> 水平。</li><li><a class="kit-link" href="#air-cell-cell-mvj651tg2xwiau">关键风险指标</a>：本月事故增量为 <strong class="kit-em">0</strong>，各项风险指标均达标。</li><li><a class="kit-link" href="#air-cell-cell-mvj64110igwomj">整改</a>：本月整体整改达成率为 98%，高于 90% 的目标值，各运营商均表现良好。</li><li><a class="kit-link" href="#air-cell-cell-mvjlslgejkq4b5">存储整改</a>：整体达成率 100% 达标，T*、O*G、E* 均已完成，V*F 暂无数据。</li><li><a class="kit-link" href="#air-cell-cell-mvjnffpwur9lsu">路由器整改</a>：整体达成率 94%（目标 ≥ 90%），各运营商均达标。</li><li><a class="kit-link" href="#air-cell-cell-mvjokbagsrf1lt">TOPN 风险</a>：整体达成率 100%（目标 ≥ 100%），各运营商均达标。</li><li><a class="kit-link" href="#air-cell-cell-mvleynczgjfl1x">重急EOS</a>：整体达成率 100%（目标 ≥ 80%），各运营商均达标。</li><li><a class="kit-link" href="#air-cell-cell-mvlf0lu6cf2368">数字证书</a>：整体达成率 100%（目标 ≥ 100%），T*、O*G、E* 达标，V*F 暂无数据。</li><li><a class="kit-link" href="#air-cell-cell-mw2guo042sne7o">数字证书达成率折线图</a>：T*、O*G、E* 达标；V*F 暂无数据。</li><li><a class="kit-link" href="#air-cell-cell-mw2mfzgfrqoqco">数字证书达成率</a>：整体达成率 100%（目标 ≥ 100%），各运营商均达标。</li><li><a class="kit-link" href="#air-cell-cell-mvyabpv12wrkqe">“EOS风险概览”格子</a>：本月 EOS 风险整体存量为 <strong class="kit-em">894</strong> 个，各运营商风险网元数量均为 <strong class="kit-em">0</strong>，风险解决率均为 <strong class="kit-em">0%</strong>。</li><li><a class="kit-link" href="#air-cell-cell-mvj64110zddhfk">数据来源为各运营商（T*、O*G、E*、V*F）</a>：各运营商 PS GP 利润率差异较大，V*F 最高（89.3%），E* 最低（9.8%），整体平均利润率为 56.0%。</li></ul></div></div></div><button type="button" class="air-add-cell" data-add-cell="chapter-mvkklv97qux2rq">＋ 添加格子</button></div></section><div class="air-chapter-insert"><button type="button" data-insert-chapter="2" title="在这里插入一个新章节">＋ 插入章节</button></div><section class="air-chapter" id="air-chapter-chapter-mvj641108yekze" data-chapter="chapter-mvj641108yekze" data-tour-focus="">
+            <h2><span class="air-chapter-no">01</span><span contenteditable="plaintext-only" spellcheck="false" data-ai-context-readable="" data-edit="chapter:chapter-mvj641108yekze" data-placeholder="点击编辑">网络变更</span><span class="air-chapter-tools"><button type="button" class="air-chapter-drag" data-chapter-drag="chapter-mvj641108yekze" title="拖动调整章节位置（拖动时月报会缩小，显示全部章节）" aria-label="拖动章节">⠿</button><button type="button" class="air-chapter-refresh" data-chapter-refresh="chapter-mvj641108yekze" title="用本月数据重新计算本章节的格子，并重写文字总结" aria-label="刷新本章节">⟳</button><button type="button" class="air-chapter-style is-set" data-chapter-style="chapter-mvj641108yekze" title="章节样式提示词（已设置）：统一本章节格子的样式和风格，不改数据" aria-label="章节样式">✦</button><button type="button" class="air-chapter-heading" data-chapter-heading="chapter-mvj641108yekze" aria-pressed="true" title="点击隐藏这个章节的标题栏（适合导航、总览）">T</button><button type="button" class="air-chapter-numbering" data-chapter-numbering="chapter-mvj641108yekze" aria-pressed="true" title="点击取消这个章节的编号（总览、导航等）">#</button><button type="button" data-chapter-move="chapter-mvj641108yekze:-1" aria-label="上移章节">↑</button><button type="button" data-chapter-move="chapter-mvj641108yekze:1" aria-label="下移章节">↓</button><button type="button" data-chapter-delete="chapter-mvj641108yekze" aria-label="删除章节">×</button></span></h2>
+            <div class="air-grid" data-grid="chapter-mvj641108yekze"><div class="air-cell has-height is-fit" id="air-cell-cell-mvj64ibtwsjxcv" data-cell="cell-mvj64ibtwsjxcv" style="grid-column:span 6;height:308px;"><div class="air-cell-tools"><button type="button" data-cell-drag="cell-mvj64ibtwsjxcv" title="拖动换位置" aria-label="拖动">⠿</button><button type="button" data-cell-chat="cell-mvj64ibtwsjxcv">对话</button><button type="button" data-cell-focus="cell-mvj64ibtwsjxcv" title="放大编辑" aria-label="放大编辑" aria-expanded="false"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M9 3H3v6M15 3h6v6M3 15v6h6M21 15v6h-6"></path></svg></button><button type="button" data-cell-copy="cell-mvj64ibtwsjxcv" title="复制这个格子（含对话、提示词和内容），放在它后面" aria-label="复制格子">⧉</button><button type="button" data-cell-run="cell-mvj64ibtwsjxcv" title="按本月数据重新生成">⟳</button><button type="button" data-cell-delete="cell-mvj64ibtwsjxcv" title="删除格子" aria-label="删除格子">×</button></div><div class="air-resize" data-resize="cell-mvj64ibtwsjxcv" title="拖动调整宽高，双击恢复自动高度"></div><div class="air-cell-body"><div class="air-narrative">本月拦截总量最多的运营商为 O*G，共 <strong class="kit-em">83</strong> 次。各运营商 GUI 拦截与高危命令拦截分布存在差异，其中 O*G 在两类拦截中均处于 <strong class="kit-em">较高</strong> 水平。</div><div class="air-output"><div class="kit-layout"><div class="kit-row"><div class="kit-slot has-height" data-slot="chart" style="flex: 60 1 0px; height: 202px;"><div class="kit-title">运营商拦截分布</div><div class="kit-widget kit-widget-chart" data-widget="w0" style="height: 170px;" data-hydrated="1"><div class="kit-chart-canvas" _echarts_instance_="ec_1795026080961" style="position: relative;"><div style="position: relative; overflow: hidden; width: 328px; height: 170px;"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" baseProfile="full" width="328" height="170" style="position:absolute;left:0;top:0;user-select:none"><rect width="328" height="170" x="0" y="0" id="0" fill="none"></rect><g><path d="M46.5 36L46.5 140" fill="none" stroke="#E0E6F1"></path><path d="M124.5 36L124.5 140" fill="none" stroke="#E0E6F1"></path><path d="M202.5 36L202.5 140" fill="none" stroke="#E0E6F1"></path><path d="M280.5 36L280.5 140" fill="none" stroke="#E0E6F1"></path><path d="M46.5 140L46.5 36" fill="none" stroke="#6E7079" stroke-linecap="round"></path><path d="M46.292 140.5L41.292 140.5" fill="none" stroke="#6E7079"></path><path d="M46.292 105.5L41.292 105.5" fill="none" stroke="#6E7079"></path><path d="M46.292 70.5L41.292 70.5" fill="none" stroke="#6E7079"></path><path d="M46.292 36.5L41.292 36.5" fill="none" stroke="#6E7079"></path><text dominant-baseline="central" text-anchor="end" style="font-size:12px;font-family:inherit;" transform="translate(38.292 122.6667)" fill="#6E7079">T*</text><text dominant-baseline="central" text-anchor="end" style="font-size:12px;font-family:inherit;" transform="translate(38.292 88)" fill="#6E7079">O*G</text><text dominant-baseline="central" text-anchor="end" style="font-size:12px;font-family:inherit;" transform="translate(38.292 53.3333)" fill="#6E7079">E*</text><text dominant-baseline="central" text-anchor="middle" style="font-size:12px;font-family:inherit;" y="6" transform="translate(46.292 148)" fill="#6E7079">0</text><text dominant-baseline="central" text-anchor="middle" style="font-size:12px;font-family:inherit;" y="6" transform="translate(124.1947 148)" fill="#6E7079">20</text><text dominant-baseline="central" text-anchor="middle" style="font-size:12px;font-family:inherit;" y="6" transform="translate(202.0973 148)" fill="#6E7079">40</text><text dominant-baseline="central" text-anchor="middle" style="font-size:12px;font-family:inherit;" y="6" transform="translate(280 148)" fill="#6E7079">60</text><path d="M46.292 110.0133l77.9027 0l0 11.503l-77.9027 0Z" fill="#1F5FA6"></path><path d="M46.292 75.3467l124.6443 0l0 11.503l-124.6443 0Z" fill="#1F5FA6"></path><path d="M46.292 40.68l0 0l0 11.503l0 0Z" fill="#1F5FA6"></path><path d="M46.292 123.817l124.6443 0l0 11.503l-124.6443 0Z" fill="#6FA3D8"></path><path d="M46.292 89.1503l198.6518 0l0 11.503l-198.6518 0Z" fill="#6FA3D8"></path><path d="M46.292 54.4836l31.1611 0l0 11.503l-31.1611 0Z" fill="#6FA3D8"></path><text dominant-baseline="central" text-anchor="start" style="font-size:12px;font-family:inherit;" transform="translate(129.1947 115.7648)" fill="#333" stroke="rgb(255,255,255)" stroke-width="2" paint-order="stroke" stroke-miterlimit="2">20</text><text dominant-baseline="central" text-anchor="start" style="font-size:12px;font-family:inherit;" transform="translate(175.9363 81.0982)" fill="#333" stroke="rgb(255,255,255)" stroke-width="2" paint-order="stroke" stroke-miterlimit="2">32</text><text dominant-baseline="central" text-anchor="start" style="font-size:12px;font-family:inherit;" transform="translate(51.292 46.4315)" fill="#333" stroke="rgb(255,255,255)" stroke-width="2" paint-order="stroke" stroke-miterlimit="2">0</text><text dominant-baseline="central" text-anchor="start" style="font-size:12px;font-family:inherit;" transform="translate(175.9363 129.5685)" fill="#333" stroke="rgb(255,255,255)" stroke-width="2" paint-order="stroke" stroke-miterlimit="2">32</text><text dominant-baseline="central" text-anchor="start" style="font-size:12px;font-family:inherit;" transform="translate(249.9438 94.9018)" fill="#333" stroke="rgb(255,255,255)" stroke-width="2" paint-order="stroke" stroke-miterlimit="2">51</text><text dominant-baseline="central" text-anchor="start" style="font-size:12px;font-family:inherit;" transform="translate(82.4531 60.2352)" fill="#333" stroke="rgb(255,255,255)" stroke-width="2" paint-order="stroke" stroke-miterlimit="2">8</text><path d="M-5 -5l200.384 0l0 24l-200.384 0Z" transform="translate(68.808 5)" fill="rgb(0,0,0)" fill-opacity="0" stroke="#ccc" stroke-width="0"></path><path d="M3.5 0L21.5 0A3.5 3.5 0 0 1 25 3.5L25 10.5A3.5 3.5 0 0 1 21.5 14L3.5 14A3.5 3.5 0 0 1 0 10.5L0 3.5A3.5 3.5 0 0 1 3.5 0" transform="translate(68.808 5)" fill="#1F5FA6"></path><text dominant-baseline="central" text-anchor="start" style="font-size:12px;font-family:inherit;" xml:space="preserve" x="30" y="7" transform="translate(68.808 5)" fill="#333">GUI 拦截</text><path d="M3.5 0L21.5 0A3.5 3.5 0 0 1 25 3.5L25 10.5A3.5 3.5 0 0 1 21.5 14L3.5 14A3.5 3.5 0 0 1 0 10.5L0 3.5A3.5 3.5 0 0 1 3.5 0" transform="translate(157.192 5)" fill="#6FA3D8"></path><text dominant-baseline="central" text-anchor="start" style="font-size:12px;font-family:inherit;" x="30" y="7" transform="translate(157.192 5)" fill="#333">高危命令拦截</text></g></svg></div><div class=""></div></div></div><span class="kit-slot-tag">chart · 运营商拦截分布</span><span class="kit-slot-edge kit-slot-edge-x" data-slot-resize="x" title="拖动调整这个小格子的宽度"></span><span class="kit-slot-edge kit-slot-edge-y" data-slot-resize="y" title="拖动调整这个小格子的高度，双击恢复自动高度"></span></div><div class="kit-slot" data-slot="table" style="flex:40 1 0"><table class="kit-table"><thead><tr><th style="text-align:left">运营商</th><th style="text-align:left">GUI</th><th style="text-align:left">高危</th><th style="text-align:left">合计</th></tr></thead><tbody><tr><td style="text-align:left">T*</td><td style="text-align:left">20</td><td style="text-align:left">32</td><td style="text-align:left">52</td></tr><tr><td style="text-align:left">O*G</td><td style="text-align:left">32</td><td style="text-align:left">51</td><td style="text-align:left">83</td></tr><tr><td style="text-align:left">E*</td><td style="text-align:left">0</td><td style="text-align:left">8</td><td style="text-align:left">8</td></tr></tbody></table><span class="kit-slot-tag">table</span><span class="kit-slot-edge kit-slot-edge-y" data-slot-resize="y" title="拖动调整这个小格子的高度，双击恢复自动高度"></span></div></div></div></div></div></div><div class="air-cell has-height is-fit" id="air-cell-cell-mvjhql05ugwq7n" data-cell="cell-mvjhql05ugwq7n" style="grid-column:span 6;height:308px;"><div class="air-cell-tools"><button type="button" data-cell-drag="cell-mvjhql05ugwq7n" title="拖动换位置" aria-label="拖动">⠿</button><button type="button" data-cell-chat="cell-mvjhql05ugwq7n">对话</button><button type="button" data-cell-focus="cell-mvjhql05ugwq7n" title="放大编辑" aria-label="放大编辑" aria-expanded="false"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M9 3H3v6M15 3h6v6M3 15v6h6M21 15v6h-6"></path></svg></button><button type="button" data-cell-copy="cell-mvjhql05ugwq7n" title="复制这个格子（含对话、提示词和内容），放在它后面" aria-label="复制格子">⧉</button><button type="button" data-cell-run="cell-mvjhql05ugwq7n" title="按本月数据重新生成">⟳</button><button type="button" data-cell-delete="cell-mvjhql05ugwq7n" title="删除格子" aria-label="删除格子">×</button></div><div class="air-resize" data-resize="cell-mvjhql05ugwq7n" title="拖动调整宽高，双击恢复自动高度"></div><div class="air-cell-body"><div class="air-narrative">本月整体回传率 <strong class="kit-em">95%</strong>（目标 ≥ 95%）达标，备案率 <strong class="kit-em">11%</strong>（上限 25%）达标；<strong class="kit-em">O*G</strong> 回传率 <strong class="kit-em">92%</strong> 未达标。</div><div class="air-output"><div class="kit-layout"><div class="kit-row"><div class="kit-slot has-height" data-slot="chart" style="flex: 60 1 0px; height: 195px;"><div class="kit-title">日志回传与备案</div><div class="kit-widget kit-widget-chart" data-widget="w0" style="height: 163px;" data-hydrated="1"><div class="kit-chart-canvas" _echarts_instance_="ec_1795026080962" style="position: relative;"><div style="position: relative; overflow: hidden; width: 328px; height: 163px;"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" baseProfile="full" width="328" height="163" style="position:absolute;left:0;top:0;user-select:none"><rect width="328" height="163" x="0" y="0" id="0" fill="none"></rect><g><path d="M46.5 30L46.5 133" fill="none" stroke="#E0E6F1"></path><path d="M106.5 30L106.5 133" fill="none" stroke="#E0E6F1"></path><path d="M167.5 30L167.5 133" fill="none" stroke="#E0E6F1"></path><path d="M227.5 30L227.5 133" fill="none" stroke="#E0E6F1"></path><path d="M288.5 30L288.5 133" fill="none" stroke="#E0E6F1"></path><path d="M46.5 133L46.5 30" fill="none" stroke="#6E7079" stroke-linecap="round"></path><path d="M46.292 133.5L41.292 133.5" fill="none" stroke="#6E7079"></path><path d="M46.292 98.5L41.292 98.5" fill="none" stroke="#6E7079"></path><path d="M46.292 64.5L41.292 64.5" fill="none" stroke="#6E7079"></path><path d="M46.292 30.5L41.292 30.5" fill="none" stroke="#6E7079"></path><text dominant-baseline="central" text-anchor="end" style="font-size:12px;font-family:inherit;" transform="translate(38.292 115.8333)" fill="#6E7079">T*</text><text dominant-baseline="central" text-anchor="end" style="font-size:12px;font-family:inherit;" transform="translate(38.292 81.5)" fill="#6E7079">O*G</text><text dominant-baseline="central" text-anchor="end" style="font-size:12px;font-family:inherit;" transform="translate(38.292 47.1667)" fill="#6E7079">E*</text><text dominant-baseline="central" text-anchor="middle" style="font-size:12px;font-family:inherit;" y="6" transform="translate(46.292 141)" fill="#6E7079">0</text><text dominant-baseline="central" text-anchor="middle" style="font-size:12px;font-family:inherit;" y="6" transform="translate(106.719 141)" fill="#6E7079">30</text><text dominant-baseline="central" text-anchor="middle" style="font-size:12px;font-family:inherit;" y="6" transform="translate(167.146 141)" fill="#6E7079">60</text><text dominant-baseline="central" text-anchor="middle" style="font-size:12px;font-family:inherit;" y="6" transform="translate(227.573 141)" fill="#6E7079">90</text><text dominant-baseline="central" text-anchor="middle" style="font-size:12px;font-family:inherit;" y="6" transform="translate(288 141)" fill="#6E7079">120</text><path d="M46.292 103.3017l191.3522 0l0 11.3924l-191.3522 0Z" fill="#1F5FA6"></path><path d="M46.292 68.9683l185.3095 0l0 11.3924l-185.3095 0Z" fill="#1F5FA6"></path><path d="M46.292 34.635l193.3664 0l0 11.3924l-193.3664 0Z" fill="#1F5FA6"></path><path d="M46.292 116.9726l40.2847 0l0 11.3924l-40.2847 0Z" fill="#6FA3D8"></path><path d="M46.292 82.6392l26.185 0l0 11.3924l-26.185 0Z" fill="#6FA3D8"></path><path d="M46.292 48.3059l18.1281 0l0 11.3924l-18.1281 0Z" fill="#6FA3D8"></path><path d="M-5 -5l152 0l0 24l-152 0Z" transform="translate(93 5)" fill="rgb(0,0,0)" fill-opacity="0" stroke="#ccc" stroke-width="0"></path><path d="M3.5 0L21.5 0A3.5 3.5 0 0 1 25 3.5L25 10.5A3.5 3.5 0 0 1 21.5 14L3.5 14A3.5 3.5 0 0 1 0 10.5L0 3.5A3.5 3.5 0 0 1 3.5 0" transform="translate(93 5)" fill="#1F5FA6"></path><text dominant-baseline="central" text-anchor="start" style="font-size:12px;font-family:inherit;" x="30" y="7" transform="translate(93 5)" fill="#333">回传率</text><path d="M3.5 0L21.5 0A3.5 3.5 0 0 1 25 3.5L25 10.5A3.5 3.5 0 0 1 21.5 14L3.5 14A3.5 3.5 0 0 1 0 10.5L0 3.5A3.5 3.5 0 0 1 3.5 0" transform="translate(169 5)" fill="#6FA3D8"></path><text dominant-baseline="central" text-anchor="start" style="font-size:12px;font-family:inherit;" x="30" y="7" transform="translate(169 5)" fill="#333">备案率</text></g></svg></div><div class=""></div></div></div><span class="kit-slot-tag">chart · 日志回传与备案</span><span class="kit-slot-edge kit-slot-edge-x" data-slot-resize="x" title="拖动调整这个小格子的宽度"></span><span class="kit-slot-edge kit-slot-edge-y" data-slot-resize="y" title="拖动调整这个小格子的高度，双击恢复自动高度"></span></div><div class="kit-slot" data-slot="table" style="flex:40 1 0"><table class="kit-table"><thead><tr><th style="text-align:left">运营商</th><th style="text-align:left">回传率</th><th style="text-align:left">备案率</th></tr></thead><tbody><tr><td style="text-align:left">T*</td><td style="text-align:left">95</td><td style="text-align:left">20</td></tr><tr><td style="text-align:left">O*G</td><td class="kit-cell-bad" style="text-align:left">92</td><td style="text-align:left">13</td></tr><tr><td style="text-align:left">E*</td><td style="text-align:left">96</td><td style="text-align:left">9</td></tr><tr><td style="text-align:left">目标</td><td style="text-align:left">≥ 95%</td><td style="text-align:left">≤ 25%</td></tr></tbody></table><span class="kit-slot-tag">table</span><span class="kit-slot-edge kit-slot-edge-y" data-slot-resize="y" title="拖动调整这个小格子的高度，双击恢复自动高度"></span></div></div></div></div></div></div><div class="air-cell has-height is-fit" id="air-cell-cell-mvj64110rgk0f6" data-cell="cell-mvj64110rgk0f6" style="grid-column:span 6;height:280px;"><div class="air-cell-tools"><button type="button" data-cell-drag="cell-mvj64110rgk0f6" title="拖动换位置" aria-label="拖动">⠿</button><button type="button" data-cell-chat="cell-mvj64110rgk0f6">对话</button><button type="button" data-cell-focus="cell-mvj64110rgk0f6" title="放大编辑" aria-label="放大编辑" aria-expanded="false"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M9 3H3v6M15 3h6v6M3 15v6h6M21 15v6h-6"></path></svg></button><button type="button" data-cell-copy="cell-mvj64110rgk0f6" title="复制这个格子（含对话、提示词和内容），放在它后面" aria-label="复制格子">⧉</button><button type="button" data-cell-run="cell-mvj64110rgk0f6" title="按本月数据重新生成">⟳</button><button type="button" data-cell-delete="cell-mvj64110rgk0f6" title="删除格子" aria-label="删除格子">×</button></div><div class="air-resize" data-resize="cell-mvj64110rgk0f6" title="拖动调整宽高，双击恢复自动高度"></div><div class="air-cell-body"><div class="air-narrative">本月整体日志稽查率为 <strong class="kit-em">89%</strong>（目标 ≥ 80%），达标。 未达标运营商包括：<strong class="kit-em">T*</strong>。</div><div class="air-output" data-horizontal-pair="chart-table"><div class="kit-layout"><div class="kit-row is-compact"><div class="kit-slot has-height" data-slot="chart" style="flex: 60 1 0px; height: 173px;"><div class="kit-title">日志稽查</div><div class="kit-widget kit-widget-chart" data-widget="w0" style="height: 141px;" data-hydrated="1"><div class="kit-chart-canvas" _echarts_instance_="ec_1795026080963" style="position: relative;"><div style="position: relative; overflow: hidden; width: 330px; height: 141px;"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" baseProfile="full" width="330" height="141" style="position:absolute;left:0;top:0;user-select:none"><rect width="330" height="141" x="0" y="0" id="0" fill="none"></rect><g><text dominant-baseline="central" text-anchor="end" style="font-size:12px;font-family:inherit;" transform="translate(38.292 113.1667)" fill="#6E7079">T*</text><text dominant-baseline="central" text-anchor="end" style="font-size:12px;font-family:inherit;" transform="translate(38.292 77.5)" fill="#6E7079">O*G</text><text dominant-baseline="central" text-anchor="end" style="font-size:12px;font-family:inherit;" transform="translate(38.292 41.8333)" fill="#6E7079">E*</text><path d="M46.292 100.8617l167.3527 0l0 24.61l-167.3527 0Z" fill="#1F5FA6"></path><path d="M46.292 65.195l235.708 0l0 24.61l-235.708 0Z" fill="#1F5FA6"></path><path d="M46.292 29.5283l235.708 0l0 24.61l-235.708 0Z" fill="#1F5FA6"></path><text dominant-baseline="central" text-anchor="start" style="font-size:12px;font-family:inherit;" transform="translate(218.6447 113.1667)" fill="#333" stroke="rgb(255,255,255)" stroke-width="2" paint-order="stroke" stroke-miterlimit="2">71%</text><text dominant-baseline="central" text-anchor="start" style="font-size:12px;font-family:inherit;" transform="translate(287 77.5)" fill="#333" stroke="rgb(255,255,255)" stroke-width="2" paint-order="stroke" stroke-miterlimit="2">100%</text><text dominant-baseline="central" text-anchor="start" style="font-size:12px;font-family:inherit;" transform="translate(287 41.8333)" fill="#333" stroke="rgb(255,255,255)" stroke-width="2" paint-order="stroke" stroke-miterlimit="2">100%</text><g clip-path="url(#zr2-c0)"><path d="" fill="none" stroke="#1f5fa6" stroke-width="2" stroke-linejoin="bevel"></path></g><path d="M235.5 131L235.5 24" fill="none" stroke="#C62828" stroke-dasharray="4,2"></path><text dominant-baseline="central" text-anchor="middle" style="font-size:10px;font-family:inherit;" xml:space="preserve" transform="translate(234.8584 19)" fill="#C62828" y="-6">目标 80%</text></g><defs><clipPath id="zr2-c0"><path d="M45 23l238 0l0 109l-238 0Z" fill="#000"></path></clipPath></defs></svg></div><div class=""></div></div></div><span class="kit-slot-tag">chart · 日志稽查</span><span class="kit-slot-edge kit-slot-edge-x" data-slot-resize="x" title="拖动调整这个小格子的宽度"></span><span class="kit-slot-edge kit-slot-edge-y" data-slot-resize="y" title="拖动调整这个小格子的高度，双击恢复自动高度"></span></div><div class="kit-slot" data-slot="table" style="flex:40 1 0"><table class="kit-table"><thead><tr><th style="text-align:left">运营商</th><th style="text-align:left">稽查率</th><th style="text-align:left">目标</th><th style="text-align:left">达成情况</th></tr></thead><tbody><tr><td style="text-align:left">T*</td><td class="kit-cell-bad" style="text-align:left">71%</td><td style="text-align:left">80%</td><td class="kit-cell-bad" style="text-align:left">未达标</td></tr><tr><td style="text-align:left">O*G</td><td style="text-align:left">100%</td><td style="text-align:left">80%</td><td style="text-align:left">达标</td></tr><tr><td style="text-align:left">E*</td><td style="text-align:left">100%</td><td style="text-align:left">80%</td><td style="text-align:left">达标</td></tr></tbody></table><span class="kit-slot-tag">table</span><span class="kit-slot-edge kit-slot-edge-y" data-slot-resize="y" title="拖动调整这个小格子的高度，双击恢复自动高度"></span></div></div></div></div></div></div><div class="air-cell has-height is-fit" id="air-cell-cell-mvj651tg2xwiau" data-cell="cell-mvj651tg2xwiau" style="grid-column:span 6;height:280px;"><div class="air-cell-tools"><button type="button" data-cell-drag="cell-mvj651tg2xwiau" title="拖动换位置" aria-label="拖动">⠿</button><button type="button" data-cell-chat="cell-mvj651tg2xwiau">对话</button><button type="button" data-cell-focus="cell-mvj651tg2xwiau" title="放大编辑" aria-label="放大编辑" aria-expanded="false"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M9 3H3v6M15 3h6v6M3 15v6h6M21 15v6h-6"></path></svg></button><button type="button" data-cell-copy="cell-mvj651tg2xwiau" title="复制这个格子（含对话、提示词和内容），放在它后面" aria-label="复制格子">⧉</button><button type="button" data-cell-run="cell-mvj651tg2xwiau" title="按本月数据重新生成">⟳</button><button type="button" data-cell-delete="cell-mvj651tg2xwiau" title="删除格子" aria-label="删除格子">×</button></div><div class="air-resize" data-resize="cell-mvj651tg2xwiau" title="拖动调整宽高，双击恢复自动高度"></div><div class="air-cell-body"><div class="air-narrative">本月事故增量为 <strong class="kit-em">0</strong>，各项风险指标均达标。</div><div class="air-output" data-horizontal-pair="chart-table"><div class="kit-layout"><div class="kit-row"><div class="kit-slot has-height" data-slot="table" style="flex: 100 1 0px; height: 203px;"><div class="kit-title">关键风险指标</div><table class="kit-table"><thead><tr><th style="text-align:left">指标</th><th style="text-align:right">本月值</th><th style="text-align:right">目标</th><th style="text-align:right">较上月</th><th style="text-align:right">达成情况</th></tr></thead><tbody><tr><td style="text-align:left">延期补授权</td><td style="text-align:right">100%</td><td style="text-align:right">≥ 100%</td><td style="text-align:right">持平</td><td style="text-align:right">达标</td></tr><tr><td style="text-align:left">高风险人员</td><td style="text-align:right">0</td><td style="text-align:right">≤ 0</td><td style="text-align:right">持平</td><td style="text-align:right">达标</td></tr><tr><td style="text-align:left">超高风险人员</td><td style="text-align:right">0</td><td style="text-align:right">≤ 0</td><td style="text-align:right">持平</td><td style="text-align:right">达标</td></tr><tr><td style="text-align:left">事故增量</td><td style="text-align:right">0</td><td style="text-align:right">≤ 0</td><td style="text-align:right">持平</td><td style="text-align:right">达标</td></tr></tbody></table><span class="kit-slot-tag">table · 关键风险指标</span><span class="kit-slot-edge kit-slot-edge-y" data-slot-resize="y" title="拖动调整这个小格子的高度，双击恢复自动高度"></span></div></div></div></div></div></div><button type="button" class="air-add-cell" data-add-cell="chapter-mvj641108yekze">＋ 添加格子</button><i class="air-divider air-divider-v" aria-hidden="true" style="left: 594px; top: 0px; height: 308px;"></i><i class="air-divider air-divider-h" aria-hidden="true" style="left: 0px; right: 0px; top: 314px;"></i><i class="air-divider air-divider-v" aria-hidden="true" style="left: 594px; top: 320px; height: 280px;"></i></div></section><div class="air-chapter-insert"><button type="button" data-insert-chapter="3" title="在这里插入一个新章节">＋ 插入章节</button></div><section class="air-chapter" id="air-chapter-chapter-mvj64110bypmc2" data-chapter="chapter-mvj64110bypmc2">
+            <h2><span class="air-chapter-no">02</span><span contenteditable="plaintext-only" spellcheck="false" data-ai-context-readable="" data-edit="chapter:chapter-mvj64110bypmc2" data-placeholder="点击编辑">SR与事件</span><span class="air-chapter-tools"><button type="button" class="air-chapter-drag" data-chapter-drag="chapter-mvj64110bypmc2" title="拖动调整章节位置（拖动时月报会缩小，显示全部章节）" aria-label="拖动章节">⠿</button><button type="button" class="air-chapter-refresh" data-chapter-refresh="chapter-mvj64110bypmc2" title="用本月数据重新计算本章节的格子，并重写文字总结" aria-label="刷新本章节">⟳</button><button type="button" class="air-chapter-style" data-chapter-style="chapter-mvj64110bypmc2" title="章节样式提示词：统一本章节格子的样式和风格，不改数据" aria-label="章节样式">✦</button><button type="button" class="air-chapter-heading" data-chapter-heading="chapter-mvj64110bypmc2" aria-pressed="true" title="点击隐藏这个章节的标题栏（适合导航、总览）">T</button><button type="button" class="air-chapter-numbering" data-chapter-numbering="chapter-mvj64110bypmc2" aria-pressed="true" title="点击取消这个章节的编号（总览、导航等）">#</button><button type="button" data-chapter-move="chapter-mvj64110bypmc2:-1" aria-label="上移章节">↑</button><button type="button" data-chapter-move="chapter-mvj64110bypmc2:1" aria-label="下移章节">↓</button><button type="button" data-chapter-delete="chapter-mvj64110bypmc2" aria-label="删除章节">×</button></span></h2>
+            <div class="air-grid" data-grid="chapter-mvj64110bypmc2"><button type="button" class="air-add-cell" data-add-cell="chapter-mvj64110bypmc2">＋ 添加格子</button></div></section><div class="air-chapter-insert"></div><div class="air-chapter-insert"></div><div class="air-chapter-insert"></div><div class="air-chapter-insert"></div><div class="air-chapter-insert"></div><div class="air-chapter-insert"></div><div class="air-mark-layer"></div></article></div></main>
+
+
+
+<div class="ai-fab is-idle" role="button" tabindex="0" aria-label="打开Dragon Claw智能体" aria-expanded="false" title="打开Dragon Claw智能体"><span class="ai-fab-orb" aria-hidden="true"><img class="ai-fab-avatar" src="/assets/logo.png" alt="" draggable="false"><span class="ai-fab-dot"></span></span><span class="ai-fab-label">Dragon Claw</span></div><div class="ai-panel" data-theme="light">
+        <div class="ai-header">
+            <div class="ai-brand">
+                <div class="ai-brand-mark" aria-hidden="true"><img src="/assets/logo.png" alt="Dragon Claw"></div>
+                <div class="ai-brand-copy">
+                    <div class="ai-brand-title"><span class="ai-brand-title-compact">Dragon Claw</span></div>
+                    <div class="ai-brand-subtitle"><span class="ai-brand-subtitle-compact">知识 · 数据 · 运营</span></div>
+                </div>
+            </div>
+            <div class="ai-header-actions">
+                <button class="ai-action-btn ai-knowledge-graph" type="button" title="知识与指标图谱" aria-label="知识与指标图谱">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.2"></circle><circle cx="18" cy="7" r="2.2"></circle><circle cx="8" cy="18" r="2.2"></circle><circle cx="17" cy="17" r="2.2"></circle><path d="M8 7l7.8-.1M7 8l1 7.8M10 17.8l4.8-.5M17.7 9.2l-.5 5.6M8 7.5l7.5 7.8"></path></svg>
+                </button>
+                <button class="ai-action-btn ai-history" type="button" title="历史问答" aria-label="历史问答">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><path d="M3 3v5h5"></path><path d="M12 7v5l3 2"></path></svg>
+                </button>
+                <button class="ai-action-btn ai-archive" type="button" title="查看归档会话" aria-label="查看归档会话">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16v13H4z"></path><path d="M3 3h18v4H3zM9 11h6"></path></svg>
+                </button>
+                <button class="ai-action-btn ai-theme-toggle" type="button" title="切换图谱深色主题" aria-label="切换图谱深色主题" aria-pressed="false">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9Z"></path><path d="M17.5 3.5v3M16 5h3"></path></svg>
+                </button>
+                <button class="ai-action-btn ai-expand" type="button" title="放大窗口" aria-label="放大窗口" aria-pressed="false">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="2"></rect><path d="M9 5V3h12v12h-2"></path></svg>
+                </button>
+                <button class="ai-action-btn ai-fullscreen" type="button" title="全屏聊天" aria-label="全屏聊天" aria-pressed="false">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"></path></svg>
+                </button>
+                <button class="ai-action-btn ai-close" type="button" title="关闭" aria-label="关闭">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+                </button>
+            </div>
+        </div>
+        
+        <div class="ai-chat-body" id="aiChatBody">
+            <div class="ai-msg ai" id="aiInitialMessage">👋 正在读取当前页面，准备为你概括内容…</div>
+            
+        </div>
+        
+        <div class="ai-input-area">
+            <input type="text" class="ai-input" id="aiInput" placeholder="向 Dragon Claw 提问有关本页面的内容..." value="">
+            <button class="ai-send-btn" id="aiSendBtn" type="button" title="发送消息" aria-label="发送消息">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+            </button>
+        </div>
+    </div></body></html>

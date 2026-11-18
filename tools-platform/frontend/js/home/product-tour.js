@@ -416,11 +416,19 @@
         const stage = state.stage;
         state.chatRun += 1;
         state.chatPhase = '';
-        const shot = step.stage === 'tool' && demos?.tools[step.id];
-        if (shot) {
+        const demo = step.stage === 'tool' && demos?.tools[step.id];
+        const badge = `<em class="tm-sample tm-badge">${L('真实界面 · 数据已匿名', 'Real screen · anonymized')}</em>`;
+        if (demo?.page) {
+            // 无脚本的静态快照：只渲染页面本身，不跑工具代码，也不请求业务接口。
             stage.className = `v2-tour-stage is-tool is-${step.id}`;
-            stage.innerHTML = `<img class="tm-shot" alt="" src="${shot.src}" width="${shot.w}" height="${shot.h}" decoding="async"><em class="tm-sample tm-shot-badge">${L('真实界面 · 数据已匿名', 'Real screen · anonymized')}</em>`;
-            stage.querySelector('img').addEventListener('load', onViewportChange, { once: true });
+            stage.innerHTML = `<div class="tm-page-box"><iframe class="tm-page" title="" tabindex="-1" sandbox="allow-same-origin" src="${demo.page}"></iframe></div>${badge}`;
+            const frame = stage.querySelector('iframe');
+            frame.inert = true;
+            frame.addEventListener('load', () => { preparePage(frame); onViewportChange(); }, { once: true });
+        } else if (demo?.html) {
+            ensureStylesheet('/css/ops-inbox.css');
+            stage.className = `v2-tour-stage is-tool is-panel is-${step.id}`;
+            stage.innerHTML = `<div class="tm-panel-box">${demo.html(L)}</div>${badge}`;
         } else if (step.stage === 'chat' && demos) {
             stage.className = 'v2-tour-stage is-chat';
             stage.innerHTML = demos.chat(L).html;
@@ -587,9 +595,8 @@
         if (staged) {
             document.documentElement.style.setProperty('--v2-tour-card-height', `${state.card.offsetHeight}px`);
         }
-        const shot = staged && layoutShot(step);
-        if (shot) {
-            placeSpotlight(shot, step.placement || 'bottom');
+        if (staged && step.stage === 'tool') {
+            placeSpotlight(layoutPage(step) || null, step.placement || 'bottom');
             return;
         }
         const el = staged ? state.stage.querySelector('[data-tour-focus]') : step.find?.();
@@ -611,27 +618,75 @@
         placeSpotlight(rect, step?.placement || 'bottom');
     }
 
-    // 截图按比例放进舞台并居中；返回截图里重点区域在视口中的位置。
-    function layoutShot(step) {
-        const shot = window.HomeProductTourDemos?.tools[step.id];
-        const img = state.stage.querySelector('.tm-shot');
-        if (!shot || !img) return null;
-        const scale = Math.min(state.stage.clientWidth / shot.w, state.stage.clientHeight / shot.h);
-        const width = Math.round(shot.w * scale);
-        const height = Math.round(shot.h * scale);
-        img.style.width = `${width}px`;
-        img.style.height = `${height}px`;
-        const badge = state.stage.querySelector('.tm-shot-badge');
-        badge.style.top = `${img.offsetTop + 10}px`;
-        badge.style.right = `${state.stage.clientWidth - img.offsetLeft - width + 10}px`;
-        const box = img.getBoundingClientRect();
-        const [left, top, right, bottom] = shot.focus;
-        return { left: box.left + left * box.width, top: box.top + top * box.height,
-            width: (right - left) * box.width, height: (bottom - top) * box.height };
+    function ensureStylesheet(href) {
+        if (document.querySelector(`link[rel="stylesheet"][href^="${href}"]`)) return;
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = href;
+        document.head.append(link);
     }
 
-    function preloadShots() {
-        for (const shot of Object.values(window.HomeProductTourDemos?.tools || {})) new Image().src = shot.src;
+    // 还原导出时的滚动位置，让重点元素停在原来的位置；隐藏快照里的滚动条。
+    function preparePage(frame) {
+        const doc = frame.contentDocument;
+        if (!doc?.documentElement) return;
+        const style = doc.createElement('style');
+        style.textContent = '*{scrollbar-width:none!important}*::-webkit-scrollbar{display:none!important}html,body{overflow:hidden!important}';
+        doc.head.append(style);
+        for (const el of doc.querySelectorAll('[data-tour-scroll]')) el.scrollTop = Number(el.dataset.tourScroll.split(',')[0]) || 0;
+        const focus = doc.querySelector('[data-tour-focus]');
+        const anchor = Number(doc.documentElement.dataset.tourAnchor);
+        if (focus && Number.isFinite(anchor)) doc.scrollingElement.scrollTop += focus.getBoundingClientRect().top - anchor;
+    }
+
+    // 快照按导出时的视口排版，再整体缩放进舞台；返回重点区域在视口中的位置。
+    function layoutPage(step) {
+        const demo = window.HomeProductTourDemos?.tools[step.id];
+        const stage = state.stage;
+        const badge = stage.querySelector('.tm-badge');
+        if (demo?.html) {
+            const box = stage.querySelector('.tm-panel-box');
+            const focus = stage.querySelector('[data-tour-focus]');
+            placeBadge(badge, box);
+            return focus?.getBoundingClientRect();
+        }
+        const box = stage.querySelector('.tm-page-box');
+        const frame = stage.querySelector('.tm-page');
+        if (!demo?.page || !frame) return null;
+        const scale = Math.min(stage.clientWidth / demo.w, stage.clientHeight / demo.h);
+        box.style.width = `${Math.round(demo.w * scale)}px`;
+        box.style.height = `${Math.round(demo.h * scale)}px`;
+        frame.style.width = `${demo.w}px`;
+        frame.style.height = `${demo.h}px`;
+        frame.style.transform = `scale(${scale})`;
+        placeBadge(badge, box);
+        const focus = frame.contentDocument?.querySelector('[data-tour-focus]');
+        if (!focus) return null;
+        const outer = box.getBoundingClientRect();
+        const rect = focus.getBoundingClientRect();
+        const left = Math.max(0, rect.left), top = Math.max(0, rect.top);
+        const right = Math.min(demo.w, rect.right), bottom = Math.min(demo.h, rect.bottom);
+        if (right <= left || bottom <= top) return null;
+        return { left: outer.left + left * scale, top: outer.top + top * scale, width: (right - left) * scale, height: (bottom - top) * scale };
+    }
+
+    function placeBadge(badge, box) {
+        if (!badge || !box) return;
+        // 有空位时放在画面上方，避免压住页面里的按钮。
+        const above = box.offsetTop >= 34;
+        badge.style.top = `${above ? box.offsetTop - 30 : box.offsetTop + 10}px`;
+        badge.style.right = `${state.stage.clientWidth - box.offsetLeft - box.offsetWidth + (above ? 0 : 10)}px`;
+    }
+
+    // 预取快照，切到工具步骤时直接从缓存渲染。
+    function prefetchPages() {
+        for (const demo of Object.values(window.HomeProductTourDemos?.tools || {})) {
+            if (!demo.page || document.querySelector(`link[rel="prefetch"][href="${demo.page}"]`)) continue;
+            const link = document.createElement('link');
+            link.rel = 'prefetch';
+            link.href = demo.page;
+            document.head.append(link);
+        }
     }
 
     async function go(nextIndex) {
@@ -739,7 +794,7 @@
         }
 
         const root = ensureRoot();
-        preloadShots();
+        prefetchPages();
         // 示范步骤画在引导层里；首页保持在落地页，方便后面高亮模式切换等入口。
         state.restoreChat = window.DragonClaw?.showTourLanding?.() || null;
         document.addEventListener('keydown', onKeyDown, true);

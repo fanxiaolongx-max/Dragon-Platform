@@ -1,0 +1,1771 @@
+<!doctype html>
+<!-- 新手引导静态快照：来自真实页面，数据已匿名；只用于引导展示，不含脚本。 -->
+<html lang="zh-CN" data-kantu="1" data-platform-theme="light" data-theme="light" style="color-scheme: light;" class="is-embedded-tool" data-tour-viewport="1314,783" data-tour-anchor="102"><head><meta name="tools-detected-mobile-layout" content="desktop"><style id="tools-fixed-tool-theme">:root,body,input,textarea,select,button { color-scheme: light !important; }
+        #themeToggleButton,#themeToggle,#themeToggleBtn,#theme-toggle,#theme-btn,#themeBtn,#themeSwitcher,button#theme,.theme-toggle,.btn-theme-toggle,.theme-switch,[data-theme-toggle] { display:none !important; }</style><style id="elegantScrollbars">
+        *, *::before, *::after { scrollbar-width: auto !important; scrollbar-color: auto !important; }
+        ::-webkit-scrollbar { width: 8px !important; height: 8px !important; background: transparent !important; }
+        ::-webkit-scrollbar-track, ::-webkit-scrollbar-track-piece, ::-webkit-scrollbar-corner { background: transparent !important; border: 0 !important; box-shadow: none !important; }
+        ::-webkit-scrollbar-button { display: none !important; width: 0 !important; height: 0 !important; }
+        ::-webkit-scrollbar-thumb { min-height: 36px; min-width: 36px; border: 2px solid transparent !important; border-radius: 999px !important; background: transparent !important; background-clip: padding-box !important; box-shadow: none !important; }
+        .is-scrolling::-webkit-scrollbar-thumb { background-color: rgba(100, 116, 139, 0.42) !important; }
+        .is-scrolling::-webkit-scrollbar-thumb:hover, .is-scrolling::-webkit-scrollbar-thumb:active { background-color: rgba(100, 116, 139, 0.62) !important; }
+        :is(html[data-theme="dark"], html[data-platform-theme="dark"]) .is-scrolling::-webkit-scrollbar-thumb { background-color: rgba(203, 213, 225, 0.32) !important; }
+    </style><style>html.is-embedded-tool{--navbar-h:0px}html.is-clean-tool :is(.ai-fab,.ai-panel,.ai-proactive-alert,.ops-inbox-banner,.ops-home-inbox,.custom-tool-head){display:none!important}html.is-clean-tool .custom-tool-shell{grid-template-rows:1fr}</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task SLA 风险监控台 - Dragon Claw</title>
+    <meta name="description" content="Task SLA &amp; 风险监控全局中台，整改/常规/专项三表合一，SLA预警呼吸灯">
+    
+    
+    <link rel="apple-touch-icon" href="/assets/icon-mac.png">
+    
+    <link rel="stylesheet" href="/css/shared.css">
+    <link rel="stylesheet" href="/css/sla.css">
+    <style>
+        .sla-source-wrapper {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        .sla-source-panel {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+        .sla-source-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+        .sla-source-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+            background: rgba(59,130,246,0.14);
+            border: 1px solid rgba(59,130,246,0.3);
+            color: #93c5fd;
+        }
+        .sla-source-note {
+            font-size: 11px;
+            color: #94a3b8;
+            line-height: 1.4;
+        }
+        .sla-source-select {
+            height: 32px;
+            border-radius: 8px;
+            border: 1px solid rgba(59,130,246,0.28);
+            background: rgba(15,23,42,0.65);
+            color: #e2e8f0;
+            font-size: 12px;
+            padding: 0 10px;
+            outline: none;
+        }
+        .sla-source-select option {
+            color: #0f172a;
+        }
+    </style>
+    <link rel="stylesheet" href="/css/startup-screen.css">
+<style id="globalBackToTopStyle">
+            /* 右侧停靠列的一员：与 Dragon Claw / 工作区标签同形同材质，小一号，叠在整列最上方 */
+            #globalBackToTop {
+                position: fixed;
+                right: 0;
+                bottom: var(--global-back-to-top-bottom, 156px);
+                z-index: 10050;
+                width: 46px;
+                height: 40px;
+                padding: 0 4px 0 8px;
+                border: 1px solid rgba(100, 255, 218, 0.26);
+                border-right: none;
+                border-radius: 20px 0 0 20px;
+                background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(16, 32, 54, 0.9));
+                color: #99f6e4;
+                box-shadow: -6px 8px 22px rgba(2, 6, 23, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+                cursor: pointer;
+                display: grid;
+                place-items: center;
+                opacity: 0;
+                visibility: hidden;
+                transform: translateX(100%);
+                transition: opacity 0.2s ease, transform 0.24s cubic-bezier(.2,.8,.2,1), visibility 0.2s ease, border-color 0.18s ease, color 0.18s ease;
+                -webkit-tap-highlight-color: transparent;
+            }
+            #globalBackToTop svg { width: 18px; height: 18px; }
+            #globalBackToTop.visible {
+                opacity: 1;
+                visibility: visible;
+                transform: translateX(0);
+            }
+            #globalBackToTop:hover {
+                border-color: rgba(100, 255, 218, 0.55);
+                color: #64ffda;
+            }
+            #globalBackToTop:focus-visible {
+                outline: 2px solid rgba(100, 255, 218, 0.75);
+                outline-offset: 2px;
+            }
+            @media (max-width: 520px) {
+                #globalBackToTop { width: 42px; height: 36px; border-radius: 18px 0 0 18px; }
+            }
+            @media (prefers-reduced-motion: reduce) {
+                #globalBackToTop { transition: none; }
+            }
+            @media print {
+                #globalBackToTop { display: none !important; }
+            }
+        </style><style>
+        .ai-file-chip { display: flex; width: fit-content; align-items: center; gap: 10px; max-width: 100%; margin: 8px 0; padding: 7px 10px 7px 8px; border-radius: 12px; border: 1px solid rgba(148, 163, 184, 0.22); background: rgba(15, 23, 42, 0.55); vertical-align: middle; box-sizing: border-box; line-height: 1.3; transition: border-color .15s, background .15s; }
+        .ai-file-chip:hover { border-color: rgba(148, 163, 184, 0.38); background: rgba(15, 23, 42, 0.75); }
+        .ai-file-chip-icon { flex: none; display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 8px; background: transparent !important; }
+        .ai-file-svg { display: block; width: 34px; height: 34px; overflow: visible; }
+        .ai-file-svg-paper { fill: var(--file-paper-bg, rgba(148, 163, 184, 0.1)); }
+        .ai-file-svg-fold { fill: var(--file-fold-bg, rgba(148, 163, 184, 0.22)); }
+
+        /* Dark Mode 类型微色调（契合深色主题、克制雅致） */
+        .ai-file-svg { color: #94a3b8; --file-paper-bg: rgba(148, 163, 184, 0.1); --file-fold-bg: rgba(148, 163, 184, 0.22); }
+        .ai-file-svg[data-file-cat="sheet"] { color: #34d399; --file-paper-bg: rgba(16, 185, 129, 0.14); --file-fold-bg: rgba(16, 185, 129, 0.26); }
+        .ai-file-svg[data-file-cat="doc"]   { color: #60a5fa; --file-paper-bg: rgba(59, 130, 246, 0.14); --file-fold-bg: rgba(59, 130, 246, 0.26); }
+        .ai-file-svg[data-file-cat="slide"] { color: #fb923c; --file-paper-bg: rgba(249, 115, 22, 0.14); --file-fold-bg: rgba(249, 115, 22, 0.26); }
+        .ai-file-svg[data-file-cat="pdf"]   { color: #f43f5e; --file-paper-bg: rgba(244, 63, 94, 0.14); --file-fold-bg: rgba(244, 63, 94, 0.26); }
+        .ai-file-svg[data-file-cat="md"]    { color: #22d3ee; --file-paper-bg: rgba(6, 182, 212, 0.14); --file-fold-bg: rgba(6, 182, 212, 0.26); }
+        .ai-file-svg[data-file-cat="code"]  { color: #a78bfa; --file-paper-bg: rgba(139, 92, 246, 0.14); --file-fold-bg: rgba(139, 92, 246, 0.26); }
+        .ai-file-svg[data-file-cat="data"]  { color: #fbbf24; --file-paper-bg: rgba(245, 158, 11, 0.14); --file-fold-bg: rgba(245, 158, 11, 0.26); }
+        .ai-file-svg[data-file-cat="db"]    { color: #2dd4bf; --file-paper-bg: rgba(20, 184, 166, 0.14); --file-fold-bg: rgba(20, 184, 166, 0.26); }
+        .ai-file-svg[data-file-cat="zip"]   { color: #f59e0b; --file-paper-bg: rgba(217, 119, 6, 0.14); --file-fold-bg: rgba(217, 119, 6, 0.26); }
+        .ai-file-svg[data-file-cat="image"] { color: #34d399; --file-paper-bg: rgba(16, 185, 129, 0.14); --file-fold-bg: rgba(16, 185, 129, 0.26); }
+        .ai-file-svg[data-file-cat="media"] { color: #f472b6; --file-paper-bg: rgba(236, 72, 153, 0.14); --file-fold-bg: rgba(236, 72, 153, 0.26); }
+        .ai-file-svg[data-file-cat="text"]  { color: #94a3b8; --file-paper-bg: rgba(148, 163, 184, 0.1); --file-fold-bg: rgba(148, 163, 184, 0.22); }
+        .ai-file-svg[data-file-cat="unknown"] { color: #94a3b8; --file-paper-bg: rgba(148, 163, 184, 0.08); --file-fold-bg: rgba(148, 163, 184, 0.2); }
+
+        .ai-file-chip-text { display: flex; flex-direction: column; min-width: 0; }
+        .ai-file-chip a.ai-file-chip-name { color: #f1f5f9; font-weight: 600; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46ch; }
+        .ai-file-chip a.ai-file-chip-name:hover { text-decoration: underline; color: #38bdf8; }
+        .ai-file-chip-meta { font-size: 11.5px; opacity: .7; color: #94a3b8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46ch; }
+        .ai-file-chip-meta:empty { display: none; }
+        .ai-file-chip a.ai-file-chip-download { flex: none; display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px; border-radius: 7px; font-size: 11.5px; font-weight: 600; text-decoration: none; color: #e2e8f0; background: rgba(148, 163, 184, 0.14); border: 1px solid rgba(148, 163, 184, 0.22); }
+        .ai-file-chip a.ai-file-chip-download:hover { background: rgba(148, 163, 184, 0.24); color: #fff; }
+        .ai-file-chip.is-missing { opacity: .6; border-style: dashed; }
+        .ai-file-chip.is-missing a.ai-file-chip-download { pointer-events: none; opacity: .5; }
+        html .ai-file-chip.ai-file-chip--compact,
+        html.platform-home:not([data-theme="dark"]) .ai-file-chip.ai-file-chip--compact {
+            display: inline; width: auto; margin: 0; padding: 0; border: 0; border-radius: 0;
+            background: transparent; box-shadow: none; line-height: inherit; vertical-align: baseline;
+        }
+        .ai-file-chip--compact .ai-file-chip-text { display: inline; }
+        .ai-file-chip--compact .ai-file-chip-icon,
+        .ai-file-chip--compact .ai-file-chip-meta,
+        .ai-file-chip.ai-file-chip--compact a.ai-file-chip-download { display: none; }
+        .ai-file-chip.ai-file-chip--compact a.ai-file-chip-name {
+            display: inline; max-width: none; white-space: normal; overflow-wrap: anywhere;
+            font-size: .95em; font-weight: 500; color: #7dd3fc;
+            text-decoration: underline; text-decoration-color: #7dd3fc55;
+            text-decoration-thickness: 1px; text-underline-offset: 3px;
+        }
+        html.platform-home:not([data-theme="dark"]) .ai-file-chip.ai-file-chip--compact a.ai-file-chip-name { color: #2563a6; text-decoration-color: #2563a64d; }
+        .ai-file-chip.ai-file-chip--compact a.ai-file-chip-name:hover { color: #38bdf8; text-decoration-color: currentColor; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-chip.ai-file-chip--compact a.ai-file-chip-name:hover { color: #1d4ed8; text-decoration-color: currentColor; }
+        .ai-file-chip--compact a.ai-file-chip-name:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; border-radius: 2px; }
+        .ai-md-image { display: block; width: fit-content; max-width: 100%; margin: 6px 0; vertical-align: top; }
+        .ai-md-image img { display: block; max-width: min(100%, 520px); max-height: 360px; border-radius: 10px; border: 1px solid rgba(148, 163, 184, .3); cursor: zoom-in; object-fit: contain; background: rgba(148, 163, 184, .08); }
+        .ai-md-image.is-missing { padding: 8px 12px; border-radius: 10px; border: 1px dashed rgba(148, 163, 184, .5); font-size: 13px; opacity: .7; }
+        .home-workspace-panel.has-file-preview > :not(.ai-file-preview) { display: none !important; }
+        .ai-file-preview { display: flex; flex-direction: column; min-width: 0; position: relative; height: auto; color: var(--wsp-text, var(--text-primary, #e2e8f0)); background: var(--wsp-panel, var(--bg-secondary, #0f172a)); border-radius: 12px; overflow: hidden; }
+        .ai-file-preview--floating { position: fixed; right: 16px; top: calc(var(--navbar-h, 60px) + 16px); bottom: 18px; width: min(var(--ai-preview-width, 560px), calc(100vw - 32px)); max-height: none; z-index: 10010; border: 1px solid #94a3b855; box-shadow: 0 12px 40px #0004; }
+        .home-workspace-panel.has-file-preview { height: calc(100dvh - var(--navbar-h) - 36px); max-height: none; box-sizing: border-box; overflow: hidden; }
+        .home-workspace-panel.has-file-preview > .ai-file-preview { flex: 1 1 auto; min-height: 0; }
+        .ai-file-preview-resize { position: absolute; left: 0; top: 0; bottom: 0; width: 8px; z-index: 2; cursor: col-resize; touch-action: none; border-radius: 5px; }
+        body.ai-preview-resizing { cursor: col-resize; user-select: none; }
+        body.ai-preview-resizing .ai-file-preview iframe { pointer-events: none; }
+        @media (min-width: 861px) {
+            html:not(.platform-home) body.ai-file-preview-open.home-mode-chat.dc-workspace-open .home-content.home-workspace { grid-template-columns: var(--ws-side) minmax(0, 1fr) var(--ai-preview-width, var(--ws-panel-w)); }
+            html:not(.platform-home) body.ai-file-preview-open.home-sidebar-collapsed.home-mode-chat.dc-workspace-open .home-content.home-workspace { grid-template-columns: var(--ws-rail) minmax(0, 1fr) var(--ai-preview-width, var(--ws-panel-w)); }
+        }
+        @media (max-width: 860px) {
+            .home-workspace-panel.has-file-preview,
+            html.platform-home .home-workspace-panel.has-file-preview { height: calc(100dvh - var(--navbar-h)); width: min(var(--ai-preview-width, 360px), calc(100vw - 32px)); }
+        }
+        .ai-file-preview header { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid rgba(148, 163, 184, 0.2); }
+        .ai-file-preview header strong { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 13.5px; }
+        .ai-file-preview header a, .ai-file-preview header button { flex: none; color: inherit; font: inherit; }
+        .ai-file-preview header button { background: transparent; border: 0; cursor: pointer; padding: 6px; font-size: 14px; border-radius: 6px; }
+        .ai-file-preview header button:hover { background: rgba(148, 163, 184, 0.15); }
+        .ai-file-preview-tabs { display: flex; gap: 6px; padding: 6px 14px 10px; border-bottom: 1px solid rgba(148, 163, 184, 0.2); background: rgba(15, 23, 42, 0.25); }
+        .ai-file-preview-tab { background: transparent; border: 1px solid transparent; color: inherit; opacity: .7; padding: 3px 11px; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all .15s ease; font-family: inherit; }
+        .ai-file-preview-tab:hover { opacity: 1; background: rgba(148, 163, 184, 0.12); }
+        .ai-file-preview-tab.is-active { opacity: 1; font-weight: 600; color: #38bdf8; background: rgba(56, 189, 248, 0.14); border-color: rgba(56, 189, 248, 0.3); }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-tabs { background: rgba(241, 245, 249, 0.6); }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-tab.is-active { color: #0284c7; background: rgba(2, 132, 199, 0.12); border-color: rgba(2, 132, 199, 0.25); }
+        .ai-file-preview-body { flex: 1; min-height: 0; overflow: auto; padding: 0; display: flex; flex-direction: column; }
+        .ai-file-preview-view { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+        .ai-file-preview-view[hidden] { display: none !important; }
+        .ai-file-md { padding: 14px 18px; font-size: 13.5px; line-height: 1.7; color: inherit; word-break: break-word; overflow-y: auto; flex: 1; }
+        .ai-file-md h1, .ai-file-md h2, .ai-file-md h3, .ai-file-md h4 { margin: 1.2em 0 0.5em; font-weight: 600; line-height: 1.35; color: inherit; }
+        .ai-file-md h1 { font-size: 1.4em; border-bottom: 1px solid rgba(148, 163, 184, 0.25); padding-bottom: 0.3em; }
+        .ai-file-md h2 { font-size: 1.2em; border-bottom: 1px solid rgba(148, 163, 184, 0.2); padding-bottom: 0.25em; }
+        .ai-file-md h3 { font-size: 1.08em; }
+        .ai-file-md p { margin: 0.6em 0; }
+        .ai-file-md ul, .ai-file-md ol { padding-left: 1.5em; margin: 0.5em 0; }
+        .ai-file-md li { margin: 0.25em 0; }
+        .ai-file-md blockquote { margin: 0.8em 0; padding: 0.4em 1em; border-left: 3px solid #38bdf8; background: rgba(56, 189, 248, 0.08); border-radius: 0 6px 6px 0; }
+        .ai-file-md table { width: 100%; border-collapse: collapse; margin: 0.8em 0; font-size: 12.5px; }
+        .ai-file-md th, .ai-file-md td { border: 1px solid rgba(148, 163, 184, 0.25); padding: 6px 10px; text-align: left; }
+        .ai-file-md th { background: rgba(148, 163, 184, 0.12); font-weight: 600; }
+        .ai-file-md code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.9em; padding: 2px 5px; border-radius: 4px; background: rgba(148, 163, 184, 0.15); }
+        .ai-file-md pre { background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 8px; padding: 10px 12px; margin: 0.8em 0; overflow-x: auto; }
+        .ai-file-md pre code { background: transparent; padding: 0; border-radius: 0; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-md pre { background: rgba(241, 245, 249, 0.9); }
+        .ai-file-code-container { display: flex; min-height: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; line-height: 1.6; overflow-x: auto; flex: 1; }
+        .ai-file-line-numbers { flex: none; padding: 10px 8px; text-align: right; user-select: none; opacity: .45; border-right: 1px solid rgba(148, 163, 184, 0.18); display: flex; flex-direction: column; background: rgba(148, 163, 184, 0.03); }
+        .ai-file-line-numbers span { display: block; min-height: 1.6em; }
+        .ai-file-preview-code { flex: 1; margin: 0; padding: 10px 12px; white-space: pre; overflow-x: auto; font-family: inherit; font-size: inherit; line-height: inherit; background: transparent; }
+        .ai-file-line { display: block; min-height: 1.6em; }
+        .ai-file-preview-frame { width: 100%; height: 100%; min-height: 380px; flex: 1; border: 0; background: white; }
+        .ai-file-preview-view.is-diff { padding: 12px; overflow-y: auto; flex: 1; }
+        .ai-file-diff-status { padding: 24px; text-align: center; opacity: .65; font-size: 13px; }
+        .ai-file-diff-empty { padding: 36px 16px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; opacity: .7; }
+        .ai-file-diff-empty-icon { font-size: 26px; line-height: 1; }
+        .ai-file-diff-empty p { margin: 0; font-size: 13px; }
+        .ai-file-preview-code .tok-keyword { color: #f47067; font-weight: 500; }
+        .ai-file-preview-code .tok-builtin { color: #79c0ff; }
+        .ai-file-preview-code .tok-string { color: #a5d6ff; }
+        .ai-file-preview-code .tok-comment { color: #8b949e; font-style: italic; }
+        .ai-file-preview-code .tok-number { color: #d2a8ff; }
+        .ai-file-preview-code .tok-decorator { color: #ffa657; }
+        .ai-file-preview-code .tok-operator { color: #f47067; }
+        .ai-file-preview-code .tok-tag { color: #7ee787; font-weight: 500; }
+        .ai-file-preview-code .tok-attr { color: #79c0ff; }
+        .ai-file-preview-code .tok-key { color: #7ee787; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-code .tok-keyword { color: #cf222e; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-code .tok-builtin { color: #0550ae; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-code .tok-string { color: #0a3069; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-code .tok-comment { color: #6e7781; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-code .tok-number { color: #8250df; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-code .tok-decorator { color: #953800; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-code .tok-operator { color: #cf222e; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-code .tok-tag { color: #116329; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-code .tok-attr { color: #0550ae; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-code .tok-key { color: #116329; }
+        .ai-file-preview pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.7 ui-monospace, monospace; color: inherit; background: transparent; }
+        .ai-file-preview iframe { width: 100%; height: 100%; border: 0; background: white; }
+        .ai-lightbox { position: fixed; inset: 0; z-index: 2147483000; background: rgba(2, 6, 23, .9); display: flex; flex-direction: column; }
+        .ai-lightbox[hidden] { display: none; }
+        .ai-lightbox-stage { flex: 1; min-height: 0; display: grid; place-items: center; overflow: hidden; cursor: zoom-out; }
+        .ai-lightbox-stage img { max-width: 92vw; max-height: calc(100vh - 96px); object-fit: contain; cursor: grab; user-select: none; touch-action: none; transition: transform .06s linear; border-radius: 6px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+        .ai-lightbox-stage img:active { cursor: grabbing; }
+        .ai-lightbox-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); color: #e2e8f0; font-size: 13px; background: rgba(15, 23, 42, .85); border-top: 1px solid rgba(148, 163, 184, .2); }
+        .ai-lightbox-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ai-lightbox-count { opacity: .7; }
+        .ai-lightbox-bar button, .ai-lightbox-bar a { min-height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid rgba(148, 163, 184, .35); background: rgba(30, 41, 59, .9); color: #e2e8f0; font: inherit; text-decoration: none; display: inline-flex; align-items: center; cursor: pointer; }
+        .ai-lightbox-bar button:hover, .ai-lightbox-bar a:hover { background: rgba(51, 65, 85, .95); }
+        .ai-lightbox-bar a[data-lb="download"] { background: #7dd3fc; color: #0c4a6e; border-color: transparent; font-weight: 600; }
+        .ai-lightbox-bar [hidden] { display: none; }
+    </style><style>
+    #dataSourceBadge{position:fixed;left:16px;bottom:16px;z-index:99999;max-width:min(260px,calc(100vw - 32px));padding:7px 11px;border:1px solid #7891ab66;border-radius:10px;background:#172b40ed;color:#e2e8f0;font:11px/1.5 system-ui,sans-serif;box-shadow:0 5px 20px #0002;backdrop-filter:blur(12px);text-align:left;cursor:pointer;transition:opacity .25s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #dataSourceBadge[hidden]{display:none}
+    #dataSourceBadge:hover,#dataSourceBadge:focus-visible{background:#26425d;color:#fff}
+    #dataSourceDetail{position:fixed;left:16px;bottom:54px;z-index:100000;box-sizing:border-box;width:min(480px,calc(100vw - 32px));max-height:min(540px,calc(100vh - 100px));padding:16px;border:1px solid #809ab466;border-radius:14px;background:#172b40f5;color:#e2e8f0;font:12px/1.6 system-ui,sans-serif;box-shadow:0 10px 32px #0003;backdrop-filter:blur(16px);overflow:auto;overflow-wrap:anywhere}
+    #dataSourceDetail header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px}#dataSourceDetail button{border:1px solid #8ba2ba66;border-radius:7px;background:#26425d;color:#fff;padding:3px 9px;cursor:pointer}#dataSourceDetail ol{margin:0;padding:0;list-style:none}#dataSourceDetail li{border-top:1px solid #809ab433;padding:9px 0}#dataSourceDetail small{display:block;color:#b8cadc}#dataSourceDetail code{display:block;font-size:11px;white-space:normal}
+    </style><style>
+        /* AI Assistant 样式定义 */
+        /* The active tool owns its contextual drawer; retain the host as fallback. */
+        body.v2-tool-has-assistant > :is(.ai-fab, .ai-panel, .ai-proactive-alert) { display: none !important; }
+        /* AI Assistant 样式定义 */
+        /* 右侧停靠标签：符合主页氛围的现代明亮玻璃风格（翡翠绿/青碧主题色） */
+        .ai-fab {
+            position: fixed;
+            bottom: var(--ai-fab-bottom, 270px);
+            top: var(--ai-fab-top, auto);
+            right: 0;
+            height: 48px;
+            min-width: 54px;
+            box-sizing: border-box;
+            padding: 0 11px 0 10px;
+            border-radius: 24px 0 0 24px;
+            background: rgba(255, 255, 255, 0.94);
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            border-right: none;
+            color: #1f2328;
+            display: flex;
+            align-items: center;
+            box-shadow:
+                -6px 10px 24px rgba(15, 23, 42, 0.08),
+                0 2px 6px rgba(15, 23, 42, 0.04),
+                inset 0 1px 0 #ffffff;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            cursor: grab;
+            z-index: 100000;
+            opacity: 1;
+            transform: translateX(0);
+            transition:
+                opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+                border-color 0.22s,
+                box-shadow 0.22s,
+                background 0.22s;
+            user-select: none;
+            touch-action: none;
+            isolation: isolate;
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+            font-family: inherit;
+        }
+        .ai-fab.is-dragging {
+            cursor: grabbing !important;
+            user-select: none !important;
+            transition: none !important;
+            opacity: 1 !important;
+            transform: translateX(0) scale(1.02) !important;
+            box-shadow:
+                -10px 18px 36px rgba(16, 163, 127, 0.22),
+                0 4px 12px rgba(15, 23, 42, 0.1),
+                inset 0 1px 0 #ffffff !important;
+        }
+        .ai-fab.is-idle {
+            opacity: 0.42;
+            transform: translateX(8px);
+            box-shadow: -3px 4px 12px rgba(15, 23, 42, 0.05);
+        }
+        @media (hover: hover) {
+            .ai-fab.is-idle:hover {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        .ai-fab.is-idle:focus-visible,
+        .ai-fab.is-idle[aria-expanded="true"],
+        .ai-fab.is-idle.is-dragging {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        body:has(.ai-proactive-alert.show) .ai-fab {
+            opacity: 1 !important;
+            transform: translateX(0) !important;
+        }
+        .ai-fab::before {
+            content: "";
+            position: absolute;
+            inset: -2px;
+            z-index: -1;
+            border-radius: inherit;
+            background: radial-gradient(circle at 30% 50%, rgba(16, 163, 127, 0.16), rgba(99, 102, 241, 0.08) 55%, transparent 78%);
+            opacity: 0;
+            transition: opacity 0.22s;
+            pointer-events: none;
+        }
+        .ai-fab-orb {
+            position: relative;
+            flex: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #ffffff;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+            display: grid;
+            place-items: center;
+        }
+        .ai-fab-orb::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: conic-gradient(from 210deg, #10a37f, #06b6d4, #6366f1, #a855f7, #10a37f);
+            -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+            mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+            animation: ai-fab-spin 9s linear infinite;
+        }
+        .ai-fab-avatar {
+            position: absolute;
+            inset: 3px;
+            width: calc(100% - 6px);
+            height: calc(100% - 6px);
+            border-radius: 50%;
+            object-fit: cover;
+            background: #ffffff;
+            box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+            image-rendering: -webkit-optimize-contrast;
+            pointer-events: none;
+        }
+        .ai-fab-dot {
+            position: absolute;
+            right: -1px;
+            bottom: -1px;
+            width: 9px;
+            height: 9px;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            background: #10a37f;
+            box-shadow: 0 0 6px rgba(16, 163, 127, 0.7);
+        }
+        .ai-fab-label {
+            max-width: 0;
+            overflow: hidden;
+            white-space: nowrap;
+            opacity: 0;
+            font-size: 13px;
+            font-weight: 650;
+            color: #1f2328;
+            letter-spacing: 0.01em;
+            transition: max-width 0.26s cubic-bezier(.2,.8,.2,1), opacity 0.2s, margin 0.26s;
+        }
+        @media (hover: hover) {
+            .ai-fab:hover .ai-fab-label,
+            .ai-fab:focus-visible .ai-fab-label {
+                max-width: 120px;
+                margin-left: 9px;
+                opacity: 1;
+            }
+        }
+        .ai-fab:hover,
+        .ai-fab[aria-expanded="true"] {
+            background: linear-gradient(135deg, #ffffff, #f0fdf9);
+            border-color: rgba(16, 163, 127, 0.5);
+            box-shadow:
+                -8px 14px 28px rgba(16, 163, 127, 0.12),
+                0 2px 8px rgba(15, 23, 42, 0.05),
+                inset 0 1px 0 #ffffff;
+        }
+        .ai-fab:hover::before,
+        .ai-fab:focus-visible::before,
+        .ai-fab[aria-expanded="true"]::before { opacity: 1; }
+        .ai-fab:focus-visible {
+            box-shadow:
+                -8px 14px 28px rgba(16, 163, 127, 0.16),
+                0 0 0 2px rgba(16, 163, 127, 0.45);
+        }
+        /* 深色主题下的兼容 */
+        html[data-theme="dark"] .ai-fab {
+            background: linear-gradient(135deg, rgba(21, 24, 29, 0.96), rgba(26, 32, 44, 0.96));
+            border-color: rgba(62, 207, 158, 0.35);
+            color: #e6e8eb;
+            box-shadow: -8px 12px 28px rgba(0, 0, 0, 0.45), 0 0 16px rgba(62, 207, 158, 0.1);
+        }
+        html[data-theme="dark"] .ai-fab-orb {
+            background: #1b1f26;
+        }
+        html[data-theme="dark"] .ai-fab-avatar {
+            background: #1b1f26;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+        }
+        html[data-theme="dark"] .ai-fab-dot {
+            border-color: #15181d;
+            background: #3ecf9e;
+            box-shadow: 0 0 6px rgba(62, 207, 158, 0.8);
+        }
+        html[data-theme="dark"] .ai-fab-label {
+            color: #e6e8eb;
+        }
+        html[data-theme="dark"] .ai-fab:hover,
+        html[data-theme="dark"] .ai-fab[aria-expanded="true"] {
+            border-color: rgba(62, 207, 158, 0.6);
+            background: linear-gradient(135deg, rgba(27, 34, 46, 0.98), rgba(21, 24, 29, 0.98));
+        }
+        html[data-theme="dark"] .ai-fab.is-idle {
+            opacity: 0.46;
+            transform: translateX(8px);
+            box-shadow: -4px 6px 16px rgba(0, 0, 0, 0.3);
+        }
+        html[data-theme="dark"] .ai-fab.is-idle:hover,
+        html[data-theme="dark"] .ai-fab.is-idle:focus-visible,
+        html[data-theme="dark"] .ai-fab.is-idle[aria-expanded="true"],
+        html[data-theme="dark"] .ai-fab.is-idle.is-dragging {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        .ai-fab.is-pulse .ai-fab-orb { animation: ai-fab-pulse 0.6s cubic-bezier(.2,.8,.2,1); }
+        @keyframes ai-fab-spin { to { transform: rotate(360deg); } }
+        @keyframes ai-fab-pulse { 0% { transform: scale(1); } 40% { transform: scale(0.86); } 100% { transform: scale(1); } }
+        .ai-proactive-alert {
+            position: fixed;
+            width: min(360px, calc(100vw - 32px));
+            box-sizing: border-box;
+            padding: 14px 42px 14px 16px;
+            border: 1px solid rgba(129,140,248,0.3);
+            border-radius: 16px;
+            color: #273449;
+            background: rgba(255,255,255,0.97);
+            box-shadow: 0 18px 48px rgba(15,23,42,0.2), inset 0 1px 0 rgba(255,255,255,0.9);
+            z-index: 100020;
+            font-size: 13px;
+            line-height: 1.55;
+            cursor: pointer;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(12px) scale(0.965);
+            transform-origin: bottom right;
+            will-change: transform, opacity, filter;
+        }
+        .ai-proactive-alert.show {
+            opacity:1; pointer-events:auto; transform:translateY(0) scale(1);
+            animation:ai-alert-arrive .48s cubic-bezier(.16,1,.3,1) both;
+        }
+        .ai-proactive-alert[data-placement="below"] { transform-origin:top right; }
+        .ai-proactive-alert.is-leaving { pointer-events:none; animation:ai-alert-depart .28s cubic-bezier(.4,0,1,1) both; }
+        .ai-proactive-alert.is-closing { animation:ai-alert-close-away .34s cubic-bezier(.4,0,.7,.2) both; }
+        @keyframes ai-alert-arrive {
+            0% { opacity:0; transform:translateY(14px) scale(.94); filter:blur(3px); }
+            58% { opacity:1; transform:translateY(-2px) scale(1.012); filter:blur(0); }
+            100% { opacity:1; transform:translateY(0) scale(1); filter:blur(0); }
+        }
+        @keyframes ai-alert-depart {
+            from { opacity:1; transform:translateY(0) scale(1); filter:blur(0); }
+            to { opacity:0; transform:translateY(8px) scale(.975); filter:blur(1.5px); }
+        }
+        @keyframes ai-alert-close-away {
+            0% { opacity:1; transform:translate(0,0) scale(1); filter:blur(0); }
+            100% { opacity:0; transform:translate(12px,10px) scale(.88); filter:blur(2px); }
+        }
+        .ai-proactive-alert::after {
+            content:""; position:absolute; right:var(--ai-alert-arrow-right, 24px); bottom:-8px; width:14px; height:14px;
+            background:#fff; border-right:1px solid rgba(129,140,248,.3); border-bottom:1px solid rgba(129,140,248,.3);
+            transform:rotate(45deg);
+        }
+        .ai-proactive-alert[data-placement="below"]::after {
+            top:-8px; bottom:auto; border:0; border-left:1px solid rgba(129,140,248,.3); border-top:1px solid rgba(129,140,248,.3);
+        }
+        .ai-proactive-alert-kicker { display:flex; align-items:center; gap:7px; margin-bottom:5px; color:#5b63c8; font-size:11px; font-weight:800; letter-spacing:.04em; }
+        .ai-proactive-alert-ai-badge {
+            display:inline-flex; align-items:center; gap:3px; padding:2px 7px; border:1px solid rgba(124,58,237,.25); border-radius:999px;
+            color:#fff; background:linear-gradient(135deg,#6366f1,#8b5cf6 58%,#c026d3); box-shadow:0 3px 10px rgba(109,40,217,.22);
+            font-size:9px; line-height:1.3; letter-spacing:.06em; text-transform:uppercase;
+        }
+        .ai-proactive-alert-text { display:block; overflow-wrap:anywhere; }
+        .ai-proactive-alert-ai-panel {
+            display:none; position:relative; margin-top:10px; padding:9px 10px; overflow:hidden; border:1px solid transparent; border-radius:11px;
+            background:linear-gradient(#f8faff,#f8faff) padding-box,linear-gradient(115deg,#60a5fa,#8b5cf6,#ec4899,#22d3ee,#60a5fa) border-box;
+            background-size:100% 100%,240% 100%; box-shadow:0 5px 18px rgba(99,102,241,.10);
+            animation:ai-polish-flow 4.5s linear infinite;
+        }
+        .ai-proactive-alert.ai-polished .ai-proactive-alert-ai-panel,
+        .ai-proactive-alert.ai-deep-analyzed .ai-proactive-alert-ai-panel { display:block; }
+        .ai-proactive-alert-ai-head { display:flex; align-items:center; gap:7px; margin-bottom:5px; }
+        .ai-proactive-alert-ai-caption { color:#7c3aed; font-size:10px; font-weight:800; letter-spacing:.04em; }
+        .ai-proactive-alert-ai-text { color:#556176; font-size:11px; line-height:1.55; word-break:break-word; }
+        .ai-proactive-alert-ai-char { display:inline-block; opacity:0; transform:translateY(4px); animation:ai-polish-char .32s cubic-bezier(.2,.8,.2,1) forwards; animation-delay:calc(var(--ai-char-index) * 16ms); }
+        @keyframes ai-polish-flow { to { background-position:0 0,240% 0; } }
+        @keyframes ai-polish-char { to { opacity:1; transform:translateY(0); } }
+        .ai-proactive-alert-footer { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:8px; }
+        .ai-proactive-alert-hint { flex:1; min-width:0; color:#7b8799; font-size:11px; }
+        .ai-proactive-alert-actions { display:flex; align-items:center; gap:5px; flex-shrink:0; }
+        .ai-proactive-alert-action {
+            min-height:25px; padding:3px 8px; border:1px solid rgba(129,140,248,.22); border-radius:7px;
+            color:#667085; background:rgba(248,250,252,.88); font-size:10px; line-height:1.2; cursor:pointer;
+            transition:color .16s ease,background .16s ease,border-color .16s ease,transform .16s ease;
+        }
+        .ai-proactive-alert-action:hover { color:#4f46e5; background:#eef2ff; border-color:rgba(99,102,241,.4); transform:translateY(-1px); }
+        .ai-proactive-alert-action:active { transform:translateY(0) scale(.97); }
+        .ai-proactive-alert-close {
+            position:absolute; right:9px; top:8px; width:26px; height:26px; border:0; border-radius:8px;
+            color:#7b8799; background:transparent; cursor:pointer; font-size:18px; line-height:1;
+        }
+        .ai-proactive-alert-close:hover { color:#334155; background:#eef1f8; }
+        .ai-proactive-alert[data-theme="graph"],
+        body.ai-kg-open .ai-proactive-alert { color:#dbe4f3; background:rgba(18,28,47,.98); border-color:rgba(129,140,248,.4); }
+        .ai-proactive-alert[data-theme="graph"]::after,
+        body.ai-kg-open .ai-proactive-alert::after { background:#121c2f; border-color:rgba(129,140,248,.4); }
+        .ai-proactive-alert[data-theme="graph"] .ai-proactive-alert-ai-panel,
+        body.ai-kg-open .ai-proactive-alert .ai-proactive-alert-ai-panel { background:linear-gradient(#111b2e,#111b2e) padding-box,linear-gradient(115deg,#38bdf8,#818cf8,#e879f9,#22d3ee,#38bdf8) border-box; background-size:100% 100%,240% 100%; }
+        .ai-proactive-alert[data-theme="graph"] .ai-proactive-alert-ai-text,
+        body.ai-kg-open .ai-proactive-alert .ai-proactive-alert-ai-text { color:#b8c5dc; }
+        .ai-proactive-alert[data-theme="graph"] .ai-proactive-alert-action,
+        body.ai-kg-open .ai-proactive-alert .ai-proactive-alert-action { color:#aab7cc; background:rgba(30,41,59,.8); border-color:rgba(129,140,248,.28); }
+        .ai-proactive-alert[data-theme="graph"] .ai-proactive-alert-action:hover,
+        body.ai-kg-open .ai-proactive-alert .ai-proactive-alert-action:hover { color:#c7d2fe; background:#26324a; border-color:rgba(129,140,248,.5); }
+        .ai-proactive-alert[data-compact="true"] { padding:11px 12px; border-radius:14px; font-size:12px; line-height:1.5; overscroll-behavior:contain; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-kicker { padding-right:28px; margin-bottom:4px; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-text { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-ai-panel { margin-top:8px; padding:7px 8px; border-radius:9px; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-ai-text { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-footer { flex-wrap:wrap; gap:6px; margin-top:7px; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-hint { flex-basis:100%; font-size:10px; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-actions { margin-left:auto; max-width:100%; flex-wrap:wrap; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-action { min-height:32px; font-size:11px; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-close { right:5px; top:4px; width:30px; height:30px; }
+        @media (prefers-reduced-motion: reduce) {
+            .ai-proactive-alert, .ai-proactive-alert.show, .ai-proactive-alert.is-leaving, .ai-proactive-alert.is-closing, .ai-proactive-alert-ai-panel, .ai-proactive-alert-ai-char { animation:none; transition:opacity .01ms linear; transform:none; filter:none; }
+            .ai-proactive-alert-ai-char { opacity:1; }
+        }
+        .ai-panel {
+            position: fixed;
+            bottom: 80px;
+            right: 62px;
+            width: min(420px, calc(100vw - 24px));
+            max-width: calc(100vw - 24px);
+            height: min(640px, calc(100vh - 120px));
+            background: #f7f9fd !important;
+            color: #334155 !important;
+            border-radius: 20px;
+            border: 1px solid rgba(148,163,184,0.34);
+            box-shadow:
+                0 28px 80px rgba(15,23,42,0.30),
+                0 8px 24px rgba(15,23,42,0.14),
+                inset 0 1px 0 rgba(255,255,255,0.9);
+            z-index: 100000;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transform: translateY(20px) scale(0.95);
+            opacity: 0;
+            pointer-events: none;
+            transition: width 0.28s cubic-bezier(.2,.8,.2,1), height 0.28s cubic-bezier(.2,.8,.2,1), inset 0.28s cubic-bezier(.2,.8,.2,1), border-radius 0.28s, transform 0.28s, opacity 0.2s;
+            transform-origin: bottom right;
+        }
+        .ai-panel.open {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+            pointer-events: auto;
+        }
+        body.ai-kg-open .ai-panel.open { z-index: 100300; }
+        .ai-panel.expanded {
+            width: min(760px, calc(100vw - 80px));
+            height: min(820px, calc(100vh - 80px));
+            max-width: none;
+            max-height: none;
+            bottom: 40px;
+        }
+        .ai-panel.fullscreen {
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            max-width: none;
+            max-height: none;
+            border: 0;
+            border-radius: 0;
+            transform-origin: center;
+        }
+        body.ai-chat-fullscreen {
+            overflow: hidden !important;
+        }
+        .ai-header {
+            min-height: 64px;
+            box-sizing: border-box;
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+            color: #0f172a;
+            padding: 12px 16px 12px 18px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex: 0 0 auto;
+        }
+        .ai-brand {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            min-width: 0;
+        }
+        .ai-brand-mark {
+            width: 34px;
+            height: 34px;
+            border-radius: 11px;
+            display: grid;
+            place-items: center;
+            overflow: hidden;
+            background: #ffffff;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+        }
+        .ai-brand-mark img { width: 90%; height: 90%; display: block; object-fit: contain; image-rendering: -webkit-optimize-contrast; }
+        .ai-brand-copy { min-width: 0; }
+        .ai-brand-title {
+            font-size: 15px;
+            line-height: 1.2;
+            font-weight: 700;
+            color: #0f172a;
+            letter-spacing: 0.01em;
+            white-space: nowrap;
+        }
+        .ai-brand-subtitle {
+            margin-top: 3px;
+            font-size: 11px;
+            line-height: 1.2;
+            color: #64748b;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .ai-brand-title-compact,
+        .ai-brand-subtitle-compact { display:none; }
+        .ai-panel:not(.expanded):not(.fullscreen) .ai-header {
+            min-height: 58px;
+            padding: 9px 12px 9px 14px;
+        }
+        .ai-panel:not(.expanded):not(.fullscreen) .ai-brand { gap: 8px; }
+        .ai-panel:not(.expanded):not(.fullscreen) .ai-brand-mark { width: 30px; height: 30px; border-radius: 9px; }
+        .ai-panel:not(.expanded):not(.fullscreen) .ai-brand-title { font-size: 13px; line-height: 1.05; }
+        .ai-panel:not(.expanded):not(.fullscreen) .ai-brand-subtitle { margin-top: 3px; font-size: 9px; line-height: 1.05; }
+        .ai-panel:not(.expanded):not(.fullscreen) .ai-brand-title-full,
+        .ai-panel:not(.expanded):not(.fullscreen) .ai-brand-subtitle-full { display:none; }
+        .ai-panel:not(.expanded):not(.fullscreen) .ai-brand-title-compact,
+        .ai-panel:not(.expanded):not(.fullscreen) .ai-brand-subtitle-compact { display:inline; }
+        .ai-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .ai-action-btn {
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            color: #475569 !important;
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            border-radius: 9px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.18s, color 0.18s, transform 0.18s, border-color 0.18s;
+        }
+        .ai-action-btn:hover {
+            background: #e2e8f0;
+            border-color: #cbd5e1;
+            color: #0f172a !important;
+            transform: translateY(-1px);
+        }
+        .ai-action-btn svg {
+            width: 16px;
+            height: 16px;
+            pointer-events: none;
+        }
+        .ai-action-btn.ai-close {
+            background: #fef2f2;
+            border-color: #fecaca;
+            color: #ef4444 !important;
+        }
+        .ai-action-btn.ai-close:hover {
+            background: #fee2e2;
+            color: #dc2626 !important;
+        }
+        html[data-theme="dark"] .ai-header {
+            background: linear-gradient(135deg, #15181d 0%, #1c2128 100%);
+            border-bottom: 1px solid #262a31;
+            color: #e6e8eb;
+        }
+        html[data-theme="dark"] .ai-brand-mark {
+            background: #1b1f26;
+            border-color: #353a43;
+        }
+        html[data-theme="dark"] .ai-brand-title { color: #e6e8eb; }
+        html[data-theme="dark"] .ai-brand-subtitle { color: #8b949e; }
+        html[data-theme="dark"] .ai-action-btn {
+            background: #1e2530;
+            border-color: #2e3846;
+            color: #cbd5e1 !important;
+        }
+        html[data-theme="dark"] .ai-action-btn:hover {
+            background: #283344;
+            color: #fff !important;
+            border-color: #3b4759;
+        }
+        html[data-theme="dark"] .ai-action-btn.ai-close {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: rgba(239, 68, 68, 0.3);
+            color: #f87171 !important;
+        }
+        html[data-theme="dark"] .ai-action-btn.ai-close:hover {
+            background: rgba(239, 68, 68, 0.25);
+            color: #fca5a5 !important;
+        }
+        .ai-chat-body {
+            flex: 1;
+            min-height: 0;
+            padding: 22px;
+            overflow-y: auto;
+            background:
+                radial-gradient(circle at 15% 0%, rgba(16,163,127,0.04), transparent 34%),
+                linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            scroll-behavior: smooth;
+        }
+        .ai-msg {
+            max-width: 88%;
+            padding: 13px 16px;
+            border-radius: 16px;
+            font-size: 14px;
+            line-height: 1.6;
+            word-wrap: break-word;
+        }
+        .ai-msg.user {
+            background: linear-gradient(135deg, #10a37f, #0d9488);
+            color: #fff;
+            align-self: flex-end;
+            border-bottom-right-radius: 6px;
+            box-shadow: 0 4px 14px rgba(16, 163, 127, 0.25);
+        }
+        .ai-msg.ai {
+            background: #fff;
+            color: #243247;
+            align-self: flex-start;
+            border-bottom-left-radius: 6px;
+            box-shadow: 0 8px 24px rgba(30,41,59,0.07);
+            border: 1px solid #e6eaf2;
+        }
+        .ai-panel.fullscreen .ai-chat-body {
+            padding-left: max(28px, calc((100vw - 1080px) / 2));
+            padding-right: max(28px, calc((100vw - 1080px) / 2));
+        }
+        .ai-panel.fullscreen .ai-msg { max-width: min(82%, 880px); }
+        .ai-msg p { margin: 0 0 8px 0; }
+        .ai-msg p:last-child { margin: 0; }
+        .ai-msg ul, .ai-msg ol {
+            margin: 0 0 8px 0;
+            padding-left: 20px;
+        }
+        .ai-msg li { margin-bottom: 4px; }
+        .ai-msg pre {
+            background: rgba(226,232,240,0.72);
+            padding: 8px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 13px;
+        }
+        .ai-msg code {
+            background: rgba(226,232,240,0.76);
+            padding: 2px 4px;
+            border-radius: 4px;
+            color: #ef4444;
+            font-family: monospace;
+        }
+        .ai-msg h1, .ai-msg h2, .ai-msg h3, .ai-msg h4 {
+            margin: 16px 0 8px;
+            color: #1f2d44;
+            line-height: 1.35;
+        }
+        .ai-msg h1:first-child, .ai-msg h2:first-child, .ai-msg h3:first-child, .ai-msg h4:first-child { margin-top: 0; }
+        .ai-msg h1 { font-size: 18px; }
+        .ai-msg h2 { font-size: 16px; }
+        .ai-msg h3 { font-size: 15px; }
+        .ai-msg h4 { font-size: 14px; }
+        .ai-msg blockquote {
+            margin: 10px 0;
+            padding: 8px 11px;
+            border-left: 3px solid #8492ec;
+            border-radius: 0 8px 8px 0;
+            background: #f5f7ff;
+            color: #58657b;
+        }
+        .ai-table-wrap {
+            width: 100%;
+            margin: 12px 0 14px;
+            overflow-x: auto;
+            border: 1px solid #e1e6ef;
+            border-radius: 12px;
+            background: #fff;
+            box-shadow: 0 5px 18px rgba(30,41,59,0.055);
+            scrollbar-width: thin;
+        }
+        .ai-markdown-table {
+            width: 100%;
+            min-width: max(520px, calc(var(--ai-table-columns) * 160px));
+            table-layout: fixed;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 12px;
+            line-height: 1.45;
+        }
+        .ai-markdown-table th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            padding: 10px 12px;
+            border-bottom: 1px solid #dce2ed;
+            background: linear-gradient(180deg, #f5f7ff, #eef1fa);
+            color: #36415a;
+            font-weight: 700;
+            overflow-wrap: anywhere;
+        }
+        .ai-markdown-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #edf0f5;
+            color: #46536a;
+            vertical-align: top;
+            overflow-wrap: anywhere;
+        }
+        .ai-markdown-table td code, .ai-markdown-table th code { white-space: normal; overflow-wrap: anywhere; }
+        .ai-markdown-table tbody tr:last-child td { border-bottom: 0; }
+        .ai-markdown-table tbody tr:nth-child(even) td { background: #fafbfe; }
+        .ai-markdown-table tbody tr:hover td { background: #f2f5ff; }
+        .ai-markdown-table .align-center { text-align: center; }
+        .ai-markdown-table .align-right { text-align: right; }
+        .ai-markdown-table td.numeric { font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .ai-panel:not(.expanded):not(.fullscreen) .ai-msg.ai:has(.ai-markdown-table) { max-width: 96%; }
+        .ai-token-usage {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 8px;
+            text-align: right;
+            border-top: 1px dashed #e2e8f0;
+            padding-top: 6px;
+        }
+        .ai-grounding {
+            margin-top: 9px;
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148,163,184,0.48);
+            color: #64748b;
+            font-size: 11px;
+            line-height: 1.45;
+        }
+        .ai-grounding-title {
+            color: #475569;
+            font-weight: 600;
+            margin-bottom: 3px;
+        }
+        .ai-grounding-item {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        button.ai-grounding-item {
+            display: block;
+            width: 100%;
+            padding: 2px 4px;
+            border: 0;
+            border-radius: 5px;
+            background: transparent;
+            color: inherit;
+            font: inherit;
+            line-height: inherit;
+            text-align: left;
+            cursor: pointer;
+        }
+        button.ai-grounding-item:hover {
+            color: #4f5db2;
+            background: #f1f3ff;
+        }
+        .ai-grounding-graph {
+            width: 100%;
+            margin: 0 0 4px;
+            padding: 4px 7px;
+            border: 1px solid #dfe5f3;
+            border-radius: 8px;
+            background: #f7f8fd;
+            color: #5663b4;
+            font: inherit;
+            text-align: left;
+            cursor: pointer;
+            transition: border-color 0.16s, background 0.16s, color 0.16s;
+        }
+        .ai-grounding-graph:hover {
+            border-color: #bfc8ee;
+            background: #eef1ff;
+            color: #4653a4;
+        }
+        .ai-grounding-graph.metric-reference {
+            border-color: #d8ccf6;
+            background: linear-gradient(135deg, #f7f4ff, #f1f3ff);
+            color: #674ca8;
+        }
+        .ai-grounding-graph.metric-reference:hover {
+            border-color: #b9a5ed;
+            background: linear-gradient(135deg, #f0eaff, #e9edff);
+            color: #573b99;
+        }
+        .ai-input-area {
+            display: flex;
+            padding: 14px 16px 16px;
+            background: #fff;
+            border-top: 1px solid #e7ebf2;
+            gap: 10px;
+            align-items: center;
+        }
+        .ai-input {
+            flex: 1;
+            height: 46px;
+            box-sizing: border-box;
+            padding: 12px 17px;
+            border: 1px solid #d9dfeb;
+            border-radius: 14px;
+            outline: none;
+            font-size: 14px;
+            transition: all 0.2s;
+            background: #f7f9fc;
+            color: #1e293b !important;
+        }
+        .ai-input::placeholder {
+            color: #94a3b8 !important;
+        }
+        .ai-input:focus {
+            border-color: #10a37f;
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.15);
+        }
+        .ai-send-btn {
+            background: #10a37f;
+            color: #fff;
+            border: none;
+            width: 46px;
+            height: 46px;
+            flex: 0 0 46px;
+            border-radius: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            box-shadow: 0 6px 16px rgba(16, 163, 127, 0.28);
+        }
+        .ai-send-btn:hover {
+            background: #0d8a6b;
+            transform: scale(1.05);
+        }
+        .ai-send-btn.is-generating {
+            background: #ef6678;
+            box-shadow: 0 7px 18px rgba(239,102,120,0.28);
+        }
+        .ai-send-btn.is-generating .ai-stop-square {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            background: currentColor;
+        }
+        .ai-msg.ai.streaming::after {
+            content: "";
+            display: inline-block;
+            width: 7px;
+            height: 15px;
+            margin-left: 3px;
+            vertical-align: -2px;
+            border-radius: 2px;
+            background: #667eea;
+            animation: ai-stream-caret 0.9s steps(1, end) infinite;
+        }
+        @keyframes ai-stream-caret { 50% { opacity: 0.18; } }
+        .ai-typing {
+            font-size: 12px;
+            color: #94a3b8;
+            font-style: italic;
+            align-self: flex-start;
+            margin-top: -8px;
+            display: none;
+            padding: 0 16px;
+        }
+        .ai-context-notice {
+            align-self: center;
+            max-width: calc(100% - 44px);
+            margin: 2px auto 8px;
+            padding: 7px 12px;
+            border: 1px solid #d9def8;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #f5f7ff, #f0efff);
+            color: #626b91;
+            font-size: 11px;
+            line-height: 1.4;
+            text-align: center;
+            box-shadow: 0 3px 10px rgba(78,70,160,0.07);
+        }
+        .ai-context-notice.is-working { animation: ai-context-pulse 1.25s ease-in-out infinite; }
+        .ai-context-notice.is-done { border-color: #cce7dc; background: #f1fbf6; color: #39745e; }
+        .ai-context-notice.is-failed { border-color: #f0d6b5; background: #fff8ed; color: #94662e; }
+        @keyframes ai-context-pulse { 50% { opacity: 0.62; transform: translateY(-1px); } }
+        .ai-suggestions {
+            display:flex;
+            align-items:center;
+            gap:8px;
+            padding:10px 16px 12px;
+            box-sizing:border-box;
+            background: #fff;
+            border-top: 1px solid #edf0f5;
+            height:50px;
+            max-height:50px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            flex: 0 0 auto;
+            scrollbar-width:none;
+            overscroll-behavior-x: contain;
+            -webkit-overflow-scrolling: touch;
+            opacity: 1;
+            transition: max-height 0.22s ease, height 0.22s ease, padding 0.22s ease, opacity 0.16s ease, border-color 0.16s;
+        }
+        .ai-suggestions::-webkit-scrollbar { display:none; }
+        .ai-suggestions.is-collapsed {
+            height: 0;
+            max-height: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            opacity: 0;
+            overflow: hidden;
+            border-top-color: transparent;
+            pointer-events: none;
+        }
+        .ai-suggestion-chip {
+            flex:0 0 auto;
+            width:auto;
+            max-width:168px;
+            min-width: 0;
+            border: 1px solid #dfe4f4;
+            background: #f6f7fc;
+            color: #5865b8;
+            border-radius: 999px;
+            padding: 7px 10px;
+            font-size: 12px;
+            line-height: 1.2;
+            height: 28px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            cursor: pointer;
+        }
+        .ai-panel:not(.expanded) .ai-suggestion-chip {
+            max-width:138px;
+        }
+        .ai-panel.fullscreen .ai-suggestions,
+        .ai-panel.fullscreen .ai-input-area {
+            padding-left: max(24px, calc((100vw - 1040px) / 2));
+            padding-right: max(24px, calc((100vw - 1040px) / 2));
+        }
+        .ai-suggestions:empty {
+            display: none;
+        }
+        .ai-suggestion-chip:hover {
+            background: rgba(238,242,255,0.92);
+            border-color: #aebcff;
+        }
+        .ai-history-panel {
+            display: none;
+            background: #fff;
+            border-bottom: 1px solid #e7ebf2;
+            max-height: 210px;
+            overflow-y: auto;
+            padding: 10px 14px;
+        }
+        .ai-history-panel.open {
+            display: block;
+        }
+        .ai-history-item {
+            border: 1px solid rgba(148,163,184,0.32);
+            border-radius: 10px;
+            padding: 9px 10px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            background: rgba(248,250,252,0.72);
+        }
+        .ai-history-item:hover {
+            border-color: #aebcff;
+            background: rgba(245,247,255,0.9);
+        }
+        .ai-history-title {
+            font-size: 12px;
+            color: #334155;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .ai-history-meta {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 4px;
+        }
+        .ai-archive-overlay {
+            position:fixed; inset:0; z-index:100500; display:none; place-items:center; padding:20px;
+            box-sizing:border-box; background:rgba(15,23,42,.48); backdrop-filter:blur(10px);
+        }
+        .ai-archive-overlay.open { display:grid; }
+        .ai-archive-window {
+            width:min(1120px,calc(100vw - 40px)); height:min(780px,calc(100vh - 40px));
+            display:flex; flex-direction:column; overflow:hidden; border-radius:20px;
+            border:1px solid #dce2ed; background:#f7f9fd; color:#334155;
+            box-shadow:0 32px 100px rgba(15,23,42,.38);
+        }
+        .ai-archive-header { min-height:66px; padding:0 20px; display:flex; align-items:center; gap:14px; color:#fff; background:linear-gradient(135deg,#25356f,#594394 64%,#684598); }
+        .ai-archive-heading { min-width:0; flex:1; }
+        .ai-archive-title { font-size:17px; font-weight:760; }
+        .ai-archive-subtitle { margin-top:3px; color:rgba(237,242,255,.72); font-size:10px; }
+        .ai-archive-close { width:34px; height:34px; border-radius:10px; border:1px solid rgba(255,255,255,.16); background:rgba(255,255,255,.12); color:#fff; cursor:pointer; font-size:20px; }
+        .ai-archive-toolbar { display:flex; align-items:center; gap:12px; padding:14px 18px; border-bottom:1px solid #e3e8f1; background:#fff; }
+        .ai-archive-search { flex:1; height:40px; padding:0 14px; border:1px solid #d8dfeb; border-radius:11px; outline:none; background:#f7f9fc; color:#243247; }
+        .ai-archive-search:focus { border-color:#7585e8; box-shadow:0 0 0 3px rgba(102,126,234,.11); }
+        .ai-archive-count { color:#7b879b; font-size:11px; white-space:nowrap; }
+        .ai-archive-content { flex:1; min-height:0; display:grid; grid-template-columns:350px minmax(0,1fr); }
+        .ai-archive-list { overflow:auto; padding:12px; border-right:1px solid #e3e8f1; background:#f2f5fa; }
+        .ai-archive-item { width:100%; margin-bottom:9px; padding:12px; border:1px solid #dce2ed; border-radius:12px; background:#fff; color:#334155; text-align:left; cursor:pointer; }
+        .ai-archive-item:hover,.ai-archive-item.active { border-color:#9caaee; background:#f4f6ff; }
+        .ai-archive-item-header { display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:4px; }
+        .ai-archive-item-title { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; font-weight:700; }
+        .ai-archive-badge { display:inline-block; padding:1px 6px; border-radius:4px; font-size:10px; font-weight:600; line-height:1.4; white-space:nowrap; }
+        .ai-archive-badge.active { background:#e0f2fe; color:#0284c7; }
+        .ai-archive-badge.archived { background:#f1f5f9; color:#64748b; }
+        .ai-archive-item-question { margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#64748b; font-size:11px; }
+        .ai-archive-item-meta { margin-top:7px; color:#94a3b8; font-size:9px; }
+        .ai-archive-preview { min-width:0; overflow:auto; padding:22px; background:#f8fafd; }
+        .ai-archive-preview-head { display:flex; align-items:flex-start; gap:12px; margin-bottom:18px; }
+        .ai-archive-preview-heading { min-width:0; flex:1; }
+        .ai-archive-preview-title { color:#1f2d44; font-size:16px; font-weight:740; word-break:break-word; }
+        .ai-archive-preview-path { margin-top:5px; color:#8491a7; font-size:10px; word-break:break-all; }
+        .ai-archive-restore { height:34px; padding:0 12px; border:0; border-radius:10px; background:linear-gradient(135deg,#556ee6,#7259c8); color:#fff; cursor:pointer; font-size:11px; font-weight:700; }
+        .ai-archive-message { max-width:88%; margin-bottom:12px; padding:11px 14px; border-radius:13px; font-size:12px; line-height:1.6; word-break:break-word; }
+        .ai-archive-message.user { margin-left:auto; color:#fff; background:linear-gradient(135deg,#556ee6,#7259c8); border-bottom-right-radius:5px; }
+        .ai-archive-message.ai { color:#334155; background:#fff; border:1px solid #e4e9f1; border-bottom-left-radius:5px; }
+        .ai-archive-message p { margin:0 0 8px; }
+        .ai-archive-message p:last-child { margin-bottom:0; }
+        .ai-archive-message pre { overflow:auto; padding:10px; border-radius:8px; background:#f2f5fa; }
+        .ai-archive-message code { padding:1px 4px; border-radius:4px; background:#edf1f7; }
+        .ai-archive-message ul,.ai-archive-message ol { margin:6px 0; padding-left:20px; }
+        .ai-archive-empty { display:grid; place-items:center; min-height:220px; color:#8491a7; font-size:12px; text-align:center; line-height:1.7; }
+        .ai-archive-overlay[data-theme="graph"] { background:rgba(3,7,15,.66); }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-window { border-color:rgba(137,152,201,.25); background:#0d1422; color:#cbd5e1; box-shadow:0 34px 110px rgba(0,0,0,.68); }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-header { background:radial-gradient(circle at 16% 0%,rgba(91,112,211,.2),transparent 34%),linear-gradient(135deg,#111a2c,#151b30 62%,#211938); }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-toolbar { background:#0f1726; border-color:rgba(132,147,194,.17); }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-search { background:#111a2b; color:#e4e9f5; border-color:rgba(136,152,207,.3); }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-list { background:#0a101b; border-color:rgba(132,147,194,.17); }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-item { background:#151e31; color:#dfe5f2; border-color:rgba(132,147,194,.18); }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-item:hover,.ai-archive-overlay[data-theme="graph"] .ai-archive-item.active { background:#1b2740; border-color:rgba(130,148,232,.5); }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-badge.active { background:#0c4a6e; color:#38bdf8; }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-badge.archived { background:#1e293b; color:#94a3b8; }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-item-question { color:#94a3b8; }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-preview { background:#0d1422; }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-preview-title { color:#edf1fb; }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-message.ai { color:#cbd5e1; background:#151e31; border-color:rgba(132,147,194,.18); }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-message.ai h1,.ai-archive-overlay[data-theme="graph"] .ai-archive-message.ai h2,.ai-archive-overlay[data-theme="graph"] .ai-archive-message.ai h3 { color:#edf1fb; }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-message.ai pre,.ai-archive-overlay[data-theme="graph"] .ai-archive-message.ai code { background:#0d1422; color:#b9c8ff; }
+        .ai-panel[data-theme="graph"] {
+            background:#0d1422 !important; color:#cbd5e1 !important;
+            border-color:rgba(137,152,201,.28); border-radius:16px;
+            box-shadow:0 28px 90px rgba(0,0,0,.58),0 0 0 1px rgba(102,120,194,.12),inset 0 1px 0 rgba(255,255,255,.05);
+        }
+        .ai-panel:not(.fullscreen) .ai-header { cursor:grab; touch-action:none; user-select:none; }
+        .ai-panel.dragging { transition:none; }
+        .ai-panel.dragging .ai-header { cursor:grabbing; }
+        .ai-panel.fullscreen .ai-header { cursor:default; }
+        .ai-panel[data-theme="graph"].dragging { box-shadow:0 34px 100px rgba(0,0,0,.66),0 0 0 1px rgba(126,145,222,.28); }
+        .ai-panel[data-theme="graph"] .ai-header {
+            border-bottom:1px solid rgba(137,152,201,.18);
+            background:radial-gradient(circle at 16% 0%,rgba(91,112,211,.2),transparent 34%),linear-gradient(135deg,#111a2c,#151b30 62%,#211938);
+        }
+        .ai-panel[data-theme="graph"] .ai-brand-mark { background:#151d31; border-color:rgba(153,169,224,.25); }
+        .ai-panel[data-theme="graph"] .ai-chat-body {
+            background:radial-gradient(circle at 14% 0%,rgba(86,104,196,.08),transparent 34%),linear-gradient(180deg,#0d1422,#0a101b);
+        }
+        .ai-panel[data-theme="graph"] .ai-msg.ai { background:#151e31; color:#cbd5e1; border-color:rgba(132,147,194,.18); box-shadow:0 10px 28px rgba(0,0,0,.18); }
+        .ai-panel[data-theme="graph"] .ai-msg.user { background:linear-gradient(135deg,#5065c7,#7653b8); box-shadow:0 9px 24px rgba(54,63,142,.3); }
+        .ai-panel[data-theme="graph"] .ai-msg h1, .ai-panel[data-theme="graph"] .ai-msg h2, .ai-panel[data-theme="graph"] .ai-msg h3, .ai-panel[data-theme="graph"] .ai-msg h4 { color:#edf1fb; }
+        .ai-panel[data-theme="graph"] .ai-msg code { background:rgba(102,119,184,.2); color:#b9c8ff; }
+        .ai-panel[data-theme="graph"] .ai-msg pre, .ai-panel[data-theme="graph"] .ai-msg blockquote { background:#101827; color:#aeb9d0; border-color:#6678cf; }
+        .ai-panel[data-theme="graph"] .ai-token-usage, .ai-panel[data-theme="graph"] .ai-grounding { color:#7886a2; border-color:rgba(137,152,201,.2); }
+        .ai-panel[data-theme="graph"] .ai-grounding-title { color:#aeb9d0; }
+        .ai-panel[data-theme="graph"] .ai-grounding-graph { background:#111a2c; color:#9eaff2; border-color:rgba(132,148,207,.22); }
+        .ai-panel[data-theme="graph"] .ai-grounding-graph:hover, .ai-panel[data-theme="graph"] button.ai-grounding-item:hover { background:#18243c; color:#c6d4ff; border-color:rgba(146,165,245,.45); }
+        .ai-panel[data-theme="graph"] .ai-grounding-graph.metric-reference { background:linear-gradient(135deg,rgba(112,85,189,.22),rgba(80,101,199,.18)); color:#caa9f8; border-color:rgba(168,136,238,.3); }
+        .ai-panel[data-theme="graph"] .ai-grounding-graph.metric-reference:hover { background:linear-gradient(135deg,rgba(112,85,189,.34),rgba(80,101,199,.28)); color:#e5d5fd; border-color:rgba(189,162,247,.55); }
+        .ai-panel[data-theme="graph"] .ai-suggestions, .ai-panel[data-theme="graph"] .ai-input-area, .ai-panel[data-theme="graph"] .ai-history-panel { background:#0f1726; border-color:rgba(132,147,194,.17); }
+        .ai-panel[data-theme="graph"] .ai-suggestion-chip, .ai-panel[data-theme="graph"] .ai-history-item { background:#151e31; color:#aebcf0; border-color:rgba(132,147,194,.2); }
+        .ai-panel[data-theme="graph"] .ai-suggestion-chip:hover, .ai-panel[data-theme="graph"] .ai-history-item:hover { background:#1b2740; border-color:rgba(130,148,232,.48); }
+        .ai-panel[data-theme="graph"] .ai-history-title { color:#dfe5f2; }
+        .ai-panel[data-theme="graph"] .ai-input { background:#111a2b; color:#e4e9f5 !important; border-color:rgba(136,152,207,.3); }
+        .ai-panel[data-theme="graph"] .ai-input:focus { background:#151e31; border-color:#7081e4; box-shadow:0 0 0 3px rgba(99,102,241,.16); }
+        .ai-panel[data-theme="graph"] .ai-send-btn { background:linear-gradient(135deg,#5369d9,#7653bd); }
+        .ai-panel[data-theme="graph"] .ai-table-wrap, .ai-panel[data-theme="graph"] .ai-markdown-table { background:#111a2b; border-color:rgba(132,147,194,.2); }
+        .ai-panel[data-theme="graph"] .ai-markdown-table th { background:#182239; color:#dfe5f2; border-color:rgba(132,147,194,.2); }
+        .ai-panel[data-theme="graph"] .ai-markdown-table td { color:#aeb9d0; border-color:rgba(132,147,194,.13); }
+        .ai-panel[data-theme="graph"] .ai-markdown-table tbody tr:nth-child(even) td, .ai-panel[data-theme="graph"] .ai-markdown-table tbody tr:hover td { background:#141e31; }
+        @media (max-width: 520px) {
+            .ai-fab {
+                right: 0;
+                bottom: 124px;
+                height: 44px;
+                min-width: 50px;
+                padding: 0 9px;
+                border-radius: 22px 0 0 22px;
+            }
+            .ai-fab-orb { width: 30px; height: 30px; }
+            .ai-panel,
+            .ai-panel.expanded {
+                right: 12px;
+                bottom: 130px;
+                width: calc(100vw - 24px);
+                height: min(70vh, 550px);
+                max-width: none;
+            }
+            .ai-panel.fullscreen {
+                inset: 0;
+                width: 100vw;
+                height: 100vh;
+                border-radius: 0;
+            }
+            .ai-brand-subtitle { display: none; }
+            .ai-header { padding-left: 12px; padding-right: 10px; }
+            .ai-header-actions { gap: 4px; }
+            .ai-archive-overlay { padding:0; }
+            .ai-archive-window { width:100vw; height:100vh; border-radius:0; }
+            .ai-archive-content { grid-template-columns:1fr; }
+            .ai-archive-list { max-height:38vh; border-right:0; border-bottom:1px solid #e3e8f1; }
+        }
+        @media (max-width: 400px) {
+            .ai-brand-copy { display:none; }
+            .ai-header-actions { gap:3px; }
+            .ai-action-btn { width:30px; height:30px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .ai-fab,
+            .ai-fab::before,
+            .ai-fab-label,
+            .ai-panel {
+                transition-duration: 0.01ms !important;
+            }
+            .ai-fab-orb::before,
+            .ai-fab.is-pulse .ai-fab-orb { animation: none; }
+        }
+    </style><style id="sla-lazy-workspace-style">
+        .sla-section-tabs-shell { margin: 14px 0 16px; padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; }
+        .sla-section-tabs-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
+        .sla-section-tabs-title { margin:0; color:#166534; font-size:16px; font-weight:800; }
+        .sla-section-tabs-hint { color:#64748b; font-size:12px; white-space:nowrap; }
+        .sla-section-tabs { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+        .sla-section-tab { border:1px solid var(--tab-color, #64748b); color:var(--tab-color, #334155); background:#fff; border-radius:999px; padding:7px 11px; cursor:pointer; font-size:12px; font-weight:800; box-shadow:0 1px 2px rgba(15,23,42,.06); transition:background .16s ease, color .16s ease, transform .16s ease; }
+        .sla-section-tab:hover { transform:translateY(-1px); background:#f1f5f9; }
+        .sla-section-tab.active { background:var(--tab-color, #334155); color:#fff; box-shadow:0 6px 14px rgba(15,23,42,.16); }
+        .sla-section-tab .tab-count { opacity:.78; font-weight:700; margin-left:4px; }
+        .sla-lazy-table-placeholder { margin: 14px; padding: 24px; text-align:center; color:#64748b; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:10px; font-size:13px; }
+        .sla-cache-notice { margin: 14px 0 16px; padding: 14px 16px; border-radius: 10px; border: 1px solid #f8c471; background: linear-gradient(135deg, #fff8e7, #fffdf7); color: #7a4b00; box-shadow: 0 3px 12px rgba(146, 64, 14, 0.06); }
+        .sla-cache-notice-title { font-size: 15px; font-weight: 900; margin-bottom: 6px; color: #92400e; }
+        .sla-cache-notice-body { font-size: 13px; line-height: 1.6; color: #7c5a1d; }
+        .sla-cache-notice-actions { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
+        .sla-cache-notice-actions button { border: 1px solid #f3c36b; background: #fff; color: #92400e; border-radius: 7px; padding: 6px 10px; font-size: 12px; font-weight: 800; cursor: pointer; }
+        .sla-cache-notice-actions button:hover { background: #fff7df; }
+        @media (max-width: 760px) {
+            .sla-section-tabs-head { align-items:flex-start; flex-direction:column; }
+            .sla-section-tabs-hint { white-space:normal; }
+            .sla-section-tab { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        }
+    </style></head>
+<body class="sla-page" data-platform-theme="light" data-theme="light">
+    
+
+    
+
+    <!-- 底部固定容器 -->
+    <div id="global-sticky-bar">
+        <div class="sticky-bar-title">⚡ 核心数据舱（36个指标）：</div>
+        <div id="sticky-bar-content" class="is-scrolling" ><div class="info-group "><div class="info-item  " data-metric-key="other_ccmx6n_m_1780821731020" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">0工单:</span>
+                <span class="info-value ">0</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item  " data-metric-key="other_ibnj66_m_1780824676604" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">超高风险人员:</span>
+                <span class="info-value ">0%</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item  " data-metric-key="other_renltd_m_1778786309907" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">存储整改:</span>
+                <span class="info-value ">100%</span><span class="metric-sub-toggle-btn" title="展开子指标">🔽</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item  " data-metric-key="other_ibnj66_m_1780824661415" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">高风险人员:</span>
+                <span class="info-value ">0%</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item metric-warn-highlight " data-metric-key="other_kxxuiv_m_1778707460232" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">高危命令拦截:</span>
+                <span class="info-value danger">91</span><span class="metric-gap">超 41</span><span class="metric-sub-toggle-btn" title="展开子指标">🔽</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item metric-warn-highlight " data-metric-key="other_ccmx6n_m_1778787671971" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">工单&lt;1人数:</span>
+                <span class="info-value danger">1</span><span class="metric-gap">超 1</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item  " data-metric-key="other_pufzvl_m_1778792227261" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">价值网络HC:</span>
+                <span class="info-value ">100%</span><span class="metric-sub-toggle-btn" title="展开子指标">🔽</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item  " data-metric-key="other_n0fxcz_m_1778787483188" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">锂电:</span>
+                <span class="info-value ">100%</span><span class="metric-sub-toggle-btn" title="展开子指标">🔽</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item metric-warn-highlight " data-metric-key="other_nbbmhr_m_1780165781641" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">漏洞:</span>
+                <span class="info-value danger">98%</span><span class="metric-gap">差 2%</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item  " data-metric-key="other_blghgh_m_1778787005176" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">路由器:</span>
+                <span class="info-value ">94%</span><span class="metric-sub-toggle-btn" title="展开子指标">🔽</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item  " data-metric-key="other_a33iom_m_1778706872642" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">全量EOS-版本:</span>
+                <span class="info-value ">100%</span><span class="metric-sub-toggle-btn" title="展开子指标">🔽</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item  " data-metric-key="other_tl0h8g_m_1778705794580" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">全量EOS-产品:</span>
+                <span class="info-value ">100%</span><span class="metric-sub-toggle-btn" title="展开子指标">🔽</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item  " data-metric-key="other_dxi147_m_1781985014738" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">任职/任命不满足人数:</span>
+                <span class="info-value ">0</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item  " data-metric-key="other_16amqd_m_1778786853776" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">任职率:</span>
+                <span class="info-value ">100%</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item  " data-metric-key="other_vsq8j3_m_1778792882724" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">日志回传:</span>
+                <span class="info-value ">95%</span><span class="metric-sub-toggle-btn" title="展开子指标">🔽</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item  " data-metric-key="other_vsq8j3_m_1778792901855" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">日志回传备案:</span>
+                <span class="info-value ">11%</span><span class="metric-sub-toggle-btn" title="展开子指标">🔽</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item  " data-metric-key="other_adofvo_m_1779032730680" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">日志稽查:</span>
+                <span class="info-value ">89%</span><span class="metric-sub-toggle-btn" title="展开子指标">🔽</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item  " data-metric-key="other_cs4972_m_1778786563981" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">软件MM:</span>
+                <span class="info-value ">100%</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item metric-warn-highlight " data-metric-key="other_4xrqmw_m_1778786511235" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">事故:</span>
+                <span class="info-value danger">3</span><span class="metric-gap">超 2</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item  " data-metric-key="other_irg0bu_m_1778785490158" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">数字证书:</span>
+                <span class="info-value ">100%</span><span class="metric-sub-toggle-btn" title="展开子指标">🔽</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item  " data-metric-key="other_r7ivhq_m_1778790642772" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">拓扑:</span>
+                <span class="info-value ">100%</span><span class="metric-sub-toggle-btn" title="展开子指标">🔽</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item  " data-metric-key="other_vmy0fv_m_1778791792772" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">逃生演练:</span>
+                <span class="info-value ">100%</span><span class="metric-sub-toggle-btn" title="展开子指标">🔽</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item metric-warn-highlight " data-metric-key="other_3i73d_m_1778791639908" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">维护红线岗:</span>
+                <span class="info-value danger">89%</span><span class="metric-gap">差 11%</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item  " data-metric-key="other_fvv9vu_m_1778874886825" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">未完成价值网络巡检单数:</span>
+                <span class="info-value ">0</span><span class="metric-sub-toggle-btn" title="展开子指标">🔽</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item  " data-metric-key="other_byn3uq_m_1778791415417" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">延期补授权:</span>
+                <span class="info-value ">100%</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item  " data-metric-key="other_r7ivhq_m_1778790662446" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">预案:</span>
+                <span class="info-value ">100%</span><span class="metric-sub-toggle-btn" title="展开子指标">🔽</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item  " data-metric-key="other_scojkl_m_1778788213878" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">整改:</span>
+                <span class="info-value ">98%</span><span class="metric-sub-toggle-btn" title="展开子指标">🔽</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item  " data-metric-key="other_36ksoy_m_1778705593174" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">重急EOS:</span>
+                <span class="info-value ">100%</span><span class="metric-sub-toggle-btn" title="展开子指标">🔽</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item metric-warn-highlight " data-metric-key="other_qud1i1_m_1781983645878" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">重急EOS收编2025:</span>
+                <span class="info-value danger">50%</span><span class="metric-gap">差 5%</span><span class="metric-sub-toggle-btn" title="展开子指标">🔽</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item  " data-metric-key="other_qud1i1_m_1781983675539" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">重急EOS收编2026:</span>
+                <span class="info-value ">6%</span><span class="metric-sub-toggle-btn" title="展开子指标">🔽</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item metric-warn-highlight " data-metric-key="other_a9v3sp_m_1781984381332" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">重疾软件EOS:</span>
+                <span class="info-value danger">10%</span><span class="metric-gap">差 3%</span><span class="metric-sub-toggle-btn" title="展开子指标">🔽</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item metric-warn-highlight " data-metric-key="other_36ksoy_m_1781984663938" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">重疾EOS预案覆盖率:</span>
+                <span class="info-value danger">98%</span><span class="metric-gap">差 2%</span><span class="metric-sub-toggle-btn" title="展开子指标">🔽</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item  " data-metric-key="other_v7jtrw_m_1779277760371" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">GUI拦截次数:</span>
+                <span class="info-value ">52</span><span class="metric-sub-toggle-btn" title="展开子指标">🔽</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item  " data-metric-key="other_5jcrzk_m_1778790896339" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">iLab 应急演练:</span>
+                <span class="info-value ">100%</span><span class="metric-sub-toggle-btn" title="展开子指标">🔽</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item  " data-metric-key="other_k9sq8x_m_1778788023171" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">SR FRT:</span>
+                <span class="info-value ">100%</span><span class="metric-sub-toggle-btn" title="展开子指标">🔽</span>
+            </div>
+            
+        </div></div><div class="info-group "><div class="info-item  " data-metric-key="other_uxx002_m_1778792452712" style="flex-direction:column; align-items:flex-start;">
+            <div style="display:flex; align-items:center; width:100%;">
+                <span class="info-label">TOPN 风险:</span>
+                <span class="info-value ">100%</span><span class="metric-sub-toggle-btn" title="展开子指标">🔽</span>
+            </div>
+            
+        </div></div></div>
+        <div class="sticky-actions">
+            <button id="btn-target-config" class="top-btn btn-target" style="display: inline-block;">🎯 预警配置</button>
+            <button id="btn-expand-metrics" class="top-btn btn-expand" style="display: inline-block;">🔽 展开多行</button>
+        </div>
+    </div>
+
+    <!-- 预警配置弹窗 -->
+    
+
+    <!-- 全量指标规则展示弹窗 -->
+    
+
+    <!-- 指标规则批量复制弹窗 -->
+    
+
+    <!-- 复制规则：逐行高级条件编辑弹窗 -->
+    
+
+    <!-- 指标规则编辑弹窗 -->
+    
+
+    <!-- 全局分类管理弹窗 -->
+    
+
+    <!-- 历史导入看板弹窗 -->
+    
+
+    <div class="sla-content">
+        <!-- 页头区域 -->
+        
+
+        
+
+        <div id="main-wrapper">
+    
+    <div class="section-card" id="section-rectification" data-tour-focus="">
+        <div class="section-header">
+            <h3 class="section-title" style="color:#1976d2">
+                🔧 整改详单合集 <span style="font-size:12px;color:#888;font-weight:normal;" id="row-count-badge-rectification">(展示 97 行 · <span style="color:#64748b;font-weight:normal;" title="双击表格中任意数据行，可竖排紧凑查看字段详情、自动隐藏空字段并一键复制">💡 双击行看详情</span>)</span>
+                <span class="section-source-files" title="PBI_自动抓取-整改详单_整改_Latest.csv">导入文件：PBI_自动抓取-整改详单_整改_Latest.csv</span>
+                <span class="rule-summary-badge empty" id="rule-summary-badge-rectification" title="当前表暂无主指标规则">主0 / 子0</span>
+            </h3>
+            <div class="section-header-actions"><button type="button" class="section-rule-config-btn" style="--section-rule-color:#1976d2">⚙️ 查看规则配置</button></div>
+        </div>
+        <div class="dashboard-panel" id="dashboard-rectification" style="display: flex;">
+            <div class="metric-card"><div class="metric-title">H1完成率</div><div class="metric-value">100.0%</div></div>
+            <div class="metric-card"><div class="metric-title">H2完成率</div><div class="metric-value">96.3%</div></div>
+            <div class="metric-total-wrapper"><div class="metric-title">🌟 2026总完成率</div><div class="metric-value success">97.9%</div>
+                     <div style="font-size:12px;font-weight:bold;color:#00b050">✅ 达标</div>
+                     <div style="font-size:11px;background:#f1f3f5;padding:2px 6px;border-radius:10px;margin-top:4px;">🎯 9月目标: 80%</div></div></div>
+        
+        <div class="toolbar" id="toolbar-rectification">
+            <div class="filter-group">
+                <button class="filter-btn active" data-sec="rectification" data-filter="all">全部数据</button>
+                <button class="filter-btn" data-sec="rectification" data-filter="focus">🔥 重点关注</button>
+                <button class="filter-btn" data-sec="rectification" data-filter="danger">🔴 紧急</button>
+                <button class="filter-btn" data-sec="rectification" data-filter="warning">🟠 提醒</button>
+            </div>
+            <div class="search-container">
+                <input type="text" id="search-rectification" class="search-box" placeholder="🔍 当前表内搜索..." value="">
+                <button id="settings-btn-rectification" class="action-btn settings-btn">⚙️ 列设置 ▼</button>
+                <button id="copy-btn-rectification" class="action-btn copy-btn">📋 提取去重 ▼</button>
+                <button id="metrics-btn-rectification" class="action-btn metrics-btn">🎯 指标 ▼</button>
+                <button id="export-btn-rectification" class="action-btn export-btn">📥 导出</button>
+                
+                
+                
+            </div>
+        </div>
+        <div id="table-container-rectification" class="table-wrapper"><table id="table-rectification"><thead><tr><th data-header="_SLA_">预警与 SLA 状态 <span class="sort-icon sort-active">▲</span><div class="resizer"></div></th><th draggable="true" data-header="network_name" class="priority-col-rect frequent-copied-col" title="⭐ 常用复制列（双击数据行弹窗已优先置顶）"><span class="th-frequent-star" title="常用复制列">⭐</span>network_name <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="product_line_name" class="priority-col-rect frequent-copied-col" title="⭐ 常用复制列（双击数据行弹窗已优先置顶）"><span class="th-frequent-star" title="常用复制列">⭐</span>product_line_name <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="fullname" class="priority-col-rect frequent-copied-col" title="⭐ 常用复制列（双击数据行弹窗已优先置顶）"><span class="th-frequent-star" title="常用复制列">⭐</span>fullname <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="task_owner" class="priority-col-rect frequent-copied-col" title="⭐ 常用复制列（双击数据行弹窗已优先置顶）"><span class="th-frequent-star" title="常用复制列">⭐</span>task_owner <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="task_id" class="priority-col-rect frequent-copied-col" title="⭐ 常用复制列（双击数据行弹窗已优先置顶）"><span class="th-frequent-star" title="常用复制列">⭐</span>task_id <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="版本标识">版本标识 <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="task_status" class="priority-col-rect metric-involved-col" title="SLA/规则判断列">task_status <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="task_create_time" class="priority-col-rect metric-involved-col" title="SLA/规则判断列">task_create_time <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="rectify_plan_end_time" class="priority-col-rect metric-involved-col" title="SLA/规则判断列">rectify_plan_end_time <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="source_id_ch">source_id_ch <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="source_id_en">source_id_en <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="name_ch">name_ch <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="name_en">name_en <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="notice_type_name">notice_type_name <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="delivery_scene">delivery_scene <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="region_cn_name">region_cn_name <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="repoffice_cn_name">repoffice_cn_name <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="country_cn_name">country_cn_name <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="network_cust_name">network_cust_name <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="itr_product_line_name">itr_product_line_name <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="product_category">product_category <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="bu">bu <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="first_publish_time">first_publish_time <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="data_source">data_source <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="total_plan_nes合计">total_plan_nes合计 <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="total_uncompleted_nes合计">total_uncompleted_nes合计 <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="h1_plan_nes合计">h1_plan_nes合计 <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="h1_uncompleted_nes合计">h1_uncompleted_nes合计 <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="h2_plan_nes合计">h2_plan_nes合计 <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="h2_uncompleted_nes合计">h2_uncompleted_nes合计 <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="task_hw_plan_ne_qty合计">task_hw_plan_ne_qty合计 <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="task_hw_actual_ne_qty合计">task_hw_actual_ne_qty合计 <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="task_cust_plan_ne_qty合计">task_cust_plan_ne_qty合计 <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="task_cust_actual_ne_qty合计">task_cust_actual_ne_qty合计 <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="task_not_implement_ne_qty合计">task_not_implement_ne_qty合计 <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="task_type">task_type <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="request_delay_reason">request_delay_reason <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="task_approved_delay_times合计">task_approved_delay_times合计 <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="task_create_type">task_create_type <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="implement_type">implement_type <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="support_end_time">support_end_time <span class="sort-icon">⇅</span><div class="resizer"></div></th><th draggable="true" data-header="task_implement_complete_time">task_implement_complete_time <span class="sort-icon">⇅</span><div class="resizer"></div></th></tr></thead><tbody><tr class="danger-row sla-data-row" data-sec="rectification" data-row-idx="0" title="💡 双击可竖排紧凑查看字段详情并一键复制"><td><span class="badge risk-config-badge" style="background:#d32f2f !important;color:#fff !important;">Checking紧急</span> 剩余 -33 天</td><td title="EG-Egypt O****e" class="frequent-copied-cell">EG-Egypt O****e</td><td title="Cloud Core Network" class="frequent-copied-cell">Cloud Core Network</td><td title="Ahmed Sameh Salah 8439**84" class="frequent-copied-cell">A*** S*** S*** 8439**84</td><td title="a8439**84" class="frequent-copied-cell">a8439**84</td><td title="RC2026********04" class="frequent-copied-cell">RC2026********04</td><td title="主版本(Base)">主版本(Base)</td><td title="Checking
+SLA/规则判断列" class="metric-involved-col-cell">Checking</td><td title="9/16/26
+SLA/规则判断列" class="metric-involved-col-cell">9/16/26</td><td title="1/1/27
+SLA/规则判断列" class="metric-involved-col-cell">1/1/27</td><td title="SC2200****43">SC2200****43</td><td title="SC2200****44">SC2200****44</td><td title="关于海外UPCF产品2026年的整改通知">关于海外UPCF产品2026年的整改通知</td><td title="Rectification Notice for the UPCF Outside the China Region in 2026">Rectification Notice for the UPCF Outside the China Region in 2026</td><td title="正常">正常</td><td title="Software Update">Software Update</td><td title="北部非洲地区部">北部非洲地区部</td><td title="埃及代表处">埃及代表处</td><td title="埃及">埃及</td><td title="O****e Egypt for Telecommunications">O****e Egypt for Telecommunications</td><td title="Cloud Core Network">Cloud Core Network</td><td title=""></td><td title="Maintenance">Maintenance</td><td title="5/31/26">5/31/26</td><td title="Risk Situation Awareness">Risk Situation Awareness</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="Normal">Normal</td><td title=""></td><td title="0">0</td><td title="Auto">Auto</td><td title=""></td><td title="1/1/27">1/1/27</td><td title=""></td></tr><tr class="warning-row sla-data-row" data-sec="rectification" data-row-idx="1" title="💡 双击可竖排紧凑查看字段详情并一键复制"><td><span class="badge risk-config-badge" style="background:#f9a825 !important;color:#fff !important;">整改提醒</span> 剩余 13 天</td><td title="EG-Egypt V******e" class="frequent-copied-cell">EG-Egypt V******e</td><td title="Data Communication" class="frequent-copied-cell">Data Communication</td><td title="Omar Ayaat Mohammed 0083**61" class="frequent-copied-cell">O*** A*** M*** 0083**61</td><td title="o0083**61" class="frequent-copied-cell">o0083**61</td><td title="RC2026********64" class="frequent-copied-cell">RC2026********64</td><td title="主版本(Base)">主版本(Base)</td><td title="Rectification Implementation
+SLA/规则判断列" class="metric-involved-col-cell">Rectification Implementation</td><td title="3/11/26
+SLA/规则判断列" class="metric-involved-col-cell">3/11/26</td><td title="12/1/26
+SLA/规则判断列" class="metric-involved-col-cell">12/1/26</td><td title="SC2200****93">SC2200****93</td><td title="SC2200****94">SC2200****94</td><td title="【CIP-R-2025020】关于路由器产品可靠性加固专项的整改通知-20250812-A">【CIP-R-2025020】关于路由器产品可靠性加固专项的整改通知-20250812-A</td><td title="[CIP-R-2025020] Rectification Notice of Reliability Hardening for Router Products-20250812-A">[CIP-R-2025020] Rectification Notice of Reliability Hardening for Router Products-20250812-A</td><td title="正文变更">正文变更</td><td title="Software Update">Software Update</td><td title="北部非洲地区部">北部非洲地区部</td><td title="埃及代表处">埃及代表处</td><td title="埃及">埃及</td><td title="V******e Data">V******e Data</td><td title="Data Communication">Data Communication</td><td title="Metro Edge Router,Router M&amp;amp;I,Metro Core Router">Metro Edge Router,Router M&amp;I,Metro Core Router</td><td title="Maintenance">Maintenance</td><td title="8/12/25">8/12/25</td><td title="support">support</td><td title="1158">1158</td><td title="95">95</td><td title="0">0</td><td title="0">0</td><td title="1158">1158</td><td title="95">95</td><td title="6">6</td><td title="0">0</td><td title="1152">1152</td><td title="1063">1063</td><td title="0">0</td><td title="Normal">Normal</td><td title=""></td><td title="0">0</td><td title="Auto">Auto</td><td title="Netcare RFC">Netcare RFC</td><td title="12/1/26">12/1/26</td><td title=""></td></tr><tr class="warning-row sla-data-row" data-sec="rectification" data-row-idx="2" title="💡 双击可竖排紧凑查看字段详情并一键复制"><td><span class="badge risk-config-badge" style="background:#f9a825 !important;color:#fff !important;">整改提醒</span> 剩余 13 天</td><td title="EG-Egypt O****e" class="frequent-copied-cell">EG-Egypt O****e</td><td title="华为云" class="frequent-copied-cell">华为云</td><td title="AYMAN IBRAHIM ALI 8440**02" class="frequent-copied-cell">A*** I*** A*** 8440**02</td><td title="a8440**02" class="frequent-copied-cell">a8440**02</td><td title="RC2026********07" class="frequent-copied-cell">RC2026********07</td><td title="主版本(Base)">主版本(Base)</td><td title="Rectification Implementation
+SLA/规则判断列" class="metric-involved-col-cell">Rectification Implementation</td><td title="5/18/26
+SLA/规则判断列" class="metric-involved-col-cell">5/18/26</td><td title="12/1/26
+SLA/规则判断列" class="metric-involved-col-cell">12/1/26</td><td title="SC2200****32">SC2200****32</td><td title="SC2200****71">SC2200****71</td><td title="【CIT-R-2025120】HUAWEI CLOUD Stack产品2025年Q4证书过期整改通知">【CIT-R-2025120】HUAWEI CLOUD Stack产品2025年Q4证书过期整改通知</td><td title="[CIT-R-2025120] Notice on Rectification of 2025 Q4 Certificate Expiration for Huawei Cloud Stack Products">[CIT-R-2025120] Notice on Rectification of 2025 Q4 Certificate Expiration for Huawei Cloud Stack Products</td><td title="正文变更">正文变更</td><td title="Software Update">Software Update</td><td title="北部非洲地区部">北部非洲地区部</td><td title="埃及代表处">埃及代表处</td><td title="埃及">埃及</td><td title="O****e Egypt for Telecommunications">O****e Egypt for Telecommunications</td><td title="Hybrid Cloud">Hybrid Cloud</td><td title="HCS for Enterprise">HCS for Enterprise</td><td title="Maintenance">Maintenance</td><td title="1/27/26">1/27/26</td><td title="support">support</td><td title="6">6</td><td title="1">1</td><td title="0">0</td><td title="0">0</td><td title="6">6</td><td title="1">1</td><td title="6">6</td><td title="5">5</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="Normal">Normal</td><td title=""></td><td title="0">0</td><td title="Manual">Manual</td><td title="Netcare RFC">Netcare RFC</td><td title="12/1/26">12/1/26</td><td title=""></td></tr><tr class="warning-row sla-data-row" data-sec="rectification" data-row-idx="3" title="💡 双击可竖排紧凑查看字段详情并一键复制"><td><span class="badge risk-config-badge" style="background:#f9a825 !important;color:#fff !important;">整改提醒</span> 剩余 43 天</td><td title="EG-Egypt O****e" class="frequent-copied-cell">EG-Egypt O****e</td><td title="Cloud Core Network" class="frequent-copied-cell">Cloud Core Network</td><td title="Mohamed Nasr Afify 8437**61" class="frequent-copied-cell">M*** N*** A*** 8437**61</td><td title="m8437**61" class="frequent-copied-cell">m8437**61</td><td title="RC2025********09" class="frequent-copied-cell">RC2025********09</td><td title="主版本(Base)">主版本(Base)</td><td title="Rectification Implementation
+SLA/规则判断列" class="metric-involved-col-cell">Rectification Implementation</td><td title="6/3/25
+SLA/规则判断列" class="metric-involved-col-cell">6/3/25</td><td title="12/31/26
+SLA/规则判断列" class="metric-involved-col-cell">12/31/26</td><td title="SC2200****70">SC2200****70</td><td title="SC2200****71">SC2200****71</td><td title="海外MSOFTX3000产品2025年整改通知">海外MSOFTX3000产品2025年整改通知</td><td title="Rectification Notice for the MSOFTX3000 in 2025 (Outside the China Region)">Rectification Notice for the MSOFTX3000 in 2025 (Outside the China Region)</td><td title="正文变更">正文变更</td><td title="Software Update">Software Update</td><td title="北部非洲地区部">北部非洲地区部</td><td title="埃及代表处">埃及代表处</td><td title="埃及">埃及</td><td title="O****e Egypt for Telecommunications">O****e Egypt for Telecommunications</td><td title="Cloud Core Network">Cloud Core Network</td><td title="MSS&amp;amp;MGW">MSS&amp;MGW</td><td title="Maintenance">Maintenance</td><td title="5/30/25">5/30/25</td><td title="support">support</td><td title="11">11</td><td title="11">11</td><td title="0">0</td><td title="0">0</td><td title="11">11</td><td title="11">11</td><td title="11">11</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="Normal">Normal</td><td title="Customer delay rectification(The customer does not provide the time window in time.)">Customer delay rectification(The customer does not provide the time window in time.)</td><td title="4">4</td><td title="Auto">Auto</td><td title="Netcare RFC">Netcare RFC</td><td title="1/1/26">1/1/26</td><td title=""></td></tr><tr class="warning-row sla-data-row" data-sec="rectification" data-row-idx="4" title="💡 双击可竖排紧凑查看字段详情并一键复制"><td><span class="badge risk-config-badge" style="background:#f9a825 !important;color:#fff !important;">整改提醒</span> 剩余 44 天</td><td title="EG-Egypt E*" class="frequent-copied-cell">EG-Egypt E*</td><td title="Data Storage" class="frequent-copied-cell">Data Storage</td><td title="Amr Yasser Hassan 8441**58" class="frequent-copied-cell">A*** Y*** H*** 8441**58</td><td title="a8441**58" class="frequent-copied-cell">a8441**58</td><td title="RC2026********59" class="frequent-copied-cell">RC2026********59</td><td title="主版本(Base)">主版本(Base)</td><td title="Rectification Implementation
+SLA/规则判断列" class="metric-involved-col-cell">Rectification Implementation</td><td title="4/30/26
+SLA/规则判断列" class="metric-involved-col-cell">4/30/26</td><td title="1/1/27
+SLA/规则判断列" class="metric-involved-col-cell">1/1/27</td><td title="SC2200****73">SC2200****73</td><td title="SC2200****74">SC2200****74</td><td title="【CIT-R-202616】2026年数据保护产品概率业务中断问题的整改公告">【CIT-R-202616】2026年数据保护产品概率业务中断问题的整改公告</td><td title="[CIT-R-202616] Notice on Rectification for Occasional Service Interruption Issues of Data Protection Products in 2026">[CIT-R-202616] Notice on Rectification for Occasional Service Interruption Issues of Data Protection Products in 2026</td><td title="正常">正常</td><td title="Software Update">Software Update</td><td title="北部非洲地区部">北部非洲地区部</td><td title="埃及代表处">埃及代表处</td><td title="埃及">埃及</td><td title="E******t Misr">E******t Misr</td><td title="Data Storage">Data Storage</td><td title="OceanProtect X6000">OceanProtect X6000</td><td title="Maintenance">Maintenance</td><td title="4/29/26">4/29/26</td><td title="support">support</td><td title="1">1</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="1">1</td><td title="0">0</td><td title="1">1</td><td title="1">1</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="Normal">Normal</td><td title=""></td><td title="0">0</td><td title="Auto">Auto</td><td title="Netcare RFC">Netcare RFC</td><td title="1/1/27">1/1/27</td><td title=""></td></tr><tr class="warning-row sla-data-row" data-sec="rectification" data-row-idx="5" title="💡 双击可竖排紧凑查看字段详情并一键复制"><td><span class="badge risk-config-badge" style="background:#f9a825 !important;color:#fff !important;">整改提醒</span> 剩余 44 天</td><td title="EG-Egypt O****e" class="frequent-copied-cell">EG-Egypt O****e</td><td title="Cloud Core Network" class="frequent-copied-cell">Cloud Core Network</td><td title="Ahmed Sameh Salah 8439**84" class="frequent-copied-cell">A*** S*** S*** 8439**84</td><td title="a8439**84" class="frequent-copied-cell">a8439**84</td><td title="RC2026********07" class="frequent-copied-cell">RC2026********07</td><td title="主版本(Base)">主版本(Base)</td><td title="Rectification Implementation
+SLA/规则判断列" class="metric-involved-col-cell">Rectification Implementation</td><td title="6/3/26
+SLA/规则判断列" class="metric-involved-col-cell">6/3/26</td><td title="1/1/27
+SLA/规则判断列" class="metric-involved-col-cell">1/1/27</td><td title="SC2200****49">SC2200****49</td><td title="SC2200****50">SC2200****50</td><td title="关于CloudEPSN产品2026年整改通知">关于CloudEPSN产品2026年整改通知</td><td title="CloudEPSN Rectification Notice for 2026">CloudEPSN Rectification Notice for 2026</td><td title="正常">正常</td><td title="Software Update">Software Update</td><td title="北部非洲地区部">北部非洲地区部</td><td title="埃及代表处">埃及代表处</td><td title="埃及">埃及</td><td title="O****e Egypt for Telecommunications">O****e Egypt for Telecommunications</td><td title="Cloud Core Network">Cloud Core Network</td><td title="UDG">UDG</td><td title="Maintenance">Maintenance</td><td title="6/1/26">6/1/26</td><td title="support">support</td><td title="1">1</td><td title="1">1</td><td title="0">0</td><td title="0">0</td><td title="1">1</td><td title="1">1</td><td title="1">1</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="Normal">Normal</td><td title=""></td><td title="0">0</td><td title="Auto">Auto</td><td title="Netcare RFC">Netcare RFC</td><td title="1/1/27">1/1/27</td><td title=""></td></tr><tr class="warning-row sla-data-row" data-sec="rectification" data-row-idx="6" title="💡 双击可竖排紧凑查看字段详情并一键复制"><td><span class="badge risk-config-badge" style="background:#f9a825 !important;color:#fff !important;">整改提醒</span> 剩余 44 天</td><td title="EG-Egypt O****e" class="frequent-copied-cell">EG-Egypt O****e</td><td title="Cloud Core Network" class="frequent-copied-cell">Cloud Core Network</td><td title="Mohamed Nasr Afify 8437**61" class="frequent-copied-cell">M*** N*** A*** 8437**61</td><td title="m8437**61" class="frequent-copied-cell">m8437**61</td><td title="RC2026********03" class="frequent-copied-cell">RC2026********03</td><td title="主版本(Base)">主版本(Base)</td><td title="Rectification Implementation
+SLA/规则判断列" class="metric-involved-col-cell">Rectification Implementation</td><td title="8/24/26
+SLA/规则判断列" class="metric-involved-col-cell">8/24/26</td><td title="1/1/27
+SLA/规则判断列" class="metric-involved-col-cell">1/1/27</td><td title="SC2200****37">SC2200****37</td><td title="SC2200****38">SC2200****38</td><td title="SBC产品2026年整改通知（海外）">SBC产品2026年整改通知（海外）</td><td title="Rectification Notice for the SBC in 2026 (Outside the China Region)">Rectification Notice for the SBC in 2026 (Outside the China Region)</td><td title="正常">正常</td><td title="Software Update">Software Update</td><td title="北部非洲地区部">北部非洲地区部</td><td title="埃及代表处">埃及代表处</td><td title="埃及">埃及</td><td title="O****e Egypt for Telecommunications">O****e Egypt for Telecommunications</td><td title="Cloud Core Network">Cloud Core Network</td><td title=""></td><td title="Maintenance">Maintenance</td><td title="5/30/26">5/30/26</td><td title="Risk Situation Awareness">Risk Situation Awareness</td><td title="2">2</td><td title="2">2</td><td title="0">0</td><td title="0">0</td><td title="2">2</td><td title="2">2</td><td title="1">1</td><td title="0">0</td><td title="1">1</td><td title="0">0</td><td title="0">0</td><td title="Normal">Normal</td><td title=""></td><td title="0">0</td><td title="Auto">Auto</td><td title="Netcare RFC">Netcare RFC</td><td title="1/1/27">1/1/27</td><td title=""></td></tr><tr class="warning-row sla-data-row" data-sec="rectification" data-row-idx="7" title="💡 双击可竖排紧凑查看字段详情并一键复制"><td><span class="badge risk-config-badge" style="background:#f9a825 !important;color:#fff !important;">整改提醒</span> 剩余 44 天</td><td title="EG-Egypt O****e" class="frequent-copied-cell">EG-Egypt O****e</td><td title="Cloud Core Network" class="frequent-copied-cell">Cloud Core Network</td><td title="Ahmed Sameh Salah 8439**84" class="frequent-copied-cell">A*** S*** S*** 8439**84</td><td title="a8439**84" class="frequent-copied-cell">a8439**84</td><td title="RC2026********68" class="frequent-copied-cell">RC2026********68</td><td title="主版本(Base)">主版本(Base)</td><td title="Rectification Implementation
+SLA/规则判断列" class="metric-involved-col-cell">Rectification Implementation</td><td title="6/2/26
+SLA/规则判断列" class="metric-involved-col-cell">6/2/26</td><td title="1/1/27
+SLA/规则判断列" class="metric-involved-col-cell">1/1/27</td><td title="SC2200****53">SC2200****53</td><td title="SC2200****54">SC2200****54</td><td title="关于CloudUSN产品2026年整改通知">关于CloudUSN产品2026年整改通知</td><td title="CloudUSN Rectification Notice for 2026">CloudUSN Rectification Notice for 2026</td><td title="正常">正常</td><td title="Software Update">Software Update</td><td title="北部非洲地区部">北部非洲地区部</td><td title="埃及代表处">埃及代表处</td><td title="埃及">埃及</td><td title="O****e Egypt for Telecommunications">O****e Egypt for Telecommunications</td><td title="Cloud Core Network">Cloud Core Network</td><td title="CloudEPC">CloudEPC</td><td title="Maintenance">Maintenance</td><td title="6/1/26">6/1/26</td><td title="support">support</td><td title="1">1</td><td title="1">1</td><td title="0">0</td><td title="0">0</td><td title="1">1</td><td title="1">1</td><td title="1">1</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="Normal">Normal</td><td title=""></td><td title="0">0</td><td title="Auto">Auto</td><td title="Netcare RFC">Netcare RFC</td><td title="1/1/27">1/1/27</td><td title=""></td></tr><tr class="warning-row sla-data-row" data-sec="rectification" data-row-idx="8" title="💡 双击可竖排紧凑查看字段详情并一键复制"><td><span class="badge risk-config-badge" style="background:#f9a825 !important;color:#fff !important;">整改提醒</span> 剩余 44 天</td><td title="EG-Egypt E*" class="frequent-copied-cell">EG-Egypt E*</td><td title="Cloud Core Network" class="frequent-copied-cell">Cloud Core Network</td><td title="Ahmed Hamed Abdul Rahim 8418**68" class="frequent-copied-cell">A*** H*** A*** R*** 8418**68</td><td title="a8418**68" class="frequent-copied-cell">a8418**68</td><td title="RC2026********52" class="frequent-copied-cell">RC2026********52</td><td title="主版本(Base)">主版本(Base)</td><td title="Rectification Implementation
+SLA/规则判断列" class="metric-involved-col-cell">Rectification Implementation</td><td title="6/3/26
+SLA/规则判断列" class="metric-involved-col-cell">6/3/26</td><td title="1/1/27
+SLA/规则判断列" class="metric-involved-col-cell">1/1/27</td><td title="SC2200****57">SC2200****57</td><td title="SC2200****58">SC2200****58</td><td title="关于海外UNC产品2026年的整改通知 V1.0">关于海外UNC产品2026年的整改通知 V1.0</td><td title="Rectification Notice for UNC Sites Outside the China Region in 2026 v1.0">Rectification Notice for UNC Sites Outside the China Region in 2026 v1.0</td><td title="正常">正常</td><td title="Software Update">Software Update</td><td title="北部非洲地区部">北部非洲地区部</td><td title="埃及代表处">埃及代表处</td><td title="埃及">埃及</td><td title="E******t Misr">E******t Misr</td><td title="Cloud Core Network">Cloud Core Network</td><td title="UNC">UNC</td><td title="Maintenance">Maintenance</td><td title="6/1/26">6/1/26</td><td title="support">support</td><td title="4">4</td><td title="4">4</td><td title="0">0</td><td title="0">0</td><td title="4">4</td><td title="4">4</td><td title="4">4</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="Normal">Normal</td><td title=""></td><td title="0">0</td><td title="Auto">Auto</td><td title="Netcare RFC">Netcare RFC</td><td title="1/1/27">1/1/27</td><td title=""></td></tr><tr class="warning-row sla-data-row" data-sec="rectification" data-row-idx="9" title="💡 双击可竖排紧凑查看字段详情并一键复制"><td><span class="badge risk-config-badge" style="background:#f9a825 !important;color:#fff !important;">整改提醒</span> 剩余 44 天</td><td title="EG-Egypt E*" class="frequent-copied-cell">EG-Egypt E*</td><td title="Cloud Core Network" class="frequent-copied-cell">Cloud Core Network</td><td title="Ahmed Hamed Abdul Rahim 8418**68" class="frequent-copied-cell">A*** H*** A*** R*** 8418**68</td><td title="a8418**68" class="frequent-copied-cell">a8418**68</td><td title="RC2026********56" class="frequent-copied-cell">RC2026********56</td><td title="主版本(Base)">主版本(Base)</td><td title="Rectification Implementation
+SLA/规则判断列" class="metric-involved-col-cell">Rectification Implementation</td><td title="6/3/26
+SLA/规则判断列" class="metric-involved-col-cell">6/3/26</td><td title="1/1/27
+SLA/规则判断列" class="metric-involved-col-cell">1/1/27</td><td title="SC2200****55">SC2200****55</td><td title="SC2200****56">SC2200****56</td><td title="关于海外UDG产品2026年的整改通知 V1.0">关于海外UDG产品2026年的整改通知 V1.0</td><td title="Rectification Notice for UDG Sites Outside the China Region in 2026 v1.0">Rectification Notice for UDG Sites Outside the China Region in 2026 v1.0</td><td title="正常">正常</td><td title="Software Update">Software Update</td><td title="北部非洲地区部">北部非洲地区部</td><td title="埃及代表处">埃及代表处</td><td title="埃及">埃及</td><td title="E******t Misr">E******t Misr</td><td title="Cloud Core Network">Cloud Core Network</td><td title="UDG">UDG</td><td title="Maintenance">Maintenance</td><td title="6/1/26">6/1/26</td><td title="support">support</td><td title="5">5</td><td title="5">5</td><td title="0">0</td><td title="0">0</td><td title="5">5</td><td title="5">5</td><td title="5">5</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="Normal">Normal</td><td title=""></td><td title="0">0</td><td title="Auto">Auto</td><td title="Netcare RFC">Netcare RFC</td><td title="1/1/27">1/1/27</td><td title=""></td></tr><tr class="warning-row sla-data-row" data-sec="rectification" data-row-idx="10" title="💡 双击可竖排紧凑查看字段详情并一键复制"><td><span class="badge risk-config-badge" style="background:#f9a825 !important;color:#fff !important;">整改提醒</span> 剩余 44 天</td><td title="EG-Egypt E*" class="frequent-copied-cell">EG-Egypt E*</td><td title="Data Storage" class="frequent-copied-cell">Data Storage</td><td title="Amr Yasser Hassan 8441**58" class="frequent-copied-cell">A*** Y*** H*** 8441**58</td><td title="a8441**58" class="frequent-copied-cell">a8441**58</td><td title="RC2026********00" class="frequent-copied-cell">RC2026********00</td><td title="主版本(Base)">主版本(Base)</td><td title="Rectification Implementation
+SLA/规则判断列" class="metric-involved-col-cell">Rectification Implementation</td><td title="4/23/26
+SLA/规则判断列" class="metric-involved-col-cell">4/23/26</td><td title="1/1/27
+SLA/规则判断列" class="metric-involved-col-cell">1/1/27</td><td title="SC2200****30">SC2200****30</td><td title="SC2200****31">SC2200****31</td><td title="【CIT-R-202615】2026年闪存存储产品概率业务中断问题的整改公告">【CIT-R-202615】2026年闪存存储产品概率业务中断问题的整改公告</td><td title="[CIT-R-202615] Notice on Rectification for Occasional Service Interruption Issues of Flash Storage Products in 2026">[CIT-R-202615] Notice on Rectification for Occasional Service Interruption Issues of Flash Storage Products in 2026</td><td title="正常">正常</td><td title="Software Update">Software Update</td><td title="北部非洲地区部">北部非洲地区部</td><td title="埃及代表处">埃及代表处</td><td title="埃及">埃及</td><td title="E******t Misr">E******t Misr</td><td title="Data Storage">Data Storage</td><td title="All-flash Storage">All-flash Storage</td><td title="Maintenance">Maintenance</td><td title="4/17/26">4/17/26</td><td title="support">support</td><td title="4">4</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="4">4</td><td title="0">0</td><td title="4">4</td><td title="4">4</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="Normal">Normal</td><td title=""></td><td title="0">0</td><td title="Auto">Auto</td><td title="Netcare RFC">Netcare RFC</td><td title="1/1/27">1/1/27</td><td title=""></td></tr><tr class="warning-row sla-data-row" data-sec="rectification" data-row-idx="11" title="💡 双击可竖排紧凑查看字段详情并一键复制"><td><span class="badge risk-config-badge" style="background:#f9a825 !important;color:#fff !important;">整改提醒</span> 剩余 44 天</td><td title="EG-Egypt O****e" class="frequent-copied-cell">EG-Egypt O****e</td><td title="Cloud Core Network" class="frequent-copied-cell">Cloud Core Network</td><td title="Khaled ElNabwy 0096**32" class="frequent-copied-cell">K*** E*** 0096**32</td><td title="k0096**32" class="frequent-copied-cell">k0096**32</td><td title="RC2026********91" class="frequent-copied-cell">RC2026********91</td><td title="主版本(Base)">主版本(Base)</td><td title="Rectification Implementation
+SLA/规则判断列" class="metric-involved-col-cell">Rectification Implementation</td><td title="6/2/26
+SLA/规则判断列" class="metric-involved-col-cell">6/2/26</td><td title="1/1/27
+SLA/规则判断列" class="metric-involved-col-cell">1/1/27</td><td title="SC2200****41">SC2200****41</td><td title="SC2200****42">SC2200****42</td><td title="信令产品2026年整改通知">信令产品2026年整改通知</td><td title="Rectification Notice for Signaling Products in 2026">Rectification Notice for Signaling Products in 2026</td><td title="正常">正常</td><td title="Software Update">Software Update</td><td title="北部非洲地区部">北部非洲地区部</td><td title="埃及代表处">埃及代表处</td><td title="埃及">埃及</td><td title="O****e Egypt for Telecommunications">O****e Egypt for Telecommunications</td><td title="Cloud Core Network">Cloud Core Network</td><td title="USC">USC</td><td title="Maintenance">Maintenance</td><td title="5/30/26">5/30/26</td><td title="support">support</td><td title="2">2</td><td title="2">2</td><td title="0">0</td><td title="0">0</td><td title="2">2</td><td title="2">2</td><td title="2">2</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="Normal">Normal</td><td title=""></td><td title="0">0</td><td title="Auto">Auto</td><td title="Netcare RFC">Netcare RFC</td><td title="1/1/27">1/1/27</td><td title=""></td></tr><tr class="warning-row sla-data-row" data-sec="rectification" data-row-idx="12" title="💡 双击可竖排紧凑查看字段详情并一键复制"><td><span class="badge risk-config-badge" style="background:#f9a825 !important;color:#fff !important;">整改提醒</span> 剩余 44 天</td><td title="EG-Egypt V******e" class="frequent-copied-cell">EG-Egypt V******e</td><td title="Carrier Services and Software" class="frequent-copied-cell">Carrier Services and Software</td><td title="zhangcongyou 0049**40" class="frequent-copied-cell">z*** 0049**40</td><td title="z0049**40" class="frequent-copied-cell">z0049**40</td><td title="RC2025********01" class="frequent-copied-cell">RC2025********01</td><td title="主版本(Base)">主版本(Base)</td><td title="Rectification Implementation
+SLA/规则判断列" class="metric-involved-col-cell">Rectification Implementation</td><td title="10/17/25
+SLA/规则判断列" class="metric-involved-col-cell">10/17/25</td><td title="1/1/27
+SLA/规则判断列" class="metric-involved-col-cell">1/1/27</td><td title="SC2200****37">SC2200****37</td><td title="SC2200****38">SC2200****38</td><td title="业务体验整改通知【2025】关于SEC领域FI License整改通知">业务体验整改通知【2025】关于SEC领域FI License整改通知</td><td title="SEC Rectification Notice [2025] Rectification Notice on FusionInsight License in the SEC Domain">SEC Rectification Notice [2025] Rectification Notice on FusionInsight License in the SEC Domain</td><td title="更新">更新</td><td title="Software Upgrade">Software Upgrade</td><td title="北部非洲地区部">北部非洲地区部</td><td title="埃及代表处">埃及代表处</td><td title="埃及">埃及</td><td title="V******e Egypt">V******e Egypt</td><td title="ICT Services &amp;amp; Software">ICT Services &amp; Software</td><td title="Network Performance &amp;amp; Experience Management">Network Performance &amp; Experience Management</td><td title="Maintenance">Maintenance</td><td title="8/28/25">8/28/25</td><td title="support">support</td><td title="4">4</td><td title="4">4</td><td title="0">0</td><td title="0">0</td><td title="4">4</td><td title="4">4</td><td title="2">2</td><td title="0">0</td><td title="2">2</td><td title="0">0</td><td title="0">0</td><td title="Normal">Normal</td><td title=""></td><td title="0">0</td><td title="Auto">Auto</td><td title="Netcare RFC">Netcare RFC</td><td title="1/1/27">1/1/27</td><td title=""></td></tr><tr class="warning-row sla-data-row" data-sec="rectification" data-row-idx="13" title="💡 双击可竖排紧凑查看字段详情并一键复制"><td><span class="badge risk-config-badge" style="background:#f9a825 !important;color:#fff !important;">整改提醒</span> 剩余 44 天</td><td title="EG-Egypt T*****m" class="frequent-copied-cell">EG-Egypt T*****m</td><td title="Data Storage" class="frequent-copied-cell">Data Storage</td><td title="Amr Yasser Hassan 8441**58" class="frequent-copied-cell">A*** Y*** H*** 8441**58</td><td title="a8441**58" class="frequent-copied-cell">a8441**58</td><td title="RC2026********27" class="frequent-copied-cell">RC2026********27</td><td title="主版本(Base)">主版本(Base)</td><td title="Rectification Implementation
+SLA/规则判断列" class="metric-involved-col-cell">Rectification Implementation</td><td title="4/23/26
+SLA/规则判断列" class="metric-involved-col-cell">4/23/26</td><td title="1/1/27
+SLA/规则判断列" class="metric-involved-col-cell">1/1/27</td><td title="SC2200****30">SC2200****30</td><td title="SC2200****31">SC2200****31</td><td title="【CIT-R-202615】2026年闪存存储产品概率业务中断问题的整改公告">【CIT-R-202615】2026年闪存存储产品概率业务中断问题的整改公告</td><td title="[CIT-R-202615] Notice on Rectification for Occasional Service Interruption Issues of Flash Storage Products in 2026">[CIT-R-202615] Notice on Rectification for Occasional Service Interruption Issues of Flash Storage Products in 2026</td><td title="正常">正常</td><td title="Software Update">Software Update</td><td title="北部非洲地区部">北部非洲地区部</td><td title="埃及代表处">埃及代表处</td><td title="埃及">埃及</td><td title="T*****m Egypt">T*****m Egypt</td><td title="Data Storage">Data Storage</td><td title="All-flash Storage">All-flash Storage</td><td title="Maintenance">Maintenance</td><td title="4/17/26">4/17/26</td><td title="support">support</td><td title="12">12</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="12">12</td><td title="0">0</td><td title="12">12</td><td title="12">12</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="Normal">Normal</td><td title=""></td><td title="0">0</td><td title="Auto">Auto</td><td title="Netcare RFC">Netcare RFC</td><td title="1/1/27">1/1/27</td><td title=""></td></tr><tr class="warning-row sla-data-row" data-sec="rectification" data-row-idx="14" title="💡 双击可竖排紧凑查看字段详情并一键复制"><td><span class="badge risk-config-badge" style="background:#f9a825 !important;color:#fff !important;">整改提醒</span> 剩余 44 天</td><td title="EG-Egypt E*" class="frequent-copied-cell">EG-Egypt E*</td><td title="Cloud Core Network" class="frequent-copied-cell">Cloud Core Network</td><td title="Usama Mohamed Nagy Anwar 0061**99" class="frequent-copied-cell">U*** M*** N*** A*** 0061**99</td><td title="u0061**99" class="frequent-copied-cell">u0061**99</td><td title="RC2026********39" class="frequent-copied-cell">RC2026********39</td><td title="主版本(Base)">主版本(Base)</td><td title="Rectification Implementation
+SLA/规则判断列" class="metric-involved-col-cell">Rectification Implementation</td><td title="6/2/26
+SLA/规则判断列" class="metric-involved-col-cell">6/2/26</td><td title="1/1/27
+SLA/规则判断列" class="metric-involved-col-cell">1/1/27</td><td title="SC2200****41">SC2200****41</td><td title="SC2200****42">SC2200****42</td><td title="信令产品2026年整改通知">信令产品2026年整改通知</td><td title="Rectification Notice for Signaling Products in 2026">Rectification Notice for Signaling Products in 2026</td><td title="正常">正常</td><td title="Software Update">Software Update</td><td title="北部非洲地区部">北部非洲地区部</td><td title="埃及代表处">埃及代表处</td><td title="埃及">埃及</td><td title="E******t Misr">E******t Misr</td><td title="Cloud Core Network">Cloud Core Network</td><td title="USC">USC</td><td title="Maintenance">Maintenance</td><td title="5/30/26">5/30/26</td><td title="support">support</td><td title="2">2</td><td title="2">2</td><td title="0">0</td><td title="0">0</td><td title="2">2</td><td title="2">2</td><td title="2">2</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="Normal">Normal</td><td title=""></td><td title="0">0</td><td title="Auto">Auto</td><td title="Netcare RFC">Netcare RFC</td><td title="1/1/27">1/1/27</td><td title=""></td></tr><tr class="warning-row sla-data-row" data-sec="rectification" data-row-idx="15" title="💡 双击可竖排紧凑查看字段详情并一键复制"><td><span class="badge risk-config-badge" style="background:#f9a825 !important;color:#fff !important;">整改提醒</span> 剩余 44 天</td><td title="EG-Egypt O****e" class="frequent-copied-cell">EG-Egypt O****e</td><td title="Cloud Core Network" class="frequent-copied-cell">Cloud Core Network</td><td title="Ahmed Sameh Salah 8439**84" class="frequent-copied-cell">A*** S*** S*** 8439**84</td><td title="a8439**84" class="frequent-copied-cell">a8439**84</td><td title="RC2026********57" class="frequent-copied-cell">RC2026********57</td><td title="主版本(Base)">主版本(Base)</td><td title="Rectification Implementation
+SLA/规则判断列" class="metric-involved-col-cell">Rectification Implementation</td><td title="6/3/26
+SLA/规则判断列" class="metric-involved-col-cell">6/3/26</td><td title="1/1/27
+SLA/规则判断列" class="metric-involved-col-cell">1/1/27</td><td title="SC2200****55">SC2200****55</td><td title="SC2200****56">SC2200****56</td><td title="关于海外UDG产品2026年的整改通知 V1.0">关于海外UDG产品2026年的整改通知 V1.0</td><td title="Rectification Notice for UDG Sites Outside the China Region in 2026 v1.0">Rectification Notice for UDG Sites Outside the China Region in 2026 v1.0</td><td title="正常">正常</td><td title="Software Update">Software Update</td><td title="北部非洲地区部">北部非洲地区部</td><td title="埃及代表处">埃及代表处</td><td title="埃及">埃及</td><td title="O****e Egypt for Telecommunications">O****e Egypt for Telecommunications</td><td title="Cloud Core Network">Cloud Core Network</td><td title="UDG">UDG</td><td title="Maintenance">Maintenance</td><td title="6/1/26">6/1/26</td><td title="support">support</td><td title="2">2</td><td title="2">2</td><td title="0">0</td><td title="0">0</td><td title="2">2</td><td title="2">2</td><td title="2">2</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="Normal">Normal</td><td title=""></td><td title="0">0</td><td title="Auto">Auto</td><td title="Netcare RFC">Netcare RFC</td><td title="1/1/27">1/1/27</td><td title=""></td></tr><tr class="warning-row sla-data-row" data-sec="rectification" data-row-idx="16" title="💡 双击可竖排紧凑查看字段详情并一键复制"><td><span class="badge risk-config-badge" style="background:#f9a825 !important;color:#fff !important;">整改提醒</span> 剩余 44 天</td><td title="EG-Egypt O****e" class="frequent-copied-cell">EG-Egypt O****e</td><td title="Cloud Core Network" class="frequent-copied-cell">Cloud Core Network</td><td title="Ahmed Sameh Salah 8439**84" class="frequent-copied-cell">A*** S*** S*** 8439**84</td><td title="a8439**84" class="frequent-copied-cell">a8439**84</td><td title="RC2026********81" class="frequent-copied-cell">RC2026********81</td><td title="主版本(Base)">主版本(Base)</td><td title="Rectification Implementation
+SLA/规则判断列" class="metric-involved-col-cell">Rectification Implementation</td><td title="6/3/26
+SLA/规则判断列" class="metric-involved-col-cell">6/3/26</td><td title="1/1/27
+SLA/规则判断列" class="metric-involved-col-cell">1/1/27</td><td title="SC2200****51">SC2200****51</td><td title="SC2200****52">SC2200****52</td><td title="关于CloudUGW产品2026年整改通知">关于CloudUGW产品2026年整改通知</td><td title="CloudUGW Rectification Notice for 2026">CloudUGW Rectification Notice for 2026</td><td title="正常">正常</td><td title="Software Update">Software Update</td><td title="北部非洲地区部">北部非洲地区部</td><td title="埃及代表处">埃及代表处</td><td title="埃及">埃及</td><td title="O****e Egypt for Telecommunications">O****e Egypt for Telecommunications</td><td title="Cloud Core Network">Cloud Core Network</td><td title="CloudEPC">CloudEPC</td><td title="Maintenance">Maintenance</td><td title="6/1/26">6/1/26</td><td title="support">support</td><td title="1">1</td><td title="1">1</td><td title="0">0</td><td title="0">0</td><td title="1">1</td><td title="1">1</td><td title="1">1</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="0">0</td><td title="Normal">Normal</td><td title=""></td><td title="0">0</td><td title="Auto">Auto</td><td title="Netcare RFC">Netcare RFC</td><td title="1/1/27">1/1/27</td><td title=""></td></tr></tbody></table></div>
+    </div>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    </div>
+    </div>
+
+    <!-- 共享脚本 -->
+    
+    
+    
+    
+    
+
+
+
+
+
+
+    
+    <!-- SLA 模块（注意加载顺序）-->
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+
+
+
+</body></html>

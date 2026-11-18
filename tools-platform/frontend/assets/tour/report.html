@@ -1,0 +1,2855 @@
+<!doctype html>
+<!-- 新手引导静态快照：来自真实页面，数据已匿名；只用于引导展示，不含脚本。 -->
+<html lang="zh-CN" data-kantu="1" data-platform-theme="light" data-theme="light" style="color-scheme: light;" class="is-embedded-tool" data-tour-anchor="288" data-tour-viewport="1314,783"><head><meta name="tools-detected-mobile-layout" content="desktop"><style id="tools-fixed-tool-theme">:root,body,input,textarea,select,button { color-scheme: light !important; }
+        #themeToggleButton,#themeToggle,#themeToggleBtn,#theme-toggle,#theme-btn,#themeBtn,#themeSwitcher,button#theme,.theme-toggle,.btn-theme-toggle,.theme-switch,[data-theme-toggle] { display:none !important; }</style><style id="elegantScrollbars">
+        *, *::before, *::after { scrollbar-width: auto !important; scrollbar-color: auto !important; }
+        ::-webkit-scrollbar { width: 8px !important; height: 8px !important; background: transparent !important; }
+        ::-webkit-scrollbar-track, ::-webkit-scrollbar-track-piece, ::-webkit-scrollbar-corner { background: transparent !important; border: 0 !important; box-shadow: none !important; }
+        ::-webkit-scrollbar-button { display: none !important; width: 0 !important; height: 0 !important; }
+        ::-webkit-scrollbar-thumb { min-height: 36px; min-width: 36px; border: 2px solid transparent !important; border-radius: 999px !important; background: transparent !important; background-clip: padding-box !important; box-shadow: none !important; }
+        .is-scrolling::-webkit-scrollbar-thumb { background-color: rgba(100, 116, 139, 0.42) !important; }
+        .is-scrolling::-webkit-scrollbar-thumb:hover, .is-scrolling::-webkit-scrollbar-thumb:active { background-color: rgba(100, 116, 139, 0.62) !important; }
+        :is(html[data-theme="dark"], html[data-platform-theme="dark"]) .is-scrolling::-webkit-scrollbar-thumb { background-color: rgba(203, 213, 225, 0.32) !important; }
+    </style><style>html.is-embedded-tool{--navbar-h:0px}html.is-clean-tool :is(.ai-fab,.ai-panel,.ai-proactive-alert,.ops-inbox-banner,.ops-home-inbox,.custom-tool-head){display:none!important}html.is-clean-tool .custom-tool-shell{grid-template-rows:1fr}</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>专业报表看板 - Dragon Claw</title>
+    <link rel="stylesheet" href="/css/shared.css">
+    <style>
+        body {
+            background: #f4f6f8;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: #333;
+        }
+
+        .page-container {
+            padding-top: calc(var(--navbar-h) + 20px);
+            max-width: 98%;
+            margin: 0 auto;
+            padding-left: 20px;
+            padding-right: 20px;
+            padding-bottom: 40px;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .controls h2 {
+            margin: 0;
+            color: #2c3e50;
+            font-size: 24px;
+        }
+
+        .controls select {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 14px;
+            background: #fff;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+        }
+
+        #snapshot-select {
+            min-width: 250px;
+        }
+
+        .data-source-panel {
+            margin-bottom: 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .data-source-controls {
+            margin-bottom: 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .data-source-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+            background: rgba(59, 130, 246, 0.12);
+            border: 1px solid rgba(59, 130, 246, 0.24);
+            color: #1d4ed8;
+        }
+
+        .data-source-note {
+            font-size: 11px;
+            color: #64748b;
+        }
+
+        .data-source-select {
+            height: 34px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            color: #334155;
+            font-size: 12px;
+            padding: 0 10px;
+            outline: none;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 24px;
+        }
+
+        .card {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+            padding: 24px;
+            overflow: hidden;
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-top: 0;
+            margin-bottom: 20px;
+            color: #1a237e;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 2px solid #e8eaf6;
+            padding-bottom: 12px;
+        }
+
+        .ranking-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+
+        .ranking-table th,
+        .ranking-table td {
+            padding: 8px 6px;
+            text-align: center;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .ranking-table th {
+            background: #fafafa;
+            font-weight: 600;
+            color: #555;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            font-size: 14px;
+        }
+
+        .ranking-table tr:hover td {
+            background: #f8f9fa;
+        }
+
+        .ranking-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .cat-name {
+            font-weight: 700;
+            color: #2c3e50;
+            font-size: 16px;
+        }
+
+        .rank-medal {
+            font-size: 20px;
+        }
+
+        .metric-trend-link {
+            border: 0;
+            border-bottom: 1px dashed rgba(2, 119, 189, .42);
+            background: transparent;
+            color: #243447;
+            cursor: pointer;
+            padding: 0 1px 2px;
+            margin: 0;
+            font: inherit;
+            font-weight: 700;
+            text-align: left;
+            line-height: 1.35;
+            transition: color .18s ease, border-color .18s ease, background .18s ease;
+        }
+
+        .metric-trend-link:hover {
+            color: #0277bd;
+            border-bottom-color: #0277bd;
+            background: rgba(2, 119, 189, .06);
+        }
+
+        .metric-trend-link.manual {
+            color: #9a3412;
+            border-bottom-color: rgba(234, 88, 12, .42);
+        }
+
+        .metric-trend-link.manual:hover {
+            color: #ea580c;
+            border-bottom-color: #ea580c;
+            background: rgba(249, 115, 22, .08);
+        }
+
+        .ranking-count-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 7px;
+            border-radius: 999px;
+            background: #eef2ff;
+            color: #3730a3;
+        }
+
+        .ranking-count-pill.sub {
+            background: #ecfdf5;
+            color: #047857;
+        }
+
+        .ranking-count-delta {
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 7px;
+            border-radius: 999px;
+            background: #f1f5f9;
+            color: #64748b;
+        }
+
+        .ranking-count-delta.changed {
+            background: #fff7ed;
+            color: #c2410c;
+            box-shadow: 0 0 0 0 rgba(249, 115, 22, .35);
+            animation: countPulse 1.8s ease-in-out infinite;
+        }
+
+        @keyframes countPulse {
+            0% { box-shadow: 0 0 0 0 rgba(249, 115, 22, .28); }
+            70% { box-shadow: 0 0 0 8px rgba(249, 115, 22, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0); }
+        }
+
+        .metric-trend-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 100000;
+            background: rgba(15, 23, 42, .58);
+            align-items: center;
+            justify-content: center;
+            padding: 28px;
+        }
+
+        .metric-trend-modal.open {
+            display: flex;
+        }
+
+        .metric-trend-dialog {
+            width: min(1120px, 96vw);
+            max-height: 88vh;
+            overflow: hidden;
+            background: #fff;
+            border-radius: 14px;
+            box-shadow: 0 30px 90px rgba(15, 23, 42, .34);
+            display: flex;
+            flex-direction: column;
+            animation: modalRise .22s ease-out;
+        }
+
+        @keyframes modalRise {
+            from { opacity: 0; transform: translateY(16px) scale(.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .metric-trend-head {
+            padding: 20px 24px;
+            color: #fff;
+            background: linear-gradient(135deg, #0f172a, #1d4ed8);
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            align-items: flex-start;
+        }
+
+        .metric-trend-head h3 {
+            margin: 0;
+            font-size: 20px;
+            letter-spacing: 0;
+        }
+
+        .metric-trend-head p {
+            margin: 6px 0 0;
+            color: rgba(255,255,255,.76);
+            font-size: 12px;
+        }
+
+        .metric-trend-close {
+            border: 0;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            color: #fff;
+            background: rgba(255,255,255,.16);
+            cursor: pointer;
+            font-size: 22px;
+        }
+
+        .metric-trend-body {
+            overflow-y: auto;
+            padding: 20px 24px 24px;
+            background: #f8fafc;
+        }
+
+        .metric-trend-kpis {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .metric-trend-kpi {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 14px;
+        }
+
+        .metric-trend-kpi .label {
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .metric-trend-kpi .value {
+            margin-top: 6px;
+            font-size: 26px;
+            font-weight: 800;
+            color: #0f172a;
+        }
+
+        .metric-trend-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.25fr) minmax(320px, .75fr);
+            gap: 16px;
+        }
+
+        .metric-chart-card {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 16px;
+            min-width: 0;
+        }
+
+        .metric-chart-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .metric-chart-title strong {
+            color: #0f172a;
+            font-size: 15px;
+        }
+
+        .metric-chart-title span {
+            font-size: 11px;
+            color: #64748b;
+        }
+
+        .metric-target-summary {
+            display: inline-flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 5px;
+            margin-left: 6px;
+            vertical-align: middle;
+        }
+
+        .metric-target-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 6px;
+            border-radius: 999px;
+            border: 1px solid rgba(100, 116, 139, .24);
+            background: #f8fafc;
+            color: #475569;
+            font-size: 10px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .metric-target-chip.previous {
+            border-color: rgba(180, 83, 9, .22);
+            background: #fff7ed;
+            color: #92400e;
+        }
+
+        .metric-target-chip.merged {
+            border-color: rgba(71, 85, 105, .24);
+            background: #f8fafc;
+            color: #334155;
+        }
+
+        .metric-chart-svg {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .category-change-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .metric-monthly-detail-card {
+            margin-top: 16px;
+        }
+
+        .metric-monthly-table-wrap {
+            overflow-x: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+        }
+
+        .metric-monthly-table {
+            width: 100%;
+            min-width: 720px;
+            border-collapse: collapse;
+            font-size: 12px;
+            color: #334155;
+        }
+
+        .metric-monthly-table th,
+        .metric-monthly-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e2e8f0;
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        .metric-monthly-table th {
+            position: sticky;
+            top: 0;
+            background: #f1f5f9;
+            color: #475569;
+            font-weight: 800;
+        }
+
+        .metric-monthly-table tbody tr:last-child td {
+            border-bottom: 0;
+        }
+
+        .metric-monthly-table tbody tr:hover td {
+            background: #f8fafc;
+        }
+
+        .metric-month-cell {
+            font-weight: 800;
+            color: #1d4ed8;
+        }
+
+        .category-change-item {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 10px;
+            align-items: center;
+            padding: 10px 12px;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+        }
+
+        .category-change-item.major {
+            border-color: #fdba74;
+            background: linear-gradient(135deg, #fff7ed, #ffffff);
+        }
+
+        .category-change-name {
+            font-weight: 700;
+            color: #334155;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .category-change-bar {
+            height: 6px;
+            margin-top: 7px;
+            background: #e2e8f0;
+            border-radius: 999px;
+            overflow: hidden;
+        }
+
+        .category-change-bar span {
+            display: block;
+            height: 100%;
+            background: linear-gradient(90deg, #38bdf8, #2563eb);
+            border-radius: inherit;
+            transition: width .5s ease;
+        }
+
+        .category-change-item.major .category-change-bar span {
+            background: linear-gradient(90deg, #fb923c, #ef4444);
+        }
+
+        .category-change-delta {
+            font-weight: 800;
+            color: #334155;
+        }
+
+        .category-change-delta.changed {
+            color: #c2410c;
+        }
+
+        @media (max-width: 860px) {
+            .metric-trend-grid,
+            .metric-trend-kpis {
+                grid-template-columns: 1fr;
+            }
+            .metric-trend-modal {
+                padding: 12px;
+            }
+        }
+
+        .score-badge {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 18px;
+            font-weight: 800;
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+
+        .score-badge.danger {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .score-badge.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .matrix-container {
+            overflow: auto;
+            min-height: 400px;
+            max-height: 65vh;
+            margin-top: 10px;
+            border-radius: 8px;
+            border: 1px solid #eee;
+        }
+
+        .matrix-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            white-space: nowrap;
+        }
+
+        .matrix-table th,
+        .matrix-table td {
+            padding: 14px 12px;
+            border-bottom: 1px solid #eee;
+            border-right: 1px solid #eee;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .matrix-table th {
+            background: #f8f9fa;
+            color: #444;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            border-top: 1px solid #eee;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+        }
+
+        .matrix-table th:first-child,
+        .matrix-table td:first-child {
+            border-left: 1px solid #eee;
+        }
+
+        .matrix-group-cell {
+            background: linear-gradient(135deg, #e8eaf6, #c5cae9);
+            color: #283593;
+            font-weight: 700;
+            font-size: 13px;
+            text-align: center;
+            vertical-align: middle;
+            min-width: 40px;
+            max-width: 60px;
+            white-space: normal;
+            word-break: break-word;
+            line-height: 1.3;
+            border-right: 3px solid #9fa8da !important;
+        }
+
+        .matrix-ungrouped-cell {
+            background: #f5f5f5;
+            color: #888;
+            font-style: italic;
+            font-size: 12px;
+            text-align: center;
+            vertical-align: middle;
+            min-width: 40px;
+            max-width: 60px;
+            white-space: normal;
+            word-break: break-word;
+            line-height: 1.3;
+            border-right: 3px solid #e0e0e0 !important;
+        }
+
+        .val-good {
+            color: #2e7d32;
+            font-weight: 600;
+        }
+
+        .val-warn {
+            color: #d32f2f;
+            font-weight: 700;
+            background: #ffebee;
+            padding: 4px 8px;
+            border-radius: 6px;
+            display: inline-block;
+            cursor: help;
+        }
+
+        .val-none {
+            color: #aaa;
+        }
+
+        .metric-trend {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 15px;
+            height: 15px;
+            margin-left: 4px;
+            border-radius: 50%;
+            font-size: 10px;
+            line-height: 1;
+            font-weight: 800;
+            vertical-align: 1px;
+            border: 1px solid transparent;
+        }
+
+        .metric-trend.up {
+            color: #047857;
+            background: #ecfdf5;
+            border-color: #a7f3d0;
+        }
+
+        .metric-trend.down {
+            color: #b45309;
+            background: #fffbeb;
+            border-color: #fde68a;
+        }
+
+        .ratio-score-toggle {
+            padding: 1px 5px;
+            border-radius: 999px;
+            border: 1px solid #d8dee8;
+            background: #fbfcfe;
+            color: #7b8798;
+            font-size: 10px;
+            font-weight: 600;
+            line-height: 1.35;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .ratio-score-toggle:hover {
+            border-color: #b8d7ea;
+            color: #47718a;
+            background: #f7fbfd;
+        }
+
+        .ratio-score-toggle.active {
+            border-color: #b7dfe7;
+            color: #377782;
+            background: #f4fbfc;
+        }
+
+        .manual-score {
+            width: 60px;
+            padding: 6px;
+            text-align: center;
+            border: 1px dashed #bbb;
+            border-radius: 6px;
+            background: #fafafa;
+            font-family: monospace;
+            font-size: 14px;
+        }
+
+        .manual-score:focus {
+            border-color: #4a90e2;
+            outline: none;
+            background: #fff;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
+
+        .empty-state h3 {
+            color: #455a64;
+            margin-bottom: 10px;
+        }
+
+        .empty-state p {
+            color: #888;
+        }
+
+        /* Group Config Modal Styles */
+        .group-item {
+            background: #f5f8fa;
+            border: 1px solid #e1e8ed;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+
+        .group-item-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .group-name-input {
+            flex: 1;
+            padding: 4px 6px;
+            border: 2px solid transparent;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #2c3e50;
+            background: transparent;
+            cursor: pointer;
+            outline: none;
+            min-width: 0;
+        }
+
+        .group-name-input:hover {
+            border-color: #9fa8da;
+            background: #f3f4ff;
+        }
+
+        .group-name-input:focus {
+            border-color: #3949ab;
+            background: #eef0fb;
+            cursor: text;
+        }
+
+        .group-drag-handle {
+            cursor: grab;
+            color: #aaa;
+            font-size: 18px;
+            user-select: none;
+            padding: 0 4px;
+        }
+
+        .group-metrics-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-height: 30px;
+            border: 1px dashed #ccc;
+            border-radius: 6px;
+            padding: 8px;
+            background: #fff;
+        }
+
+        .group-metric-tag {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #e3f2fd;
+            border: 1px solid #bbdefb;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 13px;
+            cursor: grab;
+        }
+
+        .group-metric-tag:active {
+            cursor: grabbing;
+        }
+
+        .group-metric-remove {
+            cursor: pointer;
+            color: #e53935;
+            font-weight: bold;
+            margin-left: auto;
+            padding: 0 2px;
+        }
+
+        .unassigned-pool {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            min-height: 36px;
+            border: 1px dashed #ccc;
+            border-radius: 6px;
+            padding: 8px;
+            background: #fffde7;
+        }
+
+        .unassigned-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: #fff9c4;
+            border: 1px solid #f9a825;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .unassigned-tag:hover {
+            background: #fff176;
+        }
+
+        .btn-add-group {
+            width: 100%;
+            padding: 10px;
+            border: 2px dashed #9fa8da;
+            border-radius: 8px;
+            background: #f3f4ff;
+            color: #3949ab;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn-add-group:hover {
+            background: #e8eaf6;
+        }
+        .report-snapshot-filter-setting{display:inline-flex;align-items:center;gap:7px;margin:0;padding:5px 9px;min-height:34px;box-sizing:border-box;border:1px solid #ccd9e6;border-radius:8px;background:#f5f8fc;color:#49627c;font-size:12px;position:relative}
+        .report-snapshot-filter-setting input{width:54px;min-width:54px;box-sizing:border-box;padding:3px 5px;border:1px solid #c4d4e5;border-radius:5px;background:#fff;color:#233f5a;font:inherit}
+        .report-snapshot-filter-info{color:#8499ae}.report-snapshot-filter-help{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+        [data-theme=dark] .report-snapshot-filter-setting{background:#26394f;color:#ccdcee;border-color:#4f6984}[data-theme=dark] .report-snapshot-filter-setting input{background:#203246;color:#e1edfa;border-color:#5c7690}
+    </style>
+    <link rel="stylesheet" href="/css/startup-screen.css">
+    <link rel="stylesheet" href="/css/report-layout.css">
+<style id="globalBackToTopStyle">
+            /* 右侧停靠列的一员：与 Dragon Claw / 工作区标签同形同材质，小一号，叠在整列最上方 */
+            #globalBackToTop {
+                position: fixed;
+                right: 0;
+                bottom: var(--global-back-to-top-bottom, 156px);
+                z-index: 10050;
+                width: 46px;
+                height: 40px;
+                padding: 0 4px 0 8px;
+                border: 1px solid rgba(100, 255, 218, 0.26);
+                border-right: none;
+                border-radius: 20px 0 0 20px;
+                background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(16, 32, 54, 0.9));
+                color: #99f6e4;
+                box-shadow: -6px 8px 22px rgba(2, 6, 23, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+                cursor: pointer;
+                display: grid;
+                place-items: center;
+                opacity: 0;
+                visibility: hidden;
+                transform: translateX(100%);
+                transition: opacity 0.2s ease, transform 0.24s cubic-bezier(.2,.8,.2,1), visibility 0.2s ease, border-color 0.18s ease, color 0.18s ease;
+                -webkit-tap-highlight-color: transparent;
+            }
+            #globalBackToTop svg { width: 18px; height: 18px; }
+            #globalBackToTop.visible {
+                opacity: 1;
+                visibility: visible;
+                transform: translateX(0);
+            }
+            #globalBackToTop:hover {
+                border-color: rgba(100, 255, 218, 0.55);
+                color: #64ffda;
+            }
+            #globalBackToTop:focus-visible {
+                outline: 2px solid rgba(100, 255, 218, 0.75);
+                outline-offset: 2px;
+            }
+            @media (max-width: 520px) {
+                #globalBackToTop { width: 42px; height: 36px; border-radius: 18px 0 0 18px; }
+            }
+            @media (prefers-reduced-motion: reduce) {
+                #globalBackToTop { transition: none; }
+            }
+            @media print {
+                #globalBackToTop { display: none !important; }
+            }
+        </style><style>
+        .ai-file-chip { display: flex; width: fit-content; align-items: center; gap: 10px; max-width: 100%; margin: 8px 0; padding: 7px 10px 7px 8px; border-radius: 12px; border: 1px solid rgba(148, 163, 184, 0.22); background: rgba(15, 23, 42, 0.55); vertical-align: middle; box-sizing: border-box; line-height: 1.3; transition: border-color .15s, background .15s; }
+        .ai-file-chip:hover { border-color: rgba(148, 163, 184, 0.38); background: rgba(15, 23, 42, 0.75); }
+        .ai-file-chip-icon { flex: none; display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 8px; background: transparent !important; }
+        .ai-file-svg { display: block; width: 34px; height: 34px; overflow: visible; }
+        .ai-file-svg-paper { fill: var(--file-paper-bg, rgba(148, 163, 184, 0.1)); }
+        .ai-file-svg-fold { fill: var(--file-fold-bg, rgba(148, 163, 184, 0.22)); }
+
+        /* Dark Mode 类型微色调（契合深色主题、克制雅致） */
+        .ai-file-svg { color: #94a3b8; --file-paper-bg: rgba(148, 163, 184, 0.1); --file-fold-bg: rgba(148, 163, 184, 0.22); }
+        .ai-file-svg[data-file-cat="sheet"] { color: #34d399; --file-paper-bg: rgba(16, 185, 129, 0.14); --file-fold-bg: rgba(16, 185, 129, 0.26); }
+        .ai-file-svg[data-file-cat="doc"]   { color: #60a5fa; --file-paper-bg: rgba(59, 130, 246, 0.14); --file-fold-bg: rgba(59, 130, 246, 0.26); }
+        .ai-file-svg[data-file-cat="slide"] { color: #fb923c; --file-paper-bg: rgba(249, 115, 22, 0.14); --file-fold-bg: rgba(249, 115, 22, 0.26); }
+        .ai-file-svg[data-file-cat="pdf"]   { color: #f43f5e; --file-paper-bg: rgba(244, 63, 94, 0.14); --file-fold-bg: rgba(244, 63, 94, 0.26); }
+        .ai-file-svg[data-file-cat="md"]    { color: #22d3ee; --file-paper-bg: rgba(6, 182, 212, 0.14); --file-fold-bg: rgba(6, 182, 212, 0.26); }
+        .ai-file-svg[data-file-cat="code"]  { color: #a78bfa; --file-paper-bg: rgba(139, 92, 246, 0.14); --file-fold-bg: rgba(139, 92, 246, 0.26); }
+        .ai-file-svg[data-file-cat="data"]  { color: #fbbf24; --file-paper-bg: rgba(245, 158, 11, 0.14); --file-fold-bg: rgba(245, 158, 11, 0.26); }
+        .ai-file-svg[data-file-cat="db"]    { color: #2dd4bf; --file-paper-bg: rgba(20, 184, 166, 0.14); --file-fold-bg: rgba(20, 184, 166, 0.26); }
+        .ai-file-svg[data-file-cat="zip"]   { color: #f59e0b; --file-paper-bg: rgba(217, 119, 6, 0.14); --file-fold-bg: rgba(217, 119, 6, 0.26); }
+        .ai-file-svg[data-file-cat="image"] { color: #34d399; --file-paper-bg: rgba(16, 185, 129, 0.14); --file-fold-bg: rgba(16, 185, 129, 0.26); }
+        .ai-file-svg[data-file-cat="media"] { color: #f472b6; --file-paper-bg: rgba(236, 72, 153, 0.14); --file-fold-bg: rgba(236, 72, 153, 0.26); }
+        .ai-file-svg[data-file-cat="text"]  { color: #94a3b8; --file-paper-bg: rgba(148, 163, 184, 0.1); --file-fold-bg: rgba(148, 163, 184, 0.22); }
+        .ai-file-svg[data-file-cat="unknown"] { color: #94a3b8; --file-paper-bg: rgba(148, 163, 184, 0.08); --file-fold-bg: rgba(148, 163, 184, 0.2); }
+
+        .ai-file-chip-text { display: flex; flex-direction: column; min-width: 0; }
+        .ai-file-chip a.ai-file-chip-name { color: #f1f5f9; font-weight: 600; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46ch; }
+        .ai-file-chip a.ai-file-chip-name:hover { text-decoration: underline; color: #38bdf8; }
+        .ai-file-chip-meta { font-size: 11.5px; opacity: .7; color: #94a3b8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46ch; }
+        .ai-file-chip-meta:empty { display: none; }
+        .ai-file-chip a.ai-file-chip-download { flex: none; display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px; border-radius: 7px; font-size: 11.5px; font-weight: 600; text-decoration: none; color: #e2e8f0; background: rgba(148, 163, 184, 0.14); border: 1px solid rgba(148, 163, 184, 0.22); }
+        .ai-file-chip a.ai-file-chip-download:hover { background: rgba(148, 163, 184, 0.24); color: #fff; }
+        .ai-file-chip.is-missing { opacity: .6; border-style: dashed; }
+        .ai-file-chip.is-missing a.ai-file-chip-download { pointer-events: none; opacity: .5; }
+        html .ai-file-chip.ai-file-chip--compact,
+        html.platform-home:not([data-theme="dark"]) .ai-file-chip.ai-file-chip--compact {
+            display: inline; width: auto; margin: 0; padding: 0; border: 0; border-radius: 0;
+            background: transparent; box-shadow: none; line-height: inherit; vertical-align: baseline;
+        }
+        .ai-file-chip--compact .ai-file-chip-text { display: inline; }
+        .ai-file-chip--compact .ai-file-chip-icon,
+        .ai-file-chip--compact .ai-file-chip-meta,
+        .ai-file-chip.ai-file-chip--compact a.ai-file-chip-download { display: none; }
+        .ai-file-chip.ai-file-chip--compact a.ai-file-chip-name {
+            display: inline; max-width: none; white-space: normal; overflow-wrap: anywhere;
+            font-size: .95em; font-weight: 500; color: #7dd3fc;
+            text-decoration: underline; text-decoration-color: #7dd3fc55;
+            text-decoration-thickness: 1px; text-underline-offset: 3px;
+        }
+        html.platform-home:not([data-theme="dark"]) .ai-file-chip.ai-file-chip--compact a.ai-file-chip-name { color: #2563a6; text-decoration-color: #2563a64d; }
+        .ai-file-chip.ai-file-chip--compact a.ai-file-chip-name:hover { color: #38bdf8; text-decoration-color: currentColor; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-chip.ai-file-chip--compact a.ai-file-chip-name:hover { color: #1d4ed8; text-decoration-color: currentColor; }
+        .ai-file-chip--compact a.ai-file-chip-name:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; border-radius: 2px; }
+        .ai-md-image { display: block; width: fit-content; max-width: 100%; margin: 6px 0; vertical-align: top; }
+        .ai-md-image img { display: block; max-width: min(100%, 520px); max-height: 360px; border-radius: 10px; border: 1px solid rgba(148, 163, 184, .3); cursor: zoom-in; object-fit: contain; background: rgba(148, 163, 184, .08); }
+        .ai-md-image.is-missing { padding: 8px 12px; border-radius: 10px; border: 1px dashed rgba(148, 163, 184, .5); font-size: 13px; opacity: .7; }
+        .home-workspace-panel.has-file-preview > :not(.ai-file-preview) { display: none !important; }
+        .ai-file-preview { display: flex; flex-direction: column; min-width: 0; position: relative; height: auto; color: var(--wsp-text, var(--text-primary, #e2e8f0)); background: var(--wsp-panel, var(--bg-secondary, #0f172a)); border-radius: 12px; overflow: hidden; }
+        .ai-file-preview--floating { position: fixed; right: 16px; top: calc(var(--navbar-h, 60px) + 16px); bottom: 18px; width: min(var(--ai-preview-width, 560px), calc(100vw - 32px)); max-height: none; z-index: 10010; border: 1px solid #94a3b855; box-shadow: 0 12px 40px #0004; }
+        .home-workspace-panel.has-file-preview { height: calc(100dvh - var(--navbar-h) - 36px); max-height: none; box-sizing: border-box; overflow: hidden; }
+        .home-workspace-panel.has-file-preview > .ai-file-preview { flex: 1 1 auto; min-height: 0; }
+        .ai-file-preview-resize { position: absolute; left: 0; top: 0; bottom: 0; width: 8px; z-index: 2; cursor: col-resize; touch-action: none; border-radius: 5px; }
+        body.ai-preview-resizing { cursor: col-resize; user-select: none; }
+        body.ai-preview-resizing .ai-file-preview iframe { pointer-events: none; }
+        @media (min-width: 861px) {
+            html:not(.platform-home) body.ai-file-preview-open.home-mode-chat.dc-workspace-open .home-content.home-workspace { grid-template-columns: var(--ws-side) minmax(0, 1fr) var(--ai-preview-width, var(--ws-panel-w)); }
+            html:not(.platform-home) body.ai-file-preview-open.home-sidebar-collapsed.home-mode-chat.dc-workspace-open .home-content.home-workspace { grid-template-columns: var(--ws-rail) minmax(0, 1fr) var(--ai-preview-width, var(--ws-panel-w)); }
+        }
+        @media (max-width: 860px) {
+            .home-workspace-panel.has-file-preview,
+            html.platform-home .home-workspace-panel.has-file-preview { height: calc(100dvh - var(--navbar-h)); width: min(var(--ai-preview-width, 360px), calc(100vw - 32px)); }
+        }
+        .ai-file-preview header { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid rgba(148, 163, 184, 0.2); }
+        .ai-file-preview header strong { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 13.5px; }
+        .ai-file-preview header a, .ai-file-preview header button { flex: none; color: inherit; font: inherit; }
+        .ai-file-preview header button { background: transparent; border: 0; cursor: pointer; padding: 6px; font-size: 14px; border-radius: 6px; }
+        .ai-file-preview header button:hover { background: rgba(148, 163, 184, 0.15); }
+        .ai-file-preview-tabs { display: flex; gap: 6px; padding: 6px 14px 10px; border-bottom: 1px solid rgba(148, 163, 184, 0.2); background: rgba(15, 23, 42, 0.25); }
+        .ai-file-preview-tab { background: transparent; border: 1px solid transparent; color: inherit; opacity: .7; padding: 3px 11px; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all .15s ease; font-family: inherit; }
+        .ai-file-preview-tab:hover { opacity: 1; background: rgba(148, 163, 184, 0.12); }
+        .ai-file-preview-tab.is-active { opacity: 1; font-weight: 600; color: #38bdf8; background: rgba(56, 189, 248, 0.14); border-color: rgba(56, 189, 248, 0.3); }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-tabs { background: rgba(241, 245, 249, 0.6); }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-tab.is-active { color: #0284c7; background: rgba(2, 132, 199, 0.12); border-color: rgba(2, 132, 199, 0.25); }
+        .ai-file-preview-body { flex: 1; min-height: 0; overflow: auto; padding: 0; display: flex; flex-direction: column; }
+        .ai-file-preview-view { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+        .ai-file-preview-view[hidden] { display: none !important; }
+        .ai-file-md { padding: 14px 18px; font-size: 13.5px; line-height: 1.7; color: inherit; word-break: break-word; overflow-y: auto; flex: 1; }
+        .ai-file-md h1, .ai-file-md h2, .ai-file-md h3, .ai-file-md h4 { margin: 1.2em 0 0.5em; font-weight: 600; line-height: 1.35; color: inherit; }
+        .ai-file-md h1 { font-size: 1.4em; border-bottom: 1px solid rgba(148, 163, 184, 0.25); padding-bottom: 0.3em; }
+        .ai-file-md h2 { font-size: 1.2em; border-bottom: 1px solid rgba(148, 163, 184, 0.2); padding-bottom: 0.25em; }
+        .ai-file-md h3 { font-size: 1.08em; }
+        .ai-file-md p { margin: 0.6em 0; }
+        .ai-file-md ul, .ai-file-md ol { padding-left: 1.5em; margin: 0.5em 0; }
+        .ai-file-md li { margin: 0.25em 0; }
+        .ai-file-md blockquote { margin: 0.8em 0; padding: 0.4em 1em; border-left: 3px solid #38bdf8; background: rgba(56, 189, 248, 0.08); border-radius: 0 6px 6px 0; }
+        .ai-file-md table { width: 100%; border-collapse: collapse; margin: 0.8em 0; font-size: 12.5px; }
+        .ai-file-md th, .ai-file-md td { border: 1px solid rgba(148, 163, 184, 0.25); padding: 6px 10px; text-align: left; }
+        .ai-file-md th { background: rgba(148, 163, 184, 0.12); font-weight: 600; }
+        .ai-file-md code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.9em; padding: 2px 5px; border-radius: 4px; background: rgba(148, 163, 184, 0.15); }
+        .ai-file-md pre { background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 8px; padding: 10px 12px; margin: 0.8em 0; overflow-x: auto; }
+        .ai-file-md pre code { background: transparent; padding: 0; border-radius: 0; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-md pre { background: rgba(241, 245, 249, 0.9); }
+        .ai-file-code-container { display: flex; min-height: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; line-height: 1.6; overflow-x: auto; flex: 1; }
+        .ai-file-line-numbers { flex: none; padding: 10px 8px; text-align: right; user-select: none; opacity: .45; border-right: 1px solid rgba(148, 163, 184, 0.18); display: flex; flex-direction: column; background: rgba(148, 163, 184, 0.03); }
+        .ai-file-line-numbers span { display: block; min-height: 1.6em; }
+        .ai-file-preview-code { flex: 1; margin: 0; padding: 10px 12px; white-space: pre; overflow-x: auto; font-family: inherit; font-size: inherit; line-height: inherit; background: transparent; }
+        .ai-file-line { display: block; min-height: 1.6em; }
+        .ai-file-preview-frame { width: 100%; height: 100%; min-height: 380px; flex: 1; border: 0; background: white; }
+        .ai-file-preview-view.is-diff { padding: 12px; overflow-y: auto; flex: 1; }
+        .ai-file-diff-status { padding: 24px; text-align: center; opacity: .65; font-size: 13px; }
+        .ai-file-diff-empty { padding: 36px 16px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; opacity: .7; }
+        .ai-file-diff-empty-icon { font-size: 26px; line-height: 1; }
+        .ai-file-diff-empty p { margin: 0; font-size: 13px; }
+        .ai-file-preview-code .tok-keyword { color: #f47067; font-weight: 500; }
+        .ai-file-preview-code .tok-builtin { color: #79c0ff; }
+        .ai-file-preview-code .tok-string { color: #a5d6ff; }
+        .ai-file-preview-code .tok-comment { color: #8b949e; font-style: italic; }
+        .ai-file-preview-code .tok-number { color: #d2a8ff; }
+        .ai-file-preview-code .tok-decorator { color: #ffa657; }
+        .ai-file-preview-code .tok-operator { color: #f47067; }
+        .ai-file-preview-code .tok-tag { color: #7ee787; font-weight: 500; }
+        .ai-file-preview-code .tok-attr { color: #79c0ff; }
+        .ai-file-preview-code .tok-key { color: #7ee787; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-code .tok-keyword { color: #cf222e; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-code .tok-builtin { color: #0550ae; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-code .tok-string { color: #0a3069; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-code .tok-comment { color: #6e7781; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-code .tok-number { color: #8250df; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-code .tok-decorator { color: #953800; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-code .tok-operator { color: #cf222e; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-code .tok-tag { color: #116329; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-code .tok-attr { color: #0550ae; }
+        html.platform-home:not([data-theme="dark"]) .ai-file-preview-code .tok-key { color: #116329; }
+        .ai-file-preview pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.7 ui-monospace, monospace; color: inherit; background: transparent; }
+        .ai-file-preview iframe { width: 100%; height: 100%; border: 0; background: white; }
+        .ai-lightbox { position: fixed; inset: 0; z-index: 2147483000; background: rgba(2, 6, 23, .9); display: flex; flex-direction: column; }
+        .ai-lightbox[hidden] { display: none; }
+        .ai-lightbox-stage { flex: 1; min-height: 0; display: grid; place-items: center; overflow: hidden; cursor: zoom-out; }
+        .ai-lightbox-stage img { max-width: 92vw; max-height: calc(100vh - 96px); object-fit: contain; cursor: grab; user-select: none; touch-action: none; transition: transform .06s linear; border-radius: 6px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+        .ai-lightbox-stage img:active { cursor: grabbing; }
+        .ai-lightbox-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); color: #e2e8f0; font-size: 13px; background: rgba(15, 23, 42, .85); border-top: 1px solid rgba(148, 163, 184, .2); }
+        .ai-lightbox-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ai-lightbox-count { opacity: .7; }
+        .ai-lightbox-bar button, .ai-lightbox-bar a { min-height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid rgba(148, 163, 184, .35); background: rgba(30, 41, 59, .9); color: #e2e8f0; font: inherit; text-decoration: none; display: inline-flex; align-items: center; cursor: pointer; }
+        .ai-lightbox-bar button:hover, .ai-lightbox-bar a:hover { background: rgba(51, 65, 85, .95); }
+        .ai-lightbox-bar a[data-lb="download"] { background: #7dd3fc; color: #0c4a6e; border-color: transparent; font-weight: 600; }
+        .ai-lightbox-bar [hidden] { display: none; }
+    </style><style>
+    #dataSourceBadge{position:fixed;left:16px;bottom:16px;z-index:99999;max-width:min(260px,calc(100vw - 32px));padding:7px 11px;border:1px solid #7891ab66;border-radius:10px;background:#172b40ed;color:#e2e8f0;font:11px/1.5 system-ui,sans-serif;box-shadow:0 5px 20px #0002;backdrop-filter:blur(12px);text-align:left;cursor:pointer;transition:opacity .25s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #dataSourceBadge[hidden]{display:none}
+    #dataSourceBadge:hover,#dataSourceBadge:focus-visible{background:#26425d;color:#fff}
+    #dataSourceDetail{position:fixed;left:16px;bottom:54px;z-index:100000;box-sizing:border-box;width:min(480px,calc(100vw - 32px));max-height:min(540px,calc(100vh - 100px));padding:16px;border:1px solid #809ab466;border-radius:14px;background:#172b40f5;color:#e2e8f0;font:12px/1.6 system-ui,sans-serif;box-shadow:0 10px 32px #0003;backdrop-filter:blur(16px);overflow:auto;overflow-wrap:anywhere}
+    #dataSourceDetail header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px}#dataSourceDetail button{border:1px solid #8ba2ba66;border-radius:7px;background:#26425d;color:#fff;padding:3px 9px;cursor:pointer}#dataSourceDetail ol{margin:0;padding:0;list-style:none}#dataSourceDetail li{border-top:1px solid #809ab433;padding:9px 0}#dataSourceDetail small{display:block;color:#b8cadc}#dataSourceDetail code{display:block;font-size:11px;white-space:normal}
+    </style><style>
+        /* AI Assistant 样式定义 */
+        /* The active tool owns its contextual drawer; retain the host as fallback. */
+        body.v2-tool-has-assistant > :is(.ai-fab, .ai-panel, .ai-proactive-alert) { display: none !important; }
+        /* AI Assistant 样式定义 */
+        /* 右侧停靠标签：符合主页氛围的现代明亮玻璃风格（翡翠绿/青碧主题色） */
+        .ai-fab {
+            position: fixed;
+            bottom: var(--ai-fab-bottom, 270px);
+            top: var(--ai-fab-top, auto);
+            right: 0;
+            height: 48px;
+            min-width: 54px;
+            box-sizing: border-box;
+            padding: 0 11px 0 10px;
+            border-radius: 24px 0 0 24px;
+            background: rgba(255, 255, 255, 0.94);
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            border-right: none;
+            color: #1f2328;
+            display: flex;
+            align-items: center;
+            box-shadow:
+                -6px 10px 24px rgba(15, 23, 42, 0.08),
+                0 2px 6px rgba(15, 23, 42, 0.04),
+                inset 0 1px 0 #ffffff;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            cursor: grab;
+            z-index: 100000;
+            opacity: 1;
+            transform: translateX(0);
+            transition:
+                opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+                border-color 0.22s,
+                box-shadow 0.22s,
+                background 0.22s;
+            user-select: none;
+            touch-action: none;
+            isolation: isolate;
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+            font-family: inherit;
+        }
+        .ai-fab.is-dragging {
+            cursor: grabbing !important;
+            user-select: none !important;
+            transition: none !important;
+            opacity: 1 !important;
+            transform: translateX(0) scale(1.02) !important;
+            box-shadow:
+                -10px 18px 36px rgba(16, 163, 127, 0.22),
+                0 4px 12px rgba(15, 23, 42, 0.1),
+                inset 0 1px 0 #ffffff !important;
+        }
+        .ai-fab.is-idle {
+            opacity: 0.42;
+            transform: translateX(8px);
+            box-shadow: -3px 4px 12px rgba(15, 23, 42, 0.05);
+        }
+        @media (hover: hover) {
+            .ai-fab.is-idle:hover {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        .ai-fab.is-idle:focus-visible,
+        .ai-fab.is-idle[aria-expanded="true"],
+        .ai-fab.is-idle.is-dragging {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        body:has(.ai-proactive-alert.show) .ai-fab {
+            opacity: 1 !important;
+            transform: translateX(0) !important;
+        }
+        .ai-fab::before {
+            content: "";
+            position: absolute;
+            inset: -2px;
+            z-index: -1;
+            border-radius: inherit;
+            background: radial-gradient(circle at 30% 50%, rgba(16, 163, 127, 0.16), rgba(99, 102, 241, 0.08) 55%, transparent 78%);
+            opacity: 0;
+            transition: opacity 0.22s;
+            pointer-events: none;
+        }
+        .ai-fab-orb {
+            position: relative;
+            flex: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #ffffff;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+            display: grid;
+            place-items: center;
+        }
+        .ai-fab-orb::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: conic-gradient(from 210deg, #10a37f, #06b6d4, #6366f1, #a855f7, #10a37f);
+            -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+            mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+            animation: ai-fab-spin 9s linear infinite;
+        }
+        .ai-fab-avatar {
+            position: absolute;
+            inset: 3px;
+            width: calc(100% - 6px);
+            height: calc(100% - 6px);
+            border-radius: 50%;
+            object-fit: cover;
+            background: #ffffff;
+            box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+            image-rendering: -webkit-optimize-contrast;
+            pointer-events: none;
+        }
+        .ai-fab-dot {
+            position: absolute;
+            right: -1px;
+            bottom: -1px;
+            width: 9px;
+            height: 9px;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            background: #10a37f;
+            box-shadow: 0 0 6px rgba(16, 163, 127, 0.7);
+        }
+        .ai-fab-label {
+            max-width: 0;
+            overflow: hidden;
+            white-space: nowrap;
+            opacity: 0;
+            font-size: 13px;
+            font-weight: 650;
+            color: #1f2328;
+            letter-spacing: 0.01em;
+            transition: max-width 0.26s cubic-bezier(.2,.8,.2,1), opacity 0.2s, margin 0.26s;
+        }
+        @media (hover: hover) {
+            .ai-fab:hover .ai-fab-label,
+            .ai-fab:focus-visible .ai-fab-label {
+                max-width: 120px;
+                margin-left: 9px;
+                opacity: 1;
+            }
+        }
+        .ai-fab:hover,
+        .ai-fab[aria-expanded="true"] {
+            background: linear-gradient(135deg, #ffffff, #f0fdf9);
+            border-color: rgba(16, 163, 127, 0.5);
+            box-shadow:
+                -8px 14px 28px rgba(16, 163, 127, 0.12),
+                0 2px 8px rgba(15, 23, 42, 0.05),
+                inset 0 1px 0 #ffffff;
+        }
+        .ai-fab:hover::before,
+        .ai-fab:focus-visible::before,
+        .ai-fab[aria-expanded="true"]::before { opacity: 1; }
+        .ai-fab:focus-visible {
+            box-shadow:
+                -8px 14px 28px rgba(16, 163, 127, 0.16),
+                0 0 0 2px rgba(16, 163, 127, 0.45);
+        }
+        /* 深色主题下的兼容 */
+        html[data-theme="dark"] .ai-fab {
+            background: linear-gradient(135deg, rgba(21, 24, 29, 0.96), rgba(26, 32, 44, 0.96));
+            border-color: rgba(62, 207, 158, 0.35);
+            color: #e6e8eb;
+            box-shadow: -8px 12px 28px rgba(0, 0, 0, 0.45), 0 0 16px rgba(62, 207, 158, 0.1);
+        }
+        html[data-theme="dark"] .ai-fab-orb {
+            background: #1b1f26;
+        }
+        html[data-theme="dark"] .ai-fab-avatar {
+            background: #1b1f26;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+        }
+        html[data-theme="dark"] .ai-fab-dot {
+            border-color: #15181d;
+            background: #3ecf9e;
+            box-shadow: 0 0 6px rgba(62, 207, 158, 0.8);
+        }
+        html[data-theme="dark"] .ai-fab-label {
+            color: #e6e8eb;
+        }
+        html[data-theme="dark"] .ai-fab:hover,
+        html[data-theme="dark"] .ai-fab[aria-expanded="true"] {
+            border-color: rgba(62, 207, 158, 0.6);
+            background: linear-gradient(135deg, rgba(27, 34, 46, 0.98), rgba(21, 24, 29, 0.98));
+        }
+        html[data-theme="dark"] .ai-fab.is-idle {
+            opacity: 0.46;
+            transform: translateX(8px);
+            box-shadow: -4px 6px 16px rgba(0, 0, 0, 0.3);
+        }
+        html[data-theme="dark"] .ai-fab.is-idle:hover,
+        html[data-theme="dark"] .ai-fab.is-idle:focus-visible,
+        html[data-theme="dark"] .ai-fab.is-idle[aria-expanded="true"],
+        html[data-theme="dark"] .ai-fab.is-idle.is-dragging {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        .ai-fab.is-pulse .ai-fab-orb { animation: ai-fab-pulse 0.6s cubic-bezier(.2,.8,.2,1); }
+        @keyframes ai-fab-spin { to { transform: rotate(360deg); } }
+        @keyframes ai-fab-pulse { 0% { transform: scale(1); } 40% { transform: scale(0.86); } 100% { transform: scale(1); } }
+        .ai-proactive-alert {
+            position: fixed;
+            width: min(360px, calc(100vw - 32px));
+            box-sizing: border-box;
+            padding: 14px 42px 14px 16px;
+            border: 1px solid rgba(129,140,248,0.3);
+            border-radius: 16px;
+            color: #273449;
+            background: rgba(255,255,255,0.97);
+            box-shadow: 0 18px 48px rgba(15,23,42,0.2), inset 0 1px 0 rgba(255,255,255,0.9);
+            z-index: 100020;
+            font-size: 13px;
+            line-height: 1.55;
+            cursor: pointer;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(12px) scale(0.965);
+            transform-origin: bottom right;
+            will-change: transform, opacity, filter;
+        }
+        .ai-proactive-alert.show {
+            opacity:1; pointer-events:auto; transform:translateY(0) scale(1);
+            animation:ai-alert-arrive .48s cubic-bezier(.16,1,.3,1) both;
+        }
+        .ai-proactive-alert[data-placement="below"] { transform-origin:top right; }
+        .ai-proactive-alert.is-leaving { pointer-events:none; animation:ai-alert-depart .28s cubic-bezier(.4,0,1,1) both; }
+        .ai-proactive-alert.is-closing { animation:ai-alert-close-away .34s cubic-bezier(.4,0,.7,.2) both; }
+        @keyframes ai-alert-arrive {
+            0% { opacity:0; transform:translateY(14px) scale(.94); filter:blur(3px); }
+            58% { opacity:1; transform:translateY(-2px) scale(1.012); filter:blur(0); }
+            100% { opacity:1; transform:translateY(0) scale(1); filter:blur(0); }
+        }
+        @keyframes ai-alert-depart {
+            from { opacity:1; transform:translateY(0) scale(1); filter:blur(0); }
+            to { opacity:0; transform:translateY(8px) scale(.975); filter:blur(1.5px); }
+        }
+        @keyframes ai-alert-close-away {
+            0% { opacity:1; transform:translate(0,0) scale(1); filter:blur(0); }
+            100% { opacity:0; transform:translate(12px,10px) scale(.88); filter:blur(2px); }
+        }
+        .ai-proactive-alert::after {
+            content:""; position:absolute; right:var(--ai-alert-arrow-right, 24px); bottom:-8px; width:14px; height:14px;
+            background:#fff; border-right:1px solid rgba(129,140,248,.3); border-bottom:1px solid rgba(129,140,248,.3);
+            transform:rotate(45deg);
+        }
+        .ai-proactive-alert[data-placement="below"]::after {
+            top:-8px; bottom:auto; border:0; border-left:1px solid rgba(129,140,248,.3); border-top:1px solid rgba(129,140,248,.3);
+        }
+        .ai-proactive-alert-kicker { display:flex; align-items:center; gap:7px; margin-bottom:5px; color:#5b63c8; font-size:11px; font-weight:800; letter-spacing:.04em; }
+        .ai-proactive-alert-ai-badge {
+            display:inline-flex; align-items:center; gap:3px; padding:2px 7px; border:1px solid rgba(124,58,237,.25); border-radius:999px;
+            color:#fff; background:linear-gradient(135deg,#6366f1,#8b5cf6 58%,#c026d3); box-shadow:0 3px 10px rgba(109,40,217,.22);
+            font-size:9px; line-height:1.3; letter-spacing:.06em; text-transform:uppercase;
+        }
+        .ai-proactive-alert-text { display:block; overflow-wrap:anywhere; }
+        .ai-proactive-alert-ai-panel {
+            display:none; position:relative; margin-top:10px; padding:9px 10px; overflow:hidden; border:1px solid transparent; border-radius:11px;
+            background:linear-gradient(#f8faff,#f8faff) padding-box,linear-gradient(115deg,#60a5fa,#8b5cf6,#ec4899,#22d3ee,#60a5fa) border-box;
+            background-size:100% 100%,240% 100%; box-shadow:0 5px 18px rgba(99,102,241,.10);
+            animation:ai-polish-flow 4.5s linear infinite;
+        }
+        .ai-proactive-alert.ai-polished .ai-proactive-alert-ai-panel,
+        .ai-proactive-alert.ai-deep-analyzed .ai-proactive-alert-ai-panel { display:block; }
+        .ai-proactive-alert-ai-head { display:flex; align-items:center; gap:7px; margin-bottom:5px; }
+        .ai-proactive-alert-ai-caption { color:#7c3aed; font-size:10px; font-weight:800; letter-spacing:.04em; }
+        .ai-proactive-alert-ai-text { color:#556176; font-size:11px; line-height:1.55; word-break:break-word; }
+        .ai-proactive-alert-ai-char { display:inline-block; opacity:0; transform:translateY(4px); animation:ai-polish-char .32s cubic-bezier(.2,.8,.2,1) forwards; animation-delay:calc(var(--ai-char-index) * 16ms); }
+        @keyframes ai-polish-flow { to { background-position:0 0,240% 0; } }
+        @keyframes ai-polish-char { to { opacity:1; transform:translateY(0); } }
+        .ai-proactive-alert-footer { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:8px; }
+        .ai-proactive-alert-hint { flex:1; min-width:0; color:#7b8799; font-size:11px; }
+        .ai-proactive-alert-actions { display:flex; align-items:center; gap:5px; flex-shrink:0; }
+        .ai-proactive-alert-action {
+            min-height:25px; padding:3px 8px; border:1px solid rgba(129,140,248,.22); border-radius:7px;
+            color:#667085; background:rgba(248,250,252,.88); font-size:10px; line-height:1.2; cursor:pointer;
+            transition:color .16s ease,background .16s ease,border-color .16s ease,transform .16s ease;
+        }
+        .ai-proactive-alert-action:hover { color:#4f46e5; background:#eef2ff; border-color:rgba(99,102,241,.4); transform:translateY(-1px); }
+        .ai-proactive-alert-action:active { transform:translateY(0) scale(.97); }
+        .ai-proactive-alert-close {
+            position:absolute; right:9px; top:8px; width:26px; height:26px; border:0; border-radius:8px;
+            color:#7b8799; background:transparent; cursor:pointer; font-size:18px; line-height:1;
+        }
+        .ai-proactive-alert-close:hover { color:#334155; background:#eef1f8; }
+        .ai-proactive-alert[data-theme="graph"],
+        body.ai-kg-open .ai-proactive-alert { color:#dbe4f3; background:rgba(18,28,47,.98); border-color:rgba(129,140,248,.4); }
+        .ai-proactive-alert[data-theme="graph"]::after,
+        body.ai-kg-open .ai-proactive-alert::after { background:#121c2f; border-color:rgba(129,140,248,.4); }
+        .ai-proactive-alert[data-theme="graph"] .ai-proactive-alert-ai-panel,
+        body.ai-kg-open .ai-proactive-alert .ai-proactive-alert-ai-panel { background:linear-gradient(#111b2e,#111b2e) padding-box,linear-gradient(115deg,#38bdf8,#818cf8,#e879f9,#22d3ee,#38bdf8) border-box; background-size:100% 100%,240% 100%; }
+        .ai-proactive-alert[data-theme="graph"] .ai-proactive-alert-ai-text,
+        body.ai-kg-open .ai-proactive-alert .ai-proactive-alert-ai-text { color:#b8c5dc; }
+        .ai-proactive-alert[data-theme="graph"] .ai-proactive-alert-action,
+        body.ai-kg-open .ai-proactive-alert .ai-proactive-alert-action { color:#aab7cc; background:rgba(30,41,59,.8); border-color:rgba(129,140,248,.28); }
+        .ai-proactive-alert[data-theme="graph"] .ai-proactive-alert-action:hover,
+        body.ai-kg-open .ai-proactive-alert .ai-proactive-alert-action:hover { color:#c7d2fe; background:#26324a; border-color:rgba(129,140,248,.5); }
+        .ai-proactive-alert[data-compact="true"] { padding:11px 12px; border-radius:14px; font-size:12px; line-height:1.5; overscroll-behavior:contain; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-kicker { padding-right:28px; margin-bottom:4px; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-text { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-ai-panel { margin-top:8px; padding:7px 8px; border-radius:9px; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-ai-text { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-footer { flex-wrap:wrap; gap:6px; margin-top:7px; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-hint { flex-basis:100%; font-size:10px; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-actions { margin-left:auto; max-width:100%; flex-wrap:wrap; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-action { min-height:32px; font-size:11px; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-close { right:5px; top:4px; width:30px; height:30px; }
+        @media (prefers-reduced-motion: reduce) {
+            .ai-proactive-alert, .ai-proactive-alert.show, .ai-proactive-alert.is-leaving, .ai-proactive-alert.is-closing, .ai-proactive-alert-ai-panel, .ai-proactive-alert-ai-char { animation:none; transition:opacity .01ms linear; transform:none; filter:none; }
+            .ai-proactive-alert-ai-char { opacity:1; }
+        }
+        .ai-panel {
+            position: fixed;
+            bottom: 80px;
+            right: 62px;
+            width: min(420px, calc(100vw - 24px));
+            max-width: calc(100vw - 24px);
+            height: min(640px, calc(100vh - 120px));
+            background: #f7f9fd !important;
+            color: #334155 !important;
+            border-radius: 20px;
+            border: 1px solid rgba(148,163,184,0.34);
+            box-shadow:
+                0 28px 80px rgba(15,23,42,0.30),
+                0 8px 24px rgba(15,23,42,0.14),
+                inset 0 1px 0 rgba(255,255,255,0.9);
+            z-index: 100000;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transform: translateY(20px) scale(0.95);
+            opacity: 0;
+            pointer-events: none;
+            transition: width 0.28s cubic-bezier(.2,.8,.2,1), height 0.28s cubic-bezier(.2,.8,.2,1), inset 0.28s cubic-bezier(.2,.8,.2,1), border-radius 0.28s, transform 0.28s, opacity 0.2s;
+            transform-origin: bottom right;
+        }
+        .ai-panel.open {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+            pointer-events: auto;
+        }
+        body.ai-kg-open .ai-panel.open { z-index: 100300; }
+        .ai-panel.expanded {
+            width: min(760px, calc(100vw - 80px));
+            height: min(820px, calc(100vh - 80px));
+            max-width: none;
+            max-height: none;
+            bottom: 40px;
+        }
+        .ai-panel.fullscreen {
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            max-width: none;
+            max-height: none;
+            border: 0;
+            border-radius: 0;
+            transform-origin: center;
+        }
+        body.ai-chat-fullscreen {
+            overflow: hidden !important;
+        }
+        .ai-header {
+            min-height: 64px;
+            box-sizing: border-box;
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+            color: #0f172a;
+            padding: 12px 16px 12px 18px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex: 0 0 auto;
+        }
+        .ai-brand {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            min-width: 0;
+        }
+        .ai-brand-mark {
+            width: 34px;
+            height: 34px;
+            border-radius: 11px;
+            display: grid;
+            place-items: center;
+            overflow: hidden;
+            background: #ffffff;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+        }
+        .ai-brand-mark img { width: 90%; height: 90%; display: block; object-fit: contain; image-rendering: -webkit-optimize-contrast; }
+        .ai-brand-copy { min-width: 0; }
+        .ai-brand-title {
+            font-size: 15px;
+            line-height: 1.2;
+            font-weight: 700;
+            color: #0f172a;
+            letter-spacing: 0.01em;
+            white-space: nowrap;
+        }
+        .ai-brand-subtitle {
+            margin-top: 3px;
+            font-size: 11px;
+            line-height: 1.2;
+            color: #64748b;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .ai-brand-title-compact,
+        .ai-brand-subtitle-compact { display:none; }
+        .ai-panel:not(.expanded):not(.fullscreen) .ai-header {
+            min-height: 58px;
+            padding: 9px 12px 9px 14px;
+        }
+        .ai-panel:not(.expanded):not(.fullscreen) .ai-brand { gap: 8px; }
+        .ai-panel:not(.expanded):not(.fullscreen) .ai-brand-mark { width: 30px; height: 30px; border-radius: 9px; }
+        .ai-panel:not(.expanded):not(.fullscreen) .ai-brand-title { font-size: 13px; line-height: 1.05; }
+        .ai-panel:not(.expanded):not(.fullscreen) .ai-brand-subtitle { margin-top: 3px; font-size: 9px; line-height: 1.05; }
+        .ai-panel:not(.expanded):not(.fullscreen) .ai-brand-title-full,
+        .ai-panel:not(.expanded):not(.fullscreen) .ai-brand-subtitle-full { display:none; }
+        .ai-panel:not(.expanded):not(.fullscreen) .ai-brand-title-compact,
+        .ai-panel:not(.expanded):not(.fullscreen) .ai-brand-subtitle-compact { display:inline; }
+        .ai-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .ai-action-btn {
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            color: #475569 !important;
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            border-radius: 9px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.18s, color 0.18s, transform 0.18s, border-color 0.18s;
+        }
+        .ai-action-btn:hover {
+            background: #e2e8f0;
+            border-color: #cbd5e1;
+            color: #0f172a !important;
+            transform: translateY(-1px);
+        }
+        .ai-action-btn svg {
+            width: 16px;
+            height: 16px;
+            pointer-events: none;
+        }
+        .ai-action-btn.ai-close {
+            background: #fef2f2;
+            border-color: #fecaca;
+            color: #ef4444 !important;
+        }
+        .ai-action-btn.ai-close:hover {
+            background: #fee2e2;
+            color: #dc2626 !important;
+        }
+        html[data-theme="dark"] .ai-header {
+            background: linear-gradient(135deg, #15181d 0%, #1c2128 100%);
+            border-bottom: 1px solid #262a31;
+            color: #e6e8eb;
+        }
+        html[data-theme="dark"] .ai-brand-mark {
+            background: #1b1f26;
+            border-color: #353a43;
+        }
+        html[data-theme="dark"] .ai-brand-title { color: #e6e8eb; }
+        html[data-theme="dark"] .ai-brand-subtitle { color: #8b949e; }
+        html[data-theme="dark"] .ai-action-btn {
+            background: #1e2530;
+            border-color: #2e3846;
+            color: #cbd5e1 !important;
+        }
+        html[data-theme="dark"] .ai-action-btn:hover {
+            background: #283344;
+            color: #fff !important;
+            border-color: #3b4759;
+        }
+        html[data-theme="dark"] .ai-action-btn.ai-close {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: rgba(239, 68, 68, 0.3);
+            color: #f87171 !important;
+        }
+        html[data-theme="dark"] .ai-action-btn.ai-close:hover {
+            background: rgba(239, 68, 68, 0.25);
+            color: #fca5a5 !important;
+        }
+        .ai-chat-body {
+            flex: 1;
+            min-height: 0;
+            padding: 22px;
+            overflow-y: auto;
+            background:
+                radial-gradient(circle at 15% 0%, rgba(16,163,127,0.04), transparent 34%),
+                linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            scroll-behavior: smooth;
+        }
+        .ai-msg {
+            max-width: 88%;
+            padding: 13px 16px;
+            border-radius: 16px;
+            font-size: 14px;
+            line-height: 1.6;
+            word-wrap: break-word;
+        }
+        .ai-msg.user {
+            background: linear-gradient(135deg, #10a37f, #0d9488);
+            color: #fff;
+            align-self: flex-end;
+            border-bottom-right-radius: 6px;
+            box-shadow: 0 4px 14px rgba(16, 163, 127, 0.25);
+        }
+        .ai-msg.ai {
+            background: #fff;
+            color: #243247;
+            align-self: flex-start;
+            border-bottom-left-radius: 6px;
+            box-shadow: 0 8px 24px rgba(30,41,59,0.07);
+            border: 1px solid #e6eaf2;
+        }
+        .ai-panel.fullscreen .ai-chat-body {
+            padding-left: max(28px, calc((100vw - 1080px) / 2));
+            padding-right: max(28px, calc((100vw - 1080px) / 2));
+        }
+        .ai-panel.fullscreen .ai-msg { max-width: min(82%, 880px); }
+        .ai-msg p { margin: 0 0 8px 0; }
+        .ai-msg p:last-child { margin: 0; }
+        .ai-msg ul, .ai-msg ol {
+            margin: 0 0 8px 0;
+            padding-left: 20px;
+        }
+        .ai-msg li { margin-bottom: 4px; }
+        .ai-msg pre {
+            background: rgba(226,232,240,0.72);
+            padding: 8px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 13px;
+        }
+        .ai-msg code {
+            background: rgba(226,232,240,0.76);
+            padding: 2px 4px;
+            border-radius: 4px;
+            color: #ef4444;
+            font-family: monospace;
+        }
+        .ai-msg h1, .ai-msg h2, .ai-msg h3, .ai-msg h4 {
+            margin: 16px 0 8px;
+            color: #1f2d44;
+            line-height: 1.35;
+        }
+        .ai-msg h1:first-child, .ai-msg h2:first-child, .ai-msg h3:first-child, .ai-msg h4:first-child { margin-top: 0; }
+        .ai-msg h1 { font-size: 18px; }
+        .ai-msg h2 { font-size: 16px; }
+        .ai-msg h3 { font-size: 15px; }
+        .ai-msg h4 { font-size: 14px; }
+        .ai-msg blockquote {
+            margin: 10px 0;
+            padding: 8px 11px;
+            border-left: 3px solid #8492ec;
+            border-radius: 0 8px 8px 0;
+            background: #f5f7ff;
+            color: #58657b;
+        }
+        .ai-table-wrap {
+            width: 100%;
+            margin: 12px 0 14px;
+            overflow-x: auto;
+            border: 1px solid #e1e6ef;
+            border-radius: 12px;
+            background: #fff;
+            box-shadow: 0 5px 18px rgba(30,41,59,0.055);
+            scrollbar-width: thin;
+        }
+        .ai-markdown-table {
+            width: 100%;
+            min-width: max(520px, calc(var(--ai-table-columns) * 160px));
+            table-layout: fixed;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 12px;
+            line-height: 1.45;
+        }
+        .ai-markdown-table th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            padding: 10px 12px;
+            border-bottom: 1px solid #dce2ed;
+            background: linear-gradient(180deg, #f5f7ff, #eef1fa);
+            color: #36415a;
+            font-weight: 700;
+            overflow-wrap: anywhere;
+        }
+        .ai-markdown-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #edf0f5;
+            color: #46536a;
+            vertical-align: top;
+            overflow-wrap: anywhere;
+        }
+        .ai-markdown-table td code, .ai-markdown-table th code { white-space: normal; overflow-wrap: anywhere; }
+        .ai-markdown-table tbody tr:last-child td { border-bottom: 0; }
+        .ai-markdown-table tbody tr:nth-child(even) td { background: #fafbfe; }
+        .ai-markdown-table tbody tr:hover td { background: #f2f5ff; }
+        .ai-markdown-table .align-center { text-align: center; }
+        .ai-markdown-table .align-right { text-align: right; }
+        .ai-markdown-table td.numeric { font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .ai-panel:not(.expanded):not(.fullscreen) .ai-msg.ai:has(.ai-markdown-table) { max-width: 96%; }
+        .ai-token-usage {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 8px;
+            text-align: right;
+            border-top: 1px dashed #e2e8f0;
+            padding-top: 6px;
+        }
+        .ai-grounding {
+            margin-top: 9px;
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148,163,184,0.48);
+            color: #64748b;
+            font-size: 11px;
+            line-height: 1.45;
+        }
+        .ai-grounding-title {
+            color: #475569;
+            font-weight: 600;
+            margin-bottom: 3px;
+        }
+        .ai-grounding-item {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        button.ai-grounding-item {
+            display: block;
+            width: 100%;
+            padding: 2px 4px;
+            border: 0;
+            border-radius: 5px;
+            background: transparent;
+            color: inherit;
+            font: inherit;
+            line-height: inherit;
+            text-align: left;
+            cursor: pointer;
+        }
+        button.ai-grounding-item:hover {
+            color: #4f5db2;
+            background: #f1f3ff;
+        }
+        .ai-grounding-graph {
+            width: 100%;
+            margin: 0 0 4px;
+            padding: 4px 7px;
+            border: 1px solid #dfe5f3;
+            border-radius: 8px;
+            background: #f7f8fd;
+            color: #5663b4;
+            font: inherit;
+            text-align: left;
+            cursor: pointer;
+            transition: border-color 0.16s, background 0.16s, color 0.16s;
+        }
+        .ai-grounding-graph:hover {
+            border-color: #bfc8ee;
+            background: #eef1ff;
+            color: #4653a4;
+        }
+        .ai-grounding-graph.metric-reference {
+            border-color: #d8ccf6;
+            background: linear-gradient(135deg, #f7f4ff, #f1f3ff);
+            color: #674ca8;
+        }
+        .ai-grounding-graph.metric-reference:hover {
+            border-color: #b9a5ed;
+            background: linear-gradient(135deg, #f0eaff, #e9edff);
+            color: #573b99;
+        }
+        .ai-input-area {
+            display: flex;
+            padding: 14px 16px 16px;
+            background: #fff;
+            border-top: 1px solid #e7ebf2;
+            gap: 10px;
+            align-items: center;
+        }
+        .ai-input {
+            flex: 1;
+            height: 46px;
+            box-sizing: border-box;
+            padding: 12px 17px;
+            border: 1px solid #d9dfeb;
+            border-radius: 14px;
+            outline: none;
+            font-size: 14px;
+            transition: all 0.2s;
+            background: #f7f9fc;
+            color: #1e293b !important;
+        }
+        .ai-input::placeholder {
+            color: #94a3b8 !important;
+        }
+        .ai-input:focus {
+            border-color: #10a37f;
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.15);
+        }
+        .ai-send-btn {
+            background: #10a37f;
+            color: #fff;
+            border: none;
+            width: 46px;
+            height: 46px;
+            flex: 0 0 46px;
+            border-radius: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            box-shadow: 0 6px 16px rgba(16, 163, 127, 0.28);
+        }
+        .ai-send-btn:hover {
+            background: #0d8a6b;
+            transform: scale(1.05);
+        }
+        .ai-send-btn.is-generating {
+            background: #ef6678;
+            box-shadow: 0 7px 18px rgba(239,102,120,0.28);
+        }
+        .ai-send-btn.is-generating .ai-stop-square {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            background: currentColor;
+        }
+        .ai-msg.ai.streaming::after {
+            content: "";
+            display: inline-block;
+            width: 7px;
+            height: 15px;
+            margin-left: 3px;
+            vertical-align: -2px;
+            border-radius: 2px;
+            background: #667eea;
+            animation: ai-stream-caret 0.9s steps(1, end) infinite;
+        }
+        @keyframes ai-stream-caret { 50% { opacity: 0.18; } }
+        .ai-typing {
+            font-size: 12px;
+            color: #94a3b8;
+            font-style: italic;
+            align-self: flex-start;
+            margin-top: -8px;
+            display: none;
+            padding: 0 16px;
+        }
+        .ai-context-notice {
+            align-self: center;
+            max-width: calc(100% - 44px);
+            margin: 2px auto 8px;
+            padding: 7px 12px;
+            border: 1px solid #d9def8;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #f5f7ff, #f0efff);
+            color: #626b91;
+            font-size: 11px;
+            line-height: 1.4;
+            text-align: center;
+            box-shadow: 0 3px 10px rgba(78,70,160,0.07);
+        }
+        .ai-context-notice.is-working { animation: ai-context-pulse 1.25s ease-in-out infinite; }
+        .ai-context-notice.is-done { border-color: #cce7dc; background: #f1fbf6; color: #39745e; }
+        .ai-context-notice.is-failed { border-color: #f0d6b5; background: #fff8ed; color: #94662e; }
+        @keyframes ai-context-pulse { 50% { opacity: 0.62; transform: translateY(-1px); } }
+        .ai-suggestions {
+            display:flex;
+            align-items:center;
+            gap:8px;
+            padding:10px 16px 12px;
+            box-sizing:border-box;
+            background: #fff;
+            border-top: 1px solid #edf0f5;
+            height:50px;
+            max-height:50px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            flex: 0 0 auto;
+            scrollbar-width:none;
+            overscroll-behavior-x: contain;
+            -webkit-overflow-scrolling: touch;
+            opacity: 1;
+            transition: max-height 0.22s ease, height 0.22s ease, padding 0.22s ease, opacity 0.16s ease, border-color 0.16s;
+        }
+        .ai-suggestions::-webkit-scrollbar { display:none; }
+        .ai-suggestions.is-collapsed {
+            height: 0;
+            max-height: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            opacity: 0;
+            overflow: hidden;
+            border-top-color: transparent;
+            pointer-events: none;
+        }
+        .ai-suggestion-chip {
+            flex:0 0 auto;
+            width:auto;
+            max-width:168px;
+            min-width: 0;
+            border: 1px solid #dfe4f4;
+            background: #f6f7fc;
+            color: #5865b8;
+            border-radius: 999px;
+            padding: 7px 10px;
+            font-size: 12px;
+            line-height: 1.2;
+            height: 28px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            cursor: pointer;
+        }
+        .ai-panel:not(.expanded) .ai-suggestion-chip {
+            max-width:138px;
+        }
+        .ai-panel.fullscreen .ai-suggestions,
+        .ai-panel.fullscreen .ai-input-area {
+            padding-left: max(24px, calc((100vw - 1040px) / 2));
+            padding-right: max(24px, calc((100vw - 1040px) / 2));
+        }
+        .ai-suggestions:empty {
+            display: none;
+        }
+        .ai-suggestion-chip:hover {
+            background: rgba(238,242,255,0.92);
+            border-color: #aebcff;
+        }
+        .ai-history-panel {
+            display: none;
+            background: #fff;
+            border-bottom: 1px solid #e7ebf2;
+            max-height: 210px;
+            overflow-y: auto;
+            padding: 10px 14px;
+        }
+        .ai-history-panel.open {
+            display: block;
+        }
+        .ai-history-item {
+            border: 1px solid rgba(148,163,184,0.32);
+            border-radius: 10px;
+            padding: 9px 10px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            background: rgba(248,250,252,0.72);
+        }
+        .ai-history-item:hover {
+            border-color: #aebcff;
+            background: rgba(245,247,255,0.9);
+        }
+        .ai-history-title {
+            font-size: 12px;
+            color: #334155;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .ai-history-meta {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 4px;
+        }
+        .ai-archive-overlay {
+            position:fixed; inset:0; z-index:100500; display:none; place-items:center; padding:20px;
+            box-sizing:border-box; background:rgba(15,23,42,.48); backdrop-filter:blur(10px);
+        }
+        .ai-archive-overlay.open { display:grid; }
+        .ai-archive-window {
+            width:min(1120px,calc(100vw - 40px)); height:min(780px,calc(100vh - 40px));
+            display:flex; flex-direction:column; overflow:hidden; border-radius:20px;
+            border:1px solid #dce2ed; background:#f7f9fd; color:#334155;
+            box-shadow:0 32px 100px rgba(15,23,42,.38);
+        }
+        .ai-archive-header { min-height:66px; padding:0 20px; display:flex; align-items:center; gap:14px; color:#fff; background:linear-gradient(135deg,#25356f,#594394 64%,#684598); }
+        .ai-archive-heading { min-width:0; flex:1; }
+        .ai-archive-title { font-size:17px; font-weight:760; }
+        .ai-archive-subtitle { margin-top:3px; color:rgba(237,242,255,.72); font-size:10px; }
+        .ai-archive-close { width:34px; height:34px; border-radius:10px; border:1px solid rgba(255,255,255,.16); background:rgba(255,255,255,.12); color:#fff; cursor:pointer; font-size:20px; }
+        .ai-archive-toolbar { display:flex; align-items:center; gap:12px; padding:14px 18px; border-bottom:1px solid #e3e8f1; background:#fff; }
+        .ai-archive-search { flex:1; height:40px; padding:0 14px; border:1px solid #d8dfeb; border-radius:11px; outline:none; background:#f7f9fc; color:#243247; }
+        .ai-archive-search:focus { border-color:#7585e8; box-shadow:0 0 0 3px rgba(102,126,234,.11); }
+        .ai-archive-count { color:#7b879b; font-size:11px; white-space:nowrap; }
+        .ai-archive-content { flex:1; min-height:0; display:grid; grid-template-columns:350px minmax(0,1fr); }
+        .ai-archive-list { overflow:auto; padding:12px; border-right:1px solid #e3e8f1; background:#f2f5fa; }
+        .ai-archive-item { width:100%; margin-bottom:9px; padding:12px; border:1px solid #dce2ed; border-radius:12px; background:#fff; color:#334155; text-align:left; cursor:pointer; }
+        .ai-archive-item:hover,.ai-archive-item.active { border-color:#9caaee; background:#f4f6ff; }
+        .ai-archive-item-header { display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:4px; }
+        .ai-archive-item-title { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; font-weight:700; }
+        .ai-archive-badge { display:inline-block; padding:1px 6px; border-radius:4px; font-size:10px; font-weight:600; line-height:1.4; white-space:nowrap; }
+        .ai-archive-badge.active { background:#e0f2fe; color:#0284c7; }
+        .ai-archive-badge.archived { background:#f1f5f9; color:#64748b; }
+        .ai-archive-item-question { margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#64748b; font-size:11px; }
+        .ai-archive-item-meta { margin-top:7px; color:#94a3b8; font-size:9px; }
+        .ai-archive-preview { min-width:0; overflow:auto; padding:22px; background:#f8fafd; }
+        .ai-archive-preview-head { display:flex; align-items:flex-start; gap:12px; margin-bottom:18px; }
+        .ai-archive-preview-heading { min-width:0; flex:1; }
+        .ai-archive-preview-title { color:#1f2d44; font-size:16px; font-weight:740; word-break:break-word; }
+        .ai-archive-preview-path { margin-top:5px; color:#8491a7; font-size:10px; word-break:break-all; }
+        .ai-archive-restore { height:34px; padding:0 12px; border:0; border-radius:10px; background:linear-gradient(135deg,#556ee6,#7259c8); color:#fff; cursor:pointer; font-size:11px; font-weight:700; }
+        .ai-archive-message { max-width:88%; margin-bottom:12px; padding:11px 14px; border-radius:13px; font-size:12px; line-height:1.6; word-break:break-word; }
+        .ai-archive-message.user { margin-left:auto; color:#fff; background:linear-gradient(135deg,#556ee6,#7259c8); border-bottom-right-radius:5px; }
+        .ai-archive-message.ai { color:#334155; background:#fff; border:1px solid #e4e9f1; border-bottom-left-radius:5px; }
+        .ai-archive-message p { margin:0 0 8px; }
+        .ai-archive-message p:last-child { margin-bottom:0; }
+        .ai-archive-message pre { overflow:auto; padding:10px; border-radius:8px; background:#f2f5fa; }
+        .ai-archive-message code { padding:1px 4px; border-radius:4px; background:#edf1f7; }
+        .ai-archive-message ul,.ai-archive-message ol { margin:6px 0; padding-left:20px; }
+        .ai-archive-empty { display:grid; place-items:center; min-height:220px; color:#8491a7; font-size:12px; text-align:center; line-height:1.7; }
+        .ai-archive-overlay[data-theme="graph"] { background:rgba(3,7,15,.66); }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-window { border-color:rgba(137,152,201,.25); background:#0d1422; color:#cbd5e1; box-shadow:0 34px 110px rgba(0,0,0,.68); }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-header { background:radial-gradient(circle at 16% 0%,rgba(91,112,211,.2),transparent 34%),linear-gradient(135deg,#111a2c,#151b30 62%,#211938); }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-toolbar { background:#0f1726; border-color:rgba(132,147,194,.17); }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-search { background:#111a2b; color:#e4e9f5; border-color:rgba(136,152,207,.3); }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-list { background:#0a101b; border-color:rgba(132,147,194,.17); }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-item { background:#151e31; color:#dfe5f2; border-color:rgba(132,147,194,.18); }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-item:hover,.ai-archive-overlay[data-theme="graph"] .ai-archive-item.active { background:#1b2740; border-color:rgba(130,148,232,.5); }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-badge.active { background:#0c4a6e; color:#38bdf8; }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-badge.archived { background:#1e293b; color:#94a3b8; }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-item-question { color:#94a3b8; }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-preview { background:#0d1422; }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-preview-title { color:#edf1fb; }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-message.ai { color:#cbd5e1; background:#151e31; border-color:rgba(132,147,194,.18); }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-message.ai h1,.ai-archive-overlay[data-theme="graph"] .ai-archive-message.ai h2,.ai-archive-overlay[data-theme="graph"] .ai-archive-message.ai h3 { color:#edf1fb; }
+        .ai-archive-overlay[data-theme="graph"] .ai-archive-message.ai pre,.ai-archive-overlay[data-theme="graph"] .ai-archive-message.ai code { background:#0d1422; color:#b9c8ff; }
+        .ai-panel[data-theme="graph"] {
+            background:#0d1422 !important; color:#cbd5e1 !important;
+            border-color:rgba(137,152,201,.28); border-radius:16px;
+            box-shadow:0 28px 90px rgba(0,0,0,.58),0 0 0 1px rgba(102,120,194,.12),inset 0 1px 0 rgba(255,255,255,.05);
+        }
+        .ai-panel:not(.fullscreen) .ai-header { cursor:grab; touch-action:none; user-select:none; }
+        .ai-panel.dragging { transition:none; }
+        .ai-panel.dragging .ai-header { cursor:grabbing; }
+        .ai-panel.fullscreen .ai-header { cursor:default; }
+        .ai-panel[data-theme="graph"].dragging { box-shadow:0 34px 100px rgba(0,0,0,.66),0 0 0 1px rgba(126,145,222,.28); }
+        .ai-panel[data-theme="graph"] .ai-header {
+            border-bottom:1px solid rgba(137,152,201,.18);
+            background:radial-gradient(circle at 16% 0%,rgba(91,112,211,.2),transparent 34%),linear-gradient(135deg,#111a2c,#151b30 62%,#211938);
+        }
+        .ai-panel[data-theme="graph"] .ai-brand-mark { background:#151d31; border-color:rgba(153,169,224,.25); }
+        .ai-panel[data-theme="graph"] .ai-chat-body {
+            background:radial-gradient(circle at 14% 0%,rgba(86,104,196,.08),transparent 34%),linear-gradient(180deg,#0d1422,#0a101b);
+        }
+        .ai-panel[data-theme="graph"] .ai-msg.ai { background:#151e31; color:#cbd5e1; border-color:rgba(132,147,194,.18); box-shadow:0 10px 28px rgba(0,0,0,.18); }
+        .ai-panel[data-theme="graph"] .ai-msg.user { background:linear-gradient(135deg,#5065c7,#7653b8); box-shadow:0 9px 24px rgba(54,63,142,.3); }
+        .ai-panel[data-theme="graph"] .ai-msg h1, .ai-panel[data-theme="graph"] .ai-msg h2, .ai-panel[data-theme="graph"] .ai-msg h3, .ai-panel[data-theme="graph"] .ai-msg h4 { color:#edf1fb; }
+        .ai-panel[data-theme="graph"] .ai-msg code { background:rgba(102,119,184,.2); color:#b9c8ff; }
+        .ai-panel[data-theme="graph"] .ai-msg pre, .ai-panel[data-theme="graph"] .ai-msg blockquote { background:#101827; color:#aeb9d0; border-color:#6678cf; }
+        .ai-panel[data-theme="graph"] .ai-token-usage, .ai-panel[data-theme="graph"] .ai-grounding { color:#7886a2; border-color:rgba(137,152,201,.2); }
+        .ai-panel[data-theme="graph"] .ai-grounding-title { color:#aeb9d0; }
+        .ai-panel[data-theme="graph"] .ai-grounding-graph { background:#111a2c; color:#9eaff2; border-color:rgba(132,148,207,.22); }
+        .ai-panel[data-theme="graph"] .ai-grounding-graph:hover, .ai-panel[data-theme="graph"] button.ai-grounding-item:hover { background:#18243c; color:#c6d4ff; border-color:rgba(146,165,245,.45); }
+        .ai-panel[data-theme="graph"] .ai-grounding-graph.metric-reference { background:linear-gradient(135deg,rgba(112,85,189,.22),rgba(80,101,199,.18)); color:#caa9f8; border-color:rgba(168,136,238,.3); }
+        .ai-panel[data-theme="graph"] .ai-grounding-graph.metric-reference:hover { background:linear-gradient(135deg,rgba(112,85,189,.34),rgba(80,101,199,.28)); color:#e5d5fd; border-color:rgba(189,162,247,.55); }
+        .ai-panel[data-theme="graph"] .ai-suggestions, .ai-panel[data-theme="graph"] .ai-input-area, .ai-panel[data-theme="graph"] .ai-history-panel { background:#0f1726; border-color:rgba(132,147,194,.17); }
+        .ai-panel[data-theme="graph"] .ai-suggestion-chip, .ai-panel[data-theme="graph"] .ai-history-item { background:#151e31; color:#aebcf0; border-color:rgba(132,147,194,.2); }
+        .ai-panel[data-theme="graph"] .ai-suggestion-chip:hover, .ai-panel[data-theme="graph"] .ai-history-item:hover { background:#1b2740; border-color:rgba(130,148,232,.48); }
+        .ai-panel[data-theme="graph"] .ai-history-title { color:#dfe5f2; }
+        .ai-panel[data-theme="graph"] .ai-input { background:#111a2b; color:#e4e9f5 !important; border-color:rgba(136,152,207,.3); }
+        .ai-panel[data-theme="graph"] .ai-input:focus { background:#151e31; border-color:#7081e4; box-shadow:0 0 0 3px rgba(99,102,241,.16); }
+        .ai-panel[data-theme="graph"] .ai-send-btn { background:linear-gradient(135deg,#5369d9,#7653bd); }
+        .ai-panel[data-theme="graph"] .ai-table-wrap, .ai-panel[data-theme="graph"] .ai-markdown-table { background:#111a2b; border-color:rgba(132,147,194,.2); }
+        .ai-panel[data-theme="graph"] .ai-markdown-table th { background:#182239; color:#dfe5f2; border-color:rgba(132,147,194,.2); }
+        .ai-panel[data-theme="graph"] .ai-markdown-table td { color:#aeb9d0; border-color:rgba(132,147,194,.13); }
+        .ai-panel[data-theme="graph"] .ai-markdown-table tbody tr:nth-child(even) td, .ai-panel[data-theme="graph"] .ai-markdown-table tbody tr:hover td { background:#141e31; }
+        @media (max-width: 520px) {
+            .ai-fab {
+                right: 0;
+                bottom: 124px;
+                height: 44px;
+                min-width: 50px;
+                padding: 0 9px;
+                border-radius: 22px 0 0 22px;
+            }
+            .ai-fab-orb { width: 30px; height: 30px; }
+            .ai-panel,
+            .ai-panel.expanded {
+                right: 12px;
+                bottom: 130px;
+                width: calc(100vw - 24px);
+                height: min(70vh, 550px);
+                max-width: none;
+            }
+            .ai-panel.fullscreen {
+                inset: 0;
+                width: 100vw;
+                height: 100vh;
+                border-radius: 0;
+            }
+            .ai-brand-subtitle { display: none; }
+            .ai-header { padding-left: 12px; padding-right: 10px; }
+            .ai-header-actions { gap: 4px; }
+            .ai-archive-overlay { padding:0; }
+            .ai-archive-window { width:100vw; height:100vh; border-radius:0; }
+            .ai-archive-content { grid-template-columns:1fr; }
+            .ai-archive-list { max-height:38vh; border-right:0; border-bottom:1px solid #e3e8f1; }
+        }
+        @media (max-width: 400px) {
+            .ai-brand-copy { display:none; }
+            .ai-header-actions { gap:3px; }
+            .ai-action-btn { width:30px; height:30px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .ai-fab,
+            .ai-fab::before,
+            .ai-fab-label,
+            .ai-panel {
+                transition-duration: 0.01ms !important;
+            }
+            .ai-fab-orb::before,
+            .ai-fab.is-pulse .ai-fab-orb { animation: none; }
+        }
+    </style></head>
+
+<body class="report-page" data-platform-theme="light" data-theme="light">
+    
+    <div class="page-container">
+        <div class="report-header">
+            <div class="report-header-main">
+                <div class="report-header-card">
+                    <div class="report-top-bar">
+                        <div class="report-title-group">
+                            <h2 class="report-title">
+                                <span id="reportPageTitle">📈 报表看板</span>
+                                <span id="reportFrontendVersion" class="report-version-badge" title="平台版本：1.0.664">v1.0.664</span>
+                            </h2>
+                        </div>
+                    </div>
+
+                    <div class="report-query-bar">
+                        <div class="report-control-field">
+                            <span class="control-label">考核月份：</span>
+                            <select id="target-month-select" class="report-select" data-user-changed="false"><option value="1">1月份</option><option value="2">2月份</option><option value="3">3月份</option><option value="4">4月份</option><option value="5">5月份</option><option value="6">6月份</option><option value="7">7月份</option><option value="8">8月份</option><option value="9" selected="">9月份</option><option value="10">10月份</option><option value="11">11月份</option><option value="12">12月份</option></select>
+                        </div>
+                        <div class="report-control-field">
+                            <span class="control-label">历史快照：</span>
+                            <select id="snapshot-select" class="report-select"><option value="15206f39-9cfd-4a8e-874a-4d4e8e873983" selected="">2026-10-10 12:38 (包含 41 个表格源)</option><option value="mtlglsvh">2026-09-03 14:46 (包含 43 个表格源)</option><option value="mtlgce0h">2026-09-03 14:38 (包含 41 个表格源)</option><option value="mrj7olu4">2026-07-13 15:41 (包含 44 个表格源)</option><option value="mralevx6">2026-07-07 14:56 (包含 38 个表格源)</option><option value="mr61seu2">2026-07-04 10:35 (包含 41 个表格源)</option><option value="mr3w2tl9">2026-07-02 22:20 (包含 47 个表格源)</option><option value="mr27x2ii">2026-07-01 18:16 (包含 41 个表格源)</option><option value="mr0zcgc1">2026-06-30 21:28 (包含 41 个表格源)</option><option value="mqzj3ttr">2026-06-29 21:05 (包含 41 个表格源)</option><option value="mqy80rz1">2026-06-28 23:07 (包含 41 个表格源)</option><option value="mqvzwnos">2026-06-27 09:45 (包含 41 个表格源)</option><option value="mqukzpsh">2026-06-26 09:59 (包含 41 个表格源)</option><option value="mqrt4476">2026-06-24 11:23 (包含 41 个表格源)</option><option value="mqqe5nis">2026-06-23 11:37 (包含 41 个表格源)</option><option value="mqmrxfqj">2026-06-20 22:51 (包含 41 个表格源)</option><option value="mqjyriqw">2026-06-18 23:39 (包含 39 个表格源)</option><option value="mqgepk9u">2026-06-16 11:55 (包含 39 个表格源)</option><option value="mqeyueji">2026-06-15 11:43 (包含 38 个表格源)</option><option value="mqdwyn5q">2026-06-14 18:02 (包含 38 个表格源)</option><option value="mqbevmnv">2026-06-13 00:01 (包含 38 个表格源)</option><option value="mq98cx0d">2026-06-11 11:23 (包含 38 个表格源)</option><option value="mq6yy48w">2026-06-09 21:24 (包含 39 个表格源)</option><option value="mq45ge72">2026-06-07 22:02 (包含 38 个表格源)</option><option value="mpz5i45d">2026-06-04 10:05 (包含 38 个表格源)</option><option value="mpwekn1u">2026-06-02 11:56 (包含 37 个表格源)</option><option value="mpuyovkg">2026-06-01 11:43 (包含 37 个表格源)</option><option value="mpsp5p18">2026-05-30 21:41 (包含 35 个表格源)</option><option value="mpol7bu2">2026-05-28 00:39 (包含 34 个表格源)</option><option value="mpn5iefg">2026-05-27 00:32 (包含 34 个表格源)</option><option value="mplo2b01">2026-05-25 23:36 (包含 34 个表格源)</option><option value="mpjk46v4">2026-05-24 12:10 (包含 34 个表格源)</option><option value="mpi1axj2">2026-05-23 10:35 (包含 34 个表格源)</option><option value="mphdcshx">2026-05-22 23:25 (包含 34 个表格源)</option><option value="mpfftz2k">2026-05-21 14:59 (包含 34 个表格源)</option><option value="mpe79nkf">2026-05-20 18:11 (包含 34 个表格源)</option><option value="mpcea0ly">2026-05-19 11:52 (包含 33 个表格源)</option><option value="mpb870x5">2026-05-18 16:14 (包含 33 个表格源)</option><option value="mpa32atc">2026-05-17 21:02 (包含 33 个表格源)</option><option value="mp8pwiyy">2026-05-16 22:06 (包含 32 个表格源)</option><option value="mp7crnaj">2026-05-15 23:11 (包含 38 个表格源)</option></select>
+                        </div>
+                        <label id="report-snapshot-filter-setting" class="report-snapshot-filter-setting" title="自动忽略表源数低于此值的快照；0 表示不过滤数量。仅影响报表看板，其他功能仍可使用原始快照。">
+                            <span id="report-snapshot-filter-label">最少表源</span>
+                            <input type="number" id="report-min-source-tables" min="0" max="10000" step="1" value="20" required="" aria-label="最少表源" aria-describedby="report-snapshot-filter-help">
+                            <span class="report-snapshot-filter-info" aria-hidden="true" title="表源数量下限过滤">ⓘ</span>
+                            <span id="report-snapshot-filter-help" class="report-snapshot-filter-help">自动忽略表源数低于此值的快照；0 表示不过滤数量。仅影响报表看板，其他功能仍可使用原始快照。</span>
+                        </label>
+                        <div class="report-score-control">
+                            <label class="score-calc-label">
+                                <input type="checkbox" id="auto-std-score-cb" value="on"> 自动计算总分
+                            </label>
+                            <input type="number" id="custom-std-score-input" value="100">
+                        </div>
+                    </div>
+
+                    <div class="report-toolbar-actions">
+                        <button type="button" class="btn-report-action btn-report-primary" title="保存数据到数据库">
+                            <span class="btn-icon">💾</span>
+                            <span class="btn-text">入库</span>
+                        </button>
+                        <button type="button" class="btn-report-action btn-report-export" title="一键导出赛马考核Excel表">
+                            <span class="btn-icon">🐴</span>
+                            <span class="btn-text">一键导出“于*”的赛马表</span>
+                        </button>
+                        <div class="report-action-separator"></div>
+                        <button type="button" class="btn-report-action btn-report-ghost" title="配置Excel模板映射">
+                            <span class="btn-icon">⚙️</span>
+                            <span class="btn-text">模板映射</span>
+                        </button>
+                        <button type="button" class="btn-report-action btn-report-ghost" title="配置指标分组与顺序">
+                            <span class="btn-icon">📂</span>
+                            <span class="btn-text">指标分组配置</span>
+                        </button>
+                        <button type="button" class="btn-report-action btn-report-ghost" title="配置指标考核权重">
+                            <span class="btn-icon">⚖️</span>
+                            <span class="btn-text">权重配置</span>
+                        </button>
+                        <button type="button" class="btn-report-action btn-report-ghost" title="手动新增自定义指标">
+                            <span class="btn-icon">➕</span>
+                            <span class="btn-text">手动增加指标</span>
+                        </button>
+                        <button type="button" class="btn-report-action btn-report-ghost" title="配置中英文双语字典">
+                            <span class="btn-icon">🌐</span>
+                            <span class="btn-text">中英翻译配置</span>
+                        </button>
+                    </div>
+
+                    <div class="report-sub-bar print-hide" data-html2canvas-ignore="true">
+                        <div id="report-deficiency-summary" class="report-deficiency-summary is-warning" style="display: flex;">
+            <div class="deficiency-icon">⚠️</div>
+            <div class="deficiency-content">
+                <div class="deficiency-header">
+                    <span class="deficiency-badge">短板透视</span>
+                    <span class="deficiency-lead">共 <strong>3</strong> 列未达标</span>
+                    <span class="def-pass-tag" title="达标领跑列">达标 1 列</span>
+                </div>
+                <div class="deficiency-summary-row" title="E* (-19.22分)、O*G (-14.62分)、T* (-2.16分)">
+                    <div class="def-pills-wrap"><span class="def-cat-pill" title="E*: 最终得分 80.78分，距基准分缺 -19.22分，共 7 项未达标">
+                <strong class="def-cat-name">E*</strong>
+                <span class="def-score">80.78分</span>
+                <span class="def-gap">(-19.22分)</span>
+            </span> <span class="def-cat-pill" title="O*G: 最终得分 85.38分，距基准分缺 -14.62分，共 6 项未达标">
+                <strong class="def-cat-name">O*G</strong>
+                <span class="def-score">85.38分</span>
+                <span class="def-gap">(-14.62分)</span>
+            </span> <span class="def-cat-pill" title="T*: 最终得分 97.84分，距基准分缺 -2.16分，共 6 项未达标">
+                <strong class="def-cat-name">T*</strong>
+                <span class="def-score">97.84分</span>
+                <span class="def-gap">(-2.16分)</span>
+            </span></div>
+                    <span class="def-shortfalls-text">短板主要集中在 【维保订单】、【业务收入】、【过保订单及SPMS】</span>
+                </div>
+            </div>
+        </div>
+                        
+                        
+                        <div id="report-ranking-insights" class="ranking-insights">
+                <button id="ranking-count-insight" class="ranking-count-insight" type="button" title="07-13 12:41：整体 45，子指标 131
+09-03 11:46：整体 46，子指标 134
+10-10 09:38：整体 46，子指标 134
+点击查看最近90天指标数量趋势">
+            <div class="insight-card-icon">📊</div>
+            <div class="insight-card-content">
+                <div class="insight-card-header">
+                    <span class="insight-card-badge is-blue">指标规模</span>
+                    <span class="insight-seq-tag" title="近3期[整体/子指标]体量趋势">45/131 → 46/134 → 46/134</span>
+                    <span class="insight-pill"><strong>整体</strong> 46</span>
+                    <span class="insight-pill sub"><strong>子指标</strong> 134</span>
+                    <span class="insight-delta is-stable">变化 0 / 0</span>
+                </div>
+                <div class="insight-card-summary">
+                    <span class="insight-summary-lead">指标体量持平</span>：考评体系与监控范围稳定，无增减变更
+                </div>
+            </div>
+        </button>
+                <button id="expiring-warning-insight" class="ranking-count-insight" type="button" title="07-13 12:41：总预警 88，临期单据 86，特殊指标 2
+09-03 11:46：总预警 40，临期单据 36，特殊指标 4
+10-10 09:38：总预警 51，临期单据 47，特殊指标 4
+点击查看最近90天临期预警趋势">
+            <div class="insight-card-icon">⚠️</div>
+            <div class="insight-card-content">
+                <div class="insight-card-header">
+                    <span class="insight-card-badge is-warning">临期预警</span>
+                    <span class="insight-seq-tag" title="近3期预警总数趋势">88 → 40 → 51</span>
+                    <span class="insight-pill"><strong>总</strong> 51</span>
+                    <span class="insight-pill sub"><strong>单据</strong> 47</span>
+                    <span class="insight-delta is-danger">变化 +11 / +11</span>
+                </div>
+                <div class="insight-card-summary">
+                    <span class="insight-summary-lead">预警量反弹 +11项</span>：需紧盯临期单据催办督办，防范超期滞留
+                </div>
+            </div>
+        </button>
+    </div>
+                    </div>
+                </div>
+            </div>
+            <div id="report-ranking-summary">
+        <aside class="card ranking-card">
+            <div class="ranking-overview">
+                <div class="ranking-title-wrap">
+                    <h3 class="card-title">🏇 “赛马”排行</h3>
+                </div>
+            </div>
+            <div class="ranking-table-wrap" tabindex="0" role="region" aria-label="🏇 “赛马”排行">
+            <table class="ranking-table">
+                <colgroup>
+                    <col class="ranking-col-rank">
+                    <col class="ranking-col-category">
+                    <col class="ranking-col-standard">
+                    <col class="ranking-col-system">
+                    <col class="ranking-col-adjust">
+                    <col class="ranking-col-final">
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th class="th-rank">排名</th>
+                        <th class="th-cat" style="text-align:left;">评定区域 / 客户群</th>
+                        <th class="th-std">基准分</th>
+                        <th class="th-sys">系统得分</th>
+                        <th class="th-adj">加减分</th>
+                        <th class="th-final">最终得分</th>
+                    </tr>
+                </thead>
+                <tbody id="ranking-tbody">
+            <tr class="ranking-row rank-pos-1">
+                <td class="ranking-cell-rank"><span class="rank-medal" title="第1名">🥇</span></td>
+                <td class="ranking-cell-name"><span class="cat-name">V*F</span></td>
+                <td class="ranking-cell-std">
+                    <button type="button" class="btn-cell-std" title="点击查看详情">100</button>
+                </td>
+                <td class="ranking-cell-sys">
+                    <div class="ranking-system-score">
+                        <button type="button" class="btn-sys-score" title="点击查看计算明细">98.15</button>
+                        <span class="ranking-score-formula">(57.91 / 59)</span>
+                    </div>
+                </td>
+                <td class="ranking-cell-adj">
+                    <button type="button" class="btn-adj-score adj-plus" title="点击查看加减分明细">+2</button>
+                </td>
+                <td class="ranking-cell-final"><span class="score-badge success">100.15</span></td>
+            </tr>
+        
+            <tr class="ranking-row rank-pos-2">
+                <td class="ranking-cell-rank"><span class="rank-medal" title="第2名">🥈</span></td>
+                <td class="ranking-cell-name"><span class="cat-name">T*</span></td>
+                <td class="ranking-cell-std">
+                    <button type="button" class="btn-cell-std" title="点击查看详情">100</button>
+                </td>
+                <td class="ranking-cell-sys">
+                    <div class="ranking-system-score">
+                        <button type="button" class="btn-sys-score" title="点击查看计算明细">87.84</button>
+                        <span class="ranking-score-formula">(71.15 / 81)</span>
+                    </div>
+                </td>
+                <td class="ranking-cell-adj">
+                    <button type="button" class="btn-adj-score adj-plus" title="点击查看加减分明细">+10</button>
+                </td>
+                <td class="ranking-cell-final"><span class="score-badge">97.84</span></td>
+            </tr>
+        
+            <tr class="ranking-row rank-pos-3">
+                <td class="ranking-cell-rank"><span class="rank-medal" title="第3名">🥉</span></td>
+                <td class="ranking-cell-name"><span class="cat-name">O*G</span></td>
+                <td class="ranking-cell-std">
+                    <button type="button" class="btn-cell-std" title="点击查看详情">100</button>
+                </td>
+                <td class="ranking-cell-sys">
+                    <div class="ranking-system-score">
+                        <button type="button" class="btn-sys-score" title="点击查看计算明细">93.38</button>
+                        <span class="ranking-score-formula">(70.04 / 75)</span>
+                    </div>
+                </td>
+                <td class="ranking-cell-adj">
+                    <button type="button" class="btn-adj-score adj-minus" title="点击查看加减分明细">-8</button>
+                </td>
+                <td class="ranking-cell-final"><span class="score-badge">85.38</span></td>
+            </tr>
+        
+            <tr class="ranking-row rank-pos-4">
+                <td class="ranking-cell-rank"><span class="rank-number">4</span></td>
+                <td class="ranking-cell-name"><span class="cat-name">E*</span></td>
+                <td class="ranking-cell-std">
+                    <button type="button" class="btn-cell-std" title="点击查看详情">100</button>
+                </td>
+                <td class="ranking-cell-sys">
+                    <div class="ranking-system-score">
+                        <button type="button" class="btn-sys-score" title="点击查看计算明细">90.78</button>
+                        <span class="ranking-score-formula">(61.73 / 68)</span>
+                    </div>
+                </td>
+                <td class="ranking-cell-adj">
+                    <button type="button" class="btn-adj-score adj-minus" title="点击查看加减分明细">-10</button>
+                </td>
+                <td class="ranking-cell-final"><span class="score-badge">80.78</span></td>
+            </tr>
+        </tbody>
+            </table>
+            </div>
+        </aside>
+    </div>
+        </div>
+
+        <!-- Weight Config Modal -->
+        
+
+        <!-- Add Manual Metric Modal -->
+        
+
+        <!-- Group Config Modal -->
+        
+
+        <!-- I18n Config Modal -->
+        
+
+
+        <div id="report-content" class="dashboard-grid" data-tour-focus=""><div class="report-workspace">
+        <section class="report-section" id="matrix-card">
+            <h3 class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+                <span>🧩 客户群/代表处/区域短板透视矩阵</span>
+                <div class="card-title-actions">
+                    <button type="button" class="btn-matrix-fullscreen" id="fs-btn-matrix-card" title="全屏查看表格">
+                        <span class="fs-icon">⛶</span>
+                        <span class="fs-text">全屏查看</span>
+                    </button>
+                </div>
+            </h3>
+            <div class="matrix-container">
+            <table class="matrix-table" id="main-matrix-table">
+                <colgroup>
+                    <col style="width:4%"><col style="width:4%">
+                    <col style="width:22%"><col style="width:4%"><col style="width:7%"><col style="width:9%">
+                    <col><col><col><col><col><col><col><col>
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th class="th-group" style="min-width:40px; max-width:60px; white-space:normal; position:sticky; top:0; z-index:11;">分组</th>
+                                       <th class="th-group-weight" style="min-width:40px; position:sticky; top:0; z-index:11;" title="分组内所有指标权重之和">总权重</th>
+                        <th class="th-metric-name" style="min-width:180px; text-align:left;">考核的指标名称</th>
+                        <th class="th-weight" style="min-width:60px;">权重</th>
+                        <th class="th-target" style="min-width:100px;">9月目标值</th>
+                        <th class="th-global-target" style="min-width:100px;">全局总体达标</th>
+                        <th class="th-category">T*</th><th class="th-category">O*G</th><th class="th-category">E*</th><th class="th-category">V*F</th>
+                        <th class="th-score">T* 得分</th><th class="th-score">O*G 得分</th><th class="th-score">E* 得分</th><th class="th-score">V*F 得分</th>
+                    </tr>
+                <tr class="matrix-filter-row"><th class="matrix-filter-th" style="position: sticky; top: 35px; z-index: 20;">
+            <div class="custom-ms" data-col="0">
+                <div class="ms-btn" title="全部">
+                    <span class="ms-text">全部</span>
+                    <span class="ms-arrow">▾</span>
+                </div>
+                
+            </div>
+        </th><th class="matrix-filter-th" style="position: sticky; top: 35px; z-index: 20;">
+            <div class="custom-ms" data-col="1">
+                <div class="ms-btn" title="全部">
+                    <span class="ms-text">全部</span>
+                    <span class="ms-arrow">▾</span>
+                </div>
+                
+            </div>
+        </th><th class="matrix-filter-th" style="position: sticky; top: 35px; z-index: 20;">
+            <div class="custom-ms" data-col="2">
+                <div class="ms-btn" title="全部">
+                    <span class="ms-text">全部</span>
+                    <span class="ms-arrow">▾</span>
+                </div>
+                
+            </div>
+        </th><th class="matrix-filter-th" style="position: sticky; top: 35px; z-index: 20;">
+            <div class="custom-ms" data-col="3">
+                <div class="ms-btn" title="全部">
+                    <span class="ms-text">全部</span>
+                    <span class="ms-arrow">▾</span>
+                </div>
+                
+            </div>
+        </th><th class="matrix-filter-th" style="position: sticky; top: 35px; z-index: 20;">
+            <div class="custom-ms" data-col="4">
+                <div class="ms-btn" title="全部">
+                    <span class="ms-text">全部</span>
+                    <span class="ms-arrow">▾</span>
+                </div>
+                
+            </div>
+        </th><th class="matrix-filter-th" style="position: sticky; top: 35px; z-index: 20;">
+            <div class="custom-ms" data-col="5">
+                <div class="ms-btn" title="全部">
+                    <span class="ms-text">全部</span>
+                    <span class="ms-arrow">▾</span>
+                </div>
+                
+            </div>
+        </th><th class="matrix-filter-th" style="position: sticky; top: 35px; z-index: 20;">
+            <div class="custom-ms" data-col="6">
+                <div class="ms-btn" title="全部">
+                    <span class="ms-text">全部</span>
+                    <span class="ms-arrow">▾</span>
+                </div>
+                
+            </div>
+        </th><th class="matrix-filter-th" style="position: sticky; top: 35px; z-index: 20;">
+            <div class="custom-ms" data-col="7">
+                <div class="ms-btn" title="全部">
+                    <span class="ms-text">全部</span>
+                    <span class="ms-arrow">▾</span>
+                </div>
+                
+            </div>
+        </th><th class="matrix-filter-th" style="position: sticky; top: 35px; z-index: 20;">
+            <div class="custom-ms" data-col="8">
+                <div class="ms-btn" title="全部">
+                    <span class="ms-text">全部</span>
+                    <span class="ms-arrow">▾</span>
+                </div>
+                
+            </div>
+        </th><th class="matrix-filter-th" style="position: sticky; top: 35px; z-index: 20;">
+            <div class="custom-ms" data-col="9">
+                <div class="ms-btn" title="全部">
+                    <span class="ms-text">全部</span>
+                    <span class="ms-arrow">▾</span>
+                </div>
+                
+            </div>
+        </th><th class="matrix-filter-th" style="position: sticky; top: 35px; z-index: 20;">
+            <div class="custom-ms" data-col="10">
+                <div class="ms-btn" title="全部">
+                    <span class="ms-text">全部</span>
+                    <span class="ms-arrow">▾</span>
+                </div>
+                
+            </div>
+        </th><th class="matrix-filter-th" style="position: sticky; top: 35px; z-index: 20;">
+            <div class="custom-ms" data-col="11">
+                <div class="ms-btn" title="全部">
+                    <span class="ms-text">全部</span>
+                    <span class="ms-arrow">▾</span>
+                </div>
+                
+            </div>
+        </th><th class="matrix-filter-th" style="position: sticky; top: 35px; z-index: 20;">
+            <div class="custom-ms" data-col="12">
+                <div class="ms-btn" title="全部">
+                    <span class="ms-text">全部</span>
+                    <span class="ms-arrow">▾</span>
+                </div>
+                
+            </div>
+        </th><th class="matrix-filter-th" style="position: sticky; top: 35px; z-index: 20;">
+            <div class="custom-ms" data-col="13">
+                <div class="ms-btn" title="全部">
+                    <span class="ms-text">全部</span>
+                    <span class="ms-arrow">▾</span>
+                </div>
+                
+            </div>
+        </th></tr></thead>
+                <tbody>
+    <tr class="matrix-data-row" data-group="Order"><td class="matrix-group-cell" data-col="0" data-filter-value="Order" rowspan="2" style="">
+                    <div class="group-cell-wrap">Order</div>
+                </td><td class="matrix-group-weight-cell" data-col="1" data-filter-value="10" rowspan="2" style="">
+                    <span class="group-weight-pill">10</span>
+                </td>
+                <td data-col="2" class="matrix-metric-cell" data-filter-value="过保订单及SPMS">
+                    <div class="metric-cell-inner">
+                        <div class="metric-title-group">
+                            <button type="button" class="metric-trend-link" data-trend-kind="metric" data-trend-label="过保订单及SPMS" title="查看最近6个月指标趋势">过保订单及SPMS</button>
+                        </div>
+                        <div class="metric-row-actions">
+                            
+                <span class="metric-action-btn prop-btn" style="opacity:1;" title="已开启：未达标时按完成目标比例折算得分">
+                    ⚖️
+                </span>
+            
+                <span class="metric-action-btn edit-btn" title="编辑此项">✏️</span>
+                <span class="metric-action-btn delete-btn" title="删除此项">🗑️</span>
+                <span class="metric-action-btn auto-btn" style="opacity:1;" title="自动填报跨快照获取数据源：2026-09-03 14:46">🔄</span>
+            
+                        </div>
+                    </div>
+                </td>
+                <td data-col="3" class="matrix-weight-cell" data-filter-value="8">8</td>
+                <td data-col="4" class="matrix-target-cell" data-filter-value="按分类">按分类</td>
+                <td data-col="5" class="matrix-global-cell" data-filter-value="--"><span class="val-none">--</span></td><td data-col="6" class="matrix-val-cell" data-filter-value="7"><span class="val-warn" title="不达标，距离目标差 3.7">7</span></td><td data-col="7" class="matrix-val-cell" data-filter-value="3.4"><span class="val-warn" title="不达标，距离目标差 1.9">3.4</span></td><td data-col="8" class="matrix-val-cell" data-filter-value="3.6"><span class="val-good" title="达标">3.6</span></td><td data-col="9" class="matrix-val-cell" data-filter-value="4.4"><span class="val-warn" title="不达标，距离目标差 0.2">4.4</span></td><td data-col="10" class="matrix-score-cell score-failing" data-filter-value="5.23" title="基础分：8，实得：5.23，完成率：65.4%，超额奖励：0"><div class="score-cell-inner"><span class="score-val">5.23</span><div class="score-ratio-badge">65%</div></div></td><td data-col="11" class="matrix-score-cell score-failing" data-filter-value="5.13" title="基础分：8，实得：5.13，完成率：64.2%，超额奖励：0"><div class="score-cell-inner"><span class="score-val">5.13</span><div class="score-ratio-badge">64%</div></div></td><td data-col="12" class="matrix-score-cell score-passing" data-filter-value="8.23" title="基础分：8，实得：8.23，超额奖励：0.2286"><div class="score-cell-inner"><span class="score-val">8.23</span> <span class="score-bonus">(+0.23)</span></div></td><td data-col="13" class="matrix-score-cell score-failing" data-filter-value="7.65" title="基础分：8，实得：7.65，完成率：95.7%，超额奖励：0"><div class="score-cell-inner"><span class="score-val">7.65</span><div class="score-ratio-badge">96%</div></div></td></tr><tr class="matrix-data-row" data-group="Order">
+                <td data-col="2" class="matrix-metric-cell" data-filter-value="维保订单">
+                    <div class="metric-cell-inner">
+                        <div class="metric-title-group">
+                            <button type="button" class="metric-trend-link" data-trend-kind="metric" data-trend-label="维保订单" title="查看最近6个月指标趋势">维保订单</button>
+                        </div>
+                        <div class="metric-row-actions">
+                            
+                <span class="metric-action-btn prop-btn" style="opacity:1;" title="已开启：未达标时按完成目标比例折算得分">
+                    ⚖️
+                </span>
+            
+                <span class="metric-action-btn edit-btn" title="编辑此项">✏️</span>
+                <span class="metric-action-btn delete-btn" title="删除此项">🗑️</span>
+                <span class="metric-action-btn auto-btn" style="opacity:1;" title="自动填报跨快照获取数据源：2026-09-03 14:46">🔄</span>
+            
+                        </div>
+                    </div>
+                </td>
+                <td data-col="3" class="matrix-weight-cell" data-filter-value="2">2</td>
+                <td data-col="4" class="matrix-target-cell" data-filter-value="按分类">按分类</td>
+                <td data-col="5" class="matrix-global-cell" data-filter-value="--"><span class="val-none">--</span></td><td data-col="6" class="matrix-val-cell" data-filter-value="-0.2"><span class="val-warn" title="不达标，距离目标差 0.2">-0.2</span></td><td data-col="7" class="matrix-val-cell" data-filter-value="3.7"><span class="val-warn" title="不达标，距离目标差 2.4">3.7</span></td><td data-col="8" class="matrix-val-cell" data-filter-value="0.2"><span class="val-warn" title="不达标，距离目标差 1.2">0.2</span></td><td data-col="9" class="matrix-val-cell" data-filter-value="2.2"><span class="val-warn" title="不达标，距离目标差 0.9">2.2</span></td><td data-col="10" class="matrix-score-cell score-failing" data-filter-value="-0.09" title="基础分：2，实得：-0.09，完成率：-4.3%，超额奖励：0"><div class="score-cell-inner"><span class="score-val">-0.09</span><div class="score-ratio-badge">-4%</div></div></td><td data-col="11" class="matrix-score-cell score-failing" data-filter-value="1.21" title="基础分：2，实得：1.21，完成率：60.7%，超额奖励：0"><div class="score-cell-inner"><span class="score-val">1.21</span><div class="score-ratio-badge">61%</div></div></td><td data-col="12" class="matrix-score-cell score-failing" data-filter-value="0.29" title="基础分：2，实得：0.29，完成率：14.3%，超额奖励：0"><div class="score-cell-inner"><span class="score-val">0.29</span><div class="score-ratio-badge">14%</div></div></td><td data-col="13" class="matrix-score-cell score-failing" data-filter-value="1.42" title="基础分：2，实得：1.42，完成率：71.0%，超额奖励：0"><div class="score-cell-inner"><span class="score-val">1.42</span><div class="score-ratio-badge">71%</div></div></td></tr><tr class="matrix-data-row" data-group="Revenue"><td class="matrix-group-cell" data-col="0" data-filter-value="Revenue" rowspan="1" style="">
+                    <div class="group-cell-wrap">Revenue</div>
+                </td><td class="matrix-group-weight-cell" data-col="1" data-filter-value="5" rowspan="1" style="">
+                    <span class="group-weight-pill">5</span>
+                </td>
+                <td data-col="2" class="matrix-metric-cell" data-filter-value="业务收入">
+                    <div class="metric-cell-inner">
+                        <div class="metric-title-group">
+                            <button type="button" class="metric-trend-link" data-trend-kind="metric" data-trend-label="业务收入" title="查看最近6个月指标趋势">业务收入</button>
+                        </div>
+                        <div class="metric-row-actions">
+                            
+                <span class="metric-action-btn prop-btn" style="opacity:1;" title="已开启：未达标时按完成目标比例折算得分">
+                    ⚖️
+                </span>
+            
+                <span class="metric-action-btn edit-btn" title="编辑此项">✏️</span>
+                <span class="metric-action-btn delete-btn" title="删除此项">🗑️</span>
+                <span class="metric-action-btn auto-btn" style="opacity:1;" title="自动填报跨快照获取数据源：2026-09-03 14:46">🔄</span>
+            
+                        </div>
+                    </div>
+                </td>
+                <td data-col="3" class="matrix-weight-cell" data-filter-value="5">5</td>
+                <td data-col="4" class="matrix-target-cell" data-filter-value="按分类">按分类</td>
+                <td data-col="5" class="matrix-global-cell" data-filter-value="--"><span class="val-none">--</span></td><td data-col="6" class="matrix-val-cell" data-filter-value="6.1"><span class="val-warn" title="不达标，距离目标差 7.2">6.1</span></td><td data-col="7" class="matrix-val-cell" data-filter-value="4.7"><span class="val-warn" title="不达标，距离目标差 1.4">4.7</span></td><td data-col="8" class="matrix-val-cell" data-filter-value="2.6"><span class="val-warn" title="不达标，距离目标差 2.1">2.6</span></td><td data-col="9" class="matrix-val-cell" data-filter-value="5.5"><span class="val-warn" title="不达标，距离目标差 1.6">5.5</span></td><td data-col="10" class="matrix-score-cell score-failing" data-filter-value="2.29" title="基础分：5，实得：2.29，完成率：45.9%，超额奖励：0"><div class="score-cell-inner"><span class="score-val">2.29</span><div class="score-ratio-badge">46%</div></div></td><td data-col="11" class="matrix-score-cell score-failing" data-filter-value="3.85" title="基础分：5，实得：3.85，完成率：77.0%，超额奖励：0"><div class="score-cell-inner"><span class="score-val">3.85</span><div class="score-ratio-badge">77%</div></div></td><td data-col="12" class="matrix-score-cell score-failing" data-filter-value="2.77" title="基础分：5，实得：2.77，完成率：55.3%，超额奖励：0"><div class="score-cell-inner"><span class="score-val">2.77</span><div class="score-ratio-badge">55%</div></div></td><td data-col="13" class="matrix-score-cell score-failing" data-filter-value="3.87" title="基础分：5，实得：3.87，完成率：77.5%，超额奖励：0"><div class="score-cell-inner"><span class="score-val">3.87</span><div class="score-ratio-badge">77%</div></div></td></tr><tr class="matrix-data-row" data-group="PS GP (%)"><td class="matrix-group-cell" data-col="0" data-filter-value="PS GP (%)" rowspan="1" style="">
+                    <div class="group-cell-wrap">PS GP (%)</div>
+                </td><td class="matrix-group-weight-cell" data-col="1" data-filter-value="5" rowspan="1" style="">
+                    <span class="group-weight-pill">5</span>
+                </td>
+                <td data-col="2" class="matrix-metric-cell" data-filter-value="PS GP利润率">
+                    <div class="metric-cell-inner">
+                        <div class="metric-title-group">
+                            <button type="button" class="metric-trend-link" data-trend-kind="metric" data-trend-label="PS GP利润率" title="查看最近6个月指标趋势">PS GP利润率</button>
+                        </div>
+                        <div class="metric-row-actions">
+                            
+                <span class="metric-action-btn prop-btn" style="opacity:1;" title="已开启：未达标时按完成目标比例折算得分">
+                    ⚖️
+                </span>
+            
+                <span class="metric-action-btn edit-btn" title="编辑此项">✏️</span>
+                <span class="metric-action-btn delete-btn" title="删除此项">🗑️</span>
+                <span class="metric-action-btn auto-btn" style="opacity:1;" title="自动填报跨快照获取数据源：2026-09-03 14:46">🔄</span>
+            
+                        </div>
+                    </div>
+                </td>
+                <td data-col="3" class="matrix-weight-cell" data-filter-value="5">5</td>
+                <td data-col="4" class="matrix-target-cell" data-filter-value="按分类">按分类</td>
+                <td data-col="5" class="matrix-global-cell" data-filter-value="--"><span class="val-none">--</span></td><td data-col="6" class="matrix-val-cell" data-filter-value="58.9%"><span class="val-warn" title="不达标，距离目标差 11.1%">58.9%</span></td><td data-col="7" class="matrix-val-cell" data-filter-value="66.2%"><span class="val-good" title="达标">66.2%</span></td><td data-col="8" class="matrix-val-cell" data-filter-value="9.8%"><span class="val-warn" title="不达标，距离目标差 10.2%">9.8%</span></td><td data-col="9" class="matrix-val-cell" data-filter-value="89.3%"><span class="val-warn" title="不达标，距离目标差 0.7%">89.3%</span></td><td data-col="10" class="matrix-score-cell score-failing" data-filter-value="4.21" title="基础分：5，实得：4.21，完成率：84.1%，超额奖励：0"><div class="score-cell-inner"><span class="score-val">4.21</span><div class="score-ratio-badge">84%</div></div></td><td data-col="11" class="matrix-score-cell score-passing" data-filter-value="5.34" title="基础分：5，实得：5.34，超额奖励：0.3387"><div class="score-cell-inner"><span class="score-val">5.34</span> <span class="score-bonus">(+0.34)</span></div></td><td data-col="12" class="matrix-score-cell score-failing" data-filter-value="2.45" title="基础分：5，实得：2.45，完成率：49.0%，超额奖励：0"><div class="score-cell-inner"><span class="score-val">2.45</span><div class="score-ratio-badge">49%</div></div></td><td data-col="13" class="matrix-score-cell score-failing" data-filter-value="4.96" title="基础分：5，实得：4.96，完成率：99.2%，超额奖励：0"><div class="score-cell-inner"><span class="score-val">4.96</span><div class="score-ratio-badge">99%</div></div></td></tr><tr class="matrix-data-row" data-group="Key Project and Task"><td class="matrix-group-cell" data-col="0" data-filter-value="Key Project and Task" rowspan="5" style="">
+                    <div class="group-cell-wrap">Key Project and Task</div>
+                </td><td class="matrix-group-weight-cell" data-col="1" data-filter-value="40" rowspan="5" style="">
+                    <span class="group-weight-pill">40</span>
+                </td>
+                <td data-col="2" class="matrix-metric-cell" data-filter-value="TE备件短缺解决方案">
+                    <div class="metric-cell-inner">
+                        <div class="metric-title-group">
+                            <button type="button" class="metric-trend-link" data-trend-kind="metric" data-trend-label="TE备件短缺解决方案" title="查看最近6个月指标趋势">T*备件短缺解决方案</button>
+                        </div>
+                        <div class="metric-row-actions">
+                            
+                <span class="metric-action-btn edit-btn" title="编辑此项">✏️</span>
+                <span class="metric-action-btn delete-btn" title="删除此项">🗑️</span>
+                <span class="metric-action-btn auto-btn" style="opacity:0.4;" title="🔄 自动填报: 未开">🔄</span>
+            
+                        </div>
+                    </div>
+                </td>
+                <td data-col="3" class="matrix-weight-cell" data-filter-value="5">5</td>
+                <td data-col="4" class="matrix-target-cell" data-filter-value="--">--</td>
+                <td data-col="5" class="matrix-global-cell" data-filter-value="--"><span class="val-none">--</span></td><td data-col="6" class="matrix-val-cell val-none" data-filter-value="--">--</td><td data-col="7" class="matrix-val-cell val-none" data-filter-value="--">--</td><td data-col="8" class="matrix-val-cell val-none" data-filter-value="--">--</td><td data-col="9" class="matrix-val-cell val-none" data-filter-value="--">--</td><td data-col="10" class="matrix-score-cell val-none" data-filter-value="--">--</td><td data-col="11" class="matrix-score-cell val-none" data-filter-value="--">--</td><td data-col="12" class="matrix-score-cell val-none" data-filter-value="--">--</td><td data-col="13" class="matrix-score-cell val-none" data-filter-value="--">--</td></tr><tr class="matrix-data-row" data-group="Key Project and Task">
+                <td data-col="2" class="matrix-metric-cell" data-filter-value="TE AOS 2.0过保订单">
+                    <div class="metric-cell-inner">
+                        <div class="metric-title-group">
+                            <button type="button" class="metric-trend-link" data-trend-kind="metric" data-trend-label="TE AOS 2.0过保订单" title="查看最近6个月指标趋势">T* AOS 2.0过保订单</button>
+                        </div>
+                        <div class="metric-row-actions">
+                            
+                <span class="metric-action-btn edit-btn" title="编辑此项">✏️</span>
+                <span class="metric-action-btn delete-btn" title="删除此项">🗑️</span>
+                <span class="metric-action-btn auto-btn" style="opacity:0.4;" title="🔄 自动填报: 未开">🔄</span>
+            
+                        </div>
+                    </div>
+                </td>
+                <td data-col="3" class="matrix-weight-cell" data-filter-value="5">5</td>
+                <td data-col="4" class="matrix-target-cell" data-filter-value="--">--</td>
+                <td data-col="5" class="matrix-global-cell" data-filter-value="--"><span class="val-none">--</span></td><td data-col="6" class="matrix-val-cell val-none" data-filter-value="--">--</td><td data-col="7" class="matrix-val-cell val-none" data-filter-value="--">--</td><td data-col="8" class="matrix-val-cell val-none" data-filter-value="--">--</td><td data-col="9" class="matrix-val-cell val-none" data-filter-value="--">--</td><td data-col="10" class="matrix-score-cell val-none" data-filter-value="--">--</td><td data-col="11" class="matrix-score-cell val-none" data-filter-value="--">--</td><td data-col="12" class="matrix-score-cell val-none" data-filter-value="--">--</td><td data-col="13" class="matrix-score-cell val-none" data-filter-value="--">--</td></tr><tr class="matrix-data-row" data-group="Key Project and Task">
+                <td data-col="2" class="matrix-metric-cell" data-filter-value="ORG AOS 2.0过保订单">
+                    <div class="metric-cell-inner">
+                        <div class="metric-title-group">
+                            <button type="button" class="metric-trend-link" data-trend-kind="metric" data-trend-label="ORG AOS 2.0过保订单" title="查看最近6个月指标趋势">O*G AOS 2.0过保订单</button>
+                        </div>
+                        <div class="metric-row-actions">
+                            
+                <span class="metric-action-btn edit-btn" title="编辑此项">✏️</span>
+                <span class="metric-action-btn delete-btn" title="删除此项">🗑️</span>
+                <span class="metric-action-btn auto-btn" style="opacity:0.4;" title="🔄 自动填报: 未开">🔄</span>
+            
+                        </div>
+                    </div>
+                </td>
+                <td data-col="3" class="matrix-weight-cell" data-filter-value="10">10</td>
+                <td data-col="4" class="matrix-target-cell" data-filter-value="--">--</td>
+                <td data-col="5" class="matrix-global-cell" data-filter-value="--"><span class="val-none">--</span></td><td data-col="6" class="matrix-val-cell val-none" data-filter-value="--">--</td><td data-col="7" class="matrix-val-cell val-none" data-filter-value="--">--</td><td data-col="8" class="matrix-val-cell val-none" data-filter-value="--">--</td><td data-col="9" class="matrix-val-cell val-none" data-filter-value="--">--</td><td data-col="10" class="matrix-score-cell val-none" data-filter-value="--">--</td><td data-col="11" class="matrix-score-cell val-none" data-filter-value="--">--</td><td data-col="12" class="matrix-score-cell val-none" data-filter-value="--">--</td><td data-col="13" class="matrix-score-cell val-none" data-filter-value="--">--</td></tr><tr class="matrix-data-row" data-group="Key Project and Task">
+                <td data-col="2" class="matrix-metric-cell" data-filter-value="VDF AOS 2.0过保订单">
+                    <div class="metric-cell-inner">
+                        <div class="metric-title-group">
+                            <button type="button" class="metric-trend-link" data-trend-kind="metric" data-trend-label="VDF AOS 2.0过保订单" title="查看最近6个月指标趋势">V*F AOS 2.0过保订单</button>
+                        </div>
+                        <div class="metric-row-actions">
+                            
+                <span class="metric-action-btn edit-btn" title="编辑此项">✏️</span>
+                <span class="metric-action-btn delete-btn" title="删除此项">🗑️</span>
+                <span class="metric-action-btn auto-btn" style="opacity:0.4;" title="🔄 自动填报: 未开">🔄</span>
+            
+                        </div>
+                    </div>
+                </td>
+                <td data-col="3" class="matrix-weight-cell" data-filter-value="10">10</td>
+                <td data-col="4" class="matrix-target-cell" data-filter-value="--">--</td>
+                <td data-col="5" class="matrix-global-cell" data-filter-value="--"><span class="val-none">--</span></td><td data-col="6" class="matrix-val-cell val-none" data-filter-value="--">--</td><td data-col="7" class="matrix-val-cell val-none" data-filter-value="--">--</td><td data-col="8" class="matrix-val-cell val-none" data-filter-value="--">--</td><td data-col="9" class="matrix-val-cell val-none" data-filter-value="--">--</td><td data-col="10" class="matrix-score-cell val-none" data-filter-value="--">--</td><td data-col="11" class="matrix-score-cell val-none" data-filter-value="--">--</td><td data-col="12" class="matrix-score-cell val-none" data-filter-value="--">--</td><td data-col="13" class="matrix-score-cell val-none" data-filter-value="--">--</td></tr><tr class="matrix-data-row" data-group="Key Project and Task">
+                <td data-col="2" class="matrix-metric-cell" data-filter-value="ET成本控制(GPR提升10%)">
+                    <div class="metric-cell-inner">
+                        <div class="metric-title-group">
+                            <button type="button" class="metric-trend-link" data-trend-kind="metric" data-trend-label="ET成本控制(GPR提升10%)" title="查看最近6个月指标趋势">E*成本控制(GPR提升10%)</button>
+                        </div>
+                        <div class="metric-row-actions">
+                            
+                <span class="metric-action-btn edit-btn" title="编辑此项">✏️</span>
+                <span class="metric-action-btn delete-btn" title="删除此项">🗑️</span>
+                <span class="metric-action-btn auto-btn" style="opacity:0.4;" title="🔄 自动填报: 未开">🔄</span>
+            
+                        </div>
+                    </div>
+                </td>
+                <td data-col="3" class="matrix-weight-cell" data-filter-value="10">10</td>
+                <td data-col="4" class="matrix-target-cell" data-filter-value="--">--</td>
+                <td data-col="5" class="matrix-global-cell" data-filter-value="--"><span class="val-none">--</span></td><td data-col="6" class="matrix-val-cell val-none" data-filter-value="--">--</td><td data-col="7" class="matrix-val-cell val-none" data-filter-value="--">--</td><td data-col="8" class="matrix-val-cell val-none" data-filter-value="--">--</td><td data-col="9" class="matrix-val-cell val-none" data-filter-value="--">--</td><td data-col="10" class="matrix-score-cell val-none" data-filter-value="--">--</td><td data-col="11" class="matrix-score-cell val-none" data-filter-value="--">--</td><td data-col="12" class="matrix-score-cell val-none" data-filter-value="--">--</td><td data-col="13" class="matrix-score-cell val-none" data-filter-value="--">--</td></tr><tr class="matrix-data-row" data-group="&quot;0&quot; Vicious Incident"><td class="matrix-group-cell" data-col="0" data-filter-value="&quot;0&quot; Vicious Incident" rowspan="11" style="">
+                    
+                </td><td class="matrix-group-weight-cell" data-col="1" data-filter-value="35" rowspan="11" style="">
+                    
+                </td>
+                <td data-col="2" class="matrix-metric-cell" data-filter-value="整改">
+                    <div class="metric-cell-inner">
+                        <div class="metric-title-group">
+                            <button type="button" class="metric-trend-link" data-trend-kind="metric" data-trend-label="整改" title="查看最近6个月指标趋势">整改</button>
+                        </div>
+                        <div class="metric-row-actions">
+                            
+                <span class="metric-action-btn prop-btn" style="opacity:0.4;" title="未开启：未达标时该指标得 0 分">
+                    ⚖️
+                </span>
+            
+                        </div>
+                    </div>
+                </td>
+                <td data-col="3" class="matrix-weight-cell" data-filter-value="5">5</td>
+                <td data-col="4" class="matrix-target-cell" data-filter-value="≥ 90%">≥ 90%</td>
+                <td data-col="5" class="matrix-global-cell" data-filter-value="98%"><span class="val-good">98%<span class="metric-trend up" title="较上次快照上升 2">▲</span></span></td><td data-col="6" class="matrix-val-cell" data-filter-value="99%"><span class="val-good" title="达标">99%</span></td><td data-col="7" class="matrix-val-cell" data-filter-value="96%"><span class="val-good" title="达标">96%<span class="metric-trend up" title="较上次快照上升 14">▲</span></span></td><td data-col="8" class="matrix-val-cell" data-filter-value="93%"><span class="val-good" title="达标">93%<span class="metric-trend up" title="较上次快照上升 14">▲</span></span></td><td data-col="9" class="matrix-val-cell" data-filter-value="97%"><span class="val-good" title="达标">97%</span></td><td data-col="10" class="matrix-score-cell score-passing" data-filter-value="5" title="基础分：5，实得：5，超额奖励：0"><div class="score-cell-inner"><span class="score-val">5</span></div></td><td data-col="11" class="matrix-score-cell score-passing" data-filter-value="5" title="基础分：5，实得：5，超额奖励：0"><div class="score-cell-inner"><span class="score-val">5</span></div></td><td data-col="12" class="matrix-score-cell score-passing" data-filter-value="5" title="基础分：5，实得：5，超额奖励：0"><div class="score-cell-inner"><span class="score-val">5</span></div></td><td data-col="13" class="matrix-score-cell score-passing" data-filter-value="5" title="基础分：5，实得：5，超额奖励：0"><div class="score-cell-inner"><span class="score-val">5</span></div></td></tr><tr class="matrix-data-row" data-group="&quot;0&quot; Vicious Incident">
+                <td data-col="2" class="matrix-metric-cell" data-filter-value="TOPN 风险">
+                    <div class="metric-cell-inner">
+                        <div class="metric-title-group">
+                            <button type="button" class="metric-trend-link" data-trend-kind="metric" data-trend-label="TOPN 风险" title="查看最近6个月指标趋势">TOPN 风险</button>
+                        </div>
+                        <div class="metric-row-actions">
+                            
+                <span class="metric-action-btn prop-btn" style="opacity:0.4;" title="未开启：未达标时该指标得 0 分">
+                    ⚖️
+                </span>
+            
+                        </div>
+                    </div>
+                </td>
+                <td data-col="3" class="matrix-weight-cell" data-filter-value="5">5</td>
+                <td data-col="4" class="matrix-target-cell" data-filter-value="≥ 100%">≥ 100%</td>
+                <td data-col="5" class="matrix-global-cell" data-filter-value="100%"><span class="val-good">100%</span></td><td data-col="6" class="matrix-val-cell" data-filter-value="100%"><span class="val-good" title="达标">100%</span></td><td data-col="7" class="matrix-val-cell" data-filter-value="100%"><span class="val-good" title="达标">100%</span></td><td data-col="8" class="matrix-val-cell" data-filter-value="100%"><span class="val-good" title="达标">100%</span></td><td data-col="9" class="matrix-val-cell" data-filter-value="100%"><span class="val-good" title="达标">100%</span></td><td data-col="10" class="matrix-score-cell score-passing" data-filter-value="5" title="基础分：5，实得：5，超额奖励：0"><div class="score-cell-inner"><span class="score-val">5</span></div></td><td data-col="11" class="matrix-score-cell score-passing" data-filter-value="5" title="基础分：5，实得：5，超额奖励：0"><div class="score-cell-inner"><span class="score-val">5</span></div></td><td data-col="12" class="matrix-score-cell score-passing" data-filter-value="5" title="基础分：5，实得：5，超额奖励：0"><div class="score-cell-inner"><span class="score-val">5</span></div></td><td data-col="13" class="matrix-score-cell score-passing" data-filter-value="5" title="基础分：5，实得：5，超额奖励：0"><div class="score-cell-inner"><span class="score-val">5</span></div></td></tr><tr class="matrix-data-row" data-group="&quot;0&quot; Vicious Incident">
+                <td data-col="2" class="matrix-metric-cell" data-filter-value="数字证书">
+                    <div class="metric-cell-inner">
+                        <div class="metric-title-group">
+                            <button type="button" class="metric-trend-link" data-trend-kind="metric" data-trend-label="数字证书" title="查看最近6个月指标趋势">数字证书</button>
+                        </div>
+                        <div class="metric-row-actions">
+                            
+                <span class="metric-action-btn prop-btn" style="opacity:0.4;" title="未开启：未达标时该指标得 0 分">
+                    ⚖️
+                </span>
+            
+                        </div>
+                    </div>
+                </td>
+                <td data-col="3" class="matrix-weight-cell" data-filter-value="5">5</td>
+                <td data-col="4" class="matrix-target-cell" data-filter-value="≥ 100%">≥ 100%</td>
+                <td data-col="5" class="matrix-global-cell" data-filter-value="100%"><span class="val-good">100%<span class="metric-trend up" title="较上次快照上升 4">▲</span></span></td><td data-col="6" class="matrix-val-cell" data-filter-value="100%"><span class="val-good" title="达标">100%<span class="metric-trend up" title="较上次快照上升 5">▲</span></span></td><td data-col="7" class="matrix-val-cell" data-filter-value="100%"><span class="val-good" title="达标">100%</span></td><td data-col="8" class="matrix-val-cell" data-filter-value="100%"><span class="val-good" title="达标">100%</span></td><td data-col="9" class="matrix-val-cell val-none" data-filter-value="--">--</td><td data-col="10" class="matrix-score-cell score-passing" data-filter-value="5" title="基础分：5，实得：5，超额奖励：0"><div class="score-cell-inner"><span class="score-val">5</span></div></td><td data-col="11" class="matrix-score-cell score-passing" data-filter-value="5" title="基础分：5，实得：5，超额奖励：0"><div class="score-cell-inner"><span class="score-val">5</span></div></td><td data-col="12" class="matrix-score-cell score-passing" data-filter-value="5" title="基础分：5，实得：5，超额奖励：0"><div class="score-cell-inner"><span class="score-val">5</span></div></td><td data-col="13" class="matrix-score-cell val-none" data-filter-value="--">--</td></tr><tr class="matrix-data-row" data-group="&quot;0&quot; Vicious Incident">
+                <td data-col="2" class="matrix-metric-cell" data-filter-value="全量EOS-产品">
+                    <div class="metric-cell-inner">
+                        <div class="metric-title-group">
+                            <button type="button" class="metric-trend-link" data-trend-kind="metric" data-trend-label="全量EOS-产品" title="查看最近6个月指标趋势">全量EOS-产品</button>
+                        </div>
+                        <div class="metric-row-actions">
+                            
+                <span class="metric-action-btn prop-btn" style="opacity:0.4;" title="未开启：未达标时该指标得 0 分">
+                    ⚖️
+                </span>
+            
+                        </div>
+                    </div>
+                </td>
+                <td data-col="3" class="matrix-weight-cell" data-filter-value="1.5">1.5</td>
+                <td data-col="4" class="matrix-target-cell" data-filter-value="≥ 80%">≥ 80%</td>
+                <td data-col="5" class="matrix-global-cell" data-filter-value="100%"><span class="val-good">100%</span></td><td data-col="6" class="matrix-val-cell" data-filter-value="100%"><span class="val-good" title="达标">100%</span></td><td data-col="7" class="matrix-val-cell" data-filter-value="98%"><span class="val-good" title="达标">98%<span class="metric-trend down" title="较上次快照下降 2">▼</span></span></td><td data-col="8" class="matrix-val-cell" data-filter-value="100%"><span class="val-good" title="达标">100%</span></td><td data-col="9" class="matrix-val-cell" data-filter-value="100%"><span class="val-good" title="达标">100%</span></td><td data-col="10" class="matrix-score-cell score-passing" data-filter-value="1.5" title="基础分：1.5，实得：1.5，超额奖励：0"><div class="score-cell-inner"><span class="score-val">1.5</span></div></td><td data-col="11" class="matrix-score-cell score-passing" data-filter-value="1.5" title="基础分：1.5，实得：1.5，超额奖励：0"><div class="score-cell-inner"><span class="score-val">1.5</span></div></td><td data-col="12" class="matrix-score-cell score-passing" data-filter-value="1.5" title="基础分：1.5，实得：1.5，超额奖励：0"><div class="score-cell-inner"><span class="score-val">1.5</span></div></td><td data-col="13" class="matrix-score-cell score-passing" data-filter-value="1.5" title="基础分：1.5，实得：1.5，超额奖励：0"><div class="score-cell-inner"><span class="score-val">1.5</span></div></td></tr>
+                </tbody>
+            </table>
+            </div>
+            
+        </section>
+    
+        
+        
+        
+    </div>
+        
+    </div>
+    </div>
+
+    
+    
+    
+    
+    
+
+
+
+
+
+
+    
+    
+    
+    
+
+    <!-- Template Mapping Modal -->
+    
+
+    <!-- Yuxiang Export Preview Modal -->
+    
+
+    
+    
+    
+    
+    
+    
+
+
+
+
+<div class="ai-fab is-idle" role="button" tabindex="0" aria-label="打开Dragon Claw智能体" aria-expanded="false" title="打开Dragon Claw智能体"><span class="ai-fab-orb" aria-hidden="true"><img class="ai-fab-avatar" src="/assets/logo.png" alt="" draggable="false"><span class="ai-fab-dot"></span></span><span class="ai-fab-label">Dragon Claw</span></div><div class="ai-panel" data-theme="light">
+        <div class="ai-header">
+            <div class="ai-brand">
+                <div class="ai-brand-mark" aria-hidden="true"><img src="/assets/logo.png" alt="Dragon Claw"></div>
+                <div class="ai-brand-copy">
+                    <div class="ai-brand-title"><span class="ai-brand-title-compact">Dragon Claw</span></div>
+                    <div class="ai-brand-subtitle"><span class="ai-brand-subtitle-compact">知识 · 数据 · 运营</span></div>
+                </div>
+            </div>
+            <div class="ai-header-actions">
+                <button class="ai-action-btn ai-knowledge-graph" type="button" title="知识与指标图谱" aria-label="知识与指标图谱">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.2"></circle><circle cx="18" cy="7" r="2.2"></circle><circle cx="8" cy="18" r="2.2"></circle><circle cx="17" cy="17" r="2.2"></circle><path d="M8 7l7.8-.1M7 8l1 7.8M10 17.8l4.8-.5M17.7 9.2l-.5 5.6M8 7.5l7.5 7.8"></path></svg>
+                </button>
+                <button class="ai-action-btn ai-history" type="button" title="历史问答" aria-label="历史问答">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><path d="M3 3v5h5"></path><path d="M12 7v5l3 2"></path></svg>
+                </button>
+                <button class="ai-action-btn ai-archive" type="button" title="查看归档会话" aria-label="查看归档会话">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16v13H4z"></path><path d="M3 3h18v4H3zM9 11h6"></path></svg>
+                </button>
+                <button class="ai-action-btn ai-theme-toggle" type="button" title="切换图谱深色主题" aria-label="切换图谱深色主题" aria-pressed="false">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9Z"></path><path d="M17.5 3.5v3M16 5h3"></path></svg>
+                </button>
+                <button class="ai-action-btn ai-expand" type="button" title="放大窗口" aria-label="放大窗口" aria-pressed="false">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="2"></rect><path d="M9 5V3h12v12h-2"></path></svg>
+                </button>
+                <button class="ai-action-btn ai-fullscreen" type="button" title="全屏聊天" aria-label="全屏聊天" aria-pressed="false">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"></path></svg>
+                </button>
+                <button class="ai-action-btn ai-close" type="button" title="关闭" aria-label="关闭">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+                </button>
+            </div>
+        </div>
+        
+        <div class="ai-chat-body" id="aiChatBody">
+            <div class="ai-msg ai" id="aiInitialMessage">👋 正在读取当前页面，准备为你概括内容…</div>
+            
+        </div>
+        
+        <div class="ai-input-area">
+            <input type="text" class="ai-input" id="aiInput" placeholder="向 Dragon Claw 提问有关本页面的内容..." value="">
+            <button class="ai-send-btn" id="aiSendBtn" type="button" title="发送消息" aria-label="发送消息">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+            </button>
+        </div>
+    </div></body></html>

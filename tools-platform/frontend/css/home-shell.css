@@ -2195,21 +2195,42 @@ html[data-theme="dark"] .v2-tour-card {
     align-items: center;
     justify-content: center;
     border: 0;
-    background: transparent;
+    background: var(--v2-bg);
     box-shadow: none;
 }
-.v2-tour-stage .tm-shot {
-    display: block;
-    max-width: 100%;
-    max-height: 100%;
+.v2-tour-stage .tm-page-box {
+    position: relative;
+    flex: none;
+    overflow: hidden;
     border-radius: 12px;
     background: #ffffff;
     box-shadow: 0 24px 64px rgba(15, 23, 42, 0.32);
 }
-.v2-tour-stage .tm-shot-badge {
+.v2-tour-stage .tm-page {
+    position: absolute;
+    left: 0;
+    top: 0;
+    border: 0;
+    background: #ffffff;
+    transform-origin: 0 0;
+    pointer-events: none;
+}
+.v2-tour-stage .tm-panel-box {
+    box-sizing: border-box;
+    width: min(100%, 860px);
+    max-height: 100%;
+    overflow: hidden;
+    border-radius: 16px;
+    background: var(--v2-bg);
+    color: var(--v2-ink);
+    box-shadow: 0 24px 64px rgba(15, 23, 42, 0.32);
+}
+.v2-tour-stage .tm-panel-box .ops-inbox-panel { margin: 0; }
+.v2-tour-stage .tm-badge {
     position: absolute;
     top: 10px;
     right: 10px;
+    z-index: 1;
     background: rgba(255, 251, 235, 0.95);
     box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18);
 }

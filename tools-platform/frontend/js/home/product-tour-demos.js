@@ -1,22 +1,43 @@
 /**
- * 新手引导的静态演示：示范对话和各工具页面的真实截图。
- * 截图来自主线版真实数据，运营商、单号、工号、人名、头像和内部地址均已匿名处理（见 frontend/assets/tour/）。
- * 只用于引导层展示，不请求接口、不加载真实工具、不创建会话。
- * focus 是截图中高亮区域的比例坐标 [左, 上, 右, 下]。
+ * 新手引导的静态演示：示范对话和各工具的真实页面快照。
+ * frontend/assets/tour/*.html 是从主线版真实页面导出的静态快照（已去掉脚本），
+ * 运营商、单号、工号、人名、头像和内部地址均已匿名；引导里用无脚本 iframe 原样渲染。
+ * 只用于引导层展示，不请求业务接口、不加载真实工具、不创建会话。
  */
 (function initHomeProductTourDemos() {
     if (window.HomeProductTourDemos) return;
 
-    const shot = (name, w, h, focus) => ({ src: `/assets/tour/${name}.webp`, w, h, focus });
+    // 快照按导出时的视口尺寸排版（1314×783），引导里按比例缩放显示。
+    const page = name => ({ page: `/assets/tour/${name}.html`, w: 1314, h: 783 });
+
+    const opsDraft = L => `<section class="ops-inbox-panel tm-ops">
+        <header class="ops-inbox-heading"><div><span class="ops-eyebrow">${L('会话内运营草稿', 'DRAFTS FOR THIS CONVERSATION')}</span><h3>${L('待确认消息', 'Messages to review')}</h3><span class="ops-count">2</span><small class="ops-total">${L('全部 2 条待确认', '2 pending overall')}</small></div><button type="button" tabindex="-1">${L('刷新', 'Refresh')}</button></header>
+        <p class="ops-inbox-description">${L('这里显示发往当前会话的草稿。发送前请核对正文和完整收件对象。', 'Drafts for this conversation are shown here. Check the text and all recipients before sending.')}</p>
+        <div class="ops-card-list">
+            <details class="ops-card" open data-tour-focus><summary><span class="ops-card-icon">✦</span><span class="ops-card-title"><b>${L('每日临期催办 · WeLink', 'Daily follow-up · WeLink')}</b><small>2026/11/18 09:00</small></span><span class="ops-tag">${L('待确认', 'Review')}</span></summary>
+                <div class="ops-card-body"><div class="ops-recipients">${L('发送至：', 'Send to: ')}WeLink ${L('群「O*G 交付保障群」、单聊 a8440**02、o0083**61', 'group “O*G delivery”, direct a8440**02, o0083**61')}</div>
+                <div class="ops-preview">📅【11-Month】Follow-up Reminder
+@所有人 Hi Team, the following items are due within 3 days:
+
+🔹 [O*G]:
+    ↳ Rectification RC2026********07 · due 12/1/26 · owner a8440**02
+    ↳ Rectification RC2026********64 · due 12/1/26 · owner o0083**61
+🔹 [E*]:
+    ↳ 🚨 CPT2026********00 · overdue 27 days · owner N*** A***
+
+Please reply with progress before 18:00 today. Thanks!</div>
+                <div class="ops-card-actions"><button type="button" class="ops-primary" tabindex="-1">${L('确认并发送', 'Confirm & send')}</button><button type="button" tabindex="-1">${L('修改正文', 'Edit')}</button><button type="button" class="ops-discard" tabindex="-1">${L('丢弃', 'Discard')}</button><span class="ops-send-hint">${L('确认后立即发送到上述全部对象', 'Confirmation sends immediately to all recipients listed above')}</span></div></div></details>
+            <details class="ops-card"><summary><span class="ops-card-icon">✦</span><span class="ops-card-title"><b>${L('CPT 风险周报 · 微信', 'CPT risk weekly · WeChat')}</b><small>2026/11/18 09:00</small></span><span class="ops-tag">${L('待确认', 'Review')}</span></summary></details>
+        </div></section>`;
 
     const TOOLS = {
-        uivf12: shot('uivf12', 1241, 785, [0.0121, 0.1439, 0.2055, 0.9197]),
-        sla: shot('sla', 1241, 785, [0.0105, 0.1809, 0.9823, 1]),
-        report: shot('report', 1333, 679, [0.0113, 0.3608, 0.9827, 1]),
-        expedite: shot('expedite', 1241, 785, [0.0733, 0.5554, 0.9202, 1]),
-        monthly: shot('monthly', 1241, 785, [0.0459, 0.1338, 0.9517, 0.9363]),
-        bigscreen: shot('bigscreen', 1241, 785, [0.0161, 0.2803, 0.9831, 1]),
-        opsDrafts: shot('opsDrafts', 1241, 785, [0.1346, 0.265, 0.8582, 0.7452])
+        uivf12: page('uivf12'),
+        sla: page('sla'),
+        report: page('report'),
+        expedite: page('expedite'),
+        monthly: page('monthly'),
+        bigscreen: page('bigscreen'),
+        opsDrafts: { html: opsDraft }
     };
 
     function chat(L) {
