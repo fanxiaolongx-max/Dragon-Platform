@@ -1,14 +1,10 @@
 {
   "zh": [
-    "未选工作区但对话用到本地目录或命令类技能时，会在消息内弹出「选择工作区」与「临时分配工作区（24小时后删除）」卡片，点选后即可在当前对话继续执行，不再出现「工具不可用」报错。",
-    "临时工作区在 24 小时有效期内会自动续用于同一对话的后续追问，到期后自动清理；普通对话也已拦截无法执行的本地命令技能，避免误调用。",
-    "新手引导第一步打完问题后会停住，点「发送」再看回答，能看清问的是什么。",
-    "引导走到数据抓取、数据导入、报表看板、一键催办、月报和大屏时，顶部有一条流程线标出当前在第几步；每个页面用编号标出 1–2 个重点按钮，卡片里配一句话说明。"
+    "新手引导里的工具页面会停一下后自动慢速向下滚动，到底后回到开头，高亮框和重点按钮标注跟着移动；滚动鼠标滚轮可以改为手动查看。",
+    "新手引导第一步可以用鼠标滚轮翻看输入框里的完整问题，发送后滚轮滚动对话区。"
   ],
   "en": [
-    "When a chat needs local workspace files or commands without a folder selected, an inline card now lets you either choose a workspace folder or allocate a temporary workspace (auto-deleted after 24h) and continue right away without tool-unavailable errors.",
-    "Temporary workspaces stay active for follow-up turns in the same chat during their 24h lifetime and are cleaned up automatically on expiry; workspace-only skills are also guarded in regular chats to avoid invalid command retries.",
-    "The first tour step now pauses after typing the question; select Send to see the reply, so you can read what was asked.",
-    "On the Data Capture, Data Import, Reports, One-Click Follow-Up, Monthly Report and Big Screen steps, a workflow line at the top shows where you are, and each page marks 1–2 key buttons with numbered highlights explained in the tour card."
+    "Tool pages in the product tour now pause, then slowly scroll down and return to the top, with the highlight and key-button markers following along. Use the mouse wheel to scroll them yourself.",
+    "In the first tour step you can use the mouse wheel to read the whole question in the composer, and the conversation after it is sent."
   ]
 }
