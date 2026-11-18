@@ -1,10 +1,8 @@
 {
   "zh": [
-    "升级首页新手引导：支持逐步输入并发送「报表与一键催办」AI 提问示例，并联动数据抓取、数据导入等系统工具页引导。",
-    "AI 问答新增最新入库快照的一键催办事项检索与更多责任人字段识别，取消在普通库查询中常驻无关技能工具；同时支持自定义工具中英文名称同步更新及优化双语运行、桌面配额栏与运维收件箱体验。"
+    "英文界面下给自定义工具改名，改的是英文名（卡片在英文界面显示的就是英文名），中文名保持不变；中文界面照旧改中文名。"
   ],
   "en": [
-    "Upgraded the homepage product tour with an interactive AI example prompt for report metrics and one-click follow-ups, plus synced system tool tour steps.",
-    "Added latest report snapshot follow-up grounding and richer owner field matching for AI Q&A, stopped preloading unrelated skill tools on database turns, and improved bilingual custom tool naming/runtime, desktop quota bar, and ops inbox handling."
+    "Renaming a custom tool in the English UI now changes its English name, which is what the card shows in English; the Chinese name stays as is. Renaming in the Chinese UI works as before."
   ]
 }

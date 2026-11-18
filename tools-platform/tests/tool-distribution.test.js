@@ -256,3 +256,16 @@ test('restoring a hidden shared tool preserves its alias and personal content', 
     assert.equal((await resolve()).sourceTenant, 'alice');
     assert.equal((await resolve()).tool.name, 'Personal name');
 });
+
+test('renaming from the English UI changes only the English tool name', async () => {
+    const tool = await repo.createTool({ slug: 'english-rename', name: '中文名', nameEn: 'Old name', htmlContent: '<html><body>x</body></html>' });
+    const url = `/api/custom-tools/${tool.slug}`;
+    const renamed = (await asAdmin(request(app).patch(url + '/name')).send({ name: '中文名', nameEn: 'New name' }).expect(200)).body.tool;
+    assert.equal(renamed.name, '中文名');
+    assert.equal(renamed.nameEn, 'New name');
+    // 只改中文名时英文名保持不变
+    const zhOnly = (await asAdmin(request(app).patch(url + '/name')).send({ name: '新中文名' }).expect(200)).body.tool;
+    assert.equal(zhOnly.nameEn, 'New name');
+    await asAdmin(request(app).patch(url + '/name')).send({ name: '新中文名', nameEn: 'x'.repeat(121) }).expect(400);
+    await repo.deleteTool(tool.slug);
+});

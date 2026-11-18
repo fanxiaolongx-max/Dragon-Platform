@@ -2427,19 +2427,21 @@ window.HomeTools = { marketOpened: false };
             const tool = (window.__homeCustomTools || []).find(item => item.slug === slug);
             const title = document.querySelector(`[data-custom-tool-card="1"][data-tool-slug="${CSS.escape(slug)}"] .card-title`)?.cloneNode(true);
             title?.querySelectorAll('.new-badge, .tool-kind-badge').forEach(node => node.remove());
-            const currentName = tool?.name || title?.textContent?.replace(/\s+/g, ' ').trim() || slug;
-            const name = await AppDialog.prompt(t('home.prompt.rename'), { title: t('home.dialog.renameTitle'), defaultValue: currentName, maxLength: 80, confirmText: t('home.dialog.save') });
+            // 英文界面改的是英文名（卡片在英文界面显示英文名），中文名保持不变
+            const english = window.ToolsI18n?.getLanguage?.() === 'en-US' && Boolean(tool);
+            const currentName = (english ? tool.nameEn || tool.name : tool?.name) || title?.textContent?.replace(/\s+/g, ' ').trim() || slug;
+            const name = await AppDialog.prompt(t('home.prompt.rename'), { title: t('home.dialog.renameTitle'), defaultValue: currentName, maxLength: english ? 120 : 80, confirmText: t('home.dialog.save') });
             if (name === null || name.trim() === currentName) return null;
             if (!name.trim()) {
                 showToast(t('home.alert.renameFailed', { message: t('home.validation.nameRequired') }), 'warning');
                 return null;
             }
-            if (name.trim().length > 80) {
+            if (name.trim().length > (english ? 120 : 80)) {
                 showToast(t('home.alert.renameFailed', { message: t('home.validation.nameTooLong') }), 'warning');
                 return null;
             }
             try {
-                await API.patch(`/api/custom-tools/${encodeURIComponent(slug)}/name`, { name: name.trim() });
+                await API.patch(`/api/custom-tools/${encodeURIComponent(slug)}/name`, english ? { name: tool.name, nameEn: name.trim() } : { name: name.trim() });
                 showToast(t('home.toast.renamed'));
                 await loadCustomTools();
                 if (window.refreshCustomToolNavLinks) await window.refreshCustomToolNavLinks();

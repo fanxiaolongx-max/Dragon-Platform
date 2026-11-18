@@ -901,12 +901,15 @@ router.patch('/:slug/name', async (req, res) => {
             }
         }
         const previous = await repo.getTool(req.params.slug);
-        const tool = await repo.updateToolName(req.params.slug, req.body && req.body.name);
+        // 英文界面改名时带 nameEn：只改英文名，中文名原样传回
+        const tool = await repo.updateToolName(req.params.slug, req.body && req.body.name, req.body && typeof req.body.nameEn === 'string' ? req.body.nameEn : undefined);
         if (!tool) return res.status(404).json({ error: '自定义工具不存在' });
         historyRepo.addHistory({
             tool: 'custom',
             action: '修改工具名称',
-            detail: `${previous?.name || req.params.slug} → ${tool.name}`
+            detail: typeof req.body?.nameEn === 'string'
+                ? `${previous?.nameEn || previous?.name || req.params.slug} → ${tool.nameEn || tool.name}（英文名）`
+                : `${previous?.name || req.params.slug} → ${tool.name}`
         }).catch(err => console.error('[custom-tools] log rename history failed:', err.message));
         res.json({ success: true, tool });
     } catch (err) {
