@@ -3682,6 +3682,79 @@
         updateSendButton();
     }
 
+    // 新手引导演示：在真实输入框里逐字输入，再用真实的消息组件流式显示预写回答。
+    // 不写入 state.messages、不建会话、不请求接口；restore() 把原来的对话、草稿和视图原样放回。
+    function startTourDemo() {
+        const saved = { chatting: document.body.classList.contains('dc-chatting'), draft: el.input.value, readOnly: el.input.readOnly, scroll: el.thread.scrollTop, nodes: document.createDocumentFragment() };
+        saved.nodes.append(...el.thread.childNodes);
+        let epoch = 0;
+        const wait = ms => new Promise(resolve => setTimeout(resolve, prefersReducedMotion() ? 0 : ms));
+        const setInput = value => {
+            el.input.value = value;
+            autoResize();
+            el.input.scrollTop = el.input.scrollHeight;
+        };
+        const ask = question => {
+            setInput('');
+            el.thread.innerHTML = '';
+            setChatting(true);
+            addMessage('user', question);
+            const reply = addMessage('ai');
+            return { reply, activity: showThinking(reply) };
+        };
+        setChatting(false);
+        el.input.readOnly = true;
+        setInput('');
+        return {
+            async type(text) {
+                const id = ++epoch;
+                const chars = Array.from(text);
+                const duration = prefersReducedMotion() ? 0 : 2400;
+                const started = performance.now();
+                while (id === epoch) {
+                    const count = duration ? Math.min(chars.length, Math.ceil(chars.length * (performance.now() - started) / duration)) : chars.length;
+                    setInput(chars.slice(0, count).join(''));
+                    if (count >= chars.length) return true;
+                    await new Promise(resolve => requestAnimationFrame(resolve));
+                }
+                return false;
+            },
+            async reply(question, answer) {
+                const id = ++epoch;
+                const { reply, activity } = ask(question);
+                await wait(1100);
+                if (id !== epoch) return false;
+                const renderer = createRenderer(reply, activity);
+                for (let index = 0; index < answer.length && id === epoch; index += 36) {
+                    renderer.append(answer.slice(index, index + 36));
+                    await wait(70);
+                }
+                if (id !== epoch) return false;
+                await renderer.idle();
+                renderer.finish(answer);
+                return true;
+            },
+            show(question, answer) {
+                ++epoch;
+                const { reply, activity } = ask(question);
+                createRenderer(reply, activity).finish(answer);
+                scrollThread(true);
+            },
+            restore() {
+                if (saved.restored) return;
+                saved.restored = true;
+                ++epoch;
+                el.thread.innerHTML = '';
+                el.thread.append(saved.nodes);
+                el.input.readOnly = saved.readOnly;
+                setInput(saved.draft);
+                el.input.scrollTop = 0;
+                setChatting(saved.chatting);
+                el.thread.scrollTop = saved.scroll;
+            }
+        };
+    }
+
     function showTourLanding() {
         if (!document.body.classList.contains('dc-chatting')) return null;
         const scrollTop = el.thread.scrollTop;
@@ -3961,7 +4034,7 @@
         });
         window.addEventListener('home:resume-agent-discussion',event=>{if(!state.controller&&!state.restoring&&event.detail?.sessionId===state.sessionId)sendDesktopDiscussion('',event.detail);});
         watchSchedules();
-        window.DragonClaw = { refreshModelPicker: renderModelPicker, startWithSkill, showTourLanding, enterExternal, exitExternal, newChat, openSchedules: openSchedulePanel, openChat: openChatFromList, openLatest:openLatestChat, currentSessionId:()=>state.sessionId, lang, isExternal: () => external.active };
+        window.DragonClaw = { refreshModelPicker: renderModelPicker, startWithSkill, showTourLanding, startTourDemo, enterExternal, exitExternal, newChat, openSchedules: openSchedulePanel, openChat: openChatFromList, openLatest:openLatestChat, currentSessionId:()=>state.sessionId, lang, isExternal: () => external.active };
         // 其他页面或新标签打开的 /?skill=<id>：直接进入该技能的新对话
         const linkedSkill = new URLSearchParams(location.search).get('skill');
         if (linkedSkill) {

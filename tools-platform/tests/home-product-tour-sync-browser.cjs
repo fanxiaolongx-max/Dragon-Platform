@@ -160,7 +160,7 @@ app.whenReady().then(async () => {
     assert.equal(await evaluate('window.__tpOnboardingPending'), true, 'onboarding pending flag blocks tour');
     assert.equal(await evaluate('window.HomeProductTour.isOpen()'), false, 'tour never overlaps auto-import modal');
 
-    // Skip onboarding -> the first step plays a prewritten chat demo without touching the real composer.
+    // Skip onboarding -> the first step types into the real composer, then streams a prewritten reply in the real thread.
     await evaluate('document.querySelector(".quick-start-skip").click(); true');
     await until('!document.getElementById("defaultQuickStartModal")');
     assert.equal(await evaluate('window.__tpOnboardingPending'), false);
@@ -169,42 +169,58 @@ app.whenReady().then(async () => {
     assert.equal(await evaluate('document.querySelector(".v2-tour-eyebrow").textContent.trim()'), `1 / ${stepCount}`);
     assert.equal(stepCount, 14);
     assert.equal(await evaluate('document.querySelector(".v2-tour-root select") === null'), true);
-    await waitForStage('chat', '[data-chat-composer]');
-    await until('document.querySelector("[data-chat-input]").textContent.length > 10');
-    assert.equal(await evaluate('document.querySelector("[data-tour-next]").textContent'), '直接看结果');
-    await until('document.querySelector(".v2-tour-desc").textContent === "示范：AI 正在整理回答…"');
-    await waitForStage('chat', '[data-chat-thread]');
-    await until('document.querySelector(".v2-tour-desc").textContent.startsWith("这是预先写好的示范回答")', 10000);
-    assert.match(await evaluate('document.querySelector("[data-chat-ai]").innerText'), /RC2026\*+04[\s\S]*催办草稿/);
+    const answerDone = '!!document.querySelector("#dcThread .dc-msg--ai:not(.is-streaming) .dc-msg-body table") && document.querySelector("#dcThread .dc-msg--ai .dc-msg-body").innerText.includes("运维待办")';
+    await until('document.getElementById("dcInput").value.length > 10 && document.getElementById("dcInput").readOnly');
+    await waitForFocus('#dcComposer');
     assert.equal(await evaluate('document.querySelector("[data-tour-next]").textContent'), '下一步');
-    assert.equal(await evaluate('document.getElementById("dcInput").value'), '', 'the demo never types into the real composer');
-    assert.equal(await evaluate('document.getElementById("dcInput").readOnly'), false);
-    assert.equal(await evaluate('document.body.classList.contains("dc-chatting")'), false);
+    assert.equal(await evaluate('document.querySelector(".v2-tour-desc").textContent'), '让 AI 查本月未达标指标和临期工单。', 'the card keeps the short step description');
+    await until('document.body.classList.contains("dc-chatting") && !!document.querySelector("#dcThread .dc-msg--user")');
+    assert.match(await evaluate('document.querySelector("#dcThread .dc-msg--user").innerText'), /等我确认后再发送。$/);
+    await waitForFocus('#dcThread');
+    await until(answerDone, 15000);
+    const reply = await evaluate('document.querySelector("#dcThread .dc-msg--ai .dc-msg-body").innerText');
+    assert.match(reply, /RC2026\*{8}04[\s\S]*M\*{3} H\*{3}[\s\S]*y\*{3} 0087\*{2}23[\s\S]*催办草稿/, 'masked IDs and names render literally');
+    assert.equal(await evaluate('[...document.querySelectorAll("#dcThread .dc-msg--ai .dc-msg-body td strong, #dcThread .dc-msg--ai .dc-msg-body blockquote strong")].length'), 0, 'masking characters are not parsed as bold');
+    assert.equal(await evaluate('document.querySelectorAll("#dcThread .dc-msg--ai .dc-msg-body em").length'), 0, 'masking asterisks are not parsed as emphasis');
+    assert.equal(await evaluate('/示范|示例数据|匿名/.test(document.querySelector(".v2-tour-root").innerText)'), false, 'the tour does not label content as a demo');
+    assert.equal(chatRequests.length, 0, 'the demo reply is not a real chat request');
+    assert.ok(await evaluate(`(() => { const card = document.querySelector('.v2-tour-card').getBoundingClientRect(); const thread = document.getElementById('dcThread').getBoundingClientRect(); return card.left >= thread.right - 1; })()`), 'the card docks beside the real thread');
     win.setContentSize(390, 660);
     await until('innerWidth <= 400');
-    await waitForStage('chat', '[data-chat-thread]');
+    await until(`(() => { const thread = document.getElementById('dcThread').getBoundingClientRect(); const card = document.querySelector('.v2-tour-card').getBoundingClientRect(); return thread.height > 150 && card.top >= thread.bottom - 1 && card.bottom <= innerHeight; })()`);
     win.setContentSize(1440, 960);
     await until('innerWidth >= 1400');
     await next();
     assert.equal(await evaluate('document.querySelector(".v2-tour-eyebrow").textContent.trim()'), `2 / ${stepCount}`);
-    assert.equal(await evaluate('document.querySelector(".v2-tour-root").classList.contains("is-staged")'), false);
+    assert.equal(await evaluate('document.body.classList.contains("dc-chatting")'), false, 'leaving the first step restores the landing page');
+    assert.equal(await evaluate('document.getElementById("dcInput").value'), '');
+    assert.equal(await evaluate('document.getElementById("dcThread").children.length'), 0, 'the demo messages are removed');
     await waitForFocus('.dc-landing [data-v2-modes]');
     await previous();
-    await waitForStage('chat', '[data-chat-composer]');
-    await next(); // 跳过演示，直接显示完整回答
-    await until('document.querySelector(".v2-tour-desc").textContent.startsWith("这是预先写好的示范回答") && document.querySelector("[data-chat-ai]").innerText.includes("RC2026********04")');
-    await waitForStage('chat', '[data-chat-thread]');
+    await until('document.getElementById("dcInput").value.length > 3');
+    await next(); // 跳过动画，直接显示完整回答
+    await until(answerDone);
+    await waitForFocus('#dcThread');
     await evaluate('document.querySelector(".v2-tour-skip").click()');
     await until('!window.HomeProductTour.isOpen()');
     assert.equal(await evaluate('window.HomeProductTour.isCompleted()'), true);
+    assert.equal(await evaluate('document.body.classList.contains("dc-chatting") || document.getElementById("dcThread").children.length || document.getElementById("dcInput").readOnly'), false);
     assert.equal(chatRequests.length, 0, 'the tour never sends a real chat request');
 
-    await evaluate('window.ToolsI18n.setLanguage("en-US"); window.HomeProductTour.replay();');
-    await until('document.querySelector(".v2-tour-desc")?.textContent === "Demo: asking AI a question…"');
+    // A replay while a conversation is open puts that conversation back afterwards.
+    await evaluate(`(() => {
+        document.getElementById('dcThread').innerHTML = '<div class="dc-msg dc-msg--user" id="keptMessage"><div class="dc-msg-main"><div class="dc-msg-body">kept</div></div></div>';
+        document.body.classList.add('dc-chatting');
+        window.ToolsI18n.setLanguage("en-US");
+        window.HomeProductTour.replay();
+    })()`);
+    await until('document.querySelector(".v2-tour-title")?.textContent === "Ask Dragon Claw anything" && document.getElementById("dcInput").value.startsWith("Use")');
+    assert.equal(await evaluate('!!document.getElementById("keptMessage")'), false);
     await next();
-    await until('document.querySelector("[data-chat-ai]").innerText.includes("Draft reminder")');
+    await until('document.querySelector("#dcThread .dc-msg--ai .dc-msg-body")?.innerText.includes("Ops Drafts")');
     await evaluate('document.querySelector(".v2-tour-skip").click(); window.ToolsI18n.setLanguage("zh-CN");');
-    assert.equal(await evaluate('document.getElementById("dcInput").value'), '');
+    assert.equal(await evaluate('!!document.getElementById("keptMessage") && document.body.classList.contains("dc-chatting") && document.getElementById("dcInput").value === ""'), true, 'the open conversation is restored');
+    await evaluate('window.DragonClaw.newChat()');
 
     // 4. Replay from Account and advance through the guide in order; tools are static demos.
     await evaluate(`(() => {
@@ -218,10 +234,10 @@ app.whenReady().then(async () => {
     assert.ok(await evaluate('!!document.querySelector(".v2-account-head.is-superadmin")'), 'superadmin account head styled');
     await evaluate('document.querySelector(".v2-account [data-v2-do=\\"tour\\"]").click(); true');
     await until('document.querySelector(".v2-tour-root.is-open")');
-    assert.equal(await evaluate('document.getElementById("dcInput").value'), '已有草稿');
     await next();
     await next();
     await waitForFocus('.dc-landing [data-v2-modes]');
+    assert.equal(await evaluate('document.getElementById("dcInput").value'), '已有草稿', 'the user draft is back after the first step');
     await next();
     await waitForFocus('#homeSidebar [data-v2-action="newChat"]');
     await next();
@@ -240,7 +256,7 @@ app.whenReady().then(async () => {
             assert.equal(await evaluate('new URL(document.querySelector(".v2-tour-stage .tm-page").src).pathname'), `/assets/tour/${id}.html`, `${id} shows its anonymized page snapshot`);
             assert.equal(await evaluate('document.querySelector(".v2-tour-stage .tm-page").contentDocument.querySelectorAll("script").length'), 0, `${id} snapshot runs no scripts`);
         }
-        assert.ok(await evaluate('document.querySelector(".v2-tour-stage .tm-sample")?.textContent === "真实界面 · 数据已匿名"'), `${id} screenshot is labelled as anonymized`);
+        assert.equal(await evaluate('/示范|示例数据|匿名/.test(document.querySelector(".v2-tour-root").innerText)'), false, `${id} is not labelled as a demo`);
         assert.equal(await evaluate('window.HomeToolFrame.isOpen() || [...document.querySelectorAll(".v2-tour-root iframe")].some(f => !new URL(f.src).pathname.startsWith("/assets/tour/") || f.getAttribute("sandbox") !== "allow-same-origin")'), false, `${id} does not load the real tool`);
         if (id === 'sla') {
             await evaluate('window.ToolsI18n.setLanguage("en-US"); document.documentElement.dataset.theme = "dark";');
@@ -248,7 +264,8 @@ app.whenReady().then(async () => {
             await until('window.innerWidth <= 400');
             await until('document.querySelector(".v2-tour-title").textContent === "Data Import"');
             await waitForStage('sla');
-            assert.equal(await evaluate('document.querySelector(".v2-tour-stage .tm-sample").textContent'), 'Real screen · anonymized');
+            // 窄屏下内嵌页按舞台的真实比例铺满，并保持 80% 缩放。
+            assert.ok(await evaluate(`(() => { const stage = document.querySelector('.v2-tour-stage').getBoundingClientRect(); const box = document.querySelector('.tm-page-box').getBoundingClientRect(); const frame = document.querySelector('.tm-page'); return Math.abs(box.width - stage.width) < 3 && Math.abs(box.height - stage.height) < 3 && Math.abs(frame.offsetWidth * 0.8 - box.width) < 3; })()`), 'narrow page snapshot fills the stage at 80% zoom');
             const narrowLayout = await evaluate(`(() => {
                 const card = document.querySelector('.v2-tour-card').getBoundingClientRect();
                 const next = document.querySelector('[data-tour-next]').getBoundingClientRect();
@@ -268,6 +285,8 @@ app.whenReady().then(async () => {
     await waitForFocus('#v2AlertBtn');
     await next();
     await until(`document.querySelector(".v2-tour-eyebrow").textContent.trim() === "${stepCount} / ${stepCount}"`);
+    // 账户菜单有展开动画，等高亮框跟上菜单的最终尺寸。
+    await until('(() => { const pop = document.querySelector(".v2-account.is-open"); return pop && document.querySelector(".v2-tour-ring").getBoundingClientRect().width >= pop.getBoundingClientRect().width; })()').catch(() => {});
     const accountStep = await evaluate(`(() => {
         const pop = document.querySelector(".v2-account.is-open");
         const ring = document.querySelector(".v2-tour-ring");

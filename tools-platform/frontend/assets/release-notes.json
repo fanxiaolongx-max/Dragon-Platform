@@ -1,8 +1,10 @@
 {
   "zh": [
-    "新手引导的工具步骤改为渲染真实页面：数据抓取、数据导入、报表看板、一键催办、月报和大屏用的是真实页面的静态快照（数据已匿名、不运行脚本、不请求接口），文字清晰、秒开；运维待办直接用真实的待确认面板展示示例草稿，高亮框对准每页的重点元素。"
+    "新手引导第一步回到真实首页：在真实输入框里逐字输入问题，再在真实对话区流式显示回答，不发真实请求，结束后原来的对话和草稿原样恢复。",
+    "工具页面按画面实际宽高铺满并缩放到 80%，能看到更多内容，高亮框随之对准重点元素；引导文案更简短，不再出现“示范”“已匿名”等标注。"
   ],
   "en": [
-    "Product tour tool steps now render real pages: Data Capture, Data Import, Reports, One-Click Follow-Up, Monthly Report and Big Screen use static snapshots of the real pages (anonymized data, no scripts, no API calls), so text is sharp and they open instantly. Ops Drafts shows a sample draft in the real review panel, and the highlight targets the key element on each page."
+    "The first tour step is back on the real home page: the question is typed into the real composer and the reply streams into the real conversation view, without sending a real request. Your open conversation and draft are restored afterwards.",
+    "Tool pages in the tour now fill the available space at 80% zoom so more content is visible, with the highlight following the key element. Tour text is shorter and no longer labels screens as demos or anonymized."
   ]
 }

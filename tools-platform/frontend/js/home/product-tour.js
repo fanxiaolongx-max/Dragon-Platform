@@ -21,10 +21,6 @@
             done: '开始使用',
             kbd: '← → 切换 · Esc 关闭',
             tool: '系统工具',
-            exampleTyping: '示范：向 AI 提一个问题…',
-            exampleRunning: '示范：AI 正在整理回答…',
-            exampleDone: '这是预先写好的示范回答，数据来自真实报表并已匿名。真实提问时，AI 会读取你自己的报表和催办快照。',
-            showResult: '直接看结果',
             steps: [
                 {
                     id: 'composer',
@@ -78,10 +74,6 @@
             done: 'Get started',
             kbd: '← → navigate · Esc close',
             tool: 'System tool',
-            exampleTyping: 'Demo: asking AI a question…',
-            exampleRunning: 'Demo: AI is preparing a reply…',
-            exampleDone: 'This is a prewritten sample reply based on real, anonymized report data. When you ask for real, AI reads your own report and follow-up snapshots.',
-            showResult: 'Show result',
             steps: [
                 {
                     id: 'composer',
@@ -249,7 +241,9 @@
     const HOME_STEPS = [
         {
             id: 'composer',
-            stage: 'chat'
+            placement: 'top',
+            find: () => state.chatSent ? document.getElementById('dcThread')
+                : document.querySelector('#dcComposer') || document.querySelector('#dcInput')
         },
         {
             id: 'modes',
@@ -289,7 +283,12 @@
                     document.getElementById('v2UserBtn')?.click();
                     state.openedAccountMenu = Boolean(document.querySelector('.v2-account.is-open'));
                     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-                    setTimeout(() => { if (state.active && state.steps[state.index]?.id === 'account') updateSpotlight(); }, 220);
+                    // 菜单有展开动画：动画结束时再定位一次，保证高亮框框住完整菜单。
+                    const menu = document.querySelector('.v2-account');
+                    const settle = () => { if (state.active && state.steps[state.index]?.id === 'account') updateSpotlight(); };
+                    menu?.addEventListener('transitionend', settle, { once: true });
+                    setTimeout(settle, 220);
+                    setTimeout(settle, 480);
                 }
             },
             cleanup: () => {
@@ -320,6 +319,8 @@
         previousFocus: null,
         chatPhase: '',
         chatRun: 0,
+        chatDemo: null,
+        chatSent: false,
         restoreChat: null,
         openedAccountMenu: false,
         wasSidebarCollapsed: false,
@@ -417,99 +418,72 @@
         state.chatRun += 1;
         state.chatPhase = '';
         const demo = step.stage === 'tool' && demos?.tools[step.id];
-        const badge = `<em class="tm-sample tm-badge">${L('真实界面 · 数据已匿名', 'Real screen · anonymized')}</em>`;
         if (demo?.page) {
             // 无脚本的静态快照：只渲染页面本身，不跑工具代码，也不请求业务接口。
             stage.className = `v2-tour-stage is-tool is-${step.id}`;
-            stage.innerHTML = `<div class="tm-page-box"><iframe class="tm-page" title="" tabindex="-1" sandbox="allow-same-origin" src="${demo.page}"></iframe></div>${badge}`;
+            stage.innerHTML = `<div class="tm-page-box"><iframe class="tm-page" title="" tabindex="-1" sandbox="allow-same-origin" src="${demo.page}"></iframe></div>`;
             const frame = stage.querySelector('iframe');
             frame.inert = true;
             frame.addEventListener('load', () => { preparePage(frame); onViewportChange(); }, { once: true });
         } else if (demo?.html) {
             ensureStylesheet('/css/ops-inbox.css');
             stage.className = `v2-tour-stage is-tool is-panel is-${step.id}`;
-            stage.innerHTML = `<div class="tm-panel-box">${demo.html(L)}</div>${badge}`;
-        } else if (step.stage === 'chat' && demos) {
-            stage.className = 'v2-tour-stage is-chat';
-            stage.innerHTML = demos.chat(L).html;
-            playChat();
+            stage.innerHTML = `<div class="tm-panel-box">${demo.html(L)}</div>`;
         } else {
             stage.className = 'v2-tour-stage';
             stage.innerHTML = '';
         }
         state.root.classList.toggle('is-staged', Boolean(stage.innerHTML));
+        if (step.id === 'composer') playChat();
+        else endChat();
     }
 
     const pause = ms => new Promise(resolve => setTimeout(resolve, reducedMotion() ? 0 : ms));
 
-    // 示范对话：输入问题 → 发送 → 分段显示预写回答。全程只改引导层，不触碰真实会话。
+    // 第一步在真实首页上演示：真实输入框里逐字输入问题，再在真实对话区流式显示预写回答。
+    // 由 DragonClaw.startTourDemo 负责，不发请求、不建会话，离开这一步就把原来的对话和草稿放回去。
     async function playChat() {
         const run = state.chatRun;
         const live = () => state.active && state.chatRun === run;
-        const demo = window.HomeProductTourDemos.chat(L);
-        const stage = state.stage;
-        const input = stage.querySelector('[data-chat-input]');
+        const chat = window.HomeProductTourDemos?.chat(L);
+        endChat();
+        state.chatDemo = window.DragonClaw?.startTourDemo?.() || null;
+        if (!chat || !state.chatDemo) return;
         state.chatPhase = 'playing';
-        setFocus('[data-chat-composer]');
-        await pause(420);
-        const chars = Array.from(demo.prompt);
-        const started = performance.now();
-        const duration = reducedMotion() ? 0 : 1500;
-        while (live()) {
-            const count = duration ? Math.min(chars.length, Math.ceil(chars.length * (performance.now() - started) / duration)) : chars.length;
-            input.textContent = chars.slice(0, count).join('');
-            if (count >= chars.length) break;
-            await new Promise(resolve => requestAnimationFrame(resolve));
-        }
-        await pause(450);
+        setChatSent(false);
+        await pause(500);
+        if (!live() || !await state.chatDemo.type(chat.prompt)) return;
+        await pause(600);
         if (!live()) return;
-        showQuestion(demo);
-        await pause(900);
-        const ai = stage.querySelector('[data-chat-ai]');
-        for (const block of demo.answer) {
-            if (!live()) return;
-            ai.querySelector('.tm-typing')?.remove();
-            ai.insertAdjacentHTML('beforeend', `<div class="tm-reveal">${block}</div>`);
-            scrollThread();
-            await pause(520);
-        }
-        if (live()) {
+        setChatSent(true);
+        if (await state.chatDemo.reply(chat.prompt, chat.answer) && live()) {
             state.chatPhase = 'done';
             renderStep();
         }
     }
 
-    function showQuestion(demo) {
-        const stage = state.stage;
-        stage.querySelector('[data-chat-input]').textContent = '';
-        stage.classList.add('is-sent');
-        const user = stage.querySelector('[data-chat-user]');
-        user.textContent = demo.prompt;
-        user.hidden = false;
-        stage.querySelector('[data-chat-ai]').hidden = false;
-        setFocus('[data-chat-thread]');
-        renderStep();
-    }
-
     function finishChat() {
-        const demo = window.HomeProductTourDemos.chat(L);
+        const chat = window.HomeProductTourDemos.chat(L);
         state.chatRun += 1;
-        showQuestion(demo);
-        state.stage.querySelector('[data-chat-ai]').innerHTML = demo.answer.map(block => `<div>${block}</div>`).join('');
-        scrollThread();
+        state.chatDemo?.show(chat.prompt, chat.answer);
         state.chatPhase = 'done';
-        renderStep();
+        setChatSent(true);
     }
 
-    function scrollThread() {
-        const thread = state.stage.querySelector('[data-chat-thread]');
-        thread.scrollTop = thread.scrollHeight;
+    function endChat() {
+        state.chatDemo?.restore();
+        state.chatDemo = null;
+        state.chatPhase = '';
+        setChatSent(false);
     }
 
-    function setFocus(selector) {
-        state.stage.querySelectorAll('[data-tour-focus]').forEach(el => el.removeAttribute('data-tour-focus'));
-        state.stage.querySelector(selector)?.setAttribute('data-tour-focus', '');
-        onViewportChange();
+    // 发送后卡片停靠到对话区旁边（窄屏在底部），高亮整个对话区。
+    function setChatSent(sent) {
+        state.chatSent = sent;
+        state.root?.classList.toggle('is-chat-demo', sent);
+        document.documentElement.classList.toggle('v2-tour-chat', sent);
+        if (sent) state.card.style.removeProperty('transform');
+        if (state.active && state.root) renderStep();
     }
 
     function restoreTourChat() {
@@ -530,7 +504,7 @@
         const cardRect = state.card.getBoundingClientRect();
         const cardW = cardRect.width || width;
         const cardH = cardRect.height || 200;
-        const docked = state.root.classList.contains('is-staged');
+        const docked = state.root.matches('.is-staged, .is-chat-demo');
 
         if (!targetRect) {
             state.cutout.setAttribute('width', '0');
@@ -592,7 +566,7 @@
         if (!state.active) return;
         const step = state.steps[state.index];
         const staged = state.root.classList.contains('is-staged');
-        if (staged) {
+        if (staged || state.root.classList.contains('is-chat-demo')) {
             document.documentElement.style.setProperty('--v2-tour-card-height', `${state.card.offsetHeight}px`);
         }
         if (staged && step.stage === 'tool') {
@@ -631,51 +605,49 @@
         const doc = frame.contentDocument;
         if (!doc?.documentElement) return;
         const style = doc.createElement('style');
-        style.textContent = '*{scrollbar-width:none!important}*::-webkit-scrollbar{display:none!important}html,body{overflow:hidden!important}';
+        style.textContent = '*{scrollbar-width:none!important}*::-webkit-scrollbar{display:none!important}html,body{overflow:hidden!important}#dataSourceBadge,#globalBackToTop{display:none!important}';
         doc.head.append(style);
+        alignFocus(doc);
+    }
+
+    function alignFocus(doc) {
         for (const el of doc.querySelectorAll('[data-tour-scroll]')) el.scrollTop = Number(el.dataset.tourScroll.split(',')[0]) || 0;
         const focus = doc.querySelector('[data-tour-focus]');
         const anchor = Number(doc.documentElement.dataset.tourAnchor);
         if (focus && Number.isFinite(anchor)) doc.scrollingElement.scrollTop += focus.getBoundingClientRect().top - anchor;
     }
 
-    // 快照按导出时的视口排版，再整体缩放进舞台；返回重点区域在视口中的位置。
+    // 内嵌页按舞台的真实宽高排版，再统一缩放到 80%，内容更完整；返回重点区域在视口中的位置。
+    const PAGE_ZOOM = 0.8;
     function layoutPage(step) {
         const demo = window.HomeProductTourDemos?.tools[step.id];
         const stage = state.stage;
-        const badge = stage.querySelector('.tm-badge');
-        if (demo?.html) {
-            const box = stage.querySelector('.tm-panel-box');
-            const focus = stage.querySelector('[data-tour-focus]');
-            placeBadge(badge, box);
-            return focus?.getBoundingClientRect();
-        }
+        if (demo?.html) return stage.querySelector('[data-tour-focus]')?.getBoundingClientRect();
         const box = stage.querySelector('.tm-page-box');
         const frame = stage.querySelector('.tm-page');
         if (!demo?.page || !frame) return null;
-        const scale = Math.min(stage.clientWidth / demo.w, stage.clientHeight / demo.h);
-        box.style.width = `${Math.round(demo.w * scale)}px`;
-        box.style.height = `${Math.round(demo.h * scale)}px`;
-        frame.style.width = `${demo.w}px`;
-        frame.style.height = `${demo.h}px`;
-        frame.style.transform = `scale(${scale})`;
-        placeBadge(badge, box);
-        const focus = frame.contentDocument?.querySelector('[data-tour-focus]');
+        const width = Math.round(stage.clientWidth / PAGE_ZOOM);
+        const height = Math.round(stage.clientHeight / PAGE_ZOOM);
+        box.style.width = `${stage.clientWidth}px`;
+        box.style.height = `${stage.clientHeight}px`;
+        frame.style.width = `${width}px`;
+        frame.style.height = `${height}px`;
+        frame.style.transform = `scale(${PAGE_ZOOM})`;
+        const doc = frame.contentDocument;
+        const focus = doc?.querySelector('[data-tour-focus]');
         if (!focus) return null;
+        // 尺寸变化后重新对齐，让重点元素保持在导出时的位置。
+        if (frame.dataset.layout !== `${width}x${height}`) {
+            frame.dataset.layout = `${width}x${height}`;
+            alignFocus(doc);
+        }
         const outer = box.getBoundingClientRect();
         const rect = focus.getBoundingClientRect();
         const left = Math.max(0, rect.left), top = Math.max(0, rect.top);
-        const right = Math.min(demo.w, rect.right), bottom = Math.min(demo.h, rect.bottom);
+        const right = Math.min(width, rect.right), bottom = Math.min(height, rect.bottom);
         if (right <= left || bottom <= top) return null;
-        return { left: outer.left + left * scale, top: outer.top + top * scale, width: (right - left) * scale, height: (bottom - top) * scale };
-    }
-
-    function placeBadge(badge, box) {
-        if (!badge || !box) return;
-        // 有空位时放在画面上方，避免压住页面里的按钮。
-        const above = box.offsetTop >= 34;
-        badge.style.top = `${above ? box.offsetTop - 30 : box.offsetTop + 10}px`;
-        badge.style.right = `${state.stage.clientWidth - box.offsetLeft - box.offsetWidth + (above ? 0 : 10)}px`;
+        return { left: outer.left + left * PAGE_ZOOM, top: outer.top + top * PAGE_ZOOM,
+            width: (right - left) * PAGE_ZOOM, height: (bottom - top) * PAGE_ZOOM };
     }
 
     // 预取快照，切到工具步骤时直接从缓存渲染。
@@ -719,21 +691,16 @@
         badge.textContent = tool ? copy.tool : stepCopy.badge;
         root.querySelector('.v2-tour-skip').textContent = copy.skip;
         root.querySelector('.v2-tour-title').textContent = tool ? tool[0] : stepCopy.title;
-        const sent = state.stage.classList.contains('is-sent');
-        const description = state.chatPhase === 'playing' ? (sent ? copy.exampleRunning : copy.exampleTyping)
-            : state.chatPhase === 'done' ? copy.exampleDone
-            : (tool ? tool[1] : stepCopy.desc);
-        root.querySelector('.v2-tour-desc').textContent = description;
+        root.querySelector('.v2-tour-desc').textContent = tool ? tool[1] : stepCopy.desc;
         root.querySelector('.v2-tour-kbd').textContent = copy.kbd;
-        if (root.classList.contains('is-staged')) state.card.style.removeProperty('transform');
+        if (root.matches('.is-staged, .is-chat-demo')) state.card.style.removeProperty('transform');
 
         const prevBtn = root.querySelector('[data-tour-prev]');
         prevBtn.textContent = copy.back;
         prevBtn.hidden = state.index === 0;
 
         const nextBtn = root.querySelector('[data-tour-next]');
-        nextBtn.textContent = state.chatPhase === 'playing' ? copy.showResult
-            : state.index === state.steps.length - 1 ? copy.done : copy.next;
+        nextBtn.textContent = state.index === state.steps.length - 1 ? copy.done : copy.next;
 
         updateSpotlight();
     }
@@ -814,7 +781,7 @@
         if (!state.active) return;
         state.steps[state.index]?.cleanup?.();
         state.chatRun += 1;
-        state.chatPhase = '';
+        endChat();
         state.cardObserver?.disconnect();
         state.cardObserver = null;
         document.documentElement.style.removeProperty('--v2-tour-card-height');

@@ -1,6 +1,6 @@
 <!doctype html>
 <!-- 新手引导静态快照：来自真实页面，数据已匿名；只用于引导展示，不含脚本。 -->
-<html lang="zh-CN" data-kantu="1" data-platform-theme="light" data-theme="light" style="color-scheme: light;" class="is-embedded-tool" data-tour-anchor="414" data-tour-viewport="1314,783"><head><meta name="tools-detected-mobile-layout" content="responsive"><style id="tools-fixed-tool-theme">:root,body,input,textarea,select,button { color-scheme: light !important; }
+<html lang="zh-CN" data-kantu="1" data-platform-theme="light" data-theme="light" style="color-scheme: light;" class="is-embedded-tool" data-tour-anchor="414" data-tour-viewport="1600,1100"><head><meta name="tools-detected-mobile-layout" content="responsive"><style id="tools-fixed-tool-theme">:root,body,input,textarea,select,button { color-scheme: light !important; }
         #themeToggleButton,#themeToggle,#themeToggleBtn,#theme-toggle,#theme-btn,#themeBtn,#themeSwitcher,button#theme,.theme-toggle,.btn-theme-toggle,.theme-switch,[data-theme-toggle] { display:none !important; }</style><style id="elegantScrollbars">
         *, *::before, *::after { scrollbar-width: auto !important; scrollbar-color: auto !important; }
         ::-webkit-scrollbar { width: 8px !important; height: 8px !important; background: transparent !important; }
@@ -1123,6 +1123,12 @@
         .ai-lightbox-bar a[data-lb="download"] { background: #7dd3fc; color: #0c4a6e; border-color: transparent; font-weight: 600; }
         .ai-lightbox-bar [hidden] { display: none; }
     </style><style>
+    #dataSourceBadge{position:fixed;left:16px;bottom:16px;z-index:99999;max-width:min(260px,calc(100vw - 32px));padding:7px 11px;border:1px solid #7891ab66;border-radius:10px;background:#172b40ed;color:#e2e8f0;font:11px/1.5 system-ui,sans-serif;box-shadow:0 5px 20px #0002;backdrop-filter:blur(12px);text-align:left;cursor:pointer;transition:opacity .25s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #dataSourceBadge[hidden]{display:none}
+    #dataSourceBadge:hover,#dataSourceBadge:focus-visible{background:#26425d;color:#fff}
+    #dataSourceDetail{position:fixed;left:16px;bottom:54px;z-index:100000;box-sizing:border-box;width:min(480px,calc(100vw - 32px));max-height:min(540px,calc(100vh - 100px));padding:16px;border:1px solid #809ab466;border-radius:14px;background:#172b40f5;color:#e2e8f0;font:12px/1.6 system-ui,sans-serif;box-shadow:0 10px 32px #0003;backdrop-filter:blur(16px);overflow:auto;overflow-wrap:anywhere}
+    #dataSourceDetail header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px}#dataSourceDetail button{border:1px solid #8ba2ba66;border-radius:7px;background:#26425d;color:#fff;padding:3px 9px;cursor:pointer}#dataSourceDetail ol{margin:0;padding:0;list-style:none}#dataSourceDetail li{border-top:1px solid #809ab433;padding:9px 0}#dataSourceDetail small{display:block;color:#b8cadc}#dataSourceDetail code{display:block;font-size:11px;white-space:normal}
+    </style><style>
         /* AI Assistant 样式定义 */
         /* The active tool owns its contextual drawer; retain the host as fallback. */
         body.v2-tool-has-assistant > :is(.ai-fab, .ai-panel, .ai-proactive-alert) { display: none !important; }
@@ -2163,12 +2169,6 @@
             .ai-fab-orb::before,
             .ai-fab.is-pulse .ai-fab-orb { animation: none; }
         }
-    </style><style>
-    #dataSourceBadge{position:fixed;left:16px;bottom:16px;z-index:99999;max-width:min(260px,calc(100vw - 32px));padding:7px 11px;border:1px solid #7891ab66;border-radius:10px;background:#172b40ed;color:#e2e8f0;font:11px/1.5 system-ui,sans-serif;box-shadow:0 5px 20px #0002;backdrop-filter:blur(12px);text-align:left;cursor:pointer;transition:opacity .25s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    #dataSourceBadge[hidden]{display:none}
-    #dataSourceBadge:hover,#dataSourceBadge:focus-visible{background:#26425d;color:#fff}
-    #dataSourceDetail{position:fixed;left:16px;bottom:54px;z-index:100000;box-sizing:border-box;width:min(480px,calc(100vw - 32px));max-height:min(540px,calc(100vh - 100px));padding:16px;border:1px solid #809ab466;border-radius:14px;background:#172b40f5;color:#e2e8f0;font:12px/1.6 system-ui,sans-serif;box-shadow:0 10px 32px #0003;backdrop-filter:blur(16px);overflow:auto;overflow-wrap:anywhere}
-    #dataSourceDetail header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px}#dataSourceDetail button{border:1px solid #8ba2ba66;border-radius:7px;background:#26425d;color:#fff;padding:3px 9px;cursor:pointer}#dataSourceDetail ol{margin:0;padding:0;list-style:none}#dataSourceDetail li{border-top:1px solid #809ab433;padding:9px 0}#dataSourceDetail small{display:block;color:#b8cadc}#dataSourceDetail code{display:block;font-size:11px;white-space:normal}
     </style></head>
 
 <body data-platform-theme="light" data-theme="light" class="">
@@ -2177,7 +2177,7 @@
         <div class="controls">
             <h2><span data-i18n="title">一键催办</span> <span id="expediteFrontendVersion" style="font-size:14px;color:#94a3b8;font-weight:normal;margin-left:8px;" title="平台版本：1.0.664">v1.0.664</span></h2>
             <div style="display: flex; gap: 12px; align-items: center;">
-                <select id="snapshot-selector" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; background: #fff; color: #334155; font-size: 13px; max-width: 200px;"><option value="15206f39-9cfd-4a8e-874a-4d4e8e873983" data-month="9" selected="">2026-10-10 12:38 (9月)</option><option value="mtlglsvh" data-month="8">2026-09-03 14:46 (8月)</option><option value="mrj7olu4" data-month="7">2026-07-13 15:41 (7月)</option><option value="mrj6wqix" data-month="7">2026-07-13 15:19 (7月)</option><option value="mrj0c5en" data-month="7">2026-07-13 12:15 (7月)</option><option value="mralevx6" data-month="7">2026-07-07 14:56 (7月)</option><option value="mr61seu2" data-month="6">2026-07-04 10:35 (6月)</option><option value="mr4qpwxq" data-month="6">2026-07-03 12:37 (6月)</option><option value="mr3w2tl9" data-month="6">2026-07-02 22:20 (6月)</option><option value="mr27x2ii" data-month="6">2026-07-01 18:16 (6月)</option><option value="mr37rqcb" data-month="6">2026-07-02 10:59 (6月)</option><option value="mr1pq9s0" data-month="6">2026-07-01 09:46 (6月)</option><option value="mr0zcgc1" data-month="6">2026-06-30 21:28 (6月)</option><option value="mr0bri06" data-month="6">2026-06-30 10:28 (6月)</option><option value="mqyvqx7g" data-month="6">2026-06-29 10:12 (6月)</option><option value="mqxzwbe2" data-month="6">2026-06-28 19:20 (6月)</option><option value="mqxr2iny" data-month="6">2026-06-28 15:13 (6月)</option><option value="mqxew9r1" data-month="6">2026-06-28 09:32 (6月)</option><option value="mqvzwnos" data-month="6">2026-06-27 09:45 (6月)</option><option value="mqukzpsh" data-month="6">2026-06-26 09:59 (6月)</option><option value="mqrt4476" data-month="6">2026-06-24 11:23 (6月)</option><option value="mqqe5nis" data-month="6">2026-06-23 11:37 (6月)</option><option value="mqmrxfqj" data-month="6">2026-06-20 22:51 (6月)</option><option value="mqjyriqw" data-month="6">2026-06-18 23:39 (6月)</option><option value="mqgepk9u" data-month="6">2026-06-16 11:55 (6月)</option><option value="mqeyueji" data-month="6">2026-06-15 11:43 (6月)</option><option value="mqdwyn5q" data-month="6">2026-06-14 18:02 (6月)</option><option value="mqbevmnv" data-month="6">2026-06-13 00:01 (6月)</option><option value="mq98cx0d" data-month="6">2026-06-11 11:23 (6月)</option><option value="mq6qrip4" data-month="6">2026-06-09 17:35 (6月)</option><option value="mq556kyi" data-month="6">2026-06-08 14:43 (6月)</option><option value="mq54k6y6" data-month="6">2026-06-08 14:25 (6月)</option><option value="mq4yn82a" data-month="6">2026-06-08 11:40 (6月)</option><option value="mq45ge72" data-month="6">2026-06-07 22:02 (6月)</option><option value="mq3x5qzf" data-month="6">2026-06-07 18:10 (6月)</option><option value="mq3l2ujk" data-month="6">2026-06-07 12:32 (6月)</option><option value="mq3h68ym" data-month="6">2026-06-07 10:43 (6月)</option><option value="mq3fhjsx" data-month="6">2026-06-07 09:56 (6月)</option><option value="mpz5i45d" data-month="5">2026-06-04 10:05 (5月)</option><option value="mpuyovkg" data-month="5">2026-06-01 11:43 (5月)</option><option value="mpuy3ver" data-month="5">2026-06-01 11:27 (5月)</option><option value="mpuvyrl2" data-month="5">2026-06-01 10:27 (5月)</option><option value="mpuv5bhy" data-month="5">2026-06-01 10:04 (5月)</option><option value="mpuulr8v" data-month="5">2026-06-01 09:49 (5月)</option><option value="mpsp5p18" data-month="5">2026-05-30 21:41 (5月)</option><option value="mpsorxil" data-month="5">2026-05-30 21:30 (5月)</option><option value="mpsnl6xb" data-month="5">2026-05-30 20:57 (5月)</option><option value="mpol7bu2" data-month="5">2026-05-28 00:39 (5月)</option><option value="mpn5iefg" data-month="5">2026-05-27 00:32 (5月)</option><option value="mplo2b01" data-month="5">2026-05-25 23:36 (5月)</option><option value="mplmy9du" data-month="5">2026-05-25 23:05 (5月)</option><option value="mpllryxt" data-month="5">2026-05-25 22:32 (5月)</option><option value="mpl5gpqg" data-month="5">2026-05-25 14:55 (5月)</option><option value="mpjk46v4" data-month="5">2026-05-24 12:10 (5月)</option><option value="mpi1axj2" data-month="5">2026-05-23 10:35 (5月)</option><option value="mpcea0ly" data-month="5">2026-05-19 11:52 (5月)</option><option value="mphdcshx" data-month="5">2026-05-22 23:25 (5月)</option><option value="mphcadw4" data-month="5">2026-05-22 22:55 (5月)</option><option value="mphaclyb" data-month="5">2026-05-22 22:01 (5月)</option><option value="mpgvzibk" data-month="5">2026-05-22 15:19 (5月)</option><option value="mpfftz2k" data-month="5">2026-05-21 14:59 (5月)</option></select>
+                <select id="snapshot-selector" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; background: #fff; color: #334155; font-size: 13px; max-width: 200px;"><option value="••••••••" data-month="9" selected="">2026-10-10 12:38 (9月)</option><option value="mtlglsvh" data-month="8">2026-09-03 14:46 (8月)</option><option value="mrj7olu4" data-month="7">2026-07-13 15:41 (7月)</option><option value="mrj6wqix" data-month="7">2026-07-13 15:19 (7月)</option><option value="mrj0c5en" data-month="7">2026-07-13 12:15 (7月)</option><option value="mralevx6" data-month="7">2026-07-07 14:56 (7月)</option><option value="mr61seu2" data-month="6">2026-07-04 10:35 (6月)</option><option value="mr4qpwxq" data-month="6">2026-07-03 12:37 (6月)</option><option value="mr3w2tl9" data-month="6">2026-07-02 22:20 (6月)</option><option value="mr27x2ii" data-month="6">2026-07-01 18:16 (6月)</option><option value="mr37rqcb" data-month="6">2026-07-02 10:59 (6月)</option><option value="mr1pq9s0" data-month="6">2026-07-01 09:46 (6月)</option><option value="mr0zcgc1" data-month="6">2026-06-30 21:28 (6月)</option><option value="mr0bri06" data-month="6">2026-06-30 10:28 (6月)</option><option value="mqyvqx7g" data-month="6">2026-06-29 10:12 (6月)</option><option value="mqxzwbe2" data-month="6">2026-06-28 19:20 (6月)</option><option value="mqxr2iny" data-month="6">2026-06-28 15:13 (6月)</option><option value="mqxew9r1" data-month="6">2026-06-28 09:32 (6月)</option><option value="mqvzwnos" data-month="6">2026-06-27 09:45 (6月)</option><option value="mqukzpsh" data-month="6">2026-06-26 09:59 (6月)</option><option value="mqrt4476" data-month="6">2026-06-24 11:23 (6月)</option><option value="mqqe5nis" data-month="6">2026-06-23 11:37 (6月)</option><option value="mqmrxfqj" data-month="6">2026-06-20 22:51 (6月)</option><option value="mqjyriqw" data-month="6">2026-06-18 23:39 (6月)</option><option value="mqgepk9u" data-month="6">2026-06-16 11:55 (6月)</option><option value="mqeyueji" data-month="6">2026-06-15 11:43 (6月)</option><option value="mqdwyn5q" data-month="6">2026-06-14 18:02 (6月)</option><option value="mqbevmnv" data-month="6">2026-06-13 00:01 (6月)</option><option value="mq98cx0d" data-month="6">2026-06-11 11:23 (6月)</option><option value="mq6qrip4" data-month="6">2026-06-09 17:35 (6月)</option><option value="mq556kyi" data-month="6">2026-06-08 14:43 (6月)</option><option value="mq54k6y6" data-month="6">2026-06-08 14:25 (6月)</option><option value="mq4yn82a" data-month="6">2026-06-08 11:40 (6月)</option><option value="mq45ge72" data-month="6">2026-06-07 22:02 (6月)</option><option value="mq3x5qzf" data-month="6">2026-06-07 18:10 (6月)</option><option value="mq3l2ujk" data-month="6">2026-06-07 12:32 (6月)</option><option value="mq3h68ym" data-month="6">2026-06-07 10:43 (6月)</option><option value="mq3fhjsx" data-month="6">2026-06-07 09:56 (6月)</option><option value="mpz5i45d" data-month="5">2026-06-04 10:05 (5月)</option><option value="mpuyovkg" data-month="5">2026-06-01 11:43 (5月)</option><option value="mpuy3ver" data-month="5">2026-06-01 11:27 (5月)</option><option value="mpuvyrl2" data-month="5">2026-06-01 10:27 (5月)</option><option value="mpuv5bhy" data-month="5">2026-06-01 10:04 (5月)</option><option value="mpuulr8v" data-month="5">2026-06-01 09:49 (5月)</option><option value="mpsp5p18" data-month="5">2026-05-30 21:41 (5月)</option><option value="mpsorxil" data-month="5">2026-05-30 21:30 (5月)</option><option value="mpsnl6xb" data-month="5">2026-05-30 20:57 (5月)</option><option value="mpol7bu2" data-month="5">2026-05-28 00:39 (5月)</option><option value="mpn5iefg" data-month="5">2026-05-27 00:32 (5月)</option><option value="mplo2b01" data-month="5">2026-05-25 23:36 (5月)</option><option value="mplmy9du" data-month="5">2026-05-25 23:05 (5月)</option><option value="mpllryxt" data-month="5">2026-05-25 22:32 (5月)</option><option value="mpl5gpqg" data-month="5">2026-05-25 14:55 (5月)</option><option value="mpjk46v4" data-month="5">2026-05-24 12:10 (5月)</option><option value="mpi1axj2" data-month="5">2026-05-23 10:35 (5月)</option><option value="mpcea0ly" data-month="5">2026-05-19 11:52 (5月)</option><option value="mphdcshx" data-month="5">2026-05-22 23:25 (5月)</option><option value="mphcadw4" data-month="5">2026-05-22 22:55 (5月)</option><option value="mphaclyb" data-month="5">2026-05-22 22:01 (5月)</option><option value="mpgvzibk" data-month="5">2026-05-22 15:19 (5月)</option><option value="mpfftz2k" data-month="5">2026-05-21 14:59 (5月)</option></select>
                 <button class="btn-secondary">
                     📝 <span data-i18n="btn_template">模板配置</span>
                 </button>
@@ -2254,7 +2254,7 @@
                 <div id="manual-links-container" style="display: flex; gap: 12px; margin-bottom: 8px;">
                     <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
                         <span style="font-size: 13px; color: #475569; white-space: nowrap; font-weight: 500;" data-i18n="lbl_excel_link">Excel下载链接</span>
-                        <input type="text" id="manual-excel-link" placeholder="https://..." data-i18n-placeholder="ph_excel_link" style="flex: 1; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; color: #334155;" value="https://your-server/…">
+                        <input type="text" id="manual-excel-link" placeholder="https://..." data-i18n-placeholder="ph_excel_link" style="flex: 1; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; color: #334155;" value="https://data-portal.example.com/api">
                     </div>
                 </div>
                 <div class="text-area-wrapper">
@@ -2408,49 +2408,4 @@ Action required ASAP. Thank you!</textarea>
 
 
 
-<div class="ai-fab is-idle" role="button" tabindex="0" aria-label="打开Dragon Claw智能体" aria-expanded="false" title="打开Dragon Claw智能体"><span class="ai-fab-orb" aria-hidden="true"><img class="ai-fab-avatar" src="/assets/logo.png" alt="" draggable="false"><span class="ai-fab-dot"></span></span><span class="ai-fab-label">Dragon Claw</span></div><div class="ai-panel" data-theme="light">
-        <div class="ai-header">
-            <div class="ai-brand">
-                <div class="ai-brand-mark" aria-hidden="true"><img src="/assets/logo.png" alt="Dragon Claw"></div>
-                <div class="ai-brand-copy">
-                    <div class="ai-brand-title"><span class="ai-brand-title-compact">Dragon Claw</span></div>
-                    <div class="ai-brand-subtitle"><span class="ai-brand-subtitle-compact">知识 · 数据 · 运营</span></div>
-                </div>
-            </div>
-            <div class="ai-header-actions">
-                <button class="ai-action-btn ai-knowledge-graph" type="button" title="知识与指标图谱" aria-label="知识与指标图谱">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.2"></circle><circle cx="18" cy="7" r="2.2"></circle><circle cx="8" cy="18" r="2.2"></circle><circle cx="17" cy="17" r="2.2"></circle><path d="M8 7l7.8-.1M7 8l1 7.8M10 17.8l4.8-.5M17.7 9.2l-.5 5.6M8 7.5l7.5 7.8"></path></svg>
-                </button>
-                <button class="ai-action-btn ai-history" type="button" title="历史问答" aria-label="历史问答">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><path d="M3 3v5h5"></path><path d="M12 7v5l3 2"></path></svg>
-                </button>
-                <button class="ai-action-btn ai-archive" type="button" title="查看归档会话" aria-label="查看归档会话">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16v13H4z"></path><path d="M3 3h18v4H3zM9 11h6"></path></svg>
-                </button>
-                <button class="ai-action-btn ai-theme-toggle" type="button" title="切换图谱深色主题" aria-label="切换图谱深色主题" aria-pressed="false">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9Z"></path><path d="M17.5 3.5v3M16 5h3"></path></svg>
-                </button>
-                <button class="ai-action-btn ai-expand" type="button" title="放大窗口" aria-label="放大窗口" aria-pressed="false">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="2"></rect><path d="M9 5V3h12v12h-2"></path></svg>
-                </button>
-                <button class="ai-action-btn ai-fullscreen" type="button" title="全屏聊天" aria-label="全屏聊天" aria-pressed="false">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"></path></svg>
-                </button>
-                <button class="ai-action-btn ai-close" type="button" title="关闭" aria-label="关闭">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></svg>
-                </button>
-            </div>
-        </div>
-        
-        <div class="ai-chat-body" id="aiChatBody">
-            <div class="ai-msg ai" id="aiInitialMessage">👋 正在读取当前页面，准备为你概括内容…</div>
-            
-        </div>
-        
-        <div class="ai-input-area">
-            <input type="text" class="ai-input" id="aiInput" placeholder="向 Dragon Claw 提问有关本页面的内容..." value="">
-            <button class="ai-send-btn" id="aiSendBtn" type="button" title="发送消息" aria-label="发送消息">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-            </button>
-        </div>
-    </div></body></html>
+<button id="dataSourceBadge" type="button" aria-expanded="false" title="点击展开来源详情并保持显示">来源：SQLite · 20:36:21</button></body></html>
