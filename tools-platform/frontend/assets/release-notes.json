@@ -1,8 +1,8 @@
 {
   "zh": [
-    "新手引导改为示范演示：第一步自动播放一段写好的提问和回答，不再发出真实对话；数据抓取、数据导入、报表、一键催办、月报、大屏和运维待办都改成带示例数据的静态画面，秒开且不会空白，高亮框准确框住每个页面的重点区域。"
+    "新手引导的工具步骤改为展示真实界面截图：数据抓取、数据导入、报表看板、一键催办、月报、大屏和运维待办都来自真实数据，运营商名、单号、工号、人名、头像和内部地址已做匿名处理；示范对话也改用同一份匿名数据，高亮框按截图精确框住各页面的重点区域。"
   ],
   "en": [
-    "The product tour now uses demos: the first step plays a prewritten question and reply instead of sending a real chat, and Data Capture, Data Import, Reports, One-Click Follow-Up, Monthly Report, Big Screen and Ops Drafts show instant static previews with sample data, so no step is empty and the highlight frames the key area of each page."
+    "Product tour tool steps now show real screens: Data Capture, Data Import, Reports, One-Click Follow-Up, Monthly Report, Big Screen and Ops Drafts use real data with operator names, ticket IDs, employee IDs, names, photos and internal addresses anonymized. The sample chat uses the same anonymized data, and the highlight frames the key area of each screenshot."
   ]
 }

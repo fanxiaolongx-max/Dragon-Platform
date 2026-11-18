@@ -45,9 +45,16 @@ const waitForFocus = (selector, inTool = false) => until(`(() => {
 const waitForStage = (kind, selector = '[data-tour-focus]') => until(`(() => {
     const overlay = document.querySelector('.v2-tour-root.is-staged');
     const stage = overlay?.querySelector('.v2-tour-stage.is-' + ${JSON.stringify(kind)});
-    const el = stage?.querySelector(${JSON.stringify(selector)});
-    if (!el || !el.hasAttribute('data-tour-focus') || overlay.querySelector('.v2-tour-ring').style.opacity !== '1') return false;
-    const box = stage.getBoundingClientRect(), rect = el.getBoundingClientRect();
+    const img = stage?.querySelector('.tm-shot');
+    const el = img || stage?.querySelector(${JSON.stringify(selector)});
+    if (!el || (!img && !el.hasAttribute('data-tour-focus')) || (img && !img.naturalWidth) || overlay.querySelector('.v2-tour-ring').style.opacity !== '1') return false;
+    const box = stage.getBoundingClientRect();
+    let rect = el.getBoundingClientRect();
+    if (img) {
+        const [l, t, r, b] = window.HomeProductTourDemos.tools[${JSON.stringify(kind)}].focus;
+        if (rect.left < box.left - 1 || rect.right > box.right + 1 || rect.top < box.top - 1 || rect.bottom > box.bottom + 1) return false;
+        rect = { left: rect.left + l * rect.width, right: rect.left + r * rect.width, top: rect.top + t * rect.height, bottom: rect.top + b * rect.height };
+    }
     const ring = overlay.querySelector('.v2-tour-ring').getBoundingClientRect();
     const card = overlay.querySelector('.v2-tour-card').getBoundingClientRect();
     const left = Math.max(rect.left, box.left), top = Math.max(rect.top, box.top);
@@ -163,7 +170,7 @@ app.whenReady().then(async () => {
     await until('document.querySelector(".v2-tour-desc").textContent === "示范：AI 正在整理回答…"');
     await waitForStage('chat', '[data-chat-thread]');
     await until('document.querySelector(".v2-tour-desc").textContent.startsWith("这是预先写好的示范回答")', 10000);
-    assert.match(await evaluate('document.querySelector("[data-chat-ai]").innerText'), /ZG-1123[\s\S]*催办草稿/);
+    assert.match(await evaluate('document.querySelector("[data-chat-ai]").innerText'), /RC2026\*+04[\s\S]*催办草稿/);
     assert.equal(await evaluate('document.querySelector("[data-tour-next]").textContent'), '下一步');
     assert.equal(await evaluate('document.getElementById("dcInput").value'), '', 'the demo never types into the real composer');
     assert.equal(await evaluate('document.getElementById("dcInput").readOnly'), false);
@@ -180,7 +187,7 @@ app.whenReady().then(async () => {
     await previous();
     await waitForStage('chat', '[data-chat-composer]');
     await next(); // 跳过演示，直接显示完整回答
-    await until('document.querySelector(".v2-tour-desc").textContent.startsWith("这是预先写好的示范回答") && document.querySelector("[data-chat-ai]").innerText.includes("ZG-1123")');
+    await until('document.querySelector(".v2-tour-desc").textContent.startsWith("这是预先写好的示范回答") && document.querySelector("[data-chat-ai]").innerText.includes("RC2026********04")');
     await waitForStage('chat', '[data-chat-thread]');
     await evaluate('document.querySelector(".v2-tour-skip").click()');
     await until('!window.HomeProductTour.isOpen()');
@@ -216,16 +223,15 @@ app.whenReady().then(async () => {
     await waitForFocus('#homeSidebar [data-v2-action="skillHub"]');
     await next();
     await waitForFocus('#homeSidebar [data-v2-flyout="more"]');
-    for (const [id, title, text] of [
-        ['uivf12', '数据抓取', '批量运行所选'], ['sla', '数据导入', '开始批量导入'], ['report', '报表看板', '工单一次解决率'],
-        ['expedite', '一键催办', '11 月质量催办简报'], ['monthly', '月报页面', 'AI 结论'], ['bigscreen', '大屏看板', '客户群排名'],
-        ['opsDrafts', '运维待办', '确认发送']
+    for (const [id, title] of [
+        ['uivf12', '数据抓取'], ['sla', '数据导入'], ['report', '报表看板'], ['expedite', '一键催办'],
+        ['monthly', '月报页面'], ['bigscreen', '大屏看板'], ['opsDrafts', '运维待办']
     ]) {
         await next();
         assert.equal(await evaluate('document.querySelector(".v2-tour-title").textContent'), title);
         await waitForStage(id);
-        assert.ok((await evaluate('document.querySelector(".v2-tour-stage").innerText')).includes(text), `${id} demo shows sample data`);
-        assert.ok(await evaluate('document.querySelector(".v2-tour-stage .tm-sample")?.textContent === "示例数据"'), `${id} demo is labelled as sample data`);
+        assert.equal(await evaluate('new URL(document.querySelector(".v2-tour-stage .tm-shot").src).pathname'), `/assets/tour/${id}.webp`, `${id} shows its anonymized screenshot`);
+        assert.ok(await evaluate('document.querySelector(".v2-tour-stage .tm-sample")?.textContent === "真实界面 · 数据已匿名"'), `${id} screenshot is labelled as anonymized`);
         assert.equal(await evaluate('window.HomeToolFrame.isOpen() || Boolean(document.querySelector(".v2-tour-root iframe"))'), false, `${id} does not load the real tool`);
         if (id === 'sla') {
             await evaluate('window.ToolsI18n.setLanguage("en-US"); document.documentElement.dataset.theme = "dark";');
@@ -233,7 +239,7 @@ app.whenReady().then(async () => {
             await until('window.innerWidth <= 400');
             await until('document.querySelector(".v2-tour-title").textContent === "Data Import"');
             await waitForStage('sla');
-            assert.match(await evaluate('document.querySelector(".v2-tour-stage").innerText'), /Import all/);
+            assert.equal(await evaluate('document.querySelector(".v2-tour-stage .tm-sample").textContent'), 'Real screen · anonymized');
             const narrowLayout = await evaluate(`(() => {
                 const card = document.querySelector('.v2-tour-card').getBoundingClientRect();
                 const next = document.querySelector('[data-tour-next]').getBoundingClientRect();

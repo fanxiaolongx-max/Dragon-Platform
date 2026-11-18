@@ -23,7 +23,7 @@
             tool: '系统工具',
             exampleTyping: '示范：向 AI 提一个问题…',
             exampleRunning: '示范：AI 正在整理回答…',
-            exampleDone: '这是预先写好的示范回答（示例数据）。真实提问时，AI 会读取你自己的报表和催办快照。',
+            exampleDone: '这是预先写好的示范回答，数据来自真实报表并已匿名。真实提问时，AI 会读取你自己的报表和催办快照。',
             showResult: '直接看结果',
             steps: [
                 {
@@ -80,7 +80,7 @@
             tool: 'System tool',
             exampleTyping: 'Demo: asking AI a question…',
             exampleRunning: 'Demo: AI is preparing a reply…',
-            exampleDone: 'This is a prewritten sample reply with sample data. When you ask for real, AI reads your own report and follow-up snapshots.',
+            exampleDone: 'This is a prewritten sample reply based on real, anonymized report data. When you ask for real, AI reads your own report and follow-up snapshots.',
             showResult: 'Show result',
             steps: [
                 {
@@ -416,9 +416,11 @@
         const stage = state.stage;
         state.chatRun += 1;
         state.chatPhase = '';
-        if (step.stage === 'tool' && demos?.tools[step.id]) {
+        const shot = step.stage === 'tool' && demos?.tools[step.id];
+        if (shot) {
             stage.className = `v2-tour-stage is-tool is-${step.id}`;
-            stage.innerHTML = demos.tools[step.id](L);
+            stage.innerHTML = `<img class="tm-shot" alt="" src="${shot.src}" width="${shot.w}" height="${shot.h}" decoding="async"><em class="tm-sample tm-shot-badge">${L('真实界面 · 数据已匿名', 'Real screen · anonymized')}</em>`;
+            stage.querySelector('img').addEventListener('load', onViewportChange, { once: true });
         } else if (step.stage === 'chat' && demos) {
             stage.className = 'v2-tour-stage is-chat';
             stage.innerHTML = demos.chat(L).html;
@@ -585,6 +587,11 @@
         if (staged) {
             document.documentElement.style.setProperty('--v2-tour-card-height', `${state.card.offsetHeight}px`);
         }
+        const shot = staged && layoutShot(step);
+        if (shot) {
+            placeSpotlight(shot, step.placement || 'bottom');
+            return;
+        }
         const el = staged ? state.stage.querySelector('[data-tour-focus]') : step.find?.();
         const visible = el && (staged || isVisibleElement(el, { ignoreOpacity: Boolean(step?.ignoreOpacity) }));
         if (!visible) {
@@ -602,6 +609,29 @@
             rect = { left, top, width: Math.max(0, right - left), height: Math.max(0, bottom - top) };
         }
         placeSpotlight(rect, step?.placement || 'bottom');
+    }
+
+    // 截图按比例放进舞台并居中；返回截图里重点区域在视口中的位置。
+    function layoutShot(step) {
+        const shot = window.HomeProductTourDemos?.tools[step.id];
+        const img = state.stage.querySelector('.tm-shot');
+        if (!shot || !img) return null;
+        const scale = Math.min(state.stage.clientWidth / shot.w, state.stage.clientHeight / shot.h);
+        const width = Math.round(shot.w * scale);
+        const height = Math.round(shot.h * scale);
+        img.style.width = `${width}px`;
+        img.style.height = `${height}px`;
+        const badge = state.stage.querySelector('.tm-shot-badge');
+        badge.style.top = `${img.offsetTop + 10}px`;
+        badge.style.right = `${state.stage.clientWidth - img.offsetLeft - width + 10}px`;
+        const box = img.getBoundingClientRect();
+        const [left, top, right, bottom] = shot.focus;
+        return { left: box.left + left * box.width, top: box.top + top * box.height,
+            width: (right - left) * box.width, height: (bottom - top) * box.height };
+    }
+
+    function preloadShots() {
+        for (const shot of Object.values(window.HomeProductTourDemos?.tools || {})) new Image().src = shot.src;
     }
 
     async function go(nextIndex) {
@@ -709,6 +739,7 @@
         }
 
         const root = ensureRoot();
+        preloadShots();
         // 示范步骤画在引导层里；首页保持在落地页，方便后面高亮模式切换等入口。
         state.restoreChat = window.DragonClaw?.showTourLanding?.() || null;
         document.addEventListener('keydown', onKeyDown, true);
