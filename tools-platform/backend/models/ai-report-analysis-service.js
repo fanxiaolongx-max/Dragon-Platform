@@ -205,9 +205,65 @@ function cleanProactiveTaskText(value, fallback) {
 function getProactiveTaskOwner(ticket) {
     const data = ticket && ticket.data && typeof ticket.data === 'object' ? ticket.data : {};
     const owner = data.fullname || data.cur_assignee || data.task_owner || data.sr_owner || data.owner
+        || data.current_handler_name || data.owner_show || data.current_handler || data.risk_eliminate_plan_owner_name
         || data.owner_name || data.handler || data.assignee || data.responsible_person
         || data['责任人'] || data['负责人'] || data['当前处理人'];
     return cleanProactiveTaskText(owner, '未明确负责人');
+}
+
+function asksForSnapshotFollowups(question) {
+    const text = String(question || '');
+    return /临期|催办|到期|超期|overdue|deadline|due in|reminder/i.test(text)
+        && /风险|整改|工单|单据|任务|快照|指标|risks?|tickets?|tasks?|snapshots?|targets?/i.test(text);
+}
+
+async function getLatestSnapshotFollowups({ now = Date.now() } = {}) {
+    const db = await openReadOnlyDb();
+    if (!db) return { available: false, reason: '报表数据库尚未创建' };
+    try {
+        const snapshot = await dbGet(db,
+            'SELECT snapshot_id, month, created_at, raw_data_json FROM ReportSnapshots ORDER BY id DESC LIMIT 1');
+        if (!snapshot) return { available: false, reason: '尚无入库报表' };
+        const raw = parseSnapshotRaw(snapshot);
+        const tickets = Array.isArray(raw.expiringTickets) ? raw.expiringTickets : [];
+        const items = tickets.filter(item => item && typeof item === 'object').map(ticket => {
+            const data = ticket.data || {};
+            const dueDate = [
+                ticket.deadline, data._slaDeadline, data.rectify_plan_end_time,
+                data.exp_close_date, data.sus_exp_close_date, data.support_end_time
+            ].find(value => typeof value === 'string' && Number.isFinite(Date.parse(value))) || null;
+            const dueTime = dueDate ? Date.parse(dueDate) : null;
+            const recordedDays = ticket._slaDays == null || ticket._slaDays === '' ? NaN : Number(ticket._slaDays);
+            const owner = getProactiveTaskOwner(ticket);
+            const id = data.sr_num || data.sr_id || data.task_id || data.risk_id || data.ticket_id
+                || data['单号'] || data['问题风险编号'] || data['问题编号'];
+            return {
+                id: id ? String(id).slice(0, 100) : null,
+                kind: ticket.collection === 'special' ? 'CPT 专项风险'
+                    : PROACTIVE_TASK_TYPE_LABELS[ticket.collection] || cleanProactiveTaskText(ticket.title, '其他任务').slice(0, 80),
+                owner: owner === '未明确负责人' ? null : owner.slice(0, 100),
+                dueDate: dueDate?.slice(0, 64) || null,
+                daysUntilDue: dueTime === null ? null : Math.ceil((dueTime - now) / 86400000),
+                daysAtSnapshot: Number.isFinite(recordedDays) && Math.abs(recordedDays) < 999999 ? recordedDays : null,
+                status: dueTime === null ? 'unknown' : dueTime < now ? 'overdue' : 'upcoming'
+            };
+        });
+        const urgencyOrder = { upcoming: 0, overdue: 1, unknown: 2 };
+        items.sort((a, b) => urgencyOrder[a.status] - urgencyOrder[b.status]
+            || (a.dueDate ? Date.parse(a.dueDate) - Date.parse(b.dueDate) : (a.daysAtSnapshot ?? Infinity) - (b.daysAtSnapshot ?? Infinity)));
+        return {
+            available: true,
+            snapshot: { id: snapshot.snapshot_id, month: snapshot.month, collectedAt: raw.timestamp || snapshot.created_at },
+            source: 'report.db / ReportSnapshots.raw_data_json.expiringTickets',
+            checkedAt: new Date(now).toISOString(),
+            total: items.length,
+            dueWithin3Days: items.filter(item => item.status === 'upcoming' && item.daysUntilDue <= 3).length,
+            overdue: items.filter(item => item.status === 'overdue').length,
+            items: items.slice(0, 60)
+        };
+    } finally {
+        await closeDb(db);
+    }
 }
 
 function buildProactiveTaskCandidates(tickets = [], limit = 12) {
@@ -1344,6 +1400,8 @@ module.exports = {
     parseRequestedMonth,
     parseRequestedDate,
     analyzeQuestion,
+    asksForSnapshotFollowups,
+    getLatestSnapshotFollowups,
     formatAnalysisForPrompt,
     buildMetricStats,
     buildProactiveAlertCandidates,

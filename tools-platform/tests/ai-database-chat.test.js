@@ -113,6 +113,53 @@ test('home administrator can commit and verify database edits without a workspac
     assert.equal((await request('admin-default', { persist: false, agent: 'page-assistant' })).status, 200);
     assert.equal(plainCalls, 2);
 
+    await tenant.runWithTenant('default', async () => {
+        require('../backend/routes/db');
+        const db = pool.getConnection('report.db', 'report');
+        const insert = (id, timestamp, expiringTickets) => new Promise((resolve, reject) => {
+            db.run('INSERT INTO ReportSnapshots (snapshot_id, month, created_at, raw_data_json) VALUES (?, 11, ?, ?)',
+                [id, timestamp, JSON.stringify({ timestamp, expiringTickets })], error => error ? reject(error) : resolve());
+        });
+        await insert('old-followup-snapshot', '2026-11-20T00:00:00Z', [
+            { collection: 'risk', data: { risk_id: 'old-risk-id' } }
+        ]);
+        await insert('latest-followup-snapshot', '2026-11-17T00:00:00Z', [
+            { collection: 'special', deadline: '2026-11-18T10:30:00Z', _slaDays: 2, data: { risk_id: 'CPT-1', cur_assignee: 'Owner A' } },
+            { collection: 'rectification', _slaDays: 1, data: { '问题编号': 'RECT-2', '责任人': 'Owner B' } },
+            { collection: 'risk', deadline: '2026-11-16T00:00:00Z', _slaDays: -1, data: { risk_id: 'RISK-3', current_handler_name: 'Owner C' } }
+        ]);
+    });
+    const followupService = require('../backend/models/ai-report-analysis-service');
+    const followups = await tenant.runWithTenant('default', () => followupService.getLatestSnapshotFollowups({
+        now: Date.parse('2026-11-17T12:00:00Z')
+    }));
+    assert.equal(followups.snapshot.id, 'latest-followup-snapshot');
+    assert.deepEqual(followups.items.map(item => [item.id, item.owner, item.status]), [
+        ['CPT-1', 'Owner A', 'upcoming'], ['RISK-3', 'Owner C', 'overdue'], ['RECT-2', 'Owner B', 'unknown']
+    ]);
+    assert.equal(followups.dueWithin3Days, 1);
+    assert.equal(followups.overdue, 1);
+    assert.equal(followups.items[2].daysAtSnapshot, 1);
+    assert.equal(followups.items[2].dueDate, null);
+
+    const followupPrompt = '看看本月未达标指标，以及最新入库快照有哪些 CPT 风险和整改工单临期。请先拟催办。';
+    provider.createClient = () => ({
+        generateText: async () => assert.fail('the tour example should not receive database exploration tools'),
+        generateChat: async options => {
+            assert.match(options.systemInstruction, /本轮是新手引导的只读演示/);
+            assert.match(options.systemInstruction, /最新已入库催办快照/);
+            assert.match(options.systemInstruction, /CPT-1.*Owner A.*2026-11-18T10:30:00Z/);
+            assert.doesNotMatch(options.systemInstruction, /old-risk-id/);
+            return { text: '已根据快照拟好草稿。' };
+        }
+    });
+    const example = await request('admin-default', {
+        persist: false, tourReportExample: true, messages: [{ role: 'user', content: followupPrompt }]
+    });
+    assert.equal(example.status, 200);
+    assert.match((await example.json()).reply, /已根据快照/);
+    assert.equal((await tenant.runWithTenant('other', () => followupService.getLatestSnapshotFollowups())).available, false);
+
     // 不写 @：普通对话和已选 Downloads 目录的 full 工作区都自动加载脚本流程并真正复制入库。
     await appDb.run('CREATE TABLE uiv_scripts (id TEXT PRIMARY KEY, name TEXT, category TEXT, url TEXT, payload_json TEXT, updated_at TEXT)');
     await require('../backend/models/uiv-categories-repository').addCategory('PBI');
@@ -197,4 +244,13 @@ test('unsupported models report unavailable tools and aborts stop before provide
     await assert.rejects(agent.runTurn({ ctx: { readOnly: false }, systemInstruction: '', messages: [], signal: AbortSignal.abort(), client: {
         generateText: async () => assert.fail('aborted turn must not call provider')
     } }), { name: 'AbortError' });
+});
+
+test('database chat does not preload skill-specific tools (finance_/ppo_) before the skill is loaded', async () => {
+    let names = null;
+    await agent.runTurn({ ctx: { readOnly: false }, messages: [{ role: 'user', content: '查本月未达标指标并拟催办草稿' }], systemInstruction: '', client: {
+        generateText: async options => { names = (options.tools || []).map(tool => tool.name); return { text: '好的', toolCalls: [] }; }
+    } });
+    assert.ok(names && names.includes('list_databases'), 'database tools stay available');
+    assert.equal(names.filter(name => /^(finance_|ppo_|ppo-)/.test(name)).length, 0, 'skill tools only arrive via load_skill / skill selection');
 });

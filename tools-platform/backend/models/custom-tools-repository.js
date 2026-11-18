@@ -312,8 +312,9 @@ async function updateToolAccess(slug, publicAccess) {
     });
 }
 
-async function updateToolName(slug, value) {
+async function updateToolName(slug, value, englishValue) {
     const name = String(value || '').trim();
+    const nameEn = englishValue === undefined ? null : String(englishValue).trim();
     if (!name) {
         const err = new Error('工具名称不能为空');
         err.status = 400;
@@ -324,12 +325,15 @@ async function updateToolName(slug, value) {
         err.status = 400;
         throw err;
     }
+    if (nameEn !== null && nameEn.length > 120) {
+        throw Object.assign(new Error('英文工具名称不能超过 120 个字符'), { status: 400 });
+    }
     return withRegistryMutation(async () => {
         await ensureRegistryReady();
         const previousManifest = readToolManifest(slug);
         const result = await run(
-            'UPDATE custom_tools SET name = ?, updated_at = ? WHERE slug = ?',
-            [name, new Date().toISOString(), slug]
+            'UPDATE custom_tools SET name = ?, name_en = COALESCE(?, name_en), updated_at = ? WHERE slug = ?',
+            [name, nameEn, new Date().toISOString(), slug]
         );
         if (!result.changes) return null;
         await syncLegacyRegistryMirror();

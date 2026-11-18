@@ -190,8 +190,9 @@ async function buildExpertGrounding(question, {
     const knowledgePlan = planProjectKnowledgeSearch(question, pagePath);
     const knowledgeQuery = String(question || '').trim();
     const restrictedUser = Boolean(user && !isSuperAdmin(user));
-    const canReportAnalysis = !restrictedUser || await require('../models/page-distribution').canAccessAnyPage(['report', 'sla', 'monthly', 'bigscreen', 'expedite', 'frt'], user);
-    const [knowledgeResult, dataResult, businessConfigResult, toolDataResult, visibleGuidePaths] = await Promise.allSettled([
+    const distribution = restrictedUser ? require('../models/page-distribution') : null;
+    const canReportAnalysis = !restrictedUser || await distribution.canAccessAnyPage(['report', 'sla', 'monthly', 'bigscreen', 'expedite', 'frt'], user);
+    const [knowledgeResult, dataResult, businessConfigResult, toolDataResult, visibleGuidePaths, followupResult] = await Promise.allSettled([
         knowledgePlan.performed
             ? aiKnowledgeService.search(knowledgeQuery, { limit: 10, pathHints: knowledgePlan.pathHints })
             : Promise.resolve([]),
@@ -200,7 +201,14 @@ async function buildExpertGrounding(question, {
             : Promise.resolve(null),
         aiBusinessConfigService.search(question, { limit: 7, user }),
         aiToolDataService.analyzeQuestion(question, { contextQuestion, toolSlug, clientToolData, user }),
-        restrictedUser ? require('../models/platform-tool-guides').visibleGuideDocPaths(user) : Promise.resolve(null)
+        restrictedUser ? require('../models/platform-tool-guides').visibleGuideDocPaths(user) : Promise.resolve(null),
+        (async () => {
+            if (!aiReportAnalysisService.asksForSnapshotFollowups?.(question)) return null;
+            if (restrictedUser && !(await distribution.canAccessApi('/db/latest_failing', 'GET', user))) {
+                return { available: false, reason: '当前账号无权读取一键催办快照' };
+            }
+            return aiReportAnalysisService.getLatestSnapshotFollowups();
+        })()
     ]);
     const toolData = toolDataResult.status === 'fulfilled' ? toolDataResult.value : null;
     if (toolDataResult.status === 'rejected') {
@@ -214,6 +222,8 @@ async function buildExpertGrounding(question, {
     const selectedKnowledge = selectRelevantKnowledge(knowledgeCandidates);
     const knowledge = selectedKnowledge.items;
     const dataAnalysis = dataResult.status === 'fulfilled' ? dataResult.value : null;
+    const snapshotFollowups = followupResult.status === 'fulfilled' ? followupResult.value
+        : { available: false, reason: '暂时无法读取入库催办快照' };
     const businessConfig = businessConfigResult.status === 'fulfilled' ? businessConfigResult.value : { results: [], status: null };
     const metricGraph = await buildMetricGraphGrounding(question, dataAnalysis, businessConfig);
     if (knowledgeResult.status === 'rejected') {
@@ -242,6 +252,7 @@ async function buildExpertGrounding(question, {
         },
         knowledgeStatus,
         dataAnalysis,
+        snapshotFollowups,
         businessConfig,
         metricGraph,
         toolData,
@@ -716,6 +727,7 @@ async function handleChatRequest(req, res) {
         const voiceMode = req.body?.voiceMode === true;
         // 首页 Dragon Claw 是全能智能体：不限于平台问题，context 为平台工具目录而非页面文本。
         const homeAgent = agent === 'dragon-claw-home';
+        const tourReportExample = homeAgent && !channelTurn && !sessionId && req.body.tourReportExample === true;
         const isMobileClient = homeAgent && !channelTurn && (
             pageTitle === 'Dragon Claw · 移动端'
             || pageTitle === 'Dragon Claw · Mobile'
@@ -742,7 +754,7 @@ async function handleChatRequest(req, res) {
             agentSession.channelContext = channelContext; // 完全访问的 WeLink 对话：保存技能等确认操作改为回复确认码，并携带当前发言人超管标识
         }
         // 工作区模式：用户选了本地目录，走工具调用循环（仅流式、仅本机/桌面/管理员）。
-        if (homeAgent && streamRequested && workspace && workspace.root) {
+        if (homeAgent && !tourReportExample && streamRequested && workspace && workspace.root) {
             if (!agentWorkspaceAccess.isAgentWorkspaceAllowed(req)) {
                 return res.status(403).json({ code: 'AGENT_WORKSPACE_FORBIDDEN', error: '工作区功能仅对本机或管理员开放' });
             }
@@ -786,7 +798,7 @@ async function handleChatRequest(req, res) {
             }
         }
         // 团队账号没选目录：默认在团队工作目录里工作，文件与 Shell 工具随时可用（命令在团队沙箱中执行）
-        if (!agentSession && homeAgent && streamRequested && !channelTurn && require('../models/team-boundary').isConfined(req.user)) {
+        if (!agentSession && homeAgent && !tourReportExample && streamRequested && !channelTurn && require('../models/team-boundary').isConfined(req.user)) {
             try {
                 agentSession = agentRunManager.ensureTeamDefaultSession({ user: req.user, tenantId: getTenantId(), chatSessionId: sessionId, permissionMode: workspace?.permissionMode, mobileClient: isMobileClient, supportsApproval: mobileSupportsApproval });
             } catch (sessionError) {
@@ -828,7 +840,7 @@ async function handleChatRequest(req, res) {
         const channelSkillOwner = homeAgent && !fullWeLink ? await channelCanSaveSkills(channelTurn) : false;
         // Skill：本条消息里的 @id + 会话内保持的标签（req.body.skills，仅接受白名单标识）
         let loadedSkills = { selected: [], unknown: [], prompt: '' };
-        if (homeAgent) {
+        if (homeAgent && !tourReportExample) {
             try {
                 let skillContextMessages = messages.slice(0, -1);
                 if (sessionId && persist !== false) {
@@ -1086,7 +1098,7 @@ async function handleChatRequest(req, res) {
         }
 
         // 首页管理员无需选择目录即可使用平台业务库；频道、页面助手及专用 Skill 保持各自权限。
-        const databaseMode = homeAgent && !agentMode && !channelTurn && req.user?.role === 'admin'
+        const databaseMode = homeAgent && !tourReportExample && !agentMode && !channelTurn && req.user?.role === 'admin'
             && !opsSetup && !welinkCliSetup && !netcareSetup && !autoglmSetup && !financeSetup && !ppoSetup && !voiceCreatorSetup && !analysisCode;
         // 对话附件：消息里引用的、属于本人的上传文件（频道对话不带）
         const uploadFiles = homeAgent && !channelTurn
@@ -1102,7 +1114,7 @@ async function handleChatRequest(req, res) {
             if (prepared.note) writeStreamEvent({ type: 'status', status: prepared.note });
         }
         // 不选目录、没有其他工具的首页对话（如非管理员）有附件时，用只读的附件工具读取
-        const filesMode = homeAgent && !agentMode && !channelTurn && !databaseMode && !opsSetup && !welinkCliSetup && !netcareSetup && !autoglmSetup && !financeSetup && !analysisCode && uploadFiles.length > 0;
+        const filesMode = homeAgent && !tourReportExample && !agentMode && !channelTurn && !databaseMode && !opsSetup && !welinkCliSetup && !netcareSetup && !autoglmSetup && !financeSetup && !analysisCode && uploadFiles.length > 0;
         // 长期记忆：管理员在首页对话（工作区或普通对话）里让智能体记住的偏好与约定；频道对话是多人场景，不带
         const memoryPrompt = homeAgent && !channelTurn && req.user?.role === 'admin' && (agentMode || databaseMode)
             ? await require('../models/agent-memory-repository').promptFor(req.user.username).catch(() => '') : '';
@@ -1156,6 +1168,8 @@ ${expertGrounding.knowledgePrompt}
 ${expertGrounding.businessConfigPrompt ? `\n与用户问题相关的只读业务配置（脚本、指标规则、平台配置）：\n---\n${expertGrounding.businessConfigPrompt}\n---\n` : ''}
 ${expertGrounding.toolDataPrompt ? `\n平台工具业务数据（只读；来自工具保存的快照、状态、数据库或用户浏览器本地存储，已压缩为字段统计与汇总）：\n---\n${expertGrounding.toolDataPrompt}\n---\n` : ''}
 ${expertGrounding.dataPrompt ? `\n只读报表分析工具结果：\n---\n${expertGrounding.dataPrompt}\n---\n` : ''}
+${expertGrounding.snapshotFollowups ? `\n最新已入库催办快照（和「一键催办」使用同一份预警明细）：\n---\n${JSON.stringify(expertGrounding.snapshotFollowups)}\n---\n答复临期和催办部分时以这份快照为准。按截止时间列出单号、类型、截止日期和责任人，并注明快照时间。upcoming 是尚未到期，overdue 是按核对时间已超过截止日期，分开呈现。缺少截止日期时只报快照原有剩余天数，不推算确切日期。未来 3 天没有临期项时仍应列出已超期的优先跟进事项，可为其起草催办。没有责任人的事项单列。没有数据、权限或结果被截断时如实说明，不用普通任务表补充或冒充预警。\n` : ''}
+${tourReportExample ? '本轮是新手引导的只读演示。基于已提供的报表和催办快照给出简明结果，只准备催办草稿，不创建或发送消息。\n' : ''}
 ${expertGrounding.metricGraphPrompt ? `\n与本次问题相关的运营指标体系图谱节点：\n---\n${expertGrounding.metricGraphPrompt}\n---\n` : ''}
 ${sessionSummary ? `\n历史会话滚动摘要：\n---\n${sessionSummary}\n---\n` : ''}${followupSetup ? `${followupSetup.prompt}\n` : ''}${opsSetup ? `${opsSetup.prompt}\n` : ''}${welinkCliSetup ? `${welinkCliSetup.prompt}\n` : ''}${netcareSetup ? `${netcareSetup.prompt}\n` : ''}${autoglmSetup ? `${autoglmSetup.prompt}\n` : ''}${financeSetup ? `${financeSetup.prompt}\n` : ''}${memoryPrompt}
 **核心要求**：
@@ -1249,7 +1263,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
             })
             : null;
         // 无工作目录的首页流式对话也可调用平台共享 MCP。
-        const chatExtras = !agentMode && homeAgent && !channelTurn && streamRequested && !analysisCode
+        const chatExtras = !agentMode && homeAgent && !tourReportExample && !channelTurn && streamRequested && !analysisCode
             && (databaseMode || opsSetup || welinkCliSetup || netcareSetup || filesMode || await require('../models/agent-mcp').hasEnabledServers())
             ? await require('../models/agent-extra-tools').forChat({ owner: agentRunManager.ownerKey(req.user, getTenantId()), user: req.user, chatSessionId: savedSessionId || '', readOnly: req.user?.role !== 'admin',
                 write: event => writeStreamEvent(event), signal: providerAbortController?.signal, sensitiveValues }).catch(error => { console.warn('[AI] extra tools unavailable:', error.message || error); return null; })

@@ -7,10 +7,13 @@ const i18nService = require('../backend/models/custom-tool-i18n-service');
 const exportService = require('../backend/models/custom-tool-export-service');
 const JSZip = require('jszip');
 
-test('every registered custom HTML tool has a valid offline translation resource', async t => {
+test('registered custom HTML tools relying on platform translation have valid offline resources', async t => {
     const tools = await customToolsRepo.listTools();
     if (!tools.length) return t.skip('no custom tools installed in this data dir (clean checkout)');
     for (const tool of tools) {
+        const index = await customToolsRepo.getToolFilePath(tool.slug);
+        const htmlTag = index && fs.readFileSync(index, 'utf8').match(/<html\b[^>]*>/i)?.[0];
+        if (/\sdata-tools-(?:native-i18n|i18n-native-toggle)(?=[\s=>])/i.test(htmlTag || '')) continue;
         const candidates = [
             path.join(customToolsRepo.CUSTOM_TOOLS_DIR, tool.slug, '.i18n.json'),
             path.join(customToolsRepo.BUILTIN_TOOLS_DIR, tool.slug, '.i18n.json'),

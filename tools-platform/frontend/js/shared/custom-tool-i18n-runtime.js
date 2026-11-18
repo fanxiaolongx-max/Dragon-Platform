@@ -262,7 +262,7 @@
         window.dispatchEvent(new CustomEvent('tools:custom-languagechange', { detail: { lang: next } }));
     }
 
-    function createButton() {
+    function createButton(onClick = () => setLanguage(currentLang === 'en' ? 'zh' : 'en')) {
         if (document.getElementById('toolsCustomLanguageButton')) return;
         const style = document.createElement('style');
         style.dataset.toolsI18nIgnore = '1';
@@ -272,7 +272,7 @@
         button.type = 'button';
         button.id = 'toolsCustomLanguageButton';
         button.dataset.toolsI18nIgnore = '1';
-        button.addEventListener('click', () => setLanguage(currentLang === 'en' ? 'zh' : 'en'));
+        button.addEventListener('click', onClick);
         document.body.appendChild(button);
         updateButton();
     }
@@ -308,6 +308,28 @@
             const next = explicit || (currentLang === 'en' ? 'zh' : 'en');
             setTimeout(() => setLanguage(next, { syncNative: false }), 0);
         });
+    }
+
+    // Mirror the tool's own language toggle without applying the translation dictionary.
+    const nativeToggleId = document.documentElement.dataset.toolsI18nNativeToggle;
+    if (nativeToggleId) {
+        const startNative = () => {
+            const toggle = document.getElementById(nativeToggleId);
+            if (!toggle) return;
+            const syncButton = () => {
+                currentLang = normalizeLanguage(document.documentElement.lang);
+                updateButton();
+            };
+            currentLang = normalizeLanguage(document.documentElement.lang);
+            createButton(() => toggle.click());
+            new MutationObserver(syncButton).observe(document.documentElement, {
+                attributes: true,
+                attributeFilter: ['lang']
+            });
+        };
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startNative, { once: true });
+        else startNative();
+        return;
     }
 
     window.addEventListener('message', event => {

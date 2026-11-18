@@ -39,6 +39,18 @@ app.whenReady().then(async () => {
 
     web.get('/api/desktop-agents/settings', (_req, res) => res.json({ owned: true, settings: mockSettings }));
     web.get('/api/desktop-agents/quota', (_req, res) => res.json({ providers: ['codex', 'claudecode', 'antigravity'], quotas: mockQuotas }));
+    web.get('/api/desktop-agents/quota/history', (req, res) => {
+        const to = Date.now(), step = 15 * 60 * 1000;
+        const series = mockQuotas[req.query.provider].groups.flatMap(group => group.windows.map(quotaWindow => ({
+            groupId: group.id,
+            windowId: quotaWindow.id,
+            points: [
+                { at: to - 2 * step, remaining: quotaWindow.remainingPercent + 5 },
+                { at: to - step, remaining: quotaWindow.remainingPercent }
+            ]
+        })));
+        res.json({ from: to - Number(req.query.days) * 86400000, to, step, series });
+    });
 
     web.get('/', (_req, res) => {
         res.type('html').send(`<!doctype html>
@@ -51,6 +63,7 @@ app.whenReady().then(async () => {
     </script>
 </head>
 <body style="margin:0;min-height:100vh;background:#fff;">
+    <script src="/js/shared/quota-trend-chart.js"></script>
     <script src="/js/shared/desktop-quota-bar.js"></script>
 </body>
 </html>`);
@@ -78,6 +91,29 @@ app.whenReady().then(async () => {
     await until('document.querySelector(".dqb-peek[data-provider=antigravity]")');
     assert.equal(await evaluate('document.querySelectorAll(".dqb-peek-group").length'), 2);
     assert.match(await evaluate('document.querySelector(".dqb-peek-groups + .dqb-peek-extra").textContent'), /剩余 AI 点数.*1,743 点/);
+
+    // Compare weekly pools, then return to a single pool in either quota window.
+    const trend = name => `document.querySelector('[data-t="${name}"]')`;
+    const setTrend = (name, value) => evaluate(`const select = ${trend(name)}; select.value = ${JSON.stringify(value)}; select.dispatchEvent(new Event('change', { bubbles: true }));`);
+    await evaluate(`document.querySelector('.dqb-row.antigravity [data-window="weekly"]').click()`);
+    await until(`${trend('series')}.querySelector('[value="compare"]')`);
+    await setTrend('range', '7');
+    await until(`${trend('note')}.textContent.includes('保存最近 90 天') && ${trend('range')}.value === '7'`);
+    for (const [key, label, latest] of [
+        ['third-party:weekly', 'Claude / GPT · 每周', '0%'],
+        ['gemini:5h', 'Gemini · 5 小时', '90%']
+    ]) {
+        await setTrend('series', 'compare');
+        assert.equal(await evaluate(`${trend('series')}.value`), 'compare');
+        assert.equal(await evaluate(`${trend('samples')}.textContent`), '4');
+        assert.equal(await evaluate(`${trend('legend')}.children.length`), 2);
+        await setTrend('series', key);
+        assert.equal(await evaluate(`${trend('series')}.value`), key);
+        assert.equal(await evaluate(`${trend('legend')}.textContent`), label);
+        assert.equal(await evaluate(`${trend('samples')}.textContent`), '2');
+        assert.equal(await evaluate(`${trend('latest')}.textContent`), latest);
+    }
+    await evaluate(`${trend('close')}.click()`);
 
     // 2. Open menu
     await evaluate('document.querySelector("[data-dqb-menu]").click()');
@@ -182,7 +218,7 @@ app.whenReady().then(async () => {
     assert.equal(await evaluate('document.querySelector(".dqb").classList.contains("expanded")'),true,'closing browser restores detailed quota view');
     assert.equal(await evaluate('document.querySelector(".dqb").classList.contains("tucked")'),false,'closing restores always-visible preference');
     assert.equal(await evaluate('localStorage.getItem("tools_desktop_quota_bar_v2")'),storedBeforeReading);
-    console.log('PASS: quota bar auto-hide, extra usage amounts, safe currency text, unknown limits, and light/dark narrow layout');
+    console.log('PASS: quota bar auto-hide, extra usage amounts, safe currency text, unknown limits, light/dark narrow layout, and compare mode selection');
     server.close();
     win.destroy();
     app.exit(0);

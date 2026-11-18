@@ -1,6 +1,6 @@
 // Run: ./node_modules/.bin/electron tests/home-product-tour-sync-browser.cjs
 // Verifies homepage product tour, onboarding/tool-frame isolation, leave-page AppDialog guard,
-// AppDialog light-theme CSS, navbar role chips, sidebar More dedup, and SLA no-matched-rules hint.
+// AppDialog light-theme CSS, account role labels, and sidebar More dedup.
 const { app, BrowserWindow } = require('electron');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -20,11 +20,35 @@ let server;
 const evaluate = code => win.webContents.executeJavaScript(code, true);
 const until = code => evaluate(`new Promise((resolve, reject) => { let n = 0; const poll = () => { if (${code}) resolve(); else if (++n > 300) reject(new Error(${JSON.stringify(code)})); else setTimeout(poll, 25); }; poll(); })`);
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+const next = () => evaluate('document.querySelector("[data-tour-next]").click()');
+const previous = () => evaluate('document.querySelector("[data-tour-prev]").click()');
+const waitForTool = href => until(`document.querySelector('#v2ToolFrame:not([hidden]) iframe')?.contentWindow.location.pathname === ${JSON.stringify(href)}`);
+const waitForFocus = (selector, inTool = false) => until(`(() => {
+    const overlay = document.querySelector('.v2-tour-root');
+    const spotlight = overlay.querySelector('.v2-tour-ring');
+    if (overlay.classList.contains('is-tool-loading') || spotlight.style.opacity !== '1') return false;
+    const frame = ${inTool} ? document.querySelector('.v2-tour-tool, #v2ToolFrame:not([hidden]) iframe') : null;
+    const el = (frame?.contentDocument || document).querySelector(${JSON.stringify(selector)});
+    const rect = el?.getBoundingClientRect();
+    const ring = spotlight.getBoundingClientRect();
+    const outer = frame?.getBoundingClientRect();
+    if (!rect?.width || !rect.height || (outer && rect.right > frame.clientWidth)) return false;
+    const left = rect.left + (outer?.left || 0), top = rect.top + (outer?.top || 0);
+    const right = rect.right + (outer?.left || 0);
+    const bottom = Math.min(rect.bottom + (outer?.top || 0), outer?.bottom ?? innerHeight);
+    if (overlay.classList.contains('is-data-tool')) {
+        const card = overlay.querySelector('.v2-tour-card').getBoundingClientRect();
+        if (innerWidth >= 1100 ? left < card.right : bottom > card.top) return false;
+    }
+    return ring.left <= left + 1 && ring.top <= top + 1 && ring.right >= right - 1 && ring.bottom >= bottom - 1;
+})()`);
 setTimeout(() => app.exit(1), 60000).unref();
 
 app.whenReady().then(async () => {
     const web = express();
     web.use(express.json());
+    const chatRequests = [];
+    let finishExample;
 
     let onboardingPrompt = true;
     web.get('/', (_, res) => {
@@ -48,6 +72,15 @@ app.whenReady().then(async () => {
     });
     web.get('/sla', (_, res) => res.sendFile(path.join(frontend, 'pages/sla.html')));
     web.get('/requirements', (_, res) => res.sendFile(path.join(frontend, 'pages/requirements.html')));
+    for (const [href, attributes] of [
+        ['/uivf12', 'class="btn-batch-run-row"'], ['/report', 'id="report-content"'],
+        ['/monthly', 'id="airReportPane"'], ['/bigscreen', 'class="screen-grid"']
+    ]) {
+        web.get(href, (_, res) => res.send(`<!doctype html><main ${attributes} style="width:75%;height:240px">Tool data</main>`));
+    }
+    web.get('/expedite', (_, res) => res.send(`<!doctype html>
+        <div id="platformStartup">Loading</div>
+        <textarea id="brief-textarea" style="position:relative;left:90px;width:200px;height:220px">Saved reminder text</textarea>`));
     web.get('/api/auth/me', (_, res) => res.json({ username: 'fixture', role: 'admin', isSuperAdmin: true, tenantId: 'default' }));
     web.get('/api/tenants', (_, res) => res.json({ tenants: [{ id: 'default', name: '默认租户' }], activeTenantId: 'default' }));
     web.get('/api/onboarding/defaults/status', (_, res) => {
@@ -70,6 +103,13 @@ app.whenReady().then(async () => {
     web.get('/api/ai/models', (_, res) => res.json({ models: [{ id: 'm1', name: 'DeepSeek', provider: 'openai-compatible' }], defaultId: 'm1', mode: 'direct' }));
     web.get('/api/ai/sessions', (_, res) => res.json({ items: [] }));
     web.get('/api/ai/skills', (_, res) => res.json({ items: [] }));
+    web.get('/api/channels/ops/pending', (_, res) => res.json({ canManage: true, items: [], total: 0 }));
+    web.post('/api/ai/chat', (req, res) => {
+        chatRequests.push(req.body);
+        res.type('application/x-ndjson');
+        res.write(JSON.stringify({ type: 'delta', delta: '正在整理催办草稿。' }) + '\n');
+        finishExample = () => res.end(JSON.stringify({ type: 'done', reply: '催办草稿已准备，请核对收件人。' }) + '\n');
+    });
     web.get('/api/agent-workspace/capability', (_, res) => res.json({ enabled: false }));
     web.get('/api/agent-workspace/prefs', (_, res) => res.json({ lastDirectory: '', recentDirectories: [] }));
     web.get('/api/friend-links', (_, res) => res.json({ links: [], statuses: {} }));
@@ -97,41 +137,192 @@ app.whenReady().then(async () => {
     assert.equal(await evaluate('window.__tpOnboardingPending'), true, 'onboarding pending flag blocks tour');
     assert.equal(await evaluate('window.HomeProductTour.isOpen()'), false, 'tour never overlaps auto-import modal');
 
-    // Skip onboarding modal -> tour should start smoothly afterwards.
+    // Skip onboarding -> the first step types the example, then waits for Next.
+    await evaluate(`document.getElementById('dcInput').addEventListener('keydown', event => {
+        if (event.key === 'Enter') window.__tourSentText = event.currentTarget.value;
+    }, true)`);
     await evaluate('document.querySelector(".quick-start-skip").click(); true');
     await until('!document.getElementById("defaultQuickStartModal")');
     assert.equal(await evaluate('window.__tpOnboardingPending'), false);
     await until('window.HomeProductTour.isOpen()');
-    assert.equal(await evaluate('document.querySelector(".v2-tour-eyebrow").textContent.trim()'), '1 / 7');
-
-    // 3. Verify AppDialog light theme CSS rules exist and tour closes cleanly & marks done.
-    await evaluate('document.querySelector(".v2-tour-skip").click(); true');
+    const stepCount = await evaluate('window.HomeProductTour.stepCount()');
+    assert.equal(await evaluate('document.querySelector(".v2-tour-eyebrow").textContent.trim()'), `1 / ${stepCount}`);
+    assert.equal(stepCount, 14);
+    assert.equal(await evaluate('document.querySelector(".v2-tour-root select") === null'), true);
+    await until('document.activeElement.id === "dcInput" && document.getElementById("dcInput").value.length > 0 && !window.__tourSentText');
+    assert.equal(chatRequests.length, 0);
+    assert.equal(await evaluate('document.querySelector(".v2-tour-root.is-chat-demo") === null'), true);
+    await waitForFocus('#dcComposer');
+    await until('document.querySelector(".v2-tour-desc").textContent === "看完问题，点「下一步」发送。"');
+    const previewText = await evaluate('document.getElementById("dcInput").value');
+    assert.match(previewText, /等我确认后再发送。$/);
+    assert.equal(await evaluate('document.getElementById("dcInput").readOnly'), true);
+    await evaluate('document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }))');
+    win.setContentSize(390, 660);
+    await until(`(() => {
+        const input = document.getElementById('dcInput');
+        const rect = input.getBoundingClientRect();
+        const card = document.querySelector('.v2-tour-card').getBoundingClientRect();
+        const center = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+        window.__tourReviewLayout = { width: innerWidth, height: innerHeight, input: rect.toJSON(), card: card.toJSON(), center: center?.id || center?.className };
+        return innerWidth <= 400 && rect.height > 76 && rect.top >= 0 && rect.bottom <= innerHeight
+            && (card.bottom <= rect.top || card.top >= rect.bottom) && center === input;
+    })()`).catch(async error => {
+        throw new Error(`Narrow example preview layout: ${JSON.stringify(await evaluate('window.__tourReviewLayout'))}`, { cause: error });
+    });
+    assert.equal(chatRequests.length, 0, 'preview and navigation keys do not submit the example');
+    assert.equal(await evaluate('window.__tourSentText'), undefined);
+    win.setContentSize(1440, 960);
+    await until('innerWidth >= 1400');
+    await next();
+    await until('document.querySelector("#dcThread").innerText.includes("正在整理催办草稿。")');
+    assert.equal(await evaluate('document.querySelector("[data-tour-next]").disabled'), true);
+    await evaluate('document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }))');
+    assert.equal(await evaluate('document.querySelector(".v2-tour-eyebrow").textContent.trim()'), `1 / ${stepCount}`);
+    await until(`(() => {
+        const thread = document.getElementById('dcThread');
+        const rect = thread.getBoundingClientRect();
+        const card = document.querySelector('.v2-tour-card').getBoundingClientRect();
+        const ring = document.querySelector('.v2-tour-ring').getBoundingClientRect();
+        const center = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+        return card.left >= rect.right && ring.height >= rect.height && thread.contains(center);
+    })()`);
+    win.setContentSize(390, 660);
+    await until(`(() => {
+        const thread = document.getElementById('dcThread').getBoundingClientRect();
+        const card = document.querySelector('.v2-tour-card').getBoundingClientRect();
+        return innerWidth <= 400 && thread.height > 200 && card.top >= thread.bottom && card.bottom <= innerHeight;
+    })()`);
+    finishExample();
+    await until('!document.querySelector("[data-tour-next]").disabled && document.body.innerText.includes("催办草稿已准备，请核对收件人。")');
+    win.setContentSize(1440, 960);
+    await until('innerWidth >= 1400');
+    assert.equal(chatRequests.length, 1);
+    assert.equal(chatRequests[0].tourReportExample, true);
+    const sent = chatRequests[0].messages.at(-1);
+    assert.equal(sent.role, 'user');
+    assert.equal(sent.content, previewText);
+    assert.equal(sent.content, await evaluate('window.__tourSentText'));
+    assert.match(sent.content, /本月未达标指标/);
+    assert.match(sent.content, /一键催办.*CPT 专项风险.*整改单/);
+    assert.match(sent.content, /未来 3 天内.*等我确认/);
+    assert.equal(await evaluate('window.HomeProductTour.isOpen()'), true, 'the remaining steps are still available after sending');
+    await next();
+    assert.equal(await evaluate('document.querySelector(".v2-tour-eyebrow").textContent.trim()'), `2 / ${stepCount}`);
+    assert.equal(await evaluate('document.body.classList.contains("dc-chatting")'), false);
+    await waitForFocus('.dc-landing [data-v2-modes]');
+    await previous();
+    await until('document.body.classList.contains("dc-chatting") && document.getElementById("dcThread").innerText.includes("催办草稿已准备")');
+    assert.equal(chatRequests.length, 1, 'back restores the finished demo without resending');
+    await next();
+    await evaluate('document.querySelector(".v2-tour-skip").click()');
     await until('!window.HomeProductTour.isOpen()');
     assert.equal(await evaluate('window.HomeProductTour.isCompleted()'), true);
+    assert.equal(await evaluate('document.body.classList.contains("dc-chatting")'), true);
 
-    // 4. Replay from Account Menu (`data-v2-do="tour"`) and advance all 7 steps including Step 7 (.v2-account.is-open).
+    await evaluate('window.DragonClaw.newChat(); window.ToolsI18n.setLanguage("en-US"); window.HomeProductTour.replay();');
+    await until('document.querySelector(".v2-tour-desc")?.textContent === "Read the question, then select Next to send it."');
+    assert.match(await evaluate('document.getElementById("dcInput").value'), /^Use the latest saved report snapshot/);
+    await evaluate('document.querySelector(".v2-tour-skip").click(); window.ToolsI18n.setLanguage("zh-CN");');
+    assert.equal(await evaluate('document.getElementById("dcInput").value'), '');
+    assert.equal(await evaluate('document.getElementById("dcInput").readOnly'), false);
+    assert.equal(chatRequests.length, 1, 'skipping clears the example without sending it');
+
+    // 4. Replay from Account and advance through the shortened guide in order.
+    await evaluate(`(() => {
+        window.DragonClaw.newChat();
+        const input = document.getElementById('dcInput');
+        input.value = '已有草稿';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+    })()`);
     await evaluate('document.getElementById("v2UserBtn").click(); true');
     await until('!!document.querySelector(".v2-account.is-open [data-v2-do=\\"tour\\"]")');
     assert.ok(await evaluate('!!document.querySelector(".v2-account-head.is-superadmin")'), 'superadmin account head styled');
     await evaluate('document.querySelector(".v2-account [data-v2-do=\\"tour\\"]").click(); true');
-    await until('window.HomeProductTour.isOpen()');
-    for (let step = 1; step < 7; step += 1) {
-        await evaluate('document.querySelector("[data-tour-next]").click(); true');
-        await wait(60);
+    await until('document.querySelector(".v2-tour-root.is-open")');
+    assert.equal(await evaluate('document.getElementById("dcInput").value'), '已有草稿');
+    assert.equal(chatRequests.length, 1, 'a replay preserves a pre-existing draft');
+    await next();
+    await waitForFocus('.dc-landing [data-v2-modes]');
+    await next();
+    await waitForFocus('#homeSidebar [data-v2-action="newChat"]');
+    await next();
+    await waitForFocus('#homeSidebar [data-v2-action="skillHub"]');
+    await next();
+    await waitForFocus('#homeSidebar [data-v2-flyout="more"]');
+    await next();
+    await waitForTool('/uivf12');
+    await waitForFocus('.btn-batch-run-row', true);
+    assert.equal(await evaluate('document.querySelector(".v2-tour-title").textContent'), '数据抓取');
+    assert.equal(await evaluate('document.querySelector("[data-tour-action]") === null'), true, 'tools open without a second button');
+    await next();
+    assert.match(await evaluate('document.querySelector(".v2-tour-desc").textContent'), /批量导入表格/);
+    await until('document.querySelector("#v2ToolFrame .v2-tool-frame-view")?.contentDocument?.querySelector(".btn-batch-xl")');
+    await waitForFocus('.btn-batch-xl', true);
+    assert.equal(await evaluate('document.querySelector("#v2ToolFrame .v2-tool-frame-view").contentWindow.location.pathname'), '/sla');
+    assert.equal(await evaluate('new URLSearchParams(location.search).has("app")'), false);
+
+    await evaluate('window.ToolsI18n.setLanguage("en-US"); document.documentElement.dataset.theme = "dark";');
+    win.setContentSize(390, 660);
+    await until('window.innerWidth <= 400');
+    await until('document.querySelector(".v2-tour-title").textContent === "Data Import"');
+    await until('document.querySelector(".v2-tour-card").getBoundingClientRect().right <= innerWidth');
+    const narrowLayout = await evaluate(`(() => {
+        const card = document.querySelector('.v2-tour-card').getBoundingClientRect();
+        const next = document.querySelector('[data-tour-next]').getBoundingClientRect();
+        return { card: card.toJSON(), next: next.toJSON(), width: innerWidth, height: innerHeight };
+    })()`);
+    const { card, next: nextButton, width, height } = narrowLayout;
+    assert.ok(card.left >= 0 && card.right <= width && card.bottom <= height
+        && nextButton.bottom <= card.bottom, `narrow window keeps guide and next button visible: ${JSON.stringify(narrowLayout)}`);
+    await next();
+    await waitForTool('/report');
+    assert.equal(await evaluate('document.querySelector(".v2-tour-title").textContent'), 'Report Dashboard');
+    await waitForFocus('#report-content', true);
+    await previous();
+    await waitForTool('/sla');
+    assert.equal(await evaluate('document.querySelector(".v2-tour-title").textContent'), 'Data Import');
+    win.setContentSize(1440, 960);
+    await until('window.innerWidth >= 1400');
+    await evaluate('window.ToolsI18n.setLanguage("zh-CN"); document.documentElement.dataset.theme = "light";');
+    for (const [href, title, anchor] of [
+        ['/report', '报表看板', '#report-content'], ['/expedite', '一键催办', '#brief-textarea'],
+        ['/monthly', '月报页面', '#airReportPane'], ['/bigscreen', '大屏看板', '.screen-grid']
+    ]) {
+        await next();
+        await waitForTool(href);
+        assert.equal(await evaluate('document.querySelector(".v2-tour-title").textContent'), title);
+        if (href === '/expedite') {
+            await until('document.querySelector(".v2-tour-root").classList.contains("is-tool-loading") && document.querySelector(".v2-tour-ring").style.opacity === "0"');
+            await until('getComputedStyle(document.querySelector(".v2-tour-backdrop")).backdropFilter === "blur(6px)"');
+            await evaluate('document.querySelector("#v2ToolFrame iframe").contentDocument.getElementById("platformStartup").remove()');
+            await waitForFocus(anchor, true);
+            await evaluate(`Object.assign(document.querySelector("#v2ToolFrame iframe").contentDocument.getElementById("brief-textarea").style,
+                { left: '18px', width: '430px' })`);
+        }
+        await waitForFocus(anchor, true);
     }
-    await until('document.querySelector(".v2-tour-eyebrow").textContent.trim() === "7 / 7"');
-    const step7Info = await evaluate(`(() => {
+    await next();
+    assert.equal(await evaluate('document.querySelector(".v2-tour-title").textContent'), '运维待办');
+    assert.equal(await evaluate('document.querySelector(".v2-tour-tool").getAttribute("src")'), '/?tour=0&opsGuide=1#ops-drafts');
+    await waitForFocus('#platformConfirmModal.open .nav-confirm-dialog, .app-dialog.open .app-dialog-card', true);
+    await next();
+    assert.equal(await evaluate('window.HomeToolFrame.isOpen() || Boolean(document.querySelector(".v2-tour-tool"))'), false);
+    await waitForFocus('#v2AlertBtn');
+    await next();
+    await until(`document.querySelector(".v2-tour-eyebrow").textContent.trim() === "${stepCount} / ${stepCount}"`);
+    const accountStep = await evaluate(`(() => {
         const pop = document.querySelector(".v2-account.is-open");
         const ring = document.querySelector(".v2-tour-ring");
         const popRect = pop ? pop.getBoundingClientRect() : null;
         const ringRect = ring ? ring.getBoundingClientRect() : null;
         return { popOpen: !!pop, ringW: ringRect ? ringRect.width : 0, popW: popRect ? popRect.width : 0 };
     })()`);
-    assert.equal(step7Info.popOpen, true, 'Step 7 opens account popup');
-    assert.ok(step7Info.ringW >= step7Info.popW && step7Info.popW > 100, `Step 7 spotlights .v2-account.is-open (${JSON.stringify(step7Info)})`);
+    assert.equal(accountStep.popOpen, true, 'final step opens account popup');
+    assert.ok(accountStep.ringW >= accountStep.popW && accountStep.popW > 100, `final step spotlights .v2-account.is-open (${JSON.stringify(accountStep)})`);
     await evaluate('document.querySelector("[data-tour-next]").click(); true');
     await until('!window.HomeProductTour.isOpen()');
-    assert.equal(await evaluate('!!document.querySelector(".v2-account.is-open")'), false, 'finishing Step 7 closes account popup');
+    assert.equal(await evaluate('!!document.querySelector(".v2-account.is-open")'), false, 'finishing the tour closes account popup');
 
     // 5. Dirty tool frame leave-guard uses AppDialog (no native confirm) and preserves open frame on cancel.
     await evaluate(`window.HomeToolFrame.open('/requirements', { label: 'Requirements', skipConfirm: true }); true`);
@@ -140,8 +331,15 @@ app.whenReady().then(async () => {
         const fw = document.querySelector('.v2-tool-frame-view').contentWindow;
         fw.__dhIsDirty = () => true;
         fw.__dhConfirmLeave = hostConfirm => hostConfirm('Unsaved fixture changes?');
-        window.HomeToolFrame.close();
     })()`);
+    await evaluate('window.HomeProductTour.replay()');
+    for (let i = 0; i < 5; i++) await next();
+    await until('document.querySelector(".v2-tour-tool")?.contentWindow.location.pathname === "/uivf12"');
+    await evaluate('document.querySelector(".v2-tour-skip").click()');
+    assert.equal(await evaluate('document.querySelector("#v2ToolFrame iframe").contentWindow.__dhIsDirty()'), true,
+        'replaying the tour preserves an unfinished tool page');
+    assert.equal(await evaluate('new URLSearchParams(location.search).get("app")'), '/requirements');
+    await evaluate('window.HomeToolFrame.close()');
     await until('!!document.querySelector("#platformConfirmModal.open, .app-dialog")');
     // Cancel leave -> stays in tool frame
     await evaluate('document.querySelector("#platformConfirmModal.open .nav-confirm-cancel, .app-dialog [data-dialog=\\"cancel\\"]").click(); true');
@@ -167,24 +365,16 @@ app.whenReady().then(async () => {
     await evaluate('document.querySelector(".app-dialog [data-dialog=\\"ok\\"]").click(); window.showPlatformConfirm = window.__savedNavConfirm; true');
     await until('!document.querySelector(".app-dialog")');
 
-    // 6. Navbar user chip & More flyout normalization dedup check.
-    const navMeta = await evaluate(`(() => {
-        const chip = document.querySelector("#app-navbar .nav-user-chip");
-        const role = document.querySelector("#app-navbar .nav-user-role");
+    // 6. More flyout normalization dedup check.
+    const duplicateLinks = await evaluate(`(() => {
         document.querySelector('[data-v2-flyout="more"]').click();
         const items = [...document.querySelectorAll('.v2-flyout a.v2-pop-item')].map(a => a.getAttribute('href'));
-        return {
-            isSuper: chip?.classList.contains('is-super'),
-            roleText: role?.textContent?.trim(),
-            dupCount: items.length - new Set(items.map(h => h.replace(/\\.html$/i, '').replace(/\\/+$/, ''))).size
-        };
+        return items.length - new Set(items.map(h => h.replace(/\\.html$/i, '').replace(/\\/+$/, ''))).size;
     })()`);
-    assert.equal(navMeta.isSuper, true, 'navbar chip has is-super class');
-    assert.ok(navMeta.roleText, 'navbar chip displays role pill');
-    assert.equal(navMeta.dupCount, 0, 'More flyout has zero duplicate normalized paths');
+    assert.equal(duplicateLinks, 0, 'More flyout has zero duplicate normalized paths');
 
     assert.deepEqual(await evaluate('window.fixtureErrors'), []);
-    console.log('PASS: tour onboarding/tool-page isolation, 7-step replay + .v2-account.is-open, AppDialog dirty guard, navbar super chip, More dedup.');
+    console.log('PASS: shortened tour runs in order, opens tools, preserves drafts, sends the AI example, and supports narrow layout.');
     win.destroy();
     server.close();
     app.exit(0);

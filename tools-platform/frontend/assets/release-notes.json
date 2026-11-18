@@ -1,10 +1,10 @@
 {
   "zh": [
-    "手机端（iOS / Android）侧边栏「置顶」分组支持点击折叠并记住状态（搜索时自动展开）；发送超过 6 行的长消息自动折叠，支持点击「展开全文 / 收起全文」。",
-    "AI 月报支持将已保存报告设为/取消「默认显示」；优化 AI 看板下拉列表长名称溢出、桌面端工程折叠与悬浮提示收起体验。"
+    "升级首页新手引导：支持逐步输入并发送「报表与一键催办」AI 提问示例，并联动数据抓取、数据导入等系统工具页引导。",
+    "AI 问答新增最新入库快照的一键催办事项检索与更多责任人字段识别，取消在普通库查询中常驻无关技能工具；同时支持自定义工具中英文名称同步更新及优化双语运行、桌面配额栏与运维收件箱体验。"
   ],
   "en": [
-    "Mobile (iOS & Android) sidebar Pinned section now supports collapsing with persisted state (auto-expands during search), and user messages over 6 lines auto-fold with a Show more / Show less toggle.",
-    "AI Monthly Report now supports toggling a default report; fixed AI BI menu overflow for long board titles, refined workspace project folding and tooltip dismissal, and refreshed built-in tool guides."
+    "Upgraded the homepage product tour with an interactive AI example prompt for report metrics and one-click follow-ups, plus synced system tool tour steps.",
+    "Added latest report snapshot follow-up grounding and richer owner field matching for AI Q&A, stopped preloading unrelated skill tools on database turns, and improved bilingual custom tool naming/runtime, desktop quota bar, and ops inbox handling."
   ]
 }

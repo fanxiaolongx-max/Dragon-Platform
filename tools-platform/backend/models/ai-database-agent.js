@@ -42,9 +42,9 @@ async function runTurn({ client, systemInstruction, messages, ctx, signal, onDel
         && (!(name.startsWith('ppo_') || name.startsWith('ppo-')) || isVisibleSkill('ppo-traffic'));
     // 对话里上传过附件时，带上只读的附件工具（read_file / read_document / query_data / diff_files）
     const files = filesAgent.toolset({ ...ctx, signal, toolAccess: allowed });
-    const financeDefs = isVisibleSkill('family-finance-bookkeeper') ? require('./family-finance-agent').definitions() : [];
-    const ppoDefs = isVisibleSkill('ppo-traffic') ? require('./ppo-traffic-agent').definitions() : [];
-    const tools = [...toolsService.definitions().filter(tool => TOOL_NAMES.has(tool.name)), ...(files ? files.definitions : []), ...financeDefs, ...ppoDefs]
+    // 技能专用工具（finance_* / ppo_* 等）不在这里常驻：只在模型 load_skill 或用户选择该技能后由 extras（技能目录）挂上，
+    // 否则模型会在无关任务里误调（如报表催办时调用家庭财务概况）。
+    const tools = [...toolsService.definitions().filter(tool => TOOL_NAMES.has(tool.name)), ...(files ? files.definitions : [])]
         .filter(tool => allowed(tool.name));
     const sensitiveValues = ctx.sensitiveValues || [];
     // 普通对话不接受客户端提供的文件根目录或其他执行上下文。
@@ -69,14 +69,6 @@ async function runTurn({ client, systemInstruction, messages, ctx, signal, onDel
             if (call.name.startsWith('open_autoglm') || call.name.startsWith('open-autoglm')) {
                 const autoglm = require('./open-autoglm-agent');
                 return autoglm.execute(call.name, args, { user: actor });
-            }
-            if (call.name.startsWith('finance_')) {
-                const finance = require('./family-finance-agent');
-                return finance.execute(call.name, args, { user: actor });
-            }
-            if (call.name.startsWith('ppo_') || call.name.startsWith('ppo-')) {
-                const ppo = require('./ppo-traffic-agent');
-                return ppo.execute(call.name, args, { user: actor });
             }
             const outcome = TOOL_NAMES.has(call.name)
                 ? await toolsService.execute(toolCtx, call.name, args)

@@ -353,7 +353,17 @@
             trendsEl.addEventListener('pointerdown', event => { if (event.target === trendsEl) closeTrends(); });
             q('close').addEventListener('click', closeTrends);
             q('provider').addEventListener('change', () => { const p = q('provider').value; Object.assign(trendsState, { provider: p, groupId: groupsOf(p)[0]?.id || p }); loadTrends(); });
-            q('series').addEventListener('change', () => { const [groupId, windowId] = q('series').value.split(':'); if (windowId) Object.assign(trendsState, { groupId, windowId }); else trendsState.compare = true; drawTrends(); });
+            q('series').addEventListener('change', () => {
+                const value = q('series').value;
+                if (value === 'compare') {
+                    trendsState.compare = true;
+                } else {
+                    const [groupId, windowId] = value.split(':');
+                    if (!windowId) return;
+                    Object.assign(trendsState, { groupId, windowId, compare: false });
+                }
+                drawTrends();
+            });
             q('range').addEventListener('change', () => { trendsState.days = Number(q('range').value); loadTrends(); });
             q('metric').addEventListener('change', () => { trendsState.metric = q('metric').value; drawTrends(); });
             document.addEventListener('keydown', event => { if (event.key === 'Escape' && trendsEl && !trendsEl.hidden) { event.stopPropagation(); closeTrends(); } }, true);
