@@ -6,6 +6,7 @@ const ASSIGNMENT = `(["']?${FIELD}(?:["'](?:\\s*\\])?)?\\s*[:：=]\\s*)`;
 const QUOTED_FIELD = new RegExp(`${ASSIGNMENT}(["'])(?:\\\\.|(?!\\2)[^\\r\\n])*?\\2`, 'gi');
 const UNTERMINATED_FIELD = new RegExp(`${ASSIGNMENT}(["'])(?:\\\\.|(?!\\2)[^\\r\\n])*$`, 'gim');
 const BARE_FIELD = new RegExp(`${ASSIGNMENT}(?!["'\\s]|\\[REDACTED\\])([^\\s,;}\\]<>]+)`, 'gi');
+const COMPOUND_ACCOUNT_PASSWORD = /(["']?(?:账号|用户(?:名)?|account|user(?:name)?)\s*(?:[/／&＆与和]|\s+)?(?:密码|口令|passwd|password)["']?\s*[:：=]\s*)(?!\[REDACTED\])([^\s/\\,;}\]<>]+)(\s*[/／:：|\s]\s*)(?!\[REDACTED\])([^\s,;}\]<>]+)/gi;
 const SENSITIVE_FIELD = new RegExp(`^(?:[a-z0-9]+[_-])*(?:${FIELD})$`, 'i');
 
 function redactText(value, { secrets = [] } = {}) {
@@ -22,15 +23,25 @@ function redactText(value, { secrets = [] } = {}) {
             return JSON.stringify(safe) === JSON.stringify(parsed) ? text : JSON.stringify(safe);
         } catch { /* 非 JSON（如 JavaScript 源码）继续按文本处理 */ }
     }
+    // 「账号密码: admin / xxx」或「账号/密码：admin/xxx」先保留用户名，仅脱敏密码部分，避免误把 admin 当成密码
+    const preservedCompound = [];
+    text = text.replace(COMPOUND_ACCOUNT_PASSWORD, (_match, prefix, user, sep) => {
+        const placeholder = `\u0000CRED_KEEP_${preservedCompound.length}\u0000`;
+        preservedCompound.push(`${prefix}${user}${sep}${REDACTED}`);
+        return placeholder;
+    });
     text = text
         .replace(/-----BEGIN (?:[A-Z ]*PRIVATE KEY)-----[\s\S]*?(?:-----END (?:[A-Z ]*PRIVATE KEY)-----|$)/g, REDACTED)
         .replace(/^(\s*(?:authorization|proxy-authorization|cookie|set-cookie)\s*:\s*).*$/gim, `$1${REDACTED}`)
         .replace(/\b(?:Bearer|Basic)\s+[A-Za-z0-9._~+\/-]+=*/gi, match => `${match.split(/\s/)[0]} ${REDACTED}`)
-        .replace(/(https?:\/\/|(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?):\/\/)([^\s/@:]+):([^\s/@]+)@/gi, `$1${REDACTED}@`)
+        .replace(/(https?:\/\/|(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?):\/\/)([^\s/@:]+):([^\s/@]+)@/gi, `$1$2:${REDACTED}@`)
         .replace(QUOTED_FIELD, (match, prefix, quote) => match.length === prefix.length + 2 ? match : `${prefix}${quote}${REDACTED}${quote}`)
         .replace(UNTERMINATED_FIELD, (_match, prefix, quote) => `${prefix}${quote}${REDACTED}${quote}`)
         .replace(BARE_FIELD, (_match, prefix) => `${prefix}${REDACTED}`)
         .replace(/\b(?:sk-(?:proj-|ant-)?[A-Za-z0-9_-]{16,}|AIza[A-Za-z0-9_-]{30,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[A-Z0-9]{16})\b/g, REDACTED);
+    if (preservedCompound.length) {
+        text = text.replace(/\u0000CRED_KEEP_(\d+)\u0000/g, (_, idx) => preservedCompound[Number(idx)] ?? '');
+    }
     return text;
 }
 

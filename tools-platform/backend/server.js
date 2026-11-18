@@ -176,6 +176,9 @@ const SENSITIVE_LOG_KEYS = new Set([
 
 function shouldRedactLogKey(key) {
     const normalized = String(key || '').toLowerCase();
+    if (/^(?:input|output|prompt|completion|total|max|cached|context|reasoning)_?tokens?$/i.test(String(key || ''))) {
+        return false;
+    }
     return SENSITIVE_LOG_KEYS.has(normalized) || normalized.includes('password') || normalized.includes('token');
 }
 

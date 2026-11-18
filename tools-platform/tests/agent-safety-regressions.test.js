@@ -253,3 +253,17 @@ test('automatic PR creation refuses a file containing earlier user changes befor
     assert.equal(git(ctx.root, 'branch', '--show-current'), branch);
     assert.match(fs.readFileSync(path.join(ctx.root, 'a.txt'), 'utf8'), /user work/);
 });
+
+test('redactText preserves account names (e.g. admin) in URLs and compound account/password prompts while redacting passwords', () => {
+    const urlOut = redactText('登录地址 https://admin:SuperPass123@192.168.1.10/login');
+    assert.equal(urlOut, '登录地址 https://admin:[REDACTED]@192.168.1.10/login');
+
+    const compound1 = redactText('请用 账号密码: admin / Secret999 登录系统');
+    assert.equal(compound1, '请用 账号密码: admin / [REDACTED] 登录系统');
+
+    const compound2 = redactText('账号/密码：admin/Secret999');
+    assert.equal(compound2, '账号/密码：admin/[REDACTED]');
+
+    const compound3 = redactText('账号 admin 密码: Secret999');
+    assert.equal(compound3, '账号 admin 密码: [REDACTED]');
+});

@@ -1,8 +1,8 @@
 {
   "zh": [
-    "英文界面下给自定义工具改名，改的是英文名（卡片在英文界面显示的就是英文名），中文名保持不变；中文界面照旧改中文名。"
+    "优化日志与文本脱敏策略：复合「账号/密码」写法及带凭据 URL 仅脱敏密码部分、保留账号名（如 admin），避免误脱敏；请求日志同时保留 input_tokens、output_tokens 等模型用量统计字段。"
   ],
   "en": [
-    "Renaming a custom tool in the English UI now changes its English name, which is what the card shows in English; the Chinese name stays as is. Renaming in the Chinese UI works as before."
+    "Refined redaction for logs and prompts: compound account/password strings and credentialed URLs now preserve the username while redacting only the password, and request logs preserve model token-usage fields such as input_tokens and output_tokens."
   ]
 }
