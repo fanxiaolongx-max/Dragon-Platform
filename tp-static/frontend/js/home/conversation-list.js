@@ -7,6 +7,7 @@
     const identity=()=>['tools_user','tools_tenant_id','tools_token'].map(k=>localStorage.getItem(k)||sessionStorage.getItem(k)||'').join('|');
     const key=(source,id)=>JSON.stringify([source,String(id)]);
     const get=(source,id)=>prefs.get(key(source,id))||{};
+    const sourceOf=(config,item)=>(typeof config?.itemSource==='function'?config.itemSource(item):null)||config.source;
     const signal=source=>window.dispatchEvent(new CustomEvent('home:conversation-list-changed',{detail:{source}}));
     const stamp=value=>{if(!value)return NaN;if(typeof value==='number')return value;const s=String(value).trim();if(/^\d+$/.test(s))return Number(s);return Date.parse(/Z$|[+-]\d{2}:?\d{2}$/.test(s)?s:(s.replace(' ','T')+'Z'))};
     function latest(items,config){return items.filter(item=>{const p=get(config.source,config.id(item));return !p.hidden&&!p.archived;}).map((item,index)=>({item,index})).sort((a,b)=>(stamp(config.date(b.item))||0)-(stamp(config.date(a.item))||0)||a.index-b.index)[0]?.item;}
@@ -87,18 +88,18 @@
     const icons={rename:'M3 11l1-4 6-6 3 3-6 6-4 1zm6-8l3 3',pin:'M6 2h4l-.5 4 2.5 3H4l2.5-3L6 2zm2 7v5',archive:'M2 2h12v3H2zm1 3v8h10V5M6 8h4',remove:'M3 4h10M6 4V2h4v2M4 4l1 10h6l1-10M7 7v4M9 7v4'};
     function icon(name){return `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="${icons[name]}" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;}
     async function action(config,item,name){
-        const current=identity(),source=config.source,id=config.id(item),pref=get(source,id),title=pref.title||config.title(item);
+        const current=identity(),source=sourceOf(config,item),id=config.id(item),pref=get(source,id),title=pref.title||config.title(item);
         if(name==='pin')return save(source,id,{pinned:!pref.pinned});
         if(name==='archive')return save(source,id,{archived:!pref.archived});
         if(name==='rename'){
-            const isDesktopAgent = Boolean(item?._sourceType && ['codex','claudecode','antigravity','workbuddy'].includes(item._sourceType)) || Boolean(item?.provider) || String(config.source||'').startsWith('desktop:');
+            const isDesktopAgent = Boolean(item?._sourceType && ['codex','claudecode','antigravity','workbuddy'].includes(item._sourceType)) || Boolean(item?.provider) || String(source||'').startsWith('desktop:');
             if (isDesktopAgent) {
                 const message = L('第三方 Agent 对话名称由原客户端管理，暂不支持重命名', 'Desktop agent conversations are managed by the original client and cannot be renamed.');
                 if (window.AppDialog?.alert) await window.AppDialog.alert(message, { title: L('无法重命名', 'Cannot rename'), tone: 'info' });
                 else if (typeof window.showPlatformNotice === 'function') await window.showPlatformNotice({ title: L('无法重命名', 'Cannot rename'), message, tone: 'info' });
                 return;
             }
-            const isChannel = Boolean(item?._sourceType && ['weixin','welink'].includes(item._sourceType)) || ['weixin','welink'].includes(config.source);
+            const isChannel = Boolean(item?._sourceType && ['weixin','welink'].includes(item._sourceType)) || ['weixin','welink'].includes(source);
             if (isChannel) {
                 const message = L('外部频道对话名称由原客户端管理，暂不支持重命名', 'Channel conversations are managed by the original client and cannot be renamed.');
                 if (window.AppDialog?.alert) await window.AppDialog.alert(message, { title: L('无法重命名', 'Cannot rename'), tone: 'info' });
@@ -115,7 +116,7 @@
     }
     function open(row,config,item,x,y){
         close();anchor=row;row.classList.add('is-menu-open');
-        const pref=get(config.source,config.id(item));menu=document.createElement('div');menu.className='conversation-context-menu';menu.setAttribute('role','menu');menu.setAttribute('aria-label',L('对话操作','Conversation actions'));
+        const pref=get(sourceOf(config,item),config.id(item));menu=document.createElement('div');menu.className='conversation-context-menu';menu.setAttribute('role','menu');menu.setAttribute('aria-label',L('对话操作','Conversation actions'));
         const actions=[['pin',pref.pinned?L('取消置顶','Unpin'):L('置顶','Pin')],['rename',L('重命名','Rename')],['archive',pref.archived?L('取消归档','Unarchive'):L('归档','Archive')],['remove',L('删除','Delete')]];
         menu.innerHTML=actions.map(([id,label])=>`<button type="button" role="menuitem" data-conversation-action="${id}"${id==='remove'?' class="is-danger"':''}>${icon(id)}<span>${label}</span></button>`).join('');
         menu.addEventListener('click',async event=>{const button=event.target.closest('[data-conversation-action]');if(!button)return;const operation=button.dataset.conversationAction;close();try{await action(config,item,operation);}catch(error){if(window.AppDialog?.alert)window.AppDialog.alert(error.message,{title:L('操作失败','Action failed'),tone:'error'});}});
@@ -142,7 +143,7 @@
             const index=Number(main.dataset[config.index]),item=config.items[index];if(!item)continue;
             const row=main.closest('.home-chat-owned')||main,wrapper=document.createElement('div');wrapper.className='conversation-list-row';wrapper.dataset.conversationIndex=index;
             row.before(wrapper);wrapper.append(row);const more=document.createElement('button');more.type='button';more.className='conversation-list-more';more.dataset.conversationMore='';more.textContent='···';more.title=L('对话操作','Conversation actions');more.setAttribute('aria-label',more.title);more.setAttribute('aria-haspopup','menu');wrapper.append(more);
-            if(get(config.source,config.id(item)).pinned){wrapper.classList.add('is-pinned');const pin=document.createElement('span');pin.className='conversation-pin';pin.innerHTML=icon('pin');pin.title=L('已置顶','Pinned');wrapper.append(pin);}
+            if(get(sourceOf(config,item),config.id(item)).pinned){wrapper.classList.add('is-pinned');const pin=document.createElement('span');pin.className='conversation-pin';pin.innerHTML=icon('pin');pin.title=L('已置顶','Pinned');wrapper.append(pin);}
         }
         renderBatch(list);
     }
@@ -212,9 +213,19 @@
                 if(!cancel&&current===account&&current===identity()&&finalOrder.some((node,i)=>node!==d.rows[i])){
                     // Include collapsed batch rows as well, preserving their relative order.
                     const visible=new Set(d.rows);let index=0;
-                    const order=[...d.scope.querySelectorAll(':scope > .conversation-list-row')].map(node=>visible.has(node)?finalOrder[index++]:node).map(node=>String(config.id(config.items[Number(node.dataset.conversationIndex)])));
-                    const data=await request('PUT',{source:config.source,order});
-                    if(current===identity())for(const pref of data.items||[])prefs.set(key(pref.source,pref.id),pref);
+                    const bySource=new Map();
+                    for(const node of [...d.scope.querySelectorAll(':scope > .conversation-list-row')]){
+                        const targetNode=visible.has(node)?finalOrder[index++]:node;
+                        const item=config.items[Number(targetNode.dataset.conversationIndex)];
+                        if(!item)continue;
+                        const src=sourceOf(config,item);
+                        if(!bySource.has(src))bySource.set(src,[]);
+                        bySource.get(src).push(String(config.id(item)));
+                    }
+                    for(const [src,order] of bySource){
+                        const data=await request('PUT',{source:src,order});
+                        if(current===identity())for(const pref of data.items||[])prefs.set(key(pref.source,pref.id),pref);
+                    }
                 }
             }catch(error){
                 if(current===identity())window.AppDialog?.alert?.(error.message,{title:L('排序保存失败','Could not save order'),tone:'error'});

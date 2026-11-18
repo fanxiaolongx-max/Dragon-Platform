@@ -770,8 +770,8 @@
         const approvals = new Set();
         let disposed = false;
         let gapTimer = null;
-        // 思考过程：收到模型的思考内容时才出现；点击标题展开 / 收起，标题旁显示当前阶段和用时
-        const think = { el: null, text: '', phase: '', phaseAt: 0, active: false, ms: 0, since: 0, timer: null, gap: false };
+        // 思考过程：收到模型的思考内容时才出现；点击标题丝滑展开 / 收起，标题旁显示呼吸点、阶段词和用时
+        const think = { el: null, text: '', phase: '', phaseAt: 0, active: false, ms: 0, since: 0, timer: null, gap: false, closeTimer: null, raf: 0 };
         const thinkSeconds = () => Math.max(1, Math.round((think.ms + (think.active ? Date.now() - think.since : 0)) / 1000));
         const paintThinkHead = () => {
             if (!think.el) return;
@@ -779,7 +779,8 @@
             think.el.querySelector('.dc-think-label').textContent = think.active ? tx('thinkLabel') : `${tx('thinkDone')} ${thinkSeconds()}s`;
             const phase = think.el.querySelector('.dc-think-phase');
             phase.hidden = !think.active;
-            if (think.active && phase.dataset.phase !== think.phase) {
+            if (!think.active) { phase.dataset.phase = ''; }
+            else if (phase.dataset.phase !== think.phase) {
                 phase.dataset.phase = think.phase;
                 phase.textContent = tx(`thinkPhase_${think.phase}`);
                 phase.classList.remove('is-changed');
@@ -787,6 +788,64 @@
                 phase.classList.add('is-changed');
             }
             think.el.querySelector('.dc-think-time').textContent = think.active ? `${thinkSeconds()}s` : '';
+        };
+        const setThinkOpen = (open, { instant = false } = {}) => {
+            if (!think.el) return;
+            const head = think.el.querySelector('.dc-think-head');
+            const panel = think.el.querySelector('.dc-think-panel');
+            const body = think.el.querySelector('.dc-think-body');
+            if (!head || !panel || !body) return;
+            clearTimeout(think.closeTimer);
+            think.closeTimer = null;
+            cancelAnimationFrame(think.raf);
+            think.raf = 0;
+            head.setAttribute('aria-expanded', String(open));
+            const reduced = instant || Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+            if (open) {
+                body.hidden = false;
+                body.scrollTop = body.scrollHeight;
+                if (reduced) {
+                    think.el.classList.add('is-open');
+                } else {
+                    void panel.offsetHeight;
+                    think.raf = requestAnimationFrame(() => {
+                        think.raf = 0;
+                        if (head.getAttribute('aria-expanded') === 'true') {
+                            think.el.classList.add('is-open');
+                            body.scrollTop = body.scrollHeight;
+                        }
+                    });
+                }
+            } else {
+                think.el.classList.remove('is-open');
+                if (reduced) {
+                    body.hidden = true;
+                } else {
+                    const doneClose = event => {
+                        if (event && event.target !== panel) return;
+                        if (event && event.propertyName && event.propertyName !== 'grid-template-rows') return;
+                        clearTimeout(think.closeTimer);
+                        think.closeTimer = null;
+                        panel.removeEventListener('transitionend', doneClose);
+                        if (head.getAttribute('aria-expanded') !== 'true') body.hidden = true;
+                    };
+                    panel.addEventListener('transitionend', doneClose);
+                    think.closeTimer = setTimeout(() => doneClose(), 340);
+                }
+            }
+        };
+        const ensureThinkEl = () => {
+            if (think.el) return think.el;
+            think.el = document.createElement('div');
+            think.el.className = 'dc-think';
+            think.el.innerHTML = '<button type="button" class="dc-think-head" aria-expanded="false"><span class="dc-think-chevron" aria-hidden="true"></span><span class="dc-think-dot" aria-hidden="true"></span><span class="dc-think-label"></span><span class="dc-think-phase" hidden></span><span class="dc-think-time"></span></button><div class="dc-think-panel"><div class="dc-think-panel-inner"><div class="dc-think-body" hidden></div></div></div>';
+            const head = think.el.querySelector('.dc-think-head');
+            head.addEventListener('click', () => {
+                setThinkOpen(head.getAttribute('aria-expanded') !== 'true');
+            });
+            const anchor = main.querySelector('.dc-tool-log, .dc-msg-body, .dc-activity');
+            main.insertBefore(think.el, anchor || main.firstChild);
+            return think.el;
         };
         const stopThinking = () => {
             if (!think.active) return;
@@ -798,21 +857,7 @@
             paintThinkHead();
         };
         const addThinking = delta => {
-            if (!think.el) {
-                think.el = document.createElement('div');
-                think.el.className = 'dc-think';
-                think.el.innerHTML = '<button type="button" class="dc-think-head" aria-expanded="false"><span class="dc-think-chevron" aria-hidden="true"></span><span class="dc-think-label"></span><span class="dc-think-phase"></span><span class="dc-think-time"></span></button><div class="dc-think-body" hidden></div>';
-                const head = think.el.querySelector('.dc-think-head');
-                head.addEventListener('click', () => {
-                    const open = head.getAttribute('aria-expanded') !== 'true';
-                    head.setAttribute('aria-expanded', String(open));
-                    think.el.classList.toggle('is-open', open);
-                    const body = think.el.querySelector('.dc-think-body');
-                    body.hidden = !open;
-                    if (open) body.scrollTop = body.scrollHeight;
-                });
-                main.insertBefore(think.el, main.firstChild);
-            }
+            ensureThinkEl();
             const body = think.el.querySelector('.dc-think-body');
             const follow = body.scrollHeight - body.scrollTop - body.clientHeight < 24;
             // 多步工具调用之间的思考分段显示
@@ -894,6 +939,37 @@
                     else show('activityResponding');
                 }, 1000);
             },
+            seedThinking({ chunks = [], ms = 0, active = false, open = false } = {}) {
+                if (disposed || !chunks.length) return;
+                ensureThinkEl();
+                const body = think.el.querySelector('.dc-think-body');
+                body.textContent = '';
+                let full = '';
+                for (const item of chunks) {
+                    if (item?.sep) {
+                        if (full) body.appendChild(Object.assign(document.createElement('hr'), { className: 'dc-think-sep' }));
+                    } else if (item?.text) {
+                        body.appendChild(document.createTextNode(item.text));
+                        full += item.text;
+                    }
+                }
+                think.text = full.slice(-4000);
+                think.ms = Math.max(0, Number(ms) || 0);
+                clearInterval(think.timer);
+                think.timer = null;
+                think.active = Boolean(active);
+                if (think.active) {
+                    think.since = Date.now();
+                    think.timer = setInterval(paintThinkHead, 1000);
+                    think.phase = thinkPhaseOf(think.text);
+                    think.phaseAt = Date.now();
+                    row.hidden = true;
+                } else {
+                    think.gap = Boolean(full);
+                }
+                paintThinkHead();
+                setThinkOpen(Boolean(open), { instant: true });
+            },
             finish() {
                 disposed = true;
                 clearGap();
@@ -928,6 +1004,12 @@
             timer = setTimeout(paint, 26);
         };
         return {
+            seed(initialText) {
+                if (timer) { clearTimeout(timer); timer = null; }
+                received = String(initialText || '');
+                visible = received;
+                body.innerHTML = renderMarkdown(visible);
+            },
             append(delta) {
                 activity?.streaming();
                 received += String(delta || '');
@@ -3425,6 +3507,8 @@
             renderMarkdown,
             avatar: AVATAR,
             addMessage: (role, text, options) => addMessage(role, text, options),
+            createThinkingActivity: message => showThinking(message),
+            createStreamRenderer: (message, activity) => createRenderer(message, activity),
             addCopy: (message, text, options) => addMessageTools(message, text, options),
             scrollToBottom: () => scrollThread(true),
             isNearBottom: () => el.thread.scrollHeight - el.thread.scrollTop - el.thread.clientHeight < 90,

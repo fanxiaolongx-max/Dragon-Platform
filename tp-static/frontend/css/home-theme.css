@@ -56,6 +56,15 @@ html.platform-home:not([data-theme="dark"]) .dc-resume { background: var(--v2-ac
 
 html.platform-home:not([data-theme="dark"]) :is(.dc-resume-text b, .dc-resume-question, .home-caps-title, .home-cap-card-name, .dc-tool-name, .dc-approval-path, .dc-think-label, .dc-session-title, .skill-history-title, .skill-history-item-summary) { color: var(--v2-ink); }
 
+html.platform-home:not([data-theme="dark"]) .dc-think.is-active .dc-think-label {
+    color: transparent;
+    background-image: linear-gradient(90deg, var(--v2-ink2) 0%, var(--v2-accent) 50%, var(--v2-ink2) 100%);
+}
+
+html.platform-home:not([data-theme="dark"]) .dc-think-phase { background: var(--v2-accent-soft); color: var(--v2-accent); }
+
+html.platform-home:not([data-theme="dark"]) .dc-msg-body hr { border-top-color: var(--v2-line-strong); }
+
 html.platform-home:not([data-theme="dark"]) :is(.dc-resume-text small, .dc-spot-where, .home-caps-where, .home-caps-count, .home-cap-card-desc, .dc-tool-args, .dc-tool-state, .dc-session-meta, .dc-session-last, .dc-think-body, .dc-think-phase, .dc-think-time, .dc-history-divider, .dc-history-banner, .dc-resume-banner) { color: var(--v2-ink2); }
 
 html.platform-home:not([data-theme="dark"]) .dc-spot-icon { background: var(--v2-chip); border-color: var(--v2-line); box-shadow: none; }
@@ -1859,6 +1868,21 @@ html.platform-home .home-panel .conversation-list-row .desktop-agent-chat b { pa
 
 html.platform-home .home-panel .conversation-list-row:is(:has(.conversation-pin), .is-pinned) :is(.home-chat-title, .desktop-agent-chat b) { padding-right: 72px; }
 
+html.platform-home .home-panel .conversation-list-row .wl-item .home-chat-title,
+html.platform-home .home-panel .conversation-list-row:is(:has(.conversation-pin), .is-pinned) .wl-item .home-chat-title { padding-right: 0; }
+
+html.platform-home .home-panel .conversation-list-row .wl-item .wl-item-text { padding-right: 54px; transition: padding-right .15s ease; }
+
+html.platform-home .home-panel .conversation-list-row:is(:has(.conversation-pin), .is-pinned) .wl-item .wl-item-text { padding-right: 74px; }
+
+html.platform-home .home-panel .conversation-list-row:is(:hover, :focus-within, .is-menu-open) .wl-item-side { right: 34px; }
+
+html.platform-home .home-panel .conversation-list-row:is(:hover, :focus-within, .is-menu-open) .wl-item-side .home-chat-meta { opacity: 0; height: 0; overflow: hidden; }
+
+html.platform-home .home-panel .conversation-list-row:is(:hover, :focus-within, .is-menu-open) .wl-item:has(.wl-badge) .wl-item-text { padding-right: 70px; }
+
+html.platform-home .home-panel .conversation-list-row:is(:hover, :focus-within, .is-menu-open) .wl-item:not(:has(.wl-badge)) .wl-item-text { padding-right: 34px; }
+
 html.platform-home .home-panel .conversation-list-row:is(:hover, :focus-within, .is-menu-open) .home-chat-meta,
 html.platform-home .home-panel .conversation-list-row:is(:hover, :focus-within, .is-menu-open) .desktop-agent-chat time { opacity: 0; }
 
@@ -1870,7 +1894,14 @@ html.platform-home .home-panel .conversation-list-row:is(:hover, :focus-within) 
     html.platform-home .home-panel .conversation-list-row .conversation-pin { right: 38px; visibility: visible; }
     html.platform-home .home-panel .conversation-list-row :is(.home-chat-title, .desktop-agent-chat b) { padding-right: 82px; }
     html.platform-home .home-panel .conversation-list-row:is(:has(.conversation-pin), .is-pinned) :is(.home-chat-title, .desktop-agent-chat b) { padding-right: 104px; }
-    html.platform-home .home-panel .conversation-list-row:is(:hover, :focus-within, .is-menu-open) :is(.home-chat-meta, .desktop-agent-chat time) { opacity: 1; }
+    html.platform-home .home-panel .conversation-list-row .wl-item .home-chat-title,
+    html.platform-home .home-panel .conversation-list-row:is(:has(.conversation-pin), .is-pinned) .wl-item .home-chat-title { padding-right: 0; }
+    html.platform-home .home-panel .conversation-list-row .wl-item .wl-item-text,
+    html.platform-home .home-panel .conversation-list-row:is(:hover, :focus-within, .is-menu-open) .wl-item:is(:has(.wl-badge), :not(:has(.wl-badge))) .wl-item-text { padding-right: 88px; }
+    html.platform-home .home-panel .conversation-list-row:is(:has(.conversation-pin), .is-pinned) .wl-item .wl-item-text,
+    html.platform-home .home-panel .conversation-list-row:is(:has(.conversation-pin), .is-pinned):is(:hover, :focus-within, .is-menu-open) .wl-item:is(:has(.wl-badge), :not(:has(.wl-badge))) .wl-item-text { padding-right: 110px; }
+    html.platform-home .home-panel .conversation-list-row:is(:hover, :focus-within, .is-menu-open) :is(.home-chat-meta, .desktop-agent-chat time),
+    html.platform-home .home-panel .conversation-list-row:is(:hover, :focus-within, .is-menu-open) .wl-item-side .home-chat-meta { opacity: 1; height: auto; }
 }
 
 /* Connector selection is draft-only; established contexts remain readable and locked. */
@@ -2196,6 +2227,10 @@ html.platform-home :is(.home-chat-section-body, .home-chat-project, .home-chat-p
 
 html.platform-home .home-chat-section-body > .v2-list-expand,
 html.platform-home .home-chat-project-items > .v2-list-expand { justify-self: start; }
+
+html.platform-home .wl-pinned-section { order: 5; margin: 2px 0 6px; padding-bottom: 6px; border-bottom: 1px solid var(--v2-line); }
+html.platform-home .wl-pinned-section[hidden] { display: none !important; }
+html.platform-home .wl-pin-channel { font-size: 10px; font-weight: 600; color: var(--v2-ink3); margin-right: 4px; }
 /* 「选择本地目录」弹窗（workspace-panel.css 原为深色）：v2 下改为白卡片、浅色输入框与列表，亮/暗都走 --v2-* */
 html.platform-home .wsp-picker { background: rgba(15, 23, 42, 0.18); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
 
