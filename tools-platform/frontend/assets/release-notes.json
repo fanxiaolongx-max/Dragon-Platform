@@ -1,8 +1,8 @@
 {
   "zh": [
-    "Dragon Claw 支持多个对话同时进行：回复在服务器后台继续，切换对话、新建对话、刷新页面都不会打断；侧栏正在回复的对话显示转圈，切回去会接上已生成的内容继续显示，后台对话回复完会提示。点「停止」才真正中止。同一账号最多 3 个对话同时进行（可用 AI_MAX_PARALLEL_CHATS 调整）。"
+    "修复频道会话（WeLink / 微信）实时回复里状态提示显示成「[object Object]」的问题：上下文整理、重试等状态改为可读的中文提示；频道详情里的列表缩进也更整齐。"
   ],
   "en": [
-    "Dragon Claw now runs several chats in parallel: replies keep going on the server when you switch chats, start a new one or reload the page. Busy chats spin in the sidebar, reopening one picks up the reply where it is, and you get a notice when a background chat finishes. Only Stop ends a reply. Up to 3 chats per account at once (AI_MAX_PARALLEL_CHATS)."
+    "Fixed channel chats (WeLink / WeChat) showing \"[object Object]\" as the live status: context compaction and retry states now show readable text, and lists in channel details are indented properly."
   ]
 }

@@ -149,6 +149,8 @@ test('bridge.runTurn streams thinking, sanitized tool status and deltas via SSE 
         res.setHeader('Content-Type', 'application/x-ndjson');
         const emit = obj => res.write(`${JSON.stringify(obj)}\n`);
         emit({ type: 'start', sessionId: 'ai-sess-live-1' });
+        emit({ type: 'status', status: { kind: 'context-compression', phase: 'start', eligibleMessages: 12 } });
+        emit({ type: 'status', status: { stage: 'waiting' } });
         emit({ type: 'thinking', delta: '第一步先分析群聊最近动态。' });
         emit({ type: 'tool_start', callId: 'call-1', tool: 'run_command', args: { cmd: 'SECRET_ARG_DO_NOT_LEAK' } });
         emit({ type: 'tool_result', callId: 'call-1', tool: 'run_command', ok: true, durationMs: 42, result: { secret: 'SECRET_RESULT_DO_NOT_LEAK' } });
@@ -215,7 +217,9 @@ test('bridge.runTurn streams thinking, sanitized tool status and deltas via SSE 
     for (const payload of [earlyText, lateText]) {
         assert.equal(payload.includes('SECRET_ARG_DO_NOT_LEAK'), false, 'never expose raw tool args');
         assert.equal(payload.includes('SECRET_RESULT_DO_NOT_LEAK'), false, 'never expose raw tool results');
+        assert.equal(payload.includes('[object Object]'), false, 'structured status objects must never serialize to [object Object]');
     }
+    assert.ok(observerEarly.events.some(e => e.type === 'status' && e.status === '正在整理较早对话上下文…'));
 
     const lateDone = observerLate.events.find(e => e.type === 'done');
     assert.equal(lateDone.reply, '已完成分析，共有 3 项跟进。');

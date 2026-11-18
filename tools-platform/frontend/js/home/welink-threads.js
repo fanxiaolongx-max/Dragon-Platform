@@ -1087,6 +1087,8 @@
             if (!live.thinkingActive && !(turn.tools || []).some(t => !t.finished)) {
                 live.activity?.streaming?.();
             }
+        } else if (!live.thinkingActive && !(turn.tools || []).some(t => !t.finished) && typeof turn.statusText === 'string' && turn.statusText && turn.statusText !== '[object Object]') {
+            live.activity?.status?.(turn.statusText);
         }
         if (atBottom) api.scrollToBottom();
         renderThreads();
@@ -1149,7 +1151,9 @@
             return;
         }
         if (ev.type === 'status') {
-            live.activity?.status?.(ev.status ?? ev.text);
+            const raw = ev.status ?? ev.text;
+            const nextStatus = typeof raw === 'string' && raw !== '[object Object]' ? raw : '';
+            live.activity?.status?.(nextStatus);
             return;
         }
         if (ev.type === 'compaction') {

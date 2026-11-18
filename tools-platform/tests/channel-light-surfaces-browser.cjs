@@ -8,6 +8,15 @@ const evaluate=code=>win.webContents.executeJavaScript(code);
 const until=async code=>{for(let i=0;i<120;i++){if(await evaluate(code))return;await new Promise(r=>setTimeout(r,25))}throw Error('Timed out: '+code)};
 const statuses=['open','paused','done','cancelled'];
 const mark=(s)=>`<span class="wl-status is-${s}">${s}</span>`;
+const detail=`<details class="wl-sub" open><summary>任务详情</summary><div class="wl-detail"><p>核对上线计划。</p><ul><li>确认负责人</li></ul><ol><li>更新进展</li></ol></div></details>`;
+async function checkDetailListIndent(){
+ const insets=await evaluate(`[...document.querySelectorAll('.wl-detail :is(ul, ol)')].map(list =>
+  (list.firstElementChild.getBoundingClientRect().left - list.getBoundingClientRect().left) /
+  parseFloat(getComputedStyle(list).fontSize)
+ )`);
+ assert.equal(insets.length,2);
+ assert.ok(insets.every(inset=>inset>=1.5),'task detail lists reserve space for bullets and numbers');
+}
 const fixture=`<!doctype html><html data-ui="v2"><head><meta charset="utf-8">
 <link rel="stylesheet" href="/css/shared.css"><link rel="stylesheet" href="/css/dragon-claw.css"><link rel="stylesheet" href="/css/welink-threads.css"><link rel="stylesheet" href="/css/home-shell.css">
 <style>body{margin:0!important;display:block!important;background:#fff;padding:24px!important;font:13px/1.6 system-ui;color:#202b38}.samples{max-width:1200px;margin:auto}.sample-columns{display:grid;grid-template-columns:minmax(0,1fr) 350px;gap:24px}.sample-panel{min-width:0}h1{font-size:20px}html[data-theme=dark] body{background:#101827;color:#e2e8f0}.wl-stage{margin-bottom:18px}.sample-actions{margin:12px 0}.wl-task{margin-bottom:10px}@media(max-width:700px){body{padding:12px!important}.sample-columns{grid-template-columns:minmax(0,1fr)}}</style></head>
@@ -22,6 +31,8 @@ app.whenReady().then(async()=>{
  const web=express();web.get('/',(_,res)=>res.type('html').send(fixture));web.get('/api/desktop-license/status',(_,res)=>res.json({enabled:true,valid:license!=='invalid',expiresAt:Date.now()+(license==='urgent'?3600000:(license==='warning'?2:30)*86400000),trustedNow:Date.now(),licenseId:'fixture',reasonCode:'EXPIRED'}));web.use(express.static(path.join(__dirname,'../frontend')));server=await new Promise(r=>{const s=web.listen(0,'127.0.0.1',()=>r(s))});
  win=new BrowserWindow({show:false,width:1400,height:1100,webPreferences:{contextIsolation:true,nodeIntegration:false}});
  nativeTheme.themeSource='dark';await win.loadURL(`http://127.0.0.1:${server.address().port}`);await until('!!document.getElementById("desktop-license-badge")');
+ await evaluate(`document.querySelector('.wl-task .wl-sub').insertAdjacentHTML('beforebegin', ${JSON.stringify(detail)})`);
+ await checkDetailListIndent();
  for(const theme of ['default','light','dark']){
   await evaluate(`document.documentElement.${theme==='default'?'removeAttribute("data-theme")':`setAttribute('data-theme','${theme}')`}`);
   await new Promise(r=>setTimeout(r,250));
@@ -37,6 +48,7 @@ app.whenReady().then(async()=>{
  const badge=await evaluate(`(()=>{const e=document.getElementById('desktop-license-badge'),r=e.getBoundingClientRect(),c=getComputedStyle(e);return {left:r.left,right:r.right,bottom:r.bottom,w:innerWidth,h:innerHeight,bg:c.backgroundColor}})()`);
  assert.ok(badge.left>badge.w/2&&badge.right<=badge.w&&badge.bottom<=badge.h,'license sits at bottom-right');assert.equal(badge.bg,'rgba(241, 247, 244, 0.8)');
  win.setSize(390,1100);await evaluate(`document.documentElement.dataset.theme='light'`);assert.equal(await evaluate('document.documentElement.scrollWidth>innerWidth'),false,'narrow layout fits');
+ await checkDetailListIndent();
  fs.writeFileSync(path.join(temp,'mobile.png'),(await win.webContents.capturePage()).toPNG());
  for(license of ['warning','urgent','invalid']){
   await win.loadURL(`http://127.0.0.1:${server.address().port}`);await until('!!document.getElementById("desktop-license-badge")');

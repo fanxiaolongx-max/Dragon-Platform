@@ -294,6 +294,18 @@ function createLiveTurn({ threadKey, channel, kind, id, sessionId = '', account 
     return turn;
 }
 
+function formatLiveStatusText(status) {
+    if (typeof status === 'string') return status.trim();
+    if (!status || typeof status !== 'object') return '';
+    if (status.kind === 'context-compression') {
+        return status.phase === 'start' ? '正在整理较早对话上下文…' : '';
+    }
+    if (status.kind === 'code-analysis-retry') return '正在调整解析范围并重试…';
+    if (typeof status.text === 'string') return status.text.trim();
+    if (typeof status.message === 'string') return status.message.trim();
+    return '';
+}
+
 function recordAndBroadcastLiveEvent(turn, event) {
     if (!turn || !event || typeof event !== 'object') return;
     const turnId = turn.turnId;
@@ -310,7 +322,7 @@ function recordAndBroadcastLiveEvent(turn, event) {
         return;
     }
     if (event.type === 'status') {
-        turn.statusText = String(event.status || '').trim();
+        turn.statusText = formatLiveStatusText(event.status);
         broadcastLive(turn.threadKey, { type: 'status', turnId, status: turn.statusText });
         return;
     }
