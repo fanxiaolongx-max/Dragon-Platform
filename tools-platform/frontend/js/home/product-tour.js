@@ -18,6 +18,7 @@
             skip: '跳过引导',
             back: '上一步',
             next: '下一步',
+            send: '发送',
             done: '开始使用',
             kbd: '← → 切换 · Esc 关闭',
             tool: '系统工具',
@@ -71,6 +72,7 @@
             skip: 'Skip tour',
             back: 'Back',
             next: 'Next',
+            send: 'Send',
             done: 'Get started',
             kbd: '← → navigate · Esc close',
             tool: 'System tool',
@@ -358,11 +360,14 @@
                         <mask id="v2TourCutoutMask">
                             <rect width="100%" height="100%" fill="white"></rect>
                             <rect class="v2-tour-cutout" x="0" y="0" width="0" height="0" rx="14" ry="14" fill="black"></rect>
+                            <g class="v2-tour-pin-cuts"></g>
                         </mask>
                     </defs>
                     <rect class="v2-tour-scrim" width="100%" height="100%" mask="url(#v2TourCutoutMask)"></rect>
                 </svg>
             </div>
+            <div class="v2-tour-flow" aria-hidden="true"></div>
+            <div class="v2-tour-pins" aria-hidden="true"></div>
             <div class="v2-tour-ring" aria-hidden="true"></div>
             <section class="v2-tour-card">
                 <div class="v2-tour-top">
@@ -375,6 +380,7 @@
                 <div class="v2-tour-body">
                     <h2 class="v2-tour-title" id="v2TourTitle"></h2>
                     <p class="v2-tour-desc" aria-live="polite"></p>
+                    <ol class="v2-tour-points"></ol>
                 </div>
                 <div class="v2-tour-foot">
                     <button type="button" class="v2-tour-btn is-ghost" data-tour-prev></button>
@@ -407,7 +413,9 @@
     }
 
     function forward() {
-        if (state.chatPhase === 'playing') finishChat();
+        if (state.chatPhase === 'typing') finishTyping();
+        else if (state.chatPhase === 'ready') sendChat();
+        else if (state.chatPhase === 'replying') finishChat();
         else if (state.index >= state.steps.length - 1) close(true);
         else go(state.index + 1);
     }
@@ -415,6 +423,7 @@
     function renderStage(step) {
         const demos = window.HomeProductTourDemos;
         const stage = state.stage;
+        renderPins([]);
         state.chatRun += 1;
         state.chatPhase = '';
         const demo = step.stage === 'tool' && demos?.tools[step.id];
@@ -449,14 +458,28 @@
         endChat();
         state.chatDemo = window.DragonClaw?.startTourDemo?.() || null;
         if (!chat || !state.chatDemo) return;
-        state.chatPhase = 'playing';
+        state.chatPhase = 'typing';
         setChatSent(false);
         await pause(500);
-        if (!live() || !await state.chatDemo.type(chat.prompt)) return;
-        await pause(600);
-        if (!live()) return;
+        if (!live() || !await state.chatDemo.type(chat.prompt) || !live()) return;
+        // 打完字停住，让用户看清问题，点「发送」再继续。
+        state.chatPhase = 'ready';
+        renderStep();
+    }
+
+    function finishTyping() {
+        state.chatRun += 1;
+        state.chatDemo?.fill(window.HomeProductTourDemos.chat(L).prompt);
+        state.chatPhase = 'ready';
+        renderStep();
+    }
+
+    async function sendChat() {
+        const run = ++state.chatRun;
+        const chat = window.HomeProductTourDemos.chat(L);
+        state.chatPhase = 'replying';
         setChatSent(true);
-        if (await state.chatDemo.reply(chat.prompt, chat.answer) && live()) {
+        if (await state.chatDemo?.reply(chat.prompt, chat.answer) && state.active && state.chatRun === run) {
             state.chatPhase = 'done';
             renderStep();
         }
@@ -573,6 +596,7 @@
             placeSpotlight(layoutPage(step) || null, step.placement || 'bottom');
             return;
         }
+        renderPins([]);
         const el = staged ? state.stage.querySelector('[data-tour-focus]') : step.find?.();
         const visible = el && (staged || isVisibleElement(el, { ignoreOpacity: Boolean(step?.ignoreOpacity) }));
         if (!visible) {
@@ -622,7 +646,10 @@
     function layoutPage(step) {
         const demo = window.HomeProductTourDemos?.tools[step.id];
         const stage = state.stage;
-        if (demo?.html) return stage.querySelector('[data-tour-focus]')?.getBoundingClientRect();
+        if (demo?.html) {
+            renderPins([]);
+            return stage.querySelector('[data-tour-focus]')?.getBoundingClientRect();
+        }
         const box = stage.querySelector('.tm-page-box');
         const frame = stage.querySelector('.tm-page');
         if (!demo?.page || !frame) return null;
@@ -642,12 +669,77 @@
             alignFocus(doc);
         }
         const outer = box.getBoundingClientRect();
-        const rect = focus.getBoundingClientRect();
-        const left = Math.max(0, rect.left), top = Math.max(0, rect.top);
-        const right = Math.min(width, rect.right), bottom = Math.min(height, rect.bottom);
-        if (right <= left || bottom <= top) return null;
-        return { left: outer.left + left * PAGE_ZOOM, top: outer.top + top * PAGE_ZOOM,
-            width: (right - left) * PAGE_ZOOM, height: (bottom - top) * PAGE_ZOOM };
+        // 快照里的坐标换算到视口，并裁到内嵌页可见范围内。
+        const toViewport = rect => {
+            const left = Math.max(0, rect.left), top = Math.max(0, rect.top);
+            const right = Math.min(width, rect.right), bottom = Math.min(height, rect.bottom);
+            if (right <= left || bottom <= top) return null;
+            return { left: outer.left + left * PAGE_ZOOM, top: outer.top + top * PAGE_ZOOM,
+                width: (right - left) * PAGE_ZOOM, height: (bottom - top) * PAGE_ZOOM };
+        };
+        renderPins((demo.pins || []).map(item => {
+            const el = findPinTarget(doc, item);
+            return el && toViewport(el.getBoundingClientRect());
+        }));
+        return toViewport(focus.getBoundingClientRect());
+    }
+
+    // 按选择器或按钮文字找重点元素：取可见元素里面积最小（最贴近文字）的那个。
+    function findPinTarget(doc, item) {
+        if (item.selector) return doc.querySelector(item.selector);
+        const candidates = [...doc.querySelectorAll('button, a, select, summary, th, h1, h2, h3, h4, label, [role="button"], [class*="btn"]')]
+            .filter(el => el.textContent.replace(/\s+/g, ' ').includes(item.text))
+            .map(el => ({ el, rect: el.getBoundingClientRect() }))
+            .filter(({ rect }) => rect.width && rect.height && rect.bottom > 0 && rect.top < doc.defaultView.innerHeight);
+        candidates.sort((a, b) => a.rect.width * a.rect.height - b.rect.width * b.rect.height);
+        return candidates[0]?.el || null;
+    }
+
+    // 重点按钮：遮罩上挖出亮区，并在左上角标编号；编号和卡片里的说明一一对应。
+    function renderPins(rects) {
+        const layer = state.root.querySelector('.v2-tour-pins');
+        const cuts = state.root.querySelector('.v2-tour-pin-cuts');
+        const visible = rects.map((rect, index) => rect && { rect, index }).filter(Boolean);
+        if (layer.children.length !== visible.length) {
+            layer.innerHTML = visible.map(({ index }, order) => `<div class="v2-tour-pin" style="--pin-delay:${260 + order * 140}ms"><b>${index + 1}</b></div>`).join('');
+            cuts.innerHTML = visible.map(() => '<rect rx="8" ry="8" fill="black"></rect>').join('');
+        }
+        visible.forEach(({ rect }, order) => {
+            const pad = 4;
+            const x = Math.round(rect.left - pad), y = Math.round(rect.top - pad);
+            const w = Math.round(rect.width + pad * 2), h = Math.round(rect.height + pad * 2);
+            const pinEl = layer.children[order];
+            pinEl.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+            pinEl.style.width = `${w}px`;
+            pinEl.style.height = `${h}px`;
+            const cut = cuts.children[order];
+            cut.setAttribute('x', String(x));
+            cut.setAttribute('y', String(y));
+            cut.setAttribute('width', String(w));
+            cut.setAttribute('height', String(h));
+        });
+    }
+
+    // 工作流步骤顶部的流程线：已完成的打勾，当前步骤高亮，进度条随步骤平滑推进。
+    function renderFlow(step) {
+        const flow = window.HomeProductTourDemos?.flow || [];
+        const ids = flow.filter(id => state.steps.some(item => item.id === id));
+        const current = ids.indexOf(step.id);
+        const el = state.root.querySelector('.v2-tour-flow');
+        state.root.classList.toggle('is-flow', current >= 0);
+        if (current < 0) return;
+        const key = `${getLang()}:${ids.join(',')}`;
+        if (el.dataset.key !== key) {
+            el.dataset.key = key;
+            const label = id => (getLang() === 'en-US' ? TOOL_STEPS.find(item => item.id === id).en : TOOL_STEPS.find(item => item.id === id).zh)[0];
+            el.innerHTML = `<div class="tf-track"><i class="tf-fill"></i></div><ol>${ids.map((id, index) => `<li data-flow="${id}"><span class="tf-dot"><b>${index + 1}</b></span><span class="tf-label">${label(id)}</span></li>`).join('')}</ol>`;
+            el.style.setProperty('--tf-count', String(ids.length));
+        }
+        el.style.setProperty('--tf-progress', String(ids.length > 1 ? current / (ids.length - 1) : 1));
+        [...el.querySelectorAll('li')].forEach((li, index) => {
+            li.classList.toggle('is-done', index < current);
+            li.classList.toggle('is-current', index === current);
+        });
     }
 
     // 预取快照，切到工具步骤时直接从缓存渲染。
@@ -692,6 +784,14 @@
         root.querySelector('.v2-tour-skip').textContent = copy.skip;
         root.querySelector('.v2-tour-title').textContent = tool ? tool[0] : stepCopy.title;
         root.querySelector('.v2-tour-desc').textContent = tool ? tool[1] : stepCopy.desc;
+        const pins = window.HomeProductTourDemos?.tools[step.id]?.pins || [];
+        const points = root.querySelector('.v2-tour-points');
+        points.hidden = !pins.length;
+        points.innerHTML = pins.map((item, index) => {
+            const [name, text] = getLang() === 'en-US' ? item.en : item.zh;
+            return `<li><b>${index + 1}</b><span><strong>${name}</strong>${text}</span></li>`;
+        }).join('');
+        renderFlow(step);
         root.querySelector('.v2-tour-kbd').textContent = copy.kbd;
         if (root.matches('.is-staged, .is-chat-demo')) state.card.style.removeProperty('transform');
 
@@ -700,7 +800,8 @@
         prevBtn.hidden = state.index === 0;
 
         const nextBtn = root.querySelector('[data-tour-next]');
-        nextBtn.textContent = state.index === state.steps.length - 1 ? copy.done : copy.next;
+        nextBtn.textContent = state.chatPhase === 'ready' ? copy.send
+            : state.index === state.steps.length - 1 ? copy.done : copy.next;
 
         updateSpotlight();
     }

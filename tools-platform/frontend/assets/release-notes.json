@@ -1,10 +1,10 @@
 {
   "zh": [
-    "新手引导第一步回到真实首页：在真实输入框里逐字输入问题，再在真实对话区流式显示回答，不发真实请求，结束后原来的对话和草稿原样恢复。",
-    "工具页面按画面实际宽高铺满并缩放到 80%，能看到更多内容，高亮框随之对准重点元素；引导文案更简短，不再出现“示范”“已匿名”等标注。"
+    "新手引导第一步打完问题后会停住，点「发送」再看回答，能看清问的是什么。",
+    "引导走到数据抓取、数据导入、报表看板、一键催办、月报和大屏时，顶部有一条流程线标出当前在第几步；每个页面用编号标出 1–2 个重点按钮，卡片里配一句话说明。"
   ],
   "en": [
-    "The first tour step is back on the real home page: the question is typed into the real composer and the reply streams into the real conversation view, without sending a real request. Your open conversation and draft are restored afterwards.",
-    "Tool pages in the tour now fill the available space at 80% zoom so more content is visible, with the highlight following the key element. Tour text is shorter and no longer labels screens as demos or anonymized."
+    "The first tour step now pauses after typing the question; select Send to see the reply, so you can read what was asked.",
+    "On the Data Capture, Data Import, Reports, One-Click Follow-Up, Monthly Report and Big Screen steps, a workflow line at the top shows where you are, and each page marks 1–2 key buttons with numbered highlights explained in the tour card."
   ]
 }

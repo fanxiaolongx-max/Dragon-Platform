@@ -30,13 +30,33 @@ Please reply with progress before 18:00 today. Thanks!</div>
             <details class="ops-card"><summary><span class="ops-card-icon">✦</span><span class="ops-card-title"><b>${L('CPT 风险周报 · 微信', 'CPT risk weekly · WeChat')}</b><small>2026/11/18 09:00</small></span><span class="ops-tag">${L('待确认', 'Review')}</span></summary></details>
         </div></section>`;
 
+    // pins：每页 1–2 个重点按钮，按文字（或选择器）在快照里定位，卡片里配一句话说明。
+    const pin = (find, zh, en) => ({ ...find, zh, en });
     const TOOLS = {
-        uivf12: page('uivf12'),
-        sla: page('sla'),
-        report: page('report'),
-        expedite: page('expedite'),
-        monthly: page('monthly'),
-        bigscreen: page('bigscreen'),
+        uivf12: { ...page('uivf12'), pins: [
+            pin({ text: '运行批脚本' }, ['运行批脚本', '一次跑完勾选的抓取脚本'], ['Run batch', 'Runs every selected capture script']),
+            pin({ text: '一键生成生产级脚本' }, ['生成脚本', '粘贴接口地址，自动生成抓取脚本'], ['Generate script', 'Paste an API URL to build a capture script'])
+        ] },
+        sla: { ...page('sla'), pins: [
+            pin({ text: '预警与 SLA 状态' }, ['预警与 SLA 状态', '按剩余天数标出临期和超期'], ['Alert & SLA', 'Flags due and overdue items by days left']),
+            pin({ text: '导出' }, ['导出', '导出当前筛选的明细'], ['Export', 'Exports the filtered rows'])
+        ] },
+        report: { ...page('report'), pins: [
+            pin({ text: '入库' }, ['入库', '把结果存成快照，催办和月报都用它'], ['Save snapshot', 'Saves the results for follow-ups and reports']),
+            pin({ text: '“赛马”排行' }, ['赛马排行', '各客户群得分和排名'], ['Ranking', 'Scores and ranks each customer group'])
+        ] },
+        expedite: { ...page('expedite'), pins: [
+            pin({ selector: '#snapshot-selector' }, ['选择快照', '选一份已入库的报表快照'], ['Snapshot', 'Choose a saved report snapshot']),
+            pin({ text: '一键复制简报' }, ['一键复制简报', '复制后直接发到群里'], ['Copy brief', 'Copy it and paste it into the group chat'])
+        ] },
+        monthly: { ...page('monthly'), pins: [
+            pin({ text: '更新总结' }, ['更新总结', '让 AI 按最新数据重写结论'], ['Update summary', 'AI rewrites the findings from the latest data']),
+            pin({ text: '导出' }, ['导出', '导出成文件发给领导'], ['Export', 'Export the report as a file to share'])
+        ] },
+        bigscreen: { ...page('bigscreen'), pins: [
+            pin({ text: '全屏' }, ['全屏', '开会直接投屏'], ['Full screen', 'Present it in meetings']),
+            pin({ text: '导出HTML' }, ['导出 HTML', '导出离线看板发给别人'], ['Export HTML', 'Share an offline copy of the dashboard'])
+        ] },
         opsDrafts: { html: opsDraft }
     };
 
@@ -103,5 +123,8 @@ The draft is waiting in Ops Drafts and will be sent only after you confirm the r
         };
     }
 
-    window.HomeProductTourDemos = { tools: TOOLS, chat };
+    // 工作流顺序：引导走到这些步骤时，顶部流程线标出当前位置。
+    const FLOW = ['uivf12', 'sla', 'report', 'expedite', 'monthly', 'bigscreen'];
+
+    window.HomeProductTourDemos = { tools: TOOLS, chat, flow: FLOW };
 })();

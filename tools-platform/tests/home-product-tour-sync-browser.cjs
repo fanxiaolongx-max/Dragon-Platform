@@ -172,8 +172,13 @@ app.whenReady().then(async () => {
     const answerDone = '!!document.querySelector("#dcThread .dc-msg--ai:not(.is-streaming) .dc-msg-body table") && document.querySelector("#dcThread .dc-msg--ai .dc-msg-body").innerText.includes("运维待办")';
     await until('document.getElementById("dcInput").value.length > 10 && document.getElementById("dcInput").readOnly');
     await waitForFocus('#dcComposer');
-    assert.equal(await evaluate('document.querySelector("[data-tour-next]").textContent'), '下一步');
     assert.equal(await evaluate('document.querySelector(".v2-tour-desc").textContent'), '让 AI 查本月未达标指标和临期工单。', 'the card keeps the short step description');
+    // 打完字停住，等用户点「发送」。
+    await until('document.querySelector("[data-tour-next]").textContent === "发送"', 10000);
+    await wait(600);
+    assert.equal(await evaluate('document.body.classList.contains("dc-chatting")'), false, 'the question waits for Send');
+    assert.match(await evaluate('document.getElementById("dcInput").value'), /等我确认后再发送。$/);
+    await next();
     await until('document.body.classList.contains("dc-chatting") && !!document.querySelector("#dcThread .dc-msg--user")');
     assert.match(await evaluate('document.querySelector("#dcThread .dc-msg--user").innerText'), /等我确认后再发送。$/);
     await waitForFocus('#dcThread');
@@ -198,7 +203,10 @@ app.whenReady().then(async () => {
     await waitForFocus('.dc-landing [data-v2-modes]');
     await previous();
     await until('document.getElementById("dcInput").value.length > 3');
-    await next(); // 跳过动画，直接显示完整回答
+    await next(); // 跳过打字动画
+    assert.equal(await evaluate('document.querySelector("[data-tour-next]").textContent'), '发送');
+    await next(); // 发送
+    await next(); // 跳过流式输出，直接显示完整回答
     await until(answerDone);
     await waitForFocus('#dcThread');
     await evaluate('document.querySelector(".v2-tour-skip").click()');
@@ -217,6 +225,8 @@ app.whenReady().then(async () => {
     await until('document.querySelector(".v2-tour-title")?.textContent === "Ask Dragon Claw anything" && document.getElementById("dcInput").value.startsWith("Use")');
     assert.equal(await evaluate('!!document.getElementById("keptMessage")'), false);
     await next();
+    assert.equal(await evaluate('document.querySelector("[data-tour-next]").textContent'), 'Send');
+    await next();
     await until('document.querySelector("#dcThread .dc-msg--ai .dc-msg-body")?.innerText.includes("Ops Drafts")');
     await evaluate('document.querySelector(".v2-tour-skip").click(); window.ToolsI18n.setLanguage("zh-CN");');
     assert.equal(await evaluate('!!document.getElementById("keptMessage") && document.body.classList.contains("dc-chatting") && document.getElementById("dcInput").value === ""'), true, 'the open conversation is restored');
@@ -234,8 +244,11 @@ app.whenReady().then(async () => {
     assert.ok(await evaluate('!!document.querySelector(".v2-account-head.is-superadmin")'), 'superadmin account head styled');
     await evaluate('document.querySelector(".v2-account [data-v2-do=\\"tour\\"]").click(); true');
     await until('document.querySelector(".v2-tour-root.is-open")');
-    await next();
-    await next();
+    // 第一步：跳过打字 → 发送 → 跳过流式输出 → 下一步。
+    for (let i = 0; i < 6 && !(await evaluate('document.querySelector(".v2-tour-eyebrow").textContent.startsWith("2 /")')); i++) {
+        await next();
+        await wait(80);
+    }
     await waitForFocus('.dc-landing [data-v2-modes]');
     assert.equal(await evaluate('document.getElementById("dcInput").value'), '已有草稿', 'the user draft is back after the first step');
     await next();
@@ -257,6 +270,14 @@ app.whenReady().then(async () => {
             assert.equal(await evaluate('document.querySelector(".v2-tour-stage .tm-page").contentDocument.querySelectorAll("script").length'), 0, `${id} snapshot runs no scripts`);
         }
         assert.equal(await evaluate('/示范|示例数据|匿名/.test(document.querySelector(".v2-tour-root").innerText)'), false, `${id} is not labelled as a demo`);
+        if (id !== 'opsDrafts') {
+            // 工作流流程线标出当前步骤；页面上的 2 个重点按钮有编号标注，卡片里有对应说明。
+            assert.equal(await evaluate('document.querySelector(".v2-tour-root.is-flow .v2-tour-flow li.is-current")?.dataset.flow'), id, `${id} is the current flow step`);
+            await until(`(() => { const pins = [...document.querySelectorAll('.v2-tour-pin')]; return pins.length === 2 && pins.every(pin => { const r = pin.getBoundingClientRect(); return r.width > 8 && r.height > 8 && r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight; }); })()`);
+            assert.equal(await evaluate('document.querySelectorAll(".v2-tour-points li").length'), 2, `${id} lists its key buttons`);
+        } else {
+            assert.equal(await evaluate('document.querySelector(".v2-tour-root").classList.contains("is-flow") || document.querySelectorAll(".v2-tour-pin").length > 0'), false, 'ops drafts has no flow line or pins');
+        }
         assert.equal(await evaluate('window.HomeToolFrame.isOpen() || [...document.querySelectorAll(".v2-tour-root iframe")].some(f => !new URL(f.src).pathname.startsWith("/assets/tour/") || f.getAttribute("sandbox") !== "allow-same-origin")'), false, `${id} does not load the real tool`);
         if (id === 'sla') {
             await evaluate('window.ToolsI18n.setLanguage("en-US"); document.documentElement.dataset.theme = "dark";');
@@ -310,7 +331,10 @@ app.whenReady().then(async () => {
         fw.__dhConfirmLeave = hostConfirm => hostConfirm('Unsaved fixture changes?');
     })()`);
     await evaluate('window.HomeProductTour.replay()');
-    for (let i = 0; i < 6; i++) await next();
+    for (let i = 0; i < 12 && !(await evaluate('document.querySelector(".v2-tour-eyebrow")?.textContent.startsWith("6 /")')); i++) {
+        await next();
+        await wait(80);
+    }
     await waitForStage('uivf12');
     await evaluate('document.querySelector(".v2-tour-skip").click()');
     assert.equal(await evaluate('document.querySelector("#v2ToolFrame iframe").contentWindow.__dhIsDirty()'), true,

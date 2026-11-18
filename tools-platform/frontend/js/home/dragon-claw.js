@@ -64,6 +64,15 @@
             prRunning: '正在创建 PR…', prDone: 'PR 已创建', prOpen: '打开 PR', prFailedAt: '「{step}」失败，流程已停止', prDeniedAt: '「{step}」被拒绝，流程已停止', prAborted: '创建 PR 已中止', prRetry: '重试', prClose: '关闭',
             tool_list_uiv_scripts: '查找抓取脚本', tool_read_uiv_script: '读取抓取脚本', tool_save_uiv_script: '保存抓取脚本', tool_delete_uiv_script: '删除抓取脚本',
             tool_list_uiv_categories: '查看脚本分类与站点', tool_move_uiv_script: '移动脚本分类', tool_manage_uiv_category: '管理脚本分类',
+            tool_workspace_choice: '工作区确认',
+            workspaceChoiceTitle: '需要工作区才能使用 {skills}',
+            workspaceChoiceDesc: '该技能需要访问目录或执行本地命令。请选择一个工作目录，或使用临时工作区（{hours}小时后自动删除）。',
+            workspaceChoicePick: '选择工作区',
+            workspaceChoiceTemp: '临时分配工作区（{hours}小时后删除）',
+            workspaceChoiceCancel: '取消',
+            workspaceSelected: '已选择工作区：{path}',
+            workspaceTempAllocated: '已分配临时工作区（{hours}小时后自动删除）',
+            workspaceChoiceCancelled: '已取消',
             categoryPinned: '置顶', categoryTasks: '任务', categorySpaces: '空间', newChatInWorkspace: '新建任务',
             archivedViewBanner: '正在查看已归档对话', archivedExit: '返回', archivedBadge: '已归档', chatArchivedEmpty: '暂无已归档对话',
             workspaceDisabled: '工作区仅在本机或管理员账号下可用'
@@ -127,6 +136,15 @@
             prRunning: 'Creating PR…', prDone: 'PR created', prOpen: 'Open PR', prFailedAt: '"{step}" failed, flow stopped', prDeniedAt: '"{step}" was denied, flow stopped', prAborted: 'PR creation aborted', prRetry: 'Retry', prClose: 'Close',
             tool_list_uiv_scripts: 'Find capture scripts', tool_read_uiv_script: 'Read capture script', tool_save_uiv_script: 'Save capture script', tool_delete_uiv_script: 'Delete capture script',
             tool_list_uiv_categories: 'Script categories and sites', tool_move_uiv_script: 'Move script category', tool_manage_uiv_category: 'Manage script categories',
+            tool_workspace_choice: 'Workspace setup',
+            workspaceChoiceTitle: 'Workspace required for {skills}',
+            workspaceChoiceDesc: 'This skill needs a workspace to access files or run commands. Choose a folder or use a temporary workspace (auto-deleted after {hours}h).',
+            workspaceChoicePick: 'Choose workspace',
+            workspaceChoiceTemp: 'Temporary workspace (delete in {hours}h)',
+            workspaceChoiceCancel: 'Cancel',
+            workspaceSelected: 'Workspace selected: {path}',
+            workspaceTempAllocated: 'Temporary workspace allocated (auto-deleted after {hours}h)',
+            workspaceChoiceCancelled: 'Cancelled',
             workspaceDisabled: 'Workspace is available on this machine or for admins only'
         }
     };
@@ -2166,10 +2184,13 @@
             if (controller.signal.aborted || !reply.isConnected) throw Object.assign(new Error('aborted'), { name: 'AbortError' });
             if (data.sessionId) {
                 state.sessionId = data.sessionId;
-                rememberLastChat(data.sessionId, workspacePayload ? { agentSessionId: data.agentSessionId || workspacePayload.agentSessionId, root: data.agent?.root || workspacePayload.root } : null);
+                const doneAgent = data.agent?.root
+                    ? { agentSessionId: data.agentSessionId, root: data.agent.root }
+                    : workspacePayload ? { agentSessionId: data.agentSessionId || workspacePayload.agentSessionId, root: data.agent?.root || workspacePayload.root } : null;
+                rememberLastChat(data.sessionId, doneAgent);
             }
             if (data.runId) reply.dataset.runId = data.runId; // 按轮回退用
-            if (workspacePayload) workspace()?.applyDone(data);
+            if (workspacePayload || data.agent?.root) workspace()?.applyDone(data);
             const finalText = renderer.finish(data.reply || renderer.current());
             if (isNormalChat) {
                 if (!swarmToolPlayed && !swarmHtmlTools.size) {
@@ -3718,6 +3739,11 @@
                     await new Promise(resolve => requestAnimationFrame(resolve));
                 }
                 return false;
+            },
+            fill(text) {
+                ++epoch;
+                setInput(text);
+                el.input.scrollTop = 0;
             },
             async reply(question, answer) {
                 const id = ++epoch;
