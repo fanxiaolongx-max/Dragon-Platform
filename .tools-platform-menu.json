@@ -62,8 +62,8 @@
       "description": "数通协议知识库：OSPF、Juniper 跨厂商策略等知识的分类整理，配合二维拓扑、报文时序、按位图解与分步实验，理解复杂协议机制。",
       "href": "./datacom-protocol-expert/index.html",
       "encrypted": false,
-      "fingerprint": "65c3f71af02afa3823fe9a67cba3542b1f05b3b6a7ee680dc105206a1d70a68b",
-      "updatedAt": "2026-11-18T10:29:39.190Z"
+      "fingerprint": "11871fc3b89a622519fd017a19dc70a1c57b0f080f3ebb6d46f439e02727ca9d",
+      "updatedAt": "2026-11-18T20:29:45.810Z"
     },
     {
       "slug": "department-reward-penalty",
@@ -71,8 +71,8 @@
       "description": "用于维护部门负向事件与违规记录、扣罚规则、人员名册与操作审计日志，支持草稿发布、规则分类筛选和人员 CSV 导入导出。",
       "href": "./department-reward-penalty/index.html",
       "encrypted": false,
-      "fingerprint": "9941e39850a821fb1cf8ef025c078c63916a00caa721be47027a7d04f59e7bbb",
-      "updatedAt": "2026-11-18T10:29:38.406Z"
+      "fingerprint": "00141e46ebca390d11e2619060a376d42995421f2593d19f66b7931384daf4ac",
+      "updatedAt": "2026-11-18T20:29:45.368Z"
     },
     {
       "slug": "reward-program",
@@ -107,8 +107,8 @@
       "description": "查询产品是否属于强控业务比对范围，支持产品数据导入导出、服务器保存、模糊检索和静态快照同步。",
       "href": "./tool-mumxi3px/index.html",
       "encrypted": false,
-      "fingerprint": "c66b9b46e03f5fab711390c3c9a0d49964cff3bfd48689b916fd674312aaa449",
-      "updatedAt": "2026-11-18T10:29:38.953Z"
+      "fingerprint": "ac96eaa42928110c9f9532cff02bd8c44bbb0ee9f2a60698cce640b73b376f28",
+      "updatedAt": "2026-11-18T20:29:45.687Z"
     },
     {
       "slug": "tool-mqp55fna",
@@ -426,8 +426,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./uivf12/index.html",
       "encrypted": false,
-      "fingerprint": "9a715d9d25c1c49b14d5337eda2cd4ccc74579bc04951be588f5336eddbec830",
-      "updatedAt": "2026-11-18T10:29:29.834Z"
+      "fingerprint": "b535fdab212aeec683eb7caed950f88aec93b5c83debe674201d0d273f2ad959",
+      "updatedAt": "2026-11-18T20:29:38.286Z"
     },
     {
       "slug": "sla",
@@ -436,8 +436,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./sla/index.html",
       "encrypted": false,
-      "fingerprint": "835a0ddac459ffc245a2f3d38722828e04c82dcd90e905d9d20cd8bbae3f1b8b",
-      "updatedAt": "2026-11-18T10:29:31.061Z"
+      "fingerprint": "aa06f059a156728c38bd6dff5b350ee84850ae32388f1efcf23084362ebad8cd",
+      "updatedAt": "2026-11-18T20:29:39.151Z"
     },
     {
       "slug": "report",
@@ -446,8 +446,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./report/index.html",
       "encrypted": false,
-      "fingerprint": "f93f36939d67692453a6eb5dba152894f840f71c987c99e019c1901910bb49b5",
-      "updatedAt": "2026-11-18T10:29:31.321Z"
+      "fingerprint": "91414199cdb72a67f52e382fd6b383ee719bf7904f2385caa3379bcb1437c020",
+      "updatedAt": "2026-11-18T20:29:39.462Z"
     },
     {
       "slug": "expedite",
@@ -456,8 +456,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./expedite/index.html",
       "encrypted": false,
-      "fingerprint": "b190a5ae6d68d70a23a8e2fa9fa75a3ce18162964d59cfd3b90e99843a93fc04",
-      "updatedAt": "2026-11-18T10:29:31.451Z"
+      "fingerprint": "b32fa12a602a87f5554b303a0c0895c56f61db1f8ade41c26ac07d9e4555b324",
+      "updatedAt": "2026-11-18T20:29:39.661Z"
     },
     {
       "slug": "monthly",
@@ -494,8 +494,8 @@
       "description": "海报版本与生活图片的一站式图库：快速搜索、历史对比、自动压缩与 AI 分类，菜单收藏随时找。",
       "href": "./picture-island/index.html",
       "encrypted": false,
-      "fingerprint": "f2b4ba3daffdb72034d2aa932e2477df544c141515850a0c2cca9ac146b362b1",
-      "updatedAt": "2026-11-06T10:56:46.887Z"
+      "fingerprint": "ff7934d3095cc9f787aee0520c5b28ad0c1f6d298bd3dac3bd668acbdf0eb5fc",
+      "updatedAt": "2026-11-18T20:29:46.023Z"
     },
     {
       "slug": "ai-101",

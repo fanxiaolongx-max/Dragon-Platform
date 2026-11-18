@@ -1,5 +1,6 @@
 /**
  * 首页新手引导：工作台入口、系统工具和 AI 提问示例。
+ * 对话和工具步骤只展示 product-tour-demos.js 里的静态示范，不发真实对话、不加载工具页面。
  * 严格避免与首次导入弹窗（first-run-onboarding）、系统模态框以及工具页面（独立路由或 ?app= 内嵌框）冲突。
  */
 (function initHomeProductTour() {
@@ -17,15 +18,10 @@
             skip: '跳过引导',
             back: '上一步',
             next: '下一步',
+            send: '发送',
             done: '开始使用',
             kbd: '← → 切换 · Esc 关闭',
             tool: '系统工具',
-            exampleTyping: '正在输入示例…',
-            exampleReview: '看完问题，点「下一步」发送。',
-            exampleReviewKbd: 'Esc 关闭',
-            exampleRunning: '正在查询…',
-            exampleDone: '查看回答，然后继续。',
-            prompt: '用最新已入库的报表快照查本月未达标指标，列出实际值、目标值和差距。再用「一键催办」的快照列出临期和已超期的 CPT 专项风险、常规风险、整改单和工单，注明单号、截止日期和责任人。优先为未来 3 天内到期的事项拟催办草稿，如果没有就列出最急的已超期事项，等我确认后再发送。',
             steps: [
                 {
                     id: 'composer',
@@ -76,15 +72,10 @@
             skip: 'Skip tour',
             back: 'Back',
             next: 'Next',
+            send: 'Send',
             done: 'Get started',
             kbd: '← → navigate · Esc close',
             tool: 'System tool',
-            exampleTyping: 'Typing an example…',
-            exampleReview: 'Read the question, then select Next to send it.',
-            exampleReviewKbd: 'Esc close',
-            exampleRunning: 'Checking…',
-            exampleDone: 'Read the reply, then continue.',
-            prompt: 'Use the latest saved report snapshot to list this month’s missed targets with actuals, targets, and gaps. From the One-Click Follow-Up snapshot, list upcoming and overdue CPT risks, regular risks, rectification tickets, and open tickets with IDs, due dates, and owners. Draft reminders for items due in the next 3 days or urgent overdue items if none are due soon. Wait for confirmation before sending.',
             steps: [
                 {
                     id: 'composer',
@@ -132,40 +123,40 @@
         }
     };
 
+    // 工具步骤只在目录里有对应工具时出现；画面来自 HomeProductTourDemos，不打开真实页面。
     const TOOL_STEPS = [
         {
-            id: 'uivf12', anchor: '.btn-batch-run-row',
+            id: 'uivf12',
             zh: ['数据抓取', '用现成脚本批量抓表，省去逐个网站手动下载。'],
             en: ['Data Capture', 'Run a saved script to collect tables in batches.']
         },
         {
-            id: 'sla', anchor: '.btn-batch-xl',
+            id: 'sla',
             zh: ['数据导入', '批量导入表格，系统按规则算指标、标临期。'],
             en: ['Data Import', 'Import tables in bulk to calculate metrics and flag deadlines.']
         },
         {
-            id: 'report', anchor: '#report-content', data: true,
+            id: 'report',
             zh: ['报表看板', '选月份和快照，一眼看清谁达标、差多少。'],
             en: ['Report Dashboard', 'Choose a month and snapshot to see scores and gaps.']
         },
         {
-            id: 'expedite', anchor: '#brief-textarea', data: true,
+            id: 'expedite',
             zh: ['一键催办', '选报表快照，一键生成可复制的催办简报。'],
             en: ['One-Click Follow-Up', 'Pick a report snapshot to generate a follow-up brief.']
         },
         {
-            id: 'monthly', anchor: '#airReportPane', data: true,
+            id: 'monthly',
             zh: ['月报页面', '选月份、套模板，让 AI 帮你出图和写结论。'],
             en: ['Monthly Report', 'Pick a month and template, then ask AI for charts and findings.']
         },
         {
-            id: 'bigscreen', anchor: '.screen-grid', data: true,
+            id: 'bigscreen',
             zh: ['大屏看板', '开会直接看趋势、客户群排名和风险。'],
             en: ['Big Screen Dashboard', 'Present trends, customer-group rankings, and risks on one screen.']
         },
         {
-            id: 'opsDrafts', href: '/?tour=0&opsGuide=1#ops-drafts', isolated: true, data: true,
-            anchor: '.ops-inbox-panel, #platformConfirmModal.open .nav-confirm-dialog, .app-dialog.open .app-dialog-card',
+            id: 'opsDrafts', always: true,
             zh: ['运维待办', '核对微信或 WeLink 草稿和收件人，再确认发送。'],
             en: ['Ops Drafts', 'Review WeChat or WeLink drafts and confirm the recipients before sending.']
         },
@@ -253,7 +244,8 @@
         {
             id: 'composer',
             placement: 'top',
-            find: () => document.querySelector('#dcComposer') || document.querySelector('#dcInput')
+            find: () => state.chatSent ? document.getElementById('dcThread')
+                : document.querySelector('#dcComposer') || document.querySelector('#dcInput')
         },
         {
             id: 'modes',
@@ -293,7 +285,12 @@
                     document.getElementById('v2UserBtn')?.click();
                     state.openedAccountMenu = Boolean(document.querySelector('.v2-account.is-open'));
                     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-                    setTimeout(() => { if (state.active && state.steps[state.index]?.id === 'account') updateSpotlight(); }, 220);
+                    // 菜单有展开动画：动画结束时再定位一次，保证高亮框框住完整菜单。
+                    const menu = document.querySelector('.v2-account');
+                    const settle = () => { if (state.active && state.steps[state.index]?.id === 'account') updateSpotlight(); };
+                    menu?.addEventListener('transitionend', settle, { once: true });
+                    setTimeout(settle, 220);
+                    setTimeout(settle, 480);
                 }
             },
             cleanup: () => {
@@ -311,9 +308,9 @@
     ];
 
     function availableSteps() {
-        const routes = new Map((window.ToolsPlatform?.catalog?.() || []).map(tool => [tool.id, tool.href]));
-        const tools = TOOL_STEPS.filter(tool => routes.has(tool.id) || tool.href)
-            .map(tool => ({ ...tool, href: routes.get(tool.id) || tool.href, placement: 'right' }));
+        const catalog = new Set((window.ToolsPlatform?.catalog?.() || []).map(tool => tool.id));
+        const tools = TOOL_STEPS.filter(tool => tool.always || catalog.has(tool.id))
+            .map(tool => ({ ...tool, stage: 'tool' }));
         return [...HOME_STEPS.slice(0, -2), ...tools, ...HOME_STEPS.slice(-2)];
     }
 
@@ -322,31 +319,27 @@
         index: 0,
         steps: [],
         previousFocus: null,
-        toolFrame: null,
-        toolDocument: null,
-        toolLayout: null,
-        toolMutations: null,
-        toolLoadTimer: 0,
-        toolRevealAt: 0,
-        focusTarget: null,
-        exampleSent: false,
-        examplePending: false,
-        exampleTyping: null,
-        exampleDraft: null,
-        exampleObserver: null,
-        exampleLayout: null,
+        chatPhase: '',
+        chatRun: 0,
+        chatDemo: null,
+        chatSent: false,
         restoreChat: null,
         openedAccountMenu: false,
         wasSidebarCollapsed: false,
         initialMode: null,
         root: null,
+        stage: null,
         cutout: null,
         ring: null,
         card: null,
+        cardObserver: null,
         scheduleTimer: 0,
         retryCount: 0,
         repositionRaf: 0
     };
+
+    const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const L = (zh, en) => (getLang() === 'en-US' ? en : zh);
 
     function markDone() {
         try { localStorage.setItem(storageKey(), 'done'); } catch {}
@@ -360,17 +353,21 @@
         root.setAttribute('aria-modal', 'true');
         root.setAttribute('aria-labelledby', 'v2TourTitle');
         root.innerHTML = `
+            <div class="v2-tour-stage" aria-hidden="true"></div>
             <div class="v2-tour-backdrop">
                 <svg class="v2-tour-svg" width="100%" height="100%" aria-hidden="true">
                     <defs>
                         <mask id="v2TourCutoutMask">
                             <rect width="100%" height="100%" fill="white"></rect>
                             <rect class="v2-tour-cutout" x="0" y="0" width="0" height="0" rx="14" ry="14" fill="black"></rect>
+                            <g class="v2-tour-pin-cuts"></g>
                         </mask>
                     </defs>
                     <rect class="v2-tour-scrim" width="100%" height="100%" mask="url(#v2TourCutoutMask)"></rect>
                 </svg>
             </div>
+            <div class="v2-tour-flow" aria-hidden="true"></div>
+            <div class="v2-tour-pins" aria-hidden="true"></div>
             <div class="v2-tour-ring" aria-hidden="true"></div>
             <section class="v2-tour-card">
                 <div class="v2-tour-top">
@@ -383,6 +380,7 @@
                 <div class="v2-tour-body">
                     <h2 class="v2-tour-title" id="v2TourTitle"></h2>
                     <p class="v2-tour-desc" aria-live="polite"></p>
+                    <ol class="v2-tour-points"></ol>
                 </div>
                 <div class="v2-tour-foot">
                     <button type="button" class="v2-tour-btn is-ghost" data-tour-prev></button>
@@ -394,9 +392,13 @@
         document.body.appendChild(root);
 
         state.root = root;
+        state.stage = root.querySelector('.v2-tour-stage');
         state.cutout = root.querySelector('.v2-tour-cutout');
         state.ring = root.querySelector('.v2-tour-ring');
         state.card = root.querySelector('.v2-tour-card');
+        state.cardObserver = new ResizeObserver(onViewportChange);
+        state.cardObserver.observe(state.card);
+        state.stage.addEventListener('transitionend', onViewportChange);
 
         root.querySelector('.v2-tour-backdrop').addEventListener('click', () => {
             if (!state.card) return;
@@ -404,145 +406,110 @@
             void state.card.offsetWidth;
             state.card.classList.add('is-nudge');
         });
+        root.addEventListener('wheel', onWheel, { passive: false });
         root.querySelector('.v2-tour-skip').addEventListener('click', () => close(true));
         root.querySelector('[data-tour-prev]').addEventListener('click', () => go(state.index - 1));
-        root.querySelector('[data-tour-next]').addEventListener('click', () => {
-            if (state.exampleDraft) sendExample();
-            else if (state.index >= state.steps.length - 1) close(true);
-            else go(state.index + 1);
-        });
+        root.querySelector('[data-tour-next]').addEventListener('click', forward);
         return root;
     }
 
-    async function typeExample() {
-        if (window.HomeToolFrame?.isOpen?.() || window.HomeSkillHub?.isOpen?.()
-            || !window.DragonClaw?.typeTourExample) return;
-        const typing = new AbortController();
-        state.exampleTyping = typing;
-        renderStep();
-        const draft = await window.DragonClaw.typeTourExample(getCopy().prompt, typing.signal);
-        if (typing.signal.aborted) return;
-        state.exampleTyping = null;
-        state.exampleDraft = draft;
-        renderStep();
+    function forward() {
+        if (state.chatPhase === 'typing') finishTyping();
+        else if (state.chatPhase === 'ready') sendChat();
+        else if (state.chatPhase === 'replying') finishChat();
+        else if (state.index >= state.steps.length - 1) close(true);
+        else go(state.index + 1);
     }
 
-    function sendExample() {
-        const composer = document.getElementById('dcComposer');
-        const started = state.exampleDraft.submit();
-        state.exampleDraft = null;
-        state.examplePending = started && composer.classList.contains('is-generating');
-        if (!started) {
-            renderStep();
-            return;
-        }
-        state.initialMode = null;
-        state.exampleSent = true;
-        if (state.examplePending) {
-            state.exampleObserver = new MutationObserver(() => {
-                if (composer.classList.contains('is-generating')) return;
-                state.exampleObserver.disconnect();
-                state.exampleObserver = null;
-                state.examplePending = false;
-                renderStep();
-                state.root.querySelector('[data-tour-next]').focus({ preventScroll: true });
-            });
-            state.exampleObserver.observe(composer, { attributes: true, attributeFilter: ['class'] });
-        }
-        renderStep();
-        (state.root.querySelector('[data-tour-next]:enabled') || state.root.querySelector('.v2-tour-skip')).focus({ preventScroll: true });
-    }
-
-    function setExampleLayout(active) {
-        const root = document.documentElement;
-        state.root.classList.toggle('is-chat-demo', active);
-        root.classList.toggle('v2-tour-chat', active);
-        if (active && !state.exampleLayout) {
-            state.card.style.removeProperty('transform');
-            state.exampleLayout = new ResizeObserver(onViewportChange);
-            state.exampleLayout.observe(document.getElementById('dcThread'));
-            state.exampleLayout.observe(state.card);
-        } else if (!active) {
-            state.exampleLayout?.disconnect();
-            state.exampleLayout = null;
-            state.root.querySelector('.v2-tour-backdrop').style.removeProperty('clip-path');
-        }
-    }
-
-    function openTourTool(step) {
-        if (!step.href) return;
-        state.root.classList.add('is-tool-loading');
-        state.toolRevealAt = performance.now() + 220;
-        state.toolLoadTimer = setTimeout(() => {
-            endToolLoading();
-            updateSpotlight();
-        }, 15000);
-        const toolFrame = window.HomeToolFrame;
-        if (!step.isolated && !toolFrame?.isOpen?.() && !window.HomeSkillHub?.isOpen?.()
-            && toolFrame?.open?.(step.href, { syncUrl: false })) {
-            state.toolFrame = document.querySelector('#v2ToolFrame .v2-tool-frame-view');
-        } else {
-            // Keep an already-open tool or hub mounted so its work survives the tour.
-            const frame = document.createElement('iframe');
-            frame.className = 'v2-tour-tool';
-            frame.title = (getLang() === 'en-US' ? step.en : step.zh)[0];
-            frame.tabIndex = -1;
+    function renderStage(step) {
+        const demos = window.HomeProductTourDemos;
+        const stage = state.stage;
+        renderPins([]);
+        stopAutoScroll();
+        state.pinTargets = null;
+        state.chatRun += 1;
+        state.chatPhase = '';
+        const demo = step.stage === 'tool' && demos?.tools[step.id];
+        if (demo?.page) {
+            // 无脚本的静态快照：只渲染页面本身，不跑工具代码，也不请求业务接口。
+            stage.className = `v2-tour-stage is-tool is-${step.id}`;
+            stage.innerHTML = `<div class="tm-page-box"><iframe class="tm-page" title="" tabindex="-1" sandbox="allow-same-origin" src="${demo.page}"></iframe></div>`;
+            const frame = stage.querySelector('iframe');
             frame.inert = true;
-            frame.src = window.ToolsNavigation?.toolUrl(step.href) || step.href;
-            state.root.prepend(frame);
-            state.toolFrame = frame;
-        }
-        state.toolFrame?.addEventListener('load', onTourToolLoad);
-    }
-
-    function endToolLoading() {
-        clearTimeout(state.toolLoadTimer);
-        state.root.classList.remove('is-tool-loading');
-    }
-
-    function stopToolTracking() {
-        state.toolDocument?.removeEventListener('scroll', onViewportChange, true);
-        state.toolDocument?.removeEventListener('transitionend', onViewportChange, true);
-        state.toolDocument?.removeEventListener('animationend', onViewportChange, true);
-        state.toolLayout?.disconnect();
-        state.toolMutations?.disconnect();
-        state.toolDocument = null;
-        state.toolLayout = null;
-        state.toolMutations = null;
-        state.focusTarget = null;
-    }
-
-    function closeTourTool() {
-        const frame = state.toolFrame;
-        endToolLoading();
-        stopToolTracking();
-        if (!frame) return;
-        frame.removeEventListener('load', onTourToolLoad);
-        state.toolFrame = null;
-        if (frame.parentElement === state.root) frame.remove();
-        else window.HomeToolFrame?.close?.({ push: false, skipConfirm: true });
-    }
-
-    function onTourToolLoad(event) {
-        const frame = event.currentTarget;
-        const doc = frame.contentDocument;
-        if (doc?.URL === 'about:blank') return;
-        stopToolTracking();
-        if (doc?.body) {
-            state.toolDocument = doc;
-            state.toolLayout = new ResizeObserver(onViewportChange);
-            state.toolLayout.observe(frame);
-            state.toolLayout.observe(doc.body);
-            state.toolMutations = new MutationObserver(onViewportChange);
-            state.toolMutations.observe(doc.body, { subtree: true, childList: true, characterData: true,
-                attributes: true, attributeFilter: ['class', 'style', 'hidden', 'data-state'] });
-            doc.addEventListener('scroll', onViewportChange, { capture: true, passive: true });
-            doc.addEventListener('transitionend', onViewportChange, true);
-            doc.addEventListener('animationend', onViewportChange, true);
+            frame.addEventListener('load', () => { preparePage(frame); onViewportChange(); }, { once: true });
+        } else if (demo?.html) {
+            ensureStylesheet('./tp-static/frontend/css/ops-inbox.css');
+            stage.className = `v2-tour-stage is-tool is-panel is-${step.id}`;
+            stage.innerHTML = `<div class="tm-panel-box">${demo.html(L)}</div>`;
         } else {
-            endToolLoading();
+            stage.className = 'v2-tour-stage';
+            stage.innerHTML = '';
         }
-        onViewportChange();
+        state.root.classList.toggle('is-staged', Boolean(stage.innerHTML));
+        if (step.id === 'composer') playChat();
+        else endChat();
+    }
+
+    const pause = ms => new Promise(resolve => setTimeout(resolve, reducedMotion() ? 0 : ms));
+
+    // 第一步在真实首页上演示：真实输入框里逐字输入问题，再在真实对话区流式显示预写回答。
+    // 由 DragonClaw.startTourDemo 负责，不发请求、不建会话，离开这一步就把原来的对话和草稿放回去。
+    async function playChat() {
+        const run = state.chatRun;
+        const live = () => state.active && state.chatRun === run;
+        const chat = window.HomeProductTourDemos?.chat(L);
+        endChat();
+        state.chatDemo = window.DragonClaw?.startTourDemo?.() || null;
+        if (!chat || !state.chatDemo) return;
+        state.chatPhase = 'typing';
+        setChatSent(false);
+        await pause(500);
+        if (!live() || !await state.chatDemo.type(chat.prompt) || !live()) return;
+        // 打完字停住，让用户看清问题，点「发送」再继续。
+        state.chatPhase = 'ready';
+        renderStep();
+    }
+
+    function finishTyping() {
+        state.chatRun += 1;
+        state.chatDemo?.fill(window.HomeProductTourDemos.chat(L).prompt);
+        state.chatPhase = 'ready';
+        renderStep();
+    }
+
+    async function sendChat() {
+        const run = ++state.chatRun;
+        const chat = window.HomeProductTourDemos.chat(L);
+        state.chatPhase = 'replying';
+        setChatSent(true);
+        if (await state.chatDemo?.reply(chat.prompt, chat.answer) && state.active && state.chatRun === run) {
+            state.chatPhase = 'done';
+            renderStep();
+        }
+    }
+
+    function finishChat() {
+        const chat = window.HomeProductTourDemos.chat(L);
+        state.chatRun += 1;
+        state.chatDemo?.show(chat.prompt, chat.answer);
+        state.chatPhase = 'done';
+        setChatSent(true);
+    }
+
+    function endChat() {
+        state.chatDemo?.restore();
+        state.chatDemo = null;
+        state.chatPhase = '';
+        setChatSent(false);
+    }
+
+    // 发送后卡片停靠到对话区旁边（窄屏在底部），高亮整个对话区。
+    function setChatSent(sent) {
+        state.chatSent = sent;
+        state.root?.classList.toggle('is-chat-demo', sent);
+        document.documentElement.classList.toggle('v2-tour-chat', sent);
+        if (sent) state.card.style.removeProperty('transform');
+        if (state.active && state.root) renderStep();
     }
 
     function restoreTourChat() {
@@ -563,7 +530,7 @@
         const cardRect = state.card.getBoundingClientRect();
         const cardW = cardRect.width || width;
         const cardH = cardRect.height || 200;
-        const docked = state.root.matches('.is-chat-demo, .is-data-tool');
+        const docked = state.root.matches('.is-staged, .is-chat-demo');
 
         if (!targetRect) {
             state.cutout.setAttribute('width', '0');
@@ -594,18 +561,6 @@
         state.ring.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0)`;
         state.ring.style.width = `${Math.round(w)}px`;
         state.ring.style.height = `${Math.round(h)}px`;
-
-        const isChatDemo = state.root.classList.contains('is-chat-demo');
-        if (isChatDemo || state.exampleDraft) {
-            // Allow reading and scrolling only the message area or the read-only example.
-            const input = state.exampleDraft && document.getElementById('dcInput').getBoundingClientRect();
-            const left = input ? clamp(input.left, x, x + w) : x;
-            const top = input ? clamp(input.top, y, y + h) : y;
-            const right = input ? clamp(input.right, left, x + w) : x + w;
-            const bottom = input ? clamp(input.bottom, top, y + h) : y + h;
-            state.root.querySelector('.v2-tour-backdrop').style.clipPath =
-                `polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ${left}px ${top}px, ${right}px ${top}px, ${right}px ${bottom}px, ${left}px ${bottom}px, ${left}px ${top}px)`;
-        }
         if (docked) return;
 
         const candidates = {
@@ -636,69 +591,247 @@
     function updateSpotlight() {
         if (!state.active) return;
         const step = state.steps[state.index];
-        if (state.root.matches('.is-chat-demo, .is-data-tool')) {
+        const staged = state.root.classList.contains('is-staged');
+        if (staged || state.root.classList.contains('is-chat-demo')) {
             document.documentElement.style.setProperty('--v2-tour-card-height', `${state.card.offsetHeight}px`);
         }
-        if (state.toolFrame) {
-            const frame = state.toolFrame;
-            const doc = state.toolDocument;
-            const startup = doc?.getElementById('platformStartup');
-            const booting = doc?.body.classList.contains('air-booting');
-            if (state.root.classList.contains('is-tool-loading')) {
-                const starting = !doc || booting || (startup && startup.dataset.state !== 'error');
-                if (starting || performance.now() < state.toolRevealAt) {
-                    if (!starting) onViewportChange();
-                    placeSpotlight(null, step.placement);
-                    return;
-                }
-                endToolLoading();
-            }
-            if (startup || booting) {
-                placeSpotlight(null, step.placement);
-                return;
-            }
-            const target = [...(doc?.querySelectorAll(step.anchor) || [])].find(el => isVisibleElement(el));
-            if (target !== state.focusTarget) {
-                if (state.focusTarget) state.toolLayout?.unobserve(state.focusTarget);
-                state.focusTarget = target;
-                if (target) {
-                    state.toolLayout?.observe(target);
-                    const rect = target.getBoundingClientRect();
-                    if (rect.top < 0 || rect.bottom > frame.clientHeight || rect.left < 0 || rect.right > frame.clientWidth) {
-                        target.scrollIntoView({ block: step.data ? 'start' : 'nearest', inline: 'nearest' });
-                    }
-                }
-            }
-            const rect = target?.getBoundingClientRect();
-            const left = Math.max(0, rect?.left ?? 0);
-            const top = Math.max(0, rect?.top ?? 0);
-            const right = Math.min(frame.clientWidth, rect?.right ?? 0);
-            const bottom = Math.min(frame.clientHeight, rect?.bottom ?? 0);
-            if (right > left && bottom > top) {
-                const outer = frame.getBoundingClientRect();
-                placeSpotlight({ left: outer.left + left, top: outer.top + top, width: right - left, height: bottom - top }, 'right');
-            } else {
-                placeSpotlight(frame.previousElementSibling?.getBoundingClientRect(), 'bottom');
-            }
+        if (staged && step.stage === 'tool') {
+            placeSpotlight(layoutPage(step) || null, step.placement || 'bottom');
             return;
         }
-        const showingExample = step.id === 'composer' && state.exampleSent;
-        const el = showingExample ? document.getElementById('dcThread') : step.find?.();
-        const rect = el && isVisibleElement(el, { ignoreOpacity: Boolean(step?.ignoreOpacity) }) ? el.getBoundingClientRect() : null;
+        renderPins([]);
+        const el = staged ? state.stage.querySelector('[data-tour-focus]') : step.find?.();
+        const visible = el && (staged || isVisibleElement(el, { ignoreOpacity: Boolean(step?.ignoreOpacity) }));
+        if (!visible) {
+            placeSpotlight(null, step?.placement || 'bottom');
+            return;
+        }
+        // 高亮框只框住舞台里可见的部分，避免超出演示画面。
+        let rect = el.getBoundingClientRect();
+        if (staged) {
+            const bounds = state.stage.getBoundingClientRect();
+            const left = Math.max(rect.left, bounds.left);
+            const top = Math.max(rect.top, bounds.top);
+            const right = Math.min(rect.right, bounds.right);
+            const bottom = Math.min(rect.bottom, bounds.bottom);
+            rect = { left, top, width: Math.max(0, right - left), height: Math.max(0, bottom - top) };
+        }
         placeSpotlight(rect, step?.placement || 'bottom');
     }
 
+    function ensureStylesheet(href) {
+        if (document.querySelector(`link[rel="stylesheet"][href^="${href}"]`)) return;
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = href;
+        document.head.append(link);
+    }
+
+    // 还原导出时的滚动位置，让重点元素停在原来的位置；隐藏快照里的滚动条。
+    function preparePage(frame) {
+        const doc = frame.contentDocument;
+        if (!doc?.documentElement) return;
+        const style = doc.createElement('style');
+        style.textContent = '*{scrollbar-width:none!important}*::-webkit-scrollbar{display:none!important}html,body{overflow:hidden!important}#dataSourceBadge,#globalBackToTop{display:none!important}';
+        doc.head.append(style);
+        alignFocus(doc);
+    }
+
+    function alignFocus(doc) {
+        for (const el of doc.querySelectorAll('[data-tour-scroll]')) el.scrollTop = Number(el.dataset.tourScroll.split(',')[0]) || 0;
+        const focus = doc.querySelector('[data-tour-focus]');
+        const anchor = Number(doc.documentElement.dataset.tourAnchor);
+        if (focus && Number.isFinite(anchor)) doc.scrollingElement.scrollTop += focus.getBoundingClientRect().top - anchor;
+    }
+
+    // 内嵌页按舞台的真实宽高排版，再统一缩放到 80%，内容更完整；返回重点区域在视口中的位置。
+    const PAGE_ZOOM = 0.8;
+    function layoutPage(step) {
+        const demo = window.HomeProductTourDemos?.tools[step.id];
+        const stage = state.stage;
+        if (demo?.html) {
+            renderPins([]);
+            return stage.querySelector('[data-tour-focus]')?.getBoundingClientRect();
+        }
+        const box = stage.querySelector('.tm-page-box');
+        const frame = stage.querySelector('.tm-page');
+        if (!demo?.page || !frame) return null;
+        const width = Math.round(stage.clientWidth / PAGE_ZOOM);
+        const height = Math.round(stage.clientHeight / PAGE_ZOOM);
+        box.style.width = `${stage.clientWidth}px`;
+        box.style.height = `${stage.clientHeight}px`;
+        frame.style.width = `${width}px`;
+        frame.style.height = `${height}px`;
+        frame.style.transform = `scale(${PAGE_ZOOM})`;
+        const doc = frame.contentDocument;
+        const focus = doc?.querySelector('[data-tour-focus]');
+        if (!focus) return null;
+        // 尺寸变化后重新对齐，让重点元素保持在导出时的位置。
+        if (frame.dataset.layout !== `${width}x${height}`) {
+            frame.dataset.layout = `${width}x${height}`;
+            alignFocus(doc);
+            startAutoScroll(frame);
+        }
+        const outer = box.getBoundingClientRect();
+        // 快照里的坐标换算到视口，并裁到内嵌页可见范围内。
+        const toViewport = rect => {
+            const left = Math.max(0, rect.left), top = Math.max(0, rect.top);
+            const right = Math.min(width, rect.right), bottom = Math.min(height, rect.bottom);
+            if (right <= left || bottom <= top) return null;
+            return { left: outer.left + left * PAGE_ZOOM, top: outer.top + top * PAGE_ZOOM,
+                width: (right - left) * PAGE_ZOOM, height: (bottom - top) * PAGE_ZOOM };
+        };
+        state.pinTargets ||= (demo.pins || []).map(item => findPinTarget(doc, item));
+        renderPins(state.pinTargets.map(el => el?.isConnected ? toViewport(el.getBoundingClientRect()) : null));
+        return toViewport(focus.getBoundingClientRect());
+    }
+
+    // 按选择器或按钮文字找重点元素：取可见元素里面积最小（最贴近文字）的那个。
+    function findPinTarget(doc, item) {
+        if (item.selector) return doc.querySelector(item.selector);
+        const candidates = [...doc.querySelectorAll('button, a, select, summary, th, h1, h2, h3, h4, label, [role="button"], [class*="btn"]')]
+            .filter(el => el.textContent.replace(/\s+/g, ' ').includes(item.text))
+            .map(el => ({ el, rect: el.getBoundingClientRect() }))
+            .filter(({ rect }) => rect.width && rect.height && rect.bottom > 0 && rect.top < doc.defaultView.innerHeight);
+        candidates.sort((a, b) => a.rect.width * a.rect.height - b.rect.width * b.rect.height);
+        return candidates[0]?.el || null;
+    }
+
+    // 快照里能滚动的区域：页面本身或内部滚动容器里，可滚动距离最大的那个。
+    function pageScroller(frame) {
+        const doc = frame?.contentDocument;
+        if (!doc?.scrollingElement) return null;
+        const range = el => el.scrollHeight - el.clientHeight;
+        return [doc.scrollingElement, ...doc.querySelectorAll('[data-tour-scroll]')]
+            .sort((a, b) => range(b) - range(a))[0];
+    }
+
+    // 长页面先停 3 秒，再慢慢向下滚到底，停一会后回到开头，循环播放；高亮框和编号跟着移动。
+    function startAutoScroll(frame) {
+        stopAutoScroll();
+        const scroller = pageScroller(frame);
+        if (!scroller || reducedMotion()) return;
+        const SPEED = 34;
+        // 开始前多停一会，先看清重点按钮的标注。
+        let phase = 'hold', since = performance.now(), last = since, hold = 3000, top = scroller.scrollTop, pos = top;
+        const auto = { frame, scroller, raf: 0 };
+        const tick = now => {
+            if (state.auto !== auto || !frame.isConnected) return;
+            const dt = Math.min(64, now - last);
+            last = now;
+            const bottom = scroller.scrollHeight - scroller.clientHeight;
+            if (phase === 'hold') {
+                if (now - since > hold) phase = pos >= bottom - 1 ? 'up' : 'down';
+            } else if (phase === 'down') {
+                pos = Math.min(bottom, pos + SPEED * dt / 1000);
+                if (pos >= bottom) { phase = 'hold'; since = now; hold = 2400; }
+            } else {
+                pos = Math.max(top, pos - SPEED * 5 * dt / 1000);
+                if (pos <= top) { phase = 'hold'; since = now; hold = 1800; }
+            }
+            if (Math.abs(scroller.scrollTop - pos) >= 0.5) {
+                scroller.scrollTop = pos;
+                updateSpotlight();
+            }
+            auto.raf = requestAnimationFrame(tick);
+        };
+        if (scroller.scrollHeight - scroller.clientHeight - top < 40) return;
+        state.auto = auto;
+        auto.raf = requestAnimationFrame(tick);
+    }
+
+    function stopAutoScroll() {
+        if (state.auto) cancelAnimationFrame(state.auto.raf);
+        state.auto = null;
+    }
+
+    // 滚轮：第一步翻看输入框里的问题（发送后滚动对话区）；工具步骤改为手动滚动快照。
+    function onWheel(event) {
+        const step = state.steps[state.index];
+        let target = null;
+        if (step?.id === 'composer') target = document.getElementById(state.chatSent ? 'dcThread' : 'dcInput');
+        else if (step?.stage === 'tool') {
+            stopAutoScroll();
+            target = pageScroller(state.stage.querySelector('.tm-page'));
+        }
+        if (!target) return;
+        event.preventDefault();
+        target.scrollTop += step.stage === 'tool' ? event.deltaY / PAGE_ZOOM : event.deltaY;
+        onViewportChange();
+    }
+
+    // 重点按钮：遮罩上挖出亮区，并在左上角标编号；编号和卡片里的说明一一对应。
+    function renderPins(rects) {
+        const layer = state.root.querySelector('.v2-tour-pins');
+        const cuts = state.root.querySelector('.v2-tour-pin-cuts');
+        if (layer.children.length !== rects.length) {
+            layer.innerHTML = rects.map((_, index) => `<div class="v2-tour-pin" style="--pin-delay:${260 + index * 140}ms"><b>${index + 1}</b></div>`).join('');
+            cuts.innerHTML = rects.map(() => '<rect rx="8" ry="8" fill="black"></rect>').join('');
+        }
+        rects.forEach((rect, order) => {
+            const pinEl = layer.children[order];
+            const cut = cuts.children[order];
+            pinEl.hidden = !rect;
+            if (!rect) {
+                cut.setAttribute('width', '0');
+                cut.setAttribute('height', '0');
+                return;
+            }
+            const pad = 4;
+            const x = Math.round(rect.left - pad), y = Math.round(rect.top - pad);
+            const w = Math.round(rect.width + pad * 2), h = Math.round(rect.height + pad * 2);
+            pinEl.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+            pinEl.style.width = `${w}px`;
+            pinEl.style.height = `${h}px`;
+            cut.setAttribute('x', String(x));
+            cut.setAttribute('y', String(y));
+            cut.setAttribute('width', String(w));
+            cut.setAttribute('height', String(h));
+        });
+    }
+
+    // 工作流步骤顶部的流程线：已完成的打勾，当前步骤高亮，进度条随步骤平滑推进。
+    function renderFlow(step) {
+        const flow = window.HomeProductTourDemos?.flow || [];
+        const ids = flow.filter(id => state.steps.some(item => item.id === id));
+        const current = ids.indexOf(step.id);
+        const el = state.root.querySelector('.v2-tour-flow');
+        state.root.classList.toggle('is-flow', current >= 0);
+        if (current < 0) return;
+        const key = `${getLang()}:${ids.join(',')}`;
+        if (el.dataset.key !== key) {
+            el.dataset.key = key;
+            const label = id => (getLang() === 'en-US' ? TOOL_STEPS.find(item => item.id === id).en : TOOL_STEPS.find(item => item.id === id).zh)[0];
+            el.innerHTML = `<div class="tf-track"><i class="tf-fill"></i></div><ol>${ids.map((id, index) => `<li data-flow="${id}"><span class="tf-dot"><b>${index + 1}</b></span><span class="tf-label">${label(id)}</span></li>`).join('')}</ol>`;
+            el.style.setProperty('--tf-count', String(ids.length));
+        }
+        el.style.setProperty('--tf-progress', String(ids.length > 1 ? current / (ids.length - 1) : 1));
+        [...el.querySelectorAll('li')].forEach((li, index) => {
+            li.classList.toggle('is-done', index < current);
+            li.classList.toggle('is-current', index === current);
+        });
+    }
+
+    // 预取快照，切到工具步骤时直接从缓存渲染。
+    function prefetchPages() {
+        for (const demo of Object.values(window.HomeProductTourDemos?.tools || {})) {
+            if (!demo.page || document.querySelector(`link[rel="prefetch"][href="${demo.page}"]`)) continue;
+            const link = document.createElement('link');
+            link.rel = 'prefetch';
+            link.href = demo.page;
+            document.head.append(link);
+        }
+    }
+
     async function go(nextIndex) {
-        if (!state.active || state.exampleTyping || state.exampleDraft || state.examplePending) return;
+        if (!state.active) return;
         const clamped = clamp(nextIndex, 0, state.steps.length - 1);
         const step = state.steps[clamped];
-        if (state.index !== clamped) {
+        if (state.index !== clamped || !state.stage.dataset.step) {
             state.steps[state.index]?.cleanup?.();
-            closeTourTool();
             state.index = clamped;
-            if (step.id === 'composer') restoreTourChat();
-            else state.restoreChat ||= window.DragonClaw?.showTourLanding?.();
-            openTourTool(step);
+            state.stage.dataset.step = step.id;
+            renderStage(step);
         }
         if (typeof step.prepare === 'function') {
             await step.prepare();
@@ -720,26 +853,25 @@
         badge.textContent = tool ? copy.tool : stepCopy.badge;
         root.querySelector('.v2-tour-skip').textContent = copy.skip;
         root.querySelector('.v2-tour-title').textContent = tool ? tool[0] : stepCopy.title;
-        const sentExample = step.id === 'composer' && state.exampleSent;
-        const description = state.exampleTyping ? copy.exampleTyping
-            : state.exampleDraft ? copy.exampleReview
-            : sentExample ? (state.examplePending ? copy.exampleRunning : copy.exampleDone)
-            : (tool ? tool[1] : stepCopy.desc);
-        root.querySelector('.v2-tour-desc').textContent = description;
-        root.querySelector('.v2-tour-kbd').textContent = state.exampleDraft ? copy.exampleReviewKbd : copy.kbd;
-        setExampleLayout(sentExample);
-        document.documentElement.classList.toggle('v2-tour-review', Boolean(state.exampleDraft));
-        root.classList.toggle('is-data-tool', Boolean(step.data));
-        document.documentElement.classList.toggle('v2-tour-data', Boolean(step.data));
-        if (step.data) state.card.style.removeProperty('transform');
+        root.querySelector('.v2-tour-desc').textContent = tool ? tool[1] : stepCopy.desc;
+        const pins = window.HomeProductTourDemos?.tools[step.id]?.pins || [];
+        const points = root.querySelector('.v2-tour-points');
+        points.hidden = !pins.length;
+        points.innerHTML = pins.map((item, index) => {
+            const [name, text] = getLang() === 'en-US' ? item.en : item.zh;
+            return `<li><b>${index + 1}</b><span><strong>${name}</strong>${text}</span></li>`;
+        }).join('');
+        renderFlow(step);
+        root.querySelector('.v2-tour-kbd').textContent = copy.kbd;
+        if (root.matches('.is-staged, .is-chat-demo')) state.card.style.removeProperty('transform');
 
         const prevBtn = root.querySelector('[data-tour-prev]');
         prevBtn.textContent = copy.back;
         prevBtn.hidden = state.index === 0;
 
         const nextBtn = root.querySelector('[data-tour-next]');
-        nextBtn.textContent = state.index === state.steps.length - 1 ? copy.done : copy.next;
-        nextBtn.disabled = Boolean(state.exampleTyping || state.examplePending);
+        nextBtn.textContent = state.chatPhase === 'ready' ? copy.send
+            : state.index === state.steps.length - 1 ? copy.done : copy.next;
 
         updateSpotlight();
     }
@@ -753,20 +885,16 @@
         } else if (event.key === 'Tab') {
             const controls = [...state.root.querySelectorAll('button:not([hidden]):enabled')]
                 .filter(control => control.getClientRects().length);
-            if (state.exampleDraft) controls.unshift(document.getElementById('dcInput'));
             const current = controls.indexOf(document.activeElement);
             const direction = event.shiftKey ? -1 : 1;
             const next = current < 0 ? (event.shiftKey ? controls.length - 1 : 0)
                 : (current + direction + controls.length) % controls.length;
             event.preventDefault();
             controls[next]?.focus({ preventScroll: true });
-        } else if (state.exampleDraft) {
-            return;
         } else if (event.key === 'ArrowRight' || event.key === 'Enter') {
             if (event.key === 'Enter' && event.target.closest?.('button')) return;
             event.preventDefault();
-            if (state.index >= state.steps.length - 1) close(true);
-            else go(state.index + 1);
+            forward();
         } else if (event.key === 'ArrowLeft') {
             event.preventDefault();
             if (state.index > 0) go(state.index - 1);
@@ -788,8 +916,6 @@
         clearTimeout(state.scheduleTimer);
         state.steps = availableSteps();
         state.previousFocus = document.activeElement;
-        state.exampleSent = false;
-        state.examplePending = false;
         state.active = true;
         state.index = 0;
 
@@ -806,6 +932,9 @@
         }
 
         const root = ensureRoot();
+        prefetchPages();
+        // 示范步骤画在引导层里；首页保持在落地页，方便后面高亮模式切换等入口。
+        state.restoreChat = window.DragonClaw?.showTourLanding?.() || null;
         document.addEventListener('keydown', onKeyDown, true);
         window.addEventListener('resize', onViewportChange);
         window.addEventListener('scroll', onViewportChange, { capture: true, passive: true });
@@ -814,8 +943,7 @@
             if (state.root !== root) return;
             root.classList.add('is-open');
             updateSpotlight();
-            (root.querySelector('[data-tour-next]:enabled') || root.querySelector('.v2-tour-skip')).focus({ preventScroll: true });
-            if (state.index === 0) typeExample();
+            root.querySelector('[data-tour-next]').focus({ preventScroll: true });
         });
         return true;
     }
@@ -823,15 +951,11 @@
     function close(completed = true) {
         if (!state.active) return;
         state.steps[state.index]?.cleanup?.();
-        closeTourTool();
-        state.exampleTyping?.abort();
-        state.exampleTyping = null;
-        state.exampleDraft?.cancel();
-        state.exampleDraft = null;
-        state.exampleObserver?.disconnect();
-        state.exampleObserver = null;
-        setExampleLayout(false);
-        document.documentElement.classList.remove('v2-tour-data', 'v2-tour-review');
+        state.chatRun += 1;
+        stopAutoScroll();
+        endChat();
+        state.cardObserver?.disconnect();
+        state.cardObserver = null;
         document.documentElement.style.removeProperty('--v2-tour-card-height');
         restoreTourChat();
         state.active = false;
@@ -844,6 +968,7 @@
         if (state.root) {
             state.root.remove();
             state.root = null;
+            state.stage = null;
             state.cutout = null;
             state.ring = null;
             state.card = null;
@@ -909,7 +1034,9 @@
         scheduleAutoStart(900);
     });
     window.addEventListener('tools:languagechange', () => {
-        if (state.active) renderStep();
+        if (!state.active) return;
+        renderStage(state.steps[state.index]);
+        renderStep();
     });
 
     if (document.readyState === 'loading') {

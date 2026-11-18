@@ -52,6 +52,8 @@ html.platform-home:not([data-theme="dark"]) :is(.dc-resume, .home-caps, .home-ca
     background: var(--v2-side); border-color: var(--v2-line); color: var(--v2-ink); box-shadow: none;
 }
 
+html.platform-home:not([data-theme="dark"]) .dc-think { padding: 4px 8px; border: 1px solid var(--v2-line); border-radius: 10px; }
+
 html.platform-home:not([data-theme="dark"]) .dc-resume { background: var(--v2-accent-soft); border-color: var(--v2-focus); }
 
 html.platform-home:not([data-theme="dark"]) :is(.dc-resume-text b, .dc-resume-question, .home-caps-title, .home-cap-card-name, .dc-tool-name, .dc-approval-path, .dc-think-label, .dc-session-title, .skill-history-title, .skill-history-item-summary) { color: var(--v2-ink); }
@@ -1889,8 +1891,10 @@ html.platform-home .home-panel .conversation-list-row:is(:hover, :focus-within, 
 html.platform-home .home-panel .conversation-list-row:is(:hover, :focus-within) .conversation-list-more { opacity: .7; visibility: visible; transition-delay: 0s; }
 /* Touch lists show time, pin and menu together, so each needs its own slot. */
 @media (hover: none) {
-    html.platform-home .home-panel .conversation-list-row :is(.home-chat-actions, .desktop-agent-chat time, .wl-item-side) { right: 36px; }
-    html.platform-home .home-panel .conversation-list-row:is(:has(.conversation-pin), .is-pinned) :is(.home-chat-actions, .desktop-agent-chat time, .wl-item-side) { right: 58px; }
+    html.platform-home .home-panel .conversation-list-row :is(.home-chat-actions, .desktop-agent-chat time, .wl-item-side),
+    html.platform-home .home-panel .conversation-list-row:is(:hover, :focus-within, .is-menu-open) :is(.home-chat-actions, .desktop-agent-chat time, .wl-item-side) { right: 36px; }
+    html.platform-home .home-panel .conversation-list-row:is(:has(.conversation-pin), .is-pinned) :is(.home-chat-actions, .desktop-agent-chat time, .wl-item-side),
+    html.platform-home .home-panel .conversation-list-row:is(:has(.conversation-pin), .is-pinned):is(:hover, :focus-within, .is-menu-open) :is(.home-chat-actions, .desktop-agent-chat time, .wl-item-side) { right: 58px; }
     html.platform-home .home-panel .conversation-list-row .conversation-pin { right: 38px; visibility: visible; }
     html.platform-home .home-panel .conversation-list-row :is(.home-chat-title, .desktop-agent-chat b) { padding-right: 82px; }
     html.platform-home .home-panel .conversation-list-row:is(:has(.conversation-pin), .is-pinned) :is(.home-chat-title, .desktop-agent-chat b) { padding-right: 104px; }
@@ -2314,7 +2318,7 @@ html.platform-home:not([data-theme="dark"]) .dc-approval { border-color: #f3d9a4
 
 html.platform-home:not([data-theme="dark"]) .dc-approval.is-settled { border-color: var(--v2-line); background: var(--v2-side); }
 
-html.platform-home:not([data-theme="dark"]) :is(.dc-approval.is-allow, .dc-approval.is-always) { border-color: #bbe5c8; }
+html.platform-home:not([data-theme="dark"]) :is(.dc-approval.is-allow, .dc-approval.is-always, .dc-approval.is-select_workspace, .dc-approval.is-scratch) { border-color: #bbe5c8; }
 
 html.platform-home:not([data-theme="dark"]) :is(.dc-approval.is-deny, .dc-approval.is-timeout, .dc-approval.is-abort) { border-color: #f5c2c2; }
 
@@ -2328,7 +2332,7 @@ html.platform-home:not([data-theme="dark"]) .dc-approval-path em { color: #b4530
 
 html.platform-home:not([data-theme="dark"]) :is(.dc-approval-cwd, .dc-approval-diff summary, .dc-approval-status) { color: var(--v2-ink3); }
 
-html.platform-home:not([data-theme="dark"]) :is(.dc-approval.is-allow, .dc-approval.is-always) .dc-approval-status { color: #15803d; }
+html.platform-home:not([data-theme="dark"]) :is(.dc-approval.is-allow, .dc-approval.is-always, .dc-approval.is-select_workspace, .dc-approval.is-scratch) .dc-approval-status { color: #15803d; }
 
 html.platform-home:not([data-theme="dark"]) :is(.dc-approval.is-deny, .dc-approval.is-timeout) .dc-approval-status { color: #dc2626; }
 

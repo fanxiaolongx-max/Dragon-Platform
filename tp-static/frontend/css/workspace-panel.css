@@ -585,7 +585,7 @@ body.dc-chatting .dc-todo-dock.is-visible + .dc-composer { margin-top: 0; }
 }
 @keyframes dc-approval-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 .dc-approval.is-settled { border-color: rgba(148, 163, 184, 0.2); background: rgba(2, 6, 23, 0.35); }
-.dc-approval.is-allow, .dc-approval.is-always { border-color: rgba(74, 222, 128, 0.3); }
+.dc-approval.is-allow, .dc-approval.is-always, .dc-approval.is-select_workspace, .dc-approval.is-scratch { border-color: rgba(74, 222, 128, 0.3); }
 .dc-approval.is-deny, .dc-approval.is-timeout, .dc-approval.is-abort { border-color: rgba(248, 113, 113, 0.3); }
 .dc-approval-head { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .dc-approval-icon { font-size: 15px; }
@@ -610,7 +610,7 @@ body.dc-chatting .dc-todo-dock.is-visible + .dc-composer { margin-top: 0; }
 .dc-action--danger:hover { border-color: rgba(248, 113, 113, 0.6); }
 .dc-approval-status { margin-top: 8px; color: var(--dc-muted, #8b9ab3); font-size: 12px; }
 .dc-approval-status[hidden] { display: none; }
-.dc-approval.is-allow .dc-approval-status, .dc-approval.is-always .dc-approval-status { color: #4ade80; }
+.dc-approval.is-allow .dc-approval-status, .dc-approval.is-always .dc-approval-status, .dc-approval.is-select_workspace .dc-approval-status, .dc-approval.is-scratch .dc-approval-status { color: #4ade80; }
 .dc-approval.is-deny .dc-approval-status, .dc-approval.is-timeout .dc-approval-status { color: #f87171; }
 .dc-msg-model { display: inline-flex; }
 

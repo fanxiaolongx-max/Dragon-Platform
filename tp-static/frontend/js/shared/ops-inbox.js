@@ -1,9 +1,7 @@
 // 运营草稿确认：主页显示提示条，点击后进入对应的微信 / WeLink 会话处理。
 (function () {
     'use strict';
-    const inTour = window.frameElement?.classList.contains('v2-tour-tool')
-        && new URLSearchParams(location.search).get('opsGuide') === '1';
-    if (window.ToolsOpsInbox || (!inTour && window.top !== window.self) || window.__TP_STATIC_BASE__ || !/^https?:$/.test(location.protocol)) return;
+    if (window.ToolsOpsInbox || window.top !== window.self || window.__TP_STATIC_BASE__ || !/^https?:$/.test(location.protocol)) return;
     const API = '/api/channels/ops';
     const PAGE_SIZE = 20;
     const SUCCESS_NOTICE_MS = 2200;
@@ -382,7 +380,7 @@
         state.threadReady = Boolean(state.activeThread && !document.getElementById('dcThread')?.hasAttribute('aria-busy'));
         const openLinkedReview = () => {
             if (location.hash !== '#ops-drafts') return;
-            return review(undefined, { quietWhenUnavailable: !inTour });
+            return review(undefined, { quietWhenUnavailable: true });
         };
         refresh({ force: true }).then(openLinkedReview);
         window.addEventListener('home:channel-threads-ready', openLinkedReview);

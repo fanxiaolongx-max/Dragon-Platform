@@ -1899,26 +1899,12 @@ html.v2-tour-suspending #v2SkillHub { display: none !important; }
     visibility: visible;
 }
 
-.v2-tour-tool {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    border: 0;
-    background: var(--v2-bg);
-    pointer-events: none;
-}
-
 .v2-tour-backdrop {
     position: fixed;
     inset: 0;
     pointer-events: none;
     backdrop-filter: blur(0);
     transition: backdrop-filter 240ms ease-out;
-}
-
-.v2-tour-root.is-tool-loading .v2-tour-backdrop {
-    backdrop-filter: blur(6px);
 }
 
 .v2-tour-root.is-open .v2-tour-backdrop {
@@ -2151,70 +2137,250 @@ html[data-theme="dark"] .v2-tour-card {
     text-align: right;
 }
 
-html.platform-home.v2-tour-review body:not(.dc-chatting) #dcInput {
-    height: 122px;
-    max-height: 42dvh;
+/* 引导演示舞台：工具页面快照，位于遮罩之下，由高亮框露出重点区域。 */
+.v2-tour-stage {
+    position: fixed;
+    left: 370px;
+    right: 14px;
+    top: 14px;
+    bottom: 14px;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 16px;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+    color: #1f2328;
+    font-size: 13px;
+    line-height: 1.5;
+    box-shadow: 0 24px 64px rgba(15, 23, 42, 0.28);
+    pointer-events: none;
 }
 
-@media (max-width: 640px) {
-    html.platform-home.v2-tour-review body:not(.dc-chatting) #dcInput {
-        height: min(32dvh, 210px);
-    }
+.v2-tour-root.is-staged .v2-tour-stage { display: flex; }
+/* 工具步骤：真实页面的静态快照（已匿名），铺满舞台并缩放到 80%。 */
+.v2-tour-stage.is-tool {
+    align-items: center;
+    justify-content: center;
+}
+.v2-tour-stage .tm-page-box {
+    position: relative;
+    flex: none;
+    overflow: hidden;
+    background: #ffffff;
+}
+.v2-tour-stage .tm-page {
+    position: absolute;
+    left: 0;
+    top: 0;
+    border: 0;
+    background: #ffffff;
+    transform-origin: 0 0;
+    pointer-events: none;
+}
+.v2-tour-stage .tm-panel-box {
+    box-sizing: border-box;
+    width: min(100%, 860px);
+    max-height: 100%;
+    overflow: hidden;
+    border-radius: 16px;
+    background: var(--v2-bg);
+    color: var(--v2-ink);
+    box-shadow: 0 24px 64px rgba(15, 23, 42, 0.32);
+}
+.v2-tour-stage .tm-panel-box .ops-inbox-panel { margin: 0; }
+
+/* 工作流流程线：数据抓取 → 导入 → 报表 → 催办 → 月报 → 大屏，标出当前走到哪一步。 */
+.v2-tour-root.is-flow .v2-tour-stage { top: 86px; }
+.v2-tour-flow {
+    position: fixed;
+    left: 370px;
+    right: 14px;
+    top: 14px;
+    z-index: 1;
+    display: none;
+    height: 60px;
+    box-sizing: border-box;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(18px) saturate(1.4);
+    -webkit-backdrop-filter: blur(18px) saturate(1.4);
+    box-shadow: 0 14px 40px rgba(15, 23, 42, 0.2);
+    pointer-events: none;
+}
+.v2-tour-root.is-flow .v2-tour-flow { display: block; animation: v2TourFlowIn 420ms cubic-bezier(.22, 1, .36, 1) both; }
+@keyframes v2TourFlowIn { from { opacity: 0; transform: translateY(-8px); } }
+html[data-theme="dark"] .v2-tour-flow { border-color: rgba(255, 255, 255, 0.1); background: rgba(22, 26, 33, 0.92); }
+.v2-tour-flow .tf-track {
+    position: absolute;
+    top: 21px;
+    left: calc(50% / var(--tf-count, 6));
+    right: calc(50% / var(--tf-count, 6));
+    height: 3px;
+    border-radius: 3px;
+    background: var(--v2-line-strong, #d0d5dd);
+    overflow: hidden;
+}
+.v2-tour-flow .tf-fill {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #10a37f, #34d399);
+    transform: scaleX(var(--tf-progress, 0));
+    transform-origin: left center;
+    transition: transform 700ms cubic-bezier(.22, 1, .36, 1);
+}
+.v2-tour-flow ol { position: relative; display: flex; height: 100%; margin: 0; padding: 0; list-style: none; }
+.v2-tour-flow li {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    padding-top: 11px;
+    min-width: 0;
+}
+.v2-tour-flow .tf-dot {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    box-sizing: border-box;
+    border-radius: 50%;
+    border: 1.5px solid var(--v2-line-strong, #d0d5dd);
+    background: var(--v2-bg);
+    color: var(--v2-ink3);
+    font-size: 11px;
+    font-weight: 700;
+    transition: background 300ms ease, border-color 300ms ease, color 300ms ease, transform 300ms cubic-bezier(.22, 1, .36, 1);
+}
+.v2-tour-flow .tf-label {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11.5px;
+    color: var(--v2-ink3);
+    transition: color 300ms ease;
+}
+.v2-tour-flow li.is-done .tf-dot { border-color: #10a37f; background: #10a37f; color: #ffffff; }
+.v2-tour-flow li.is-done .tf-dot b { display: none; }
+.v2-tour-flow li.is-done .tf-dot::after { content: '✓'; font-size: 12px; }
+.v2-tour-flow li.is-done .tf-label { color: var(--v2-ink2); }
+.v2-tour-flow li.is-current .tf-dot {
+    border-color: #10a37f;
+    background: #10a37f;
+    color: #ffffff;
+    transform: scale(1.14);
+    animation: v2TourFlowPulse 1.8s ease-out infinite;
+}
+.v2-tour-flow li.is-current .tf-label { color: var(--v2-ink); font-weight: 700; }
+@keyframes v2TourFlowPulse {
+    0% { box-shadow: 0 0 0 0 rgba(16, 163, 127, 0.45); }
+    70%, 100% { box-shadow: 0 0 0 9px rgba(16, 163, 127, 0); }
 }
 
-html.v2-tour-chat body.dc-chatting #dragonClaw {
-    min-height: 0;
+/* 重点按钮：亮区描边 + 编号角标，和卡片里的说明一一对应。 */
+.v2-tour-pins { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
+.v2-tour-pin {
+    position: absolute;
+    left: 0;
+    top: 0;
+    box-sizing: border-box;
+    border: 1.5px solid #10a37f;
+    border-radius: 9px;
+    box-shadow: 0 0 0 4px rgba(16, 163, 127, 0.2);
+    animation: v2TourPinIn 420ms cubic-bezier(.22, 1, .36, 1) var(--pin-delay, 0ms) both;
 }
+.v2-tour-pin b {
+    position: absolute;
+    left: -11px;
+    top: -11px;
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #10a37f;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.3);
+}
+@keyframes v2TourPinIn { from { opacity: 0; box-shadow: 0 0 0 14px rgba(16, 163, 127, 0); } }
+.v2-tour-points { display: grid; gap: 7px; margin: 12px 0 0; padding: 0; list-style: none; }
+.v2-tour-points[hidden] { display: none; }
+.v2-tour-points li { display: flex; gap: 9px; align-items: flex-start; font-size: 12.5px; line-height: 1.55; color: var(--v2-ink2); }
+.v2-tour-points li b {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 18px;
+    height: 18px;
+    margin-top: 1px;
+    border-radius: 50%;
+    background: #10a37f;
+    color: #ffffff;
+    font-size: 10.5px;
+}
+.v2-tour-points strong { margin-right: 6px; color: var(--v2-ink); font-weight: 650; }
+
+/* 第一步发送后：真实对话区让出右侧（窄屏让出底部）给引导卡片。 */
+html.v2-tour-chat body.dc-chatting #dragonClaw { min-height: 0; }
 
 @media (min-width: 1100px) {
-    html.v2-tour-chat body.dc-chatting #dragonClaw {
-        max-width: calc(100% - 356px);
-    }
-
-    html.v2-tour-data #v2ToolFrame {
-        margin-left: max(0px, 356px - var(--v2-side-width, 240px));
-    }
-
-    .v2-tour-root.is-data-tool .v2-tour-tool {
-        left: auto;
-        width: calc(100% - 356px);
-    }
-
-    .v2-tour-root:is(.is-chat-demo, .is-data-tool) .v2-tour-card {
-        top: 50%;
-        transform: translateY(-50%);
-    }
+    html.v2-tour-chat body.dc-chatting #dragonClaw { max-width: calc(100% - 356px); }
 
     .v2-tour-root.is-chat-demo .v2-tour-card {
         left: auto;
         right: 14px;
+        top: 50%;
+        transform: translateY(-50%);
     }
 
-    .v2-tour-root.is-data-tool .v2-tour-card {
+    .v2-tour-root.is-staged .v2-tour-card {
         left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
     }
 }
 
 @media (width < 1100px) {
-    html.v2-tour-chat body.dc-chatting #dragonClaw {
-        padding-bottom: calc(var(--v2-tour-card-height, 200px) + 14px);
-    }
+    .v2-tour-flow { left: 14px; }
 
-    html.v2-tour-chat body.dc-chatting #dcComposer {
-        display: none;
-    }
+    html.v2-tour-chat body.dc-chatting #dragonClaw { padding-bottom: calc(var(--v2-tour-card-height, 200px) + 14px); }
+    html.v2-tour-chat body.dc-chatting #dcComposer { display: none; }
 
-    html.v2-tour-data #v2ToolFrame,
-    .v2-tour-root.is-data-tool .v2-tour-tool {
-        height: calc(100% - var(--v2-tour-card-height, 200px) - 28px);
-    }
-
-    .v2-tour-root:is(.is-chat-demo, .is-data-tool) .v2-tour-card {
+    .v2-tour-root.is-chat-demo .v2-tour-card {
         left: 50%;
         top: auto;
         bottom: 14px;
         transform: translateX(-50%);
     }
+
+    .v2-tour-stage {
+        left: 14px;
+        bottom: calc(var(--v2-tour-card-height, 200px) + 28px);
+    }
+
+    .v2-tour-root.is-staged .v2-tour-card {
+        left: 50%;
+        top: auto;
+        bottom: 14px;
+        transform: translateX(-50%);
+    }
+}
+
+@media (max-width: 640px) {
+    .v2-tour-stage { top: 8px; left: 8px; right: 8px; font-size: 12px; }
+    .v2-tour-flow { top: 8px; left: 8px; right: 8px; height: 52px; }
+    .v2-tour-root.is-flow .v2-tour-stage { top: 68px; }
+    .v2-tour-flow li { padding-top: 8px; }
+    .v2-tour-flow .tf-track { top: 18px; }
+    .v2-tour-flow .tf-label { display: none; }
+    .v2-tour-flow li.is-current .tf-label { display: block; overflow: visible; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2223,7 +2389,11 @@ html.v2-tour-chat body.dc-chatting #dragonClaw {
 .v2-tour-backdrop,
 .v2-tour-card,
 .v2-tour-body,
-.v2-tour-ring {
+.v2-tour-ring,
+.v2-tour-flow,
+.v2-tour-flow *,
+.v2-tour-pin,
+.v2-tour-stage * {
         transition: none !important;
         animation: none !important;
     }

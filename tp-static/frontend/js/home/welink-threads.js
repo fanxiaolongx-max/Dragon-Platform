@@ -236,6 +236,16 @@
         el.pinnedSection.dataset.section = 'channel-pinned';
         el.pinnedSection.id = 'homeChannelPinnedSection';
         el.pinnedSection.hidden = true;
+        el.pinnedHeader = document.createElement('button');
+        el.pinnedHeader.type = 'button';
+        el.pinnedHeader.className = 'home-chat-category';
+        el.pinnedHeader.dataset.wlPinnedToggle = '';
+        el.pinnedHeader.setAttribute('aria-expanded', 'true');
+        el.pinnedList = document.createElement('div');
+        el.pinnedList.className = 'home-chat-section-body wl-pinned-list';
+        el.pinnedList.dataset.batchScope = 'pinned';
+        el.pinnedList.setAttribute('role', 'list');
+        el.pinnedSection.append(el.pinnedHeader, el.pinnedList);
         el.list.before(el.pinnedSection);
         el.pinnedSection.addEventListener('click', event => {
             if (event.target.closest('[data-wl-pinned-toggle]')) {
@@ -421,25 +431,24 @@
         const chTag = showChannel ? `<span class="wl-pin-channel">${escapeHtml(TEXT[lang()][ch] || ch)}</span>` : '';
         return `<button type="button" class="home-chat-item wl-item${active ? ' is-active' : ''}" role="listitem" ${attrName}="${index}" title="${escapeHtml(title)}"${active ? ' aria-current="true"' : ''}>
             <span class="wl-avatar wl-avatar--${thread.kind}">${ICONS[thread.kind] || ICONS.user}</span>
-            <span class="wl-item-text"><span class="home-chat-title">${chTag}${escapeHtml(title)}</span><span class="wl-item-sub">${escapeHtml(subtitle)}</span></span>
+            <span class="wl-item-text"><span class="home-chat-title" data-chat-title="${escapeHtml(title)}">${chTag}${escapeHtml(title)}</span><span class="wl-item-sub">${escapeHtml(subtitle)}</span></span>
             <span class="wl-item-side"><span class="home-chat-meta">${escapeHtml(shortTime(thread.lastActiveAt))}</span>${badge}</span>
         </button>`;
     }
 
     function renderPinnedChannels() {
-        if (!el.pinnedSection) return;
+        if (!el.pinnedSection || !el.pinnedHeader || !el.pinnedList) return;
         if (!CHANNEL_IDS.includes(state.source)) {
             el.pinnedSection.hidden = true;
-            el.pinnedSection.innerHTML = '';
+            el.pinnedList.innerHTML = '';
             state.pinnedEntries = [];
             return;
         }
-        const existingBody = el.pinnedSection.querySelector('.wl-pinned-list');
-        if (existingBody && window.HomeConversationList?.deferRender?.(existingBody, renderPinnedChannels)) return;
+        if (window.HomeConversationList?.deferRender?.(el.pinnedList, renderPinnedChannels)) return;
         const isArchived = Boolean(window.HomeConversationList?.isArchived?.(state.source));
         if (isArchived) {
             el.pinnedSection.hidden = true;
-            el.pinnedSection.innerHTML = '';
+            el.pinnedList.innerHTML = '';
             state.pinnedEntries = [];
             return;
         }
@@ -466,18 +475,17 @@
         state.pinnedEntries = rawEntries.map(entry => entry.thread);
         if (!rawEntries.length) {
             el.pinnedSection.hidden = true;
-            el.pinnedSection.innerHTML = '';
+            el.pinnedList.innerHTML = '';
             return;
         }
         const open = Boolean(query) || !state.pinnedCollapsed;
-        const showChannel = state.channels.length > 1 || rawEntries.some(e => e.channel !== state.source);
+        const showChannel = new Set(rawEntries.map(e => e.channel)).size > 1 || rawEntries.some(e => e.channel !== state.source);
         el.pinnedSection.hidden = false;
-        el.pinnedSection.innerHTML = `<button type="button" class="home-chat-category" data-wl-pinned-toggle aria-expanded="${open}"><span class="home-chat-category-chevron" aria-hidden="true"></span><span class="home-chat-category-title">${escapeHtml(tx('pinned'))}</span><span class="home-chat-category-count">(${rawEntries.length})</span></button>
-            <div class="home-chat-section-body wl-pinned-list" data-batch-scope="pinned"${open ? '' : ' hidden'}>
-                ${rawEntries.map((entry, idx) => threadRowHtml(entry.thread, { channel: entry.channel, attrName: 'data-wl-pinned-thread', index: idx, title: entry.title, showChannel })).join('')}
-            </div>`;
-        const pinnedBody = el.pinnedSection.querySelector('.wl-pinned-list');
-        window.HomeConversationList?.enhance?.(pinnedBody, {
+        el.pinnedHeader.setAttribute('aria-expanded', String(open));
+        el.pinnedHeader.innerHTML = `<span class="home-chat-category-chevron" aria-hidden="true"></span><span class="home-chat-category-title">${escapeHtml(tx('pinned'))}</span><span class="home-chat-category-count">(${rawEntries.length})</span>`;
+        el.pinnedList.hidden = !open;
+        el.pinnedList.innerHTML = rawEntries.map((entry, idx) => threadRowHtml(entry.thread, { channel: entry.channel, attrName: 'data-wl-pinned-thread', index: idx, title: entry.title, showChannel })).join('');
+        window.HomeConversationList?.enhance?.(el.pinnedList, {
             source: state.source,
             itemSource: item => item.channel || state.source,
             items: state.pinnedEntries,
@@ -1079,6 +1087,8 @@
             if (!live.thinkingActive && !(turn.tools || []).some(t => !t.finished)) {
                 live.activity?.streaming?.();
             }
+        } else if (!live.thinkingActive && !(turn.tools || []).some(t => !t.finished) && typeof turn.statusText === 'string' && turn.statusText && turn.statusText !== '[object Object]') {
+            live.activity?.status?.(turn.statusText);
         }
         if (atBottom) api.scrollToBottom();
         renderThreads();
@@ -1141,7 +1151,9 @@
             return;
         }
         if (ev.type === 'status') {
-            live.activity?.status?.(ev.text);
+            const raw = ev.status ?? ev.text;
+            const nextStatus = typeof raw === 'string' && raw !== '[object Object]' ? raw : '';
+            live.activity?.status?.(nextStatus);
             return;
         }
         if (ev.type === 'compaction') {
