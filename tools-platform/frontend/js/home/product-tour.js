@@ -706,13 +706,14 @@
             .sort((a, b) => range(b) - range(a))[0];
     }
 
-    // 长页面先停一会，再慢慢向下滚到底，停一会后回到开头，循环播放；高亮框和编号跟着移动。
+    // 长页面先停 3 秒，再慢慢向下滚到底，停一会后回到开头，循环播放；高亮框和编号跟着移动。
     function startAutoScroll(frame) {
         stopAutoScroll();
         const scroller = pageScroller(frame);
         if (!scroller || reducedMotion()) return;
         const SPEED = 34;
-        let phase = 'hold', since = performance.now(), last = since, hold = 1800, top = scroller.scrollTop, pos = top;
+        // 开始前多停一会，先看清重点按钮的标注。
+        let phase = 'hold', since = performance.now(), last = since, hold = 3000, top = scroller.scrollTop, pos = top;
         const auto = { frame, scroller, raf: 0 };
         const tick = now => {
             if (state.auto !== auto || !frame.isConnected) return;
