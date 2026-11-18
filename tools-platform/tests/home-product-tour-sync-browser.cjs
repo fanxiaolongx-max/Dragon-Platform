@@ -18,11 +18,10 @@ app.disableHardwareAcceleration();
 let win;
 let server;
 const evaluate = code => win.webContents.executeJavaScript(code, true);
-const until = code => evaluate(`new Promise((resolve, reject) => { let n = 0; const poll = () => { if (${code}) resolve(); else if (++n > 300) reject(new Error(${JSON.stringify(code)})); else setTimeout(poll, 25); }; poll(); })`);
+const until = (code, ms = 7500) => evaluate(`new Promise((resolve, reject) => { let n = 0; const poll = () => { if (${code}) resolve(); else if (++n > ${Math.ceil(ms / 25)}) reject(new Error(${JSON.stringify(code)})); else setTimeout(poll, 25); }; poll(); })`);
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const next = () => evaluate('document.querySelector("[data-tour-next]").click()');
 const previous = () => evaluate('document.querySelector("[data-tour-prev]").click()');
-const waitForTool = href => until(`document.querySelector('#v2ToolFrame:not([hidden]) iframe')?.contentWindow.location.pathname === ${JSON.stringify(href)}`);
 const waitForFocus = (selector, inTool = false) => until(`(() => {
     const overlay = document.querySelector('.v2-tour-root');
     const spotlight = overlay.querySelector('.v2-tour-ring');
@@ -42,13 +41,26 @@ const waitForFocus = (selector, inTool = false) => until(`(() => {
     }
     return ring.left <= left + 1 && ring.top <= top + 1 && ring.right >= right - 1 && ring.bottom >= bottom - 1;
 })()`);
+// 演示舞台里的高亮区域：高亮框要盖住 [data-tour-focus]（裁到舞台可见范围内），且不与引导卡片重叠。
+const waitForStage = (kind, selector = '[data-tour-focus]') => until(`(() => {
+    const overlay = document.querySelector('.v2-tour-root.is-staged');
+    const stage = overlay?.querySelector('.v2-tour-stage.is-' + ${JSON.stringify(kind)});
+    const el = stage?.querySelector(${JSON.stringify(selector)});
+    if (!el || !el.hasAttribute('data-tour-focus') || overlay.querySelector('.v2-tour-ring').style.opacity !== '1') return false;
+    const box = stage.getBoundingClientRect(), rect = el.getBoundingClientRect();
+    const ring = overlay.querySelector('.v2-tour-ring').getBoundingClientRect();
+    const card = overlay.querySelector('.v2-tour-card').getBoundingClientRect();
+    const left = Math.max(rect.left, box.left), top = Math.max(rect.top, box.top);
+    const right = Math.min(rect.right, box.right), bottom = Math.min(rect.bottom, box.bottom);
+    const apart = card.right <= box.left || card.bottom <= box.top || card.top >= box.bottom || card.left >= box.right;
+    return right > left && bottom > top && apart && ring.left <= left + 1 && ring.top <= top + 1 && ring.right >= right - 1 && ring.bottom >= bottom - 1;
+})()`);
 setTimeout(() => app.exit(1), 60000).unref();
 
 app.whenReady().then(async () => {
     const web = express();
     web.use(express.json());
     const chatRequests = [];
-    let finishExample;
 
     let onboardingPrompt = true;
     web.get('/', (_, res) => {
@@ -107,8 +119,7 @@ app.whenReady().then(async () => {
     web.post('/api/ai/chat', (req, res) => {
         chatRequests.push(req.body);
         res.type('application/x-ndjson');
-        res.write(JSON.stringify({ type: 'delta', delta: '正在整理催办草稿。' }) + '\n');
-        finishExample = () => res.end(JSON.stringify({ type: 'done', reply: '催办草稿已准备，请核对收件人。' }) + '\n');
+        res.end(JSON.stringify({ type: 'done', reply: 'unexpected' }) + '\n');
     });
     web.get('/api/agent-workspace/capability', (_, res) => res.json({ enabled: false }));
     web.get('/api/agent-workspace/prefs', (_, res) => res.json({ lastDirectory: '', recentDirectories: [] }));
@@ -137,10 +148,7 @@ app.whenReady().then(async () => {
     assert.equal(await evaluate('window.__tpOnboardingPending'), true, 'onboarding pending flag blocks tour');
     assert.equal(await evaluate('window.HomeProductTour.isOpen()'), false, 'tour never overlaps auto-import modal');
 
-    // Skip onboarding -> the first step types the example, then waits for Next.
-    await evaluate(`document.getElementById('dcInput').addEventListener('keydown', event => {
-        if (event.key === 'Enter') window.__tourSentText = event.currentTarget.value;
-    }, true)`);
+    // Skip onboarding -> the first step plays a prewritten chat demo without touching the real composer.
     await evaluate('document.querySelector(".quick-start-skip").click(); true');
     await until('!document.getElementById("defaultQuickStartModal")');
     assert.equal(await evaluate('window.__tpOnboardingPending'), false);
@@ -149,86 +157,44 @@ app.whenReady().then(async () => {
     assert.equal(await evaluate('document.querySelector(".v2-tour-eyebrow").textContent.trim()'), `1 / ${stepCount}`);
     assert.equal(stepCount, 14);
     assert.equal(await evaluate('document.querySelector(".v2-tour-root select") === null'), true);
-    await until('document.activeElement.id === "dcInput" && document.getElementById("dcInput").value.length > 0 && !window.__tourSentText');
-    assert.equal(chatRequests.length, 0);
-    assert.equal(await evaluate('document.querySelector(".v2-tour-root.is-chat-demo") === null'), true);
-    await waitForFocus('#dcComposer');
-    await until('document.querySelector(".v2-tour-desc").textContent === "看完问题，点「下一步」发送。"');
-    const previewText = await evaluate('document.getElementById("dcInput").value');
-    assert.match(previewText, /等我确认后再发送。$/);
-    assert.equal(await evaluate('document.getElementById("dcInput").readOnly'), true);
-    await evaluate('document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }))');
+    await waitForStage('chat', '[data-chat-composer]');
+    await until('document.querySelector("[data-chat-input]").textContent.length > 10');
+    assert.equal(await evaluate('document.querySelector("[data-tour-next]").textContent'), '直接看结果');
+    await until('document.querySelector(".v2-tour-desc").textContent === "示范：AI 正在整理回答…"');
+    await waitForStage('chat', '[data-chat-thread]');
+    await until('document.querySelector(".v2-tour-desc").textContent.startsWith("这是预先写好的示范回答")', 10000);
+    assert.match(await evaluate('document.querySelector("[data-chat-ai]").innerText'), /ZG-1123[\s\S]*催办草稿/);
+    assert.equal(await evaluate('document.querySelector("[data-tour-next]").textContent'), '下一步');
+    assert.equal(await evaluate('document.getElementById("dcInput").value'), '', 'the demo never types into the real composer');
+    assert.equal(await evaluate('document.getElementById("dcInput").readOnly'), false);
+    assert.equal(await evaluate('document.body.classList.contains("dc-chatting")'), false);
     win.setContentSize(390, 660);
-    await until(`(() => {
-        const input = document.getElementById('dcInput');
-        const rect = input.getBoundingClientRect();
-        const card = document.querySelector('.v2-tour-card').getBoundingClientRect();
-        const center = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
-        window.__tourReviewLayout = { width: innerWidth, height: innerHeight, input: rect.toJSON(), card: card.toJSON(), center: center?.id || center?.className };
-        return innerWidth <= 400 && rect.height > 76 && rect.top >= 0 && rect.bottom <= innerHeight
-            && (card.bottom <= rect.top || card.top >= rect.bottom) && center === input;
-    })()`).catch(async error => {
-        throw new Error(`Narrow example preview layout: ${JSON.stringify(await evaluate('window.__tourReviewLayout'))}`, { cause: error });
-    });
-    assert.equal(chatRequests.length, 0, 'preview and navigation keys do not submit the example');
-    assert.equal(await evaluate('window.__tourSentText'), undefined);
+    await until('innerWidth <= 400');
+    await waitForStage('chat', '[data-chat-thread]');
     win.setContentSize(1440, 960);
     await until('innerWidth >= 1400');
-    await next();
-    await until('document.querySelector("#dcThread").innerText.includes("正在整理催办草稿。")');
-    assert.equal(await evaluate('document.querySelector("[data-tour-next]").disabled'), true);
-    await evaluate('document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }))');
-    assert.equal(await evaluate('document.querySelector(".v2-tour-eyebrow").textContent.trim()'), `1 / ${stepCount}`);
-    await until(`(() => {
-        const thread = document.getElementById('dcThread');
-        const rect = thread.getBoundingClientRect();
-        const card = document.querySelector('.v2-tour-card').getBoundingClientRect();
-        const ring = document.querySelector('.v2-tour-ring').getBoundingClientRect();
-        const center = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
-        return card.left >= rect.right && ring.height >= rect.height && thread.contains(center);
-    })()`);
-    win.setContentSize(390, 660);
-    await until(`(() => {
-        const thread = document.getElementById('dcThread').getBoundingClientRect();
-        const card = document.querySelector('.v2-tour-card').getBoundingClientRect();
-        return innerWidth <= 400 && thread.height > 200 && card.top >= thread.bottom && card.bottom <= innerHeight;
-    })()`);
-    finishExample();
-    await until('!document.querySelector("[data-tour-next]").disabled && document.body.innerText.includes("催办草稿已准备，请核对收件人。")');
-    win.setContentSize(1440, 960);
-    await until('innerWidth >= 1400');
-    assert.equal(chatRequests.length, 1);
-    assert.equal(chatRequests[0].tourReportExample, true);
-    const sent = chatRequests[0].messages.at(-1);
-    assert.equal(sent.role, 'user');
-    assert.equal(sent.content, previewText);
-    assert.equal(sent.content, await evaluate('window.__tourSentText'));
-    assert.match(sent.content, /本月未达标指标/);
-    assert.match(sent.content, /一键催办.*CPT 专项风险.*整改单/);
-    assert.match(sent.content, /未来 3 天内.*等我确认/);
-    assert.equal(await evaluate('window.HomeProductTour.isOpen()'), true, 'the remaining steps are still available after sending');
     await next();
     assert.equal(await evaluate('document.querySelector(".v2-tour-eyebrow").textContent.trim()'), `2 / ${stepCount}`);
-    assert.equal(await evaluate('document.body.classList.contains("dc-chatting")'), false);
+    assert.equal(await evaluate('document.querySelector(".v2-tour-root").classList.contains("is-staged")'), false);
     await waitForFocus('.dc-landing [data-v2-modes]');
     await previous();
-    await until('document.body.classList.contains("dc-chatting") && document.getElementById("dcThread").innerText.includes("催办草稿已准备")');
-    assert.equal(chatRequests.length, 1, 'back restores the finished demo without resending');
-    await next();
+    await waitForStage('chat', '[data-chat-composer]');
+    await next(); // 跳过演示，直接显示完整回答
+    await until('document.querySelector(".v2-tour-desc").textContent.startsWith("这是预先写好的示范回答") && document.querySelector("[data-chat-ai]").innerText.includes("ZG-1123")');
+    await waitForStage('chat', '[data-chat-thread]');
     await evaluate('document.querySelector(".v2-tour-skip").click()');
     await until('!window.HomeProductTour.isOpen()');
     assert.equal(await evaluate('window.HomeProductTour.isCompleted()'), true);
-    assert.equal(await evaluate('document.body.classList.contains("dc-chatting")'), true);
+    assert.equal(chatRequests.length, 0, 'the tour never sends a real chat request');
 
-    await evaluate('window.DragonClaw.newChat(); window.ToolsI18n.setLanguage("en-US"); window.HomeProductTour.replay();');
-    await until('document.querySelector(".v2-tour-desc")?.textContent === "Read the question, then select Next to send it."');
-    assert.match(await evaluate('document.getElementById("dcInput").value'), /^Use the latest saved report snapshot/);
+    await evaluate('window.ToolsI18n.setLanguage("en-US"); window.HomeProductTour.replay();');
+    await until('document.querySelector(".v2-tour-desc")?.textContent === "Demo: asking AI a question…"');
+    await next();
+    await until('document.querySelector("[data-chat-ai]").innerText.includes("Draft reminder")');
     await evaluate('document.querySelector(".v2-tour-skip").click(); window.ToolsI18n.setLanguage("zh-CN");');
     assert.equal(await evaluate('document.getElementById("dcInput").value'), '');
-    assert.equal(await evaluate('document.getElementById("dcInput").readOnly'), false);
-    assert.equal(chatRequests.length, 1, 'skipping clears the example without sending it');
 
-    // 4. Replay from Account and advance through the shortened guide in order.
+    // 4. Replay from Account and advance through the guide in order; tools are static demos.
     await evaluate(`(() => {
         window.DragonClaw.newChat();
         const input = document.getElementById('dcInput');
@@ -241,7 +207,7 @@ app.whenReady().then(async () => {
     await evaluate('document.querySelector(".v2-account [data-v2-do=\\"tour\\"]").click(); true');
     await until('document.querySelector(".v2-tour-root.is-open")');
     assert.equal(await evaluate('document.getElementById("dcInput").value'), '已有草稿');
-    assert.equal(chatRequests.length, 1, 'a replay preserves a pre-existing draft');
+    await next();
     await next();
     await waitForFocus('.dc-landing [data-v2-modes]');
     await next();
@@ -250,64 +216,40 @@ app.whenReady().then(async () => {
     await waitForFocus('#homeSidebar [data-v2-action="skillHub"]');
     await next();
     await waitForFocus('#homeSidebar [data-v2-flyout="more"]');
-    await next();
-    await waitForTool('/uivf12');
-    await waitForFocus('.btn-batch-run-row', true);
-    assert.equal(await evaluate('document.querySelector(".v2-tour-title").textContent'), '数据抓取');
-    assert.equal(await evaluate('document.querySelector("[data-tour-action]") === null'), true, 'tools open without a second button');
-    await next();
-    assert.match(await evaluate('document.querySelector(".v2-tour-desc").textContent'), /批量导入表格/);
-    await until('document.querySelector("#v2ToolFrame .v2-tool-frame-view")?.contentDocument?.querySelector(".btn-batch-xl")');
-    await waitForFocus('.btn-batch-xl', true);
-    assert.equal(await evaluate('document.querySelector("#v2ToolFrame .v2-tool-frame-view").contentWindow.location.pathname'), '/sla');
-    assert.equal(await evaluate('new URLSearchParams(location.search).has("app")'), false);
-
-    await evaluate('window.ToolsI18n.setLanguage("en-US"); document.documentElement.dataset.theme = "dark";');
-    win.setContentSize(390, 660);
-    await until('window.innerWidth <= 400');
-    await until('document.querySelector(".v2-tour-title").textContent === "Data Import"');
-    await until('document.querySelector(".v2-tour-card").getBoundingClientRect().right <= innerWidth');
-    const narrowLayout = await evaluate(`(() => {
-        const card = document.querySelector('.v2-tour-card').getBoundingClientRect();
-        const next = document.querySelector('[data-tour-next]').getBoundingClientRect();
-        return { card: card.toJSON(), next: next.toJSON(), width: innerWidth, height: innerHeight };
-    })()`);
-    const { card, next: nextButton, width, height } = narrowLayout;
-    assert.ok(card.left >= 0 && card.right <= width && card.bottom <= height
-        && nextButton.bottom <= card.bottom, `narrow window keeps guide and next button visible: ${JSON.stringify(narrowLayout)}`);
-    await next();
-    await waitForTool('/report');
-    assert.equal(await evaluate('document.querySelector(".v2-tour-title").textContent'), 'Report Dashboard');
-    await waitForFocus('#report-content', true);
-    await previous();
-    await waitForTool('/sla');
-    assert.equal(await evaluate('document.querySelector(".v2-tour-title").textContent'), 'Data Import');
-    win.setContentSize(1440, 960);
-    await until('window.innerWidth >= 1400');
-    await evaluate('window.ToolsI18n.setLanguage("zh-CN"); document.documentElement.dataset.theme = "light";');
-    for (const [href, title, anchor] of [
-        ['/report', '报表看板', '#report-content'], ['/expedite', '一键催办', '#brief-textarea'],
-        ['/monthly', '月报页面', '#airReportPane'], ['/bigscreen', '大屏看板', '.screen-grid']
+    for (const [id, title, text] of [
+        ['uivf12', '数据抓取', '批量运行所选'], ['sla', '数据导入', '开始批量导入'], ['report', '报表看板', '工单一次解决率'],
+        ['expedite', '一键催办', '11 月质量催办简报'], ['monthly', '月报页面', 'AI 结论'], ['bigscreen', '大屏看板', '客户群排名'],
+        ['opsDrafts', '运维待办', '确认发送']
     ]) {
         await next();
-        await waitForTool(href);
         assert.equal(await evaluate('document.querySelector(".v2-tour-title").textContent'), title);
-        if (href === '/expedite') {
-            await until('document.querySelector(".v2-tour-root").classList.contains("is-tool-loading") && document.querySelector(".v2-tour-ring").style.opacity === "0"');
-            await until('getComputedStyle(document.querySelector(".v2-tour-backdrop")).backdropFilter === "blur(6px)"');
-            await evaluate('document.querySelector("#v2ToolFrame iframe").contentDocument.getElementById("platformStartup").remove()');
-            await waitForFocus(anchor, true);
-            await evaluate(`Object.assign(document.querySelector("#v2ToolFrame iframe").contentDocument.getElementById("brief-textarea").style,
-                { left: '18px', width: '430px' })`);
+        await waitForStage(id);
+        assert.ok((await evaluate('document.querySelector(".v2-tour-stage").innerText')).includes(text), `${id} demo shows sample data`);
+        assert.ok(await evaluate('document.querySelector(".v2-tour-stage .tm-sample")?.textContent === "示例数据"'), `${id} demo is labelled as sample data`);
+        assert.equal(await evaluate('window.HomeToolFrame.isOpen() || Boolean(document.querySelector(".v2-tour-root iframe"))'), false, `${id} does not load the real tool`);
+        if (id === 'sla') {
+            await evaluate('window.ToolsI18n.setLanguage("en-US"); document.documentElement.dataset.theme = "dark";');
+            win.setContentSize(390, 660);
+            await until('window.innerWidth <= 400');
+            await until('document.querySelector(".v2-tour-title").textContent === "Data Import"');
+            await waitForStage('sla');
+            assert.match(await evaluate('document.querySelector(".v2-tour-stage").innerText'), /Import all/);
+            const narrowLayout = await evaluate(`(() => {
+                const card = document.querySelector('.v2-tour-card').getBoundingClientRect();
+                const next = document.querySelector('[data-tour-next]').getBoundingClientRect();
+                return { card: card.toJSON(), next: next.toJSON(), width: innerWidth, height: innerHeight };
+            })()`);
+            const { card, next: nextButton, width, height } = narrowLayout;
+            assert.ok(card.left >= 0 && card.right <= width && card.bottom <= height
+                && nextButton.bottom <= card.bottom, `narrow window keeps guide and next button visible: ${JSON.stringify(narrowLayout)}`);
+            win.setContentSize(1440, 960);
+            await until('window.innerWidth >= 1400');
+            await evaluate('window.ToolsI18n.setLanguage("zh-CN"); document.documentElement.dataset.theme = "light";');
+            await until('document.querySelector(".v2-tour-title").textContent === "数据导入"');
         }
-        await waitForFocus(anchor, true);
     }
     await next();
-    assert.equal(await evaluate('document.querySelector(".v2-tour-title").textContent'), '运维待办');
-    assert.equal(await evaluate('document.querySelector(".v2-tour-tool").getAttribute("src")'), '/?tour=0&opsGuide=1#ops-drafts');
-    await waitForFocus('#platformConfirmModal.open .nav-confirm-dialog, .app-dialog.open .app-dialog-card', true);
-    await next();
-    assert.equal(await evaluate('window.HomeToolFrame.isOpen() || Boolean(document.querySelector(".v2-tour-tool"))'), false);
+    assert.equal(await evaluate('document.querySelector(".v2-tour-root").classList.contains("is-staged")'), false);
     await waitForFocus('#v2AlertBtn');
     await next();
     await until(`document.querySelector(".v2-tour-eyebrow").textContent.trim() === "${stepCount} / ${stepCount}"`);
@@ -323,6 +265,7 @@ app.whenReady().then(async () => {
     await evaluate('document.querySelector("[data-tour-next]").click(); true');
     await until('!window.HomeProductTour.isOpen()');
     assert.equal(await evaluate('!!document.querySelector(".v2-account.is-open")'), false, 'finishing the tour closes account popup');
+    assert.equal(chatRequests.length, 0);
 
     // 5. Dirty tool frame leave-guard uses AppDialog (no native confirm) and preserves open frame on cancel.
     await evaluate(`window.HomeToolFrame.open('/requirements', { label: 'Requirements', skipConfirm: true }); true`);
@@ -333,8 +276,8 @@ app.whenReady().then(async () => {
         fw.__dhConfirmLeave = hostConfirm => hostConfirm('Unsaved fixture changes?');
     })()`);
     await evaluate('window.HomeProductTour.replay()');
-    for (let i = 0; i < 5; i++) await next();
-    await until('document.querySelector(".v2-tour-tool")?.contentWindow.location.pathname === "/uivf12"');
+    for (let i = 0; i < 6; i++) await next();
+    await waitForStage('uivf12');
     await evaluate('document.querySelector(".v2-tour-skip").click()');
     assert.equal(await evaluate('document.querySelector("#v2ToolFrame iframe").contentWindow.__dhIsDirty()'), true,
         'replaying the tour preserves an unfinished tool page');
@@ -374,7 +317,7 @@ app.whenReady().then(async () => {
     assert.equal(duplicateLinks, 0, 'More flyout has zero duplicate normalized paths');
 
     assert.deepEqual(await evaluate('window.fixtureErrors'), []);
-    console.log('PASS: shortened tour runs in order, opens tools, preserves drafts, sends the AI example, and supports narrow layout.');
+    console.log('PASS: tour runs in order with static chat and tool demos, never loads tools or sends chats, preserves drafts, and supports narrow layout.');
     win.destroy();
     server.close();
     app.exit(0);

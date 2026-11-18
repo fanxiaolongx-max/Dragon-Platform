@@ -1,5 +1,6 @@
 /**
  * 首页新手引导：工作台入口、系统工具和 AI 提问示例。
+ * 对话和工具步骤只展示 product-tour-demos.js 里的静态示范，不发真实对话、不加载工具页面。
  * 严格避免与首次导入弹窗（first-run-onboarding）、系统模态框以及工具页面（独立路由或 ?app= 内嵌框）冲突。
  */
 (function initHomeProductTour() {
@@ -20,12 +21,10 @@
             done: '开始使用',
             kbd: '← → 切换 · Esc 关闭',
             tool: '系统工具',
-            exampleTyping: '正在输入示例…',
-            exampleReview: '看完问题，点「下一步」发送。',
-            exampleReviewKbd: 'Esc 关闭',
-            exampleRunning: '正在查询…',
-            exampleDone: '查看回答，然后继续。',
-            prompt: '用最新已入库的报表快照查本月未达标指标，列出实际值、目标值和差距。再用「一键催办」的快照列出临期和已超期的 CPT 专项风险、常规风险、整改单和工单，注明单号、截止日期和责任人。优先为未来 3 天内到期的事项拟催办草稿，如果没有就列出最急的已超期事项，等我确认后再发送。',
+            exampleTyping: '示范：向 AI 提一个问题…',
+            exampleRunning: '示范：AI 正在整理回答…',
+            exampleDone: '这是预先写好的示范回答（示例数据）。真实提问时，AI 会读取你自己的报表和催办快照。',
+            showResult: '直接看结果',
             steps: [
                 {
                     id: 'composer',
@@ -79,12 +78,10 @@
             done: 'Get started',
             kbd: '← → navigate · Esc close',
             tool: 'System tool',
-            exampleTyping: 'Typing an example…',
-            exampleReview: 'Read the question, then select Next to send it.',
-            exampleReviewKbd: 'Esc close',
-            exampleRunning: 'Checking…',
-            exampleDone: 'Read the reply, then continue.',
-            prompt: 'Use the latest saved report snapshot to list this month’s missed targets with actuals, targets, and gaps. From the One-Click Follow-Up snapshot, list upcoming and overdue CPT risks, regular risks, rectification tickets, and open tickets with IDs, due dates, and owners. Draft reminders for items due in the next 3 days or urgent overdue items if none are due soon. Wait for confirmation before sending.',
+            exampleTyping: 'Demo: asking AI a question…',
+            exampleRunning: 'Demo: AI is preparing a reply…',
+            exampleDone: 'This is a prewritten sample reply with sample data. When you ask for real, AI reads your own report and follow-up snapshots.',
+            showResult: 'Show result',
             steps: [
                 {
                     id: 'composer',
@@ -132,40 +129,40 @@
         }
     };
 
+    // 工具步骤只在目录里有对应工具时出现；画面来自 HomeProductTourDemos，不打开真实页面。
     const TOOL_STEPS = [
         {
-            id: 'uivf12', anchor: '.btn-batch-run-row',
+            id: 'uivf12',
             zh: ['数据抓取', '用现成脚本批量抓表，省去逐个网站手动下载。'],
             en: ['Data Capture', 'Run a saved script to collect tables in batches.']
         },
         {
-            id: 'sla', anchor: '.btn-batch-xl',
+            id: 'sla',
             zh: ['数据导入', '批量导入表格，系统按规则算指标、标临期。'],
             en: ['Data Import', 'Import tables in bulk to calculate metrics and flag deadlines.']
         },
         {
-            id: 'report', anchor: '#report-content', data: true,
+            id: 'report',
             zh: ['报表看板', '选月份和快照，一眼看清谁达标、差多少。'],
             en: ['Report Dashboard', 'Choose a month and snapshot to see scores and gaps.']
         },
         {
-            id: 'expedite', anchor: '#brief-textarea', data: true,
+            id: 'expedite',
             zh: ['一键催办', '选报表快照，一键生成可复制的催办简报。'],
             en: ['One-Click Follow-Up', 'Pick a report snapshot to generate a follow-up brief.']
         },
         {
-            id: 'monthly', anchor: '#airReportPane', data: true,
+            id: 'monthly',
             zh: ['月报页面', '选月份、套模板，让 AI 帮你出图和写结论。'],
             en: ['Monthly Report', 'Pick a month and template, then ask AI for charts and findings.']
         },
         {
-            id: 'bigscreen', anchor: '.screen-grid', data: true,
+            id: 'bigscreen',
             zh: ['大屏看板', '开会直接看趋势、客户群排名和风险。'],
             en: ['Big Screen Dashboard', 'Present trends, customer-group rankings, and risks on one screen.']
         },
         {
-            id: 'opsDrafts', href: '/?tour=0&opsGuide=1#ops-drafts', isolated: true, data: true,
-            anchor: '.ops-inbox-panel, #platformConfirmModal.open .nav-confirm-dialog, .app-dialog.open .app-dialog-card',
+            id: 'opsDrafts', always: true,
             zh: ['运维待办', '核对微信或 WeLink 草稿和收件人，再确认发送。'],
             en: ['Ops Drafts', 'Review WeChat or WeLink drafts and confirm the recipients before sending.']
         },
@@ -252,8 +249,7 @@
     const HOME_STEPS = [
         {
             id: 'composer',
-            placement: 'top',
-            find: () => document.querySelector('#dcComposer') || document.querySelector('#dcInput')
+            stage: 'chat'
         },
         {
             id: 'modes',
@@ -311,9 +307,9 @@
     ];
 
     function availableSteps() {
-        const routes = new Map((window.ToolsPlatform?.catalog?.() || []).map(tool => [tool.id, tool.href]));
-        const tools = TOOL_STEPS.filter(tool => routes.has(tool.id) || tool.href)
-            .map(tool => ({ ...tool, href: routes.get(tool.id) || tool.href, placement: 'right' }));
+        const catalog = new Set((window.ToolsPlatform?.catalog?.() || []).map(tool => tool.id));
+        const tools = TOOL_STEPS.filter(tool => tool.always || catalog.has(tool.id))
+            .map(tool => ({ ...tool, stage: 'tool' }));
         return [...HOME_STEPS.slice(0, -2), ...tools, ...HOME_STEPS.slice(-2)];
     }
 
@@ -322,31 +318,25 @@
         index: 0,
         steps: [],
         previousFocus: null,
-        toolFrame: null,
-        toolDocument: null,
-        toolLayout: null,
-        toolMutations: null,
-        toolLoadTimer: 0,
-        toolRevealAt: 0,
-        focusTarget: null,
-        exampleSent: false,
-        examplePending: false,
-        exampleTyping: null,
-        exampleDraft: null,
-        exampleObserver: null,
-        exampleLayout: null,
+        chatPhase: '',
+        chatRun: 0,
         restoreChat: null,
         openedAccountMenu: false,
         wasSidebarCollapsed: false,
         initialMode: null,
         root: null,
+        stage: null,
         cutout: null,
         ring: null,
         card: null,
+        cardObserver: null,
         scheduleTimer: 0,
         retryCount: 0,
         repositionRaf: 0
     };
+
+    const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const L = (zh, en) => (getLang() === 'en-US' ? en : zh);
 
     function markDone() {
         try { localStorage.setItem(storageKey(), 'done'); } catch {}
@@ -360,6 +350,7 @@
         root.setAttribute('aria-modal', 'true');
         root.setAttribute('aria-labelledby', 'v2TourTitle');
         root.innerHTML = `
+            <div class="v2-tour-stage" aria-hidden="true"></div>
             <div class="v2-tour-backdrop">
                 <svg class="v2-tour-svg" width="100%" height="100%" aria-hidden="true">
                     <defs>
@@ -394,9 +385,13 @@
         document.body.appendChild(root);
 
         state.root = root;
+        state.stage = root.querySelector('.v2-tour-stage');
         state.cutout = root.querySelector('.v2-tour-cutout');
         state.ring = root.querySelector('.v2-tour-ring');
         state.card = root.querySelector('.v2-tour-card');
+        state.cardObserver = new ResizeObserver(onViewportChange);
+        state.cardObserver.observe(state.card);
+        state.stage.addEventListener('transitionend', onViewportChange);
 
         root.querySelector('.v2-tour-backdrop').addEventListener('click', () => {
             if (!state.card) return;
@@ -406,142 +401,104 @@
         });
         root.querySelector('.v2-tour-skip').addEventListener('click', () => close(true));
         root.querySelector('[data-tour-prev]').addEventListener('click', () => go(state.index - 1));
-        root.querySelector('[data-tour-next]').addEventListener('click', () => {
-            if (state.exampleDraft) sendExample();
-            else if (state.index >= state.steps.length - 1) close(true);
-            else go(state.index + 1);
-        });
+        root.querySelector('[data-tour-next]').addEventListener('click', forward);
         return root;
     }
 
-    async function typeExample() {
-        if (window.HomeToolFrame?.isOpen?.() || window.HomeSkillHub?.isOpen?.()
-            || !window.DragonClaw?.typeTourExample) return;
-        const typing = new AbortController();
-        state.exampleTyping = typing;
-        renderStep();
-        const draft = await window.DragonClaw.typeTourExample(getCopy().prompt, typing.signal);
-        if (typing.signal.aborted) return;
-        state.exampleTyping = null;
-        state.exampleDraft = draft;
-        renderStep();
+    function forward() {
+        if (state.chatPhase === 'playing') finishChat();
+        else if (state.index >= state.steps.length - 1) close(true);
+        else go(state.index + 1);
     }
 
-    function sendExample() {
-        const composer = document.getElementById('dcComposer');
-        const started = state.exampleDraft.submit();
-        state.exampleDraft = null;
-        state.examplePending = started && composer.classList.contains('is-generating');
-        if (!started) {
+    function renderStage(step) {
+        const demos = window.HomeProductTourDemos;
+        const stage = state.stage;
+        state.chatRun += 1;
+        state.chatPhase = '';
+        if (step.stage === 'tool' && demos?.tools[step.id]) {
+            stage.className = `v2-tour-stage is-tool is-${step.id}`;
+            stage.innerHTML = demos.tools[step.id](L);
+        } else if (step.stage === 'chat' && demos) {
+            stage.className = 'v2-tour-stage is-chat';
+            stage.innerHTML = demos.chat(L).html;
+            playChat();
+        } else {
+            stage.className = 'v2-tour-stage';
+            stage.innerHTML = '';
+        }
+        state.root.classList.toggle('is-staged', Boolean(stage.innerHTML));
+    }
+
+    const pause = ms => new Promise(resolve => setTimeout(resolve, reducedMotion() ? 0 : ms));
+
+    // 示范对话：输入问题 → 发送 → 分段显示预写回答。全程只改引导层，不触碰真实会话。
+    async function playChat() {
+        const run = state.chatRun;
+        const live = () => state.active && state.chatRun === run;
+        const demo = window.HomeProductTourDemos.chat(L);
+        const stage = state.stage;
+        const input = stage.querySelector('[data-chat-input]');
+        state.chatPhase = 'playing';
+        setFocus('[data-chat-composer]');
+        await pause(420);
+        const chars = Array.from(demo.prompt);
+        const started = performance.now();
+        const duration = reducedMotion() ? 0 : 1500;
+        while (live()) {
+            const count = duration ? Math.min(chars.length, Math.ceil(chars.length * (performance.now() - started) / duration)) : chars.length;
+            input.textContent = chars.slice(0, count).join('');
+            if (count >= chars.length) break;
+            await new Promise(resolve => requestAnimationFrame(resolve));
+        }
+        await pause(450);
+        if (!live()) return;
+        showQuestion(demo);
+        await pause(900);
+        const ai = stage.querySelector('[data-chat-ai]');
+        for (const block of demo.answer) {
+            if (!live()) return;
+            ai.querySelector('.tm-typing')?.remove();
+            ai.insertAdjacentHTML('beforeend', `<div class="tm-reveal">${block}</div>`);
+            scrollThread();
+            await pause(520);
+        }
+        if (live()) {
+            state.chatPhase = 'done';
             renderStep();
-            return;
         }
-        state.initialMode = null;
-        state.exampleSent = true;
-        if (state.examplePending) {
-            state.exampleObserver = new MutationObserver(() => {
-                if (composer.classList.contains('is-generating')) return;
-                state.exampleObserver.disconnect();
-                state.exampleObserver = null;
-                state.examplePending = false;
-                renderStep();
-                state.root.querySelector('[data-tour-next]').focus({ preventScroll: true });
-            });
-            state.exampleObserver.observe(composer, { attributes: true, attributeFilter: ['class'] });
-        }
+    }
+
+    function showQuestion(demo) {
+        const stage = state.stage;
+        stage.querySelector('[data-chat-input]').textContent = '';
+        stage.classList.add('is-sent');
+        const user = stage.querySelector('[data-chat-user]');
+        user.textContent = demo.prompt;
+        user.hidden = false;
+        stage.querySelector('[data-chat-ai]').hidden = false;
+        setFocus('[data-chat-thread]');
         renderStep();
-        (state.root.querySelector('[data-tour-next]:enabled') || state.root.querySelector('.v2-tour-skip')).focus({ preventScroll: true });
     }
 
-    function setExampleLayout(active) {
-        const root = document.documentElement;
-        state.root.classList.toggle('is-chat-demo', active);
-        root.classList.toggle('v2-tour-chat', active);
-        if (active && !state.exampleLayout) {
-            state.card.style.removeProperty('transform');
-            state.exampleLayout = new ResizeObserver(onViewportChange);
-            state.exampleLayout.observe(document.getElementById('dcThread'));
-            state.exampleLayout.observe(state.card);
-        } else if (!active) {
-            state.exampleLayout?.disconnect();
-            state.exampleLayout = null;
-            state.root.querySelector('.v2-tour-backdrop').style.removeProperty('clip-path');
-        }
+    function finishChat() {
+        const demo = window.HomeProductTourDemos.chat(L);
+        state.chatRun += 1;
+        showQuestion(demo);
+        state.stage.querySelector('[data-chat-ai]').innerHTML = demo.answer.map(block => `<div>${block}</div>`).join('');
+        scrollThread();
+        state.chatPhase = 'done';
+        renderStep();
     }
 
-    function openTourTool(step) {
-        if (!step.href) return;
-        state.root.classList.add('is-tool-loading');
-        state.toolRevealAt = performance.now() + 220;
-        state.toolLoadTimer = setTimeout(() => {
-            endToolLoading();
-            updateSpotlight();
-        }, 15000);
-        const toolFrame = window.HomeToolFrame;
-        if (!step.isolated && !toolFrame?.isOpen?.() && !window.HomeSkillHub?.isOpen?.()
-            && toolFrame?.open?.(step.href, { syncUrl: false })) {
-            state.toolFrame = document.querySelector('#v2ToolFrame .v2-tool-frame-view');
-        } else {
-            // Keep an already-open tool or hub mounted so its work survives the tour.
-            const frame = document.createElement('iframe');
-            frame.className = 'v2-tour-tool';
-            frame.title = (getLang() === 'en-US' ? step.en : step.zh)[0];
-            frame.tabIndex = -1;
-            frame.inert = true;
-            frame.src = window.ToolsNavigation?.toolUrl(step.href) || step.href;
-            state.root.prepend(frame);
-            state.toolFrame = frame;
-        }
-        state.toolFrame?.addEventListener('load', onTourToolLoad);
+    function scrollThread() {
+        const thread = state.stage.querySelector('[data-chat-thread]');
+        thread.scrollTop = thread.scrollHeight;
     }
 
-    function endToolLoading() {
-        clearTimeout(state.toolLoadTimer);
-        state.root.classList.remove('is-tool-loading');
-    }
-
-    function stopToolTracking() {
-        state.toolDocument?.removeEventListener('scroll', onViewportChange, true);
-        state.toolDocument?.removeEventListener('transitionend', onViewportChange, true);
-        state.toolDocument?.removeEventListener('animationend', onViewportChange, true);
-        state.toolLayout?.disconnect();
-        state.toolMutations?.disconnect();
-        state.toolDocument = null;
-        state.toolLayout = null;
-        state.toolMutations = null;
-        state.focusTarget = null;
-    }
-
-    function closeTourTool() {
-        const frame = state.toolFrame;
-        endToolLoading();
-        stopToolTracking();
-        if (!frame) return;
-        frame.removeEventListener('load', onTourToolLoad);
-        state.toolFrame = null;
-        if (frame.parentElement === state.root) frame.remove();
-        else window.HomeToolFrame?.close?.({ push: false, skipConfirm: true });
-    }
-
-    function onTourToolLoad(event) {
-        const frame = event.currentTarget;
-        const doc = frame.contentDocument;
-        if (doc?.URL === 'about:blank') return;
-        stopToolTracking();
-        if (doc?.body) {
-            state.toolDocument = doc;
-            state.toolLayout = new ResizeObserver(onViewportChange);
-            state.toolLayout.observe(frame);
-            state.toolLayout.observe(doc.body);
-            state.toolMutations = new MutationObserver(onViewportChange);
-            state.toolMutations.observe(doc.body, { subtree: true, childList: true, characterData: true,
-                attributes: true, attributeFilter: ['class', 'style', 'hidden', 'data-state'] });
-            doc.addEventListener('scroll', onViewportChange, { capture: true, passive: true });
-            doc.addEventListener('transitionend', onViewportChange, true);
-            doc.addEventListener('animationend', onViewportChange, true);
-        } else {
-            endToolLoading();
-        }
+    function setFocus(selector) {
+        state.stage.querySelectorAll('[data-tour-focus]').forEach(el => el.removeAttribute('data-tour-focus'));
+        state.stage.querySelector(selector)?.setAttribute('data-tour-focus', '');
         onViewportChange();
     }
 
@@ -563,7 +520,7 @@
         const cardRect = state.card.getBoundingClientRect();
         const cardW = cardRect.width || width;
         const cardH = cardRect.height || 200;
-        const docked = state.root.matches('.is-chat-demo, .is-data-tool');
+        const docked = state.root.classList.contains('is-staged');
 
         if (!targetRect) {
             state.cutout.setAttribute('width', '0');
@@ -594,18 +551,6 @@
         state.ring.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0)`;
         state.ring.style.width = `${Math.round(w)}px`;
         state.ring.style.height = `${Math.round(h)}px`;
-
-        const isChatDemo = state.root.classList.contains('is-chat-demo');
-        if (isChatDemo || state.exampleDraft) {
-            // Allow reading and scrolling only the message area or the read-only example.
-            const input = state.exampleDraft && document.getElementById('dcInput').getBoundingClientRect();
-            const left = input ? clamp(input.left, x, x + w) : x;
-            const top = input ? clamp(input.top, y, y + h) : y;
-            const right = input ? clamp(input.right, left, x + w) : x + w;
-            const bottom = input ? clamp(input.bottom, top, y + h) : y + h;
-            state.root.querySelector('.v2-tour-backdrop').style.clipPath =
-                `polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ${left}px ${top}px, ${right}px ${top}px, ${right}px ${bottom}px, ${left}px ${bottom}px, ${left}px ${top}px)`;
-        }
         if (docked) return;
 
         const candidates = {
@@ -636,69 +581,38 @@
     function updateSpotlight() {
         if (!state.active) return;
         const step = state.steps[state.index];
-        if (state.root.matches('.is-chat-demo, .is-data-tool')) {
+        const staged = state.root.classList.contains('is-staged');
+        if (staged) {
             document.documentElement.style.setProperty('--v2-tour-card-height', `${state.card.offsetHeight}px`);
         }
-        if (state.toolFrame) {
-            const frame = state.toolFrame;
-            const doc = state.toolDocument;
-            const startup = doc?.getElementById('platformStartup');
-            const booting = doc?.body.classList.contains('air-booting');
-            if (state.root.classList.contains('is-tool-loading')) {
-                const starting = !doc || booting || (startup && startup.dataset.state !== 'error');
-                if (starting || performance.now() < state.toolRevealAt) {
-                    if (!starting) onViewportChange();
-                    placeSpotlight(null, step.placement);
-                    return;
-                }
-                endToolLoading();
-            }
-            if (startup || booting) {
-                placeSpotlight(null, step.placement);
-                return;
-            }
-            const target = [...(doc?.querySelectorAll(step.anchor) || [])].find(el => isVisibleElement(el));
-            if (target !== state.focusTarget) {
-                if (state.focusTarget) state.toolLayout?.unobserve(state.focusTarget);
-                state.focusTarget = target;
-                if (target) {
-                    state.toolLayout?.observe(target);
-                    const rect = target.getBoundingClientRect();
-                    if (rect.top < 0 || rect.bottom > frame.clientHeight || rect.left < 0 || rect.right > frame.clientWidth) {
-                        target.scrollIntoView({ block: step.data ? 'start' : 'nearest', inline: 'nearest' });
-                    }
-                }
-            }
-            const rect = target?.getBoundingClientRect();
-            const left = Math.max(0, rect?.left ?? 0);
-            const top = Math.max(0, rect?.top ?? 0);
-            const right = Math.min(frame.clientWidth, rect?.right ?? 0);
-            const bottom = Math.min(frame.clientHeight, rect?.bottom ?? 0);
-            if (right > left && bottom > top) {
-                const outer = frame.getBoundingClientRect();
-                placeSpotlight({ left: outer.left + left, top: outer.top + top, width: right - left, height: bottom - top }, 'right');
-            } else {
-                placeSpotlight(frame.previousElementSibling?.getBoundingClientRect(), 'bottom');
-            }
+        const el = staged ? state.stage.querySelector('[data-tour-focus]') : step.find?.();
+        const visible = el && (staged || isVisibleElement(el, { ignoreOpacity: Boolean(step?.ignoreOpacity) }));
+        if (!visible) {
+            placeSpotlight(null, step?.placement || 'bottom');
             return;
         }
-        const showingExample = step.id === 'composer' && state.exampleSent;
-        const el = showingExample ? document.getElementById('dcThread') : step.find?.();
-        const rect = el && isVisibleElement(el, { ignoreOpacity: Boolean(step?.ignoreOpacity) }) ? el.getBoundingClientRect() : null;
+        // 高亮框只框住舞台里可见的部分，避免超出演示画面。
+        let rect = el.getBoundingClientRect();
+        if (staged) {
+            const bounds = state.stage.getBoundingClientRect();
+            const left = Math.max(rect.left, bounds.left);
+            const top = Math.max(rect.top, bounds.top);
+            const right = Math.min(rect.right, bounds.right);
+            const bottom = Math.min(rect.bottom, bounds.bottom);
+            rect = { left, top, width: Math.max(0, right - left), height: Math.max(0, bottom - top) };
+        }
         placeSpotlight(rect, step?.placement || 'bottom');
     }
 
     async function go(nextIndex) {
-        if (!state.active || state.exampleTyping || state.exampleDraft || state.examplePending) return;
+        if (!state.active) return;
         const clamped = clamp(nextIndex, 0, state.steps.length - 1);
         const step = state.steps[clamped];
-        if (state.index !== clamped) {
+        if (state.index !== clamped || !state.stage.dataset.step) {
             state.steps[state.index]?.cleanup?.();
-            closeTourTool();
             state.index = clamped;
-            if (step.id === 'composer') restoreTourChat();
-            else state.restoreChat ||= window.DragonClaw?.showTourLanding?.();
-            openTourTool(step);
+            state.stage.dataset.step = step.id;
+            renderStage(step);
         }
         if (typeof step.prepare === 'function') {
             await step.prepare();
@@ -720,26 +634,21 @@
         badge.textContent = tool ? copy.tool : stepCopy.badge;
         root.querySelector('.v2-tour-skip').textContent = copy.skip;
         root.querySelector('.v2-tour-title').textContent = tool ? tool[0] : stepCopy.title;
-        const sentExample = step.id === 'composer' && state.exampleSent;
-        const description = state.exampleTyping ? copy.exampleTyping
-            : state.exampleDraft ? copy.exampleReview
-            : sentExample ? (state.examplePending ? copy.exampleRunning : copy.exampleDone)
+        const sent = state.stage.classList.contains('is-sent');
+        const description = state.chatPhase === 'playing' ? (sent ? copy.exampleRunning : copy.exampleTyping)
+            : state.chatPhase === 'done' ? copy.exampleDone
             : (tool ? tool[1] : stepCopy.desc);
         root.querySelector('.v2-tour-desc').textContent = description;
-        root.querySelector('.v2-tour-kbd').textContent = state.exampleDraft ? copy.exampleReviewKbd : copy.kbd;
-        setExampleLayout(sentExample);
-        document.documentElement.classList.toggle('v2-tour-review', Boolean(state.exampleDraft));
-        root.classList.toggle('is-data-tool', Boolean(step.data));
-        document.documentElement.classList.toggle('v2-tour-data', Boolean(step.data));
-        if (step.data) state.card.style.removeProperty('transform');
+        root.querySelector('.v2-tour-kbd').textContent = copy.kbd;
+        if (root.classList.contains('is-staged')) state.card.style.removeProperty('transform');
 
         const prevBtn = root.querySelector('[data-tour-prev]');
         prevBtn.textContent = copy.back;
         prevBtn.hidden = state.index === 0;
 
         const nextBtn = root.querySelector('[data-tour-next]');
-        nextBtn.textContent = state.index === state.steps.length - 1 ? copy.done : copy.next;
-        nextBtn.disabled = Boolean(state.exampleTyping || state.examplePending);
+        nextBtn.textContent = state.chatPhase === 'playing' ? copy.showResult
+            : state.index === state.steps.length - 1 ? copy.done : copy.next;
 
         updateSpotlight();
     }
@@ -753,20 +662,16 @@
         } else if (event.key === 'Tab') {
             const controls = [...state.root.querySelectorAll('button:not([hidden]):enabled')]
                 .filter(control => control.getClientRects().length);
-            if (state.exampleDraft) controls.unshift(document.getElementById('dcInput'));
             const current = controls.indexOf(document.activeElement);
             const direction = event.shiftKey ? -1 : 1;
             const next = current < 0 ? (event.shiftKey ? controls.length - 1 : 0)
                 : (current + direction + controls.length) % controls.length;
             event.preventDefault();
             controls[next]?.focus({ preventScroll: true });
-        } else if (state.exampleDraft) {
-            return;
         } else if (event.key === 'ArrowRight' || event.key === 'Enter') {
             if (event.key === 'Enter' && event.target.closest?.('button')) return;
             event.preventDefault();
-            if (state.index >= state.steps.length - 1) close(true);
-            else go(state.index + 1);
+            forward();
         } else if (event.key === 'ArrowLeft') {
             event.preventDefault();
             if (state.index > 0) go(state.index - 1);
@@ -788,8 +693,6 @@
         clearTimeout(state.scheduleTimer);
         state.steps = availableSteps();
         state.previousFocus = document.activeElement;
-        state.exampleSent = false;
-        state.examplePending = false;
         state.active = true;
         state.index = 0;
 
@@ -806,6 +709,8 @@
         }
 
         const root = ensureRoot();
+        // 示范步骤画在引导层里；首页保持在落地页，方便后面高亮模式切换等入口。
+        state.restoreChat = window.DragonClaw?.showTourLanding?.() || null;
         document.addEventListener('keydown', onKeyDown, true);
         window.addEventListener('resize', onViewportChange);
         window.addEventListener('scroll', onViewportChange, { capture: true, passive: true });
@@ -814,8 +719,7 @@
             if (state.root !== root) return;
             root.classList.add('is-open');
             updateSpotlight();
-            (root.querySelector('[data-tour-next]:enabled') || root.querySelector('.v2-tour-skip')).focus({ preventScroll: true });
-            if (state.index === 0) typeExample();
+            root.querySelector('[data-tour-next]').focus({ preventScroll: true });
         });
         return true;
     }
@@ -823,15 +727,10 @@
     function close(completed = true) {
         if (!state.active) return;
         state.steps[state.index]?.cleanup?.();
-        closeTourTool();
-        state.exampleTyping?.abort();
-        state.exampleTyping = null;
-        state.exampleDraft?.cancel();
-        state.exampleDraft = null;
-        state.exampleObserver?.disconnect();
-        state.exampleObserver = null;
-        setExampleLayout(false);
-        document.documentElement.classList.remove('v2-tour-data', 'v2-tour-review');
+        state.chatRun += 1;
+        state.chatPhase = '';
+        state.cardObserver?.disconnect();
+        state.cardObserver = null;
         document.documentElement.style.removeProperty('--v2-tour-card-height');
         restoreTourChat();
         state.active = false;
@@ -844,6 +743,7 @@
         if (state.root) {
             state.root.remove();
             state.root = null;
+            state.stage = null;
             state.cutout = null;
             state.ring = null;
             state.card = null;
@@ -909,7 +809,9 @@
         scheduleAutoStart(900);
     });
     window.addEventListener('tools:languagechange', () => {
-        if (state.active) renderStep();
+        if (!state.active) return;
+        renderStage(state.steps[state.index]);
+        renderStep();
     });
 
     if (document.readyState === 'loading') {

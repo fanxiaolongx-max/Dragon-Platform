@@ -1,8 +1,8 @@
 {
   "zh": [
-    "修复频道会话（WeLink / 微信）实时回复里状态提示显示成「[object Object]」的问题：上下文整理、重试等状态改为可读的中文提示；频道详情里的列表缩进也更整齐。"
+    "新手引导改为示范演示：第一步自动播放一段写好的提问和回答，不再发出真实对话；数据抓取、数据导入、报表、一键催办、月报、大屏和运维待办都改成带示例数据的静态画面，秒开且不会空白，高亮框准确框住每个页面的重点区域。"
   ],
   "en": [
-    "Fixed channel chats (WeLink / WeChat) showing \"[object Object]\" as the live status: context compaction and retry states now show readable text, and lists in channel details are indented properly."
+    "The product tour now uses demos: the first step plays a prewritten question and reply instead of sending a real chat, and Data Capture, Data Import, Reports, One-Click Follow-Up, Monthly Report, Big Screen and Ops Drafts show instant static previews with sample data, so no step is empty and the highlight frames the key area of each page."
   ]
 }
