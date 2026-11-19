@@ -3319,7 +3319,10 @@
             const res = await fetch(`/api/ai/sessions?mine=1&pagePath=%2F&limit=${limit}&query=${encodeURIComponent(query)}`, { headers: authHeaders() });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
-            if (seq !== chatList.seq||account!==currentUser()+':'+(localStorage.getItem('tools_tenant_id')||'')) return;
+            if (seq !== chatList.seq) return;
+            // 请求发出后当前账号变了（页面加载后身份同步才写入新工号 / 同一浏览器切换了账号）：
+            // 丢掉这次结果并按新账号重新加载；以前直接返回，列表会一直停在加载状态
+            if (account !== currentUser()+':'+(localStorage.getItem('tools_tenant_id')||'')) return loadChatList();
             if(chatList.cacheIdentity!==account){chatList.cached=[];chatList.cacheIdentity=account;chatList.serverCount=0;}
             let fetched=Array.isArray(data.items)?data.items:[];
             // 之前已经往下加载了超过 100 条：刷新只替换前面这部分，后面的保留

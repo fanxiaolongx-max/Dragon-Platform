@@ -1,8 +1,8 @@
 {
   "zh": [
-    "共享对话的链接在应用挂在网关子路径下部署时（如数字人基座）会带上完整路径，邀请时一并告知服务端链接地址，用于下发带跳转的通知。"
+    "修复页面加载后账号信息晚到（或在同一浏览器切换账号）时，左侧对话列表一直停在加载状态、需要刷新页面的问题。"
   ],
   "en": [
-    "Shared-conversation links now include the full path when the app is deployed under a gateway subpath (such as the digital human base), and invites pass that link base to the server for notifications with a jump link."
+    "Fixed the conversation list staying on its loading placeholder when account details arrive late after page load or the account is switched in the same browser."
   ]
 }
