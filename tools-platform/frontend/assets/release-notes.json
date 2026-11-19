@@ -1,8 +1,8 @@
 {
   "zh": [
-    "iOS 与安卓 App 补齐「共享对话」：长按侧栏对话选择「共享…」，可按账号名、姓名或拼音搜索成员，使用常用群组与最近共享的推荐，复制或通过系统分享发送共享链接；被邀请时顶部弹出横幅，错过的可在告警中心接受、拒绝或忽略，也能粘贴网页端复制的共享链接加入。接受后对话出现在侧栏最上方可折叠的「共享对话」分类，打开时自动同步，其他成员的新消息实时接在后面，并标注发送账号。"
+    "修复 iOS App 编译：补齐共享对话新增的消息署名字段，App 内重新生成的消息保留原发送账号；iOS 版「共享对话」随本次构建可用。"
   ],
   "en": [
-    "The iOS and Android apps now support shared conversations: long-press a conversation and choose “Share…” to find people by account, name or pinyin, use saved groups and recent suggestions, and copy or send the share link. Invites show as a banner, can be handled later from the Alert Center, or joined by pasting a share link. Accepted conversations sit in a collapsible “Shared” section at the top of the sidebar, sync when opened, and show other members’ new messages live with their account names."
+    "Fixed the iOS app build by passing the new shared-conversation author fields everywhere; messages rebuilt in the app keep their original sender, and shared conversations ship in this iOS build."
   ]
 }
