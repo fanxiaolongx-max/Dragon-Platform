@@ -12,12 +12,15 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -38,10 +41,12 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -52,6 +57,8 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -112,7 +119,7 @@ fun Modifier.excludeFromShellHorizontalGesture(): Modifier = composed {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun RootShellScreen(vm: DragonClawViewModel) {
     val palette = LocalDragonClawPalette.current
@@ -555,7 +562,15 @@ fun RootShellScreen(vm: DragonClawViewModel) {
 
                             Spacer(Modifier.height(4.dp))
 
+                            val sidebarListState = rememberLazyListState()
+                            val haptic = LocalHapticFeedback.current
+                            var draggingPinnedKey by remember { mutableStateOf<String?>(null) }
+                            var draggingPinnedEntries by remember { mutableStateOf<List<SidebarSessionEntry>?>(null) }
+                            var draggingPinnedDeltaY by remember { mutableFloatStateOf(0f) }
+
                             LazyColumn(
+                                state = sidebarListState,
+                                userScrollEnabled = draggingPinnedKey == null,
                                 modifier = Modifier.weight(1f),
                                 contentPadding = PaddingValues(top = 4.dp, bottom = 92.dp),
                                 verticalArrangement = Arrangement.spacedBy(3.dp)
@@ -672,45 +687,163 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                                             }
                                         }
                                         if (!isCollapsed) {
-                                            items(group.items, key = { it.stableKey }) { entry ->
-                                                SidebarSessionRow(
-                                                    entry = entry,
-                                                    isSelected = entry.stableKey == vm.currentSidebarSelectionKey,
-                                                    isArchived = false,
-                                                    language = lang,
-                                                    onOpen = {
-                                                        vm.openSidebarEntry(entry)
-                                                        animateSidebar(0f)
-                                                    },
-                                                    onRefresh = {
-                                                        entry.aiSession?.let { vm.openSession(it, forceRefresh = true) }
-                                                            ?: entry.desktopSession?.let { vm.openDesktopSession(it, forceRefresh = true) }
-                                                        animateSidebar(0f)
-                                                    },
-                                                    onRename = entry.aiSession?.let { session ->
-                                                        {
-                                                            renameDraft = session.displayTitle(lang)
-                                                            renameTargetSession = session
-                                                        }
-                                                    },
-                                                    // 共享：只有 Dragon Claw 自己的对话（第三方 Agent 对话不共享）
-                                                    onShare = if (vm.sharing.available) entry.aiSession?.let { session ->
-                                                        { vm.sharing.openSheet(session.id, session.displayTitle(lang)) }
-                                                    } else null,
-                                                    onTogglePin = {
-                                                        entry.aiSession?.let { vm.togglePinSession(it) }
-                                                            ?: entry.desktopSession?.let { vm.togglePinDesktopSession(it) }
-                                                    },
-                                                    onMovePinnedUp = if (entry.isPinned && vm.canMovePinnedEntry(entry, moveUp = true)) {
-                                                        { vm.movePinnedEntry(entry, moveUp = true) }
-                                                    } else null,
-                                                    onMovePinnedDown = if (entry.isPinned && vm.canMovePinnedEntry(entry, moveUp = false)) {
-                                                        { vm.movePinnedEntry(entry, moveUp = false) }
-                                                    } else null,
-                                                    onToggleArchive = entry.aiSession?.let { session -> { vm.archiveSession(session) } },
-                                                    onExport = entry.aiSession?.let { session -> { vm.exportSession(session) } },
-                                                    onDelete = entry.aiSession?.let { session -> { vm.deleteSession(session) } }
+                                            val canDragPinned = group.bucket == SessionBucket.PINNED &&
+                                                group.items.size > 1 &&
+                                                vm.sessionSearchQuery.isBlank()
+                                            val displayItems = if (canDragPinned && draggingPinnedKey != null && draggingPinnedEntries != null) {
+                                                draggingPinnedEntries!!
+                                            } else {
+                                                group.items
+                                            }
+                                            items(displayItems, key = { it.stableKey }) { entry ->
+                                                val isDraggingThis = canDragPinned && draggingPinnedKey == entry.stableKey
+                                                val dragScale by animateFloatAsState(
+                                                    targetValue = if (isDraggingThis) 1.025f else 1f,
+                                                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                                                    label = "pinnedDragScale"
                                                 )
+                                                val dragElevation by animateDpAsState(
+                                                    targetValue = if (isDraggingThis) 8.dp else 0.dp,
+                                                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                                                    label = "pinnedDragElevation"
+                                                )
+                                                val placementModifier = if (canDragPinned && !isDraggingThis) {
+                                                    Modifier.animateItemPlacement(
+                                                        spring(dampingRatio = 0.84f, stiffness = Spring.StiffnessMediumLow)
+                                                    )
+                                                } else {
+                                                    Modifier
+                                                }
+                                                val dragModifier = if (canDragPinned) {
+                                                    val currentEntries by rememberUpdatedState(group.items)
+                                                    Modifier.pointerInput(entry.stableKey, canDragPinned) {
+                                                        detectDragGesturesAfterLongPress(
+                                                            onDragStart = {
+                                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                                suppressHorizontalGesture.value = true
+                                                                draggingPinnedEntries = currentEntries
+                                                                draggingPinnedKey = entry.stableKey
+                                                                draggingPinnedDeltaY = 0f
+                                                            },
+                                                            onDrag = { change, dragAmount ->
+                                                                change.consume()
+                                                                val list = draggingPinnedEntries?.toMutableList() ?: return@detectDragGesturesAfterLongPress
+                                                                val key = entry.stableKey
+                                                                val curIdx = list.indexOfFirst { it.stableKey == key }
+                                                                if (curIdx < 0) return@detectDragGesturesAfterLongPress
+                                                                val visibleByKey = sidebarListState.layoutInfo.visibleItemsInfo.associateBy { it.key }
+                                                                val curInfo = visibleByKey[key] ?: return@detectDragGesturesAfterLongPress
+
+                                                                val firstInfo = visibleByKey[list.first().stableKey]
+                                                                val lastInfo = visibleByKey[list.last().stableKey]
+                                                                var nextDelta = draggingPinnedDeltaY + dragAmount.y
+                                                                if (firstInfo != null && lastInfo != null) {
+                                                                    val minDelta = (firstInfo.offset - curInfo.offset - 28).toFloat()
+                                                                    val maxDelta = (lastInfo.offset - curInfo.offset + 28).toFloat()
+                                                                    nextDelta = nextDelta.coerceIn(minDelta, maxDelta)
+                                                                }
+                                                                draggingPinnedDeltaY = nextDelta
+                                                                val draggedCenterY = curInfo.offset + curInfo.size / 2f + nextDelta
+
+                                                                if (curIdx > 0) {
+                                                                    val prevInfo = visibleByKey[list[curIdx - 1].stableKey]
+                                                                    if (prevInfo != null && draggedCenterY < prevInfo.offset + prevInfo.size * 0.52f) {
+                                                                        val step = (curInfo.offset - prevInfo.offset).toFloat()
+                                                                        val item = list.removeAt(curIdx)
+                                                                        list.add(curIdx - 1, item)
+                                                                        draggingPinnedEntries = list
+                                                                        draggingPinnedDeltaY += step
+                                                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                                        return@detectDragGesturesAfterLongPress
+                                                                    }
+                                                                }
+                                                                if (curIdx < list.lastIndex) {
+                                                                    val nextInfo = visibleByKey[list[curIdx + 1].stableKey]
+                                                                    if (nextInfo != null && draggedCenterY > nextInfo.offset + nextInfo.size * 0.48f) {
+                                                                        val step = (nextInfo.offset - curInfo.offset).toFloat()
+                                                                        val item = list.removeAt(curIdx)
+                                                                        list.add(curIdx + 1, item)
+                                                                        draggingPinnedEntries = list
+                                                                        draggingPinnedDeltaY -= step
+                                                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                                    }
+                                                                }
+                                                            },
+                                                            onDragEnd = {
+                                                                val orderedKeys = draggingPinnedEntries?.map { it.stableKey }
+                                                                draggingPinnedKey = null
+                                                                draggingPinnedDeltaY = 0f
+                                                                suppressHorizontalGesture.value = false
+                                                                if (orderedKeys != null) {
+                                                                    vm.reorderPinnedEntries(orderedKeys)
+                                                                }
+                                                                draggingPinnedEntries = null
+                                                            },
+                                                            onDragCancel = {
+                                                                draggingPinnedKey = null
+                                                                draggingPinnedDeltaY = 0f
+                                                                draggingPinnedEntries = null
+                                                                suppressHorizontalGesture.value = false
+                                                            }
+                                                        )
+                                                    }
+                                                } else {
+                                                    Modifier
+                                                }
+                                                Box(
+                                                    modifier = placementModifier
+                                                        .zIndex(if (isDraggingThis) 20f else 0f)
+                                                        .graphicsLayer {
+                                                            translationY = if (isDraggingThis) draggingPinnedDeltaY else 0f
+                                                            scaleX = dragScale
+                                                            scaleY = dragScale
+                                                        }
+                                                        .then(
+                                                            if (dragElevation > 0.dp) {
+                                                                Modifier.shadow(
+                                                                    elevation = dragElevation,
+                                                                    shape = RoundedCornerShape(12.dp),
+                                                                    clip = false
+                                                                )
+                                                            } else Modifier
+                                                        )
+                                                        .then(dragModifier)
+                                                ) {
+                                                    SidebarSessionRow(
+                                                        entry = entry,
+                                                        isSelected = entry.stableKey == vm.currentSidebarSelectionKey,
+                                                        isArchived = false,
+                                                        language = lang,
+                                                        enableLongPressMenu = !canDragPinned,
+                                                        isDragElevated = isDraggingThis,
+                                                        onOpen = {
+                                                            vm.openSidebarEntry(entry)
+                                                            animateSidebar(0f)
+                                                        },
+                                                        onRefresh = {
+                                                            entry.aiSession?.let { vm.openSession(it, forceRefresh = true) }
+                                                                ?: entry.desktopSession?.let { vm.openDesktopSession(it, forceRefresh = true) }
+                                                            animateSidebar(0f)
+                                                        },
+                                                        onRename = entry.aiSession?.let { session ->
+                                                            {
+                                                                renameDraft = session.displayTitle(lang)
+                                                                renameTargetSession = session
+                                                            }
+                                                        },
+                                                        // 共享：只有 Dragon Claw 自己的对话（第三方 Agent 对话不共享）
+                                                        onShare = if (vm.sharing.available) entry.aiSession?.let { session ->
+                                                            { vm.sharing.openSheet(session.id, session.displayTitle(lang)) }
+                                                        } else null,
+                                                        onTogglePin = {
+                                                            entry.aiSession?.let { vm.togglePinSession(it) }
+                                                                ?: entry.desktopSession?.let { vm.togglePinDesktopSession(it) }
+                                                        },
+                                                        onToggleArchive = entry.aiSession?.let { session -> { vm.archiveSession(session) } },
+                                                        onExport = entry.aiSession?.let { session -> { vm.exportSession(session) } },
+                                                        onDelete = entry.aiSession?.let { session -> { vm.deleteSession(session) } }
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -1801,13 +1934,13 @@ private fun SidebarSessionRow(
     isSelected: Boolean,
     isArchived: Boolean,
     language: String,
+    enableLongPressMenu: Boolean = true,
+    isDragElevated: Boolean = false,
     onOpen: () -> Unit,
     onRefresh: (() -> Unit)? = null,
     onRename: (() -> Unit)? = null,
     onShare: (() -> Unit)? = null,
     onTogglePin: (() -> Unit)? = null,
-    onMovePinnedUp: (() -> Unit)? = null,
-    onMovePinnedDown: (() -> Unit)? = null,
     onToggleArchive: (() -> Unit)? = null,
     onExport: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null
@@ -1838,8 +1971,17 @@ private fun SidebarSessionRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(if (isSelected) palette.accent.copy(alpha = 0.15f) else Color.Transparent)
-            .combinedClickable(onClick = onOpen, onLongClick = { showMenu = true })
+            .background(
+                when {
+                    isDragElevated -> if (palette.isDark) Color.White.copy(alpha = 0.14f) else palette.cardSurface.copy(alpha = 0.96f)
+                    isSelected -> palette.accent.copy(alpha = 0.15f)
+                    else -> Color.Transparent
+                }
+            )
+            .combinedClickable(
+                onClick = onOpen,
+                onLongClick = if (enableLongPressMenu) { { showMenu = true } } else null
+            )
             .padding(horizontal = 10.dp, vertical = 7.dp)
     ) {
         Icon(
@@ -1955,26 +2097,6 @@ private fun SidebarSessionRow(
                             onClick = {
                                 showMenu = false
                                 onTogglePin()
-                            }
-                        )
-                    }
-                    if (!isArchived && onMovePinnedUp != null) {
-                        DropdownMenuItem(
-                            text = { Text(tr(language, "上移置顶", "Move Up"), color = palette.inkPrimary) },
-                            leadingIcon = { Icon(Icons.Rounded.ArrowUpward, contentDescription = null, tint = palette.inkSecondary) },
-                            onClick = {
-                                showMenu = false
-                                onMovePinnedUp()
-                            }
-                        )
-                    }
-                    if (!isArchived && onMovePinnedDown != null) {
-                        DropdownMenuItem(
-                            text = { Text(tr(language, "下移置顶", "Move Down"), color = palette.inkPrimary) },
-                            leadingIcon = { Icon(Icons.Rounded.ArrowDownward, contentDescription = null, tint = palette.inkSecondary) },
-                            onClick = {
-                                showMenu = false
-                                onMovePinnedDown()
                             }
                         )
                     }

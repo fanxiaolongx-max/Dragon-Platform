@@ -461,10 +461,19 @@ test('chats without a folder use a hidden per-account scratch workspace that is 
     assert.notEqual(other.id, scratch.id);
     assert.equal(other.root, scratch.root, 'files persist across chats of the same account');
     assert.notEqual(manager.ensureScratchSession({ user: { username: 'bob', role: 'admin' }, tenantId: 'default', chatSessionId: 'chat-1' }).root, scratch.root);
-    const client = scriptedClient([{ text: 'done' }]);
+    const client = scriptedClient([{ text: 'done' }, { text: 'done' }, { text: 'done' }]);
     await manager.runAgentTurn({ session: scratch, client, systemInstruction: 'SYS', historyMessages: [{ role: 'user', content: 'hi' }], write: () => {}, signal: new AbortController().signal });
     assert.equal(client.calls[0].systemInstruction.includes(scratch.root), false, 'scratch path is not given to the model');
     assert.match(client.calls[0].systemInstruction, /临时目录/);
+    assert.doesNotMatch(client.calls[0].systemInstruction, /NetCare 实时数仓（@netcare-data，在线最新汇总与明细）/);
+    assert.match(client.calls[0].systemInstruction, /其他业务表（按常用顺序选择）/);
+
+    await manager.runAgentTurn({ session: scratch, client, systemInstruction: 'SYS', skillCatalog: [{ id: 'netcare-data' }], historyMessages: [{ role: 'user', content: '查下本月异常指标' }], write: () => {}, signal: new AbortController().signal });
+    assert.match(client.calls[1].systemInstruction, /NetCare 实时数仓（@netcare-data，在线最新汇总与明细）/);
+    assert.match(client.calls[1].systemInstruction, /其他业务表（按常用顺序选择）/);
+
+    await manager.runAgentTurn({ session: scratch, client, systemInstruction: 'SYS', skillCatalog: [{ id: 'netcare-data' }], skillIds: ['netcare-data'], historyMessages: [{ role: 'user', content: '@netcare-data 查下异常' }], write: () => {}, signal: new AbortController().signal });
+    assert.doesNotMatch(client.calls[2].systemInstruction, /NetCare 实时数仓（@netcare-data，在线最新汇总与明细）/);
 });
 
 test('tool_search loads deferred tools for the rest of the session, appended after the existing ones; approvals still apply', async () => {
@@ -797,4 +806,30 @@ test('review nudges the model when it claims to have written/optimized a file wi
     assert.match(fs.readFileSync(outPath, 'utf8'), /Fixed/);
     assert.equal(res.text, '已将优化后的 HTML 真正写入 monthly_report_nudged.html。');
     assert.ok(events.some(e => e.type === 'tool_result' && e.tool === 'write_file' && e.ok));
+});
+
+test('load_skill on a missing shared capability emits skill_grant_prompt on demand', async () => {
+    const session = manager.ensureSession({ agentSessionId: newSessionId(), user, tenantId: 'default', root, permissionMode: 'full' });
+    const client = scriptedClient([
+        { toolCalls: [{ id: 'g1', name: 'load_skill', args: { id: 'smart-notify' } }] },
+        { text: '已为您弹出向平台管理员申请 @smart-notify 的窗口。' }
+    ]);
+    const { events, write } = collector();
+    const res = await manager.runAgentTurn({
+        session,
+        client,
+        systemInstruction: 'S',
+        skillCatalog: [{ id: 'ops-group' }],
+        sharedCapabilities: {
+            skills: [{ id: 'smart-notify', name: '智能研判与通知下发', owner: 'admin', ownerName: '平台管理员', canRequest: true }]
+        },
+        historyMessages: [{ role: 'user', content: '用智能通知提醒责任人' }],
+        write,
+        signal: new AbortController().signal
+    });
+    assert.match(res.text, /申请/);
+    const promptEvt = events.find(e => e.type === 'skill_grant_prompt');
+    assert.ok(promptEvt);
+    assert.equal(promptEvt.skill.id, 'smart-notify');
+    assert.equal(promptEvt.skill.ownerName, '平台管理员');
 });

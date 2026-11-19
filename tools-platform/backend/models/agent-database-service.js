@@ -17,7 +17,35 @@ function canonical(file) { return fs.realpathSync(file); }
 
 // 与 tenant-sqlite-pool 中 scope='report' 打开的库保持一致；其余平台库都在数据目录。
 const REPORT_SCOPED = ['report.db'];
-const SKIPPED_FILE = /backup|before|corrupt|repaired|archive|restore|\.bak|\.old|\.tmp/i;
+const SKIPPED_FILE = /backup|before|corrupt|repaired|archive|restore|hosted-simulated-business|\.bak|\.old|\.tmp/i;
+const DB_LABELS = {
+    'tools.db': '平台业务主库',
+    'report.db': '历史兼容报表库',
+    'ai-knowledge.db': 'AI 知识库',
+    'datacom-knowledge.db': '数通知识库',
+    'requirements.db': '需求广场库',
+    'ezscan-warehouse.db': '仓储库',
+    'chat-history.db': '聊天记录库'
+};
+
+function describeDatabase(id) {
+    const raw = String(id || '').trim();
+    if (raw.startsWith('platform:')) return DB_LABELS[platformName(raw)] || '平台数据库';
+    if (raw.startsWith('local:')) return '工作区本地 SQLite';
+    return '';
+}
+
+function describeTablePurpose(table) {
+    const clean = String(table || '').trim();
+    if (!clean) return '';
+    try {
+        const meta = require('./db-explorer-catalog').describeTable(clean);
+        if (!meta?.documented || !meta.description) return '';
+        return String(meta.description).split(/[。；;\n]/)[0].trim().slice(0, 28);
+    } catch {
+        return '';
+    }
+}
 
 /**
  * 平台运行库按平台实际打开的位置解析，标识为 platform:<文件名>，与部署方式无关：
@@ -158,6 +186,30 @@ async function backupBeforeWrite(ctx, id) {
     return target;
 }
 
+const PRIORITY_TABLE_ORDER = [
+    'reportsnapshots',
+    'reportmetricdata',
+    'reportcategoryscores',
+    'sla_snapshots',
+    'import_source_batches',
+    'import_source_sheets',
+    'import_source_snapshots',
+    'topic_snapshots',
+    'monthly_report_snapshots',
+    'ai_report_documents',
+    'sla_targets',
+    'sla_categories',
+    'sla_groups',
+    'upload_history',
+    'ai_bi_boards',
+    'reward_applications',
+    'ops_followup_tasks',
+    'bigscreenowners',
+    'requirements',
+    'monthly_documents'
+];
+const PRIORITY_TABLE_RANK = new Map(PRIORITY_TABLE_ORDER.map((name, idx) => [name.toLowerCase(), idx]));
+
 async function tables(all) {
     const rows = await all("SELECT name, sql FROM sqlite_master WHERE type = 'table' ORDER BY name LIMIT 2000");
     return rows.filter(row => !PRIVATE_TABLE.test(row.name) && /^CREATE\s+TABLE\b/i.test(row.sql || ''));
@@ -213,9 +265,51 @@ async function listDatabases(ctx, args = {}) {
 }
 
 async function schema(ctx, args) {
-    return withDatabase(ctx, args.database, async all => args.table
-        ? { database: args.database, table: args.table, columns: (await columns(all, args.table)).map(row => ({ name: row.name, type: row.type, primaryKey: Boolean(row.pk) })) }
-        : { database: args.database, tables: (await tables(all)).map(row => row.name) });
+    return withDatabase(ctx, args.database, async all => {
+        if (args.table) {
+            return {
+                database: args.database,
+                databasePurpose: describeDatabase(args.database),
+                table: args.table,
+                tablePurpose: describeTablePurpose(args.table),
+                columns: (await columns(all, args.table)).map(row => ({ name: row.name, type: row.type, primaryKey: Boolean(row.pk) }))
+            };
+        }
+        const list = await tables(all);
+        const tableNames = list.map(row => row.name);
+        const priorityOrdered = [...tableNames].sort((a, b) => {
+            const ra = PRIORITY_TABLE_RANK.has(a.toLowerCase()) ? PRIORITY_TABLE_RANK.get(a.toLowerCase()) : Number.MAX_SAFE_INTEGER;
+            const rb = PRIORITY_TABLE_RANK.has(b.toLowerCase()) ? PRIORITY_TABLE_RANK.get(b.toLowerCase()) : Number.MAX_SAFE_INTEGER;
+            return ra !== rb ? ra - rb : a.localeCompare(b);
+        });
+        const tableDetails = [];
+        for (const name of priorityOrdered.slice(0, 80)) {
+            let rowCount = null;
+            try {
+                const countRows = await all(`SELECT COUNT(*) AS c FROM ${quote(name)}`);
+                rowCount = Number(countRows?.[0]?.c ?? 0);
+            } catch {
+                rowCount = null;
+            }
+            const purpose = describeTablePurpose(name);
+            tableDetails.push({ name, ...(purpose ? { purpose } : {}), ...(rowCount !== null ? { rowCount } : {}) });
+        }
+        tableDetails.sort((a, b) => {
+            const ra = PRIORITY_TABLE_RANK.has(a.name.toLowerCase()) ? PRIORITY_TABLE_RANK.get(a.name.toLowerCase()) : Number.MAX_SAFE_INTEGER;
+            const rb = PRIORITY_TABLE_RANK.has(b.name.toLowerCase()) ? PRIORITY_TABLE_RANK.get(b.name.toLowerCase()) : Number.MAX_SAFE_INTEGER;
+            if (ra !== rb) return ra - rb;
+            const ha = (a.rowCount || 0) > 0 ? 0 : 1;
+            const hb = (b.rowCount || 0) > 0 ? 0 : 1;
+            return ha !== hb ? ha - hb : a.name.localeCompare(b.name);
+        });
+        return {
+            database: args.database,
+            databasePurpose: describeDatabase(args.database),
+            tables: tableNames,
+            tableDetails: tableDetails.slice(0, 40),
+            hint: 'tableDetails 按常用业务优先顺序与非空行数排序，标明了各表用途(purpose)与当前行数(rowCount)。默认只聚焦所选业务对应核心表，不要一次性盲查全库几百张表。'
+        };
+    });
 }
 
 async function readTable(ctx, args) {
@@ -416,4 +510,4 @@ async function transaction(ctx, id, callback) {
     }, true);
 }
 
-module.exports = { listDatabases, schema, readTable, previewWrite, writeTable, transaction, platformFiles, backupDir, PRIVATE_TABLE, PRIVATE_COLUMN };
+module.exports = { listDatabases, schema, readTable, previewWrite, writeTable, transaction, platformFiles, backupDir, describeDatabase, describeTablePurpose, PRIVATE_TABLE, PRIVATE_COLUMN };

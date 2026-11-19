@@ -1137,15 +1137,45 @@ const EXECUTORS = {
     list_directory: listDirectory,
     read_file: readFile,
     search,
-    list_databases: async (ctx, args) => ({ content: JSON.stringify(await databaseService.listDatabases(ctx, args)), summary: 'SQLite 数据库目录' }),
-    database_schema: async (ctx, args) => ({ content: JSON.stringify(await databaseService.schema(ctx, args)), summary: `${args.database} ${args.table || '业务表'}` }),
-    read_database_table: async (ctx, args) => ({ content: JSON.stringify(await databaseService.readTable(ctx, args)), summary: `${args.database} / ${args.table}` }),
+    list_databases: async (ctx, args) => {
+        const result = await databaseService.listDatabases(ctx, args);
+        const list = Array.isArray(result?.databases) ? result.databases : [];
+        const names = list.slice(0, 4).map(d => {
+            const label = databaseService.describeDatabase(d.id);
+            return label ? `${d.id}（${label}）` : d.id;
+        }).join('、');
+        return { content: JSON.stringify(result), summary: list.length ? `共 ${list.length} 个库（${names}${list.length > 4 ? '…' : ''}）` : 'SQLite 数据库目录（空）' };
+    },
+    database_schema: async (ctx, args) => {
+        const result = await databaseService.schema(ctx, args);
+        const dbLabel = databaseService.describeDatabase(args.database);
+        const dbTag = dbLabel ? `${args.database}（${dbLabel}）` : args.database;
+        if (args.table) {
+            const purpose = databaseService.describeTablePurpose(args.table);
+            return { content: JSON.stringify(result), summary: `${dbTag} / ${args.table}${purpose ? `（${purpose}）` : ''} · ${result.columns?.length || 0} 列` };
+        }
+        const total = result.tables?.length || 0;
+        const nonEmpty = Array.isArray(result.tableDetails) ? result.tableDetails.filter(t => Number(t.rowCount) > 0).length : 0;
+        return { content: JSON.stringify(result), summary: `${dbTag} · 共 ${total} 张表${nonEmpty ? `（${nonEmpty} 张有数据）` : '（当前全为空表）'}` };
+    },
+    read_database_table: async (ctx, args) => {
+        const result = await databaseService.readTable(ctx, args);
+        const dbLabel = databaseService.describeDatabase(args.database);
+        const dbTag = dbLabel ? `${args.database}（${dbLabel}）` : args.database;
+        const purpose = databaseService.describeTablePurpose(args.table);
+        const count = Array.isArray(result?.rows) ? result.rows.length : 0;
+        const totalNote = result?.totalRows !== undefined ? ` / 共 ${result.totalRows} 行` : '';
+        return { content: JSON.stringify(result), summary: `${dbTag} / ${args.table}${purpose ? `（${purpose}）` : ''} · ${count} 行${totalNote}` };
+    },
     ...Object.fromEntries(Object.entries({ insert_database_row: 'insert', update_database_rows: 'update', delete_database_rows: 'delete' })
         .map(([name, operation]) => [name, async (ctx, args) => {
             assertScriptTool(args);
             const result = await databaseService.writeTable(ctx, { ...args, operation });
             noticeDatabaseWrite(ctx, args, operation, result);
-            return { content: JSON.stringify(result), summary: `${operation} ${args.database} / ${args.table}: ${result.changes} 行` };
+            const dbLabel = databaseService.describeDatabase(args.database);
+            const dbTag = dbLabel ? `${args.database}（${dbLabel}）` : args.database;
+            const purpose = databaseService.describeTablePurpose(args.table);
+            return { content: JSON.stringify(result), summary: `${operation} ${dbTag} / ${args.table}${purpose ? `（${purpose}）` : ''}：${result.changes} 行` };
         }])),
     write_file: writeFile,
     edit_file: editFile,

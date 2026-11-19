@@ -22,6 +22,7 @@ const platformDb = require('../backend/models/platform-db');
 const controlDb = require('../backend/models/control-db');
 
 test.after(async () => {
+    shared._resetCache();
     await pool.closeAll();
     await appDb.closeDatabase();
     await platformDb.closeDatabase();
@@ -601,4 +602,86 @@ test('shared workspace auto-mounts originator dir, saves uploads there, isolates
     });
     assert.equal(upBlocked.status, 403);
     assert.equal(fs.existsSync(path.join(originDir, 'shared-uploads', 'late.txt')), false);
+
+    // Non-owner copy is revoked and removed from normal session list, while initiator keeps their own session
+    const bobListAfterStop = await apiJson('bob4', 'GET', '/ai/sessions?mine=1&pagePath=%2F');
+    assert.equal(bobListAfterStop.status, 200);
+    assert.equal(bobListAfterStop.body.items.some(item => item.id === bobSession), false);
+    const bobSyncAfterStop = await apiJson('bob4', 'POST', `/shared-conversations/session/${bobSession}/sync`);
+    assert.equal(bobSyncAfterStop.body.result.closed, true);
+    assert.equal(bobSyncAfterStop.body.result.revoked, true);
+    const bobPrepareAfterStop = await apiJson('bob4', 'POST', `/shared-conversations/session/${bobSession}/prepare`, {});
+    assert.equal(bobPrepareAfterStop.status, 409);
+    assert.equal(bobPrepareAfterStop.body.code, 'SHARE_REVOKED');
+    const aliceListAfterStop = await apiJson('alice4', 'GET', '/ai/sessions?mine=1&pagePath=%2F');
+    assert.equal(aliceListAfterStop.body.items.some(item => item.id === aliceSession), true);
+});
+
+test('stopping or removing a shared conversation revokes non-owner copies including pre-existing closed rows', async t => {
+    const app = express();
+    app.use(express.json());
+    app.use('/api', auth.checkAuth, tenantMiddleware);
+    const serverSource = fs.readFileSync(path.join(__dirname, '../backend/server.js'), 'utf8');
+    const begin = serverSource.indexOf("app.use('/api', (req, res, next) => {");
+    const end = serverSource.indexOf('\n});', begin) + 4;
+    vm.runInNewContext(serverSource.slice(begin, end), { app, requireAdmin: auth.requireAdmin });
+    app.use('/api/shared-conversations', require('../backend/routes/shared-conversations'));
+    app.use('/api/ai', require('../backend/routes/ai'));
+    const server = app.listen(0, '127.0.0.1');
+    await new Promise(resolve => server.once('listening', resolve));
+    t.after(async () => {
+        server.closeAllConnections();
+        await new Promise(resolve => server.close(resolve));
+    });
+
+    await authUsers.ensureReady();
+    for (const u of ['alice5', 'bob5']) {
+        await authUsers.createUser({ username: u, role: 'admin', passwordHash: 'x', tenantId: u, displayName: u });
+        await authSessions.saveSession(`tok-${u}`, u, 'admin', Date.now() + 60000, u);
+    }
+    const base = `http://127.0.0.1:${server.address().port}/api`;
+    const apiJson = async (who, method, p, body) => {
+        const res = await fetch(`${base}${p}`, {
+            method,
+            headers: { Authorization: `Bearer tok-${who}`, 'Content-Type': 'application/json' },
+            body: body ? JSON.stringify(body) : undefined
+        });
+        return { status: res.status, body: await res.json() };
+    };
+
+    const aliceSession = await runWithTenant('alice5', async () => {
+        const id = await chat.addMessage({ owner: 'alice5', pagePath: '/', role: 'user', content: '内部指标分析' });
+        await chat.addMessage({ sessionId: id, owner: 'alice5', pagePath: '/', role: 'model', content: '已完成指标汇总' });
+        return id;
+    });
+    const inv = await apiJson('alice5', 'POST', `/shared-conversations/session/${aliceSession}/invite`, { title: '内部指标分析', usernames: ['bob5'] });
+    assert.equal(inv.status, 200);
+    const bobInbox = await apiJson('bob5', 'GET', '/shared-conversations/inbox');
+    const acc = await apiJson('bob5', 'POST', `/shared-conversations/invites/${bobInbox.body.items[0].shareId}/respond`, { action: 'accept' });
+    const bobSession = acc.body.sessionId;
+    const shareId = acc.body.share.id;
+
+    // Simulate legacy pre-fix state: share closed directly in control-db while recipient still had local copy & accepted status
+    await controlDb.run("UPDATE shared_conversations SET status = 'closed' WHERE id = ?", [shareId]);
+    assert.ok(await runWithTenant('bob5', () => chat.getSession(bobSession)), 'precondition: legacy copy lingers in tenant db');
+
+    const bobMineSessions = await apiJson('bob5', 'GET', '/ai/sessions?mine=1&pagePath=%2F');
+    assert.equal(bobMineSessions.status, 200);
+    assert.equal(bobMineSessions.body.items.some(item => item.id === bobSession), false, 'legacy closed shared copy must be swept and hidden');
+    assert.equal(await runWithTenant('bob5', () => chat.getSession(bobSession)), undefined);
+    const bobMsgs = await apiJson('bob5', 'GET', `/ai/sessions/${bobSession}/messages`);
+    assert.equal(bobMsgs.status, 404);
+    assert.equal(bobMsgs.body.code, 'SHARE_REVOKED');
+    // Initiator reactivates share and later removes Bob -> Bob's new copy is also purged
+    const prep = await apiJson('alice5', 'POST', `/shared-conversations/session/${aliceSession}/prepare`, {});
+    assert.equal(prep.status, 200);
+    const inv2 = await apiJson('alice5', 'POST', `/shared-conversations/session/${aliceSession}/invite`, { usernames: ['bob5'] });
+    assert.equal(inv2.status, 200);
+    const bobInbox2 = await apiJson('bob5', 'GET', '/shared-conversations/inbox');
+    const acc2 = await apiJson('bob5', 'POST', `/shared-conversations/invites/${bobInbox2.body.items[0].shareId}/respond`, { action: 'accept' });
+    const bobSession2 = acc2.body.sessionId;
+    assert.notEqual(bobSession2, bobSession);
+    await apiJson('alice5', 'POST', `/shared-conversations/session/${aliceSession}/remove`, { username: 'bob5' });
+    const bobListAfterRemove = await apiJson('bob5', 'GET', '/ai/sessions?mine=1&pagePath=%2F');
+    assert.equal(bobListAfterRemove.body.items.some(item => item.id === bobSession2), false);
 });

@@ -66,7 +66,7 @@ function resolveUserPath(user, tenantId, input) {
     const text = String(input || '').trim();
     if (!isConfined(user, tenantId)) return text;
     const base = workspaceRoot(tenantId);
-    if (!text || text === '~') return base;
+    if (!text || text === '~' || text === '/') return base;
     if (text.startsWith('~/') || text.startsWith('~\\')) return path.join(base, text.slice(2));
     return path.isAbsolute(text) ? text : path.join(base, text);
 }

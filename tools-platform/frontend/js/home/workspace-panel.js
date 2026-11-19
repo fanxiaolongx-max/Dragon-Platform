@@ -210,8 +210,8 @@
                     <div class="wsp-dir-main">
                         <span class="wsp-dir-icon" aria-hidden="true">${FOLDER_ICON}</span>
                         <div class="wsp-dir-text">
-                            <b title="${escapeHtml(state.root)}">${escapeHtml(state.rootName)}</b>
-                            <small title="${escapeHtml(state.root)}">${escapeHtml(state.root)}</small>
+                            <b title="${escapeHtml(toDisplayPath(state.root))}">${escapeHtml(state.rootName)}</b>
+                            <small title="${escapeHtml(toDisplayPath(state.root))}">${escapeHtml(toDisplayPath(state.root))}</small>
                         </div>
                     </div>
                     <div class="wsp-dir-actions">
@@ -242,7 +242,7 @@
             </div>
             ${recent.length ? `<div class="wsp-row wsp-row-col">
                 <span class="wsp-row-label">${escapeHtml(tx('recentDirs'))}</span>
-                <div class="wsp-recent">${recent.map(item => `<button type="button" class="wsp-recent-item" data-wsp-select="${escapeHtml(item)}" title="${escapeHtml(item)}"><span class="wsp-recent-icon" aria-hidden="true">${FOLDER_ICON}</span><span>${escapeHtml(baseName(item))}</span><i>${escapeHtml(shorten(item))}</i></button>`).join('')}</div>
+                <div class="wsp-recent">${recent.map(item => `<button type="button" class="wsp-recent-item" data-wsp-select="${escapeHtml(item)}" title="${escapeHtml(toDisplayPath(item))}"><span class="wsp-recent-icon" aria-hidden="true">${FOLDER_ICON}</span><span>${escapeHtml(baseName(item))}</span><i>${escapeHtml(shorten(toDisplayPath(item)))}</i></button>`).join('')}</div>
             </div>` : ''}`;
     }
 
@@ -251,10 +251,22 @@
         return parts[parts.length - 1] || fullPath;
     }
 
+    function toDisplayPath(fullPath) {
+        const text = String(fullPath || '');
+        if (!text || !state.capability?.confined) return text;
+        const home = String(state.capability?.homeDir || '').replace(/[\\/]+$/, '');
+        if (!home) return text;
+        if (text === home) return '~';
+        if (text.startsWith(`${home}/`) || text.startsWith(`${home}\\`)) return `~${text.slice(home.length)}`;
+        return text;
+    }
+
     function shorten(fullPath) {
-        const home = state.capability?.homeDir;
+        const home = String(state.capability?.homeDir || '').replace(/[\\/]+$/, '');
         let text = String(fullPath);
-        if (home && text.startsWith(home)) text = `~${text.slice(home.length)}`;
+        if (home && (text === home || text.startsWith(`${home}/`) || text.startsWith(`${home}\\`))) {
+            text = `~${text.slice(home.length)}` || '~';
+        }
         return text.length > 42 ? `…${text.slice(-40)}` : text;
     }
 
@@ -771,7 +783,13 @@
     async function createWorkspace() {
         if (isReadOnly() || workspaceBusy()) return;
         const sep = state.capability?.sep || '/';
-        const directory = await window.AppDialog.prompt(wsLabel('输入新文件夹的完整路径。已有目录请使用“打开本地文件夹”。', 'Enter the full path for a new folder. To use an existing folder, choose Open local folder.'), {title:wsLabel('新建工作空间', 'New workspace'),defaultValue:(state.capability?.homeDir || '') + sep + 'workspace',maxLength:1024});
+        const defaultDir = state.capability?.confined ? `~${sep}workspace` : ((state.capability?.homeDir || '') + sep + 'workspace');
+        const directory = await window.AppDialog.prompt(
+            state.capability?.confined
+                ? wsLabel('输入团队工作区内的子目录路径（~ 表示你的工作区根目录）。', 'Enter a folder path inside your team workspace (~ is your workspace root).')
+                : wsLabel('输入新文件夹的完整路径。已有目录请使用“打开本地文件夹”。', 'Enter the full path for a new folder. To use an existing folder, choose Open local folder.'),
+            { title: wsLabel('新建工作空间', 'New workspace'), defaultValue: defaultDir, maxLength: 1024 }
+        );
         if (!directory?.trim()) return;
         try { const data = await request('POST', `${API}/create`, {path:directory.trim()});await selectDirectory(data.root); }
         catch(error) { toast(error.message); }
@@ -803,10 +821,10 @@
             const modeName = isReadOnly() ? tx('readOnlyMode') : tx(`mode${state.permissionMode[0].toUpperCase()}${state.permissionMode.slice(1)}`);
             el.chip.innerHTML = `
                 <details class="dc-context-picker dc-directory-picker" data-wsp-picker="directory">
-                    <summary title="${escapeHtml(state.root || tx('chooseDirHint'))}">${folder}<span>${escapeHtml(state.rootName || label('选择工作空间', 'Choose workspace'))}</span><span class="dc-context-caret" aria-hidden="true">⌄</span></summary>
+                    <summary title="${escapeHtml(toDisplayPath(state.root) || tx('chooseDirHint'))}">${folder}<span>${escapeHtml(state.rootName || label('选择工作空间', 'Choose workspace'))}</span><span class="dc-context-caret" aria-hidden="true">⌄</span></summary>
                     <div class="dc-context-menu">
                         <label class="dc-workspace-search">${wsIcon('search')}<input type="search" data-wsp-recent-search placeholder="${label('搜索最近工作空间', 'Search recent workspaces')}" aria-label="${label('搜索最近工作空间', 'Search recent workspaces')}" autocomplete="off"></label>
-                        <div class="dc-context-recents">${recent.map((path, index) => `<button type="button"${index >= 4 ? ' hidden' : ''} data-wsp-select="${escapeHtml(path)}" title="${escapeHtml(path)}" aria-current="${path === state.root}">${folder}<span>${escapeHtml(baseName(path))}</span>${path === state.root ? wsIcon('check') : ''}</button>`).join('')}</div>
+                        <div class="dc-context-recents">${recent.map((path, index) => `<button type="button"${index >= 4 ? ' hidden' : ''} data-wsp-select="${escapeHtml(path)}" title="${escapeHtml(toDisplayPath(path))}" aria-current="${path === state.root}">${folder}<span>${escapeHtml(baseName(path))}</span>${path === state.root ? wsIcon('check') : ''}</button>`).join('')}</div>
                         <p class="dc-context-empty" ${recent.length ? 'hidden' : ''}>${label('暂无最近工作空间', 'No recent workspaces')}</p>
                         <div class="dc-context-divider"></div>
                         ${!isReadOnly() ? `<button type="button" data-wsp-action="create-workspace">${wsIcon('plus')}<span>${label('新建工作空间', 'New workspace')}</span></button>` : ''}
@@ -879,7 +897,7 @@
         const requestId = ++state.picker.requestId;
         el.picker.hidden = false;
         document.body.classList.add('dc-picker-open');
-        el.pickerInput.value = prepareAccountDirectory ? '' : state.root || state.prefs.lastDirectory || '';
+        el.pickerInput.value = prepareAccountDirectory ? '' : toDisplayPath(state.root || state.prefs.lastDirectory || (state.capability?.confined ? '~' : ''));
         el.pickerList.replaceChildren();
         el.pickerStatus.textContent = prepareAccountDirectory ? tx('accountDirectoryLoading') : '';
         state.picker.items = [];
@@ -893,7 +911,7 @@
                 const { directory } = await request('POST', `${API}/account-directory`);
                 if (requestId !== state.picker.requestId) return;
                 if (!directory) throw new Error('Missing account directory');
-                el.pickerInput.value = directory;
+                el.pickerInput.value = toDisplayPath(directory);
                 if (document.activeElement === el.pickerInput) el.pickerInput.select();
             } catch (error) {
                 if (requestId !== state.picker.requestId) return;
@@ -916,7 +934,7 @@
     function renderPickerRecent() {
         const recent = state.prefs.recentDirectories.slice(0, 8);
         el.pickerRecent.innerHTML = recent.length
-            ? `<span class="wsp-picker-recent-label">${escapeHtml(tx('recentDirs'))}</span>${recent.map(item => `<button type="button" class="wsp-chip" data-wsp-fill="${escapeHtml(item)}" title="${escapeHtml(item)}">${escapeHtml(baseName(item))}</button>`).join('')}`
+            ? `<span class="wsp-picker-recent-label">${escapeHtml(tx('recentDirs'))}</span>${recent.map(item => { const shown = toDisplayPath(item); return `<button type="button" class="wsp-chip" data-wsp-fill="${escapeHtml(shown)}" title="${escapeHtml(shown)}">${escapeHtml(baseName(item))}</button>`; }).join('')}`
             : '';
     }
 
@@ -959,10 +977,11 @@
             const name = prefix && item.name.toLowerCase().startsWith(prefix.toLowerCase())
                 ? `<mark>${escapeHtml(item.name.slice(0, prefix.length))}</mark>${escapeHtml(item.name.slice(prefix.length))}`
                 : escapeHtml(item.name);
-            html.push(`<button type="button" role="option" id="wspOpt${index}" aria-selected="${index === state.picker.active}" class="wsp-picker-item${index === state.picker.active ? ' is-active' : ''}" data-wsp-index="${index}" title="${escapeHtml(item.path)}">
+            const shownPath = toDisplayPath(item.path);
+            html.push(`<button type="button" role="option" id="wspOpt${index}" aria-selected="${index === state.picker.active}" class="wsp-picker-item${index === state.picker.active ? ' is-active' : ''}" data-wsp-index="${index}" title="${escapeHtml(shownPath)}">
                 <span class="wsp-picker-item-icon" aria-hidden="true">${item.isGit ? '⎇' : FOLDER_ICON}</span>
                 <span class="wsp-picker-item-name">${name}</span>
-                <span class="wsp-picker-item-path">${escapeHtml(shorten(item.path))}</span>
+                <span class="wsp-picker-item-path">${escapeHtml(shorten(shownPath))}</span>
             </button>`);
         });
         el.pickerList.innerHTML = html.join('') || `<div class="wsp-picker-none">${escapeHtml(data.error === 'EACCES' ? tx('noPermission') : input ? tx('noMatches') : tx('noMatches'))}</div>`;
@@ -992,7 +1011,8 @@
         const item = state.picker.items[state.picker.active];
         if (!item) return;
         const sep = state.capability?.sep || '/';
-        el.pickerInput.value = item.path.endsWith(sep) ? item.path : `${item.path}${sep}`;
+        const shown = toDisplayPath(item.path);
+        el.pickerInput.value = shown.endsWith(sep) ? shown : `${shown}${sep}`;
         el.pickerInput.setSelectionRange(el.pickerInput.value.length, el.pickerInput.value.length);
         suggest();
     }
@@ -1131,7 +1151,22 @@
         if (tool === 'load_skill') return args.id ? `@${String(args.id).replace(/^@/, '')}` : '';
         if (tool === 'list_directory') return args.path || '.';
         if (tool === 'list_databases') return args.path || '.';
-        if (tool === 'database_schema' || tool === 'read_database_table') return `${args.database || ''}${args.table ? ` / ${args.table}` : ''}`;
+        if (tool === 'database_schema' || tool === 'read_database_table' || tool === 'insert_database_row' || tool === 'update_database_rows' || tool === 'delete_database_rows') {
+            const dbNames = {
+                'tools.db': '平台业务主库',
+                'report.db': '历史兼容报表库',
+                'ai-knowledge.db': 'AI 知识库',
+                'datacom-knowledge.db': '数通知识库',
+                'requirements.db': '需求广场库',
+                'ezscan-warehouse.db': '仓储库',
+                'chat-history.db': '聊天记录库'
+            };
+            const rawDb = String(args.database || '');
+            const dbKey = rawDb.replace(/^platform:(?:(?:data|report)\/)?/i, '').toLowerCase();
+            const dbLabel = rawDb.startsWith('platform:') ? (dbNames[dbKey] || '平台数据库') : rawDb.startsWith('local:') ? '工作区本地 SQLite' : '';
+            const dbText = rawDb ? `${rawDb}${dbLabel ? `（${dbLabel}）` : ''}` : '';
+            return `${dbText}${args.table ? ` / ${args.table}` : ''}`;
+        }
         return args.path || '';
     }
 
@@ -1511,7 +1546,23 @@
             row.classList.add(event.ok ? 'is-ok' : 'is-fail');
             if (!replaying && event.ok && row.dataset.tool?.startsWith('browser_'))
                 window.dispatchEvent(new CustomEvent('dragon-claw:browser-update', { detail: { tool: row.dataset.tool } }));
-            row.querySelector('.dc-tool-state').innerHTML = `${event.ok ? '✓' : '✗'} <span>${escapeHtml(event.summary || '')}</span>${event.durationMs > 1500 ? ` <small>${(event.durationMs / 1000).toFixed(1)}s</small>` : ''}`;
+            let displaySummary = event.summary || '';
+            if (event.ok && /^(?:database_schema|read_database_table|insert_database_row|update_database_rows|delete_database_rows)$/.test(row.dataset.tool || '')) {
+                const sepIdx = displaySummary.lastIndexOf(' · ');
+                const colonIdx = sepIdx < 0 ? displaySummary.lastIndexOf('：') : -1;
+                const splitAt = sepIdx >= 0 ? sepIdx : colonIdx;
+                if (splitAt > 0) {
+                    const richTarget = displaySummary.slice(0, splitAt).replace(/^(?:insert|update|delete)\s+/i, '').trim();
+                    const rightMetric = displaySummary.slice(splitAt + (sepIdx >= 0 ? 3 : 1)).trim();
+                    const argsEl = row.querySelector('.dc-tool-args');
+                    if (argsEl && richTarget) {
+                        argsEl.textContent = richTarget;
+                        argsEl.title = richTarget;
+                    }
+                    if (rightMetric) displaySummary = rightMetric;
+                }
+            }
+            row.querySelector('.dc-tool-state').innerHTML = `${event.ok ? '✓' : '✗'} <span>${escapeHtml(displaySummary)}</span>${event.durationMs > 1500 ? ` <small>${(event.durationMs / 1000).toFixed(1)}s</small>` : ''}`;
             // 命令输出：折叠在工具行下方，需要时展开查看
             if (event.output) row.insertAdjacentHTML('afterend', `<details class="dc-tool-output"><summary>${escapeHtml(tx('toolOutput'))}</summary><pre>${escapeHtml(event.output)}</pre></details>`);
             // 网页截图、看过的图片：工具行下方显示缩略图，点击放大（与对话里的图片同一套预览）

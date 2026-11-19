@@ -109,11 +109,14 @@ test('web layout: report.db resolves to the report directory, stale shells and 0
     // 报表目录里的旧 requirements.db 不是平台读取的位置
     await create(path.join(reportDir, 'requirements.db'), "CREATE TABLE Requirements (title TEXT); INSERT INTO Requirements VALUES ('stale copy');");
     await create(path.join(dataDir, 'requirements.db'), "CREATE TABLE Requirements (title TEXT); INSERT INTO Requirements VALUES ('live');");
+    await create(path.join(dataDir, 'hosted-simulated-business.db'), "CREATE TABLE ibms_report_dws (carrier TEXT); INSERT INTO ibms_report_dws VALUES ('模拟-1');");
     fs.writeFileSync(path.join(dataDir, 'sla.db'), '');
     await tenant.runWithTenant('default', async () => {
         const listed = await service.listDatabases(ctx);
         const ids = listed.databases.filter(item => item.source === 'platform').map(item => item.id).sort();
         assert.deepEqual(ids, ['platform:report.db', 'platform:requirements.db', 'platform:tools.db']);
+        assert.equal(ids.includes('platform:hosted-simulated-business.db'), false);
+        await assert.rejects(service.readTable(ctx, { database: 'platform:hosted-simulated-business.db', table: 'ibms_report_dws' }), { code: 'AGENT_DATABASE_FORBIDDEN' });
         for (const id of ['platform:report.db', 'platform:data/report.db', 'platform:report/report.db']) {
             const result = await service.readTable(ctx, { database: id, table: 'ReportMetricData' });
             assert.equal(result.rows[0].raw_val, '96%', `${id} reads the live report database`);
@@ -252,4 +255,27 @@ test('constraints roll back failed changes and protected trigger/cascade side ef
     assert.equal((await service.writeTable(adminCtx, { ...target, table: 'parent', operation: 'insert', values: { id: 3 } })).changes, 1, 'unrelated triggers do not block business writes');
     const controller = new AbortController(); controller.abort();
     await assert.rejects(service.writeTable({ ...adminCtx, signal: controller.signal }, target), { name: 'AbortError' });
+});
+
+test('database schema includes tableDetails rowCount/purpose and tool summaries annotate DB and table purposes', async () => {
+    const dir = tenant.getDataDir('default');
+    await create(path.join(dir, 'tools.db'), `CREATE TABLE IF NOT EXISTS import_source_batches (id INTEGER, source TEXT);
+        INSERT INTO import_source_batches VALUES (1, 'sla');
+        CREATE TABLE IF NOT EXISTS sla_snapshots (id INTEGER, name TEXT);`);
+    await tenant.runWithTenant('default', async () => {
+        const schemaRes = await tools.execute(ctx, 'database_schema', { database: 'platform:tools.db' });
+        assert.equal(schemaRes.isError, undefined);
+        assert.match(schemaRes.summary, /platform:tools\.db（平台业务主库）.*有数据/);
+        const parsed = JSON.parse(schemaRes.content);
+        const batchMeta = parsed.tableDetails.find(t => t.name === 'import_source_batches');
+        const snapMeta = parsed.tableDetails.find(t => t.name === 'sla_snapshots');
+        assert.equal(batchMeta.rowCount >= 1, true);
+        assert.match(batchMeta.purpose, /导入/);
+        assert.equal(snapMeta.rowCount, 0);
+        assert.match(snapMeta.purpose, /SLA/);
+        assert.ok(parsed.tableDetails.findIndex(t => t.name === 'sla_snapshots') < parsed.tableDetails.findIndex(t => t.name === 'import_source_batches'), 'priority order places sla_snapshots before import_source_batches');
+
+        const readRes = await tools.execute(ctx, 'read_database_table', { database: 'platform:tools.db', table: 'import_source_batches' });
+        assert.match(readRes.summary, /^platform:tools\.db（平台业务主库） \/ import_source_batches（[^）]+） · \d+ 行/);
+    });
 });

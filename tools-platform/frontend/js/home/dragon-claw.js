@@ -43,7 +43,7 @@
             useLastDir: '继续使用 {name}', changeDir: '更换', clearDir: '不使用工作区',
             pickerHelp: '输入路径即可联想子目录；清空输入框查看家目录与根目录。↑↓ 选择，Tab 补全，Enter 确认。',
             typedPathPlaceholder: '例如 ~/Projects/my-app 或 /Volumes/…', pickerEmptyHint: '从家目录或根目录开始，也可以直接粘贴完整路径',
-            teamPickerHelp: '可直接确认默认工作目录，也可以输入路径或清空输入框来浏览团队工作空间。',
+            teamPickerHelp: '可直接确认默认工作目录（~ 为你的工作区根目录），也可以输入子目录路径或清空输入框来浏览团队工作空间。',
             teamPathPlaceholder: '例如 ~/项目', teamPickerEmptyHint: '请选择团队工作空间内的目录',
             accountDirectoryLoading: '正在准备账号工作目录…', accountDirectoryFailed: '无法准备账号工作目录，请选择已有目录。',
             accountDirectoryConflict: '账号同名路径已被占用，请选择其他目录。',
@@ -2049,6 +2049,10 @@
         if (state.controller || state.restoring) return;
         if (runSlashCommand(content)) return;
         if (window.HomeAgentDiscussion?.handles(content)) return sendDesktopDiscussion(content);
+        if (state.sessionId && window.HomeSharedConversations?.isShared?.(state.sessionId)) {
+            const keptSkills = window.DragonClawSkills?.selectedIds?.() || [];
+            if (await window.HomeSharedConversations?.checkSkillBeforeSend?.(state.sessionId, content, { keptSkills }) === false) return;
+        }
         try { window.HomeDesktopModels?.validate?.(); } catch(error) { showToast(error.message);return; }
         const connector = window.HomeAgentDiscussion;
         const activeConn = connector?.getSelectedConnector?.();
@@ -2159,6 +2163,7 @@
                         rememberLastChat(event.sessionId, workspacePayload ? { agentSessionId: workspacePayload.agentSessionId, root: workspacePayload.root } : null);
                     }
                     if (event.type === 'skills_changed') { window.dispatchEvent(new CustomEvent('skills:changed', { detail: { ids: event.ids } })); return; }
+                    if (event.type === 'skill_grant_prompt' && event.skill) { window.HomeSharedConversations?.promptSkillRequest?.(event.skill.id, event.skill); return; }
                     if (event.type === 'model_round' && event.round) {
                         (reply.dcLiveRounds ||= []).push(event.round);
                         workspace()?.performance?.(reply, reply.dcLiveRounds, { running: true });
@@ -2804,9 +2809,14 @@
             const agent = item.agent || (local?.sessionId === item.id ? local.agent : null);
             await resumeChat({ sessionId: item.id, discussionMode:item.discussionMode, items, cursor: page.cursor, hasMore: page.hasMore, total: page.total, time: formatChatTime(items.length ? items[items.length - 1].created_at : (item.updatedAt || new Date().toISOString())), agent }, epoch);
             if (page.live && epoch === resumeEpoch && state.sessionId === item.id) attachLive(item.id);;
-        } catch {
+        } catch (error) {
             if (epoch !== resumeEpoch) return;
             finishHistoryLoading(false);
+            if (error?.revoked) {
+                state.restoring = false;
+                newChat();
+                return;
+            }
             el.thread.innerHTML = `<div class="dc-session-empty">${escapeHtml(tx('sessionLoadFailed'))}<button type="button" class="dc-ghost-btn" data-dc-session-retry>${escapeHtml(tx('chatRetry'))}</button></div>`;
             el.thread.querySelector('[data-dc-session-retry]').addEventListener('click', () => openSession(item));
             state.restoring = false;
@@ -3487,6 +3497,17 @@
         if(item)openChatFromList(item);else if(!state.controller)newChat();
     }
 
+    function dropSessionFromList(sessionId) {
+        if (!sessionId) return;
+        ++chatList.seq; // Do not let an older list response put the deleted/revoked row back.
+        chatList.items = chatList.items.filter(row => row.id !== sessionId);
+        chatList.cached = chatList.cached.filter(row => row.id !== sessionId);
+        if (readLastChat()?.sessionId === sessionId) forgetLastChat();
+        if (state.sessionId === sessionId) newChat();
+        else if (state.resume?.sessionId === sessionId) { hideResumeCard(); state.resume = null; }
+        renderChatList();
+    }
+
     async function deleteChatFromList(item) {
         if (!item || chatList.deleting.has(item.id)) return;
         if (item.id === state.sessionId && (state.controller || state.restoring)) return showToast(tx('chatBusy'));
@@ -3501,13 +3522,7 @@
             const data = await response.json().catch(() => ({}));
             if (!response.ok) throw new Error(data.error || tx('chatDeleteFailed'));
             if (account !== identity()) return;
-            ++chatList.seq; // Do not let an older list response put the deleted row back.
-            chatList.items = chatList.items.filter(row => row.id !== item.id);
-            chatList.cached=chatList.cached.filter(row=>row.id!==item.id);
-            if (readLastChat()?.sessionId === item.id) forgetLastChat();
-            if (state.sessionId === item.id) newChat();
-            else if (state.resume?.sessionId === item.id) { hideResumeCard(); state.resume = null; }
-            renderChatList();
+            dropSessionFromList(item.id);
             showToast(tx('chatDeleted'));
         } catch (error) {
             if (account === identity()) showToast(error.message || tx('chatDeleteFailed'));
@@ -4213,6 +4228,7 @@
         bindEvents();
         bindChatList();
         window.addEventListener('home:conversation-list-changed',()=>renderChatList());
+        window.addEventListener('home:session-revoked', event => dropSessionFromList(event.detail?.sessionId));
         window.addEventListener('home:agent-discussion-changed',event=>{
             for(const item of [...chatList.items,...chatList.cached])if(item.id===event.detail?.sessionId)item.discussionMode='group';
             renderChatList();scheduleChatListRefresh();

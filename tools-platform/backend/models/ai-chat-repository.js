@@ -197,6 +197,18 @@ async function setSessionAgent(sessionId, { agentSessionId, root, owner }) {
     await run('UPDATE ai_chat_sessions SET agent_session_id = ?, agent_root = ? WHERE id = ?', [String(agentSessionId).slice(0, 100), safeRoot, sessionId]);
 }
 
+async function excludedRevokedIds(owner) {
+    if (!owner) return [];
+    try {
+        const shared = require('./shared-conversations');
+        const tenantId = require('./tenant-context').getTenantId();
+        const ids = await shared.purgeRevokedForUser({ tenantId, username: owner });
+        return Array.isArray(ids) ? ids.filter(Boolean) : [];
+    } catch (_error) {
+        return [];
+    }
+}
+
 /**
  * /session：列出某用户在某页面（Dragon Claw 为 "/"）的会话，含已自动归档的，按最近更新排序。
  * query 匹配会话内任意问题或回答。
@@ -205,15 +217,17 @@ async function listOwnedSessions({ owner, pagePath, query = '', limit = 30, offs
     await ensureReady();
     if (!owner) return [];
     const normalizedPath = normalizePagePath(pagePath);
+    const revokedIds = await excludedRevokedIds(owner);
+    const excludeSql = revokedIds.length ? `AND s.id NOT IN (${revokedIds.map(() => '?').join(',')})` : '';
     // Backfill only this account's titles; manual list names remain independent.
     const untitled = await all(`SELECT s.id,
         (SELECT content FROM ai_chat_messages m WHERE m.session_id=s.id AND m.role='user' ORDER BY m.created_at,m.rowid LIMIT 1) AS question
-        FROM ai_chat_sessions s WHERE s.owner=? AND s.page_path=? AND s.auto_title=''`, [owner, normalizedPath]);
+        FROM ai_chat_sessions s WHERE s.owner=? AND s.page_path=? AND s.auto_title='' ${excludeSql}`, [owner, normalizedPath, ...revokedIds]);
     for (const row of untitled) if (row.question) await run("UPDATE ai_chat_sessions SET auto_title=? WHERE id=? AND owner=? AND auto_title=''", [conversationTitle(row.question), row.id, owner]);
     const safeLimit = Math.max(1, Math.min(Number(limit) || 30, 100));
     const safeOffset = Math.max(0, Number(offset) || 0);
     const keyword = String(query || '').trim().slice(0, 100);
-    const params = [owner, normalizedPath];
+    const params = [owner, normalizedPath, ...revokedIds];
     let filter = '';
     if (keyword) {
         filter = 'AND (s.auto_title LIKE ? OR EXISTS (SELECT 1 FROM ai_chat_messages q WHERE q.session_id = s.id AND q.content LIKE ?))';
@@ -226,7 +240,7 @@ async function listOwnedSessions({ owner, pagePath, query = '', limit = 30, offs
                 (SELECT content FROM ai_chat_messages f WHERE f.session_id = s.id AND f.role = 'user' ORDER BY f.created_at ASC, f.rowid ASC LIMIT 1) AS first_question,
                 (SELECT content FROM ai_chat_messages l WHERE l.session_id = s.id AND l.role = 'user' ORDER BY l.created_at DESC, l.rowid DESC LIMIT 1) AS last_question
          FROM ai_chat_sessions s
-         WHERE s.owner = ? AND s.page_path = ? ${filter}
+         WHERE s.owner = ? AND s.page_path = ? ${excludeSql} ${filter}
            AND EXISTS (SELECT 1 FROM ai_chat_messages e WHERE e.session_id = s.id)
          ORDER BY s.updated_at DESC, s.rowid DESC
          LIMIT ? OFFSET ?`,
@@ -537,6 +551,8 @@ async function listSessions({ pagePath, limit = 20, owner } = {}) {
     await autoArchiveSessions();
     const normalizedPath = normalizePagePath(pagePath);
     const safeLimit = Math.max(1, Math.min(Number(limit) || 20, 50));
+    const revokedIds = owner !== undefined ? await excludedRevokedIds(owner) : [];
+    const excludeSql = revokedIds.length ? `AND s.id NOT IN (${revokedIds.map(() => '?').join(',')})` : '';
     const rows = await all(
         `SELECT s.id, s.page_path, s.page_title, s.created_at, s.updated_at,
                 COUNT(m.id) AS message_count,
@@ -549,12 +565,12 @@ async function listSessions({ pagePath, limit = 20, owner } = {}) {
                 ) AS last_question
          FROM ai_chat_sessions s
          LEFT JOIN ai_chat_messages m ON m.session_id = s.id
-         WHERE s.page_path = ? AND s.is_archived = 0 ${owner !== undefined ? 'AND s.owner = ?' : ''}
+         WHERE s.page_path = ? AND s.is_archived = 0 ${owner !== undefined ? 'AND s.owner = ?' : ''} ${excludeSql}
          GROUP BY s.id
          HAVING message_count > 0
          ORDER BY s.updated_at DESC, s.rowid DESC
          LIMIT ?`,
-        [normalizedPath, ...(owner !== undefined ? [String(owner)] : []), safeLimit]
+        [normalizedPath, ...(owner !== undefined ? [String(owner)] : []), ...revokedIds, safeLimit]
     );
     return rows.map(row => ({
         ...row,
@@ -569,6 +585,8 @@ async function listArchivedSessions({ query = '', limit = 60, offset = 0, archiv
     const safeOffset = Math.max(0, Number(offset) || 0);
     const cleanQuery = String(query || '').trim().slice(0, 120);
     const pattern = `%${cleanQuery}%`;
+    const revokedIds = owner !== undefined ? await excludedRevokedIds(owner) : [];
+    const excludeSql = revokedIds.length ? `AND s.id NOT IN (${revokedIds.map(() => '?').join(',')})` : '';
 
     const isArchivedOnly = archivedOnly === true || archivedOnly === 'true' || archivedOnly === '1' || status === 'archived';
     const isActiveOnly = status === 'active';
@@ -586,8 +604,8 @@ async function listArchivedSessions({ query = '', limit = 60, offset = 0, archiv
               WHERE sm.session_id = s.id AND sm.content LIKE ?
           ))`
         : '';
-    const filterSql = `${owner !== undefined ? 'AND s.owner = ?' : ''} ${querySql}`;
-    const params = [...(owner !== undefined ? [String(owner)] : []), ...(cleanQuery ? [pattern, pattern, pattern] : [])];
+    const filterSql = `${owner !== undefined ? 'AND s.owner = ?' : ''} ${excludeSql} ${querySql}`;
+    const params = [...(owner !== undefined ? [String(owner)] : []), ...revokedIds, ...(cleanQuery ? [pattern, pattern, pattern] : [])];
     const totalRow = await get(
         `SELECT COUNT(1) AS count
          FROM ai_chat_sessions s

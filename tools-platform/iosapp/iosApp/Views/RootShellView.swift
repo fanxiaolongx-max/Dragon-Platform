@@ -9,6 +9,13 @@ private enum ActiveDragTarget {
     case tab
 }
 
+private struct PinnedRowFramePreferenceKey: PreferenceKey {
+    static var defaultValue: [String: CGRect] = [:]
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
+    }
+}
+
 struct RootShellView: View {
     @Bindable var store: DragonClawStore
     @State private var showSettingsSheet = false
@@ -25,6 +32,13 @@ struct RootShellView: View {
     @State private var dragDeltaX: CGFloat = 0
     @State private var tabDragDeltaX: CGFloat = 0
     @State private var activeDragTarget: ActiveDragTarget = .none
+    @State private var draggingPinnedKey: String? = nil
+    @State private var draggingPinnedStartIdx: Int = 0
+    @State private var draggingPinnedTargetIdx: Int = 0
+    @State private var draggingPinnedTranslationY: CGFloat = 0
+    @State private var pinnedRowFrames: [String: CGRect] = [:]
+    @State private var pinnedSettleOffsets: [String: CGFloat] = [:]
+    @State private var lastPinnedDragEndAt: Date = .distantPast
 
     private var palette: DragonClawPalette { store.palette }
     private var lang: String { store.language }
@@ -149,6 +163,8 @@ struct RootShellView: View {
                 store.loadSessionsIfStale()
             } else {
                 isSidebarSearchFocused = false
+                draggingPinnedKey = nil
+                draggingPinnedTranslationY = 0
             }
             withAnimation(.spring(response: 0.34, dampingFraction: 0.88)) {
                 sidebarProgress = open ? 1 : 0
@@ -248,7 +264,7 @@ struct RootShellView: View {
         DirectionalDrawerPanInstaller(
             isDrawerOpen: sidebarProgress >= 0.5,
             workMode: store.workMode,
-            isDisabled: store.activeWebTool != nil || store.showNativeMetrics || showSettingsSheet || showServerSheet || showSchedulesSheet || showAlertCenterSheet || store.exportedSessionJson != nil,
+            isDisabled: draggingPinnedKey != nil || store.activeWebTool != nil || store.showNativeMetrics || showSettingsSheet || showServerSheet || showSchedulesSheet || showAlertCenterSheet || store.exportedSessionJson != nil,
             onDragChanged: { tx in
                 handleDragChanged(tx: tx)
             },
@@ -479,8 +495,38 @@ struct RootShellView: View {
                                     }
 
                                     if !isCollapsed {
-                                        ForEach(group.items, id: \.stableKey) { entry in
-                                            unifiedSessionRowView(entry)
+                                        let canDragPinned = group.bucket == .pinned && group.items.count > 1 && store.sessionSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                        if canDragPinned {
+                                            ForEach(Array(group.items.enumerated()), id: \.element.stableKey) { idx, entry in
+                                                let key = entry.stableKey
+                                                let isDraggingThis = draggingPinnedKey == key
+                                                let rowOffsetY = pinnedRowVisualOffsetY(key: key, index: idx, items: group.items)
+                                                unifiedSessionRowView(entry, allowContextMenu: false, isPinnedDragElevated: isDraggingThis)
+                                                    .background(
+                                                        GeometryReader { proxy in
+                                                            Color.clear.preference(
+                                                                key: PinnedRowFramePreferenceKey.self,
+                                                                value: [key: proxy.frame(in: .named("pinnedList"))]
+                                                            )
+                                                        }
+                                                    )
+                                                    .scaleEffect(isDraggingThis ? 1.025 : 1.0)
+                                                    .shadow(color: Color.black.opacity(isDraggingThis ? (palette.isDark ? 0.36 : 0.16) : 0), radius: isDraggingThis ? 10 : 0, y: isDraggingThis ? 4 : 0)
+                                                    .offset(y: rowOffsetY)
+                                                    .zIndex(isDraggingThis ? 20 : 0)
+                                                    .animation(
+                                                        draggingPinnedKey != nil && !isDraggingThis
+                                                            ? .spring(response: 0.24, dampingFraction: 0.82)
+                                                            : nil,
+                                                        value: draggingPinnedTargetIdx
+                                                    )
+                                                    .animation(.spring(response: 0.20, dampingFraction: 0.85), value: isDraggingThis)
+                                                    .simultaneousGesture(pinnedReorderGesture(entry: entry, index: idx, items: group.items))
+                                            }
+                                        } else {
+                                            ForEach(group.items, id: \.stableKey) { entry in
+                                                unifiedSessionRowView(entry)
+                                            }
                                         }
                                     }
                                 }
@@ -488,6 +534,13 @@ struct RootShellView: View {
                         }
                     }
                     .padding(.bottom, 84)
+                }
+                .coordinateSpace(name: "pinnedList")
+                .scrollDisabled(draggingPinnedKey != nil)
+                .onPreferenceChange(PinnedRowFramePreferenceKey.self) { frames in
+                    if draggingPinnedKey == nil {
+                        pinnedRowFrames = frames
+                    }
                 }
                 .scrollIndicators(.hidden)
                 .scrollDismissesKeyboard(.interactively)
@@ -627,7 +680,134 @@ struct RootShellView: View {
         .buttonStyle(.plain)
     }
 
-    private func unifiedSessionRowView(_ entry: SidebarSessionEntry) -> some View {
+    private func pinnedRowVisualOffsetY(key: String, index: Int, items: [SidebarSessionEntry]) -> CGFloat {
+        if let dragged = draggingPinnedKey {
+            if dragged == key {
+                return draggingPinnedTranslationY
+            }
+            let currentMid = pinnedRowFrames[key]?.midY
+            if draggingPinnedStartIdx < draggingPinnedTargetIdx,
+               index > draggingPinnedStartIdx && index <= draggingPinnedTargetIdx {
+                let targetMid = pinnedRowFrames[items[index - 1].stableKey]?.midY
+                if let currentMid, let targetMid { return targetMid - currentMid }
+                return -40
+            }
+            if draggingPinnedTargetIdx < draggingPinnedStartIdx,
+               index >= draggingPinnedTargetIdx && index < draggingPinnedStartIdx {
+                let targetMid = pinnedRowFrames[items[index + 1].stableKey]?.midY
+                if let currentMid, let targetMid { return targetMid - currentMid }
+                return 40
+            }
+            return 0
+        }
+        return pinnedSettleOffsets[key] ?? 0
+    }
+
+    private func pinnedReorderGesture(entry: SidebarSessionEntry, index: Int, items: [SidebarSessionEntry]) -> some Gesture {
+        LongPressGesture(minimumDuration: 0.22, maximumDistance: 12)
+            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .named("pinnedList")))
+            .onChanged { value in
+                switch value {
+                case .first:
+                    break
+                case .second(true, nil):
+                    if draggingPinnedKey != entry.stableKey {
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        draggingPinnedKey = entry.stableKey
+                        draggingPinnedStartIdx = index
+                        draggingPinnedTargetIdx = index
+                        draggingPinnedTranslationY = 0
+                    }
+                case .second(true, let drag?):
+                    if draggingPinnedKey != entry.stableKey {
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        draggingPinnedKey = entry.stableKey
+                        draggingPinnedStartIdx = index
+                        draggingPinnedTargetIdx = index
+                    }
+                    let startMid = pinnedRowFrames[entry.stableKey]?.midY
+                    let firstMid = pinnedRowFrames[items.first?.stableKey ?? ""]?.midY
+                    let lastMid = pinnedRowFrames[items.last?.stableKey ?? ""]?.midY
+                    let clampedY: CGFloat
+                    if let startMid, let firstMid, let lastMid {
+                        clampedY = min(max(drag.translation.height, (firstMid - 14) - startMid), (lastMid + 14) - startMid)
+                    } else {
+                        clampedY = drag.translation.height
+                    }
+                    draggingPinnedTranslationY = clampedY
+                    let draggedMidY = (startMid ?? CGFloat(index) * 40) + clampedY
+                    var bestIdx = draggingPinnedTargetIdx
+                    var bestDist = CGFloat.greatestFiniteMagnitude
+                    for j in items.indices {
+                        let slotMid = pinnedRowFrames[items[j].stableKey]?.midY ?? CGFloat(j) * 40
+                        let dist = abs(draggedMidY - slotMid)
+                        if dist < bestDist {
+                            bestDist = dist
+                            bestIdx = j
+                        }
+                    }
+                    if bestIdx != draggingPinnedTargetIdx {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        withAnimation(.spring(response: 0.24, dampingFraction: 0.82)) {
+                            draggingPinnedTargetIdx = bestIdx
+                        }
+                    }
+                case .second(false, _):
+                    break
+                }
+            }
+            .onEnded { value in
+                if case .second(true, _) = value {
+                    lastPinnedDragEndAt = Date()
+                    finishPinnedDrag(items: items)
+                } else if draggingPinnedKey == entry.stableKey {
+                    lastPinnedDragEndAt = Date()
+                    finishPinnedDrag(items: items)
+                }
+            }
+    }
+
+    private func finishPinnedDrag(items: [SidebarSessionEntry]) {
+        guard let key = draggingPinnedKey else { return }
+        let start = draggingPinnedStartIdx
+        let target = draggingPinnedTargetIdx
+        if start != target, items.indices.contains(start), items.indices.contains(target) {
+            let startMid = pinnedRowFrames[items[start].stableKey]?.midY
+            let targetMid = pinnedRowFrames[items[target].stableKey]?.midY
+            let settleDelta: CGFloat
+            if let startMid, let targetMid {
+                settleDelta = (startMid + draggingPinnedTranslationY) - targetMid
+            } else {
+                settleDelta = 0
+            }
+            var reordered = items.map(\.stableKey)
+            let moved = reordered.remove(at: start)
+            reordered.insert(moved, at: target)
+
+            var noAnim = Transaction()
+            noAnim.disablesAnimations = true
+            withTransaction(noAnim) {
+                pinnedSettleOffsets[key] = settleDelta
+                draggingPinnedKey = nil
+                draggingPinnedStartIdx = 0
+                draggingPinnedTargetIdx = 0
+                draggingPinnedTranslationY = 0
+                store.reorderPinnedEntries(orderedStableKeys: reordered)
+            }
+            withAnimation(.spring(response: 0.24, dampingFraction: 0.85)) {
+                pinnedSettleOffsets.removeValue(forKey: key)
+            }
+        } else {
+            withAnimation(.spring(response: 0.24, dampingFraction: 0.85)) {
+                draggingPinnedKey = nil
+                draggingPinnedStartIdx = 0
+                draggingPinnedTargetIdx = 0
+                draggingPinnedTranslationY = 0
+            }
+        }
+    }
+
+    private func unifiedSessionRowView(_ entry: SidebarSessionEntry, allowContextMenu: Bool = true, isPinnedDragElevated: Bool = false) -> some View {
         let isSelected = entry.stableKey == store.currentSidebarSelectionKey
         let iconName: String = {
             if let d = entry.desktopSession {
@@ -657,8 +837,11 @@ struct RootShellView: View {
             desktopSession: entry.desktopSession,
             isArchived: false,
             isPinned: entry.isPinned && !entry.isShared,
-            sharedUnread: !isSelected && (entry.shared?.unread ?? 0) > 0
+            sharedUnread: !isSelected && (entry.shared?.unread ?? 0) > 0,
+            allowContextMenu: allowContextMenu,
+            isDragElevated: isPinnedDragElevated
         ) {
+            guard draggingPinnedKey == nil, Date().timeIntervalSince(lastPinnedDragEndAt) > 0.15 else { return }
             store.openSidebarEntry(entry)
         }
     }
@@ -694,6 +877,7 @@ struct RootShellView: View {
         }
     }
 
+    @ViewBuilder
     private func sidebarRowContainer(
         title: String,
         badge: String?,
@@ -707,9 +891,11 @@ struct RootShellView: View {
         isArchived: Bool,
         isPinned: Bool = false,
         sharedUnread: Bool = false,
+        allowContextMenu: Bool = true,
+        isDragElevated: Bool = false,
         onTap: @escaping () -> Void
     ) -> some View {
-        HStack(spacing: 8) {
+        let rowContent = HStack(spacing: 8) {
             Button(action: onTap) {
                 HStack(spacing: 7) {
                     Image(systemName: iconName)
@@ -764,35 +950,22 @@ struct RootShellView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
         .background(
-            isSelected ? palette.accent.opacity(0.14) : Color.clear,
+            isDragElevated
+                ? (palette.isDark ? Color.white.opacity(0.14) : palette.cardSurface.opacity(0.96))
+                : (isSelected ? palette.accent.opacity(0.14) : Color.clear),
             in: RoundedRectangle(cornerRadius: 12, style: .continuous)
         )
-        .contextMenu {
-            if let session = aiSession {
-                sessionActionsMenu(session: session, sidebarEntry: sidebarEntry, isArchived: isArchived)
-            } else if let desktop = desktopSession {
-                desktopSessionActionsMenu(desktop: desktop, sidebarEntry: sidebarEntry)
-            }
-        }
-    }
 
-    @ViewBuilder
-    private func pinnedReorderActions(for sidebarEntry: SidebarSessionEntry?) -> some View {
-        if let entry = sidebarEntry, entry.isPinned {
-            if store.canMovePinnedEntry(entry, moveUp: true) {
-                Button {
-                    store.movePinnedEntry(entry, moveUp: true)
-                } label: {
-                    Label(L10n.tr(lang, zh: "上移置顶", en: "Move Up"), systemImage: "arrow.up")
+        if allowContextMenu {
+            rowContent.contextMenu {
+                if let session = aiSession {
+                    sessionActionsMenu(session: session, sidebarEntry: sidebarEntry, isArchived: isArchived)
+                } else if let desktop = desktopSession {
+                    desktopSessionActionsMenu(desktop: desktop, sidebarEntry: sidebarEntry)
                 }
             }
-            if store.canMovePinnedEntry(entry, moveUp: false) {
-                Button {
-                    store.movePinnedEntry(entry, moveUp: false)
-                } label: {
-                    Label(L10n.tr(lang, zh: "下移置顶", en: "Move Down"), systemImage: "arrow.down")
-                }
-            }
+        } else {
+            rowContent
         }
     }
 
@@ -811,7 +984,6 @@ struct RootShellView: View {
                 systemImage: desktop.isPinned ? "pin.slash" : "pin"
             )
         }
-        pinnedReorderActions(for: sidebarEntry)
     }
 
     @ViewBuilder
@@ -853,7 +1025,6 @@ struct RootShellView: View {
                     systemImage: session.isPinned ? "pin.slash" : "pin"
                 )
             }
-            pinnedReorderActions(for: sidebarEntry)
             Button {
                 store.archiveSession(session)
             } label: {

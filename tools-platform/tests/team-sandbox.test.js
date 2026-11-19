@@ -29,6 +29,7 @@ test('team accounts are confined to their own workspace', () => {
     const workspace = boundary.workspaceRoot('east');
     fs.mkdirSync(path.join(workspace, 'proj'), { recursive: true });
     assert.equal(boundary.resolveUserPath(team, 'east', '~'), workspace);
+    assert.equal(boundary.resolveUserPath(team, 'east', '/'), workspace);
     assert.equal(boundary.resolveUserPath(team, 'east', 'proj'), path.join(workspace, 'proj'));
     assert.doesNotThrow(() => boundary.assertAllowed(team, 'east', path.join(workspace, 'proj')));
     for (const outside of [os.homedir(), tenant.getDataDir('east'), boundary.workspaceRoot('west'), path.join(workspace, '..', 'home', '..', '..')]) {

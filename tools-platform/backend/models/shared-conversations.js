@@ -361,6 +361,75 @@ async function memberByLocal(tenantId, username, sessionId) {
     return get(`SELECT m.*, s.status AS share_status FROM shared_conversation_members m JOIN shared_conversations s ON s.id = m.share_id
         WHERE m.tenant_id = ? AND m.username = ? AND m.local_session_id = ? AND m.status = 'accepted'`, [tenantId, username, String(sessionId || '')]);
 }
+async function revokedMemberRows(tenantId, username) {
+    await ensureReady();
+    const normalizedTenant = tenantContext.normalizeTenantId(tenantId);
+    const cleanUser = cleanName(username);
+    if (!cleanUser) return [];
+    return all(`SELECT m.share_id, m.local_session_id, m.username, m.tenant_id
+        FROM shared_conversation_members m JOIN shared_conversations s ON s.id = m.share_id
+        WHERE m.tenant_id = ? AND m.username = ? AND m.local_session_id <> ''
+          AND m.username <> s.owner
+          AND ((s.status <> 'active' AND m.status IN ('accepted', 'removed')) OR m.status = 'removed')`, [normalizedTenant, cleanUser]);
+}
+async function findRevokedMember(tenantId, username, sessionId) {
+    await ensureReady();
+    const normalizedTenant = tenantContext.normalizeTenantId(tenantId);
+    const cleanUser = cleanName(username);
+    const cleanSession = String(sessionId || '');
+    if (!cleanUser || !cleanSession) return null;
+    return get(`SELECT m.*, s.status AS share_status, s.owner AS share_owner
+        FROM shared_conversation_members m JOIN shared_conversations s ON s.id = m.share_id
+        WHERE m.tenant_id = ? AND m.username = ? AND m.local_session_id = ?
+          AND m.username <> s.owner
+          AND ((s.status <> 'active' AND m.status IN ('accepted', 'removed')) OR m.status = 'removed')
+        LIMIT 1`, [normalizedTenant, cleanUser, cleanSession]);
+}
+async function purgeRevokedMemberCopy(shareId, member) {
+    const username = cleanName(member?.username);
+    const normalizedTenant = tenantContext.normalizeTenantId(member?.tenant_id);
+    const localSessionId = String(member?.local_session_id || '');
+    if (!username || !localSessionId) return false;
+    let deleted = false;
+    try {
+        deleted = await tenantContext.runWithTenant(normalizedTenant, () =>
+            chatRepo().deleteSession(localSessionId, { owner: username })
+        );
+    } catch (_error) {
+        // 若会话正在运行（如 409 AI_CHAT_BUSY），由列表读取过滤与后续同步兜底收回
+    }
+    await run(
+        "UPDATE shared_conversation_members SET status = 'removed', responded_at = CURRENT_TIMESTAMP WHERE share_id = ? AND username = ? AND status = 'accepted'",
+        [shareId, username]
+    ).catch(() => {});
+    linkedCache = null;
+    await fsp.rm(path.join(uploadDirFor(normalizedTenant, username), `shared-${shareId}`), { recursive: true, force: true }).catch(() => {});
+    return deleted;
+}
+async function purgeRevokedForUser({ tenantId, username }) {
+    const rows = await revokedMemberRows(tenantId, username);
+    if (!rows.length) return [];
+    const normalizedTenant = tenantContext.normalizeTenantId(tenantId);
+    const remaining = [];
+    for (const row of rows) {
+        const existing = await tenantContext.runWithTenant(normalizedTenant, () =>
+            chatRepo().getSession(row.local_session_id)
+        ).catch(() => null);
+        if (!existing) continue;
+        await purgeRevokedMemberCopy(row.share_id, row);
+        const stillThere = await tenantContext.runWithTenant(normalizedTenant, () =>
+            chatRepo().getSession(row.local_session_id)
+        ).catch(() => null);
+        if (stillThere) remaining.push(row.local_session_id);
+    }
+    return remaining;
+}
+async function isRevokedSession({ tenantId, username, sessionId }) {
+    const revoked = await findRevokedMember(tenantId, username, sessionId);
+    if (!revoked) return false;
+    await purgeRevokedMemberCopy(revoked.share_id, revoked);
+    return true;
+}
 
 function linkFor(share) {
     return `/?share=${encodeURIComponent(share.link_token)}`;
@@ -525,11 +594,23 @@ async function pullMember(share, member) {
  */
 async function syncLocal({ tenantId, username, sessionId }) {
     const member = await memberByLocal(tenantId, username, sessionId);
-    if (!member) return null;
+    if (!member) {
+        const revoked = await findRevokedMember(tenantId, username, sessionId);
+        if (revoked) {
+            await purgeRevokedMemberCopy(revoked.share_id, revoked);
+            return { shareId: revoked.share_id, pushed: 0, pulled: 0, closed: true, revoked: true };
+        }
+        return null;
+    }
     return withLock(`${member.share_id}\n${username}`, async () => {
         const share = await getShare(member.share_id);
         const fresh = await getMember(member.share_id, username);
-        if (!share || !fresh || fresh.status !== 'accepted') return null;
+        if (!share || !fresh) return null;
+        if (fresh.status === 'removed' || (share.status !== 'active' && share.owner !== username)) {
+            await purgeRevokedMemberCopy(share.id, fresh);
+            return { shareId: share.id, pushed: 0, pulled: 0, closed: true, revoked: true };
+        }
+        if (fresh.status !== 'accepted') return null;
         const exists = await chatRepo().getSession(fresh.local_session_id);
         if (!exists) { // 本地对话已删除：视为退出共享
             await run("UPDATE shared_conversation_members SET status = 'left', responded_at = CURRENT_TIMESTAMP WHERE share_id = ? AND username = ?", [share.id, username]);
@@ -576,6 +657,9 @@ function schedulePush(tenantId, username, sessionId) {
 // ── 共享 / 邀请 ──
 async function ensureShare({ tenantId, username, sessionId, title }) {
     await ensureReady();
+    if (await isRevokedSession({ tenantId, username, sessionId })) {
+        throw fail(409, 'SHARE_REVOKED', '发起者已停止共享，该对话已收回');
+    }
     const owned = await chatRepo().assertSessionOwner(sessionId, username).catch(() => null);
     if (!owned) throw fail(404, 'SHARE_SESSION_NOT_FOUND', '对话不存在或还没有保存的消息');
     // 这个对话本身就是别人共享给我的本地副本：返回原共享，邀请时加进同一个共享
@@ -631,7 +715,7 @@ async function invite({ tenantId, username, sessionId, title, usernames = [], gr
         if (row && ['accepted', 'pending'].includes(row.status)) { already.push(target); continue; }
         await run(`INSERT INTO shared_conversation_members (share_id, username, tenant_id, role, status, invited_by, via, invited_at)
             VALUES (?, ?, ?, 'member', 'pending', ?, 'invite', CURRENT_TIMESTAMP)
-            ON CONFLICT(share_id, username) DO UPDATE SET status = 'pending', invited_by = excluded.invited_by, via = 'invite', invited_at = CURRENT_TIMESTAMP, responded_at = NULL`,
+            ON CONFLICT(share_id, username) DO UPDATE SET status = 'pending', local_session_id = '', pulled_seq = 0, invited_by = excluded.invited_by, via = 'invite', invited_at = CURRENT_TIMESTAMP, responded_at = NULL`,
         [share.id, target, map[target].tenantId || 'default', username]);
         invited.push(target);
     }
@@ -713,7 +797,7 @@ async function joinByLink({ username, token }) {
     const map = await userMap();
     await run(`INSERT INTO shared_conversation_members (share_id, username, tenant_id, role, status, invited_by, via, invited_at)
         VALUES (?, ?, ?, 'member', 'pending', ?, 'link', CURRENT_TIMESTAMP)
-        ON CONFLICT(share_id, username) DO UPDATE SET status = 'pending', via = 'link', invited_at = CURRENT_TIMESTAMP, responded_at = NULL`,
+        ON CONFLICT(share_id, username) DO UPDATE SET status = 'pending', local_session_id = '', pulled_seq = 0, via = 'link', invited_at = CURRENT_TIMESTAMP, responded_at = NULL`,
     [share.id, username, map[username]?.tenantId || 'default', share.owner]);
     const item = (await inbox(username)).find(row => row.shareId === share.id);
     return { status: 'pending', shareId: share.id, invite: item };
@@ -740,10 +824,16 @@ async function leave({ tenantId, username, sessionId }) {
     if (!member) throw fail(404, 'SHARE_NOT_FOUND', '这个对话没有共享');
     const share = await getShare(member.share_id);
     if (share.owner === username) {
-        // 发起者：停止共享，所有人保留各自已同步的内容，之后不再同步
+        // 发起者：停止共享，回收非发起者成员的本地副本，仅发起者保留原对话
+        const membersToPurge = await all(
+            `SELECT username, tenant_id, local_session_id FROM shared_conversation_members
+             WHERE share_id = ? AND username <> ? AND local_session_id <> '' AND status IN ('accepted', 'removed')`,
+            [share.id, share.owner]
+        );
         await run("UPDATE shared_conversations SET status = 'closed', updated_at = CURRENT_TIMESTAMP WHERE id = ?", [share.id]);
-        await run("UPDATE shared_conversation_members SET status = 'removed' WHERE share_id = ? AND status IN ('pending', 'ignored', 'declined')", [share.id]);
+        await run("UPDATE shared_conversation_members SET status = 'removed', responded_at = CURRENT_TIMESTAMP WHERE share_id = ? AND username <> ? AND status IN ('accepted', 'pending', 'ignored', 'declined')", [share.id, share.owner]);
         linkedCache = null;
+        await Promise.all(membersToPurge.map(row => purgeRevokedMemberCopy(share.id, row)));
         return { closed: true };
     }
     await run("UPDATE shared_conversation_members SET status = 'left', responded_at = CURRENT_TIMESTAMP WHERE share_id = ? AND username = ?", [share.id, username]);
@@ -755,9 +845,12 @@ async function removeMember({ tenantId, username, sessionId, target }) {
     const member = await memberByLocal(tenantId, username, sessionId);
     const share = member && await getShare(member.share_id);
     if (!share || share.owner !== username) throw fail(403, 'SHARE_OWNER_ONLY', '只有发起者可以移除成员');
-    if (target === username) throw fail(400, 'SHARE_BAD_TARGET', '不能移除自己，请使用「停止共享」');
-    await run("UPDATE shared_conversation_members SET status = 'removed', responded_at = CURRENT_TIMESTAMP WHERE share_id = ? AND username = ?", [share.id, cleanName(target)]);
+    const cleanTarget = cleanName(target);
+    if (cleanTarget === username) throw fail(400, 'SHARE_BAD_TARGET', '不能移除自己，请使用「停止共享」');
+    const targetMember = await getMember(share.id, cleanTarget);
+    await run("UPDATE shared_conversation_members SET status = 'removed', responded_at = CURRENT_TIMESTAMP WHERE share_id = ? AND username = ?", [share.id, cleanTarget]);
     linkedCache = null;
+    if (targetMember?.local_session_id) await purgeRevokedMemberCopy(share.id, targetMember);
     return describe(share, username);
 }
 
@@ -1290,8 +1383,12 @@ async function isSharedWorkspaceActive({ shareId, tenantId, username }) {
 
 module.exports = {
     ensureReady, schedulePush, syncLocal, syncIfShared, ensureShare, invite, shareForSession, inbox, inboxSkillRequests, respond, joinByLink, listMine, leave, removeMember,
-    onLocalDeleted, accounts, listGroups, saveGroup, deleteGroup, recent, authorOf, filesOf, linkFor, sharedFilesBase,
+    onLocalDeleted, purgeRevokedForUser, isRevokedSession, accounts, listGroups, saveGroup, deleteGroup, recent, authorOf, filesOf, linkFor, sharedFilesBase,
     sessionCapabilities, grantedSkillMemberships, requestSkillShare, respondSkillRequest,
     isShareableWorkspaceRoot, syncOriginWorkspaceRoot, resolveSharedWorkspace, isSharedWorkspaceActive,
-    _resetCache: () => { linkedCache = null; }
+    _resetCache: () => {
+        linkedCache = null;
+        for (const timer of pending.values()) clearTimeout(timer);
+        pending.clear();
+    }
 };

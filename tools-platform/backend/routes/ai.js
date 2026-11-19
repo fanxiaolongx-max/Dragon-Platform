@@ -824,47 +824,6 @@ async function handleChatRequest(req, res) {
                 return res.status(409).json({ code: 'AGENT_RUN_BUSY', error: '该会话有正在进行的任务，请等待完成或先停止' });
             }
         }
-        // 移动端（iOS/Android App）不提供目录选择器：继续已绑定的会话目录或沿用之前的用户归属/临时目录
-        if (!agentSession && homeAgent && streamRequested && isMobileClient && sessionId && !(workspace && workspace.root) && agentWorkspaceAccess.isAgentWorkspaceAllowed(req)) {
-            await aiChatRepo.assertSessionOwner(sessionId, req.user?.username || '');
-            const savedChat = await aiChatRepo.getSession(sessionId);
-            if (savedChat?.agent_root && !aiChatRepo.isScratchDirectory(savedChat.agent_root)) {
-                agentSession = await agentRunManager.resumeSavedSession({
-                    agentSessionId: savedChat.agent_session_id,
-                    root: savedChat.agent_root,
-                    user: req.user,
-                    tenantId: getTenantId(),
-                    chatSessionId: sessionId,
-                    mobileClient: true,
-                    supportsApproval: mobileSupportsApproval
-                });
-            }
-            if (!agentSession) {
-                agentSession = agentRunManager.existingScratchSession({ user: req.user, tenantId: getTenantId(), chatSessionId: sessionId });
-                if (agentSession) agentRunManager.configureClientExecutionMode(agentSession, { mobileClient: true, supportsApproval: mobileSupportsApproval });
-            }
-            if (agentSession?.activeRun) {
-                return res.status(409).json({ code: 'AGENT_RUN_BUSY', error: '该会话有正在进行的任务，请等待完成或先停止' });
-            }
-        }
-        // 网页端续接本对话之前明确确认过的定时临时工作区（未过期前无需重复弹卡）
-        if (!agentSession && homeAgent && !tourReportExample && streamRequested && !channelTurn && !isMobileClient && sessionId && !(workspace && workspace.root) && agentWorkspaceAccess.isAgentWorkspaceAllowed(req)) {
-            await aiChatRepo.assertSessionOwner(sessionId, req.user?.username || '');
-            agentSession = agentRunManager.existingTemporarySession({ user: req.user, tenantId: getTenantId(), chatSessionId: sessionId });
-            if (agentSession?.activeRun) {
-                return res.status(409).json({ code: 'AGENT_RUN_BUSY', error: '该会话有正在进行的任务，请等待完成或先停止' });
-            }
-        }
-        // 团队账号没选目录：默认在团队工作目录里工作，文件与 Shell 工具随时可用（命令在团队沙箱中执行）
-        if (!agentSession && homeAgent && !tourReportExample && streamRequested && !channelTurn && require('../models/team-boundary').isConfined(req.user)) {
-            try {
-                agentSession = agentRunManager.ensureTeamDefaultSession({ user: req.user, tenantId: getTenantId(), chatSessionId: sessionId, permissionMode: workspace?.permissionMode, mobileClient: isMobileClient, supportsApproval: mobileSupportsApproval });
-            } catch (sessionError) {
-                return res.status(sessionError.statusCode || 400).json({ code: sessionError.code, error: sessionError.message });
-            }
-            if (agentSession.activeRun) return res.status(409).json({ code: 'AGENT_RUN_BUSY', error: '该会话有正在进行的任务，请等待完成或先停止' });
-        }
-        let agentMode = Boolean(agentSession);
         const responseLanguage = String(uiLanguage || '').toLowerCase().startsWith('en') ? 'English' : '简体中文';
         
         if (!messages || !Array.isArray(messages)) {
@@ -894,6 +853,105 @@ async function handleChatRequest(req, res) {
             const ready = (await require('../models/home-connectors').status(req.user, homeConnector)).find(item => item.id === homeConnector);
             if (!ready?.ready) return res.status(409).json({ code: 'CONNECTOR_NOT_READY', error: '连接器尚未就绪，请检查配置与连接状态' });
         }
+
+        const rawPageSource = String(pagePath || req.get('referer') || '');
+        const normalizedPath = aiChatRepo.normalizePagePath(rawPageSource);
+        let safeToolSlug = typeof toolSlug === 'string' ? toolSlug.slice(0, 120) : '';
+        if (req.user && !isSuperAdmin(req.user)) {
+            const pageDistribution = require('../models/page-distribution');
+            const toolDistribution = require('../models/tool-distribution');
+            const pageId = pageDistribution.pageIdForPath(normalizedPath);
+            if (pageId && !await pageDistribution.canAccessPage(pageId, req.user, { siteScripts: /[?&]siteScripts=1(?:&|$)/.test(rawPageSource) })) {
+                return res.status(403).json({ code: 'TOOL_NOT_SHARED', error: '此工具未开放使用' });
+            }
+            const customPathMatch = /^\/(?:tools|custom-tools)\/([^/?#]+)/.exec(normalizedPath);
+            if (customPathMatch && !await toolDistribution.resolveTool(decodeURIComponent(customPathMatch[1]), req.user)) {
+                return res.status(403).json({ code: 'TOOL_NOT_SHARED', error: '此工具未开放使用' });
+            }
+            if (safeToolSlug) {
+                const cleanSlug = safeToolSlug.replace(/^custom:/, '');
+                if (!await toolDistribution.resolveTool(cleanSlug, req.user)) safeToolSlug = '';
+            }
+        }
+        if (sessionId && persist !== false && await require('../models/shared-conversations').isRevokedSession({
+            tenantId: getTenantId(),
+            username: req.user?.username || '',
+            sessionId
+        })) {
+            return res.status(409).json({ code: 'SHARE_REVOKED', error: '发起者已停止共享，该对话已收回' });
+        }
+        let savedSessionId = sessionId || null;
+        if (persist !== false) {
+            savedSessionId = await aiChatRepo.getOrCreateSession({
+                owner: req.user?.username || '',
+                sessionId,
+                pagePath: normalizedPath,
+                pageTitle
+            });
+        }
+        const scratchChatKey = savedSessionId || sessionId || require('crypto').randomUUID();
+
+        // 未选工作区目录的首页流式对话：统一自动分配用户不可见的临时/归属工作区，走同一套工作区 Agent 逻辑
+        const allowAutoScratch = !agentSession && homeAgent && !tourReportExample && streamRequested && !channelTurn
+            && !homeConnector && !(workspace && workspace.root) && codeAnalysis?.kind !== 'knowledge-file';
+        if (allowAutoScratch && require('../models/team-boundary').isConfined(req.user)) {
+            try {
+                agentSession = agentRunManager.ensureTeamDefaultSession({ user: req.user, tenantId: getTenantId(), chatSessionId: scratchChatKey, permissionMode: workspace?.permissionMode, mobileClient: isMobileClient, supportsApproval: mobileSupportsApproval });
+            } catch (sessionError) {
+                return res.status(sessionError.statusCode || 400).json({ code: sessionError.code, error: sessionError.message });
+            }
+            if (agentSession.activeRun) return res.status(409).json({ code: 'AGENT_RUN_BUSY', error: '该会话有正在进行的任务，请等待完成或先停止' });
+        } else if (allowAutoScratch && agentWorkspaceAccess.isAgentWorkspaceAllowed(req)) {
+            if (sessionId) await aiChatRepo.assertSessionOwner(sessionId, req.user?.username || '');
+            if (isMobileClient) {
+                if (sessionId) {
+                    const savedChat = await aiChatRepo.getSession(sessionId);
+                    if (savedChat?.agent_root && !aiChatRepo.isScratchDirectory(savedChat.agent_root)) {
+                        agentSession = await agentRunManager.resumeSavedSession({
+                            agentSessionId: savedChat.agent_session_id,
+                            root: savedChat.agent_root,
+                            user: req.user,
+                            tenantId: getTenantId(),
+                            chatSessionId: scratchChatKey,
+                            mobileClient: true,
+                            supportsApproval: mobileSupportsApproval
+                        });
+                    }
+                    if (!agentSession) {
+                        agentSession = agentRunManager.existingScratchSession({ user: req.user, tenantId: getTenantId(), chatSessionId: scratchChatKey });
+                        if (agentSession) agentRunManager.configureClientExecutionMode(agentSession, { mobileClient: true, supportsApproval: mobileSupportsApproval });
+                    }
+                }
+                if (!agentSession) {
+                    agentSession = agentRunManager.ensureMobileOwnedSession({
+                        user: req.user,
+                        tenantId: getTenantId(),
+                        chatSessionId: scratchChatKey,
+                        permissionMode: workspace?.permissionMode || 'auto',
+                        supportsApproval: mobileSupportsApproval
+                    });
+                }
+            } else {
+                if (sessionId) {
+                    agentSession = agentRunManager.existingTemporarySession({ user: req.user, tenantId: getTenantId(), chatSessionId: scratchChatKey })
+                        || agentRunManager.existingScratchSession({ user: req.user, tenantId: getTenantId(), chatSessionId: scratchChatKey });
+                }
+                if (!agentSession) {
+                    agentSession = agentRunManager.ensureScratchSession({
+                        user: req.user,
+                        tenantId: getTenantId(),
+                        chatSessionId: scratchChatKey,
+                        permissionMode: workspace?.permissionMode || 'auto',
+                        mobileClient: false,
+                        supportsApproval: false
+                    });
+                }
+            }
+            if (agentSession?.activeRun) {
+                return res.status(409).json({ code: 'AGENT_RUN_BUSY', error: '该会话有正在进行的任务，请等待完成或先停止' });
+            }
+        }
+        let agentMode = Boolean(agentSession);
 
         const channelSkillOwner = homeAgent && !fullWeLink ? await channelCanSaveSkills(channelTurn) : false;
         // Skill：本条消息里的 @id + 会话内保持的标签（req.body.skills，仅接受白名单标识）
@@ -940,7 +998,7 @@ async function handleChatRequest(req, res) {
                     if (needWorkspace.code !== 'SKILL_WORKSPACE_REQUIRED' || agentMode || channelTurn || !streamRequested
                         || !agentWorkspaceAccess.isAgentWorkspaceAllowed(req)) throw needWorkspace;
                     if (isMobileClient) {
-                        agentSession = agentRunManager.ensureMobileOwnedSession({ user: req.user, tenantId: getTenantId(), chatSessionId: sessionId, supportsApproval: mobileSupportsApproval });
+                        agentSession = agentRunManager.ensureMobileOwnedSession({ user: req.user, tenantId: getTenantId(), chatSessionId: scratchChatKey, supportsApproval: mobileSupportsApproval });
                         if (agentSession.activeRun) return res.status(409).json({ code: 'AGENT_RUN_BUSY', error: '该会话有正在进行的任务，请等待完成或先停止' });
                         agentMode = true;
                         loadedSkills = await loadSkills();
@@ -971,44 +1029,6 @@ async function handleChatRequest(req, res) {
             }
         }
 
-        const rawPageSource = String(pagePath || req.get('referer') || '');
-        const normalizedPath = aiChatRepo.normalizePagePath(rawPageSource);
-        let safeToolSlug = typeof toolSlug === 'string' ? toolSlug.slice(0, 120) : '';
-        if (req.user && !isSuperAdmin(req.user)) {
-            const pageDistribution = require('../models/page-distribution');
-            const toolDistribution = require('../models/tool-distribution');
-            const pageId = pageDistribution.pageIdForPath(normalizedPath);
-            if (pageId && !await pageDistribution.canAccessPage(pageId, req.user, { siteScripts: /[?&]siteScripts=1(?:&|$)/.test(rawPageSource) })) {
-                return res.status(403).json({ code: 'TOOL_NOT_SHARED', error: '此工具未开放使用' });
-            }
-            const customPathMatch = /^\/(?:tools|custom-tools)\/([^/?#]+)/.exec(normalizedPath);
-            if (customPathMatch && !await toolDistribution.resolveTool(decodeURIComponent(customPathMatch[1]), req.user)) {
-                return res.status(403).json({ code: 'TOOL_NOT_SHARED', error: '此工具未开放使用' });
-            }
-            if (safeToolSlug) {
-                const cleanSlug = safeToolSlug.replace(/^custom:/, '');
-                if (!await toolDistribution.resolveTool(cleanSlug, req.user)) safeToolSlug = '';
-            }
-        }
-        let savedSessionId = sessionId || null;
-        if (persist !== false) {
-            savedSessionId = await aiChatRepo.getOrCreateSession({
-                owner: req.user?.username || '',
-                sessionId,
-                pagePath: normalizedPath,
-                pageTitle
-            });
-            if ((agentSession?.scratch || agentSession?.mobileOwnedWorkspace) && savedSessionId) {
-                agentRunManager.bindScratchChatId({ session: agentSession, user: req.user, tenantId: getTenantId(), chatSessionId: savedSessionId });
-            }
-            if (agentSession && !agentSession.scratch && !agentSession.sharedWorkspace && agentSession.root && !aiChatRepo.isScratchDirectory?.(agentSession.root) && savedSessionId) {
-                await aiChatRepo.setSessionAgent(savedSessionId, { agentSessionId: agentSession.id, root: agentSession.root, owner: req.user?.username || '' }).catch(() => {});
-                await require('../models/shared-conversations').syncOriginWorkspaceRoot({
-                    tenantId: getTenantId(), username: req.user?.username || '', sessionId: savedSessionId, root: agentSession.root
-                }).catch(() => {});
-            }
-        }
-
         if (persist !== false && savedSessionId) {
             const lockKey = chatLockKey(savedSessionId);
             if (compactingChats.has(lockKey) || deletingChats.has(lockKey)) return res.status(409).json({ code: 'AI_CHAT_BUSY', error: '当前对话正在整理，请稍后再发送' });
@@ -1026,6 +1046,22 @@ async function handleChatRequest(req, res) {
             modelRounds.push(round);
             writeStreamEvent({ type: 'model_round', round });
         });
+        // 客户端只实现纯对话接口（无 generateText 工具调用）时，自动分配的隐式工作区回退为普通对话
+        if (agentSession && !(workspace && workspace.root) && (agentSession.scratch || agentSession.teamDefault || agentSession.mobileOwnedWorkspace) && typeof aiClient?.generateText !== 'function') {
+            agentSession = null;
+            agentMode = false;
+        }
+        if (persist !== false && savedSessionId) {
+            if ((agentSession?.scratch || agentSession?.mobileOwnedWorkspace) && savedSessionId) {
+                agentRunManager.bindScratchChatId({ session: agentSession, user: req.user, tenantId: getTenantId(), chatSessionId: savedSessionId });
+            }
+            if (agentSession && !agentSession.scratch && !agentSession.sharedWorkspace && agentSession.root && !aiChatRepo.isScratchDirectory?.(agentSession.root) && savedSessionId) {
+                await aiChatRepo.setSessionAgent(savedSessionId, { agentSessionId: agentSession.id, root: agentSession.root, owner: req.user?.username || '' }).catch(() => {});
+                await require('../models/shared-conversations').syncOriginWorkspaceRoot({
+                    tenantId: getTenantId(), username: req.user?.username || '', sessionId: savedSessionId, root: agentSession.root
+                }).catch(() => {});
+            }
+        }
         if (streamRequested) {
             res.status(200);
             res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
@@ -1271,12 +1307,12 @@ async function handleChatRequest(req, res) {
         const missingSkillNotes = (sharedCapabilities?.skills || []).map(item => {
             const label = item.name && item.name !== item.id ? `@${item.id}（${item.name}）` : `@${item.id}`;
             if (item.status === 'pending') return `- 历史引用技能 ${label} 当前账号暂未获得授权（已向归属人 ${item.ownerName || item.owner || '管理员'} 提交申请，等待审批）。`;
-            if (item.canRequest) return `- 历史引用技能 ${label} 当前账号暂未开放或未安装（归属人：${item.ownerName || item.owner || '归属人'}），可提示用户在共享对话顶部栏点击「向归属人申请使用」。`;
+            if (item.canRequest) return `- 历史引用技能 ${label} 当前账号暂未开放或未安装（归属人：${item.ownerName || item.owner || '归属人'}）。本轮用不到时不要主动提及或提前申请；只有当用户明确要用或任务确实依赖它时，调用 \`load_skill({ id: '${item.id}' })\` 触发界面按需申请弹窗或告知用户。`;
             return `- 历史引用技能 ${label} 在当前环境不可用（${item.reason || '已被删除或无可用来源'}）。`;
         });
         const missingToolNotes = (sharedCapabilities?.tools || []).map(item => `- 历史工具 \`${item.name}\` 当前账号无权使用或未启用（${item.reason || '权限受限'}）。`);
         const unavailableSharedPrompt = (aliasNotes.length || missingSkillNotes.length || missingToolNotes.length)
-            ? `\n**共享对话外部能力与权限差异说明**：\n${[...aliasNotes, ...missingSkillNotes, ...missingToolNotes].join('\n')}\n- 若当前请求依赖上述未授权技能或受限工具，严禁假装已经执行或编造输出；请明确告知缺失的能力，并引导用户在共享对话顶部状态栏发起申请或联系管理员开通。\n`
+            ? `\n**共享对话外部能力与权限差异说明**：\n${[...aliasNotes, ...missingSkillNotes, ...missingToolNotes].join('\n')}\n- 仅当当前请求实际触发或依赖上述未授权技能/受限工具时，才调用 \`load_skill\` 触发按需申请弹窗或明确说明缺失；平时无需使用则不要打扰用户或假装已执行。\n`
             : '';
         const sharedWorkspacePrompt = sharedWs
             ? (sharedWs.isOwner
@@ -1417,6 +1453,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
             skillLanguage: uiLanguage,
             skillPrompt: redactText(`${loadedSkills.catalogPrompt || ''}\n${loadedSkills.prompt || ''}`.trim(), { secrets: sensitiveValues }),
             skillIds: loadedSkills.selected.map(item => item.id),
+            sharedCapabilities,
             vision,
             extraToolsets: followupSetup ? [{
                 id: 'followup', label: '当前频道会话的持续跟进任务', definitions: followupAgent.definitions(),
@@ -2429,6 +2466,13 @@ router.delete('/sessions/:sessionId', checkAuth, async (req, res) => {
 
 router.get('/sessions/:sessionId/messages', checkAuth, async (req, res) => {
     try {
+        if (await require('../models/shared-conversations').isRevokedSession({
+            tenantId: getTenantId(),
+            username: req.user?.username || '',
+            sessionId: req.params.sessionId
+        })) {
+            return res.status(404).json({ code: 'SHARE_REVOKED', error: '发起者已停止共享，该对话已收回' });
+        }
         // 带 limit 时分页（恢复对话渐进加载，before 为更早一页的游标）；不带则返回全部，兼容旧调用方
         if (req.query.limit !== undefined) {
             const page = await aiChatRepo.listMessagesPage(req.params.sessionId, { owner: req.user.username, limit: req.query.limit, before: req.query.before || '' });

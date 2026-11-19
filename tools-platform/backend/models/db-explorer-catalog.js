@@ -272,6 +272,14 @@ function describeTable(name) {
         category: 'chat', description: '聊天全文检索的 SQLite 内部辅助表，由全文索引自动维护。',
         descriptionEn: 'SQLite full-text search shadow table maintained by the chat search index.', source: 'backend/models/chat-history-repository.js'
     };
+    if (!definition && /^(?:ibms_report_|eos_task_management_)/.test(key)) definition = {
+        category: 'reports', description: 'IBMS 历史报表宽表与外部基线归档表。',
+        descriptionEn: 'Legacy IBMS report aggregate and baseline archive table.', source: 'backend/models/report-db.js'
+    };
+    if (!definition && /^(?:op_ioc_rfc_|task_report_|nu_qu_nc_portray_|t_report_)/.test(key)) definition = {
+        category: 'reports', description: '运维工单、RFC 任务与日报历史兼容报表。',
+        descriptionEn: 'Legacy RFC task and daily operational compatibility report table.', source: 'backend/models/report-db.js'
+    };
     if (!definition) return {
         name, category: 'other', categoryLabel: '扩展与历史表', categoryLabelEn: 'Extensions & Legacy',
         description: '当前代码尚未登记此表的业务用途；请查看字段结构与建表语句。',

@@ -105,7 +105,7 @@ test('temporary timed workspaces expire and delete files, and core=false blocks 
     );
 });
 
-test('web stream prompts workspace choice card at turn start and mid-turn upgrade, supporting scratch, folder selection, cancel, and follow-up reuse', async t => {
+test('web stream auto-assigns a hidden scratch workspace when no folder is chosen, reuses it on follow-ups, and respects explicit folders', async t => {
     const origGetRuntime = settings.getRuntimeSettings;
     const origGetSecrets = settings.getRedactionSecrets;
     const origCreateClient = provider.createClient;
@@ -140,44 +140,13 @@ test('web stream prompts workspace choice card at turn start and mid-turn upgrad
     const { port } = server.address();
     const baseUrl = `http://127.0.0.1:${port}`;
 
-    let modelCalls = 0;
-    const respondOnApproval = (decisionPayload, onApproved) => async evt => {
-        if (evt.type === 'approval' && evt.preview?.kind === 'workspace_choice') {
-            const res = await fetch(`${baseUrl}/api/agent-workspace/approvals/${encodeURIComponent(evt.id)}`, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify(decisionPayload)
-            });
-            const body = await res.json();
-            if (onApproved) onApproved(res.status, body);
-        }
-    };
-
-    // 1. Cancel on turn-start card: never calls the model
-    const cancelEvents = await readNdjsonStream(await fetch(`${baseUrl}/api/ai/chat`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-            agent: 'dragon-claw-home',
-            pageTitle: 'Dragon Claw · 首页',
-            pagePath: '/',
-            stream: true,
-            messages: [{ role: 'user', content: '@debug 帮我排查下问题' }]
-        })
-    }), respondOnApproval({ decision: 'deny' }));
-    assert.equal(modelCalls, 0);
-    assert.ok(cancelEvents.some(e => e.type === 'approval' && e.preview?.kind === 'workspace_choice'));
-    assert.ok(cancelEvents.some(e => e.type === 'approval_result' && e.decision === 'deny'));
-    assert.match(cancelEvents.find(e => e.type === 'done')?.reply || '', /已取消/);
-
-    // 2. Choose temporary timed workspace on turn-start card, run command, then follow up seamlessly without re-prompting
+    // 1. Turn without workspace automatically runs in hidden scratch workspace without workspace_choice interruption
     let cmdSeen = '';
     provider.createClient = () => ({
         model: 'mock-model',
         async generateText(options) {
-            modelCalls += 1;
             const hasRunCommand = (options.tools || []).some(tool => tool.name === 'run_command');
-            assert.equal(hasRunCommand, true, 'agent mode provides run_command after scratch choice');
+            assert.equal(hasRunCommand, true, 'agent mode provides run_command automatically via hidden scratch workspace');
             if (!options.messages.some(m => m.role === 'tool')) {
                 return { toolCalls: [{ id: 'rc-1', name: 'run_command', args: { command: 'node -p "21 * 2"' } }] };
             }
@@ -198,9 +167,7 @@ test('web stream prompts workspace choice card at turn start and mid-turn upgrad
             messages: [{ role: 'user', content: '@debug 跑一下验证' }]
         })
     }), async evt => {
-        if (evt.type === 'approval' && evt.preview?.kind === 'workspace_choice') {
-            await respondOnApproval({ decision: 'scratch' })(evt);
-        } else if (evt.type === 'approval' && evt.tool === 'run_command') {
+        if (evt.type === 'approval' && evt.tool === 'run_command') {
             await fetch(`${baseUrl}/api/agent-workspace/approvals/${encodeURIComponent(evt.id)}`, {
                 method: 'POST', headers, body: JSON.stringify({ decision: 'allow' })
             });
@@ -208,12 +175,15 @@ test('web stream prompts workspace choice card at turn start and mid-turn upgrad
     });
     const chatSessionId = scratchEvents.find(e => e.type === 'start')?.sessionId;
     assert.ok(chatSessionId);
-    assert.ok(scratchEvents.some(e => e.type === 'approval_result' && e.decision === 'scratch' && e.ttlHours === 24));
+    assert.equal(scratchEvents.some(e => e.preview?.kind === 'workspace_choice'), false);
     assert.match(cmdSeen, /42/);
     const doneScratch = scratchEvents.find(e => e.type === 'done');
     assert.equal(doneScratch?.agent?.scratch, true);
+    assert.equal(doneScratch?.agent?.root, undefined);
+    const savedSession = await chat.getSession(chatSessionId);
+    assert.equal(savedSession?.agent || null, null, 'hidden scratch path is not exposed in chat session metadata');
 
-    // Follow-up in the same chat session without workspace payload or @debug reuses active temporary workspace with zero workspace prompts
+    // 2. Follow-up in the same chat session reuses hidden scratch workspace seamlessly
     provider.createClient = () => ({
         model: 'mock-model',
         async generateText(options) {
@@ -234,13 +204,21 @@ test('web stream prompts workspace choice card at turn start and mid-turn upgrad
             messages: [{ role: 'user', content: '@debug 跑一下验证' }, { role: 'model', content: 'done' }, { role: 'user', content: '再看下' }]
         })
     }));
-    assert.equal(followupEvents.some(e => e.preview?.kind === 'workspace_choice'), false, 'active temporary workspace is reused without prompting again');
+    assert.equal(followupEvents.some(e => e.preview?.kind === 'workspace_choice'), false);
     assert.equal(followupEvents.find(e => e.type === 'done')?.agent?.scratch, true);
 
-    // 3. Choose real directory on turn-start card
+    // 3. Explicit folder selection uses the selected folder
     const chosenFolder = path.join(sandbox, 'picked-project');
     fs.mkdirSync(chosenFolder, { recursive: true });
     fs.writeFileSync(path.join(chosenFolder, 'marker.txt'), 'REAL_DIR');
+    provider.createClient = () => ({
+        model: 'mock-model',
+        async generateText(options) {
+            assert.equal((options.tools || []).some(t => t.name === 'run_command'), true);
+            options.onDelta?.('目录检查完成');
+            return { text: '目录检查完成', toolCalls: [] };
+        }
+    });
     const folderEvents = await readNdjsonStream(await fetch(`${baseUrl}/api/ai/chat`, {
         method: 'POST',
         headers,
@@ -249,67 +227,28 @@ test('web stream prompts workspace choice card at turn start and mid-turn upgrad
             pageTitle: 'Dragon Claw · 首页',
             pagePath: '/',
             stream: true,
+            workspace: { agentSessionId: 'ws-explicit-test-1', root: chosenFolder, permissionMode: 'auto' },
             messages: [{ role: 'user', content: '@debug 检查目录' }]
         })
-    }), respondOnApproval({ decision: 'select_workspace', root: chosenFolder }));
+    }));
     const doneFolder = folderEvents.find(e => e.type === 'done');
     assert.equal(doneFolder?.agent?.root, fs.realpathSync(chosenFolder));
 
-    // 4. Mid-turn upgrade from database/normal chat when model calls tool_search for a workspace skill
-    let phase = 'chat';
-    let upgradedToolNames = [];
+    // 4. Ordinary chat without explicit @skill also enters scratch workspace and can dynamically load_skill
     provider.createClient = () => ({
         model: 'mock-model',
         async generateText(options) {
             const names = (options.tools || []).map(t => t.name);
-            if (!names.length) return { text: '测试对话', toolCalls: [] };
-            if (phase === 'chat') {
-                assert.equal(names.includes('run_command'), false);
-                phase = 'upgrading';
-                return { toolCalls: [{ id: 'ts-1', name: 'tool_search', args: { select: ['debug'] } }] };
-            }
-            upgradedToolNames = names;
-            assert.equal(names.includes('run_command'), true, 'upgraded turn has run_command immediately');
-            options.onDelta?.('升级工作区后完成');
-            return { text: '升级工作区后完成', toolCalls: [] };
-        }
-    });
-    const midTurnEvents = await readNdjsonStream(await fetch(`${baseUrl}/api/ai/chat`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-            agent: 'dragon-claw-home',
-            pageTitle: 'Dragon Claw · 首页',
-            pagePath: '/',
-            stream: true,
-            messages: [{ role: 'user', content: '帮我调试这个问题' }]
-        })
-    }), respondOnApproval({ decision: 'scratch' }));
-    assert.ok(midTurnEvents.some(e => e.type === 'tool_start' && e.tool === 'tool_search'));
-    assert.ok(midTurnEvents.some(e => e.type === 'approval' && e.preview?.kind === 'workspace_choice'));
-    assert.ok(midTurnEvents.some(e => e.type === 'approval_result' && e.decision === 'scratch'));
-    assert.ok(midTurnEvents.some(e => e.type === 'tool_result' && e.ok === true));
-    assert.equal(upgradedToolNames.includes('run_command'), true);
-    assert.equal(midTurnEvents.find(e => e.type === 'done')?.agent?.scratch, true);
-    assert.match(midTurnEvents.find(e => e.type === 'done')?.reply || '', /升级工作区后完成/);
-
-    // 5. Mid-turn upgrade cancelled (deny): stays out of run_command and informs model cancellation
-    let midCancelToolResult = '';
-    provider.createClient = () => ({
-        model: 'mock-model',
-        async generateText(options) {
-            const names = (options.tools || []).map(t => t.name);
-            if (!names.length) return { text: '测试对话', toolCalls: [] };
+            assert.equal(names.includes('run_command'), true);
+            assert.equal(names.includes('ask_user'), true);
             if (!options.messages.some(m => m.role === 'tool')) {
                 return { toolCalls: [{ id: 'ls-1', name: 'load_skill', args: { id: 'debug' } }] };
             }
-            midCancelToolResult = options.messages.find(m => m.role === 'tool')?.toolResults?.[0]?.content || '';
-            assert.equal(names.includes('run_command'), false);
-            options.onDelta?.('好的，已取消分配工作区');
-            return { text: '好的，已取消分配工作区', toolCalls: [] };
+            options.onDelta?.('统一工作区链路完成');
+            return { text: '统一工作区链路完成', toolCalls: [] };
         }
     });
-    const midCancelEvents = await readNdjsonStream(await fetch(`${baseUrl}/api/ai/chat`, {
+    const ordinaryEvents = await readNdjsonStream(await fetch(`${baseUrl}/api/ai/chat`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -319,8 +258,8 @@ test('web stream prompts workspace choice card at turn start and mid-turn upgrad
             stream: true,
             messages: [{ role: 'user', content: '帮我查一下' }]
         })
-    }), respondOnApproval({ decision: 'deny' }));
-    assert.ok(midCancelEvents.some(e => e.type === 'approval_result' && e.decision === 'deny'));
-    assert.match(midCancelToolResult, /用户取消了选择或分配工作区/);
-    assert.equal(Boolean(midCancelEvents.find(e => e.type === 'done')?.agent), false);
+    }));
+    assert.ok(ordinaryEvents.some(e => e.type === 'tool_result' && e.tool === 'load_skill' && e.ok === true));
+    assert.equal(ordinaryEvents.find(e => e.type === 'done')?.agent?.scratch, true);
+    assert.match(ordinaryEvents.find(e => e.type === 'done')?.reply || '', /统一工作区链路完成/);
 });

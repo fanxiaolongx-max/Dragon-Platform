@@ -136,7 +136,7 @@ function summaryOf(description) {
  * @param {Array} [input.messages]   送给模型的历史；其中调用过的工具视为已加载，保证历史与工具列表一致
  * @param {boolean} [input.skillCatalog] 系统提示里有技能目录时才提供 load_skill
  */
-async function create({ session, user, skillIds = [], messages = [], skillCatalog = false, sensitiveValues = [], core: withCore = true, extraToolsets = [], onWorkspaceSkillRequired = null }) {
+async function create({ session, user, skillIds = [], messages = [], skillCatalog = false, sensitiveValues = [], core: withCore = true, extraToolsets = [], onWorkspaceSkillRequired = null, sharedCapabilities = null, onSkillGrantRequired = null }) {
     const readOnly = Boolean(session.readOnly);
     if (!(session.loadedTools instanceof Set)) session.loadedTools = new Set();
     if (!(session.loadedSkills instanceof Set)) session.loadedSkills = new Set();
@@ -257,22 +257,33 @@ async function create({ session, user, skillIds = [], messages = [], skillCatalo
         return { content: lines.join('\n\n'), summary, isError: !tools.length, added };
     };
 
+    const promptMissingSharedSkill = cleanId => {
+        const missing = (sharedCapabilities?.skills || []).find(item => item.id === cleanId);
+        if (!missing || (!missing.canRequest && missing.status !== 'pending')) return null;
+        onSkillGrantRequired?.(missing);
+        const ownerLabel = missing.ownerName || missing.owner || '归属人';
+        const content = missing.status === 'pending'
+            ? `私有技能 @${cleanId} 已向归属人「${ownerLabel}」提交使用申请，正在等待审批。请如实告知用户等待审批后重试，不要编造结果。`
+            : `私有技能 @${cleanId} 尚未向当前成员开放，已在界面弹出向归属人「${ownerLabel}」申请使用的确认窗口。请告知用户在弹窗确认申请并在审批通过后继续，不要编造结果。`;
+        return { content, summary: missing.status === 'pending' ? '等待技能审批' : '需申请技能授权', isError: true };
+    };
+
     const loadSkill = async ({ id, file } = {}) => {
         const cleanId = String(id || '').replace(/^@/, '').trim().toLowerCase();
         if (!builtinSkills.ID_RE.test(cleanId)) return { content: '技能 ID 无效。', summary: '技能 ID 无效', isError: true };
-        if (!isVisibleSkill(cleanId)) return { content: '技能不存在或未开放。', summary: '技能未开放', isError: true };
+        if (!isVisibleSkill(cleanId)) return promptMissingSharedSkill(cleanId) || { content: '技能不存在或未开放。', summary: '技能未开放', isError: true };
         const unavailable = await skillStore.unavailableReason(cleanId);
         if (unavailable) return { content: unavailable, summary: 'NetCare 连接未启用' };
         if (file) {
             const found = await skillStore.readPackageFile(cleanId, actor, file);
-            if (!found) return { content: `技能目录中没有 @${cleanId}。`, summary: `没有 @${cleanId}`, isError: true };
+            if (!found) return promptMissingSharedSkill(cleanId) || { content: `技能目录中没有 @${cleanId}。`, summary: `没有 @${cleanId}`, isError: true };
             if (found.missing) return { content: `@${cleanId} 的技能包里没有 ${file}。${found.files.length ? `包内文件：${found.files.join('、')}` : '这个技能没有附带文件。'}`, summary: '文件不存在', isError: true };
             if (found.binary) return { content: `${found.path} 是二进制文件，不能按文本读取；它在硬盘上的位置：${found.location}`, summary: `${found.path}（二进制）` };
             return { content: redactText(`#### @${cleanId} / ${found.path}\n\`\`\`\n${found.content}\n\`\`\`${found.truncated ? '\n（内容过长，已截断；完整文件在 ' + found.location + '）' : ''}`, { secrets: sensitiveValues }), summary: `已读取 ${found.path}`, isError: false };
         }
         if (userSkills.has(cleanId)) return { content: `@${cleanId} 已在系统提示中加载，直接按其中的流程执行。`, summary: `@${cleanId} 已加载` };
         const loaded = await skillStore.loadSection(cleanId, actor);
-        if (!loaded) return { content: `技能目录中没有 @${cleanId}。只能加载目录中列出的技能。`, summary: `没有 @${cleanId}`, isError: true };
+        if (!loaded) return promptMissingSharedSkill(cleanId) || { content: `技能目录中没有 @${cleanId}。只能加载目录中列出的技能。`, summary: `没有 @${cleanId}`, isError: true };
         if (!withCore && loaded.meta?.workspace) {
             if (typeof onWorkspaceSkillRequired === 'function') {
                 const choice = await onWorkspaceSkillRequired(cleanId, loaded);

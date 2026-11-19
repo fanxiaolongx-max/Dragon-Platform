@@ -666,7 +666,7 @@ function commandStream(write, { runId, callId, command, cwd }) {
     };
 }
 
-function buildAgentAddendum(session, { gitBranch, directoryContext }) {
+function buildAgentAddendum(session, { gitBranch, directoryContext, netcareAvailable = false, netcareSelected = false }) {
     const modeText = { ask: '请求批准（写入、删除、命令都会先征求用户同意）', auto: '帮我批准（读写自动，删除/重命名/命令需用户同意）', full: '完全访问（管理员的文件操作和命令自动执行，不再逐项审批；Shell 以服务进程的系统账号权限运行）' }[session.permissionMode];
     const location = session.teamDefault
         ? `## 工作区（团队工作目录）
@@ -690,7 +690,20 @@ ${session.readOnly ? '' : `- 安装依赖或命令行工具（npm i -g、pip ins
 - 脚本专用保存允许鉴权逻辑与原有凭据，读取给模型/日志仍脱敏；不要沿用旧对话的“CSRF 占位符禁止克隆”结论。修复不代表删除授权；同名时按工具的 suggestedCall 原位 rebuild，不能先删后建或交付空框架。
 - 涉及 UIVF12 抓取脚本仓库（脚本、分类目录）的查询、新建、复制、修改、移动和删除时，优先 list_uiv_scripts / list_uiv_categories / read_uiv_script / save_uiv_script / move_uiv_script / delete_uiv_script / manage_uiv_category。专用工具可对完整长脚本做局部修改、校验语法并提交回读，避免 Shell 与截断 payload_json 的二次转义。用户已要求执行时不要停在方案或“可以入库”的描述。
 - 用户询问“本月/当前”指标而本月没有入库数据时，可以使用最新已入库快照，但须先明确“当前最新已入库的是 X 年 X 月目标数据，以下按该批数据分析”，并说明本月暂无入库数据。目标月份以 targetMonth/month 为准，不得用生成日期替代或把最新已入库月份称为本月。
-- 涉及平台业务数据或 SQLite 时，先 list_databases，再 database_schema / read_database_table；平台数据库由当前租户解析，与所选目录无关。库标识必须用 list_databases 实际返回的值（如 platform:report.db 存报表/月报指标与快照），不要自行拼写。读取结果为空时如实说明是哪张表为空，不要推测成权限受限或数据未入库。不要用 Shell 绕过数据库工具的凭据和租户限制。
+- **默认查指标/数据检索范围（严禁盲扫全库几百张表）**：
+  - 本地平台指标/导入数据的默认核心范围集中在：\`platform:report.db\`（\`reportsnapshots\` 报表入库总览、\`reportmetricdata\` 指标明细、\`reportcategoryscores\` 分类得分）与 \`platform:tools.db\`（\`sla_snapshots\` 导入原始快照、\`import_source_batches\`/\`import_source_sheets\`/\`import_source_snapshots\` 导入批次与源表、\`topic_snapshots\` 专题快照、\`monthly_report_snapshots\` 月报快照）。不要一上来对整库调不带 \`table\` 参数的 \`database_schema\` 扫描 451/101 张表。
+  - ${netcareAvailable && !netcareSelected ? `当前同时具备「本地已入库平台数据库」与「NetCare 实时数仓 API（@netcare-data，数字人基座）」两套数据源：
+    1) 用户已显式 \`@netcare-data\`，或明确提到 NetCare / 实时库 / 数字人基座 / DWS / DWD / 原始工单流水时，直接调用 \`load_skill({ id: 'netcare-data' })\` 并用 \`netcare_*\` 工具查询。
+    2) 用户已明确点名具体表（如 \`sla_snapshots\` / \`reportsnapshots\` / \`topic_snapshots\`），直接查对应 1–3 张具体表。
+    3) 当用户泛泛询问指标、异常值、达标率或“最新导入的数据”而未指明具体位置时，先调用 \`ask_user\` 弹出三选项选择卡片（2 个最常用入口 + 1 个其他选项）：
+       ["本地报表与 SLA 导入指标（reportsnapshots / reportmetricdata / sla_snapshots）", "NetCare 实时数仓（@netcare-data，在线最新汇总与明细）", "其他业务表（按常用顺序选择）"]
+    4) 若用户点击「其他业务表（按常用顺序选择）」，立即再次调用 \`ask_user\` 按常用顺序引导选择具体业务表分类（最多 5–6 项，不含系统/日志杂表）：
+       ["数据导入与原始台账（sla_snapshots / import_source_sheets / upload_history）", "月报快照与 AI 月报（monthly_report_snapshots / ai_report_documents）", "专题分析与 BI 看板（topic_snapshots / ai_bi_boards）", "指标目标与分组规则（sla_targets / sla_categories / sla_groups）", "运维激励与跟进台账（reward_applications / ops_followup_tasks / requirements）", "NetCare 高频专题表（需先加载 @netcare-data）"]，待用户选定后再只查所选对应的 1–3 张具体表。` : `1) 若用户已明确点名具体表或 \`@netcare-data\`，直接按目标位置只查对应 1–3 张具体表；不要用 Shell 绕过数据库权限。
+  2) 当用户泛泛询问业务指标、异常值、达标率或“最新导入的数据”而未明确具体表名时，先调用 \`ask_user\` 弹出三选项选择卡片（2 个最常用入口 + 1 个其他选项）：
+     ["报表看板与达标指标快照（platform:report.db 的 reportsnapshots / reportmetricdata）", "最新导入批次与 SLA 源表（platform:tools.db 的 sla_snapshots / import_source_batches / import_source_sheets）", "其他业务表（按常用顺序选择）"]
+  3) 若用户点击「其他业务表（按常用顺序选择）」，立即再次调用 \`ask_user\` 按常用顺序引导选择具体业务表分类（最多 5 项，不含系统/日志杂表）：
+     ["专题分析与 BI 看板（topic_snapshots / ai_bi_boards）", "月报快照与 AI 月报（monthly_report_snapshots / ai_report_documents）", "指标目标与分组规则（sla_targets / sla_categories / sla_groups）", "运维激励与跟进台账（reward_applications / ops_followup_tasks / requirements）", "导入历史与大屏责任人（upload_history / bigscreenowners）"]，待用户选定后再只查所选对应的 1–3 张具体表。`}
+  - 读取表前若未知库标识，可先 \`list_databases\` 确认 \`platform:report.db\` / \`platform:tools.db\`；读取结果为空时如实说明是哪张表为空，不要推测成权限受限或数据未入库。
 - ${session.readOnly ? '当前账号无数据库写权限。' : '当前管理员可用 insert_database_row / update_database_rows / delete_database_rows 对业务数据增删改；按当前权限模式执行。修改前先确认表结构和目标行，用 filters 精确定位；整表操作必须显式 allowAllRows=true，并按实际范围设置 maxAffectedRows。历史报表保留入库口径，除非用户明确要求，不用当前规则重算。数据库提交不支持文件撤销。'}
 - 工具返回的错误要如实告诉用户；被用户拒绝的操作不要换个方式重试。
 - 用命令批量创建、移动或重命名文件和目录后，重新列出源和目标目录核实实际变更。退出码为 0 时也要核实；遇到失败或结果不符时，先核对已完成的部分再决定如何重试。
@@ -1008,7 +1021,7 @@ function beginRun(session, write, signal) {
     return run;
 }
 
-async function runAgentTurn({ session, user, client, systemInstruction, historyMessages, write, signal, maxOutputTokens, temperature, model, sensitiveValues = [], chatSessionId = '', onRunStarted, skillCatalog, skillLanguage = 'zh', skillPrompt = '', skillIds = null, vision = null, extraToolsets = [], userEvents = [], interactiveTerminal = false }) {
+async function runAgentTurn({ session, user, client, systemInstruction, historyMessages, write, signal, maxOutputTokens, temperature, model, sensitiveValues = [], chatSessionId = '', onRunStarted, skillCatalog, skillLanguage = 'zh', skillPrompt = '', skillIds = null, vision = null, extraToolsets = [], userEvents = [], interactiveTerminal = false, sharedCapabilities = null }) {
     const emit = write;
     write = event => emit(redactValue(event, { secrets: sensitiveValues }));
     const run = beginRun(session, write, signal);
@@ -1025,7 +1038,10 @@ async function runAgentTurn({ session, user, client, systemInstruction, historyM
 
     const gitBranch = readGitBranch(session.root);
     const directoryContext = buildDirectoryContext(session.root);
-    const addendum = `${buildAgentAddendum(session, { gitBranch, directoryContext })}${session.rewindNote ? `\n\n**注意**：${session.rewindNote}` : ''}`;
+    const resolvedSkillIds = Array.isArray(skillIds) ? skillIds : [...String(systemInstruction).matchAll(/^### @([a-z][a-z0-9-]*)$/gm)].map(match => match[1]);
+    const netcareAvailable = !session.readOnly && Array.isArray(skillCatalog) && skillCatalog.some(item => item.id === 'netcare-data');
+    const netcareSelected = Boolean(resolvedSkillIds.includes('netcare-data') || session.loadedSkills?.has('netcare-data'));
+    const addendum = `${buildAgentAddendum(session, { gitBranch, directoryContext, netcareAvailable, netcareSelected })}${session.rewindNote ? `\n\n**注意**：${session.rewindNote}` : ''}`;
     session.rewindNote = '';
     // 同一会话前几轮的工具转录（按轮保存、含用户消息）替换对应的文字历史，让模型记得自己做过什么，
     // 且工具调用始终紧跟用户消息或工具结果。
@@ -1036,7 +1052,9 @@ async function runAgentTurn({ session, user, client, systemInstruction, historyM
     // 工具登记表：常驻工具 + tool_search / load_skill；用户选择的技能（@netcare-data / @ops-group / @welink-office 等）带上各自的专用工具
     const registry = await toolRegistry.create({ session, user, messages, sensitiveValues, skillCatalog: Array.isArray(skillCatalog) && skillCatalog.length > 0,
         extraToolsets: [...await require('./agent-extra-tools').toolsets({ owner: session.owner, user, readOnly: session.readOnly }), ...extraToolsets],
-        skillIds: Array.isArray(skillIds) ? skillIds : [...String(systemInstruction).matchAll(/^### @([a-z][a-z0-9-]*)$/gm)].map(match => match[1]) });
+        skillIds: resolvedSkillIds,
+        sharedCapabilities,
+        onSkillGrantRequired: skill => write({ type: 'skill_grant_prompt', skill }) });
     if (extraToolsets.length) await registry.runMeta({ name: 'tool_search', args: { select: extraToolsets.map(set => set.id) } });
     const skillPrompts = registry.startPrompt();
     const fullSystem = redactText(`${systemInstruction}\n${addendum}${skillPrompts ? `\n${skillPrompts}` : ''}${registry.catalogPrompt()}`, { secrets: sensitiveValues });

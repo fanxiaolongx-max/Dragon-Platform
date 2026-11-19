@@ -55,15 +55,31 @@ test('home administrator can commit and verify database edits without a workspac
     for (const id of ['default', 'other']) {
         let step = 0;
         const target = { database: 'platform:tools.db', table: 'assistant_items' };
-        const calls = [
-            ['list_databases', {}], ['database_schema', target], ['read_database_table', target],
-            ['update_database_rows', { ...target, values: '{"label":"changed"}', filters: [{ column: 'id', op: 'eq', value: 1 }] }],
-            ['read_database_table', target]
-        ];
+        const isStreaming = id === 'default';
+        const calls = isStreaming
+            ? [
+                ['list_databases', {}], ['database_schema', target], ['read_database_table', target],
+                ['tool_search', { select: ['database'] }],
+                ['update_database_rows', { ...target, values: '{"label":"changed"}', filters: [{ column: 'id', op: 'eq', value: 1 }] }],
+                ['read_database_table', target]
+            ]
+            : [
+                ['list_databases', {}], ['database_schema', target], ['read_database_table', target],
+                ['update_database_rows', { ...target, values: '{"label":"changed"}', filters: [{ column: 'id', op: 'eq', value: 1 }] }],
+                ['read_database_table', target]
+            ];
         provider.createClient = () => ({ model: 'mock', generateText: async options => {
-            assert.ok(options.tools.some(tool => tool.name === 'update_database_rows'));
-            assert.equal(options.tools.some(tool => tool.name === 'run_command' || tool.name === 'write_file'), false);
-            assert.match(options.systemInstruction, /无需选择工作目录/);
+            if (isStreaming) {
+                assert.ok(options.tools.some(tool => tool.name === 'list_databases'));
+                assert.ok(options.tools.some(tool => tool.name === 'run_command' && tool.name !== ''));
+                assert.ok(options.tools.some(tool => tool.name === 'ask_user'));
+                assert.match(options.systemInstruction, /临时目录/);
+                if (step >= 4) assert.ok(options.tools.some(tool => tool.name === 'update_database_rows'));
+            } else {
+                assert.ok(options.tools.some(tool => tool.name === 'update_database_rows'));
+                assert.equal(options.tools.some(tool => tool.name === 'run_command' || tool.name === 'write_file'), false);
+                assert.match(options.systemInstruction, /无需选择工作目录/);
+            }
             assert.match(options.systemInstruction, /当前最新已入库的是 X 年 X 月目标数据/);
             assert.doesNotMatch(options.systemInstruction, /### @netcare-data/);
             assert.doesNotMatch(options.systemInstruction, /你没有修改业务数据的权限/);
@@ -77,7 +93,9 @@ test('home administrator can commit and verify database edits without a workspac
                 assert.equal(read.writable, true);
                 assert.equal(read.rows[0].label, `${id} before`);
             }
-            if (step === 4) assert.equal(JSON.parse(options.messages.at(-1).toolResults[0].content).changes, 1);
+            if ((!isStreaming && step === 4) || (isStreaming && step === 5)) {
+                assert.equal(JSON.parse(options.messages.at(-1).toolResults[0].content).changes, 1);
+            }
             if (step === calls.length) {
                 assert.equal(JSON.parse(options.messages.at(-1).toolResults[0].content).rows[0].label, 'changed');
                 return { text: '已修改并回读核对。', toolCalls: [] };
@@ -85,21 +103,22 @@ test('home administrator can commit and verify database edits without a workspac
             const [name, args] = calls[step++];
             return { toolCalls: [{ id: `call-${step}`, name, args }] };
         } });
-        const response = await request(`admin-${id}`, { stream: id === 'default' });
+        const response = await request(`admin-${id}`, { stream: isStreaming });
         assert.equal(response.status, 200);
         let done;
-        if (id === 'default') {
+        if (isStreaming) {
             const events = (await response.text()).trim().split('\n').map(line => JSON.parse(line));
-            assert.equal(events.filter(event => event.type === 'tool_result' && event.ok).length, 5);
+            assert.equal(events.filter(event => event.type === 'tool_result' && event.ok).length, calls.length);
             done = events.find(event => event.type === 'done');
             assert.ok(done);
+            assert.equal(done.agent?.scratch, true);
             await tenant.runWithTenant('other', async () => assert.equal((await appDb.get('SELECT label FROM assistant_items WHERE id=1')).label, 'other before'));
         } else done = await response.json();
         assert.match(done.reply, /已修改并回读核对/);
         await tenant.runWithTenant(id, async () => {
             assert.equal((await appDb.get('SELECT label FROM assistant_items WHERE id=1')).label, 'changed');
             const history = await chat.listMessages(done.sessionId, { owner: `admin-${id}` });
-            assert.equal(history[1].events.filter(event => event.type === 'tool_result').length, 5);
+            assert.equal(history[1].events.filter(event => event.type === 'tool_result').length, calls.length);
         });
     }
 

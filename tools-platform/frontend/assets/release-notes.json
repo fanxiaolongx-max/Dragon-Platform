@@ -1,14 +1,14 @@
 {
   "zh": [
-    "共享对话新增工作目录默认共享与隔离协作机制：发起者选定或自动分配的安全工作目录自动逻辑共享给成员（协作成员目录选择器灰显锁定不可切换，文件与上传落盘至发起者工作区 shared-uploads/，禁用直接 run_command 并在需要终端命令时自动派出个人隔离沙箱子智能体执行后回传结果，停止共享实时回收权限）。",
-    "共享对话新增外部技能/工具差异感知与私有 Skill 授权审批流：缺少私有 Skill 时可向归属人发起申请并推送横幅与外部通知，同意后仅导入本对话成员；同 ID 冲突自动兼容别名并平滑衔接后续全员开放。",
-    "修复停止共享对话后列表与轮询状态未能及时清除导致重复弹出提示和停留在共享分类的问题，以及旧对话浏览器 AI 指针协同预览无响应或每次打开历史对话自动重绘的问题。",
-    "优化技能、插件与工具中心及保险箱体验：全员开放状态与筛选仅超管可见，修复圆角搜索框聚焦遮挡文字，修复账号切换时侧栏骨架屏卡顿、HTML 工具鉴权刷新与桌面配额条展示细节。"
+    "共享对话支持停止共享收回模式与按需技能申请：发起者停止共享或移除成员时自动收回并清理非发起者副本及共享附件（同步清理存量残留副本）；共享历史里缺失的私有技能改为仅在主动触发或调用时才弹窗申请授权，平时不再常驻顶栏打扰。",
+    "优化默认指标检索范围与多数据源引导：未明确指定表名时默认通过卡片先提供 2 个最常用入口 +「其他业务表（按常用顺序选择）」，点击「其他」后再按高频使用顺序引导选表；同时为数据库与表名标注中文用途与行数详情，避免全库盲扫几百张表。",
+    "受限及非超管账号在对话中选择工作区目录时，统一以相对工作区根目录的 ~ 路径展示，不再暴露宿主机完整路径。",
+    "移动端（iOS / Android）支持在侧栏长按拖拽调整置顶对话顺序。"
   ],
   "en": [
-    "Added automatic workspace sharing and isolated execution for shared conversations: safe originator directories mount logically for collaborators with a locked selector, uploads write into shared-uploads/, direct run_command is blocked in favor of an isolated per-member sandbox_task subagent, and stopping sharing immediately revokes access.",
-    "Added missing Skill/Tool awareness and private Skill approval cards in shared conversations, allowing owners to approve and share private skills scoped only to chat members with alias handling and notifications.",
-    "Fixed stop-sharing leaving chats in the Shared section or repeatedly showing the stopped toast, and fixed HTML swarm canvas replay/trigger behavior on shared and historical messages.",
-    "Restricted shared/unshared badges and filters in Skills/Plugins/Tools hubs to superadmins, fixed rounded search input clipping, and fixed auth-switch sidebar loading, Vault refresh, and desktop quota bar display."
+    "Shared conversations now revoke and purge non-owner local copies and shared attachments when sharing stops or members are removed (including legacy stopped shares), and only prompt to request missing private skills on demand when actually triggered or used.",
+    "Focused default metric/data lookup scope: instead of scanning hundreds of tables, present a 2-option + \"Other tables (ordered by common usage)\" picker card that guides users through prioritized business tables in a follow-up step, paired with database/table purpose labels and row counts.",
+    "Display workspace directory paths relative to each user's workspace root (~) instead of full host paths for confined and non-superadmin accounts in the local folder picker.",
+    "Added drag-to-reorder support for pinned conversations in the mobile sidebar (iOS & Android)."
   ]
 }

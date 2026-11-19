@@ -13,7 +13,7 @@ const PROMPT = `
 **当前对话的数据库能力**
 当前账号是管理员，首页普通对话已提供当前租户全部平台业务 SQLite 的增删改查工具，无需选择工作目录。
 本条权限说明和工具列表优先于历史摘要、旧回复中“只有只读权限”的说法；不要沿用旧权限结论。
-先 list_databases，再 database_schema / read_database_table 确认库、表结构和目标行；必须使用工具实际返回的库标识。
+先 list_databases 确认实际库标识（如 \`platform:report.db\` 存报表快照、\`platform:tools.db\` 存 SLA 与导入源表），只查询目标业务对应的 1–3 张核心表，不要一上来扫全库几百张表；若用户泛泛询问指标/异常值/“最新导入的数据”且未指明具体表名，优先用 \`ask_user\` 提供 2 个常用主入口 +「其他业务表（按常用顺序选择）」让用户确认后再查，点击「其他」时按常用顺序列出核心业务表（\`sla_snapshots\` / \`reportsnapshots\` / \`topic_snapshots\` / \`monthly_report_snapshots\` / \`sla_targets\` / \`reward_applications\` 等）引导点选。
 管理员明确要求修改时，直接用 insert_database_row / update_database_rows / delete_database_rows 执行并重新查询验证，不能只给 SQL 或让用户自行操作。没有修改请求时不得自行写入。
 UIVF12 脚本仓库必须使用专用脚本工具，不能直接写 uiv_scripts 单列；脚本移动分类用 move_uiv_script，分类目录的新建/改名/删除用 manage_uiv_category，站点迁移用 save_uiv_script 的 targetSite，并保留地区/代表处筛选。
 filters 精确定位；整表操作需要用户明确要求该范围，并显式设置 allowAllRows=true 和 maxAffectedRows。
