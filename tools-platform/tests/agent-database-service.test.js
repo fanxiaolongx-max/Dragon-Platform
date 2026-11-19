@@ -278,4 +278,19 @@ test('database schema includes tableDetails rowCount/purpose and tool summaries 
         const readRes = await tools.execute(ctx, 'read_database_table', { database: 'platform:tools.db', table: 'import_source_batches' });
         assert.match(readRes.summary, /^platform:tools\.db（平台业务主库） \/ import_source_batches（[^）]+） · \d+ 行/);
     });
+
+    const reportDir = tenant.getReportDataDir('default');
+    await create(path.join(reportDir, 'report.db'), `CREATE TABLE IF NOT EXISTS ReportSnapshots (Id INTEGER, Month TEXT);
+        INSERT INTO ReportSnapshots VALUES (1, '2026-11');`);
+    await tenant.runWithTenant('default', async () => {
+        const lowerSchema = await tools.execute(ctx, 'database_schema', { database: 'platform:report.db', table: 'reportsnapshots' });
+        assert.equal(lowerSchema.isError, undefined);
+        const schemaObj = JSON.parse(lowerSchema.content);
+        assert.equal(schemaObj.table, 'ReportSnapshots');
+        const lowerRead = await tools.execute(ctx, 'read_database_table', { database: 'platform:report.db', table: 'reportsnapshots' });
+        assert.equal(lowerRead.isError, undefined);
+        const readObj = JSON.parse(lowerRead.content);
+        assert.equal(readObj.table, 'ReportSnapshots');
+        assert.equal(readObj.rows[0].Month, '2026-11');
+    });
 });

@@ -101,7 +101,7 @@ const SEARCH_LIMIT = 6;
 const META = [
     {
         name: 'tool_search',
-        description: '加载按需工具的完整说明和参数。select 填工具名或分组名（见系统提示中的按需工具列表）；不确定用哪个时用 query 按关键词搜索。加载后的工具在本会话内一直可用，下一步即可调用。',
+        description: '加载按需工具的完整说明和参数。select 填工具名或分组名（见系统提示中的按需工具列表）；不确定用哪个时用 query 按关键词搜索。若用户只是询问“你能调用哪些工具”，直接根据系统提示中的已加载工具与按需工具列表汇总回答，无需专门搜索。加载后的工具在本会话内一直可用，下一步即可调用。',
         parameters: {
             type: 'object',
             properties: {
@@ -230,14 +230,26 @@ async function create({ session, user, skillIds = [], messages = [], skillCatalo
         return `\n**按需工具**：下列是工具名（不是 Shell 命令，不要用 run_command 执行），当前没有附带参数说明。需要时先调用 tool_search（select 填工具名或分组名）加载，加载后在本会话内一直可用；也可以直接按名称调用，同组工具会一并加载。${skillCatalog ? '技能目录中的技能可用 load_skill 自行加载完整流程。' : ''}\n${lines.join('\n')}\n`;
     };
 
+    const OVERVIEW_QUERY_RE = /^(?:列出|查看)?(?:所有|全部|哪些)?(?:可用的?|已加载的?)?(?:工具|能力)(?:清单|目录|列表)?$|^(?:all|list|catalog|tools|\*)$/i;
     const search = ({ select, query } = {}) => {
+        const hasSelect = Array.isArray(select) ? select.length > 0 : Boolean(select);
+        const trimmedQuery = String(query || '').trim();
+        if (!hasSelect && (!trimmedQuery || OVERVIEW_QUERY_RE.test(trimmedQuery))) {
+            const loadedNames = definitions().map(item => item.name);
+            const rest = deferred();
+            const parts = [
+                `当前已直接挂载的工具（${loadedNames.length} 个）：${loadedNames.join('、')}`,
+                rest.length ? catalogPrompt().trim() : '所有可用按需工具均已挂载。'
+            ];
+            return { content: parts.join('\n\n'), summary: `已列出 ${loadedNames.length + rest.length} 个工具`, isError: false, added: [] };
+        }
         const wanted = [];
         for (const raw of Array.isArray(select) ? select : (select ? [select] : [])) {
             const key = String(raw || '').trim();
             if (groupNames(key)) wanted.push(...groupNames(key));
             else wanted.push(key);
         }
-        const terms = String(query || '').toLowerCase().split(/[\s,，、]+/).filter(Boolean);
+        const terms = trimmedQuery.toLowerCase().split(/[\s,，、]+/).filter(Boolean);
         if (terms.length) {
             const scored = [...core.filter(item => !ALWAYS.has(item.name)), ...[...extraByName.values()].map(entry => entry.def)].map(item => {
                 const group = groupOf(item.name) || '';
@@ -252,9 +264,9 @@ async function create({ session, user, skillIds = [], messages = [], skillCatalo
         const tools = found.map(name => coreByName.get(name) || extraByName.get(name).def);
         const lines = tools.map(item => `### ${item.name}\n${item.description}\n参数：${JSON.stringify(item.parameters)}`);
         if (unknown.length) lines.push(readOnly ? `未找到或当前账号无权使用：${unknown.join('、')}` : `未找到：${unknown.join('、')}`);
-        if (!tools.length && !unknown.length) lines.push('没有匹配的工具。请换个关键词，或参考系统提示里的按需工具列表。');
-        const summary = tools.length ? `已加载 ${tools.length} 个工具` : '没有加载新工具';
-        return { content: lines.join('\n\n'), summary, isError: !tools.length, added };
+        if (!tools.length && !unknown.length) lines.push('没有匹配的按需工具，已装载的核心工具及目录均可直接使用。请换具体关键词，或直接参考系统提示里的工具与技能列表。');
+        const summary = tools.length ? `已加载 ${tools.length} 个工具` : (unknown.length ? '未找到指定工具' : '未匹配到按需工具');
+        return { content: lines.join('\n\n'), summary, isError: unknown.length > 0, added, noMatch: !tools.length };
     };
 
     const promptMissingSharedSkill = cleanId => {
@@ -351,7 +363,7 @@ async function create({ session, user, skillIds = [], messages = [], skillCatalo
                 const rest = select.filter(value => !isSkill(value));
                 if (!ids.length) {
                     const toolResult = search(args);
-                    if (toolResult.isError && skillCatalog && query && !rest.length) {
+                    if (toolResult.noMatch && !OVERVIEW_QUERY_RE.test(query) && skillCatalog && query && !rest.length) {
                         const qTerms = query.toLowerCase().split(/[\s,，、]+/).filter(Boolean);
                         const matchedSkills = allSkills.map(item => {
                             const hay = `${item.id} ${item.name || ''} ${item.nameEn || ''} ${item.description || ''} ${item.descriptionEn || ''}`.toLowerCase();

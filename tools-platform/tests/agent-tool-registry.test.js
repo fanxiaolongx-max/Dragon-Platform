@@ -62,6 +62,14 @@ test('tool_search accepts skill IDs, preserves mixed tool requests and keeps loa
         const createByQuery = await reg.runMeta({ name: 'tool_search', args: { query: '创建技能 skill' } });
         assert.equal(createByQuery.isError, false);
         assert.match(createByQuery.content, /### @create-skill/);
+
+        // 泛查「所有可用工具」及未命中关键词不应标红报错
+        const overviewRes = await reg.runMeta({ name: 'tool_search', args: { query: '所有可用工具' } });
+        assert.equal(overviewRes.isError, false);
+        assert.match(overviewRes.summary, /已列出/);
+        assert.match(overviewRes.content, /list_databases/);
+        const missRes = await reg.runMeta({ name: 'tool_search', args: { query: '完全无关关键词xyz' } });
+        assert.equal(missRes.isError, false);
     } finally {
         await config.saveConfig({ enabled: false });
     }

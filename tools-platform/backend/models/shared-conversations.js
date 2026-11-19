@@ -836,21 +836,25 @@ async function listMine({ tenantId, username }) {
     return items;
 }
 
+async function closeShareAndPurge(share) {
+    const membersToPurge = await all(
+        `SELECT username, tenant_id, local_session_id FROM shared_conversation_members
+         WHERE share_id = ? AND username <> ? AND local_session_id <> '' AND status IN ('accepted', 'removed')`,
+        [share.id, share.owner]
+    );
+    await run("UPDATE shared_conversations SET status = 'closed', updated_at = CURRENT_TIMESTAMP WHERE id = ?", [share.id]);
+    await run("UPDATE shared_conversation_members SET status = 'removed', responded_at = CURRENT_TIMESTAMP WHERE share_id = ? AND username <> ? AND status IN ('accepted', 'pending', 'ignored', 'declined')", [share.id, share.owner]);
+    linkedCache = null;
+    await Promise.all(membersToPurge.map(row => purgeRevokedMemberCopy(share.id, row)));
+}
+
 async function leave({ tenantId, username, sessionId }) {
     const member = await memberByLocal(tenantId, username, sessionId);
     if (!member) throw fail(404, 'SHARE_NOT_FOUND', '这个对话没有共享');
     const share = await getShare(member.share_id);
     if (share.owner === username) {
         // 发起者：停止共享，回收非发起者成员的本地副本，仅发起者保留原对话
-        const membersToPurge = await all(
-            `SELECT username, tenant_id, local_session_id FROM shared_conversation_members
-             WHERE share_id = ? AND username <> ? AND local_session_id <> '' AND status IN ('accepted', 'removed')`,
-            [share.id, share.owner]
-        );
-        await run("UPDATE shared_conversations SET status = 'closed', updated_at = CURRENT_TIMESTAMP WHERE id = ?", [share.id]);
-        await run("UPDATE shared_conversation_members SET status = 'removed', responded_at = CURRENT_TIMESTAMP WHERE share_id = ? AND username <> ? AND status IN ('accepted', 'pending', 'ignored', 'declined')", [share.id, share.owner]);
-        linkedCache = null;
-        await Promise.all(membersToPurge.map(row => purgeRevokedMemberCopy(share.id, row)));
+        await closeShareAndPurge(share);
         return { closed: true };
     }
     await run("UPDATE shared_conversation_members SET status = 'left', responded_at = CURRENT_TIMESTAMP WHERE share_id = ? AND username = ?", [share.id, username]);
@@ -873,8 +877,18 @@ async function removeMember({ tenantId, username, sessionId, target }) {
 
 async function onLocalDeleted({ tenantId, username, sessionId }) {
     await ensureReady();
+    const member = await memberByLocal(tenantId, username, sessionId);
+    if (!member) return;
+    const share = await getShare(member.share_id);
+    if (share && share.owner === username) {
+        // 发起者删除了原对话：停止共享并收回非发起者副本，再把发起者行记为 left
+        await closeShareAndPurge(share);
+    }
     const result = await run("UPDATE shared_conversation_members SET status = 'left', responded_at = CURRENT_TIMESTAMP WHERE tenant_id = ? AND username = ? AND local_session_id = ? AND status = 'accepted'", [tenantId, username, String(sessionId || '')]);
     if (result.changes) linkedCache = null;
+    const normalizedTenant = tenantContext.normalizeTenantId(tenantId);
+    const cleanUser = cleanName(username);
+    if (cleanUser) await fsp.rm(path.join(uploadDirFor(normalizedTenant, cleanUser), `shared-${member.share_id}`), { recursive: true, force: true }).catch(() => {});
 }
 
 // ── 账号、常用群组、最近使用 ──

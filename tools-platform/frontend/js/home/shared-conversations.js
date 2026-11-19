@@ -1053,9 +1053,18 @@ body:not(.dc-chatting) .shc-cap-bar{display:none}
         if (thread) new MutationObserver(() => { if (currentSession() !== lastSession) { lastSession = currentSession(); renderThreadBar(); } else if (info(currentSession()) && !thread.querySelector(':scope > .shc-thread-bar')) renderThreadBar(); decorateOwn(thread); }).observe(thread, { childList: true });
     }
 
+    function onSessionDeleted(sessionId) {
+        if (!sessionId) return;
+        state.sessionDetails.delete(sessionId);
+        state.mine = state.mine.filter(item => item.sessionId !== sessionId);
+        state.bySession.delete(sessionId);
+        renderThreadBar();
+        window.dispatchEvent(new CustomEvent('home:conversation-list-changed', { detail: { source: 'mine' } }));
+    }
+
     window.HomeSharedConversations = {
         openDialog, renderInto, count, isShared, info, items: listItems, rowIcon, decorateMessage, refresh: () => Promise.all([refreshInbox(), refreshMine()]),
-        promptSkillRequest, checkSkillBeforeSend,
+        promptSkillRequest, checkSkillBeforeSend, onSessionDeleted,
         // 侧栏右键「共享」只给 Dragon Claw 自己的对话：第三方 Agent、频道对话不共享
         available: () => state.available !== false,
         beforeOpen: async sessionId => {

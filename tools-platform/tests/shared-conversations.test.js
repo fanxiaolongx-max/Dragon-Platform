@@ -684,4 +684,26 @@ test('stopping or removing a shared conversation revokes non-owner copies includ
     await apiJson('alice5', 'POST', `/shared-conversations/session/${aliceSession}/remove`, { username: 'bob5' });
     const bobListAfterRemove = await apiJson('bob5', 'GET', '/ai/sessions?mine=1&pagePath=%2F');
     assert.equal(bobListAfterRemove.body.items.some(item => item.id === bobSession2), false);
+
+    // Non-owner deleting local copy leaves share without affecting owner; owner deleting origin session closes share & purges remaining members
+    await apiJson('alice5', 'POST', `/shared-conversations/session/${aliceSession}/prepare`, {});
+    await apiJson('alice5', 'POST', `/shared-conversations/session/${aliceSession}/invite`, { usernames: ['bob5'] });
+    const bobInbox3 = await apiJson('bob5', 'GET', '/shared-conversations/inbox');
+    const bobAcc3 = await apiJson('bob5', 'POST', `/shared-conversations/invites/${bobInbox3.body.items[0].shareId}/respond`, { action: 'accept' });
+    const bobSession3 = bobAcc3.body.sessionId;
+    const bobDel = await apiJson('bob5', 'DELETE', `/ai/sessions/${bobSession3}`);
+    assert.equal(bobDel.status, 200);
+    assert.equal((await apiJson('bob5', 'GET', '/shared-conversations/mine')).body.items.length, 0);
+    const aliceStill = await apiJson('alice5', 'GET', `/ai/sessions/${aliceSession}/messages`);
+    assert.equal(aliceStill.status, 200, 'owner session stays intact after member deletes local copy');
+
+    // Now re-invite Bob, then Alice (owner) deletes her origin session -> share closes and Bob copy is purged
+    await apiJson('alice5', 'POST', `/shared-conversations/session/${aliceSession}/invite`, { usernames: ['bob5'] });
+    const bobInbox4 = await apiJson('bob5', 'GET', '/shared-conversations/inbox');
+    const bobAcc4 = await apiJson('bob5', 'POST', `/shared-conversations/invites/${bobInbox4.body.items[0].shareId}/respond`, { action: 'accept' });
+    const bobSession4 = bobAcc4.body.sessionId;
+    const aliceDel = await apiJson('alice5', 'DELETE', `/ai/sessions/${aliceSession}`);
+    assert.equal(aliceDel.status, 200);
+    assert.equal(await runWithTenant('bob5', () => chat.getSession(bobSession4)), undefined, 'owner deleting origin session sweeps member copy');
+    assert.equal((await apiJson('bob5', 'GET', '/shared-conversations/mine')).body.items.length, 0);
 });

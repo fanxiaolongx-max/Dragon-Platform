@@ -215,14 +215,23 @@ async function tables(all) {
     return rows.filter(row => !PRIVATE_TABLE.test(row.name) && /^CREATE\s+TABLE\b/i.test(row.sql || ''));
 }
 
-async function columns(all, table) {
-    if (!(await tables(all)).some(row => row.name === table)) {
-        if (/finance|bookkeep|账|财务|流水|消费|收支/i.test(String(table || ''))) {
+async function resolveTableName(all, table) {
+    const target = String(table || '').trim();
+    const available = await tables(all);
+    const match = available.find(row => row.name === target)
+        || available.find(row => row.name.toLowerCase() === target.toLowerCase());
+    if (!match) {
+        if (/finance|bookkeep|账|财务|流水|消费|收支/i.test(target)) {
             throw fail(`平台 SQLite 库中不存在“${table}”表。WISE 家庭财务是独立外部系统，请勿使用 database 数据库工具，直接使用家庭财务工具（finance_record_expense / finance_query_accounts 等）或运行 quick_record.py。`);
         }
         throw fail('该表不可供 AI 读取（不存在、凭据/会话表、视图或虚拟表）');
     }
-    const rows = await all(`PRAGMA table_info(${quote(table)})`);
+    return match.name;
+}
+
+async function columns(all, table) {
+    const resolved = await resolveTableName(all, table);
+    const rows = await all(`PRAGMA table_info(${quote(resolved)})`);
     return rows.filter(row => !PRIVATE_COLUMN.test(row.name));
 }
 
@@ -267,12 +276,13 @@ async function listDatabases(ctx, args = {}) {
 async function schema(ctx, args) {
     return withDatabase(ctx, args.database, async all => {
         if (args.table) {
+            const tableName = await resolveTableName(all, args.table);
             return {
                 database: args.database,
                 databasePurpose: describeDatabase(args.database),
-                table: args.table,
-                tablePurpose: describeTablePurpose(args.table),
-                columns: (await columns(all, args.table)).map(row => ({ name: row.name, type: row.type, primaryKey: Boolean(row.pk) }))
+                table: tableName,
+                tablePurpose: describeTablePurpose(tableName),
+                columns: (await columns(all, tableName)).map(row => ({ name: row.name, type: row.type, primaryKey: Boolean(row.pk) }))
             };
         }
         const list = await tables(all);
@@ -314,7 +324,8 @@ async function schema(ctx, args) {
 
 async function readTable(ctx, args) {
     return withDatabase(ctx, args.database, async all => {
-        const available = await columns(all, args.table);
+        const tableName = await resolveTableName(all, args.table);
+        const available = await columns(all, tableName);
         const selected = Array.isArray(args.columns) && args.columns.length ? args.columns : available.slice(0, 16).map(row => row.name);
         if (!selected.length || selected.length > 16 || selected.some(name => !available.some(row => row.name === name))) throw fail('列不存在、属于敏感字段，或超过单次 16 列上限');
         const params = [];
@@ -340,9 +351,9 @@ async function readTable(ctx, args) {
         const fields = selected.map(name => `CASE WHEN typeof(${quote(name)}) = 'blob' THEN '[BLOB omitted]' WHEN typeof(${quote(name)}) = 'text' AND length(${quote(name)}) > 1000 THEN substr(${quote(name)}, 1, 1000) || '…[cell truncated]' ELSE ${quote(name)} END AS ${quote(name)}`);
         const keyFields = available.filter(row => /^(?:key|key_name|name|setting|setting_name|config_key)$/i.test(row.name));
         keyFields.forEach((row, index) => fields.push(`substr(CAST(${quote(row.name)} AS TEXT), 1, 120) AS ${quote(`__agent_key_hint_${index}`)}`));
-        const countRows = await all(`SELECT COUNT(1) AS total FROM ${quote(args.table)}${where}`, params);
+        const countRows = await all(`SELECT COUNT(1) AS total FROM ${quote(tableName)}${where}`, params);
         const totalRows = Number(countRows[0]?.total || 0);
-        const rows = await all(`SELECT ${fields.join(', ')} FROM ${quote(args.table)}${where}${orderClause} LIMIT ? OFFSET ?`, [...params, limit + 1, offset]);
+        const rows = await all(`SELECT ${fields.join(', ')} FROM ${quote(tableName)}${where}${orderClause} LIMIT ? OFFSET ?`, [...params, limit + 1, offset]);
         const safeRows = [];
         for (const row of rows.slice(0, limit)) {
             // key/value 风格配置即使凭据藏在通用 value 列，也不返回原文。
@@ -359,7 +370,7 @@ async function readTable(ctx, args) {
             : args.filter ? '没有匹配筛选条件的行（表本身可能有数据，可换筛选值或去掉 filter）'
                 : offset > 0 ? '已超出表的行数，没有更多数据'
                     : '该表当前为 0 行，是真实的空表，不是权限限制；请确认 list_databases 返回的库标识是否正确';
-        return { database: args.database, table: args.table, columns: selected, omittedColumns: available.length - selected.length,
+        return { database: args.database, table: tableName, columns: selected, omittedColumns: available.length - selected.length,
             rows: safeRows, returnedRows: safeRows.length, totalRows, offset, nextOffset, hasMore, readOnly: true, writable: ctx.readOnly === false, ...(empty ? { empty } : {}),
             note: hasMore
                 ? `当前仅返回部分数据（共 ${totalRows} 行，本次返回第 ${offset + 1}-${offset + safeRows.length} 行，nextOffset=${nextOffset}）。未翻页读完前不能下全表/“仅此一条”结论；查最新记录请传 orderBy={"column":"id","direction":"desc"}（或按时间列 desc），大表请用 columns 跳过长文本/JSON 列。`
@@ -374,7 +385,8 @@ function scalar(value) {
 
 async function mutationPlan(all, args, ctx, { scriptContent = false } = {}) {
     if (!['insert', 'update', 'delete'].includes(args.operation)) throw fail('operation 必须为 insert、update 或 delete');
-    const available = await columns(all, args.table);
+    const tableName = await resolveTableName(all, args.table);
+    const available = await columns(all, tableName);
     const names = new Set(available.map(row => row.name));
     let values = args.values;
     let entries = [];
@@ -421,7 +433,7 @@ async function mutationPlan(all, args, ctx, { scriptContent = false } = {}) {
                 delete: fk.on_delete, update: fk.on_update });
         }
     }
-    const affectedTables = new Set([`${args.operation}:${args.table.toLowerCase()}`]);
+    const affectedTables = new Set([`${args.operation}:${tableName.toLowerCase()}`]);
     for (const item of affectedTables) {
         const colon = item.indexOf(':');
         const operation = item.slice(0, colon), name = item.slice(colon + 1);
@@ -432,7 +444,7 @@ async function mutationPlan(all, args, ctx, { scriptContent = false } = {}) {
             affectedTables.add(`${nextOperation}:${edge.child.toLowerCase()}`);
         }
     }
-    const matchedRows = args.operation === 'insert' ? 1 : (await all(`SELECT count(*) AS n FROM ${quote(args.table)}${where}`, params))[0].n;
+    const matchedRows = args.operation === 'insert' ? 1 : (await all(`SELECT count(*) AS n FROM ${quote(tableName)}${where}`, params))[0].n;
     if (matchedRows > maxAffectedRows) throw fail(`匹配 ${matchedRows} 行，超过 maxAffectedRows=${maxAffectedRows}；请收窄筛选或显式提高上限`);
     // Generic key/value tables may hide secrets in an otherwise ordinary value
     // column. Never let a broad filter overwrite or delete those rows.
@@ -440,20 +452,20 @@ async function mutationPlan(all, args, ctx, { scriptContent = false } = {}) {
     if (args.operation !== 'insert' && keys.length && !scriptContent) {
         for (let offset = 0; offset < matchedRows; offset += 500) {
             const fields = keys.map(row => `substr(CAST(${quote(row.name)} AS TEXT), 1, 120)`);
-            const rows = await all(`SELECT ${fields.join(', ')} FROM ${quote(args.table)}${where} LIMIT 500 OFFSET ?`, [...params, offset]);
+            const rows = await all(`SELECT ${fields.join(', ')} FROM ${quote(tableName)}${where} LIMIT 500 OFFSET ?`, [...params, offset]);
             if (rows.some(row => Object.values(row).some(value => PRIVATE_COLUMN.test(String(value))))) throw fail('匹配行包含凭据配置项，请收窄筛选');
         }
     }
     let sql;
     let bindings;
     if (args.operation === 'insert') {
-        sql = `INSERT INTO ${quote(args.table)} (${entries.map(([name]) => quote(name)).join(', ')}) VALUES (${entries.map(() => '?').join(', ')})`;
+        sql = `INSERT INTO ${quote(tableName)} (${entries.map(([name]) => quote(name)).join(', ')}) VALUES (${entries.map(() => '?').join(', ')})`;
         bindings = entries.map(([, value]) => value);
     } else if (args.operation === 'update') {
-        sql = `UPDATE ${quote(args.table)} SET ${entries.map(([name]) => `${quote(name)} = ?`).join(', ')}${where}`;
+        sql = `UPDATE ${quote(tableName)} SET ${entries.map(([name]) => `${quote(name)} = ?`).join(', ')}${where}`;
         bindings = [...entries.map(([, value]) => value), ...params];
     } else {
-        sql = `DELETE FROM ${quote(args.table)}${where}`;
+        sql = `DELETE FROM ${quote(tableName)}${where}`;
         bindings = params;
     }
     return { sql, bindings, matchedRows, maxAffectedRows };
