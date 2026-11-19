@@ -522,8 +522,13 @@ window.HomeTools = { marketOpened: false };
             if (!list || !snapshot || !Array.isArray(snapshot.links)) return;
             const lang = window.ToolsI18n?.getLanguage?.() || 'zh-CN';
             const expanded = isFriendLinksExpanded();
-            const total = snapshot.links.length;
-            list.innerHTML = snapshot.links.map((link, index) => {
+            const links = [...snapshot.links];
+            if (snapshot.licenseAdminUrl) {
+                const name = t('home.links.license');
+                links.unshift({ id: 'license', icon: '🔑', name, url: snapshot.licenseAdminUrl });
+            }
+            const total = links.length;
+            list.innerHTML = links.map((link, index) => {
                 const statusInfo = snapshot.statuses?.[link.id] || {};
                 const status = getFriendStatus(statusInfo.status);
                 const name = lang === 'en-US' && link.nameEn ? link.nameEn : link.name;

@@ -158,7 +158,7 @@ function injectPlatformTheme(html, { toolPath = '' } = {}) {
     return head ? source.slice(0, head.index + head[0].length) + tags + source.slice(head.index + head[0].length) : tags + source;
 }
 // 首页、登录页及自主管理明暗主题的页面
-const THEME_EXEMPT = new Set(['index.html', 'login.html', 'pages/login.html', 'pages/startup.html', 'pages/desktop-license-admin.html', 'desktop-license-admin.html']);
+const THEME_EXEMPT = new Set(['index.html', 'login.html', 'pages/login.html', 'pages/startup.html']);
 
 function createFrontendHtmlSender(publicDir) {
     return function sendFrontendHtml(res, relPath) {
@@ -170,7 +170,7 @@ function createFrontendHtmlSender(publicDir) {
             return res.status(404).send('Not found');
         }
         if (!res.getHeader('Cache-Control')) res.setHeader('Cache-Control', 'no-cache');
-        // Navigation applies even to theme-exempt pages (e.g. license admin).
+        // Navigation applies even to theme-exempt pages.
         if (!html.includes('/js/shared/tool-navigation.js')) {
             const tag = '<script src="/js/shared/tool-navigation.js"></script>';
             html = /<head\b[^>]*>/i.test(html) ? html.replace(/<head\b[^>]*>/i, match => match + tag) : tag + html;

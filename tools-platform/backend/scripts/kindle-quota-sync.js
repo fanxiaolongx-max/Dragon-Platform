@@ -10,19 +10,24 @@ const MAX_AGE = 15 * 60 * 1000;
 const FALLBACK_AGE = 5 * 60 * 1000;
 const FALLBACK_INTERVAL = 10 * 60 * 1000;
 
-function createFallbackCollector({ collect, now = Date.now }) {
+function createFallbackCollector({ collect, claudeEnabled = async () => true, now = Date.now }) {
     let lastAttempt = 0;
     return async (rows, tenant, owner) => {
         const time = now();
-        if (rows.some(row => row.sampled_at <= time + 60000 && time - row.sampled_at < FALLBACK_AGE) ||
-            (lastAttempt && time - lastAttempt < FALLBACK_INTERVAL)) return false;
+        const fresh = provider => rows.some(row => (!provider || row.provider === provider) &&
+            row.sampled_at <= time + 60000 && time - row.sampled_at < FALLBACK_AGE);
+        if ((lastAttempt && time - lastAttempt < FALLBACK_INTERVAL) ||
+            (fresh() && (fresh('claudecode') || !await claudeEnabled(tenant, owner)))) return false;
         lastAttempt = time;
         await collect(tenant, owner);
         return true;
     };
 }
 
-const collectFallback = createFallbackCollector({ collect: (tenant, owner) => {
+const collectFallback = createFallbackCollector({ claudeEnabled: (tenant, owner) => {
+    const { runWithTenant } = require('../models/tenant-context');
+    return runWithTenant(tenant, async () => Boolean((await require('../models/desktop-agents/repository').access(owner)).providers.claudecode));
+}, collect: (tenant, owner) => {
     const { runWithTenant } = require('../models/tenant-context');
     return runWithTenant(tenant, () => require('../models/desktop-agents/quota').read(owner));
 } });

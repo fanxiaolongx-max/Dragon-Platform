@@ -16,12 +16,14 @@ const databases = require('../backend/models/db-explorer-databases');
 const execute = (db, sql, params = []) => new Promise((resolve, reject) => db.run(sql, params, err => err ? reject(err) : resolve()));
 
 test('database selection covers runtime databases and preserves tenant and file boundaries', async t => {
+    const users = require('../backend/models/auth-users-repository');
+    await users.createUser({ username: 'explorer-super', role: 'admin', tenantId: 'default', isSuper: true, passwordHash: 'fixture' });
     const express = require('express');
     const web = express();
     web.use(express.json());
     web.use((req, _res, next) => runWithTenant(req.headers['x-test-tenant'] || 'default', () => {
         // 默认是超级管理员（可进入任意团队排障）；x-test-team 表示团队自己的管理员账号
-        req.user = { role: req.headers['x-test-role'] || 'admin', isSuper: !req.headers['x-test-team'] };
+        req.user = { username: 'explorer-super', role: req.headers['x-test-role'] || 'admin', isSuper: !req.headers['x-test-team'] };
         next();
     }));
     web.use('/api/db-explorer', require('../backend/routes/db-explorer'));
@@ -33,6 +35,7 @@ test('database selection covers runtime databases and preserves tenant and file 
         await appDb.closeDatabase();
         await pool.closeAll();
         await platformDb.closeDatabase();
+        await require('../backend/models/control-db').closeDatabase();
         fs.rmSync(temp, { recursive: true, force: true });
     });
     const base = `http://127.0.0.1:${server.address().port}/api/db-explorer`;

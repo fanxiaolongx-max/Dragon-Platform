@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
+  <script src="/js/shared/tool-navigation.js"></script>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
@@ -1257,7 +1258,6 @@ let currentPage=1;
 let currentFilterStatus='all';
 let currentTrendRange='14';
 let currentExpiringWindow='7';
-const token=()=>typeof localStorage!=='undefined'?localStorage.getItem('tools_token')||'':'';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=v=>v?new Date(Number(v)).toLocaleString():'--';
 const fmtDateOnly=v=>v?new Date(Number(v)).toISOString().slice(0,10):'--';
@@ -1265,7 +1265,7 @@ const fmtDateOnly=v=>v?new Date(Number(v)).toISOString().slice(0,10):'--';
 async function api(path,options={}){
   const res=await fetch('/api/desktop-licenses'+path,{
     ...options,
-    headers:{'Content-Type':'application/json','Authorization':'Bearer '+token(),...(options.headers||{})}
+    headers:{'Content-Type':'application/json',...(options.headers||{})}
   });
   const body=await res.json().catch(()=>({}));
   if(!res.ok)throw new Error(body.error||`HTTP ${res.status}`);

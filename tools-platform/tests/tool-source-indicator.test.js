@@ -21,14 +21,17 @@ test('Skill Hub tool source labels, translations, and CSS dot colors (方案 A)'
         );
     });
 
-    await t.test('skill-hub.js defines shared translation and SOURCES.tools with builtin, shared, custom', () => {
+    await t.test('skill-hub.js defines shared/unshared translations and SOURCES.tools with builtin, shared, unshared, custom', () => {
         assert.match(hubCode, /shared:\s*'全员共享'/, 'zh-CN must include shared: 全员共享');
         assert.match(hubCode, /shared:\s*'Shared'/, 'en-US must include shared: Shared');
+        assert.match(hubCode, /unsharedOnly:\s*'未全员开放'/, 'zh-CN must include unsharedOnly: 未全员开放');
+        assert.match(hubCode, /unsharedOnly:\s*'Not shared'/, 'en-US must include unsharedOnly: Not shared');
         assert.match(
             hubCode,
-            /tools:\s*\{\s*title:\s*'toolSource',\s*labels:\s*\{\s*builtin:\s*'builtin',\s*shared:\s*'shared',\s*custom:\s*'custom'\s*\}\s*\}/,
-            'SOURCES.tools must list builtin, shared, custom'
+            /tools:\s*\{\s*title:\s*'toolSource',\s*labels:\s*\{\s*builtin:\s*'builtin',\s*shared:\s*'shared',\s*unshared:\s*'unsharedOnly',\s*custom:\s*'custom'\s*\}\s*\}/,
+            'SOURCES.tools must list builtin, shared, unshared, custom'
         );
+        assert.match(hubCode, /state\.filterSource === 'unshared'/, 'renderList must filter unshared tools');
     });
 
     await t.test('skills-tools.js SkillSource handles shared correctly', () => {

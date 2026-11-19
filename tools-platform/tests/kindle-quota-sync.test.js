@@ -12,12 +12,24 @@ test('fallback collects only when samples are stale and throttles failures', asy
     const collect = createFallbackCollector({ now: () => now, collect: async (tenant, owner) => {
         assert.equal(tenant, 'default'); assert.equal(owner, 'admin'); calls++; throw new Error('offline');
     } });
-    assert.equal(await collect([{sampled_at: now - 60000}], 'default', 'admin'), false);
+    assert.equal(await collect([{provider:'claudecode', sampled_at: now - 60000}], 'default', 'admin'), false);
     await assert.rejects(collect([], 'default', 'admin'), /offline/);
     assert.equal(await collect([], 'default', 'admin'), false);
     now += 10 * 60000;
     await assert.rejects(collect([], 'default', 'admin'), /offline/);
     assert.equal(calls, 2);
+});
+
+test('refreshes stale Claude even when another provider is fresh, respecting disabled settings', async () => {
+    let calls = 0;
+    const rows = [{provider:'codex',sampled_at:1999000}, {provider:'claudecode',sampled_at:1000000}];
+    const enabled = createFallbackCollector({now:()=>2000000, collect:async()=>{ calls++; }});
+    assert.equal(await enabled(rows,'default','admin'),true);
+    assert.equal(calls,1);
+    assert.equal(await enabled(rows,'default','admin'),false);
+    const disabled = createFallbackCollector({now:()=>2000000, claudeEnabled:async()=>false, collect:async()=>{ calls++; }});
+    assert.equal(await disabled(rows,'default','admin'),false);
+    assert.equal(calls,1);
 });
 
 test('PM2 export includes status metrics only and omits environment, paths and arguments', () => {

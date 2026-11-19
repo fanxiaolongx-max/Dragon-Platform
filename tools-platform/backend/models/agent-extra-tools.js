@@ -157,7 +157,7 @@ async function forChat({ owner, user, chatSessionId, readOnly, write, signal, se
                 return require('./channels/channel-pending-actions').defer({ ...channel, title: confirmTitle(call, preview), preview, execute: () => set.execute(call) })
                     || { content: '这个操作需要用户确认，当前频道会话无法确认，没有执行', summary: '需要确认，未执行', isError: true };
             }
-            const decision = await manager.decideCall(run, call, { kind, preview: () => set.preview(call.name, call.args), key: set.alwaysKey?.(call.name, call.args), sharedMcp: set.sharedMcp });
+            const decision = await manager.decideCall(run, call, { kind, preview: () => set.preview(call.name, call.args), key: set.alwaysKey?.(call.name, call.args), sharedMcp: set.sharedMcp, confirmInFull: Boolean(set.confirmInFull) });
             if (decision.outcome) return decision.outcome;
             return set.execute(call,{signal});
         },
@@ -168,6 +168,8 @@ async function forChat({ owner, user, chatSessionId, readOnly, write, signal, se
 /** 待确认操作的标题，如「保存技能 @industry-news-summary」 */
 function confirmTitle(call, preview = {}) {
     if (call.name === 'save_skill') return `保存技能 ${String(preview.path || '').split(' · ')[0] || ''}`.trim();
+    if (call.name === 'publish_html_tool') return String(preview.path || '发布自定义工具').trim();
+    if (call.name === 'send_notification') return `发送通知${preview.channel ? `（${preview.channel}）` : ''}`;
     return call.name;
 }
 

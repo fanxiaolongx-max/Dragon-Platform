@@ -1,12 +1,41 @@
 const express = require('express');
+const fs = require('fs/promises');
+const path = require('path');
+const { requireCurrentSuperAdmin, checkHtmlAuth } = require('../middleware/auth');
+const { versionAssetUrls } = require('../models/asset-versioning');
 const authority = require('../models/desktop-license-authority');
 const registry = require('../models/desktop-license-registry');
 
 const router = express.Router();
+const publicDir = path.join(__dirname, '../../frontend');
+const pagePath = path.join(__dirname, '../views/desktop-license-admin.html');
+
+function noStore(req, res, next) {
+    res.setHeader('Cache-Control', 'no-store');
+    next();
+}
+
+async function sendPage(req, res, next) {
+    try {
+        const html = await fs.readFile(pagePath, 'utf8');
+        res.type('html').send(versionAssetUrls(html, { publicDir }));
+    } catch (error) {
+        next(error);
+    }
+}
+
+const pageRouter = express.Router();
+pageRouter.get(['/desktop-license-admin', '/desktop-license-admin.html', '/pages/desktop-license-admin.html'],
+    noStore, checkHtmlAuth, requireCurrentSuperAdmin, sendPage);
+
+router.use((req, _res, next) => {
+    req.suppressBodyLog = true;
+    req.suppressResponseLog = true;
+    next();
+}, noStore, requireCurrentSuperAdmin);
 
 router.get('/', (req, res) => {
     try {
-        res.setHeader('Cache-Control', 'no-store');
         res.json({ success: true, licenses: registry.listRecords({ includeArchived: req.query.includeArchived === '1' }) });
     } catch (error) {
         res.status(500).json({ error: error.message || '读取 EXE License 失败' });
@@ -23,7 +52,6 @@ router.post('/machine-code/inspect', (req, res) => {
 const requests = require('../models/desktop-license-requests-repository');
 router.get('/requests', async (req, res) => {
     try {
-        res.setHeader('Cache-Control', 'no-store');
         res.json({ success: true, requests: await requests.listRequests({ status: req.query.status === 'all' ? '' : (req.query.status || 'pending'), limit: req.query.limit }) });
     } catch (error) {
         res.status(500).json({ error: error.message || '读取申请失败' });
@@ -87,3 +115,4 @@ router.post('/:licenseId/archive', (req, res) => {
 });
 
 module.exports = router;
+module.exports.pageRouter = pageRouter;

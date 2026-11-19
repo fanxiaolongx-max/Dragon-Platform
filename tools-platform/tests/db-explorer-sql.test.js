@@ -15,16 +15,19 @@ const { runWithTenant } = require('../backend/models/tenant-context');
 test.after(async () => {
     await appDb.closeDatabase();
     await pool.closeAll();
+    await require('../backend/models/control-db').closeDatabase();
     fs.rmSync(temp, { recursive: true, force: true });
 });
 
-test('db-explorer SQL query and execute endpoint supports arbitrary statements with admin auth', async t => {
+test('db-explorer SQL query and execute endpoint supports arbitrary statements with super admin auth', async t => {
+    const users = require('../backend/models/auth-users-repository');
+    await users.createUser({ username: 'explorer-super', role: 'admin', tenantId: 'default', isSuper: true, passwordHash: 'fixture' });
     const express = require('express');
     const web = express();
     web.use(express.json());
     web.use((req, res, next) => {
         runWithTenant(req.headers['x-test-tenant'] || 'default', () => {
-            req.user = { role: req.headers['x-test-role'] || 'admin' };
+            req.user = { username: 'explorer-super', role: req.headers['x-test-role'] || 'admin', isSuper: true };
             next();
         });
     });

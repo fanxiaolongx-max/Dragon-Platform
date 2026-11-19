@@ -27,6 +27,9 @@ async function until(fn) {
 }
 
 app.whenReady().then(async () => {
+    const users = require('../backend/models/auth-users-repository');
+    const admin = { username: 'explorer-super', role: 'admin', tenantId: 'default', isSuper: true };
+    await users.createUser({ ...admin, passwordHash: 'fixture' });
     await appDb.run('CREATE TABLE tools_marker (value TEXT)');
     await appDb.run("INSERT INTO tools_marker VALUES ('tools-value')");
     await require('../backend/models/sla-prefs-repository').ensureReady();
@@ -40,7 +43,10 @@ app.whenReady().then(async () => {
     await execute(pool.getConnection('requirements.db'), 'CREATE TABLE requirement_marker (value TEXT)');
     const web = express();
     web.use(express.json());
-    web.use((req, _res, next) => { req.user = { role: 'admin' }; next(); });
+    web.use((req, _res, next) => {
+        req.user = admin;
+        next();
+    });
     web.get(/^\/js\/shared\/platform-(?:core|dialogs|settings-controller|alerts|services|tool-updates|runtime)\.js$/, (_req, res) => res.type('js').send(''));
     web.use('/api/db-explorer', async (req, _res, next) => {
         if (req.query.database === 'report' && ((delayTables && req.path === '/catalog') || (delayRows && req.path.startsWith('/tables/')))) await wait(200);

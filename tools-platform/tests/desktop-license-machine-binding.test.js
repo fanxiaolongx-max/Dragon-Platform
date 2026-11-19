@@ -178,7 +178,7 @@ test('打包：设备指纹模块随桌面版发布，机器码解析模块不�
 });
 
 test('License 签发页不再使用浏览器原生弹窗，统一走 AppDialog / 页内提示', () => {
-    const page = fs.readFileSync(path.join(__dirname, '../frontend/pages/desktop-license-admin.html'), 'utf8');
+    const page = fs.readFileSync(path.join(__dirname, '../backend/views/desktop-license-admin.html'), 'utf8');
     const scripts = (page.match(/<script>([\s\S]*?)<\/script>/g) || []).join('\n');
     assert.doesNotMatch(scripts, /(?<![\w.$])(?:window\.)?(?:alert|confirm|prompt)\s*\(/, '签发页脚本中不应再调用原生 alert/confirm/prompt');
     assert.match(page, /<script src="\/js\/shared\/app-dialog\.js"><\/script>/);

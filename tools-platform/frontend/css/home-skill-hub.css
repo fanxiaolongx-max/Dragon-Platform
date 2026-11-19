@@ -49,7 +49,7 @@ html.platform-home body.v2-hub-open .home-main {
 .v2-hub-legend-swatch:is([data-src="custom"], [data-src="chat"], .is-custom) {
     --swatch-c: #8b5cf6;
 }
-.v2-hub-legend-swatch[data-src="import"] {
+.v2-hub-legend-swatch:is([data-src="import"], [data-src="unshared"], .is-unshared-access) {
     --swatch-c: #f59e0b;
 }
 .v2-hub-source-legend .skill-src-dot { margin: 0; }

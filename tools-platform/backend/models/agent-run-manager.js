@@ -659,12 +659,16 @@ function dangerHits(session, toolName, args) {
     return [];
 }
 
-function classifyDecision(session, toolName, args = null, kind = toolsService.kindOf(toolName, args)) {
+function classifyDecision(session, toolName, args = null, kind = toolsService.kindOf(toolName, args), { confirmInFull = false } = {}) {
     if (!kind) return 'deny';
     if (kind === 'read') return 'allow';
     if (session.readOnly) return 'readonly';
     // 危险类别在任何模式下都要审批（包括完全访问），除非用户已选择不再询问；无人值守的对话直接不执行
     if (dangerHits(session, toolName, args).length) return session.unattended ? 'unattended' : 'ask';
+    // 明确要求即使在「完全访问」下也先确认的操作（如对外发布页面/发通知），可由用户点「本次会话总是允许」放行
+    if (kind === 'confirm' && confirmInFull) {
+        return session.alwaysAllow.has(toolName) ? 'allow' : session.unattended ? 'unattended' : 'ask';
+    }
     // 用户自己选了「完全访问」：普通写操作和需确认的操作（如保存技能）都不再逐项询问（与基座 Web 版「本次会话不再询问」同一口径）。
     // 频道对话（WeLink / 微信）是系统设成完全访问的，不算用户的选择，需确认的操作仍走回复确认码。
     if (session.permissionMode === 'full' && !session.channelContext && !session.channelSession) return 'allow';
@@ -879,10 +883,10 @@ function beginChatRun({ owner, chatSessionId, write, signal }) {
  * 按类别决定一次调用：允许则返回 {}，否则返回 { outcome }（拒绝 / 超时 / 预览出错）。
  * preview 是函数，只在需要审批时才调用；key 是「总是允许」的粒度（如浏览器按站点）。
  */
-async function decideCall(run, call, { kind, preview, key = call.name, sharedMcp = false }) {
+async function decideCall(run, call, { kind, preview, key = call.name, sharedMcp = false, confirmInFull = false }) {
     let decision = sharedMcp && kind === 'external'
         ? (run.session.unattended ? 'unattended' : 'ask')
-        : classifyDecision(run.session, key, call.args, kind);
+        : classifyDecision(run.session, key, call.args, kind, { confirmInFull });
     if (decision === 'ask') {
         let shown = {};
         try {
@@ -1005,7 +1009,7 @@ async function runAgentTurn({ session, user, client, systemInstruction, historyM
         if (toolset && !toolset.kindOf) outcome = await toolset.execute(call, { opsCtx, signal, write });
         // 「总是允许」的粒度：附加工具组可以更细（浏览器打开网页按站点）
         const allowKey = toolset?.alwaysKey?.(call.name, call.args) || call.name;
-        let decision = outcome ? 'allow' : classifyDecision(session, allowKey, call.args, toolset ? toolsetKind : undefined);
+        let decision = outcome ? 'allow' : classifyDecision(session, allowKey, call.args, toolset ? toolsetKind : undefined, { confirmInFull: Boolean(toolset?.confirmInFull) });
         if (!outcome && decision !== 'deny') registry.noteCall(call.name);
         let preview = {};
         if (!outcome && decision !== 'deny' && decision !== 'readonly') {

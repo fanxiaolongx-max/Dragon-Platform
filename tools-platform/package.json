@@ -88,7 +88,7 @@
       "!backend/routes/desktop-license-public.js",
       "!backend/data/desktop-license-signing-key.json",
       "!backend/data/desktop-license-registry.json",
-      "!frontend/pages/desktop-license-admin.html",
+      "!backend/views/desktop-license-admin.html",
       "!dist/**/*",
       "!iosapp/**/*",
       "package.json"

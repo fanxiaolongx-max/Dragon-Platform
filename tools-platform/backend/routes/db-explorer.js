@@ -5,11 +5,11 @@ const JSZip = require('jszip');
 const router = express.Router();
 const { listDatabases, resolveDatabase } = require('../models/db-explorer-databases');
 const { describeTable } = require('../models/db-explorer-catalog');
-const { requirePlatformAdmin } = require('../middleware/auth');
+const { requireCurrentSuperAdmin } = require('../middleware/auth');
 
 // 仅限超级管理员：这里在平台进程里执行任意 SQL，不受团队命令沙箱约束。跨库语句（ATTACH / DETACH / VACUUM INTO）
 // 在下面按语句开头拦截，但那只是黑名单，所以不把这个入口交给团队账号。超级管理员进入团队排障时仍可查看该团队的库。
-router.use(requirePlatformAdmin);
+router.use(requireCurrentSuperAdmin);
 router.use((req, _res, next) => {
     // SQL and arbitrary result aliases can contain credentials, including rows
     // from the global account database. Keep them out of request/runtime logs.

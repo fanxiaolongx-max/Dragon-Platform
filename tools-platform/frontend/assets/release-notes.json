@@ -1,8 +1,14 @@
 {
   "zh": [
-    "修复 iOS App 编译：补齐共享对话新增的消息署名字段，App 内重新生成的消息保留原发送账号；iOS 版「共享对话」随本次构建可用。"
+    "工具中心「工具来源」新增「未全员开放」筛选项（超管可见），方便快速查找尚未向全员开放的工具或内置页面。",
+    "优化对话任务清单与工具发布体验：一轮正常完成后自动将剩余任务清单更新为已完成；调用发布自定义工具或发送通知前（含自动与完全访问模式）都会先弹出确认卡，并支持勾选「本次会话总是允许」。",
+    "优化超管查看团队时的底部悬浮胶囊：点击「返回我的空间」后平滑收缩为加载转圈动画并防止连击，切换失败时自动恢复。",
+    "收紧授权后台与敏感管理接口的超级管理员权限校验，并优化 Kindle 额度同步在 Claude 采样过期时的补采逻辑。"
   ],
   "en": [
-    "Fixed the iOS app build by passing the new shared-conversation author fields everywhere; messages rebuilt in the app keep their original sender, and shared conversations ship in this iOS build."
+    "Added a “Not shared” filter under Tool Source in the Tools tab (visible to superadmins) to quickly locate unshared tools and built-in pages.",
+    "Improved agent task checklists and publishing confirmation: remaining checklist items are automatically marked completed when a turn finishes cleanly, and publishing custom tools or sending notifications now always prompts for confirmation (even in Auto/Full Access modes) with an “Always allow this session” option.",
+    "Added a smooth pill-to-spinner transition and duplicate-click guard when clicking “Back to mine” on the viewing-team banner, restoring automatically on failure.",
+    "Tightened superadmin permission checks for license administration and sensitive admin endpoints, and refined Kindle quota fallback polling when Claude samples become stale."
   ]
 }

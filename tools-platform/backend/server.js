@@ -313,6 +313,7 @@ function shouldProtectHtmlEntry(req) {
     return true;
 }
 
+if (desktopLicenseAdminRoutes) app.use(desktopLicenseAdminRoutes.pageRouter);
 app.use((req, res, next) => {
     if (!shouldProtectHtmlEntry(req)) return next();
     return checkHtmlAuth(req, res, async err => {
@@ -408,6 +409,7 @@ app.get('/api/platform-identity', async (req, res) => {
 
 app.use('/api', checkAuth); // Protect all /api/* (except login, which is handled inside checkAuth)
 app.use('/api', tenantMiddleware);
+if (desktopLicenseAdminRoutes) app.use('/api/desktop-licenses', desktopLicenseAdminRoutes);
 
 // 首页首屏接口合并：远程访问时一次回源取回对话区首屏的多个只读接口（models/home-bootstrap.js）
 app.post('/api/home/bootstrap', require('./models/home-bootstrap').createHomeBootstrapHandler(app));
@@ -448,7 +450,6 @@ function superAdminOnly(softGets = {}) {
 // 另外几组只给超级管理员的接口：备份恢复、自定义工具备份、报表数据备份、工具免密访问开关
 const SUPER_ONLY_API_PATHS = [
     /^\/(?:department-reward-penalty|reward-program)\/snapshot\/(?:settings|prerequisites|jobs|publish)(?:\/|$)/,
-    /^\/global-backup(?:\/|$)/,
     /^\/custom-tools\/backup(?:\/|$)/,
     /^\/custom-tools\/[^/]+\/access$/,
     /^\/db\/report-data-backup(?:\/|$)/
@@ -580,7 +581,6 @@ app.use('/api/onboarding', onboardingRoutes); // 首次启动默认脚本/指标
 app.use('/api/duty-roster', require('./routes/duty-roster')); // 夜间运维值班表 API
 app.use('/api/tenants', tenantsRoutes); // 租户清单、切换与管理
 app.use('/api/python-updater', require('./routes/python-updater')); // Python 脚本热更新与版本管理 API
-if (desktopLicenseAdminRoutes) app.use('/api/desktop-licenses', superAdminOnly(), requireAdmin, desktopLicenseAdminRoutes);
 
 
 // ============================================================
@@ -661,13 +661,6 @@ app.get('/terms', (req, res) => {
 });
 app.get('/frt', (req, res) => {
     sendFrontendHtml(res, 'pages/frt.html');
-});
-if (!isDesktopRuntime) app.get('/desktop-license-admin', checkHtmlAuth, (req, res) => {
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-    res.setHeader('Surrogate-Control', 'no-store');
-    sendFrontendHtml(res, 'pages/desktop-license-admin.html');
 });
 app.get('/python-updater', checkHtmlAuth, (req, res) => {
     res.redirect('/tools/python-updater');

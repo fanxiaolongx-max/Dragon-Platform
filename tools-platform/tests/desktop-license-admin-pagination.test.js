@@ -5,7 +5,7 @@ const path = require('path');
 const vm = require('vm');
 
 const root = path.resolve(__dirname, '..');
-const html = fs.readFileSync(path.join(root, 'frontend/pages/desktop-license-admin.html'), 'utf8');
+const html = fs.readFileSync(path.join(root, 'backend/views/desktop-license-admin.html'), 'utf8');
 const route = fs.readFileSync(path.join(root, 'backend/routes/desktop-license-admin.js'), 'utf8');
 
 test('Desktop License admin hides archived records by default and fetches them on demand', () => {

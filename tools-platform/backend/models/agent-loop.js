@@ -40,7 +40,7 @@ const ARTIFACT_READER = {
 const BUILTIN_DEFINITIONS = {
     update_plan: {
         name: 'update_plan',
-        description: '任务清单：需要 3 步以上的任务，先列出步骤，之后每完成一步就更新状态（界面会显示进度）。每次传完整清单；同一时间最多一项 in_progress。简单问答不用。',
+        description: '任务清单：需要 3 步以上的任务，先列出步骤，之后每完成一步就更新状态（界面会显示进度）；全部做完给出最终回答前，务必再调用一次把剩余项都标为 completed。每次传完整清单；同一时间最多一项 in_progress。简单问答不用。',
         parameters: {
             type: 'object',
             properties: {
@@ -375,11 +375,22 @@ async function runToolLoop({
                 continue;
             }
             finalText = partialText + text;
+            let usedFallback = false;
             if (!finalText.trim() && toolLog.length && fallback) {
                 finalText = String(fallback({ messages, toolLog }) || '');
-                if (finalText) write({ type: 'delta', delta: finalText });
+                if (finalText) {
+                    usedFallback = true;
+                    write({ type: 'delta', delta: finalText });
+                }
             }
             finalText = redactText(finalText, secrets);
+            // 模型常在做完所有工具调用后直接输出结束语而忘了最后调一次 update_plan：若已正常收尾且最后一步工具执行成功，补发完整 completed 状态
+            if (!usedFallback && finalText.trim() && !question && !extras?.hasUpgrade?.()
+                && plan.length && plan.some(item => item.status !== 'completed')
+                && toolLog.length && toolLog[toolLog.length - 1]?.ok !== false) {
+                plan = plan.map(item => ({ ...item, status: 'completed' }));
+                write({ type: 'plan', items: plan });
+            }
             break;
         }
         if (result.text) write({ type: 'delta', delta: '\n\n' });

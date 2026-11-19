@@ -4,11 +4,13 @@ const fs = require('fs');
 const multer = require('multer');
 const repo = require('../models/global-backup-repository');
 const remoteRepo = require('../models/remote-backup-sync-repository');
+const { requireCurrentSuperAdmin } = require('../middleware/auth');
 
 const { getDataDir } = require('../models/store');
 const { DEFAULT_TENANT_ID, getTenantId, normalizeTenantId, runWithTenant } = require('../models/tenant-context');
 
 const router = express.Router();
+router.use(requireCurrentSuperAdmin);
 const operationLogs = new Map();
 const MAX_OPERATION_LOGS = 60;
 

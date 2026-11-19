@@ -91,3 +91,44 @@ test('a large single-line JSON result is saved as multi-line JSON and the note s
     assert.match(spilled.content, /不能根据开头和结尾推测/);
     assert.equal(spilled.artifact.lines, 456); // { + database + "tables": [ + 451 项 + ] + }
 });
+
+test('incomplete plan items are finalized to completed on clean completion, but not after a tool failure', async () => {
+    const okEvents = [];
+    const okReplies = [
+        () => ({ toolCalls: [{ id: 'p1', name: 'update_plan', args: { items: [{ content: '第一步', status: 'in_progress' }, { content: '第二步', status: 'pending' }] } }] }),
+        () => ({ toolCalls: [{ id: 'c1', name: 'calculate', args: { expression: '1+1' } }] }),
+        () => ({ text: '已完成全部计算。' })
+    ];
+    const okResult = await agentLoop.runToolLoop({
+        client: { model: 'mock', generateText: async () => okReplies.shift()() },
+        systemPrompt: 'sys', messages: [{ role: 'user', content: '算一下' }],
+        write: event => okEvents.push(event),
+        executeCall: async () => null
+    });
+    assert.deepEqual(okResult.plan, [
+        { content: '第一步', status: 'completed' },
+        { content: '第二步', status: 'completed' }
+    ]);
+    const planEvents = okEvents.filter(event => event.type === 'plan');
+    assert.equal(planEvents.length, 2);
+    assert.deepEqual(planEvents[1].items, okResult.plan);
+
+    const failEvents = [];
+    const failReplies = [
+        () => ({ toolCalls: [{ id: 'p1', name: 'update_plan', args: { items: [{ content: '第一步', status: 'in_progress' }, { content: '发布工具', status: 'pending' }] } }] }),
+        () => ({ toolCalls: [{ id: 'f1', name: 'fail_tool', args: {} }] }),
+        () => ({ text: '发布未执行。' })
+    ];
+    const failResult = await agentLoop.runToolLoop({
+        client: { model: 'mock', generateText: async () => failReplies.shift()() },
+        systemPrompt: 'sys', messages: [{ role: 'user', content: '发布' }],
+        tools: [{ name: 'fail_tool', description: 'f', parameters: { type: 'object', properties: {} } }],
+        write: event => failEvents.push(event),
+        executeCall: async () => ({ content: '用户拒绝了该操作', summary: '用户拒绝了该操作', isError: true })
+    });
+    assert.deepEqual(failResult.plan, [
+        { content: '第一步', status: 'in_progress' },
+        { content: '发布工具', status: 'pending' }
+    ]);
+    assert.equal(failEvents.filter(event => event.type === 'plan').length, 1);
+});

@@ -33,8 +33,9 @@ test('chat toolsets include the publish tools for writable chats only', async ()
     assert.ok((await extraTools.toolsets({ owner: 'default::boss', user: superAdmin, readOnly: false })).some(set => set.id === 'publish_tools'));
     assert.ok(!(await extraTools.toolsets({ owner: 'default::guest', readOnly: true })).some(set => set.id === 'publish_tools'));
     const set = publishTools.toolset({ user: superAdmin });
-    assert.equal(set.kindOf('publish_html_tool'), 'write', 'goes through the approval card');
-    assert.equal(set.kindOf('send_notification'), 'write');
+    assert.equal(set.kindOf('publish_html_tool'), 'confirm', 'always goes through the approval card');
+    assert.equal(set.kindOf('send_notification'), 'confirm');
+    assert.equal(set.confirmInFull, true, 'prompts even in full mode unless always-allowed in this session');
 });
 
 test('publish_html_tool previews, validates and creates a custom tool', async () => {
@@ -75,4 +76,46 @@ test('send_notification is admin-only and only reaches the configured default pu
         channels.push = originalPush;
         welinkConfig.getConfig = originalConfig;
     }
+});
+
+test('publish_html_tool prompts even in full mode and supports session always-allow', async () => {
+    const manager = require('../backend/models/agent-run-manager');
+    const approvals = [];
+    const writes = [];
+    const session = manager.ensureSession({
+        agentSessionId: 'publish-approval-test-1',
+        user: superAdmin,
+        tenantId: 'default',
+        root: sandbox,
+        permissionMode: 'full'
+    });
+    const run = {
+        id: 'run-pub-1',
+        session,
+        pending: new Map(),
+        write: event => {
+            writes.push(event);
+            if (event.type === 'approval') {
+                approvals.push(event);
+                const decision = approvals.length === 1 ? 'deny' : 'always';
+                queueMicrotask(() => manager.resolveApproval(event.id, decision, superAdmin, 'default'));
+            }
+        }
+    };
+    const set = publishTools.toolset({ user: superAdmin });
+    const call1 = { id: 'c1', name: 'publish_html_tool', args: { name: '仅确认发布1', html: HTML } };
+    const first = await manager.decideCall(run, call1, { kind: set.kindOf(call1.name), preview: () => set.preview(call1.name, call1.args), key: set.alwaysKey(call1.name), confirmInFull: set.confirmInFull });
+    assert.equal(first.outcome?.isError, true, 'first publish denied by user');
+    assert.equal(approvals.length, 1);
+    assert.equal(approvals[0].noAlways, undefined, 'offers "always allow this session" button');
+
+    const call2 = { id: 'c2', name: 'publish_html_tool', args: { name: '仅确认发布2', html: HTML } };
+    const second = await manager.decideCall(run, call2, { kind: set.kindOf(call2.name), preview: () => set.preview(call2.name, call2.args), key: set.alwaysKey(call2.name), confirmInFull: set.confirmInFull });
+    assert.deepEqual(second, {}, 'choosing always allows this call');
+    assert.equal(approvals.length, 2);
+
+    const call3 = { id: 'c3', name: 'publish_html_tool', args: { name: '仅确认发布3', html: HTML } };
+    const third = await manager.decideCall(run, call3, { kind: set.kindOf(call3.name), preview: () => set.preview(call3.name, call3.args), key: set.alwaysKey(call3.name), confirmInFull: set.confirmInFull });
+    assert.deepEqual(third, {}, 'subsequent publish in same session does not prompt again');
+    assert.equal(approvals.length, 2, 'no third approval card emitted');
 });

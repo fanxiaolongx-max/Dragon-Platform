@@ -41,7 +41,7 @@
     const SOURCES = {
         skills: { title: 'skillSource', labels: { builtin: 'builtin', chat: 'createdInChat', import: 'imported', external: 'externalCommand' } },
         plugins: { title: 'pluginSource', labels: { builtin: 'builtin', custom: 'custom', float: 'floatingScripts' } },
-        tools: { title: 'toolSource', labels: { builtin: 'builtin', shared: 'shared', custom: 'custom' } }
+        tools: { title: 'toolSource', labels: { builtin: 'builtin', shared: 'shared', unshared: 'unsharedOnly', custom: 'custom' } }
     };
     const STORE_KEY = 'tools_v2_hub';
     const state = { open: false, tab: 'skills', cat: 'all', sort: 'mixed', query: '', seed: 0, mine: false, filterSource: 'all' };
@@ -266,7 +266,7 @@
             const allBtn = `<button type="button" data-hub-filter-source="all" aria-pressed="${state.filterSource === 'all'}">${esc(t('all'))}</button>`;
             const items = Object.entries(sourceMeta.labels).map(([source, labelKey]) => {
                 const pressed = state.filterSource === source;
-                const swatchClass = source === 'builtin' ? ' is-built-in' : (source === 'shared' ? ' is-shared-access' : (source === 'custom' ? ' is-custom' : ''));
+                const swatchClass = source === 'builtin' ? ' is-built-in' : (source === 'shared' ? ' is-shared-access' : (source === 'unshared' ? ' is-unshared-access' : (source === 'custom' ? ' is-custom' : '')));
                 const badge = `<i class="v2-hub-legend-swatch${swatchClass}" data-src="${esc(source)}" aria-hidden="true"></i>`;
                 let labelText = t(labelKey);
                 let extraAttr = '';
@@ -274,6 +274,12 @@
                     labelText = t('sharedWithAll');
                     extraAttr = ' data-hub-shared-filter';
                     if (!isSuperAdmin() && !entries().some(e => e.source === 'shared' || e.sharedAccess || e.shared)) {
+                        extraAttr += ' hidden';
+                    }
+                } else if (state.tab === 'tools' && source === 'unshared') {
+                    labelText = t('unsharedOnly');
+                    extraAttr = ' data-hub-unshared-filter';
+                    if (!isSuperAdmin()) {
                         extraAttr += ' hidden';
                     }
                 }
@@ -408,6 +414,8 @@
                     if (!item.builtIn || item.source !== 'builtin') return false;
                 } else if (state.filterSource === 'shared') {
                     if (item.source !== 'shared' && !item.sharedAccess && !item.shared) return false;
+                } else if (state.filterSource === 'unshared') {
+                    if (item.sharedAccess || item.shared) return false;
                 } else if (state.filterSource === 'custom') {
                     if (item.builtIn || item.source === 'builtin' || item.source !== 'custom') return false;
                 } else if (state.filterSource === 'chat') {

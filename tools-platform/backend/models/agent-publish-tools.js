@@ -13,7 +13,7 @@ const CHANNEL_LABEL = { welink: 'WeLink', weixin: '微信' };
 const DEFINITIONS = [
     {
         name: 'publish_html_tool',
-        description: '把一个自包含的单页 HTML 发布为平台里的自定义工具，返回访问链接。只有用户确认要发布时才调用；HTML 要内联全部样式和脚本。发布后在工具中心可见，执行前会请用户确认。',
+        description: '把一个自包含的单页 HTML 发布为平台里的自定义工具，返回访问链接。只有用户明确要求发布或同意发布时才调用；若用户只要求生成、修改、美化页面或提供 HTML 代码，不要擅自发布，可直接给出 HTML。HTML 要内联全部样式和脚本。发布后在工具中心可见，执行前会请用户确认。',
         parameters: {
             type: 'object',
             properties: {
@@ -62,7 +62,8 @@ function toolset({ user }) {
         id: 'publish_tools',
         label: '交付：把生成的 HTML 发布成平台工具；把消息推送到频道的默认推送范围',
         definitions: DEFINITIONS,
-        kindOf: () => 'write',
+        kindOf: () => 'confirm',
+        confirmInFull: true,
         alwaysKey: name => name,
         async preview(name, args = {}) {
             if (name === 'publish_html_tool') {

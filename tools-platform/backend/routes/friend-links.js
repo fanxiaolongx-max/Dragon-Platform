@@ -2,13 +2,23 @@ const express = require('express');
 const repo = require('../models/friend-links-repository');
 const service = require('../models/friend-links-service');
 const claudeCodeConfig = require('../models/claude-code-config-service');
+const { hasCurrentSuperAdminAccount } = require('../middleware/auth');
 
 const router = express.Router();
 
+async function sendSnapshot(req, res, snapshot) {
+    if (await hasCurrentSuperAdminAccount(req.user)) {
+        snapshot.licenseAdminUrl = process.env.TOOLS_DESKTOP_RUNTIME === '1'
+            ? 'https://cs.fanxiaolong.uk/desktop-license-admin'
+            : '/desktop-license-admin';
+    }
+    res.setHeader('Cache-Control', 'no-store');
+    res.json(snapshot);
+}
+
 router.get('/', async (req, res) => {
     try {
-        res.setHeader('Cache-Control', 'no-store');
-        res.json(await service.buildSnapshot());
+        await sendSnapshot(req, res, await service.buildSnapshot());
     } catch (error) {
         res.status(500).json({ error: error.message || '读取友情链接失败' });
     }
@@ -17,7 +27,7 @@ router.get('/', async (req, res) => {
 router.put('/', async (req, res) => {
     try {
         await repo.saveConfig(req.body || {});
-        res.json(await service.refreshSchedule());
+        await sendSnapshot(req, res, await service.refreshSchedule());
     } catch (error) {
         res.status(400).json({ error: error.message || '保存友情链接失败' });
     }
@@ -25,7 +35,7 @@ router.put('/', async (req, res) => {
 
 router.post('/probe', async (req, res) => {
     try {
-        res.json(await service.probeAll());
+        await sendSnapshot(req, res, await service.probeAll());
     } catch (error) {
         res.status(500).json({ error: error.message || '探测友情链接失败' });
     }
@@ -36,7 +46,7 @@ router.put('/api-relay', async (req, res) => {
     try {
         const current = await repo.getConfig();
         await repo.saveConfig({ ...current, apiRelay: req.body || {} });
-        res.json(await service.buildSnapshot());
+        await sendSnapshot(req, res, await service.buildSnapshot());
     } catch (error) {
         res.status(400).json({ error: error.message || '保存 API 中转配置失败' });
     }

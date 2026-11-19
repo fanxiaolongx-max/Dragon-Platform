@@ -69,6 +69,22 @@ function requireSuperAdmin(req, res, next) {
     res.status(403).json({ error: '权限不足，需要超级管理员账号', code: 'SUPER_ADMIN_REQUIRED' });
 }
 
+async function hasCurrentSuperAdminAccount(user) {
+    if (!isSuperAdmin(user)) return false;
+    // 访问敏感数据时，不能用会话兼容角色代替当前账号记录。
+    const account = await require('../models/auth-users-repository').getUser(user.username);
+    return isSuperAdmin(account);
+}
+
+async function requireCurrentSuperAdmin(req, res, next) {
+    try {
+        if (await hasCurrentSuperAdminAccount(req.user)) return next();
+        res.status(403).json({ code: 'SUPER_ADMIN_REQUIRED', error: '该功能仅超级管理员可用' });
+    } catch (error) {
+        next(error);
+    }
+}
+
 function requireAdmin(req, res, next) {
     if (req.user && req.user.role === 'admin') {
         next();
@@ -153,11 +169,13 @@ module.exports = {
     checkHtmlAuth,
     hashPassword,
     hashUserPassword,
+    hasCurrentSuperAdminAccount,
     isLegacyPasswordHash,
     inSuperAdminSpace,
     isPlatformAdmin,
     isSuperAdmin,
     requirePlatformAdmin,
+    requireCurrentSuperAdmin,
     requireSuperAdmin,
     verifyUserPassword
 };

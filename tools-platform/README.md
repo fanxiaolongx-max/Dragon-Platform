@@ -1160,7 +1160,7 @@ flowchart TD
   - **智能动态气泡**：小宠头顶的气泡支持按需轮播模型剩余额度或警告信息，让开发者对自身 AI 额度水位一目了然。
   - **贴边额度托盘与历史趋势**：默认显示 360 × 64 横栏，左右停靠为 68 × 248 图标竖栏，使用统一深浅色表面和贴边圆角。Windows 紧贴屏幕边缘，macOS 顶部贴系统菜单栏下沿；没有额外留白。悬停服务商打开朝屏幕内侧的独立详情浮层，显示 5 小时/每周剩余比例、重置、订阅和读取状态，不移动托盘或抢焦点。贴边精简模式默认离开后自动滑动收成 6px 触发条，原生窗口同步缩小，悬停即恢复；菜单可关闭自动收起。四边停靠、自由摆放、详细模式、位置记忆与独立显隐继续支持。动画使用 transform / opacity，拖动按帧合并，数据更新复用节点，并支持减少动态效果。点击额度查看近 24 小时、7 天、30 天或自定义 1–90 天的历史趋势。Codex、Antigravity 约每 60 秒读取，Claude Code 约每 120 秒读取；主进程每 15 秒检查缓存，趋势图每 30 秒同步历史，也可手动刷新。详见 [额度托盘说明](docs/desktop-pet-quotas.md)。
   - **真实采样边界**：本地登录桌面 API 将有效新读数保存到租户 SQLite 的 `desktop_pet_quota_samples`，按本机安装标识和会话用户隔离，仅保留 90 天；不会持久化认证凭据或把缓存反复写成新读数。应用运行且桌宠、独立 HUD、对话或趋势窗口可见时采集，启用前及关闭期间的历史无法补回。曲线按提供方实际返回的额度组展示（包括可用时的 Claude Opus/Sonnet 周额度）；共享池比例不能当作每个模型的精确 token 消耗。重置、额度回升或较长停采会断开曲线，长范围按时间桶采样。
-  - **Kindle 额度同步（可选）**：在已配置 `kindle` SSH 别名和 Kindle 端 dashboard 的 Mac 上，可用 `KINDLE_QUOTA_OWNER=admin KINDLE_QUOTA_TENANT=default pm2 start backend/kindle-quota.ecosystem.config.js` 启动独立的 `kindle-quota-sync`，再用 `pm2 save` 保存进程列表。账号和租户应替换为实际值；通过 `pm2 logs kindle-quota-sync` 查看状态。同步每 3 分钟读取该账号在该租户中的 SQLite 采样；当全部采样超过 5 分钟没有更新时，通过现有桌面 Agent 读取逻辑补采，最多每 10 分钟尝试一次。超过 15 分钟的采样显示为不可用；Credits 和额外消费金额仅在提供方返回时保存并同步，旧采样无法补回。停用旧的 `com.dragon.kindle-agent-quota` LaunchAgent，避免重复采集。
+  - **Kindle 额度同步（可选）**：在已配置 `kindle` SSH 别名和 Kindle 端 dashboard 的 Mac 上，可用 `KINDLE_QUOTA_OWNER=admin KINDLE_QUOTA_TENANT=default pm2 start backend/kindle-quota.ecosystem.config.js` 启动独立的 `kindle-quota-sync`，再用 `pm2 save` 保存进程列表。账号和租户应替换为实际值；通过 `pm2 logs kindle-quota-sync` 查看状态。同步每 3 分钟读取该账号在该租户中的 SQLite 采样；当全部采样或已启用的 Claude 采样超过 5 分钟没有更新时，通过现有桌面 Agent 读取逻辑补采，最多每 10 分钟尝试一次；Claude Desktop 用量接口受限时复用现有后台用量弹层兜底。超过 15 分钟的采样显示为不可用；Credits 和额外消费金额仅在提供方返回时保存并同步，旧采样无法补回。停用旧的 `com.dragon.kindle-agent-quota` LaunchAgent，避免重复采集。
     同一任务还将当前用户的 PM2 进程状态写入 Kindle 的 `dragonapi-dashboard/pm2-status.json`，包含采样时间、进程名称、ID、PID、状态、启动时间、重启次数、CPU 百分比与内存字节数；不包含环境变量、命令参数或路径。若 `pm2` 不在任务的 PATH 中，可在启动时设置 `KINDLE_PM2_COMMAND` 为可执行文件路径。
     另外通过 SSH 别名 `NewAPI` 查询 Debian 登录账号的 PM2，并写入 `dragonapi-dashboard/debian-pm2-status.json`；连接失败、找不到 PM2 或守护进程未运行时，文件以 `status: unavailable` 和 `reason` 标记，不会创建远程 PM2 守护进程。Debian 和本机状态分别采集。
     可选的 `pm2 start backend/kindle-traffic.ecosystem.config.js` 启动 `kindle-traffic-sync`，每三分钟将 Mac 本机 PM2 进程状态、CPU、内存及可用的 HTTP 请求速率和延迟写入 Kindle `dragonapi-dashboard/traffic-status.json`。PM2 未提供的 HTTP 指标为空，不能视为零；不发送环境变量、请求路径或客户端地址。采集 5 个样本后，请求速率至少 10 次/分钟且达到基线 3 倍并比基线高 10 次/分钟时标为突增；基线保存在进程内，重启或指标中断后重新积累。`pm2 save` 可保存进程列表。
@@ -1487,7 +1487,7 @@ PM2 当前配置为单实例、`max_memory_restart: '1G'`，达到阈值会重�
 | **存储迁移** | `/storage` | 需登录 (修改需Admin) | SQLite/JSON 迁移进度核对、数据一致性 Parity 校验与安全清理 |
 | **数据探索** | `/db-explorer` | 仅Admin | 当前租户多数据库切换、表与 SQL 查询、全局控制库管理及多日日志导出 |
 | **自定义工具** | `/custom-tool` / `/tools/:slug` | 按工具配置 | 运行与管理自定义 HTML/ZIP 工具，支持多源市场扩展 |
-| **License 管理** | `/desktop-license-admin` | 管理员专有 | 管理员签发、续期、失效与归档客户端 License（服务端专有） |
+| **License 管理** | `/desktop-license-admin` | 仅超级管理员 | 查看台账、审批申请、签发、续期、失效与归档客户端 License（服务端专有） |
 | **桌面 License 激活** | `/desktop-license-activation.html` | 公开/桌面端 | 桌面客户端离线 License 激活页，展示激活状态与离线凭据导入 |
 | **桌面宠物 AI 对话窗** | `desktop-pet/pet-chat.html` | 客户端本地免登 | Dragon 桌面伴侣独立 AI 客服视窗，支持智能避让、上下文问答与错误排查 |
 | **餐单与采购核验** | `/tools/tool-mtpx4vtr` | 需登录/本地 | 内容驱动列画像自动纠偏、WK预留周列智能剥离、每日差异汇总与明细折叠 |
@@ -1557,7 +1557,7 @@ PM2 当前配置为单实例、`max_memory_restart: '1G'`，达到阈值会重�
 | `/api/desktop-license` | `desktop-license-local.js` | 需登录 | 桌面客户端本地 License 授权状态检查 |
 | `/api/public/desktop-license` | `desktop-license-public.js` | 公开 | 桌面端 License 激活、心跳验签、机器码授权申请、审批结果查询与取消申请 |
 | `/api/public/f12-license` | `f12-license-public.js` | 公开 | F12 浏览器扩展 License 验签、可信时间与打包服务 |
-| `/api/desktop-licenses` | `desktop-license-admin.js` | 管理员专有 | 管理员专用：桌面 License 签发、续期、吊销与台账管理 |
+| `/api/desktop-licenses` | `desktop-license-admin.js` | 仅超级管理员 | 桌面 License 签发、审批、续期、吊销与台账管理 |
 
 ---
 

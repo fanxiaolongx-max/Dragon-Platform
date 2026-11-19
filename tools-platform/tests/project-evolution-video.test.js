@@ -10,7 +10,9 @@ const root = path.resolve(__dirname, '..');
 const frontend = path.join(root, 'frontend');
 const serverSource = fs.readFileSync(path.join(root, 'backend/server.js'), 'utf8');
 // Exercise the actual HTML entry guard without opening business databases.
-const guardSource = serverSource.slice(serverSource.indexOf('const PUBLIC_HTML_PATHS'), serverSource.indexOf('\napp.use((req, res, next) => {', serverSource.indexOf('const PUBLIC_HTML_PATHS')));
+const guardStart = serverSource.indexOf('const PUBLIC_HTML_PATHS');
+const guardFnEnd = serverSource.indexOf('\n}', serverSource.indexOf('function shouldProtectHtmlEntry', guardStart)) + 2;
+const guardSource = serverSource.slice(guardStart, guardFnEnd);
 const shouldProtectHtmlEntry = vm.runInNewContext(`${guardSource}\nshouldProtectHtmlEntry;`, { path });
 
 test('login opens evolution in a dialog and does not preload the MP4', () => {

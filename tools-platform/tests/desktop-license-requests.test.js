@@ -17,6 +17,12 @@ require.cache[trustedTimePath] = {
 };
 
 const express = require('express');
+const { checkAuth } = require('../backend/middleware/auth');
+const usersRepo = require('../backend/models/auth-users-repository');
+const sessionsRepo = require('../backend/models/auth-sessions-repository');
+const { runWithTenant, tenantMiddleware } = require('../backend/models/tenant-context');
+const desktopLicenseAdmin = require('../backend/routes/desktop-license-admin');
+const { createFrontendHtmlMiddleware } = require('../backend/models/asset-versioning');
 const authority = require('../backend/models/desktop-license-authority');
 const registry = require('../backend/models/desktop-license-registry');
 const { encodeMachineCode } = require('../backend/models/desktop-machine-code');
@@ -32,10 +38,30 @@ let baseUrl;
 let adminUrl;
 
 test.before(async () => {
+    const accounts = [
+        { username: 'license-super', role: 'admin', tenantId: 'default', isSuper: true },
+        { username: 'license-default-admin', role: 'admin', tenantId: 'default' },
+        { username: 'license-team-admin', role: 'admin', tenantId: 'license-team' },
+        { username: 'license-viewer', role: 'viewer', tenantId: 'default' }
+    ];
+    for (const account of accounts) {
+        await usersRepo.createUser({ ...account, passwordHash: 'fixture' });
+        await sessionsRepo.saveSession(account.username, account.username, account.role, Date.now() + 60000, account.tenantId);
+    }
+    await sessionsRepo.saveSession('license-orphan', 'license-orphan', 'admin', Date.now() + 60000);
+
     const app = express();
+    const publicDir = path.join(__dirname, '../frontend');
     app.use(express.json());
+    app.use(desktopLicenseAdmin.pageRouter);
+    app.use(createFrontendHtmlMiddleware(publicDir));
+    app.use(express.static(publicDir, { index: false }));
     app.use('/api/public/desktop-license', require('../backend/routes/desktop-license-public'));
-    app.use('/api/desktop-licenses', (req, _res, next) => { req.user = { username: 'admin', role: 'admin' }; next(); }, require('../backend/routes/desktop-license-admin'));
+    app.use('/api', checkAuth, tenantMiddleware);
+    app.use('/api/desktop-licenses', desktopLicenseAdmin);
+    app.use('/api/friend-links', require('../backend/routes/friend-links'));
+    app.use('/api/db-explorer', require('../backend/routes/db-explorer'));
+    app.use('/api/global-backup', require('../backend/routes/global-backup'));
     server = await new Promise(resolve => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
     baseUrl = `http://127.0.0.1:${server.address().port}`;
     adminUrl = `${baseUrl}/api/desktop-licenses`;
@@ -58,13 +84,74 @@ function desktop(machine, dir = fs.mkdtempSync(path.join(sandbox, 'desktop-'))) 
 }
 
 async function admin(pathname, body) {
-    const response = await fetch(`${adminUrl}${pathname}`, body === undefined ? {} : {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    const headers = { Authorization: 'Bearer license-super', 'Content-Type': 'application/json' };
+    const response = await fetch(`${adminUrl}${pathname}`, body === undefined ? { headers } : {
+        method: 'POST', headers, body: JSON.stringify(body)
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error);
     return data;
 }
+
+test('只有当前超级管理员账号能打开管理页、读取台账或操作 License', async () => {
+    const pages = ['/desktop-license-admin', '/desktop-license-admin.html', '/pages/desktop-license-admin.html'];
+    const actions = ['/issue', '/machine-code/inspect', '/requests/example/approve', '/requests/example/reject',
+        '/example/renew', '/example/revoke', '/example/restore', '/example/archive'];
+    for (const page of pages) {
+        const response = await fetch(baseUrl + page, { redirect: 'manual' });
+        assert.equal(response.status, 302);
+        assert.equal(response.headers.get('location'), '/login.html');
+    }
+    assert.equal((await fetch(adminUrl)).status, 401);
+
+    for (const username of ['license-default-admin', 'license-team-admin', 'license-viewer', 'license-orphan']) {
+        const headers = { Cookie: `tools_token=${username}`, 'Content-Type': 'application/json' };
+        for (const page of pages) {
+            assert.equal((await fetch(baseUrl + page, { headers })).status, 403, `${username} GET ${page}`);
+            assert.equal((await fetch(baseUrl + page, { method: 'HEAD', headers })).status, 403, `${username} HEAD ${page}`);
+        }
+        assert.equal((await fetch(baseUrl + '/pages/%64esktop-license-admin.html', { headers })).status, 404);
+        for (const pathname of ['', '/requests', ...actions]) {
+            const options = actions.includes(pathname) ? { headers, method: 'POST', body: '{}' } : { headers };
+            const response = await fetch(adminUrl + pathname, options);
+            assert.equal(response.status, 403, `${username} ${pathname}`);
+            assert.equal((await response.json()).code, 'SUPER_ADMIN_REQUIRED');
+        }
+        for (const pathname of ['/api/db-explorer/tables/desktop_license_requests', '/api/global-backup/list']) {
+            assert.equal((await fetch(baseUrl + pathname, { headers })).status, 403, `${username} GET ${pathname}`);
+        }
+    }
+
+    await sessionsRepo.setActiveTenant('license-super', 'license-team');
+    for (const page of pages) {
+        const response = await fetch(baseUrl + page, { headers: { Cookie: 'tools_token=license-super' } });
+        assert.equal(response.status, 200);
+        assert.equal(response.headers.get('cache-control'), 'no-store');
+        assert.match(await response.text(), /授权中枢控制台/);
+    }
+    assert.ok(Array.isArray((await admin('')).licenses));
+});
+
+test('友情链接只向超级管理员返回 License 入口，并过滤旧配置中的入口', async () => {
+    const { writeKV } = require('../backend/models/kv-store');
+    const { CONFIG_SCHEMA_VERSION } = require('../backend/models/friend-links-repository');
+    const links = [
+        { id: 'license', name: '旧入口', url: 'https://example.com/desktop-license-admin' },
+        { id: 'alias', name: '旧别名', url: 'https://example.com/pages/%64esktop-license-admin.html' },
+        { id: 'ordinary', name: '普通链接', url: 'https://example.com/' }
+    ];
+    for (const tenant of ['default', 'license-team']) {
+        await runWithTenant(tenant, () => writeKV('sys', 'friend_links_config', { links, schemaVersion: CONFIG_SCHEMA_VERSION }));
+    }
+    const url = baseUrl + '/api/friend-links';
+    for (const username of ['license-default-admin', 'license-team-admin', 'license-viewer', 'license-super']) {
+        const response = await fetch(url, { headers: { Authorization: `Bearer ${username}` } });
+        assert.equal(response.status, 200);
+        const snapshot = await response.json();
+        assert.deepEqual(snapshot.links.map(link => link.id), ['ordinary']);
+        assert.equal(snapshot.licenseAdminUrl, username === 'license-super' ? '/desktop-license-admin' : undefined);
+    }
+});
 
 test('在线申请全流程：提交 → 重启后恢复申请 → 管理员一键审批（改有效期）→ 自动激活', async () => {
     const first = desktop(MACHINE_A);

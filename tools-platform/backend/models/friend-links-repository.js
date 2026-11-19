@@ -29,7 +29,6 @@ const DEFAULT_LINKS = [
     { id: 'api2', icon: '🔁', name: 'API 中转二站', nameEn: 'API Relay 2', url: 'https://api2.fanxiaolong.uk/' },
     { id: 'cs2', icon: '🛟', name: '工具中台备用', nameEn: 'Backup Hub', url: 'https://cs2.fanxiaolong.uk/' },
     { id: 'cs-main', icon: '🏠', name: '工具中台主站', nameEn: 'Dragon Claw', url: 'https://cs.fanxiaolong.uk/' },
-    { id: 'license', icon: '🔑', name: 'License 发放', nameEn: 'Issue Licenses', url: 'https://cs.fanxiaolong.uk/desktop-license-admin' },
     { id: 'ssh', icon: '☁️', name: '移动终端云', nameEn: 'Mobile Terminal Cloud', url: 'https://ssh.fanxiaolong.uk/' },
     { id: 'pcap', icon: '📡', name: '网络分析', nameEn: 'Network Analysis', url: 'https://pcap.fanxiaolong.uk/' },
     { id: 'openclaw3', icon: '🦞', name: 'OpenClaw', nameEn: 'OpenClaw', url: 'https://openclaw3.fanxiaolong.uk/' },
@@ -83,7 +82,13 @@ function normalizeConfig(input = {}) {
     const rawLinks = Array.isArray(input.links) ? input.links : DEFAULT_LINKS;
     if (rawLinks.length > 40) throw new Error('友情链接最多支持 40 个');
     const usedIds = new Set();
-    const links = rawLinks.map((item, index) => normalizeLink(item, index, usedIds));
+    const links = rawLinks.map((item, index) => normalizeLink(item, index, usedIds)).filter(link => {
+        if (link.id.toLowerCase() === 'license') return false;
+        const pathname = new URL(link.url).pathname;
+        let decoded;
+        try { decoded = decodeURIComponent(pathname); } catch { decoded = pathname; }
+        return !/\/desktop-license-admin(?:\.html)?\/*$/i.test(decoded);
+    });
     const intervalValue = Number(input.probeIntervalMinutes);
     const probeIntervalMinutes = Number.isFinite(intervalValue)
         ? Math.min(MAX_INTERVAL_MINUTES, Math.max(MIN_INTERVAL_MINUTES, Math.round(intervalValue)))
