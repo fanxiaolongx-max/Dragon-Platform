@@ -174,7 +174,7 @@ async function runToolLoop({
     client, model = '', systemPrompt, messages: initialMessages, tools: toolSource = [], executeCall, write: emit,
     signal, maxOutputTokens, temperature, sensitiveValues = [], task = '', maxSteps = MAX_STEPS, callIdPrefix = 'call',
     eventFields = {}, artifactOwner = '', artifactSession = '', spillable = () => true, maxEmptyNudges = MAX_EMPTY_NUDGES, builtins = BUILTINS, extras = null, vision = null, root = '',
-    review, fallback, toolsUnsupported, onToolCalls, afterCall, parallelSafe = () => false, subagent = null, toolAccess
+    review, fallback, toolsUnsupported, onToolCalls, afterCall, parallelSafe = () => false, subagent = null, sandboxSubagent = null, toolAccess
 }) {
     const allowed = toolAccess || extras?.allowed || await require('./agent-tool-access').forActor(null, artifactOwner);
     const secrets = { secrets: sensitiveValues };
@@ -189,7 +189,8 @@ async function runToolLoop({
     let readerEnabled = false;
     const builtinTools = builtins.filter(name => BUILTIN_DEFINITIONS[name] && (name !== 'view_image' || vision)).map(name => BUILTIN_DEFINITIONS[name]);
     if (subagent) builtinTools.push(require('./agent-subagent').DEFINITION);
-    const nextIdentity = subagent ? require('./agent-subagent').roster() : null;
+    if (sandboxSubagent) builtinTools.push(require('./agent-sandbox-subagent').DEFINITION);
+    const nextIdentity = (subagent || sandboxSubagent) ? require('./agent-subagent').roster() : null;
     const builtinNames = new Set(builtinTools.map(tool => tool.name));
     // 自带工具放最前面、固定不变，后面按需加载的工具往末尾追加，提示缓存才能继续命中
     const currentTools = () => {
@@ -225,6 +226,9 @@ async function runToolLoop({
         if (call.name === 'task' && subagent) {
             return require('./agent-subagent').run({ call, identity: nextIdentity(), client: activeClient, model: modelName(), tools: subagent.tools, executeCall: subagent.executeCall,
                 isReadOnly: subagent.isReadOnly, write, signal, maxOutputTokens, temperature, sensitiveValues, artifactOwner, artifactSession, root, eventFields });
+        }
+        if (call.name === 'sandbox_task' && sandboxSubagent) {
+            return sandboxSubagent({ call, identity: nextIdentity(), client: activeClient, model: modelName(), write, signal, maxOutputTokens, temperature, sensitiveValues, artifactOwner, artifactSession, eventFields, toolAccess: allowed });
         }
         if (call.name === 'calculate') {
             try { return toolkit.calculate(args); } catch (error) { return { content: `错误（${error.code || 'ERROR'}）：${error.message}`, summary: error.message, isError: true }; }

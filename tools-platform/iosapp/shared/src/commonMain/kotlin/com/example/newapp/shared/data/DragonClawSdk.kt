@@ -284,6 +284,13 @@ class DragonClawSdk(
     ): List<String>? =
         SessionGrouping.movePinnedEntryOrder(groups, preferences, stableKey, moveUp)
 
+    fun reorderPinnedEntries(
+        groups: List<UnifiedSessionGroup>,
+        preferences: List<ConversationListPreferenceItem>,
+        orderedStableKeys: List<String>
+    ): List<String>? =
+        SessionGrouping.reorderPinnedEntries(groups, preferences, orderedStableKeys)
+
     fun applyLocalPinOrder(
         preferences: List<ConversationListPreferenceItem>,
         source: String = "mine",

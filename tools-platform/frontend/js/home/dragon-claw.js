@@ -1967,7 +1967,7 @@
     }
     function attachmentBlock() {
         const ready = state.attachments.filter(item => item.status === 'ready');
-        return ready.length ? `\n\n${ATTACH_MARK}\n${ready.map(item => `- [${item.name.replace(/[\[\]]/g, '')}](<${item.path}>)`).join('\n')}` : '';
+        return ready.length ? `\n\n${ATTACH_MARK}\n${ready.map(item => `- [${item.name.replace(/[\[\]]/g, '')}](<${item.workspacePath || item.path}>)`).join('\n')}` : '';
     }
     function formatBytes(bytes) {
         return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
@@ -1975,10 +1975,18 @@
     function renderAttachments() {
         if (!el.attachments) return;
         el.attachments.hidden = !state.attachments.length;
-        el.attachments.innerHTML = state.attachments.map(item => `<span class="dc-attachment is-${item.status}" title="${escapeHtml(item.error || item.name)}">
+        el.attachments.innerHTML = state.attachments.map(item => {
+            const metaText = item.status === 'uploading'
+                ? tx('attachUploading')
+                : item.status === 'error'
+                    ? tx('attachFailed')
+                    : (item.workspacePath ? `${formatBytes(item.size)} · ${item.sharedOwner ? `${item.sharedOwner} 工作区` : '共享工作区'}` : formatBytes(item.size));
+            const titleText = item.error || (item.workspacePath ? `${item.name} -> ${item.workspacePath}` : item.name);
+            return `<span class="dc-attachment is-${item.status}" title="${escapeHtml(titleText)}">
             <span class="dc-attachment-name">${escapeHtml(item.name)}</span>
-            <span class="dc-attachment-meta">${escapeHtml(item.status === 'uploading' ? tx('attachUploading') : item.status === 'error' ? tx('attachFailed') : formatBytes(item.size))}</span>
-            <button type="button" class="dc-attachment-remove" data-attachment-remove="${item.id}" aria-label="${escapeHtml(tx('attachRemove'))}" title="${escapeHtml(tx('attachRemove'))}">×</button></span>`).join('');
+            <span class="dc-attachment-meta">${escapeHtml(metaText)}</span>
+            <button type="button" class="dc-attachment-remove" data-attachment-remove="${item.id}" aria-label="${escapeHtml(tx('attachRemove'))}" title="${escapeHtml(tx('attachRemove'))}">×</button></span>`;
+        }).join('');
         updateSendButton();
     }
     async function addAttachments(fileList) {
@@ -1993,11 +2001,20 @@
         await Promise.all(items.map(async item => {
             try {
                 const form = new FormData();
+                if (!external.active && state.sessionId) form.append('sessionId', state.sessionId);
+                if (!external.active && window.DragonClawWorkspace?.isSharedLocked?.()) form.append('expectSharedWorkspace', '1');
                 form.append('files', item.file, item.file.name);
                 const res = await fetch('/api/ai/uploads', { method: 'POST', headers: authHeaders(), body: form });
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok || !data.files?.[0]) throw new Error(data.error || `HTTP ${res.status}`);
-                Object.assign(item, { status: 'ready', path: data.files[0].path, name: data.files[0].name, size: data.files[0].size });
+                Object.assign(item, {
+                    status: 'ready',
+                    path: data.files[0].path,
+                    workspacePath: data.files[0].workspacePath || '',
+                    sharedOwner: data.files[0].sharedOwner || '',
+                    name: data.files[0].name,
+                    size: data.files[0].size
+                });
             } catch (error) {
                 Object.assign(item, { status: 'error', error: error.message });
                 showToast(`${tx('attachFailed')}：${item.name} · ${error.message}`);
@@ -2758,6 +2775,7 @@
     async function openSession(item) {
         if (!item || !leaveReply()) return;
         const epoch = ++resumeEpoch;
+        window.DragonHtmlSwarm?.deactivate?.();
         window.HomeAgentDiscussion?.activateSession?.(item.id,{group:item.discussionMode==='group'});
         closeSessionPicker();
         exitExternal();
@@ -2865,7 +2883,10 @@
     // ── 侧栏历史对话（对话模式左侧面板） ────────────
     // 对话列表按页加载：每页 CHAT_PAGE 条，滚到底部附近再加载下一页；serverCount 是已从服务端取到的条数（翻页偏移）
     const CHAT_PAGE = 40;
-    const chatList = { items: [], loaded: false, failed: false, seq: 0, latestSeq:0, timer: null, searchTimer: null, deleting: new Set(), cached: [], cacheIdentity: '', serverCount: 0, hasMore: false, loadingMore: false };
+    const chatIdentity = () => ['tools_user', 'tools_tenant_id', 'tools_token'].map(key => {
+        try { return localStorage.getItem(key) || sessionStorage.getItem(key) || ''; } catch { return ''; }
+    }).join('|');
+    const chatList = { items: [], loaded: false, loading: false, failed: false, seq: 0, latestSeq: 0, timer: null, searchTimer: null, deleting: new Set(), cached: [], cacheIdentity: '', identity: '', serverCount: 0, hasMore: false, loadingMore: false, abortController: null };
 
     function chatGroupKey(date) {
         const startOfDay = value => new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
@@ -3308,36 +3329,105 @@
         markRunningChats();
     }
 
-    async function loadChatList() {
+    function resetChatListForIdentity({ forceReload = false } = {}) {
+        const nextIdentity = chatIdentity();
+        const identityChanged = nextIdentity !== chatList.identity;
+        if (!identityChanged && !forceReload) return;
+        chatList.abortController?.abort();
+        chatList.abortController = null;
+        clearTimeout(chatList.timer);
+        if (identityChanged) {
+            chatList.items = [];
+            chatList.cached = [];
+            chatList.cacheIdentity = '';
+            chatList.serverCount = 0;
+            chatList.hasMore = false;
+            chatList.loadingMore = false;
+            if (state.sessionId && !state.controller && !external.active) newChat();
+        }
+        chatList.identity = nextIdentity;
+        chatList.loaded = false;
+        chatList.loading = false;
+        chatList.failed = false;
+        renderChatList();
+        loadChatList();
+    }
+
+    async function loadChatList(retry = 0) {
         if (!el.chatList) return;
         const seq = ++chatList.seq;
         const query = el.chatSearch?.value.trim() || '';
-        const account=currentUser()+':'+(localStorage.getItem('tools_tenant_id')||'');
+        const account = chatIdentity();
+        chatList.abortController?.abort();
+        const controller = typeof AbortController === 'function' ? new AbortController() : null;
+        chatList.abortController = controller;
+        chatList.loading = true;
+        const timeoutId = controller ? setTimeout(() => controller.abort(), 15000) : 0;
         // 刷新时取回已经加载过的条数（最多 100 条），列表不会一刷新就缩回第一页
         const limit = Math.min(100, Math.max(CHAT_PAGE, query === chatList.query ? chatList.serverCount : 0));
         try {
-            const res = await fetch(`/api/ai/sessions?mine=1&pagePath=%2F&limit=${limit}&query=${encodeURIComponent(query)}`, { headers: authHeaders() });
+            const res = await fetch(`/api/ai/sessions?mine=1&pagePath=%2F&limit=${limit}&query=${encodeURIComponent(query)}`, {
+                cache: 'no-store',
+                credentials: 'same-origin',
+                headers: authHeaders(),
+                ...(controller ? { signal: controller.signal } : {})
+            });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
             if (seq !== chatList.seq) return;
-            // 请求发出后当前账号变了（页面加载后身份同步才写入新工号 / 同一浏览器切换了账号）：
-            // 丢掉这次结果并按新账号重新加载；以前直接返回，列表会一直停在加载状态
-            if (account !== currentUser()+':'+(localStorage.getItem('tools_tenant_id')||'')) return loadChatList();
-            if(chatList.cacheIdentity!==account){chatList.cached=[];chatList.cacheIdentity=account;chatList.serverCount=0;}
-            let fetched=Array.isArray(data.items)?data.items:[];
+            // 请求发出后当前工号 / 会话变了（同一浏览器切换工号或页面身份同步晚到）：
+            // 清空旧列表并按新身份重新加载，避免一直停在骨架屏或显示旧账号数据
+            if (account !== chatIdentity()) {
+                if (retry < 3) {
+                    chatList.items = [];
+                    chatList.cached = [];
+                    chatList.cacheIdentity = '';
+                    chatList.serverCount = 0;
+                    chatList.hasMore = false;
+                    chatList.loaded = false;
+                    chatList.failed = false;
+                    renderChatList();
+                    return loadChatList(retry + 1);
+                }
+                chatList.failed = !chatList.items.length;
+                chatList.loaded = true;
+                renderChatList();
+                return;
+            }
+            if (chatList.cacheIdentity !== account) { chatList.cached = []; chatList.cacheIdentity = account; chatList.serverCount = 0; }
+            chatList.identity = account;
+            let fetched = Array.isArray(data.items) ? data.items : [];
             // 之前已经往下加载了超过 100 条：刷新只替换前面这部分，后面的保留
-            if(query===chatList.query&&fetched.length===limit&&chatList.serverCount>limit){const seen=new Set(fetched.map(item=>item.id));fetched=[...fetched,...chatList.items.slice(limit).filter(item=>!seen.has(item.id))];}
-            chatList.hasMore=fetched.length>=limit&&(query!==chatList.query||chatList.serverCount<=limit||chatList.hasMore);
-            chatList.serverCount=fetched.length;
-            chatList.query=query;
-            if(!query)chatList.cached=fetched;
-            const aliases=query?chatList.cached.filter(item=>window.HomeConversationList?.get('mine',item.id).title?.toLowerCase().includes(query.toLowerCase())):[];
-            chatList.items=[...fetched,...aliases.filter(item=>!fetched.some(row=>row.id===item.id))];
+            if (query === chatList.query && fetched.length === limit && chatList.serverCount > limit) { const seen = new Set(fetched.map(item => item.id)); fetched = [...fetched, ...chatList.items.slice(limit).filter(item => !seen.has(item.id))]; }
+            chatList.hasMore = fetched.length >= limit && (query !== chatList.query || chatList.serverCount <= limit || chatList.hasMore);
+            chatList.serverCount = fetched.length;
+            chatList.query = query;
+            if (!query) chatList.cached = fetched;
+            const aliases = query ? chatList.cached.filter(item => window.HomeConversationList?.get('mine', item.id).title?.toLowerCase().includes(query.toLowerCase())) : [];
+            chatList.items = [...fetched, ...aliases.filter(item => !fetched.some(row => row.id === item.id))];
             chatList.failed = false;
         } catch {
             if (seq !== chatList.seq) return;
+            if (account !== chatIdentity() && retry < 3) {
+                chatList.items = [];
+                chatList.cached = [];
+                chatList.cacheIdentity = '';
+                chatList.serverCount = 0;
+                chatList.hasMore = false;
+                chatList.loaded = false;
+                chatList.failed = false;
+                renderChatList();
+                return loadChatList(retry + 1);
+            }
             chatList.failed = !chatList.items.length; // 已有列表时刷新失败就保留旧列表
+        } finally {
+            clearTimeout(timeoutId);
+            if (seq === chatList.seq) {
+                if (chatList.abortController === controller) chatList.abortController = null;
+                chatList.loading = false;
+            }
         }
+        if (seq !== chatList.seq) return;
         chatList.loaded = true;
         renderChatList();
     }
@@ -3484,13 +3574,19 @@
         // 后台对话回复完：提示一下并刷新列表（标题、排序）；出现列表里还没有的进行中对话也刷新。
         let busyPollAt = 0;
         setInterval(async () => {
-            if (document.visibilityState !== 'visible' || !chatList.loaded || chatList.query) return;
+            if (document.visibilityState !== 'visible') return;
+            if (chatList.identity && chatList.identity !== chatIdentity()) return resetChatListForIdentity();
+            if (!chatList.loaded) {
+                if (!chatList.loading) loadChatList();
+                return;
+            }
+            if (chatList.query) return;
             const anyBusy = chatList.items.some(item => item.busy);
             if (!anyBusy && Date.now() - busyPollAt < 10000) return;
             busyPollAt = Date.now();
             const seq = chatList.seq;
             try {
-                const res = await fetch(`/api/ai/sessions?mine=1&pagePath=%2F&limit=${Math.min(100, Math.max(CHAT_PAGE, chatList.serverCount))}`, { headers: authHeaders() });
+                const res = await fetch(`/api/ai/sessions?mine=1&pagePath=%2F&limit=${Math.min(100, Math.max(CHAT_PAGE, chatList.serverCount))}`, { cache: 'no-store', credentials: 'same-origin', headers: authHeaders() });
                 if (!res.ok || seq !== chatList.seq) return;
                 const busy = new Set((await res.json()).items?.filter(item => item.busy).map(item => item.id) || []);
                 let changed = false, reload = [...busy].some(id => !chatList.items.some(item => item.id === id));
@@ -3545,6 +3641,16 @@
                 }
             }
         });
+        window.addEventListener('tools:authchange', () => {
+            if (chatIdentity() !== chatList.identity || chatList.failed || !chatList.loaded) {
+                resetChatListForIdentity({ forceReload: chatList.failed });
+            }
+        });
+        window.addEventListener('storage', event => {
+            if (!event.key || ['tools_user', 'tools_tenant_id', 'tools_token'].includes(event.key)) {
+                resetChatListForIdentity();
+            }
+        });
         renderChatList();
         loadChatList();
     }
@@ -3581,6 +3687,7 @@
         state.attachments = [];
         renderAttachments();
         window.HomeDesktopModels?.resetDraft?.();
+        window.DragonHtmlSwarm?.deactivate?.();
         window.HomeAgentDiscussion?.activateSession?.(null);
         exitExternal();
         window.HomeWelinkThreads?.setSource?.('mine', {remember:false});

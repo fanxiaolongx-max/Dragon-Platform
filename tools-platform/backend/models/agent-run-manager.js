@@ -371,6 +371,69 @@ function ensureSession({ agentSessionId, user, tenantId, root, permissionMode })
 }
 
 /**
+ * 为共享对话的非原归属成员构建受控协作用 session：
+ * 逻辑挂载共享发起者的 originRoot（严格 confined=true），禁用直接 run_command，
+ * 允许协作成员读写文件并通过 sandbox_task 在成员自己的隔离目录运行命令。
+ */
+function ensureSharedWorkspaceSession({ shareId, originOwner, originOwnerTenant = 'default', originRoot, folderName = '', user, tenantId, permissionMode = 'auto', mobileClient = false, supportsApproval = false }) {
+    const cleanShareId = String(shareId || '').trim();
+    if (!cleanShareId) throw managerError('SHARE_INVALID', '无效的共享对话 ID');
+    const sharedConv = require('./shared-conversations');
+    const realRoot = guard.normalizeRoot(originRoot);
+    if (!sharedConv.isShareableWorkspaceRoot(realRoot)) {
+        throw managerError('SHARE_WORKSPACE_INVALID', '共享工作目录不安全或不可用', 403);
+    }
+    const owner = ownerKey(user, tenantId);
+    const idHash = crypto.createHash('sha256').update(`${cleanShareId}\n${owner}`).digest('hex').slice(0, 24);
+    const id = `shws-${idHash}`;
+    let session = sessions.get(id);
+    if (session && session.owner !== owner) throw managerError('AGENT_SESSION_FORBIDDEN', '无权访问该智能体会话', 403);
+    if (!session) {
+        session = {
+            id,
+            owner,
+            username: user.username,
+            tenantId: tenantId || 'default',
+            root: realRoot,
+            permissionMode: normalizePermissionMode(permissionMode),
+            readOnly: false,
+            alwaysAllow: new Set(),
+            dangerAllowed: new Set(),
+            dangerRules: [],
+            changeLog: new AgentChangeLog(realRoot),
+            transcript: [],
+            hydrated: false,
+            turnCount: 0,
+            activeRun: null,
+            createdAt: Date.now(),
+            lastUsedAt: Date.now()
+        };
+        sessions.set(id, session);
+        sweepSessions();
+    } else if (session.root !== realRoot) {
+        session.root = realRoot;
+        session.changeLog = new AgentChangeLog(realRoot);
+        session.transcript = [];
+        session.turnCount = 0;
+        session.hydrated = false;
+        session.alwaysAllow.clear();
+        session.dangerAllowed.clear();
+    }
+    session.readOnly = false;
+    session.confined = true;
+    session.disableRunCommand = true;
+    session.sharedWorkspace = {
+        shareId: cleanShareId,
+        owner: String(originOwner || ''),
+        ownerTenant: String(originOwnerTenant || 'default'),
+        folderName: String(folderName || path.basename(realRoot) || realRoot)
+    };
+    if (permissionMode) session.permissionMode = normalizePermissionMode(permissionMode);
+    session.lastUsedAt = Date.now();
+    return configureClientExecutionMode(session, { mobileClient, supportsApproval });
+}
+
+/**
  * 从库里恢复同一 agentSessionId 上次持久化的工具转录（仅首次、且根目录一致时）。
  * 需在请求的租户上下文内调用；无法确认归属时停止本轮。
  */
@@ -819,9 +882,17 @@ function isSharedMcpApproval(approvalId, user, tenantId) {
     return Boolean(user && pending?.sharedMcp && pending.owner === ownerKey(user, tenantId));
 }
 
+function isSharedWorkspaceApproval(approvalId, user, tenantId) {
+    const pending = pendingApprovals.get(String(approvalId || ''));
+    if (!user || !pending || pending.owner !== ownerKey(user, tenantId)) return false;
+    const session = pending.sessionId ? sessions.get(pending.sessionId) : null;
+    return Boolean(session?.sharedWorkspace);
+}
+
 function resolveApproval(approvalId, decision, user, tenantId, scopeOrOptions = '') {
     const pending = pendingApprovals.get(String(approvalId || ''));
-    if (!isAdminUser(user) && !isSharedMcpApproval(approvalId, user, tenantId) && !pending?.workspaceChoice) {
+    const pendingSession = pending?.sessionId ? sessions.get(pending.sessionId) : null;
+    if (!isAdminUser(user) && !isSharedMcpApproval(approvalId, user, tenantId) && !pending?.workspaceChoice && !pendingSession?.sharedWorkspace) {
         throw managerError('AGENT_SESSION_FORBIDDEN', '只读账号无权批准写入或命令', 403);
     }
     if (!pending) throw managerError('AGENT_APPROVAL_NOT_FOUND', '审批已过期或不存在', 404);
@@ -982,6 +1053,12 @@ async function runAgentTurn({ session, user, client, systemInstruction, historyM
     let finalText = '';
     const turnTranscript = currentUser && currentUser.role === 'user' ? [{ role: 'user', content: String(currentUser.content || '') }] : [];
     let scriptNudged = false;
+    let fileMutationNudged = false;
+    const FILE_WRITE_TOOLS = new Set(['write_file', 'edit_file', 'multi_edit', 'rename_path', 'delete_path', 'run_command']);
+    const FAKE_TOOL_FOOTER_RE = /（\s*本轮调用工具\s*\d+\s*次/;
+    const CLAIMED_FILE_WRITE_RE = /(?:已|已经)(?:为您|帮您)?(?:完成)?(?:优化|修改|更新|重写|重新生成|生成|保存|创建|覆盖|写入)[^\n。]{0,60}(?:\.[a-z0-9]{1,8}\b|html|网页|报告|文件)/i;
+    const OPEN_FILE_CLAIM_RE = /(?:可以|请)(?:再次)?(?:在浏览器中)?打开[^\n。]{0,50}\.[a-z0-9]{1,8}/i;
+    const FILE_TASK_INTENT_RE = /(?:优化|修改|改写|重做|保存|生成|更新|写入|覆盖|调整|美化|html|文件|样式|背景)/i;
     const initialTranscript = session.transcript;
     const recovery = redactValue({ version: 1, priorTranscript: initialTranscript, priorTurnCount: session.turnCount,
         permissionMode: session.permissionMode, chatSessionId, chatOwner: session.username, userEvents }, { secrets: sensitiveValues });
@@ -996,6 +1073,13 @@ async function runAgentTurn({ session, user, client, systemInstruction, historyM
         if (registry.isMeta(call.name)) outcome = await registry.runMeta(call);
         const misnamed = call.name === 'run_command' && registry.commandNamingTool(call.args?.command);
         if (misnamed) outcome = { content: `${misnamed} 是工具名，不是 Shell 命令。请直接调用 ${misnamed} 工具（已加载它的参数说明），不要用 run_command 执行。`, summary: `${misnamed} 是工具，不是命令`, isError: true };
+        if (!outcome && call.name === 'run_command' && session.disableRunCommand) {
+            outcome = {
+                content: '权限受限：共享工作区中非目录原归属人禁止在原目录直接执行 run_command。请调用 `sandbox_task` 工具，系统会自动为你新建独立临时隔离沙箱智能体执行命令并将安全产出文件同步回共享工作区。',
+                summary: '共享目录禁止直接 run_command（请用 sandbox_task）',
+                isError: true
+            };
+        }
         if (!outcome && call.name === 'run_command' && session.channelContext && !session.channelContext.isSuperAdminSender && /\bwelink-cli\b|@welink[\\/]welink-cli/i.test(String(call.args?.command || ''))) {
             outcome = { content: '权限受限：频道对话中非超级管理员禁止通过 run_command 直接调用 welink-cli；如需查询当前所在本群的聊天记录，请调用 welink_query 工具（仅限当前群 ID）。', summary: '禁止直接调用 welink-cli', isError: true };
         }
@@ -1087,7 +1171,44 @@ async function runAgentTurn({ session, user, client, systemInstruction, historyM
     };
     const readOnlyCall = (name, args) => !registry.isMeta(name) && name !== 'run_command' && kindFor(name, args || {}) === 'read';
 
+    const sandboxSubagent = session.disableRunCommand && session.sharedWorkspace
+        ? opts => require('./agent-sandbox-subagent').run({
+            ...opts,
+            originRoot: session.root,
+            user,
+            tenantId: session.tenantId,
+            chatSessionId: run.chatSessionId,
+            parentSession: session,
+            allocateRoot: timedScratchRoot,
+            runApproval: {
+                dangerHits: (name, args) => dangerHits(session, name, args),
+                confirmDanger: async (subCall, danger, runnerRoot) => {
+                    if (session.mobileClient || session.channelContext) return false;
+                    const { decision: answer } = await waitApproval(run, subCall, {
+                        kind: 'sandbox_command',
+                        command: subCall.args?.command || '',
+                        root: runnerRoot,
+                        danger,
+                        dangerScopes: ['session']
+                    });
+                    write({ type: 'approval_result', runId: run.id, callId: subCall.id, decision: answer });
+                    return answer === 'allow' || answer === 'always' || answer === 'full';
+                }
+            }
+        })
+        : null;
+
     try {
+        if (session.sharedWorkspace) {
+            const active = await require('./shared-conversations').isSharedWorkspaceActive({
+                shareId: session.sharedWorkspace.shareId,
+                tenantId: session.tenantId,
+                username: session.username
+            });
+            if (!active) {
+                throw managerError('SHARE_WORKSPACE_REVOKED', '发起者已停止共享该工作目录，或你已不在共享对话中', 403);
+            }
+        }
         await checkpoint('running');
         const loop = await agentLoop.runToolLoop({
             client, model, systemPrompt: fullSystem, messages, tools: () => registry.definitions(), executeCall, write, toolAccess: registry.allowed,
@@ -1101,7 +1222,25 @@ async function runAgentTurn({ session, user, client, systemInstruction, historyM
                 executeCall,
                 isReadOnly: readOnlyCall
             },
+            sandboxSubagent,
             review: ({ text, toolLog }) => {
+                if (!fileMutationNudged && !session.readOnly && !denied) {
+                    const hasWrite = Array.isArray(toolLog) && toolLog.some(item => item?.ok && FILE_WRITE_TOOLS.has(item.tool));
+                    if (!hasWrite) {
+                        const body = String(text || '');
+                        const fakeFooter = FAKE_TOOL_FOOTER_RE.test(body);
+                        const unbackedClaim = FILE_TASK_INTENT_RE.test(String(currentUser?.content || ''))
+                            && (CLAIMED_FILE_WRITE_RE.test(body) || OPEN_FILE_CLAIM_RE.test(body));
+                        if (fakeFooter || unbackedClaim) {
+                            fileMutationNudged = true;
+                            write({ type: 'status', status: '检测到尚未实际写入文件，正在核对并执行写入…' });
+                            return {
+                                keepReply: false,
+                                nudge: '（执行核查提示：系统检测到你刚才只输出了文字或更新了计划，并没有实际调用 `write_file` / `edit_file` / `multi_edit` 执行任何文件写入！严禁在未调用工具的情况下声称“已完成优化/修改”或编造“本轮调用工具”字样。请先用 `read_file` 读取目标文件（若来自共享对话，请读取上下文中提供的 `agent-uploads/...` 完整路径副本），然后调用 `write_file` 将完整修改结果真正写入当前工作区；如确实找不到文件或无法写入，请如实向用户说明原因。）'
+                            };
+                        }
+                    }
+                }
                 if (scriptNudged || session.readOnly || denied || !systemInstruction.includes('### @script-data')
                     || !scriptService.shouldContinue({ question: currentUser?.content, text, toolLog })) return null;
                 scriptNudged = true;
@@ -1226,6 +1365,8 @@ module.exports = {
     PERMISSION_MODES,
     normalizePermissionMode,
     ensureSession,
+    ensureSharedWorkspaceSession,
+    timedScratchRoot,
     hydrateSession,
     findLatestSessionId,
     persistTranscript,
@@ -1244,6 +1385,7 @@ module.exports = {
     classifyDecision,
     resolveApproval,
     isSharedMcpApproval,
+    isSharedWorkspaceApproval,
     runAgentTurn,
     stats,
     _internal: { sessions, runs, pendingApprovals }

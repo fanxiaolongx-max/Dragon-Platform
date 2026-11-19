@@ -285,8 +285,8 @@ test('Codex account plan is preserved while private account fields are discarded
     assert.equal(q.membership.label,'Plus');assert.doesNotMatch(JSON.stringify(q),/private@example|email/);
 });
 test('Antigravity member details are optional and do not leak account profile or break quota on failure',async()=>{
-    const q=parseAntigravityQuota(agData(),{userStatus:{email:'private@example.test',name:'PRIVATE',planStatus:{planInfo:{planName:'Pro',teamsTier:'TEAMS_TIER_PRO'},availablePromptCredits:123}}});
-    assert.equal(q.membership.label,'Pro');assert.doesNotMatch(JSON.stringify(q),/PRIVATE|email|123|private@example/);
+    const q=parseAntigravityQuota(agData(),{userStatus:{email:'private@example.test',name:'PRIVATE',planStatus:{planInfo:{planName:'Pro',teamsTier:'TEAMS_TIER_PRO'},availablePromptCredits:987654321}}});
+    assert.equal(q.membership.label,'Pro');assert.doesNotMatch(JSON.stringify(q),/PRIVATE|email|987654321|private@example/);
     const requests=[];
     const reader=createAntigravityReader({platform:'darwin',run:async()=> '123 /app/language_server --csrf_token local-csrf --https_server_port 54321',
         requestJson:async url=>{requests.push(url);if(url.endsWith('GetUserStatus'))throw Error('not supported');return agData();}});

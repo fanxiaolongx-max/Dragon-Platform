@@ -125,7 +125,9 @@ body.collapsed .quota-panel { visibility:hidden; }
 #quotaPeek { display:none; }
 body.peek .quota-panel,body.peek #edgeSensor { display:none; }
 body.peek { padding:10px; }
-body.peek #quotaPeek { display:flex; flex-direction:column; height:100%; position:relative; padding:18px; border:1px solid var(--line); border-radius:20px; background:var(--surface); color:var(--ink); opacity:0; transform:translateY(-6px) scale(.97); transition:opacity 160ms ease,transform 260ms var(--ease); }
+body.peek #quotaPeek { --brand:var(--brand-codex); display:flex; flex-direction:column; height:100%; position:relative; padding:18px; border:1px solid var(--line); border-radius:20px; background:var(--surface); color:var(--ink); opacity:0; transform:translateY(-6px) scale(.97); transition:opacity 160ms ease,transform 260ms var(--ease); }
+body.peek #quotaPeek[data-provider="claudecode"] { --brand:var(--brand-claude); }
+body.peek #quotaPeek[data-provider="antigravity"] { --brand:var(--brand-anti); }
 body.peek.peek-visible #quotaPeek { opacity:1; transform:none; }
 #quotaPeek::before { content:''; position:absolute; width:13px; height:13px; background:var(--surface); transform:rotate(45deg); border:solid var(--line); border-width:0 1px 1px 0; }
 body[data-side="top"] #quotaPeek::before { top:-7px; left:calc(var(--pointer,50%) - 17px); transform:rotate(225deg); }

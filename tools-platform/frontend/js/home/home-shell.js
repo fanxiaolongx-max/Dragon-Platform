@@ -665,7 +665,7 @@
     const appRow = app => {
         const isSuper = typeof window.isNavSuperAdmin === 'function' ? window.isNavSuperAdmin() : (localStorage.getItem('tools_super') === '1');
         const isShared = Boolean(app.shared || app.sharedAccess);
-        const badge = (isSuper || isShared)
+        const badge = isSuper
             ? `<span class="v2-badge-shared-pill ${isShared ? 'is-shared' : 'is-unshared'}">${isShared ? (lang() === 'en-US' ? 'Shared' : '全员开放') : (lang() === 'en-US' ? 'Not shared' : '未全员开放')}</span>`
             : '';
         return `<a class="v2-app" href="${esc(app.href)}"><span class="v2-app-icon v2-app-glyph">${svg(appGlyph(app.href))}</span><span class="v2-app-text"><strong>${esc(app.title)}${badge}</strong><small>${esc(app.description || app.group || '')}</small></span><span class="v2-app-go">${esc(t('open'))}</span></a>`;
@@ -680,9 +680,12 @@
         const all = apps();
         const groups = [...new Set(all.map(app => app.group).filter(Boolean))];
         const isSuper = typeof window.isNavSuperAdmin === 'function' ? window.isNavSuperAdmin() : (localStorage.getItem('tools_super') === '1');
+        if (!isSuper && (discover.cat === 'sharedWithAll' || discover.cat === 'unsharedOnly')) {
+            discover.cat = 'recommended';
+        }
         const sharedChips = isSuper
             ? [['sharedWithAll', t('sharedWithAll')], ['unsharedOnly', t('unsharedOnly')]]
-            : [['sharedWithAll', t('sharedWithAll')]];
+            : [];
         const chips = [['recommended', t('recommended')], ['all', t('all')], ...sharedChips, ...groups.map(g => [g, g])];
         discover.pop.querySelector('.v2-discover-chips').innerHTML = chips.map(([id, label]) => `<button type="button" class="v2-chip${discover.cat === id && !discover.query ? ' is-active' : ''}" data-cat="${esc(id)}">${esc(label)}</button>`).join('');
         const query = discover.query.trim().toLowerCase();

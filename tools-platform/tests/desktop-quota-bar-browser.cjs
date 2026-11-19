@@ -86,9 +86,14 @@ app.whenReady().then(async () => {
     assert.equal(await evaluate('document.querySelector(".dqb").classList.contains("tucked")'), false, 'initially not tucked');
     await evaluate('document.querySelector(".dqb-row.codex").dispatchEvent(new PointerEvent("pointerenter"))');
     await until('!document.querySelector(".dqb-peek").hidden');
+    assert.notEqual(await evaluate('getComputedStyle(document.querySelector(".dqb-peek [data-window=\\"5h\\"] .dqb-track i")).backgroundColor'), 'rgba(0, 0, 0, 0)', 'codex 5h peek bar fill should use brand color');
     assert.match(await evaluate('document.querySelector(".dqb-peek-extra").textContent'), /剩余充值额度.*2,476 credits/);
+    await evaluate('document.querySelector(".dqb-row.claudecode").dispatchEvent(new PointerEvent("pointerenter"))');
+    await until('document.querySelector(".dqb-peek[data-provider=claudecode]")');
+    assert.notEqual(await evaluate('getComputedStyle(document.querySelector(".dqb-peek [data-window=\\"5h\\"] .dqb-track i")).backgroundColor'), 'rgba(0, 0, 0, 0)', 'claudecode 5h peek bar fill should use brand color');
     await evaluate('document.querySelector(".dqb-row.antigravity").dispatchEvent(new PointerEvent("pointerenter"))');
     await until('document.querySelector(".dqb-peek[data-provider=antigravity]")');
+    assert.notEqual(await evaluate('getComputedStyle(document.querySelector(".dqb-peek [data-window=\\"5h\\"] .dqb-track i")).backgroundColor'), 'rgba(0, 0, 0, 0)', 'antigravity 5h peek bar fill should use brand color');
     assert.equal(await evaluate('document.querySelectorAll(".dqb-peek-group").length'), 2);
     assert.match(await evaluate('document.querySelector(".dqb-peek-groups + .dqb-peek-extra").textContent'), /剩余 AI 点数.*1,743 点/);
 

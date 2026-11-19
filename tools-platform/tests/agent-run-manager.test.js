@@ -774,3 +774,27 @@ test('wrapped arguments are canonical before approval; malformed calls never rea
     assert.equal(bad.events.some(e=>e.type==='approval'),false);
     assert.match(malformed.calls[1].messages.at(-1).toolResults[0].content,/AGENT_TOOL_ARGS_PARSE/);
 });
+
+test('review nudges the model when it claims to have written/optimized a file without calling any write tool', async () => {
+    const outPath = path.join(root, 'monthly_report_nudged.html');
+    const session = manager.ensureSession({ agentSessionId: newSessionId(), user, tenantId: 'default', root, permissionMode: 'full' });
+    const client = scriptedClient([
+        { text: '已完成优化，背景已改为渐变风格。您可以再次在浏览器中打开 monthly_report_nudged.html 查看。\n\n（本轮调用工具 1 次：`write_file`）' },
+        { toolCalls: [{ id: 'w1', name: 'write_file', args: { path: 'monthly_report_nudged.html', content: '<html><body style="background:#f5f7fa">Fixed</body></html>' } }] },
+        { text: '已将优化后的 HTML 真正写入 monthly_report_nudged.html。' }
+    ]);
+    const { events, write } = collector();
+    const res = await manager.runAgentTurn({
+        session,
+        client,
+        systemInstruction: 'S',
+        historyMessages: [{ role: 'user', content: '这个html帮我继续优化 背景不好看' }],
+        write,
+        signal: new AbortController().signal
+    });
+    assert.equal(res.toolCallCount, 1);
+    assert.equal(fs.existsSync(outPath), true);
+    assert.match(fs.readFileSync(outPath, 'utf8'), /Fixed/);
+    assert.equal(res.text, '已将优化后的 HTML 真正写入 monthly_report_nudged.html。');
+    assert.ok(events.some(e => e.type === 'tool_result' && e.tool === 'write_file' && e.ok));
+});

@@ -2930,6 +2930,16 @@ class DragonClawViewModel : ViewModel() {
     fun movePinnedEntry(entry: SidebarSessionEntry, moveUp: Boolean) {
         val nextOrder = sdk.movePinnedEntryOrder(unifiedSessionGroups, conversationPreferences, entry.stableKey, moveUp)
             ?: return
+        commitPinnedOrder(nextOrder)
+    }
+
+    fun reorderPinnedEntries(orderedStableKeys: List<String>) {
+        val nextOrder = sdk.reorderPinnedEntries(unifiedSessionGroups, conversationPreferences, orderedStableKeys)
+            ?: return
+        commitPinnedOrder(nextOrder)
+    }
+
+    private fun commitPinnedOrder(nextOrder: List<String>) {
         if (nextOrder.size < 2) return
         conversationPreferences = sdk.applyLocalPinOrder(conversationPreferences, "mine", nextOrder)
         regroupSessions()

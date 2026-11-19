@@ -111,10 +111,13 @@
 
 /* 悬停详情 */
 .dqb-peek {
+  --brand:var(--brand-codex);
   position:fixed; z-index:2147482001; width:292px; padding:18px; border:1px solid var(--line); border-radius:20px;
   background:var(--surface); color:var(--ink); box-shadow:0 18px 40px #0000002b; pointer-events:auto;
   display:flex; flex-direction:column; opacity:0; transform:translateY(-6px) scale(.97); transition:opacity 160ms ease,transform 260ms var(--ease);
 }
+.dqb-peek[data-provider="claudecode"] { --brand:var(--brand-claude); }
+.dqb-peek[data-provider="antigravity"] { --brand:var(--brand-anti); }
 .dqb-peek[hidden] { display:none; }
 .dqb-peek.visible { opacity:1; transform:none; }
 .dqb-peek::before { content:''; position:absolute; top:-7px; left:calc(var(--pointer,50%) - 7px); width:13px; height:13px; background:var(--surface); transform:rotate(225deg); border:solid var(--line); border-width:0 1px 1px 0; }

@@ -1570,15 +1570,12 @@ object SessionGrouping {
         return list
     }
 
-    /** Returns updated `order` IDs for `/api/ai/conversation-list` (`source = "mine"`) or null if at boundary. */
-    fun movePinnedEntryOrder(
+    private fun pinnedPairedIds(
         groups: List<UnifiedSessionGroup>,
-        preferences: List<ConversationListPreferenceItem>,
-        stableKey: String,
-        moveUp: Boolean
-    ): List<String>? {
-        val pinnedGroup = groups.firstOrNull { it.bucket == SessionBucket.PINNED } ?: return null
-        val paired = pinnedGroup.items.mapNotNull { entry ->
+        preferences: List<ConversationListPreferenceItem>
+    ): List<Pair<String, String>> {
+        val pinnedGroup = groups.firstOrNull { it.bucket == SessionBucket.PINNED } ?: return emptyList()
+        return pinnedGroup.items.mapNotNull { entry ->
             when {
                 entry.aiSession != null -> entry.aiSession.id to entry.stableKey
                 entry.desktopSession != null -> {
@@ -1588,6 +1585,16 @@ object SessionGrouping {
                 else -> null
             }
         }
+    }
+
+    /** Returns updated `order` IDs for `/api/ai/conversation-list` (`source = "mine"`) or null if at boundary. */
+    fun movePinnedEntryOrder(
+        groups: List<UnifiedSessionGroup>,
+        preferences: List<ConversationListPreferenceItem>,
+        stableKey: String,
+        moveUp: Boolean
+    ): List<String>? {
+        val paired = pinnedPairedIds(groups, preferences)
         if (paired.size < 2) return null
         val idx = paired.indexOfFirst { it.second == stableKey }
         if (idx < 0) return null
@@ -1598,6 +1605,29 @@ object SessionGrouping {
         reordered[idx] = reordered[swapIdx]
         reordered[swapIdx] = tmp
         return reordered.map { it.first }
+    }
+
+    /** Returns full `order` IDs for `/api/ai/conversation-list` after drag-reordering pinned rows, or null if unchanged. */
+    fun reorderPinnedEntries(
+        groups: List<UnifiedSessionGroup>,
+        preferences: List<ConversationListPreferenceItem>,
+        orderedStableKeys: List<String>
+    ): List<String>? {
+        val paired = pinnedPairedIds(groups, preferences)
+        if (paired.size < 2) return null
+        val serverIdByKey = paired.associate { (serverId, stableKey) -> stableKey to serverId }
+        val seen = HashSet<String>(paired.size)
+        val reordered = ArrayList<String>(paired.size)
+        for (key in orderedStableKeys) {
+            val serverId = serverIdByKey[key] ?: continue
+            if (seen.add(key)) reordered.add(serverId)
+        }
+        // Keep any remaining pinned entries (e.g. if filtered) in their relative order.
+        for ((serverId, key) in paired) {
+            if (seen.add(key)) reordered.add(serverId)
+        }
+        val current = paired.map { it.first }
+        return if (reordered == current) null else reordered
     }
 
     fun applyLocalPinOrder(

@@ -72,7 +72,8 @@
     }
     async function request(method,body){
         const token=localStorage.getItem('tools_token')||sessionStorage.getItem('tools_token');
-        const response=await fetch(API,{method,credentials:'same-origin',cache:'no-store',headers:{Authorization:'Bearer '+token,...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});
+        const signal=(typeof AbortSignal!=='undefined'&&typeof AbortSignal.timeout==='function')?AbortSignal.timeout(15000):undefined;
+        const response=await fetch(API,{method,credentials:'same-origin',cache:'no-store',...(signal?{signal}:{}),headers:{Authorization:'Bearer '+token,...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});
         const data=await response.json().catch(()=>({}));if(!response.ok)throw Error(data.error||L('操作失败，请重试','Could not save. Please retry.'));return data;
     }
     async function load(){
@@ -296,7 +297,8 @@
     document.addEventListener('pointerdown',event=>{if(menu&&!menu.contains(event.target)&&!event.target.closest('[data-conversation-more]'))close();},true);
     window.addEventListener('scroll',()=>close(),true);
     window.addEventListener('resize',()=>close());window.addEventListener('blur',()=>close());
-    window.addEventListener('storage',event=>{if(['tools_user','tools_tenant_id','tools_token'].includes(event.key))load();});
+    window.addEventListener('tools:authchange',()=>{if(identity()!==account)load();});
+    window.addEventListener('storage',event=>{if(!event.key||['tools_user','tools_tenant_id','tools_token'].includes(event.key))load();});
     window.addEventListener('tools:languagechange',()=>{close();signal('*');});
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',load,{once:true});else load();
 })();

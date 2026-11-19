@@ -1,4 +1,5 @@
 const { getUsageVideoFooter } = require('../models/platform-usage-video');
+const path = require('path');
 const express = require('express');
 const router = express.Router();
 router.use('/speech',require('./ai-speech'));
@@ -487,21 +488,38 @@ async function compressSessionIfNeeded({ client, sessionId, pageTitle, onStatus 
     return { session: payload.session, compression: { ...started, phase: 'skipped', performed: false, reason: 'empty-summary' } };
 }
 
-async function buildEffectiveMessages({ sessionId, incomingMessages, lastMessage }) {
+const FAKE_TOOL_FOOTER_RE = /\n{0,2}（\s*本轮调用工具\s*\d+\s*次：([^）\n]*)）\s*$/u;
+
+async function buildEffectiveMessages({ sessionId, incomingMessages, lastMessage, ownerKey = '', recentRows = null }) {
     if (!sessionId) {
         return incomingMessages.slice(-10);
     }
-    const recent = await aiChatRepo.getRecentMessagesForContext(sessionId, RECENT_CONTEXT_MESSAGES);
+    const recent = Array.isArray(recentRows) ? recentRows : await aiChatRepo.getRecentMessagesForContext(sessionId, RECENT_CONTEXT_MESSAGES);
     // 频道主动推送（运营推送等）以助手消息存入对话：保留并标注，成员回复时模型知道刚推了什么
     const isPush = msg => String(msg.events || '').includes('"type":"push"');
-    // 共享对话：别人发的提问标注发送账号，模型能分清是谁在说话（shared-conversations.js）
-    const sharedAuthor = msg => msg.role !== 'model' && require('../models/shared-conversations').authorOf(msg.events);
-    const items = recent.map(msg => ({
-        role: msg.role === 'model' ? 'model' : 'user',
-        content: isPush(msg) ? `【你之前主动推送到这里的消息】\n${msg.content || ''}`
-            : sharedAuthor(msg) ? `【共享对话成员 ${sharedAuthor(msg).name || sharedAuthor(msg).author} 的提问】\n${msg.content || ''}` : (msg.content || ''),
-        push: isPush(msg)
-    }));
+    // 共享对话：别人发的提问与回复均标注发送账号，模型能分清是谁在说话、做了什么（shared-conversations.js）
+    const sharedMod = require('../models/shared-conversations');
+    const fs = require('fs');
+    const items = recent.map(msg => {
+        const push = isPush(msg);
+        const author = sharedMod.authorOf(msg.events);
+        const who = author ? (author.name && author.name !== author.author ? `${author.name} (${author.author})` : (author.name || author.author || '协作伙伴')) : '';
+        let body = String(msg.content || '');
+        if (msg.role === 'model') {
+            body = body.replace(FAKE_TOOL_FOOTER_RE, (_m, tools) => `\n\n[系统记录的历史工具：${tools}]`);
+        }
+        const sharedFiles = sharedMod.filesOf(msg.events).filter(file => (!ownerKey || agentArtifacts.ownsFile(ownerKey, file.path)) && fs.existsSync(file.path));
+        if (sharedFiles.length) {
+            body = `${body}\n[本条消息同步的本地可读文件副本：${sharedFiles.map(file => `${file.name} -> ${file.path}`).join('；')}]`;
+        }
+        const content = push ? `【你之前主动推送到这里的消息】\n${body}`
+            : author ? `【共享对话成员 ${who}${msg.role === 'model' ? ' 收到的 AI 回复' : ' 的提问'}】\n${body}` : body;
+        return {
+            role: msg.role === 'model' ? 'model' : 'user',
+            content,
+            push
+        };
+    });
     while (items.length && items[0].role !== 'user' && !items[0].push) {
         items.shift();
     }
@@ -757,8 +775,36 @@ async function handleChatRequest(req, res) {
             agentSession = agentRunManager.ensureWeLinkSession({ user: req.user, tenantId: getTenantId(), chatSessionId: sessionId, isSuperAdmin: isChannelSuperAdmin });
             agentSession.channelContext = channelContext; // 完全访问的 WeLink 对话：保存技能等确认操作改为回复确认码，并携带当前发言人超管标识
         }
+        const sharedWs = (homeAgent && !tourReportExample && streamRequested && !channelTurn && sessionId && persist !== false)
+            ? await require('../models/shared-conversations').resolveSharedWorkspace({
+                tenantId: getTenantId(),
+                username: req.user?.username || '',
+                sessionId
+            }).catch(() => null)
+            : null;
+        if (sharedWs && !sharedWs.isOwner) {
+            try {
+                agentSession = agentRunManager.ensureSharedWorkspaceSession({
+                    shareId: sharedWs.shareId,
+                    originOwner: sharedWs.owner,
+                    originOwnerTenant: sharedWs.ownerTenant,
+                    originRoot: sharedWs.root,
+                    folderName: sharedWs.folderName,
+                    user: req.user,
+                    tenantId: getTenantId(),
+                    permissionMode: workspace?.permissionMode,
+                    mobileClient: isMobileClient,
+                    supportsApproval: mobileSupportsApproval
+                });
+            } catch (sessionError) {
+                return res.status(sessionError.statusCode || 403).json({ code: sessionError.code, error: sessionError.message });
+            }
+            if (agentSession.activeRun) {
+                return res.status(409).json({ code: 'AGENT_RUN_BUSY', error: '该会话有正在进行的任务，请等待完成或先停止' });
+            }
+        }
         // 工作区模式：用户选了本地目录，走工具调用循环（仅流式、仅本机/桌面/管理员）。
-        if (homeAgent && !tourReportExample && streamRequested && workspace && workspace.root) {
+        if (!agentSession && homeAgent && !tourReportExample && streamRequested && workspace && workspace.root) {
             if (!agentWorkspaceAccess.isAgentWorkspaceAllowed(req)) {
                 return res.status(403).json({ code: 'AGENT_WORKSPACE_FORBIDDEN', error: '工作区功能仅对本机或管理员开放' });
             }
@@ -854,6 +900,15 @@ async function handleChatRequest(req, res) {
         let loadedSkills = { selected: [], unknown: [], prompt: '' };
         let loadSkills = null;
         let pendingWorkspaceChoice = null;
+        const sharedCapabilities = (homeAgent && !tourReportExample && !channelTurn && sessionId && persist !== false)
+            ? await require('../models/shared-conversations').sessionCapabilities({
+                tenantId: getTenantId(),
+                username: req.user?.username || '',
+                role: req.user?.role || '',
+                sessionId
+            }).catch(() => null)
+            : null;
+        const sharedAliases = sharedCapabilities?.aliases || {};
         if (homeAgent && !tourReportExample) {
             try {
                 let skillContextMessages = messages.slice(0, -1);
@@ -866,6 +921,7 @@ async function handleChatRequest(req, res) {
                     hasWorkspace: agentMode,
                     language: String(uiLanguage || '').startsWith('en') ? 'en' : 'zh',
                     redactionSecrets: sensitiveValues,
+                    aliases: sharedAliases,
                     extraIds: [
                         ...extraSkillIds,
                         ...(homeConnector ? [connectorSkills[homeConnector]] : []),
@@ -945,8 +1001,11 @@ async function handleChatRequest(req, res) {
             if ((agentSession?.scratch || agentSession?.mobileOwnedWorkspace) && savedSessionId) {
                 agentRunManager.bindScratchChatId({ session: agentSession, user: req.user, tenantId: getTenantId(), chatSessionId: savedSessionId });
             }
-            if (agentSession && !agentSession.scratch && agentSession.root && !aiChatRepo.isScratchDirectory?.(agentSession.root) && savedSessionId) {
+            if (agentSession && !agentSession.scratch && !agentSession.sharedWorkspace && agentSession.root && !aiChatRepo.isScratchDirectory?.(agentSession.root) && savedSessionId) {
                 await aiChatRepo.setSessionAgent(savedSessionId, { agentSessionId: agentSession.id, root: agentSession.root, owner: req.user?.username || '' }).catch(() => {});
+                await require('../models/shared-conversations').syncOriginWorkspaceRoot({
+                    tenantId: getTenantId(), username: req.user?.username || '', sessionId: savedSessionId, root: agentSession.root
+                }).catch(() => {});
             }
         }
 
@@ -986,8 +1045,11 @@ async function handleChatRequest(req, res) {
             agentMode = true;
             if ((agentSession.scratch || agentSession.mobileOwnedWorkspace) && savedSessionId) {
                 agentRunManager.bindScratchChatId({ session: agentSession, user: req.user, tenantId: getTenantId(), chatSessionId: savedSessionId });
-            } else if (agentSession && !agentSession.scratch && agentSession.root && !aiChatRepo.isScratchDirectory?.(agentSession.root) && savedSessionId) {
+            } else if (agentSession && !agentSession.scratch && !agentSession.sharedWorkspace && agentSession.root && !aiChatRepo.isScratchDirectory?.(agentSession.root) && savedSessionId) {
                 await aiChatRepo.setSessionAgent(savedSessionId, { agentSessionId: agentSession.id, root: agentSession.root, owner: req.user?.username || '' }).catch(() => {});
+                await require('../models/shared-conversations').syncOriginWorkspaceRoot({
+                    tenantId: getTenantId(), username: req.user?.username || '', sessionId: savedSessionId, root: agentSession.root
+                }).catch(() => {});
             }
             if (typeof loadSkills === 'function') {
                 loadedSkills = await loadSkills(extraSkillIds);
@@ -1029,6 +1091,9 @@ async function handleChatRequest(req, res) {
             }
             await activateWorkspaceSession(choice.session, pendingWorkspaceChoice.skills);
         }
+        if (persist !== false && savedSessionId && homeAgent && !channelTurn) {
+            await require('../models/shared-conversations').syncIfShared({ tenantId: getTenantId(), username: req.user?.username || '', sessionId: savedSessionId }).catch(() => {});
+        }
         const compressionResult = persist !== false
             ? await compressSessionIfNeeded({
                 client: aiClient,
@@ -1040,11 +1105,16 @@ async function handleChatRequest(req, res) {
         const compressedSession = compressionResult.session;
         const conversationCompression = compressionResult.compression;
         const sessionSummary = compressedSession?.summary || '';
+        const contextSessionId = currentView && !sessionId ? null : savedSessionId;
+        const turnOwnerKey = agentRunManager.ownerKey(req.user, getTenantId());
+        const recentHistoryRows = contextSessionId ? await aiChatRepo.getRecentMessagesForContext(contextSessionId, RECENT_CONTEXT_MESSAGES) : [];
         const effectiveMessages = await buildEffectiveMessages({
             // The initial page overview is transient. Keep it available for the first follow-up.
-            sessionId: currentView && !sessionId ? null : savedSessionId,
+            sessionId: contextSessionId,
             incomingMessages: messages,
-            lastMessage
+            lastMessage,
+            ownerKey: turnOwnerKey,
+            recentRows: recentHistoryRows
         });
         const analysisCode = codeAnalysis?.kind === 'knowledge-file'
             ? getAnalysisCode(lastMessage.content, codeAnalysis.codeStart)
@@ -1167,9 +1237,20 @@ async function handleChatRequest(req, res) {
         // 首页管理员无需选择目录即可使用平台业务库；频道、页面助手及专用 Skill 保持各自权限。
         let databaseMode = homeAgent && !tourReportExample && !agentMode && !channelTurn && req.user?.role === 'admin'
             && !opsSetup && !welinkCliSetup && !netcareSetup && !autoglmSetup && !financeSetup && !ppoSetup && !voiceCreatorSetup && !analysisCode;
-        // 对话附件：消息里引用的、属于本人的上传文件（频道对话不带）
+        // 对话附件与共享文件副本：消息文本引用的 + 历史工具/共享事件中同步给本人的可读文件（频道对话不带）
+        const sharedMod = require('../models/shared-conversations');
+        const fsSync = require('fs');
+        const sharedEventFiles = homeAgent && !channelTurn
+            ? recentHistoryRows.flatMap(row => sharedMod.filesOf(row.events)).map(file => file.path)
+                .filter(filePath => agentArtifacts.ownsFile(turnOwnerKey, filePath) && fsSync.existsSync(filePath))
+            : [];
         const uploadFiles = homeAgent && !channelTurn
-            ? agentArtifacts.uploadsIn(agentRunManager.ownerKey(req.user, getTenantId()), effectiveMessages.map(item => item.content)) : [];
+            ? [...new Set([...agentArtifacts.uploadsIn(turnOwnerKey, effectiveMessages.map(item => item.content)), ...sharedEventFiles])]
+            : [];
+        const isSharedConversation = Boolean(homeAgent && !channelTurn && (
+            recentHistoryRows.some(row => sharedMod.authorOf(row.events))
+            || (savedSessionId && await sharedMod.shareForSession({ tenantId: getTenantId(), username: req.user?.username || '', sessionId: savedSessionId }).catch(() => null))
+        ));
         // 看图：对话模型能看图时，本条消息里的图片附件直接附给它；不能看图时先用绘图模型识别成文字附在消息末尾
         const vision = homeAgent && (!channelTurn || fullWeLink) ? await require('../models/agent-vision').forTurn({ chatSettings: aiSettings, signal: providerAbortController?.signal,
             allowExtraImageRoots: agentWorkspaceAccess.isAgentWorkspaceAllowed(req) && !require('../models/team-boundary').isConfined(req.user) }) : null;
@@ -1186,6 +1267,31 @@ async function handleChatRequest(req, res) {
         const memoryPrompt = homeAgent && !channelTurn && req.user?.role === 'admin' && (agentMode || databaseMode)
             ? await require('../models/agent-memory-repository').promptFor(req.user.username).catch(() => '') : '';
         // 简介过短的工具附上生成的说明摘要，帮模型按需求匹配
+        const aliasNotes = Object.entries(sharedAliases).map(([orig, installed]) => `- 历史调用的 \`@${orig}\` 因本地同名冲突已在本账号安装为兼容别名 \`@${installed}\`，需要加载或调用该技能时请使用 \`@${installed}\`。`);
+        const missingSkillNotes = (sharedCapabilities?.skills || []).map(item => {
+            const label = item.name && item.name !== item.id ? `@${item.id}（${item.name}）` : `@${item.id}`;
+            if (item.status === 'pending') return `- 历史引用技能 ${label} 当前账号暂未获得授权（已向归属人 ${item.ownerName || item.owner || '管理员'} 提交申请，等待审批）。`;
+            if (item.canRequest) return `- 历史引用技能 ${label} 当前账号暂未开放或未安装（归属人：${item.ownerName || item.owner || '归属人'}），可提示用户在共享对话顶部栏点击「向归属人申请使用」。`;
+            return `- 历史引用技能 ${label} 在当前环境不可用（${item.reason || '已被删除或无可用来源'}）。`;
+        });
+        const missingToolNotes = (sharedCapabilities?.tools || []).map(item => `- 历史工具 \`${item.name}\` 当前账号无权使用或未启用（${item.reason || '权限受限'}）。`);
+        const unavailableSharedPrompt = (aliasNotes.length || missingSkillNotes.length || missingToolNotes.length)
+            ? `\n**共享对话外部能力与权限差异说明**：\n${[...aliasNotes, ...missingSkillNotes, ...missingToolNotes].join('\n')}\n- 若当前请求依赖上述未授权技能或受限工具，严禁假装已经执行或编造输出；请明确告知缺失的能力，并引导用户在共享对话顶部状态栏发起申请或联系管理员开通。\n`
+            : '';
+        const sharedWorkspacePrompt = sharedWs
+            ? (sharedWs.isOwner
+                ? `\n**共享工作区协作状态**：当前对话绑定的工作目录（\`${sharedWs.folderName}\`）已默认同步共享给本次共享对话的协作成员；协作成员上传的文件会保存在工作目录的 \`shared-uploads/\` 下。`
+                : `\n**共享远程工作区协作规则（逻辑挂载）**：\n- 当前对话已自动逻辑挂载发起者「${sharedWs.ownerName}」的共享工作目录（\`${sharedWs.folderName}\`），不可自行切换其它目录。\n- 你可以直接调用 \`list_directory\`、\`search\`、\`read_file\`、\`read_document\`、\`query_data\` 浏览与读取工作区文件，并可调用 \`write_file\`、\`edit_file\`、\`multi_edit\`、\`delete_path\`、\`rename_path\` 等工具协同修改工作区文件；成员上传的文件会直接保存在共享目录的 \`shared-uploads/\` 子目录中。\n- 权限隔离限制：当前非目录原归属人，已在原共享目录上**禁用直接 \`run_command\`**。\n- 当任务确实需要执行终端命令、运行脚本、构建、计算或测试时，**请务必直接调用 \`sandbox_task\` 工具**——系统会自动为当前成员创建一个独立的临时隔离沙箱智能体来运行 \`run_command\`，并在完成后把产出结果与安全文件同步回共享工作区。`)
+            : '';
+        const sharedConversationPrompt = isSharedConversation
+            ? `\n**多人共享对话规则**：
+- 当前对话为多人共享会话，其他成员的历史发言、对应 AI 回复、工具执行结果及同步文件副本均已呈现在上方的对话上下文中（带有「【共享对话成员 …】」标注）。
+- 若用户询问某个成员（例如“admin 干了什么 / 说了什么 / 看下对话历史”），请直接依据上面已同步的对话历史与文件信息总结回答；不要误查 \`platform:chat-history.db\` 或声称无法查看其他用户的历史。
+- 前面其他成员上传或生成并已同步给当前账号的文件副本（位于下方列表或上文标注的完整路径），本账号拥有只读访问权：若用户要求基于前面共享的文件/HTML/文档继续优化或修改，必须先用 \`read_file\`（或 \`read_document\`）读取该完整路径的实际内容，再通过 \`write_file\` 写入当前工作区；切勿在未读取原文件或未调用 \`write_file\`/\`edit_file\` 的情况下声称“已修改/已优化”。${sharedWorkspacePrompt}\n${unavailableSharedPrompt}`
+            : '';
+        const sharedFilesPrompt = agentMode && uploadFiles.length
+            ? `\n**对话附件与同步共享文件可读副本**（用 \`read_file\` / \`read_document\` / \`query_data\` 读取以下完整路径）：\n${uploadFiles.map(file => `- ${path.basename(file)}：${file}`).join('\n')}\n`
+            : '';
         const toolGuideNotes = homeAgent ? await require('../models/platform-tool-guides').shortDescriptionNotes(req.user).catch(() => '') : '';
         const buildTurnSystemInstruction = () => {
             const canMutateDatabase = databaseMode && hasAllowedTool([
@@ -1238,7 +1344,7 @@ ${expertGrounding.dataPrompt ? `\n只读报表分析工具结果：\n---\n${expe
 ${expertGrounding.snapshotFollowups ? `\n最新已入库催办快照（和「一键催办」使用同一份预警明细）：\n---\n${JSON.stringify(expertGrounding.snapshotFollowups)}\n---\n答复临期和催办部分时以这份快照为准。按截止时间列出单号、类型、截止日期和责任人，并注明快照时间。upcoming 是尚未到期，overdue 是按核对时间已超过截止日期，分开呈现。缺少截止日期时只报快照原有剩余天数，不推算确切日期。未来 3 天没有临期项时仍应列出已超期的优先跟进事项，可为其起草催办。没有责任人的事项单列。没有数据、权限或结果被截断时如实说明，不用普通任务表补充或冒充预警。\n` : ''}
 ${tourReportExample ? '本轮是新手引导的只读演示。基于已提供的报表和催办快照给出简明结果，只准备催办草稿，不创建或发送消息。\n' : ''}
 ${expertGrounding.metricGraphPrompt ? `\n与本次问题相关的运营指标体系图谱节点：\n---\n${expertGrounding.metricGraphPrompt}\n---\n` : ''}
-${sessionSummary ? `\n历史会话滚动摘要：\n---\n${sessionSummary}\n---\n` : ''}${followupSetup ? `${followupSetup.prompt}\n` : ''}${opsSetup ? `${opsSetup.prompt}\n` : ''}${welinkCliSetup ? `${welinkCliSetup.prompt}\n` : ''}${netcareSetup ? `${netcareSetup.prompt}\n` : ''}${autoglmSetup ? `${autoglmSetup.prompt}\n` : ''}${financeSetup ? `${financeSetup.prompt}\n` : ''}${memoryPrompt}
+${sessionSummary ? `\n历史会话滚动摘要：\n---\n${sessionSummary}\n---\n` : ''}${sharedConversationPrompt}${sharedFilesPrompt}${followupSetup ? `${followupSetup.prompt}\n` : ''}${opsSetup ? `${opsSetup.prompt}\n` : ''}${welinkCliSetup ? `${welinkCliSetup.prompt}\n` : ''}${netcareSetup ? `${netcareSetup.prompt}\n` : ''}${autoglmSetup ? `${autoglmSetup.prompt}\n` : ''}${financeSetup ? `${financeSetup.prompt}\n` : ''}${memoryPrompt}
 **核心要求**：
 ${buildChatPresentationRules(responseLanguage, voiceMode)}
 2. 项目实现类结论必须优先依据检索到的文件，并用“来源：文件路径:行号”标注关键依据。不要声称读过未提供的文件。
@@ -1656,6 +1762,9 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
             if (streamRequested) writeStreamEvent({ type: 'delta', delta: usageVideoFooter });
         }
         const persistedQuestion = analysisResult ? analysisResult.content : lastMessage.content;
+        if (homeAgent && typeof result?.text === 'string') {
+            result.text = result.text.replace(FAKE_TOOL_FOOTER_RE, '').trimEnd();
+        }
         // 历史记录只存文本：工作区模式附上工具调用摘要，便于下一轮延续。
         const responseText = redactText(agentResult && agentResult.toolLog.length
             ? `${result.text}\n\n（本轮调用工具 ${agentResult.toolCallCount} 次：${agentResult.toolLog.slice(0, 8).map(item => `\`${item.tool}\`${item.ok ? '' : '✗'}`).join('、')}${agentResult.toolLog.length > 8 ? '…' : ''}）`
@@ -1730,8 +1839,13 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                         modelName: replyModelName
                     });
                 }
-                // 隐藏临时目录不记到对话上：恢复这个对话时不能把它当成用户选过的目录
-                if (agentSession && !agentSession.scratch && !aiChatRepo.isScratchDirectory?.(agentSession.root)) await aiChatRepo.setSessionAgent(savedSessionId, { agentSessionId: agentSession.id, root: agentSession.root, owner: req.user.username });
+                // 隐藏临时目录、共享挂载目录不记到非归属人自己的对话配置上
+                if (agentSession && !agentSession.scratch && !agentSession.sharedWorkspace && !aiChatRepo.isScratchDirectory?.(agentSession.root)) {
+                    await aiChatRepo.setSessionAgent(savedSessionId, { agentSessionId: agentSession.id, root: agentSession.root, owner: req.user.username });
+                    await require('../models/shared-conversations').syncOriginWorkspaceRoot({
+                        tenantId: getTenantId(), username: req.user.username, sessionId: savedSessionId, root: agentSession.root
+                    }).catch(() => {});
+                }
                 await aiChatRepo.recordQuestion({
                     owner: req.user.username,
                     pagePath: normalizedPath,
@@ -1764,7 +1878,19 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                     toolCalls: agentResult.toolCallCount,
                     denied: agentResult.denied,
                     permissionMode: agentSession.permissionMode,
-                    ...(agentSession.scratch ? { scratch: true } : { root: agentSession.root, gitBranch: agentResult.gitBranch })
+                    ...(agentSession.sharedWorkspace
+                        ? {
+                            sharedWorkspace: {
+                                shareId: agentSession.sharedWorkspace.shareId,
+                                owner: agentSession.sharedWorkspace.owner,
+                                folderName: agentSession.sharedWorkspace.folderName,
+                                virtualRoot: `shared-ws://${agentSession.sharedWorkspace.shareId}`,
+                                canRunCommand: false
+                            }
+                        }
+                        : agentSession.scratch
+                            ? { scratch: true }
+                            : { root: agentSession.root, gitBranch: agentResult.gitBranch })
                 }
             } : {})
         };
@@ -1776,7 +1902,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
         }
     } catch (error) {
         if (agentSession && historyContext) {
-            if (!agentSession.scratch) await aiChatRepo.setSessionAgent(historyContext.sessionId, { agentSessionId: agentSession.id, root: agentSession.root, owner: req.user.username }).catch(() => {});
+            if (!agentSession.scratch && !agentSession.sharedWorkspace) await aiChatRepo.setSessionAgent(historyContext.sessionId, { agentSessionId: agentSession.id, root: agentSession.root, owner: req.user.username }).catch(() => {});
         }
         if (providerAbortController?.signal.aborted && error?.name === 'AbortError') {
             await saveInterruptedTurn('（已停止生成）');
@@ -1836,9 +1962,39 @@ router.post('/uploads', checkAuth, (req, res, next) => multer({ storage: multer.
         const files = Array.isArray(req.files) ? req.files : [];
         if (!files.length) return res.status(400).json({ code: 'AGENT_UPLOAD_EMPTY', error: '没有收到文件' });
         const owner = agentRunManager.ownerKey(req.user, getTenantId());
+        const sessionId = String(req.body?.sessionId || '').trim();
+        const sharedWs = sessionId
+            ? await require('../models/shared-conversations').resolveSharedWorkspace({ tenantId: getTenantId(), username: req.user?.username || '', sessionId }).catch(() => null)
+            : null;
+        if (String(req.body?.expectSharedWorkspace || '') === '1' && !sharedWs) {
+            return res.status(403).json({ code: 'SHARE_WORKSPACE_REVOKED', error: '共享对话或共享工作区已结束，无法继续上传到发起者目录' });
+        }
         const saved = [];
-        for (const file of files) saved.push(await agentArtifacts.saveUpload(owner, { originalname: uploadFilename(file.originalname), buffer: file.buffer }));
-        res.json({ files: saved });
+        const guard = require('../models/agent-path-guard');
+        const fsp = require('fs/promises');
+        for (const file of files) {
+            const cleanName = uploadFilename(file.originalname);
+            const item = await agentArtifacts.saveUpload(owner, { originalname: cleanName, buffer: file.buffer });
+            if (sharedWs?.root) {
+                const safeBase = path.basename(cleanName).replace(/[\\/:*?"<>|\u0000-\u001f]+/g, '_').replace(/^\.+/, 'u_') || 'upload.bin';
+                const dir = path.join(sharedWs.root, 'shared-uploads');
+                await fsp.mkdir(dir, { recursive: true });
+                let destName = safeBase;
+                let destAbs = guard.resolveInsideRoot(sharedWs.root, path.join('shared-uploads', destName));
+                if (require('fs').existsSync(destAbs)) {
+                    const ext = path.extname(safeBase);
+                    const stem = path.basename(safeBase, ext);
+                    destName = `${stem}-${Date.now().toString(36)}${ext}`;
+                    destAbs = guard.resolveInsideRoot(sharedWs.root, path.join('shared-uploads', destName));
+                }
+                guard.assertNotSecretFile(destAbs);
+                await fsp.writeFile(destAbs, file.buffer);
+                item.workspacePath = `shared-uploads/${destName}`;
+                item.sharedOwner = sharedWs.ownerName;
+            }
+            saved.push(item);
+        }
+        res.json({ files: saved, ...(sharedWs ? { sharedWorkspace: { folderName: sharedWs.folderName, ownerName: sharedWs.ownerName } } : {}) });
     } catch (error) {
         res.status(error.statusCode || 500).json({ code: error.code || 'AGENT_UPLOAD_FAILED', error: error.message });
     }
@@ -2712,4 +2868,5 @@ CRITICAL FORMATTING & STYLE PRESERVATION RULES:
 router.handleChatRequest = handleChatRequest;
 router.getActiveAiRequests = getActiveAiRequests;
 router.buildChatPresentationRules = buildChatPresentationRules;
+router.buildEffectiveMessages = buildEffectiveMessages;
 module.exports = router;

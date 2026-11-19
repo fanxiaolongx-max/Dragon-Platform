@@ -2492,7 +2492,21 @@ final class DragonClawStore {
             preferences: conversationPreferences,
             stableKey: entry.stableKey,
             moveUp: moveUp
-        ), nextOrder.count >= 2 else { return }
+        ) else { return }
+        commitPinnedOrder(nextOrder)
+    }
+
+    func reorderPinnedEntries(orderedStableKeys: [String]) {
+        guard let nextOrder = sdk.reorderPinnedEntries(
+            groups: unifiedSessionGroups,
+            preferences: conversationPreferences,
+            orderedStableKeys: orderedStableKeys
+        ) else { return }
+        commitPinnedOrder(nextOrder)
+    }
+
+    private func commitPinnedOrder(_ nextOrder: [String]) {
+        guard nextOrder.count >= 2 else { return }
         conversationPreferences = sdk.applyLocalPinOrder(
             preferences: conversationPreferences,
             source: "mine",

@@ -452,5 +452,12 @@
         render();
     }
 
+    window.addEventListener('tools:authchange', () => {
+        hideRevealed();
+        view.entries = []; view.neverSave = []; view.secrets = [];
+        view.editing = null; view.editingSecret = null; view.notice = null; view.query = ''; view.loadError = '';
+        if (view.content?.isConnected) load().then(render);
+    });
+
     window.ToolsVaultSettings = { render: renderInto };
 })();

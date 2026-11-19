@@ -145,7 +145,7 @@ test('Skill Hub shared badges & category filter chips for Plugins and Tools', as
         assert.match(hubCode, /else if \(state\.filterSource === 'shared'\) \{\s*if \(item\.source !== 'shared' && !item\.sharedAccess && !item\.shared\) return false;/, 'bottom shared source filter must include built-in shared tools too');
     });
 
-    await t.test('non-superadmin only receives sharedWithAll badge, never unsharedOnly', () => {
+    await t.test('non-superadmin hides both sharedWithAll and unsharedOnly badges, extraCats, and source filters across skills, plugins, and tools', () => {
         const mockEnv = createMockEnvironment({ isSuper: false });
         const context = vm.createContext(mockEnv);
         vm.runInContext(hubCode, context);
@@ -153,10 +153,18 @@ test('Skill Hub shared badges & category filter chips for Plugins and Tools', as
         const tools = mockEnv.HomeSkillHub.entries('tools');
         const sharedTool = tools.find(t => t.id === 'custom:tool-shared');
         const unsharedTool = tools.find(t => t.id === 'custom:tool-unshared');
-
-        assert.ok(sharedTool.badges.includes('全员开放'));
+        assert.ok(!sharedTool.badges.includes('全员开放'), 'non-superadmin must not see 全员开放 badge on tools');
         assert.ok(!unsharedTool.badges.includes('未全员开放'), 'non-superadmin must not see 未全员开放 badge');
         assert.equal(unsharedTool.extraCats.length, 0, 'non-superadmin must not have unsharedOnly in extraCats');
+
+        const plugins = mockEnv.HomeSkillHub.entries('plugins');
+        const sharedPlugin = plugins.find(p => p.capabilityId === 'f12:plugin-shared');
+        assert.ok(!sharedPlugin.badges.includes('全员开放'), 'non-superadmin must not see 全员开放 badge on plugins');
+        assert.ok(!sharedPlugin.extraCats.includes('sharedWithAll'), 'non-superadmin must not have sharedWithAll in plugin extraCats');
+
+        assert.match(hubCode, /skills:\s*\{[^}]*shared:\s*'sharedWithAll'[^}]*unshared:\s*'unsharedOnly'/);
+        assert.match(hubCode, /plugins:\s*\{[^}]*shared:\s*'sharedWithAll'[^}]*unshared:\s*'unsharedOnly'/);
+        assert.match(hubCode, /if \(\(source === 'shared' \|\| source === 'unshared'\) && !superAdmin\) return \[\]/);
     });
 
     await t.test('dragon-claw-skills.js optionNode renders dc-skill-share-badge for superadmin and non-superadmin', () => {

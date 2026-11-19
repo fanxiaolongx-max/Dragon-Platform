@@ -590,6 +590,19 @@ class DragonClawHelpersTest {
             preferences = updatedPrefs
         )
         assertEquals(listOf("desktop:codex:d_pin", "ai:s_pin_old", "ai:s_pin_unranked"), reorderedGroups[0].items.map { it.stableKey })
+
+        // Drag-to-reorder arbitrary list order moves last pinned entry to the top cleanly.
+        val draggedOrder = SessionGrouping.reorderPinnedEntries(
+            reorderedGroups,
+            updatedPrefs,
+            listOf("ai:s_pin_unranked", "desktop:codex:d_pin", "ai:s_pin_old")
+        )
+        assertEquals(listOf("s_pin_unranked", "desktop:codex:d_pin", "s_pin_old"), draggedOrder)
+        assertEquals(null, SessionGrouping.reorderPinnedEntries(
+            reorderedGroups,
+            updatedPrefs,
+            listOf("desktop:codex:d_pin", "ai:s_pin_old", "ai:s_pin_unranked")
+        ))
     }
 
     @Test

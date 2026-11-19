@@ -39,8 +39,8 @@
     };
     const TABS = ['skills', 'plugins', 'tools'];
     const SOURCES = {
-        skills: { title: 'skillSource', labels: { builtin: 'builtin', chat: 'createdInChat', import: 'imported', external: 'externalCommand' } },
-        plugins: { title: 'pluginSource', labels: { builtin: 'builtin', custom: 'custom', float: 'floatingScripts' } },
+        skills: { title: 'skillSource', labels: { builtin: 'builtin', shared: 'sharedWithAll', unshared: 'unsharedOnly', chat: 'createdInChat', import: 'imported', external: 'externalCommand' } },
+        plugins: { title: 'pluginSource', labels: { builtin: 'builtin', shared: 'sharedWithAll', unshared: 'unsharedOnly', custom: 'custom', float: 'floatingScripts' } },
         tools: { title: 'toolSource', labels: { builtin: 'builtin', shared: 'shared', unshared: 'unsharedOnly', custom: 'custom' } }
     };
     const STORE_KEY = 'tools_v2_hub';
@@ -84,8 +84,6 @@
             const badges = [`@${item.id}`];
             if (superAdmin) {
                 badges.push(isShared ? t('sharedWithAll') : t('unsharedOnly'));
-            } else if (isShared) {
-                badges.push(t('sharedWithAll'));
             }
             if (item.customized) badges.push(t('customized'));
             if (item.workspace) badges.push(t('workspace'));
@@ -106,12 +104,10 @@
         const superAdmin = isSuperAdmin();
         return (window.HomeCapabilities?.groups?.() || []).flatMap(group => group.items.map((item, index) => {
             const isShared = item.sharedAccess === true;
-            const extraCats = [superAdmin ? (isShared ? 'sharedWithAll' : 'unsharedOnly') : (isShared ? 'sharedWithAll' : null)].filter(Boolean);
+            const extraCats = [superAdmin ? (isShared ? 'sharedWithAll' : 'unsharedOnly') : null].filter(Boolean);
             const badges = [t('where', { where: (en ? group.whereEn : '') || group.where })].filter(Boolean);
             if (superAdmin) {
                 badges.push(isShared ? t('sharedWithAll') : t('unsharedOnly'));
-            } else if (isShared) {
-                badges.push(t('sharedWithAll'));
             }
             const baseHref = item.href || group.href || '';
             const href = baseHref ? `${baseHref}${baseHref.includes('?') ? '&' : '?'}capability=${encodeURIComponent(item.id)}` : '';
@@ -195,8 +191,6 @@
                 const badges = [tool.group];
                 if (superAdmin) {
                     badges.push(isShared ? t('sharedWithAll') : t('unsharedOnly'));
-                } else if (isShared) {
-                    badges.push(t('sharedWithAll'));
                 }
                 if (updatedText) badges.push(updatedText);
                 return {
@@ -258,32 +252,24 @@
     }
     function renderFilters() {
         if (!root) return;
+        const superAdmin = isSuperAdmin();
+        if (!superAdmin && (state.filterSource === 'shared' || state.filterSource === 'unshared')) {
+            state.filterSource = 'all';
+        }
         const sourceMeta = SOURCES[state.tab] || SOURCES.tools;
         const sourceLabel = root.querySelector('[data-hub-filter-label="source"]');
         if (sourceLabel) sourceLabel.textContent = t(sourceMeta.title);
         const sourceSort = root.querySelector('[data-hub-filter-sort="source"]');
         if (sourceSort) {
             const allBtn = `<button type="button" data-hub-filter-source="all" aria-pressed="${state.filterSource === 'all'}">${esc(t('all'))}</button>`;
-            const items = Object.entries(sourceMeta.labels).map(([source, labelKey]) => {
+            const items = Object.entries(sourceMeta.labels).flatMap(([source, labelKey]) => {
+                if ((source === 'shared' || source === 'unshared') && !superAdmin) return [];
                 const pressed = state.filterSource === source;
                 const swatchClass = source === 'builtin' ? ' is-built-in' : (source === 'shared' ? ' is-shared-access' : (source === 'unshared' ? ' is-unshared-access' : (source === 'custom' ? ' is-custom' : '')));
                 const badge = `<i class="v2-hub-legend-swatch${swatchClass}" data-src="${esc(source)}" aria-hidden="true"></i>`;
-                let labelText = t(labelKey);
-                let extraAttr = '';
-                if (state.tab === 'tools' && source === 'shared') {
-                    labelText = t('sharedWithAll');
-                    extraAttr = ' data-hub-shared-filter';
-                    if (!isSuperAdmin() && !entries().some(e => e.source === 'shared' || e.sharedAccess || e.shared)) {
-                        extraAttr += ' hidden';
-                    }
-                } else if (state.tab === 'tools' && source === 'unshared') {
-                    labelText = t('unsharedOnly');
-                    extraAttr = ' data-hub-unshared-filter';
-                    if (!isSuperAdmin()) {
-                        extraAttr += ' hidden';
-                    }
-                }
-                return `<button type="button" data-hub-filter-source="${esc(source)}"${extraAttr} aria-pressed="${pressed}">${badge}<span>${esc(labelText)}</span></button>`;
+                const labelText = source === 'shared' ? t('sharedWithAll') : (source === 'unshared' ? t('unsharedOnly') : t(labelKey));
+                const extraAttr = source === 'shared' ? ' data-hub-shared-filter' : (source === 'unshared' ? ' data-hub-unshared-filter' : '');
+                return [`<button type="button" data-hub-filter-source="${esc(source)}"${extraAttr} aria-pressed="${pressed}">${badge}<span>${esc(labelText)}</span></button>`];
             }).join('');
             sourceSort.innerHTML = allBtn + items;
         }

@@ -254,6 +254,28 @@ async function publishedSkill(id, { includeClosed = false } = {}) {
     return runWithTenant(DEFAULT_TENANT_ID, async () => (await listAll()).find(item => item.id === id) || null);
 }
 
+async function installSharedGrant(snapshot, { targetId, sourceId, grantId, shareId, owner, user } = {}) {
+    await ensureReady();
+    const skill = normalizeSkillMarkdown(snapshot.markdown, { fallbackId: targetId || sourceId, overrides: { id: targetId || sourceId } });
+    const files = Array.isArray(snapshot.files) ? snapshot.files : [];
+    const now = new Date().toISOString();
+    const existing = await getCustom(skill.id);
+    const bodyHash = require('crypto').createHash('sha1').update(String(skill.body || '')).digest('hex');
+    if (existing) {
+        await createBackup(skill.id, { createdBy: user?.username || owner || '', summary: '导入共享技能前备份' }).catch(() => {});
+    }
+    await run(`INSERT INTO agent_skills (id, name, name_en, description, description_en, icon, workspace, body, files_json, source, created_by, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'shared-grant', ?, ?, ?)
+               ON CONFLICT(id) DO UPDATE SET name = excluded.name, name_en = excluded.name_en, description = excluded.description,
+                   description_en = excluded.description_en, icon = excluded.icon, workspace = excluded.workspace, body = excluded.body,
+                   files_json = excluded.files_json, source = 'shared-grant', updated_at = excluded.updated_at`,
+    [skill.id, skill.name, skill.nameEn, skill.description, skill.descriptionEn, skill.icon || '✨', skill.workspace ? 1 : 0, skill.body, JSON.stringify(files), owner || '', existing?.createdAt || now, now]);
+    await require('./tool-distribution').setPersonalEntry(user, `skill:${skill.id}`, {
+        grant: true, grantId, grantShareId: shareId, grantSourceId: sourceId, grantOwner: owner || '', grantBodyHash: bodyHash, grantModified: false
+    });
+    return getSkill(skill.id);
+}
+
 async function listForUser(user, { includeHidden = false } = {}) {
     if (!user) return listAll({ includeHidden });
     const { isSuperAdmin } = require('../middleware/auth');
@@ -263,21 +285,50 @@ async function listForUser(user, { includeHidden = false } = {}) {
     if (isSuperAdmin(user)) {
         return (await listAll({ includeHidden })).map(item => ({ ...item, sharedAccess: allowed.has(`skill:${item.id}`) }));
     }
+    const tenantId = getTenantId();
     const preferences = await personalEntries(user);
-    const local = getTenantId() === DEFAULT_TENANT_ID ? [] : await listAll({ includeHidden: true });
-    const isWelinkChannelAdmin = getTenantId() === DEFAULT_TENANT_ID && user?.role === 'admin' && /^welink(?:-group)?:/.test(String(user.username || ''));
-    const own = local.filter(item => !item.builtIn && !preferences.get(`skill:${item.id}`)?.origin);
+    const local = tenantId === DEFAULT_TENANT_ID ? [] : await listAll({ includeHidden: true });
+    const isWelinkChannelAdmin = tenantId === DEFAULT_TENANT_ID && user?.role === 'admin' && /^welink(?:-group)?:/.test(String(user.username || ''));
+    const sha1 = value => require('crypto').createHash('sha1').update(String(value || '')).digest('hex');
+    const rawOwn = local.filter(item => !item.builtIn && !preferences.get(`skill:${item.id}`)?.origin);
+    const own = [];
+    for (const item of rawOwn) {
+        const prefs = preferences.get(`skill:${item.id}`) || {};
+        if (prefs.grant) {
+            const customRow = await getCustom(item.id);
+            const modified = Boolean(prefs.grantModified) || (prefs.grantBodyHash && customRow && sha1(customRow.body) !== prefs.grantBodyHash);
+            // 后续超管把同名技能设为全员开放：未本地魔改的导入副本自动让位于官方全员开放版，避免重名冲突
+            if (!modified && allowed.has(`skill:${item.id}`)) continue;
+            own.push({
+                ...item,
+                sharedGrant: true,
+                grantShareId: prefs.grantShareId || '',
+                grantOwner: prefs.grantOwner || '',
+                grantModified: modified,
+                ...(modified && allowed.has(`skill:${item.id}`) ? { sharedGrantConflict: 'local_modified_vs_public' } : {})
+            });
+        } else {
+            own.push(item);
+        }
+    }
     const ids = new Set(own.map(item => item.id));
     const copies = new Map(local.map(item => [item.id, item]));
+    const grantedScoped = await require('./shared-conversations').grantedSkillMemberships(tenantId, user.username).catch(() => []);
+    const grantedScopedIds = new Set(grantedScoped.filter(g => g.mode === 'scoped-builtin' || g.mode === 'scoped-platform').map(g => g.skill_id));
+    const grantMetaById = new Map(grantedScoped.map(g => [g.skill_id, g]));
     const shared = await runWithTenant(DEFAULT_TENANT_ID, listAll);
     return [...own, ...shared.flatMap(item => {
         const prefs = preferences.get(`skill:${item.id}`) || {};
         const hidden = Boolean(prefs.hidden);
-        const canUseSkill = allowed.has(`skill:${item.id}`) || (isWelinkChannelAdmin && item.id === 'welink-office');
+        const isPublic = allowed.has(`skill:${item.id}`);
+        const viaGrant = !isPublic && grantedScopedIds.has(item.id);
+        const canUseSkill = isPublic || viaGrant || (isWelinkChannelAdmin && item.id === 'welink-office');
         if (ids.has(item.id) || !canUseSkill || (hidden && !includeHidden)) return [];
         const personal = prefs.fork && prefs.baseRevision === (item.updatedAt || '') && copies.get(item.id);
+        const gMeta = viaGrant ? grantMetaById.get(item.id) : null;
         return [{ ...item, ...(personal || {}), name: prefs.name || (personal || item).name, nameEn: prefs.name || (personal || item).nameEn,
-            shared: true, personal: Boolean(personal), hidden, sharedAccess: true }];
+            shared: true, personal: Boolean(personal), hidden, sharedAccess: isPublic,
+            ...(viaGrant ? { sharedGrant: true, grantShareId: gMeta?.share_id || '', grantOwner: gMeta?.approver || '' } : {}) }];
     })];
 }
 
@@ -840,7 +891,7 @@ async function loadSection(id, user) {
 }
 
 /** 对话加载：与 agent-skills.load 相同的规则，但白名单是当前租户可见的全部 Skill */
-async function loadAll(content, { hasWorkspace = false, language = 'zh', extraIds = [], redactionSecrets = [], user } = {}) {
+async function loadAll(content, { hasWorkspace = false, language = 'zh', extraIds = [], redactionSecrets = [], user, aliases = {} } = {}) {
     const allSkills = await listForUser(user);
     const unavailable = new Map();
     for (const item of allSkills) {
@@ -849,10 +900,17 @@ async function loadAll(content, { hasWorkspace = false, language = 'zh', extraId
     }
     const catalog = allSkills.filter(item => !unavailable.has(item.id));
     const visible = new Map(catalog.map(item => [item.id, item]));
+    const resolveAlias = id => {
+        const clean = String(id || '').toLowerCase();
+        const mapped = aliases && typeof aliases === 'object' ? String(aliases[clean] || '').toLowerCase() : '';
+        if (mapped && visible.has(mapped)) return mapped;
+        return clean;
+    };
     const { known: mentioned, unknown: notBuiltin } = builtinSkills.mentions(content);
-    const known = [...mentioned, ...notBuiltin].filter(id => visible.has(id));
-    const unknown = notBuiltin.filter(id => !visible.has(id));
-    const kept = (Array.isArray(extraIds) ? extraIds : []).map(id => String(id || '').toLowerCase()).filter(id => visible.has(id));
+    const resolvedMentions = [...mentioned, ...notBuiltin].map(resolveAlias);
+    const known = resolvedMentions.filter(id => visible.has(id));
+    const unknown = resolvedMentions.filter(id => !visible.has(id));
+    const kept = (Array.isArray(extraIds) ? extraIds : []).map(resolveAlias).filter(id => visible.has(id));
     const hasThcli = [...known, ...kept].some(id => /^thcli-/.test(id));
     const inferredCli = !hasThcli && /\bthcli\b/i.test(String(content || '')) && visible.has('thcli-shared') ? ['thcli-shared'] : [];
     const wanted = new Set([...known, ...kept, ...inferredCli].slice(0, MAX_SELECTED));
@@ -905,5 +963,6 @@ module.exports = {
     getBackup,
     rollback,
     exportZip,
-    loadAll
+    loadAll,
+    installSharedGrant
 };

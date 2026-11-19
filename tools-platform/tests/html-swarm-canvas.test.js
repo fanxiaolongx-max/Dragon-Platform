@@ -332,3 +332,13 @@ test('swarm canvas implements progressive blur/mosaic veil reveal and coordinate
     assert.equal(swarm.toggleSound(false), false);
     assert.equal(oscStarted, countAfterEnable, 'disabling sound produces no extra oscillators');
 });
+
+test('history replay never auto-opens swarm canvas while inline trigger uses DragonClawWorkspace.loadFile', () => {
+    const workspaceJs = fs.readFileSync(path.join(rootDir, 'frontend/js/home/workspace-panel.js'), 'utf8');
+    const swarmJs = fs.readFileSync(path.join(rootDir, 'frontend/js/home/html-swarm-canvas.js'), 'utf8');
+    const dcJs = fs.readFileSync(path.join(rootDir, 'frontend/js/home/dragon-claw.js'), 'utf8');
+
+    assert.match(workspaceJs, /if\s*\(\s*autoOpen\s*&&\s*!replaying\s*&&\s*previewKind\s*===\s*'html'/);
+    assert.match(swarmJs, /window\.DragonClawWorkspace\?\.loadFile/);
+    assert.match(dcJs, /async function openSession[\s\S]{0,160}window\.DragonHtmlSwarm\?\.deactivate\?\.\(\)/);
+});

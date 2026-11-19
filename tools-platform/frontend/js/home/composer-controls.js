@@ -131,7 +131,7 @@
                             if (full) option.title = full;
                             const isSuper = localStorage.getItem('tools_super') === '1' && (localStorage.getItem('tools_tenant_id') || 'default') === 'default';
                             const isShared = item.sharedAccess === true;
-                            const shareBadge = (isSuper || isShared)
+                            const shareBadge = isSuper
                                 ? `<small class="dc-skill-share-badge ${isShared ? 'is-shared' : 'is-unshared'}">${text(isShared ? '全员开放' : '未全员开放', isShared ? 'Shared' : 'Not shared')}</small>`
                                 : '';
                             option.innerHTML = `${glyph('skills')}<span><b>${window.SkillSource?.label ? window.SkillSource.label(name || item.id, item) : esc(name || item.id)}${shareBadge}</b><small>${esc(window.SkillSource?.brief(item, en()) || full || `@${item.id}`)}</small></span>`;

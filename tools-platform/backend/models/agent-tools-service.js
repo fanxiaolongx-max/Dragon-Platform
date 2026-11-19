@@ -108,11 +108,12 @@ const DEFINITIONS = [
     },
     {
         name: 'read_database_table', kind: 'read',
-        description: '只读分页读取业务表，不接受 SQL。默认前 16 列、20 行，最多 50 行；按 nextOffset 继续。单格最多 1000 字符，敏感字段和凭据被排除或脱敏。',
+        description: '只读分页读取业务表，不接受 SQL。默认按表内顺序返回前 16 列、20 行（最多 50 行），且单页超过 18KB 会提前截断。查“最新/Top”记录请传 orderBy（如 {"column":"id","direction":"desc"}）并用 columns 只选必要列（跳过大 JSON 列）；只要 nextOffset 不为 null 就必须继续翻页，禁止仅凭第一页下全表结论。',
         parameters: { type: 'object', properties: {
             database: { type: 'string' }, table: { type: 'string' }, columns: { type: 'array', items: { type: 'string' } },
             limit: { type: 'integer' }, offset: { type: 'integer' },
-            filter: { type: 'object', properties: { column: { type: 'string' }, op: { type: 'string', enum: ['eq', 'contains'] }, value: { type: 'string' } }, required: ['column', 'op', 'value'] }
+            filter: { type: 'object', properties: { column: { type: 'string' }, op: { type: 'string', enum: ['eq', 'contains'] }, value: { type: 'string' } }, required: ['column', 'op', 'value'] },
+            orderBy: { type: 'object', description: '可选排序，如 {"column":"id","direction":"desc"}', properties: { column: { type: 'string' }, direction: { type: 'string', enum: ['asc', 'desc'] } }, required: ['column'] }
         }, required: ['database', 'table'] }
     },
     {

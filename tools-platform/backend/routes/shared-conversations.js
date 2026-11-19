@@ -3,6 +3,7 @@
 const express = require('express');
 const shared = require('../models/shared-conversations');
 const { getTenantId } = require('../models/tenant-context');
+const { isSuperAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 const me = req => String(req.user?.username || '');
@@ -25,12 +26,29 @@ router.post('/groups', handle(async (req, res) => res.json({ item: await shared.
 router.put('/groups/:id', handle(async (req, res) => res.json({ item: await shared.saveGroup(me(req), { ...(req.body || {}), id: req.params.id }) })));
 router.delete('/groups/:id', handle(async (req, res) => { await shared.deleteGroup(me(req), req.params.id); res.json({ ok: true }); }));
 
-router.get('/inbox', handle(async (req, res) => res.json({ items: await shared.inbox(me(req)) })));
+router.get('/inbox', handle(async (req, res) => res.json({
+    items: await shared.inbox(me(req)),
+    skillRequests: await shared.inboxSkillRequests(me(req), { tenantId: getTenantId(), isSuper: isSuperAdmin(req.user) })
+})));
 router.post('/invites/:shareId/respond', handle(async (req, res) => res.json(await shared.respond({ ...ctx(req), shareId: req.params.shareId, action: String(req.body?.action || '') }))));
 router.post('/link/:token', handle(async (req, res) => res.json(await shared.joinByLink({ username: me(req), token: req.params.token }))));
 
 router.get('/mine', handle(async (req, res) => res.json({ items: await shared.listMine(ctx(req)) })));
-router.get('/session/:sessionId', handle(async (req, res) => res.json({ share: await shared.shareForSession({ ...ctx(req), sessionId: req.params.sessionId }) })));
+router.get('/session/:sessionId', handle(async (req, res) => res.json({ share: await shared.shareForSession({ ...ctx(req), role: req.user?.role || '', sessionId: req.params.sessionId }) })));
+// 申请在当前共享对话中使用历史里出现的未开放 / 私有 Skill，发送审批给 Skill 归属人
+router.post('/session/:sessionId/skill-requests', handle(async (req, res) => res.json(await shared.requestSkillShare({
+    ...ctx(req),
+    role: req.user?.role || '',
+    sessionId: req.params.sessionId,
+    skillId: req.body?.skillId,
+    note: req.body?.note
+}))));
+router.post('/skill-requests/:requestId/respond', handle(async (req, res) => res.json(await shared.respondSkillRequest({
+    ...ctx(req),
+    isSuper: isSuperAdmin(req.user),
+    requestId: req.params.requestId,
+    action: String(req.body?.action || '')
+}))));
 // 打开共享面板：为这个对话准备共享（生成链接、推送已有历史）；不邀请任何人时侧栏不会把它算作共享对话
 router.post('/session/:sessionId/prepare', handle(async (req, res) => {
     const share = await shared.ensureShare({ ...ctx(req), sessionId: req.params.sessionId, title: req.body?.title });

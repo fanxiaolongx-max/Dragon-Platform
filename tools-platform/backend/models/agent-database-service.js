@@ -231,13 +231,24 @@ async function readTable(ctx, args) {
             where = args.filter.op === 'eq' ? ` WHERE ${quote(args.filter.column)} = ?` : ` WHERE instr(CAST(${quote(args.filter.column)} AS TEXT), ?) > 0`;
             params.push(args.filter.value);
         }
+        let orderClause = '';
+        if (args.orderBy !== undefined && args.orderBy !== null) {
+            if (typeof args.orderBy !== 'object' || Array.isArray(args.orderBy)) throw fail('orderBy 必须为包含 column 与可选 direction 的对象');
+            const orderColumn = args.orderBy.column;
+            const direction = args.orderBy.direction === undefined ? 'asc' : String(args.orderBy.direction).toLowerCase();
+            if (!available.some(row => row.name === orderColumn)) throw fail('排序列不存在或属于敏感字段');
+            if (!['asc', 'desc'].includes(direction)) throw fail('排序 direction 必须为 asc 或 desc');
+            orderClause = ` ORDER BY ${quote(orderColumn)} ${direction.toUpperCase()}`;
+        }
         const limit = Math.min(50, Math.max(1, Math.floor(Number(args.limit)) || 20));
         const offset = Math.max(0, Math.floor(Number(args.offset)) || 0);
         // 不把任意大 BLOB/长文本搬进 Node 内存；每个值有明确截断提示。
         const fields = selected.map(name => `CASE WHEN typeof(${quote(name)}) = 'blob' THEN '[BLOB omitted]' WHEN typeof(${quote(name)}) = 'text' AND length(${quote(name)}) > 1000 THEN substr(${quote(name)}, 1, 1000) || '…[cell truncated]' ELSE ${quote(name)} END AS ${quote(name)}`);
         const keyFields = available.filter(row => /^(?:key|key_name|name|setting|setting_name|config_key)$/i.test(row.name));
         keyFields.forEach((row, index) => fields.push(`substr(CAST(${quote(row.name)} AS TEXT), 1, 120) AS ${quote(`__agent_key_hint_${index}`)}`));
-        const rows = await all(`SELECT ${fields.join(', ')} FROM ${quote(args.table)}${where} LIMIT ? OFFSET ?`, [...params, limit + 1, offset]);
+        const countRows = await all(`SELECT COUNT(1) AS total FROM ${quote(args.table)}${where}`, params);
+        const totalRows = Number(countRows[0]?.total || 0);
+        const rows = await all(`SELECT ${fields.join(', ')} FROM ${quote(args.table)}${where}${orderClause} LIMIT ? OFFSET ?`, [...params, limit + 1, offset]);
         const safeRows = [];
         for (const row of rows.slice(0, limit)) {
             // key/value 风格配置即使凭据藏在通用 value 列，也不返回原文。
@@ -248,14 +259,17 @@ async function readTable(ctx, args) {
             safeRows.push(safe);
         }
         const hasMore = rows.length > safeRows.length;
+        const nextOffset = hasMore ? offset + safeRows.length : null;
         // 空结果明确说明原因：模型曾把空表误判成「权限受限 / 未入库」
         const empty = safeRows.length ? undefined
             : args.filter ? '没有匹配筛选条件的行（表本身可能有数据，可换筛选值或去掉 filter）'
                 : offset > 0 ? '已超出表的行数，没有更多数据'
                     : '该表当前为 0 行，是真实的空表，不是权限限制；请确认 list_databases 返回的库标识是否正确';
         return { database: args.database, table: args.table, columns: selected, omittedColumns: available.length - selected.length,
-            rows: safeRows, offset, nextOffset: hasMore ? offset + safeRows.length : null, readOnly: true, writable: ctx.readOnly === false, ...(empty ? { empty } : {}),
-            note: '凭据字段、账号/会话表不对 AI 开放；单格最多 1000 字符，BLOB 省略。分页期间数据库变更可能影响结果顺序。' };
+            rows: safeRows, returnedRows: safeRows.length, totalRows, offset, nextOffset, hasMore, readOnly: true, writable: ctx.readOnly === false, ...(empty ? { empty } : {}),
+            note: hasMore
+                ? `当前仅返回部分数据（共 ${totalRows} 行，本次返回第 ${offset + 1}-${offset + safeRows.length} 行，nextOffset=${nextOffset}）。未翻页读完前不能下全表/“仅此一条”结论；查最新记录请传 orderBy={"column":"id","direction":"desc"}（或按时间列 desc），大表请用 columns 跳过长文本/JSON 列。`
+                : '凭据字段、账号/会话表不对 AI 开放；单格最多 1000 字符，BLOB 省略。分页期间数据库变更可能影响结果顺序。' };
     });
 }
 

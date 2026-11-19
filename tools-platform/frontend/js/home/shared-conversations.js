@@ -28,7 +28,7 @@
         }
     } catch { /* 无痕模式 */ }
 
-    const state = { available: null, inbox: [], mine: [], bySession: new Map(), accounts: null, groups: [], recent: { users: [], groups: [] }, host: null, banner: null, bannerQueue: [], dialog: null, syncing: false, timers: {} };
+    const state = { available: null, inbox: [], skillRequests: [], mine: [], bySession: new Map(), sessionDetails: new Map(), sessionFetching: new Set(), closedLocally: new Set(), accounts: null, groups: [], recent: { users: [], groups: [] }, host: null, banner: null, bannerQueue: [], dialog: null, syncing: false, timers: {} };
 
     async function api(method, path, body) {
         const token = localStorage.getItem('tools_token') || sessionStorage.getItem('tools_token');
@@ -183,24 +183,31 @@ html[data-theme="dark"] .shc-avatar{color:hsl(var(--shc-h) 70% 82%);background:h
 .home-chat-shared-ico svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round}
 .home-chat-item.has-shared-unread .home-chat-title{font-weight:600}
 .home-chat-item.has-shared-unread .home-chat-meta::before{content:'';display:inline-block;width:6px;height:6px;margin-right:6px;border-radius:50%;background:var(--v2-accent,#10a37f);vertical-align:middle}
-@media (prefers-reduced-motion: reduce){.shc-overlay,.shc-dialog,.shc-banner,.shc-card,.shc-row,.shc-pill,.shc-chip,.dc-msg-author,.shc-thread-bar{animation:none!important;transition:none!important}}
+.shc-card.is-skill{border-color:color-mix(in srgb,#f59e0b 36%,var(--v2-line,#e7e7ea));background:color-mix(in srgb,#f59e0b 6%,var(--v2-bg,#fff))}
+.shc-cap-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;max-width:min(860px,calc(100% - 24px));margin:0 auto 10px;padding:8px 12px;border:1px solid color-mix(in srgb,#f59e0b 32%,var(--v2-line,#e7e7ea));border-radius:12px;background:color-mix(in srgb,#f59e0b 6%,var(--v2-bg,#fff));font-size:12px;color:var(--v2-ink2,#4b5563);animation:shcIn .22s ease}
+.shc-cap-title{font-weight:600;color:var(--v2-ink,#1f2328);display:inline-flex;align-items:center;gap:5px}
+.shc-cap-item{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border-radius:999px;border:1px solid var(--v2-line,#e7e7ea);background:var(--v2-bg,#fff)}
+.shc-cap-item code{font-size:11.5px;font-weight:600;color:var(--v2-ink,#1f2328)}
+.shc-cap-note{font-size:11.5px;color:var(--v2-ink3,#8a9099)}
+@media (prefers-reduced-motion: reduce){.shc-overlay,.shc-dialog,.shc-banner,.shc-card,.shc-row,.shc-pill,.shc-chip,.dc-msg-author,.shc-thread-bar,.shc-cap-bar{animation:none!important;transition:none!important}}
 `;
         document.head.appendChild(style);
     }
 
-    // ── 数据：可用性、邀请、我的共享对话 ──
+    // ── 数据：可用性、邀请、Skill 审批、我的共享对话 ──
     function emit() {
         window.dispatchEvent(new CustomEvent('tools:shared-inbox', { detail: { total: count() } }));
     }
-    function count() { return state.available ? state.inbox.length : 0; }
+    function count() { return state.available ? (state.inbox.length + state.skillRequests.length) : 0; }
 
     async function refreshInbox() {
         try {
             const data = await api('GET', '/inbox');
             state.available = true;
             state.inbox = data.items || [];
+            state.skillRequests = data.skillRequests || [];
         } catch (error) {
-            if ([401, 403, 404].includes(error.status)) { state.available = false; state.inbox = []; }
+            if ([401, 403, 404].includes(error.status)) { state.available = false; state.inbox = []; state.skillRequests = []; }
         }
         emit();
         renderInbox();
@@ -212,8 +219,11 @@ html[data-theme="dark"] .shc-avatar{color:hsl(var(--shc-h) 70% 82%);background:h
         try {
             const data = await api('GET', '/mine');
             const before = JSON.stringify(state.mine.map(item => [item.sessionId, item.unread, item.members.length, item.title, item.status]));
-            state.mine = data.items || [];
+            state.mine = (data.items || []).filter(item => item && item.status === 'active' && !state.closedLocally.has(item.sessionId));
             state.bySession = new Map(state.mine.map(item => [item.sessionId, item]));
+            for (const sid of [...state.sessionDetails.keys()]) {
+                if (!state.bySession.has(sid)) state.sessionDetails.delete(sid);
+            }
             if (JSON.stringify(state.mine.map(item => [item.sessionId, item.unread, item.members.length, item.title, item.status])) !== before) {
                 window.dispatchEvent(new CustomEvent('home:conversation-list-changed', { detail: { source: 'mine' } }));
             }
@@ -221,14 +231,20 @@ html[data-theme="dark"] .shc-avatar{color:hsl(var(--shc-h) 70% 82%);background:h
         } catch { /* 保留旧列表 */ }
     }
 
-    // ── 横幅：登录后收到的新邀请（本次浏览器会话里每个邀请只弹一次，错过的在消息中心里） ──
+    // ── 横幅：登录后收到的新邀请与私有 Skill 审批请求 ──
     function seenBanners() { try { return new Set(JSON.parse(sessionStorage.getItem(BANNER_KEY) || '[]')); } catch { return new Set(); } }
     function markBanner(id) { const seen = seenBanners(); seen.add(id); try { sessionStorage.setItem(BANNER_KEY, JSON.stringify([...seen].slice(-100))); } catch { /* ignore */ } }
     function queueBanners(force = []) {
         const seen = seenBanners();
         for (const item of state.inbox) {
-            if ((seen.has(item.shareId) && !force.includes(item.shareId)) || state.bannerQueue.some(row => row.shareId === item.shareId) || state.banner?.item.shareId === item.shareId) continue;
-            state.bannerQueue.push(item);
+            const key = item.shareId;
+            if ((seen.has(key) && !force.includes(key)) || state.bannerQueue.some(row => row.key === key) || state.banner?.key === key) continue;
+            state.bannerQueue.push({ kind: 'invite', key, item });
+        }
+        for (const req of state.skillRequests) {
+            const key = `skill:${req.id}`;
+            if ((seen.has(key) && !force.includes(key)) || state.bannerQueue.some(row => row.key === key) || state.banner?.key === key) continue;
+            state.bannerQueue.push({ kind: 'skill', key, item: req });
         }
         if (!state.banner) showNextBanner();
     }
@@ -240,24 +256,49 @@ html[data-theme="dark"] .shc-avatar{color:hsl(var(--shc-h) 70% 82%);background:h
     function inviteMeta(item) {
         return [L(`${item.messageCount} 条消息`, `${item.messageCount} messages`), L(`${item.memberCount} 人已加入`, `${item.memberCount} joined`)].join(' · ');
     }
+    function skillRequestLine(item) {
+        return L(`${item.requestedByName || item.requestedBy} 申请在共享对话中使用你的私有技能`, `${item.requestedByName || item.requestedBy} requested access to your skill in shared chat`);
+    }
+    function skillRequestMeta(item) {
+        return L(`@${item.skillId}（${item.skillName || item.skillId}） · 同意后仅共享给本对话成员`, `@${item.skillId} (${item.skillName || item.skillId}) · shared with chat members only`);
+    }
     function showNextBanner() {
-        const item = state.bannerQueue.shift();
-        if (!item || !state.inbox.some(row => row.shareId === item.shareId)) { if (state.bannerQueue.length) showNextBanner(); return; }
+        const entry = state.bannerQueue.shift();
+        if (!entry) return;
+        const exists = entry.kind === 'skill'
+            ? state.skillRequests.some(row => row.id === entry.item.id)
+            : state.inbox.some(row => row.shareId === entry.item.shareId);
+        if (!exists) { if (state.bannerQueue.length) showNextBanner(); return; }
         ensureStyle();
-        markBanner(item.shareId);
+        markBanner(entry.key);
         const node = document.createElement('div');
         node.className = 'shc-banner';
         node.setAttribute('role', 'alertdialog');
-        node.setAttribute('aria-label', L('共享对话邀请', 'Shared conversation invite'));
-        node.innerHTML = `${avatar(item.invitedBy || item.owner, item.invitedByName || item.ownerName, 'lg')}
-            <div class="shc-banner-text"><strong>${esc(inviteLine(item))}</strong><p>「${esc(item.title)}」 · ${esc(inviteMeta(item))}</p>
-            <div class="shc-actions"><button type="button" class="shc-btn primary sm" data-shc-respond="accept">${esc(L('接受并打开', 'Accept & open'))}</button><button type="button" class="shc-btn sm" data-shc-respond="decline">${esc(L('拒绝', 'Decline'))}</button><button type="button" class="shc-btn ghost sm" data-shc-later>${esc(L('稍后', 'Later'))}</button>${state.bannerQueue.length ? `<span class="shc-queue">${esc(L(`还有 ${state.bannerQueue.length} 个`, `${state.bannerQueue.length} more`))}</span>` : ''}</div></div>`;
+        const item = entry.item;
+        if (entry.kind === 'skill') {
+            node.setAttribute('aria-label', L('私有技能授权申请', 'Skill access approval'));
+            node.innerHTML = `${avatar(item.requestedBy, item.requestedByName, 'lg')}
+                <div class="shc-banner-text"><strong>${esc(skillRequestLine(item))}</strong><p>「${esc(item.title || '')}」 · ${esc(skillRequestMeta(item))}</p>
+                <div class="shc-actions"><button type="button" class="shc-btn primary sm" data-shc-skill-respond="approve">${esc(L('同意并共享', 'Approve & share'))}</button><button type="button" class="shc-btn sm" data-shc-skill-respond="reject">${esc(L('拒绝', 'Reject'))}</button><button type="button" class="shc-btn ghost sm" data-shc-later>${esc(L('稍后', 'Later'))}</button>${state.bannerQueue.length ? `<span class="shc-queue">${esc(L(`还有 ${state.bannerQueue.length} 个`, `${state.bannerQueue.length} more`))}</span>` : ''}</div></div>`;
+        } else {
+            node.setAttribute('aria-label', L('共享对话邀请', 'Shared conversation invite'));
+            node.innerHTML = `${avatar(item.invitedBy || item.owner, item.invitedByName || item.ownerName, 'lg')}
+                <div class="shc-banner-text"><strong>${esc(inviteLine(item))}</strong><p>「${esc(item.title)}」 · ${esc(inviteMeta(item))}</p>
+                <div class="shc-actions"><button type="button" class="shc-btn primary sm" data-shc-respond="accept">${esc(L('接受并打开', 'Accept & open'))}</button><button type="button" class="shc-btn sm" data-shc-respond="decline">${esc(L('拒绝', 'Decline'))}</button><button type="button" class="shc-btn ghost sm" data-shc-later>${esc(L('稍后', 'Later'))}</button>${state.bannerQueue.length ? `<span class="shc-queue">${esc(L(`还有 ${state.bannerQueue.length} 个`, `${state.bannerQueue.length} more`))}</span>` : ''}</div></div>`;
+        }
         document.body.appendChild(node);
-        state.banner = { node, item };
+        state.banner = { node, item, key: entry.key, kind: entry.kind };
         requestAnimationFrame(() => requestAnimationFrame(() => node.classList.add('show')));
         node.addEventListener('click', async event => {
+            if (event.target.closest('[data-shc-later]')) { hideBanner(); toast(L('可以随时在左下角消息中心里处理', 'You can respond later from the message center')); return; }
+            const skillBtn = event.target.closest('[data-shc-skill-respond]');
+            if (skillBtn) {
+                node.querySelectorAll('button').forEach(button => { button.disabled = true; });
+                const ok = await respondSkill(item, skillBtn.dataset.shcSkillRespond);
+                if (ok) hideBanner(); else node.querySelectorAll('button').forEach(button => { button.disabled = false; });
+                return;
+            }
             const respondBtn = event.target.closest('[data-shc-respond]');
-            if (event.target.closest('[data-shc-later]')) { hideBanner(); toast(L('可以随时在左下角消息中心里处理这个邀请', 'You can respond later from the message center')); return; }
             if (!respondBtn) return;
             node.querySelectorAll('button').forEach(button => { button.disabled = true; });
             const ok = await respond(item, respondBtn.dataset.shcRespond);
@@ -281,6 +322,7 @@ html[data-theme="dark"] .shc-avatar{color:hsl(var(--shc-h) 70% 82%);background:h
             emit();
             renderInbox();
             if (action === 'accept' && result.sessionId) {
+                state.closedLocally.delete(result.sessionId);
                 await refreshMine();
                 toast(L(`已加入共享对话「${item.title}」`, `Joined “${item.title}”`));
                 window.dispatchEvent(new CustomEvent('tools:close-messages'));
@@ -295,19 +337,59 @@ html[data-theme="dark"] .shc-avatar{color:hsl(var(--shc-h) 70% 82%);background:h
         }
     }
 
+    async function respondSkill(item, action) {
+        try {
+            const result = await api('POST', `/skill-requests/${encodeURIComponent(item.id)}/respond`, { action });
+            state.skillRequests = state.skillRequests.filter(row => row.id !== item.id);
+            state.sessionDetails.delete(item.sessionId);
+            emit();
+            renderInbox();
+            if (currentSession()) await loadSessionDetails(currentSession(), true);
+            window.DragonClawSkills?.refresh?.();
+            if (action === 'approve') {
+                toast(L(`已同意并在共享对话内授权 @${item.skillId}（覆盖 ${result.grantedCount || 1} 位成员）`, `Approved @${item.skillId} for shared chat members`));
+            } else {
+                toast(L(`已拒绝 @${item.skillId} 的共享授权申请`, `Declined @${item.skillId} access request`));
+            }
+            return true;
+        } catch (error) {
+            toast(error.message);
+            if ([403, 404, 409].includes(error.status)) {
+                state.skillRequests = state.skillRequests.filter(row => row.id !== item.id);
+                emit();
+                renderInbox();
+                return true;
+            }
+            return false;
+        }
+    }
+
     function openSession(sessionId) {
         const go = () => window.DragonClaw?.openChat?.({ id: sessionId });
         if (window.DragonClaw?.openChat) go();
         else window.addEventListener('load', go, { once: true });
     }
 
-    // ── 消息中心：顶部列出待处理的共享邀请（接受 / 拒绝 / 忽略） ──
+    // ── 消息中心：顶部列出待处理的共享邀请与私有 Skill 授权审批 ──
     function renderInto(host) {
         if (!host) return;
         ensureStyle();
         if (state.host !== host) {
             state.host = host;
             host.addEventListener('click', async event => {
+                const skillBtn = event.target.closest('[data-shc-skill-respond]');
+                if (skillBtn) {
+                    const card = skillBtn.closest('[data-request-id]');
+                    const item = state.skillRequests.find(row => row.id === card?.dataset.requestId);
+                    if (!item) return;
+                    card.querySelectorAll('button').forEach(node => { node.disabled = true; });
+                    card.classList.add('is-leaving');
+                    if (!await respondSkill(item, skillBtn.dataset.shcSkillRespond)) {
+                        card.classList.remove('is-leaving');
+                        card.querySelectorAll('button').forEach(node => { node.disabled = false; });
+                    }
+                    return;
+                }
                 const button = event.target.closest('[data-shc-respond]');
                 if (!button) return;
                 const card = button.closest('[data-share-id]');
@@ -324,12 +406,20 @@ html[data-theme="dark"] .shc-avatar{color:hsl(var(--shc-h) 70% 82%);background:h
         const host = state.host;
         if (!host?.isConnected) return;
         host.classList.add('shc-inbox');
-        host.hidden = !state.inbox.length;
-        host.innerHTML = state.inbox.length ? `<div class="shc-inbox-head"><span class="shc-ico">${icon.people}</span>${esc(L('共享对话邀请', 'Shared conversation invites'))}<b>${state.inbox.length}</b></div>` + state.inbox.map((item, index) => `
+        const hasAny = state.inbox.length > 0 || state.skillRequests.length > 0;
+        host.hidden = !hasAny;
+        if (!hasAny) { host.innerHTML = ''; return; }
+        const inviteHtml = state.inbox.length ? `<div class="shc-inbox-head"><span class="shc-ico">${icon.people}</span>${esc(L('共享对话邀请', 'Shared conversation invites'))}<b>${state.inbox.length}</b></div>` + state.inbox.map((item, index) => `
             <div class="shc-card" data-share-id="${esc(item.shareId)}" style="animation-delay:${index * 30}ms">${avatar(item.invitedBy || item.owner, item.invitedByName || item.ownerName, 'lg')}
                 <div class="shc-banner-text"><strong>「${esc(item.title)}」</strong><p>${esc(inviteLine(item))} · ${esc(inviteMeta(item))}</p></div>
                 <div class="shc-actions"><button type="button" class="shc-btn primary sm" data-shc-respond="accept">${esc(L('接受', 'Accept'))}</button><button type="button" class="shc-btn sm" data-shc-respond="decline">${esc(L('拒绝', 'Decline'))}</button><button type="button" class="shc-btn ghost sm" data-shc-respond="ignore">${esc(L('忽略', 'Ignore'))}</button></div>
             </div>`).join('') : '';
+        const skillHtml = state.skillRequests.length ? `<div class="shc-inbox-head"><span class="shc-ico">${icon.share}</span>${esc(L('私有技能授权审批', 'Private skill access requests'))}<b>${state.skillRequests.length}</b></div>` + state.skillRequests.map((item, index) => `
+            <div class="shc-card is-skill" data-request-id="${esc(item.id)}" style="animation-delay:${index * 30}ms">${avatar(item.requestedBy, item.requestedByName, 'lg')}
+                <div class="shc-banner-text"><strong>「${esc(item.title || '')}」 · @${esc(item.skillId)}（${esc(item.skillName || item.skillId)}）</strong><p>${esc(skillRequestLine(item))} · ${esc(L('同意后仅向本共享对话成员开放', 'Shared only with members of this conversation'))}</p></div>
+                <div class="shc-actions"><button type="button" class="shc-btn primary sm" data-shc-skill-respond="approve">${esc(L('同意并共享', 'Approve'))}</button><button type="button" class="shc-btn sm" data-shc-skill-respond="reject">${esc(L('拒绝', 'Reject'))}</button></div>
+            </div>`).join('') : '';
+        host.innerHTML = inviteHtml + skillHtml;
     }
 
     // ── 共享链接加入 ──
@@ -356,23 +446,118 @@ html[data-theme="dark"] .shc-avatar{color:hsl(var(--shc-h) 70% 82%);background:h
     function listItems() { return state.mine.slice(); }
     function rowIcon() { return `<span class="home-chat-shared-ico" title="${esc(L('共享对话', 'Shared conversation'))}">${icon.people}</span>`; }
 
-    // ── 打开中的共享对话：顶部成员条 + 定时同步，别人发的新消息直接接在后面 ──
+    // ── 打开中的共享对话：顶部成员条 + 缺失能力与待审批栏 + 定时同步 ──
     function currentSession() { return window.DragonClaw?.isExternal?.() ? '' : (window.DragonClaw?.currentSessionId?.() || ''); }
+    async function loadSessionDetails(sessionId, force = false) {
+        if (!sessionId || !isShared(sessionId)) return null;
+        if (!force && state.sessionDetails.has(sessionId)) return state.sessionDetails.get(sessionId);
+        if (state.sessionFetching.has(sessionId)) return state.sessionDetails.get(sessionId) || null;
+        state.sessionFetching.add(sessionId);
+        try {
+            const prevMissing = (state.sessionDetails.get(sessionId)?.missingCapabilities?.skills || []).length;
+            const res = await api('GET', `/session/${encodeURIComponent(sessionId)}`);
+            if (res?.share) {
+                state.sessionDetails.set(sessionId, res.share);
+                const nextMissing = (res.share.missingCapabilities?.skills || []).length;
+                if (prevMissing > nextMissing) window.DragonClawSkills?.refresh?.();
+                renderThreadBar();
+                return res.share;
+            }
+        } catch { /* ignore */ } finally { state.sessionFetching.delete(sessionId); }
+        return null;
+    }
+    function renderCapabilitiesBar(thread, sessionId, detail, bar) {
+        let capBar = thread.querySelector(':scope > .shc-cap-bar');
+        const skills = detail?.missingCapabilities?.skills || [];
+        const tools = detail?.missingCapabilities?.tools || [];
+        const pendingForMe = detail?.pendingSkillRequests || [];
+        if (!skills.length && !tools.length && !pendingForMe.length) { capBar?.remove(); return; }
+        ensureStyle();
+        if (!capBar) {
+            capBar = document.createElement('div');
+            capBar.className = 'shc-cap-bar';
+            capBar.addEventListener('click', async event => {
+                const reqBtn = event.target.closest('[data-shc-skill-request]');
+                if (reqBtn) {
+                    reqBtn.disabled = true;
+                    try {
+                        const res = await api('POST', `/session/${encodeURIComponent(currentSession())}/skill-requests`, {
+                            skillId: reqBtn.dataset.shcSkillRequest,
+                            linkBase: location.origin + appBase()
+                        });
+                        if (res?.share) state.sessionDetails.set(currentSession(), res.share);
+                        if (res?.alreadyAvailable) {
+                            toast(L('该技能现已可用', 'Skill is already available'));
+                            window.DragonClawSkills?.refresh?.();
+                        } else if (res?.deduplicated) {
+                            toast(L('已存在待审批申请，请等待归属人确认', 'Approval request is already pending'));
+                        } else {
+                            toast(L('已向技能归属人发送授权申请', 'Sent skill authorization request to owner'));
+                        }
+                        renderThreadBar();
+                    } catch (error) {
+                        toast(error.message);
+                        reqBtn.disabled = false;
+                    }
+                    return;
+                }
+                const respBtn = event.target.closest('[data-shc-skill-respond]');
+                if (respBtn) {
+                    const card = respBtn.closest('[data-request-id]');
+                    const cur = state.sessionDetails.get(currentSession());
+                    const item = (cur?.pendingSkillRequests || []).find(row => row.id === card?.dataset.requestId)
+                        || state.skillRequests.find(row => row.id === card?.dataset.requestId);
+                    if (!item) return;
+                    respBtn.disabled = true;
+                    await respondSkill(item, respBtn.dataset.shcSkillRespond);
+                }
+            });
+        }
+        if (bar.nextElementSibling !== capBar) bar.after(capBar);
+        const capSig = JSON.stringify([sessionId, skills, tools, pendingForMe, en()]);
+        if (capBar.dataset.sig === capSig) return;
+        capBar.dataset.sig = capSig;
+        const ownerCards = pendingForMe.map(req => `
+            <div class="shc-cap-item" data-request-id="${esc(req.id)}">
+                <span>${esc(L(`${req.requestedByName || req.requestedBy} 申请使用`, `${req.requestedByName || req.requestedBy} requests`))} <code>@${esc(req.skillId)}</code></span>
+                <button type="button" class="shc-btn primary sm" data-shc-skill-respond="approve">${esc(L('同意并共享', 'Approve'))}</button>
+                <button type="button" class="shc-btn ghost sm" data-shc-skill-respond="reject">${esc(L('拒绝', 'Reject'))}</button>
+            </div>`).join('');
+        const skillChips = skills.map(s => {
+            const label = s.name && s.name !== s.id ? `@${s.id}（${s.name}）` : `@${s.id}`;
+            if (s.status === 'pending') {
+                return `<span class="shc-cap-item"><code>${esc(label)}</code><span class="shc-cap-note">${esc(L(`已向 ${s.ownerName || s.owner || '归属人'} 申请，等待审批`, `Pending approval from ${s.ownerName || s.owner || 'owner'}`))}</span></span>`;
+            }
+            if (s.canRequest) {
+                return `<span class="shc-cap-item"><code>${esc(label)}</code><button type="button" class="shc-btn sm" data-shc-skill-request="${esc(s.id)}">${esc(L(`向 ${s.ownerName || s.owner || '归属人'} 申请使用`, `Request from ${s.ownerName || s.owner || 'owner'}`))}</button></span>`;
+            }
+            return `<span class="shc-cap-item"><code>${esc(label)}</code><span class="shc-cap-note">${esc(s.reason || L('当前不可用', 'Unavailable'))}</span></span>`;
+        }).join('');
+        const toolChips = tools.map(t => `<span class="shc-cap-item"><code>${esc(t.name)}</code><span class="shc-cap-note">${esc(t.reason || L('权限受限', 'Restricted'))}</span></span>`).join('');
+        capBar.innerHTML = `<span class="shc-cap-title">${esc(pendingForMe.length && !skills.length && !tools.length ? L('待我审批的技能共享', 'Pending skill approvals') : L('历史能力与权限提示', 'Shared capabilities notice'))}</span>${ownerCards}${skillChips}${toolChips}`;
+    }
     function renderThreadBar() {
         const thread = document.getElementById('dcThread');
         if (!thread) return;
-        const share = info(currentSession());
+        const sessionId = currentSession();
+        const share = info(sessionId);
+        const detail = state.sessionDetails.get(sessionId);
+        const sharedWs = (share?.status === 'active') ? (share.sharedWorkspace || detail?.sharedWorkspace || null) : null;
+        window.DragonClawWorkspace?.setSharedWorkspace?.(sharedWs);
         let bar = thread.querySelector(':scope > .shc-thread-bar');
         thread.classList.toggle('is-shared-thread', Boolean(share));
-        if (!share) { bar?.remove(); return; }
+        if (!share) { bar?.remove(); thread.querySelector(':scope > .shc-cap-bar')?.remove(); return; }
         ensureStyle();
         if (!bar) { bar = document.createElement('div'); bar.className = 'shc-thread-bar'; thread.prepend(bar); bar.addEventListener('click', event => { if (event.target.closest('[data-shc-manage]')) openDialog({ sessionId: currentSession(), title: info(currentSession())?.title }); }); }
         else if (bar !== thread.firstElementChild) thread.prepend(bar);
         const joined = share.members.filter(member => member.status === 'accepted');
         const signature = JSON.stringify([share.id, joined.map(member => member.username), share.status, en()]);
-        if (bar.dataset.sig === signature) return;
-        bar.dataset.sig = signature;
-        bar.innerHTML = `<span class="shc-live" aria-hidden="true"></span><span class="shc-stack">${joined.slice(0, 5).map(member => avatar(member.username, member.name, 'sm')).join('')}</span><span>${esc(share.status === 'active' ? L(`共享中 · ${joined.length} 人`, `Shared · ${joined.length}`) : L('已停止共享', 'Sharing stopped'))}</span>${share.status === 'active' ? `<button type="button" data-shc-manage>${esc(L('成员与邀请', 'Members'))}</button>` : ''}`;
+        if (bar.dataset.sig !== signature) {
+            bar.dataset.sig = signature;
+            bar.innerHTML = `<span class="shc-live" aria-hidden="true"></span><span class="shc-stack">${joined.slice(0, 5).map(member => avatar(member.username, member.name, 'sm')).join('')}</span><span>${esc(share.status === 'active' ? L(`共享中 · ${joined.length} 人`, `Shared · ${joined.length}`) : L('已停止共享', 'Sharing stopped'))}</span>${share.status === 'active' ? `<button type="button" data-shc-manage>${esc(L('成员与邀请', 'Members'))}</button>` : ''}`;
+        }
+        if (!detail) loadSessionDetails(sessionId);
+        renderCapabilitiesBar(thread, sessionId, detail, bar);
     }
 
     function decorateMessage(message, events) {
@@ -412,7 +597,24 @@ html[data-theme="dark"] .shc-avatar{color:hsl(var(--shc-h) 70% 82%);background:h
                 state.pendingAppend = sessionId;
                 if (await window.DragonClaw?.appendSharedMessages?.(sessionId)) state.pendingAppend = '';
             }
-            if (data.result?.pulled) refreshMine();
+            if (data.result?.closed) {
+                const firstTime = !state.closedLocally.has(sessionId);
+                state.closedLocally.add(sessionId);
+                state.sessionDetails.delete(sessionId);
+                state.mine = state.mine.filter(item => item.sessionId !== sessionId);
+                state.bySession.delete(sessionId);
+                window.dispatchEvent(new CustomEvent('home:conversation-list-changed', { detail: { source: 'mine' } }));
+                renderThreadBar();
+                await refreshMine();
+                if (firstTime) toast(L('发起者已停止共享，当前对话已转为各自独立对话', 'Sharing was stopped by the owner'));
+                return;
+            }
+            if (data.result?.pulled) {
+                refreshMine();
+                loadSessionDetails(sessionId, true);
+            } else if (!state.sessionDetails.has(sessionId)) {
+                loadSessionDetails(sessionId);
+            }
         } catch { /* 下次再试 */ } finally { state.syncing = false; }
     }
 
@@ -462,7 +664,7 @@ html[data-theme="dark"] .shc-avatar{color:hsl(var(--shc-h) 70% 82%);background:h
             </div>
             <div class="shc-foot">
                 <div class="shc-link"><span class="shc-ico">${icon.link}</span><input type="text" readonly value="${esc(L('正在生成共享链接…', 'Generating link…'))}" aria-label="${esc(L('共享链接', 'Share link'))}"><button type="button" class="shc-btn sm" data-shc-copy disabled>${esc(L('复制链接', 'Copy link'))}</button></div>
-                <p class="shc-hint">${esc(L('对方点开链接、登录平台后即可接受共享。共享的只是对话上下文（含历史里的附件与图片）；之后的提问、文件与命令都在各自账号下执行。', 'Anyone with an account can open the link and accept after signing in. Only the conversation context is shared (including earlier attachments); new questions, files and commands run under each person’s own account.'))}</p>
+                <p class="shc-hint">${esc(L('对方点开链接、登录平台后即可接受共享。对话上下文、历史附件、工具生成的 HTML/文件及图片都会同步为对方可读的副本；之后的提问与生成各自在自己账号下执行，并实时互相可见。', 'Anyone with an account can open the link and accept after signing in. Conversation history, attachments, generated HTML/files and images sync as readable copies; new questions and edits run under each person’s own account and sync live.'))}</p>
                 <div class="shc-actions"><span class="shc-leave"></span><span class="shc-spacer"></span><button type="button" class="shc-btn ghost" data-shc-close>${esc(L('取消', 'Cancel'))}</button><button type="button" class="shc-btn primary" data-shc-send disabled>${esc(L('发送邀请', 'Send invites'))}</button></div>
             </div></div>`;
         document.body.appendChild(overlay);
@@ -697,6 +899,7 @@ html[data-theme="dark"] .shc-avatar{color:hsl(var(--shc-h) 70% 82%);background:h
         d.busy = true; updateSend(d);
         try {
             const result = await api('POST', `/session/${encodeURIComponent(d.sessionId)}/invite`, { title: d.title, usernames: [...d.selected.keys()], groupIds: [...(d.groupIds || [])], linkBase: location.origin + appBase() });
+            state.closedLocally.delete(d.sessionId);
             const names = result.invited.map(name => accountOf(name)?.name || name);
             toast(names.length ? L(`已邀请 ${names.slice(0, 3).join('、')}${names.length > 3 ? ` 等 ${names.length} 人` : ''}，对方登录后会收到通知`, `Invited ${names.length} people`) : L('所选成员都已在共享中', 'Everyone selected is already in this conversation'));
             d.share = result.share;
@@ -722,6 +925,11 @@ html[data-theme="dark"] .shc-avatar{color:hsl(var(--shc-h) 70% 82%);background:h
         if (!ok) return;
         try {
             await api('POST', `/session/${encodeURIComponent(d.sessionId)}/leave`);
+            state.closedLocally.add(d.sessionId);
+            state.sessionDetails.delete(d.sessionId);
+            state.mine = state.mine.filter(item => item.sessionId !== d.sessionId);
+            state.bySession.delete(d.sessionId);
+            window.dispatchEvent(new CustomEvent('home:conversation-list-changed', { detail: { source: 'mine' } }));
             await refreshMine();
             renderThreadBar();
             closeDialog();
@@ -749,7 +957,15 @@ html[data-theme="dark"] .shc-avatar{color:hsl(var(--shc-h) 70% 82%);background:h
         clearInterval(state.timers.slow);
         state.timers.slow = setInterval(() => { if (!document.hidden) { refreshInbox(); refreshMine(); } }, 30000);
         document.addEventListener('visibilitychange', () => { if (!document.hidden) { refreshInbox(); refreshMine(); syncActive(true); } });
-        window.addEventListener('tools:authchange', () => { state.accounts = null; state.mine = []; state.bySession.clear(); refreshInbox().then(() => { if (state.available) { refreshMine(); consumePendingLink(); } }); });
+        const resetForAuth = () => {
+            const hadMine = state.mine.length > 0;
+            state.accounts = null; state.mine = []; state.bySession.clear(); state.sessionDetails.clear(); state.sessionFetching.clear(); state.closedLocally.clear(); state.inbox = []; state.skillRequests = []; state.bannerQueue = []; state.available = null;
+            window.DragonClawWorkspace?.setSharedWorkspace?.(null);
+            if (hadMine) window.dispatchEvent(new CustomEvent('home:conversation-list-changed', { detail: { source: 'mine' } }));
+            refreshInbox().then(() => { if (state.available) { refreshMine(); consumePendingLink(); } });
+        };
+        window.addEventListener('tools:authchange', resetForAuth);
+        window.addEventListener('storage', event => { if (!event.key || ['tools_user', 'tools_tenant_id', 'tools_token'].includes(event.key)) resetForAuth(); });
         window.addEventListener('tools:languagechange', () => { renderInbox(); const thread = document.getElementById('dcThread'); const bar = thread?.querySelector('.shc-thread-bar'); if (bar) bar.dataset.sig = ''; renderThreadBar(); });
         const thread = document.getElementById('dcThread');
         if (thread) new MutationObserver(() => { if (currentSession() !== lastSession) { lastSession = currentSession(); renderThreadBar(); } else if (info(currentSession()) && !thread.querySelector(':scope > .shc-thread-bar')) renderThreadBar(); decorateOwn(thread); }).observe(thread, { childList: true });

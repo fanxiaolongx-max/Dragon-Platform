@@ -157,12 +157,25 @@
         return token ? { Authorization: `Bearer ${token}` } : {};
     }
 
-    async function request(method, url, body) {
-        const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: body === undefined ? undefined : JSON.stringify(body) });
-        let data = {};
-        try { data = await res.json(); } catch { data = {}; }
-        if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status });
-        return data;
+    async function request(method, url, body, { signal } = {}) {
+        const controller = !signal && typeof AbortController === 'function' ? new AbortController() : null;
+        const timeoutId = controller ? setTimeout(() => controller.abort(), 15000) : 0;
+        try {
+            const res = await fetch(url, {
+                method,
+                cache: 'no-store',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json', ...authHeaders() },
+                ...((signal || controller?.signal) ? { signal: signal || controller.signal } : {}),
+                body: body === undefined ? undefined : JSON.stringify(body)
+            });
+            let data = {};
+            try { data = await res.json(); } catch { data = {}; }
+            if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status });
+            return data;
+        } finally {
+            clearTimeout(timeoutId);
+        }
     }
 
     function toast(text) {
@@ -374,33 +387,52 @@
         return results;
     }
 
-    async function loadThreads() {
+    async function loadThreads(retry = 0) {
         const seq = ++state.seq;
-        const source=state.source,account=identity();
+        const source = state.source, account = identity();
+        state.threadsAbort?.abort();
+        const controller = typeof AbortController === 'function' ? new AbortController() : null;
+        state.threadsAbort = controller;
         if (!state.loaded) renderThreads();
         try {
             const query = el.search?.value.trim() || '';
-            const cacheKey=identity()+':'+state.source;
+            const cacheKey = identity() + ':' + state.source;
             // 刷新时取回已经加载过的条数，列表不会一刷新就缩回第一页
-            const same=state.listIdentity===cacheKey&&query===state.listQuery;
-            const limit=Math.min(500,Math.max(THREAD_PAGE,same?state.serverCount:0));
-            const data = await request('GET', `${API_BASE}/${state.source}/threads?limit=${limit}&q=${encodeURIComponent(query)}`);
-            if (seq !== state.seq||source!==state.source||account!==identity()) return;
-            if(state.listIdentity!==cacheKey){state.allThreads=[];state.listIdentity=cacheKey;}
-            const fetched=Array.isArray(data.items)?data.items:[];
+            const same = state.listIdentity === cacheKey && query === state.listQuery;
+            const limit = Math.min(500, Math.max(THREAD_PAGE, same ? state.serverCount : 0));
+            const data = await request('GET', `${API_BASE}/${state.source}/threads?limit=${limit}&q=${encodeURIComponent(query)}`, undefined, { signal: controller?.signal });
+            if (seq !== state.seq || source !== state.source) return;
+            if (account !== identity()) {
+                resetForIdentityChange({ reload: false });
+                if (CHANNEL_IDS.includes(state.source) && retry < 3) return loadThreads(retry + 1);
+                state.loaded = true;
+                state.failed = true;
+                renderThreads();
+                return;
+            }
+            if (state.listIdentity !== cacheKey) { state.allThreads = []; state.listIdentity = cacheKey; }
+            state.identity = account;
+            const fetched = Array.isArray(data.items) ? data.items : [];
             fetched.forEach(item => { if (!item.channel) item.channel = source; });
-            state.serverCount=fetched.length;
-            state.hasMore=Boolean(data.hasMore);
-            state.listQuery=query;
-            if(!query){state.allThreads=fetched;state.threadsByChannel.set(source,fetched.slice());}
-            else if(!state.threadsByChannel.has(source))state.threadsByChannel.set(source,fetched.slice());
-            const aliases=query?state.allThreads.filter(t=>window.HomeConversationList?.get(state.source,t.kind+':'+t.id).title?.toLowerCase().includes(query.toLowerCase())):[];
-            state.threads=[...fetched,...aliases.filter(t=>!fetched.some(f=>f.kind===t.kind&&f.id===t.id))];
+            state.serverCount = fetched.length;
+            state.hasMore = Boolean(data.hasMore);
+            state.listQuery = query;
+            if (!query) { state.allThreads = fetched; state.threadsByChannel.set(source, fetched.slice()); }
+            else if (!state.threadsByChannel.has(source)) state.threadsByChannel.set(source, fetched.slice());
+            const aliases = query ? state.allThreads.filter(t => window.HomeConversationList?.get(state.source, t.kind + ':' + t.id).title?.toLowerCase().includes(query.toLowerCase())) : [];
+            state.threads = [...fetched, ...aliases.filter(t => !fetched.some(f => f.kind === t.kind && f.id === t.id))];
             state.failed = false;
         } catch {
-            if (seq !== state.seq) return;
+            if (seq !== state.seq || source !== state.source) return;
+            if (account !== identity() && retry < 3) {
+                resetForIdentityChange({ reload: false });
+                if (CHANNEL_IDS.includes(state.source)) return loadThreads(retry + 1);
+            }
             state.failed = !state.threads.length;
+        } finally {
+            if (seq === state.seq && state.threadsAbort === controller) state.threadsAbort = null;
         }
+        if (seq !== state.seq || source !== state.source) return;
         state.loaded = true;
         renderThreads();
         if(state.openLatestSource===state.source&&!state.failed){
@@ -1715,16 +1747,47 @@
         }
     }
 
+    function resetForIdentityChange({ reload = true } = {}) {
+        state.threadsAbort?.abort();
+        state.threadsAbort = null;
+        state.seq++;
+        state.drafts.clear();
+        state.threadsByChannel.clear();
+        state.allThreads = [];
+        state.allChannelThreads = [];
+        state.allChannelSignature = '';
+        state.threads = [];
+        state.pinnedEntries = [];
+        state.serverCount = 0;
+        state.hasMore = false;
+        state.listIdentity = '';
+        state.loaded = false;
+        state.failed = false;
+        state.identity = identity();
+        if (state.active) window.DragonClaw?.newChat?.();
+        if (CHANNEL_IDS.includes(state.source)) renderThreads();
+        if (reload) {
+            loadChannels();
+            if (CHANNEL_IDS.includes(state.source)) loadThreads();
+        }
+    }
+
     function init() {
         if (!mountTabs()) return;
+        state.identity = identity();
         setSource('mine', { remember: false });
         loadChannels();
         window.dispatchEvent(new Event('home:channel-threads-ready'));
         window.addEventListener('tools:languagechange', applyTexts);
         window.addEventListener('home:conversation-list-changed',()=>renderThreads());
         window.addEventListener('home:desktop-agents-ready', () => setSource(storeGet(SOURCE_KEY) || state.source, { remember:false }));
+        window.addEventListener('tools:authchange', () => {
+            if (state.identity !== identity() || state.failed) resetForIdentityChange();
+        });
         window.addEventListener('storage', event => {
-            if (['tools_user', 'tools_tenant_id', 'tools_token'].includes(event.key) && state.active && state.identity !== identity()) { state.drafts.clear(); window.DragonClaw?.newChat?.(); }
+            if (!event.key || ['tools_user', 'tools_tenant_id', 'tools_token'].includes(event.key)) {
+                if (state.identity !== identity()) resetForIdentityChange();
+            }
         });
         // 侧栏对话里的频道会话转圈：已连接频道时每 15 秒刷新一次会话列表（busy = Dragon Claw 正在回复）
         setInterval(() => {

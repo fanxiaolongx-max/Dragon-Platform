@@ -87,6 +87,42 @@ function ensureReady() {
                 used_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (owner, kind, target)
             )`);
+            await run(`CREATE TABLE IF NOT EXISTS shared_conversation_skill_grants (
+                id TEXT PRIMARY KEY,
+                share_id TEXT NOT NULL,
+                skill_id TEXT NOT NULL,
+                skill_name TEXT NOT NULL DEFAULT '',
+                approver TEXT NOT NULL,
+                approver_tenant TEXT NOT NULL DEFAULT 'default',
+                requester TEXT NOT NULL,
+                requester_tenant TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'pending',
+                is_builtin INTEGER NOT NULL DEFAULT 0,
+                snapshot_json TEXT NOT NULL DEFAULT '',
+                note TEXT NOT NULL DEFAULT '',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                decided_at DATETIME
+            )`);
+            await run('CREATE INDEX IF NOT EXISTS idx_shared_skill_grants_share ON shared_conversation_skill_grants(share_id, skill_id)');
+            await run('CREATE INDEX IF NOT EXISTS idx_shared_skill_grants_approver ON shared_conversation_skill_grants(approver, status)');
+            await run(`CREATE TABLE IF NOT EXISTS shared_conversation_skill_members (
+                grant_id TEXT NOT NULL,
+                username TEXT NOT NULL,
+                tenant_id TEXT NOT NULL DEFAULT 'default',
+                installed_id TEXT NOT NULL,
+                mode TEXT NOT NULL DEFAULT 'imported',
+                conflict_action TEXT NOT NULL DEFAULT '',
+                granted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (grant_id, username, tenant_id)
+            )`);
+            const cols = await all('PRAGMA table_info(shared_conversations)').catch(() => []);
+            const colNames = new Set(cols.map(c => c.name));
+            if (!colNames.has('origin_root')) {
+                await run("ALTER TABLE shared_conversations ADD COLUMN origin_root TEXT NOT NULL DEFAULT ''").catch(() => {});
+            }
+            if (!colNames.has('workspace_shared')) {
+                await run('ALTER TABLE shared_conversations ADD COLUMN workspace_shared INTEGER NOT NULL DEFAULT 1').catch(() => {});
+            }
         })().catch(error => { readyPromise = null; throw error; });
     }
     return readyPromise;
@@ -120,7 +156,12 @@ function withLock(key, task) {
     return next;
 }
 
-// ── 附件：对话里的附件以 Markdown 链接 [名称](<绝对路径>) 写在消息里 ──
+// ── 附件与生成文件：正文链接、工具产物、工作区生成文件的跨账号安全中转 ──
+const FILE_ARG_TOOLS = new Set(['write_file', 'edit_file', 'multi_edit', 'read_file', 'read_document', 'query_data', 'diff_files', 'view_image']);
+const artifacts = () => require('./agent-artifacts');
+const guard = () => require('./agent-path-guard');
+const boundary = () => require('./team-boundary');
+
 function sharedFilesBase() {
     return path.join(tenantContext.BASE_DATA_DIR, 'platform', 'shared-conversation-files');
 }
@@ -131,27 +172,179 @@ function inside(base, target) {
     const rel = path.relative(realOrSelf(base), realOrSelf(target));
     return Boolean(rel) && !rel.startsWith('..') && !path.isAbsolute(rel);
 }
-async function copyInto(source, dir) {
-    const stat = await fsp.stat(source).catch(() => null);
+function uploadDirFor(tenantId, username) {
+    return artifacts().uploadDir(`${tenantId}::${username}`);
+}
+function ownerDirFor(tenantId, username) {
+    return artifacts().ownerDir(`${tenantId}::${username}`);
+}
+function isSafeCopyTarget(real, allowedRoots = [], allowRelativeDotInTrusted = true) {
+    try { guard().assertNotSecretFile(real); } catch (_error) { return false; }
+    // 禁止读取任意隐藏目录（.git/.ssh/.aws 等）；平台自己的 artifacts/uploads/shared 与已知代理媒体目录例外
+    const trustedBases = [
+        artifacts().baseDir(),
+        artifacts().uploadsBase(),
+        sharedFilesBase(),
+        path.join(require('os').homedir(), '.codex'),
+        path.join(require('os').homedir(), '.gemini', 'antigravity', 'brain')
+    ].map(realOrSelf);
+    const trustedBase = allowRelativeDotInTrusted && trustedBases.find(base => inside(base, real));
+    const inspected = trustedBase ? path.relative(trustedBase, real) : real;
+    if (inspected.split(/[\\/]/).some(part => part.startsWith('.') && part !== '.' && part !== '..' && part !== '.user_uploaded')) {
+        return false;
+    }
+    return allowedRoots.some(root => root && inside(root, real));
+}
+async function copyInto(source, dir, cache = null) {
+    const real = realOrSelf(source);
+    const stat = await fsp.stat(real).catch(() => null);
     if (!stat || !stat.isFile() || stat.size > MAX_FILE_BYTES) return '';
-    const target = path.join(dir, crypto.randomBytes(4).toString('hex'), path.basename(source));
+    const cacheKey = `${real}\0${stat.mtimeMs}\0${stat.size}`;
+    if (cache?.has(cacheKey)) return cache.get(cacheKey);
+    const target = path.join(dir, crypto.randomBytes(4).toString('hex'), path.basename(real));
     await fsp.mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
-    await fsp.copyFile(source, target);
+    await fsp.copyFile(real, target);
+    cache?.set(cacheKey, target);
     return target;
 }
-/** 把 text 里落在 fromBase 下的附件复制到 toDir，并改写成新路径；不在 fromBase 下的路径（别人的目录、工作区文件）原样保留 */
-async function relinkFiles(text, fromBase, toDir) {
-    const paths = [...new Set([...String(text || '').matchAll(/\(<([^>\n]+)>\)/g)].map(match => match[1]))];
-    let result = String(text || '');
-    for (const original of paths) {
-        if (!path.isAbsolute(original) || !inside(fromBase, original)) continue;
-        const copied = await copyInto(original, toDir).catch(() => '');
-        if (copied) result = result.split(`(<${original}>)`).join(`(<${copied}>)`);
+function normalizeFileRef(raw, { baseRoot = '', allowTilde = false } = {}) {
+    let value = String(raw || '').trim();
+    if (!value || value.length > 4096 || /[\0\r\n]/.test(value)) return '';
+    if (/^(?:https?:|data:|mailto:|javascript:|#)/i.test(value)) return '';
+    if (value.startsWith('<') && value.endsWith('>')) value = value.slice(1, -1).trim();
+    if (/^file:\/\//i.test(value)) {
+        try { value = decodeURIComponent(new URL(value).pathname); } catch (_error) { return ''; }
+        if (/^\/[A-Za-z]:\//.test(value)) value = value.slice(1);
     }
-    return result;
+    value = value.replace(/#L\d+(?:-L?\d+)?$/i, '').replace(/(\.[A-Za-z0-9]{1,8}):\d+(?::\d+)?$/, '$1');
+    if (value.startsWith('~/')) {
+        if (!allowTilde) return '';
+        value = path.join(require('os').homedir(), value.slice(2));
+    }
+    if (path.isAbsolute(value)) return path.resolve(value);
+    if (baseRoot && /\.[A-Za-z0-9]{1,8}$/.test(value)) return path.resolve(baseRoot, value);
+    return '';
 }
-function uploadDirFor(tenantId, username) {
-    return require('./agent-artifacts').uploadDir(`${tenantId}::${username}`);
+async function resolveSenderRoot(member, session) {
+    if (session?.agent_root) return session.agent_root;
+    if (session?.agent_session_id) {
+        const saved = await require('./agent-transcript-repository').load(session.agent_session_id).catch(() => null);
+        if (saved?.root) return saved.root;
+    }
+    if (tenantContext.normalizeTenantId(member.tenant_id) !== tenantContext.DEFAULT_TENANT_ID) {
+        return boundary().workspaceRoot(member.tenant_id);
+    }
+    return '';
+}
+function createPathRelinker({ allowedRoots, baseRoot = '', allowTilde = false, allowPlatformOutputs = false, toDir, cache }) {
+    const roots = allowedRoots.filter(Boolean);
+    if (allowPlatformOutputs) roots.push(path.resolve(__dirname, '../../outputs'));
+    return async (raw, { extraRoots = [] } = {}) => {
+        const resolved = normalizeFileRef(raw, { baseRoot, allowTilde });
+        if (!resolved) return '';
+        const real = realOrSelf(resolved);
+        const permitted = [...roots, ...extraRoots.filter(Boolean)];
+        if (!isSafeCopyTarget(real, permitted)) return '';
+        return copyInto(real, toDir, cache).catch(() => '');
+    };
+}
+/** 把正文里的附件、工具产物与工作区文件链接复制到 toDir，并统一改写成指向副本的链接 */
+async function relinkFiles(text, relinkOrFromBase, toDir, cache = new Map()) {
+    const relink = typeof relinkOrFromBase === 'function'
+        ? relinkOrFromBase
+        : createPathRelinker({ allowedRoots: [relinkOrFromBase], toDir, cache });
+    const files = new Map();
+    const record = (copied, tool = 'file') => {
+        if (copied && !files.has(copied)) files.set(copied, { name: path.basename(copied), path: copied, tool });
+    };
+    let result = String(text || '');
+    // 1. 尖括号本地路径：(<path>)
+    for (const original of [...new Set([...result.matchAll(/\(<([^>\n]+)>\)/g)].map(match => match[1]))]) {
+        const copied = await relink(original);
+        if (copied) {
+            result = result.split(`(<${original}>)`).join(`(<${copied}>)`);
+            record(copied);
+        }
+    }
+    // 2. /api/agent-files/(raw|view|download|stat)?path=... 链接
+    for (const match of [...result.matchAll(/(\/api\/agent-files\/(?:raw|view|download|stat)\?[^\s)"'`>]+)/g)]) {
+        const fullUrl = match[1];
+        try {
+            const parsed = new URL(fullUrl, 'http://localhost');
+            const rawPath = parsed.searchParams.get('path') || '';
+            const copied = await relink(rawPath);
+            if (copied) {
+                parsed.searchParams.set('path', copied);
+                result = result.split(fullUrl).join(`${parsed.pathname}${parsed.search}`);
+                record(copied);
+            }
+        } catch (_error) { /* ignore malformed query */ }
+    }
+    // 3. 普通 Markdown 链接/图片：[name](path) 或 ![alt](path)（不含已转成 <...> 或远程 URL 的）
+    for (const match of [...result.matchAll(/(!?\[[^\]]*\]\()([^<)\n]+)(\))/g)]) {
+        const rawHref = String(match[2] || '').trim().replace(/\s+"[^"]*"$/, '');
+        if (!rawHref || /^(?:https?:|data:|mailto:|\/api\/|#)/i.test(rawHref)) continue;
+        const copied = await relink(rawHref);
+        if (copied) {
+            result = result.split(`${match[1]}${match[2]}${match[3]}`).join(`${match[1]}<${copied}>${match[3]}`);
+            record(copied);
+        }
+    }
+    return typeof relinkOrFromBase === 'function' ? { content: result, files: [...files.values()] } : result;
+}
+async function relinkEvents(events, relink, { recordFile } = {}) {
+    if (!Array.isArray(events)) return [];
+    const next = [];
+    for (const rawEvent of events) {
+        if (!rawEvent || typeof rawEvent !== 'object' || rawEvent.type === 'workspace_checkpoint') continue;
+        const event = { ...rawEvent };
+        if (event.type === 'tool_start' && event.args && typeof event.args === 'object') {
+            const candidate = event.sharedPath || (FILE_ARG_TOOLS.has(event.tool) ? event.args.path : '');
+            if (candidate) {
+                const copied = await relink(candidate);
+                if (copied) {
+                    event.sharedPath = copied;
+                    recordFile?.(copied, event.tool);
+                }
+            }
+        } else if (event.type === 'tool_result') {
+            if (event.artifact?.path) {
+                const copied = await relink(event.artifact.path);
+                if (copied) {
+                    event.artifact = { ...event.artifact, path: copied };
+                    recordFile?.(copied, event.tool || 'artifact');
+                }
+            }
+            if (Array.isArray(event.images) && event.images.length) {
+                const mapped = [];
+                for (const img of event.images) {
+                    const copied = await relink(img, { extraRoots: [path.join(require('os').homedir(), '.codex'), path.join(require('os').homedir(), '.gemini', 'antigravity', 'brain')] });
+                    mapped.push(copied || img);
+                    if (copied) recordFile?.(copied, event.tool || 'image');
+                }
+                event.images = mapped;
+            }
+            if (event.sharedPath) {
+                const copied = await relink(event.sharedPath);
+                if (copied) {
+                    event.sharedPath = copied;
+                    recordFile?.(copied, event.tool);
+                }
+            }
+        } else if (event.type === 'shared_files' && Array.isArray(event.files)) {
+            const synced = [];
+            for (const file of event.files) {
+                if (!file?.path) continue;
+                const copied = await relink(file.path);
+                const finalPath = copied || file.path;
+                synced.push({ ...file, path: finalPath });
+                if (copied) recordFile?.(copied, file.tool);
+            }
+            event.files = synced;
+        }
+        next.push(event);
+    }
+    return next;
 }
 
 // ── 查询 ──
@@ -178,6 +371,9 @@ async function describe(share, me) {
     const names = await displayNames([share.owner, ...members.map(item => item.username)]);
     const mine = members.find(item => item.username === me);
     const last = await get('SELECT MAX(seq) AS seq, MAX(created_at) AS at, COUNT(*) AS count FROM shared_conversation_messages WHERE share_id = ?', [share.id]);
+    const originRoot = share.status === 'active' && Number(share.workspace_shared ?? 1) === 1
+        ? await resolveOriginWorkspaceRoot(share).catch(() => '')
+        : '';
     return {
         id: share.id,
         title: share.title,
@@ -191,10 +387,34 @@ async function describe(share, me) {
         messageCount: Number(last?.count) || 0,
         role: mine?.role || '',
         myStatus: mine?.status || '',
+        sharedWorkspace: originRoot ? {
+            enabled: true,
+            shareId: share.id,
+            owner: share.owner,
+            ownerName: names[share.owner] || share.owner,
+            isOwner: share.owner === me,
+            folderName: path.basename(originRoot) || '共享工作区',
+            writable: true,
+            canRunCommand: share.owner === me,
+            virtualRoot: `shared-ws://${share.id}`
+        } : null,
         members: members.filter(item => !['left', 'removed'].includes(item.status)).map(item => ({
             username: item.username, name: names[item.username] || item.username, role: item.role, status: item.status, via: item.via
         }))
     };
+}
+
+function mergeSharedFilesEvent(events, extraFiles = []) {
+    const list = Array.isArray(events) ? events.filter(event => event && event.type !== 'shared_files') : [];
+    const merged = new Map();
+    for (const event of Array.isArray(events) ? events : []) {
+        if (event?.type === 'shared_files' && Array.isArray(event.files)) {
+            for (const file of event.files) if (file?.path) merged.set(file.path, file);
+        }
+    }
+    for (const file of extraFiles) if (file?.path) merged.set(file.path, file);
+    if (merged.size) list.push({ type: 'shared_files', files: [...merged.values()] });
+    return list;
 }
 
 // ── 推送 / 拉取 ──
@@ -204,6 +424,30 @@ async function pushMember(share, member) {
     if (!rows.length) return 0;
     const pushed = new Set((await all('SELECT local_message_id FROM shared_conversation_pushed WHERE share_id = ? AND username = ?', [share.id, member.username])).map(row => row.local_message_id));
     const names = await displayNames([member.username]);
+    const session = await repo.getSession(member.local_session_id);
+    if (share.owner === member.username && share.origin_session_id === member.local_session_id && session?.agent_root && isShareableWorkspaceRoot(session.agent_root)) {
+        const realOrigin = realOrSelf(session.agent_root);
+        if (share.origin_root !== realOrigin) {
+            await run('UPDATE shared_conversations SET origin_root = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [realOrigin, share.id]).catch(() => {});
+            share.origin_root = realOrigin;
+        }
+    }
+    const senderRoot = await resolveSenderRoot(member, session);
+    const sharedOriginRoot = (!senderRoot && Number(share.workspace_shared ?? 1) === 1)
+        ? await resolveOriginWorkspaceRoot(share).catch(() => '')
+        : '';
+    const effectiveBaseRoot = senderRoot || sharedOriginRoot;
+    const isUnconfined = tenantContext.normalizeTenantId(member.tenant_id) === tenantContext.DEFAULT_TENANT_ID;
+    const sharedDir = path.join(sharedFilesBase(), share.id);
+    const copyCache = new Map();
+    const relink = createPathRelinker({
+        allowedRoots: [uploadDirFor(member.tenant_id, member.username), ownerDirFor(member.tenant_id, member.username), senderRoot, sharedOriginRoot],
+        baseRoot: effectiveBaseRoot,
+        allowTilde: isUnconfined,
+        allowPlatformOutputs: true,
+        toDir: sharedDir,
+        cache: copyCache
+    });
     let count = 0;
     for (const row of rows) {
         if (pushed.has(row.id) || !String(row.content || '').trim()) continue;
@@ -212,11 +456,20 @@ async function pushMember(share, member) {
         if (!Array.isArray(events)) events = [];
         if (events.some(event => event?.type === 'shared_author')) continue; // 别人的消息拉进来的副本
         if (String(row.id).startsWith('agent_') && !Number(row.agent_final)) break; // 工作区回答还没结束：保持顺序，等结束再推
-        const content = await relinkFiles(row.content, uploadDirFor(member.tenant_id, member.username), path.join(sharedFilesBase(), share.id));
+        const collected = new Map();
+        const recordFile = (copied, tool = 'file') => {
+            if (copied && !collected.has(copied)) collected.set(copied, { name: path.basename(copied), path: copied, tool });
+        };
+        const contentResult = await relinkFiles(row.content, relink, sharedDir, copyCache);
+        for (const file of contentResult.files) recordFile(file.path, file.tool);
+        const relinkedEvents = mergeSharedFilesEvent(
+            await relinkEvents(events, relink, { recordFile }),
+            [...collected.values()]
+        );
         const result = await run(`INSERT INTO shared_conversation_messages (share_id, author, author_name, role, content, events, model_name, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
-        [share.id, member.username, names[member.username] || member.username, row.role === 'model' ? 'model' : 'user', content,
-            JSON.stringify(events.filter(event => event?.type !== 'workspace_checkpoint')), String(row.model_name || '').slice(0, 120)]);
+        [share.id, member.username, names[member.username] || member.username, row.role === 'model' ? 'model' : 'user', contentResult.content,
+            JSON.stringify(relinkedEvents), String(row.model_name || '').slice(0, 120)]);
         await run('INSERT OR IGNORE INTO shared_conversation_pushed (share_id, username, local_message_id, seq) VALUES (?, ?, ?, ?)', [share.id, member.username, row.id, result.lastID]);
         count += 1;
     }
@@ -229,6 +482,10 @@ async function pullMember(share, member) {
     if (!rows.length) return 0;
     const repo = chatRepo();
     const session = await repo.getSession(member.local_session_id);
+    const sharedDir = path.join(sharedFilesBase(), share.id);
+    const recipientDir = path.join(uploadDirFor(member.tenant_id, member.username), `shared-${share.id}`);
+    const copyCache = new Map();
+    const relink = createPathRelinker({ allowedRoots: [sharedDir], toDir: recipientDir, cache: copyCache });
     let count = 0;
     let seq = Number(member.pulled_seq) || 0;
     for (const row of rows) {
@@ -236,16 +493,25 @@ async function pullMember(share, member) {
         if (row.author === member.username) continue;
         let events = [];
         try { events = row.events ? JSON.parse(row.events) : []; } catch (_error) { events = []; }
-        const content = await relinkFiles(row.content, path.join(sharedFilesBase(), share.id), path.join(uploadDirFor(member.tenant_id, member.username), `shared-${share.id}`));
+        const collected = new Map();
+        const recordFile = (copied, tool = 'file') => {
+            if (copied && !collected.has(copied)) collected.set(copied, { name: path.basename(copied), path: copied, tool });
+        };
+        const contentResult = await relinkFiles(row.content, relink, recipientDir, copyCache);
+        for (const file of contentResult.files) recordFile(file.path, file.tool);
+        const relinkedEvents = mergeSharedFilesEvent(
+            await relinkEvents(Array.isArray(events) ? events : [], relink, { recordFile }),
+            [...collected.values()]
+        );
         await repo.addMessage({
             sessionId: member.local_session_id,
             pagePath: session?.page_path || '/',
             pageTitle: session?.page_title || '',
             owner: member.username,
             role: row.role,
-            content,
+            content: contentResult.content,
             modelName: row.model_name,
-            events: [...(Array.isArray(events) ? events : []), { type: 'shared_author', author: row.author, name: row.author_name || row.author, at: row.created_at }]
+            events: [...relinkedEvents, { type: 'shared_author', author: row.author, name: row.author_name || row.author, at: row.created_at }]
         });
         count += 1;
     }
@@ -271,6 +537,7 @@ async function syncLocal({ tenantId, username, sessionId }) {
             return null;
         }
         if (share.status !== 'active') return { shareId: share.id, pushed: 0, pulled: 0, closed: true };
+        await applyApprovedSkillGrants(share.id, fresh).catch(() => {});
         const pushed = await pushMember(share, fresh);
         const pulled = await pullMember(share, { ...fresh, pulled_seq: fresh.pulled_seq });
         return { shareId: share.id, pushed, pulled, closed: false };
@@ -335,9 +602,10 @@ async function ensureShare({ tenantId, username, sessionId, title }) {
         await run('UPDATE shared_conversations SET title = ? WHERE id = ?', [cleanTitle, share.id]);
         share.title = cleanTitle;
     }
+    await resolveOriginWorkspaceRoot(share).catch(() => '');
     // 先把已有的历史推到中转，被邀请的人一接受就能看到完整上下文
     await syncLocal({ tenantId, username, sessionId });
-    return share;
+    return getShare(share.id);
 }
 
 async function invite({ tenantId, username, sessionId, title, usernames = [], groupIds = [] }) {
@@ -375,12 +643,20 @@ async function invite({ tenantId, username, sessionId, title, usernames = [], gr
     return { share: await describe(await getShare(share.id), username), invited, already };
 }
 
-async function shareForSession({ tenantId, username, sessionId }) {
+async function shareForSession({ tenantId, username, sessionId, role = '' }) {
     await ensureReady();
     const member = await get(`SELECT share_id FROM shared_conversation_members WHERE tenant_id = ? AND username = ? AND local_session_id = ? AND status = 'accepted'`, [tenantId, username, String(sessionId || '')]);
     const share = member ? await getShare(member.share_id)
         : await get('SELECT * FROM shared_conversations WHERE owner_tenant = ? AND owner = ? AND origin_session_id = ?', [tenantId, username, String(sessionId || '')]);
-    return share ? describe(share, username) : null;
+    if (!share) return null;
+    const base = await describe(share, username);
+    const caps = await sessionCapabilities({ tenantId, username, role, sessionId, shareId: share.id }).catch(() => ({ skills: [], tools: [], aliases: {}, pendingForMe: [] }));
+    return {
+        ...base,
+        missingCapabilities: { skills: caps.skills, tools: caps.tools },
+        pendingSkillRequests: caps.pendingForMe,
+        skillAliases: caps.aliases
+    };
 }
 
 async function inbox(username) {
@@ -422,6 +698,7 @@ async function respond({ tenantId, username, shareId, action }) {
     await run('DELETE FROM shared_conversation_pushed WHERE share_id = ? AND username = ?', [share.id, username]);
     linkedCache = null;
     await require('./conversation-list-repository').save(username, { source: 'mine', id: sessionId, title: share.title }).catch(() => {});
+    await applyApprovedSkillGrants(share.id, { username, tenant_id: tenantId }).catch(() => {});
     await syncLocal({ tenantId, username, sessionId });
     return { status: 'accepted', sessionId, share: await describe(share, username) };
 }
@@ -445,7 +722,7 @@ async function joinByLink({ username, token }) {
 async function listMine({ tenantId, username }) {
     await ensureReady();
     const rows = await all(`SELECT m.share_id, m.local_session_id, m.pulled_seq FROM shared_conversation_members m JOIN shared_conversations s ON s.id = m.share_id
-        WHERE m.username = ? AND m.tenant_id = ? AND m.status = 'accepted' AND m.local_session_id <> ''`, [username, tenantId]);
+        WHERE m.username = ? AND m.tenant_id = ? AND s.status = 'active' AND m.status = 'accepted' AND m.local_session_id <> ''`, [username, tenantId]);
     const items = [];
     for (const row of rows) {
         const share = await getShare(row.share_id);
@@ -555,15 +832,466 @@ async function recent(username) {
     };
 }
 
-/** 给模型的上下文：别人发的提问前标注发送账号，模型能分清是谁在说话 */
-function authorOf(events) {
+/** 给模型的上下文：别人发的提问与回复标注发送账号，并提取消息关联的共享/产物文件 */
+function parseEventsList(events) {
     let list = events;
     if (typeof list === 'string') { try { list = JSON.parse(list || '[]'); } catch (_error) { list = []; } }
-    return Array.isArray(list) ? list.find(event => event?.type === 'shared_author') || null : null;
+    return Array.isArray(list) ? list : [];
+}
+function authorOf(events) {
+    return parseEventsList(events).find(event => event?.type === 'shared_author') || null;
+}
+function filesOf(events) {
+    const list = parseEventsList(events);
+    const found = new Map();
+    const put = (filePath, tool = 'file') => {
+        if (!filePath || !path.isAbsolute(String(filePath))) return;
+        if (!found.has(filePath)) found.set(filePath, { name: path.basename(String(filePath)), path: String(filePath), tool });
+    };
+    for (const event of list) {
+        if (event?.type === 'shared_files' && Array.isArray(event.files)) {
+            for (const file of event.files) put(file?.path, file?.tool);
+        } else if (event?.type === 'tool_start' && event.sharedPath) {
+            put(event.sharedPath, event.tool);
+        } else if (event?.type === 'tool_result') {
+            if (event.artifact?.path) put(event.artifact.path, event.tool || 'artifact');
+            if (event.sharedPath) put(event.sharedPath, event.tool);
+            if (Array.isArray(event.images)) for (const img of event.images) put(img, event.tool || 'image');
+        }
+    }
+    return [...found.values()];
+}
+async function syncIfShared({ tenantId, username, sessionId }) {
+    if (!sessionId || !username) return null;
+    const set = await linkedSet();
+    if (!set.has(`${tenantId}\n${username}\n${sessionId}`)) return null;
+    return syncLocal({ tenantId, username, sessionId });
+}
+
+const RESTRICTED_TOOL_RE = /^(?:mcp__|welink_|netcare_|ops_|open_autoglm|finance_|ppo_|voice_creator_|.*_uiv_script$|(?:insert|update|delete)_database_row|run_command$)/;
+
+function historyCapabilitiesIn(messages = []) {
+    const skillIds = [];
+    const skillSet = new Set();
+    const tools = [];
+    const toolSet = new Set();
+    for (const msg of messages) {
+        const list = parseEventsList(msg?.events);
+        for (const ev of list) {
+            if (ev?.type === 'skills' && Array.isArray(ev.skills)) {
+                for (const id of ev.skills) {
+                    const clean = String(id || '').trim().toLowerCase();
+                    if (clean && !skillSet.has(clean)) { skillSet.add(clean); skillIds.push(clean); }
+                }
+            }
+            if (ev?.type === 'tool_start' && ev.tool && RESTRICTED_TOOL_RE.test(String(ev.tool))) {
+                const name = String(ev.tool);
+                if (!toolSet.has(name)) { toolSet.add(name); tools.push(name); }
+            }
+        }
+    }
+    return { skillIds, tools };
+}
+
+async function grantedSkillMemberships(tenantId, username) {
+    await ensureReady();
+    return all(`SELECT m.*, g.share_id, g.skill_id, g.skill_name, g.approver, g.approver_tenant, g.is_builtin, g.snapshot_json
+        FROM shared_conversation_skill_members m
+        JOIN shared_conversation_skill_grants g ON g.id = m.grant_id
+        WHERE m.username = ? AND m.tenant_id = ? AND g.status = 'approved'`, [username, tenantId]);
+}
+
+async function resolveSkillOrigin(shareId, skillId) {
+    const cleanId = String(skillId || '').trim().toLowerCase();
+    const store = require('./agent-skills-store');
+    const dist = require('./tool-distribution');
+    const share = await getShare(shareId);
+    if (!share) return null;
+    const isPublic = await dist.hasEntryAccess(`skill:${cleanId}`).catch(() => false);
+    const candidates = await all("SELECT username, tenant_id, role FROM shared_conversation_members WHERE share_id = ? AND status = 'accepted' ORDER BY role = 'owner' DESC", [shareId]);
+    const ordered = [
+        { username: share.owner, tenant_id: share.owner_tenant },
+        ...candidates.filter(c => c.username !== share.owner)
+    ];
+    for (const member of ordered) {
+        if (!member.tenant_id || member.tenant_id === tenantContext.DEFAULT_TENANT_ID) continue;
+        const found = await tenantContext.runWithTenant(member.tenant_id, async () => {
+            const custom = await store.getCustom(cleanId);
+            if (!custom) return null;
+            const prefs = await dist.personalEntry({ username: member.username, role: 'admin' }, `skill:${cleanId}`);
+            if (prefs?.grant || prefs?.origin) return null;
+            return { skill: { ...custom, builtIn: false, markdown: store.toPublicationSnapshot(custom, custom.files).markdown }, owner: custom.createdBy || member.username, ownerTenant: member.tenant_id, isBuiltin: false };
+        }).catch(() => null);
+        if (found) return { ...found, isPublic };
+    }
+    const map = await userMap();
+    const superAdmin = Object.values(map).find(u => u.role === 'admin' && (u.tenantId || 'default') === tenantContext.DEFAULT_TENANT_ID)?.username || share.owner;
+    const plat = await tenantContext.runWithTenant(tenantContext.DEFAULT_TENANT_ID, () => store.getSkill(cleanId)).catch(() => null);
+    if (!plat) return { skill: null, owner: superAdmin, ownerTenant: tenantContext.DEFAULT_TENANT_ID, isBuiltin: false, isPublic };
+    const owner = !plat.builtIn && plat.createdBy && map[plat.createdBy] ? plat.createdBy : superAdmin;
+    return { skill: plat, owner, ownerTenant: tenantContext.DEFAULT_TENANT_ID, isBuiltin: Boolean(plat.builtIn), isPublic };
+}
+
+function deriveAliasId(baseId, owner, takenSet) {
+    const clean = String(baseId || 'skill').toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');
+    const suffix = crypto.createHash('sha1').update(`${baseId}:${owner}`).digest('hex').slice(0, 4);
+    const candidates = [
+        `${clean.slice(0, 32)}-s-${suffix}`,
+        `${clean.slice(0, 29)}-s-${suffix}2`,
+        `${clean.slice(0, 29)}-${crypto.randomBytes(2).toString('hex')}`
+    ];
+    return candidates.find(id => /^[a-z][a-z0-9-]{1,40}$/.test(id) && !takenSet.has(id)) || `skill-${crypto.randomBytes(4).toString('hex')}`;
+}
+
+async function installGrantForMember(grant, member) {
+    const store = require('./agent-skills-store');
+    const dist = require('./tool-distribution');
+    const skillId = String(grant.skill_id || '').toLowerCase();
+    let snapshot = null;
+    try { snapshot = grant.snapshot_json ? JSON.parse(grant.snapshot_json) : null; } catch { snapshot = null; }
+    if (!snapshot) return { installedId: skillId, mode: 'missing_snapshot', conflictAction: '' };
+    const isPublic = await dist.hasEntryAccess(`skill:${skillId}`).catch(() => false);
+    if (member.username === grant.approver && member.tenant_id === grant.approver_tenant) {
+        await run(`INSERT OR REPLACE INTO shared_conversation_skill_members (grant_id, username, tenant_id, installed_id, mode, conflict_action) VALUES (?, ?, ?, ?, 'owner', '')`,
+            [grant.id, member.username, member.tenant_id, skillId]);
+        return { installedId: skillId, mode: 'owner', conflictAction: '' };
+    }
+    if (isPublic) {
+        await run(`INSERT OR REPLACE INTO shared_conversation_skill_members (grant_id, username, tenant_id, installed_id, mode, conflict_action) VALUES (?, ?, ?, ?, 'public', 'superseded_by_public')`,
+            [grant.id, member.username, member.tenant_id, skillId]);
+        return { installedId: skillId, mode: 'public', conflictAction: 'superseded_by_public' };
+    }
+    if (Number(grant.is_builtin) || member.tenant_id === tenantContext.DEFAULT_TENANT_ID) {
+        const mode = Number(grant.is_builtin) ? 'scoped-builtin' : 'scoped-platform';
+        await run(`INSERT OR REPLACE INTO shared_conversation_skill_members (grant_id, username, tenant_id, installed_id, mode, conflict_action) VALUES (?, ?, ?, ?, ?, '')`,
+            [grant.id, member.username, member.tenant_id, skillId, mode]);
+        return { installedId: skillId, mode, conflictAction: '' };
+    }
+    const outcome = await tenantContext.runWithTenant(member.tenant_id, async () => {
+        const allLocal = await store.listAll({ includeHidden: true });
+        const taken = new Set(allLocal.map(item => item.id));
+        const existingCustom = await store.getCustom(skillId);
+        const prefs = await dist.personalEntry({ username: member.username, role: 'admin' }, `skill:${skillId}`);
+        let targetId = skillId;
+        let conflictAction = '';
+        if (existingCustom && !prefs?.grant) {
+            targetId = deriveAliasId(skillId, grant.approver, taken);
+            conflictAction = 'renamed_alias';
+        }
+        await store.installSharedGrant(snapshot, {
+            targetId,
+            sourceId: skillId,
+            grantId: grant.id,
+            shareId: grant.share_id,
+            owner: grant.approver,
+            user: { username: member.username, role: 'admin' }
+        });
+        return { installedId: targetId, mode: 'imported', conflictAction };
+    });
+    await run(`INSERT OR REPLACE INTO shared_conversation_skill_members (grant_id, username, tenant_id, installed_id, mode, conflict_action) VALUES (?, ?, ?, ?, ?, ?)`,
+        [grant.id, member.username, member.tenant_id, outcome.installedId, outcome.mode, outcome.conflictAction]);
+    return outcome;
+}
+
+async function applyApprovedSkillGrants(shareId, member) {
+    await ensureReady();
+    const approved = await all("SELECT * FROM shared_conversation_skill_grants WHERE share_id = ? AND status = 'approved'", [shareId]);
+    for (const grant of approved) {
+        await installGrantForMember(grant, member).catch(error => console.warn('[shared-conversations] install skill grant failed:', error.message));
+    }
+}
+
+async function notifyApproverExternal(grant, shareTitle, requesterName) {
+    try {
+        const inbox = require('./agent-approval-inbox');
+        const settings = await tenantContext.runWithTenant(grant.approver_tenant || 'default', () => inbox.getSettings(grant.approver));
+        if (!settings?.enabled || !settings.targets?.length) return;
+        const text = `**🔐 私有 Skill 共享审批**\n${requesterName} 在共享对话「${shareTitle}」中申请使用你维护的技能 \`@${grant.skill_id}\`（${grant.skill_name || grant.skill_id}）。\n同意后将向该共享对话的成员导入此技能（非全员开放），请登录 Dragon Claw 在横幅或消息中心处理。`;
+        if (settings.channel === 'welink-cli') {
+            const agent = require('./channels/welink-cli-agent');
+            const runner = require('./channels/welink-cli-runner');
+            for (const target of settings.targets) {
+                const built = agent.buildArgs(target.kind === 'group' ? { command: 'im send-to-group', options: { 'group-id': target.id, text } } : { command: 'im send-to-user', options: { receiver: target.id, text } }, { mode: 'write' });
+                await runner.run(built.args).catch(() => {});
+            }
+        } else {
+            await require('./channels').push({ channel: settings.channel, text, targets: settings.targets, trigger: 'system', source: 'Dragon Claw 共享技能审批' }).catch(() => {});
+        }
+    } catch { /* best-effort */ }
+}
+
+async function sessionCapabilities({ tenantId, username, role = '', sessionId, shareId = '' }) {
+    await ensureReady();
+    if (!shareId) {
+        const member = await memberByLocal(tenantId, username, sessionId);
+        if (!member) return { skills: [], tools: [], aliases: {}, pendingForMe: [] };
+        shareId = member.share_id;
+    }
+    const share = await getShare(shareId);
+    if (!share) return { skills: [], tools: [], aliases: {}, pendingForMe: [] };
+    const rows = await chatRepo().listMessagesForShare(sessionId);
+    const { skillIds, tools: historyTools } = historyCapabilitiesIn(rows);
+    const store = require('./agent-skills-store');
+    const availableSkills = await store.listForUser({ username, role: role || (tenantId === tenantContext.DEFAULT_TENANT_ID ? 'admin' : 'admin') });
+    const availableSet = new Set(availableSkills.map(s => s.id));
+    const memberGrants = await grantedSkillMemberships(tenantId, username);
+    const aliases = {};
+    for (const mg of memberGrants) {
+        if (mg.share_id === shareId && mg.installed_id && availableSet.has(mg.installed_id)) {
+            aliases[mg.skill_id] = mg.installed_id;
+        }
+    }
+    const grants = await all('SELECT * FROM shared_conversation_skill_grants WHERE share_id = ?', [shareId]);
+    const names = await displayNames([share.owner, ...grants.flatMap(g => [g.approver, g.requester])]);
+    const missingSkills = [];
+    for (const skillId of skillIds) {
+        if (availableSet.has(skillId) || (aliases[skillId] && availableSet.has(aliases[skillId]))) continue;
+        const origin = await resolveSkillOrigin(shareId, skillId);
+        const existingGrant = grants.find(g => g.skill_id === skillId && (g.status === 'pending' || g.status === 'approved'));
+        const lastRejected = !existingGrant && grants.find(g => g.skill_id === skillId && g.status === 'rejected');
+        const approver = existingGrant?.approver || origin?.owner || '';
+        const extraNames = approver ? await displayNames([approver]) : {};
+        missingSkills.push({
+            id: skillId,
+            name: existingGrant?.skill_name || origin?.skill?.name || skillId,
+            owner: approver,
+            ownerName: extraNames[approver] || names[approver] || approver,
+            isBuiltin: Boolean(origin?.isBuiltin),
+            canRequest: Boolean(origin?.skill) && approver !== username,
+            status: existingGrant?.status || (lastRejected ? 'rejected' : 'none'),
+            requestId: existingGrant?.id || '',
+            reason: !origin?.skill ? 'not_installed' : 'not_shared'
+        });
+    }
+    const ADMIN_DB_WRITE_TOOLS = new Set(['insert_database_row', 'update_database_rows', 'delete_database_rows']);
+    const allowedTool = await require('./agent-tool-access').forActor({ username, role: role || 'user' }, `${tenantId}::${username}`);
+    const missingTools = historyTools
+        .filter(tool => !allowedTool(tool) || ((role || 'user') !== 'admin' && ADMIN_DB_WRITE_TOOLS.has(tool)))
+        .map(name => ({ name, reason: !allowedTool(name) ? 'tool_disabled_or_restricted' : 'admin_only' }));
+    const isSuper = role === 'admin' && tenantId === tenantContext.DEFAULT_TENANT_ID;
+    const formatSkillReq = (g, titleText = share.title) => ({
+        id: g.id,
+        requestId: g.id,
+        shareId: g.share_id,
+        sessionId: sessionId || '',
+        title: titleText,
+        shareTitle: titleText,
+        skillId: g.skill_id,
+        skillName: g.skill_name || g.skill_id,
+        requestedBy: g.requester,
+        requestedByName: names[g.requester] || g.requester,
+        requester: g.requester,
+        requesterName: names[g.requester] || g.requester,
+        approver: g.approver,
+        approverName: names[g.approver] || g.approver,
+        isBuiltin: Boolean(g.is_builtin),
+        status: g.status,
+        note: g.note,
+        createdAt: g.created_at
+    });
+    const pendingForMe = grants
+        .filter(g => g.status === 'pending' && (g.approver === username || (isSuper && g.approver_tenant === tenantContext.DEFAULT_TENANT_ID)))
+        .map(g => formatSkillReq(g, share.title));
+    return { skills: missingSkills, tools: missingTools, aliases, pendingForMe };
+}
+
+async function requestSkillShare({ tenantId, username, role = '', sessionId, skillId, note = '' }) {
+    await ensureReady();
+    const cleanId = String(skillId || '').trim().toLowerCase();
+    if (!cleanId) throw fail(400, 'SHARE_SKILL_REQUIRED', '缺少需要申请的技能标识');
+    const member = await memberByLocal(tenantId, username, sessionId);
+    const share = member ? await getShare(member.share_id) : null;
+    if (!share || share.status !== 'active') throw fail(404, 'SHARE_NOT_FOUND', '仅有效的共享对话成员可以申请');
+    const origin = await resolveSkillOrigin(share.id, cleanId);
+    if (!origin?.skill) throw fail(404, 'SKILL_NOT_FOUND', `未找到技能 @${cleanId}，可能已被归属人删除`);
+    const withUpdatedShare = async extra => ({
+        ...extra,
+        share: await shareForSession({ tenantId, username, role, sessionId })
+    });
+    if (origin.isPublic) return withUpdatedShare({ status: 'already_available', alreadyAvailable: true, skillId: cleanId, reason: 'public' });
+    const store = require('./agent-skills-store');
+    const avail = await store.listForUser({ username, role: role || (tenantId === tenantContext.DEFAULT_TENANT_ID ? 'admin' : 'admin') });
+    if (avail.some(s => s.id === cleanId)) return withUpdatedShare({ status: 'already_available', alreadyAvailable: true, skillId: cleanId, reason: 'owned' });
+
+    const existing = await get("SELECT * FROM shared_conversation_skill_grants WHERE share_id = ? AND skill_id = ? AND status IN ('pending', 'approved') ORDER BY created_at DESC LIMIT 1", [share.id, cleanId]);
+    if (existing?.status === 'pending') return withUpdatedShare({ status: 'pending', deduplicated: true, request: existing });
+    if (existing?.status === 'approved') {
+        const outcome = await installGrantForMember(existing, { username, tenant_id: tenantId });
+        return withUpdatedShare({ status: 'approved', alreadyAvailable: true, grant: existing, outcome });
+    }
+
+    const requestId = newId('sgr');
+    await run(`INSERT INTO shared_conversation_skill_grants (id, share_id, skill_id, skill_name, approver, approver_tenant, requester, requester_tenant, status, is_builtin, note)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
+    [requestId, share.id, cleanId, String(origin.skill.name || cleanId).slice(0, 120), origin.owner, origin.ownerTenant || 'default', username, tenantId, origin.isBuiltin ? 1 : 0, String(note || '').slice(0, 300)]);
+    const created = await get('SELECT * FROM shared_conversation_skill_grants WHERE id = ?', [requestId]);
+    const names = await displayNames([username, origin.owner]);
+    await notifyApproverExternal(created, share.title, names[username] || username);
+    return withUpdatedShare({ status: 'pending', request: created });
+}
+
+async function inboxSkillRequests(username, { tenantId = 'default', isSuper = false } = {}) {
+    await ensureReady();
+    const rows = isSuper && tenantId === tenantContext.DEFAULT_TENANT_ID
+        ? await all(`SELECT g.*, s.title AS share_title FROM shared_conversation_skill_grants g JOIN shared_conversations s ON s.id = g.share_id
+            WHERE g.status = 'pending' AND s.status = 'active' AND (g.approver = ? OR g.approver_tenant = ?) ORDER BY g.created_at DESC LIMIT 50`, [username, tenantContext.DEFAULT_TENANT_ID])
+        : await all(`SELECT g.*, s.title AS share_title FROM shared_conversation_skill_grants g JOIN shared_conversations s ON s.id = g.share_id
+            WHERE g.status = 'pending' AND s.status = 'active' AND g.approver = ? ORDER BY g.created_at DESC LIMIT 50`, [username]);
+    const names = await displayNames(rows.flatMap(r => [r.approver, r.requester]));
+    return rows.map(row => ({
+        id: row.id,
+        requestId: row.id,
+        shareId: row.share_id,
+        title: row.share_title,
+        shareTitle: row.share_title,
+        skillId: row.skill_id,
+        skillName: row.skill_name || row.skill_id,
+        requestedBy: row.requester,
+        requestedByName: names[row.requester] || row.requester,
+        requester: row.requester,
+        requesterName: names[row.requester] || row.requester,
+        approver: row.approver,
+        approverName: names[row.approver] || row.approver,
+        isBuiltin: Boolean(row.is_builtin),
+        status: row.status,
+        note: row.note,
+        createdAt: row.created_at
+    }));
+}
+
+async function respondSkillRequest({ tenantId = 'default', username, isSuper = false, requestId, action }) {
+    await ensureReady();
+    if (!['approve', 'reject'].includes(action)) throw fail(400, 'SHARE_BAD_ACTION', '无效的操作');
+    const grant = await get('SELECT * FROM shared_conversation_skill_grants WHERE id = ?', [String(requestId || '')]);
+    if (!grant) throw fail(404, 'SHARE_REQUEST_NOT_FOUND', '审批申请不存在或已失效');
+    const share = await getShare(grant.share_id);
+    if (!share || share.status !== 'active') throw fail(409, 'SHARE_CLOSED', '该共享对话已停止共享');
+    const canApprove = grant.approver === username || (isSuper && grant.approver_tenant === tenantContext.DEFAULT_TENANT_ID);
+    if (!canApprove) throw fail(403, 'SHARE_APPROVER_ONLY', '只有该技能的归属人或超级管理员可以审批');
+    if (grant.status !== 'pending') return { status: grant.status, requestId: grant.id, skillId: grant.skill_id };
+
+    if (action === 'reject') {
+        await run("UPDATE shared_conversation_skill_grants SET status = 'rejected', decided_at = CURRENT_TIMESTAMP WHERE id = ?", [grant.id]);
+        return { status: 'rejected', requestId: grant.id, skillId: grant.skill_id };
+    }
+
+    const store = require('./agent-skills-store');
+    const skill = await tenantContext.runWithTenant(grant.approver_tenant || tenantContext.DEFAULT_TENANT_ID, () => store.getSkill(grant.skill_id));
+    if (!skill) throw fail(404, 'SKILL_NOT_FOUND', `技能 @${grant.skill_id} 已被归属人删除，无法共享`);
+    const snapshot = {
+        id: skill.id,
+        name: skill.name,
+        markdown: skill.markdown || store.toPublicationSnapshot(skill, skill.files).markdown,
+        files: skill.files || [],
+        updatedAt: skill.updatedAt || ''
+    };
+    await run("UPDATE shared_conversation_skill_grants SET status = 'approved', skill_name = ?, snapshot_json = ?, decided_at = CURRENT_TIMESTAMP WHERE id = ?",
+        [String(skill.name || grant.skill_id).slice(0, 120), JSON.stringify(snapshot), grant.id]);
+    const approved = await get('SELECT * FROM shared_conversation_skill_grants WHERE id = ?', [grant.id]);
+    const accepted = await all("SELECT username, tenant_id FROM shared_conversation_members WHERE share_id = ? AND status = 'accepted'", [grant.share_id]);
+    const installed = [];
+    for (const m of accepted) {
+        const out = await installGrantForMember(approved, m).catch(error => ({ error: error.message, installedId: grant.skill_id, mode: 'error' }));
+        installed.push({ username: m.username, tenantId: m.tenant_id, ...out });
+    }
+    return { status: 'approved', requestId: grant.id, skillId: grant.skill_id, skillName: skill.name, installed, grantedCount: installed.filter(x => !x.error).length };
+}
+
+// ── 共享工作区逻辑挂载（安全目录检查 + 实时活跃授权解析） ──
+const SENSITIVE_DOT_DIRS = new Set(['.ssh', '.aws', '.gnupg', '.kube', '.docker', '.npm', '.pypirc']);
+function isShareableWorkspaceRoot(dirPath) {
+    if (!dirPath || typeof dirPath !== 'string') return false;
+    let real;
+    try {
+        real = fs.realpathSync(dirPath);
+        if (!fs.statSync(real).isDirectory()) return false;
+    } catch {
+        return false;
+    }
+    const os = require('os');
+    const home = realOrSelf(os.homedir());
+    const baseData = realOrSelf(tenantContext.BASE_DATA_DIR);
+    const vaultDir = realOrSelf(path.join(baseData, 'vault'));
+    const platformDir = realOrSelf(path.join(baseData, 'platform'));
+    const blockedExact = new Set([
+        path.parse(real).root,
+        '/Users', '/home', '/Volumes', '/etc', '/var', '/usr', '/bin', '/sbin', '/System', '/Library',
+        home, baseData, vaultDir, platformDir, '/Volumes/512G/wechat-local-vault'
+    ].map(p => realOrSelf(p)));
+    if (blockedExact.has(real)) return false;
+    if (inside(vaultDir, real) || inside(platformDir, real) || inside('/Volumes/512G/wechat-local-vault', real)) return false;
+    const segments = real.split(/[\\/]/).filter(Boolean);
+    if (segments.some(seg => SENSITIVE_DOT_DIRS.has(seg))) return false;
+    return true;
+}
+
+async function resolveOriginWorkspaceRoot(share) {
+    if (!share || share.status !== 'active' || Number(share.workspace_shared ?? 1) !== 1) return '';
+    let candidate = String(share.origin_root || '').trim();
+    if (!candidate) {
+        const originSession = await tenantContext.runWithTenant(share.owner_tenant || 'default', () => chatRepo().getSession(share.origin_session_id)).catch(() => null);
+        candidate = String(originSession?.agent_root || '').trim();
+        if (candidate && isShareableWorkspaceRoot(candidate)) {
+            candidate = realOrSelf(candidate);
+            await run('UPDATE shared_conversations SET origin_root = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [candidate, share.id]).catch(() => {});
+        }
+    }
+    return isShareableWorkspaceRoot(candidate) ? realOrSelf(candidate) : '';
+}
+
+async function syncOriginWorkspaceRoot({ tenantId, username, sessionId, root }) {
+    await ensureReady();
+    if (!tenantId || !username || !sessionId || !root) return false;
+    const share = await get('SELECT * FROM shared_conversations WHERE owner_tenant = ? AND owner = ? AND origin_session_id = ? AND status = \'active\'',
+        [tenantId, username, String(sessionId)]);
+    if (!share || !isShareableWorkspaceRoot(root)) return false;
+    const real = realOrSelf(root);
+    if (share.origin_root === real) return true;
+    await run('UPDATE shared_conversations SET origin_root = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [real, share.id]);
+    return true;
+}
+
+async function resolveSharedWorkspace({ tenantId, username, sessionId = '', shareId = '' }) {
+    await ensureReady();
+    if (!username) return null;
+    let share = null;
+    if (shareId) {
+        const member = await get("SELECT * FROM shared_conversation_members WHERE share_id = ? AND username = ? AND tenant_id = ? AND status = 'accepted'",
+            [String(shareId), username, tenantId]);
+        if (!member) return null;
+        share = await getShare(member.share_id);
+    } else if (sessionId) {
+        const member = await memberByLocal(tenantId, username, sessionId);
+        if (!member) return null;
+        share = await getShare(member.share_id);
+    }
+    if (!share || share.status !== 'active' || Number(share.workspace_shared ?? 1) !== 1) return null;
+    const originRoot = await resolveOriginWorkspaceRoot(share);
+    if (!originRoot) return null;
+    const names = await displayNames([share.owner]);
+    const isOwner = share.owner === username && (share.owner_tenant || 'default') === tenantId;
+    return {
+        shareId: share.id,
+        owner: share.owner,
+        ownerTenant: share.owner_tenant || 'default',
+        ownerName: names[share.owner] || share.owner,
+        isOwner,
+        root: originRoot,
+        folderName: path.basename(originRoot) || '共享工作区',
+        writable: true,
+        canRunCommand: isOwner,
+        virtualRoot: `shared-ws://${share.id}`
+    };
+}
+
+async function isSharedWorkspaceActive({ shareId, tenantId, username }) {
+    return Boolean(await resolveSharedWorkspace({ shareId, tenantId, username }));
 }
 
 module.exports = {
-    ensureReady, schedulePush, syncLocal, ensureShare, invite, shareForSession, inbox, respond, joinByLink, listMine, leave, removeMember,
-    onLocalDeleted, accounts, listGroups, saveGroup, deleteGroup, recent, authorOf, linkFor, sharedFilesBase,
+    ensureReady, schedulePush, syncLocal, syncIfShared, ensureShare, invite, shareForSession, inbox, inboxSkillRequests, respond, joinByLink, listMine, leave, removeMember,
+    onLocalDeleted, accounts, listGroups, saveGroup, deleteGroup, recent, authorOf, filesOf, linkFor, sharedFilesBase,
+    sessionCapabilities, grantedSkillMemberships, requestSkillShare, respondSkillRequest,
+    isShareableWorkspaceRoot, syncOriginWorkspaceRoot, resolveSharedWorkspace, isSharedWorkspaceActive,
     _resetCache: () => { linkedCache = null; }
 };

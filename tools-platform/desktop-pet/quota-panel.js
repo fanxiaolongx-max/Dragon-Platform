@@ -76,6 +76,7 @@
         const t=text();document.title=t.title;
         if(peek) {
             const entry=currentEntry(selection),title=selection==='antigravity'&&!english()?'反重力':providers.find(([id])=>id===selection)[1];
+            document.getElementById('quotaPeek').dataset.provider=selection;
             document.getElementById('peekIcon').src=icon(selection);
             setText(document.getElementById('peekTitle'),title);
             setText(document.getElementById('peekPlan'),entry?.membership?.label||'');

@@ -10,6 +10,7 @@ const access = require('../models/agent-workspace-access');
 const prefsRepo = require('../models/agent-workspace-repository');
 const runManager = require('../models/agent-run-manager');
 const guard = require('../models/agent-path-guard');
+const artifacts = require('../models/agent-artifacts');
 const prService = require('../models/agent-pr-service');
 const workspaceChanges = require('../models/agent-workspace-changes');
 const workspaceGit = require('../models/agent-workspace-git');
@@ -39,10 +40,15 @@ router.get('/capability', (req, res) => {
 });
 
 router.use((req, res, next) => {
+    const verdict = access.evaluate(req);
+    if (verdict.reason === 'ORIGIN_MISMATCH') return access.middleware(req, res, next);
     const approvalId = req.method === 'POST' && req.path.match(/^\/approvals\/([^/]+)$/)?.[1];
-    if (approvalId && runManager.isSharedMcpApproval(approvalId, req.user, getTenantId())) {
-        const verdict = access.evaluate(req);
-        if (verdict.reason !== 'ORIGIN_MISMATCH') return next();
+    if (approvalId && (runManager.isSharedMcpApproval(approvalId, req.user, getTenantId()) || runManager.isSharedWorkspaceApproval(approvalId, req.user, getTenantId()))) {
+        return next();
+    }
+    const sharedRootQuery = req.method === 'GET' && /^\/(?:file|changes|state|checkpoints)\/[^/]+$/.test(req.path) && String(req.query?.root || '').startsWith('shared-ws://');
+    if (sharedRootQuery && req.user) {
+        return next();
     }
     return access.middleware(req, res, next);
 });
@@ -436,20 +442,47 @@ router.post('/approvals/:id', (req, res) => {
     }
 });
 
-// 工作目录：内存会话的根目录优先；重启后会话不在内存时用 ?root=（与 /select 同样校验）
-function resolveRoot(req, session, rawRoot) {
+// 工作目录：内存会话的根目录优先；共享远程挂载校验 live 权限（shared-ws://<shareId>）；重启后会话不在内存时用 ?root=
+async function resolveRoot(req, session, rawRoot) {
+    const sharedConversations = require('../models/shared-conversations');
+    if (session?.sharedWorkspace) {
+        const active = await sharedConversations.isSharedWorkspaceActive({
+            shareId: session.sharedWorkspace.shareId,
+            tenantId: getTenantId(),
+            username: req.user?.username || ''
+        });
+        if (!active) {
+            throw Object.assign(new Error('发起者已停止共享该工作目录，或你已不在共享对话中'), { code: 'SHARE_WORKSPACE_REVOKED', statusCode: 403 });
+        }
+        return session.root;
+    }
     if (session) return session.root;
     if (!rawRoot) return '';
-    return guard.normalizeRoot(userPath(req, String(rawRoot), '工作目录'));
+    const text = String(rawRoot).trim();
+    if (text.startsWith('shared-ws://')) {
+        const shareId = text.slice('shared-ws://'.length).split('/')[0];
+        const sw = await sharedConversations.resolveSharedWorkspace({
+            tenantId: getTenantId(),
+            username: req.user?.username || '',
+            shareId
+        });
+        if (!sw?.root) {
+            throw Object.assign(new Error('发起者已停止共享该工作目录，或你已不在共享对话中'), { code: 'SHARE_WORKSPACE_REVOKED', statusCode: 403 });
+        }
+        return sw.root;
+    }
+    return guard.normalizeRoot(userPath(req, text, '工作目录'));
 }
 
 // 「更改」= 智能体本会话的改动（可撤销）+ git 工作区的实际改动（手动 / 外部修改，只能查看）
 router.get('/changes/:agentSessionId', async (req, res) => {
     try {
         let session = runManager.getSession(req.params.agentSessionId, req.user, getTenantId());
-        const root = resolveRoot(req, session, req.query.root);
+        const root = await resolveRoot(req, session, req.query.root);
         // 重启后会话不在内存：按库里的记录恢复，智能体 / 命令的改动仍可查看与撤销
-        if (!session && root) session = await runManager.restoreSession(req.params.agentSessionId, req.user, getTenantId(), root);
+        if (!session && root && !String(req.query.root || '').startsWith('shared-ws://')) {
+            session = await runManager.restoreSession(req.params.agentSessionId, req.user, getTenantId(), root);
+        }
         if (!root) return res.json({ changes: [], diff: null, git: false });
         const collected = await workspaceChanges.collect(root, session ? session.changeLog.summary() : []);
         if (req.query.path) {
@@ -469,11 +502,21 @@ router.get('/changes/:agentSessionId', async (req, res) => {
 const FILE_VIEW_MAX_BYTES = 2 * 1024 * 1024;
 router.get('/file/:agentSessionId', async (req, res) => {
     try {
-        const session = runManager.getSession(req.params.agentSessionId, req.user, getTenantId());
-        const root = resolveRoot(req, session, req.query.root);
-        if (!root) return res.status(400).json({ code: 'AGENT_ROOT_REQUIRED', error: '尚未选择工作目录' });
-        const abs = guard.resolveInsideRoot(root, String(req.query.path || ''));
-        const display = guard.toDisplayPath(root, abs);
+        const rawPath = String(req.query.path || '');
+        const owner = runManager.ownerKey(req.user, getTenantId());
+        const ownedFile = path.isAbsolute(rawPath) && artifacts.ownsFile(owner, rawPath);
+        let abs;
+        let display;
+        if (ownedFile) {
+            abs = path.resolve(rawPath);
+            display = path.basename(abs);
+        } else {
+            const session = runManager.getSession(req.params.agentSessionId, req.user, getTenantId());
+            const root = await resolveRoot(req, session, req.query.root);
+            if (!root) return res.status(400).json({ code: 'AGENT_ROOT_REQUIRED', error: '尚未选择工作目录' });
+            abs = guard.resolveInsideRoot(root, rawPath);
+            display = guard.toDisplayPath(root, abs);
+        }
         guard.assertNotSecretFile(abs);
         const stat = await fsp.stat(abs).catch(() => null);
         if (!stat) return res.status(404).json({ code: 'AGENT_FILE_NOT_FOUND', error: `文件不存在：${display}` });
@@ -493,7 +536,13 @@ router.get('/file/:agentSessionId', async (req, res) => {
 // 恢复对话：上一轮的上下文占用 + 当前的实际改动
 router.get('/state/:agentSessionId', async (req, res) => {
     try {
-        const root = guard.normalizeRoot(userPath(req, String(req.query.root || ''), '工作目录'));
+        const session = runManager.getSession(req.params.agentSessionId, req.user, getTenantId());
+        const root = await resolveRoot(req, session, req.query.root || '');
+        if (!root) return res.status(400).json({ code: 'AGENT_ROOT_REQUIRED', error: '尚未选择工作目录' });
+        if (String(req.query.root || '').startsWith('shared-ws://')) {
+            const collected = await workspaceChanges.collect(root, session ? session.changeLog.summary() : []);
+            return res.json({ context: session?.lastContext || null, turnCount: session?.turnCount || 0, ...collected });
+        }
         const state = await runManager.loadSessionState(req.params.agentSessionId, req.user, getTenantId(), root);
         const collected = await workspaceChanges.collect(root, state.session ? state.session.changeLog.summary() : []);
         res.json({ context: state.context, turnCount: state.turnCount, ...collected });
@@ -514,8 +563,11 @@ router.post('/changes/:agentSessionId/revert', async (req, res) => {
     if (!requireWriter(req, res)) return;
     try {
         let session = runManager.getSession(req.params.agentSessionId, req.user, getTenantId());
+        if (session?.sharedWorkspace || String(req.body?.root || '').startsWith('shared-ws://')) {
+            return res.status(403).json({ code: 'SHARE_WORKSPACE_RESTRICTED', error: '共享远程工作区仅原归属人可执行批量撤销/Git 操作' });
+        }
         if (!session && req.body && req.body.root) {
-            session = await runManager.restoreSession(req.params.agentSessionId, req.user, getTenantId(), resolveRoot(req, null, req.body.root));
+            session = await runManager.restoreSession(req.params.agentSessionId, req.user, getTenantId(), await resolveRoot(req, null, req.body.root));
         }
         if (!session) return res.status(404).json({ code: 'AGENT_SESSION_NOT_FOUND', error: '会话不存在或已过期' });
         if (session.activeRun) return res.status(409).json({ code: 'AGENT_RUN_BUSY', error: '任务进行中，暂不能撤销' });
@@ -531,10 +583,11 @@ router.post('/changes/:agentSessionId/revert', async (req, res) => {
 // 按轮回退：哪些轮次改过文件（对话里的回答据此显示「回退到这一轮之前」），以及执行回退
 router.get('/checkpoints/:agentSessionId', async (req, res) => {
     try {
-        const root = resolveRoot(req, null, String(req.query.root || ''));
+        const sessionObj = runManager.getSession(req.params.agentSessionId, req.user, getTenantId());
+        const root = await resolveRoot(req, sessionObj, String(req.query.root || ''));
         if (!root) return res.json({ runs: [] });
-        const session = runManager.getSession(req.params.agentSessionId, req.user, getTenantId())
-            || await runManager.restoreSession(req.params.agentSessionId, req.user, getTenantId(), root);
+        const session = sessionObj
+            || (String(req.query.root || '').startsWith('shared-ws://') ? null : await runManager.restoreSession(req.params.agentSessionId, req.user, getTenantId(), root));
         if (!session || session.root !== root) return res.json({ runs: [] });
         res.setHeader('Cache-Control', 'no-store');
         res.json({ runs: await require('../models/agent-change-repository').listCheckpointRuns(session.id, session.owner) });
@@ -548,8 +601,11 @@ router.post('/checkpoints/:agentSessionId/rewind', async (req, res) => {
     if (!requireWriter(req, res)) return;
     try {
         let session = runManager.getSession(req.params.agentSessionId, req.user, getTenantId());
+        if (session?.sharedWorkspace || String(req.body?.root || '').startsWith('shared-ws://')) {
+            return res.status(403).json({ code: 'SHARE_WORKSPACE_RESTRICTED', error: '共享远程工作区仅原归属人可执行轮次回退' });
+        }
         if (!session && req.body && req.body.root) {
-            session = await runManager.restoreSession(req.params.agentSessionId, req.user, getTenantId(), resolveRoot(req, null, req.body.root));
+            session = await runManager.restoreSession(req.params.agentSessionId, req.user, getTenantId(), await resolveRoot(req, null, req.body.root));
         }
         if (!session) return res.status(404).json({ code: 'AGENT_SESSION_NOT_FOUND', error: '会话不存在或已过期' });
         const result = await runManager.rewindToBefore(session, String(req.body && req.body.runId || ''));
@@ -582,6 +638,7 @@ router.post('/pr/:agentSessionId', async (req, res) => {
     try {
         session = runManager.getSession(req.params.agentSessionId, req.user, getTenantId());
         if (!session) return res.status(404).json({ code: 'AGENT_SESSION_NOT_FOUND', error: '会话不存在或已过期' });
+        if (session.sharedWorkspace) return res.status(403).json({ code: 'SHARE_WORKSPACE_RESTRICTED', error: '共享远程工作区仅原归属人可创建 PR' });
         const changes = session.changeLog.summary();
         const check = await prService.preflight(session.root, { changes });
         if (!check.ok) return res.status(400).json({ code: `AGENT_PR_${check.reason}`, error: '当前无法创建 PR', preflight: check });

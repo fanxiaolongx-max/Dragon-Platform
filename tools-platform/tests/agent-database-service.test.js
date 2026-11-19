@@ -63,10 +63,19 @@ test('local SQLite reads exclude credentials and views and use parameterized str
     assert.equal(keyValue.rows[0].value, '[REDACTED]', 'omitting key_name from requested columns cannot bypass credential filtering');
     const empty = await service.readTable(ctx, { database: 'local:local.db', table: 'records', filter: { column: 'label', op: 'eq', value: "' OR 1=1 --" } });
     assert.deepEqual(empty.rows, []);
-    for (const args of [{ table: 'disguised' }, { table: 'records; DROP TABLE records' }, { table: 'records', columns: ['api_token'] }, { table: 'records', columns: ['(SELECT password FROM auth_users)'] }]) {
+    for (const args of [{ table: 'disguised' }, { table: 'records; DROP TABLE records' }, { table: 'records', columns: ['api_token'] }, { table: 'records', columns: ['(SELECT password FROM auth_users)'] }, { table: 'records', orderBy: { column: 'api_token', direction: 'desc' } }, { table: 'records', orderBy: { column: 'id', direction: 'desc; DROP TABLE records' } }, { table: 'records', orderBy: 'id' }]) {
         await assert.rejects(service.readTable(ctx, { database: 'local:local.db', ...args }), { code: 'AGENT_DATABASE_FORBIDDEN' });
     }
-    assert.equal((await service.readTable(ctx, { database: 'local:local.db', table: 'records' })).rows.length, 2);
+    const desc = await service.readTable(ctx, { database: 'local:local.db', table: 'records', limit: 1, orderBy: { column: 'id', direction: 'desc' } });
+    assert.equal(desc.rows[0].id, 2);
+    assert.equal(desc.totalRows, 2);
+    assert.equal(desc.returnedRows, 1);
+    assert.equal(desc.hasMore, true);
+    assert.match(desc.note, /nextOffset=1/);
+    const allRecords = await service.readTable(ctx, { database: 'local:local.db', table: 'records' });
+    assert.equal(allRecords.rows.length, 2);
+    assert.equal(allRecords.totalRows, 2);
+    assert.equal(allRecords.hasMore, false);
 });
 
 test('local paths cannot reach outside the workspace or access platform runtime databases', async () => {

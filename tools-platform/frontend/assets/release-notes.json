@@ -1,8 +1,14 @@
 {
   "zh": [
-    "修复页面加载后账号信息晚到（或在同一浏览器切换账号）时，左侧对话列表一直停在加载状态、需要刷新页面的问题。"
+    "共享对话新增工作目录默认共享与隔离协作机制：发起者选定或自动分配的安全工作目录自动逻辑共享给成员（协作成员目录选择器灰显锁定不可切换，文件与上传落盘至发起者工作区 shared-uploads/，禁用直接 run_command 并在需要终端命令时自动派出个人隔离沙箱子智能体执行后回传结果，停止共享实时回收权限）。",
+    "共享对话新增外部技能/工具差异感知与私有 Skill 授权审批流：缺少私有 Skill 时可向归属人发起申请并推送横幅与外部通知，同意后仅导入本对话成员；同 ID 冲突自动兼容别名并平滑衔接后续全员开放。",
+    "修复停止共享对话后列表与轮询状态未能及时清除导致重复弹出提示和停留在共享分类的问题，以及旧对话浏览器 AI 指针协同预览无响应或每次打开历史对话自动重绘的问题。",
+    "优化技能、插件与工具中心及保险箱体验：全员开放状态与筛选仅超管可见，修复圆角搜索框聚焦遮挡文字，修复账号切换时侧栏骨架屏卡顿、HTML 工具鉴权刷新与桌面配额条展示细节。"
   ],
   "en": [
-    "Fixed the conversation list staying on its loading placeholder when account details arrive late after page load or the account is switched in the same browser."
+    "Added automatic workspace sharing and isolated execution for shared conversations: safe originator directories mount logically for collaborators with a locked selector, uploads write into shared-uploads/, direct run_command is blocked in favor of an isolated per-member sandbox_task subagent, and stopping sharing immediately revokes access.",
+    "Added missing Skill/Tool awareness and private Skill approval cards in shared conversations, allowing owners to approve and share private skills scoped only to chat members with alias handling and notifications.",
+    "Fixed stop-sharing leaving chats in the Shared section or repeatedly showing the stopped toast, and fixed HTML swarm canvas replay/trigger behavior on shared and historical messages.",
+    "Restricted shared/unshared badges and filters in Skills/Plugins/Tools hubs to superadmins, fixed rounded search input clipping, and fixed auth-switch sidebar loading, Vault refresh, and desktop quota bar display."
   ]
 }
