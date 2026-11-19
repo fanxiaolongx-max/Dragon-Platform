@@ -186,11 +186,17 @@ html[data-theme="dark"] .shc-avatar{color:hsl(var(--shc-h) 70% 82%);background:h
 .home-chat-item.has-shared-unread .home-chat-title{font-weight:600}
 .home-chat-item.has-shared-unread .home-chat-meta::before{content:'';display:inline-block;width:6px;height:6px;margin-right:6px;border-radius:50%;background:var(--v2-accent,#10a37f);vertical-align:middle}
 .shc-card.is-skill{border-color:color-mix(in srgb,#f59e0b 36%,var(--v2-line,#e7e7ea));background:color-mix(in srgb,#f59e0b 6%,var(--v2-bg,#fff))}
-.shc-cap-bar{position:sticky;top:0;z-index:8;display:flex;flex-wrap:wrap;align-items:center;gap:8px;max-width:min(860px,calc(100% - 24px));margin:0 auto 10px;padding:8px 12px;border:1px solid color-mix(in srgb,#f59e0b 38%,var(--v2-line,#e7e7ea));border-radius:12px;background:color-mix(in srgb,#f59e0b 10%,var(--v2-bg,#fff));backdrop-filter:blur(10px);box-shadow:0 4px 16px rgba(0,0,0,.14);font-size:12px;color:var(--v2-ink2,#4b5563);animation:shcIn .22s ease}
+.shc-cap-bar{flex:none;display:grid;grid-template-rows:0fr;width:min(860px,calc(100% - 24px));max-width:240px;margin:0 auto;border:1px solid color-mix(in srgb,var(--v2-accent,#10a37f) 28%,var(--v2-line,#e7e7ea));border-radius:999px;background:color-mix(in srgb,var(--v2-card,var(--v2-bg,#fff)) 94%,var(--v2-accent,#10a37f) 6%);box-shadow:0 8px 24px rgba(0,0,0,.12);font-size:12px;color:var(--v2-ink2,#4b5563);opacity:0;overflow:hidden;transform-origin:center top;transition:grid-template-rows .34s cubic-bezier(.22,1,.36,1),max-width .36s cubic-bezier(.22,1,.36,1),border-radius .34s cubic-bezier(.22,1,.36,1),opacity .24s ease,margin-top .3s ease}
+.shc-cap-bar.is-open{grid-template-rows:1fr;max-width:min(860px,calc(100% - 24px));margin-top:8px;border-radius:14px;opacity:1}
+.shc-cap-bar.is-closing{grid-template-rows:0fr;max-width:220px;margin-top:0;border-radius:999px;opacity:0;pointer-events:none}
+.shc-cap-inner{min-height:0;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:9px 12px}
+body:not(.dc-chatting) .shc-cap-bar{display:none}
 .shc-cap-title{font-weight:600;color:var(--v2-ink,#1f2328);display:inline-flex;align-items:center;gap:5px}
 .shc-cap-item{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border-radius:999px;border:1px solid var(--v2-line,#e7e7ea);background:var(--v2-bg,#fff)}
 .shc-cap-item code{font-size:11.5px;font-weight:600;color:var(--v2-ink,#1f2328)}
 .shc-cap-note{font-size:11.5px;color:var(--v2-ink3,#8a9099)}
+.shc-cap-close{margin-left:auto;width:24px;height:24px;border:0;border-radius:999px;background:transparent;color:var(--v2-ink3,#8a9099);font-size:15px;line-height:1;cursor:pointer;display:grid;place-items:center;flex:none;transition:background .15s,color .15s}
+.shc-cap-close:hover{background:var(--v2-chip,#f2f2f4);color:var(--v2-ink,#1f2328)}
 @media (prefers-reduced-motion: reduce){.shc-overlay,.shc-dialog,.shc-banner,.shc-card,.shc-row,.shc-pill,.shc-chip,.dc-msg-author,.shc-thread-bar,.shc-cap-bar{animation:none!important;transition:none!important}}
 `;
         document.head.appendChild(style);
@@ -535,16 +541,33 @@ html[data-theme="dark"] .shc-avatar{color:hsl(var(--shc-h) 70% 82%);background:h
         return promptSkillRequest(hit.id, hit);
     }
 
+    const dismissedCapSigs = new Set();
+    function closeCapBar(capBar, sig) {
+        if (!capBar || capBar.classList.contains('is-closing')) return;
+        if (sig) dismissedCapSigs.add(sig);
+        capBar.classList.remove('is-open');
+        capBar.classList.add('is-closing');
+        setTimeout(() => { if (capBar.classList.contains('is-closing')) capBar.remove(); }, reduced() ? 0 : 360);
+    }
+
     function renderCapabilitiesBar(thread, sessionId, detail, bar) {
-        let capBar = thread.querySelector(':scope > .shc-cap-bar');
+        const host = thread.parentElement || thread;
+        let capBar = host.querySelector(':scope > .shc-cap-bar') || thread.querySelector(':scope > .shc-cap-bar');
         const pendingForMe = detail?.pendingSkillRequests || [];
         // 历史缺失能力仅在用户主动触发或调用对应技能时弹窗申请，平时不常驻顶栏打扰；仅归属人有待审批申请时显示审批卡
         if (!pendingForMe.length) { capBar?.remove(); return; }
+        const capSig = JSON.stringify([sessionId, pendingForMe, en()]);
+        if (dismissedCapSigs.has(capSig)) { capBar?.remove(); return; }
         ensureStyle();
+        const created = !capBar;
         if (!capBar) {
             capBar = document.createElement('div');
             capBar.className = 'shc-cap-bar';
             capBar.addEventListener('click', async event => {
+                if (event.target.closest('[data-shc-cap-close]')) {
+                    closeCapBar(capBar, capBar.dataset.sig);
+                    return;
+                }
                 const respBtn = event.target.closest('[data-shc-skill-respond]');
                 if (respBtn) {
                     const card = respBtn.closest('[data-request-id]');
@@ -557,8 +580,8 @@ html[data-theme="dark"] .shc-avatar{color:hsl(var(--shc-h) 70% 82%);background:h
                 }
             });
         }
-        if (bar.nextElementSibling !== capBar) bar.after(capBar);
-        const capSig = JSON.stringify([sessionId, pendingForMe, en()]);
+        if (host === thread) { if (bar.nextElementSibling !== capBar) bar.after(capBar); }
+        else if (capBar.parentElement !== host || capBar.nextElementSibling !== thread) { thread.before(capBar); }
         if (capBar.dataset.sig === capSig) return;
         capBar.dataset.sig = capSig;
         const ownerCards = pendingForMe.map(req => `
@@ -567,7 +590,14 @@ html[data-theme="dark"] .shc-avatar{color:hsl(var(--shc-h) 70% 82%);background:h
                 <button type="button" class="shc-btn primary sm" data-shc-skill-respond="approve">${esc(L('同意并共享', 'Approve'))}</button>
                 <button type="button" class="shc-btn ghost sm" data-shc-skill-respond="reject">${esc(L('拒绝', 'Reject'))}</button>
             </div>`).join('');
-        capBar.innerHTML = `<span class="shc-cap-title">${esc(L('待我审批的技能共享', 'Pending skill approvals'))}</span>${ownerCards}`;
+        capBar.innerHTML = `<div class="shc-cap-inner"><span class="shc-cap-title">${esc(L('待我审批的技能共享', 'Pending skill approvals'))}</span>${ownerCards}<button type="button" class="shc-cap-close" data-shc-cap-close title="${esc(L('收起提示', 'Dismiss'))}" aria-label="${esc(L('收起提示', 'Dismiss'))}">×</button></div>`;
+        if (created) {
+            capBar.classList.remove('is-closing');
+            requestAnimationFrame(() => requestAnimationFrame(() => capBar.classList.add('is-open')));
+        } else {
+            capBar.classList.remove('is-closing');
+            capBar.classList.add('is-open');
+        }
     }
     function renderThreadBar() {
         const thread = document.getElementById('dcThread');
@@ -579,7 +609,7 @@ html[data-theme="dark"] .shc-avatar{color:hsl(var(--shc-h) 70% 82%);background:h
         window.DragonClawWorkspace?.setSharedWorkspace?.(sharedWs);
         let bar = thread.querySelector(':scope > .shc-thread-bar');
         thread.classList.toggle('is-shared-thread', Boolean(share));
-        if (!share) { bar?.remove(); thread.querySelector(':scope > .shc-cap-bar')?.remove(); return; }
+        if (!share) { bar?.remove(); thread.querySelector(':scope > .shc-cap-bar')?.remove(); thread.parentElement?.querySelector(':scope > .shc-cap-bar')?.remove(); return; }
         ensureStyle();
         if (!bar) { bar = document.createElement('div'); bar.className = 'shc-thread-bar'; thread.prepend(bar); bar.addEventListener('click', event => { if (event.target.closest('[data-shc-manage]')) openDialog({ sessionId: currentSession(), title: info(currentSession())?.title }); }); }
         else if (bar !== thread.firstElementChild) thread.prepend(bar);

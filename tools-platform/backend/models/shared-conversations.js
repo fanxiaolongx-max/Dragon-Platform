@@ -773,6 +773,23 @@ async function respond({ tenantId, username, shareId, action }) {
     }
     if (action !== 'accept') {
         await run('UPDATE shared_conversation_members SET status = ?, responded_at = CURRENT_TIMESTAMP WHERE share_id = ? AND username = ?', [action === 'decline' ? 'declined' : 'ignored', share.id, username]);
+        if (action === 'decline' && share.owner && share.owner !== username) {
+            const actorName = (await lookupUsers([username])).get(username)?.displayName || username;
+            await tenantContext.runWithTenant(share.owner_tenant || tenantContext.DEFAULT_TENANT_ID, () =>
+                require('./alert-center-repository').addEvent({
+                    eventType: 'user_action',
+                    severity: 'warn',
+                    title: `${actorName} 拒绝了共享对话邀请`,
+                    message: `${actorName}（${username}）已拒绝加入共享对话「${share.title}」。`,
+                    actor: username,
+                    source: 'shared-conversation',
+                    objectType: 'shared_conversation',
+                    objectId: share.id,
+                    detail: { shareId: share.id, sessionId: share.origin_session_id, title: share.title, action: 'decline', targetUser: share.owner },
+                    aiStatus: 'not_applicable',
+                })
+            ).catch(() => {});
+        }
         return { status: action === 'decline' ? 'declined' : 'ignored' };
     }
     // 接受：在本人当前团队里新建一份本地对话，并拉取全部历史
@@ -1265,6 +1282,23 @@ async function respondSkillRequest({ tenantId = 'default', username, isSuper = f
 
     if (action === 'reject') {
         await run("UPDATE shared_conversation_skill_grants SET status = 'rejected', decided_at = CURRENT_TIMESTAMP WHERE id = ?", [grant.id]);
+        if (grant.requested_by) {
+            const resolverName = (await lookupUsers([username])).get(username)?.displayName || username;
+            await tenantContext.runWithTenant(grant.requested_tenant || tenantContext.DEFAULT_TENANT_ID, () =>
+                require('./alert-center-repository').addEvent({
+                    eventType: 'user_action',
+                    severity: 'warn',
+                    title: `技能「${grant.skill_name || grant.skill_id}」授权申请未通过`,
+                    message: `${resolverName} 暂未同意在共享对话「${share.title}」中使用技能 @${grant.skill_id}。`,
+                    actor: username,
+                    source: 'shared-conversation',
+                    objectType: 'shared_skill_request',
+                    objectId: grant.id,
+                    detail: { shareId: share.id, sessionId: share.origin_session_id, skillId: grant.skill_id, action: 'reject', targetUser: grant.requested_by },
+                    aiStatus: 'not_applicable',
+                })
+            ).catch(() => {});
+        }
         return { status: 'rejected', requestId: grant.id, skillId: grant.skill_id };
     }
 
