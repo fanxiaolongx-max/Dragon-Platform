@@ -48,6 +48,8 @@ Codex 优先采用额度结果中的 `planType`，缺失时使用同一次 `acco
 
 使用 Claude 桌面版当前版本同样使用的 `https://api.anthropic.com/api/oauth/usage`，读取 `five_hour`、`seven_day`、按模型区分的每周窗口。这是客户端使用的接口，未来可能变化；失败时保留清晰的状态提示。采集器不刷新 OAuth、不重新登录、不修改 Claude 的配置或会话。
 
+macOS 上，接口限流、临时失败或无法获取会话凭据时，可使用 Claude Desktop 已打开的 Code 窗口中的「用量」弹层。该方式复用平台已有的辅助功能权限。Claude 在后台时，可通过辅助功能打开并关闭用量弹层，保持当前窗口和鼠标不动；Claude 在前台时仅读取用户已打开的弹层。接口返回 HTTP 429 后暂停直接查询 10 分钟，期间仍按原频率读取桌面额度。桌面弹层显示的用量比例和可识别的重置时间会进入同一额度历史。
+
 ### Antigravity
 
 发现本机 `language_server` 进程和实际监听端口，通过其 loopback HTTPS Connect 接口 `RetrieveUserQuotaSummary` 读取账户组和窗口。支持 macOS 的 `ps/lsof`、Windows 的 CIM/Get-NetTCPConnection，不再依赖固定日志文件名。自签名证书例外仅限固定的 `127.0.0.1` 地址。

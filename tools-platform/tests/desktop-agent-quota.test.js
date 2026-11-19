@@ -12,7 +12,10 @@ test('quota is only readable after connecting the desktop agents', async () => {
 
 test('returns only enabled providers, without credentials or extra fields', async () => {
     await host.save('alice', { enabled: true, providers: { claudecode: false } });
-    const data = await quota.read('alice', { detect: async () => all });
+    const data = await quota.read('alice', { detect: async (_force, providers) => {
+        assert.deepEqual(providers, ['codex', 'antigravity']);
+        return all;
+    } });
     assert.deepEqual(data.providers, ['codex', 'antigravity']);
     assert.deepEqual(Object.keys(data.quotas), ['codex', 'antigravity']);
     assert.equal(data.quotas.codex.groups[0].windows[0].remainingPercent, 80);

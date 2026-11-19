@@ -4,6 +4,8 @@ const os = require('os');
 const path = require('path');
 const { run, requestJson, windowQuota, snapshot, unavailable, membership } = require('./quota-common');
 const { readDesktopClaudeCredential } = require('./claude-desktop-quota');
+const { panelUsageData } = require('./claude-usage-panel');
+const DESKTOP_RATE_LIMIT_PAUSE_MS = 10 * 60 * 1000;
 
 function parseClaudeQuota(data, subscriptionType = null) {
     const windows = [];
@@ -49,12 +51,32 @@ function claudeCommand(home) {
     const file = path.join(home,'.local','bin',process.platform === 'win32' ? 'claude.exe' : 'claude');
     return fs.existsSync(file) ? file : 'claude';
 }
+async function readPanel(read, subscriptionType, now) {
+    try {
+        const data = panelUsageData(await read(), now());
+        const quota = parseClaudeQuota(data, data.subscription_type || subscriptionType);
+        if (!quota.active) return null;
+        quota.source = 'desktop-panel';
+        quota.groups[0].label = 'Claude Code Desktop';
+        return quota;
+    } catch (_) {
+        return null;
+    }
+}
 async function readClaudeQuota(options = {}) {
     const home = options.home || os.homedir(), platform = options.platform || process.platform;
     const execute = options.run || run, request = options.requestJson || requestJson;
+    const now = options.now || Date.now, retry = options.retry || {};
     const configDir = options.configDir || process.env.CLAUDE_CONFIG_DIR || path.join(home,'.claude');
     const desktop = await (options.readDesktop || readDesktopClaudeCredential)({home,platform,run:execute});
+    const panel = platform === 'darwin' && (desktop.token || desktop.status === 'desktop_session_required')
+        ? () => readPanel(options.readUsagePanel || require('../backend/models/desktop-agents/claude-desktop').readUsagePanel, desktop.subscriptionType, now)
+        : async () => null;
+    if (desktop.status === 'desktop_session_required')
+        return await panel() || unavailable('claudecode', desktop.status);
     if (!desktop.token && desktop.status !== 'not_installed') return unavailable('claudecode',desktop.status);
+    if (desktop.token && now() < retry.desktopAfter)
+        return await panel() || unavailable('claudecode', 'rate_limited');
     let auth = null;
     if (!desktop.token) {
         try { auth = JSON.parse(await execute(claudeCommand(home),['auth','status','--json'])); } catch (_) {}
@@ -87,11 +109,15 @@ async function readClaudeQuota(options = {}) {
             headers:{Authorization:'Bearer '+token,'anthropic-beta':'oauth-2025-04-20'}
         });
         const quota = parseClaudeQuota(result, subscriptionType);
+        if (!quota.active) return await panel() || quota;
         quota.source = desktop.token ? 'desktop' : 'cli';
         quota.groups.forEach(group => { group.label = desktop.token ? 'Claude Code Desktop' : 'Claude Code CLI'; });
         return quota;
     } catch (error) {
-        return unavailable('claudecode',[401,403].includes(error.statusCode) ? 'auth_required' : error.statusCode === 429 ? 'rate_limited' : 'unavailable');
+        if ([401,403].includes(error.statusCode)) return unavailable('claudecode', 'auth_required');
+        const limited = error.statusCode === 429;
+        if (limited && desktop.token && platform === 'darwin') retry.desktopAfter = now() + DESKTOP_RATE_LIMIT_PAUSE_MS;
+        return await panel() || unavailable('claudecode', limited ? 'rate_limited' : 'unavailable');
     }
 }
 module.exports = { readClaudeQuota, parseClaudeQuota };

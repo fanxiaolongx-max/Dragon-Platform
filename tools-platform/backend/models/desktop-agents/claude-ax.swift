@@ -53,14 +53,14 @@ func mainWindow(_ app: NSRunningApplication, title: String? = nil) -> AXUIElemen
 }
 
 // Depth-first walk collecting the roles the Node side understands, in screen order.
-func collect(_ window: AXUIElement, includeText: Bool = false) -> [(AXUIElement, [String: Any])] {
+func collect(_ window: AXUIElement, includeText: Bool = false, roles: Set<String> = keptRoles) -> [(AXUIElement, [String: Any])] {
     var out: [(AXUIElement, [String: Any])] = []
     var stack: [AXUIElement] = [window]
     var visited = 0
     while let element = stack.popLast(), visited < 20000 {
         visited += 1
         let role = text(element, kAXRoleAttribute)
-        if keptRoles.contains(role) || includeText {
+        if roles.contains(role) || includeText {
             var item: [String: Any] = ["role": role, "title": text(element, kAXTitleAttribute), "desc": text(element, kAXDescriptionAttribute)]
             if role == "AXTextArea" || role == "AXRadioButton" || role == "AXStaticText" { item["value"] = String(text(element, kAXValueAttribute).prefix(20000)) }
             if let enabled = attr(element, kAXEnabledAttribute) as? Bool { item["enabled"] = enabled }
@@ -199,11 +199,127 @@ func sessionChoice(_ window: AXUIElement) -> (String, [(AXUIElement, String)])? 
     return nil
 }
 
+// The quota popover accepts AXPress in the background. Never use the sending
+// helpers here: they raise windows and inject global input.
+func usagePanel() -> [String: Any] {
+    guard bundleId == "com.anthropic.claudefordesktop", AXIsProcessTrusted(), let app = claudeApp() else { return [:] }
+    let root = AXUIElementCreateApplication(app.processIdentifier)
+    AXUIElementSetAttributeValue(root, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+    AXUIElementSetMessagingTimeout(root, 1)
+    let originalFront = frontmostId()
+    let usageLabels: Set<String> = ["用量", "Usage"]
+    func contents(_ node: AXUIElement) -> [(AXUIElement, [String: Any])] { collect(node, includeText: true) }
+    func controls(_ window: AXUIElement) -> [(AXUIElement, [String: Any])] {
+        collect(window, roles: ["AXButton", "AXPopUpButton", "AXLink"])
+    }
+    func parent(_ node: AXUIElement) -> AXUIElement? {
+        guard let value = attr(node, kAXParentAttribute), CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
+        return (value as! AXUIElement)
+    }
+    func currentWindow() -> AXUIElement? {
+        if let main = attr(root, kAXMainWindowAttribute) { return (main as! AXUIElement) }
+        let windows = (attr(root, kAXWindowsAttribute) as? [AXUIElement]) ?? []
+        return windows.count == 1 ? windows.first : nil
+    }
+    func usageButton(in items: [(AXUIElement, [String: Any])]) -> AXUIElement? {
+        let buttons = items.filter { _, item in
+            guard ["AXPopUpButton", "AXButton"].contains(item["role"] as? String ?? ""), item["enabled"] as? Bool != false else { return false }
+            let title = label(item)
+            return usageLabels.contains(title) || title.hasPrefix("用量：") || title.hasPrefix("用量:") || title.hasPrefix("Usage:")
+        }
+        return buttons.count == 1 ? buttons[0].0 : nil
+    }
+    func panel(in items: [(AXUIElement, [String: Any])]) -> AXUIElement? {
+        let links = items.filter { node, item in
+            guard item["role"] as? String == "AXLink", let url = attr(node, "AXURL") as? URL else { return false }
+            return url.scheme == "https" && url.host == "claude.ai" && url.path == "/settings/usage"
+        }
+        guard links.count == 1 else { return nil }
+        var node = links[0].0
+        for _ in 0..<4 {
+            guard let next = parent(node) else { return nil }
+            if text(next, kAXRoleAttribute) == "AXGroup",
+               usageLabels.contains(text(next, kAXTitleAttribute)) || usageLabels.contains(text(next, kAXDescriptionAttribute)) { return next }
+            node = next
+        }
+        return nil
+    }
+    func measurement(_ panel: AXUIElement) -> [String: Any] {
+        let items = contents(panel)
+        let labels: [String: String] = [
+            "5 小时限额": "five_hour", "5-hour limit": "five_hour", "5-hour session limit": "five_hour", "Current session": "five_hour",
+            "每周 · 所有模型": "seven_day", "Weekly · All models": "seven_day",
+            "每周 · Opus": "seven_day_opus", "Weekly · Opus": "seven_day_opus",
+            "每周 · Sonnet": "seven_day_sonnet", "Weekly · Sonnet": "seven_day_sonnet",
+            "用量额度": "extra_usage", "Usage credits": "extra_usage", "Extra usage": "extra_usage"
+        ]
+        let plans: Set<String> = ["Free", "Pro", "Max", "Ultra", "Team", "Business", "Enterprise"]
+        var result: [String: Any] = [:]
+        var readings: [String: [[String: Any]]] = [:]
+        var rowText: [String] = []
+        for (node, item) in items {
+            let role = item["role"] as? String
+            if role == "AXStaticText" { rowText.append(label(item)) }
+            guard role == "AXLevelIndicator" else { continue }
+            // Chromium exposes labels, details, and meters as siblings in read order.
+            let cells = rowText
+            rowText.removeAll()
+            let title = label(item)
+            guard let id = labels[title], let value = attr(node, kAXValueAttribute) as? NSNumber,
+                  value.doubleValue.isFinite, value.doubleValue >= 0, value.doubleValue <= 100 || id == "extra_usage" else { continue }
+            var reading: [String: Any] = ["usedPercent": value]
+            if let labelIndex = cells.lastIndex(of: title) {
+                let details = cells.suffix(from: labelIndex + 1).filter { value in
+                    if id == "extra_usage" { return value.contains("已用") || value.contains(" used") || value.hasPrefix("Used ") }
+                    return value.contains("重置") || value.lowercased().hasPrefix("resets ")
+                }
+                if details.count == 1 { reading["detail"] = details[0] }
+            }
+            readings[id, default: []].append(reading)
+        }
+        result["readings"] = readings.compactMapValues { $0.count == 1 ? $0[0] : nil }
+        let planLabels = Set(items.compactMap { _, item -> String? in
+            let value = label(item)
+            return item["role"] as? String == "AXStaticText" && plans.contains(value) ? value : nil
+        })
+        if planLabels.count == 1 { result["plan"] = planLabels.first }
+        return result
+    }
+    guard let window = currentWindow(), attr(window, kAXMinimizedAttribute) as? Bool != true else { return [:] }
+    for _ in 0..<12 {
+        let items = controls(window)
+        if let visible = panel(in: items) { return measurement(visible) }
+        if let button = usageButton(in: items) {
+            guard originalFront != bundleId, frontmostId() == originalFront,
+                  attr(button, "AXExpanded") as? Bool == false,
+                  AXUIElementPerformAction(button, kAXPressAction as CFString) == .success else { return [:] }
+            defer {
+                // Leave an already-open panel alone, and yield if the user switched to Claude.
+                if frontmostId() != bundleId, attr(button, "AXExpanded") as? Bool == true {
+                    AXUIElementPerformAction(button, kAXPressAction as CFString)
+                }
+            }
+            for _ in 0..<12 {
+                pause(0.1)
+                if let opened = panel(in: controls(window)) {
+                    let data = measurement(opened)
+                    if let readings = data["readings"] as? [String: Any], !readings.isEmpty { return data }
+                }
+            }
+            return [:]
+        }
+        pause(0.1)
+    }
+    return [:]
+}
+
 let args = CommandLine.arguments
 let command = args.count > 1 ? args[1] : "snapshot"
 let argument: [String: Any] = args.count > 2 ? ((try? JSONSerialization.jsonObject(with: Data(args[2].utf8))) as? [String: Any] ?? [:]) : [:]
 
 switch command {
+case "usage":
+    emit(["ok": true, "usage": usagePanel()])
 case "models", "set-model":
     let expected = argument["windowTitle"] as? String
     let (_, window, previous) = prepareWindow(targetTitle: expected)

@@ -197,10 +197,56 @@ test('Windows desktop cache decryption rejects expired, other-account and other-
     assert.equal(selectDesktopEntry(entries,'33333333-3333-3333-3333-333333333333'),null);
 });
 test('desktop sign-in is not overwritten by CLI mode; CLI OAuth still works without Desktop',async()=>{
-    const locked=await readClaudeQuota({readDesktop:async()=>({status:'desktop_session_required'}),run:async()=>JSON.stringify({authMethod:'api_key'})});assert.equal(locked.status,'desktop_session_required');
+    const locked=await readClaudeQuota({readDesktop:async()=>({status:'desktop_session_required'}),readUsagePanel:async()=>null,run:async()=>JSON.stringify({authMethod:'api_key'})});assert.equal(locked.status,'desktop_session_required');
     const api=await readClaudeQuota({readDesktop:async()=>({status:'not_installed'}),run:async()=>JSON.stringify({authMethod:'api_key'})});assert.equal(api.status,'api_key');
     const q=await readClaudeQuota({readDesktop:async()=>({status:'not_installed'}),token:'cli-token',run:async()=>JSON.stringify({loggedIn:true,authMethod:'oauth'}),requestJson:async()=>({five_hour:{utilization:10}})});
     assert.equal(q.source,'cli');assert.equal(q.groups[0].windows[0].remainingPercent,90);
+});
+test('Claude Desktop quota falls back to its background panel and pauses OAuth after 429', async () => {
+    let now = new Date(2026, 10, 19, 0, 20).getTime();
+    let requests = 0;
+    const sample = {
+        plan: 'Pro',
+        readings: {
+            five_hour: { usedPercent: 6, detail: '5:10 重置' },
+            seven_day: { usedPercent: 83, detail: '周日09:00 重置' },
+            seven_day_sonnet: { usedPercent: 100, detail: 'Resets Sunday at 9:00 AM' },
+            seven_day_opus: { usedPercent: 101 },
+            extra_usage: { usedPercent: 87.95, detail: '已用 US$105.54，共 US$120.00' }
+        }
+    };
+    const options = {
+        platform: 'darwin', now: () => now, retry: {},
+        readDesktop: async () => ({ token: 'desktop-token', status: 'ready' }),
+        readUsagePanel: async () => sample,
+        requestJson: async () => {
+            if (++requests === 1) throw Object.assign(new Error('limited'), { statusCode: 429 });
+            return { five_hour: { utilization: 20 } };
+        }
+    };
+    const fallback = await readClaudeQuota(options);
+    assert.equal(fallback.source, 'desktop-panel');
+    assert.equal(fallback.membership.label, 'Pro');
+    assert.deepEqual(fallback.groups[0].windows.map(w => [w.id, w.remainingPercent, w.resetsAt]), [
+        ['5h', 94, new Date(2026, 10, 19, 5, 10).toISOString()],
+        ['weekly', 17, new Date(2026, 10, 22, 9).toISOString()],
+        ['seven_day_sonnet', 0, new Date(2026, 10, 22, 9).toISOString()]
+    ]);
+    assert.equal(fallback.extraUsage.used, 105.54);
+    assert.equal(fallback.extraUsage.limit, 120);
+    assert.doesNotMatch(JSON.stringify(fallback), /desktop-token|已用|重置/);
+    assert.equal((await readClaudeQuota({ ...options, readUsagePanel: async () => { throw new Error('no panel'); } })).status, 'rate_limited');
+    assert.equal(requests, 1);
+    now += 10 * 60000;
+    assert.equal((await readClaudeQuota(options)).source, 'desktop');
+    assert.equal(requests, 2);
+    const noChild = await readClaudeQuota({ ...options, readDesktop: async () => ({ status: 'desktop_session_required' }) });
+    assert.equal(noChild.source, 'desktop-panel');
+    const windows = await readClaudeQuota({ ...options, platform: 'win32', readDesktop: async () => ({ status: 'desktop_session_required' }) });
+    assert.equal(windows.status, 'desktop_session_required');
+    const expired = await readClaudeQuota({ ...options, now: () => new Date(2026, 10, 19, 5, 11).getTime(),
+        readDesktop: async () => ({ status: 'desktop_session_required' }) });
+    assert.equal(expired.groups[0].windows[0].resetsAt, null);
 });
 test('quota presentation separates sources, handles missing weekly values and escapes labels as text',()=>{
     const quotas={codex:parseCodexQuota(codexData()),antigravity:parseAntigravityQuota(agData()),claudecode:parseClaudeQuota({five_hour:{utilization:6}})};
@@ -271,6 +317,7 @@ test('an unavailable Desktop account cannot fall back to an unrelated CLI OAuth 
     for (const status of ['desktop_session_required', 'signed_out']) {
         const quota = await readClaudeQuota({
             readDesktop: async () => ({ status }), token: 'other-cli-token',
+            readUsagePanel: async () => null,
             run: async () => assert.fail('Desktop account must be resolved first'),
             requestJson: async () => assert.fail('An unrelated account must not be queried')
         });

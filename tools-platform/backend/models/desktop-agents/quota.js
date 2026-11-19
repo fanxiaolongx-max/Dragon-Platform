@@ -31,7 +31,7 @@ async function read(owner, { force = false, detect = detector.detectAllQuotas } 
     const providers = PROVIDERS.filter(id => cfg.providers[id]);
     if (force && Date.now() - lastForce < FORCE_GAP_MS) force = false;
     if (force) lastForce = Date.now();
-    const all = providers.length ? await detect(force) : {};
+    const all = providers.length ? await detect(force, providers) : {};
     if (providers.length) await history.record(owner, DEVICE, Object.fromEntries(providers.map(id => [id, all[id]]))).catch(() => {});
     return { providers, quotas: Object.fromEntries(providers.map(id => [id, publicQuota(all[id])])), checkedAt: Date.now() };
 }

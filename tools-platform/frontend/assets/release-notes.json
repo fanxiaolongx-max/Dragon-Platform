@@ -1,8 +1,10 @@
 {
   "zh": [
-    "新增「共享对话」：在左侧对话上右键选择「共享…」，可按账号名、姓名或拼音搜索并勾选成员，也能用常用群组与最近共享的智能推荐一键选人，底部生成可复制的共享链接；被邀请者登录后收到横幅通知，错过的可在左下角消息中心接受、拒绝或忽略。接受后对话出现在侧栏最上方可折叠的「共享对话」分类里，大家的消息实时同步并标注发送账号。只共享对话上下文（含历史附件与图片），之后的提问、文件与命令都在各自账号下执行。"
+    "新增「共享对话」：在左侧对话上右键选择「共享…」，可按账号名、姓名或拼音搜索并勾选成员，也能用常用群组与最近共享的智能推荐一键选人，底部生成可复制的共享链接；被邀请者登录后收到横幅通知，错过的可在左下角消息中心接受、拒绝或忽略。接受后对话出现在侧栏最上方可折叠的「共享对话」分类里，大家的消息实时同步并标注发送账号。只共享对话上下文（含历史附件与图片），之后的提问、文件与命令都在各自账号下执行。",
+    "桌宠与对话额度监控新增 macOS Claude 桌面版「用量」弹层兜底读取：当接口限流（HTTP 429）、临时失败或无法获取会话凭据时，自动复用辅助功能权限读取当前桌面版用量比例、重置时间与订阅等级，并在限流后暂停直连查询 10 分钟。"
   ],
   "en": [
-    "New shared conversations: right-click a conversation and choose “Share…” to pick people by account, name or pinyin, reuse saved groups and recent suggestions, or copy a share link. Invitees get a banner after signing in and can accept, decline or ignore later from the message center. Accepted conversations appear in a collapsible “Shared” section at the top of the sidebar, with messages synced in real time and labelled by account. Only the conversation context (including earlier attachments and images) is shared; new questions, files and commands always run under each person’s own account."
+    "New shared conversations: right-click a conversation and choose “Share…” to pick people by account, name or pinyin, reuse saved groups and recent suggestions, or copy a share link. Invitees get a banner after signing in and can accept, decline or ignore later from the message center. Accepted conversations appear in a collapsible “Shared” section at the top of the sidebar, with messages synced in real time and labelled by account. Only the conversation context (including earlier attachments and images) is shared; new questions, files and commands always run under each person’s own account.",
+    "Added macOS Claude Desktop Usage popover fallback for desktop pet and chat quota monitoring: when the usage endpoint hits HTTP 429, temporarily fails, or lacks session credentials, it reuses Accessibility permission to read usage percentages, reset times, and plan tier, and pauses direct API polling for 10 minutes after rate limiting."
   ]
 }

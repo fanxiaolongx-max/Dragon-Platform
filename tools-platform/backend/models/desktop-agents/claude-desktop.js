@@ -201,4 +201,5 @@ async function attempt(row, text, d, wait, focus, model) {
     }
 }
 const models = async () => (await driver.models()).models;
-module.exports = { models, status, send, parse, rowFor, driver, helper, interaction, choose, sameModel };
+const readUsagePanel = async () => (await run('usage')).usage;
+module.exports = { models, status, send, parse, rowFor, driver, helper, interaction, choose, sameModel, readUsagePanel };
