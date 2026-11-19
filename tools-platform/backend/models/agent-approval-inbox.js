@@ -17,6 +17,7 @@ const RESOLVED_KEEP_MS = 30 * 60 * 1000;
 const entries = new Map();   // approvalId → entry
 const resolved = new Map();  // approvalId → { code, title, decision, via, at, tenantId, targets }
 const lastPush = new Map();  // `${tenantId}\n${username}` → { at, ok, error, channel }
+const pendingSchedules = new Set(); // 进行中的异步推送调度，供测试收尾等待落盘完成
 
 const APPROVE_RE = /^(?:批准|允许|同意|通过|确认|approve|allow|yes|ok)\s*[：:#]?\s*(\d{4})\s*[。.!！]?$/i;
 const DENY_RE = /^(?:拒绝|驳回|不同意|不允许|deny|reject|no)\s*[：:#]?\s*(\d{4})\s*[。.!！]?$/i;
@@ -152,7 +153,9 @@ function add({ id, owner, chatSessionId = '', tool, args, settle, expiresInMs })
         pushed: null, timer: null
     };
     entries.set(id, entry);
-    schedulePush(entry).catch(error => console.warn('[inbox] schedule failed:', error.message || error));
+    const task = schedulePush(entry).catch(error => console.warn('[inbox] schedule failed:', error.message || error));
+    pendingSchedules.add(task);
+    task.finally(() => pendingSchedules.delete(task));
 }
 
 /** 审批已结算（任何来源：网页、频道回复、超时、中止） */
@@ -230,8 +233,11 @@ async function pushEntry(entry, settings) {
 }
 
 async function schedulePush(entry) {
+    // 若同微任务内已完成审批（例如测试或秒批），无需打开数据库读设置
+    await Promise.resolve();
+    if (!entries.has(entry.id)) return;
     const settings = await getSettings(entry.username);
-    if (!settings.enabled || !settings.targets.length) return;
+    if (!entries.has(entry.id) || !settings.enabled || !settings.targets.length) return;
     entry.timer = setTimeout(() => {
         if (!entries.has(entry.id)) return;
         runWithTenant(entry.tenantId, async () => {
@@ -300,9 +306,13 @@ function handleReply({ channel, conversation, actor = '', text }) {
         : `🚫 已拒绝「${entry.label}」，操作不会执行。`;
 }
 
+async function flushPending() {
+    while (pendingSchedules.size) await Promise.allSettled([...pendingSchedules]);
+}
+
 module.exports = {
     CHANNELS, CHANNEL_LABELS, DELAYS,
-    add, remove, list, handleReply,
+    add, remove, list, handleReply, flushPending,
     getSettings, saveSettings, listChannels, channelStatus, sendTest, lastPushOf,
     _internal: { entries, resolved, normalizeSettings, messageText, APPROVE_RE, DENY_RE }
 };

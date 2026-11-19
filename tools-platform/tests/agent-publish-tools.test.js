@@ -17,6 +17,7 @@ const channels = require('../backend/models/channels');
 const welinkConfig = require('../backend/models/channels/welink-config-repository');
 const tenantPool = require('../backend/models/tenant-sqlite-pool');
 const appDb = require('../backend/models/app-db');
+const approvalInbox = require('../backend/models/agent-approval-inbox');
 
 const superAdmin = { username: 'boss', role: 'admin', isSuper: true };
 const teamAdmin = { username: 'lead', role: 'admin' };
@@ -24,9 +25,10 @@ const member = { username: 'amy', role: 'user' };
 const HTML = '<!doctype html><html><head><title>t</title></head><body><h1>百分比计算器</h1></body></html>';
 
 test.after(async () => {
+    await approvalInbox.flushPending();
     await tenantPool.closeAll();
     await appDb.closeDatabase();
-    fs.rmSync(sandbox, { recursive: true, force: true });
+    fs.rmSync(sandbox, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
 });
 
 test('chat toolsets include the publish tools for writable chats only', async () => {

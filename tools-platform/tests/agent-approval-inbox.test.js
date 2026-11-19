@@ -27,10 +27,11 @@ test.before(() => {
 });
 
 test.after(async () => {
+    await inbox.flushPending();
     channels.getStatus = realStatus;
     channels.push = realPush;
     await appDb.closeDatabase();
-    fs.rmSync(sandbox, { recursive: true, force: true });
+    fs.rmSync(sandbox, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
 });
 
 const tenant = fn => runWithTenant(DEFAULT_TENANT_ID, fn);
