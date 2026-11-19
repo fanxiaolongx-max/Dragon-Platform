@@ -1,14 +1,12 @@
 {
   "zh": [
-    "共享对话支持停止共享收回模式与按需技能申请：发起者停止共享或移除成员时自动收回并清理非发起者副本及共享附件（同步清理存量残留副本）；共享历史里缺失的私有技能改为仅在主动触发或调用时才弹窗申请授权，平时不再常驻顶栏打扰。",
-    "优化默认指标检索范围与多数据源引导：未明确指定表名时默认通过卡片先提供 2 个最常用入口 +「其他业务表（按常用顺序选择）」，点击「其他」后再按高频使用顺序引导选表；同时为数据库与表名标注中文用途与行数详情，避免全库盲扫几百张表。",
-    "受限及非超管账号在对话中选择工作区目录时，统一以相对工作区根目录的 ~ 路径展示，不再暴露宿主机完整路径。",
-    "移动端（iOS / Android）支持在侧栏长按拖拽调整置顶对话顺序。"
+    "共享对话删除体验与一致性优化：非发起者删除对话自动退出共享并同步移除侧栏共享条目（不影响发起者）；发起者删除原对话时确认并收回成员共享副本。",
+    "修复模型按小写表名查询 ReportSnapshots / ReportMetricData 时因大小写敏感导致的报错，数据库工具现支持按实际表名大小写无关解析。",
+    "优化 tool_search 对「所有可用工具」等总览查询及无匹配关键词的处理，改为直接返回已挂载与按需工具目录摘要，不再误标红报错。"
   ],
   "en": [
-    "Shared conversations now revoke and purge non-owner local copies and shared attachments when sharing stops or members are removed (including legacy stopped shares), and only prompt to request missing private skills on demand when actually triggered or used.",
-    "Focused default metric/data lookup scope: instead of scanning hundreds of tables, present a 2-option + \"Other tables (ordered by common usage)\" picker card that guides users through prioritized business tables in a follow-up step, paired with database/table purpose labels and row counts.",
-    "Display workspace directory paths relative to each user's workspace root (~) instead of full host paths for confined and non-superadmin accounts in the local folder picker.",
-    "Added drag-to-reorder support for pinned conversations in the mobile sidebar (iOS & Android)."
+    "Aligned shared conversation deletion semantics: non-owner deletion cleanly leaves the share and removes the sidebar entry immediately, while owner deletion closes sharing and revokes member copies.",
+    "Resolved case-insensitive SQLite table names (such as ReportSnapshots / ReportMetricData) in database tools and updated default prompt references to avoid spurious schema errors.",
+    "Improved tool_search handling for catalog overview queries and zero-hit keyword searches so they return available tool summaries without false red error indicators."
   ]
 }
