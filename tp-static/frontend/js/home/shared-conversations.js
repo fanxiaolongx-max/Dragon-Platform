@@ -14,6 +14,8 @@
     const toast = message => (window.showToast ? window.showToast(message) : console.info(message));
     const me = () => { try { return localStorage.getItem('tools_user') || ''; } catch { return ''; } };
     const reduced = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    // 应用挂在网关子路径下时（数字人基座版 window.DH_BASE）：共享链接带上子路径；桌面版为空
+    const appBase = () => String(window.DH_BASE || '').replace(/\/+$/, '');
 
     // 链接 /?share=<token>：先记下来（没登录时会被带去登录页），登录回到首页后再加入
     try {
@@ -498,7 +500,7 @@ html[data-theme="dark"] .shc-avatar{color:hsl(var(--shc-h) 70% 82%);background:h
         renderMembers(d);
         const link = d.overlay.querySelector('.shc-link input');
         const copy = d.overlay.querySelector('[data-shc-copy]');
-        if (d.share?.link) { link.value = new URL(d.share.link, location.origin).href; copy.disabled = false; }
+        if (d.share?.link) { link.value = new URL(appBase() + d.share.link, location.origin).href; copy.disabled = false; }
         const leave = d.overlay.querySelector('.shc-leave');
         const joined = d.share?.members?.filter(member => member.username !== me() && ['accepted', 'pending'].includes(member.status)).length;
         leave.innerHTML = d.share && (joined || !d.share.isOwner) ? `<button type="button" class="shc-btn danger sm" data-shc-leave>${esc(d.share.isOwner ? L('停止共享', 'Stop sharing') : L('退出共享', 'Leave'))}</button>` : '';
@@ -694,7 +696,7 @@ html[data-theme="dark"] .shc-avatar{color:hsl(var(--shc-h) 70% 82%);background:h
         if (!d.selected.size || d.busy) return;
         d.busy = true; updateSend(d);
         try {
-            const result = await api('POST', `/session/${encodeURIComponent(d.sessionId)}/invite`, { title: d.title, usernames: [...d.selected.keys()], groupIds: [...(d.groupIds || [])] });
+            const result = await api('POST', `/session/${encodeURIComponent(d.sessionId)}/invite`, { title: d.title, usernames: [...d.selected.keys()], groupIds: [...(d.groupIds || [])], linkBase: location.origin + appBase() });
             const names = result.invited.map(name => accountOf(name)?.name || name);
             toast(names.length ? L(`已邀请 ${names.slice(0, 3).join('、')}${names.length > 3 ? ` 等 ${names.length} 人` : ''}，对方登录后会收到通知`, `Invited ${names.length} people`) : L('所选成员都已在共享中', 'Everyone selected is already in this conversation'));
             d.share = result.share;

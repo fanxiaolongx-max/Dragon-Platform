@@ -1966,34 +1966,168 @@ function isNavSuperAdmin() {
 }
 if (typeof window !== 'undefined') window.isNavSuperAdmin = isNavSuperAdmin;
 
+function ensureViewingTeamBannerStyle() {
+    if (document.getElementById('navViewingTeamBannerStyle')) return;
+    const style = document.createElement('style');
+    style.id = 'navViewingTeamBannerStyle';
+    style.textContent = `
+        #navViewingTeamBanner {
+            position: fixed;
+            left: 50%;
+            bottom: 16px;
+            transform: translateX(-50%);
+            z-index: 10050;
+            height: 40px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 8px 0 14px;
+            border-radius: 999px;
+            background: #7c2d12;
+            color: #fff;
+            font-size: 13px;
+            white-space: nowrap;
+            overflow: hidden;
+            box-sizing: border-box;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+            transition: width 0.28s cubic-bezier(0.22, 1, 0.36, 1), padding 0.28s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.22s ease;
+        }
+        #navViewingTeamBanner .nav-viewing-content {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            white-space: nowrap;
+            transition: opacity 0.16s ease, transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        #navViewingTeamBanner .nav-viewing-btn {
+            border: 0;
+            border-radius: 999px;
+            padding: 4px 11px;
+            background: #fff;
+            color: #7c2d12;
+            font-weight: 600;
+            font-size: 12.5px;
+            line-height: 1.3;
+            cursor: pointer;
+            transition: transform 0.12s ease, opacity 0.15s ease;
+        }
+        #navViewingTeamBanner .nav-viewing-btn:hover { opacity: 0.94; }
+        #navViewingTeamBanner .nav-viewing-btn:active { transform: scale(0.95); }
+        #navViewingTeamBanner .nav-viewing-spinner {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            opacity: 0;
+            transform: scale(0.6);
+            pointer-events: none;
+            transition: opacity 0.18s ease 0.08s, transform 0.24s cubic-bezier(0.22, 1, 0.36, 1) 0.06s;
+        }
+        #navViewingTeamBanner .nav-viewing-spinner i {
+            display: block;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: 2.2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #fff;
+            box-sizing: border-box;
+            animation: navViewingSpin 0.72s linear infinite;
+        }
+        #navViewingTeamBanner.is-switching {
+            padding: 0;
+            cursor: progress;
+        }
+        #navViewingTeamBanner.is-switching .nav-viewing-content {
+            opacity: 0;
+            transform: scale(0.84);
+            pointer-events: none;
+        }
+        #navViewingTeamBanner.is-switching .nav-viewing-spinner {
+            opacity: 1;
+            transform: scale(1);
+        }
+        @keyframes navViewingSpin {
+            to { transform: rotate(360deg); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            #navViewingTeamBanner,
+            #navViewingTeamBanner .nav-viewing-content,
+            #navViewingTeamBanner .nav-viewing-spinner {
+                transition-duration: 0.01ms !important;
+            }
+        }
+    `;
+    (document.head || document.documentElement).appendChild(style);
+}
+
+function setViewingTeamBannerSwitching(active) {
+    const bar = document.getElementById('navViewingTeamBanner');
+    if (!bar) return;
+    const btn = bar.querySelector('.nav-viewing-btn');
+    const en = window.ToolsI18n?.getLanguage?.() === 'en-US';
+    if (active) {
+        if (btn) btn.disabled = true;
+        const rectWidth = Math.ceil(bar.getBoundingClientRect().width);
+        if (rectWidth > 0) bar.style.width = `${rectWidth}px`;
+        void bar.offsetWidth;
+        bar.classList.add('is-switching');
+        bar.setAttribute('aria-busy', 'true');
+        bar.setAttribute('aria-label', en ? 'Returning to my space…' : '正在返回我的空间…');
+        bar.title = en ? 'Returning to my space…' : '正在返回我的空间…';
+        bar.style.width = '40px';
+    } else {
+        bar.classList.remove('is-switching');
+        bar.removeAttribute('aria-busy');
+        bar.removeAttribute('aria-label');
+        bar.removeAttribute('title');
+        bar.style.width = '';
+        if (btn) btn.disabled = false;
+    }
+}
+
 // 超级管理员进入其他团队排障时的提示条
 function renderViewingTeamBanner() {
     document.getElementById('navViewingTeamBanner')?.remove();
     const team = navState.viewingTeam;
     if (!team) return;
+    ensureViewingTeamBannerStyle();
     const en = window.ToolsI18n?.getLanguage?.() === 'en-US';
     const bar = document.createElement('div');
     bar.id = 'navViewingTeamBanner';
     bar.setAttribute('role', 'status');
-    bar.style.cssText = 'position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:10050;display:flex;gap:10px;align-items:center;padding:8px 14px;border-radius:999px;background:#7c2d12;color:#fff;font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,.25)';
-    bar.innerHTML = `<span>${navEscape(en ? `Viewing team: ${team.name}` : `正在查看团队：${team.name}`)}</span><button type="button" style="border:0;border-radius:999px;padding:3px 10px;background:#fff;color:#7c2d12;font-weight:600;cursor:pointer">${navEscape(en ? 'Back to mine' : '返回我的空间')}</button>`;
-    bar.querySelector('button').addEventListener('click', () => switchNavTeam(navState.homeTenantId || 'default'));
+    bar.innerHTML = `<span class="nav-viewing-content"><span>${navEscape(en ? `Viewing team: ${team.name}` : `正在查看团队：${team.name}`)}</span><button type="button" class="nav-viewing-btn">${navEscape(en ? 'Back to mine' : '返回我的空间')}</button></span><span class="nav-viewing-spinner" aria-hidden="true"><i></i></span>`;
+    bar.querySelector('.nav-viewing-btn').addEventListener('click', () => switchNavTeam(navState.homeTenantId || 'default'));
     document.body.appendChild(bar);
 }
 
 async function switchNavTeam(tenantId) {
-    const response = await fetch('/api/tenants/switch', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaderForNav() }, body: JSON.stringify({ tenantId }) });
-    if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        const msg = data.error || '切换失败';
+    if (navState.switchingTeam) return;
+    navState.switchingTeam = true;
+    setViewingTeamBannerSwitching(true);
+    let navigated = false;
+    try {
+        const response = await fetch('/api/tenants/switch', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaderForNav() }, body: JSON.stringify({ tenantId }) });
+        if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            const msg = data.error || '切换失败';
+            setViewingTeamBannerSwitching(false);
+            if (window.AppDialog?.alert) await window.AppDialog.alert(msg, { title: '切换失败', tone: 'error' });
+            else if (typeof showPlatformNotice === 'function') await showPlatformNotice({ title: '切换失败', message: msg, tone: 'error' });
+            return;
+        }
+        const previous = localStorage.getItem('tools_tenant_id') || 'default';
+        if (previous !== tenantId) switchTenantBrowserState(previous, tenantId);
+        localStorage.setItem('tools_tenant_id', tenantId);
+        navigated = true;
+        window.location.href = window.__TP_LOGIN_DESTINATION__ || './index.html';
+    } catch (error) {
+        setViewingTeamBannerSwitching(false);
+        const msg = error?.message || '切换失败';
         if (window.AppDialog?.alert) await window.AppDialog.alert(msg, { title: '切换失败', tone: 'error' });
         else if (typeof showPlatformNotice === 'function') await showPlatformNotice({ title: '切换失败', message: msg, tone: 'error' });
-        return;
+    } finally {
+        if (!navigated) navState.switchingTeam = false;
     }
-    const previous = localStorage.getItem('tools_tenant_id') || 'default';
-    if (previous !== tenantId) switchTenantBrowserState(previous, tenantId);
-    localStorage.setItem('tools_tenant_id', tenantId);
-    window.location.href = window.__TP_LOGIN_DESTINATION__ || './index.html';
 }
 if (typeof window !== 'undefined') window.switchNavTeam = switchNavTeam;
 function activeTenantName() { return navState.settings?.platformName || 'Dragon Claw'; }
