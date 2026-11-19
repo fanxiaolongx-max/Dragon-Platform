@@ -85,10 +85,11 @@
         prefs.set(key(source,id),data.item);signal(source);
     }
     function close(focus=false){menu?.remove();menu=null;if(anchor){anchor.classList.remove('is-menu-open');if(focus)anchor.querySelector('[data-conversation-more]')?.focus({preventScroll:true});}anchor=null;}
-    const icons={rename:'M3 11l1-4 6-6 3 3-6 6-4 1zm6-8l3 3',pin:'M6 2h4l-.5 4 2.5 3H4l2.5-3L6 2zm2 7v5',archive:'M2 2h12v3H2zm1 3v8h10V5M6 8h4',remove:'M3 4h10M6 4V2h4v2M4 4l1 10h6l1-10M7 7v4M9 7v4'};
+    const icons={share:'M11.5 2.5a1.7 1.7 0 1 1 0 3.4 1.7 1.7 0 0 1 0-3.4zM4.5 6.3a1.7 1.7 0 1 1 0 3.4 1.7 1.7 0 0 1 0-3.4zM11.5 10.1a1.7 1.7 0 1 1 0 3.4 1.7 1.7 0 0 1 0-3.4zM6 7.2l4-2.2M6 8.8l4 2.2',rename:'M3 11l1-4 6-6 3 3-6 6-4 1zm6-8l3 3',pin:'M6 2h4l-.5 4 2.5 3H4l2.5-3L6 2zm2 7v5',archive:'M2 2h12v3H2zm1 3v8h10V5M6 8h4',remove:'M3 4h10M6 4V2h4v2M4 4l1 10h6l1-10M7 7v4M9 7v4'};
     function icon(name){return `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="${icons[name]}" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;}
     async function action(config,item,name){
         const current=identity(),source=sourceOf(config,item),id=config.id(item),pref=get(source,id),title=pref.title||config.title(item);
+        if(name==='share')return config.onShare?.(item);
         if(name==='pin')return save(source,id,{pinned:!pref.pinned});
         if(name==='archive')return save(source,id,{archived:!pref.archived});
         if(name==='rename'){
@@ -117,7 +118,7 @@
     function open(row,config,item,x,y){
         close();anchor=row;row.classList.add('is-menu-open');
         const pref=get(sourceOf(config,item),config.id(item));menu=document.createElement('div');menu.className='conversation-context-menu';menu.setAttribute('role','menu');menu.setAttribute('aria-label',L('对话操作','Conversation actions'));
-        const actions=[['pin',pref.pinned?L('取消置顶','Unpin'):L('置顶','Pin')],['rename',L('重命名','Rename')],['archive',pref.archived?L('取消归档','Unarchive'):L('归档','Archive')],['remove',L('删除','Delete')]];
+        const actions=[...(config.canShare?.(item)?[['share',window.HomeSharedConversations?.isShared?.(config.id(item))?L('共享成员与邀请','Sharing & members'):L('共享…','Share…')]]:[]),['pin',pref.pinned?L('取消置顶','Unpin'):L('置顶','Pin')],['rename',L('重命名','Rename')],['archive',pref.archived?L('取消归档','Unarchive'):L('归档','Archive')],['remove',L('删除','Delete')]];
         menu.innerHTML=actions.map(([id,label])=>`<button type="button" role="menuitem" data-conversation-action="${id}"${id==='remove'?' class="is-danger"':''}>${icon(id)}<span>${label}</span></button>`).join('');
         menu.addEventListener('click',async event=>{const button=event.target.closest('[data-conversation-action]');if(!button)return;const operation=button.dataset.conversationAction;close();try{await action(config,item,operation);}catch(error){if(window.AppDialog?.alert)window.AppDialog.alert(error.message,{title:L('操作失败','Action failed'),tone:'error'});}});
         menu.addEventListener('keydown',event=>{const buttons=[...menu.querySelectorAll('button')],index=buttons.indexOf(document.activeElement);if(event.key==='Escape'){event.preventDefault();close(true);}else if(['ArrowDown','ArrowUp','Home','End'].includes(event.key)){event.preventDefault();buttons[event.key==='Home'?0:event.key==='End'?buttons.length-1:(index+(event.key==='ArrowDown'?1:-1)+buttons.length)%buttons.length].focus();}else if(event.key==='Tab')close();});
