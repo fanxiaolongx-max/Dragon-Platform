@@ -1526,7 +1526,9 @@ final class DragonClawStore {
                 modelName: desktop.providerDisplayName(),
                 interrupted: false,
                 isStreaming: false,
-                approvals: []
+                approvals: [],
+                sharedAuthor: nil,
+                sharedAuthorName: nil
             )
             messages.append(userMsg)
             activeDesktopBusy = true
@@ -1665,7 +1667,9 @@ final class DragonClawStore {
             modelName: nil,
             interrupted: false,
             isStreaming: false,
-            approvals: []
+            approvals: [],
+            sharedAuthor: nil,
+            sharedAuthorName: nil
         )
         let assistantId = UUID().uuidString
         let assistantPlaceholder = ChatMessage(
@@ -1683,7 +1687,9 @@ final class DragonClawStore {
             modelName: nil,
             interrupted: false,
             isStreaming: true,
-            approvals: []
+            approvals: [],
+            sharedAuthor: nil,
+            sharedAuthorName: nil
         )
 
         messages.append(userMsg)
@@ -1769,7 +1775,9 @@ final class DragonClawStore {
                 isStreaming: false,
                 approvals: existing.approvals.map { ap in
                     ap.isPending ? copyApproval(ap, status: "settled", chosenDecision: "aborted", isSubmitting: false) : ap
-                }
+                },
+                sharedAuthor: existing.sharedAuthor,
+                sharedAuthorName: existing.sharedAuthorName
             )
         }
         isStreaming = false
@@ -1932,7 +1940,9 @@ final class DragonClawStore {
                 isStreaming: false,
                 approvals: cur.approvals.map { ap in
                     ap.isPending ? copyApproval(ap, status: "settled", chosenDecision: "aborted", isSubmitting: false) : ap
-                }
+                },
+                sharedAuthor: cur.sharedAuthor,
+                sharedAuthorName: cur.sharedAuthorName
             )
             updateMessage(at: idx, with: doneMsg)
         case .error:
@@ -1976,7 +1986,9 @@ final class DragonClawStore {
                     isStreaming: false,
                     approvals: cur.approvals.map { ap in
                         ap.isPending ? copyApproval(ap, status: "settled", chosenDecision: "aborted", isSubmitting: false) : ap
-                    }
+                    },
+                    sharedAuthor: cur.sharedAuthor,
+                    sharedAuthorName: cur.sharedAuthorName
                 )
             )
         }
@@ -2140,7 +2152,9 @@ final class DragonClawStore {
             modelName: m.modelName,
             interrupted: interrupted ?? m.interrupted,
             isStreaming: isStreaming ?? m.isStreaming,
-            approvals: approvals ?? m.approvals
+            approvals: approvals ?? m.approvals,
+            sharedAuthor: m.sharedAuthor,
+            sharedAuthorName: m.sharedAuthorName
         )
     }
 
