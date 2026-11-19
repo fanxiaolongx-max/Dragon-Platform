@@ -164,6 +164,8 @@ class DragonClawViewModel : ViewModel() {
         private set
     var currentSessionId by mutableStateOf<String?>(null)
         private set
+    /** 共享对话：分类、邀请、共享面板与同步（SharedConversationsController.kt） */
+    val sharing by lazy { SharedConversationsController(this, viewModelScope) }
     var activeDesktopSession by mutableStateOf<DesktopAgentSessionSummary?>(null)
         private set
     var activeDesktopCanSend by mutableStateOf(false)
@@ -597,6 +599,7 @@ class DragonClawViewModel : ViewModel() {
         appInForeground = true
         if (!isAuthenticated) return
         loadAlertSummary()
+        sharing.refreshAll()
         if (needsWorkspaceRefresh || sessions.isEmpty()) {
             needsWorkspaceRefresh = false
             bootstrapWorkspace()
@@ -607,6 +610,26 @@ class DragonClawViewModel : ViewModel() {
 
     fun onAppBackground() {
         appInForeground = false
+    }
+
+    fun isAppInForeground(): Boolean = appInForeground
+
+    /** 接受邀请 / 打开链接后进入共享对话：列表里还没有时用最小摘要打开，并刷新列表 */
+    fun openSharedSession(sessionId: String, title: String) {
+        val summary = sessions.firstOrNull { it.id == sessionId } ?: AiSessionSummary(id = sessionId, title = title)
+        openSession(summary, forceRefresh = true)
+        loadSessions()
+    }
+
+    /** 共享对话里其他成员的新消息：取最新一页，把还没显示的接在后面（正在回复时先不接，下次同步再试） */
+    suspend fun appendSharedMessages(sessionId: String): Boolean {
+        if (currentSessionId != sessionId || activeDesktopSession != null || isStreaming || isLoadingSessionMessages) return false
+        val res = runCatching { sdk.api.getSessionMessages(token, sessionId, limit = historyPageSize) }.getOrNull() ?: return false
+        if (currentSessionId != sessionId || isStreaming) return false
+        val shown = messages.mapTo(HashSet()) { it.id }
+        val fresh = sdk.mapHistoryMessages(res.items).filter { it.sharedAuthor != null && it.id !in shown }
+        if (fresh.isNotEmpty()) messages = messages + fresh
+        return true
     }
 
     fun performLogin(
@@ -659,6 +682,7 @@ class DragonClawViewModel : ViewModel() {
     }
 
     fun logout() {
+        sharing.stop()
         stopStreaming()
         sessionLoadJob?.cancel()
         sessionLoadJob = null
@@ -727,6 +751,7 @@ class DragonClawViewModel : ViewModel() {
         loadSessions()
         loadToolsCatalog()
         loadAlertSummary()
+        sharing.start()
         loadSkills()
         loadSchedules()
         loadToolNavState()
@@ -813,7 +838,7 @@ class DragonClawViewModel : ViewModel() {
             searchQuery = sessionSearchQuery
         )
         sessionGroups = sdk.groupSessionsByDate(sessions)
-        unifiedSessionGroups = sdk.groupSidebarSessions(sessions, desktopAgentSessions, sessionSearchQuery, conversationPreferences)
+        unifiedSessionGroups = sdk.groupSidebarSessions(sessions, desktopAgentSessions, sessionSearchQuery, conversationPreferences, sharing.mine)
     }
 
     fun loadToolsCatalog() {
@@ -984,7 +1009,8 @@ class DragonClawViewModel : ViewModel() {
             messages = cached.messages
             isLoadingSessionMessages = false
             chatOpenScrollGeneration += 1
-            if (cacheEval.decision == SessionCacheDecision.USE_CACHE_SKIP_NETWORK) {
+            // 共享对话总要同步一次：别人可能刚发了新消息
+            if (cacheEval.decision == SessionCacheDecision.USE_CACHE_SKIP_NETWORK && !sharing.isShared(session.id)) {
                 return
             }
         } else {
@@ -994,6 +1020,7 @@ class DragonClawViewModel : ViewModel() {
 
         val targetId = session.id
         sessionLoadJob = viewModelScope.launch {
+            sharing.syncBeforeOpen(targetId)
             runCatching { sdk.api.getSessionMessages(token, targetId, limit = historyPageSize) }
                 .onSuccess { res ->
                     if (currentSessionId == targetId && activeDesktopSession == null) {

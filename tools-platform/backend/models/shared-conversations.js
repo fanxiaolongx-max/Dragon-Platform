@@ -491,10 +491,15 @@ async function onLocalDeleted({ tenantId, username, sessionId }) {
 }
 
 // ── 账号、常用群组、最近使用 ──
-async function accounts(username) {
+// query：账号名 / 显示名包含，或拼音（全拼、首字母）命中显示名；移动端没有拼音库，由这里过滤
+async function accounts(username, query = '') {
     const map = await userMap();
+    const q = String(query || '').trim().toLowerCase().slice(0, 64);
+    const pinyin = q ? require('../../frontend/js/shared/pinyin-search.js') : null;
     return Object.values(map).filter(user => user.username !== username)
         .map(user => ({ username: user.username, name: user.displayName || user.username }))
+        .filter(user => !q || user.username.toLowerCase().includes(q) || user.name.toLowerCase().includes(q)
+            || (pinyin.isPinyinQuery(q) && pinyin.pinyinMatches(user.name, q)))
         .sort((a, b) => a.username.localeCompare(b.username, undefined, { numeric: true }));
 }
 

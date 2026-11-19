@@ -336,6 +336,114 @@ class DragonClawApiClient(
         return decodeOrThrow(response, "Failed to submit approval")
     }
 
+    // ── 共享对话（/api/shared-conversations） ──
+    private fun shareUrl(path: String) = "$baseUrl/api/shared-conversations$path"
+
+    suspend fun getShareInbox(token: String): ShareInboxResponse {
+        val response = client.get(shareUrl("/inbox")) { header("Authorization", DragonClawHelpers.normalizeBearerHeader(token)) }
+        return decodeOrThrow(response, "Failed to load share invites")
+    }
+
+    suspend fun getMySharedConversations(token: String): SharedConversationsResponse {
+        val response = client.get(shareUrl("/mine")) { header("Authorization", DragonClawHelpers.normalizeBearerHeader(token)) }
+        return decodeOrThrow(response, "Failed to load shared conversations")
+    }
+
+    suspend fun respondShareInvite(token: String, shareId: String, action: String): ShareRespondResponse {
+        val response = client.post(shareUrl("/invites/${shareId.encodeUrlPathSegment()}/respond")) {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+            contentType(ContentType.Application.Json)
+            setBody(ShareRespondRequest(action))
+        }
+        return decodeOrThrow(response, "Failed to respond to invite")
+    }
+
+    suspend fun joinShareLink(token: String, linkToken: String): ShareLinkJoinResponse {
+        val response = client.post(shareUrl("/link/${linkToken.encodeUrlPathSegment()}")) {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+            contentType(ContentType.Application.Json)
+            setBody(ShareEmptyBody())
+        }
+        return decodeOrThrow(response, "Failed to open share link")
+    }
+
+    suspend fun getShareAccounts(token: String, query: String = ""): ShareAccountsResponse {
+        val response = client.get(shareUrl("/accounts")) {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+            url { if (query.isNotBlank()) parameters.append("q", query.trim()) }
+        }
+        return decodeOrThrow(response, "Failed to load accounts")
+    }
+
+    suspend fun getShareGroups(token: String): ShareGroupsResponse {
+        val response = client.get(shareUrl("/groups")) { header("Authorization", DragonClawHelpers.normalizeBearerHeader(token)) }
+        return decodeOrThrow(response, "Failed to load groups")
+    }
+
+    suspend fun createShareGroup(token: String, name: String, members: List<String>): ShareGroupResponse {
+        val response = client.post(shareUrl("/groups")) {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+            contentType(ContentType.Application.Json)
+            setBody(ShareGroupRequest(name, members))
+        }
+        return decodeOrThrow(response, "Failed to save group")
+    }
+
+    suspend fun deleteShareGroup(token: String, groupId: String): ShareOkResponse {
+        val response = client.delete(shareUrl("/groups/${groupId.encodeUrlPathSegment()}")) { header("Authorization", DragonClawHelpers.normalizeBearerHeader(token)) }
+        return decodeOrThrow(response, "Failed to delete group")
+    }
+
+    suspend fun getShareRecent(token: String): ShareRecentResponse {
+        val response = client.get(shareUrl("/recent")) { header("Authorization", DragonClawHelpers.normalizeBearerHeader(token)) }
+        return decodeOrThrow(response, "Failed to load suggestions")
+    }
+
+    suspend fun prepareShare(token: String, sessionId: String, title: String): ShareResponse {
+        val response = client.post(shareUrl("/session/${sessionId.encodeUrlPathSegment()}/prepare")) {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+            contentType(ContentType.Application.Json)
+            setBody(SharePrepareRequest(title))
+        }
+        return decodeOrThrow(response, "Failed to prepare sharing")
+    }
+
+    suspend fun inviteToShare(token: String, sessionId: String, request: ShareInviteRequest): ShareInviteResponse {
+        val response = client.post(shareUrl("/session/${sessionId.encodeUrlPathSegment()}/invite")) {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
+        return decodeOrThrow(response, "Failed to send invites")
+    }
+
+    suspend fun syncSharedSession(token: String, sessionId: String): ShareSyncResponse {
+        val response = client.post(shareUrl("/session/${sessionId.encodeUrlPathSegment()}/sync")) {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+            contentType(ContentType.Application.Json)
+            setBody(ShareEmptyBody())
+        }
+        return decodeOrThrow(response, "Failed to sync shared conversation")
+    }
+
+    suspend fun leaveShare(token: String, sessionId: String): ShareLeaveResponse {
+        val response = client.post(shareUrl("/session/${sessionId.encodeUrlPathSegment()}/leave")) {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+            contentType(ContentType.Application.Json)
+            setBody(ShareEmptyBody())
+        }
+        return decodeOrThrow(response, "Failed to leave shared conversation")
+    }
+
+    suspend fun removeShareMember(token: String, sessionId: String, username: String): ShareResponse {
+        val response = client.post(shareUrl("/session/${sessionId.encodeUrlPathSegment()}/remove")) {
+            header("Authorization", DragonClawHelpers.normalizeBearerHeader(token))
+            contentType(ContentType.Application.Json)
+            setBody(ShareRemoveRequest(username))
+        }
+        return decodeOrThrow(response, "Failed to remove member")
+    }
+
     private fun String.encodeUrlPathSegment(): String =
         DragonClawHelpers.urlEncodeSegment(this)
 

@@ -102,6 +102,7 @@ import com.example.newapp.shared.util.MdBlockKind
 import com.example.newapp.shared.util.MdSpan
 import com.example.newapp.shared.util.MdSpanKind
 import com.example.newapp.state.DragonClawViewModel
+import com.example.newapp.ui.components.SharedAuthorLabel
 import com.example.newapp.state.VoiceAudioRoute
 import com.example.newapp.state.VoiceChatPhase
 import com.example.newapp.ui.components.AndroidPlatformAssetDownloader
@@ -496,12 +497,16 @@ fun ChatScreen(vm: DragonClawViewModel) {
                             ChatShimmerSkeleton(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp))
                         }
                     }
+                    val sharedThread = vm.activeDesktopSession == null && vm.sharing.isShared(vm.currentSessionId)
                     items(vm.messages.size, key = { idx -> vm.messages[idx].id }) { idx ->
                         val msg = vm.messages[idx]
                         val isActiveDesktopLastTurn = vm.activeDesktopSession != null &&
                             vm.activeDesktopBusy &&
                             idx == vm.messages.lastIndex &&
                             !msg.isUser
+                        // 共享对话：每条消息标注发送账号（别人的提问 / 别人的 AI 回答 / 我）
+                        Column(Modifier.fillMaxWidth()) {
+                        if (sharedThread) SharedAuthorLabel(msg, isSharedThread = true, me = vm.username, language = lang)
                         ChatBubbleItem(
                             message = msg,
                             token = vm.token,
@@ -529,6 +534,7 @@ fun ChatScreen(vm: DragonClawViewModel) {
                                 )
                             }
                         )
+                        }
                     }
                     if (isWaitingForAiReply) {
                         item(key = "__assistant_thinking__") {

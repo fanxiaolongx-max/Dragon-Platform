@@ -66,6 +66,9 @@ test('a conversation shared across team accounts syncs context both ways without
     const accounts = await call('alice', 'GET', '/accounts');
     assert.deepEqual(accounts.body.items.map(item => item.username).filter(name => name !== 'admin'), ['bob', 'carol']);
     assert.equal((await call('alice', 'POST', `/session/${aliceSession}/invite`, { usernames: ['nobody'] })).status, 400);
+    await authUsers.createUser({ username: 'lisi', role: 'admin', passwordHash: 'x', tenantId: 'lisi', displayName: '李四' });
+    assert.deepEqual((await call('alice', 'GET', '/accounts?q=ls')).body.items.map(item => item.username), ['lisi'], 'pinyin initials match the display name');
+    assert.deepEqual((await call('alice', 'GET', '/accounts?q=car')).body.items.map(item => item.username), ['carol']);
     // 别人的对话不能共享
     assert.equal((await call('bob', 'POST', `/session/${aliceSession}/prepare`, {})).status, 404);
 

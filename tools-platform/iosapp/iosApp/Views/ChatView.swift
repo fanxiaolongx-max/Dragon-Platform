@@ -119,6 +119,11 @@ struct ChatView: View {
                                     store.activeDesktopBusy &&
                                     isLastMessage &&
                                     !message.isUser
+                                // 共享对话：每条消息标注发送账号（别人的提问 / 别人的 AI 回答 / 我）
+                                VStack(alignment: message.isUser ? .trailing : .leading, spacing: 4) {
+                                if store.activeDesktopSession == nil && store.sharing.isShared(store.currentSessionId) {
+                                    SharedAuthorLabel(message: message, me: store.username, palette: palette, language: lang)
+                                }
                                 ChatBubbleRow(
                                     message: message,
                                     renderToken: message.renderKey,
@@ -166,6 +171,7 @@ struct ChatView: View {
                                         )
                                     }
                                 )
+                                }
                                 .id(message.id)
                             }
 

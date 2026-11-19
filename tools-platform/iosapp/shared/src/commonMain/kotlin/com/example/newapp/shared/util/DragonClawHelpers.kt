@@ -427,6 +427,7 @@ object DragonClawHelpers {
             val traces = extractToolTracesFromEvents(item.events)
             val approvals = extractApprovalsFromEvents(item.events)
             val thinking = extractThinkingFromEvents(item.events)
+            val author = extractSharedAuthor(item.events)
             val (cleanedText, extractedAttachments) = extractMessageAttachmentsAndCleanText(
                 rawContent = item.content,
                 baseUrl = baseUrl
@@ -451,10 +452,71 @@ object DragonClawHelpers {
                 modelName = item.model_name,
                 interrupted = item.interrupted,
                 isStreaming = false,
-                approvals = approvals
+                approvals = approvals,
+                sharedAuthor = author?.first,
+                sharedAuthorName = author?.second
             )
         }
         return mergeConsecutiveAssistantMessages(mapped)
+    }
+
+    /** 共享对话里其他成员的消息带 { type: 'shared_author', author, name } 事件：返回 (账号, 显示名) */
+    fun extractSharedAuthor(events: JsonArray?): Pair<String, String>? {
+        if (events == null) return null
+        for (el in events) {
+            val obj = el as? JsonObject ?: continue
+            if ((obj["type"] as? JsonPrimitive)?.contentOrNull != "shared_author") continue
+            val author = (obj["author"] as? JsonPrimitive)?.contentOrNull?.trim().orEmpty()
+            if (author.isEmpty()) continue
+            val name = (obj["name"] as? JsonPrimitive)?.contentOrNull?.trim().orEmpty().ifEmpty { author }
+            return author to name
+        }
+        return null
+    }
+
+    /** 对话标题里的附件链接 [名称](<路径>) 只保留名称，末尾被截断的 "[..." 去掉 */
+    fun cleanShareTitle(raw: String): String =
+        raw.replace(Regex("\\[([^\\]]*)\\]\\(<[^>]*>\\)"), "$1")
+            .replace(Regex("\\s*\\[[^\\]]*$"), "")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+            .take(160)
+
+    /** 共享面板的账号搜索：账号名 / 显示名包含，或拼音（全拼、首字母）命中显示名 */
+    fun matchesShareAccount(account: ShareAccount, query: String): Boolean {
+        val q = query.trim().lowercase()
+        if (q.isEmpty()) return true
+        return account.username.lowercase().contains(q) || account.name.lowercase().contains(q)
+    }
+
+    /** 搜索时完全匹配 / 前缀匹配排前面；不搜索时最近共享过的排前面，其余按账号自然顺序 */
+    fun sortShareAccounts(accounts: List<ShareAccount>, query: String, recent: List<ShareRecentUser>): List<ShareAccount> {
+        val q = query.trim().lowercase()
+        val recentRank = recent.mapIndexed { index, user -> user.username to index }.toMap()
+        fun natural(a: ShareAccount, b: ShareAccount): Int {
+            val pa = Regex("^(.*?)(\\d+)$").find(a.username)
+            val pb = Regex("^(.*?)(\\d+)$").find(b.username)
+            if (pa != null && pb != null && pa.groupValues[1] == pb.groupValues[1]) {
+                val na = pa.groupValues[2].toLongOrNull() ?: 0L
+                val nb = pb.groupValues[2].toLongOrNull() ?: 0L
+                if (na != nb) return na.compareTo(nb)
+            }
+            return a.username.compareTo(b.username)
+        }
+        return accounts.filter { matchesShareAccount(it, q) }.sortedWith { a, b ->
+            if (q.isNotEmpty()) {
+                fun rank(x: ShareAccount): Int {
+                    val u = x.username.lowercase(); val n = x.name.lowercase()
+                    return if (u == q || n == q) 0 else if (u.startsWith(q) || n.startsWith(q)) 1 else 2
+                }
+                val r = rank(a).compareTo(rank(b))
+                if (r != 0) return@sortedWith r
+            } else {
+                val r = (recentRank[a.username] ?: 999).compareTo(recentRank[b.username] ?: 999)
+                if (r != 0) return@sortedWith r
+            }
+            natural(a, b)
+        }
     }
 
     fun mapDesktopAgentMessages(items: List<DesktopAgentMessageItem>, baseUrl: String = ""): List<ChatMessage> {
@@ -510,7 +572,8 @@ object DragonClawHelpers {
         val merged = ArrayList<ChatMessage>(messages.size)
         for (msg in messages) {
             val prev = merged.lastOrNull()
-            if (prev == null || msg.isUser || prev.isUser) {
+            // 共享对话：不同成员的 AI 回答各自成段，不合并
+            if (prev == null || msg.isUser || prev.isUser || prev.sharedAuthor != msg.sharedAuthor) {
                 merged.add(msg)
                 continue
             }
@@ -1675,9 +1738,16 @@ object SessionGrouping {
         desktopSessions: List<DesktopAgentSessionSummary>,
         searchQuery: String = "",
         nowEpochMs: Long,
-        preferences: List<ConversationListPreferenceItem> = emptyList()
+        preferences: List<ConversationListPreferenceItem> = emptyList(),
+        shared: List<SharedConversation> = emptyList()
     ): List<UnifiedSessionGroup> {
-        val resolvedAi = applyPreferencesToAiSessions(aiSessions, preferences)
+        // 共享对话：不在已加载列表页里的也补进来，统一放在最上方的「共享对话」分类
+        val sharedBySession = shared.filter { it.sessionId.isNotBlank() }.associateBy { it.sessionId }
+        val loadedIds = aiSessions.mapTo(HashSet()) { it.id }
+        val withShared = aiSessions + sharedBySession.values.filter { it.sessionId !in loadedIds }.map {
+            AiSessionSummary(id = it.sessionId, updatedAt = it.updatedAt, createdAt = it.createdAt, title = it.title)
+        }
+        val resolvedAi = applyPreferencesToAiSessions(withShared, preferences)
         val resolvedDesktop = applyPreferencesToDesktopSessions(desktopSessions, preferences)
         val keyword = searchQuery.trim().lowercase()
         val entries = buildList {
@@ -1689,9 +1759,10 @@ object SessionGrouping {
                     s.firstQuestion.orEmpty().lowercase().contains(keyword) ||
                     s.lastQuestion.orEmpty().lowercase().contains(keyword)
                 if (!matches) continue
-                val rawTs = s.updatedAt ?: s.createdAt
+                val share = sharedBySession[s.id]
+                val rawTs = share?.updatedAt?.takeIf { (parseTimestampMs(it) ?: 0L) > (parseTimestampMs(s.updatedAt) ?: 0L) } ?: s.updatedAt ?: s.createdAt
                 val isPinned = s.isPinned
-                val bucket = if (isPinned) SessionBucket.PINNED else bucketForTimestamp(rawTs, nowEpochMs)
+                val bucket = if (share != null) SessionBucket.SHARED else if (isPinned) SessionBucket.PINNED else bucketForTimestamp(rawTs, nowEpochMs)
                 add(
                     SidebarSessionEntry(
                         stableKey = "ai:${s.id}",
@@ -1699,7 +1770,8 @@ object SessionGrouping {
                         desktopSession = null,
                         sortTimestampMs = parseTimestampMs(rawTs) ?: 0L,
                         isPinned = isPinned,
-                        pinOrder = s.pinOrder
+                        pinOrder = s.pinOrder,
+                        shared = share
                     ) to bucket
                 )
             }
@@ -1746,6 +1818,10 @@ object SessionGrouping {
         isPinnedCollapsed: Boolean,
         searchQuery: String
     ): Boolean = bucket == SessionBucket.PINNED && isPinnedCollapsed && searchQuery.isBlank()
+
+    /** 「共享对话」分类单独折叠，搜索时自动展开 */
+    fun shouldCollapseSharedGroup(bucket: SessionBucket, isSharedCollapsed: Boolean, searchQuery: String): Boolean =
+        bucket == SessionBucket.SHARED && isSharedCollapsed && searchQuery.isBlank()
 
     /** Parses ISO-8601 (`2026-11-11T08:00:00Z`) or SQLite (`2026-11-11 08:00:00`) UTC timestamps to epoch ms. */
     fun parseTimestampMs(raw: String?): Long? {

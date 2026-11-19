@@ -365,7 +365,10 @@ data class ChatMessage(
     val modelName: String? = null,
     val interrupted: Boolean = false,
     val isStreaming: Boolean = false,
-    val approvals: List<PendingApproval> = emptyList()
+    val approvals: List<PendingApproval> = emptyList(),
+    /** 共享对话里其他成员的消息：发送账号与显示名（来自 shared_author 事件）；自己的消息为 null */
+    val sharedAuthor: String? = null,
+    val sharedAuthorName: String? = null
 ) {
     val isUser: Boolean get() = role == "user"
     val historyContent: String get() = rawContent?.takeIf { it.isNotBlank() } ?: content
@@ -376,6 +379,7 @@ data class ChatMessage(
 }
 
 enum class SessionBucket {
+    SHARED,
     PINNED,
     TODAY,
     YESTERDAY,
@@ -384,6 +388,7 @@ enum class SessionBucket {
     OLDER;
 
     fun localizedTitle(language: String): String = when (this) {
+        SHARED -> if (language == "en") "Shared" else "共享对话"
         PINNED -> if (language == "en") "Pinned" else "置顶"
         TODAY -> if (language == "en") "Today" else "今天"
         YESTERDAY -> if (language == "en") "Yesterday" else "昨天"
@@ -768,8 +773,11 @@ data class SidebarSessionEntry(
     val desktopSession: DesktopAgentSessionSummary? = null,
     val sortTimestampMs: Long = 0L,
     val isPinned: Boolean = false,
-    val pinOrder: Int? = null
+    val pinOrder: Int? = null,
+    /** 共享对话：所在共享的信息（成员、未读）；普通对话为 null */
+    val shared: SharedConversation? = null
 ) {
+    val isShared: Boolean get() = shared != null
     val isDesktopAgent: Boolean get() = desktopSession != null
     val busy: Boolean get() = desktopSession?.busy ?: aiSession?.busy ?: false
 

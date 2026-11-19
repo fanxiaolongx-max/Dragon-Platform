@@ -21,6 +21,8 @@
 		DC0200010000000000000008 /* ToolsHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC0100010000000000000008 /* ToolsHubView.swift */; };
 		DC0200010000000000000009 /* AuthenticatedWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC0100010000000000000009 /* AuthenticatedWebView.swift */; };
 		DC020001000000000000000A /* MetricsMonitorViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC010001000000000000000A /* MetricsMonitorViews.swift */; };
+		DC020001000000000000000C /* SharedConversationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC010001000000000000000C /* SharedConversationViews.swift */; };
+		DC020001000000000000000B /* SharingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC010001000000000000000B /* SharingStore.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -41,6 +43,8 @@
 		DC0100010000000000000008 /* ToolsHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Views/ToolsHubView.swift"; sourceTree = "<group>"; };
 		DC0100010000000000000009 /* AuthenticatedWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Views/AuthenticatedWebView.swift"; sourceTree = "<group>"; };
 		DC010001000000000000000A /* MetricsMonitorViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Views/MetricsMonitorViews.swift"; sourceTree = "<group>"; };
+		DC010001000000000000000C /* SharedConversationViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Views/SharedConversationViews.swift"; sourceTree = "<group>"; };
+		DC010001000000000000000B /* SharingStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "State/SharingStore.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -105,6 +109,8 @@
 				DC0100010000000000000008 /* ToolsHubView.swift */,
 				DC0100010000000000000009 /* AuthenticatedWebView.swift */,
 				DC010001000000000000000A /* MetricsMonitorViews.swift */,
+				DC010001000000000000000C /* SharedConversationViews.swift */,
+				DC010001000000000000000B /* SharingStore.swift */,
 			);
 			path = iosApp;
 			sourceTree = "<group>";
@@ -222,6 +228,8 @@
 				DC0200010000000000000008 /* ToolsHubView.swift in Sources */,
 				DC0200010000000000000009 /* AuthenticatedWebView.swift in Sources */,
 				DC020001000000000000000A /* MetricsMonitorViews.swift in Sources */,
+				DC020001000000000000000C /* SharedConversationViews.swift in Sources */,
+				DC020001000000000000000B /* SharingStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

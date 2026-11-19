@@ -207,9 +207,13 @@ class DragonClawSdk(
         aiSessions: List<AiSessionSummary>,
         desktopSessions: List<DesktopAgentSessionSummary>,
         searchQuery: String = "",
-        preferences: List<ConversationListPreferenceItem> = emptyList()
+        preferences: List<ConversationListPreferenceItem> = emptyList(),
+        shared: List<SharedConversation> = emptyList()
     ): List<UnifiedSessionGroup> =
-        SessionGrouping.groupSidebarSessions(aiSessions, desktopSessions, searchQuery, currentEpochMillis(), preferences)
+        SessionGrouping.groupSidebarSessions(aiSessions, desktopSessions, searchQuery, currentEpochMillis(), preferences, shared)
+
+    fun shouldCollapseSharedGroup(bucket: SessionBucket, isSharedCollapsed: Boolean, searchQuery: String): Boolean =
+        SessionGrouping.shouldCollapseSharedGroup(bucket, isSharedCollapsed, searchQuery)
 
     fun applyConversationPreferencesToAi(
         sessions: List<AiSessionSummary>,
@@ -325,6 +329,128 @@ class DragonClawSdk(
 
     fun mergeToolCatalog(remoteTools: List<CustomToolDto>): List<PlatformTool> =
         ToolCatalogMerger.merge(remoteTools)
+
+    // ── 共享对话 ──
+    fun fetchShareInbox(
+        token: String,
+        onSuccess: (ShareInboxResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(block = { api.getShareInbox(token) }, onSuccess = onSuccess, onError = onError)
+
+    fun fetchSharedConversations(
+        token: String,
+        onSuccess: (SharedConversationsResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(block = { api.getMySharedConversations(token) }, onSuccess = onSuccess, onError = onError)
+
+    fun respondShareInvite(
+        token: String,
+        shareId: String,
+        action: String,
+        onSuccess: (ShareRespondResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(block = { api.respondShareInvite(token, shareId, action) }, onSuccess = onSuccess, onError = onError)
+
+    fun joinShareLink(
+        token: String,
+        linkToken: String,
+        onSuccess: (ShareLinkJoinResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(block = { api.joinShareLink(token, linkToken) }, onSuccess = onSuccess, onError = onError)
+
+    fun fetchShareAccounts(
+        token: String,
+        query: String = "",
+        onSuccess: (ShareAccountsResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(block = { api.getShareAccounts(token, query) }, onSuccess = onSuccess, onError = onError)
+
+    fun fetchShareGroups(
+        token: String,
+        onSuccess: (ShareGroupsResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(block = { api.getShareGroups(token) }, onSuccess = onSuccess, onError = onError)
+
+    fun createShareGroup(
+        token: String,
+        name: String,
+        members: List<String>,
+        onSuccess: (ShareGroupResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(block = { api.createShareGroup(token, name, members) }, onSuccess = onSuccess, onError = onError)
+
+    fun deleteShareGroup(
+        token: String,
+        groupId: String,
+        onSuccess: (ShareOkResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(block = { api.deleteShareGroup(token, groupId) }, onSuccess = onSuccess, onError = onError)
+
+    fun fetchShareRecent(
+        token: String,
+        onSuccess: (ShareRecentResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(block = { api.getShareRecent(token) }, onSuccess = onSuccess, onError = onError)
+
+    fun prepareShare(
+        token: String,
+        sessionId: String,
+        title: String,
+        onSuccess: (ShareResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(block = { api.prepareShare(token, sessionId, DragonClawHelpers.cleanShareTitle(title)) }, onSuccess = onSuccess, onError = onError)
+
+    fun inviteToShare(
+        token: String,
+        sessionId: String,
+        title: String,
+        usernames: List<String>,
+        groupIds: List<String>,
+        onSuccess: (ShareInviteResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(block = { api.inviteToShare(token, sessionId, ShareInviteRequest(DragonClawHelpers.cleanShareTitle(title), usernames, groupIds)) }, onSuccess = onSuccess, onError = onError)
+
+    fun syncSharedSession(
+        token: String,
+        sessionId: String,
+        onSuccess: (ShareSyncResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(block = { api.syncSharedSession(token, sessionId) }, onSuccess = onSuccess, onError = onError)
+
+    fun leaveShare(
+        token: String,
+        sessionId: String,
+        onSuccess: (ShareLeaveResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(block = { api.leaveShare(token, sessionId) }, onSuccess = onSuccess, onError = onError)
+
+    fun removeShareMember(
+        token: String,
+        sessionId: String,
+        username: String,
+        onSuccess: (ShareResponse) -> Unit,
+        onError: (String) -> Unit
+    ): TaskHandle = runAsync(block = { api.removeShareMember(token, sessionId, username) }, onSuccess = onSuccess, onError = onError)
+
+    /** 共享链接（网页端生成的 /?share=xxx，也接受整段 URL）里的令牌；不是共享链接返回 null */
+    fun shareTokenFromLink(text: String): String? =
+        Regex("[?&]share=([A-Za-z0-9_-]{8,80})").find(text.trim())?.groupValues?.get(1)
+            ?: text.trim().takeIf { Regex("^[A-Za-z0-9_-]{16,80}$").matches(it) }
+
+    /** 共享链接的完整地址（复制 / 系统分享用） */
+    fun absoluteShareLink(link: String): String =
+        if (link.startsWith("http://") || link.startsWith("https://")) link else getBaseUrl().trimEnd('/') + "/" + link.trimStart('/')
+
+    fun cleanTitle(raw: String): String = DragonClawHelpers.cleanShareTitle(raw)
+
+    fun sortShareAccounts(accounts: List<ShareAccount>, query: String, recent: List<ShareRecentUser>): List<ShareAccount> =
+        DragonClawHelpers.sortShareAccounts(accounts, query, recent)
+
+    fun isSharedSessionsCollapsed(): Boolean = settings.getBoolean(KEY_SHARED_COLLAPSED, false)
+
+    fun setSharedSessionsCollapsed(collapsed: Boolean) {
+        settings.saveBoolean(KEY_SHARED_COLLAPSED, collapsed)
+    }
 
     // --- Callback-based Async Bridges (iOS SwiftUI friendly + main-thread safe) ---
 
@@ -1154,6 +1280,7 @@ class DragonClawSdk(
         private const val KEY_ROLE = "user_role"
         private const val KEY_SELECTED_MODEL = "selected_model_id"
         private const val KEY_PINNED_COLLAPSED = "pinned_sessions_collapsed"
+        private const val KEY_SHARED_COLLAPSED = "shared_sessions_collapsed"
     }
 }
 

@@ -63,6 +63,11 @@ import androidx.compose.ui.unit.sp
 import com.example.newapp.R
 import com.example.newapp.shared.model.AiSessionSummary
 import com.example.newapp.shared.model.AlertCenterEvent
+import com.example.newapp.ui.components.ShareConversationSheet
+import com.example.newapp.ui.components.ShareInviteBanner
+import com.example.newapp.ui.components.ShareInvitesSection
+import com.example.newapp.ui.components.ShareNoticeToast
+import androidx.compose.foundation.combinedClickable
 import com.example.newapp.shared.model.SessionBucket
 import com.example.newapp.shared.model.SidebarSessionEntry
 import com.example.newapp.shared.util.DragonClawHelpers
@@ -605,8 +610,11 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                                     }
                                 } else {
                                     vm.unifiedSessionGroups.forEach { group ->
-                                        val isPinnedGroup = group.bucket == SessionBucket.PINNED
-                                        val isCollapsed = SessionGrouping.shouldCollapseGroup(
+                                        val isSharedGroup = group.bucket == SessionBucket.SHARED
+                                        val isPinnedGroup = group.bucket == SessionBucket.PINNED || isSharedGroup
+                                        val isCollapsed = if (isSharedGroup) {
+                                            SessionGrouping.shouldCollapseSharedGroup(group.bucket, vm.sharing.isSharedCollapsed, vm.sessionSearchQuery)
+                                        } else SessionGrouping.shouldCollapseGroup(
                                             bucket = group.bucket,
                                             isPinnedCollapsed = vm.isPinnedCollapsed,
                                             searchQuery = vm.sessionSearchQuery
@@ -623,7 +631,7 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                                                     modifier = Modifier
                                                         .fillMaxWidth()
                                                         .clip(RoundedCornerShape(8.dp))
-                                                        .clickable { vm.togglePinnedCollapsed() }
+                                                        .clickable { if (isSharedGroup) vm.sharing.toggleCollapsed() else vm.togglePinnedCollapsed() }
                                                         .padding(horizontal = 8.dp, vertical = 5.dp)
                                                 ) {
                                                     Text(
@@ -643,9 +651,9 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                                                     Icon(
                                                         imageVector = Icons.Rounded.KeyboardArrowDown,
                                                         contentDescription = if (isCollapsed) {
-                                                            tr(lang, "展开置顶", "Expand pinned")
+                                                            tr(lang, "展开${group.localizedTitle(lang)}", "Expand ${group.localizedTitle(lang)}")
                                                         } else {
-                                                            tr(lang, "收起置顶", "Collapse pinned")
+                                                            tr(lang, "收起${group.localizedTitle(lang)}", "Collapse ${group.localizedTitle(lang)}")
                                                         },
                                                         tint = palette.inkMuted,
                                                         modifier = Modifier
@@ -685,6 +693,10 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                                                             renameTargetSession = session
                                                         }
                                                     },
+                                                    // 共享：只有 Dragon Claw 自己的对话（第三方 Agent 对话不共享）
+                                                    onShare = if (vm.sharing.available) entry.aiSession?.let { session ->
+                                                        { vm.sharing.openSheet(session.id, session.displayTitle(lang)) }
+                                                    } else null,
                                                     onTogglePin = {
                                                         entry.aiSession?.let { vm.togglePinSession(it) }
                                                             ?: entry.desktopSession?.let { vm.togglePinDesktopSession(it) }
@@ -737,7 +749,7 @@ fun RootShellScreen(vm: DragonClawViewModel) {
                                 icon = Icons.Rounded.Settings,
                                 contentDescription = tr(lang, "设置", "Settings"),
                                 size = 42.dp,
-                                badgeCount = vm.alertUnreadCount
+                                badgeCount = vm.alertUnreadCount + vm.sharing.inviteCount
                             ) {
                                 focusManager.clearFocus()
                                 vm.loadSchedules()
@@ -1048,6 +1060,7 @@ fun RootShellScreen(vm: DragonClawViewModel) {
             onOpenAlertCenter = {
                 showSettingsSheet = false
                 vm.loadAlertCenter("all")
+                vm.sharing.refreshAll()
                 showAlertCenterSheet = true
             },
             onOpenSchedules = {
@@ -1090,6 +1103,10 @@ fun RootShellScreen(vm: DragonClawViewModel) {
             )
         }
     }
+    // 共享对话：邀请横幅、操作提示、共享面板
+    ShareInviteBanner(vm = vm, modifier = Modifier.align(Alignment.TopCenter))
+    ShareNoticeToast(vm = vm, modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 64.dp))
+    ShareConversationSheet(vm = vm)
     }
     }
 }
@@ -1214,7 +1231,7 @@ private fun SettingsModalSheet(
                         icon = Icons.Rounded.NotificationsActive,
                         iconTint = if (vm.alertUnreadCount > 0) palette.danger else palette.accentStrong,
                         title = tr(lang, "告警中心", "Alert Center"),
-                        badgeText = if (vm.alertUnreadCount > 0) "${vm.alertUnreadCount}" else null,
+                        badgeText = (vm.alertUnreadCount + vm.sharing.inviteCount).takeIf { it > 0 }?.toString(),
                         badgeColor = palette.danger,
                         onClick = onOpenAlertCenter
                     )
@@ -1508,6 +1525,9 @@ private fun AlertCenterModalSheet(
                 }
             }
 
+            // 共享对话邀请（接受 / 拒绝 / 忽略）与粘贴共享链接加入
+            ShareInvitesSection(vm)
+
             vm.alertSummary?.let { summary ->
                 Spacer(Modifier.height(6.dp))
                 Row(
@@ -1774,6 +1794,7 @@ private fun AlertSummaryPill(
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun SidebarSessionRow(
     entry: SidebarSessionEntry,
@@ -1783,6 +1804,7 @@ private fun SidebarSessionRow(
     onOpen: () -> Unit,
     onRefresh: (() -> Unit)? = null,
     onRename: (() -> Unit)? = null,
+    onShare: (() -> Unit)? = null,
     onTogglePin: (() -> Unit)? = null,
     onMovePinnedUp: (() -> Unit)? = null,
     onMovePinnedDown: (() -> Unit)? = null,
@@ -1795,6 +1817,7 @@ private fun SidebarSessionRow(
     val badge = entry.badgeLabel(language)
     val iconVector = when {
         isArchived -> Icons.Rounded.Inventory2
+        entry.isShared -> Icons.Rounded.People
         entry.desktopSession?.provider?.lowercase() == "codex" -> Icons.Rounded.Terminal
         entry.desktopSession?.provider?.lowercase() == "claudecode" -> Icons.Rounded.AutoAwesome
         entry.desktopSession?.provider?.lowercase() == "antigravity" -> Icons.Rounded.Memory
@@ -1816,20 +1839,22 @@ private fun SidebarSessionRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(if (isSelected) palette.accent.copy(alpha = 0.15f) else Color.Transparent)
-            .clickable(onClick = onOpen)
+            .combinedClickable(onClick = onOpen, onLongClick = { showMenu = true })
             .padding(horizontal = 10.dp, vertical = 7.dp)
     ) {
         Icon(
             imageVector = iconVector,
             contentDescription = null,
-            tint = if (isSelected) palette.accentStrong else palette.inkMuted,
+            tint = if (isSelected || entry.isShared) palette.accentStrong else palette.inkMuted,
             modifier = Modifier.size(15.dp)
         )
         Spacer(Modifier.width(7.dp))
+        val sharedUnread = !isSelected && (entry.shared?.unread ?: 0) > 0
         Text(
             text = entry.displayTitle(language),
             color = if (isSelected) palette.accentStrong else palette.inkPrimary,
             fontSize = 12.5.sp,
+            fontWeight = if (sharedUnread) FontWeight.SemiBold else FontWeight.Normal,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
@@ -1851,7 +1876,11 @@ private fun SidebarSessionRow(
                 )
             }
         }
-        if (entry.isPinned) {
+        if (sharedUnread) {
+            Spacer(Modifier.width(5.dp))
+            Box(Modifier.size(7.dp).clip(CircleShape).background(palette.accentStrong))
+        }
+        if (entry.isPinned && !entry.isShared) {
             Spacer(Modifier.width(4.dp))
             Icon(
                 imageVector = Icons.Rounded.PushPin,
@@ -1882,6 +1911,16 @@ private fun SidebarSessionRow(
                     onDismissRequest = { showMenu = false },
                     modifier = Modifier.background(palette.cardSurface)
                 ) {
+                    if (onShare != null) {
+                        DropdownMenuItem(
+                            text = { Text(if (entry.isShared) tr(language, "共享成员与邀请", "Sharing & members") else tr(language, "共享…", "Share…"), color = palette.inkPrimary) },
+                            leadingIcon = { Icon(Icons.Rounded.Share, contentDescription = null, tint = palette.accentStrong) },
+                            onClick = {
+                                showMenu = false
+                                onShare()
+                            }
+                        )
+                    }
                     if (onRefresh != null) {
                         DropdownMenuItem(
                             text = { Text(tr(language, "刷新对话", "Refresh"), color = palette.inkPrimary) },

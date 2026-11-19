@@ -18,7 +18,7 @@ const handle = fn => async (req, res) => {
 };
 const ctx = req => ({ tenantId: getTenantId(), username: me(req) });
 
-router.get('/accounts', handle(async (req, res) => res.json({ items: await shared.accounts(me(req)) })));
+router.get('/accounts', handle(async (req, res) => res.json({ items: await shared.accounts(me(req), req.query.q) })));
 router.get('/recent', handle(async (req, res) => res.json(await shared.recent(me(req)))));
 router.get('/groups', handle(async (req, res) => res.json({ items: await shared.listGroups(me(req)) })));
 router.post('/groups', handle(async (req, res) => res.json({ item: await shared.saveGroup(me(req), req.body || {}) })));

@@ -175,6 +175,21 @@ struct RootShellView: View {
         .sheet(isPresented: $showAlertCenterSheet) {
             themedModal(alertCenterSheet)
         }
+        // 共享对话：共享面板、邀请横幅、操作提示
+        .sheet(isPresented: Binding(
+            get: { store.sharing.sheet != nil },
+            set: { if !$0 { store.sharing.closeSheet() } }
+        )) {
+            themedModal(ShareConversationSheet(store: store))
+        }
+        .overlay(alignment: .top) {
+            ShareInviteBanner(store: store)
+                .animation(.spring(response: 0.42, dampingFraction: 0.82), value: store.sharing.banner?.shareId)
+        }
+        .overlay(alignment: .bottom) {
+            ShareNoticeToast(store: store)
+                .animation(.snappy, value: store.sharing.notice)
+        }
         .sheet(item: Binding(
             get: { store.exportedSessionJson.map { ExportedLogIdentifiable(json: $0) } },
             set: { if $0 == nil { store.exportedSessionJson = nil } }
@@ -410,18 +425,22 @@ struct RootShellView: View {
                                 .frame(maxWidth: .infinity)
                         } else {
                             ForEach(store.unifiedSessionGroups, id: \.bucket) { group in
-                                let isPinnedGroup = group.bucket == .pinned
-                                let isCollapsed = SessionGrouping.shared.shouldCollapseGroup(
-                                    bucket: group.bucket,
-                                    isPinnedCollapsed: store.isPinnedCollapsed,
-                                    searchQuery: store.sessionSearchQuery
-                                )
+                                // 「共享对话」分类：和置顶一样可折叠，排在最上方
+                                let isSharedGroup = group.bucket.name == "SHARED"
+                                let isPinnedGroup = group.bucket == .pinned || isSharedGroup
+                                let isCollapsed = isSharedGroup
+                                    ? SessionGrouping.shared.shouldCollapseSharedGroup(bucket: group.bucket, isSharedCollapsed: store.sharing.isSharedCollapsed, searchQuery: store.sessionSearchQuery)
+                                    : SessionGrouping.shared.shouldCollapseGroup(
+                                        bucket: group.bucket,
+                                        isPinnedCollapsed: store.isPinnedCollapsed,
+                                        searchQuery: store.sessionSearchQuery
+                                    )
                                 VStack(alignment: .leading, spacing: 3) {
                                     if isPinnedGroup {
                                         Button {
                                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                             withAnimation(.snappy(duration: 0.24)) {
-                                                store.togglePinnedCollapsed()
+                                                if isSharedGroup { store.sharing.toggleCollapsed() } else { store.togglePinnedCollapsed() }
                                             }
                                         } label: {
                                             HStack(spacing: 5) {
@@ -448,8 +467,8 @@ struct RootShellView: View {
                                         .buttonStyle(.plain)
                                         .accessibilityLabel(
                                             isCollapsed
-                                                ? L10n.tr(lang, zh: "展开置顶会话", en: "Expand pinned conversations")
-                                                : L10n.tr(lang, zh: "收起置顶会话", en: "Collapse pinned conversations")
+                                                ? L10n.tr(lang, zh: "展开\(group.localizedTitle(language: lang))", en: "Expand \(group.localizedTitle(language: lang))")
+                                                : L10n.tr(lang, zh: "收起\(group.localizedTitle(language: lang))", en: "Collapse \(group.localizedTitle(language: lang))")
                                         )
                                     } else {
                                         Text(group.localizedTitle(language: lang))
@@ -499,6 +518,7 @@ struct RootShellView: View {
                         serverDraft = store.baseUrl
                         store.loadSchedules()
                         store.loadAlertCenter(filter: "all")
+                        store.sharing.refreshAll()
                         showSettingsSheet = true
                     } label: {
                         ZStack(alignment: .topTrailing) {
@@ -508,7 +528,7 @@ struct RootShellView: View {
                                 .frame(width: 42, height: 42)
                                 .contentShape(Circle())
 
-                            if store.alertUnreadCount > 0 {
+                            if store.alertUnreadCount + store.sharing.inviteCount > 0 {
                                 Circle()
                                     .fill(palette.danger)
                                     .frame(width: 8.5, height: 8.5)
@@ -619,6 +639,7 @@ struct RootShellView: View {
                 default: return "desktopcomputer"
                 }
             }
+            if entry.isShared { return "person.2.fill" }
             if entry.aiSession?.isGroupSession == true { return "person.2" }
             if entry.aiSession?.isWorkspaceAgent == true { return "hammer" }
             return "bubble.left"
@@ -635,7 +656,8 @@ struct RootShellView: View {
             aiSession: entry.aiSession,
             desktopSession: entry.desktopSession,
             isArchived: false,
-            isPinned: entry.isPinned
+            isPinned: entry.isPinned && !entry.isShared,
+            sharedUnread: !isSelected && (entry.shared?.unread ?? 0) > 0
         ) {
             store.openSidebarEntry(entry)
         }
@@ -684,6 +706,7 @@ struct RootShellView: View {
         desktopSession: DesktopAgentSessionSummary? = nil,
         isArchived: Bool,
         isPinned: Bool = false,
+        sharedUnread: Bool = false,
         onTap: @escaping () -> Void
     ) -> some View {
         HStack(spacing: 8) {
@@ -693,9 +716,12 @@ struct RootShellView: View {
                         .font(.system(size: 12))
                         .foregroundStyle(isSelected ? palette.accentStrong : palette.inkMuted)
                     Text(title)
-                        .font(.system(size: 12.5))
+                        .font(.system(size: 12.5, weight: sharedUnread ? .semibold : .regular))
                         .foregroundStyle(isSelected ? palette.accentStrong : palette.inkPrimary)
                         .lineLimit(1)
+                    if sharedUnread {
+                        Circle().fill(palette.accentStrong).frame(width: 7, height: 7)
+                    }
                     if let badge, !badge.isEmpty {
                         let tint = badgeTintColor(providerKey: providerKey, label: badge)
                         Text(badge)
@@ -790,6 +816,17 @@ struct RootShellView: View {
 
     @ViewBuilder
     private func sessionActionsMenu(session: AiSessionSummary, sidebarEntry: SidebarSessionEntry?, isArchived: Bool) -> some View {
+        // 共享：只有 Dragon Claw 自己的对话（第三方 Agent 对话不共享）
+        if !isArchived && store.sharing.available {
+            Button {
+                store.sharing.openSheet(sessionId: session.id, title: session.displayTitle(language: lang))
+            } label: {
+                Label(
+                    store.sharing.isShared(session.id) ? L10n.tr(lang, zh: "共享成员与邀请", en: "Sharing & members") : L10n.tr(lang, zh: "共享…", en: "Share…"),
+                    systemImage: "person.badge.plus"
+                )
+            }
+        }
         Button {
             store.openSession(session, forceRefresh: true)
         } label: {
@@ -879,6 +916,7 @@ struct RootShellView: View {
                             .onAppear {
                                 expandedAlertId = nil
                                 store.loadAlertCenter(filter: "all")
+                                store.sharing.refreshAll()
                             }
                     } label: {
                         HStack(spacing: 10) {
@@ -888,8 +926,8 @@ struct RootShellView: View {
                             Text(L10n.tr(lang, zh: "告警中心", en: "Alert Center"))
                                 .foregroundStyle(palette.inkPrimary)
                             Spacer()
-                            if store.alertUnreadCount > 0 {
-                                Text("\(store.alertUnreadCount)")
+                            if store.alertUnreadCount + store.sharing.inviteCount > 0 {
+                                Text("\(store.alertUnreadCount + store.sharing.inviteCount)")
                                     .font(.system(size: 11, weight: .bold))
                                     .foregroundStyle(.white)
                                     .padding(.horizontal, 7)
@@ -1067,6 +1105,9 @@ struct RootShellView: View {
 
     private var alertCenterBody: some View {
         VStack(spacing: 12) {
+            // 共享对话邀请（接受 / 拒绝 / 忽略）与粘贴共享链接加入
+            ShareInvitesSection(store: store)
+
             if let summary = store.alertSummary {
                 HStack(spacing: 8) {
                     alertStatCard(title: L10n.tr(lang, zh: "总计", en: "Total"), value: "\(summary.total)", color: palette.inkPrimary)

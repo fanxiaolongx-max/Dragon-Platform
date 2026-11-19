@@ -32,6 +32,8 @@ private func dispatchToMain(_ work: @escaping @MainActor () -> Void) {
 @MainActor
 final class DragonClawStore {
     let sdk = DragonClawSdk(settings: SettingsManager(), api: DragonClawApiClient(settings: SettingsManager()))
+    /// 共享对话：分类、邀请、共享面板与同步（SharingStore.swift）
+    let sharing = SharingStore()
 
     @ObservationIgnored private var needsWorkspaceRefresh = false
     @ObservationIgnored private var reauthInFlight = false
@@ -562,6 +564,7 @@ final class DragonClawStore {
     }
 
     func logout() {
+        sharing.stop()
         stopStreaming()
         activeSessionLoadHandle?.cancel()
         activeSessionLoadHandle = nil
@@ -637,6 +640,7 @@ final class DragonClawStore {
         loadSessions()
         loadToolsCatalog()
         loadAlertSummary()
+        sharing.start(store: self)
         loadSkills()
         loadSchedules()
         loadToolNavState()
@@ -747,7 +751,8 @@ final class DragonClawStore {
             aiSessions: sessions,
             desktopSessions: desktopAgentSessions,
             searchQuery: sessionSearchQuery,
-            preferences: conversationPreferences
+            preferences: conversationPreferences,
+            shared: sharing.mine
         )
     }
 
@@ -959,7 +964,8 @@ final class DragonClawStore {
             messages = cached.messages
             isLoadingSessionMessages = false
             chatOpenScrollGeneration += 1
-            if cacheEval.decision == .useCacheSkipNetwork {
+            // 共享对话总要同步一次：别人可能刚发了新消息
+            if cacheEval.decision == .useCacheSkipNetwork && !sharing.isShared(session.id) {
                 return
             }
         } else {
@@ -968,6 +974,18 @@ final class DragonClawStore {
             isLoadingSessionMessages = true
         }
 
+        let targetId = session.id
+        if sharing.isShared(targetId) {
+            sharing.syncBeforeOpen(targetId) { [weak self] in
+                guard let self, self.currentSessionId == targetId else { return }
+                self.fetchOpenedSessionMessages(session, hasCachedMessages: hasCachedMessages, forceRefresh: forceRefresh)
+            }
+            return
+        }
+        fetchOpenedSessionMessages(session, hasCachedMessages: hasCachedMessages, forceRefresh: forceRefresh)
+    }
+
+    private func fetchOpenedSessionMessages(_ session: AiSessionSummary, hasCachedMessages: Bool, forceRefresh: Bool) {
         let targetId = session.id
         let handle = sdk.fetchSessionMessages(token: token, sessionId: targetId, limit: historyPageSize, before: nil) { [weak self] res in
             dispatchToMain { [weak self] in
@@ -1006,6 +1024,35 @@ final class DragonClawStore {
             }
         }
         activeSessionLoadHandle = handle
+        activeTaskHandles.append(handle)
+    }
+
+    var isAppActive: Bool { appIsActive }
+
+    /// 接受邀请 / 打开链接后进入共享对话：列表里还没有时用最小摘要打开，并刷新列表
+    func openSharedSession(sessionId: String, title: String) {
+        let summary = sessions.first(where: { $0.id == sessionId })
+            ?? AiSessionSummary(id: sessionId, createdAt: nil, updatedAt: nil, archivedAt: nil, archived: false, is_archived: nil, messageCount: 0, title: title, firstQuestion: nil, lastQuestion: nil, discussionMode: nil, agent: nil, busy: false, pinned: false, customTitle: nil, pinOrder: nil, hidden: false)
+        openSession(summary, forceRefresh: true)
+        loadSessions()
+    }
+
+    /// 共享对话里其他成员的新消息：取最新一页，把还没显示的接在后面（正在回复时先不接，下次同步再试）
+    func appendSharedMessages(sessionId: String, completion: @escaping (Bool) -> Void) {
+        guard currentSessionId == sessionId, activeDesktopSession == nil, !isStreaming, !isLoadingSessionMessages else { completion(false); return }
+        let handle = sdk.fetchSessionMessages(token: token, sessionId: sessionId, limit: historyPageSize, before: nil) { [weak self] res in
+            dispatchToMain { [weak self] in
+                guard let self, self.currentSessionId == sessionId, !self.isStreaming else { completion(false); return }
+                let shown = Set(self.messages.map { $0.id })
+                let fresh = self.sdk.mapHistoryMessages(items: res.items).filter { $0.sharedAuthor != nil && !shown.contains($0.id) }
+                if !fresh.isEmpty {
+                    withAnimation(.snappy) { self.messages.append(contentsOf: fresh) }
+                }
+                completion(true)
+            }
+        } onError: { _ in
+            dispatchToMain { completion(false) }
+        }
         activeTaskHandles.append(handle)
     }
 
