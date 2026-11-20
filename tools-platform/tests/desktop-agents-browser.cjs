@@ -91,7 +91,7 @@ app.whenReady().then(async () => {
     assert.equal(await evaluate('document.querySelector("[data-metric=decode] .daw-metric-value").textContent'),'—','log durations never masquerade as decode speed');
     assert.match(await evaluate('dcThread.querySelector(".dc-msg-usage").textContent'),/900K/,'round token counts remain in the reply footer');
     assert.match(await evaluate('dcThread.querySelector(".dc-msg-speed").textContent'),/TPS —\/—\/—.*TTFT 2.50 s/,'missing decode stays visible while explicit turn latency is retained');
-    assert.match(await evaluate('dcThread.querySelector(".dc-msg-usage").getAttribute("data-dc-metric-tip")'),/900,000/,'hover shows exact counts');
+    assert.match(await evaluate('dcThread.querySelector(".dc-metric-details").textContent'),/900,000/,'details show exact counts');
     if(process.env.DESKTOP_PERFORMANCE_PREVIEW){
         for(const width of [1440,390])for(const theme of ['light','dark']){
             win.setContentSize(width,950);await evaluate(`document.documentElement.dataset.ui='v2';document.documentElement.dataset.theme='${theme}';DragonClawWorkspace.openPanel()`);await wait(160);
@@ -400,9 +400,9 @@ app.whenReady().then(async () => {
     await evaluate(`window.footerApi=DragonClaw.enterExternal({owner:'footer-test'});window.footerMessage=footerApi.addMessage('ai','measured reply');footerApi.addCopy(footerMessage,'measured reply',{modelName:'measured-model',rounds:[{model:'measured-model',inputTokens:1000,outputTokens:101,decodeTokens:100,ttftMs:200,generationMs:1000,timingSource:'request-stream',tps:100},{model:'measured-model',inputTokens:2000,outputTokens:201,decodeTokens:200,ttftMs:400,generationMs:1000,timingSource:'request-stream',tps:200}]})`);
     assert.match(await evaluate('footerMessage.querySelector(".dc-msg-speed").textContent'),/TPS 100\/150\/200.*TTFT 0.20 s/);
     assert.match(await evaluate('footerMessage.querySelector(".dc-msg-usage").textContent'),/3,000/);
-    assert.match(await evaluate('footerMessage.querySelector(".dc-msg-speed").getAttribute("data-dc-metric-tip")'),/#2 measured-model/,'hover preserves each call breakdown');
+    assert.match(await evaluate('footerMessage.querySelector(".dc-metric-details").textContent'),/#2 measured-model/,'disclosure preserves each call breakdown');
     await evaluate(`footerMessage.querySelector('.dc-msg-tools').remove();footerApi.addCopy(footerMessage,'measured reply',{modelName:'measured-model',rounds:Array.from({length:10},(_,i)=>({model:'call-'+(i+1),inputTokens:100,outputTokens:10,timingSource:'usage-only'}))})`);
-    const limitedHover=await evaluate('footerMessage.querySelector(".dc-msg-usage").getAttribute("data-dc-metric-tip")');
+    const limitedHover=await evaluate('footerMessage.querySelector(".dc-metric-details").textContent');
     assert.equal((limitedHover.match(/^#\d+/gm)||[]).length,3,'hover shows the latest three calls only');
     assert.match(limitedHover,/#8 call-8/);
     assert.match(limitedHover,/#10 call-10/);
@@ -410,15 +410,15 @@ app.whenReady().then(async () => {
     assert.match(limitedHover,/1,000 input tokens/,'summary still includes all ten calls');
     win.setContentSize(1440,950);
     await evaluate('footerMessage.scrollIntoView({block:"center"})');await wait(300);
-    const wideTip=await evaluate('(()=>{if(!footerMessage.isConnected)dcThread.append(footerMessage);footerMessage.querySelector(".dc-msg-usage").dispatchEvent(new PointerEvent("pointerover",{bubbles:true}));const t=document.getElementById("dcMetricTooltip"),r=t.getBoundingClientRect();return {hidden:t.hidden,width:r.width,right:r.right,left:r.left,whiteSpace:getComputedStyle(t).whiteSpace}})()');
-    assert.equal(wideTip.hidden,false,JSON.stringify(await evaluate('({connected:footerMessage.isConnected,tips:document.querySelectorAll("#dcMetricTooltip").length,spans:document.querySelectorAll("[data-dc-metric-tip]").length})')));
-    assert.ok(wideTip.width>500,'metric hover grows to fit its longest line instead of using a narrow native tooltip');
-    assert.ok(wideTip.left>=12&&wideTip.right<=1440-12);
-    assert.equal(wideTip.whiteSpace,'pre-wrap');
+    await evaluate('if (!footerMessage.isConnected) dcThread.append(footerMessage)');
+    const panel = 'footerMessage.querySelector(".dc-msg-metrics")';
+    assert.equal(await evaluate(panel + '.open'), false);
+    await evaluate(panel + '.querySelector("summary").click()');
+    assert.equal(await evaluate(panel + '.open'), true);
     win.setContentSize(390,844);await wait(100);
-    assert.equal(await evaluate('(()=>{footerMessage.querySelector(".dc-msg-usage").dispatchEvent(new PointerEvent("pointerover",{bubbles:true}));const r=dcMetricTooltip.getBoundingClientRect();return r.left>=12&&r.right<=innerWidth-12&&r.top>=12&&r.bottom<=innerHeight-12})()'),true,'tooltip wraps to fit a narrow viewport');
-    await evaluate('document.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true}))');
-    assert.equal(await evaluate('dcMetricTooltip.hidden'),true);
+    assert.equal(await evaluate('(()=>{const d=footerMessage.querySelector(".dc-metric-details");return d.clientWidth>0 && d.scrollWidth<=d.clientWidth && getComputedStyle(d).position==="static"})()'),true,'details wrap within the message');
+    await evaluate(panel + '.querySelector("summary").click()');
+    assert.equal(await evaluate(panel + '.open'), false);
     await evaluate(`footerMessage.querySelector('.dc-msg-tools').remove();footerApi.addCopy(footerMessage,'native metrics',{modelName:'native',rounds:[{inputTokens:1000,outputTokens:200,reasoningOutputTokens:50,ttftMs:2000,timingSource:'native-metadata',nativeStreamMs:500,nativeStreamTokens:200,nativeStreamTps:400}]})`);
     assert.match(await evaluate('footerMessage.querySelector(".dc-msg-speed").textContent'),/TPS.*native.*400\/400\/400.*TTFT 2.00 s/,'native stream measurements remain distinct from visible decode');
     await evaluate(`footerMessage.querySelector('.dc-msg-tools').remove();footerApi.addCopy(footerMessage,'observed metrics',{modelName:'native',rounds:[{inputTokens:1000,outputTokens:20,observedFirstTextMs:2000,firstTextSource:'workbuddy-native-sdk-log'}]})`);

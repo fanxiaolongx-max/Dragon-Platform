@@ -175,12 +175,19 @@
         const id = btn.dataset.radarId;
         setOpen(false);
         if (kind === 'approval') {
-            if (sessionId) window.DragonClaw?.openChat?.(sessionId);
-            else document.getElementById('v2AlertsBtn')?.click?.();
+            if (sessionId) {
+                window.HomeMode?.set?.('chat');
+                window.DragonClaw?.openChat?.({ id: sessionId });
+            } else {
+                document.getElementById('v2AlertsBtn')?.click?.();
+            }
         } else if ((kind === 'desktop' || kind === 'desktop-choice') && provider && id) {
-            window.HomeDesktopAgents?.open?.(provider, id);
+            window.HomeMode?.set?.('chat');
+            const item = window.HomeDesktopAgents?.getItems?.()?.find(it => it.provider === provider && it.id === id);
+            window.HomeDesktopAgents?.open?.(item || { provider, id });
         } else if ((kind === 'platform' || kind === 'discussion') && sessionId) {
-            window.DragonClaw?.openChat?.(sessionId);
+            window.HomeMode?.set?.('chat');
+            window.DragonClaw?.openChat?.({ id: sessionId });
         } else if (kind === 'terminal-agent' || kind === 'terminal-shell') {
             window.DragonTerminalSidebar?.open?.();
         }

@@ -232,15 +232,37 @@
         document.getElementById('dcInput')?.focus({ preventScroll: true });
         return true;
     }
-    async function open(session) {
-        const api = window.DragonClaw?.enterExternal?.({ onExit: exit, owner: 'desktop-agent', composer: composer({ ...session, canSend: false }),
-            exportSession: { id: `${session.provider}-${session.id}`, url: `${API}/${encodeURIComponent(session.provider)}/sessions/${encodeURIComponent(session.id)}/export` } });
-        if (!api)
+    async function open(sessionOrProvider, maybeId) {
+        let session = typeof sessionOrProvider === 'string'
+            ? { provider: sessionOrProvider, id: maybeId }
+            : { ...(sessionOrProvider || {}) };
+        if (!session?.provider || !session?.id)
             return;
-        window.HomeAgentDiscussion?.bindExternal?.(session.provider);
-        autoSelect=false;
-        state.drafting = null;
+        const matched = (state.items || []).find(it => it.provider === session.provider && it.id === session.id);
+        if (matched)
+            session = { ...matched, ...session };
+        if (!session.title)
+            session.title = session.id;
+        if (session.provider && names[session.provider])
+            state.provider = session.provider;
         state.active = session;
+        const api = window.DragonClaw?.enterExternal?.({
+            onExit: exit,
+            owner: 'desktop-agent',
+            composer: composer({ ...session, canSend: false }),
+            exportSession: {
+                id: `${session.provider}-${session.id}`,
+                url: `${API}/${encodeURIComponent(session.provider)}/sessions/${encodeURIComponent(session.id)}/export`
+            }
+        });
+        if (!api) {
+            state.active = null;
+            return;
+        }
+        window.DragonClaw?.markActiveChat?.();
+        window.HomeAgentDiscussion?.bindExternal?.(session.provider);
+        autoSelect = false;
+        state.drafting = null;
         state.api = api;
         state.signature = '';
         state.detail = null;

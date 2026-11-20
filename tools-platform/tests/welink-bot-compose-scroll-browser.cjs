@@ -92,10 +92,10 @@ app.whenReady().then(async () => {
     await wait(100);
     assert.ok(await gap() < 5, 'Thread opens at the bottom');
     assert.match(await evaluate('[...dcThread.querySelectorAll(".dc-msg-speed")].at(-1).textContent'),/TPS 100\/100\/100.*TTFT 0.20 s/,'channel history uses the same footer');
-    assert.match(await evaluate('[...dcThread.querySelectorAll(".dc-msg-usage")].at(-1).getAttribute("data-dc-metric-tip")'),/1,000/,'channel hover keeps precise token counts');
+    assert.match(await evaluate('[...dcThread.querySelectorAll(".dc-metric-details")].at(-1).textContent'),/1,000/,'channel disclosure keeps precise token counts');
     items.at(-1).rounds = [{...metricRounds[0],inputTokens:2000}];
     await evaluate('HomeWelinkThreads.refresh()');
-    assert.match(await evaluate('[...dcThread.querySelectorAll(".dc-msg-usage")].at(-1).getAttribute("data-dc-metric-tip")'),/2,000/,'late statistics update on the same message');
+    assert.match(await evaluate('[...dcThread.querySelectorAll(".dc-metric-details")].at(-1).textContent'),/2,000/,'late statistics update on the same message');
     const reading = await evaluate(`(()=>[...dcThread.querySelectorAll('.wl-msg')].map(message=>{
         const body=message.querySelector('.dc-msg-body');return {opacity:getComputedStyle(message).opacity,color:getComputedStyle(body).color,filter:getComputedStyle(body).filter};
     }))()`);
