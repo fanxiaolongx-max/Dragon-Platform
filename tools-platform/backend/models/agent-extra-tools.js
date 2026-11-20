@@ -148,16 +148,17 @@ async function forChat({ owner, user, chatSessionId, readOnly, write, signal, se
             if (!set) return { content: `工具 ${call.name} 不可用。`, summary: '工具不可用', isError: true };
             registry.noteCall(call.name);
             const kind = typeof set.kindOf === 'function' ? set.kindOf(call.name, call.args) : 'read';
+            const previewSet = () => (typeof set.preview === 'function' ? set.preview(call.name, call.args) : {});
             // 频道里显示不了审批卡：需要确认的操作挂起，用户回复确认码后再执行
             if (channel && kind === 'confirm' && !session.alwaysAllow.has(set.alwaysKey?.(call.name, call.args) || call.name)) {
                 let preview;
-                try { preview = await set.preview(call.name, call.args); } catch (error) {
+                try { preview = await previewSet(); } catch (error) {
                     return { content: `错误（${error.code || 'ERROR'}）：${error.message}`, summary: String(error.message || '').slice(0, 120), isError: true };
                 }
                 return require('./channels/channel-pending-actions').defer({ ...channel, title: confirmTitle(call, preview), preview, execute: () => set.execute(call) })
                     || { content: '这个操作需要用户确认，当前频道会话无法确认，没有执行', summary: '需要确认，未执行', isError: true };
             }
-            const decision = await manager.decideCall(run, call, { kind, preview: () => set.preview(call.name, call.args), key: set.alwaysKey?.(call.name, call.args), sharedMcp: set.sharedMcp, confirmInFull: Boolean(set.confirmInFull) });
+            const decision = await manager.decideCall(run, call, { kind, preview: previewSet, key: set.alwaysKey?.(call.name, call.args), sharedMcp: set.sharedMcp, confirmInFull: Boolean(set.confirmInFull) });
             if (decision.outcome) return decision.outcome;
             return set.execute(call,{signal});
         },

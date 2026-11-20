@@ -402,11 +402,26 @@ async function runTurn({ client: aiClient, systemInstruction, messages, signal, 
     return { text: result.text, usage: result.usage, toolLog: result.toolLog, ...(result.toolsUnsupported ? { toolsUnsupported: true } : {}) };
 }
 
+function preview(name, args = {}) {
+    if (name === 'voice_creator_list_voices') {
+        const filters = [args.gender, args.accent].filter(Boolean).join(' · ');
+        return { action: 'voice_creator_list_voices', command: filters || '列出官方音色' };
+    }
+    const voice = findVoice(args.voice)?.name || args.voice || OFFICIAL_VOICES[0].name;
+    const text = String(args.text || '').trim();
+    const snippet = text.length > 40 ? `${text.slice(0, 40)}…` : text;
+    return {
+        action: 'voice_creator_generate',
+        command: `${voice}${snippet ? `：${snippet}` : ''}`
+    };
+}
+
 module.exports = {
     SKILL_ID: 'voice-creator',
     OFFICIAL_VOICES,
     definitions,
     buildPrompt,
+    preview,
     execute,
     runTurn,
     getApiKey,

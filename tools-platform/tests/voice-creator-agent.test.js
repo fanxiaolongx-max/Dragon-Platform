@@ -82,3 +82,25 @@ test('agent-tool-access denies voice tools for normal user by default', async ()
     const canSuperAdminUse = await toolAccess.forActor({ username: 'admin', role: 'admin', isSuper: true });
     assert.equal(canSuperAdminUse('voice_creator_generate'), true, 'voice_creator tools must be allowed for superadmin');
 });
+
+test('voice-creator toolset attached via agent-tool-registry provides preview and execute', async () => {
+    const registry = require('../backend/models/agent-tool-registry');
+    const reg = await registry.create({
+        root: process.cwd(),
+        allowed: () => true,
+        skillIds: ['voice-creator'],
+        actor: { username: 'admin', role: 'admin', isSuper: true },
+        session: {
+            loadedTools: new Set(),
+            loadedSkills: new Set(),
+            owner: 'admin',
+            username: 'admin'
+        }
+    });
+    const set = reg.toolset('voice_creator_generate');
+    assert.ok(set, 'voice_creator toolset should attach for voice-creator skill');
+    assert.equal(typeof set.preview, 'function', 'toolset must implement preview() for run-manager');
+    const previewed = await set.preview('voice_creator_generate', { text: '撒个娇', voice: '语彤' });
+    assert.equal(previewed.action, 'voice_creator_generate');
+    assert.ok(previewed.command.includes('语彤'));
+});

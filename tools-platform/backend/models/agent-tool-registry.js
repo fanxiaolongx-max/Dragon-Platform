@@ -90,6 +90,7 @@ const TOOLSETS = {
                 definitions: voiceCreator.definitions(),
                 prompt: voiceCreator.buildPrompt(),
                 kindOf: voiceCreator.kindOf,
+                preview: (name, args) => voiceCreator.preview(name, args),
                 execute: call => voiceCreator.execute(call.name, call.args, options)
             };
         }

@@ -1103,9 +1103,10 @@ async function runAgentTurn({ session, user, client, systemInstruction, historyM
         }
         const toolset = !outcome && registry.toolset(call.name);
         const toolsetKind = toolset?.kindOf?.(call.name) || null;
+        const previewToolset = () => (typeof toolset?.preview === 'function' ? toolset.preview(call.name, call.args) : {});
         if (toolset?.sharedMcp) {
             registry.noteCall(call.name);
-            const { outcome } = await decideCall(run, call, { kind: toolsetKind, sharedMcp: true, preview: () => toolset.preview(call.name, call.args) });
+            const { outcome } = await decideCall(run, call, { kind: toolsetKind, sharedMcp: true, preview: previewToolset });
             return outcome || toolset.execute(call, { signal });
         }
         if (toolset && !toolset.kindOf) outcome = await toolset.execute(call, { opsCtx, signal, write });
@@ -1116,7 +1117,7 @@ async function runAgentTurn({ session, user, client, systemInstruction, historyM
         let preview = {};
         if (!outcome && decision !== 'deny' && decision !== 'readonly') {
             try {
-                preview = toolset ? await toolset.preview(call.name, call.args) : await toolsService.preview(toolCtx, call.name, call.args);
+                preview = toolset ? await previewToolset() : await toolsService.preview(toolCtx, call.name, call.args);
             } catch (error) {
                 outcome = toolsService.errorResult(toolCtx, error);
             }

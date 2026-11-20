@@ -40,6 +40,12 @@ W=/Volumes/512G/06-工具开发/privacy-policy/tools-platform/backend/agent-skil
 
 会话名可写备注、昵称或微信号，模糊匹配取第一个；有歧义先 `contacts --query`。时间都是开罗 UTC+2。`recent`/`latest`/`history` 会先做一次增量同步。
 
+> [!TIP]
+> **查“今天谁找我了 / 今天消息”的正确做法**：
+> - `$W recent N` 是按**最近 N 分钟滚动查询**，不是按自然日零点切分；直接跑 `recent 1440` 在凌晨或跨天时会把昨天一整天混进来，且结果极长易被截断。
+> - 查“今天”时，先结合当前时间（或先跑 `$W latest --limit 20` 看 `now_cairo` 与最新会话），按**从今天 `00:00` 到现在的分钟数**调用 `$W recent <分钟数>`，或对重点会话用 `$W history "会话" --start-time "YYYY-MM-DD 00:00"`。
+> - 输出超长被保存成文件时，回答前必须先用 `read_file` 分段读取完整/相关行并核对每条消息的 `time_cairo` 日期，不要只看截断后的开头结尾猜测日期或遗漏中间消息。
+
 ## 2. 用户问图片/照片/截图/视频/文件/语音时（必须照做）
 
 1. 跑 `$W history "会话" --limit 20`（或 `recent`/`latest`）。图片消息后面会带 `〔图片 · 高清原图〕 查看: /Volumes/512G/wechat-local-vault/media-cache/<md5>_hd.png`（已自动解码，默认每次最多新解 8 张，`--media-limit 30` 可加大）。只要图片、要更早的：`$W media "会话" --type image --since 7d --view`。

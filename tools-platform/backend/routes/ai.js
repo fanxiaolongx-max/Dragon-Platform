@@ -1361,7 +1361,10 @@ async function handleChatRequest(req, res) {
             const scopeRule = homeAgent
                 ? `8. 不要声称自己只专注于本平台：与平台无关的问题，直接以通用助手身份完整、专业地回答，不必引用项目知识。只有问题涉及本平台时才使用上面的项目知识、业务配置和数据结果。推荐或提到平台工具时，使用 Markdown 链接 [工具名](路径)，路径只能取自“平台工具目录”，不得编造路径。用户描述需求时先想平台有没有对应的工具；有 find_platform_tools / read_tool_guide 时，用它们查更准确的匹配和使用说明再回答怎么用。`
                 : `8. 如果用户的提问超出系统功能范畴，礼貌说明你专注于本工具中台。`;
+            const now = new Date();
+            const currentDateTime = `${now.toLocaleDateString('sv-SE')} ${now.toLocaleTimeString('zh-CN', { hour12: false })}（${Intl.DateTimeFormat().resolvedOptions().timeZone || 'local'}）`;
             return `${identityPrompt}
+当前服务器时间：${currentDateTime}。涉及“今天”“昨天”“前天”“本周”等相对日期时以此为准，勿沿用历史消息中的旧日期。
 ${loadedSkills.catalogPrompt || ''}
 ${loadedSkills.prompt}
 当前页面标题: ${pageTitle || '未知'}

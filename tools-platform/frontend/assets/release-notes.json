@@ -1,12 +1,12 @@
 {
   "zh": [
-    "共享对话删除体验与一致性优化：非发起者删除对话自动退出共享并同步移除侧栏共享条目（不影响发起者）；发起者删除原对话时确认并收回成员共享副本。",
-    "修复模型按小写表名查询 ReportSnapshots / ReportMetricData 时因大小写敏感导致的报错，数据库工具现支持按实际表名大小写无关解析。",
-    "优化 tool_search 对「所有可用工具」等总览查询及无匹配关键词的处理，改为直接返回已挂载与按需工具目录摘要，不再误标红报错。"
+    "修复 @创建声音 等内置工具集调用时因缺少 preview() 导致的「toolset.preview is not a function」报错，并在运行器与额外工具调度中增加安全兜底。",
+    "在对话系统提示中注入当前服务器时间与时区，优化微信历史查询日期计算与长输出分段读取指引。",
+    "将审批推送抽屉样式前缀重构为 .ainbox-*，避免与首页对话区域样式名冲突。"
   ],
   "en": [
-    "Aligned shared conversation deletion semantics: non-owner deletion cleanly leaves the share and removes the sidebar entry immediately, while owner deletion closes sharing and revokes member copies.",
-    "Resolved case-insensitive SQLite table names (such as ReportSnapshots / ReportMetricData) in database tools and updated default prompt references to avoid spurious schema errors.",
-    "Improved tool_search handling for catalog overview queries and zero-hit keyword searches so they return available tool summaries without false red error indicators."
+    "Fixed the 'toolset.preview is not a function' error when calling @voice-creator and added defensive preview() guards in the agent run manager and extra-tools dispatcher.",
+    "Injected the current server timestamp into chat system prompts and refined wechat-vault relative-date and truncated-output instructions.",
+    "Namespaced approval-inbox CSS classes from .ai-* to .ainbox-* to prevent stylesheet collisions with home chat UI."
   ]
 }
