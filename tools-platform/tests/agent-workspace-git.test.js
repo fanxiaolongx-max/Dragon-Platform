@@ -2,7 +2,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const sandbox=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'workspace-git-')));process.env.TOOLS_DATA_DIR=path.join(sandbox,'data');process.env.TOOLS_REPORT_DATA_DIR=path.join(sandbox,'reports');
 const repo=path.join(sandbox,'repo');fs.mkdirSync(repo);
 const git=(...args)=>execFileSync('git',['-c',`core.hooksPath=${os.devNull}`,...args],{cwd:repo,encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
-git('init','-b','main');fs.writeFileSync(path.join(repo,'README.md'),'fixture\n');git('add','README.md');git('-c','user.name=Fixture','-c','user.email=fixture@example.test','commit','--no-gpg-sign','-m','Initial');git('branch','feature');
+git('init','-b','main');git('config','user.name','Fixture');git('config','user.email','fixture@example.test');fs.writeFileSync(path.join(repo,'README.md'),'fixture\n');git('add','README.md');git('commit','--no-gpg-sign','-m','Initial');git('branch','feature');
 const router=require('../backend/routes/agent-workspace'),manager=require('../backend/models/agent-run-manager'),prefs=require('../backend/models/agent-workspace-repository'),pool=require('../backend/models/tenant-sqlite-pool'),db=require('../backend/models/app-db'),{runWithTenant}=require('../backend/models/tenant-context');
 let server,base;
 test.before(async()=>{const app=express();app.use(express.json());app.use((req,_res,next)=>{req.user={username:'alice',role:req.headers['x-role']||'admin',isSuper:!req.headers['x-role']};runWithTenant(req.headers['x-tenant']||'default',next);});app.use(router);server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));base='http://127.0.0.1:'+server.address().port;});
