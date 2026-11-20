@@ -612,6 +612,7 @@
             if (!state.open) return;
             setTimeout(() => { renderFilters(); renderList(); }, 0);
         }));
+        window.addEventListener('tools:authchange', () => { if (state.open) setTimeout(render, 0); });
         window.addEventListener('tools:languagechange', () => { if (state.open) render(); });
         const syncHash = () => {
             const h = location.hash.replace(/^#/, '');

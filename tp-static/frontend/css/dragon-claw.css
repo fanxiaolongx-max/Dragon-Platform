@@ -650,7 +650,7 @@ body.dc-chatting .dc-chat-head {
 .dc-ghost-btn:hover { border-color: rgba(100, 255, 218, 0.4); color: #e6fffa; }
 /* 导出日志下拉：网页快照 / 研发日志（js/home/dragon-claw.js），复用模型菜单的面板与选项样式 */
 /* 头部的入场动画会建立层叠上下文，下拉需要整个头部压在对话区之上 */
-body.dc-chatting .dc-chat-head:has(.dc-export.is-open) { position: relative; z-index: 20; }
+body.dc-chatting .dc-chat-head:has(.dc-export.is-open, .dc-radar-pill[aria-expanded="true"]) { position: relative; z-index: 20; }
 .dc-export { position: relative; flex: none; }
 .dc-export .dc-ghost-btn { display: inline-flex; align-items: center; gap: 4px; }
 .dc-export .dc-ghost-btn:disabled { opacity: 0.6; cursor: progress; }
@@ -1248,9 +1248,24 @@ body.dc-chatting .dc-composer {
 
 
 /* Metrics size to their longest line, wrapping only at the viewport boundary. */
-.dc-metric-tooltip { position: fixed; z-index: 10020; width: max-content; max-width: calc(100vw - 24px); max-height: calc(100dvh - 24px); box-sizing: border-box; overflow: auto; padding: 10px 12px; border: 1px solid rgba(255,255,255,.12); border-radius: 9px; background: #34363b; color: #f5f6f8; box-shadow: 0 8px 28px rgba(0,0,0,.22); font: 11px/1.6 system-ui, sans-serif; font-variant-numeric: tabular-nums; white-space: pre-wrap; overflow-wrap: anywhere; pointer-events: none; }
-.dc-metric-tooltip[hidden] { display: none; }
-[data-dc-metric-tip]:focus-visible { outline: 2px solid #8297e8; outline-offset: 2px; border-radius: 3px; }
+.dc-msg-metrics { min-width: 0; max-width: 100%; }
+.dc-msg-metrics summary { cursor: pointer; font-size: 11px; color: var(--dc-faint); }
+.dc-msg-metrics summary:focus-visible { outline: 2px solid var(--dc-accent); outline-offset: 2px; border-radius: 3px; }
+.dc-msg-metrics summary span { display: inline; white-space: normal; cursor: inherit; }
+.dc-metric-details {
+    box-sizing: border-box;
+    max-width: 64ch;
+    margin-top: 6px;
+    border-inline-start: 2px solid var(--v2-line-strong, var(--dc-border));
+    padding: 4px 12px;
+    color: var(--v2-ink2, var(--dc-text));
+    font: 12px/1.65 system-ui, sans-serif;
+    font-variant-numeric: tabular-nums;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
+.dc-msg-tools:has(.dc-msg-metrics[open]) { opacity: 1; align-items: flex-start; }
+.dc-msg--ai:is(.is-continued, .is-writing) .dc-msg-metrics { display: none; }
 .dc-tac-strategy { margin: 8px 0 4px; padding-top: 8px; border-top: 1px solid rgba(148, 163, 184, 0.22); display: flex; flex-direction: column; gap: 6px; }
 .dc-tac-strat-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 2px; border-radius: 8px; background: rgba(148, 163, 184, 0.14); }
 .dc-tac-strat-btn { border: 0; border-radius: 6px; padding: 5px 8px; font-size: 12px; font-weight: 500; background: transparent; color: inherit; cursor: pointer; }

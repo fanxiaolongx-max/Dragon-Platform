@@ -428,6 +428,7 @@ html.platform-home[data-theme="dark"] .v2-role-badge.is-superadmin::after {
 
 .v2-pop-sep { height: 1px; margin: 5px 6px; background: var(--v2-line); }
 
+.v2-pop-sep[hidden],
 .v2-pop-sep + .v2-pop-sep,
 .v2-pop-sep:first-child,
 .v2-pop-sep:last-child { display: none; }

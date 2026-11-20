@@ -1098,46 +1098,6 @@
     }
     const fmtTps = value => (value >= 100 ? Math.round(value) : Math.round(value * 10) / 10).toString();
 
-    function bindMetricTooltips() {
-        const tip = document.createElement('div');
-        tip.id = 'dcMetricTooltip';
-        tip.className = 'dc-metric-tooltip';
-        tip.setAttribute('role', 'tooltip');
-        tip.hidden = true;
-        document.body.appendChild(tip);
-        let anchor = null;
-        const hide = () => {
-            anchor?.removeAttribute('aria-describedby');
-            anchor = null; tip.hidden = true;
-        };
-        const show = node => {
-            if (!node) return;
-            hide(); anchor = node;
-            tip.textContent = node.dataset.dcMetricTip || '';
-            tip.hidden = false;
-            node.setAttribute('aria-describedby', tip.id);
-            const rect = node.getBoundingClientRect();
-            const bounds = tip.getBoundingClientRect();
-            const left = Math.max(12, Math.min(rect.left, innerWidth - bounds.width - 12));
-            const below = rect.bottom + 8;
-            const preferred = below + bounds.height <= innerHeight - 12 ? below : rect.top - bounds.height - 8;
-            const top = Math.max(12, Math.min(preferred, innerHeight - bounds.height - 12));
-            tip.style.left = left + 'px'; tip.style.top = top + 'px';
-        };
-        document.addEventListener('pointerover', event => {
-            const node = event.target.closest?.('[data-dc-metric-tip]');
-            if (node && node !== anchor) show(node);
-        });
-        document.addEventListener('pointerout', event => {
-            if (anchor && anchor.contains(event.target) && !anchor.contains(event.relatedTarget)) hide();
-        });
-        document.addEventListener('focusin', event => show(event.target.closest?.('[data-dc-metric-tip]')));
-        document.addEventListener('focusout', event => { if (anchor?.contains(event.target)) hide(); });
-        document.addEventListener('keydown', event => { if (event.key === 'Escape') hide(); });
-        document.addEventListener('scroll', hide, true);
-        window.addEventListener('resize', hide);
-    }
-
     function addMessageTools(message, text, { modelName = '', usage = null, rounds = null } = {}) {
         if (!external.active) workspace()?.performance?.(message, rounds || []);
         const bar = document.createElement('div');
@@ -1175,9 +1135,17 @@
         ].join('\n');
         if (Array.isArray(rounds) && rounds.length) message.dcRounds = rounds;
         bar.innerHTML = `${iconButton('copy', tx('copy'), 'data-dc-copy')}
-            ${modelName ? `<span class="dc-msg-model" title="${escapeHtml(tx('modelCurrent', { name: modelName }))}">${escapeHtml(modelName)}</span>` : ''}
-            ${records.length || input || output ? `<span class="dc-msg-usage" tabindex="0" data-dc-metric-tip="${escapeHtml(details)}">${escapeHtml(tx('usageText', { input: formatTokenCount(input) + cacheBadge, output: formatTokenCount(output) }))}${speed.estimated ? ' ≈' : ''}</span>` : ''}
-            ${records.length || modelName || input || output ? `<span class="dc-msg-speed" tabindex="0" data-dc-metric-tip="${escapeHtml(details)}">${escapeHtml(`TPS${speed.nativeOnly ? (speed.observedStream ? (en?' (observed text)':'（文字观测）') : (en?' (native)':'（原生流）')) : speed.isEstimated ? (en ? ' (est.)' : '（估）') : ''} ${rate(speed.min)}/${rate(speed.avg)}/${rate(speed.max)} · ${speed.observedTiming ? (en?'First text (observed)':'首文字（观测）') : 'TTFT'}${speed.turnTiming ? (en ? ' (turn)' : '（轮次）') : speed.isEstimated ? (en ? ' (est.)' : '（估）') : ''} ${timing}${speed.rounds ? ' · '+tx('speedRounds', {n:speed.rounds}) : ''}`)}</span>` : ''}`;
+            ${modelName ? `<span class="dc-msg-model" title="${escapeHtml(tx('modelCurrent', { name: modelName }))}">${escapeHtml(modelName)}</span>` : ''}`;
+        if (records.length || modelName || input || output) {
+            const disclosure = document.createElement('details');
+            disclosure.className = 'dc-msg-metrics';
+            disclosure.innerHTML = `<summary>
+            ${records.length || input || output ? `<span class="dc-msg-usage">${escapeHtml(tx('usageText', { input: formatTokenCount(input) + cacheBadge, output: formatTokenCount(output) }))}${speed.estimated ? ' ≈' : ''}</span>` : ''}
+            <span class="dc-msg-speed">${escapeHtml(`TPS${speed.nativeOnly ? (speed.observedStream ? (en?' (observed text)':'（文字观测）') : (en?' (native)':'（原生流）')) : speed.isEstimated ? (en ? ' (est.)' : '（估）') : ''} ${rate(speed.min)}/${rate(speed.avg)}/${rate(speed.max)} · ${speed.observedTiming ? (en?'First text (observed)':'首文字（观测）') : 'TTFT'}${speed.turnTiming ? (en ? ' (turn)' : '（轮次）') : speed.isEstimated ? (en ? ' (est.)' : '（估）') : ''} ${timing}${speed.rounds ? ' · '+tx('speedRounds', {n:speed.rounds}) : ''}`)}</span>
+            </summary><div class="dc-metric-details"></div>`;
+            disclosure.lastElementChild.textContent = details;
+            bar.appendChild(disclosure);
+        }
         bar.querySelector('[data-dc-copy]').dataset.dcCopy = text;
         message.querySelector('.dc-msg-main').appendChild(bar);
     }
@@ -2782,6 +2750,10 @@
         if (!item || !leaveReply()) return;
         const epoch = ++resumeEpoch;
         window.DragonHtmlSwarm?.deactivate?.();
+        if (typeof item === 'string') {
+            const found = chatList.items?.find(row => row.id === item) || chatList.cached?.find(row => row.id === item);
+            item = found || { id: item };
+        }
         window.HomeAgentDiscussion?.activateSession?.(item.id,{group:item.discussionMode==='group'});
         closeSessionPicker();
         exitExternal();
@@ -3374,7 +3346,7 @@
         chatList.abortController = controller;
         chatList.loading = true;
         const timeoutId = controller ? setTimeout(() => controller.abort(), 15000) : 0;
-        const isArchived = Boolean(window.HomeConversationList?.isArchived?.('mine'));
+        const isArchived = typeof window !== 'undefined' && Boolean(window.HomeConversationList?.isArchived?.('mine'));
         const sameView = isArchived === Boolean(chatList.archivedView) && query === chatList.query;
         chatList.archivedView = isArchived;
         // 刷新时取回已经加载过的条数（最多 100 条），列表不会一刷新就缩回第一页
@@ -3482,6 +3454,10 @@
 
     function openChatFromList(item) {
         if (!item) return;
+        if (typeof item === 'string') {
+            const found = chatList.items?.find(row => row.id === item) || chatList.cached?.find(row => row.id === item);
+            item = found || { id: item };
+        }
         chatList.latestSeq++;
         if (!external.active && item.id === state.sessionId && state.messages.length) {
             setChatting(true);
@@ -3994,7 +3970,6 @@
     }
 
     function bindEvents() {
-        bindMetricTooltips();
         el.form.addEventListener('submit', event => {
             event.preventDefault();
             if(external.active){sendExternal(el.input.value.trim());return;}
@@ -4297,7 +4272,7 @@
             }
             return composePrompt(lines, { send: false, append: true });
         }
-        window.DragonClaw = { refreshModelPicker: renderModelPicker, startWithSkill, showTourLanding, startTourDemo, enterExternal, exitExternal, newChat, openSchedules: openSchedulePanel, openChat: openChatFromList, appendSharedMessages, openLatest:openLatestChat, currentSessionId:()=>state.sessionId, lang, isExternal: () => external.active, composePrompt, attachPickedElement, getRunStatus: () => ({ generating: Boolean(state.controller), sessionId: state.sessionId, external: external.active }) };
+        window.DragonClaw = { refreshModelPicker: renderModelPicker, startWithSkill, showTourLanding, startTourDemo, enterExternal, exitExternal, newChat, openSchedules: openSchedulePanel, openChat: openChatFromList, appendSharedMessages, openLatest:openLatestChat, currentSessionId:()=>state.sessionId, lang, isExternal: () => external.active, composePrompt, attachPickedElement, getRunStatus: () => ({ generating: Boolean(state.controller), sessionId: state.sessionId, external: external.active }), markActiveChat };
         // 其他页面或新标签打开的 /?skill=<id>：直接进入该技能的新对话
         const linkedSkill = new URLSearchParams(location.search).get('skill');
         if (linkedSkill) {
