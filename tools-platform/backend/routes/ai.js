@@ -2376,7 +2376,8 @@ router.get('/sessions', checkAuth, async (req, res) => {
                 pagePath: req.query.pagePath || '/',
                 query: req.query.query,
                 limit: req.query.limit,
-                offset: req.query.offset
+                offset: req.query.offset,
+                archived: req.query.archived
             });
             // 侧栏转圈：服务器上仍在生成回复的会话（其他标签页、定时任务、频道桥接等）
             items.forEach(item => { if (activeChats.has(chatLockKey(item.id))) item.busy = true; });

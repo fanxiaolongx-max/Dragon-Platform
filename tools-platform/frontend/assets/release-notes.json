@@ -1,10 +1,10 @@
 {
   "zh": [
-    "增强智能体长期记忆溯源与并发保护：新增记忆来源与版本追溯（`memory source`，支持在个人对话回查出处并隔离共享会话），支持“仅限本次/不记入长期记忆”临时例外拦截，以及防重复/防覆盖并发校验。",
-    "完善个人记忆交互引导与工具上下文注入：向智能体透传当前消息来源与共享状态，涉及记忆查询、修改或遗忘时优先使用 `memory` 工具并如实反馈写入结果。"
+    "修复长对话列表中较早的置顶会话被新会话挤出首屏分页的问题：置顶会话现按自定义排序始终优先返回，并支持按改名别名检索。",
+    "修复侧栏「查看已归档对话」与手机端归档列表遗漏问题：切换归档视图时直接向后端按 archived=1/0 分页拉取，同时将首屏分页扩至 80 条以完整保留空间对话；手机端 `/api/ai/sessions-archive` 同步兼容通过列表归档的会话。"
   ],
   "en": [
-    "Enhanced agent long-term memory provenance and concurrency safety: added versioned source tracing (`memory source` in personal chats, isolated from shared sessions), temporary-only exception guards, and atomic insert/update checks.",
-    "Improved memory tool guidance and turn context wiring by passing current message source metadata and shared-turn flags so memory lookups and updates rely directly on `memory` tool results."
+    "Fixed older pinned conversations dropping off page 1 when newer sessions exceed the page limit: active pinned chats now sort first by pin_order and match custom alias titles during search.",
+    "Fixed Web and Mobile archived views missing preference-archived conversations: switching to Archived now queries the backend directly (archived=1/0), increased initial sidebar page size to 80 to retain workspace chats, and included preference-archived sessions in `/api/ai/sessions-archive`."
   ]
 }

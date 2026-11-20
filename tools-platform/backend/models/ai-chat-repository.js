@@ -213,7 +213,7 @@ async function excludedRevokedIds(owner) {
  * /session：列出某用户在某页面（Dragon Claw 为 "/"）的会话，含已自动归档的，按最近更新排序。
  * query 匹配会话内任意问题或回答。
  */
-async function listOwnedSessions({ owner, pagePath, query = '', limit = 30, offset = 0 } = {}) {
+async function listOwnedSessions({ owner, pagePath, query = '', limit = 30, offset = 0, archived } = {}) {
     await ensureReady();
     if (!owner) return [];
     const normalizedPath = normalizePagePath(pagePath);
@@ -227,22 +227,39 @@ async function listOwnedSessions({ owner, pagePath, query = '', limit = 30, offs
     const safeLimit = Math.max(1, Math.min(Number(limit) || 30, 100));
     const safeOffset = Math.max(0, Number(offset) || 0);
     const keyword = String(query || '').trim().slice(0, 100);
+    const hasPrefs = Boolean(await get("SELECT 1 FROM sqlite_master WHERE type='table' AND name='conversation_list_preferences'"));
+    const prefsJoin = hasPrefs ? "LEFT JOIN conversation_list_preferences p ON p.owner = s.owner AND p.source = 'mine' AND p.item_id = s.id" : '';
+    const prefsCol = hasPrefs ? ', COALESCE(p.pinned, 0) AS pref_pinned' : ', 0 AS pref_pinned';
+    const orderPrefix = hasPrefs
+        ? 'CASE WHEN COALESCE(p.pinned, 0) = 1 AND COALESCE(p.archived, 0) = 0 AND COALESCE(p.hidden, 0) = 0 THEN 1 ELSE 0 END DESC, p.pin_order IS NULL, p.pin_order ASC, '
+        : '';
     const params = [owner, normalizedPath, ...revokedIds];
     let filter = '';
+    if (hasPrefs) {
+        if (archived === true || archived === '1' || archived === 'true') {
+            filter += 'AND COALESCE(p.archived, 0) = 1 AND COALESCE(p.hidden, 0) = 0 ';
+        } else if (archived === false || archived === '0' || archived === 'false') {
+            filter += 'AND COALESCE(p.archived, 0) = 0 AND COALESCE(p.hidden, 0) = 0 ';
+        }
+    }
     if (keyword) {
-        filter = 'AND (s.auto_title LIKE ? OR EXISTS (SELECT 1 FROM ai_chat_messages q WHERE q.session_id = s.id AND q.content LIKE ?))';
-        params.push(...Array(2).fill(`%${keyword.replace(/[%_\\]/g, '')}%`)); // 去掉通配符，按普通文本匹配
+        const pattern = `%${keyword.replace(/[%_\\]/g, '')}%`; // 去掉通配符，按普通文本匹配
+        filter += hasPrefs
+            ? "AND (s.auto_title LIKE ? OR COALESCE(p.title, '') LIKE ? OR EXISTS (SELECT 1 FROM ai_chat_messages q WHERE q.session_id = s.id AND q.content LIKE ?))"
+            : 'AND (s.auto_title LIKE ? OR EXISTS (SELECT 1 FROM ai_chat_messages q WHERE q.session_id = s.id AND q.content LIKE ?))';
+        params.push(...Array(hasPrefs ? 3 : 2).fill(pattern));
     }
     params.push(safeLimit, safeOffset);
     const rows = await all(
-        `SELECT s.id, s.auto_title, s.created_at, s.updated_at, s.is_archived, s.agent_session_id, s.agent_root,
+        `SELECT s.id, s.auto_title, s.created_at, s.updated_at, s.is_archived, s.agent_session_id, s.agent_root${prefsCol},
                 (SELECT COUNT(*) FROM ai_chat_messages m WHERE m.session_id = s.id) AS message_count,
                 (SELECT content FROM ai_chat_messages f WHERE f.session_id = s.id AND f.role = 'user' ORDER BY f.created_at ASC, f.rowid ASC LIMIT 1) AS first_question,
                 (SELECT content FROM ai_chat_messages l WHERE l.session_id = s.id AND l.role = 'user' ORDER BY l.created_at DESC, l.rowid DESC LIMIT 1) AS last_question
          FROM ai_chat_sessions s
+         ${prefsJoin}
          WHERE s.owner = ? AND s.page_path = ? ${excludeSql} ${filter}
            AND EXISTS (SELECT 1 FROM ai_chat_messages e WHERE e.session_id = s.id)
-         ORDER BY s.updated_at DESC, s.rowid DESC
+         ORDER BY ${orderPrefix}s.updated_at DESC, s.rowid DESC
          LIMIT ? OFFSET ?`,
         params
     );
@@ -253,27 +270,19 @@ async function listOwnedSessions({ owner, pagePath, query = '', limit = 30, offs
             try { if (JSON.parse(group.settings)?.mode === 'group') groupIds.add(group.session_id); } catch { /* Ignore corrupt optional metadata. */ }
         }
     }
-    const prefMap = new Map();
-    if (rows.length && await get("SELECT 1 FROM sqlite_master WHERE type='table' AND name='conversation_list_preferences'")) {
-        const prefs = await all(`SELECT item_id, pinned, archived, hidden, title FROM conversation_list_preferences WHERE owner=? AND source='mine' AND item_id IN (${rows.map(() => '?').join(',')})`, [owner, ...rows.map(row => row.id)]);
-        for (const p of prefs) prefMap.set(p.item_id, p);
-    }
-    return rows.map(row => {
-        const pref = prefMap.get(row.id);
-        return {
-            id: row.id,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at,
-            archived: Boolean(row.is_archived),
-            pinned: Boolean(pref?.pinned),
-            messageCount: Number(row.message_count) || 0,
-            title: row.auto_title || conversationTitle(row.first_question || row.last_question),
-            firstQuestion: String(row.first_question || '').slice(0, 160),
-            discussionMode: groupIds.has(row.id) ? 'group' : null,
-            lastQuestion: String(row.last_question || '').slice(0, 160),
-            agent: row.agent_session_id && row.agent_root && !isScratchDirectory(row.agent_root) ? { agentSessionId: row.agent_session_id, root: row.agent_root } : null
-        };
-    });
+    return rows.map(row => ({
+        id: row.id,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        archived: Boolean(row.is_archived),
+        pinned: Boolean(row.pref_pinned),
+        messageCount: Number(row.message_count) || 0,
+        title: row.auto_title || conversationTitle(row.first_question || row.last_question),
+        firstQuestion: String(row.first_question || '').slice(0, 160),
+        discussionMode: groupIds.has(row.id) ? 'group' : null,
+        lastQuestion: String(row.last_question || '').slice(0, 160),
+        agent: row.agent_session_id && row.agent_root && !isScratchDirectory(row.agent_root) ? { agentSessionId: row.agent_session_id, root: row.agent_root } : null
+    }));
 }
 
 async function getTitleSource(sessionId, owner) {
@@ -590,32 +599,37 @@ async function listArchivedSessions({ query = '', limit = 60, offset = 0, archiv
 
     const isArchivedOnly = archivedOnly === true || archivedOnly === 'true' || archivedOnly === '1' || status === 'archived';
     const isActiveOnly = status === 'active';
+    const hasPrefs = owner !== undefined && Boolean(await get("SELECT 1 FROM sqlite_master WHERE type='table' AND name='conversation_list_preferences'"));
+    const prefsJoin = hasPrefs ? "LEFT JOIN conversation_list_preferences ap ON ap.owner = s.owner AND ap.source = 'mine' AND ap.item_id = s.id" : '';
+    const prefsSelect = hasPrefs ? ', COALESCE(ap.archived, 0) AS pref_archived, ap.title AS pref_title' : ', 0 AS pref_archived, NULL AS pref_title';
+    const hiddenSql = hasPrefs ? 'AND COALESCE(ap.hidden, 0) = 0' : '';
 
     let statusSql = '';
     if (isArchivedOnly) {
-        statusSql = 'AND s.is_archived = 1';
+        statusSql = hasPrefs ? 'AND (s.is_archived = 1 OR COALESCE(ap.archived, 0) = 1)' : 'AND s.is_archived = 1';
     } else if (isActiveOnly) {
-        statusSql = 'AND s.is_archived = 0';
+        statusSql = hasPrefs ? 'AND s.is_archived = 0 AND COALESCE(ap.archived, 0) = 0' : 'AND s.is_archived = 0';
     }
 
     const querySql = cleanQuery
-        ? `AND (s.page_title LIKE ? OR s.page_path LIKE ? OR EXISTS (
+        ? `AND (s.page_title LIKE ? OR s.page_path LIKE ? OR s.auto_title LIKE ?${hasPrefs ? " OR COALESCE(ap.title, '') LIKE ?" : ''} OR EXISTS (
               SELECT 1 FROM ai_chat_messages sm
               WHERE sm.session_id = s.id AND sm.content LIKE ?
           ))`
         : '';
-    const filterSql = `${owner !== undefined ? 'AND s.owner = ?' : ''} ${excludeSql} ${querySql}`;
-    const params = [...(owner !== undefined ? [String(owner)] : []), ...revokedIds, ...(cleanQuery ? [pattern, pattern, pattern] : [])];
+    const filterSql = `${owner !== undefined ? 'AND s.owner = ?' : ''} ${excludeSql} ${hiddenSql} ${querySql}`;
+    const params = [...(owner !== undefined ? [String(owner)] : []), ...revokedIds, ...(cleanQuery ? Array(hasPrefs ? 5 : 4).fill(pattern) : [])];
     const totalRow = await get(
         `SELECT COUNT(1) AS count
          FROM ai_chat_sessions s
+         ${prefsJoin}
          WHERE EXISTS (SELECT 1 FROM ai_chat_messages m WHERE m.session_id = s.id)
            ${statusSql}
            ${filterSql}`,
         params
     );
     const rows = await all(
-        `SELECT s.id, s.page_path, s.page_title, s.auto_title, s.agent_session_id, s.agent_root, s.is_archived, s.created_at, s.updated_at, s.archived_at,
+        `SELECT s.id, s.page_path, s.page_title, s.auto_title, s.agent_session_id, s.agent_root, s.is_archived, s.created_at, s.updated_at, s.archived_at${prefsSelect},
                 COUNT(m.id) AS message_count,
                 (
                     SELECT content FROM ai_chat_messages um
@@ -628,6 +642,7 @@ async function listArchivedSessions({ query = '', limit = 60, offset = 0, archiv
                     ORDER BY um.created_at DESC, um.rowid DESC LIMIT 1
                 ) AS last_question
          FROM ai_chat_sessions s
+         ${prefsJoin}
          JOIN ai_chat_messages m ON m.session_id = s.id
          WHERE 1=1 ${statusSql} ${filterSql}
          GROUP BY s.id
@@ -640,8 +655,8 @@ async function listArchivedSessions({ query = '', limit = 60, offset = 0, archiv
         items: rows.map(row => ({
             ...row,
             is_archived: Number(row.is_archived) || 0,
-            archived: Boolean(Number(row.is_archived)),
-            title: row.auto_title || conversationTitle(row.first_question || row.last_question),
+            archived: Boolean(Number(row.is_archived) || Number(row.pref_archived)),
+            title: row.pref_title || row.auto_title || conversationTitle(row.first_question || row.last_question),
             firstQuestion: String(row.first_question || '').slice(0, 160),
             lastQuestion: String(row.last_question || '').slice(0, 160),
             createdAt: row.created_at,

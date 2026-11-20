@@ -2893,11 +2893,11 @@
 
     // ── 侧栏历史对话（对话模式左侧面板） ────────────
     // 对话列表按页加载：每页 CHAT_PAGE 条，滚到底部附近再加载下一页；serverCount 是已从服务端取到的条数（翻页偏移）
-    const CHAT_PAGE = 40;
+    const CHAT_PAGE = 80;
     const chatIdentity = () => ['tools_user', 'tools_tenant_id', 'tools_token'].map(key => {
         try { return localStorage.getItem(key) || sessionStorage.getItem(key) || ''; } catch { return ''; }
     }).join('|');
-    const chatList = { items: [], loaded: false, loading: false, failed: false, seq: 0, latestSeq: 0, timer: null, searchTimer: null, deleting: new Set(), cached: [], cacheIdentity: '', identity: '', serverCount: 0, hasMore: false, loadingMore: false, abortController: null };
+    const chatList = { items: [], loaded: false, loading: false, failed: false, seq: 0, latestSeq: 0, timer: null, searchTimer: null, deleting: new Set(), cached: [], cacheIdentity: '', identity: '', serverCount: 0, hasMore: false, loadingMore: false, archivedView: false, abortController: null };
 
     function chatGroupKey(date) {
         const startOfDay = value => new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
@@ -3374,10 +3374,13 @@
         chatList.abortController = controller;
         chatList.loading = true;
         const timeoutId = controller ? setTimeout(() => controller.abort(), 15000) : 0;
+        const isArchived = typeof window !== 'undefined' && Boolean(window.HomeConversationList?.isArchived?.('mine'));
+        const sameView = isArchived === Boolean(chatList.archivedView) && query === chatList.query;
+        chatList.archivedView = isArchived;
         // 刷新时取回已经加载过的条数（最多 100 条），列表不会一刷新就缩回第一页
-        const limit = Math.min(100, Math.max(CHAT_PAGE, query === chatList.query ? chatList.serverCount : 0));
+        const limit = Math.min(100, Math.max(CHAT_PAGE, sameView ? chatList.serverCount : 0));
         try {
-            const res = await fetch(`/api/ai/sessions?mine=1&pagePath=%2F&limit=${limit}&query=${encodeURIComponent(query)}`, {
+            const res = await fetch(`/api/ai/sessions?mine=1&pagePath=%2F&archived=${isArchived ? '1' : '0'}&limit=${limit}&query=${encodeURIComponent(query)}`, {
                 cache: 'no-store',
                 credentials: 'same-origin',
                 headers: authHeaders(),
@@ -3409,12 +3412,12 @@
             chatList.identity = account;
             let fetched = Array.isArray(data.items) ? data.items : [];
             // 之前已经往下加载了超过 100 条：刷新只替换前面这部分，后面的保留
-            if (query === chatList.query && fetched.length === limit && chatList.serverCount > limit) { const seen = new Set(fetched.map(item => item.id)); fetched = [...fetched, ...chatList.items.slice(limit).filter(item => !seen.has(item.id))]; }
-            chatList.hasMore = fetched.length >= limit && (query !== chatList.query || chatList.serverCount <= limit || chatList.hasMore);
+            if (sameView && fetched.length === limit && chatList.serverCount > limit) { const seen = new Set(fetched.map(item => item.id)); fetched = [...fetched, ...chatList.items.slice(limit).filter(item => !seen.has(item.id))]; }
+            chatList.hasMore = fetched.length >= limit && (!sameView || chatList.serverCount <= limit || chatList.hasMore);
             chatList.serverCount = fetched.length;
             chatList.query = query;
-            if (!query) chatList.cached = fetched;
-            const aliases = query ? chatList.cached.filter(item => window.HomeConversationList?.get('mine', item.id).title?.toLowerCase().includes(query.toLowerCase())) : [];
+            if (!query && !isArchived) chatList.cached = fetched;
+            const aliases = query && !isArchived ? chatList.cached.filter(item => window.HomeConversationList?.get('mine', item.id).title?.toLowerCase().includes(query.toLowerCase())) : [];
             chatList.items = [...fetched, ...aliases.filter(item => !fetched.some(row => row.id === item.id))];
             chatList.failed = false;
         } catch {
@@ -3448,10 +3451,11 @@
         if (chatList.loadingMore || !chatList.hasMore) return;
         const seq = chatList.seq;
         const query = chatList.query || '';
+        const isArchived = Boolean(chatList.archivedView);
         chatList.loadingMore = true;
         renderChatList();
         try {
-            const res = await fetch(`/api/ai/sessions?mine=1&pagePath=%2F&limit=${CHAT_PAGE}&offset=${chatList.serverCount}&query=${encodeURIComponent(query)}`, { headers: authHeaders() });
+            const res = await fetch(`/api/ai/sessions?mine=1&pagePath=%2F&archived=${isArchived ? '1' : '0'}&limit=${CHAT_PAGE}&offset=${chatList.serverCount}&query=${encodeURIComponent(query)}`, { headers: authHeaders() });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
             // 期间列表被刷新或换了搜索词：这一页作废
@@ -4235,7 +4239,17 @@
         anchorThreadToComposer();
         bindEvents();
         bindChatList();
-        window.addEventListener('home:conversation-list-changed',()=>renderChatList());
+        window.addEventListener('home:conversation-list-changed', () => {
+            const nextArchived = Boolean(window.HomeConversationList?.isArchived?.('mine'));
+            if (nextArchived !== Boolean(chatList.archivedView)) {
+                chatList.serverCount = 0;
+                chatList.hasMore = false;
+                renderChatList();
+                loadChatList();
+                return;
+            }
+            renderChatList();
+        });
         window.addEventListener('home:session-revoked', event => dropSessionFromList(event.detail?.sessionId));
         window.addEventListener('home:agent-discussion-changed',event=>{
             for(const item of [...chatList.items,...chatList.cached])if(item.id===event.detail?.sessionId)item.discussionMode='group';

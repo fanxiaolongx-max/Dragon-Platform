@@ -46,7 +46,7 @@ test('dragon-claw.js loadChatList recovers cleanly when employee ID switches mid
         };
     };
 
-    const block = extractSlice(dcSource, 'const CHAT_PAGE = 40;', 'function chatGroupKey(')
+    const block = extractSlice(dcSource, 'const CHAT_PAGE = 80;', 'function chatGroupKey(')
         + '\n'
         + extractSlice(dcSource, 'function resetChatListForIdentity(', '// 滚到列表底部附近');
 

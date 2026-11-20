@@ -224,3 +224,39 @@ test('Antigravity local storage catalog reads conversation list, busy status, an
  assert.equal(messages[1].rounds[0].cachedInputTokens, 500);
  assert.equal(messages[3].rounds[0].model, 'Gemini 3.8 Flash (High)');
 });
+
+test('older pinned conversations remain on page 1 when newer unpinned sessions exceed page limit', async t => {
+ const localDb = require('../backend/models/app-db');
+ const oldPinnedA = await chat.addMessage({ owner: 'pin-pager', role: 'user', content: 'early pinned topic alpha' });
+ const oldPinnedB = await chat.addMessage({ owner: 'pin-pager', role: 'user', content: 'early pinned topic beta' });
+ const archivedPin = await chat.addMessage({ owner: 'pin-pager', role: 'user', content: 'archived pinned topic' });
+ await repo.save('pin-pager', { source: 'mine', id: oldPinnedA, pinned: true, title: '🏥 埃及就医' });
+ await repo.save('pin-pager', { source: 'mine', id: oldPinnedB, pinned: true, title: '🍚 餐饮小秘' });
+ await repo.save('pin-pager', { source: 'mine', id: archivedPin, pinned: true, archived: true });
+ await repo.reorder('pin-pager', { source: 'mine', order: [oldPinnedB, oldPinnedA] });
+ for (let i = 0; i < 45; i++) {
+  await chat.addMessage({ owner: 'pin-pager', role: 'user', content: `newer normal task ${i}` });
+ }
+ const page1 = await chat.listOwnedSessions({ owner: 'pin-pager', pagePath: '/', limit: 40, offset: 0 });
+ assert.equal(page1.length, 40);
+ assert.deepEqual(page1.slice(0, 2).map(s => s.id), [oldPinnedB, oldPinnedA], 'active pinned chats appear first in pin_order on page 1');
+ assert.equal(page1.some(s => s.id === archivedPin), false, 'archived pinned chat must not displace active page-1 items');
+ const byAlias = await chat.listOwnedSessions({ owner: 'pin-pager', pagePath: '/', query: '埃及就医', limit: 40 });
+ assert.deepEqual(byAlias.map(s => s.id), [oldPinnedA]);
+ const page2 = await chat.listOwnedSessions({ owner: 'pin-pager', pagePath: '/', limit: 40, offset: 40 });
+ assert.equal(page2.length, 8);
+ const allIds = new Set([...page1, ...page2].map(s => s.id));
+ assert.equal(allIds.size, 48, 'pagination must return all sessions without duplicates or gaps');
+ const archivedRows = await chat.listOwnedSessions({ owner: 'pin-pager', pagePath: '/', limit: 40, archived: '1' });
+ assert.deepEqual(archivedRows.map(s => s.id), [archivedPin], 'archived view returns older archived chats beyond page 1');
+ const activeRows = await chat.listOwnedSessions({ owner: 'pin-pager', pagePath: '/', limit: 40, archived: '0' });
+ assert.equal(activeRows.some(s => s.id === archivedPin), false, 'active view excludes archived chats');
+ const mobActive = await chat.addMessage({ owner: 'mobile-arch', role: 'user', content: 'active chat' });
+ const mobArch = await chat.addMessage({ owner: 'mobile-arch', role: 'user', content: 'web archived chat' });
+ await repo.save('mobile-arch', { source: 'mine', id: mobArch, archived: true });
+ const mobileArchived = await chat.listArchivedSessions({ owner: 'mobile-arch', archivedOnly: '1', limit: 40 });
+ assert.deepEqual(mobileArchived.items.map(s => s.id), [mobArch], 'mobile archive endpoint includes Web-archived conversations');
+ assert.equal(mobileArchived.items[0].archived, true);
+ assert.equal(mobActive !== mobArch, true);
+ await localDb.closeDatabase();
+});
