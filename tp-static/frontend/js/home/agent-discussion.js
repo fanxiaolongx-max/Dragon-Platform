@@ -4,6 +4,7 @@
  // 桌面 Agent 成员表：新增桌面连接器只需加在这里；DragonTAC 默认全员即这里的全部成员
  const DESKTOP_AGENTS={codex:'Codex',claudecode:'Claude Code',antigravity:'Antigravity',workbuddy:'WorkBuddy'},DESKTOP_IDS=Object.keys(DESKTOP_AGENTS);
  let enabled=false,locked=false,modeSaving=false,root,epoch=0,currentSessionId=null,activeJob=null,tracking=null,identity='',availabilityRevision=0,availabilityRequest=null,weixinDisabled=false;
+ let strategy='sequential',parallelWorktrees=false;
  let selectedModels={};
  let availability={available:false,reason:'checking'};
  const readiness=Object.fromEntries([...DESKTOP_IDS,'weixin','welink-cli','welink','netcare'].map(id=>[id,{ready:false,reason:'checking'}]));
@@ -245,6 +246,27 @@
   if(hint){
     hint.textContent=enabled&&availability.available?(locked?L('本对话固定为讨论组','Agent group for this conversation'):L('发送前可取消 · 首次发送新建桌面对话','Turn off before sending · new desktop chats on first send')):'';
   }
+  const stratBox=root.querySelector('[data-tac-strategy]');
+  if(stratBox){
+    const showStrat=agents.length>1;
+    stratBox.hidden=!showStrat;
+    if(showStrat){
+      stratBox.querySelectorAll('[data-tac-strat]').forEach(btn=>{
+        const active=btn.dataset.tacStrat===strategy;
+        btn.classList.toggle('is-active',active);
+        btn.setAttribute('aria-pressed',String(active));
+        btn.disabled=locked||modeSaving;
+      });
+      const wtRow=stratBox.querySelector('[data-tac-wt-row]');
+      const wtInput=stratBox.querySelector('[data-tac-wt-toggle]');
+      const hasRoot=Boolean(window.DragonClawWorkspace?.getRoot?.());
+      if(wtRow&&wtInput){
+        wtRow.hidden=strategy!=='parallel'||!hasRoot;
+        wtInput.checked=Boolean(parallelWorktrees&&strategy==='parallel'&&hasRoot);
+        wtInput.disabled=locked||modeSaving;
+      }
+    }
+  }
 
   const resume=root.querySelector('[data-tac-resume]');
   if(resume){
@@ -293,7 +315,7 @@
 
  async function activateSession(id,{group=false,connector=''}={}){
   const revision=++epoch,account=who();
-  currentSessionId=id;activeJob=null;selectedModels={};setSelection(id&&TOOL_SKILLS[connector]?[connector]:[]);enabled=Boolean(id&&group);
+  currentSessionId=id;activeJob=null;selectedModels={};strategy='sequential';parallelWorktrees=false;setSelection(id&&TOOL_SKILLS[connector]?[connector]:[]);enabled=Boolean(id&&group);
   locked=Boolean(id);modeSaving=false;render();
   if(!id||!root||TOOL_SKILLS[connector]&&!group)return;
   try{
@@ -301,6 +323,8 @@
    if(revision!==epoch||account!==who())return;
    enabled=group||(data.settings?.mode==='group'&&data.settings?.version===2);
    activeJob=data.activeRun||null;selectedModels=data.settings?.models||{};
+   strategy=data.settings?.strategy==='parallel'?'parallel':'sequential';
+   parallelWorktrees=Boolean(data.settings?.parallelWorktrees);
    if(enabled){
     const providers=data.settings?.providers||activeJob?.settings?.providers||activeJob?.reports?.map(r=>r.provider||Object.keys(providerNames).find(key=>providerNames[key]===r.agent))||Object.keys(data.settings?.bindings||{});
     setSelection(providers);enabled=true;
@@ -371,6 +395,14 @@
    const markdown=format({reports:[report]}).replace(/^### [^\n]*\n\n/,'');
    const html=renderMarkdown(markdown);
    if(html!==row.html){row.content.innerHTML=html;row.html=html;}
+   let wtBar=row.node.querySelector('.dc-tac-wt-bar');
+   if(report.worktreeRoot){
+     if(!wtBar){wtBar=document.createElement('div');wtBar.className='dc-tac-wt-bar';row.node.querySelector('.dc-tac-report-body')?.after(wtBar);}
+     const ds=report.diffSummary;
+     const statText=ds?`+${ds.added||0} / −${ds.removed||0} · ${ds.files||0} ${L('文件','files')}`:(report.worktreeBranch||'Worktree');
+     wtBar.innerHTML=`<span class="dc-tac-wt-meta">⎇ ${String(report.worktreeBranch||'worktree').replace(/</g,'&lt;')} · ${statText}</span><button type="button" class="dc-tac-wt-open">${L('切换到此 Worktree','Open Worktree')}</button>`;
+     wtBar.querySelector('.dc-tac-wt-open').onclick=()=>{window.DragonClawWorkspace?.selectDirectory?.(report.worktreeRoot);window.DragonClawWorkspace?.open?.();};
+   }else if(wtBar)wtBar.remove();
   });
   while(view.rows.length>reports.length)view.rows.pop().node.remove();
  }
@@ -394,9 +426,9 @@
    const selectedAgents = getSelectedAgents();
    const providers = selectedAgents;
    if(!resumeJob&&!providers.length)throw Error(L('请先选择已就绪的连接器','Select an available connector first'));
-   job=resumeJob?await request('GET','/discussion-runs/'+encodeURIComponent(resumeJob.id)):await request('POST','/discussion-runs',{text,sessionId,providers,models:window.HomeDesktopModels?.values?.()||{},requestId:crypto.randomUUID()});
+   job=resumeJob?await request('GET','/discussion-runs/'+encodeURIComponent(resumeJob.id)):await request('POST','/discussion-runs',{text,sessionId,providers,strategy,parallelWorktrees:strategy==='parallel'&&parallelWorktrees,workspaceRoot:window.DragonClawWorkspace?.getRoot?.()||'',models:window.HomeDesktopModels?.values?.()||{},requestId:crypto.randomUUID()});
    if(account!==who())throw Error('Account changed');if(signal.aborted||revision!==epoch){stop();throw new DOMException('Stopped','AbortError');}
-   currentSessionId=job.sessionId;selectedModels=job.settings?.models||selectedModels;enabled=true;locked=true;activeJob=job;publishGroup();onStarted(job);onUpdate(job);render();
+   currentSessionId=job.sessionId;selectedModels=job.settings?.models||selectedModels;enabled=true;locked=true;activeJob=job;publishGroup();onStarted(job);onUpdate(job);render();window.dispatchEvent(new Event('dragon-claw:radar-refresh'));
    while(['queued','running'].includes(job.status)){
      await new Promise(resolve=>setTimeout(resolve,1000));
      signal.throwIfAborted();
@@ -406,9 +438,9 @@
      signal.throwIfAborted();
      if(account!==who())throw Error('Account changed');
      if(revision!==epoch)throw new DOMException('Stopped','AbortError');
-     activeJob=job;onUpdate(job);
+     activeJob=job;onUpdate(job);window.dispatchEvent(new Event('dragon-claw:radar-refresh'));
    }
-   activeJob=null;render();return job;
+   activeJob=null;render();window.dispatchEvent(new Event('dragon-claw:radar-refresh'));return job;
   }finally{
     signal.removeEventListener('abort',stop);
     if(tracking===follower){tracking=null;render();}
@@ -453,6 +485,16 @@ ${DESKTOP_IDS.map(id=>`         <div class="dc-connector-item" data-key="${id}">
          </div>`).join('')}
          <div class="dc-connector-empty" hidden>${L('暂无可用连接器','No connectors available')}</div>
        </div>
+       <div class="dc-tac-strategy" data-tac-strategy hidden>
+         <div class="dc-tac-strat-tabs" role="group" aria-label="${L('协同策略','Strategy')}">
+           <button type="button" class="dc-tac-strat-btn" data-tac-strat="sequential">${L('顺序接力','Sequential')}</button>
+           <button type="button" class="dc-tac-strat-btn" data-tac-strat="parallel">${L('并行竞速','Parallel race')}</button>
+         </div>
+         <label class="dc-tac-wt-row" data-tac-wt-row hidden>
+           <input type="checkbox" data-tac-wt-toggle>
+           <span>${L('为各 Agent 分配独立 Worktree 赛马','Isolate each agent in its own Worktree')}</span>
+         </label>
+       </div>
        <div class="dc-connector-note" data-connector-note></div>
        <div class="dc-connector-divider"></div>
        <button type="button" class="dc-connector-manage">
@@ -481,6 +523,12 @@ ${DESKTOP_IDS.map(id=>`         <div class="dc-connector-item" data-key="${id}">
   const popover = root.querySelector('.dc-connector-popover');
   popover.addEventListener('click', (e)=>{
     e.stopPropagation();
+    const stratBtn = e.target.closest('[data-tac-strat]');
+    if(stratBtn && !stratBtn.disabled){
+      strategy = stratBtn.dataset.tacStrat === 'parallel' ? 'parallel' : 'sequential';
+      render();
+      return;
+    }
     if(e.target.closest('.dc-connector-manage')){
       togglePopover(false);
       window.openNavSettingsModal?.();
@@ -489,6 +537,11 @@ ${DESKTOP_IDS.map(id=>`         <div class="dc-connector-item" data-key="${id}">
   });
 
   popover.addEventListener('change', (e)=>{
+    if(e.target.matches('[data-tac-wt-toggle]')){
+      parallelWorktrees = e.target.checked;
+      render();
+      return;
+    }
     const input = e.target.closest('input[data-connector]');
     if(input){
       updateConnectors(input.dataset.connector, input.checked);
@@ -551,6 +604,7 @@ ${DESKTOP_IDS.map(id=>`         <div class="dc-connector-item" data-key="${id}">
    isPickerOpen: () => Boolean(root && !root.querySelector('.dc-connector-popover').hidden),
    getConnectors: () => ({ ...connectors }),
    getSelectedConnector,
+   getActiveJob: () => activeJob ? { ...activeJob } : null,
    homeConnector:()=>Object.hasOwn(TOOL_SKILLS,getSelectedConnector())?getSelectedConnector():'',
    isAgentMention:id=>(enabled||getSelectedAgents().length>1)&&[...DESKTOP_IDS,'claude','connector','dragontac','tac'].includes(id.toLowerCase())
  };

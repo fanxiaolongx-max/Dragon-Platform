@@ -28,6 +28,8 @@
         context: null,
         changes: [],
         openDiff: null,
+        diffNotes: [],
+        diffEditor: null,
         expandChanges: false,
         pr: null, // { phase: 'checking'|'blocked'|'form'|'running'|'done'|'failed', preflight, steps, url, error, controller }
         open: false,
@@ -234,8 +236,30 @@
         const permission = isReadOnly()
             ? `<div class="wsp-readonly"><b>🔒 ${escapeHtml(tx('readOnlyMode'))}</b><small>${escapeHtml(tx('readOnlyDesc'))}</small></div>`
             : `<div class="wsp-mode" role="radiogroup" aria-label="${escapeHtml(tx('permission'))}">${modes}</div>`;
+        const worktreeBar = state.root && state.gitInfo?.git && state.gitInfo?.isWorktree && !isReadOnly()
+            ? (() => {
+                const info = state.gitInfo;
+                const currentWt = (info.worktrees || []).find(w => w.current) || {};
+                const ahead = currentWt.ahead || 0;
+                const mainTarget = (info.worktrees || [])[0]?.branch || 'main';
+                const statusBits = [
+                    ahead ? wsLabel(`领先 ${ahead} 个提交`, `${ahead} ahead`) : '',
+                    info.dirty ? wsLabel('有未提交改动', 'uncommitted changes') : wsLabel('工作区干净', 'clean')
+                ].filter(Boolean).join(' · ');
+                return `<div class="wsp-worktree-bar">
+                    <div class="wsp-worktree-meta"><b>Worktree</b><span>${escapeHtml(statusBits)}</span></div>
+                    <div class="wsp-worktree-actions">
+                        ${info.dirty ? `<button type="button" class="wsp-btn" data-wsp-action="commit-worktree">${wsLabel('提交改动', 'Commit')}</button>` : ''}
+                        <button type="button" class="wsp-btn wsp-btn-primary" data-wsp-action="merge-worktree" title="${escapeHtml(wsLabel(`合并回 ${mainTarget}`, `Merge into ${mainTarget}`))}">${wsLabel(`合并回 ${mainTarget}`, `Merge → ${mainTarget}`)}</button>
+                        <button type="button" class="wsp-btn wsp-btn-quiet" data-wsp-action="remove-worktree" title="${escapeHtml(wsLabel('移除此 Worktree', 'Remove worktree'))}">${wsLabel('移除', 'Remove')}</button>
+                        ${info.mainRoot ? `<button type="button" class="wsp-btn wsp-btn-quiet" data-wsp-select="${escapeHtml(info.mainRoot)}" title="${escapeHtml(wsLabel('切换回主仓库目录', 'Switch to main repo'))}">${wsLabel('回主仓', 'Main')}</button>` : ''}
+                    </div>
+                </div>`;
+            })()
+            : '';
         el.envBody.innerHTML = `
             ${dir}
+            ${worktreeBar}
             <div class="wsp-row wsp-row-col">
                 <span class="wsp-row-label">${escapeHtml(tx('permission'))}</span>
                 ${permission}
@@ -370,7 +394,7 @@
                         ${isReadOnly() ? '' : item.source === 'git'
                             ? `<span class="wsp-change-ext" title="${escapeHtml(tx('externalChange'))}">${escapeHtml(tx('externalTag'))}</span>`
                             : `<button type="button" class="wsp-btn wsp-btn-quiet" data-wsp-revert="${escapeHtml(item.path)}" ${item.revertible === false ? 'disabled' : ''} title="${escapeHtml(tx('revert'))}">↶</button>`}
-                        ${state.openDiff?.path === item.path ? `<pre class="wsp-diff">${renderDiff(state.openDiff.text)}</pre>` : ''}
+                        ${state.openDiff?.path === item.path ? `<div class="wsp-diff">${renderDiff(state.openDiff.text, item.path)}</div>` : ''}
                     </li>`).join('')}
                 ${list.length > CHANGES_COLLAPSE_THRESHOLD ? `
                     <li class="wsp-changes-fold">
@@ -380,6 +404,7 @@
                         </button>
                     </li>` : ''}
             </ul>
+            ${renderDiffNotesBar()}
             ${!isReadOnly() && (list.some(item => item.source !== 'git') || state.pr) ? renderPr() : ''}`;
         mountPrLog();
     }
@@ -555,14 +580,109 @@
         renderChanges();
     }
 
-    function renderDiff(text) {
+    function parseDiffLines(text) {
+        const rows = [];
+        let oldNo = 0, newNo = 0, hunk = '';
+        String(text || '').split('\n').forEach((line, idx) => {
+            const hMatch = /^@@\s+-(\d+)(?:,\d+)?\s+\+(\d+)(?:,\d+)?\s+@@(.*)$/.exec(line);
+            if (hMatch) {
+                oldNo = Number(hMatch[1]) || 1;
+                newNo = Number(hMatch[2]) || 1;
+                hunk = line;
+                rows.push({ idx, line, kind: 'hunk', oldNum: '', newNum: '', lineKey: '', annotatable: false, hunk });
+                return;
+            }
+            if (line.startsWith('+++') || line.startsWith('---') || line.startsWith('diff ') || line.startsWith('index ')) {
+                rows.push({ idx, line, kind: 'meta', oldNum: '', newNum: '', lineKey: '', annotatable: false, hunk });
+                return;
+            }
+            if (line.startsWith('+')) {
+                const lineNum = newNo++;
+                rows.push({ idx, line, kind: 'add', oldNum: '', newNum: lineNum, lineKey: `new:${lineNum}:${idx}`, side: 'new', lineNum, annotatable: true, hunk });
+                return;
+            }
+            if (line.startsWith('-')) {
+                const lineNum = oldNo++;
+                rows.push({ idx, line, kind: 'del', oldNum: lineNum, newNum: '', lineKey: `old:${lineNum}:${idx}`, side: 'old', lineNum, annotatable: true, hunk });
+                return;
+            }
+            const o = oldNo > 0 ? oldNo++ : '';
+            const n = newNo > 0 ? newNo++ : '';
+            rows.push({ idx, line, kind: 'ctx', oldNum: o, newNum: n, lineKey: n ? `ctx:${n}:${idx}` : `raw:${idx}`, side: 'new', lineNum: n || idx + 1, annotatable: Boolean(n || line.trim()), hunk });
+        });
+        return rows;
+    }
+
+    function renderDiff(text, filePath = state.openDiff?.path || '') {
         if (!text) return `<span class="wsp-diff-ctx">${escapeHtml(tx('diffEmpty'))}</span>`;
-        return String(text).split('\n').map(line => {
-            const cls = line.startsWith('+') && !line.startsWith('+++') ? 'wsp-diff-add'
-                : line.startsWith('-') && !line.startsWith('---') ? 'wsp-diff-del'
-                    : line.startsWith('@@') ? 'wsp-diff-hunk' : 'wsp-diff-ctx';
-            return `<span class="${cls}">${escapeHtml(line)}</span>`;
+        const rows = parseDiffLines(text);
+        return rows.map(row => {
+            const cls = row.kind === 'add' ? 'wsp-diff-add'
+                : row.kind === 'del' ? 'wsp-diff-del'
+                    : row.kind === 'hunk' ? 'wsp-diff-hunk' : 'wsp-diff-ctx';
+            const notes = row.lineKey ? state.diffNotes.filter(n => n.path === filePath && n.lineKey === row.lineKey) : [];
+            const editing = row.lineKey && state.diffEditor?.path === filePath && state.diffEditor?.lineKey === row.lineKey;
+            const lnOld = row.oldNum ? String(row.oldNum) : '';
+            const lnNew = row.newNum ? String(row.newNum) : '';
+            const addBtn = row.annotatable
+                ? `<button type="button" class="wsp-diff-add-note" data-wsp-diff-annotate="${escapeHtml(row.lineKey)}" data-wsp-diff-path="${escapeHtml(filePath)}" data-wsp-diff-num="${row.lineNum}" data-wsp-diff-side="${row.side || 'new'}" data-wsp-diff-code="${escapeHtml(row.line)}" title="${escapeHtml(wsLabel('对此行添加批注', 'Annotate this line'))}">+</button>`
+                : '<span class="wsp-diff-pad"></span>';
+            const notesHtml = notes.map(note => `
+                <div class="wsp-diff-note" data-wsp-note-id="${escapeHtml(note.id)}">
+                    <span class="wsp-diff-note-tag">${escapeHtml(wsLabel('批注', 'Note'))} L${note.lineNum}</span>
+                    <span class="wsp-diff-note-text">${escapeHtml(note.comment)}</span>
+                    <button type="button" class="wsp-diff-note-del" data-wsp-note-del="${escapeHtml(note.id)}" title="${escapeHtml(wsLabel('删除批注', 'Delete note'))}">×</button>
+                </div>`).join('');
+            const editorHtml = editing ? `
+                <div class="wsp-diff-editor">
+                    <textarea rows="2" data-wsp-diff-input placeholder="${escapeHtml(wsLabel('写下对这行代码的修改意见…（Enter 保存，Esc 取消）', 'Describe the change you want on this line… (Enter to save, Esc to cancel)'))}">${escapeHtml(state.diffEditor.draft || '')}</textarea>
+                    <div class="wsp-diff-editor-actions">
+                        <button type="button" class="wsp-btn wsp-btn-primary" data-wsp-diff-save>${wsLabel('保存批注', 'Save')}</button>
+                        <button type="button" class="wsp-btn wsp-btn-quiet" data-wsp-diff-cancel>${wsLabel('取消', 'Cancel')}</button>
+                    </div>
+                </div>` : '';
+            return `<div class="wsp-diff-row ${cls}">${addBtn}<span class="wsp-diff-ln">${lnOld}</span><span class="wsp-diff-ln">${lnNew}</span><code class="wsp-diff-code">${escapeHtml(row.line)}</code></div>${notesHtml}${editorHtml}`;
+        }).join('');
+    }
+
+    function renderDiffNotesBar() {
+        const count = state.diffNotes.length;
+        if (!count) return '';
+        return `<div class="wsp-review-bar">
+            <span class="wsp-review-count">${escapeHtml(wsLabel(`已批注 ${count} 处`, `${count} diff note${count > 1 ? 's' : ''}`))}</span>
+            <div class="wsp-review-actions">
+                <button type="button" class="wsp-btn" data-wsp-notes-send="insert">${wsLabel('插入输入框', 'Insert')}</button>
+                <button type="button" class="wsp-btn wsp-btn-primary" data-wsp-notes-send="send">${wsLabel('发给 Agent 修改', 'Send to Agent')}</button>
+                <button type="button" class="wsp-btn wsp-btn-quiet" data-wsp-notes-clear>${wsLabel('清空', 'Clear')}</button>
+            </div>
+        </div>`;
+    }
+
+    function formatDiffNotesPrompt() {
+        if (!state.diffNotes.length) return '';
+        const header = wsLabel('请根据以下 Diff 行级批注调整代码：', 'Please update the code based on these diff review notes:');
+        const items = state.diffNotes.map((note, idx) => {
+            const loc = `${note.path}:L${note.lineNum}`;
+            const code = String(note.code || '').trim().slice(0, 140);
+            return `${idx + 1}. \`${loc}\`${code ? ` (\`${code}\`)` : ''}\n   - ${note.comment}`;
         }).join('\n');
+        return `${header}\n${items}`;
+    }
+
+    function sendDiffNotes(sendNow = false) {
+        const prompt = formatDiffNotesPrompt();
+        if (!prompt) return;
+        const ok = window.DragonClaw?.composePrompt?.(prompt, { send: sendNow, append: true });
+        if (!ok) {
+            toast(wsLabel('当前输入框不可用，请切换到可发送的对话', 'Composer is unavailable right now'));
+            return;
+        }
+        if (sendNow) {
+            state.diffNotes = [];
+            state.diffEditor = null;
+            renderChanges();
+        }
+        toast(sendNow ? wsLabel('已将批注发送给 Agent', 'Sent review notes to Agent') : wsLabel('已将批注插入输入框', 'Inserted review notes into composer'));
     }
 
     async function toggleDiff(filePath) {
@@ -748,7 +868,10 @@
                 <div class="dc-context-menu"><p class="dc-context-explanation">${wsLabel('基于当前已提交的代码创建独立目录，不带入未提交改动。', 'Create an isolated directory from the current commit. Uncommitted changes are kept in the original workspace.')}</p>
                     <button type="button" data-wsp-action="new-worktree" ${unavailable || !info.head ? 'disabled' : ''}>${wsIcon('plus')}<span>${wsLabel('新建 Worktree', 'New worktree')}</span></button>
                     ${(info.worktrees || []).length ? '<div class="dc-context-divider"></div>' : ''}
-                    ${(info.worktrees || []).map(item => `<button type="button" data-wsp-select="${escapeHtml(item.root)}" title="${escapeHtml(item.root)}" aria-current="${Boolean(item.current)}" ${!item.available || workspaceBusy() ? 'disabled' : ''}>${wsIcon('folder')}<span><b>${escapeHtml(baseName(item.root))}</b><small>${escapeHtml(item.branch || wsLabel('分离的 HEAD', 'Detached HEAD'))}</small></span>${item.current ? wsIcon('check') : ''}</button>`).join('')}
+                    ${(info.worktrees || []).map(item => `<div class="dc-worktree-row">
+                        <button type="button" data-wsp-select="${escapeHtml(item.root)}" title="${escapeHtml(item.root)}" aria-current="${Boolean(item.current)}" ${!item.available || workspaceBusy() ? 'disabled' : ''}>${wsIcon('folder')}<span><b>${escapeHtml(baseName(item.root))}</b><small>${escapeHtml(item.branch || wsLabel('分离的 HEAD', 'Detached HEAD'))}${item.isMain ? ` · ${wsLabel('主仓库', 'main')}` : ''}${item.ahead ? ` · +${item.ahead}` : ''}${item.dirty ? ` · ${wsLabel('有改动', 'dirty')}` : ''}</small></span>${item.current ? wsIcon('check') : ''}</button>
+                        ${!item.isMain && !unavailable ? `<button type="button" class="dc-worktree-rm" data-wsp-remove-wt="${escapeHtml(item.root)}" title="${escapeHtml(wsLabel('移除此 Worktree', 'Remove worktree'))}">×</button>` : ''}
+                    </div>`).join('')}
                 </div></details>`;
     }
 
@@ -778,6 +901,106 @@
             toast(wsLabel('已进入独立 Worktree', 'Opened the new worktree'));
         } catch(error) { toast(error.message); }
         finally { state.gitSaving = false;renderChip(); }
+    }
+
+    async function commitWorktree() {
+        if (!state.root || isReadOnly() || workspaceBusy()) return;
+        const message = await window.AppDialog.prompt(
+            wsLabel('输入本次 Worktree 改动的提交说明（将自动暂存当前目录改动并提交）。', 'Enter a commit message for changes in this worktree.'),
+            { title: wsLabel('提交 Worktree 改动', 'Commit worktree changes'), defaultValue: `feat: ${state.gitBranch || 'worktree'} changes`, maxLength: 300 }
+        );
+        if (!message?.trim()) return;
+        const root = state.root, ticket = state.selectionEpoch;
+        state.gitSaving = true; renderChip(); renderEnv();
+        try {
+            const data = await request('POST', `${API}/git/worktree/commit`, { root, message: message.trim() });
+            if (root !== state.root || ticket !== state.selectionEpoch) return;
+            state.gitInfo = data.git;
+            await Promise.all([refreshChanges(), refreshGit()]);
+            renderEnv(); renderChip();
+            toast(data.committed ? wsLabel('已提交改动', 'Committed changes') : wsLabel('工作区干净，无需提交', 'Working tree is clean'));
+        } catch (error) { toast(error.message); }
+        finally { state.gitSaving = false; renderChip(); renderEnv(); }
+    }
+
+    async function mergeCurrentWorktree() {
+        if (!state.root || !state.gitInfo?.isWorktree || isReadOnly() || workspaceBusy()) return;
+        const info = state.gitInfo;
+        const mainTarget = (info.worktrees || [])[0]?.branch || 'main';
+        const root = state.root, ticket = state.selectionEpoch;
+        let dirtyCommitted = false;
+        if (info.dirty) {
+            const msg = await window.AppDialog.prompt(
+                wsLabel(`当前 Worktree 有未提交改动，请输入提交说明，提交后将合并回 ${mainTarget}。`, `Uncommitted changes detected. Enter a commit message before merging into ${mainTarget}.`),
+                { title: wsLabel('提交并合并 Worktree', 'Commit & Merge Worktree'), defaultValue: `feat: merge ${info.branch || 'worktree'}`, maxLength: 300 }
+            );
+            if (!msg?.trim()) return;
+            state.gitSaving = true; renderChip(); renderEnv();
+            try {
+                await request('POST', `${API}/git/worktree/commit`, { root, message: msg.trim() });
+                dirtyCommitted = true;
+            } catch (error) {
+                state.gitSaving = false; renderChip(); renderEnv();
+                toast(error.message);
+                return;
+            }
+        }
+        const ok = await window.AppDialog.confirm(
+            wsLabel(`确定将分支 ${info.branch} 合并回 ${mainTarget}，并清理此独立 Worktree？`, `Merge ${info.branch} into ${mainTarget} and clean up this worktree?`),
+            { title: wsLabel('合并回主分支', 'Merge Worktree') }
+        );
+        if (!ok) {
+            if (dirtyCommitted) await refreshGit();
+            state.gitSaving = false; renderChip(); renderEnv();
+            return;
+        }
+        state.gitSaving = true; renderChip(); renderEnv();
+        try {
+            const data = await request('POST', `${API}/git/worktree/merge`, {
+                root,
+                targetBranch: mainTarget,
+                mode: 'merge',
+                message: `Merge ${info.branch} into ${mainTarget}`,
+                removeAfter: true
+            });
+            if (root !== state.root || ticket !== state.selectionEpoch) return;
+            if (data.nothingToMerge) {
+                toast(wsLabel('没有领先主分支的新提交可合并', 'Nothing ahead of main branch to merge'));
+                await refreshGit();
+            } else {
+                toast(wsLabel(`已合并到 ${data.targetBranch} 并清理 Worktree`, `Merged into ${data.targetBranch} and cleaned up`));
+                if (data.mainRoot) await selectDirectory(data.mainRoot);
+            }
+        } catch (error) { toast(error.message); }
+        finally { state.gitSaving = false; renderChip(); renderEnv(); }
+    }
+
+    async function removeTargetWorktree(targetRoot) {
+        if (!state.root || isReadOnly() || workspaceBusy()) return;
+        const target = targetRoot || state.root;
+        const wt = (state.gitInfo?.worktrees || []).find(item => item.root === target);
+        const isCurrent = target === state.root;
+        const warnDirty = wt?.dirty ? wsLabel('\n注意：该 Worktree 仍有未提交改动，强制移除将丢弃这些未提交改动！', '\nWarning: this worktree has uncommitted changes that will be discarded if forced!') : '';
+        const ok = await window.AppDialog.confirm(
+            wsLabel(`确定移除 Worktree「${baseName(target)}」吗？${warnDirty}`, `Remove worktree "${baseName(target)}"?${warnDirty}`),
+            { title: wsLabel('移除 Worktree', 'Remove Worktree'), tone: wt?.dirty ? 'danger' : undefined }
+        );
+        if (!ok) return;
+        const root = state.root, ticket = state.selectionEpoch;
+        state.gitSaving = true; renderChip(); renderEnv();
+        try {
+            const data = await request('POST', `${API}/git/worktree/remove`, {
+                root,
+                worktreeRoot: target,
+                force: Boolean(wt?.dirty),
+                deleteBranch: true
+            });
+            if (root !== state.root || ticket !== state.selectionEpoch) return;
+            toast(wsLabel('已移除 Worktree', 'Removed worktree'));
+            if (isCurrent && data.mainRoot) await selectDirectory(data.mainRoot);
+            else await refreshGit();
+        } catch (error) { toast(error.message); }
+        finally { state.gitSaving = false; renderChip(); renderEnv(); }
     }
 
     async function createWorkspace() {
@@ -1850,6 +2073,9 @@
                 if (action.dataset.wspAction === 'shared-locked-tip') toast(sharedLockedMessage());
                 else if (action.dataset.wspAction === 'create-workspace') createWorkspace();
                 else if (action.dataset.wspAction === 'new-worktree') createWorktree();
+                else if (action.dataset.wspAction === 'commit-worktree') commitWorktree();
+                else if (action.dataset.wspAction === 'merge-worktree') mergeCurrentWorktree();
+                else if (action.dataset.wspAction === 'remove-worktree') removeTargetWorktree(state.root);
                 else if (action.dataset.wspAction === 'new-branch') {
                     if (isReadOnly() || workspaceBusy()) return;
                     window.AppDialog.prompt(wsLabel('输入新的 Git 分支名称', 'Enter a new Git branch name'), {title:wsLabel('新建分支', 'New branch'),defaultValue:'codex/task',maxLength:160}).then(name => { if(name?.trim())changeBranch(name.trim(),true); });
@@ -1857,6 +2083,71 @@
                 else if (action.dataset.wspAction === 'change') openPicker();
                 else if (action.dataset.wspAction === 'clear') clearDirectory();
                 else if (action.dataset.wspAction === 'panel') setOpen(!state.open);
+                return;
+            }
+            const removeWtBtn = event.target.closest('[data-wsp-remove-wt]');
+            if (removeWtBtn && el.chip?.contains(removeWtBtn)) {
+                el.chip.querySelectorAll('details[open]').forEach(node => { node.open = false; });
+                removeTargetWorktree(removeWtBtn.dataset.wspRemoveWt);
+                return;
+            }
+            const annotateBtn = event.target.closest('[data-wsp-diff-annotate]');
+            if (annotateBtn && el.panel.contains(annotateBtn)) {
+                state.diffEditor = {
+                    path: annotateBtn.dataset.wspDiffPath || state.openDiff?.path || '',
+                    lineKey: annotateBtn.dataset.wspDiffAnnotate,
+                    lineNum: Number(annotateBtn.dataset.wspDiffNum) || 1,
+                    side: annotateBtn.dataset.wspDiffSide || 'new',
+                    code: annotateBtn.dataset.wspDiffCode || '',
+                    draft: ''
+                };
+                renderChanges();
+                requestAnimationFrame(() => el.panel.querySelector('[data-wsp-diff-input]')?.focus());
+                return;
+            }
+            const saveNoteBtn = event.target.closest('[data-wsp-diff-save]');
+            if (saveNoteBtn && el.panel.contains(saveNoteBtn)) {
+                const input = el.panel.querySelector('[data-wsp-diff-input]');
+                const comment = String(input?.value ?? state.diffEditor?.draft ?? '').trim();
+                if (comment && state.diffEditor) {
+                    state.diffNotes.push({
+                        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                        path: state.diffEditor.path,
+                        lineKey: state.diffEditor.lineKey,
+                        lineNum: state.diffEditor.lineNum,
+                        side: state.diffEditor.side,
+                        code: state.diffEditor.code,
+                        comment
+                    });
+                    state.diffEditor = null;
+                    renderChanges();
+                } else {
+                    input?.focus();
+                }
+                return;
+            }
+            const cancelNoteBtn = event.target.closest('[data-wsp-diff-cancel]');
+            if (cancelNoteBtn && el.panel.contains(cancelNoteBtn)) {
+                state.diffEditor = null;
+                renderChanges();
+                return;
+            }
+            const delNoteBtn = event.target.closest('[data-wsp-note-del]');
+            if (delNoteBtn && el.panel.contains(delNoteBtn)) {
+                state.diffNotes = state.diffNotes.filter(n => n.id !== delNoteBtn.dataset.wspNoteDel);
+                renderChanges();
+                return;
+            }
+            const sendNotesBtn = event.target.closest('[data-wsp-notes-send]');
+            if (sendNotesBtn && el.panel.contains(sendNotesBtn)) {
+                sendDiffNotes(sendNotesBtn.dataset.wspNotesSend === 'send');
+                return;
+            }
+            const clearNotesBtn = event.target.closest('[data-wsp-notes-clear]');
+            if (clearNotesBtn && el.panel.contains(clearNotesBtn)) {
+                state.diffNotes = [];
+                state.diffEditor = null;
+                renderChanges();
                 return;
             }
             const select = event.target.closest('[data-wsp-select]');
@@ -1916,6 +2207,18 @@
         // 窄屏抽屉：点工作区以外的遮罩或按 Esc 收起（遮罩拦截这次点击，不会误触底下的内容）
         el.backdrop.addEventListener('click', () => setOpen(false));
         document.addEventListener('keydown', event => {
+            const diffInput = event.target?.closest?.('[data-wsp-diff-input]');
+            if (diffInput && el.panel.contains(diffInput)) {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    el.panel.querySelector('[data-wsp-diff-save]')?.click();
+                } else if (event.key === 'Escape') {
+                    event.preventDefault();
+                    state.diffEditor = null;
+                    renderChanges();
+                }
+                return;
+            }
             if (event.key === 'Escape' && state.open && el.picker.hidden && isDrawerMode()) setOpen(false);
         });
 
@@ -2132,6 +2435,8 @@
             try { sessionStorage.setItem(SESSION_ROOT_KEY, root); } catch { /* ignore */ }
             state.changes = [];
             state.openDiff = null;
+            state.diffNotes = [];
+            state.diffEditor = null;
             state.expandChanges = false;
             state.context = null;
             renderContext();
@@ -2148,6 +2453,8 @@
             state.agentSessionId = newSessionId();
             state.changes = [];
             state.openDiff = null;
+            state.diffNotes = [];
+            state.diffEditor = null;
             state.expandChanges = false;
             state.context = null;
             performanceMessage = null; performanceRounds = []; performanceManual = false;

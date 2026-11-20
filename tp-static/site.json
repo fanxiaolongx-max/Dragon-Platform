@@ -84,7 +84,7 @@
     },
     "/api/app-version": {
       "name": "tools-platform",
-      "version": "1.0.680"
+      "version": "1.0.683"
     }
   },
   "proof": {
@@ -136,8 +136,8 @@
     },
     "bigscreen/index.html": {
       "url": "tp-static/payload/ab98a9e4c07c82cb6094bbe5d92fa70516de5ff4d85ec9ccab1074855a85d81a.bin",
-      "iv": "CNjCfQ7oOzQfyQoj",
-      "hash": "1226cd1719cafa2e2e72f048394f519adaa2f3307d5f0bf97e6582075771c4c1",
+      "iv": "Gb4FQYQvxhXfe+fv",
+      "hash": "47261a47f10380d5653e96864dab7129de4266e9feab58cbcf66dcdf75285849",
       "type": "text/html; charset=utf-8"
     },
     "chat-history-center/chat-test-data.js": {
@@ -434,8 +434,8 @@
     },
     "datacom-protocol-expert/index.html": {
       "url": "tp-static/payload/350b556c16e392b0cc02319227bdbc6d6890a508d6bd9b1e85082d7619b87ac2.bin",
-      "iv": "CM7h5gRyuJu4tcoZ",
-      "hash": "3a7cc056d56d98030a44ac7309d460ab8e9246357f8ff857539910467f2b7999",
+      "iv": "/PbnZ0JlPHPPVqHc",
+      "hash": "a5584d95da7983e354d1ef8a2a3a3e7520893cc0f5aeaa68e82e8fa3c982b605",
       "type": "text/html; charset=utf-8"
     },
     "datacom-protocol-expert/THIRD_PARTY_NOTICES.md": {
@@ -470,8 +470,8 @@
     },
     "department-reward-penalty/data/state.json": {
       "url": "tp-static/payload/059c0ac3a82bdb481462b9822d9d26303f893cb4fbe5ac3bbb466f742f30cc6e.bin",
-      "iv": "P8ADzAuJbGYJkOtP",
-      "hash": "cc055bb45e9daebefe0cd7be2ce194d9e06eb7f3cac9d9037ba52037b7c51d71",
+      "iv": "8KMg4do9NewlcPug",
+      "hash": "007910225771c82404a0ef7822a5cfde2e0900a163b923266132505060c9dfd3",
       "type": "application/json; charset=utf-8"
     },
     "department-reward-penalty/index.html": {
@@ -500,14 +500,14 @@
     },
     "expedite/index.html": {
       "url": "tp-static/payload/fb7b83b7aba3086334d49373a1da5c202190cd8aef10d3dbb255e06c9dbfe19a.bin",
-      "iv": "l02XhrFyPpDxwIkf",
-      "hash": "e4513aee37fe1679bebc96189a490e8e14af581d0b0317b603835089231d8a36",
+      "iv": "/2UbvbFohaIF1tNn",
+      "hash": "47a76324f3e33151f3b30547e37d531ecccf47e84a9537b1fa9f24401334772c",
       "type": "text/html; charset=utf-8"
     },
     "index.html": {
       "url": "tp-static/payload/0eb547304658805aad788d320f10bf1f292797b5e6d745a3bf617584da017051.bin",
-      "iv": "+aROZptqNS85sPMA",
-      "hash": "72656c399b9ef59edb8d17187056b58fb08618b48c2edddc0277f9fa13f3f1a1",
+      "iv": "MEPTA/IJndMkiGtS",
+      "hash": "cc91feb0affe138b75d384334522db0afa95848462afc615afa88126792ad60e",
       "type": "text/html; charset=utf-8"
     },
     "mayrig/index.html": {
@@ -518,14 +518,14 @@
     },
     "monthly/index.html": {
       "url": "tp-static/payload/b60ee55bb750024b57d9421ea1caaefe17080b2c22c984d1a4b5d61b777ac6fd.bin",
-      "iv": "sGWNlD2Duza2OB7x",
-      "hash": "a609b02dbd5cc13d035c2551bed9faf8f291bc020189c27aa3be4371fe019b5b",
+      "iv": "pGSCtgtxynTfmrF8",
+      "hash": "47be653285715e4d4f6c02504bb0cdd0b7bb3136ed817ed093de7777bda58f8d",
       "type": "text/html; charset=utf-8"
     },
     "monthly/legacy.html": {
       "url": "tp-static/payload/ecd532a7a192de72b22d6185ed79d29622d7065b30c8ae66fd70390d2508aa1a.bin",
-      "iv": "+BAKhWiXaSc8cgU5",
-      "hash": "db5de4ef6d43d5acc5a8cc7aac061870f26f1b67f53258a05c56e26d75e50b2e",
+      "iv": "vAF3MFc1Vvb1uCXS",
+      "hash": "90bd7dccba17794110194f16c3cc41264d86e4465384e8db0fb41386b7cc574b",
       "type": "text/html; charset=utf-8"
     },
     "network_safety_meeting_summary/index.html": {
@@ -721,8 +721,8 @@
     },
     "portal-data.json": {
       "url": "tp-static/payload/4187a00828abb3180acbb34476f6daf7e5f48cabcd5296e625824e9757bf3d25.bin",
-      "iv": "w6ZpqkI0QU/o7QFl",
-      "hash": "8c0d92134e64bf95f4dc2e166502d2448be89545daaec9890e959b96823e811a",
+      "iv": "V8Yfxr2Sjte2O70n",
+      "hash": "3fee762886eaf3a48ebdc000c911a96d17e410a3ee0abc4ca2cfc9a3040ae23f",
       "type": "application/json; charset=utf-8"
     },
     "pr-2/index.html": {
@@ -764,16 +764,16 @@
       "parts": [
         {
           "url": "tp-static/payload/a342e184b9f5f7853146b8b4d1ecb54b32359a99502d61c5b9a4f15fc4b8990a.bin",
-          "iv": "DijwQ/Jd+mDPJGGw",
-          "hash": "685f8a5b722f027b41bc1fb81453278788e9b308832468c13132df1c78b117c8"
+          "iv": "68HkJB1PkYj6AOP/",
+          "hash": "f47ae9febcd32332fdfca2c6a4a5281aa1f13cfc381a1a2c4736f70ede264513"
         },
         {
           "url": "tp-static/payload/da8413d1675396fd53b30039ec93df78cefa3a7ffe0085b85e2d0cb387175967.bin",
-          "iv": "EJZLv58+rQoKREs1",
-          "hash": "0d919720789a89fafaf365cc077902b1e01c07cdfd9e133a7d34045756975b13"
+          "iv": "SGVfM3WtH6SCxocu",
+          "hash": "f1bb9685d2cf0a7826db657823b63ec2756c6226f30b15e6a46aff383d9260b4"
         }
       ],
-      "hash": "908f912228c1e3a214d94b11acc1ad95618aebe1f77174256ea29f827116dd6b",
+      "hash": "af2f2e38077995fc3e90d91a5f91386aecd4f45b847869a26121566af02d7019",
       "type": "text/html; charset=utf-8"
     },
     "reward-program/data/applications.json": {
@@ -804,16 +804,16 @@
       "parts": [
         {
           "url": "tp-static/payload/568abe62624785c8feaddc6239da5fa41778b2a10a3ff8a150cf06dcd8bbe6f7.bin",
-          "iv": "dli2iBkTK+3vkJ5L",
-          "hash": "33bd5ba02f5a7e9a4c56ff9a8adf36a6c1ed0d1dc7a5a087d3a1e2a494f6b09d"
+          "iv": "4uvFc8zCbCkV2jmz",
+          "hash": "9960cac84661d8469c74b8e5ad542a8d8f5979d4b75f716ba5913b69f2a9f672"
         },
         {
           "url": "tp-static/payload/ca90bcdf16e2ace99cf12653ecf830e93c1d831348a3dbb5bb95d406e130171a.bin",
-          "iv": "Wm/1gfELE3BxKyrk",
-          "hash": "63f1dbd66da0ab4999b07e1d46867ae7996ca082e0608becdbd4798078750546"
+          "iv": "cHIXz/K2k1YXBDyB",
+          "hash": "5f9e2546441536fb7638487d90bf98a22c6b87eb7e23a82d2047685e7a5c7ec4"
         }
       ],
-      "hash": "003bc62cad84811c9b845e6aec78588ec95953376cd759defb60153244cbefdc",
+      "hash": "c54a0f5fb578f23f96c63bd260eed85e54d8eddd0b258907a27ab5015f36dead",
       "type": "text/html; charset=utf-8"
     },
     "supplier-quotation-comparison/app.js": {
@@ -11099,8 +11099,8 @@
     },
     "tool-mumxi3px/index.html": {
       "url": "tp-static/payload/75d15759f83fc8f0e3a6cc7c39574b5443a39eabe4bc8bd9a60591224eac6eda.bin",
-      "iv": "+qeerPMNTTWYcBVr",
-      "hash": "cfa534b3bb0da0c48fc224f28530ad1273ce21c9de1c9895b98a714c894df07f",
+      "iv": "aTC7ML11kE/AqY9Z",
+      "hash": "f7e8701251848f41b4b791c675dc89b5733e5d78be467e72572b8eb725d4f459",
       "type": "text/html; charset=utf-8"
     },
     "tool-mv9strpn/index.html": {
@@ -11119,16 +11119,16 @@
       "parts": [
         {
           "url": "tp-static/payload/30f5dfac9be824457b348a68e56346e98e3892225a9f16f38d25051df48b42c7.bin",
-          "iv": "vMRE+z+06m3YYqQU",
-          "hash": "ae7357e8219c53fa182014485d67479a3f42b8561ed4842526178f26de4705f9"
+          "iv": "BouLKPQc7veJoua+",
+          "hash": "368dc4025bbf1268ed53fe260cff857ea864869ce2ea91a09761d5b4734deab6"
         },
         {
           "url": "tp-static/payload/b3ec7a6f678a7de724affda91226a3b0ce112093932b78085a3797280544ee6a.bin",
-          "iv": "+9oY3v1jZ85ecVKk",
-          "hash": "9e919619480b0afaa1e841b0b62997d93e186dee8670c0191e7606a420f16e7d"
+          "iv": "XF1AJuGp0WHmskDw",
+          "hash": "2c4546d90eedba7834cad5168d9c9a10bbc4278ec7c23e76f03bc9ba38c8f88f"
         }
       ],
-      "hash": "570663d5a618df6e54f215d0da2baecdab091b0a1079571407371ddf64a22e34",
+      "hash": "0548efd6378cf2c5520aaf55ff53c7d56bd542d5a9483dd775e2b375176be716",
       "type": "text/html; charset=utf-8"
     }
   }

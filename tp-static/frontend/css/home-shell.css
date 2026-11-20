@@ -1749,6 +1749,30 @@ html.platform-home .dc-chat-head .dc-chat-name { font-size: 14.5px; font-weight:
 html.platform-home:not([data-theme="dark"]) .dc-chat-head .dc-chat-name { color: var(--v2-ink); }
 
 html.platform-home .dc-chat-actions .dc-ghost-btn { border-color: transparent; background: transparent; box-shadow: none; }
+html.platform-home .dc-radar-wrap { position: relative; display: inline-flex; align-items: center; }
+html.platform-home .dc-radar-wrap.is-floating { position: absolute; top: 14px; right: 18px; z-index: 30; }
+html.platform-home .dc-radar-wrap.is-floating[hidden] { display: none; }
+html.platform-home .dc-radar-wrap.is-floating .dc-radar-pill { background: var(--v2-bg, #fff); border: 1px solid var(--v2-line-strong, #e5e7eb); padding: 5px 11px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06); }
+html.platform-home .dc-radar-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; border-radius: 999px; }
+html.platform-home .dc-radar-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--v2-ink3, #9ca3af); flex: none; }
+html.platform-home .dc-radar-pill.is-working .dc-radar-dot { background: #10a37f; box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.16); }
+html.platform-home .dc-radar-pill.is-blocked .dc-radar-dot { background: #ef4444; animation: dcRadarPulse 1.8s ease-in-out infinite; }
+@keyframes dcRadarPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.45); } 50% { box-shadow: 0 0 0 5px rgba(239, 68, 68, 0); } }
+html.platform-home .dc-radar-popover { position: absolute; top: calc(100% + 8px); right: 0; z-index: 1600; width: min(320px, 90vw); padding: 10px; border-radius: 12px; border: 1px solid var(--v2-line-strong, #e5e7eb); background: var(--v2-bg, #fff); color: var(--v2-ink, #1f2328); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14); }
+html.platform-home .dc-radar-head { display: flex; flex-direction: column; gap: 2px; padding: 2px 4px 8px; border-bottom: 1px solid var(--v2-line, #e5e7eb); }
+html.platform-home .dc-radar-head strong { font-size: 13px; }
+html.platform-home .dc-radar-head small { font-size: 11px; color: var(--v2-ink3, #6b7280); }
+html.platform-home .dc-radar-empty { padding: 18px 8px; text-align: center; font-size: 12.5px; color: var(--v2-ink3, #6b7280); }
+html.platform-home .dc-radar-group { margin-top: 8px; }
+html.platform-home .dc-radar-group-title { font-size: 11px; font-weight: 600; color: var(--v2-ink3, #6b7280); padding: 2px 4px 4px; }
+html.platform-home .dc-radar-group.is-blocked .dc-radar-group-title { color: #ef4444; }
+html.platform-home .dc-radar-group.is-working .dc-radar-group-title { color: #10a37f; }
+html.platform-home .dc-radar-item { width: 100%; display: flex; align-items: center; gap: 8px; padding: 7px 8px; border: 0; border-radius: 8px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+html.platform-home .dc-radar-item:hover { background: var(--v2-hover, rgba(0, 0, 0, 0.05)); }
+html.platform-home .dc-radar-item-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+html.platform-home .dc-radar-item-main b { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html.platform-home .dc-radar-item-main small { font-size: 11px; color: var(--v2-ink3, #6b7280); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html.platform-home .dc-radar-jump { opacity: 0.55; font-size: 12px; }
 
 html.platform-home:not([data-theme="dark"]) .dc-chat-actions .dc-ghost-btn { color: var(--v2-ink2); }
 

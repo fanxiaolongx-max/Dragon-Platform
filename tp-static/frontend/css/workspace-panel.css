@@ -343,21 +343,47 @@
 .wsp-pr-output { max-height: 180px; }
 @keyframes wsp-spin { to { transform: rotate(360deg); } }
 .wsp-diff {
-    max-height: 320px;
+    max-height: 360px;
     margin: 6px 0 0;
-    padding: 8px 10px;
+    padding: 6px 0;
     overflow: auto;
     border: 1px solid rgba(148, 163, 184, 0.14);
     border-radius: 8px;
     background: rgba(2, 6, 23, 0.6);
     font: 11px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
-    white-space: pre;
     tab-size: 4;
 }
-.wsp-diff-add { display: block; background: rgba(74, 222, 128, 0.12); color: #bbf7d0; }
-.wsp-diff-del { display: block; background: rgba(248, 113, 113, 0.12); color: #fecaca; }
-.wsp-diff-hunk { display: block; color: #93c5fd; }
-.wsp-diff-ctx { display: block; color: #94a3b8; }
+.wsp-diff-add { display: flex; background: rgba(74, 222, 128, 0.12); color: #bbf7d0; }
+.wsp-diff-del { display: flex; background: rgba(248, 113, 113, 0.12); color: #fecaca; }
+.wsp-diff-hunk { display: flex; color: #93c5fd; }
+.wsp-diff-ctx { display: flex; color: #94a3b8; }
+.wsp-diff-row { align-items: stretch; min-width: max-content; padding-right: 10px; }
+.wsp-diff-row:hover { filter: brightness(1.06); }
+.wsp-diff-add-note, .wsp-diff-pad { flex: none; width: 20px; text-align: center; border: 0; background: transparent; color: inherit; cursor: pointer; opacity: 0; transition: opacity 120ms ease; font: 600 12px/1.55 inherit; padding: 0; }
+.wsp-diff-row:hover .wsp-diff-add-note, .wsp-diff-add-note:focus-visible { opacity: 0.9; }
+.wsp-diff-ln { flex: none; width: 32px; padding: 0 4px; text-align: right; opacity: 0.45; user-select: none; font-size: 10px; }
+.wsp-diff-code { flex: 1; white-space: pre; font: inherit; }
+.wsp-diff-note { display: flex; align-items: flex-start; gap: 6px; margin: 3px 8px 4px 28px; padding: 5px 8px; border-radius: 7px; border: 1px solid rgba(59, 130, 246, 0.35); background: rgba(59, 130, 246, 0.12); font-family: var(--dc-font, system-ui, sans-serif); font-size: 12px; white-space: normal; }
+.wsp-diff-note-tag { flex: none; font-size: 10.5px; font-weight: 600; color: #60a5fa; padding: 1px 5px; border-radius: 4px; background: rgba(59, 130, 246, 0.15); }
+.wsp-diff-note-text { flex: 1; line-height: 1.45; word-break: break-word; }
+.wsp-diff-note-del { flex: none; border: 0; background: transparent; color: inherit; opacity: 0.65; cursor: pointer; font-size: 14px; line-height: 1; padding: 0 3px; }
+.wsp-diff-note-del:hover { opacity: 1; }
+.wsp-diff-editor { margin: 4px 8px 6px 28px; padding: 8px; border-radius: 8px; border: 1px solid rgba(148, 163, 184, 0.25); background: rgba(15, 23, 42, 0.55); font-family: var(--dc-font, system-ui, sans-serif); }
+.wsp-diff-editor textarea { width: 100%; box-sizing: border-box; resize: vertical; border: 1px solid rgba(148, 163, 184, 0.28); border-radius: 6px; padding: 6px 8px; background: rgba(2, 6, 23, 0.5); color: inherit; font: 12px/1.45 inherit; }
+.wsp-diff-editor-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 6px; }
+.wsp-review-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin: 8px 0 4px; padding: 8px 10px; border-radius: 9px; border: 1px solid rgba(59, 130, 246, 0.35); background: rgba(59, 130, 246, 0.08); }
+.wsp-review-count { font-size: 12px; font-weight: 600; }
+.wsp-review-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.wsp-worktree-bar { display: flex; flex-direction: column; gap: 7px; margin: 8px 0; padding: 8px 10px; border-radius: 9px; border: 1px solid rgba(16, 163, 127, 0.28); background: rgba(16, 163, 127, 0.07); }
+.wsp-worktree-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; }
+.wsp-worktree-meta span { opacity: 0.78; font-size: 11.5px; }
+.wsp-worktree-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.wsp-worktree-actions .wsp-btn { padding: 4px 9px; font-size: 11.5px; }
+.wsp-worktree-actions .wsp-btn-quiet { border: 1px solid rgba(148, 163, 184, 0.28); }
+.dc-worktree-row { display: flex; align-items: center; gap: 4px; }
+.dc-worktree-row > button:first-child { flex: 1; min-width: 0; }
+.dc-worktree-rm { flex: none; width: 26px; height: 26px; border: 0; border-radius: 6px; background: transparent; color: inherit; opacity: 0.55; cursor: pointer; font-size: 15px; line-height: 1; }
+.dc-worktree-rm:hover { opacity: 1; background: rgba(239, 68, 68, 0.14); color: #ef4444; }
 
 /* ── 输入框上方的工作区芯片 ─────────────────── */
 .dc-workspace-chip { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
