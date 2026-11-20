@@ -1,12 +1,12 @@
 {
   "zh": [
-    "修复「智能体状态雷达」弹窗点击正在运行的桌面 Agent（Codex / Claude Code / Antigravity / WorkBuddy）对话报错「会话标识无效」与底部提示只读的问题：雷达跳转现统一传入完整会话对象并自动切换至对话视图；`HomeDesktopAgents.open` 兼容传参重载与列表元数据合并，确保侧栏高亮与历史消息加载正常。",
-    "修复长对话列表中较早的置顶会话被新会话挤出首屏分页的问题：置顶会话现按自定义排序始终优先返回，并支持按改名别名检索。",
-    "修复侧栏「查看已归档对话」与手机端归档列表遗漏问题：切换归档视图时直接向后端按 archived=1/0 分页拉取，同时将首屏分页扩至 80 条以完整保留空间对话；手机端 `/api/ai/sessions-archive` 同步兼容通过列表归档的会话。"
+    "新增「WE✖️AI」提词器与演示材料自动翻页联动功能：基于 BroadcastChannel 与本地跨页通道，提词器按句滚动或换页时演示幻灯片自动同步翻页，支持双向联动与状态开关。",
+    "优化「WE✖️AI」峰会材料与提词脚本：第 7 页管理转型引入更自然的“这就把格局看小了”（That misses the bigger picture）；第 8 页精简科技巨头数字墙讲稿，突出 Palantir 与 OpenAI 40 亿美元等核心标杆，更新 Telstra 与 Verizon 的业务数据与好的 feedback 表达，PPT 视觉卡片保持完整详实。",
+    "优化桌面智能体（Codex / Claude Code / Antigravity / WorkBuddy）状态雷达交互、配额条展示与共享会话视图切换逻辑，修复从雷达图跳转桌面会话时的加载与视图联动；优化 Kindle 额度补采与 Antigravity CSRF 令牌自动发现。"
   ],
   "en": [
-    "Fixed clicking running desktop agent conversations (Codex / Claude Code / Antigravity / WorkBuddy) from the Agent Status Radar showing invalid session ID errors and read-only footer: radar navigation now passes the complete session entity and switches to chat mode; `HomeDesktopAgents.open` supports parameter overloads and merges metadata from the active list to preserve sidebar highlights and message timeline loading.",
-    "Fixed older pinned conversations dropping off page 1 when newer sessions exceed the page limit: active pinned chats now sort first by pin_order and match custom alias titles during search.",
-    "Fixed Web and Mobile archived views missing preference-archived conversations: switching to Archived now queries the backend directly (archived=1/0), increased initial sidebar page size to 80 to retain workspace chats, and included preference-archived sessions in `/api/ai/sessions-archive`."
+    "Added real-time slide sync between WE✖️AI Teleprompter and Presentation Material: prompter scrolling and navigation automatically flip the presentation deck via cross-tab BroadcastChannel with toggleable sync mode.",
+    "Refined WE✖️AI presentation materials and prompter script: updated Slide 7 management transition to 'That misses the bigger picture', streamlined Big Tech numbers wall on Slide 8 to highlight Palantir and OpenAI ($4B) while keeping slide cards visually complete, and updated Telstra/Verizon metrics and feedback phrasing.",
+    "Enhanced Agent Status Radar navigation, desktop quota bar presentation, and shared conversation view management for desktop agents (Codex / Claude Code / Antigravity / WorkBuddy); polished Kindle quota sync and Antigravity server CSRF token discovery."
   ]
 }

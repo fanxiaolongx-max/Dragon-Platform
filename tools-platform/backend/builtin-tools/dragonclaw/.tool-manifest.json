@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "tool": {
+    "slug": "dragonclaw",
+    "name": "DragonClaw简介",
+    "nameEn": "DragonClaw101",
+    "icon": "🧩",
+    "description": "一款端到端的质量运营与风险管理工作台，通过自动化采集、规则引擎合控、AI 辅助分析及智能提醒，实现从风险发现到闭环复盘的全链路自动化，帮助团队从繁琐的搬运工作中解放出来，专注于决策与教练工作。",
+    "descriptionEn": "An end-to-end quality operations and risk management workspace that automates the entire lifecycle from data collection and rule-based analysis to AI-driven insights and intelligent alerts, enabling teams to shift from manual data handling to high-value decision-making and coaching.",
+    "tags": [
+      "质量运营",
+      "风险管理",
+      "自动化闭环",
+      "AI Agent",
+      "数据治理"
+    ],
+    "href": "/tools/dragonclaw",
+    "filePath": "/custom-tools/dragonclaw/index.html",
+    "publicAccess": true,
+    "createdAt": "2026-11-19T09:14:31.121Z",
+    "updatedAt": "2026-11-20T22:19:23.646Z"
+  },
+  "history": null
+}

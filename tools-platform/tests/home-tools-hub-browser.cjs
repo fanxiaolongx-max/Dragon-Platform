@@ -327,13 +327,17 @@ app.whenReady().then(async () => {
             await evaluate(`document.documentElement.dataset.theme='${theme}';ToolsI18n.setLanguage('${lang}');HomeSkillHub.open('tools');HomeTools.openMarket();void 0`);
             await until(`document.querySelectorAll('#toolMarketList .tool-market-card').length===5`);
             const state=await evaluate(`(()=>{const modal=document.getElementById('toolMarketModal'),dialog=modal.querySelector('.tool-market-dialog'),r=dialog.getBoundingClientRect();
-                return {bg:getComputedStyle(dialog).backgroundColor,title:getComputedStyle(document.querySelector('#toolMarketTitle')).color,
+                return {bg:getComputedStyle(dialog).backgroundColor,cardBg:getComputedStyle(modal.querySelector('.tool-market-card')).backgroundColor,
+                    title:getComputedStyle(document.querySelector('#toolMarketTitle')).color,
                     opacity:getComputedStyle(modal.querySelector('.is-dimmed')).opacity,scheme:getComputedStyle(modal.querySelector('input')).colorScheme,
                     fits:r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight};})()`);
-            assert.equal(state.bg,'rgb(255, 255, 255)');assert.equal(state.title,'rgb(36, 36, 36)');assert.equal(state.opacity,'1');assert.equal(state.fits,true);
+            const expectedSurface=theme==='dark'?'rgb(26, 29, 35)':'rgb(255, 255, 255)';
+            assert.equal(state.bg,expectedSurface);assert.equal(state.cardBg,expectedSurface);
+            assert.equal(state.title,theme==='dark'?'rgb(230, 232, 235)':'rgb(31, 35, 40)');
+            assert.equal(state.scheme,theme);assert.equal(state.opacity,'1');assert.equal(state.fits,true);
             await evaluate(`document.getElementById('toolMarketSettingsBtn').click();void 0`);
             await until(`!!document.querySelector('#toolMarketSources .source-url')`);
-            assert.equal(await evaluate(`getComputedStyle(document.querySelector('#toolMarketSources .source-url')).backgroundColor`),'rgb(255, 255, 255)');
+            assert.equal(await evaluate(`getComputedStyle(document.querySelector('#toolMarketSources .source-url')).backgroundColor`),expectedSurface);
             await evaluate(`document.getElementById('toolMarketHelpBtn').click();void 0`);
             await capture('market-'+width+'-'+theme);
             await evaluate(`document.getElementById('toolMarketClose').click();void 0`);
@@ -353,7 +357,7 @@ app.whenReady().then(async () => {
         for (let i = 0; i < 20 && !marketRestored; i++) await wait(20);
         assert.equal(marketRestored, true);
         await until(`!!document.querySelector('#toolMarketPlatformList a[href^="/tools/fixture-html"]')`);
-        console.log('PASS: market cards/statuses/settings stay light monochrome, readable and in viewport; Chinese/English, light/dark platform, 1440/390px; source page retained. Screenshots: '+temp);
+        console.log('PASS: market dialog, cards, statuses and settings follow light/dark themes, stay readable and in viewport; Chinese/English, 1440/390px; source page retained. Screenshots: '+temp);
         win.destroy();server.close();app.exit(0);return;
     }
     if (process.env.HOME_WINDOW_EDGE_AUDIT) {

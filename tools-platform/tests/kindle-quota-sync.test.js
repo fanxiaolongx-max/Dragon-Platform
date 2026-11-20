@@ -27,8 +27,15 @@ test('refreshes stale Claude even when another provider is fresh, respecting dis
     assert.equal(await enabled(rows,'default','admin'),true);
     assert.equal(calls,1);
     assert.equal(await enabled(rows,'default','admin'),false);
-    const disabled = createFallbackCollector({now:()=>2000000, claudeEnabled:async()=>false, collect:async()=>{ calls++; }});
+    const disabled = createFallbackCollector({now:()=>2000000, enabledProviders:async()=>['codex'], collect:async()=>{ calls++; }});
     assert.equal(await disabled(rows,'default','admin'),false);
+    assert.equal(calls,1);
+});
+
+test('refreshes stale Antigravity when other providers have fresh samples', async () => {
+    let calls = 0;
+    const collect = createFallbackCollector({now:()=>2000000, enabledProviders:async()=>['codex','antigravity'], collect:async()=>{ calls++; }});
+    assert.equal(await collect([{provider:'codex',sampled_at:1999000}], 'default', 'admin'),true);
     assert.equal(calls,1);
 });
 

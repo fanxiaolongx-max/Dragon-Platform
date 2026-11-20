@@ -69,7 +69,7 @@ async function scan(owner, cfg) {
                 connected = canSend || items.length > 0;
                 reason = canSend
                     ? (fromSidebar ? '原生桌面页面连接；打开记录会同步切换桌面会话' : '本地记录直读 · 原生桌面会话连接')
-                    : (items.length > 0 ? 'Antigravity 桌面未运行，可查看已保存记录' : '本机桌面连接不可用，请打开对应客户端后刷新');
+                    : (items.length > 0 ? '可读取已保存记录，Antigravity 本机桌面调试连接不可用' : '本机桌面连接不可用，请打开对应客户端后刷新');
             }
             states.push({ id: provider, enabled: true, connected, canRead: items.length > 0, canSend: cfg.allowSend && canSend, count: items.length, latencyMs: Date.now() - checkedAt, reason });
         }

@@ -52,6 +52,7 @@ test('HomeDesktopAgents.open supports both (session) and (provider, id) without 
     // Mock DragonClaw
     const DragonClaw = {
         enterExternal: opts => {
+            enteredExternal?.onExit?.({ switching: true });
             enteredExternal = opts;
             return {
                 thread: { append() {}, replaceChildren() {} },
@@ -89,7 +90,7 @@ test('HomeDesktopAgents.open supports both (session) and (provider, id) without 
         L,
         API,
         composer,
-        exit: () => {},
+        exit: () => { state.active = null; },
         identity: () => 'admin',
         render: () => {},
         renderThread: () => {},
@@ -123,8 +124,7 @@ test('HomeDesktopAgents.open supports both (session) and (provider, id) without 
     assert.ok(!enteredExternal.composer.placeholder.includes('undefined'), 'Composer placeholder must not contain undefined');
     assert.equal(markedActive, true, 'markActiveChat should be called');
 
-    // Test 2: open with unknown session ID
-    enteredExternal = null;
+    // Switching directly from another desktop session runs its exit handler.
     await sandbox.open('codex', 'unknown-session-999');
 
     assert.equal(sandbox.state.active.provider, 'codex');

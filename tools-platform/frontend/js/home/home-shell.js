@@ -183,6 +183,36 @@
         openPop.anchor?.setAttribute('aria-expanded', 'false');
         openPop = null;
     }
+    function collapsePopSeparators(pop) {
+        if (!pop) return;
+        const isVisibleNode = node => {
+            if (!node || node.nodeType !== 1 || node.hidden) return false;
+            if (node.classList.contains('v2-pop-sep')) return false;
+            const cs = getComputedStyle(node);
+            if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+            if (node.classList.contains('v2-sidebar-more-items') && ![...node.children].some(isVisibleNode)) return false;
+            return true;
+        };
+        pop.querySelectorAll('.v2-pop-sep').forEach(sep => { sep.hidden = false; });
+        let seenVisible = false;
+        let lastSep = null;
+        for (const child of pop.children) {
+            if (child.classList.contains('v2-pop-sep')) {
+                if (!seenVisible) {
+                    child.hidden = true;
+                } else {
+                    if (lastSep) lastSep.hidden = true;
+                    lastSep = child;
+                }
+                continue;
+            }
+            if (isVisibleNode(child)) {
+                seenVisible = true;
+                lastSep = null;
+            }
+        }
+        if (lastSep) lastSep.hidden = true;
+    }
     function showPop(pop, anchor, place) {
         if (openPop?.pop === pop && openPop?.anchor === anchor) return;
         closePop();
@@ -191,6 +221,7 @@
         else if (place === 'up') { pop.style.left = `${rect.left}px`; pop.style.bottom = `${window.innerHeight - rect.top + 8}px`; pop.style.top = ''; }
         else { pop.style.left = `${rect.left}px`; pop.style.top = `${rect.bottom + 6}px`; pop.style.bottom = ''; }
         pop.classList.add('is-open');
+        collapsePopSeparators(pop);
         anchor.setAttribute('aria-expanded', 'true');
         openPop = { pop, anchor };
         // 超出视口边界时自动收进视口内
@@ -787,12 +818,22 @@
         const label = tier === 'super' ? t('roleSuperAdmin') : t('roleAdmin');
         return `${ROLE_BADGE_ICONS[tier] || ''}<span>${esc(label)}</span>`;
     };
+    function renderAccountLogo(container, name) {
+        const img = new Image();
+        img.alt = '';
+        img.addEventListener('error', () => {
+            if (img.getAttribute('src') === '/assets/icon.png') img.src = '/assets/logo.png';
+            else container.textContent = Array.from(name || 'Dragon Claw')[0].toUpperCase();
+        });
+        container.replaceChildren(img);
+        img.src = '/assets/icon.png';
+    }
     function renderUser() {
         const name = localStorage.getItem('tools_user') || '';
         const tier = userRoleTier();
         applyUserTierClasses($('v2UserBtn'), tier);
         $('v2UserName').textContent = name;
-        if (!$('v2Avatar').firstChild) $('v2Avatar').innerHTML = '<img src="/assets/logo.png" alt="">';
+        if (!$('v2Avatar').firstChild) renderAccountLogo($('v2Avatar'), name);
         $('v2UserMeta').textContent = serviceText();
         $('v2StatusDot').classList.toggle('is-down', serviceDown());
         const crest = $('v2AvatarCrest');
@@ -825,7 +866,7 @@
         const dark = root.getAttribute('data-theme') === 'dark';
         const mac = /Mac/i.test(navigator.platform || '');
         userPop.innerHTML = `
-            <div class="v2-account-card v2-account-head${tierClass}"><span class="v2-avatar-wrap"><span class="v2-avatar v2-avatar-lg"><img src="/assets/logo.png" alt=""></span>${headCrest}</span><div class="v2-account-identity"><strong>${esc(name)}</strong>${headBadge}</div></div>
+            <div class="v2-account-card v2-account-head${tierClass}"><span class="v2-avatar-wrap"><span class="v2-avatar v2-avatar-lg"></span>${headCrest}</span><div class="v2-account-identity"><strong>${esc(name)}</strong>${headBadge}</div></div>
             <div class="v2-account-card v2-account-stats">
                 <div><small>${esc(t('version'))}</small><strong>${esc(versionText() || '—')}</strong></div>
                 <div><small>${esc(t('service'))}</small><button type="button" class="v2-account-service" data-v2-do="serviceStatus" title="${esc(t('serviceStatus'))}" aria-label="${esc(t('serviceStatus'))}"><span class="v2-status-dot${serviceDown() ? ' is-down' : ''}"></span>${esc(serviceText())}</button></div>
@@ -842,6 +883,7 @@
                 <div class="v2-pop-sep"></div>
                 ${rowItem('logout', t('logout'), 'logout')}
             </div>`;
+        renderAccountLogo(userPop.querySelector('.v2-avatar'), name);
         fillIcons(userPop);
     }
     $('v2UserBtn')?.addEventListener('click', event => {

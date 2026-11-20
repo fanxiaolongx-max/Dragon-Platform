@@ -146,6 +146,14 @@ test('a conversation shared across team accounts syncs context both ways without
     assert.deepEqual((await call('alice', 'POST', `/session/${aliceSession}/leave`)).body, { closed: true });
     assert.equal((await call('alice', 'GET', '/mine')).body.items.length, 0, 'closed share must be removed from initiator /mine list');
     assert.equal((await call('carol', 'POST', `/link/${token}`)).status, 409);
+    const dialogPath = `/session/${aliceSession}`;
+    assert.equal((await call('alice', 'GET', dialogPath)).body.share, null);
+    assert.equal((await call('carol', 'POST', `/link/${token}`)).status, 409);
+    const fresh = (await call('alice', 'POST', dialogPath + '/prepare', {})).body.share;
+    assert.notEqual(fresh.link, `/?share=${token}`);
+    assert.equal(fresh.members.some(m => m.username !== 'alice' && ['accepted', 'pending'].includes(m.status)), false);
+    assert.equal((await call('carol', 'POST', `/link/${token}`)).status, 404);
+
 });
 
 test('a logged-out visit to a share link keeps only a well-formed token through the login redirect', async () => {

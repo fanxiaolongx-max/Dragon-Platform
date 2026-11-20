@@ -2658,23 +2658,41 @@ html.platform-home[data-theme="dark"] .wl-task { background: var(--v2-pop); bord
     --market-muted: var(--v2-ink2, #4b5563);
     --market-faint: var(--v2-ink3, #8a9099);
     --market-line: var(--v2-line, #e5e7eb);
-    --market-soft: #f8fafc;
+    --market-surface: var(--v2-pop, #ffffff);
+    --market-card: var(--v2-pop, #ffffff);
+    --market-soft: var(--v2-side, #f8fafc);
+    --market-hover: var(--v2-hover, #eef2f6);
+    --market-track: var(--v2-active, #e5e5e5);
+    --market-disabled: var(--v2-chip, #f3f4f6);
+    --market-on-accent: #ffffff;
+    --market-skeleton-base: #f6f6f6;
+    --market-skeleton-shine: #e9e9e9;
+    --market-shadow: 0 24px 68px rgba(15, 23, 42, 0.16), 0 2px 10px color-mix(in srgb, var(--market-accent) 10%, transparent);
     color: var(--market-ink);
+    color-scheme: light;
     background: rgba(15, 23, 42, 0.32);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
 }
 
-#toolMarketModal,
-#toolMarketModal :is(input,button,select,textarea) { color-scheme: light !important; }
+#toolMarketModal :is(input,button,select,textarea) { color-scheme: inherit; }
+
+html.platform-home[data-theme="dark"] #toolMarketModal {
+    --market-on-accent: #0f1115;
+    --market-skeleton-base: #1d2128;
+    --market-skeleton-shine: #2b313b;
+    --market-shadow: var(--v2-shadow-pop);
+    color-scheme: dark;
+    background: rgba(2, 6, 23, 0.72);
+}
 
 #toolMarketModal .tool-market-dialog {
-    background: #ffffff;
+    background: var(--market-surface);
     background-image: none;
     color: var(--market-ink);
     border: 1px solid var(--market-line);
     border-radius: 18px;
-    box-shadow: 0 24px 68px rgba(15, 23, 42, 0.16), 0 2px 10px color-mix(in srgb, var(--market-accent) 10%, transparent);
+    box-shadow: var(--market-shadow);
     overflow: hidden;
 }
 
@@ -2705,7 +2723,7 @@ html.platform-home[data-theme="dark"] .wl-task { background: var(--v2-pop); bord
 #toolMarketModal .tool-market-meta { font-size: 10px; line-height: 1.6; }
 
 #toolMarketModal .tool-market-card {
-    background: #ffffff;
+    background: var(--market-card);
     border: 1px solid var(--market-line);
     border-radius: 12px;
     padding: 12px 14px;
@@ -2716,7 +2734,7 @@ html.platform-home[data-theme="dark"] .wl-task { background: var(--v2-pop); bord
 }
 
 #toolMarketModal .tool-market-card.is-actionable {
-    background: #ffffff;
+    background: var(--market-card);
     border-color: color-mix(in srgb, var(--market-accent) 35%, var(--market-line));
     box-shadow: 0 1px 3px var(--market-accent-glow);
 }
@@ -2725,7 +2743,7 @@ html.platform-home[data-theme="dark"] .wl-task { background: var(--v2-pop); bord
 
 #toolMarketModal .tool-market-card:hover,
 #toolMarketModal .tool-market-card:focus-within {
-    background: #ffffff;
+    background: var(--market-card);
     border-color: color-mix(in srgb, var(--market-accent) 45%, var(--market-line));
     box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06), 0 0 0 1px color-mix(in srgb, var(--market-accent) 18%, transparent);
     transform: translateY(-1px);
@@ -2788,7 +2806,7 @@ html.platform-home[data-theme="dark"] .wl-task { background: var(--v2-pop); bord
 
 #toolMarketModal input { accent-color: var(--market-accent); }
 
-#toolMarketModal .tool-market-source input:is([type=text],[type=url]) { background: #fff; color: var(--market-ink); border-color: #cecece; }
+#toolMarketModal .tool-market-source input:is([type=text],[type=url]) { background: var(--market-card); color: var(--market-ink); border-color: var(--v2-line-strong, #cecece); }
 
 #toolMarketModal :is(input,button,summary):focus-visible { outline: 2px solid var(--market-accent); outline-offset: 2px; }
 /* 卡片内部操作按钮（打开、加入我的工具、恢复）样式优化 */
@@ -2816,7 +2834,7 @@ html.platform-home[data-theme="dark"] .wl-task { background: var(--v2-pop); bord
 
 #toolMarketModal .tool-market-card .tool-import-btn:hover:not(:disabled) {
     background: var(--market-accent);
-    color: #ffffff;
+    color: var(--market-on-accent);
     border-color: var(--market-accent);
     box-shadow: 0 2px 10px color-mix(in srgb, var(--market-accent) 38%, transparent);
     transform: translateY(-1px);
@@ -2849,8 +2867,8 @@ html.platform-home[data-theme="dark"] .wl-task { background: var(--v2-pop); bord
 
 #toolMarketModal .tool-import-close:hover {
     color: var(--market-ink);
-    background: #eef2f6;
-    border-color: #cbd5e1;
+    background: var(--market-hover);
+    border-color: var(--v2-line-strong, #cbd5e1);
 }
 
 #toolMarketModal #toolMarketSettingsBtn {
@@ -2892,7 +2910,7 @@ html.platform-home[data-theme="dark"] .wl-task { background: var(--v2-pop); bord
 }
 
 #toolMarketModal #toolMarketRefresh {
-    background: #ffffff;
+    background: var(--market-card);
     color: var(--market-ink);
     border: 1px solid var(--market-line);
 }
@@ -2907,7 +2925,7 @@ html.platform-home[data-theme="dark"] .wl-task { background: var(--v2-pop); bord
     background: var(--market-accent);
     background-image: none;
     border: 1px solid var(--market-accent);
-    color: #ffffff;
+    color: var(--market-on-accent);
     box-shadow: 0 2px 8px color-mix(in srgb, var(--market-accent) 26%, transparent);
 }
 
@@ -2922,9 +2940,9 @@ html.platform-home[data-theme="dark"] .wl-task { background: var(--v2-pop); bord
 }
 
 #toolMarketModal .tool-import-btn:disabled {
-    background: #f3f4f6;
-    color: #9ca3af;
-    border-color: #e5e7eb;
+    background: var(--market-disabled);
+    color: var(--market-faint);
+    border-color: var(--market-line);
     box-shadow: none;
     opacity: 0.8;
     cursor: not-allowed;
@@ -2933,29 +2951,33 @@ html.platform-home[data-theme="dark"] .wl-task { background: var(--v2-pop); bord
 
 #toolMarketModal :is(.tool-market-settings,.tool-market-details,.tool-market-progress) { border-color: var(--market-line); }
 
-#toolMarketModal :is(.tool-market-help,.tool-market-details,.tool-market-progress) { background: #fafafa; color: var(--market-ink); }
+#toolMarketModal :is(.tool-market-help,.tool-market-details,.tool-market-progress) { background: var(--market-soft); color: var(--market-ink); }
 
 #toolMarketModal :is(.tool-market-details summary,.tool-market-progress-head) { color: var(--market-muted); font-size: 12px; font-weight: 550; }
 
 #toolMarketModal .tool-market-details summary:hover { color: var(--market-accent); }
 
-#toolMarketModal .tool-market-progress-track { background: #e5e5e5; }
+#toolMarketModal .tool-market-progress-track { background: var(--market-track); }
 
 #toolMarketModal .tool-market-progress-bar { background: var(--market-accent); }
 
-#toolMarketModal .builtin-sync-loading-card { background: #fafafa; border-color: var(--market-line); box-shadow: none; }
+#toolMarketModal .builtin-sync-loading-card { background: var(--market-soft); border-color: var(--market-line); box-shadow: none; }
 
 #toolMarketModal .builtin-sync-loading-title { color: var(--market-ink); }
 
 #toolMarketModal :is(.builtin-sync-loading-percent,.builtin-sync-loading-detail) { color: var(--market-muted); }
 
-#toolMarketModal .builtin-sync-loading-bar { background: #e5e5e5; }
+#toolMarketModal .builtin-sync-loading-bar { background: var(--market-track); }
 
 #toolMarketModal .builtin-sync-loading-bar i { background: var(--market-accent); }
 
-#toolMarketModal .builtin-sync-spinner { border-color: #ddd; border-top-color: var(--market-accent); }
+#toolMarketModal .builtin-sync-spinner { border-color: var(--v2-line-strong, #ddd); border-top-color: var(--market-accent); }
 
-#toolMarketModal .builtin-sync-skeleton-card { background-image: linear-gradient(90deg,#f6f6f6 25%,#e9e9e9 50%,#f6f6f6 75%); border-color: var(--market-line); }
+#toolMarketModal .builtin-sync-skeleton-card { background-image: linear-gradient(90deg,var(--market-skeleton-base) 25%,var(--market-skeleton-shine) 50%,var(--market-skeleton-base) 75%); border-color: var(--market-line); }
+
+html.platform-home[data-theme="dark"] #toolMarketModal :is(.tool-market-trust.unverified,.tool-market-warning) { color: #fbbf24 !important; }
+
+html.platform-home[data-theme="dark"] #toolMarketModal .tool-market-badge.update { color: #7dd3fc; }
 @media (max-width: 600px) {
 
 #toolMarketModal .tool-market-source input[type=url] { flex-basis: 100%; min-width: 0; }

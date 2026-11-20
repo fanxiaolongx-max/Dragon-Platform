@@ -44,8 +44,9 @@ function parseProcesses(output, platform) {
         const text = row.CommandLine;
         const flag = name => new RegExp('--'+name+'(?:=|\\s+)(?:"([^"\\r\\n]+)"|([^\\s]+))').exec(text);
         const csrf = flag('csrf_token'), port = flag('https_server_port');
-        return {pid:Number(row.ProcessId),csrf:csrf?.[1] || csrf?.[2],port:Number(port?.[1] || port?.[2])};
-    }).filter(row => Number.isInteger(row.pid) && row.pid > 0 && row.csrf);
+        const envEligible = platform === 'darwin' && /^["']?(?:\/Applications|\/Users\/[^/\s]+\/Applications)\/Antigravity\.app\/Contents\/Resources\/bin\/language_server(?:\s|["']|$)/.test(text);
+        return {pid:Number(row.ProcessId),csrf:csrf?.[1] || csrf?.[2],port:Number(port?.[1] || port?.[2]),envEligible};
+    }).filter(row => Number.isInteger(row.pid) && row.pid > 0 && (row.csrf || row.envEligible));
 }
 function createAntigravityReader(options = {}) {
     const platform = options.platform || process.platform, execute = options.run || run, request = options.requestJson || requestJson;
@@ -77,6 +78,14 @@ function createAntigravityReader(options = {}) {
             processes = parseProcesses(output,platform);
         } catch (_) { return unavailable('antigravity'); }
         for (const process of processes) {
+            let csrf = process.csrf;
+            if (!csrf && process.envEligible) {
+                try {
+                    const output = await execute('/bin/ps',['eww','-p',String(process.pid),'-o','command=']);
+                    csrf = /(?:^|\s)ANTIGRAVITY_SERVER_CSRF_TOKEN=([^\s]+)/.exec(output)?.[1];
+                } catch (_) { continue; }
+            }
+            if (!csrf) continue;
             let ports = process.port > 0 && process.port <= 65535 ? [process.port] : [];
             if (!ports.length) {
                 try {
@@ -87,7 +96,7 @@ function createAntigravityReader(options = {}) {
                 } catch (_) { continue; }
             }
             for (const port of [...new Set(ports)].filter(p=>Number.isInteger(p)&&p>0&&p<=65535)) {
-                const endpoint = {port,csrf:process.csrf};
+                const endpoint = {port,csrf};
                 try { const result = await fetchAt(endpoint); cached = endpoint; return result; } catch (_) {}
             }
         }

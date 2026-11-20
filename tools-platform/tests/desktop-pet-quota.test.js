@@ -166,6 +166,28 @@ test('Antigravity discovers Windows and Mac listening ports and never forwards l
     }
 });
 
+test('Antigravity discovers newer macOS credentials from the trusted server environment', async()=>{
+    const line='123 /Applications/Antigravity.app/Contents/Resources/bin/language_server --https_server_port 0';
+    const calls=[];
+    const reader=createAntigravityReader({platform:'darwin', run:async(file,args)=>{
+        calls.push([file,args]);
+        if(args.includes('pid=,args=')) return line;
+        if(args.includes('command=')) return 'language_server ANTIGRAVITY_SERVER_CSRF_TOKEN=test-private-token OTHER=ignored';
+        if(file==='/usr/sbin/lsof') return 'p123\nn127.0.0.1:54321\n';
+        throw new Error('unexpected');
+    },requestJson:async(url,options)=>{
+        assert.ok(url.startsWith('https://127.0.0.1:54321/'));
+        assert.equal(options.headers['x-codeium-csrf-token'],'test-private-token');
+        return url.endsWith('/GetUserStatus') ? {} : agData();
+    }});
+    const result=await reader();
+    assert.equal(result.status,'live');
+    assert.doesNotMatch(JSON.stringify(result),/test-private-token/);
+    assert.ok(calls.some(([,args])=>args.includes('command=')));
+    assert.equal(parseProcesses('456 /tmp/language_server --https_server_port 0','darwin').length,0);
+    assert.equal(parseProcesses('456 /tmp/other --path /Applications/Antigravity.app/Contents/Resources/bin/language_server','darwin').length,0);
+});
+
 function temporaryDesktop(t) {
     const dir=fs.mkdtempSync(path.join(os.tmpdir(),'pet-claude-desktop-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
     const account='11111111-1111-1111-1111-111111111111';fs.writeFileSync(path.join(dir,'config.json'),JSON.stringify({lastKnownAccountUuid:account,'oauth:tokenCacheV2':Buffer.from('ciphertext').toString('base64')}));

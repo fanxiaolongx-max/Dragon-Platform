@@ -48,6 +48,9 @@ app.whenReady().then(async () => {
     await win.loadURL(`http://127.0.0.1:${server.address().port}/`);
     await until('!!window.HomeComposer&&!!document.querySelector(".dc-permission-picker")&&!!document.querySelector(".v2-suggest-item")&&!!window.HomePromoPlayer');
 
+    await until('v2Avatar.querySelector("img")?.naturalWidth === 32');
+    await evaluate('v2Avatar.querySelector("img").dispatchEvent(new Event("error"))');
+    await until('v2Avatar.querySelector("img")?.naturalWidth === 1024');
     await evaluate(`document.getAnimations().forEach(a=>{try{a.finish()}catch{}})`);await wait(220);
     await evaluate(`v2UserBtn.click();true`);
     assert.equal(await evaluate(`document.querySelector('.v2-account').classList.contains('is-open')`),true);

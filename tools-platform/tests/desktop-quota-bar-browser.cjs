@@ -38,7 +38,7 @@ app.whenReady().then(async () => {
     };
 
     web.get('/api/desktop-agents/settings', (_req, res) => res.json({ owned: true, settings: mockSettings }));
-    web.get('/api/desktop-agents/quota', (_req, res) => res.json({ providers: ['codex', 'claudecode', 'antigravity'], quotas: mockQuotas }));
+    web.get('/api/desktop-agents/quota', (_req, res) => res.json({ providers: Object.keys(mockSettings.providers).filter(id => mockSettings.providers[id]), quotas: mockQuotas }));
     web.get('/api/desktop-agents/quota/history', (req, res) => {
         const to = Date.now(), step = 15 * 60 * 1000;
         const series = mockQuotas[req.query.provider].groups.flatMap(group => group.windows.map(quotaWindow => ({
@@ -81,6 +81,13 @@ app.whenReady().then(async () => {
 
     await win.loadURL(`http://127.0.0.1:${port}/`);
     await until('document.querySelector(".dqb") && !document.querySelector(".dqb").hidden');
+
+    for (const enabled of [false, true]) {
+        mockSettings.providers.antigravity = enabled;
+        await evaluate('ToolsDesktopQuotaBar.sync()');
+        assert.equal(await evaluate('!!document.querySelector(".dqb-row.antigravity")'), enabled);
+        await until('document.querySelector(".dqb-row.codex .dqb-value").textContent === "80%"');
+    }
 
     // 1. Initially autoHide is false; quota bar is NOT tucked
     assert.equal(await evaluate('document.querySelector(".dqb").classList.contains("tucked")'), false, 'initially not tucked');

@@ -675,7 +675,11 @@ async function ensureShare({ tenantId, username, sessionId, title }) {
         linkedCache = null;
         share = await getShare(id);
     } else if (share.status !== 'active' && share.owner === username) {
-        await run("UPDATE shared_conversations SET status = 'active', updated_at = CURRENT_TIMESTAMP WHERE id = ?", [share.id]);
+        // Older databases may retain accepted members on a closed share.
+        await run(`UPDATE shared_conversation_members SET status = 'removed' WHERE share_id = ? AND username <> ?
+            AND status IN ('accepted', 'pending', 'ignored', 'declined')
+            AND EXISTS (SELECT 1 FROM shared_conversations WHERE id = ? AND status = 'closed')`, [share.id, username, share.id]);
+        await run("UPDATE shared_conversations SET status = 'active', link_token = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'closed'", [crypto.randomBytes(18).toString('base64url'), share.id]);
         await run("UPDATE shared_conversation_members SET status = 'accepted' WHERE share_id = ? AND username = ?", [share.id, username]);
         linkedCache = null;
         share = await getShare(share.id);
@@ -732,7 +736,7 @@ async function shareForSession({ tenantId, username, sessionId, role = '' }) {
     const member = await get(`SELECT share_id FROM shared_conversation_members WHERE tenant_id = ? AND username = ? AND local_session_id = ? AND status = 'accepted'`, [tenantId, username, String(sessionId || '')]);
     const share = member ? await getShare(member.share_id)
         : await get('SELECT * FROM shared_conversations WHERE owner_tenant = ? AND owner = ? AND origin_session_id = ?', [tenantId, username, String(sessionId || '')]);
-    if (!share) return null;
+    if (share?.status !== 'active') return null;
     const base = await describe(share, username);
     const caps = await sessionCapabilities({ tenantId, username, role, sessionId, shareId: share.id }).catch(() => ({ skills: [], tools: [], aliases: {}, pendingForMe: [] }));
     return {

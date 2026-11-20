@@ -90,7 +90,7 @@ app.whenReady().then(async () => {
     assert.match(await evaluate('document.querySelector("[data-metric=ttft]").textContent'),/2.5/);
     assert.equal(await evaluate('document.querySelector("[data-metric=decode] .daw-metric-value").textContent'),'—','log durations never masquerade as decode speed');
     assert.match(await evaluate('dcThread.querySelector(".dc-msg-usage").textContent'),/900K/,'round token counts remain in the reply footer');
-    assert.match(await evaluate('dcThread.querySelector(".dc-msg-speed").textContent'),/TPS —\/—\/—.*TTFT 2.50 s/,'missing decode stays visible while explicit turn latency is retained');
+    assert.match(await evaluate('dcThread.querySelector(".dc-msg-speed").textContent'),/TPS —\/—\/—.*TTFT（轮次） 2.50 s/,'missing decode stays visible while explicit turn latency is retained');
     assert.match(await evaluate('dcThread.querySelector(".dc-metric-details").textContent'),/900,000/,'details show exact counts');
     if(process.env.DESKTOP_PERFORMANCE_PREVIEW){
         for(const width of [1440,390])for(const theme of ['light','dark']){
@@ -402,7 +402,7 @@ app.whenReady().then(async () => {
     assert.match(await evaluate('footerMessage.querySelector(".dc-msg-usage").textContent'),/3,000/);
     assert.match(await evaluate('footerMessage.querySelector(".dc-metric-details").textContent'),/#2 measured-model/,'disclosure preserves each call breakdown');
     await evaluate(`footerMessage.querySelector('.dc-msg-tools').remove();footerApi.addCopy(footerMessage,'measured reply',{modelName:'measured-model',rounds:Array.from({length:10},(_,i)=>({model:'call-'+(i+1),inputTokens:100,outputTokens:10,timingSource:'usage-only'}))})`);
-    const limitedHover=await evaluate('footerMessage.querySelector(".dc-metric-details").textContent');
+    const limitedHover=await evaluate('Array.from(footerMessage.querySelectorAll(".dc-metric-details p"), row => row.textContent).join("\\n")');
     assert.equal((limitedHover.match(/^#\d+/gm)||[]).length,3,'hover shows the latest three calls only');
     assert.match(limitedHover,/#8 call-8/);
     assert.match(limitedHover,/#10 call-10/);
@@ -411,14 +411,20 @@ app.whenReady().then(async () => {
     win.setContentSize(1440,950);
     await evaluate('footerMessage.scrollIntoView({block:"center"})');await wait(300);
     await evaluate('if (!footerMessage.isConnected) dcThread.append(footerMessage)');
-    const panel = 'footerMessage.querySelector(".dc-msg-metrics")';
-    assert.equal(await evaluate(panel + '.open'), false);
-    await evaluate(panel + '.querySelector("summary").click()');
-    assert.equal(await evaluate(panel + '.open'), true);
+    const panel = 'footerMessage.querySelector(".dc-metric-details")';
+    const trigger = 'footerMessage.querySelector(".dc-msg-metrics button")';
+    const isOpen = panel + '.matches(":popover-open")';
+    await evaluate(trigger + '.dispatchEvent(new PointerEvent("pointerenter", {pointerType:"mouse"}))');
+    assert.equal(await evaluate(isOpen), false);
+    await until(isOpen);
+    await evaluate(trigger + '.dispatchEvent(new PointerEvent("pointerleave"))');
+    await until('!' + isOpen);
+    await evaluate(trigger + '.click()');
+    await until(isOpen);
     win.setContentSize(390,844);await wait(100);
-    assert.equal(await evaluate('(()=>{const d=footerMessage.querySelector(".dc-metric-details");return d.clientWidth>0 && d.scrollWidth<=d.clientWidth && getComputedStyle(d).position==="static"})()'),true,'details wrap within the message');
-    await evaluate(panel + '.querySelector("summary").click()');
-    assert.equal(await evaluate(panel + '.open'), false);
+    assert.equal(await evaluate('(()=>{const d=footerMessage.querySelector(".dc-metric-details");return d.clientWidth>0 && d.scrollWidth<=d.clientWidth && getComputedStyle(d).position==="fixed"})()'),true,'floating details wrap at mobile width');
+    await evaluate(trigger + '.click()');
+    await until('!' + isOpen);
     await evaluate(`footerMessage.querySelector('.dc-msg-tools').remove();footerApi.addCopy(footerMessage,'native metrics',{modelName:'native',rounds:[{inputTokens:1000,outputTokens:200,reasoningOutputTokens:50,ttftMs:2000,timingSource:'native-metadata',nativeStreamMs:500,nativeStreamTokens:200,nativeStreamTps:400}]})`);
     assert.match(await evaluate('footerMessage.querySelector(".dc-msg-speed").textContent'),/TPS.*native.*400\/400\/400.*TTFT 2.00 s/,'native stream measurements remain distinct from visible decode');
     await evaluate(`footerMessage.querySelector('.dc-msg-tools').remove();footerApi.addCopy(footerMessage,'observed metrics',{modelName:'native',rounds:[{inputTokens:1000,outputTokens:20,observedFirstTextMs:2000,firstTextSource:'workbuddy-native-sdk-log'}]})`);

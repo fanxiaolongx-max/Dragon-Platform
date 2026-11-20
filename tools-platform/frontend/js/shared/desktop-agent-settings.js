@@ -33,6 +33,7 @@
             return;
         }
         const cfg = config.settings;
+        let savedAllowSend = cfg.allowSend;
         const toggle = (name, title, hint, on) => `<label class="da-row"><span><b>${title}</b>${hint ? `<small>${hint}</small>` : ''}</span><input type="checkbox" class="da-switch" name="${name}" ${on ? 'checked' : ''}></label>`;
         const notes = { codex: L('原生桌面 IPC · 可发送、可读取运行状态', 'Native desktop IPC · send and live status'), claudecode: L('读取本机历史 · 可选模拟操作发送', 'Local history · optional UI automation sending'), antigravity: L('桌面页面连接 · 打开记录会切换桌面会话', 'Desktop page connection · opening a chat switches the desktop view'), workbuddy: L('读取本机会话 · CLI 无头发送 · 深链切换桌面会话', 'Local sessions · headless CLI sending · deep link switches the desktop view') };
         content.innerHTML = `<section class="desktop-agent-settings">
@@ -57,6 +58,7 @@
                     ${Object.entries(names).map(([id, name]) => `<div class="da-provider" data-provider="${id}">
                         <label class="da-provider-head"><span class="da-provider-title"><img src="/assets/desktop-agents/${id}.png" width="24" height="24" alt="" class="da-agent-icon" onerror="this.style.display='none'"><b>${name}</b></span><input type="checkbox" class="da-switch" name="${id}" ${cfg.providers[id] ? 'checked' : ''}></label>
                         <small>${notes[id]}</small><span class="da-state" data-state="${id}"></span>
+                        ${id === 'antigravity' ? '<small data-ag-help hidden></small>' : ''}
                         ${id === 'claudecode' ? `<div class="da-provider-extra"><label class="da-sub"><span><b>${L('模拟操作发送', 'Send by UI automation')}</b><small>${L('仅 macOS，需辅助功能权限', 'macOS only · Accessibility required')}</small></span><input type="checkbox" class="da-switch" name="claudeAutomation" ${cfg.claudeAutomation ? 'checked' : ''}></label><details class="da-notes"><summary>${L('发送时会发生什么？', 'What happens when sending?')}</summary><p>${L('Claude 会切到前台，打开并核对目标会话后发送，再切回原应用。请在 macOS 系统设置中为运行平台的程序授予辅助功能权限。', 'Claude comes to the front, opens and verifies the target conversation, sends, then returns to the previous app. Grant Accessibility permission to the program running this platform in macOS settings.')}</p></details></div>` : ''}
                         ${id === 'workbuddy' ? `<div class="da-provider-extra"><details class="da-notes"><summary>${L('发送方式与首次登录', 'Sending & first sign-in')}</summary><p>${L('发送使用 WorkBuddy 自带的 CodeBuddy CLI 无头模式，继续同一会话编号，不模拟键鼠。CLI 不共用桌面端登录，首次使用需在终端登录一次：', 'Sending uses the CodeBuddy CLI bundled with WorkBuddy in headless mode on the same session ID, with no UI automation. The CLI does not share the desktop sign-in; sign in once in a terminal:')}</p><code>CODEBUDDY_CONFIG_DIR=~/.workbuddy-connector codebuddy</code><p>${L('进入后输入 /login；也可为平台服务设置 CODEBUDDY_API_KEY。桌面端正开着同一会话时，CLI 写入的新回合可能要重新打开会话才显示。', 'Then type /login, or set CODEBUDDY_API_KEY for the platform service. If the same session is open in the desktop app, turns written by the CLI may appear only after reopening it.')}</p></details></div>` : ''}
                     </div>`).join('')}
@@ -91,6 +93,18 @@
                 node.dataset.level = level;
                 node.textContent = labelText;
                 node.title = p.reason || '';
+                if (p.id === 'antigravity') {
+                    const help = content.querySelector('[data-ag-help]');
+                    help.hidden = level !== 'read';
+                    help.textContent = !savedAllowSend
+                        ? L('网页发送已关闭。', 'Sending from the web is turned off.')
+                        : L('已读取历史。请保存工作并完全退出 Antigravity，再在终端运行下方命令，然后检测连接。', 'History is available. Save your work, quit Antigravity, run this command in Terminal, then check the connection again.');
+                    if (savedAllowSend && !help.hidden) {
+                        const code = document.createElement('code');
+                        code.textContent = 'open -a Antigravity --args --remote-debugging-address=127.0.0.1 --remote-debugging-port=0';
+                        help.append(document.createElement('br'), code);
+                    }
+                }
             }
         } }
         async function inspect() {
@@ -127,6 +141,7 @@
             try {
                 const patch = { enabled: form.elements.enabled.checked, autoSync: form.elements.autoSync.checked, allowSend: form.elements.allowSend.checked, claudeAutomation: form.elements.claudeAutomation.checked, recentLimit: Number(form.elements.recentLimit.value), syncSeconds: Number(form.elements.syncSeconds.value), providers: Object.fromEntries(Object.keys(names).map(k => [k, form.elements[k].checked])) };
                 await request('PUT', '/settings', patch);
+                savedAllowSend = patch.allowSend;
                 if (!result.isConnected)
                     return;
                 result.dataset.tone = 'ok';

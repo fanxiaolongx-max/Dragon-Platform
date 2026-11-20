@@ -451,38 +451,48 @@
         q('note').textContent = state.busy ? tr('正在读取额度历史…', 'Reading quota history…') : (data?.firstSampleAt ? tr('开始记录于 ', 'Recording since ') + time(data.firstSampleAt) + ' · ' : '') + tr('曲线是账户或模型共享池的额度百分比，不是 token 数；重置、额度回升或较长停采会断开曲线。保存最近 90 天。', 'Percentages of account or shared model quotas, not token counts. Resets, quota increases and sampling gaps break the line. Kept for 90 days.');
     }
 
+    let quotaRequest = 0, settingsRequest = 0;
     async function refresh(force = false) {
+        const revision = ++quotaRequest;
         try {
             const data = await request('/quota' + (force ? '?refresh=1' : ''));
+            if (!active || revision !== quotaRequest) return;
             quotas = data.quotas || {};
             if (data.providers.join() !== providers.join()) { providers = data.providers; renderRows(); }
             if (!providers.length) return stop();
             render();
-        } catch (error) { if ([401, 403, 404, 409].includes(error.status)) stop(); }
+        } catch (error) { if (revision === quotaRequest && [401, 403, 404, 409].includes(error.status)) stop(); }
     }
     function start(list) {
         if (!root) build();
-        if (list.join() !== providers.join()) { providers = list; renderRows(); }
-        if (active) return;
+        const changed = list.join() !== providers.join();
+        if (changed) { hidePeek(); providers = list; renderRows(); }
+        if (active) {
+            if (changed) { render(); refresh(); }
+            return;
+        }
         active = true; root.hidden = false; render();
         if (autoHide() && !isExpanded()) root.classList.add('tucked');
         refresh();
         pollTimer = setInterval(() => { if (document.visibilityState === 'visible') refresh(); }, POLL_MS);
     }
     function stop() {
+        ++quotaRequest; quotas = null;
         active = false; clearInterval(pollTimer); cancelTuck();
         if (root) { closeMenu(); hidePeek(); root.hidden = true; }
     }
     // 是否显示：本机桌面 Agent 已连接、本账号拥有、至少启用了一家有额度的客户端，且本浏览器没有手动隐藏
     async function sync() {
+        const revision = ++settingsRequest;
         // 桌面应用自带原生刘海额度栏；网页版再出现会重复，且顶部按钮会占掉窗口拖动区
         if (window.DragonWindow || document.documentElement.classList.contains('is-desktop-app')) return stop();
         if (prefs.hidden || !(localStorage.getItem('tools_token') || sessionStorage.getItem('tools_token'))) return stop();
         try {
             const data = await request('/settings'), cfg = data.settings;
+            if (revision !== settingsRequest) return;
             const list = data.owned && cfg?.enabled ? PROVIDERS.map(([id]) => id).filter(id => cfg.providers?.[id]) : [];
             list.length ? start(list) : stop();
-        } catch { stop(); }
+        } catch { if (revision === settingsRequest) stop(); }
     }
     function setHidden(hidden) { save({ hidden: Boolean(hidden) }); sync(); }
     function setReadingMode(enabled) {
