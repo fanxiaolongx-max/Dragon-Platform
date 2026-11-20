@@ -377,6 +377,34 @@ router.post('/git/worktree', workspaceMutation(async req => {
     }
     return workspaceGit.createWorktree(root, runManager.ownerKey(req.user,getTenantId()));
 }));
+router.post('/git/worktree/commit', workspaceMutation(req => workspaceGit.commitAll(userPath(req, req.body?.root), req.body?.message)));
+router.post('/git/worktree/merge', workspaceMutation(async req => {
+    const root = userPath(req, req.body?.root);
+    if (boundary.isConfined(req.user)) {
+        const info = await workspaceGit.inspect(root);
+        if (info?.mainRoot) boundary.assertAllowed(req.user, getTenantId(), info.mainRoot, '主仓库目录');
+    }
+    return workspaceGit.mergeWorktree(root, {
+        targetBranch: req.body?.targetBranch,
+        mode: req.body?.mode,
+        message: req.body?.message,
+        removeAfter: req.body?.removeAfter === true
+    });
+}));
+router.post('/git/worktree/remove', workspaceMutation(async req => {
+    const root = userPath(req, req.body?.root);
+    const worktreeRoot = req.body?.worktreeRoot ? userPath(req, req.body.worktreeRoot) : '';
+    if (boundary.isConfined(req.user)) {
+        const info = await workspaceGit.inspect(root);
+        if (info?.mainRoot) boundary.assertAllowed(req.user, getTenantId(), info.mainRoot, '主仓库目录');
+        if (worktreeRoot) boundary.assertAllowed(req.user, getTenantId(), worktreeRoot, 'Worktree 目录');
+    }
+    return workspaceGit.removeWorktree(root, {
+        worktreeRoot,
+        force: req.body?.force === true,
+        deleteBranch: req.body?.deleteBranch === true
+    });
+}));
 router.post('/create', workspaceMutation(req => workspaceGit.createDirectory(userPath(req, req.body?.path, '新建目录'))));
 
 router.post('/select', async (req, res) => {

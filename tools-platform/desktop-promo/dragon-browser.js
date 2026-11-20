@@ -584,7 +584,7 @@ function createDragonBrowser({ onOpenAppUrl = () => false, partition, whenReady,
         if(fromSidebar&&action==='download-anchor'){downloadToast.setAnchor(payload);return true;}
         if (!win && fromSidebar && action === 'new-tab') { open({ link: { name: T('新标签页', 'New tab'), url: 'about:blank' } }); return true; }
         if (!win || (sender !== win.webContents && !fromSidebar)) return false;
-        if (fromSidebar && !['tab-select','tab-close','tab-move','tab-menu','new-tab','reopen-tab','navigate','back','forward','reload','external','plugins','downloads','downloads-folder','download-action','history','bookmarks','bookmark','library-open','zoom-in','zoom-out','zoom-reset','find-open','find','find-close','print','devtools','screenshot'].includes(action)) return false;
+        if (fromSidebar && !['tab-select','tab-close','tab-move','tab-menu','new-tab','reopen-tab','navigate','back','forward','reload','external','plugins','downloads','downloads-folder','download-action','history','bookmarks','bookmark','library-open','zoom-in','zoom-out','zoom-reset','find-open','find','find-close','print','devtools','screenshot','pick-element','cancel-pick-element'].includes(action)) return false;
         const tab = active();
         if (!tab) { if (action === 'new-tab') open({ link: { name: T('新标签页', 'New tab'), url: 'about:blank' } }); return true; }
         const wc = tab.page.webContents;
@@ -613,6 +613,103 @@ function createDragonBrowser({ onOpenAppUrl = () => false, partition, whenReady,
         case 'print': wc.print({}); break;
         case 'devtools': wc.toggleDevTools(); break;
         case 'screenshot': wc.capturePage().then(async image=>{const result=await require('electron').dialog.showSaveDialog(fromSidebar?sidebarHost:win,{defaultPath:'Dragon-page.png',filters:[{name:'PNG',extensions:['png']}]});if(!result.canceled&&result.filePath)await require('fs').promises.writeFile(result.filePath,image.toPNG());}).catch(()=>{});break;
+        case 'cancel-pick-element':
+            wc.executeJavaScript('window.__dragonCancelPick && window.__dragonCancelPick()').catch(()=>{});
+            break;
+        case 'pick-element':
+            if (!fromSidebar || !sidebarHost || sidebarHost.isDestroyed()) break;
+            wc.focus();
+            wc.executeJavaScript(`(() => new Promise(resolve => {
+                if (window.__dragonCancelPick) window.__dragonCancelPick();
+                const ov = document.createElement('div');
+                ov.style.cssText = 'position:fixed;inset:0;z-index:2147483646;pointer-events:none;';
+                const box = document.createElement('div');
+                box.style.cssText = 'position:fixed;border:2px solid #2563eb;background:rgba(37,99,235,0.12);border-radius:4px;box-sizing:border-box;transition:all 60ms ease;';
+                const tag = document.createElement('div');
+                tag.style.cssText = 'position:fixed;background:#1d4ed8;color:#fff;font:600 11px/1.3 ui-monospace,Menlo,monospace;padding:2px 6px;border-radius:4px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.22);';
+                ov.append(box, tag);
+                document.documentElement.append(ov);
+                let current = null;
+                const cssPath = el => {
+                    if (!el || el.nodeType !== 1) return '';
+                    if (el.id) return '#' + CSS.escape(el.id);
+                    const parts = [];
+                    for (let cur = el; cur && cur.nodeType === 1 && parts.length < 5; cur = cur.parentElement) {
+                        let sel = cur.tagName.toLowerCase();
+                        if (cur.id) { parts.unshift('#' + CSS.escape(cur.id)); break; }
+                        const cls = [...cur.classList].filter(c => c && !c.startsWith('__')).slice(0, 2);
+                        if (cls.length) sel += '.' + cls.map(c => CSS.escape(c)).join('.');
+                        const sibs = cur.parentElement ? [...cur.parentElement.children].filter(s => s.tagName === cur.tagName) : [];
+                        if (sibs.length > 1) sel += ':nth-of-type(' + (sibs.indexOf(cur) + 1) + ')';
+                        parts.unshift(sel);
+                    }
+                    return parts.join(' > ');
+                };
+                const cleanup = result => {
+                    window.removeEventListener('mousemove', onMove, true);
+                    window.removeEventListener('click', onClick, true);
+                    window.removeEventListener('keydown', onKey, true);
+                    ov.remove();
+                    delete window.__dragonCancelPick;
+                    resolve(result || null);
+                };
+                const onMove = e => {
+                    const el = document.elementFromPoint(e.clientX, e.clientY);
+                    if (!el || ov.contains(el)) return;
+                    current = el;
+                    const r = el.getBoundingClientRect();
+                    box.style.left = r.left + 'px'; box.style.top = r.top + 'px';
+                    box.style.width = r.width + 'px'; box.style.height = r.height + 'px';
+                    const name = el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (el.classList.length ? '.' + [...el.classList].slice(0, 2).join('.') : '');
+                    tag.textContent = name + ' · ' + Math.round(r.width) + '×' + Math.round(r.height);
+                    tag.style.left = Math.max(4, Math.min(window.innerWidth - 180, r.left)) + 'px';
+                    tag.style.top = (r.top > 26 ? r.top - 22 : r.bottom + 4) + 'px';
+                };
+                const onClick = e => {
+                    e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+                    const el = current || document.elementFromPoint(e.clientX, e.clientY);
+                    if (!el) return cleanup(null);
+                    const r = el.getBoundingClientRect();
+                    const cs = getComputedStyle(el);
+                    cleanup({
+                        tag: el.tagName.toLowerCase(),
+                        id: el.id || '',
+                        classes: [...el.classList].slice(0, 6),
+                        selector: cssPath(el),
+                        text: (el.innerText || '').trim().slice(0, 200),
+                        html: (el.outerHTML || '').slice(0, 1200),
+                        rect: { x: Math.round(r.left), y: Math.round(r.top), width: Math.round(r.width), height: Math.round(r.height) },
+                        styles: { display: cs.display, color: cs.color, backgroundColor: cs.backgroundColor, fontSize: cs.fontSize, fontFamily: cs.fontFamily, padding: cs.padding, margin: cs.margin, borderRadius: cs.borderRadius },
+                        pageUrl: location.href,
+                        pageTitle: document.title
+                    });
+                };
+                const onKey = e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cleanup(null); } };
+                window.__dragonCancelPick = () => cleanup(null);
+                window.addEventListener('mousemove', onMove, true);
+                window.addEventListener('click', onClick, true);
+                window.addEventListener('keydown', onKey, true);
+            }))()`).then(async picked => {
+                if (!picked || sidebarHost.isDestroyed()) return sidebarHost && !sidebarHost.isDestroyed() && sidebarHost.webContents.send('dragon-browser:picked-element', null);
+                try {
+                    const pad = 12;
+                    const clip = {
+                        x: Math.max(0, (picked.rect?.x || 0) - pad),
+                        y: Math.max(0, (picked.rect?.y || 0) - pad),
+                        width: Math.max(24, Math.min(1200, (picked.rect?.width || 100) + pad * 2)),
+                        height: Math.max(24, Math.min(900, (picked.rect?.height || 60) + pad * 2))
+                    };
+                    const img = await wc.capturePage(clip);
+                    if (img && !img.isEmpty()) {
+                        const png = img.toPNG();
+                        if (png.length <= 512 * 1024) picked.screenshotDataUrl = 'data:image/png;base64,' + png.toString('base64');
+                    }
+                } catch {}
+                if (!sidebarHost.isDestroyed()) sidebarHost.webContents.send('dragon-browser:picked-element', picked);
+            }).catch(() => {
+                if (sidebarHost && !sidebarHost.isDestroyed()) sidebarHost.webContents.send('dragon-browser:picked-element', null);
+            });
+            break;
         case 'zoom-in': zoom('in'); break;
         case 'zoom-out': zoom('out'); break;
         case 'zoom-reset': zoom('reset'); break;

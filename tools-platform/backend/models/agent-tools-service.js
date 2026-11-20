@@ -372,12 +372,13 @@ const DEFINITIONS = [
     {
         name: 'memory',
         kind: 'write',
-        description: '长期记忆：保存用户明确要求记住、或反复用到的偏好与约定（跨对话有效，已有的记忆会列在系统提示里）。action=add 新增、update 修改、delete 删除（按 id）、list 列出。不要保存密码、密钥等凭据，也不要保存一次性的任务细节。',
+        description: '长期记忆：保存用户明确要求记住、或反复用到的偏好与约定（跨对话有效，仅注入当前任务相关的记忆）。action=add 新增、update 修改、delete 删除（按 id）、list 列出。不要保存密码、密钥等凭据，也不要保存一次性的任务细节。',
         parameters: {
             type: 'object',
             properties: {
                 action: { type: 'string', enum: ['add', 'update', 'delete', 'list'] },
                 id: { type: 'integer', description: 'update / delete 时的记忆编号' },
+                topic: { type: 'string', description: '新增时填用户原话中的适用主题名，例如「松墨样刊」或「SLA 月报」。标题格式等具体要求写在 content；明确跨任务通用填 *。本次例外仅保留在对话中，不写入长期记忆。更新时省略表示沿用。' },
                 content: { type: 'string', description: '记忆内容，一句话，最多 500 字' }
             },
             required: ['action']

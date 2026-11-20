@@ -43,6 +43,7 @@ const multer = require('multer');
 
 console.log('[AI] AI Assistant route loaded. Runtime config will be read from settings, with provider-specific env fallback.');
 
+const { startsIndependentTopic, activeTopicRows, returnTopic, topicQuery, retainUserConstraints, taskSummaryGuide, summaryForTurn } = require('../models/agent-topic-context');
 const RECENT_CONTEXT_MESSAGES = 8;
 const COMPRESS_TRIGGER_MESSAGES = 14;
 const COMPRESS_TRIGGER_CHARS = 14000;
@@ -389,15 +390,16 @@ function normalizePptCopilotOutput(value) {
 function formatMessagesForSummary(messages = []) {
     return messages.map(msg => {
         const role = msg.role === 'model' ? 'AI' : '用户';
-        return `[${role}] ${String(msg.content || '').slice(0, 4000)}`;
+        return `[${role} ${msg.id}] ${String(msg.content || '').slice(0, 4000)}`;
     }).join('\n\n');
 }
 
-async function generateRollingSummary(client, { previousSummary, messages, pageTitle }) {
+async function generateRollingSummary(client, { previousSummary, messages, pageTitle, secrets }) {
     if (!messages.length) return previousSummary || '';
     const prompt = `请把下面 Dragon Claw 智能客服的历史对话压缩成可继续对话的滚动摘要。
 
 要求：
+- ${taskSummaryGuide}
 - 保留用户关注点、已确认事实、排除过的原因、关键数据口径、待跟进事项。
 - 如果已有旧摘要，请与新消息合并，避免重复。
 - 不要编造新事实，不要输出寒暄。
@@ -412,14 +414,16 @@ ${previousSummary || '无'}
 ${formatMessagesForSummary(messages)}`;
 
     const result = await client.generateText({
-        prompt,
+        prompt: redactText(prompt, { secrets }),
         maxOutputTokens: 2048,
         temperature: 0.2
     });
-    return String(result.text || '').trim().slice(0, SUMMARY_MAX_CHARS);
+    const summary = redactText(result.text || '', { secrets }).trim();
+    if (/^(length|max_tokens)$/i.test(result.finishReason || '') || summary.length > SUMMARY_MAX_CHARS) return '';
+    return summary ? redactText(retainUserConstraints(summary, messages, previousSummary), { secrets }) : '';
 }
 
-async function compressSessionIfNeeded({ client, sessionId, pageTitle, onStatus }) {
+async function compressSessionIfNeeded({ client, sessionId, pageTitle, onStatus, secrets }) {
     if (!sessionId) return { session: null, compression: { performed: false, reason: 'no-session' } };
     const payload = await aiChatRepo.getMessagesForCompression(sessionId, RECENT_CONTEXT_MESSAGES);
     if (!payload.session || !payload.messages.length) {
@@ -450,7 +454,7 @@ async function compressSessionIfNeeded({ client, sessionId, pageTitle, onStatus 
         const summary = await generateRollingSummary(client, {
             previousSummary: payload.session.summary || '',
             messages: payload.messages,
-            pageTitle
+            secrets, pageTitle
         });
         if (summary && payload.cutoffMessageId) {
             await aiChatRepo.updateSessionSummary(payload.session.id, {
@@ -494,7 +498,7 @@ async function buildEffectiveMessages({ sessionId, incomingMessages, lastMessage
     if (!sessionId) {
         return incomingMessages.slice(-10);
     }
-    const recent = Array.isArray(recentRows) ? recentRows : await aiChatRepo.getRecentMessagesForContext(sessionId, RECENT_CONTEXT_MESSAGES);
+    const recent = Array.isArray(recentRows) ? recentRows : await aiChatRepo.getRecentMessagesForContext(sessionId, RECENT_CONTEXT_MESSAGES + COMPRESS_TRIGGER_MESSAGES);
     // 频道主动推送（运营推送等）以助手消息存入对话：保留并标注，成员回复时模型知道刚推了什么
     const isPush = msg => String(msg.events || '').includes('"type":"push"');
     // 共享对话：别人发的提问与回复均标注发送账号，模型能分清是谁在说话、做了什么（shared-conversations.js）
@@ -835,6 +839,7 @@ async function handleChatRequest(req, res) {
             return res.status(400).json({ error: '最后一条消息必须是用户发送的' });
         }
 
+        const independentTopic = startsIndependentTopic(lastMessage.content);
         const connectorSkills = require('../models/home-connectors').SKILLS;
         let homeConnector = req.body.homeConnector || '';
         if (homeAgent && !channelTurn && sessionId && persist !== false) {
@@ -974,6 +979,7 @@ async function handleChatRequest(req, res) {
                     await aiChatRepo.assertSessionOwner(sessionId, req.user?.username || '');
                     skillContextMessages = [...await aiChatRepo.getRecentMessagesForContext(sessionId, 20), ...skillContextMessages];
                 }
+                skillContextMessages = activeTopicRows(skillContextMessages, lastMessage.content);
                 loadSkills = (extraSkillIds = []) => agentSkillsStore.loadAll(lastMessage.content, {
                     user: req.user,
                     hasWorkspace: agentMode,
@@ -1130,27 +1136,37 @@ async function handleChatRequest(req, res) {
         if (persist !== false && savedSessionId && homeAgent && !channelTurn) {
             await require('../models/shared-conversations').syncIfShared({ tenantId: getTenantId(), username: req.user?.username || '', sessionId: savedSessionId }).catch(() => {});
         }
-        const compressionResult = persist !== false
+        const compressionResult = persist !== false && !independentTopic
             ? await compressSessionIfNeeded({
                 client: aiClient,
                 sessionId: savedSessionId,
-                pageTitle,
+                secrets: sensitiveValues, pageTitle,
                 onStatus: status => writeStreamEvent({ type: 'status', status })
             })
             : { session: null, compression: { performed: false, reason: 'persistence-disabled' } };
         const compressedSession = compressionResult.session;
         const conversationCompression = compressionResult.compression;
-        const sessionSummary = compressedSession?.summary || '';
+
         const contextSessionId = currentView && !sessionId ? null : savedSessionId;
         const turnOwnerKey = agentRunManager.ownerKey(req.user, getTenantId());
-        const recentHistoryRows = contextSessionId ? await aiChatRepo.getRecentMessagesForContext(contextSessionId, RECENT_CONTEXT_MESSAGES) : [];
+        const recentHistoryRows = contextSessionId ? await aiChatRepo.getRecentMessagesForContext(contextSessionId, RECENT_CONTEXT_MESSAGES + COMPRESS_TRIGGER_MESSAGES) : [];
+        const topicRows = activeTopicRows(recentHistoryRows, lastMessage.content);
+        const recallQuery = topicQuery(lastMessage.content, topicRows);
+        const latestBoundary = [...recentHistoryRows].reverse().find(row => row.role === 'user'
+            && (returnTopic.test(row.content.trim()) || startsIndependentTopic(row.content)));
+        const restoringTopic = returnTopic.test(recallQuery.trim());
+        const returning = returnTopic.test(lastMessage.content.trim()) || (!independentTopic && latestBoundary && returnTopic.test(latestBoundary.content.trim()));
+        const scopedToNewTopic = independentTopic || (!returning && topicRows !== recentHistoryRows);
+        const evidence = !independentTopic && persist !== false && !channelTurn && !homeConnector && contextSessionId
+            ? await require('../models/agent-history-evidence').lookup({ sessionId: contextSessionId, username: req.user.username, question: recallQuery, returning: restoringTopic, sinceId: scopedToNewTopic ? topicRows[0]?.id : '', secrets: sensitiveValues }) : '';
+        const sessionSummary = scopedToNewTopic ? '' : summaryForTurn(compressedSession?.summary || '', recallQuery, topicRows);
         const effectiveMessages = await buildEffectiveMessages({
             // The initial page overview is transient. Keep it available for the first follow-up.
             sessionId: contextSessionId,
-            incomingMessages: messages,
+            incomingMessages: [...activeTopicRows(messages.slice(0, -1), lastMessage.content), lastMessage],
             lastMessage,
             ownerKey: turnOwnerKey,
-            recentRows: recentHistoryRows
+            recentRows: topicRows
         });
         const analysisCode = codeAnalysis?.kind === 'knowledge-file'
             ? getAnalysisCode(lastMessage.content, codeAnalysis.codeStart)
@@ -1277,7 +1293,7 @@ async function handleChatRequest(req, res) {
         const sharedMod = require('../models/shared-conversations');
         const fsSync = require('fs');
         const sharedEventFiles = homeAgent && !channelTurn
-            ? recentHistoryRows.flatMap(row => sharedMod.filesOf(row.events)).map(file => file.path)
+            ? topicRows.flatMap(row => sharedMod.filesOf(row.events)).map(file => file.path)
                 .filter(filePath => agentArtifacts.ownsFile(turnOwnerKey, filePath) && fsSync.existsSync(filePath))
             : [];
         const uploadFiles = homeAgent && !channelTurn
@@ -1301,7 +1317,7 @@ async function handleChatRequest(req, res) {
         const filesMode = homeAgent && !tourReportExample && !agentMode && !channelTurn && !databaseMode && !opsSetup && !welinkCliSetup && !netcareSetup && !autoglmSetup && !financeSetup && !analysisCode && uploadFiles.length > 0;
         // 长期记忆：管理员在首页对话（工作区或普通对话）里让智能体记住的偏好与约定；频道对话是多人场景，不带
         const memoryPrompt = homeAgent && !channelTurn && req.user?.role === 'admin' && (agentMode || databaseMode)
-            ? await require('../models/agent-memory-repository').promptFor(req.user.username).catch(() => '') : '';
+            ? await require('../models/agent-memory-repository').promptFor(req.user.username, recallQuery).catch(() => '') : '';
         // 简介过短的工具附上生成的说明摘要，帮模型按需求匹配
         const aliasNotes = Object.entries(sharedAliases).map(([orig, installed]) => `- 历史调用的 \`@${orig}\` 因本地同名冲突已在本账号安装为兼容别名 \`@${installed}\`，需要加载或调用该技能时请使用 \`@${installed}\`。`);
         const missingSkillNotes = (sharedCapabilities?.skills || []).map(item => {
@@ -1383,7 +1399,7 @@ ${expertGrounding.dataPrompt ? `\n只读报表分析工具结果：\n---\n${expe
 ${expertGrounding.snapshotFollowups ? `\n最新已入库催办快照（和「一键催办」使用同一份预警明细）：\n---\n${JSON.stringify(expertGrounding.snapshotFollowups)}\n---\n答复临期和催办部分时以这份快照为准。按截止时间列出单号、类型、截止日期和责任人，并注明快照时间。upcoming 是尚未到期，overdue 是按核对时间已超过截止日期，分开呈现。缺少截止日期时只报快照原有剩余天数，不推算确切日期。未来 3 天没有临期项时仍应列出已超期的优先跟进事项，可为其起草催办。没有责任人的事项单列。没有数据、权限或结果被截断时如实说明，不用普通任务表补充或冒充预警。\n` : ''}
 ${tourReportExample ? '本轮是新手引导的只读演示。基于已提供的报表和催办快照给出简明结果，只准备催办草稿，不创建或发送消息。\n' : ''}
 ${expertGrounding.metricGraphPrompt ? `\n与本次问题相关的运营指标体系图谱节点：\n---\n${expertGrounding.metricGraphPrompt}\n---\n` : ''}
-${sessionSummary ? `\n历史会话滚动摘要：\n---\n${sessionSummary}\n---\n` : ''}${sharedConversationPrompt}${sharedFilesPrompt}${followupSetup ? `${followupSetup.prompt}\n` : ''}${opsSetup ? `${opsSetup.prompt}\n` : ''}${welinkCliSetup ? `${welinkCliSetup.prompt}\n` : ''}${netcareSetup ? `${netcareSetup.prompt}\n` : ''}${autoglmSetup ? `${autoglmSetup.prompt}\n` : ''}${financeSetup ? `${financeSetup.prompt}\n` : ''}${memoryPrompt}
+${sessionSummary ? `\n历史任务进度（仅采用与当前请求相关的任务，当前要求优先）：\n---\n${sessionSummary}\n---\n` : ''}${evidence}${sharedConversationPrompt}${sharedFilesPrompt}${followupSetup ? `${followupSetup.prompt}\n` : ''}${opsSetup ? `${opsSetup.prompt}\n` : ''}${welinkCliSetup ? `${welinkCliSetup.prompt}\n` : ''}${netcareSetup ? `${netcareSetup.prompt}\n` : ''}${autoglmSetup ? `${autoglmSetup.prompt}\n` : ''}${financeSetup ? `${financeSetup.prompt}\n` : ''}${memoryPrompt}
 **核心要求**：
 ${buildChatPresentationRules(responseLanguage, voiceMode)}
 2. 项目实现类结论必须优先依据检索到的文件，并用“来源：文件路径:行号”标注关键依据。不要声称读过未提供的文件。
@@ -1392,6 +1408,7 @@ ${currentView ? '2.1 用户问“这个页面”“这段代码”“我现在�
 3.1 用户询问“每个月/分月/某月的目标值”时，这是当前目标配置问题：必须读取具体“指标目标规则”中 monthlyAndCategoryRules 的数字月份键，按月份完整列出；未出现的月份明确说“未配置”。不得用报表快照、历史入库值或其他同名指标替代。
 3.2 本次检索到的实时业务配置优先级高于历史对话、滚动摘要和之前的助手回答；如有冲突，应明确纠正旧答案。
 3.3 当只读业务配置返回“全部指标目标规则明细”时，表示用户已明确要求完整列表。必须输出全部记录，每条至少包含指标名、方向、权重和 1–12 月目标；使用紧凑的 Markdown 表格，不得因为普通检索上限而省略。
+用户给出演练或假设数据时，以其限定的对象和排除条件确定统计范围与分母，核实范围后再计算；未验证项保留未知。只有当前提供了 task 工具才可派发调研，不能凭空要求解除用户限制。
 4. 数据问题只能使用数据工具结果作为事实，明确说明月份、快照和数据时间。工具返回无数据时，不得估算或编造。${currentView ? '用户询问页面上显示的数值或表格时，可直接描述快照里明确可见的内容，注明这是页面显示值。' : ''}
 用户询问“本月/当前”指标而当前月尚无入库数据时，可以使用最新已入库快照，但必须先明确“当前最新已入库的是 X 年 X 月目标数据，以下按该批数据分析”，并说明本月暂无入库数据。目标月份以 targetMonth/month 为准，不能用快照生成日期替代，也不能把最新已入库月份称作本月。
 4.1 用户询问某个具体指标的当前/实际值时，必须优先读取只读报表分析中 current.matchedMetrics：globalValue 是入库快照保存的全局值，customerGroups 是各客户群/系统部实际值。只要 matchedMetrics 已返回该指标，不得声称“没有返回当前值”；应同时列出全局值和所有已保存的分组值，无论该分组达标还是未达标，不得只列异常项。customerGroups 中 missing=true 或 actual=“--”表示未入库数值，必须显示为“无值”，不得解读为 0。

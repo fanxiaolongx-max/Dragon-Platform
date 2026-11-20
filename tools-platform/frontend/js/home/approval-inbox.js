@@ -97,6 +97,7 @@
     // ── 角标：通知 home-shell 把待审批数计入消息中心角标 ──
     function renderBadge() {
         window.dispatchEvent(new CustomEvent('tools:approval-inbox', { detail: { total: state.available ? state.items.length : 0 } }));
+        window.dispatchEvent(new Event('dragon-claw:radar-refresh'));
     }
 
     async function refresh() {
@@ -352,6 +353,6 @@
         
     }
 
-    window.ApprovalInbox = { open, openSettings: open, close, refresh, renderInto, count: () => (state.available ? state.items.length : 0), available: () => state.available };
+    window.ApprovalInbox = { open, openSettings: open, close, refresh, renderInto, count: () => (state.available ? state.items.length : 0), items: () => (state.available ? state.items.slice() : []), available: () => state.available };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();

@@ -2372,11 +2372,13 @@ async function startTrayApp() {
         // Dragon 浏览器：登录态与插件在启动时就绪（推广标签仍等首页登录后按设置打开）
         Promise.resolve().then(() => desktopPromotions.init()).catch(error => console.warn('[Electron] Desktop browser init failed:', error.message || error));
 
-        // 启动桌面宠物组件
-        try {
-            petManager.initDesktopPet({ port: PORT, baseUrl: `http://127.0.0.1:${PORT}` });
-        } catch (petErr) {
-            console.warn('[Electron] Failed to initialize desktop pet:', petErr.message || petErr);
+        // 桌宠已默认停用；仅在独立额度栏开启或显式启用桌宠时初始化轻量额度模块
+        if (petManager.isPetAvailable() || petManager.isQuotaStandalone()) {
+            try {
+                petManager.initDesktopPet({ port: PORT, baseUrl: `http://127.0.0.1:${PORT}` });
+            } catch (petErr) {
+                console.warn('[Electron] Failed to initialize desktop quota/pet module:', petErr.message || petErr);
+            }
         }
     } catch (err) {
         updateStartupProgress(100, '启动未完成', err.message || String(err), '阶段 2/2 · 启动失败', false, 'error');

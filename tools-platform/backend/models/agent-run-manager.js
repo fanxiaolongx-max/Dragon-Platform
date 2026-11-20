@@ -1046,7 +1046,8 @@ async function runAgentTurn({ session, user, client, systemInstruction, historyM
     // 同一会话前几轮的工具转录（按轮保存、含用户消息）替换对应的文字历史，让模型记得自己做过什么，
     // 且工具调用始终紧跟用户消息或工具结果。
     const currentUser = historyMessages[historyMessages.length - 1];
-    let messages = redactValue(transcriptRepo.mergeHistoryWithTranscript(historyMessages, session.transcript), { secrets: sensitiveValues });
+    const activeTranscript = require('./agent-topic-context').activeTopicRows(session.transcript, String(currentUser?.content || ''));
+    let messages = redactValue(transcriptRepo.mergeHistoryWithTranscript(historyMessages, activeTranscript), { secrets: sensitiveValues });
     // 本轮用户消息附带的图片（能看图的模型）：合并转录后仍挂在最后一条用户消息上
     if (currentUser?.images?.length && messages.at(-1)?.role === 'user' && !messages.at(-1).images) messages[messages.length - 1] = { ...messages.at(-1), images: currentUser.images };
     // 工具登记表：常驻工具 + tool_search / load_skill；用户选择的技能（@netcare-data / @ops-group / @welink-office 等）带上各自的专用工具
@@ -1232,7 +1233,7 @@ async function runAgentTurn({ session, user, client, systemInstruction, historyM
         const loop = await agentLoop.runToolLoop({
             client, model, systemPrompt: fullSystem, messages, tools: () => registry.definitions(), executeCall, write, toolAccess: registry.allowed,
             signal, maxOutputTokens, temperature, sensitiveValues, task: String(currentUser?.content || ''),
-            eventFields: { runId: run.id }, artifactOwner: session.owner, artifactSession: session.id, vision, root: session.root,
+            eventFields: { runId: run.id }, artifactOwner: session.owner, artifactSession: chatSessionId || session.id, vision, root: session.root,
             // 工具说明不存文件
             spillable: name => !registry.isMeta(name),
             parallelSafe: call => readOnlyCall(call.name, call.args),
@@ -1289,7 +1290,7 @@ async function runAgentTurn({ session, user, client, systemInstruction, historyM
         const finalEntry = finalText ? { role: 'model', content: finalText } : null;
         if (finalEntry) turnTranscript.push(finalEntry);
         // 本轮做过自动压缩：以压缩后的上下文作为会话转录（完整过程仍在本轮档案里），下一轮不必再从头压缩
-        const nextTranscript = compacted
+        const nextTranscript = compacted && activeTranscript === session.transcript
             ? [...loop.nonEphemeral, ...(finalEntry ? [finalEntry] : [])]
             : [...session.transcript, ...turnTranscript];
         session.transcript = transcriptRepo.normalizeTranscript(redactValue(nextTranscript, { secrets: sensitiveValues }));

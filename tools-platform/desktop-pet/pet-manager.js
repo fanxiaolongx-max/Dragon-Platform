@@ -182,22 +182,22 @@ function getConfigFilePath() {
 }
 
 const DEFAULT_CONFIG = {
-    enabled: true,         // 是否开机/启动自动加载桌宠 (false 为永久无桌宠模式)
-    visible: true,         // 当前是否可见 (本次临时隐藏状态)
+    enabled: !PET_DISABLED,         // 桌宠已默认清理停用，仅显式开启 DRAGON_DESKTOP_PET=1 时启用
+    visible: !PET_DISABLED,         // 当前是否可见 (本次临时隐藏状态)
     scale: 0.75,          // 默认体型缩放 0.75x (适合桌面沉浸式办公，小巧不遮挡)
     soundVol: 0.8,
     soundSet: 'duck',
-    bubbleOn: true,
+    bubbleOn: !PET_DISABLED,
     quotaPanelOn: true,
     quotaStandalone: true,
     quotaPanelPlacement: null,
     quotaPanelExpanded: false,
     quotaPanelAutoHide: true,
     quotaPanelGroup: 'gemini',
-    typingOn: true,
-    eyeGazeOn: true,
-    randomMotionOn: true,
-    proactiveStoriesOn: true,
+    typingOn: !PET_DISABLED,
+    eyeGazeOn: !PET_DISABLED,
+    randomMotionOn: !PET_DISABLED,
+    proactiveStoriesOn: !PET_DISABLED,
     storyIntervalMinutes: 3,
     position: null
 };
@@ -1186,13 +1186,13 @@ function initDesktopPet({ port = 3030, baseUrl = 'http://localhost:3030' } = {})
     quotaPanelOptions = {enabled:cfg.quotaPanelOn !== false,group:cfg.quotaPanelGroup === 'third-party' ? 'third-party' : 'gemini'};
     if (isPetEnabled()) createPetWindow();
     if (cfg.quotaStandalone) { syncQuotaPanel(); refreshQuotas(); }
-    if (!presencePollingTimer) presencePollingTimer = setInterval(() => {
+    if (!PET_DISABLED && !presencePollingTimer) presencePollingTimer = setInterval(() => {
         if (isPetVisible()) sendPetEnvironment();
         else if (quotaPanelWin && !quotaPanelWin.isDestroyed() && quotaPanelWin.isVisible()) syncQuotaPanel();
     }, 250);
 
-    // 启动后台静默额度同步探针 (15s 一次，非阻塞)
-    if (!quotaPollingTimer) {
+    // 启动后台静默额度同步探针 (15s 一次，仅在桌宠或额度面板实际启用且可见时运行)
+    if ((!PET_DISABLED || cfg.quotaStandalone) && !quotaPollingTimer) {
         quotaPollingTimer = setInterval(() => {
             if ((petWin && !petWin.isDestroyed() && petWin.isVisible()) ||
                 (quotaPanelWin && !quotaPanelWin.isDestroyed() && quotaPanelWin.isVisible()) ||

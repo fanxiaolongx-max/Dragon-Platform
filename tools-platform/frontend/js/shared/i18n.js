@@ -89,6 +89,7 @@
     let desktopSync = Promise.resolve();
     function syncDesktopLanguage() {
         if (!['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname)) return;
+        if (!window.ToolsDesktop && !window.DragonWindow) return;
         desktopSync = desktopSync.catch(() => {}).then(async () => {
             const token = localStorage.getItem('tools_token');
             if (!token) return;

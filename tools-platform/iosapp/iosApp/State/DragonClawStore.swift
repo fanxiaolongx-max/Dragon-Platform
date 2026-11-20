@@ -473,6 +473,9 @@ final class DragonClawStore {
             bootstrapWorkspace()
         } else if !isStreaming {
             loadSessions()
+            if let activeDesktop = activeDesktopSession {
+                fetchDesktopMessages(for: activeDesktop, passive: false)
+            }
         }
     }
 
@@ -1111,11 +1114,8 @@ final class DragonClawStore {
             messages = sdk.mapDesktopAgentMessages(items: cached.rawItems)
             isLoadingSessionMessages = false
             chatOpenScrollGeneration += 1
-            if cacheEval.decision == .useCacheSkipNetwork {
-                return
-            }
-            // Background refresh silently updates any delta without blanking out cached history.
-            fetchDesktopMessages(for: session, passive: !forceRefresh)
+            // Desktop agent sessions can advance independently on the host; always sync latest tail on open.
+            fetchDesktopMessages(for: session, passive: false)
         } else {
             messages.removeAll()
             isLoadingSessionMessages = true

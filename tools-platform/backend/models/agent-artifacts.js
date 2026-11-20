@@ -101,6 +101,44 @@ async function prune(dir, keepDays = LIMITS.keepDays) {
     }
 }
 
+// 只登记定位信息。业务值仍从当前会话的原文件读取。
+const referenceKinds = [
+    ['receipt', /回执|receipt/i], ['id', /编号|单号|identifier/i],
+    ['error', /错误码|error code/i], ['field', /字段名|field name/i],
+    ['file', /文件名|路径|file ?name|file path/i], ['amount', /金额|余额|amount|balance/i],
+    ['ratio', /分母|分子|denominator|numerator/i], ['port', /端口|port number/i]
+];
+
+function referenceTags(text) {
+    return referenceKinds.filter(([, pattern]) => pattern.test(text)).map(([tag]) => tag);
+}
+
+function scopeHash(scope) {
+    return crypto.createHash('sha256').update(scope.toLowerCase()).digest('hex').slice(0, 16);
+}
+
+function locateReferences(lines) {
+    const refs = [];
+    let offset = 0;
+    for (const [i, line] of lines.entries()) {
+        const bytes = Buffer.byteLength(line);
+        if (bytes <= 4096 && /[0-9/\\_.零一二三四五六七八九十百千万]/.test(line)) {
+            const tags = referenceTags(line);
+            if (tags.length) {
+                const scopes = new Set();
+                for (const match of line.matchAll(/([\p{Script=Han}A-Za-z0-9_-]{1,10})(?:项目|小组|组)/gu)) {
+                    for (let start = 0; start < match[1].length; start++) scopes.add(scopeHash(match[1].slice(start)));
+                    if (scopes.size >= 20) break;
+                }
+                refs.push({ tags, scopes: [...scopes], offset, bytes, line: i + 1 });
+                if (refs.length === 64) break;
+            }
+        }
+        offset += bytes + 1;
+    }
+    return refs;
+}
+
 /**
  * 结果不超过上限时原样返回；超过时写入文件，返回 { content（开头 + 说明 + 结尾）, artifact: { path, size, lines } }。
  * 写文件失败时退回掐头去尾，不影响本轮继续。
@@ -121,7 +159,8 @@ async function spill({ owner, sessionId, callId, toolName, content }) {
         } catch (_error) { return line; } // 不是 JSON 就按原样存
     }).join('\n');
     const full = text.length > LIMITS.fileChars ? `${text.slice(0, LIMITS.fileChars)}\n…（超过 ${LIMITS.fileChars} 字符的部分未保存）` : text;
-    const lines = full.split('\n').length;
+    const splitLines = full.split('\n');
+    const lines = splitLines.length;
     const head = text.slice(0, LIMITS.headChars);
     const tail = text.slice(-LIMITS.tailChars);
     const dir = path.join(ownerDir(owner), safeName(sessionId));
@@ -136,7 +175,7 @@ async function spill({ owner, sessionId, callId, toolName, content }) {
         return { content: `${head}\n…（结果过长，已截断，共 ${text.length} 字符）…\n${tail}`, artifact: null };
     }
     const note = `…（结果共 ${text.length} 字符、${lines} 行，中间部分没有放进上下文。${shape ? `JSON 结构：${shape}。` : ''}完整内容已保存到 ${file}；回答数量、完整列表或中间的内容前，必须先用 read_file 读取该路径（指定 startLine 分段读），不能根据开头和结尾推测。）…`;
-    return { content: `${head}\n${note}\n${tail}`, artifact: { path: file, size: Buffer.byteLength(full), lines } };
+    return { content: `${head}\n${note}\n${tail}`, artifact: { path: file, size: Buffer.byteLength(full), lines, refs: locateReferences(splitLines) } };
 }
 
 /**
@@ -169,4 +208,28 @@ function uploadsIn(owner, texts) {
     return [...found];
 }
 
-module.exports = { LIMITS, UPLOAD_LIMITS, UPLOAD_EXTENSIONS, baseDir, ownerDir, isUnderBase, belongsTo, uploadsBase, uploadDir, isUnderUploads, ownsFile, saveUpload, uploadsIn, spill, prune };
+// 历史回查只允许读取当前聊天的结果目录，拒绝上传文件及指向其他会话的链接。
+async function readChatResult(owner, sessionId, file, ref) {
+    if (!owner || !sessionId || typeof file !== 'string') return '';
+    const dir = path.join(ownerDir(owner), safeName(sessionId));
+    try {
+        const real = await fsp.realpath(file);
+        if (path.dirname(real) !== realOrSelf(dir) || !belongsTo(owner, real) || path.extname(real) !== '.txt') return '';
+        const stat = await fsp.stat(real);
+        if (!stat.isFile()) return '';
+        if (ref) {
+            const { offset, bytes } = ref;
+            if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isInteger(bytes) || bytes < 1 || bytes > 4096 || offset + bytes > stat.size) return '';
+            const handle = await fsp.open(real, 'r');
+            try {
+                const buf = Buffer.alloc(bytes);
+                const { bytesRead } = await handle.read(buf, 0, bytes, offset);
+                return bytesRead === bytes ? buf.toString('utf8') : '';
+            } finally { await handle.close(); }
+        }
+        if (stat.size > 1024 * 1024) return '';
+        return await fsp.readFile(real, 'utf8');
+    } catch { return ''; }
+}
+
+module.exports = { referenceTags, scopeHash, readChatResult, LIMITS, UPLOAD_LIMITS, UPLOAD_EXTENSIONS, baseDir, ownerDir, isUnderBase, belongsTo, uploadsBase, uploadDir, isUnderUploads, ownsFile, saveUpload, uploadsIn, spill, prune };

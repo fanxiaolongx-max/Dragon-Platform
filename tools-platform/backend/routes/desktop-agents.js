@@ -17,7 +17,19 @@ router.post('/sync',route(async (req, res) => res.json(await service.list(req.us
 const discussion = require('../models/desktop-agents/discussion');
 router.get('/discussions/:sessionId',route(async(req,res)=>{res.setHeader('Cache-Control','no-store');res.json({settings:await discussion.settings(req.user.username,req.params.sessionId),activeRun:await discussion.current(req.user.username,req.params.sessionId)});}));
 router.put('/discussions/:sessionId',route(async(req,res)=>res.json({settings:await discussion.saveSettings(req.user.username,req.params.sessionId,req.body)})));
-router.post('/discussion-runs',route(async(req,res)=>{const job=await discussion.start(req.user.username,req.body);if(job.status==='queued')discussion.schedule(req.user.username,job.id);res.status(202).json(job);}));
+router.post('/discussion-runs',route(async(req,res)=>{
+    const body = req.body || {};
+    if (body.parallelWorktrees && typeof body.workspaceRoot === 'string' && body.workspaceRoot.trim()) {
+        const boundary = require('../models/team-boundary');
+        const { getTenantId } = require('../models/tenant-context');
+        if (boundary.isConfined(req.user)) {
+            boundary.assertAllowed(req.user, getTenantId(), body.workspaceRoot.trim(), '工作区目录');
+        }
+    }
+    const job=await discussion.start(req.user.username,body);
+    if(job.status==='queued')discussion.schedule(req.user.username,job.id);
+    res.status(202).json(job);
+}));
 router.get('/discussion-runs/:id',route(async(req,res)=>{res.setHeader('Cache-Control','no-store');res.json(await discussion.get(req.user.username,req.params.id));}));
 router.post('/discussion-runs/:id/cancel',route(async(req,res)=>res.json(await discussion.cancel(req.user.username,req.params.id))));
 router.get('/:provider/models', route(async (req,res)=>{res.setHeader('Cache-Control','no-store');res.json(await service.availableModels(req.user.username,req.params.provider,{force:req.query.refresh==='1',cached:req.query.cached==='1',day:req.query.day}));}));

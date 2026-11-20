@@ -38,9 +38,35 @@ async function inspect(directory) {
         const directoryField = fields.find(field => field.startsWith('worktree '));
         if (!directoryField || fields.includes('bare')) continue;
         const worktreeRoot = directoryField.slice(9);
-        worktrees.push({ root: worktreeRoot, branch: (fields.find(field => field.startsWith('branch ')) || '').slice(7).replace(/^refs\/heads\//, ''),
-            current: guard.samePath(repoRoot, worktreeRoot), available: await fs.stat(worktreeRoot).then(stat => stat.isDirectory(), () => false) });
+        const wtBranch = (fields.find(field => field.startsWith('branch ')) || '').slice(7).replace(/^refs\/heads\//, '');
+        const available = await fs.stat(worktreeRoot).then(stat => stat.isDirectory(), () => false);
+        worktrees.push({
+            root: worktreeRoot,
+            branch: wtBranch,
+            current: guard.samePath(repoRoot, worktreeRoot),
+            isMain: worktrees.length === 0,
+            available,
+            dirty: false,
+            ahead: 0,
+            behind: 0
+        });
     }
+    const mainBranch = worktrees[0]?.branch || '';
+    await Promise.all(worktrees.map(async (item, index) => {
+        if (!item.available) return;
+        const wtStatus = index === 0 && guard.samePath(repoRoot, item.root)
+            ? status
+            : await git(item.root, ['status', '--porcelain=v1', '-z', '--untracked-files=normal'], true);
+        item.dirty = Boolean(wtStatus);
+        if (index > 0 && item.branch && mainBranch && item.branch !== mainBranch) {
+            const counts = await git(repoRoot, ['rev-list', '--left-right', '--count', `${mainBranch}...${item.branch}`], true);
+            const parts = String(counts || '').trim().split(/\s+/);
+            if (parts.length === 2) {
+                item.behind = Number(parts[0]) || 0;
+                item.ahead = Number(parts[1]) || 0;
+            }
+        }
+    }));
     return { git: true, root, repoRoot, branch: branch?.trim() || '', head: head?.trim() || '', dirty: Boolean(status),
         branches: refs.trim().split('\n').filter(Boolean).map(name => ({ name, current: name === branch?.trim(), worktreeRoot: worktrees.find(item => item.branch === name)?.root || '' })),
         isWorktree: !guard.samePath(path.resolve(root, gitDir.trim()), path.resolve(root, commonDir.trim())),
@@ -88,6 +114,108 @@ async function createWorktree(root, scope) {
     });
 }
 
+async function commitAll(root, message) {
+    if (typeof message !== 'string' || !message.trim() || message.length > 500 || /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(message)) {
+        throw failure('WORKSPACE_COMMIT_INVALID', '请输入有效的提交说明（1-500 字）', 400);
+    }
+    return mutate(root, async info => {
+        if (!info.dirty) return { committed: false, clean: true, git: info };
+        await git(info.repoRoot, ['add', '-A']);
+        await git(info.repoRoot, ['commit', '--no-gpg-sign', '-m', message.trim()]);
+        return { committed: true, git: await inspect(root) };
+    });
+}
+
+async function mergeWorktree(root, { targetBranch = '', mode = 'merge', message = '', removeAfter = false } = {}) {
+    const mergeMode = mode === 'squash' ? 'squash' : 'merge';
+    return mutate(root, async info => {
+        if (!info.isWorktree || guard.samePath(info.repoRoot, info.mainRoot)) {
+            throw failure('WORKSPACE_NOT_WORKTREE', '当前不在独立 Worktree 中，无需合并', 400);
+        }
+        const sourceBranch = info.branch;
+        if (!sourceBranch) throw failure('WORKSPACE_BRANCH_INVALID', '当前 Worktree 处于分离 HEAD，请先创建分支再合并', 400);
+        if (info.dirty) throw failure('WORKSPACE_DIRTY', '当前 Worktree 还有未提交的改动，请先提交后再合并', 409);
+        const mainInfo = await inspect(info.mainRoot);
+        const target = (typeof targetBranch === 'string' && targetBranch.trim()) ? targetBranch.trim() : mainInfo.branch;
+        if (!target || target === sourceBranch) throw failure('WORKSPACE_TARGET_INVALID', '找不到可合并的目标主分支', 400);
+        if (mainInfo.branch !== target) throw failure('WORKSPACE_TARGET_NOT_CHECKED_OUT', `主仓库当前位于 ${mainInfo.branch || 'HEAD'}，请先切到 ${target} 再合并`, 409);
+        if (mainInfo.dirty) throw failure('WORKSPACE_MAIN_DIRTY', '主仓库有未提交改动，请先提交或清理主仓库后再合并', 409);
+
+        const aheadRaw = await git(info.mainRoot, ['rev-list', '--count', `${target}..${sourceBranch}`]);
+        if ((Number(aheadRaw.trim()) || 0) === 0) {
+            return { merged: false, nothingToMerge: true, targetBranch: target, sourceBranch, mainRoot: info.mainRoot, git: info };
+        }
+        const commitMsg = (typeof message === 'string' && message.trim() && !/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(message))
+            ? message.trim().slice(0, 500)
+            : `Merge ${sourceBranch} into ${target}`;
+        try {
+            if (mergeMode === 'squash') {
+                await git(info.mainRoot, ['merge', '--squash', sourceBranch]);
+                await git(info.mainRoot, ['commit', '--no-gpg-sign', '-m', commitMsg]);
+            } else {
+                await git(info.mainRoot, ['merge', '--no-ff', '--no-gpg-sign', '-m', commitMsg, sourceBranch]);
+            }
+        } catch {
+            await git(info.mainRoot, ['merge', '--abort'], true);
+            await git(info.mainRoot, ['reset', '--merge'], true);
+            throw failure('WORKSPACE_MERGE_CONFLICT', '合并发生冲突，已自动中止以保护主仓库，请先解决冲突', 409);
+        }
+        if (removeAfter) {
+            await git(info.mainRoot, ['worktree', 'remove', info.repoRoot]);
+            await git(info.mainRoot, ['worktree', 'prune'], true);
+            await git(info.mainRoot, ['branch', mergeMode === 'squash' ? '-D' : '-d', sourceBranch], true);
+        }
+        const nextRoot = removeAfter ? info.mainRoot : info.root;
+        return {
+            merged: true,
+            mode: mergeMode,
+            targetBranch: target,
+            sourceBranch,
+            mainRoot: info.mainRoot,
+            removed: Boolean(removeAfter),
+            root: nextRoot,
+            git: await inspect(nextRoot)
+        };
+    });
+}
+
+async function removeWorktree(root, { worktreeRoot = '', force = false, deleteBranch = false } = {}) {
+    return mutate(root, async info => {
+        const targetPath = worktreeRoot ? guard.normalizeRoot(worktreeRoot) : info.repoRoot;
+        const target = info.worktrees.find(item => guard.samePath(item.root, targetPath));
+        if (!target || guard.samePath(target.root, info.mainRoot)) {
+            throw failure('WORKSPACE_NOT_WORKTREE', '不能移除主仓库目录，仅可移除独立 Worktree', 400);
+        }
+        if (!force && target.dirty) {
+            throw failure('WORKSPACE_DIRTY', '该 Worktree 还有未提交改动，请先提交或勾选强制移除', 409);
+        }
+        await git(info.mainRoot, force ? ['worktree', 'remove', '--force', target.root] : ['worktree', 'remove', target.root]);
+        await git(info.mainRoot, ['worktree', 'prune'], true);
+        if (deleteBranch && target.branch) {
+            await git(info.mainRoot, ['branch', force ? '-D' : '-d', target.branch], true);
+        }
+        return { removed: true, removedRoot: target.root, mainRoot: info.mainRoot, git: await inspect(info.mainRoot) };
+    });
+}
+
+async function diffSummary(directory, baseRef = 'HEAD') {
+    const info = await inspect(directory);
+    if (!info.git) return null;
+    const raw = await git(info.repoRoot, ['diff', '--numstat', baseRef], true);
+    const untracked = await git(info.repoRoot, ['ls-files', '--others', '--exclude-standard'], true);
+    let files = 0, added = 0, removed = 0;
+    for (const line of String(raw || '').split('\n')) {
+        if (!line.trim()) continue;
+        const [a, r] = line.split('\t');
+        files += 1;
+        if (/^\d+$/.test(a)) added += Number(a);
+        if (/^\d+$/.test(r)) removed += Number(r);
+    }
+    const untrackedCount = String(untracked || '').split('\n').filter(Boolean).length;
+    files += untrackedCount;
+    return { dirty: info.dirty, files, added, removed, branch: info.branch };
+}
+
 async function createDirectory(directory) {
     if (typeof directory !== 'string' || !path.isAbsolute(directory) || /[\x00-\x1f\x7f]/.test(directory)) throw failure('WORKSPACE_PATH_INVALID', '请输入完整的文件夹路径', 400);
     const parent = guard.normalizeRoot(path.dirname(directory)), name = path.basename(directory);
@@ -100,4 +228,4 @@ async function createDirectory(directory) {
     return { root: guard.normalizeRoot(root) };
 }
 
-module.exports = { inspect, switchBranch, createWorktree, createDirectory };
+module.exports = { inspect, switchBranch, createWorktree, commitAll, mergeWorktree, removeWorktree, diffSummary, createDirectory };

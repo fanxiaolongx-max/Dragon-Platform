@@ -399,6 +399,14 @@ class DragonClawHelpersTest {
         assertEquals(listOf("d1", "d2", "d3", "d4", "d5"), stitched.map { it.id })
         assertEquals("reply2 updated", stitched[3].content)
 
+        // When incomingTail has moved completely past a larger existing cache, prefer fresh incomingTail
+        val disjoinedNewTail = listOf(
+            DesktopAgentMessageItem(id = "d99", role = "user", content = "latest prompt"),
+            DesktopAgentMessageItem(id = "d100", role = "assistant", content = "latest reply")
+        )
+        val refreshed = DragonClawHelpers.mergeDesktopTailItems(olderAndTail, disjoinedNewTail)
+        assertEquals(listOf("d99", "d100"), refreshed.map { it.id })
+
         assertTrue(DragonClawHelpers.isBusyQueueableError("原会话正在运行，请等待当前回复结束"))
         assertTrue(DragonClawHelpers.isBusyQueueableError("当前对话正在执行，请先停止"))
         assertFalse(DragonClawHelpers.isBusyQueueableError("Network timeout"))

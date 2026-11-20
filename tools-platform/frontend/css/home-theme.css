@@ -2143,6 +2143,18 @@ html.platform-home:not([data-theme="dark"]) .home-workspace-panel .wsp-diff-hunk
 
 html.platform-home:not([data-theme="dark"]) .home-workspace-panel .wsp-diff-ctx { color: var(--v2-ink2); }
 
+html.platform-home:not([data-theme="dark"]) .home-workspace-panel .wsp-diff-note { border-color: #bfdbfe; background: #eff6ff; color: var(--v2-ink); }
+
+html.platform-home:not([data-theme="dark"]) .home-workspace-panel .wsp-diff-note-tag { background: #dbeafe; color: #1d4ed8; }
+
+html.platform-home:not([data-theme="dark"]) .home-workspace-panel .wsp-diff-editor { border-color: var(--v2-line-strong); background: var(--v2-bg); color: var(--v2-ink); }
+
+html.platform-home:not([data-theme="dark"]) .home-workspace-panel .wsp-diff-editor textarea { border-color: var(--v2-line-strong); background: var(--v2-side); color: var(--v2-ink); }
+
+html.platform-home:not([data-theme="dark"]) .home-workspace-panel .wsp-review-bar { border-color: #bfdbfe; background: #eff6ff; color: var(--v2-ink); }
+
+html.platform-home:not([data-theme="dark"]) .home-workspace-panel .wsp-worktree-bar { border-color: #a7f3d0; background: #ecfdf5; color: var(--v2-ink); }
+
 html.platform-home:not([data-theme="dark"]) .home-workspace-panel :is(.wsp-pr--done) { border-color: #bbf7d0; }
 
 html.platform-home:not([data-theme="dark"]) .home-workspace-panel :is(.wsp-pr--failed, .wsp-pr--blocked) { border-color: #fecaca; }

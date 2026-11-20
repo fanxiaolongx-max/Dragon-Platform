@@ -32,6 +32,11 @@ if (process.isMainFrame) contextBridge.exposeInMainWorld('DragonBrowser', {
         const listener = () => callback();
         ipcRenderer.on('dragon-browser:reveal', listener);
         return () => ipcRenderer.removeListener('dragon-browser:reveal', listener);
+    },
+    onPickedElement: callback => {
+        const listener = (_event, payload) => callback(payload);
+        ipcRenderer.on('dragon-browser:picked-element', listener);
+        return () => ipcRenderer.removeListener('dragon-browser:picked-element', listener);
     }
 });
 

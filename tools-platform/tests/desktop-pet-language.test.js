@@ -112,7 +112,7 @@ test('web language sync sends rapid toggles sequentially and restores saved lang
     const saved = new Map([['tools_token', 'test-token'], ['tools_lang', 'en-US']]);
     const requests = [];
     let release;
-    const window = { location: { hostname: '127.0.0.1' },
+    const window = { location: { hostname: '127.0.0.1' }, ToolsDesktop: {},
         addEventListener: (name, fn) => { listeners[name] = fn; },
         dispatchEvent: event => listeners[event.type]?.(event)
     };

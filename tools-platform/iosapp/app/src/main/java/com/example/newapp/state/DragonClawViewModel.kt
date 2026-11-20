@@ -1112,10 +1112,8 @@ class DragonClawViewModel : ViewModel() {
             messages = sdk.mapDesktopAgentMessages(cached.rawItems)
             isLoadingSessionMessages = false
             chatOpenScrollGeneration += 1
-            if (cacheEval.decision == SessionCacheDecision.USE_CACHE_SKIP_NETWORK) {
-                return
-            }
-            fetchDesktopMessages(session, passive = !forceRefresh)
+            // Desktop agent sessions can advance independently on the host; always sync latest tail on open.
+            fetchDesktopMessages(session, passive = false)
         } else {
             messages = emptyList()
             isLoadingSessionMessages = true

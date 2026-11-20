@@ -104,3 +104,29 @@ test('group models permit one per member, persist after starting and snapshot ea
   assert.deepEqual((await groups.settings('alice',first.sessionId)).models,{codex:'',workbuddy:''});
  }finally{models.list=original;}
 });
+
+test('parallel strategy waits concurrently without sharing peer opinions and supports isolated worktree racing',async()=>{
+ const {execFileSync}=require('node:child_process');
+ const repo=path.join(root,'race-repo');fs.mkdirSync(repo);
+ const git=(...args)=>execFileSync('git',['-c',`core.hooksPath=${os.devNull}`,...args],{cwd:repo,encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
+ git('init','-b','main');fs.writeFileSync(path.join(repo,'app.txt'),'v1\n');git('add','app.txt');git('-c','user.name=Fixture','-c','user.email=fixture@example.test','commit','--no-gpg-sign','-m','init');
+ const job=await start({providers:['codex','workbuddy'],strategy:'parallel',parallelWorktrees:true,workspaceRoot:repo});
+ assert.equal(job.strategy,'parallel');assert.equal(job.parallelWorktrees,true);
+ assert.ok(job.reports[0].worktreeRoot&&job.reports[1].worktreeRoot);
+ assert.notEqual(job.reports[0].worktreeRoot,job.reports[1].worktreeRoot);
+ let inFlight=0,maxInFlight=0;const prompts=[];
+ const done=await groups.execute('alice',job.id,{
+  create:async(provider,text)=>{prompts.push({provider,text});return create(provider,text);},
+  wait:async(_o,provider)=>{
+   inFlight++;maxInFlight=Math.max(maxInFlight,inFlight);
+   const rep=job.reports.find(r=>r.provider===provider);
+   fs.writeFileSync(path.join(rep.worktreeRoot,'app.txt'),`v2 by ${provider}\n`);
+   await new Promise(r=>setTimeout(r,25));
+   inFlight--;return `${provider} parallel result`;
+  }
+ });
+ assert.equal(done.status,'done');assert.equal(maxInFlight,2,'both members waited concurrently');
+ assert.ok(prompts.every(p=>!p.text.includes('parallel result')),'parallel mode does not leak peer outputs');
+ assert.ok(prompts[0].text.includes(job.reports[0].worktreeRoot));
+ assert.equal(done.reports[0].diffSummary.files,1);assert.equal(done.reports[1].diffSummary.files,1);
+});

@@ -16,7 +16,8 @@
     let busy=false,refreshing=false,controller=null,viewEpoch=0,timer=null,lastHeartbeat=0,manualToken='';
     const suspended=new Set();
     let toolAllowsBrowser=false;
-    const icons={bookmark:'<path d="m10 2 2.5 5 5.5.8-4 3.9 1 5.5-5-2.6-5 2.6 1-5.5-4-3.9 5.5-.8Z"/>',back:'<path d="m12 4-6 6 6 6M6 10h11"/>',forward:'<path d="m8 4 6 6-6 6M3 10h11"/>',reload:'<path d="M16 7a7 7 0 1 0 1 6M16 3v5h-5"/>',extensions:'<path d="M7 3h3a2 2 0 1 1 4 0h3v5a2 2 0 1 0 0 4v5h-5a2 2 0 1 0-4 0H3v-5a2 2 0 1 1 0-4V3z"/>',downloads:'<path d="M10 2v10m-4-4 4 4 4-4M3 12v5h14v-5"/>',more:'<circle cx="4" cy="10" r="1"/><circle cx="10" cy="10" r="1"/><circle cx="16" cy="10" r="1"/>',tabs:'<path d="m5 8 5 5 5-5"/>',external:'<path d="M11 3h6v6M17 3 8 12M8 4H3v13h13v-5"/>',close:'<path d="m5 5 10 10M15 5 5 15"/>','new-tab':'<path d="M10 3v14M3 10h14"/>',keyboard:'<rect x="2" y="4" width="16" height="12" rx="2"/><path d="M5 7h1m3 0h1m3 0h2M5 10h1m3 0h1m3 0h2M6 13h8"/>'};
+    let pickActive=false,swarmPickCleanup=null;
+    const icons={bookmark:'<path d="m10 2 2.5 5 5.5.8-4 3.9 1 5.5-5-2.6-5 2.6 1-5.5-4-3.9 5.5-.8Z"/>',back:'<path d="m12 4-6 6 6 6M6 10h11"/>',forward:'<path d="m8 4 6 6-6 6M3 10h11"/>',reload:'<path d="M16 7a7 7 0 1 0 1 6M16 3v5h-5"/>',extensions:'<path d="M7 3h3a2 2 0 1 1 4 0h3v5a2 2 0 1 0 0 4v5h-5a2 2 0 1 0-4 0H3v-5a2 2 0 1 1 0-4V3z"/>',downloads:'<path d="M10 2v10m-4-4 4 4 4-4M3 12v5h14v-5"/>',more:'<circle cx="4" cy="10" r="1"/><circle cx="10" cy="10" r="1"/><circle cx="16" cy="10" r="1"/>',tabs:'<path d="m5 8 5 5 5-5"/>',external:'<path d="M11 3h6v6M17 3 8 12M8 4H3v13h13v-5"/>',close:'<path d="m5 5 10 10M15 5 5 15"/>','new-tab':'<path d="M10 3v14M3 10h14"/>',keyboard:'<rect x="2" y="4" width="16" height="12" rx="2"/><path d="M5 7h1m3 0h1m3 0h2M5 10h1m3 0h1m3 0h2M6 13h8"/>','pick-element':'<circle cx="10" cy="10" r="5.5"/><path d="M10 2v3M10 15v3M2 10h3M15 10h3"/><circle cx="10" cy="10" r="1.5"/>'};
     const icon=name=>`<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name]||icons.more}</svg>`;
     function menuButton(action,label,disabled=false){return `<button type="button" data-browser="${action}"${disabled?' disabled':''}>${esc(label)}</button>`;}
     function syncTheme(force=false){
@@ -546,7 +547,91 @@
         bookmarkBusy=true;render();
         try{await bookmarkRequest({url,title:state.title||tab?.title||url,remove:webBookmarks.some(item=>item.url===url)});}catch(error){showError(error.message);}finally{bookmarkBusy=false;render();}
     }
+    function setPickActive(next) {
+        pickActive = Boolean(next);
+        const btn = panel?.querySelector('[data-browser="pick-element"]');
+        if (btn) {
+            btn.classList.toggle('is-picking', pickActive);
+            btn.setAttribute('aria-pressed', String(pickActive));
+        }
+        if (!pickActive && swarmPickCleanup) { swarmPickCleanup(); swarmPickCleanup = null; }
+    }
+    function startSwarmFramePick() {
+        const frame = panel?.querySelector('iframe');
+        const doc = frame?.contentDocument;
+        const win = frame?.contentWindow;
+        if (!doc || !win) return false;
+        const ov = doc.createElement('div');
+        ov.style.cssText = 'position:fixed;inset:0;z-index:2147483646;pointer-events:none;';
+        const box = doc.createElement('div');
+        box.style.cssText = 'position:fixed;border:2px solid #2563eb;background:rgba(37,99,235,0.14);border-radius:4px;box-sizing:border-box;';
+        ov.append(box);
+        doc.documentElement.append(ov);
+        let current = null;
+        const cssPath = el => {
+            if (!el || el.nodeType !== 1) return '';
+            if (el.id) return '#' + el.id;
+            const parts = [];
+            for (let cur = el; cur && cur.nodeType === 1 && parts.length < 4; cur = cur.parentElement) {
+                let s = cur.tagName.toLowerCase();
+                if (cur.classList.length) s += '.' + [...cur.classList].slice(0, 2).join('.');
+                parts.unshift(s);
+            }
+            return parts.join(' > ');
+        };
+        const onMove = e => {
+            const el = doc.elementFromPoint(e.clientX, e.clientY);
+            if (!el || ov.contains(el)) return;
+            current = el;
+            const r = el.getBoundingClientRect();
+            box.style.left = r.left + 'px'; box.style.top = r.top + 'px';
+            box.style.width = r.width + 'px'; box.style.height = r.height + 'px';
+        };
+        const onClick = e => {
+            e.preventDefault(); e.stopPropagation();
+            const el = current || doc.elementFromPoint(e.clientX, e.clientY);
+            setPickActive(false);
+            if (!el) return;
+            const r = el.getBoundingClientRect(), cs = win.getComputedStyle(el);
+            window.DragonClaw?.attachPickedElement?.({
+                tag: el.tagName.toLowerCase(),
+                selector: cssPath(el),
+                text: (el.innerText || '').trim().slice(0, 200),
+                html: (el.outerHTML || '').slice(0, 1200),
+                rect: { width: Math.round(r.width), height: Math.round(r.height) },
+                styles: { display: cs.display, color: cs.color, backgroundColor: cs.backgroundColor, fontSize: cs.fontSize, borderRadius: cs.borderRadius },
+                pageUrl: 'HTML Live Preview'
+            });
+        };
+        const onKey = e => { if (e.key === 'Escape') { e.preventDefault(); setPickActive(false); } };
+        doc.addEventListener('mousemove', onMove, true);
+        doc.addEventListener('click', onClick, true);
+        doc.addEventListener('keydown', onKey, true);
+        swarmPickCleanup = () => {
+            doc.removeEventListener('mousemove', onMove, true);
+            doc.removeEventListener('click', onClick, true);
+            doc.removeEventListener('keydown', onKey, true);
+            ov.remove();
+        };
+        return true;
+    }
     function action(name){
+        if(name==='pick-element'){
+            if(panel?.classList.contains('is-swarm-canvas')){
+                if(pickActive){setPickActive(false);return;}
+                if(startSwarmFramePick()){setPickActive(true);status.textContent=L('请点击右侧预览页面中的任意元素（Esc 取消）','Click any element in the preview (Esc to cancel)');}
+                else status.textContent=L('预览尚未就绪，暂不能拾取元素','Preview not ready for element picking yet');
+                return;
+            }
+            if(bridge){
+                const next=!pickActive;setPickActive(next);
+                bridge.action(next?'pick-element':'cancel-pick-element');
+                if(next)status.textContent=L('请在浏览器页面中点击要修改的元素（Esc 取消）','Click any element in the page to inspect (Esc to cancel)');
+                return;
+            }
+            status.textContent=L('元素拾取仅支持 Dragon 桌面浏览器或 HTML 实时预览','Element picker works in Dragon desktop browser or HTML live preview');
+            return;
+        }
         if(name==='bookmark')return toggleBookmark();
         if(name==='close')return close();
         if(name==='dismiss-menu'){menu='';renderMenu();return layout();}
@@ -595,7 +680,7 @@
         toggle=document.getElementById('dcBrowserToggle');const workspace=document.getElementById('dcWorkspacePanel');if(!toggle||!workspace)return;
         panel=document.createElement('aside');panel.className='dc-browser-panel';panel.classList.toggle('dc-browser-native',Boolean(bridge));panel.id='dcBrowserPanel';panel.hidden=true;
         const button=(name)=>`<button type="button" data-browser="${name}">${icon(name)}</button>`;
-        panel.innerHTML=`<header class="dc-browser-head"><strong>Dragon 浏览器</strong><div class="dc-browser-tabbar"><div class="dc-browser-tabs" role="tablist"></div>${button('new-tab')}${button('tabs')}</div><div class="dc-browser-window-actions">${button('external')}${button('close')}</div></header><form class="dc-browser-address"><div class="dc-browser-navigation">${button('back')}${button('forward')}${button('reload')}</div><div class="dc-browser-url-wrap"><input autocomplete="off" spellcheck="false" enterkeyhint="go"><div class="dc-browser-status-badge" role="status" aria-live="polite" hidden><span class="dc-browser-status-dot" aria-hidden="true"></span><span class="dc-browser-status-text"></span></div></div><button type="submit" class="dc-browser-go" aria-label="Go">↵</button><div class="dc-browser-toolbar-actions">${button('bookmark')}${button('keyboard')}${button('extensions')}${button('downloads')}${button('more')}</div></form><div class="dc-browser-hint" hidden></div><section class="dc-browser-popup" hidden><div class="dc-browser-popup-content"></div></section><section class="dc-browser-flyout" role="menu" hidden></section><div class="dc-browser-find" hidden><input data-find-input><span data-find-count></span><button type="button" data-find-forward="false">↑</button><button type="button" data-find-forward="true">↓</button><button type="button" data-browser="find-close">×</button></div><div class="dc-browser-control" hidden><label></label><div class="dc-browser-type"><input data-remote-text autocomplete="off" autocapitalize="off" spellcheck="false"><button type="button" data-browser="send-text"></button></div><div class="dc-browser-control-options"><label><input type="checkbox" data-replace><span data-label="replace"></span></label><label><input type="checkbox" data-mask><span data-label="mask"></span></label><label><input type="checkbox" data-drag-mode><span data-label="drag"></span></label></div><div class="dc-browser-upload"><button type="button" data-browser="upload"></button><input type="file" data-local-files hidden></div><div class="dc-browser-control-keys"><button type="button" data-browser="remote-up"></button><button type="button" data-browser="remote-down"></button><button type="button" data-browser="remote-tab"></button><button type="button" data-browser="remote-backspace"></button><button type="button" data-browser="remote-enter"></button><button type="button" data-browser="remote-zoom"></button></div></div><div class="dc-browser-surface"><div class="dc-browser-agent-view"><div class="dc-browser-agent-status" role="status"></div><img hidden></div></div>`;
+        panel.innerHTML=`<header class="dc-browser-head"><strong>Dragon 浏览器</strong><div class="dc-browser-tabbar"><div class="dc-browser-tabs" role="tablist"></div>${button('new-tab')}${button('tabs')}</div><div class="dc-browser-window-actions">${button('external')}${button('close')}</div></header><form class="dc-browser-address"><div class="dc-browser-navigation">${button('back')}${button('forward')}${button('reload')}</div><div class="dc-browser-url-wrap"><input autocomplete="off" spellcheck="false" enterkeyhint="go"><div class="dc-browser-status-badge" role="status" aria-live="polite" hidden><span class="dc-browser-status-dot" aria-hidden="true"></span><span class="dc-browser-status-text"></span></div></div><button type="submit" class="dc-browser-go" aria-label="Go">↵</button><div class="dc-browser-toolbar-actions">${button('pick-element')}${button('bookmark')}${button('keyboard')}${button('extensions')}${button('downloads')}${button('more')}</div></form><div class="dc-browser-hint" hidden></div><section class="dc-browser-popup" hidden><div class="dc-browser-popup-content"></div></section><section class="dc-browser-flyout" role="menu" hidden></section><div class="dc-browser-find" hidden><input data-find-input><span data-find-count></span><button type="button" data-find-forward="false">↑</button><button type="button" data-find-forward="true">↓</button><button type="button" data-browser="find-close">×</button></div><div class="dc-browser-control" hidden><label></label><div class="dc-browser-type"><input data-remote-text autocomplete="off" autocapitalize="off" spellcheck="false"><button type="button" data-browser="send-text"></button></div><div class="dc-browser-control-options"><label><input type="checkbox" data-replace><span data-label="replace"></span></label><label><input type="checkbox" data-mask><span data-label="mask"></span></label><label><input type="checkbox" data-drag-mode><span data-label="drag"></span></label></div><div class="dc-browser-upload"><button type="button" data-browser="upload"></button><input type="file" data-local-files hidden></div><div class="dc-browser-control-keys"><button type="button" data-browser="remote-up"></button><button type="button" data-browser="remote-down"></button><button type="button" data-browser="remote-tab"></button><button type="button" data-browser="remote-backspace"></button><button type="button" data-browser="remote-enter"></button><button type="button" data-browser="remote-zoom"></button></div></div><div class="dc-browser-surface"><div class="dc-browser-agent-view"><div class="dc-browser-agent-status" role="status"></div><img hidden></div></div>`;
         workspace.after(panel);surface=panel.querySelector('.dc-browser-surface');address=panel.querySelector('.dc-browser-address input');tabsNode=panel.querySelector('.dc-browser-tabs');hint=panel.querySelector('.dc-browser-hint');image=panel.querySelector('.dc-browser-agent-view img');statusBadge=panel.querySelector('.dc-browser-status-badge');statusTextNode=panel.querySelector('.dc-browser-status-text');agentStatusNode=panel.querySelector('.dc-browser-agent-status');controlBox=panel.querySelector('.dc-browser-control');textInput=panel.querySelector('[data-remote-text]');
         status={
             get textContent(){return statusTextNode?.textContent||agentStatusNode?.textContent||'';},
@@ -703,7 +788,9 @@
                 if(window.HomeToolFrame?.open(url.pathname+url.search))close();
             }catch{}
         });
-        if(bridge){bridge.onState(value=>{const before=state.tabs.find(tab=>tab.id===state.activeId)?.url,after=value.tabs.find(tab=>tab.id===value.activeId)?.url;if(before!==after){autoFit=true;pageWidth=0;}state=value;watchDownloads(value.downloads);if(open&&!state.tabs.length)close();else{render();requestAnimationFrame(fit);}});bridge.onReveal(()=>{if(innerWidth>860||open)show({createEmpty:false});});bridge.onFocusUrl(()=>{address.focus();address.select();});bridge.onPoppedOut(()=>{docked=false;close();});bridge.connect().then(value=>{connected=value;docked=value;layout();}).catch(()=>{});}
+        const pickBtn=panel?.querySelector('[data-browser="pick-element"]');
+        if(pickBtn){pickBtn.title=L('Design Mode · 拾取页面元素注入对话','Design Mode · Pick page element into chat');pickBtn.setAttribute('aria-label',pickBtn.title);}
+        if(bridge){bridge.onState(value=>{const before=state.tabs.find(tab=>tab.id===state.activeId)?.url,after=value.tabs.find(tab=>tab.id===value.activeId)?.url;if(before!==after){autoFit=true;pageWidth=0;setPickActive(false);}state=value;watchDownloads(value.downloads);if(open&&!state.tabs.length)close();else{render();requestAnimationFrame(fit);}});bridge.onPickedElement?.(payload=>{setPickActive(false);if(payload)window.DragonClaw?.attachPickedElement?.(payload);});bridge.onReveal(()=>{if(innerWidth>860||open)show({createEmpty:false});});bridge.onFocusUrl(()=>{address.focus();address.select();});bridge.onPoppedOut(()=>{docked=false;close();});bridge.connect().then(value=>{connected=value;docked=value;layout();}).catch(()=>{});}
         render();window.DragonBrowserSidebar={open:show,close,showAgentView:show,isOpen:()=>open};
     }
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();

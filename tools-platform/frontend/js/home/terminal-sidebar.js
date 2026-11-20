@@ -237,6 +237,7 @@
         continueButton.hidden = !isAdmin() || !continuationDirectory();
         continueButton.textContent = L('在终端继续', 'Continue in terminal');
         continueButton.title = L('在命令的起始目录打开交互式终端', 'Open an interactive terminal in the command’s starting directory');
+        window.dispatchEvent(new Event('dragon-claw:radar-refresh'));
     }
     // Agent 标签只在智能体执行过命令后显示
     const visibleTab = tab => tab.kind !== 'agent' || tab.used;
@@ -575,7 +576,7 @@
         window.matchMedia('(max-width: 860px)').addEventListener('change', event => { if (event.matches) close(); });
         // 首页其他模式（工具页、频道）遮住对话时一并收起
         for (const name of ['home:hub', 'home:tool-frame']) window.addEventListener(name, event => { if (event.detail?.open) close(); });
-        window.DragonTerminalSidebar = { open: show, close, isOpen: () => open, newTerminal, loopbackUrl, relayCallback };
+        window.DragonTerminalSidebar = { open: show, close, isOpen: () => open, newTerminal, loopbackUrl, relayCallback, getSummary: () => ({ agentRunning, activeShells: [...tabs.values()].filter(t => t.kind === 'shell' && !t.exited).length, totalTabs: [...tabs.values()].filter(visibleTab).length }) };
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();

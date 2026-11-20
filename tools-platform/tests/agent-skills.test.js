@@ -96,3 +96,11 @@ test('Chinese skill names are resolved and family-finance-bookkeeper is auto-sel
         ['family-finance-bookkeeper']
     );
 });
+
+test('memory and writing requests do not activate bookkeeping, even after a finance exchange', () => {
+    const contextMessages = [{ role: 'model', toolCalls: [{ name: 'finance_record_expense' }] }];
+    for (const question of ['不存长期记忆，帮我写通知', '帮我补一下会议记录', '请翻译蓝色的笔', '我可以周五出行吗']) {
+        assert.ok(!skills.autoSelect(question, { contextMessages }).includes('family-finance-bookkeeper'));
+    }
+    assert.ok(skills.autoSelect('帮我记一笔账').includes('family-finance-bookkeeper'));
+});

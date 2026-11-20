@@ -1,12 +1,12 @@
 {
   "zh": [
-    "修复 @创建声音 等内置工具集调用时因缺少 preview() 导致的「toolset.preview is not a function」报错，并在运行器与额外工具调度中增加安全兜底。",
-    "在对话系统提示中注入当前服务器时间与时区，优化微信历史查询日期计算与长输出分段读取指引。",
-    "将审批推送抽屉样式前缀重构为 .ainbox-*，避免与首页对话区域样式名冲突。"
+    "升级智能体主题上下文与长期记忆管理：支持显式换题隔离、切回原主题与模糊指代澄清，保留用户口径约束原话，新增历史原文/更正取证（含大产物按偏移定位）及按主题召回的长期记忆。",
+    "工作区 Git 与多智能体讨论增强：工作区面板支持一键提交、将独立 Worktree 合并/Squash 回主分支与清理移除，并展示领先/落后计数与改动统计；多智能体群聊支持并行策略与并行 Worktree 隔离。",
+    "新增全局智能体状态雷达（聚合待审批、生成中、桌面 Agent 等待选择与后台终端状态），侧边浏览器新增页面元素拾取功能，并默认停用桌面宠物后台轮询以减少空闲资源占用。"
   ],
   "en": [
-    "Fixed the 'toolset.preview is not a function' error when calling @voice-creator and added defensive preview() guards in the agent run manager and extra-tools dispatcher.",
-    "Injected the current server timestamp into chat system prompts and refined wechat-vault relative-date and truncated-output instructions.",
-    "Namespaced approval-inbox CSS classes from .ai-* to .ainbox-* to prevent stylesheet collisions with home chat UI."
+    "Upgraded agent topic context and long-term memory: isolated topic switching and return recovery, vague-reference disambiguation, verbatim user scope retention, original/revised history evidence lookup (including byte-offset artifact recall), and topic-scoped memory selection.",
+    "Enhanced workspace Git workflows and multi-agent discussions: added one-click commit, worktree merge/squash into the main branch, safe worktree removal, ahead/behind and diff stats in the workspace panel, plus parallel discussion strategy with isolated worktrees.",
+    "Added the global DragonAgentRadar status capsule (aggregating pending approvals, active generations, desktop agent choices, and background terminals), element picking in the sidebar browser, and disabled idle desktop pet polling by default."
   ]
 }

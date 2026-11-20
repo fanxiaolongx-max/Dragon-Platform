@@ -169,7 +169,7 @@ function autoSelect(content, { pagePath = '', extraIds = [], contextMessages = [
     // 1. 本轮显式提及记账、支出、开销、消费、账单、小票、发票、报销、查账、查余额、财务概况、转账
     // 2. 本会话历史中已使用过 family-finance-bookkeeper，后续的数字、账户名、确认等短指令自动保持激活
     if (byId.has('family-finance-bookkeeper')) {
-        const financeDirect = /(?:记[一两123456789]?笔?账?|录入|支出|开销|消费|账单|小票|发票|报销|查账|查余额|账户余额|财务概况|财务总览|今日支出|本月支出|家庭财务)/.test(text)
+        const financeDirect = /(?:记[一两123456789]?笔(?:账|支出|消费)?|记账|录入.{0,8}(?:收支|账目|费用|金额)|支出|开销|消费|账单|小票|发票|报销|查账|查余额|账户余额|财务概况|财务总览|今日支出|本月支出|家庭财务)/.test(text)
             || /(?:转账|从.{1,10}转(?:入|到|给).{1,10})/.test(text);
 
         const sessionHadFinance = (Array.isArray(contextMessages) ? contextMessages : []).some(item => {
@@ -185,10 +185,9 @@ function autoSelect(content, { pagePath = '', extraIds = [], contextMessages = [
 
         const financeFollowup = sessionHadFinance && (
             financeDirect
-            || /(?:确认|记入|记吧|好的|行|可以|录入|撤销|删除|查询|余额)/.test(text)
+            || /^(?:确认|记入|记吧|好的|行|可以|录入|撤销|删除|查询|余额)[。！!？?\s]*$/.test(text.trim())
             || /(?:CIB|微信|支付宝|现金|招商|银行|账户|钱包|生活费|餐饮|交通|购物|房租)/i.test(text)
             || /^\d+(?:\.\d{1,2})?$/.test(text.trim()) // 纯数字金额
-            || text.trim().length <= 30
         );
 
         if (financeDirect || financeFollowup) {

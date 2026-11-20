@@ -30,7 +30,7 @@ const DEFINITION = {
         type: 'object',
         properties: {
             description: { type: 'string', description: '3–15 字的任务标题（如“运行 Python 脚本处理数据”）' },
-            prompt: { type: 'string', description: '完整的执行指令：要运行什么命令、期望处理哪些文件、需要返回什么结论或产出文件' },
+            prompt: { type: 'string', description: '独立执行指令：写明必要的范围、用户约定、输入文件、命令及预期产出。仅传影响本次执行的背景。' },
             inputFiles: {
                 type: 'array',
                 description: '可选：需要带入隔离沙箱的共享工作区相对路径清单（不传则自动带入安全工作文件）',

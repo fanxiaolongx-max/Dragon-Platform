@@ -155,6 +155,18 @@ test('memory keeps each account its own notes, refuses credentials and appears i
     assert.doesNotMatch(await memoryRepo.promptFor('alice'), /周报用表格/);
 });
 
+test('recall follows the active topic and keeps explicit universal preferences', async () => {
+    const user = { ...ctx(), username: 'topic-test' };
+    for (const [topic, content] of [['SLA 月报', '按自然月'], ['*', '默认用中文回答']]) {
+        await memoryRepo.execute(user, { action: 'add', content, topic });
+    }
+    const report = await memoryRepo.promptFor(user.username, '回到 SLA 月报');
+    assert.match(report, /按自然月/);
+    const mail = await memoryRepo.promptFor(user.username, '写一封催办邮件');
+    assert.match(mail, /中文回答/);
+    assert.doesNotMatch(mail, /自然月/);
+});
+
 test('the engine shows the task list without tool rows, ends the turn on ask_user, and the toolkit is a deferred group', async () => {
     const events = [];
     const replies = [
@@ -273,4 +285,26 @@ test('backend code never calls ExcelJS actualColumnCount or columnCount getters 
         }
     }
     assert.deepEqual(offenders, []);
+});
+
+test('a one-off exception leaves the stored preference intact, while explicit edits and deletion persist', async () => {
+    const user = { ...ctx(), username: 'exception-test' };
+    await memoryRepo.execute(user, { action: 'add', content: '默认给三个标题', topic: '展览' });
+    const [{ id }] = await memoryRepo.list(user.username);
+    await memoryRepo.promptFor(user.username, '这个展览本次只给一个标题');
+    assert.equal((await memoryRepo.list(user.username))[0].content, '默认给三个标题');
+    await memoryRepo.execute(user, { action: 'update', id, content: '默认给两个标题' });
+    assert.match(await memoryRepo.promptFor(user.username, '新展览'), /两个标题/);
+    assert.equal(await memoryRepo.promptFor(user.username, '翻译小猫'), '');
+    await memoryRepo.execute(user, { action: 'delete', id });
+    assert.equal(await memoryRepo.promptFor(user.username, '新展览'), '');
+});
+
+test('a named publication retains its title preference across fresh prompts', async () => {
+    const user = { ...ctx(), username: 'publication-test' };
+    await memoryRepo.execute(user, { action: 'add', topic: '松墨样刊', content: '标题以 SM-47 开头' });
+    assert.match(await memoryRepo.promptFor(user.username, '给松墨样刊拟个标题'), /SM-47/);
+    for (const question of ['给食堂菜单拟个标题', '给松风样刊拟个标题']) {
+        assert.equal(await memoryRepo.promptFor(user.username, question), '');
+    }
 });

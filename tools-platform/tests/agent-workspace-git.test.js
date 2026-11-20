@@ -39,3 +39,34 @@ test('new workspace creation never overwrites an existing directory',async()=>{
  fs.writeFileSync(path.join(directory,'keep.txt'),'keep');assert.equal((await call('POST','/create',{path:directory})).status,409);assert.equal(fs.readFileSync(path.join(directory,'keep.txt'),'utf8'),'keep');
  assert.equal((await call('POST','/create',{path:'relative/path'})).status,400);
 });
+test('worktree lifecycle supports commit, merge-back with cleanup, conflict abort, and safe removal',async()=>{
+ for(const url of ['/git/worktree/commit','/git/worktree/merge','/git/worktree/remove']){
+  assert.equal((await call('POST',url,{root:repo,message:'x'},{'x-role':'viewer'})).status,403);
+ }
+ assert.equal((await call('POST','/git/worktree/remove',{root:repo})).status,400);
+ const created=await call('POST','/git/worktree',{root:repo});
+ const wtRoot=created.body.root,wtBranch=created.body.git.branch;
+ fs.writeFileSync(path.join(wtRoot,'feature-work.txt'),'hello worktree\n');
+ const dirtyMerge=await call('POST','/git/worktree/merge',{root:wtRoot});
+ assert.equal(dirtyMerge.status,409);assert.equal(dirtyMerge.body.code,'WORKSPACE_DIRTY');
+ const committed=await call('POST','/git/worktree/commit',{root:wtRoot,message:'Add feature work'});
+ assert.equal(committed.status,200);assert.equal(committed.body.committed,true);
+ const wtEntry=committed.body.git.worktrees.find(w=>w.root===wtRoot);
+ assert.equal(wtEntry.ahead,1);assert.equal(wtEntry.dirty,false);
+ const merged=await call('POST','/git/worktree/merge',{root:wtRoot,mode:'merge',removeAfter:true});
+ assert.equal(merged.status,200);assert.equal(merged.body.merged,true);assert.equal(merged.body.removed,true);
+ assert.equal(fs.existsSync(wtRoot),false);
+ assert.equal(fs.readFileSync(path.join(repo,'feature-work.txt'),'utf8'),'hello worktree\n');
+ assert.equal(git('branch','--list',wtBranch),'');
+ // Conflict guard: conflicting merge aborts cleanly leaving main clean
+ const wt2=await call('POST','/git/worktree',{root:repo});
+ fs.writeFileSync(path.join(wt2.body.root,'README.md'),'wt2 edit\n');
+ await call('POST','/git/worktree/commit',{root:wt2.body.root,message:'wt2 readme'});
+ fs.writeFileSync(path.join(repo,'README.md'),'main edit\n');
+ git('add','README.md');git('-c','user.name=Fixture','-c','user.email=fixture@example.test','commit','--no-gpg-sign','-m','main readme');
+ const conflict=await call('POST','/git/worktree/merge',{root:wt2.body.root});
+ assert.equal(conflict.status,409);assert.equal(conflict.body.code,'WORKSPACE_MERGE_CONFLICT');
+ assert.equal(git('status','--porcelain'),'');
+ const removed=await call('POST','/git/worktree/remove',{root:repo,worktreeRoot:wt2.body.root,force:true,deleteBranch:true});
+ assert.equal(removed.status,200);assert.equal(removed.body.removed,true);assert.equal(fs.existsSync(wt2.body.root),false);
+});

@@ -18,7 +18,7 @@
             datacomTitle: '数通协议专家', datacomDescription: '协议图解 · 交互实验 · 视频讲解',
             badge: '全能智能体', newChat: '新对话', history: '历史', attach: '添加附件（Excel、CSV、Word、PPT、文本等，单个不超过 20MB）', attachLabel: '附件', attachUploading: '上传中…', attachFailed: '上传失败', attachRemove: '移除', attachTooMany: '一次最多 5 个附件', attachPending: '附件还在上传，请稍候', attachDrop: '松开即可添加附件', exportLog: '导出日志', exportLogEmpty: '当前对话还没有保存的记录，发送一条消息后再导出', exportLogDone: '对话日志已导出', exportLogFailed: '导出失败', exportLogBusy: '回复完成后再导出，日志才完整', exportMenu: '导出方式', exportHtml: '网页快照（HTML）', exportHtmlDesc: '最近 {days} 天、最多 {count} 条消息；与聊天界面一致，含表格、图片和文件，可直接转发', exportJson: '研发日志（JSON）', exportJsonDesc: '完整的工具过程与模型配置，便于研发定位问题', exportAgentJsonDesc: '当前 Agent 的可读取消息、附件信息与会话状态，最多 200 条', exportAgentHtmlDesc: '当前已加载的 Agent 对话快照，含图片、附件和静态预览，最多 200 条消息', exportHtmlWorking: '正在打包网页快照…', exportHtmlDone: '网页快照已导出', exportHtmlSkipped: '网页快照已导出，{count} 个大文件未打包',
             chatToday: '今天', chatYesterday: '昨天', chatWeek: '7 天内', chatMonth: '30 天内', chatOlder: '更早', chatEmpty: '还没有对话，发一条消息开始吧', chatNoMatch: '没有匹配的对话', chatLoadFailed: '历史对话加载失败', chatRetry: '重试', chatBusy: '正在回复中，请先停止当前回复再切换对话', chatBgDone: '「{title}」已回复完成', chatCount: '{count} 条', chatFolderTitle: '本地目录：{root}', chatRunning: '正在回答', chatDelete: '删除对话', chatDeleteConfirm: '删除「{title}」及其聊天记录？此操作无法撤销。', chatDeleteFailed: '删除失败，请稍后重试', chatDeleted: '对话已删除', chatLeaveShared: '退出并移除', chatLeaveSharedConfirm: '删除「{title}」将退出该共享对话并从你的列表移除，但不会影响发起者和其他成员的记录。确定退出并移除？', chatLeftShared: '已退出共享对话', chatDeleteSharedOwnerConfirm: '你是「{title}」的共享发起者。删除原对话后将同时停止共享，并从所有成员的共享列表中收回。确定删除？', chatDeletedSharedOwner: '已删除对话并停止共享',
-            activityThinking: '正在思考…', activityCompacting: '上下文快满了，正在把较早内容整理成摘要…', compactDone: '已自动压缩上下文：较早的 {count} 条记录整理成摘要（约 {before} → {after} tokens），完整过程仍保留在会话档案中', compactFailed: '自动压缩没有成功（{error}），改为移出较早的轮次', thinkLabel: '思考过程', thinkDone: '已思考', thinkPhase_ponder: '构思', thinkPhase_plan: '规划', thinkPhase_search: '检索', thinkPhase_analyze: '分析', thinkPhase_calc: '计算', thinkPhase_verify: '核对', thinkPhase_code: '推敲代码', thinkPhase_conclude: '归纳', activityTool: '正在{tool}…', activityOrganizing: '正在整理结果…', activityResponding: '正在生成回复…', activityApproval: '等待你的批准…',
+            activityThinking: '正在思考…', activityCompacting: '上下文快满了，正在把较早内容整理成摘要…', autoCompactDone: '已自动压缩上下文：较早的 {count} 条记录整理成摘要（约 {before} → {after} tokens），完整过程仍保留在会话档案中', autoCompactFailed: '自动压缩没有成功（{error}），改为移出较早的轮次', thinkLabel: '思考过程', thinkDone: '已思考', thinkPhase_ponder: '构思', thinkPhase_plan: '规划', thinkPhase_search: '检索', thinkPhase_analyze: '分析', thinkPhase_calc: '计算', thinkPhase_verify: '核对', thinkPhase_code: '推敲代码', thinkPhase_conclude: '归纳', activityTool: '正在{tool}…', activityOrganizing: '正在整理结果…', activityResponding: '正在生成回复…', activityApproval: '等待你的批准…',
             resumeDismiss: '关闭此提示', resumeTitle: '继续上次对话', resumeMeta: '{time} · {count} 条消息', resumeAction: '继续对话', resumeBanner: '已恢复上次对话 · {time}', resumeDivider: '以上是历史记录，继续输入即可接着聊', resumeFailed: '上次对话加载失败，请稍后再试', toolOutput: '查看输出', toolArtifact: '完整结果（{lines} 行）', toolInterrupted: '未完成', sessionTitle: '历史会话', sessionSearch: '搜索会话内容…', sessionEmpty: '还没有历史会话', sessionNoMatch: '没有匹配的会话', sessionLoading: '正在加载…', sessionMeta: '{time} · {count} 条消息', sessionArchived: '已归档', sessionCurrent: '当前', sessionHint: '↑↓ 选择 · Enter 打开 · Esc 关闭', sessionLoadFailed: '历史会话加载失败，请稍后再试', slashSession: '查看并恢复历史会话', slashNew: '开始新对话', slashHint: '↑↓ 选择 · Enter 执行 · Tab 补全', recallTitle: '最近的问题', recallHint: '↑↓ 选择 · Enter 填入 · Esc 关闭', resumeDirMissing: '上次的目录「{name}」无法打开，对话已恢复，请重新选择目录', externalTag: '外部', commandTag: '命令', commandChangeHint: '由智能体执行的命令产生的改动，可撤销', riskTitle: '此命令可能访问工作目录之外或敏感文件，当前审批模式需要你确认', revertConflictTitle: '文件已被再次修改', revertConflictMessage: '{path} 在这次改动之后又被修改过（手动或其他程序）。撤销会把文件恢复到改动前，后续修改将一起丢失。', revertConflictConfirm: '仍然撤销', binaryChange: '二进制', binaryChangeHint: '二进制文件（如数据库、图片）内容有变化，没有可比较的文本行', externalChange: '工作区里的其他改动（手动或其他程序修改），可查看差异，不能在这里撤销', backToTools: '浏览工具', browseTools: '浏览全部工具',
             tagline: '我是 Dragon Claw，你的全能智能体。问我任何问题，或者让我带你用好平台里的工具。',
             hint: 'Enter 发送 · Shift + Enter 换行', placeholder: '有什么我可以帮你？',
@@ -91,7 +91,7 @@
             datacomTitle: 'Datacom Protocol Expert', datacomDescription: 'Visual guides · Interactive labs · Videos',
             badge: 'All-round agent', newChat: 'New chat', history: 'History', attach: 'Attach files (Excel, CSV, Word, PowerPoint, text…, up to 20 MB each)', attachLabel: 'Attachments', attachUploading: 'Uploading…', attachFailed: 'Upload failed', attachRemove: 'Remove', attachTooMany: 'Up to 5 attachments at a time', attachPending: 'Attachments are still uploading', attachDrop: 'Drop to attach', exportLog: 'Export log', exportLogEmpty: 'Nothing saved in this chat yet. Send a message first.', exportLogDone: 'Chat log exported', exportLogFailed: 'Export failed', exportLogBusy: 'Export after the reply finishes so the log is complete', exportMenu: 'Export as', exportHtml: 'Web page (HTML)', exportHtmlDesc: 'Last {days} days, up to {count} messages. Looks like this chat, with tables, images and files', exportJson: 'Debug log (JSON)', exportJsonDesc: 'Full tool steps and model settings for troubleshooting', exportAgentJsonDesc: 'Available agent messages, attachment metadata and session status, up to 200 messages', exportAgentHtmlDesc: 'Snapshot of the loaded agent conversation, with images, files and static previews, up to 200 messages', exportHtmlWorking: 'Packing the web page…', exportHtmlDone: 'Web page exported', exportHtmlSkipped: 'Web page exported; {count} large file(s) left out',
             chatToday: 'Today', chatYesterday: 'Yesterday', chatWeek: 'Previous 7 days', chatMonth: 'Previous 30 days', chatOlder: 'Older', chatEmpty: 'No chats yet. Send a message to start.', chatNoMatch: 'No matching chats', chatLoadFailed: 'Could not load chats', chatRetry: 'Retry', chatBusy: 'A reply is still being generated. Stop it before switching chats.', chatBgDone: '“{title}” has finished replying', chatCount: '{count}', chatFolderTitle: 'Local folder: {root}', chatRunning: 'Working', chatDelete: 'Delete chat', chatDeleteConfirm: 'Delete “{title}” and its messages? This cannot be undone.', chatDeleteFailed: 'Could not delete this chat. Try again later.', chatDeleted: 'Chat deleted', chatLeaveShared: 'Leave & remove', chatLeaveSharedConfirm: 'Deleting “{title}” will leave this shared conversation and remove it from your list without affecting the owner or other members. Continue?', chatLeftShared: 'Left the shared conversation', chatDeleteSharedOwnerConfirm: 'You own the shared conversation “{title}”. Deleting it will also stop sharing and revoke it from all members’ lists. Delete anyway?', chatDeletedSharedOwner: 'Chat deleted and sharing stopped',
-            activityThinking: 'Thinking…', activityCompacting: 'Context is nearly full; summarizing earlier steps…', compactDone: 'Context compacted automatically: {count} earlier entries were summarized (about {before} → {after} tokens). The full record stays in the session archive.', compactFailed: 'Automatic compaction failed ({error}); dropping the earliest turns instead', thinkLabel: 'Thinking', thinkDone: 'Thought for', thinkPhase_ponder: 'Pondering', thinkPhase_plan: 'Planning', thinkPhase_search: 'Searching', thinkPhase_analyze: 'Analyzing', thinkPhase_calc: 'Calculating', thinkPhase_verify: 'Verifying', thinkPhase_code: 'Coding', thinkPhase_conclude: 'Concluding', activityTool: 'Working: {tool}…', activityOrganizing: 'Putting results together…', activityResponding: 'Composing a reply…', activityApproval: 'Waiting for your approval…',
+            activityThinking: 'Thinking…', activityCompacting: 'Context is nearly full; summarizing earlier steps…', autoCompactDone: 'Context compacted automatically: {count} earlier entries were summarized (about {before} → {after} tokens). The full record stays in the session archive.', autoCompactFailed: 'Automatic compaction failed ({error}); dropping the earliest turns instead', thinkLabel: 'Thinking', thinkDone: 'Thought for', thinkPhase_ponder: 'Pondering', thinkPhase_plan: 'Planning', thinkPhase_search: 'Searching', thinkPhase_analyze: 'Analyzing', thinkPhase_calc: 'Calculating', thinkPhase_verify: 'Verifying', thinkPhase_code: 'Coding', thinkPhase_conclude: 'Concluding', activityTool: 'Working: {tool}…', activityOrganizing: 'Putting results together…', activityResponding: 'Composing a reply…', activityApproval: 'Waiting for your approval…',
             resumeDismiss: 'Dismiss this reminder', resumeTitle: 'Continue last chat', resumeMeta: '{time} · {count} messages', resumeAction: 'Continue', resumeBanner: 'Resumed your last chat · {time}', resumeDivider: 'Earlier messages above. Keep typing to continue.', resumeFailed: 'Could not load the last chat. Try again later.', toolOutput: 'Show output', toolArtifact: 'Full result ({lines} lines)', toolInterrupted: 'Not finished', sessionTitle: 'Chat history', sessionSearch: 'Search conversations…', sessionEmpty: 'No previous chats yet', sessionNoMatch: 'No matching chats', sessionLoading: 'Loading…', sessionMeta: '{time} · {count} messages', sessionArchived: 'Archived', sessionCurrent: 'Current', sessionHint: '↑↓ to move · Enter to open · Esc to close', sessionLoadFailed: 'Could not load chat history. Try again later.', slashSession: 'Browse and resume previous chats', slashNew: 'Start a new chat', slashHint: '↑↓ to choose · Enter to run · Tab to complete', recallTitle: 'Recent questions', recallHint: '↑↓ to choose · Enter to fill in · Esc to close', resumeDirMissing: 'The previous folder "{name}" could not be opened. The chat is restored; choose a folder again.', externalTag: 'External', commandTag: 'Command', commandChangeHint: 'Changed by a command the agent ran; can be undone', riskTitle: 'This command may reach outside the folder or touch sensitive files; your current approval mode requires confirmation', revertConflictTitle: 'File changed again', revertConflictMessage: '{path} was modified again after this change (by hand or another program). Undoing restores the earlier version and discards those later edits.', revertConflictConfirm: 'Undo anyway', binaryChange: 'Binary', binaryChangeHint: 'A binary file (such as a database or image) changed; there are no text lines to compare', externalChange: 'Other changes in the working tree (manual or by other programs). You can view the diff but not undo it here.', backToTools: 'Browse tools', browseTools: 'Browse all tools',
             tagline: 'I’m Dragon Claw, your all-round agent. Ask me anything, or let me show you around the tools on this platform.',
             hint: 'Enter to send · Shift + Enter for a new line', placeholder: 'How can I help you?',
@@ -927,8 +927,8 @@
                     const note = document.createElement('div');
                     note.className = 'dc-msg-note dc-compact-note';
                     note.textContent = event.phase === 'done'
-                        ? tx('compactDone', { count: event.summarized || 0, before: k(event.beforeTokens), after: k(event.afterTokens) })
-                        : tx('compactFailed', { error: event.error || '' });
+                        ? tx('autoCompactDone', { count: event.summarized || 0, before: k(event.beforeTokens), after: k(event.afterTokens) })
+                        : tx('autoCompactFailed', { error: event.error || '' });
                     main.insertBefore(note, row);
                     if (running.size || approvals.size) refresh();
                     else show('activityThinking');
@@ -1350,6 +1350,7 @@
         const readyAttachments = !external.active && state.attachments.some(item => item.status === 'ready');
         el.send.disabled = (state.restoring && !isSideCommand(el.input.value)) || (!generating && !el.input.value.trim() && !readyAttachments)
             || (external.active && (!external.composer?.canSend || external.sending));
+        window.dispatchEvent(new CustomEvent('dragon-claw:status-change', { detail: { generating: Boolean(state.controller), sessionId: state.sessionId, external: external.active } }));
     }
 
     function applyPlaceholder() {
@@ -4242,7 +4243,47 @@
         });
         window.addEventListener('home:resume-agent-discussion',event=>{if(!state.controller&&!state.restoring&&event.detail?.sessionId===state.sessionId)sendDesktopDiscussion('',event.detail);});
         watchSchedules();
-        window.DragonClaw = { refreshModelPicker: renderModelPicker, startWithSkill, showTourLanding, startTourDemo, enterExternal, exitExternal, newChat, openSchedules: openSchedulePanel, openChat: openChatFromList, appendSharedMessages, openLatest:openLatestChat, currentSessionId:()=>state.sessionId, lang, isExternal: () => external.active };
+        function composePrompt(text, { send = false, append = true } = {}) {
+            const snippet = String(text || '').trim();
+            if (!snippet) return false;
+            window.HomeMode?.set?.('chat');
+            if (el.input.disabled) return false;
+            const prev = el.input.value;
+            el.input.value = append && prev.trim() ? `${prev.trimEnd()}\n\n${snippet}` : snippet;
+            el.input.dispatchEvent(new Event('input', { bubbles: true }));
+            autoResize();
+            updateSendButton();
+            el.input.focus({ preventScroll: true });
+            if (send && !el.send.disabled) {
+                if (typeof el.form.requestSubmit === 'function') el.form.requestSubmit();
+                else el.send.click();
+            }
+            return true;
+        }
+        async function attachPickedElement(payload) {
+            if (!payload || typeof payload !== 'object') return false;
+            const en = lang() === 'en-US';
+            const size = payload.rect ? `${Math.round(payload.rect.width)}×${Math.round(payload.rect.height)}px` : '';
+            const stylePairs = payload.styles ? Object.entries(payload.styles).filter(([, v]) => v && v !== 'none' && v !== '0px' && v !== 'normal').slice(0, 8).map(([k, v]) => `${k}: ${v}`).join('; ') : '';
+            const lines = [
+                en ? '[Picked Page Element]' : '[拾取的页面元素]',
+                payload.pageUrl ? `${en ? 'Page' : '页面'}: ${payload.pageUrl}` : '',
+                payload.selector ? `${en ? 'Selector' : '选择器'}: \`${payload.selector}\`${size ? ` (${size})` : ''}` : '',
+                payload.text ? `${en ? 'Text' : '文本'}: ${String(payload.text).slice(0, 160)}` : '',
+                stylePairs ? `${en ? 'Computed Styles' : '计算样式'}: ${stylePairs}` : '',
+                payload.html ? `\`\`\`html\n${String(payload.html).slice(0, 800)}\n\`\`\`` : ''
+            ].filter(Boolean).join('\n');
+            if (payload.screenshotDataUrl && !external.active && typeof File === 'function') {
+                try {
+                    const res = await fetch(payload.screenshotDataUrl);
+                    const blob = await res.blob();
+                    const file = new File([blob], `picked-element-${Date.now()}.png`, { type: 'image/png' });
+                    await addAttachments([file]);
+                } catch { /* 截图附加失败仍保留结构化 DOM/CSS 文本 */ }
+            }
+            return composePrompt(lines, { send: false, append: true });
+        }
+        window.DragonClaw = { refreshModelPicker: renderModelPicker, startWithSkill, showTourLanding, startTourDemo, enterExternal, exitExternal, newChat, openSchedules: openSchedulePanel, openChat: openChatFromList, appendSharedMessages, openLatest:openLatestChat, currentSessionId:()=>state.sessionId, lang, isExternal: () => external.active, composePrompt, attachPickedElement, getRunStatus: () => ({ generating: Boolean(state.controller), sessionId: state.sessionId, external: external.active }) };
         // 其他页面或新标签打开的 /?skill=<id>：直接进入该技能的新对话
         const linkedSkill = new URLSearchParams(location.search).get('skill');
         if (linkedSkill) {

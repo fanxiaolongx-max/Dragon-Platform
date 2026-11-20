@@ -667,7 +667,9 @@ object DragonClawHelpers {
                 return if (i == 0) incomingTail else existing.subList(0, i) + incomingTail
             }
         }
-        return if (existing.size <= incomingTail.size) incomingTail else existing
+        // When the server tail has shifted past existing (or anchor didn't match), always prefer the fresh incomingTail
+        // rather than discarding newer messages when existing.size > incomingTail.size.
+        return incomingTail
     }
 
     private fun sameDesktopAnchorItem(a: DesktopAgentMessageItem, b: DesktopAgentMessageItem): Boolean {

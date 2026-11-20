@@ -767,7 +767,7 @@ async function updateSessionSummary(sessionId, { summary, summaryUntilMessageId 
 
 async function getRecentMessagesForContext(sessionId, limit = RECENT_CONTEXT_MESSAGES) {
     await ensureReady();
-    const safeLimit = Math.max(2, Math.min(Number(limit) || RECENT_CONTEXT_MESSAGES, 20));
+    const safeLimit = Math.max(2, Math.min(Number(limit) || RECENT_CONTEXT_MESSAGES, 64));
     const rows = await all(
         `SELECT id, role, content, events, created_at
          FROM ai_chat_messages
