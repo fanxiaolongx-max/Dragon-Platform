@@ -330,7 +330,7 @@ async function syncAutoTitleOnUserMessage(sessionId, owner, currentQuestion) {
     }
 }
 
-async function addMessage({ sessionId, pagePath, pageTitle, role, content, tokens = 0, cost = 0, events = null, owner = '', inputTokens = 0, outputTokens = 0, modelName = '' }) {
+async function addMessage({ messageId, sessionId, pagePath, pageTitle, role, content, tokens = 0, cost = 0, events = null, owner = '', inputTokens = 0, outputTokens = 0, modelName = '' }) {
     await ensureReady();
     const normalizedPath = normalizePagePath(pagePath);
     const cleanTitle = String(pageTitle || '').slice(0, 200);
@@ -340,7 +340,7 @@ async function addMessage({ sessionId, pagePath, pageTitle, role, content, token
         `INSERT INTO ai_chat_messages (id, session_id, page_path, page_title, role, content, tokens, cost, events, input_tokens, output_tokens, model_name)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-            buildId('msg'),
+            messageId || buildId('msg'),
             finalSessionId,
             normalizedPath,
             cleanTitle,

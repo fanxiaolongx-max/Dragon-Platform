@@ -673,6 +673,7 @@ async function handleChatRequest(req, res) {
     let streamedText = '';
     let historyContext = null;
     let historySaved = false;
+    const memoryMessageId = 'msg_' + require('crypto').randomUUID();
     let agentSession = null;
     let agentRunId = null;
     let sensitiveValues = [];
@@ -705,7 +706,7 @@ async function handleChatRequest(req, res) {
                     content: `${streamedText.trim()}${streamedText.trim() ? '\n\n' : ''}> ${redactText(note, { secrets: sensitiveValues })}`, events: recordedEvents, final: true });
                 return;
             }
-            await aiChatRepo.addMessage({ ...historyContext, role: 'user', content: historyContext.question, events: channelUserEvents });
+            await aiChatRepo.addMessage({ ...historyContext, messageId: memoryMessageId, role: 'user', content: historyContext.question, events: channelUserEvents });
             await aiChatRepo.addMessage({ ...historyContext, role: 'model', content: `${streamedText.trim()}${streamedText.trim() ? '\n\n' : ''}> ${redactText(note, { secrets: sensitiveValues })}`, events: recordedEvents });
         } catch (saveErr) {
             console.warn('[AI] failed to persist interrupted turn:', saveErr.message || saveErr);
@@ -1462,6 +1463,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
             // 交互式命令只给浏览器里正在看的对话（定时任务、频道桥接是内部构造的请求，没有 socket）
             interactiveTerminal: Boolean(req.socket) && !channelTurn && streamRequested,
             userEvents: channelUserEvents,
+            sharedMemoryTurn: isSharedConversation || Boolean(channelTurn),
             onRunStarted: runId => { agentRunId = runId; },
             sensitiveValues,
             session: agentSession,
@@ -1736,7 +1738,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 vision,
                 client: aiClient, systemInstruction, messages: effectiveMessages,
                 // 大结果存成本人的文件（按租户::账号隔离），模型可按行读取
-                ctx: { readOnly: false, sensitiveValues, user: req.user, owner: agentRunManager.ownerKey(req.user, getTenantId()), chatSessionId: savedSessionId || '', username: req.user?.username || '', uploads: uploadFiles },
+                ctx: { readOnly: false, sensitiveValues, memorySource: persist !== false && savedSessionId ? {sessionId:savedSessionId, messageId:memoryMessageId} : null, sharedMemoryTurn:isSharedConversation, user: req.user, owner: agentRunManager.ownerKey(req.user, getTenantId()), chatSessionId: savedSessionId || '', username: req.user?.username || '', uploads: uploadFiles },
                 signal: providerAbortController?.signal,
                 maxOutputTokens: aiSettings.maxOutputTokens, temperature: aiSettings.temperature, model: aiSettings.model,
                 onEvent: writeStreamEvent,
@@ -1878,6 +1880,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                         pageTitle,
                         owner: req.user?.username || '',
                         role: 'user',
+                        messageId: memoryMessageId,
                         content: persistedQuestion,
                         events: channelUserEvents
                     });

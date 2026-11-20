@@ -1021,7 +1021,7 @@ function beginRun(session, write, signal) {
     return run;
 }
 
-async function runAgentTurn({ session, user, client, systemInstruction, historyMessages, write, signal, maxOutputTokens, temperature, model, sensitiveValues = [], chatSessionId = '', onRunStarted, skillCatalog, skillLanguage = 'zh', skillPrompt = '', skillIds = null, vision = null, extraToolsets = [], userEvents = [], interactiveTerminal = false, sharedCapabilities = null }) {
+async function runAgentTurn({ session, user, client, systemInstruction, historyMessages, write, signal, maxOutputTokens, temperature, model, sensitiveValues = [], chatSessionId = '', onRunStarted, skillCatalog, skillLanguage = 'zh', skillPrompt = '', skillIds = null, vision = null, extraToolsets = [], userEvents = [], sharedMemoryTurn = false, interactiveTerminal = false, sharedCapabilities = null }) {
     const emit = write;
     write = event => emit(redactValue(event, { secrets: sensitiveValues }));
     const run = beginRun(session, write, signal);
@@ -1057,12 +1057,16 @@ async function runAgentTurn({ session, user, client, systemInstruction, historyM
         sharedCapabilities,
         onSkillGrantRequired: skill => write({ type: 'skill_grant_prompt', skill }) });
     if (extraToolsets.length) await registry.runMeta({ name: 'tool_search', args: { select: extraToolsets.map(set => set.id) } });
+    if (require('./agent-memory-repository').memoryRequest(currentUser?.content)) {
+        await registry.runMeta({ name: 'tool_search', args: { select: ['memory'] } });
+    }
     const skillPrompts = registry.startPrompt();
     const fullSystem = redactText(`${systemInstruction}\n${addendum}${skillPrompts ? `\n${skillPrompts}` : ''}${registry.catalogPrompt()}`, { secrets: sensitiveValues });
     const opsCtx = { actor: session.username, createdRunIds: new Set() };
     const toolCtx = { root: session.root, changeLog: session.changeLog, signal, sensitiveValues, username: session.username, readOnly: session.readOnly,
         permissionMode: session.permissionMode, confined: Boolean(session.confined), tenantId: session.tenantId,
-        fullResults: true, artifactOwner: session.owner,
+        fullResults: true, artifactOwner: session.owner, sharedMemoryTurn, chatSessionId,
+        memorySource: chatSessionId ? {sessionId:chatSessionId, messageId:`agent_${run.id}_user`} : null,
         currentUserMessage: currentUser?.content || '', userMessages: historyMessages.filter(item => item.role === 'user').map(item => item.content),
         onProcess: child => run.processes.add(child) };
     session.changeLog.sensitiveValues = sensitiveValues;

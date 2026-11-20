@@ -1,12 +1,10 @@
 {
   "zh": [
-    "升级智能体主题上下文与长期记忆管理：支持显式换题隔离、切回原主题与模糊指代澄清，保留用户口径约束原话，新增历史原文/更正取证（含大产物按偏移定位）及按主题召回的长期记忆。",
-    "工作区 Git 与多智能体讨论增强：工作区面板支持一键提交、将独立 Worktree 合并/Squash 回主分支与清理移除，并展示领先/落后计数与改动统计；多智能体群聊支持并行策略与并行 Worktree 隔离。",
-    "新增全局智能体状态雷达（聚合待审批、生成中、桌面 Agent 等待选择与后台终端状态），侧边浏览器新增页面元素拾取功能，并默认停用桌面宠物后台轮询以减少空闲资源占用。"
+    "增强智能体长期记忆溯源与并发保护：新增记忆来源与版本追溯（`memory source`，支持在个人对话回查出处并隔离共享会话），支持“仅限本次/不记入长期记忆”临时例外拦截，以及防重复/防覆盖并发校验。",
+    "完善个人记忆交互引导与工具上下文注入：向智能体透传当前消息来源与共享状态，涉及记忆查询、修改或遗忘时优先使用 `memory` 工具并如实反馈写入结果。"
   ],
   "en": [
-    "Upgraded agent topic context and long-term memory: isolated topic switching and return recovery, vague-reference disambiguation, verbatim user scope retention, original/revised history evidence lookup (including byte-offset artifact recall), and topic-scoped memory selection.",
-    "Enhanced workspace Git workflows and multi-agent discussions: added one-click commit, worktree merge/squash into the main branch, safe worktree removal, ahead/behind and diff stats in the workspace panel, plus parallel discussion strategy with isolated worktrees.",
-    "Added the global DragonAgentRadar status capsule (aggregating pending approvals, active generations, desktop agent choices, and background terminals), element picking in the sidebar browser, and disabled idle desktop pet polling by default."
+    "Enhanced agent long-term memory provenance and concurrency safety: added versioned source tracing (`memory source` in personal chats, isolated from shared sessions), temporary-only exception guards, and atomic insert/update checks.",
+    "Improved memory tool guidance and turn context wiring by passing current message source metadata and shared-turn flags so memory lookups and updates rely directly on `memory` tool results."
   ]
 }

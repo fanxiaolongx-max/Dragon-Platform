@@ -372,11 +372,11 @@ const DEFINITIONS = [
     {
         name: 'memory',
         kind: 'write',
-        description: '长期记忆：保存用户明确要求记住、或反复用到的偏好与约定（跨对话有效，仅注入当前任务相关的记忆）。action=add 新增、update 修改、delete 删除（按 id）、list 列出。不要保存密码、密钥等凭据，也不要保存一次性的任务细节。',
+        description: '长期记忆：保存用户明确要求记住、或反复用到的偏好与约定（跨对话有效，仅注入当前任务相关的记忆）。永久更正已有约定用 update 原编号，本轮例外不要写入。用户问依据时用 source(id) 查看版本与出处。action=add 新增、update 修改、delete 删除（按 id）、list 列出。不要保存密码、密钥等凭据，也不要保存一次性的任务细节。',
         parameters: {
             type: 'object',
             properties: {
-                action: { type: 'string', enum: ['add', 'update', 'delete', 'list'] },
+                action: { type: 'string', enum: ['add', 'update', 'delete', 'list', 'source'] },
                 id: { type: 'integer', description: 'update / delete 时的记忆编号' },
                 topic: { type: 'string', description: '新增时填用户原话中的适用主题名，例如「松墨样刊」或「SLA 月报」。标题格式等具体要求写在 content；明确跨任务通用填 *。本次例外仅保留在对话中，不写入长期记忆。更新时省略表示沿用。' },
                 content: { type: 'string', description: '记忆内容，一句话，最多 500 字' }
@@ -399,7 +399,7 @@ function definitions({ readOnly = false } = {}) {
 function kindOf(toolName, args = null) {
     // 分类工具的删除动作按删除类审批，新建/改名按普通写入
     if (toolName === 'manage_uiv_category' && args?.action === 'delete') return 'destructive';
-    if (toolName === 'memory' && args?.action === 'list') return 'read';
+    if (toolName === 'memory' && ['list','source'].includes(args?.action)) return 'read';
     return KIND_BY_NAME.get(toolName) || null;
 }
 

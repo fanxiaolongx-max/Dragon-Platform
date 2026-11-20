@@ -308,3 +308,28 @@ test('a named publication retains its title preference across fresh prompts', as
         assert.equal(await memoryRepo.promptFor(user.username, question), '');
     }
 });
+
+test('personal memory revisions use owned live user turns and forget removes all versions', async () => {
+    const chat = require('../backend/models/ai-chat-repository');
+    const username = 'source-owner';
+    const sessionId = await chat.addMessage({owner:username,role:'user',messageId:'src-first',content:'以后用 ME-31'});
+    const context = {username, memorySource:{sessionId,messageId:'src-first'}};
+    await Promise.all(['ME-31','附日期'].map(content => memoryRepo.execute(context, {action:'add',topic:'试刊',content})));
+    const rows = await memoryRepo.list(username);
+    assert.equal(rows.length, 2);
+    const {id} = rows.find(r=>r.content === 'ME-31');
+    await memoryRepo.execute({...context,currentUserMessage:'仅本次不加'}, {action:'update',id,content:'不加'});
+    await chat.addMessage({owner:username,sessionId,role:'user',messageId:'src-next',content:'永久改成 ME-32'});
+    await memoryRepo.execute({...context,memorySource:{sessionId,messageId:'src-next'}}, {action:'update',id,content:'ME-32'});
+    const history = async (extra = {}) => (await memoryRepo.execute({...context,...extra}, {action:'source',id})).content;
+    assert.equal(JSON.parse(await history()).recordedChanges, 1);
+    assert.deepEqual(JSON.parse(await history()).versions.map(v=>[v.version,v.current,v.source.messageId]), [[1,false,'src-first'],[2,true,'src-next']]);
+    assert.doesNotMatch(await history({sharedMemoryTurn:true}), /ME-3/);
+    await assert.rejects(history({username:'another-owner'}), /没有编号/);
+    assert.doesNotMatch(await memoryRepo.promptFor(username,'试刊'), /ME-31/);
+    await chat.deleteSession(sessionId,{owner:username});
+    assert.match(await history(), /来源已删除/);
+    await memoryRepo.execute(context,{action:'delete',id});
+    await assert.rejects(history(), /没有编号/);
+    assert.doesNotMatch(await memoryRepo.promptFor(username,'试刊'), /ME-3/);
+});

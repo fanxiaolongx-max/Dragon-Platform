@@ -49,6 +49,7 @@ async function runTurn({ client, systemInstruction, messages, ctx, signal, onDel
     const sensitiveValues = ctx.sensitiveValues || [];
     // 普通对话不接受客户端提供的文件根目录或其他执行上下文。
     const toolCtx = { readOnly: false, sensitiveValues, signal, fullResults: Boolean(ctx.owner), username: ctx.username || '',
+        memorySource: ctx.memorySource, sharedMemoryTurn: ctx.sharedMemoryTurn, chatSessionId: ctx.chatSessionId,
         currentUserMessage: messages.at(-1)?.content || '', userMessages: messages.filter(item => item.role === 'user').map(item => item.content) };
     const safe = value => redactValue(value, { secrets: sensitiveValues });
     let scriptNudged = false;
