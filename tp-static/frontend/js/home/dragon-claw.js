@@ -17,7 +17,7 @@
             scheduleNew: '新建定时任务', pushTo: '推送到', pushAdd: '+ 选择 WeLink/微信 的人或群（可选）', pushAddMore: '+ 添加', pushRemove: '移除', pushTitle: '推送到', pushSearch: '搜索名称或账号，支持拼音…', pushGroup: '群', pushUser: '联系人', pushSelected: '已选 {count} 个', pushHint: '执行完成后把结果推送给所选对象', pushDone: '完成', pushEmpty: '还没有可推送的对象（联系人需先与助理单聊过，群需在群里用过助理）', pushNoMatch: '没有匹配的对象', pushNoChannel: '还没有对接 WeLink 或微信', pushLimit: '最多选择 10 个对象', scheduleCreatedPush: '，完成后推送给 {names}', schedulePushTo: '推送给 {names}', schedulePushResult: '上次推送：成功 {sent}，失败 {failed}',
             datacomTitle: '数通协议专家', datacomDescription: '协议图解 · 交互实验 · 视频讲解',
             badge: '全能智能体', newChat: '新对话', history: '历史', attach: '添加附件（Excel、CSV、Word、PPT、文本等，单个不超过 20MB）', attachLabel: '附件', attachUploading: '上传中…', attachFailed: '上传失败', attachRemove: '移除', attachTooMany: '一次最多 5 个附件', attachPending: '附件还在上传，请稍候', attachDrop: '松开即可添加附件', exportLog: '导出日志', exportLogEmpty: '当前对话还没有保存的记录，发送一条消息后再导出', exportLogDone: '对话日志已导出', exportLogFailed: '导出失败', exportLogBusy: '回复完成后再导出，日志才完整', exportMenu: '导出方式', exportHtml: '网页快照（HTML）', exportHtmlDesc: '最近 {days} 天、最多 {count} 条消息；与聊天界面一致，含表格、图片和文件，可直接转发', exportJson: '研发日志（JSON）', exportJsonDesc: '完整的工具过程与模型配置，便于研发定位问题', exportAgentJsonDesc: '当前 Agent 的可读取消息、附件信息与会话状态，最多 200 条', exportAgentHtmlDesc: '当前已加载的 Agent 对话快照，含图片、附件和静态预览，最多 200 条消息', exportHtmlWorking: '正在打包网页快照…', exportHtmlDone: '网页快照已导出', exportHtmlSkipped: '网页快照已导出，{count} 个大文件未打包',
-            chatToday: '今天', chatYesterday: '昨天', chatWeek: '7 天内', chatMonth: '30 天内', chatOlder: '更早', chatEmpty: '还没有对话，发一条消息开始吧', chatNoMatch: '没有匹配的对话', chatLoadFailed: '历史对话加载失败', chatRetry: '重试', chatBusy: '正在回复中，请先停止当前回复再切换对话', chatBgDone: '「{title}」已回复完成', chatCount: '{count} 条', chatFolderTitle: '本地目录：{root}', chatRunning: '正在回答', chatDelete: '删除对话', chatDeleteConfirm: '删除「{title}」及其聊天记录？此操作无法撤销。', chatDeleteFailed: '删除失败，请稍后重试', chatDeleted: '对话已删除',
+            chatToday: '今天', chatYesterday: '昨天', chatWeek: '7 天内', chatMonth: '30 天内', chatOlder: '更早', chatEmpty: '还没有对话，发一条消息开始吧', chatNoMatch: '没有匹配的对话', chatLoadFailed: '历史对话加载失败', chatRetry: '重试', chatBusy: '正在回复中，请先停止当前回复再切换对话', chatBgDone: '「{title}」已回复完成', chatCount: '{count} 条', chatFolderTitle: '本地目录：{root}', chatRunning: '正在回答', chatDelete: '删除对话', chatDeleteConfirm: '删除「{title}」及其聊天记录？此操作无法撤销。', chatDeleteFailed: '删除失败，请稍后重试', chatDeleted: '对话已删除', chatLeaveShared: '退出并移除', chatLeaveSharedConfirm: '删除「{title}」将退出该共享对话并从你的列表移除，但不会影响发起者和其他成员的记录。确定退出并移除？', chatLeftShared: '已退出共享对话', chatDeleteSharedOwnerConfirm: '你是「{title}」的共享发起者。删除原对话后将同时停止共享，并从所有成员的共享列表中收回。确定删除？', chatDeletedSharedOwner: '已删除对话并停止共享',
             activityThinking: '正在思考…', activityCompacting: '上下文快满了，正在把较早内容整理成摘要…', compactDone: '已自动压缩上下文：较早的 {count} 条记录整理成摘要（约 {before} → {after} tokens），完整过程仍保留在会话档案中', compactFailed: '自动压缩没有成功（{error}），改为移出较早的轮次', thinkLabel: '思考过程', thinkDone: '已思考', thinkPhase_ponder: '构思', thinkPhase_plan: '规划', thinkPhase_search: '检索', thinkPhase_analyze: '分析', thinkPhase_calc: '计算', thinkPhase_verify: '核对', thinkPhase_code: '推敲代码', thinkPhase_conclude: '归纳', activityTool: '正在{tool}…', activityOrganizing: '正在整理结果…', activityResponding: '正在生成回复…', activityApproval: '等待你的批准…',
             resumeDismiss: '关闭此提示', resumeTitle: '继续上次对话', resumeMeta: '{time} · {count} 条消息', resumeAction: '继续对话', resumeBanner: '已恢复上次对话 · {time}', resumeDivider: '以上是历史记录，继续输入即可接着聊', resumeFailed: '上次对话加载失败，请稍后再试', toolOutput: '查看输出', toolArtifact: '完整结果（{lines} 行）', toolInterrupted: '未完成', sessionTitle: '历史会话', sessionSearch: '搜索会话内容…', sessionEmpty: '还没有历史会话', sessionNoMatch: '没有匹配的会话', sessionLoading: '正在加载…', sessionMeta: '{time} · {count} 条消息', sessionArchived: '已归档', sessionCurrent: '当前', sessionHint: '↑↓ 选择 · Enter 打开 · Esc 关闭', sessionLoadFailed: '历史会话加载失败，请稍后再试', slashSession: '查看并恢复历史会话', slashNew: '开始新对话', slashHint: '↑↓ 选择 · Enter 执行 · Tab 补全', recallTitle: '最近的问题', recallHint: '↑↓ 选择 · Enter 填入 · Esc 关闭', resumeDirMissing: '上次的目录「{name}」无法打开，对话已恢复，请重新选择目录', externalTag: '外部', commandTag: '命令', commandChangeHint: '由智能体执行的命令产生的改动，可撤销', riskTitle: '此命令可能访问工作目录之外或敏感文件，当前审批模式需要你确认', revertConflictTitle: '文件已被再次修改', revertConflictMessage: '{path} 在这次改动之后又被修改过（手动或其他程序）。撤销会把文件恢复到改动前，后续修改将一起丢失。', revertConflictConfirm: '仍然撤销', binaryChange: '二进制', binaryChangeHint: '二进制文件（如数据库、图片）内容有变化，没有可比较的文本行', externalChange: '工作区里的其他改动（手动或其他程序修改），可查看差异，不能在这里撤销', backToTools: '浏览工具', browseTools: '浏览全部工具',
             tagline: '我是 Dragon Claw，你的全能智能体。问我任何问题，或者让我带你用好平台里的工具。',
@@ -43,7 +43,7 @@
             useLastDir: '继续使用 {name}', changeDir: '更换', clearDir: '不使用工作区',
             pickerHelp: '输入路径即可联想子目录；清空输入框查看家目录与根目录。↑↓ 选择，Tab 补全，Enter 确认。',
             typedPathPlaceholder: '例如 ~/Projects/my-app 或 /Volumes/…', pickerEmptyHint: '从家目录或根目录开始，也可以直接粘贴完整路径',
-            teamPickerHelp: '可直接确认默认工作目录，也可以输入路径或清空输入框来浏览团队工作空间。',
+            teamPickerHelp: '可直接确认默认工作目录（~ 为你的工作区根目录），也可以输入子目录路径或清空输入框来浏览团队工作空间。',
             teamPathPlaceholder: '例如 ~/项目', teamPickerEmptyHint: '请选择团队工作空间内的目录',
             accountDirectoryLoading: '正在准备账号工作目录…', accountDirectoryFailed: '无法准备账号工作目录，请选择已有目录。',
             accountDirectoryConflict: '账号同名路径已被占用，请选择其他目录。',
@@ -90,7 +90,7 @@
             scheduleNew: 'New task', pushTo: 'Push to', pushAdd: '+ Pick WeLink/WeChat people or groups (optional)', pushAddMore: '+ Add', pushRemove: 'Remove', pushTitle: 'Push to', pushSearch: 'Search name or account (pinyin works)…', pushGroup: ' group', pushUser: ' contact', pushSelected: '{count} selected', pushHint: 'The result is pushed to them after it runs', pushDone: 'Done', pushEmpty: 'Nobody can be pushed to yet (contacts must chat with the assistant first; groups must have used it)', pushNoMatch: 'No matches', pushNoChannel: 'WeLink or WeChat is not connected yet', pushLimit: 'Pick up to 10', scheduleCreatedPush: ', then push to {names}', schedulePushTo: 'Push to {names}', schedulePushResult: 'Last push: {sent} sent, {failed} failed',
             datacomTitle: 'Datacom Protocol Expert', datacomDescription: 'Visual guides · Interactive labs · Videos',
             badge: 'All-round agent', newChat: 'New chat', history: 'History', attach: 'Attach files (Excel, CSV, Word, PowerPoint, text…, up to 20 MB each)', attachLabel: 'Attachments', attachUploading: 'Uploading…', attachFailed: 'Upload failed', attachRemove: 'Remove', attachTooMany: 'Up to 5 attachments at a time', attachPending: 'Attachments are still uploading', attachDrop: 'Drop to attach', exportLog: 'Export log', exportLogEmpty: 'Nothing saved in this chat yet. Send a message first.', exportLogDone: 'Chat log exported', exportLogFailed: 'Export failed', exportLogBusy: 'Export after the reply finishes so the log is complete', exportMenu: 'Export as', exportHtml: 'Web page (HTML)', exportHtmlDesc: 'Last {days} days, up to {count} messages. Looks like this chat, with tables, images and files', exportJson: 'Debug log (JSON)', exportJsonDesc: 'Full tool steps and model settings for troubleshooting', exportAgentJsonDesc: 'Available agent messages, attachment metadata and session status, up to 200 messages', exportAgentHtmlDesc: 'Snapshot of the loaded agent conversation, with images, files and static previews, up to 200 messages', exportHtmlWorking: 'Packing the web page…', exportHtmlDone: 'Web page exported', exportHtmlSkipped: 'Web page exported; {count} large file(s) left out',
-            chatToday: 'Today', chatYesterday: 'Yesterday', chatWeek: 'Previous 7 days', chatMonth: 'Previous 30 days', chatOlder: 'Older', chatEmpty: 'No chats yet. Send a message to start.', chatNoMatch: 'No matching chats', chatLoadFailed: 'Could not load chats', chatRetry: 'Retry', chatBusy: 'A reply is still being generated. Stop it before switching chats.', chatBgDone: '“{title}” has finished replying', chatCount: '{count}', chatFolderTitle: 'Local folder: {root}', chatRunning: 'Working', chatDelete: 'Delete chat', chatDeleteConfirm: 'Delete “{title}” and its messages? This cannot be undone.', chatDeleteFailed: 'Could not delete this chat. Try again later.', chatDeleted: 'Chat deleted',
+            chatToday: 'Today', chatYesterday: 'Yesterday', chatWeek: 'Previous 7 days', chatMonth: 'Previous 30 days', chatOlder: 'Older', chatEmpty: 'No chats yet. Send a message to start.', chatNoMatch: 'No matching chats', chatLoadFailed: 'Could not load chats', chatRetry: 'Retry', chatBusy: 'A reply is still being generated. Stop it before switching chats.', chatBgDone: '“{title}” has finished replying', chatCount: '{count}', chatFolderTitle: 'Local folder: {root}', chatRunning: 'Working', chatDelete: 'Delete chat', chatDeleteConfirm: 'Delete “{title}” and its messages? This cannot be undone.', chatDeleteFailed: 'Could not delete this chat. Try again later.', chatDeleted: 'Chat deleted', chatLeaveShared: 'Leave & remove', chatLeaveSharedConfirm: 'Deleting “{title}” will leave this shared conversation and remove it from your list without affecting the owner or other members. Continue?', chatLeftShared: 'Left the shared conversation', chatDeleteSharedOwnerConfirm: 'You own the shared conversation “{title}”. Deleting it will also stop sharing and revoke it from all members’ lists. Delete anyway?', chatDeletedSharedOwner: 'Chat deleted and sharing stopped',
             activityThinking: 'Thinking…', activityCompacting: 'Context is nearly full; summarizing earlier steps…', compactDone: 'Context compacted automatically: {count} earlier entries were summarized (about {before} → {after} tokens). The full record stays in the session archive.', compactFailed: 'Automatic compaction failed ({error}); dropping the earliest turns instead', thinkLabel: 'Thinking', thinkDone: 'Thought for', thinkPhase_ponder: 'Pondering', thinkPhase_plan: 'Planning', thinkPhase_search: 'Searching', thinkPhase_analyze: 'Analyzing', thinkPhase_calc: 'Calculating', thinkPhase_verify: 'Verifying', thinkPhase_code: 'Coding', thinkPhase_conclude: 'Concluding', activityTool: 'Working: {tool}…', activityOrganizing: 'Putting results together…', activityResponding: 'Composing a reply…', activityApproval: 'Waiting for your approval…',
             resumeDismiss: 'Dismiss this reminder', resumeTitle: 'Continue last chat', resumeMeta: '{time} · {count} messages', resumeAction: 'Continue', resumeBanner: 'Resumed your last chat · {time}', resumeDivider: 'Earlier messages above. Keep typing to continue.', resumeFailed: 'Could not load the last chat. Try again later.', toolOutput: 'Show output', toolArtifact: 'Full result ({lines} lines)', toolInterrupted: 'Not finished', sessionTitle: 'Chat history', sessionSearch: 'Search conversations…', sessionEmpty: 'No previous chats yet', sessionNoMatch: 'No matching chats', sessionLoading: 'Loading…', sessionMeta: '{time} · {count} messages', sessionArchived: 'Archived', sessionCurrent: 'Current', sessionHint: '↑↓ to move · Enter to open · Esc to close', sessionLoadFailed: 'Could not load chat history. Try again later.', slashSession: 'Browse and resume previous chats', slashNew: 'Start a new chat', slashHint: '↑↓ to choose · Enter to run · Tab to complete', recallTitle: 'Recent questions', recallHint: '↑↓ to choose · Enter to fill in · Esc to close', resumeDirMissing: 'The previous folder "{name}" could not be opened. The chat is restored; choose a folder again.', externalTag: 'External', commandTag: 'Command', commandChangeHint: 'Changed by a command the agent ran; can be undone', riskTitle: 'This command may reach outside the folder or touch sensitive files; your current approval mode requires confirmation', revertConflictTitle: 'File changed again', revertConflictMessage: '{path} was modified again after this change (by hand or another program). Undoing restores the earlier version and discards those later edits.', revertConflictConfirm: 'Undo anyway', binaryChange: 'Binary', binaryChangeHint: 'A binary file (such as a database or image) changed; there are no text lines to compare', externalChange: 'Other changes in the working tree (manual or by other programs). You can view the diff but not undo it here.', backToTools: 'Browse tools', browseTools: 'Browse all tools',
             tagline: 'I’m Dragon Claw, your all-round agent. Ask me anything, or let me show you around the tools on this platform.',
@@ -1967,7 +1967,7 @@
     }
     function attachmentBlock() {
         const ready = state.attachments.filter(item => item.status === 'ready');
-        return ready.length ? `\n\n${ATTACH_MARK}\n${ready.map(item => `- [${item.name.replace(/[\[\]]/g, '')}](<${item.path}>)`).join('\n')}` : '';
+        return ready.length ? `\n\n${ATTACH_MARK}\n${ready.map(item => `- [${item.name.replace(/[\[\]]/g, '')}](<${item.workspacePath || item.path}>)`).join('\n')}` : '';
     }
     function formatBytes(bytes) {
         return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
@@ -1975,10 +1975,18 @@
     function renderAttachments() {
         if (!el.attachments) return;
         el.attachments.hidden = !state.attachments.length;
-        el.attachments.innerHTML = state.attachments.map(item => `<span class="dc-attachment is-${item.status}" title="${escapeHtml(item.error || item.name)}">
+        el.attachments.innerHTML = state.attachments.map(item => {
+            const metaText = item.status === 'uploading'
+                ? tx('attachUploading')
+                : item.status === 'error'
+                    ? tx('attachFailed')
+                    : (item.workspacePath ? `${formatBytes(item.size)} · ${item.sharedOwner ? `${item.sharedOwner} 工作区` : '共享工作区'}` : formatBytes(item.size));
+            const titleText = item.error || (item.workspacePath ? `${item.name} -> ${item.workspacePath}` : item.name);
+            return `<span class="dc-attachment is-${item.status}" title="${escapeHtml(titleText)}">
             <span class="dc-attachment-name">${escapeHtml(item.name)}</span>
-            <span class="dc-attachment-meta">${escapeHtml(item.status === 'uploading' ? tx('attachUploading') : item.status === 'error' ? tx('attachFailed') : formatBytes(item.size))}</span>
-            <button type="button" class="dc-attachment-remove" data-attachment-remove="${item.id}" aria-label="${escapeHtml(tx('attachRemove'))}" title="${escapeHtml(tx('attachRemove'))}">×</button></span>`).join('');
+            <span class="dc-attachment-meta">${escapeHtml(metaText)}</span>
+            <button type="button" class="dc-attachment-remove" data-attachment-remove="${item.id}" aria-label="${escapeHtml(tx('attachRemove'))}" title="${escapeHtml(tx('attachRemove'))}">×</button></span>`;
+        }).join('');
         updateSendButton();
     }
     async function addAttachments(fileList) {
@@ -1993,11 +2001,20 @@
         await Promise.all(items.map(async item => {
             try {
                 const form = new FormData();
+                if (!external.active && state.sessionId) form.append('sessionId', state.sessionId);
+                if (!external.active && window.DragonClawWorkspace?.isSharedLocked?.()) form.append('expectSharedWorkspace', '1');
                 form.append('files', item.file, item.file.name);
                 const res = await fetch('/api/ai/uploads', { method: 'POST', headers: authHeaders(), body: form });
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok || !data.files?.[0]) throw new Error(data.error || `HTTP ${res.status}`);
-                Object.assign(item, { status: 'ready', path: data.files[0].path, name: data.files[0].name, size: data.files[0].size });
+                Object.assign(item, {
+                    status: 'ready',
+                    path: data.files[0].path,
+                    workspacePath: data.files[0].workspacePath || '',
+                    sharedOwner: data.files[0].sharedOwner || '',
+                    name: data.files[0].name,
+                    size: data.files[0].size
+                });
             } catch (error) {
                 Object.assign(item, { status: 'error', error: error.message });
                 showToast(`${tx('attachFailed')}：${item.name} · ${error.message}`);
@@ -2032,6 +2049,10 @@
         if (state.controller || state.restoring) return;
         if (runSlashCommand(content)) return;
         if (window.HomeAgentDiscussion?.handles(content)) return sendDesktopDiscussion(content);
+        if (state.sessionId && window.HomeSharedConversations?.isShared?.(state.sessionId)) {
+            const keptSkills = window.DragonClawSkills?.selectedIds?.() || [];
+            if (await window.HomeSharedConversations?.checkSkillBeforeSend?.(state.sessionId, content, { keptSkills }) === false) return;
+        }
         try { window.HomeDesktopModels?.validate?.(); } catch(error) { showToast(error.message);return; }
         const connector = window.HomeAgentDiscussion;
         const activeConn = connector?.getSelectedConnector?.();
@@ -2142,6 +2163,7 @@
                         rememberLastChat(event.sessionId, workspacePayload ? { agentSessionId: workspacePayload.agentSessionId, root: workspacePayload.root } : null);
                     }
                     if (event.type === 'skills_changed') { window.dispatchEvent(new CustomEvent('skills:changed', { detail: { ids: event.ids } })); return; }
+                    if (event.type === 'skill_grant_prompt' && event.skill) { window.HomeSharedConversations?.promptSkillRequest?.(event.skill.id, event.skill); return; }
                     if (event.type === 'model_round' && event.round) {
                         (reply.dcLiveRounds ||= []).push(event.round);
                         workspace()?.performance?.(reply, reply.dcLiveRounds, { running: true });
@@ -2758,6 +2780,7 @@
     async function openSession(item) {
         if (!item || !leaveReply()) return;
         const epoch = ++resumeEpoch;
+        window.DragonHtmlSwarm?.deactivate?.();
         window.HomeAgentDiscussion?.activateSession?.(item.id,{group:item.discussionMode==='group'});
         closeSessionPicker();
         exitExternal();
@@ -2786,9 +2809,14 @@
             const agent = item.agent || (local?.sessionId === item.id ? local.agent : null);
             await resumeChat({ sessionId: item.id, discussionMode:item.discussionMode, items, cursor: page.cursor, hasMore: page.hasMore, total: page.total, time: formatChatTime(items.length ? items[items.length - 1].created_at : (item.updatedAt || new Date().toISOString())), agent }, epoch);
             if (page.live && epoch === resumeEpoch && state.sessionId === item.id) attachLive(item.id);;
-        } catch {
+        } catch (error) {
             if (epoch !== resumeEpoch) return;
             finishHistoryLoading(false);
+            if (error?.revoked) {
+                state.restoring = false;
+                newChat();
+                return;
+            }
             el.thread.innerHTML = `<div class="dc-session-empty">${escapeHtml(tx('sessionLoadFailed'))}<button type="button" class="dc-ghost-btn" data-dc-session-retry>${escapeHtml(tx('chatRetry'))}</button></div>`;
             el.thread.querySelector('[data-dc-session-retry]').addEventListener('click', () => openSession(item));
             state.restoring = false;
@@ -2865,7 +2893,10 @@
     // ── 侧栏历史对话（对话模式左侧面板） ────────────
     // 对话列表按页加载：每页 CHAT_PAGE 条，滚到底部附近再加载下一页；serverCount 是已从服务端取到的条数（翻页偏移）
     const CHAT_PAGE = 40;
-    const chatList = { items: [], loaded: false, failed: false, seq: 0, latestSeq:0, timer: null, searchTimer: null, deleting: new Set(), cached: [], cacheIdentity: '', serverCount: 0, hasMore: false, loadingMore: false };
+    const chatIdentity = () => ['tools_user', 'tools_tenant_id', 'tools_token'].map(key => {
+        try { return localStorage.getItem(key) || sessionStorage.getItem(key) || ''; } catch { return ''; }
+    }).join('|');
+    const chatList = { items: [], loaded: false, loading: false, failed: false, seq: 0, latestSeq: 0, timer: null, searchTimer: null, deleting: new Set(), cached: [], cacheIdentity: '', identity: '', serverCount: 0, hasMore: false, loadingMore: false, abortController: null };
 
     function chatGroupKey(date) {
         const startOfDay = value => new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
@@ -3308,33 +3339,105 @@
         markRunningChats();
     }
 
-    async function loadChatList() {
+    function resetChatListForIdentity({ forceReload = false } = {}) {
+        const nextIdentity = chatIdentity();
+        const identityChanged = nextIdentity !== chatList.identity;
+        if (!identityChanged && !forceReload) return;
+        chatList.abortController?.abort();
+        chatList.abortController = null;
+        clearTimeout(chatList.timer);
+        if (identityChanged) {
+            chatList.items = [];
+            chatList.cached = [];
+            chatList.cacheIdentity = '';
+            chatList.serverCount = 0;
+            chatList.hasMore = false;
+            chatList.loadingMore = false;
+            if (state.sessionId && !state.controller && !external.active) newChat();
+        }
+        chatList.identity = nextIdentity;
+        chatList.loaded = false;
+        chatList.loading = false;
+        chatList.failed = false;
+        renderChatList();
+        loadChatList();
+    }
+
+    async function loadChatList(retry = 0) {
         if (!el.chatList) return;
         const seq = ++chatList.seq;
         const query = el.chatSearch?.value.trim() || '';
-        const account=currentUser()+':'+(localStorage.getItem('tools_tenant_id')||'');
+        const account = chatIdentity();
+        chatList.abortController?.abort();
+        const controller = typeof AbortController === 'function' ? new AbortController() : null;
+        chatList.abortController = controller;
+        chatList.loading = true;
+        const timeoutId = controller ? setTimeout(() => controller.abort(), 15000) : 0;
         // 刷新时取回已经加载过的条数（最多 100 条），列表不会一刷新就缩回第一页
         const limit = Math.min(100, Math.max(CHAT_PAGE, query === chatList.query ? chatList.serverCount : 0));
         try {
-            const res = await fetch(`/api/ai/sessions?mine=1&pagePath=%2F&limit=${limit}&query=${encodeURIComponent(query)}`, { headers: authHeaders() });
+            const res = await fetch(`/api/ai/sessions?mine=1&pagePath=%2F&limit=${limit}&query=${encodeURIComponent(query)}`, {
+                cache: 'no-store',
+                credentials: 'same-origin',
+                headers: authHeaders(),
+                ...(controller ? { signal: controller.signal } : {})
+            });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
-            if (seq !== chatList.seq||account!==currentUser()+':'+(localStorage.getItem('tools_tenant_id')||'')) return;
-            if(chatList.cacheIdentity!==account){chatList.cached=[];chatList.cacheIdentity=account;chatList.serverCount=0;}
-            let fetched=Array.isArray(data.items)?data.items:[];
+            if (seq !== chatList.seq) return;
+            // 请求发出后当前工号 / 会话变了（同一浏览器切换工号或页面身份同步晚到）：
+            // 清空旧列表并按新身份重新加载，避免一直停在骨架屏或显示旧账号数据
+            if (account !== chatIdentity()) {
+                if (retry < 3) {
+                    chatList.items = [];
+                    chatList.cached = [];
+                    chatList.cacheIdentity = '';
+                    chatList.serverCount = 0;
+                    chatList.hasMore = false;
+                    chatList.loaded = false;
+                    chatList.failed = false;
+                    renderChatList();
+                    return loadChatList(retry + 1);
+                }
+                chatList.failed = !chatList.items.length;
+                chatList.loaded = true;
+                renderChatList();
+                return;
+            }
+            if (chatList.cacheIdentity !== account) { chatList.cached = []; chatList.cacheIdentity = account; chatList.serverCount = 0; }
+            chatList.identity = account;
+            let fetched = Array.isArray(data.items) ? data.items : [];
             // 之前已经往下加载了超过 100 条：刷新只替换前面这部分，后面的保留
-            if(query===chatList.query&&fetched.length===limit&&chatList.serverCount>limit){const seen=new Set(fetched.map(item=>item.id));fetched=[...fetched,...chatList.items.slice(limit).filter(item=>!seen.has(item.id))];}
-            chatList.hasMore=fetched.length>=limit&&(query!==chatList.query||chatList.serverCount<=limit||chatList.hasMore);
-            chatList.serverCount=fetched.length;
-            chatList.query=query;
-            if(!query)chatList.cached=fetched;
-            const aliases=query?chatList.cached.filter(item=>window.HomeConversationList?.get('mine',item.id).title?.toLowerCase().includes(query.toLowerCase())):[];
-            chatList.items=[...fetched,...aliases.filter(item=>!fetched.some(row=>row.id===item.id))];
+            if (query === chatList.query && fetched.length === limit && chatList.serverCount > limit) { const seen = new Set(fetched.map(item => item.id)); fetched = [...fetched, ...chatList.items.slice(limit).filter(item => !seen.has(item.id))]; }
+            chatList.hasMore = fetched.length >= limit && (query !== chatList.query || chatList.serverCount <= limit || chatList.hasMore);
+            chatList.serverCount = fetched.length;
+            chatList.query = query;
+            if (!query) chatList.cached = fetched;
+            const aliases = query ? chatList.cached.filter(item => window.HomeConversationList?.get('mine', item.id).title?.toLowerCase().includes(query.toLowerCase())) : [];
+            chatList.items = [...fetched, ...aliases.filter(item => !fetched.some(row => row.id === item.id))];
             chatList.failed = false;
         } catch {
             if (seq !== chatList.seq) return;
+            if (account !== chatIdentity() && retry < 3) {
+                chatList.items = [];
+                chatList.cached = [];
+                chatList.cacheIdentity = '';
+                chatList.serverCount = 0;
+                chatList.hasMore = false;
+                chatList.loaded = false;
+                chatList.failed = false;
+                renderChatList();
+                return loadChatList(retry + 1);
+            }
             chatList.failed = !chatList.items.length; // 已有列表时刷新失败就保留旧列表
+        } finally {
+            clearTimeout(timeoutId);
+            if (seq === chatList.seq) {
+                if (chatList.abortController === controller) chatList.abortController = null;
+                chatList.loading = false;
+            }
         }
+        if (seq !== chatList.seq) return;
         chatList.loaded = true;
         renderChatList();
     }
@@ -3394,28 +3497,40 @@
         if(item)openChatFromList(item);else if(!state.controller)newChat();
     }
 
+    function dropSessionFromList(sessionId) {
+        if (!sessionId) return;
+        ++chatList.seq; // Do not let an older list response put the deleted/revoked row back.
+        chatList.items = chatList.items.filter(row => row.id !== sessionId);
+        chatList.cached = chatList.cached.filter(row => row.id !== sessionId);
+        if (readLastChat()?.sessionId === sessionId) forgetLastChat();
+        if (state.sessionId === sessionId) newChat();
+        else if (state.resume?.sessionId === sessionId) { hideResumeCard(); state.resume = null; }
+        renderChatList();
+    }
+
     async function deleteChatFromList(item) {
         if (!item || chatList.deleting.has(item.id)) return;
         if (item.id === state.sessionId && (state.controller || state.restoring)) return showToast(tx('chatBusy'));
         const identity = () => ['tools_user','tools_tenant_id','tools_token'].map(key => localStorage.getItem(key) || sessionStorage.getItem(key) || '').join('|');
         const account = identity(), title = String(item.firstQuestion || item.lastQuestion || item.id).replace(/\s+/g, ' ').trim().slice(0, 100);
+        const shareInfo = window.HomeSharedConversations?.info?.(item.id) || null;
+        const isSharedMember = Boolean(shareInfo && !shareInfo.isOwner);
+        const isSharedOwner = Boolean(shareInfo && shareInfo.isOwner);
         chatList.deleting.add(item.id);
         try {
-            const message = tx('chatDeleteConfirm', { title });
-            const ok = window.AppDialog?.confirm ? await window.AppDialog.confirm(message, { title: tx('chatDelete'), confirmText: tx('chatDelete'), tone: 'danger' }) : false;
+            const message = isSharedMember
+                ? tx('chatLeaveSharedConfirm', { title })
+                : (isSharedOwner ? tx('chatDeleteSharedOwnerConfirm', { title }) : tx('chatDeleteConfirm', { title }));
+            const confirmLabel = isSharedMember ? tx('chatLeaveShared') : tx('chatDelete');
+            const ok = window.AppDialog?.confirm ? await window.AppDialog.confirm(message, { title: confirmLabel, confirmText: confirmLabel, tone: 'danger' }) : false;
             if (!ok || account !== identity()) return;
             const response = await fetch(`/api/ai/sessions/${encodeURIComponent(item.id)}`, { method: 'DELETE', headers: authHeaders() });
             const data = await response.json().catch(() => ({}));
             if (!response.ok) throw new Error(data.error || tx('chatDeleteFailed'));
             if (account !== identity()) return;
-            ++chatList.seq; // Do not let an older list response put the deleted row back.
-            chatList.items = chatList.items.filter(row => row.id !== item.id);
-            chatList.cached=chatList.cached.filter(row=>row.id!==item.id);
-            if (readLastChat()?.sessionId === item.id) forgetLastChat();
-            if (state.sessionId === item.id) newChat();
-            else if (state.resume?.sessionId === item.id) { hideResumeCard(); state.resume = null; }
-            renderChatList();
-            showToast(tx('chatDeleted'));
+            window.HomeSharedConversations?.onSessionDeleted?.(item.id);
+            dropSessionFromList(item.id);
+            showToast(isSharedMember ? tx('chatLeftShared') : (isSharedOwner ? tx('chatDeletedSharedOwner') : tx('chatDeleted')));
         } catch (error) {
             if (account === identity()) showToast(error.message || tx('chatDeleteFailed'));
         } finally { chatList.deleting.delete(item.id); }
@@ -3481,13 +3596,19 @@
         // 后台对话回复完：提示一下并刷新列表（标题、排序）；出现列表里还没有的进行中对话也刷新。
         let busyPollAt = 0;
         setInterval(async () => {
-            if (document.visibilityState !== 'visible' || !chatList.loaded || chatList.query) return;
+            if (document.visibilityState !== 'visible') return;
+            if (chatList.identity && chatList.identity !== chatIdentity()) return resetChatListForIdentity();
+            if (!chatList.loaded) {
+                if (!chatList.loading) loadChatList();
+                return;
+            }
+            if (chatList.query) return;
             const anyBusy = chatList.items.some(item => item.busy);
             if (!anyBusy && Date.now() - busyPollAt < 10000) return;
             busyPollAt = Date.now();
             const seq = chatList.seq;
             try {
-                const res = await fetch(`/api/ai/sessions?mine=1&pagePath=%2F&limit=${Math.min(100, Math.max(CHAT_PAGE, chatList.serverCount))}`, { headers: authHeaders() });
+                const res = await fetch(`/api/ai/sessions?mine=1&pagePath=%2F&limit=${Math.min(100, Math.max(CHAT_PAGE, chatList.serverCount))}`, { cache: 'no-store', credentials: 'same-origin', headers: authHeaders() });
                 if (!res.ok || seq !== chatList.seq) return;
                 const busy = new Set((await res.json()).items?.filter(item => item.busy).map(item => item.id) || []);
                 let changed = false, reload = [...busy].some(id => !chatList.items.some(item => item.id === id));
@@ -3542,6 +3663,16 @@
                 }
             }
         });
+        window.addEventListener('tools:authchange', () => {
+            if (chatIdentity() !== chatList.identity || chatList.failed || !chatList.loaded) {
+                resetChatListForIdentity({ forceReload: chatList.failed });
+            }
+        });
+        window.addEventListener('storage', event => {
+            if (!event.key || ['tools_user', 'tools_tenant_id', 'tools_token'].includes(event.key)) {
+                resetChatListForIdentity();
+            }
+        });
         renderChatList();
         loadChatList();
     }
@@ -3578,6 +3709,7 @@
         state.attachments = [];
         renderAttachments();
         window.HomeDesktopModels?.resetDraft?.();
+        window.DragonHtmlSwarm?.deactivate?.();
         window.HomeAgentDiscussion?.activateSession?.(null);
         exitExternal();
         window.HomeWelinkThreads?.setSource?.('mine', {remember:false});
@@ -4103,6 +4235,7 @@
         bindEvents();
         bindChatList();
         window.addEventListener('home:conversation-list-changed',()=>renderChatList());
+        window.addEventListener('home:session-revoked', event => dropSessionFromList(event.detail?.sessionId));
         window.addEventListener('home:agent-discussion-changed',event=>{
             for(const item of [...chatList.items,...chatList.cached])if(item.id===event.detail?.sessionId)item.discussionMode='group';
             renderChatList();scheduleChatListRefresh();

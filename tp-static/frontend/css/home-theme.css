@@ -2204,6 +2204,38 @@ html.platform-home :is(.dc-branch-picker,.dc-worktree-picker) .dc-context-menu {
 html.platform-home .dc-directory-picker summary > span:first-of-type { max-width: 150px; }
 
 html.platform-home .dc-branch-picker summary > span:first-of-type { max-width: 120px; }
+
+html.platform-home .dc-shared-lock-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 240px;
+  padding: 5px 9px;
+  border: 1px dashed var(--v2-line-strong);
+  border-radius: 7px;
+  background: var(--v2-chip);
+  color: var(--v2-ink3);
+  font: inherit;
+  font-size: 12px;
+  line-height: 18px;
+  cursor: not-allowed;
+  opacity: 0.88;
+}
+html.platform-home .dc-shared-lock-chip > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html.platform-home .dc-shared-sandbox-badge {
+  color: var(--v2-ink3);
+  font-size: 11.5px;
+  opacity: 0.88;
+}
+html.platform-home .home-workspace-panel .wsp-dir.is-shared-locked {
+  border-style: dashed;
+  background: var(--v2-chip);
+  opacity: 0.9;
+}
 @media(max-width:640px) {
 
 html.platform-home .dc-directory-picker summary > span:first-of-type { max-width: 115px; }

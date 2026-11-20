@@ -787,8 +787,9 @@
         window.addEventListener('home:conversation-list-changed',()=>render());
         window.addEventListener('tools:languagechange', () => { render(); if (state.active)
             refreshMessages(state.viewEpoch, state.active, true); });
-        window.addEventListener('storage', e => { if (['tools_user', 'tools_tenant_id', 'tools_token'].includes(e.key))
-            reset(); });
+        window.addEventListener('tools:authchange', () => { if (identity() !== state.identity) { reset(); configure(); } });
+        window.addEventListener('storage', e => { if ((!e.key || ['tools_user', 'tools_tenant_id', 'tools_token'].includes(e.key)) && identity() !== state.identity)
+            { reset(); configure(); } });
         // 侧栏转圈：不打开「桌面 Agent」分类也每 10 秒读一次会话列表的 busy；只有状态变了才通知（列表本身变了才整表重绘）
         const busyPoll = setInterval(async () => {
             if (!state.settings?.enabled || state.loading || document.visibilityState !== 'visible' || identity() !== state.identity) return;

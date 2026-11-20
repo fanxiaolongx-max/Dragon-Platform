@@ -33,7 +33,18 @@
         open: false,
         filePreview: null,
         external: null, // { previousOpen }：显示外部卡片（WeLink 跟进与记忆）时隐藏环境/上下文/更改
-        picker: { items: [], active: -1, timer: null, requestId: 0 }
+        picker: { items: [], active: -1, timer: null, requestId: 0 },
+        sharedWorkspace: null // 非原归属人协作共享对话时的锁定工作目录元数据
+    };
+    const isSharedLocked = () => Boolean(state.sharedWorkspace?.enabled && !state.sharedWorkspace.isOwner);
+    const effectiveRoot = () => (isSharedLocked() ? (state.sharedWorkspace.virtualRoot || '') : state.root);
+    const sharedLockedMessage = () => {
+        const ownerName = state.sharedWorkspace?.ownerName || state.sharedWorkspace?.owner || '';
+        const folderName = state.sharedWorkspace?.folderName || '';
+        return wsLabel(
+            `已自动挂载「${ownerName}」的共享目录 ${folderName}（成员不可切换；可协作读写与上传文件，需要终端命令时将自动启用隔离沙箱智能体）`,
+            `Mounted shared workspace "${folderName}" from ${ownerName} (locked; read/write & uploads allowed, shell commands run in isolated sandbox)`
+        );
     };
     const el = {};
     const approvalCards = new Map();
@@ -172,13 +183,35 @@
 
     // ── 环境卡 ──────────────────────────────────────────
     function renderEnv() {
+        if (isSharedLocked()) {
+            const ownerName = state.sharedWorkspace?.ownerName || state.sharedWorkspace?.owner || '';
+            const folderName = state.sharedWorkspace?.folderName || wsLabel('共享工作区', 'Shared workspace');
+            el.envBody.innerHTML = `
+                <div class="wsp-dir is-shared-locked">
+                    <div class="wsp-dir-main">
+                        <span class="wsp-dir-icon" aria-hidden="true">${FOLDER_ICON}</span>
+                        <div class="wsp-dir-text">
+                            <b title="${escapeHtml(folderName)}">🔗 ${escapeHtml(ownerName)} · ${escapeHtml(folderName)}</b>
+                            <small>${escapeHtml(wsLabel('共享对话逻辑挂载（不可切换）', 'Remote shared workspace (locked)'))}</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="wsp-row wsp-row-col">
+                    <span class="wsp-row-label">${escapeHtml(tx('permission'))}</span>
+                    <div class="wsp-readonly">
+                        <b>🔒 ${escapeHtml(wsLabel('可协同读写与上传 · 隔离沙箱命令', 'Collaborative R/W & Uploads · Sandboxed Shell'))}</b>
+                        <small>${escapeHtml(wsLabel('可直接读写共享目录文件；上传文件会保存至发起者目录的 shared-uploads/；原目录禁用直接终端命令，需要时将自动新建个人隔离沙箱子智能体执行。', 'File tools operate on the shared directory. Uploads are saved to shared-uploads/. Shell commands run in an isolated per-member sandbox subagent.'))}</small>
+                    </div>
+                </div>`;
+            return;
+        }
         const dir = state.root
             ? `<div class="wsp-dir">
                     <div class="wsp-dir-main">
                         <span class="wsp-dir-icon" aria-hidden="true">${FOLDER_ICON}</span>
                         <div class="wsp-dir-text">
-                            <b title="${escapeHtml(state.root)}">${escapeHtml(state.rootName)}</b>
-                            <small title="${escapeHtml(state.root)}">${escapeHtml(state.root)}</small>
+                            <b title="${escapeHtml(toDisplayPath(state.root))}">${escapeHtml(state.rootName)}</b>
+                            <small title="${escapeHtml(toDisplayPath(state.root))}">${escapeHtml(toDisplayPath(state.root))}</small>
                         </div>
                     </div>
                     <div class="wsp-dir-actions">
@@ -209,7 +242,7 @@
             </div>
             ${recent.length ? `<div class="wsp-row wsp-row-col">
                 <span class="wsp-row-label">${escapeHtml(tx('recentDirs'))}</span>
-                <div class="wsp-recent">${recent.map(item => `<button type="button" class="wsp-recent-item" data-wsp-select="${escapeHtml(item)}" title="${escapeHtml(item)}"><span class="wsp-recent-icon" aria-hidden="true">${FOLDER_ICON}</span><span>${escapeHtml(baseName(item))}</span><i>${escapeHtml(shorten(item))}</i></button>`).join('')}</div>
+                <div class="wsp-recent">${recent.map(item => `<button type="button" class="wsp-recent-item" data-wsp-select="${escapeHtml(item)}" title="${escapeHtml(toDisplayPath(item))}"><span class="wsp-recent-icon" aria-hidden="true">${FOLDER_ICON}</span><span>${escapeHtml(baseName(item))}</span><i>${escapeHtml(shorten(toDisplayPath(item)))}</i></button>`).join('')}</div>
             </div>` : ''}`;
     }
 
@@ -218,10 +251,22 @@
         return parts[parts.length - 1] || fullPath;
     }
 
+    function toDisplayPath(fullPath) {
+        const text = String(fullPath || '');
+        if (!text || !state.capability?.confined) return text;
+        const home = String(state.capability?.homeDir || '').replace(/[\\/]+$/, '');
+        if (!home) return text;
+        if (text === home) return '~';
+        if (text.startsWith(`${home}/`) || text.startsWith(`${home}\\`)) return `~${text.slice(home.length)}`;
+        return text;
+    }
+
     function shorten(fullPath) {
-        const home = state.capability?.homeDir;
+        const home = String(state.capability?.homeDir || '').replace(/[\\/]+$/, '');
         let text = String(fullPath);
-        if (home && text.startsWith(home)) text = `~${text.slice(home.length)}`;
+        if (home && (text === home || text.startsWith(`${home}/`) || text.startsWith(`${home}\\`))) {
+            text = `~${text.slice(home.length)}` || '~';
+        }
         return text.length > 42 ? `…${text.slice(-40)}` : text;
     }
 
@@ -550,13 +595,13 @@
     }
 
     async function refreshChanges() {
-        if (!state.enabled || !state.root || !state.agentSessionId || changesRefreshing || state.pr?.phase === 'running') return;
+        const root = effectiveRoot();
+        const id = state.agentSessionId || (isSharedLocked() ? 'shws' : '');
+        if ((!state.enabled && !isSharedLocked()) || !root || !id || changesRefreshing || state.pr?.phase === 'running') return;
         changesRefreshing = true;
-        const root = state.root;
-        const id = state.agentSessionId;
         try {
-            const data = await request('GET', `${API}/changes/${encodeURIComponent(state.agentSessionId)}?root=${encodeURIComponent(root)}`);
-            if (state.root === root && state.agentSessionId === id) applyChanges(data.changes);
+            const data = await request('GET', `${API}/changes/${encodeURIComponent(id)}?root=${encodeURIComponent(root)}`);
+            if (effectiveRoot() === root) applyChanges(data.changes);
         } catch { /* 刷新失败保持现状 */ } finally {
             changesRefreshing = false;
         }
@@ -564,12 +609,12 @@
 
     // 选目录 / 恢复对话后：上一轮的上下文占用 + 当前实际改动
     async function restoreState() {
-        if (!state.enabled || !state.root || !state.agentSessionId) return;
-        const root = state.root;
-        const id = state.agentSessionId;
+        const root = effectiveRoot();
+        const id = state.agentSessionId || (isSharedLocked() ? 'shws' : '');
+        if ((!state.enabled && !isSharedLocked()) || !root || !id) return;
         try {
             const data = await request('GET', `${API}/state/${encodeURIComponent(id)}?root=${encodeURIComponent(root)}`);
-            if (state.root !== root || state.agentSessionId !== id) return;
+            if (effectiveRoot() !== root) return;
             if (data.context) state.context = data.context;
             renderContext();
             applyChanges(data.changes);
@@ -670,7 +715,7 @@
     const workspaceBusy = () => state.gitSaving || state.pr?.phase === 'running' || document.querySelector('#dcComposer.is-generating');
 
     async function refreshGit() {
-        if (!state.root) return;
+        if (!state.root || isSharedLocked()) return;
         const root = state.root, version = ++state.gitRequest;
         try {
             const data = await request('GET', `${API}/git?root=${encodeURIComponent(root)}`);
@@ -738,7 +783,13 @@
     async function createWorkspace() {
         if (isReadOnly() || workspaceBusy()) return;
         const sep = state.capability?.sep || '/';
-        const directory = await window.AppDialog.prompt(wsLabel('输入新文件夹的完整路径。已有目录请使用“打开本地文件夹”。', 'Enter the full path for a new folder. To use an existing folder, choose Open local folder.'), {title:wsLabel('新建工作空间', 'New workspace'),defaultValue:(state.capability?.homeDir || '') + sep + 'workspace',maxLength:1024});
+        const defaultDir = state.capability?.confined ? `~${sep}workspace` : ((state.capability?.homeDir || '') + sep + 'workspace');
+        const directory = await window.AppDialog.prompt(
+            state.capability?.confined
+                ? wsLabel('输入团队工作区内的子目录路径（~ 表示你的工作区根目录）。', 'Enter a folder path inside your team workspace (~ is your workspace root).')
+                : wsLabel('输入新文件夹的完整路径。已有目录请使用“打开本地文件夹”。', 'Enter the full path for a new folder. To use an existing folder, choose Open local folder.'),
+            { title: wsLabel('新建工作空间', 'New workspace'), defaultValue: defaultDir, maxLength: 1024 }
+        );
         if (!directory?.trim()) return;
         try { const data = await request('POST', `${API}/create`, {path:directory.trim()});await selectDirectory(data.root); }
         catch(error) { toast(error.message); }
@@ -747,8 +798,21 @@
     // ── 输入框上方的工作区芯片 ───────────────────────────
     function renderChip() {
         if (!el.chip) return;
-        el.chip.hidden = !state.enabled;
-        if (!state.enabled) return;
+        const sharedLocked = isSharedLocked();
+        el.chip.hidden = !(state.enabled || sharedLocked);
+        if (!state.enabled && !sharedLocked) return;
+        if (sharedLocked) {
+            const ownerName = state.sharedWorkspace?.ownerName || state.sharedWorkspace?.owner || '';
+            const folderName = state.sharedWorkspace?.folderName || wsLabel('共享工作区', 'Shared workspace');
+            const labelText = wsLabel(`${ownerName} 的共享目录 · ${folderName}`, `${ownerName} · ${folderName}`);
+            el.chip.innerHTML = `
+                <button type="button" class="dc-shared-lock-chip" data-wsp-action="shared-locked-tip" aria-disabled="true" title="${escapeHtml(sharedLockedMessage())}">
+                    <span class="dc-shared-lock-icon" aria-hidden="true">🔒</span>
+                    <span>${escapeHtml(labelText)}</span>
+                </button>
+                <span class="dc-context-readonly dc-shared-sandbox-badge" title="${escapeHtml(sharedLockedMessage())}">${escapeHtml(wsLabel('协同读写 · 隔离沙箱命令', 'Collab R/W · Sandbox'))}</span>`;
+            return;
+        }
         {
             const en = window.ToolsI18n?.getLanguage?.() === 'en-US';
             const label = (zh, english) => en ? english : zh;
@@ -757,10 +821,10 @@
             const modeName = isReadOnly() ? tx('readOnlyMode') : tx(`mode${state.permissionMode[0].toUpperCase()}${state.permissionMode.slice(1)}`);
             el.chip.innerHTML = `
                 <details class="dc-context-picker dc-directory-picker" data-wsp-picker="directory">
-                    <summary title="${escapeHtml(state.root || tx('chooseDirHint'))}">${folder}<span>${escapeHtml(state.rootName || label('选择工作空间', 'Choose workspace'))}</span><span class="dc-context-caret" aria-hidden="true">⌄</span></summary>
+                    <summary title="${escapeHtml(toDisplayPath(state.root) || tx('chooseDirHint'))}">${folder}<span>${escapeHtml(state.rootName || label('选择工作空间', 'Choose workspace'))}</span><span class="dc-context-caret" aria-hidden="true">⌄</span></summary>
                     <div class="dc-context-menu">
                         <label class="dc-workspace-search">${wsIcon('search')}<input type="search" data-wsp-recent-search placeholder="${label('搜索最近工作空间', 'Search recent workspaces')}" aria-label="${label('搜索最近工作空间', 'Search recent workspaces')}" autocomplete="off"></label>
-                        <div class="dc-context-recents">${recent.map((path, index) => `<button type="button"${index >= 4 ? ' hidden' : ''} data-wsp-select="${escapeHtml(path)}" title="${escapeHtml(path)}" aria-current="${path === state.root}">${folder}<span>${escapeHtml(baseName(path))}</span>${path === state.root ? wsIcon('check') : ''}</button>`).join('')}</div>
+                        <div class="dc-context-recents">${recent.map((path, index) => `<button type="button"${index >= 4 ? ' hidden' : ''} data-wsp-select="${escapeHtml(path)}" title="${escapeHtml(toDisplayPath(path))}" aria-current="${path === state.root}">${folder}<span>${escapeHtml(baseName(path))}</span>${path === state.root ? wsIcon('check') : ''}</button>`).join('')}</div>
                         <p class="dc-context-empty" ${recent.length ? 'hidden' : ''}>${label('暂无最近工作空间', 'No recent workspaces')}</p>
                         <div class="dc-context-divider"></div>
                         ${!isReadOnly() ? `<button type="button" data-wsp-action="create-workspace">${wsIcon('plus')}<span>${label('新建工作空间', 'New workspace')}</span></button>` : ''}
@@ -819,6 +883,11 @@
     }
 
     async function openPicker() {
+        if (isSharedLocked()) {
+            resolvePendingPick(null);
+            toast(sharedLockedMessage());
+            return;
+        }
         if (!state.enabled) {
             resolvePendingPick(null);
             return;
@@ -828,7 +897,7 @@
         const requestId = ++state.picker.requestId;
         el.picker.hidden = false;
         document.body.classList.add('dc-picker-open');
-        el.pickerInput.value = prepareAccountDirectory ? '' : state.root || state.prefs.lastDirectory || '';
+        el.pickerInput.value = prepareAccountDirectory ? '' : toDisplayPath(state.root || state.prefs.lastDirectory || (state.capability?.confined ? '~' : ''));
         el.pickerList.replaceChildren();
         el.pickerStatus.textContent = prepareAccountDirectory ? tx('accountDirectoryLoading') : '';
         state.picker.items = [];
@@ -842,7 +911,7 @@
                 const { directory } = await request('POST', `${API}/account-directory`);
                 if (requestId !== state.picker.requestId) return;
                 if (!directory) throw new Error('Missing account directory');
-                el.pickerInput.value = directory;
+                el.pickerInput.value = toDisplayPath(directory);
                 if (document.activeElement === el.pickerInput) el.pickerInput.select();
             } catch (error) {
                 if (requestId !== state.picker.requestId) return;
@@ -865,7 +934,7 @@
     function renderPickerRecent() {
         const recent = state.prefs.recentDirectories.slice(0, 8);
         el.pickerRecent.innerHTML = recent.length
-            ? `<span class="wsp-picker-recent-label">${escapeHtml(tx('recentDirs'))}</span>${recent.map(item => `<button type="button" class="wsp-chip" data-wsp-fill="${escapeHtml(item)}" title="${escapeHtml(item)}">${escapeHtml(baseName(item))}</button>`).join('')}`
+            ? `<span class="wsp-picker-recent-label">${escapeHtml(tx('recentDirs'))}</span>${recent.map(item => { const shown = toDisplayPath(item); return `<button type="button" class="wsp-chip" data-wsp-fill="${escapeHtml(shown)}" title="${escapeHtml(shown)}">${escapeHtml(baseName(item))}</button>`; }).join('')}`
             : '';
     }
 
@@ -908,10 +977,11 @@
             const name = prefix && item.name.toLowerCase().startsWith(prefix.toLowerCase())
                 ? `<mark>${escapeHtml(item.name.slice(0, prefix.length))}</mark>${escapeHtml(item.name.slice(prefix.length))}`
                 : escapeHtml(item.name);
-            html.push(`<button type="button" role="option" id="wspOpt${index}" aria-selected="${index === state.picker.active}" class="wsp-picker-item${index === state.picker.active ? ' is-active' : ''}" data-wsp-index="${index}" title="${escapeHtml(item.path)}">
+            const shownPath = toDisplayPath(item.path);
+            html.push(`<button type="button" role="option" id="wspOpt${index}" aria-selected="${index === state.picker.active}" class="wsp-picker-item${index === state.picker.active ? ' is-active' : ''}" data-wsp-index="${index}" title="${escapeHtml(shownPath)}">
                 <span class="wsp-picker-item-icon" aria-hidden="true">${item.isGit ? '⎇' : FOLDER_ICON}</span>
                 <span class="wsp-picker-item-name">${name}</span>
-                <span class="wsp-picker-item-path">${escapeHtml(shorten(item.path))}</span>
+                <span class="wsp-picker-item-path">${escapeHtml(shorten(shownPath))}</span>
             </button>`);
         });
         el.pickerList.innerHTML = html.join('') || `<div class="wsp-picker-none">${escapeHtml(data.error === 'EACCES' ? tx('noPermission') : input ? tx('noMatches') : tx('noMatches'))}</div>`;
@@ -941,7 +1011,8 @@
         const item = state.picker.items[state.picker.active];
         if (!item) return;
         const sep = state.capability?.sep || '/';
-        el.pickerInput.value = item.path.endsWith(sep) ? item.path : `${item.path}${sep}`;
+        const shown = toDisplayPath(item.path);
+        el.pickerInput.value = shown.endsWith(sep) ? shown : `${shown}${sep}`;
         el.pickerInput.setSelectionRange(el.pickerInput.value.length, el.pickerInput.value.length);
         suggest();
     }
@@ -971,6 +1042,10 @@
     }
 
     async function selectDirectory(fullPath, ticket = ++state.selectionEpoch, { openPanel = true } = {}) {
+        if (isSharedLocked()) {
+            toast(sharedLockedMessage());
+            return;
+        }
         if (!fullPath || isScratchDirectory(fullPath)) return;
         const data = await request('POST', `${API}/select`, { path: fullPath });
         if (ticket !== state.selectionEpoch) throw Object.assign(new Error('Directory selection superseded'), { name: 'AbortError' });
@@ -1076,7 +1151,22 @@
         if (tool === 'load_skill') return args.id ? `@${String(args.id).replace(/^@/, '')}` : '';
         if (tool === 'list_directory') return args.path || '.';
         if (tool === 'list_databases') return args.path || '.';
-        if (tool === 'database_schema' || tool === 'read_database_table') return `${args.database || ''}${args.table ? ` / ${args.table}` : ''}`;
+        if (tool === 'database_schema' || tool === 'read_database_table' || tool === 'insert_database_row' || tool === 'update_database_rows' || tool === 'delete_database_rows') {
+            const dbNames = {
+                'tools.db': '平台业务主库',
+                'report.db': '历史兼容报表库',
+                'ai-knowledge.db': 'AI 知识库',
+                'datacom-knowledge.db': '数通知识库',
+                'requirements.db': '需求广场库',
+                'ezscan-warehouse.db': '仓储库',
+                'chat-history.db': '聊天记录库'
+            };
+            const rawDb = String(args.database || '');
+            const dbKey = rawDb.replace(/^platform:(?:(?:data|report)\/)?/i, '').toLowerCase();
+            const dbLabel = rawDb.startsWith('platform:') ? (dbNames[dbKey] || '平台数据库') : rawDb.startsWith('local:') ? '工作区本地 SQLite' : '';
+            const dbText = rawDb ? `${rawDb}${dbLabel ? `（${dbLabel}）` : ''}` : '';
+            return `${dbText}${args.table ? ` / ${args.table}` : ''}`;
+        }
         return args.path || '';
     }
 
@@ -1095,7 +1185,7 @@
 
     // ── 对话内：写入 / 编辑后的文件卡片（预览 / 代码） ─────
     // 内容按需从 /file 读取磁盘上的当前版本；HTML/SVG 在无 allow-same-origin 的沙箱 iframe 中渲染，拿不到平台的 Token 与存储。
-    const FILE_TOOLS = new Set(['write_file', 'edit_file']);
+    const FILE_TOOLS = new Set(['write_file', 'edit_file', 'multi_edit']);
     const PREVIEW_KINDS = { html: 'html', htm: 'html', xhtml: 'html', svg: 'svg', md: 'markdown', markdown: 'markdown' };
     const fileCache = new WeakMap();
     let replaying = false;
@@ -1135,8 +1225,8 @@
         const card = document.createElement('div');
         card.className = 'dc-file-card';
         card.dataset.path = filePath;
-        card.dataset.root = state.root;
-        card.dataset.session = state.agentSessionId;
+        card.dataset.root = effectiveRoot();
+        card.dataset.session = state.agentSessionId || (isSharedLocked() ? 'shws' : '');
         card.dataset.preview = previewKind;
         card.innerHTML = `
             <div class="dc-file-head">
@@ -1161,9 +1251,10 @@
             showFileView(card, 'preview');
         }
         // 异步读取文件内容以更新文件行数与大小元数据；
-        // 如果此文件是 HTML，将完整页面内容同步注入右侧 Dragon 浏览器 AI 指针群进行协同绘制
+        // 仅在当轮实时新生成 HTML（autoOpen && !replaying）时自动注入右侧 Dragon 浏览器 AI 指针群协同绘制；
+        // 正常打开/回放历史对话时不再自动弹出绘制（需要查看时可点击消息下方预览按钮手动触发）。
         loadFile(card).then(data => {
-            if (previewKind === 'html' && data?.content && window.DragonHtmlSwarm) {
+            if (autoOpen && !replaying && previewKind === 'html' && data?.content && window.DragonHtmlSwarm) {
                 window.DragonHtmlSwarm.playFullHtml?.(data.content, { title: baseName(filePath) });
             }
         }).catch(() => {});
@@ -1171,8 +1262,8 @@
 
     async function loadFile(card) {
         if (fileCache.has(card)) return fileCache.get(card);
-        const root = card.dataset.root || state.root;
-        const id = card.dataset.session || state.agentSessionId;
+        const root = card.dataset.root || effectiveRoot();
+        const id = card.dataset.session || state.agentSessionId || (isSharedLocked() ? 'shws' : 'shared');
         const data = await request('GET', `${API}/file/${encodeURIComponent(id)}?root=${encodeURIComponent(root)}&path=${encodeURIComponent(card.dataset.path)}`);
         fileCache.set(card, data);
         const lines = data.content ? data.content.split('\n').length : 0;
@@ -1442,8 +1533,9 @@
             row.className = 'dc-tool-row is-running';
             row.dataset.tool = event.tool;
             row.innerHTML = `<span class="dc-tool-icon" aria-hidden="true">${toolIcon(event.tool)}</span><span class="dc-tool-name">${escapeHtml(toolLabel(event.tool))}</span><span class="dc-tool-args" title="${escapeHtml(describeArgs(event.tool, event.args))}">${escapeHtml(describeArgs(event.tool, event.args))}</span><span class="dc-tool-state"><i class="dc-tool-spin" aria-hidden="true"></i></span>`;
-            // 文件卡片只用于用户选择的目录；没选目录（对话传入 null，隐藏临时目录）时不挂预览。重放历史时不传，沿用原行为
-            if (sourceWorkspace !== null && FILE_TOOLS.has(event.tool) && event.args?.path) row.dataset.filePath = event.args.path;
+            // 文件卡片只用于用户选择的目录（或已同步给本人的共享文件副本）；没选目录（对话传入 null）时不挂预览。重放历史时不传
+            const fileTarget = event.sharedPath || event.args?.path;
+            if (sourceWorkspace !== null && FILE_TOOLS.has(event.tool) && fileTarget) row.dataset.filePath = fileTarget;
             toolLogFor(messageEl).appendChild(row);
             toolRows.set(event.callId, row);
             messageEl.querySelector('.dc-thinking')?.remove();
@@ -1454,7 +1546,23 @@
             row.classList.add(event.ok ? 'is-ok' : 'is-fail');
             if (!replaying && event.ok && row.dataset.tool?.startsWith('browser_'))
                 window.dispatchEvent(new CustomEvent('dragon-claw:browser-update', { detail: { tool: row.dataset.tool } }));
-            row.querySelector('.dc-tool-state').innerHTML = `${event.ok ? '✓' : '✗'} <span>${escapeHtml(event.summary || '')}</span>${event.durationMs > 1500 ? ` <small>${(event.durationMs / 1000).toFixed(1)}s</small>` : ''}`;
+            let displaySummary = event.summary || '';
+            if (event.ok && /^(?:database_schema|read_database_table|insert_database_row|update_database_rows|delete_database_rows)$/.test(row.dataset.tool || '')) {
+                const sepIdx = displaySummary.lastIndexOf(' · ');
+                const colonIdx = sepIdx < 0 ? displaySummary.lastIndexOf('：') : -1;
+                const splitAt = sepIdx >= 0 ? sepIdx : colonIdx;
+                if (splitAt > 0) {
+                    const richTarget = displaySummary.slice(0, splitAt).replace(/^(?:insert|update|delete)\s+/i, '').trim();
+                    const rightMetric = displaySummary.slice(splitAt + (sepIdx >= 0 ? 3 : 1)).trim();
+                    const argsEl = row.querySelector('.dc-tool-args');
+                    if (argsEl && richTarget) {
+                        argsEl.textContent = richTarget;
+                        argsEl.title = richTarget;
+                    }
+                    if (rightMetric) displaySummary = rightMetric;
+                }
+            }
+            row.querySelector('.dc-tool-state').innerHTML = `${event.ok ? '✓' : '✗'} <span>${escapeHtml(displaySummary)}</span>${event.durationMs > 1500 ? ` <small>${(event.durationMs / 1000).toFixed(1)}s</small>` : ''}`;
             // 命令输出：折叠在工具行下方，需要时展开查看
             if (event.output) row.insertAdjacentHTML('afterend', `<details class="dc-tool-output"><summary>${escapeHtml(tx('toolOutput'))}</summary><pre>${escapeHtml(event.output)}</pre></details>`);
             // 网页截图、看过的图片：工具行下方显示缩略图，点击放大（与对话里的图片同一套预览）
@@ -1665,8 +1773,13 @@
 
     function applyDone(data) {
         if (!data) return;
-        if (data.agentSessionId && data.agentSessionId !== state.agentSessionId) return;
-        if (data.agent?.root && data.agent.root !== state.root) return;
+        if (data.agent?.sharedWorkspace) {
+            window.DragonClawWorkspace?.setSharedWorkspace?.(data.agent.sharedWorkspace);
+        }
+        const activeRoot = effectiveRoot();
+        if (data.agentSessionId && data.agentSessionId !== state.agentSessionId && !isSharedLocked()) return;
+        if (data.agent?.root && data.agent.root !== activeRoot) return;
+        if (data.agent?.sharedWorkspace?.virtualRoot && data.agent.sharedWorkspace.virtualRoot !== activeRoot) return;
         if (data.context) state.context = data.context;
         if (Array.isArray(data.changes)) state.changes = data.changes.map(item => ({ ...item, source: item.source || 'agent' }));
         if (data.agent?.gitBranch !== undefined) state.gitBranch = data.agent.gitBranch || state.gitBranch;
@@ -1734,7 +1847,8 @@
             if (branch && !branch.disabled && el.chip?.contains(branch)) { el.chip.querySelectorAll('details[open]').forEach(node => node.open = false);changeBranch(branch.dataset.wspBranch);return; }
             const action = event.target.closest('[data-wsp-action]');
             if (action && (el.panel.contains(action) || el.chip?.contains(action))) {
-                if (action.dataset.wspAction === 'create-workspace') createWorkspace();
+                if (action.dataset.wspAction === 'shared-locked-tip') toast(sharedLockedMessage());
+                else if (action.dataset.wspAction === 'create-workspace') createWorkspace();
                 else if (action.dataset.wspAction === 'new-worktree') createWorktree();
                 else if (action.dataset.wspAction === 'new-branch') {
                     if (isReadOnly() || workspaceBusy()) return;
@@ -1962,8 +2076,22 @@
         closePanel: () => setOpen(false, { remember: false }),
         isPanelOpen: () => state.open,
         isEnabled: () => state.enabled,
-        hasWorkspace: () => Boolean(state.root),
+        isSharedLocked,
+        setSharedWorkspace(info) {
+            const next = info && info.enabled ? info : null;
+            const prev = state.sharedWorkspace;
+            if (JSON.stringify(prev) === JSON.stringify(next)) return;
+            state.sharedWorkspace = next;
+            if (el.toggle) el.toggle.hidden = !(state.enabled || isSharedLocked());
+            if (el.fab) el.fab.hidden = !(state.enabled || isSharedLocked());
+            renderAll();
+            if (isSharedLocked()) restoreState();
+        },
+        hasWorkspace: () => Boolean(state.root || isSharedLocked()),
         getWorkspacePayload() {
+            if (isSharedLocked()) {
+                return { agentSessionId: state.agentSessionId || 'shws', sharedWorkspaceId: state.sharedWorkspace.shareId, permissionMode: state.permissionMode };
+            }
             if (!state.enabled || !state.root) return null;
             return { agentSessionId: state.agentSessionId, root: state.root, permissionMode: state.permissionMode };
         },
@@ -1971,6 +2099,7 @@
         // 目录已不存在时提示并保持未选目录，对话照常恢复。
         async resumeWorkspace({ agentSessionId, root } = {}) {
             if (state.pr?.phase === 'running') throw new Error(tx('prRunning'));
+            if (isSharedLocked()) { renderAll(); restoreState(); return true; }
             const ticket = ++state.selectionEpoch;
             // 切到没有关联目录的对话：工作区与这个对话无关，自动收起
             if (!state.enabled || !agentSessionId || !root || isScratchDirectory(root)) { clearDirectory(); this.resetSession(); if (!state.external && !state.filePreview) setOpen(false, { remember: false }); return false; }

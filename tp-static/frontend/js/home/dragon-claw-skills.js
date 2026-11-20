@@ -80,7 +80,7 @@
         }
         const superAdmin = isSuperAdminUser();
         const isShared = item.sharedAccess === true;
-        if (superAdmin || isShared) {
+        if (superAdmin) {
             const shareTag = document.createElement('small');
             shareTag.className = `dc-skill-share-badge ${isShared ? 'is-shared' : 'is-unshared'}`;
             shareTag.textContent = words(isShared ? '全员开放' : '未全员开放', isShared ? 'Shared' : 'Not shared');

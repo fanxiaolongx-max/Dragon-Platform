@@ -2761,18 +2761,27 @@
                 playFullHtml(extracted.code, { title: extracted.title });
                 return;
             }
-            if (htmlCard && window.HomeWorkspace?.loadFile) {
+            const loader = window.DragonClawWorkspace?.loadFile || window.HomeWorkspace?.loadFile;
+            if (htmlCard && typeof loader === 'function') {
                 try {
-                    const data = await window.HomeWorkspace.loadFile(htmlCard);
+                    const data = await loader(htmlCard);
                     if (data?.content) {
                         playFullHtml(data.content, { title: htmlCard.dataset.path?.split(/[\\/]/).pop() || '' });
                         return;
                     }
-                } catch (_e) {}
+                } catch (err) {
+                    const msg = String(err?.message || '');
+                    window.showToast?.(msg
+                        ? L(`无法预览该 HTML 文件：${msg}`, `Unable to preview HTML file: ${msg}`)
+                        : L('该历史文件暂无法读取（可能来自旧版共享同步或原文件已移动）', 'Unable to read this historical file'));
+                    return;
+                }
             }
             if (state.htmlCode) {
                 playFullHtml(state.htmlCode, { title: state.pageTitle });
+                return;
             }
+            window.showToast?.(L('未能获取到该 HTML 文件的内容，请尝试点击文件卡片的「预览」或重新生成', 'Unable to load HTML content for preview'));
         });
         main.appendChild(btn);
     }
