@@ -1247,24 +1247,24 @@ body.dc-chatting .dc-composer {
 }
 
 
-/* Metrics size to their longest line, wrapping only at the viewport boundary. */
 .dc-msg-metrics { min-width: 0; max-width: 100%; }
-.dc-msg-metrics summary { cursor: pointer; font-size: 11px; color: var(--dc-faint); }
-.dc-msg-metrics summary:focus-visible { outline: 2px solid var(--dc-accent); outline-offset: 2px; border-radius: 3px; }
-.dc-msg-metrics summary span { display: inline; white-space: normal; cursor: inherit; }
+.dc-msg-metrics > button { background: none; border: 0; padding: 2px 0; text-align: start; cursor: help; font: inherit; font-size: 11px; color: var(--dc-faint); }
+.dc-msg-metrics > button:focus-visible { outline: 2px solid var(--dc-accent); outline-offset: 2px; border-radius: 3px; }
+.dc-msg-metrics button span { display: inline; white-space: normal; cursor: inherit; }
 .dc-metric-details {
-    box-sizing: border-box;
-    max-width: 64ch;
-    margin-top: 6px;
-    border-inline-start: 2px solid var(--v2-line-strong, var(--dc-border));
-    padding: 4px 12px;
-    color: var(--v2-ink2, var(--dc-text));
-    font: 12px/1.65 system-ui, sans-serif;
-    font-variant-numeric: tabular-nums;
-    white-space: pre-line;
+    position: fixed; inset: auto; margin: 0; box-sizing: border-box;
+    width: min(560px, calc(100vw - 16px)); max-height: min(55vh, 300px); overflow: auto;
+    padding: 9px 12px; border: 1px solid var(--v2-line); border-radius: 14px;
+    background: var(--v2-side); color: var(--v2-ink2);
+    box-shadow: 0 10px 32px rgb(0 0 0 / 18%);
+    font: 10px/1.35 system-ui, sans-serif; font-variant-numeric: tabular-nums;
     overflow-wrap: anywhere;
 }
-.dc-msg-tools:has(.dc-msg-metrics[open]) { opacity: 1; align-items: flex-start; }
+.dc-metric-details strong { color: var(--v2-ink); font-size: 11px; }
+.dc-metric-details p { margin: 3px 0 0; }
+.dc-metric-details .dc-metric-value { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 2px 6px; border-radius: 6px; background: var(--v2-hover); }
+.dc-metric-value b { color: var(--v2-ink); }
+.dc-metric-details .dc-metric-call { padding-top: 4px; border-top: 1px solid var(--v2-line); }
 .dc-msg--ai:is(.is-continued, .is-writing) .dc-msg-metrics { display: none; }
 .dc-tac-strategy { margin: 8px 0 4px; padding-top: 8px; border-top: 1px solid rgba(148, 163, 184, 0.22); display: flex; flex-direction: column; gap: 6px; }
 .dc-tac-strat-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 2px; border-radius: 8px; background: rgba(148, 163, 184, 0.14); }

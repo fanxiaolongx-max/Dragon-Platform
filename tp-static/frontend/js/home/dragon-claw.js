@@ -1098,6 +1098,52 @@
     }
     const fmtTps = value => (value >= 100 ? Math.round(value) : Math.round(value * 10) / 10).toString();
 
+    let metricsId = 0;
+    function bindMetrics(card, trigger) {
+        card.id = 'dc-metrics-' + ++metricsId;
+        card.popover = 'auto';
+        trigger.popoverTargetElement = card;
+        let timer, pinned = false;
+        function place() {
+            const rect = trigger.getBoundingClientRect();
+            if (!trigger.isConnected || rect.bottom < 0 || rect.top > innerHeight) return card.hidePopover();
+            card.style.left = Math.max(8, Math.min(rect.left, innerWidth - card.offsetWidth - 8)) + 'px';
+            const below = rect.bottom + 6;
+            card.style.top = Math.max(8, Math.min(innerHeight - card.offsetHeight - 8,
+                below + card.offsetHeight <= innerHeight ? below : rect.top - card.offsetHeight - 6)) + 'px';
+        }
+        const cancel = () => clearTimeout(timer);
+        function hover(event) {
+            cancel();
+            if (event.pointerType === 'touch' || card.matches(':popover-open')) return;
+            timer = setTimeout(() => { if (trigger.isConnected) { card.showPopover(); place(); } }, 420);
+        }
+        function leave() {
+            cancel();
+            if (!pinned) timer = setTimeout(() => card.hidePopover(), 160);
+        }
+        trigger.addEventListener('pointerenter', hover);
+        trigger.addEventListener('pointerleave', leave);
+        card.addEventListener('pointerenter', cancel);
+        card.addEventListener('pointerleave', leave);
+        trigger.addEventListener('click', event => {
+            cancel();
+            if (!pinned && card.matches(':popover-open')) event.preventDefault();
+            pinned = !pinned;
+        });
+        card.addEventListener('toggle', () => {
+            if (card.matches(':popover-open')) {
+                place();
+                window.addEventListener('resize', place);
+                window.addEventListener('scroll', place, true);
+            } else {
+                pinned = false;
+                window.removeEventListener('resize', place);
+                window.removeEventListener('scroll', place, true);
+            }
+        });
+    }
+
     function addMessageTools(message, text, { modelName = '', usage = null, rounds = null } = {}) {
         if (!external.active) workspace()?.performance?.(message, rounds || []);
         const bar = document.createElement('div');
@@ -1132,18 +1178,34 @@
             ...(speed.estimated ? [tx('speedEstimated')] : []),
             ...(records.length > 3 ? [en ? 'Latest 3 calls:' : '最近 3 次调用：'] : []),
             ...records.slice(-3).map((r,i) => `#${Math.max(0,records.length-3)+i+1} ${r.model || ''}: ${en?'in':'输入'} ${r.inputTokens ?? '—'} / ${en?'out':'输出'} ${r.outputTokens ?? '—'}; ${en?'cache read':'缓存读取'} ${r.cachedInputTokens ?? '—'}; TPS ${r.timingSource === 'native-metadata' && r.nativeStreamTps > 0 ? fmtTps(r.nativeStreamTps)+' ('+(en?'native':'原生流')+')' : (!r.timingEstimated && r.timingSource === 'request-stream' && r.tps > 0) || (r.timingEstimated && r.tps > 0) ? fmtTps(r.tps)+(r.timingEstimated ? (en?' (est.)':'（估）') : '') : '—'}; TTFT ${typeof r.ttftMs === 'number' ? (r.ttftMs/1000).toFixed(2)+' s'+(r.timingEstimated ? (en?' (est.)':'（估）') : '') : '—'}`)
-        ].join('\n');
+        ];
         if (Array.isArray(rounds) && rounds.length) message.dcRounds = rounds;
         bar.innerHTML = `${iconButton('copy', tx('copy'), 'data-dc-copy')}
             ${modelName ? `<span class="dc-msg-model" title="${escapeHtml(tx('modelCurrent', { name: modelName }))}">${escapeHtml(modelName)}</span>` : ''}`;
         if (records.length || modelName || input || output) {
-            const disclosure = document.createElement('details');
+            const disclosure = document.createElement('div');
             disclosure.className = 'dc-msg-metrics';
-            disclosure.innerHTML = `<summary>
+            disclosure.innerHTML = `<button type="button">
             ${records.length || input || output ? `<span class="dc-msg-usage">${escapeHtml(tx('usageText', { input: formatTokenCount(input) + cacheBadge, output: formatTokenCount(output) }))}${speed.estimated ? ' ≈' : ''}</span>` : ''}
             <span class="dc-msg-speed">${escapeHtml(`TPS${speed.nativeOnly ? (speed.observedStream ? (en?' (observed text)':'（文字观测）') : (en?' (native)':'（原生流）')) : speed.isEstimated ? (en ? ' (est.)' : '（估）') : ''} ${rate(speed.min)}/${rate(speed.avg)}/${rate(speed.max)} · ${speed.observedTiming ? (en?'First text (observed)':'首文字（观测）') : 'TTFT'}${speed.turnTiming ? (en ? ' (turn)' : '（轮次）') : speed.isEstimated ? (en ? ' (est.)' : '（估）') : ''} ${timing}${speed.rounds ? ' · '+tx('speedRounds', {n:speed.rounds}) : ''}`)}</span>
-            </summary><div class="dc-metric-details"></div>`;
-            disclosure.lastElementChild.textContent = details;
+            </button><div class="dc-metric-details"></div>`;
+            const card = disclosure.lastElementChild;
+            const heading = document.createElement('strong');
+            heading.textContent = en ? 'Reply metrics' : '回复用量';
+            card.append(heading);
+            for (const line of details) {
+                const row = document.createElement('p');
+                if (line.startsWith('#')) row.className = 'dc-metric-call';
+                const metric = /^(总 Token|Total tokens|TPS[^:]*|TTFT[^:]*|首文字（观测）|First text \(observed\)):\s*(.*)$/.exec(line);
+                if (metric) {
+                    row.className = 'dc-metric-value';
+                    const value = document.createElement('b');
+                    value.textContent = metric[2];
+                    row.append(metric[1], value);
+                } else row.textContent = line;
+                card.append(row);
+            }
+            bindMetrics(card, disclosure.firstElementChild);
             bar.appendChild(disclosure);
         }
         bar.querySelector('[data-dc-copy]').dataset.dcCopy = text;

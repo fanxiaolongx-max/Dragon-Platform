@@ -2940,9 +2940,9 @@ html.platform-home[data-theme="dark"] #toolMarketModal {
 }
 
 #toolMarketModal .tool-import-btn:disabled {
-    background: #f3f4f6;
-    color: #9ca3af;
-    border-color: #e5e7eb;
+    background: var(--market-disabled);
+    color: var(--market-faint);
+    border-color: var(--market-line);
     box-shadow: none;
     opacity: 0.8;
     cursor: not-allowed;
@@ -2951,29 +2951,33 @@ html.platform-home[data-theme="dark"] #toolMarketModal {
 
 #toolMarketModal :is(.tool-market-settings,.tool-market-details,.tool-market-progress) { border-color: var(--market-line); }
 
-#toolMarketModal :is(.tool-market-help,.tool-market-details,.tool-market-progress) { background: #fafafa; color: var(--market-ink); }
+#toolMarketModal :is(.tool-market-help,.tool-market-details,.tool-market-progress) { background: var(--market-soft); color: var(--market-ink); }
 
 #toolMarketModal :is(.tool-market-details summary,.tool-market-progress-head) { color: var(--market-muted); font-size: 12px; font-weight: 550; }
 
 #toolMarketModal .tool-market-details summary:hover { color: var(--market-accent); }
 
-#toolMarketModal .tool-market-progress-track { background: #e5e5e5; }
+#toolMarketModal .tool-market-progress-track { background: var(--market-track); }
 
 #toolMarketModal .tool-market-progress-bar { background: var(--market-accent); }
 
-#toolMarketModal .builtin-sync-loading-card { background: #fafafa; border-color: var(--market-line); box-shadow: none; }
+#toolMarketModal .builtin-sync-loading-card { background: var(--market-soft); border-color: var(--market-line); box-shadow: none; }
 
 #toolMarketModal .builtin-sync-loading-title { color: var(--market-ink); }
 
 #toolMarketModal :is(.builtin-sync-loading-percent,.builtin-sync-loading-detail) { color: var(--market-muted); }
 
-#toolMarketModal .builtin-sync-loading-bar { background: #e5e5e5; }
+#toolMarketModal .builtin-sync-loading-bar { background: var(--market-track); }
 
 #toolMarketModal .builtin-sync-loading-bar i { background: var(--market-accent); }
 
-#toolMarketModal .builtin-sync-spinner { border-color: #ddd; border-top-color: var(--market-accent); }
+#toolMarketModal .builtin-sync-spinner { border-color: var(--v2-line-strong, #ddd); border-top-color: var(--market-accent); }
 
-#toolMarketModal .builtin-sync-skeleton-card { background-image: linear-gradient(90deg,#f6f6f6 25%,#e9e9e9 50%,#f6f6f6 75%); border-color: var(--market-line); }
+#toolMarketModal .builtin-sync-skeleton-card { background-image: linear-gradient(90deg,var(--market-skeleton-base) 25%,var(--market-skeleton-shine) 50%,var(--market-skeleton-base) 75%); border-color: var(--market-line); }
+
+html.platform-home[data-theme="dark"] #toolMarketModal :is(.tool-market-trust.unverified,.tool-market-warning) { color: #fbbf24 !important; }
+
+html.platform-home[data-theme="dark"] #toolMarketModal .tool-market-badge.update { color: #7dd3fc; }
 @media (max-width: 600px) {
 
 #toolMarketModal .tool-market-source input[type=url] { flex-basis: 100%; min-width: 0; }
