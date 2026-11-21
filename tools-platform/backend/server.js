@@ -114,7 +114,7 @@ const remoteBackupSyncRepo = require('./models/remote-backup-sync-repository');
 const legacyJsonMigration = require('./models/legacy-json-migration');
 const configChangeMonitor = require('./models/config-change-monitor');
 const alertAiAnalyzer = require('./models/alert-ai-analyzer');
-const { checkAuth, requireAdmin, checkHtmlAuth, inSuperAdminSpace, isSuperAdmin } = require('./middleware/auth');
+const { checkAuth, requireAdmin, checkHtmlAuth, redirectHtmlLogin, inSuperAdminSpace, isSuperAdmin } = require('./middleware/auth');
 const pageDistribution = require('./models/page-distribution');
 const hostedAppsProxy = require('./models/hosted-apps/proxy');
 
@@ -462,6 +462,7 @@ app.use('/api', function superOnlyPathGate(req, res, next) {
 // Protect modifications: requireAdmin for all non-GET requests under uiv, sla, upload
 app.use('/api', (req, res, next) => {
     if (req.path.startsWith('/auth/')) return next();
+    if (req.path === '/summit-slide-sync') return next(); // 房间接口校验当前登录租户和随机房间标识
     if (req.method === 'POST' && req.path === '/tenants/switch') return next();
     if (req.method === 'PATCH' && req.path === '/distribution/personal') return next();
     if (req.path.startsWith('/requirements')) return next(); // 需求管理内部自行控制权限
@@ -547,6 +548,7 @@ app.use('/api/ai-report', require('./routes/ai-report')); // AI 月报：格子�
 app.use('/api/ai-bi', require('./routes/ai-bi')); // AI BI：自由画布看板
 app.use('/api/praudit', prauditRoutes); // PR审计配置 API
 app.use('/api/chat-history', chatHistoryRoutes); // 租户隔离的聊天记录中心
+app.use('/api/summit-slide-sync', require('./routes/summit-slide-sync').createSummitSlideSyncRouter());
 app.use('/api/custom-tools', customToolsRoutes); // 自定义 HTML 工具注册 API
 app.use('/api/gallery', require('./routes/gallery')); // 图屿：租户图库、图片版本与 AI 整理
 app.use('/api/hosted-apps', require('./routes/hosted-apps')); // 托管 Python Web 应用：启动页与运维
@@ -669,20 +671,18 @@ app.get('/tools/:slug', checkHtmlAuth, (req, res) => {
     sendFrontendHtml(res, 'pages/custom-tool.html');
 });
 app.use('/custom-tools/:slug', (req, res, next) => {
-    const hasSessionCookie = String(req.headers.cookie || '').split(';')
-        .some(item => item.trim().startsWith('tools_token='));
     const authorize = async () => {
         try {
             req.distributedTool = await toolDistribution.resolveTool(req.params.slug, req.user);
             if (!req.distributedTool) {
-                if (!req.user) return checkHtmlAuth(req, res, next);
+                if (!req.user) return redirectHtmlLogin(req, res);
                 return res.status(403).send('此工具未开放使用');
             }
             res.setHeader('Cache-Control', 'private, no-store');
             next();
         } catch (error) { next(error); }
     };
-    return hasSessionCookie ? checkHtmlAuth(req, res, authorize) : authorize();
+    return checkHtmlAuth(req, res, authorize, authorize);
 });
 // 应用包和隐藏配置不通过工具静态地址下载。
 app.use('/custom-tools', (req, res, next) => {
@@ -754,6 +754,15 @@ app.get('/custom-tools/:slug/index.html', async (req, res, next) => {
     } catch (err) {
         next(err);
     }
+});
+const serveSummitNarration = require('./models/home-promo-videos').createPromoVideoMiddleware({
+    manifest: require('./we-ai-narration.json'),
+    assetPattern: /^\/([a-z0-9-]+\.mp3)$/,
+    localDir: null
+});
+app.use('/custom-tools/we-ai/audio', (req, res, next) => {
+    if (req.distributedTool.sourceTenant !== DEFAULT_TENANT_ID) return next();
+    return serveSummitNarration(req, res, next);
 });
 app.use('/custom-tools/:slug', (req, res, next) => runWithTenant(req.distributedTool.sourceTenant, async () => {
     try {

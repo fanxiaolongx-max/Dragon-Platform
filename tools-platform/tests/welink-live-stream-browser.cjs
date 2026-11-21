@@ -191,6 +191,32 @@ app.whenReady().then(async () => {
     // Verify regular chat shows only mine-pin-1 in its Pinned section
     const initMinePins = await evalWrap('initMinePins', () => [...document.querySelectorAll('#homeChatList [data-section="pinned"] .home-chat-title')].map(el => el.textContent.trim()));
     assert.deepEqual(initMinePins, ['普通对话已置顶项']);
+    const scrolledPins = await evaluate(() => {
+        const panel = document.querySelector('.home-panel');
+        const pinned = document.querySelector('#homeChatList [data-section="pinned"]');
+        const heading = pinned.querySelector('[data-chat-section="pinned"]');
+        const row = pinned.querySelector('.conversation-list-row');
+        const tasks = document.querySelector('#homeChatList [data-chat-section="tasks"]');
+        const spacer = document.createElement('div');
+        spacer.style.height = panel.clientHeight + 'px';
+        pinned.parentElement.append(spacer);
+        panel.scrollTop = 0;
+        const panelTop = panel.getBoundingClientRect().top;
+        const sections = [heading, row, tasks];
+        const before = sections.map(node => node.getBoundingClientRect().top);
+        panel.scrollTop = before[1] - panelTop + 8;
+        const result = {
+            scroll: panel.scrollTop,
+            movement: sections.map((node, index) => before[index] - node.getBoundingClientRect().top),
+            rowClipped: !document.elementFromPoint(row.getBoundingClientRect().left + 16, panelTop - 2)?.closest('[data-section="pinned"]')
+        };
+        panel.scrollTop = 0;
+        spacer.remove();
+        return result;
+    });
+    assert.ok(scrolledPins.scroll > 0);
+    assert.deepEqual(scrolledPins.movement, Array(3).fill(scrolledPins.scroll), 'Pinned heading, pinned row and Tasks heading scroll together');
+    assert.equal(scrolledPins.rowClipped, true, 'Pinned rows are clipped at the top of the conversation pane');
 
     // Switch to Channels ("频道会话") -> WeLink
     await evalWrap('click channels', () => { document.querySelector('.v2-nav-item[data-v2-action="channels"]').click(); });

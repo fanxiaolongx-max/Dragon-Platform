@@ -206,6 +206,12 @@ test('HomeToolMenu: resolves custom tool and builds complete action list', async
     const { win, doc, body } = createDOM();
     const storage = { tools_role: 'admin' };
     win.localStorage = { getItem: k => storage[k] || null };
+    win.ToolsNavigation = {
+        toolUrl: () => '/custom-tools/ai-101/index.html?standalone=1',
+        shellUrl: () => '/?app=%2Ftools%2Fai-101'
+    };
+    let openedUrl = null;
+    win.open = url => { openedUrl = new URL(url, win.location).href; };
     win.__homeCustomTools = [
         { slug: 'ai-101', name: 'AI 101', href: '/tools/ai-101', hostedApp: false, builtIn: false }
     ];
@@ -282,11 +288,22 @@ test('HomeToolMenu: resolves custom tool and builds complete action list', async
     assert.ok(actions.includes('external'), 'has open external');
     assert.ok(actions.includes('copyLink'), 'has copy link');
 
+    const clickAction = async action => {
+        const menu = body.querySelector('.tool-context-menu');
+        const target = menu.querySelector(`[data-tool-action="${action}"]`);
+        menu.dispatchEvent({ type: 'click', target, preventDefault() {}, stopPropagation() {} });
+        await new Promise(resolve => setImmediate(resolve));
+    };
+    const reopen = () => menuApi.open({ anchor, href: '/tools/ai-101', title: 'AI 101' });
+    await clickAction('external');
+    reopen();
+    await clickAction('copyLink');
+    assert.equal(openedUrl, 'https://platform.test/custom-tools/ai-101/index.html?standalone=1');
+    assert.equal(win.navigator.clipboard.copiedText, openedUrl);
+    reopen();
+
     // 3. Test favorite click
-    const favBtn = menuEl.querySelector('[data-tool-action="fav"]');
-    assert.ok(favBtn, 'found favBtn');
-    menuEl.dispatchEvent({ type: 'click', target: favBtn, preventDefault() {}, stopPropagation() {} });
-    await new Promise(r => setImmediate(r));
+    await clickAction('fav');
     assert.equal(favorited, true, 'NavFavorites.toggle called');
     assert.equal(menuApi.isOpen(), false, 'menu closed after action');
 

@@ -132,3 +132,53 @@ test('incomplete plan items are finalized to completed on clean completion, but 
     ]);
     assert.equal(failEvents.filter(event => event.type === 'plan').length, 1);
 });
+
+test('incomplete plan items are NOT marked completed if model text mentions unfinished work or asks a question', async () => {
+    const unfinishedEvents = [];
+    const unfinishedReplies = [
+        () => ({ toolCalls: [{ id: 'p1', name: 'update_plan', args: { items: [{ content: '步骤1', status: 'completed' }, { content: '步骤2', status: 'pending' }] } }] }),
+        () => ({ toolCalls: [{ id: 'c1', name: 'calculate', args: { expression: '2+2' } }] }),
+        () => ({ text: '步骤2由于依赖服务未启动，未能完成。' })
+    ];
+    const unfinishedResult = await agentLoop.runToolLoop({
+        client: { model: 'mock', generateText: async () => unfinishedReplies.shift()() },
+        systemPrompt: 'sys', messages: [{ role: 'user', content: '继续' }],
+        write: event => unfinishedEvents.push(event),
+        executeCall: async () => ({ content: '4', summary: '4' })
+    });
+    assert.deepEqual(unfinishedResult.plan, [
+        { content: '步骤1', status: 'completed' },
+        { content: '步骤2', status: 'pending' }
+    ]);
+    // 只有初始 update_plan 产生的 1 个 plan 事件，不会被自动篡改成 completed
+    assert.equal(unfinishedEvents.filter(event => event.type === 'plan').length, 1);
+});
+
+test('update_plan blocks setting completed if immediately preceding tool call failed, and fixes contradiction if text reports failure', async () => {
+    const events = [];
+    const replies = [
+        () => ({ toolCalls: [{ id: 'p1', name: 'update_plan', args: { items: [{ content: '算 125*8', status: 'in_progress' }, { content: '删临时表', status: 'pending' }] } }] }),
+        () => ({ toolCalls: [{ id: 'c1', name: 'calculate', args: { expression: '125*8' } }] }),
+        () => ({ toolCalls: [{ id: 'p2', name: 'update_plan', args: { items: [{ content: '算 125*8', status: 'completed' }, { content: '删临时表', status: 'in_progress' }] } }] }),
+        () => ({ toolCalls: [{ id: 'd1', name: 'delete_mock', args: {} }] }),
+        () => ({ toolCalls: [{ id: 'p3', name: 'update_plan', args: { items: [{ content: '算 125*8', status: 'completed' }, { content: '删临时表', status: 'completed' }] } }] }),
+        () => ({ text: '删除临时表失败，操作无法执行。请问您需要我尝试其他操作吗？' })
+    ];
+    const result = await agentLoop.runToolLoop({
+        client: { model: 'mock', generateText: async () => replies.shift()() },
+        systemPrompt: 'sys', messages: [{ role: 'user', content: '执行' }],
+        tools: [{ name: 'delete_mock', description: 'd', parameters: { type: 'object', properties: {} } }],
+        write: event => events.push(event),
+        executeCall: async call => {
+            if (call.name === 'delete_mock') return { content: '表不存在', summary: '该表不可供 AI 读取', ok: false, isError: true };
+            return null;
+        }
+    });
+    // 第二步绝不能被虚标为 completed，必须保持 pending
+    assert.deepEqual(result.plan, [
+        { content: '算 125*8', status: 'completed' },
+        { content: '删临时表', status: 'pending' }
+    ]);
+    const lastPlan = events.filter(e => e.type === 'plan').at(-1);
+    assert.equal(lastPlan.items[1].status, 'pending');
+});

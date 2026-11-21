@@ -726,10 +726,10 @@
                     id: 'copyLink',
                     label: t('copyLink'),
                     icon: 'copy',
-                    run: () => {
-                        const shell = window.ToolsNavigation?.shellUrl?.(target.href) || target.href;
-                        const full = new URL(shell, location.origin).href;
-                        navigator.clipboard.writeText(full);
+                    run: async () => {
+                        const directUrl = window.ToolsNavigation?.toolUrl?.(target.href) || target.href;
+                        const full = new URL(directUrl, location.origin).href;
+                        await navigator.clipboard.writeText(full);
                         toast(t('copied'));
                     }
                 });

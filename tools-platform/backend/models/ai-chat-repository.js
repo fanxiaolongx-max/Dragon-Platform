@@ -452,11 +452,19 @@ async function recordQuestion({ pagePath, question, owner } = {}) {
 
 async function autoArchiveSessions() {
     const ageModifier = `-${AUTO_ARCHIVE_AFTER_DAYS} days`;
+    const hasPrefs = Boolean(await get("SELECT 1 FROM sqlite_master WHERE type='table' AND name='conversation_list_preferences'"));
+    // 置顶会话不参与自动归档，也不占用普通会话的保留名额。
+    const unpinnedOnly = hasPrefs ? `AND NOT EXISTS (
+        SELECT 1 FROM conversation_list_preferences p
+        WHERE p.owner = ai_chat_sessions.owner AND p.source = 'mine'
+          AND p.item_id = ai_chat_sessions.id AND p.pinned = 1
+    )` : '';
     await run(`
         UPDATE ai_chat_sessions
         SET is_archived = 1, archived_at = COALESCE(archived_at, CURRENT_TIMESTAMP)
         WHERE is_archived = 0
           AND updated_at < datetime('now', ?)
+          ${unpinnedOnly}
     `, [ageModifier]);
     const pages = await all(`SELECT DISTINCT page_path FROM ai_chat_sessions WHERE is_archived = 0`);
     for (const page of pages) {
@@ -465,7 +473,7 @@ async function autoArchiveSessions() {
             SET is_archived = 1, archived_at = COALESCE(archived_at, CURRENT_TIMESTAMP)
             WHERE id IN (
                 SELECT id FROM ai_chat_sessions
-                WHERE page_path = ? AND is_archived = 0
+                WHERE page_path = ? AND is_archived = 0 ${unpinnedOnly}
                 ORDER BY updated_at DESC, rowid DESC
                 LIMIT -1 OFFSET ?
             )

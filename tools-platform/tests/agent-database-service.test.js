@@ -159,6 +159,15 @@ test('admin tools perform real insert, update, delete and read back the committe
     const deleted = await tools.execute(adminCtx, 'delete_database_rows', { ...target, filters: [eq('id', id)] });
     assert.equal(JSON.parse(deleted.content).changes, 1);
     assert.deepEqual((await service.readTable(ctx, target)).rows, []);
+
+    // SilentGuard: 0 行匹配时返回 isError 防止模型误判为成功
+    const zeroUpdate = await tools.execute(adminCtx, 'update_database_rows', { ...target, values: '{"amount":99}', filters: [eq('id', id)] });
+    assert.equal(zeroUpdate.isError, true);
+    assert.match(zeroUpdate.summary, /未匹配到任何行/);
+
+    const zeroDelete = await tools.execute(adminCtx, 'delete_database_rows', { ...target, filters: [eq('id', id)] });
+    assert.equal(zeroDelete.isError, true);
+    assert.match(zeroDelete.summary, /未匹配到任何行/);
     // 每次写入都在告警台留痕：删除是警告级，带上条件
     await new Promise(resolve => setTimeout(resolve, 50));
     const events = await require('../backend/models/alert-center-repository').listEvents({ limit: 20 });

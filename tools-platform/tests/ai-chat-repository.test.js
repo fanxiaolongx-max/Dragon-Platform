@@ -8,7 +8,7 @@ const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'tools-platform-ai-chat-')
 process.env.TOOLS_DATA_DIR = path.join(sandbox, 'data');
 
 const repo = require('../backend/models/ai-chat-repository');
-const { closeDatabase } = require('../backend/models/app-db');
+const { closeDatabase, run } = require('../backend/models/app-db');
 
 test('ai-chat-repository: global cross-page session archive and retrieval', async t => {
     t.after(async () => {
@@ -123,4 +123,43 @@ test('ai-chat-repository: scratch directories are never exposed or persisted as 
     sessions = await repo.listOwnedSessions({ owner: 'testuser', pagePath: '/' });
     session = sessions.find(s => s.id === normalId);
     assert.deepEqual(session?.agent, { agentSessionId: 'real-1', root: '/Users/dragon/project' });
+});
+
+test('automatic archiving exempts pins from both rules and leaves manual archiving available', async t => {
+    t.after(async () => {
+        await closeDatabase();
+        fs.rmSync(sandbox, { recursive: true, force: true });
+    });
+
+    const prefs = require('../backend/models/conversation-list-repository');
+    const owner = 'pin-owner';
+    const pagePath = '/pages/pin-archive.html';
+    const oldPin = await repo.getOrCreateSession({ owner, pagePath });
+    const recentPin = await repo.getOrCreateSession({ owner, pagePath });
+    const oldUnpinned = await repo.getOrCreateSession({ owner, pagePath });
+    const overflow = await repo.getOrCreateSession({ owner, pagePath });
+    await prefs.save(owner, { source: 'mine', id: oldPin, pinned: true });
+    await prefs.save(owner, { source: 'mine', id: recentPin, pinned: true });
+    await prefs.save(owner, { source: 'weixin', id: oldUnpinned, pinned: true });
+    await run("UPDATE ai_chat_sessions SET updated_at = datetime('now', '-31 days') WHERE id IN (?, ?)", [oldPin, oldUnpinned]);
+    await run("UPDATE ai_chat_sessions SET updated_at = datetime('now', '-1 day') WHERE id IN (?, ?)", [recentPin, overflow]);
+
+    const recent = [];
+    for (let i = 0; i < 30; i++) {
+        recent.push(await repo.getOrCreateSession({ owner, pagePath }));
+    }
+    await repo.autoArchiveSessions();
+
+    for (const id of [oldPin, recentPin, ...recent]) {
+        assert.equal((await repo.getSession(id)).is_archived, 0);
+    }
+    for (const id of [oldUnpinned, overflow]) {
+        assert.equal((await repo.getSession(id)).is_archived, 1);
+    }
+
+    await repo.setSessionArchived(oldPin, true, { owner });
+    await prefs.save(owner, { source: 'mine', id: recentPin, pinned: false });
+    await repo.autoArchiveSessions();
+    assert.equal((await repo.getSession(oldPin)).is_archived, 1);
+    assert.equal((await repo.getSession(recentPin)).is_archived, 1);
 });

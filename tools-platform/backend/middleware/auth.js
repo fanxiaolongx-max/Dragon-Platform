@@ -99,7 +99,11 @@ function loginRedirect(req) {
     return share ? `/login.html?share=${share}` : '/login.html';
 }
 
-async function checkHtmlAuth(req, res, next) {
+function redirectHtmlLogin(req, res) {
+    return res.redirect(loginRedirect(req));
+}
+
+async function checkHtmlAuth(req, res, next, onGuest = redirectHtmlLogin) {
     let token = null;
     const cookieHeader = req.headers.cookie;
     if (cookieHeader) {
@@ -113,20 +117,20 @@ async function checkHtmlAuth(req, res, next) {
         }
     }
 
-    if (!token) return res.redirect(loginRedirect(req));
+    if (!token) return onGuest(req, res);
 
     try {
         const session = await authSessionsRepo.getSession(token);
         if (!session || session.expiresAt < Date.now()) {
             if (session) await authSessionsRepo.deleteSession(token);
-            return res.redirect(loginRedirect(req));
+            return onGuest(req, res);
         }
         req.user = session.user;
         const { runWithTenant } = require('../models/tenant-context');
         runWithTenant(session.user.tenantId, next);
     } catch (err) {
         console.error('HTML Auth check error:', err);
-        return res.redirect(loginRedirect(req));
+        return onGuest(req, res);
     }
 }
 
@@ -167,6 +171,7 @@ module.exports = {
     checkAuth,
     requireAdmin,
     checkHtmlAuth,
+    redirectHtmlLogin,
     hashPassword,
     hashUserPassword,
     hasCurrentSuperAdminAccount,

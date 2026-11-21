@@ -20,6 +20,7 @@ const TRUNCATED_RE = /^(length|max_tokens|max_output_tokens)$/i;
 const MAX_COMPACTIONS = 6;
 const COMPACT_KEEP_RATIO = 0.25;
 const RETRY_OUTPUT_TOKENS = 8192;
+const UNFINISHED_TEXT_RE = /(?:未(?:能)?完成|未执行|未能|无法(?:继续|执行|处理|找到)|下一步|还(?:需|需要|未)|剩余(?:步骤|任务)?|暂未|部分完成|请确认|由于.{0,20}(?:受限|失败|错误))/i;
 
 // 没有文件工具的场景：出现大结果文件后补上这个只能读本人结果文件的 read_file
 const ARTIFACT_READER = {
@@ -40,7 +41,7 @@ const ARTIFACT_READER = {
 const BUILTIN_DEFINITIONS = {
     update_plan: {
         name: 'update_plan',
-        description: '任务清单：需要 3 步以上的任务，先列出步骤，之后每完成一步就更新状态（界面会显示进度）；全部做完给出最终回答前，务必再调用一次把剩余项都标为 completed。每次传完整清单；同一时间最多一项 in_progress。简单问答不用。',
+        description: '任务清单：需要 3 步以上的任务，先列出步骤，之后每完成一步更新对应状态（界面会显示进度）。仅在步骤确实成功完成时才标为 completed；若某步骤失败、报错、权限不足、未执行或向用户请示，务必保持 pending 或 in_progress，切勿虚标为 completed。每次传完整清单；同一时间最多一项 in_progress。简单问答不用。',
         parameters: {
             type: 'object',
             properties: {
@@ -234,15 +235,34 @@ async function runToolLoop({
             try { return toolkit.calculate(args); } catch (error) { return { content: `错误（${error.code || 'ERROR'}）：${error.message}`, summary: error.message, isError: true }; }
         }
         if (call.name === 'update_plan') {
+            const lastTool = toolLog.length ? toolLog[toolLog.length - 1] : null;
+            const lastFailed = lastTool && (lastTool.ok === false || lastTool.isError === true);
+            let blockedFailureCompletion = false;
             const items = (Array.isArray(args.items) ? args.items : []).slice(0, 20)
-                .map(item => ({ content: String(item?.content || '').trim().slice(0, 200), status: PLAN_STATUS.has(item?.status) ? item.status : 'pending' }))
+                .map((item, idx) => {
+                    let status = PLAN_STATUS.has(item?.status) ? item.status : 'pending';
+                    if (status === 'completed' && lastFailed) {
+                        const prevItem = plan[idx];
+                        if (!prevItem || prevItem.status !== 'completed') {
+                            status = 'pending';
+                            blockedFailureCompletion = true;
+                        }
+                    }
+                    return {
+                        content: String(item?.content || '').trim().slice(0, 200),
+                        status
+                    };
+                })
                 .filter(item => item.content);
             if (!items.length) return { content: 'items 不能为空', summary: '清单为空', isError: true, silent: true };
             if (items.filter(item => item.status === 'in_progress').length > 1) return { content: '同一时间最多一项 in_progress，请修正后重新提交完整清单', summary: '清单状态有误', isError: true, silent: true };
             plan = items;
             write({ type: 'plan', items });
             const done = items.filter(item => item.status === 'completed').length;
-            return { content: `任务清单已更新（完成 ${done}/${items.length}）。`, summary: `任务清单 ${done}/${items.length}`, silent: true };
+            const note = blockedFailureCompletion
+                ? `（提示：最近一次工具执行失败「${lastTool?.summary || '报错'}」，相关步骤未成功完成，已自动保持为 pending，请向用户如实说明）`
+                : '';
+            return { content: `任务清单已更新（完成 ${done}/${items.length}）。${note}`, summary: `任务清单 ${done}/${items.length}`, silent: true };
         }
         if (call.name === 'ask_user') {
             const text = String(args.question || '').trim().slice(0, 500);
@@ -388,11 +408,18 @@ async function runToolLoop({
                 }
             }
             finalText = redactText(finalText, secrets);
+            const isUnfinishedResponse = UNFINISHED_TEXT_RE.test(finalText);
+            const hasQuestionToUser = /(?:请问|是否|要不要|需要我|请确认)[^。！？]*[？?线上\s]*$/.test(finalText.trim());
+            const lastToolFailed = toolLog.length && (toolLog[toolLog.length - 1]?.ok === false || toolLog[toolLog.length - 1]?.isError === true);
             // 模型常在做完所有工具调用后直接输出结束语而忘了最后调一次 update_plan：若已正常收尾且最后一步工具执行成功，补发完整 completed 状态
-            if (!usedFallback && finalText.trim() && !question && !extras?.hasUpgrade?.()
+            if (!usedFallback && finalText.trim() && !question && !isUnfinishedResponse && !hasQuestionToUser && !extras?.hasUpgrade?.()
                 && plan.length && plan.some(item => item.status !== 'completed')
-                && toolLog.length && toolLog[toolLog.length - 1]?.ok !== false) {
+                && toolLog.length && !lastToolFailed) {
                 plan = plan.map(item => ({ ...item, status: 'completed' }));
+                write({ type: 'plan', items: plan });
+            } else if ((isUnfinishedResponse || hasQuestionToUser || lastToolFailed) && plan.length && plan.every(item => item.status === 'completed')) {
+                // 模型在正文中明确表达了未完成、失败或反问，或者工具执行失败，但清单却全标为了 completed：修正最后一项为 pending，消除矛盾
+                plan = plan.map((item, idx) => idx === plan.length - 1 ? { ...item, status: 'pending' } : item);
                 write({ type: 'plan', items: plan });
             }
             break;

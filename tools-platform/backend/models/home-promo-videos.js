@@ -144,7 +144,7 @@ function createPromoVideoMiddleware(options = {}) {
     }
 
     const middleware = async (req, res, next) => {
-        const match = /^\/assets\/promotions\/((?:datacom\/)?[a-z0-9-]+\.mp4)$/.exec(req.path);
+        const match = (options.assetPattern || /^\/assets\/promotions\/((?:datacom\/)?[a-z0-9-]+\.mp4)$/).exec(req.path);
         const name = match?.[1];
         const asset = name && Object.hasOwn(catalog.assets, name) ? catalog.assets[name] : null;
         if (!asset || (req.method !== 'GET' && req.method !== 'HEAD')) return next();
@@ -152,7 +152,7 @@ function createPromoVideoMiddleware(options = {}) {
             return res.sendFile(path.join(localDir, name), error => { if (error) next(error); });
         }
         const etag = `"${asset.sha256}"`;
-        res.set({ 'Accept-Ranges': 'bytes', 'Content-Type': 'video/mp4',
+        res.set({ 'Accept-Ranges': 'bytes', 'Content-Type': name.endsWith('.mp3') ? 'audio/mpeg' : 'video/mp4',
             'Cache-Control': 'public, max-age=0, must-revalidate', ETag: etag });
         if (req.headers['if-none-match'] === etag) return res.status(304).end();
         // If-Range mismatch means send the complete current representation.

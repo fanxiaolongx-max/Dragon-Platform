@@ -1172,10 +1172,18 @@ const EXECUTORS = {
         .map(([name, operation]) => [name, async (ctx, args) => {
             assertScriptTool(args);
             const result = await databaseService.writeTable(ctx, { ...args, operation });
-            noticeDatabaseWrite(ctx, args, operation, result);
             const dbLabel = databaseService.describeDatabase(args.database);
             const dbTag = dbLabel ? `${args.database}（${dbLabel}）` : args.database;
             const purpose = databaseService.describeTablePurpose(args.table);
+            if ((operation === 'update' || operation === 'delete') && result.changes === 0) {
+                return {
+                    isError: true,
+                    content: JSON.stringify({ ...result, error: `未匹配到符合条件的行，0 行被${operation === 'update' ? '更新' : '删除'}。请检查 WHERE 条件或先用 read_database_table 查询确认。` }),
+                    summary: `${operation} ${dbTag} / ${args.table}${purpose ? `（${purpose}）` : ''}：未匹配到任何行（0 行受影响）`
+                };
+            }
+            noticeDatabaseWrite(ctx, args, operation, result);
+            return { content: JSON.stringify(result), summary: `${operation} ${dbTag} / ${args.table}${purpose ? `（${purpose}）` : ''}：${result.changes} 行` };
             return { content: JSON.stringify(result), summary: `${operation} ${dbTag} / ${args.table}${purpose ? `（${purpose}）` : ''}：${result.changes} 行` };
         }])),
     write_file: writeFile,
