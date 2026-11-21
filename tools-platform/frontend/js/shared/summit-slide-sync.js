@@ -4,11 +4,12 @@
     const endpoint = '/api/summit-slide-sync';
     const isRoom = value => typeof value === 'string' && /^[a-f0-9]{32}$/.test(value);
 
-    async function request(method, room, body) {
+    async function request(method, room, body, publicView = false) {
         const headers = {};
         if (room) headers['X-Summit-Sync-Room'] = room;
         if (body) headers['Content-Type'] = 'application/json';
-        const response = await fetch(endpoint, {
+        const response = await fetch(publicView ? '/api/public/summit-view' : endpoint, {
+            credentials: publicView ? 'omit' : 'same-origin',
             method, headers, body: body && JSON.stringify(body),
             cache: 'no-store', signal: AbortSignal.timeout(4500)
         });
@@ -20,12 +21,13 @@
         return response.status === 204 ? null : response.json();
     }
 
-    function createClient(from, onSlide, onStatus, onEmpty) {
+    function createClient(from, onSlide, onStatus, onEmpty, publicView = false) {
         let session = null;
 
         function failure(error) {
             if (error.status === 401) return 'login';
             if (error.status === 404) return 'expired';
+            if (error.status === 403) return 'forbidden';
             if (error.status === 429) return 'limit';
             return 'offline';
         }
@@ -39,6 +41,7 @@
 
         function apply(current, state, notify = true) {
             if (session !== current) return;
+            if (state.viewer) { current.viewer = state.viewer; current.expiresAt = state.expiresAt; }
             status(current, 'online');
             if (state.revision === 0) {
                 if (current.revision !== 0) {
@@ -54,7 +57,7 @@
 
         async function poll(current) {
             try {
-                const state = await request('GET', current.room);
+                const state = await request('GET', current.room, undefined, publicView);
                 if (!current.sending && current.pending === null) apply(current, state);
                 else status(current, 'online');
                 if (session === current && !current.sending && current.pending !== null) sendPending(current);
@@ -103,22 +106,26 @@
         }
 
         return {
+            get viewer() { return session?.viewer; },
+            get expiresAt() { return session?.expiresAt; },
             get room() { return session?.room || ''; },
             join,
             joinDefault() { join('', -1); },
             leave,
-            send(slideIndex, language) {
-                if (!session || session.status === 'expired') return;
-                session.pending = { from, slideIndex, language };
+            send(slideIndex, language, focus, hideBrands) {
+                if (publicView || !session || session.status === 'expired') return;
+                session.pending = { from, slideIndex, language, focus, hideBrands };
                 if (!session.sending && session.status !== 'login') sendPending(session);
             },
             refresh() {
                 if (session) join(session.room);
             },
-            async start(slideIndex, language) {
+            async start(slideIndex, language, hours = 8, focus, hideBrands) {
                 try {
-                    const state = await request('POST', null, { from, slideIndex, language });
+                    const state = await request('POST', null, { from, slideIndex, language, hours, focus, hideBrands });
                     join(state.room, state.revision);
+                    session.viewer = state.viewer;
+                    session.expiresAt = state.expiresAt;
                     return state.room;
                 } catch (error) {
                     onStatus(failure(error));

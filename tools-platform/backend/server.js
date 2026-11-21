@@ -275,6 +275,7 @@ const sendFrontendHtml = assetVersioning.createFrontendHtmlSender(FRONTEND_DIR);
 const PUBLIC_HTML_PATHS = new Set([
     '/login.html',
     '/pages/login.html',
+    '/summit-view.html',
     '/project-evolution',
     '/project-evolution.html',
     '/pages/project-evolution.html',
@@ -406,6 +407,16 @@ app.get('/api/platform-identity', async (req, res) => {
         mediaEnabled: typeof isMediaFeatureEnabled === 'function' ? isMediaFeatureEnabled() : false
     });
 });
+
+const summitSyncRouter = require('./routes/summit-slide-sync').createSummitSlideSyncRouter({
+    canShare: async user => (await toolDistribution.resolveTool('ai-en', user))?.sourceTenant === DEFAULT_TENANT_ID,
+    sendDeck: (_req, res, next) => runWithTenant(DEFAULT_TENANT_ID, () => {
+        const file = customToolsRepo.getToolAssetPath('ai-en', 'index.html');
+        if (!file) return res.sendStatus(404);
+        res.sendFile(file, err => { if (err) next(err); });
+    })
+});
+app.use('/api/public/summit-view', summitSyncRouter.publicViewer);
 
 app.use('/api', checkAuth); // Protect all /api/* (except login, which is handled inside checkAuth)
 app.use('/api', tenantMiddleware);
@@ -548,7 +559,7 @@ app.use('/api/ai-report', require('./routes/ai-report')); // AI 月报：格子�
 app.use('/api/ai-bi', require('./routes/ai-bi')); // AI BI：自由画布看板
 app.use('/api/praudit', prauditRoutes); // PR审计配置 API
 app.use('/api/chat-history', chatHistoryRoutes); // 租户隔离的聊天记录中心
-app.use('/api/summit-slide-sync', require('./routes/summit-slide-sync').createSummitSlideSyncRouter());
+app.use('/api/summit-slide-sync', summitSyncRouter);
 app.use('/api/custom-tools', customToolsRoutes); // 自定义 HTML 工具注册 API
 app.use('/api/gallery', require('./routes/gallery')); // 图屿：租户图库、图片版本与 AI 整理
 app.use('/api/hosted-apps', require('./routes/hosted-apps')); // 托管 Python Web 应用：启动页与运维

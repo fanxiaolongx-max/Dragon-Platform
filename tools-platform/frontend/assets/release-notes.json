@@ -1,16 +1,14 @@
 {
   "zh": [
-    "新增智能体结果验真与 SilentGuard 机制：数据库修改/删除匹配 0 行时直接标记错误阻断假成功（避免模型产生修改成功的幻觉）；全面阻断仅读取文件即声称已完成修改保存的偷懒行为。",
-    "优化任务清单进度判定与「见好就收」策略：修正 update_plan 工具规范，遇到操作失败、报错或向用户反问时严禁虚报 completed；收尾期与正文受阻事实自动对齐纠偏，彻底消除正文报错而清单全打绿勾的冲突。",
-    "新增峰会材料中英文旁白音频支持：接入 GitHub Media 独立发行仓库分发与流式加载（we-ai-en-sarah.mp3 / we-ai-zh-haoran.mp3），免除主代码仓库大二进制负担并保障 SHA-256 完整性。",
-    "新增「WE✖️AI」提词器与演示材料自动翻页联动功能：基于跨页广播通道，提词器按句滚动或换页时演示幻灯片自动同步翻页，支持双向联动与状态开关。",
-    "优化「WE✖️AI」峰会材料与提词脚本：第 7 页管理转型引入更自然的“这就把格局看小了”（That misses the bigger picture）；第 8 页精简科技巨头数字墙讲稿，突出 Palantir 与 OpenAI 40 亿美元等核心标杆，更新 Telstra 与 Verizon 的业务数据与好的 feedback 表达，PPT 视觉卡片保持完整详实。"
+    "峰会提词器支持后台推进、逐句高亮和中英文自然旁白。演示屏可独立选择中文、英文或阿拉伯语，并跟随主讲人翻页。",
+    "主讲人可分享限时免登录展示链接。隐藏公司标识时，三语封面和中英文讲解同步切换到《AI 落地的最后一公里》，并从当前句继续。英文开场使用 Dragon 署名。",
+    "峰会旁白和背景音乐由独立媒体仓库分发，播放器按需加载并校验音频。",
+    "改进智能体会话并发与移动端审批处理，并更新工具来源展示和内置工具目录。"
   ],
   "en": [
-    "Added SilentGuard and Agent Execution Verification: database update/delete calls matching 0 rows return explicit errors to prevent false-success hallucinations; blocked scenarios where an agent claims completion after only reading files without saving.",
-    "Refined Task Plan Status and Termination Lag Guard: eliminated misleading prompts in update_plan to prevent falsely marking failed tasks as completed; aligned task list completion with final reasoning text and tool errors to resolve cognitive contradictions.",
-    "Added Summit Narration Audio via Independent Media Releases: streamed and verified Chinese and English voiceovers (we-ai-en-sarah.mp3 / we-ai-zh-haoran.mp3) from GitHub Dragon-Platform-Media without bloating the main repository.",
-    "Added real-time slide sync between WE✖️AI Teleprompter and Presentation Material: prompter scrolling and navigation automatically flip the presentation deck via cross-tab BroadcastChannel with toggleable sync mode.",
-    "Refined WE✖️AI presentation materials and prompter script: updated Slide 7 management transition to 'That misses the bigger picture', streamlined Big Tech numbers wall on Slide 8 to highlight Palantir and OpenAI ($4B) while keeping slide cards visually complete, and updated Telstra/Verizon metrics and feedback phrasing."
+    "The summit teleprompter can advance in the background with synchronized highlights and natural Mandarin or English narration. Each screen can follow in Chinese, English or Arabic.",
+    "Presenters can share time-limited guest links. Hiding company branding switches the cover and narration to The Last Mile of AI and continues from the current sentence. The English introduction uses Dragon.",
+    "Summit narration and background music are distributed through the separate media repository with on-demand loading and integrity checks.",
+    "Improved agent session concurrency and mobile approval handling, and updated tool source indicators and the built-in catalog."
   ]
 }

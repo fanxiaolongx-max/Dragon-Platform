@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "tool": {
+    "slug": "ai-en",
+    "name": "WE✖️AI",
+    "nameEn": "The last mile of AI",
+    "icon": "🧩",
+    "description": "一份关于企业如何通过前沿部署工程师（FDE）模式，将人工智能技术从概念验证（Demo）真正转化为日常业务生产力的深度分享指南。内容涵盖大模型趋势、企业落地瓶颈分析、FDE工作方法论及全球标杆案例，旨在帮助企业领导者与一线员工重构业务流程，走完AI落地的最后一公里。",
+    "descriptionEn": "A comprehensive guide on how enterprises can transition AI from proof-of-concept to daily production using the Forward Deployed Engineer (FDE) model. It covers AI trends, common deployment bottlenecks, the FDE methodology, and global benchmarks, helping leaders and frontline staff redesign workflows to bridge the 'last",
+    "tags": [
+      "AI落地",
+      "FDE模式",
+      "业务重构",
+      "企业数字化",
+      "AI Agent"
+    ],
+    "href": "/tools/ai-en",
+    "filePath": "/custom-tools/ai-en/index.html",
+    "publicAccess": false,
+    "createdAt": "2026-11-17T22:39:10.951Z",
+    "updatedAt": "2026-11-21T20:20:20.219Z"
+  },
+  "history": null
+}

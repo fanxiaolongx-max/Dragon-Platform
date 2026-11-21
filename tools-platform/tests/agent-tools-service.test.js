@@ -131,6 +131,27 @@ test('write_file, delete_path and rename_path stay inside the root and are track
     assert.equal(fs.existsSync(path.join(root, 'src', 'index.js')), false);
     context2.changeLog.revert('src/index.js');
     assert.match(fs.readFileSync(path.join(root, 'src', 'index.js'), 'utf8'), /const a = 1;/);
+
+    // 凭据文件保护：rename_path 与 delete_path 禁止操作 .env / 密钥文件（含预览）
+    fs.writeFileSync(path.join(root, '.env'), 'SECRET_TOKEN=xyz\n');
+    const delSecret = await tools.execute(context, 'delete_path', { path: '.env' });
+    assert.equal(delSecret.isError, true);
+    assert.match(delSecret.content, /凭据/);
+    assert.equal(fs.existsSync(path.join(root, '.env')), true);
+
+    const renameSecretFrom = await tools.execute(context, 'rename_path', { from: '.env', to: 'notes.txt' });
+    assert.equal(renameSecretFrom.isError, true);
+    assert.match(renameSecretFrom.content, /凭据/);
+    assert.equal(fs.existsSync(path.join(root, '.env')), true);
+
+    fs.writeFileSync(path.join(root, 'innocent.txt'), 'hello\n');
+    const renameSecretTo = await tools.execute(context, 'rename_path', { from: 'innocent.txt', to: '.env.production' });
+    assert.equal(renameSecretTo.isError, true);
+    assert.match(renameSecretTo.content, /凭据/);
+
+    await assert.rejects(tools.preview(context, 'delete_path', { path: '.env' }), /凭据/);
+    await assert.rejects(tools.preview(context, 'rename_path', { from: '.env', to: 'notes.txt' }), /凭据/);
+    await assert.rejects(tools.preview(context, 'rename_path', { from: 'innocent.txt', to: '.env' }), /凭据/);
 });
 
 // 同一组断言在 POSIX 与 Windows(cmd.exe) 上各用一套命令

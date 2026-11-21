@@ -833,3 +833,43 @@ test('load_skill on a missing shared capability emits skill_grant_prompt on dema
     assert.equal(promptEvt.skill.id, 'smart-notify');
     assert.equal(promptEvt.skill.ownerName, '平台管理员');
 });
+
+test('switching workspace root during an active run is rejected with AGENT_RUN_BUSY and does not corrupt session state', async () => {
+    const sId = newSessionId();
+    const session = manager.ensureSession({ agentSessionId: sId, user, tenantId: 'default', root, permissionMode: 'auto' });
+    session.transcript = [{ role: 'user', content: 'test message' }];
+    session.turnCount = 1;
+    session.activeRun = { id: 'run-active-123' };
+
+    const otherDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dragon-other-workspace-'));
+    try {
+        assert.throws(
+            () => manager.ensureSession({ agentSessionId: sId, user, tenantId: 'default', root: otherDir, permissionMode: 'auto' }),
+            (err) => {
+                assert.equal(err.code, 'AGENT_RUN_BUSY');
+                assert.equal(err.statusCode, 409);
+                return true;
+            }
+        );
+        // Session state must remain untouched
+        assert.equal(session.root, fs.realpathSync(root));
+        assert.equal(session.transcript.length, 1);
+        assert.equal(session.turnCount, 1);
+        assert.ok(session.changeLog);
+    } finally {
+        fs.rmSync(otherDir, { recursive: true, force: true });
+        session.activeRun = null;
+    }
+});
+
+test('mobile client execution mode preserves explicit ask permissionMode', async () => {
+    const sId = newSessionId();
+    const session = manager.ensureSession({ agentSessionId: sId, user, tenantId: 'default', root, permissionMode: 'ask' });
+    manager.configureClientExecutionMode(session, { mobileClient: true, supportsApproval: false, permissionMode: 'ask' });
+
+    assert.equal(session.permissionMode, 'ask', 'explicit ask mode must not be escalated to full on mobile');
+    assert.equal(session.unattended, true);
+    // Write/command actions return unattended (refused) instead of automatically executing
+    assert.equal(manager.classifyDecision(session, 'run_command', { command: 'ls' }), 'unattended');
+    assert.equal(manager.classifyDecision(session, 'write_file', { path: 'a.txt', content: 'hi' }), 'unattended');
+});

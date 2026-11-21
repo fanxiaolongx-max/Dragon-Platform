@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>TE × AI · Summit</title>
+<body><p id="status" role="status"></p>
+<script>
+(async () => {
+    const en = new URLSearchParams(location.search).get('lang') === 'en';
+    const message = document.getElementById('status');
+    const key = new URLSearchParams(location.hash.slice(1)).get('sync');
+    const expired = en ? 'This presentation link is invalid or has ended.' : '展示链接无效、已到期或已结束。';
+    if (!/^[a-f0-9]{32}$/.test(key || '')) { message.textContent = expired; return; }
+    message.textContent = en ? 'Opening presentation…' : '正在打开演示…';
+    try {
+        const result = await fetch('/api/public/summit-view/deck', {
+            headers: { 'X-Summit-Sync-Room': key }, credentials: 'omit', cache: 'no-store'
+        });
+        if (result.status === 404) { message.textContent = expired; return; }
+        if (!result.ok) throw Error();
+        const html = await result.text();
+        document.open();
+        document.write(html);
+        document.close();
+    } catch {
+        message.textContent = en ? 'Could not connect. Refresh to retry.' : '连接失败，请刷新重试。';
+    }
+})();
+</script></body></html>

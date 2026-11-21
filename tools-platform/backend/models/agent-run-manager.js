@@ -110,7 +110,8 @@ function isAdminUser(user) {
 
 function configureClientExecutionMode(session, { mobileClient = false, supportsApproval = false, permissionMode } = {}) {
     if (!session) return session;
-    if (permissionMode) session.permissionMode = normalizePermissionMode(permissionMode);
+    const explicitMode = permissionMode ? normalizePermissionMode(permissionMode) : null;
+    if (explicitMode) session.permissionMode = explicitMode;
     if (mobileClient) {
         session.mobileClient = true;
         session.supportsApproval = Boolean(supportsApproval);
@@ -118,8 +119,13 @@ function configureClientExecutionMode(session, { mobileClient = false, supportsA
             // 新版移动端支持交互式审批卡：保留用户选择的模式（首次默认 auto，确认「本对话完全访问」后升级并保持 full）
             session.unattended = false;
         } else {
-            // 兼容旧版移动端（无审批弹窗 UI）：管理员允许的常规命令走完全访问直接执行，危险操作按 unattended 拦截
-            if (!session.readOnly) session.permissionMode = 'full';
+            // 兼容旧版移动端（无审批弹窗 UI）：若请求显式要求 ask，保留 ask 且无审批能力时拒绝执行；
+            // 仅在未显式要求 ask 且非只读时，才使用 full + unattended 执行常规安全命令，危险操作按 unattended 拦截
+            if (explicitMode === 'ask') {
+                session.permissionMode = 'ask';
+            } else if (!session.readOnly) {
+                session.permissionMode = 'full';
+            }
             session.unattended = true;
         }
     } else if (!session.channelSession) {
@@ -162,7 +168,7 @@ function ensureMobileOwnedSession({ user, tenantId, chatSessionId, permissionMod
     const session = ensureSession({ agentSessionId: agentId, user, tenantId, root, permissionMode });
     session.scratch = false;
     session.mobileOwnedWorkspace = true;
-    return configureClientExecutionMode(session, { mobileClient: true, supportsApproval });
+    return configureClientExecutionMode(session, { mobileClient: true, supportsApproval, permissionMode });
 }
 
 function scratchAgentId(user, tenantId, chatSessionId) {
@@ -228,7 +234,7 @@ function ensureScratchSession({ user, tenantId, chatSessionId, permissionMode = 
     fs.mkdirSync(root, { recursive: true });
     const session = ensureSession({ agentSessionId: scratchAgentId(user, tenantId, chatSessionId), user, tenantId, root, permissionMode });
     session.scratch = true;
-    return configureClientExecutionMode(session, { mobileClient, supportsApproval });
+    return configureClientExecutionMode(session, { mobileClient, supportsApproval, permissionMode });
 }
 
 function timedScratchRoot({ user, tenantId, chatSessionId }) {
@@ -268,7 +274,7 @@ function ensureTemporarySession({ user, tenantId, chatSessionId, ttlMs = TEMP_WO
     session.temporary = true;
     session.expiresAt = deadline;
     bindScratchChatId({ session, user, tenantId, chatSessionId });
-    return configureClientExecutionMode(session, { mobileClient, supportsApproval });
+    return configureClientExecutionMode(session, { mobileClient, supportsApproval, permissionMode });
 }
 
 function existingTemporarySession({ user, tenantId, chatSessionId } = {}) {
@@ -301,7 +307,7 @@ function ensureTeamDefaultSession({ user, tenantId, chatSessionId, permissionMod
     const session = ensureSession({ agentSessionId: `teamws-${chatHash}`, user, tenantId, root: boundary.workspaceRoot(tenantId), permissionMode: permissionMode || 'auto' });
     session.scratch = true;
     session.teamDefault = true;
-    return configureClientExecutionMode(session, { mobileClient, supportsApproval });
+    return configureClientExecutionMode(session, { mobileClient, supportsApproval, permissionMode });
 }
 
 /** WeLink / 微信等频道工作区：群聊隔离沙箱，单聊/超级管理员直接映射主机用户目录或专属工作区 */
@@ -356,6 +362,9 @@ function ensureSession({ agentSessionId, user, tenantId, root, permissionMode })
         sessions.set(id, session);
         sweepSessions();
     } else if (session.root !== realRoot) {
+        if (session.activeRun) {
+            throw managerError('AGENT_RUN_BUSY', '该会话有正在进行的任务，请等待完成或先停止', 409);
+        }
         session.root = realRoot;
         session.changeLog = new AgentChangeLog(realRoot);
         session.transcript = [];
@@ -411,6 +420,9 @@ function ensureSharedWorkspaceSession({ shareId, originOwner, originOwnerTenant 
         sessions.set(id, session);
         sweepSessions();
     } else if (session.root !== realRoot) {
+        if (session.activeRun) {
+            throw managerError('AGENT_RUN_BUSY', '该会话有正在进行的任务，请等待完成或先停止', 409);
+        }
         session.root = realRoot;
         session.changeLog = new AgentChangeLog(realRoot);
         session.transcript = [];
@@ -430,7 +442,7 @@ function ensureSharedWorkspaceSession({ shareId, originOwner, originOwnerTenant 
     };
     if (permissionMode) session.permissionMode = normalizePermissionMode(permissionMode);
     session.lastUsedAt = Date.now();
-    return configureClientExecutionMode(session, { mobileClient, supportsApproval });
+    return configureClientExecutionMode(session, { mobileClient, supportsApproval, permissionMode });
 }
 
 /**

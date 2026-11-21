@@ -10,7 +10,7 @@
             skills: '技能', plugins: '插件与脚本', tools: '工具', search: '搜索{tab}', all: '全部',
             sortMixed: '综合', sortNewest: '最新', sortName: '名称',
             featuredSkills: '精选技能', featuredTools: '最近使用', featuredPlugins: '常用插件', shuffle: '换一批',
-            builtin: '内置', custom: '自定义', imported: '导入', external: '外部', workspace: '需工作目录', customized: '已自定义',
+            builtin: '内置', nonBuiltin: '非内置', custom: '自定义', imported: '导入', external: '外部', workspace: '需工作目录', customized: '已自定义',
             cardLegend: '外框标识', sharedFrame: '卡片外框', iconRing: '图标内圈', sharedWithAll: '全员开放', unsharedOnly: '未全员开放', shared: '全员共享',
             skillSource: '技能来源', createdInChat: '对话创建', externalCommand: '外部命令',
             pluginSource: '插件与脚本标识', toolSource: '工具来源', floatingScripts: '浮窗脚本',
@@ -25,7 +25,7 @@
             skills: 'Skills', plugins: 'Plugins & scripts', tools: 'Tools', search: 'Search {tab}', all: 'All',
             sortMixed: 'Default', sortNewest: 'Newest', sortName: 'Name',
             featuredSkills: 'Featured skills', featuredTools: 'Recently used', featuredPlugins: 'Popular plugins', shuffle: 'Shuffle',
-            builtin: 'Built-in', custom: 'Custom', imported: 'Imported', external: 'External', workspace: 'Needs a folder', customized: 'Customized',
+            builtin: 'Built-in', nonBuiltin: 'Non-builtin', custom: 'Custom', imported: 'Imported', external: 'External', workspace: 'Needs a folder', customized: 'Customized',
             cardLegend: 'Border style', sharedFrame: 'Card border', iconRing: 'Icon ring', sharedWithAll: 'Shared with all', unsharedOnly: 'Not shared', shared: 'Shared',
             skillSource: 'Skill source', createdInChat: 'Created in chat', externalCommand: 'External command',
             pluginSource: 'Plugin & script indicators', toolSource: 'Tool source', floatingScripts: 'Floating scripts',
@@ -39,9 +39,9 @@
     };
     const TABS = ['skills', 'plugins', 'tools'];
     const SOURCES = {
-        skills: { title: 'skillSource', labels: { builtin: 'builtin', shared: 'sharedWithAll', unshared: 'unsharedOnly', chat: 'createdInChat', import: 'imported', external: 'externalCommand' } },
-        plugins: { title: 'pluginSource', labels: { builtin: 'builtin', shared: 'sharedWithAll', unshared: 'unsharedOnly', custom: 'custom', float: 'floatingScripts' } },
-        tools: { title: 'toolSource', labels: { builtin: 'builtin', shared: 'shared', unshared: 'unsharedOnly', custom: 'custom' } }
+        skills: { title: 'skillSource', labels: { builtin: 'builtin', nonBuiltin: 'nonBuiltin', shared: 'sharedWithAll', unshared: 'unsharedOnly', chat: 'createdInChat', import: 'imported', external: 'externalCommand' } },
+        plugins: { title: 'pluginSource', labels: { builtin: 'builtin', nonBuiltin: 'nonBuiltin', shared: 'sharedWithAll', unshared: 'unsharedOnly', custom: 'custom', float: 'floatingScripts' } },
+        tools: { title: 'toolSource', labels: { builtin: 'builtin', nonBuiltin: 'nonBuiltin', shared: 'shared', unshared: 'unsharedOnly', custom: 'custom' } }
     };
     const STORE_KEY = 'tools_v2_hub';
     const state = { open: false, tab: 'skills', cat: 'all', sort: 'mixed', query: '', seed: 0, mine: false, filterSource: 'all' };
@@ -265,7 +265,7 @@
             const items = Object.entries(sourceMeta.labels).flatMap(([source, labelKey]) => {
                 if ((source === 'shared' || source === 'unshared') && !superAdmin) return [];
                 const pressed = state.filterSource === source;
-                const swatchClass = source === 'builtin' ? ' is-built-in' : (source === 'shared' ? ' is-shared-access' : (source === 'unshared' ? ' is-unshared-access' : (source === 'custom' ? ' is-custom' : '')));
+                const swatchClass = source === 'builtin' ? ' is-built-in' : (source === 'nonBuiltin' ? ' is-non-builtin' : (source === 'shared' ? ' is-shared-access' : (source === 'unshared' ? ' is-unshared-access' : (source === 'custom' ? ' is-custom' : ''))));
                 const badge = `<i class="v2-hub-legend-swatch${swatchClass}" data-src="${esc(source)}" aria-hidden="true"></i>`;
                 const labelText = source === 'shared' ? t('sharedWithAll') : (source === 'unshared' ? t('unsharedOnly') : t(labelKey));
                 const extraAttr = source === 'shared' ? ' data-hub-shared-filter' : (source === 'unshared' ? ' data-hub-unshared-filter' : '');
@@ -398,6 +398,8 @@
             if (state.filterSource !== 'all') {
                 if (state.filterSource === 'builtin') {
                     if (!item.builtIn || item.source !== 'builtin') return false;
+                } else if (state.filterSource === 'nonBuiltin') {
+                    if (item.builtIn || item.source === 'builtin') return false;
                 } else if (state.filterSource === 'shared') {
                     if (item.source !== 'shared' && !item.sharedAccess && !item.shared) return false;
                 } else if (state.filterSource === 'unshared') {

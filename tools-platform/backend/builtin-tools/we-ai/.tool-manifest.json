@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "tool": {
+    "slug": "we-ai",
+    "name": "WE✖️AI提词器",
+    "nameEn": "Summit Speech Teleprompter",
+    "icon": "🧩",
+    "description": "专为峰会演讲设计的网页提词器，支持中英双语对照、语速调节、镜像显示及生词标注。帮助演讲者在演示过程中精准把控节奏、查看提示信息并流畅完成演讲。",
+    "descriptionEn": "A web-based teleprompter designed for summit speeches, featuring bilingual support, adjustable speech rates, mirror mode, and vocabulary annotations. It helps speakers manage their pace, view cues, and deliver presentations smoothly.",
+    "tags": [
+      "提词器",
+      "演讲辅助",
+      "双语对照",
+      "Teleprompter",
+      "Presentation"
+    ],
+    "href": "/tools/we-ai",
+    "filePath": "/custom-tools/we-ai/index.html",
+    "publicAccess": false,
+    "createdAt": "2026-11-20T22:02:18.354Z",
+    "updatedAt": "2026-11-21T20:20:20.035Z"
+  },
+  "history": null
+}

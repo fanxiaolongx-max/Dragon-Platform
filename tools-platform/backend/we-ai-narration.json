@@ -52,6 +52,170 @@
         "e8a2bf2593e1ee33fb30e5c990a27682e5e5ecc6baa36d2cb9464d7519a03272",
         "75449a922926de6975628d1e74976046ad8d2f6f54f70ac3b1252bca4634412f"
       ]
+    },
+    "we-ai-zh-zixuan.mp3": {
+      "size": 8906797,
+      "sha256": "43a83d11b372843677e7779977a4c613121e793255203c0a67009122ff46abe6",
+      "chunks": [
+        "8ab432a5273e2138c6531da3cb2a593b1747c6514827660cc1647de7066fd56b",
+        "8efc68157df079bf5f1780f1bc5f4068c9c92178f87611c003bf189f7e399d95",
+        "9d47ed8f055396a8a73853ffb321c6f89fc42c4ec4feb5767725ea0cb6dda9c7",
+        "bc29e72c090056b1720e1eac9b6ab789be77f1f7b8130ffbf34593e450e47ffd",
+        "24db41f90313c36987fd4cca511373f7c2956f99710fe4b6b819d2ac460f413d",
+        "c72f34f942ed8be56b6ad626b72c71cec6cfdb39249a8dfee54bf2b12a2bead4",
+        "c5e465f3e9e8f7db5490fda831b054e468807b6d8ef8677206fe639f7def32e9",
+        "f9868c5e3070ac16d4714e5cc7d6821db120d1185d65de3d19b4c42eceaf5b76",
+        "8caace2776a416621ecc2fccc39a6255f6c94c2be0ab9074cc6a1a2d61433f72",
+        "d15726ff6d6778cd1fab7ae6acdedf23f397d587fba5a54155b6a2ffb6eee0d3",
+        "7c44914dc28eb8acade0a3af88d8243bc733a23576e62f065a4d6ee676816c47",
+        "98557858b8e56bf5700540c46e8311e383199f2c8cc184f476069af5f4d686a7",
+        "a483fdecee3acc7c8139067fb66f0b90cbdb5b1f9d63e316893f5d435049e09a",
+        "42fc9589c8db68153b7c1127c46cbbad7a7029faf8d7d53284d7be3f59bccbea",
+        "455d1e994566d06aacd6ad79ff5b40e844e7df7fa7614677efbf912f0838b881",
+        "e20f278eefc17c8b74f7c5c03ef03560d1c16b147e23c5f39c5e4025c25ac85c",
+        "3132fd08324958dfd7031de1d26c40f4a6678e234fb5e7047950918984b05915"
+      ],
+      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/we-ai-narration-20261121-2/we-ai-zh-zixuan.mp3"
+    },
+    "we-ai-en-kai.mp3": {
+      "size": 10293993,
+      "sha256": "3e641e270a957ceea405e57304dc31d33cedde86b9f32fc4c997065cc71e5049",
+      "chunks": [
+        "2eebc4591c0d40f6d14c02336946922eec8473c6a16257bc8450a6e842711c8b",
+        "0e04a1f6f1b0982e4bfd7ff49a8c92e324956cf084265cace4ebecbc85b0e0a1",
+        "f6b0c6974b001efd1e934744f7041b59675cb5001106c36e46e302454ac846b7",
+        "20483ff90300e6df9b6294d8df734b47538a9d9aa2f516632f6e0d82f24a92b7",
+        "64f735929c53fbfdf019fc792300a505de87d66e28f182df3fb14ca0be0da29e",
+        "1742aa749071241a6b593bed6c093aada04b46972c3d25b0c0dde8a67cf31597",
+        "1f8e9445b6c67d2d747c7560d6104ef2e66b45d75a84c7c147172736382487d4",
+        "6eb9a5ad19bda7987f76e232b6dfcd43a0eff68b56ffb1a01acaff33810e307b",
+        "a238290d9509bb54f3976184d67ee5e23a52267bc05414a70a10e223cf200842",
+        "f536482a999af209eec029a74e19fd1268b706ad6e3bee3ada9c098b33a314d7",
+        "aee78f322973a2db33dfbdbf1407ff68a3f12b2cd83b9b55d44ccb9fbfcc766b",
+        "04276631bc4a6539941e21d195bc83bd18e2e66976bf103285ba985a1989e079",
+        "3d1e8dd5b5f5fbf04e6752dea553291e0bbe5ed94d5a069a606639eb6254cc4e",
+        "80bfc9bfe499b29f554bb269cd0bbc2ff97323fc7c03d5c98da22171045029c1",
+        "5eb85c0bc702f5e8c49ae523a8f0e17e23f6ee238706c4e23bf51a7e9a43b31d",
+        "9d3d08aa42ff088badbaf279f54a9055a3de28d13b8f5921401a3d61587dd699",
+        "34e4e7eadf8aa48c9dd94f56565dcdc4be84221f36cca875ae05d46e2162189a",
+        "8ec1c8d0e70965b9283a930223f7cc6260cecad8bac14b192afa9c588a6a557e",
+        "539f1be2101cbef5f635d7fc5d1057e8177cd66efc6545fce4565dcfd448f8be",
+        "3e83370f4a5c6c9773ef2c63a72db8b94a127fefc30a65da212b23bcd6c495ab"
+      ],
+      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/we-ai-narration-20261121-2/we-ai-en-kai.mp3"
+    },
+    "we-ai-en-kai-dragon.mp3": {
+      "size": 15441593,
+      "sha256": "6bffc006d674af676e427050d45bc6d2a044f8f89425072ffc1d8e6beee239c4",
+      "chunks": [
+        "141264e889f6930806fd28ac280654d013b0a311bc4bb857f68cb8bd9e2dadc1",
+        "d3b9529a37ace49bf94f9a2740f54f11136a3ce8026187e1ca4d40065ec59a1c",
+        "7d94af34f116e3e7fd0e393fd00f7788e0c9b2d48f784f295d96690e2a80d4c4",
+        "9760b4ceb4db2f6fefe5b172823c101f980f7b8c8fccc1ef583aed6e5dc03a7b",
+        "d85305b0a370c0540d7e6e05b3bb2baaa27ba026c9e8d2d1cda6e5e3dd345b4b",
+        "8a68d4cc4c98940d19b70076040f58dab1b550cd5d290bae8c223d0ad4e652b1",
+        "8899e17d4869eedd4a3ef610161f341da304b480aae6d3f4fb3ce4f1b3b06726",
+        "eb06883838ff55543729594e73e28986f11a186d0f7d9cd53cea4779f5ccac2e",
+        "155daab5bd1c47931d29b225855abafb518322e26c01aa86c0b3b82c5c9b8008",
+        "140b4025c068aff2c8a651472e381603ae579ea468563bd51261ecfd583f1d7f",
+        "b159f2656fd2324715963861104ef3c06f1fdfc707c98baebbf52d83c3de9cd8",
+        "6414a03162dc2ee43e52c920a69d4e0bd026afa843d25bf28cc8dcfd8646b2fd",
+        "b3ca7dc5e3b850b61a1dd824368804d4468618ef2466e6e67187148235302654",
+        "48cef08b6658bd37f0e03280b2e0bf8c2d31f8b61a65729d30a83135fca9916f",
+        "df2ec7c5485d0fd362289e10af048d7545f62cdafc8c94417f66febc5eaeeb9b",
+        "fdfa0f244fbf8bf30e6a227b49426c67737dcfc310b051e72ea804a7e755a2da",
+        "e89cf1b47829d94e4625fd90976cf8cc8c804b64fb13291f8848db32c41aed28",
+        "1302f308ef28b2d31188d6558c441da49f957bbef95cb50499787fa9e8418df6",
+        "00157a1548a803154b4553a1a8aca5c512ad13a9d3d48ee520be6a1907d3d0ff",
+        "de7acd7a80f936e1b683386dd3c226196457f4727d97abf7dc96b66b6dfcac05",
+        "f115d5e6dcb1da69faf6132eb5485fc90d6a407ff7eac99da9c5bfe88ac8af7c",
+        "624d0f33278ece20482c5b9dc9a386f894eb3879ac44e2711372252f9cf63c77",
+        "4e8d3290c3cc2a5bf3f36ddc79abf135fc5ec3fd5df2d4d33724adb3b1ac38ac",
+        "1cf71e19e9acd9c57c1ee26287962ed6f2636ffda6257a4c8e560512212d85b8",
+        "70f5c11a2ada990e65f2528f0350444e81302b359bda6fb737faed394b43ab9f",
+        "1d713d1280baae9181d5b5f3550b2cb33142827cb5e534e942787231e2827eed",
+        "04b519f4a4c1e75f357434e901a944bcb4703253fb91c928a0b42330c30765d0",
+        "5703f27188de1814e299f93f161b20380fec5e4415724929f8df8b917be01cf3",
+        "346a5a801b50f18524a2bf38ec672ec42bbb460429b968e0f0a8b6ac3688d2ba",
+        "e9df911408204a613b7d91595bed4a7630c3edae5996176b430670decb3d1589"
+      ],
+      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/we-ai-narration-20261121-3/we-ai-en-kai-dragon.mp3"
+    },
+    "we-ai-bgm-opening.mp3": {
+      "size": 165068,
+      "sha256": "2f6d80b72c5d226a6747383176c6cea858f6f91b93e6ab35a310336969c95ca8",
+      "chunks": [
+        "2f6d80b72c5d226a6747383176c6cea858f6f91b93e6ab35a310336969c95ca8"
+      ],
+      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/we-ai-bgm-20261121-1/we-ai-bgm-opening.mp3"
+    },
+    "we-ai-bgm-horizon.mp3": {
+      "size": 186452,
+      "sha256": "4019bf498109aeba97a1ced9aef432f17e1e46707b213918b300ff82c7ca81c8",
+      "chunks": [
+        "4019bf498109aeba97a1ced9aef432f17e1e46707b213918b300ff82c7ca81c8"
+      ],
+      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/we-ai-bgm-20261121-1/we-ai-bgm-horizon.mp3"
+    },
+    "we-ai-bgm-motion.mp3": {
+      "size": 152108,
+      "sha256": "42cdd7355600ec43e7e4556e088731cf6171c4dc9e426d8fe043253bd3952335",
+      "chunks": [
+        "42cdd7355600ec43e7e4556e088731cf6171c4dc9e426d8fe043253bd3952335"
+      ],
+      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/we-ai-bgm-20261121-1/we-ai-bgm-motion.mp3"
+    },
+    "we-ai-zh-zixuan-neutral.mp3": {
+      "size": 8928891,
+      "sha256": "00c485dacfe030dc4c18368e67125a5be0aee93bea0974e06c4f85cf9f464fca",
+      "chunks": [
+        "b3044cef9cca16108f6dc5004ad94a765cc69bca2867fbe43e1fb116b92ab99b",
+        "7f4b850328dbe6a4d0e54eeed4972c0a65857c88c1475cffa06cfb42ccfa393f",
+        "5c7f161ba549b7f11e61612a58ec1395e289d4d46ac7f3aaee91c0134f6652ba",
+        "59a6041a77efe0c1c3c88f1f0c5e221c9eb8485c30469a272cc8bc5e846efe76",
+        "f6eb8d47c3d1f74f1c653d5f4540cd369df2fa226f2671b1f5fc2b96ccca73a4",
+        "ee9dab25bdc541be7d4be2172497cba8f108064cddb80e699806ab566376ca18",
+        "bec096c34fcd48d12e0bf7c0e51197669f9b2825900854baec04200eecf42543",
+        "8470667151284a36e2298f405707069961da0a8856b66b6b1a448c859130654c",
+        "aa0ba93608ebf1f1a056dae7da4ba69839c69a87bfb2c423317a593b1a09d4d7",
+        "384f8e78ff4d71073681cee729090c65683ed8c6c1baea57ca155e6b824dcde2",
+        "2ff826f50ed5fd84e6eadb97c3462787dd5b83223309e2b0a30112af8cccbe34",
+        "d9630534d81fefd7f96ee03ebe848c04457ebc69d8e4451d71f01d29f3ee7960",
+        "810c958826f7e2c5bcc509b59dded8e6e731319cbb7ce09090f30e4c97028cb5",
+        "632e78e510e16315bf77c6e1575276e4f476c01929ee4c48a0b7954b39620803",
+        "94bcb86ec22b2e5299a03e69b887fb9c27ff9eb90a87c99109aa11c1927f455d",
+        "91ef3e8309f4b398ecf1cb6ebd34ae6eca989ece599fbd9e84a200df8af49730",
+        "20ac3d4a19c3337c12e7af3183a5e19051bbfb7811990d8b1122e8ba47de4205",
+        "5d8193a18d915d768ec1ba69ac4f572ed0f18a6949ce5166ad79182ccc574c64"
+      ],
+      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/we-ai-narration-20261121-4/we-ai-zh-zixuan-neutral.mp3"
+    },
+    "we-ai-en-kai-neutral.mp3": {
+      "size": 10250895,
+      "sha256": "f8a7a3521c01d020bcb34aa895665ed3978cf5e25e0e2cebc8e2054f7d71edd2",
+      "chunks": [
+        "1fc11d091983e0528b0958e511000f0ad73e41fb19eda9f14758e38f6d4bd861",
+        "9faa62394fbd82e451ae2a54e0d92ea5c85970a07e56a0ac209f45f9b0f29f95",
+        "52315b0e8929c89aae82a8b9d3ec4cab10a9c9e51ffac352d8b13824396ceacc",
+        "d6699db6089fb024ba5491b2f177297042907e406f71f6430c65dccd5b59cd4e",
+        "c4a007cf1bc9d84a702bfbc93a43a52df06a53d6f078df0dd080fae6cc25cdd2",
+        "76889d96e4cec2474a082b3df32585cdcaba7c6891fa59c96d0118d0ebc52c1e",
+        "79ae5f32093f1eeaa127b66bc31656ea7954d26bca9701cbbd90714551d7062e",
+        "f6f16a17db0157a0c0471597b4371550a1d5bc43af1f2b29a0b587b8beb50ed6",
+        "a81735b80cbed3e56f73c56ef00c1f9f12edac3d8e4367a8d1ba6f2014c38c7f",
+        "b67369ea9d5ae04f539ded54f4549c653d8726c6c1cd56885e0140887cd6d0c7",
+        "e01223641a8ed953e849de007fab82374575e426ac6cb1436333a5e26770fb1e",
+        "701cb43c3a986e70ce813c1cc1bbfbe3f97ab2f683408f8efeaf63eb65ced5f5",
+        "6251642d2d241a995a57e1ac9cc96ed63ac69a0979b77568e1c55a16df425ddb",
+        "1f4ffbe8182de61bb1b7255d32d48166614c9b2483ec8729956ef9d122d98908",
+        "175c27240081f57fb9c62b977b2719ae3421822dfb2644ba3302324c30a46d74",
+        "40748d5cd2dd21c35e0d810ded3d557ad5802bb3f6f7523c1baa0edffbff877a",
+        "faad57f5de7c441af42d007c9897f3a76cb38840d38f6d8279337a3b632393d8",
+        "c8b6c00195878a48d865777e7a3fa54bdd58987eafcf38a52d4f7cae3d74a193",
+        "e23afe6c60cc038c99bac1eec1b7c01bb186a1eba76db5a6b3630825cd54b9c7",
+        "7f7aeffe99fe9d2828726ed6f358771035833407fcca6f5acdf38906183d6700"
+      ],
+      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/we-ai-narration-20261121-4/we-ai-en-kai-neutral.mp3"
     }
   }
 }

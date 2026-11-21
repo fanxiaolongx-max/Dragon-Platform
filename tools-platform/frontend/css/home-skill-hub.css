@@ -43,6 +43,9 @@ html.platform-home body.v2-hub-open .home-main {
 .v2-hub-legend-swatch:is([data-src="builtin"], .is-built-in) {
     --swatch-c: #10b981;
 }
+.v2-hub-legend-swatch:is([data-src="nonBuiltin"], .is-non-builtin) {
+    --swatch-c: #ec4899;
+}
 .v2-hub-legend-swatch:is([data-src="shared"], .is-shared-access, [data-src="external"], [data-src="float"]) {
     --swatch-c: #0ea5e9;
 }

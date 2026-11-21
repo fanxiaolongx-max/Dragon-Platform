@@ -775,6 +775,7 @@ async function deletePath(ctx, args = {}) {
     const allowOutside = ctx.permissionMode === 'full' && !ctx.confined; // 团队账号即使完全访问也不能越出团队空间
     const abs = guard.resolveInsideRoot(ctx.root, args.path, { allowOutside });
     if (guard.samePath(abs, ctx.root)) throw toolError('AGENT_PATH_OUTSIDE', '不能删除工作目录本身');
+    guard.assertNotSecretFile(abs);
     guard.assertNotSystemCritical(abs, '删除');
     const display = guard.toDisplayPath(ctx.root, abs);
     const stat = await fsp.lstat(abs).catch(() => null);
@@ -798,6 +799,8 @@ async function renamePath(ctx, args = {}) {
     const fromAbs = guard.resolveInsideRoot(ctx.root, args.from, { allowOutside });
     const toAbs = guard.resolveInsideRoot(ctx.root, args.to, { allowOutside });
     if (guard.samePath(fromAbs, ctx.root) || guard.samePath(toAbs, ctx.root)) throw toolError('AGENT_PATH_OUTSIDE', '不能移动工作目录本身');
+    guard.assertNotSecretFile(fromAbs);
+    guard.assertNotSecretFile(toAbs);
     guard.assertNotSystemCritical(fromAbs, '移动/重命名');
     guard.assertNotSystemCritical(toAbs, '写入/覆盖');
     const fromDisplay = guard.toDisplayPath(ctx.root, fromAbs);
@@ -1184,7 +1187,6 @@ const EXECUTORS = {
             }
             noticeDatabaseWrite(ctx, args, operation, result);
             return { content: JSON.stringify(result), summary: `${operation} ${dbTag} / ${args.table}${purpose ? `（${purpose}）` : ''}：${result.changes} 行` };
-            return { content: JSON.stringify(result), summary: `${operation} ${dbTag} / ${args.table}${purpose ? `（${purpose}）` : ''}：${result.changes} 行` };
         }])),
     write_file: writeFile,
     edit_file: editFile,
@@ -1275,11 +1277,21 @@ async function buildPreview(ctx, name, args = {}) {
     }
     if (name === 'memory') return memoryRepo.preview(ctx, args);
     if (name === 'delete_path') {
-        const abs = guard.resolveInsideRoot(ctx.root, args.path || '');
+        const allowOutside = ctx.permissionMode === 'full' && !ctx.confined;
+        const abs = guard.resolveInsideRoot(ctx.root, args.path || '', { allowOutside });
+        if (args.path) guard.assertNotSecretFile(abs);
+        guard.assertNotSystemCritical(abs, '删除');
         return { path: guard.toDisplayPath(ctx.root, abs), recursive: args.recursive === true };
     }
     if (name === 'rename_path') {
-        return { path: guard.toDisplayPath(ctx.root, guard.resolveInsideRoot(ctx.root, args.from || '')), to: guard.toDisplayPath(ctx.root, guard.resolveInsideRoot(ctx.root, args.to || '')) };
+        const allowOutside = ctx.permissionMode === 'full' && !ctx.confined;
+        const fromAbs = guard.resolveInsideRoot(ctx.root, args.from || '', { allowOutside });
+        const toAbs = guard.resolveInsideRoot(ctx.root, args.to || '', { allowOutside });
+        if (args.from) guard.assertNotSecretFile(fromAbs);
+        if (args.to) guard.assertNotSecretFile(toAbs);
+        guard.assertNotSystemCritical(fromAbs, '移动/重命名');
+        guard.assertNotSystemCritical(toAbs, '写入/覆盖');
+        return { path: guard.toDisplayPath(ctx.root, fromAbs), to: guard.toDisplayPath(ctx.root, toAbs) };
     }
     if (name === 'welink_send_message') {
         const targets = Array.isArray(args.targets) && args.targets.length
